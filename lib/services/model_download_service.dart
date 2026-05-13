@@ -6,19 +6,18 @@ library;
 import 'dart:async';
 import 'dart:io';
 
-import 'package:archive/archive.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
 import '../core/config/settings_provider.dart';
-import '../core/app_info.dart';
 import '../core/logging/app_logger.dart';
 import 'file_verification_service.dart';
 import 'hardware_info_service.dart' as hw;
 import 'http_model_fetcher.dart';
 import 'path_service.dart';
+import 'whisper_server_downloader.dart';
 
 final _log = AppLogger('Download');
 
@@ -369,6 +368,42 @@ class ModelDownloadState {
 }
 
 // ---------------------------------------------------------------------------
+// Disk scanner
+// ---------------------------------------------------------------------------
+
+/// Scans the STT directory and returns the current [ModelDownloadState].
+///
+/// Creates the directory if it does not exist (best-effort). Called during
+/// notifier initialisation and on explicit [ModelDownloadNotifier.refresh].
+ModelDownloadState _scanExistingModels() {
+  final downloaded = <String>{};
+  final dir = Directory(sttDir());
+  if (!dir.existsSync()) {
+    try {
+      dir.createSync(recursive: true);
+    } on FileSystemException {
+      // Best-effort — will fail later with a clear error.
+    }
+  }
+  if (dir.existsSync()) {
+    for (final model in sttModels) {
+      if (File(p.join(dir.path, model.filename)).existsSync()) {
+        downloaded.add(model.id);
+      }
+    }
+  }
+  final serverExists = File(whisperServerPath()).existsSync();
+
+  _log.info(
+    'Scan: ${downloaded.length} STT models, server=${serverExists ? "ready" : "missing"}',
+  );
+  return ModelDownloadState(
+    downloadedModels: downloaded,
+    serverReady: serverExists,
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Download notifier
 // ---------------------------------------------------------------------------
 
@@ -385,6 +420,10 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
   @visibleForTesting
   FileVerificationService? verifierOverride;
 
+  /// Injected server downloader — override in tests.
+  @visibleForTesting
+  WhisperServerDownloader? serverDownloaderOverride;
+
   bool _autoDownloadAttempted = false;
 
   HttpModelFetcher get _fetcher => fetcherOverride ?? HttpModelFetcher();
@@ -392,17 +431,9 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
   FileVerificationService get _verifier =>
       verifierOverride ?? const FileVerificationService();
 
-  Dio get _apiDio =>
-      apiDioOverride ??
-      Dio(
-        BaseOptions(
-          connectTimeout: const Duration(seconds: 30),
-          receiveTimeout: const Duration(minutes: 10),
-          headers: {'User-Agent': appUserAgent},
-        ),
-      );
-
-  CancelToken? _apiCancelToken;
+  WhisperServerDownloader get _serverDownloader =>
+      serverDownloaderOverride ??
+      WhisperServerDownloader(fetcher: _fetcher, apiDio: apiDioOverride);
 
   @override
   ModelDownloadState build() {
@@ -428,7 +459,7 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
   // -----------------------------------------------------------------------
 
   /// Downloads an STT model file. If whisper-server is missing, downloads
-  /// that first.
+  /// that first. Orchestrates: Engine → Fetch → Verify → Activate.
   Future<void> downloadModel(String modelId) async {
     if (state.isBusy) return;
 
@@ -442,39 +473,17 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
     }
 
     try {
-      // Ensure target directory exists before any I/O.
-      final dir = Directory(sttDir());
-      if (!dir.existsSync()) {
-        dir.createSync(recursive: true);
-        _log.info('Created STT directory: ${dir.path}');
-      }
+      _ensureDir(sttDir());
 
-      // Phase 1: Ensure whisper-server binary exists.
+      // Phase 1: Engine — ensure whisper-server binary exists.
       if (!state.serverReady) {
-        state = state.copyWith(
-          activeModelId: modelId,
-          phase: DownloadPhase.downloading,
-          progressPercent: 0,
-          downloadStartedAt: DateTime.now(),
-          statusLabel: 'engine',
-          speedBytesPerSec: 0,
-          errorMessage: null,
-        );
-        await _downloadWhisperServer();
+        _setEnginePhase(activeModelId: modelId);
+        await _downloadServerBinary();
       }
 
-      // Phase 2: Download model file.
+      // Phase 2: Fetch — download model file.
       _log.info('Downloading model: ${model.id} (${model.sizeLabel})');
-      state = state.copyWith(
-        activeModelId: modelId,
-        phase: DownloadPhase.downloading,
-        progressPercent: 0,
-        bytesDownloaded: 0,
-        totalBytes: model.sizeBytes,
-        downloadStartedAt: DateTime.now(),
-        statusLabel: 'model',
-        speedBytesPerSec: 0,
-      );
+      _setModelFetchPhase(model, activeModelId: modelId);
 
       final destPath = p.join(sttDir(), model.filename);
       if (File(destPath).existsSync()) {
@@ -483,36 +492,35 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
           phase: DownloadPhase.verifying,
           statusLabel: 'verifying',
         );
-        final ok = await _verifySha256(destPath, model.sha256);
-        if (ok) {
+        final result = await _verifier.verify(File(destPath), model.sha256);
+        if (result is VerificationOk) {
           await _markModelDone(model.id);
           return;
         }
-        // Hash mismatch — re-download.
-        await File(destPath).delete();
+        await File(destPath).delete(); // Hash mismatch — re-download.
       }
 
       await _fetcher.fetch(
         url: model.url,
         destPath: destPath,
         expectedSize: model.sizeBytes,
-        onProgress: (p) => state = state.copyWith(
-          progressPercent: p.progressPercent,
-          bytesDownloaded: p.bytesReceived,
-          totalBytes: p.totalBytes,
-          speedBytesPerSec: p.speedBytesPerSec,
-          etaSeconds: p.etaSeconds,
+        onProgress: (prog) => state = state.copyWith(
+          progressPercent: prog.progressPercent,
+          bytesDownloaded: prog.bytesReceived,
+          totalBytes: prog.totalBytes,
+          speedBytesPerSec: prog.speedBytesPerSec,
+          etaSeconds: prog.etaSeconds,
         ),
       );
 
-      // Phase 3: Verify SHA256.
+      // Phase 3: Verify — SHA256 check.
       state = state.copyWith(
         phase: DownloadPhase.verifying,
         progressPercent: 99,
         statusLabel: 'verifying',
       );
-      final ok = await _verifySha256(destPath, model.sha256);
-      if (!ok) {
+      final result = await _verifier.verify(File(destPath), model.sha256);
+      if (result is! VerificationOk) {
         await File(destPath).delete().catchError((_) => File(destPath));
         state = state.copyWith(
           phase: DownloadPhase.error,
@@ -521,17 +529,10 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
         return;
       }
 
+      // Phase 4: Activate — persist model selection.
       await _markModelDone(model.id);
     } on DioException catch (e) {
-      if (e.type == DioExceptionType.cancel) {
-        state = state.copyWith(phase: DownloadPhase.idle, activeModelId: null);
-      } else {
-        final msg = e.response?.statusCode == 403
-            ? 'GitHub API rate limit reached. Please wait a few minutes.'
-            : 'Download failed: ${e.message}';
-        _log.error(msg);
-        state = state.copyWith(phase: DownloadPhase.error, errorMessage: msg);
-      }
+      _handleDioError(e, logFn: _log.error);
     } on Exception catch (e) {
       _log.error('Download error: $e');
       state = state.copyWith(phase: DownloadPhase.error, errorMessage: '$e');
@@ -559,23 +560,9 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
     _log.info('Auto-downloading whisper-server (self-heal)');
 
     try {
-      final dir = Directory(sttDir());
-      if (!dir.existsSync()) {
-        dir.createSync(recursive: true);
-      }
-
-      state = state.copyWith(
-        phase: DownloadPhase.downloading,
-        progressPercent: 0,
-        downloadStartedAt: DateTime.now(),
-        statusLabel: 'engine',
-        speedBytesPerSec: 0,
-        errorMessage: null,
-      );
-
-      await _downloadWhisperServer();
-
-      // Reset to idle (not done — no model was downloaded).
+      _ensureDir(sttDir());
+      _setEnginePhase();
+      await _downloadServerBinary();
       state = state.copyWith(phase: DownloadPhase.idle, progressPercent: 0);
       _log.info('Self-heal complete: whisper-server ready');
     } on DioException catch (e) {
@@ -613,33 +600,7 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
     state = _scanExisting();
   }
 
-  ModelDownloadState _scanExisting() {
-    final downloaded = <String>{};
-    final dir = Directory(sttDir());
-    if (!dir.existsSync()) {
-      try {
-        dir.createSync(recursive: true);
-      } on FileSystemException {
-        // Best-effort — will fail later with a clear error.
-      }
-    }
-    if (dir.existsSync()) {
-      for (final model in sttModels) {
-        if (File(p.join(dir.path, model.filename)).existsSync()) {
-          downloaded.add(model.id);
-        }
-      }
-    }
-    final serverExists = File(whisperServerPath()).existsSync();
-
-    _log.info(
-      'Scan: ${downloaded.length} STT models, server=${serverExists ? "ready" : "missing"}',
-    );
-    return ModelDownloadState(
-      downloadedModels: downloaded,
-      serverReady: serverExists,
-    );
-  }
+  ModelDownloadState _scanExisting() => _scanExistingModels();
 
   /// Marks the server binary as incompatible and deletes it.
   ///
@@ -655,6 +616,62 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
     state = state.copyWith(serverReady: false);
     // Trigger self-heal for the correct GPU variant.
     Future.microtask(() => ensureServerBinary());
+  }
+
+  // -----------------------------------------------------------------------
+  // Private — state helpers
+  // -----------------------------------------------------------------------
+
+  /// Creates/validates [dirPath] (best-effort).
+  void _ensureDir(String dirPath) {
+    final dir = Directory(dirPath);
+    if (!dir.existsSync()) {
+      dir.createSync(recursive: true);
+      _log.info('Created STT directory: $dirPath');
+    }
+  }
+
+  /// Transitions to the engine-downloading phase.
+  void _setEnginePhase({String? activeModelId}) {
+    state = state.copyWith(
+      activeModelId: activeModelId,
+      phase: DownloadPhase.downloading,
+      progressPercent: 0,
+      downloadStartedAt: DateTime.now(),
+      statusLabel: 'engine',
+      speedBytesPerSec: 0,
+      errorMessage: null,
+    );
+  }
+
+  /// Transitions to the model-fetch phase.
+  void _setModelFetchPhase(
+    SttModelInfo model, {
+    required String activeModelId,
+  }) {
+    state = state.copyWith(
+      activeModelId: activeModelId,
+      phase: DownloadPhase.downloading,
+      progressPercent: 0,
+      bytesDownloaded: 0,
+      totalBytes: model.sizeBytes,
+      downloadStartedAt: DateTime.now(),
+      statusLabel: 'model',
+      speedBytesPerSec: 0,
+    );
+  }
+
+  /// Handles a [DioException] from a download, updating state accordingly.
+  void _handleDioError(DioException e, {required void Function(String) logFn}) {
+    if (e.type == DioExceptionType.cancel) {
+      state = state.copyWith(phase: DownloadPhase.idle, activeModelId: null);
+    } else {
+      final msg = e.response?.statusCode == 403
+          ? 'GitHub API rate limit reached. Please wait a few minutes.'
+          : 'Download failed: ${e.message}';
+      logFn(msg);
+      state = state.copyWith(phase: DownloadPhase.error, errorMessage: msg);
+    }
   }
 
   Future<void> _markModelDone(String modelId) async {
@@ -677,349 +694,27 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
   }
 
   // -----------------------------------------------------------------------
-  // Private — SHA256 verification
+  // Private — server binary orchestration
   // -----------------------------------------------------------------------
 
-  Future<bool> _verifySha256(String filePath, String expectedHash) async {
-    final result = await _verifier.verify(File(filePath), expectedHash);
-    return switch (result) {
-      VerificationOk() => true,
-      VerificationMismatch() => false,
-      VerificationIoError() => false,
-    };
-  }
-
-  // -----------------------------------------------------------------------
-  // Private — whisper-server binary download
-  // -----------------------------------------------------------------------
-
-  Future<void> _downloadWhisperServer() async {
-    final gpu = await hw.detectGpu();
-    _log.info(
-      'Downloading whisper-server binary '
-      '(gpu=${gpu.vendor.name}, name="${gpu.name}", '
-      'vram=${gpu.vramMB ?? "?"}MB, cuda=${gpu.cudaAvailable}, '
-      'vulkan=${gpu.vulkanAvailable})',
-    );
-
+  /// Downloads the whisper-server binary via [WhisperServerDownloader],
+  /// forwarding progress/phase updates to [state].
+  Future<void> _downloadServerBinary() async {
     final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
-    final gpuMode = settings.gpuAcceleration;
-
-    // Source priority: WhisPaste-owned releases (may have Vulkan/custom
-    // builds), then upstream whisper.cpp (has CUDA + CPU/BLAS).
-    const repos = [('whispaste', 'whispaste'), ('ggml-org', 'whisper.cpp')];
-
-    String? lastError;
-
-    for (final (owner, repo) in repos) {
-      // Retry each repo up to 2 times for transient failures.
-      for (var attempt = 1; attempt <= 2; attempt++) {
-        try {
-          final assetUrl = await _findServerAsset(
-            owner: owner,
-            repo: repo,
-            gpuMode: gpuMode,
-            isWhisPaste: owner == 'whispaste',
-          );
-          if (assetUrl == null) break; // No matching asset, try next repo.
-
-          _log.info(
-            'Downloading from $owner/$repo (attempt $attempt): '
-            '${Uri.parse(assetUrl).pathSegments.last}',
-          );
-
-          // Size varies: CPU/BLAS ~17 MB, Vulkan ~30 MB, CUDA 12 ~460 MB.
-          final isCuda =
-              assetUrl.contains('cuda') || assetUrl.contains('cublas');
-          final estimatedSize = isCuda ? 460 * 1024 * 1024 : 30 * 1024 * 1024;
-          final zipPath = p.join(sttDir(), '_whisper-server.zip');
-          await _fetcher.fetch(
-            url: assetUrl,
-            destPath: zipPath,
-            expectedSize: estimatedSize,
-            onProgress: (prog) => state = state.copyWith(
-              progressPercent: prog.progressPercent,
-              bytesDownloaded: prog.bytesReceived,
-              totalBytes: prog.totalBytes,
-              speedBytesPerSec: prog.speedBytesPerSec,
-              etaSeconds: prog.etaSeconds,
-            ),
-          );
-
-          state = state.copyWith(phase: DownloadPhase.extracting);
-
-          await _extractServerZip(zipPath, sttDir());
-          await File(zipPath).delete().catchError((_) => File(zipPath));
-
-          // Write metadata so startup validation can verify compatibility
-          // without relying on DLL heuristics alone.
-          final assetName = Uri.parse(assetUrl).pathSegments.lastOrNull ?? '';
-          await hw.writeServerBinaryInfo(
-            sttDir(),
-            gpu,
-            sourceRepo: '$owner/$repo',
-            assetName: assetName,
-          );
-
-          state = state.copyWith(serverReady: true);
-          _log.info('whisper-server ready (source=$owner/$repo)');
-          return;
-        } on DioException catch (e) {
-          final status = e.response?.statusCode;
-          lastError = status == 403
-              ? 'GitHub API rate limit exceeded (HTTP 403)'
-              : 'Network error: ${e.message} (HTTP $status)';
-          _log.warning(
-            'Server download failed from $owner/$repo '
-            '(attempt $attempt): $lastError',
-          );
-          if (e.type == DioExceptionType.cancel) rethrow;
-          if (status == 403) break; // Rate limited — skip to next repo.
-          if (attempt < 2) {
-            await Future<void>.delayed(Duration(seconds: 2 * attempt));
-          }
-        } on Exception catch (e) {
-          lastError = '$e';
-          _log.warning(
-            'Server download failed from $owner/$repo '
-            '(attempt $attempt): $e',
-          );
-          if (attempt < 2) {
-            await Future<void>.delayed(Duration(seconds: 2 * attempt));
-          }
-        }
-      }
-    }
-
-    _log.error('Could not download whisper-server from any source');
-    throw Exception(lastError ?? 'Could not download whisper-server.');
-  }
-
-  /// Queries GitHub releases API and finds the best matching asset.
-  ///
-  /// For the WhisPaste repo, queries releases and finds the most recent one
-  /// tagged `whisper-server-*` (built by `build-whisper-server.yml`). Each
-  /// whisper.cpp version gets its own immutable release tag, e.g.
-  /// `whisper-server-v1.8.4`. For upstream repos, queries the latest release.
-  Future<String?> _findServerAsset({
-    required String owner,
-    required String repo,
-    required String gpuMode,
-    required bool isWhisPaste,
-  }) async {
-    Map<String, dynamic>? releaseData;
-
-    if (isWhisPaste) {
-      // WhisPaste uses versioned tags (whisper-server-v*). Query the
-      // releases list and pick the first one with the right prefix.
-      releaseData = await _findWhisPasteServerRelease(owner, repo);
-      if (releaseData == null) return null;
-    } else {
-      // Upstream: just query the latest release.
-      final apiUrl =
-          'https://api.github.com/repos/$owner/$repo/releases/latest';
-      final Response<Map<String, dynamic>> response;
-      try {
-        _apiCancelToken = CancelToken();
-        response = await _apiDio.get<Map<String, dynamic>>(
-          apiUrl,
-          cancelToken: _apiCancelToken,
-          options: Options(
-            headers: {'Accept': 'application/vnd.github.v3+json'},
-          ),
-        );
-      } on DioException catch (e) {
-        if (e.response?.statusCode == 404) {
-          _log.info('No releases in $owner/$repo');
-          return null;
-        }
-        rethrow;
-      }
-      releaseData = response.data;
-    }
-
-    // Check GitHub rate limit from response headers (upstream path only;
-    // WhisPaste path handles this in _findWhisPasteServerRelease).
-
-    final assets = (releaseData?['assets'] as List<dynamic>?) ?? [];
-    if (assets.isEmpty) {
-      _log.info('No assets in $owner/$repo release');
-      return null;
-    }
-
-    // Build priority list of asset name patterns based on detected GPU.
-    final patterns = await _serverAssetPatterns(gpuMode, isWhisPaste);
-
-    // Architecture filter: match platform to expected binary arch.
-    final archPattern = Platform.isMacOS ? 'arm64' : 'x64';
-
-    for (final pattern in patterns) {
-      for (final asset in assets) {
-        final assetMap = asset as Map<String, dynamic>;
-        final name = (assetMap['name'] as String?) ?? '';
-        final lowerName = name.toLowerCase();
-        if (lowerName.contains(pattern) && lowerName.contains(archPattern)) {
-          _log.info(
-            'Selected server asset: $name (pattern=$pattern, '
-            'arch=$archPattern, repo=$owner/$repo)',
-          );
-          return assetMap['browser_download_url'] as String?;
-        }
-      }
-    }
-
-    _log.info(
-      'No matching server asset in $owner/$repo '
-      '(patterns=$patterns, arch=$archPattern, '
-      'available=${assets.map((a) => (a as Map)['name']).toList()})',
+    await _serverDownloader.download(
+      destDir: sttDir(),
+      gpuMode: settings.gpuAcceleration,
+      onProgress: (prog) => state = state.copyWith(
+        progressPercent: prog.progressPercent,
+        bytesDownloaded: prog.bytesReceived,
+        totalBytes: prog.totalBytes,
+        speedBytesPerSec: prog.speedBytesPerSec,
+        etaSeconds: prog.etaSeconds,
+      ),
+      onExtracting: () =>
+          state = state.copyWith(phase: DownloadPhase.extracting),
     );
-    return null;
-  }
-
-  /// Finds the most recent WhisPaste whisper-server release (tag prefix
-  /// `whisper-server-`). Returns the release JSON map or `null`.
-  Future<Map<String, dynamic>?> _findWhisPasteServerRelease(
-    String owner,
-    String repo,
-  ) async {
-    final apiUrl =
-        'https://api.github.com/repos/$owner/$repo/releases?per_page=20';
-    try {
-      _apiCancelToken = CancelToken();
-      final response = await _apiDio.get<List<dynamic>>(
-        apiUrl,
-        cancelToken: _apiCancelToken,
-        options: Options(headers: {'Accept': 'application/vnd.github.v3+json'}),
-      );
-
-      final remaining = response.headers['x-ratelimit-remaining']?.firstOrNull;
-      if (remaining != null) {
-        final rem = int.tryParse(remaining) ?? -1;
-        if (rem <= 5) {
-          _log.warning('GitHub API rate limit low: $rem remaining');
-        }
-      }
-
-      final releases = response.data ?? [];
-      for (final release in releases) {
-        final r = release as Map<String, dynamic>;
-        final tag = (r['tag_name'] as String?) ?? '';
-        if (tag.startsWith('whisper-server-')) {
-          _log.info('Found WhisPaste server release: $tag');
-          return r;
-        }
-      }
-
-      _log.info('No whisper-server-* release found in $owner/$repo');
-      return null;
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 404) {
-        _log.info('No releases endpoint for $owner/$repo');
-        return null;
-      }
-      rethrow;
-    }
-  }
-
-  Future<List<String>> _serverAssetPatterns(
-    String gpuMode,
-    bool isWhisPaste,
-  ) async {
-    final gpu = await hw.detectGpu();
-    return hw.serverAssetPatterns(gpu, gpuMode, isWhisPaste);
-  }
-
-  /// Extracts whisper-server binary and libraries from a ZIP archive.
-  ///
-  /// Platform-aware: on Windows extracts `.exe`/`.dll`, on macOS/Linux
-  /// extracts extensionless executables and `.dylib`/`.so` libraries.
-  Future<void> _extractServerZip(String zipPath, String destDir) async {
-    final bytes = await File(zipPath).readAsBytes();
-    final archive = ZipDecoder().decodeBytes(bytes);
-
-    // Clean old server files.
-    final destDirObj = Directory(destDir);
-    if (destDirObj.existsSync()) {
-      for (final f in destDirObj.listSync()) {
-        if (f is File) {
-          final name = p.basename(f.path).toLowerCase();
-          if (_isServerFile(name)) {
-            await f.delete();
-          }
-        }
-      }
-    }
-
-    for (final file in archive) {
-      if (file.isFile) {
-        final name = p.basename(file.name).toLowerCase();
-        if (_isExtractableServerFile(name)) {
-          // Zip Slip protection.
-          final outPath = p.join(destDir, p.basename(file.name));
-          if (!p.isWithin(destDir, outPath)) continue;
-
-          // Rename bare server binary → whisper-server if needed.
-          String finalName = p.basename(file.name);
-          if (Platform.isWindows) {
-            if (finalName.toLowerCase() == 'server.exe') {
-              finalName = 'whisper-server.exe';
-            }
-          } else {
-            if (finalName.toLowerCase() == 'server') {
-              finalName = 'whisper-server';
-            }
-          }
-          final finalPath = p.join(destDir, finalName);
-          final outFile = File(finalPath);
-          await outFile.writeAsBytes(file.content as List<int>);
-        }
-      }
-    }
-
-    // On Unix, make the binary executable and remove quarantine.
-    if (!Platform.isWindows) {
-      final serverPath = whisperServerPath();
-      if (File(serverPath).existsSync()) {
-        await Process.run('chmod', ['+x', serverPath]);
-        // macOS quarantines downloaded files, blocking execution.
-        if (Platform.isMacOS) {
-          await Process.run('xattr', [
-            '-d',
-            'com.apple.quarantine',
-            serverPath,
-          ]);
-        }
-      }
-    }
-
-    // Verify extraction produced the expected binary.
-    final expectedPath = whisperServerPath();
-    if (!File(expectedPath).existsSync()) {
-      throw Exception('${p.basename(expectedPath)} not found in archive');
-    }
-  }
-
-  /// Whether [name] (lowercase) is an old server file to clean before
-  /// re-extraction.
-  static bool _isServerFile(String name) {
-    if (name == 'whisper-server.exe' || name == 'whisper-server') return true;
-    if (name.endsWith('.dll') || name.endsWith('.dylib')) return true;
-    if (name.endsWith('.so')) return true;
-    if (name.endsWith('.metallib')) return true;
-    return false;
-  }
-
-  /// Whether [name] (lowercase) should be extracted from the ZIP.
-  static bool _isExtractableServerFile(String name) {
-    if (Platform.isWindows) {
-      return name.endsWith('.exe') || name.endsWith('.dll');
-    }
-    // macOS / Linux: executables have no extension, shared libs are .dylib/.so.
-    if (name.endsWith('.dylib') || name.endsWith('.so')) return true;
-    if (name.endsWith('.metallib')) return true;
-    // Extract extensionless files (the server binary itself).
-    if (!name.contains('.')) return true;
-    return false;
+    state = state.copyWith(serverReady: true);
   }
 }
 
