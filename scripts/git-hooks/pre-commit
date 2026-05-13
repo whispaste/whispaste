@@ -137,7 +137,70 @@ if [ -n "$DART_STAGED" ]; then
   echo "  ✓ Flutter analyze: no issues"
 fi
 
-# ── 5. Website build (only when website files are staged) ─────────────
+# ── 5. ESLint (only when JS/TS files in website/ are staged) ─────────
+
+JS_TS_STAGED=$(echo "$STAGED_FILES" | grep -E '^website/src/.*\.(js|mjs|ts|mts)$' || true)
+
+if [ -n "$JS_TS_STAGED" ]; then
+  if command -v node >/dev/null 2>&1 && [ -f website/node_modules/.bin/eslint ]; then
+    echo ""
+    echo "◆ ESLint (website JS/TS)..."
+    if ! (cd website && node_modules/.bin/eslint src/ --max-warnings=0 2>&1); then
+      echo ""
+      echo "╔═══════════════════════════════════════════════════════════╗"
+      echo "║  ❌ BLOCKED: ESLint found issues in website/src/         ║"
+      echo "╚═══════════════════════════════════════════════════════════╝"
+      echo ""
+      echo "Fix all issues above before committing."
+      echo "To bypass (DANGEROUS): git commit --no-verify"
+      echo ""
+      exit 1
+    fi
+    echo "  ✓ ESLint: no issues"
+  else
+    echo "  ⚠ ESLint not available — skipping (run: cd website && npm install)"
+  fi
+fi
+
+# ── 6. cppcheck (only when C++ files in windows/runner/ are staged) ───
+
+CPP_STAGED=$(echo "$STAGED_FILES" | grep -E '^windows/runner/.*\.(cpp|h)$' || true)
+
+if [ -n "$CPP_STAGED" ]; then
+  if command -v cppcheck >/dev/null 2>&1; then
+    echo ""
+    echo "◆ cppcheck (windows/runner C++)..."
+    CPPCHECK_ALL=$(cppcheck \
+      --enable=style,warning,performance,portability \
+      --platform=win64 \
+      --std=c++17 \
+      --suppressions-list=windows/runner/.cppcheck-suppress \
+      --inline-suppr \
+      --quiet \
+      windows/runner/ 2>&1)
+    # Only real findings (severity lines), not context/note lines
+    CPPCHECK_FINDINGS=$(echo "$CPPCHECK_ALL" \
+      | grep -E ': (error|warning|style|performance|portability):' || true)
+    if [ -n "$CPPCHECK_FINDINGS" ]; then
+      echo ""
+      echo "$CPPCHECK_FINDINGS"
+      echo ""
+      echo "╔═══════════════════════════════════════════════════════════╗"
+      echo "║  ❌ BLOCKED: cppcheck found issues in windows/runner/    ║"
+      echo "╚═══════════════════════════════════════════════════════════╝"
+      echo ""
+      echo "Fix all issues above before committing."
+      echo "To bypass (DANGEROUS): git commit --no-verify"
+      echo ""
+      exit 1
+    fi
+    echo "  ✓ cppcheck: no issues"
+  else
+    echo "  ⚠ cppcheck not available — skipping (install: brew install cppcheck)"
+  fi
+fi
+
+# ── 7. Website build (only when website files are staged) ─────────────
 
 WEBSITE_STAGED=$(echo "$STAGED_FILES" | grep -E '^website/' || true)
 
