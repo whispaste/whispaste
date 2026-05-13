@@ -220,7 +220,7 @@ Widget settingsDropdown({
             : WpColorsLight.surfaceElevated,
         borderRadius: WpRadius.borderSm,
         icon: Padding(
-          padding: const EdgeInsets.only(left: WpSpacing.xs),
+          padding: const EdgeInsetsDirectional.only(start: WpSpacing.xs),
           child: Icon(
             LucideIcons.chevronDown,
             size: WpIconSize.xs,

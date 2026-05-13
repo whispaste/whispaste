@@ -280,7 +280,10 @@ class _PaletteContentState extends State<_PaletteContent> {
                         hintText: L10n.of(context).commandPaletteHint,
                         hintStyle: TextStyle(color: searchHint, fontSize: 14),
                         prefixIcon: Padding(
-                          padding: const EdgeInsets.only(left: 12, right: 8),
+                          padding: const EdgeInsetsDirectional.only(
+                            start: 12,
+                            end: 8,
+                          ),
                           child: Icon(
                             LucideIcons.search,
                             size: WpIconSize.sm,
