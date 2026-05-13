@@ -677,6 +677,9 @@ class _BarChartPainter extends CustomPainter {
             fontFamily: labelFontFamily,
           ),
         ),
+        // Intentionally LTR: numeric axis labels (dates, counts) are always
+        // left-to-right regardless of app locale, including RTL languages
+        // like Hebrew.  Do NOT change this to TextDirection.rtl.
         textDirection: TextDirection.ltr,
       )..layout();
       tp.paint(

@@ -126,10 +126,12 @@ class _NavItemWidgetState extends State<_NavItemWidget> {
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    // Left accent indicator bar for active item
+                    // Accent indicator bar for active item.
+                    // PositionedDirectional(start: 0) so it appears on the
+                    // left in LTR and on the right in RTL (e.g. Hebrew).
                     if (widget.isActive)
-                      Positioned(
-                        left: 0,
+                      PositionedDirectional(
+                        start: 0,
                         child: Container(
                           width: 3,
                           height: 22,
