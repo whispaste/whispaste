@@ -16,7 +16,7 @@ import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
-import '../../../services/stt_service.dart';
+import '../../../services/stt/stt_bundle.dart';
 import '../../../widgets/model_download_card.dart';
 import '../../../widgets/section.dart';
 import '../settings_widgets.dart';
@@ -211,7 +211,7 @@ class _BenchmarkButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final sttStatus = ref.watch(sttServiceProvider);
+    final sttStatus = ref.watch(localSttBundleProvider);
     final isBenchmarking = sttStatus.isBenchmarking;
 
     return SettingRow(
@@ -228,7 +228,7 @@ class _BenchmarkButton extends ConsumerWidget {
           : IconButton(
               icon: const Icon(LucideIcons.refreshCw, size: 16),
               onPressed: () {
-                ref.read(sttServiceProvider.notifier).runBenchmark();
+                ref.read(localSttBundleProvider.notifier).runBenchmark();
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(l10n.qualityTierInfoBenchmarking),

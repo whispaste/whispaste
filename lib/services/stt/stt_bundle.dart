@@ -15,6 +15,7 @@ export 'stt_exit_classifier.dart';
 export 'stt_gpu_fallback_policy.dart';
 export 'stt_health_probe.dart';
 export 'stt_idle_timer.dart';
+export 'stt_providers.dart';
 export 'stt_server_state_notifier.dart';
 
 /// Provider that wraps [SttServerStateNotifier] — the composed entry-point

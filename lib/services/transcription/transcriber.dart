@@ -10,8 +10,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/config/settings_enums.dart';
 import '../../core/config/settings_provider.dart';
+import '../stt/local_transcriber.dart' show LocalSttTranscriber;
 import 'deepgram_transcriber.dart';
-import 'local_transcriber.dart';
 import 'openai_transcriber.dart';
 
 export 'transcriber_exception.dart';
@@ -46,6 +46,6 @@ final transcriberProvider = Provider<Transcriber>((ref) {
   return switch (providerType) {
     SttProviderType.openAI => OpenAiTranscriber(ref: ref),
     SttProviderType.deepgram => DeepgramTranscriber(ref: ref),
-    SttProviderType.onDevice => LocalTranscriber(ref: ref),
+    SttProviderType.onDevice => LocalSttTranscriber(ref: ref),
   };
 });

@@ -23,25 +23,19 @@ import '../model_download_service.dart';
 import '../path_service.dart';
 import '../process_runner.dart';
 import '../subprocess_guard.dart' as guard;
-// Import the shared DI providers from the legacy monolith so both notifiers
-// share the same seam and tests can override via a single provider reference.
-import '../stt_service.dart'
-    show
-        processRunnerProvider,
-        sttHttpClientProvider,
-        sttStartupHeartbeatConfigProvider;
 import 'stt_exit_classifier.dart';
 import 'stt_gpu_fallback_policy.dart';
+import 'stt_providers.dart';
 
 // Re-export for external consumers.
 export '../../core/recording/recording_state.dart' show SttServerState;
-export '../stt_service.dart'
+export 'stt_exit_classifier.dart' show SttExitKind, classifySttExitCode;
+export 'stt_gpu_fallback_policy.dart' show SttGpuFallbackPolicy;
+export 'stt_providers.dart'
     show
         processRunnerProvider,
         sttHttpClientProvider,
         sttStartupHeartbeatConfigProvider;
-export 'stt_exit_classifier.dart' show SttExitKind, classifySttExitCode;
-export 'stt_gpu_fallback_policy.dart' show SttGpuFallbackPolicy;
 
 // ---------------------------------------------------------------------------
 // SttStatus (local copy so stt_bundle.dart can re-export without coupling
@@ -122,8 +116,7 @@ class SttStatus {
 /// a single [SttStatus] surface.
 ///
 /// This is the public entry point for the new modular STT subsystem.
-/// The legacy [SttServiceNotifier] in `stt_service.dart` remains untouched
-/// during issue 14; callers are migrated in issue 15.
+/// All callers use [localSttBundleProvider] since issue 15.
 class SttServerStateNotifier extends Notifier<SttStatus> {
   static final _log = AppLogger('SttServerState');
   static const _cudaOomErrorCode = 'stt_cuda_oom';
@@ -1441,5 +1434,4 @@ class _HeartbeatTimeoutException implements Exception {
   String toString() => 'HeartbeatTimeoutException: $message';
 }
 
-// Providers are re-exported from the legacy stt_service.dart via the import
-// at the top of this file. No local redefinitions here.
+// Providers are defined in stt_providers.dart and re-exported via stt_bundle.dart.

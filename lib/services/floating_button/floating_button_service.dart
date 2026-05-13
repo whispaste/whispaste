@@ -13,7 +13,7 @@ import '../../core/logging/app_logger.dart';
 import '../../core/platform/macos_lifecycle_channel.dart';
 import '../../core/recording/recording_state.dart';
 import '../recording_orchestrator.dart';
-import '../stt_service.dart';
+import '../stt/stt_bundle.dart';
 import 'floating_button_controller.dart';
 import 'floating_button_events.dart';
 
@@ -193,7 +193,7 @@ class FloatingButtonService extends Notifier<void> {
 
   Future<void> _quit() async {
     try {
-      ref.read(sttServiceProvider.notifier).stop();
+      ref.read(localSttBundleProvider.notifier).stop();
     } catch (_) {
       // Best-effort shutdown of STT subprocess.
     }

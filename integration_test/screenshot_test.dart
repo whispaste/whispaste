@@ -43,7 +43,7 @@ import 'package:whispaste/features/settings/settings_page.dart';
 import 'package:whispaste/services/audio_service.dart';
 import 'package:whispaste/services/hardware_info_service.dart' as hw;
 import 'package:whispaste/services/model_download_service.dart';
-import 'package:whispaste/services/stt_service.dart';
+import 'package:whispaste/services/stt/stt_bundle.dart';
 import 'package:whispaste/widgets/fab.dart';
 import 'package:whispaste/widgets/frame_watermark.dart';
 import 'package:whispaste/widgets/recording_indicator_bar.dart';
@@ -209,7 +209,7 @@ Widget _buildScreenshotApp({
         (ref) async =>
             const hw.GpuInfo(vendor: hw.GpuVendor.none, name: 'Screenshot'),
       ),
-      sttServiceProvider.overrideWith(() => _MockSttServiceNotifier()),
+      localSttBundleProvider.overrideWith(() => _MockSttServiceNotifier()),
       recordingProvider.overrideWith(() => _MockRecordingNotifier()),
     ],
     child: MaterialApp(
@@ -796,7 +796,7 @@ class _MockModelDownloadNotifier extends ModelDownloadNotifier {
   ModelDownloadState build() => const ModelDownloadState(serverReady: true);
 }
 
-class _MockSttServiceNotifier extends SttServiceNotifier {
+class _MockSttServiceNotifier extends SttServerStateNotifier {
   @override
   SttStatus build() => const SttStatus(serverState: SttServerState.ready);
 }

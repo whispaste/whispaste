@@ -19,7 +19,7 @@ import 'package:whispaste/services/hardware_info_service.dart' as hw;
 import 'package:whispaste/services/model_download_service.dart';
 import 'package:whispaste/services/path_service.dart';
 import 'package:whispaste/services/process_runner.dart';
-import 'package:whispaste/services/stt_service.dart';
+import 'package:whispaste/services/stt/stt_bundle.dart';
 
 // ── Fakes ──────────────────────────────────────────────────────────────────
 
@@ -271,7 +271,7 @@ void main() {
         await container.read(settingsProvider.future);
 
         // Start ensureRunning() and let the process exit with code 3.
-        final notifier = container.read(sttServiceProvider.notifier);
+        final notifier = container.read(localSttBundleProvider.notifier);
         unawaited(notifier.ensureRunning());
 
         // Give _start() enough time to:
@@ -375,7 +375,7 @@ void main() {
       // Wait for settings to resolve before calling ensureRunning().
       await container.read(settingsProvider.future);
 
-      final notifier = container.read(sttServiceProvider.notifier);
+      final notifier = container.read(localSttBundleProvider.notifier);
       unawaited(notifier.ensureRunning());
       await Future<void>.delayed(const Duration(milliseconds: 500));
 
@@ -392,7 +392,7 @@ void main() {
       );
 
       // Assert: service is in error state with the incompatible-runtime message.
-      final sttState = container.read(sttServiceProvider);
+      final sttState = container.read(localSttBundleProvider);
       expect(sttState.serverState, SttServerState.error);
       expect(
         sttState.errorMessage,
@@ -428,7 +428,7 @@ void main() {
         // Wait for settings to resolve.
         await container.read(settingsProvider.future);
 
-        final notifier = container.read(sttServiceProvider.notifier);
+        final notifier = container.read(localSttBundleProvider.notifier);
         unawaited(notifier.ensureRunning());
         await Future<void>.delayed(const Duration(milliseconds: 500));
         fakeProcess.exit(3);
@@ -503,7 +503,7 @@ void main() {
       // Wait for settings to resolve.
       await container.read(settingsProvider.future);
 
-      final notifier = container.read(sttServiceProvider.notifier);
+      final notifier = container.read(localSttBundleProvider.notifier);
       unawaited(notifier.ensureRunning());
       await Future<void>.delayed(const Duration(milliseconds: 500));
 
@@ -513,7 +513,7 @@ void main() {
 
       // The first GPU fatal → server stops silently (no error state).
       // State should be stopped (ready for CPU retry).
-      final state = container.read(sttServiceProvider);
+      final state = container.read(localSttBundleProvider);
       expect(
         state.serverState,
         anyOf(SttServerState.stopped, SttServerState.starting),
