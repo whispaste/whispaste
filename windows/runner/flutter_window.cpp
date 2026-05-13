@@ -97,10 +97,8 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
     }
   }
 
-  switch (message) {
-    case WM_FONTCHANGE:
-      flutter_controller_->engine()->ReloadSystemFonts();
-      break;
+  if (message == WM_FONTCHANGE) {
+    flutter_controller_->engine()->ReloadSystemFonts();
   }
 
   return Win32Window::MessageHandler(hwnd, message, wparam, lparam);

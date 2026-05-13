@@ -968,10 +968,9 @@ void FloatingOverlayWindow::Render() {
   g.TranslateTransform(kShadowPad, kShadowPad);
 
   // Celebration scale
-  float scale_factor = 1.0f;
   if (celebration_progress_ >= 0.0f) {
     float t = PingPong(celebration_progress_);
-    scale_factor = 1.0f + 0.05f * EaseInOut(t);
+    float scale_factor = 1.0f + 0.05f * EaseInOut(t);
     float cx = content_w / 2.0f;
     float cy = content_h / 2.0f;
     g.TranslateTransform(cx, cy);
@@ -994,12 +993,9 @@ void FloatingOverlayWindow::Render() {
   if (!mem) { ReleaseDC(nullptr, screen); DeleteObject(dib); return; }
   HBITMAP old_bmp = static_cast<HBITMAP>(SelectObject(mem, dib));
 
-  POINT dst = {};
-  {
-    RECT rc;
-    GetWindowRect(hwnd_, &rc);
-    dst = {rc.left, rc.top};
-  }
+  RECT rc;
+  GetWindowRect(hwnd_, &rc);
+  POINT dst = {rc.left, rc.top};
   SIZE sz = {phys_w, phys_h};
   POINT src = {0, 0};
   BLENDFUNCTION blend = {};
@@ -1281,10 +1277,9 @@ void FloatingOverlayWindow::RenderCompact(Graphics& g, float w, float h) {
       }
 
       // Stop button — right side, 28×28 circle
-      float stop_x = w - 10.0f - kCompactBtnSize;
-      float stop_y = center_y - kCompactBtnSize / 2.0f;
       {
-        auto accent = GetAccentColors();
+        float stop_x = w - 10.0f - kCompactBtnSize;
+        float stop_y = center_y - kCompactBtnSize / 2.0f;
         // Red gradient circle
         LinearGradientBrush bgBrush2(PointF(stop_x, stop_y),
                                      PointF(stop_x + kCompactBtnSize, stop_y + kCompactBtnSize),
