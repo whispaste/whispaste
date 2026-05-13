@@ -14,7 +14,7 @@ import '../../../core/data/history_providers.dart';
 import '../../../app.dart' show activePageProvider;
 import '../../../services/hardware_info_service.dart';
 import '../../../services/model_download_service.dart';
-import '../../../services/stt_service.dart';
+import '../../../services/stt/stt_bundle.dart';
 import '../../../widgets/dialog.dart';
 import '../../../widgets/section.dart';
 import '../../../widgets/toast.dart';
@@ -259,7 +259,7 @@ class AdvancedSection extends ConsumerWidget {
 
     // Stop whisper-server subprocess and wait for exit before deleting files.
     try {
-      ref.read(sttServiceProvider.notifier).stop();
+      ref.read(localSttBundleProvider.notifier).stop();
       // Give the process time to release file handles on Windows.
       await Future<void>.delayed(const Duration(milliseconds: 800));
     } catch (_) {}

@@ -11,7 +11,7 @@ import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import '../services/hardware_info_service.dart' as hw;
 import '../services/model_download_service.dart';
-import '../services/stt_service.dart';
+import '../services/stt/stt_bundle.dart';
 import '../core/config/settings_provider.dart';
 import 'tier_performance_presentation.dart';
 
@@ -42,7 +42,7 @@ class _SttModelManagerState extends ConsumerState<SttModelManager> {
         : null;
 
     // Benchmarking state from STT service
-    final sttStatus = ref.watch(sttServiceProvider);
+    final sttStatus = ref.watch(localSttBundleProvider);
     final isBenchmarking = sttStatus.isBenchmarking;
     final benchmarkingTier = sttStatus.benchmarkingTier;
 

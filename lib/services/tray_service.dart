@@ -18,7 +18,7 @@ import '../core/l10n/generated/app_localizations.dart';
 import '../core/logging/app_logger.dart';
 import '../core/platform/macos_lifecycle_channel.dart';
 import '../core/recording/recording_state.dart';
-import 'stt_service.dart';
+import 'stt/stt_bundle.dart';
 
 // ---------------------------------------------------------------------------
 // Service
@@ -224,7 +224,7 @@ class TrayService extends Notifier<void> implements TrayListener {
   Future<void> _quit() async {
     // Stop the STT subprocess before destroying to prevent orphaned processes.
     try {
-      ref.read(sttServiceProvider.notifier).stop();
+      ref.read(localSttBundleProvider.notifier).stop();
     } catch (_) {}
 
     try {

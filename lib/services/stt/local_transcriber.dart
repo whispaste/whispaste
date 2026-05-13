@@ -1,8 +1,7 @@
 /// Local whisper-server transcriber that uses [SttServerStateNotifier].
 ///
-/// Implements [Transcriber] without delegating to the legacy
-/// [SttServiceNotifier]. The server lifecycle is managed exclusively through
-/// [localSttBundleProvider].
+/// Implements [Transcriber] using [SttServerStateNotifier].
+/// The server lifecycle is managed exclusively through [localSttBundleProvider].
 library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
