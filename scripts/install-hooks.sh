@@ -8,6 +8,16 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 HOOKS_SRC="$REPO_ROOT/scripts/git-hooks"
 HOOKS_DEST="$REPO_ROOT/.git/hooks"
 
+# Clean up orphan lefthook wrappers (left behind by previous tooling).
+# Identified by the call_lefthook marker — never delete unrelated hooks.
+for orphan in pre-push prepare-commit-msg pre-commit commit-msg post-commit post-merge; do
+  dest="$HOOKS_DEST/$orphan"
+  if [ -f "$dest" ] && grep -q "call_lefthook" "$dest"; then
+    rm "$dest"
+    echo "  ✓ Removed orphan: .git/hooks/$orphan (lefthook wrapper)"
+  fi
+done
+
 for hook in "$HOOKS_SRC"/*; do
   name="$(basename "$hook")"
   dest="$HOOKS_DEST/$name"
@@ -17,9 +27,17 @@ for hook in "$HOOKS_SRC"/*; do
 done
 
 echo ""
-echo "Git hooks installed. Pre-commit will now check:"
+echo "Git hooks installed."
+echo ""
+echo "Pre-commit will check:"
 echo "  • Protected/internal files not staged"
 echo "  • .gitignore PROTECTED section not weakened"
 echo "  • No secrets in staged files"
 echo "  • flutter analyze (when .dart or pubspec.yaml staged)"
 echo "  • Website build (when website/ files staged)"
+echo ""
+echo "Pre-push will check (per commit in push range):"
+echo "  • No force-push to main (override: WP_ALLOW_FORCE_MAIN=1)"
+echo "  • No protected paths in any pushed commit"
+echo "  • .gitignore PROTECTED section not weakened in history"
+echo "  • No secret patterns in any pushed commit"
