@@ -16,6 +16,7 @@ import '../core/l10n/generated/app_localizations.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import '../services/hotkey_conflicts.dart';
+import '../services/hotkey_key_resolver.dart' as key_resolver;
 import 'dialog.dart';
 
 // ---------------------------------------------------------------------------
@@ -110,8 +111,17 @@ class HotkeyRecorderDialog extends StatefulWidget {
   }
 
   /// Returns a human-readable label for a [LogicalKeyboardKey].
+  ///
+  /// Delegates to [key_resolver.labelForKey] for the canonical resolver table
+  /// (letters A–Z, F1–F12, arrow keys, named keys). Falls back to Flutter's
+  /// own [LogicalKeyboardKey.keyLabel] for any key not in the resolver's table
+  /// (e.g. digit keys, media keys).
   static String keyLabel(LogicalKeyboardKey key) {
-    // Named function keys
+    // Canonical resolver table — single source of truth for stored keys.
+    final resolved = key_resolver.labelForKey(key);
+    if (resolved != null) return resolved;
+
+    // Flutter's own key label for keys outside the resolver table.
     final label = key.keyLabel;
     if (label.isNotEmpty && label.length == 1) {
       return label.toUpperCase();
@@ -119,37 +129,7 @@ class HotkeyRecorderDialog extends StatefulWidget {
     // Strip "Key " prefix Flutter sometimes adds, e.g. "Key A" → "A"
     if (label.startsWith('Key ')) return label.substring(4).toUpperCase();
     if (label.startsWith('Digit ')) return label.substring(6);
-    // Common key names
-    return switch (key) {
-      LogicalKeyboardKey.space => 'Space',
-      LogicalKeyboardKey.enter => 'Enter',
-      LogicalKeyboardKey.escape => 'Esc',
-      LogicalKeyboardKey.backspace => 'Backspace',
-      LogicalKeyboardKey.tab => 'Tab',
-      LogicalKeyboardKey.delete => 'Delete',
-      LogicalKeyboardKey.insert => 'Insert',
-      LogicalKeyboardKey.home => 'Home',
-      LogicalKeyboardKey.end => 'End',
-      LogicalKeyboardKey.pageUp => 'PageUp',
-      LogicalKeyboardKey.pageDown => 'PageDown',
-      LogicalKeyboardKey.arrowUp => '↑',
-      LogicalKeyboardKey.arrowDown => '↓',
-      LogicalKeyboardKey.arrowLeft => '←',
-      LogicalKeyboardKey.arrowRight => '→',
-      LogicalKeyboardKey.f1 => 'F1',
-      LogicalKeyboardKey.f2 => 'F2',
-      LogicalKeyboardKey.f3 => 'F3',
-      LogicalKeyboardKey.f4 => 'F4',
-      LogicalKeyboardKey.f5 => 'F5',
-      LogicalKeyboardKey.f6 => 'F6',
-      LogicalKeyboardKey.f7 => 'F7',
-      LogicalKeyboardKey.f8 => 'F8',
-      LogicalKeyboardKey.f9 => 'F9',
-      LogicalKeyboardKey.f10 => 'F10',
-      LogicalKeyboardKey.f11 => 'F11',
-      LogicalKeyboardKey.f12 => 'F12',
-      _ => label.isNotEmpty ? label : key.debugName ?? '?',
-    };
+    return label.isNotEmpty ? label : key.debugName ?? '?';
   }
 
   @override
