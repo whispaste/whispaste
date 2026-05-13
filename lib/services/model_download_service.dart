@@ -7,7 +7,6 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:archive/archive.dart';
-import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,6 +15,7 @@ import 'package:path/path.dart' as p;
 import '../core/config/settings_provider.dart';
 import '../core/app_info.dart';
 import '../core/logging/app_logger.dart';
+import 'file_verification_service.dart';
 import 'hardware_info_service.dart' as hw;
 import 'http_model_fetcher.dart';
 import 'path_service.dart';
@@ -381,9 +381,16 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
   @visibleForTesting
   Dio? apiDioOverride;
 
+  /// Injected verifier — override in tests to avoid real file I/O.
+  @visibleForTesting
+  FileVerificationService? verifierOverride;
+
   bool _autoDownloadAttempted = false;
 
   HttpModelFetcher get _fetcher => fetcherOverride ?? HttpModelFetcher();
+
+  FileVerificationService get _verifier =>
+      verifierOverride ?? const FileVerificationService();
 
   Dio get _apiDio =>
       apiDioOverride ??
@@ -674,19 +681,12 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
   // -----------------------------------------------------------------------
 
   Future<bool> _verifySha256(String filePath, String expectedHash) async {
-    _log.info('Verifying SHA256 of ${p.basename(filePath)}');
-    final file = File(filePath);
-    if (!file.existsSync()) return false;
-
-    final digest = await sha256.bind(file.openRead()).first;
-    final actualHash = digest.toString();
-    final ok = actualHash == expectedHash;
-    if (!ok) {
-      _log.warning(
-        'SHA256 mismatch: expected=$expectedHash actual=$actualHash',
-      );
-    }
-    return ok;
+    final result = await _verifier.verify(File(filePath), expectedHash);
+    return switch (result) {
+      VerificationOk() => true,
+      VerificationMismatch() => false,
+      VerificationIoError() => false,
+    };
   }
 
   // -----------------------------------------------------------------------
