@@ -607,6 +607,7 @@
   "settingsChangeHotkey": "Ändern",
   "settingsHotkeyRecorderTitle": "Neuen Hotkey aufnehmen",
   "settingsHotkeyRecorderHint": "Drücke die gewünschte Tastenkombination…",
+  "settingsHotkeyRecorderModifierHint": "Jede Modifier-Kombination ist möglich — z. B. Alt+Leertaste, Ctrl+Alt+V oder Ctrl+Alt+Shift+R",
   "settingsHotkeyRecorderCancel": "Abbrechen",
   "settingsHotkeyRecorderSave": "Speichern",
   "settingsHotkeyRecorderClear": "Zurücksetzen",

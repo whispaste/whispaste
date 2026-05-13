@@ -661,6 +661,7 @@
   "settingsChangeHotkey": "Change",
   "settingsHotkeyRecorderTitle": "Record New Hotkey",
   "settingsHotkeyRecorderHint": "Press the key combination you want to use…",
+  "settingsHotkeyRecorderModifierHint": "Any modifier combination works — e.g. Alt+Space, Ctrl+Alt+V, or Ctrl+Alt+Shift+R",
   "settingsHotkeyRecorderCancel": "Cancel",
   "settingsHotkeyRecorderSave": "Save",
   "settingsHotkeyRecorderClear": "Clear",
