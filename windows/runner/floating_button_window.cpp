@@ -908,3 +908,4 @@ Color FloatingButtonWindow::LerpColor(const Color& a, const Color& b,
                                       float t) {
   return GdiPlusHelper::LerpColor(a, b, t);
 }
+
