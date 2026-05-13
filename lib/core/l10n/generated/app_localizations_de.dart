@@ -384,6 +384,9 @@ class L10nDe extends L10n {
   String get settingsLanguageSpanish => 'Spanisch';
 
   @override
+  String get settingsLanguageHebrew => 'Hebräisch';
+
+  @override
   String get settingsSoundFeedback => 'Ton & Feedback';
 
   @override
