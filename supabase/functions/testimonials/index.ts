@@ -1,0 +1,153 @@
+// Testimonials Edge Function — Admin endpoints only.
+//
+// Public GET is retired: the website now fetches via PostgREST
+// (/rest/v1/public_testimonials) — zero Edge Function invocations.
+// Stray public GET calls are answered instantly from memory (no DB query).
+//
+// Admin (ADMIN_API_KEY):
+//   POST /testimonials?action=approve&id=UUID
+//   POST /testimonials?action=reject&id=UUID
+//   GET  /testimonials?action=pending  — list unapproved 4-5★ feedback
+//
+// OWASP: A01 (admin auth), A05 (parameterized queries), A06 (rate limit +
+//        response caching), A07 (API key), A10 (no stack traces).
+// GDPR:  Only rating + text exposed publicly. No device_id, IP, version.
+
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const CORS = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "GET, POST, OPTIONS",
+  "access-control-allow-headers": "x-api-key, content-type",
+  "content-type": "application/json",
+  "x-content-type-options": "nosniff",
+};
+
+// Admin responses: no CORS origin, no caching
+const ADMIN_HEADERS = {
+  "content-type": "application/json",
+  "x-content-type-options": "nosniff",
+  "cache-control": "no-store",
+};
+
+const CACHE_HEADERS = {
+  ...CORS,
+  "cache-control": "public, max-age=3600, s-maxage=3600",
+};
+
+function json(data: unknown, status = 200, headers = CORS) {
+  return new Response(JSON.stringify(data), { status, headers });
+}
+
+function err(message: string, status: number) {
+  return json({ error: message }, status);
+}
+
+function isAdmin(req: Request): boolean {
+  const apiKey = req.headers.get("x-api-key");
+  const adminKey = Deno.env.get("ADMIN_API_KEY");
+  return !!adminKey && !!apiKey && apiKey === adminKey;
+}
+
+function getSupabase() {
+  const supabaseURL = Deno.env.get("SUPABASE_URL");
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseURL || !serviceRoleKey) return null;
+  return createClient(supabaseURL, serviceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: CORS });
+  }
+
+  const url = new URL(req.url);
+  const action = url.searchParams.get("action");
+
+  // ── Public GET: retired — PostgREST view is canonical now ─────────
+  // Website uses /rest/v1/public_testimonials (no Edge Function call).
+  // Stray GET requests (bots, old caches) are answered instantly from
+  // memory — no DB client, no query, no cost beyond the invocation itself.
+  if (req.method === "GET" && !action) {
+    return json({ testimonials: [], count: 0 }, 200, CACHE_HEADERS);
+  }
+
+  const sb = getSupabase();
+  if (!sb) return err("not_configured", 500);
+
+  try {
+
+    // ── Admin endpoints ──────────────────────────────────────────────
+    if (!isAdmin(req)) {
+      return json({ error: "forbidden" }, 403, ADMIN_HEADERS);
+    }
+
+    // List pending (unapproved 4-5★ feedback for review)
+    if (req.method === "GET" && action === "pending") {
+      const { data } = await sb
+        .from("user_feedback")
+        .select("id, received_at, rating, feedback_text, app_version")
+        .gte("rating", 4)
+        .eq("approved_for_display", false)
+        .not("feedback_text", "is", null)
+        .order("received_at", { ascending: false })
+        .limit(50);
+
+      return json({
+        pending: (data || []).map((f) => ({
+          id: f.id,
+          date: f.received_at,
+          rating: f.rating,
+          text: f.feedback_text,
+          version: f.app_version,
+        })),
+      }, 200, ADMIN_HEADERS);
+    }
+
+    // Approve a testimonial
+    if (req.method === "POST" && action === "approve") {
+      const id = url.searchParams.get("id");
+      if (!id) return json({ error: "missing id" }, 400, ADMIN_HEADERS);
+
+      const { data, error: uErr } = await sb
+        .from("user_feedback")
+        .update({ approved_for_display: true })
+        .eq("id", id)
+        .gte("rating", 4)
+        .select("id");
+
+      if (uErr) return json({ error: "update_failed" }, 500, ADMIN_HEADERS);
+      return json({
+        approved: true,
+        id,
+        matched: data?.length || 0,
+      }, 200, ADMIN_HEADERS);
+    }
+
+    // Reject (un-approve) a testimonial
+    if (req.method === "POST" && action === "reject") {
+      const id = url.searchParams.get("id");
+      if (!id) return json({ error: "missing id" }, 400, ADMIN_HEADERS);
+
+      const { data, error: uErr } = await sb
+        .from("user_feedback")
+        .update({ approved_for_display: false })
+        .eq("id", id)
+        .select("id");
+
+      if (uErr) return json({ error: "update_failed" }, 500, ADMIN_HEADERS);
+      return json({
+        rejected: true,
+        id,
+        matched: data?.length || 0,
+      }, 200, ADMIN_HEADERS);
+    }
+
+    return json({ error: "unknown action — use approve, reject, or pending" }, 400, ADMIN_HEADERS);
+  } catch (e) {
+    console.error("testimonials error:", e);
+    return err("internal_error", 500);
+  }
+});
