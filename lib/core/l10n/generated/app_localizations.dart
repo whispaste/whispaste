@@ -3325,6 +3325,12 @@ abstract class L10n {
   /// **'Press the key combination you want to use…'**
   String get settingsHotkeyRecorderHint;
 
+  /// No description provided for @settingsHotkeyRecorderModifierHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Any modifier combination works — e.g. Alt+Space, Ctrl+Alt+V, or Ctrl+Alt+Shift+R'**
+  String get settingsHotkeyRecorderModifierHint;
+
   /// No description provided for @settingsHotkeyRecorderCancel.
   ///
   /// In en, this message translates to:
