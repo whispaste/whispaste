@@ -30,7 +30,7 @@
 Hotkey → Speak → Text appears at your cursor
 ```
 
-1. **Press your hotkey** — `Ctrl+Shift+D` by default, hold-to-talk or toggle mode
+1. **Press your hotkey** — `Ctrl+Shift+D` by default, push-to-talk or toggle mode
 2. **Speak naturally** — a minimal overlay shows a live waveform while you record
 3. **Done** — transcribed text is pasted wherever your cursor sits
 
