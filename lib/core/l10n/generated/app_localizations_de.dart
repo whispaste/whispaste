@@ -1113,6 +1113,10 @@ class L10nDe extends L10n {
       'Etwas ist schiefgelaufen. Bitte versuche es später erneut.';
 
   @override
+  String get feedbackErrorNotConfigured =>
+      'Feedback ist in diesem Build nicht verfügbar.';
+
+  @override
   String get statusBarOnDevice => 'Auf dem Gerät';
 
   @override

@@ -1106,6 +1106,10 @@ class L10nEn extends L10n {
       'Something went wrong. Please try again later.';
 
   @override
+  String get feedbackErrorNotConfigured =>
+      'Feedback is not available in this build.';
+
+  @override
   String get statusBarOnDevice => 'On device';
 
   @override
