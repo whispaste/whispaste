@@ -11,7 +11,7 @@ import '../../../services/audio_service.dart';
 import '../../../widgets/section.dart';
 import '../settings_widgets.dart';
 
-/// Audio input settings: microphone, gain, push-to-talk.
+/// Audio input settings: microphone, gain.
 class AudioSection extends ConsumerWidget {
   const AudioSection({super.key});
 
@@ -81,16 +81,6 @@ class AudioSection extends ConsumerWidget {
               onChanged: (v) => ref
                   .read(settingsProvider.notifier)
                   .updateSettings((s) => s.copyWith(inputGain: v)),
-            ),
-          ),
-          SettingRow(
-            icon: LucideIcons.hand,
-            label: l10n.settingsHoldToRecord,
-            trailing: settingsToggle(
-              value: settings.pushToTalk,
-              onChanged: (v) => ref
-                  .read(settingsProvider.notifier)
-                  .updateSettings((s) => s.copyWith(pushToTalk: v)),
             ),
           ),
         ],
