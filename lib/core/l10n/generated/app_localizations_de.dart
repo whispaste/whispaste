@@ -1832,6 +1832,10 @@ class L10nDe extends L10n {
       'Drücke die gewünschte Tastenkombination…';
 
   @override
+  String get settingsHotkeyRecorderModifierHint =>
+      'Jede Modifier-Kombination ist möglich — z. B. Alt+Leertaste, Ctrl+Alt+V oder Ctrl+Alt+Shift+R';
+
+  @override
   String get settingsHotkeyRecorderCancel => 'Abbrechen';
 
   @override
