@@ -554,8 +554,7 @@ class L10nHe extends L10n {
   String get settingsFactoryResetSuccess => 'האפליקציה אופסה לחלוטין';
 
   @override
-  String get groqRemovedToast =>
-      'Groq STT was removed — provider reset to On-Device.';
+  String get groqRemovedToast => 'Groq STT הוסר — ספק אופס למקומי.';
 
   @override
   String migrationComplete(int count) {
@@ -1448,27 +1447,25 @@ class L10nHe extends L10n {
 
   @override
   String get errorSttModelIncompatibleRuntime =>
-      'Speech model is incompatible with the installed runtime. Please re-download the speech model in Settings.';
+      'מודל הדיבור אינו תואם לסביבת הריצה המותקנת. הורד מחדש את מודל הדיבור בהגדרות.';
 
   @override
   String get errorSttModelCorruptedRedownloading =>
-      'Speech model appears corrupted — downloading a fresh copy automatically.';
+      'מודל הדיבור נראה פגום — מוריד עותק חדש אוטומטית.';
 
   @override
-  String get errorSttDllMissing =>
-      'A required system component is missing. Retrying with CPU mode.';
+  String get errorSttDllMissing => 'רכיב מערכת נדרש חסר. מנסה מחדש עם מצב CPU.';
 
   @override
-  String get errorSttGpuFatal =>
-      'GPU acceleration failed. Retrying with CPU mode.';
+  String get errorSttGpuFatal => 'האצת GPU נכשלה. מנסה מחדש עם מצב CPU.';
 
   @override
   String get errorSttHeapCorruption =>
-      'A memory error occurred. Retrying with CPU mode.';
+      'אירעה שגיאת זיכרון. מנסה מחדש עם מצב CPU.';
 
   @override
   String get errorSttCpuFallbackFailed =>
-      'Speech engine failed on both GPU and CPU. Please restart the app or re-download the model.';
+      'מנוע הדיבור נכשל הן ב-GPU והן ב-CPU. הפעל מחדש את האפליקציה או הורד מחדש את המודל.';
 
   @override
   String get errorPipelineTimeout =>
@@ -1758,7 +1755,7 @@ class L10nHe extends L10n {
 
   @override
   String get settingsHotkeyRecorderModifierHint =>
-      'Any modifier combination works — e.g. Alt+Space, Ctrl+Alt+V, or Ctrl+Alt+Shift+R';
+      'כל שילוב מקשי Modifier אפשרי — למשל Alt+Space, Ctrl+Alt+V, או Ctrl+Alt+Shift+R';
 
   @override
   String get settingsHotkeyRecorderCancel => 'בטל';
@@ -2252,14 +2249,14 @@ class L10nHe extends L10n {
 
   @override
   String get hotkeyRegistrationFailed =>
-      'Hotkey registration failed — please re-bind your shortcut in Settings.';
+      'רישום קיצור הדרך נכשל — הגדר מחדש את הקיצור בהגדרות.';
 
   @override
   String get hotkeyRegistrationFailedDefaultActive =>
-      'Hotkey registration failed — using Ctrl+Shift+Space as fallback. Please re-bind in Settings.';
+      'רישום קיצור הדרך נכשל — Ctrl+Shift+Space משמש כברירת מחדל. הגדר מחדש בהגדרות.';
 
   @override
   String hotkeyConflictWarning(String platform, String note) {
-    return 'This shortcut is reserved by $platform ($note) and may not work.';
+    return 'קיצור דרך זה שמור על ידי $platform ($note) ועלול לא לפעול.';
   }
 }
