@@ -148,7 +148,6 @@ class FloatingOverlayService extends Notifier<void> {
         _sendSnapshot(settings, next);
 
       case RecordingPhase.transcribing:
-      case RecordingPhase.processing:
         _sendSnapshot(settings, next);
 
       case RecordingPhase.done:
@@ -431,7 +430,6 @@ class FloatingOverlayService extends Notifier<void> {
     RecordingPhase.idle => OverlayVisualState.recording,
     RecordingPhase.recording => OverlayVisualState.recording,
     RecordingPhase.transcribing => OverlayVisualState.transcribing,
-    RecordingPhase.processing => OverlayVisualState.processing,
     RecordingPhase.done => OverlayVisualState.done,
     RecordingPhase.error => OverlayVisualState.error,
   };
@@ -439,7 +437,6 @@ class FloatingOverlayService extends Notifier<void> {
   String _labelFor(RecordingPhase phase, L10n? l10n) => switch (phase) {
     RecordingPhase.recording => l10n?.overlayRecording ?? 'Recording',
     RecordingPhase.transcribing => l10n?.overlayTranscribing ?? 'Transcribing…',
-    RecordingPhase.processing => l10n?.overlayTranscribing ?? 'Transcribing…',
     RecordingPhase.done => l10n?.overlayDoneReady ?? 'Done',
     RecordingPhase.error => l10n?.overlayError ?? 'Error',
     RecordingPhase.idle => '',

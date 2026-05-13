@@ -12,7 +12,7 @@ import '../../services/model_download_service.dart';
 // ---------------------------------------------------------------------------
 
 /// Discrete phases of a recording lifecycle.
-enum RecordingPhase { idle, recording, transcribing, processing, done, error }
+enum RecordingPhase { idle, recording, transcribing, done, error }
 
 /// State of the local STT server subprocess.
 enum SttServerState { stopped, starting, ready, error }
@@ -50,7 +50,6 @@ class RecordingState {
   bool get isIdle => phase == RecordingPhase.idle;
   bool get isRecording => phase == RecordingPhase.recording;
   bool get isTranscribing => phase == RecordingPhase.transcribing;
-  bool get isProcessing => phase == RecordingPhase.processing;
   bool get isDone => phase == RecordingPhase.done;
   bool get isError => phase == RecordingPhase.error;
 
@@ -114,7 +113,7 @@ class RecordingNotifier extends Notifier<RecordingState> {
 
   Timer? _elapsedTimer;
 
-  /// Safety-net timer: if the state machine stays in transcribing/processing
+  /// Safety-net timer: if the state machine stays in transcribing
   /// for longer than this, auto-fail to unblock the UI.
   Timer? _stuckGuard;
   static const _stuckTimeout = Duration(minutes: 5);
@@ -152,10 +151,9 @@ class RecordingNotifier extends Notifier<RecordingState> {
     _startStuckGuard();
   }
 
-  /// Transition transcribing/processing → done (no LLM post-processing).
+  /// Transition transcribing → done.
   void completeTranscription(String text) {
-    if (state.phase != RecordingPhase.transcribing &&
-        state.phase != RecordingPhase.processing) {
+    if (state.phase != RecordingPhase.transcribing) {
       _log.debug(
         'completeTranscription ignored – current phase: ${state.phase}',
       );
@@ -207,12 +205,11 @@ class RecordingNotifier extends Notifier<RecordingState> {
     _elapsedTimer = null;
   }
 
-  /// Safety net: auto-fail if stuck in transcribing/processing too long.
+  /// Safety net: auto-fail if stuck in transcribing too long.
   void _startStuckGuard() {
     _stuckGuard?.cancel();
     _stuckGuard = Timer(_stuckTimeout, () {
-      if (state.phase == RecordingPhase.transcribing ||
-          state.phase == RecordingPhase.processing) {
+      if (state.phase == RecordingPhase.transcribing) {
         _log.error(
           'State machine stuck in ${state.phase} for '
           '${_stuckTimeout.inMinutes} min — auto-failing '

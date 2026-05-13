@@ -964,7 +964,7 @@ class L10nEn extends L10n {
 
   @override
   String get aboutFlutterGoDesc =>
-      'Cross-platform UI with Flutter. Local AI inference via whisper.cpp and llama.cpp.';
+      'Cross-platform UI with Flutter. Local speech recognition via whisper.cpp.';
 
   @override
   String get aboutWhisper => 'whisper.cpp & OpenAI Whisper';
@@ -974,18 +974,11 @@ class L10nEn extends L10n {
       'Local and cloud speech recognition — fast, accurate, multilingual.';
 
   @override
-  String get aboutLlamaCpp => 'llama.cpp';
-
-  @override
-  String get aboutLlamaCppDesc =>
-      'Local LLM inference for AI post-processing without cloud dependency.';
-
-  @override
   String get aboutPrivacyFirst => 'Privacy-first';
 
   @override
   String get aboutPrivacyFirstDesc =>
-      'Local AI inference by default — your voice never leaves your device unless you choose a cloud provider.';
+      'Local speech recognition by default — your voice never leaves your device unless you choose a cloud provider.';
 
   @override
   String get aboutPrivacy => 'Privacy & Data';
@@ -996,7 +989,7 @@ class L10nEn extends L10n {
 
   @override
   String get aboutPrivacyCloud =>
-      'Cloud providers (OpenAI, Deepgram, Anthropic, Gemini) only receive audio or text when you actively use them. Their privacy policies apply.';
+      'Cloud providers (OpenAI, Deepgram) only receive audio when you actively use them. Their privacy policies apply.';
 
   @override
   String get aboutPrivacyNoTracking =>
@@ -1079,8 +1072,7 @@ class L10nEn extends L10n {
       'What would you like to see in WhisPaste?';
 
   @override
-  String get feedbackPlaceholderAi =>
-      'How was the transcription or post-processing quality?';
+  String get feedbackPlaceholderAi => 'How was the transcription quality?';
 
   @override
   String get feedbackPlaceholderGeneral => 'Share your thoughts…';
@@ -1172,9 +1164,6 @@ class L10nEn extends L10n {
 
   @override
   String get statusBarTranscribing => 'Transcribing…';
-
-  @override
-  String get statusBarProcessing => 'Processing…';
 
   @override
   String get statusBarDone => 'Done';

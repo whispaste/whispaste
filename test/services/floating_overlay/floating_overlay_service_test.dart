@@ -14,7 +14,6 @@ void main() {
       RecordingPhase.idle => OverlayVisualState.recording,
       RecordingPhase.recording => OverlayVisualState.recording,
       RecordingPhase.transcribing => OverlayVisualState.transcribing,
-      RecordingPhase.processing => OverlayVisualState.processing,
       RecordingPhase.done => OverlayVisualState.done,
       RecordingPhase.error => OverlayVisualState.error,
     };
@@ -31,13 +30,6 @@ void main() {
       expect(
         mapPhase(RecordingPhase.transcribing),
         OverlayVisualState.transcribing,
-      );
-    });
-
-    test('processing maps to processing (distinct from transcribing)', () {
-      expect(
-        mapPhase(RecordingPhase.processing),
-        OverlayVisualState.processing,
       );
     });
 

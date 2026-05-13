@@ -156,7 +156,6 @@ class WpStatusBar extends StatelessWidget {
 /// Prioritises the recording lifecycle phase over the STT subprocess state:
 ///   🔴 On Device — Recording…     (RecordingPhase.recording)
 ///   🟡 On Device — Transcribing…  (RecordingPhase.transcribing)
-///   ✨ On Device — Processing…    (RecordingPhase.processing)
 ///   🟢 On Device — Done           (RecordingPhase.done)
 ///   🔴 On Device — Error          (RecordingPhase.error)
 ///   — falls back to SttServerState when idle —
@@ -298,12 +297,6 @@ class _SttChipState extends State<_SttChip> {
         return (
           widget.isDark ? WpColorsDark.accent : WpColorsLight.accent,
           widget.l10n.statusBarTranscribing,
-          true,
-        );
-      case RecordingPhase.processing:
-        return (
-          widget.isDark ? WpColorsDark.accent : WpColorsLight.accent,
-          widget.l10n.statusBarProcessing,
           true,
         );
       case RecordingPhase.done:
