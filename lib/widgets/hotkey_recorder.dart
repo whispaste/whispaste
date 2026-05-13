@@ -317,7 +317,17 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: WpSpacing.xl),
+                  const SizedBox(height: WpSpacing.md),
+
+                  // ── Modifier hint ───────────────────────────────
+                  Center(
+                    child: Text(
+                      l10n.settingsHotkeyRecorderModifierHint,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: textMuted, fontSize: 11),
+                    ),
+                  ),
+                  const SizedBox(height: WpSpacing.md),
 
                   // ── Action buttons ──────────────────────────────
                   Row(

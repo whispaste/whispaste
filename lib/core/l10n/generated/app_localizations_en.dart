@@ -1814,6 +1814,10 @@ class L10nEn extends L10n {
       'Press the key combination you want to use…';
 
   @override
+  String get settingsHotkeyRecorderModifierHint =>
+      'Any modifier combination works — e.g. Alt+Space, Ctrl+Alt+V, or Ctrl+Alt+Shift+R';
+
+  @override
   String get settingsHotkeyRecorderCancel => 'Cancel';
 
   @override
