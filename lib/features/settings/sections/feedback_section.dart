@@ -85,6 +85,16 @@ class KeyboardShortcutSection extends ConsumerWidget {
               ),
             ),
           ),
+          SettingRow(
+            icon: LucideIcons.hand,
+            label: l10n.settingsHoldToRecord,
+            trailing: settingsToggle(
+              value: settings.pushToTalk,
+              onChanged: (v) => ref
+                  .read(settingsProvider.notifier)
+                  .updateSettings((s) => s.copyWith(pushToTalk: v)),
+            ),
+          ),
         ],
       ),
     );
