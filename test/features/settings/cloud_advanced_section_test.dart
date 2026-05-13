@@ -1,96 +1,126 @@
+/// Regression tests confirming that CloudProvidersSection has been removed
+/// and that API-key fields are not duplicated anywhere in the settings UI.
+library;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:whispaste/core/config/settings_enums.dart';
+import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/features/settings/sections/cloud_advanced_section.dart';
+import 'package:whispaste/features/settings/sections/stt_section.dart';
 
 import '../../fixtures/test_helpers.dart';
 
 void main() {
-  group('CloudProvidersSection — free-tier hints', () {
-    testWidgets('renders OpenAI hint text', (tester) async {
-      await tester.pumpWidget(makeTestable(const CloudProvidersSection()));
+  group('AdvancedSection', () {
+    testWidgets('renders without error', (tester) async {
+      await tester.pumpWidget(makeTestable(const AdvancedSection()));
       await tester.pumpAndSettle();
 
-      expect(
-        find.textContaining('platform.openai.com/api-keys'),
-        findsOneWidget,
-      );
+      expect(tester.takeException(), isNull);
     });
 
-    testWidgets('renders Deepgram hint text', (tester) async {
-      await tester.pumpWidget(makeTestable(const CloudProvidersSection()));
+    testWidgets('does not contain any API-key fields', (tester) async {
+      await tester.pumpWidget(makeTestable(const AdvancedSection()));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('console.deepgram.com'), findsOneWidget);
-    });
-
-    testWidgets('OpenAI hint has a GestureDetector with correct key', (
-      tester,
-    ) async {
-      await tester.pumpWidget(makeTestable(const CloudProvidersSection()));
-      await tester.pumpAndSettle();
-
-      expect(find.byKey(const Key('openai-hint')), findsOneWidget);
-    });
-
-    testWidgets('Deepgram hint has a GestureDetector with correct key', (
-      tester,
-    ) async {
-      await tester.pumpWidget(makeTestable(const CloudProvidersSection()));
-      await tester.pumpAndSettle();
-
-      expect(find.byKey(const Key('deepgram-hint')), findsOneWidget);
-    });
-
-    testWidgets('hint rows use externalLink Lucide icon', (tester) async {
-      await tester.pumpWidget(makeTestable(const CloudProvidersSection()));
-      await tester.pumpAndSettle();
-
+      // No keyRound icon should appear in AdvancedSection.
       final icons = tester.widgetList<Icon>(find.byType(Icon));
-      final hasExternalLink = icons.any(
-        (i) => i.icon == LucideIcons.externalLink,
-      );
-      expect(hasExternalLink, isTrue);
-    });
-
-    testWidgets('hint rows meet minimum touch-target height of 48', (
-      tester,
-    ) async {
-      await tester.pumpWidget(makeTestable(const CloudProvidersSection()));
-      await tester.pumpAndSettle();
-
-      final sizeds = tester.widgetList<SizedBox>(find.byType(SizedBox));
-      // At least two SizedBox with height 48 (one per hint row).
-      final touchTargets = sizeds
-          .where((s) => s.height != null && s.height! >= 48)
-          .toList();
-      expect(touchTargets.length, greaterThanOrEqualTo(2));
-    });
-
-    testWidgets('tapping OpenAI hint does not throw', (tester) async {
-      await tester.pumpWidget(makeTestable(const CloudProvidersSection()));
-      await tester.pumpAndSettle();
-
-      // Tap on the hint row — url_launcher will fail silently in tests
-      // (no platform channel registered), but the widget must not crash.
-      await tester.tap(
-        find.byKey(const Key('openai-hint')),
-        warnIfMissed: false,
-      );
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
-    });
-
-    testWidgets('tapping Deepgram hint does not throw', (tester) async {
-      await tester.pumpWidget(makeTestable(const CloudProvidersSection()));
-      await tester.pumpAndSettle();
-
-      await tester.tap(
-        find.byKey(const Key('deepgram-hint')),
-        warnIfMissed: false,
-      );
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
+      final hasKeyIcon = icons.any((i) => i.icon == LucideIcons.keyRound);
+      expect(hasKeyIcon, isFalse);
     });
   });
+
+  group('SpeechRecognitionSection — cloud mode shows exactly one API key', () {
+    // Helper: wrap in a scrollable to prevent overflow in test scaffold.
+    Widget scrollable(Widget child) => SingleChildScrollView(child: child);
+
+    testWidgets('OpenAI selected → only one key field visible', (tester) async {
+      await tester.pumpWidget(
+        makeTestable(
+          scrollable(const SpeechRecognitionSection()),
+          overrides: [
+            settingsProvider.overrideWith(
+              () => FakeSettingsNotifier(
+                AppSettings.defaults.copyWith(
+                  sttProvider: SttProviderType.openAI.value,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final keyIcons = tester
+          .widgetList<Icon>(find.byType(Icon))
+          .where((i) => i.icon == LucideIcons.keyRound)
+          .toList();
+      expect(keyIcons.length, 1, reason: 'Exactly one key field for OpenAI');
+    });
+
+    testWidgets('Deepgram selected → only one key field visible', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        makeTestable(
+          scrollable(const SpeechRecognitionSection()),
+          overrides: [
+            settingsProvider.overrideWith(
+              () => FakeSettingsNotifier(
+                AppSettings.defaults.copyWith(
+                  sttProvider: SttProviderType.deepgram.value,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final keyIcons = tester
+          .widgetList<Icon>(find.byType(Icon))
+          .where((i) => i.icon == LucideIcons.keyRound)
+          .toList();
+      expect(keyIcons.length, 1, reason: 'Exactly one key field for Deepgram');
+    });
+
+    testWidgets('On-device selected → no API key field shown', (tester) async {
+      await tester.pumpWidget(
+        makeTestable(
+          scrollable(const SpeechRecognitionSection()),
+          overrides: [
+            settingsProvider.overrideWith(
+              () => FakeSettingsNotifier(
+                AppSettings.defaults.copyWith(
+                  sttProvider: SttProviderType.onDevice.value,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final keyIcons = tester
+          .widgetList<Icon>(find.byType(Icon))
+          .where((i) => i.icon == LucideIcons.keyRound)
+          .toList();
+      expect(keyIcons, isEmpty, reason: 'No key field in local mode');
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Minimal fake settings notifier for override
+// ---------------------------------------------------------------------------
+
+class FakeSettingsNotifier extends SettingsNotifier {
+  FakeSettingsNotifier(this._value);
+
+  final AppSettings _value;
+
+  @override
+  Future<AppSettings> build() async => _value;
 }
