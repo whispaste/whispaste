@@ -12,6 +12,7 @@ import '../../core/data/history_providers.dart';
 import '../../core/logging/app_logger.dart';
 import '../../core/platform/macos_lifecycle_channel.dart';
 import '../../core/recording/recording_state.dart';
+import '../floating_platform_service_base.dart';
 import '../recording_orchestrator.dart';
 import '../stt/stt_bundle.dart';
 import 'floating_button_controller.dart';
@@ -33,32 +34,36 @@ FloatingButtonVisualState _mapPhase(RecordingPhase phase) => switch (phase) {
 /// Layer 3 — business logic. Watches settings and recording state,
 /// forwards visual commands to the platform controller (Layer 2),
 /// and handles events (click → toggle recording, drag → save position).
-class FloatingButtonService extends Notifier<void> {
-  FloatingButtonController? _controller;
-  StreamSubscription<FloatingButtonEvent>? _eventSub;
+///
+/// Extends [FloatingPlatformServiceBase] which handles controller creation,
+/// event-stream subscription, and cleanup in [ref.onDispose].
+class FloatingButtonService
+    extends
+        FloatingPlatformServiceBase<
+          FloatingButtonController,
+          FloatingButtonEvent
+        > {
   Timer? _autoResetTimer;
 
   /// Cached history entries for context menu (last 5).
   List<({String id, String content})> _menuEntries = [];
 
+  // ── FloatingPlatformServiceBase contract ──────────────────────────────────
+
   @override
-  void build() {
-    _controller = FloatingButtonController.create();
-    if (_controller == null) {
-      _log.debug('Platform does not support native floating button');
-      return;
-    }
+  FloatingButtonController? createController() =>
+      FloatingButtonController.create();
 
-    _eventSub = _controller!.events.listen(_onEvent);
+  @override
+  Stream<FloatingButtonEvent> eventsFrom(FloatingButtonController controller) =>
+      controller.events;
 
-    // Clean up on provider dispose.
-    ref.onDispose(() {
-      _autoResetTimer?.cancel();
-      _eventSub?.cancel();
-      _controller?.dispose();
-      _controller = null;
-    });
+  @override
+  Future<void> disposeController(FloatingButtonController controller) =>
+      controller.dispose();
 
+  @override
+  void onControllerReady(FloatingButtonController controller) {
     // Watch settings for show/hide + configuration.
     ref.listen(settingsProvider, (_, next) {
       next.whenData((s) => _syncSettings(s));
@@ -77,12 +82,19 @@ class FloatingButtonService extends Notifier<void> {
     // Apply initial settings if already loaded.
     final settings = ref.read(settingsProvider);
     settings.whenData((s) => _syncSettings(s));
+
+    // Clean up the auto-reset timer on dispose.
+    ref.onDispose(() => _autoResetTimer?.cancel());
   }
 
-  // ── Settings sync ─────────────────────────────────────────────────
+  @override
+  void onEvent(FloatingButtonEvent event) => _onEvent(event);
+
+  // ── Settings sync ─────────────────────────────────────────────────────────
 
   Future<void> _syncSettings(AppSettings s) async {
-    if (_controller == null) return;
+    final c = controller;
+    if (c == null) return;
 
     try {
       if (s.showFloatingButton) {
@@ -90,42 +102,43 @@ class FloatingButtonService extends Notifier<void> {
         final x = s.floatingButtonX;
         final y = s.floatingButtonY;
 
-        await _controller!.show(x: x, y: y, size: size);
-        await _controller!.setSize(size);
-        await _controller!.setOpacity(s.floatingButtonOpacity);
+        await c.show(x: x, y: y, size: size);
+        await c.setSize(size);
+        await c.setOpacity(s.floatingButtonOpacity);
 
         // Send theme based on current themeMode.
         final isDark = s.themeMode != ThemeMode.light;
-        await _controller!.setTheme(isDark: isDark);
+        await c.setTheme(isDark: isDark);
 
         // Send current recording phase.
         final phase = ref.read(recordingPhaseProvider);
-        await _controller!.setState(_mapPhase(phase));
+        await c.setState(_mapPhase(phase));
       } else {
-        await _controller!.hide();
+        await c.hide();
       }
     } catch (e, st) {
       _log.error('Failed to sync floating button settings', e, st);
     }
   }
 
-  // ── Recording phase sync ──────────────────────────────────────────
+  // ── Recording phase sync ──────────────────────────────────────────────────
 
   Future<void> _syncPhase(RecordingPhase phase) async {
-    if (_controller == null) return;
+    final c = controller;
+    if (c == null) return;
 
     try {
-      await _controller!.setState(_mapPhase(phase));
+      await c.setState(_mapPhase(phase));
 
       // Auto-reset done/error back to idle after a delay.
       _autoResetTimer?.cancel();
       if (phase == RecordingPhase.done) {
         _autoResetTimer = Timer(const Duration(seconds: 2), () {
-          _controller?.setState(FloatingButtonVisualState.idle);
+          controller?.setState(FloatingButtonVisualState.idle);
         });
       } else if (phase == RecordingPhase.error) {
         _autoResetTimer = Timer(const Duration(seconds: 3), () {
-          _controller?.setState(FloatingButtonVisualState.idle);
+          controller?.setState(FloatingButtonVisualState.idle);
         });
       }
     } catch (e, st) {
@@ -133,7 +146,7 @@ class FloatingButtonService extends Notifier<void> {
     }
   }
 
-  // ── Event handling ────────────────────────────────────────────────
+  // ── Event handling ────────────────────────────────────────────────────────
 
   void _onEvent(FloatingButtonEvent event) {
     switch (event) {
@@ -223,10 +236,11 @@ class FloatingButtonService extends Notifier<void> {
     }
   }
 
-  // ── Context menu ──────────────────────────────────────────────────
+  // ── Context menu ──────────────────────────────────────────────────────────
 
   void _updateContextMenu(List<HistoryEntry> entries) {
-    if (_controller == null) return;
+    final c = controller;
+    if (c == null) return;
 
     // Take the 5 most recent entries.
     final recent = entries.take(5).toList();
@@ -258,7 +272,7 @@ class FloatingButtonService extends Notifier<void> {
 
     final items = [...actionItems, ...historyItems, ...footerItems];
 
-    _controller!.setContextMenuItems(items).catchError((e, st) {
+    c.setContextMenuItems(items).catchError((e, st) {
       _log.error('Failed to update context menu items', e, st);
     });
   }
