@@ -17,6 +17,7 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import '../core/config/settings_labels.dart';
 import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
+import 'hotkey_key_resolver.dart';
 
 // ---------------------------------------------------------------------------
 // Registrar abstraction (enables unit testing without platform channels)
@@ -195,8 +196,8 @@ class HotkeyService extends Notifier<void> {
   Future<void> _registerFromSettings(AppSettings settings) async {
     try {
       await updateHotkey(
-        key: _resolveKey(settings.hotkeyKey),
-        modifiers: _resolveModifiers(settings.hotkeyModifiers),
+        key: resolveKey(settings.hotkeyKey),
+        modifiers: resolveModifiers(settings.hotkeyModifiers),
       );
       _initialized = true;
       _log.info(
@@ -268,61 +269,3 @@ class HotkeyService extends Notifier<void> {
 final hotkeyServiceProvider = NotifierProvider<HotkeyService, void>(
   HotkeyService.new,
 );
-
-// ---------------------------------------------------------------------------
-// Key resolution helpers
-// ---------------------------------------------------------------------------
-
-/// Maps a stored key label (e.g. 'D', 'F1') to a [LogicalKeyboardKey].
-LogicalKeyboardKey _resolveKey(String label) {
-  final upper = label.toUpperCase();
-  // Single letter
-  if (upper.length == 1 &&
-      upper.codeUnitAt(0) >= 65 &&
-      upper.codeUnitAt(0) <= 90) {
-    final offset = upper.codeUnitAt(0) - 65;
-    return LogicalKeyboardKey(0x00000000061 + offset); // keyA = 0x61
-  }
-  // Function keys
-  final fnMatch = RegExp(r'^F(\d+)$').firstMatch(upper);
-  if (fnMatch != null) {
-    final n = int.parse(fnMatch.group(1)!);
-    if (n >= 1 && n <= 12) {
-      return LogicalKeyboardKey(0x00100000070 + n - 1); // f1..f12
-    }
-  }
-  // Named keys
-  return switch (upper) {
-    'SPACE' => LogicalKeyboardKey.space,
-    'ENTER' => LogicalKeyboardKey.enter,
-    'TAB' => LogicalKeyboardKey.tab,
-    'ESCAPE' => LogicalKeyboardKey.escape,
-    'BACKSPACE' => LogicalKeyboardKey.backspace,
-    'DELETE' => LogicalKeyboardKey.delete,
-    'INSERT' => LogicalKeyboardKey.insert,
-    'HOME' => LogicalKeyboardKey.home,
-    'END' => LogicalKeyboardKey.end,
-    'PAGEUP' => LogicalKeyboardKey.pageUp,
-    'PAGEDOWN' => LogicalKeyboardKey.pageDown,
-    _ => LogicalKeyboardKey.keyD, // fallback
-  };
-}
-
-/// Maps a stored modifier string (e.g. 'ctrl+shift') to [HotKeyModifier] list.
-List<HotKeyModifier> _resolveModifiers(String modifiers) {
-  final parts = modifiers.toLowerCase().split('+');
-  final result = <HotKeyModifier>[];
-  for (final part in parts) {
-    switch (part.trim()) {
-      case 'ctrl' || 'control':
-        result.add(HotKeyModifier.control);
-      case 'shift':
-        result.add(HotKeyModifier.shift);
-      case 'alt':
-        result.add(HotKeyModifier.alt);
-      case 'meta' || 'win' || 'super' || 'cmd':
-        result.add(HotKeyModifier.meta);
-    }
-  }
-  return result;
-}
