@@ -1,9 +1,73 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import 'package:whispaste/features/feedback/feedback_page.dart';
+import 'package:whispaste/services/feedback_submission_service.dart';
 
 import '../../fixtures/test_helpers.dart';
+
+// ---------------------------------------------------------------------------
+// Service factories for testing
+// ---------------------------------------------------------------------------
+
+/// Returns a [FeedbackSubmissionService] that always produces [FeedbackSent].
+FeedbackSubmissionService _sentService() => FeedbackSubmissionService(
+  client: MockClient((_) async => http.Response('', 201)),
+  supabaseUrl: 'https://example.supabase.co',
+  supabasePublishableKey: 'test-key',
+  breadcrumbSink: (_) {},
+);
+
+/// Returns a [FeedbackSubmissionService] that always produces
+/// [FeedbackSkippedNotConfigured] (empty URL/key).
+FeedbackSubmissionService _notConfiguredService() => FeedbackSubmissionService(
+  client: MockClient((_) async => http.Response('', 201)),
+  supabaseUrl: '',
+  supabasePublishableKey: '',
+  breadcrumbSink: (_) {},
+);
+
+/// Returns a [FeedbackSubmissionService] that always returns HTTP 500.
+FeedbackSubmissionService _serverErrorService() => FeedbackSubmissionService(
+  client: MockClient((_) async => http.Response('Internal Server Error', 500)),
+  supabaseUrl: 'https://example.supabase.co',
+  supabasePublishableKey: 'test-key',
+  breadcrumbSink: (_) {},
+);
+
+/// Returns a [FeedbackSubmissionService] that always throws [SocketException].
+FeedbackSubmissionService _networkErrorService() => FeedbackSubmissionService(
+  client: MockClient((_) async {
+    throw const SocketException('Connection refused');
+  }),
+  supabaseUrl: 'https://example.supabase.co',
+  supabasePublishableKey: 'test-key',
+  breadcrumbSink: (_) {},
+);
+
+// ---------------------------------------------------------------------------
+// Helper: fill form + tap submit
+// ---------------------------------------------------------------------------
+
+Future<void> _fillAndSubmit(WidgetTester tester) async {
+  await tester.tap(find.text('General'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('🤩'));
+  await tester.pumpAndSettle();
+  await tester.enterText(find.byType(TextField), 'Test feedback');
+  await tester.pumpAndSettle();
+
+  final submitFinder = find.widgetWithText(ElevatedButton, 'Send Feedback');
+  await tester.ensureVisible(submitFinder);
+  await tester.pumpAndSettle();
+  await tester.tap(submitFinder);
+  await tester.pumpAndSettle();
+}
 
 void main() {
   // ───────────────────────────────────────────────────────────────────────
@@ -51,7 +115,9 @@ void main() {
     });
 
     testWidgets('renders without error', (tester) async {
-      await tester.pumpWidget(makeTestable(const FeedbackPage()));
+      await tester.pumpWidget(
+        makeTestable(FeedbackPage(submissionService: _sentService())),
+      );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     });
@@ -59,7 +125,9 @@ void main() {
     testWidgets('submit button is disabled before inputs are filled', (
       tester,
     ) async {
-      await tester.pumpWidget(makeTestable(const FeedbackPage()));
+      await tester.pumpWidget(
+        makeTestable(FeedbackPage(submissionService: _sentService())),
+      );
       await tester.pumpAndSettle();
 
       // "Send Feedback" comes from l10n.feedbackSubmit (app_en.arb).
@@ -74,7 +142,9 @@ void main() {
     testWidgets(
       'submit button becomes enabled after all three inputs are filled',
       (tester) async {
-        await tester.pumpWidget(makeTestable(const FeedbackPage()));
+        await tester.pumpWidget(
+          makeTestable(FeedbackPage(submissionService: _sentService())),
+        );
         await tester.pumpAndSettle();
 
         // Select the "General" category chip (l10n.feedbackCategoryGeneral).
@@ -96,33 +166,104 @@ void main() {
       },
     );
 
+    // ── AC: SkippedNotConfigured shows error, no ThankYou ─────────────────
+
     testWidgets(
-      'tapping submit when Supabase is not configured shows success state',
+      'SkippedNotConfigured: shows feedbackErrorNotConfigured banner, no thank-you screen',
       (tester) async {
-        // SUPABASE_URL is empty in tests (no --dart-define) → the "not
-        // configured" branch runs, treating the submission as successful.
-        await tester.pumpWidget(makeTestable(const FeedbackPage()));
-        await tester.pumpAndSettle();
-
-        await tester.tap(find.text('General'));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('🤩'));
-        await tester.pumpAndSettle();
-        await tester.enterText(find.byType(TextField), 'Test feedback');
-        await tester.pumpAndSettle();
-
-        // The submit button may be below the fold — scroll it into view first.
-        final submitFinder = find.widgetWithText(
-          ElevatedButton,
-          'Send Feedback',
+        await tester.pumpWidget(
+          makeTestable(
+            FeedbackPage(submissionService: _notConfiguredService()),
+          ),
         );
-        await tester.ensureVisible(submitFinder);
-        await tester.pumpAndSettle();
-        await tester.tap(submitFinder);
         await tester.pumpAndSettle();
 
-        // Success state: _ThankYouView shows l10n.feedbackThankYou ("Thank you!")
-        expect(find.text('Thank you!'), findsOneWidget);
+        await _fillAndSubmit(tester);
+
+        // Must NOT show thank-you screen.
+        expect(find.text('Thank you!'), findsNothing);
+        // Must show the "not configured" error text.
+        expect(
+          find.text('Feedback is not available in this build.'),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'SkippedNotConfigured: cooldown is NOT written to SharedPreferences',
+      (tester) async {
+        await tester.pumpWidget(
+          makeTestable(
+            FeedbackPage(submissionService: _notConfiguredService()),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await _fillAndSubmit(tester);
+
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getInt('feedback_last_submitted_ms'), isNull);
+      },
+    );
+
+    // ── AC: FeedbackSent shows ThankYou, writes cooldown ─────────────────
+
+    testWidgets('FeedbackSent: shows thank-you screen and writes cooldown', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        makeTestable(FeedbackPage(submissionService: _sentService())),
+      );
+      await tester.pumpAndSettle();
+
+      await _fillAndSubmit(tester);
+
+      expect(find.text('Thank you!'), findsOneWidget);
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getInt('feedback_last_submitted_ms'), isNotNull);
+    });
+
+    // ── AC: ServerError shows feedbackErrorServer, no ThankYou ───────────
+
+    testWidgets(
+      'FeedbackServerError: shows feedbackErrorServer banner, no thank-you',
+      (tester) async {
+        await tester.pumpWidget(
+          makeTestable(FeedbackPage(submissionService: _serverErrorService())),
+        );
+        await tester.pumpAndSettle();
+
+        await _fillAndSubmit(tester);
+
+        expect(find.text('Thank you!'), findsNothing);
+        expect(
+          find.text('Something went wrong. Please try again later.'),
+          findsOneWidget,
+        );
+      },
+    );
+
+    // ── AC: NetworkError shows feedbackErrorNetwork, no ThankYou ─────────
+
+    testWidgets(
+      'FeedbackNetworkError: shows feedbackErrorNetwork banner, no thank-you',
+      (tester) async {
+        await tester.pumpWidget(
+          makeTestable(FeedbackPage(submissionService: _networkErrorService())),
+        );
+        await tester.pumpAndSettle();
+
+        await _fillAndSubmit(tester);
+
+        expect(find.text('Thank you!'), findsNothing);
+        expect(
+          find.text(
+            'Could not connect to the server. Please check your internet connection.',
+          ),
+          findsOneWidget,
+        );
       },
     );
   });

@@ -360,6 +360,7 @@
   "feedbackErrorRateLimited": "Du hast kürzlich bereits Feedback gesendet. Bitte versuche es später erneut.",
   "feedbackErrorNetwork": "Verbindung zum Server fehlgeschlagen. Bitte prüfe deine Internetverbindung.",
   "feedbackErrorServer": "Etwas ist schiefgelaufen. Bitte versuche es später erneut.",
+  "feedbackErrorNotConfigured": "Feedback ist in diesem Build nicht verfügbar.",
 
   "statusBarOnDevice": "Auf dem Gerät",
   "statusBarOverlayFloating": "Overlay: Schwebend",

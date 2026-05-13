@@ -2115,6 +2115,12 @@ abstract class L10n {
   /// **'Something went wrong. Please try again later.'**
   String get feedbackErrorServer;
 
+  /// No description provided for @feedbackErrorNotConfigured.
+  ///
+  /// In en, this message translates to:
+  /// **'Feedback is not available in this build.'**
+  String get feedbackErrorNotConfigured;
+
   /// No description provided for @statusBarOnDevice.
   ///
   /// In en, this message translates to:

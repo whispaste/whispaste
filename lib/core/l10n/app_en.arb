@@ -414,6 +414,7 @@
   "feedbackErrorRateLimited": "You already sent feedback recently. Please try again later.",
   "feedbackErrorNetwork": "Could not connect to the server. Please check your internet connection.",
   "feedbackErrorServer": "Something went wrong. Please try again later.",
+  "feedbackErrorNotConfigured": "Feedback is not available in this build.",
 
   "statusBarOnDevice": "On device",
   "statusBarOverlayFloating": "Overlay: Floating",
