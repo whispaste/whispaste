@@ -308,26 +308,30 @@ class RecordingOrchestrator extends Notifier<void> {
       _cancelAmplitude();
 
       // ── Step 1: Capture — stop audio and flush WAV (10 s budget) ─────────
-      final captureResult = await runner.run<(String?, List<int>)>(() async {
-        final audioNotifier = ref.read(audioServiceProvider.notifier);
-        final path = await audioNotifier.stopRecording();
-        if (path == null) return (null, <int>[]);
+      final captureResult = await runner.run<(String?, List<int>)>(
+        'capture',
+        () async {
+          final audioNotifier = ref.read(audioServiceProvider.notifier);
+          final path = await audioNotifier.stopRecording();
+          if (path == null) return (null, <int>[]);
 
-        // On Windows the `record` package can return before the WAV is
-        // fully flushed to disk.  Wait up to 2 s for the file to appear.
-        final wavFile = File(path);
-        if (!await wavFile.exists()) {
-          _log.debug('[$sid] WAV not yet on disk, waiting for flush…');
-          for (var i = 0; i < 8; i++) {
-            await Future<void>.delayed(const Duration(milliseconds: 250));
-            if (await wavFile.exists()) break;
+          // On Windows the `record` package can return before the WAV is
+          // fully flushed to disk.  Wait up to 2 s for the file to appear.
+          final wavFile = File(path);
+          if (!await wavFile.exists()) {
+            _log.debug('[$sid] WAV not yet on disk, waiting for flush…');
+            for (var i = 0; i < 8; i++) {
+              await Future<void>.delayed(const Duration(milliseconds: 250));
+              if (await wavFile.exists()) break;
+            }
           }
-        }
-        if (!await wavFile.exists()) return (path, <int>[]);
+          if (!await wavFile.exists()) return (path, <int>[]);
 
-        final bytes = await wavFile.readAsBytes();
-        return (path, bytes);
-      }, timeout: const Duration(seconds: 10));
+          final bytes = await wavFile.readAsBytes();
+          return (path, bytes);
+        },
+        timeout: const Duration(seconds: 10),
+      );
 
       switch (captureResult) {
         case StepTimeout():
@@ -412,6 +416,7 @@ class RecordingOrchestrator extends Notifier<void> {
           final ensureSw = Stopwatch()..start();
 
           final prepareResult = await runner.run<void>(
+            'stt_prepare',
             () async => transcriber.prepare(),
             timeout: const Duration(seconds: 120),
           );
@@ -495,6 +500,7 @@ class RecordingOrchestrator extends Notifier<void> {
           final timeoutSec = 60 + (audioDurMs / 1000 * 0.8).round();
 
           final transcribeResult = await runner.run<String>(
+            'transcribe',
             () async =>
                 transcriber.transcribe(wavBytes, language: effectiveLang),
             timeout: Duration(seconds: timeoutSec),
@@ -608,6 +614,7 @@ class RecordingOrchestrator extends Notifier<void> {
               final saveSw = Stopwatch()..start();
 
               final saveResult = await runner.run<String?>(
+                'save_history',
                 () async => _saveToHistory(
                   finalText,
                   Duration(milliseconds: audioDurMs),
@@ -637,6 +644,7 @@ class RecordingOrchestrator extends Notifier<void> {
               final clipSw = Stopwatch()..start();
 
               final clipResult = await runner.run<void>(
+                'after_transcription',
                 () async => _handleAfterTranscription(finalText, settings),
                 timeout: const Duration(seconds: 10),
               );
