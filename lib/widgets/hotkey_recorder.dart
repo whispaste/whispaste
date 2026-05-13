@@ -171,12 +171,41 @@ final _modifierKeys = <LogicalKeyboardKey>{
   LogicalKeyboardKey.metaRight,
 };
 
+/// Keys that may be bound as hotkeys *without* any modifier key.
+///
+/// Kept intentionally narrow — function keys and a few media keys that
+/// rarely appear in normal text input. All other keys require at least
+/// one modifier to prevent accidental capture of letter/number keys.
+final Set<LogicalKeyboardKey> singleKeyWhitelist = {
+  // Function keys
+  LogicalKeyboardKey.f1,
+  LogicalKeyboardKey.f2,
+  LogicalKeyboardKey.f3,
+  LogicalKeyboardKey.f4,
+  LogicalKeyboardKey.f5,
+  LogicalKeyboardKey.f6,
+  LogicalKeyboardKey.f7,
+  LogicalKeyboardKey.f8,
+  LogicalKeyboardKey.f9,
+  LogicalKeyboardKey.f10,
+  LogicalKeyboardKey.f11,
+  LogicalKeyboardKey.f12,
+  // Media keys
+  LogicalKeyboardKey.mediaPlayPause,
+  LogicalKeyboardKey.mediaStop,
+  LogicalKeyboardKey.audioVolumeMute,
+};
+
 class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
   late List<String> _modifierLabels;
   late String _keyLabel;
 
   /// Tracks currently held modifier keys during recording.
   final Set<LogicalKeyboardKey> _heldModifiers = {};
+
+  /// True when the current [_keyLabel] was set by a whitelisted single key
+  /// (F1–F12 or selected media keys) pressed without any modifier.
+  bool _isSingleKey = false;
 
   final FocusNode _focusNode = FocusNode();
 
@@ -187,6 +216,19 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
       widget.initialModifiers,
     );
     _keyLabel = widget.initialKey;
+    // When the dialog opens with a pre-existing whitelisted single-key binding
+    // (no modifiers), mark it so the Save button is enabled immediately.
+    _isSingleKey = _modifierLabels.isEmpty && _isWhitelistedLabel(_keyLabel);
+  }
+
+  /// Returns true when [label] matches a key in [singleKeyWhitelist].
+  ///
+  /// Compares against the labels produced by [HotkeyRecorderDialog.keyLabel]
+  /// for each whitelisted key.
+  static bool _isWhitelistedLabel(String label) {
+    return singleKeyWhitelist.any(
+      (k) => HotkeyRecorderDialog.keyLabel(k) == label,
+    );
   }
 
   @override
@@ -203,13 +245,17 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
     if (event is KeyDownEvent || event is KeyRepeatEvent) {
       if (_modifierKeys.contains(key)) {
         _heldModifiers.add(key);
-      } else if (_heldModifiers.isNotEmpty) {
-        // At least one modifier + a non-modifier → record the combo.
+      } else if (_heldModifiers.isNotEmpty ||
+          singleKeyWhitelist.contains(key)) {
+        // Accept: at least one modifier held, OR key is on the whitelist
+        // (F1–F12, media keys) which are safe to bind without a modifier.
         setState(() {
           _modifierLabels = HotkeyRecorderDialog.parseModifiers(
             HotkeyRecorderDialog.serializeModifiers(_heldModifiers),
           );
           _keyLabel = HotkeyRecorderDialog.keyLabel(key);
+          _isSingleKey =
+              _heldModifiers.isEmpty && singleKeyWhitelist.contains(key);
         });
       }
     } else if (event is KeyUpEvent) {
@@ -221,6 +267,7 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
     setState(() {
       _modifierLabels = [];
       _keyLabel = '';
+      _isSingleKey = false;
       _heldModifiers.clear();
     });
   }
@@ -251,7 +298,10 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
     final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
     final l10n = L10n.of(context);
 
-    final hasCombo = _modifierLabels.isNotEmpty && _keyLabel.isNotEmpty;
+    // A valid combo requires a non-empty key label plus either a modifier or
+    // a whitelisted single key (F1–F12, media keys — stored in _isSingleKey).
+    final hasCombo =
+        _keyLabel.isNotEmpty && (_modifierLabels.isNotEmpty || _isSingleKey);
 
     return Center(
       child: KeyboardListener(
