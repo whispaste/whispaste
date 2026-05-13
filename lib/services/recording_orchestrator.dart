@@ -21,6 +21,7 @@ import '../core/data/analytics_provider.dart';
 import 'audio_service.dart';
 import 'model_download_service.dart';
 import 'path_service.dart';
+import 'recording/safety_guard.dart';
 import 'review_prompt_service.dart';
 import 'sound_feedback_service.dart';
 import 'paste/paster.dart';
@@ -51,26 +52,12 @@ class RecordingOrchestrator extends Notifier<void> {
 
   StreamSubscription<double>? _amplitudeSub;
 
+  /// Subscription to [SafetyGuard] events for the active recording session.
+  StreamSubscription<SafetyEvent>? _guardSub;
+
   /// Prevents concurrent `startRecording()` calls from racing through
   /// the async preflight.
   bool _startInFlight = false;
-
-  // ── Audio Safety Guard state ──────────────────────────────────────────────
-  /// Amplitude threshold below which we consider the signal "silent".
-  /// Matches the Go implementation: peak < 0.02 ≈ silent.
-  static const _silenceThreshold = 0.02;
-
-  /// Whether speech has been detected at least once during this recording.
-  bool _speechDetected = false;
-
-  /// Consecutive silent samples since last speech (each ~100 ms).
-  int _silentSamples = 0;
-
-  /// Whether the guard already triggered (prevents double-fire).
-  bool _guardFired = false;
-
-  /// Whether the 90% duration warning has been played.
-  bool _durationWarningFired = false;
 
   int _oomAttemptCount = 0;
 
@@ -209,16 +196,33 @@ class RecordingOrchestrator extends Notifier<void> {
 
       // Subscribe to amplitude for level metering + safety guard.
       _cancelAmplitude();
-      _resetGuardState();
-      _amplitudeSub = audioNotifier.amplitudeStream?.listen(
-        (level) {
-          notifier.updateAudioLevel(level);
-          _evaluateGuard(level);
-        },
-        onError: (Object e) {
-          _log.warning('[$sid] Amplitude stream error: $e');
-        },
-      );
+      final rawStream = audioNotifier.amplitudeStream;
+      if (rawStream != null) {
+        // Level-metering subscription (always active).
+        _amplitudeSub = rawStream.listen(
+          (level) => notifier.updateAudioLevel(level),
+          onError: (Object e) {
+            _log.warning('[$sid] Amplitude stream error: $e');
+          },
+        );
+
+        // Safety guard subscription — routes SafetyEvents to handlers.
+        final settings =
+            ref.read(settingsProvider).value ?? AppSettings.defaults;
+        final guardConfig = SafetyGuardConfig(
+          deadMicTimeout: settings.recordingSafety.deadMicTimeout,
+          autoStopSilence: settings.recordingSafety.autoStopSilence,
+          maxDurationSeconds: settings.behavior.maxRecordDuration,
+        );
+        _guardSub = rawStream
+            .transform(SafetyGuard(config: guardConfig))
+            .listen(
+              _routeGuardEvent,
+              onError: (Object e) {
+                _log.warning('[$sid] Safety guard stream error: $e');
+              },
+            );
+      }
     } on Exception catch (e) {
       ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
       ref.read(recordingProvider.notifier).fail('$e');
@@ -794,89 +798,29 @@ class RecordingOrchestrator extends Notifier<void> {
   }
 
   void _cancelAmplitude() {
+    _guardSub?.cancel();
+    _guardSub = null;
     _amplitudeSub?.cancel();
     _amplitudeSub = null;
   }
 
-  // ── Audio Safety Guard ────────────────────────────────────────────────────
+  // ── Safety guard event routing ────────────────────────────────────────────
 
-  void _resetGuardState() {
-    _speechDetected = false;
-    _silentSamples = 0;
-    _guardFired = false;
-    _durationWarningFired = false;
-  }
-
-  /// Called for every amplitude sample (~100 ms). Implements:
-  /// 1. Max recording duration: auto-stop at user-configured limit.
-  /// 2. Dead-mic detection: no audio at all for [deadMicTimeout] → error.
-  /// 3. Auto-stop on silence: speech detected then silence for
-  ///    [autoStopSilence] → auto-transcribe.
-  void _evaluateGuard(double level) {
-    if (_guardFired) return;
-    final recording = ref.read(recordingProvider);
-    if (!recording.isRecording) return;
-
-    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
-
-    // ── Max recording duration ──────────────────────────────────────────
-    final maxDuration = settings.maxRecordDuration;
-    if (maxDuration > 0) {
-      final elapsed = recording.elapsed.inSeconds;
-      if (elapsed >= maxDuration) {
-        _guardFired = true;
-        _log.info('Max recording duration reached (${maxDuration}s)');
-        _handleAutoStop();
-        return;
-      }
-
-      // ── Duration warning at 90% ────────────────────────────────────────
-      if (!_durationWarningFired && elapsed >= (maxDuration * 0.9).round()) {
-        _durationWarningFired = true;
-        _playDurationWarning(settings);
-      }
-    }
-
-    final isSilent = level < _silenceThreshold;
-
-    if (!isSilent) {
-      _speechDetected = true;
-      _silentSamples = 0;
-      return;
-    }
-
-    // Silent sample — increment counter.
-    _silentSamples++;
-
-    // Amplitude stream fires every ~100 ms → 10 samples ≈ 1 second.
-    const samplesPerSecond = 10;
-
-    // ── Dead-mic detection ───────────────────────────────────────────────
-    if (!_speechDetected && settings.deadMicTimeout > 0) {
-      final threshold = (settings.deadMicTimeout * samplesPerSecond).round();
-      if (_silentSamples >= threshold) {
-        _guardFired = true;
-        _log.warning(
-          'Dead-mic guard triggered after ${settings.deadMicTimeout}s',
-        );
-        // Auto-stop with error — runs asynchronously.
+  /// Routes a [SafetyEvent] emitted by [SafetyGuard] to the appropriate handler.
+  void _routeGuardEvent(SafetyEvent event) {
+    switch (event) {
+      case DeadMicTimeoutReached():
+        _log.warning('Dead-mic guard triggered');
         _handleDeadMic();
-        return;
-      }
-    }
-
-    // ── Auto-stop on silence (only after speech detected) ────────────────
-    if (_speechDetected && settings.autoStopSilence > 0) {
-      final threshold = (settings.autoStopSilence * samplesPerSecond).round();
-      if (_silentSamples >= threshold) {
-        _guardFired = true;
-        _log.info(
-          'Auto-stop triggered after ${settings.autoStopSilence}s silence',
-        );
-        // Auto-stop and transcribe — runs asynchronously.
+      case SilenceAutoStop():
+        _log.info('Auto-stop triggered by silence');
         _handleAutoStop();
-        return;
-      }
+      case DurationWarningAt90():
+        _log.info('90% duration warning');
+        _playDurationWarning();
+      case DurationLimitReached():
+        _log.info('Max recording duration reached');
+        _handleAutoStop();
     }
   }
 
@@ -924,8 +868,9 @@ class RecordingOrchestrator extends Notifier<void> {
   }
 
   /// Play duration warning sound (90% of max duration reached).
-  void _playDurationWarning(AppSettings settings) {
-    if (!settings.durationWarningSound) return;
+  void _playDurationWarning() {
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+    if (!settings.sound.durationWarningSound) return;
     try {
       ref.read(soundFeedbackProvider.notifier).playDurationWarning();
     } catch (e) {
