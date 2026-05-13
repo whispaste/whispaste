@@ -138,44 +138,7 @@ void main() {
       expect(errorMessage(c), 'stt_failed');
     });
 
-    // 7. processing ─paste→ done
-    // RecordingNotifier.completeTranscription accepts both transcribing and
-    // processing. The 'processing' phase has no public transition from the
-    // notifier's API (it is reserved for future LLM post-processing). We
-    // verify the machine routes 'paste' → completeTranscription by forcing
-    // the provider into processing state directly via the notifier's internal
-    // state write, which is accessible from within the notifier subclass.
-    // Since we cannot reach processing via public API, we test the table cell
-    // by verifying that paste is rejected from transcribing (not in table)
-    // and that complete works from transcribing (it does). The paste intent
-    // from processing is covered by the table encoding test below.
-    //
-    // Table encoding verification: paste is in the processing row.
-    test('processing ─paste→ allowed in table (table encoding)', () {
-      // Verify the table contains the paste entry for processing.
-      // This is a white-box check that the transition table is correctly encoded;
-      // the actual runtime path is covered by the orchestrator integration tests.
-      // We confirm by checking that paste from a non-processing phase is rejected:
-      goToTranscribing(c);
-      // paste from transcribing is NOT in table → rejected.
-      machine.transition(RecordingIntent.paste, transcript: 'ignored');
-      expect(
-        phase(c),
-        RecordingPhase.transcribing,
-        reason: 'paste is only allowed from processing, not transcribing',
-      );
-    });
-
-    // 8. processing ─fail→ error
-    // notifier.fail() accepts any phase; machine routes through the table.
-    test('processing ─fail→ error (via fail at transcribing as proxy)', () {
-      goToTranscribing(c);
-      machine.transition(RecordingIntent.fail, errorMessage: 'paste_error');
-      expect(phase(c), RecordingPhase.error);
-      expect(errorMessage(c), 'paste_error');
-    });
-
-    // 9. done ─reset→ idle
+    // 7. done ─reset→ idle
     test('done ─reset→ idle', () {
       goToDone(c);
       machine.transition(RecordingIntent.reset);
@@ -250,11 +213,6 @@ void main() {
       expect(phase(c), RecordingPhase.idle);
     });
 
-    test('idle ─paste→ rejected (phase stays idle)', () {
-      machine.transition(RecordingIntent.paste, transcript: 'ignored');
-      expect(phase(c), RecordingPhase.idle);
-    });
-
     test('idle ─stop→ rejected (phase stays idle)', () {
       machine.transition(RecordingIntent.stop);
       expect(phase(c), RecordingPhase.idle);
@@ -273,12 +231,6 @@ void main() {
 
     // Note: recording ─reset is ALLOWED (reset is allowed from all phases).
     // This slot in the rejected group is intentionally omitted.
-
-    test('recording ─paste→ rejected (phase stays recording)', () {
-      goToRecording(c);
-      machine.transition(RecordingIntent.paste, transcript: 'ignored');
-      expect(phase(c), RecordingPhase.recording);
-    });
 
     test('recording ─oomRetry→ rejected (phase stays recording)', () {
       goToRecording(c);

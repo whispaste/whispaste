@@ -110,9 +110,6 @@ void main() {
 
     test('fail transitions any phase → error', () {
       for (final startPhase in RecordingPhase.values) {
-        // processing is unreachable — startProcessing() was removed (LLM cleanup)
-        if (startPhase == RecordingPhase.processing) continue;
-
         final c = ProviderContainer();
 
         try {
@@ -133,9 +130,6 @@ void main() {
               n.completeTranscription('text');
             case RecordingPhase.error:
               n.fail('prior error');
-            // processing: unreachable without startProcessing() — dead code
-            default:
-              break;
           }
           expect(c.read(recordingProvider).phase, startPhase);
 
@@ -151,9 +145,6 @@ void main() {
 
     test('reset returns to idle from any phase', () {
       for (final startPhase in RecordingPhase.values) {
-        // processing is unreachable — startProcessing() was removed (LLM cleanup)
-        if (startPhase == RecordingPhase.processing) continue;
-
         final c = ProviderContainer();
 
         try {
@@ -173,9 +164,6 @@ void main() {
               n.completeTranscription('text');
             case RecordingPhase.error:
               n.fail('err');
-            // processing: unreachable without startProcessing() — dead code
-            default:
-              break;
           }
           expect(c.read(recordingProvider).phase, startPhase);
 
