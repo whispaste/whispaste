@@ -152,4 +152,38 @@ if [ "$violations" -eq 1 ]; then
   exit 1
 fi
 
+# ── L5: Semgrep SAST scan ─────────────────────────────────────────────
+# Runs the community CI rule pack on all source files.
+# Skipped if semgrep is not installed (non-blocking for new machines).
+
+if command -v semgrep >/dev/null 2>&1; then
+  echo ""
+  echo "◆ Semgrep SAST scan..."
+  if ! semgrep \
+    --config p/ci \
+    --error \
+    --quiet \
+    --include="*.ts" --include="*.js" --include="*.mjs" \
+    --include="*.cpp" --include="*.h" \
+    --include="*.go" \
+    --exclude="node_modules" \
+    --exclude="dist" \
+    --exclude="build" \
+    --exclude=".dart_tool" \
+    . 2>&1; then
+    echo ""
+    echo "╔═══════════════════════════════════════════════════════════╗"
+    echo "║  ❌ BLOCKED: Semgrep found security issues               ║"
+    echo "╚═══════════════════════════════════════════════════════════╝"
+    echo ""
+    echo "Fix all findings above before pushing."
+    echo "To bypass (DANGEROUS): git push --no-verify"
+    echo ""
+    exit 1
+  fi
+  echo "  ✓ Semgrep: no findings"
+else
+  echo "  ⚠ Semgrep not available — skipping (install: brew install semgrep)"
+fi
+
 exit 0
