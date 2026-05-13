@@ -21,6 +21,7 @@ import '../core/data/analytics_provider.dart';
 import 'audio_service.dart';
 import 'model_download_service.dart';
 import 'path_service.dart';
+import 'recording/oom_recovery_handler.dart';
 import 'recording/recording_state_machine.dart';
 import 'recording/safety_guard.dart';
 import 'review_prompt_service.dart';
@@ -49,7 +50,6 @@ import 'transcription/transcriber.dart';
 /// reacts automatically. Errors are caught and surfaced via the error phase.
 class RecordingOrchestrator extends Notifier<void> {
   static final _log = AppLogger('RecordingOrchestrator');
-  static const _maxOomRecoveryAttempts = 3;
 
   StreamSubscription<double>? _amplitudeSub;
 
@@ -64,9 +64,14 @@ class RecordingOrchestrator extends Notifier<void> {
   /// the async preflight.
   bool _startInFlight = false;
 
-  int _oomAttemptCount = 0;
+  /// Handles OOM retry policy and model-fallback decisions.
+  ///
+  /// Initialized lazily in [build] so that [ref] is available for the
+  /// callbacks that read settings and downloaded-model state.
+  late OomRecoveryHandler _oomHandler;
 
-  int get oomAttemptCount => _oomAttemptCount;
+  /// Exposed for diagnostics/logging only.
+  int get oomAttemptCount => _oomHandler.attemptCount;
 
   @override
   void build() {
@@ -77,6 +82,18 @@ class RecordingOrchestrator extends Notifier<void> {
     _stateMachine = RecordingStateMachine(
       phaseReader: () => ref.read(recordingProvider).phase,
       notifier: ref.read(recordingProvider.notifier),
+    );
+
+    // Initialise OOM recovery handler with injectable callbacks so the policy
+    // is fully testable without a live Riverpod container.
+    _oomHandler = OomRecoveryHandler(
+      maxRetries: 3,
+      nextModelIdForCurrent: _nextAvailableFallbackModelId,
+      hasCloudConfigured: () {
+        final settings =
+            ref.read(settingsProvider).value ?? AppSettings.defaults;
+        return _preferredCloudProvider(settings) != null;
+      },
     );
 
     // Pre-warm the STT server in the background so the first recording
@@ -554,7 +571,7 @@ class RecordingOrchestrator extends Notifier<void> {
       _stateMachine.transition(RecordingIntent.complete, transcript: finalText);
       ref.read(localSttBundleProvider.notifier).notifyTranscriptionCompleted();
       unawaited(ref.read(reviewPromptProvider.notifier).checkAndMaybePrompt());
-      _oomAttemptCount = 0;
+      _oomHandler.reset();
       pipelineOutcome = 'ok';
     } on Exception catch (e) {
       pipelineOutcome = 'exception';
@@ -609,7 +626,6 @@ class RecordingOrchestrator extends Notifier<void> {
             sttModel: modelId,
           ),
         );
-    _oomAttemptCount += 1;
     ref.read(oomRecoveryPendingProvider.notifier).clear();
     ref.read(localSttBundleProvider.notifier).stop();
     return true;
@@ -626,7 +642,7 @@ class RecordingOrchestrator extends Notifier<void> {
         cloudSttProvider: _cloudProviderValue(provider),
       );
     });
-    _oomAttemptCount = 0;
+    _oomHandler.reset();
     ref.read(oomRecoveryPendingProvider.notifier).clear();
     ref.read(localSttBundleProvider.notifier).stop();
     return provider;
@@ -677,15 +693,25 @@ class RecordingOrchestrator extends Notifier<void> {
     final sid = ref.read(recordingProvider).sessionId ?? '?';
     final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
     final currentModelId = settings.effectiveModelId;
-    final nextModelId = _nextAvailableFallbackModelId(currentModelId);
-    final hasCloudConfigured = _preferredCloudProvider(settings) != null;
-    final isPermanentFail =
-        nextModelId == null || _oomAttemptCount >= _maxOomRecoveryAttempts;
+
+    final decision = _oomHandler.attemptRecovery(
+      currentModelId: currentModelId,
+    );
+
+    final (
+      nextModelId,
+      hasCloudConfigured,
+      isPermanentFail,
+    ) = switch (decision) {
+      TryNextModel(:final nextModelId) => (nextModelId, false, false),
+      SwitchToConfiguredCloud() => (null, true, true),
+      GiveUp() => (null, false, true),
+    };
 
     ref
         .read(oomRecoveryPendingProvider.notifier)
         .showPending(
-          nextModelId: isPermanentFail ? null : nextModelId,
+          nextModelId: nextModelId,
           hasCloudConfigured: hasCloudConfigured,
           isPermanentFail: isPermanentFail,
         );
@@ -697,9 +723,7 @@ class RecordingOrchestrator extends Notifier<void> {
 
     _log.warning(
       '[$sid] CUDA OOM detected for model=$currentModelId '
-      'attempts=$_oomAttemptCount/$_maxOomRecoveryAttempts '
-      'nextModel=${isPermanentFail ? "none" : nextModelId} '
-      'hasCloud=$hasCloudConfigured permanent=$isPermanentFail',
+      'attempts=${_oomHandler.attemptCount} decision=$decision',
     );
   }
 
