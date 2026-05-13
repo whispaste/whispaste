@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Press. Speak. Done.</strong><br>
-  Dictate short texts, notes & ideas — pasted right where your cursor is, in any app.<br>
+  Speak, and the text appears — wherever your cursor sits, in any app.<br>
   Cloud or fully offline. Free & open source.
 </p>
 
