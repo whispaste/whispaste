@@ -12,7 +12,6 @@ void main() {
       RecordingPhase.idle => FloatingButtonVisualState.idle,
       RecordingPhase.recording => FloatingButtonVisualState.recording,
       RecordingPhase.transcribing => FloatingButtonVisualState.transcribing,
-      RecordingPhase.processing => FloatingButtonVisualState.transcribing,
       RecordingPhase.done => FloatingButtonVisualState.done,
       RecordingPhase.error => FloatingButtonVisualState.error,
     };
@@ -31,13 +30,6 @@ void main() {
     test('transcribing maps to transcribing', () {
       expect(
         mapPhase(RecordingPhase.transcribing),
-        FloatingButtonVisualState.transcribing,
-      );
-    });
-
-    test('processing also maps to transcribing (same visual)', () {
-      expect(
-        mapPhase(RecordingPhase.processing),
         FloatingButtonVisualState.transcribing,
       );
     });

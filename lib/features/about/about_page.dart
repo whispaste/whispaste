@@ -178,12 +178,6 @@ class AboutPage extends ConsumerWidget {
             isDark: isDark,
           ),
           _BuiltWithRow(
-            icon: LucideIcons.brain,
-            title: l10n.aboutLlamaCpp,
-            description: l10n.aboutLlamaCppDesc,
-            isDark: isDark,
-          ),
-          _BuiltWithRow(
             icon: LucideIcons.shield,
             title: l10n.aboutPrivacyFirst,
             description: l10n.aboutPrivacyFirstDesc,

@@ -1852,7 +1852,7 @@ abstract class L10n {
   /// No description provided for @aboutFlutterGoDesc.
   ///
   /// In en, this message translates to:
-  /// **'Cross-platform UI with Flutter. Local AI inference via whisper.cpp and llama.cpp.'**
+  /// **'Cross-platform UI with Flutter. Local speech recognition via whisper.cpp.'**
   String get aboutFlutterGoDesc;
 
   /// No description provided for @aboutWhisper.
@@ -1867,18 +1867,6 @@ abstract class L10n {
   /// **'Local and cloud speech recognition — fast, accurate, multilingual.'**
   String get aboutWhisperDesc;
 
-  /// No description provided for @aboutLlamaCpp.
-  ///
-  /// In en, this message translates to:
-  /// **'llama.cpp'**
-  String get aboutLlamaCpp;
-
-  /// No description provided for @aboutLlamaCppDesc.
-  ///
-  /// In en, this message translates to:
-  /// **'Local LLM inference for AI post-processing without cloud dependency.'**
-  String get aboutLlamaCppDesc;
-
   /// No description provided for @aboutPrivacyFirst.
   ///
   /// In en, this message translates to:
@@ -1888,7 +1876,7 @@ abstract class L10n {
   /// No description provided for @aboutPrivacyFirstDesc.
   ///
   /// In en, this message translates to:
-  /// **'Local AI inference by default — your voice never leaves your device unless you choose a cloud provider.'**
+  /// **'Local speech recognition by default — your voice never leaves your device unless you choose a cloud provider.'**
   String get aboutPrivacyFirstDesc;
 
   /// No description provided for @aboutPrivacy.
@@ -1906,7 +1894,7 @@ abstract class L10n {
   /// No description provided for @aboutPrivacyCloud.
   ///
   /// In en, this message translates to:
-  /// **'Cloud providers (OpenAI, Deepgram, Anthropic, Gemini) only receive audio or text when you actively use them. Their privacy policies apply.'**
+  /// **'Cloud providers (OpenAI, Deepgram) only receive audio when you actively use them. Their privacy policies apply.'**
   String get aboutPrivacyCloud;
 
   /// No description provided for @aboutPrivacyNoTracking.
@@ -2062,7 +2050,7 @@ abstract class L10n {
   /// No description provided for @feedbackPlaceholderAi.
   ///
   /// In en, this message translates to:
-  /// **'How was the transcription or post-processing quality?'**
+  /// **'How was the transcription quality?'**
   String get feedbackPlaceholderAi;
 
   /// No description provided for @feedbackPlaceholderGeneral.
@@ -2238,12 +2226,6 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Transcribing…'**
   String get statusBarTranscribing;
-
-  /// No description provided for @statusBarProcessing.
-  ///
-  /// In en, this message translates to:
-  /// **'Processing…'**
-  String get statusBarProcessing;
 
   /// No description provided for @statusBarDone.
   ///

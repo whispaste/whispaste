@@ -24,7 +24,6 @@ FloatingButtonVisualState _mapPhase(RecordingPhase phase) => switch (phase) {
   RecordingPhase.idle => FloatingButtonVisualState.idle,
   RecordingPhase.recording => FloatingButtonVisualState.recording,
   RecordingPhase.transcribing => FloatingButtonVisualState.transcribing,
-  RecordingPhase.processing => FloatingButtonVisualState.transcribing,
   RecordingPhase.done => FloatingButtonVisualState.done,
   RecordingPhase.error => FloatingButtonVisualState.error,
 };

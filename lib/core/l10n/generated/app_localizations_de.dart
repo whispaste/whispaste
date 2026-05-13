@@ -971,7 +971,7 @@ class L10nDe extends L10n {
 
   @override
   String get aboutFlutterGoDesc =>
-      'Plattformübergreifende UI mit Flutter. Lokale KI-Inferenz über whisper.cpp und llama.cpp.';
+      'Plattformübergreifende UI mit Flutter. Lokale Spracherkennung über whisper.cpp.';
 
   @override
   String get aboutWhisper => 'whisper.cpp & OpenAI Whisper';
@@ -981,18 +981,11 @@ class L10nDe extends L10n {
       'Lokale und Cloud-Spracherkennung — schnell, genau, mehrsprachig.';
 
   @override
-  String get aboutLlamaCpp => 'llama.cpp';
-
-  @override
-  String get aboutLlamaCppDesc =>
-      'Lokale LLM-Inferenz für KI-Nachbearbeitung ohne Cloud-Abhängigkeit.';
-
-  @override
   String get aboutPrivacyFirst => 'Privatsphäre zuerst';
 
   @override
   String get aboutPrivacyFirstDesc =>
-      'Lokale KI-Inferenz standardmäßig — deine Stimme verlässt dein Gerät nie, es sei denn, du wählst einen Cloud-Anbieter.';
+      'Standardmäßig lokale Spracherkennung — deine Stimme verlässt dein Gerät nie, es sei denn, du wählst einen Cloud-Anbieter.';
 
   @override
   String get aboutPrivacy => 'Datenschutz & Daten';
@@ -1003,7 +996,7 @@ class L10nDe extends L10n {
 
   @override
   String get aboutPrivacyCloud =>
-      'Cloud-Anbieter (OpenAI, Deepgram, Anthropic, Gemini) erhalten nur Audio oder Text, wenn du sie aktiv nutzt. Deren Datenschutzrichtlinien gelten.';
+      'Cloud-Anbieter (OpenAI, Deepgram) erhalten nur Audio, wenn du sie aktiv nutzt. Deren Datenschutzrichtlinien gelten.';
 
   @override
   String get aboutPrivacyNoTracking =>
@@ -1086,8 +1079,7 @@ class L10nDe extends L10n {
       'Was würdest du dir in WhisPaste wünschen?';
 
   @override
-  String get feedbackPlaceholderAi =>
-      'Wie war die Transkriptions- oder Nachbearbeitungsqualität?';
+  String get feedbackPlaceholderAi => 'Wie war die Transkriptionsqualität?';
 
   @override
   String get feedbackPlaceholderGeneral => 'Teile deine Gedanken…';
@@ -1180,9 +1172,6 @@ class L10nDe extends L10n {
 
   @override
   String get statusBarTranscribing => 'Transkribieren…';
-
-  @override
-  String get statusBarProcessing => 'Verarbeiten…';
 
   @override
   String get statusBarDone => 'Fertig';
