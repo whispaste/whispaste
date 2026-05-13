@@ -15,6 +15,7 @@ import '../core/config/settings_labels.dart';
 import '../core/l10n/generated/app_localizations.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
+import '../services/hotkey_conflicts.dart';
 import 'dialog.dart';
 
 // ---------------------------------------------------------------------------
@@ -207,6 +208,9 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
   /// (F1–F12 or selected media keys) pressed without any modifier.
   bool _isSingleKey = false;
 
+  /// Non-null when the current combo matches a known system-reserved shortcut.
+  ConflictEntry? _conflict;
+
   final FocusNode _focusNode = FocusNode();
 
   @override
@@ -219,6 +223,8 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
     // When the dialog opens with a pre-existing whitelisted single-key binding
     // (no modifiers), mark it so the Save button is enabled immediately.
     _isSingleKey = _modifierLabels.isEmpty && _isWhitelistedLabel(_keyLabel);
+    // Check initial combo against the system conflict list.
+    _conflict = findConflict(widget.initialModifiers, _keyLabel);
   }
 
   /// Returns true when [label] matches a key in [singleKeyWhitelist].
@@ -249,13 +255,16 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
           singleKeyWhitelist.contains(key)) {
         // Accept: at least one modifier held, OR key is on the whitelist
         // (F1–F12, media keys) which are safe to bind without a modifier.
+        final serializedMods = HotkeyRecorderDialog.serializeModifiers(
+          _heldModifiers,
+        );
+        final keyLbl = HotkeyRecorderDialog.keyLabel(key);
         setState(() {
-          _modifierLabels = HotkeyRecorderDialog.parseModifiers(
-            HotkeyRecorderDialog.serializeModifiers(_heldModifiers),
-          );
-          _keyLabel = HotkeyRecorderDialog.keyLabel(key);
+          _modifierLabels = HotkeyRecorderDialog.parseModifiers(serializedMods);
+          _keyLabel = keyLbl;
           _isSingleKey =
               _heldModifiers.isEmpty && singleKeyWhitelist.contains(key);
+          _conflict = findConflict(serializedMods, keyLbl);
         });
       }
     } else if (event is KeyUpEvent) {
@@ -268,6 +277,7 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
       _modifierLabels = [];
       _keyLabel = '';
       _isSingleKey = false;
+      _conflict = null;
       _heldModifiers.clear();
     });
   }
@@ -378,6 +388,15 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
                     ),
                   ),
                   const SizedBox(height: WpSpacing.md),
+
+                  // ── Conflict warning ─────────────────────────────
+                  if (_conflict != null)
+                    _ConflictWarning(
+                      conflict: _conflict!,
+                      isDark: isDark,
+                      l10n: l10n,
+                    ),
+                  if (_conflict != null) const SizedBox(height: WpSpacing.md),
 
                   // ── Action buttons ──────────────────────────────
                   Row(
@@ -563,6 +582,74 @@ class _PlusSeparator extends StatelessWidget {
           fontWeight: FontWeight.w600,
           color: isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
         ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Conflict warning banner
+// ---------------------------------------------------------------------------
+
+/// Visible warning shown when the recorded hotkey is a known system shortcut.
+///
+/// Non-blocking: the Save button remains enabled. The user retains full
+/// control over whether to accept the potential conflict.
+class _ConflictWarning extends StatelessWidget {
+  const _ConflictWarning({
+    required this.conflict,
+    required this.isDark,
+    required this.l10n,
+  });
+
+  final ConflictEntry conflict;
+  final bool isDark;
+  final L10n l10n;
+
+  static String _platformName() {
+    if (Platform.isMacOS) return 'macOS';
+    if (Platform.isWindows) return 'Windows';
+    if (Platform.isLinux) return 'Linux';
+    return 'OS';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final warningColor = isDark ? WpColorsDark.warning : WpColorsLight.warning;
+    final warningBg = warningColor.withValues(alpha: isDark ? 0.12 : 0.10);
+    final warningBorder = warningColor.withValues(alpha: isDark ? 0.35 : 0.30);
+
+    return Container(
+      key: const Key('hotkeyConflictWarning'),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: WpSpacing.sm,
+        vertical: WpSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: warningBg,
+        borderRadius: BorderRadius.circular(WpRadius.sm),
+        border: Border.all(color: warningBorder),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            LucideIcons.triangleAlert,
+            size: WpIconSize.sm,
+            color: warningColor,
+          ),
+          const SizedBox(width: WpSpacing.xs),
+          Expanded(
+            child: Text(
+              l10n.hotkeyConflictWarning(
+                _platformName(),
+                conflict.note.isNotEmpty ? conflict.note : conflict.key,
+              ),
+              style: TextStyle(color: warningColor, fontSize: 11, height: 1.4),
+            ),
+          ),
+        ],
       ),
     );
   }

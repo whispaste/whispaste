@@ -2327,4 +2327,9 @@ class L10nEn extends L10n {
   @override
   String get hotkeyRegistrationFailedDefaultActive =>
       'Hotkey registration failed — using Ctrl+Shift+Space as fallback. Please re-bind in Settings.';
+
+  @override
+  String hotkeyConflictWarning(String platform, String note) {
+    return 'This shortcut is reserved by $platform ($note) and may not work.';
+  }
 }
