@@ -216,11 +216,11 @@ class _RecordingBehaviorState extends ConsumerState<RecordingBehaviorWidget> {
               duration: const Duration(seconds: 4),
             );
           } else {
-            _openSettings(pending.hasCloudConfigured ? 'stt' : 'cloud');
+            _openSettings('stt');
           }
           break;
         case OomRecoveryChoice.openSettings:
-          _openSettings(pending.hasCloudConfigured ? 'stt' : 'cloud');
+          _openSettings('stt');
           break;
         case OomRecoveryChoice.cancel:
           break;

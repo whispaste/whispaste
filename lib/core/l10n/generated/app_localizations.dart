@@ -1039,53 +1039,17 @@ abstract class L10n {
   /// **'Speech Recognition Models'**
   String get settingsSttModels;
 
-  /// No description provided for @settingsCloudProviders.
-  ///
-  /// In en, this message translates to:
-  /// **'Cloud Providers'**
-  String get settingsCloudProviders;
-
-  /// No description provided for @settingsCloudProvidersSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'API keys for online services'**
-  String get settingsCloudProvidersSubtitle;
-
   /// No description provided for @settingsOpenAiApiKey.
   ///
   /// In en, this message translates to:
   /// **'OpenAI API Key'**
   String get settingsOpenAiApiKey;
 
-  /// No description provided for @settingsOpenAiFreeHint.
-  ///
-  /// In en, this message translates to:
-  /// **'Get an API key → platform.openai.com/api-keys'**
-  String get settingsOpenAiFreeHint;
-
-  /// No description provided for @settingsOpenAiFreeHintUrl.
-  ///
-  /// In en, this message translates to:
-  /// **'https://platform.openai.com/api-keys'**
-  String get settingsOpenAiFreeHintUrl;
-
   /// No description provided for @settingsDeepgramApiKey.
   ///
   /// In en, this message translates to:
   /// **'Deepgram API Key'**
   String get settingsDeepgramApiKey;
-
-  /// No description provided for @settingsDeepgramFreeHint.
-  ///
-  /// In en, this message translates to:
-  /// **'\$200 free credit, no credit card → console.deepgram.com'**
-  String get settingsDeepgramFreeHint;
-
-  /// No description provided for @settingsDeepgramFreeHintUrl.
-  ///
-  /// In en, this message translates to:
-  /// **'https://console.deepgram.com'**
-  String get settingsDeepgramFreeHintUrl;
 
   /// No description provided for @settingsAdvanced.
   ///
@@ -3348,18 +3312,6 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Clear'**
   String get settingsHotkeyRecorderClear;
-
-  /// No description provided for @settingsDefaultSttProvider.
-  ///
-  /// In en, this message translates to:
-  /// **'Default Cloud STT'**
-  String get settingsDefaultSttProvider;
-
-  /// No description provided for @settingsDefaultSttProviderSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Cloud speech recognition service'**
-  String get settingsDefaultSttProviderSubtitle;
 
   /// No description provided for @settingsMaxRecordDuration.
   ///

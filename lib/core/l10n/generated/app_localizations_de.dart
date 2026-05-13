@@ -524,32 +524,10 @@ class L10nDe extends L10n {
   String get settingsSttModels => 'Spracherkennungs-Modelle';
 
   @override
-  String get settingsCloudProviders => 'Cloud-Anbieter';
-
-  @override
-  String get settingsCloudProvidersSubtitle =>
-      'API-Schlüssel für Online-Dienste';
-
-  @override
   String get settingsOpenAiApiKey => 'OpenAI API-Schlüssel';
 
   @override
-  String get settingsOpenAiFreeHint =>
-      'API-Key holen → platform.openai.com/api-keys';
-
-  @override
-  String get settingsOpenAiFreeHintUrl =>
-      'https://platform.openai.com/api-keys';
-
-  @override
   String get settingsDeepgramApiKey => 'Deepgram API-Schlüssel';
-
-  @override
-  String get settingsDeepgramFreeHint =>
-      '\$200 Startguthaben ohne Kreditkarte → console.deepgram.com';
-
-  @override
-  String get settingsDeepgramFreeHintUrl => 'https://console.deepgram.com';
 
   @override
   String get settingsAdvanced => 'Erweitert';
@@ -1843,13 +1821,6 @@ class L10nDe extends L10n {
 
   @override
   String get settingsHotkeyRecorderClear => 'Zurücksetzen';
-
-  @override
-  String get settingsDefaultSttProvider => 'Standard Cloud-STT';
-
-  @override
-  String get settingsDefaultSttProviderSubtitle =>
-      'Cloud-Spracherkennungsdienst';
 
   @override
   String get settingsMaxRecordDuration => 'Maximale Aufnahmedauer';
