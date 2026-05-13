@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
+import 'package:whispaste/services/hotkey_conflicts.dart';
 import 'package:whispaste/widgets/hotkey_recorder.dart';
 
 import '../fixtures/test_helpers.dart';
@@ -233,5 +234,128 @@ void main() {
         expect(saveButton.onPressed, isNotNull);
       },
     );
+
+    // ── Conflict warning ────────────────────────────────────────────────
+
+    testWidgets('conflict warning is NOT shown when no conflict exists', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        makeTestable(
+          const HotkeyRecorderDialog(
+            // ctrl+shift+D is not a known system conflict on any platform.
+            initialKey: 'D',
+            initialModifiers: 'ctrl+shift',
+          ),
+          size: const Size(800, 600),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byKey(const Key('hotkeyConflictWarning')), findsNothing);
+    });
+
+    testWidgets(
+      'conflict warning is shown for a known system shortcut via findConflict',
+      (tester) async {
+        // Use findConflict with a known fixture to verify widget-level display.
+        // We build a dialog whose initial combo is set to a combo that IS in
+        // the fixture list, then verify the warning container appears.
+        //
+        // On any platform, we pick a combo that matches the *platform* list.
+        // Since the test runner may be macOS, Windows, or Linux, we pick
+        // meta+L which is a conflict on ALL three lists.
+        final platformList = platformConflicts;
+        final hasMetaL = platformList.any(
+          (e) => e.modifiers == 'meta' && e.key == 'L',
+        );
+
+        if (!hasMetaL) {
+          // Guard: only assert when the platform actually has this conflict.
+          return;
+        }
+
+        await tester.pumpWidget(
+          makeTestable(
+            const HotkeyRecorderDialog(
+              initialKey: 'L',
+              initialModifiers: 'meta',
+            ),
+            size: const Size(800, 600),
+          ),
+        );
+        await tester.pump();
+
+        expect(
+          find.byKey(const Key('hotkeyConflictWarning')),
+          findsOneWidget,
+          reason:
+              'Warning container must be visible for a known system conflict',
+        );
+      },
+    );
+
+    testWidgets('save button remains enabled when conflict warning is shown', (
+      tester,
+    ) async {
+      final platformList = platformConflicts;
+      final hasMetaL = platformList.any(
+        (e) => e.modifiers == 'meta' && e.key == 'L',
+      );
+
+      if (!hasMetaL) return;
+
+      await tester.pumpWidget(
+        makeTestable(
+          const HotkeyRecorderDialog(initialKey: 'L', initialModifiers: 'meta'),
+          size: const Size(800, 600),
+        ),
+      );
+      await tester.pump();
+
+      final context = tester.element(find.byType(HotkeyRecorderDialog));
+      final l10n = L10n.of(context);
+
+      final saveButton = tester.widget<ElevatedButton>(
+        find.widgetWithText(ElevatedButton, l10n.settingsHotkeyRecorderSave),
+      );
+      expect(
+        saveButton.onPressed,
+        isNotNull,
+        reason: 'Save must remain enabled even when a conflict warning shows',
+      );
+    });
+
+    testWidgets('conflict warning disappears after clear is pressed', (
+      tester,
+    ) async {
+      final platformList = platformConflicts;
+      final hasMetaL = platformList.any(
+        (e) => e.modifiers == 'meta' && e.key == 'L',
+      );
+
+      if (!hasMetaL) return;
+
+      await tester.pumpWidget(
+        makeTestable(
+          const HotkeyRecorderDialog(initialKey: 'L', initialModifiers: 'meta'),
+          size: const Size(800, 600),
+        ),
+      );
+      await tester.pump();
+
+      // Verify warning is visible first.
+      expect(find.byKey(const Key('hotkeyConflictWarning')), findsOneWidget);
+
+      final context = tester.element(find.byType(HotkeyRecorderDialog));
+      final l10n = L10n.of(context);
+
+      // Tap Clear.
+      await tester.tap(find.text(l10n.settingsHotkeyRecorderClear));
+      await tester.pump();
+
+      // Warning must be gone after clearing.
+      expect(find.byKey(const Key('hotkeyConflictWarning')), findsNothing);
+    });
   });
 }
