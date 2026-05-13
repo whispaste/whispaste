@@ -16,8 +16,6 @@
 /// recording     ─fail→         error
 /// transcribing  ─complete→     done
 /// transcribing  ─fail→         error
-/// processing    ─paste→        done
-/// processing    ─fail→         error
 /// done          ─reset→        idle
 /// error         ─reset→        idle
 /// error         ─oomRetry→     recording
@@ -47,11 +45,8 @@ enum RecordingIntent {
   /// A pipeline step has failed: any → error.
   fail,
 
-  /// Transcription completed: transcribing → done (or processing → done).
+  /// Transcription completed: transcribing → done.
   complete,
-
-  /// Paste/after-transcription action completed: processing → done.
-  paste,
 
   /// Reset to idle from done or error: done/error → idle.
   reset,
@@ -111,11 +106,6 @@ class RecordingStateMachine {
           RecordingIntent.fail: _TransitionAction.fail,
           RecordingIntent.reset: _TransitionAction.reset,
         },
-        RecordingPhase.processing: {
-          RecordingIntent.paste: _TransitionAction.completeTranscription,
-          RecordingIntent.fail: _TransitionAction.fail,
-          RecordingIntent.reset: _TransitionAction.reset,
-        },
         RecordingPhase.done: {RecordingIntent.reset: _TransitionAction.reset},
         RecordingPhase.error: {
           RecordingIntent.reset: _TransitionAction.reset,
@@ -128,8 +118,8 @@ class RecordingStateMachine {
   /// Attempts to transition the state machine via [intent].
   ///
   /// [transcript] is forwarded to the notifier only when [intent] is
-  /// [RecordingIntent.complete] or [RecordingIntent.paste].
-  /// [errorMessage] is forwarded only when [intent] is [RecordingIntent.fail].
+  /// [RecordingIntent.complete]. [errorMessage] is forwarded only when
+  /// [intent] is [RecordingIntent.fail].
   ///
   /// Rejected transitions (phase/intent pair not in the table) emit a Sentry
   /// breadcrumb at `level: warning` and return without mutating state.

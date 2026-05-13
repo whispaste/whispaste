@@ -48,8 +48,7 @@ class _WpRecordingIndicatorBarState extends State<WpRecordingIndicatorBar>
 
   void _syncPulse() {
     if (widget.phase == RecordingPhase.recording ||
-        widget.phase == RecordingPhase.transcribing ||
-        widget.phase == RecordingPhase.processing) {
+        widget.phase == RecordingPhase.transcribing) {
       _pulse.repeat(reverse: true);
     } else {
       _pulse.stop();
@@ -67,8 +66,7 @@ class _WpRecordingIndicatorBarState extends State<WpRecordingIndicatorBar>
   Widget build(BuildContext context) {
     final isActive =
         widget.phase == RecordingPhase.recording ||
-        widget.phase == RecordingPhase.transcribing ||
-        widget.phase == RecordingPhase.processing;
+        widget.phase == RecordingPhase.transcribing;
 
     final color = widget.phase == RecordingPhase.recording
         ? const Color(0xFFEF4444)
