@@ -1,0 +1,35 @@
+# clang-tidy configuration for WhisPaste Windows runner (C++17).
+# Mirrors the CodeQL cpp/security-and-quality checks run on GitHub.
+# Run in CI on Windows; on macOS use cppcheck instead (cross-platform).
+#
+# Usage (Windows, after cmake --build with compile_commands.json):
+#   clang-tidy windows/runner/*.cpp --
+#   Or via scripts/ci/clang-tidy.ps1
+
+Checks: >
+  readability-identifier-length,
+  readability-else-after-return,
+  readability-implicit-bool-conversion,
+  readability-redundant-control-flow,
+  bugprone-unused-return-value,
+  bugprone-macro-parentheses,
+  cppcoreguidelines-avoid-non-const-global-variables,
+  cert-dcl03-c,
+  misc-unused-parameters,
+  -modernize-use-trailing-return-type,
+  -readability-magic-numbers,
+  -cppcoreguidelines-avoid-magic-numbers
+
+CheckOptions:
+  - key: readability-identifier-length.MinimumVariableNameLength
+    value: "3"
+  - key: readability-identifier-length.MinimumParameterNameLength
+    value: "3"
+  # Allow common short loop/math names
+  - key: readability-identifier-length.IgnoredVariableNames
+    value: "^[ijkxyzwh]$|^id$|^ok$|^pt$|^hr$|^dc$"
+  - key: readability-identifier-length.IgnoredParameterNames
+    value: "^[ijkxyzwh]$|^id$|^ok$|^pt$|^hr$|^dc$"
+
+HeaderFilterRegex: "windows/runner/.*\\.h"
+WarningsAsErrors: ""
