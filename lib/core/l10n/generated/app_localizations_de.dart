@@ -2348,4 +2348,9 @@ class L10nDe extends L10n {
   @override
   String get hotkeyRegistrationFailedDefaultActive =>
       'Hotkey-Registrierung fehlgeschlagen – Strg+Umschalt+Leertaste wird als Fallback verwendet. Bitte in den Einstellungen neu belegen.';
+
+  @override
+  String hotkeyConflictWarning(String platform, String note) {
+    return 'Diese Tastenkombination ist von $platform reserviert ($note) und funktioniert möglicherweise nicht.';
+  }
 }
