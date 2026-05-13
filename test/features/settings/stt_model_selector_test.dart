@@ -28,6 +28,42 @@ class _FakeDownloadNotifier extends ModelDownloadNotifier {
   ModelDownloadState build() => _initial;
 }
 
+/// Controllable fake that records [downloadModel] calls and simulates
+/// the start-then-cancel lifecycle without network I/O.
+class _ControllableDownloadNotifier extends ModelDownloadNotifier {
+  _ControllableDownloadNotifier(this._initial);
+
+  final ModelDownloadState _initial;
+
+  /// IDs passed to [downloadModel] since the notifier was created.
+  final List<String> downloadModelCalls = [];
+
+  @override
+  ModelDownloadState build() => _initial;
+
+  /// Records the call and immediately sets [activeModelId] to simulate a
+  /// download starting (but does NOT complete or call settingsProvider).
+  @override
+  Future<void> downloadModel(String modelId) async {
+    downloadModelCalls.add(modelId);
+    state = state.copyWith(
+      activeModelId: modelId,
+      phase: DownloadPhase.downloading,
+      progressPercent: 0,
+    );
+  }
+
+  /// Resets to idle, mirroring the real [cancelDownload] behaviour.
+  @override
+  void cancelDownload() {
+    state = state.copyWith(
+      phase: DownloadPhase.idle,
+      activeModelId: null,
+      progressPercent: 0,
+    );
+  }
+}
+
 class _FakeSttNotifier extends SttServerStateNotifier {
   @override
   SttStatus build() => const SttStatus(serverState: SttServerState.stopped);
@@ -163,5 +199,85 @@ void main() {
 
       expect(find.text(errorMsg), findsOneWidget);
     });
+
+    // -------------------------------------------------------------------------
+    // AC4 regression: cancelled download must NOT trigger onModelSelected
+    // -------------------------------------------------------------------------
+
+    testWidgets(
+      'AC4: tapping undownloaded tier card starts download but does NOT call '
+      'onModelSelected; cancelling the download also does NOT call '
+      'onModelSelected (settings remain unchanged)',
+      (tester) async {
+        // Track every onModelSelected invocation.
+        final selectedIds = <String>[];
+
+        // Initial state: no model is downloaded → tapping triggers downloadModel.
+        const initialState = ModelDownloadState(downloadedModels: {});
+
+        late _ControllableDownloadNotifier capturedNotifier;
+
+        final widget = ProviderScope(
+          overrides: [
+            modelDownloadProvider.overrideWith(() {
+              capturedNotifier = _ControllableDownloadNotifier(initialState);
+              return capturedNotifier;
+            }),
+            localSttBundleProvider.overrideWith(() => _FakeSttNotifier()),
+            hw.gpuInfoProvider.overrideWith(
+              (ref) async =>
+                  const hw.GpuInfo(vendor: hw.GpuVendor.none, name: 'Test'),
+            ),
+          ],
+          child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: wpDarkTheme(),
+            localizationsDelegates: L10n.localizationsDelegates,
+            supportedLocales: L10n.supportedLocales,
+            home: Scaffold(
+              body: SttModelSelector(
+                currentModelId: null, // no model selected yet
+                onModelSelected: selectedIds.add,
+              ),
+            ),
+          ),
+        );
+
+        await tester.pumpWidget(widget);
+        await tester.pumpAndSettle();
+
+        // --- Step 1: Tap the Compact tier card (not downloaded) ---
+        await tester.tap(find.text('Quick & Compact'));
+        await tester.pump();
+
+        // downloadModel was called — download started.
+        expect(capturedNotifier.downloadModelCalls, [
+          bestModelForTier(QualityTier.compact).id,
+        ]);
+
+        // onModelSelected must NOT have been called yet.
+        expect(
+          selectedIds,
+          isEmpty,
+          reason: 'settings must not be written when download only starts',
+        );
+
+        // --- Step 2: Cancel the download ---
+        capturedNotifier.cancelDownload();
+        await tester.pump();
+
+        // Phase is back to idle.
+        expect(capturedNotifier.state.phase, DownloadPhase.idle);
+
+        // onModelSelected must still NOT have been called after cancellation.
+        expect(
+          selectedIds,
+          isEmpty,
+          reason:
+              'settings must remain unchanged when download is cancelled '
+              '(AC4 regression)',
+        );
+      },
+    );
   });
 }
