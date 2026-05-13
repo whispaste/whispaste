@@ -6,7 +6,7 @@ let currentSlide = 0;
 const totalSlides = 3;
 const SLIDE_DURATIONS = [5000, 5000, 8000];
 let carouselTimer: ReturnType<typeof setTimeout>;
-let reducedMotion = window.matchMedia(
+const reducedMotion = window.matchMedia(
   "(prefers-reduced-motion: reduce)",
 ).matches;
 

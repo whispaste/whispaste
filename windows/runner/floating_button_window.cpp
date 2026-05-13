@@ -463,11 +463,7 @@ void FloatingButtonWindow::Render() {
   float cy = outer / 2.0f;
   float body_r = static_cast<float>(logical_size_ / 2.0 * dpi);
 
-  // Transition progress [0,1].
   DWORD now = GetTickCount();
-  float tProg = 1.0f;
-  if (now - transition_start_ < kTransitionMs)
-    tProg = EaseOut(static_cast<float>(now - transition_start_) / kTransitionMs);
 
   // ── Create 32-bit ARGB DIB section ──────────────────────────────────
   BITMAPINFO bmi = {};
@@ -522,12 +518,9 @@ void FloatingButtonWindow::Render() {
   if (!mem) { ReleaseDC(nullptr, screen); DeleteObject(dib); return; }
   HBITMAP old_bmp = static_cast<HBITMAP>(SelectObject(mem, dib));
 
-  POINT dst = {};
-  {
-    RECT rc;
-    GetWindowRect(hwnd_, &rc);
-    dst = {rc.left, rc.top};
-  }
+  RECT rc;
+  GetWindowRect(hwnd_, &rc);
+  POINT dst = {rc.left, rc.top};
   SIZE sz = {outer, outer};
   POINT src = {0, 0};
   BLENDFUNCTION blend = {};
