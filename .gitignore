@@ -67,6 +67,8 @@ skills.yaml
 .agents/
 .claude/
 .scratch/
+CLAUDE.md
+CONTEXT.md
 
 # Internal dev tools (local only)
 cmd/
