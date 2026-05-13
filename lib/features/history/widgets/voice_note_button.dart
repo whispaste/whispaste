@@ -1,7 +1,7 @@
 /// Voice note button — records a short voice clip in the history detail panel,
 /// transcribes it, and dispatches the result as a note, tag, or correction.
 ///
-/// Reuses [AudioServiceNotifier] and [SttServiceNotifier] for the recording
+/// Reuses [AudioServiceNotifier] and [SttServerStateNotifier] for the recording
 /// pipeline. The button shows recording/transcribing state inline.
 library;
 
@@ -18,7 +18,7 @@ import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../services/audio_service.dart';
 import '../../../services/recording_orchestrator.dart';
-import '../../../services/stt_service.dart';
+import '../../../services/stt/stt_bundle.dart';
 import '../../../services/voice_action_service.dart';
 import '../../../widgets/toast.dart';
 import '../data/history_detail_provider.dart';
@@ -150,10 +150,10 @@ class _VoiceNoteButtonState extends ConsumerState<VoiceNoteButton> {
       }
 
       // Ensure STT is ready.
-      final stt = ref.read(sttServiceProvider.notifier);
+      final stt = ref.read(localSttBundleProvider.notifier);
       await stt.ensureRunning().timeout(const Duration(seconds: 30));
 
-      final sttStatus = ref.read(sttServiceProvider);
+      final sttStatus = ref.read(localSttBundleProvider);
       if (!sttStatus.isReady) {
         _fail(sttStatus.errorMessage ?? 'stt_not_ready');
         return;

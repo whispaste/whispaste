@@ -22,7 +22,7 @@ import 'package:whispaste/services/desktop_paste/desktop_paste_controller.dart';
 import 'package:whispaste/services/model_download_service.dart';
 import 'package:whispaste/services/path_service.dart' show sttDirOverride;
 import 'package:whispaste/services/recording_orchestrator.dart';
-import 'package:whispaste/services/stt_service.dart';
+import 'package:whispaste/services/stt/stt_bundle.dart';
 
 // ---------------------------------------------------------------------------
 // Fakes
@@ -78,7 +78,7 @@ class FakeAudioService extends AudioServiceNotifier {
 }
 
 /// Fake STT service — returns configurable transcripts, no subprocess.
-class FakeSttService extends SttServiceNotifier {
+class FakeSttService extends SttServerStateNotifier {
   String transcriptToReturn = 'Hello world';
   bool ensureRunningThrows = false;
   bool throwTimeoutException = false;
@@ -246,7 +246,7 @@ void main() {
           return db;
         }),
         audioServiceProvider.overrideWith(() => fakeAudio),
-        sttServiceProvider.overrideWith(() => fakeStt),
+        localSttBundleProvider.overrideWith(() => fakeStt),
         settingsProvider.overrideWith(() => FakeSettingsNotifier(settings)),
         secureKeyStoreProvider.overrideWith((ref) => FakeSecureKeyStore()),
         desktopPasteControllerProvider.overrideWith((ref) => fakeDesktopPaste),
@@ -676,7 +676,7 @@ void main() {
           audioServiceProvider.overrideWith(() {
             return FakeAudioService()..wavPathToReturn = wavFile.absolute.path;
           }),
-          sttServiceProvider.overrideWith(() => customStt),
+          localSttBundleProvider.overrideWith(() => customStt),
           settingsProvider.overrideWith(
             () => FakeSettingsNotifier(
               const AppSettings(
@@ -722,7 +722,7 @@ void main() {
               return FakeAudioService()
                 ..wavPathToReturn = wavFile.absolute.path;
             }),
-            sttServiceProvider.overrideWith(() => customStt),
+            localSttBundleProvider.overrideWith(() => customStt),
             settingsProvider.overrideWith(
               () => FakeSettingsNotifier(
                 const AppSettings(
@@ -1205,7 +1205,7 @@ void main() {
 // Additional fake: STT service that stays in stopped state after ensureRunning
 // ---------------------------------------------------------------------------
 
-class _NotReadySttService extends SttServiceNotifier {
+class _NotReadySttService extends SttServerStateNotifier {
   _NotReadySttService({
     this.statusAfterEnsure = const SttStatus(
       serverState: SttServerState.stopped,

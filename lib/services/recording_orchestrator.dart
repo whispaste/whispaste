@@ -25,7 +25,7 @@ import 'review_prompt_service.dart';
 import 'sound_feedback_service.dart';
 import 'paste/paster.dart';
 import 'recording_store.dart';
-import 'stt_service.dart';
+import 'stt/stt_bundle.dart';
 import 'transcription/transcriber.dart';
 
 // ---------------------------------------------------------------------------
@@ -186,7 +186,7 @@ class RecordingOrchestrator extends Notifier<void> {
       _log.info('[$sid] Recording started');
 
       // Notify STT service that a recording is active (pauses idle timer).
-      final sttNot = ref.read(sttServiceProvider.notifier);
+      final sttNot = ref.read(localSttBundleProvider.notifier);
       sttNot.notifyRecordingStarted();
 
       // Kick off STT server in parallel — files already confirmed by preflight.
@@ -220,7 +220,7 @@ class RecordingOrchestrator extends Notifier<void> {
         },
       );
     } on Exception catch (e) {
-      ref.read(sttServiceProvider.notifier).notifyRecordingStopped();
+      ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
       ref.read(recordingProvider.notifier).fail('$e');
     } finally {
       _startInFlight = false;
@@ -289,7 +289,7 @@ class RecordingOrchestrator extends Notifier<void> {
         // If STT is in error state, the pipeline abort was caused by the STT
         // failure — show the STT error message rather than a misleading
         // "could not save audio file" toast.
-        final sttStatus = ref.read(sttServiceProvider);
+        final sttStatus = ref.read(localSttBundleProvider);
         if (!sttStatus.isReady) {
           notifier.fail(sttStatus.errorMessage ?? 'stt_server_failed');
           _log.error('[$sid] WAV file never appeared (STT failed): $wavPath');
@@ -339,20 +339,20 @@ class RecordingOrchestrator extends Notifier<void> {
         pipelineOutcome = 'stt_timeout';
         notifier.fail('stt_start_timeout');
         _log.warning('[$sid] STT server start timed out after 120s');
-        ref.read(sttServiceProvider.notifier).notifyRecordingStopped();
+        ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
         return;
       } on TranscriberException catch (e) {
         pipelineOutcome = 'stt_start_error';
         notifier.fail(e.message);
         _log.warning('[$sid] STT prepare failed: ${e.message}');
-        ref.read(sttServiceProvider.notifier).notifyRecordingStopped();
+        ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
         return;
       }
       ensureSw.stop();
       sttEnsureMs = ensureSw.elapsedMilliseconds;
 
       // Verify local server is ready before transcribing (on-device only).
-      final sttStatus = ref.read(sttServiceProvider);
+      final sttStatus = ref.read(localSttBundleProvider);
       if (!sttStatus.isReady && settings.sttProviderType.isLocal) {
         if (sttStatus.errorMessage == 'stt_cuda_oom') {
           pipelineOutcome = 'stt_cuda_oom';
@@ -386,10 +386,10 @@ class RecordingOrchestrator extends Notifier<void> {
         pipelineOutcome = 'transcribe_timeout';
         notifier.fail('transcription_timeout');
         _log.error('[$sid] Transcription timed out after ${timeoutSec}s');
-        ref.read(sttServiceProvider.notifier).notifyRecordingStopped();
+        ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
         return;
       } on SocketException catch (_) {
-        final sttError = ref.read(sttServiceProvider).errorMessage;
+        final sttError = ref.read(localSttBundleProvider).errorMessage;
         if (sttError == 'stt_cuda_oom') {
           pipelineOutcome = 'stt_cuda_oom';
           _handleOomRecovery();
@@ -398,10 +398,10 @@ class RecordingOrchestrator extends Notifier<void> {
         pipelineOutcome = 'stt_connection_lost';
         notifier.fail('stt_server_connection_lost');
         _log.error('[$sid] STT server connection lost during inference');
-        ref.read(sttServiceProvider.notifier).notifyRecordingStopped();
+        ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
         return;
       } on http.ClientException catch (_) {
-        final sttError = ref.read(sttServiceProvider).errorMessage;
+        final sttError = ref.read(localSttBundleProvider).errorMessage;
         if (sttError == 'stt_cuda_oom') {
           pipelineOutcome = 'stt_cuda_oom';
           _handleOomRecovery();
@@ -412,13 +412,13 @@ class RecordingOrchestrator extends Notifier<void> {
         _log.error(
           '[$sid] STT server connection lost during inference (ClientException)',
         );
-        ref.read(sttServiceProvider.notifier).notifyRecordingStopped();
+        ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
         return;
       } on TranscriberException catch (e) {
         pipelineOutcome = 'transcribe_error';
         notifier.fail(e.message);
         _log.error('[$sid] Transcription failed: ${e.message}');
-        ref.read(sttServiceProvider.notifier).notifyRecordingStopped();
+        ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
         return;
       }
       inferSw.stop();
@@ -495,7 +495,7 @@ class RecordingOrchestrator extends Notifier<void> {
 
       // Transition state: transcribing/processing → done.
       notifier.completeTranscription(finalText);
-      ref.read(sttServiceProvider.notifier).notifyTranscriptionCompleted();
+      ref.read(localSttBundleProvider.notifier).notifyTranscriptionCompleted();
       unawaited(ref.read(reviewPromptProvider.notifier).checkAndMaybePrompt());
       _oomAttemptCount = 0;
       pipelineOutcome = 'ok';
@@ -507,7 +507,7 @@ class RecordingOrchestrator extends Notifier<void> {
         return;
       }
       notifier.fail('$e');
-      ref.read(sttServiceProvider.notifier).notifyRecordingStopped();
+      ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
       _log.error('[$sid] Pipeline error: $e');
     } finally {
       watchdog.cancel();
@@ -554,7 +554,7 @@ class RecordingOrchestrator extends Notifier<void> {
         );
     _oomAttemptCount += 1;
     ref.read(oomRecoveryPendingProvider.notifier).clear();
-    ref.read(sttServiceProvider.notifier).stop();
+    ref.read(localSttBundleProvider.notifier).stop();
     return true;
   }
 
@@ -571,7 +571,7 @@ class RecordingOrchestrator extends Notifier<void> {
     });
     _oomAttemptCount = 0;
     ref.read(oomRecoveryPendingProvider.notifier).clear();
-    ref.read(sttServiceProvider.notifier).stop();
+    ref.read(localSttBundleProvider.notifier).stop();
     return provider;
   }
 
@@ -633,7 +633,7 @@ class RecordingOrchestrator extends Notifier<void> {
           isPermanentFail: isPermanentFail,
         );
     ref.read(recordingProvider.notifier).reset();
-    ref.read(sttServiceProvider.notifier).notifyRecordingStopped();
+    ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
 
     _log.warning(
       '[$sid] CUDA OOM detected for model=$currentModelId '
@@ -895,11 +895,11 @@ class RecordingOrchestrator extends Notifier<void> {
       _cancelAmplitude();
       final audioNotifier = ref.read(audioServiceProvider.notifier);
       await audioNotifier.stopRecording();
-      ref.read(sttServiceProvider.notifier).notifyRecordingStopped();
+      ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
       ref.read(recordingProvider.notifier).fail('recording_guard_failed');
     } on Exception catch (e) {
       _log.warning('Error during dead-mic cleanup: $e');
-      ref.read(sttServiceProvider.notifier).notifyRecordingStopped();
+      ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
       ref.read(recordingProvider.notifier).fail('recording_guard_failed');
     }
   }
@@ -946,7 +946,7 @@ class RecordingOrchestrator extends Notifier<void> {
       if (!await File(serverPath).exists()) return;
       if (modelPath == null || !await File(modelPath).exists()) return;
 
-      await ref.read(sttServiceProvider.notifier).prewarm();
+      await ref.read(localSttBundleProvider.notifier).prewarm();
     } on Exception catch (e) {
       _log.warning('STT pre-warm failed (non-fatal): $e');
     }
@@ -1033,6 +1033,6 @@ class RecordingOrchestrator extends Notifier<void> {
 ///
 /// The orchestrator is a `void` notifier — it has no state of its own.
 /// All observable state lives in [recordingProvider], [audioServiceProvider],
-/// and [sttServiceProvider].
+/// and [localSttBundleProvider].
 final recordingOrchestratorProvider =
     NotifierProvider<RecordingOrchestrator, void>(RecordingOrchestrator.new);

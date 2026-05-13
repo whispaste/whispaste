@@ -11,12 +11,12 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/recording/recording_state.dart';
-// SttServerState is re-exported from stt_service.dart.
+// SttServerState is re-exported from stt_bundle.dart.
 import 'package:whispaste/core/theme/theme.dart';
 import 'package:whispaste/features/history/widgets/voice_note_button.dart';
 import 'package:whispaste/features/history/data/history_detail_provider.dart';
 import 'package:whispaste/services/audio_service.dart';
-import 'package:whispaste/services/stt_service.dart';
+import 'package:whispaste/services/stt/stt_bundle.dart';
 import 'package:whispaste/services/voice_action_service.dart';
 
 // ---------------------------------------------------------------------------
@@ -58,7 +58,7 @@ class _FakeAudioService extends AudioServiceNotifier {
   Future<void> cleanupFile(String? path) async {}
 }
 
-class _FakeSttService extends SttServiceNotifier {
+class _FakeSttService extends SttServerStateNotifier {
   String transcriptToReturn = 'Hello world';
   bool ensureRunningThrows = false;
 
@@ -108,7 +108,7 @@ Widget _makeTestableButton({
         return db;
       }),
       audioServiceProvider.overrideWith(() => fakeAudio),
-      sttServiceProvider.overrideWith(() => fakeStt),
+      localSttBundleProvider.overrideWith(() => fakeStt),
     ],
     child: MaterialApp(
       debugShowCheckedModeBanner: false,

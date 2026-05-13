@@ -12,7 +12,7 @@ import 'package:whispaste/services/hardware_info_service.dart' as hw;
 import 'package:whispaste/services/model_download_service.dart';
 import 'package:whispaste/services/path_service.dart' as paths;
 import 'package:whispaste/services/process_runner.dart';
-import 'package:whispaste/services/stt_service.dart';
+import 'package:whispaste/services/stt/stt_bundle.dart';
 
 // ── Fakes ──────────────────────────────────────────────────────────────────
 
@@ -69,7 +69,7 @@ class _FakeProcessRunner extends ProcessRunner {
 }
 
 /// A process runner that creates a new [_FakeProcess] on every [start] call.
-/// Required when a test calls [SttServiceNotifier.ensureRunning] more than
+/// Required when a test calls [SttServerStateNotifier.ensureRunning] more than
 /// once, because the single-subscription stderr stream of the first process
 /// cannot be re-listened after the first [_start] invocation.
 class _MultiFakeProcessRunner extends ProcessRunner {
@@ -167,7 +167,7 @@ Future<Directory> _createFakeSttDir() async {
   final modelFile = File('${dir.path}/ggml-tiny-q5_1.bin');
   await modelFile.writeAsBytes(Uint8List(minModelBytes));
 
-  // Override sttDir so stt_service.dart resolves paths into this temp dir.
+  // Override sttDir so SttServerStateNotifier resolves paths into this temp dir.
   paths.sttDirOverride = dir.path;
 
   return dir;
@@ -178,7 +178,7 @@ Future<Directory> _createFakeSttDir() async {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('SttServiceNotifier', () {
+  group('SttServerStateNotifier', () {
     test('stop() puts server into stopped state immediately', () {
       final fakeProcess = _FakeProcess();
       final container = _makeContainer(
@@ -187,11 +187,11 @@ void main() {
       );
       addTearDown(container.dispose);
 
-      final notifier = container.read(sttServiceProvider.notifier);
+      final notifier = container.read(localSttBundleProvider.notifier);
       notifier.stop();
 
       expect(
-        container.read(sttServiceProvider).serverState,
+        container.read(localSttBundleProvider).serverState,
         SttServerState.stopped,
       );
     });
@@ -205,12 +205,12 @@ void main() {
       addTearDown(container.dispose);
 
       // Should not throw
-      container.read(sttServiceProvider.notifier).notifyRecordingStarted();
-      container.read(sttServiceProvider.notifier).notifyRecordingStopped();
+      container.read(localSttBundleProvider.notifier).notifyRecordingStarted();
+      container.read(localSttBundleProvider.notifier).notifyRecordingStopped();
     });
 
     test(
-      'processRunnerProvider override is wired into SttServiceNotifier',
+      'processRunnerProvider override is wired into SttServerStateNotifier',
       () async {
         // Verifies that the DI seam is correctly wired: the container reads the
         // overridden ProcessRunner, not SystemProcessRunner.
@@ -233,11 +233,11 @@ void main() {
 
         // Calling ensureRunning() without a binary transitions to error, not
         // stopped — proves the runner path was attempted.
-        final notifier = container.read(sttServiceProvider.notifier);
+        final notifier = container.read(localSttBundleProvider.notifier);
         unawaited(notifier.ensureRunning());
         await Future<void>.delayed(const Duration(milliseconds: 200));
 
-        final state = container.read(sttServiceProvider).serverState;
+        final state = container.read(localSttBundleProvider).serverState;
         expect(
           state,
           anyOf(
@@ -303,11 +303,11 @@ void main() {
         // falls back to AppSettings.defaults (which uses whisper-medium).
         await container.read(settingsProvider.future);
 
-        final notifier = container.read(sttServiceProvider.notifier);
+        final notifier = container.read(localSttBundleProvider.notifier);
         await notifier.ensureRunning();
 
         expect(
-          container.read(sttServiceProvider).serverState,
+          container.read(localSttBundleProvider).serverState,
           SttServerState.ready,
           reason: 'Server must be ready when health check responds 200',
         );
@@ -316,7 +316,7 @@ void main() {
         // ensureRunning() succeeds again without "model corrupted" error).
         await notifier.ensureRunning();
         expect(
-          container.read(sttServiceProvider).serverState,
+          container.read(localSttBundleProvider).serverState,
           SttServerState.ready,
         );
       },
@@ -370,18 +370,19 @@ void main() {
         // Await settings to initialise before calling ensureRunning().
         await container.read(settingsProvider.future);
 
-        await container.read(sttServiceProvider.notifier).ensureRunning();
+        await container.read(localSttBundleProvider.notifier).ensureRunning();
 
         // After the heartbeat timeout the server must be in error state.
         expect(
-          container.read(sttServiceProvider).serverState,
+          container.read(localSttBundleProvider).serverState,
           SttServerState.error,
           reason: 'Server must be in error after 3 consecutive missed windows',
         );
 
         // The error message must not claim the model is corrupted (that would
         // indicate the model was wrongly blacklisted as a model fault).
-        final errorMsg = container.read(sttServiceProvider).errorMessage ?? '';
+        final errorMsg =
+            container.read(localSttBundleProvider).errorMessage ?? '';
         expect(
           errorMsg,
           isNot(contains('corrupted')),
@@ -393,8 +394,9 @@ void main() {
         // must not immediately fail with "model corrupted / failed to load".
         // It will call _start() again which hits the heartbeat timeout again,
         // so it will land in error — but NOT with a "model corrupted" message.
-        await container.read(sttServiceProvider.notifier).ensureRunning();
-        final errorMsg2 = container.read(sttServiceProvider).errorMessage ?? '';
+        await container.read(localSttBundleProvider.notifier).ensureRunning();
+        final errorMsg2 =
+            container.read(localSttBundleProvider).errorMessage ?? '';
         expect(
           errorMsg2,
           isNot(contains('corrupted')),
@@ -461,10 +463,10 @@ void main() {
         );
         addTearDown(heartbeatTimer.cancel);
 
-        await container.read(sttServiceProvider.notifier).ensureRunning();
+        await container.read(localSttBundleProvider.notifier).ensureRunning();
 
         expect(
-          container.read(sttServiceProvider).serverState,
+          container.read(localSttBundleProvider).serverState,
           SttServerState.ready,
           reason:
               'Continuous heartbeat must keep the startup alive until '
@@ -517,10 +519,10 @@ void main() {
         }
         ensureStartedAt = DateTime.now();
 
-        await container.read(sttServiceProvider.notifier).ensureRunning();
+        await container.read(localSttBundleProvider.notifier).ensureRunning();
 
         expect(
-          container.read(sttServiceProvider).serverState,
+          container.read(localSttBundleProvider).serverState,
           SttServerState.ready,
           reason:
               'Server must become ready if health 200 arrives before '
