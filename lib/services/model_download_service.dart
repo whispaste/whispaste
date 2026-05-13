@@ -9,6 +9,7 @@ import 'dart:io';
 import 'package:archive/archive.dart';
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
@@ -16,6 +17,7 @@ import '../core/config/settings_provider.dart';
 import '../core/app_info.dart';
 import '../core/logging/app_logger.dart';
 import 'hardware_info_service.dart' as hw;
+import 'http_model_fetcher.dart';
 import 'path_service.dart';
 
 final _log = AppLogger('Download');
@@ -371,22 +373,34 @@ class ModelDownloadState {
 // ---------------------------------------------------------------------------
 
 class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
-  CancelToken? _cancelToken;
+  /// Injected fetcher — override in tests to avoid real network calls.
+  @visibleForTesting
+  HttpModelFetcher? fetcherOverride;
+
+  /// Injected Dio for GitHub API (non-file) requests — override in tests.
+  @visibleForTesting
+  Dio? apiDioOverride;
+
   bool _autoDownloadAttempted = false;
-  final _dio = Dio(
-    BaseOptions(
-      connectTimeout: const Duration(seconds: 30),
-      receiveTimeout: const Duration(minutes: 10),
-      headers: {'User-Agent': appUserAgent},
-    ),
-  );
+
+  HttpModelFetcher get _fetcher => fetcherOverride ?? HttpModelFetcher();
+
+  Dio get _apiDio =>
+      apiDioOverride ??
+      Dio(
+        BaseOptions(
+          connectTimeout: const Duration(seconds: 30),
+          receiveTimeout: const Duration(minutes: 10),
+          headers: {'User-Agent': appUserAgent},
+        ),
+      );
+
+  CancelToken? _apiCancelToken;
 
   @override
   ModelDownloadState build() {
     ref.onDispose(() {
-      _cancelToken?.cancel('disposed');
-      // Dio instance is kept alive so it can be reused for retry/download
-      // attempts after the notifier is re-initialized (e.g., after app reset).
+      _fetcher.cancel('disposed');
     });
     // Scan disk for already-downloaded models.
     final initial = _scanExisting();
@@ -419,8 +433,6 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
       );
       return;
     }
-
-    _cancelToken = CancelToken();
 
     try {
       // Ensure target directory exists before any I/O.
@@ -473,10 +485,17 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
         await File(destPath).delete();
       }
 
-      await _downloadFile(
+      await _fetcher.fetch(
         url: model.url,
         destPath: destPath,
         expectedSize: model.sizeBytes,
+        onProgress: (p) => state = state.copyWith(
+          progressPercent: p.progressPercent,
+          bytesDownloaded: p.bytesReceived,
+          totalBytes: p.totalBytes,
+          speedBytesPerSec: p.speedBytesPerSec,
+          etaSeconds: p.etaSeconds,
+        ),
       );
 
       // Phase 3: Verify SHA256.
@@ -514,7 +533,7 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
 
   /// Cancels the active download.
   void cancelDownload() {
-    _cancelToken?.cancel('user cancelled');
+    _fetcher.cancel('user cancelled');
     state = state.copyWith(
       phase: DownloadPhase.idle,
       activeModelId: null,
@@ -530,7 +549,6 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
   Future<void> ensureServerBinary() async {
     if (state.serverReady || state.isBusy) return;
 
-    _cancelToken = CancelToken();
     _log.info('Auto-downloading whisper-server (self-heal)');
 
     try {
@@ -652,104 +670,6 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
   }
 
   // -----------------------------------------------------------------------
-  // Private — file download with progress
-  // -----------------------------------------------------------------------
-
-  Future<void> _downloadFile({
-    required String url,
-    required String destPath,
-    required int expectedSize,
-  }) async {
-    final tmpPath = '$destPath.tmp';
-    int startByte = 0;
-    final tmpFile = File(tmpPath);
-
-    // Resume partial download.
-    if (tmpFile.existsSync()) {
-      startByte = tmpFile.lengthSync();
-      _log.info('Resuming download from byte $startByte');
-    }
-
-    final response = await _dio.get<ResponseBody>(
-      url,
-      cancelToken: _cancelToken,
-      options: Options(
-        responseType: ResponseType.stream,
-        headers: startByte > 0 ? {'Range': 'bytes=$startByte-'} : null,
-      ),
-    );
-
-    final totalBytes = _resolveTotal(response, startByte, expectedSize);
-
-    final sink = tmpFile.openWrite(
-      mode: startByte > 0 ? FileMode.append : FileMode.write,
-    );
-    int received = startByte;
-
-    // Rolling speed tracker — sample every ~500ms for a smooth 5s window.
-    final speedSamples = <_SpeedSample>[];
-    var lastSpeedUpdate = DateTime.now();
-
-    try {
-      await for (final chunk in response.data!.stream) {
-        sink.add(chunk);
-        received += chunk.length;
-
-        final now = DateTime.now();
-        final sinceLastUpdate = now.difference(lastSpeedUpdate);
-
-        // Update speed/ETA at most every 500ms to avoid excessive rebuilds.
-        double speed = state.speedBytesPerSec;
-        int? eta = state.etaSeconds;
-        if (sinceLastUpdate.inMilliseconds >= 500) {
-          lastSpeedUpdate = now;
-          speedSamples.add(_SpeedSample(now, received));
-          // Keep only last 5 seconds of samples.
-          final cutoff = now.subtract(const Duration(seconds: 5));
-          speedSamples.removeWhere((s) => s.time.isBefore(cutoff));
-
-          if (speedSamples.length >= 2) {
-            final first = speedSamples.first;
-            final elapsed = now.difference(first.time).inMilliseconds;
-            if (elapsed > 0) {
-              speed = (received - first.bytes) * 1000 / elapsed;
-              final remaining = totalBytes > 0 ? totalBytes - received : 0;
-              eta = speed > 0 ? (remaining / speed).ceil() : null;
-            }
-          }
-        }
-
-        final pct = totalBytes > 0 ? (received * 100 ~/ totalBytes) : 0;
-        state = state.copyWith(
-          progressPercent: pct.clamp(0, 99),
-          bytesDownloaded: received,
-          totalBytes: totalBytes,
-          speedBytesPerSec: speed,
-          etaSeconds: totalBytes > 0 ? eta : null,
-        );
-      }
-      await sink.flush();
-    } finally {
-      await sink.close();
-    }
-
-    // Atomic rename.
-    if (File(destPath).existsSync()) {
-      await File(destPath).delete();
-    }
-    await tmpFile.rename(destPath);
-  }
-
-  int _resolveTotal(Response<ResponseBody> resp, int start, int expected) {
-    final cl = resp.headers['content-length'];
-    if (cl != null && cl.isNotEmpty) {
-      final parsed = int.tryParse(cl.first);
-      if (parsed != null) return start + parsed;
-    }
-    return expected;
-  }
-
-  // -----------------------------------------------------------------------
   // Private — SHA256 verification
   // -----------------------------------------------------------------------
 
@@ -813,10 +733,17 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
               assetUrl.contains('cuda') || assetUrl.contains('cublas');
           final estimatedSize = isCuda ? 460 * 1024 * 1024 : 30 * 1024 * 1024;
           final zipPath = p.join(sttDir(), '_whisper-server.zip');
-          await _downloadFile(
+          await _fetcher.fetch(
             url: assetUrl,
             destPath: zipPath,
             expectedSize: estimatedSize,
+            onProgress: (prog) => state = state.copyWith(
+              progressPercent: prog.progressPercent,
+              bytesDownloaded: prog.bytesReceived,
+              totalBytes: prog.totalBytes,
+              speedBytesPerSec: prog.speedBytesPerSec,
+              etaSeconds: prog.etaSeconds,
+            ),
           );
 
           state = state.copyWith(phase: DownloadPhase.extracting);
@@ -893,9 +820,10 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
           'https://api.github.com/repos/$owner/$repo/releases/latest';
       final Response<Map<String, dynamic>> response;
       try {
-        response = await _dio.get<Map<String, dynamic>>(
+        _apiCancelToken = CancelToken();
+        response = await _apiDio.get<Map<String, dynamic>>(
           apiUrl,
-          cancelToken: _cancelToken,
+          cancelToken: _apiCancelToken,
           options: Options(
             headers: {'Accept': 'application/vnd.github.v3+json'},
           ),
@@ -957,9 +885,10 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
     final apiUrl =
         'https://api.github.com/repos/$owner/$repo/releases?per_page=20';
     try {
-      final response = await _dio.get<List<dynamic>>(
+      _apiCancelToken = CancelToken();
+      final response = await _apiDio.get<List<dynamic>>(
         apiUrl,
-        cancelToken: _cancelToken,
+        cancelToken: _apiCancelToken,
         options: Options(headers: {'Accept': 'application/vnd.github.v3+json'}),
       );
 
@@ -1092,13 +1021,6 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
     if (!name.contains('.')) return true;
     return false;
   }
-}
-
-/// Speed sample for rolling average calculation.
-class _SpeedSample {
-  const _SpeedSample(this.time, this.bytes);
-  final DateTime time;
-  final int bytes;
 }
 
 // ---------------------------------------------------------------------------
