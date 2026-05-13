@@ -42,9 +42,17 @@ class FloatingOverlayService extends Notifier<void> {
   /// Cached L10n — updated whenever settings change (locale could change).
   L10n? _l10n;
 
+  /// Factory hook — override in tests to inject a fake controller.
+  ///
+  /// Production code uses [FloatingOverlayController.create] (platform default).
+  /// Tests subclass this service and return a fake from this method.
+  @visibleForTesting
+  FloatingOverlayController? createControllerForTest() =>
+      FloatingOverlayController.create();
+
   @override
   void build() {
-    _controller = FloatingOverlayController.create();
+    _controller = createControllerForTest();
     if (_controller == null) {
       _log.debug('Platform does not support native floating overlay');
       return;
