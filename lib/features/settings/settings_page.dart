@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app.dart';
 import '../../widgets/page_shell.dart';
-import 'sections/cloud_advanced_section.dart';
+import 'sections/cloud_advanced_section.dart' show AdvancedSection;
 import 'sections/feedback_section.dart';
 import 'sections/history_section.dart';
 import 'sections/interface_section.dart';
@@ -36,7 +36,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     'sound': GlobalKey(),
     'recordingSafety': GlobalKey(),
     'history': GlobalKey(),
-    'cloud': GlobalKey(),
     'advanced': GlobalKey(),
   };
 
@@ -125,8 +124,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           // ═══════════════════════════════════════════
           //  TECHNICAL / RARELY CHANGED
           // ═══════════════════════════════════════════
-          CloudProvidersSection(key: _sectionKeys['cloud']),
-          settingsSectionDivider(context),
           AdvancedSection(key: _sectionKeys['advanced']),
         ],
       ),
