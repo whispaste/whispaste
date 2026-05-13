@@ -758,19 +758,19 @@ void main() {
   });
 
   group('OOM recovery actions', () {
-    test(
-      'applyOomModelFallback updates the local model and counts attempts',
-      () async {
-        final orch = container.read(recordingOrchestratorProvider.notifier);
+    test('applyOomModelFallback updates the local model', () async {
+      // applyOomModelFallback only switches the model; the attempt counter is
+      // incremented by OomRecoveryHandler.attemptRecovery() which is called
+      // inside _handleOomRecovery() — not here.
+      final orch = container.read(recordingOrchestratorProvider.notifier);
 
-        final didSwitch = await orch.applyOomModelFallback('whisper-base');
+      final didSwitch = await orch.applyOomModelFallback('whisper-base');
 
-        expect(didSwitch, isTrue);
-        expect(orch.oomAttemptCount, 1);
-        final settings = await container.read(settingsProvider.future);
-        expect(settings.effectiveModelId, 'whisper-base');
-      },
-    );
+      expect(didSwitch, isTrue);
+      expect(orch.oomAttemptCount, 0);
+      final settings = await container.read(settingsProvider.future);
+      expect(settings.effectiveModelId, 'whisper-base');
+    });
 
     test(
       'switchToConfiguredCloudStt prefers configured cloud provider',
