@@ -22,6 +22,7 @@ import 'audio_service.dart';
 import 'model_download_service.dart';
 import 'path_service.dart';
 import 'recording/oom_recovery_handler.dart';
+import 'recording/pipeline_step_runner.dart';
 import 'recording/recording_state_machine.dart';
 import 'recording/safety_guard.dart';
 import 'review_prompt_service.dart';
@@ -269,8 +270,17 @@ class RecordingOrchestrator extends Notifier<void> {
 
   /// Stops recording and runs the transcription pipeline.
   ///
-  /// Each major step has its own timeout so a single hung operation cannot
-  /// freeze the app.  A 90 s pipeline watchdog acts as a final safety net.
+  /// Each step runs through [PipelineStepRunner.run] with its own budget:
+  ///   - Capture/WAV flush: 10 s
+  ///   - STT prepare (cold-start): 120 s (large models can need 60–90 s on
+  ///     integrated GPUs — a tighter budget would cause spurious timeouts)
+  ///   - Transcription: 60 s base + 0.8 × audio duration (scales with clip)
+  ///   - Save to history: 5 s
+  ///   - After-transcription action (clipboard / paste): 10 s
+  ///
+  /// A hung step times out independently, preventing it from consuming the
+  /// budget meant for later steps.  There is no separate 90-second watchdog;
+  /// the per-step timeouts act as the total safety net.
   ///
   /// Pipeline timing is logged at completion (or failure) for diagnostics.
   Future<void> stopRecording() async {
@@ -287,292 +297,383 @@ class RecordingOrchestrator extends Notifier<void> {
     int? clipboardMs;
     String pipelineOutcome = 'unknown';
 
-    // ── Pipeline watchdog ─────────────────────────────────────────────────
-    // Force-fail if the entire stop→done pipeline exceeds 90 s.
-    final watchdog = Timer(const Duration(seconds: 90), () {
-      _log.error(
-        '[$sid] Pipeline watchdog triggered after 90s — force-resetting',
-      );
-      _stateMachine.transition(
-        RecordingIntent.fail,
-        errorMessage: 'pipeline_timeout',
-      );
-    });
+    // One runner instance; per-call timeout overrides are used where the
+    // step budget differs from the default.  The default is intentionally
+    // generous because it is always overridden below — it only serves as a
+    // last-resort safety net if a call site omits the explicit timeout.
+    const runner = PipelineStepRunner(timeout: Duration(seconds: 120));
 
     try {
       // Cancel amplitude subscription.
       _cancelAmplitude();
 
-      // Stop audio capture.
-      final audioNotifier = ref.read(audioServiceProvider.notifier);
-      wavPath = await audioNotifier.stopRecording();
+      // ── Step 1: Capture — stop audio and flush WAV (10 s budget) ─────────
+      final captureResult = await runner.run<(String?, List<int>)>(() async {
+        final audioNotifier = ref.read(audioServiceProvider.notifier);
+        final path = await audioNotifier.stopRecording();
+        if (path == null) return (null, <int>[]);
 
-      if (wavPath == null) {
-        pipelineOutcome = 'no_audio';
-        _stateMachine.transition(
-          RecordingIntent.fail,
-          errorMessage: 'no_audio_recorded',
-        );
-        return;
-      }
-
-      // Transition state: recording → transcribing.
-      _stateMachine.transition(RecordingIntent.stop);
-
-      // On Windows the `record` package can return before the WAV is fully
-      // flushed to disk.  Wait up to 2 s for the file to appear.
-      final wavFile = File(wavPath);
-      if (!await wavFile.exists()) {
-        _log.debug('[$sid] WAV not yet on disk, waiting for flush…');
-        for (var i = 0; i < 8; i++) {
-          await Future<void>.delayed(const Duration(milliseconds: 250));
-          if (await wavFile.exists()) break;
+        // On Windows the `record` package can return before the WAV is
+        // fully flushed to disk.  Wait up to 2 s for the file to appear.
+        final wavFile = File(path);
+        if (!await wavFile.exists()) {
+          _log.debug('[$sid] WAV not yet on disk, waiting for flush…');
+          for (var i = 0; i < 8; i++) {
+            await Future<void>.delayed(const Duration(milliseconds: 250));
+            if (await wavFile.exists()) break;
+          }
         }
-      }
-      if (!await wavFile.exists()) {
-        pipelineOutcome = 'wav_not_created';
-        // If STT is in error state, the pipeline abort was caused by the STT
-        // failure — show the STT error message rather than a misleading
-        // "could not save audio file" toast.
-        final sttStatus = ref.read(localSttBundleProvider);
-        if (!sttStatus.isReady) {
+        if (!await wavFile.exists()) return (path, <int>[]);
+
+        final bytes = await wavFile.readAsBytes();
+        return (path, bytes);
+      }, timeout: const Duration(seconds: 10));
+
+      switch (captureResult) {
+        case StepTimeout():
+          pipelineOutcome = 'capture_timeout';
           _stateMachine.transition(
             RecordingIntent.fail,
-            errorMessage: sttStatus.errorMessage ?? 'stt_server_failed',
+            errorMessage: 'pipeline_timeout',
           );
-          _log.error('[$sid] WAV file never appeared (STT failed): $wavPath');
+          _log.error('[$sid] Capture step timed out after 10s');
           return;
-        }
-        _stateMachine.transition(
-          RecordingIntent.fail,
-          errorMessage: 'wav_file_not_created',
-        );
-        _log.error('[$sid] WAV file never appeared: $wavPath');
-        return;
-      }
-
-      // Read bytes now while the file is guaranteed to exist — avoids a
-      // second race during the ensureRunning() await.
-      final wavBytes = await wavFile.readAsBytes();
-      if (wavBytes.isEmpty) {
-        pipelineOutcome = 'wav_empty';
-        _stateMachine.transition(
-          RecordingIntent.fail,
-          errorMessage: 'wav_file_empty',
-        );
-        _log.error('[$sid] WAV file is empty: $wavPath');
-        return;
-      }
-      wavReadyMs = pipelineSw.elapsedMilliseconds;
-      _log.debug(
-        '[$sid] WAV ready: ${wavBytes.length} bytes (${wavReadyMs}ms)',
-      );
-
-      // Read settings for language hint and model info.
-      final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
-      final language = settings.sttLanguageCode;
-
-      // When language is empty or "auto", fall back to the app's UI locale
-      // so local whisper models don't guess wrong (mirrors Go's
-      // GetEffectiveLocalTranscriptionLanguage which uses UILanguage).
-      final appLocale = ref.read(settingsProvider).value?.locale;
-      String? effectiveLang;
-      if (language.isNotEmpty && language != 'auto') {
-        effectiveLang = language;
-      } else if (appLocale != null && appLocale.isNotEmpty) {
-        effectiveLang = appLocale; // e.g. "de", "en"
-      }
-
-      // Ensure STT backend is ready (with generous timeout for cold-starts —
-      // large models on integrated GPUs can take 60–90s to load into VRAM).
-      final transcriber = ref.read(transcriberProvider);
-      final ensureSw = Stopwatch()..start();
-      try {
-        await transcriber.prepare().timeout(const Duration(seconds: 120));
-      } on TimeoutException {
-        pipelineOutcome = 'stt_timeout';
-        _stateMachine.transition(
-          RecordingIntent.fail,
-          errorMessage: 'stt_start_timeout',
-        );
-        _log.warning('[$sid] STT server start timed out after 120s');
-        ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
-        return;
-      } on TranscriberException catch (e) {
-        pipelineOutcome = 'stt_start_error';
-        _stateMachine.transition(RecordingIntent.fail, errorMessage: e.message);
-        _log.warning('[$sid] STT prepare failed: ${e.message}');
-        ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
-        return;
-      }
-      ensureSw.stop();
-      sttEnsureMs = ensureSw.elapsedMilliseconds;
-
-      // Verify local server is ready before transcribing (on-device only).
-      final sttStatus = ref.read(localSttBundleProvider);
-      if (!sttStatus.isReady && settings.sttProviderType.isLocal) {
-        if (sttStatus.errorMessage == 'stt_cuda_oom') {
-          pipelineOutcome = 'stt_cuda_oom';
-          _handleOomRecovery();
+        case FailedWith(:final error):
+          pipelineOutcome = 'capture_error';
+          _stateMachine.transition(
+            RecordingIntent.fail,
+            errorMessage: '$error',
+          );
+          _log.error('[$sid] Capture step failed: $error');
           return;
-        }
-        pipelineOutcome = 'stt_failed';
-        _stateMachine.transition(
-          RecordingIntent.fail,
-          errorMessage: sttStatus.errorMessage ?? 'stt_server_failed',
-        );
-        return;
+        case Ok(:final value):
+          wavPath = value.$1;
+          final wavBytes = value.$2;
+
+          if (wavPath == null) {
+            pipelineOutcome = 'no_audio';
+            _stateMachine.transition(
+              RecordingIntent.fail,
+              errorMessage: 'no_audio_recorded',
+            );
+            return;
+          }
+
+          // Transition state: recording → transcribing.
+          _stateMachine.transition(RecordingIntent.stop);
+
+          if (wavBytes.isEmpty) {
+            // Distinguish between file-never-appeared and empty-file.
+            // STT prepare has not run yet, so we do not read localSttBundleProvider
+            // here — wav_file_not_created is the correct error in both sub-cases.
+            if (!await File(wavPath).exists()) {
+              pipelineOutcome = 'wav_not_created';
+              _stateMachine.transition(
+                RecordingIntent.fail,
+                errorMessage: 'wav_file_not_created',
+              );
+              _log.error('[$sid] WAV file never appeared: $wavPath');
+              return;
+            }
+            pipelineOutcome = 'wav_empty';
+            _stateMachine.transition(
+              RecordingIntent.fail,
+              errorMessage: 'wav_file_empty',
+            );
+            _log.error('[$sid] WAV file is empty: $wavPath');
+            return;
+          }
+
+          wavReadyMs = pipelineSw.elapsedMilliseconds;
+          _log.debug(
+            '[$sid] WAV ready: ${wavBytes.length} bytes (${wavReadyMs}ms)',
+          );
+
+          // Read settings for language hint and model info.
+          final settings =
+              ref.read(settingsProvider).value ?? AppSettings.defaults;
+          final language = settings.sttLanguageCode;
+
+          // When language is empty or "auto", fall back to the app's UI locale
+          // so local whisper models don't guess wrong (mirrors Go's
+          // GetEffectiveLocalTranscriptionLanguage which uses UILanguage).
+          final appLocale = ref.read(settingsProvider).value?.locale;
+          String? effectiveLang;
+          if (language.isNotEmpty && language != 'auto') {
+            effectiveLang = language;
+          } else if (appLocale != null && appLocale.isNotEmpty) {
+            effectiveLang = appLocale; // e.g. "de", "en"
+          }
+
+          // ── Step 2: STT prepare — ensure backend ready (120 s budget) ──────
+          // Large models on integrated GPUs can take 60–90 s to load into
+          // VRAM; a tighter budget causes spurious timeouts on first use.
+          final transcriber = ref.read(transcriberProvider);
+          final ensureSw = Stopwatch()..start();
+
+          final prepareResult = await runner.run<void>(
+            () async => transcriber.prepare(),
+            timeout: const Duration(seconds: 120),
+          );
+
+          ensureSw.stop();
+          sttEnsureMs = ensureSw.elapsedMilliseconds;
+
+          switch (prepareResult) {
+            case StepTimeout():
+              pipelineOutcome = 'stt_timeout';
+              _stateMachine.transition(
+                RecordingIntent.fail,
+                errorMessage: 'stt_start_timeout',
+              );
+              _log.warning('[$sid] STT server start timed out after 120s');
+              ref
+                  .read(localSttBundleProvider.notifier)
+                  .notifyRecordingStopped();
+              return;
+            case FailedWith(:final error) when error is TranscriberException:
+              pipelineOutcome = 'stt_start_error';
+              _stateMachine.transition(
+                RecordingIntent.fail,
+                errorMessage: error.message,
+              );
+              _log.warning('[$sid] STT prepare failed: ${error.message}');
+              ref
+                  .read(localSttBundleProvider.notifier)
+                  .notifyRecordingStopped();
+              return;
+            case FailedWith(:final error):
+              pipelineOutcome = 'stt_start_error';
+              _stateMachine.transition(
+                RecordingIntent.fail,
+                errorMessage: '$error',
+              );
+              _log.warning('[$sid] STT prepare failed: $error');
+              ref
+                  .read(localSttBundleProvider.notifier)
+                  .notifyRecordingStopped();
+              return;
+            case Ok():
+              // prepare succeeded — fall through.
+              break;
+          }
+
+          // Read localSttBundleProvider exactly once — after prepare() ran so
+          // ensureRunning() has had a chance to set the error state (e.g. OOM).
+          // All downstream branches (after-prepare check, SocketException path)
+          // use this single local variable.
+          final sttBundle = ref.read(localSttBundleProvider);
+
+          // Verify local server is ready before transcribing (on-device only).
+          if (!sttBundle.isReady && settings.sttProviderType.isLocal) {
+            if (sttBundle.errorMessage == 'stt_cuda_oom') {
+              pipelineOutcome = 'stt_cuda_oom';
+              _handleOomRecovery();
+              return;
+            }
+            pipelineOutcome = 'stt_failed';
+            _stateMachine.transition(
+              RecordingIntent.fail,
+              errorMessage: sttBundle.errorMessage ?? 'stt_server_failed',
+            );
+            return;
+          }
+
+          // ── Step 3: Transcription (60 s base + 0.8× audio duration) ────────
+          // Calculate audio duration for RTF logging
+          // (16 kHz, mono, 16-bit + 44-byte header).
+          final audioDurMs = ((wavBytes.length - 44) / 32000 * 1000).round();
+          _log.info(
+            '[$sid] Transcribing (${wavBytes.length} bytes, '
+            '~${audioDurMs}ms audio, lang=$effectiveLang)',
+          );
+
+          final inferSw = Stopwatch()..start();
+          // Timeout scales with audio length: 60s base + 0.8× audio duration.
+          // A 10s clip gets 68s, a 120s clip gets 156s — enough headroom for
+          // large-v3-turbo even on slower hardware.
+          final timeoutSec = 60 + (audioDurMs / 1000 * 0.8).round();
+
+          final transcribeResult = await runner.run<String>(
+            () async =>
+                transcriber.transcribe(wavBytes, language: effectiveLang),
+            timeout: Duration(seconds: timeoutSec),
+          );
+
+          inferSw.stop();
+          transcribeMs = inferSw.elapsedMilliseconds;
+
+          switch (transcribeResult) {
+            case StepTimeout():
+              pipelineOutcome = 'transcribe_timeout';
+              _stateMachine.transition(
+                RecordingIntent.fail,
+                errorMessage: 'transcription_timeout',
+              );
+              _log.error('[$sid] Transcription timed out after ${timeoutSec}s');
+              ref
+                  .read(localSttBundleProvider.notifier)
+                  .notifyRecordingStopped();
+              return;
+            case FailedWith(:final error)
+                when error is SocketException || error is http.ClientException:
+              // Uses the sttBundle read at the start of the pipeline
+              // (single read — covers both SocketException and ClientException).
+              if (sttBundle.errorMessage == 'stt_cuda_oom') {
+                pipelineOutcome = 'stt_cuda_oom';
+                _handleOomRecovery();
+                return;
+              }
+              pipelineOutcome = 'stt_connection_lost';
+              _stateMachine.transition(
+                RecordingIntent.fail,
+                errorMessage: 'stt_server_connection_lost',
+              );
+              _log.error(
+                '[$sid] STT server connection lost during inference'
+                '${error is http.ClientException ? " (ClientException)" : ""}',
+              );
+              ref
+                  .read(localSttBundleProvider.notifier)
+                  .notifyRecordingStopped();
+              return;
+            case FailedWith(:final error) when error is TranscriberException:
+              pipelineOutcome = 'transcribe_error';
+              _stateMachine.transition(
+                RecordingIntent.fail,
+                errorMessage: error.message,
+              );
+              _log.error('[$sid] Transcription failed: ${error.message}');
+              ref
+                  .read(localSttBundleProvider.notifier)
+                  .notifyRecordingStopped();
+              return;
+            case FailedWith(:final error):
+              pipelineOutcome = 'transcribe_error';
+              if ('$error'.contains('stt_cuda_oom')) {
+                pipelineOutcome = 'stt_cuda_oom';
+                _handleOomRecovery();
+                return;
+              }
+              _stateMachine.transition(
+                RecordingIntent.fail,
+                errorMessage: '$error',
+              );
+              ref
+                  .read(localSttBundleProvider.notifier)
+                  .notifyRecordingStopped();
+              _log.error('[$sid] Transcription failed: $error');
+              return;
+            case Ok(:final value):
+              if (audioDurMs > 0 && transcribeMs > 0) {
+                final rtf = transcribeMs / audioDurMs;
+                _log.info(
+                  '[$sid] STT: inference=${transcribeMs}ms '
+                  'audio=${audioDurMs}ms RTF=${rtf.toStringAsFixed(2)}x',
+                );
+              }
+
+              final transcript = value;
+
+              if (transcript.isEmpty) {
+                pipelineOutcome = 'empty_transcript';
+                _stateMachine.transition(
+                  RecordingIntent.fail,
+                  errorMessage: 'transcription_empty',
+                );
+                return;
+              }
+
+              // ── Transcription cleanup (always applied) ────────────────────
+              // Whisper models often insert extraneous newlines. Collapse them
+              // into single spaces for clean copy/paste results.
+              final replaceSw = Stopwatch()..start();
+              var finalText = transcript;
+              final rawLen = finalText.length;
+              finalText = finalText
+                  .replaceAll(RegExp(r'\r\n|\r'), '\n')
+                  .replaceAll(RegExp(r'\n+'), ' ')
+                  .replaceAll(RegExp(r' {2,}'), ' ')
+                  .trim();
+              replaceSw.stop();
+              replaceMs = replaceSw.elapsedMilliseconds;
+
+              if (finalText.length != rawLen) {
+                _log.info(
+                  '[$sid] Whitespace cleanup: $rawLen→${finalText.length} chars',
+                );
+              }
+
+              // ── Step 4: Save to history (5 s budget) ─────────────────────
+              final saveSw = Stopwatch()..start();
+
+              final saveResult = await runner.run<String?>(
+                () async => _saveToHistory(
+                  finalText,
+                  Duration(milliseconds: audioDurMs),
+                  settings,
+                  (transcribeMs ?? 0) ~/ 1000,
+                ),
+                timeout: const Duration(seconds: 5),
+              );
+
+              saveSw.stop();
+              saveMs = saveSw.elapsedMilliseconds;
+
+              // Save failures are non-fatal (best-effort) — log and continue.
+              if (saveResult case Ok(:final value)) {
+                if (value != null && value != finalText) {
+                  finalText = value;
+                }
+              } else if (saveResult case StepTimeout()) {
+                _log.warning('[$sid] Save to history timed out after 5s');
+              } else if (saveResult case FailedWith(:final error)) {
+                _log.error('[$sid] Save to history failed: $error');
+              }
+
+              // ── Step 5: After-transcription action (10 s budget) ──────────
+              // Timeout prevents a locked clipboard or slow paste from
+              // hanging the pipeline.
+              final clipSw = Stopwatch()..start();
+
+              final clipResult = await runner.run<void>(
+                () async => _handleAfterTranscription(finalText, settings),
+                timeout: const Duration(seconds: 10),
+              );
+
+              clipSw.stop();
+              clipboardMs = clipSw.elapsedMilliseconds;
+
+              switch (clipResult) {
+                case StepTimeout():
+                  _log.warning(
+                    '[$sid] After-transcription action timed out (10s)',
+                  );
+                case FailedWith(:final error):
+                  _log.warning(
+                    '[$sid] After-transcription action failed (non-fatal): $error',
+                  );
+                case Ok():
+                  break;
+              }
+
+              // Transition state: transcribing/processing → done.
+              // Uses RecordingIntent.complete (transcribing→done) which the
+              // state machine maps to completeTranscription on the notifier.
+              _stateMachine.transition(
+                RecordingIntent.complete,
+                transcript: finalText,
+              );
+              ref
+                  .read(localSttBundleProvider.notifier)
+                  .notifyTranscriptionCompleted();
+              unawaited(
+                ref.read(reviewPromptProvider.notifier).checkAndMaybePrompt(),
+              );
+              _oomHandler.reset();
+              pipelineOutcome = 'ok';
+          }
       }
-
-      // Transcribe using pre-loaded bytes (avoids file-system race).
-      // Calculate audio duration for RTF logging (16 kHz, mono, 16-bit + 44-byte header).
-      final audioDurMs = ((wavBytes.length - 44) / 32000 * 1000).round();
-      _log.info(
-        '[$sid] Transcribing (${wavBytes.length} bytes, '
-        '~${audioDurMs}ms audio, lang=$effectiveLang)',
-      );
-
-      final inferSw = Stopwatch()..start();
-      // Timeout scales with audio length: 60s base + 0.8× audio duration.
-      // A 10s clip gets 68s, a 120s clip gets 156s — enough headroom for
-      // large-v3-turbo even on slower hardware.
-      final timeoutSec = 60 + (audioDurMs / 1000 * 0.8).round();
-      String transcript;
-      try {
-        transcript = await transcriber
-            .transcribe(wavBytes, language: effectiveLang)
-            .timeout(Duration(seconds: timeoutSec));
-      } on TimeoutException {
-        pipelineOutcome = 'transcribe_timeout';
-        _stateMachine.transition(
-          RecordingIntent.fail,
-          errorMessage: 'transcription_timeout',
-        );
-        _log.error('[$sid] Transcription timed out after ${timeoutSec}s');
-        ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
-        return;
-      } on SocketException catch (_) {
-        final sttError = ref.read(localSttBundleProvider).errorMessage;
-        if (sttError == 'stt_cuda_oom') {
-          pipelineOutcome = 'stt_cuda_oom';
-          _handleOomRecovery();
-          return;
-        }
-        pipelineOutcome = 'stt_connection_lost';
-        _stateMachine.transition(
-          RecordingIntent.fail,
-          errorMessage: 'stt_server_connection_lost',
-        );
-        _log.error('[$sid] STT server connection lost during inference');
-        ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
-        return;
-      } on http.ClientException catch (_) {
-        final sttError = ref.read(localSttBundleProvider).errorMessage;
-        if (sttError == 'stt_cuda_oom') {
-          pipelineOutcome = 'stt_cuda_oom';
-          _handleOomRecovery();
-          return;
-        }
-        pipelineOutcome = 'stt_connection_lost';
-        _stateMachine.transition(
-          RecordingIntent.fail,
-          errorMessage: 'stt_server_connection_lost',
-        );
-        _log.error(
-          '[$sid] STT server connection lost during inference (ClientException)',
-        );
-        ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
-        return;
-      } on TranscriberException catch (e) {
-        pipelineOutcome = 'transcribe_error';
-        _stateMachine.transition(RecordingIntent.fail, errorMessage: e.message);
-        _log.error('[$sid] Transcription failed: ${e.message}');
-        ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
-        return;
-      }
-      inferSw.stop();
-      transcribeMs = inferSw.elapsedMilliseconds;
-
-      if (audioDurMs > 0) {
-        final rtf = transcribeMs / audioDurMs;
-        _log.info(
-          '[$sid] STT: inference=${transcribeMs}ms '
-          'audio=${audioDurMs}ms RTF=${rtf.toStringAsFixed(2)}x',
-        );
-      }
-
-      if (transcript.isEmpty) {
-        pipelineOutcome = 'empty_transcript';
-        _stateMachine.transition(
-          RecordingIntent.fail,
-          errorMessage: 'transcription_empty',
-        );
-        return;
-      }
-
-      // ── Transcription cleanup (always applied) ──────────────────────────
-      final replaceSw = Stopwatch()..start();
-      var finalText = transcript;
-      replaceSw.stop();
-      replaceMs = replaceSw.elapsedMilliseconds;
-
-      // ── Transcription cleanup (always applied) ──────────────────────────
-      // Whisper models often insert extraneous newlines. Collapse them into
-      // single spaces for clean copy/paste results.
-      final rawLen = finalText.length;
-      finalText = finalText
-          .replaceAll(RegExp(r'\r\n|\r'), '\n')
-          .replaceAll(RegExp(r'\n+'), ' ')
-          .replaceAll(RegExp(r' {2,}'), ' ')
-          .trim();
-      if (finalText.length != rawLen) {
-        _log.info(
-          '[$sid] Whitespace cleanup: $rawLen→${finalText.length} chars',
-        );
-      }
-
-      // Save to history database (with replacements applied).
-      final saveSw = Stopwatch()..start();
-      final savedTranscript = await _saveToHistory(
-        finalText,
-        Duration(milliseconds: audioDurMs),
-        settings,
-        transcribeMs ~/ 1000,
-      );
-      saveSw.stop();
-      saveMs = saveSw.elapsedMilliseconds;
-
-      // Use the processed transcript (after replacements) for paste.
-      if (savedTranscript != null && savedTranscript != finalText) {
-        finalText = savedTranscript;
-      }
-
-      // Copy to clipboard / auto-paste based on user preference.
-      // Timeout prevents a locked clipboard from hanging the pipeline.
-      final clipSw = Stopwatch()..start();
-      try {
-        await _handleAfterTranscription(finalText, settings).timeout(
-          const Duration(seconds: 10),
-          onTimeout: () {
-            _log.warning('[$sid] After-transcription action timed out (10s)');
-          },
-        );
-      } on Exception catch (e) {
-        _log.warning(
-          '[$sid] After-transcription action failed (non-fatal): $e',
-        );
-      }
-      clipSw.stop();
-      clipboardMs = clipSw.elapsedMilliseconds;
-
-      // Transition state: transcribing/processing → done.
-      // Uses RecordingIntent.complete (transcribing→done) which the state
-      // machine maps to completeTranscription on the notifier.
-      _stateMachine.transition(RecordingIntent.complete, transcript: finalText);
-      ref.read(localSttBundleProvider.notifier).notifyTranscriptionCompleted();
-      unawaited(ref.read(reviewPromptProvider.notifier).checkAndMaybePrompt());
-      _oomHandler.reset();
-      pipelineOutcome = 'ok';
     } on Exception catch (e) {
       pipelineOutcome = 'exception';
       if ('$e'.contains('stt_cuda_oom')) {
@@ -584,7 +685,6 @@ class RecordingOrchestrator extends Notifier<void> {
       ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
       _log.error('[$sid] Pipeline error: $e');
     } finally {
-      watchdog.cancel();
       pipelineSw.stop();
 
       // Log structured pipeline summary (success AND failure).

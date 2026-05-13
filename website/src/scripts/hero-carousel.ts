@@ -262,3 +262,4 @@ function startTyping() {
 
 startCarousel();
 goToSlide(0);
+
