@@ -233,4 +233,76 @@ void main() {
       expect(safeDefaultHotKey.modifiers, isNotEmpty);
     });
   });
+
+  group('HotkeyService — arrow key registration (AC1–AC3)', () {
+    test('AC1: arrowLeft + alt registered correctly', () async {
+      final registrar = FakeHotKeyRegistrar();
+      final service = _makeService(registrar);
+
+      await service.updateHotkey(
+        key: LogicalKeyboardKey.arrowLeft,
+        modifiers: [HotKeyModifier.alt],
+      );
+
+      expect(registrar.registered.length, equals(1));
+      expect(
+        registrar.registered.first.logicalKey,
+        equals(LogicalKeyboardKey.arrowLeft),
+        reason: 'arrowLeft must be registered, not silently replaced by keyD',
+      );
+      expect(
+        registrar.registered.first.modifiers,
+        contains(HotKeyModifier.alt),
+      );
+    });
+
+    test('AC2: arrowUp + control registered correctly', () async {
+      final registrar = FakeHotKeyRegistrar();
+      final service = _makeService(registrar);
+
+      await service.updateHotkey(
+        key: LogicalKeyboardKey.arrowUp,
+        modifiers: [HotKeyModifier.control],
+      );
+
+      expect(registrar.registered.length, equals(1));
+      expect(
+        registrar.registered.first.logicalKey,
+        equals(LogicalKeyboardKey.arrowUp),
+      );
+    });
+
+    test('AC3: all four arrow keys register without fallback', () async {
+      final arrows = [
+        LogicalKeyboardKey.arrowLeft,
+        LogicalKeyboardKey.arrowRight,
+        LogicalKeyboardKey.arrowUp,
+        LogicalKeyboardKey.arrowDown,
+      ];
+
+      for (final arrow in arrows) {
+        final registrar = FakeHotKeyRegistrar();
+        final service = _makeService(registrar);
+
+        await service.updateHotkey(
+          key: arrow,
+          modifiers: [HotKeyModifier.control],
+        );
+
+        expect(
+          registrar.registered.any((k) => k.logicalKey == arrow),
+          isTrue,
+          reason: '$arrow must be registered',
+        );
+        // Safe-default Space must NOT be in the list (no fallback)
+        expect(
+          registrar.registered.any(
+            (k) => k.logicalKey == LogicalKeyboardKey.space,
+          ),
+          isFalse,
+          reason: 'fallback must not fire for a valid arrow key',
+        );
+      }
+    });
+  });
 }
