@@ -797,5 +797,13 @@
   "insufficientRamRequired": "Mindestens",
 
   "hotkeyRegistrationFailed": "Hotkey-Registrierung fehlgeschlagen – bitte Tastenkombination in den Einstellungen neu belegen.",
-  "hotkeyRegistrationFailedDefaultActive": "Hotkey-Registrierung fehlgeschlagen – Strg+Umschalt+Leertaste wird als Fallback verwendet. Bitte in den Einstellungen neu belegen."
+  "hotkeyRegistrationFailedDefaultActive": "Hotkey-Registrierung fehlgeschlagen – Strg+Umschalt+Leertaste wird als Fallback verwendet. Bitte in den Einstellungen neu belegen.",
+
+  "hotkeyConflictWarning": "Diese Tastenkombination ist von {platform} reserviert ({note}) und funktioniert möglicherweise nicht.",
+  "@hotkeyConflictWarning": {
+    "placeholders": {
+      "platform": { "type": "String" },
+      "note": { "type": "String" }
+    }
+  }
 }

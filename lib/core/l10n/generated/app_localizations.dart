@@ -4230,6 +4230,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Hotkey registration failed — using Ctrl+Shift+Space as fallback. Please re-bind in Settings.'**
   String get hotkeyRegistrationFailedDefaultActive;
+
+  /// No description provided for @hotkeyConflictWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'This shortcut is reserved by {platform} ({note}) and may not work.'**
+  String hotkeyConflictWarning(String platform, String note);
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {
