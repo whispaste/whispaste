@@ -1,0 +1,155 @@
+#!/bin/bash
+# ╔═════════════════════════════════════════════════════════════════════╗
+# ║  WhisPaste Pre-Push Guard                                          ║
+# ║  Final defense before commits leave the local machine.             ║
+# ║                                                                    ║
+# ║  Layers:                                                           ║
+# ║    L1 — Force-push to main blocked (env: WP_ALLOW_FORCE_MAIN=1)    ║
+# ║    L2 — Protected paths in any pushed commit                       ║
+# ║    L3 — .gitignore PROTECTED section not weakened                  ║
+# ║    L4 — Secret patterns in any pushed commit                       ║
+# ║                                                                    ║
+# ║  Install: bash scripts/install-hooks.sh                            ║
+# ║  Bypass:  git push --no-verify  (DANGEROUS)                        ║
+# ╚═════════════════════════════════════════════════════════════════════╝
+
+set -e
+
+REMOTE="$1"
+URL="$2"
+
+ZERO="0000000000000000000000000000000000000000"
+
+# Protected path patterns — must stay in sync with pre-commit BLOCKED_PATHS
+# and the .gitignore PROTECTED-START/END section.
+PROTECTED_PATTERNS="
+^\.internal/
+^docs/
+^\.agents/
+^\.agent/
+^\.skills/
+^\.claude/
+^\.scratch/
+^cmd/
+^AGENTS\.md$
+^CLAUDE\.md$
+^CONTEXT\.md$
+^opencode\.json$
+^rules/
+^skills\.yaml$
+^skills-lock\.json$
+^\.github/copilot-instructions\.md$
+^scripts/security-scan\.ps1$
+^scripts/cppcheck\.ps1$
+^tools/sentry_release_audit\.py$
+"
+
+# Secret patterns — built dynamically so this file does not self-match.
+S1="SUPA"
+S2="BASE_SERVICE_ROLE_KEY"
+S3="ADMIN_API"
+S4="_KEY"
+SECRET_PATTERNS="${S1}${S2}=.{20,}|${S3}${S4}=.{20,}|sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{20,}"
+
+violations=0
+
+print_block_header() {
+  echo ""
+  echo "╔═══════════════════════════════════════════════════════════╗"
+  echo "║  ❌ BLOCKED: $1"
+  echo "╚═══════════════════════════════════════════════════════════╝"
+}
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  # Skip branch deletions (local_sha = 0000…)
+  [ "$local_sha" = "$ZERO" ] && continue
+
+  branch="${remote_ref#refs/heads/}"
+
+  # ── L1: Force-push to main ────────────────────────────────────────
+  if [ "$branch" = "main" ] && [ "$remote_sha" != "$ZERO" ]; then
+    if ! git merge-base --is-ancestor "$remote_sha" "$local_sha" 2>/dev/null; then
+      if [ "$WP_ALLOW_FORCE_MAIN" != "1" ]; then
+        print_block_header "force-push to main"
+        echo "  main is a release branch — its history must stay linear."
+        echo "  Remote tip $remote_sha is not an ancestor of $local_sha."
+        echo ""
+        echo "  Override (DANGEROUS):"
+        echo "    WP_ALLOW_FORCE_MAIN=1 git push $REMOTE main"
+        echo ""
+        exit 1
+      fi
+      echo "  ⚠ WP_ALLOW_FORCE_MAIN=1 set — force-push to main allowed"
+    fi
+  fi
+
+  # ── Determine range of commits to scan ────────────────────────────
+  if [ "$remote_sha" = "$ZERO" ]; then
+    # New branch on remote — scan all commits unique to this branch
+    commits=$(git rev-list "$local_sha" --not --branches --remotes 2>/dev/null \
+      || git rev-list "$local_sha" 2>/dev/null || true)
+  else
+    commits=$(git rev-list "$remote_sha..$local_sha" 2>/dev/null || true)
+  fi
+
+  [ -z "$commits" ] && continue
+
+  for commit in $commits; do
+    files=$(git diff-tree --no-commit-id --name-only --diff-filter=ACMR -r "$commit" 2>/dev/null || true)
+    [ -z "$files" ] && continue
+
+    # ── L2: Protected paths ────────────────────────────────────────
+    for pattern in $PROTECTED_PATTERNS; do
+      [ -z "$pattern" ] && continue
+      matches=$(echo "$files" | grep -E "$pattern" 2>/dev/null || true)
+      if [ -n "$matches" ]; then
+        print_block_header "protected path in pushed commit"
+        echo "  Commit: $commit"
+        echo "  Branch: $branch"
+        echo "  Files:"
+        echo "$matches" | sed 's/^/    /'
+        violations=1
+      fi
+    done
+
+    # ── L3: .gitignore PROTECTED section weakened ──────────────────
+    if echo "$files" | grep -q "^\.gitignore$"; then
+      new_block=$(git show "$commit:.gitignore" 2>/dev/null \
+        | sed -n '/PROTECTED-START/,/PROTECTED-END/p')
+      old_block=$(git show "$commit^:.gitignore" 2>/dev/null \
+        | sed -n '/PROTECTED-START/,/PROTECTED-END/p')
+      if [ -n "$old_block" ]; then
+        old_entries=$(echo "$old_block" | grep -v '^#' | grep -v '^$' | grep -v 'PROTECTED' | sort -u)
+        new_entries=$(echo "$new_block" | grep -v '^#' | grep -v '^$' | grep -v 'PROTECTED' | sort -u)
+        removed=$(comm -23 <(echo "$old_entries") <(echo "$new_entries") 2>/dev/null || true)
+        if [ -n "$removed" ]; then
+          print_block_header ".gitignore PROTECTED entries removed"
+          echo "  Commit: $commit"
+          echo "  Removed entries:"
+          echo "$removed" | sed 's/^/    /'
+          violations=1
+        fi
+      fi
+    fi
+
+    # ── L4: Secret patterns ────────────────────────────────────────
+    secret_match=$(git show "$commit" 2>/dev/null \
+      | grep -oE "$SECRET_PATTERNS" 2>/dev/null \
+      | head -1 || true)
+    if [ -n "$secret_match" ]; then
+      print_block_header "potential secret in pushed commit"
+      echo "  Commit: $commit"
+      echo "  Match (truncated): $(echo "$secret_match" | cut -c1-40)"
+      violations=1
+    fi
+  done
+done
+
+if [ "$violations" -eq 1 ]; then
+  echo ""
+  echo "To bypass (DANGEROUS): git push --no-verify"
+  echo ""
+  exit 1
+fi
+
+exit 0
