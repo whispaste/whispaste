@@ -21,6 +21,7 @@ import '../core/data/analytics_provider.dart';
 import 'audio_service.dart';
 import 'model_download_service.dart';
 import 'path_service.dart';
+import 'recording/recording_state_machine.dart';
 import 'recording/safety_guard.dart';
 import 'review_prompt_service.dart';
 import 'sound_feedback_service.dart';
@@ -55,6 +56,10 @@ class RecordingOrchestrator extends Notifier<void> {
   /// Subscription to [SafetyGuard] events for the active recording session.
   StreamSubscription<SafetyEvent>? _guardSub;
 
+  /// State machine that enforces the recording phase transition table.
+  /// Initialized lazily in [build] after the notifier is available.
+  late RecordingStateMachine _stateMachine;
+
   /// Prevents concurrent `startRecording()` calls from racing through
   /// the async preflight.
   bool _startInFlight = false;
@@ -66,6 +71,13 @@ class RecordingOrchestrator extends Notifier<void> {
   @override
   void build() {
     ref.onDispose(_cancelAmplitude);
+
+    // Wire the state machine to the shared RecordingNotifier.
+    // phaseReader reads the current phase without accessing protected state.
+    _stateMachine = RecordingStateMachine(
+      phaseReader: () => ref.read(recordingProvider).phase,
+      notifier: ref.read(recordingProvider.notifier),
+    );
 
     // Pre-warm the STT server in the background so the first recording
     // doesn't pay the ~10 s cold-start penalty.
@@ -147,8 +159,6 @@ class RecordingOrchestrator extends Notifier<void> {
       return;
     }
 
-    final notifier = ref.read(recordingProvider.notifier);
-
     try {
       // ── Preflight checks ──────────────────────────────────────────────
       final preflightError = await _runPreflight();
@@ -163,12 +173,15 @@ class RecordingOrchestrator extends Notifier<void> {
         // Try soft handling first (auto-download, info toast).
         if (_handleSoftPreflight(preflightError)) return;
         // Hard failure — transition to error state.
-        notifier.fail(preflightError);
+        _stateMachine.transition(
+          RecordingIntent.fail,
+          errorMessage: preflightError,
+        );
         return;
       }
 
       // Transition state: idle → recording (generates sessionId).
-      notifier.startRecording();
+      _stateMachine.transition(RecordingIntent.start);
       final sid = ref.read(recordingProvider).sessionId ?? '?';
       _log.info('[$sid] Recording started');
 
@@ -190,7 +203,10 @@ class RecordingOrchestrator extends Notifier<void> {
       final audioStatus = ref.read(audioServiceProvider);
       if (audioStatus.captureState == AudioCaptureState.error) {
         sttNot.notifyRecordingStopped();
-        notifier.fail(audioStatus.errorMessage ?? 'recording_failed');
+        _stateMachine.transition(
+          RecordingIntent.fail,
+          errorMessage: audioStatus.errorMessage ?? 'recording_failed',
+        );
         return;
       }
 
@@ -199,6 +215,9 @@ class RecordingOrchestrator extends Notifier<void> {
       final rawStream = audioNotifier.amplitudeStream;
       if (rawStream != null) {
         // Level-metering subscription (always active).
+        // updateAudioLevel is NOT a phase transition, so it calls the
+        // notifier directly (it only mutates audioLevel, not RecordingPhase).
+        final notifier = ref.read(recordingProvider.notifier);
         _amplitudeSub = rawStream.listen(
           (level) => notifier.updateAudioLevel(level),
           onError: (Object e) {
@@ -225,7 +244,7 @@ class RecordingOrchestrator extends Notifier<void> {
       }
     } on Exception catch (e) {
       ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
-      ref.read(recordingProvider.notifier).fail('$e');
+      _stateMachine.transition(RecordingIntent.fail, errorMessage: '$e');
     } finally {
       _startInFlight = false;
     }
@@ -238,7 +257,6 @@ class RecordingOrchestrator extends Notifier<void> {
   ///
   /// Pipeline timing is logged at completion (or failure) for diagnostics.
   Future<void> stopRecording() async {
-    final notifier = ref.read(recordingProvider.notifier);
     final sid = ref.read(recordingProvider).sessionId ?? '?';
     String? wavPath;
 
@@ -258,7 +276,10 @@ class RecordingOrchestrator extends Notifier<void> {
       _log.error(
         '[$sid] Pipeline watchdog triggered after 90s — force-resetting',
       );
-      notifier.fail('pipeline_timeout');
+      _stateMachine.transition(
+        RecordingIntent.fail,
+        errorMessage: 'pipeline_timeout',
+      );
     });
 
     try {
@@ -271,12 +292,15 @@ class RecordingOrchestrator extends Notifier<void> {
 
       if (wavPath == null) {
         pipelineOutcome = 'no_audio';
-        notifier.fail('no_audio_recorded');
+        _stateMachine.transition(
+          RecordingIntent.fail,
+          errorMessage: 'no_audio_recorded',
+        );
         return;
       }
 
       // Transition state: recording → transcribing.
-      notifier.stopRecording();
+      _stateMachine.transition(RecordingIntent.stop);
 
       // On Windows the `record` package can return before the WAV is fully
       // flushed to disk.  Wait up to 2 s for the file to appear.
@@ -295,11 +319,17 @@ class RecordingOrchestrator extends Notifier<void> {
         // "could not save audio file" toast.
         final sttStatus = ref.read(localSttBundleProvider);
         if (!sttStatus.isReady) {
-          notifier.fail(sttStatus.errorMessage ?? 'stt_server_failed');
+          _stateMachine.transition(
+            RecordingIntent.fail,
+            errorMessage: sttStatus.errorMessage ?? 'stt_server_failed',
+          );
           _log.error('[$sid] WAV file never appeared (STT failed): $wavPath');
           return;
         }
-        notifier.fail('wav_file_not_created');
+        _stateMachine.transition(
+          RecordingIntent.fail,
+          errorMessage: 'wav_file_not_created',
+        );
         _log.error('[$sid] WAV file never appeared: $wavPath');
         return;
       }
@@ -309,7 +339,10 @@ class RecordingOrchestrator extends Notifier<void> {
       final wavBytes = await wavFile.readAsBytes();
       if (wavBytes.isEmpty) {
         pipelineOutcome = 'wav_empty';
-        notifier.fail('wav_file_empty');
+        _stateMachine.transition(
+          RecordingIntent.fail,
+          errorMessage: 'wav_file_empty',
+        );
         _log.error('[$sid] WAV file is empty: $wavPath');
         return;
       }
@@ -341,13 +374,16 @@ class RecordingOrchestrator extends Notifier<void> {
         await transcriber.prepare().timeout(const Duration(seconds: 120));
       } on TimeoutException {
         pipelineOutcome = 'stt_timeout';
-        notifier.fail('stt_start_timeout');
+        _stateMachine.transition(
+          RecordingIntent.fail,
+          errorMessage: 'stt_start_timeout',
+        );
         _log.warning('[$sid] STT server start timed out after 120s');
         ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
         return;
       } on TranscriberException catch (e) {
         pipelineOutcome = 'stt_start_error';
-        notifier.fail(e.message);
+        _stateMachine.transition(RecordingIntent.fail, errorMessage: e.message);
         _log.warning('[$sid] STT prepare failed: ${e.message}');
         ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
         return;
@@ -364,7 +400,10 @@ class RecordingOrchestrator extends Notifier<void> {
           return;
         }
         pipelineOutcome = 'stt_failed';
-        notifier.fail(sttStatus.errorMessage ?? 'stt_server_failed');
+        _stateMachine.transition(
+          RecordingIntent.fail,
+          errorMessage: sttStatus.errorMessage ?? 'stt_server_failed',
+        );
         return;
       }
 
@@ -388,7 +427,10 @@ class RecordingOrchestrator extends Notifier<void> {
             .timeout(Duration(seconds: timeoutSec));
       } on TimeoutException {
         pipelineOutcome = 'transcribe_timeout';
-        notifier.fail('transcription_timeout');
+        _stateMachine.transition(
+          RecordingIntent.fail,
+          errorMessage: 'transcription_timeout',
+        );
         _log.error('[$sid] Transcription timed out after ${timeoutSec}s');
         ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
         return;
@@ -400,7 +442,10 @@ class RecordingOrchestrator extends Notifier<void> {
           return;
         }
         pipelineOutcome = 'stt_connection_lost';
-        notifier.fail('stt_server_connection_lost');
+        _stateMachine.transition(
+          RecordingIntent.fail,
+          errorMessage: 'stt_server_connection_lost',
+        );
         _log.error('[$sid] STT server connection lost during inference');
         ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
         return;
@@ -412,7 +457,10 @@ class RecordingOrchestrator extends Notifier<void> {
           return;
         }
         pipelineOutcome = 'stt_connection_lost';
-        notifier.fail('stt_server_connection_lost');
+        _stateMachine.transition(
+          RecordingIntent.fail,
+          errorMessage: 'stt_server_connection_lost',
+        );
         _log.error(
           '[$sid] STT server connection lost during inference (ClientException)',
         );
@@ -420,7 +468,7 @@ class RecordingOrchestrator extends Notifier<void> {
         return;
       } on TranscriberException catch (e) {
         pipelineOutcome = 'transcribe_error';
-        notifier.fail(e.message);
+        _stateMachine.transition(RecordingIntent.fail, errorMessage: e.message);
         _log.error('[$sid] Transcription failed: ${e.message}');
         ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
         return;
@@ -438,7 +486,10 @@ class RecordingOrchestrator extends Notifier<void> {
 
       if (transcript.isEmpty) {
         pipelineOutcome = 'empty_transcript';
-        notifier.fail('transcription_empty');
+        _stateMachine.transition(
+          RecordingIntent.fail,
+          errorMessage: 'transcription_empty',
+        );
         return;
       }
 
@@ -498,7 +549,9 @@ class RecordingOrchestrator extends Notifier<void> {
       clipboardMs = clipSw.elapsedMilliseconds;
 
       // Transition state: transcribing/processing → done.
-      notifier.completeTranscription(finalText);
+      // Uses RecordingIntent.complete (transcribing→done) which the state
+      // machine maps to completeTranscription on the notifier.
+      _stateMachine.transition(RecordingIntent.complete, transcript: finalText);
       ref.read(localSttBundleProvider.notifier).notifyTranscriptionCompleted();
       unawaited(ref.read(reviewPromptProvider.notifier).checkAndMaybePrompt());
       _oomAttemptCount = 0;
@@ -510,7 +563,7 @@ class RecordingOrchestrator extends Notifier<void> {
         _handleOomRecovery();
         return;
       }
-      notifier.fail('$e');
+      _stateMachine.transition(RecordingIntent.fail, errorMessage: '$e');
       ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
       _log.error('[$sid] Pipeline error: $e');
     } finally {
@@ -539,7 +592,7 @@ class RecordingOrchestrator extends Notifier<void> {
   /// Resets the recording state to idle.
   void reset() {
     _cancelAmplitude();
-    ref.read(recordingProvider.notifier).reset();
+    _stateMachine.transition(RecordingIntent.reset);
   }
 
   Future<bool> applyOomModelFallback(String modelId) async {
@@ -636,7 +689,10 @@ class RecordingOrchestrator extends Notifier<void> {
           hasCloudConfigured: hasCloudConfigured,
           isPermanentFail: isPermanentFail,
         );
-    ref.read(recordingProvider.notifier).reset();
+    // OOM recovery resets to idle regardless of current phase.
+    // The oomRetry intent (error→recording) is intentionally NOT used here
+    // because the user must explicitly choose a fallback model first.
+    _stateMachine.transition(RecordingIntent.reset);
     ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
 
     _log.warning(
@@ -840,11 +896,17 @@ class RecordingOrchestrator extends Notifier<void> {
       final audioNotifier = ref.read(audioServiceProvider.notifier);
       await audioNotifier.stopRecording();
       ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
-      ref.read(recordingProvider.notifier).fail('recording_guard_failed');
+      _stateMachine.transition(
+        RecordingIntent.fail,
+        errorMessage: 'recording_guard_failed',
+      );
     } on Exception catch (e) {
       _log.warning('Error during dead-mic cleanup: $e');
       ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
-      ref.read(recordingProvider.notifier).fail('recording_guard_failed');
+      _stateMachine.transition(
+        RecordingIntent.fail,
+        errorMessage: 'recording_guard_failed',
+      );
     }
   }
 
@@ -863,7 +925,7 @@ class RecordingOrchestrator extends Notifier<void> {
       await stopRecording();
     } on Exception catch (e) {
       _log.warning('Error during auto-stop: $e');
-      ref.read(recordingProvider.notifier).fail('$e');
+      _stateMachine.transition(RecordingIntent.fail, errorMessage: '$e');
     }
   }
 
