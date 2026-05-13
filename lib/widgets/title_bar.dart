@@ -204,29 +204,36 @@ class _MacOSTitleBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onPanStart: (_) => windowManager.startDragging(),
-      onDoubleTap: () async {
-        // macOS convention: double-tap title bar toggles zoom.
-        if (await windowManager.isMaximized()) {
-          await windowManager.unmaximize();
-        } else {
-          await windowManager.maximize();
-        }
-      },
-      child: SizedBox(
-        height: WpLayout.appBarHeight,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: WpSpacing.lg),
-          child: Row(
-            children: [
-              // Clear native traffic lights (~68px + margin).
-              const SizedBox(width: 56),
-              const WpBrandWordmark(height: 34),
-              const Spacer(),
-              ...actions,
-            ],
+    // Force LTR so the 56-px traffic-light clearance always sits on the
+    // physical left, regardless of the app locale (e.g. Hebrew RTL).
+    // The native macOS traffic lights are always top-left — they are not
+    // affected by Flutter's Directionality — so the Row must stay LTR here.
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onPanStart: (_) => windowManager.startDragging(),
+        onDoubleTap: () async {
+          // macOS convention: double-tap title bar toggles zoom.
+          if (await windowManager.isMaximized()) {
+            await windowManager.unmaximize();
+          } else {
+            await windowManager.maximize();
+          }
+        },
+        child: SizedBox(
+          height: WpLayout.appBarHeight,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: WpSpacing.lg),
+            child: Row(
+              children: [
+                // Clear native traffic lights (~68px + margin).
+                const SizedBox(width: 56),
+                const WpBrandWordmark(height: 34),
+                const Spacer(),
+                ...actions,
+              ],
+            ),
           ),
         ),
       ),
