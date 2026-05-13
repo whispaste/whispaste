@@ -59,11 +59,14 @@ class InterfaceSection extends ConsumerWidget {
             label: l10n.settingsAppLanguage,
             trailing: settingsDropdown(
               context: context,
-              value: settings.locale == 'de' ? 'de' : 'en',
-              items: const ['en', 'de'],
+              value: const ['en', 'de', 'he'].contains(settings.locale)
+                  ? settings.locale
+                  : 'en',
+              items: const ['en', 'de', 'he'],
               labels: [
                 l10n.settingsLanguageEnglish,
                 l10n.settingsLanguageGerman,
+                l10n.settingsLanguageHebrew,
               ],
               onChanged: (v) {
                 if (v != null) {
