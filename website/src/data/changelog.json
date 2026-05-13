@@ -1,5 +1,39 @@
 [
   {
+    "version": "1.2.13",
+    "date": "2026-05-13",
+    "en": {
+      "highlights": [
+        "Four crash fixes: model-failure exit-code classifier triggers a clear re-download prompt, heartbeat startup timeout prevents indefinite hangs, recording idempotency guard blocks duplicate sessions on rapid hotkey presses, and a hotkey TypeError fallback prevents crashes on unsupported key tokens",
+        "Groq STT removed — existing Groq users automatically fall back to On-Device STT on first launch; no data is lost",
+        "Deepgram Nova-2 is now a fully supported, production-ready cloud STT alternative (free tier: 45 h/month)",
+        "Settings shows inline signup links for Deepgram and OpenAI so new users never have to leave the app to get started"
+      ],
+      "improvements": [
+        "Sentry fingerprints now include recording phase and STT status for better issue grouping",
+        "Safety-guard activations (OOM, CPU fallback, idempotency) are captured as Sentry breadcrumbs for easier support triage",
+        "Smart-Mode dead code fully removed — smaller bundle, cleaner settings diff",
+        "README and website feature list updated to accurately reflect the shipped feature set (Post-Processing, LLM auto-tagging, and Groq references removed)",
+        "AppSettings split into focused section classes; STT subsystem split into independent modules; recording orchestrator decomposed into SafetyGuard, OomRecoveryHandler, and RecordingStateMachine; floating UI shares a single platform host"
+      ]
+    },
+    "de": {
+      "highlights": [
+        "Vier Crash-Fixes: Exit-Code-Klassifikator löst bei Modellfehler einen klaren Re-Download-Hinweis aus, Heartbeat-Timeout verhindert endloses Hängen, Aufnahme-Idempotenz blockiert doppelte Sitzungen bei schnellen Hotkey-Drücken, und ein TypeError-Fallback verhindert Abstürze bei nicht unterstützten Tastentokens",
+        "Groq STT entfernt — bestehende Groq-Nutzer wechseln beim ersten Start automatisch zu On-Device STT; keine Daten gehen verloren",
+        "Deepgram Nova-2 ist jetzt ein vollständig unterstütztes, produktionsreifes Cloud-STT (kostenloses Kontingent: 45 Std./Monat)",
+        "Einstellungen zeigt direkte Anmelde-Links für Deepgram und OpenAI — neue Nutzer müssen die App nicht mehr verlassen"
+      ],
+      "improvements": [
+        "Sentry-Fingerprints enthalten jetzt Aufnahme-Phase und STT-Status für bessere Fehlergruppierung",
+        "Safety-Guard-Aktivierungen (OOM, CPU-Fallback, Idempotenz) werden als Sentry-Breadcrumbs erfasst",
+        "Smart-Mode-Toter-Code vollständig entfernt — kleineres Bundle, saubereres Einstellungs-Diff",
+        "README und Website-Featureliste auf tatsächlich ausgelieferte Funktionen aktualisiert (Post-Processing, LLM-Auto-Tagging und Groq-Hinweise entfernt)",
+        "AppSettings in fokussierte Sektionsklassen aufgeteilt; STT-Subsystem in unabhängige Module aufgeteilt; Recording-Orchestrator in SafetyGuard, OomRecoveryHandler und RecordingStateMachine zerlegt; Floating-UI teilt einen gemeinsamen Platform-Host"
+      ]
+    }
+  },
+  {
     "version": "1.2.9",
     "date": "2026-04-22",
     "en": {
