@@ -407,6 +407,7 @@
   "feedbackErrorRateLimited": "כבר שלחת משוב לאחרונה. נסה שוב מאוחר יותר.",
   "feedbackErrorNetwork": "לא הצלחנו להתחבר. בדוק חיבור אינטרנט.",
   "feedbackErrorServer": "משהו השתבש. נסה שוב מאוחר יותר.",
+  "feedbackErrorNotConfigured": "משוב אינו זמין בגרסה זו.",
   "statusBarOnDevice": "מקומי",
   "statusBarOverlayFloating": "שכבה: צפה",
   "statusBarOverlayOff": "שכבה: כבויה",

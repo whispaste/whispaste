@@ -1087,6 +1087,9 @@ class L10nHe extends L10n {
   String get feedbackErrorServer => 'משהו השתבש. נסה שוב מאוחר יותר.';
 
   @override
+  String get feedbackErrorNotConfigured => 'משוב אינו זמין בגרסה זו.';
+
+  @override
   String get statusBarOnDevice => 'מקומי';
 
   @override

@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
@@ -6,11 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 import '../../core/app_info.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/logging/app_logger.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
+import '../../services/feedback_submission_service.dart';
 import '../../widgets/page_shell.dart';
 
 /// Supabase URL — injected at build time via `--dart-define`.
@@ -58,19 +59,15 @@ Future<void> _recordFeedbackSubmission() async {
   await prefs.setInt(_kLastFeedbackKey, DateTime.now().millisecondsSinceEpoch);
 }
 
-/// Thrown by [_FeedbackPageState._post] for HTTP responses that should not
-/// be retried (rate-limited, server error).
-class _ServerException implements Exception {
-  final String code; // 'rate_limited' | 'server_error'
-  const _ServerException(this.code);
-}
-
 /// Feedback page — polished, chat-inspired feedback form.
 ///
 /// Top-aligned, responsive: narrow form column on wide screens with generous
 /// padding so it breathes on maximized desktop windows.
 class FeedbackPage extends StatefulWidget {
-  const FeedbackPage({super.key});
+  const FeedbackPage({super.key, FeedbackSubmissionService? submissionService})
+    : _submissionService = submissionService;
+
+  final FeedbackSubmissionService? _submissionService;
 
   @override
   State<FeedbackPage> createState() => _FeedbackPageState();
@@ -85,6 +82,20 @@ class _FeedbackPageState extends State<FeedbackPage> {
   bool _submitted = false;
   bool _submitting = false;
   String? _error;
+
+  late final FeedbackSubmissionService _service;
+
+  @override
+  void initState() {
+    super.initState();
+    _service =
+        widget._submissionService ??
+        FeedbackSubmissionService(
+          client: http.Client(),
+          supabaseUrl: _supabaseUrl,
+          supabasePublishableKey: _supabasePublishableKey,
+        );
+  }
 
   @override
   void dispose() {
@@ -232,11 +243,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                   // Error message
                   if (_error != null) ...[
                     Text(
-                      _error == 'rate_limited'
-                          ? l10n.feedbackErrorRateLimited
-                          : _error == 'network_error'
-                          ? l10n.feedbackErrorNetwork
-                          : l10n.feedbackErrorServer,
+                      _errorText(l10n),
                       style: ts.bodySmall?.copyWith(
                         color: Theme.of(context).colorScheme.error,
                       ),
@@ -313,6 +320,15 @@ class _FeedbackPageState extends State<FeedbackPage> {
     );
   }
 
+  String _errorText(L10n l10n) {
+    return switch (_error) {
+      'rate_limited' => l10n.feedbackErrorRateLimited,
+      'network_error' => l10n.feedbackErrorNetwork,
+      'not_configured' => l10n.feedbackErrorNotConfigured,
+      _ => l10n.feedbackErrorServer,
+    };
+  }
+
   Future<void> _submit() async {
     if (!_canSubmit || _submitting) return;
 
@@ -324,6 +340,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
     // Capture locale before the first await to avoid using BuildContext across
     // an async gap (lint: use_build_context_synchronously).
     final locale = Localizations.localeOf(context).languageCode;
+
     try {
       // Client-side rate limit check — avoids unnecessary network round-trips.
       if (await _isClientRateLimited()) {
@@ -337,83 +354,52 @@ class _FeedbackPageState extends State<FeedbackPage> {
         return;
       }
 
-      if (_supabaseUrl.isEmpty || _supabasePublishableKey.isEmpty) {
-        _log.info(
-          'Supabase not configured — skipping feedback submission '
-          '(rating=$_rating category=$_category)',
-        );
-      } else {
-        _log.info(
-          'Submitting feedback: rating=$_rating category=$_category locale=$locale',
-        );
-        final payload = {
-          'rating': _rating,
-          'feedback_text': _commentController.text.trim(),
-          'category': _category,
-          'app_version': appVersion,
-          'device_id_hash': _deriveDeviceId(),
-          'locale': locale,
-        };
-        await _post(payload);
-        _log.info('Feedback submitted successfully');
-      }
-      await _recordFeedbackSubmission();
-      if (mounted) setState(() => _submitted = true);
-    } on _ServerException catch (e) {
-      if (mounted) {
-        setState(() {
-          _submitting = false;
-          _error = e.code;
-        });
+      final payload = FeedbackPayload(
+        rating: _rating,
+        feedbackText: _commentController.text.trim(),
+        category: _category,
+        appVersion: appVersion,
+        deviceIdHash: _deriveDeviceId(),
+        locale: locale,
+      );
+
+      final result = await _service.submit(payload);
+
+      if (!mounted) return;
+
+      switch (result) {
+        case FeedbackSent():
+          await _recordFeedbackSubmission();
+          setState(() => _submitted = true);
+        case FeedbackSkippedNotConfigured():
+          setState(() {
+            _submitting = false;
+            _error = 'not_configured';
+          });
+        case FeedbackRateLimitedServer():
+          setState(() {
+            _submitting = false;
+            _error = 'rate_limited';
+          });
+        case FeedbackServerError():
+          setState(() {
+            _submitting = false;
+            _error = 'server_error';
+          });
+        case FeedbackNetworkError():
+          setState(() {
+            _submitting = false;
+            _error = 'network_error';
+          });
       }
     } on Exception catch (e) {
-      _log.warning('Feedback submission failed: $e');
+      _log.warning('Feedback submission failed unexpectedly: $e');
       if (mounted) {
         setState(() {
           _submitting = false;
-          _error = 'network_error';
+          _error = 'server_error';
         });
       }
-    }
-  }
-
-  /// Sends the feedback payload to Supabase via a direct PostgREST INSERT.
-  ///
-  /// No automatic retry — the form is manual and retrying a timed-out POST
-  /// could create a duplicate row. Users can re-submit on error.
-  ///
-  /// Throws [_ServerException] for rate-limit and server-error responses.
-  /// Throws the underlying [Exception] (e.g. [SocketException]) for network
-  /// failures.
-  Future<void> _post(Map<String, Object?> payload) async {
-    final response = await http
-        .post(
-          Uri.parse('$_supabaseUrl/rest/v1/user_feedback'),
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': _supabasePublishableKey,
-            'Authorization': 'Bearer $_supabasePublishableKey',
-            'Prefer': 'return=minimal',
-            'User-Agent': appUserAgent,
-          },
-          body: jsonEncode(payload),
-        )
-        .timeout(const Duration(seconds: 15));
-
-    if (response.statusCode == 429) {
-      _log.info('Feedback rate-limited (429)');
-      throw const _ServerException('rate_limited');
-    }
-    // PG trigger raises P0001 → PostgREST returns 400 with "rate_limited".
-    if (response.statusCode == 400 && response.body.contains('rate_limited')) {
-      _log.info('Feedback rate-limited by DB trigger');
-      throw const _ServerException('rate_limited');
-    }
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      _log.warning(
-        'Feedback submission error: ${response.statusCode} ${response.body}',
-      );
-      throw const _ServerException('server_error');
     }
   }
 

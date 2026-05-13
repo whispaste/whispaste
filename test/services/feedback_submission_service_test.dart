@@ -1,0 +1,233 @@
+/// Unit tests for [FeedbackSubmissionService].
+///
+/// All HTTP calls are intercepted via [MockClient] (package:http/testing.dart).
+/// No real network connections are made.
+///
+/// Result variants tested:
+///   1. [FeedbackSkippedNotConfigured] — empty URL
+///   2. [FeedbackSkippedNotConfigured] — empty key
+///   3. [FeedbackSent] — HTTP 2xx
+///   4. [FeedbackRateLimitedServer] — HTTP 429
+///   5. [FeedbackRateLimitedServer] — HTTP 400 body contains "rate_limited"
+///   6. [FeedbackServerError] — HTTP 5xx
+///   7. [FeedbackNetworkError] — SocketException
+library;
+
+import 'dart:io';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
+
+import 'package:whispaste/services/feedback_submission_service.dart';
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+FeedbackPayload _testPayload() => const FeedbackPayload(
+  rating: 5,
+  feedbackText: 'Great app!',
+  category: 'general',
+  appVersion: '1.0.0',
+  deviceIdHash: 'abc123def456',
+  locale: 'en',
+);
+
+FeedbackSubmissionService _makeService({
+  required http.Client client,
+  String supabaseUrl = 'https://example.supabase.co',
+  String supabasePublishableKey = 'test-key',
+  List<Breadcrumb>? breadcrumbs,
+}) {
+  final captured = breadcrumbs;
+  return FeedbackSubmissionService(
+    client: client,
+    supabaseUrl: supabaseUrl,
+    supabasePublishableKey: supabasePublishableKey,
+    timeout: const Duration(seconds: 5),
+    breadcrumbSink: captured != null ? captured.add : (_) {},
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+void main() {
+  group('FeedbackSubmissionService', () {
+    // ── SkippedNotConfigured ───────────────────────────────────────────────
+
+    test(
+      'returns SkippedNotConfigured when supabaseUrl is empty — no HTTP call',
+      () async {
+        var httpCallMade = false;
+        final client = MockClient((_) async {
+          httpCallMade = true;
+          return http.Response('', 201);
+        });
+
+        final service = _makeService(
+          client: client,
+          supabaseUrl: '',
+          supabasePublishableKey: 'some-key',
+        );
+        final result = await service.submit(_testPayload());
+
+        expect(result, isA<FeedbackSkippedNotConfigured>());
+        expect(httpCallMade, isFalse);
+      },
+    );
+
+    test(
+      'returns SkippedNotConfigured when supabasePublishableKey is empty — no HTTP call',
+      () async {
+        var httpCallMade = false;
+        final client = MockClient((_) async {
+          httpCallMade = true;
+          return http.Response('', 201);
+        });
+
+        final service = _makeService(
+          client: client,
+          supabaseUrl: 'https://example.supabase.co',
+          supabasePublishableKey: '',
+        );
+        final result = await service.submit(_testPayload());
+
+        expect(result, isA<FeedbackSkippedNotConfigured>());
+        expect(httpCallMade, isFalse);
+      },
+    );
+
+    // ── FeedbackSent ───────────────────────────────────────────────────────
+
+    test('returns FeedbackSent on HTTP 201', () async {
+      final client = MockClient((_) async => http.Response('', 201));
+      final service = _makeService(client: client);
+      final result = await service.submit(_testPayload());
+
+      expect(result, isA<FeedbackSent>());
+    });
+
+    test('returns FeedbackSent on HTTP 200', () async {
+      final client = MockClient((_) async => http.Response('{}', 200));
+      final service = _makeService(client: client);
+      final result = await service.submit(_testPayload());
+
+      expect(result, isA<FeedbackSent>());
+    });
+
+    // ── FeedbackRateLimitedServer ─────────────────────────────────────────
+
+    test('returns FeedbackRateLimitedServer on HTTP 429', () async {
+      final client = MockClient((_) async => http.Response('', 429));
+      final service = _makeService(client: client);
+      final result = await service.submit(_testPayload());
+
+      expect(result, isA<FeedbackRateLimitedServer>());
+    });
+
+    test(
+      'returns FeedbackRateLimitedServer on HTTP 400 with rate_limited body',
+      () async {
+        final client = MockClient(
+          (_) async =>
+              http.Response('{"message":"rate_limited","code":"P0001"}', 400),
+        );
+        final service = _makeService(client: client);
+        final result = await service.submit(_testPayload());
+
+        expect(result, isA<FeedbackRateLimitedServer>());
+      },
+    );
+
+    // ── FeedbackServerError ───────────────────────────────────────────────
+
+    test(
+      'returns FeedbackServerError on HTTP 500 with status code and body',
+      () async {
+        final client = MockClient(
+          (_) async => http.Response('Internal Server Error', 500),
+        );
+        final service = _makeService(client: client);
+        final result = await service.submit(_testPayload());
+
+        expect(result, isA<FeedbackServerError>());
+        final err = result as FeedbackServerError;
+        expect(err.statusCode, 500);
+        expect(err.body, 'Internal Server Error');
+      },
+    );
+
+    // ── FeedbackNetworkError ──────────────────────────────────────────────
+
+    test('returns FeedbackNetworkError on SocketException', () async {
+      final client = MockClient((_) async {
+        throw const SocketException('Connection refused');
+      });
+      final service = _makeService(client: client);
+      final result = await service.submit(_testPayload());
+
+      expect(result, isA<FeedbackNetworkError>());
+      final err = result as FeedbackNetworkError;
+      expect(err.cause, isA<SocketException>());
+    });
+
+    // ── Sentry breadcrumbs ────────────────────────────────────────────────
+
+    test('emits breadcrumb with result=sent on success', () async {
+      final breadcrumbs = <Breadcrumb>[];
+      final client = MockClient((_) async => http.Response('', 201));
+      final service = _makeService(client: client, breadcrumbs: breadcrumbs);
+      await service.submit(_testPayload());
+
+      expect(breadcrumbs, hasLength(1));
+      expect(breadcrumbs.first.data?['result'], 'sent');
+      expect(breadcrumbs.first.category, 'feedback');
+    });
+
+    test(
+      'emits breadcrumb with result=skipped_not_configured when not configured',
+      () async {
+        final breadcrumbs = <Breadcrumb>[];
+        final client = MockClient((_) async => http.Response('', 201));
+        final service = _makeService(
+          client: client,
+          supabaseUrl: '',
+          breadcrumbs: breadcrumbs,
+        );
+        await service.submit(_testPayload());
+
+        expect(breadcrumbs, hasLength(1));
+        expect(breadcrumbs.first.data?['result'], 'skipped_not_configured');
+      },
+    );
+
+    // ── Request format ────────────────────────────────────────────────────
+
+    test('sends correct headers and JSON body', () async {
+      http.Request? capturedRequest;
+      final client = MockClient((request) async {
+        capturedRequest = request;
+        return http.Response('', 201);
+      });
+
+      final service = FeedbackSubmissionService(
+        client: client,
+        supabaseUrl: 'https://test.supabase.co',
+        supabasePublishableKey: 'pk_test',
+      );
+      await service.submit(_testPayload());
+
+      expect(capturedRequest, isNotNull);
+      expect(
+        capturedRequest!.url.toString(),
+        'https://test.supabase.co/rest/v1/user_feedback',
+      );
+      expect(capturedRequest!.headers['apikey'], 'pk_test');
+      expect(capturedRequest!.headers['Prefer'], 'return=minimal');
+    });
+  });
+}
