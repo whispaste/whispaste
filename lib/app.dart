@@ -420,6 +420,7 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
                         settings.hotkeyModifiers,
                         settings.hotkeyKey,
                         l10n: l10n,
+                        displayOverride: settings.hotkey.hotkeyKeyDisplay,
                       ),
                       hotkeyEnabled: settings.hotkeyEnabled,
                       updateVersion: updateState.phase == UpdatePhase.available

@@ -7,11 +7,13 @@
 <p align="center">
   <strong>Press. Speak. Done.</strong><br>
   Speak, and the text appears — wherever your cursor sits, in any app.<br>
-  Cloud or fully offline. Free & open source.
+  Windows · macOS · Cloud or fully offline · Free & open source.
 </p>
 
 <p align="center">
   <a href="../../releases/latest"><img src="https://img.shields.io/github/v/release/whispaste/whispaste?style=flat-square&color=06b6d4&label=download" alt="Download"></a>&nbsp;
+  <img src="https://img.shields.io/badge/Windows-0078D4?style=flat-square&logo=windows&logoColor=white" alt="Windows">&nbsp;
+  <img src="https://img.shields.io/badge/macOS-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS">&nbsp;
   <img src="https://img.shields.io/badge/Flutter-02569B?style=flat-square&logo=flutter&logoColor=white" alt="Flutter">&nbsp;
   <img src="https://img.shields.io/badge/MIT-22c55e?style=flat-square&label=license" alt="MIT">
 </p>
@@ -50,13 +52,13 @@ Works in emails, chat apps, code editors, browsers, terminals — everywhere.
 
 ## Development
 
-**Prerequisites:** [Flutter](https://flutter.dev/docs/get-started/install) 3.x
+**Prerequisites:** [Flutter](https://flutter.dev/docs/get-started/install) 3.x · Windows 10 (64-bit) or macOS 10.15+
 
 ```bash
 git clone https://github.com/whispaste/whispaste.git
 cd whispaste
 flutter pub get
-flutter run -d windows
+flutter run -d windows   # or: flutter run -d macos
 ```
 
 ### Project Structure
@@ -70,6 +72,7 @@ flutter run -d windows
 ├── test/               # Widget & unit tests
 ├── assets/             # Icons, fonts, sounds
 ├── windows/            # Windows platform runner
+├── macos/              # macOS platform runner
 ├── website/            # Astro-based project website
 └── supabase/           # Database migrations (PostgREST + RLS only, no Edge Functions)
 ```
@@ -77,9 +80,12 @@ flutter run -d windows
 ### Commands
 
 ```bash
-flutter analyze          # Lint + static analysis
-flutter test             # Run all tests
-flutter build windows    # Build for Windows
+flutter analyze --fatal-infos          # Lint + static analysis
+flutter test                           # Run all tests (excludes goldens)
+flutter test --tags=golden             # Run widget/screenshot tests
+flutter build windows --release --no-tree-shake-icons
+flutter build macos   --release --no-tree-shake-icons \
+  --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_PUBLISHABLE_KEY=...
 ```
 
 ## Privacy

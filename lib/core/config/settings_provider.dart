@@ -541,6 +541,7 @@ class AppSettings {
     int? historyAutoTrashDays,
     bool? hotkeyEnabled,
     String? hotkeyKey,
+    String? hotkeyKeyDisplay,
     String? hotkeyModifiers,
     double? floatingButtonX,
     double? floatingButtonY,
@@ -628,6 +629,7 @@ class AppSettings {
       hotkey: hotkey.copyWith(
         hotkeyEnabled: hotkeyEnabled,
         hotkeyKey: hotkeyKey,
+        hotkeyKeyDisplay: hotkeyKeyDisplay,
         hotkeyModifiers: hotkeyModifiers,
       ),
       windowPosition: windowPosition.copyWith(

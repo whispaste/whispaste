@@ -36,12 +36,19 @@ class ReadyStep extends ConsumerWidget {
         : WpColorsLight.accentWarmGradient;
 
     final hotkeyKey = settings.hotkeyKey;
+    final hotkeyDisplay = settings.hotkey.hotkeyKeyDisplay;
     final hotkeyModifiers = settings.hotkeyModifiers;
     final modifierLabels = hotkeyModifierLabels(hotkeyModifiers, l10n: l10n);
+    final keyCapLabel = hotkeyDisplay.trim().isNotEmpty
+        ? (hotkeyDisplay.length == 1
+              ? hotkeyDisplay.toUpperCase()
+              : hotkeyDisplay)
+        : hotkeyKey;
     final formattedHotkey = formatHotkeyShortcut(
       hotkeyModifiers,
       hotkeyKey,
       l10n: l10n,
+      displayOverride: hotkeyDisplay,
     );
 
     return Column(
@@ -77,7 +84,7 @@ class ReadyStep extends ConsumerWidget {
           label: '${l10n.onboardingReadyCurrentHotkey}: $formattedHotkey',
           child: _HotkeyKeyCaps(
             modifiers: modifierLabels,
-            keyLabel: hotkeyKey,
+            keyLabel: keyCapLabel,
             isDark: isDark,
           ),
         ),
@@ -89,6 +96,7 @@ class ReadyStep extends ConsumerWidget {
               final result = await HotkeyRecorderDialog.show(
                 context,
                 initialKey: hotkeyKey,
+                initialDisplayKey: hotkeyDisplay,
                 initialModifiers: hotkeyModifiers,
               );
               if (result != null && context.mounted) {
@@ -97,6 +105,7 @@ class ReadyStep extends ConsumerWidget {
                     .updateSettings(
                       (s) => s.copyWith(
                         hotkeyKey: result.key,
+                        hotkeyKeyDisplay: result.displayKey,
                         hotkeyModifiers: result.modifiers,
                       ),
                     );
