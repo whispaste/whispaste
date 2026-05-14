@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
 
+import 'package:whispaste/services/hotkey_key_resolver.dart';
 import 'package:whispaste/services/hotkey_service.dart';
 
 // ---------------------------------------------------------------------------
@@ -376,6 +377,60 @@ void main() {
       final registrarFalse = FakeHotKeyRegistrar(supportsKeyUp: false);
       final serviceFalse = _makeService(registrarFalse);
       expect(serviceFalse.supportsKeyUp, isFalse);
+    });
+  });
+
+  group('end-to-end: Recorder-Output → Registrar-Input', () {
+    // Freezes the storage→registrar seam that the modifier-bug slipped
+    // through. The previous service-level tests called the public API
+    // with HotKeyModifier directly, so a recorder that wrote bogus
+    // display-label tokens (e.g. "option") was never observed end-to-end.
+
+    test('stored "option" + "←" → registrar receives [alt] + arrowLeft '
+        '(self-healing for the reporter\'s existing DB)', () async {
+      final registrar = FakeHotKeyRegistrar();
+      final service = _makeService(registrar);
+
+      // Simulate what _registerFromSettings does for an existing DB whose
+      // hotkey_modifiers='option' and hotkey_key='←' (the reporter's state).
+      await service.updateHotkey(
+        key: resolveKey('←'),
+        modifiers: resolveModifiers('option'),
+      );
+
+      expect(registrar.registered.length, equals(1));
+      expect(
+        registrar.registered.first.logicalKey,
+        equals(LogicalKeyboardKey.arrowLeft),
+      );
+      expect(
+        registrar.registered.first.modifiers,
+        contains(HotKeyModifier.alt),
+        reason:
+            'Self-healing alias must turn legacy "option" into HotKeyModifier.alt '
+            'so the existing DB works without rebind.',
+      );
+    });
+
+    test('stored DE "strg+umschalt" + "D" → registrar receives '
+        '[control, shift] + keyD', () async {
+      final registrar = FakeHotKeyRegistrar();
+      final service = _makeService(registrar);
+
+      await service.updateHotkey(
+        key: resolveKey('D'),
+        modifiers: resolveModifiers('strg+umschalt'),
+      );
+
+      expect(registrar.registered.length, equals(1));
+      expect(
+        registrar.registered.first.logicalKey,
+        equals(LogicalKeyboardKey.keyD),
+      );
+      expect(
+        registrar.registered.first.modifiers,
+        containsAll([HotKeyModifier.control, HotKeyModifier.shift]),
+      );
     });
   });
 }
