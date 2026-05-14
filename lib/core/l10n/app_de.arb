@@ -36,6 +36,7 @@
   "historyDeletePermanently": "Endgültig löschen",
   "historyUnarchive": "Aus Archiv holen",
   "historyExport": "Exportieren",
+  "historyExportAction": "Exportieren…",
   "historyCopyAsMarkdown": "Als Markdown kopieren",
   "historyDetail": "Details",
   "historyTags": "Tags",
