@@ -11,6 +11,7 @@ import '../../../core/config/settings_enums.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../services/hotkey_service.dart';
 import '../../../services/sound_feedback_service.dart';
 import '../../../widgets/hotkey_recorder.dart';
 import '../../../widgets/section.dart';
@@ -85,18 +86,52 @@ class KeyboardShortcutSection extends ConsumerWidget {
               ),
             ),
           ),
-          SettingRow(
-            icon: LucideIcons.hand,
-            label: l10n.settingsHoldToRecord,
-            trailing: settingsToggle(
-              value: settings.pushToTalk,
-              onChanged: (v) => ref
-                  .read(settingsProvider.notifier)
-                  .updateSettings((s) => s.copyWith(pushToTalk: v)),
-            ),
-          ),
+          _PushToTalkRow(settings: settings),
         ],
       ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Push-to-Talk toggle row (platform-aware)
+// ---------------------------------------------------------------------------
+
+/// Renders the Hold-to-Record (Push-to-Talk) toggle.
+///
+/// When the current platform does not support key-up events
+/// ([HotkeyService.supportsKeyUp] is false), the toggle is disabled
+/// and wrapped in a [Tooltip] explaining the limitation.
+class _PushToTalkRow extends ConsumerWidget {
+  const _PushToTalkRow({required this.settings});
+
+  final AppSettings settings;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = L10n.of(context);
+
+    // Read the notifier directly — we only need supportsKeyUp once per build
+    // and do not need to rebuild on hotkey-service state changes.
+    final supportsKeyUp = ref
+        .read(hotkeyServiceProvider.notifier)
+        .supportsKeyUp;
+
+    final toggle = Switch(
+      value: settings.pushToTalk,
+      onChanged: supportsKeyUp
+          ? (v) => ref
+                .read(settingsProvider.notifier)
+                .updateSettings((s) => s.copyWith(pushToTalk: v))
+          : null, // null disables the switch
+    );
+
+    return SettingRow(
+      icon: LucideIcons.hand,
+      label: l10n.settingsHoldToRecord,
+      trailing: supportsKeyUp
+          ? toggle
+          : Tooltip(message: l10n.pushToTalkUnavailableTooltip, child: toggle),
     );
   }
 }

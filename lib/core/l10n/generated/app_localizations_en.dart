@@ -307,6 +307,9 @@ class L10nEn extends L10n {
   String get settingsHoldToRecord => 'Hold to Record';
 
   @override
+  String get pushToTalkUnavailableTooltip => 'Not available on this platform';
+
+  @override
   String get settingsSpeechRecognition => 'Speech Recognition';
 
   @override

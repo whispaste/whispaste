@@ -26,9 +26,20 @@ import 'hotkey_key_resolver.dart';
 /// Thin abstraction over the two [hotKeyManager] operations used by
 /// [HotkeyService]. Swap with a [FakeHotKeyRegistrar] in tests.
 abstract class HotKeyRegistrar {
-  Future<void> register(HotKey hotKey, {HotKeyHandler? keyDownHandler});
+  Future<void> register(
+    HotKey hotKey, {
+    HotKeyHandler? keyDownHandler,
+    HotKeyHandler? keyUpHandler,
+  });
 
   Future<void> unregister(HotKey hotKey);
+
+  /// Whether this registrar supports key-up events.
+  ///
+  /// macOS: true (hotkey_manager native layer fires onKeyUp).
+  /// Windows/Linux: false (RegisterHotKey is key-down only; WH_KEYBOARD_LL
+  /// not yet implemented).
+  bool get supportsKeyUp;
 }
 
 /// Production registrar — delegates to the package singleton.
@@ -36,11 +47,21 @@ class _PackageHotKeyRegistrar implements HotKeyRegistrar {
   const _PackageHotKeyRegistrar();
 
   @override
-  Future<void> register(HotKey hotKey, {HotKeyHandler? keyDownHandler}) =>
-      hotKeyManager.register(hotKey, keyDownHandler: keyDownHandler);
+  Future<void> register(
+    HotKey hotKey, {
+    HotKeyHandler? keyDownHandler,
+    HotKeyHandler? keyUpHandler,
+  }) => hotKeyManager.register(
+    hotKey,
+    keyDownHandler: keyDownHandler,
+    keyUpHandler: keyUpHandler,
+  );
 
   @override
   Future<void> unregister(HotKey hotKey) => hotKeyManager.unregister(hotKey);
+
+  @override
+  bool get supportsKeyUp => Platform.isMacOS;
 }
 
 // ---------------------------------------------------------------------------
@@ -78,8 +99,13 @@ String get safeDefaultHotKeyLabel =>
 class HotkeyService extends Notifier<void> {
   static final _log = AppLogger('HotkeyService');
 
-  /// Callback fired when the global hotkey is pressed.
+  /// Callback fired when the global hotkey is pressed (key-down).
   VoidCallback? onHotkeyPressed;
+
+  /// Callback fired when the global hotkey is released (key-up).
+  ///
+  /// Only fires on platforms where [supportsKeyUp] is true (currently macOS).
+  VoidCallback? onHotkeyReleased;
 
   /// Callback fired when hotkey registration fails and the safe default is
   /// used instead.
@@ -87,6 +113,9 @@ class HotkeyService extends Notifier<void> {
   /// The caller (e.g. [ServiceBootstrapWidget]) should show a localised toast
   /// that prompts the user to re-bind their shortcut in Settings.
   VoidCallback? onRegistrationFailed;
+
+  /// Whether the current platform supports key-up events for global hotkeys.
+  bool get supportsKeyUp => _registrar.supportsKeyUp;
 
   HotKey? _registeredHotKey;
   bool _initialized = false;
@@ -167,6 +196,12 @@ class HotkeyService extends Notifier<void> {
           _log.info('Global hotkey pressed');
           onHotkeyPressed?.call();
         },
+        keyUpHandler: _registrar.supportsKeyUp
+            ? (_) {
+                _log.info('Global hotkey released');
+                onHotkeyReleased?.call();
+              }
+            : null,
       );
       _log.info('Hotkey registered successfully');
     } on Object catch (e, st) {
@@ -226,6 +261,12 @@ class HotkeyService extends Notifier<void> {
           _log.info('Safe-default hotkey pressed');
           onHotkeyPressed?.call();
         },
+        keyUpHandler: _registrar.supportsKeyUp
+            ? (_) {
+                _log.info('Safe-default hotkey released');
+                onHotkeyReleased?.call();
+              }
+            : null,
       );
       _log.info(
         'Safe-default hotkey registered successfully ($safeDefaultHotKeyLabel)',

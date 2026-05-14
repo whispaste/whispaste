@@ -9,12 +9,14 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app.dart' show activePageProvider;
+import '../core/config/settings_provider.dart';
 import '../core/logging/ui_thread_watchdog.dart';
 import '../services/autostart_service.dart';
 import '../services/floating_button/floating_button_service.dart';
 import '../services/floating_overlay/floating_overlay_service.dart';
 import '../services/hotkey_service.dart';
 import '../services/recording_orchestrator.dart';
+import '../services/recording_trigger_handler.dart';
 import '../services/tray_service.dart';
 
 /// Invisible wrapper that eagerly boots keepAlive service providers.
@@ -67,11 +69,22 @@ class _ServiceBootstrapState extends ConsumerState<ServiceBootstrapWidget> {
       ref.read(activePageProvider.notifier).setPage(page);
     };
 
-    // ── Global hotkey (Ctrl+Shift+D → toggle recording) ──
+    // ── Global hotkey (toggle or Push-to-Talk depending on settings) ──
     ref.watch(hotkeyServiceProvider);
-    ref.read(hotkeyServiceProvider.notifier).onHotkeyPressed = () {
-      ref.read(recordingOrchestratorProvider.notifier).toggleRecording();
-    };
+    final hotkeySvc = ref.read(hotkeyServiceProvider.notifier);
+    final triggerHandler = RecordingTriggerHandler(
+      startRecording: () =>
+          ref.read(recordingOrchestratorProvider.notifier).startRecording(),
+      stopRecording: () =>
+          ref.read(recordingOrchestratorProvider.notifier).stopRecording(),
+      toggleRecording: () =>
+          ref.read(recordingOrchestratorProvider.notifier).toggleRecording(),
+      pushToTalkEnabled: () =>
+          (ref.read(settingsProvider).value ?? AppSettings.defaults).pushToTalk,
+      registrarSupportsKeyUp: () => hotkeySvc.supportsKeyUp,
+    );
+    hotkeySvc.onHotkeyPressed = triggerHandler.onKeyDown;
+    hotkeySvc.onHotkeyReleased = triggerHandler.onKeyUp;
 
     // ── Autostart sync ──
     ref.watch(autostartServiceProvider);
