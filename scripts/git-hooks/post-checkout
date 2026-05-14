@@ -1,0 +1,48 @@
+#!/bin/bash
+# ╔═════════════════════════════════════════════════════════════════════╗
+# ║  WhisPaste Post-Checkout Guard                                     ║
+# ║                                                                    ║
+# ║  Warnt laut, wenn auf 'main' oder 'master' gewechselt wird.        ║
+# ║  Entwicklung gehört auf 'dev'. 'main' ist ausschließlich für       ║
+# ║  Release-Merges (dev → main) gedacht.                              ║
+# ║                                                                    ║
+# ║  Hard-Block ist hier nicht möglich (post-checkout Exit-Codes       ║
+# ║  blockieren den bereits erfolgten Checkout nicht). Der Schutz      ║
+# ║  besteht aus:                                                       ║
+# ║    1. dieser Warnung                                                ║
+# ║    2. pre-commit § 0 — blockt JEDEN Commit auf main                 ║
+# ║                                                                    ║
+# ║  Install: bash scripts/install-hooks.sh                            ║
+# ╚═════════════════════════════════════════════════════════════════════╝
+
+# git invokes post-checkout with: prev_HEAD new_HEAD flag
+# flag == 1 → branch checkout (not file checkout)
+PREV_HEAD="$1"
+NEW_HEAD="$2"
+BRANCH_FLAG="$3"
+
+if [ "$BRANCH_FLAG" != "1" ]; then
+  exit 0
+fi
+
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+
+if [ "$CURRENT_BRANCH" = "main" ] || [ "$CURRENT_BRANCH" = "master" ]; then
+  echo ""
+  echo "╔═══════════════════════════════════════════════════════════╗"
+  echo "║  ⚠  WARNUNG: Du bist jetzt auf '$CURRENT_BRANCH'.                "
+  echo "╠═══════════════════════════════════════════════════════════╣"
+  echo "║  Entwicklung gehört auf 'dev'. '$CURRENT_BRANCH' ist NUR für     "
+  echo "║  Release-Merges reserviert (dev → main fast-forward).     ║"
+  echo "║                                                            ║"
+  echo "║  Sofort zurück:                                            ║"
+  echo "║    git checkout dev                                        ║"
+  echo "║                                                            ║"
+  echo "║  Falls du wirklich einen Release-Merge machst, ignorier    ║"
+  echo "║  diese Warnung — Commits hier brauchen außerdem            ║"
+  echo "║  WP_ALLOW_COMMIT_ON_MAIN=1 (siehe pre-commit § 0).         ║"
+  echo "╚═══════════════════════════════════════════════════════════╝"
+  echo ""
+fi
+
+exit 0
