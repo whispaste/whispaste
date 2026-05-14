@@ -1,0 +1,3 @@
+# Build-time translation cache (per-key JSON files written by
+# scripts/body-translator.ts). Never tracked — regenerated on demand.
+.cache/
