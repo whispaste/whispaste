@@ -9,7 +9,8 @@
     "preview": "astro preview",
     "test": "playwright test",
     "test:ci": "playwright test --reporter=github",
-    "test:ui": "playwright test --ui"
+    "test:ui": "playwright test --ui",
+    "test:unit": "vitest run"
   },
   "type": "module",
   "dependencies": {
@@ -24,6 +25,7 @@
     "@typescript-eslint/parser": "^8.59.3",
     "eslint": "^10.3.0",
     "eslint-plugin-security": "^4.0.0",
-    "globals": "^17.6.0"
+    "globals": "^17.6.0",
+    "vitest": "^4.1.6"
   }
 }

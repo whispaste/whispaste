@@ -61,4 +61,49 @@ export default [
       "prefer-const": "error",
     },
   },
+  // Build-time Node scripts (run under Node 22, not in the browser).
+  // Node 22 exposes Web-platform types (fetch, Response, Request, Headers,
+  // ResponseInit, RequestInit, Headers, …) as globals.
+  // (Legacy `.mjs` scripts are intentionally excluded to keep the diff scoped
+  // to TypeScript additions; they can be migrated to TS later.)
+  {
+    files: ["scripts/**/*.{ts,mts}"],
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: {
+        ecmaVersion: "latest",
+        sourceType: "module",
+      },
+      globals: {
+        ...globals.node,
+        ...globals.es2021,
+        fetch: "readonly",
+        Response: "readonly",
+        Request: "readonly",
+        Headers: "readonly",
+        ResponseInit: "readonly",
+        RequestInit: "readonly",
+      },
+    },
+    plugins: {
+      "@typescript-eslint": tsPlugin,
+      security: securityPlugin,
+    },
+    rules: {
+      "no-unused-vars": "off",
+      "@typescript-eslint/no-unused-vars": ["error", {
+        vars: "all",
+        args: "after-used",
+        ignoreRestSiblings: true,
+        varsIgnorePattern: "^_",
+        argsIgnorePattern: "^_",
+      }],
+      "no-undef": "error",
+      "no-eval": "error",
+      "no-implied-eval": "error",
+      "no-unreachable": "error",
+      "no-var": "error",
+      "prefer-const": "error",
+    },
+  },
 ];
