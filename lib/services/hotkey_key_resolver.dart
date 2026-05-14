@@ -134,6 +134,41 @@ String? labelForKey(LogicalKeyboardKey key) {
 }
 
 // ---------------------------------------------------------------------------
+// Modifier serialization (storage format)
+// ---------------------------------------------------------------------------
+
+/// Serializes a set of held modifier keys to the canonical storage string.
+///
+/// Returns tokens in a deterministic order (`ctrl → shift → alt → meta`) so
+/// roundtrips with [resolveModifiers] are stable. Left/Right variants are
+/// treated as equivalent.
+///
+/// This is the **single source of truth** for the modifier storage format —
+/// the recorder writes via this function and the registrar reads via
+/// [resolveModifiers]. The two share their token vocabulary so display labels
+/// (e.g. macOS `Option`, German `Strg`) never leak into persisted settings.
+String serializeModifiers(Set<LogicalKeyboardKey> heldModifiers) {
+  final parts = <String>[];
+  if (heldModifiers.contains(LogicalKeyboardKey.controlLeft) ||
+      heldModifiers.contains(LogicalKeyboardKey.controlRight)) {
+    parts.add('ctrl');
+  }
+  if (heldModifiers.contains(LogicalKeyboardKey.shiftLeft) ||
+      heldModifiers.contains(LogicalKeyboardKey.shiftRight)) {
+    parts.add('shift');
+  }
+  if (heldModifiers.contains(LogicalKeyboardKey.altLeft) ||
+      heldModifiers.contains(LogicalKeyboardKey.altRight)) {
+    parts.add('alt');
+  }
+  if (heldModifiers.contains(LogicalKeyboardKey.metaLeft) ||
+      heldModifiers.contains(LogicalKeyboardKey.metaRight)) {
+    parts.add('meta');
+  }
+  return parts.join('+');
+}
+
+// ---------------------------------------------------------------------------
 // Modifier resolution
 // ---------------------------------------------------------------------------
 

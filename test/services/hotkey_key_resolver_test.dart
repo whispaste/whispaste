@@ -219,6 +219,62 @@ void main() {
     });
   });
 
+  group('serializeModifiers — single source of truth for storage format', () {
+    test('empty set → empty string', () {
+      expect(serializeModifiers(const <LogicalKeyboardKey>{}), '');
+    });
+
+    test('alt alone → "alt" (the reporter\'s case)', () {
+      expect(serializeModifiers({LogicalKeyboardKey.altLeft}), 'alt');
+    });
+
+    test('right-hand modifier is equivalent to left-hand', () {
+      expect(serializeModifiers({LogicalKeyboardKey.controlRight}), 'ctrl');
+      expect(serializeModifiers({LogicalKeyboardKey.shiftRight}), 'shift');
+      expect(serializeModifiers({LogicalKeyboardKey.altRight}), 'alt');
+      expect(serializeModifiers({LogicalKeyboardKey.metaRight}), 'meta');
+    });
+
+    test(
+      'ctrl + shift → "ctrl+shift" (canonical order ctrl-shift-alt-meta)',
+      () {
+        expect(
+          serializeModifiers({
+            LogicalKeyboardKey.shiftLeft,
+            LogicalKeyboardKey.controlLeft,
+          }),
+          'ctrl+shift',
+          reason: 'token order is canonical, not insertion order',
+        );
+      },
+    );
+
+    test('all four modifiers → "ctrl+shift+alt+meta"', () {
+      expect(
+        serializeModifiers({
+          LogicalKeyboardKey.metaLeft,
+          LogicalKeyboardKey.altLeft,
+          LogicalKeyboardKey.shiftLeft,
+          LogicalKeyboardKey.controlLeft,
+        }),
+        'ctrl+shift+alt+meta',
+      );
+    });
+
+    test('non-modifier keys in the set are ignored', () {
+      // Defensive: callers may pass a mixed set; only the four canonical
+      // modifier pairs are inspected.
+      expect(
+        serializeModifiers({
+          LogicalKeyboardKey.keyD,
+          LogicalKeyboardKey.altLeft,
+          LogicalKeyboardKey.arrowLeft,
+        }),
+        'alt',
+      );
+    });
+  });
+
   group('resolveModifiers', () {
     test('ctrl maps to control', () {
       expect(resolveModifiers('ctrl'), [HotKeyModifier.control]);
@@ -274,4 +330,42 @@ void main() {
       expect(resolveModifiers('ctrl+UNKNOWN'), [HotKeyModifier.control]);
     });
   });
+
+  group('serializeModifiers ↔ resolveModifiers roundtrip invariant', () {
+    // Each modifier-pair → expected HotKeyModifier value.
+    const pairs = <_ModifierPair>[
+      _ModifierPair(LogicalKeyboardKey.controlLeft, HotKeyModifier.control),
+      _ModifierPair(LogicalKeyboardKey.shiftLeft, HotKeyModifier.shift),
+      _ModifierPair(LogicalKeyboardKey.altLeft, HotKeyModifier.alt),
+      _ModifierPair(LogicalKeyboardKey.metaLeft, HotKeyModifier.meta),
+    ];
+
+    // Iterate all 16 subsets of the 4 modifier-pairs.
+    for (var bitmask = 0; bitmask < 16; bitmask++) {
+      final inputKeys = <LogicalKeyboardKey>{};
+      final expectedMods = <HotKeyModifier>{};
+      for (var i = 0; i < pairs.length; i++) {
+        if ((bitmask & (1 << i)) != 0) {
+          inputKeys.add(pairs[i].key);
+          expectedMods.add(pairs[i].modifier);
+        }
+      }
+
+      test('roundtrip for $inputKeys', () {
+        final serialized = serializeModifiers(inputKeys);
+        final resolved = resolveModifiers(serialized);
+        expect(
+          resolved.toSet(),
+          expectedMods,
+          reason: 'serialize($inputKeys) = "$serialized" → resolve = $resolved',
+        );
+      });
+    }
+  });
+}
+
+class _ModifierPair {
+  const _ModifierPair(this.key, this.modifier);
+  final LogicalKeyboardKey key;
+  final HotKeyModifier modifier;
 }
