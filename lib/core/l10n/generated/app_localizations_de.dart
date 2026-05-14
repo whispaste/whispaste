@@ -566,7 +566,7 @@ class L10nDe extends L10n {
 
   @override
   String get settingsFactoryResetMessage =>
-      'Damit werden ALLE Daten unwiderruflich gelöscht: Diktatverlauf, Tags, Projekte, Sprachkürzel, heruntergeladene Modelle, Protokolle und Einstellungen. Die App wird in den Ausgangszustand zurückversetzt.\n\nDies kann nicht rückgängig gemacht werden.';
+      'Damit werden ALLE Daten unwiderruflich gelöscht: Diktatverlauf, Tags, Sprachkürzel, heruntergeladene Modelle, Protokolle und Einstellungen. Die App wird in den Ausgangszustand zurückversetzt.\n\nDies kann nicht rückgängig gemacht werden.';
 
   @override
   String get settingsFactoryResetConfirm => 'Alles löschen';
@@ -1744,9 +1744,6 @@ class L10nDe extends L10n {
 
   @override
   String get historyTitleSaved => 'Titel gespeichert';
-
-  @override
-  String get historySearchHintCommands => 'Transkriptionen suchen…';
 
   @override
   String get historySearchHelpTitle => 'Suchtipps';
