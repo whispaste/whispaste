@@ -513,11 +513,13 @@ void main() {
         final context = tester.element(find.byType(HotkeyRecorderDialog));
         final l10n = L10n.of(context);
 
-        // Hold Ctrl, press Ö (Unicode 0xF6) — must NOT replace the initial
-        // key label and the invalid-key hint must appear.
+        // Hold Ctrl, press a non-recordable key (numLock has a physical
+        // mapping for KeyEventSimulator but is intentionally outside the
+        // recordable whitelist — earlier this slot was held by semicolon,
+        // which is now recordable as a US-layout punctuation token).
         await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
         await tester.pump();
-        await tester.sendKeyDownEvent(LogicalKeyboardKey.semicolon);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.numLock);
         await tester.pump();
 
         // Initial key 'D' is still rendered as a key cap.
@@ -532,7 +534,7 @@ void main() {
           findsOneWidget,
         );
 
-        await tester.sendKeyUpEvent(LogicalKeyboardKey.semicolon);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.numLock);
         await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
         await tester.pump();
       },
@@ -579,10 +581,12 @@ void main() {
         final context = tester.element(find.byType(HotkeyRecorderDialog));
         final l10n = L10n.of(context);
 
-        // Trigger hint with non-recordable key.
+        // Trigger hint with a key that has a physical mapping but is not
+        // recordable (numLock has a physical mapping for KeyEventSimulator
+        // but is intentionally outside the recordable set).
         await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
         await tester.pump();
-        await tester.sendKeyDownEvent(LogicalKeyboardKey.semicolon);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.numLock);
         await tester.pump();
         expect(
           find.text(l10n.settingsHotkeyRecorderInvalidKey),
@@ -595,45 +599,53 @@ void main() {
         expect(find.text(l10n.settingsHotkeyRecorderInvalidKey), findsNothing);
 
         await tester.sendKeyUpEvent(LogicalKeyboardKey.keyE);
-        await tester.sendKeyUpEvent(LogicalKeyboardKey.semicolon);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.numLock);
         await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
         await tester.pump();
       },
     );
 
-    testWidgets('AC-rec-4: invalid-key hint disappears after 2 seconds', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        makeTestable(
-          const HotkeyRecorderDialog(
-            initialKey: 'D',
-            initialModifiers: 'ctrl+shift',
+    testWidgets(
+      'AC-rec-4: invalid-key hint persists until a valid key is pressed',
+      (tester) async {
+        await tester.pumpWidget(
+          makeTestable(
+            const HotkeyRecorderDialog(
+              initialKey: 'D',
+              initialModifiers: 'ctrl+shift',
+            ),
+            size: const Size(800, 600),
           ),
-          size: const Size(800, 600),
-        ),
-      );
-      await tester.pump();
+        );
+        await tester.pump();
 
-      final context = tester.element(find.byType(HotkeyRecorderDialog));
-      final l10n = L10n.of(context);
+        final context = tester.element(find.byType(HotkeyRecorderDialog));
+        final l10n = L10n.of(context);
 
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
-      await tester.pump();
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.semicolon);
-      await tester.pump();
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+        await tester.pump();
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.numLock);
+        await tester.pump();
 
-      expect(find.text(l10n.settingsHotkeyRecorderInvalidKey), findsOneWidget);
+        expect(
+          find.text(l10n.settingsHotkeyRecorderInvalidKey),
+          findsOneWidget,
+        );
 
-      // Advance past the 2-second auto-hide window.
-      await tester.pump(const Duration(milliseconds: 2100));
+        // Time alone must not clear the hint — the earlier auto-hide was too
+        // short to read. Hint stays until a valid key replaces it.
+        await tester.pump(const Duration(milliseconds: 2100));
 
-      expect(find.text(l10n.settingsHotkeyRecorderInvalidKey), findsNothing);
+        expect(
+          find.text(l10n.settingsHotkeyRecorderInvalidKey),
+          findsOneWidget,
+        );
 
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.semicolon);
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
-      await tester.pump();
-    });
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.numLock);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+        await tester.pump();
+      },
+    );
 
     testWidgets(
       'AC-rec-5: Save stays disabled while only non-recordable keys were pressed',
@@ -650,10 +662,11 @@ void main() {
         final context = tester.element(find.byType(HotkeyRecorderDialog));
         final l10n = L10n.of(context);
 
-        // Press Ctrl+Ö — non-recordable key.
+        // Press Ctrl+numLock — a key with a physical mapping that is
+        // intentionally outside the recordable whitelist.
         await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
         await tester.pump();
-        await tester.sendKeyDownEvent(LogicalKeyboardKey.semicolon);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.numLock);
         await tester.pump();
 
         final saveButton = tester.widget<ElevatedButton>(
@@ -666,9 +679,143 @@ void main() {
               'Save must stay disabled until a recordable key has been entered',
         );
 
-        await tester.sendKeyUpEvent(LogicalKeyboardKey.semicolon);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.numLock);
         await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
         await tester.pump();
+      },
+    );
+
+    // ── Phase B: punctuation + physical-key fallback ─────────────────────
+
+    Future<HotkeyResult?> openAndCapture(
+      WidgetTester tester, {
+      required Future<void> Function() driveKeys,
+      String initialKey = '',
+      String initialDisplayKey = '',
+      String initialModifiers = '',
+    }) async {
+      HotkeyResult? captured;
+      await tester.pumpWidget(
+        makeTestable(
+          Builder(
+            builder: (ctx) => ElevatedButton(
+              key: const Key('open-recorder-pb'),
+              onPressed: () async {
+                captured = await HotkeyRecorderDialog.show(
+                  ctx,
+                  initialKey: initialKey,
+                  initialDisplayKey: initialDisplayKey,
+                  initialModifiers: initialModifiers,
+                );
+              },
+              child: const Text('open'),
+            ),
+          ),
+          size: const Size(1280, 800),
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('open-recorder-pb')));
+      await tester.pumpAndSettle();
+
+      await driveKeys();
+
+      final context = tester.element(find.byType(HotkeyRecorderDialog));
+      final l10n = L10n.of(context);
+      await tester.tap(
+        find.widgetWithText(ElevatedButton, l10n.settingsHotkeyRecorderSave),
+        warnIfMissed: false,
+      );
+      await tester.pumpAndSettle();
+
+      return captured;
+    }
+
+    testWidgets(
+      'AC-pb-1: Ctrl+semicolon (US-layout) saves canonical ";" without '
+      'displayKey override',
+      (tester) async {
+        final result = await openAndCapture(
+          tester,
+          driveKeys: () async {
+            await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+            await tester.pump();
+            await tester.sendKeyDownEvent(LogicalKeyboardKey.semicolon);
+            await tester.pump();
+            await tester.sendKeyUpEvent(LogicalKeyboardKey.semicolon);
+            await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+            await tester.pump();
+          },
+        );
+
+        expect(result, isNotNull);
+        expect(result!.key, ';');
+        expect(result.modifiers, 'ctrl');
+        expect(
+          result.displayKey,
+          '',
+          reason: 'canonical match leaves displayKey empty',
+        );
+      },
+    );
+
+    // AC-pb-2 (DE-layout Ö capture) is covered at the resolver level in
+    // test/services/hotkey_key_resolver_test.dart — driving a KeyDownEvent
+    // with a non-Flutter-known logicalKey from a widget test would require
+    // injecting it through KeyEventManager APIs that vary between Flutter
+    // versions, while the recorder's behaviour reduces to
+    // [canonicalRecordableKey] + display-label derivation. Those two pieces
+    // are unit-tested.
+
+    testWidgets(
+      'AC-pb-3: initState with a non-resolvable initialKey ("Ö") starts '
+      'with Save disabled and no key cap',
+      (tester) async {
+        await tester.pumpWidget(
+          makeTestable(
+            const HotkeyRecorderDialog(
+              initialKey: 'Ö',
+              initialModifiers: 'meta',
+            ),
+            size: const Size(800, 600),
+          ),
+        );
+        await tester.pump();
+
+        final context = tester.element(find.byType(HotkeyRecorderDialog));
+        final l10n = L10n.of(context);
+        final saveButton = tester.widget<ElevatedButton>(
+          find.widgetWithText(ElevatedButton, l10n.settingsHotkeyRecorderSave),
+        );
+        expect(
+          saveButton.onPressed,
+          isNull,
+          reason:
+              'unresolvable persisted key must not be accepted as a valid combo',
+        );
+        // No 'Ö' key cap should appear — we cleared the display when the
+        // initial key failed to resolve.
+        expect(find.text('Ö'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'AC-pb-4: initialDisplayKey "Ö" + initialKey ";" renders "Ö" in the '
+      'key cap',
+      (tester) async {
+        await tester.pumpWidget(
+          makeTestable(
+            const HotkeyRecorderDialog(
+              initialKey: ';',
+              initialDisplayKey: 'Ö',
+              initialModifiers: 'meta',
+            ),
+            size: const Size(800, 600),
+          ),
+        );
+        await tester.pump();
+
+        expect(find.text('Ö'), findsOneWidget);
       },
     );
 

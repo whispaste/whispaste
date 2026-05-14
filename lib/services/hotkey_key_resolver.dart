@@ -27,6 +27,13 @@ import 'package:hotkey_manager/hotkey_manager.dart';
 /// - Named keys: `'SPACE'`, `'ENTER'`, `'TAB'`, `'ESCAPE'`/`'ESC'`,
 ///   `'BACKSPACE'`, `'DELETE'`, `'INSERT'`, `'HOME'`, `'END'`,
 ///   `'PAGEUP'`, `'PAGEDOWN'`
+/// - Punctuation keys (US-layout canonical token; physical position is
+///   independent of the user's keyboard layout): `';'`, `"'"`, `` '`' ``,
+///   `','`, `'-'`, `'.'`, `'/'`, `'='`, `'['`, `']'`, `'\\'`. These are the
+///   storage tokens written by the recorder for keys whose `LogicalKeyboardKey`
+///   has no canonical Flutter identifier (e.g. `Ö`, `Ä`, `Ü` on a DE layout —
+///   physically the `;`, `'`, `[` positions). The display label may differ
+///   from the storage token; see `HotkeySettings.hotkeyKeyDisplay`.
 ///
 /// Throws [ArgumentError] if [label] is not a recognised key.
 LogicalKeyboardKey resolveKey(String label) {
@@ -96,8 +103,34 @@ LogicalKeyboardKey resolveKey(String label) {
   };
   if (named != null) return named;
 
+  // Punctuation tokens (US-layout canonical). The `uni_platform` keymap that
+  // hotkey_manager uses to translate Logical→Physical includes exactly these.
+  // For non-Latin layouts the recorder stores the canonical token here while
+  // displaying the user-visible character separately.
+  final punctuation = _punctuationToken(label.trim());
+  if (punctuation != null) return punctuation;
+
   throw ArgumentError.value(label, 'label', 'Unknown key label');
 }
+
+/// Storage tokens for the punctuation keys present in `uni_platform`'s
+/// Logical↔Physical keymap. Index = display character (US-layout) stored in
+/// settings; value = canonical [LogicalKeyboardKey].
+const Map<String, LogicalKeyboardKey> _punctuationKeys = {
+  ';': LogicalKeyboardKey.semicolon,
+  "'": LogicalKeyboardKey.quote,
+  '`': LogicalKeyboardKey.backquote,
+  ',': LogicalKeyboardKey.comma,
+  '-': LogicalKeyboardKey.minus,
+  '.': LogicalKeyboardKey.period,
+  '/': LogicalKeyboardKey.slash,
+  '=': LogicalKeyboardKey.equal,
+  '[': LogicalKeyboardKey.bracketLeft,
+  ']': LogicalKeyboardKey.bracketRight,
+  '\\': LogicalKeyboardKey.backslash,
+};
+
+LogicalKeyboardKey? _punctuationToken(String token) => _punctuationKeys[token];
 
 // ---------------------------------------------------------------------------
 // Reverse mapping
@@ -146,6 +179,11 @@ String? labelForKey(LogicalKeyboardKey key) {
     return String.fromCharCode(keyId);
   }
 
+  // Punctuation keys whose physical position is in uni_platform's keymap.
+  for (final entry in _punctuationKeys.entries) {
+    if (entry.value == key) return entry.key;
+  }
+
   return null;
 }
 
@@ -169,7 +207,7 @@ String? labelForKey(LogicalKeyboardKey key) {
 /// (e.g. `Ö`, `Ä`, `;`, `+`) that the resolver later cannot register.
 bool isRecordableKey(LogicalKeyboardKey key) {
   // Anything labelForKey produces a string for is round-trippable through
-  // resolveKey — letters, digits, F-keys, arrow keys, named keys.
+  // resolveKey — letters, digits, F-keys, arrow keys, named keys, punctuation.
   if (labelForKey(key) != null) return true;
 
   // No-modifier whitelist members that don't have a labelForKey entry,
@@ -177,6 +215,86 @@ bool isRecordableKey(LogicalKeyboardKey key) {
   // hotkey_manager knows how to register them.
   return _recordableNoLabelKeys.contains(key);
 }
+
+/// Maps a [KeyEvent] to the canonical [LogicalKeyboardKey] that should be
+/// persisted as the storage key, or `null` if no recordable key can be
+/// derived.
+///
+/// First tries [event.logicalKey] directly — fast path for the canonical
+/// keys (A–Z, 0–9, F1–F12, arrows, named, punctuation on a US layout).
+///
+/// If the logical key is non-canonical (e.g. `Ö` = `LogicalKeyboardKey(0xF6)`
+/// on a DE layout), falls back to the **physical position**: the same key
+/// on a US layout would produce `LogicalKeyboardKey.semicolon`, which IS
+/// recordable. This lets users bind layout-dependent keys (umlauts, accented
+/// chars, layout-specific punctuation) — the registrar wires them to the
+/// stable physical position, so the binding survives layout changes.
+LogicalKeyboardKey? canonicalRecordableKey(KeyEvent event) {
+  if (isRecordableKey(event.logicalKey)) {
+    return event.logicalKey;
+  }
+  final mapped = _physicalToLogical[event.physicalKey];
+  if (mapped != null && isRecordableKey(mapped)) {
+    return mapped;
+  }
+  return null;
+}
+
+/// PhysicalKeyboardKey → canonical LogicalKeyboardKey for keys whose logical
+/// representation may differ across keyboard layouts but whose physical
+/// position is stable. Keys here must be recordable per [isRecordableKey] —
+/// covers the punctuation keys plus the always-recordable Latin letter and
+/// digit positions (used when a non-Latin layout reports a non-ASCII
+/// logical key for the same physical position).
+final Map<PhysicalKeyboardKey, LogicalKeyboardKey> _physicalToLogical = {
+  PhysicalKeyboardKey.semicolon: LogicalKeyboardKey.semicolon,
+  PhysicalKeyboardKey.quote: LogicalKeyboardKey.quote,
+  PhysicalKeyboardKey.backquote: LogicalKeyboardKey.backquote,
+  PhysicalKeyboardKey.comma: LogicalKeyboardKey.comma,
+  PhysicalKeyboardKey.minus: LogicalKeyboardKey.minus,
+  PhysicalKeyboardKey.period: LogicalKeyboardKey.period,
+  PhysicalKeyboardKey.slash: LogicalKeyboardKey.slash,
+  PhysicalKeyboardKey.equal: LogicalKeyboardKey.equal,
+  PhysicalKeyboardKey.bracketLeft: LogicalKeyboardKey.bracketLeft,
+  PhysicalKeyboardKey.bracketRight: LogicalKeyboardKey.bracketRight,
+  PhysicalKeyboardKey.backslash: LogicalKeyboardKey.backslash,
+  PhysicalKeyboardKey.keyA: LogicalKeyboardKey.keyA,
+  PhysicalKeyboardKey.keyB: LogicalKeyboardKey.keyB,
+  PhysicalKeyboardKey.keyC: LogicalKeyboardKey.keyC,
+  PhysicalKeyboardKey.keyD: LogicalKeyboardKey.keyD,
+  PhysicalKeyboardKey.keyE: LogicalKeyboardKey.keyE,
+  PhysicalKeyboardKey.keyF: LogicalKeyboardKey.keyF,
+  PhysicalKeyboardKey.keyG: LogicalKeyboardKey.keyG,
+  PhysicalKeyboardKey.keyH: LogicalKeyboardKey.keyH,
+  PhysicalKeyboardKey.keyI: LogicalKeyboardKey.keyI,
+  PhysicalKeyboardKey.keyJ: LogicalKeyboardKey.keyJ,
+  PhysicalKeyboardKey.keyK: LogicalKeyboardKey.keyK,
+  PhysicalKeyboardKey.keyL: LogicalKeyboardKey.keyL,
+  PhysicalKeyboardKey.keyM: LogicalKeyboardKey.keyM,
+  PhysicalKeyboardKey.keyN: LogicalKeyboardKey.keyN,
+  PhysicalKeyboardKey.keyO: LogicalKeyboardKey.keyO,
+  PhysicalKeyboardKey.keyP: LogicalKeyboardKey.keyP,
+  PhysicalKeyboardKey.keyQ: LogicalKeyboardKey.keyQ,
+  PhysicalKeyboardKey.keyR: LogicalKeyboardKey.keyR,
+  PhysicalKeyboardKey.keyS: LogicalKeyboardKey.keyS,
+  PhysicalKeyboardKey.keyT: LogicalKeyboardKey.keyT,
+  PhysicalKeyboardKey.keyU: LogicalKeyboardKey.keyU,
+  PhysicalKeyboardKey.keyV: LogicalKeyboardKey.keyV,
+  PhysicalKeyboardKey.keyW: LogicalKeyboardKey.keyW,
+  PhysicalKeyboardKey.keyX: LogicalKeyboardKey.keyX,
+  PhysicalKeyboardKey.keyY: LogicalKeyboardKey.keyY,
+  PhysicalKeyboardKey.keyZ: LogicalKeyboardKey.keyZ,
+  PhysicalKeyboardKey.digit0: LogicalKeyboardKey.digit0,
+  PhysicalKeyboardKey.digit1: LogicalKeyboardKey.digit1,
+  PhysicalKeyboardKey.digit2: LogicalKeyboardKey.digit2,
+  PhysicalKeyboardKey.digit3: LogicalKeyboardKey.digit3,
+  PhysicalKeyboardKey.digit4: LogicalKeyboardKey.digit4,
+  PhysicalKeyboardKey.digit5: LogicalKeyboardKey.digit5,
+  PhysicalKeyboardKey.digit6: LogicalKeyboardKey.digit6,
+  PhysicalKeyboardKey.digit7: LogicalKeyboardKey.digit7,
+  PhysicalKeyboardKey.digit8: LogicalKeyboardKey.digit8,
+  PhysicalKeyboardKey.digit9: LogicalKeyboardKey.digit9,
+};
 
 /// Keys that are recordable but whose canonical [LogicalKeyboardKey] instance
 /// does not match the F-key keyId table used inside [resolveKey]/[labelForKey]

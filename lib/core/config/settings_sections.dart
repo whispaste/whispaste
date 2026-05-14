@@ -908,11 +908,23 @@ class HotkeySettings {
   const HotkeySettings({
     this.hotkeyEnabled = true,
     this.hotkeyKey = 'D',
+    this.hotkeyKeyDisplay = '',
     this.hotkeyModifiers = 'ctrl+shift',
   });
 
   final bool hotkeyEnabled;
+
+  /// Canonical storage token for the non-modifier key — what `resolveKey`
+  /// consumes (e.g. `'D'`, `'F1'`, `';'`).
   final String hotkeyKey;
+
+  /// User-visible label for [hotkeyKey] as captured by the recorder. When
+  /// empty, UI formatters fall back to [hotkeyKey]. Lets a DE-layout user
+  /// who pressed `Ö` (physical position `semicolon`) see `Ö` in settings and
+  /// status bar while the registrar still binds to the stable physical
+  /// position via `hotkeyKey=';'`.
+  final String hotkeyKeyDisplay;
+
   final String hotkeyModifiers;
 
   static const HotkeySettings defaults = HotkeySettings();
@@ -920,22 +932,26 @@ class HotkeySettings {
   factory HotkeySettings.fromMap(Map<String, String> v) => HotkeySettings(
     hotkeyEnabled: _readBool(v, 'hotkey_enabled', defaults.hotkeyEnabled),
     hotkeyKey: v['hotkey_key'] ?? defaults.hotkeyKey,
+    hotkeyKeyDisplay: v['hotkey_key_display'] ?? defaults.hotkeyKeyDisplay,
     hotkeyModifiers: v['hotkey_modifiers'] ?? defaults.hotkeyModifiers,
   );
 
   Map<String, String> toMap() => {
     'hotkey_enabled': '$hotkeyEnabled',
     'hotkey_key': hotkeyKey,
+    'hotkey_key_display': hotkeyKeyDisplay,
     'hotkey_modifiers': hotkeyModifiers,
   };
 
   HotkeySettings copyWith({
     bool? hotkeyEnabled,
     String? hotkeyKey,
+    String? hotkeyKeyDisplay,
     String? hotkeyModifiers,
   }) => HotkeySettings(
     hotkeyEnabled: hotkeyEnabled ?? this.hotkeyEnabled,
     hotkeyKey: hotkeyKey ?? this.hotkeyKey,
+    hotkeyKeyDisplay: hotkeyKeyDisplay ?? this.hotkeyKeyDisplay,
     hotkeyModifiers: hotkeyModifiers ?? this.hotkeyModifiers,
   );
 
@@ -945,10 +961,12 @@ class HotkeySettings {
       other is HotkeySettings &&
           hotkeyEnabled == other.hotkeyEnabled &&
           hotkeyKey == other.hotkeyKey &&
+          hotkeyKeyDisplay == other.hotkeyKeyDisplay &&
           hotkeyModifiers == other.hotkeyModifiers;
 
   @override
-  int get hashCode => Object.hash(hotkeyEnabled, hotkeyKey, hotkeyModifiers);
+  int get hashCode =>
+      Object.hash(hotkeyEnabled, hotkeyKey, hotkeyKeyDisplay, hotkeyModifiers);
 }
 
 // ===========================================================================

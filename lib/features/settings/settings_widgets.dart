@@ -108,16 +108,23 @@ class HotkeyDisplay extends StatelessWidget {
     super.key,
     required this.hotkeyKey,
     required this.hotkeyModifiers,
+    this.hotkeyKeyDisplay = '',
   });
 
   final String hotkeyKey;
   final String hotkeyModifiers;
+  final String hotkeyKeyDisplay;
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
-    final parts = hotkeyDisplayParts(hotkeyModifiers, hotkeyKey, l10n: l10n);
+    final parts = hotkeyDisplayParts(
+      hotkeyModifiers,
+      hotkeyKey,
+      l10n: l10n,
+      displayOverride: hotkeyKeyDisplay,
+    );
 
     return Row(
       mainAxisSize: MainAxisSize.min,

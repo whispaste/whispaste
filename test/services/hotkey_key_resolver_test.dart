@@ -226,12 +226,16 @@ void main() {
       expect(isRecordableKey(const LogicalKeyboardKey(0xE4)), isFalse);
     });
 
-    test('semicolon → false', () {
-      expect(isRecordableKey(LogicalKeyboardKey.semicolon), isFalse);
+    test('semicolon → true (US-layout punctuation)', () {
+      expect(isRecordableKey(LogicalKeyboardKey.semicolon), isTrue);
     });
 
-    test('quote → false', () {
-      expect(isRecordableKey(LogicalKeyboardKey.quote), isFalse);
+    test('quote → true (US-layout punctuation)', () {
+      expect(isRecordableKey(LogicalKeyboardKey.quote), isTrue);
+    });
+
+    test('numLock → false (non-recordable system key)', () {
+      expect(isRecordableKey(LogicalKeyboardKey.numLock), isFalse);
     });
 
     test('mediaPlayPause → true (in singleKeyWhitelist via labelForKey '
@@ -240,6 +244,92 @@ void main() {
       // singleKeyWhitelist of accepted no-modifier keys. isRecordableKey
       // must accept it so the recorder's whitelisted-single-key path works.
       expect(isRecordableKey(LogicalKeyboardKey.mediaPlayPause), isTrue);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // resolveKey — punctuation tokens (US-layout canonical)
+  // ---------------------------------------------------------------------------
+
+  group('resolveKey — punctuation', () {
+    final cases = <String, LogicalKeyboardKey>{
+      ';': LogicalKeyboardKey.semicolon,
+      "'": LogicalKeyboardKey.quote,
+      '`': LogicalKeyboardKey.backquote,
+      ',': LogicalKeyboardKey.comma,
+      '-': LogicalKeyboardKey.minus,
+      '.': LogicalKeyboardKey.period,
+      '/': LogicalKeyboardKey.slash,
+      '=': LogicalKeyboardKey.equal,
+      '[': LogicalKeyboardKey.bracketLeft,
+      ']': LogicalKeyboardKey.bracketRight,
+      '\\': LogicalKeyboardKey.backslash,
+    };
+
+    cases.forEach((token, expected) {
+      test('"$token" → ${expected.debugName}', () {
+        expect(resolveKey(token), expected);
+      });
+
+      test('labelForKey(${expected.debugName}) round-trips to "$token"', () {
+        expect(labelForKey(expected), token);
+      });
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // canonicalRecordableKey — physical-key fallback for layout-dependent chars
+  // ---------------------------------------------------------------------------
+
+  group('canonicalRecordableKey', () {
+    test('Ö (0xF6) at semicolon physical position → semicolon', () {
+      // What Flutter surfaces for a DE-layout user pressing the Ö key.
+      const event = KeyDownEvent(
+        physicalKey: PhysicalKeyboardKey.semicolon,
+        logicalKey: LogicalKeyboardKey(0xF6),
+        timeStamp: Duration.zero,
+        character: 'ö',
+      );
+      expect(canonicalRecordableKey(event), LogicalKeyboardKey.semicolon);
+    });
+
+    test('Ä (0xE4) at quote physical position → quote', () {
+      const event = KeyDownEvent(
+        physicalKey: PhysicalKeyboardKey.quote,
+        logicalKey: LogicalKeyboardKey(0xE4),
+        timeStamp: Duration.zero,
+        character: 'ä',
+      );
+      expect(canonicalRecordableKey(event), LogicalKeyboardKey.quote);
+    });
+
+    test('canonical key returns itself (semicolon → semicolon)', () {
+      const event = KeyDownEvent(
+        physicalKey: PhysicalKeyboardKey.semicolon,
+        logicalKey: LogicalKeyboardKey.semicolon,
+        timeStamp: Duration.zero,
+      );
+      expect(canonicalRecordableKey(event), LogicalKeyboardKey.semicolon);
+    });
+
+    test('keyA on a non-Latin layout (logical = e.g. キ) still resolves '
+        'via physical position', () {
+      const event = KeyDownEvent(
+        physicalKey: PhysicalKeyboardKey.keyA,
+        logicalKey: LogicalKeyboardKey(0x30AD),
+        timeStamp: Duration.zero,
+        character: 'キ',
+      );
+      expect(canonicalRecordableKey(event), LogicalKeyboardKey.keyA);
+    });
+
+    test('non-recordable physical key (numLock) → null', () {
+      const event = KeyDownEvent(
+        physicalKey: PhysicalKeyboardKey.numLock,
+        logicalKey: LogicalKeyboardKey.numLock,
+        timeStamp: Duration.zero,
+      );
+      expect(canonicalRecordableKey(event), isNull);
     });
   });
 
