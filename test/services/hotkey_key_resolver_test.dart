@@ -331,6 +331,52 @@ void main() {
     });
   });
 
+  group('resolveModifiers — self-healing aliases (display-label tokens)', () {
+    // These aliases exist so DBs corrupted by the pre-fix recorder
+    // (which wrote display labels as storage strings) self-heal on next
+    // app launch — without forcing the user to rebind their hotkey.
+
+    test('"option" → [alt] (macOS display label, EN+DE)', () {
+      expect(resolveModifiers('option'), [HotKeyModifier.alt]);
+    });
+
+    test('"wahltaste" → [alt] (DE-alternative for option/alt)', () {
+      expect(resolveModifiers('wahltaste'), [HotKeyModifier.alt]);
+    });
+
+    test('"strg" → [control] (DE for ctrl)', () {
+      expect(resolveModifiers('strg'), [HotKeyModifier.control]);
+    });
+
+    test('"umschalt" → [shift] (DE for shift)', () {
+      expect(resolveModifiers('umschalt'), [HotKeyModifier.shift]);
+    });
+
+    test('"befehl" → [meta] (DE for cmd)', () {
+      expect(resolveModifiers('befehl'), [HotKeyModifier.meta]);
+    });
+
+    test('combined DE "strg+umschalt" → [control, shift]', () {
+      expect(resolveModifiers('strg+umschalt'), [
+        HotKeyModifier.control,
+        HotKeyModifier.shift,
+      ]);
+    });
+
+    test('mixed-language "option+shift" → [alt, shift]', () {
+      expect(resolveModifiers('option+shift'), [
+        HotKeyModifier.alt,
+        HotKeyModifier.shift,
+      ]);
+    });
+
+    test('case-insensitive: "OPTION", "Option", "option" all → [alt]', () {
+      expect(resolveModifiers('OPTION'), [HotKeyModifier.alt]);
+      expect(resolveModifiers('Option'), [HotKeyModifier.alt]);
+      expect(resolveModifiers('option'), [HotKeyModifier.alt]);
+    });
+  });
+
   group('serializeModifiers ↔ resolveModifiers roundtrip invariant', () {
     // Each modifier-pair → expected HotKeyModifier value.
     const pairs = <_ModifierPair>[
