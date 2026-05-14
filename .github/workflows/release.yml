@@ -284,7 +284,7 @@ jobs:
           }
 
       - name: Create Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           name: WhisPaste v${{ steps.notes.outputs.version }}
           body_path: release-body.md
