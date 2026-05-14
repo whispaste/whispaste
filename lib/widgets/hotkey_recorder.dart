@@ -312,12 +312,14 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
                         color: accent,
                       ),
                       const SizedBox(width: WpSpacing.sm),
-                      Text(
-                        l10n.settingsHotkeyRecorderTitle,
-                        style: TextStyle(
-                          color: textPrimary,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
+                      Expanded(
+                        child: Text(
+                          l10n.settingsHotkeyRecorderTitle,
+                          style: TextStyle(
+                            color: textPrimary,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ],
@@ -365,7 +367,15 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
                   if (_conflict != null) const SizedBox(height: WpSpacing.md),
 
                   // ── Action buttons ──────────────────────────────
-                  Row(
+                  // Wrap (not Row) so long translations (e.g. DE
+                  // "Speichern"/"Abbrechen"/"Zurücksetzen") flow to a second
+                  // line instead of overflowing the 420 px dialog and pushing
+                  // the Save button off-screen.
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: WpSpacing.sm,
+                    runSpacing: WpSpacing.xs,
                     children: [
                       // Clear
                       TextButton.icon(
@@ -380,27 +390,31 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
                           style: TextStyle(color: textMuted, fontSize: 13),
                         ),
                       ),
-                      const Spacer(),
-                      // Cancel
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: Text(
-                          l10n.settingsHotkeyRecorderCancel,
-                          style: TextStyle(color: textMuted, fontSize: 13),
-                        ),
-                      ),
-                      const SizedBox(width: WpSpacing.sm),
-                      // Save
-                      ElevatedButton(
-                        onPressed: hasCombo ? _save : null,
-                        child: Text(
-                          l10n.settingsHotkeyRecorderSave,
-                          style: TextStyle(
-                            color: hasCombo ? accent : textMuted,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                      // Cancel + Save grouped so they stay together when wrapping.
+                      Wrap(
+                        spacing: WpSpacing.sm,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            child: Text(
+                              l10n.settingsHotkeyRecorderCancel,
+                              style: TextStyle(color: textMuted, fontSize: 13),
+                            ),
                           ),
-                        ),
+                          // Save
+                          ElevatedButton(
+                            onPressed: hasCombo ? _save : null,
+                            child: Text(
+                              l10n.settingsHotkeyRecorderSave,
+                              style: TextStyle(
+                                color: hasCombo ? accent : textMuted,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
