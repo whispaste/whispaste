@@ -790,5 +790,12 @@
       "platform": { "type": "String" },
       "note": { "type": "String" }
     }
-  }
+  },
+
+  "exportFormatPickerTitle": "Exportformat wählen",
+  "exportFormatText": "Text",
+  "exportFormatMarkdown": "Markdown",
+  "exportFormatCsv": "CSV",
+  "exportFormatJson": "JSON",
+  "exportFormatWord": "Word"
 }

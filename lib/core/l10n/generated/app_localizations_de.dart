@@ -2325,4 +2325,22 @@ class L10nDe extends L10n {
   String hotkeyConflictWarning(String platform, String note) {
     return 'Diese Tastenkombination ist von $platform reserviert ($note) und funktioniert möglicherweise nicht.';
   }
+
+  @override
+  String get exportFormatPickerTitle => 'Exportformat wählen';
+
+  @override
+  String get exportFormatText => 'Text';
+
+  @override
+  String get exportFormatMarkdown => 'Markdown';
+
+  @override
+  String get exportFormatCsv => 'CSV';
+
+  @override
+  String get exportFormatJson => 'JSON';
+
+  @override
+  String get exportFormatWord => 'Word';
 }

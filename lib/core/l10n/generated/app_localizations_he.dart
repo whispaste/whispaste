@@ -2255,4 +2255,22 @@ class L10nHe extends L10n {
   String hotkeyConflictWarning(String platform, String note) {
     return 'קיצור דרך זה שמור על ידי $platform ($note) ועלול לא לפעול.';
   }
+
+  @override
+  String get exportFormatPickerTitle => 'בחר פורמט ייצוא';
+
+  @override
+  String get exportFormatText => 'טקסט';
+
+  @override
+  String get exportFormatMarkdown => 'Markdown';
+
+  @override
+  String get exportFormatCsv => 'CSV';
+
+  @override
+  String get exportFormatJson => 'JSON';
+
+  @override
+  String get exportFormatWord => 'Word';
 }
