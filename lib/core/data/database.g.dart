@@ -169,18 +169,6 @@ class $HistoryEntriesTable extends HistoryEntries
     requiredDuringInsert: false,
     defaultValue: const Constant(0.0),
   );
-  static const VerificationMeta _projectIdMeta = const VerificationMeta(
-    'projectId',
-  );
-  @override
-  late final GeneratedColumn<String> projectId = GeneratedColumn<String>(
-    'project_id',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-    defaultValue: const Constant(''),
-  );
   static const VerificationMeta _archivedMeta = const VerificationMeta(
     'archived',
   );
@@ -238,7 +226,6 @@ class $HistoryEntriesTable extends HistoryEntries
     model,
     isLocal,
     costUsd,
-    projectId,
     archived,
     titleEdited,
     deletedAt,
@@ -349,12 +336,6 @@ class $HistoryEntriesTable extends HistoryEntries
         costUsd.isAcceptableOrUnknown(data['cost_usd']!, _costUsdMeta),
       );
     }
-    if (data.containsKey('project_id')) {
-      context.handle(
-        _projectIdMeta,
-        projectId.isAcceptableOrUnknown(data['project_id']!, _projectIdMeta),
-      );
-    }
     if (data.containsKey('archived')) {
       context.handle(
         _archivedMeta,
@@ -441,10 +422,6 @@ class $HistoryEntriesTable extends HistoryEntries
         DriftSqlType.double,
         data['${effectivePrefix}cost_usd'],
       )!,
-      projectId: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}project_id'],
-      )!,
       archived: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}archived'],
@@ -481,7 +458,6 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
   final String model;
   final bool isLocal;
   final double costUsd;
-  final String projectId;
   final bool archived;
   final bool titleEdited;
   final DateTime? deletedAt;
@@ -500,7 +476,6 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
     required this.model,
     required this.isLocal,
     required this.costUsd,
-    required this.projectId,
     required this.archived,
     required this.titleEdited,
     this.deletedAt,
@@ -522,7 +497,6 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
     map['model'] = Variable<String>(model);
     map['is_local'] = Variable<bool>(isLocal);
     map['cost_usd'] = Variable<double>(costUsd);
-    map['project_id'] = Variable<String>(projectId);
     map['archived'] = Variable<bool>(archived);
     map['title_edited'] = Variable<bool>(titleEdited);
     if (!nullToAbsent || deletedAt != null) {
@@ -547,7 +521,6 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
       model: Value(model),
       isLocal: Value(isLocal),
       costUsd: Value(costUsd),
-      projectId: Value(projectId),
       archived: Value(archived),
       titleEdited: Value(titleEdited),
       deletedAt: deletedAt == null && nullToAbsent
@@ -578,7 +551,6 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
       model: serializer.fromJson<String>(json['model']),
       isLocal: serializer.fromJson<bool>(json['isLocal']),
       costUsd: serializer.fromJson<double>(json['costUsd']),
-      projectId: serializer.fromJson<String>(json['projectId']),
       archived: serializer.fromJson<bool>(json['archived']),
       titleEdited: serializer.fromJson<bool>(json['titleEdited']),
       deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
@@ -602,7 +574,6 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
       'model': serializer.toJson<String>(model),
       'isLocal': serializer.toJson<bool>(isLocal),
       'costUsd': serializer.toJson<double>(costUsd),
-      'projectId': serializer.toJson<String>(projectId),
       'archived': serializer.toJson<bool>(archived),
       'titleEdited': serializer.toJson<bool>(titleEdited),
       'deletedAt': serializer.toJson<DateTime?>(deletedAt),
@@ -624,7 +595,6 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
     String? model,
     bool? isLocal,
     double? costUsd,
-    String? projectId,
     bool? archived,
     bool? titleEdited,
     Value<DateTime?> deletedAt = const Value.absent(),
@@ -643,7 +613,6 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
     model: model ?? this.model,
     isLocal: isLocal ?? this.isLocal,
     costUsd: costUsd ?? this.costUsd,
-    projectId: projectId ?? this.projectId,
     archived: archived ?? this.archived,
     titleEdited: titleEdited ?? this.titleEdited,
     deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
@@ -670,7 +639,6 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
       model: data.model.present ? data.model.value : this.model,
       isLocal: data.isLocal.present ? data.isLocal.value : this.isLocal,
       costUsd: data.costUsd.present ? data.costUsd.value : this.costUsd,
-      projectId: data.projectId.present ? data.projectId.value : this.projectId,
       archived: data.archived.present ? data.archived.value : this.archived,
       titleEdited: data.titleEdited.present
           ? data.titleEdited.value
@@ -696,7 +664,6 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
           ..write('model: $model, ')
           ..write('isLocal: $isLocal, ')
           ..write('costUsd: $costUsd, ')
-          ..write('projectId: $projectId, ')
           ..write('archived: $archived, ')
           ..write('titleEdited: $titleEdited, ')
           ..write('deletedAt: $deletedAt')
@@ -720,7 +687,6 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
     model,
     isLocal,
     costUsd,
-    projectId,
     archived,
     titleEdited,
     deletedAt,
@@ -743,7 +709,6 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
           other.model == this.model &&
           other.isLocal == this.isLocal &&
           other.costUsd == this.costUsd &&
-          other.projectId == this.projectId &&
           other.archived == this.archived &&
           other.titleEdited == this.titleEdited &&
           other.deletedAt == this.deletedAt);
@@ -764,7 +729,6 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
   final Value<String> model;
   final Value<bool> isLocal;
   final Value<double> costUsd;
-  final Value<String> projectId;
   final Value<bool> archived;
   final Value<bool> titleEdited;
   final Value<DateTime?> deletedAt;
@@ -784,7 +748,6 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
     this.model = const Value.absent(),
     this.isLocal = const Value.absent(),
     this.costUsd = const Value.absent(),
-    this.projectId = const Value.absent(),
     this.archived = const Value.absent(),
     this.titleEdited = const Value.absent(),
     this.deletedAt = const Value.absent(),
@@ -805,7 +768,6 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
     this.model = const Value.absent(),
     this.isLocal = const Value.absent(),
     this.costUsd = const Value.absent(),
-    this.projectId = const Value.absent(),
     this.archived = const Value.absent(),
     this.titleEdited = const Value.absent(),
     this.deletedAt = const Value.absent(),
@@ -827,7 +789,6 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
     Expression<String>? model,
     Expression<bool>? isLocal,
     Expression<double>? costUsd,
-    Expression<String>? projectId,
     Expression<bool>? archived,
     Expression<bool>? titleEdited,
     Expression<DateTime>? deletedAt,
@@ -849,7 +810,6 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
       if (model != null) 'model': model,
       if (isLocal != null) 'is_local': isLocal,
       if (costUsd != null) 'cost_usd': costUsd,
-      if (projectId != null) 'project_id': projectId,
       if (archived != null) 'archived': archived,
       if (titleEdited != null) 'title_edited': titleEdited,
       if (deletedAt != null) 'deleted_at': deletedAt,
@@ -872,7 +832,6 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
     Value<String>? model,
     Value<bool>? isLocal,
     Value<double>? costUsd,
-    Value<String>? projectId,
     Value<bool>? archived,
     Value<bool>? titleEdited,
     Value<DateTime?>? deletedAt,
@@ -894,7 +853,6 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
       model: model ?? this.model,
       isLocal: isLocal ?? this.isLocal,
       costUsd: costUsd ?? this.costUsd,
-      projectId: projectId ?? this.projectId,
       archived: archived ?? this.archived,
       titleEdited: titleEdited ?? this.titleEdited,
       deletedAt: deletedAt ?? this.deletedAt,
@@ -949,9 +907,6 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
     if (costUsd.present) {
       map['cost_usd'] = Variable<double>(costUsd.value);
     }
-    if (projectId.present) {
-      map['project_id'] = Variable<String>(projectId.value);
-    }
     if (archived.present) {
       map['archived'] = Variable<bool>(archived.value);
     }
@@ -984,268 +939,9 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
           ..write('model: $model, ')
           ..write('isLocal: $isLocal, ')
           ..write('costUsd: $costUsd, ')
-          ..write('projectId: $projectId, ')
           ..write('archived: $archived, ')
           ..write('titleEdited: $titleEdited, ')
           ..write('deletedAt: $deletedAt, ')
-          ..write('rowid: $rowid')
-          ..write(')'))
-        .toString();
-  }
-}
-
-class $ProjectsTable extends Projects with TableInfo<$ProjectsTable, Project> {
-  @override
-  final GeneratedDatabase attachedDatabase;
-  final String? _alias;
-  $ProjectsTable(this.attachedDatabase, [this._alias]);
-  static const VerificationMeta _idMeta = const VerificationMeta('id');
-  @override
-  late final GeneratedColumn<String> id = GeneratedColumn<String>(
-    'id',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _nameMeta = const VerificationMeta('name');
-  @override
-  late final GeneratedColumn<String> name = GeneratedColumn<String>(
-    'name',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
-  );
-  static const VerificationMeta _createdAtMeta = const VerificationMeta(
-    'createdAt',
-  );
-  @override
-  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
-    'created_at',
-    aliasedName,
-    false,
-    type: DriftSqlType.dateTime,
-    requiredDuringInsert: true,
-  );
-  @override
-  List<GeneratedColumn> get $columns => [id, name, createdAt];
-  @override
-  String get aliasedName => _alias ?? actualTableName;
-  @override
-  String get actualTableName => $name;
-  static const String $name = 'projects';
-  @override
-  VerificationContext validateIntegrity(
-    Insertable<Project> instance, {
-    bool isInserting = false,
-  }) {
-    final context = VerificationContext();
-    final data = instance.toColumns(true);
-    if (data.containsKey('id')) {
-      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
-    } else if (isInserting) {
-      context.missing(_idMeta);
-    }
-    if (data.containsKey('name')) {
-      context.handle(
-        _nameMeta,
-        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_nameMeta);
-    }
-    if (data.containsKey('created_at')) {
-      context.handle(
-        _createdAtMeta,
-        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_createdAtMeta);
-    }
-    return context;
-  }
-
-  @override
-  Set<GeneratedColumn> get $primaryKey => {id};
-  @override
-  Project map(Map<String, dynamic> data, {String? tablePrefix}) {
-    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return Project(
-      id: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}id'],
-      )!,
-      name: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}name'],
-      )!,
-      createdAt: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
-        data['${effectivePrefix}created_at'],
-      )!,
-    );
-  }
-
-  @override
-  $ProjectsTable createAlias(String alias) {
-    return $ProjectsTable(attachedDatabase, alias);
-  }
-}
-
-class Project extends DataClass implements Insertable<Project> {
-  final String id;
-  final String name;
-  final DateTime createdAt;
-  const Project({
-    required this.id,
-    required this.name,
-    required this.createdAt,
-  });
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    map['id'] = Variable<String>(id);
-    map['name'] = Variable<String>(name);
-    map['created_at'] = Variable<DateTime>(createdAt);
-    return map;
-  }
-
-  ProjectsCompanion toCompanion(bool nullToAbsent) {
-    return ProjectsCompanion(
-      id: Value(id),
-      name: Value(name),
-      createdAt: Value(createdAt),
-    );
-  }
-
-  factory Project.fromJson(
-    Map<String, dynamic> json, {
-    ValueSerializer? serializer,
-  }) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return Project(
-      id: serializer.fromJson<String>(json['id']),
-      name: serializer.fromJson<String>(json['name']),
-      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
-    );
-  }
-  @override
-  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return <String, dynamic>{
-      'id': serializer.toJson<String>(id),
-      'name': serializer.toJson<String>(name),
-      'createdAt': serializer.toJson<DateTime>(createdAt),
-    };
-  }
-
-  Project copyWith({String? id, String? name, DateTime? createdAt}) => Project(
-    id: id ?? this.id,
-    name: name ?? this.name,
-    createdAt: createdAt ?? this.createdAt,
-  );
-  Project copyWithCompanion(ProjectsCompanion data) {
-    return Project(
-      id: data.id.present ? data.id.value : this.id,
-      name: data.name.present ? data.name.value : this.name,
-      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
-    );
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('Project(')
-          ..write('id: $id, ')
-          ..write('name: $name, ')
-          ..write('createdAt: $createdAt')
-          ..write(')'))
-        .toString();
-  }
-
-  @override
-  int get hashCode => Object.hash(id, name, createdAt);
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      (other is Project &&
-          other.id == this.id &&
-          other.name == this.name &&
-          other.createdAt == this.createdAt);
-}
-
-class ProjectsCompanion extends UpdateCompanion<Project> {
-  final Value<String> id;
-  final Value<String> name;
-  final Value<DateTime> createdAt;
-  final Value<int> rowid;
-  const ProjectsCompanion({
-    this.id = const Value.absent(),
-    this.name = const Value.absent(),
-    this.createdAt = const Value.absent(),
-    this.rowid = const Value.absent(),
-  });
-  ProjectsCompanion.insert({
-    required String id,
-    required String name,
-    required DateTime createdAt,
-    this.rowid = const Value.absent(),
-  }) : id = Value(id),
-       name = Value(name),
-       createdAt = Value(createdAt);
-  static Insertable<Project> custom({
-    Expression<String>? id,
-    Expression<String>? name,
-    Expression<DateTime>? createdAt,
-    Expression<int>? rowid,
-  }) {
-    return RawValuesInsertable({
-      if (id != null) 'id': id,
-      if (name != null) 'name': name,
-      if (createdAt != null) 'created_at': createdAt,
-      if (rowid != null) 'rowid': rowid,
-    });
-  }
-
-  ProjectsCompanion copyWith({
-    Value<String>? id,
-    Value<String>? name,
-    Value<DateTime>? createdAt,
-    Value<int>? rowid,
-  }) {
-    return ProjectsCompanion(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      createdAt: createdAt ?? this.createdAt,
-      rowid: rowid ?? this.rowid,
-    );
-  }
-
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    if (id.present) {
-      map['id'] = Variable<String>(id.value);
-    }
-    if (name.present) {
-      map['name'] = Variable<String>(name.value);
-    }
-    if (createdAt.present) {
-      map['created_at'] = Variable<DateTime>(createdAt.value);
-    }
-    if (rowid.present) {
-      map['rowid'] = Variable<int>(rowid.value);
-    }
-    return map;
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('ProjectsCompanion(')
-          ..write('id: $id, ')
-          ..write('name: $name, ')
-          ..write('createdAt: $createdAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3630,7 +3326,6 @@ abstract class _$HistoryDatabase extends GeneratedDatabase {
   _$HistoryDatabase(QueryExecutor e) : super(e);
   $HistoryDatabaseManager get managers => $HistoryDatabaseManager(this);
   late final $HistoryEntriesTable historyEntries = $HistoryEntriesTable(this);
-  late final $ProjectsTable projects = $ProjectsTable(this);
   late final $DailyStatsTable dailyStats = $DailyStatsTable(this);
   late final $EntryNotesTable entryNotes = $EntryNotesTable(this);
   late final $EntryAttachmentsTable entryAttachments = $EntryAttachmentsTable(
@@ -3647,7 +3342,6 @@ abstract class _$HistoryDatabase extends GeneratedDatabase {
   @override
   List<DatabaseSchemaEntity> get allSchemaEntities => [
     historyEntries,
-    projects,
     dailyStats,
     entryNotes,
     entryAttachments,
@@ -3673,7 +3367,6 @@ typedef $$HistoryEntriesTableCreateCompanionBuilder =
       Value<String> model,
       Value<bool> isLocal,
       Value<double> costUsd,
-      Value<String> projectId,
       Value<bool> archived,
       Value<bool> titleEdited,
       Value<DateTime?> deletedAt,
@@ -3695,7 +3388,6 @@ typedef $$HistoryEntriesTableUpdateCompanionBuilder =
       Value<String> model,
       Value<bool> isLocal,
       Value<double> costUsd,
-      Value<String> projectId,
       Value<bool> archived,
       Value<bool> titleEdited,
       Value<DateTime?> deletedAt,
@@ -3851,11 +3543,6 @@ class $$HistoryEntriesTableFilterComposer
 
   ColumnFilters<double> get costUsd => $composableBuilder(
     column: $table.costUsd,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get projectId => $composableBuilder(
-    column: $table.projectId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4029,11 +3716,6 @@ class $$HistoryEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get projectId => $composableBuilder(
-    column: $table.projectId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   ColumnOrderings<bool> get archived => $composableBuilder(
     column: $table.archived,
     builder: (column) => ColumnOrderings(column),
@@ -4106,9 +3788,6 @@ class $$HistoryEntriesTableAnnotationComposer
 
   GeneratedColumn<double> get costUsd =>
       $composableBuilder(column: $table.costUsd, builder: (column) => column);
-
-  GeneratedColumn<String> get projectId =>
-      $composableBuilder(column: $table.projectId, builder: (column) => column);
 
   GeneratedColumn<bool> get archived =>
       $composableBuilder(column: $table.archived, builder: (column) => column);
@@ -4245,7 +3924,6 @@ class $$HistoryEntriesTableTableManager
                 Value<String> model = const Value.absent(),
                 Value<bool> isLocal = const Value.absent(),
                 Value<double> costUsd = const Value.absent(),
-                Value<String> projectId = const Value.absent(),
                 Value<bool> archived = const Value.absent(),
                 Value<bool> titleEdited = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
@@ -4265,7 +3943,6 @@ class $$HistoryEntriesTableTableManager
                 model: model,
                 isLocal: isLocal,
                 costUsd: costUsd,
-                projectId: projectId,
                 archived: archived,
                 titleEdited: titleEdited,
                 deletedAt: deletedAt,
@@ -4287,7 +3964,6 @@ class $$HistoryEntriesTableTableManager
                 Value<String> model = const Value.absent(),
                 Value<bool> isLocal = const Value.absent(),
                 Value<double> costUsd = const Value.absent(),
-                Value<String> projectId = const Value.absent(),
                 Value<bool> archived = const Value.absent(),
                 Value<bool> titleEdited = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
@@ -4307,7 +3983,6 @@ class $$HistoryEntriesTableTableManager
                 model: model,
                 isLocal: isLocal,
                 costUsd: costUsd,
-                projectId: projectId,
                 archived: archived,
                 titleEdited: titleEdited,
                 deletedAt: deletedAt,
@@ -4425,162 +4100,6 @@ typedef $$HistoryEntriesTableProcessedTableManager =
         bool entryAttachmentsRefs,
         bool entryTagsRefs,
       })
-    >;
-typedef $$ProjectsTableCreateCompanionBuilder =
-    ProjectsCompanion Function({
-      required String id,
-      required String name,
-      required DateTime createdAt,
-      Value<int> rowid,
-    });
-typedef $$ProjectsTableUpdateCompanionBuilder =
-    ProjectsCompanion Function({
-      Value<String> id,
-      Value<String> name,
-      Value<DateTime> createdAt,
-      Value<int> rowid,
-    });
-
-class $$ProjectsTableFilterComposer
-    extends Composer<_$HistoryDatabase, $ProjectsTable> {
-  $$ProjectsTableFilterComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnFilters<String> get id => $composableBuilder(
-    column: $table.id,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get name => $composableBuilder(
-    column: $table.name,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<DateTime> get createdAt => $composableBuilder(
-    column: $table.createdAt,
-    builder: (column) => ColumnFilters(column),
-  );
-}
-
-class $$ProjectsTableOrderingComposer
-    extends Composer<_$HistoryDatabase, $ProjectsTable> {
-  $$ProjectsTableOrderingComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnOrderings<String> get id => $composableBuilder(
-    column: $table.id,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get name => $composableBuilder(
-    column: $table.name,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
-    column: $table.createdAt,
-    builder: (column) => ColumnOrderings(column),
-  );
-}
-
-class $$ProjectsTableAnnotationComposer
-    extends Composer<_$HistoryDatabase, $ProjectsTable> {
-  $$ProjectsTableAnnotationComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  GeneratedColumn<String> get id =>
-      $composableBuilder(column: $table.id, builder: (column) => column);
-
-  GeneratedColumn<String> get name =>
-      $composableBuilder(column: $table.name, builder: (column) => column);
-
-  GeneratedColumn<DateTime> get createdAt =>
-      $composableBuilder(column: $table.createdAt, builder: (column) => column);
-}
-
-class $$ProjectsTableTableManager
-    extends
-        RootTableManager<
-          _$HistoryDatabase,
-          $ProjectsTable,
-          Project,
-          $$ProjectsTableFilterComposer,
-          $$ProjectsTableOrderingComposer,
-          $$ProjectsTableAnnotationComposer,
-          $$ProjectsTableCreateCompanionBuilder,
-          $$ProjectsTableUpdateCompanionBuilder,
-          (Project, BaseReferences<_$HistoryDatabase, $ProjectsTable, Project>),
-          Project,
-          PrefetchHooks Function()
-        > {
-  $$ProjectsTableTableManager(_$HistoryDatabase db, $ProjectsTable table)
-    : super(
-        TableManagerState(
-          db: db,
-          table: table,
-          createFilteringComposer: () =>
-              $$ProjectsTableFilterComposer($db: db, $table: table),
-          createOrderingComposer: () =>
-              $$ProjectsTableOrderingComposer($db: db, $table: table),
-          createComputedFieldComposer: () =>
-              $$ProjectsTableAnnotationComposer($db: db, $table: table),
-          updateCompanionCallback:
-              ({
-                Value<String> id = const Value.absent(),
-                Value<String> name = const Value.absent(),
-                Value<DateTime> createdAt = const Value.absent(),
-                Value<int> rowid = const Value.absent(),
-              }) => ProjectsCompanion(
-                id: id,
-                name: name,
-                createdAt: createdAt,
-                rowid: rowid,
-              ),
-          createCompanionCallback:
-              ({
-                required String id,
-                required String name,
-                required DateTime createdAt,
-                Value<int> rowid = const Value.absent(),
-              }) => ProjectsCompanion.insert(
-                id: id,
-                name: name,
-                createdAt: createdAt,
-                rowid: rowid,
-              ),
-          withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
-              .toList(),
-          prefetchHooksCallback: null,
-        ),
-      );
-}
-
-typedef $$ProjectsTableProcessedTableManager =
-    ProcessedTableManager<
-      _$HistoryDatabase,
-      $ProjectsTable,
-      Project,
-      $$ProjectsTableFilterComposer,
-      $$ProjectsTableOrderingComposer,
-      $$ProjectsTableAnnotationComposer,
-      $$ProjectsTableCreateCompanionBuilder,
-      $$ProjectsTableUpdateCompanionBuilder,
-      (Project, BaseReferences<_$HistoryDatabase, $ProjectsTable, Project>),
-      Project,
-      PrefetchHooks Function()
     >;
 typedef $$DailyStatsTableCreateCompanionBuilder =
     DailyStatsCompanion Function({
@@ -6437,8 +5956,6 @@ class $HistoryDatabaseManager {
   $HistoryDatabaseManager(this._db);
   $$HistoryEntriesTableTableManager get historyEntries =>
       $$HistoryEntriesTableTableManager(_db, _db.historyEntries);
-  $$ProjectsTableTableManager get projects =>
-      $$ProjectsTableTableManager(_db, _db.projects);
   $$DailyStatsTableTableManager get dailyStats =>
       $$DailyStatsTableTableManager(_db, _db.dailyStats);
   $$EntryNotesTableTableManager get entryNotes =>
