@@ -326,6 +326,173 @@ void main() {
       );
     });
 
+    // ── Save returns storage-format modifiers, NOT localized display labels ──
+    //
+    // Regression for the cross-platform modifier serialization bug: the
+    // recorder must persist canonical storage tokens (`alt`, `ctrl`, `shift`,
+    // `meta`), never the user-facing display strings (`Option`, `Strg`,
+    // `Umschalt`, `Befehl`). Otherwise the global hotkey registrar drops the
+    // modifier on read and the user's hotkey silently fires without it.
+
+    Future<HotkeyResult?> openRecorderAndCapture(
+      WidgetTester tester, {
+      required List<LogicalKeyboardKey> keys,
+      Locale? locale,
+    }) async {
+      HotkeyResult? captured;
+
+      await tester.pumpWidget(
+        makeTestable(
+          Builder(
+            builder: (ctx) => ElevatedButton(
+              key: const Key('open-recorder'),
+              onPressed: () async {
+                captured = await HotkeyRecorderDialog.show(ctx);
+              },
+              child: const Text('open'),
+            ),
+          ),
+          locale: locale,
+          size: const Size(1280, 800),
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('open-recorder')));
+      await tester.pumpAndSettle();
+
+      for (final k in keys) {
+        await tester.sendKeyDownEvent(k);
+        await tester.pump();
+      }
+
+      final context = tester.element(find.byType(HotkeyRecorderDialog));
+      final l10n = L10n.of(context);
+      await tester.tap(
+        find.widgetWithText(ElevatedButton, l10n.settingsHotkeyRecorderSave),
+        warnIfMissed: false,
+      );
+      await tester.pumpAndSettle();
+
+      for (final k in keys.reversed) {
+        await tester.sendKeyUpEvent(k);
+      }
+      await tester.pump();
+
+      return captured;
+    }
+
+    testWidgets(
+      'reporter case: Alt + ArrowLeft → modifiers="alt", key="←" (NOT "option")',
+      (tester) async {
+        final result = await openRecorderAndCapture(
+          tester,
+          keys: [LogicalKeyboardKey.altLeft, LogicalKeyboardKey.arrowLeft],
+        );
+
+        expect(result, isNotNull);
+        expect(result!.key, '←');
+        expect(
+          result.modifiers,
+          'alt',
+          reason:
+              'Storage MUST be canonical token "alt", not the macOS display '
+              'label "option" — otherwise the resolver drops the modifier.',
+        );
+      },
+    );
+
+    testWidgets('Meta+Shift+D → canonical "shift+meta" (not "shift+cmd")', (
+      tester,
+    ) async {
+      final result = await openRecorderAndCapture(
+        tester,
+        keys: [
+          LogicalKeyboardKey.metaLeft,
+          LogicalKeyboardKey.shiftLeft,
+          LogicalKeyboardKey.keyD,
+        ],
+      );
+
+      expect(result, isNotNull);
+      expect(result!.key, 'D');
+      expect(
+        result.modifiers,
+        'shift+meta',
+        reason: 'serializeModifiers canonical order is ctrl-shift-alt-meta',
+      );
+    });
+
+    testWidgets('Ctrl+Alt+D → canonical "ctrl+alt" (cross-platform)', (
+      tester,
+    ) async {
+      final result = await openRecorderAndCapture(
+        tester,
+        keys: [
+          LogicalKeyboardKey.controlLeft,
+          LogicalKeyboardKey.altLeft,
+          LogicalKeyboardKey.keyD,
+        ],
+      );
+
+      expect(result, isNotNull);
+      expect(result!.modifiers, 'ctrl+alt');
+    });
+
+    testWidgets(
+      'DE locale: Strg+Umschalt+E still stores canonical "ctrl+shift"',
+      (tester) async {
+        // E avoids the system-shortcut conflict warning, which would render
+        // a long localized banner that overflows the 420 px-wide dialog and
+        // pushes the Save button off the hit-test area.
+        final result = await openRecorderAndCapture(
+          tester,
+          locale: const Locale('de'),
+          keys: [
+            LogicalKeyboardKey.controlLeft,
+            LogicalKeyboardKey.shiftLeft,
+            LogicalKeyboardKey.keyE,
+          ],
+        );
+
+        expect(result, isNotNull);
+        expect(
+          result!.modifiers,
+          'ctrl+shift',
+          reason:
+              'German locale must NOT leak display labels (strg/umschalt) into '
+              'storage; canonical tokens are language-agnostic.',
+        );
+      },
+    );
+
+    testWidgets(
+      'HE locale: Alt+D → modifiers="alt" (storage is locale-independent)',
+      (tester) async {
+        final result = await openRecorderAndCapture(
+          tester,
+          locale: const Locale('he'),
+          keys: [LogicalKeyboardKey.altLeft, LogicalKeyboardKey.keyD],
+        );
+
+        expect(result, isNotNull);
+        expect(result!.modifiers, 'alt');
+      },
+    );
+
+    testWidgets(
+      'whitelisted single key (F5) → modifiers="" (empty), key="F5"',
+      (tester) async {
+        final result = await openRecorderAndCapture(
+          tester,
+          keys: [LogicalKeyboardKey.f5],
+        );
+
+        expect(result, isNotNull);
+        expect(result!.key, 'F5');
+        expect(result.modifiers, '');
+      },
+    );
+
     testWidgets('conflict warning disappears after clear is pressed', (
       tester,
     ) async {
