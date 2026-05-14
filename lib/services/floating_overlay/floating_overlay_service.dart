@@ -445,6 +445,7 @@ class FloatingOverlayService
         s.hotkeyModifiers,
         s.hotkeyKey,
         l10n: l10n,
+        displayOverride: s.hotkey.hotkeyKeyDisplay,
       );
       return l10n?.overlayKeyboardHint(hotkey) ?? 'Press $hotkey to stop';
     }

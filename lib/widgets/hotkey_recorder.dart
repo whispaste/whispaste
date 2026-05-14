@@ -26,16 +26,28 @@ import 'dialog.dart';
 
 /// Result returned when the user saves a new hotkey combination.
 class HotkeyResult {
-  const HotkeyResult({required this.key, required this.modifiers});
+  const HotkeyResult({
+    required this.key,
+    required this.modifiers,
+    this.displayKey = '',
+  });
 
-  /// The non-modifier key label, e.g. `'D'`, `'F1'`, `'Space'`.
+  /// The canonical non-modifier key token used by the registrar (e.g. `'D'`,
+  /// `'F1'`, `'Space'`, `';'`).
   final String key;
 
   /// Modifier string in storage format, e.g. `'ctrl+shift'`.
   final String modifiers;
 
+  /// User-visible label captured at recording time — non-empty only when the
+  /// pressed key produced a layout-dependent character that differs from the
+  /// canonical token (e.g. `'Ö'` for a DE-layout user whose physical
+  /// `semicolon` position is stored as `key=';'`).
+  final String displayKey;
+
   @override
-  String toString() => 'HotkeyResult(key: $key, modifiers: $modifiers)';
+  String toString() =>
+      'HotkeyResult(key: $key, displayKey: $displayKey, modifiers: $modifiers)';
 }
 
 // ---------------------------------------------------------------------------
@@ -53,11 +65,16 @@ class HotkeyRecorderDialog extends StatefulWidget {
   const HotkeyRecorderDialog({
     super.key,
     this.initialKey = 'D',
+    this.initialDisplayKey = '',
     this.initialModifiers = 'ctrl+shift',
   });
 
-  /// The current non-modifier key label.
+  /// The current canonical non-modifier key token (e.g. `'D'`, `';'`).
   final String initialKey;
+
+  /// User-visible label for [initialKey] (e.g. `'Ö'` when [initialKey] is
+  /// `';'`). Empty when display matches the canonical token.
+  final String initialDisplayKey;
 
   /// The current modifier string (e.g. `'ctrl+shift'`).
   final String initialModifiers;
@@ -71,12 +88,14 @@ class HotkeyRecorderDialog extends StatefulWidget {
   static Future<HotkeyResult?> show(
     BuildContext context, {
     String? initialKey,
+    String? initialDisplayKey,
     String? initialModifiers,
   }) {
     return showWpFormDialog<HotkeyResult>(
       context: context,
       builder: (ctx, a) => HotkeyRecorderDialog(
         initialKey: initialKey ?? 'D',
+        initialDisplayKey: initialDisplayKey ?? '',
         initialModifiers: initialModifiers ?? _defaultModifiers,
       ),
     );
@@ -166,7 +185,16 @@ final Set<LogicalKeyboardKey> singleKeyWhitelist = {
 
 class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
   late List<String> _modifierLabels;
+
+  /// User-visible label rendered inside the key cap (e.g. `'D'`, `'Ö'`,
+  /// `'F1'`). May diverge from [_storageKey] when the user pressed a
+  /// layout-dependent character.
   late String _keyLabel;
+
+  /// Canonical storage token for the non-modifier key (e.g. `'D'`, `';'`).
+  /// What the registrar reads back via `resolveKey`. Empty when no valid
+  /// key is currently recorded.
+  late String _storageKey;
 
   /// Canonical storage-format modifier string (e.g. `'ctrl+shift'`) captured
   /// at the moment the last valid combo was recorded.
@@ -186,13 +214,10 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
   /// Non-null when the current combo matches a known system-reserved shortcut.
   ConflictEntry? _conflict;
 
-  /// True while a non-recordable key was just pressed — drives a brief
-  /// hint message under the key-cap display. Auto-clears after 2 s or as
-  /// soon as the next valid recordable key is captured. Prevents the
-  /// "Cmd+Ö recorded but registrar rejects" bug class by never updating
-  /// `_keyLabel` for a key the [resolveKey] reader cannot parse.
+  /// True while the most recent key press was not recordable. Stays visible
+  /// until the user presses a valid key or hits Clear — earlier auto-hide
+  /// after 2 s was reported as too short for the feedback to register.
   bool _showInvalidKeyHint = false;
-  Timer? _invalidKeyHintTimer;
 
   final FocusNode _focusNode = FocusNode();
 
@@ -203,12 +228,38 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
       widget.initialModifiers,
     );
     _modifiersStorage = widget.initialModifiers;
-    _keyLabel = widget.initialKey;
+    // Validate the persisted key before trusting it as a valid combo.
+    // Pre-fix DBs may contain non-resolvable tokens (e.g. raw `'Ö'`) that the
+    // recorder previously accepted but the registrar now rejects. Treat such
+    // values as "no key recorded" so Save stays disabled until the user
+    // presses a valid combo.
+    final initialResolvable = _isResolvable(widget.initialKey);
+    _storageKey = initialResolvable ? widget.initialKey : '';
+    if (initialResolvable) {
+      _keyLabel = widget.initialDisplayKey.trim().isNotEmpty
+          ? widget.initialDisplayKey
+          : widget.initialKey;
+    } else {
+      _keyLabel = '';
+    }
     // When the dialog opens with a pre-existing whitelisted single-key binding
     // (no modifiers), mark it so the Save button is enabled immediately.
-    _isSingleKey = _modifierLabels.isEmpty && _isWhitelistedLabel(_keyLabel);
-    // Check initial combo against the system conflict list.
-    _conflict = findConflict(widget.initialModifiers, _keyLabel);
+    _isSingleKey = _modifierLabels.isEmpty && _isWhitelistedLabel(_storageKey);
+    // Check initial combo against the system conflict list (use storage token
+    // so the conflict table matches its US-layout keys).
+    _conflict = _storageKey.isEmpty
+        ? null
+        : findConflict(widget.initialModifiers, _storageKey);
+  }
+
+  static bool _isResolvable(String label) {
+    if (label.isEmpty) return false;
+    try {
+      key_resolver.resolveKey(label);
+      return true;
+    } on ArgumentError {
+      return false;
+    }
   }
 
   /// Returns true when [label] matches a key in [singleKeyWhitelist].
@@ -223,7 +274,6 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
 
   @override
   void dispose() {
-    _invalidKeyHintTimer?.cancel();
     _focusNode.dispose();
     super.dispose();
   }
@@ -237,29 +287,51 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
       if (_modifierKeys.contains(key)) {
         _heldModifiers.add(key);
       } else if (_heldModifiers.isNotEmpty ||
-          singleKeyWhitelist.contains(key)) {
-        // The candidate combo is structurally allowed (held modifier OR
-        // whitelisted single key). Now gate on whether the resolver can
-        // round-trip the key — otherwise the registrar would later throw
-        // ArgumentError and the user's hotkey would silently fall back.
-        if (!key_resolver.isRecordableKey(key)) {
-          _showInvalidKeyFeedback();
+          singleKeyWhitelist.contains(key) ||
+          key_resolver.canonicalRecordableKey(event) != null) {
+        // Resolve the canonical storage key (logical or via physical-position
+        // fallback for layout-dependent chars like Ö/Ä/Ü on DE).
+        final canonical = key_resolver.canonicalRecordableKey(event);
+        if (canonical == null) {
+          setState(() {
+            _showInvalidKeyHint = true;
+          });
+          return;
+        }
+        // Need either a held modifier OR a single-key whitelist member —
+        // letters / punctuation alone must not be capturable as global
+        // shortcuts (would swallow normal typing).
+        final structurallyAllowed =
+            _heldModifiers.isNotEmpty || singleKeyWhitelist.contains(canonical);
+        if (!structurallyAllowed) {
+          setState(() {
+            _showInvalidKeyHint = true;
+          });
           return;
         }
         final serializedMods = HotkeyRecorderDialog.serializeModifiers(
           _heldModifiers,
         );
-        final keyLbl = HotkeyRecorderDialog.keyLabel(key);
+        final storageLabel = HotkeyRecorderDialog.keyLabel(canonical);
+        // Display label: prefer the original character the user pressed when
+        // it differs from the canonical token (e.g. `Ö` ≠ `;`). For canonical
+        // matches keep the resolver label so casing/symbols stay consistent.
+        final pressedLabel = HotkeyRecorderDialog.keyLabel(key);
+        final displayLabel =
+            (canonical != key &&
+                pressedLabel.isNotEmpty &&
+                pressedLabel != storageLabel)
+            ? pressedLabel
+            : storageLabel;
         setState(() {
           _modifiersStorage = serializedMods;
           _modifierLabels = HotkeyRecorderDialog.parseModifiers(serializedMods);
-          _keyLabel = keyLbl;
+          _storageKey = storageLabel;
+          _keyLabel = displayLabel;
           _isSingleKey =
-              _heldModifiers.isEmpty && singleKeyWhitelist.contains(key);
-          _conflict = findConflict(serializedMods, keyLbl);
-          // Successful recording clears any pending hint.
+              _heldModifiers.isEmpty && singleKeyWhitelist.contains(canonical);
+          _conflict = findConflict(serializedMods, storageLabel);
           _showInvalidKeyHint = false;
-          _invalidKeyHintTimer?.cancel();
         });
       }
     } else if (event is KeyUpEvent) {
@@ -267,35 +339,29 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
     }
   }
 
-  void _showInvalidKeyFeedback() {
-    _invalidKeyHintTimer?.cancel();
-    setState(() {
-      _showInvalidKeyHint = true;
-    });
-    _invalidKeyHintTimer = Timer(const Duration(seconds: 2), () {
-      if (!mounted) return;
-      setState(() {
-        _showInvalidKeyHint = false;
-      });
-    });
-  }
-
   void _clear() {
     setState(() {
       _modifierLabels = [];
       _modifiersStorage = '';
       _keyLabel = '';
+      _storageKey = '';
       _isSingleKey = false;
       _conflict = null;
       _heldModifiers.clear();
+      _showInvalidKeyHint = false;
     });
   }
 
   void _save() {
-    if (_keyLabel.isEmpty) return;
-    Navigator.of(
-      context,
-    ).pop(HotkeyResult(key: _keyLabel, modifiers: _modifiersStorage));
+    if (_storageKey.isEmpty) return;
+    final displayForResult = _keyLabel != _storageKey ? _keyLabel : '';
+    Navigator.of(context).pop(
+      HotkeyResult(
+        key: _storageKey,
+        modifiers: _modifiersStorage,
+        displayKey: displayForResult,
+      ),
+    );
   }
 
   // ── Build ──────────────────────────────────────────────────────────
@@ -316,10 +382,13 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
     final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
     final l10n = L10n.of(context);
 
-    // A valid combo requires a non-empty key label plus either a modifier or
-    // a whitelisted single key (F1–F12, media keys — stored in _isSingleKey).
+    // A valid combo requires a resolvable storage key plus either a modifier
+    // or a whitelisted single key (F1–F12, media keys — stored in
+    // _isSingleKey). Driven by the canonical storage key, not the display
+    // label, so a stale DB value (e.g. `'Ö'`) that initState rejected keeps
+    // Save disabled.
     final hasCombo =
-        _keyLabel.isNotEmpty && (_modifierLabels.isNotEmpty || _isSingleKey);
+        _storageKey.isNotEmpty && (_modifierLabels.isNotEmpty || _isSingleKey);
 
     return Center(
       child: KeyboardListener(
@@ -463,13 +532,23 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
                               style: TextStyle(color: textMuted, fontSize: 13),
                             ),
                           ),
-                          // Save
+                          // Save — accent background + white foreground gives
+                          // WCAG-AA contrast in both light and dark themes;
+                          // the previous accent-text-on-default-elevated bg
+                          // failed contrast checks for the disabled label too.
                           ElevatedButton(
                             onPressed: hasCombo ? _save : null,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: accent,
+                              foregroundColor: Colors.white,
+                              disabledBackgroundColor: isDark
+                                  ? WpColorsDark.surfaceVariant
+                                  : WpColorsLight.surfaceVariant,
+                              disabledForegroundColor: textMuted,
+                            ),
                             child: Text(
                               l10n.settingsHotkeyRecorderSave,
-                              style: TextStyle(
-                                color: hasCombo ? accent : textMuted,
+                              style: const TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
                               ),

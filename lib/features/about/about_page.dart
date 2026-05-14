@@ -35,6 +35,7 @@ class AboutPage extends ConsumerWidget {
       settings.hotkeyKey,
       separator: ' + ',
       l10n: l10n,
+      displayOverride: settings.hotkey.hotkeyKeyDisplay,
     );
 
     return WpPageShell(
