@@ -235,20 +235,20 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Download Windows artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: windows-release
           path: artifacts/
 
       - name: Download macOS artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: macos-release
           path: artifacts/
 
       - name: Download MSIX artifact
         if: needs.build-msix.result == 'success'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: msix-release
           path: artifacts/
