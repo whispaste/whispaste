@@ -15,6 +15,7 @@ Widget makeTestable(
   Brightness brightness = Brightness.dark,
   Size size = const Size(1280, 800),
   List overrides = const [],
+  Locale? locale,
 }) {
   final theme = brightness == Brightness.dark ? wpDarkTheme() : wpLightTheme();
 
@@ -34,6 +35,7 @@ Widget makeTestable(
     child: MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: theme,
+      locale: locale,
       localizationsDelegates: L10n.localizationsDelegates,
       supportedLocales: L10n.supportedLocales,
       home: MediaQuery(
