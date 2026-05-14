@@ -16,7 +16,7 @@
     "@astrojs/sitemap": "^3.7.0",
     "@tailwindcss/vite": "^4.2.1",
     "astro": "^6.3.2",
-    "tailwindcss": "^4.2.1"
+    "tailwindcss": "^4.3.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
