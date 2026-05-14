@@ -551,7 +551,7 @@ class L10nHe extends L10n {
 
   @override
   String get settingsFactoryResetMessage =>
-      'פעולה זו תמחק לצמיתות את כל הנתונים: היסטוריה, תגיות, פרויקטים, קיצורים, מודלים, לוגים והגדרות. האפליקציה תחזור למצב ראשוני.\n\nאין דרך לבטל.';
+      'פעולה זו תמחק לצמיתות את כל הנתונים: היסטוריה, תגיות, קיצורים, מודלים, לוגים והגדרות. האפליקציה תחזור למצב ראשוני.\n\nאין דרך לבטל.';
 
   @override
   String get settingsFactoryResetConfirm => 'מחק הכל';
@@ -1683,9 +1683,6 @@ class L10nHe extends L10n {
 
   @override
   String get historyTitleSaved => 'כותרת נשמרה';
-
-  @override
-  String get historySearchHintCommands => 'חפש בתמלולים…';
 
   @override
   String get historySearchHelpTitle => 'טיפים לחיפוש';
