@@ -291,16 +291,6 @@ void main() {
       expect(_roundtrip(s).trimSilence, isTrue);
     });
 
-    test('useVAD true survives roundtrip', () {
-      final s = AppSettings.defaults.copyWith(useVAD: true);
-      expect(_roundtrip(s).useVAD, isTrue);
-    });
-
-    test('vadSensitivity survives roundtrip', () {
-      final s = AppSettings.defaults.copyWith(vadSensitivity: 0.8);
-      expect(_roundtrip(s).vadSensitivity, 0.8);
-    });
-
     // --- Text Replacements ---
     test('textReplacementsEnabled true survives roundtrip', () {
       final s = AppSettings.defaults.copyWith(textReplacementsEnabled: true);
@@ -823,43 +813,43 @@ void main() {
   // ---- Section 9: Audio Processing ----------------------------------------
   group('Section: audio processing', () {
     test('all audio processing fields use expected storage keys', () {
-      final s = AppSettings.defaults.copyWith(
-        trimSilence: true,
-        useVAD: true,
-        vadSensitivity: 0.75,
-      );
+      final s = AppSettings.defaults.copyWith(trimSilence: true);
       final map = s.toStorageMap();
       expect(map['trim_silence'], 'true');
-      expect(map['use_vad'], 'true');
-      expect(map['vad_sensitivity'], '0.75');
     });
 
     test('audio processing cluster full roundtrip', () {
-      final s = AppSettings.defaults.copyWith(
-        trimSilence: true,
-        useVAD: true,
-        vadSensitivity: 0.9,
-      );
+      final s = AppSettings.defaults.copyWith(trimSilence: true);
       final r = _roundtrip(s);
       expect(r.trimSilence, isTrue);
-      expect(r.useVAD, isTrue);
-      expect(r.vadSensitivity, 0.9);
     });
 
-    test('vadSensitivity extremes survive roundtrip', () {
-      expect(
-        _roundtrip(
-          AppSettings.defaults.copyWith(vadSensitivity: 0.0),
-        ).vadSensitivity,
-        0.0,
-      );
-      expect(
-        _roundtrip(
-          AppSettings.defaults.copyWith(vadSensitivity: 1.0),
-        ).vadSensitivity,
-        1.0,
-      );
-    });
+    test(
+      'legacy VAD keys are ignored on load (forward-compat after removal)',
+      () {
+        // Simulate a storage map from a previous app version that still
+        // persisted `use_vad` and `vad_sensitivity`.  After removing VAD
+        // entirely, these keys must be silently ignored: no crash, no other
+        // settings disturbed.
+        final map =
+            Map<String, String>.from(AppSettings.defaults.toStorageMap())
+              ..['use_vad'] = 'true'
+              ..['vad_sensitivity'] = '0.8';
+
+        expect(() => AppSettings.fromStorageMap(map), returnsNormally);
+
+        final restored = AppSettings.fromStorageMap(map);
+        // Other settings unchanged.
+        expect(restored.trimSilence, AppSettings.defaults.trimSilence);
+        expect(restored.themeMode, AppSettings.defaults.themeMode);
+        expect(restored.sttModel, AppSettings.defaults.sttModel);
+        // Round-tripping the restored settings does NOT re-emit the legacy
+        // VAD keys — they have been dropped from the schema.
+        final roundTripped = restored.toStorageMap();
+        expect(roundTripped.containsKey('use_vad'), isFalse);
+        expect(roundTripped.containsKey('vad_sensitivity'), isFalse);
+      },
+    );
   });
 
   // ---- Section 10: Text Replacements --------------------------------------

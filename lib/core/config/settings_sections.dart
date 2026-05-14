@@ -765,55 +765,29 @@ class BehaviorSettings {
 // ===========================================================================
 
 class AudioProcessingSettings {
-  const AudioProcessingSettings({
-    this.trimSilence = false,
-    this.useVAD = false,
-    this.vadSensitivity = 0.5,
-  });
+  const AudioProcessingSettings({this.trimSilence = false});
 
   final bool trimSilence;
-  final bool useVAD;
-  final double vadSensitivity;
 
   static const AudioProcessingSettings defaults = AudioProcessingSettings();
 
   factory AudioProcessingSettings.fromMap(Map<String, String> v) =>
       AudioProcessingSettings(
         trimSilence: _readBool(v, 'trim_silence', defaults.trimSilence),
-        useVAD: _readBool(v, 'use_vad', defaults.useVAD),
-        vadSensitivity: _readDouble(
-          v,
-          'vad_sensitivity',
-          defaults.vadSensitivity,
-        ),
       );
 
-  Map<String, String> toMap() => {
-    'trim_silence': '$trimSilence',
-    'use_vad': '$useVAD',
-    'vad_sensitivity': '$vadSensitivity',
-  };
+  Map<String, String> toMap() => {'trim_silence': '$trimSilence'};
 
-  AudioProcessingSettings copyWith({
-    bool? trimSilence,
-    bool? useVAD,
-    double? vadSensitivity,
-  }) => AudioProcessingSettings(
-    trimSilence: trimSilence ?? this.trimSilence,
-    useVAD: useVAD ?? this.useVAD,
-    vadSensitivity: vadSensitivity ?? this.vadSensitivity,
-  );
+  AudioProcessingSettings copyWith({bool? trimSilence}) =>
+      AudioProcessingSettings(trimSilence: trimSilence ?? this.trimSilence);
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is AudioProcessingSettings &&
-          trimSilence == other.trimSilence &&
-          useVAD == other.useVAD &&
-          vadSensitivity == other.vadSensitivity;
+      other is AudioProcessingSettings && trimSilence == other.trimSilence;
 
   @override
-  int get hashCode => Object.hash(trimSilence, useVAD, vadSensitivity);
+  int get hashCode => trimSilence.hashCode;
 }
 
 // ===========================================================================
