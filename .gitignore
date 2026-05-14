@@ -115,6 +115,9 @@ website/public/screenshots/ui/
 # Sentry native build artifacts
 .sentry-native/
 
+# Test coverage output
+coverage/
+
 # Temporary files
 tmp_funcs.sql
 
