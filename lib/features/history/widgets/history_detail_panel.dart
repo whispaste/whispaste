@@ -11,6 +11,7 @@ import '../../../core/recording/recording_helpers.dart'
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import 'package:whispaste/core/data/database.dart';
+import '../../../services/history/history_exporter.dart' as history_exporter;
 import '../data/history_detail_provider.dart';
 import 'highlighted_text.dart';
 import 'history_helpers.dart';
@@ -19,6 +20,14 @@ import '../../../widgets/tag_input.dart';
 import '../../../widgets/markdown_toolbar.dart';
 import '../../../widgets/toast.dart';
 import 'tag_management_dialog.dart';
+
+/// Signature of the export-entries seam used by [HistoryDetailPanel].
+///
+/// Defaults to the top-level [history_exporter.exportEntries]. Tests inject a
+/// fake to assert that the overflow "Export…" menu item invokes the exporter
+/// with the expected entry list, without spinning up real platform channels.
+typedef HistoryDetailPanelExportFn =
+    Future<void> Function(BuildContext context, List<HistoryEntry> entries);
 
 // ---------------------------------------------------------------------------
 // Detail panel — opens on entry selection (ChatGPT/Notion detail view)
@@ -39,6 +48,7 @@ class HistoryDetailPanel extends ConsumerStatefulWidget {
     this.onCopyMarkdown,
     this.isTrashView = false,
     this.isArchiveView = false,
+    this.exportFn = history_exporter.exportEntries,
   });
 
   final HistoryEntry entry;
@@ -53,6 +63,14 @@ class HistoryDetailPanel extends ConsumerStatefulWidget {
   final VoidCallback? onCopyMarkdown;
   final bool isTrashView;
   final bool isArchiveView;
+
+  /// Injection seam for the export flow.
+  ///
+  /// Defaults to the production [history_exporter.exportEntries]. Widget tests
+  /// substitute a fake to assert the overflow "Export…" item invokes the
+  /// exporter with `[entry]` without touching the filesystem or platform
+  /// channels.
+  final HistoryDetailPanelExportFn exportFn;
 
   @override
   ConsumerState<HistoryDetailPanel> createState() => _HistoryDetailPanelState();
@@ -124,6 +142,11 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
   VoidCallback? get onCopyMarkdown => widget.onCopyMarkdown;
   bool get isTrashView => widget.isTrashView;
   bool get isArchiveView => widget.isArchiveView;
+
+  void _exportEntry() {
+    // Fire-and-forget: the exporter manages its own progress + toast feedback.
+    widget.exportFn(context, [entry]);
+  }
 
   /// Returns true if any text input field currently has focus.
   ///
@@ -622,6 +645,8 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                                 onCopyMarkdown?.call();
                               case 'duplicate':
                                 onDuplicate?.call();
+                              case 'export':
+                                _exportEntry();
                               case 'archive':
                                 onArchive();
                               case 'delete':
@@ -647,6 +672,14 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                                   isDark: isDark,
                                 ),
                               ),
+                            PopupMenuItem(
+                              value: 'export',
+                              child: HistoryPopupMenuRow(
+                                icon: LucideIcons.download,
+                                label: l10n.historyExportAction,
+                                isDark: isDark,
+                              ),
+                            ),
                             PopupMenuItem(
                               value: 'archive',
                               child: HistoryPopupMenuRow(

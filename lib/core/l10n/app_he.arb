@@ -40,6 +40,7 @@
   "historyDeletePermanently": "מחק לצמיתות",
   "historyUnarchive": "הוצא מהארכיון",
   "historyExport": "ייצא",
+  "historyExportAction": "ייצא…",
   "historyCopyAsMarkdown": "העתק כ-Markdown",
   "historyDetail": "פרטים",
   "historyTags": "תגיות",
