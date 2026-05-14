@@ -14,7 +14,7 @@
   "type": "module",
   "dependencies": {
     "@astrojs/sitemap": "^3.7.0",
-    "@tailwindcss/vite": "^4.2.1",
+    "@tailwindcss/vite": "^4.3.0",
     "astro": "^6.3.2",
     "tailwindcss": "^4.2.1"
   },
