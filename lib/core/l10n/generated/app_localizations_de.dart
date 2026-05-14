@@ -1834,6 +1834,10 @@ class L10nDe extends L10n {
   String get settingsHotkeyRecorderClear => 'Zurücksetzen';
 
   @override
+  String get settingsHotkeyRecorderInvalidKey =>
+      'Diese Taste lässt sich nicht als Hotkey speichern. Probier einen Buchstaben, eine Ziffer, eine F-Taste (F1–F12) oder eine Pfeiltaste.';
+
+  @override
   String get settingsMaxRecordDuration => 'Maximale Aufnahmedauer';
 
   @override

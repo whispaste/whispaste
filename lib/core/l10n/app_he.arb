@@ -639,6 +639,7 @@
   "settingsHotkeyRecorderSave": "שמור",
   "settingsHotkeyRecorderClear": "נקה",
   "settingsHotkeyRecorderModifierHint": "כל שילוב מקשי Modifier אפשרי — למשל Alt+Space, Ctrl+Alt+V, או Ctrl+Alt+Shift+R",
+  "settingsHotkeyRecorderInvalidKey": "לא ניתן לשמור מקש זה כקיצור דרך. נסה אות, ספרה, מקש פונקציה (F1–F12) או מקש חץ.",
   "hotkeyRegistrationFailed": "רישום קיצור הדרך נכשל — הגדר מחדש את הקיצור בהגדרות.",
   "hotkeyRegistrationFailedDefaultActive": "רישום קיצור הדרך נכשל — Ctrl+Shift+Space משמש כברירת מחדל. הגדר מחדש בהגדרות.",
   "hotkeyConflictWarning": "קיצור דרך זה שמור על ידי {platform} ({note}) ועלול לא לפעול.",
