@@ -608,6 +608,7 @@
   "settingsHotkeyRecorderCancel": "Abbrechen",
   "settingsHotkeyRecorderSave": "Speichern",
   "settingsHotkeyRecorderClear": "Zurücksetzen",
+  "settingsHotkeyRecorderInvalidKey": "Diese Taste lässt sich nicht als Hotkey speichern. Probier einen Buchstaben, eine Ziffer, eine F-Taste (F1–F12) oder eine Pfeiltaste.",
 
   "settingsMaxRecordDuration": "Maximale Aufnahmedauer",
   "settingsMaxRecordDurationSubtitle": "Automatischer Sicherheitsstopp nach dieser Zeit",

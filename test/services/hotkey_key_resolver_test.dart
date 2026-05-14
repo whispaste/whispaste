@@ -142,8 +142,104 @@ void main() {
       expect(() => resolveKey(''), throwsArgumentError);
     });
 
-    test('digit string throws ArgumentError', () {
-      expect(() => resolveKey('1'), throwsArgumentError);
+    test('non-digit special character throws ArgumentError', () {
+      expect(() => resolveKey('Ö'), throwsArgumentError);
+    });
+  });
+
+  group('resolveKey — digits 0–9', () {
+    test('0 resolves to digit0', () {
+      expect(resolveKey('0'), LogicalKeyboardKey.digit0);
+    });
+
+    test('5 resolves to digit5', () {
+      expect(resolveKey('5'), LogicalKeyboardKey.digit5);
+    });
+
+    test('9 resolves to digit9', () {
+      expect(resolveKey('9'), LogicalKeyboardKey.digit9);
+    });
+
+    test('all digits 0–9 round-trip via labelForKey', () {
+      for (var n = 0; n <= 9; n++) {
+        final label = '$n';
+        final key = resolveKey(label);
+        expect(labelForKey(key), label, reason: 'round-trip failed for $label');
+      }
+    });
+  });
+
+  group('labelForKey — digits', () {
+    test('digit3 → "3"', () {
+      expect(labelForKey(LogicalKeyboardKey.digit3), '3');
+    });
+
+    test('digit0 → "0"', () {
+      expect(labelForKey(LogicalKeyboardKey.digit0), '0');
+    });
+
+    test('digit9 → "9"', () {
+      expect(labelForKey(LogicalKeyboardKey.digit9), '9');
+    });
+  });
+
+  group('isRecordableKey', () {
+    test('letter keyA → true', () {
+      expect(isRecordableKey(LogicalKeyboardKey.keyA), isTrue);
+    });
+
+    test('digit0 → true', () {
+      expect(isRecordableKey(LogicalKeyboardKey.digit0), isTrue);
+    });
+
+    test('digit5 → true', () {
+      expect(isRecordableKey(LogicalKeyboardKey.digit5), isTrue);
+    });
+
+    test('digit9 → true', () {
+      expect(isRecordableKey(LogicalKeyboardKey.digit9), isTrue);
+    });
+
+    test('all F1–F12 → true', () {
+      for (var n = 1; n <= 12; n++) {
+        final key = LogicalKeyboardKey(0x00100000070 + n - 1);
+        expect(isRecordableKey(key), isTrue, reason: 'F$n must be recordable');
+      }
+    });
+
+    test('arrow keys → true', () {
+      expect(isRecordableKey(LogicalKeyboardKey.arrowLeft), isTrue);
+      expect(isRecordableKey(LogicalKeyboardKey.arrowUp), isTrue);
+      expect(isRecordableKey(LogicalKeyboardKey.arrowDown), isTrue);
+      expect(isRecordableKey(LogicalKeyboardKey.arrowRight), isTrue);
+    });
+
+    test('space → true', () {
+      expect(isRecordableKey(LogicalKeyboardKey.space), isTrue);
+    });
+
+    test('Unicode ö (0xF6) → false', () {
+      expect(isRecordableKey(const LogicalKeyboardKey(0xF6)), isFalse);
+    });
+
+    test('Unicode ä (0xE4) → false', () {
+      expect(isRecordableKey(const LogicalKeyboardKey(0xE4)), isFalse);
+    });
+
+    test('semicolon → false', () {
+      expect(isRecordableKey(LogicalKeyboardKey.semicolon), isFalse);
+    });
+
+    test('quote → false', () {
+      expect(isRecordableKey(LogicalKeyboardKey.quote), isFalse);
+    });
+
+    test('mediaPlayPause → true (in singleKeyWhitelist via labelForKey '
+        'whitelist or explicit accept)', () {
+      // mediaPlayPause has no labelForKey entry, but is part of the
+      // singleKeyWhitelist of accepted no-modifier keys. isRecordableKey
+      // must accept it so the recorder's whitelisted-single-key path works.
+      expect(isRecordableKey(LogicalKeyboardKey.mediaPlayPause), isTrue);
     });
   });
 

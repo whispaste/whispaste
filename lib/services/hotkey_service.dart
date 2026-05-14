@@ -239,9 +239,55 @@ class HotkeyService extends Notifier<void> {
         'Global hotkey synced from settings: '
         '${formatHotkeyShortcut(settings.hotkeyModifiers, settings.hotkeyKey)}',
       );
+    } on ArgumentError catch (e) {
+      // resolveKey rejected the stored key label. Happens with pre-fix DBs
+      // that contain a non-resolvable label (e.g. 'Ö', '+', ';') the recorder
+      // used to accept but the registrar cannot handle. Fall back to
+      // safe-default and prompt for re-bind. Sibling of the TypeError path
+      // in updateHotkey — same observable behaviour for the user.
+      final label = settings.hotkeyKey;
+      final firstCodepointHex = label.isEmpty
+          ? '0x0'
+          : '0x${label.runes.first.toRadixString(16)}';
+      _log.warning(
+        'Stored hotkey key "$label" is not resolvable — falling back to '
+        'safe-default ($safeDefaultHotKeyLabel). Reason: $e',
+      );
+      Sentry.addBreadcrumb(
+        Breadcrumb(
+          message: 'key_label_not_resolvable',
+          level: SentryLevel.info,
+          // PII-safe diagnostic: length + first codepoint only, never the
+          // raw label.
+          data: {
+            'label_length': label.length,
+            'first_codepoint': firstCodepointHex,
+          },
+        ),
+      );
+      await _registerSafeDefault();
     } on Object catch (e) {
       _log.warning('Failed to register global hotkey: $e');
     }
+  }
+
+  /// Test-only entry point that exercises [_registerFromSettings] directly
+  /// without going through the Riverpod [build] lifecycle.
+  ///
+  /// Lets unit tests verify the ArgumentError fallback path for corrupted
+  /// `hotkey_key` values without standing up a full settings provider.
+  @visibleForTesting
+  Future<void> debugRegisterFromSettings({
+    required String hotkeyKey,
+    required String hotkeyModifiers,
+  }) {
+    return _registerFromSettings(
+      AppSettings.defaults.copyWith(
+        hotkeyKey: hotkeyKey,
+        hotkeyModifiers: hotkeyModifiers,
+        hotkeyEnabled: true,
+      ),
+    );
   }
 
   /// Registers the safe-default hotkey and fires [onRegistrationFailed].

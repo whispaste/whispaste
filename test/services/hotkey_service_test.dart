@@ -412,6 +412,76 @@ void main() {
       );
     });
 
+    test('AC: registrar throwing ArgumentError → safe-default fallback fires '
+        '(mirror of TypeError path)', () async {
+      // _registerFromSettings catches ArgumentError thrown by resolveKey for
+      // existing DBs that contain a non-resolvable key (e.g. hotkey_key='Ö'
+      // from a corrupted pre-fix DB). Same observable behaviour as the
+      // pre-existing TypeError path: safe-default hotkey is registered and
+      // onRegistrationFailed fires so the UI can prompt the user to re-bind.
+      final registrar = FakeHotKeyRegistrar()
+        ..throwOnFirstRegister = ArgumentError.value(
+          'Ö',
+          'label',
+          'Unknown key label',
+        );
+      final service = _makeService(registrar);
+
+      var failedCallbackFired = false;
+      service.onRegistrationFailed = () => failedCallbackFired = true;
+
+      await service.updateHotkey(key: LogicalKeyboardKey.keyD);
+
+      expect(
+        registrar.registered.any(
+          (k) => k.logicalKey == LogicalKeyboardKey.space,
+        ),
+        isTrue,
+        reason:
+            'ArgumentError from register must trigger safe-default fallback',
+      );
+      expect(
+        failedCallbackFired,
+        isTrue,
+        reason:
+            'onRegistrationFailed must fire so the UI can prompt for re-bind',
+      );
+    });
+
+    test('AC: tryRegisterFromSettings with hotkeyKey="Ö" → safe-default '
+        'registered and onRegistrationFailed fires', () async {
+      // Direct exercise of the _registerFromSettings ArgumentError path
+      // via a small testing seam. resolveKey("Ö") throws ArgumentError;
+      // the service must catch that, add a Sentry breadcrumb, and route
+      // through _registerSafeDefault — without leaking the exception.
+      final registrar = FakeHotKeyRegistrar();
+      final service = _makeService(registrar);
+
+      var failedCallbackFired = false;
+      service.onRegistrationFailed = () => failedCallbackFired = true;
+
+      await service.debugRegisterFromSettings(
+        hotkeyKey: 'Ö',
+        hotkeyModifiers: 'meta',
+      );
+
+      expect(
+        registrar.registered.length,
+        equals(1),
+        reason: 'a single (safe-default) hotkey must be registered',
+      );
+      expect(
+        registrar.registered.first.logicalKey,
+        equals(LogicalKeyboardKey.space),
+        reason: 'safe-default Space key must be used as fallback for "Ö"',
+      );
+      expect(
+        failedCallbackFired,
+        isTrue,
+        reason: 'onRegistrationFailed must fire after ArgumentError fallback',
+      );
+    });
+
     test('stored DE "strg+umschalt" + "D" → registrar receives '
         '[control, shift] + keyD', () async {
       final registrar = FakeHotKeyRegistrar();
