@@ -15,20 +15,37 @@ import 'package:whispaste/services/hotkey_service.dart';
 
 /// Tracks [register]/[unregister] calls and can be told to throw on demand.
 class FakeHotKeyRegistrar implements HotKeyRegistrar {
+  FakeHotKeyRegistrar({this.supportsKeyUp = false});
+
   final List<HotKey> registered = [];
   final List<HotKey> unregistered = [];
+
+  /// Last keyDown handler passed to [register].
+  HotKeyHandler? capturedKeyDownHandler;
+
+  /// Last keyUp handler passed to [register].
+  HotKeyHandler? capturedKeyUpHandler;
 
   /// If non-null, [register] throws this object the first time it is called.
   Object? throwOnFirstRegister;
 
   @override
-  Future<void> register(HotKey hotKey, {HotKeyHandler? keyDownHandler}) async {
+  final bool supportsKeyUp;
+
+  @override
+  Future<void> register(
+    HotKey hotKey, {
+    HotKeyHandler? keyDownHandler,
+    HotKeyHandler? keyUpHandler,
+  }) async {
     if (throwOnFirstRegister != null) {
       final toThrow = throwOnFirstRegister;
       throwOnFirstRegister = null; // only throw once
       // ignore: only_throw_errors
       throw toThrow!;
     }
+    capturedKeyDownHandler = keyDownHandler;
+    capturedKeyUpHandler = keyUpHandler;
     registered.add(hotKey);
   }
 
@@ -303,6 +320,62 @@ void main() {
           reason: 'fallback must not fire for a valid arrow key',
         );
       }
+    });
+  });
+
+  group('HotkeyService — keyUp callback (Push-to-Talk wiring)', () {
+    test(
+      'supportsKeyUp=true: onHotkeyReleased fires when keyUp handler is called',
+      () async {
+        final registrar = FakeHotKeyRegistrar(supportsKeyUp: true);
+        final service = _makeService(registrar);
+
+        var keyDownFired = false;
+        var keyUpFired = false;
+        service.onHotkeyPressed = () => keyDownFired = true;
+        service.onHotkeyReleased = () => keyUpFired = true;
+
+        await service.updateHotkey(key: LogicalKeyboardKey.keyD);
+
+        expect(
+          registrar.capturedKeyUpHandler,
+          isNotNull,
+          reason: 'keyUpHandler must be registered when supportsKeyUp=true',
+        );
+
+        // Simulate keyDown and keyUp from the platform.
+        registrar.capturedKeyDownHandler!(registrar.registered.first);
+        registrar.capturedKeyUpHandler!(registrar.registered.first);
+
+        expect(keyDownFired, isTrue);
+        expect(keyUpFired, isTrue);
+      },
+    );
+
+    test('supportsKeyUp=false: keyUpHandler is not registered', () async {
+      final registrar = FakeHotKeyRegistrar(supportsKeyUp: false);
+      final service = _makeService(registrar);
+
+      service.onHotkeyReleased = () {};
+
+      await service.updateHotkey(key: LogicalKeyboardKey.keyD);
+
+      expect(
+        registrar.capturedKeyUpHandler,
+        isNull,
+        reason:
+            'keyUpHandler must be null when platform does not support keyUp',
+      );
+    });
+
+    test('supportsKeyUp reflects the registrar property', () {
+      final registrarTrue = FakeHotKeyRegistrar(supportsKeyUp: true);
+      final serviceTrue = _makeService(registrarTrue);
+      expect(serviceTrue.supportsKeyUp, isTrue);
+
+      final registrarFalse = FakeHotKeyRegistrar(supportsKeyUp: false);
+      final serviceFalse = _makeService(registrarFalse);
+      expect(serviceFalse.supportsKeyUp, isFalse);
     });
   });
 }
