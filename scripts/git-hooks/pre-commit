@@ -10,6 +10,35 @@
 
 set -e
 
+# ── 0. Block commits on protected branches (main / master) ────────────
+# Development happens on `dev`. `main` is only updated via fast-forward
+# merges from `dev` when a release is cut.
+#
+# Bypass for the rare legitimate case (release merge):
+#   WP_ALLOW_COMMIT_ON_MAIN=1 git commit ...
+
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+
+if [ "$CURRENT_BRANCH" = "main" ] || [ "$CURRENT_BRANCH" = "master" ]; then
+  if [ "${WP_ALLOW_COMMIT_ON_MAIN:-0}" != "1" ]; then
+    echo ""
+    echo "╔═══════════════════════════════════════════════════════════╗"
+    echo "║  ❌ BLOCKED: Commit auf '$CURRENT_BRANCH'                       "
+    echo "╠═══════════════════════════════════════════════════════════╣"
+    echo "║  Entwicklung läuft auf 'dev'. '$CURRENT_BRANCH' ist nur für      "
+    echo "║  release-Merges (dev → main) reserviert.                  ║"
+    echo "║                                                            ║"
+    echo "║  Wechsle: git checkout dev                                ║"
+    echo "║  Bypass (NUR für Release-Merge):                          ║"
+    echo "║    WP_ALLOW_COMMIT_ON_MAIN=1 git commit ...               ║"
+    echo "╚═══════════════════════════════════════════════════════════╝"
+    echo ""
+    exit 1
+  else
+    echo "⚠  WP_ALLOW_COMMIT_ON_MAIN=1 — Commit auf '$CURRENT_BRANCH' erlaubt (Release-Modus)."
+  fi
+fi
+
 # ── 1. Block commits that include files from protected paths ──────────
 
 BLOCKED_PATHS="
