@@ -81,7 +81,7 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^6.0.0
   build_runner: ^2.4.0
-  drift_dev: ^2.25.0
+  drift_dev: ^2.33.0
   mocktail: ^1.0.4
   msix: ^3.16.8
   golden_screenshot: ^11.0.1
