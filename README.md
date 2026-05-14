@@ -40,13 +40,13 @@ Works in emails, chat apps, code editors, browsers, terminals — everywhere.
 
 ## Key Features
 
-**Core** — Global hotkey · Push-to-talk & toggle · Auto-paste into any app · Voice Activity Detection · Recording overlay with waveform · Floating record button
+**Core** — Global hotkey · Push-to-talk & toggle · Auto-paste into any app · Recording overlay with waveform · Floating record button
 
 **Transcription** — Cloud providers (OpenAI, Deepgram) or local Whisper models via [whisper.cpp](https://github.com/ggml-org/whisper.cpp) — fully offline, no API key needed for local mode · [99 languages](https://github.com/openai/whisper/blob/main/whisper/tokenizer.py)
 
-**Productivity** — Voice Snippets (spoken triggers → text expansion) · Command palette (`Ctrl+K`) · Audio feedback sounds
+**Productivity** — Voice Snippets (spoken triggers → text expansion) · Audio feedback sounds
 
-**History** — Full-text search · Projects & color-coded tags · Pin, archive, merge, edit · Analytics dashboard · Export (TXT, MD, CSV, JSON, DOCX)
+**History** — Tags · Full-text search · Pin, archive, merge, edit · Analytics dashboard · Export (TXT, MD, CSV, JSON, DOCX)
 
 **System** — Auto-update with SHA256 verification · Light/dark/system theme · EN/DE interface · Autostart · System tray
 
