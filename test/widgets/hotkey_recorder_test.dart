@@ -493,6 +493,185 @@ void main() {
       },
     );
 
+    // ── Filter: non-recordable keys are rejected ────────────────────────
+
+    testWidgets(
+      'AC-rec-1: Ctrl + non-recordable key leaves _keyLabel unchanged '
+      'and shows invalid-key hint',
+      (tester) async {
+        await tester.pumpWidget(
+          makeTestable(
+            const HotkeyRecorderDialog(
+              initialKey: 'D',
+              initialModifiers: 'ctrl+shift',
+            ),
+            size: const Size(800, 600),
+          ),
+        );
+        await tester.pump();
+
+        final context = tester.element(find.byType(HotkeyRecorderDialog));
+        final l10n = L10n.of(context);
+
+        // Hold Ctrl, press Ö (Unicode 0xF6) — must NOT replace the initial
+        // key label and the invalid-key hint must appear.
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+        await tester.pump();
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.semicolon);
+        await tester.pump();
+
+        // Initial key 'D' is still rendered as a key cap.
+        expect(
+          find.text('D'),
+          findsOneWidget,
+          reason: 'non-recordable key must not overwrite the initial label',
+        );
+        // Hint message is visible.
+        expect(
+          find.text(l10n.settingsHotkeyRecorderInvalidKey),
+          findsOneWidget,
+        );
+
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.semicolon);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+        await tester.pump();
+      },
+    );
+
+    testWidgets('AC-rec-2: Ctrl + digit5 is recorded (digits are recordable)', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        makeTestable(
+          const HotkeyRecorderDialog(initialKey: '', initialModifiers: ''),
+          size: const Size(800, 600),
+        ),
+      );
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.digit5);
+      await tester.pump();
+
+      // '5' should now be rendered as a key cap.
+      expect(find.text('5'), findsOneWidget);
+
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.digit5);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+    });
+
+    testWidgets(
+      'AC-rec-3: invalid-key hint disappears after a valid key is recorded',
+      (tester) async {
+        await tester.pumpWidget(
+          makeTestable(
+            const HotkeyRecorderDialog(
+              initialKey: 'D',
+              initialModifiers: 'ctrl+shift',
+            ),
+            size: const Size(800, 600),
+          ),
+        );
+        await tester.pump();
+
+        final context = tester.element(find.byType(HotkeyRecorderDialog));
+        final l10n = L10n.of(context);
+
+        // Trigger hint with non-recordable key.
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+        await tester.pump();
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.semicolon);
+        await tester.pump();
+        expect(
+          find.text(l10n.settingsHotkeyRecorderInvalidKey),
+          findsOneWidget,
+        );
+
+        // Now press a valid key — hint should clear.
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.keyE);
+        await tester.pump();
+        expect(find.text(l10n.settingsHotkeyRecorderInvalidKey), findsNothing);
+
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.keyE);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.semicolon);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+        await tester.pump();
+      },
+    );
+
+    testWidgets('AC-rec-4: invalid-key hint disappears after 2 seconds', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        makeTestable(
+          const HotkeyRecorderDialog(
+            initialKey: 'D',
+            initialModifiers: 'ctrl+shift',
+          ),
+          size: const Size(800, 600),
+        ),
+      );
+      await tester.pump();
+
+      final context = tester.element(find.byType(HotkeyRecorderDialog));
+      final l10n = L10n.of(context);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.semicolon);
+      await tester.pump();
+
+      expect(find.text(l10n.settingsHotkeyRecorderInvalidKey), findsOneWidget);
+
+      // Advance past the 2-second auto-hide window.
+      await tester.pump(const Duration(milliseconds: 2100));
+
+      expect(find.text(l10n.settingsHotkeyRecorderInvalidKey), findsNothing);
+
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.semicolon);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+    });
+
+    testWidgets(
+      'AC-rec-5: Save stays disabled while only non-recordable keys were pressed',
+      (tester) async {
+        // Start with an empty initial combo so Save begins disabled.
+        await tester.pumpWidget(
+          makeTestable(
+            const HotkeyRecorderDialog(initialKey: '', initialModifiers: ''),
+            size: const Size(800, 600),
+          ),
+        );
+        await tester.pump();
+
+        final context = tester.element(find.byType(HotkeyRecorderDialog));
+        final l10n = L10n.of(context);
+
+        // Press Ctrl+Ö — non-recordable key.
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+        await tester.pump();
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.semicolon);
+        await tester.pump();
+
+        final saveButton = tester.widget<ElevatedButton>(
+          find.widgetWithText(ElevatedButton, l10n.settingsHotkeyRecorderSave),
+        );
+        expect(
+          saveButton.onPressed,
+          isNull,
+          reason:
+              'Save must stay disabled until a recordable key has been entered',
+        );
+
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.semicolon);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+        await tester.pump();
+      },
+    );
+
     testWidgets('conflict warning disappears after clear is pressed', (
       tester,
     ) async {

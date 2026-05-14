@@ -1773,6 +1773,10 @@ class L10nHe extends L10n {
   String get settingsHotkeyRecorderClear => 'נקה';
 
   @override
+  String get settingsHotkeyRecorderInvalidKey =>
+      'לא ניתן לשמור מקש זה כקיצור דרך. נסה אות, ספרה, מקש פונקציה (F1–F12) או מקש חץ.';
+
+  @override
   String get settingsMaxRecordDuration => 'משך הקלטה מקסימלי';
 
   @override

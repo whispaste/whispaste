@@ -18,6 +18,7 @@ import 'package:hotkey_manager/hotkey_manager.dart';
 ///
 /// Accepted inputs (case-insensitive unless indicated):
 /// - Single letter: `'A'`–`'Z'`
+/// - Digit (top row, not numpad): `'0'`–`'9'`
 /// - Function keys: `'F1'`–`'F12'`
 /// - Arrow keys: `'←'`/`'ARROWLEFT'`/`'LEFT'`,
 ///   `'↑'`/`'ARROWUP'`/`'UP'`,
@@ -57,6 +58,16 @@ LogicalKeyboardKey resolveKey(String label) {
       upper.codeUnitAt(0) <= 90) {
     final offset = upper.codeUnitAt(0) - 65;
     return LogicalKeyboardKey(0x00000000061 + offset); // keyA = 0x61
+  }
+
+  // Single digit 0–9 (top row — deterministic KeyCodes cross-platform).
+  // Numpad keys are intentionally out of scope (separate KeyCode space and
+  // layout-collision concerns on some platforms).
+  if (upper.length == 1 &&
+      upper.codeUnitAt(0) >= 0x30 &&
+      upper.codeUnitAt(0) <= 0x39) {
+    final offset = upper.codeUnitAt(0) - 0x30;
+    return LogicalKeyboardKey(0x00000000030 + offset); // digit0 = 0x30
   }
 
   // Function keys F1–F12
@@ -130,8 +141,67 @@ String? labelForKey(LogicalKeyboardKey key) {
     return String.fromCharCode(keyId - 0x61 + 65); // A–Z upper
   }
 
+  // Digit 0–9 (top row — keyId range 0x30..0x39).
+  if (keyId >= 0x30 && keyId <= 0x39) {
+    return String.fromCharCode(keyId);
+  }
+
   return null;
 }
+
+// ---------------------------------------------------------------------------
+// Recordable-key validation
+// ---------------------------------------------------------------------------
+
+/// Whether [key] is a non-modifier key that the recorder may persist as a
+/// hotkey binding.
+///
+/// Returns `true` for keys the [resolveKey] reader can later parse back from
+/// storage, **plus** the small set of keys accepted without a modifier
+/// (function keys, selected media keys) that don't appear in
+/// [labelForKey]'s table.
+///
+/// This is the **single source of truth** that guards the recorder's
+/// write path. If [isRecordableKey] returns `false`, the recorder must not
+/// update its state — preventing the user from saving a key that the global
+/// hotkey registrar would later reject with [ArgumentError]. The asymmetric
+/// write/read pair prevents the bug class where the UI accepts a key
+/// (e.g. `Ö`, `Ä`, `;`, `+`) that the resolver later cannot register.
+bool isRecordableKey(LogicalKeyboardKey key) {
+  // Anything labelForKey produces a string for is round-trippable through
+  // resolveKey — letters, digits, F-keys, arrow keys, named keys.
+  if (labelForKey(key) != null) return true;
+
+  // No-modifier whitelist members that don't have a labelForKey entry,
+  // notably media keys. These are safe to bind without a modifier and
+  // hotkey_manager knows how to register them.
+  return _recordableNoLabelKeys.contains(key);
+}
+
+/// Keys that are recordable but whose canonical [LogicalKeyboardKey] instance
+/// does not match the F-key keyId table used inside [resolveKey]/[labelForKey]
+/// (Flutter assigns F1=0x00100000801 etc., while the resolver currently
+/// indexes F-keys via a different magic offset — see [resolveKey]). These
+/// canonical instances must still pass the recordability gate so the
+/// recorder accepts F1–F12 and the media keys it whitelists as no-modifier
+/// keys.
+final Set<LogicalKeyboardKey> _recordableNoLabelKeys = {
+  LogicalKeyboardKey.f1,
+  LogicalKeyboardKey.f2,
+  LogicalKeyboardKey.f3,
+  LogicalKeyboardKey.f4,
+  LogicalKeyboardKey.f5,
+  LogicalKeyboardKey.f6,
+  LogicalKeyboardKey.f7,
+  LogicalKeyboardKey.f8,
+  LogicalKeyboardKey.f9,
+  LogicalKeyboardKey.f10,
+  LogicalKeyboardKey.f11,
+  LogicalKeyboardKey.f12,
+  LogicalKeyboardKey.mediaPlayPause,
+  LogicalKeyboardKey.mediaStop,
+  LogicalKeyboardKey.audioVolumeMute,
+};
 
 // ---------------------------------------------------------------------------
 // Modifier serialization (storage format)

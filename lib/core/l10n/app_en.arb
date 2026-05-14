@@ -662,6 +662,7 @@
   "settingsHotkeyRecorderCancel": "Cancel",
   "settingsHotkeyRecorderSave": "Save",
   "settingsHotkeyRecorderClear": "Clear",
+  "settingsHotkeyRecorderInvalidKey": "This key can't be used as a hotkey. Try a letter, digit, function key (F1–F12), or an arrow key.",
 
   "settingsMaxRecordDuration": "Max Recording Duration",
   "settingsMaxRecordDurationSubtitle": "Automatic safety stop after this time",
