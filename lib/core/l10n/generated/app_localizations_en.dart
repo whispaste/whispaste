@@ -1816,6 +1816,10 @@ class L10nEn extends L10n {
   String get settingsHotkeyRecorderClear => 'Clear';
 
   @override
+  String get settingsHotkeyRecorderInvalidKey =>
+      'This key can\'t be used as a hotkey. Try a letter, digit, function key (F1–F12), or an arrow key.';
+
+  @override
   String get settingsMaxRecordDuration => 'Max Recording Duration';
 
   @override

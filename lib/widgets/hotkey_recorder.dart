@@ -4,6 +4,7 @@
 /// smooth state transitions. Returns [HotkeyResult] on save, null on cancel.
 library;
 
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 
@@ -185,6 +186,14 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
   /// Non-null when the current combo matches a known system-reserved shortcut.
   ConflictEntry? _conflict;
 
+  /// True while a non-recordable key was just pressed — drives a brief
+  /// hint message under the key-cap display. Auto-clears after 2 s or as
+  /// soon as the next valid recordable key is captured. Prevents the
+  /// "Cmd+Ö recorded but registrar rejects" bug class by never updating
+  /// `_keyLabel` for a key the [resolveKey] reader cannot parse.
+  bool _showInvalidKeyHint = false;
+  Timer? _invalidKeyHintTimer;
+
   final FocusNode _focusNode = FocusNode();
 
   @override
@@ -214,6 +223,7 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
 
   @override
   void dispose() {
+    _invalidKeyHintTimer?.cancel();
     _focusNode.dispose();
     super.dispose();
   }
@@ -228,8 +238,14 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
         _heldModifiers.add(key);
       } else if (_heldModifiers.isNotEmpty ||
           singleKeyWhitelist.contains(key)) {
-        // Accept: at least one modifier held, OR key is on the whitelist
-        // (F1–F12, media keys) which are safe to bind without a modifier.
+        // The candidate combo is structurally allowed (held modifier OR
+        // whitelisted single key). Now gate on whether the resolver can
+        // round-trip the key — otherwise the registrar would later throw
+        // ArgumentError and the user's hotkey would silently fall back.
+        if (!key_resolver.isRecordableKey(key)) {
+          _showInvalidKeyFeedback();
+          return;
+        }
         final serializedMods = HotkeyRecorderDialog.serializeModifiers(
           _heldModifiers,
         );
@@ -241,11 +257,27 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
           _isSingleKey =
               _heldModifiers.isEmpty && singleKeyWhitelist.contains(key);
           _conflict = findConflict(serializedMods, keyLbl);
+          // Successful recording clears any pending hint.
+          _showInvalidKeyHint = false;
+          _invalidKeyHintTimer?.cancel();
         });
       }
     } else if (event is KeyUpEvent) {
       _heldModifiers.remove(key);
     }
+  }
+
+  void _showInvalidKeyFeedback() {
+    _invalidKeyHintTimer?.cancel();
+    setState(() {
+      _showInvalidKeyHint = true;
+    });
+    _invalidKeyHintTimer = Timer(const Duration(seconds: 2), () {
+      if (!mounted) return;
+      setState(() {
+        _showInvalidKeyHint = false;
+      });
+    });
   }
 
   void _clear() {
@@ -365,7 +397,26 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
                       style: TextStyle(color: textMuted, fontSize: 11),
                     ),
                   ),
-                  const SizedBox(height: WpSpacing.md),
+                  const SizedBox(height: WpSpacing.xs),
+
+                  // ── Invalid-key hint (non-blocking; auto-hides) ─────
+                  if (_showInvalidKeyHint)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: WpSpacing.xs),
+                      child: Center(
+                        child: Text(
+                          l10n.settingsHotkeyRecorderInvalidKey,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: isDark
+                                ? WpColorsDark.warning
+                                : WpColorsLight.warning,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: WpSpacing.xs),
 
                   // ── Conflict warning ─────────────────────────────
                   if (_conflict != null)

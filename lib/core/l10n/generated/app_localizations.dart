@@ -3333,6 +3333,12 @@ abstract class L10n {
   /// **'Clear'**
   String get settingsHotkeyRecorderClear;
 
+  /// No description provided for @settingsHotkeyRecorderInvalidKey.
+  ///
+  /// In en, this message translates to:
+  /// **'This key can\'t be used as a hotkey. Try a letter, digit, function key (F1–F12), or an arrow key.'**
+  String get settingsHotkeyRecorderInvalidKey;
+
   /// No description provided for @settingsMaxRecordDuration.
   ///
   /// In en, this message translates to:
