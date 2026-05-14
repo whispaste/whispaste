@@ -89,26 +89,12 @@ class HotkeyRecorderDialog extends StatefulWidget {
   }
 
   /// Serializes a set of held modifier keys to storage format.
-  static String serializeModifiers(Set<LogicalKeyboardKey> mods) {
-    final parts = <String>[];
-    if (mods.contains(LogicalKeyboardKey.controlLeft) ||
-        mods.contains(LogicalKeyboardKey.controlRight)) {
-      parts.add('ctrl');
-    }
-    if (mods.contains(LogicalKeyboardKey.shiftLeft) ||
-        mods.contains(LogicalKeyboardKey.shiftRight)) {
-      parts.add('shift');
-    }
-    if (mods.contains(LogicalKeyboardKey.altLeft) ||
-        mods.contains(LogicalKeyboardKey.altRight)) {
-      parts.add('alt');
-    }
-    if (mods.contains(LogicalKeyboardKey.metaLeft) ||
-        mods.contains(LogicalKeyboardKey.metaRight)) {
-      parts.add('meta');
-    }
-    return parts.join('+');
-  }
+  ///
+  /// Delegates to [key_resolver.serializeModifiers] — the canonical single
+  /// source of truth lives next to [key_resolver.resolveModifiers] so the
+  /// write- and read-paths share their token vocabulary.
+  static String serializeModifiers(Set<LogicalKeyboardKey> mods) =>
+      key_resolver.serializeModifiers(mods);
 
   /// Returns a human-readable label for a [LogicalKeyboardKey].
   ///
