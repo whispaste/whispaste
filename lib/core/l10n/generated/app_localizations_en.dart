@@ -2304,4 +2304,22 @@ class L10nEn extends L10n {
   String hotkeyConflictWarning(String platform, String note) {
     return 'This shortcut is reserved by $platform ($note) and may not work.';
   }
+
+  @override
+  String get exportFormatPickerTitle => 'Choose Export Format';
+
+  @override
+  String get exportFormatText => 'Text';
+
+  @override
+  String get exportFormatMarkdown => 'Markdown';
+
+  @override
+  String get exportFormatCsv => 'CSV';
+
+  @override
+  String get exportFormatJson => 'JSON';
+
+  @override
+  String get exportFormatWord => 'Word';
 }

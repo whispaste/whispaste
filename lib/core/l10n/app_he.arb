@@ -824,5 +824,12 @@
   "insufficientRamSystemCheck": "בדיקת מערכת",
   "insufficientRamYourSystem": "המערכת שלך",
   "insufficientRamRequired": "נדרש",
-  "settingsLanguageHebrew": "עברית"
+  "settingsLanguageHebrew": "עברית",
+
+  "exportFormatPickerTitle": "בחר פורמט ייצוא",
+  "exportFormatText": "טקסט",
+  "exportFormatMarkdown": "Markdown",
+  "exportFormatCsv": "CSV",
+  "exportFormatJson": "JSON",
+  "exportFormatWord": "Word"
 }

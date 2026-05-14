@@ -4190,6 +4190,42 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'This shortcut is reserved by {platform} ({note}) and may not work.'**
   String hotkeyConflictWarning(String platform, String note);
+
+  /// No description provided for @exportFormatPickerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose Export Format'**
+  String get exportFormatPickerTitle;
+
+  /// No description provided for @exportFormatText.
+  ///
+  /// In en, this message translates to:
+  /// **'Text'**
+  String get exportFormatText;
+
+  /// No description provided for @exportFormatMarkdown.
+  ///
+  /// In en, this message translates to:
+  /// **'Markdown'**
+  String get exportFormatMarkdown;
+
+  /// No description provided for @exportFormatCsv.
+  ///
+  /// In en, this message translates to:
+  /// **'CSV'**
+  String get exportFormatCsv;
+
+  /// No description provided for @exportFormatJson.
+  ///
+  /// In en, this message translates to:
+  /// **'JSON'**
+  String get exportFormatJson;
+
+  /// No description provided for @exportFormatWord.
+  ///
+  /// In en, this message translates to:
+  /// **'Word'**
+  String get exportFormatWord;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {
