@@ -766,16 +766,6 @@
   "voiceNoteEmpty": "No speech detected",
   "voiceNoteError": "Voice note failed",
 
-  "commandPaletteHint": "Type a command…",
-  "commandPaletteNoResults": "No matching commands",
-  "commandPaletteExportText": "Export as text file",
-  "commandPaletteExported": "Exported to {path}",
-  "@commandPaletteExported": {
-    "placeholders": {
-      "path": { "type": "String" }
-    }
-  },
-
   "updateAvailable": "Update available: v{version}",
   "@updateAvailable": {
     "placeholders": {

@@ -2117,20 +2117,6 @@ class L10nDe extends L10n {
   String get voiceNoteError => 'Sprachnotiz fehlgeschlagen';
 
   @override
-  String get commandPaletteHint => 'Befehl eingeben…';
-
-  @override
-  String get commandPaletteNoResults => 'Keine passenden Befehle';
-
-  @override
-  String get commandPaletteExportText => 'Als Textdatei exportieren';
-
-  @override
-  String commandPaletteExported(String path) {
-    return 'Exportiert nach $path';
-  }
-
-  @override
   String updateAvailable(String version) {
     return 'Update verfügbar: v$version';
   }

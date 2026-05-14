@@ -707,16 +707,6 @@
   "voiceNoteEmpty": "Keine Sprache erkannt",
   "voiceNoteError": "Sprachnotiz fehlgeschlagen",
 
-  "commandPaletteHint": "Befehl eingeben…",
-  "commandPaletteNoResults": "Keine passenden Befehle",
-  "commandPaletteExportText": "Als Textdatei exportieren",
-  "commandPaletteExported": "Exportiert nach {path}",
-  "@commandPaletteExported": {
-    "placeholders": {
-      "path": { "type": "String" }
-    }
-  },
-
   "updateAvailable": "Update verfügbar: v{version}",
   "updateDownloading": "Update wird heruntergeladen… {percent} %",
   "updateReadyToInstall": "Update bereit — zum Installieren klicken",
