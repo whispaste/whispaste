@@ -182,6 +182,7 @@ List<HotKeyModifier> resolveModifiers(String modifiers) {
   final result = <HotKeyModifier>[];
   for (final part in parts) {
     switch (part.trim()) {
+      // Canonical storage tokens produced by serializeModifiers.
       case 'ctrl' || 'control':
         result.add(HotKeyModifier.control);
       case 'shift':
@@ -189,6 +190,18 @@ List<HotKeyModifier> resolveModifiers(String modifiers) {
       case 'alt':
         result.add(HotKeyModifier.alt);
       case 'meta' || 'win' || 'super' || 'cmd':
+        result.add(HotKeyModifier.meta);
+      // Self-healing aliases for DBs corrupted by the pre-fix recorder, which
+      // persisted localized display labels (Option/Strg/Umschalt/Befehl) as
+      // storage strings. Accept them once so existing users don't have to
+      // rebind; the next save writes the canonical token back.
+      case 'option' || 'wahltaste':
+        result.add(HotKeyModifier.alt);
+      case 'strg':
+        result.add(HotKeyModifier.control);
+      case 'umschalt':
+        result.add(HotKeyModifier.shift);
+      case 'befehl':
         result.add(HotKeyModifier.meta);
     }
   }
