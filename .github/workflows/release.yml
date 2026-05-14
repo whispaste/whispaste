@@ -90,7 +90,7 @@ jobs:
           Get-ChildItem $artifactDir
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: windows-release
           path: release-artifacts/
@@ -149,7 +149,7 @@ jobs:
 
       - name: Upload MSIX
         if: steps.msix_config.outputs.skip != 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: msix-release
           path: build/windows/x64/runner/Release/*.msix
@@ -213,7 +213,7 @@ jobs:
           ls -lh "$ARTIFACT_DIR"
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: macos-release
           path: release-artifacts/
