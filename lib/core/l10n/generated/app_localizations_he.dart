@@ -2050,20 +2050,6 @@ class L10nHe extends L10n {
   String get voiceNoteError => 'הערת קול נכשלה';
 
   @override
-  String get commandPaletteHint => 'הקלד פקודה…';
-
-  @override
-  String get commandPaletteNoResults => 'אין פקודות מתאימות';
-
-  @override
-  String get commandPaletteExportText => 'ייצא כקובץ טקסט';
-
-  @override
-  String commandPaletteExported(String path) {
-    return 'יוצא ל-$path';
-  }
-
-  @override
   String updateAvailable(String version) {
     return 'עדכון זמין: v$version';
   }

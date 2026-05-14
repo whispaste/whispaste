@@ -747,15 +747,6 @@
   "voiceCorrectionApplied": "תמלול תוקן בקול",
   "voiceNoteEmpty": "לא זוהה דיבור",
   "voiceNoteError": "הערת קול נכשלה",
-  "commandPaletteHint": "הקלד פקודה…",
-  "commandPaletteNoResults": "אין פקודות מתאימות",
-  "commandPaletteExportText": "ייצא כקובץ טקסט",
-  "commandPaletteExported": "יוצא ל-{path}",
-  "@commandPaletteExported": {
-    "placeholders": {
-      "path": { "type": "String" }
-    }
-  },
   "updateAvailable": "עדכון זמין: v{version}",
   "@updateAvailable": {
     "placeholders": {

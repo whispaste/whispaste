@@ -3849,30 +3849,6 @@ abstract class L10n {
   /// **'Voice note failed'**
   String get voiceNoteError;
 
-  /// No description provided for @commandPaletteHint.
-  ///
-  /// In en, this message translates to:
-  /// **'Type a command…'**
-  String get commandPaletteHint;
-
-  /// No description provided for @commandPaletteNoResults.
-  ///
-  /// In en, this message translates to:
-  /// **'No matching commands'**
-  String get commandPaletteNoResults;
-
-  /// No description provided for @commandPaletteExportText.
-  ///
-  /// In en, this message translates to:
-  /// **'Export as text file'**
-  String get commandPaletteExportText;
-
-  /// No description provided for @commandPaletteExported.
-  ///
-  /// In en, this message translates to:
-  /// **'Exported to {path}'**
-  String commandPaletteExported(String path);
-
   /// No description provided for @updateAvailable.
   ///
   /// In en, this message translates to:
