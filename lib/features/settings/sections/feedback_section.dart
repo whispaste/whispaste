@@ -59,6 +59,7 @@ class KeyboardShortcutSection extends ConsumerWidget {
                     HotkeyDisplay(
                       hotkeyKey: settings.hotkeyKey,
                       hotkeyModifiers: settings.hotkeyModifiers,
+                      hotkeyKeyDisplay: settings.hotkey.hotkeyKeyDisplay,
                     ),
                     const SizedBox(width: WpSpacing.sm),
                     OutlinedButton(
@@ -66,6 +67,7 @@ class KeyboardShortcutSection extends ConsumerWidget {
                         final result = await HotkeyRecorderDialog.show(
                           context,
                           initialKey: settings.hotkeyKey,
+                          initialDisplayKey: settings.hotkey.hotkeyKeyDisplay,
                           initialModifiers: settings.hotkeyModifiers,
                         );
                         if (result != null) {
@@ -74,6 +76,7 @@ class KeyboardShortcutSection extends ConsumerWidget {
                               .updateSettings(
                                 (s) => s.copyWith(
                                   hotkeyKey: result.key,
+                                  hotkeyKeyDisplay: result.displayKey,
                                   hotkeyModifiers: result.modifiers,
                                 ),
                               );

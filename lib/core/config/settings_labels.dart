@@ -63,7 +63,17 @@ List<String> hotkeyModifierLabels(String modifiers, {L10n? l10n}) {
 bool get _isMacOS => Platform.isMacOS;
 
 /// Returns a localized label for the primary key portion of a shortcut.
-String hotkeyKeyLabel(String key, {L10n? l10n}) {
+///
+/// When [displayOverride] is non-empty (e.g. `'Ö'` captured by the recorder
+/// for a DE-layout user pressing the physical `semicolon` position), it is
+/// preferred over the canonical [key] token (`';'`). Single non-empty
+/// override characters are returned upper-cased to match the recorder's
+/// own key-cap rendering.
+String hotkeyKeyLabel(String key, {L10n? l10n, String? displayOverride}) {
+  final override = displayOverride?.trim() ?? '';
+  if (override.isNotEmpty) {
+    return override.length == 1 ? override.toUpperCase() : override;
+  }
   final trimmed = key.trim();
   if (trimmed.isEmpty) return '';
 
@@ -90,10 +100,16 @@ String hotkeyKeyLabel(String key, {L10n? l10n}) {
 }
 
 /// Returns shortcut display parts ordered as modifier chips + primary key.
-List<String> hotkeyDisplayParts(String modifiers, String key, {L10n? l10n}) {
+List<String> hotkeyDisplayParts(
+  String modifiers,
+  String key, {
+  L10n? l10n,
+  String? displayOverride,
+}) {
   return [
     ...hotkeyModifierLabels(modifiers, l10n: l10n),
-    if (key.trim().isNotEmpty) hotkeyKeyLabel(key, l10n: l10n),
+    if (key.trim().isNotEmpty || (displayOverride?.trim().isNotEmpty ?? false))
+      hotkeyKeyLabel(key, l10n: l10n, displayOverride: displayOverride),
   ];
 }
 
@@ -103,8 +119,14 @@ String formatHotkeyShortcut(
   String key, {
   String separator = '+',
   L10n? l10n,
+  String? displayOverride,
 }) {
-  return hotkeyDisplayParts(modifiers, key, l10n: l10n).join(separator);
+  return hotkeyDisplayParts(
+    modifiers,
+    key,
+    l10n: l10n,
+    displayOverride: displayOverride,
+  ).join(separator);
 }
 
 /// Returns a short, localized status label for the active overlay mode.
