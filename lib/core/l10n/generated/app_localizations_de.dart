@@ -307,6 +307,10 @@ class L10nDe extends L10n {
   String get settingsHoldToRecord => 'Gedrückt halten für Aufnahme';
 
   @override
+  String get pushToTalkUnavailableTooltip =>
+      'Auf dieser Plattform nicht verfügbar';
+
+  @override
   String get settingsSpeechRecognition => 'Spracherkennung';
 
   @override

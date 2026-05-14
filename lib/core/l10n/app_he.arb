@@ -117,6 +117,7 @@
   "settingsMicrophone": "מיקרופון",
   "settingsGain": "עוצמת מיקרופון",
   "settingsHoldToRecord": "החזק להקלטה",
+  "pushToTalkUnavailableTooltip": "לא זמין בפלטפורמה זו",
   "settingsSpeechRecognition": "זיהוי דיבור",
   "settingsSpeechRecognitionSubtitle": "איכות ושירות זיהוי דיבור",
   "settingsService": "שירות",

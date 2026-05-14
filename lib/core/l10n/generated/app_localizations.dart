@@ -645,6 +645,12 @@ abstract class L10n {
   /// **'Hold to Record'**
   String get settingsHoldToRecord;
 
+  /// No description provided for @pushToTalkUnavailableTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Not available on this platform'**
+  String get pushToTalkUnavailableTooltip;
+
   /// No description provided for @settingsSpeechRecognition.
   ///
   /// In en, this message translates to:
