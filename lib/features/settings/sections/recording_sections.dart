@@ -89,7 +89,7 @@ class AudioSection extends ConsumerWidget {
   }
 }
 
-/// Recording safety: dead mic timeout, silence stop, max duration, VAD.
+/// Recording safety: dead mic timeout, silence stop, max duration.
 class RecordingSafetySection extends ConsumerWidget {
   const RecordingSafetySection({super.key});
 
