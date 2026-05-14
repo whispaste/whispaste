@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import 'package:whispaste/core/data/database.dart';
+import '../../../services/history/history_exporter.dart' as history_exporter;
 import '../data/providers.dart';
 import 'history_card_view.dart';
 import 'history_compact_view.dart';
@@ -36,6 +37,7 @@ class HistoryMasterDetail extends StatefulWidget {
     this.onCopyMarkdown,
     this.focusedId,
     this.onTagTap,
+    this.exportFn = history_exporter.exportEntries,
   });
 
   final List<DateGroup> groups;
@@ -57,6 +59,11 @@ class HistoryMasterDetail extends StatefulWidget {
   final ValueChanged<HistoryEntry>? onCopyMarkdown;
   final String? focusedId;
   final void Function(String tag)? onTagTap;
+
+  /// Forwarded to [HistoryDetailPanel] so the overflow "Export…" item routes
+  /// through the same seam as the multi-select toolbar. Defaults to the
+  /// production [history_exporter.exportEntries]; widget tests inject a fake.
+  final HistoryDetailPanelExportFn exportFn;
 
   @override
   State<HistoryMasterDetail> createState() => _HistoryMasterDetailState();
@@ -193,6 +200,7 @@ class _HistoryMasterDetailState extends State<HistoryMasterDetail>
       onCopyMarkdown: widget.onCopyMarkdown == null
           ? null
           : () => widget.onCopyMarkdown!(entry),
+      exportFn: widget.exportFn,
     );
   }
 

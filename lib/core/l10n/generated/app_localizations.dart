@@ -309,6 +309,12 @@ abstract class L10n {
   /// **'Export'**
   String get historyExport;
 
+  /// No description provided for @historyExportAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Export…'**
+  String get historyExportAction;
+
   /// No description provided for @historyCopyAsMarkdown.
   ///
   /// In en, this message translates to:
