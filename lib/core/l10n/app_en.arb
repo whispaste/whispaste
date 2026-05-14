@@ -198,7 +198,7 @@
   "settingsResetSuccess": "Settings reset to defaults",
   "settingsFactoryReset": "Factory Reset",
   "settingsFactoryResetTitle": "Factory Reset",
-  "settingsFactoryResetMessage": "This will permanently delete ALL data: dictation history, tags, projects, voice shortcuts, downloaded models, logs, and settings. The app will return to its initial state.\n\nThis cannot be undone.",
+  "settingsFactoryResetMessage": "This will permanently delete ALL data: dictation history, tags, voice shortcuts, downloaded models, logs, and settings. The app will return to its initial state.\n\nThis cannot be undone.",
   "settingsFactoryResetConfirm": "Delete Everything",
   "settingsFactoryResetSuccess": "App has been completely reset",
   "groqRemovedToast": "Groq STT was removed — provider reset to On-Device.",
@@ -632,7 +632,6 @@
   "historyTitlePlaceholder": "Enter a title…",
   "historyTitleSaved": "Title saved",
 
-  "historySearchHintCommands": "Search transcriptions…",
   "historySearchHelpTitle": "Search Tips",
   "historySearchHelpTags": "Type # to filter by tags",
   "historySearchHelpLang": "Type lang: to filter by language",

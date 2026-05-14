@@ -562,7 +562,7 @@ class L10nEn extends L10n {
 
   @override
   String get settingsFactoryResetMessage =>
-      'This will permanently delete ALL data: dictation history, tags, projects, voice shortcuts, downloaded models, logs, and settings. The app will return to its initial state.\n\nThis cannot be undone.';
+      'This will permanently delete ALL data: dictation history, tags, voice shortcuts, downloaded models, logs, and settings. The app will return to its initial state.\n\nThis cannot be undone.';
 
   @override
   String get settingsFactoryResetConfirm => 'Delete Everything';
@@ -1726,9 +1726,6 @@ class L10nEn extends L10n {
 
   @override
   String get historyTitleSaved => 'Title saved';
-
-  @override
-  String get historySearchHintCommands => 'Search transcriptions…';
 
   @override
   String get historySearchHelpTitle => 'Search Tips';

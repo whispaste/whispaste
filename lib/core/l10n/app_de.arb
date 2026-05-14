@@ -182,7 +182,7 @@
   "settingsResetSuccess": "Einstellungen zurückgesetzt",
   "settingsFactoryReset": "Werksreset",
   "settingsFactoryResetTitle": "Werksreset",
-  "settingsFactoryResetMessage": "Damit werden ALLE Daten unwiderruflich gelöscht: Diktatverlauf, Tags, Projekte, Sprachkürzel, heruntergeladene Modelle, Protokolle und Einstellungen. Die App wird in den Ausgangszustand zurückversetzt.\n\nDies kann nicht rückgängig gemacht werden.",
+  "settingsFactoryResetMessage": "Damit werden ALLE Daten unwiderruflich gelöscht: Diktatverlauf, Tags, Sprachkürzel, heruntergeladene Modelle, Protokolle und Einstellungen. Die App wird in den Ausgangszustand zurückversetzt.\n\nDies kann nicht rückgängig gemacht werden.",
   "settingsFactoryResetConfirm": "Alles löschen",
   "settingsFactoryResetSuccess": "App wurde vollständig zurückgesetzt",
   "groqRemovedToast": "Groq STT wurde entfernt — Provider auf On-Device zurückgesetzt.",
@@ -578,7 +578,6 @@
   "historyTitlePlaceholder": "Titel eingeben…",
   "historyTitleSaved": "Titel gespeichert",
 
-  "historySearchHintCommands": "Transkriptionen suchen…",
   "historySearchHelpTitle": "Suchtipps",
   "historySearchHelpTags": "Tippe # um nach Tags zu filtern",
   "historySearchHelpLang": "Tippe lang: um nach Sprache zu filtern",
