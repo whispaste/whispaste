@@ -167,6 +167,14 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
   late List<String> _modifierLabels;
   late String _keyLabel;
 
+  /// Canonical storage-format modifier string (e.g. `'ctrl+shift'`) captured
+  /// at the moment the last valid combo was recorded.
+  ///
+  /// Distinct from [_modifierLabels], which holds display labels for the UI.
+  /// Persisted via [HotkeyResult] on save so registrar reads see canonical
+  /// tokens, not localized display strings.
+  late String _modifiersStorage;
+
   /// Tracks currently held modifier keys during recording.
   final Set<LogicalKeyboardKey> _heldModifiers = {};
 
@@ -185,6 +193,7 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
     _modifierLabels = HotkeyRecorderDialog.parseModifiers(
       widget.initialModifiers,
     );
+    _modifiersStorage = widget.initialModifiers;
     _keyLabel = widget.initialKey;
     // When the dialog opens with a pre-existing whitelisted single-key binding
     // (no modifiers), mark it so the Save button is enabled immediately.
@@ -226,6 +235,7 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
         );
         final keyLbl = HotkeyRecorderDialog.keyLabel(key);
         setState(() {
+          _modifiersStorage = serializedMods;
           _modifierLabels = HotkeyRecorderDialog.parseModifiers(serializedMods);
           _keyLabel = keyLbl;
           _isSingleKey =
@@ -241,6 +251,7 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
   void _clear() {
     setState(() {
       _modifierLabels = [];
+      _modifiersStorage = '';
       _keyLabel = '';
       _isSingleKey = false;
       _conflict = null;
@@ -250,10 +261,9 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
 
   void _save() {
     if (_keyLabel.isEmpty) return;
-    final modString = _modifierLabels.map((l) => l.toLowerCase()).join('+');
     Navigator.of(
       context,
-    ).pop(HotkeyResult(key: _keyLabel, modifiers: modString));
+    ).pop(HotkeyResult(key: _keyLabel, modifiers: _modifiersStorage));
   }
 
   // ── Build ──────────────────────────────────────────────────────────
