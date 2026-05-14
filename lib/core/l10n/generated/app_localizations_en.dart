@@ -2098,20 +2098,6 @@ class L10nEn extends L10n {
   String get voiceNoteError => 'Voice note failed';
 
   @override
-  String get commandPaletteHint => 'Type a command…';
-
-  @override
-  String get commandPaletteNoResults => 'No matching commands';
-
-  @override
-  String get commandPaletteExportText => 'Export as text file';
-
-  @override
-  String commandPaletteExported(String path) {
-    return 'Exported to $path';
-  }
-
-  @override
   String updateAvailable(String version) {
     return 'Update available: v$version';
   }

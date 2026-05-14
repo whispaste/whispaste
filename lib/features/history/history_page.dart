@@ -6,10 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart' show DateFormat;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../../core/l10n/generated/app_localizations.dart';
-import '../../widgets/command_palette.dart';
 import '../../widgets/dialog.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/page_shell.dart';
@@ -307,14 +305,6 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                             _mergeSelected();
                           }
                         },
-                        const SingleActivator(
-                          LogicalKeyboardKey.keyK,
-                          control: true,
-                        ): () {
-                          if (_isTextFieldFocused()) return;
-                          final entry = selectedEntry ?? _focusedEntry(flat);
-                          if (entry != null) _openCommandPalette(entry);
-                        },
                         // Ctrl+Enter: open detail panel for focused entry
                         const SingleActivator(
                           LogicalKeyboardKey.enter,
@@ -502,125 +492,6 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
         ),
       ),
     );
-  }
-
-  // ---------------------------------------------------------------------------
-  // Command Palette
-  // ---------------------------------------------------------------------------
-
-  void _openCommandPalette(HistoryEntry entry) {
-    final l10n = L10n.of(context);
-    final isPinned = entry.pinned;
-    final isArchived = entry.archived;
-
-    final commands = <WpCommand>[
-      WpCommand(
-        id: 'copy',
-        label: l10n.historyCopyText,
-        icon: LucideIcons.copy,
-        shortcutHint: 'Ctrl+C',
-        onExecute: () => _copyEntry(entry),
-      ),
-      WpCommand(
-        id: 'edit',
-        label: l10n.historyEditTranscript,
-        icon: LucideIcons.pencil,
-        shortcutHint: 'Ctrl+E',
-        onExecute: () {
-          // Open detail panel and toggle edit mode by selecting the entry
-          setState(() => _selectedEntryId = entry.id);
-        },
-      ),
-      WpCommand(
-        id: 'add-tag',
-        label: l10n.historyAddTag,
-        icon: LucideIcons.tag,
-        shortcutHint: 'T',
-        onExecute: () {
-          setState(() => _selectedEntryId = entry.id);
-        },
-      ),
-      WpCommand(
-        id: 'add-note',
-        label: l10n.historyAddNote,
-        icon: LucideIcons.stickyNote,
-        shortcutHint: 'N',
-        onExecute: () {
-          setState(() => _selectedEntryId = entry.id);
-        },
-      ),
-      WpCommand(
-        id: 'toggle-pin',
-        label: isPinned ? l10n.historyUnpin : l10n.historyPinToTop,
-        icon: isPinned ? LucideIcons.starOff : LucideIcons.star,
-        shortcutHint: 'F',
-        onExecute: () => _togglePin(entry),
-      ),
-      WpCommand(
-        id: 'toggle-archive',
-        label: isArchived ? l10n.historyUnarchive : l10n.historyArchive,
-        icon: isArchived ? LucideIcons.archiveRestore : LucideIcons.archive,
-        onExecute: () => _archiveEntry(entry),
-      ),
-      WpCommand(
-        id: 'duplicate',
-        label: l10n.historyDuplicate,
-        icon: LucideIcons.copyPlus,
-        onExecute: () => _duplicateEntry(entry),
-      ),
-      WpCommand(
-        id: 'export-text',
-        label: l10n.commandPaletteExportText,
-        icon: LucideIcons.fileDown,
-        onExecute: () => _exportAsText(entry),
-      ),
-      WpCommand(
-        id: 'copy-markdown',
-        label: l10n.historyCopyAsMarkdown,
-        icon: LucideIcons.fileCode,
-        onExecute: () => _copyAsMarkdown(entry),
-      ),
-      WpCommand(
-        id: 'delete',
-        label: l10n.actionDelete,
-        icon: LucideIcons.trash2,
-        shortcutHint: 'Del',
-        onExecute: () => _deleteEntry(entry),
-      ),
-    ];
-
-    showWpCommandPalette(context: context, commands: commands);
-  }
-
-  Future<void> _exportAsText(HistoryEntry entry) async {
-    try {
-      final dir =
-          await getDownloadsDirectory() ??
-          await getApplicationDocumentsDirectory();
-      final safeName = (entry.title.isNotEmpty ? entry.title : 'transcription')
-          .replaceAll(RegExp(r'[<>:"/\\|?*]'), '_')
-          .trim();
-      final timestamp = DateFormat('yyyyMMdd_HHmmss').format(entry.timestamp);
-      final file = File(
-        '${dir.path}${Platform.pathSeparator}${safeName}_$timestamp.txt',
-      );
-      await file.writeAsString(entry.content);
-      if (!mounted) return;
-      WpToast.show(
-        context,
-        message: L10n.of(context).commandPaletteExported(file.path),
-        type: WpToastType.success,
-        duration: const Duration(seconds: 3),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      WpToast.show(
-        context,
-        message: e.toString(),
-        type: WpToastType.error,
-        duration: const Duration(seconds: 3),
-      );
-    }
   }
 
   Widget _emptyStateForFilter(bool isDark, HistoryFilter activeFilter) {
