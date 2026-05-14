@@ -33,11 +33,46 @@ class ServiceBootstrapWidget extends ConsumerStatefulWidget {
 class _ServiceBootstrapState extends ConsumerState<ServiceBootstrapWidget> {
   bool _orchestratorInitialized = false;
 
+  /// The single [RecordingTriggerHandler] instance for this state's lifetime.
+  ///
+  /// Must NOT be recreated on every [build] — the handler holds keyDown/keyUp
+  /// state (`_keyDownAt`, `_keyUpBreadcrumbSent`) and losing it between
+  /// hotkey events breaks Push-to-Talk (see issue 06 of the
+  /// `hotkey-modifier-storage-fix` PRD).
+  late final RecordingTriggerHandler _triggerHandler;
+
   @override
   void initState() {
     super.initState();
     // Start UI thread jank detection.
     UiThreadWatchdog.instance.start();
+
+    // ── Trigger handler — created once and kept for the state's lifetime ──
+    // Reads (`ref.read`) stay closure-bound to the live `ref`, so settings
+    // and orchestrator look-ups always see the current values, not a snapshot.
+    final hotkeySvc = ref.read(hotkeyServiceProvider.notifier);
+    _triggerHandler = RecordingTriggerHandler(
+      startRecording: () =>
+          ref.read(recordingOrchestratorProvider.notifier).startRecording(),
+      stopRecording: () =>
+          ref.read(recordingOrchestratorProvider.notifier).stopRecording(),
+      toggleRecording: () =>
+          ref.read(recordingOrchestratorProvider.notifier).toggleRecording(),
+      pushToTalkEnabled: () =>
+          (ref.read(settingsProvider).value ?? AppSettings.defaults).pushToTalk,
+      registrarSupportsKeyUp: () => hotkeySvc.supportsKeyUp,
+    );
+    hotkeySvc.onHotkeyPressed = _triggerHandler.onKeyDown;
+    hotkeySvc.onHotkeyReleased = _triggerHandler.onKeyUp;
+
+    // ── Tray callbacks — stateless closures, safe to wire once ──
+    final tray = ref.read(trayServiceProvider.notifier);
+    tray.onToggleRecording = () {
+      ref.read(recordingOrchestratorProvider.notifier).toggleRecording();
+    };
+    tray.onNavigate = (page) {
+      ref.read(activePageProvider.notifier).setPage(page);
+    };
   }
 
   @override
@@ -59,40 +94,11 @@ class _ServiceBootstrapState extends ConsumerState<ServiceBootstrapWidget> {
       ref.watch(recordingOrchestratorProvider);
     }
 
-    // ── System tray + callbacks ──
+    // ── Keep the keepAlive service providers alive for the app lifetime ──
     ref.watch(trayServiceProvider);
-    final tray = ref.read(trayServiceProvider.notifier);
-    tray.onToggleRecording = () {
-      ref.read(recordingOrchestratorProvider.notifier).toggleRecording();
-    };
-    tray.onNavigate = (page) {
-      ref.read(activePageProvider.notifier).setPage(page);
-    };
-
-    // ── Global hotkey (toggle or Push-to-Talk depending on settings) ──
     ref.watch(hotkeyServiceProvider);
-    final hotkeySvc = ref.read(hotkeyServiceProvider.notifier);
-    final triggerHandler = RecordingTriggerHandler(
-      startRecording: () =>
-          ref.read(recordingOrchestratorProvider.notifier).startRecording(),
-      stopRecording: () =>
-          ref.read(recordingOrchestratorProvider.notifier).stopRecording(),
-      toggleRecording: () =>
-          ref.read(recordingOrchestratorProvider.notifier).toggleRecording(),
-      pushToTalkEnabled: () =>
-          (ref.read(settingsProvider).value ?? AppSettings.defaults).pushToTalk,
-      registrarSupportsKeyUp: () => hotkeySvc.supportsKeyUp,
-    );
-    hotkeySvc.onHotkeyPressed = triggerHandler.onKeyDown;
-    hotkeySvc.onHotkeyReleased = triggerHandler.onKeyUp;
-
-    // ── Autostart sync ──
     ref.watch(autostartServiceProvider);
-
-    // ── Native floating button (desktop only) ──
     ref.watch(floatingButtonServiceProvider);
-
-    // ── Native floating overlay (desktop only) ──
     ref.watch(floatingOverlayServiceProvider);
 
     return widget.child;
