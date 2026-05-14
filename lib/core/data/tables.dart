@@ -1,8 +1,13 @@
 /// WhisPaste history database — drift schema definitions.
 ///
-/// Mirrors the Go SQLite schema (v9) for full compatibility.
-/// Tables: history_entries, projects, daily_stats, entry_notes,
-/// entry_attachments. FTS5 is handled separately via raw SQL.
+/// Tables: history_entries, daily_stats, entry_notes, entry_attachments,
+/// text_replacements, tags, entry_tags. FTS5 is handled separately via raw
+/// SQL.
+///
+/// History note: a `projects` table and `history_entries.project_id` column
+/// existed in the Go-era schema (≤ v9) but were never wired to any UI and
+/// have been dropped destructively in schema v10 (see [HistoryDatabase] in
+/// `database.dart`).
 library;
 
 import 'package:drift/drift.dart';
@@ -29,21 +34,9 @@ class HistoryEntries extends Table {
   TextColumn get model => text().withDefault(const Constant(''))();
   BoolColumn get isLocal => boolean().withDefault(const Constant(false))();
   RealColumn get costUsd => real().withDefault(const Constant(0.0))();
-  TextColumn get projectId => text().withDefault(const Constant(''))();
   BoolColumn get archived => boolean().withDefault(const Constant(false))();
   BoolColumn get titleEdited => boolean().withDefault(const Constant(false))();
   DateTimeColumn get deletedAt => dateTime().nullable()();
-
-  @override
-  Set<Column> get primaryKey => {id};
-}
-
-/// User-defined projects for grouping entries.
-@DataClassName('Project')
-class Projects extends Table {
-  TextColumn get id => text()();
-  TextColumn get name => text().unique()();
-  DateTimeColumn get createdAt => dateTime()();
 
   @override
   Set<Column> get primaryKey => {id};
