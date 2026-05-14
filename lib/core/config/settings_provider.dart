@@ -86,7 +86,7 @@ class AppSettings {
   /// General behavior settings (tray, error reporting, GPU, paste).
   final BehaviorSettings behavior;
 
-  /// Audio processing settings (trim silence, VAD).
+  /// Audio processing settings (trim silence).
   final AudioProcessingSettings audioProcessing;
 
   /// Update check settings.
@@ -231,12 +231,6 @@ class AppSettings {
 
   @Deprecated('Use audioProcessing.trimSilence instead')
   bool get trimSilence => audioProcessing.trimSilence;
-
-  @Deprecated('Use audioProcessing.useVAD instead')
-  bool get useVAD => audioProcessing.useVAD;
-
-  @Deprecated('Use audioProcessing.vadSensitivity instead')
-  double get vadSensitivity => audioProcessing.vadSensitivity;
 
   @Deprecated('Use behavior.textReplacementsEnabled instead')
   bool get textReplacementsEnabled => behavior.textReplacementsEnabled;
@@ -533,8 +527,6 @@ class AppSettings {
     int? autoPasteDelay,
     String? autoPasteBlocklist,
     bool? trimSilence,
-    bool? useVAD,
-    double? vadSensitivity,
     bool? textReplacementsEnabled,
     bool? checkUpdates,
     int? historyMaxEntries,
@@ -616,11 +608,7 @@ class AppSettings {
         autoPasteBlocklist: autoPasteBlocklist,
         textReplacementsEnabled: textReplacementsEnabled,
       ),
-      audioProcessing: audioProcessing.copyWith(
-        trimSilence: trimSilence,
-        useVAD: useVAD,
-        vadSensitivity: vadSensitivity,
-      ),
+      audioProcessing: audioProcessing.copyWith(trimSilence: trimSilence),
       updates: updates.copyWith(checkUpdates: checkUpdates),
       history: history.copyWith(
         historyMaxEntries: historyMaxEntries,
