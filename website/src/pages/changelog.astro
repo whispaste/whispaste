@@ -27,7 +27,7 @@ import releases from "../data/changelog.json";
         </div>
 
         <!-- Release timeline -->
-        <div class="space-y-8">
+        <div id="changelog-list" class="space-y-8" data-top-version={`v${releases[0]?.version ?? ''}`}>
           {releases.map((release, index) => (
             <article class="release-card rounded-2xl border border-white/[0.06] p-6 sm:p-8 scroll-reveal">
               <!-- Version header -->
@@ -111,6 +111,28 @@ import releases from "../data/changelog.json";
         el.classList.add('visible');
       }
     });
+  </script>
+
+  {/* Dynamic Changelog hydrator: re-fetches the GitHub Releases API after the
+      static page has rendered and prepends any release newer than the build-time
+      snapshot. The build-time top version is passed via a `data-top-version`
+      attribute so we don't have to re-ship `changelog.json` into the script
+      bundle. Silent fail on every failure mode — the static cards are always
+      authoritative. See website/src/scripts/changelog-hydrator.ts. */}
+  <script>
+    import { hydrate, defaultCardRenderer } from '../scripts/changelog-hydrator';
+
+    const mount = document.getElementById('changelog-list');
+    const currentTopVersion = mount?.getAttribute('data-top-version') ?? '';
+    if (currentTopVersion.length > 0) {
+      hydrate({
+        mountSelector: '#changelog-list',
+        owner: 'silvio-lindstedt',
+        repo: 'whispaste',
+        cardRenderer: defaultCardRenderer,
+        currentTopVersion,
+      });
+    }
   </script>
 
   <style>
