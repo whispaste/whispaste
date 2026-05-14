@@ -882,6 +882,7 @@ class HistoryMultiSelectBar extends StatelessWidget {
     this.totalCount,
     this.onMerge,
     this.onBatchCopy,
+    this.onExport,
     this.onArchive,
     this.onDelete,
     this.onRestore,
@@ -896,6 +897,7 @@ class HistoryMultiSelectBar extends StatelessWidget {
   final int? totalCount;
   final VoidCallback? onMerge;
   final VoidCallback? onBatchCopy;
+  final VoidCallback? onExport;
   final VoidCallback? onArchive;
   final VoidCallback? onDelete;
   final VoidCallback? onRestore;
@@ -1000,6 +1002,13 @@ class HistoryMultiSelectBar extends StatelessWidget {
                       ),
                       isDark: isDark,
                       onTap: onBatchCopy!,
+                    ),
+                  if (onExport != null)
+                    HistoryMultiSelectAction(
+                      icon: LucideIcons.download,
+                      label: l10n.historyExportAction,
+                      isDark: isDark,
+                      onTap: onExport!,
                     ),
                   if (onRestore != null)
                     HistoryMultiSelectAction(

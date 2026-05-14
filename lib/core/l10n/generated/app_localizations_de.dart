@@ -117,6 +117,9 @@ class L10nDe extends L10n {
   String get historyExport => 'Exportieren';
 
   @override
+  String get historyExportAction => 'Exportieren…';
+
+  @override
   String get historyCopyAsMarkdown => 'Als Markdown kopieren';
 
   @override

@@ -13,9 +13,20 @@ import '../../widgets/empty_state.dart';
 import '../../widgets/page_shell.dart';
 import '../../widgets/toast.dart';
 import 'package:whispaste/core/data/database.dart';
+import '../../services/history/history_exporter.dart' as history_exporter;
 import 'data/history_detail_provider.dart';
 import 'data/providers.dart';
 import 'widgets/widgets.dart';
+
+/// Signature of the export-entries seam used by [HistoryPage].
+///
+/// Defaults to the top-level [history_exporter.exportEntries]. Widget tests
+/// substitute a fake to assert that the multi-select "Export…" button (and
+/// the detail-panel item routed through the same widget) invokes the exporter
+/// with the expected entries, without touching the filesystem or platform
+/// channels.
+typedef HistoryPageExportFn =
+    Future<void> Function(BuildContext context, List<HistoryEntry> entries);
 
 /// History page — recorded transcriptions with search, filter, and grouping.
 ///
@@ -23,7 +34,18 @@ import 'widgets/widgets.dart';
 /// headers, and conversational preview. Inspired by ChatGPT/WhatsApp list
 /// views — scannable, warm, and fast to navigate.
 class HistoryPage extends ConsumerStatefulWidget {
-  const HistoryPage({super.key});
+  const HistoryPage({
+    super.key,
+    this.exportFn = history_exporter.exportEntries,
+  });
+
+  /// Injection seam for the export flow.
+  ///
+  /// Defaults to the production [history_exporter.exportEntries]. Widget tests
+  /// substitute a fake to assert that the multi-select "Export…" button
+  /// invokes the exporter with the selected entries without touching the
+  /// filesystem or platform channels.
+  final HistoryPageExportFn exportFn;
 
   @override
   ConsumerState<HistoryPage> createState() => _HistoryPageState();
@@ -175,6 +197,9 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                   onMerge: _selectedIds.length >= 2 ? _mergeSelected : null,
                   onBatchCopy: _selectedIds.isNotEmpty
                       ? () => _copySelectedEntries(filteredEntries)
+                      : null,
+                  onExport: _selectedIds.isNotEmpty
+                      ? () => _exportSelectedEntries(filteredEntries)
                       : null,
                   onArchive: !isTrashView ? _archiveSelected : null,
                   onDelete: _deleteSelected,
@@ -395,6 +420,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                             selectedIds: _selectedIds,
                             isTrashView: isTrashView,
                             isArchiveView: isArchiveView,
+                            exportFn: widget.exportFn,
                             onEntryTap: (entry) {
                               final isCtrl =
                                   HardwareKeyboard.instance.isControlPressed ||
@@ -769,6 +795,18 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       _selectedIds.clear();
       _multiSelectMode = false;
     });
+  }
+
+  /// Run the export flow for the currently selected entries.
+  ///
+  /// Delegates to [HistoryPage.exportFn] (default: `exportEntries` from the
+  /// `HistoryExporter` service). The exporter manages picker + toast + path
+  /// resolution itself; nothing else to do here.
+  void _exportSelectedEntries(List<HistoryEntry> flat) {
+    final selected = flat.where((e) => _selectedIds.contains(e.id)).toList();
+    if (selected.isEmpty) return;
+    // Fire-and-forget: the exporter surfaces success/error via WpToast.
+    widget.exportFn(context, selected);
   }
 
   /// Copy all selected entries' text to clipboard (joined by double newline).

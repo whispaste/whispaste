@@ -117,6 +117,9 @@ class L10nHe extends L10n {
   String get historyExport => 'ייצא';
 
   @override
+  String get historyExportAction => 'ייצא…';
+
+  @override
   String get historyCopyAsMarkdown => 'העתק כ-Markdown';
 
   @override
