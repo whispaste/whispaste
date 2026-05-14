@@ -2,7 +2,20 @@
 import Layout from "../layouts/Layout.astro";
 import Nav from "../components/Nav.astro";
 import Footer from "../components/Footer.astro";
-import releases from "../data/changelog.json";
+import releasesFile from "../data/releases.json";
+
+// `releases.json` follows the `ReleasesFile` schema produced by
+// `website/scripts/release-store.ts`. We render the top 5 (already the file
+// content for now — issue 07 caps the deploy pipeline at the same number).
+const releases = releasesFile.releases.slice(0, 5);
+
+// Render-time formatter for the `publishedAt` ISO timestamp. We keep the
+// same short `YYYY-MM-DD` form the legacy `changelog.json` carried so the
+// visual diff stays at zero.
+const formatDate = (iso: string): string => iso.slice(0, 10);
+
+const LANGS = ["en", "de"] as const;
+type Lang = (typeof LANGS)[number];
 ---
 
 <Layout title="Changelog — WhisPaste" description="See what's new in WhisPaste. All recent updates, improvements, and fixes in one place.">
@@ -27,7 +40,7 @@ import releases from "../data/changelog.json";
         </div>
 
         <!-- Release timeline -->
-        <div id="changelog-list" class="space-y-8" data-top-version={`v${releases[0]?.version ?? ''}`}>
+        <div id="changelog-list" class="space-y-8" data-top-version={releases[0]?.tag ?? ''}>
           {releases.map((release, index) => (
             <article class="release-card rounded-2xl border border-white/[0.06] p-6 sm:p-8 scroll-reveal">
               <!-- Version header -->
@@ -36,41 +49,49 @@ import releases from "../data/changelog.json";
                   {index === 0 && (
                     <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
                   )}
-                  v{release.version}
+                  {release.tag}
                 </span>
-                <time class="text-sm text-gray-500">{release.date}</time>
+                <time class="text-sm text-gray-500" datetime={release.publishedAt}>{formatDate(release.publishedAt)}</time>
                 {index === 0 && (
                   <span class="text-xs font-medium text-brand-cyan/70 uppercase tracking-wider" data-i18n="changelog.latest">Latest</span>
                 )}
               </div>
 
-              <!-- Highlights -->
-              <div class="mb-4">
-                <h3 class="text-sm font-semibold text-white/70 uppercase tracking-wider mb-3" data-i18n={`changelog.highlights`}>Highlights</h3>
-                <ul class="space-y-2">
-                  {release.en.highlights.map((item, i) => (
-                    <li class="flex items-start gap-2.5 text-gray-300 text-sm leading-relaxed">
-                      <svg class="w-4 h-4 text-brand-cyan shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                      <span data-i18n={`changelog.${release.version}.highlight.${i}`}>{item}</span>
-                    </li>
+              {/*
+                Per-card body: we emit BOTH languages so the static HTML carries
+                every release in every language (SEO + JS-disabled readability).
+                A CSS rule (`html[lang="…"] [data-lang="…"]`) hides whichever
+                language is not the current document language. The existing
+                `applyLang()` in `scripts/i18n.ts` already maintains
+                `documentElement.lang`, so the toggle Just Works without a
+                bespoke listener.
+              */}
+              {LANGS.map((lang: Lang) => (
+                <div data-lang={lang} class="release-card-body">
+                  {release[lang].blocks.sections.map((section) => (
+                    <div class="mb-4 last:mb-0">
+                      <h3 class="text-sm font-semibold text-white/70 uppercase tracking-wider mb-3">
+                        {section.heading}
+                      </h3>
+                      {section.items.length > 0 && (
+                        <ul class="space-y-2">
+                          {section.items.map((item) => (
+                            <li class="flex items-start gap-2.5 text-gray-300 text-sm leading-relaxed">
+                              <svg class="w-4 h-4 text-brand-cyan shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                              <span>
+                                {item.title !== undefined && item.title.length > 0 && (
+                                  <strong class="text-white/90">{item.title}: </strong>
+                                )}
+                                {item.body}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
                   ))}
-                </ul>
-              </div>
-
-              <!-- Improvements -->
-              {release.en.improvements.length > 0 && (
-                <div>
-                  <h3 class="text-sm font-semibold text-white/70 uppercase tracking-wider mb-3" data-i18n={`changelog.improvements`}>Improvements</h3>
-                  <ul class="space-y-2">
-                    {release.en.improvements.map((item, i) => (
-                      <li class="flex items-start gap-2.5 text-gray-400 text-sm leading-relaxed">
-                        <svg class="w-4 h-4 text-gray-500 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-                        <span data-i18n={`changelog.${release.version}.improvement.${i}`}>{item}</span>
-                      </li>
-                    ))}
-                  </ul>
                 </div>
-              )}
+              ))}
             </article>
           ))}
         </div>
@@ -116,7 +137,7 @@ import releases from "../data/changelog.json";
   {/* Dynamic Changelog hydrator: re-fetches the GitHub Releases API after the
       static page has rendered and prepends any release newer than the build-time
       snapshot. The build-time top version is passed via a `data-top-version`
-      attribute so we don't have to re-ship `changelog.json` into the script
+      attribute so we don't have to re-ship `releases.json` into the script
       bundle. Silent fail on every failure mode — the static cards are always
       authoritative. See website/src/scripts/changelog-hydrator.ts. */}
   <script>
@@ -138,6 +159,18 @@ import releases from "../data/changelog.json";
   <style>
     .release-card {
       background: linear-gradient(135deg, rgba(37, 40, 48, 0.4) 0%, rgba(30, 32, 38, 0.2) 100%);
+    }
+    /*
+     * Static language toggle: render both EN and DE per card and let the
+     * existing `applyLang()` flow (which keeps `documentElement.lang` in sync
+     * with the user's choice) decide which one is visible. With JS disabled
+     * the document falls back to `lang="en"` from Layout.astro — that's the
+     * AC's "Default-Sprache" path, and the inactive language remains in the
+     * DOM (still readable in the HTML source).
+     */
+    html[lang="en"] .release-card-body[data-lang="de"],
+    html[lang="de"] .release-card-body[data-lang="en"] {
+      display: none;
     }
   </style>
 </Layout>

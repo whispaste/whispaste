@@ -1,0 +1,447 @@
+{
+  "schemaVersion": 1,
+  "fetchedAt": "2026-05-13T12:00:00.000Z",
+  "releases": [
+    {
+      "tag": "v1.2.13",
+      "name": "v1.2.13",
+      "publishedAt": "2026-05-13T12:00:00.000Z",
+      "htmlUrl": "https://github.com/whispaste/whispaste/releases/tag/v1.2.13",
+      "en": {
+        "bodyMarkdown": "### Highlights\n- Four crash fixes: model-failure exit-code classifier triggers a clear re-download prompt, heartbeat startup timeout prevents indefinite hangs, recording idempotency guard blocks duplicate sessions on rapid hotkey presses, and a hotkey TypeError fallback prevents crashes on unsupported key tokens\n- Groq STT removed — existing Groq users automatically fall back to On-Device STT on first launch; no data is lost\n- Deepgram Nova-2 is now a fully supported, production-ready cloud STT alternative (free tier: 45 h/month)\n- Settings shows inline signup links for Deepgram and OpenAI so new users never have to leave the app to get started\n\n### Improvements\n- Sentry fingerprints now include recording phase and STT status for better issue grouping\n- Safety-guard activations (OOM, CPU fallback, idempotency) are captured as Sentry breadcrumbs for easier support triage\n- Smart-Mode dead code fully removed — smaller bundle, cleaner settings diff\n- README and website feature list updated to accurately reflect the shipped feature set (Post-Processing, LLM auto-tagging, and Groq references removed)\n- AppSettings split into focused section classes; STT subsystem split into independent modules; recording orchestrator decomposed into SafetyGuard, OomRecoveryHandler, and RecordingStateMachine; floating UI shares a single platform host",
+        "blocks": {
+          "sections": [
+            {
+              "heading": "Highlights",
+              "items": [
+                {
+                  "body": "Four crash fixes: model-failure exit-code classifier triggers a clear re-download prompt, heartbeat startup timeout prevents indefinite hangs, recording idempotency guard blocks duplicate sessions on rapid hotkey presses, and a hotkey TypeError fallback prevents crashes on unsupported key tokens"
+                },
+                {
+                  "body": "Groq STT removed — existing Groq users automatically fall back to On-Device STT on first launch; no data is lost"
+                },
+                {
+                  "body": "Deepgram Nova-2 is now a fully supported, production-ready cloud STT alternative (free tier: 45 h/month)"
+                },
+                {
+                  "body": "Settings shows inline signup links for Deepgram and OpenAI so new users never have to leave the app to get started"
+                }
+              ]
+            },
+            {
+              "heading": "Improvements",
+              "items": [
+                {
+                  "body": "Sentry fingerprints now include recording phase and STT status for better issue grouping"
+                },
+                {
+                  "body": "Safety-guard activations (OOM, CPU fallback, idempotency) are captured as Sentry breadcrumbs for easier support triage"
+                },
+                {
+                  "body": "Smart-Mode dead code fully removed — smaller bundle, cleaner settings diff"
+                },
+                {
+                  "body": "README and website feature list updated to accurately reflect the shipped feature set (Post-Processing, LLM auto-tagging, and Groq references removed)"
+                },
+                {
+                  "body": "AppSettings split into focused section classes; STT subsystem split into independent modules; recording orchestrator decomposed into SafetyGuard, OomRecoveryHandler, and RecordingStateMachine; floating UI shares a single platform host"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "de": {
+        "bodyMarkdown": "### Highlights\n- Vier Crash-Fixes: Exit-Code-Klassifikator löst bei Modellfehler einen klaren Re-Download-Hinweis aus, Heartbeat-Timeout verhindert endloses Hängen, Aufnahme-Idempotenz blockiert doppelte Sitzungen bei schnellen Hotkey-Drücken, und ein TypeError-Fallback verhindert Abstürze bei nicht unterstützten Tastentokens\n- Groq STT entfernt — bestehende Groq-Nutzer wechseln beim ersten Start automatisch zu On-Device STT; keine Daten gehen verloren\n- Deepgram Nova-2 ist jetzt ein vollständig unterstütztes, produktionsreifes Cloud-STT (kostenloses Kontingent: 45 Std./Monat)\n- Einstellungen zeigt direkte Anmelde-Links für Deepgram und OpenAI — neue Nutzer müssen die App nicht mehr verlassen\n\n### Improvements\n- Sentry-Fingerprints enthalten jetzt Aufnahme-Phase und STT-Status für bessere Fehlergruppierung\n- Safety-Guard-Aktivierungen (OOM, CPU-Fallback, Idempotenz) werden als Sentry-Breadcrumbs erfasst\n- Smart-Mode-Toter-Code vollständig entfernt — kleineres Bundle, saubereres Einstellungs-Diff\n- README und Website-Featureliste auf tatsächlich ausgelieferte Funktionen aktualisiert (Post-Processing, LLM-Auto-Tagging und Groq-Hinweise entfernt)\n- AppSettings in fokussierte Sektionsklassen aufgeteilt; STT-Subsystem in unabhängige Module aufgeteilt; Recording-Orchestrator in SafetyGuard, OomRecoveryHandler und RecordingStateMachine zerlegt; Floating-UI teilt einen gemeinsamen Platform-Host",
+        "blocks": {
+          "sections": [
+            {
+              "heading": "Highlights",
+              "items": [
+                {
+                  "body": "Vier Crash-Fixes: Exit-Code-Klassifikator löst bei Modellfehler einen klaren Re-Download-Hinweis aus, Heartbeat-Timeout verhindert endloses Hängen, Aufnahme-Idempotenz blockiert doppelte Sitzungen bei schnellen Hotkey-Drücken, und ein TypeError-Fallback verhindert Abstürze bei nicht unterstützten Tastentokens"
+                },
+                {
+                  "body": "Groq STT entfernt — bestehende Groq-Nutzer wechseln beim ersten Start automatisch zu On-Device STT; keine Daten gehen verloren"
+                },
+                {
+                  "body": "Deepgram Nova-2 ist jetzt ein vollständig unterstütztes, produktionsreifes Cloud-STT (kostenloses Kontingent: 45 Std./Monat)"
+                },
+                {
+                  "body": "Einstellungen zeigt direkte Anmelde-Links für Deepgram und OpenAI — neue Nutzer müssen die App nicht mehr verlassen"
+                }
+              ]
+            },
+            {
+              "heading": "Improvements",
+              "items": [
+                {
+                  "body": "Sentry-Fingerprints enthalten jetzt Aufnahme-Phase und STT-Status für bessere Fehlergruppierung"
+                },
+                {
+                  "body": "Safety-Guard-Aktivierungen (OOM, CPU-Fallback, Idempotenz) werden als Sentry-Breadcrumbs erfasst"
+                },
+                {
+                  "body": "Smart-Mode-Toter-Code vollständig entfernt — kleineres Bundle, saubereres Einstellungs-Diff"
+                },
+                {
+                  "body": "README und Website-Featureliste auf tatsächlich ausgelieferte Funktionen aktualisiert (Post-Processing, LLM-Auto-Tagging und Groq-Hinweise entfernt)"
+                },
+                {
+                  "body": "AppSettings in fokussierte Sektionsklassen aufgeteilt; STT-Subsystem in unabhängige Module aufgeteilt; Recording-Orchestrator in SafetyGuard, OomRecoveryHandler und RecordingStateMachine zerlegt; Floating-UI teilt einen gemeinsamen Platform-Host"
+                }
+              ]
+            }
+          ]
+        },
+        "translatedAt": "2026-05-13T12:00:00.000Z"
+      }
+    },
+    {
+      "tag": "v1.2.9",
+      "name": "v1.2.9",
+      "publishedAt": "2026-04-22T12:00:00.000Z",
+      "htmlUrl": "https://github.com/whispaste/whispaste/releases/tag/v1.2.9",
+      "en": {
+        "bodyMarkdown": "### Highlights\n- Model load failures (code 3) no longer cause an infinite retry loop — WhisPaste now fails fast with a clear re-download prompt\n- Duplicate 'Something went wrong' toast eliminated after corrupted model detection\n- Recording pipeline abort now shows the correct STT error instead of a misleading 'Could not save audio file' message",
+        "blocks": {
+          "sections": [
+            {
+              "heading": "Highlights",
+              "items": [
+                {
+                  "body": "Model load failures (code 3) no longer cause an infinite retry loop — WhisPaste now fails fast with a clear re-download prompt"
+                },
+                {
+                  "body": "Duplicate 'Something went wrong' toast eliminated after corrupted model detection"
+                },
+                {
+                  "body": "Recording pipeline abort now shows the correct STT error instead of a misleading 'Could not save audio file' message"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "de": {
+        "bodyMarkdown": "### Highlights\n- Fehler beim Laden von Modellen (Code 3) führen nicht mehr zu einer endlosen Wiederholungsschleife — WhisPaste bricht jetzt mit einer klaren Meldung ab\n- Doppelter 'Etwas ist schiefgelaufen'-Toast nach korrupter Modellerkennung entfernt\n- Pipeline-Abbruch zeigt jetzt die korrekte STT-Fehlermeldung statt der irreführenden 'Audio-Datei konnte nicht gespeichert werden'-Meldung",
+        "blocks": {
+          "sections": [
+            {
+              "heading": "Highlights",
+              "items": [
+                {
+                  "body": "Fehler beim Laden von Modellen (Code 3) führen nicht mehr zu einer endlosen Wiederholungsschleife — WhisPaste bricht jetzt mit einer klaren Meldung ab"
+                },
+                {
+                  "body": "Doppelter 'Etwas ist schiefgelaufen'-Toast nach korrupter Modellerkennung entfernt"
+                },
+                {
+                  "body": "Pipeline-Abbruch zeigt jetzt die korrekte STT-Fehlermeldung statt der irreführenden 'Audio-Datei konnte nicht gespeichert werden'-Meldung"
+                }
+              ]
+            }
+          ]
+        },
+        "translatedAt": "2026-05-13T12:00:00.000Z"
+      }
+    },
+    {
+      "tag": "v1.2.x",
+      "name": "v1.2.x",
+      "publishedAt": "2026-04-21T12:00:00.000Z",
+      "htmlUrl": "https://github.com/whispaste/whispaste/releases/tag/v1.2.x",
+      "en": {
+        "bodyMarkdown": "### Highlights\n- Complete rewrite as a native Flutter app — truly cross-platform (Windows and macOS)\n- All dictation history stored locally in SQLite — no shared config files, no data loss\n- New slim recording pill overlay with live waveform and progress indicator\n- Always-on-top floating button for instant dictation from any app, with expanded context menu (open, record, history, settings, quit)\n- Premium UI with warm gradients, frosted glass effects, and micro-animations\n- macOS app ships as a native ARM64 DMG with every release\n- History transcript editor now fully supports all text editing keys — Enter, Backspace, Delete, and cursor navigation work correctly when focused\n\n### Improvements\n- All Go backend code removed — zero external dependencies\n- Riverpod state management for reactive, testable architecture\n- 469+ automated tests with over 90 percent feature coverage\n- macOS menu bar icon resolves correctly across all bundle layouts",
+        "blocks": {
+          "sections": [
+            {
+              "heading": "Highlights",
+              "items": [
+                {
+                  "body": "Complete rewrite as a native Flutter app — truly cross-platform (Windows and macOS)"
+                },
+                {
+                  "body": "All dictation history stored locally in SQLite — no shared config files, no data loss"
+                },
+                {
+                  "body": "New slim recording pill overlay with live waveform and progress indicator"
+                },
+                {
+                  "body": "Always-on-top floating button for instant dictation from any app, with expanded context menu (open, record, history, settings, quit)"
+                },
+                {
+                  "body": "Premium UI with warm gradients, frosted glass effects, and micro-animations"
+                },
+                {
+                  "body": "macOS app ships as a native ARM64 DMG with every release"
+                },
+                {
+                  "body": "History transcript editor now fully supports all text editing keys — Enter, Backspace, Delete, and cursor navigation work correctly when focused"
+                }
+              ]
+            },
+            {
+              "heading": "Improvements",
+              "items": [
+                {
+                  "body": "All Go backend code removed — zero external dependencies"
+                },
+                {
+                  "body": "Riverpod state management for reactive, testable architecture"
+                },
+                {
+                  "body": "469+ automated tests with over 90 percent feature coverage"
+                },
+                {
+                  "body": "macOS menu bar icon resolves correctly across all bundle layouts"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "de": {
+        "bodyMarkdown": "### Highlights\n- Kompletter Neuschrieb als native Flutter-App — wirklich plattformübergreifend (Windows und macOS)\n- Gesamter Diktat-Verlauf lokal in SQLite gespeichert — keine geteilten Konfigdateien, kein Datenverlust\n- Neue schlanke Aufnahme-Pille mit Live-Wellenform und Fortschrittsanzeige\n- Schwebende Schaltfläche immer im Vordergrund für sofortiges Diktieren aus jeder App, mit erweitertem Kontextmenü (öffnen, aufnehmen, Verlauf, Einstellungen, beenden)\n- Premium-UI mit warmen Verläufen, Milchglas-Effekten und Micro-Animationen\n- macOS-App wird mit jedem Release als nativer ARM64-DMG ausgeliefert\n- Transkript-Editor im Verlauf unterstützt jetzt alle Texteingabe-Tasten vollständig — Enter, Backspace, Entfernen und Cursor-Navigation funktionieren korrekt im Fokus\n\n### Improvements\n- Gesamter Go-Backend-Code entfernt — keine externen Abhängigkeiten mehr\n- Riverpod State Management für reaktive, testbare Architektur\n- 469+ automatisierte Tests mit über 90 Prozent Funktionsabdeckung\n- macOS-Menüleisten-Icon wird jetzt in allen Bundle-Layouts korrekt aufgelöst",
+        "blocks": {
+          "sections": [
+            {
+              "heading": "Highlights",
+              "items": [
+                {
+                  "body": "Kompletter Neuschrieb als native Flutter-App — wirklich plattformübergreifend (Windows und macOS)"
+                },
+                {
+                  "body": "Gesamter Diktat-Verlauf lokal in SQLite gespeichert — keine geteilten Konfigdateien, kein Datenverlust"
+                },
+                {
+                  "body": "Neue schlanke Aufnahme-Pille mit Live-Wellenform und Fortschrittsanzeige"
+                },
+                {
+                  "body": "Schwebende Schaltfläche immer im Vordergrund für sofortiges Diktieren aus jeder App, mit erweitertem Kontextmenü (öffnen, aufnehmen, Verlauf, Einstellungen, beenden)"
+                },
+                {
+                  "body": "Premium-UI mit warmen Verläufen, Milchglas-Effekten und Micro-Animationen"
+                },
+                {
+                  "body": "macOS-App wird mit jedem Release als nativer ARM64-DMG ausgeliefert"
+                },
+                {
+                  "body": "Transkript-Editor im Verlauf unterstützt jetzt alle Texteingabe-Tasten vollständig — Enter, Backspace, Entfernen und Cursor-Navigation funktionieren korrekt im Fokus"
+                }
+              ]
+            },
+            {
+              "heading": "Improvements",
+              "items": [
+                {
+                  "body": "Gesamter Go-Backend-Code entfernt — keine externen Abhängigkeiten mehr"
+                },
+                {
+                  "body": "Riverpod State Management für reaktive, testbare Architektur"
+                },
+                {
+                  "body": "469+ automatisierte Tests mit über 90 Prozent Funktionsabdeckung"
+                },
+                {
+                  "body": "macOS-Menüleisten-Icon wird jetzt in allen Bundle-Layouts korrekt aufgelöst"
+                }
+              ]
+            }
+          ]
+        },
+        "translatedAt": "2026-05-13T12:00:00.000Z"
+      }
+    },
+    {
+      "tag": "v1.1.x",
+      "name": "v1.1.x",
+      "publishedAt": "2026-04-01T12:00:00.000Z",
+      "htmlUrl": "https://github.com/whispaste/whispaste/releases/tag/v1.1.x",
+      "en": {
+        "bodyMarkdown": "### Highlights\n- Smart Mode: AI-powered post-processing transforms raw dictation into polished, context-aware text\n- Voice Snippets: save and recall frequently used phrases with a single command\n- GPU acceleration for NVIDIA, AMD, and Intel graphics cards — faster local transcription\n- Multiple cloud providers available: choose between local, OpenAI, Groq, or Deepgram\n- Redesigned dashboard, Smart Mode, and Voice Snippets with a cleaner layout and smooth animations\n- Auto-generated tags now use Title Case and filter out system labels\n- Dictation pastes correctly into the new Outlook app on Windows 11\n\n### Improvements\n- New onboarding wizard guides you through setup in just a few steps\n- Unified silence removal setting — one smart toggle instead of two confusing options\n- Settings reorganized with clearer sections and everyday language throughout\n- Faster model downloads with resume support for interrupted connections\n- Fixed a race condition when switching pages quickly",
+        "blocks": {
+          "sections": [
+            {
+              "heading": "Highlights",
+              "items": [
+                {
+                  "body": "Smart Mode: AI-powered post-processing transforms raw dictation into polished, context-aware text"
+                },
+                {
+                  "body": "Voice Snippets: save and recall frequently used phrases with a single command"
+                },
+                {
+                  "body": "GPU acceleration for NVIDIA, AMD, and Intel graphics cards — faster local transcription"
+                },
+                {
+                  "body": "Multiple cloud providers available: choose between local, OpenAI, Groq, or Deepgram"
+                },
+                {
+                  "body": "Redesigned dashboard, Smart Mode, and Voice Snippets with a cleaner layout and smooth animations"
+                },
+                {
+                  "body": "Auto-generated tags now use Title Case and filter out system labels"
+                },
+                {
+                  "body": "Dictation pastes correctly into the new Outlook app on Windows 11"
+                }
+              ]
+            },
+            {
+              "heading": "Improvements",
+              "items": [
+                {
+                  "body": "New onboarding wizard guides you through setup in just a few steps"
+                },
+                {
+                  "body": "Unified silence removal setting — one smart toggle instead of two confusing options"
+                },
+                {
+                  "body": "Settings reorganized with clearer sections and everyday language throughout"
+                },
+                {
+                  "body": "Faster model downloads with resume support for interrupted connections"
+                },
+                {
+                  "body": "Fixed a race condition when switching pages quickly"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "de": {
+        "bodyMarkdown": "### Highlights\n- Smart Mode: KI-gestützte Nachbearbeitung verwandelt rohe Diktate in polierten, kontextbewussten Text\n- Sprach-Snippets: häufig genutzte Phrasen speichern und mit einem Befehl abrufen\n- GPU-Beschleunigung für NVIDIA-, AMD- und Intel-Grafikkarten — schnellere lokale Transkription\n- Mehrere Cloud-Anbieter verfügbar: wähle zwischen lokal, OpenAI, Groq oder Deepgram\n- Dashboard, Smart Mode und Sprach-Snippets mit aufgeräumterem Layout und sanften Animationen überarbeitet\n- Automatisch generierte Tags nutzen jetzt Großschreibung und filtern System-Labels heraus\n- Diktate werden jetzt korrekt in das neue Outlook unter Windows 11 eingefügt\n\n### Improvements\n- Neuer Einrichtungsassistent führt dich in wenigen Schritten durch das Setup\n- Stille-Erkennung vereinfacht — ein smarter Schalter statt zwei verwirrender Optionen\n- Einstellungen in klarere Bereiche mit alltagstauglicher Sprache aufgeteilt\n- Schnellere Modell-Downloads mit Fortsetzung bei unterbrochenen Verbindungen\n- Race-Condition beim schnellen Seitenwechsel behoben",
+        "blocks": {
+          "sections": [
+            {
+              "heading": "Highlights",
+              "items": [
+                {
+                  "body": "Smart Mode: KI-gestützte Nachbearbeitung verwandelt rohe Diktate in polierten, kontextbewussten Text"
+                },
+                {
+                  "body": "Sprach-Snippets: häufig genutzte Phrasen speichern und mit einem Befehl abrufen"
+                },
+                {
+                  "body": "GPU-Beschleunigung für NVIDIA-, AMD- und Intel-Grafikkarten — schnellere lokale Transkription"
+                },
+                {
+                  "body": "Mehrere Cloud-Anbieter verfügbar: wähle zwischen lokal, OpenAI, Groq oder Deepgram"
+                },
+                {
+                  "body": "Dashboard, Smart Mode und Sprach-Snippets mit aufgeräumterem Layout und sanften Animationen überarbeitet"
+                },
+                {
+                  "body": "Automatisch generierte Tags nutzen jetzt Großschreibung und filtern System-Labels heraus"
+                },
+                {
+                  "body": "Diktate werden jetzt korrekt in das neue Outlook unter Windows 11 eingefügt"
+                }
+              ]
+            },
+            {
+              "heading": "Improvements",
+              "items": [
+                {
+                  "body": "Neuer Einrichtungsassistent führt dich in wenigen Schritten durch das Setup"
+                },
+                {
+                  "body": "Stille-Erkennung vereinfacht — ein smarter Schalter statt zwei verwirrender Optionen"
+                },
+                {
+                  "body": "Einstellungen in klarere Bereiche mit alltagstauglicher Sprache aufgeteilt"
+                },
+                {
+                  "body": "Schnellere Modell-Downloads mit Fortsetzung bei unterbrochenen Verbindungen"
+                },
+                {
+                  "body": "Race-Condition beim schnellen Seitenwechsel behoben"
+                }
+              ]
+            }
+          ]
+        },
+        "translatedAt": "2026-05-13T12:00:00.000Z"
+      }
+    },
+    {
+      "tag": "v1.0.x",
+      "name": "v1.0.x",
+      "publishedAt": "2026-03-01T12:00:00.000Z",
+      "htmlUrl": "https://github.com/whispaste/whispaste/releases/tag/v1.0.x",
+      "en": {
+        "bodyMarkdown": "### Highlights\n- Available on the Microsoft Store for easy installation and auto-updates\n- Full dictation history with search — find any past dictation instantly\n- New premium design throughout the app\n\n### Improvements\n- Stronger privacy protections and security hardening\n- The app icon displays cleanly in the Windows taskbar\n- Local AI processing is more stable and recovers gracefully from errors",
+        "blocks": {
+          "sections": [
+            {
+              "heading": "Highlights",
+              "items": [
+                {
+                  "body": "Available on the Microsoft Store for easy installation and auto-updates"
+                },
+                {
+                  "body": "Full dictation history with search — find any past dictation instantly"
+                },
+                {
+                  "body": "New premium design throughout the app"
+                }
+              ]
+            },
+            {
+              "heading": "Improvements",
+              "items": [
+                {
+                  "body": "Stronger privacy protections and security hardening"
+                },
+                {
+                  "body": "The app icon displays cleanly in the Windows taskbar"
+                },
+                {
+                  "body": "Local AI processing is more stable and recovers gracefully from errors"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "de": {
+        "bodyMarkdown": "### Highlights\n- Im Microsoft Store verfügbar für einfache Installation und automatische Updates\n- Vollständiger Diktat-Verlauf mit Suche — jedes vergangene Diktat sofort finden\n- Neues Premium-Design in der gesamten App\n\n### Improvements\n- Stärkerer Datenschutz und Sicherheitshärtung\n- Das App-Icon wird sauber in der Windows-Taskleiste angezeigt\n- Lokale KI-Verarbeitung ist stabiler und erholt sich besser von Fehlern",
+        "blocks": {
+          "sections": [
+            {
+              "heading": "Highlights",
+              "items": [
+                {
+                  "body": "Im Microsoft Store verfügbar für einfache Installation und automatische Updates"
+                },
+                {
+                  "body": "Vollständiger Diktat-Verlauf mit Suche — jedes vergangene Diktat sofort finden"
+                },
+                {
+                  "body": "Neues Premium-Design in der gesamten App"
+                }
+              ]
+            },
+            {
+              "heading": "Improvements",
+              "items": [
+                {
+                  "body": "Stärkerer Datenschutz und Sicherheitshärtung"
+                },
+                {
+                  "body": "Das App-Icon wird sauber in der Windows-Taskleiste angezeigt"
+                },
+                {
+                  "body": "Lokale KI-Verarbeitung ist stabiler und erholt sich besser von Fehlern"
+                }
+              ]
+            }
+          ]
+        },
+        "translatedAt": "2026-05-13T12:00:00.000Z"
+      }
+    }
+  ]
+}
