@@ -208,7 +208,6 @@ HistoryEntry _entry({
     model: model,
     isLocal: isLocal,
     costUsd: 0.0,
-    projectId: '',
     archived: false,
     titleEdited: false,
     deletedAt: null,

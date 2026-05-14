@@ -24,7 +24,6 @@ part 'database.g.dart';
 @DriftDatabase(
   tables: [
     HistoryEntries,
-    Projects,
     DailyStats,
     EntryNotes,
     EntryAttachments,
@@ -40,7 +39,7 @@ class HistoryDatabase extends _$HistoryDatabase {
   HistoryDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -65,6 +64,9 @@ class HistoryDatabase extends _$HistoryDatabase {
       }
       if (from < 5) {
         await _addDailyStatsDurationColumns();
+      }
+      if (from < 10) {
+        await _runV10Migration();
       }
     },
     beforeOpen: (details) async {
@@ -264,21 +266,10 @@ class HistoryDatabase extends _$HistoryDatabase {
     final tsChanges = await customSelect('SELECT changes() AS n').getSingle();
     if ((tsChanges.data['n'] as int? ?? 0) > 0) changed = true;
 
-    // 5. Convert project timestamps if projects table has TEXT dates.
-    try {
-      await customStatement('''
-        UPDATE projects
-        SET created_at = COALESCE(CAST(strftime('%s', created_at) AS INTEGER), 0)
-        WHERE typeof(created_at) = 'text'
-      ''');
-    } catch (_) {
-      // projects table may not exist yet — that's fine.
-    }
-
-    // 6. Migrate JSON tags into normalized Tags/EntryTags if needed.
+    // 5. Migrate JSON tags into normalized Tags/EntryTags if needed.
     await _migrateJsonTagsIfNeeded();
 
-    // 7. Ensure daily_stats has duration bucket columns (Go-era DBs lack them).
+    // 6. Ensure daily_stats has duration bucket columns (Go-era DBs lack them).
     await _addDailyStatsDurationColumns();
 
     if (changed) {
@@ -321,6 +312,130 @@ class HistoryDatabase extends _$HistoryDatabase {
       debugPrint('[Migration] Could not add daily_stats columns: $e');
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // v10 migration — destructive Projects removal
+  // ---------------------------------------------------------------------------
+
+  /// Drops the dead `projects` table and the `history_entries.project_id`
+  /// column. Wrapped in a single transaction so partial failure can't leave
+  /// the schema half-migrated. Idempotent on re-runs.
+  ///
+  /// Pattern mirrors the v1.2.13 Groq removal: one-time destructive cleanup
+  /// of schema that was never wired to user-facing UI, so no real data is
+  /// lost.
+  ///
+  /// For the column drop we hand-roll the SQLite rebuild (CREATE NEW + COPY
+  /// + DROP OLD + RENAME) rather than using Drift's experimental
+  /// `TableMigration` API. SQLite ≥ 3.35 supports native `DROP COLUMN`, but
+  /// the rebuild pattern works on every SQLite version Flutter ships with
+  /// and stays inside Drift's stable API surface.
+  Future<void> _runV10Migration() async {
+    await transaction(() async {
+      // 1. Drop the dead projects table (idempotent — IF EXISTS).
+      await customStatement('DROP TABLE IF EXISTS projects');
+
+      // 2. Drop the dead project_id column from history_entries via SQLite
+      //    rebuild. Only run when the column is actually present, so a
+      //    second run on an already-migrated DB is a cheap no-op.
+      final cols = await customSelect(
+        "PRAGMA table_info('history_entries')",
+      ).get();
+      final hasProjectId = cols
+          .map((r) => r.data['name'] as String)
+          .contains('project_id');
+      if (!hasProjectId) return;
+
+      // SQLite rebuild pattern. FTS triggers reference history_entries, so
+      // we drop them first and recreate them afterwards.
+      await customStatement('DROP TRIGGER IF EXISTS history_fts_ai');
+      await customStatement('DROP TRIGGER IF EXISTS history_fts_ad');
+      await customStatement('DROP TRIGGER IF EXISTS history_fts_au');
+
+      await customStatement('''
+        CREATE TABLE history_entries_new (
+          id TEXT NOT NULL PRIMARY KEY,
+          content TEXT NOT NULL DEFAULT '',
+          title TEXT NOT NULL DEFAULT '',
+          timestamp INTEGER NOT NULL,
+          duration_sec REAL NOT NULL DEFAULT 0.0,
+          processing_duration_sec REAL NOT NULL DEFAULT 0.0,
+          language TEXT NOT NULL DEFAULT '',
+          language_hint TEXT NOT NULL DEFAULT '',
+          tags TEXT NOT NULL DEFAULT '[]',
+          pinned INTEGER NOT NULL DEFAULT 0,
+          source TEXT NOT NULL DEFAULT 'dictation',
+          model TEXT NOT NULL DEFAULT '',
+          is_local INTEGER NOT NULL DEFAULT 0,
+          cost_usd REAL NOT NULL DEFAULT 0.0,
+          archived INTEGER NOT NULL DEFAULT 0,
+          title_edited INTEGER NOT NULL DEFAULT 0,
+          deleted_at INTEGER
+        )
+      ''');
+
+      await customStatement('''
+        INSERT INTO history_entries_new (
+          id, content, title, timestamp, duration_sec, processing_duration_sec,
+          language, language_hint, tags, pinned, source, model, is_local,
+          cost_usd, archived, title_edited, deleted_at
+        )
+        SELECT
+          id, content, title, timestamp, duration_sec, processing_duration_sec,
+          language, language_hint, tags, pinned, source, model, is_local,
+          cost_usd, archived, title_edited, deleted_at
+        FROM history_entries
+      ''');
+
+      await customStatement('DROP TABLE history_entries');
+      await customStatement(
+        'ALTER TABLE history_entries_new RENAME TO history_entries',
+      );
+
+      // Recreate FTS triggers — but only if the FTS virtual table exists.
+      // Production DBs always have it (created in onCreate / _recreateFts),
+      // while bare-bones test fixtures may skip it. Without this guard the
+      // triggers fire later against a missing table and crash unrelated
+      // writes.
+      final ftsExists = await customSelect(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='history_fts'",
+      ).get();
+      if (ftsExists.isNotEmpty) {
+        await customStatement('''
+          CREATE TRIGGER IF NOT EXISTS history_fts_ai AFTER INSERT ON history_entries
+          BEGIN
+            INSERT INTO history_fts(rowid, title, content, tags)
+            VALUES (new.rowid, new.title, new.content, new.tags);
+          END
+        ''');
+        await customStatement('''
+          CREATE TRIGGER IF NOT EXISTS history_fts_ad AFTER DELETE ON history_entries
+          BEGIN
+            INSERT INTO history_fts(history_fts, rowid, title, content, tags)
+            VALUES ('delete', old.rowid, old.title, old.content, old.tags);
+          END
+        ''');
+        await customStatement('''
+          CREATE TRIGGER IF NOT EXISTS history_fts_au AFTER UPDATE ON history_entries
+          BEGIN
+            INSERT INTO history_fts(history_fts, rowid, title, content, tags)
+            VALUES ('delete', old.rowid, old.title, old.content, old.tags);
+            INSERT INTO history_fts(rowid, title, content, tags)
+            VALUES (new.rowid, new.title, new.content, new.tags);
+          END
+        ''');
+      }
+    });
+    debugPrint(
+      'Drift migration v9 → v10: dropped Projects table, '
+      'dropped HistoryEntries.project_id',
+    );
+  }
+
+  /// Exposed for testing — runs the v10 migration steps directly against
+  /// the already-open database. Safe to call multiple times.
+  @visibleForTesting
+  Future<void> runV10MigrationForTesting() => _runV10Migration();
 
   // ---------------------------------------------------------------------------
   // Groq removal migration — v1.2.13
@@ -529,17 +644,6 @@ class HistoryDatabase extends _$HistoryDatabase {
                 OrderingTerm(expression: e.deletedAt, mode: OrderingMode.desc),
           ])
           ..limit(limit))
-        .get();
-  }
-
-  /// Entries in a specific project.
-  Future<List<HistoryEntry>> entriesByProject(String projectId) {
-    return (select(historyEntries)
-          ..where((e) => e.projectId.equals(projectId) & e.deletedAt.isNull())
-          ..orderBy([
-            (e) =>
-                OrderingTerm(expression: e.timestamp, mode: OrderingMode.desc),
-          ]))
         .get();
   }
 
@@ -940,7 +1044,6 @@ class HistoryDatabase extends _$HistoryDatabase {
       model: Value(original.model),
       isLocal: Value(original.isLocal),
       costUsd: Value(original.costUsd),
-      projectId: Value(original.projectId),
       archived: const Value(false),
       titleEdited: const Value(false),
     );
@@ -1269,7 +1372,6 @@ class HistoryDatabase extends _$HistoryDatabase {
       await delete(entryAttachments).go();
       await delete(tags).go();
       await delete(historyEntries).go();
-      await delete(projects).go();
       await delete(dailyStats).go();
       await delete(textReplacements).go();
       await customStatement('DELETE FROM app_settings');
@@ -1291,22 +1393,6 @@ class HistoryDatabase extends _$HistoryDatabase {
 
   Future<void> deleteReplacement(String id) =>
       (delete(textReplacements)..where((t) => t.id.equals(id))).go();
-
-  // ---------------------------------------------------------------------------
-  // Projects
-  // ---------------------------------------------------------------------------
-
-  Future<List<Project>> allProjects() {
-    return (select(projects)..orderBy([(p) => OrderingTerm.asc(p.name)])).get();
-  }
-
-  Future<void> upsertProject(ProjectsCompanion project) {
-    return into(projects).insertOnConflictUpdate(project);
-  }
-
-  Future<int> deleteProject(String projectId) {
-    return (delete(projects)..where((p) => p.id.equals(projectId))).go();
-  }
 
   // ---------------------------------------------------------------------------
   // Notes
