@@ -129,6 +129,19 @@ class _FakeFetcher extends HttpModelFetcher {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+/// Platform-correct whisper-server binary filename. The notifier's Phase-1
+/// skip check uses [whisperServerPath], which appends `.exe` on Windows — so
+/// tests must create the matching file or Phase 1 will try to download a real
+/// whisper-server.zip from GitHub before reaching the model-download path.
+String _serverBinaryName() =>
+    Platform.isWindows ? 'whisper-server.exe' : 'whisper-server';
+
+/// Pre-creates the whisper-server binary stub so Phase 1 (engine self-heal)
+/// is skipped and the test only exercises the model-download seam.
+Future<void> _stubServerBinary(Directory dir) async {
+  await File(p.join(dir.path, _serverBinaryName())).writeAsBytes([0]);
+}
+
 /// Creates a [ProviderContainer] whose [ModelDownloadNotifier] uses [fetcher].
 ///
 /// The container overrides [modelDownloadProvider] so that the notifier's
@@ -205,8 +218,7 @@ void main() {
       addTearDown(container.dispose);
 
       // Also create a fake whisper-server binary so Phase 1 is skipped.
-      final serverFile = File(p.join(tempDir.path, 'whisper-server'));
-      await serverFile.writeAsBytes([0]);
+      await _stubServerBinary(tempDir);
 
       final notifier = container.read(modelDownloadProvider.notifier);
 
@@ -271,8 +283,7 @@ void main() {
         await File(destPath).writeAsBytes([0]);
 
         // Also create server binary.
-        final serverFile = File(p.join(tempDir.path, 'whisper-server'));
-        await serverFile.writeAsBytes([0]);
+        await _stubServerBinary(tempDir);
 
         // No-op fetcher.
         final fetcher = _FakeFetcher(behaviour: _FetchBehaviour.succeed);
@@ -299,7 +310,7 @@ void main() {
       const modelId = 'whisper-tiny';
 
       // Pre-create server binary so Phase 1 is skipped.
-      await File(p.join(tempDir.path, 'whisper-server')).writeAsBytes([0]);
+      await _stubServerBinary(tempDir);
 
       final fetcher = _FakeFetcher(behaviour: _FetchBehaviour.networkError);
       final container = _makeContainer(fetcher: fetcher);
@@ -317,7 +328,7 @@ void main() {
     test('error message reflects the DioException message', () async {
       const modelId = 'whisper-base';
 
-      await File(p.join(tempDir.path, 'whisper-server')).writeAsBytes([0]);
+      await _stubServerBinary(tempDir);
 
       final fetcher = _FakeFetcher(behaviour: _FetchBehaviour.networkError);
       final container = _makeContainer(fetcher: fetcher);
@@ -346,7 +357,7 @@ void main() {
       // Create partial .tmp file to simulate interrupted download.
       await File(tmpPath).writeAsBytes(List.filled(1000, 0xAA));
 
-      await File(p.join(tempDir.path, 'whisper-server')).writeAsBytes([0]);
+      await _stubServerBinary(tempDir);
 
       final fakeBytes = List<int>.generate(512, (i) => i & 0xFF);
       final fetcher = _FakeFetcher(
@@ -371,7 +382,7 @@ void main() {
       final tmpPath = '$destPath.tmp';
 
       await File(tmpPath).writeAsBytes(List.filled(500, 0xBB));
-      await File(p.join(tempDir.path, 'whisper-server')).writeAsBytes([0]);
+      await _stubServerBinary(tempDir);
 
       final fetcher = _FakeFetcher(
         behaviour: _FetchBehaviour.resumeSucceed,
@@ -408,7 +419,7 @@ void main() {
     test('cancellation mid-download transitions to idle state', () async {
       const modelId = 'whisper-tiny';
 
-      await File(p.join(tempDir.path, 'whisper-server')).writeAsBytes([0]);
+      await _stubServerBinary(tempDir);
 
       // Cancelled fetcher simulates DioExceptionType.cancel.
       final fetcher = _FakeFetcher(behaviour: _FetchBehaviour.cancelled);
@@ -435,7 +446,7 @@ void main() {
     test('transitions to error when downloaded file has wrong hash', () async {
       const modelId = 'whisper-tiny';
 
-      await File(p.join(tempDir.path, 'whisper-server')).writeAsBytes([0]);
+      await _stubServerBinary(tempDir);
 
       // Fetcher writes garbage bytes (hash will not match registry).
       final fetcher = _FakeFetcher(behaviour: _FetchBehaviour.writeBadContent);
@@ -455,7 +466,7 @@ void main() {
       final model = findSttModel(modelId)!;
       final destPath = p.join(tempDir.path, model.filename);
 
-      await File(p.join(tempDir.path, 'whisper-server')).writeAsBytes([0]);
+      await _stubServerBinary(tempDir);
 
       final fetcher = _FakeFetcher(behaviour: _FetchBehaviour.writeBadContent);
       final container = _makeContainer(fetcher: fetcher);
@@ -498,7 +509,7 @@ void main() {
     test('fetcher called exactly once per downloadModel invocation', () async {
       const modelId = 'whisper-tiny';
 
-      await File(p.join(tempDir.path, 'whisper-server')).writeAsBytes([0]);
+      await _stubServerBinary(tempDir);
 
       final countingFetcher = _CountingFakeFetcher(
         behaviour: _FetchBehaviour.networkError,
