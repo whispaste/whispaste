@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
       - name: Sync changelog from CHANGELOG.md
         run: node website/scripts/sync-changelog.mjs
       - name: Build with Astro
