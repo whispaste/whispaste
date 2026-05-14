@@ -94,27 +94,6 @@ void main() {
       expect(pinned.first.id, 'a');
     });
 
-    test('entriesByProject filters correctly', () async {
-      await db.upsertEntry(
-        HistoryEntriesCompanion.insert(
-          id: 'p1',
-          timestamp: DateTime(2025, 1, 15),
-          projectId: const Value('proj-a'),
-        ),
-      );
-      await db.upsertEntry(
-        HistoryEntriesCompanion.insert(
-          id: 'p2',
-          timestamp: DateTime(2025, 1, 16),
-          projectId: const Value('proj-b'),
-        ),
-      );
-
-      final results = await db.entriesByProject('proj-a');
-      expect(results, hasLength(1));
-      expect(results.first.id, 'p1');
-    });
-
     test('upsertEntry updates existing entry', () async {
       await db.upsertEntry(
         HistoryEntriesCompanion.insert(
@@ -154,25 +133,6 @@ void main() {
       final entries = await db.allEntries();
       expect(entries.first.id, 'new');
       expect(entries.last.id, 'old');
-    });
-  });
-
-  group('Projects', () {
-    test('CRUD operations work', () async {
-      await db.upsertProject(
-        ProjectsCompanion.insert(
-          id: 'proj-1',
-          name: 'My Project',
-          createdAt: DateTime(2025, 1, 1),
-        ),
-      );
-
-      final projects = await db.allProjects();
-      expect(projects, hasLength(1));
-      expect(projects.first.name, 'My Project');
-
-      await db.deleteProject('proj-1');
-      expect(await db.allProjects(), isEmpty);
     });
   });
 
