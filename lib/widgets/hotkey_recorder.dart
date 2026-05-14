@@ -291,6 +291,17 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
           key_resolver.canonicalRecordableKey(event) != null) {
         // Resolve the canonical storage key (logical or via physical-position
         // fallback for layout-dependent chars like Ö/Ä/Ü on DE).
+        // Display-vs-storage symmetry across platforms:
+        // - macOS: Flutter reports a Unicode logical key for layout-dependent
+        //   chars (e.g. 0xF6 for Ö) regardless of modifiers — the physical
+        //   fallback below preserves the user-pressed display label `Ö`.
+        // - Windows: layout-dependent chars work too, but Ctrl-combinations
+        //   suppress the layout translation, so Flutter reports the canonical
+        //   `LogicalKeyboardKey.semicolon` directly. The fast path then keeps
+        //   the canonical label as both storage and display — functional, but
+        //   the cap reads `;` instead of `Ö`. Tracking the layout char through
+        //   `event.character` is intentionally not added here yet: it requires
+        //   per-platform verification and the limitation is cosmetic.
         final canonical = key_resolver.canonicalRecordableKey(event);
         if (canonical == null) {
           setState(() {
