@@ -176,7 +176,8 @@ void main() {
                                 'tag_name': 'whisper-server-v1.0.0',
                                 'assets': [
                                   {
-                                    'name': 'whisper-server-windows-x64.zip',
+                                    'name':
+                                        'whisper-server-windows-x64-cpu.zip',
                                     'browser_download_url':
                                         'http://example.com/ws.zip',
                                   },
