@@ -1,15 +1,22 @@
 #!/usr/bin/env node
 /**
- * Extracts and filters the cumulative changelog for a minor version series.
+ * Extracts changelog sections from CHANGELOG.md for release-notes generation.
  *
- * Usage: node scripts/extract-cumulative-changelog.mjs <version>
- *   e.g.: node scripts/extract-cumulative-changelog.mjs 1.2.2
+ * Usage:
+ *   node scripts/extract-cumulative-changelog.mjs <version> [--mode=patch|minor]
  *
- * Outputs to stdout the combined, filtered changelog text for ALL X.Y.* patches
- * that belong to the same minor series as the given version. Website, CI/CD, and
- * landing-page changes are removed — app-only content.
+ * Modes:
+ *   --mode=patch  → emit ONLY the ## <version> block (this patch's changes).
+ *                   If the block is empty after filtering, exits with the
+ *                   sentinel string "Stability and minor improvements." so
+ *                   downstream AI generation has a deterministic fallback.
+ *   --mode=minor  → emit `### From v<x>` sections for ALL X.Y.* patches in
+ *                   the same minor series (cumulative).
  *
- * Used by release.yml to feed content into generate-release-notes.ps1.
+ * Default mode: minor (preserved for any caller that omits --mode).
+ *
+ * Website, CI/CD, and landing-page bullets are stripped in both modes — the
+ * output is app-only content meant for end users.
  */
 
 import { readFileSync } from 'fs';
@@ -20,16 +27,28 @@ const __dir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dir, '../');
 const changelogMd = resolve(repoRoot, 'CHANGELOG.md');
 
-const versionArg = process.argv[2];
+const args = process.argv.slice(2);
+const versionArg = args.find((a) => !a.startsWith('--'));
+const modeArg = args.find((a) => a.startsWith('--mode='))?.split('=')[1] ?? 'minor';
+
 if (!versionArg) {
-  process.stderr.write('Usage: node extract-cumulative-changelog.mjs <version>\n');
+  process.stderr.write(
+    'Usage: node extract-cumulative-changelog.mjs <version> [--mode=patch|minor]\n',
+  );
+  process.exit(1);
+}
+
+if (modeArg !== 'patch' && modeArg !== 'minor') {
+  process.stderr.write(`Unknown --mode=${modeArg}; expected patch|minor\n`);
   process.exit(1);
 }
 
 const parts = versionArg.replace(/^v/, '').split('.');
 const major = parts[0];
 const minor = parts[1];
+const patch = parts[2];
 const minorPrefix = `${major}.${minor}.`;
+const exactVersion = `${major}.${minor}.${patch}`;
 
 /**
  * Patterns that identify website/infrastructure lines — these are excluded from
@@ -74,29 +93,6 @@ function normalise(ver) {
   return ver.split('.').slice(0, 3).join('.');
 }
 
-// Collect all patches for this minor series
-const patches = [];
-for (let i = 0; i < matches.length; i++) {
-  const normVer = normalise(matches[i][1]);
-  if (normVer.startsWith(minorPrefix)) {
-    const start = matches[i].index + matches[i][0].length;
-    const end = matches[i + 1]?.index ?? content.length;
-    patches.push({ version: normVer, body: content.slice(start, end).trim() });
-  }
-}
-
-if (patches.length === 0) {
-  process.stdout.write('No changelog content found.\n');
-  process.exit(0);
-}
-
-// Sort ascending (oldest patch first) so narrative builds chronologically
-patches.sort((a, b) => {
-  const ap = parseInt(a.version.split('.')[2] ?? '0');
-  const bp = parseInt(b.version.split('.')[2] ?? '0');
-  return ap - bp;
-});
-
 /**
  * Filter a patch body: remove website/infra bullets, collapse empty section
  * headers (header with zero bullets after filtering becomes invisible).
@@ -134,6 +130,56 @@ function filterPatchBody(body) {
   }
   return out.join('\n').trim();
 }
+
+if (modeArg === 'patch') {
+  // Find the exact version block.
+  let matchIndex = -1;
+  for (let i = 0; i < matches.length; i++) {
+    if (normalise(matches[i][1]) === exactVersion) {
+      matchIndex = i;
+      break;
+    }
+  }
+
+  if (matchIndex === -1) {
+    process.stdout.write('Stability and minor improvements.\n');
+    process.exit(0);
+  }
+
+  const start = matches[matchIndex].index + matches[matchIndex][0].length;
+  const end = matches[matchIndex + 1]?.index ?? content.length;
+  const filtered = filterPatchBody(content.slice(start, end).trim());
+
+  if (!filtered) {
+    process.stdout.write('Stability and minor improvements.\n');
+  } else {
+    process.stdout.write(filtered + '\n');
+  }
+  process.exit(0);
+}
+
+// modeArg === 'minor' — original cumulative behavior.
+const patches = [];
+for (let i = 0; i < matches.length; i++) {
+  const normVer = normalise(matches[i][1]);
+  if (normVer.startsWith(minorPrefix)) {
+    const start = matches[i].index + matches[i][0].length;
+    const end = matches[i + 1]?.index ?? content.length;
+    patches.push({ version: normVer, body: content.slice(start, end).trim() });
+  }
+}
+
+if (patches.length === 0) {
+  process.stdout.write('No changelog content found.\n');
+  process.exit(0);
+}
+
+// Sort ascending (oldest patch first) so narrative builds chronologically
+patches.sort((a, b) => {
+  const ap = parseInt(a.version.split('.')[2] ?? '0');
+  const bp = parseInt(b.version.split('.')[2] ?? '0');
+  return ap - bp;
+});
 
 const parts2 = [];
 for (const { version, body } of patches) {

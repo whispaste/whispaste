@@ -253,35 +253,36 @@ jobs:
           name: msix-release
           path: artifacts/
 
-      - name: Generate release notes
+      - name: Extract changelog inputs
         id: notes
         shell: bash
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-          # Build cumulative, app-only release notes for the entire minor series.
-          # For patch releases (Z>0) this merges all X.Y.* patches together and
-          # strips website/CI/landing-page changes — app changes only.
-          node scripts/extract-cumulative-changelog.mjs "$VERSION" > release-body.md
-
-          if [ ! -s release-body.md ]; then
-            echo "Release $VERSION" > release-body.md
-          fi
+          # Two-input split: patch-specific delta + cumulative minor highlights.
+          # The AI step combines them into a non-repetitive bilingual release
+          # body. Website/CI/landing-page bullets are filtered in both modes.
+          node scripts/extract-cumulative-changelog.mjs "$VERSION" --mode=patch > patch-changelog.md
+          node scripts/extract-cumulative-changelog.mjs "$VERSION" --mode=minor > minor-changelog.md
 
       - name: AI-enhance release notes
-        shell: pwsh
+        shell: bash
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          pwsh scripts/generate-release-notes.ps1 `
-            -RawChangelog "release-body.md" `
-            -Version "${{ steps.notes.outputs.version }}" `
-            -OutputDir "."
-          if (Test-Path "release-notes-en.md") {
-            Copy-Item "release-notes-en.md" "release-body.md" -Force
-            Write-Host "AI-generated release notes applied"
-          }
+          node scripts/generate-release-notes.mjs \
+            --version "${{ steps.notes.outputs.version }}" \
+            --patch patch-changelog.md \
+            --minor minor-changelog.md \
+            --output-dir .
+
+          if [ -s release-notes-en.md ]; then
+            cp release-notes-en.md release-body.md
+            echo "AI-generated release notes applied"
+          else
+            echo "Release ${{ steps.notes.outputs.version }}" > release-body.md
+          fi
 
       - name: Create Release
         uses: softprops/action-gh-release@v2

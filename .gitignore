@@ -74,6 +74,7 @@ CONTEXT.md
 cmd/
 scripts/*
 !scripts/git-hooks/
+!scripts/generate-release-notes.mjs
 !scripts/generate-release-notes.ps1
 !scripts/extract-cumulative-changelog.mjs
 !scripts/security-scan.ps1
