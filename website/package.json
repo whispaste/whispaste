@@ -31,5 +31,8 @@
     "globals": "^17.6.0",
     "jsdom": "^29.1.1",
     "vitest": "^4.1.6"
+  },
+  "overrides": {
+    "devalue": "^5.8.1"
   }
 }
