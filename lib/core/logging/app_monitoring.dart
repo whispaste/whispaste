@@ -45,6 +45,18 @@ class AppMonitoring {
     await configureLogging();
 
     // 2. Initialize Sentry — wraps appRunner with error zone + handlers.
+    //
+    // Free-Tier budget (per organization, shared across all projects):
+    //   ~5k errors/month, ~10k performance units (spans)/month.
+    //
+    // Sampling math for whispaste's share (assuming 5 sibling apps):
+    //   tracesSampleRate=0.005 → 1 of 200 transactions sampled.
+    //   A typical sampled transaction emits ~5–15 child spans (drift + dio).
+    //   Even at 1k actions/user/day × 10 users → 50 sampled transactions/day
+    //   × ~10 spans = 500 spans/day ≈ 15k/month. That still busts the share,
+    //   so we ALSO install `beforeSendTransaction` as a hard per-session
+    //   throttle (see CrashReporter.beforeSendTransaction). For a *real*
+    //   monthly guarantee, set a Spend Cap in the Sentry dashboard.
     await SentryFlutter.init(
       (options) {
         options.dsn = _sentryDsn;
@@ -53,8 +65,16 @@ class AppMonitoring {
         options.dist = _currentArch();
         options.sendDefaultPii = false;
         options.attachScreenshot = false;
+        // Attach the widget tree (structure only — no text content) to error
+        // events. Privacy-safe and very helpful for UI bugs.
+        // ignore: experimental_member_use
+        options.attachViewHierarchy = true;
+        // Shrink per-event payload to stay well under the 1 GB attachment
+        // bucket and reduce noise in issue grouping.
+        options.maxBreadcrumbs = 30;
         options.beforeSend = CrashReporter.beforeSend;
-        options.tracesSampleRate = kReleaseMode ? 0.1 : 1.0;
+        options.beforeSendTransaction = CrashReporter.beforeSendTransaction;
+        options.tracesSampleRate = kReleaseMode ? 0.005 : 0.05;
         options.enableAutoPerformanceTracing = true;
         options.enableAutoNativeBreadcrumbs = true;
       },
