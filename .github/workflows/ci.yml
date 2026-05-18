@@ -10,6 +10,30 @@ permissions:
   contents: read
 
 jobs:
+  # Single repo-wide secret scan. Plattformunabhängig, daher genau einmal
+  # auf einem schnellen Ubuntu-Runner statt dupliziert auf Win + macOS.
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Scan for potential secrets
+        run: |
+          echo 'Scanning for potential secrets...'
+          PATTERN='(sk-[a-zA-Z0-9]{20,}|AKIA[0-9A-Z]{16}|ghp_[a-zA-Z0-9]{36}|password\s*=\s*"[^"]+")'
+          MATCHES=$(grep -rEn "$PATTERN" \
+            --include='*.dart' --include='*.swift' \
+            --include='*.yaml' --include='*.yml' \
+            --include='*.json' --include='*.md' \
+            --include='*.ts' --include='*.js' \
+            --exclude-dir=.git --exclude-dir=build --exclude-dir=node_modules . || true)
+          if [ -n "$MATCHES" ]; then
+            echo "$MATCHES" | grep -oE '^[^:]+:[0-9]+'
+            echo "::error::Potential secrets detected in source files."
+            exit 1
+          fi
+          echo 'No secrets found'
+
   flutter-app:
     name: Flutter App (Windows)
     runs-on: windows-latest
@@ -75,29 +99,6 @@ jobs:
       - name: Secure storage integration test
         run: flutter test integration_test/secure_storage_test.dart -d windows
 
-      - name: Secret scan
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $repoRoot = (Get-Location).Path
-          $extensions = @('.dart', '.yaml', '.yml', '.json', '.md')
-          $excludedPattern = '\\(\.git|build|node_modules)\\'
-          $pattern = '(sk-[a-zA-Z0-9]{20,}|AKIA[0-9A-Z]{16}|ghp_[a-zA-Z0-9]{36}|password\s*=\s*"[^"]+")'
-          $files = Get-ChildItem -Path $repoRoot -Recurse -File | Where-Object {
-            $extensions -contains $_.Extension -and
-            $_.FullName -notmatch $excludedPattern
-          }
-          Write-Host 'Scanning for potential secrets...'
-          $matches = @($files | Select-String -Pattern $pattern -CaseSensitive)
-          if ($matches.Count -gt 0) {
-            foreach ($match in $matches) {
-              $relativePath = $match.Path.Substring($repoRoot.Length + 1)
-              Write-Host "${relativePath}:$($match.LineNumber)"
-            }
-            throw 'Potential secrets detected in source files.'
-          }
-          Write-Host 'No secrets found'
-
   flutter-app-macos:
     name: Flutter App (macOS)
     runs-on: macos-latest
@@ -142,102 +143,6 @@ jobs:
       # has no Bundle ID — see secure_storage_test.dart for why.
       - name: Secure storage integration test
         run: flutter test integration_test/secure_storage_test.dart -d macos
-
-      - name: Secret scan
-        run: |
-          echo 'Scanning for potential secrets...'
-          PATTERN='(sk-[a-zA-Z0-9]{20,}|AKIA[0-9A-Z]{16}|ghp_[a-zA-Z0-9]{36}|password\s*=\s*"[^"]+")'
-          MATCHES=$(grep -rEn "$PATTERN" --include='*.dart' --include='*.swift' \
-            --include='*.yaml' --include='*.json' --include='*.ts' --include='*.js' \
-            --exclude-dir=.git --exclude-dir=build --exclude-dir=node_modules . || true)
-          if [ -n "$MATCHES" ]; then
-            echo "$MATCHES" | grep -oE '^[^:]+:[0-9]+'
-            echo "::error::Potential secrets detected in source files."
-            exit 1
-          fi
-          echo 'No secrets found'
-
-  # Linux-only smoke test for flutter_secure_storage. Builds and runs
-  # the Linux desktop app against an isolated gnome-keyring instance
-  # (Secret Service via libsecret) inside a fresh D-Bus session, so it
-  # exercises the real native backend without touching the runner's
-  # default keyring.
-  flutter-app-linux:
-    name: Flutter App (Linux)
-    runs-on: ubuntu-latest
-    # Best-effort: the integration_test runner pulls the full plugin
-    # registrant (tray_manager, hotkey_manager, window_manager) which
-    # can hang or fail on a headless GitHub runner that lacks a real
-    # D-Bus session, app-indicator host, or compositor. Win + macOS
-    # are the strict gate for the secure-storage round-trip.
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          flutter-version: 3.41.0
-          cache: true
-
-      # System packages needed by every native plugin the desktop app
-      # pulls in transitively. Pinning the full set here so the build
-      # does not fall over piecemeal on each new plugin discovery.
-      #   gtk-3 / pkg-config / ninja-build / cmake / clang — Flutter Linux desktop
-      #   libsecret-1-dev + gnome-keyring + dbus-x11      — flutter_secure_storage
-      #   libkeybinder-3.0-dev                            — hotkey_manager
-      #   libayatana-appindicator3-dev                    — tray_manager
-      #   libasound2-dev + libpulse-dev                   — record / flutter_soloud
-      #   libnotify-dev                                   — toast/notifications
-      #   libcurl4-openssl-dev                            — sentry-native (CMake find_package)
-      #   xvfb                                            — display for integration_test
-      - name: Install Linux desktop + libsecret backend
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            ninja-build \
-            cmake \
-            clang \
-            pkg-config \
-            libgtk-3-dev \
-            libsecret-1-dev \
-            libkeybinder-3.0-dev \
-            libayatana-appindicator3-dev \
-            libasound2-dev \
-            libpulse-dev \
-            libnotify-dev \
-            libcurl4-openssl-dev \
-            gnome-keyring \
-            dbus-x11 \
-            xvfb
-
-      - name: Get dependencies
-        run: flutter pub get
-
-      # gnome-keyring needs an unlocked Secret Service before libsecret
-      # can read or write. dbus-run-session starts a fresh session bus;
-      # `--unlock` reads the empty passphrase from stdin and prints the
-      # environment exports we need to eval. xvfb-run gives Flutter a
-      # display for the desktop embedder bindings even though our test
-      # never renders a widget.
-      # Hard 4-minute wall clock so a stuck plugin init or unresponsive
-      # keyring daemon cannot block the whole pipeline indefinitely.
-      # --reporter expanded surfaces per-test progress in the log so we
-      # can tell whether a hang is in the build, the plugin registrant
-      # or the test body itself.
-      - name: Secure storage integration test
-        timeout-minutes: 4
-        run: |
-          xvfb-run --auto-servernum dbus-run-session -- bash -c '
-            set -e
-            echo "" | gnome-keyring-daemon --unlock --replace --components=secrets &
-            sleep 1
-            flutter test \
-              integration_test/secure_storage_test.dart \
-              -d linux \
-              --reporter expanded
-          '
 
   website:
     name: Website
