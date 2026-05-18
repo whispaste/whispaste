@@ -31,6 +31,7 @@ import 'package:whispaste/features/replacements/replacements_page.dart';
 import 'package:whispaste/features/settings/settings_page.dart';
 import 'package:whispaste/services/audio_service.dart';
 import 'package:whispaste/services/hardware_info_service.dart' as hw;
+import 'package:whispaste/services/hotkey_service.dart';
 import 'package:whispaste/services/model_download_service.dart';
 
 import 'screenshot_devices.dart';
@@ -197,6 +198,11 @@ Widget _buildScreenshotApp({
           (ref) async =>
               const hw.GpuInfo(vendor: hw.GpuVendor.none, name: 'Test'),
         ),
+        // Skip platform-channel calls to the `hotkey_manager` plugin — the
+        // settings screenshot renders the hotkey section, which would
+        // otherwise trigger MissingPluginException during EventChannel
+        // setup in the test environment.
+        hotkeyServiceProvider.overrideWith(_FakeHotkeyService.new),
       ],
       child: WpScreenshotShell(activePageId: activePageId, child: child),
     ),
@@ -492,6 +498,15 @@ class _MockSettingsNotifier extends SettingsNotifier {
 class _MockModelDownloadNotifier extends ModelDownloadNotifier {
   @override
   ModelDownloadState build() => const ModelDownloadState();
+}
+
+/// No-op [HotkeyService] for screenshot tests — skips the real platform
+/// registration path that would otherwise call into the `hotkey_manager`
+/// EventChannel (`dev.leanflutter.plugins/hotkey_manager_event`) and fail
+/// with MissingPluginException when no native plugin is registered.
+class _FakeHotkeyService extends HotkeyService {
+  @override
+  void build() {}
 }
 
 const _sampleAnalytics = AnalyticsData(

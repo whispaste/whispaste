@@ -217,6 +217,17 @@ void main() {
         // Note: verifying that ensureRunning() *calls* the runner requires a
         // real whisper-server binary at whisperServerPath() — not possible in
         // unit tests. That path is tested by the cold-start integration test.
+
+        // Force whisperServerPath() to a path that cannot exist so the
+        // binary-presence check inside _start() reliably fails into the
+        // `error` state. Without this override the test is environment-
+        // dependent: on a developer machine where the STT runtime has been
+        // downloaded, the real binary at sttDir() exists and the service
+        // walks through to `ready`.
+        paths.sttDirOverride =
+            '/nonexistent-stt-dir-${DateTime.now().microsecondsSinceEpoch}';
+        addTearDown(() => paths.sttDirOverride = null);
+
         final fakeProcess = _FakeProcess();
         final container = _makeContainer(
           fakeProcess: fakeProcess,
