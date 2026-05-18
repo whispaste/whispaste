@@ -69,6 +69,12 @@ jobs:
           $size = (Get-Item $exe).Length / 1MB
           Write-Host "Flutter app size: $([math]::Round($size, 2)) MB"
 
+      # Verifies flutter_secure_storage against the real Windows
+      # Credential Manager. Runs against a per-run unique key
+      # namespace so it cannot collide with existing wp_* items.
+      - name: Secure storage integration test
+        run: flutter test integration_test/secure_storage_test.dart -d windows
+
       - name: Secret scan
         shell: pwsh
         run: |
@@ -130,6 +136,13 @@ jobs:
           SIZE=$(du -sh "$APP" | cut -f1)
           echo "Flutter app bundle size: $SIZE"
 
+      # Verifies flutter_secure_storage against the real macOS
+      # Keychain. The test pins usesDataProtectionKeychain: false
+      # because the integration-test runner binary is unsigned and
+      # has no Bundle ID — see secure_storage_test.dart for why.
+      - name: Secure storage integration test
+        run: flutter test integration_test/secure_storage_test.dart -d macos
+
       - name: Secret scan
         run: |
           echo 'Scanning for potential secrets...'
@@ -143,6 +156,54 @@ jobs:
             exit 1
           fi
           echo 'No secrets found'
+
+  # Linux-only smoke test for flutter_secure_storage. Builds and runs
+  # the Linux desktop app against an isolated gnome-keyring instance
+  # (Secret Service via libsecret) inside a fresh D-Bus session, so it
+  # exercises the real native backend without touching the runner's
+  # default keyring.
+  flutter-app-linux:
+    name: Flutter App (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.41.0
+          cache: true
+
+      - name: Install Linux desktop + libsecret backend
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ninja-build \
+            libgtk-3-dev \
+            libsecret-1-dev \
+            gnome-keyring \
+            dbus-x11 \
+            xvfb
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      # gnome-keyring needs an unlocked Secret Service before libsecret
+      # can read or write. dbus-run-session starts a fresh session bus;
+      # `--unlock` reads the empty passphrase from stdin and prints the
+      # environment exports we need to eval. xvfb-run gives Flutter a
+      # display for the desktop embedder bindings even though our test
+      # never renders a widget.
+      - name: Secure storage integration test
+        run: |
+          xvfb-run --auto-servernum dbus-run-session -- bash -c '
+            set -e
+            eval "$(printf "" | gnome-keyring-daemon --unlock)"
+            eval "$(gnome-keyring-daemon --start --components=secrets)"
+            export GNOME_KEYRING_CONTROL SSH_AUTH_SOCK
+            flutter test integration_test/secure_storage_test.dart -d linux
+          '
 
   website:
     name: Website
