@@ -8,8 +8,7 @@ library;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../app.dart'
-    show activePageProvider, settingsScrollTargetProvider;
+import '../app.dart' show activePageProvider, settingsScrollTargetProvider;
 import '../core/config/settings_provider.dart';
 import '../core/logging/ui_thread_watchdog.dart';
 import '../services/autostart_service.dart';

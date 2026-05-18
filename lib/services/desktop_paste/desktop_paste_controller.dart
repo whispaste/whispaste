@@ -20,9 +20,11 @@ enum NativePasteStatus {
   static NativePasteStatus fromCode(String? code) => switch (code) {
     'success' => NativePasteStatus.success,
     'no_target' => NativePasteStatus.noTarget,
-    'no_accessibility' || 'permission_missing' => NativePasteStatus.permissionMissing,
-    'post_failed' || 'send_input_failed' || 'foreground_blocked' =>
-      NativePasteStatus.postFailed,
+    'no_accessibility' ||
+    'permission_missing' => NativePasteStatus.permissionMissing,
+    'post_failed' ||
+    'send_input_failed' ||
+    'foreground_blocked' => NativePasteStatus.postFailed,
     _ => NativePasteStatus.unknown,
   };
 }
@@ -47,10 +49,11 @@ class NativePasteResult {
     );
   }
 
-  factory NativePasteResult.fromLegacyBool(bool? value) =>
-      NativePasteResult(
-        status: value == true ? NativePasteStatus.success : NativePasteStatus.postFailed,
-      );
+  factory NativePasteResult.fromLegacyBool(bool? value) => NativePasteResult(
+    status: value == true
+        ? NativePasteStatus.success
+        : NativePasteStatus.postFailed,
+  );
 }
 
 enum NativeCapabilityStatus { ready, permissionMissing, unsupported }
@@ -115,7 +118,9 @@ abstract class DesktopPasteController {
   /// Probes whether the OS would allow Auto-Paste right now — without
   /// actually pasting. When [promptIfMissing] is `true`, triggers the
   /// OS-native permission dialog if applicable (macOS Accessibility).
-  Future<NativeCapabilityResult> checkCapability({bool promptIfMissing = false});
+  Future<NativeCapabilityResult> checkCapability({
+    bool promptIfMissing = false,
+  });
 
   /// Wipes stale TCC entries for the permission services Auto-Paste uses
   /// (macOS Accessibility + AppleEvents). The next paste attempt will
