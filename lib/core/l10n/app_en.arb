@@ -735,6 +735,8 @@
   "onboardingReadyStep3CopyOnly": "Text is in your clipboard — press ⌘V / Ctrl+V to paste",
   "onboardingReadyChangeHotkey": "Change Hotkey",
   "onboardingReadyCurrentHotkey": "Current hotkey",
+  "onboardingReadyHotkeyConflictTitle": "Hotkey already in use",
+  "onboardingReadyHotkeyConflictBody": "Your hotkey seems to be in use by another app. Record a new combination below to continue.",
   "onboardingStartDictating": "Start Dictating",
 
   "overlayRecording": "Recording",

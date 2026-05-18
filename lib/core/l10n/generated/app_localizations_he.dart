@@ -2004,6 +2004,13 @@ class L10nHe extends L10n {
   String get onboardingReadyCurrentHotkey => 'קיצור נוכחי';
 
   @override
+  String get onboardingReadyHotkeyConflictTitle => 'הקיצור כבר בשימוש';
+
+  @override
+  String get onboardingReadyHotkeyConflictBody =>
+      'נראה שהקיצור שלך תפוס על ידי אפליקציה אחרת. הקלט שילוב חדש למטה כדי להמשיך.';
+
+  @override
   String get onboardingStartDictating => 'התחל להכתיב';
 
   @override
