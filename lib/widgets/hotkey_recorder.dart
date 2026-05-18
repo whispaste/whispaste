@@ -67,6 +67,7 @@ class HotkeyRecorderDialog extends StatefulWidget {
     this.initialKey = 'D',
     this.initialDisplayKey = '',
     this.initialModifiers = 'ctrl+shift',
+    this.onSubmit,
   });
 
   /// The current canonical non-modifier key token (e.g. `'D'`, `';'`).
@@ -78,6 +79,15 @@ class HotkeyRecorderDialog extends StatefulWidget {
 
   /// The current modifier string (e.g. `'ctrl+shift'`).
   final String initialModifiers;
+
+  /// Optional callback invoked on Save when the recorder is embedded inline
+  /// (i.e. NOT shown as a modal via [show]). When provided, the widget
+  /// delivers the [HotkeyResult] to this callback instead of popping the
+  /// route; Cancel becomes a no-op so the parent owns its lifecycle.
+  ///
+  /// Used by surfaces like the onboarding ReadyStep that embed the recorder
+  /// next to a conflict warning rather than presenting it as a dialog.
+  final ValueChanged<HotkeyResult>? onSubmit;
 
   /// Platform-aware default modifier string.
   static String get _defaultModifiers =>
@@ -366,13 +376,21 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
   void _save() {
     if (_storageKey.isEmpty) return;
     final displayForResult = _keyLabel != _storageKey ? _keyLabel : '';
-    Navigator.of(context).pop(
-      HotkeyResult(
-        key: _storageKey,
-        modifiers: _modifiersStorage,
-        displayKey: displayForResult,
-      ),
+    final result = HotkeyResult(
+      key: _storageKey,
+      modifiers: _modifiersStorage,
+      displayKey: displayForResult,
     );
+    final onSubmit = widget.onSubmit;
+    if (onSubmit != null) {
+      // Inline mode (e.g. embedded in ReadyStep) — hand the result to the
+      // parent and let it decide what to do (typically: persist + retry
+      // registration). The widget stays mounted so the user can rebind again
+      // if the new combo also fails.
+      onSubmit(result);
+    } else {
+      Navigator.of(context).pop(result);
+    }
   }
 
   // ── Build ──────────────────────────────────────────────────────────
@@ -536,13 +554,21 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
                         spacing: WpSpacing.sm,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          TextButton(
-                            onPressed: () => Navigator.of(context).pop(),
-                            child: Text(
-                              l10n.settingsHotkeyRecorderCancel,
-                              style: TextStyle(color: textMuted, fontSize: 13),
+                          // Cancel only makes sense in modal mode — when the
+                          // recorder is embedded inline (no enclosing route to
+                          // pop), there is nothing to dismiss, so the button is
+                          // hidden to avoid a dead control.
+                          if (widget.onSubmit == null)
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: Text(
+                                l10n.settingsHotkeyRecorderCancel,
+                                style: TextStyle(
+                                  color: textMuted,
+                                  fontSize: 13,
+                                ),
+                              ),
                             ),
-                          ),
                           // Save — accent background + white foreground gives
                           // WCAG-AA contrast in both light and dark themes;
                           // the previous accent-text-on-default-elevated bg

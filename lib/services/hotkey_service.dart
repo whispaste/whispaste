@@ -65,6 +65,44 @@ class _PackageHotKeyRegistrar implements HotKeyRegistrar {
 }
 
 // ---------------------------------------------------------------------------
+// Registration status — observable by UI (ReadyStep) so we can surface a
+// blocking conflict warning before the user clicks "Start".
+// ---------------------------------------------------------------------------
+
+/// Lifecycle status of the global hotkey registration.
+///
+/// - [unknown]: no registration attempt has completed yet (transitional).
+/// - [success]: the user-configured hotkey is currently registered.
+/// - [conflict]: the user-configured hotkey could not be registered (typically
+///   because another app or the OS owns the same shortcut). The service falls
+///   back to the safe-default in this case, but UI surfaces should still prompt
+///   the user to re-bind before continuing.
+enum HotkeyRegistrationStatus { unknown, success, conflict }
+
+/// Notifier holding the latest [HotkeyRegistrationStatus]. Written by
+/// [HotkeyService]; watched by [ReadyStep] and any other surface that needs
+/// to react to a conflict.
+class HotkeyRegistrationStatusController
+    extends Notifier<HotkeyRegistrationStatus> {
+  @override
+  HotkeyRegistrationStatus build() => HotkeyRegistrationStatus.unknown;
+
+  /// Update the current registration status. Called from [HotkeyService] —
+  /// kept as a method (rather than direct state assignment) so the test
+  /// surface stays explicit.
+  void set(HotkeyRegistrationStatus status) {
+    state = status;
+  }
+}
+
+/// Provider for the global [HotkeyRegistrationStatus] state.
+final hotkeyRegistrationStatusProvider =
+    NotifierProvider<
+      HotkeyRegistrationStatusController,
+      HotkeyRegistrationStatus
+    >(HotkeyRegistrationStatusController.new);
+
+// ---------------------------------------------------------------------------
 // Safe-default hotkey
 // ---------------------------------------------------------------------------
 
@@ -204,9 +242,11 @@ class HotkeyService extends Notifier<void> {
             : null,
       );
       _log.info('Hotkey registered successfully');
+      _setStatus(HotkeyRegistrationStatus.success);
     } on Object catch (e, st) {
       // Catch Object (not just Exception) so TypeError from hotkey_manager
       // is handled gracefully.
+      _setStatus(HotkeyRegistrationStatus.conflict);
       final keyCode = key.keyId.toRadixString(16);
       _log.warning('Failed to register hotkey (key=0x$keyCode): $e');
 
@@ -245,6 +285,7 @@ class HotkeyService extends Notifier<void> {
       // used to accept but the registrar cannot handle. Fall back to
       // safe-default and prompt for re-bind. Sibling of the TypeError path
       // in updateHotkey — same observable behaviour for the user.
+      _setStatus(HotkeyRegistrationStatus.conflict);
       final label = settings.hotkeyKey;
       final firstCodepointHex = label.isEmpty
           ? '0x0'
@@ -267,7 +308,23 @@ class HotkeyService extends Notifier<void> {
       );
       await _registerSafeDefault();
     } on Object catch (e) {
+      _setStatus(HotkeyRegistrationStatus.conflict);
       _log.warning('Failed to register global hotkey: $e');
+    }
+  }
+
+  /// Writes [status] to [hotkeyRegistrationStatusProvider] if a Riverpod ref
+  /// is available (i.e. the service was created via the provider, not via a
+  /// bare `HotkeyService()` constructor in a unit test).
+  ///
+  /// Guarded so the existing standalone-service tests in
+  /// `test/services/hotkey_service_test.dart` keep working — they construct
+  /// the service directly without a [ProviderContainer].
+  void _setStatus(HotkeyRegistrationStatus status) {
+    try {
+      ref.read(hotkeyRegistrationStatusProvider.notifier).set(status);
+    } on Object catch (_) {
+      // No ref available (standalone test instance) — skip silently.
     }
   }
 

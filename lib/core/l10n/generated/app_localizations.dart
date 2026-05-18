@@ -3723,6 +3723,18 @@ abstract class L10n {
   /// **'Current hotkey'**
   String get onboardingReadyCurrentHotkey;
 
+  /// No description provided for @onboardingReadyHotkeyConflictTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Hotkey already in use'**
+  String get onboardingReadyHotkeyConflictTitle;
+
+  /// No description provided for @onboardingReadyHotkeyConflictBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your hotkey seems to be in use by another app. Record a new combination below to continue.'**
+  String get onboardingReadyHotkeyConflictBody;
+
   /// No description provided for @onboardingStartDictating.
   ///
   /// In en, this message translates to:

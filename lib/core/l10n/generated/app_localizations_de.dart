@@ -2070,6 +2070,14 @@ class L10nDe extends L10n {
   String get onboardingReadyCurrentHotkey => 'Aktuelles Tastenkürzel';
 
   @override
+  String get onboardingReadyHotkeyConflictTitle =>
+      'Tastenkürzel bereits belegt';
+
+  @override
+  String get onboardingReadyHotkeyConflictBody =>
+      'Dein Tastenkürzel scheint von einer anderen App belegt zu sein. Nimm unten eine neue Kombination auf, um fortzufahren.';
+
+  @override
   String get onboardingStartDictating => 'Jetzt diktieren';
 
   @override

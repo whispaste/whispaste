@@ -2053,6 +2053,13 @@ class L10nEn extends L10n {
   String get onboardingReadyCurrentHotkey => 'Current hotkey';
 
   @override
+  String get onboardingReadyHotkeyConflictTitle => 'Hotkey already in use';
+
+  @override
+  String get onboardingReadyHotkeyConflictBody =>
+      'Your hotkey seems to be in use by another app. Record a new combination below to continue.';
+
+  @override
   String get onboardingStartDictating => 'Start Dictating';
 
   @override

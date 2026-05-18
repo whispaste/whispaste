@@ -720,6 +720,8 @@
   "onboardingReadyStep3CopyOnly": "הטקסט בלוח — לחץ ⌘V / Ctrl+V כדי להדביק",
   "onboardingReadyChangeHotkey": "שנה קיצור",
   "onboardingReadyCurrentHotkey": "קיצור נוכחי",
+  "onboardingReadyHotkeyConflictTitle": "הקיצור כבר בשימוש",
+  "onboardingReadyHotkeyConflictBody": "נראה שהקיצור שלך תפוס על ידי אפליקציה אחרת. הקלט שילוב חדש למטה כדי להמשיך.",
   "onboardingStartDictating": "התחל להכתיב",
   "overlayRecording": "מקליט",
   "overlayTranscribing": "מתמלל…",
