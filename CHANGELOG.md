@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+## 1.2.16
+
+### Bug Fixes
+
+- **Sentry consent gating**: Transactions are now suppressed alongside events when the user revokes monitoring consent. Previously the kill switch only stopped event capture, so performance spans and Drift query traces could still leak after opt-out. The consent check now runs in the transaction sampler, so revoking consent silences the SDK end-to-end with no restart needed.
+
+### Observability
+
+- **Sentry SDK 9.20 upgrade**: `sentry_flutter` moves from 8.14 to 9.20, with the matching `sentry_dio` and `sentry_drift` integrations enabled. HTTP requests through the update service's Dio client and every Drift database query now produce performance spans, so a slow update check or a regressed query shows up in the Sentry transaction list instead of staying invisible. Trace propagation is explicitly scoped to an empty allow-list so no `sentry-trace` headers leak to third-party APIs.
+
+- **Native crash symbolication**: Release builds upload PDB/DLL symbols on Windows and `.dSYM` bundles on macOS to Sentry via `sentry_dart_plugin` during the release workflow. Native crash frames in the Rust audio engine, the whisper.cpp bridge, and platform plugins now resolve to source lines instead of raw addresses. Symbol upload uses a separate Sentry billing bucket and does not consume the event/span quota.
+
+- **Route breadcrumbs**: A `SentryNavigatorObserver` is wired into both top-level `MaterialApp`s so dialog opens, settings panels, and the review prompt land as navigation breadcrumbs on the next error event — the path that led to a crash is now reconstructable.
+
+### Distribution
+
+- **Microsoft Store submission automated**: The release workflow now pushes a successful MSIX build to the Microsoft Store via the Partner Center Submission API. The "What's new" field is populated from the same AI-enhanced release notes that the GitHub Release uses, in both English and German. The job self-skips when the `MS_STORE_APP_ID` secret is unset, so forks and dispatch-only runs stay clean. Listing copy (description, features) lives in `store/` per locale.
+
+### Cleanup
+
+- **Dependency wave**: `flutter_secure_storage` 9 → 10 (consolidated iOS+macOS pod, Linux drops the `libjsoncpp1` system dep), `drift` family + `analyzer` + `sqlite3` upgraded, Dart utilities (`flutter_soloud`, `flutter_svg`, `lucide_icons_flutter`, `in_app_review`, `mocktail`) on current minor, website npm dependencies refreshed (Tailwind held at 4.2 until an upstream Vite/rolldown compatibility issue is resolved), CI action major pins bumped (checkout v6, setup-node v6, upload-artifact v7, download-artifact v8, withastro/action v6, deploy-pages v5, softprops/action-gh-release v3).
+
 ## 1.2.15
 
 ### Bug Fixes
