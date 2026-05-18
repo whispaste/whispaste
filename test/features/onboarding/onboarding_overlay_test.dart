@@ -19,6 +19,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/features/onboarding/onboarding_overlay.dart';
 import 'package:whispaste/features/onboarding/steps/auto_paste_step.dart';
+import 'package:whispaste/services/paste/paste_capability_notifier.dart';
 
 import '../../fixtures/test_helpers.dart';
 
@@ -38,12 +39,33 @@ class _FakeSettingsNotifier extends SettingsNotifier {
   }
 }
 
-Future<void> _pumpOverlay(WidgetTester tester) async {
+/// Minimal recording fake — counts [stopPolling] calls so the overlay
+/// disposal test can verify the defensive cleanup fires.
+class _RecordingPasteCapabilityNotifier extends PasteCapabilityNotifier {
+  int stopPollingCalls = 0;
+
+  @override
+  PasteCapabilityState build() => const PasteCapabilityState();
+
+  @override
+  void stopPolling() {
+    stopPollingCalls++;
+  }
+}
+
+Future<void> _pumpOverlay(
+  WidgetTester tester, {
+  _RecordingPasteCapabilityNotifier? paste,
+}) async {
   await tester.pumpWidget(
     makeTestable(
       const OnboardingOverlay(),
       size: const Size(1280, 980),
-      overrides: [settingsProvider.overrideWith(() => _FakeSettingsNotifier())],
+      overrides: [
+        settingsProvider.overrideWith(() => _FakeSettingsNotifier()),
+        if (paste != null)
+          pasteCapabilityNotifierProvider.overrideWith(() => paste),
+      ],
     ),
   );
   await tester.pumpAndSettle();
@@ -99,5 +121,35 @@ void main() {
         debugDefaultTargetPlatformOverride = null;
       }
     });
+  });
+
+  group('OnboardingOverlay disposal', () {
+    testWidgets(
+      'dispose explicitly stops Auto-Paste polling — defends against zombie '
+      'timers when the overlay tears down (window close, app quit, re-mount)',
+      (tester) async {
+        final paste = _RecordingPasteCapabilityNotifier();
+
+        await _pumpOverlay(tester, paste: paste);
+        // Replace the overlay with an empty widget to trigger dispose.
+        await tester.pumpWidget(
+          makeTestable(
+            const SizedBox.shrink(),
+            size: const Size(1280, 980),
+            overrides: [
+              settingsProvider.overrideWith(() => _FakeSettingsNotifier()),
+              pasteCapabilityNotifierProvider.overrideWith(() => paste),
+            ],
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          paste.stopPollingCalls,
+          greaterThanOrEqualTo(1),
+          reason: 'Overlay dispose must explicitly call stopPolling()',
+        );
+      },
+    );
   });
 }

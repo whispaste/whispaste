@@ -211,7 +211,7 @@ class L10nDe extends L10n {
   String get historyUndo => 'Rückgängig';
 
   @override
-  String get historyEntriesMerged => 'Einträge zusammengefügt';
+  String get historyEntriesMerged => 'Einträge zusammengeführt';
 
   @override
   String historyMergeConfirm(int count) {
@@ -220,7 +220,7 @@ class L10nDe extends L10n {
 
   @override
   String get historyMergeConfirmMessage =>
-      'Die ausgewählten Einträge werden zu einem zusammengefügt. Dies kann nicht rückgängig gemacht werden.';
+      'Die ausgewählten Einträge werden zu einem zusammengeführt. Dies kann nicht rückgängig gemacht werden.';
 
   @override
   String get historyExitSelection => 'Auswahl beenden';
