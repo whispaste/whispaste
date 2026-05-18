@@ -22,7 +22,7 @@ void main() {
   }) => RecordingInput(
     transcript: transcript,
     audioDuration: const Duration(seconds: 5),
-    modelId: 'ggml-tiny',
+    modelId: 'whisper-small',
     isLocal: true,
     languageCode: 'en',
     applyTextReplacements: applyReplacements,

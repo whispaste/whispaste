@@ -123,7 +123,7 @@ ProviderContainer _makeContainer({
       sttHttpClientProvider.overrideWithValue(httpClient),
       settingsProvider.overrideWith(
         () => _FakeSettingsNotifier(
-          settings ?? AppSettings.defaults.copyWith(sttModel: 'whisper-tiny'),
+          settings ?? AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
         ),
       ),
       modelDownloadProvider.overrideWith(
@@ -246,7 +246,7 @@ void main() {
       () async {
         // Arrange: model file with wrong content (SHA-256 will not match registry).
         await writeModelFile(
-          'whisper-tiny',
+          'whisper-small',
           bytes: List.filled(11 * 1024 * 1024, 0xAB),
         );
         await writeServerBinary();
@@ -258,7 +258,7 @@ void main() {
           fakeProcess: fakeProcess,
           httpClient: _makeHealthyHttpClient(),
           settings: AppSettings.defaults.copyWith(
-            sttModel: 'whisper-tiny',
+            sttModel: 'whisper-small',
             gpuAcceleration: 'disabled',
           ),
           downloadNotifierFactory: () => trackingDownloader,
@@ -299,7 +299,7 @@ void main() {
         );
         expect(
           trackingDownloader.downloadedModelIds.first,
-          'whisper-tiny',
+          'whisper-small',
           reason: 'downloadModel() must be called for the correct model',
         );
       },
@@ -316,7 +316,7 @@ void main() {
       // the model is NOT added to _modelLoadFailedIds when the hash is OK.
       //
       // Strategy: write a file whose SHA-256 matches the registry value.
-      // The registry sha256 for whisper-tiny is a known constant in
+      // The registry sha256 for whisper-small is a known constant in
       // model_download_service.dart. Computing a file that hashes to that
       // value is infeasible, so we use a different approach:
       //
@@ -406,7 +406,7 @@ void main() {
       '(idempotency — second exit 3 does not trigger another download)',
       () async {
         await writeModelFile(
-          'whisper-tiny',
+          'whisper-small',
           bytes: List.filled(11 * 1024 * 1024, 0xBC),
         );
         await writeServerBinary();
@@ -418,7 +418,7 @@ void main() {
           fakeProcess: fakeProcess,
           httpClient: _makeHealthyHttpClient(),
           settings: AppSettings.defaults.copyWith(
-            sttModel: 'whisper-tiny',
+            sttModel: 'whisper-small',
             gpuAcceleration: 'disabled',
           ),
           downloadNotifierFactory: () => trackingDownloader,
@@ -487,14 +487,14 @@ void main() {
         );
         return;
       }
-      await writeFiles('whisper-tiny');
+      await writeFiles('whisper-small');
 
       final fakeProcess = _FakeProcess();
       final container = _makeContainer(
         fakeProcess: fakeProcess,
         httpClient: _makeHealthyHttpClient(),
         settings: AppSettings.defaults.copyWith(
-          sttModel: 'whisper-tiny',
+          sttModel: 'whisper-small',
           gpuAcceleration: 'auto',
         ),
       );

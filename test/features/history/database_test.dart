@@ -25,7 +25,7 @@ void main() {
           timestamp: DateTime(2025, 1, 15, 10, 30),
           content: const Value('Hello world transcription'),
           title: const Value('Test Entry'),
-          model: const Value('whisper-large-v3'),
+          model: const Value('whisper-large-v3-turbo'),
           isLocal: const Value(true),
           durationSec: const Value(12.5),
         ),

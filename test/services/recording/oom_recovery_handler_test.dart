@@ -100,12 +100,12 @@ void main() {
     group('SwitchToConfiguredCloud', () {
       test('no local fallback, cloud configured → SwitchToConfiguredCloud', () {
         final handler = _makeHandler(
-          chain: ['whisper-tiny'], // no model after tiny
+          chain: ['whisper-small'], // no model after small
           hasCloud: true,
         );
 
         final decision = handler.attemptRecovery(
-          currentModelId: 'whisper-tiny',
+          currentModelId: 'whisper-small',
         );
 
         expect(decision, isA<SwitchToConfiguredCloud>());
@@ -130,10 +130,10 @@ void main() {
       });
 
       test('SwitchToConfiguredCloud does not increment attempt count', () {
-        final handler = _makeHandler(chain: ['whisper-tiny'], hasCloud: true);
+        final handler = _makeHandler(chain: ['whisper-small'], hasCloud: true);
 
         final before = handler.attemptCount;
-        handler.attemptRecovery(currentModelId: 'whisper-tiny');
+        handler.attemptRecovery(currentModelId: 'whisper-small');
         expect(handler.attemptCount, before); // count unchanged
       });
     });
@@ -142,10 +142,10 @@ void main() {
 
     group('GiveUp', () {
       test('no fallback, no cloud → GiveUp', () {
-        final handler = _makeHandler(chain: ['whisper-tiny'], hasCloud: false);
+        final handler = _makeHandler(chain: ['whisper-small'], hasCloud: false);
 
         final decision = handler.attemptRecovery(
-          currentModelId: 'whisper-tiny',
+          currentModelId: 'whisper-small',
         );
 
         expect(decision, isA<GiveUp>());
@@ -187,12 +187,7 @@ void main() {
     group('reset()', () {
       test('reset() clears attempt count so recovery restarts from zero', () {
         final handler = _makeHandler(
-          chain: [
-            'whisper-large-v3-turbo',
-            'whisper-medium',
-            'whisper-small',
-            'whisper-base',
-          ],
+          chain: ['whisper-large-v3-turbo', 'whisper-medium', 'whisper-small'],
           maxRetries: 2,
         );
 
@@ -207,7 +202,7 @@ void main() {
 
         // New OOM should yield TryNextModel again (not exhaust immediately).
         final decision = handler.attemptRecovery(
-          currentModelId: 'whisper-small',
+          currentModelId: 'whisper-large-v3-turbo',
         );
         expect(decision, isA<TryNextModel>());
       });
@@ -252,13 +247,12 @@ void main() {
 
     group('full chain traversal', () {
       test(
-        'traverses the full 3-step chain before falling through to GiveUp',
+        'traverses the full 2-step chain before falling through to GiveUp',
         () {
           final chain = [
             'whisper-large-v3-turbo',
             'whisper-medium',
             'whisper-small',
-            'whisper-tiny',
           ];
           final handler = _makeHandler(chain: chain, maxRetries: 10);
 
@@ -267,14 +261,12 @@ void main() {
             currentModelId: 'whisper-large-v3-turbo',
           );
           final d2 = handler.attemptRecovery(currentModelId: 'whisper-medium');
+          // Small is last in chain → no next model, no cloud.
           final d3 = handler.attemptRecovery(currentModelId: 'whisper-small');
-          // Tiny is last in chain → no next model, no cloud.
-          final d4 = handler.attemptRecovery(currentModelId: 'whisper-tiny');
 
           expect((d1 as TryNextModel).nextModelId, 'whisper-medium');
           expect((d2 as TryNextModel).nextModelId, 'whisper-small');
-          expect((d3 as TryNextModel).nextModelId, 'whisper-tiny');
-          expect(d4, isA<GiveUp>());
+          expect(d3, isA<GiveUp>());
         },
       );
     });

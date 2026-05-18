@@ -364,18 +364,6 @@ class L10nDe extends L10n {
   String get settingsServiceOnDevicePrivate => 'Lokal auf dem Gerät';
 
   @override
-  String get settingsQualityFastTiny => 'Schnell (Tiny)';
-
-  @override
-  String get settingsQualityBalancedSmall => 'Ausgewogen (Small)';
-
-  @override
-  String get settingsQualityHighQualityMedium => 'Hohe Qualität (Medium)';
-
-  @override
-  String get settingsQualityBestLarge => 'Beste Qualität (Large)';
-
-  @override
   String get settingsLanguageAutoDetect => 'Automatisch erkennen';
 
   @override
@@ -1265,28 +1253,6 @@ class L10nDe extends L10n {
   @override
   String get modelDeleteConfirmMessage =>
       'Die Modelldatei wird dauerhaft entfernt. Du kannst sie jederzeit erneut herunterladen.';
-
-  @override
-  String get modelSizeTiny => 'Schnelle Transkription für kurze Notizen';
-
-  @override
-  String get modelSizeBase =>
-      'Schnellere Verarbeitung, ordentliche Genauigkeit';
-
-  @override
-  String get modelSizeSmall =>
-      'Gute Balance aus Geschwindigkeit und Genauigkeit';
-
-  @override
-  String get modelSizeMedium =>
-      'Hervorragende Genauigkeit für die meisten Anwendungsfälle';
-
-  @override
-  String get modelSizeLargeTurbo =>
-      'Beste Genauigkeit mit optimierter Geschwindigkeit';
-
-  @override
-  String get modelSizeLarge => 'Maximale Genauigkeit, benötigt mehr Ressourcen';
 
   @override
   String get qualityTierCompactLabel => 'Schnell & Kompakt';

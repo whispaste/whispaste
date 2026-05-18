@@ -364,14 +364,14 @@ void main() {
       final notifier = c.read(oomRecoveryPendingProvider.notifier);
 
       notifier.showPending(
-        nextModelId: 'whisper-base',
+        nextModelId: 'whisper-small',
         hasCloudConfigured: true,
         isPermanentFail: false,
       );
 
       final pending = c.read(oomRecoveryPendingProvider);
       expect(pending.pending, isTrue);
-      expect(pending.nextModelId, 'whisper-base');
+      expect(pending.nextModelId, 'whisper-small');
       expect(pending.hasCloudConfigured, isTrue);
       expect(pending.isPermanentFail, isFalse);
 

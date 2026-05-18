@@ -57,7 +57,7 @@ void main() {
             timestamp: Value(now),
             durationSec: const Value(3.0),
             language: const Value('de'),
-            model: const Value('whisper-tiny'),
+            model: const Value('whisper-small'),
             isLocal: const Value(true),
             source: const Value('dictation'),
           ),

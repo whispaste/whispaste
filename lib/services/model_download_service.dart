@@ -53,28 +53,14 @@ class SttModelInfo {
   }
 }
 
-/// All available STT models (quantized, from HuggingFace whisper.cpp).
+/// All STT models the app exposes to the user (quantized, from HuggingFace
+/// whisper.cpp).
+///
+/// One entry per [QualityTier]: `whisper-small` (Compact), `whisper-medium`
+/// (Balanced), `whisper-large-v3-turbo` (Premium). Legacy IDs from earlier
+/// versions (`whisper-tiny`, `whisper-base`, `whisper-large-v3`) are
+/// rewritten on settings load by `_migrateModelId` in `settings_sections.dart`.
 const List<SttModelInfo> sttModels = [
-  SttModelInfo(
-    id: 'whisper-tiny',
-    label: 'Tiny',
-    filename: 'ggml-tiny-q5_1.bin',
-    sizeBytes: 32152673,
-    url:
-        'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny-q5_1.bin',
-    sha256: '818710568da3ca15689e31a743197b520007872ff9576237bda97bd1b469c3d7',
-    description: 'Fastest, lower accuracy',
-  ),
-  SttModelInfo(
-    id: 'whisper-base',
-    label: 'Base',
-    filename: 'ggml-base-q5_1.bin',
-    sizeBytes: 59700000,
-    url:
-        'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q5_1.bin',
-    sha256: '422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898',
-    description: 'Good balance of speed and accuracy',
-  ),
   SttModelInfo(
     id: 'whisper-small',
     label: 'Small',
@@ -104,16 +90,6 @@ const List<SttModelInfo> sttModels = [
         'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin',
     sha256: '394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2',
     description: 'Best speed/quality ratio for large models',
-  ),
-  SttModelInfo(
-    id: 'whisper-large-v3',
-    label: 'Large v3',
-    filename: 'ggml-large-v3-q5_0.bin',
-    sizeBytes: 1081140203,
-    url:
-        'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-q5_0.bin',
-    sha256: 'd75795ecff3f83b5faa89d1900604ad8c780abd5739fae406de19f23ecd98ad1',
-    description: 'Maximum accuracy, requires GPU',
   ),
 ];
 
@@ -148,17 +124,14 @@ enum TierPerformance {
   unmeasured,
 }
 
-/// Returns the ordered list of models belonging to [tier] (best first).
-///
-/// Order is explicit — the first entry in each tier is the recommended
-/// default returned by [bestModelForTier].
+/// Returns the model for [tier]. One model per tier — see [sttModels].
 List<SttModelInfo> modelsForTier(QualityTier tier) {
-  final ids = switch (tier) {
-    QualityTier.compact => ['whisper-small', 'whisper-base', 'whisper-tiny'],
-    QualityTier.balanced => ['whisper-medium'],
-    QualityTier.premium => ['whisper-large-v3-turbo', 'whisper-large-v3'],
+  final id = switch (tier) {
+    QualityTier.compact => 'whisper-small',
+    QualityTier.balanced => 'whisper-medium',
+    QualityTier.premium => 'whisper-large-v3-turbo',
   };
-  return ids.map((id) => sttModels.firstWhere((m) => m.id == id)).toList();
+  return [sttModels.firstWhere((m) => m.id == id)];
 }
 
 /// Returns the single best model for [tier].
