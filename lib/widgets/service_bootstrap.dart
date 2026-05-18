@@ -8,7 +8,8 @@ library;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../app.dart' show activePageProvider;
+import '../app.dart'
+    show activePageProvider, settingsScrollTargetProvider;
 import '../core/config/settings_provider.dart';
 import '../core/logging/ui_thread_watchdog.dart';
 import '../services/autostart_service.dart';
@@ -72,6 +73,17 @@ class _ServiceBootstrapState extends ConsumerState<ServiceBootstrapWidget> {
     };
     tray.onNavigate = (page) {
       ref.read(activePageProvider.notifier).setPage(page);
+    };
+    tray.onActionNeededTap = (key) {
+      // Currently the only action-needed item is the paste-failure entry
+      // — jump straight to the Auto-Paste settings so the user lands on
+      // the capability indicator + "Grant permission" buttons.
+      if (key == 'paste_action_needed') {
+        ref
+            .read(settingsScrollTargetProvider.notifier)
+            .set('afterTranscription');
+        ref.read(activePageProvider.notifier).setPage('settings');
+      }
     };
   }
 

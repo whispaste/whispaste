@@ -27,7 +27,10 @@ import 'recording/recording_state_machine.dart';
 import 'recording/safety_guard.dart';
 import 'review_prompt_service.dart';
 import 'sound_feedback_service.dart';
+import 'paste/paste_failure_notifier.dart';
 import 'paste/paster.dart';
+import 'system_attention_service.dart';
+import 'tray_service.dart';
 import 'recording_store.dart';
 import 'stt/stt_bundle.dart';
 import 'transcription/transcriber.dart';
@@ -1150,6 +1153,7 @@ class RecordingOrchestrator extends Notifier<void> {
     switch (outcome) {
       case PasteOutcome.success:
         _log.info('Pasted transcript (${transcript.length} chars)');
+        _clearPasteAttention();
         return true;
       case PasteOutcome.blocked:
         _log.info('Auto-paste blocked for current app (in blocklist)');
@@ -1157,10 +1161,85 @@ class RecordingOrchestrator extends Notifier<void> {
       case PasteOutcome.platformUnavailable:
         _log.warning('Desktop paste not available on this platform');
         return false;
+      case PasteOutcome.noTarget:
+        _log.warning(
+          'Paste failed: no target window — WhisPaste was likely '
+          'frontmost when recording started. Focus the destination app '
+          'first, then trigger recording.',
+        );
+        _reportPasteFailure(
+          outcome: PasteOutcome.noTarget,
+          kind: AttentionKind.pasteBlockedNoTarget,
+          title: 'WhisPaste: Auto-Einfügen übersprungen',
+          body:
+              'Keine Ziel-App erkannt. Fokussiere zuerst die Ziel-App, dann starte die Aufnahme. Der Text liegt in der Zwischenablage.',
+          trayLabel: 'Auto-Einfügen: Ziel-App fehlte',
+        );
+        return false;
+      case PasteOutcome.permissionMissing:
+        _log.warning(
+          'Paste failed: OS denied event injection. On macOS, grant '
+          'Accessibility permission in System Settings → Privacy & '
+          'Security → Accessibility.',
+        );
+        _reportPasteFailure(
+          outcome: PasteOutcome.permissionMissing,
+          kind: AttentionKind.pasteBlockedPermission,
+          title: 'WhisPaste: Auto-Einfügen blockiert',
+          body:
+              'Bedienungshilfen-Berechtigung fehlt. Klicke hier oder das Tray-Icon, um sie in den Systemeinstellungen zu erteilen.',
+          trayLabel: 'Auto-Einfügen blockiert — Berechtigung erteilen',
+        );
+        return false;
       case PasteOutcome.failed:
-        _log.warning('Paste failed');
+        _log.warning('Paste failed: native bridge reported an unknown error');
+        _reportPasteFailure(
+          outcome: PasteOutcome.failed,
+          kind: AttentionKind.pasteFailedUnknown,
+          title: 'WhisPaste: Auto-Einfügen fehlgeschlagen',
+          body:
+              'Das System hat den Einfüge-Vorgang abgelehnt. Der Text liegt in der Zwischenablage — füge ihn manuell mit ⌘V / Strg+V ein.',
+          trayLabel: 'Auto-Einfügen fehlgeschlagen',
+        );
         return false;
     }
+  }
+
+  void _reportPasteFailure({
+    required PasteOutcome outcome,
+    required AttentionKind kind,
+    required String title,
+    required String body,
+    required String trayLabel,
+  }) {
+    ref.read(pasteFailureNotifierProvider.notifier).report(outcome);
+
+    // Fire out-of-app surfaces (dock-bounce + native notification + tray
+    // badge) so the user sees the failure even when the main window is
+    // hidden — the common case for WhisPaste.
+    unawaited(
+      ref
+          .read(systemAttentionServiceProvider)
+          .requestAttention(kind: kind, title: title, body: body),
+    );
+    try {
+      ref
+          .read(trayServiceProvider.notifier)
+          .setActionNeeded(
+            label: trayLabel,
+            tooltip: 'WhisPaste — $trayLabel',
+            menuItemKey: 'paste_action_needed',
+          );
+    } on Exception catch (e) {
+      _log.warning('Tray action-needed update failed', e);
+    }
+  }
+
+  void _clearPasteAttention() {
+    unawaited(ref.read(systemAttentionServiceProvider).clearAttention());
+    try {
+      ref.read(trayServiceProvider.notifier).clearActionNeeded();
+    } on Exception catch (_) {}
   }
 }
 

@@ -38,6 +38,10 @@ bool FlutterWindow::OnCreate() {
   desktop_paste_host_ = std::make_unique<DesktopPasteHost>(
       flutter_controller_->engine(), GetHandle());
 
+  // Create the taskbar-flash attention host AFTER plugins are registered.
+  attention_host_ = std::make_unique<AttentionHost>(
+      flutter_controller_->engine(), GetHandle());
+
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
@@ -65,6 +69,10 @@ void FlutterWindow::OnDestroy() {
   if (desktop_paste_host_) {
     desktop_paste_host_->Destroy();
     desktop_paste_host_.reset();
+  }
+  if (attention_host_) {
+    attention_host_->Destroy();
+    attention_host_.reset();
   }
 
   if (flutter_controller_) {
