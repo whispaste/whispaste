@@ -14,6 +14,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
+import 'package:sentry_drift/sentry_drift.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import '../../services/path_service.dart' as paths;
 
@@ -1683,14 +1684,23 @@ class AnalyticsModelUsage {
 // Connection factory
 // ---------------------------------------------------------------------------
 
-LazyDatabase _openConnection() {
-  return LazyDatabase(() async {
+QueryExecutor _openConnection() {
+  // SentryQueryExecutor lazily opens the underlying NativeDatabase on first
+  // use and emits a child span per query when a transaction is sampled.
+  // Span volume is therefore gated by `tracesSampleRate` in
+  // app_monitoring.dart — with a low sample rate, the vast majority of
+  // queries are never traced and never count against the Free-Tier quota.
+  //
+  // Note: switch to `executor.interceptWith(SentryQueryInterceptor)` once
+  // sentry_flutter is bumped to ^9.x — the current API is deprecated in v9.
+  // ignore: deprecated_member_use, experimental_member_use
+  return SentryQueryExecutor(() async {
     final dir = Directory(paths.appDataDir());
     if (!dir.existsSync()) dir.createSync(recursive: true);
     await _migrateFromNestedPath(dir.path);
     final file = File(p.join(dir.path, 'history.db'));
     return NativeDatabase.createInBackground(file);
-  });
+  }, databaseName: 'history');
 }
 
 /// One-time migration: move history.db from the old double-nested
