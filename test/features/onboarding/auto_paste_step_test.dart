@@ -8,12 +8,14 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/features/onboarding/steps/auto_paste_step.dart';
+import 'package:whispaste/services/desktop_paste/desktop_paste_controller.dart';
 import 'package:whispaste/services/paste/paste_capability_notifier.dart';
 import 'package:whispaste/services/paste/paster.dart';
 
@@ -33,15 +35,33 @@ class _FakePasteCapabilityNotifier extends PasteCapabilityNotifier {
   _FakePasteCapabilityNotifier({
     PasteCapabilityState initial = const PasteCapabilityState(),
     PasteCapabilityState? afterCheck,
+    PasteCapabilityState? afterPromptCheck,
+    TccRepairResult? repairResult,
+    PasteCapabilityState? afterRepair,
   }) : _initial = initial,
-       _afterCheck = afterCheck ?? initial;
+       _afterCheck = afterCheck ?? initial,
+       _afterPromptCheck = afterPromptCheck,
+       _repairResult = repairResult,
+       _afterRepair = afterRepair;
 
   final PasteCapabilityState _initial;
   final PasteCapabilityState _afterCheck;
+  // Optional alternative state to apply when a prompted check runs — lets a
+  // test simulate the "user grants in OS dialog, capability flips to
+  // permissionMissing anyway (ad-hoc-signed bug)" sequence without coupling
+  // to the production notifier's internal hadFailedGrantAttempt accounting.
+  final PasteCapabilityState? _afterPromptCheck;
+  // Result returned from repair(). Tests that don't care about repair leave
+  // this null and the call is treated as unsupported.
+  final TccRepairResult? _repairResult;
+  // Optional state to apply right after a repair() completes — simulates a
+  // post-repair re-check or follow-up grant flow updating the notifier.
+  final PasteCapabilityState? _afterRepair;
 
   final List<bool> checkCalls = <bool>[];
   int startPollingCalls = 0;
   int stopPollingCalls = 0;
+  int repairCalls = 0;
   Duration? lastPollInterval;
   Duration? lastPollTimeout;
   bool _isPollingFake = false;
@@ -58,7 +78,7 @@ class _FakePasteCapabilityNotifier extends PasteCapabilityNotifier {
   @override
   Future<void> check({bool prompt = false}) async {
     checkCalls.add(prompt);
-    state = _afterCheck;
+    state = prompt ? (_afterPromptCheck ?? _afterCheck) : _afterCheck;
   }
 
   @override
@@ -76,6 +96,13 @@ class _FakePasteCapabilityNotifier extends PasteCapabilityNotifier {
   void stopPolling() {
     stopPollingCalls++;
     _isPollingFake = false;
+  }
+
+  @override
+  Future<TccRepairResult> repair() async {
+    repairCalls++;
+    if (_afterRepair != null) state = _afterRepair;
+    return _repairResult ?? TccRepairResult.unsupported();
   }
 }
 
@@ -127,6 +154,24 @@ _pumpStep(
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  // Stub the `url_launcher` platform channel so the Grant flow's
+  // deep-link into System Settings does not hang the test on a missing
+  // platform implementation.
+  const launcherChannel = MethodChannel('plugins.flutter.io/url_launcher');
+  setUp(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(launcherChannel, (call) async {
+          // Both v6 (`launch`) and v7+ (`canLaunch`/`launch`) shapes return a
+          // bool — answering true is enough to make the future resolve.
+          return true;
+        });
+  });
+
+  tearDown(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(launcherChannel, null);
+  });
 
   group('AutoPasteStep', () {
     testWidgets(
@@ -234,6 +279,187 @@ void main() {
           settings.updates.single.afterTranscriptionSection.afterTranscription,
           'clipboard',
         );
+      },
+    );
+
+    testWidgets(
+      'pre-grant + no failed prompt yet: Repair button is NOT visible',
+      (tester) async {
+        final paste = _FakePasteCapabilityNotifier(
+          initial: const PasteCapabilityState(
+            capability: PasteCapability(
+              status: PasteCapabilityStatus.permissionMissing,
+              canPrompt: true,
+            ),
+          ),
+        );
+
+        await _pumpStep(tester, paste: paste);
+
+        expect(
+          find.text('Repair permissions'),
+          findsNothing,
+          reason:
+              'Repair button is lazy — it must only appear after a prompted '
+              'grant attempt has failed (hadFailedGrantAttempt == true).',
+        );
+      },
+    );
+
+    testWidgets(
+      'macOS post-grant-fail: Repair button appears after a prompted check '
+      'still returns permissionMissing',
+      (tester) async {
+        final paste = _FakePasteCapabilityNotifier(
+          initial: const PasteCapabilityState(
+            capability: PasteCapability(
+              status: PasteCapabilityStatus.permissionMissing,
+              canPrompt: true,
+            ),
+          ),
+          // After the user clicks Grant, the simulated prompted check comes
+          // back as permissionMissing AND hadFailedGrantAttempt flips to
+          // true — the canonical ad-hoc-signed-Sequoia symptom.
+          afterPromptCheck: const PasteCapabilityState(
+            capability: PasteCapability(
+              status: PasteCapabilityStatus.permissionMissing,
+              canPrompt: true,
+            ),
+            hadFailedGrantAttempt: true,
+          ),
+        );
+
+        await _pumpStep(tester, paste: paste);
+
+        // Repair must NOT be present before the failed grant attempt.
+        expect(find.text('Repair permissions'), findsNothing);
+
+        // Simulate user clicking Grant → notifier.check(prompt: true) runs.
+        // Use sequential pump() instead of pumpAndSettle(): once polling
+        // starts the in-status spinner animates forever, which would keep
+        // pumpAndSettle from ever resolving.
+        await tester.tap(find.text('Grant Accessibility permission'));
+        await tester.pump();
+        await tester.pump();
+
+        // Now the repair button should be reachable.
+        expect(find.text('Repair permissions'), findsOneWidget);
+      },
+    );
+
+    testWidgets('repair click triggers notifier.repair() exactly once', (
+      tester,
+    ) async {
+      final paste = _FakePasteCapabilityNotifier(
+        initial: const PasteCapabilityState(
+          capability: PasteCapability(
+            status: PasteCapabilityStatus.permissionMissing,
+            canPrompt: true,
+          ),
+          hadFailedGrantAttempt: true,
+        ),
+        repairResult: const TccRepairResult(
+          accessibilityCleared: 1,
+          appleEventsCleared: 0,
+        ),
+      );
+
+      await _pumpStep(tester, paste: paste);
+
+      // Repair is immediately visible because the seeded state already has
+      // hadFailedGrantAttempt = true. Use sequential pump() to flush the
+      // setState frames without blocking on the polling spinner that the
+      // follow-on grant flow activates.
+      await tester.tap(find.text('Repair permissions'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(paste.repairCalls, 1);
+    });
+
+    testWidgets('successful repair triggers the follow-on grant flow '
+        '(prompted check + polling start)', (tester) async {
+      final paste = _FakePasteCapabilityNotifier(
+        initial: const PasteCapabilityState(
+          capability: PasteCapability(
+            status: PasteCapabilityStatus.permissionMissing,
+            canPrompt: true,
+          ),
+          hadFailedGrantAttempt: true,
+        ),
+        repairResult: const TccRepairResult(
+          accessibilityCleared: 1,
+          appleEventsCleared: 0,
+        ),
+      );
+
+      await _pumpStep(tester, paste: paste);
+
+      // Baseline: no prompted check or polling has been issued yet.
+      expect(paste.checkCalls.any((p) => p == true), isFalse);
+      expect(paste.startPollingCalls, 0);
+
+      await tester.tap(find.text('Repair permissions'));
+      // Drain the async chain: repair() → setState → _onGrantPressed →
+      // check(prompt:true) → startPolling. Sequential pumps flush each
+      // step's microtasks without waiting for the polling spinner to
+      // settle (it animates forever and would deadlock pumpAndSettle).
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+
+      // The follow-on grant flow must run after a successful repair —
+      // either directly or via a labelled CTA. We assert the direct path
+      // since that gives the smoothest UX: one prompted check + polling.
+      expect(
+        paste.checkCalls.where((p) => p == true).length,
+        greaterThanOrEqualTo(1),
+        reason:
+            'Successful repair must trigger a follow-up check(prompt: true)',
+      );
+      expect(
+        paste.startPollingCalls,
+        greaterThanOrEqualTo(1),
+        reason: 'Successful repair must restart capability polling',
+      );
+    });
+
+    testWidgets(
+      'failed repair surfaces an inline error and keeps the step usable '
+      '(no advance, repair stays clickable)',
+      (tester) async {
+        final paste = _FakePasteCapabilityNotifier(
+          initial: const PasteCapabilityState(
+            capability: PasteCapability(
+              status: PasteCapabilityStatus.permissionMissing,
+              canPrompt: true,
+            ),
+            hadFailedGrantAttempt: true,
+          ),
+          repairResult: const TccRepairResult(
+            accessibilityCleared: -1,
+            appleEventsCleared: -1,
+            error: 'tccutil_failed',
+          ),
+        );
+        var nextCalled = false;
+
+        await _pumpStep(tester, paste: paste, onNext: () => nextCalled = true);
+
+        await tester.tap(find.text('Repair permissions'));
+        await tester.pumpAndSettle();
+
+        // Inline failure copy is visible — we reuse the existing
+        // `pasteCapabilityRepairFailed` string from the settings indicator.
+        expect(
+          find.textContaining('Could not run the macOS permission reset'),
+          findsOneWidget,
+        );
+
+        // Step stays in current state: no auto-advance, Repair still
+        // reachable for the user to retry.
+        expect(nextCalled, isFalse);
+        expect(find.text('Repair permissions'), findsOneWidget);
       },
     );
 

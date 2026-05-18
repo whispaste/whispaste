@@ -33,6 +33,7 @@ import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../services/desktop_paste/desktop_paste_controller.dart';
 import '../../../services/paste/paste_capability_notifier.dart';
 import '../../../services/paste/paster.dart';
 import '../../../widgets/wp_accent_button.dart';
@@ -53,6 +54,15 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
   /// Cached notifier reference so [dispose] can stop polling without
   /// touching `ref` — Riverpod forbids `ref` access after deactivation.
   PasteCapabilityNotifier? _cachedNotifier;
+
+  /// Latest TCC repair attempt outcome, if any. Drives the inline banner
+  /// that confirms a successful self-heal or surfaces an error so the user
+  /// can retry. `null` means "no repair has run yet in this step".
+  TccRepairResult? _lastRepairResult;
+
+  /// Guard against double-tapping the repair button while the native call
+  /// is still resolving. Re-enables once the result is bound to state.
+  bool _repairInFlight = false;
 
   @override
   void initState() {
@@ -93,11 +103,52 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
     // own one-shot dialog. Then deep-link to the Accessibility pane so the
     // user sees the toggle row even if the OS dialog was suppressed.
     await notifier.check(prompt: true);
-    await _openAccessibilitySettings();
+    // Arm polling BEFORE awaiting the settings launch — we want the poller
+    // running the moment the user flips the toggle in System Settings, not
+    // after the deep-link future resolves (which can stall on slow Settings
+    // launches and in test environments where the channel isn't wired).
     notifier.startPolling(
       interval: const Duration(seconds: 1),
       timeout: const Duration(seconds: 30),
     );
+    await _openAccessibilitySettings();
+  }
+
+  /// Runs the macOS TCC self-heal and — on success — chains into a fresh
+  /// grant attempt so the user lands in the working sequence without having
+  /// to click a second button. On failure the result is kept in
+  /// [_lastRepairResult] so the inline banner can surface the error and let
+  /// the user retry or skip.
+  Future<void> _onRepairPressed() async {
+    if (_repairInFlight) return;
+    setState(() {
+      _repairInFlight = true;
+      _lastRepairResult = null;
+    });
+    final notifier = ref.read(pasteCapabilityNotifierProvider.notifier);
+    TccRepairResult result;
+    try {
+      result = await notifier.repair();
+    } on Exception catch (e, st) {
+      _log.warning('Repair call threw', e, st);
+      result = const TccRepairResult(
+        accessibilityCleared: -1,
+        appleEventsCleared: -1,
+        error: 'exception',
+      );
+    }
+    if (!mounted) return;
+    setState(() {
+      _lastRepairResult = result;
+      _repairInFlight = false;
+    });
+    // On success: smoothly chain into a second grant attempt so the user
+    // ends up in the working flow without having to click "Grant" again.
+    // The result still shows in the banner so they understand what just
+    // happened ("Cleared N stale entries — now retrying permission").
+    if (result.isSupported) {
+      await _onGrantPressed();
+    }
   }
 
   Future<void> _onSkipPressed() async {
@@ -123,6 +174,15 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
     _cachedNotifier = notifier;
     final cap = state.capability;
     final isReady = cap?.status == PasteCapabilityStatus.ready;
+
+    // Lazy reveal: Repair only makes sense once the user has tried to grant
+    // permission AND the OS still reports it as missing — the classic
+    // ad-hoc-signed-Sequoia stale-TCC symptom. Before that, the button is
+    // pure noise.
+    final showRepair =
+        Platform.isMacOS &&
+        state.hadFailedGrantAttempt &&
+        cap?.status == PasteCapabilityStatus.permissionMissing;
 
     final textPrimary = isDark
         ? WpColorsDark.textPrimary
@@ -187,6 +247,21 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 12, color: textMuted, height: 1.4),
           ),
+          // -- Lazy Repair -- only after a prompted grant attempt failed ----
+          if (showRepair) ...[
+            const SizedBox(height: WpSpacing.md),
+            _RepairPanel(
+              busy: _repairInFlight,
+              lastResult: _lastRepairResult,
+              onRepair: _repairInFlight ? null : _onRepairPressed,
+              isDark: isDark,
+              textSecondary: textSecondary,
+              textMuted: textMuted,
+              errorColor: errorColor,
+              successColor: successColor,
+              l10n: l10n,
+            ),
+          ],
           const SizedBox(height: WpSpacing.sm),
           // Skip — sets afterTranscription=clipboard and advances.
           TextButton(
@@ -318,5 +393,129 @@ class _PermissionStatusCard extends StatelessWidget {
         l10n.pasteCapabilityUnsupported,
       ),
     };
+  }
+}
+
+/// Lazy self-heal panel: surfaces the TCC repair button plus a contextual
+/// banner explaining why it might help, and renders the post-call outcome
+/// inline (success count / error copy) so the user never has to chase a
+/// disappearing snackbar to understand what happened.
+class _RepairPanel extends StatelessWidget {
+  const _RepairPanel({
+    required this.busy,
+    required this.lastResult,
+    required this.onRepair,
+    required this.isDark,
+    required this.textSecondary,
+    required this.textMuted,
+    required this.errorColor,
+    required this.successColor,
+    required this.l10n,
+  });
+
+  final bool busy;
+  final TccRepairResult? lastResult;
+  final VoidCallback? onRepair;
+  final bool isDark;
+  final Color textSecondary;
+  final Color textMuted;
+  final Color errorColor;
+  final Color successColor;
+  final L10n l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    final surface =
+        (isDark ? WpColorsDark.surfaceVariant : WpColorsLight.surfaceVariant)
+            .withValues(alpha: 0.5);
+    final border = isDark
+        ? WpColorsDark.borderSubtle
+        : WpColorsLight.borderSubtle;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(WpSpacing.md),
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: WpRadius.borderMd,
+        border: Border.all(color: border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            l10n.pasteCapabilityRepairHint,
+            style: TextStyle(fontSize: 12, color: textMuted, height: 1.4),
+          ),
+          const SizedBox(height: WpSpacing.sm),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: onRepair,
+              icon: busy
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(LucideIcons.wrench, size: 14),
+              label: Text(l10n.pasteCapabilityRepairButton),
+            ),
+          ),
+          if (lastResult != null) ...[
+            const SizedBox(height: WpSpacing.sm),
+            _RepairResultBanner(
+              result: lastResult!,
+              errorColor: errorColor,
+              successColor: successColor,
+              textSecondary: textSecondary,
+              l10n: l10n,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _RepairResultBanner extends StatelessWidget {
+  const _RepairResultBanner({
+    required this.result,
+    required this.errorColor,
+    required this.successColor,
+    required this.textSecondary,
+    required this.l10n,
+  });
+
+  final TccRepairResult result;
+  final Color errorColor;
+  final Color successColor;
+  final Color textSecondary;
+  final L10n l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    final ok = result.isSupported;
+    final color = ok ? successColor : errorColor;
+    final icon = ok ? LucideIcons.circleCheck : LucideIcons.circleAlert;
+    final message = ok
+        ? l10n.pasteCapabilityRepairDone(
+            result.accessibilityCleared.clamp(0, 999) +
+                result.appleEventsCleared.clamp(0, 999),
+          )
+        : l10n.pasteCapabilityRepairFailed;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 16, color: color),
+        const SizedBox(width: WpSpacing.xs),
+        Expanded(
+          child: Text(
+            message,
+            style: TextStyle(fontSize: 12, color: textSecondary, height: 1.4),
+          ),
+        ),
+      ],
+    );
   }
 }
