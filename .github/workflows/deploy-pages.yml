@@ -46,6 +46,11 @@ jobs:
         uses: withastro/action@v6
         with:
           path: website
+        env:
+          # Aktiviert den Source-Maps-Upload des @sentry/astro-Plugins.
+          # Ohne diese Variable überspringt der Plugin den Upload mit Warnung,
+          # der Build selbst läuft trotzdem durch (siehe sentry-vite-plugin).
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
   deploy:
     needs: build
