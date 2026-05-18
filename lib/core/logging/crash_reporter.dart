@@ -277,6 +277,7 @@ class CrashReporter {
   /// sampling. Consent gate is honoured, identical to [beforeSend].
   static SentryTransaction? beforeSendTransaction(
     SentryTransaction transaction,
+    Hint hint,
   ) {
     if (_instance != null && !_instance!._consentGranted) return null;
 

@@ -44,9 +44,9 @@ dependencies:
   dio: ^5.7.0
 
   # Crash reporting
-  sentry_flutter: ^8.14.2
-  sentry_dio: ^8.14.2     # HTTP-Spans für Dio-Clients
-  sentry_drift: ^8.14.2   # DB-Query-Spans für Drift
+  sentry_flutter: ^9.20.0
+  sentry_dio: ^9.20.0     # HTTP-Spans für Dio-Clients
+  sentry_drift: ^9.20.0   # DB-Query-Spans für Drift
 
   # Path utilities
   path_provider: ^2.1.5
