@@ -1,7 +1,7 @@
 name: whispaste
 description: "Cross-platform dictation — hotkey, speak, paste anywhere."
 publish_to: 'none'
-version: 1.2.15+1
+version: 1.2.16+1
 
 environment:
   sdk: ^3.11.0
@@ -109,7 +109,7 @@ msix_config:
   publisher_display_name: silvio_lindstedt
   identity_name: 12342SilvioLindstedt.WhisPaste
   publisher: CN=F08EEF05-5870-4208-B156-E597A1AB80B0
-  msix_version: 1.2.15.0
+  msix_version: 1.2.16.0
   store: true
   logo_path: assets/icons/app_icon.png
   capabilities: microphone, internetClient
