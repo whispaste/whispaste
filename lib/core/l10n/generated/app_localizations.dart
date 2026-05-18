@@ -861,6 +861,132 @@ abstract class L10n {
   /// **'Do Nothing'**
   String get settingsAfterTranscriptionNothing;
 
+  /// No description provided for @pasteFailurePermissionMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-Paste was blocked by the OS. WhisPaste needs the Accessibility permission to paste into other apps.'**
+  String get pasteFailurePermissionMissing;
+
+  /// No description provided for @pasteFailureNoTarget.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-Paste skipped — no target window was captured. Focus the destination app before triggering a recording.'**
+  String get pasteFailureNoTarget;
+
+  /// No description provided for @pasteFailureGeneric.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-Paste failed. The transcript is on the clipboard — paste it manually with ⌘V / Ctrl+V.'**
+  String get pasteFailureGeneric;
+
+  /// No description provided for @pasteFailureOpenSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Settings'**
+  String get pasteFailureOpenSettings;
+
+  /// No description provided for @pasteCapabilityCheckTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Check Auto-Paste setup'**
+  String get pasteCapabilityCheckTitle;
+
+  /// No description provided for @pasteCapabilityReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready to paste'**
+  String get pasteCapabilityReady;
+
+  /// No description provided for @pasteCapabilityPermissionMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'Accessibility permission not granted'**
+  String get pasteCapabilityPermissionMissing;
+
+  /// No description provided for @pasteCapabilityUnsupported.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-Paste is not available on this platform'**
+  String get pasteCapabilityUnsupported;
+
+  /// No description provided for @pasteCapabilityTestButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Test now'**
+  String get pasteCapabilityTestButton;
+
+  /// No description provided for @pasteCapabilityGrantButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Grant permission'**
+  String get pasteCapabilityGrantButton;
+
+  /// No description provided for @pasteCapabilityRepairHint.
+  ///
+  /// In en, this message translates to:
+  /// **'If the toggle in System Settings is on but this still fails, click \'Repair\' below — it clears any stale macOS permission entries for WhisPaste so the next paste triggers fresh prompts.'**
+  String get pasteCapabilityRepairHint;
+
+  /// No description provided for @pasteCapabilityRepairButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Repair permissions'**
+  String get pasteCapabilityRepairButton;
+
+  /// No description provided for @pasteCapabilityRepairDone.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{No stale entries found — try paste once.}=1{Cleared 1 stale entry. Try paste once to see a fresh prompt.}other{Cleared {count} stale entries. Try paste once to see fresh prompts.}}'**
+  String pasteCapabilityRepairDone(int count);
+
+  /// No description provided for @pasteCapabilityRepairFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not run the macOS permission reset. Try removing WhisPaste from System Settings → Accessibility manually.'**
+  String get pasteCapabilityRepairFailed;
+
+  /// No description provided for @onboardingPasteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-Paste setup'**
+  String get onboardingPasteTitle;
+
+  /// No description provided for @onboardingPasteSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'WhisPaste needs one extra permission to paste transcripts into other apps.'**
+  String get onboardingPasteSubtitle;
+
+  /// No description provided for @onboardingPasteGrantCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Grant Accessibility permission'**
+  String get onboardingPasteGrantCta;
+
+  /// No description provided for @onboardingPasteVerifyCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Verify'**
+  String get onboardingPasteVerifyCta;
+
+  /// No description provided for @onboardingPasteSkip.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip — copy only'**
+  String get onboardingPasteSkip;
+
+  /// No description provided for @onboardingPasteWhyMac.
+  ///
+  /// In en, this message translates to:
+  /// **'macOS requires explicit permission for any app that injects keystrokes into other apps. Without it, your transcript still copies to the clipboard, but ⌘V won\'t fire automatically.'**
+  String get onboardingPasteWhyMac;
+
+  /// No description provided for @onboardingPasteWhyWin.
+  ///
+  /// In en, this message translates to:
+  /// **'Windows allows keystroke injection without an extra permission. This step just verifies the bridge works on your machine.'**
+  String get onboardingPasteWhyWin;
+
   /// No description provided for @settingsOverlayFloatingButton.
   ///
   /// In en, this message translates to:

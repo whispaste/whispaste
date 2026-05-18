@@ -6,6 +6,7 @@
 
 #include <memory>
 
+#include "attention_host.h"
 #include "desktop_paste_host.h"
 #include "floating_button_host.h"
 #include "floating_overlay_host.h"
@@ -40,6 +41,11 @@ class FlutterWindow : public Win32Window {
 
   // Native desktop paste bridge (runner-owned, destroyed before engine teardown).
   std::unique_ptr<DesktopPasteHost> desktop_paste_host_;
+
+  // Taskbar-flash attention bridge for cross-platform parity with the
+  // macOS Dock-bounce request — used to surface action items when the
+  // main window is hidden.
+  std::unique_ptr<AttentionHost> attention_host_;
 };
 
 #endif  // RUNNER_FLUTTER_WINDOW_H_

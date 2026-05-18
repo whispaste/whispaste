@@ -8,7 +8,12 @@ class _FakeController implements DesktopPasteController {
   int captureCalls = 0;
   int pasteCalls = 0;
   Duration? lastDelay;
-  bool pasteResult = true;
+  NativePasteResult pasteResult = const NativePasteResult(
+    status: NativePasteStatus.success,
+  );
+  NativeCapabilityResult capabilityResult = const NativeCapabilityResult(
+    status: NativeCapabilityStatus.ready,
+  );
   String? bundleIdToReturn;
 
   @override
@@ -21,11 +26,20 @@ class _FakeController implements DesktopPasteController {
   Future<String?> getTargetBundleId() async => bundleIdToReturn;
 
   @override
-  Future<bool> pasteClipboard({required Duration delay}) async {
+  Future<NativePasteResult> pasteClipboard({required Duration delay}) async {
     pasteCalls++;
     lastDelay = delay;
     return pasteResult;
   }
+
+  @override
+  Future<NativeCapabilityResult> checkCapability({
+    bool promptIfMissing = false,
+  }) async => capabilityResult;
+
+  @override
+  Future<TccRepairResult> repairTccEntries() async =>
+      TccRepairResult.unsupported();
 
   @override
   Future<void> dispose() async {}
@@ -148,8 +162,11 @@ void main() {
       expect(controller.captureCalls, 1);
     });
 
-    test('returns failed when pasteClipboard returns false', () async {
-      final controller = _FakeController()..pasteResult = false;
+    test('returns failed when pasteClipboard returns unknown error', () async {
+      final controller = _FakeController()
+        ..pasteResult = const NativePasteResult(
+          status: NativePasteStatus.postFailed,
+        );
       final paster = DesktopPaster(controller);
 
       final outcome = await paster.paste(
@@ -158,6 +175,54 @@ void main() {
       );
 
       expect(outcome, PasteOutcome.failed);
+    });
+
+    test(
+      'returns permissionMissing when native reports no accessibility',
+      () async {
+        final controller = _FakeController()
+          ..pasteResult = const NativePasteResult(
+            status: NativePasteStatus.permissionMissing,
+            detail: 'AXIsProcessTrusted=false',
+          );
+        final paster = DesktopPaster(controller);
+
+        final outcome = await paster.paste(
+          'hello',
+          const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
+        );
+
+        expect(outcome, PasteOutcome.permissionMissing);
+      },
+    );
+
+    test('returns noTarget when native reports no captured target', () async {
+      final controller = _FakeController()
+        ..pasteResult = const NativePasteResult(
+          status: NativePasteStatus.noTarget,
+        );
+      final paster = DesktopPaster(controller);
+
+      final outcome = await paster.paste(
+        'hello',
+        const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
+      );
+
+      expect(outcome, PasteOutcome.noTarget);
+    });
+
+    test('checkCapability forwards native readiness result', () async {
+      final controller = _FakeController()
+        ..capabilityResult = const NativeCapabilityResult(
+          status: NativeCapabilityStatus.permissionMissing,
+          canPrompt: true,
+        );
+      final paster = DesktopPaster(controller);
+
+      final cap = await paster.checkCapability();
+
+      expect(cap.status, PasteCapabilityStatus.permissionMissing);
+      expect(cap.canPrompt, isTrue);
     });
   });
 }

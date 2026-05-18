@@ -23,6 +23,16 @@ int GetInt(const EncodableMap& map, const std::string& key, int fallback = 0) {
   return fallback;
 }
 
+EncodableValue MakeResultMap(const std::string& status,
+                             const std::string& detail) {
+  EncodableMap map;
+  map[EncodableValue("status")] = EncodableValue(status);
+  if (!detail.empty()) {
+    map[EncodableValue("detail")] = EncodableValue(detail);
+  }
+  return EncodableValue(std::move(map));
+}
+
 }  // namespace
 
 DesktopPasteHost::DesktopPasteHost(flutter::FlutterEngine* engine, HWND owner)
@@ -70,7 +80,20 @@ void DesktopPasteHost::HandleMethodCall(
 
   if (method == "pasteClipboard") {
     const int delay_ms = map ? GetInt(*map, "delayMs", 0) : 0;
-    result->Success(EncodableValue(PasteClipboard(delay_ms)));
+    result->Success(PasteClipboard(delay_ms));
+    return;
+  }
+
+  if (method == "checkCapability") {
+    // Windows has no equivalent of macOS Accessibility for SendInput from
+    // a non-elevated process — as long as we have a foreground window
+    // we can target, paste will work. UIPI restrictions only matter if
+    // the target is an elevated process; we report "ready" optimistically
+    // and let any actual failures surface via pasteClipboard.
+    EncodableMap response;
+    response[EncodableValue("status")] = EncodableValue("ready");
+    response[EncodableValue("canPrompt")] = EncodableValue(false);
+    result->Success(EncodableValue(std::move(response)));
     return;
   }
 
@@ -101,9 +124,9 @@ bool DesktopPasteHost::CaptureTargetWindow() {
   return true;
 }
 
-bool DesktopPasteHost::PasteClipboard(int delay_ms) {
+EncodableValue DesktopPasteHost::PasteClipboard(int delay_ms) {
   if (!target_window_ || !::IsWindow(target_window_)) {
-    return false;
+    return MakeResultMap("no_target", "no captured target window at paste time");
   }
 
   if (delay_ms > 0) {
@@ -111,11 +134,17 @@ bool DesktopPasteHost::PasteClipboard(int delay_ms) {
   }
 
   if (!BringTargetToForeground()) {
-    return false;
+    return MakeResultMap(
+        "foreground_blocked",
+        "SetForegroundWindow refused — UIPI or stale window handle");
   }
 
   std::this_thread::sleep_for(std::chrono::milliseconds(50));
-  return SendPasteShortcut();
+  if (!SendPasteShortcut()) {
+    return MakeResultMap("send_input_failed",
+                         "SendInput did not inject all 4 key events");
+  }
+  return MakeResultMap("success", "");
 }
 
 bool DesktopPasteHost::BringTargetToForeground() const {

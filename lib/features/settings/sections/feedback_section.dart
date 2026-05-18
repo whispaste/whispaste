@@ -14,6 +14,7 @@ import '../../../core/theme/tokens.dart';
 import '../../../services/hotkey_service.dart';
 import '../../../services/sound_feedback_service.dart';
 import '../../../widgets/hotkey_recorder.dart';
+import '../../../widgets/paste_capability_indicator.dart';
 import '../../../widgets/section.dart';
 import '../settings_widgets.dart';
 
@@ -291,6 +292,14 @@ class AfterTranscriptionSection extends ConsumerWidget {
               settings.afterTranscriptionAction ==
                   AfterTranscriptionAction.clipboardAndPaste)
             _AutoPasteBlocklistField(settings: settings, ref: ref),
+          if (settings.afterTranscriptionAction ==
+                  AfterTranscriptionAction.paste ||
+              settings.afterTranscriptionAction ==
+                  AfterTranscriptionAction.clipboardAndPaste)
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
+              child: PasteCapabilityIndicator(),
+            ),
         ],
       ),
     );

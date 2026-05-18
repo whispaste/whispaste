@@ -71,6 +71,27 @@ class AppDelegate: FlutterAppDelegate {
         return
       }
       result(nil)
+
+    case "requestUserAttention":
+      // Critical request → dock icon bounces until user activates the app.
+      // Informational request → bounces once. We always use critical for
+      // paste failures so the bounce keeps going until the user notices,
+      // matching the persistent nature of the underlying issue (the user
+      // has a TODO that won't go away on its own).
+      let level = (call.arguments as? [String: Any])?["level"] as? String ?? "critical"
+      let req: NSApplication.RequestUserAttentionType =
+        level == "informational" ? .informationalRequest : .criticalRequest
+      let token = NSApp.requestUserAttention(req)
+      // Returning the token allows Dart to cancel the bounce later via
+      // `cancelUserAttentionRequest:` once the issue is resolved.
+      result(token)
+
+    case "cancelUserAttentionRequest":
+      if let token = (call.arguments as? [String: Any])?["token"] as? Int {
+        NSApp.cancelUserAttentionRequest(token)
+      }
+      result(nil)
+
     default:
       result(FlutterMethodNotImplemented)
     }

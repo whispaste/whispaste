@@ -146,10 +146,19 @@ class _FakeDesktopPasteController extends DesktopPasteController {
   Future<bool> capturePasteTarget() async => true;
 
   @override
-  Future<bool> pasteClipboard({required Duration delay}) async {
+  Future<NativePasteResult> pasteClipboard({required Duration delay}) async {
     if (pasteThrows) throw Exception('paste failed');
-    return true;
+    return const NativePasteResult(status: NativePasteStatus.success);
   }
+
+  @override
+  Future<NativeCapabilityResult> checkCapability({
+    bool promptIfMissing = false,
+  }) async => const NativeCapabilityResult(status: NativeCapabilityStatus.ready);
+
+  @override
+  Future<TccRepairResult> repairTccEntries() async =>
+      TccRepairResult.unsupported();
 
   @override
   Future<String?> getTargetBundleId() async => null;
