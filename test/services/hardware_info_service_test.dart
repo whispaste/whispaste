@@ -424,7 +424,7 @@ void main() {
 
     test('preserves non-binary files (models, configs)', () async {
       File(p.join(tmpDir.path, 'whisper-server.exe')).createSync();
-      File(p.join(tmpDir.path, 'ggml-base.bin')).createSync();
+      File(p.join(tmpDir.path, 'ggml-small.bin')).createSync();
       File(
         p.join(tmpDir.path, 'config.json'),
       ).writeAsStringSync('{"key":"val"}');
@@ -436,7 +436,7 @@ void main() {
         isFalse,
       );
       // Non-binary files must survive.
-      expect(File(p.join(tmpDir.path, 'ggml-base.bin')).existsSync(), isTrue);
+      expect(File(p.join(tmpDir.path, 'ggml-small.bin')).existsSync(), isTrue);
       expect(File(p.join(tmpDir.path, 'config.json')).existsSync(), isTrue);
     });
 

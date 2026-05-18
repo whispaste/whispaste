@@ -110,7 +110,7 @@ void main() {
       // Record a stat (should not crash)
       await db.recordDailyStat(
         timestamp: DateTime(2026, 4, 14),
-        model: 'whisper-large-v3',
+        model: 'whisper-large-v3-turbo',
         isLocal: true,
         durationSec: 45.0,
         processingDurationSec: 2.5,
@@ -121,7 +121,7 @@ void main() {
       // Verify it was recorded
       final stats = await db.select(db.dailyStats).get();
       expect(stats.length, 1);
-      expect(stats.first.model, 'whisper-large-v3');
+      expect(stats.first.model, 'whisper-large-v3-turbo');
       expect(stats.first.dur30To60s, 1); // 45s falls into 30-60s bucket
       expect(stats.first.durUnder15s, 0);
       expect(stats.first.dur15To30s, 0);
@@ -187,7 +187,7 @@ void main() {
         // (simulating what backfillDailyStats does)
         await db.recordDailyStat(
           timestamp: DateTime(2026, 4, 14),
-          model: 'whisper-base',
+          model: 'whisper-small',
           isLocal: true,
           durationSec: 25.0, // Falls into 15-30s bucket (< 30)
           processingDurationSec: 1.5,
@@ -199,7 +199,7 @@ void main() {
         final stats = await db.select(db.dailyStats).get();
         expect(stats.length, 1);
         expect(stats.first.count, 1);
-        expect(stats.first.model, 'whisper-base');
+        expect(stats.first.model, 'whisper-small');
         expect(stats.first.dur15To30s, 1); // 25s falls into 15-30s bucket
         expect(stats.first.durUnder15s, 0);
         expect(stats.first.dur30To60s, 0);
@@ -268,7 +268,7 @@ void main() {
       // Record multiple stats for the same day/model/isLocal
       await db.recordDailyStat(
         timestamp: DateTime(2026, 4, 14),
-        model: 'whisper-large-v3',
+        model: 'whisper-large-v3-turbo',
         isLocal: true,
         durationSec: 10.0, // < 15s
         processingDurationSec: 1.0,
@@ -278,7 +278,7 @@ void main() {
 
       await db.recordDailyStat(
         timestamp: DateTime(2026, 4, 14),
-        model: 'whisper-large-v3',
+        model: 'whisper-large-v3-turbo',
         isLocal: true,
         durationSec: 25.0, // 15-30s
         processingDurationSec: 1.0,
@@ -288,7 +288,7 @@ void main() {
 
       await db.recordDailyStat(
         timestamp: DateTime(2026, 4, 14),
-        model: 'whisper-large-v3',
+        model: 'whisper-large-v3-turbo',
         isLocal: true,
         durationSec: 10.0, // < 15s again
         processingDurationSec: 1.0,

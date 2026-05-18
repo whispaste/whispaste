@@ -175,6 +175,119 @@ void main() {
       }
     });
 
+    Future<void> assertTierDownloadsModel(
+      WidgetTester tester, {
+      required String tierLabel,
+      required String expectedModelId,
+    }) async {
+      final captured = <String>[];
+      late _ControllableDownloadNotifier notifier;
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            modelDownloadProvider.overrideWith(() {
+              notifier = _ControllableDownloadNotifier(
+                const ModelDownloadState(),
+              );
+              return notifier;
+            }),
+            localSttBundleProvider.overrideWith(() => _FakeSttNotifier()),
+            hw.gpuInfoProvider.overrideWith(
+              (ref) async =>
+                  const hw.GpuInfo(vendor: hw.GpuVendor.none, name: 'Test'),
+            ),
+          ],
+          child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: wpDarkTheme(),
+            localizationsDelegates: L10n.localizationsDelegates,
+            supportedLocales: L10n.supportedLocales,
+            home: Scaffold(
+              body: SttModelSelector(
+                currentModelId: null,
+                onModelSelected: captured.add,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text(tierLabel));
+      // pump() — not pumpAndSettle(): the indeterminate progress spinner
+      // would otherwise time out the settle.
+      await tester.pump();
+
+      expect(
+        notifier.downloadModelCalls,
+        [expectedModelId],
+        reason: '$tierLabel tier must trigger download of $expectedModelId',
+      );
+      expect(
+        captured,
+        isEmpty,
+        reason:
+            'onModelSelected fires only after download completes, not on tap',
+      );
+    }
+
+    testWidgets('Compact tier tap downloads whisper-small', (tester) async {
+      await assertTierDownloadsModel(
+        tester,
+        tierLabel: 'Quick & Compact',
+        expectedModelId: 'whisper-small',
+      );
+    });
+
+    testWidgets('Balanced tier tap downloads whisper-medium', (tester) async {
+      await assertTierDownloadsModel(
+        tester,
+        tierLabel: 'Balanced',
+        expectedModelId: 'whisper-medium',
+      );
+    });
+
+    testWidgets('Premium tier tap downloads whisper-large-v3-turbo', (
+      tester,
+    ) async {
+      await assertTierDownloadsModel(
+        tester,
+        tierLabel: 'Best Quality',
+        expectedModelId: 'whisper-large-v3-turbo',
+      );
+    });
+
+    testWidgets(
+      'currentModelId maps each registry model to the right tier card '
+      '(active highlight)',
+      (tester) async {
+        for (final entry in <String, String>{
+          'whisper-small': 'Quick & Compact',
+          'whisper-medium': 'Balanced',
+          'whisper-large-v3-turbo': 'Best Quality',
+        }.entries) {
+          await tester.pumpWidget(
+            _makeTestable(
+              currentModelId: entry.key,
+              downloadState: ModelDownloadState(downloadedModels: {entry.key}),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          // The tier label is rendered exactly once and the card is marked
+          // ready (no test of pixels — we only assert it renders without crash
+          // and the label is present).
+          expect(
+            find.text(entry.value),
+            findsOneWidget,
+            reason: '${entry.key} should map to "${entry.value}" tier label',
+          );
+          expect(tester.takeException(), isNull);
+        }
+      },
+    );
+
     testWidgets('does not import or depend on settingsProvider', (
       tester,
     ) async {

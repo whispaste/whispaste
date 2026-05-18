@@ -180,8 +180,8 @@ void main() {
 
   group('AC1: Successful download', () {
     test('transitions idle → downloading → verifying → done', () async {
-      // Pick whisper-tiny; use synthetic bytes (SHA256 will mismatch registry).
-      const modelId = 'whisper-tiny';
+      // Pick whisper-small; use synthetic bytes (SHA256 will mismatch registry).
+      const modelId = 'whisper-small';
       final model = findSttModel(modelId)!;
       final fakeBytes = List<int>.generate(128, (i) => i & 0xFF);
 
@@ -243,7 +243,7 @@ void main() {
       'state is done when file bytes match model sha256',
       () async {
         // We can only test this with a real SHA256 match.
-        // Use whisper-tiny and pre-compute bytes that hash to the registry value.
+        // Use whisper-small and pre-compute bytes that hash to the registry value.
         // Since we cannot trivially fabricate a SHA256 preimage, we write a
         // dummy file and patch the file *in place* to the real registry hash
         // bytes — but we can't do that either.
@@ -258,7 +258,7 @@ void main() {
         //
         // Pragmatic decision: the "done" state transition is exercised by the
         // "already exists + correct hash" branch below.
-        const modelId = 'whisper-tiny';
+        const modelId = 'whisper-small';
         final model = findSttModel(modelId)!;
 
         // Pre-write a file with the correct hash by downloading it (fake).
@@ -307,7 +307,7 @@ void main() {
 
   group('AC2: Network error', () {
     test('transitions to error phase on DioException', () async {
-      const modelId = 'whisper-tiny';
+      const modelId = 'whisper-small';
 
       // Pre-create server binary so Phase 1 is skipped.
       await _stubServerBinary(tempDir);
@@ -326,7 +326,7 @@ void main() {
     });
 
     test('error message reflects the DioException message', () async {
-      const modelId = 'whisper-base';
+      const modelId = 'whisper-small';
 
       await _stubServerBinary(tempDir);
 
@@ -349,7 +349,7 @@ void main() {
 
   group('AC3: Resume after connection drop', () {
     test('fetch is called even when partial .tmp file exists', () async {
-      const modelId = 'whisper-tiny';
+      const modelId = 'whisper-small';
       final model = findSttModel(modelId)!;
       final destPath = p.join(tempDir.path, model.filename);
       final tmpPath = '$destPath.tmp';
@@ -376,7 +376,7 @@ void main() {
     });
 
     test('fetcher receives correct destPath for resume', () async {
-      const modelId = 'whisper-base';
+      const modelId = 'whisper-small';
       final model = findSttModel(modelId)!;
       final destPath = p.join(tempDir.path, model.filename);
       final tmpPath = '$destPath.tmp';
@@ -417,7 +417,7 @@ void main() {
     });
 
     test('cancellation mid-download transitions to idle state', () async {
-      const modelId = 'whisper-tiny';
+      const modelId = 'whisper-small';
 
       await _stubServerBinary(tempDir);
 
@@ -444,7 +444,7 @@ void main() {
 
   group('AC5: SHA256 mismatch', () {
     test('transitions to error when downloaded file has wrong hash', () async {
-      const modelId = 'whisper-tiny';
+      const modelId = 'whisper-small';
 
       await _stubServerBinary(tempDir);
 
@@ -462,7 +462,7 @@ void main() {
     });
 
     test('corrupt file is deleted after SHA256 mismatch', () async {
-      const modelId = 'whisper-tiny';
+      const modelId = 'whisper-small';
       final model = findSttModel(modelId)!;
       final destPath = p.join(tempDir.path, model.filename);
 
@@ -507,7 +507,7 @@ void main() {
 
   group('AC7: Busy guard', () {
     test('fetcher called exactly once per downloadModel invocation', () async {
-      const modelId = 'whisper-tiny';
+      const modelId = 'whisper-small';
 
       await _stubServerBinary(tempDir);
 

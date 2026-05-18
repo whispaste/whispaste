@@ -47,50 +47,10 @@ const int kRamCheckThresholdMB = 7500;
 /// VRAM PLUS scratch space for attention matrices and CUDA runtime overhead.
 /// The actual peak usage can be 1.3–1.5× the model file size.
 const Map<String, int> sttModelVramMB = {
-  'whisper-tiny': 300,
-  'whisper-base': 500,
   'whisper-small': 900,
   'whisper-medium': 1500,
   'whisper-large-v3-turbo': 2600,
-  'whisper-large-v3': 3600,
 };
-
-/// Returns the best available model that fits in the GPU's VRAM.
-///
-/// Returns [modelId] unchanged if it fits. Otherwise returns the largest
-/// model that fits, or `'whisper-tiny'` as absolute fallback.
-String findVramSafeModel(String modelId, int? vramMB) {
-  if (vramMB == null) return modelId;
-
-  final modelVram = sttModelVramMB[modelId];
-  if (modelVram == null) return modelId;
-  if (modelVram <= vramMB) return modelId;
-
-  // Find the largest fitting model.
-  String? bestFit;
-  int bestVram = 0;
-  for (final entry in sttModelVramMB.entries) {
-    if (entry.value <= vramMB && entry.value > bestVram) {
-      bestVram = entry.value;
-      bestFit = entry.key;
-    }
-  }
-
-  if (bestFit != null) {
-    _log.warning(
-      'Model "$modelId" requires ~${modelVram}MB VRAM but only '
-      '${vramMB}MB available. Falling back to "$bestFit" (~${bestVram}MB).',
-    );
-    return bestFit;
-  }
-
-  // Nothing fits — whisper-tiny is the minimum.
-  _log.warning(
-    'No model fits in ${vramMB}MB VRAM. '
-    'Using whisper-tiny (~${sttModelVramMB['whisper-tiny']}MB).',
-  );
-  return 'whisper-tiny';
-}
 
 // ---------------------------------------------------------------------------
 // GPU vendor enum

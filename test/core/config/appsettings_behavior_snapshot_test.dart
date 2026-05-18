@@ -106,8 +106,34 @@ void main() {
     });
 
     test('sttModel survives roundtrip', () {
-      final s = AppSettings.defaults.copyWith(sttModel: 'whisper-large-v3');
-      expect(_roundtrip(s).sttModel, 'whisper-large-v3');
+      final s = AppSettings.defaults.copyWith(
+        sttModel: 'whisper-large-v3-turbo',
+      );
+      expect(_roundtrip(s).sttModel, 'whisper-large-v3-turbo');
+    });
+
+    test('legacy sttModel values migrate to current tier representatives', () {
+      // Storage from older WhisPaste versions can still reference IDs that no
+      // longer exist in the registry. They must be transparently rewritten on
+      // load to one of the three current downloadable models.
+      AppSettings load(String legacy) =>
+          AppSettings.fromStorageMap({'stt_model': legacy});
+
+      // Removed model IDs → current tier representative.
+      expect(load('whisper-tiny').sttModel, 'whisper-small');
+      expect(load('whisper-base').sttModel, 'whisper-small');
+      expect(load('whisper-large-v3').sttModel, 'whisper-large-v3-turbo');
+
+      // Currently valid IDs pass through unchanged.
+      expect(load('whisper-small').sttModel, 'whisper-small');
+      expect(load('whisper-medium').sttModel, 'whisper-medium');
+      expect(load('whisper-large-v3-turbo').sttModel, 'whisper-large-v3-turbo');
+
+      // Pre-ID display-name values from the very first release.
+      expect(load('Fast (Tiny)').sttModel, 'whisper-small');
+      expect(load('Balanced (Small)').sttModel, 'whisper-small');
+      expect(load('High Quality (Medium)').sttModel, 'whisper-medium');
+      expect(load('Best Quality (Large)').sttModel, 'whisper-large-v3-turbo');
     });
 
     test('sttLanguage survives roundtrip', () {
@@ -554,14 +580,14 @@ void main() {
     test('all STT fields use expected storage keys', () {
       final s = AppSettings.defaults.copyWith(
         sttProvider: 'OpenAI',
-        sttModel: 'whisper-tiny',
+        sttModel: 'whisper-small',
         sttLanguage: 'English',
         sttIdleTimeoutMinutes: 0,
         customVocabulary: 'Riverpod',
       );
       final map = s.toStorageMap();
       expect(map['stt_provider'], 'OpenAI');
-      expect(map['stt_model'], 'whisper-tiny');
+      expect(map['stt_model'], 'whisper-small');
       expect(map['stt_language'], 'English');
       expect(map['stt_idle_timeout_minutes'], '0');
       expect(map['custom_vocabulary'], 'Riverpod');

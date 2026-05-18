@@ -38,7 +38,7 @@ class _ModelStepState extends ConsumerState<ModelStep> {
   }
 
   Future<void> _detectHardware() async {
-    final gpu = await hw.detectGpu();
+    final gpu = await ref.read(hw.gpuInfoProvider.future);
     if (!mounted) return;
     final rec = recommendTier(gpu.vramMB ?? 0, vendor: gpu.vendor);
     setState(() {

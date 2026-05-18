@@ -21,7 +21,7 @@ void main() {
       final rtf = await benchmark.run(
         '127.0.0.1',
         9999,
-        'whisper-tiny',
+        'whisper-small',
         client: client,
       );
       expect(rtf, isNotNull);
@@ -35,7 +35,7 @@ void main() {
       final rtf = await benchmark.run(
         '127.0.0.1',
         9999,
-        'whisper-tiny',
+        'whisper-small',
         client: client,
       );
       expect(rtf, isNull);
@@ -49,7 +49,7 @@ void main() {
         capturedPath = req.url.path;
         return http.Response('{"text":""}', 200);
       });
-      await benchmark.run('127.0.0.1', 8080, 'whisper-tiny', client: client);
+      await benchmark.run('127.0.0.1', 8080, 'whisper-small', client: client);
       expect(capturedMethod, 'POST');
       expect(capturedPath, '/inference');
     });
@@ -61,7 +61,7 @@ void main() {
       final rtf = await benchmark.run(
         '127.0.0.1',
         9999,
-        'whisper-tiny',
+        'whisper-small',
         client: client,
       );
       // RTF >= 0 since elapsed >= 0 and audioDuration = 3000.

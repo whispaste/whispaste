@@ -106,7 +106,7 @@ ProviderContainer _makeContainer({
       sttHttpClientProvider.overrideWithValue(httpClient),
       settingsProvider.overrideWith(
         () => _FakeSettingsNotifier(
-          settings ?? AppSettings.defaults.copyWith(sttModel: 'whisper-tiny'),
+          settings ?? AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
         ),
       ),
       modelDownloadProvider.overrideWith(() => _FakeModelDownloadNotifier()),
@@ -130,7 +130,7 @@ class _FakeModelDownloadNotifier extends ModelDownloadNotifier {
   }
 }
 
-Future<Directory> _createFakeSttDir({String modelId = 'whisper-tiny'}) async {
+Future<Directory> _createFakeSttDir({String modelId = 'whisper-small'}) async {
   final dir = await Directory.systemTemp.createTemp('stt_notifier_test_');
 
   final serverName = Platform.isWindows
@@ -138,7 +138,8 @@ Future<Directory> _createFakeSttDir({String modelId = 'whisper-tiny'}) async {
       : 'whisper-server';
   await File('${dir.path}/$serverName').writeAsBytes([0x7f, 0x45, 0x4c, 0x46]);
 
-  final modelFilename = findSttModel(modelId)?.filename ?? 'ggml-tiny-q5_1.bin';
+  final modelFilename =
+      findSttModel(modelId)?.filename ?? 'ggml-small-q5_1.bin';
   await File(
     '${dir.path}/$modelFilename',
   ).writeAsBytes(Uint8List(11 * 1024 * 1024));

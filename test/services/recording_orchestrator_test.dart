@@ -252,11 +252,8 @@ void main() {
         desktopPasteControllerProvider.overrideWith((ref) => fakeDesktopPaste),
         modelDownloadProvider.overrideWith(
           () => FakeModelDownloadNotifier({
-            'whisper-tiny',
-            'whisper-base',
             'whisper-small',
             'whisper-medium',
-            'whisper-large-v3',
             'whisper-large-v3-turbo',
           }),
         ),
@@ -726,15 +723,21 @@ void main() {
             settingsProvider.overrideWith(
               () => FakeSettingsNotifier(
                 const AppSettings(
-                  stt: SttSettings(model: 'whisper-small', language: 'English'),
+                  stt: SttSettings(
+                    model: 'whisper-large-v3-turbo',
+                    language: 'English',
+                  ),
                   onboarding: OnboardingSettings(onboardingCompleted: true),
                 ),
               ),
             ),
             secureKeyStoreProvider.overrideWith((ref) => FakeSecureKeyStore()),
             modelDownloadProvider.overrideWith(
-              () =>
-                  FakeModelDownloadNotifier({'whisper-small', 'whisper-base'}),
+              () => FakeModelDownloadNotifier({
+                'whisper-small',
+                'whisper-medium',
+                'whisper-large-v3-turbo',
+              }),
             ),
           ],
         );
@@ -750,7 +753,7 @@ void main() {
         expect(c2.read(recordingProvider).phase, RecordingPhase.idle);
         final recovery = c2.read(oomRecoveryPendingProvider);
         expect(recovery.pending, isTrue);
-        expect(recovery.nextModelId, 'whisper-base');
+        expect(recovery.nextModelId, 'whisper-medium');
         expect(recovery.hasCloudConfigured, isFalse);
         expect(recovery.isPermanentFail, isFalse);
       },
@@ -764,12 +767,12 @@ void main() {
       // inside _handleOomRecovery() — not here.
       final orch = container.read(recordingOrchestratorProvider.notifier);
 
-      final didSwitch = await orch.applyOomModelFallback('whisper-base');
+      final didSwitch = await orch.applyOomModelFallback('whisper-medium');
 
       expect(didSwitch, isTrue);
       expect(orch.oomAttemptCount, 0);
       final settings = await container.read(settingsProvider.future);
-      expect(settings.effectiveModelId, 'whisper-base');
+      expect(settings.effectiveModelId, 'whisper-medium');
     });
 
     test(
@@ -778,7 +781,7 @@ void main() {
         final c2 = buildContainer(
           const AppSettings(
             stt: SttSettings(
-              model: 'whisper-large-v3',
+              model: 'whisper-large-v3-turbo',
               language: 'English',
               provider: 'On Device',
             ),

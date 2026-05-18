@@ -150,23 +150,36 @@ void main() {
     });
 
     test('findSttModel returns correct model by ID', () {
-      expect(findSttModel('whisper-tiny')?.label, 'Tiny');
-      expect(findSttModel('whisper-base')?.label, 'Base');
       expect(findSttModel('whisper-small')?.label, 'Small');
       expect(findSttModel('whisper-medium')?.label, 'Medium');
       expect(findSttModel('whisper-large-v3-turbo')?.label, 'Large v3 Turbo');
-      expect(findSttModel('whisper-large-v3')?.label, 'Large v3');
       expect(findSttModel('nonexistent'), isNull);
     });
 
     test('sizeLabel formats correctly', () {
-      final smallModel = sttModels.firstWhere((m) => m.id == 'whisper-tiny');
-      expect(smallModel.sizeLabel, contains('MB'));
-
-      final largeModel = sttModels.firstWhere(
-        (m) => m.id == 'whisper-large-v3',
+      // Sub-GB models render as MB.
+      const mb = SttModelInfo(
+        id: 'fake-mb',
+        label: 'Fake',
+        filename: 'fake.bin',
+        sizeBytes: 190085487,
+        url: 'https://example.invalid/fake.bin',
+        sha256:
+            '0000000000000000000000000000000000000000000000000000000000000000',
       );
-      expect(largeModel.sizeLabel, contains('GB'));
+      expect(mb.sizeLabel, contains('MB'));
+
+      // ≥1 GiB renders as GB.
+      const gb = SttModelInfo(
+        id: 'fake-gb',
+        label: 'Fake',
+        filename: 'fake.bin',
+        sizeBytes: 1500000000,
+        url: 'https://example.invalid/fake.bin',
+        sha256:
+            '0000000000000000000000000000000000000000000000000000000000000000',
+      );
+      expect(gb.sizeLabel, contains('GB'));
     });
   });
 
