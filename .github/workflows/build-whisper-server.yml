@@ -47,7 +47,7 @@ jobs:
       contents: write
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Vulkan SDK
         shell: pwsh
@@ -150,7 +150,7 @@ jobs:
       contents: write
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Clone whisper.cpp
         run: |
@@ -222,7 +222,7 @@ jobs:
       contents: write
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -256,7 +256,7 @@ jobs:
           git push origin "$TAG" --force
 
       - name: Create release with assets
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: whisper-server-${{ inputs.whisper_tag }}${{ inputs.build_suffix }}
           name: "Whisper Server (${{ inputs.whisper_tag }}) – Vulkan + Metal"
