@@ -162,7 +162,7 @@
   "onboardingPasteSubtitle": "WhisPaste braucht eine zusätzliche Berechtigung, um Transkripte in andere Apps einzufügen.",
   "onboardingPasteGrantCta": "Bedienungshilfen-Berechtigung erteilen",
   "onboardingPasteVerifyCta": "Prüfen",
-  "onboardingPasteSkip": "Überspringen — nur kopieren",
+  "onboardingPasteSkip": "Überspringen — Auto-Paste deaktivieren",
   "onboardingPasteWhyMac": "macOS verlangt eine explizite Berechtigung für jede App, die Tasten in andere Apps schickt. Ohne sie wird dein Transkript trotzdem in die Zwischenablage kopiert, aber ⌘V wird nicht automatisch ausgelöst.",
   "onboardingPasteWhyWin": "Windows erlaubt das Senden von Tasten ohne zusätzliche Berechtigung. Dieser Schritt prüft nur, dass die Verbindung auf deinem Gerät funktioniert.",
   "settingsOverlayFloatingButton": "Aufnahme-Overlay",

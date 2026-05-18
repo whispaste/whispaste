@@ -498,7 +498,7 @@ class L10nDe extends L10n {
   String get onboardingPasteVerifyCta => 'Prüfen';
 
   @override
-  String get onboardingPasteSkip => 'Überspringen — nur kopieren';
+  String get onboardingPasteSkip => 'Überspringen — Auto-Paste deaktivieren';
 
   @override
   String get onboardingPasteWhyMac =>

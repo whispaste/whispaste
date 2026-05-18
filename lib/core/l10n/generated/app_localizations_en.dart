@@ -494,7 +494,7 @@ class L10nEn extends L10n {
   String get onboardingPasteVerifyCta => 'Verify';
 
   @override
-  String get onboardingPasteSkip => 'Skip — copy only';
+  String get onboardingPasteSkip => 'Skip — disable Auto-Paste';
 
   @override
   String get onboardingPasteWhyMac =>
