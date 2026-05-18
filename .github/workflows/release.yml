@@ -19,6 +19,11 @@ jobs:
     runs-on: windows-latest
     outputs:
       msix-built: ${{ steps.msix_config.outputs.skip != 'true' }}
+      # Explicit success marker: set by the last real build step. Decouples
+      # downstream jobs from `needs.build-windows.result`, which can flip to
+      # `failure` when an action's Post-step (e.g. flutter-action cache save)
+      # exits non-zero even though every functional step succeeded.
+      build-succeeded: ${{ steps.mark_success.outputs.ok == 'true' }}
     steps:
       - uses: actions/checkout@v6
 
@@ -181,9 +186,17 @@ jobs:
           name: msix-release
           path: build/windows/x64/runner/Release/*.msix
 
+      - name: Mark build succeeded
+        id: mark_success
+        shell: pwsh
+        run: echo "ok=true" >> $env:GITHUB_OUTPUT
+
   build-macos:
     name: Build macOS
     runs-on: macos-latest
+    outputs:
+      # See build-windows for rationale (decouple from Post-step failures).
+      build-succeeded: ${{ steps.mark_success.outputs.ok == 'true' }}
     steps:
       - uses: actions/checkout@v6
 
@@ -276,16 +289,28 @@ jobs:
           name: macos-release
           path: release-artifacts/
 
+      - name: Mark build succeeded
+        id: mark_success
+        run: echo "ok=true" >> "$GITHUB_OUTPUT"
+
   create-release:
     name: Create GitHub Release
     needs: [build-windows, build-macos]
     # Beide Platform-Builds müssen erfolgreich sein. (MSIX ist optional —
     # wenn MSIX_PUBLISHER nicht gesetzt ist, läuft Build-Windows trotzdem
     # erfolgreich durch und das msix-release-Artefakt fehlt einfach.)
+    #
+    # Wir prüfen den explizit gesetzten `build-succeeded`-Output statt
+    # `needs.*.result`, weil ein non-zero-Exit in einem Action-Post-Step
+    # (z. B. flutter-action Cache-Save) den Job-Result auf `failure` kippt,
+    # obwohl alle echten Build/Upload-Schritte grün durchliefen. `!cancelled()`
+    # stellt sicher, dass dieser Job trotz eines `failure`-Results der
+    # Build-Jobs überhaupt startet, damit die Outputs ausgewertet werden.
     if: |
+      !cancelled() &&
       startsWith(github.ref, 'refs/tags/v') &&
-      needs.build-windows.result == 'success' &&
-      needs.build-macos.result == 'success'
+      needs.build-windows.outputs.build-succeeded == 'true' &&
+      needs.build-macos.outputs.build-succeeded == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -386,6 +411,7 @@ jobs:
     name: Submit to Microsoft Store
     needs: [build-windows, create-release]
     if: |
+      !cancelled() &&
       startsWith(github.ref, 'refs/tags/v') &&
       needs.build-windows.outputs.msix-built == 'true' &&
       needs.create-release.result == 'success'
