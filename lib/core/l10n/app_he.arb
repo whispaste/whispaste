@@ -178,6 +178,7 @@
   "onboardingPasteSkip": "דלג — השבת הדבקה אוטומטית",
   "onboardingPasteWhyMac": "macOS דורש הרשאה מפורשת לכל אפליקציה ששולחת הקשות לאפליקציות אחרות. בלעדיה, התמליל עדיין יועתק ללוח, אך ⌘V לא יופעל אוטומטית.",
   "onboardingPasteWhyWin": "Windows מאפשר שליחת הקשות ללא הרשאה נוספת. שלב זה רק מוודא שהחיבור פועל במכשירך.",
+  "onboardingPasteWhyWinUipi": "באפליקציות מסוימות עם הגנת UIPI/UAC, ההדבקה האוטומטית לא תעבוד — הטקסט יישאר בלוח, ויהיה עליך להדביקו עם Ctrl+V באופן ידני.",
   "settingsOverlayFloatingButton": "שכבת הקלטה צפה",
   "settingsOverlayFloatingButtonSubtitle": "איך להציג סטטוס הקלטה בזמן דיבור",
   "settingsShowOverlay": "תצוגת סטטוס הקלטה",

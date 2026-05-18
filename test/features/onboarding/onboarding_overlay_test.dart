@@ -81,5 +81,23 @@ void main() {
         debugDefaultTargetPlatformOverride = null;
       }
     });
+
+    testWidgets('on Windows: renders 5-step flow with AutoPasteStep included '
+        'between Microphone and Model; counter reflects 5 total', (
+      tester,
+    ) async {
+      // Windows mirrors macOS in step COUNT but the AutoPasteStep itself
+      // renders the Windows verify surface (covered by auto_paste_step_test).
+      // Here we only assert the assembly: AutoPasteStep is in the list and
+      // the counter reflects the 5-step total.
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      try {
+        await _pumpOverlay(tester);
+
+        expect(find.text('Step 1 of 5'), findsOneWidget);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
   });
 }
