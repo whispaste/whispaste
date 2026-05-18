@@ -13,6 +13,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:path/path.dart' as p;
+import 'package:sentry_dio/sentry_dio.dart';
 
 import '../core/app_info.dart';
 import '../core/logging/app_logger.dart';
@@ -125,6 +126,10 @@ class UpdateNotifier extends Notifier<UpdateState> {
         headers: {'User-Agent': appUserAgent},
       ),
     );
+    // Sentry MUST be the last interceptor added — see notes in
+    // http_model_fetcher.dart. Spans piggy-back on the active transaction's
+    // sample decision and respect the global `tracesSampleRate`.
+    _dio.addSentry();
     ref.onDispose(() {
       _cancelToken?.cancel('disposed');
       _dio.close();
