@@ -175,13 +175,31 @@ jobs:
           flutter-version: 3.41.0
           cache: true
 
+      # System packages needed by every native plugin the desktop app
+      # pulls in transitively. Pinning the full set here so the build
+      # does not fall over piecemeal on each new plugin discovery.
+      #   gtk-3 / pkg-config / ninja-build / cmake / clang — Flutter Linux desktop
+      #   libsecret-1-dev + gnome-keyring + dbus-x11      — flutter_secure_storage
+      #   libkeybinder-3.0-dev                            — hotkey_manager
+      #   libayatana-appindicator3-dev                    — tray_manager
+      #   libasound2-dev + libpulse-dev                   — record / flutter_soloud
+      #   libnotify-dev                                   — toast/notifications
+      #   xvfb                                            — display for integration_test
       - name: Install Linux desktop + libsecret backend
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             ninja-build \
+            cmake \
+            clang \
+            pkg-config \
             libgtk-3-dev \
             libsecret-1-dev \
+            libkeybinder-3.0-dev \
+            libayatana-appindicator3-dev \
+            libasound2-dev \
+            libpulse-dev \
+            libnotify-dev \
             gnome-keyring \
             dbus-x11 \
             xvfb
