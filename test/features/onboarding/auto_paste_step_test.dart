@@ -501,6 +501,111 @@ void main() {
         expect(paste.stopPollingCalls, greaterThanOrEqualTo(1));
       },
     );
+
+    testWidgets(
+      'after polling has started and the step is disposed, no active polling '
+      'remains (defends against zombie timers from Grant → window-close)',
+      (tester) async {
+        // Start in the pre-grant state so the Grant CTA is reachable.
+        final paste = _FakePasteCapabilityNotifier(
+          initial: const PasteCapabilityState(
+            capability: PasteCapability(
+              status: PasteCapabilityStatus.permissionMissing,
+              canPrompt: true,
+            ),
+          ),
+        );
+
+        await _pumpStep(tester, paste: paste);
+
+        // Kick polling on via the production grant path. Use sequential
+        // pump() because pumpAndSettle would deadlock on the in-status
+        // spinner that the polling badge keeps animating.
+        await tester.tap(find.text('Grant Accessibility permission'));
+        await tester.pump();
+        await tester.pump();
+        expect(
+          paste.startPollingCalls,
+          greaterThanOrEqualTo(1),
+          reason: 'Grant must arm polling so the dispose path has work to do',
+        );
+        expect(paste.isPolling, isTrue);
+
+        // Now simulate the user leaving the step (Next/Skip/Re-mount) by
+        // swapping the widget tree wholesale. The step's dispose must stop
+        // polling so the shared notifier doesn't keep a timer alive.
+        await tester.pumpWidget(
+          makeTestable(
+            const SizedBox.shrink(),
+            overrides: [
+              pasteCapabilityNotifierProvider.overrideWith(() => paste),
+              settingsProvider.overrideWith(() => _RecordingSettingsNotifier()),
+            ],
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          paste.stopPollingCalls,
+          greaterThanOrEqualTo(1),
+          reason: 'Step dispose must explicitly call stopPolling()',
+        );
+        expect(
+          paste.isPolling,
+          isFalse,
+          reason: 'After dispose no polling timer must remain active',
+        );
+      },
+    );
+
+    testWidgets(
+      're-mounting the step while polling runs stops the previous timer '
+      'before the new instance arms its own',
+      (tester) async {
+        final paste = _FakePasteCapabilityNotifier(
+          initial: const PasteCapabilityState(
+            capability: PasteCapability(
+              status: PasteCapabilityStatus.permissionMissing,
+              canPrompt: true,
+            ),
+          ),
+        );
+
+        await _pumpStep(tester, paste: paste);
+        await tester.tap(find.text('Grant Accessibility permission'));
+        await tester.pump();
+        await tester.pump();
+        expect(paste.isPolling, isTrue);
+        final stopCallsBeforeRemount = paste.stopPollingCalls;
+
+        // Re-mount with a fresh key to force a full dispose/init cycle.
+        await tester.pumpWidget(
+          makeTestable(
+            const SingleChildScrollView(
+              child: AutoPasteStep(
+                key: ValueKey('remounted'),
+                onNext: _noop,
+                onBack: _noop,
+              ),
+            ),
+            size: const Size(1280, 980),
+            overrides: [
+              pasteCapabilityNotifierProvider.overrideWith(() => paste),
+              settingsProvider.overrideWith(() => _RecordingSettingsNotifier()),
+            ],
+          ),
+        );
+        await tester.pump();
+
+        expect(
+          paste.stopPollingCalls,
+          greaterThan(stopCallsBeforeRemount),
+          reason:
+              'Re-mount must run dispose of the previous instance, which '
+              'must call stopPolling on the shared notifier',
+        );
+      },
+    );
   });
 
   // ---------------------------------------------------------------------------

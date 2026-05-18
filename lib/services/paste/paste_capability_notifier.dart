@@ -16,12 +16,19 @@
 library;
 
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 
 import '../../core/logging/app_logger.dart';
 import '../desktop_paste/desktop_paste_controller.dart';
 import 'paster.dart';
+
+/// Sentry breadcrumb category shared by every onboarding Auto-Paste event.
+/// Kept here (and re-used from the step widget) so all polling-lifecycle and
+/// step-lifecycle breadcrumbs land under the same Sentry filter.
+const String onboardingAutoPasteBreadcrumbCategory = 'onboarding.autopaste';
 
 /// Immutable snapshot of the capability surface.
 class PasteCapabilityState {
@@ -64,10 +71,11 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
   Timer? _pollTimer;
   Timer? _pollTimeout;
   bool _checkInFlight = false;
+  Stopwatch? _pollStopwatch;
 
   @override
   PasteCapabilityState build() {
-    ref.onDispose(_disposePolling);
+    ref.onDispose(() => _disposePolling());
     return const PasteCapabilityState();
   }
 
@@ -124,13 +132,24 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
     Duration timeout = const Duration(seconds: 30),
   }) {
     _disposePolling();
+    _pollStopwatch = Stopwatch()..start();
+    _emitBreadcrumb(
+      'polling.started',
+      data: {
+        'interval_ms': interval.inMilliseconds,
+        'timeout_ms': timeout.inMilliseconds,
+      },
+    );
     _pollTimer = Timer.periodic(interval, (_) async {
       await check();
       if (state.capability?.status == PasteCapabilityStatus.ready) {
-        _disposePolling();
+        _disposePolling(reason: _PollEnd.success);
       }
     });
-    _pollTimeout = Timer(timeout, _disposePolling);
+    _pollTimeout = Timer(
+      timeout,
+      () => _disposePolling(reason: _PollEnd.timeout),
+    );
   }
 
   /// Cancels the active polling pair if any. Safe to call multiple times and
@@ -154,12 +173,52 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
     return result;
   }
 
-  void _disposePolling() {
+  void _disposePolling({_PollEnd reason = _PollEnd.cancelled}) {
+    final wasActive = _pollTimer != null || _pollTimeout != null;
     _pollTimer?.cancel();
     _pollTimer = null;
     _pollTimeout?.cancel();
     _pollTimeout = null;
+    // Only surface a Sentry event when polling actually ended — repeated
+    // stopPolling() calls (re-mounts, defensive disposal) must not spam
+    // breadcrumbs. `cancelled` is an internal signal we don't ship to Sentry.
+    if (wasActive && reason != _PollEnd.cancelled) {
+      final elapsedMs = _pollStopwatch?.elapsedMilliseconds ?? 0;
+      _emitBreadcrumb(
+        reason == _PollEnd.success ? 'polling.success' : 'polling.timeout',
+        data: {'elapsed_ms': elapsedMs},
+      );
+    }
+    _pollStopwatch = null;
   }
+
+  /// Emits a breadcrumb under the shared onboarding Auto-Paste category and
+  /// always tags the host platform so funnel queries stay slice-able. Data
+  /// values are status/numeric only — no PII.
+  void _emitBreadcrumb(String message, {Map<String, Object?> data = const {}}) {
+    Sentry.addBreadcrumb(
+      Breadcrumb(
+        message: message,
+        category: onboardingAutoPasteBreadcrumbCategory,
+        level: SentryLevel.info,
+        data: {'platform': _platformTag(), ...data},
+      ),
+    );
+  }
+}
+
+/// Outcome marker for [PasteCapabilityNotifier._disposePolling]. Only
+/// `success` and `timeout` are reported to Sentry — `cancelled` covers the
+/// "the user navigated away" / "we re-armed polling" cases where surfacing a
+/// breadcrumb would only add noise.
+enum _PollEnd { cancelled, success, timeout }
+
+/// Stable, PII-free platform tag for breadcrumbs.
+String _platformTag() {
+  if (Platform.isMacOS) return 'macos';
+  if (Platform.isWindows) return 'windows';
+  if (Platform.isLinux) return 'linux';
+  return 'unknown';
 }
 
 final pasteCapabilityNotifierProvider =

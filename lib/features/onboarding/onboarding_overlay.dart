@@ -8,6 +8,7 @@ import '../../core/config/settings_provider.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
+import '../../services/paste/paste_capability_notifier.dart';
 import 'steps/auto_paste_step.dart';
 import 'steps/welcome_step.dart';
 import 'steps/microphone_step.dart';
@@ -37,6 +38,32 @@ enum _OnboardingStepId { welcome, microphone, autoPaste, model, ready }
 class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
   int _currentStep = 0;
   int _previousStep = 0;
+
+  /// Cached notifier reference so [dispose] can stop polling without
+  /// touching `ref` — Riverpod forbids `ref` access after deactivation.
+  /// The overlay owns the provider scope, so sudden window-close (X tapped,
+  /// app quit) tears down the widget tree without giving the AutoPasteStep
+  /// a chance to run its own dispose; defending here guarantees no zombie
+  /// polling timer survives the overlay.
+  PasteCapabilityNotifier? _cachedPasteNotifier;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Cache the notifier as soon as the provider scope is reachable so the
+    // dispose path never needs to touch `ref`.
+    _cachedPasteNotifier ??= ref.read(pasteCapabilityNotifierProvider.notifier);
+  }
+
+  @override
+  void dispose() {
+    // Defensive cleanup: the AutoPasteStep also stops polling in its own
+    // dispose, but the overlay owns the provider scope and is the last line
+    // of defence against sudden tear-downs (window close, app quit) that
+    // skip individual step disposals.
+    _cachedPasteNotifier?.stopPolling();
+    super.dispose();
+  }
 
   // ---------------------------------------------------------------------------
   // Step sequence

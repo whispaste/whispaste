@@ -34,6 +34,7 @@ import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/config/settings_enums.dart';
@@ -76,6 +77,7 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
   @override
   void initState() {
     super.initState();
+    _emitBreadcrumb('step.mounted');
     // Probe once on mount without prompting so the UI immediately reflects
     // the current OS state. The shared notifier handles in-flight coalescing.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -107,6 +109,7 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
   }
 
   Future<void> _onGrantPressed() async {
+    _emitBreadcrumb('grant.requested');
     final notifier = ref.read(pasteCapabilityNotifierProvider.notifier);
     // First fire the prompted check so macOS gets a chance to surface its
     // own one-shot dialog. Then deep-link to the Accessibility pane so the
@@ -151,6 +154,10 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
       _lastRepairResult = result;
       _repairInFlight = false;
     });
+    _emitBreadcrumb(
+      'repair.invoked',
+      data: {'result_kind': result.isSupported ? 'success' : 'failure'},
+    );
     // On success: smoothly chain into a second grant attempt so the user
     // ends up in the working flow without having to click "Grant" again.
     // The result still shows in the banner so they understand what just
@@ -161,6 +168,15 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
   }
 
   Future<void> _onSkipPressed() async {
+    // Capture the failed-grant bit BEFORE persisting the skip so the
+    // breadcrumb describes the state the user actually skipped from.
+    final hadFailedGrantAttempt = ref
+        .read(pasteCapabilityNotifierProvider)
+        .hadFailedGrantAttempt;
+    _emitBreadcrumb(
+      'skipped',
+      data: {'had_failed_grant_attempt': hadFailedGrantAttempt},
+    );
     // Skip explicitly disables Auto-Paste rather than silently leaving the
     // user in a half-state. "clipboard" is the codebase's encoding for
     // "transcript goes to clipboard, no automated paste".
@@ -172,6 +188,29 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
           ),
         );
     widget.onNext();
+  }
+
+  /// Emits a Sentry breadcrumb under the shared onboarding Auto-Paste
+  /// category. Always carries the host `platform` tag so funnel queries can
+  /// slice across macOS / Windows / Linux. PII-free by construction.
+  void _emitBreadcrumb(String message, {Map<String, Object?> data = const {}}) {
+    Sentry.addBreadcrumb(
+      Breadcrumb(
+        message: message,
+        category: onboardingAutoPasteBreadcrumbCategory,
+        level: SentryLevel.info,
+        data: {'platform': _autoPastePlatformTag(), ...data},
+      ),
+    );
+  }
+
+  String _autoPastePlatformTag() {
+    return switch (defaultTargetPlatform) {
+      TargetPlatform.macOS => 'macos',
+      TargetPlatform.windows => 'windows',
+      TargetPlatform.linux => 'linux',
+      _ => 'unknown',
+    };
   }
 
   @override
