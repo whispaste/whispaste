@@ -2039,8 +2039,12 @@ class L10nEn extends L10n {
   String get onboardingReadyStep2 => 'Press again to stop and transcribe';
 
   @override
-  String get onboardingReadyStep3 =>
-      'Text is copied to clipboard automatically';
+  String get onboardingReadyStep3AutoPaste =>
+      'Text flows straight into the active app';
+
+  @override
+  String get onboardingReadyStep3CopyOnly =>
+      'Text is in your clipboard — press ⌘V / Ctrl+V to paste';
 
   @override
   String get onboardingReadyChangeHotkey => 'Change Hotkey';

@@ -1990,7 +1990,12 @@ class L10nHe extends L10n {
   String get onboardingReadyStep2 => 'לחץ שוב כדי לעצור ולתמלל';
 
   @override
-  String get onboardingReadyStep3 => 'הטקסט מועתק אוטומטית ללוח';
+  String get onboardingReadyStep3AutoPaste =>
+      'הטקסט זורם ישירות לאפליקציה הפעילה';
+
+  @override
+  String get onboardingReadyStep3CopyOnly =>
+      'הטקסט בלוח — לחץ ⌘V / Ctrl+V כדי להדביק';
 
   @override
   String get onboardingReadyChangeHotkey => 'שנה קיצור';
