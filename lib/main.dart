@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'app.dart';
@@ -192,6 +193,7 @@ class _InsufficientRamApp extends ConsumerWidget {
       locale: locale,
       localizationsDelegates: L10n.localizationsDelegates,
       supportedLocales: L10n.supportedLocales,
+      navigatorObservers: [SentryNavigatorObserver()],
       home: InsufficientRamScreen(detectedGb: detectedGb),
     );
   }

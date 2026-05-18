@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:window_manager/window_manager.dart';
 import 'core/config/settings_labels.dart';
 import 'core/config/settings_provider.dart';
@@ -83,6 +84,10 @@ class WhisPasteApp extends ConsumerWidget {
       locale: locale,
       localizationsDelegates: L10n.localizationsDelegates,
       supportedLocales: L10n.supportedLocales,
+      // Tracks dialog/route pushes (toasts, review prompt, file pickers) as
+      // Sentry breadcrumbs and transactions. Page-level navigation is handled
+      // in-shell via activePageProvider and isn't visible to this observer.
+      navigatorObservers: [SentryNavigatorObserver()],
       home: const _AppShell(),
     );
   }
