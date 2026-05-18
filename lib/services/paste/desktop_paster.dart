@@ -29,7 +29,9 @@ class DesktopPaster implements Paster {
   }
 
   @override
-  Future<PasteCapability> checkCapability({bool promptIfMissing = false}) async {
+  Future<PasteCapability> checkCapability({
+    bool promptIfMissing = false,
+  }) async {
     try {
       final raw = await _controller.checkCapability(
         promptIfMissing: promptIfMissing,
@@ -39,19 +41,16 @@ class DesktopPaster implements Paster {
           NativeCapabilityStatus.ready => PasteCapabilityStatus.ready,
           NativeCapabilityStatus.permissionMissing =>
             PasteCapabilityStatus.permissionMissing,
-          NativeCapabilityStatus.unsupported => PasteCapabilityStatus.unsupported,
+          NativeCapabilityStatus.unsupported =>
+            PasteCapabilityStatus.unsupported,
         },
         canPrompt: raw.canPrompt,
         detail: raw.detail,
       );
     } on MissingPluginException {
-      return const PasteCapability(
-        status: PasteCapabilityStatus.unsupported,
-      );
+      return const PasteCapability(status: PasteCapabilityStatus.unsupported);
     } on Exception {
-      return const PasteCapability(
-        status: PasteCapabilityStatus.unsupported,
-      );
+      return const PasteCapability(status: PasteCapabilityStatus.unsupported);
     }
   }
 

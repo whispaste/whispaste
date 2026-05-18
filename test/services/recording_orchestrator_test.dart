@@ -183,7 +183,8 @@ class FakeDesktopPasteController extends DesktopPasteController {
   @override
   Future<NativeCapabilityResult> checkCapability({
     bool promptIfMissing = false,
-  }) async => const NativeCapabilityResult(status: NativeCapabilityStatus.ready);
+  }) async =>
+      const NativeCapabilityResult(status: NativeCapabilityStatus.ready);
 
   @override
   Future<TccRepairResult> repairTccEntries() async =>

@@ -1,9 +1,9 @@
 /// Live capability indicator for Auto-Paste — shown in the After
-/// Transcription settings section and the onboarding step.
+/// Transcription settings section.
 ///
-/// Calls into the platform paste bridge to check whether the OS would
-/// allow keystroke injection right now and renders a green/red badge
-/// with action buttons (test + grant + open settings).
+/// Thin presentational widget: all probe/poll/repair logic lives in
+/// [PasteCapabilityNotifier]. The widget only reads notifier state and
+/// dispatches user intents (test, grant, repair, open settings) back to it.
 library;
 
 import 'dart:io';
@@ -16,7 +16,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../core/l10n/generated/app_localizations.dart';
 import '../core/logging/app_logger.dart';
 import '../core/theme/tokens.dart';
-import '../services/desktop_paste/desktop_paste_controller.dart';
+import '../services/paste/paste_capability_notifier.dart';
 import '../services/paste/paster.dart';
 
 class PasteCapabilityIndicator extends ConsumerStatefulWidget {
@@ -31,37 +31,24 @@ class _PasteCapabilityIndicatorState
     extends ConsumerState<PasteCapabilityIndicator> {
   static final _log = AppLogger('PasteCapability');
 
-  PasteCapability? _last;
-  bool _checking = false;
+  bool _busy = false;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _check(prompt: false));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _run(() => ref.read(pasteCapabilityNotifierProvider.notifier).check());
+    });
   }
 
-  Future<void> _check({required bool prompt}) async {
-    if (_checking) return;
-    setState(() => _checking = true);
+  Future<void> _run(Future<void> Function() action) async {
+    if (_busy) return;
+    setState(() => _busy = true);
     try {
-      final paster = ref.read(pasterProvider);
-      if (paster == null) {
-        setState(() {
-          _last = const PasteCapability(
-            status: PasteCapabilityStatus.unsupported,
-          );
-        });
-        return;
-      }
-      final result = await paster.checkCapability(promptIfMissing: prompt);
-      _log.info(
-        'capability check: status=${result.status.name} '
-        'canPrompt=${result.canPrompt} detail=${result.detail}',
-      );
-      if (!mounted) return;
-      setState(() => _last = result);
+      await action();
     } finally {
-      if (mounted) setState(() => _checking = false);
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -77,39 +64,36 @@ class _PasteCapabilityIndicatorState
     }
   }
 
-  Future<void> _repairTcc() async {
+  Future<void> _repair() async {
     if (!Platform.isMacOS) return;
-    final controller = DesktopPasteController.create();
-    if (controller == null) return;
-    final result = await controller.repairTccEntries();
-    _log.info(
-      'TCC repair: ax cleared=${result.accessibilityCleared} '
-      'ae cleared=${result.appleEventsCleared} '
-      'error=${result.error ?? "none"}',
-    );
-    if (!mounted) return;
-    final l10n = L10n.of(context);
-    final cleared =
-        result.accessibilityCleared.clamp(0, 999) +
-        result.appleEventsCleared.clamp(0, 999);
-    final message = result.isSupported
-        ? l10n.pasteCapabilityRepairDone(cleared)
-        : l10n.pasteCapabilityRepairFailed;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), duration: const Duration(seconds: 5)),
-    );
-    // Re-check capability without prompting so the indicator reflects the
-    // post-reset state (will likely still be "missing" until the next
-    // paste triggers the fresh prompt).
-    await _check(prompt: false);
+    final notifier = ref.read(pasteCapabilityNotifierProvider.notifier);
+    await _run(() async {
+      final result = await notifier.repair();
+      if (!mounted) return;
+      final l10n = L10n.of(context);
+      final cleared =
+          result.accessibilityCleared.clamp(0, 999) +
+          result.appleEventsCleared.clamp(0, 999);
+      final message = result.isSupported
+          ? l10n.pasteCapabilityRepairDone(cleared)
+          : l10n.pasteCapabilityRepairFailed;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), duration: const Duration(seconds: 5)),
+      );
+      // Re-check capability without prompting so the indicator reflects the
+      // post-reset state (will likely still be "missing" until the next
+      // paste triggers the fresh prompt).
+      await notifier.check();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    final cap = _last;
+    final cap = ref.watch(pasteCapabilityNotifierProvider).capability;
 
     final (icon, color, label) = _resolveStatus(cap, l10n);
+    final notifier = ref.read(pasteCapabilityNotifierProvider.notifier);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -128,12 +112,12 @@ class _PasteCapabilityIndicatorState
               Expanded(
                 child: Text(
                   label,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
                 ),
               ),
-              if (_checking)
+              if (_busy)
                 const SizedBox(
                   width: 16,
                   height: 16,
@@ -159,19 +143,19 @@ class _PasteCapabilityIndicatorState
             runSpacing: 6,
             children: [
               TextButton.icon(
-                onPressed: _checking ? null : () => _check(prompt: false),
+                onPressed: _busy ? null : () => _run(() => notifier.check()),
                 icon: const Icon(LucideIcons.refreshCw, size: 14),
                 label: Text(l10n.pasteCapabilityTestButton),
               ),
               if (cap?.status == PasteCapabilityStatus.permissionMissing &&
                   Platform.isMacOS) ...[
                 FilledButton.icon(
-                  onPressed: _checking
+                  onPressed: _busy
                       ? null
-                      : () async {
-                          await _check(prompt: true);
+                      : () => _run(() async {
+                          await notifier.check(prompt: true);
                           await _openAccessibilitySettings();
-                        },
+                        }),
                   icon: const Icon(LucideIcons.shield, size: 14),
                   label: Text(l10n.pasteCapabilityGrantButton),
                 ),
@@ -181,7 +165,7 @@ class _PasteCapabilityIndicatorState
                   label: Text(l10n.pasteFailureOpenSettings),
                 ),
                 TextButton.icon(
-                  onPressed: _checking ? null : _repairTcc,
+                  onPressed: _busy ? null : _repair,
                   icon: const Icon(LucideIcons.wrench, size: 14),
                   label: Text(l10n.pasteCapabilityRepairButton),
                 ),
@@ -193,10 +177,7 @@ class _PasteCapabilityIndicatorState
     );
   }
 
-  (IconData, Color, String) _resolveStatus(
-    PasteCapability? cap,
-    L10n l10n,
-  ) {
+  (IconData, Color, String) _resolveStatus(PasteCapability? cap, L10n l10n) {
     if (cap == null) {
       return (
         LucideIcons.loaderCircle,
