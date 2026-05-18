@@ -1,12 +1,19 @@
-/// Widget tests for [AutoPasteStep] (onboarding step 3, macOS).
+/// Widget tests for [AutoPasteStep] (onboarding step 3).
 ///
 /// External behaviour only: we check what the user sees and which side
 /// effects fire (settings update, polling timer disposal). The shared
 /// [PasteCapabilityNotifier] is overridden with a tiny fake so we don't
 /// touch the real platform bridge — the production notifier still owns the
 /// `Paster` integration; here we only exercise the widget contract.
+///
+/// Platform branching is driven by [defaultTargetPlatform], so Windows
+/// cases use `debugDefaultTargetPlatformOverride = TargetPlatform.windows`
+/// (reset in a `finally`) and macOS cases run under the test host's
+/// default target.
 library;
 
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, debugDefaultTargetPlatformOverride;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -492,6 +499,158 @@ void main() {
         // tearing down adds one more stop call — we only require at least one
         // explicit stop from the widget's own dispose path.
         expect(paste.stopPollingCalls, greaterThanOrEqualTo(1));
+      },
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // Windows-specific surface (slice 05).
+  //
+  // Branching is driven by `defaultTargetPlatform` so we exercise both paths
+  // by flipping `debugDefaultTargetPlatformOverride` per test and resetting
+  // it in `finally`. The fake notifier seeds the capability state — the real
+  // Paster bridge stays untouched.
+  // ---------------------------------------------------------------------------
+  group('AutoPasteStep — Windows', () {
+    testWidgets(
+      'ready first-mount: minimal verify state, Next active, NO Skip button, '
+      'NO macOS-specific Grant/Repair affordances',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+        try {
+          final paste = _FakePasteCapabilityNotifier(
+            initial: const PasteCapabilityState(
+              capability: PasteCapability(status: PasteCapabilityStatus.ready),
+            ),
+          );
+          var nextCalled = false;
+
+          await _pumpStep(
+            tester,
+            paste: paste,
+            onNext: () => nextCalled = true,
+          );
+
+          // Verify card shows the success label.
+          expect(find.text('Ready to paste'), findsOneWidget);
+
+          // The Windows verify branch hides the macOS-specific Skip CTA —
+          // there is no action the user has to take, so offering Skip would
+          // only invite a mis-tap that disables Auto-Paste for no reason.
+          expect(find.text('Skip — disable Auto-Paste'), findsNothing);
+
+          // macOS-only affordances must not bleed into the Windows surface.
+          expect(find.text('Grant Accessibility permission'), findsNothing);
+          expect(find.text('Repair permissions'), findsNothing);
+
+          // Next is active in the 99% case — tapping advances.
+          await tester.tap(find.text('Next'));
+          await tester.pumpAndSettle();
+          expect(nextCalled, isTrue);
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      },
+    );
+
+    testWidgets(
+      'permissionMissing (UIPI edge): non-blocking warn card visible, '
+      'Skip-Auto-Paste button visible, Next STILL active',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+        try {
+          final paste = _FakePasteCapabilityNotifier(
+            initial: const PasteCapabilityState(
+              capability: PasteCapability(
+                status: PasteCapabilityStatus.permissionMissing,
+                canPrompt: false,
+              ),
+            ),
+          );
+          var nextCalled = false;
+
+          await _pumpStep(
+            tester,
+            paste: paste,
+            onNext: () => nextCalled = true,
+          );
+
+          // Warn copy is rendered — we match the unique UIPI fragment so the
+          // assertion stays robust against rewording of the framing sentence.
+          expect(
+            find.textContaining('UIPI/UAC'),
+            findsOneWidget,
+            reason: 'UIPI warn card must render its explanation text',
+          );
+
+          // Skip CTA appears in the warn branch (mirrors the macOS skip flow)
+          // so users in the edge case can opt out of Auto-Paste cleanly.
+          expect(find.text('Skip — disable Auto-Paste'), findsOneWidget);
+
+          // The macOS verify-state success label is NOT shown in this branch.
+          expect(find.text('Ready to paste'), findsNothing);
+
+          // Edge case is non-blocking: Next must remain active so the user
+          // can keep Auto-Paste on and still move forward.
+          await tester.tap(find.text('Next'));
+          await tester.pumpAndSettle();
+          expect(
+            nextCalled,
+            isTrue,
+            reason: 'UIPI edge is non-blocking — Next must stay enabled',
+          );
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      },
+    );
+
+    testWidgets(
+      'permissionMissing skip persists afterTranscription=clipboard and '
+      'advances via onNext',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+        try {
+          final paste = _FakePasteCapabilityNotifier(
+            initial: const PasteCapabilityState(
+              capability: PasteCapability(
+                status: PasteCapabilityStatus.permissionMissing,
+                canPrompt: false,
+              ),
+            ),
+          );
+          final settings = _RecordingSettingsNotifier(
+            const AppSettings(
+              afterTranscriptionSection: AfterTranscriptionSettings(
+                afterTranscription: 'paste',
+              ),
+            ),
+          );
+          var nextCalled = false;
+
+          await _pumpStep(
+            tester,
+            paste: paste,
+            settings: settings,
+            onNext: () => nextCalled = true,
+          );
+
+          await tester.tap(find.text('Skip — disable Auto-Paste'));
+          await tester.pumpAndSettle();
+
+          expect(nextCalled, isTrue);
+          expect(settings.updates, hasLength(1));
+          expect(
+            settings
+                .updates
+                .single
+                .afterTranscriptionSection
+                .afterTranscription,
+            'clipboard',
+          );
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
       },
     );
   });

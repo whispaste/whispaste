@@ -7,8 +7,16 @@
 /// polls for the capability to flip to [PasteCapabilityStatus.ready] while
 /// the user toggles the setting in System Settings.
 ///
-/// On Windows: this slice still renders the same macOS-shaped flow as a
-/// placeholder; slice 05 will replace it with a dedicated verify-only path.
+/// On Windows: Auto-Paste needs no extra permission in the 99% case, so
+/// the step renders a minimal verify-only surface: "Ready to paste" with a
+/// green checkmark, a one-line explanation, Next immediately enabled, and
+/// no Skip button. The remaining edge case is UIPI/UAC-protected windows
+/// (e.g. Auto-Paste running un-elevated while the focused target is an
+/// elevated process) — there the probe surfaces as `permissionMissing`
+/// and the step shows a non-blocking warn card plus an explicit Skip path
+/// (analogue to the macOS Skip). Next stays enabled either way because the
+/// edge case is non-blocking — the user decides whether to keep Auto-Paste
+/// on or switch to clipboard-only.
 ///
 /// On Linux: never rendered — [OnboardingOverlay] omits the step entirely
 /// from its platform-dependent step list.
@@ -22,6 +30,7 @@ library;
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -167,11 +176,70 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
 
   @override
   Widget build(BuildContext context) {
+    // Branch on `defaultTargetPlatform` (not `Platform.isMacOS`) so widget
+    // tests can simulate the Windows surface from a macOS / Linux test host
+    // via `debugDefaultTargetPlatformOverride`. The macOS-only inner calls
+    // (`_openAccessibilitySettings`) still guard with `Platform.isMacOS`,
+    // which is fine: those code paths only fire from user-driven taps the
+    // Windows branch never exposes.
+    final isWindows = defaultTargetPlatform == TargetPlatform.windows;
+    if (isWindows) {
+      return _WindowsBody(
+        state: ref.watch(pasteCapabilityNotifierProvider),
+        onNext: widget.onNext,
+        onBack: widget.onBack,
+        onSkip: _onSkipPressed,
+      );
+    }
+    return _MacOsBody(
+      state: ref.watch(pasteCapabilityNotifierProvider),
+      notifier: () {
+        final n = ref.read(pasteCapabilityNotifierProvider.notifier);
+        _cachedNotifier = n;
+        return n;
+      }(),
+      repairInFlight: _repairInFlight,
+      lastRepairResult: _lastRepairResult,
+      onGrant: _onGrantPressed,
+      onRepair: _onRepairPressed,
+      onSkip: _onSkipPressed,
+      onNext: widget.onNext,
+      onBack: widget.onBack,
+    );
+  }
+}
+
+// =============================================================================
+// macOS body — full Grant/Repair/Skip flow.
+// =============================================================================
+
+class _MacOsBody extends StatelessWidget {
+  const _MacOsBody({
+    required this.state,
+    required this.notifier,
+    required this.repairInFlight,
+    required this.lastRepairResult,
+    required this.onGrant,
+    required this.onRepair,
+    required this.onSkip,
+    required this.onNext,
+    required this.onBack,
+  });
+
+  final PasteCapabilityState state;
+  final PasteCapabilityNotifier notifier;
+  final bool repairInFlight;
+  final TccRepairResult? lastRepairResult;
+  final Future<void> Function() onGrant;
+  final Future<void> Function() onRepair;
+  final Future<void> Function() onSkip;
+  final VoidCallback onNext;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
-    final state = ref.watch(pasteCapabilityNotifierProvider);
-    final notifier = ref.read(pasteCapabilityNotifierProvider.notifier);
-    _cachedNotifier = notifier;
     final cap = state.capability;
     final isReady = cap?.status == PasteCapabilityStatus.ready;
 
@@ -180,7 +248,6 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
     // ad-hoc-signed-Sequoia stale-TCC symptom. Before that, the button is
     // pure noise.
     final showRepair =
-        Platform.isMacOS &&
         state.hadFailedGrantAttempt &&
         cap?.status == PasteCapabilityStatus.permissionMissing;
 
@@ -238,7 +305,7 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
             child: WpAccentButton(
               label: l10n.onboardingPasteGrantCta,
               gradient: accentGradient,
-              onPressed: _onGrantPressed,
+              onPressed: onGrant,
             ),
           ),
           const SizedBox(height: WpSpacing.sm),
@@ -251,9 +318,9 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
           if (showRepair) ...[
             const SizedBox(height: WpSpacing.md),
             _RepairPanel(
-              busy: _repairInFlight,
-              lastResult: _lastRepairResult,
-              onRepair: _repairInFlight ? null : _onRepairPressed,
+              busy: repairInFlight,
+              lastResult: lastRepairResult,
+              onRepair: repairInFlight ? null : onRepair,
               isDark: isDark,
               textSecondary: textSecondary,
               textMuted: textMuted,
@@ -265,7 +332,7 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
           const SizedBox(height: WpSpacing.sm),
           // Skip — sets afterTranscription=clipboard and advances.
           TextButton(
-            onPressed: _onSkipPressed,
+            onPressed: onSkip,
             child: Text(
               l10n.onboardingPasteSkip,
               style: TextStyle(color: textSecondary, fontSize: 13),
@@ -279,7 +346,7 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
         Row(
           children: [
             TextButton(
-              onPressed: widget.onBack,
+              onPressed: onBack,
               child: Text(
                 l10n.onboardingBack,
                 style: TextStyle(color: textSecondary),
@@ -291,12 +358,251 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
               child: WpAccentButton(
                 label: l10n.onboardingNext,
                 gradient: accentGradient,
-                onPressed: isReady ? widget.onNext : null,
+                onPressed: isReady ? onNext : null,
               ),
             ),
           ],
         ),
       ],
+    );
+  }
+}
+
+// =============================================================================
+// Windows body — minimal verify in the 99% case, non-blocking UIPI warn
+// for the rare edge where the probe reports permissionMissing.
+// =============================================================================
+
+class _WindowsBody extends StatelessWidget {
+  const _WindowsBody({
+    required this.state,
+    required this.onNext,
+    required this.onBack,
+    required this.onSkip,
+  });
+
+  final PasteCapabilityState state;
+  final VoidCallback onNext;
+  final VoidCallback onBack;
+  final Future<void> Function() onSkip;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final l10n = L10n.of(context);
+    final cap = state.capability;
+    // UIPI/UAC edge: the SendInput bridge cannot deliver keystrokes into an
+    // elevated target window when WhisPaste itself runs un-elevated. We
+    // surface this as a non-blocking warning — the user keeps the choice
+    // between leaving Auto-Paste on or skipping to clipboard-only mode.
+    final isUipiEdge = cap?.status == PasteCapabilityStatus.permissionMissing;
+
+    final textPrimary = isDark
+        ? WpColorsDark.textPrimary
+        : WpColorsLight.textPrimary;
+    final textSecondary = isDark
+        ? WpColorsDark.textSecondary
+        : WpColorsLight.textSecondary;
+    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final accentGradient = isDark
+        ? WpColorsDark.accentWarmGradient
+        : WpColorsLight.accentWarmGradient;
+    final successColor = isDark ? WpColorsDark.success : WpColorsLight.success;
+    final warningColor = isDark ? WpColorsDark.warning : WpColorsLight.warning;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // -- Title ---------------------------------------------------------
+        Text(
+          l10n.onboardingPasteTitle,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: textPrimary,
+          ),
+        ),
+        const SizedBox(height: WpSpacing.xs),
+        Text(
+          l10n.onboardingPasteSubtitle,
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 14, color: textSecondary, height: 1.4),
+        ),
+        const SizedBox(height: WpSpacing.xl),
+
+        if (isUipiEdge) ...[
+          // -- UIPI warn card (non-blocking) ------------------------------
+          _WindowsWarnCard(
+            isDark: isDark,
+            textPrimary: textPrimary,
+            textSecondary: textSecondary,
+            warningColor: warningColor,
+            message: l10n.onboardingPasteWhyWinUipi,
+          ),
+          const SizedBox(height: WpSpacing.sm),
+          // Skip — sets afterTranscription=clipboard and advances. Same
+          // wording as the macOS skip (`onboardingPasteSkip`) so the option
+          // is recognisable across platforms.
+          TextButton(
+            onPressed: onSkip,
+            child: Text(
+              l10n.onboardingPasteSkip,
+              style: TextStyle(color: textSecondary, fontSize: 13),
+            ),
+          ),
+        ] else ...[
+          // -- Verify card (default, 99% case) ----------------------------
+          _WindowsVerifyCard(
+            isDark: isDark,
+            textPrimary: textPrimary,
+            successColor: successColor,
+            label: l10n.pasteCapabilityReady,
+          ),
+          const SizedBox(height: WpSpacing.sm),
+          Text(
+            l10n.onboardingPasteWhyWin,
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12, color: textMuted, height: 1.4),
+          ),
+        ],
+
+        const SizedBox(height: WpSpacing.lg),
+
+        // -- Navigation row -----------------------------------------------
+        // Next is enabled in BOTH branches: the verify-state is the happy
+        // path, and the UIPI edge is explicitly non-blocking — we trust the
+        // user's choice rather than gating the rest of onboarding behind a
+        // problem they may never hit again.
+        Row(
+          children: [
+            TextButton(
+              onPressed: onBack,
+              child: Text(
+                l10n.onboardingBack,
+                style: TextStyle(color: textSecondary),
+              ),
+            ),
+            const Spacer(),
+            SizedBox(
+              width: 140,
+              child: WpAccentButton(
+                label: l10n.onboardingNext,
+                gradient: accentGradient,
+                onPressed: onNext,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// Minimal Windows verify-state card: green checkmark + "Ready to paste".
+/// No actions inside the card; the surrounding column wires up Next.
+class _WindowsVerifyCard extends StatelessWidget {
+  const _WindowsVerifyCard({
+    required this.isDark,
+    required this.textPrimary,
+    required this.successColor,
+    required this.label,
+  });
+
+  final bool isDark;
+  final Color textPrimary;
+  final Color successColor;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final surface =
+        (isDark ? WpColorsDark.surfaceVariant : WpColorsLight.surfaceVariant)
+            .withValues(alpha: 0.5);
+    final border = isDark
+        ? WpColorsDark.borderSubtle
+        : WpColorsLight.borderSubtle;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: WpSpacing.md,
+        vertical: WpSpacing.md,
+      ),
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: WpRadius.borderMd,
+        border: Border.all(color: border),
+      ),
+      child: Row(
+        children: [
+          Icon(LucideIcons.circleCheck, size: 22, color: successColor),
+          const SizedBox(width: WpSpacing.sm),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: textPrimary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Non-blocking Windows warn card surfacing the UIPI/UAC edge case. Uses
+/// the warning palette (not the error palette) because the situation is
+/// recoverable — Auto-Paste still works for non-elevated target apps and
+/// the clipboard path is always available as a fallback.
+class _WindowsWarnCard extends StatelessWidget {
+  const _WindowsWarnCard({
+    required this.isDark,
+    required this.textPrimary,
+    required this.textSecondary,
+    required this.warningColor,
+    required this.message,
+  });
+
+  final bool isDark;
+  final Color textPrimary;
+  final Color textSecondary;
+  final Color warningColor;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final surface =
+        (isDark ? WpColorsDark.surfaceVariant : WpColorsLight.surfaceVariant)
+            .withValues(alpha: 0.5);
+    final border = isDark
+        ? WpColorsDark.borderSubtle
+        : WpColorsLight.borderSubtle;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(WpSpacing.md),
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: WpRadius.borderMd,
+        border: Border.all(color: border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(LucideIcons.triangleAlert, size: 20, color: warningColor),
+          const SizedBox(width: WpSpacing.sm),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(fontSize: 13, color: textSecondary, height: 1.4),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

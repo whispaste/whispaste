@@ -46,8 +46,9 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
   ///
   /// Linux has no Accessibility-style permission for keystroke injection,
   /// so [AutoPasteStep] would have nothing to do and is omitted entirely.
-  /// macOS and Windows both include it (Windows still gets the shared
-  /// placeholder UI until slice 05).
+  /// macOS and Windows both include it — the step itself branches on
+  /// [defaultTargetPlatform] to render the macOS Grant/Repair/Skip flow or
+  /// the minimal Windows Verify (plus UIPI-edge warn).
   List<_OnboardingStepId> _onboardingSteps() {
     final isLinux = defaultTargetPlatform == TargetPlatform.linux;
     return [

@@ -987,6 +987,12 @@ abstract class L10n {
   /// **'Windows allows keystroke injection without an extra permission. This step just verifies the bridge works on your machine.'**
   String get onboardingPasteWhyWin;
 
+  /// No description provided for @onboardingPasteWhyWinUipi.
+  ///
+  /// In en, this message translates to:
+  /// **'In certain apps with UIPI/UAC protection, Auto-Paste won\'t work — the text will sit in the clipboard and you\'ll need to paste it with Ctrl+V yourself.'**
+  String get onboardingPasteWhyWinUipi;
+
   /// No description provided for @settingsOverlayFloatingButton.
   ///
   /// In en, this message translates to:

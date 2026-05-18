@@ -497,6 +497,10 @@ class L10nHe extends L10n {
       'Windows מאפשר שליחת הקשות ללא הרשאה נוספת. שלב זה רק מוודא שהחיבור פועל במכשירך.';
 
   @override
+  String get onboardingPasteWhyWinUipi =>
+      'באפליקציות מסוימות עם הגנת UIPI/UAC, ההדבקה האוטומטית לא תעבוד — הטקסט יישאר בלוח, ויהיה עליך להדביקו עם Ctrl+V באופן ידני.';
+
+  @override
   String get settingsOverlayFloatingButton => 'שכבת הקלטה צפה';
 
   @override

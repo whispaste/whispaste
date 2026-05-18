@@ -505,6 +505,10 @@ class L10nEn extends L10n {
       'Windows allows keystroke injection without an extra permission. This step just verifies the bridge works on your machine.';
 
   @override
+  String get onboardingPasteWhyWinUipi =>
+      'In certain apps with UIPI/UAC protection, Auto-Paste won\'t work — the text will sit in the clipboard and you\'ll need to paste it with Ctrl+V yourself.';
+
+  @override
   String get settingsOverlayFloatingButton => 'Recording Overlay';
 
   @override

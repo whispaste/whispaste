@@ -509,6 +509,10 @@ class L10nDe extends L10n {
       'Windows erlaubt das Senden von Tasten ohne zusätzliche Berechtigung. Dieser Schritt prüft nur, dass die Verbindung auf deinem Gerät funktioniert.';
 
   @override
+  String get onboardingPasteWhyWinUipi =>
+      'In bestimmten Apps mit UIPI/UAC-Schutz wird Auto-Paste nicht funktionieren — der Text liegt dann in der Zwischenablage und du fügst mit Ctrl+V ein.';
+
+  @override
   String get settingsOverlayFloatingButton => 'Aufnahme-Overlay';
 
   @override
