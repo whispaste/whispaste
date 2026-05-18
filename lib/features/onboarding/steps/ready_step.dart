@@ -240,7 +240,7 @@ class ReadyStep extends ConsumerWidget {
               flex: 2,
               child: WpAccentButton(
                 key: kReadyStepStartButtonKey,
-                label: l10n.onboardingStartDictating,
+                label: l10n.onboardingStartUsing,
                 gradient: accentGradient,
                 onPressed: startEnabled ? onComplete : null,
               ),

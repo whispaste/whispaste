@@ -1893,7 +1893,7 @@ class L10nHe extends L10n {
   String get onboardingGetStarted => 'התחל';
 
   @override
-  String get onboardingSkip => 'דלג';
+  String get onboardingSkip => 'דלג על שלב זה';
 
   @override
   String get onboardingNext => 'הבא';
@@ -2011,7 +2011,7 @@ class L10nHe extends L10n {
       'נראה שהקיצור שלך תפוס על ידי אפליקציה אחרת. הקלט שילוב חדש למטה כדי להמשיך.';
 
   @override
-  String get onboardingStartDictating => 'התחל להכתיב';
+  String get onboardingStartUsing => 'בוא נתחיל';
 
   @override
   String get overlayRecording => 'מקליט';

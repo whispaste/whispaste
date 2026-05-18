@@ -1939,7 +1939,7 @@ class L10nEn extends L10n {
   String get onboardingGetStarted => 'Continue';
 
   @override
-  String get onboardingSkip => 'Skip';
+  String get onboardingSkip => 'Skip this step';
 
   @override
   String get onboardingNext => 'Next';
@@ -2060,7 +2060,7 @@ class L10nEn extends L10n {
       'Your hotkey seems to be in use by another app. Record a new combination below to continue.';
 
   @override
-  String get onboardingStartDictating => 'Start Dictating';
+  String get onboardingStartUsing => 'Let\'s go';
 
   @override
   String get overlayRecording => 'Recording';

@@ -646,7 +646,7 @@
   "settingsCheckUpdatesSubtitle": "Beim Start automatisch nach neuen Versionen suchen",
 
   "onboardingGetStarted": "Weiter",
-  "onboardingSkip": "Überspringen",
+  "onboardingSkip": "Diesen Schritt überspringen",
   "onboardingNext": "Weiter",
   "onboardingBack": "Zurück",
   "onboardingStepOf": "Schritt {current} von {total}",
@@ -683,7 +683,7 @@
   "onboardingReadyCurrentHotkey": "Aktuelles Tastenkürzel",
   "onboardingReadyHotkeyConflictTitle": "Tastenkürzel bereits belegt",
   "onboardingReadyHotkeyConflictBody": "Dein Tastenkürzel scheint von einer anderen App belegt zu sein. Nimm unten eine neue Kombination auf, um fortzufahren.",
-  "onboardingStartDictating": "Jetzt diktieren",
+  "onboardingStartUsing": "Los geht's",
 
   "overlayRecording": "Aufnahme",
   "overlayTranscribing": "Wird transkribiert…",

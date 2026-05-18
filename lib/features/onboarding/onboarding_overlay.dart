@@ -114,7 +114,7 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
     // Skip advances to the next step rather than completing the entire
     // onboarding immediately. This lets users skip individual steps while
     // still seeing the remaining ones. On the last step there is no skip
-    // button — only the "Start Dictating" CTA.
+    // button — only the "Let's go" CTA.
     final total = _onboardingSteps().length;
     if (_currentStep < total - 1) {
       _goNext();

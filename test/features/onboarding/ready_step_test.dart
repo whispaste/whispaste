@@ -79,6 +79,36 @@ Future<void> _pumpStep(
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  // ── Wording-hygiene (issue 10) ───────────────────────────────────────────
+  //
+  // CONTEXT.md §7 forbids "dictation" vocabulary — WhisPaste is explicitly
+  // not a dictation tool. The final CTA on ReadyStep must use the neutral
+  // "Let's go" wording instead of the legacy "Start Dictating".
+
+  group('ReadyStep — final CTA wording (issue 10)', () {
+    testWidgets('Start CTA renders the dictation-free "Let\'s go" label', (
+      tester,
+    ) async {
+      final settings = _FakeSettingsNotifier();
+      await _pumpStep(tester, settings: settings);
+
+      expect(
+        find.text("Let's go"),
+        findsOneWidget,
+        reason:
+            'Final CTA must use the CONTEXT.md §7-conformant "Let\'s go" '
+            'label, not the legacy "Start Dictating".',
+      );
+      expect(
+        find.textContaining('Dictating'),
+        findsNothing,
+        reason:
+            'No dictation vocabulary may appear in the final CTA per '
+            'CONTEXT.md §7.',
+      );
+    });
+  });
+
   group('ReadyStep — step 3 wording reacts to Auto-Paste setting', () {
     testWidgets(
       'Auto-Paste on (afterTranscription == paste) → step 3 shows Auto-Paste wording, '
