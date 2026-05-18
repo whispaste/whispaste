@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 1.2.20
+
+### Bug Fixes
+
+- **Release pipeline no longer fails when an action's Post-step exits non-zero**. In v1.2.19 every functional Windows build step (compile, Sentry symbol upload, NSIS installer, MSIX, both artifact uploads) succeeded, but the `subosito/flutter-action` Post-step (cache save on a cache hit) returned a non-zero exit code. That flipped `needs.build-windows.result` to `failure` and the conditional gates on `create-release` and `submit-ms-store` (`result == 'success'`) skipped both jobs, leaving the binaries stranded in the artifact storage with no GitHub Release and no Microsoft Store submission. The workflow now exposes an explicit `build-succeeded` output set by a `Mark build succeeded` step that runs after every real build/upload step. Downstream jobs gate on that output (combined with `!cancelled()`) instead of the job result, so cache-save quirks or other Post-step failures can no longer block a release.
+
 ## 1.2.19
 
 ### Bug Fixes
