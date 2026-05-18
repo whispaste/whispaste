@@ -1,3 +1,7 @@
 # Build-time translation cache (per-key JSON files written by
 # scripts/body-translator.ts). Never tracked — regenerated on demand.
 .cache/
+
+# Sentry source-maps-build-plugin: optional dev/CI file with SENTRY_AUTH_TOKEN.
+# Auth-Token darf NIE committed werden.
+.env.sentry-build-plugin
