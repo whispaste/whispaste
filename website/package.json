@@ -17,12 +17,12 @@
     "@astrojs/sitemap": "^3.7.0",
     "@tailwindcss/vite": "^4.2.1",
     "astro": "^6.3.2",
-    "dompurify": "^3.4.3",
+    "dompurify": "^3.4.4",
     "tailwindcss": "^4.2.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
-    "@types/dompurify": "^3.0.5",
+    "@types/dompurify": "^3.2.0",
     "@types/jsdom": "^28.0.3",
     "@typescript-eslint/eslint-plugin": "^8.59.3",
     "@typescript-eslint/parser": "^8.59.3",
