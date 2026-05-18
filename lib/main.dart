@@ -6,6 +6,7 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'app.dart';
+import 'core/app_info.dart';
 import 'core/config/settings_provider.dart';
 import 'core/data/database.dart';
 import 'core/l10n/generated/app_localizations.dart';
@@ -44,6 +45,16 @@ Future<void> main(List<String> args) async {
   await AppMonitoring.bootstrap(
     appRunner: () async {
       WidgetsFlutterBinding.ensureInitialized();
+
+      // Resolve runtime app version from the platform package metadata before
+      // any consumer reads appVersion / sentryRelease / appUserAgent (update
+      // check, feedback, About page, HTTP User-Agent). CrashReporter.init()
+      // already tagged 'app_version' with the pre-init placeholder — re-tag
+      // here so Sentry sees the real version.
+      await initAppInfo();
+      Sentry.configureScope((scope) {
+        scope.setTag('app_version', appVersion);
+      });
 
       // Single-instance guard: if another instance is running, signal it and exit.
       if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
