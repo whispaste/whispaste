@@ -74,6 +74,11 @@ class AppMonitoring {
         options.maxBreadcrumbs = 30;
         options.beforeSend = CrashReporter.beforeSend;
         options.beforeSendTransaction = CrashReporter.beforeSendTransaction;
+        // tracesSampler takes precedence over tracesSampleRate when both are
+        // set — see sentry_traces_sampler.dart. Our sampler returns 0.0 on
+        // consent=false (blocks the trace entirely so no spans can leak) and
+        // null otherwise (falls through to tracesSampleRate below).
+        options.tracesSampler = CrashReporter.tracesSampler;
         options.tracesSampleRate = kReleaseMode ? 0.005 : 0.05;
         options.enableAutoPerformanceTracing = true;
         options.enableAutoNativeBreadcrumbs = true;
