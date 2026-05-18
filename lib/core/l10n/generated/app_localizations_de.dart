@@ -424,6 +424,91 @@ class L10nDe extends L10n {
   String get settingsAfterTranscriptionNothing => 'Nichts tun';
 
   @override
+  String get pasteFailurePermissionMissing =>
+      'Auto-Einfügen vom System blockiert. WhisPaste braucht die Bedienungshilfen-Berechtigung, um in andere Apps einzufügen.';
+
+  @override
+  String get pasteFailureNoTarget =>
+      'Auto-Einfügen übersprungen — keine Ziel-App erkannt. Fokussiere zuerst die Ziel-App, dann starte die Aufnahme.';
+
+  @override
+  String get pasteFailureGeneric =>
+      'Auto-Einfügen fehlgeschlagen. Der Text ist in der Zwischenablage — füge ihn manuell mit ⌘V / Strg+V ein.';
+
+  @override
+  String get pasteFailureOpenSettings => 'Einstellungen öffnen';
+
+  @override
+  String get pasteCapabilityCheckTitle => 'Auto-Einfügen prüfen';
+
+  @override
+  String get pasteCapabilityReady => 'Bereit zum Einfügen';
+
+  @override
+  String get pasteCapabilityPermissionMissing =>
+      'Bedienungshilfen-Berechtigung fehlt';
+
+  @override
+  String get pasteCapabilityUnsupported =>
+      'Auto-Einfügen ist auf dieser Plattform nicht verfügbar';
+
+  @override
+  String get pasteCapabilityTestButton => 'Jetzt testen';
+
+  @override
+  String get pasteCapabilityGrantButton => 'Berechtigung erteilen';
+
+  @override
+  String get pasteCapabilityRepairHint =>
+      'Wenn der Schalter in den Systemeinstellungen an ist und es trotzdem fehlschlägt: unten auf \'Reparieren\' klicken — das räumt veraltete macOS-Berechtigungs-Einträge für WhisPaste auf, sodass beim nächsten Paste frische Prompts erscheinen.';
+
+  @override
+  String get pasteCapabilityRepairButton => 'Berechtigungen reparieren';
+
+  @override
+  String pasteCapabilityRepairDone(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count veraltete Einträge entfernt. Bitte einmal Paste auslösen, um die neuen Prompts zu sehen.',
+      one:
+          '1 veralteter Eintrag entfernt. Bitte einmal Paste auslösen, um den neuen Prompt zu sehen.',
+      zero: 'Keine veralteten Einträge gefunden — bitte einmal Paste auslösen.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get pasteCapabilityRepairFailed =>
+      'macOS-Berechtigungs-Reset konnte nicht ausgeführt werden. Bitte WhisPaste manuell aus Systemeinstellungen → Bedienungshilfen entfernen.';
+
+  @override
+  String get onboardingPasteTitle => 'Auto-Einfügen einrichten';
+
+  @override
+  String get onboardingPasteSubtitle =>
+      'WhisPaste braucht eine zusätzliche Berechtigung, um Transkripte in andere Apps einzufügen.';
+
+  @override
+  String get onboardingPasteGrantCta =>
+      'Bedienungshilfen-Berechtigung erteilen';
+
+  @override
+  String get onboardingPasteVerifyCta => 'Prüfen';
+
+  @override
+  String get onboardingPasteSkip => 'Überspringen — nur kopieren';
+
+  @override
+  String get onboardingPasteWhyMac =>
+      'macOS verlangt eine explizite Berechtigung für jede App, die Tasten in andere Apps schickt. Ohne sie wird dein Transkript trotzdem in die Zwischenablage kopiert, aber ⌘V wird nicht automatisch ausgelöst.';
+
+  @override
+  String get onboardingPasteWhyWin =>
+      'Windows erlaubt das Senden von Tasten ohne zusätzliche Berechtigung. Dieser Schritt prüft nur, dass die Verbindung auf deinem Gerät funktioniert.';
+
+  @override
   String get settingsOverlayFloatingButton => 'Aufnahme-Overlay';
 
   @override

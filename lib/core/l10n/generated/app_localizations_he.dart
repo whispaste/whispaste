@@ -416,6 +416,87 @@ class L10nHe extends L10n {
   String get settingsAfterTranscriptionNothing => 'לא לעשות כלום';
 
   @override
+  String get pasteFailurePermissionMissing =>
+      'ההדבקה האוטומטית נחסמה על־ידי המערכת. WhisPaste זקוקה להרשאת נגישות כדי להדביק באפליקציות אחרות.';
+
+  @override
+  String get pasteFailureNoTarget =>
+      'ההדבקה האוטומטית דולגה — לא זוהה חלון יעד. מקד את האפליקציה היעד לפני התחלת ההקלטה.';
+
+  @override
+  String get pasteFailureGeneric =>
+      'ההדבקה האוטומטית נכשלה. הטקסט נמצא בלוח — הדבק ידנית עם ⌘V / Ctrl+V.';
+
+  @override
+  String get pasteFailureOpenSettings => 'פתח הגדרות';
+
+  @override
+  String get pasteCapabilityCheckTitle => 'בדוק הגדרת הדבקה אוטומטית';
+
+  @override
+  String get pasteCapabilityReady => 'מוכן להדבקה';
+
+  @override
+  String get pasteCapabilityPermissionMissing => 'הרשאת נגישות לא הוענקה';
+
+  @override
+  String get pasteCapabilityUnsupported =>
+      'ההדבקה האוטומטית לא זמינה בפלטפורמה זו';
+
+  @override
+  String get pasteCapabilityTestButton => 'בדוק עכשיו';
+
+  @override
+  String get pasteCapabilityGrantButton => 'הענק הרשאה';
+
+  @override
+  String get pasteCapabilityRepairHint =>
+      'אם המתג בהגדרות המערכת דלוק וזה עדיין נכשל: לחץ \'תקן\' למטה — זה מנקה רשומות הרשאה ישנות של macOS עבור WhisPaste כך שההדבקה הבאה תפעיל בקשות חדשות.';
+
+  @override
+  String get pasteCapabilityRepairButton => 'תקן הרשאות';
+
+  @override
+  String pasteCapabilityRepairDone(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'נוקו $count רשומות ישנות. נסה הדבקה כדי לראות בקשות חדשות.',
+      one: 'נוקתה רשומה ישנה אחת. נסה הדבקה כדי לראות בקשה חדשה.',
+      zero: 'לא נמצאו רשומות ישנות — נסה הדבקה.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get pasteCapabilityRepairFailed =>
+      'לא ניתן היה להריץ איפוס הרשאות של macOS. הסר את WhisPaste ידנית מ־הגדרות מערכת → נגישות.';
+
+  @override
+  String get onboardingPasteTitle => 'הגדרת הדבקה אוטומטית';
+
+  @override
+  String get onboardingPasteSubtitle =>
+      'WhisPaste זקוקה להרשאה נוספת כדי להדביק תמלילים באפליקציות אחרות.';
+
+  @override
+  String get onboardingPasteGrantCta => 'הענק הרשאת נגישות';
+
+  @override
+  String get onboardingPasteVerifyCta => 'בדוק';
+
+  @override
+  String get onboardingPasteSkip => 'דלג — רק העתק';
+
+  @override
+  String get onboardingPasteWhyMac =>
+      'macOS דורש הרשאה מפורשת לכל אפליקציה ששולחת הקשות לאפליקציות אחרות. בלעדיה, התמליל עדיין יועתק ללוח, אך ⌘V לא יופעל אוטומטית.';
+
+  @override
+  String get onboardingPasteWhyWin =>
+      'Windows מאפשר שליחת הקשות ללא הרשאה נוספת. שלב זה רק מוודא שהחיבור פועל במכשירך.';
+
+  @override
   String get settingsOverlayFloatingButton => 'שכבת הקלטה צפה';
 
   @override

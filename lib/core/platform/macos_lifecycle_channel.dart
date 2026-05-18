@@ -38,4 +38,35 @@ class MacOSLifecycleChannel {
       // Silently ignore — non-critical UX enhancement.
     }
   }
+
+  /// Bounces the Dock icon until the user activates WhisPaste — used when
+  /// the app has a pending action item (e.g. paste blocked by missing
+  /// Accessibility permission) and the main window may be hidden.
+  ///
+  /// Returns an attention token that can be passed to [cancelUserAttention]
+  /// to stop the bounce once the issue is resolved, or `null` if the call
+  /// failed or the OS rejected it.
+  static Future<int?> requestUserAttention({bool critical = true}) async {
+    if (!Platform.isMacOS) return null;
+    try {
+      final token = await _channel.invokeMethod<int>('requestUserAttention', {
+        'level': critical ? 'critical' : 'informational',
+      });
+      return token;
+    } on PlatformException {
+      return null;
+    }
+  }
+
+  /// Cancels an attention request started by [requestUserAttention].
+  static Future<void> cancelUserAttention(int token) async {
+    if (!Platform.isMacOS) return;
+    try {
+      await _channel.invokeMethod('cancelUserAttentionRequest', {
+        'token': token,
+      });
+    } on PlatformException {
+      // Best-effort cancel.
+    }
+  }
 }

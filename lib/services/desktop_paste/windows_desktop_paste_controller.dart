@@ -23,13 +23,48 @@ class WindowsDesktopPasteController extends DesktopPasteController {
   }
 
   @override
-  Future<bool> pasteClipboard({required Duration delay}) async {
-    if (_disposed) return false;
-    final didPaste = await _channel.invokeMethod<bool>('pasteClipboard', {
+  Future<NativePasteResult> pasteClipboard({required Duration delay}) async {
+    if (_disposed) {
+      return const NativePasteResult(status: NativePasteStatus.unknown);
+    }
+    final raw = await _channel.invokeMethod<Object?>('pasteClipboard', {
       'delayMs': delay.inMilliseconds,
     });
-    return didPaste ?? false;
+    if (raw is Map) {
+      return NativePasteResult.fromMap(raw.cast<Object?, Object?>());
+    }
+    return NativePasteResult.fromLegacyBool(raw as bool?);
   }
+
+  @override
+  Future<NativeCapabilityResult> checkCapability({
+    bool promptIfMissing = false,
+  }) async {
+    if (_disposed) {
+      return const NativeCapabilityResult(
+        status: NativeCapabilityStatus.unsupported,
+      );
+    }
+    try {
+      final raw = await _channel.invokeMethod<Object?>('checkCapability', {
+        'prompt': promptIfMissing,
+      });
+      if (raw is Map) {
+        return NativeCapabilityResult.fromMap(raw.cast<Object?, Object?>());
+      }
+      return const NativeCapabilityResult(
+        status: NativeCapabilityStatus.unsupported,
+      );
+    } on MissingPluginException {
+      return const NativeCapabilityResult(
+        status: NativeCapabilityStatus.unsupported,
+      );
+    }
+  }
+
+  @override
+  Future<TccRepairResult> repairTccEntries() async =>
+      TccRepairResult.unsupported();
 
   @override
   Future<void> dispose() async {

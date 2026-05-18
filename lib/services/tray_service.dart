@@ -71,8 +71,19 @@ class TrayService extends Notifier<void> implements TrayListener {
         onNavigate?.call('settings');
       case 'quit':
         _quit();
+      default:
+        // Action-needed item or any custom key: open the window and
+        // route the click to the action handler for resolution.
+        if (menuItem.key != null) {
+          _showWindow();
+          onActionNeededTap?.call(menuItem.key!);
+        }
     }
   }
+
+  /// Click handler for the action-needed item in the tray menu — fired
+  /// when the user clicks "⚠ Auto-Paste blocked" (or similar).
+  ValueChanged<String>? onActionNeededTap;
 
   @override
   void onTrayIconMouseUp() {}
@@ -85,7 +96,45 @@ class TrayService extends Notifier<void> implements TrayListener {
   void updateRecordingState(RecordingState recording, {L10n? l10n}) {
     if (!_isDesktop || !_initialized) return;
     _l10n = l10n;
-    _rebuildMenu(recording);
+    _lastRecording = recording;
+    _rebuildMenu();
+  }
+
+  /// Marks an action item visible in the tray menu — top-of-list entry
+  /// that survives until [clearActionNeeded]. Use for issues the user
+  /// must fix manually (Auto-Paste permission missing, etc.) so the
+  /// reminder stays visible when the main window is closed.
+  void setActionNeeded({
+    required String label,
+    required String tooltip,
+    String? menuItemKey,
+  }) {
+    if (!_isDesktop || !_initialized) return;
+    _actionNeeded = _ActionNeeded(
+      label: label,
+      tooltip: tooltip,
+      menuItemKey: menuItemKey ?? 'action_needed',
+    );
+    try {
+      trayManager.setToolTip(tooltip);
+    } on Exception catch (e) {
+      _log.warning('Tray tooltip update failed', e);
+    }
+    _rebuildMenu();
+  }
+
+  /// Clears any pending action item from the tray menu. Called when the
+  /// user has resolved the issue (e.g. paste succeeded after one failed).
+  void clearActionNeeded() {
+    if (!_isDesktop || !_initialized) return;
+    if (_actionNeeded == null) return;
+    _actionNeeded = null;
+    try {
+      trayManager.setToolTip('WhisPaste');
+    } on Exception catch (e) {
+      _log.warning('Tray tooltip reset failed', e);
+    }
+    _rebuildMenu();
   }
 
   /// Whether the tray icon was successfully initialized.
@@ -95,6 +144,8 @@ class TrayService extends Notifier<void> implements TrayListener {
 
   bool _initialized = false;
   L10n? _l10n;
+  RecordingState _lastRecording = const RecordingState();
+  _ActionNeeded? _actionNeeded;
 
   Future<void> _init() async {
     try {
@@ -109,14 +160,15 @@ class TrayService extends Notifier<void> implements TrayListener {
       trayManager.addListener(this);
 
       _initialized = true;
-      _rebuildMenu(const RecordingState());
+      _rebuildMenu();
       _log.info('System tray initialized');
     } on Exception catch (e) {
       _log.warning('Failed to init system tray: $e');
     }
   }
 
-  void _rebuildMenu(RecordingState recording) {
+  void _rebuildMenu() {
+    final recording = _lastRecording;
     final isRecording = recording.isRecording;
     final l = _l10n;
     final toggleLabel = isRecording
@@ -127,24 +179,23 @@ class TrayService extends Notifier<void> implements TrayListener {
         ? (l?.trayStatusRecording ?? 'Recording…')
         : (l?.trayStatusReady ?? 'Ready');
 
-    final menu = Menu(
-      items: [
-        MenuItem(
-          key: 'status',
-          label: '$statusDot $statusText',
-          disabled: true,
-        ),
+    final action = _actionNeeded;
+    final items = <MenuItem>[
+      if (action != null) ...[
+        MenuItem(key: action.menuItemKey, label: '⚠ ${action.label}'),
         MenuItem.separator(),
-        MenuItem(key: 'toggle_recording', label: toggleLabel),
-        MenuItem.separator(),
-        MenuItem(key: 'show', label: l?.trayOpenApp ?? 'Open WhisPaste'),
-        MenuItem(key: 'settings', label: l?.traySettings ?? 'Settings'),
-        MenuItem.separator(),
-        MenuItem(key: 'quit', label: l?.trayQuit ?? 'Quit'),
       ],
-    );
+      MenuItem(key: 'status', label: '$statusDot $statusText', disabled: true),
+      MenuItem.separator(),
+      MenuItem(key: 'toggle_recording', label: toggleLabel),
+      MenuItem.separator(),
+      MenuItem(key: 'show', label: l?.trayOpenApp ?? 'Open WhisPaste'),
+      MenuItem(key: 'settings', label: l?.traySettings ?? 'Settings'),
+      MenuItem.separator(),
+      MenuItem(key: 'quit', label: l?.trayQuit ?? 'Quit'),
+    ];
 
-    trayManager.setContextMenu(menu);
+    trayManager.setContextMenu(Menu(items: items));
   }
 
   Future<String?> _resolveIconPath() async {
@@ -259,6 +310,17 @@ class TrayService extends Notifier<void> implements TrayListener {
 
   static bool get _isDesktop =>
       !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+}
+
+class _ActionNeeded {
+  const _ActionNeeded({
+    required this.label,
+    required this.tooltip,
+    required this.menuItemKey,
+  });
+  final String label;
+  final String tooltip;
+  final String menuItemKey;
 }
 
 // ---------------------------------------------------------------------------

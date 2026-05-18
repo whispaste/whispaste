@@ -18,8 +18,57 @@ enum PasteOutcome {
   /// Platform paste bridge not available (unsupported OS / test env).
   platformUnavailable,
 
-  /// Paste was attempted but the native bridge reported failure.
+  /// No target window was captured (e.g. WhisPaste was frontmost when
+  /// recording started, or the previous target window was closed before
+  /// transcription finished). The user needs to focus the destination app
+  /// before triggering recording.
+  noTarget,
+
+  /// The OS denied event injection (macOS Accessibility, Windows UIPI).
+  /// Without this permission, the simulated paste shortcut is silently
+  /// dropped. The user must grant the permission in system settings.
+  permissionMissing,
+
+  /// Paste was attempted but the native bridge reported failure for a
+  /// reason that doesn't map to a more specific outcome above.
   failed,
+}
+
+/// Why [PasteCapability] reports the platform isn't ready to paste.
+enum PasteCapabilityStatus {
+  /// Everything looks good — a paste should succeed.
+  ready,
+
+  /// The required OS permission (Accessibility on macOS, none on Windows)
+  /// has not been granted. [PasteCapability.canPrompt] indicates whether
+  /// the OS will surface its own permission prompt on the next call to
+  /// [Paster.checkCapability] with `promptIfMissing: true`.
+  permissionMissing,
+
+  /// Platform bridge isn't available (unsupported OS / test env).
+  unsupported,
+}
+
+/// Result of a capability probe — answers "would Auto-Paste work right now?"
+/// without actually pasting anything.
+class PasteCapability {
+  const PasteCapability({
+    required this.status,
+    this.canPrompt = false,
+    this.detail,
+  });
+
+  final PasteCapabilityStatus status;
+
+  /// Only meaningful when [status] is [PasteCapabilityStatus.permissionMissing]:
+  /// `true` means the next prompted check will trigger the OS-native
+  /// permission dialog (macOS only — once per process per session).
+  final bool canPrompt;
+
+  /// Free-form detail string from the native side for debug logging.
+  final String? detail;
+
+  bool get isReady => status == PasteCapabilityStatus.ready;
 }
 
 /// Configuration for a paste operation, derived from [AppSettings].
@@ -45,4 +94,10 @@ abstract class Paster {
   ///
   /// Handles clipboard save/restore, delay timing, and blocklist check.
   Future<PasteOutcome> paste(String text, PasteOptions options);
+
+  /// Probes whether Auto-Paste would work right now — without pasting.
+  ///
+  /// When [promptIfMissing] is `true`, surfaces the OS's native permission
+  /// prompt if the required permission is not yet granted (macOS only).
+  Future<PasteCapability> checkCapability({bool promptIfMissing = false});
 }

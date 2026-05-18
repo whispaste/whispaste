@@ -8,9 +8,11 @@
 library;
 
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../app.dart' show activePageProvider, settingsScrollTargetProvider;
 import '../core/config/settings_provider.dart';
@@ -18,6 +20,8 @@ import '../core/l10n/generated/app_localizations.dart';
 import '../core/logging/app_logger.dart';
 import '../core/recording/recording_helpers.dart';
 import '../core/recording/recording_state.dart';
+import '../services/paste/paste_failure_notifier.dart';
+import '../services/paste/paster.dart';
 import '../services/recording_orchestrator.dart';
 import '../services/sound_feedback_service.dart';
 import '../services/tray_service.dart';
@@ -331,6 +335,62 @@ class _RecordingBehaviorState extends ConsumerState<RecordingBehaviorWidget> {
       }
     });
 
+    // ── Paste failures (silent before — now surfaced with action) ──
+    ref.listen<PasteFailureEvent?>(pasteFailureNotifierProvider, (prev, next) {
+      if (next == null) return;
+      _showPasteFailureToast(context, l10n, next.outcome);
+      Future.microtask(
+        () => ref.read(pasteFailureNotifierProvider.notifier).clear(),
+      );
+    });
+
     return widget.child;
+  }
+
+  void _showPasteFailureToast(
+    BuildContext context,
+    L10n l10n,
+    PasteOutcome outcome,
+  ) {
+    String message;
+    String? actionLabel;
+    VoidCallback? onAction;
+
+    switch (outcome) {
+      case PasteOutcome.permissionMissing:
+        message = l10n.pasteFailurePermissionMissing;
+        if (Platform.isMacOS) {
+          actionLabel = l10n.pasteFailureOpenSettings;
+          onAction = _openAccessibilitySettings;
+        }
+      case PasteOutcome.noTarget:
+        message = l10n.pasteFailureNoTarget;
+      case PasteOutcome.failed:
+      case PasteOutcome.platformUnavailable:
+      case PasteOutcome.blocked:
+      case PasteOutcome.success:
+        message = l10n.pasteFailureGeneric;
+    }
+
+    WpToast.show(
+      context,
+      message: message,
+      type: WpToastType.warning,
+      duration: const Duration(seconds: 6),
+      actionLabel: actionLabel,
+      onAction: onAction,
+    );
+  }
+
+  Future<void> _openAccessibilitySettings() async {
+    if (!Platform.isMacOS) return;
+    final uri = Uri.parse(
+      'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility',
+    );
+    try {
+      await launchUrl(uri);
+    } on Exception catch (e) {
+      _log.warning('Could not open Accessibility settings', e);
+    }
   }
 }

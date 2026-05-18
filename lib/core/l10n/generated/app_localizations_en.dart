@@ -422,6 +422,89 @@ class L10nEn extends L10n {
   String get settingsAfterTranscriptionNothing => 'Do Nothing';
 
   @override
+  String get pasteFailurePermissionMissing =>
+      'Auto-Paste was blocked by the OS. WhisPaste needs the Accessibility permission to paste into other apps.';
+
+  @override
+  String get pasteFailureNoTarget =>
+      'Auto-Paste skipped — no target window was captured. Focus the destination app before triggering a recording.';
+
+  @override
+  String get pasteFailureGeneric =>
+      'Auto-Paste failed. The transcript is on the clipboard — paste it manually with ⌘V / Ctrl+V.';
+
+  @override
+  String get pasteFailureOpenSettings => 'Open Settings';
+
+  @override
+  String get pasteCapabilityCheckTitle => 'Check Auto-Paste setup';
+
+  @override
+  String get pasteCapabilityReady => 'Ready to paste';
+
+  @override
+  String get pasteCapabilityPermissionMissing =>
+      'Accessibility permission not granted';
+
+  @override
+  String get pasteCapabilityUnsupported =>
+      'Auto-Paste is not available on this platform';
+
+  @override
+  String get pasteCapabilityTestButton => 'Test now';
+
+  @override
+  String get pasteCapabilityGrantButton => 'Grant permission';
+
+  @override
+  String get pasteCapabilityRepairHint =>
+      'If the toggle in System Settings is on but this still fails, click \'Repair\' below — it clears any stale macOS permission entries for WhisPaste so the next paste triggers fresh prompts.';
+
+  @override
+  String get pasteCapabilityRepairButton => 'Repair permissions';
+
+  @override
+  String pasteCapabilityRepairDone(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'Cleared $count stale entries. Try paste once to see fresh prompts.',
+      one: 'Cleared 1 stale entry. Try paste once to see a fresh prompt.',
+      zero: 'No stale entries found — try paste once.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get pasteCapabilityRepairFailed =>
+      'Could not run the macOS permission reset. Try removing WhisPaste from System Settings → Accessibility manually.';
+
+  @override
+  String get onboardingPasteTitle => 'Auto-Paste setup';
+
+  @override
+  String get onboardingPasteSubtitle =>
+      'WhisPaste needs one extra permission to paste transcripts into other apps.';
+
+  @override
+  String get onboardingPasteGrantCta => 'Grant Accessibility permission';
+
+  @override
+  String get onboardingPasteVerifyCta => 'Verify';
+
+  @override
+  String get onboardingPasteSkip => 'Skip — copy only';
+
+  @override
+  String get onboardingPasteWhyMac =>
+      'macOS requires explicit permission for any app that injects keystrokes into other apps. Without it, your transcript still copies to the clipboard, but ⌘V won\'t fire automatically.';
+
+  @override
+  String get onboardingPasteWhyWin =>
+      'Windows allows keystroke injection without an extra permission. This step just verifies the bridge works on your machine.';
+
+  @override
   String get settingsOverlayFloatingButton => 'Recording Overlay';
 
   @override

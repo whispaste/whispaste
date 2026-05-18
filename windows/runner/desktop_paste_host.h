@@ -27,7 +27,7 @@ class DesktopPasteHost {
       std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result);
 
   bool CaptureTargetWindow();
-  bool PasteClipboard(int delay_ms);
+  flutter::EncodableValue PasteClipboard(int delay_ms);
   bool BringTargetToForeground() const;
   bool SendPasteShortcut() const;
 

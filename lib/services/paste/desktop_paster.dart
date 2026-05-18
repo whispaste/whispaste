@@ -3,8 +3,11 @@ import 'dart:math' as math;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/logging/app_logger.dart';
 import '../desktop_paste/desktop_paste_controller.dart';
 import 'paster.dart';
+
+final _log = AppLogger('DesktopPaster');
 
 /// [Paster] implementation for Windows and macOS using [DesktopPasteController].
 ///
@@ -22,6 +25,33 @@ class DesktopPaster implements Paster {
       await _controller.capturePasteTarget();
     } on MissingPluginException {
       // Not available in test environments — silently degrade.
+    }
+  }
+
+  @override
+  Future<PasteCapability> checkCapability({bool promptIfMissing = false}) async {
+    try {
+      final raw = await _controller.checkCapability(
+        promptIfMissing: promptIfMissing,
+      );
+      return PasteCapability(
+        status: switch (raw.status) {
+          NativeCapabilityStatus.ready => PasteCapabilityStatus.ready,
+          NativeCapabilityStatus.permissionMissing =>
+            PasteCapabilityStatus.permissionMissing,
+          NativeCapabilityStatus.unsupported => PasteCapabilityStatus.unsupported,
+        },
+        canPrompt: raw.canPrompt,
+        detail: raw.detail,
+      );
+    } on MissingPluginException {
+      return const PasteCapability(
+        status: PasteCapabilityStatus.unsupported,
+      );
+    } on Exception {
+      return const PasteCapability(
+        status: PasteCapabilityStatus.unsupported,
+      );
     }
   }
 
@@ -70,16 +100,32 @@ class DesktopPaster implements Paster {
     // 4. Trigger native paste shortcut.
     final delayMs = options.autoPasteDelayMs.clamp(0, 30000);
     final delay = Duration(milliseconds: delayMs);
-    bool pasted = false;
+    NativePasteResult pasteResult = const NativePasteResult(
+      status: NativePasteStatus.unknown,
+    );
     try {
-      pasted = await _controller.pasteClipboard(delay: delay);
+      pasteResult = await _controller.pasteClipboard(delay: delay);
     } on MissingPluginException {
       return PasteOutcome.platformUnavailable;
     } on Exception {
       return PasteOutcome.failed;
     }
 
-    if (!pasted) return PasteOutcome.failed;
+    // Always log the native detail string so we can diagnose silent-drop
+    // scenarios where Swift reports success (CGEvent post returned, no
+    // error) but the keystroke didn't actually land in the target app.
+    _log.info(
+      'Native paste result: status=${pasteResult.status.name} '
+      'detail=${pasteResult.detail ?? "<none>"}',
+    );
+
+    if (!pasteResult.isSuccess) {
+      return switch (pasteResult.status) {
+        NativePasteStatus.noTarget => PasteOutcome.noTarget,
+        NativePasteStatus.permissionMissing => PasteOutcome.permissionMissing,
+        _ => PasteOutcome.failed,
+      };
+    }
 
     // 5. Wait before restoring clipboard.
     // Minimum 500 ms so the OS paste has landed before we overwrite it.
