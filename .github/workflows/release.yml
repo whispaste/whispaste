@@ -1,8 +1,11 @@
 name: Release
 
+# Triggert ausschließlich bei Tag-Push (oder manuell). Ein reiner Merge nach
+# main ohne Tag würde sonst Win+macOS+MSIX bauen, ohne dass `create-release`
+# (das nur für Tags läuft) jemals ein Release veröffentlicht — die Artefakte
+# wären weggeworfene Build-Zeit. CI auf dev validiert vor dem Merge.
 on:
   push:
-    branches: [main]
     tags:
       - 'v*'
   workflow_dispatch:
@@ -12,8 +15,10 @@ permissions:
 
 jobs:
   build-windows:
-    name: Build Windows
+    name: Build Windows (NSIS + MSIX)
     runs-on: windows-latest
+    outputs:
+      msix-built: ${{ steps.msix_config.outputs.skip != 'true' }}
     steps:
       - uses: actions/checkout@v6
 
@@ -26,12 +31,6 @@ jobs:
 
       - name: Get dependencies
         run: flutter pub get
-
-      - name: Analyze
-        run: flutter analyze --fatal-infos
-
-      - name: Run tests
-        run: flutter test --exclude-tags=golden
 
       - name: Build Windows release
         shell: pwsh
@@ -90,6 +89,9 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "NSIS build failed" }
           Write-Host "Built: installer\WhisPaste-Setup.exe"
 
+      # Wichtig: Portable ZIP MUSS vor `msix:create` gebaut werden, sonst
+      # landet die später erzeugte .msix-Datei im Release-Ordner und damit
+      # auch im Portable-Zip.
       - name: Prepare release artifacts
         shell: pwsh
         run: |
@@ -114,28 +116,16 @@ jobs:
           Write-Host "Release artifacts:"
           Get-ChildItem $artifactDir
 
-      - name: Upload artifacts
+      - name: Upload Windows artifacts
         uses: actions/upload-artifact@v7
         with:
           name: windows-release
           path: release-artifacts/
 
-  build-msix:
-    name: Build MSIX
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          flutter-version: 3.41.0
-          cache: true
-
-      - name: Get dependencies
-        run: flutter pub get
-
+      # MSIX wird im selben Job gebaut, weil msix:create unter der Haube
+      # exakt denselben `flutter build windows --release` braucht, den wir
+      # oben bereits ausgeführt haben. Mit `--build-windows false` überspringt
+      # msix:create den Rebuild und nutzt das vorhandene Release-Verzeichnis.
       - name: Configure MSIX publisher and version
         id: msix_config
         shell: pwsh
@@ -168,9 +158,8 @@ jobs:
           echo "skip=false" >> $env:GITHUB_OUTPUT
 
       - name: Build MSIX
-        id: build_msix
         if: steps.msix_config.outputs.skip != 'true'
-        run: dart run msix:create --store
+        run: dart run msix:create --store --build-windows false
 
       - name: Upload MSIX
         if: steps.msix_config.outputs.skip != 'true'
@@ -261,13 +250,14 @@ jobs:
 
   create-release:
     name: Create GitHub Release
-    needs: [build-windows, build-macos, build-msix]
-    # All three builds must succeed for a release.
+    needs: [build-windows, build-macos]
+    # Beide Platform-Builds müssen erfolgreich sein. (MSIX ist optional —
+    # wenn MSIX_PUBLISHER nicht gesetzt ist, läuft Build-Windows trotzdem
+    # erfolgreich durch und das msix-release-Artefakt fehlt einfach.)
     if: |
       startsWith(github.ref, 'refs/tags/v') &&
       needs.build-windows.result == 'success' &&
-      needs.build-macos.result == 'success' &&
-      needs.build-msix.result == 'success'
+      needs.build-macos.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -288,7 +278,7 @@ jobs:
           path: artifacts/
 
       - name: Download MSIX artifact
-        if: needs.build-msix.result == 'success'
+        if: needs.build-windows.outputs.msix-built == 'true'
         uses: actions/download-artifact@v8
         with:
           name: msix-release
@@ -366,10 +356,10 @@ jobs:
 
   submit-ms-store:
     name: Submit to Microsoft Store
-    needs: [build-msix, create-release]
+    needs: [build-windows, create-release]
     if: |
       startsWith(github.ref, 'refs/tags/v') &&
-      needs.build-msix.result == 'success' &&
+      needs.build-windows.outputs.msix-built == 'true' &&
       needs.create-release.result == 'success'
     runs-on: ubuntu-latest
     steps:
