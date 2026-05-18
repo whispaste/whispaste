@@ -46,11 +46,11 @@ Future<void> main(List<String> args) async {
     appRunner: () async {
       WidgetsFlutterBinding.ensureInitialized();
 
-      // Resolve runtime app version from the platform package metadata before
-      // any consumer reads appVersion / sentryRelease / appUserAgent (update
-      // check, feedback, About page, HTTP User-Agent). CrashReporter.init()
-      // already tagged 'app_version' with the pre-init placeholder — re-tag
-      // here so Sentry sees the real version.
+      // No-op for CI release builds (--dart-define=APP_VERSION=… makes
+      // appVersion compile-time-constant). For local dev, populates the
+      // runtime fallback via PackageInfo before any consumer reads
+      // appVersion / sentryRelease / appUserAgent. Re-tag the Sentry scope
+      // because CrashReporter.init() ran with the dev-build placeholder.
       await initAppInfo();
       Sentry.configureScope((scope) {
         scope.setTag('app_version', appVersion);
