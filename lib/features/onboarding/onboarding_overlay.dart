@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +8,7 @@ import '../../core/config/settings_provider.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
+import 'steps/auto_paste_step.dart';
 import 'steps/welcome_step.dart';
 import 'steps/microphone_step.dart';
 import 'steps/model_step.dart';
@@ -24,18 +26,46 @@ class OnboardingOverlay extends ConsumerStatefulWidget {
   ConsumerState<OnboardingOverlay> createState() => _OnboardingOverlayState();
 }
 
-class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
-  static const _totalSteps = 4;
+/// Platform-dependent identifier for each onboarding step.
+///
+/// The set of steps the overlay renders varies by platform: Linux skips
+/// the Auto-Paste permission step because the underlying capability is
+/// not supported there, so we describe the flow as a list of these IDs
+/// and let [_buildStep] map each one to its widget.
+enum _OnboardingStepId { welcome, microphone, autoPaste, model, ready }
 
+class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
   int _currentStep = 0;
   int _previousStep = 0;
+
+  // ---------------------------------------------------------------------------
+  // Step sequence
+  // ---------------------------------------------------------------------------
+
+  /// Returns the ordered step IDs for the current platform.
+  ///
+  /// Linux has no Accessibility-style permission for keystroke injection,
+  /// so [AutoPasteStep] would have nothing to do and is omitted entirely.
+  /// macOS and Windows both include it (Windows still gets the shared
+  /// placeholder UI until slice 05).
+  List<_OnboardingStepId> _onboardingSteps() {
+    final isLinux = defaultTargetPlatform == TargetPlatform.linux;
+    return [
+      _OnboardingStepId.welcome,
+      _OnboardingStepId.microphone,
+      if (!isLinux) _OnboardingStepId.autoPaste,
+      _OnboardingStepId.model,
+      _OnboardingStepId.ready,
+    ];
+  }
 
   // ---------------------------------------------------------------------------
   // Navigation helpers
   // ---------------------------------------------------------------------------
 
   void _goNext() {
-    if (_currentStep < _totalSteps - 1) {
+    final total = _onboardingSteps().length;
+    if (_currentStep < total - 1) {
       setState(() {
         _previousStep = _currentStep;
         _currentStep++;
@@ -57,7 +87,8 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
     // onboarding immediately. This lets users skip individual steps while
     // still seeing the remaining ones. On the last step there is no skip
     // button — only the "Start Dictating" CTA.
-    if (_currentStep < _totalSteps - 1) {
+    final total = _onboardingSteps().length;
+    if (_currentStep < total - 1) {
       _goNext();
     } else {
       _complete();
@@ -74,13 +105,22 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
   // Step builder
   // ---------------------------------------------------------------------------
 
-  Widget _buildStep(int index) {
-    return switch (index) {
-      0 => WelcomeStep(onNext: _goNext),
-      1 => MicrophoneStep(onNext: _goNext, onBack: _goBack),
-      2 => ModelStep(onNext: _goNext, onBack: _goBack),
-      3 => ReadyStep(onComplete: _complete, onBack: _goBack),
-      _ => const SizedBox.shrink(),
+  Widget _buildStep(_OnboardingStepId id) {
+    return switch (id) {
+      _OnboardingStepId.welcome => WelcomeStep(onNext: _goNext),
+      _OnboardingStepId.microphone => MicrophoneStep(
+        onNext: _goNext,
+        onBack: _goBack,
+      ),
+      _OnboardingStepId.autoPaste => AutoPasteStep(
+        onNext: _goNext,
+        onBack: _goBack,
+      ),
+      _OnboardingStepId.model => ModelStep(onNext: _goNext, onBack: _goBack),
+      _OnboardingStepId.ready => ReadyStep(
+        onComplete: _complete,
+        onBack: _goBack,
+      ),
     };
   }
 
@@ -92,6 +132,11 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
+    final steps = _onboardingSteps();
+    final totalSteps = steps.length;
+    // Clamp in case a platform flip during widget-test setup leaves the
+    // current index out of bounds (e.g. resizing the list from 5 to 4).
+    final safeCurrent = _currentStep.clamp(0, totalSteps - 1);
     final direction = _currentStep >= _previousStep ? 1.0 : -1.0;
     return BlockSemantics(
       child: Stack(
@@ -149,8 +194,9 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
                               ),
                             ),
                             const Spacer(),
-                            // Skip button — visible on steps 0-2
-                            if (_currentStep < _totalSteps - 1)
+                            // Skip button — visible on every step except the
+                            // final one (which has its own primary CTA).
+                            if (safeCurrent < totalSteps - 1)
                               Semantics(
                                 button: true,
                                 label: l10n.onboardingSkip,
@@ -204,8 +250,10 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
                             );
                           },
                           child: KeyedSubtree(
-                            key: ValueKey<int>(_currentStep),
-                            child: _buildStep(_currentStep),
+                            key: ValueKey<_OnboardingStepId>(
+                              steps[safeCurrent],
+                            ),
+                            child: _buildStep(steps[safeCurrent]),
                           ),
                         ),
                       ),
@@ -214,14 +262,14 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
 
                       // Stepper dots (pill-style active indicator)
                       _StepperDots(
-                        currentStep: _currentStep,
-                        totalSteps: _totalSteps,
+                        currentStep: safeCurrent,
+                        totalSteps: totalSteps,
                       ),
 
                       // Step counter text ("Step X of Y")
                       const SizedBox(height: WpSpacing.xs),
                       Text(
-                        l10n.onboardingStepOf(_currentStep + 1, _totalSteps),
+                        l10n.onboardingStepOf(safeCurrent + 1, totalSteps),
                         style: TextStyle(
                           fontSize: 12,
                           color: isDark

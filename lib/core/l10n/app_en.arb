@@ -178,7 +178,7 @@
   "onboardingPasteSubtitle": "WhisPaste needs one extra permission to paste transcripts into other apps.",
   "onboardingPasteGrantCta": "Grant Accessibility permission",
   "onboardingPasteVerifyCta": "Verify",
-  "onboardingPasteSkip": "Skip — copy only",
+  "onboardingPasteSkip": "Skip — disable Auto-Paste",
   "onboardingPasteWhyMac": "macOS requires explicit permission for any app that injects keystrokes into other apps. Without it, your transcript still copies to the clipboard, but ⌘V won't fire automatically.",
   "onboardingPasteWhyWin": "Windows allows keystroke injection without an extra permission. This step just verifies the bridge works on your machine.",
   "settingsOverlayFloatingButton": "Recording Overlay",

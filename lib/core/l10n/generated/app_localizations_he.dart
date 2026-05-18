@@ -486,7 +486,7 @@ class L10nHe extends L10n {
   String get onboardingPasteVerifyCta => 'בדוק';
 
   @override
-  String get onboardingPasteSkip => 'דלג — רק העתק';
+  String get onboardingPasteSkip => 'דלג — השבת הדבקה אוטומטית';
 
   @override
   String get onboardingPasteWhyMac =>

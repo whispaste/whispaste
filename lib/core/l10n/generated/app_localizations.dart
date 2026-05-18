@@ -972,7 +972,7 @@ abstract class L10n {
   /// No description provided for @onboardingPasteSkip.
   ///
   /// In en, this message translates to:
-  /// **'Skip — copy only'**
+  /// **'Skip — disable Auto-Paste'**
   String get onboardingPasteSkip;
 
   /// No description provided for @onboardingPasteWhyMac.

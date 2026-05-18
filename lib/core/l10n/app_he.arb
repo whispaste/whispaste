@@ -175,7 +175,7 @@
   "onboardingPasteSubtitle": "WhisPaste זקוקה להרשאה נוספת כדי להדביק תמלילים באפליקציות אחרות.",
   "onboardingPasteGrantCta": "הענק הרשאת נגישות",
   "onboardingPasteVerifyCta": "בדוק",
-  "onboardingPasteSkip": "דלג — רק העתק",
+  "onboardingPasteSkip": "דלג — השבת הדבקה אוטומטית",
   "onboardingPasteWhyMac": "macOS דורש הרשאה מפורשת לכל אפליקציה ששולחת הקשות לאפליקציות אחרות. בלעדיה, התמליל עדיין יועתק ללוח, אך ⌘V לא יופעל אוטומטית.",
   "onboardingPasteWhyWin": "Windows מאפשר שליחת הקשות ללא הרשאה נוספת. שלב זה רק מוודא שהחיבור פועל במכשירך.",
   "settingsOverlayFloatingButton": "שכבת הקלטה צפה",
