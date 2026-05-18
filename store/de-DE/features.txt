@@ -1,0 +1,9 @@
+Hotkey drücken, sprechen, Text erscheint am Cursor — in jeder Windows-App
+Drei lokale KI-Modelle (Whisper Small, Medium, Large v3 Turbo) — dein Audio verlässt deinen Rechner nicht
+Cloud-Transkription via OpenAI oder Deepgram — direkt zum Anbieter, kein Umweg
+Push-to-talk oder Toggle, frei konfigurierbarer globaler Hotkey
+Floating Button — schwebender Aufnahme-Button, der dauerhaft über allen Fenstern liegt
+Verlauf mit Volltextsuche, Anheften, Tags und Archiv
+Export als TXT, Markdown, JSON, CSV und Word (.docx)
+Textbausteine: Stichwort sprechen, vollständiger Text wird vor dem Einfügen eingesetzt
+System-Tray, Autostart mit Windows, Hell-/Dunkel-/System-Design
