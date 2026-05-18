@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 1.2.17
+
+### Features
+
+- **Streamlined model selection**: The STT model catalog now exposes exactly one model per quality tier — `whisper-small` (Compact), `whisper-medium` (Balanced), and `whisper-large-v3-turbo` (Premium). The previous catalog mixed redundant variants (`whisper-tiny`, `whisper-base`, non-turbo `whisper-large-v3`) that made tier-based defaults ambiguous and shipped large files for marginal quality wins. Existing installations are migrated automatically on settings load: any removed model ID is rewritten to its tier representative, so users keep a valid selection without manual intervention.
+
+### Cleanup
+
+- **CI/release pipeline consolidation**: The release workflow now triggers only on tag push (a stray merge to `main` no longer burns ~15 min on Win + macOS + MSIX builds whose artifacts are never published). The Windows and MSIX builds were merged into a single job that reuses one `flutter build windows --release` for both the NSIS installer and the MSIX store package, cutting roughly a duplicate Windows build off every release. Redundant `flutter analyze` + `flutter test` steps were dropped from the release job because CI on `dev` already gates them. The flaky Linux secure-storage job was removed (Linux is not a release target and the same path is covered on Win + macOS), the secret scan was deduplicated into a single Ubuntu job, and the changelog-refresh cron dropped from daily to weekly.
+
 ## 1.2.16
 
 ### Bug Fixes
