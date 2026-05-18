@@ -267,14 +267,40 @@ class CrashReporter {
   }
 
   // -------------------------------------------------------------------------
-  // Sentry beforeSendTransaction — Free-Tier span throttle
+  // Sentry tracesSampler — primary runtime consent gate for performance data
+  // -------------------------------------------------------------------------
+
+  /// Sentry `tracesSampler` callback — runtime consent gate for transactions.
+  ///
+  /// Returns `0.0` when consent has been revoked so the SDK never even starts
+  /// a transaction. No transaction → no child spans → nothing to leak. Returns
+  /// `null` when consent is granted so the SDK falls through to
+  /// `options.tracesSampleRate` (precedence rule from `sentry_traces_sampler.dart`).
+  ///
+  /// Why this exists in addition to [beforeSendTransaction]: a smoke test on
+  /// 2026-05-18 showed that under sentry_flutter 9.20 with `bindToScope:true`
+  /// transactions, child spans (including `db.sql.query` with full SQL payload
+  /// and `http.client` Dio calls) could reach Sentry even after
+  /// `beforeSendTransaction` returned `null`. Sampling at trace-start closes
+  /// that window because no spans get created in the first place. The
+  /// `beforeSendTransaction` consent check stays as a second-layer fallback
+  /// for the race where consent flips mid-transaction.
+  static double? tracesSampler(SentrySamplingContext context) {
+    if (_instance != null && !_instance!._consentGranted) return 0.0;
+    return null;
+  }
+
+  // -------------------------------------------------------------------------
+  // Sentry beforeSendTransaction — Free-Tier span throttle + consent fallback
   // -------------------------------------------------------------------------
 
   /// Drops performance transactions once the per-session ceiling is hit.
   ///
   /// Performance events count against Sentry's Free-Tier span quota — this
   /// is a belt-and-braces guard on top of [_maxTransactionsPerWindow]
-  /// sampling. Consent gate is honoured, identical to [beforeSend].
+  /// sampling. Consent gate is honoured, identical to [beforeSend], as a
+  /// fallback for transactions that started under consent=true and finish
+  /// after consent=false (see [tracesSampler] for the primary gate).
   static SentryTransaction? beforeSendTransaction(
     SentryTransaction transaction,
     Hint hint,
