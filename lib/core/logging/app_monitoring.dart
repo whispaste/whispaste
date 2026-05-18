@@ -82,6 +82,13 @@ class AppMonitoring {
         options.tracesSampleRate = kReleaseMode ? 0.005 : 0.05;
         options.enableAutoPerformanceTracing = true;
         options.enableAutoNativeBreadcrumbs = true;
+        // Distributed Tracing bewusst NICHT aktiviert: WhisPaste hat keinen
+        // eigenen Backend-Service mit Sentry. Supabase wird nur für Feedback-
+        // Submits (PostgREST) und Testimonials (Build-Zeit der Astro-Site)
+        // genutzt — beide ohne serverseitige Sentry-Instrumentierung.
+        // `tracePropagationTargets` bleibt leer (Default) → keine
+        // `sentry-trace`/`baggage`-Header an irgendeinen Host.
+        options.tracePropagationTargets.clear();
       },
       appRunner: () async {
         // 3. Initialize crash reporter (configures Sentry scope context).
