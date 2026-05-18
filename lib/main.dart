@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
@@ -13,6 +14,7 @@ import 'core/logging/app_monitoring.dart';
 import 'core/logging/crash_reporter.dart';
 import 'core/platform/macos_lifecycle_channel.dart';
 import 'core/theme/theme.dart';
+import 'dev/sentry_smoke.dart';
 import 'services/audio_service.dart';
 import 'services/deploy_channel_service.dart';
 import 'services/hardware_info_service.dart' as hw;
@@ -168,6 +170,17 @@ Future<void> main(List<String> args) async {
           child: const WhisPasteApp(),
         ),
       );
+
+      // Debug-only Sentry v9 pipeline smoke verification.
+      // Removed in a follow-up cleanup commit; kDebugMode-guarded so it is a
+      // no-op in release builds even if it ever leaks past the cleanup.
+      if (kDebugMode) {
+        unawaited(
+          fireSentrySmokeIfDebug(
+            database: container.read(historyDatabaseProvider),
+          ),
+        );
+      }
     },
   );
 }
