@@ -434,7 +434,7 @@ class AppSettings {
   /// This is the preferred mutation API for new code:
   /// ```dart
   /// final updated = settings.copyWithSections(
-  ///   stt: settings.stt.copyWith(model: 'whisper-large-v3'),
+  ///   stt: settings.stt.copyWith(model: 'whisper-large-v3-turbo'),
   /// );
   /// ```
   AppSettings copyWithSections({

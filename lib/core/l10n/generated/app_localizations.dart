@@ -747,30 +747,6 @@ abstract class L10n {
   /// **'Locally on Device'**
   String get settingsServiceOnDevicePrivate;
 
-  /// No description provided for @settingsQualityFastTiny.
-  ///
-  /// In en, this message translates to:
-  /// **'Fast (Tiny)'**
-  String get settingsQualityFastTiny;
-
-  /// No description provided for @settingsQualityBalancedSmall.
-  ///
-  /// In en, this message translates to:
-  /// **'Balanced (Small)'**
-  String get settingsQualityBalancedSmall;
-
-  /// No description provided for @settingsQualityHighQualityMedium.
-  ///
-  /// In en, this message translates to:
-  /// **'High Quality (Medium)'**
-  String get settingsQualityHighQualityMedium;
-
-  /// No description provided for @settingsQualityBestLarge.
-  ///
-  /// In en, this message translates to:
-  /// **'Best Quality (Large)'**
-  String get settingsQualityBestLarge;
-
   /// No description provided for @settingsLanguageAutoDetect.
   ///
   /// In en, this message translates to:
@@ -2414,42 +2390,6 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'The model file will be permanently removed. You can re-download it any time.'**
   String get modelDeleteConfirmMessage;
-
-  /// No description provided for @modelSizeTiny.
-  ///
-  /// In en, this message translates to:
-  /// **'Quick transcription for short notes'**
-  String get modelSizeTiny;
-
-  /// No description provided for @modelSizeBase.
-  ///
-  /// In en, this message translates to:
-  /// **'Faster processing, decent accuracy'**
-  String get modelSizeBase;
-
-  /// No description provided for @modelSizeSmall.
-  ///
-  /// In en, this message translates to:
-  /// **'Good balance of speed and accuracy'**
-  String get modelSizeSmall;
-
-  /// No description provided for @modelSizeMedium.
-  ///
-  /// In en, this message translates to:
-  /// **'Excellent accuracy for most use cases'**
-  String get modelSizeMedium;
-
-  /// No description provided for @modelSizeLargeTurbo.
-  ///
-  /// In en, this message translates to:
-  /// **'Best accuracy with optimized speed'**
-  String get modelSizeLargeTurbo;
-
-  /// No description provided for @modelSizeLarge.
-  ///
-  /// In en, this message translates to:
-  /// **'Maximum accuracy, needs more resources'**
-  String get modelSizeLarge;
 
   /// No description provided for @qualityTierCompactLabel.
   ///

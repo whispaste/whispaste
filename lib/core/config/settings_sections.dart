@@ -9,7 +9,7 @@
 /// ```dart
 /// // Deep mutation via sections
 /// final updated = settings.copyWithSections(
-///   stt: settings.stt.copyWith(model: 'whisper-large-v3'),
+///   stt: settings.stt.copyWith(model: 'whisper-large-v3-turbo'),
 /// );
 /// ```
 library;
@@ -76,12 +76,17 @@ DateTime? _readDateTime(String? value) {
   return DateTime.tryParse(value);
 }
 
-/// Migrates legacy display-name model values to proper IDs.
+/// Migrates legacy model identifiers to the current downloadable set
+/// (`whisper-small`, `whisper-medium`, `whisper-large-v3-turbo`).
+///
+/// Covers both old display-name values (`'Fast (Tiny)'` etc.) and removed
+/// model IDs (`whisper-tiny`, `whisper-base`, `whisper-large-v3`). Each
+/// legacy value maps to the tier representative — see [sttModels].
 String _migrateModelId(String raw) => switch (raw) {
-  'Fast (Tiny)' => 'whisper-tiny',
+  'Fast (Tiny)' || 'whisper-tiny' || 'whisper-base' => 'whisper-small',
   'Balanced (Small)' => 'whisper-small',
   'High Quality (Medium)' => 'whisper-medium',
-  'Best Quality (Large)' => 'whisper-large-v3',
+  'Best Quality (Large)' || 'whisper-large-v3' => 'whisper-large-v3-turbo',
   _ => raw,
 };
 

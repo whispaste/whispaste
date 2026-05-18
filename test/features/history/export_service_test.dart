@@ -15,7 +15,7 @@ final _sampleEntries = [
     language: 'en',
     tags: ['work', 'meeting'],
     pinned: true,
-    model: 'whisper-large-v3',
+    model: 'whisper-large-v3-turbo',
     isLocal: true,
   ),
   const ExportEntry(

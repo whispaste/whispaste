@@ -359,18 +359,6 @@ class L10nHe extends L10n {
   String get settingsServiceOnDevicePrivate => 'מקומי במכשיר';
 
   @override
-  String get settingsQualityFastTiny => 'מהיר (Tiny)';
-
-  @override
-  String get settingsQualityBalancedSmall => 'מאוזן (Small)';
-
-  @override
-  String get settingsQualityHighQualityMedium => 'איכות גבוהה (Medium)';
-
-  @override
-  String get settingsQualityBestLarge => 'איכות מיטבית (Large)';
-
-  @override
   String get settingsLanguageAutoDetect => 'זיהוי אוטומטי';
 
   @override
@@ -1236,24 +1224,6 @@ class L10nHe extends L10n {
   @override
   String get modelDeleteConfirmMessage =>
       'קובץ המודל יוסר לצמיתות. תוכל להוריד שוב בכל עת.';
-
-  @override
-  String get modelSizeTiny => 'תמלול מהיר להערות קצרות';
-
-  @override
-  String get modelSizeBase => 'עיבוד מהיר יותר, דיוק סביר';
-
-  @override
-  String get modelSizeSmall => 'איזון טוב בין מהירות לדיוק';
-
-  @override
-  String get modelSizeMedium => 'דיוק מצוין לרוב השימושים';
-
-  @override
-  String get modelSizeLargeTurbo => 'דיוק מיטבי עם מהירות משופרת';
-
-  @override
-  String get modelSizeLarge => 'דיוק מקסימלי, דורש יותר משאבים';
 
   @override
   String get qualityTierCompactLabel => 'מהיר וקומפקטי';

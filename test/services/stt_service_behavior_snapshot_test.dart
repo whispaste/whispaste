@@ -172,7 +172,7 @@ ProviderContainer _makeContainer({
       sttHttpClientProvider.overrideWithValue(httpClient),
       settingsProvider.overrideWith(
         () => _FakeSettingsNotifier(
-          settings ?? AppSettings.defaults.copyWith(sttModel: 'whisper-tiny'),
+          settings ?? AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
         ),
       ),
       modelDownloadProvider.overrideWith(
@@ -191,7 +191,7 @@ ProviderContainer _makeContainer({
 /// Creates a temp STT dir with a fake binary and an 11 MB model file.
 /// Sets [paths.sttDirOverride] so path helpers resolve to this dir.
 /// Callers MUST reset [paths.sttDirOverride] to null in tearDown.
-Future<Directory> _createFakeSttDir({String modelId = 'whisper-tiny'}) async {
+Future<Directory> _createFakeSttDir({String modelId = 'whisper-small'}) async {
   final dir = await Directory.systemTemp.createTemp('stt_snapshot_test_');
 
   // Fake server binary (execution is intercepted by the fake ProcessRunner).
@@ -201,7 +201,8 @@ Future<Directory> _createFakeSttDir({String modelId = 'whisper-tiny'}) async {
   await File('${dir.path}/$serverName').writeAsBytes([0x7f, 0x45, 0x4c, 0x46]);
 
   // Fake model file — must be > 10 MB to pass the size guard.
-  final modelFilename = findSttModel(modelId)?.filename ?? 'ggml-tiny-q5_1.bin';
+  final modelFilename =
+      findSttModel(modelId)?.filename ?? 'ggml-small-q5_1.bin';
   await File(
     '${dir.path}/$modelFilename',
   ).writeAsBytes(Uint8List(11 * 1024 * 1024));
@@ -269,7 +270,7 @@ void main() {
       final container = _makeContainer(
         runner: runner,
         httpClient: _healthyClient(),
-        settings: AppSettings.defaults.copyWith(sttModel: 'whisper-tiny'),
+        settings: AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
         heartbeatConfig: (
           window: const Duration(milliseconds: 50),
           maxMissedWindows: 3,
@@ -303,7 +304,7 @@ void main() {
       final container = _makeContainer(
         runner: runner,
         httpClient: _healthyClient(),
-        settings: AppSettings.defaults.copyWith(sttModel: 'whisper-tiny'),
+        settings: AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
         heartbeatConfig: (
           window: const Duration(milliseconds: 50),
           maxMissedWindows: 3,
@@ -344,8 +345,8 @@ void main() {
         return p;
       });
 
-      // Start with whisper-tiny.
-      final settings = AppSettings.defaults.copyWith(sttModel: 'whisper-tiny');
+      // Start with whisper-small.
+      final settings = AppSettings.defaults.copyWith(sttModel: 'whisper-small');
       final container = _makeContainer(
         runner: runner,
         httpClient: _healthyClient(),
@@ -379,8 +380,8 @@ void main() {
       // to avoid file-system coupling and keep this a pure lifecycle test.)
       notifier.stop();
 
-      // Create fake model file for whisper-base (needed for second start).
-      final baseModel = findSttModel('whisper-base');
+      // Create fake model file for whisper-small (needed for second start).
+      final baseModel = findSttModel('whisper-small');
       if (baseModel != null) {
         await File(
           '${tempDir.path}/${baseModel.filename}',
@@ -389,7 +390,7 @@ void main() {
 
       await container
           .read(settingsProvider.notifier)
-          .updateSettings((s) => s.copyWith(sttModel: 'whisper-base'));
+          .updateSettings((s) => s.copyWith(sttModel: 'whisper-small'));
       await container.read(settingsProvider.future);
 
       await notifier.ensureRunning();
@@ -401,7 +402,7 @@ void main() {
       );
       expect(
         container.read(localSttBundleProvider).modelId,
-        'whisper-base',
+        'whisper-small',
         reason: 'Server must report the new model ID after restart',
       );
     });
@@ -444,7 +445,7 @@ void main() {
         final container = _makeContainer(
           runner: runner,
           httpClient: httpClient,
-          settings: AppSettings.defaults.copyWith(sttModel: 'whisper-tiny'),
+          settings: AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
           heartbeatConfig: (
             window: const Duration(milliseconds: 200),
             maxMissedWindows: 5,
@@ -498,7 +499,7 @@ void main() {
         final container = _makeContainer(
           runner: runner,
           httpClient: _healthyClient(),
-          settings: AppSettings.defaults.copyWith(sttModel: 'whisper-tiny'),
+          settings: AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
           heartbeatConfig: (
             window: const Duration(milliseconds: 50),
             maxMissedWindows: 3,
@@ -553,7 +554,7 @@ void main() {
         final container = _makeContainer(
           runner: runner,
           httpClient: _unhealthyClient(),
-          settings: AppSettings.defaults.copyWith(sttModel: 'whisper-tiny'),
+          settings: AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
           downloadNotifierFactory: () => trackingDownloader,
           heartbeatConfig: (
             window: const Duration(milliseconds: 50),
@@ -588,7 +589,7 @@ void main() {
         );
         expect(
           trackingDownloader.downloadedIds,
-          contains('whisper-tiny'),
+          contains('whisper-small'),
           reason: 'downloadModel() must be called with the failing model ID',
         );
       },
@@ -603,7 +604,7 @@ void main() {
         final container = _makeContainer(
           runner: runner,
           httpClient: _unhealthyClient(),
-          settings: AppSettings.defaults.copyWith(sttModel: 'whisper-tiny'),
+          settings: AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
           heartbeatConfig: (
             window: const Duration(milliseconds: 50),
             maxMissedWindows: 3,
@@ -669,7 +670,7 @@ void main() {
         final container = _makeContainer(
           runner: runner,
           httpClient: _healthyClient(),
-          settings: AppSettings.defaults.copyWith(sttModel: 'whisper-tiny'),
+          settings: AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
           heartbeatConfig: (
             window: const Duration(milliseconds: 50),
             maxMissedWindows: 3,
@@ -733,7 +734,7 @@ void main() {
         final container = _makeContainer(
           runner: runner,
           httpClient: _healthyClient(),
-          settings: AppSettings.defaults.copyWith(sttModel: 'whisper-tiny'),
+          settings: AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
           heartbeatConfig: (
             window: const Duration(milliseconds: 50),
             maxMissedWindows: 3,
@@ -773,7 +774,7 @@ void main() {
       final container = _makeContainer(
         runner: runner,
         httpClient: _unhealthyClient(),
-        settings: AppSettings.defaults.copyWith(sttModel: 'whisper-tiny'),
+        settings: AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
         heartbeatConfig: (
           window: const Duration(milliseconds: 50),
           maxMissedWindows: 3,
@@ -851,7 +852,7 @@ void main() {
           // Use sttIdleTimeoutMinutes = 0 (keep-alive) so the timer is never
           // armed during the test — isolates the recording-active guard.
           settings: AppSettings.defaults.copyWith(
-            sttModel: 'whisper-tiny',
+            sttModel: 'whisper-small',
             sttIdleTimeoutMinutes: 0,
           ),
         );
@@ -938,7 +939,7 @@ void main() {
         final container = _makeContainer(
           runner: runner,
           httpClient: _unhealthyClient(),
-          settings: AppSettings.defaults.copyWith(sttModel: 'whisper-tiny'),
+          settings: AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
           heartbeatConfig: hbConfig,
         );
         addTearDown(() {
@@ -998,7 +999,7 @@ void main() {
         final container = _makeContainer(
           runner: runner,
           httpClient: httpClient,
-          settings: AppSettings.defaults.copyWith(sttModel: 'whisper-tiny'),
+          settings: AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
           heartbeatConfig: hbConfig,
         );
         addTearDown(() {

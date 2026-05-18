@@ -23,12 +23,9 @@ String? sttDirOverride;
 
 /// Maps model IDs to their on-disk GGML filenames.
 const Map<String, String> modelFilenames = {
-  'whisper-tiny': 'ggml-tiny-q5_1.bin',
-  'whisper-base': 'ggml-base-q5_1.bin',
   'whisper-small': 'ggml-small-q5_1.bin',
   'whisper-medium': 'ggml-medium-q5_0.bin',
   'whisper-large-v3-turbo': 'ggml-large-v3-turbo-q5_0.bin',
-  'whisper-large-v3': 'ggml-large-v3-q5_0.bin',
 };
 
 /// Falls back to scanning the STT directory for a matching `ggml-*.bin`

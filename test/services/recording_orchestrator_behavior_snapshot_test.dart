@@ -163,11 +163,8 @@ class _FakeModelDownloadNotifier extends ModelDownloadNotifier {
   ModelDownloadState build() {
     return const ModelDownloadState(
       downloadedModels: {
-        'whisper-tiny',
-        'whisper-base',
         'whisper-small',
         'whisper-medium',
-        'whisper-large-v3',
         'whisper-large-v3-turbo',
       },
       serverReady: true,

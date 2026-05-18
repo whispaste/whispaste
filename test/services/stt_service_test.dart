@@ -131,7 +131,7 @@ ProviderContainer _makeContainer({
       sttHttpClientProvider.overrideWithValue(httpClient),
       settingsProvider.overrideWith(
         () => _FakeSettingsNotifier(
-          settings ?? AppSettings.defaults.copyWith(sttModel: 'ggml-tiny'),
+          settings ?? AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
         ),
       ),
       modelDownloadProvider.overrideWith(_FakeModelDownloadNotifier.new),
@@ -164,7 +164,7 @@ Future<Directory> _createFakeSttDir() async {
 
   // Write fake model file — must be >10 MB to pass the size guard.
   const minModelBytes = 11 * 1024 * 1024; // 11 MB
-  final modelFile = File('${dir.path}/ggml-tiny-q5_1.bin');
+  final modelFile = File('${dir.path}/ggml-small-q5_1.bin');
   await modelFile.writeAsBytes(Uint8List(minModelBytes));
 
   // Override sttDir so SttServerStateNotifier resolves paths into this temp dir.
@@ -302,7 +302,7 @@ void main() {
           fakeProcess: fakeProcess,
           httpClient: _makeHealthyHttpClient(),
           heartbeatConfig: heartbeatConfig,
-          settings: AppSettings.defaults.copyWith(sttModel: 'whisper-tiny'),
+          settings: AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
         );
         addTearDown(() {
           container.dispose();
@@ -352,7 +352,7 @@ void main() {
 
         final httpClient = _makeUnhealthyHttpClient();
         final settings = AppSettings.defaults.copyWith(
-          sttModel: 'whisper-tiny',
+          sttModel: 'whisper-small',
         );
         final container = ProviderContainer(
           overrides: [
@@ -446,7 +446,7 @@ void main() {
           fakeProcess: fakeProcess,
           httpClient: httpClient,
           heartbeatConfig: heartbeatConfig,
-          settings: AppSettings.defaults.copyWith(sttModel: 'whisper-tiny'),
+          settings: AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
         );
         addTearDown(() {
           container.dispose();
@@ -514,7 +514,7 @@ void main() {
           fakeProcess: fakeProcess,
           httpClient: httpClient,
           heartbeatConfig: heartbeatConfig,
-          settings: AppSettings.defaults.copyWith(sttModel: 'whisper-tiny'),
+          settings: AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
         );
         addTearDown(() {
           container.dispose();

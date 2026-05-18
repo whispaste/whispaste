@@ -35,7 +35,7 @@ void main() {
 
     test('model / unrelated files are NOT matched', () {
       expect(
-        WhisperServerDownloader.isServerFile('ggml-tiny-q5_1.bin'),
+        WhisperServerDownloader.isServerFile('ggml-small-q5_1.bin'),
         isFalse,
       );
       expect(WhisperServerDownloader.isServerFile('README.txt'), isFalse);
@@ -81,7 +81,7 @@ void main() {
           isFalse,
         );
         expect(
-          WhisperServerDownloader.isExtractableServerFile('ggml-tiny.bin'),
+          WhisperServerDownloader.isExtractableServerFile('ggml-small.bin'),
           isFalse,
         );
       });
