@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/config/settings_enums.dart';
 import '../../../core/config/settings_labels.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
@@ -50,6 +51,21 @@ class ReadyStep extends ConsumerWidget {
       l10n: l10n,
       displayOverride: hotkeyDisplay,
     );
+
+    // Auto-Paste is active when `afterTranscription` is set to `paste` or
+    // `clipboard_and_paste` — both inject the transcript at the cursor. The
+    // other two states (`clipboard`, `nothing`) leave the user to paste with
+    // ⌘V / Ctrl+V themselves, so step 3 must spell that out.
+    final autoPasteAfterTranscription =
+        switch (settings.afterTranscriptionAction) {
+          AfterTranscriptionAction.paste ||
+          AfterTranscriptionAction.clipboardAndPaste => true,
+          AfterTranscriptionAction.clipboard ||
+          AfterTranscriptionAction.nothing => false,
+        };
+    final step3Text = autoPasteAfterTranscription
+        ? l10n.onboardingReadyStep3AutoPaste
+        : l10n.onboardingReadyStep3CopyOnly;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -149,7 +165,7 @@ class ReadyStep extends ConsumerWidget {
         const SizedBox(height: WpSpacing.md),
         _InstructionRow(
           number: '3.',
-          text: l10n.onboardingReadyStep3,
+          text: step3Text,
           icon: LucideIcons.clipboard,
           accent: accent,
           textColor: textPrimary,

@@ -3699,11 +3699,17 @@ abstract class L10n {
   /// **'Press again to stop and transcribe'**
   String get onboardingReadyStep2;
 
-  /// No description provided for @onboardingReadyStep3.
+  /// No description provided for @onboardingReadyStep3AutoPaste.
   ///
   /// In en, this message translates to:
-  /// **'Text is copied to clipboard automatically'**
-  String get onboardingReadyStep3;
+  /// **'Text flows straight into the active app'**
+  String get onboardingReadyStep3AutoPaste;
+
+  /// No description provided for @onboardingReadyStep3CopyOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Text is in your clipboard — press ⌘V / Ctrl+V to paste'**
+  String get onboardingReadyStep3CopyOnly;
 
   /// No description provided for @onboardingReadyChangeHotkey.
   ///

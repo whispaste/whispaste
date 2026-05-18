@@ -2056,8 +2056,12 @@ class L10nDe extends L10n {
       'Drücke erneut, um zu stoppen und zu transkribieren';
 
   @override
-  String get onboardingReadyStep3 =>
-      'Der Text wird automatisch in die Zwischenablage kopiert';
+  String get onboardingReadyStep3AutoPaste =>
+      'Text fließt direkt in die aktive App';
+
+  @override
+  String get onboardingReadyStep3CopyOnly =>
+      'Text liegt in der Zwischenablage — drück ⌘V / Strg+V zum Einfügen';
 
   @override
   String get onboardingReadyChangeHotkey => 'Tastenkürzel ändern';
