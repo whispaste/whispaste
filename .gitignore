@@ -89,6 +89,7 @@ scripts/*
 !scripts/premium-screenshots.py
 !scripts/cppcheck.ps1
 !scripts/install-hooks.sh
+!scripts/submit-ms-store.ps1
 
 # Internal website files
 website/design-system/
