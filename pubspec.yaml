@@ -45,6 +45,8 @@ dependencies:
 
   # Crash reporting
   sentry_flutter: ^8.14.2
+  sentry_dio: ^8.14.2     # HTTP-Spans für Dio-Clients
+  sentry_drift: ^8.14.2   # DB-Query-Spans für Drift
 
   # Path utilities
   path_provider: ^2.1.5
@@ -85,6 +87,7 @@ dev_dependencies:
   mocktail: ^1.0.4
   msix: ^3.16.8
   golden_screenshot: ^11.0.1
+  sentry_dart_plugin: ^3.3.0
 
 flutter:
   uses-material-design: true
@@ -110,3 +113,17 @@ msix_config:
   store: true
   logo_path: assets/icons/app_icon.png
   capabilities: microphone, internetClient
+
+# sentry_dart_plugin — uploads native debug symbols (.pdb/.dSYM/.so) per
+# Release build. Auth token MUST come from the SENTRY_AUTH_TOKEN env var
+# (never committed). Sources & source-maps stay off for privacy and
+# because there is no Web build. Symbol upload itself does not count
+# against Sentry's Free-Tier event/span quotas.
+sentry:
+  project: flutter_whispaste
+  org: silvio-lindstedt-und-maik-g-y2
+  url: https://de.sentry.io
+  upload_debug_symbols: true
+  upload_sources: false
+  upload_source_maps: false
+  log_level: warn

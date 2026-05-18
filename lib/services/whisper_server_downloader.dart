@@ -12,6 +12,7 @@ import 'package:archive/archive.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:path/path.dart' as p;
+import 'package:sentry_dio/sentry_dio.dart';
 
 import '../core/app_info.dart';
 import '../core/logging/app_logger.dart';
@@ -392,10 +393,17 @@ class WhisperServerDownloader {
 // Helpers
 // ---------------------------------------------------------------------------
 
-Dio _defaultApiDio() => Dio(
-  BaseOptions(
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(minutes: 10),
-    headers: {'User-Agent': appUserAgent},
-  ),
-);
+Dio _defaultApiDio() {
+  final dio = Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(minutes: 10),
+      headers: {'User-Agent': appUserAgent},
+    ),
+  );
+  // Sentry MUST be the last interceptor added — see notes in
+  // http_model_fetcher.dart. Spans piggy-back on the active transaction's
+  // sample decision and respect the global `tracesSampleRate`.
+  dio.addSentry();
+  return dio;
+}
