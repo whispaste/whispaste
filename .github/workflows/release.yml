@@ -39,6 +39,30 @@ jobs:
             --dart-define=SUPABASE_URL="${{ secrets.SUPABASE_URL }}" `
             --dart-define=SUPABASE_PUBLISHABLE_KEY="${{ secrets.SUPABASE_PUBLISHABLE_KEY }}"
 
+      # Upload native PDB/DLL debug symbols so Sentry can symbolicate
+      # native crash frames. Skipped silently when the secret is unset
+      # (e.g. on forks). Symbol upload does NOT count against Sentry's
+      # Free-Tier event/span quotas — it is a separate billing bucket
+      # only constrained by total storage (effectively unlimited at our
+      # release cadence).
+      - name: Upload debug symbols to Sentry
+        if: env.SENTRY_AUTH_TOKEN != ''
+        shell: pwsh
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: |
+          $refName = "${{ github.ref_name }}"
+          if ($refName -match '^v?\d+\.\d+\.\d+') {
+            $version = $refName.TrimStart('v')
+          } else {
+            $raw = (Get-Content pubspec.yaml | Select-String '^\s*version:').ToString()
+            $version = ($raw -replace '^\s*version:\s*', '' -replace '\+.*', '').Trim()
+          }
+          # Must match `sentryRelease` in lib/core/app_info.dart and
+          # the action-release step at the end of this workflow.
+          $env:SENTRY_RELEASE = "whispaste@$version"
+          dart run sentry_dart_plugin
+
       - name: Install NSIS
         run: choco install nsis -y --no-progress
 
@@ -178,6 +202,22 @@ jobs:
           URL="$(printf '%s' "$SUPABASE_URL" | tr -d '\r\n')"
           KEY="$(printf '%s' "$SUPABASE_PUBLISHABLE_KEY" | tr -d '\r\n')"
           flutter build macos --release --no-tree-shake-icons "--dart-define=SUPABASE_URL=$URL" "--dart-define=SUPABASE_PUBLISHABLE_KEY=$KEY"
+
+      # Upload .dSYM debug symbols for native crash symbolication.
+      # See the Windows job for rationale and Free-Tier accounting.
+      - name: Upload debug symbols to Sentry
+        if: env.SENTRY_AUTH_TOKEN != ''
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: |
+          REF_NAME="${GITHUB_REF_NAME#v}"
+          if echo "$REF_NAME" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+'; then
+            VERSION="$REF_NAME"
+          else
+            VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //;s/+.*//' | tr -d '[:space:]')
+          fi
+          export SENTRY_RELEASE="whispaste@$VERSION"
+          dart run sentry_dart_plugin
 
       - name: Prepare release artifacts
         run: |

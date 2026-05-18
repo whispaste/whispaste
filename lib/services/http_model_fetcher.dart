@@ -10,6 +10,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:sentry_dio/sentry_dio.dart';
 
 import '../core/app_info.dart';
 import '../core/logging/app_logger.dart';
@@ -203,13 +204,21 @@ class HttpModelFetcher {
 // Helpers
 // ---------------------------------------------------------------------------
 
-Dio _defaultDio() => Dio(
-  BaseOptions(
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(minutes: 10),
-    headers: {'User-Agent': appUserAgent},
-  ),
-);
+Dio _defaultDio() {
+  final dio = Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(minutes: 10),
+      headers: {'User-Agent': appUserAgent},
+    ),
+  );
+  // Sentry MUST be the last interceptor added — it wraps existing ones.
+  // Spans piggy-back on the active transaction's sample decision; with the
+  // low `tracesSampleRate` set in app_monitoring.dart, the Free-Tier span
+  // quota is safe even under heavy model downloads.
+  dio.addSentry();
+  return dio;
+}
 
 class _SpeedSample {
   const _SpeedSample(this.time, this.bytes);

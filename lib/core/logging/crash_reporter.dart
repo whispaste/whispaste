@@ -77,6 +77,20 @@ class CrashReporter {
   static const _maxErrorsPerWindow = 10;
   static const _errorWindowDuration = Duration(seconds: 2);
 
+  /// Transaction throttle — hard SDK-side ceiling on performance events so
+  /// no single session can blow through whispaste's Free-Tier span share,
+  /// even if `tracesSampleRate` is misconfigured or a runaway loop kicks
+  /// the sampler too often. Resets on app restart; for a true monthly
+  /// guarantee, set a Spend Cap in the Sentry dashboard.
+  ///
+  /// 20 transactions/hour ≈ 1 sampled-transaction per 3 minutes of active
+  /// use. A sampled transaction typically carries 5–15 child spans →
+  /// ≤ ~300 spans/hour, well under the per-app Free-Tier slice.
+  static int _txCount = 0;
+  static DateTime _txWindowStart = DateTime.now();
+  static const _maxTransactionsPerWindow = 20;
+  static const _transactionWindowDuration = Duration(hours: 1);
+
   /// Whether crash reporting consent has been granted.
   /// Gate-controlled: nothing is sent when `false`.
   bool get consentGranted => _consentGranted;
@@ -250,6 +264,31 @@ class CrashReporter {
     }
 
     return event;
+  }
+
+  // -------------------------------------------------------------------------
+  // Sentry beforeSendTransaction — Free-Tier span throttle
+  // -------------------------------------------------------------------------
+
+  /// Drops performance transactions once the per-session ceiling is hit.
+  ///
+  /// Performance events count against Sentry's Free-Tier span quota — this
+  /// is a belt-and-braces guard on top of [_maxTransactionsPerWindow]
+  /// sampling. Consent gate is honoured, identical to [beforeSend].
+  static SentryTransaction? beforeSendTransaction(
+    SentryTransaction transaction,
+  ) {
+    if (_instance != null && !_instance!._consentGranted) return null;
+
+    final now = DateTime.now();
+    if (now.difference(_txWindowStart) > _transactionWindowDuration) {
+      _txWindowStart = now;
+      _txCount = 0;
+    }
+    _txCount++;
+    if (_txCount > _maxTransactionsPerWindow) return null;
+
+    return transaction;
   }
 
   // -------------------------------------------------------------------------
