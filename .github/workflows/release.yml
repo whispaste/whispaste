@@ -325,6 +325,14 @@ jobs:
             echo "Release ${{ steps.notes.outputs.version }}" > release-body.md
           fi
 
+      - name: Upload release notes as artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-notes
+          path: |
+            release-notes-en.md
+            release-notes-de.md
+
       - name: Create Release
         uses: softprops/action-gh-release@v3
         with:
@@ -355,3 +363,68 @@ jobs:
           gh workflow run deploy-pages.yml --ref main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  submit-ms-store:
+    name: Submit to Microsoft Store
+    needs: [build-msix, create-release]
+    if: |
+      startsWith(github.ref, 'refs/tags/v') &&
+      needs.build-msix.result == 'success' &&
+      needs.create-release.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Check required secrets
+        id: check
+        run: |
+          if [[ -z "${{ secrets.MS_STORE_APP_ID }}" ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "MS_STORE_APP_ID not set — skipping MS Store submission"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download MSIX artifact
+        if: steps.check.outputs.skip != 'true'
+        uses: actions/download-artifact@v8
+        with:
+          name: msix-release
+          path: msix/
+
+      - name: Download release notes
+        if: steps.check.outputs.skip != 'true'
+        uses: actions/download-artifact@v8
+        with:
+          name: release-notes
+          path: .
+
+      - name: Resolve MSIX path
+        if: steps.check.outputs.skip != 'true'
+        id: msix
+        run: echo "path=$(ls msix/*.msix | head -1)" >> "$GITHUB_OUTPUT"
+
+      - name: Submit to Microsoft Store
+        if: steps.check.outputs.skip != 'true'
+        shell: pwsh
+        env:
+          MS_STORE_APP_ID:        ${{ secrets.MS_STORE_APP_ID }}
+          MS_STORE_TENANT_ID:     ${{ secrets.MS_STORE_TENANT_ID }}
+          MS_STORE_CLIENT_ID:     ${{ secrets.MS_STORE_CLIENT_ID }}
+          MS_STORE_CLIENT_SECRET: ${{ secrets.MS_STORE_CLIENT_SECRET }}
+        run: |
+          $wnEn = if (Test-Path 'release-notes-en.md') {
+            Get-Content 'release-notes-en.md' -Raw -Encoding UTF8
+          } else { '' }
+          $wnDe = if (Test-Path 'release-notes-de.md') {
+            Get-Content 'release-notes-de.md' -Raw -Encoding UTF8
+          } else { '' }
+
+          ./scripts/submit-ms-store.ps1 `
+            -AppId         $env:MS_STORE_APP_ID `
+            -TenantId      $env:MS_STORE_TENANT_ID `
+            -ClientId      $env:MS_STORE_CLIENT_ID `
+            -ClientSecret  $env:MS_STORE_CLIENT_SECRET `
+            -MsixPath      '${{ steps.msix.outputs.path }}' `
+            -WhatsNewEn    $wnEn `
+            -WhatsNewDe    $wnDe

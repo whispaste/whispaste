@@ -1,0 +1,15 @@
+WhisPaste verwandelt deine Stimme in Text und fügt ihn direkt ein — in jeder App, genau dort wo dein Cursor steht. Hotkey drücken, sprechen, fertig. Kein Kopieren, kein Fensterwechsel.
+
+Funktioniert überall: Outlook, Teams, VS Code, Chrome, Slack und jede andere Anwendung.
+
+🔒 DEINE AUFNAHMEN BLEIBEN BEI DIR
+Drei KI-Modelle (Whisper Small, Medium und Large v3 Turbo) laufen vollständig lokal — dein Audio verlässt deinen Rechner nicht. Cloud-Anbieter (OpenAI, Deepgram) stehen optional bereit; das Audio geht dabei direkt an den Anbieter, nicht über WhisPaste-Server. Kein Konto nötig.
+
+📋 VERLAUF & EXPORT
+Jede Aufnahme wird automatisch gespeichert. Durchsuchen, anheften, archivieren und als TXT, Markdown, JSON, CSV oder Word exportieren.
+
+⌨️ TEXTBAUSTEINE PER STIMME
+Definiere ein kurzes Stichwort — WhisPaste ersetzt es vor dem Einfügen durch den vollständigen Text. Ideal für Signaturen, Anredeformeln und häufig benötigte Formulierungen.
+
+🎛️ FÜR DEINEN ARBEITSALLTAG
+Push-to-talk oder Toggle · Floating Button über allen Fenstern · System-Tray · Autostart mit Windows · Deutsch, Englisch und Hebräisch
