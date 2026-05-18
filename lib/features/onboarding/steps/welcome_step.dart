@@ -6,6 +6,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
+import '../../../core/l10n/locale_native_name.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../widgets/brand_wordmark.dart';
@@ -83,14 +84,15 @@ class WelcomeStep extends ConsumerWidget {
         ),
         const SizedBox(height: WpSpacing.xxl),
 
-        // Language toggle — flag thumb slides between EN/DE
-        _LanguageToggle(
-          locale: settings.locale,
+        // Language selector — items derived from L10n.supportedLocales so
+        // adding a new language is an ARB-only change.
+        _LanguageSelector(
+          currentLocale: settings.locale,
           onChanged: selectLocale,
-          textPrimary: textPrimary,
-          textSecondary: textSecondary,
-          surfaceColor: surfaceVariant,
+          activeGradient: accentGradient,
           borderColor: borderColor,
+          surfaceColor: surfaceVariant,
+          textSecondary: textSecondary,
         ),
         const SizedBox(height: WpSpacing.lg),
 
@@ -144,13 +146,15 @@ class WelcomeStep extends ConsumerWidget {
 
 class _SegmentItem {
   const _SegmentItem({
-    required this.icon,
     required this.label,
     required this.isActive,
     required this.onTap,
+    this.icon,
   });
 
-  final Widget icon;
+  /// Optional decorative icon rendered left of the label.  Null = text-only
+  /// (used for locales that don't bundle a flag SVG).
+  final Widget? icon;
   final String label;
   final bool isActive;
   final VoidCallback onTap;
@@ -272,21 +276,25 @@ class _SegmentButtonState extends State<_SegmentButton> {
                     mainAxisSize: MainAxisSize.min,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      IconTheme(
-                        data: IconThemeData(
-                          color: isActive ? Colors.white : widget.textSecondary,
-                          size: 18,
-                        ),
-                        child: DefaultTextStyle(
-                          style: TextStyle(
+                      if (widget.item.icon != null) ...[
+                        IconTheme(
+                          data: IconThemeData(
                             color: isActive
                                 ? Colors.white
                                 : widget.textSecondary,
+                            size: 18,
                           ),
-                          child: widget.item.icon,
+                          child: DefaultTextStyle(
+                            style: TextStyle(
+                              color: isActive
+                                  ? Colors.white
+                                  : widget.textSecondary,
+                            ),
+                            child: widget.item.icon!,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: WpSpacing.xs),
+                        const SizedBox(width: WpSpacing.xs),
+                      ],
                       AnimatedDefaultTextStyle(
                         duration: WpMotion.fast,
                         style: TextStyle(
@@ -309,177 +317,87 @@ class _SegmentButtonState extends State<_SegmentButton> {
 }
 
 // =============================================================================
-// Language toggle — circular flag thumb that slides between EN and DE.
-// Inspired by flag-thumb toggle references: a pill track with a sliding
-// circular flag indicator and flanking language labels.
+// Language selector — derived from L10n.supportedLocales.
+// Each supported locale becomes one segment in the same `_SegmentedSelector`
+// used for theme selection below.  Flags (assets/flags/<code>.svg) are
+// decorative: rendered only when the asset is bundled; missing assets fall
+// back to text-only labels without crashing.
 // =============================================================================
 
-class _LanguageToggle extends StatefulWidget {
-  const _LanguageToggle({
-    required this.locale,
+class _LanguageSelector extends StatefulWidget {
+  const _LanguageSelector({
+    required this.currentLocale,
     required this.onChanged,
-    required this.textPrimary,
-    required this.textSecondary,
-    required this.surfaceColor,
+    required this.activeGradient,
     required this.borderColor,
+    required this.surfaceColor,
+    required this.textSecondary,
   });
 
-  final String locale;
+  final String currentLocale;
   final ValueChanged<String> onChanged;
-  final Color textPrimary;
-  final Color textSecondary;
-  final Color surfaceColor;
+  final LinearGradient activeGradient;
   final Color borderColor;
+  final Color surfaceColor;
+  final Color textSecondary;
 
   @override
-  State<_LanguageToggle> createState() => _LanguageToggleState();
+  State<_LanguageSelector> createState() => _LanguageSelectorState();
 }
 
-class _LanguageToggleState extends State<_LanguageToggle> {
-  bool _trackHovered = false;
+class _LanguageSelectorState extends State<_LanguageSelector> {
+  /// Asset paths confirmed present in the bundle.  Populated asynchronously
+  /// via [AssetManifest]; until it resolves, labels render text-only.
+  Set<String> _bundledFlagPaths = const <String>{};
 
-  static const double _trackW = 104;
-  static const double _trackH = 50;
-  static const double _thumb = 40;
-  static const double _pad = 5;
+  @override
+  void initState() {
+    super.initState();
+    _loadBundledFlags();
+  }
+
+  Future<void> _loadBundledFlags() async {
+    try {
+      final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
+      final available = manifest.listAssets().toSet();
+      if (!mounted) return;
+      setState(() {
+        _bundledFlagPaths = <String>{
+          for (final locale in L10n.supportedLocales)
+            if (available.contains(localeFlagAssetPath(locale)))
+              localeFlagAssetPath(locale),
+        };
+      });
+    } catch (_) {
+      // Manifest unavailable (e.g. some test bundles) → stay text-only.
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final isEn = widget.locale == 'en';
-
-    return Semantics(
-      label: 'Language',
-      value: isEn ? 'English' : 'Deutsch',
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // English label
-          _LangLabel(
-            text: 'English',
-            isActive: isEn,
-            textPrimary: widget.textPrimary,
-            textSecondary: widget.textSecondary,
-            onTap: () => widget.onChanged('en'),
+    return _SegmentedSelector(
+      items: [
+        for (final locale in L10n.supportedLocales)
+          _SegmentItem(
+            label: localeNativeName(locale),
+            icon: _flagIconFor(locale),
+            isActive: locale.languageCode == widget.currentLocale,
+            onTap: () => widget.onChanged(locale.languageCode),
           ),
-          const SizedBox(width: WpSpacing.md),
-
-          // Toggle track with sliding flag thumb
-          MouseRegion(
-            onEnter: (_) => setState(() => _trackHovered = true),
-            onExit: (_) => setState(() => _trackHovered = false),
-            cursor: SystemMouseCursors.click,
-            child: GestureDetector(
-              onTap: () => widget.onChanged(isEn ? 'de' : 'en'),
-              child: AnimatedContainer(
-                duration: WpMotion.fast,
-                width: _trackW,
-                height: _trackH,
-                decoration: BoxDecoration(
-                  color: _trackHovered
-                      ? widget.surfaceColor.withValues(alpha: 0.75)
-                      : widget.surfaceColor,
-                  borderRadius: WpRadius.borderFull,
-                  border: Border.all(color: widget.borderColor),
-                  boxShadow: WpShadows.glassInner,
-                ),
-                child: Stack(
-                  children: [
-                    AnimatedPositioned(
-                      duration: WpMotion.smooth,
-                      curve: Curves.easeOutCubic,
-                      left: isEn ? _pad : (_trackW - _thumb - _pad),
-                      top: _pad,
-                      child: Container(
-                        width: _thumb,
-                        height: _thumb,
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          boxShadow: WpShadows.card,
-                        ),
-                        child: ClipOval(
-                          child: ExcludeSemantics(
-                            child: AnimatedSwitcher(
-                              duration: WpMotion.fast,
-                              child: SvgPicture.asset(
-                                isEn
-                                    ? 'assets/flags/us.svg'
-                                    : 'assets/flags/de.svg',
-                                key: ValueKey(widget.locale),
-                                width: _thumb,
-                                height: _thumb,
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: WpSpacing.md),
-
-          // Deutsch label
-          _LangLabel(
-            text: 'Deutsch',
-            isActive: !isEn,
-            textPrimary: widget.textPrimary,
-            textSecondary: widget.textSecondary,
-            onTap: () => widget.onChanged('de'),
-          ),
-        ],
-      ),
+      ],
+      activeGradient: widget.activeGradient,
+      borderColor: widget.borderColor,
+      surfaceColor: widget.surfaceColor,
+      textSecondary: widget.textSecondary,
+      height: 48,
     );
   }
-}
 
-class _LangLabel extends StatefulWidget {
-  const _LangLabel({
-    required this.text,
-    required this.isActive,
-    required this.textPrimary,
-    required this.textSecondary,
-    required this.onTap,
-  });
-
-  final String text;
-  final bool isActive;
-  final Color textPrimary;
-  final Color textSecondary;
-  final VoidCallback onTap;
-
-  @override
-  State<_LangLabel> createState() => _LangLabelState();
-}
-
-class _LangLabelState extends State<_LangLabel> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedDefaultTextStyle(
-          duration: WpMotion.fast,
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: widget.isActive ? FontWeight.w700 : FontWeight.w500,
-            color: widget.isActive
-                ? widget.textPrimary
-                : (_hovered
-                      ? widget.textPrimary.withValues(alpha: 0.7)
-                      : widget.textSecondary),
-          ),
-          child: Text(widget.text),
-        ),
-      ),
+  Widget? _flagIconFor(Locale locale) {
+    final path = localeFlagAssetPath(locale);
+    if (!_bundledFlagPaths.contains(path)) return null;
+    return ClipOval(
+      child: SvgPicture.asset(path, width: 18, height: 18, fit: BoxFit.cover),
     );
   }
 }

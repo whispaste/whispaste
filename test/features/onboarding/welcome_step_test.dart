@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
+import 'package:whispaste/core/l10n/generated/app_localizations.dart';
+import 'package:whispaste/core/l10n/locale_native_name.dart';
 import 'package:whispaste/features/onboarding/steps/welcome_step.dart';
 
 import '../../fixtures/test_helpers.dart';
@@ -29,7 +31,35 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('WelcomeStep', () {
-    testWidgets('updates locale when the language selector is tapped', (
+    testWidgets('renders one selector item per supported locale', (
+      tester,
+    ) async {
+      final notifier = FakeSettingsNotifier(
+        const AppSettings(interface_: InterfaceSettings(locale: 'en')),
+      );
+
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: WelcomeStep(onNext: _noop)),
+          size: const Size(1280, 980),
+          overrides: [settingsProvider.overrideWith(() => notifier)],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      for (final locale in L10n.supportedLocales) {
+        expect(
+          find.text(localeNativeName(locale)),
+          findsOneWidget,
+          reason: 'expected native label for ${locale.languageCode}',
+        );
+      }
+      // Sanity: today's bundled locales are de/en/he, so we expect
+      // exactly three labels — guards against accidental duplication.
+      expect(L10n.supportedLocales.length, 3);
+    });
+
+    testWidgets('updates locale when the German label is tapped', (
       tester,
     ) async {
       final notifier = FakeSettingsNotifier(
@@ -49,6 +79,28 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(notifier.state.value!.locale, 'de');
+    });
+
+    testWidgets('updates locale to he when the Hebrew label is tapped', (
+      tester,
+    ) async {
+      final notifier = FakeSettingsNotifier(
+        const AppSettings(interface_: InterfaceSettings(locale: 'en')),
+      );
+
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: WelcomeStep(onNext: _noop)),
+          size: const Size(1280, 980),
+          overrides: [settingsProvider.overrideWith(() => notifier)],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text(localeNativeName(const Locale('he'))));
+      await tester.pumpAndSettle();
+
+      expect(notifier.state.value!.locale, 'he');
     });
 
     testWidgets('updates theme mode from preview cards and system chip', (
@@ -99,6 +151,22 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(nextCalled, isTrue);
+    });
+  });
+
+  group('localeNativeName', () {
+    test('returns endonyms for shipped locales', () {
+      expect(localeNativeName(const Locale('en')), 'English');
+      expect(localeNativeName(const Locale('de')), 'Deutsch');
+      expect(localeNativeName(const Locale('he')), 'עברית');
+    });
+
+    test('falls back to upper-cased language subtag for unknown locales', () {
+      // Mock locale stand-in for the extensibility scenario described in
+      // the issue — if someone wires a brand-new locale into the app, the
+      // helper must still produce *something* renderable rather than
+      // throwing.
+      expect(localeNativeName(const Locale('xx')), 'XX');
     });
   });
 }
