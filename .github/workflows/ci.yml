@@ -184,6 +184,7 @@ jobs:
       #   libayatana-appindicator3-dev                    — tray_manager
       #   libasound2-dev + libpulse-dev                   — record / flutter_soloud
       #   libnotify-dev                                   — toast/notifications
+      #   libcurl4-openssl-dev                            — sentry-native (CMake find_package)
       #   xvfb                                            — display for integration_test
       - name: Install Linux desktop + libsecret backend
         run: |
@@ -200,6 +201,7 @@ jobs:
             libasound2-dev \
             libpulse-dev \
             libnotify-dev \
+            libcurl4-openssl-dev \
             gnome-keyring \
             dbus-x11 \
             xvfb
