@@ -700,7 +700,7 @@
   "settingsCheckUpdatesSubtitle": "Automatically check for new versions on startup",
 
   "onboardingGetStarted": "Continue",
-  "onboardingSkip": "Skip",
+  "onboardingSkip": "Skip this step",
   "onboardingNext": "Next",
   "onboardingBack": "Back",
   "onboardingStepOf": "Step {current} of {total}",
@@ -737,7 +737,7 @@
   "onboardingReadyCurrentHotkey": "Current hotkey",
   "onboardingReadyHotkeyConflictTitle": "Hotkey already in use",
   "onboardingReadyHotkeyConflictBody": "Your hotkey seems to be in use by another app. Record a new combination below to continue.",
-  "onboardingStartDictating": "Start Dictating",
+  "onboardingStartUsing": "Let's go",
 
   "overlayRecording": "Recording",
   "overlayTranscribing": "Transcribing…",

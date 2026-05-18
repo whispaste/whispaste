@@ -1955,7 +1955,7 @@ class L10nDe extends L10n {
   String get onboardingGetStarted => 'Weiter';
 
   @override
-  String get onboardingSkip => 'Überspringen';
+  String get onboardingSkip => 'Diesen Schritt überspringen';
 
   @override
   String get onboardingNext => 'Weiter';
@@ -2078,7 +2078,7 @@ class L10nDe extends L10n {
       'Dein Tastenkürzel scheint von einer anderen App belegt zu sein. Nimm unten eine neue Kombination auf, um fortzufahren.';
 
   @override
-  String get onboardingStartDictating => 'Jetzt diktieren';
+  String get onboardingStartUsing => 'Los geht\'s';
 
   @override
   String get overlayRecording => 'Aufnahme';

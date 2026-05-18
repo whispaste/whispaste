@@ -3522,7 +3522,7 @@ abstract class L10n {
   /// No description provided for @onboardingSkip.
   ///
   /// In en, this message translates to:
-  /// **'Skip'**
+  /// **'Skip this step'**
   String get onboardingSkip;
 
   /// No description provided for @onboardingNext.
@@ -3735,11 +3735,11 @@ abstract class L10n {
   /// **'Your hotkey seems to be in use by another app. Record a new combination below to continue.'**
   String get onboardingReadyHotkeyConflictBody;
 
-  /// No description provided for @onboardingStartDictating.
+  /// No description provided for @onboardingStartUsing.
   ///
   /// In en, this message translates to:
-  /// **'Start Dictating'**
-  String get onboardingStartDictating;
+  /// **'Let\'s go'**
+  String get onboardingStartUsing;
 
   /// No description provided for @overlayRecording.
   ///

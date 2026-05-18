@@ -123,6 +123,45 @@ void main() {
     });
   });
 
+  // ── Skip-button wording (issue 10) ───────────────────────────────────────
+  //
+  // The header Skip button used to read just "Skip", which was ambiguous —
+  // users could not tell whether it skipped the current step or the whole
+  // onboarding. It now reads "Skip this step" to disambiguate.
+
+  group('OnboardingOverlay — header Skip button wording (issue 10)', () {
+    testWidgets(
+      'header Skip button on a non-final step renders the disambiguated '
+      '"Skip this step" label',
+      (tester) async {
+        // Force macOS so the full 5-step flow is rendered — guarantees the
+        // initial Welcome step is not the final step, so the Skip button is
+        // visible.
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        try {
+          await _pumpOverlay(tester);
+
+          expect(
+            find.text('Skip this step'),
+            findsOneWidget,
+            reason:
+                'Header Skip button must disambiguate that it skips only the '
+                'current step, not the whole onboarding.',
+          );
+          // The bare "Skip" label is the historic, ambiguous form — must be
+          // gone now.
+          expect(
+            find.text('Skip'),
+            findsNothing,
+            reason: 'Legacy "Skip" label must be replaced by "Skip this step".',
+          );
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      },
+    );
+  });
+
   group('OnboardingOverlay disposal', () {
     testWidgets(
       'dispose explicitly stops Auto-Paste polling — defends against zombie '
