@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+## 1.2.19
+
+### Bug Fixes
+
+- **Auto-Paste now works on ad-hoc-signed macOS builds**. The old code aborted with `Paste failed` whenever `AXIsProcessTrusted()` returned `false`, but on macOS Sequoia that API lies for ad-hoc-signed apps: every rebuild produces a new content hash, TCC binds permissions to that hash, and the visible "Accessibility ON" toggle in System Settings keeps referring to a previous build. The Swift host no longer treats the AX check as a hard gate. Instead it posts the keystroke through **two independent permission channels** (`CGEvent` + AppleScript via `System Events.keystroke`), reports honest success only when at least one channel can be proven to have landed, and includes a structured detail string (`ax=… cg=… as=… target=…`) in the result so silent-drop scenarios are diagnosable from `whispaste.log`.
+
+- **Paste failures are no longer silent when the main window is hidden**. The previous in-app toast was invisible in the normal use case where the user is focused on Terminal / VS Code / Warp and WhisPaste lives in the tray. Three additional surfaces fire on every paste failure: a **native OS notification** via `local_notifier` (Toast on Windows, Notification Center on macOS), a **Dock-icon bounce** (`NSApp.requestUserAttention(.criticalRequest)`) on macOS / **taskbar flash** (`FlashWindowEx(FLASHW_TRAY|FLASHW_TIMERNOFG)`) on Windows, and a **persistent tray-menu badge** ("⚠ Auto-Einfügen blockiert — Berechtigung erteilen") that survives until the next successful paste auto-clears it. Attention requests are throttled to one per minute per failure kind to avoid spamming during a recording session.
+
+### Features
+
+- **Auto-Paste capability indicator in Settings**. The "After Transcription" section now hosts a live status card that probes both permission channels without actually pasting, shown as soon as the user enables `paste` or `clipboardAndPaste` mode. The card surfaces three actionable states (`ready` / `permissionMissing` / `unsupported`) with platform-specific repair actions: **"Test now"** runs a fresh `AXIsProcessTrusted` + AppleScript probe; **"Grant permission"** triggers `AXIsProcessTrustedWithOptions(prompt: true)` and opens System Settings → Privacy → Accessibility; and a new **"Repair permissions"** button that spawns `tccutil reset Accessibility com.whispaste.whispaste && tccutil reset AppleEvents com.whispaste.whispaste`, the documented Apple workaround for stale TCC entries on ad-hoc-signed apps. The repair button is hidden on Windows where TCC doesn't apply.
+
+- **Structured paste-outcome reporting end-to-end**. The native bridges now return `{status, detail}` maps (`success` / `no_target` / `no_accessibility` / `post_failed` on macOS; `success` / `no_target` / `foreground_blocked` / `send_input_failed` on Windows) which Dart maps to a typed `PasteOutcome` enum (`success` / `blocked` / `platformUnavailable` / `noTarget` / `permissionMissing` / `failed`). Toast messages, native notifications, and tray badges are tailored to the specific failure mode so the user gets actionable guidance instead of a generic "Paste failed".
+
+- **Visible native logging via `os_log`** in the macOS Swift host (`subsystem=com.whispaste.paste`) replaces the prior `NSLog` calls, which Apple's unified logging filters from non-Apple processes. Combined with the Dart-side `DesktopPaster.info` line logging the full native detail string, every paste attempt now leaves a triage-ready record in `~/Library/Application Support/WhisPaste/logs/whispaste.log`.
+
 ## 1.2.17
 
 ### Features
