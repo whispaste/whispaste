@@ -18,6 +18,7 @@ class HistoryRowAction extends StatefulWidget {
     required this.onTap,
     this.isDestructive = false,
     this.activeColor,
+    this.dense = false,
   }) : assert(icon != null || faIcon != null, 'Provide icon or faIcon');
 
   final IconData? icon;
@@ -29,6 +30,10 @@ class HistoryRowAction extends StatefulWidget {
 
   /// When set, overrides the icon color regardless of hover/active state.
   final Color? activeColor;
+
+  /// Compact variant for inline list rows where vertical space is tight.
+  /// Drops outer padding and shrinks the inner hit-area to ~28 px tall.
+  final bool dense;
 
   @override
   State<HistoryRowAction> createState() => _HistoryRowActionState();
@@ -64,13 +69,13 @@ class _HistoryRowActionState extends State<HistoryRowAction> {
         child: GestureDetector(
           onTap: widget.onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.xxs,
-              vertical: WpSpacing.xxs,
+            padding: EdgeInsets.symmetric(
+              horizontal: widget.dense ? 0 : WpSpacing.xxs,
+              vertical: widget.dense ? 0 : WpSpacing.xxs,
             ),
             child: AnimatedContainer(
               duration: WpMotion.fast,
-              padding: const EdgeInsets.all(10),
+              padding: EdgeInsets.all(widget.dense ? 6 : 10),
               decoration: BoxDecoration(
                 color: _isHovered
                     ? (widget.isDark

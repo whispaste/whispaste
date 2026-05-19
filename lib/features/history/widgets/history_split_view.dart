@@ -12,11 +12,11 @@ import 'history_helpers.dart';
 import 'history_list_view.dart';
 
 // ---------------------------------------------------------------------------
-// Master-detail layout
+// Split-View layout
 // ---------------------------------------------------------------------------
 
-class HistoryMasterDetail extends StatefulWidget {
-  const HistoryMasterDetail({
+class HistorySplitView extends StatefulWidget {
+  const HistorySplitView({
     super.key,
     required this.groups,
     required this.isDark,
@@ -66,21 +66,21 @@ class HistoryMasterDetail extends StatefulWidget {
   final HistoryDetailPanelExportFn exportFn;
 
   @override
-  State<HistoryMasterDetail> createState() => _HistoryMasterDetailState();
+  State<HistorySplitView> createState() => _HistorySplitViewState();
 }
 
-class _HistoryMasterDetailState extends State<HistoryMasterDetail>
+class _HistorySplitViewState extends State<HistorySplitView>
     with SingleTickerProviderStateMixin {
   late final AnimationController _anim;
   late final Animation<double> _detailWidth;
   HistoryEntry? _displayedEntry;
 
-  double _masterWidth = _defaultMasterWidth;
+  double _listWidth = _defaultListWidth;
   bool _isDragging = false;
 
-  static const _defaultMasterWidth = 340.0;
-  static const _minMasterWidth = 240.0;
-  static const _maxMasterFraction = 0.65;
+  static const _defaultListWidth = 340.0;
+  static const _minListWidth = 240.0;
+  static const _maxListFraction = 0.65;
   static const _dividerHitWidth = 8.0;
   static const _dividerVisualWidth = 1.0;
 
@@ -104,7 +104,7 @@ class _HistoryMasterDetailState extends State<HistoryMasterDetail>
   }
 
   @override
-  void didUpdateWidget(covariant HistoryMasterDetail oldWidget) {
+  void didUpdateWidget(covariant HistorySplitView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.selectedEntry != null && oldWidget.selectedEntry == null) {
       // Opening detail panel
@@ -128,7 +128,7 @@ class _HistoryMasterDetailState extends State<HistoryMasterDetail>
     super.dispose();
   }
 
-  Widget _buildMasterBody({String? selectedId}) {
+  Widget _buildListBody({String? selectedId}) {
     final Widget body;
     switch (widget.viewMode) {
       case HistoryViewMode.list:
@@ -209,7 +209,7 @@ class _HistoryMasterDetailState extends State<HistoryMasterDetail>
     final showDetail = widget.selectedEntry != null || _displayedEntry != null;
 
     if (!showDetail) {
-      return _buildMasterBody();
+      return _buildListBody();
     }
 
     return LayoutBuilder(
@@ -223,46 +223,46 @@ class _HistoryMasterDetailState extends State<HistoryMasterDetail>
           if (entry != null && widget.selectedEntry != null) {
             return _buildDetailPanel(entry);
           }
-          return _buildMasterBody(
+          return _buildListBody(
             selectedId: (widget.selectedEntry ?? _displayedEntry)?.id,
           );
         }
 
-        // ── Desktop: side-by-side master + detail ──
-        // When detail is open, cap master so the detail gets at least
-        // _minDetailRenderWidth. If there's not enough total space for
+        // ── Desktop: side-by-side list + detail ──
+        // When detail is open, cap the list column so the detail gets at
+        // least _minDetailRenderWidth. If there's not enough total space for
         // both panels, fall back to compact/fullscreen detail.
-        final roomForDetail = totalWidth - _minMasterWidth - _dividerHitWidth;
+        final roomForDetail = totalWidth - _minListWidth - _dividerHitWidth;
         if (roomForDetail < _minDetailRenderWidth &&
             widget.selectedEntry != null) {
           // Not enough room for split — show full-screen detail.
           return _buildDetailPanel(widget.selectedEntry ?? _displayedEntry!);
         }
 
-        final maxMasterW = totalWidth * _maxMasterFraction;
-        // Ensure master never eats so much that detail can't render.
-        final maxMasterForDetail =
+        final maxListW = totalWidth * _maxListFraction;
+        // Ensure the list column never eats so much that detail can't render.
+        final maxListForDetail =
             totalWidth - _dividerHitWidth - _minDetailRenderWidth;
         return AnimatedBuilder(
           animation: _detailWidth,
           builder: (context, _) {
             final detailFraction = _detailWidth.value;
-            final effectiveMaster = _masterWidth.clamp(
-              _minMasterWidth,
+            final effectiveList = _listWidth.clamp(
+              _minListWidth,
               detailFraction > 0.05
-                  ? maxMasterForDetail.clamp(_minMasterWidth, maxMasterW)
-                  : maxMasterW,
+                  ? maxListForDetail.clamp(_minListWidth, maxListW)
+                  : maxListW,
             );
             final detailW =
-                (totalWidth - effectiveMaster - _dividerHitWidth) *
+                (totalWidth - effectiveList - _dividerHitWidth) *
                 detailFraction;
-            final masterW = totalWidth - detailW - _dividerHitWidth;
+            final listW = totalWidth - detailW - _dividerHitWidth;
 
             return Row(
               children: [
                 SizedBox(
-                  width: masterW.clamp(effectiveMaster, totalWidth),
-                  child: _buildMasterBody(
+                  width: listW.clamp(effectiveList, totalWidth),
+                  child: _buildListBody(
                     selectedId: (widget.selectedEntry ?? _displayedEntry)?.id,
                   ),
                 ),
@@ -275,13 +275,10 @@ class _HistoryMasterDetailState extends State<HistoryMasterDetail>
                     onHorizontalDragUpdate: (details) {
                       setState(() {
                         final dragMax = detailFraction > 0.05
-                            ? maxMasterForDetail.clamp(
-                                _minMasterWidth,
-                                maxMasterW,
-                              )
-                            : maxMasterW;
-                        _masterWidth = (_masterWidth + details.delta.dx).clamp(
-                          _minMasterWidth,
+                            ? maxListForDetail.clamp(_minListWidth, maxListW)
+                            : maxListW;
+                        _listWidth = (_listWidth + details.delta.dx).clamp(
+                          _minListWidth,
                           dragMax,
                         );
                       });
@@ -315,7 +312,7 @@ class _HistoryMasterDetailState extends State<HistoryMasterDetail>
                   ),
                 ),
                 SizedBox(
-                  width: detailW.clamp(0.0, totalWidth - _minMasterWidth),
+                  width: detailW.clamp(0.0, totalWidth - _minListWidth),
                   child:
                       detailFraction > 0.05 && detailW >= _minDetailRenderWidth
                       ? ClipRect(

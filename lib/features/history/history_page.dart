@@ -221,9 +221,9 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                     _selectedIds.clear();
                   }),
                 ),
-              // Search & filter toolbar
+              // Search & filter bar
               if (!_multiSelectMode || _selectedIds.isEmpty)
-                HistorySearchToolbar(
+                HistorySearchFilterBar(
                   controller: _searchController,
                   searchFocusNode: _searchFocusNode,
                   activeFilter: activeFilter,
@@ -410,7 +410,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                         child: GestureDetector(
                           onTap: () => _listFocusNode.requestFocus(),
                           behavior: HitTestBehavior.translucent,
-                          child: HistoryMasterDetail(
+                          child: HistorySplitView(
                             groups: sortedGroups,
                             isDark: isDark,
                             viewMode: _viewMode,

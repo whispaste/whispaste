@@ -46,11 +46,11 @@ const _kLangOptions = [
 ];
 
 // ---------------------------------------------------------------------------
-// Search & filter toolbar
+// Search & filter bar
 // ---------------------------------------------------------------------------
 
-class HistorySearchToolbar extends ConsumerStatefulWidget {
-  const HistorySearchToolbar({
+class HistorySearchFilterBar extends ConsumerStatefulWidget {
+  const HistorySearchFilterBar({
     super.key,
     required this.controller,
     required this.activeFilter,
@@ -84,11 +84,12 @@ class HistorySearchToolbar extends ConsumerStatefulWidget {
   final VoidCallback? onEmptyTrash;
 
   @override
-  ConsumerState<HistorySearchToolbar> createState() =>
-      _HistorySearchToolbarState();
+  ConsumerState<HistorySearchFilterBar> createState() =>
+      _HistorySearchFilterBarState();
 }
 
-class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
+class _HistorySearchFilterBarState
+    extends ConsumerState<HistorySearchFilterBar> {
   List<String> _suggestions = [];
   List<String> _recentSearches = [];
   List<String> _quickTags = [];
@@ -106,7 +107,7 @@ class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
   }
 
   @override
-  void didUpdateWidget(covariant HistorySearchToolbar old) {
+  void didUpdateWidget(covariant HistorySearchFilterBar old) {
     super.didUpdateWidget(old);
     if (old.controller != widget.controller) {
       old.controller.removeListener(_onControllerChange);
