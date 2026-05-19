@@ -1,10 +1,33 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/services/floating_overlay/floating_overlay_controller.dart';
 import 'package:whispaste/services/floating_overlay/floating_overlay_events.dart';
+import 'package:whispaste/services/floating_overlay/macos_floating_overlay_controller.dart';
+import 'package:whispaste/services/floating_overlay/windows_floating_overlay_controller.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  const channel = MethodChannel('com.whispaste.floating_overlay');
+
+  void setHandler(
+    Future<Object?>? Function(MethodCall call) handler, {
+    List<MethodCall>? recordedCalls,
+  }) {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          recordedCalls?.add(call);
+          return handler(call);
+        });
+  }
+
+  tearDown(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, null);
+  });
+
   group('OverlayVisualState', () {
     test('has all expected values', () {
       expect(OverlayVisualState.values, hasLength(5));
@@ -306,6 +329,47 @@ void main() {
       // Only 'dispose' should be in calls.
       expect(controller.calls, ['dispose']);
     });
+
+    test('setWaveformBars() records bar count', () async {
+      await controller.setWaveformBars(List<double>.filled(30, 0.42));
+      expect(controller.calls, ['setWaveformBars(30 bars)']);
+    });
+  });
+
+  group('MacOSFloatingOverlayController.setWaveformBars', () {
+    test('invokes setWaveformBars on channel with bars argument', () async {
+      final calls = <MethodCall>[];
+      setHandler((call) async => null, recordedCalls: calls);
+
+      final controller = MacOSFloatingOverlayController();
+      final bars = List<double>.generate(30, (i) => i / 30.0);
+      await controller.setWaveformBars(bars);
+
+      expect(calls, hasLength(1));
+      expect(calls.single.method, 'setWaveformBars');
+      expect(calls.single.arguments, isA<Map>());
+      final args = calls.single.arguments as Map;
+      expect(args['bars'], isA<List>());
+      expect((args['bars'] as List).cast<double>(), bars);
+    });
+  });
+
+  group('WindowsFloatingOverlayController.setWaveformBars', () {
+    test('invokes setWaveformBars on channel with bars argument', () async {
+      final calls = <MethodCall>[];
+      setHandler((call) async => null, recordedCalls: calls);
+
+      final controller = WindowsFloatingOverlayController();
+      final bars = List<double>.generate(30, (i) => (29 - i) / 30.0);
+      await controller.setWaveformBars(bars);
+
+      expect(calls, hasLength(1));
+      expect(calls.single.method, 'setWaveformBars');
+      expect(calls.single.arguments, isA<Map>());
+      final args = calls.single.arguments as Map;
+      expect(args['bars'], isA<List>());
+      expect((args['bars'] as List).cast<double>(), bars);
+    });
   });
 }
 
@@ -339,6 +403,12 @@ class MockFloatingOverlayController extends FloatingOverlayController {
   Future<void> setAudioLevel(double level) async {
     if (isDisposed) return;
     calls.add('setAudioLevel($level)');
+  }
+
+  @override
+  Future<void> setWaveformBars(List<double> bars) async {
+    if (isDisposed) return;
+    calls.add('setWaveformBars(${bars.length} bars)');
   }
 
   @override

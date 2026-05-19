@@ -93,6 +93,15 @@ abstract class FloatingOverlayController {
   /// Should be throttled to ~20Hz by the caller.
   Future<void> setAudioLevel(double level);
 
+  /// Push a pre-computed waveform bar array (length 30, values 0.0–1.0).
+  ///
+  /// Stateless render path: the native window draws bar `i` at height
+  /// `minH + bars[i] × (maxH − minH)` with active/muted colour decided by
+  /// `bars[i] >= 0.30`. Coexists with [setAudioLevel] during migration —
+  /// once the native side receives a non-empty bars array it renders from
+  /// that array instead of the legacy ring-buffer.
+  Future<void> setWaveformBars(List<double> bars);
+
   /// Move the overlay to a specific position.
   Future<void> setPosition(double x, double y, OverlayAnchorMode anchor);
 

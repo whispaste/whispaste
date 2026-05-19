@@ -73,6 +73,20 @@ class FloatingOverlayHost {
       overlayView?.audioLevel = level
       result(nil)
 
+    case "setWaveformBars":
+      // Additive path (issue 05): Dart pushes a pre-computed bar array
+      // (length kBarCount = 30). When set, the view renders stateless from
+      // this array; the legacy setAudioLevel ring-buffer is bypassed but
+      // not removed in this slice.
+      guard let args = call.arguments as? [String: Any],
+            let rawBars = args["bars"] as? [Any] else {
+        result(nil)
+        return
+      }
+      let bars: [Double] = rawBars.compactMap { ($0 as? NSNumber)?.doubleValue }
+      overlayView?.waveformBars = bars
+      result(nil)
+
     case "setPosition":
       guard let args = call.arguments as? [String: Any] else {
         result(nil)

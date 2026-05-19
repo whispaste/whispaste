@@ -55,6 +55,10 @@ class WindowsFloatingOverlayController
       invokeMethod('setAudioLevel', {'level': level});
 
   @override
+  Future<void> setWaveformBars(List<double> bars) =>
+      invokeMethod('setWaveformBars', {'bars': bars});
+
+  @override
   Future<void> setPosition(double x, double y, OverlayAnchorMode anchor) =>
       invokeMethod('setPosition', {'x': x, 'y': y, 'anchorMode': anchor.name});
 
