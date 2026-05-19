@@ -458,7 +458,7 @@ class L10nEn extends L10n {
 
   @override
   String get pasteCapabilityRepairHint =>
-      'If the toggle in System Settings is on but this still fails, click \'Repair\' below — it clears any stale macOS permission entries for WhisPaste so the next paste triggers fresh prompts.';
+      'macOS sometimes holds on to old permission entries for WhisPaste. Click \'Repair\' below to clear them — after that you\'ll need to approve WhisPaste in System Settings again. If that still doesn\'t help, restarting the app is the reliable next step.';
 
   @override
   String get pasteCapabilityRepairButton => 'Repair permissions';
@@ -475,6 +475,10 @@ class L10nEn extends L10n {
     );
     return '$_temp0';
   }
+
+  @override
+  String get pasteCapabilityRepairNothingToClear =>
+      'No stale entries found — a restart of WhisPaste is most likely to help here.';
 
   @override
   String get pasteCapabilityRepairFailed =>

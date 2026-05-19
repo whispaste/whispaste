@@ -162,7 +162,7 @@
   "pasteCapabilityUnsupported": "ההדבקה האוטומטית לא זמינה בפלטפורמה זו",
   "pasteCapabilityTestButton": "בדוק עכשיו",
   "pasteCapabilityGrantButton": "הענק הרשאה",
-  "pasteCapabilityRepairHint": "אם המתג בהגדרות המערכת דלוק וזה עדיין נכשל: לחץ 'תקן' למטה — זה מנקה רשומות הרשאה ישנות של macOS עבור WhisPaste כך שההדבקה הבאה תפעיל בקשות חדשות.",
+  "pasteCapabilityRepairHint": "לפעמים macOS נאחז ברשומות הרשאה ישנות של WhisPaste. לחץ 'תקן' למטה כדי לנקות אותן — לאחר מכן תצטרך לאשר את WhisPaste בהגדרות המערכת מחדש. אם גם זה לא עוזר, הפעלה מחדש של האפליקציה היא הצעד הבא האמין.",
   "pasteCapabilityRepairButton": "תקן הרשאות",
   "pasteCapabilityRepairDone": "{count, plural, =0{לא נמצאו רשומות ישנות — נסה הדבקה.}=1{נוקתה רשומה ישנה אחת. נסה הדבקה כדי לראות בקשה חדשה.}other{נוקו {count} רשומות ישנות. נסה הדבקה כדי לראות בקשות חדשות.}}",
   "@pasteCapabilityRepairDone": {
@@ -170,6 +170,7 @@
       "count": {"type": "int"}
     }
   },
+  "pasteCapabilityRepairNothingToClear": "לא נמצאו רשומות ישנות — סביר להניח שהפעלה מחדש של WhisPaste תעזור כאן.",
   "pasteCapabilityRepairFailed": "לא ניתן היה להריץ איפוס הרשאות של macOS. הסר את WhisPaste ידנית מ־הגדרות מערכת → נגישות.",
   "onboardingPasteTitle": "הגדרת הדבקה אוטומטית",
   "onboardingPasteSubtitle": "WhisPaste זקוקה להרשאה נוספת כדי להדביק תמלילים באפליקציות אחרות.",

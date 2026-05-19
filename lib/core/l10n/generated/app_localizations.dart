@@ -924,7 +924,7 @@ abstract class L10n {
   /// No description provided for @pasteCapabilityRepairHint.
   ///
   /// In en, this message translates to:
-  /// **'If the toggle in System Settings is on but this still fails, click \'Repair\' below — it clears any stale macOS permission entries for WhisPaste so the next paste triggers fresh prompts.'**
+  /// **'macOS sometimes holds on to old permission entries for WhisPaste. Click \'Repair\' below to clear them — after that you\'ll need to approve WhisPaste in System Settings again. If that still doesn\'t help, restarting the app is the reliable next step.'**
   String get pasteCapabilityRepairHint;
 
   /// No description provided for @pasteCapabilityRepairButton.
@@ -938,6 +938,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'{count, plural, =0{No stale entries found — try paste once.}=1{Cleared 1 stale entry. Try paste once to see a fresh prompt.}other{Cleared {count} stale entries. Try paste once to see fresh prompts.}}'**
   String pasteCapabilityRepairDone(int count);
+
+  /// No description provided for @pasteCapabilityRepairNothingToClear.
+  ///
+  /// In en, this message translates to:
+  /// **'No stale entries found — a restart of WhisPaste is most likely to help here.'**
+  String get pasteCapabilityRepairNothingToClear;
 
   /// No description provided for @pasteCapabilityRepairFailed.
   ///
