@@ -87,6 +87,16 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
   /// fresh [State] instance.
   bool _restartHintEmitted = false;
 
+  /// Latest outcome of the diagnostic test paste, or `null` if the user has
+  /// not run it yet in this step mount. Drives the success / failure / no-
+  /// frontmost banner inside the sub-step and the Next-gate.
+  TestPasteOutcome? _testOutcome;
+
+  /// `true` once the user has clicked "Continue without testing". Mirrors
+  /// the success outcome for the Next-gate but keeps the sub-step hidden so
+  /// the user doesn't see a confusing partial state after opting out.
+  bool _userSkippedTest = false;
+
   @override
   void initState() {
     super.initState();
@@ -189,6 +199,27 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
     }
   }
 
+  /// Runs the diagnostic test paste through the shared notifier and binds
+  /// the outcome to local state so the sub-step banner can render the right
+  /// branch. The skip latch resets implicitly because the user only sees
+  /// this CTA while the sub-step is still visible.
+  Future<void> _onRunTestPastePressed() async {
+    final l10n = L10n.of(context);
+    final notifier = ref.read(pasteCapabilityNotifierProvider.notifier);
+    final outcome = await notifier.runDiagnosticPaste(
+      l10n.onboardingPasteDemoText,
+    );
+    if (!mounted) return;
+    setState(() => _testOutcome = outcome);
+  }
+
+  /// "Continue without testing" handler — flips the skip latch and emits a
+  /// dedicated Sentry breadcrumb so we can measure the opt-out rate.
+  void _onSkipTestPressed() {
+    _emitBreadcrumb('diagnostic_paste.skipped');
+    setState(() => _userSkippedTest = true);
+  }
+
   Future<void> _onSkipPressed() async {
     // Capture the failed-grant bit BEFORE persisting the skip so the
     // breadcrumb describes the state the user actually skipped from.
@@ -247,6 +278,10 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
     if (isWindows) {
       return _WindowsBody(
         state: ref.watch(pasteCapabilityNotifierProvider),
+        testOutcome: _testOutcome,
+        userSkippedTest: _userSkippedTest,
+        onRunTestPaste: _onRunTestPastePressed,
+        onSkipTest: _onSkipTestPressed,
         onNext: widget.onNext,
         onBack: widget.onBack,
         onSkip: _onSkipPressed,
@@ -271,9 +306,13 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
       grantInFlight: _grantInFlight,
       lastRepairResult: _lastRepairResult,
       showTccMismatchBanner: showTccMismatchBanner,
+      testOutcome: _testOutcome,
+      userSkippedTest: _userSkippedTest,
       onGrant: _onGrantPressed,
       onRepair: _onRepairPressed,
       onSkip: _onSkipPressed,
+      onRunTestPaste: _onRunTestPastePressed,
+      onSkipTest: _onSkipTestPressed,
       onNext: widget.onNext,
       onBack: widget.onBack,
     );
@@ -292,9 +331,13 @@ class _MacOsBody extends StatelessWidget {
     required this.grantInFlight,
     required this.lastRepairResult,
     required this.showTccMismatchBanner,
+    required this.testOutcome,
+    required this.userSkippedTest,
     required this.onGrant,
     required this.onRepair,
     required this.onSkip,
+    required this.onRunTestPaste,
+    required this.onSkipTest,
     required this.onNext,
     required this.onBack,
   });
@@ -312,9 +355,17 @@ class _MacOsBody extends StatelessWidget {
   /// breadcrumb emission with the render decision.
   final bool showTccMismatchBanner;
 
+  /// Latest diagnostic paste outcome (or `null` before the user ran it).
+  final TestPasteOutcome? testOutcome;
+
+  /// `true` if the user clicked "Continue without testing".
+  final bool userSkippedTest;
+
   final Future<void> Function() onGrant;
   final Future<void> Function() onRepair;
   final Future<void> Function() onSkip;
+  final Future<void> Function() onRunTestPaste;
+  final VoidCallback onSkipTest;
   final VoidCallback onNext;
   final VoidCallback onBack;
 
@@ -456,6 +507,30 @@ class _MacOsBody extends StatelessWidget {
           ),
         ],
 
+        // -- Test-paste sub-step — the explicit "prove Auto-Paste works"
+        // gate. Visible exactly while the user is in the ready state and
+        // has not yet either passed the test or opted out via the skip
+        // link. After success the sub-step keeps the demo field visible
+        // (so the user can see what got pasted) but swaps the CTA row for
+        // the green confirmation banner.
+        if (isReady && !userSkippedTest) ...[
+          const SizedBox(height: WpSpacing.lg),
+          _TestPasteSubStep(
+            outcome: testOutcome,
+            isDark: isDark,
+            textPrimary: textPrimary,
+            textSecondary: textSecondary,
+            textMuted: textMuted,
+            accentGradient: accentGradient,
+            successColor: successColor,
+            errorColor: errorColor,
+            warningColor: warningColor,
+            l10n: l10n,
+            onRun: onRunTestPaste,
+            onSkip: onSkipTest,
+          ),
+        ],
+
         const SizedBox(height: WpSpacing.lg),
 
         // -- Navigation row -------------------------------------------------
@@ -474,7 +549,16 @@ class _MacOsBody extends StatelessWidget {
               child: WpAccentButton(
                 label: l10n.onboardingNext,
                 gradient: accentGradient,
-                onPressed: isReady ? onNext : null,
+                // Gate: ready + (test passed OR user explicitly skipped).
+                // Before the user resolves the sub-step, Next stays
+                // disabled so we don't ship Auto-Paste users out of
+                // onboarding without ever proving the bridge works.
+                onPressed:
+                    (isReady &&
+                        (testOutcome is TestPasteOutcomeSuccess ||
+                            userSkippedTest))
+                    ? onNext
+                    : null,
               ),
             ),
           ],
@@ -492,12 +576,25 @@ class _MacOsBody extends StatelessWidget {
 class _WindowsBody extends StatelessWidget {
   const _WindowsBody({
     required this.state,
+    required this.testOutcome,
+    required this.userSkippedTest,
+    required this.onRunTestPaste,
+    required this.onSkipTest,
     required this.onNext,
     required this.onBack,
     required this.onSkip,
   });
 
   final PasteCapabilityState state;
+
+  /// Latest diagnostic paste outcome (or `null` before the user ran it).
+  final TestPasteOutcome? testOutcome;
+
+  /// `true` if the user clicked "Continue without testing".
+  final bool userSkippedTest;
+
+  final Future<void> Function() onRunTestPaste;
+  final VoidCallback onSkipTest;
   final VoidCallback onNext;
   final VoidCallback onBack;
   final Future<void> Function() onSkip;
@@ -581,15 +678,37 @@ class _WindowsBody extends StatelessWidget {
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 12, color: textMuted, height: 1.4),
           ),
+          // -- Test-paste sub-step — the explicit "prove Auto-Paste works"
+          // gate. Visible exactly while the user is in the ready state and
+          // has not yet either passed the test or opted out via skip.
+          if (!userSkippedTest) ...[
+            const SizedBox(height: WpSpacing.lg),
+            _TestPasteSubStep(
+              outcome: testOutcome,
+              isDark: isDark,
+              textPrimary: textPrimary,
+              textSecondary: textSecondary,
+              textMuted: textMuted,
+              accentGradient: accentGradient,
+              successColor: successColor,
+              errorColor: isDark ? WpColorsDark.error : WpColorsLight.error,
+              warningColor: warningColor,
+              l10n: l10n,
+              onRun: onRunTestPaste,
+              onSkip: onSkipTest,
+            ),
+          ],
         ],
 
         const SizedBox(height: WpSpacing.lg),
 
         // -- Navigation row -----------------------------------------------
-        // Next is enabled in BOTH branches: the verify-state is the happy
-        // path, and the UIPI edge is explicitly non-blocking — we trust the
-        // user's choice rather than gating the rest of onboarding behind a
-        // problem they may never hit again.
+        // Next-gate:
+        //   - UIPI edge: explicitly non-blocking; Next stays enabled so the
+        //     user can keep Auto-Paste on and still advance.
+        //   - Verify (ready) branch: gated on the test-paste sub-step —
+        //     either the diagnostic paste succeeded or the user opted out
+        //     via "Continue without testing".
         Row(
           children: [
             TextButton(
@@ -605,7 +724,12 @@ class _WindowsBody extends StatelessWidget {
               child: WpAccentButton(
                 label: l10n.onboardingNext,
                 gradient: accentGradient,
-                onPressed: onNext,
+                onPressed:
+                    (isUipiEdge ||
+                        testOutcome is TestPasteOutcomeSuccess ||
+                        userSkippedTest)
+                    ? onNext
+                    : null,
               ),
             ),
           ],
@@ -1109,6 +1233,247 @@ class _RepairResultBanner extends StatelessWidget {
           child: Text(
             message,
             style: TextStyle(fontSize: 12, color: textSecondary, height: 1.4),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Onboarding sub-step that exercises the Auto-Paste pipeline against a
+/// real input field so the user has *evidence* the bridge works before
+/// finishing onboarding. Renders three branches off the latest
+/// [TestPasteOutcome]:
+///
+///   - `null` (not run yet): demo TextField + "Run test paste" CTA +
+///     "Continue without testing" link.
+///   - [TestPasteOutcomeSuccess]: green confirmation banner; the demo
+///     field stays around so the user can see the pasted text.
+///   - [TestPasteOutcomeNoFrontmost] / [TestPasteOutcomeFailure]: warn
+///     banner with retry CTA. `failure(not_trusted)` additionally surfaces
+///     a hint about the permission edge case.
+///   - [TestPasteOutcomeUnsupported]: the parent normally hides the
+///     sub-step entirely in this case (Linux defensive). Falls through to
+///     a minimal warn banner if it ever does render — the user can still
+///     opt out via the skip link.
+class _TestPasteSubStep extends StatefulWidget {
+  const _TestPasteSubStep({
+    required this.outcome,
+    required this.isDark,
+    required this.textPrimary,
+    required this.textSecondary,
+    required this.textMuted,
+    required this.accentGradient,
+    required this.successColor,
+    required this.errorColor,
+    required this.warningColor,
+    required this.l10n,
+    required this.onRun,
+    required this.onSkip,
+  });
+
+  final TestPasteOutcome? outcome;
+  final bool isDark;
+  final Color textPrimary;
+  final Color textSecondary;
+  final Color textMuted;
+  final LinearGradient accentGradient;
+  final Color successColor;
+  final Color errorColor;
+  final Color warningColor;
+  final L10n l10n;
+  final Future<void> Function() onRun;
+  final VoidCallback onSkip;
+
+  @override
+  State<_TestPasteSubStep> createState() => _TestPasteSubStepState();
+}
+
+class _TestPasteSubStepState extends State<_TestPasteSubStep> {
+  late final TextEditingController _controller;
+  late final FocusNode _focusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+    _focusNode = FocusNode();
+    // Hand focus to the demo field on mount so the native Cmd+V / Ctrl+V
+    // synthesis lands in this app's text input rather than e.g. the host
+    // shell. Wrapped in addPostFrameCallback so the focus request hits a
+    // mounted, rendered field.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _focusNode.requestFocus();
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final outcome = widget.outcome;
+    final surface =
+        (widget.isDark
+                ? WpColorsDark.surfaceVariant
+                : WpColorsLight.surfaceVariant)
+            .withValues(alpha: 0.5);
+    final border = widget.isDark
+        ? WpColorsDark.borderSubtle
+        : WpColorsLight.borderSubtle;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(WpSpacing.md),
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: WpRadius.borderMd,
+        border: Border.all(color: border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            widget.l10n.onboardingPasteTestTitle,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: widget.textPrimary,
+            ),
+          ),
+          const SizedBox(height: WpSpacing.xs),
+          Text(
+            widget.l10n.onboardingPasteTestSubtitle,
+            style: TextStyle(
+              fontSize: 12,
+              color: widget.textSecondary,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: WpSpacing.sm),
+          TextField(
+            controller: _controller,
+            focusNode: _focusNode,
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+          ),
+          const SizedBox(height: WpSpacing.sm),
+          ..._buildOutcomeBranch(outcome),
+        ],
+      ),
+    );
+  }
+
+  /// Renders the CTA row / outcome banner appropriate for the current
+  /// [TestPasteOutcome]. Split out so the build method stays readable and
+  /// each branch can declare its own widgets without indentation
+  /// gymnastics.
+  List<Widget> _buildOutcomeBranch(TestPasteOutcome? outcome) {
+    if (outcome is TestPasteOutcomeSuccess) {
+      return [
+        _OutcomeBanner(
+          icon: LucideIcons.circleCheck,
+          color: widget.successColor,
+          message: widget.l10n.onboardingPasteTestSuccess,
+          textColor: widget.textSecondary,
+        ),
+      ];
+    }
+    if (outcome is TestPasteOutcomeNoFrontmost) {
+      return [
+        _OutcomeBanner(
+          icon: LucideIcons.triangleAlert,
+          color: widget.warningColor,
+          message: widget.l10n.onboardingPasteTestNoFrontmost,
+          textColor: widget.textSecondary,
+        ),
+        const SizedBox(height: WpSpacing.sm),
+        _runAndSkipRow(),
+      ];
+    }
+    if (outcome is TestPasteOutcomeFailure) {
+      final showNotTrustedHint = outcome.reason == 'not_trusted';
+      return [
+        _OutcomeBanner(
+          icon: LucideIcons.circleAlert,
+          color: widget.errorColor,
+          message: widget.l10n.onboardingPasteTestFailure,
+          textColor: widget.textSecondary,
+        ),
+        if (showNotTrustedHint) ...[
+          const SizedBox(height: WpSpacing.xs),
+          Text(
+            widget.l10n.onboardingPasteTccMismatchBody,
+            style: TextStyle(
+              fontSize: 11,
+              color: widget.textMuted,
+              height: 1.4,
+            ),
+          ),
+        ],
+        const SizedBox(height: WpSpacing.sm),
+        _runAndSkipRow(),
+      ];
+    }
+    // outcome == null or unsupported → initial CTA row.
+    return [_runAndSkipRow()];
+  }
+
+  Widget _runAndSkipRow() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        WpAccentButton(
+          label: widget.l10n.onboardingPasteTestRunCta,
+          gradient: widget.accentGradient,
+          onPressed: widget.onRun,
+        ),
+        const SizedBox(height: WpSpacing.xs),
+        TextButton(
+          onPressed: widget.onSkip,
+          child: Text(
+            widget.l10n.onboardingPasteTestSkip,
+            style: TextStyle(color: widget.textSecondary, fontSize: 12),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Small banner widget used inside [_TestPasteSubStep] to render the
+/// outcome of a diagnostic test paste. Style mirrors the other inline
+/// banners in this step (icon + text on the surface-variant background).
+class _OutcomeBanner extends StatelessWidget {
+  const _OutcomeBanner({
+    required this.icon,
+    required this.color,
+    required this.message,
+    required this.textColor,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String message;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 16, color: color),
+        const SizedBox(width: WpSpacing.xs),
+        Expanded(
+          child: Text(
+            message,
+            style: TextStyle(fontSize: 12, color: textColor, height: 1.4),
           ),
         ),
       ],

@@ -529,6 +529,34 @@ class L10nEn extends L10n {
       '1. Tap Repair below — it clears stale permission entries so macOS asks you again.\n2. If that still doesn\'t help, quit WhisPaste completely and start it again — that lets macOS pick up the current app signature.';
 
   @override
+  String get onboardingPasteTestTitle => 'Try Auto-Paste';
+
+  @override
+  String get onboardingPasteTestSubtitle =>
+      'Click the button — the demo text should appear in the field below.';
+
+  @override
+  String get onboardingPasteDemoText => 'WhisPaste types for you.';
+
+  @override
+  String get onboardingPasteTestRunCta => 'Run test paste';
+
+  @override
+  String get onboardingPasteTestSuccess =>
+      'Auto-Paste works! Click Next to continue.';
+
+  @override
+  String get onboardingPasteTestNoFrontmost =>
+      'No input field detected. Click the field below and try again.';
+
+  @override
+  String get onboardingPasteTestFailure =>
+      'Test failed. Try restarting the app — or continue without testing.';
+
+  @override
+  String get onboardingPasteTestSkip => 'Continue without testing';
+
+  @override
   String get settingsOverlayFloatingButton => 'Recording Overlay';
 
   @override

@@ -162,6 +162,10 @@ class _FakeDesktopPasteController extends DesktopPasteController {
       TccRepairResult.unsupported();
 
   @override
+  Future<TestPasteOutcome> diagnosticPaste(String demoText) async =>
+      const TestPasteOutcomeUnsupported();
+
+  @override
   Future<String?> getTargetBundleId() async => null;
 
   @override

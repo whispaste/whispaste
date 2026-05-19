@@ -63,6 +63,24 @@ class WindowsDesktopPasteController extends DesktopPasteController {
   }
 
   @override
+  Future<TestPasteOutcome> diagnosticPaste(String demoText) async {
+    if (_disposed) return const TestPasteOutcomeUnsupported();
+    try {
+      final raw = await _channel.invokeMethod<Object?>('diagnosticPaste', {
+        'demoText': demoText,
+      });
+      if (raw is Map) {
+        return TestPasteOutcome.fromMap(raw.cast<Object?, Object?>());
+      }
+      return const TestPasteOutcomeUnsupported();
+    } on PlatformException {
+      return const TestPasteOutcomeFailure('exception');
+    } on MissingPluginException {
+      return const TestPasteOutcomeFailure('exception');
+    }
+  }
+
+  @override
   Future<TccRepairResult> repairTccEntries() async =>
       TccRepairResult.unsupported();
 

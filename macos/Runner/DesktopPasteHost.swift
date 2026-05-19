@@ -45,6 +45,10 @@ class DesktopPasteHost {
     case "repairTccEntries":
       result(repairTccEntries())
 
+    case "diagnosticPaste":
+      let demoText = (call.arguments as? [String: Any])?["demoText"] as? String ?? ""
+      diagnosticPaste(demoText: demoText, result: result)
+
     case "destroy":
       targetApp = nil
       channel.setMethodCallHandler(nil)
@@ -273,6 +277,103 @@ class DesktopPasteHost {
     // ignoring a duplicate prompt request.
     return ["status": "permission_missing", "canPrompt": true,
             "detail": "AXIsProcessTrusted=false"]
+  }
+
+  /// Onboarding "prove Auto-Paste works" probe.
+  ///
+  /// Backs up the current clipboard, writes `demoText`, synthesises Cmd+V
+  /// into the frontmost window, briefly waits for the paste to land, and
+  /// then restores the previous clipboard contents — even on the failure
+  /// path. Returns one of:
+  ///
+  ///   - `{status: "success"}` — `AXIsProcessTrusted()` is true and there
+  ///     is a non-WhisPaste frontmost application that received the event.
+  ///   - `{status: "no_frontmost"}` — no reachable frontmost window.
+  ///   - `{status: "failure", detail: "not_trusted"}` — Accessibility
+  ///     permission is missing; the keystroke was silently dropped.
+  ///   - `{status: "failure", detail: "<reason>"}` — any other failure.
+  ///
+  /// All exits go through the same `restoreClipboard` defer so the user's
+  /// pasteboard is never left in a half-modified state.
+  private func diagnosticPaste(demoText: String, result: @escaping FlutterResult) {
+    let pasteboard = NSPasteboard.general
+    // Snapshot the pasteboard contents before mutating it so we can put
+    // them back regardless of which exit path we take.
+    let backup = self.backupPasteboard(pasteboard)
+    var restored = false
+    let restore: () -> Void = {
+      if restored { return }
+      restored = true
+      self.restorePasteboard(pasteboard, backup: backup)
+    }
+
+    // No frontmost window we can paste into? Bail before touching the
+    // pasteboard so the user's clipboard stays exactly as they left it.
+    guard let front = NSWorkspace.shared.frontmostApplication,
+          front.bundleIdentifier != Bundle.main.bundleIdentifier else {
+      os_log("diagnosticPaste: no usable frontmost application",
+             log: Self.logger, type: .info)
+      result(["status": "no_frontmost"])
+      return
+    }
+
+    // Write the demo text into the clipboard.
+    pasteboard.clearContents()
+    pasteboard.setString(demoText, forType: .string)
+
+    let trusted = AXIsProcessTrusted()
+    if !trusted {
+      os_log("diagnosticPaste: AXIsProcessTrusted=false — keystroke would be silently dropped",
+             log: Self.logger, type: .info)
+      restore()
+      result(["status": "failure", "detail": "not_trusted"])
+      return
+    }
+
+    // Fire Cmd+V. We don't gate on `sendCmdV` return value alone — CG
+    // never reports delivery failure — but combining it with the AX check
+    // above gives us an honest "the OS would let this through" signal.
+    let cgOk = self.sendCmdV()
+    if !cgOk {
+      os_log("diagnosticPaste: failed to create/post Cmd+V CGEvent",
+             log: Self.logger, type: .error)
+      restore()
+      result(["status": "failure", "detail": "post_failed"])
+      return
+    }
+
+    // Give the OS ~80 ms to deliver the keystroke into the frontmost app,
+    // then restore the original clipboard. The wait is short enough that
+    // the user perceives the test as instant.
+    DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(80)) {
+      restore()
+      result(["status": "success"])
+    }
+  }
+
+  /// Captures the current pasteboard items so [restorePasteboard] can put
+  /// the user's clipboard back after a diagnostic paste.
+  private func backupPasteboard(_ pasteboard: NSPasteboard) -> [NSPasteboardItem] {
+    guard let items = pasteboard.pasteboardItems else { return [] }
+    return items.map { source in
+      let copy = NSPasteboardItem()
+      for type in source.types {
+        if let data = source.data(forType: type) {
+          copy.setData(data, forType: type)
+        }
+      }
+      return copy
+    }
+  }
+
+  /// Restores a previously captured pasteboard snapshot. Idempotent in
+  /// practice — repeated invocations re-clear and re-write the same items.
+  private func restorePasteboard(_ pasteboard: NSPasteboard,
+                                 backup: [NSPasteboardItem]) {
+    pasteboard.clearContents()
+    if !backup.isEmpty {
+      pasteboard.writeObjects(backup)
+    }
   }
 
   /// Posts Cmd+V via CGEvent to the frontmost application. Returns true
