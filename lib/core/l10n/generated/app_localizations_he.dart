@@ -451,7 +451,7 @@ class L10nHe extends L10n {
 
   @override
   String get pasteCapabilityRepairHint =>
-      'אם המתג בהגדרות המערכת דלוק וזה עדיין נכשל: לחץ \'תקן\' למטה — זה מנקה רשומות הרשאה ישנות של macOS עבור WhisPaste כך שההדבקה הבאה תפעיל בקשות חדשות.';
+      'לפעמים macOS נאחז ברשומות הרשאה ישנות של WhisPaste. לחץ \'תקן\' למטה כדי לנקות אותן — לאחר מכן תצטרך לאשר את WhisPaste בהגדרות המערכת מחדש. אם גם זה לא עוזר, הפעלה מחדש של האפליקציה היא הצעד הבא האמין.';
 
   @override
   String get pasteCapabilityRepairButton => 'תקן הרשאות';
@@ -467,6 +467,10 @@ class L10nHe extends L10n {
     );
     return '$_temp0';
   }
+
+  @override
+  String get pasteCapabilityRepairNothingToClear =>
+      'לא נמצאו רשומות ישנות — סביר להניח שהפעלה מחדש של WhisPaste תעזור כאן.';
 
   @override
   String get pasteCapabilityRepairFailed =>

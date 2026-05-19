@@ -74,6 +74,12 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
   /// is still resolving. Re-enables once the result is bound to state.
   bool _repairInFlight = false;
 
+  /// Guard against double-tapping the Grant CTA while the async sequence
+  /// (`notifier.check(prompt: true)` → `startPolling` → settings deep-link)
+  /// is still resolving. Re-enables once the chain completes — even on the
+  /// error path — so the user can retry without re-mounting the step.
+  bool _grantInFlight = false;
+
   @override
   void initState() {
     super.initState();
@@ -109,21 +115,30 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
   }
 
   Future<void> _onGrantPressed() async {
+    if (_grantInFlight) return;
     _emitBreadcrumb('grant.requested');
-    final notifier = ref.read(pasteCapabilityNotifierProvider.notifier);
-    // First fire the prompted check so macOS gets a chance to surface its
-    // own one-shot dialog. Then deep-link to the Accessibility pane so the
-    // user sees the toggle row even if the OS dialog was suppressed.
-    await notifier.check(prompt: true);
-    // Arm polling BEFORE awaiting the settings launch — we want the poller
-    // running the moment the user flips the toggle in System Settings, not
-    // after the deep-link future resolves (which can stall on slow Settings
-    // launches and in test environments where the channel isn't wired).
-    notifier.startPolling(
-      interval: const Duration(seconds: 1),
-      timeout: const Duration(seconds: 30),
-    );
-    await _openAccessibilitySettings();
+    setState(() => _grantInFlight = true);
+    _emitBreadcrumb('grant.busy_state_armed');
+    try {
+      final notifier = ref.read(pasteCapabilityNotifierProvider.notifier);
+      // First fire the prompted check so macOS gets a chance to surface its
+      // own one-shot dialog. Then deep-link to the Accessibility pane so the
+      // user sees the toggle row even if the OS dialog was suppressed.
+      await notifier.check(prompt: true);
+      // Arm polling BEFORE awaiting the settings launch — we want the poller
+      // running the moment the user flips the toggle in System Settings, not
+      // after the deep-link future resolves (which can stall on slow Settings
+      // launches and in test environments where the channel isn't wired).
+      notifier.startPolling(
+        interval: const Duration(seconds: 1),
+        timeout: const Duration(seconds: 30),
+      );
+      await _openAccessibilitySettings();
+    } finally {
+      if (mounted) {
+        setState(() => _grantInFlight = false);
+      }
+    }
   }
 
   /// Runs the macOS TCC self-heal and — on success — chains into a fresh
@@ -238,6 +253,7 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
         return n;
       }(),
       repairInFlight: _repairInFlight,
+      grantInFlight: _grantInFlight,
       lastRepairResult: _lastRepairResult,
       onGrant: _onGrantPressed,
       onRepair: _onRepairPressed,
@@ -257,6 +273,7 @@ class _MacOsBody extends StatelessWidget {
     required this.state,
     required this.notifier,
     required this.repairInFlight,
+    required this.grantInFlight,
     required this.lastRepairResult,
     required this.onGrant,
     required this.onRepair,
@@ -268,6 +285,7 @@ class _MacOsBody extends StatelessWidget {
   final PasteCapabilityState state;
   final PasteCapabilityNotifier notifier;
   final bool repairInFlight;
+  final bool grantInFlight;
   final TccRepairResult? lastRepairResult;
   final Future<void> Function() onGrant;
   final Future<void> Function() onRepair;
@@ -358,7 +376,10 @@ class _MacOsBody extends StatelessWidget {
             child: WpAccentButton(
               label: l10n.onboardingPasteGrantCta,
               gradient: accentGradient,
-              onPressed: onGrant,
+              // Disable while the async grant chain (prompted check →
+              // startPolling → settings deep-link) is still resolving so a
+              // user mashing the button doesn't queue up duplicate flows.
+              onPressed: grantInFlight ? null : onGrant,
             ),
           ),
           const SizedBox(height: WpSpacing.sm),
@@ -936,12 +957,25 @@ class _RepairResultBanner extends StatelessWidget {
     final ok = result.isSupported;
     final color = ok ? successColor : errorColor;
     final icon = ok ? LucideIcons.circleCheck : LucideIcons.circleAlert;
-    final message = ok
-        ? l10n.pasteCapabilityRepairDone(
-            result.accessibilityCleared.clamp(0, 999) +
-                result.appleEventsCleared.clamp(0, 999),
-          )
-        : l10n.pasteCapabilityRepairFailed;
+    // Special-case "supported but nothing actually cleared": the generic
+    // pluralised "0 entries removed" copy reads as a no-op, while the
+    // honest message is "we couldn't clean anything — your reliable next
+    // step is restarting WhisPaste". Route the user there explicitly.
+    final nothingCleared =
+        ok &&
+        result.accessibilityCleared == 0 &&
+        result.appleEventsCleared == 0;
+    final String message;
+    if (!ok) {
+      message = l10n.pasteCapabilityRepairFailed;
+    } else if (nothingCleared) {
+      message = l10n.pasteCapabilityRepairNothingToClear;
+    } else {
+      message = l10n.pasteCapabilityRepairDone(
+        result.accessibilityCleared.clamp(0, 999) +
+            result.appleEventsCleared.clamp(0, 999),
+      );
+    }
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

@@ -165,7 +165,7 @@
   "pasteCapabilityUnsupported": "Auto-Paste is not available on this platform",
   "pasteCapabilityTestButton": "Test now",
   "pasteCapabilityGrantButton": "Grant permission",
-  "pasteCapabilityRepairHint": "If the toggle in System Settings is on but this still fails, click 'Repair' below — it clears any stale macOS permission entries for WhisPaste so the next paste triggers fresh prompts.",
+  "pasteCapabilityRepairHint": "macOS sometimes holds on to old permission entries for WhisPaste. Click 'Repair' below to clear them — after that you'll need to approve WhisPaste in System Settings again. If that still doesn't help, restarting the app is the reliable next step.",
   "pasteCapabilityRepairButton": "Repair permissions",
   "pasteCapabilityRepairDone": "{count, plural, =0{No stale entries found — try paste once.}=1{Cleared 1 stale entry. Try paste once to see a fresh prompt.}other{Cleared {count} stale entries. Try paste once to see fresh prompts.}}",
   "@pasteCapabilityRepairDone": {
@@ -173,6 +173,7 @@
       "count": {"type": "int"}
     }
   },
+  "pasteCapabilityRepairNothingToClear": "No stale entries found — a restart of WhisPaste is most likely to help here.",
   "pasteCapabilityRepairFailed": "Could not run the macOS permission reset. Try removing WhisPaste from System Settings → Accessibility manually.",
   "onboardingPasteTitle": "Auto-Paste setup",
   "onboardingPasteSubtitle": "WhisPaste needs one extra permission to paste transcripts into other apps.",

@@ -12,6 +12,8 @@
 /// default target.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/foundation.dart'
     show TargetPlatform, debugDefaultTargetPlatformOverride;
 import 'package:flutter/material.dart';
@@ -25,6 +27,7 @@ import 'package:whispaste/features/onboarding/steps/auto_paste_step.dart';
 import 'package:whispaste/services/desktop_paste/desktop_paste_controller.dart';
 import 'package:whispaste/services/paste/paste_capability_notifier.dart';
 import 'package:whispaste/services/paste/paster.dart';
+import 'package:whispaste/widgets/wp_accent_button.dart';
 
 import '../../fixtures/test_helpers.dart';
 
@@ -73,6 +76,11 @@ class _FakePasteCapabilityNotifier extends PasteCapabilityNotifier {
   Duration? lastPollTimeout;
   bool _isPollingFake = false;
 
+  /// When non-null, [check] returns this Completer's future instead of an
+  /// immediately-resolving one. Tests use it to observe the widget's
+  /// in-flight UI state by stalling the async chain at the first await.
+  Completer<void>? promptedCheckGate;
+
   @override
   bool get isPolling => _isPollingFake;
 
@@ -86,6 +94,12 @@ class _FakePasteCapabilityNotifier extends PasteCapabilityNotifier {
   Future<void> check({bool prompt = false}) async {
     checkCalls.add(prompt);
     state = prompt ? (_afterPromptCheck ?? _afterCheck) : _afterCheck;
+    // Stall on the prompted-check path when a gate is installed so the
+    // widget's async chain stays suspended at the first await. The
+    // un-prompted initState probe is never gated.
+    if (prompt && promptedCheckGate != null) {
+      await promptedCheckGate!.future;
+    }
   }
 
   @override
@@ -467,6 +481,180 @@ void main() {
         // reachable for the user to retry.
         expect(nextCalled, isFalse);
         expect(find.text('Repair permissions'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'Grant button busy-state: onPressed is null while _onGrantPressed is '
+      'in-flight, re-enabled once the chain completes',
+      (tester) async {
+        final paste = _FakePasteCapabilityNotifier(
+          initial: const PasteCapabilityState(
+            capability: PasteCapability(
+              status: PasteCapabilityStatus.permissionMissing,
+              canPrompt: true,
+            ),
+          ),
+        );
+        // Gate the prompted check so the widget stays suspended at the
+        // first await inside _onGrantPressed — that's the window where the
+        // busy state is observable from outside.
+        final gate = Completer<void>();
+        paste.promptedCheckGate = gate;
+
+        await _pumpStep(tester, paste: paste);
+
+        // Locate the Grant CTA's underlying WpAccentButton — there are two
+        // accent buttons on screen (Grant + Next); we pick the one wrapping
+        // the localized Grant label.
+        Finder grantButtonFinder() => find.ancestor(
+          of: find.text('Grant Accessibility permission'),
+          matching: find.byType(WpAccentButton),
+        );
+
+        // Baseline: button is interactive before any tap.
+        expect(
+          tester.widget<WpAccentButton>(grantButtonFinder()).onPressed,
+          isNotNull,
+        );
+
+        // Tap and flush the setState(grantInFlight=true) frame. The
+        // gated check() leaves the rest of the chain suspended, so we can
+        // observe the disabled state.
+        await tester.tap(find.text('Grant Accessibility permission'));
+        await tester.pump();
+
+        expect(
+          tester.widget<WpAccentButton>(grantButtonFinder()).onPressed,
+          isNull,
+          reason:
+              'While _onGrantPressed is in-flight the Grant WpAccentButton '
+              'must be disabled (onPressed == null).',
+        );
+
+        // Release the gate so the awaited chain resolves and the finally
+        // block runs setState(grantInFlight=false). Sequential pumps flush
+        // the resulting microtasks without deadlocking on the polling
+        // spinner (which animates forever).
+        gate.complete();
+        await tester.pump();
+        await tester.pump();
+        await tester.pump();
+
+        expect(
+          tester.widget<WpAccentButton>(grantButtonFinder()).onPressed,
+          isNotNull,
+          reason:
+              'After _onGrantPressed completes the button must be re-enabled '
+              'so the user can retry without re-mounting the step.',
+        );
+      },
+    );
+
+    testWidgets(
+      'Grant button busy-state: a second tap while in-flight does NOT trigger '
+      'a second _onGrantPressed call',
+      (tester) async {
+        final paste = _FakePasteCapabilityNotifier(
+          initial: const PasteCapabilityState(
+            capability: PasteCapability(
+              status: PasteCapabilityStatus.permissionMissing,
+              canPrompt: true,
+            ),
+          ),
+        );
+        // Gate the prompted check so we can attempt the second tap while
+        // the first call is provably still in-flight.
+        final gate = Completer<void>();
+        paste.promptedCheckGate = gate;
+
+        await _pumpStep(tester, paste: paste);
+
+        // First tap arms the busy state and suspends inside check().
+        await tester.tap(find.text('Grant Accessibility permission'));
+        await tester.pump();
+
+        // Second tap while in-flight must be ignored. tester.tap fails on a
+        // disabled InkWell hit-test (the WpAccentButton wraps onPressed=null
+        // around the InkWell), so we use warnIfMissed:false to make the
+        // attempt observable rather than a test failure — the assertion
+        // below is what proves the no-op behaviour.
+        await tester.tap(
+          find.text('Grant Accessibility permission'),
+          warnIfMissed: false,
+        );
+        await tester.pump();
+
+        // Release the gate so the original call can complete cleanly.
+        gate.complete();
+        await tester.pump();
+        await tester.pump();
+
+        // Exactly one prompted check fired — proves the second tap was a
+        // no-op. (initState fires an un-prompted check, so we filter on
+        // prompt: true to isolate the Grant flow's call.)
+        expect(
+          paste.checkCalls.where((p) => p == true).length,
+          1,
+          reason:
+              'Double-tap during in-flight must not queue a second '
+              '_onGrantPressed call.',
+        );
+        // Same for polling: arm once, not twice.
+        expect(paste.startPollingCalls, 1);
+      },
+    );
+
+    testWidgets(
+      '_RepairResultBanner renders pasteCapabilityRepairNothingToClear when '
+      'both cleared counters are 0 and error is null',
+      (tester) async {
+        final paste = _FakePasteCapabilityNotifier(
+          initial: const PasteCapabilityState(
+            capability: PasteCapability(
+              status: PasteCapabilityStatus.permissionMissing,
+              canPrompt: true,
+            ),
+            hadFailedGrantAttempt: true,
+          ),
+          // Supported result (error == null) but both counters at 0 — the
+          // honest "nothing to actually fix" path the new copy targets.
+          repairResult: const TccRepairResult(
+            accessibilityCleared: 0,
+            appleEventsCleared: 0,
+          ),
+        );
+
+        await _pumpStep(tester, paste: paste);
+
+        await tester.tap(find.text('Repair permissions'));
+        // Sequential pump() because the success path chains into the Grant
+        // flow which arms polling; pumpAndSettle would deadlock on the
+        // polling spinner.
+        await tester.pump();
+        await tester.pump();
+        await tester.pump();
+
+        // The new copy is rendered — restart-of-WhisPaste guidance.
+        expect(
+          find.textContaining(
+            'No stale entries found — a restart of WhisPaste',
+          ),
+          findsOneWidget,
+          reason:
+              'Banner must render pasteCapabilityRepairNothingToClear when '
+              'both cleared counters are 0 and error is null.',
+        );
+
+        // The generic pluralised "try paste once" copy must NOT render
+        // alongside it — otherwise both messages would clash on screen.
+        expect(
+          find.textContaining('try paste once'),
+          findsNothing,
+          reason:
+              'Generic pasteCapabilityRepairDone copy must not render when '
+              'the nothing-to-clear branch fires.',
+        );
       },
     );
 
