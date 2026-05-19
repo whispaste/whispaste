@@ -10,6 +10,37 @@ import '../core/recording/recording_state.dart'
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 
+/// Returns `true` when the "Auto-Paste deaktiviert" status-bar hint chip
+/// should be visible.
+///
+/// The chip surfaces the half-state created when the user skips Auto-Paste in
+/// the onboarding flow. It must hide automatically the moment Auto-Paste is
+/// re-enabled in Settings, regardless of whether the user explicitly
+/// dismissed the chip earlier. It must also never appear while onboarding
+/// is still in progress — the onboarding overlay covers the status bar then.
+///
+/// Lives next to [WpStatusBar] so the visibility rule and the widget that
+/// consumes it stay locked together.
+bool shouldShowAutoPasteOffHint({
+  required AfterTranscriptionAction afterAction,
+  required bool onboardingCompleted,
+  required bool autoPasteOffHintDismissed,
+}) {
+  if (!onboardingCompleted) return false;
+  if (autoPasteOffHintDismissed) return false;
+  // Auto-Paste is considered ON when the action injects keystrokes — i.e.
+  // `paste` or `clipboardAndPaste`. Anything else (`clipboard` only,
+  // `nothing`) counts as Auto-Paste off.
+  switch (afterAction) {
+    case AfterTranscriptionAction.paste:
+    case AfterTranscriptionAction.clipboardAndPaste:
+      return false;
+    case AfterTranscriptionAction.clipboard:
+    case AfterTranscriptionAction.nothing:
+      return true;
+  }
+}
+
 /// Bottom status bar — sits on the app frame, full width.
 ///
 /// Shows only essential runtime state: STT engine status.
@@ -27,10 +58,13 @@ class WpStatusBar extends StatelessWidget {
     this.hotkeyLabel,
     this.hotkeyEnabled = true,
     this.updateVersion,
+    this.showAutoPasteOffHint = false,
     this.onSttTap,
     this.onAfterActionChanged,
     this.onHotkeyTap,
     this.onUpdateTap,
+    this.onAutoPasteOffHintTap,
+    this.onAutoPasteOffHintDismiss,
   });
 
   /// Active STT mode, e.g. "On device" or "OpenAI".
@@ -60,6 +94,13 @@ class WpStatusBar extends StatelessWidget {
   /// Available update version label, e.g. "1.3.0", or null to hide.
   final String? updateVersion;
 
+  /// Whether to render the persistent "Auto-Paste off" hint chip.
+  ///
+  /// Visibility is decided by the caller — see `WpStatusBar` consumer in
+  /// `app.dart`. The chip is shown when Auto-Paste is off **and** onboarding
+  /// has completed **and** the user has not dismissed the hint.
+  final bool showAutoPasteOffHint;
+
   /// Callback when user taps the STT chip (navigate to settings).
   final VoidCallback? onSttTap;
 
@@ -71,6 +112,14 @@ class WpStatusBar extends StatelessWidget {
 
   /// Callback when user taps the update-available chip.
   final VoidCallback? onUpdateTap;
+
+  /// Callback when user taps the "Auto-Paste off" hint chip body — should
+  /// open Settings and scroll to the After-Transcription section.
+  final VoidCallback? onAutoPasteOffHintTap;
+
+  /// Callback when user taps the dismiss button on the "Auto-Paste off"
+  /// hint chip — should persist `autoPasteOffHintDismissed = true`.
+  final VoidCallback? onAutoPasteOffHintDismiss;
 
   @override
   Widget build(BuildContext context) {
@@ -113,6 +162,16 @@ class WpStatusBar extends StatelessWidget {
                         isDark: isDark,
                         l10n: l10n,
                         onChanged: onAfterActionChanged!,
+                      ),
+                    ],
+                    if (showAutoPasteOffHint) ...[
+                      const SizedBox(width: WpSpacing.xs),
+                      _AutoPasteOffHintChip(
+                        textStyle: textStyle,
+                        isDark: isDark,
+                        l10n: l10n,
+                        onTap: onAutoPasteOffHintTap,
+                        onDismiss: onAutoPasteOffHintDismiss,
                       ),
                     ],
                     if (hotkeyLabel != null) ...[
@@ -508,6 +567,97 @@ class _AfterActionChip extends StatelessWidget {
             Text(label, style: textStyle),
             const SizedBox(width: 2),
             Icon(LucideIcons.chevronUp, size: 10, color: cs.secondary),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Auto-Paste-Off hint chip — persistent, dismissible nudge surfaced after the
+// user skips Auto-Paste in onboarding. Tapping the body opens Settings (and
+// scrolls to the After-Transcription section). The trailing X persists the
+// dismiss flag.
+// ---------------------------------------------------------------------------
+
+class _AutoPasteOffHintChip extends StatelessWidget {
+  const _AutoPasteOffHintChip({
+    required this.textStyle,
+    required this.isDark,
+    required this.l10n,
+    this.onTap,
+    this.onDismiss,
+  });
+
+  final TextStyle textStyle;
+  final bool isDark;
+  final L10n l10n;
+  final VoidCallback? onTap;
+  final VoidCallback? onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+
+    return Tooltip(
+      message: l10n.statusBarAutoPasteOffHintTooltip,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: WpSpacing.sm,
+          vertical: WpSpacing.xxs,
+        ),
+        decoration: BoxDecoration(
+          color: isDark
+              ? WpColorsDark.surface.withValues(alpha: 0.5)
+              : WpColorsLight.surfaceVariant,
+          borderRadius: WpRadius.borderFull,
+          border: Border.all(color: accent.withValues(alpha: 0.4)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            InkWell(
+              onTap: onTap,
+              borderRadius: WpRadius.borderFull,
+              mouseCursor: onTap != null
+                  ? SystemMouseCursors.click
+                  : SystemMouseCursors.basic,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    LucideIcons.clipboardX,
+                    size: WpIconSize.xs,
+                    color: accent,
+                  ),
+                  const SizedBox(width: WpSpacing.xxs),
+                  Text(l10n.statusBarAutoPasteOffHint, style: textStyle),
+                ],
+              ),
+            ),
+            const SizedBox(width: WpSpacing.xs),
+            Tooltip(
+              message: l10n.statusBarAutoPasteOffHintDismiss,
+              child: InkWell(
+                onTap: onDismiss,
+                borderRadius: WpRadius.borderFull,
+                mouseCursor: onDismiss != null
+                    ? SystemMouseCursors.click
+                    : SystemMouseCursors.basic,
+                child: SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: Icon(
+                    LucideIcons.x,
+                    size: WpIconSize.xs,
+                    color: cs.onSurface.withValues(alpha: 0.6),
+                    semanticLabel: l10n.statusBarAutoPasteOffHintDismiss,
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),

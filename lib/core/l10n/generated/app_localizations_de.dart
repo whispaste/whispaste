@@ -1250,6 +1250,17 @@ class L10nDe extends L10n {
       'Globaler Hotkey — klicken zum Konfigurieren';
 
   @override
+  String get statusBarAutoPasteOffHint =>
+      'Auto-Paste deaktiviert — in Settings aktivierbar';
+
+  @override
+  String get statusBarAutoPasteOffHintTooltip =>
+      'Auto-Paste ist aktuell aus. Klicken, um die Einstellungen zu öffnen.';
+
+  @override
+  String get statusBarAutoPasteOffHintDismiss => 'Hinweis ausblenden';
+
+  @override
   String get modifierCtrl => 'Strg';
 
   @override

@@ -431,6 +431,32 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
                       updateVersion: updateState.phase == UpdatePhase.available
                           ? updateState.latestVersion
                           : null,
+                      showAutoPasteOffHint: shouldShowAutoPasteOffHint(
+                        afterAction: settings.afterTranscriptionAction,
+                        onboardingCompleted:
+                            settings.onboarding.onboardingCompleted,
+                        autoPasteOffHintDismissed:
+                            settings.onboarding.autoPasteOffHintDismissed,
+                      ),
+                      onAutoPasteOffHintTap: () {
+                        ref
+                            .read(settingsScrollTargetProvider.notifier)
+                            .set('afterTranscription');
+                        ref
+                            .read(activePageProvider.notifier)
+                            .setPage('settings');
+                      },
+                      onAutoPasteOffHintDismiss: () {
+                        ref
+                            .read(settingsProvider.notifier)
+                            .updateSettings(
+                              (s) => s.copyWithSections(
+                                onboarding: s.onboarding.copyWith(
+                                  autoPasteOffHintDismissed: true,
+                                ),
+                              ),
+                            );
+                      },
                       onHotkeyTap: () {
                         ref
                             .read(settingsScrollTargetProvider.notifier)

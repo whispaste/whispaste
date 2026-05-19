@@ -1239,6 +1239,16 @@ class L10nEn extends L10n {
   String get statusBarHotkeyTooltip => 'Global hotkey — click to configure';
 
   @override
+  String get statusBarAutoPasteOffHint => 'Auto-Paste off — enable in Settings';
+
+  @override
+  String get statusBarAutoPasteOffHintTooltip =>
+      'Auto-Paste is currently disabled. Click to open Settings.';
+
+  @override
+  String get statusBarAutoPasteOffHintDismiss => 'Dismiss';
+
+  @override
   String get modifierCtrl => 'Ctrl';
 
   @override

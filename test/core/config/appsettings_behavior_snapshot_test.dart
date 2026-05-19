@@ -1066,6 +1066,40 @@ void main() {
       final s = AppSettings.defaults.copyWith(onboardingCompleted: false);
       expect(_roundtrip(s).onboardingCompleted, isFalse);
     });
+
+    test('autoPasteOffHintDismissed storage key is present', () {
+      final map = AppSettings.defaults.toStorageMap();
+      expect(map.containsKey('auto_paste_off_hint_dismissed'), isTrue);
+    });
+
+    test('autoPasteOffHintDismissed defaults to false', () {
+      expect(
+        AppSettings.defaults.onboarding.autoPasteOffHintDismissed,
+        isFalse,
+      );
+    });
+
+    test('autoPasteOffHintDismissed true survives roundtrip', () {
+      final s = AppSettings.defaults.copyWithSections(
+        onboarding: AppSettings.defaults.onboarding.copyWith(
+          autoPasteOffHintDismissed: true,
+        ),
+      );
+      expect(_roundtrip(s).onboarding.autoPasteOffHintDismissed, isTrue);
+    });
+
+    test(
+      'autoPasteOffHintDismissed missing key (legacy storage) reads as false',
+      () {
+        // Simulate a storage map produced by an older app version that did
+        // not yet write the new key — the additive migration must default to
+        // false instead of throwing.
+        final map = AppSettings.defaults.toStorageMap()
+          ..remove('auto_paste_off_hint_dismissed');
+        final restored = AppSettings.fromStorageMap(map);
+        expect(restored.onboarding.autoPasteOffHintDismissed, isFalse);
+      },
+    );
   });
 
   // ---- Section 16: Benchmark ----------------------------------------------

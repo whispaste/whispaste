@@ -403,6 +403,9 @@
   "statusBarTranscribing": "Transkribieren…",
   "statusBarDone": "Fertig",
   "statusBarHotkeyTooltip": "Globaler Hotkey — klicken zum Konfigurieren",
+  "statusBarAutoPasteOffHint": "Auto-Paste deaktiviert — in Settings aktivierbar",
+  "statusBarAutoPasteOffHintTooltip": "Auto-Paste ist aktuell aus. Klicken, um die Einstellungen zu öffnen.",
+  "statusBarAutoPasteOffHintDismiss": "Hinweis ausblenden",
 
   "modifierCtrl": "Strg",
   "modifierShift": "Umschalt",

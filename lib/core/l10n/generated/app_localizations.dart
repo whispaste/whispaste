@@ -2337,6 +2337,24 @@ abstract class L10n {
   /// **'Global hotkey — click to configure'**
   String get statusBarHotkeyTooltip;
 
+  /// No description provided for @statusBarAutoPasteOffHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-Paste off — enable in Settings'**
+  String get statusBarAutoPasteOffHint;
+
+  /// No description provided for @statusBarAutoPasteOffHintTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-Paste is currently disabled. Click to open Settings.'**
+  String get statusBarAutoPasteOffHintTooltip;
+
+  /// No description provided for @statusBarAutoPasteOffHintDismiss.
+  ///
+  /// In en, this message translates to:
+  /// **'Dismiss'**
+  String get statusBarAutoPasteOffHintDismiss;
+
   /// No description provided for @modifierCtrl.
   ///
   /// In en, this message translates to:

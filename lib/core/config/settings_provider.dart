@@ -283,6 +283,9 @@ class AppSettings {
   @Deprecated('Use onboarding.onboardingCompleted instead')
   bool get onboardingCompleted => onboarding.onboardingCompleted;
 
+  @Deprecated('Use onboarding.autoPasteOffHintDismissed instead')
+  bool get autoPasteOffHintDismissed => onboarding.autoPasteOffHintDismissed;
+
   @Deprecated('Use benchmark.tierBenchmarkRtf instead')
   Map<QualityTier, double>? get tierBenchmarkRtf => benchmark.tierBenchmarkRtf;
 
@@ -545,6 +548,7 @@ class AppSettings {
     double? windowHeight,
     bool? windowMaximized,
     bool? onboardingCompleted,
+    bool? autoPasteOffHintDismissed,
     Map<QualityTier, double>? tierBenchmarkRtf,
     String? benchmarkHardwareId,
     DateTime? benchmarkTimestamp,
@@ -631,7 +635,10 @@ class AppSettings {
         windowHeight: windowHeight,
         windowMaximized: windowMaximized,
       ),
-      onboarding: onboarding.copyWith(onboardingCompleted: onboardingCompleted),
+      onboarding: onboarding.copyWith(
+        onboardingCompleted: onboardingCompleted,
+        autoPasteOffHintDismissed: autoPasteOffHintDismissed,
+      ),
       benchmark: benchmark.copyWith(
         tierBenchmarkRtf: tierBenchmarkRtf,
         benchmarkHardwareId: benchmarkHardwareId,
