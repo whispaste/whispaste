@@ -13,6 +13,8 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:sentry_flutter/sentry_flutter.dart'
+    show Breadcrumb, Sentry, SentryLevel;
 
 import '../../core/config/settings_provider.dart';
 import '../../core/logging/app_logger.dart';
@@ -854,7 +856,28 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     final Process proc;
     try {
       proc = await _processRunner.start(serverPath, args);
-    } on ProcessException catch (e) {
+    } on ProcessException catch (e, st) {
+      // Spawn failure (binary missing, path invalid, exec bit, ENOENT, …).
+      // Previously only `_fail()`'d into local state — Sentry never saw it,
+      // which made "whisper-server doesn't start" reports undiagnosable on
+      // Windows where this is the common 1.2.x failure shape.
+      CrashReporter.instance?.captureError(
+        message: 'Failed to spawn whisper-server: ${e.message}',
+        error: e,
+        stackTrace: st,
+        severity: 'error',
+        type: 'stt_spawn_failed',
+        fingerprint: ['stt-spawn-failed'],
+        extras: {
+          'binary_path': serverPath,
+          'args': args,
+          'errno': e.errorCode,
+          'os_message': e.message,
+          'platform': Platform.operatingSystem,
+          'model_id': modelId,
+          'gpu_mode': gpuAcceleration,
+        },
+      );
       _fail('Failed to start whisper-server: $e');
       return;
     }
@@ -872,8 +895,27 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       if (stderrLines.length > _maxStderrLines) stderrLines.removeAt(0);
       final lower = normalized.toLowerCase();
       if (_looksLikeCudaOom(lower)) sawCudaOom = true;
-      if (lower.contains('error') || lower.contains('failed')) {
+      final looksBad =
+          lower.contains('error') ||
+          lower.contains('failed') ||
+          lower.contains('fatal') ||
+          lower.contains('abort');
+      if (looksBad) {
         _log.warning('whisper-server: $normalized');
+        // Selective Sentry breadcrumb: only the lines that look like they
+        // describe a problem. Goal is to attach the stderr signal to ANY
+        // Sentry event captured shortly after (not just the dedicated
+        // stt_exit captures, which already carry the full tail). Trimmed
+        // to 500 chars to avoid blowing the breadcrumb size budget.
+        Sentry.addBreadcrumb(
+          Breadcrumb(
+            message: normalized.length > 500
+                ? '${normalized.substring(0, 500)}…'
+                : normalized,
+            category: 'stt.stderr',
+            level: SentryLevel.warning,
+          ),
+        );
       } else {
         _log.debug('whisper-server: $normalized');
       }
@@ -1034,11 +1076,28 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
               final otherMsg =
                   'whisper-server exited unexpectedly (code $code)';
               _log.error(otherMsg);
+              // Ship the diagnostic context the previous capture was missing:
+              // the actual stderr tail (the only place the binary writes its
+              // own failure reason), the full args, the binary path, and the
+              // GPU mode. Without these, exit-code -1 / non-classified codes
+              // were undiagnosable from Sentry alone — the symptom behind
+              // FLUTTER_WHISPASTE-6X and the related Windows ABI mismatches.
               CrashReporter.instance?.captureError(
                 message: otherMsg,
                 severity: 'error',
                 type: 'stt_exit',
                 fingerprint: fingerprint,
+                extras: {
+                  'exit_code': code,
+                  'exit_kind': exitKind.name,
+                  'stderr_tail': stderrLines,
+                  'args': args,
+                  'binary_path': serverPath,
+                  'model_id': modelId,
+                  'gpu_mode': gpuAcceleration,
+                  'gpu_fallback_active': _gpuFallbackActive,
+                  'platform': Platform.operatingSystem,
+                },
               );
               _process = null;
               _activeModel = null;
@@ -1073,6 +1132,24 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
         maxMissedWindows: _heartbeatMaxMissedWindows,
       );
     } on _HeartbeatTimeoutException catch (e) {
+      // Server is alive but produces no progress on stderr — typically a
+      // model-load stall or a hang inside whisper.cpp. Sentry needs the
+      // stderr tail plus args/binary to even guess at the cause.
+      CrashReporter.instance?.captureError(
+        message: 'whisper-server heartbeat timeout: ${e.message}',
+        severity: 'error',
+        type: 'stt_heartbeat_timeout',
+        fingerprint: ['stt-heartbeat-timeout'],
+        extras: {
+          'stderr_tail': stderrLines,
+          'args': args,
+          'binary_path': serverPath,
+          'model_id': modelId,
+          'gpu_mode': gpuAcceleration,
+          'gpu_fallback_active': _gpuFallbackActive,
+          'platform': Platform.operatingSystem,
+        },
+      );
       stop();
       _fail('whisper-server not ready: $e');
       return;
@@ -1080,10 +1157,33 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       _process = null;
       _activeModel = null;
       if (_gpuFallbackActive && gpuAcceleration != 'disabled') return;
+      // Already captured by the proc.exitCode handler above (dllMissing /
+      // gpuFatal / heapCorruption / modelLoad / other) — emitting again
+      // here would double-count the same incident in Sentry.
       if (state.serverState == SttServerState.error) return;
       if (state.serverState == SttServerState.stopped && _process == null) {
         return;
       }
+      // Reaches here only when the early-exit path did NOT correspond to a
+      // classified exit (e.g. process disappeared without an exitCode that
+      // ran through the switch above). This is the FLUTTER_WHISPASTE-4P
+      // shape — "exited before becoming ready" — that was being _fail()'d
+      // into local state without any Sentry signal.
+      CrashReporter.instance?.captureError(
+        message: 'whisper-server early exit: ${e.message}',
+        severity: 'error',
+        type: 'stt_early_exit',
+        fingerprint: ['stt-early-exit'],
+        extras: {
+          'stderr_tail': stderrLines,
+          'args': args,
+          'binary_path': serverPath,
+          'model_id': modelId,
+          'gpu_mode': gpuAcceleration,
+          'gpu_fallback_active': _gpuFallbackActive,
+          'platform': Platform.operatingSystem,
+        },
+      );
       _fail(e.message);
       return;
     }
