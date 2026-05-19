@@ -33,9 +33,16 @@ class WpToast {
   }) {
     // Route toast messages through the logging pipeline so they appear
     // in the `flutter run` terminal in debug mode.
+    //
+    // Error-toasts go in at warning level so they land as Sentry breadcrumbs
+    // (context for any later crash), not as standalone Sentry issues — the
+    // overwhelming majority are user-config noise (mute mic, blocked
+    // permission), not bugs. The underlying failure that triggered the toast
+    // should emit its own captureException at the source if it is actually
+    // a bug.
     switch (type) {
       case WpToastType.error:
-        _log.error('TOAST: $message');
+        _log.warning('TOAST: $message');
       case WpToastType.warning:
         _log.warning('TOAST: $message');
       case WpToastType.success:

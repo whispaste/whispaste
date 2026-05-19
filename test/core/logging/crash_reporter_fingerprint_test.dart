@@ -1,9 +1,10 @@
 /// Unit tests for CrashReporter fingerprint support (issue-05).
 ///
-/// Acceptance criteria covered:
-/// AC1: crash reporter signature accepts fingerprint and threads it into the SDK
-/// AC3: guard-fires (dead-mic, auto-stop) are emitted at level: info
-/// AC4: unit tests per call site assert the expected fingerprint
+/// Note: the original guard-fire AC3 + AC4 coverage was removed when the
+/// recording orchestrator stopped capturing dead-mic / auto-stop as Sentry
+/// events. Those flows are now plain `_log.info` breadcrumbs — the captureError
+/// fingerprint API is exercised by other call sites (STT exit codes, model
+/// download failures, etc.).
 library;
 
 import 'package:flutter_test/flutter_test.dart';
@@ -110,73 +111,9 @@ void main() {
     });
   });
 
-  // ── AC3: guard-fire call sites emit level info ─────────────────────────────
+  // ── Per-call-site fingerprints that survived the guard-fire migration ─────
 
-  group('AC3 — guard-fire severity is info', () {
-    test('dead-mic guard-fire uses severity info', () {
-      // The recording_orchestrator calls captureError with severity: info
-      // for dead-mic events. Simulate the same call here to verify level
-      // conversion in the crash reporter.
-      CrashReporter.instance!.captureError(
-        message: 'guard-fire: dead-mic (no audio detected before timeout)',
-        severity: 'info',
-        type: 'guard_fire',
-        fingerprint: ['guard-fire-dead-mic'],
-      );
-      // The beforeSend captures the event before it would be sent.
-      // We can verify the call did not throw; the actual level wiring is
-      // tested via the severity → SentryLevel switch.
-    });
-
-    test('auto-stop guard-fire uses severity info', () {
-      CrashReporter.instance!.captureError(
-        message: 'guard-fire: auto-stop (silence detected after speech)',
-        severity: 'info',
-        type: 'guard_fire',
-        fingerprint: ['guard-fire-auto-stop'],
-      );
-    });
-
-    test('info severity maps to SentryLevel.info in captureError', () {
-      // Verify the severity → SentryLevel conversion by observing that
-      // non-error/warning/fatal severities map to info.
-      // (The switch default arm in captureError: _ => SentryLevel.info)
-      // This is structural: if the switch ever changes the default, tests
-      // for actual guard-fire events would need updating.
-      const severity = 'info';
-      // Map matches production code switch in captureError:
-      final expectedLevel = switch (severity) {
-        'critical' || 'fatal' => SentryLevel.fatal,
-        'error' => SentryLevel.error,
-        'warning' => SentryLevel.warning,
-        _ => SentryLevel.info,
-      };
-      expect(expectedLevel, SentryLevel.info);
-    });
-  });
-
-  // ── AC4: per call-site fingerprints ───────────────────────────────────────
-
-  group('AC4 — per-call-site fingerprint strings', () {
-    // Verify that the fingerprint strings used in production code match the
-    // documented values in the issue spec. These are compile-time constants —
-    // changing them would require updating this test, preventing silent renames.
-
-    test('dead-mic fingerprint is guard-fire-dead-mic', () {
-      const expected = 'guard-fire-dead-mic';
-      // Verify the constant used in recording_orchestrator._handleDeadMic()
-      // is the expected value. The production code uses a list literal; we
-      // test the individual element that forms the Sentry fingerprint.
-      expect(expected, startsWith('guard-fire-'));
-      expect(expected, contains('dead-mic'));
-    });
-
-    test('auto-stop fingerprint is guard-fire-auto-stop', () {
-      const expected = 'guard-fire-auto-stop';
-      expect(expected, startsWith('guard-fire-'));
-      expect(expected, contains('auto-stop'));
-    });
-
+  group('per-call-site fingerprint strings', () {
     test('stt exit-code fingerprints follow stt-exit-<kind> pattern', () {
       // Verify the fingerprint format used in stt_service.dart for all
       // SttExitKind values. Format: 'stt-exit-<exitKind.name>'.
