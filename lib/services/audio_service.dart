@@ -8,7 +8,6 @@ library;
 import 'dart:async';
 import 'dart:developer' as dev;
 import 'dart:io';
-import 'dart:math' as math;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
@@ -16,6 +15,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
 import '../core/config/settings_provider.dart';
+import 'audio/speech_level_mapper.dart';
 
 // ---------------------------------------------------------------------------
 // Audio service state
@@ -74,7 +74,7 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
   AudioRecorder? _recorder;
   StreamSubscription<Amplitude>? _amplitudeSub;
 
-  /// Amplitude values normalized to 0.0–1.0, emitted ~10 times/second.
+  /// Amplitude values normalized to 0.0–1.0, emitted ~25 times/second.
   ///
   /// Backed by a single-subscription [StreamController] that the orchestrator
   /// listens to. A new controller is created per recording session.
@@ -171,26 +171,14 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
 
     // Subscribe to amplitude before starting (the stream auto-starts).
     _amplitudeSub?.cancel();
+    const levelMapper = SpeechLevelMapper();
     _amplitudeSub = recorder
-        .onAmplitudeChanged(const Duration(milliseconds: 80))
+        .onAmplitudeChanged(const Duration(milliseconds: 40))
         .listen(
           (amp) {
-            // Convert dBFS (negative, -∞ to 0) to linear 0.0–1.0.
-            // Clamp to a useful range: -60 dB silence floor.
-            // macOS AVFoundation reports lower amplitudes than Windows WASAPI,
-            // so boost multiplier is set high enough to cover both platforms.
-            final db = amp.current;
-            if (db <= -60.0) {
-              _amplitudeController?.add(0.0);
-              return;
-            }
-            final raw = math.pow(10.0, db / 20.0).toDouble().clamp(0.0, 1.0);
-            // sqrt expansion + platform-aware boost for consistent visual presence:
-            // macOS (AVFoundation) reports lower amplitudes than Windows (WASAPI)
-            // so we use a smaller multiplier on macOS to avoid over-boosting.
-            final boosted = (math.sqrt(raw) * (Platform.isMacOS ? 1.2 : 1.8))
-                .clamp(0.0, 1.0);
-            _amplitudeController?.add(boosted);
+            // Raw dBFS goes straight through the perceptual mapper; the
+            // mapper handles floor/ceiling clamping and degenerate inputs.
+            _amplitudeController?.add(levelMapper.map(amp.current));
           },
           onError: (Object e) {
             dev.log('Amplitude error: $e', name: 'AudioService');
