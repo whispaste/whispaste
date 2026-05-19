@@ -525,6 +525,14 @@ class L10nDe extends L10n {
       '1. System Settings → Bedienungshilfen ist gerade offen. 2. Schalte WhisPaste in der Liste ein. 3. Diese App erkennt die Änderung automatisch.';
 
   @override
+  String get onboardingPasteTccMismatchTitle =>
+      'macOS erkennt die neue Berechtigung nicht';
+
+  @override
+  String get onboardingPasteTccMismatchBody =>
+      '1. Drück unten auf Reparieren — das löscht alte Berechtigungs-Einträge. Danach wirst du erneut gefragt.\n2. Wenn das auch nicht hilft, schließ WhisPaste komplett und starte die App neu — dann erkennt macOS die aktuelle App-Signatur.';
+
+  @override
   String get settingsOverlayFloatingButton => 'Aufnahme-Overlay';
 
   @override

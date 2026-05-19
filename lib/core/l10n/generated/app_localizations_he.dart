@@ -512,6 +512,13 @@ class L10nHe extends L10n {
       '1. הגדרות המערכת → נגישות פתוחות כעת. 2. הפעל את WhisPaste ברשימה. 3. האפליקציה תזהה את השינוי באופן אוטומטי.';
 
   @override
+  String get onboardingPasteTccMismatchTitle => 'macOS לא מזהה את ההרשאה החדשה';
+
+  @override
+  String get onboardingPasteTccMismatchBody =>
+      '1. הקש על תיקון למטה — הפעולה מנקה רשומות הרשאה ישנות, ו-macOS יבקש ממך הרשאה שוב.\n2. אם גם זה לא עוזר, סגור את WhisPaste לחלוטין והפעל מחדש — כך macOS יזהה את חתימת האפליקציה הנוכחית.';
+
+  @override
   String get settingsOverlayFloatingButton => 'שכבת הקלטה צפה';
 
   @override

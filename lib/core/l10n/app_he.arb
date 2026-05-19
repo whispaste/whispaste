@@ -182,6 +182,8 @@
   "onboardingPasteWhyWinUipi": "באפליקציות מסוימות עם הגנת UIPI/UAC, ההדבקה האוטומטית לא תעבוד — הטקסט יישאר בלוח, ויהיה עליך להדביקו עם Ctrl+V באופן ידני.",
   "onboardingPasteWaitingForGrantTitle": "ממתין להרשאה שלך…",
   "onboardingPasteWaitingForGrantHint": "1. הגדרות המערכת → נגישות פתוחות כעת. 2. הפעל את WhisPaste ברשימה. 3. האפליקציה תזהה את השינוי באופן אוטומטי.",
+  "onboardingPasteTccMismatchTitle": "macOS לא מזהה את ההרשאה החדשה",
+  "onboardingPasteTccMismatchBody": "1. הקש על תיקון למטה — הפעולה מנקה רשומות הרשאה ישנות, ו-macOS יבקש ממך הרשאה שוב.\n2. אם גם זה לא עוזר, סגור את WhisPaste לחלוטין והפעל מחדש — כך macOS יזהה את חתימת האפליקציה הנוכחית.",
   "settingsOverlayFloatingButton": "שכבת הקלטה צפה",
   "settingsOverlayFloatingButtonSubtitle": "איך להציג סטטוס הקלטה בזמן דיבור",
   "settingsShowOverlay": "תצוגת סטטוס הקלטה",

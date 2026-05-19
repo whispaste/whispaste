@@ -117,6 +117,27 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
   /// this boolean while new code switches on the explicit phase.
   bool get isPolling => state.pollingPhase == PollingPhase.awaitingGrant;
 
+  /// Heuristic: did the polling loop just time out in a way that matches the
+  /// ad-hoc-signed-Sequoia "TCC cache is stale" signature?
+  ///
+  /// Pure function of [PasteCapabilityState] — no fields of its own. `true`
+  /// exactly when all three of:
+  ///   - [PasteCapabilityState.hadFailedGrantAttempt] is `true` (the user
+  ///     has demonstrably tried to grant via the OS dialog at least once),
+  ///   - the latest capability probe still reports
+  ///     [PasteCapabilityStatus.permissionMissing],
+  ///   - the polling loop ended in [PollingPhase.timedOut] (not
+  ///     `succeeded`, not still `awaitingGrant`).
+  /// Any single falsification collapses the conjunction back to `false`.
+  ///
+  /// Drives the `_TccMismatchBanner` reveal in the onboarding Auto-Paste
+  /// step and replaces the placeholder `false` in the `polling.timeout`
+  /// Sentry breadcrumb's `suspected_tcc_mismatch` data field.
+  bool get suspectedTccMismatch =>
+      state.hadFailedGrantAttempt &&
+      state.capability?.status == PasteCapabilityStatus.permissionMissing &&
+      state.pollingPhase == PollingPhase.timedOut;
+
   /// Runs one capability probe through the [Paster].
   ///
   /// When [prompt] is `true` and the result is
@@ -227,24 +248,6 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
     _pollTimer = null;
     _pollTimeout?.cancel();
     _pollTimeout = null;
-    // Only surface a Sentry event when polling actually ended — repeated
-    // stopPolling() calls (re-mounts, defensive disposal) must not spam
-    // breadcrumbs. `cancelled` is an internal signal we don't ship to Sentry.
-    if (wasActive && reason != _PollEnd.cancelled) {
-      final elapsedMs = _pollStopwatch?.elapsedMilliseconds ?? 0;
-      // `suspected_tcc_mismatch` is included here as a schema placeholder so
-      // downstream Sentry queries can rely on the field always being present
-      // on `polling.timeout` events. The real value is driven from Slice 04
-      // (TCC-mismatch banner / `suspectedTccMismatch` getter); in this slice
-      // the flag is always `false`.
-      _emitBreadcrumb(
-        reason == _PollEnd.success ? 'polling.success' : 'polling.timeout',
-        data: reason == _PollEnd.timeout
-            ? {'elapsed_ms': elapsedMs, 'suspected_tcc_mismatch': false}
-            : {'elapsed_ms': elapsedMs},
-      );
-    }
-    _pollStopwatch = null;
     // Drive the explicit phase from the disposal reason so UI consumers
     // can react without poking at the (private) timer fields. `cancelled`
     // collapses to `idle` because "no one is waiting on anything" — there
@@ -257,6 +260,34 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
     if (state.pollingPhase != nextPhase) {
       state = state.copyWith(pollingPhase: nextPhase);
     }
+    // Only surface a Sentry event when polling actually ended — repeated
+    // stopPolling() calls (re-mounts, defensive disposal) must not spam
+    // breadcrumbs. `cancelled` is an internal signal we don't ship to Sentry.
+    if (wasActive && reason != _PollEnd.cancelled) {
+      final elapsedMs = _pollStopwatch?.elapsedMilliseconds ?? 0;
+      // Evaluate the TCC-mismatch heuristic AFTER pollingPhase has been
+      // promoted to `timedOut` so the getter sees the same world the UI
+      // will see one frame later. On the success branch the heuristic is
+      // structurally false (status != permissionMissing) — no extra cost.
+      final mismatch = suspectedTccMismatch;
+      _emitBreadcrumb(
+        reason == _PollEnd.success ? 'polling.success' : 'polling.timeout',
+        data: reason == _PollEnd.timeout
+            ? {'elapsed_ms': elapsedMs, 'suspected_tcc_mismatch': mismatch}
+            : {'elapsed_ms': elapsedMs},
+      );
+      // Mirror-event: when the timeout coincides with the ad-hoc-signed
+      // TCC-cache symptom, emit a dedicated breadcrumb so Sentry funnels
+      // can slice on the suspected cause directly without re-deriving the
+      // conjunction from the generic timeout payload.
+      if (reason == _PollEnd.timeout && mismatch) {
+        _emitBreadcrumb(
+          'polling.timeout_with_mismatch',
+          data: {'elapsed_ms': elapsedMs},
+        );
+      }
+    }
+    _pollStopwatch = null;
   }
 
   /// Emits a breadcrumb under the shared onboarding Auto-Paste category and

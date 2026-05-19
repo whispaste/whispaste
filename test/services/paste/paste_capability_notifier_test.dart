@@ -319,6 +319,185 @@ void main() {
     );
   });
 
+  // ---------------------------------------------------------------------------
+  // suspectedTccMismatch — truth table.
+  //
+  // The getter is a pure function of three state fields:
+  //   - hadFailedGrantAttempt (sticky)
+  //   - capability?.status == permissionMissing
+  //   - pollingPhase == timedOut
+  // It is `true` exactly when all three are simultaneously true, and `false`
+  // otherwise. The tests below cover the all-true case plus each single-field
+  // falsification so the conjunction is exercised end-to-end.
+  // ---------------------------------------------------------------------------
+  group('PasteCapabilityNotifier — suspectedTccMismatch', () {
+    // Lightweight harness: build a notifier and force-mutate state through
+    // the public surface. We can't write to `state` directly from a test, so
+    // we use the timeout machinery + `check()` to drive the relevant fields
+    // — same path the real macOS flow takes.
+    Future<PasteCapabilityNotifier> driveTo({
+      required ProviderContainer container,
+      required _FakePaster paster,
+      required bool hadFailedGrantAttempt,
+      required PasteCapabilityStatus capabilityStatus,
+      required PollingPhase pollingPhase,
+    }) async {
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+      // Drive `hadFailedGrantAttempt` via a prompted check that comes back
+      // as permissionMissing — that's the only public way to flip it.
+      if (hadFailedGrantAttempt) {
+        paster.nextResult = const PasteCapability(
+          status: PasteCapabilityStatus.permissionMissing,
+          canPrompt: true,
+        );
+        await notifier.check(prompt: true);
+      }
+      // Then drive the capability to the desired terminal status.
+      paster.nextResult = PasteCapability(status: capabilityStatus);
+      await notifier.check();
+      // Finally drive `pollingPhase` via the timer machinery. We use a
+      // short timeout to reach `timedOut` quickly when needed, and skip
+      // polling entirely for the `idle` case.
+      switch (pollingPhase) {
+        case PollingPhase.idle:
+          // Already idle — nothing to do.
+          break;
+        case PollingPhase.awaitingGrant:
+          notifier.startPolling(
+            interval: const Duration(seconds: 10),
+            timeout: const Duration(seconds: 10),
+          );
+          break;
+        case PollingPhase.succeeded:
+          // Setting the next result to `ready` makes the first tick
+          // self-stop with `succeeded`.
+          paster.nextResult = const PasteCapability(
+            status: PasteCapabilityStatus.ready,
+          );
+          notifier.startPolling(
+            interval: const Duration(milliseconds: 10),
+            timeout: const Duration(seconds: 5),
+          );
+          await Future<void>.delayed(const Duration(milliseconds: 60));
+          // Restore the desired terminal capability after self-stop, since
+          // the `succeeded` self-stop will have overwritten it.
+          paster.nextResult = PasteCapability(status: capabilityStatus);
+          await notifier.check();
+          break;
+        case PollingPhase.timedOut:
+          notifier.startPolling(
+            interval: const Duration(seconds: 5),
+            timeout: const Duration(milliseconds: 20),
+          );
+          await Future<void>.delayed(const Duration(milliseconds: 80));
+          // Restore the desired terminal capability after the timeout self-
+          // stop has overwritten it via the last poll tick (if any).
+          paster.nextResult = PasteCapability(status: capabilityStatus);
+          await notifier.check();
+          break;
+      }
+      return notifier;
+    }
+
+    test('all three conditions true → suspectedTccMismatch is true', () async {
+      final paster = _FakePaster();
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+
+      final notifier = await driveTo(
+        container: container,
+        paster: paster,
+        hadFailedGrantAttempt: true,
+        capabilityStatus: PasteCapabilityStatus.permissionMissing,
+        pollingPhase: PollingPhase.timedOut,
+      );
+
+      expect(notifier.suspectedTccMismatch, isTrue);
+    });
+
+    test(
+      'hadFailedGrantAttempt == false → suspectedTccMismatch is false',
+      () async {
+        final paster = _FakePaster();
+        final container = _container(paster: paster);
+        addTearDown(container.dispose);
+
+        final notifier = await driveTo(
+          container: container,
+          paster: paster,
+          hadFailedGrantAttempt: false,
+          capabilityStatus: PasteCapabilityStatus.permissionMissing,
+          pollingPhase: PollingPhase.timedOut,
+        );
+
+        expect(notifier.suspectedTccMismatch, isFalse);
+      },
+    );
+
+    test(
+      'capability status != permissionMissing → suspectedTccMismatch is false',
+      () async {
+        final paster = _FakePaster();
+        final container = _container(paster: paster);
+        addTearDown(container.dispose);
+
+        final notifier = await driveTo(
+          container: container,
+          paster: paster,
+          hadFailedGrantAttempt: true,
+          // Even `ready` (the happy path) must not light up the banner.
+          capabilityStatus: PasteCapabilityStatus.ready,
+          pollingPhase: PollingPhase.timedOut,
+        );
+
+        expect(notifier.suspectedTccMismatch, isFalse);
+      },
+    );
+
+    test('pollingPhase != timedOut → suspectedTccMismatch is false', () async {
+      final paster = _FakePaster();
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+
+      final notifier = await driveTo(
+        container: container,
+        paster: paster,
+        hadFailedGrantAttempt: true,
+        capabilityStatus: PasteCapabilityStatus.permissionMissing,
+        pollingPhase: PollingPhase.awaitingGrant,
+      );
+
+      expect(notifier.suspectedTccMismatch, isFalse);
+      notifier.stopPolling();
+    });
+
+    test('pollingPhase == succeeded with the other two true → '
+        'suspectedTccMismatch is false', () async {
+      final paster = _FakePaster();
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+
+      final notifier = await driveTo(
+        container: container,
+        paster: paster,
+        hadFailedGrantAttempt: true,
+        capabilityStatus: PasteCapabilityStatus.permissionMissing,
+        pollingPhase: PollingPhase.succeeded,
+      );
+
+      expect(notifier.suspectedTccMismatch, isFalse);
+    });
+
+    test('initial state → suspectedTccMismatch is false', () async {
+      final paster = _FakePaster();
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+      expect(notifier.suspectedTccMismatch, isFalse);
+    });
+  });
+
   group('PasteCapabilityNotifier — polling', () {
     test(
       'startPolling calls check periodically until ready, then stops itself',
