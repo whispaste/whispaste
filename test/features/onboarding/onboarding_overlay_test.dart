@@ -1,10 +1,12 @@
 /// Widget tests for [OnboardingOverlay] step-sequence behaviour.
 ///
-/// Focus is on the platform-dependent flow assembly added in slice 03:
-/// macOS and Windows render five steps (Welcome → Microphone → AutoPaste
-/// → Model → Ready), Linux renders four (AutoPasteStep is omitted). The
-/// stepper dots and "Step X of Y" counter must both reflect the active
-/// list length.
+/// Focus is on the platform-dependent flow assembly: only macOS renders
+/// five steps (Welcome → Microphone → AutoPaste → Model → Ready); Windows
+/// and Linux render four (AutoPasteStep is omitted on both — Windows
+/// because no permission is needed in the 99 % case and the diagnostic
+/// test-paste step was confusing real users; Linux because the underlying
+/// capability is not supported). The stepper dots and "Step X of Y"
+/// counter must both reflect the active list length.
 ///
 /// We only assert on the first frame here: the initial step is always
 /// [WelcomeStep], so we can verify total counts without driving the user
@@ -104,19 +106,19 @@ void main() {
       }
     });
 
-    testWidgets('on Windows: renders 5-step flow with AutoPasteStep included '
-        'between Microphone and Model; counter reflects 5 total', (
-      tester,
-    ) async {
-      // Windows mirrors macOS in step COUNT but the AutoPasteStep itself
-      // renders the Windows verify surface (covered by auto_paste_step_test).
-      // Here we only assert the assembly: AutoPasteStep is in the list and
-      // the counter reflects the 5-step total.
+    testWidgets('on Windows: renders 4-step flow, AutoPasteStep never appears, '
+        'counter and dots reflect 4 total', (tester) async {
+      // Windows drops AutoPasteStep entirely: no permission is required in
+      // the 99 % case and the diagnostic test-paste sub-step was misread as
+      // "press a hotkey" during real onboarding sessions, so the flow now
+      // matches Linux in shape. The Windows-specific UIPI/UAC edge surfaces
+      // through the Settings paste capability indicator instead.
       debugDefaultTargetPlatformOverride = TargetPlatform.windows;
       try {
         await _pumpOverlay(tester);
 
-        expect(find.text('Step 1 of 5'), findsOneWidget);
+        expect(find.text('Step 1 of 4'), findsOneWidget);
+        expect(find.byType(AutoPasteStep), findsNothing);
       } finally {
         debugDefaultTargetPlatformOverride = null;
       }
