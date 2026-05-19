@@ -8,6 +8,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../services/deploy_channel_service.dart';
+import '../../../widgets/language_selector.dart';
 import '../../../widgets/section.dart';
 import '../settings_widgets.dart';
 
@@ -57,24 +58,14 @@ class InterfaceSection extends ConsumerWidget {
           SettingRow(
             icon: LucideIcons.globe,
             label: l10n.settingsAppLanguage,
-            trailing: settingsDropdown(
-              context: context,
-              value: const ['en', 'de', 'he'].contains(settings.locale)
-                  ? settings.locale
-                  : 'en',
-              items: const ['en', 'de', 'he'],
-              labels: [
-                l10n.settingsLanguageEnglish,
-                l10n.settingsLanguageGerman,
-                l10n.settingsLanguageHebrew,
-              ],
-              onChanged: (v) {
-                if (v != null) {
-                  ref
-                      .read(settingsProvider.notifier)
-                      .updateSettings((s) => s.copyWith(locale: v));
-                }
-              },
+            trailing: SizedBox(
+              width: 180,
+              child: LanguageSelector(
+                currentLocale: settings.locale,
+                onChanged: (code) => ref
+                    .read(settingsProvider.notifier)
+                    .updateSettings((s) => s.copyWith(locale: code)),
+              ),
             ),
           ),
           SettingRow(
