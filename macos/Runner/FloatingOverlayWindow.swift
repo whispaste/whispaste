@@ -131,6 +131,13 @@ class FloatingOverlayView: NSView {
   var errorMessage: String? { didSet { needsDisplay = true } }
   var showRetry: Bool = false { didSet { needsDisplay = true } }
   var audioLevel: Float = 0 { didSet { updateWaveformTarget() } }
+
+  /// Additive path (issue 05): pre-computed bar heights in 0.0–1.0 pushed by
+  /// Dart via the `setWaveformBars` channel method. When non-nil, the
+  /// waveform is rendered stateless from this array (no smoothing, no
+  /// sine-tick). When nil, the legacy `setAudioLevel` + sine-tick path is
+  /// used. Length is expected to equal `kBarCount` (30).
+  var waveformBars: [Double]? { didSet { needsDisplay = true } }
   var progressValue: Double = 0 { didSet { needsDisplay = true } }
   var masterOpacity: CGFloat = 1.0 { didSet { needsDisplay = true } }
   var isDark: Bool = true { didSet { needsDisplay = true } }
@@ -538,6 +545,7 @@ class FloatingOverlayView: NSView {
 
   private func drawWaveform(ctx: CGContext, x: CGFloat, cy: CGFloat, maxWidth: CGFloat, accent: GradientPair) {
     let maxH: CGFloat = isCompact ? 16 : 24
+    let minH: CGFloat = 4
     // Spread bars evenly across available width (matching Windows fill behavior)
     let barW: CGFloat = kBarWidth
     let totalBarsWidth = CGFloat(kBarCount) * barW
@@ -557,6 +565,26 @@ class FloatingOverlayView: NSView {
       ? NSColor(red: 0x8A / 255.0, green: 0x99 / 255.0, blue: 0xB2 / 255.0, alpha: 0.5 * masterOpacity)
       : NSColor(red: 0x5B / 255.0, green: 0x69 / 255.0, blue: 0x7E / 255.0, alpha: 0.5 * masterOpacity)
 
+    // Additive (issue 05): if Dart has pushed a pre-computed bar array,
+    // render stateless from it. No smoothing, no sine-tick — heights are
+    // already perceptually mapped by the Dart-side WaveformPipeline.
+    if let bars = waveformBars {
+      for i in 0..<kBarCount {
+        let bar = i < bars.count ? CGFloat(max(0.0, min(1.0, bars[i]))) : 0
+        let barH = minH + bar * (maxH - minH)
+        let bx = startX + CGFloat(i) * (barW + gap)
+        let by = cy - barH / 2
+        let barRect = NSRect(x: bx, y: by, width: barW, height: barH)
+        let barPath = CGPath(roundedRect: barRect, cornerWidth: barW / 2, cornerHeight: barW / 2, transform: nil)
+        let color = bar >= 0.30 ? activeColor : mutedColor
+        ctx.setFillColor(color.cgColor)
+        ctx.addPath(barPath)
+        ctx.fillPath()
+      }
+      return
+    }
+
+    // Legacy path: heights driven by setAudioLevel + tick() sine synthesis.
     for i in 0..<kBarCount {
       // Windows: bar_h = 4 + level * (h - 4), level is 0-1
       let level = waveDisplay[i] / maxH

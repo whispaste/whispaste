@@ -205,6 +205,34 @@ void FloatingOverlayHost::HandleMethodCall(
     return;
   }
 
+  // ── setWaveformBars ─────────────────────────────────────────────────
+  // Additive (issue 05): Dart pushes a pre-computed bar array. While
+  // populated, PaintWaveform renders stateless from it; the legacy
+  // SetAudioLevel ring-buffer path is bypassed but left intact.
+  if (method == "setWaveformBars") {
+    if (window_ && map) {
+      auto it = map->find(EncodableValue("bars"));
+      if (it != map->end()) {
+        if (auto* list = std::get_if<EncodableList>(&it->second)) {
+          std::vector<double> bars;
+          bars.reserve(list->size());
+          for (const auto& v : *list) {
+            if (auto* d = std::get_if<double>(&v)) {
+              bars.push_back(*d);
+            } else if (auto* i32 = std::get_if<int32_t>(&v)) {
+              bars.push_back(static_cast<double>(*i32));
+            } else if (auto* i64 = std::get_if<int64_t>(&v)) {
+              bars.push_back(static_cast<double>(*i64));
+            }
+          }
+          window_->SetWaveformBars(bars);
+        }
+      }
+    }
+    result->Success();
+    return;
+  }
+
   // ── setPosition ─────────────────────────────────────────────────────
   if (method == "setPosition") {
     if (map) {

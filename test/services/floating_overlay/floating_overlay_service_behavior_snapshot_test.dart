@@ -63,6 +63,9 @@ class _FakeController implements FloatingOverlayController {
   Future<void> setAudioLevel(double level) async {}
 
   @override
+  Future<void> setWaveformBars(List<double> bars) async {}
+
+  @override
   Future<void> setPosition(
     double x,
     double y,

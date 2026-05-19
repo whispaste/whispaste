@@ -533,6 +533,15 @@ void FloatingOverlayWindow::SetAudioLevel(double level) {
   waveform_write_idx_ = (waveform_write_idx_ + 1) % kWaveformBars;
 }
 
+void FloatingOverlayWindow::SetWaveformBars(const std::vector<double>& bars) {
+  if (!hwnd_ || shutting_down_) return;
+  // Copy verbatim; render branch clamps each value to [0, 1].
+  waveform_bars_ = bars;
+  if (visible_) {
+    InvalidateRect(hwnd_, nullptr, FALSE);
+  }
+}
+
 void FloatingOverlayWindow::SetPosition(double logical_x, double logical_y,
                                          OverlayAnchorMode anchor) {
   anchor_x_ = logical_x;
@@ -1429,6 +1438,32 @@ void FloatingOverlayWindow::PaintWaveform(Graphics& g, float x, float y,
                       (kWaveformBars - 1) * kBarGap;
   float start_x = x + (w - total_bar_w) / 2.0f;
 
+  // Additive (issue 05): if Dart has pushed a pre-computed bar array,
+  // render stateless from it. No smoothing — heights are already
+  // perceptually mapped on the Dart side by WaveformPipeline.
+  if (!waveform_bars_.empty()) {
+    const float min_h = 4.0f;
+    for (int i = 0; i < kWaveformBars; ++i) {
+      double raw = (i < static_cast<int>(waveform_bars_.size()))
+                       ? waveform_bars_[i]
+                       : 0.0;
+      float bar = static_cast<float>(std::clamp(raw, 0.0, 1.0));
+      float bar_h = min_h + bar * (h - min_h);
+      float bar_x = start_x + i * (kBarWidth + kBarGap);
+      float bar_y = y + (h - bar_h) / 2.0f;
+
+      Color color = (bar >= 0.30f) ? tc.waveform_active : tc.waveform_muted;
+      SolidBrush brush(color);
+
+      GraphicsPath barPath;
+      GdiPlusHelper::MakeRoundedRect(&barPath, bar_x, bar_y, kBarWidth, bar_h,
+                                     kBarRadius);
+      g.FillPath(&brush, &barPath);
+    }
+    return;
+  }
+
+  // Legacy path: heights driven by SetAudioLevel ring-buffer + smoothing.
   for (int i = 0; i < kWaveformBars; ++i) {
     float level = waveform_display_[i];
     float bar_h = 4.0f + level * (h - 4.0f);  // 4px min → h max

@@ -78,6 +78,12 @@ class FloatingOverlayWindow {
   // Audio level for waveform (0.0–1.0, called at ~20Hz by Dart).
   void SetAudioLevel(double level);
 
+  // Additive (issue 05): push a pre-computed bar array (length kWaveformBars)
+  // with values in 0.0–1.0. While non-empty, PaintWaveform renders stateless
+  // from this array; the legacy ring-buffer (waveform_levels_/waveform_display_)
+  // is bypassed but left intact for the legacy SetAudioLevel path.
+  void SetWaveformBars(const std::vector<double>& bars);
+
   // Programmatic positioning (start positions).
   void SetPosition(double logical_x, double logical_y,
                    OverlayAnchorMode anchor);
@@ -249,6 +255,10 @@ class FloatingOverlayWindow {
   float waveform_levels_[kWaveformBars] = {};
   float waveform_display_[kWaveformBars] = {};
   int waveform_write_idx_ = 0;
+
+  // Additive (issue 05): pre-computed bars pushed via setWaveformBars.
+  // Empty = legacy ring-buffer renders. Filled = stateless render from this.
+  std::vector<double> waveform_bars_;
 
   // Drag
   bool dragging_ = false;
