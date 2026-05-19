@@ -51,10 +51,6 @@ class WindowsFloatingOverlayController
       invokeMethod('updateSnapshot', snapshot.toMap());
 
   @override
-  Future<void> setAudioLevel(double level) =>
-      invokeMethod('setAudioLevel', {'level': level});
-
-  @override
   Future<void> setWaveformBars(List<double> bars) =>
       invokeMethod('setWaveformBars', {'bars': bars});
 

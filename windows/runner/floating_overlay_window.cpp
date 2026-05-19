@@ -122,12 +122,7 @@ bool FloatingOverlayWindow::class_registered_ = false;
 // Construction / Destruction
 // ═══════════════════════════════════════════════════════════════════════
 
-FloatingOverlayWindow::FloatingOverlayWindow() {
-  for (int i = 0; i < kWaveformBars; ++i) {
-    waveform_levels_[i] = 0.0f;
-    waveform_display_[i] = 0.0f;
-  }
-}
+FloatingOverlayWindow::FloatingOverlayWindow() = default;
 
 FloatingOverlayWindow::~FloatingOverlayWindow() { Destroy(); }
 
@@ -522,17 +517,6 @@ void FloatingOverlayWindow::UpdateSnapshot(const OverlaySnapshot& snapshot) {
   }
 }
 
-void FloatingOverlayWindow::SetAudioLevel(double level) {
-  if (!hwnd_ || shutting_down_) return;
-  if (snap_.state != OverlayVisualState::kRecording) return;
-
-  // Push into ring buffer with sqrt boost (matching WpWaveformBars)
-  float boosted = static_cast<float>(std::sqrt(std::clamp(level, 0.0, 1.0)) * 1.5);
-  boosted = std::clamp(boosted, 0.0f, 1.0f);
-  waveform_levels_[waveform_write_idx_] = boosted;
-  waveform_write_idx_ = (waveform_write_idx_ + 1) % kWaveformBars;
-}
-
 void FloatingOverlayWindow::SetWaveformBars(const std::vector<double>& bars) {
   if (!hwnd_ || shutting_down_) return;
   // Copy verbatim; render branch clamps each value to [0, 1].
@@ -873,14 +857,9 @@ void FloatingOverlayWindow::OnAnimTick() {
   if (shutting_down_ || !hwnd_) return;
   if (!visible_ && !is_showing_) return;  // skip work when hidden
 
-  // Waveform interpolation (smooth bar heights) — both normal and compact
-  if (snap_.state == OverlayVisualState::kRecording) {
-    for (int i = 0; i < kWaveformBars; ++i) {
-      float target = waveform_levels_[(waveform_write_idx_ + i) % kWaveformBars];
-      float diff = target - waveform_display_[i];
-      waveform_display_[i] += diff * 0.3f;  // smooth interpolation
-    }
-  }
+  // Waveform bars are pushed by Dart via SetWaveformBars — no smoothing
+  // happens here. This tick exists for show/hide, the recording-dot pulse,
+  // the transcribing spinner, and the done celebration.
 
   // Show/hide transition
   OnShowHideAnimTick();
@@ -1266,7 +1245,9 @@ void FloatingOverlayWindow::RenderCompact(Graphics& g, float w, float h) {
                DWRITE_FONT_WEIGHT_BOLD, tc.text_primary, true);
       x += 42.0f + 6.0f;
 
-      // Mini waveform (8 bars)
+      // Mini waveform (8 bars) — stateless render from Dart-pushed array.
+      // Sample every other bar so the 8-slot compact view spans the full
+      // 30-bar source.
       float wf_h = 16.0f;
       float wf_y = center_y - wf_h / 2.0f;
       float mini_bar_w = 2.5f;
@@ -1274,11 +1255,15 @@ void FloatingOverlayWindow::RenderCompact(Graphics& g, float w, float h) {
       int mini_bars = 8;
       for (int i = 0; i < mini_bars; ++i) {
         int src = (i * 2) % kWaveformBars;
-        float level = waveform_display_[src];
-        float bar_h = 3.0f + level * (wf_h - 3.0f);
+        double raw = (src < static_cast<int>(waveform_bars_.size()))
+                         ? waveform_bars_[src]
+                         : 0.0;
+        float bar = static_cast<float>(std::clamp(raw, 0.0, 1.0));
+        float bar_h = kMinBarHeightPx + bar * (wf_h - kMinBarHeightPx);
         float bx = x + i * (mini_bar_w + mini_bar_gap);
         float by = wf_y + (wf_h - bar_h) / 2.0f;
-        Color color = (level > 0.30f) ? tc.waveform_active : tc.waveform_muted;
+        Color color = (bar >= kActiveColorThreshold) ? tc.waveform_active
+                                                      : tc.waveform_muted;
         SolidBrush brush(color);
         GraphicsPath barPath;
         GdiPlusHelper::MakeRoundedRect(&barPath, bx, by, mini_bar_w, bar_h, 1.0f);
@@ -1438,39 +1423,19 @@ void FloatingOverlayWindow::PaintWaveform(Graphics& g, float x, float y,
                       (kWaveformBars - 1) * kBarGap;
   float start_x = x + (w - total_bar_w) / 2.0f;
 
-  // Additive (issue 05): if Dart has pushed a pre-computed bar array,
-  // render stateless from it. No smoothing — heights are already
-  // perceptually mapped on the Dart side by WaveformPipeline.
-  if (!waveform_bars_.empty()) {
-    const float min_h = 4.0f;
-    for (int i = 0; i < kWaveformBars; ++i) {
-      double raw = (i < static_cast<int>(waveform_bars_.size()))
-                       ? waveform_bars_[i]
-                       : 0.0;
-      float bar = static_cast<float>(std::clamp(raw, 0.0, 1.0));
-      float bar_h = min_h + bar * (h - min_h);
-      float bar_x = start_x + i * (kBarWidth + kBarGap);
-      float bar_y = y + (h - bar_h) / 2.0f;
-
-      Color color = (bar >= 0.30f) ? tc.waveform_active : tc.waveform_muted;
-      SolidBrush brush(color);
-
-      GraphicsPath barPath;
-      GdiPlusHelper::MakeRoundedRect(&barPath, bar_x, bar_y, kBarWidth, bar_h,
-                                     kBarRadius);
-      g.FillPath(&brush, &barPath);
-    }
-    return;
-  }
-
-  // Legacy path: heights driven by SetAudioLevel ring-buffer + smoothing.
+  // Stateless render: heights come straight from the Dart-side
+  // WaveformPipeline via SetWaveformBars. No smoothing, no fallback.
   for (int i = 0; i < kWaveformBars; ++i) {
-    float level = waveform_display_[i];
-    float bar_h = 4.0f + level * (h - 4.0f);  // 4px min → h max
+    double raw = (i < static_cast<int>(waveform_bars_.size()))
+                     ? waveform_bars_[i]
+                     : 0.0;
+    float bar = static_cast<float>(std::clamp(raw, 0.0, 1.0));
+    float bar_h = kMinBarHeightPx + bar * (h - kMinBarHeightPx);
     float bar_x = start_x + i * (kBarWidth + kBarGap);
-    float bar_y = y + (h - bar_h) / 2.0f;  // vertically centered
+    float bar_y = y + (h - bar_h) / 2.0f;
 
-    Color color = (level > 0.30f) ? tc.waveform_active : tc.waveform_muted;
+    Color color = (bar >= kActiveColorThreshold) ? tc.waveform_active
+                                                  : tc.waveform_muted;
     SolidBrush brush(color);
 
     GraphicsPath barPath;

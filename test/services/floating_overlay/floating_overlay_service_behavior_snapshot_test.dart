@@ -60,9 +60,6 @@ class _FakeController implements FloatingOverlayController {
   Future<void> updateSnapshot(FloatingOverlaySnapshot snapshot) async {}
 
   @override
-  Future<void> setAudioLevel(double level) async {}
-
-  @override
   Future<void> setWaveformBars(List<double> bars) async {}
 
   @override
