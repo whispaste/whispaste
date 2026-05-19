@@ -17,9 +17,11 @@ import 'steps/ready_step.dart';
 
 /// Full-screen onboarding overlay with frosted glass backdrop.
 ///
-/// Sits on top of the main app shell in a [Stack]. Shows 4 steps with
-/// animated transitions, stepper dots, and a skip button. On completion
-/// (or skip) persists [AppSettings.onboardingCompleted] = true.
+/// Sits on top of the main app shell in a [Stack]. Shows 4–5 steps with
+/// animated transitions, stepper dots, and a skip button. Step count is
+/// platform-dependent (see [_onboardingSteps]): macOS renders 5, Windows
+/// and Linux render 4. On completion (or skip) persists
+/// [AppSettings.onboardingCompleted] = true.
 class OnboardingOverlay extends ConsumerStatefulWidget {
   const OnboardingOverlay({super.key});
 
@@ -29,10 +31,12 @@ class OnboardingOverlay extends ConsumerStatefulWidget {
 
 /// Platform-dependent identifier for each onboarding step.
 ///
-/// The set of steps the overlay renders varies by platform: Linux skips
-/// the Auto-Paste permission step because the underlying capability is
-/// not supported there, so we describe the flow as a list of these IDs
-/// and let [_buildStep] map each one to its widget.
+/// The set of steps the overlay renders varies by platform: only macOS
+/// includes the Auto-Paste permission step, because macOS is the only host
+/// where the user actually has to grant something (Accessibility / TCC).
+/// Windows needs no extra permission in the 99 % case and Linux has no
+/// matching capability at all, so both platforms drop the step entirely to
+/// keep the onboarding flow tight.
 enum _OnboardingStepId { welcome, microphone, autoPaste, model, ready }
 
 class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
@@ -71,17 +75,22 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
 
   /// Returns the ordered step IDs for the current platform.
   ///
-  /// Linux has no Accessibility-style permission for keystroke injection,
-  /// so [AutoPasteStep] would have nothing to do and is omitted entirely.
-  /// macOS and Windows both include it — the step itself branches on
-  /// [defaultTargetPlatform] to render the macOS Grant/Repair/Skip flow or
-  /// the minimal Windows Verify (plus UIPI-edge warn).
+  /// Only macOS includes [AutoPasteStep]: that platform requires the user to
+  /// grant the Accessibility permission before WhisPaste can simulate ⌘V,
+  /// and the diagnostic test paste in the step is the verifiable proof that
+  /// the grant landed. Windows and Linux skip the step entirely — Windows
+  /// because the SendInput bridge needs no permission in the 99 % case and
+  /// the test-paste sub-step was reading as "press a hotkey" during real
+  /// onboarding sessions, breaking the flow without delivering value; Linux
+  /// because the underlying capability is not supported there at all. The
+  /// rare Windows UIPI/UAC edge stays surfaced through the Settings paste
+  /// capability indicator instead of holding up first-run.
   List<_OnboardingStepId> _onboardingSteps() {
-    final isLinux = defaultTargetPlatform == TargetPlatform.linux;
+    final isMacOs = defaultTargetPlatform == TargetPlatform.macOS;
     return [
       _OnboardingStepId.welcome,
       _OnboardingStepId.microphone,
-      if (!isLinux) _OnboardingStepId.autoPaste,
+      if (isMacOs) _OnboardingStepId.autoPaste,
       _OnboardingStepId.model,
       _OnboardingStepId.ready,
     ];
