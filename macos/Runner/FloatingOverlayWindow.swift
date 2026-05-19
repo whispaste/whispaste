@@ -41,7 +41,13 @@ private let kShadowPad: CGFloat = 28
 private let kPadH: CGFloat = 16
 private let kBarWidth: CGFloat = 2.5
 private let kBarGap: CGFloat = 1.5
+// Waveform contract — Dart owns the smoothing pipeline and pushes a
+// pre-computed bar array via `setWaveformBars`. The renderer is stateless.
+// Keep these in sync with `lib/services/floating_overlay/floating_overlay_service.dart`
+// and `lib/services/floating_overlay/waveform_pipeline.dart`.
 private let kBarCount = 30
+private let kMinBarHeightPx: CGFloat = 3.0
+private let kActiveColorThreshold: Double = 0.30
 private let kCloseSize: CGFloat = 36
 private let kCompactCloseSize: CGFloat = 28
 private let kStopBtnSize: CGFloat = 36
@@ -130,14 +136,12 @@ class FloatingOverlayView: NSView {
   var hintText: String = "" { didSet { needsDisplay = true } }
   var errorMessage: String? { didSet { needsDisplay = true } }
   var showRetry: Bool = false { didSet { needsDisplay = true } }
-  var audioLevel: Float = 0 { didSet { updateWaveformTarget() } }
 
-  /// Additive path (issue 05): pre-computed bar heights in 0.0–1.0 pushed by
-  /// Dart via the `setWaveformBars` channel method. When non-nil, the
-  /// waveform is rendered stateless from this array (no smoothing, no
-  /// sine-tick). When nil, the legacy `setAudioLevel` + sine-tick path is
-  /// used. Length is expected to equal `kBarCount` (30).
-  var waveformBars: [Double]? { didSet { needsDisplay = true } }
+  /// Pre-computed bar heights in 0.0–1.0 pushed by Dart via the
+  /// `setWaveformBars` channel method. Sole source of truth for the
+  /// waveform — the renderer is stateless. Length is expected to equal
+  /// `kBarCount` (30). Empty until the first push.
+  var waveformBars: [Double] = [] { didSet { needsDisplay = true } }
   var progressValue: Double = 0 { didSet { needsDisplay = true } }
   var masterOpacity: CGFloat = 1.0 { didSet { needsDisplay = true } }
   var isDark: Bool = true { didSet { needsDisplay = true } }
@@ -159,11 +163,6 @@ class FloatingOverlayView: NSView {
   private var animTimer: Timer?
   private var animOrigin: CFTimeInterval = CACurrentMediaTime()
 
-  // Waveform bars — 12 bars with smooth interpolation.
-  private var waveTarget: [CGFloat] = Array(repeating: 0, count: kBarCount)
-  private var waveDisplay: [CGFloat] = Array(repeating: 0, count: kBarCount)
-  private var currentAudioLevel: CGFloat = 0
-
   // MARK: - Lifecycle
 
   override init(frame: NSRect) {
@@ -180,6 +179,10 @@ class FloatingOverlayView: NSView {
     animTimer?.invalidate()
   }
 
+  /// Drives the ~30 fps redraw for non-waveform animated UI: the recording
+  /// dot pulse, the transcribing/processing spinner, and the shimmer bar.
+  /// Waveform bars are pushed by Dart via `setWaveformBars` and trigger
+  /// `needsDisplay` on their own.
   private func startAnimation() {
     animTimer = Timer.scheduledTimer(withTimeInterval: kAnimInterval, repeats: true) { [weak self] _ in
       self?.tick()
@@ -187,34 +190,7 @@ class FloatingOverlayView: NSView {
   }
 
   private func tick() {
-    let now = CACurrentMediaTime()
-    let maxH: CGFloat = isCompact ? 16 : 24
-    let minH: CGFloat = 1.0
-
-    // Recompute waveform targets every frame using two-oscillator synthesis.
-    // This gives organic, always-moving bars even at low audio levels.
-    if recordingState == .recording || recordingState == .listening {
-      for i in 0..<kBarCount {
-        let phase1 = Double(i) * 0.71
-        let phase2 = Double(i) * 1.37
-        let slow = sin(phase1 + now * 2.5)
-        let fast = sin(phase2 + now * 7.1)
-        let wave = slow * 0.65 + fast * 0.35
-        let norm = (wave + 1.0) / 2.0
-        waveTarget[i] = minH + CGFloat(norm) * currentAudioLevel * (maxH - minH)
-      }
-    }
-
-    // Smooth lerp toward targets.
-    var changed = false
-    for i in 0..<kBarCount {
-      let diff = waveTarget[i] - waveDisplay[i]
-      if abs(diff) > 0.1 {
-        waveDisplay[i] += diff * 0.3
-        changed = true
-      }
-    }
-    if changed || recordingState == .recording || recordingState == .listening
+    if recordingState == .recording || recordingState == .listening
         || recordingState == .transcribing || recordingState == .processing {
       needsDisplay = true
     }
@@ -222,14 +198,7 @@ class FloatingOverlayView: NSView {
 
   private func onStateChange() {
     animOrigin = CACurrentMediaTime()
-    if recordingState != .recording && recordingState != .listening {
-      waveTarget = Array(repeating: 0, count: kBarCount)
-    }
     needsDisplay = true
-  }
-
-  private func updateWaveformTarget() {
-    currentAudioLevel = CGFloat(min(max(audioLevel, 0), 1))
   }
 
   private func resizePill() {
@@ -545,7 +514,6 @@ class FloatingOverlayView: NSView {
 
   private func drawWaveform(ctx: CGContext, x: CGFloat, cy: CGFloat, maxWidth: CGFloat, accent: GradientPair) {
     let maxH: CGFloat = isCompact ? 16 : 24
-    let minH: CGFloat = 4
     // Spread bars evenly across available width (matching Windows fill behavior)
     let barW: CGFloat = kBarWidth
     let totalBarsWidth = CGFloat(kBarCount) * barW
@@ -565,37 +533,16 @@ class FloatingOverlayView: NSView {
       ? NSColor(red: 0x8A / 255.0, green: 0x99 / 255.0, blue: 0xB2 / 255.0, alpha: 0.5 * masterOpacity)
       : NSColor(red: 0x5B / 255.0, green: 0x69 / 255.0, blue: 0x7E / 255.0, alpha: 0.5 * masterOpacity)
 
-    // Additive (issue 05): if Dart has pushed a pre-computed bar array,
-    // render stateless from it. No smoothing, no sine-tick — heights are
-    // already perceptually mapped by the Dart-side WaveformPipeline.
-    if let bars = waveformBars {
-      for i in 0..<kBarCount {
-        let bar = i < bars.count ? CGFloat(max(0.0, min(1.0, bars[i]))) : 0
-        let barH = minH + bar * (maxH - minH)
-        let bx = startX + CGFloat(i) * (barW + gap)
-        let by = cy - barH / 2
-        let barRect = NSRect(x: bx, y: by, width: barW, height: barH)
-        let barPath = CGPath(roundedRect: barRect, cornerWidth: barW / 2, cornerHeight: barW / 2, transform: nil)
-        let color = bar >= 0.30 ? activeColor : mutedColor
-        ctx.setFillColor(color.cgColor)
-        ctx.addPath(barPath)
-        ctx.fillPath()
-      }
-      return
-    }
-
-    // Legacy path: heights driven by setAudioLevel + tick() sine synthesis.
+    // Stateless render: heights come straight from the Dart-side
+    // WaveformPipeline via setWaveformBars. No smoothing, no fallback.
     for i in 0..<kBarCount {
-      // Windows: bar_h = 4 + level * (h - 4), level is 0-1
-      let level = waveDisplay[i] / maxH
-      let barH = max(4, waveDisplay[i])
+      let bar = i < waveformBars.count ? max(0.0, min(1.0, waveformBars[i])) : 0.0
+      let barH = kMinBarHeightPx + CGFloat(bar) * (maxH - kMinBarHeightPx)
       let bx = startX + CGFloat(i) * (barW + gap)
       let by = cy - barH / 2
       let barRect = NSRect(x: bx, y: by, width: barW, height: barH)
       let barPath = CGPath(roundedRect: barRect, cornerWidth: barW / 2, cornerHeight: barW / 2, transform: nil)
-
-      // Color based on level: >0.30 = active, else muted
-      let color = level > 0.30 ? activeColor : mutedColor
+      let color = bar >= kActiveColorThreshold ? activeColor : mutedColor
       ctx.setFillColor(color.cgColor)
       ctx.addPath(barPath)
       ctx.fillPath()

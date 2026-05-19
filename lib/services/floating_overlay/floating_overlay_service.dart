@@ -14,9 +14,51 @@ import '../floating_platform_service_base.dart';
 import '../recording_orchestrator.dart';
 import 'floating_overlay_controller.dart';
 import 'floating_overlay_events.dart';
+import 'waveform_pipeline.dart';
 import '../../widgets/recording_behavior.dart' show localizeRecordingError;
 
 final _log = AppLogger('FloatingOverlayService');
+
+// ── Waveform pipeline constants (keep in sync with native renderers) ─────────
+//
+// These values configure the single [WaveformPipeline] instance that owns the
+// floating-overlay waveform state. The native renderers
+// (`macos/Runner/FloatingOverlayWindow.swift`,
+//  `windows/runner/floating_overlay_window.cpp`) only know `kBarCount` /
+// `kMinBarHeightPx` / `kActiveColorThreshold`; every other constant lives
+// here because the pipeline is fully Dart-side.
+
+/// Number of bars in the rendered waveform snapshot. Mirrors the native
+/// `kBarCount` (Swift) / `kWaveformBars` (C++).
+const int _kBarCount = 30;
+
+/// Fraction of bars that form the central live zone (the rest scrolls as
+/// history flanks).
+const double _kLiveZoneRatio = 0.20;
+
+/// Time constant (ms) for the rising flank of the smoothed live level.
+const double _kAttackTimeConstantMs = 20;
+
+/// Time constant (ms) for the falling flank of the smoothed live level.
+const double _kReleaseTimeConstantMs = 300;
+
+/// Animation tick rate (Hz). Drives both the periodic [Timer] and the ring
+/// buffer length.
+const double _kTickHz = 30;
+
+/// Animation tick period — derived from [_kTickHz] (~33 ms ≈ 30 fps).
+const Duration _kTickPeriod = Duration(milliseconds: 33);
+
+/// Nominal history window (ms). Ring buffer length ≈ tickHz × this / 1000.
+const double _kHistoryDurationMs = 2000;
+
+/// Hard floor for every bar value in the snapshot. `3.0 / 24.0` matches the
+/// native minimum bar height of 3 px in a 24 px tall waveform.
+const double _kMinBarLevel = 3.0 / 24.0;
+
+/// Maximum relative amplitude of the deterministic micro-modulation added to
+/// live-zone bars.
+const double _kMicroModulationAmplitude = 0.10;
 
 // ── FloatingPlatformHost note ─────────────────────────────────────────────────
 //
@@ -54,15 +96,32 @@ class FloatingOverlayService
           FloatingOverlayController,
           FloatingOverlayEvent
         > {
+  /// Constructs the service.
+  ///
+  /// [now] is the wall-clock source consumed by the [WaveformPipeline] and
+  /// the animation timer. Tests inject a deterministic clock (e.g. via
+  /// `package:fake_async`); production code keeps the default
+  /// [DateTime.now].
+  FloatingOverlayService({DateTime Function()? now})
+    : _now = now ?? DateTime.now;
+
+  final DateTime Function() _now;
+
   Timer? _autoHideTimer;
-  Timer? _audioThrottleTimer;
+
+  /// Animation timer that ticks the [WaveformPipeline] at ~30 Hz and pushes
+  /// each snapshot to the native renderer via [FloatingOverlayController.
+  /// setWaveformBars]. Only active during [RecordingPhase.recording].
+  Timer? _waveformTimer;
+
+  /// Single owner of the waveform smoothing + history state. Created lazily
+  /// in [onControllerReady] so subclasses can override `createController`
+  /// without paying the allocation cost when the platform has no overlay.
+  late final WaveformPipeline _pipeline;
 
   int _generation = 0;
   RecordingPhase _lastPhase = RecordingPhase.idle;
   L10n? _l10n;
-
-  double _pendingLevel = 0.0;
-  bool _levelThrottled = false;
 
   // ── FloatingPlatformServiceBase contract ──────────────────────────────────
 
@@ -82,9 +141,20 @@ class FloatingOverlayService
 
   @override
   void onControllerReady(FloatingOverlayController controller) {
+    _pipeline = WaveformPipeline(
+      barCount: _kBarCount,
+      liveZoneRatio: _kLiveZoneRatio,
+      attackTimeConstantMs: _kAttackTimeConstantMs,
+      releaseTimeConstantMs: _kReleaseTimeConstantMs,
+      tickHz: _kTickHz,
+      historyDurationMs: _kHistoryDurationMs,
+      minBarLevel: _kMinBarLevel,
+      microModulationAmplitude: _kMicroModulationAmplitude,
+    );
+
     ref.onDispose(() {
       _autoHideTimer?.cancel();
-      _audioThrottleTimer?.cancel();
+      _waveformTimer?.cancel();
     });
 
     ref.listen(settingsProvider, (_, next) {
@@ -137,6 +207,15 @@ class FloatingOverlayService
 
     _lastPhase = next;
 
+    // Phase-driven waveform-pipeline lifecycle. The animation timer is bound
+    // strictly to the `recording` phase: starts on entry, stops hard on exit.
+    // (Release-out smoothing belongs to issue 07.)
+    if (next == RecordingPhase.recording) {
+      _startWaveformLoop();
+    } else if (prev == RecordingPhase.recording) {
+      _stopWaveformLoop();
+    }
+
     switch (next) {
       case RecordingPhase.idle:
         if (prev == RecordingPhase.done &&
@@ -166,20 +245,32 @@ class FloatingOverlayService
     }
   }
 
-  // ── Audio level (throttled to ~20 Hz) ────────────────────────────────────
+  // ── Audio level → waveform pipeline ──────────────────────────────────────
 
   void _onAudioLevel(double level) {
     if (controller == null) return;
     if (_lastPhase != RecordingPhase.recording) return;
+    _pipeline.pushSample(level, _now());
+  }
 
-    _pendingLevel = level;
-    if (_levelThrottled) return;
+  // ── Waveform animation loop ──────────────────────────────────────────────
 
-    _levelThrottled = true;
-    _audioThrottleTimer = Timer(const Duration(milliseconds: 50), () {
-      _levelThrottled = false;
-      controller?.setAudioLevel(_pendingLevel);
+  void _startWaveformLoop() {
+    _pipeline.reset();
+    _waveformTimer?.cancel();
+    _waveformTimer = Timer.periodic(_kTickPeriod, (_) {
+      final c = controller;
+      if (c == null) return;
+      _pipeline.tick(_now());
+      c.setWaveformBars(_pipeline.snapshot()).catchError((e, st) {
+        _log.error('Failed to push waveform bars', e, st);
+      });
     });
+  }
+
+  void _stopWaveformLoop() {
+    _waveformTimer?.cancel();
+    _waveformTimer = null;
   }
 
   // ── Elapsed timer updates ─────────────────────────────────────────────────

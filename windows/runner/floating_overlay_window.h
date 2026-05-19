@@ -75,13 +75,10 @@ class FloatingOverlayWindow {
   // Core API: Dart pushes complete snapshots.
   void UpdateSnapshot(const OverlaySnapshot& snapshot);
 
-  // Audio level for waveform (0.0–1.0, called at ~20Hz by Dart).
-  void SetAudioLevel(double level);
-
-  // Additive (issue 05): push a pre-computed bar array (length kWaveformBars)
-  // with values in 0.0–1.0. While non-empty, PaintWaveform renders stateless
-  // from this array; the legacy ring-buffer (waveform_levels_/waveform_display_)
-  // is bypassed but left intact for the legacy SetAudioLevel path.
+  // Push a pre-computed bar array (length kWaveformBars) with values in
+  // 0.0–1.0. Sole input to the waveform — the renderer owns no audio state.
+  // Keep in sync with the Dart-side `WaveformPipeline` /
+  // `FloatingOverlayService` (lib/services/floating_overlay/).
   void SetWaveformBars(const std::vector<double>& bars);
 
   // Programmatic positioning (start positions).
@@ -250,14 +247,18 @@ class FloatingOverlayWindow {
   // Transcribing spinner
   DWORD spinner_origin_ = 0;
 
-  // Waveform ring buffer (30 bars — match Flutter _maxLevelHistory)
+  // Waveform contract — Dart owns the WaveformPipeline and pushes a
+  // pre-computed bar array via SetWaveformBars. The renderer is stateless.
+  // Keep in sync with `lib/services/floating_overlay/floating_overlay_service.dart`
+  // and `lib/services/floating_overlay/waveform_pipeline.dart`.
   static constexpr int kWaveformBars = 30;
-  float waveform_levels_[kWaveformBars] = {};
-  float waveform_display_[kWaveformBars] = {};
-  int waveform_write_idx_ = 0;
+  static constexpr float kMinBarHeightPx = 3.0f;
+  static constexpr float kActiveColorThreshold = 0.30f;
 
-  // Additive (issue 05): pre-computed bars pushed via setWaveformBars.
-  // Empty = legacy ring-buffer renders. Filled = stateless render from this.
+  // Pre-computed bars pushed via SetWaveformBars. Empty until the first push;
+  // PaintWaveform then renders bar `i` at `kMinBarHeightPx + bars[i] × (h −
+  // kMinBarHeightPx)` with the active/muted colour decided by
+  // `bars[i] >= kActiveColorThreshold`.
   std::vector<double> waveform_bars_;
 
   // Drag

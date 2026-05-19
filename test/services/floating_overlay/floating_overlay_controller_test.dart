@@ -273,11 +273,6 @@ void main() {
       expect(controller.lastSnapshot?.elapsed, '0:12');
     });
 
-    test('setAudioLevel() records level', () async {
-      await controller.setAudioLevel(0.75);
-      expect(controller.calls, ['setAudioLevel(0.75)']);
-    });
-
     test('setPosition() records coordinates and anchor', () async {
       await controller.setPosition(100, 200, OverlayAnchorMode.bottomCenter);
       expect(controller.calls, ['setPosition(100.0, 200.0, bottomCenter)']);
@@ -325,7 +320,7 @@ void main() {
           label: 'Done',
         ),
       );
-      await controller.setAudioLevel(0.5);
+      await controller.setWaveformBars(List<double>.filled(30, 0.0));
       // Only 'dispose' should be in calls.
       expect(controller.calls, ['dispose']);
     });
@@ -397,12 +392,6 @@ class MockFloatingOverlayController extends FloatingOverlayController {
     calls.add(
       'updateSnapshot(${snapshot.state.name}, visible=${snapshot.visible})',
     );
-  }
-
-  @override
-  Future<void> setAudioLevel(double level) async {
-    if (isDisposed) return;
-    calls.add('setAudioLevel($level)');
   }
 
   @override

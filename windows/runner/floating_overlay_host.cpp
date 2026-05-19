@@ -196,19 +196,9 @@ void FloatingOverlayHost::HandleMethodCall(
     return;
   }
 
-  // ── setAudioLevel ───────────────────────────────────────────────────
-  if (method == "setAudioLevel") {
-    if (window_ && map) {
-      window_->SetAudioLevel(GetDouble(*map, "level", 0.0));
-    }
-    result->Success();
-    return;
-  }
-
   // ── setWaveformBars ─────────────────────────────────────────────────
-  // Additive (issue 05): Dart pushes a pre-computed bar array. While
-  // populated, PaintWaveform renders stateless from it; the legacy
-  // SetAudioLevel ring-buffer path is bypassed but left intact.
+  // Dart pushes a pre-computed bar array from its WaveformPipeline. The
+  // renderer is stateless and owns no audio state of its own.
   if (method == "setWaveformBars") {
     if (window_ && map) {
       auto it = map->find(EncodableValue("bars"));
