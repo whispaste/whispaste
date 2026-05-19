@@ -2,6 +2,40 @@
 
 ## Unreleased
 
+## 1.2.21
+
+### Features
+
+- **Onboarding gains a dedicated Auto-Paste step**. New users now hit a guided `AutoPasteStep` before reaching the Ready screen. On macOS it triggers the Accessibility prompt, polls TCC state via a `PollingPhase` controller, surfaces a "Waiting for permission…" hint card while the System Settings sheet is open, exposes a lazy "Repair permissions" button (`tccutil reset Accessibility + AppleEvents`) that only appears once the user has had a chance to grant manually, and shows a sharper TCC-mismatch banner with a restart hint when the bundle ID granted in TCC no longer matches the running app. On Windows the same step runs a verify branch that detects the UIPI edge case (elevated foreground window blocks `SendInput`) and skips cleanly with a Windows-specific explanation. The step counter at the top of the wizard is now dynamic, so users on `clipboardOnly` mode (where the Auto-Paste step is skipped) no longer see misleading "Step 3 of 4" labels. A new diagnostic-paste endpoint backs a **Test-Paste sub-step** that lets the user verify the paste path end-to-end without recording first.
+
+- **Hotkey conflict detection in `ReadyStep`**. The Ready screen now checks whether the configured global hotkey is already claimed by another running app or by the OS before the user hits Start. If a conflict is detected, the step blocks the Start CTA and points the user back to the Hotkey step instead of letting them finish onboarding into a broken state.
+
+- **Dynamic language selector in `WelcomeStep`**. The welcome screen picks up the user's OS locale on first paint and proposes it as the default transcription language. The old static pill-row selector has been replaced by a shared `LanguageSelector` dropdown that scales to the full Whisper language catalog without overflowing.
+
+- **`ReadyStep` reacts to `afterTranscriptionAction`**. The "What happens after recording?" preview on step 3 now updates live when the user changes the after-transcription mode (`copy` / `paste` / `clipboardAndPaste`) elsewhere in onboarding, so the preview text always matches the active mode.
+
+- **Status-bar Auto-Paste-Off hint**. Users who skip the Auto-Paste onboarding step now see a one-time hint in the status bar explaining that Auto-Paste is off and how to enable it later, so the skipped path is recoverable without the user having to remember the setting exists.
+
+- **Soft release-out on the floating overlay when recording ends**. The waveform now animates out gracefully when the overlay transitions from `recording` to `transcribing`, instead of snapping flat. The new `WaveformPipeline` drives a ring-buffer of bar heights with configurable attack/release smoothing, so the visualisation tracks speech energy faithfully on rises and decays smoothly on silence.
+
+- **Perceptual `SpeechLevelMapper`**. The raw RMS level from the audio engine is now mapped through a perceptual dB → visual curve before reaching the overlay. Quiet speech registers visibly, loud speech doesn't clip the bars, and the silence floor sits where the user expects it.
+
+### Refactor
+
+- **`PasteCapabilityNotifier` extracted from the indicator widget**. The Auto-Paste capability state (the `ready` / `permissionMissing` / `unsupported` machine shipped in 1.2.19) now lives in a dedicated Riverpod notifier instead of being tangled into the Settings indicator widget. The new onboarding `AutoPasteStep` and the existing Settings indicator both observe the same source of truth, so a permission grant in onboarding immediately reflects in Settings and vice versa.
+
+- **History UI adopts split-view + search-filter-bar naming**. The history pane's internal widgets and providers have been renamed to match the `CONTEXT.md` glossary (`SplitView`, `SearchFilterBar`). No behaviour change — pure terminology alignment so future references match the canonical vocabulary.
+
+- **Shared `LanguageSelector` widget**. Onboarding and Settings now both consume the same dropdown widget for transcription-language selection, eliminating the duplicated pill-row in onboarding and the bespoke dropdown in Settings.
+
+- **`AudioService` routes level through `SpeechLevelMapper`**. The internal audio level path no longer exposes raw RMS to consumers. The new `setWaveformBars` channel is the supported way to drive visualisations, and the legacy `setAudioLevel` hook has been removed.
+
+### Bug Fixes
+
+- **Sentry no longer ingests user-config noise**. Settings-page navigation, preference toggles, and the routine config-load breadcrumbs that contributed nothing diagnostic but inflated event payloads have been filtered out at the breadcrumb level. Crash reports stay focused on the path that led to the failure instead of being buried under setting reads.
+
+- **Disposal guard on `AutoPasteStep`**. The onboarding step now cancels its TCC poll and Sentry breadcrumb timer when disposed, so navigating away mid-grant no longer leaks a timer or fires a breadcrumb against a dead context.
+
 ## 1.2.20
 
 ### Bug Fixes
