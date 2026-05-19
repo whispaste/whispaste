@@ -64,10 +64,24 @@ class _FakeRepairController implements DesktopPasteController {
   );
   int repairCalls = 0;
 
+  /// Seeded outcome for [diagnosticPaste]. Tests rebind it per scenario to
+  /// exercise each [TestPasteOutcome] variant.
+  TestPasteOutcome diagnosticOutcome = const TestPasteOutcomeSuccess();
+
+  /// Captures every demoText the notifier forwards to the controller — proves
+  /// the wrapper does not silently re-key the argument.
+  final List<String> diagnosticCalls = <String>[];
+
   @override
   Future<TccRepairResult> repairTccEntries() async {
     repairCalls++;
     return repairResult;
+  }
+
+  @override
+  Future<TestPasteOutcome> diagnosticPaste(String demoText) async {
+    diagnosticCalls.add(demoText);
+    return diagnosticOutcome;
   }
 
   // Unused
@@ -597,6 +611,78 @@ void main() {
       final callsAfterStop = paster.calls.length;
       await Future<void>.delayed(const Duration(milliseconds: 80));
       expect(paster.calls.length, callsAfterStop);
+    });
+  });
+
+  group('PasteCapabilityNotifier — runDiagnosticPaste()', () {
+    test(
+      'delegates to controller with the given demoText and returns success',
+      () async {
+        final controller = _FakeRepairController()
+          ..diagnosticOutcome = const TestPasteOutcomeSuccess();
+        final paster = _FakePaster();
+        final container = _container(paster: paster, controller: controller);
+        addTearDown(container.dispose);
+
+        final notifier = container.read(
+          pasteCapabilityNotifierProvider.notifier,
+        );
+        final outcome = await notifier.runDiagnosticPaste('WhisPaste demo');
+
+        expect(controller.diagnosticCalls, ['WhisPaste demo']);
+        expect(outcome, isA<TestPasteOutcomeSuccess>());
+      },
+    );
+
+    test('propagates noFrontmost outcome 1:1', () async {
+      final controller = _FakeRepairController()
+        ..diagnosticOutcome = const TestPasteOutcomeNoFrontmost();
+      final paster = _FakePaster();
+      final container = _container(paster: paster, controller: controller);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+      final outcome = await notifier.runDiagnosticPaste('demo');
+
+      expect(outcome, isA<TestPasteOutcomeNoFrontmost>());
+    });
+
+    test('propagates failure outcome with reason', () async {
+      final controller = _FakeRepairController()
+        ..diagnosticOutcome = const TestPasteOutcomeFailure('not_trusted');
+      final paster = _FakePaster();
+      final container = _container(paster: paster, controller: controller);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+      final outcome = await notifier.runDiagnosticPaste('demo');
+
+      expect(outcome, isA<TestPasteOutcomeFailure>());
+      expect((outcome as TestPasteOutcomeFailure).reason, 'not_trusted');
+    });
+
+    test('propagates unsupported outcome', () async {
+      final controller = _FakeRepairController()
+        ..diagnosticOutcome = const TestPasteOutcomeUnsupported();
+      final paster = _FakePaster();
+      final container = _container(paster: paster, controller: controller);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+      final outcome = await notifier.runDiagnosticPaste('demo');
+
+      expect(outcome, isA<TestPasteOutcomeUnsupported>());
+    });
+
+    test('returns unsupported when no controller is registered', () async {
+      final paster = _FakePaster();
+      final container = _container(paster: paster, controller: null);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+      final outcome = await notifier.runDiagnosticPaste('demo');
+
+      expect(outcome, isA<TestPasteOutcomeUnsupported>());
     });
   });
 

@@ -56,6 +56,61 @@ class NativePasteResult {
   );
 }
 
+/// Outcome of [DesktopPasteController.diagnosticPaste].
+///
+/// Mirrors the `{status, detail?}`-map returned by the native bridges in a
+/// closed, exhaustive set so the onboarding UI can switch on it without
+/// resorting to stringly typed status codes.
+///
+///   - [TestPasteOutcomeSuccess]   — the demo keystroke landed.
+///   - [TestPasteOutcomeNoFrontmost] — no frontmost window was reachable
+///     when the paste fired; the user usually has to click the demo field
+///     and retry.
+///   - [TestPasteOutcomeFailure]   — the paste did not land. `reason` is a
+///     PII-free status code (`"not_trusted"`, `"uipi_blocked"`,
+///     `"exception"`, `"unknown"`, ...).
+///   - [TestPasteOutcomeUnsupported] — the platform has no native bridge
+///     (Linux, or controller running in a test env without a real channel).
+sealed class TestPasteOutcome {
+  const TestPasteOutcome();
+
+  factory TestPasteOutcome.fromMap(Map<Object?, Object?>? map) {
+    if (map == null) {
+      return const TestPasteOutcomeUnsupported();
+    }
+    final status = map['status'] as String?;
+    return switch (status) {
+      'success' => const TestPasteOutcomeSuccess(),
+      'no_frontmost' => const TestPasteOutcomeNoFrontmost(),
+      'unsupported' => const TestPasteOutcomeUnsupported(),
+      'failure' => TestPasteOutcomeFailure(
+        (map['detail'] as String?) ?? 'unknown',
+      ),
+      _ => const TestPasteOutcomeFailure('unknown_status'),
+    };
+  }
+}
+
+class TestPasteOutcomeSuccess extends TestPasteOutcome {
+  const TestPasteOutcomeSuccess();
+}
+
+class TestPasteOutcomeNoFrontmost extends TestPasteOutcome {
+  const TestPasteOutcomeNoFrontmost();
+}
+
+class TestPasteOutcomeFailure extends TestPasteOutcome {
+  const TestPasteOutcomeFailure(this.reason);
+
+  /// PII-free status code, e.g. `"not_trusted"`, `"uipi_blocked"`,
+  /// `"exception"`, `"unknown"`.
+  final String reason;
+}
+
+class TestPasteOutcomeUnsupported extends TestPasteOutcome {
+  const TestPasteOutcomeUnsupported();
+}
+
 enum NativeCapabilityStatus { ready, permissionMissing, unsupported }
 
 class NativeCapabilityResult {
@@ -121,6 +176,19 @@ abstract class DesktopPasteController {
   Future<NativeCapabilityResult> checkCapability({
     bool promptIfMissing = false,
   });
+
+  /// Diagnostic paste — exercises the production Auto-Paste pipeline with a
+  /// caller-supplied `demoText` so the onboarding flow can prove Auto-Paste
+  /// works *before* the user finishes onboarding.
+  ///
+  /// The native side is expected to: (1) backup the current clipboard,
+  /// (2) write [demoText] into it, (3) synthesise the platform's paste
+  /// shortcut, (4) wait briefly for the keystroke to be delivered, (5)
+  /// restore the original clipboard — even on the failure path. Returns a
+  /// [TestPasteOutcome] mirroring the native `{status, detail?}` response;
+  /// exceptions thrown by the channel call map to
+  /// [TestPasteOutcomeFailure] with `reason: "exception"`.
+  Future<TestPasteOutcome> diagnosticPaste(String demoText);
 
   /// Wipes stale TCC entries for the permission services Auto-Paste uses
   /// (macOS Accessibility + AppleEvents). The next paste attempt will

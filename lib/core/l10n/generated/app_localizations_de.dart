@@ -533,6 +533,34 @@ class L10nDe extends L10n {
       '1. Drück unten auf Reparieren — das löscht alte Berechtigungs-Einträge. Danach wirst du erneut gefragt.\n2. Wenn das auch nicht hilft, schließ WhisPaste komplett und starte die App neu — dann erkennt macOS die aktuelle App-Signatur.';
 
   @override
+  String get onboardingPasteTestTitle => 'Probier Auto-Paste aus';
+
+  @override
+  String get onboardingPasteTestSubtitle =>
+      'Drück den Button — der Demo-Text sollte gleich im Feld unten erscheinen.';
+
+  @override
+  String get onboardingPasteDemoText => 'WhisPaste tippt für dich.';
+
+  @override
+  String get onboardingPasteTestRunCta => 'Test einfügen';
+
+  @override
+  String get onboardingPasteTestSuccess =>
+      'Auto-Paste funktioniert! Klick auf Weiter.';
+
+  @override
+  String get onboardingPasteTestNoFrontmost =>
+      'Kein Eingabefeld erkannt. Bitte ins Feld unten klicken und nochmal probieren.';
+
+  @override
+  String get onboardingPasteTestFailure =>
+      'Test fehlgeschlagen. Vielleicht hilft ein App-Neustart — oder fahre ohne Test fort.';
+
+  @override
+  String get onboardingPasteTestSkip => 'Ohne Test fortfahren';
+
+  @override
   String get settingsOverlayFloatingButton => 'Aufnahme-Overlay';
 
   @override

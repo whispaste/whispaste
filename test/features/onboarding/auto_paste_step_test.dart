@@ -76,6 +76,13 @@ class _FakePasteCapabilityNotifier extends PasteCapabilityNotifier {
   Duration? lastPollTimeout;
   bool _isPollingFake = false;
 
+  /// Recorded calls to [runDiagnosticPaste] — proves the widget routes the
+  /// l10n demo text through the notifier without dropping or rewriting it.
+  final List<String> diagnosticCalls = <String>[];
+
+  /// Seeded outcome to return for the next [runDiagnosticPaste] call.
+  TestPasteOutcome diagnosticOutcome = const TestPasteOutcomeSuccess();
+
   /// When non-null, [check] returns this Completer's future instead of an
   /// immediately-resolving one. Tests use it to observe the widget's
   /// in-flight UI state by stalling the async chain at the first await.
@@ -124,6 +131,12 @@ class _FakePasteCapabilityNotifier extends PasteCapabilityNotifier {
     repairCalls++;
     if (_afterRepair != null) state = _afterRepair;
     return _repairResult ?? TccRepairResult.unsupported();
+  }
+
+  @override
+  Future<TestPasteOutcome> runDiagnosticPaste(String demoText) async {
+    diagnosticCalls.add(demoText);
+    return diagnosticOutcome;
   }
 }
 
@@ -231,30 +244,42 @@ void main() {
       },
     );
 
-    testWidgets('ready state: success icon, Next enabled, Skip hidden', (
-      tester,
-    ) async {
-      final paste = _FakePasteCapabilityNotifier(
-        initial: const PasteCapabilityState(
-          capability: PasteCapability(status: PasteCapabilityStatus.ready),
-        ),
-      );
-      var nextCalled = false;
+    testWidgets(
+      'ready state: success icon, Skip-Auto-Paste hidden, Next initially '
+      'disabled (test-paste sub-step is the new gate)',
+      (tester) async {
+        final paste = _FakePasteCapabilityNotifier(
+          initial: const PasteCapabilityState(
+            capability: PasteCapability(status: PasteCapabilityStatus.ready),
+          ),
+        );
+        var nextCalled = false;
 
-      await _pumpStep(tester, paste: paste, onNext: () => nextCalled = true);
+        await _pumpStep(tester, paste: paste, onNext: () => nextCalled = true);
 
-      // "Ready to paste" label is the success message.
-      expect(find.text('Ready to paste'), findsOneWidget);
-      // Skip button is not shown anymore once status is ready.
-      expect(find.text('Skip — disable Auto-Paste'), findsNothing);
-      // Grant CTA also hidden in the success state.
-      expect(find.text('Grant Accessibility permission'), findsNothing);
+        // "Ready to paste" label is the success message.
+        expect(find.text('Ready to paste'), findsOneWidget);
+        // Skip-Auto-Paste button is not shown anymore once status is ready.
+        expect(find.text('Skip — disable Auto-Paste'), findsNothing);
+        // Grant CTA also hidden in the success state.
+        expect(find.text('Grant Accessibility permission'), findsNothing);
+        // Test-paste sub-step is now the gate before Next opens. The user
+        // either runs the test or presses "Continue without testing".
+        expect(find.text('Run test paste'), findsOneWidget);
+        expect(find.text('Continue without testing'), findsOneWidget);
 
-      // Tapping Next now advances.
-      await tester.tap(find.text('Next'));
-      await tester.pumpAndSettle();
-      expect(nextCalled, isTrue);
-    });
+        // Tap on Next must NOT advance until the gate is satisfied.
+        await tester.tap(find.text('Next'));
+        await tester.pumpAndSettle();
+        expect(
+          nextCalled,
+          isFalse,
+          reason:
+              'Next stays disabled in the ready state until the user '
+              'either proves the test paste landed or explicitly skips it.',
+        );
+      },
+    );
 
     testWidgets(
       'Skip persists afterTranscription = clipboard and advances via onNext',
@@ -947,6 +972,170 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
+  // Test-paste sub-step — gate between cap.status == ready and Next.
+  // ---------------------------------------------------------------------------
+  group('AutoPasteStep — TestPasteSubStep', () {
+    testWidgets(
+      'visible when cap.status == ready (before any outcome / skip)',
+      (tester) async {
+        final paste = _FakePasteCapabilityNotifier(
+          initial: const PasteCapabilityState(
+            capability: PasteCapability(status: PasteCapabilityStatus.ready),
+          ),
+        );
+
+        await _pumpStep(tester, paste: paste);
+
+        expect(find.text('Try Auto-Paste'), findsOneWidget);
+        expect(find.text('Run test paste'), findsOneWidget);
+        expect(find.text('Continue without testing'), findsOneWidget);
+        // Demo TextField is rendered (one of the few TextFields on screen).
+        expect(find.byType(TextField), findsOneWidget);
+      },
+    );
+
+    testWidgets('hidden when cap.status != ready (e.g. permissionMissing)', (
+      tester,
+    ) async {
+      final paste = _FakePasteCapabilityNotifier(
+        initial: const PasteCapabilityState(
+          capability: PasteCapability(
+            status: PasteCapabilityStatus.permissionMissing,
+            canPrompt: true,
+          ),
+        ),
+      );
+
+      await _pumpStep(tester, paste: paste);
+
+      expect(find.text('Try Auto-Paste'), findsNothing);
+      expect(find.text('Run test paste'), findsNothing);
+    });
+
+    testWidgets('success outcome: green success banner, Next becomes enabled', (
+      tester,
+    ) async {
+      final paste = _FakePasteCapabilityNotifier(
+        initial: const PasteCapabilityState(
+          capability: PasteCapability(status: PasteCapabilityStatus.ready),
+        ),
+      )..diagnosticOutcome = const TestPasteOutcomeSuccess();
+      var nextCalled = false;
+
+      await _pumpStep(tester, paste: paste, onNext: () => nextCalled = true);
+
+      await tester.tap(find.text('Run test paste'));
+      await tester.pumpAndSettle();
+
+      // Notifier received exactly one diagnostic call with the demo text.
+      expect(paste.diagnosticCalls, ['WhisPaste types for you.']);
+
+      // Success copy is rendered.
+      expect(find.textContaining('Auto-Paste works'), findsOneWidget);
+
+      // Next is now enabled and advances onNext.
+      await tester.tap(find.text('Next'));
+      await tester.pumpAndSettle();
+      expect(nextCalled, isTrue);
+    });
+
+    testWidgets(
+      'failure outcome: red warning banner, Next stays disabled, retry kept',
+      (tester) async {
+        final paste = _FakePasteCapabilityNotifier(
+          initial: const PasteCapabilityState(
+            capability: PasteCapability(status: PasteCapabilityStatus.ready),
+          ),
+        )..diagnosticOutcome = const TestPasteOutcomeFailure('not_trusted');
+        var nextCalled = false;
+
+        await _pumpStep(tester, paste: paste, onNext: () => nextCalled = true);
+
+        await tester.tap(find.text('Run test paste'));
+        await tester.pumpAndSettle();
+
+        expect(find.textContaining('Test failed'), findsOneWidget);
+
+        // Next must NOT have advanced.
+        await tester.tap(find.text('Next'));
+        await tester.pumpAndSettle();
+        expect(nextCalled, isFalse);
+
+        // Retry CTA stays available so the user can try again.
+        expect(find.text('Run test paste'), findsOneWidget);
+      },
+    );
+
+    testWidgets('noFrontmost outcome: yellow warning banner with retry', (
+      tester,
+    ) async {
+      final paste = _FakePasteCapabilityNotifier(
+        initial: const PasteCapabilityState(
+          capability: PasteCapability(status: PasteCapabilityStatus.ready),
+        ),
+      )..diagnosticOutcome = const TestPasteOutcomeNoFrontmost();
+
+      await _pumpStep(tester, paste: paste);
+
+      await tester.tap(find.text('Run test paste'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('No input field detected'), findsOneWidget);
+      expect(find.text('Run test paste'), findsOneWidget);
+    });
+
+    testWidgets(
+      'Continue without testing skip path enables Next without running paste',
+      (tester) async {
+        final paste = _FakePasteCapabilityNotifier(
+          initial: const PasteCapabilityState(
+            capability: PasteCapability(status: PasteCapabilityStatus.ready),
+          ),
+        );
+        var nextCalled = false;
+
+        await _pumpStep(tester, paste: paste, onNext: () => nextCalled = true);
+
+        await tester.tap(find.text('Continue without testing'));
+        await tester.pumpAndSettle();
+
+        // No diagnostic paste was triggered.
+        expect(paste.diagnosticCalls, isEmpty);
+
+        // Sub-step is hidden after skip — Next is reachable directly.
+        expect(find.text('Run test paste'), findsNothing);
+
+        await tester.tap(find.text('Next'));
+        await tester.pumpAndSettle();
+        expect(nextCalled, isTrue);
+      },
+    );
+
+    testWidgets(
+      'sub-step hides after a successful outcome (the success banner takes '
+      'over and Next becomes the primary CTA)',
+      (tester) async {
+        final paste = _FakePasteCapabilityNotifier(
+          initial: const PasteCapabilityState(
+            capability: PasteCapability(status: PasteCapabilityStatus.ready),
+          ),
+        )..diagnosticOutcome = const TestPasteOutcomeSuccess();
+
+        await _pumpStep(tester, paste: paste);
+        await tester.tap(find.text('Run test paste'));
+        await tester.pumpAndSettle();
+
+        // After success the run-test CTA must not show again (the
+        // sub-step keeps the demo field around for visual context but
+        // the run-cta has been replaced with the success banner).
+        expect(find.text('Run test paste'), findsNothing);
+        // Success copy still rendered.
+        expect(find.textContaining('Auto-Paste works'), findsOneWidget);
+      },
+    );
+  });
+
+  // ---------------------------------------------------------------------------
   // Windows-specific surface (slice 05).
   //
   // Branching is driven by `defaultTargetPlatform` so we exercise both paths
@@ -956,8 +1145,8 @@ void main() {
   // ---------------------------------------------------------------------------
   group('AutoPasteStep — Windows', () {
     testWidgets(
-      'ready first-mount: minimal verify state, Next active, NO Skip button, '
-      'NO macOS-specific Grant/Repair affordances',
+      'ready first-mount: verify state + test-paste sub-step gates Next, '
+      'NO macOS-specific Grant/Repair, NO Skip-Auto-Paste affordance',
       (tester) async {
         debugDefaultTargetPlatformOverride = TargetPlatform.windows;
         try {
@@ -965,7 +1154,7 @@ void main() {
             initial: const PasteCapabilityState(
               capability: PasteCapability(status: PasteCapabilityStatus.ready),
             ),
-          );
+          )..diagnosticOutcome = const TestPasteOutcomeSuccess();
           var nextCalled = false;
 
           await _pumpStep(
@@ -986,7 +1175,18 @@ void main() {
           expect(find.text('Grant Accessibility permission'), findsNothing);
           expect(find.text('Repair permissions'), findsNothing);
 
-          // Next is active in the 99% case — tapping advances.
+          // Test-paste sub-step is now the gate before Next opens.
+          expect(find.text('Run test paste'), findsOneWidget);
+
+          // Next is disabled until the sub-step is resolved.
+          await tester.tap(find.text('Next'));
+          await tester.pumpAndSettle();
+          expect(nextCalled, isFalse);
+
+          // Run the test paste and watch Next become reachable.
+          await tester.tap(find.text('Run test paste'));
+          await tester.pumpAndSettle();
+
           await tester.tap(find.text('Next'));
           await tester.pumpAndSettle();
           expect(nextCalled, isTrue);

@@ -42,6 +42,10 @@ class _FakeController implements DesktopPasteController {
       TccRepairResult.unsupported();
 
   @override
+  Future<TestPasteOutcome> diagnosticPaste(String demoText) async =>
+      const TestPasteOutcomeUnsupported();
+
+  @override
   Future<void> dispose() async {}
 }
 

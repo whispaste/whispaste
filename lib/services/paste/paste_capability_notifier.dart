@@ -232,6 +232,43 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
     return result;
   }
 
+  /// Runs the diagnostic paste flow — the explicit "prove Auto-Paste works"
+  /// step in onboarding. Delegates to the platform desktop paste controller
+  /// and emits PII-free Sentry breadcrumbs around the call so funnels can
+  /// slice on `requested → success | failure(reason)`.
+  ///
+  /// Returns [TestPasteOutcomeUnsupported] when no controller is registered
+  /// (Linux, test environments without a real channel).
+  Future<TestPasteOutcome> runDiagnosticPaste(String demoText) async {
+    _emitBreadcrumb('diagnostic_paste.requested');
+    final controller = ref.read(desktopPasteControllerProvider);
+    if (controller == null) {
+      _emitBreadcrumb(
+        'diagnostic_paste.failure',
+        data: {'reason': 'unsupported'},
+      );
+      return const TestPasteOutcomeUnsupported();
+    }
+    final outcome = await controller.diagnosticPaste(demoText);
+    switch (outcome) {
+      case TestPasteOutcomeSuccess():
+        _emitBreadcrumb('diagnostic_paste.success');
+      case TestPasteOutcomeNoFrontmost():
+        _emitBreadcrumb(
+          'diagnostic_paste.failure',
+          data: {'reason': 'no_frontmost'},
+        );
+      case TestPasteOutcomeFailure(:final reason):
+        _emitBreadcrumb('diagnostic_paste.failure', data: {'reason': reason});
+      case TestPasteOutcomeUnsupported():
+        _emitBreadcrumb(
+          'diagnostic_paste.failure',
+          data: {'reason': 'unsupported'},
+        );
+    }
+    return outcome;
+  }
+
   /// Cancels the active timer pair without touching `state`. Safe to call
   /// from `onDispose` where state mutation would assert.
   void _cancelTimers() {

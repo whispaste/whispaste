@@ -1023,6 +1023,54 @@ abstract class L10n {
   /// **'1. Tap Repair below — it clears stale permission entries so macOS asks you again.\n2. If that still doesn\'t help, quit WhisPaste completely and start it again — that lets macOS pick up the current app signature.'**
   String get onboardingPasteTccMismatchBody;
 
+  /// No description provided for @onboardingPasteTestTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Try Auto-Paste'**
+  String get onboardingPasteTestTitle;
+
+  /// No description provided for @onboardingPasteTestSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Click the button — the demo text should appear in the field below.'**
+  String get onboardingPasteTestSubtitle;
+
+  /// No description provided for @onboardingPasteDemoText.
+  ///
+  /// In en, this message translates to:
+  /// **'WhisPaste types for you.'**
+  String get onboardingPasteDemoText;
+
+  /// No description provided for @onboardingPasteTestRunCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Run test paste'**
+  String get onboardingPasteTestRunCta;
+
+  /// No description provided for @onboardingPasteTestSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-Paste works! Click Next to continue.'**
+  String get onboardingPasteTestSuccess;
+
+  /// No description provided for @onboardingPasteTestNoFrontmost.
+  ///
+  /// In en, this message translates to:
+  /// **'No input field detected. Click the field below and try again.'**
+  String get onboardingPasteTestNoFrontmost;
+
+  /// No description provided for @onboardingPasteTestFailure.
+  ///
+  /// In en, this message translates to:
+  /// **'Test failed. Try restarting the app — or continue without testing.'**
+  String get onboardingPasteTestFailure;
+
+  /// No description provided for @onboardingPasteTestSkip.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue without testing'**
+  String get onboardingPasteTestSkip;
+
   /// No description provided for @settingsOverlayFloatingButton.
   ///
   /// In en, this message translates to:
