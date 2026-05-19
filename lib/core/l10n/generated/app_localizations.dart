@@ -993,6 +993,18 @@ abstract class L10n {
   /// **'In certain apps with UIPI/UAC protection, Auto-Paste won\'t work — the text will sit in the clipboard and you\'ll need to paste it with Ctrl+V yourself.'**
   String get onboardingPasteWhyWinUipi;
 
+  /// No description provided for @onboardingPasteWaitingForGrantTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for your permission…'**
+  String get onboardingPasteWaitingForGrantTitle;
+
+  /// No description provided for @onboardingPasteWaitingForGrantHint.
+  ///
+  /// In en, this message translates to:
+  /// **'1. System Settings → Accessibility is open right now. 2. Switch WhisPaste on in the list. 3. This app will detect the change automatically.'**
+  String get onboardingPasteWaitingForGrantHint;
+
   /// No description provided for @settingsOverlayFloatingButton.
   ///
   /// In en, this message translates to:

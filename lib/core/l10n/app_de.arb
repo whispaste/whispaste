@@ -166,6 +166,8 @@
   "onboardingPasteWhyMac": "macOS verlangt eine explizite Berechtigung für jede App, die Tasten in andere Apps schickt. Ohne sie wird dein Transkript trotzdem in die Zwischenablage kopiert, aber ⌘V wird nicht automatisch ausgelöst.",
   "onboardingPasteWhyWin": "Windows erlaubt das Senden von Tasten ohne zusätzliche Berechtigung. Dieser Schritt prüft nur, dass die Verbindung auf deinem Gerät funktioniert.",
   "onboardingPasteWhyWinUipi": "In bestimmten Apps mit UIPI/UAC-Schutz wird Auto-Paste nicht funktionieren — der Text liegt dann in der Zwischenablage und du fügst mit Ctrl+V ein.",
+  "onboardingPasteWaitingForGrantTitle": "Warte auf deine Berechtigung…",
+  "onboardingPasteWaitingForGrantHint": "1. System Settings → Bedienungshilfen ist gerade offen. 2. Schalte WhisPaste in der Liste ein. 3. Diese App erkennt die Änderung automatisch.",
   "settingsOverlayFloatingButton": "Aufnahme-Overlay",
   "settingsOverlayFloatingButtonSubtitle": "Lege fest, wie der Aufnahmezustand beim Diktieren angezeigt wird",
   "settingsShowOverlay": "Anzeige des Aufnahme-Status",

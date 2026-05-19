@@ -335,6 +335,20 @@ class _MacOsBody extends StatelessWidget {
           errorColor: errorColor,
           l10n: l10n,
         ),
+
+        // -- Polling hint card --------------------------------------------
+        // Only visible while we are actively awaiting the user's grant —
+        // hidden once polling self-stops on success/timeout, and obviously
+        // hidden before the user ever clicked Grant.
+        if (state.pollingPhase == PollingPhase.awaitingGrant) ...[
+          const SizedBox(height: WpSpacing.sm),
+          _PollingHintCard(
+            isDark: isDark,
+            textPrimary: textPrimary,
+            textSecondary: textSecondary,
+            l10n: l10n,
+          ),
+        ],
         const SizedBox(height: WpSpacing.lg),
 
         // -- Grant CTA -- only shown until permission is ready --------------
@@ -817,6 +831,85 @@ class _RepairPanel extends StatelessWidget {
               l10n: l10n,
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Step-by-step guidance card surfaced only while
+/// [PasteCapabilityNotifier] is in the [PollingPhase.awaitingGrant] phase.
+///
+/// Explains *what* the app is doing (polling for the OS to flip the
+/// Accessibility toggle) and *what the user has to do* (find WhisPaste in
+/// the System Settings pane that just opened, switch it on). Without this
+/// card the polling spinner reads as "something is loading" — opaque from
+/// the user's perspective and a known onboarding drop-off point.
+///
+/// Surface/border colours mirror [_PermissionStatusCard] so the two cards
+/// read as a unit; the info icon distinguishes the role (status vs. hint).
+class _PollingHintCard extends StatelessWidget {
+  const _PollingHintCard({
+    required this.isDark,
+    required this.textPrimary,
+    required this.textSecondary,
+    required this.l10n,
+  });
+
+  final bool isDark;
+  final Color textPrimary;
+  final Color textSecondary;
+  final L10n l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    final surface =
+        (isDark ? WpColorsDark.surfaceVariant : WpColorsLight.surfaceVariant)
+            .withValues(alpha: 0.5);
+    final border = isDark
+        ? WpColorsDark.borderSubtle
+        : WpColorsLight.borderSubtle;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: WpSpacing.md,
+        vertical: WpSpacing.md,
+      ),
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: WpRadius.borderMd,
+        border: Border.all(color: border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(LucideIcons.info, size: 20, color: textSecondary),
+          const SizedBox(width: WpSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.onboardingPasteWaitingForGrantTitle,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: textPrimary,
+                  ),
+                ),
+                const SizedBox(height: WpSpacing.xs),
+                Text(
+                  l10n.onboardingPasteWaitingForGrantHint,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: textSecondary,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );

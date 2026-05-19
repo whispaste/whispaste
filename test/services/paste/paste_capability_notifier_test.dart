@@ -192,6 +192,133 @@ void main() {
     );
   });
 
+  group('PasteCapabilityNotifier — pollingPhase', () {
+    test('initial state is PollingPhase.idle', () async {
+      final paster = _FakePaster();
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+
+      final state = container.read(pasteCapabilityNotifierProvider);
+      expect(state.pollingPhase, PollingPhase.idle);
+    });
+
+    test('startPolling sets pollingPhase to awaitingGrant', () async {
+      final paster = _FakePaster();
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+      notifier.startPolling(
+        interval: const Duration(seconds: 1),
+        timeout: const Duration(seconds: 30),
+      );
+
+      final state = container.read(pasteCapabilityNotifierProvider);
+      expect(state.pollingPhase, PollingPhase.awaitingGrant);
+      expect(notifier.isPolling, isTrue);
+
+      // Clean up the active timer.
+      notifier.stopPolling();
+    });
+
+    test(
+      'successful poll (capability ready) sets pollingPhase to succeeded and stops timer',
+      () async {
+        final paster = _FakePaster(
+          initial: const PasteCapability(status: PasteCapabilityStatus.ready),
+        );
+        final container = _container(paster: paster);
+        addTearDown(container.dispose);
+
+        final notifier = container.read(
+          pasteCapabilityNotifierProvider.notifier,
+        );
+        notifier.startPolling(
+          interval: const Duration(milliseconds: 20),
+          timeout: const Duration(seconds: 5),
+        );
+        // Let the first tick observe `ready`.
+        await Future<void>.delayed(const Duration(milliseconds: 80));
+
+        expect(notifier.isPolling, isFalse);
+        final state = container.read(pasteCapabilityNotifierProvider);
+        expect(state.pollingPhase, PollingPhase.succeeded);
+      },
+    );
+
+    test('timeout sets pollingPhase to timedOut', () async {
+      final paster = _FakePaster(
+        initial: const PasteCapability(
+          status: PasteCapabilityStatus.permissionMissing,
+          canPrompt: true,
+        ),
+      );
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+      notifier.startPolling(
+        interval: const Duration(milliseconds: 20),
+        timeout: const Duration(milliseconds: 60),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+
+      expect(notifier.isPolling, isFalse);
+      final state = container.read(pasteCapabilityNotifierProvider);
+      expect(state.pollingPhase, PollingPhase.timedOut);
+    });
+
+    test('stopPolling sets pollingPhase to idle', () async {
+      final paster = _FakePaster(
+        initial: const PasteCapability(
+          status: PasteCapabilityStatus.permissionMissing,
+          canPrompt: true,
+        ),
+      );
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+      notifier.startPolling(
+        interval: const Duration(milliseconds: 20),
+        timeout: const Duration(seconds: 5),
+      );
+      expect(
+        container.read(pasteCapabilityNotifierProvider).pollingPhase,
+        PollingPhase.awaitingGrant,
+      );
+
+      notifier.stopPolling();
+      expect(
+        container.read(pasteCapabilityNotifierProvider).pollingPhase,
+        PollingPhase.idle,
+      );
+    });
+
+    test(
+      'isPolling getter returns true iff pollingPhase == awaitingGrant',
+      () async {
+        final paster = _FakePaster();
+        final container = _container(paster: paster);
+        addTearDown(container.dispose);
+
+        final notifier = container.read(
+          pasteCapabilityNotifierProvider.notifier,
+        );
+        expect(notifier.isPolling, isFalse);
+
+        notifier.startPolling(
+          interval: const Duration(seconds: 1),
+          timeout: const Duration(seconds: 30),
+        );
+        expect(notifier.isPolling, isTrue);
+
+        notifier.stopPolling();
+        expect(notifier.isPolling, isFalse);
+      },
+    );
+  });
+
   group('PasteCapabilityNotifier — polling', () {
     test(
       'startPolling calls check periodically until ready, then stops itself',
