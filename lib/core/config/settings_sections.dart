@@ -1077,9 +1077,18 @@ class WindowPositionSettings {
 // ===========================================================================
 
 class OnboardingSettings {
-  const OnboardingSettings({this.onboardingCompleted = false});
+  const OnboardingSettings({
+    this.onboardingCompleted = false,
+    this.autoPasteOffHintDismissed = false,
+  });
 
   final bool onboardingCompleted;
+
+  /// Persistent dismiss of the "Auto-Paste deaktiviert" status-bar hint that
+  /// appears after the user skips Auto-Paste during onboarding. When `true`,
+  /// the chip is hidden permanently — even while Auto-Paste remains off.
+  /// Re-enabling Auto-Paste in Settings makes the chip irrelevant regardless.
+  final bool autoPasteOffHintDismissed;
 
   static const OnboardingSettings defaults = OnboardingSettings();
 
@@ -1090,25 +1099,37 @@ class OnboardingSettings {
           'onboarding_completed',
           defaults.onboardingCompleted,
         ),
+        autoPasteOffHintDismissed: _readBool(
+          v,
+          'auto_paste_off_hint_dismissed',
+          defaults.autoPasteOffHintDismissed,
+        ),
       );
 
   Map<String, String> toMap() => {
     'onboarding_completed': '$onboardingCompleted',
+    'auto_paste_off_hint_dismissed': '$autoPasteOffHintDismissed',
   };
 
-  OnboardingSettings copyWith({bool? onboardingCompleted}) =>
-      OnboardingSettings(
-        onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
-      );
+  OnboardingSettings copyWith({
+    bool? onboardingCompleted,
+    bool? autoPasteOffHintDismissed,
+  }) => OnboardingSettings(
+    onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
+    autoPasteOffHintDismissed:
+        autoPasteOffHintDismissed ?? this.autoPasteOffHintDismissed,
+  );
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is OnboardingSettings &&
-          onboardingCompleted == other.onboardingCompleted;
+          onboardingCompleted == other.onboardingCompleted &&
+          autoPasteOffHintDismissed == other.autoPasteOffHintDismissed;
 
   @override
-  int get hashCode => onboardingCompleted.hashCode;
+  int get hashCode =>
+      Object.hash(onboardingCompleted, autoPasteOffHintDismissed);
 }
 
 // ===========================================================================

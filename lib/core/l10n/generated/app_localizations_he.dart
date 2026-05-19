@@ -1217,6 +1217,17 @@ class L10nHe extends L10n {
   String get statusBarHotkeyTooltip => 'קיצור גלובלי – לחץ להגדרה';
 
   @override
+  String get statusBarAutoPasteOffHint =>
+      'הדבקה אוטומטית כבויה — ניתן להפעיל בהגדרות';
+
+  @override
+  String get statusBarAutoPasteOffHintTooltip =>
+      'הדבקה אוטומטית כבויה כעת. לחץ לפתיחת ההגדרות.';
+
+  @override
+  String get statusBarAutoPasteOffHintDismiss => 'הסתר';
+
+  @override
   String get modifierCtrl => 'Ctrl';
 
   @override

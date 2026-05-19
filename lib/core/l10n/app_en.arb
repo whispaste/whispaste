@@ -457,6 +457,9 @@
   "statusBarTranscribing": "Transcribing…",
   "statusBarDone": "Done",
   "statusBarHotkeyTooltip": "Global hotkey — click to configure",
+  "statusBarAutoPasteOffHint": "Auto-Paste off — enable in Settings",
+  "statusBarAutoPasteOffHintTooltip": "Auto-Paste is currently disabled. Click to open Settings.",
+  "statusBarAutoPasteOffHintDismiss": "Dismiss",
 
   "modifierCtrl": "Ctrl",
   "modifierShift": "Shift",
