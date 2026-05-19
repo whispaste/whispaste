@@ -60,6 +60,14 @@ const double _kMinBarLevel = 3.0 / 24.0;
 /// live-zone bars.
 const double _kMicroModulationAmplitude = 0.10;
 
+/// Duration (ms) of the trailing release-out animation that follows the
+/// `recording → transcribing` phase transition. During this window the
+/// pipeline keeps ticking with `pushSample(0.0, …)` so the live zone decays
+/// gracefully toward the rest floor instead of freezing at the snapshot
+/// moment. After the window elapses the animation timer stops and the last
+/// snapshot remains frozen on screen.
+const int releaseOutDurationMs = 300;
+
 // ── FloatingPlatformHost note ─────────────────────────────────────────────────
 //
 // Initialization ordering of the two floating-window services:
@@ -111,8 +119,20 @@ class FloatingOverlayService
 
   /// Animation timer that ticks the [WaveformPipeline] at ~30 Hz and pushes
   /// each snapshot to the native renderer via [FloatingOverlayController.
-  /// setWaveformBars]. Only active during [RecordingPhase.recording].
+  /// setWaveformBars]. Active during [RecordingPhase.recording] and during
+  /// the trailing release-out window after `recording → transcribing`.
   Timer? _waveformTimer;
+
+  /// True while the service is in the release-out tail that follows the
+  /// `recording → transcribing` transition. While set, `audioLevelProvider`
+  /// updates are ignored and the timer tick pushes `pushSample(0.0, _now())`
+  /// instead, so the live zone decays gracefully via the pipeline's release
+  /// smoothing.
+  bool _isInReleaseOut = false;
+
+  /// Wall-clock instant at which the current release-out window started.
+  /// `null` outside of release-out.
+  DateTime? _releaseOutStart;
 
   /// Single owner of the waveform smoothing + history state. Created lazily
   /// in [onControllerReady] so subclasses can override `createController`
@@ -207,12 +227,27 @@ class FloatingOverlayService
 
     _lastPhase = next;
 
-    // Phase-driven waveform-pipeline lifecycle. The animation timer is bound
-    // strictly to the `recording` phase: starts on entry, stops hard on exit.
-    // (Release-out smoothing belongs to issue 07.)
+    // Phase-driven waveform-pipeline lifecycle.
+    //
+    //   idle → recording: start the animation timer with a fresh pipeline.
+    //   recording → transcribing: enter release-out — keep the timer alive
+    //       for ~releaseOutDurationMs, but feed it `pushSample(0.0, …)` so
+    //       the live zone decays gracefully via the pipeline's release-tau.
+    //   recording → done / error: skip release-out, stop hard.
+    //   anything → done / error during release-out: stop hard immediately.
     if (next == RecordingPhase.recording) {
       _startWaveformLoop();
+    } else if (prev == RecordingPhase.recording &&
+        next == RecordingPhase.transcribing) {
+      _startReleaseOut();
     } else if (prev == RecordingPhase.recording) {
+      // recording → done / error / idle: no release-out, stop hard.
+      _stopWaveformLoop();
+    } else if (_isInReleaseOut &&
+        (next == RecordingPhase.done ||
+            next == RecordingPhase.error ||
+            next == RecordingPhase.idle)) {
+      // transcribing → done / error / idle mid-release-out: stop hard.
       _stopWaveformLoop();
     }
 
@@ -250,6 +285,9 @@ class FloatingOverlayService
   void _onAudioLevel(double level) {
     if (controller == null) return;
     if (_lastPhase != RecordingPhase.recording) return;
+    // While the release-out tail is running we deliberately ignore live audio
+    // levels — the timer feeds the pipeline `pushSample(0.0, …)` instead.
+    if (_isInReleaseOut) return;
     _pipeline.pushSample(level, _now());
   }
 
@@ -257,20 +295,51 @@ class FloatingOverlayService
 
   void _startWaveformLoop() {
     _pipeline.reset();
+    _isInReleaseOut = false;
+    _releaseOutStart = null;
     _waveformTimer?.cancel();
-    _waveformTimer = Timer.periodic(_kTickPeriod, (_) {
-      final c = controller;
-      if (c == null) return;
-      _pipeline.tick(_now());
-      c.setWaveformBars(_pipeline.snapshot()).catchError((e, st) {
-        _log.error('Failed to push waveform bars', e, st);
-      });
+    _waveformTimer = Timer.periodic(_kTickPeriod, _onWaveformTick);
+  }
+
+  /// Enters the trailing release-out window: the timer keeps ticking but the
+  /// pipeline is fed silence (`pushSample(0.0, …)`) so the live zone decays
+  /// via the configured release time constant. After `releaseOutDurationMs`
+  /// elapses, the tick callback stops the timer itself.
+  void _startReleaseOut() {
+    _isInReleaseOut = true;
+    _releaseOutStart = _now();
+    // If the timer was somehow cancelled (e.g. controller went away), arm a
+    // fresh one — otherwise we just keep the recording-phase timer alive.
+    if (_waveformTimer == null || !_waveformTimer!.isActive) {
+      _waveformTimer = Timer.periodic(_kTickPeriod, _onWaveformTick);
+    }
+  }
+
+  void _onWaveformTick(Timer _) {
+    final c = controller;
+    if (c == null) return;
+    final now = _now();
+    if (_isInReleaseOut) {
+      final start = _releaseOutStart;
+      if (start != null &&
+          now.difference(start).inMilliseconds >= releaseOutDurationMs) {
+        // Release-out window over — last snapshot stays frozen.
+        _stopWaveformLoop();
+        return;
+      }
+      _pipeline.pushSample(0.0, now);
+    }
+    _pipeline.tick(now);
+    c.setWaveformBars(_pipeline.snapshot()).catchError((e, st) {
+      _log.error('Failed to push waveform bars', e, st);
     });
   }
 
   void _stopWaveformLoop() {
     _waveformTimer?.cancel();
     _waveformTimer = null;
+    _isInReleaseOut = false;
+    _releaseOutStart = null;
   }
 
   // ── Elapsed timer updates ─────────────────────────────────────────────────

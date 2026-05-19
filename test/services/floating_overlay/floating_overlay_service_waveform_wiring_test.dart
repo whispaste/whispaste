@@ -1,5 +1,5 @@
-/// Wiring tests for [FloatingOverlayService]'s cut-over to the
-/// [WaveformPipeline] (issue 06).
+/// Wiring tests for [FloatingOverlayService]'s [WaveformPipeline] integration
+/// (issues 06 + 07).
 ///
 /// Locks in the pipeline + animation-timer contract:
 ///   1. `idle → recording` resets the pipeline and starts the periodic
@@ -7,10 +7,21 @@
 ///   2. `audioLevelProvider` changes propagate into `pushSample`.
 ///   3. Over 200 ms of simulated time, 5–7 `setWaveformBars` calls land on
 ///      the controller.
-///   4. `recording → transcribing` stops the timer hard — no further bar
-///      pushes for at least 200 ms.
+///   4. `recording → done / error` (no release-out) stops the timer hard —
+///      no further bar pushes for at least 200 ms.
 ///   5. A second `idle → recording` cycle starts from a clean pipeline
 ///      state (i.e. the reset() is wired correctly between recordings).
+///
+/// Issue 07 — trailing release-out for `recording → transcribing`:
+///   6. After the transition, 6–10 trailing `setWaveformBars` pushes land
+///      over ~`releaseOutDurationMs` of simulated time.
+///   7. Live-zone bars in consecutive trailing snapshots are non-increasing
+///      (pipeline only sees `pushSample(0.0, …)` during release-out).
+///   8. After the release-out window, the timer stops itself; no further
+///      pushes for ≥ 200 ms.
+///   9. An `audioLevelProvider` value > 0 during the release-out does NOT
+///      make the live zone climb — the service-side gate holds even when
+///      `RecordingNotifier`'s own phase gate is bypassed.
 ///
 /// The seam is [FloatingOverlayController]: a recording controller is
 /// injected via the provider override so no platform channels are touched.
@@ -96,6 +107,17 @@ class _TestableService extends FloatingOverlayService {
 class _ConstantSettingsNotifier extends SettingsNotifier {
   @override
   Future<AppSettings> build() async => const AppSettings();
+}
+
+/// Permissive [RecordingNotifier] that exposes the protected `state` setter
+/// so a test can force an `audioLevel` change during a non-recording phase.
+/// Used by the AC4 test to verify the release-out actively ignores
+/// `audioLevelProvider` updates instead of relying on the upstream
+/// `RecordingNotifier.updateAudioLevel` phase gate.
+class _PermissiveRecordingNotifier extends RecordingNotifier {
+  void forceAudioLevel(double level) {
+    state = state.copyWith(audioLevel: level);
+  }
 }
 
 // ── Test harness ──────────────────────────────────────────────────────────────
@@ -272,7 +294,9 @@ void main() {
       });
     });
 
-    test('recording → transcribing stops the waveform timer hard', () {
+    test('recording → done (no release-out) stops the timer hard', () {
+      // Direct cut-off path: recording → done bypasses the release-out and
+      // the timer must stop immediately (no trailing pushes).
       FakeAsync().run((async) {
         final h = _buildHarness(async);
         try {
@@ -283,23 +307,214 @@ void main() {
           async.elapse(const Duration(milliseconds: 100));
           expect(h.fake.waveformPushes, isNotEmpty);
 
-          h.container.read(recordingProvider.notifier).stopRecording();
-          // Let the listener fire so _stopWaveformLoop() executes.
+          // recording → error (legal direct transition via fail()).
+          h.container.read(recordingProvider.notifier).fail('boom');
           async.elapse(const Duration(milliseconds: 5));
-          // Snapshot the count immediately after the transition.
           final pushCountAtStop = h.fake.waveformPushes.length;
 
-          async.elapse(const Duration(milliseconds: 200));
+          async.elapse(const Duration(milliseconds: 400));
 
           expect(
             h.fake.waveformPushes.length,
             pushCountAtStop,
             reason:
-                'No further setWaveformBars calls must land for 200 ms '
-                'after transitioning to transcribing.',
+                'No release-out for recording → error: timer must stop '
+                'immediately, no further setWaveformBars calls for 400 ms.',
           );
         } finally {
           h.dispose();
+        }
+      });
+    });
+
+    test(
+      'recording → transcribing: 6–10 trailing setWaveformBars over 300 ms',
+      () {
+        // AC1 + AC2: the named `releaseOutDurationMs` constant is exercised
+        // here — 300 ms / 33 ms ≈ 9 ticks; allow 6–10 for jitter.
+        FakeAsync().run((async) {
+          final h = _buildHarness(async);
+          try {
+            h.container.read(recordingProvider.notifier).startRecording();
+            async.elapse(const Duration(milliseconds: 5));
+
+            // Burn a short window so the timer is alive and producing pushes.
+            async.elapse(const Duration(milliseconds: 100));
+
+            // Enter the release-out tail.
+            h.container.read(recordingProvider.notifier).stopRecording();
+            // Let the phase listener fire so _startReleaseOut() runs.
+            async.elapse(const Duration(milliseconds: 5));
+
+            // Count only the pushes during the release-out window.
+            h.fake.waveformPushes.clear();
+            async.elapse(const Duration(milliseconds: releaseOutDurationMs));
+
+            expect(
+              h.fake.waveformPushes.length,
+              inInclusiveRange(6, 10),
+              reason:
+                  '${releaseOutDurationMs}ms / 33ms ≈ 9 trailing ticks; '
+                  'got ${h.fake.waveformPushes.length}.',
+            );
+          } finally {
+            h.dispose();
+          }
+        });
+      },
+    );
+
+    test(
+      'release-out: live-zone bars decay monotonically (non-increasing)',
+      () {
+        // AC3: two consecutive trailing snapshots must not show the live zone
+        // climbing back up — pipeline only sees pushSample(0.0).
+        FakeAsync().run((async) {
+          final h = _buildHarness(async);
+          try {
+            h.container.read(recordingProvider.notifier).startRecording();
+            async.elapse(const Duration(milliseconds: 5));
+
+            // Drive the level high so the live zone has somewhere to fall from.
+            h.container.read(recordingProvider.notifier).updateAudioLevel(0.95);
+            async.elapse(const Duration(milliseconds: 250));
+
+            // Enter release-out.
+            h.container.read(recordingProvider.notifier).stopRecording();
+            async.elapse(const Duration(milliseconds: 5));
+            h.fake.waveformPushes.clear();
+
+            // Sample a couple of trailing ticks (≈ 33 ms apart).
+            async.elapse(const Duration(milliseconds: 100));
+            expect(h.fake.waveformPushes.length, greaterThanOrEqualTo(2));
+
+            // Live zone: middle 20% of 30 bars → bars [12..18).
+            final liveStart = ((30 - (0.20 * 30).round()) / 2).floor();
+            final liveEnd = liveStart + (0.20 * 30).round();
+
+            for (var t = 1; t < h.fake.waveformPushes.length; t++) {
+              final prev = h.fake.waveformPushes[t - 1];
+              final curr = h.fake.waveformPushes[t];
+              for (var i = liveStart; i < liveEnd; i++) {
+                expect(
+                  curr[i],
+                  lessThanOrEqualTo(prev[i] + 1e-9),
+                  reason:
+                      'Live-zone bar[$i] climbed from ${prev[i]} to ${curr[i]} '
+                      'across trailing snapshots $t-1 → $t (must be '
+                      'non-increasing during release-out).',
+                );
+              }
+            }
+          } finally {
+            h.dispose();
+          }
+        });
+      },
+    );
+
+    test('release-out: hard-stop after the window — no pushes for 200 ms', () {
+      // AC4 (hard-stop): once releaseOutDurationMs elapses the timer stops
+      // itself; no further setWaveformBars calls land for 200 ms.
+      FakeAsync().run((async) {
+        final h = _buildHarness(async);
+        try {
+          h.container.read(recordingProvider.notifier).startRecording();
+          async.elapse(const Duration(milliseconds: 5));
+          async.elapse(const Duration(milliseconds: 100));
+
+          h.container.read(recordingProvider.notifier).stopRecording();
+          async.elapse(const Duration(milliseconds: 5));
+
+          // Walk past the release-out window with a comfortable margin so the
+          // self-stopping tick definitely fires (tick period is ~33 ms).
+          async.elapse(
+            const Duration(milliseconds: releaseOutDurationMs + 100),
+          );
+          final pushCountAfterWindow = h.fake.waveformPushes.length;
+
+          async.elapse(const Duration(milliseconds: 200));
+
+          expect(
+            h.fake.waveformPushes.length,
+            pushCountAfterWindow,
+            reason:
+                'After the release-out window the timer must stop; no further '
+                'setWaveformBars calls for 200 ms (got '
+                '${h.fake.waveformPushes.length - pushCountAfterWindow} extra).',
+          );
+        } finally {
+          h.dispose();
+        }
+      });
+    });
+
+    test('release-out ignores audioLevelProvider — pipeline only sees 0.0', () {
+      // AC5: a high audioLevel emitted during the release-out must not
+      // make the live zone climb. We use a permissive notifier to bypass
+      // RecordingNotifier.updateAudioLevel's own phase gate, isolating the
+      // service-side gating contract.
+      FakeAsync().run((async) {
+        final fake = _RecordingController();
+        final epoch = DateTime.utc(2026, 1, 1);
+        final container = ProviderContainer(
+          overrides: [
+            settingsProvider.overrideWith(_ConstantSettingsNotifier.new),
+            recordingProvider.overrideWith(_PermissiveRecordingNotifier.new),
+            floatingOverlayServiceProvider.overrideWith(
+              () => _TestableService(fake, now: () => epoch.add(async.elapsed)),
+            ),
+          ],
+        );
+        container.listen<void>(floatingOverlayServiceProvider, (_, _) {});
+        async.flushMicrotasks();
+        async.elapse(const Duration(milliseconds: 1));
+        async.flushMicrotasks();
+
+        try {
+          final notifier =
+              container.read(recordingProvider.notifier)
+                  as _PermissiveRecordingNotifier;
+
+          notifier.startRecording();
+          async.elapse(const Duration(milliseconds: 5));
+          notifier.updateAudioLevel(0.9);
+          async.elapse(const Duration(milliseconds: 200));
+
+          // Enter release-out.
+          notifier.stopRecording();
+          async.elapse(const Duration(milliseconds: 5));
+          fake.waveformPushes.clear();
+
+          // Sample a baseline trailing snapshot.
+          async.elapse(const Duration(milliseconds: 50));
+          expect(fake.waveformPushes, isNotEmpty);
+          final baseline = fake.waveformPushes.last;
+
+          // Force a fresh high audioLevel during the release-out — this
+          // bypasses RecordingNotifier's own phase gate. If the service is
+          // gating correctly, the live zone must NOT climb back up.
+          notifier.forceAudioLevel(0.9);
+          async.elapse(const Duration(milliseconds: 100));
+
+          final liveStart = ((30 - (0.20 * 30).round()) / 2).floor();
+          final liveEnd = liveStart + (0.20 * 30).round();
+
+          for (var snap = 0; snap < fake.waveformPushes.length; snap++) {
+            final s = fake.waveformPushes[snap];
+            for (var i = liveStart; i < liveEnd; i++) {
+              expect(
+                s[i],
+                lessThanOrEqualTo(baseline[i] + 1e-9),
+                reason:
+                    'Live-zone bar[$i] climbed to ${s[i]} > baseline '
+                    '${baseline[i]} after a high audioLevel during '
+                    'release-out (snapshot index $snap).',
+              );
+            }
+          }
+        } finally {
+          container.dispose();
         }
       });
     });
