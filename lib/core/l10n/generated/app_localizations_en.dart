@@ -521,6 +521,14 @@ class L10nEn extends L10n {
       '1. System Settings → Accessibility is open right now. 2. Switch WhisPaste on in the list. 3. This app will detect the change automatically.';
 
   @override
+  String get onboardingPasteTccMismatchTitle =>
+      'macOS isn\'t recognising the new permission';
+
+  @override
+  String get onboardingPasteTccMismatchBody =>
+      '1. Tap Repair below — it clears stale permission entries so macOS asks you again.\n2. If that still doesn\'t help, quit WhisPaste completely and start it again — that lets macOS pick up the current app signature.';
+
+  @override
   String get settingsOverlayFloatingButton => 'Recording Overlay';
 
   @override

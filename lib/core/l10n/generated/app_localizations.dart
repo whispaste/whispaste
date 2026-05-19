@@ -1011,6 +1011,18 @@ abstract class L10n {
   /// **'1. System Settings → Accessibility is open right now. 2. Switch WhisPaste on in the list. 3. This app will detect the change automatically.'**
   String get onboardingPasteWaitingForGrantHint;
 
+  /// No description provided for @onboardingPasteTccMismatchTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'macOS isn\'t recognising the new permission'**
+  String get onboardingPasteTccMismatchTitle;
+
+  /// No description provided for @onboardingPasteTccMismatchBody.
+  ///
+  /// In en, this message translates to:
+  /// **'1. Tap Repair below — it clears stale permission entries so macOS asks you again.\n2. If that still doesn\'t help, quit WhisPaste completely and start it again — that lets macOS pick up the current app signature.'**
+  String get onboardingPasteTccMismatchBody;
+
   /// No description provided for @settingsOverlayFloatingButton.
   ///
   /// In en, this message translates to:

@@ -80,6 +80,13 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
   /// error path — so the user can retry without re-mounting the step.
   bool _grantInFlight = false;
 
+  /// Sticky latch: once the TCC-mismatch banner has surfaced for the first
+  /// time in this step lifecycle, we don't want a duplicate
+  /// `restart_hint.surfaced` breadcrumb every time the banner re-renders
+  /// during the same mount. Re-set when the step is re-mounted via the
+  /// fresh [State] instance.
+  bool _restartHintEmitted = false;
+
   @override
   void initState() {
     super.initState();
@@ -245,16 +252,25 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
         onSkip: _onSkipPressed,
       );
     }
+    final state = ref.watch(pasteCapabilityNotifierProvider);
+    final notifier = ref.read(pasteCapabilityNotifierProvider.notifier);
+    _cachedNotifier = notifier;
+    final showTccMismatchBanner = notifier.suspectedTccMismatch;
+    // Sticky-latch the `restart_hint.surfaced` breadcrumb so it fires exactly
+    // once per step mount the first time the banner becomes visible — repeat
+    // rebuilds while the banner is up must not spam Sentry. The latch is an
+    // instance field, so a re-mount (fresh State) naturally resets it.
+    if (showTccMismatchBanner && !_restartHintEmitted) {
+      _restartHintEmitted = true;
+      _emitBreadcrumb('restart_hint.surfaced');
+    }
     return _MacOsBody(
-      state: ref.watch(pasteCapabilityNotifierProvider),
-      notifier: () {
-        final n = ref.read(pasteCapabilityNotifierProvider.notifier);
-        _cachedNotifier = n;
-        return n;
-      }(),
+      state: state,
+      notifier: notifier,
       repairInFlight: _repairInFlight,
       grantInFlight: _grantInFlight,
       lastRepairResult: _lastRepairResult,
+      showTccMismatchBanner: showTccMismatchBanner,
       onGrant: _onGrantPressed,
       onRepair: _onRepairPressed,
       onSkip: _onSkipPressed,
@@ -275,6 +291,7 @@ class _MacOsBody extends StatelessWidget {
     required this.repairInFlight,
     required this.grantInFlight,
     required this.lastRepairResult,
+    required this.showTccMismatchBanner,
     required this.onGrant,
     required this.onRepair,
     required this.onSkip,
@@ -287,6 +304,14 @@ class _MacOsBody extends StatelessWidget {
   final bool repairInFlight;
   final bool grantInFlight;
   final TccRepairResult? lastRepairResult;
+
+  /// True when the parent has decided the TCC-mismatch banner should be
+  /// visible (driven by [PasteCapabilityNotifier.suspectedTccMismatch]).
+  /// Threaded as a flag rather than recomputed inline so the parent owns
+  /// the single source of truth and can co-locate the sticky-latch
+  /// breadcrumb emission with the render decision.
+  final bool showTccMismatchBanner;
+
   final Future<void> Function() onGrant;
   final Future<void> Function() onRepair;
   final Future<void> Function() onSkip;
@@ -320,6 +345,7 @@ class _MacOsBody extends StatelessWidget {
         : WpColorsLight.accentWarmGradient;
     final successColor = isDark ? WpColorsDark.success : WpColorsLight.success;
     final errorColor = isDark ? WpColorsDark.error : WpColorsLight.error;
+    final warningColor = isDark ? WpColorsDark.warning : WpColorsLight.warning;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -364,6 +390,22 @@ class _MacOsBody extends StatelessWidget {
             isDark: isDark,
             textPrimary: textPrimary,
             textSecondary: textSecondary,
+            l10n: l10n,
+          ),
+        ],
+        // -- TCC-mismatch banner -----------------------------------------
+        // Surfaces the ad-hoc-signed-Sequoia "permission granted in System
+        // Settings but `AXIsProcessTrusted()` still returns false" symptom
+        // with two actionable recovery options (Repair / restart WhisPaste).
+        // Visually slots into the same row as the polling-hint card — the
+        // two are mutually exclusive (timedOut vs awaitingGrant phases).
+        if (showTccMismatchBanner) ...[
+          const SizedBox(height: WpSpacing.sm),
+          _TccMismatchBanner(
+            isDark: isDark,
+            textPrimary: textPrimary,
+            textSecondary: textSecondary,
+            warningColor: warningColor,
             l10n: l10n,
           ),
         ],
@@ -922,6 +964,88 @@ class _PollingHintCard extends StatelessWidget {
                 const SizedBox(height: WpSpacing.xs),
                 Text(
                   l10n.onboardingPasteWaitingForGrantHint,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: textSecondary,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Recovery banner for the ad-hoc-signed-Sequoia "permission granted but
+/// `AXIsProcessTrusted()` still returns false" symptom. Surfaced only when
+/// [PasteCapabilityNotifier.suspectedTccMismatch] is `true` — i.e. the
+/// polling loop timed out after a failed grant attempt while the capability
+/// is still reported as `permissionMissing`.
+///
+/// Warning palette (not error) because the situation is recoverable: the
+/// banner guides the user through two concrete recovery steps — pressing
+/// Repair below to clear stale TCC entries, or quitting and restarting
+/// WhisPaste so macOS picks up the current app signature. Surface/border
+/// styling matches the other cards in the step so the layout reads as a
+/// unit; only the icon colour distinguishes the warning role.
+class _TccMismatchBanner extends StatelessWidget {
+  const _TccMismatchBanner({
+    required this.isDark,
+    required this.textPrimary,
+    required this.textSecondary,
+    required this.warningColor,
+    required this.l10n,
+  });
+
+  final bool isDark;
+  final Color textPrimary;
+  final Color textSecondary;
+  final Color warningColor;
+  final L10n l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    final surface =
+        (isDark ? WpColorsDark.surfaceVariant : WpColorsLight.surfaceVariant)
+            .withValues(alpha: 0.5);
+    final border = isDark
+        ? WpColorsDark.borderSubtle
+        : WpColorsLight.borderSubtle;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: WpSpacing.md,
+        vertical: WpSpacing.md,
+      ),
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: WpRadius.borderMd,
+        border: Border.all(color: border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(LucideIcons.triangleAlert, size: 20, color: warningColor),
+          const SizedBox(width: WpSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.onboardingPasteTccMismatchTitle,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: textPrimary,
+                  ),
+                ),
+                const SizedBox(height: WpSpacing.xs),
+                Text(
+                  l10n.onboardingPasteTccMismatchBody,
                   style: TextStyle(
                     fontSize: 12,
                     color: textSecondary,

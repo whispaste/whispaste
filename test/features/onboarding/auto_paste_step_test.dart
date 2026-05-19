@@ -718,6 +718,96 @@ void main() {
       },
     );
 
+    // -- TCC-mismatch banner ------------------------------------------------
+    //
+    // The banner light-up is gated by `notifier.suspectedTccMismatch`, which
+    // is the conjunction of three state fields. The fake notifier inherits
+    // that getter (no override), so seeding the three fields on `initial` is
+    // enough to drive the banner without re-implementing the conjunction.
+    testWidgets(
+      'TCC-mismatch banner is visible when suspectedTccMismatch == true '
+      '(all three conditions satisfied)',
+      (tester) async {
+        final paste = _FakePasteCapabilityNotifier(
+          initial: const PasteCapabilityState(
+            capability: PasteCapability(
+              status: PasteCapabilityStatus.permissionMissing,
+              canPrompt: true,
+            ),
+            hadFailedGrantAttempt: true,
+            pollingPhase: PollingPhase.timedOut,
+          ),
+        );
+
+        await _pumpStep(tester, paste: paste);
+
+        // Title is rendered.
+        expect(
+          find.text("macOS isn't recognising the new permission"),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets('TCC-mismatch banner is hidden for every state where '
+        'suspectedTccMismatch is false', (tester) async {
+      // Each entry falsifies a different conjunct so the banner must stay
+      // hidden. The all-true case is covered by the test above.
+      final hiddenCases = <PasteCapabilityState>[
+        // Default — nothing set.
+        const PasteCapabilityState(),
+        // hadFailedGrantAttempt == false (other two true).
+        const PasteCapabilityState(
+          capability: PasteCapability(
+            status: PasteCapabilityStatus.permissionMissing,
+            canPrompt: true,
+          ),
+          pollingPhase: PollingPhase.timedOut,
+        ),
+        // capability.status != permissionMissing (other two true).
+        const PasteCapabilityState(
+          capability: PasteCapability(status: PasteCapabilityStatus.ready),
+          hadFailedGrantAttempt: true,
+          pollingPhase: PollingPhase.timedOut,
+        ),
+        // pollingPhase != timedOut — try awaitingGrant and idle as the two
+        // representative non-terminal/terminal alternatives.
+        const PasteCapabilityState(
+          capability: PasteCapability(
+            status: PasteCapabilityStatus.permissionMissing,
+            canPrompt: true,
+          ),
+          hadFailedGrantAttempt: true,
+          pollingPhase: PollingPhase.awaitingGrant,
+        ),
+        const PasteCapabilityState(
+          capability: PasteCapability(
+            status: PasteCapabilityStatus.permissionMissing,
+            canPrompt: true,
+          ),
+          hadFailedGrantAttempt: true,
+          pollingPhase: PollingPhase.idle,
+        ),
+      ];
+
+      for (final seed in hiddenCases) {
+        final paste = _FakePasteCapabilityNotifier(initial: seed);
+        await _pumpStep(tester, paste: paste);
+
+        expect(
+          find.text("macOS isn't recognising the new permission"),
+          findsNothing,
+          reason:
+              'TCC-mismatch banner must stay hidden when '
+              'suspectedTccMismatch is false (seed: $seed)',
+        );
+
+        // Tear down between iterations so the next pump starts clean.
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+      }
+    });
+
     testWidgets(
       'dispose stops the shared polling timer — no zombie timer survives the step',
       (tester) async {
