@@ -8,6 +8,7 @@ import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/l10n/locale_native_name.dart';
 import 'package:whispaste/features/onboarding/steps/welcome_step.dart';
+import 'package:whispaste/widgets/language_selector.dart';
 
 import '../../fixtures/test_helpers.dart';
 
@@ -47,10 +48,15 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      // Open the dropdown so all entries become visible — the closed
+      // state only shows the currently active locale.
+      await tester.tap(find.byType(LanguageSelector));
+      await tester.pumpAndSettle();
+
       for (final locale in L10n.supportedLocales) {
         expect(
           find.text(localeNativeName(locale)),
-          findsOneWidget,
+          findsWidgets,
           reason: 'expected native label for ${locale.languageCode}',
         );
       }
@@ -75,7 +81,11 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Deutsch'));
+      // Slice 06 turned the language selector into a dropdown — open it
+      // first, then tap the German entry inside the popup.
+      await tester.tap(find.byType(LanguageSelector));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Deutsch').last);
       await tester.pumpAndSettle();
 
       expect(notifier.state.value!.locale, 'de');
@@ -97,7 +107,9 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text(localeNativeName(const Locale('he'))));
+      await tester.tap(find.byType(LanguageSelector));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(localeNativeName(const Locale('he'))).last);
       await tester.pumpAndSettle();
 
       expect(notifier.state.value!.locale, 'he');

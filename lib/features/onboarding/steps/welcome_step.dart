@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
-import '../../../core/l10n/locale_native_name.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../widgets/brand_wordmark.dart';
+import '../../../widgets/language_selector.dart';
 import '../../../widgets/wp_accent_button.dart';
 
 /// Onboarding Step 1 — clean welcome with language & theme selection.
@@ -85,14 +84,11 @@ class WelcomeStep extends ConsumerWidget {
         const SizedBox(height: WpSpacing.xxl),
 
         // Language selector — items derived from L10n.supportedLocales so
-        // adding a new language is an ARB-only change.
-        _LanguageSelector(
+        // adding a new language is an ARB-only change.  Rendered as a
+        // compact dropdown without flag icons (see widget docs).
+        LanguageSelector(
           currentLocale: settings.locale,
           onChanged: selectLocale,
-          activeGradient: accentGradient,
-          borderColor: borderColor,
-          surfaceColor: surfaceVariant,
-          textSecondary: textSecondary,
         ),
         const SizedBox(height: WpSpacing.lg),
 
@@ -312,92 +308,6 @@ class _SegmentButtonState extends State<_SegmentButton> {
           ),
         ),
       ),
-    );
-  }
-}
-
-// =============================================================================
-// Language selector — derived from L10n.supportedLocales.
-// Each supported locale becomes one segment in the same `_SegmentedSelector`
-// used for theme selection below.  Flags (assets/flags/<code>.svg) are
-// decorative: rendered only when the asset is bundled; missing assets fall
-// back to text-only labels without crashing.
-// =============================================================================
-
-class _LanguageSelector extends StatefulWidget {
-  const _LanguageSelector({
-    required this.currentLocale,
-    required this.onChanged,
-    required this.activeGradient,
-    required this.borderColor,
-    required this.surfaceColor,
-    required this.textSecondary,
-  });
-
-  final String currentLocale;
-  final ValueChanged<String> onChanged;
-  final LinearGradient activeGradient;
-  final Color borderColor;
-  final Color surfaceColor;
-  final Color textSecondary;
-
-  @override
-  State<_LanguageSelector> createState() => _LanguageSelectorState();
-}
-
-class _LanguageSelectorState extends State<_LanguageSelector> {
-  /// Asset paths confirmed present in the bundle.  Populated asynchronously
-  /// via [AssetManifest]; until it resolves, labels render text-only.
-  Set<String> _bundledFlagPaths = const <String>{};
-
-  @override
-  void initState() {
-    super.initState();
-    _loadBundledFlags();
-  }
-
-  Future<void> _loadBundledFlags() async {
-    try {
-      final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
-      final available = manifest.listAssets().toSet();
-      if (!mounted) return;
-      setState(() {
-        _bundledFlagPaths = <String>{
-          for (final locale in L10n.supportedLocales)
-            if (available.contains(localeFlagAssetPath(locale)))
-              localeFlagAssetPath(locale),
-        };
-      });
-    } catch (_) {
-      // Manifest unavailable (e.g. some test bundles) → stay text-only.
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return _SegmentedSelector(
-      items: [
-        for (final locale in L10n.supportedLocales)
-          _SegmentItem(
-            label: localeNativeName(locale),
-            icon: _flagIconFor(locale),
-            isActive: locale.languageCode == widget.currentLocale,
-            onTap: () => widget.onChanged(locale.languageCode),
-          ),
-      ],
-      activeGradient: widget.activeGradient,
-      borderColor: widget.borderColor,
-      surfaceColor: widget.surfaceColor,
-      textSecondary: widget.textSecondary,
-      height: 48,
-    );
-  }
-
-  Widget? _flagIconFor(Locale locale) {
-    final path = localeFlagAssetPath(locale);
-    if (!_bundledFlagPaths.contains(path)) return null;
-    return ClipOval(
-      child: SvgPicture.asset(path, width: 18, height: 18, fit: BoxFit.cover),
     );
   }
 }
