@@ -182,6 +182,8 @@
   "onboardingPasteWhyMac": "macOS requires explicit permission for any app that injects keystrokes into other apps. Without it, your transcript still copies to the clipboard, but ⌘V won't fire automatically.",
   "onboardingPasteWhyWin": "Windows allows keystroke injection without an extra permission. This step just verifies the bridge works on your machine.",
   "onboardingPasteWhyWinUipi": "In certain apps with UIPI/UAC protection, Auto-Paste won't work — the text will sit in the clipboard and you'll need to paste it with Ctrl+V yourself.",
+  "onboardingPasteWaitingForGrantTitle": "Waiting for your permission…",
+  "onboardingPasteWaitingForGrantHint": "1. System Settings → Accessibility is open right now. 2. Switch WhisPaste on in the list. 3. This app will detect the change automatically.",
   "settingsOverlayFloatingButton": "Recording Overlay",
   "settingsOverlayFloatingButtonSubtitle": "Control how recording status appears while you dictate",
   "settingsShowOverlay": "Recording status display",

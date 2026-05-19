@@ -30,11 +30,31 @@ import 'paster.dart';
 /// step-lifecycle breadcrumbs land under the same Sentry filter.
 const String onboardingAutoPasteBreadcrumbCategory = 'onboarding.autopaste';
 
+/// Explicit lifecycle phase of the capability polling loop.
+///
+/// Replaces the implicit `_pollTimer != null` view of the world with a state
+/// the UI can switch on. The four states are mutually exclusive and cover
+/// every observable transition that `startPolling` / `_disposePolling` can
+/// drive:
+///
+///   - [idle]: never polled in this provider lifecycle, or explicitly
+///     stopped (e.g. user navigated away).
+///   - [awaitingGrant]: polling timer is armed and ticking; the UI should
+///     render the "waiting for you to flip the toggle in System Settings"
+///     guidance card.
+///   - [succeeded]: a probe returned [PasteCapabilityStatus.ready] and the
+///     loop self-stopped — the happy path.
+///   - [timedOut]: the timeout elapsed without ever seeing `ready`. UI
+///     consumers can offer a recovery affordance here (subsequent slices
+///     drive the TCC-mismatch banner off this).
+enum PollingPhase { idle, awaitingGrant, succeeded, timedOut }
+
 /// Immutable snapshot of the capability surface.
 class PasteCapabilityState {
   const PasteCapabilityState({
     this.capability,
     this.hadFailedGrantAttempt = false,
+    this.pollingPhase = PollingPhase.idle,
   });
 
   /// Latest probe result. `null` means "no probe has resolved yet".
@@ -48,14 +68,19 @@ class PasteCapabilityState {
   /// session.
   final bool hadFailedGrantAttempt;
 
+  /// Where the capability polling loop currently is. See [PollingPhase].
+  final PollingPhase pollingPhase;
+
   PasteCapabilityState copyWith({
     PasteCapability? capability,
     bool? hadFailedGrantAttempt,
+    PollingPhase? pollingPhase,
   }) {
     return PasteCapabilityState(
       capability: capability ?? this.capability,
       hadFailedGrantAttempt:
           hadFailedGrantAttempt ?? this.hadFailedGrantAttempt,
+      pollingPhase: pollingPhase ?? this.pollingPhase,
     );
   }
 }
@@ -75,12 +100,22 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
 
   @override
   PasteCapabilityState build() {
-    ref.onDispose(() => _disposePolling());
+    ref.onDispose(() {
+      // Provider is being torn down — only the timer pair needs cancelling.
+      // Writing to `state` inside an `onDispose` callback throws because the
+      // notifier is already being disposed; `_disposePolling` therefore runs
+      // in a no-state-write mode during teardown.
+      _cancelTimers();
+    });
     return const PasteCapabilityState();
   }
 
   /// Whether [startPolling] currently has an active timer.
-  bool get isPolling => _pollTimer != null;
+  ///
+  /// Backwards-compatible convenience derived from
+  /// [PasteCapabilityState.pollingPhase] — older UI sites can keep reading
+  /// this boolean while new code switches on the explicit phase.
+  bool get isPolling => state.pollingPhase == PollingPhase.awaitingGrant;
 
   /// Runs one capability probe through the [Paster].
   ///
@@ -140,6 +175,9 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
         'timeout_ms': timeout.inMilliseconds,
       },
     );
+    // Flip into `awaitingGrant` BEFORE arming the timers so any observer
+    // that wakes up on the same microtask already sees the new phase.
+    state = state.copyWith(pollingPhase: PollingPhase.awaitingGrant);
     _pollTimer = Timer.periodic(interval, (_) async {
       await check();
       if (state.capability?.status == PasteCapabilityStatus.ready) {
@@ -173,6 +211,16 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
     return result;
   }
 
+  /// Cancels the active timer pair without touching `state`. Safe to call
+  /// from `onDispose` where state mutation would assert.
+  void _cancelTimers() {
+    _pollTimer?.cancel();
+    _pollTimer = null;
+    _pollTimeout?.cancel();
+    _pollTimeout = null;
+    _pollStopwatch = null;
+  }
+
   void _disposePolling({_PollEnd reason = _PollEnd.cancelled}) {
     final wasActive = _pollTimer != null || _pollTimeout != null;
     _pollTimer?.cancel();
@@ -184,12 +232,31 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
     // breadcrumbs. `cancelled` is an internal signal we don't ship to Sentry.
     if (wasActive && reason != _PollEnd.cancelled) {
       final elapsedMs = _pollStopwatch?.elapsedMilliseconds ?? 0;
+      // `suspected_tcc_mismatch` is included here as a schema placeholder so
+      // downstream Sentry queries can rely on the field always being present
+      // on `polling.timeout` events. The real value is driven from Slice 04
+      // (TCC-mismatch banner / `suspectedTccMismatch` getter); in this slice
+      // the flag is always `false`.
       _emitBreadcrumb(
         reason == _PollEnd.success ? 'polling.success' : 'polling.timeout',
-        data: {'elapsed_ms': elapsedMs},
+        data: reason == _PollEnd.timeout
+            ? {'elapsed_ms': elapsedMs, 'suspected_tcc_mismatch': false}
+            : {'elapsed_ms': elapsedMs},
       );
     }
     _pollStopwatch = null;
+    // Drive the explicit phase from the disposal reason so UI consumers
+    // can react without poking at the (private) timer fields. `cancelled`
+    // collapses to `idle` because "no one is waiting on anything" — there
+    // is no observable polling outcome to surface.
+    final nextPhase = switch (reason) {
+      _PollEnd.success => PollingPhase.succeeded,
+      _PollEnd.timeout => PollingPhase.timedOut,
+      _PollEnd.cancelled => PollingPhase.idle,
+    };
+    if (state.pollingPhase != nextPhase) {
+      state = state.copyWith(pollingPhase: nextPhase);
+    }
   }
 
   /// Emits a breadcrumb under the shared onboarding Auto-Paste category and

@@ -471,6 +471,66 @@ void main() {
     );
 
     testWidgets(
+      'polling hint card is visible while pollingPhase == awaitingGrant',
+      (tester) async {
+        final paste = _FakePasteCapabilityNotifier(
+          initial: const PasteCapabilityState(
+            capability: PasteCapability(
+              status: PasteCapabilityStatus.permissionMissing,
+              canPrompt: true,
+            ),
+            pollingPhase: PollingPhase.awaitingGrant,
+          ),
+        );
+
+        await _pumpStep(tester, paste: paste);
+
+        // Hint title is rendered.
+        expect(find.text('Waiting for your permission…'), findsOneWidget);
+        // Hint body is rendered (use a stable fragment).
+        expect(
+          find.textContaining('Switch WhisPaste on in the list'),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'polling hint card is hidden when pollingPhase is idle, succeeded or timedOut',
+      (tester) async {
+        for (final phase in <PollingPhase>[
+          PollingPhase.idle,
+          PollingPhase.succeeded,
+          PollingPhase.timedOut,
+        ]) {
+          final paste = _FakePasteCapabilityNotifier(
+            initial: PasteCapabilityState(
+              capability: const PasteCapability(
+                status: PasteCapabilityStatus.permissionMissing,
+                canPrompt: true,
+              ),
+              pollingPhase: phase,
+            ),
+          );
+
+          await _pumpStep(tester, paste: paste);
+
+          expect(
+            find.text('Waiting for your permission…'),
+            findsNothing,
+            reason:
+                'Polling hint must not show outside the awaitingGrant phase '
+                '(was: $phase)',
+          );
+
+          // Tear down between phase iterations so the next pump starts clean.
+          await tester.pumpWidget(const SizedBox.shrink());
+          await tester.pumpAndSettle();
+        }
+      },
+    );
+
+    testWidgets(
       'dispose stops the shared polling timer — no zombie timer survives the step',
       (tester) async {
         final paste = _FakePasteCapabilityNotifier(

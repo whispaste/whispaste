@@ -501,6 +501,13 @@ class L10nHe extends L10n {
       'באפליקציות מסוימות עם הגנת UIPI/UAC, ההדבקה האוטומטית לא תעבוד — הטקסט יישאר בלוח, ויהיה עליך להדביקו עם Ctrl+V באופן ידני.';
 
   @override
+  String get onboardingPasteWaitingForGrantTitle => 'ממתין להרשאה שלך…';
+
+  @override
+  String get onboardingPasteWaitingForGrantHint =>
+      '1. הגדרות המערכת → נגישות פתוחות כעת. 2. הפעל את WhisPaste ברשימה. 3. האפליקציה תזהה את השינוי באופן אוטומטי.';
+
+  @override
   String get settingsOverlayFloatingButton => 'שכבת הקלטה צפה';
 
   @override

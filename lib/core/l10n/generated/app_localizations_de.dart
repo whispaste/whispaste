@@ -513,6 +513,14 @@ class L10nDe extends L10n {
       'In bestimmten Apps mit UIPI/UAC-Schutz wird Auto-Paste nicht funktionieren — der Text liegt dann in der Zwischenablage und du fügst mit Ctrl+V ein.';
 
   @override
+  String get onboardingPasteWaitingForGrantTitle =>
+      'Warte auf deine Berechtigung…';
+
+  @override
+  String get onboardingPasteWaitingForGrantHint =>
+      '1. System Settings → Bedienungshilfen ist gerade offen. 2. Schalte WhisPaste in der Liste ein. 3. Diese App erkennt die Änderung automatisch.';
+
+  @override
   String get settingsOverlayFloatingButton => 'Aufnahme-Overlay';
 
   @override

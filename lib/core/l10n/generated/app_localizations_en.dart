@@ -509,6 +509,14 @@ class L10nEn extends L10n {
       'In certain apps with UIPI/UAC protection, Auto-Paste won\'t work — the text will sit in the clipboard and you\'ll need to paste it with Ctrl+V yourself.';
 
   @override
+  String get onboardingPasteWaitingForGrantTitle =>
+      'Waiting for your permission…';
+
+  @override
+  String get onboardingPasteWaitingForGrantHint =>
+      '1. System Settings → Accessibility is open right now. 2. Switch WhisPaste on in the list. 3. This app will detect the change automatically.';
+
+  @override
   String get settingsOverlayFloatingButton => 'Recording Overlay';
 
   @override
