@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 1.2.22
+
+### Bug Fixes
+
+- **Auto-Paste onboarding step removed on Windows**. First-run testing revealed that the diagnostic Test-Paste sub-step was reading as "press a hotkey" — users tried to trigger their dictation shortcut instead of clicking the in-step button, then got stuck because Next stayed gated. Since Windows needs no extra permission for `SendInput`-style paste in the 99 % case, the step delivered no real value and the UIPI/UAC edge stays surfaced through the Settings paste capability indicator. Windows now follows Linux's lead and skips the step entirely, taking the onboarding from five screens to four. macOS keeps the full flow because the TCC grant + verify is the actual user task there.
+
+- **STT spawn and exit failures are now visible in Sentry**. The whisper-server lifecycle had several failure modes that only ended up in local logs (`_fail()` into the in-process state machine) while Sentry got either nothing or a one-line message. That made FLUTTER_WHISPASTE-4P-class incidents ("exited before becoming ready") undiagnosable without direct access to a user's machine. The notifier now ships a structured `captureError` for: spawn `ProcessException` (binary path, args, errno), heartbeat timeout (stderr tail + args + binary), early process exit on the unclassified path, and the generic `SttExitKind.other` exit code now carries the stderr tail, args, model id and GPU mode in extras (the message-only capture was the shape behind FLUTTER_WHISPASTE-6X). A new `stt.stderr` breadcrumb category mirrors stderr lines that look like errors so any later event in the same session inherits the signal, not just the dedicated STT captures.
+
 ## 1.2.21
 
 ### Features
