@@ -165,7 +165,12 @@ function offsetToLineCol(offset, lineStarts) {
 
 /**
  * Rekursive Verzeichnis-Traversierung; liefert alle Dateipfade unter `root`,
- * die auf `.html` enden.
+ * die auf `.html` enden — plus eine explizite Allowlist von `.txt`-Outputs,
+ * die ebenfalls Brand-Sprach-kritisch sind (`llms.txt`, `llms-full.txt` —
+ * siehe Issue 05 / PRD §D, LLM-Search-Foundation). `.txt` wird bewusst NICHT
+ * generisch über die Extension gematcht, damit andere Text-Assets unter
+ * `dist/` (z. B. `robots.txt` mit Sitemap-URL, oder zukünftige IndexNow-Key-
+ * Files) nicht versehentlich gescannt werden.
  *
  * @param {string} root - Absoluter Pfad zum Build-Output (typischerweise
  *   `<repo>/website/dist`).
@@ -174,9 +179,24 @@ function offsetToLineCol(offset, lineStarts) {
 export async function walkDistFiles(root) {
   const out = [];
   await walk(root, out);
+  // Explizite Allowlist für `.txt`-Outputs, die Brand-Vocabulary-konform
+  // sein müssen. Reihenfolge: existierende Files anhängen, fehlende stumm
+  // übergehen (z. B. wenn der Generator vor dem ersten Maintainer-Lauf noch
+  // keine Outputs geschrieben hat).
+  for (const name of TXT_ALLOWLIST) {
+    const p = join(root, name);
+    const st = await stat(p).catch(() => null);
+    if (st && st.isFile()) out.push(p);
+  }
   out.sort();
   return out;
 }
+
+/**
+ * `.txt`-Outputs unter `dist/`, die genauso wie HTML auf Brand-Vokabular
+ * geprüft werden. Erweiterungen müssen hier explizit eingetragen werden.
+ */
+export const TXT_ALLOWLIST = Object.freeze(["llms.txt", "llms-full.txt"]);
 
 async function walk(dir, acc) {
   let entries;

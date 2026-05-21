@@ -13,13 +13,18 @@
  * sich erweitert. Das Verhalten am echten Glossar wird durch den
  * `build:check`-Lauf in der CI abgedeckt.
  */
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   CONTRASTIVE_CLOSE,
   CONTRASTIVE_OPEN,
+  TXT_ALLOWLIST,
   buildTermRegex,
   scanHtml,
   stripContrastive,
+  walkDistFiles,
 } from "../check-brand-vocabulary.mjs";
 
 interface VocabEntry {
@@ -123,6 +128,39 @@ describe("buildTermRegex", () => {
     expect(re.test("DIKTAT")).toBe(true);
     re.lastIndex = 0;
     expect(re.test("diktat")).toBe(true);
+  });
+});
+
+describe("walkDistFiles", () => {
+  it("includes HTML plus the explicit `.txt` allowlist (`llms.txt`, `llms-full.txt`)", async () => {
+    const root = await mkdtemp(join(tmpdir(), "brand-walk-"));
+    await writeFile(join(root, "index.html"), "<html></html>");
+    await writeFile(join(root, "llms.txt"), "# WhisPaste\n");
+    await writeFile(join(root, "llms-full.txt"), "# Full\n");
+    // A non-allowlisted .txt file (e.g. robots.txt) must NOT be picked up.
+    await writeFile(join(root, "robots.txt"), "User-agent: *\n");
+    // Nested HTML is walked recursively.
+    await mkdir(join(root, "sub"));
+    await writeFile(join(root, "sub", "page.html"), "<html></html>");
+    const files = await walkDistFiles(root);
+    const rels = files.map((f) => f.slice(root.length + 1));
+    expect(rels).toContain("index.html");
+    expect(rels).toContain("sub/page.html");
+    expect(rels).toContain("llms.txt");
+    expect(rels).toContain("llms-full.txt");
+    expect(rels).not.toContain("robots.txt");
+  });
+
+  it("silently omits .txt allowlist entries that don't exist yet", async () => {
+    const root = await mkdtemp(join(tmpdir(), "brand-walk-empty-"));
+    await writeFile(join(root, "index.html"), "<html></html>");
+    const files = await walkDistFiles(root);
+    expect(files.map((f) => f.slice(root.length + 1))).toEqual(["index.html"]);
+  });
+
+  it("exposes the .txt allowlist as a frozen constant", () => {
+    expect(Array.from(TXT_ALLOWLIST)).toEqual(["llms.txt", "llms-full.txt"]);
+    expect(Object.isFrozen(TXT_ALLOWLIST)).toBe(true);
   });
 });
 
