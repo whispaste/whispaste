@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 1.2.23
+
+### Bug Fixes
+
+- **Maximum recording duration setting is now respected**. The recording safety guard counted amplitude samples to enforce `maxRecordDuration`, `deadMicTimeout` and `autoStopSilence`, but used the wrong sample rate — it expected 10 Hz while the audio service emits at 25 Hz (one sample every 40 ms). All three guards therefore fired 2.5× too early: a user setting "2:30" got cut off at ~60 s, dead-mic kicked in at 1.2 s instead of 3 s, and the 90 % duration-warning sound played at ~36 % of the configured limit. The orchestrator now passes the real rate to the guard, and the guard's `samplesPerSecond` knob has been promoted to a required parameter so the mismatch cannot silently re-appear. The orchestrator behavior-snapshot tests, which had calibrated against the buggy rate and locked the bug in as spec, have been re-calibrated.
+
+- **Microphone-volume slider removed**. The slider in Audio Input was non-functional — the value was persisted but no code path in the recording pipeline applied it. The `record` plugin has no gain parameter and no PCM multiplication ran on the stream, so changing the slider had zero effect on the captured audio. Rather than ship a fix-by-implementation that would have widened this release's scope, the dead slider has been removed; if true input-gain control is wanted later it returns as its own feature.
+
+- **"Show notifications" preference is now honoured**. The Interface toggle was persisted but never consulted — paste-blocked and paste-failed alerts fired through `SystemAttentionService` regardless of the setting. The native notification path now checks the preference and stays silent when the user has opted out. The dock-bounce / taskbar-flash fallback stays active either way; that is the layer that surfaces problems when the main window is hidden.
+
 ## 1.2.22
 
 ### Bug Fixes
