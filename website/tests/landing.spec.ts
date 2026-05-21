@@ -17,13 +17,14 @@ test('hero CTA contains platform download button(s)', async ({ page }) => {
   expect(storeVisible || appleVisible).toBe(true);
 });
 
-test('language toggle switches the landing page from EN to DE', async ({ page }) => {
+test('language toggle switches the landing page between DE and EN', async ({ page }) => {
   await page.goto('/');
 
   const heroHeading = page.locator('section h1').first();
-  await expect(heroHeading).toContainText('Press. Speak.');
-  await page.getByTestId('lang-toggle').click();
   await expect(heroHeading).toContainText('Drücken. Sprechen.');
+  await page.getByTestId('lang-toggle').click();
+  await page.waitForURL(/\/en\/?$/);
+  await expect(page.locator('section h1').first()).toContainText('Press. Speak.');
 });
 
 test('FAQ section is visible and has accordion items', async ({ page }) => {
@@ -45,7 +46,7 @@ test('legal pages load without 404s', async ({ page }) => {
 
 test('download page has Store and GitHub sections', async ({ page }) => {
   await page.goto('/download/');
-  await expect(page.locator('main h1').first()).toContainText('Download');
+  await expect(page.locator('main h1').first()).toContainText('WhisPaste herunterladen');
   await expect(page.locator('main h2').first()).toContainText('Microsoft Store');
   // GitHub free download section — Windows button has data-testid="github-windows-button"
   await expect(page.getByTestId('github-windows-button')).toBeVisible();
