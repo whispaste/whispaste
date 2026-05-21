@@ -1,0 +1,184 @@
+---
+/**
+ * `LandingPageLayout.astro` — wiederverwendbares Layout für Long-Tail-Content-
+ * Pages (Use-Cases, Vergleiche, Erklär-Pages) unter Block E des SEO-Overhauls.
+ *
+ * Ziel: Eine einheitliche Seitenstruktur (Hero → Sections-Slot → CTA) mit
+ * konsistenter Schema-Markup-Position. Das globale `Layout.astro` wird
+ * gewrappt (nicht ersetzt) — Title, Description, `<html lang>`, canonical,
+ * hreflang und OrganizationSchema kommen von dort. Diese Schicht ergänzt
+ * den Breadcrumb-Schema-Knoten plus die Page-Struktur.
+ *
+ * Schema-Wahl pro Page: `BreadcrumbListSchema` wird hier emittiert, weil
+ * jede Long-Tail-Page eine Breadcrumb hat. Page-spezifische Schemas
+ * (`HowToSchema` oder `FAQPageSchema`) emittiert der Konsument INNERHALB
+ * des Default-Slots — verschiedene Pages wählen unterschiedliche Formate.
+ *
+ * Props-Vertrag (Issue 10 / PRD §E):
+ *   - `lang`: `'de' | 'en'` — explizit, damit der Layout-Wrapper für
+ *     hreflang-Alternates die korrekte Locale durchreicht.
+ *   - `seo`: `{ title, description }` — gehen 1:1 in `<Layout>`.
+ *   - `breadcrumbs`: `readonly { name, item }[]` — wird sowohl visuell
+ *     gerendert als auch als `BreadcrumbList`-JSON-LD emittiert.
+ *   - `hero`: `{ heading, lead }` — H1 plus erster Absatz (beantwortet
+ *     den `docs/zielgruppe.md`-Lackmustest).
+ *   - `cta`: `{ label, href }` — Download-CTA-Block.
+ *   - optional `alternateSlugs`: divergierende DE/EN-Slugs (z. B.
+ *     `programmierer` ↔ `programmer`), durchgereicht an `<Layout>`.
+ *
+ * Die Sections rendern Konsumenten über den Default-Slot. Style-Konventionen:
+ * dieselben Tailwind-Tokens wie auf `download.astro` / `sponsor.astro`
+ * (max-w-3xl mit subpage-Nav/Footer), damit Long-Tail-Pages visuell zur
+ * Restseite gehören.
+ */
+import Layout from "./Layout.astro";
+import Nav from "../components/Nav.astro";
+import Footer from "../components/Footer.astro";
+import BreadcrumbListSchema from "../components/schema/BreadcrumbListSchema.astro";
+import type { Locale } from "../scripts/i18n.ts";
+
+interface SeoProps {
+  readonly title: string;
+  readonly description: string;
+}
+
+interface CrumbItem {
+  readonly name: string;
+  readonly item: string;
+}
+
+interface HeroProps {
+  readonly heading: string;
+  readonly lead: string;
+}
+
+interface CtaProps {
+  readonly label: string;
+  readonly href: string;
+}
+
+interface Props {
+  readonly lang: Locale;
+  readonly seo: SeoProps;
+  readonly breadcrumbs: readonly CrumbItem[];
+  readonly hero: HeroProps;
+  readonly cta: CtaProps;
+  readonly alternateSlugs?: { de: string; en: string };
+}
+
+const { lang, seo, breadcrumbs, hero, cta, alternateSlugs } = Astro.props;
+---
+
+<Layout
+  title={seo.title}
+  description={seo.description}
+  lang={lang}
+  alternateSlugs={alternateSlugs}
+>
+  <div class="min-h-screen flex flex-col">
+    <Nav variant="subpage" />
+
+    <main id="main-content" class="flex-1 pt-24 pb-16 px-6">
+      <div class="max-w-3xl mx-auto">
+        {/*
+          Visuelle Breadcrumb-Leiste — dieselben Items wie das
+          `BreadcrumbList`-Schema (Google Rich Results verlangt
+          Übereinstimmung zwischen sichtbarem Text und JSON-LD).
+        */}
+        <nav aria-label="Breadcrumb" class="mb-8 text-sm text-gray-500">
+          <ol class="flex flex-wrap items-center gap-2">
+            {breadcrumbs.map((crumb, index) => {
+              const isLast = index === breadcrumbs.length - 1;
+              return (
+                <li class="flex items-center gap-2">
+                  {isLast ? (
+                    <span class="text-gray-300" aria-current="page">{crumb.name}</span>
+                  ) : (
+                    <a href={crumb.item} class="hover:text-gray-300 transition-colors">{crumb.name}</a>
+                  )}
+                  {!isLast && (
+                    <span class="text-gray-600" aria-hidden="true">/</span>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        </nav>
+
+        {/* Hero — H1 + Lackmustest-Antwort im ersten Absatz */}
+        <header class="mb-12">
+          <h1 class="text-3xl sm:text-4xl font-bold text-white mb-4 leading-tight">{hero.heading}</h1>
+          <p class="text-gray-300 text-lg leading-relaxed">{hero.lead}</p>
+        </header>
+
+        {/* Sections-Slot — Konsumenten füllen mit `<section>`-Blöcken */}
+        <div class="landing-content space-y-10">
+          <slot />
+        </div>
+
+        {/* CTA-Block — konsistente Position am Ende jeder Long-Tail-Page */}
+        <aside class="mt-14 rounded-2xl border border-brand-cyan/20 bg-brand-cyan/[0.03] p-8 text-center">
+          <a
+            href={cta.href}
+            class="inline-flex items-center gap-2 rounded-xl bg-brand-cyan px-6 py-3 font-semibold text-brand-darker transition-transform hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-cyan"
+          >
+            <span>{cta.label}</span>
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M5 12h14" />
+              <path d="m12 5 7 7-7 7" />
+            </svg>
+          </a>
+        </aside>
+      </div>
+    </main>
+
+    <Footer variant="subpage" />
+  </div>
+
+  {/*
+    Client-side language toggle keeps i18n attributes (`data-i18n`,
+    `data-i18n-aria` …) on Nav/Footer in sync, identisch zu allen
+    anderen Subpages.
+  */}
+  <script>
+    import { applyLang } from '../scripts/i18n';
+    import { updateThemeIcon } from '../scripts/theme';
+    applyLang();
+    updateThemeIcon();
+  </script>
+
+  {/* BreadcrumbList-JSON-LD — Items 1:1 wie in der sichtbaren Nav oben */}
+  <BreadcrumbListSchema items={breadcrumbs} />
+</Layout>
+
+<style>
+  .landing-content :global(section) {
+    background: linear-gradient(135deg, rgba(29, 37, 56, 0.4) 0%, rgba(23, 29, 44, 0.2) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 1rem;
+    padding: 1.5rem 1.75rem;
+  }
+  .landing-content :global(section h2) {
+    color: #fff;
+    font-weight: 600;
+    font-size: 1.25rem;
+    margin-bottom: 0.75rem;
+  }
+  .landing-content :global(section p) {
+    color: #9ca3af;
+    line-height: 1.6;
+  }
+  .landing-content :global(section p + p) {
+    margin-top: 0.75rem;
+  }
+  .landing-content :global(section ul) {
+    color: #9ca3af;
+    line-height: 1.6;
+    margin-top: 0.75rem;
+    padding-left: 1.25rem;
+    list-style: disc;
+  }
+  .landing-content :global(section ul li + li) {
+    margin-top: 0.35rem;
+  }
+</style>
