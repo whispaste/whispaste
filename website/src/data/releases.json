@@ -152,7 +152,7 @@
       "publishedAt": "2026-04-21T12:00:00.000Z",
       "htmlUrl": "https://github.com/whispaste/whispaste/releases/tag/v1.2.x",
       "en": {
-        "bodyMarkdown": "### Highlights\n- Complete rewrite as a native Flutter app — truly cross-platform (Windows and macOS)\n- All dictation history stored locally in SQLite — no shared config files, no data loss\n- New slim recording pill overlay with live waveform and progress indicator\n- Always-on-top floating button for instant dictation from any app, with expanded context menu (open, record, history, settings, quit)\n- Premium UI with warm gradients, frosted glass effects, and micro-animations\n- macOS app ships as a native ARM64 DMG with every release\n- History transcript editor now fully supports all text editing keys — Enter, Backspace, Delete, and cursor navigation work correctly when focused\n\n### Improvements\n- All Go backend code removed — zero external dependencies\n- Riverpod state management for reactive, testable architecture\n- 469+ automated tests with over 90 percent feature coverage\n- macOS menu bar icon resolves correctly across all bundle layouts",
+        "bodyMarkdown": "### Highlights\n- Complete rewrite as a native Flutter app — truly cross-platform (Windows and macOS)\n- All transcript history stored locally in SQLite — no shared config files, no data loss\n- New slim recording pill overlay with live waveform and progress indicator\n- Always-on-top floating button for instant voice input from any app, with expanded context menu (open, record, history, settings, quit)\n- Premium UI with warm gradients, frosted glass effects, and micro-animations\n- macOS app ships as a native ARM64 DMG with every release\n- History transcript editor now fully supports all text editing keys — Enter, Backspace, Delete, and cursor navigation work correctly when focused\n\n### Improvements\n- All Go backend code removed — zero external dependencies\n- Riverpod state management for reactive, testable architecture\n- 469+ automated tests with over 90 percent feature coverage\n- macOS menu bar icon resolves correctly across all bundle layouts",
         "blocks": {
           "sections": [
             {
@@ -162,13 +162,13 @@
                   "body": "Complete rewrite as a native Flutter app — truly cross-platform (Windows and macOS)"
                 },
                 {
-                  "body": "All dictation history stored locally in SQLite — no shared config files, no data loss"
+                  "body": "All transcript history stored locally in SQLite — no shared config files, no data loss"
                 },
                 {
                   "body": "New slim recording pill overlay with live waveform and progress indicator"
                 },
                 {
-                  "body": "Always-on-top floating button for instant dictation from any app, with expanded context menu (open, record, history, settings, quit)"
+                  "body": "Always-on-top floating button for instant voice input from any app, with expanded context menu (open, record, history, settings, quit)"
                 },
                 {
                   "body": "Premium UI with warm gradients, frosted glass effects, and micro-animations"
@@ -202,7 +202,7 @@
         }
       },
       "de": {
-        "bodyMarkdown": "### Highlights\n- Kompletter Neuschrieb als native Flutter-App — wirklich plattformübergreifend (Windows und macOS)\n- Gesamter Diktat-Verlauf lokal in SQLite gespeichert — keine geteilten Konfigdateien, kein Datenverlust\n- Neue schlanke Aufnahme-Pille mit Live-Wellenform und Fortschrittsanzeige\n- Schwebende Schaltfläche immer im Vordergrund für sofortiges Diktieren aus jeder App, mit erweitertem Kontextmenü (öffnen, aufnehmen, Verlauf, Einstellungen, beenden)\n- Premium-UI mit warmen Verläufen, Milchglas-Effekten und Micro-Animationen\n- macOS-App wird mit jedem Release als nativer ARM64-DMG ausgeliefert\n- Transkript-Editor im Verlauf unterstützt jetzt alle Texteingabe-Tasten vollständig — Enter, Backspace, Entfernen und Cursor-Navigation funktionieren korrekt im Fokus\n\n### Improvements\n- Gesamter Go-Backend-Code entfernt — keine externen Abhängigkeiten mehr\n- Riverpod State Management für reaktive, testbare Architektur\n- 469+ automatisierte Tests mit über 90 Prozent Funktionsabdeckung\n- macOS-Menüleisten-Icon wird jetzt in allen Bundle-Layouts korrekt aufgelöst",
+        "bodyMarkdown": "### Highlights\n- Kompletter Neuschrieb als native Flutter-App — wirklich plattformübergreifend (Windows und macOS)\n- Gesamter Transkript-Verlauf lokal in SQLite gespeichert — keine geteilten Konfigdateien, kein Datenverlust\n- Neue schlanke Aufnahme-Pille mit Live-Wellenform und Fortschrittsanzeige\n- Schwebende Schaltfläche immer im Vordergrund für sofortige Spracheingabe aus jeder App, mit erweitertem Kontextmenü (öffnen, aufnehmen, Verlauf, Einstellungen, beenden)\n- Premium-UI mit warmen Verläufen, Milchglas-Effekten und Micro-Animationen\n- macOS-App wird mit jedem Release als nativer ARM64-DMG ausgeliefert\n- Transkript-Editor im Verlauf unterstützt jetzt alle Texteingabe-Tasten vollständig — Enter, Backspace, Entfernen und Cursor-Navigation funktionieren korrekt im Fokus\n\n### Improvements\n- Gesamter Go-Backend-Code entfernt — keine externen Abhängigkeiten mehr\n- Riverpod State Management für reaktive, testbare Architektur\n- 469+ automatisierte Tests mit über 90 Prozent Funktionsabdeckung\n- macOS-Menüleisten-Icon wird jetzt in allen Bundle-Layouts korrekt aufgelöst",
         "blocks": {
           "sections": [
             {
@@ -212,13 +212,13 @@
                   "body": "Kompletter Neuschrieb als native Flutter-App — wirklich plattformübergreifend (Windows und macOS)"
                 },
                 {
-                  "body": "Gesamter Diktat-Verlauf lokal in SQLite gespeichert — keine geteilten Konfigdateien, kein Datenverlust"
+                  "body": "Gesamter Transkript-Verlauf lokal in SQLite gespeichert — keine geteilten Konfigdateien, kein Datenverlust"
                 },
                 {
                   "body": "Neue schlanke Aufnahme-Pille mit Live-Wellenform und Fortschrittsanzeige"
                 },
                 {
-                  "body": "Schwebende Schaltfläche immer im Vordergrund für sofortiges Diktieren aus jeder App, mit erweitertem Kontextmenü (öffnen, aufnehmen, Verlauf, Einstellungen, beenden)"
+                  "body": "Schwebende Schaltfläche immer im Vordergrund für sofortige Spracheingabe aus jeder App, mit erweitertem Kontextmenü (öffnen, aufnehmen, Verlauf, Einstellungen, beenden)"
                 },
                 {
                   "body": "Premium-UI mit warmen Verläufen, Milchglas-Effekten und Micro-Animationen"
@@ -259,14 +259,14 @@
       "publishedAt": "2026-04-01T12:00:00.000Z",
       "htmlUrl": "https://github.com/whispaste/whispaste/releases/tag/v1.1.x",
       "en": {
-        "bodyMarkdown": "### Highlights\n- Smart Mode: AI-powered post-processing transforms raw dictation into polished, context-aware text\n- Voice Snippets: save and recall frequently used phrases with a single command\n- GPU acceleration for NVIDIA, AMD, and Intel graphics cards — faster local transcription\n- Multiple cloud providers available: choose between local, OpenAI, Groq, or Deepgram\n- Redesigned dashboard, Smart Mode, and Voice Snippets with a cleaner layout and smooth animations\n- Auto-generated tags now use Title Case and filter out system labels\n- Dictation pastes correctly into the new Outlook app on Windows 11\n\n### Improvements\n- New onboarding wizard guides you through setup in just a few steps\n- Unified silence removal setting — one smart toggle instead of two confusing options\n- Settings reorganized with clearer sections and everyday language throughout\n- Faster model downloads with resume support for interrupted connections\n- Fixed a race condition when switching pages quickly",
+        "bodyMarkdown": "### Highlights\n- Smart Mode: AI-powered post-processing transforms raw transcripts into polished, context-aware text\n- Voice Snippets: save and recall frequently used phrases with a single command\n- GPU acceleration for NVIDIA, AMD, and Intel graphics cards — faster local transcription\n- Multiple cloud providers available: choose between local, OpenAI, Groq, or Deepgram\n- Redesigned dashboard, Smart Mode, and Voice Snippets with a cleaner layout and smooth animations\n- Auto-generated tags now use Title Case and filter out system labels\n- Transcripts paste correctly into the new Outlook app on Windows 11\n\n### Improvements\n- New onboarding wizard guides you through setup in just a few steps\n- Unified silence removal setting — one smart toggle instead of two confusing options\n- Settings reorganized with clearer sections and everyday language throughout\n- Faster model downloads with resume support for interrupted connections\n- Fixed a race condition when switching pages quickly",
         "blocks": {
           "sections": [
             {
               "heading": "Highlights",
               "items": [
                 {
-                  "body": "Smart Mode: AI-powered post-processing transforms raw dictation into polished, context-aware text"
+                  "body": "Smart Mode: AI-powered post-processing transforms raw transcripts into polished, context-aware text"
                 },
                 {
                   "body": "Voice Snippets: save and recall frequently used phrases with a single command"
@@ -284,7 +284,7 @@
                   "body": "Auto-generated tags now use Title Case and filter out system labels"
                 },
                 {
-                  "body": "Dictation pastes correctly into the new Outlook app on Windows 11"
+                  "body": "Transcripts paste correctly into the new Outlook app on Windows 11"
                 }
               ]
             },
@@ -312,14 +312,14 @@
         }
       },
       "de": {
-        "bodyMarkdown": "### Highlights\n- Smart Mode: KI-gestützte Nachbearbeitung verwandelt rohe Diktate in polierten, kontextbewussten Text\n- Sprach-Snippets: häufig genutzte Phrasen speichern und mit einem Befehl abrufen\n- GPU-Beschleunigung für NVIDIA-, AMD- und Intel-Grafikkarten — schnellere lokale Transkription\n- Mehrere Cloud-Anbieter verfügbar: wähle zwischen lokal, OpenAI, Groq oder Deepgram\n- Dashboard, Smart Mode und Sprach-Snippets mit aufgeräumterem Layout und sanften Animationen überarbeitet\n- Automatisch generierte Tags nutzen jetzt Großschreibung und filtern System-Labels heraus\n- Diktate werden jetzt korrekt in das neue Outlook unter Windows 11 eingefügt\n\n### Improvements\n- Neuer Einrichtungsassistent führt dich in wenigen Schritten durch das Setup\n- Stille-Erkennung vereinfacht — ein smarter Schalter statt zwei verwirrender Optionen\n- Einstellungen in klarere Bereiche mit alltagstauglicher Sprache aufgeteilt\n- Schnellere Modell-Downloads mit Fortsetzung bei unterbrochenen Verbindungen\n- Race-Condition beim schnellen Seitenwechsel behoben",
+        "bodyMarkdown": "### Highlights\n- Smart Mode: KI-gestützte Nachbearbeitung verwandelt rohe Transkripte in polierten, kontextbewussten Text\n- Sprach-Snippets: häufig genutzte Phrasen speichern und mit einem Befehl abrufen\n- GPU-Beschleunigung für NVIDIA-, AMD- und Intel-Grafikkarten — schnellere lokale Transkription\n- Mehrere Cloud-Anbieter verfügbar: wähle zwischen lokal, OpenAI, Groq oder Deepgram\n- Dashboard, Smart Mode und Sprach-Snippets mit aufgeräumterem Layout und sanften Animationen überarbeitet\n- Automatisch generierte Tags nutzen jetzt Großschreibung und filtern System-Labels heraus\n- Transkripte werden jetzt korrekt in das neue Outlook unter Windows 11 eingefügt\n\n### Improvements\n- Neuer Einrichtungsassistent führt dich in wenigen Schritten durch das Setup\n- Stille-Erkennung vereinfacht — ein smarter Schalter statt zwei verwirrender Optionen\n- Einstellungen in klarere Bereiche mit alltagstauglicher Sprache aufgeteilt\n- Schnellere Modell-Downloads mit Fortsetzung bei unterbrochenen Verbindungen\n- Race-Condition beim schnellen Seitenwechsel behoben",
         "blocks": {
           "sections": [
             {
               "heading": "Highlights",
               "items": [
                 {
-                  "body": "Smart Mode: KI-gestützte Nachbearbeitung verwandelt rohe Diktate in polierten, kontextbewussten Text"
+                  "body": "Smart Mode: KI-gestützte Nachbearbeitung verwandelt rohe Transkripte in polierten, kontextbewussten Text"
                 },
                 {
                   "body": "Sprach-Snippets: häufig genutzte Phrasen speichern und mit einem Befehl abrufen"
@@ -337,7 +337,7 @@
                   "body": "Automatisch generierte Tags nutzen jetzt Großschreibung und filtern System-Labels heraus"
                 },
                 {
-                  "body": "Diktate werden jetzt korrekt in das neue Outlook unter Windows 11 eingefügt"
+                  "body": "Transkripte werden jetzt korrekt in das neue Outlook unter Windows 11 eingefügt"
                 }
               ]
             },
@@ -372,7 +372,7 @@
       "publishedAt": "2026-03-01T12:00:00.000Z",
       "htmlUrl": "https://github.com/whispaste/whispaste/releases/tag/v1.0.x",
       "en": {
-        "bodyMarkdown": "### Highlights\n- Available on the Microsoft Store for easy installation and auto-updates\n- Full dictation history with search — find any past dictation instantly\n- New premium design throughout the app\n\n### Improvements\n- Stronger privacy protections and security hardening\n- The app icon displays cleanly in the Windows taskbar\n- Local AI processing is more stable and recovers gracefully from errors",
+        "bodyMarkdown": "### Highlights\n- Available on the Microsoft Store for easy installation and auto-updates\n- Full transcript history with search — find any past transcript instantly\n- New premium design throughout the app\n\n### Improvements\n- Stronger privacy protections and security hardening\n- The app icon displays cleanly in the Windows taskbar\n- Local AI processing is more stable and recovers gracefully from errors",
         "blocks": {
           "sections": [
             {
@@ -382,7 +382,7 @@
                   "body": "Available on the Microsoft Store for easy installation and auto-updates"
                 },
                 {
-                  "body": "Full dictation history with search — find any past dictation instantly"
+                  "body": "Full transcript history with search — find any past transcript instantly"
                 },
                 {
                   "body": "New premium design throughout the app"
@@ -407,7 +407,7 @@
         }
       },
       "de": {
-        "bodyMarkdown": "### Highlights\n- Im Microsoft Store verfügbar für einfache Installation und automatische Updates\n- Vollständiger Diktat-Verlauf mit Suche — jedes vergangene Diktat sofort finden\n- Neues Premium-Design in der gesamten App\n\n### Improvements\n- Stärkerer Datenschutz und Sicherheitshärtung\n- Das App-Icon wird sauber in der Windows-Taskleiste angezeigt\n- Lokale KI-Verarbeitung ist stabiler und erholt sich besser von Fehlern",
+        "bodyMarkdown": "### Highlights\n- Im Microsoft Store verfügbar für einfache Installation und automatische Updates\n- Vollständiger Transkript-Verlauf mit Suche — jedes vergangene Transkript sofort finden\n- Neues Premium-Design in der gesamten App\n\n### Improvements\n- Stärkerer Datenschutz und Sicherheitshärtung\n- Das App-Icon wird sauber in der Windows-Taskleiste angezeigt\n- Lokale KI-Verarbeitung ist stabiler und erholt sich besser von Fehlern",
         "blocks": {
           "sections": [
             {
@@ -417,7 +417,7 @@
                   "body": "Im Microsoft Store verfügbar für einfache Installation und automatische Updates"
                 },
                 {
-                  "body": "Vollständiger Diktat-Verlauf mit Suche — jedes vergangene Diktat sofort finden"
+                  "body": "Vollständiger Transkript-Verlauf mit Suche — jedes vergangene Transkript sofort finden"
                 },
                 {
                   "body": "Neues Premium-Design in der gesamten App"
