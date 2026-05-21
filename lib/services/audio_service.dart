@@ -8,6 +8,7 @@ library;
 import 'dart:async';
 import 'dart:developer' as dev;
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
@@ -15,7 +16,9 @@ import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
 import '../core/config/settings_provider.dart';
+import 'audio/amplitude_from_pcm.dart';
 import 'audio/speech_level_mapper.dart';
+import 'audio/wav_file_writer.dart';
 
 // ---------------------------------------------------------------------------
 // Audio service state
@@ -63,8 +66,12 @@ class AudioStatus {
 
 /// Builds a whisper-compatible [RecordConfig], optionally targeting a
 /// specific [InputDevice]. Pass `null` to use the system default.
+///
+/// Uses [AudioEncoder.pcm16bits] because the WAV container is written
+/// in-process by [WavFileWriter] off the raw PCM stream. Sample format
+/// stays 16 kHz mono 16-bit signed LE for whisper compatibility.
 RecordConfig _whisperConfig({InputDevice? device}) => RecordConfig(
-  encoder: AudioEncoder.wav,
+  encoder: AudioEncoder.pcm16bits,
   sampleRate: 16000,
   numChannels: 1,
   autoGain: true,
@@ -84,7 +91,18 @@ RecordConfig _whisperConfig({InputDevice? device}) => RecordConfig(
 /// returns the path to the captured WAV file.
 class AudioServiceNotifier extends Notifier<AudioStatus> {
   AudioRecorder? _recorder;
-  StreamSubscription<Amplitude>? _amplitudeSub;
+
+  /// Subscription to the raw PCM stream emitted by [AudioRecorder.startStream].
+  StreamSubscription<Uint8List>? _pcmSub;
+
+  /// Subscription to [AmplitudeFromPcm.stream] — feeds the perceptual mapper.
+  StreamSubscription<double>? _ampSub;
+
+  /// Active dBFS calculator for the current recording. `null` when idle.
+  AmplitudeFromPcm? _amplitudeFromPcm;
+
+  /// Active WAV-container writer for the current recording. `null` when idle.
+  WavFileWriter? _wavWriter;
 
   /// Amplitude values normalized to 0.0–1.0, emitted ~25 times/second.
   ///
@@ -177,34 +195,60 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
       name: 'AudioService',
     );
 
-    // Prepare amplitude stream.
+    // Prepare amplitude stream and PCM-side helpers.
     _amplitudeController?.close();
     _amplitudeController = StreamController<double>.broadcast();
 
-    // Subscribe to amplitude before starting (the stream auto-starts).
-    _amplitudeSub?.cancel();
-    const levelMapper = SpeechLevelMapper();
-    _amplitudeSub = recorder
-        .onAmplitudeChanged(amplitudePollInterval)
-        .listen(
-          (amp) {
-            // Raw dBFS goes straight through the perceptual mapper; the
-            // mapper handles floor/ceiling clamping and degenerate inputs.
-            _amplitudeController?.add(levelMapper.map(amp.current));
-          },
-          onError: (Object e) {
-            dev.log('Amplitude error: $e', name: 'AudioService');
-          },
-        );
+    final amplitudeFromPcm = AmplitudeFromPcm(
+      pollInterval: amplitudePollInterval,
+    );
+    _amplitudeFromPcm = amplitudeFromPcm;
 
+    const levelMapper = SpeechLevelMapper();
+    _ampSub?.cancel();
+    _ampSub = amplitudeFromPcm.stream.listen(
+      (dbFs) {
+        _amplitudeController?.add(levelMapper.map(dbFs));
+      },
+      onError: (Object e) {
+        dev.log('Amplitude error: $e', name: 'AudioService');
+      },
+    );
+
+    // Open the WAV writer up-front so the file exists from t=0.
+    FilePcmSink? pcmSink;
+    WavFileWriter? wavWriter;
+    Stream<Uint8List> pcmStream;
     try {
-      await recorder.start(
-        _whisperConfig(device: selectedDevice),
-        path: wavPath,
+      pcmSink = await FilePcmSink.open(wavPath);
+      wavWriter = WavFileWriter(
+        sink: pcmSink,
+        sampleRate: 16000,
+        channels: 1,
+        bitsPerSample: 16,
       );
-    } on Exception {
-      _amplitudeSub?.cancel();
+      _wavWriter = wavWriter;
+      pcmStream = await recorder.startStream(
+        _whisperConfig(device: selectedDevice),
+      );
+    } on Exception catch (e) {
+      dev.log('startStream failed: $e', name: 'AudioService');
+      await _ampSub?.cancel();
+      _ampSub = null;
+      await _amplitudeFromPcm?.dispose();
+      _amplitudeFromPcm = null;
+      try {
+        await wavWriter?.close();
+      } on Exception catch (closeErr) {
+        dev.log(
+          'Closing partial WAV after start error failed: $closeErr',
+          name: 'AudioService',
+        );
+      }
+      _wavWriter = null;
+      await cleanupFile(wavPath);
       _amplitudeController?.close();
+      _amplitudeController = null;
       state = const AudioStatus(
         captureState: AudioCaptureState.error,
         errorMessage: 'recording_start_failed',
@@ -212,9 +256,80 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
       return;
     }
 
+    // Fork the PCM stream into the dBFS calculator + the WAV writer. Any
+    // mid-recording stream error transitions to captureState=error and
+    // cleans up the partial WAV file.
+    _pcmSub = pcmStream.listen(
+      (chunk) {
+        amplitudeFromPcm.addChunk(chunk);
+        // Errors from the WAV writer are recoverable from the stream's POV
+        // (we just stop writing more samples) but should not crash the
+        // recording — they are surfaced in logs.
+        wavWriter!.writeChunk(chunk).catchError((Object e) {
+          dev.log('WAV writer chunk failure: $e', name: 'AudioService');
+        });
+      },
+      onError: (Object e) async {
+        dev.log('PCM stream error: $e', name: 'AudioService');
+        await _failActiveRecording(
+          errorMessage: 'pcm_stream_failed',
+          deleteWav: true,
+        );
+      },
+      onDone: () {
+        dev.log('PCM stream closed', name: 'AudioService');
+      },
+      cancelOnError: true,
+    );
+
     state = AudioStatus(
       captureState: AudioCaptureState.recording,
       filePath: wavPath,
+    );
+  }
+
+  /// Tears down active recording resources after a fatal mid-recording
+  /// error and (optionally) deletes the partial WAV file. Idempotent.
+  Future<void> _failActiveRecording({
+    required String errorMessage,
+    required bool deleteWav,
+  }) async {
+    final wavPath = state.filePath;
+    await _pcmSub?.cancel();
+    _pcmSub = null;
+    await _ampSub?.cancel();
+    _ampSub = null;
+    await _amplitudeFromPcm?.dispose();
+    _amplitudeFromPcm = null;
+    try {
+      await _wavWriter?.close();
+    } on Exception catch (e) {
+      dev.log('Closing WAV after error failed: $e', name: 'AudioService');
+    }
+    _wavWriter = null;
+    await _amplitudeController?.close();
+    _amplitudeController = null;
+
+    final recorder = _recorder;
+    if (recorder != null) {
+      try {
+        await recorder.stop();
+      } on Exception catch (e) {
+        dev.log(
+          'Stopping recorder after error failed: $e',
+          name: 'AudioService',
+        );
+      }
+    }
+
+    if (deleteWav) {
+      await cleanupFile(wavPath);
+    }
+
+    state = AudioStatus(
+      captureState: AudioCaptureState.error,
+      errorMessage: errorMessage,
+      filePath: deleteWav ? null : wavPath,
     );
   }
 
@@ -228,22 +343,38 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
       return null;
     }
 
-    _amplitudeSub?.cancel();
-    _amplitudeSub = null;
-    _amplitudeController?.close();
-    _amplitudeController = null;
+    final wavPath = state.filePath;
 
+    // Stop the recorder first; this closes the platform PCM stream and
+    // triggers `onDone` on our subscription.
     final recorder = _recorder;
-    if (recorder == null) return null;
-
-    String? path;
-    try {
-      path = await recorder.stop();
-    } on Exception catch (e) {
-      dev.log('Error stopping recorder: $e', name: 'AudioService');
+    if (recorder != null) {
+      try {
+        await recorder.stop();
+      } on Exception catch (e) {
+        dev.log('Error stopping recorder: $e', name: 'AudioService');
+      }
     }
 
-    final wavPath = path ?? state.filePath;
+    // Tear down the PCM subscription before closing the WAV writer so no
+    // late chunks try to append after the header has been patched.
+    await _pcmSub?.cancel();
+    _pcmSub = null;
+
+    try {
+      await _wavWriter?.close();
+    } on Exception catch (e) {
+      dev.log('Error closing WAV writer: $e', name: 'AudioService');
+    }
+    _wavWriter = null;
+
+    await _ampSub?.cancel();
+    _ampSub = null;
+    await _amplitudeFromPcm?.dispose();
+    _amplitudeFromPcm = null;
+    await _amplitudeController?.close();
+    _amplitudeController = null;
+
     dev.log('Recording stopped → $wavPath', name: 'AudioService');
 
     state = AudioStatus(filePath: wavPath);
@@ -317,8 +448,12 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
   // -------------------------------------------------------------------------
 
   void _cleanup() {
-    _amplitudeSub?.cancel();
+    _pcmSub?.cancel();
+    _ampSub?.cancel();
+    _amplitudeFromPcm?.dispose();
     _amplitudeController?.close();
+    // Best-effort: close the writer; ignore errors during dispose.
+    _wavWriter?.close().catchError((Object _) {});
     _recorder?.dispose();
     _recorder = null;
   }
