@@ -1,13 +1,30 @@
-# Binary files
+# Default: treat all files as text and normalize to LF on commit and in the
+# working tree on every platform. Windows-only scripts override this below.
+* text=auto eol=lf
+
+# Binary formats — never normalize
 *.ico binary
 *.wav binary
 *.png binary
 *.exe binary
+*.bmp binary
+*.dll binary
+*.pdb binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.mp3 binary
+*.mp4 binary
+*.pdf binary
+*.zip binary
+*.gz binary
 
-# Ensure consistent line endings for source
-*.dart text eol=lf
-*.html text eol=lf
-*.yml text eol=lf
-*.json text eol=lf
-*.md text eol=lf
+# Windows-only scripts — must stay CRLF
 *.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf

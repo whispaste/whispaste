@@ -90,8 +90,9 @@ fi
 # ── 2. Block modifications to .gitignore PROTECTED section ────────────
 
 if echo "$STAGED_FILES" | grep -q "^\.gitignore$"; then
-  STAGED_PROTECTED=$(git show :0:.gitignore 2>/dev/null | sed -n '/PROTECTED-START/,/PROTECTED-END/p')
-  COMMITTED_PROTECTED=$(git show HEAD:.gitignore 2>/dev/null | sed -n '/PROTECTED-START/,/PROTECTED-END/p')
+  # Strip CR so a CRLF/LF normalisation run isn't misread as a weakened section.
+  STAGED_PROTECTED=$(git show :0:.gitignore 2>/dev/null | tr -d '\r' | sed -n '/PROTECTED-START/,/PROTECTED-END/p')
+  COMMITTED_PROTECTED=$(git show HEAD:.gitignore 2>/dev/null | tr -d '\r' | sed -n '/PROTECTED-START/,/PROTECTED-END/p')
 
   if [ -n "$COMMITTED_PROTECTED" ] && [ "$STAGED_PROTECTED" != "$COMMITTED_PROTECTED" ]; then
     COMMITTED_ENTRIES=$(echo "$COMMITTED_PROTECTED" | grep -v '^#' | grep -v '^$' | grep -v 'PROTECTED' | sort)
