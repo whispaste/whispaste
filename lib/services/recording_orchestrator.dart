@@ -17,6 +17,7 @@ import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
 import '../core/recording/recording_state.dart';
 import '../core/data/analytics_provider.dart';
+import '../features/recording/clipping_state.dart';
 import 'audio_service.dart';
 import 'model_download_service.dart';
 import 'path_service.dart';
@@ -368,6 +369,20 @@ class RecordingOrchestrator extends Notifier<void> {
 
           // Transition state: recording → transcribing.
           _stateMachine.transition(RecordingIntent.stop);
+
+          // Push the final user-gain clipping counter into the settings UI's
+          // ClippingState. We only reach this point on a successful capture
+          // step — error/abort paths above return early and intentionally
+          // leave the previous ClippingState untouched. A fresh `0` from a
+          // clean recording overrides any prior non-zero count, which is the
+          // desired auto-hide behaviour for the banner.
+          ref
+              .read(clippingStateProvider.notifier)
+              .reportRecordingFinished(
+                ref
+                    .read(audioServiceProvider.notifier)
+                    .lastRecordingClippedSamples,
+              );
 
           if (wavBytes.isEmpty) {
             // Distinguish between file-never-appeared and empty-file.

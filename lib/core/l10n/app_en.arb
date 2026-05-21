@@ -119,6 +119,8 @@
   "settingsAudioSubtitle": "Microphone and recording",
   "settingsMicrophone": "Microphone",
   "settingsGain": "Microphone Volume",
+  "settingsClippingBanner": "Last recording had clipping — reduce gain?",
+  "settingsClippingDismiss": "Dismiss",
   "settingsHoldToRecord": "Hold to Record",
   "pushToTalkUnavailableTooltip": "Not available on this platform",
   "settingsSpeechRecognition": "Speech Recognition",

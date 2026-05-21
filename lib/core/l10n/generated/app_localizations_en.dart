@@ -307,6 +307,13 @@ class L10nEn extends L10n {
   String get settingsGain => 'Microphone Volume';
 
   @override
+  String get settingsClippingBanner =>
+      'Last recording had clipping — reduce gain?';
+
+  @override
+  String get settingsClippingDismiss => 'Dismiss';
+
+  @override
   String get settingsHoldToRecord => 'Hold to Record';
 
   @override

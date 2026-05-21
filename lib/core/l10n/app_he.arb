@@ -117,6 +117,8 @@
   "settingsAudioSubtitle": "מיקרופון והקלטה",
   "settingsMicrophone": "מיקרופון",
   "settingsGain": "עוצמת מיקרופון",
+  "settingsClippingBanner": "בהקלטה האחרונה הייתה רוויה — להפחית את העוצמה?",
+  "settingsClippingDismiss": "הבנתי",
   "settingsHoldToRecord": "החזק להקלטה",
   "pushToTalkUnavailableTooltip": "לא זמין בפלטפורמה זו",
   "settingsSpeechRecognition": "זיהוי דיבור",

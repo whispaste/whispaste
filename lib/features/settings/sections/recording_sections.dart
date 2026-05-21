@@ -7,7 +7,10 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
+import '../../../core/theme/colors.dart';
+import '../../../core/theme/tokens.dart';
 import '../../../services/audio_service.dart';
+import '../../recording/clipping_state.dart';
 import '../../../widgets/section.dart';
 import '../settings_widgets.dart';
 
@@ -85,7 +88,71 @@ class AudioSection extends ConsumerWidget {
                   .updateSettings((s) => s.copyWith(inputGain: v / 100.0)),
             ),
           ),
+          const _ClippingBanner(),
         ],
+      ),
+    );
+  }
+}
+
+/// Subtle inline banner directly beneath the gain slider. Shown only when
+/// the last successful recording produced one or more clipped int16 samples
+/// (see [clippingStateProvider]).
+///
+/// No modal alert, no sound, no OS notification — just a warning icon plus
+/// a localized message and a dismiss control that resets the underlying
+/// counter to `0`.
+class _ClippingBanner extends ConsumerWidget {
+  const _ClippingBanner();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final clipping = ref.watch(clippingStateProvider);
+    if (!clipping.shouldShowBanner) return const SizedBox.shrink();
+
+    final l10n = L10n.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final warnColor = isDark ? WpColorsDark.warning : WpColorsLight.warning;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        WpSpacing.sm,
+        0,
+        WpSpacing.sm,
+        WpSpacing.xs,
+      ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: WpSpacing.sm,
+          vertical: WpSpacing.xs,
+        ),
+        decoration: BoxDecoration(
+          color: warnColor.withValues(alpha: 0.12),
+          borderRadius: WpRadius.borderMd,
+          border: Border.all(color: warnColor.withValues(alpha: 0.35)),
+        ),
+        child: Row(
+          children: [
+            Icon(LucideIcons.alertTriangle, size: 16, color: warnColor),
+            const SizedBox(width: WpSpacing.xs),
+            Expanded(
+              child: Text(
+                l10n.settingsClippingBanner,
+                style: TextStyle(fontSize: 12, color: warnColor),
+              ),
+            ),
+            const SizedBox(width: WpSpacing.xs),
+            IconButton(
+              icon: Icon(LucideIcons.x, size: 16, color: warnColor),
+              tooltip: l10n.settingsClippingDismiss,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+              splashRadius: 14,
+              onPressed: () =>
+                  ref.read(clippingStateProvider.notifier).dismiss(),
+            ),
+          ],
+        ),
       ),
     );
   }
