@@ -289,6 +289,32 @@ export const i18n: Record<string, Record<string, string>> = {
     'breadcrumb.impressum': 'Legal Notice',
     'breadcrumb.sponsor': 'Support',
     'breadcrumb.changelog': 'Changelog',
+    // Long-Tail use-case pages (Block E). The "useCases" breadcrumb is the
+    // section index; per-page breadcrumbs add a third level (e.g. "Developers").
+    'breadcrumb.useCases': 'Use Cases',
+    // Programmer use-case page — i18n namespace mirrors PRD §E Block-E content.
+    // Hero answers the zielgruppe.md litmus test: helping a developer in the
+    // middle of a code review reply without leaving the browser or grabbing
+    // the mouse.
+    'useCase.programmer.breadcrumb': 'Developers',
+    'useCase.programmer.seoTitle': 'WhisPaste for developers — voice input for code reviews, commits, and issues',
+    'useCase.programmer.seoDescription': 'Reply to code reviews, write commit messages, and answer issues by speaking — without leaving the browser or grabbing the mouse. Local-first voice-input tool for the dev workflow.',
+    'useCase.programmer.heroHeading': 'Voice input for developers — stay in the browser, keep your hands on the keyboard.',
+    'useCase.programmer.heroLead': 'When you are in the middle of a code review and need to write a five-sentence reply, WhisPaste lets you speak the answer right into the GitHub textarea — without switching apps, without reaching for the mouse, without breaking your flow.',
+    'useCase.programmer.section.codeReview.heading': 'Code reviews without context switches',
+    'useCase.programmer.section.codeReview.body': 'A pull-request review needs nuance: a one-line "looks good" misses the point, a wall of text loses the reviewer. With WhisPaste you press your hotkey, speak the explanation while you read the diff, and the transcript lands directly in the GitHub reply field — already correctly capitalised, with code identifiers like `fooBar` preserved when you spell them out.',
+    'useCase.programmer.section.gitCommits.heading': 'Commit messages and PR descriptions',
+    'useCase.programmer.section.gitCommits.body': 'Conventional commits and PR bodies often deserve more than three words, but the friction of writing them slows you down. Open the editor, speak the rationale, and the transcript shows up at your cursor — ready to edit, expand with a voice snippet, or paste into your terminal.',
+    'useCase.programmer.section.issueTracker.heading': 'Issue tracker, Slack, and standups',
+    'useCase.programmer.section.issueTracker.body': 'Repro steps in a bug ticket, async standup notes in Slack, a quick comment on a Linear issue — all of these are short but high-friction. WhisPaste runs in the background and works everywhere your cursor goes: GitHub, GitLab, Jira, Linear, Discord, Slack, your editor. Audio stays on your machine in local mode.',
+    'useCase.programmer.howTo.name': 'How to use WhisPaste in your dev workflow',
+    'useCase.programmer.howTo.step1.name': 'Place your cursor in the reply field',
+    'useCase.programmer.howTo.step1.text': 'Click into the GitHub review comment, the commit-message editor, or the Slack input — wherever you would normally type.',
+    'useCase.programmer.howTo.step2.name': 'Press your hotkey and speak',
+    'useCase.programmer.howTo.step2.text': 'Hold your configured hotkey, say your answer out loud, and release. The transcript is created locally on your machine by default.',
+    'useCase.programmer.howTo.step3.name': 'The transcript appears at the cursor',
+    'useCase.programmer.howTo.step3.text': 'Your text lands where you left the cursor. Edit, expand with a voice snippet, or send — no copy-paste step between voice and text.',
+    'useCase.programmer.cta.label': 'Get WhisPaste — free and open source',
   },
   de: {
     'meta.title.default': 'WhisPaste — Spracheingabe direkt am Cursor',
@@ -572,6 +598,35 @@ export const i18n: Record<string, Record<string, string>> = {
     'breadcrumb.impressum': 'Impressum',
     'breadcrumb.sponsor': 'Unterstützen',
     'breadcrumb.changelog': 'Änderungsprotokoll',
+    // Long-Tail-Use-Case-Pages (Block E). „Use Cases" bleibt bewusst englisch
+    // — etablierter Begriff in der dt. Tech-Sprache, kürzer als
+    // „Anwendungsfälle" und konsistent mit dem PRD-§E-Pfad `/use-cases/`.
+    'breadcrumb.useCases': 'Use Cases',
+    // Programmierer-Use-Case — Vokabular Glossar-konform: keine „Diktat/-
+    // Diktieren/Diktier-Tool"-Begriffe (Anti-Vokabular CONTEXT.md §7).
+    // Stattdessen `Spracheingabe`, `Sprach-Eingabe-Tool`, `Transkript`,
+    // `transkribiert`. Der Hero-Lead beantwortet den
+    // `docs/zielgruppe.md`-Lackmustest („Entwickler mitten im Code-Review,
+    // fünfsätzige Antwort, ohne Maus, ohne Browser-Wechsel") explizit.
+    'useCase.programmer.breadcrumb': 'Entwickler',
+    'useCase.programmer.seoTitle': 'WhisPaste für Entwickler — Spracheingabe für Code-Reviews, Commits und Issues',
+    'useCase.programmer.seoDescription': 'Code-Reviews beantworten, Commit-Messages schreiben und Issues kommentieren — per Stimme, ohne den Browser zu wechseln und ohne zur Maus zu greifen. Offline-first Sprach-Eingabe-Tool für den Entwickler-Workflow.',
+    'useCase.programmer.heroHeading': 'Spracheingabe für Entwickler — im Browser bleiben, die Finger auf der Tastatur.',
+    'useCase.programmer.heroLead': 'Wenn du mitten im Code-Review steckst und eine fünfsätzige Antwort schreiben willst, lässt dich WhisPaste die Antwort direkt ins GitHub-Textfeld sprechen — ohne App-Wechsel, ohne die Maus zu greifen, ohne aus deinem Flow zu fallen.',
+    'useCase.programmer.section.codeReview.heading': 'Code-Reviews ohne Kontextwechsel',
+    'useCase.programmer.section.codeReview.body': 'Ein Pull-Request-Review braucht Nuancen: Ein „sieht gut aus" ist zu wenig, eine Textwand verliert den Reviewer. Mit WhisPaste drückst du dein Tastenkürzel, sprichst die Erklärung, während du den Diff liest, und das Transkript landet direkt im GitHub-Antwortfeld — schon korrekt großgeschrieben, mit Code-Identifiern wie `fooBar`, wenn du sie buchstabierst.',
+    'useCase.programmer.section.gitCommits.heading': 'Commit-Messages und PR-Beschreibungen',
+    'useCase.programmer.section.gitCommits.body': 'Conventional Commits und PR-Bodies verdienen oft mehr als drei Worte, aber der Aufwand, sie zu schreiben, bremst dich. Editor öffnen, Begründung sprechen — das Transkript erscheint am Cursor und ist bereit, bearbeitet, mit einem Sprach-Snippet erweitert oder ins Terminal eingefügt zu werden.',
+    'useCase.programmer.section.issueTracker.heading': 'Issue-Tracker, Slack und Standups',
+    'useCase.programmer.section.issueTracker.body': 'Repro-Schritte in einem Bug-Ticket, asynchrone Standup-Notizen in Slack, ein schneller Kommentar an einem Linear-Issue — alle kurz, alle reibungsanfällig. WhisPaste läuft im Hintergrund und funktioniert überall, wo dein Cursor steht: GitHub, GitLab, Jira, Linear, Discord, Slack, dein Editor. Im lokalen Modus bleibt das Audio auf deinem Rechner.',
+    'useCase.programmer.howTo.name': 'So nutzt du WhisPaste im Dev-Workflow',
+    'useCase.programmer.howTo.step1.name': 'Setze den Cursor ins Antwortfeld',
+    'useCase.programmer.howTo.step1.text': 'Klicke ins GitHub-Review-Feld, in den Commit-Message-Editor oder ins Slack-Eingabefeld — überall dort, wo du sonst tippen würdest.',
+    'useCase.programmer.howTo.step2.name': 'Tastenkürzel drücken und sprechen',
+    'useCase.programmer.howTo.step2.text': 'Halte dein konfiguriertes Tastenkürzel, sprich deine Antwort aus und lass los. Das Transkript entsteht standardmäßig lokal auf deinem Rechner.',
+    'useCase.programmer.howTo.step3.name': 'Das Transkript erscheint am Cursor',
+    'useCase.programmer.howTo.step3.text': 'Dein Text landet dort, wo der Cursor stand. Bearbeiten, mit einem Sprach-Snippet erweitern oder direkt absenden — kein Copy-Paste zwischen Stimme und Text.',
+    'useCase.programmer.cta.label': 'WhisPaste holen — kostenlos und Open Source',
   }
 };
 

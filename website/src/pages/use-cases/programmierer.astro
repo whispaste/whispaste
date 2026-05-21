@@ -1,0 +1,128 @@
+---
+/**
+ * `/use-cases/programmierer/` — Tracer-Bullet-Use-Case-Page (Issue 10).
+ *
+ * Beantwortet den `docs/zielgruppe.md`-Lackmustest („Entwickler mitten im
+ * Code-Review, fünfsätzige Antwort, ohne Maus, ohne Browser-Wechsel")
+ * direkt im Hero-Lead. Drei Sections decken die häufigsten Friction-
+ * Punkte ab: Code-Reviews, Commits/PRs, Issue-Tracker.
+ *
+ * Schema-Wahl: HowTo (statt FAQPage), weil der Setup-Flow auf der Page
+ * sequentiell ist und Google HowTo-Rich-Results im Dev-Bereich gut
+ * ausspielt. Der HowTo-Inhalt spiegelt 1:1 die sichtbaren Schritte —
+ * Rich-Results-Anforderung.
+ *
+ * Slug-Divergenz DE/EN: DE `programmierer`, EN `programmer`. Über
+ * `alternateSlugs` an `LandingPageLayout` → `Layout` durchgereicht, damit
+ * hreflang-Alternates korrekt zwischen den beiden Routen pendeln.
+ */
+import LandingPageLayout from "../../layouts/LandingPageLayout.astro";
+import HowToSchema from "../../components/schema/HowToSchema.astro";
+import { t, localePath } from "../../scripts/i18n.ts";
+
+const lang = "de" as const;
+
+const breadcrumbs = [
+  { name: t(lang, "breadcrumb.home"), item: localePath(lang, "") },
+  { name: t(lang, "breadcrumb.useCases"), item: localePath(lang, "use-cases") },
+  { name: t(lang, "useCase.programmer.breadcrumb"), item: localePath(lang, "use-cases/programmierer") },
+];
+
+const seo = {
+  title: t(lang, "useCase.programmer.seoTitle"),
+  description: t(lang, "useCase.programmer.seoDescription"),
+};
+
+const hero = {
+  heading: t(lang, "useCase.programmer.heroHeading"),
+  lead: t(lang, "useCase.programmer.heroLead"),
+};
+
+const cta = {
+  label: t(lang, "useCase.programmer.cta.label"),
+  href: localePath(lang, "download"),
+};
+
+const howToSteps = [
+  {
+    name: t(lang, "useCase.programmer.howTo.step1.name"),
+    text: t(lang, "useCase.programmer.howTo.step1.text"),
+  },
+  {
+    name: t(lang, "useCase.programmer.howTo.step2.name"),
+    text: t(lang, "useCase.programmer.howTo.step2.text"),
+  },
+  {
+    name: t(lang, "useCase.programmer.howTo.step3.name"),
+    text: t(lang, "useCase.programmer.howTo.step3.text"),
+  },
+];
+
+const alternateSlugs = { de: "use-cases/programmierer", en: "use-cases/programmer" };
+---
+
+<LandingPageLayout
+  lang={lang}
+  seo={seo}
+  breadcrumbs={breadcrumbs}
+  hero={hero}
+  cta={cta}
+  alternateSlugs={alternateSlugs}
+>
+  <section>
+    <h2>{t(lang, "useCase.programmer.section.codeReview.heading")}</h2>
+    <p>{t(lang, "useCase.programmer.section.codeReview.body")}</p>
+  </section>
+
+  <section>
+    <h2>{t(lang, "useCase.programmer.section.gitCommits.heading")}</h2>
+    <p>{t(lang, "useCase.programmer.section.gitCommits.body")}</p>
+  </section>
+
+  <section>
+    <h2>{t(lang, "useCase.programmer.section.issueTracker.heading")}</h2>
+    <p>{t(lang, "useCase.programmer.section.issueTracker.body")}</p>
+    <ol class="howto-steps">
+      <li>
+        <h3>{t(lang, "useCase.programmer.howTo.step1.name")}</h3>
+        <p>{t(lang, "useCase.programmer.howTo.step1.text")}</p>
+      </li>
+      <li>
+        <h3>{t(lang, "useCase.programmer.howTo.step2.name")}</h3>
+        <p>{t(lang, "useCase.programmer.howTo.step2.text")}</p>
+      </li>
+      <li>
+        <h3>{t(lang, "useCase.programmer.howTo.step3.name")}</h3>
+        <p>{t(lang, "useCase.programmer.howTo.step3.text")}</p>
+      </li>
+    </ol>
+  </section>
+
+  <HowToSchema
+    locale={lang}
+    name={t(lang, "useCase.programmer.howTo.name")}
+    description={t(lang, "useCase.programmer.heroLead")}
+    steps={howToSteps}
+  />
+</LandingPageLayout>
+
+<style>
+  .howto-steps {
+    margin-top: 1rem;
+    padding-left: 1.25rem;
+    list-style: decimal;
+    color: #9ca3af;
+  }
+  .howto-steps li + li {
+    margin-top: 0.75rem;
+  }
+  .howto-steps h3 {
+    color: #e5e7eb;
+    font-weight: 600;
+    font-size: 1rem;
+    margin-bottom: 0.25rem;
+  }
+  .howto-steps p {
+    line-height: 1.55;
+  }
+</style>
