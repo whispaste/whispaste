@@ -1,0 +1,131 @@
+---
+/**
+ * `/use-cases/support-mitarbeiter/` — Use-Case-Page für Helpdesk- und
+ * Ticket-Bearbeitende (Issue 11).
+ *
+ * Beantwortet den `docs/zielgruppe.md`-Lackmustest („Hilft das
+ * Helpdesk-Mitarbeitenden, die ohne Browser-Wechsel Tickets beantworten
+ * wollen?") direkt im Hero-Lead. Drei Sections decken die häufigsten
+ * Friction-Punkte ab: Queue-Rhythmus, Ticketing-Tool-Vielfalt, Zeit pro
+ * Ticket.
+ *
+ * Schema-Wahl: HowTo (statt FAQPage), weil der Reply-Flow inhärent
+ * sequentiell ist („Ticket öffnen → Cursor setzen → Sprechen → Senden") und
+ * Google HowTo-Rich-Results für solche Step-by-Step-Inhalte ausspielt. Die
+ * Schritte spiegeln 1:1 die sichtbare `<ol>`-Liste auf der Page.
+ *
+ * Slug-Divergenz DE/EN: DE `support-mitarbeiter`, EN `support-staff`. Über
+ * `alternateSlugs` an `LandingPageLayout` → `Layout` durchgereicht, damit
+ * hreflang-Alternates korrekt zwischen den beiden Routen pendeln (analog
+ * zu `programmierer` ↔ `programmer`).
+ */
+import LandingPageLayout from "../../layouts/LandingPageLayout.astro";
+import HowToSchema from "../../components/schema/HowToSchema.astro";
+import { t, localePath } from "../../scripts/i18n.ts";
+
+const lang = "de" as const;
+
+const breadcrumbs = [
+  { name: t(lang, "breadcrumb.home"), item: localePath(lang, "") },
+  { name: t(lang, "breadcrumb.useCases"), item: localePath(lang, "use-cases") },
+  { name: t(lang, "useCase.support.breadcrumb"), item: localePath(lang, "use-cases/support-mitarbeiter") },
+];
+
+const seo = {
+  title: t(lang, "useCase.support.seoTitle"),
+  description: t(lang, "useCase.support.seoDescription"),
+};
+
+const hero = {
+  heading: t(lang, "useCase.support.heroHeading"),
+  lead: t(lang, "useCase.support.heroLead"),
+};
+
+const cta = {
+  label: t(lang, "useCase.support.cta.label"),
+  href: localePath(lang, "download"),
+};
+
+const howToSteps = [
+  {
+    name: t(lang, "useCase.support.howTo.step1.name"),
+    text: t(lang, "useCase.support.howTo.step1.text"),
+  },
+  {
+    name: t(lang, "useCase.support.howTo.step2.name"),
+    text: t(lang, "useCase.support.howTo.step2.text"),
+  },
+  {
+    name: t(lang, "useCase.support.howTo.step3.name"),
+    text: t(lang, "useCase.support.howTo.step3.text"),
+  },
+];
+
+const alternateSlugs = { de: "use-cases/support-mitarbeiter", en: "use-cases/support-staff" };
+---
+
+<LandingPageLayout
+  lang={lang}
+  seo={seo}
+  breadcrumbs={breadcrumbs}
+  hero={hero}
+  cta={cta}
+  alternateSlugs={alternateSlugs}
+>
+  <section>
+    <h2>{t(lang, "useCase.support.section.workflow.heading")}</h2>
+    <p>{t(lang, "useCase.support.section.workflow.body")}</p>
+  </section>
+
+  <section>
+    <h2>{t(lang, "useCase.support.section.tools.heading")}</h2>
+    <p>{t(lang, "useCase.support.section.tools.body")}</p>
+  </section>
+
+  <section>
+    <h2>{t(lang, "useCase.support.section.savings.heading")}</h2>
+    <p>{t(lang, "useCase.support.section.savings.body")}</p>
+    <ol class="howto-steps">
+      <li>
+        <h3>{t(lang, "useCase.support.howTo.step1.name")}</h3>
+        <p>{t(lang, "useCase.support.howTo.step1.text")}</p>
+      </li>
+      <li>
+        <h3>{t(lang, "useCase.support.howTo.step2.name")}</h3>
+        <p>{t(lang, "useCase.support.howTo.step2.text")}</p>
+      </li>
+      <li>
+        <h3>{t(lang, "useCase.support.howTo.step3.name")}</h3>
+        <p>{t(lang, "useCase.support.howTo.step3.text")}</p>
+      </li>
+    </ol>
+  </section>
+
+  <HowToSchema
+    locale={lang}
+    name={t(lang, "useCase.support.seoTitle")}
+    description={t(lang, "useCase.support.heroLead")}
+    steps={howToSteps}
+  />
+</LandingPageLayout>
+
+<style>
+  .howto-steps {
+    margin-top: 1rem;
+    padding-left: 1.25rem;
+    list-style: decimal;
+    color: #9ca3af;
+  }
+  .howto-steps li + li {
+    margin-top: 0.75rem;
+  }
+  .howto-steps h3 {
+    color: #e5e7eb;
+    font-weight: 600;
+    font-size: 1rem;
+    margin-bottom: 0.25rem;
+  }
+  .howto-steps p {
+    line-height: 1.55;
+  }
+</style>
