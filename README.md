@@ -6,16 +6,17 @@
 
 <p align="center">
   <strong>Press. Speak. Done.</strong><br>
-  Speak, and the text appears — wherever your cursor sits, in any app.<br>
-  Windows · macOS · Cloud or fully offline · Free & open source.
+  Stop typing — speak, and your words land at the cursor in any app.<br>
+  Offline by default · Windows · macOS · Linux · MIT-licensed.
 </p>
 
 <p align="center">
   <a href="../../releases/latest"><img src="https://img.shields.io/github/v/release/whispaste/whispaste?style=flat-square&color=06b6d4&label=download" alt="Download"></a>&nbsp;
   <img src="https://img.shields.io/badge/Windows-0078D4?style=flat-square&logo=windows&logoColor=white" alt="Windows">&nbsp;
   <img src="https://img.shields.io/badge/macOS-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS">&nbsp;
+  <img src="https://img.shields.io/badge/Linux-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Linux">&nbsp;
   <img src="https://img.shields.io/badge/Flutter-02569B?style=flat-square&logo=flutter&logoColor=white" alt="Flutter">&nbsp;
-  <img src="https://img.shields.io/badge/MIT-22c55e?style=flat-square&label=license" alt="MIT">
+  <img src="https://img.shields.io/badge/license-MIT-22c55e?style=flat-square" alt="MIT license">
 </p>
 
 <p align="center">
@@ -33,16 +34,16 @@ Hotkey → Speak → Text appears at your cursor
 ```
 
 1. **Press your hotkey** — `Ctrl+Shift+D` by default, push-to-talk or toggle mode
-2. **Speak naturally** — a minimal overlay shows a live waveform while you record
-3. **Done** — transcribed text is pasted wherever your cursor sits
+2. **Speak naturally** — a minimal overlay shows a live waveform while the mic is open
+3. **Done** — the transcript is pasted wherever your cursor sits
 
-Works in emails, chat apps, code editors, browsers, terminals — everywhere.
+Works in emails, chat apps, code editors, browsers, terminals — anywhere you would otherwise type.
 
 ## Key Features
 
 **Core** — Global hotkey · Push-to-talk & toggle · Auto-paste into any app · Recording overlay with waveform · Floating record button
 
-**Transcription** — Cloud providers (OpenAI, Deepgram) or local Whisper models via [whisper.cpp](https://github.com/ggml-org/whisper.cpp) — fully offline, no API key needed for local mode · [99 languages](https://github.com/openai/whisper/blob/main/whisper/tokenizer.py)
+**Transcription** — Offline by default: local Whisper models via [whisper.cpp](https://github.com/ggml-org/whisper.cpp), no API key required · Optional cloud providers (OpenAI, Deepgram) when you want them · [99 languages](https://github.com/openai/whisper/blob/main/whisper/tokenizer.py)
 
 **Productivity** — Voice Snippets (spoken triggers → text expansion) · Audio feedback sounds
 
@@ -52,13 +53,13 @@ Works in emails, chat apps, code editors, browsers, terminals — everywhere.
 
 ## Development
 
-**Prerequisites:** [Flutter](https://flutter.dev/docs/get-started/install) 3.x · Windows 10 (64-bit) or macOS 10.15+
+**Prerequisites:** [Flutter](https://flutter.dev/docs/get-started/install) 3.x · Windows 10 (64-bit), macOS 10.15+, or a recent Linux distro
 
 ```bash
 git clone https://github.com/whispaste/whispaste.git
 cd whispaste
 flutter pub get
-flutter run -d windows   # or: flutter run -d macos
+flutter run -d windows   # or: flutter run -d macos / flutter run -d linux
 ```
 
 ### Project Structure
@@ -73,6 +74,7 @@ flutter run -d windows   # or: flutter run -d macos
 ├── assets/             # Icons, fonts, sounds
 ├── windows/            # Windows platform runner
 ├── macos/              # macOS platform runner
+├── linux/              # Linux platform runner
 ├── website/            # Astro-based project website
 └── supabase/           # Database migrations (PostgREST + RLS only, no Edge Functions)
 ```
