@@ -28,6 +28,7 @@ void main() {
         original.textReplacementsEnabled,
       );
       expect(restored.trimSilence, original.trimSilence);
+      expect(restored.inputGain, original.inputGain);
     });
 
     test('schema_version key is present in toStorageMap', () {

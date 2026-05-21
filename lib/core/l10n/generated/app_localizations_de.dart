@@ -304,6 +304,9 @@ class L10nDe extends L10n {
   String get settingsMicrophone => 'Mikrofon';
 
   @override
+  String get settingsGain => 'Mikrofon-Lautstärke';
+
+  @override
   String get settingsHoldToRecord => 'Gedrückt halten für Aufnahme';
 
   @override

@@ -81,6 +81,25 @@ void main() {
       expect(_roundtrip(s).pushToTalk, isTrue);
     });
 
+    test('inputGain default is 1.0', () {
+      expect(AppSettings.defaults.inputGain, 1.0);
+    });
+
+    test('inputGain 1.5 survives roundtrip', () {
+      final s = AppSettings.defaults.copyWith(inputGain: 1.5);
+      expect(_roundtrip(s).inputGain, 1.5);
+    });
+
+    test('inputGain 0.0 (silence) survives roundtrip', () {
+      final s = AppSettings.defaults.copyWith(inputGain: 0.0);
+      expect(_roundtrip(s).inputGain, 0.0);
+    });
+
+    test('inputGain missing key falls back to 1.0', () {
+      final restored = AppSettings.fromStorageMap({});
+      expect(restored.inputGain, 1.0);
+    });
+
     // --- Recording Safety ---
     test('deadMicTimeout survives roundtrip', () {
       final s = AppSettings.defaults.copyWith(deadMicTimeout: 5.0);
@@ -515,20 +534,24 @@ void main() {
       final s = AppSettings.defaults.copyWith(
         microphone: 'External Mic',
         pushToTalk: true,
+        inputGain: 2.0,
       );
       final map = s.toStorageMap();
       expect(map['microphone'], 'External Mic');
       expect(map['push_to_talk'], 'true');
+      expect(map['input_gain'], '2.0');
     });
 
     test('audio input cluster full roundtrip', () {
       final s = AppSettings.defaults.copyWith(
         microphone: 'External Mic',
         pushToTalk: true,
+        inputGain: 1.75,
       );
       final r = _roundtrip(s);
       expect(r.microphone, 'External Mic');
       expect(r.pushToTalk, isTrue);
+      expect(r.inputGain, 1.75);
     });
   });
 
