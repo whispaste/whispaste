@@ -1,0 +1,19 @@
+---
+/**
+ * `<SoftwareApplicationSchema />` — emits the `SoftwareApplication` JSON-LD
+ * block for WhisPaste. Delegates the object construction to
+ * `buildSoftwareApplicationSchema` (pure TS, vitest-tested). This wrapper
+ * exists only to keep `.astro` pages free of inline schema literals.
+ *
+ * Props mirror `SoftwareApplicationOptions` from `./builders`.
+ */
+import {
+  buildSoftwareApplicationSchema,
+  type SoftwareApplicationOptions,
+} from "./builders.ts";
+
+type Props = SoftwareApplicationOptions;
+
+const schema = buildSoftwareApplicationSchema(Astro.props);
+---
+<script type="application/ld+json" set:html={JSON.stringify(schema)} />

@@ -12,16 +12,17 @@ import Support from "../components/Support.astro";
 import Testimonials from "../components/Testimonials.astro";
 import Footer from "../components/Footer.astro";
 import DownloadSupportModal from "../components/DownloadSupportModal.astro";
+import SoftwareApplicationSchema from "../components/schema/SoftwareApplicationSchema.astro";
+import FAQPageSchema from "../components/schema/FAQPageSchema.astro";
+import HowToSchema from "../components/schema/HowToSchema.astro";
 import { t } from "../scripts/i18n.ts";
 
 const lang = (Astro.currentLocale === "en" ? "en" : "de") as "de" | "en";
 
-// JSON-LD copy is locale-correct so AI/SEO crawlers receive the German
-// description on `/` and the English description on `/en/`. Both Schemas use
-// the brand-glossary vocabulary (no `dictation` / `Diktat`); the Issue 02
-// drift-gate enforces this at build time.
-const softwareDescription = t(lang, "schema.app.description");
-const homeUrl = lang === "de" ? "https://whispaste.de/" : "https://whispaste.de/en/";
+// Landing-Page-FAQ-Schlüssel — spiegelt die im `FAQ.astro`-Akkordeon
+// sichtbaren Fragen (ohne `sysreq` / `gatekeeper`, die nur auf der Detail-
+// Page erscheinen). Google Rich Results verlangt, dass die im FAQ-Schema
+// gelisteten Fragen 1:1 mit dem sichtbaren Seitentext übereinstimmen.
 const faqKeys = [
   "free",
   "offline",
@@ -31,15 +32,6 @@ const faqKeys = [
   "windows",
   "smartscreen",
 ];
-const faqMainEntity = faqKeys.map((key) => ({
-  "@type": "Question",
-  name: t(lang, `faq.${key}.q`),
-  acceptedAnswer: {
-    "@type": "Answer",
-    text: t(lang, `faq.${key}.a`),
-  },
-}));
-const inLanguage = lang === "de" ? "de-DE" : "en-US";
 ---
 
 <Layout
@@ -61,42 +53,16 @@ const inLanguage = lang === "de" ? "de-DE" : "en-US";
   <Footer variant="landing" />
   <DownloadSupportModal />
 
-  <script type="application/ld+json" set:html={JSON.stringify({
-    "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    "@id": "https://whispaste.de/#app",
-    name: "WhisPaste",
-    description: softwareDescription,
-    url: homeUrl,
-    inLanguage,
-    applicationCategory: "ProductivityApplication",
-    operatingSystem: "Windows 10, Windows 11, macOS 13+",
-    offers: {
-      "@type": "Offer",
-      price: "0",
-      priceCurrency: "USD",
-    },
-    license: "https://opensource.org/licenses/MIT",
-    author: {
-      "@type": "Person",
-      name: "Silvio Lindstedt",
-    },
-    downloadUrl: "https://github.com/whispaste/whispaste/releases/latest",
-    screenshot: [
-      "https://whispaste.de/screenshots/en/dark/01_workspace_overview.png",
-      "https://whispaste.de/screenshots/en/light/02_workspace_detail.png",
-      "https://whispaste.de/screenshots/en/dark/03_voice_shortcuts.png",
-      "https://whispaste.de/screenshots/en/light/04_settings.png",
-      "https://whispaste.de/screenshots/en/dark/05_analytics.png",
-    ],
-  })} />
-
-  <script type="application/ld+json" set:html={JSON.stringify({
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    inLanguage,
-    mainEntity: faqMainEntity,
-  })} />
+  {/*
+    Schema-Components ersetzen die früheren Inline-`<script type=application/ld+json>`-
+    Blöcke. Vorteile: Locale-Korrektheit, keine USD-Fiktion, Brand-Glossar-
+    konforme Description, Linux deklariert, HowTo neu für den Setup-Flow.
+    Builder-Tests sichern die Schema.org-Form (siehe
+    `src/components/schema/__tests__/`).
+  */}
+  <SoftwareApplicationSchema locale={lang} />
+  <FAQPageSchema locale={lang} questionKeys={faqKeys} />
+  <HowToSchema locale={lang} />
 
   <style is:global>
     .scroll-reveal {

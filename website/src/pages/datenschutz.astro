@@ -2,13 +2,18 @@
 import Layout from "../layouts/Layout.astro";
 import Nav from "../components/Nav.astro";
 import Footer from "../components/Footer.astro";
-import { t } from "../scripts/i18n.ts";
+import BreadcrumbListSchema from "../components/schema/BreadcrumbListSchema.astro";
+import { t, localePath } from "../scripts/i18n.ts";
 
 // Diese Page ist die deutsche Datenschutz-Variante. Die i18n-Routing-
 // Aufteilung (Issue 03) trennt EN nach `/en/privacy/`; daher liefern wir hier
 // hart `lang = 'de'` und setzen den entsprechenden `alternateSlugs`-Mapping
 // für das `<link rel="alternate">`-Pair (DE: `/datenschutz/`, EN: `/en/privacy/`).
 const lang = 'de' as const;
+const breadcrumbItems = [
+  { name: t(lang, "breadcrumb.home"), item: localePath(lang, "") },
+  { name: t(lang, "breadcrumb.privacy"), item: localePath(lang, "datenschutz") },
+];
 ---
 
 <Layout
@@ -249,4 +254,6 @@ const lang = 'de' as const;
     applyLang();
     updateThemeIcon();
   </script>
+
+  <BreadcrumbListSchema items={breadcrumbItems} />
 </Layout>

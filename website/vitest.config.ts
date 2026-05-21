@@ -25,6 +25,11 @@ export default defineConfig({
     include: [
       "scripts/__tests__/**/*.test.ts",
       "src/scripts/__tests__/**/*.test.ts",
+      // Schema-Builder-Tests (Issue 04, Schema-Component-Familie). Reine
+      // Node-Tests gegen die pure-TS-Builder unter
+      // `src/components/schema/builders.ts`; kein DOM-Setup nötig, weil die
+      // Builder einfache JSON-LD-Objekte zurückgeben.
+      "src/components/schema/__tests__/**/*.test.ts",
     ],
   },
 });

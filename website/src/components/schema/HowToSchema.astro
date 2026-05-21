@@ -1,0 +1,15 @@
+---
+/**
+ * `<HowToSchema />` — emits the `HowTo` JSON-LD block for the three-step
+ * setup flow ("Press hotkey → speak → text at cursor"). Defaults pull from
+ * the `howitworks.step*` i18n keys so the schema matches the visible content
+ * on `HowItWorks.astro` (Google Rich Results requires the HowTo body to be
+ * visible on the page).
+ */
+import { buildHowToSchema, type HowToOptions } from "./builders.ts";
+
+type Props = HowToOptions;
+
+const schema = buildHowToSchema(Astro.props);
+---
+<script type="application/ld+json" set:html={JSON.stringify(schema)} />

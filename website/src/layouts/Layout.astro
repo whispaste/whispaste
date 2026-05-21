@@ -1,6 +1,7 @@
 ---
 import "../styles/global.css";
 import { t, type Locale } from "../scripts/i18n.ts";
+import OrganizationSchema from "../components/schema/OrganizationSchema.astro";
 
 interface Props {
   title?: string;
@@ -116,6 +117,15 @@ const ogLocaleAlternate = lang === "de" ? "en_US" : "de_DE";
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={ogImageURL.href} />
+
+    {/*
+      Site-weite Organization-Identität. Jede Page emittiert denselben
+      `@id` (siehe `ORGANIZATION_ID` in `schema/builders.ts`), damit
+      Knowledge-Graph-Crawler die WhisPaste-Entität konsolidieren können.
+      Bewusst im `<head>`, damit das Schema vor jedem Page-spezifischen
+      Schema (SoftwareApplication, FAQPage, HowTo, BreadcrumbList) steht.
+    */}
+    <OrganizationSchema locale={lang} />
     <script is:inline>
       (function(){
         var t = localStorage.getItem('whispaste-theme');

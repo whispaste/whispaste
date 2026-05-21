@@ -277,6 +277,18 @@ export const i18n: Record<string, Record<string, string>> = {
     'support.rateMsStore': 'Rate on Microsoft Store',
     'support.rateAppStore': 'Rate on Mac App Store',
     'hero.reviewNudge': 'Love it? A ★ on GitHub or a store review makes a real difference.',
+    // Breadcrumb labels — sichtbar für Crawler im `BreadcrumbList`-Schema,
+    // sub-page-`BreadcrumbListSchema.astro` zieht hier den Locale-passenden
+    // Eintrag. Die `home`-Bezeichnung folgt der Brand-Glossar-Konvention
+    // (kein „Start"/"Startseite" → schlichtes „Home"/"Start") und bleibt mit
+    // den Nav-Aria-Labels konsistent.
+    'breadcrumb.home': 'Home',
+    'breadcrumb.download': 'Download',
+    'breadcrumb.screenshots': 'Screenshots',
+    'breadcrumb.privacy': 'Privacy Policy',
+    'breadcrumb.impressum': 'Legal Notice',
+    'breadcrumb.sponsor': 'Support',
+    'breadcrumb.changelog': 'Changelog',
   },
   de: {
     'meta.title.default': 'WhisPaste — Spracheingabe direkt am Cursor',
@@ -550,6 +562,16 @@ export const i18n: Record<string, Record<string, string>> = {
     'support.rateMsStore': 'Im Microsoft Store bewerten',
     'support.rateAppStore': 'Im Mac App Store bewerten',
     'hero.reviewNudge': 'Gefällt sie dir? Ein ★ auf GitHub oder eine Store-Bewertung macht einen echten Unterschied.',
+    // Breadcrumb-Labels — siehe Kommentar im EN-Block. Spiegelt die deutschen
+    // Sub-Page-Titel; bewusst kurz gehalten, weil Breadcrumbs in Rich Results
+    // als knappe Pfad-Hierarchie angezeigt werden.
+    'breadcrumb.home': 'Start',
+    'breadcrumb.download': 'Download',
+    'breadcrumb.screenshots': 'Screenshots',
+    'breadcrumb.privacy': 'Datenschutz',
+    'breadcrumb.impressum': 'Impressum',
+    'breadcrumb.sponsor': 'Unterstützen',
+    'breadcrumb.changelog': 'Änderungsprotokoll',
   }
 };
 
