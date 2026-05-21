@@ -68,6 +68,23 @@ class AudioSection extends ConsumerWidget {
                 ),
               ),
             ),
+          SettingRow(
+            icon: LucideIcons.gauge,
+            label: l10n.settingsGain,
+            trailing: settingsSlider(
+              context: context,
+              // The slider value is the gain expressed as a percentage
+              // (0–300 %). The stored field is the raw multiplier (0.0–3.0).
+              value: settings.audioInput.inputGain * 100.0,
+              min: 0,
+              max: 300,
+              divisions: 60,
+              valueLabel: '${(settings.audioInput.inputGain * 100).round()}%',
+              onChanged: (v) => ref
+                  .read(settingsProvider.notifier)
+                  .updateSettings((s) => s.copyWith(inputGain: v / 100.0)),
+            ),
+          ),
         ],
       ),
     );

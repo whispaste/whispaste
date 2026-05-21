@@ -177,10 +177,18 @@ class AudioInputSettings {
   const AudioInputSettings({
     this.microphone = 'Default',
     this.pushToTalk = false,
+    this.inputGain = 1.0,
   });
 
   final String microphone;
   final bool pushToTalk;
+
+  /// User-controlled gain multiplier applied to the raw PCM stream during
+  /// recording. `1.0` is identity (no scaling). The settings UI exposes this
+  /// as a 0–300 % slider (0.0–3.0). When non-default, the recording pipeline
+  /// switches off the `record`-plugin's library-side `autoGain` and applies
+  /// the user multiplier instead via `PcmGainProcessor`.
+  final double inputGain;
 
   static const AudioInputSettings defaults = AudioInputSettings();
 
@@ -188,28 +196,35 @@ class AudioInputSettings {
       AudioInputSettings(
         microphone: v['microphone'] ?? defaults.microphone,
         pushToTalk: _readBool(v, 'push_to_talk', defaults.pushToTalk),
+        inputGain: _readDouble(v, 'input_gain', defaults.inputGain),
       );
 
   Map<String, String> toMap() => {
     'microphone': microphone,
     'push_to_talk': '$pushToTalk',
+    'input_gain': '$inputGain',
   };
 
-  AudioInputSettings copyWith({String? microphone, bool? pushToTalk}) =>
-      AudioInputSettings(
-        microphone: microphone ?? this.microphone,
-        pushToTalk: pushToTalk ?? this.pushToTalk,
-      );
+  AudioInputSettings copyWith({
+    String? microphone,
+    bool? pushToTalk,
+    double? inputGain,
+  }) => AudioInputSettings(
+    microphone: microphone ?? this.microphone,
+    pushToTalk: pushToTalk ?? this.pushToTalk,
+    inputGain: inputGain ?? this.inputGain,
+  );
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is AudioInputSettings &&
           microphone == other.microphone &&
-          pushToTalk == other.pushToTalk;
+          pushToTalk == other.pushToTalk &&
+          inputGain == other.inputGain;
 
   @override
-  int get hashCode => Object.hash(microphone, pushToTalk);
+  int get hashCode => Object.hash(microphone, pushToTalk, inputGain);
 }
 
 // ===========================================================================

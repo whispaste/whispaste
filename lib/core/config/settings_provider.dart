@@ -133,6 +133,9 @@ class AppSettings {
   @Deprecated('Use audioInput.pushToTalk instead')
   bool get pushToTalk => audioInput.pushToTalk;
 
+  @Deprecated('Use audioInput.inputGain instead')
+  double get inputGain => audioInput.inputGain;
+
   @Deprecated('Use recordingSafety.deadMicTimeout instead')
   double get deadMicTimeout => recordingSafety.deadMicTimeout;
 
@@ -492,6 +495,7 @@ class AppSettings {
     bool? showNotifications,
     String? microphone,
     bool? pushToTalk,
+    double? inputGain,
     double? deadMicTimeout,
     double? autoStopSilence,
     String? sttProvider,
@@ -558,6 +562,7 @@ class AppSettings {
       audioInput: audioInput.copyWith(
         microphone: microphone,
         pushToTalk: pushToTalk,
+        inputGain: inputGain,
       ),
       recordingSafety: recordingSafety.copyWith(
         deadMicTimeout: deadMicTimeout,

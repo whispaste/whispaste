@@ -303,6 +303,9 @@ class L10nHe extends L10n {
   String get settingsMicrophone => 'מיקרופון';
 
   @override
+  String get settingsGain => 'עוצמת מיקרופון';
+
+  @override
   String get settingsHoldToRecord => 'החזק להקלטה';
 
   @override

@@ -17,6 +17,7 @@ import 'package:record/record.dart';
 
 import '../core/config/settings_provider.dart';
 import 'audio/amplitude_from_pcm.dart';
+import 'audio/pcm_gain_processor.dart';
 import 'audio/speech_level_mapper.dart';
 import 'audio/wav_file_writer.dart';
 
@@ -70,15 +71,22 @@ class AudioStatus {
 /// Uses [AudioEncoder.pcm16bits] because the WAV container is written
 /// in-process by [WavFileWriter] off the raw PCM stream. Sample format
 /// stays 16 kHz mono 16-bit signed LE for whisper compatibility.
-RecordConfig _whisperConfig({InputDevice? device}) => RecordConfig(
-  encoder: AudioEncoder.pcm16bits,
-  sampleRate: 16000,
-  numChannels: 1,
-  autoGain: true,
-  echoCancel: false,
-  noiseSuppress: true,
-  device: device,
-);
+///
+/// [autoGain] is conditional on the user's configured input gain: when the
+/// user keeps the gain at the default `1.0`, the library-side `autoGain`
+/// stays on (today's behaviour). When the user dials the slider away from
+/// the default, the in-process [PcmGainProcessor] takes over and the
+/// library's autoGain is disabled to avoid two gain stages fighting.
+RecordConfig _whisperConfig({InputDevice? device, required bool autoGain}) =>
+    RecordConfig(
+      encoder: AudioEncoder.pcm16bits,
+      sampleRate: 16000,
+      numChannels: 1,
+      autoGain: autoGain,
+      echoCancel: false,
+      noiseSuppress: true,
+      device: device,
+    );
 
 // ---------------------------------------------------------------------------
 // Audio service notifier
@@ -103,6 +111,17 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
 
   /// Active WAV-container writer for the current recording. `null` when idle.
   WavFileWriter? _wavWriter;
+
+  /// Active user-gain processor for the current recording. `null` when idle
+  /// or when the user is on the default 1.0 gain (identity passthrough).
+  PcmGainProcessor? _gainProcessor;
+
+  /// Number of int16 samples that saturated to the int16 limits during the
+  /// most recently finished recording. Reset to 0 at the start of every new
+  /// recording. Exposed so callers (e.g. a future `ClippingState` provider in
+  /// slice #04) can surface a "your gain was too high" warning.
+  int get lastRecordingClippedSamples => _lastRecordingClippedSamples;
+  int _lastRecordingClippedSamples = 0;
 
   /// Amplitude values normalized to 0.0–1.0, emitted ~25 times/second.
   ///
@@ -158,6 +177,13 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
     // ── Resolve selected microphone from settings ──────────────────────
     final settings = ref.read(settingsProvider).value;
     final micLabel = settings?.microphone ?? 'Default';
+    // Snapshot the gain at start — mid-recording slider changes do not
+    // affect the in-flight recording. Threshold against `1.0` is exact:
+    // the slider produces discrete 5 %-step values so tolerant float
+    // comparison is unnecessary.
+    final inputGain = settings?.audioInput.inputGain ?? 1.0;
+    final useUserGain = inputGain != 1.0;
+    final libraryAutoGain = !useUserGain;
     InputDevice? selectedDevice;
 
     if (micLabel != 'Default') {
@@ -191,9 +217,15 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
       'Start recording → $wavPath | '
       'Mic: ${selectedDevice?.label ?? "System Default"} '
       '(setting: "$micLabel"'
-      '${selectedDevice != null ? ', id: ${selectedDevice.id}' : ''})',
+      '${selectedDevice != null ? ', id: ${selectedDevice.id}' : ''})'
+      ' | inputGain: $inputGain (autoGain=$libraryAutoGain)',
       name: 'AudioService',
     );
+
+    // Reset clipping bookkeeping for this recording and instantiate the
+    // user-gain processor only when the slider is off the default.
+    _lastRecordingClippedSamples = 0;
+    _gainProcessor = useUserGain ? PcmGainProcessor(gain: inputGain) : null;
 
     // Prepare amplitude stream and PCM-side helpers.
     _amplitudeController?.close();
@@ -229,7 +261,7 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
       );
       _wavWriter = wavWriter;
       pcmStream = await recorder.startStream(
-        _whisperConfig(device: selectedDevice),
+        _whisperConfig(device: selectedDevice, autoGain: libraryAutoGain),
       );
     } on Exception catch (e) {
       dev.log('startStream failed: $e', name: 'AudioService');
@@ -246,6 +278,7 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
         );
       }
       _wavWriter = null;
+      _gainProcessor = null;
       await cleanupFile(wavPath);
       _amplitudeController?.close();
       _amplitudeController = null;
@@ -258,14 +291,20 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
 
     // Fork the PCM stream into the dBFS calculator + the WAV writer. Any
     // mid-recording stream error transitions to captureState=error and
-    // cleans up the partial WAV file.
+    // cleans up the partial WAV file. When the user has dialled an
+    // explicit gain, the chunk passes through [PcmGainProcessor] first so
+    // both downstream branches see the scaled samples.
+    final gainProcessor = _gainProcessor;
     _pcmSub = pcmStream.listen(
       (chunk) {
-        amplitudeFromPcm.addChunk(chunk);
+        final scaled = gainProcessor == null
+            ? chunk
+            : gainProcessor.process(chunk);
+        amplitudeFromPcm.addChunk(scaled);
         // Errors from the WAV writer are recoverable from the stream's POV
         // (we just stop writing more samples) but should not crash the
         // recording — they are surfaced in logs.
-        wavWriter!.writeChunk(chunk).catchError((Object e) {
+        wavWriter!.writeChunk(scaled).catchError((Object e) {
           dev.log('WAV writer chunk failure: $e', name: 'AudioService');
         });
       },
@@ -307,6 +346,8 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
       dev.log('Closing WAV after error failed: $e', name: 'AudioService');
     }
     _wavWriter = null;
+    _lastRecordingClippedSamples = _gainProcessor?.clippedSamples ?? 0;
+    _gainProcessor = null;
     await _amplitudeController?.close();
     _amplitudeController = null;
 
@@ -368,6 +409,11 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
     }
     _wavWriter = null;
 
+    // Capture the user-gain clipping counter before tearing the processor
+    // down. Slice #04 will read this via [lastRecordingClippedSamples].
+    _lastRecordingClippedSamples = _gainProcessor?.clippedSamples ?? 0;
+    _gainProcessor = null;
+
     await _ampSub?.cancel();
     _ampSub = null;
     await _amplitudeFromPcm?.dispose();
@@ -375,7 +421,11 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
     await _amplitudeController?.close();
     _amplitudeController = null;
 
-    dev.log('Recording stopped → $wavPath', name: 'AudioService');
+    dev.log(
+      'Recording stopped → $wavPath '
+      '(clippedSamples=$_lastRecordingClippedSamples)',
+      name: 'AudioService',
+    );
 
     state = AudioStatus(filePath: wavPath);
     return wavPath;
@@ -454,6 +504,7 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
     _amplitudeController?.close();
     // Best-effort: close the writer; ignore errors during dispose.
     _wavWriter?.close().catchError((Object _) {});
+    _gainProcessor = null;
     _recorder?.dispose();
     _recorder = null;
   }
