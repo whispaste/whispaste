@@ -1,0 +1,143 @@
+---
+/**
+ * `/vergleich/diktiersoftware-alternativen/` — Vergleichs-Page mit
+ * kontrastiver Anti-Vokabular-Verwendung (Issue 13).
+ *
+ * Beantwortet den Such-Intent „Alternative zu klassischer Diktiersoftware"
+ * ohne WhisPaste selbst als Diktiersoftware zu beschreiben — die Page steht
+ * bewusst in der KONTRASTIVEN Rolle. Die Section- und FAQ-Inhalte enthalten
+ * Anti-Vokabular (`Diktat`, `Diktiersoftware`, `dictation`), das normalerweise
+ * den Brand-Vocabulary-Gate (`website/scripts/check-brand-vocabulary.mjs`)
+ * auslösen würde — hier werden die Treffer durch den
+ * `<!-- seo-audit:contrastive -->` … `<!-- /seo-audit:contrastive -->`-Marker
+ * ausgeklammert (siehe Issue 02).
+ *
+ * Marker-Platzierung: Der Marker umschließt ausschließlich Inhalte INNERHALB
+ * des `LandingPageLayout`-Slots. Breadcrumb, Hero (H1 + Lead), CTA-Label und
+ * `<head>`-Inhalte (Title, Meta-Description, hreflang, canonical) liegen
+ * AUSSERHALB des Slots — sie sind deshalb vokab-konform formuliert. Slug,
+ * Title und Hero nennen die Kategorie nicht beim Anti-Namen, sondern aus der
+ * Außenperspektive („Sprach-Eingabe-Tool-Alternative") — Anti-Vokabular tritt
+ * nur in der gegenüberstellenden Section- und FAQ-Copy auf.
+ *
+ * Schema-Wahl: FAQPage. Der FAQ-Inhalt frisst die häufigsten kontrastiven
+ * Fragen („Ist WhisPaste eine Diktiersoftware?" → klare Nein-Antwort) und
+ * spiegelt visuell, was die FAQ-JSON-LD enthält (Google-Rich-Results-
+ * Anforderung). Beide stehen INNERHALB des Markers.
+ */
+import LandingPageLayout from "../../layouts/LandingPageLayout.astro";
+import FAQPageSchema from "../../components/schema/FAQPageSchema.astro";
+import { t, localePath } from "../../scripts/i18n.ts";
+
+const lang = "de" as const;
+
+const breadcrumbs = [
+  { name: t(lang, "breadcrumb.home"), item: localePath(lang, "") },
+  { name: t(lang, "comparison.breadcrumb"), item: localePath(lang, "vergleich") },
+  {
+    name: t(lang, "comparison.dictationAlternatives.breadcrumb"),
+    item: localePath(lang, "vergleich/diktiersoftware-alternativen"),
+  },
+];
+
+const seo = {
+  title: t(lang, "comparison.dictationAlternatives.seoTitle"),
+  description: t(lang, "comparison.dictationAlternatives.seoDescription"),
+};
+
+const hero = {
+  heading: t(lang, "comparison.dictationAlternatives.heroHeading"),
+  lead: t(lang, "comparison.dictationAlternatives.heroLead"),
+};
+
+const cta = {
+  label: t(lang, "comparison.dictationAlternatives.cta.label"),
+  href: localePath(lang, "download"),
+};
+
+const faqQuestions = [
+  {
+    question: t(lang, "comparison.dictationAlternatives.faq.isDictationSoftware.q"),
+    answer: t(lang, "comparison.dictationAlternatives.faq.isDictationSoftware.a"),
+  },
+  {
+    question: t(lang, "comparison.dictationAlternatives.faq.betterThanDictation.q"),
+    answer: t(lang, "comparison.dictationAlternatives.faq.betterThanDictation.a"),
+  },
+  {
+    question: t(lang, "comparison.dictationAlternatives.faq.migrateFromDictation.q"),
+    answer: t(lang, "comparison.dictationAlternatives.faq.migrateFromDictation.a"),
+  },
+];
+
+const alternateSlugs = {
+  de: "vergleich/diktiersoftware-alternativen",
+  en: "comparison/voice-input-tool-alternatives",
+};
+---
+
+<LandingPageLayout
+  lang={lang}
+  seo={seo}
+  breadcrumbs={breadcrumbs}
+  hero={hero}
+  cta={cta}
+  alternateSlugs={alternateSlugs}
+>
+  {/*
+    Kontrastiver Block — der Brand-Vocabulary-Gate ignoriert alle Anti-Vokabular-
+    Treffer zwischen diesen Markern. Außerhalb der Marker bleibt die Page
+    vokab-konform; deshalb leben Breadcrumb-Namen, Hero, CTA-Label und der
+    gesamte `<head>`-Inhalt (Title, Description, hreflang) bewusst draußen.
+
+    Wichtig: Astro strippt rohe `<!-- ... -->`-HTML-Kommentare im Template-
+    Body während des Builds. Damit der Marker im gerenderten HTML überlebt
+    (und der `stripContrastive`-Scanner ihn wiederfindet), wird er via
+    `Fragment set:html` als literale HTML-Sequenz eingefügt.
+  */}
+  <Fragment set:html={"<!-- seo-audit:contrastive -->"} />
+  <section>
+    <h2>{t(lang, "comparison.dictationAlternatives.section.whyAlternative.heading")}</h2>
+    <p>{t(lang, "comparison.dictationAlternatives.section.whyAlternative.body")}</p>
+  </section>
+
+  <section>
+    <h2>{t(lang, "comparison.dictationAlternatives.section.differentPhilosophy.heading")}</h2>
+    <p>{t(lang, "comparison.dictationAlternatives.section.differentPhilosophy.body")}</p>
+  </section>
+
+  <section>
+    <h2>{t(lang, "comparison.dictationAlternatives.section.decisionGuide.heading")}</h2>
+    <p>{t(lang, "comparison.dictationAlternatives.section.decisionGuide.body")}</p>
+    <dl class="faq-list">
+      {faqQuestions.map((entry) => (
+        <div class="faq-item">
+          <dt>{entry.question}</dt>
+          <dd>{entry.answer}</dd>
+        </div>
+      ))}
+    </dl>
+  </section>
+
+  <FAQPageSchema locale={lang} questions={faqQuestions} />
+  <Fragment set:html={"<!-- /seo-audit:contrastive -->"} />
+</LandingPageLayout>
+
+<style>
+  .faq-list {
+    margin-top: 1rem;
+  }
+  .faq-item + .faq-item {
+    margin-top: 1rem;
+  }
+  .faq-list dt {
+    color: #e5e7eb;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+  }
+  .faq-list dd {
+    color: #9ca3af;
+    line-height: 1.6;
+    margin: 0;
+  }
+</style>

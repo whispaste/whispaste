@@ -1,0 +1,127 @@
+---
+/**
+ * `/vergleich/whispaste-vs-system-spracheingabe/` — Vergleichs-Page WhisPaste
+ * vs. Windows-/macOS-Spracheingabe (Issue 13). Spiegelt im Body die OS-
+ * Diktat-Frage in der kontrastiven Rolle: WhisPaste deckt dieselbe Fläche
+ * anders ab, wird aber nirgendwo selbst als Diktiersoftware oder Diktat-Tool
+ * beschrieben.
+ *
+ * Slug bewusst ohne „Diktat" — der Term würde den Brand-Vocabulary-Gate auf
+ * der canonical-/hreflang-Stelle im `<head>` triggern, weil diese Teile
+ * außerhalb des Slot-Markers liegen. Die kontrastiven Anti-Vokabular-Treffer
+ * sind ausschließlich in den Section-Bodies und im FAQ-Inhalt (inkl. der
+ * FAQPage-JSON-LD), die alle innerhalb des
+ * `<!-- seo-audit:contrastive -->`-Pairs leben.
+ */
+import LandingPageLayout from "../../layouts/LandingPageLayout.astro";
+import FAQPageSchema from "../../components/schema/FAQPageSchema.astro";
+import { t, localePath } from "../../scripts/i18n.ts";
+
+const lang = "de" as const;
+
+const breadcrumbs = [
+  { name: t(lang, "breadcrumb.home"), item: localePath(lang, "") },
+  { name: t(lang, "comparison.breadcrumb"), item: localePath(lang, "vergleich") },
+  {
+    name: t(lang, "comparison.osDictation.breadcrumb"),
+    item: localePath(lang, "vergleich/whispaste-vs-system-spracheingabe"),
+  },
+];
+
+const seo = {
+  title: t(lang, "comparison.osDictation.seoTitle"),
+  description: t(lang, "comparison.osDictation.seoDescription"),
+};
+
+const hero = {
+  heading: t(lang, "comparison.osDictation.heroHeading"),
+  lead: t(lang, "comparison.osDictation.heroLead"),
+};
+
+const cta = {
+  label: t(lang, "comparison.osDictation.cta.label"),
+  href: localePath(lang, "download"),
+};
+
+const faqQuestions = [
+  {
+    question: t(lang, "comparison.osDictation.faq.inAnyApp.q"),
+    answer: t(lang, "comparison.osDictation.faq.inAnyApp.a"),
+  },
+  {
+    question: t(lang, "comparison.osDictation.faq.whenSystemDictation.q"),
+    answer: t(lang, "comparison.osDictation.faq.whenSystemDictation.a"),
+  },
+  {
+    question: t(lang, "comparison.osDictation.faq.multiLanguage.q"),
+    answer: t(lang, "comparison.osDictation.faq.multiLanguage.a"),
+  },
+];
+
+const alternateSlugs = {
+  de: "vergleich/whispaste-vs-system-spracheingabe",
+  en: "comparison/whispaste-vs-system-speech-to-text",
+};
+---
+
+<LandingPageLayout
+  lang={lang}
+  seo={seo}
+  breadcrumbs={breadcrumbs}
+  hero={hero}
+  cta={cta}
+  alternateSlugs={alternateSlugs}
+>
+  {/*
+    Astro strippt rohe `<!-- ... -->`-Kommentare im Template-Body während
+    des Builds. Damit der Marker im gerenderten HTML überlebt, wird er via
+    `Fragment set:html` als literale Comment-Sequenz eingefügt — sonst
+    findet `stripContrastive` in `check-brand-vocabulary.mjs` das Open-/Close-
+    Paar nicht und scant die kontrastive Copy.
+  */}
+  <Fragment set:html={"<!-- seo-audit:contrastive -->"} />
+  <section>
+    <h2>{t(lang, "comparison.osDictation.section.inlineVsPaste.heading")}</h2>
+    <p>{t(lang, "comparison.osDictation.section.inlineVsPaste.body")}</p>
+  </section>
+
+  <section>
+    <h2>{t(lang, "comparison.osDictation.section.providerChoice.heading")}</h2>
+    <p>{t(lang, "comparison.osDictation.section.providerChoice.body")}</p>
+  </section>
+
+  <section>
+    <h2>{t(lang, "comparison.osDictation.section.languageSupport.heading")}</h2>
+    <p>{t(lang, "comparison.osDictation.section.languageSupport.body")}</p>
+    <dl class="faq-list">
+      {faqQuestions.map((entry) => (
+        <div class="faq-item">
+          <dt>{entry.question}</dt>
+          <dd>{entry.answer}</dd>
+        </div>
+      ))}
+    </dl>
+  </section>
+
+  <FAQPageSchema locale={lang} questions={faqQuestions} />
+  <Fragment set:html={"<!-- /seo-audit:contrastive -->"} />
+</LandingPageLayout>
+
+<style>
+  .faq-list {
+    margin-top: 1rem;
+  }
+  .faq-item + .faq-item {
+    margin-top: 1rem;
+  }
+  .faq-list dt {
+    color: #e5e7eb;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+  }
+  .faq-list dd {
+    color: #9ca3af;
+    line-height: 1.6;
+    margin: 0;
+  }
+</style>

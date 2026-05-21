@@ -1,0 +1,121 @@
+---
+/**
+ * `/en/comparison/voice-input-tool-alternatives/` — English mirror of the
+ * Diktiersoftware-Alternativen comparison page (Issue 13). Slug avoids the
+ * anti-vocab `dictation` token so it stays compliant in the canonical URL,
+ * hreflang block, and the BreadcrumbList JSON-LD that the layout emits
+ * outside the slot — the contrastive copy with the actual anti-vocab terms
+ * lives inside the `<!-- seo-audit:contrastive -->` marker pair in the slot.
+ */
+import LandingPageLayout from "../../../layouts/LandingPageLayout.astro";
+import FAQPageSchema from "../../../components/schema/FAQPageSchema.astro";
+import { t, localePath } from "../../../scripts/i18n.ts";
+
+const lang = "en" as const;
+
+const breadcrumbs = [
+  { name: t(lang, "breadcrumb.home"), item: localePath(lang, "") },
+  { name: t(lang, "comparison.breadcrumb"), item: localePath(lang, "comparison") },
+  {
+    name: t(lang, "comparison.dictationAlternatives.breadcrumb"),
+    item: localePath(lang, "comparison/voice-input-tool-alternatives"),
+  },
+];
+
+const seo = {
+  title: t(lang, "comparison.dictationAlternatives.seoTitle"),
+  description: t(lang, "comparison.dictationAlternatives.seoDescription"),
+};
+
+const hero = {
+  heading: t(lang, "comparison.dictationAlternatives.heroHeading"),
+  lead: t(lang, "comparison.dictationAlternatives.heroLead"),
+};
+
+const cta = {
+  label: t(lang, "comparison.dictationAlternatives.cta.label"),
+  href: localePath(lang, "download"),
+};
+
+const faqQuestions = [
+  {
+    question: t(lang, "comparison.dictationAlternatives.faq.isDictationSoftware.q"),
+    answer: t(lang, "comparison.dictationAlternatives.faq.isDictationSoftware.a"),
+  },
+  {
+    question: t(lang, "comparison.dictationAlternatives.faq.betterThanDictation.q"),
+    answer: t(lang, "comparison.dictationAlternatives.faq.betterThanDictation.a"),
+  },
+  {
+    question: t(lang, "comparison.dictationAlternatives.faq.migrateFromDictation.q"),
+    answer: t(lang, "comparison.dictationAlternatives.faq.migrateFromDictation.a"),
+  },
+];
+
+const alternateSlugs = {
+  de: "vergleich/diktiersoftware-alternativen",
+  en: "comparison/voice-input-tool-alternatives",
+};
+---
+
+<LandingPageLayout
+  lang={lang}
+  seo={seo}
+  breadcrumbs={breadcrumbs}
+  hero={hero}
+  cta={cta}
+  alternateSlugs={alternateSlugs}
+>
+  {/*
+    Astro strips raw HTML comments from .astro template bodies during build,
+    so the contrastive marker is injected via `Fragment set:html` to ensure
+    the literal comment survives into the rendered HTML and the
+    `stripContrastive` scanner in `check-brand-vocabulary.mjs` can locate
+    its open/close pair.
+  */}
+  <Fragment set:html={"<!-- seo-audit:contrastive -->"} />
+  <section>
+    <h2>{t(lang, "comparison.dictationAlternatives.section.whyAlternative.heading")}</h2>
+    <p>{t(lang, "comparison.dictationAlternatives.section.whyAlternative.body")}</p>
+  </section>
+
+  <section>
+    <h2>{t(lang, "comparison.dictationAlternatives.section.differentPhilosophy.heading")}</h2>
+    <p>{t(lang, "comparison.dictationAlternatives.section.differentPhilosophy.body")}</p>
+  </section>
+
+  <section>
+    <h2>{t(lang, "comparison.dictationAlternatives.section.decisionGuide.heading")}</h2>
+    <p>{t(lang, "comparison.dictationAlternatives.section.decisionGuide.body")}</p>
+    <dl class="faq-list">
+      {faqQuestions.map((entry) => (
+        <div class="faq-item">
+          <dt>{entry.question}</dt>
+          <dd>{entry.answer}</dd>
+        </div>
+      ))}
+    </dl>
+  </section>
+
+  <FAQPageSchema locale={lang} questions={faqQuestions} />
+  <Fragment set:html={"<!-- /seo-audit:contrastive -->"} />
+</LandingPageLayout>
+
+<style>
+  .faq-list {
+    margin-top: 1rem;
+  }
+  .faq-item + .faq-item {
+    margin-top: 1rem;
+  }
+  .faq-list dt {
+    color: #e5e7eb;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+  }
+  .faq-list dd {
+    color: #9ca3af;
+    line-height: 1.6;
+    margin: 0;
+  }
+</style>
