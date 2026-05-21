@@ -17,6 +17,7 @@ import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/recording/recording_state.dart';
 import 'package:whispaste/core/data/database.dart';
+import 'package:whispaste/features/recording/clipping_state.dart';
 import 'package:whispaste/services/audio_service.dart';
 import 'package:whispaste/services/desktop_paste/desktop_paste_controller.dart';
 import 'package:whispaste/services/model_download_service.dart';
@@ -37,6 +38,13 @@ class FakeAudioService extends AudioServiceNotifier {
   /// Counts how many times [startRecording] was successfully invoked
   /// (i.e. not blocked by the "already recording" guard).
   int startCallCount = 0;
+
+  /// Overrides the inherited [lastRecordingClippedSamples] getter so tests
+  /// can simulate clipping outcomes without driving the real PCM pipeline.
+  int clippedSamplesToReport = 0;
+
+  @override
+  int get lastRecordingClippedSamples => clippedSamplesToReport;
 
   @override
   AudioStatus build() => const AudioStatus();
@@ -1216,6 +1224,82 @@ void main() {
       final state = container.read(recordingProvider);
       expect(state.phase, RecordingPhase.error);
       expect(state.errorMessage, 'wav_file_empty');
+    });
+  });
+
+  // =========================================================================
+  // ClippingState integration
+  // =========================================================================
+
+  group('ClippingState integration', () {
+    test(
+      'successful capture pushes the clipping counter into ClippingState',
+      () async {
+        fakeAudio.clippedSamplesToReport = 17;
+        fakeStt.transcriptToReturn = 'transcript with clipping';
+        final orch = await startRecordingPhase();
+
+        await orch.stopRecording();
+
+        final clipping = container.read(clippingStateProvider);
+        expect(clipping.count, 17);
+        expect(clipping.shouldShowBanner, isTrue);
+      },
+    );
+
+    test('clean follow-up recording (count=0) clears the banner', () async {
+      // First recording: clipping happened — banner appears.
+      fakeAudio.clippedSamplesToReport = 5;
+      fakeStt.transcriptToReturn = 'clipped';
+      final orch1 = await startRecordingPhase();
+      await orch1.stopRecording();
+      expect(container.read(clippingStateProvider).shouldShowBanner, isTrue);
+
+      // Second recording: clean → counter goes back to 0 → banner hides.
+      // Build a fresh WAV so the orchestrator can still read non-empty bytes
+      // (the previous capture cleaned up the prior file via cleanupFile,
+      // which the fake stubs to no-op).
+      wavFile = createFakeWav(
+        'test_audio_followup_${DateTime.now().millisecondsSinceEpoch}.wav',
+      );
+      fakeAudio.wavPathToReturn = wavFile.absolute.path;
+      fakeAudio.clippedSamplesToReport = 0;
+      fakeStt.transcriptToReturn = 'clean';
+      container.read(recordingProvider.notifier).reset();
+      final orch2 = await startRecordingPhase();
+      await orch2.stopRecording();
+
+      final clipping = container.read(clippingStateProvider);
+      expect(clipping.count, 0);
+      expect(clipping.shouldShowBanner, isFalse);
+    });
+
+    test('capture-step failure (audio start error) leaves ClippingState '
+        'untouched', () async {
+      // Pre-seed ClippingState with a non-zero value from a "prior"
+      // recording so we can verify the failed run does NOT clobber it.
+      container
+          .read(clippingStateProvider.notifier)
+          .reportRecordingFinished(42);
+      expect(container.read(clippingStateProvider).count, 42);
+
+      // Force the next startRecording to fail.
+      fakeAudio.errorOnStart = true;
+      final orch = container.read(recordingOrchestratorProvider.notifier);
+      await Future<void>.delayed(Duration.zero);
+
+      // Drive the state machine into recording so stopRecording() runs
+      // through capture and bails on the empty/missing audio result.
+      container.read(recordingProvider.notifier).startRecording();
+      fakeAudio.wavPathToReturn = null; // capture returns null path
+      await orch.stopRecording();
+
+      // The orchestrator transitioned to error (no_audio_recorded).
+      expect(container.read(recordingProvider).phase, RecordingPhase.error);
+      // ClippingState is unchanged — the prior banner stays.
+      final clipping = container.read(clippingStateProvider);
+      expect(clipping.count, 42);
+      expect(clipping.shouldShowBanner, isTrue);
     });
   });
 }

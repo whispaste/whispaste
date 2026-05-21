@@ -645,6 +645,18 @@ abstract class L10n {
   /// **'Microphone Volume'**
   String get settingsGain;
 
+  /// No description provided for @settingsClippingBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'Last recording had clipping — reduce gain?'**
+  String get settingsClippingBanner;
+
+  /// No description provided for @settingsClippingDismiss.
+  ///
+  /// In en, this message translates to:
+  /// **'Dismiss'**
+  String get settingsClippingDismiss;
+
   /// No description provided for @settingsHoldToRecord.
   ///
   /// In en, this message translates to:

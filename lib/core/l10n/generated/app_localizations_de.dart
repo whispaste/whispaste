@@ -307,6 +307,13 @@ class L10nDe extends L10n {
   String get settingsGain => 'Mikrofon-Lautstärke';
 
   @override
+  String get settingsClippingBanner =>
+      'Letzte Aufnahme hatte Übersteuerung — Gain reduzieren?';
+
+  @override
+  String get settingsClippingDismiss => 'Verstanden';
+
+  @override
   String get settingsHoldToRecord => 'Gedrückt halten für Aufnahme';
 
   @override

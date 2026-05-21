@@ -103,6 +103,8 @@
   "settingsAudioSubtitle": "Mikrofon und Aufnahme",
   "settingsMicrophone": "Mikrofon",
   "settingsGain": "Mikrofon-Lautstärke",
+  "settingsClippingBanner": "Letzte Aufnahme hatte Übersteuerung — Gain reduzieren?",
+  "settingsClippingDismiss": "Verstanden",
   "settingsHoldToRecord": "Gedrückt halten für Aufnahme",
   "pushToTalkUnavailableTooltip": "Auf dieser Plattform nicht verfügbar",
   "settingsSpeechRecognition": "Spracherkennung",
