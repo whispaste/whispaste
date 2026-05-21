@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 1.2.24
+
+### Features
+
+- **Microphone-volume slider is back — and it actually works this time**. The slider that was removed in v1.2.23 (because it had been dead code) returns as a real control. Behind the scenes the recording path was rebuilt: audio now flows through a PCM stream pipeline that splits in-process into the WAV writer and the level meter, with an optional gain multiplier inserted whenever the slider sits anywhere other than 100 %. At 100 % nothing changes (library autoGain still acts as before, default recordings sound the same as in v1.2.23); above 100 % the user gain takes over completely and library autoGain steps aside, so the slider's effect is predictable and audible. Range is 0–300 % in 5 % steps; 0 % records silence, 200 % is roughly twice as loud, and mid-recording slider movement is deliberately ignored — the gain captured at recording start governs the whole take.
+
+- **Clipping warning surfaces in the settings**. When the gain is pushed high enough that PCM samples hit the 16-bit ceiling, the new pipeline counts those clipped samples per recording. A subtle banner below the gain slider lights up after a recording with clipping ("Last recording had clipping — reduce gain?") so the cause of a bad transcription is visible instead of mysterious. Dismissing the banner clears the warning until the next clipping event; a clean recording also clears it automatically. No modal, no sound, no OS notification — the banner sits passively in the place you would go to react to it.
+
 ## 1.2.23
 
 ### Bug Fixes
