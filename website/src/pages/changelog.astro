@@ -2,10 +2,15 @@
 import Layout from "../layouts/Layout.astro";
 import Nav from "../components/Nav.astro";
 import Footer from "../components/Footer.astro";
+import BreadcrumbListSchema from "../components/schema/BreadcrumbListSchema.astro";
 import releasesFile from "../data/releases.json";
-import { t } from "../scripts/i18n.ts";
+import { t, localePath } from "../scripts/i18n.ts";
 
 const pageLang = (Astro.currentLocale === "en" ? "en" : "de") as "de" | "en";
+const breadcrumbItems = [
+  { name: t(pageLang, "breadcrumb.home"), item: localePath(pageLang, "") },
+  { name: t(pageLang, "breadcrumb.changelog"), item: localePath(pageLang, "changelog") },
+];
 
 // `releases.json` follows the `ReleasesFile` schema produced by
 // `website/scripts/release-store.ts`. We render the top 5 (already the file
@@ -176,4 +181,6 @@ type Lang = (typeof LANGS)[number];
       display: none;
     }
   </style>
+
+  <BreadcrumbListSchema items={breadcrumbItems} />
 </Layout>

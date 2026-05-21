@@ -5,9 +5,14 @@ import Footer from "../../components/Footer.astro";
 import StoreButton from "../../components/StoreButton.astro";
 import AppleButton from "../../components/AppleButton.astro";
 import DownloadSupportModal from "../../components/DownloadSupportModal.astro";
-import { t } from "../../scripts/i18n.ts";
+import BreadcrumbListSchema from "../../components/schema/BreadcrumbListSchema.astro";
+import { t, localePath } from "../../scripts/i18n.ts";
 
 const lang = (Astro.currentLocale === "en" ? "en" : "de") as "de" | "en";
+const breadcrumbItems = [
+  { name: t(lang, "breadcrumb.home"), item: localePath(lang, "") },
+  { name: t(lang, "breadcrumb.download"), item: localePath(lang, "download") },
+];
 ---
 
 <Layout title={t(lang, "meta.title.download")} description={t(lang, "meta.description.download")}>
@@ -228,6 +233,8 @@ const lang = (Astro.currentLocale === "en" ? "en" : "de") as "de" | "en";
     applyLang();
     updateThemeIcon();
   </script>
+
+  <BreadcrumbListSchema items={breadcrumbItems} />
 </Layout>
 
 <style>
