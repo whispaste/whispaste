@@ -68,11 +68,14 @@ const SafetyEvent durationLimitReached = DurationLimitReached();
 /// All time values are in seconds; `0` means the corresponding guard is
 /// disabled.
 class SafetyGuardConfig {
+  /// [samplesPerSecond] has no sensible default — it must match the producer's
+  /// emit rate (see `amplitudeSamplesPerSecond` in `audio_service.dart`).
+  /// Forgetting it lets *all* guard timers drift, so it's a required argument.
   const SafetyGuardConfig({
+    required this.samplesPerSecond,
     this.deadMicTimeout = 3.0,
     this.autoStopSilence = 0.0,
     this.maxDurationSeconds = 120,
-    this.samplesPerSecond = 10,
   });
 
   /// Seconds of continuous silence (no speech at all) before dead-mic fires.
