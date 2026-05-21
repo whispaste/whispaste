@@ -25,6 +25,7 @@ import {
   scanHtml,
   stripContrastive,
   walkDistFiles,
+  walkStoreFiles,
 } from "../check-brand-vocabulary.mjs";
 
 interface VocabEntry {
@@ -167,6 +168,102 @@ describe("walkDistFiles", () => {
       "ai.txt",
     ]);
     expect(Object.isFrozen(TXT_ALLOWLIST)).toBe(true);
+  });
+});
+
+describe("scanHtml on Markdown sources (store/**.md, Issue 15)", () => {
+  // Der Scanner ist text-pattern-basiert; `scanHtml` heißt nur historisch so
+  // und funktioniert genauso auf Markdown wie auf HTML. Die folgenden Cases
+  // verifizieren, dass die Store-Markdown-Quellen (siehe Issue 15) durch
+  // dieselbe Pipeline laufen — inklusive funktionierendem Kontrastiv-Marker,
+  // weil Markdown HTML-Kommentare verbatim erlaubt.
+
+  it("flags a forbidden term inside a Markdown paragraph", () => {
+    const md = [
+      "# WhisPaste — Microsoft Store long description",
+      "",
+      "WhisPaste is a great dictation app for daily writing.",
+      "",
+      "- Works in any app.",
+    ].join("\n");
+    const findings = scanHtml(md, VOCAB);
+    expect(findings.length).toBeGreaterThan(0);
+    expect(findings[0]).toMatchObject({
+      term: "dictation",
+      line: 3,
+      replacement: "voice-input tool",
+    });
+  });
+
+  it("respects the contrastive marker inside Markdown (HTML comments work verbatim)", () => {
+    const md = [
+      "# WhisPaste",
+      "",
+      "WhisPaste is a voice-input tool that produces transcripts.",
+      "",
+      CONTRASTIVE_OPEN,
+      "WhisPaste is **not** a dictation app, and it is not a Diktier-Tool either.",
+      CONTRASTIVE_CLOSE,
+      "",
+      "Privacy first.",
+    ].join("\n");
+    const findings = scanHtml(md, VOCAB);
+    expect(findings).toEqual([]);
+  });
+
+  it("preserves Markdown line numbers in citations across mixed scopes", () => {
+    const md = [
+      "## Tagline",
+      "",
+      "Press, speak, done — no dictation, no friction.",
+      "",
+      "## Long description",
+      "",
+      CONTRASTIVE_OPEN,
+      "An allowed Diktat mention in a contrastive block.",
+      CONTRASTIVE_CLOSE,
+      "",
+      "Another bad Diktat after the block.",
+    ].join("\n");
+    const findings = scanHtml(md, VOCAB);
+    expect(findings.map((f) => ({ term: f.term, line: f.line }))).toEqual([
+      { term: "dictation", line: 3 },
+      { term: "Diktat", line: 11 },
+    ]);
+  });
+});
+
+describe("walkStoreFiles", () => {
+  it("returns only top-level *.md files under store/, sorted", async () => {
+    const root = await mkdtemp(join(tmpdir(), "brand-store-"));
+    await writeFile(
+      join(root, "microsoft-store-long-description.md"),
+      "# Long\n",
+    );
+    await writeFile(join(root, "dmg-distribution.md"), "# DMG\n");
+    // Non-md files at top level must be ignored — Partner Center *.txt
+    // snippets live in locale subfolders and are not part of the Markdown
+    // scan scope.
+    await writeFile(join(root, "README.md"), "# Readme\n");
+    await writeFile(join(root, "notes.txt"), "should be ignored\n");
+    // Subfolder content (e.g. store/de-DE/description.txt) is out of scope
+    // for this scanner and must not be collected.
+    await mkdir(join(root, "de-DE"));
+    await writeFile(join(root, "de-DE", "description.txt"), "DE text\n");
+    await writeFile(join(root, "de-DE", "nested.md"), "# nested\n");
+    const files = await walkStoreFiles(root);
+    const rels = files.map((f) => f.slice(root.length + 1));
+    expect(rels).toEqual([
+      "README.md",
+      "dmg-distribution.md",
+      "microsoft-store-long-description.md",
+    ]);
+  });
+
+  it("returns an empty list when the store directory does not exist", async () => {
+    const missing = join(tmpdir(), `brand-store-missing-${Date.now()}`);
+    const files = await walkStoreFiles(missing);
+    expect(files).toEqual([]);
   });
 });
 

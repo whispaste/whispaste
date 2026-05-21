@@ -3,11 +3,23 @@
  * Anti-Vokabular-CI-Gate — Drift-Schutz für die Brand-Sprache.
  *
  * Liest die `antiVocabulary`-Tabelle aus `src/data/brand-glossary.ts` (Single
- * Source of Truth, siehe Slice 01 des SEO-Overhaul-Feature) und scannt das
- * gebaute HTML unter `website/dist/**\/*.html` auf Verstöße. Kontrastive
+ * Source of Truth, siehe Slice 01 des SEO-Overhaul-Feature) und scannt zwei
+ * Quellen:
+ *
+ *   1. Das gebaute HTML unter `website/dist/**\/*.html` plus eine explizite
+ *      `.txt`-Allowlist (`llms.txt`, `llms-full.txt`, `ai.txt`).
+ *   2. Die Store-Marketing-Markdown-Dateien unter `<repo-root>/store/*.md`
+ *      (Issue 15 des SEO-Overhaul-Feature — sorgt dafür, dass eine Brand-
+ *      Sprach-Verletzung im Microsoft-Store-Listing oder im DMG-Wording
+ *      genauso auffällt wie eine auf der Website).
+ *
+ * Beide Quellen laufen durch dieselbe `scanHtml`-Pipeline; der Name ist
+ * historisch gewachsen, die Implementierung ist text-pattern-basiert und
+ * funktioniert auf HTML, Plain-Text und Markdown gleichermaßen. Kontrastive
  * Sektionen werden über die HTML-Kommentar-Marker
  * `<!-- seo-audit:contrastive -->` … `<!-- /seo-audit:contrastive -->`
- * ausgeklammert; innerhalb der Marker zählen Treffer mit
+ * ausgeklammert — Markdown unterstützt HTML-Kommentare verbatim, sodass die
+ * Marker auch dort funktionieren. Innerhalb der Marker zählen Treffer mit
  * `contrastiveAllowed: true` nicht als Verstoß.
  *
  * Aufruf: `node scripts/check-brand-vocabulary.mjs` (typischerweise als
@@ -16,8 +28,9 @@
  * inklusive Zitations-Liste (`file:line — term → replacement`).
  *
  * Die Kernfunktionen (`scanHtml`, `stripContrastive`, `buildTermRegex`,
- * `walkDistFiles`) werden separat exportiert und vom Vitest-Test unter
- * `website/scripts/__tests__/check-brand-vocabulary.test.ts` verifiziert.
+ * `walkDistFiles`, `walkStoreFiles`) werden separat exportiert und vom
+ * Vitest-Test unter `website/scripts/__tests__/check-brand-vocabulary.test.ts`
+ * verifiziert.
  *
  * Node-Voraussetzung: ≥ 22.6 mit `--experimental-strip-types` bzw. ≥ 23, da
  * `brand-glossary.ts` direkt aus `.mjs` importiert wird (Native TS-Strip in
@@ -227,55 +240,127 @@ async function walk(dir, acc) {
   }
 }
 
+/**
+ * Sammelt alle Top-Level-Markdown-Dateien unter `<repo-root>/store/` (Issue
+ * 15 des SEO-Overhaul-Feature). Nur Top-Level (`store/*.md`) — Unterordner
+ * wie `store/de-DE/` enthalten Partner-Center-Plain-Text-Snippets, die
+ * separat über `description.txt` / `features.txt` gepflegt werden und nicht
+ * Teil dieses Markdown-Scans sind. Falls das `store/`-Verzeichnis nicht
+ * existiert, liefert die Funktion eine leere Liste ohne Fehler — der Scan
+ * bleibt damit auch in Sandbox-Setups grün, in denen `store/` ausgelassen
+ * wurde.
+ *
+ * @param {string} storeDir - Absoluter Pfad zum `store`-Verzeichnis.
+ * @returns {Promise<string[]>} sortierte absolute Pfade aller `store/*.md`.
+ */
+export async function walkStoreFiles(storeDir) {
+  let entries;
+  try {
+    entries = await readdir(storeDir, { withFileTypes: true });
+  } catch (err) {
+    if (err && /** @type {NodeJS.ErrnoException} */ (err).code === "ENOENT") {
+      return [];
+    }
+    throw err;
+  }
+  const out = [];
+  for (const ent of entries) {
+    if (ent.isFile() && ent.name.endsWith(".md")) {
+      out.push(join(storeDir, ent.name));
+    }
+  }
+  out.sort();
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 // CLI entry point
 // ---------------------------------------------------------------------------
 
 /**
- * Hauptlauf: scannt alle HTML-Files im Build-Output und liefert ein
- * Aggregat-Objekt mit allen Verstößen pro Datei. Exit-Code-Mapping erfolgt
- * im CLI-Wrapper, damit `runCheck` auch in Tests konsumierbar bleibt.
+ * Hauptlauf: scannt sowohl den Website-Build-Output (`dist/**\/*.html` plus
+ * `.txt`-Allowlist) als auch die Store-Marketing-Markdown-Quellen
+ * (`<repo-root>/store/*.md`, siehe Issue 15) und liefert ein Aggregat-Objekt
+ * mit allen Verstößen pro Datei. Exit-Code-Mapping erfolgt im CLI-Wrapper,
+ * damit `runCheck` auch in Tests konsumierbar bleibt.
+ *
+ * Die einzelnen Quell-Listen werden zusätzlich zurückgegeben (`htmlCount`,
+ * `txtCount`, `markdownCount`), damit `formatReport` eine aussagekräftige
+ * Summary-Zeile bauen kann.
  *
  * @param {object} opts
  * @param {string} opts.distDir - absoluter Pfad zum `dist`-Verzeichnis.
+ * @param {string} [opts.storeDir] - optionaler absoluter Pfad zum
+ *   `store`-Verzeichnis (Default: weggelassen → keine Store-Scan-Phase).
  * @param {ReadonlyArray<{ term: string, replacement: string, rationale: string, contrastiveAllowed?: boolean }>} opts.vocabulary
- * @returns {Promise<{ totalFiles: number, totalViolations: number, files: Array<{ file: string, violations: ReturnType<typeof scanHtml> }> }>}
+ * @returns {Promise<{
+ *   totalFiles: number,
+ *   totalViolations: number,
+ *   htmlCount: number,
+ *   txtCount: number,
+ *   markdownCount: number,
+ *   files: Array<{ file: string, violations: ReturnType<typeof scanHtml> }>
+ * }>}
  */
-export async function runCheck({ distDir, vocabulary }) {
+export async function runCheck({ distDir, storeDir, vocabulary }) {
   const distStat = await stat(distDir).catch(() => null);
   if (!distStat || !distStat.isDirectory()) {
     throw new Error(
       `dist directory not found at ${distDir}. Run \`npm run build\` first or set BRAND_DIST_DIR.`,
     );
   }
-  const files = await walkDistFiles(distDir);
+  const distFiles = await walkDistFiles(distDir);
+  const storeFiles = storeDir ? await walkStoreFiles(storeDir) : [];
+
+  // Zählung pro Quellklasse für die Summary-Zeile.
+  let htmlCount = 0;
+  let txtCount = 0;
+  for (const f of distFiles) {
+    if (f.endsWith(".html")) htmlCount++;
+    else if (f.endsWith(".txt")) txtCount++;
+  }
+  const markdownCount = storeFiles.length;
+
   const perFile = [];
   let totalViolations = 0;
-  for (const f of files) {
-    const html = await readFile(f, "utf8");
-    const violations = scanHtml(html, vocabulary);
+  for (const f of [...distFiles, ...storeFiles]) {
+    const text = await readFile(f, "utf8");
+    const violations = scanHtml(text, vocabulary);
     if (violations.length > 0) {
       perFile.push({ file: f, violations });
       totalViolations += violations.length;
     }
   }
-  return { totalFiles: files.length, totalViolations, files: perFile };
+  return {
+    totalFiles: distFiles.length + storeFiles.length,
+    totalViolations,
+    htmlCount,
+    txtCount,
+    markdownCount,
+    files: perFile,
+  };
 }
 
 /**
  * Formatiert das `runCheck`-Ergebnis als menschenlesbaren Report. Wird vom
  * CLI-Wrapper auf stderr geschrieben, bleibt aber separat testbar.
+ *
+ * Die Summary-Zeile listet die drei gescannten Quellklassen einzeln auf
+ * (HTML aus `dist/`, TXT-Allowlist aus `dist/`, Markdown aus `store/`),
+ * damit ein „0 Verstöße in N HTML + M TXT + K Markdown"-Lauf auf einen
+ * Blick zeigt, dass alle drei Pfade gescannt wurden.
  */
 export function formatReport(result, { distDir }) {
   const lines = [];
+  const scopeSummary = formatScopeSummary(result);
   if (result.totalViolations === 0) {
     lines.push(
-      `✓ Brand-Vokabular-Check: 0 Verstöße in ${result.totalFiles} HTML-Datei(en) unter ${distDir}.`,
+      `✓ Brand-Vokabular-Check: 0 Verstöße in ${scopeSummary} unter ${distDir}.`,
     );
     return lines.join("\n");
   }
   lines.push(
-    `✗ Brand-Vokabular-Check: ${result.totalViolations} Verstöße in ${result.files.length} von ${result.totalFiles} HTML-Datei(en).`,
+    `✗ Brand-Vokabular-Check: ${result.totalViolations} Verstöße in ${result.files.length} von ${scopeSummary}.`,
   );
   for (const { file, violations } of result.files) {
     const rel = relative(process.cwd(), file);
@@ -296,6 +381,23 @@ export function formatReport(result, { distDir }) {
   return lines.join("\n");
 }
 
+/**
+ * Baut die "N HTML + M TXT + K Markdown-Datei(en)"-Phrase für die Summary-
+ * Zeile. Klassen mit Count = 0 werden weggelassen; bleibt nur die Gesamt-
+ * Datei-Zahl übrig, fällt der Report auf die alte Pluralform zurück, damit
+ * der Output bei reiner HTML-Erstaufrüstung nicht künstlich aufgebläht wird.
+ */
+function formatScopeSummary(result) {
+  const parts = [];
+  if (result.htmlCount > 0) parts.push(`${result.htmlCount} HTML`);
+  if (result.txtCount > 0) parts.push(`${result.txtCount} TXT`);
+  if (result.markdownCount > 0) parts.push(`${result.markdownCount} Markdown`);
+  if (parts.length === 0) {
+    return `${result.totalFiles} Datei(en)`;
+  }
+  return `${parts.join(" + ")}-Datei(en)`;
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -303,7 +405,17 @@ async function main() {
   const distDir = resolve(
     process.env.BRAND_DIST_DIR ?? join(__dirname, "..", "dist"),
   );
-  const result = await runCheck({ distDir, vocabulary: antiVocabulary });
+  // Repo-Root liegt eine Ebene über `website/` — `store/` ist eine Top-Level-
+  // Schwester von `website/`. Override via `BRAND_STORE_DIR` für Tests und
+  // Sandbox-Setups.
+  const storeDir = resolve(
+    process.env.BRAND_STORE_DIR ?? join(__dirname, "..", "..", "store"),
+  );
+  const result = await runCheck({
+    distDir,
+    storeDir,
+    vocabulary: antiVocabulary,
+  });
   const report = formatReport(result, { distDir });
   if (result.totalViolations === 0) {
     process.stdout.write(report + "\n");
