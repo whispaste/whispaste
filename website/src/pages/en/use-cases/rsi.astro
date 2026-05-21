@@ -1,0 +1,104 @@
+---
+/**
+ * `/en/use-cases/rsi/` — English mirror of the RSI use-case page
+ * (Issue 11). The slug is intentionally identical to the DE variant
+ * (`rsi`) because the acronym is globally understood; the
+ * `alternateSlugs` mapping still emits the correct hreflang pair.
+ */
+import LandingPageLayout from "../../../layouts/LandingPageLayout.astro";
+import FAQPageSchema from "../../../components/schema/FAQPageSchema.astro";
+import { t, localePath } from "../../../scripts/i18n.ts";
+
+const lang = "en" as const;
+
+const breadcrumbs = [
+  { name: t(lang, "breadcrumb.home"), item: localePath(lang, "") },
+  { name: t(lang, "breadcrumb.useCases"), item: localePath(lang, "use-cases") },
+  { name: t(lang, "useCase.rsi.breadcrumb"), item: localePath(lang, "use-cases/rsi") },
+];
+
+const seo = {
+  title: t(lang, "useCase.rsi.seoTitle"),
+  description: t(lang, "useCase.rsi.seoDescription"),
+};
+
+const hero = {
+  heading: t(lang, "useCase.rsi.heroHeading"),
+  lead: t(lang, "useCase.rsi.heroLead"),
+};
+
+const cta = {
+  label: t(lang, "useCase.rsi.cta.label"),
+  href: localePath(lang, "download"),
+};
+
+const faqQuestions = [
+  {
+    question: t(lang, "useCase.rsi.faq.karpaltunnel.q"),
+    answer: t(lang, "useCase.rsi.faq.karpaltunnel.a"),
+  },
+  {
+    question: t(lang, "useCase.rsi.faq.pauses.q"),
+    answer: t(lang, "useCase.rsi.faq.pauses.a"),
+  },
+  {
+    question: t(lang, "useCase.rsi.faq.dayVariation.q"),
+    answer: t(lang, "useCase.rsi.faq.dayVariation.a"),
+  },
+];
+
+const alternateSlugs = { de: "use-cases/rsi", en: "use-cases/rsi" };
+---
+
+<LandingPageLayout
+  lang={lang}
+  seo={seo}
+  breadcrumbs={breadcrumbs}
+  hero={hero}
+  cta={cta}
+  alternateSlugs={alternateSlugs}
+>
+  <section>
+    <h2>{t(lang, "useCase.rsi.section.flow.heading")}</h2>
+    <p>{t(lang, "useCase.rsi.section.flow.body")}</p>
+  </section>
+
+  <section>
+    <h2>{t(lang, "useCase.rsi.section.ergonomics.heading")}</h2>
+    <p>{t(lang, "useCase.rsi.section.ergonomics.body")}</p>
+  </section>
+
+  <section>
+    <h2>{t(lang, "useCase.rsi.section.dailyVariation.heading")}</h2>
+    <p>{t(lang, "useCase.rsi.section.dailyVariation.body")}</p>
+    <dl class="faq-list">
+      {faqQuestions.map((entry) => (
+        <div class="faq-item">
+          <dt>{entry.question}</dt>
+          <dd>{entry.answer}</dd>
+        </div>
+      ))}
+    </dl>
+  </section>
+
+  <FAQPageSchema locale={lang} questions={faqQuestions} />
+</LandingPageLayout>
+
+<style>
+  .faq-list {
+    margin-top: 1rem;
+  }
+  .faq-item + .faq-item {
+    margin-top: 1rem;
+  }
+  .faq-list dt {
+    color: #e5e7eb;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+  }
+  .faq-list dd {
+    color: #9ca3af;
+    line-height: 1.6;
+    margin: 0;
+  }
+</style>
