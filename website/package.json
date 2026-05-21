@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
+    "build:check": "astro build && node scripts/check-brand-vocabulary.mjs",
+    "check:brand": "node scripts/check-brand-vocabulary.mjs",
     "preview": "astro preview",
     "test": "playwright test",
     "test:ci": "playwright test --reporter=github",
