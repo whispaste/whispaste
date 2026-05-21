@@ -118,7 +118,6 @@
   "settingsAudio": "Audio",
   "settingsAudioSubtitle": "Microphone and recording",
   "settingsMicrophone": "Microphone",
-  "settingsGain": "Microphone Volume",
   "settingsHoldToRecord": "Hold to Record",
   "pushToTalkUnavailableTooltip": "Not available on this platform",
   "settingsSpeechRecognition": "Speech Recognition",

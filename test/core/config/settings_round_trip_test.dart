@@ -11,7 +11,6 @@ void main() {
       expect(restored.themeMode, original.themeMode);
       expect(restored.locale, original.locale);
       expect(restored.microphone, original.microphone);
-      expect(restored.inputGain, original.inputGain);
       expect(restored.sttProvider, original.sttProvider);
       expect(restored.sttModel, original.sttModel);
       expect(restored.sttLanguage, original.sttLanguage);

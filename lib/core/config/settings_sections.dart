@@ -176,12 +176,10 @@ class InterfaceSettings {
 class AudioInputSettings {
   const AudioInputSettings({
     this.microphone = 'Default',
-    this.inputGain = 100.0,
     this.pushToTalk = false,
   });
 
   final String microphone;
-  final double inputGain;
   final bool pushToTalk;
 
   static const AudioInputSettings defaults = AudioInputSettings();
@@ -189,36 +187,29 @@ class AudioInputSettings {
   factory AudioInputSettings.fromMap(Map<String, String> v) =>
       AudioInputSettings(
         microphone: v['microphone'] ?? defaults.microphone,
-        inputGain: _readDouble(v, 'input_gain', defaults.inputGain),
         pushToTalk: _readBool(v, 'push_to_talk', defaults.pushToTalk),
       );
 
   Map<String, String> toMap() => {
     'microphone': microphone,
-    'input_gain': '$inputGain',
     'push_to_talk': '$pushToTalk',
   };
 
-  AudioInputSettings copyWith({
-    String? microphone,
-    double? inputGain,
-    bool? pushToTalk,
-  }) => AudioInputSettings(
-    microphone: microphone ?? this.microphone,
-    inputGain: inputGain ?? this.inputGain,
-    pushToTalk: pushToTalk ?? this.pushToTalk,
-  );
+  AudioInputSettings copyWith({String? microphone, bool? pushToTalk}) =>
+      AudioInputSettings(
+        microphone: microphone ?? this.microphone,
+        pushToTalk: pushToTalk ?? this.pushToTalk,
+      );
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is AudioInputSettings &&
           microphone == other.microphone &&
-          inputGain == other.inputGain &&
           pushToTalk == other.pushToTalk;
 
   @override
-  int get hashCode => Object.hash(microphone, inputGain, pushToTalk);
+  int get hashCode => Object.hash(microphone, pushToTalk);
 }
 
 // ===========================================================================

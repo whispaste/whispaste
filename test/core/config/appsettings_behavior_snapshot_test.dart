@@ -76,11 +76,6 @@ void main() {
       expect(_roundtrip(s).microphone, 'Built-in Mic');
     });
 
-    test('inputGain survives roundtrip', () {
-      final s = AppSettings.defaults.copyWith(inputGain: 75.5);
-      expect(_roundtrip(s).inputGain, 75.5);
-    });
-
     test('pushToTalk survives roundtrip', () {
       final s = AppSettings.defaults.copyWith(pushToTalk: true);
       expect(_roundtrip(s).pushToTalk, isTrue);
@@ -519,31 +514,21 @@ void main() {
     test('all audio input fields use expected storage keys', () {
       final s = AppSettings.defaults.copyWith(
         microphone: 'External Mic',
-        inputGain: 110.0,
         pushToTalk: true,
       );
       final map = s.toStorageMap();
       expect(map['microphone'], 'External Mic');
-      expect(map['input_gain'], '110.0');
       expect(map['push_to_talk'], 'true');
     });
 
     test('audio input cluster full roundtrip', () {
       final s = AppSettings.defaults.copyWith(
         microphone: 'External Mic',
-        inputGain: 110.0,
         pushToTalk: true,
       );
       final r = _roundtrip(s);
       expect(r.microphone, 'External Mic');
-      expect(r.inputGain, 110.0);
       expect(r.pushToTalk, isTrue);
-    });
-
-    test('inputGain falls back to default on invalid value', () {
-      final map = {'input_gain': 'not-a-number'};
-      final s = AppSettings.fromStorageMap(map);
-      expect(s.inputGain, AppSettings.defaults.inputGain);
     });
   });
 
