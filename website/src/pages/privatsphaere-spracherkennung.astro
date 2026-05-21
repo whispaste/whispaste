@@ -1,0 +1,127 @@
+---
+/**
+ * `/privatsphaere-spracherkennung/` — Erklär-Page für Datenschutz-bewusste
+ * Spracherkennung (Issue 12, PRD §E).
+ *
+ * Beantwortet den `docs/zielgruppe.md`-Lackmustest („Hilft das jemandem, der
+ * Spracherkennung nur einsetzen will, wenn Daten den Rechner nicht
+ * verlassen?") direkt im Hero-Lead. Drei Sections decken die häufigsten
+ * Friction-Punkte ab: Offline-Default, Direct-to-Provider-Architektur,
+ * kein Account / keine Telemetrie / lokaler Verlauf.
+ *
+ * Schema-Wahl: FAQPage, weil Datenschutz-bewusste Suchen typischerweise mit
+ * Ja/Nein-Fragen ankommen („Verlässt mein Audio das Gerät? Brauche ich einen
+ * Account? Wo liegt der Verlauf?"). Die Q&A-Paare spiegeln 1:1 die sichtbare
+ * `<dl>`-Liste — Google Rich-Results-Anforderung.
+ *
+ * Slug-Divergenz DE/EN: DE `privatsphaere-spracherkennung`, EN
+ * `privacy-speech-recognition`. Über `alternateSlugs` an `LandingPageLayout`
+ * → `Layout` durchgereicht, damit hreflang-Alternates korrekt zwischen den
+ * beiden Routen pendeln.
+ *
+ * Datenschutz-Link: die `section.noTelemetry.body` enthält bewusst einen
+ * Inline-Link auf `/datenschutz/` (DE) bzw. `/en/privacy/` (EN) — die volle
+ * Datenschutzerklärung bleibt die rechtsverbindliche Quelle, diese Page ist
+ * die SEO-/Erklär-Ebene davor.
+ */
+import LandingPageLayout from "../layouts/LandingPageLayout.astro";
+import FAQPageSchema from "../components/schema/FAQPageSchema.astro";
+import { t, localePath } from "../scripts/i18n.ts";
+
+const lang = "de" as const;
+
+const breadcrumbs = [
+  { name: t(lang, "breadcrumb.home"), item: localePath(lang, "") },
+  { name: t(lang, "explainer.privacy.breadcrumb"), item: localePath(lang, "privatsphaere-spracherkennung") },
+];
+
+const seo = {
+  title: t(lang, "explainer.privacy.seoTitle"),
+  description: t(lang, "explainer.privacy.seoDescription"),
+};
+
+const hero = {
+  heading: t(lang, "explainer.privacy.heroHeading"),
+  lead: t(lang, "explainer.privacy.heroLead"),
+};
+
+const cta = {
+  label: t(lang, "explainer.privacy.cta.label"),
+  href: localePath(lang, "download"),
+};
+
+const faqQuestions = [
+  {
+    question: t(lang, "explainer.privacy.faq.dataLeaves.q"),
+    answer: t(lang, "explainer.privacy.faq.dataLeaves.a"),
+  },
+  {
+    question: t(lang, "explainer.privacy.faq.account.q"),
+    answer: t(lang, "explainer.privacy.faq.account.a"),
+  },
+  {
+    question: t(lang, "explainer.privacy.faq.historyStorage.q"),
+    answer: t(lang, "explainer.privacy.faq.historyStorage.a"),
+  },
+];
+
+const alternateSlugs = { de: "privatsphaere-spracherkennung", en: "privacy-speech-recognition" };
+---
+
+<LandingPageLayout
+  lang={lang}
+  seo={seo}
+  breadcrumbs={breadcrumbs}
+  hero={hero}
+  cta={cta}
+  alternateSlugs={alternateSlugs}
+>
+  <section>
+    <h2>{t(lang, "explainer.privacy.section.offlineDefault.heading")}</h2>
+    <p>{t(lang, "explainer.privacy.section.offlineDefault.body")}</p>
+  </section>
+
+  <section>
+    <h2>{t(lang, "explainer.privacy.section.directProvider.heading")}</h2>
+    <p>{t(lang, "explainer.privacy.section.directProvider.body")}</p>
+  </section>
+
+  <section>
+    <h2>{t(lang, "explainer.privacy.section.noTelemetry.heading")}</h2>
+    {/*
+      Inline-HTML im Body, damit der Link auf `/datenschutz/` als echter
+      `<a>`-Tag gerendert wird statt als sichtbarer HTML-String. Der String
+      ist eine i18n-Konstante, kein User-Input — `set:html` ist hier sicher.
+    */}
+    <p set:html={t(lang, "explainer.privacy.section.noTelemetry.body")}></p>
+    <dl class="faq-list">
+      {faqQuestions.map((entry) => (
+        <div class="faq-item">
+          <dt>{entry.question}</dt>
+          <dd>{entry.answer}</dd>
+        </div>
+      ))}
+    </dl>
+  </section>
+
+  <FAQPageSchema locale={lang} questions={faqQuestions} />
+</LandingPageLayout>
+
+<style>
+  .faq-list {
+    margin-top: 1rem;
+  }
+  .faq-item + .faq-item {
+    margin-top: 1rem;
+  }
+  .faq-list dt {
+    color: #e5e7eb;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+  }
+  .faq-list dd {
+    color: #9ca3af;
+    line-height: 1.6;
+    margin: 0;
+  }
+</style>

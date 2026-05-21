@@ -1,0 +1,108 @@
+---
+/**
+ * `/en/privacy-speech-recognition/` — English mirror of the privacy
+ * explainer page (Issue 12). Slug intentionally diverges
+ * (`privatsphaere-spracherkennung` ↔ `privacy-speech-recognition`) because
+ * the German compound has no idiomatic 1:1 English counterpart; the
+ * `alternateSlugs` mapping keeps hreflang and canonical pairs consistent.
+ *
+ * `section.noTelemetry.body` contains an inline link to `/en/privacy/` for
+ * the legal text. Rendered via `set:html` because the i18n string holds
+ * an `<a>` tag — same rationale as the DE variant.
+ */
+import LandingPageLayout from "../../layouts/LandingPageLayout.astro";
+import FAQPageSchema from "../../components/schema/FAQPageSchema.astro";
+import { t, localePath } from "../../scripts/i18n.ts";
+
+const lang = "en" as const;
+
+const breadcrumbs = [
+  { name: t(lang, "breadcrumb.home"), item: localePath(lang, "") },
+  { name: t(lang, "explainer.privacy.breadcrumb"), item: localePath(lang, "privacy-speech-recognition") },
+];
+
+const seo = {
+  title: t(lang, "explainer.privacy.seoTitle"),
+  description: t(lang, "explainer.privacy.seoDescription"),
+};
+
+const hero = {
+  heading: t(lang, "explainer.privacy.heroHeading"),
+  lead: t(lang, "explainer.privacy.heroLead"),
+};
+
+const cta = {
+  label: t(lang, "explainer.privacy.cta.label"),
+  href: localePath(lang, "download"),
+};
+
+const faqQuestions = [
+  {
+    question: t(lang, "explainer.privacy.faq.dataLeaves.q"),
+    answer: t(lang, "explainer.privacy.faq.dataLeaves.a"),
+  },
+  {
+    question: t(lang, "explainer.privacy.faq.account.q"),
+    answer: t(lang, "explainer.privacy.faq.account.a"),
+  },
+  {
+    question: t(lang, "explainer.privacy.faq.historyStorage.q"),
+    answer: t(lang, "explainer.privacy.faq.historyStorage.a"),
+  },
+];
+
+const alternateSlugs = { de: "privatsphaere-spracherkennung", en: "privacy-speech-recognition" };
+---
+
+<LandingPageLayout
+  lang={lang}
+  seo={seo}
+  breadcrumbs={breadcrumbs}
+  hero={hero}
+  cta={cta}
+  alternateSlugs={alternateSlugs}
+>
+  <section>
+    <h2>{t(lang, "explainer.privacy.section.offlineDefault.heading")}</h2>
+    <p>{t(lang, "explainer.privacy.section.offlineDefault.body")}</p>
+  </section>
+
+  <section>
+    <h2>{t(lang, "explainer.privacy.section.directProvider.heading")}</h2>
+    <p>{t(lang, "explainer.privacy.section.directProvider.body")}</p>
+  </section>
+
+  <section>
+    <h2>{t(lang, "explainer.privacy.section.noTelemetry.heading")}</h2>
+    <p set:html={t(lang, "explainer.privacy.section.noTelemetry.body")}></p>
+    <dl class="faq-list">
+      {faqQuestions.map((entry) => (
+        <div class="faq-item">
+          <dt>{entry.question}</dt>
+          <dd>{entry.answer}</dd>
+        </div>
+      ))}
+    </dl>
+  </section>
+
+  <FAQPageSchema locale={lang} questions={faqQuestions} />
+</LandingPageLayout>
+
+<style>
+  .faq-list {
+    margin-top: 1rem;
+  }
+  .faq-item + .faq-item {
+    margin-top: 1rem;
+  }
+  .faq-list dt {
+    color: #e5e7eb;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+  }
+  .faq-list dd {
+    color: #9ca3af;
+    line-height: 1.6;
+    margin: 0;
+  }
+</style>
