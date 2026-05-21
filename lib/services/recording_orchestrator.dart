@@ -252,6 +252,7 @@ class RecordingOrchestrator extends Notifier<void> {
           deadMicTimeout: settings.recordingSafety.deadMicTimeout,
           autoStopSilence: settings.recordingSafety.autoStopSilence,
           maxDurationSeconds: settings.behavior.maxRecordDuration,
+          samplesPerSecond: amplitudeSamplesPerSecond,
         );
         _guardSub = rawStream
             .transform(SafetyGuard(config: guardConfig))

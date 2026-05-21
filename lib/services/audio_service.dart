@@ -24,6 +24,18 @@ import 'audio/speech_level_mapper.dart';
 /// Lifecycle of the audio capture.
 enum AudioCaptureState { idle, recording, error }
 
+/// Polling interval at which the `record` plugin emits amplitude samples.
+///
+/// The integer reciprocal is also exposed as [amplitudeSamplesPerSecond] so
+/// downstream consumers (e.g. `SafetyGuard`) can convert sample counts into
+/// wall-clock seconds without re-deriving the rate. Keep both in sync.
+const Duration amplitudePollInterval = Duration(milliseconds: 40);
+
+/// Sample rate of the amplitude stream in Hz — derived from
+/// [amplitudePollInterval]. Used by `SafetyGuard` to translate elapsed
+/// samples into seconds.
+const int amplitudeSamplesPerSecond = 25;
+
 /// Immutable snapshot of the audio service.
 class AudioStatus {
   const AudioStatus({
@@ -173,7 +185,7 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
     _amplitudeSub?.cancel();
     const levelMapper = SpeechLevelMapper();
     _amplitudeSub = recorder
-        .onAmplitudeChanged(const Duration(milliseconds: 40))
+        .onAmplitudeChanged(amplitudePollInterval)
         .listen(
           (amp) {
             // Raw dBFS goes straight through the perceptual mapper; the

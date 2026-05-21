@@ -394,7 +394,7 @@ void main() {
             ),
             onboarding: OnboardingSettings(onboardingCompleted: true),
             recordingSafety: RecordingSafetySettings(
-              deadMicTimeout: 1.0, // 10 samples → dead-mic
+              deadMicTimeout: 1.0, // 25 samples @ 25 Hz → dead-mic
               autoStopSilence: 0,
             ),
             behavior: BehaviorSettings(maxRecordDuration: 0),
@@ -405,8 +405,8 @@ void main() {
         // Verify recording started.
         expect(c.read(recordingProvider).phase, RecordingPhase.recording);
 
-        // 10 silent samples (level 0.0 < threshold 0.02) → dead-mic fires.
-        for (var i = 0; i < 10; i++) {
+        // 25 silent samples (level 0.0 < threshold 0.02) → dead-mic fires.
+        for (var i = 0; i < 25; i++) {
           fakeAudio.emitLevel(0.0);
         }
         await Future<void>.delayed(const Duration(milliseconds: 200));
@@ -415,13 +415,14 @@ void main() {
           c.read(recordingProvider).phase,
           RecordingPhase.error,
           reason:
-              'dead-mic guard must transition to error after 10 silent samples',
+              'dead-mic guard must transition to error after 25 silent samples '
+              '(1.0 s at 25 Hz amplitude rate)',
         );
       },
     );
 
     test(
-      'dead-mic: 9 silent samples without speech → guard does NOT fire yet',
+      'dead-mic: 24 silent samples without speech → guard does NOT fire yet',
       () async {
         final c = await buildGuardContainer(
           const AppSettings(
@@ -441,8 +442,8 @@ void main() {
 
         expect(c.read(recordingProvider).phase, RecordingPhase.recording);
 
-        // 9 samples — one below the 10-sample threshold.
-        for (var i = 0; i < 9; i++) {
+        // 24 samples — one below the 25-sample threshold.
+        for (var i = 0; i < 24; i++) {
           fakeAudio.emitLevel(0.0);
         }
         await Future<void>.delayed(const Duration(milliseconds: 150));
@@ -450,13 +451,13 @@ void main() {
         expect(
           c.read(recordingProvider).phase,
           RecordingPhase.recording,
-          reason: '9 silent samples must not yet trigger the dead-mic guard',
+          reason: '24 silent samples must not yet trigger the dead-mic guard',
         );
       },
     );
 
     test(
-      'auto-stop: speech then 10 silent samples → phase leaves recording',
+      'auto-stop: speech then 25 silent samples → phase leaves recording',
       () async {
         final c = await buildGuardContainer(
           const AppSettings(
@@ -467,7 +468,7 @@ void main() {
             onboarding: OnboardingSettings(onboardingCompleted: true),
             recordingSafety: RecordingSafetySettings(
               deadMicTimeout: 0,
-              autoStopSilence: 1.0, // 10 samples → auto-stop
+              autoStopSilence: 1.0, // 25 samples @ 25 Hz → auto-stop
             ),
             behavior: BehaviorSettings(maxRecordDuration: 0),
           ),
@@ -480,8 +481,8 @@ void main() {
         fakeAudio.emitLevel(0.5);
         await Future<void>.delayed(const Duration(milliseconds: 30));
 
-        // Then 10 silent samples → auto-stop → stopRecording() pipeline.
-        for (var i = 0; i < 10; i++) {
+        // Then 25 silent samples → auto-stop → stopRecording() pipeline.
+        for (var i = 0; i < 25; i++) {
           fakeAudio.emitLevel(0.0);
         }
         // Allow time for auto-stop and async pipeline (transcription).
@@ -495,8 +496,8 @@ void main() {
             RecordingPhase.error,
           ),
           reason:
-              'auto-stop must leave recording phase after 10 silent '
-              'samples following speech',
+              'auto-stop must leave recording phase after 25 silent '
+              'samples following speech (1.0 s at 25 Hz)',
         );
       },
     );
@@ -523,11 +524,11 @@ void main() {
         expect(c.read(recordingProvider).phase, RecordingPhase.recording);
 
         // Interleave speech + silence — counter resets on each speech sample.
-        // Each round: 1 speech + 5 silence. Max consecutive silence = 5 < 10.
+        // Each round: 1 speech + 10 silence. Max consecutive silence = 10 < 25.
         for (var i = 0; i < 5; i++) {
           fakeAudio.emitLevel(0.5); // speech
-          for (var s = 0; s < 5; s++) {
-            fakeAudio.emitLevel(0.0); // silence (5 — below 10 threshold)
+          for (var s = 0; s < 10; s++) {
+            fakeAudio.emitLevel(0.0); // silence (10 — below 25 threshold)
           }
         }
         await Future<void>.delayed(const Duration(milliseconds: 150));
@@ -561,11 +562,12 @@ void main() {
 
         expect(c.read(recordingProvider).phase, RecordingPhase.recording);
 
-        // Emit one sample per 100ms, waiting for the wall-clock elapsed timer
-        // (driven by RecordingNotifier._elapsedTimer) to tick past 2 seconds.
-        for (var i = 0; i < 25; i++) {
+        // Guard fires at maxRecordDuration × samplesPerSecond = 2 × 25 = 50
+        // samples. Emit a few extras for safety and yield between samples so
+        // the orchestrator's stop pipeline can run.
+        for (var i = 0; i < 60; i++) {
           fakeAudio.emitLevel(0.5); // speech — avoids dead-mic path
-          await Future<void>.delayed(const Duration(milliseconds: 100));
+          await Future<void>.delayed(const Duration(milliseconds: 50));
           if (c.read(recordingProvider).phase != RecordingPhase.recording) {
             break;
           }
@@ -613,10 +615,10 @@ void main() {
 
         expect(c.read(recordingProvider).phase, RecordingPhase.recording);
 
-        // Drive past 2 s, emitting samples to trigger _evaluateGuard().
-        for (var i = 0; i < 25; i++) {
+        // Drive past 2 s of guard time (50+ samples @ 25 Hz).
+        for (var i = 0; i < 60; i++) {
           fakeAudio.emitLevel(0.5);
-          await Future<void>.delayed(const Duration(milliseconds: 100));
+          await Future<void>.delayed(const Duration(milliseconds: 50));
           if (c.read(recordingProvider).phase != RecordingPhase.recording) {
             break;
           }
@@ -686,7 +688,7 @@ void main() {
           onboarding: OnboardingSettings(onboardingCompleted: true),
           recordingSafety: RecordingSafetySettings(
             deadMicTimeout: 0,
-            autoStopSilence: 1.0, // 10 samples → auto-stop
+            autoStopSilence: 1.0, // 25 samples @ 25 Hz → auto-stop
           ),
           behavior: BehaviorSettings(maxRecordDuration: 0),
         ),
@@ -711,7 +713,7 @@ void main() {
       // Arm speech-detected flag, then silence → auto-stop.
       fakeAudio.emitLevel(0.5);
       await Future<void>.delayed(const Duration(milliseconds: 30));
-      for (var i = 0; i < 10; i++) {
+      for (var i = 0; i < 25; i++) {
         fakeAudio.emitLevel(0.0);
       }
       await Future<void>.delayed(const Duration(milliseconds: 500));
