@@ -114,10 +114,11 @@ while read -r local_ref local_sha remote_ref remote_sha; do
 
     # ── L3: .gitignore PROTECTED section weakened ──────────────────
     if echo "$files" | grep -q "^\.gitignore$"; then
+      # Strip CR so a CRLF/LF normalisation commit isn't misread as a weakened section.
       new_block=$(git show "$commit:.gitignore" 2>/dev/null \
-        | sed -n '/PROTECTED-START/,/PROTECTED-END/p')
+        | tr -d '\r' | sed -n '/PROTECTED-START/,/PROTECTED-END/p')
       old_block=$(git show "$commit^:.gitignore" 2>/dev/null \
-        | sed -n '/PROTECTED-START/,/PROTECTED-END/p')
+        | tr -d '\r' | sed -n '/PROTECTED-START/,/PROTECTED-END/p')
       if [ -n "$old_block" ]; then
         old_entries=$(echo "$old_block" | grep -v '^#' | grep -v '^$' | grep -v 'PROTECTED' | sort -u)
         new_entries=$(echo "$new_block" | grep -v '^#' | grep -v '^$' | grep -v 'PROTECTED' | sort -u)
