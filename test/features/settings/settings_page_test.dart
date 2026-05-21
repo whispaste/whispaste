@@ -35,7 +35,6 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Microphone'), findsOneWidget);
-      expect(find.text('Microphone Volume'), findsOneWidget);
       expect(find.text('Hold to Record'), findsOneWidget);
     });
 

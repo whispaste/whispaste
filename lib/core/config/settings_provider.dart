@@ -130,9 +130,6 @@ class AppSettings {
   @Deprecated('Use audioInput.microphone instead')
   String get microphone => audioInput.microphone;
 
-  @Deprecated('Use audioInput.inputGain instead')
-  double get inputGain => audioInput.inputGain;
-
   @Deprecated('Use audioInput.pushToTalk instead')
   bool get pushToTalk => audioInput.pushToTalk;
 
@@ -380,10 +377,8 @@ class AppSettings {
     final autoPaste = json['auto_paste'] as bool? ?? true;
     final sounds = json['play_sounds'] as bool? ?? true;
     final maxSec = json['max_record_sec'] as int? ?? 120;
-    final gain = (json['input_gain'] as num?)?.toDouble() ?? 1.0;
 
     return AppSettings(
-      audioInput: AudioInputSettings(inputGain: gain * 100.0),
       stt: SttSettings(
         provider: useLocal
             ? SttProviderType.onDevice.value
@@ -496,7 +491,6 @@ class AppSettings {
     bool? startMinimized,
     bool? showNotifications,
     String? microphone,
-    double? inputGain,
     bool? pushToTalk,
     double? deadMicTimeout,
     double? autoStopSilence,
@@ -563,7 +557,6 @@ class AppSettings {
       ),
       audioInput: audioInput.copyWith(
         microphone: microphone,
-        inputGain: inputGain,
         pushToTalk: pushToTalk,
       ),
       recordingSafety: recordingSafety.copyWith(

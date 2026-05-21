@@ -639,12 +639,6 @@ abstract class L10n {
   /// **'Microphone'**
   String get settingsMicrophone;
 
-  /// No description provided for @settingsGain.
-  ///
-  /// In en, this message translates to:
-  /// **'Microphone Volume'**
-  String get settingsGain;
-
   /// No description provided for @settingsHoldToRecord.
   ///
   /// In en, this message translates to:

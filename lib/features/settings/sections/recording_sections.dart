@@ -68,21 +68,6 @@ class AudioSection extends ConsumerWidget {
                 ),
               ),
             ),
-          SettingRow(
-            icon: LucideIcons.gauge,
-            label: l10n.settingsGain,
-            trailing: settingsSlider(
-              context: context,
-              value: settings.inputGain,
-              min: 0,
-              max: 300,
-              divisions: 60,
-              valueLabel: '${settings.inputGain.round()}%',
-              onChanged: (v) => ref
-                  .read(settingsProvider.notifier)
-                  .updateSettings((s) => s.copyWith(inputGain: v)),
-            ),
-          ),
         ],
       ),
     );

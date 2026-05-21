@@ -24,6 +24,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_notifier/local_notifier.dart';
 
+import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
 import '../core/platform/macos_lifecycle_channel.dart';
 
@@ -37,7 +38,9 @@ enum AttentionKind {
 }
 
 class SystemAttentionService {
-  SystemAttentionService();
+  SystemAttentionService(this._ref);
+
+  final Ref _ref;
 
   static final _log = AppLogger('SystemAttention');
   static const _windowsChannel = MethodChannel('com.whispaste.attention');
@@ -110,6 +113,14 @@ class SystemAttentionService {
     required String title,
     required String body,
   }) async {
+    // Respect the user's "show notifications" preference. Dock-bounce /
+    // taskbar-flash stay active in either case — those are the fallback
+    // attention path that survives even when notifications are suppressed.
+    final settings = _ref.read(settingsProvider).value ?? AppSettings.defaults;
+    if (!settings.interface_.showNotifications) {
+      _log.debug('Notification suppressed by showNotifications=false');
+      return;
+    }
     try {
       final notif = LocalNotification(title: title, body: body);
       await notif.show();
@@ -146,5 +157,5 @@ class SystemAttentionService {
 }
 
 final systemAttentionServiceProvider = Provider<SystemAttentionService>((ref) {
-  return SystemAttentionService();
+  return SystemAttentionService(ref);
 });
