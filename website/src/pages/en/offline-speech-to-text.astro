@@ -1,0 +1,102 @@
+---
+/**
+ * `/en/offline-speech-to-text/` — English mirror of the offline-STT
+ * explainer page (Issue 12). Slug identical across locales because
+ * `speech-to-text` is the dominant DE/EN tech term either way.
+ */
+import LandingPageLayout from "../../layouts/LandingPageLayout.astro";
+import FAQPageSchema from "../../components/schema/FAQPageSchema.astro";
+import { t, localePath } from "../../scripts/i18n.ts";
+
+const lang = "en" as const;
+
+const breadcrumbs = [
+  { name: t(lang, "breadcrumb.home"), item: localePath(lang, "") },
+  { name: t(lang, "explainer.offlineStt.breadcrumb"), item: localePath(lang, "offline-speech-to-text") },
+];
+
+const seo = {
+  title: t(lang, "explainer.offlineStt.seoTitle"),
+  description: t(lang, "explainer.offlineStt.seoDescription"),
+};
+
+const hero = {
+  heading: t(lang, "explainer.offlineStt.heroHeading"),
+  lead: t(lang, "explainer.offlineStt.heroLead"),
+};
+
+const cta = {
+  label: t(lang, "explainer.offlineStt.cta.label"),
+  href: localePath(lang, "download"),
+};
+
+const faqQuestions = [
+  {
+    question: t(lang, "explainer.offlineStt.faq.modelSize.q"),
+    answer: t(lang, "explainer.offlineStt.faq.modelSize.a"),
+  },
+  {
+    question: t(lang, "explainer.offlineStt.faq.noInternet.q"),
+    answer: t(lang, "explainer.offlineStt.faq.noInternet.a"),
+  },
+  {
+    question: t(lang, "explainer.offlineStt.faq.accuracy.q"),
+    answer: t(lang, "explainer.offlineStt.faq.accuracy.a"),
+  },
+];
+
+const alternateSlugs = { de: "offline-speech-to-text", en: "offline-speech-to-text" };
+---
+
+<LandingPageLayout
+  lang={lang}
+  seo={seo}
+  breadcrumbs={breadcrumbs}
+  hero={hero}
+  cta={cta}
+  alternateSlugs={alternateSlugs}
+>
+  <section>
+    <h2>{t(lang, "explainer.offlineStt.section.modes.heading")}</h2>
+    <p>{t(lang, "explainer.offlineStt.section.modes.body")}</p>
+  </section>
+
+  <section>
+    <h2>{t(lang, "explainer.offlineStt.section.capabilities.heading")}</h2>
+    <p>{t(lang, "explainer.offlineStt.section.capabilities.body")}</p>
+  </section>
+
+  <section>
+    <h2>{t(lang, "explainer.offlineStt.section.resourceProfile.heading")}</h2>
+    <p>{t(lang, "explainer.offlineStt.section.resourceProfile.body")}</p>
+    <dl class="faq-list">
+      {faqQuestions.map((entry) => (
+        <div class="faq-item">
+          <dt>{entry.question}</dt>
+          <dd>{entry.answer}</dd>
+        </div>
+      ))}
+    </dl>
+  </section>
+
+  <FAQPageSchema locale={lang} questions={faqQuestions} />
+</LandingPageLayout>
+
+<style>
+  .faq-list {
+    margin-top: 1rem;
+  }
+  .faq-item + .faq-item {
+    margin-top: 1rem;
+  }
+  .faq-list dt {
+    color: #e5e7eb;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+  }
+  .faq-list dd {
+    color: #9ca3af;
+    line-height: 1.6;
+    margin: 0;
+  }
+</style>

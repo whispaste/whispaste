@@ -1,0 +1,117 @@
+---
+/**
+ * `/en/whisper-desktop/` — English mirror of the Whisper-desktop explainer
+ * page (Issue 12). The slug is intentionally identical to the DE variant
+ * (`whisper-desktop`) because the term is globally identical and does not
+ * lend itself to localisation. `alternateSlugs` still emits the correct
+ * hreflang pair.
+ */
+import LandingPageLayout from "../../layouts/LandingPageLayout.astro";
+import HowToSchema from "../../components/schema/HowToSchema.astro";
+import { t, localePath } from "../../scripts/i18n.ts";
+
+const lang = "en" as const;
+
+const breadcrumbs = [
+  { name: t(lang, "breadcrumb.home"), item: localePath(lang, "") },
+  { name: t(lang, "explainer.whisperDesktop.breadcrumb"), item: localePath(lang, "whisper-desktop") },
+];
+
+const seo = {
+  title: t(lang, "explainer.whisperDesktop.seoTitle"),
+  description: t(lang, "explainer.whisperDesktop.seoDescription"),
+};
+
+const hero = {
+  heading: t(lang, "explainer.whisperDesktop.heroHeading"),
+  lead: t(lang, "explainer.whisperDesktop.heroLead"),
+};
+
+const cta = {
+  label: t(lang, "explainer.whisperDesktop.cta.label"),
+  href: localePath(lang, "download"),
+};
+
+const howToSteps = [
+  {
+    name: t(lang, "explainer.whisperDesktop.howTo.step1.name"),
+    text: t(lang, "explainer.whisperDesktop.howTo.step1.text"),
+  },
+  {
+    name: t(lang, "explainer.whisperDesktop.howTo.step2.name"),
+    text: t(lang, "explainer.whisperDesktop.howTo.step2.text"),
+  },
+  {
+    name: t(lang, "explainer.whisperDesktop.howTo.step3.name"),
+    text: t(lang, "explainer.whisperDesktop.howTo.step3.text"),
+  },
+];
+
+const alternateSlugs = { de: "whisper-desktop", en: "whisper-desktop" };
+---
+
+<LandingPageLayout
+  lang={lang}
+  seo={seo}
+  breadcrumbs={breadcrumbs}
+  hero={hero}
+  cta={cta}
+  alternateSlugs={alternateSlugs}
+>
+  <section>
+    <h2>{t(lang, "explainer.whisperDesktop.section.setup.heading")}</h2>
+    <p>{t(lang, "explainer.whisperDesktop.section.setup.body")}</p>
+  </section>
+
+  <section>
+    <h2>{t(lang, "explainer.whisperDesktop.section.performance.heading")}</h2>
+    <p>{t(lang, "explainer.whisperDesktop.section.performance.body")}</p>
+  </section>
+
+  <section>
+    <h2>{t(lang, "explainer.whisperDesktop.section.localVsCloud.heading")}</h2>
+    <p>{t(lang, "explainer.whisperDesktop.section.localVsCloud.body")}</p>
+    <ol class="howto-steps">
+      <li>
+        <h3>{t(lang, "explainer.whisperDesktop.howTo.step1.name")}</h3>
+        <p>{t(lang, "explainer.whisperDesktop.howTo.step1.text")}</p>
+      </li>
+      <li>
+        <h3>{t(lang, "explainer.whisperDesktop.howTo.step2.name")}</h3>
+        <p>{t(lang, "explainer.whisperDesktop.howTo.step2.text")}</p>
+      </li>
+      <li>
+        <h3>{t(lang, "explainer.whisperDesktop.howTo.step3.name")}</h3>
+        <p>{t(lang, "explainer.whisperDesktop.howTo.step3.text")}</p>
+      </li>
+    </ol>
+  </section>
+
+  <HowToSchema
+    locale={lang}
+    name={t(lang, "explainer.whisperDesktop.howTo.name")}
+    description={t(lang, "explainer.whisperDesktop.heroLead")}
+    steps={howToSteps}
+  />
+</LandingPageLayout>
+
+<style>
+  .howto-steps {
+    margin-top: 1rem;
+    padding-left: 1.25rem;
+    list-style: decimal;
+    color: #9ca3af;
+  }
+  .howto-steps li + li {
+    margin-top: 0.75rem;
+  }
+  .howto-steps h3 {
+    color: #e5e7eb;
+    font-weight: 600;
+    font-size: 1rem;
+    margin-bottom: 0.25rem;
+  }
+  .howto-steps p {
+    line-height: 1.55;
+  }
+</style>
