@@ -1,3 +1,8 @@
+---
+import { t } from '../scripts/i18n.ts';
+
+const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
+---
 <!-- Hero Carousel — 3-scene demo: hotkey → recording → auto-paste -->
 <div class="mt-10 sm:mt-16 animate-fade-in-up">
   <div class="relative mx-auto max-w-2xl">
@@ -68,7 +73,7 @@
             </div>
             <span
               class="text-sm text-gray-400"
-              data-i18n="carousel.press_hotkey">Press your hotkey</span
+              data-i18n="carousel.press_hotkey">{t(lang, "carousel.press_hotkey")}</span
             >
           </div>
         </div>
@@ -129,7 +134,7 @@
                   <svg viewBox="0 0 24 24" width="11" height="11" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                     aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
-                  <span data-i18n="carousel.overlayLocal">Local</span>
+                  <span data-i18n="carousel.overlayLocal">{t(lang, "carousel.overlayLocal")}</span>
                 </div>
                 <!-- Center: rec dot + timer + waveform (matches app _buildRecordingCenter) -->
                 <div class="overlay-center">
@@ -153,7 +158,7 @@
             </div>
             <span
               class="text-sm text-gray-400 mt-4"
-              data-i18n="carousel.speak_now">Speak now</span
+              data-i18n="carousel.speak_now">{t(lang, "carousel.speak_now")}</span
             >
           </div>
         </div>
@@ -170,7 +175,7 @@
               </div>
               <span
                 class="ml-2 text-xs text-gray-500 font-mono"
-                data-i18n="carousel.editor_title">Text Editor</span
+                data-i18n="carousel.editor_title">{t(lang, "carousel.editor_title")}</span
               >
             </div>
             <div
@@ -192,7 +197,7 @@
             </div>
             <span
               class="text-sm text-gray-400 mt-3 text-center"
-              data-i18n="carousel.auto_pasted">Auto-pasted!</span
+              data-i18n="carousel.auto_pasted">{t(lang, "carousel.auto_pasted")}</span
             >
           </div>
         </div>

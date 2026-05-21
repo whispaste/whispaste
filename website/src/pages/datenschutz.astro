@@ -2,20 +2,32 @@
 import Layout from "../layouts/Layout.astro";
 import Nav from "../components/Nav.astro";
 import Footer from "../components/Footer.astro";
+import { t } from "../scripts/i18n.ts";
+
+// Diese Page ist die deutsche Datenschutz-Variante. Die i18n-Routing-
+// Aufteilung (Issue 03) trennt EN nach `/en/privacy/`; daher liefern wir hier
+// hart `lang = 'de'` und setzen den entsprechenden `alternateSlugs`-Mapping
+// für das `<link rel="alternate">`-Pair (DE: `/datenschutz/`, EN: `/en/privacy/`).
+const lang = 'de' as const;
 ---
 
-<Layout title="Datenschutz — WhisPaste" description="Privacy Policy / Datenschutzerklärung for WhisPaste">
+<Layout
+  title={t(lang, "meta.title.privacy")}
+  description={t(lang, "meta.description.privacy")}
+  lang={lang}
+  alternateSlugs={{ de: 'datenschutz', en: 'privacy' }}
+>
   <div class="min-h-screen flex flex-col">
     <Nav variant="subpage" />
 
     <!-- Content -->
     <main class="flex-1 pt-24 pb-16 px-6">
       <div class="max-w-3xl mx-auto">
-        <h1 class="text-3xl font-bold text-white mb-8" id="pageTitle">Privacy Policy</h1>
+        <h1 class="text-3xl font-bold text-white mb-8" id="pageTitle">Datenschutzerklärung</h1>
 
         <div class="prose prose-invert max-w-none space-y-6 text-gray-300 leading-relaxed">
-          <!-- DE content -->
-          <div id="content-de" class="hidden space-y-6">
+          <!-- DE content (server-rendered, the only locale on this URL) -->
+          <div id="content-de" class="space-y-6">
             <section>
               <h2 class="text-2xl font-semibold text-white mb-3">1. Datenschutz auf einen Blick</h2>
               <h3 class="text-lg font-medium text-white mb-2">Allgemeine Hinweise</h3>
@@ -116,8 +128,8 @@ import Footer from "../components/Footer.astro";
             </section>
           </div>
 
-          <!-- EN content -->
-          <div id="content-en" class="space-y-6">
+          <!-- EN content (hidden — language toggle routes to /en/privacy/) -->
+          <div id="content-en" class="hidden space-y-6">
             <section>
               <h2 class="text-2xl font-semibold text-white mb-3">1. Privacy at a Glance</h2>
               <p>
@@ -224,26 +236,17 @@ import Footer from "../components/Footer.astro";
   </div>
 
   <script>
-    import { applyLang, currentLang } from '../scripts/i18n';
+    import { applyLang } from '../scripts/i18n';
     import { updateThemeIcon } from '../scripts/theme';
 
-    function applyPageLang() {
-      const lang = (window as any).currentLang || localStorage.getItem('whispaste-lang') || 'en';
-      const title = document.getElementById('pageTitle');
-      if (title) title.textContent = lang === 'de' ? 'Datenschutzerklärung' : 'Privacy Policy';
-      document.getElementById('content-de')?.classList.toggle('hidden', lang !== 'de');
-      document.getElementById('content-en')?.classList.toggle('hidden', lang !== 'en');
-    }
-
-    // Wrap toggleLang to also update page-specific content
-    const origToggle = (window as any).toggleLang;
-    (window as any).toggleLang = function() {
-      origToggle();
-      applyPageLang();
+    // Language switch on this DE-only page routes to the EN-counterpart
+    // instead of toggling inline content. The server-rendered HTML is
+    // already locale-correct.
+    (window as any).toggleLang = function () {
+      window.location.assign('/en/privacy/');
     };
 
     applyLang();
-    applyPageLang();
     updateThemeIcon();
   </script>
 </Layout>

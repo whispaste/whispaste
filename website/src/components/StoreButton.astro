@@ -1,6 +1,8 @@
 ---
 // StoreButton.astro — Brand-consistent Microsoft Store download button.
 // Single source of truth for Store product ID and link across all pages.
+import { t } from '../scripts/i18n.ts';
+
 interface Props {
   size?: 'default' | 'lg';
   class?: string;
@@ -11,6 +13,8 @@ const STORE_URL = `https://apps.microsoft.com/detail/${STORE_PRODUCT_ID}`;
 
 const { size = 'default', class: className = '' } = Astro.props;
 const isLarge = size === 'lg';
+
+const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
 ---
 
 <a
@@ -35,12 +39,12 @@ const isLarge = size === 'lg';
 
   {isLarge ? (
     <span class="wp-store-btn__text">
-      <span class="wp-store-btn__label" data-i18n="store.btn.getfrom">Get it from</span>
-      <span class="wp-store-btn__store" data-i18n="store.btn.msstore">Microsoft Store</span>
+      <span class="wp-store-btn__label" data-i18n="store.btn.getfrom">{t(lang, "store.btn.getfrom")}</span>
+      <span class="wp-store-btn__store" data-i18n="store.btn.msstore">{t(lang, "store.btn.msstore")}</span>
     </span>
   ) : (
     <span class="wp-store-btn__text">
-      <span data-i18n="store.btn.single">Get it on Microsoft Store</span>
+      <span data-i18n="store.btn.single">{t(lang, "store.btn.single")}</span>
     </span>
   )}
 </a>

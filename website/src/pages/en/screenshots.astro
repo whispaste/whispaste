@@ -1,9 +1,9 @@
 ---
-import Layout from "../layouts/Layout.astro";
-import Nav from "../components/Nav.astro";
-import Footer from "../components/Footer.astro";
-import ScreenshotGallery from "../components/ScreenshotGallery.astro";
-import { t } from "../scripts/i18n.ts";
+import Layout from "../../layouts/Layout.astro";
+import Nav from "../../components/Nav.astro";
+import Footer from "../../components/Footer.astro";
+import ScreenshotGallery from "../../components/ScreenshotGallery.astro";
+import { t } from "../../scripts/i18n.ts";
 
 const lang = (Astro.currentLocale === "en" ? "en" : "de") as "de" | "en";
 const downloadHref = lang === "de" ? "/download" : "/en/download";
@@ -47,8 +47,8 @@ const downloadHref = lang === "de" ? "/download" : "/en/download";
   <Footer variant="subpage" />
 
   <script>
-    import { applyLang } from '../scripts/i18n';
-    import { updateThemeIcon } from '../scripts/theme';
+    import { applyLang } from '../../scripts/i18n';
+    import { updateThemeIcon } from '../../scripts/theme';
     applyLang();
     updateThemeIcon();
   </script>

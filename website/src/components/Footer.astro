@@ -1,8 +1,17 @@
 ---
+import { t } from '../scripts/i18n.ts';
+
 interface Props {
   variant?: 'landing' | 'subpage';
 }
 const { variant = 'landing' } = Astro.props;
+
+const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
+
+const impressumHref = lang === 'de' ? '/impressum/' : '/en/impressum/';
+const privacyHref = lang === 'de' ? '/datenschutz/' : '/en/privacy/';
+const changelogHref = lang === 'de' ? '/changelog/' : '/en/changelog/';
+const sponsorHref = lang === 'de' ? '/sponsor/' : '/en/sponsor/';
 ---
 
 {variant === 'landing' ? (
@@ -12,18 +21,18 @@ const { variant = 'landing' } = Astro.props;
         <img src="/wordmark-dark.png" alt="" class="h-5 w-auto opacity-60 nav-logo-dark" />
         <img src="/wordmark-light.png" alt="" class="h-5 w-auto opacity-60 nav-logo-light hidden" />
       </div>
-      <nav aria-label="Footer navigation" data-i18n-aria="nav.footerAria" class="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
-        <a href="/impressum/" class="hover:text-white transition-colors" data-i18n="footer.impressum">Legal Notice</a>
-        <a href="/privacy/" class="hover:text-white transition-colors" data-i18n="footer.privacy" data-i18n-href="footer.privacy.href">Privacy Policy</a>
-        <a href="https://github.com/whispaste/whispaste/blob/main/LICENSE" target="_blank" rel="noopener" class="hover:text-white transition-colors" data-i18n="footer.license">MIT License</a>
-        <a href="/changelog/" class="hover:text-white transition-colors" data-i18n="footer.changelog">Changelog</a>
-        <a href="https://github.com/whispaste/whispaste" target="_blank" rel="noopener" aria-label="WhisPaste on GitHub" data-i18n-aria="nav.githubAria" class="inline-flex items-center gap-1 hover:text-white transition-colors group">
+      <nav aria-label={t(lang, "nav.footerAria")} data-i18n-aria="nav.footerAria" class="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
+        <a href={impressumHref} class="hover:text-white transition-colors" data-i18n="footer.impressum">{t(lang, "footer.impressum")}</a>
+        <a href={privacyHref} class="hover:text-white transition-colors" data-i18n="footer.privacy" data-i18n-href="footer.privacy.href">{t(lang, "footer.privacy")}</a>
+        <a href="https://github.com/whispaste/whispaste/blob/main/LICENSE" target="_blank" rel="noopener" class="hover:text-white transition-colors" data-i18n="footer.license">{t(lang, "footer.license")}</a>
+        <a href={changelogHref} class="hover:text-white transition-colors" data-i18n="footer.changelog">{t(lang, "footer.changelog")}</a>
+        <a href="https://github.com/whispaste/whispaste" target="_blank" rel="noopener" aria-label={t(lang, "nav.githubAria")} data-i18n-aria="nav.githubAria" class="inline-flex items-center gap-1 hover:text-white transition-colors group">
           <svg class="w-3.5 h-3.5 opacity-60 group-hover:opacity-90 transition-opacity" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.11.82-.26.82-.58v-2.16c-3.34.73-4.04-1.61-4.04-1.61a3.18 3.18 0 0 0-1.33-1.76c-1.09-.74.08-.73.08-.73a2.52 2.52 0 0 1 1.84 1.24 2.56 2.56 0 0 0 3.5 1 2.56 2.56 0 0 1 .76-1.6c-2.67-.3-5.47-1.33-5.47-5.93a4.64 4.64 0 0 1 1.24-3.22 4.3 4.3 0 0 1 .12-3.18s1-.33 3.3 1.23a11.38 11.38 0 0 1 6 0c2.28-1.56 3.29-1.23 3.29-1.23a4.3 4.3 0 0 1 .12 3.18 4.64 4.64 0 0 1 1.23 3.22c0 4.61-2.81 5.63-5.48 5.93a2.86 2.86 0 0 1 .82 2.22v3.29c0 .32.22.7.82.58A12 12 0 0 0 12 .3"/></svg>
           GitHub
         </a>
-        <a href="/sponsor/" class="inline-flex items-center gap-1.5 text-pink-400/80 hover:text-pink-400 transition-colors font-medium" data-i18n="footer.sponsor">
+        <a href={sponsorHref} class="inline-flex items-center gap-1.5 text-pink-400/80 hover:text-pink-400 transition-colors font-medium" data-i18n="footer.sponsor">
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-          Sponsor
+          {t(lang, "footer.sponsor")}
         </a>
       </nav>
     </div>
@@ -31,7 +40,7 @@ const { variant = 'landing' } = Astro.props;
 ) : (
   <footer class="py-6 border-t border-white/5" role="contentinfo">
     <div class="max-w-4xl mx-auto px-6 text-center text-sm text-gray-500">
-      <a href="https://github.com/whispaste/whispaste/blob/main/LICENSE" target="_blank" rel="noopener" class="hover:text-white transition-colors" data-i18n="footer.license">MIT License</a>
+      <a href="https://github.com/whispaste/whispaste/blob/main/LICENSE" target="_blank" rel="noopener" class="hover:text-white transition-colors" data-i18n="footer.license">{t(lang, "footer.license")}</a>
     </div>
   </footer>
 )}

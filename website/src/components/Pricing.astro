@@ -1,48 +1,56 @@
 ---
 import StoreButton from './StoreButton.astro';
+import { t } from '../scripts/i18n.ts';
+
+const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
+
+const FEATURE_ICON = `<svg class="w-4 h-4 text-brand-cyan shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>`;
+
+const features = [
+  { key: 'offline' },
+  { key: 'snippets' },
+  { key: 'gpu' },
+  { key: 'history' },
+  { key: 'updates' },
+  { key: 'opensource' },
+];
 ---
+
 <!-- Pricing Section -->
 <section id="pricing" class="py-24 sm:py-32 relative scroll-mt-20">
   <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(20,184,212,0.05)_0%,_transparent_60%)]"></div>
   <div class="relative max-w-3xl mx-auto px-6">
     <div class="text-center mb-12 scroll-reveal">
-      <p class="text-brand-cyan text-sm font-semibold tracking-wider uppercase mb-3" data-i18n="pricing.label">Pricing</p>
-      <h2 class="text-3xl sm:text-4xl font-bold text-white" data-i18n="pricing.title">Free & open source.</h2>
-      <p class="mt-4 text-gray-400 text-lg max-w-2xl mx-auto" data-i18n="pricing.desc">The full app is free — offline transcription, voice snippets, GPU acceleration and more. Get it from the Store to support the project, or download free from GitHub.</p>
+      <p class="text-brand-cyan text-sm font-semibold tracking-wider uppercase mb-3" data-i18n="pricing.label">{t(lang, "pricing.label")}</p>
+      <h2 class="text-3xl sm:text-4xl font-bold text-white" data-i18n="pricing.title">{t(lang, "pricing.title")}</h2>
+      <p class="mt-4 text-gray-400 text-lg max-w-2xl mx-auto" data-i18n="pricing.desc">{t(lang, "pricing.desc")}</p>
     </div>
 
     <div class="pricing-card relative p-8 sm:p-10 rounded-3xl border border-brand-cyan/20 scroll-reveal">
       <div class="absolute inset-0 rounded-3xl bg-gradient-to-br from-brand-cyan/[0.04] to-transparent pointer-events-none"></div>
       <div class="relative">
         <div class="text-center mb-8">
-          <div class="text-3xl sm:text-4xl font-bold text-brand-cyan" data-i18n="pricing.price">Open Source</div>
-          <div class="mt-1 text-gray-400 text-sm" data-i18n="pricing.forever">MIT licensed — open source, forever</div>
+          <div class="text-3xl sm:text-4xl font-bold text-brand-cyan" data-i18n="pricing.price">{t(lang, "pricing.price")}</div>
+          <div class="mt-1 text-gray-400 text-sm" data-i18n="pricing.forever">{t(lang, "pricing.forever")}</div>
         </div>
 
         <ul class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 mb-8 list-none p-0 m-0">
-          {[
-            { key: 'offline', icon: `<svg class="w-4 h-4 text-brand-cyan shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>`, text: "Offline transcription" },
-            { key: 'snippets', icon: `<svg class="w-4 h-4 text-brand-cyan shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>`, text: "Voice Snippets" },
-            { key: 'gpu', icon: `<svg class="w-4 h-4 text-brand-cyan shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>`, text: "GPU acceleration" },
-            { key: 'history', icon: `<svg class="w-4 h-4 text-brand-cyan shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>`, text: "History & search" },
-            { key: 'updates', icon: `<svg class="w-4 h-4 text-brand-cyan shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>`, text: "Auto-updates" },
-            { key: 'opensource', icon: `<svg class="w-4 h-4 text-brand-cyan shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>`, text: "Open source (MIT)" },
-          ].map(({ key, icon, text }) => (
+          {features.map(({ key }) => (
             <li class="flex items-center gap-2.5">
-              <Fragment set:html={icon} />
-              <span class="text-gray-300 text-sm" data-i18n={`pricing.feature.${key}`}>{text}</span>
+              <Fragment set:html={FEATURE_ICON} />
+              <span class="text-gray-300 text-sm" data-i18n={`pricing.feature.${key}`}>{t(lang, `pricing.feature.${key}`)}</span>
             </li>
           ))}
         </ul>
 
         <div class="flex flex-col items-center gap-4">
           <StoreButton />
-          <p class="text-gray-500 text-xs" data-i18n="hero.store.hint">Supports the project – thank you!</p>
+          <p class="text-gray-500 text-xs" data-i18n="hero.store.hint">{t(lang, "hero.store.hint")}</p>
           <a
             href="https://github.com/whispaste/whispaste/releases/latest"
             class="text-sm text-gray-400 hover:text-white transition-colors underline underline-offset-2"
             data-i18n="hero.free.link"
-          >or download free from GitHub</a>
+          >{t(lang, "hero.free.link")}</a>
         </div>
       </div>
     </div>

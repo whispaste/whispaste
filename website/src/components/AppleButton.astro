@@ -1,6 +1,8 @@
 ---
 // AppleButton.astro — Brand-consistent macOS DMG download button.
 // Mirrors StoreButton layout/sizing for visual parity in the Hero row.
+import { t } from '../scripts/i18n.ts';
+
 interface Props {
   size?: 'default' | 'lg';
   class?: string;
@@ -11,6 +13,8 @@ const DMG_URL =
 
 const { size = 'default', class: className = '' } = Astro.props;
 const isLarge = size === 'lg';
+
+const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
 ---
 
 <a
@@ -33,12 +37,12 @@ const isLarge = size === 'lg';
 
   {isLarge ? (
     <span class="wp-apple-btn__text">
-      <span class="wp-apple-btn__label" data-i18n="hero.download.macos.hint">Download for</span>
-      <span class="wp-apple-btn__platform" data-i18n="hero.download.macos.platform">macOS</span>
+      <span class="wp-apple-btn__label" data-i18n="hero.download.macos.hint">{t(lang, "hero.download.macos.hint")}</span>
+      <span class="wp-apple-btn__platform" data-i18n="hero.download.macos.platform">{t(lang, "hero.download.macos.platform")}</span>
     </span>
   ) : (
     <span class="wp-apple-btn__text">
-      <span data-i18n="hero.download.macos">Download for macOS</span>
+      <span data-i18n="hero.download.macos">{t(lang, "hero.download.macos")}</span>
     </span>
   )}
 </a>

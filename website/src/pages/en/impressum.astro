@@ -1,10 +1,10 @@
 ---
-import Layout from "../layouts/Layout.astro";
-import Nav from "../components/Nav.astro";
-import Footer from "../components/Footer.astro";
-import { t } from "../scripts/i18n.ts";
+import Layout from "../../layouts/Layout.astro";
+import Nav from "../../components/Nav.astro";
+import Footer from "../../components/Footer.astro";
+import { t } from "../../scripts/i18n.ts";
 
-const lang = 'de' as const;
+const lang = 'en' as const;
 ---
 
 <Layout
@@ -18,11 +18,11 @@ const lang = 'de' as const;
     <!-- Content -->
     <main class="flex-1 pt-24 pb-16 px-6">
       <div class="max-w-3xl mx-auto">
-        <h1 class="text-3xl font-bold text-white mb-8" id="pageTitle">Impressum</h1>
+        <h1 class="text-3xl font-bold text-white mb-8" id="pageTitle">Legal Notice (Impressum)</h1>
 
         <div class="prose prose-invert max-w-none space-y-6 text-gray-300 leading-relaxed">
-          <!-- DE content (server-rendered) -->
-          <div id="content-de" class="space-y-6">
+          <!-- DE content (hidden — language toggle routes to /impressum/) -->
+          <div id="content-de" class="hidden space-y-6">
             <section>
               <h2 class="text-2xl font-semibold text-white mb-3">Angaben gemäß § 5 DDG</h2>
               <p>
@@ -68,8 +68,8 @@ const lang = 'de' as const;
             </section>
           </div>
 
-          <!-- EN content (hidden — language toggle routes to /en/impressum/) -->
-          <div id="content-en" class="hidden space-y-6">
+          <!-- EN content (server-rendered) -->
+          <div id="content-en" class="space-y-6">
             <section>
               <h2 class="text-2xl font-semibold text-white mb-3">Information according to § 5 DDG (German Digital Services Act)</h2>
               <p>
@@ -122,12 +122,12 @@ const lang = 'de' as const;
   </div>
 
   <script>
-    import { applyLang } from '../scripts/i18n';
-    import { updateThemeIcon } from '../scripts/theme';
+    import { applyLang } from '../../scripts/i18n';
+    import { updateThemeIcon } from '../../scripts/theme';
 
-    // Language switch on this DE-only page routes to the EN-counterpart.
+    // Language switch on this EN-only page routes to the DE-counterpart.
     (window as any).toggleLang = function () {
-      window.location.assign('/en/impressum/');
+      window.location.assign('/impressum/');
     };
 
     applyLang();

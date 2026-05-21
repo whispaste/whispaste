@@ -1,24 +1,81 @@
 ---
 import "../styles/global.css";
+import { t, type Locale } from "../scripts/i18n.ts";
 
 interface Props {
   title?: string;
   description?: string;
   ogImage?: string;
+  /**
+   * Optional explicit locale override. Falls back to `Astro.currentLocale`
+   * (which reflects the URL prefix once Astro's i18n routing is configured)
+   * and, as a last resort, to the project's default locale `de`.
+   */
+  lang?: Locale;
+  /**
+   * Optional explicit page slug used to build hreflang and canonical
+   * alternates. When omitted, the layout derives the slug from
+   * `Astro.url.pathname` by stripping the `/en/` prefix and trailing slashes.
+   * Pass an explicit value (e.g. `"datenschutz"` ↔ `"en/privacy"`) when DE
+   * and EN slugs diverge.
+   */
+  slug?: string;
+  /**
+   * Optional canonical-pair override. When DE and EN slugs diverge (e.g.
+   * `/datenschutz/` vs `/en/privacy/`), pass `{ de: 'datenschutz', en: 'privacy' }`.
+   * Defaults to using the same slug for both locales.
+   */
+  alternateSlugs?: { de: string; en: string };
 }
 
+const SITE_ORIGIN = "https://whispaste.de";
+
+const rawLocale = Astro.props.lang ?? Astro.currentLocale ?? "de";
+const lang: Locale = rawLocale === "en" ? "en" : "de";
+
 const {
-  title = 'WhisPaste — Voice to text, pasted anywhere',
-  description = 'Desktop voice-input tool — turn your voice into text, offline or with cloud providers. Free & open source.',
-  ogImage = '/og-image.png',
+  title = t(lang, "meta.title.default"),
+  description = t(lang, "meta.description.default"),
+  ogImage = "/og-image.png",
+  alternateSlugs,
 } = Astro.props;
 
-const canonicalURL = new URL(Astro.url.pathname, 'https://whispaste.de');
-const ogImageURL = new URL(ogImage, 'https://whispaste.de');
+// Derive a slug from the URL when callers don't pass one explicitly. We strip
+// any `/en/` prefix and the trailing slash so the slug is locale-agnostic.
+function slugFromPath(pathname: string): string {
+  const noTrailing = pathname.replace(/\/+$/, "");
+  const noLeading = noTrailing.replace(/^\//, "");
+  if (noLeading === "en") return "";
+  if (noLeading.startsWith("en/")) return noLeading.slice(3);
+  return noLeading;
+}
+
+const inferredSlug = Astro.props.slug ?? slugFromPath(Astro.url.pathname);
+const deSlug = alternateSlugs?.de ?? inferredSlug;
+const enSlug = alternateSlugs?.en ?? inferredSlug;
+
+function buildLocaleUrl(locale: Locale, slug: string): string {
+  const cleaned = slug.replace(/^\/+|\/+$/g, "");
+  if (locale === "de") {
+    return cleaned.length === 0 ? "/" : `/${cleaned}/`;
+  }
+  return cleaned.length === 0 ? "/en/" : `/en/${cleaned}/`;
+}
+
+const dePath = buildLocaleUrl("de", deSlug);
+const enPath = buildLocaleUrl("en", enSlug);
+
+const deAbsolute = new URL(dePath, SITE_ORIGIN).href;
+const enAbsolute = new URL(enPath, SITE_ORIGIN).href;
+
+const canonicalURL = new URL(lang === "de" ? dePath : enPath, SITE_ORIGIN);
+const ogImageURL = new URL(ogImage, SITE_ORIGIN);
+const ogLocale = lang === "de" ? "de_DE" : "en_US";
+const ogLocaleAlternate = lang === "de" ? "en_US" : "de_DE";
 ---
 
 <!doctype html>
-<html lang="en" class="bg-brand-darker text-gray-100">
+<html lang={lang} class="bg-brand-darker text-gray-100">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -30,9 +87,15 @@ const ogImageURL = new URL(ogImage, 'https://whispaste.de');
     <link rel="apple-touch-icon" href="/app-icon.png" />
     <link rel="sitemap" href="/sitemap-index.xml" />
     <link rel="canonical" href={canonicalURL.href} />
-    <link rel="alternate" hreflang="en" href={canonicalURL.href} />
-    <link rel="alternate" hreflang="de" href={canonicalURL.href} />
-    <link rel="alternate" hreflang="x-default" href={canonicalURL.href} />
+    {/*
+      hreflang-Annotationen: ein Eintrag pro Locale + `x-default` auf die
+      deutsche Variante (Default-Locale). Pflicht für saubere SEO-Indexierung
+      (AC3 / PRD §B). Astro Sitemap ergänzt dieselben Alternates im
+      `sitemap-0.xml` automatisch via `i18n`-Konfiguration.
+    */}
+    <link rel="alternate" hreflang="de" href={deAbsolute} />
+    <link rel="alternate" hreflang="en" href={enAbsolute} />
+    <link rel="alternate" hreflang="x-default" href={deAbsolute} />
     <title>{title}</title>
 
     <!-- Open Graph -->
@@ -44,8 +107,8 @@ const ogImageURL = new URL(ogImage, 'https://whispaste.de');
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:type" content="image/png" />
-    <meta property="og:locale" content="en_US" />
-    <meta property="og:locale:alternate" content="de_DE" />
+    <meta property="og:locale" content={ogLocale} />
+    <meta property="og:locale:alternate" content={ogLocaleAlternate} />
     <meta property="og:site_name" content="WhisPaste" />
 
     <!-- Twitter Card -->
@@ -80,7 +143,7 @@ const ogImageURL = new URL(ogImage, 'https://whispaste.de');
   </head>
   <body class="antialiased">
     <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:bg-brand-cyan focus:text-brand-darker focus:rounded-lg focus:font-semibold focus:shadow-lg" data-i18n="nav.skip">
-      Skip to content
+      {t(lang, "nav.skip")}
     </a>
     <slot />
   </body>
