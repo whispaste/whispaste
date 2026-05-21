@@ -1,5 +1,6 @@
 # Secrets
 .env
+.env.local
 .mcp.json
 
 # Flutter

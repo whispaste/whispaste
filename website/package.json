@@ -7,6 +7,7 @@
     "dev": "astro dev",
     "build": "node scripts/generate-llms-txt.mjs && astro build",
     "build:check": "node scripts/generate-llms-txt.mjs && astro build && node scripts/check-brand-vocabulary.mjs",
+    "build:deploy": "npm run build:check && node scripts/push-indexnow.mjs",
     "check:brand": "node scripts/check-brand-vocabulary.mjs",
     "gen:llms": "node scripts/generate-llms-txt.mjs",
     "preview": "astro preview",
