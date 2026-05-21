@@ -1,27 +1,23 @@
 ---
-import Layout from "../layouts/Layout.astro";
-import Nav from "../components/Nav.astro";
-import Hero from "../components/Hero.astro";
-import HowItWorks from "../components/HowItWorks.astro";
-import AppScreenshots from "../components/AppScreenshots.astro";
-import Privacy from "../components/Privacy.astro";
-import Pricing from "../components/Pricing.astro";
-import Languages from "../components/Languages.astro";
-import FAQ from "../components/FAQ.astro";
-import Support from "../components/Support.astro";
-import Testimonials from "../components/Testimonials.astro";
-import Footer from "../components/Footer.astro";
-import DownloadSupportModal from "../components/DownloadSupportModal.astro";
-import { t } from "../scripts/i18n.ts";
+import Layout from "../../layouts/Layout.astro";
+import Nav from "../../components/Nav.astro";
+import Hero from "../../components/Hero.astro";
+import HowItWorks from "../../components/HowItWorks.astro";
+import AppScreenshots from "../../components/AppScreenshots.astro";
+import Privacy from "../../components/Privacy.astro";
+import Pricing from "../../components/Pricing.astro";
+import Languages from "../../components/Languages.astro";
+import FAQ from "../../components/FAQ.astro";
+import Support from "../../components/Support.astro";
+import Testimonials from "../../components/Testimonials.astro";
+import Footer from "../../components/Footer.astro";
+import DownloadSupportModal from "../../components/DownloadSupportModal.astro";
+import { t } from "../../scripts/i18n.ts";
 
-const lang = (Astro.currentLocale === "en" ? "en" : "de") as "de" | "en";
+const lang = "en" as const;
 
-// JSON-LD copy is locale-correct so AI/SEO crawlers receive the German
-// description on `/` and the English description on `/en/`. Both Schemas use
-// the brand-glossary vocabulary (no `dictation` / `Diktat`); the Issue 02
-// drift-gate enforces this at build time.
 const softwareDescription = t(lang, "schema.app.description");
-const homeUrl = lang === "de" ? "https://whispaste.de/" : "https://whispaste.de/en/";
+const homeUrl = "https://whispaste.de/en/";
 const faqKeys = [
   "free",
   "offline",
@@ -39,7 +35,7 @@ const faqMainEntity = faqKeys.map((key) => ({
     text: t(lang, `faq.${key}.a`),
   },
 }));
-const inLanguage = lang === "de" ? "de-DE" : "en-US";
+const inLanguage = "en-US";
 ---
 
 <Layout
@@ -108,7 +104,6 @@ const inLanguage = lang === "de" ? "de-DE" : "en-US";
       opacity: 1;
       transform: translateY(0);
     }
-    /* Staggered children in grids */
     .scroll-reveal.visible > :nth-child(1) { transition-delay: 0ms; }
     .scroll-reveal.visible > :nth-child(2) { transition-delay: 80ms; }
     .scroll-reveal.visible > :nth-child(3) { transition-delay: 160ms; }
@@ -126,10 +121,9 @@ const inLanguage = lang === "de" ? "de-DE" : "en-US";
   </style>
 
   <script>
-    import { applyLang } from '../scripts/i18n';
-    import { updateThemeIcon } from '../scripts/theme';
+    import { applyLang } from '../../scripts/i18n';
+    import { updateThemeIcon } from '../../scripts/theme';
 
-    // Scroll reveal observer
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -157,7 +151,6 @@ const inLanguage = lang === "de" ? "de-DE" : "en-US";
       });
     }, { passive: true });
 
-    // Fetch GitHub stars (cached in sessionStorage)
     (async () => {
       try {
         const cacheKey = 'wp-gh-stars';

@@ -1,12 +1,31 @@
 ---
+import { t } from '../scripts/i18n.ts';
+
 interface Props {
   variant?: "landing" | "subpage";
 }
 const { variant = "landing" } = Astro.props;
+
+const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
+
+// Locale-correct toggle target: clicking the language switch jumps the user
+// from the DE-default URL to the matching `/en/...` URL (and vice versa).
+// The toggle label also flips so the button reads the OTHER language.
+const langToggleLabel = lang === 'de' ? 'EN' : 'DE';
+
+// Top-nav anchors point at the canonical (in-page) IDs which exist on both
+// the DE landing page (`/`) and the EN landing page (`/en/`). They're
+// rendered identically server-side; no locale prefix needed here.
+
+// Download / Sponsor links must match the active locale so the user stays
+// on the same language without a stale-locale flip.
+const downloadHref = lang === 'de' ? '/download/' : '/en/download/';
+const sponsorHref = lang === 'de' ? '/sponsor/' : '/en/sponsor/';
+const backHref = lang === 'de' ? '/' : '/en/';
 ---
 
 <nav
-  aria-label="Main navigation"
+  aria-label={t(lang, "nav.mainAria")}
   data-i18n-aria="nav.mainAria"
   class="fixed top-0 w-full z-50 bg-brand-darker/40 backdrop-blur-2xl backdrop-saturate-150 border-b border-white/[0.06]"
 >
@@ -14,7 +33,7 @@ const { variant = "landing" } = Astro.props;
     class={`mx-auto px-6 h-14 flex items-center justify-between ${variant === "subpage" ? "max-w-4xl" : "max-w-6xl"}`}
   >
     <a
-      href={variant === "subpage" ? "/" : "#"}
+      href={variant === "subpage" ? backHref : "#"}
       class="flex items-center gap-2 text-white font-semibold tracking-tight"
     >
       <img
@@ -30,21 +49,21 @@ const { variant = "landing" } = Astro.props;
     </a>
     {variant === "landing" && (
       <div class="hidden sm:flex items-center gap-6 text-sm text-gray-400">
-        <a href="#how-it-works" class="hover:text-white transition-colors" data-i18n="nav.howitworks">How It Works</a>
-        <a href="#faq" class="hover:text-white transition-colors" data-i18n="nav.faq">FAQ</a>
+        <a href="#how-it-works" class="hover:text-white transition-colors" data-i18n="nav.howitworks">{t(lang, "nav.howitworks")}</a>
+        <a href="#faq" class="hover:text-white transition-colors" data-i18n="nav.faq">{t(lang, "nav.faq")}</a>
         <button
           id="langToggle"
           data-testid="lang-toggle"
-          aria-label="Switch language"
+          aria-label={t(lang, "nav.switchLanguageAria")}
           data-i18n-aria="nav.switchLanguageAria"
           class="lang-toggle-btn text-gray-400 hover:text-white transition-colors text-sm font-medium"
-        >DE</button>
+        >{langToggleLabel}</button>
         <button
           id="themeToggle"
-          aria-label="Toggle theme"
+          aria-label={t(lang, "nav.toggleThemeAria")}
           data-i18n-aria="nav.toggleThemeAria"
           class="text-gray-400 hover:text-white transition-colors"
-          title="Toggle theme"
+          title={t(lang, "nav.toggleThemeTitle")}
           data-i18n-title="nav.toggleThemeTitle"
         >
           <svg class="theme-toggle-icon w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -54,12 +73,12 @@ const { variant = "landing" } = Astro.props;
         <a href="https://github.com/whispaste/whispaste" target="_blank" rel="noopener" class="text-gray-400 hover:text-white transition-colors" aria-label="GitHub" title="GitHub">
           <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.83 2.8 1.3 3.49 1 .1-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6.02 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3"/></svg>
         </a>
-        <a href="/sponsor/" class="text-pink-400/70 hover:text-pink-400 transition-colors" aria-label="Support WhisPaste" data-i18n-aria="nav.sponsorAria" title="Sponsor">
+        <a href={sponsorHref} class="text-pink-400/70 hover:text-pink-400 transition-colors" aria-label={t(lang, "nav.sponsorAria")} data-i18n-aria="nav.sponsorAria" title="Sponsor">
           <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
         </a>
-        <a href="/download/"class="inline-flex items-center gap-1.5 px-4 py-1.5 bg-brand-cyan text-brand-darker text-sm font-semibold rounded-lg hover:scale-[1.02] active:scale-[0.98] transition-all shadow-sm" data-i18n="nav.download">
+        <a href={downloadHref} class="inline-flex items-center gap-1.5 px-4 py-1.5 bg-brand-cyan text-brand-darker text-sm font-semibold rounded-lg hover:scale-[1.02] active:scale-[0.98] transition-all shadow-sm" data-i18n="nav.download">
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-          Download
+          {t(lang, "nav.download")}
         </a>
       </div>
     )}
@@ -76,20 +95,20 @@ const { variant = "landing" } = Astro.props;
     )}
     {variant === "subpage" && (
       <div class="flex items-center gap-4 text-sm text-gray-400">
-        <a href="/" class="hover:text-white transition-colors" data-i18n="nav.back">&larr; Back</a>
+        <a href={backHref} class="hover:text-white transition-colors" data-i18n="nav.back">{t(lang, "nav.back")}</a>
         <button
           id="langToggle"
           data-testid="lang-toggle"
-          aria-label="Switch language"
+          aria-label={t(lang, "nav.switchLanguageAria")}
           data-i18n-aria="nav.switchLanguageAria"
           class="lang-toggle-btn text-gray-400 hover:text-white transition-colors font-medium"
-        >DE</button>
+        >{langToggleLabel}</button>
         <button
           id="themeToggle"
-          aria-label="Toggle theme"
+          aria-label={t(lang, "nav.toggleThemeAria")}
           data-i18n-aria="nav.toggleThemeAria"
           class="text-gray-400 hover:text-white transition-colors"
-          title="Toggle theme"
+          title={t(lang, "nav.toggleThemeTitle")}
           data-i18n-title="nav.toggleThemeTitle"
         >
           <svg class="theme-toggle-icon w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -102,23 +121,23 @@ const { variant = "landing" } = Astro.props;
   {variant === "landing" && (
     <div id="mobileMenu" class="sm:hidden hidden border-t border-white/[0.06]">
       <div class="max-w-6xl mx-auto px-6 py-3 flex flex-col">
-        <a href="#how-it-works" class="mobile-nav-link block py-3 text-gray-300 hover:text-white transition-colors text-[15px]" data-i18n="nav.howitworks">How It Works</a>
-        <a href="#faq" class="mobile-nav-link block py-3 text-gray-300 hover:text-white transition-colors text-[15px] border-t border-white/[0.04]" data-i18n="nav.faq">FAQ</a>
+        <a href="#how-it-works" class="mobile-nav-link block py-3 text-gray-300 hover:text-white transition-colors text-[15px]" data-i18n="nav.howitworks">{t(lang, "nav.howitworks")}</a>
+        <a href="#faq" class="mobile-nav-link block py-3 text-gray-300 hover:text-white transition-colors text-[15px] border-t border-white/[0.04]" data-i18n="nav.faq">{t(lang, "nav.faq")}</a>
         <div class="flex items-center gap-5 py-3 border-t border-white/[0.04]">
-          <button id="mobileLangToggle" class="lang-toggle-btn text-gray-400 hover:text-white transition-colors text-sm font-medium" aria-label="Switch language" data-i18n-aria="nav.switchLanguageAria">DE</button>
-          <button id="mobileThemeToggle" class="text-gray-400 hover:text-white transition-colors" aria-label="Toggle theme" data-i18n-aria="nav.toggleThemeAria">
+          <button id="mobileLangToggle" class="lang-toggle-btn text-gray-400 hover:text-white transition-colors text-sm font-medium" aria-label={t(lang, "nav.switchLanguageAria")} data-i18n-aria="nav.switchLanguageAria">{langToggleLabel}</button>
+          <button id="mobileThemeToggle" class="text-gray-400 hover:text-white transition-colors" aria-label={t(lang, "nav.toggleThemeAria")} data-i18n-aria="nav.toggleThemeAria">
             <svg class="theme-toggle-icon w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg>
           </button>
           <a href="https://github.com/whispaste/whispaste" target="_blank" rel="noopener" class="text-gray-400 hover:text-white transition-colors" aria-label="GitHub">
             <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.83 2.8 1.3 3.49 1 .1-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6.02 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3"/></svg>
           </a>
-          <a href="/sponsor/" class="text-pink-400/70 hover:text-pink-400 transition-colors" aria-label="Support WhisPaste" data-i18n-aria="nav.sponsorAria">
+          <a href={sponsorHref} class="text-pink-400/70 hover:text-pink-400 transition-colors" aria-label={t(lang, "nav.sponsorAria")} data-i18n-aria="nav.sponsorAria">
             <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
           </a>
         </div>
-        <a href="/download/" class="mobile-nav-link flex items-center justify-center gap-2 mt-1 mb-1 px-6 py-3 bg-brand-cyan text-brand-darker font-semibold rounded-xl transition-all active:scale-[0.98] shadow-sm" data-i18n="nav.download">
+        <a href={downloadHref} class="mobile-nav-link flex items-center justify-center gap-2 mt-1 mb-1 px-6 py-3 bg-brand-cyan text-brand-darker font-semibold rounded-xl transition-all active:scale-[0.98] shadow-sm" data-i18n="nav.download">
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-          Download
+          {t(lang, "nav.download")}
         </a>
       </div>
     </div>

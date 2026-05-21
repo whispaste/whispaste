@@ -4,6 +4,9 @@
  * Clicking a screenshot opens the shared lightbox (ScreenshotLightbox.astro).
  */
 import ScreenshotLightbox from './ScreenshotLightbox.astro';
+import { t } from '../scripts/i18n.ts';
+
+const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
 
 const screens = [
   { id: '01_workspace_overview', i18nLabel: 'gallery.workspace', defaultLabel: 'Your transcripts at a glance', deLabel: 'Alle Transkripte auf einen Blick' },
@@ -25,13 +28,13 @@ const screens = [
           data-gallery-platform="windows"
           aria-pressed="true"
           data-i18n="gallery.platformWindows"
-        >Windows</button>
+        >{t(lang, "gallery.platformWindows")}</button>
         <button
           class="gallery-toggle"
           data-gallery-platform="macos"
           aria-pressed="false"
           data-i18n="gallery.platformMac"
-        >macOS</button>
+        >{t(lang, "gallery.platformMac")}</button>
       </div>
 
       <div class="gallery-control-divider" aria-hidden="true"></div>
@@ -43,13 +46,13 @@ const screens = [
           data-gallery-theme="dark"
           aria-pressed="true"
           data-i18n="gallery.themeDark"
-        >Dark</button>
+        >{t(lang, "gallery.themeDark")}</button>
         <button
           class="gallery-toggle"
           data-gallery-theme="light"
           aria-pressed="false"
           data-i18n="gallery.themeLight"
-        >Light</button>
+        >{t(lang, "gallery.themeLight")}</button>
       </div>
     </div>
   </div>
@@ -90,7 +93,7 @@ const screens = [
           </span>
         </button>
         <figcaption class="gallery-caption" data-i18n={screen.i18nLabel}>
-          {screen.defaultLabel}
+          {t(lang, screen.i18nLabel)}
         </figcaption>
       </figure>
     ))}

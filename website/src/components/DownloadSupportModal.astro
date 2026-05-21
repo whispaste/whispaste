@@ -1,6 +1,9 @@
 ---
 // DownloadSupportModal.astro — appears ~1.5s after a download button is clicked.
 // Uses native <dialog> for free focus-trap and Escape-key handling.
+import { t } from '../scripts/i18n.ts';
+
+const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
 ---
 
 <dialog 
@@ -18,29 +21,29 @@
     <div class="dlm-icon" aria-hidden="true">
       <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg>
     </div>
-    <h2 class="dlm-title" id="dlm-title" data-i18n="downloadModal.heading">Your download is starting!</h2>
-    <p class="dlm-body" data-i18n="downloadModal.body">WhisPaste is free — here's how to help it grow:</p>
+    <h2 class="dlm-title" id="dlm-title" data-i18n="downloadModal.heading">{t(lang, "downloadModal.heading")}</h2>
+    <p class="dlm-body" data-i18n="downloadModal.body">{t(lang, "downloadModal.body")}</p>
 
     <!-- Action list -->
     <ul class="dlm-actions" role="list">
       <li>
         <a href="https://github.com/whispaste/whispaste" target="_blank" rel="noopener" class="dlm-action-link">
           <svg class="dlm-action-icon" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-          <span data-i18n="downloadModal.starGitHub">⭐ Star on GitHub</span>
+          <span data-i18n="downloadModal.starGitHub">{t(lang, "downloadModal.starGitHub")}</span>
           <svg class="dlm-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
         </a>
       </li>
       <li data-platform-btn="windows">
         <a href="https://apps.microsoft.com/detail/9p22jvkrq2v0?hl=en-us&gl=US#activetab=pivot:reviewsTab" target="_blank" rel="noopener" class="dlm-action-link">
           <svg class="dlm-action-icon" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-          <span data-i18n="downloadModal.rateMsStore">★ Rate on Microsoft Store</span>
+          <span data-i18n="downloadModal.rateMsStore">{t(lang, "downloadModal.rateMsStore")}</span>
           <svg class="dlm-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
         </a>
       </li>
       <li data-platform-btn="macos">
         <a href="https://apps.apple.com/app/whispaste" target="_blank" rel="noopener" class="dlm-action-link">
           <svg class="dlm-action-icon" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-          <span data-i18n="downloadModal.rateAppStore">★ Rate on Mac App Store</span>
+          <span data-i18n="downloadModal.rateAppStore">{t(lang, "downloadModal.rateAppStore")}</span>
           <svg class="dlm-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
         </a>
       </li>
@@ -48,11 +51,11 @@
 
     <!-- Muted sponsor row -->
     <p class="dlm-sponsor">
-      <a href="https://github.com/sponsors/silvio-l" target="_blank" rel="noopener" class="dlm-sponsor-link" data-i18n="downloadModal.support">Or sponsor us on GitHub / buy a coffee on Ko-fi</a>
+      <a href="https://github.com/sponsors/silvio-l" target="_blank" rel="noopener" class="dlm-sponsor-link" data-i18n="downloadModal.support">{t(lang, "downloadModal.support")}</a>
     </p>
 
     <!-- Dismiss -->
-    <button class="dlm-later" id="dlm-later" data-i18n="downloadModal.maybeLater">Maybe later</button>
+    <button class="dlm-later" id="dlm-later" data-i18n="downloadModal.maybeLater">{t(lang, "downloadModal.maybeLater")}</button>
   </div>
 </dialog>
 

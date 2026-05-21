@@ -1,5 +1,28 @@
+export type Locale = 'de' | 'en';
+
+export const SUPPORTED_LOCALES: readonly Locale[] = ['de', 'en'];
+
+export const DEFAULT_LOCALE: Locale = 'de';
+
 export const i18n: Record<string, Record<string, string>> = {
   en: {
+    'meta.title.default': 'WhisPaste — Voice to text, pasted anywhere',
+    'meta.description.default': 'Desktop voice-input tool — turn your voice into text, offline or with cloud providers. Free & open source.',
+    'meta.title.home': 'WhisPaste — Desktop voice input, private by default',
+    'meta.description.home': 'WhisPaste turns your voice into text right where your cursor is — offline-first, with optional cloud providers. Free & open source for Windows and macOS.',
+    'meta.title.download': 'Download WhisPaste',
+    'meta.description.download': 'Download WhisPaste for Windows and macOS — via Microsoft Store, DMG, or free from GitHub.',
+    'meta.title.privacy': 'Privacy Policy — WhisPaste',
+    'meta.description.privacy': 'Privacy Policy for the WhisPaste desktop application. Learn how WhisPaste handles your data.',
+    'meta.title.screenshots': 'Screenshots — WhisPaste',
+    'meta.description.screenshots': 'See WhisPaste in action — workspace, detail editor, Voice Snippets, settings, and analytics in light and dark theme.',
+    'meta.title.impressum': 'Legal Notice — WhisPaste',
+    'meta.description.impressum': 'Legal Notice (Impressum) for WhisPaste — contact information and liability disclaimers.',
+    'meta.title.sponsor': 'Support WhisPaste',
+    'meta.description.sponsor': 'Support WhisPaste development via GitHub Sponsors or Ko-fi. Every contribution helps keep the project free, open source, and independent.',
+    'meta.title.changelog': 'Changelog — WhisPaste',
+    'meta.description.changelog': "See what's new in WhisPaste. All recent updates, improvements, and fixes in one place.",
+    'schema.app.description': 'Desktop voice-input tool that brings your voice into any app as text — private by default, free & open source.',
     'nav.skip': 'Skip to content',
     'hero.title1': 'Press. Speak.',
     'hero.title2': 'Done.',
@@ -167,7 +190,7 @@ export const i18n: Record<string, Record<string, string>> = {
     'support.star': 'Star on GitHub — free and just as helpful',
     'footer.impressum': 'Legal Notice',
     'footer.privacy': 'Privacy Policy',
-    'footer.privacy.href': '/privacy/',
+    'footer.privacy.href': '/en/privacy/',
     'footer.license': 'MIT License',
     'footer.changelog': 'Changelog',
     'footer.sponsor': 'Sponsor',
@@ -256,6 +279,23 @@ export const i18n: Record<string, Record<string, string>> = {
     'hero.reviewNudge': 'Love it? A ★ on GitHub or a store review makes a real difference.',
   },
   de: {
+    'meta.title.default': 'WhisPaste — Spracheingabe direkt am Cursor',
+    'meta.description.default': 'Desktop-Sprach-Eingabe-Tool — verwandelt deine Stimme in Text, offline oder mit Cloud-Anbietern. Kostenlos & Open Source.',
+    'meta.title.home': 'WhisPaste — Spracheingabe für den Desktop, von Haus aus privat',
+    'meta.description.home': 'WhisPaste macht aus deiner Stimme Text — genau dort, wo dein Cursor steht. Offline-first, optional mit Cloud-Anbietern. Kostenlos & Open Source für Windows und macOS.',
+    'meta.title.download': 'WhisPaste herunterladen',
+    'meta.description.download': 'WhisPaste für Windows und macOS herunterladen — über den Microsoft Store, als DMG oder kostenlos von GitHub.',
+    'meta.title.privacy': 'Datenschutz — WhisPaste',
+    'meta.description.privacy': 'Datenschutzerklärung für WhisPaste — wie die Website und die Desktop-App mit deinen Daten umgehen.',
+    'meta.title.screenshots': 'Screenshots — WhisPaste',
+    'meta.description.screenshots': 'WhisPaste in Aktion — Workspace, Detail-Editor, Sprach-Snippets, Einstellungen und Analytics in hellem und dunklem Design.',
+    'meta.title.impressum': 'Impressum — WhisPaste',
+    'meta.description.impressum': 'Impressum von WhisPaste — Kontaktdaten und Haftungshinweise.',
+    'meta.title.sponsor': 'WhisPaste unterstützen',
+    'meta.description.sponsor': 'Unterstütze die WhisPaste-Entwicklung über GitHub Sponsors oder Ko-fi. Jeder Beitrag hilft, das Projekt kostenlos, Open Source und unabhängig zu halten.',
+    'meta.title.changelog': 'Änderungsprotokoll — WhisPaste',
+    'meta.description.changelog': 'Was ist neu in WhisPaste? Alle aktuellen Updates, Verbesserungen und Fixes an einem Ort.',
+    'schema.app.description': 'Desktop-Sprach-Eingabe-Tool, das deine Stimme als Text in jede App bringt — von Haus aus privat, kostenlos & Open Source.',
     'nav.skip': 'Zum Inhalt springen',
     'hero.title1': 'Drücken. Sprechen.',
     'hero.title2': 'Fertig.',
@@ -524,9 +564,23 @@ function detectBrowserLang(): string {
   return 'en';
 }
 
+/**
+ * Reads the URL-derived locale from `<html lang>`. Slice 03 wires the Astro
+ * i18n router so the server emits the locale-correct `lang` attribute per
+ * URL (`/` → `de`, `/en/` → `en`). When that attribute is present it wins —
+ * the page must not flicker into a different locale just because the user
+ * has a localStorage preference from an earlier visit.
+ */
+function langFromHtml(): string | null {
+  if (typeof document === 'undefined') return null;
+  const attr = document.documentElement.getAttribute('lang');
+  if (attr === 'de' || attr === 'en') return attr;
+  return null;
+}
+
 function loadInitialLang(): string {
   if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
-    return 'en';
+    return 'de';
   }
   // Allow deep-linking with ?lang=en or ?lang=de (e.g. from the desktop app)
   const params = new URLSearchParams(window.location.search);
@@ -535,16 +589,55 @@ function loadInitialLang(): string {
     localStorage.setItem('whispaste-lang', paramLang);
     return paramLang;
   }
+  // URL-derived locale takes precedence over stored preference so the
+  // initial `<html lang>` matches the page we actually rendered.
+  const fromHtml = langFromHtml();
+  if (fromHtml) {
+    localStorage.setItem('whispaste-lang', fromHtml);
+    return fromHtml;
+  }
   return localStorage.getItem('whispaste-lang') || detectBrowserLang();
 }
 
 export let currentLang: string = loadInitialLang();
 
-export function toggleLang() {
-  currentLang = currentLang === 'en' ? 'de' : 'en';
-  if (typeof localStorage !== 'undefined') {
-    localStorage.setItem('whispaste-lang', currentLang);
+/**
+ * Maps the current URL path to the equivalent path in the other locale.
+ * Used by `toggleLang()` so the language switch becomes a real cross-locale
+ * navigation rather than a client-side text swap. Pages with locale-specific
+ * slugs (Datenschutz ↔ Privacy) override this in their own page script.
+ */
+function otherLocalePath(targetLang: 'de' | 'en'): string {
+  if (typeof window === 'undefined') return '/';
+  const path = window.location.pathname;
+  if (targetLang === 'en') {
+    if (path.startsWith('/en/') || path === '/en') return path;
+    if (path === '/') return '/en/';
+    return `/en${path}`;
   }
+  // targetLang === 'de'
+  if (path === '/en/' || path === '/en') return '/';
+  if (path.startsWith('/en/')) return path.replace(/^\/en/, '');
+  return path;
+}
+
+export function toggleLang() {
+  const next = currentLang === 'en' ? 'de' : 'en';
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('whispaste-lang', next);
+  }
+  // Cross-locale navigation: jump to the matching URL in the target locale
+  // so the server-rendered HTML is locale-correct on the next paint.
+  if (typeof window !== 'undefined' && typeof window.location !== 'undefined') {
+    const targetPath = otherLocalePath(next);
+    if (targetPath !== window.location.pathname) {
+      window.location.assign(targetPath);
+      return;
+    }
+  }
+  // Fallback: same path, just retoggle in place (only reached in non-browser
+  // contexts or when the page has no DE/EN counterpart).
+  currentLang = next;
   applyLang();
 }
 
@@ -600,4 +693,39 @@ if (typeof window !== 'undefined') {
     origToggle();
     (window as any).currentLang = currentLang;
   };
+}
+
+/**
+ * Server-side translation helper. Resolves a key in the requested locale and
+ * returns the translation, falling back to English when a key is missing in
+ * the requested locale and to the raw key when no translation exists at all.
+ *
+ * Consumed by `.astro` components to render locale-correct text during SSR so
+ * crawlers see the right language without depending on the client-side
+ * `applyLang()` toggle (which still works as progressive enhancement once
+ * JavaScript loads).
+ */
+export function t(lang: string | undefined, key: string): string {
+  const locale: Locale =
+    lang === 'en' || lang === 'de' ? lang : DEFAULT_LOCALE;
+  return i18n[locale]?.[key] ?? i18n.en?.[key] ?? key;
+}
+
+/**
+ * Returns the canonical absolute URL for a given page-relative path under the
+ * requested locale. The German default locale is served at the root, English
+ * is prefixed with `/en/`. Always returns a trailing slash for directory-style
+ * URLs (consistent with Astro's default behaviour for static builds).
+ *
+ * @param locale - target locale.
+ * @param baseSlug - path segment relative to the site root (no leading or
+ *   trailing slash; use `''` for the home page). Examples: `''`, `download`,
+ *   `datenschutz`.
+ */
+export function localePath(locale: Locale, baseSlug: string): string {
+  const slug = baseSlug.replace(/^\/+|\/+$/g, '');
+  if (locale === 'de') {
+    return slug.length === 0 ? '/' : `/${slug}/`;
+  }
+  return slug.length === 0 ? '/en/' : `/en/${slug}/`;
 }

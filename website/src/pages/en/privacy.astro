@@ -1,10 +1,18 @@
 ---
-import Layout from "../layouts/Layout.astro";
-import Nav from "../components/Nav.astro";
-import Footer from "../components/Footer.astro";
+import Layout from "../../layouts/Layout.astro";
+import Nav from "../../components/Nav.astro";
+import Footer from "../../components/Footer.astro";
+import { t } from "../../scripts/i18n.ts";
+
+const lang = 'en' as const;
 ---
 
-<Layout title="Privacy Policy — WhisPaste" description="Privacy Policy for the WhisPaste desktop application. Learn how WhisPaste handles your data.">
+<Layout
+  title={t(lang, "meta.title.privacy")}
+  description={t(lang, "meta.description.privacy")}
+  lang={lang}
+  alternateSlugs={{ de: 'datenschutz', en: 'privacy' }}
+>
   <div class="min-h-screen flex flex-col">
     <Nav variant="subpage" />
 
@@ -129,8 +137,13 @@ import Footer from "../components/Footer.astro";
   </div>
 
   <script>
-    import { applyLang } from '../scripts/i18n';
-    import { updateThemeIcon } from '../scripts/theme';
+    import { applyLang } from '../../scripts/i18n';
+    import { updateThemeIcon } from '../../scripts/theme';
+
+    // Language switch on this EN-only page routes to the DE-counterpart.
+    (window as any).toggleLang = function () {
+      window.location.assign('/datenschutz/');
+    };
 
     applyLang();
     updateThemeIcon();

@@ -1,11 +1,11 @@
 ---
-import Layout from "../layouts/Layout.astro";
-import Nav from "../components/Nav.astro";
-import Footer from "../components/Footer.astro";
-import StoreButton from "../components/StoreButton.astro";
-import AppleButton from "../components/AppleButton.astro";
-import DownloadSupportModal from "../components/DownloadSupportModal.astro";
-import { t } from "../scripts/i18n.ts";
+import Layout from "../../layouts/Layout.astro";
+import Nav from "../../components/Nav.astro";
+import Footer from "../../components/Footer.astro";
+import StoreButton from "../../components/StoreButton.astro";
+import AppleButton from "../../components/AppleButton.astro";
+import DownloadSupportModal from "../../components/DownloadSupportModal.astro";
+import { t } from "../../scripts/i18n.ts";
 
 const lang = (Astro.currentLocale === "en" ? "en" : "de") as "de" | "en";
 ---
@@ -222,8 +222,8 @@ const lang = (Astro.currentLocale === "en" ? "en" : "de") as "de" | "en";
   <DownloadSupportModal />
 
   <script>
-    import { applyLang } from '../scripts/i18n';
-    import { updateThemeIcon } from '../scripts/theme';
+    import { applyLang } from '../../scripts/i18n';
+    import { updateThemeIcon } from '../../scripts/theme';
 
     applyLang();
     updateThemeIcon();

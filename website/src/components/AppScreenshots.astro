@@ -1,5 +1,8 @@
 ---
 import ScreenshotLightbox from './ScreenshotLightbox.astro';
+import { t } from '../scripts/i18n.ts';
+
+const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
 ---
 <!-- Compact screenshot teaser — links to /screenshots for the full gallery -->
 <section id="app-screenshots" class="relative py-16 sm:py-20 scroll-mt-20">
@@ -9,16 +12,16 @@ import ScreenshotLightbox from './ScreenshotLightbox.astro';
         class="text-brand-cyan text-sm font-semibold tracking-wider uppercase mb-3"
         data-i18n="screenshots.label"
       >
-        Screenshots
+        {t(lang, "screenshots.label")}
       </p>
       <h2
         class="text-3xl sm:text-4xl font-bold text-white"
         data-i18n="screenshots.title"
       >
-        Where your voice becomes text
+        {t(lang, "screenshots.title")}
       </h2>
       <p class="mt-3 text-gray-400 text-base" data-i18n="screenshots.desc">
-        Speak, organize, refine. Here's how it looks in practice.
+        {t(lang, "screenshots.desc")}
       </p>
     </div>
 
@@ -83,7 +86,7 @@ import ScreenshotLightbox from './ScreenshotLightbox.astro';
         class="inline-flex items-center gap-2 text-brand-cyan hover:underline font-medium text-sm transition-colors"
         data-i18n="screenshots.seeAll"
       >
-        Explore all screens
+        {t(lang, "screenshots.seeAll")}
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
       </a>
     </div>

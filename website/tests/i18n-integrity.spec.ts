@@ -139,15 +139,20 @@ test.describe('screenshot section', () => {
     await expect(images).toHaveCount(2);
   });
 
-  test('screenshot images swap when language is toggled', async ({ page }) => {
+  test('screenshot images match the URL locale (DE on /, EN on /en/)', async ({
+    page,
+  }) => {
+    // After Slice 03 (Astro i18n routing) the landing page is German at `/`
+    // and English at `/en/`. The client-side `syncScreenshots()` reads
+    // `document.documentElement.lang`, which the server now sets correctly
+    // per URL, so screenshots are locale-matched without a runtime toggle.
     await page.goto('/');
+    const firstImgDe = page.locator('#app-screenshots img').first();
+    await expect(firstImgDe).toHaveAttribute('src', /\/de\//);
 
-    const firstImg = page.locator('#app-screenshots img').first();
-    const enSrc = await firstImg.getAttribute('src');
-    expect(enSrc).toContain('/en/');
-
-    await page.getByTestId('lang-toggle').click();
-    await expect(firstImg).toHaveAttribute('src', /\/de\//);
+    await page.goto('/en/');
+    const firstImgEn = page.locator('#app-screenshots img').first();
+    await expect(firstImgEn).toHaveAttribute('src', /\/en\//);
   });
 
   test('"See all" link points to gallery page', async ({ page }) => {

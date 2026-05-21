@@ -2,6 +2,9 @@
 import HeroCarousel from './HeroCarousel.astro';
 import StoreButton from './StoreButton.astro';
 import AppleButton from './AppleButton.astro';
+import { t } from '../scripts/i18n.ts';
+
+const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
 ---
 
 <!-- Hero Section -->
@@ -44,16 +47,16 @@ import AppleButton from './AppleButton.astro';
       <h1
         class="text-4xl sm:text-7xl lg:text-8xl font-bold tracking-tight text-white leading-[1.05]"
       >
-        <span data-i18n="hero.title1">Press. Speak.</span><br />
+        <span data-i18n="hero.title1">{t(lang, "hero.title1")}</span><br />
         <span class="hero-gradient" data-i18n="hero.title2"
-          >Done.</span
+          >{t(lang, "hero.title2")}</span
         >
       </h1>
       <p
         class="mt-4 sm:mt-6 text-base sm:text-xl text-gray-400 max-w-2xl mx-auto leading-relaxed"
         data-i18n="hero.desc"
       >
-        WhisPaste turns your voice into text right where your cursor is — fully offline or with the cloud provider you choose. Free and open source.
+        {t(lang, "hero.desc")}
       </p>
     </div>
 
@@ -69,17 +72,17 @@ import AppleButton from './AppleButton.astro';
 
   <p class="text-xs text-gray-500 flex items-center gap-1">
     <svg class="w-3 h-3 text-pink-400/60" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-    <span data-i18n="hero.store.hint">Supports the project – thank you!</span>
+    <span data-i18n="hero.store.hint">{t(lang, "hero.store.hint")}</span>
   </p>
 </div>
     <p
       class="mt-3 sm:mt-4 text-xs sm:text-sm text-gray-500 animate-fade-in-delay"
       data-i18n="hero.meta"
     >
-      Windows · macOS · Free & open source
+      {t(lang, "hero.meta")}
     </p>
     <p class="mt-2 text-xs text-gray-600 animate-fade-in-delay" data-i18n="hero.reviewNudge">
-      Love it? A ★ on GitHub or a store review makes a real difference.
+      {t(lang, "hero.reviewNudge")}
     </p>
 
     <div
@@ -87,15 +90,15 @@ import AppleButton from './AppleButton.astro';
     >
       <div class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-brand-card/60 px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm text-gray-200 backdrop-blur-sm">
         <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-brand-cyan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
-        <span data-i18n="hero.trust.anywhere">Open source</span>
+        <span data-i18n="hero.trust.anywhere">{t(lang, "hero.trust.anywhere")}</span>
       </div>
       <div class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-brand-card/60 px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm text-gray-200 backdrop-blur-sm">
         <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-brand-cyan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"></path><path d="m9 12 2 2 4-4"></path></svg>
-        <span data-i18n="hero.trust.private">Privacy-first</span>
+        <span data-i18n="hero.trust.private">{t(lang, "hero.trust.private")}</span>
       </div>
       <div class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-brand-card/60 px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm text-gray-200 backdrop-blur-sm">
         <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-brand-cyan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 1v22"></path><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
-        <span data-i18n="hero.trust.nosub">Free to use</span>
+        <span data-i18n="hero.trust.nosub">{t(lang, "hero.trust.nosub")}</span>
       </div>
       <!-- GitHub stars — hidden until fetched -->
       <a
