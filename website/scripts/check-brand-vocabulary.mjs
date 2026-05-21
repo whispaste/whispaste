@@ -195,8 +195,17 @@ export async function walkDistFiles(root) {
 /**
  * `.txt`-Outputs unter `dist/`, die genauso wie HTML auf Brand-Vokabular
  * geprüft werden. Erweiterungen müssen hier explizit eingetragen werden.
+ *
+ * `robots.txt` ist bewusst NICHT enthalten: Inhalt ist primär Crawler-Syntax
+ * (User-agent / Allow / Sitemap), kein Marketing-Text. `ai.txt` (Issue 08)
+ * spiegelt die AI-Crawler-Policy und wird gescannt, weil es zusätzlich
+ * Lizenz-/Kontakt-Felder enthält, die Brand-konform bleiben müssen.
  */
-export const TXT_ALLOWLIST = Object.freeze(["llms.txt", "llms-full.txt"]);
+export const TXT_ALLOWLIST = Object.freeze([
+  "llms.txt",
+  "llms-full.txt",
+  "ai.txt",
+]);
 
 async function walk(dir, acc) {
   let entries;

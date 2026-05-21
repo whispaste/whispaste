@@ -132,11 +132,12 @@ describe("buildTermRegex", () => {
 });
 
 describe("walkDistFiles", () => {
-  it("includes HTML plus the explicit `.txt` allowlist (`llms.txt`, `llms-full.txt`)", async () => {
+  it("includes HTML plus the explicit `.txt` allowlist (`llms.txt`, `llms-full.txt`, `ai.txt`)", async () => {
     const root = await mkdtemp(join(tmpdir(), "brand-walk-"));
     await writeFile(join(root, "index.html"), "<html></html>");
     await writeFile(join(root, "llms.txt"), "# WhisPaste\n");
     await writeFile(join(root, "llms-full.txt"), "# Full\n");
+    await writeFile(join(root, "ai.txt"), "Policy: allow\n");
     // A non-allowlisted .txt file (e.g. robots.txt) must NOT be picked up.
     await writeFile(join(root, "robots.txt"), "User-agent: *\n");
     // Nested HTML is walked recursively.
@@ -148,6 +149,7 @@ describe("walkDistFiles", () => {
     expect(rels).toContain("sub/page.html");
     expect(rels).toContain("llms.txt");
     expect(rels).toContain("llms-full.txt");
+    expect(rels).toContain("ai.txt");
     expect(rels).not.toContain("robots.txt");
   });
 
@@ -158,8 +160,12 @@ describe("walkDistFiles", () => {
     expect(files.map((f) => f.slice(root.length + 1))).toEqual(["index.html"]);
   });
 
-  it("exposes the .txt allowlist as a frozen constant", () => {
-    expect(Array.from(TXT_ALLOWLIST)).toEqual(["llms.txt", "llms-full.txt"]);
+  it("exposes the .txt allowlist as a frozen constant that includes ai.txt", () => {
+    expect(Array.from(TXT_ALLOWLIST)).toEqual([
+      "llms.txt",
+      "llms-full.txt",
+      "ai.txt",
+    ]);
     expect(Object.isFrozen(TXT_ALLOWLIST)).toBe(true);
   });
 });

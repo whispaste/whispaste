@@ -2,3 +2,33 @@ User-agent: *
 Allow: /
 
 Sitemap: https://whispaste.de/sitemap-index.xml
+
+# ----------------------------------------------------------------------
+# AI crawler policy — Default-Allow (audited 2026-05-21)
+# WhisPaste ist MIT-lizenziert; keine kommerziellen Trainings-Schutz-
+# Interessen. Brand-Konsistenz schlägt Crawler-Block: aufgenommene,
+# kuratierte Daten beugen Halluzinationen vor. ChatGPT-Search und
+# Perplexity nutzen ihre Provider-Crawler — Block würde KI-Such-
+# Sichtbarkeit ohne Gegenwert kosten.
+# ----------------------------------------------------------------------
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Cohere-AI
+Allow: /
