@@ -139,20 +139,27 @@ class CrashReporter {
 
   /// Captures an error via Sentry. Non-blocking, fire-and-forget.
   ///
-  /// [fingerprint] follows the Sentry SDK convention: a non-empty list of
-  /// strings that controls how Sentry groups events into issues. Pass a
-  /// unique value per logical error type (e.g. `['toast-no-audio-detected']`)
-  /// to prevent unrelated toasts or guard-fires from collapsing into a single
-  /// catch-all issue. When `null`, Sentry's default grouping applies.
+  /// [fingerprint] is **required** and must be sourced from
+  /// `crash_fingerprints.dart` — inline string literals are a code-review
+  /// failure. The list follows the Sentry SDK convention: a non-empty list
+  /// of strings that controls how Sentry groups events into issues. An
+  /// empty list lets Sentry's default grouping apply (still allowed, but
+  /// reviewers must see the explicit empty-list choice).
+  ///
+  /// Why required: it pre-empts the WP-74/75 + WP-7B…7M cluster of
+  /// duplicated Sentry issues that burned through the Free-Tier quota
+  /// because ad-hoc capture sites kept inventing slightly different
+  /// fingerprint spellings. See `.scratch/reliability-sprint/prd.md`
+  /// — Modul 6.
   void captureError({
     required String message,
+    required List<String> fingerprint,
     Object? error,
     StackTrace? stackTrace,
     String severity = 'error',
     String type = 'error',
     String? processName,
     Map<String, dynamic>? extras,
-    List<String>? fingerprint,
   }) {
     if (!_consentGranted) return;
 
@@ -174,7 +181,7 @@ class CrashReporter {
           if (extras != null) {
             scope.setContexts('extras', extras);
           }
-          if (fingerprint != null && fingerprint.isNotEmpty) {
+          if (fingerprint.isNotEmpty) {
             scope.fingerprint = fingerprint;
           }
           // Attach recent log breadcrumbs for context.
@@ -193,7 +200,7 @@ class CrashReporter {
           if (extras != null) {
             scope.setContexts('extras', extras);
           }
-          if (fingerprint != null && fingerprint.isNotEmpty) {
+          if (fingerprint.isNotEmpty) {
             scope.fingerprint = fingerprint;
           }
         },

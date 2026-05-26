@@ -19,6 +19,7 @@ import 'package:flutter/foundation.dart';
 import 'package:logging/logging.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import '../../services/path_service.dart' as paths;
+import 'crash_fingerprints.dart';
 import 'crash_reporter.dart';
 
 /// Simple semantic logger wrapping [package:logging].
@@ -249,6 +250,11 @@ Future<void> configureLogging() async {
         stackTrace: record.stackTrace,
         severity: severity,
         type: record.level == Level.SHOUT ? 'fatal' : 'error',
+        // Catch-all fingerprint for un-categorized auto-escalations.
+        // Call sites that want their own grouping must use
+        // CrashReporter.instance.captureError directly with a constant
+        // from crash_fingerprints.dart.
+        fingerprint: const [appLoggerAutoEscalated],
       );
     }
   });

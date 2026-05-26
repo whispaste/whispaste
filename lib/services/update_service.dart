@@ -117,19 +117,32 @@ class UpdateNotifier extends Notifier<UpdateState> {
   CancelToken? _cancelToken;
   late final Dio _dio;
 
+  /// Test-only override for the Dio client. When set BEFORE the notifier is
+  /// first observed, `build()` uses this instance instead of constructing a
+  /// real one. Lets tests inject a mock adapter (e.g. for the
+  /// "network-error must not capture to Sentry" contract from the reliability
+  /// sprint Modul 6).
+  @visibleForTesting
+  static Dio? dioOverrideForTesting;
+
   @override
   UpdateState build() {
-    _dio = Dio(
-      BaseOptions(
-        connectTimeout: const Duration(seconds: 15),
-        receiveTimeout: const Duration(minutes: 5),
-        headers: {'User-Agent': appUserAgent},
-      ),
-    );
-    // Sentry MUST be the last interceptor added — see notes in
-    // http_model_fetcher.dart. Spans piggy-back on the active transaction's
-    // sample decision and respect the global `tracesSampleRate`.
-    _dio.addSentry();
+    final override = dioOverrideForTesting;
+    if (override != null) {
+      _dio = override;
+    } else {
+      _dio = Dio(
+        BaseOptions(
+          connectTimeout: const Duration(seconds: 15),
+          receiveTimeout: const Duration(minutes: 5),
+          headers: {'User-Agent': appUserAgent},
+        ),
+      );
+      // Sentry MUST be the last interceptor added — see notes in
+      // http_model_fetcher.dart. Spans piggy-back on the active transaction's
+      // sample decision and respect the global `tracesSampleRate`.
+      _dio.addSentry();
+    }
     ref.onDispose(() {
       _cancelToken?.cancel('disposed');
       _dio.close();
@@ -216,8 +229,13 @@ class UpdateNotifier extends Notifier<UpdateState> {
         releaseNotesUrl: htmlUrl,
       );
     } on DioException catch (e) {
+      // Update-check network failures are deliberately NOT escalated to
+      // Sentry — they are expected (laptop on a plane, GitHub rate limit,
+      // captive WiFi) and were burning Free-Tier quota for zero diagnostic
+      // value. See `.scratch/reliability-sprint/prd.md` — Modul 6.
+      // `_log.warning` stays a Sentry breadcrumb but NOT a captured event.
       final statusCode = e.response?.statusCode;
-      _log.error('Update check failed (status=$statusCode)', e);
+      _log.warning('Update check failed (status=$statusCode): ${e.message}');
       state = UpdateState(
         phase: UpdatePhase.error,
         errorMessage: statusCode == 403
@@ -225,7 +243,10 @@ class UpdateNotifier extends Notifier<UpdateState> {
             : 'Could not reach GitHub (${e.message})',
       );
     } catch (e, st) {
-      _log.error('Update check failed', e, st);
+      // Non-Dio path (e.g. malformed JSON from a captive-portal HTML page).
+      // Same rationale as the DioException branch above: log-only, no
+      // Sentry capture.
+      _log.warning('Update check failed: $e\n$st');
       state = UpdateState(phase: UpdatePhase.error, errorMessage: e.toString());
     }
   }

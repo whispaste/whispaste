@@ -18,6 +18,7 @@ import 'package:sentry_flutter/sentry_flutter.dart'
 
 import '../../core/config/settings_provider.dart';
 import '../../core/logging/app_logger.dart';
+import '../../core/logging/crash_fingerprints.dart';
 import '../../core/logging/crash_reporter.dart';
 import '../../core/recording/recording_state.dart' show SttServerState;
 import '../hardware_info_service.dart' as hw;
@@ -867,7 +868,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
         stackTrace: st,
         severity: 'error',
         type: 'stt_spawn_failed',
-        fingerprint: ['stt-spawn-failed'],
+        fingerprint: const [sttSpawnFailed],
         extras: {
           'binary_path': serverPath,
           'args': args,
@@ -947,7 +948,21 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
           }
 
           final exitKind = classifySttExitCode(code);
-          final fingerprint = ['stt-exit-${exitKind.name}'];
+          // Map the classifier output to a constant from the central
+          // fingerprint inventory. Each exit-kind keeps its own Sentry
+          // bucket; modelLoad branches to ABI-mismatch vs corrupted later
+          // inside `_handleModelLoadFailure`, so the bucket here is only
+          // a default for branches that capture before the SHA check.
+          final fingerprint = switch (exitKind) {
+            SttExitKind.dllMissing ||
+            SttExitKind.dllEntryPoint => const [sttExitDllMissing],
+            SttExitKind.gpuFatal => const [sttExitGpuFatal],
+            SttExitKind.heapCorruption => const [sttExitHeapCorruption],
+            // modelLoad doesn't capture directly here — see
+            // `_handleModelLoadFailure` for the corrupted vs ABI split.
+            SttExitKind.modelLoad => const [sttModelAbiMismatch],
+            SttExitKind.other => const [sttExitOther],
+          };
 
           // Use the GPU fallback policy to decide if CPU retry is warranted.
           final shouldFallback = _policy.shouldRetryOnCpu(exitKind);
@@ -1139,7 +1154,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
         message: 'whisper-server heartbeat timeout: ${e.message}',
         severity: 'error',
         type: 'stt_heartbeat_timeout',
-        fingerprint: ['stt-heartbeat-timeout'],
+        fingerprint: const [sttHeartbeatTimeout],
         extras: {
           'stderr_tail': stderrLines,
           'args': args,
@@ -1173,7 +1188,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
         message: 'whisper-server early exit: ${e.message}',
         severity: 'error',
         type: 'stt_early_exit',
-        fingerprint: ['stt-early-exit'],
+        fingerprint: const [sttEarlyExit],
         extras: {
           'stderr_tail': stderrLines,
           'args': args,
