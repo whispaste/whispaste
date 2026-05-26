@@ -18,6 +18,10 @@ dependencies:
   # Database
   drift: ^2.25.0
   sqlite3_flutter_libs: ^0.6.0+eol
+  # Single-writer lock for the SqliteWriteCoordinator. Generic Dart sync
+  # primitive (no Firebase, no GCP) — chosen in the reliability-sprint PRD
+  # Modul 5 to serialise all history mutations against SQLITE_BUSY.
+  synchronized: ^3.4.0
 
   # Desktop window management
   window_manager: ^0.5.1

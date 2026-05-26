@@ -18,6 +18,7 @@ import 'package:sentry_drift/sentry_drift.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import '../../services/path_service.dart' as paths;
 
+import 'sqlite_write_coordinator.dart';
 import 'tables.dart';
 
 part 'database.g.dart';
@@ -38,6 +39,17 @@ class HistoryDatabase extends _$HistoryDatabase {
 
   /// For testing — accepts an in-memory or custom executor.
   HistoryDatabase.forTesting(super.e);
+
+  /// Serialises every mutation method through a single-writer lock with
+  /// `SQLITE_BUSY` retry/backoff. See `sqlite_write_coordinator.dart` and
+  /// the reliability-sprint PRD Modul 5 — the goal is to make the
+  /// WP-7B…7M "database is locked" cluster invisible to users.
+  ///
+  /// CRITICAL: every mutation method in this class must funnel through
+  /// [_writeCoordinator] BEFORE opening any Drift `transaction(...)`. The
+  /// reverse order (transaction-then-lock or both-then-lock) risks the
+  /// lock-in-lock deadlock called out in the PRD §Risiken.
+  final SqliteWriteCoordinator _writeCoordinator = SqliteWriteCoordinator();
 
   @override
   int get schemaVersion => 10;
@@ -824,80 +836,98 @@ class HistoryDatabase extends _$HistoryDatabase {
 
   /// Partial update of an existing entry (only writes provided fields).
   Future<int> updateEntry(String entryId, HistoryEntriesCompanion companion) {
-    return (update(
-      historyEntries,
-    )..where((e) => e.id.equals(entryId))).write(companion);
+    return _writeCoordinator.write<int>(
+      () => (update(
+        historyEntries,
+      )..where((e) => e.id.equals(entryId))).write(companion),
+    );
   }
 
   /// Soft-delete an entry (move to trash).
   Future<int> softDeleteEntry(String entryId) {
-    return (update(historyEntries)..where((e) => e.id.equals(entryId))).write(
-      HistoryEntriesCompanion(deletedAt: Value(DateTime.now())),
+    return _writeCoordinator.write<int>(
+      () => (update(historyEntries)..where((e) => e.id.equals(entryId))).write(
+        HistoryEntriesCompanion(deletedAt: Value(DateTime.now())),
+      ),
     );
   }
 
   /// Restore a soft-deleted entry from trash.
   Future<int> restoreEntry(String entryId) {
-    return (update(historyEntries)..where((e) => e.id.equals(entryId))).write(
-      const HistoryEntriesCompanion(deletedAt: Value(null)),
+    return _writeCoordinator.write<int>(
+      () => (update(historyEntries)..where((e) => e.id.equals(entryId))).write(
+        const HistoryEntriesCompanion(deletedAt: Value(null)),
+      ),
     );
   }
 
   /// Permanently delete a single entry.
   Future<int> permanentDeleteEntry(String entryId) {
-    return (delete(historyEntries)..where((e) => e.id.equals(entryId))).go();
+    return _writeCoordinator.write<int>(
+      () => (delete(historyEntries)..where((e) => e.id.equals(entryId))).go(),
+    );
   }
 
   /// Permanently remove soft-deleted entries older than [days].
   Future<int> purgeTrash({int days = 30}) {
     final cutoff = DateTime.now().subtract(Duration(days: days));
-    return (delete(historyEntries)..where(
-          (e) =>
-              e.deletedAt.isNotNull() & e.deletedAt.isSmallerThanValue(cutoff),
-        ))
-        .go();
+    return _writeCoordinator.write<int>(
+      () =>
+          (delete(historyEntries)..where(
+                (e) =>
+                    e.deletedAt.isNotNull() &
+                    e.deletedAt.isSmallerThanValue(cutoff),
+              ))
+              .go(),
+    );
   }
 
   /// Permanently remove ALL soft-deleted entries (empty trash).
   Future<int> emptyTrash() {
-    return (delete(historyEntries)..where((e) => e.deletedAt.isNotNull())).go();
+    return _writeCoordinator.write<int>(
+      () =>
+          (delete(historyEntries)..where((e) => e.deletedAt.isNotNull())).go(),
+    );
   }
 
   /// Soft-delete the oldest non-favorite, non-trashed entries that exceed
   /// [max] active entries. Returns the number of entries moved to trash.
   /// A [max] of 0 is a no-op (unlimited).
-  Future<int> trimToMaxEntries(int max) async {
-    if (max <= 0) return 0;
+  Future<int> trimToMaxEntries(int max) {
+    if (max <= 0) return Future<int>.value(0);
 
-    // IDs of active (non-trashed) entries, ordered newest-first.
-    // Favorites are excluded — they are never auto-trimmed.
-    final activeQuery = selectOnly(historyEntries)
-      ..addColumns([historyEntries.id])
-      ..where(
-        historyEntries.deletedAt.isNull() & historyEntries.pinned.equals(false),
-      )
-      ..orderBy([
-        OrderingTerm(
-          expression: historyEntries.timestamp,
-          mode: OrderingMode.desc,
-        ),
-        OrderingTerm(expression: historyEntries.id, mode: OrderingMode.desc),
-      ]);
+    return _writeCoordinator.write<int>(() async {
+      // IDs of active (non-trashed) entries, ordered newest-first.
+      // Favorites are excluded — they are never auto-trimmed.
+      final activeQuery = selectOnly(historyEntries)
+        ..addColumns([historyEntries.id])
+        ..where(
+          historyEntries.deletedAt.isNull() &
+              historyEntries.pinned.equals(false),
+        )
+        ..orderBy([
+          OrderingTerm(
+            expression: historyEntries.timestamp,
+            mode: OrderingMode.desc,
+          ),
+          OrderingTerm(expression: historyEntries.id, mode: OrderingMode.desc),
+        ]);
 
-    final rows = await activeQuery.get();
-    if (rows.length <= max) return 0;
+      final rows = await activeQuery.get();
+      if (rows.length <= max) return 0;
 
-    final idsToTrash = rows
-        .skip(max)
-        .map((r) => r.read(historyEntries.id)!)
-        .toList();
+      final idsToTrash = rows
+          .skip(max)
+          .map((r) => r.read(historyEntries.id)!)
+          .toList();
 
-    final now = DateTime.now();
-    await (update(historyEntries)..where((e) => e.id.isIn(idsToTrash))).write(
-      HistoryEntriesCompanion(deletedAt: Value(now)),
-    );
+      final now = DateTime.now();
+      await (update(historyEntries)..where((e) => e.id.isIn(idsToTrash))).write(
+        HistoryEntriesCompanion(deletedAt: Value(now)),
+      );
 
-    return idsToTrash.length;
+      return idsToTrash.length;
+    });
   }
 
   /// Toggle archive status.
@@ -1018,40 +1048,50 @@ class HistoryDatabase extends _$HistoryDatabase {
   }
 
   /// Insert or update an entry.
+  ///
+  /// This is the canonical "save Verlauf-Eintrag" path (the PRD calls it
+  /// `saveEntry` — the codebase keeps the more accurate `upsertEntry`
+  /// name). Routed through the [SqliteWriteCoordinator] so concurrent
+  /// Aufnahme-Vorgang-Speicherung and history restores cannot trip
+  /// `SQLITE_BUSY`.
   Future<void> upsertEntry(HistoryEntriesCompanion entry) {
-    return into(historyEntries).insertOnConflictUpdate(entry);
+    return _writeCoordinator.write<void>(
+      () => into(historyEntries).insertOnConflictUpdate(entry),
+    );
   }
 
   /// Duplicate an entry with a new ID and "(copy)" title suffix.
-  Future<HistoryEntry?> duplicateEntry(String entryId) async {
-    final original = await (select(
-      historyEntries,
-    )..where((e) => e.id.equals(entryId))).getSingleOrNull();
-    if (original == null) return null;
+  Future<HistoryEntry?> duplicateEntry(String entryId) {
+    return _writeCoordinator.write<HistoryEntry?>(() async {
+      final original = await (select(
+        historyEntries,
+      )..where((e) => e.id.equals(entryId))).getSingleOrNull();
+      if (original == null) return null;
 
-    final newId = DateTime.now().millisecondsSinceEpoch.toString();
-    final companion = HistoryEntriesCompanion(
-      id: Value(newId),
-      content: Value(original.content),
-      title: Value('${original.title} (copy)'),
-      timestamp: Value(DateTime.now()),
-      durationSec: Value(original.durationSec),
-      processingDurationSec: Value(original.processingDurationSec),
-      language: Value(original.language),
-      languageHint: Value(original.languageHint),
-      tags: Value(original.tags),
-      pinned: const Value(false),
-      source: Value(original.source),
-      model: Value(original.model),
-      isLocal: Value(original.isLocal),
-      costUsd: Value(original.costUsd),
-      archived: const Value(false),
-      titleEdited: const Value(false),
-    );
-    await into(historyEntries).insert(companion);
-    return (select(
-      historyEntries,
-    )..where((e) => e.id.equals(newId))).getSingleOrNull();
+      final newId = DateTime.now().millisecondsSinceEpoch.toString();
+      final companion = HistoryEntriesCompanion(
+        id: Value(newId),
+        content: Value(original.content),
+        title: Value('${original.title} (copy)'),
+        timestamp: Value(DateTime.now()),
+        durationSec: Value(original.durationSec),
+        processingDurationSec: Value(original.processingDurationSec),
+        language: Value(original.language),
+        languageHint: Value(original.languageHint),
+        tags: Value(original.tags),
+        pinned: const Value(false),
+        source: Value(original.source),
+        model: Value(original.model),
+        isLocal: Value(original.isLocal),
+        costUsd: Value(original.costUsd),
+        archived: const Value(false),
+        titleEdited: const Value(false),
+      );
+      await into(historyEntries).insert(companion);
+      return (select(
+        historyEntries,
+      )..where((e) => e.id.equals(newId))).getSingleOrNull();
+    });
   }
 
   /// Toggle pin status.
@@ -1354,28 +1394,36 @@ class HistoryDatabase extends _$HistoryDatabase {
 
   /// Removes all persisted settings, causing the app to fall back to defaults.
   Future<void> resetAppSettings() {
-    return customStatement('DELETE FROM app_settings');
+    return _writeCoordinator.write<void>(
+      () => customStatement('DELETE FROM app_settings'),
+    );
   }
 
   /// Removes all accumulated daily analytics stats.
   Future<void> resetDailyStats() {
-    return delete(dailyStats).go();
+    return _writeCoordinator.write<void>(() => delete(dailyStats).go());
   }
 
   /// Deletes ALL user data from ALL tables — used by Factory Reset.
   ///
   /// Wrapped in a transaction so partial failure never leaves the DB in
   /// an inconsistent state. Order: junction/child tables first.
-  Future<void> deleteAllData() async {
-    await transaction(() async {
-      await delete(entryTags).go();
-      await delete(entryNotes).go();
-      await delete(entryAttachments).go();
-      await delete(tags).go();
-      await delete(historyEntries).go();
-      await delete(dailyStats).go();
-      await delete(textReplacements).go();
-      await customStatement('DELETE FROM app_settings');
+  ///
+  /// Coordinator-lock is taken **before** the Drift `transaction(...)` —
+  /// see the lock-in-lock note in [_writeCoordinator]'s doc comment and
+  /// the PRD §Risiken on doubled locks.
+  Future<void> deleteAllData() {
+    return _writeCoordinator.write<void>(() async {
+      await transaction(() async {
+        await delete(entryTags).go();
+        await delete(entryNotes).go();
+        await delete(entryAttachments).go();
+        await delete(tags).go();
+        await delete(historyEntries).go();
+        await delete(dailyStats).go();
+        await delete(textReplacements).go();
+        await customStatement('DELETE FROM app_settings');
+      });
     });
   }
 
