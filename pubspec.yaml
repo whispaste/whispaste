@@ -38,7 +38,7 @@ dependencies:
   super_clipboard: ^0.9.1
 
   # Audio recording
-  record: ^6.2.0
+  record: ^6.2.1
 
   # Autostart (desktop)
   launch_at_startup: ^0.5.1
