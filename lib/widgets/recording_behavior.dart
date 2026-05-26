@@ -74,6 +74,17 @@ String localizeRecordingError(L10n l10n, String errorCode) {
       return l10n.errorMicPermissionDenied;
     case 'recording_start_failed':
       return l10n.errorRecordingStartFailed;
+    // Pre-flight reject keys emitted by `InferenceRequestValidator` via
+    // the `InferenceClientRejected` exception. Dotted IDs (stable string
+    // contract owned by the validator) → camelCase ARB getters.
+    case 'stt.reject.empty':
+      return l10n.errorSttRejectEmpty;
+    case 'stt.reject.invalid_wav':
+      return l10n.errorSttRejectInvalidWav;
+    case 'stt.reject.unsupported_language':
+      return l10n.errorSttRejectUnsupportedLanguage;
+    case 'stt.reject.prompt_too_long':
+      return l10n.errorSttRejectPromptTooLong;
     default:
       return l10n.errorGeneric;
   }

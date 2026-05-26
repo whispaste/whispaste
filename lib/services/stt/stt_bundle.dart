@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'stt_server_state_notifier.dart';
 
+export 'inference_client_rejected.dart';
 export 'local_stt_server.dart';
 export 'local_transcriber.dart';
 export 'server_binary_recovery.dart';

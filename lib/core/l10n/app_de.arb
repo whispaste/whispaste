@@ -854,5 +854,10 @@
   "historyWriteFailedToast": "Eintrag konnte nicht gespeichert werden — bitte Speicherplatz prüfen.",
   "historyWriteFailedAction": "Diagnose kopieren",
   "factoryResetFailedToast": "Werks-Reset unvollständig. App neu starten?",
-  "factoryResetFailedAction": "App schließen"
+  "factoryResetFailedAction": "App schließen",
+
+  "errorSttRejectEmpty": "Keine Audiodaten zum Transkribieren — bitte Aufnahme wiederholen.",
+  "errorSttRejectInvalidWav": "Audiodatei ist beschädigt — bitte Aufnahme wiederholen.",
+  "errorSttRejectUnsupportedLanguage": "Diese Sprache wird vom lokalen Sprachmodell nicht unterstützt — bitte Sprache in den Einstellungen prüfen.",
+  "errorSttRejectPromptTooLong": "Eigenes Vokabular ist zu lang — bitte in den Einstellungen kürzen."
 }

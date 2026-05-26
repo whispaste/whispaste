@@ -4532,6 +4532,30 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Quit app'**
   String get factoryResetFailedAction;
+
+  /// No description provided for @errorSttRejectEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No audio to transcribe — please record again.'**
+  String get errorSttRejectEmpty;
+
+  /// No description provided for @errorSttRejectInvalidWav.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio file is corrupted — please record again.'**
+  String get errorSttRejectInvalidWav;
+
+  /// No description provided for @errorSttRejectUnsupportedLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'This language is not supported by the local speech model — please review the language in Settings.'**
+  String get errorSttRejectUnsupportedLanguage;
+
+  /// No description provided for @errorSttRejectPromptTooLong.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom vocabulary is too long — please shorten it in Settings.'**
+  String get errorSttRejectPromptTooLong;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

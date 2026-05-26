@@ -928,5 +928,10 @@
   "historyWriteFailedToast": "Entry could not be saved — please check available storage.",
   "historyWriteFailedAction": "Copy diagnostics",
   "factoryResetFailedToast": "Factory reset incomplete. Restart the app?",
-  "factoryResetFailedAction": "Quit app"
+  "factoryResetFailedAction": "Quit app",
+
+  "errorSttRejectEmpty": "No audio to transcribe — please record again.",
+  "errorSttRejectInvalidWav": "Audio file is corrupted — please record again.",
+  "errorSttRejectUnsupportedLanguage": "This language is not supported by the local speech model — please review the language in Settings.",
+  "errorSttRejectPromptTooLong": "Custom vocabulary is too long — please shorten it in Settings."
 }

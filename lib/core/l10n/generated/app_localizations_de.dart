@@ -2541,4 +2541,20 @@ class L10nDe extends L10n {
 
   @override
   String get factoryResetFailedAction => 'App schließen';
+
+  @override
+  String get errorSttRejectEmpty =>
+      'Keine Audiodaten zum Transkribieren — bitte Aufnahme wiederholen.';
+
+  @override
+  String get errorSttRejectInvalidWav =>
+      'Audiodatei ist beschädigt — bitte Aufnahme wiederholen.';
+
+  @override
+  String get errorSttRejectUnsupportedLanguage =>
+      'Diese Sprache wird vom lokalen Sprachmodell nicht unterstützt — bitte Sprache in den Einstellungen prüfen.';
+
+  @override
+  String get errorSttRejectPromptTooLong =>
+      'Eigenes Vokabular ist zu lang — bitte in den Einstellungen kürzen.';
 }

@@ -26,6 +26,9 @@ import '../model_download_service.dart';
 import '../path_service.dart';
 import '../process_runner.dart';
 import '../subprocess_guard.dart' as guard;
+import 'inference_client_rejected.dart';
+import 'inference_error_classifier.dart';
+import 'inference_request_validator.dart';
 import 'recovery_toast_notifier.dart';
 import 'server_binary_recovery.dart';
 import 'stt_exit_classifier.dart';
@@ -136,6 +139,22 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
   static final _log = AppLogger('SttServerState');
   static const _cudaOomErrorCode = 'stt_cuda_oom';
   static const _maxStderrLines = 50;
+
+  /// Whitelist of short language codes the local whisper-server build
+  /// supports — kept in sync with [AppSettings.sttLanguageCode]. `'auto'`
+  /// bypasses the whitelist inside the validator.
+  static const Set<String> _whisperSupportedLanguages = {
+    'en',
+    'de',
+    'fr',
+    'es',
+  };
+
+  /// Upper bound on the combined `vocab + lastPrompt` string handed to the
+  /// whisper-server. The server itself accepts ~224 tokens (~900 chars) but
+  /// we keep a conservative 1024-char cap so a runaway custom-vocab does
+  /// not turn into a 413 on the inference response.
+  static const int _promptCharLimit = 1024;
 
   Process? _process;
   String? _activeModel;
@@ -337,17 +356,18 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     );
     final stopwatch = Stopwatch()..start();
 
-    final uri = Uri.parse('${state.endpoint}/inference');
-    final request = http.MultipartRequest('POST', uri)
-      ..files.add(
-        http.MultipartFile.fromBytes('file', wavBytes, filename: 'audio.wav'),
-      )
-      ..fields['response_format'] = 'json'
-      ..fields['temperature'] = '0.0';
+    // Materialize the payload as a [Uint8List] once so both the pre-flight
+    // validator and the multipart request use the same byte view.
+    final wavView = wavBytes is Uint8List
+        ? wavBytes
+        : Uint8List.fromList(wavBytes);
 
-    if (lang.isNotEmpty && lang != 'auto') {
-      request.fields['language'] = lang;
-    }
+    // Derive audio duration (16 kHz mono 16-bit + 44-byte header). Used by
+    // breadcrumb extras and the classifier context. Clamped at zero so the
+    // empty-WAV reject path does not produce a negative value.
+    final audioDurationMs = wavBytes.length > 44
+        ? ((wavBytes.length - 44) / 32000 * 1000).round()
+        : 0;
 
     final settings = ref.read(settingsProvider).value;
     final vocab = settings?.customVocabulary.trim() ?? '';
@@ -361,12 +381,58 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       _lastPrompt = null;
       _lastPromptTime = null;
     }
-    if (vocab.isNotEmpty || (promptValue != null && promptValue.isNotEmpty)) {
-      final parts = [
-        if (vocab.isNotEmpty) vocab,
-        if (promptValue != null && promptValue.isNotEmpty) promptValue,
-      ];
-      request.fields['prompt'] = parts.join(' ');
+    final combinedPrompt = <String>[
+      if (vocab.isNotEmpty) vocab,
+      if (promptValue != null && promptValue.isNotEmpty) promptValue,
+    ].join(' ');
+    final effectivePrompt = combinedPrompt.isEmpty ? null : combinedPrompt;
+
+    // ── Pre-flight validation ─────────────────────────────────────────────
+    // Reject obvious-garbage requests before they leave the process. Sentry
+    // sees one breadcrumb in category `stt` but never a captureError — these
+    // are user-input issues, not crashes.
+    final validation = InferenceRequestValidator.validate(
+      wavBytes: wavView,
+      language: lang,
+      prompt: effectivePrompt,
+      supportedLanguages: _whisperSupportedLanguages,
+      promptCharLimit: _promptCharLimit,
+    );
+    if (validation is ValidationReject) {
+      Sentry.addBreadcrumb(
+        Breadcrumb(
+          message: 'Inference request rejected pre-flight',
+          category: 'stt',
+          level: SentryLevel.warning,
+          data: <String, dynamic>{
+            'reject_reason': validation.reason.name,
+            'wav_size_bytes': wavBytes.length,
+            'audio_duration_ms': audioDurationMs,
+            'language': lang,
+          },
+        ),
+      );
+      _log.warning(
+        'STT inference rejected pre-flight: reason=${validation.reason.name} '
+        'key=${validation.userMessageKey} wavBytes=${wavBytes.length}',
+      );
+      throw InferenceClientRejected(validation.userMessageKey);
+    }
+
+    final uri = Uri.parse('${state.endpoint}/inference');
+    final request = http.MultipartRequest('POST', uri)
+      ..files.add(
+        http.MultipartFile.fromBytes('file', wavBytes, filename: 'audio.wav'),
+      )
+      ..fields['response_format'] = 'json'
+      ..fields['temperature'] = '0.0';
+
+    if (lang.isNotEmpty && lang != 'auto') {
+      request.fields['language'] = lang;
+    }
+
+    if (effectivePrompt != null) {
+      request.fields['prompt'] = effectivePrompt;
     }
 
     final http.StreamedResponse streamedResponse;
@@ -404,6 +470,35 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     );
 
     if (streamedResponse.statusCode != 200) {
+      // Classify the non-2xx response and emit exactly one Sentry capture
+      // with a stable fingerprint + redacted body + six request extras.
+      // The orchestrator path that rethrows this HttpException no longer
+      // logs the failure at SEVERE level — that line was downgraded to
+      // `_log.warning` to prevent the AppLogger's auto-escalation pipeline
+      // from emitting a duplicate Sentry event under a different
+      // fingerprint. See `CHANGELOG.md` — Unreleased.
+      final failure = InferenceErrorClassifier.classify(
+        statusCode: streamedResponse.statusCode,
+        responseBody: responseBody,
+        context: InferenceRequestContext(
+          wavSizeBytes: wavBytes.length,
+          audioDurationMs: audioDurationMs,
+          language: lang,
+          modelId: state.modelId,
+          promptLength: effectivePrompt?.length ?? 0,
+          vocabLength: vocab.length,
+        ),
+      );
+      CrashReporter.instance?.captureError(
+        message: 'STT inference failed (HTTP ${streamedResponse.statusCode})',
+        severity: 'error',
+        type: 'stt_inference_failed',
+        fingerprint: [failure.fingerprint],
+        extras: <String, dynamic>{
+          ...failure.extras,
+          'response_body': failure.redactedBody,
+        },
+      );
       throw HttpException(
         'Inference failed (HTTP ${streamedResponse.statusCode}): '
         '$responseBody',
