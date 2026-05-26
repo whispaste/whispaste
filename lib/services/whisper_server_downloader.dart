@@ -16,6 +16,8 @@ import 'package:sentry_dio/sentry_dio.dart';
 
 import '../core/app_info.dart';
 import '../core/logging/app_logger.dart';
+import '../core/logging/crash_fingerprints.dart';
+import '../core/logging/crash_reporter.dart';
 import 'hardware_info_service.dart' as hw;
 import 'http_model_fetcher.dart';
 
@@ -82,6 +84,7 @@ class WhisperServerDownloader {
     const repos = [('whispaste', 'whispaste'), ('ggml-org', 'whisper.cpp')];
 
     String? lastError;
+    var sawStall = false;
 
     for (final (owner, repo) in repos) {
       // Retry each repo up to 2 times for transient failures.
@@ -131,14 +134,26 @@ class WhisperServerDownloader {
           return;
         } on DioException catch (e) {
           final status = e.response?.statusCode;
-          lastError = status == 403
+
+          // Stall-detector cancel is retriable; user-initiated cancel is
+          // a hard abort. See HttpStallDetector / PRD Modul 3.
+          final isStallCancel =
+              e.type == DioExceptionType.cancel &&
+              e.message == httpStallCancelMessage;
+          if (e.type == DioExceptionType.cancel && !isStallCancel) {
+            rethrow;
+          }
+
+          lastError = isStallCancel
+              ? describeDioError(e)
+              : status == 403
               ? 'GitHub API rate limit exceeded (HTTP 403)'
-              : 'Network error: ${e.message} (HTTP $status)';
+              : describeDioError(e);
+          if (isStallCancel) sawStall = true;
           _log.warning(
             'Server download failed from $owner/$repo '
             '(attempt $attempt): $lastError',
           );
-          if (e.type == DioExceptionType.cancel) rethrow;
           if (status == 403) break; // Rate limited — skip to next repo.
           if (attempt < 2) {
             await Future<void>.delayed(Duration(seconds: 2 * attempt));
@@ -157,7 +172,26 @@ class WhisperServerDownloader {
     }
 
     _log.error('Could not download whisper-server from any source');
-    throw Exception(lastError ?? 'Could not download whisper-server.');
+    final finalMessage = lastError ?? 'Could not download whisper-server.';
+    // Stall-classified failures get their own Sentry fingerprint so the
+    // network-quality signal can be tracked separately from generic
+    // download failures (404s, asset-pattern misses, …). See PRD Modul 6
+    // (`server-download-stalled` vs `server-download-failed`).
+    CrashReporter.instance?.captureError(
+      message: 'whisper-server download failed: $finalMessage',
+      severity: 'error',
+      type: sawStall ? 'server_download_stalled' : 'server_download_failed',
+      fingerprint: <String>[
+        sawStall ? serverDownloadStalled : serverDownloadFailed,
+      ],
+      extras: {
+        'platform': Platform.operatingSystem,
+        'gpu_mode': gpuMode,
+        'gpu_vendor': gpu.vendor.name,
+        'last_error': finalMessage,
+      },
+    );
+    throw Exception(finalMessage);
   }
 
   // -----------------------------------------------------------------------
