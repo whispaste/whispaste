@@ -701,6 +701,32 @@ class L10nEn extends L10n {
   String get settingsFactoryResetSuccess => 'App has been completely reset';
 
   @override
+  String get settingsFactoryResetProgressTitle => 'Resetting WhisPaste';
+
+  @override
+  String get settingsFactoryResetPhaseStoppingSubprocess =>
+      'Stopping voice service…';
+
+  @override
+  String get settingsFactoryResetPhaseDeletingModels =>
+      'Deleting voice models…';
+
+  @override
+  String get settingsFactoryResetPhaseDeletingDatabase => 'Deleting database…';
+
+  @override
+  String get settingsFactoryResetPhaseResettingSecureStore =>
+      'Clearing credentials…';
+
+  @override
+  String get settingsFactoryResetPhaseResettingSettings =>
+      'Restoring default settings…';
+
+  @override
+  String get settingsFactoryResetFailedMessage =>
+      'Factory reset incomplete. Please restart the app.';
+
+  @override
   String get groqRemovedToast =>
       'Groq STT was removed — provider reset to On-Device.';
 

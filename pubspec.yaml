@@ -89,6 +89,13 @@ dependencies:
   archive: ^4.0.4
   in_app_review: ^2.0.11
 
+  # Pure-Dart FileSystem abstraction (LocalFileSystem, MemoryFileSystem).
+  # Used by `FactoryResetCoordinator` so production and tests share the
+  # same `Directory.exists` / `Directory.delete` surface — tests inject a
+  # MemoryFileSystem, production keeps the LocalFileSystem default.
+  # Generic Google-maintained package — NOT Firebase / NOT GCP.
+  file: ^7.0.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
