@@ -10,6 +10,7 @@ import 'stt_server_state_notifier.dart';
 
 export 'local_stt_server.dart';
 export 'local_transcriber.dart';
+export 'server_binary_recovery.dart';
 export 'stt_benchmark.dart';
 export 'stt_exit_classifier.dart';
 export 'stt_gpu_fallback_policy.dart';

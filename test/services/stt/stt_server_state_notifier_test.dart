@@ -72,6 +72,28 @@ class _FakeProcessRunner extends ProcessRunner {
   }
 }
 
+/// Returns a different [_FakeProcess] from a pre-seeded queue on every
+/// `start()` call. Used by the recovery integration test where the
+/// notifier must spawn a second whisper-server after the auto-recovery.
+class _MultiStageRunner extends ProcessRunner {
+  _MultiStageRunner(List<_FakeProcess> processes) : _queue = List.of(processes);
+
+  final List<_FakeProcess> _queue;
+  int startCallCount = 0;
+
+  @override
+  Future<Process> start(String executable, List<String> arguments) async {
+    startCallCount += 1;
+    if (_queue.isEmpty) {
+      throw StateError(
+        'MultiStageRunner exhausted: ${startCallCount}th start() with no '
+        'pre-seeded fake process left',
+      );
+    }
+    return _queue.removeAt(0);
+  }
+}
+
 class _FakeSettingsNotifier extends SettingsNotifier {
   final AppSettings _settings;
   _FakeSettingsNotifier(this._settings);
@@ -99,6 +121,7 @@ ProviderContainer _makeContainer({
   required http.Client httpClient,
   AppSettings? settings,
   ({Duration window, int maxMissedWindows})? heartbeatConfig,
+  ServerBinaryRecovery? recoveryOverride,
 }) {
   return ProviderContainer(
     overrides: [
@@ -116,8 +139,40 @@ ProviderContainer _makeContainer({
       ),
       if (heartbeatConfig != null)
         sttStartupHeartbeatConfigProvider.overrideWithValue(heartbeatConfig),
+      if (recoveryOverride != null)
+        serverBinaryRecoveryProvider.overrideWithValue(recoveryOverride),
     ],
   );
+}
+
+/// Recovery double that returns a scripted outcome and records calls.
+/// Avoids hitting the real WhisperServerDownloader / disk.
+///
+/// Optional [onRecover] callback lets the test re-stage the fake STT dir
+/// (e.g. re-create the model file that the crash-trigger deleted) before
+/// the notifier kicks off its post-recovery restart.
+class _RecordingRecovery implements ServerBinaryRecovery {
+  _RecordingRecovery(this.result, {this.onRecover});
+
+  RecoveryResult result;
+  int recoverCalls = 0;
+  final Future<void> Function()? onRecover;
+
+  @override
+  Future<RecoveryResult> recover({
+    required RecoveryReason reason,
+    required hw.GpuInfo gpu,
+    required String sttDirPath,
+    required String? activeModelId,
+  }) async {
+    recoverCalls += 1;
+    if (onRecover != null) await onRecover!();
+    return result;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName}');
 }
 
 class _FakeModelDownloadNotifier extends ModelDownloadNotifier {
@@ -297,6 +352,157 @@ void main() {
         final status = container.read(localSttBundleProvider);
         expect(status.serverState, SttServerState.error);
         expect(status.cpuFallbackActive, isFalse);
+      },
+    );
+  });
+
+  group('SttServerStateNotifier — recovery hook', () {
+    late Directory tempDir;
+
+    setUp(() async {
+      tempDir = await _createFakeSttDir();
+    });
+
+    tearDown(() async {
+      paths.sttDirOverride = null;
+      await tempDir.delete(recursive: true);
+    });
+
+    test(
+      'modelLoad exit + missing model file → ServerBinaryRecovery is '
+      'invoked and notifier auto-restarts to ready (RecoveryRetried)',
+      () async {
+        // Two-stage subprocess runner: first start = crashing process,
+        // second start = healthy process for the post-recovery restart.
+        final crashedProc = _FakeProcess();
+        final healthyProc = _FakeProcess();
+        final runner = _MultiStageRunner([crashedProc, healthyProc]);
+
+        // The fake recovery re-creates the model file so the post-
+        // recovery `ensureRunning()` restart finds the binary + model
+        // intact and reaches `ready` — that is the entire point of the
+        // "next recording works without further interaction" AC.
+        final modelFilename = findSttModel('whisper-small')!.filename;
+        final modelFile = File('${tempDir.path}/$modelFilename');
+        final recovery = _RecordingRecovery(
+          const RecoveryRetried('vulkan'),
+          onRecover: () async {
+            await modelFile.writeAsBytes(Uint8List(11 * 1024 * 1024));
+          },
+        );
+
+        final container = _makeContainer(
+          runner: runner,
+          httpClient: _healthyClient(),
+          heartbeatConfig: (
+            window: const Duration(milliseconds: 50),
+            maxMissedWindows: 3,
+          ),
+          recoveryOverride: recovery,
+        );
+        addTearDown(() {
+          container.dispose();
+          crashedProc.exit(0);
+          healthyProc.exit(0);
+        });
+
+        await container.read(settingsProvider.future);
+
+        // Kick off ensureRunning but do not await — we need to drive the
+        // crash and recovery before the future completes.
+        final notifier = container.read(localSttBundleProvider.notifier);
+        unawaited(notifier.ensureRunning());
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+
+        // Drop the model file so _handleModelLoadFailure cannot run the
+        // SHA check → hashMismatch stays false → recovery is invoked
+        // (rather than silent re-download).
+        if (await modelFile.exists()) await modelFile.delete();
+
+        // Trigger modelLoad exit (code 3).
+        crashedProc.exit(3);
+
+        // Allow recovery + restart to run.
+        // Recovery override resolves immediately, then _restartAfterRecovery
+        // calls ensureRunning which spawns the healthy process. The healthy
+        // process needs a stderr line so the heartbeat resets.
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+        healthyProc.emitStderr('[whisper] model loaded');
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+
+        expect(
+          recovery.recoverCalls,
+          1,
+          reason: 'recovery hook must be invoked exactly once',
+        );
+        expect(
+          runner.startCallCount,
+          2,
+          reason:
+              'post-recovery restart must spawn whisper-server a second time',
+        );
+
+        final status = container.read(localSttBundleProvider);
+        expect(
+          status.serverState,
+          SttServerState.ready,
+          reason: 'auto-restart must transition the notifier to ready',
+        );
+      },
+    );
+
+    test(
+      'modelLoad exit + RecoveryExhausted → notifier surfaces PRD message',
+      () async {
+        final crashedProc = _FakeProcess();
+        final runner = _FakeProcessRunner(crashedProc);
+
+        final recovery = _RecordingRecovery(
+          const RecoveryExhausted(
+            'Sprachdienst kann nicht starten. '
+            'Bitte App neu starten oder Sprachmodell neu laden.',
+          ),
+        );
+
+        final container = _makeContainer(
+          runner: runner,
+          httpClient: _healthyClient(),
+          heartbeatConfig: (
+            window: const Duration(milliseconds: 50),
+            maxMissedWindows: 3,
+          ),
+          recoveryOverride: recovery,
+        );
+        addTearDown(() {
+          container.dispose();
+          crashedProc.exit(0);
+        });
+
+        await container.read(settingsProvider.future);
+
+        final notifier = container.read(localSttBundleProvider.notifier);
+        unawaited(notifier.ensureRunning());
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+
+        // Drop the model file so the recovery path runs.
+        final modelFile = File(
+          '${tempDir.path}/${findSttModel('whisper-small')!.filename}',
+        );
+        if (await modelFile.exists()) await modelFile.delete();
+
+        crashedProc.exit(3);
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+
+        expect(recovery.recoverCalls, 1);
+
+        final status = container.read(localSttBundleProvider);
+        expect(status.serverState, SttServerState.error);
+        expect(
+          status.errorMessage,
+          contains('Sprachdienst kann nicht starten'),
+          reason: 'PRD-spec German user message must reach the surface state',
+        );
+        expect(status.errorMessage, contains('Sprachmodell'));
       },
     );
   });

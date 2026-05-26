@@ -26,17 +26,28 @@ import '../model_download_service.dart';
 import '../path_service.dart';
 import '../process_runner.dart';
 import '../subprocess_guard.dart' as guard;
+import 'server_binary_recovery.dart';
 import 'stt_exit_classifier.dart';
 import 'stt_gpu_fallback_policy.dart';
 import 'stt_providers.dart';
 
 // Re-export for external consumers.
 export '../../core/recording/recording_state.dart' show SttServerState;
+export 'server_binary_recovery.dart'
+    show
+        RecoveryExhausted,
+        RecoveryFellBackToCpu,
+        RecoveryReason,
+        RecoveryResult,
+        RecoveryRetried,
+        ServerBinaryRecovery,
+        nextVariant;
 export 'stt_exit_classifier.dart' show SttExitKind, classifySttExitCode;
 export 'stt_gpu_fallback_policy.dart' show SttGpuFallbackPolicy;
 export 'stt_providers.dart'
     show
         processRunnerProvider,
+        serverBinaryRecoveryProvider,
         sttHttpClientProvider,
         sttStartupHeartbeatConfigProvider;
 
@@ -970,40 +981,24 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
           switch (exitKind) {
             case SttExitKind.dllMissing:
             case SttExitKind.dllEntryPoint:
-              final dllMsg =
-                  'whisper-server crashed: missing DLL or entry point '
-                  '(exit code $code / ${exitKind.name}). '
-                  'Wrong binary variant for this GPU. '
-                  'Auto-deleting incompatible binary for re-download.';
-              _log.error(dllMsg);
-              CrashReporter.instance?.captureError(
-                message: dllMsg,
-                severity: 'error',
-                type: 'stt_exit',
-                fingerprint: fingerprint,
+              // PRD Modul 1: hand the crash to ServerBinaryRecovery rather
+              // than capturing here. The orchestrator picks the next-most-
+              // conservative variant, downloads it, validates it, and tells
+              // us whether to restart, fall back to CPU, or surface an
+              // exhausted-toast. Sentry capture happens only on
+              // RecoveryExhausted (inside the orchestrator), matching the
+              // AC "successful Auto-Recoveries do not emit a Sentry event".
+              _log.warning(
+                'DLL crash (${exitKind.name}, code $code) — '
+                'invoking ServerBinaryRecovery.',
               );
-              unawaited(hw.deleteServerBinary(sttDir()));
-              if (!_gpuFallbackActive && shouldFallback) {
-                _gpuFallbackActive = true;
-                _log.warning(
-                  'DLL missing (${exitKind.name}) — CPU fallback activated.',
-                );
-                _process = null;
-                _activeModel = null;
-                _transition(
-                  const SttStatus(serverState: SttServerState.stopped),
-                );
-                return;
-              }
               _process = null;
               _activeModel = null;
-              _transition(
-                const SttStatus(
-                  serverState: SttServerState.error,
-                  errorMessage:
-                      'Incompatible server binary for your GPU. '
-                      'Please re-download the speech model in Settings.',
-                ),
+              final reason = exitKind == SttExitKind.dllMissing
+                  ? RecoveryReason.dllMissing
+                  : RecoveryReason.dllEntryPoint;
+              unawaited(
+                _attemptRecovery(reason: reason, gpu: gpu, modelId: modelId),
               );
               return;
 
@@ -1461,14 +1456,117 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       'incompatible runtime — model file is intact but cannot be loaded '
       'by the installed whisper-server binary.',
     );
-    _transition(
-      const SttStatus(
-        serverState: SttServerState.error,
-        errorMessage:
-            'Speech model is incompatible with the installed runtime. '
-            'Please re-download the speech model in Settings.',
-      ),
+
+    // PRD Modul 1: ABI-mismatch is one of the three crash paths that hand
+    // off to ServerBinaryRecovery. The old behaviour was to surface a
+    // generic "re-download in Settings" string and wait for the user; the
+    // recovery orchestrator instead picks the next-most-conservative
+    // server variant, downloads it, and restarts the server so the next
+    // recording works without further interaction. Sentry capture happens
+    // only on RecoveryExhausted (inside the orchestrator).
+    final gpu = await hw.detectGpu();
+    await _attemptRecovery(
+      reason: RecoveryReason.abiMismatch,
+      gpu: gpu,
+      modelId: modelId,
     );
+  }
+
+  /// Hands a recoverable server-binary crash to [ServerBinaryRecovery]
+  /// and reacts to the sealed [RecoveryResult] — either restarts the
+  /// whisper-server with the new variant (so the next `startRecording()`
+  /// just works), or transitions to `error` with the PRD-spec German
+  /// user message when no fallback variant is left.
+  Future<void> _attemptRecovery({
+    required RecoveryReason reason,
+    required hw.GpuInfo gpu,
+    required String modelId,
+  }) async {
+    final recovery = ref.read(serverBinaryRecoveryProvider);
+
+    // Move the surface state to `stopped` while recovery is in flight so
+    // any UI listening to `SttStatus.serverState` knows the previous
+    // process is gone (and so it can render the PRD's
+    // „Lade Sprachmodell neu — bitte warten." info-toast for the
+    // abiMismatch path — see TODO(issue-07) at the call-site once the
+    // toast surface ships).
+    _transition(const SttStatus(serverState: SttServerState.stopped));
+
+    final RecoveryResult result;
+    try {
+      result = await recovery.recover(
+        reason: reason,
+        gpu: gpu,
+        sttDirPath: sttDir(),
+        activeModelId: modelId,
+      );
+    } on Object catch (e, st) {
+      // Defensive: the recovery orchestrator should not throw — it
+      // returns RecoveryExhausted instead. If it does, treat that as
+      // exhausted so we still surface the actionable message.
+      _log.error('ServerBinaryRecovery threw unexpectedly: $e\n$st');
+      // TODO(issue-07): upgrade to WpToastAction with „Einstellungen öffnen"
+      // pointing at the `cloud_advanced_section` reset area.
+      _transition(
+        const SttStatus(
+          serverState: SttServerState.error,
+          errorMessage:
+              'Sprachdienst kann nicht starten. '
+              'Bitte App neu starten oder Sprachmodell neu laden.',
+        ),
+      );
+      return;
+    }
+
+    switch (result) {
+      case RecoveryRetried(:final chosenVariant):
+        _log.info(
+          'Recovery succeeded — retrying with variant "$chosenVariant"; '
+          'restarting whisper-server.',
+        );
+        // Same-GPU retry: let the GPU-acceleration setting drive the
+        // next launch (no forced CPU-fallback).
+        await _restartAfterRecovery(forceCpu: false);
+        return;
+      case RecoveryFellBackToCpu():
+        _log.info(
+          'Recovery fell back to CPU variant — restarting in CPU mode.',
+        );
+        _gpuFallbackActive = true;
+        await _restartAfterRecovery(forceCpu: true);
+        return;
+      case RecoveryExhausted(:final userMessage):
+        _log.error('Recovery exhausted — surfacing actionable error state.');
+        // TODO(issue-07): upgrade to WpToastAction with „Einstellungen öffnen"
+        // pointing at the `cloud_advanced_section` reset area.
+        _transition(
+          SttStatus(
+            serverState: SttServerState.error,
+            errorMessage: userMessage,
+          ),
+        );
+        return;
+    }
+  }
+
+  /// Restarts the whisper-server after a successful recovery — clears any
+  /// in-flight startCompleter, drops the just-killed process handle, and
+  /// drives `ensureRunning()` so the next `startRecording()` call just
+  /// works.
+  Future<void> _restartAfterRecovery({required bool forceCpu}) async {
+    // Make sure we don't deadlock against a stale startCompleter from
+    // the crashed launch.
+    _startCompleter = null;
+    _process = null;
+    _activeModel = null;
+
+    try {
+      await ensureRunning();
+    } on Exception catch (e) {
+      _log.warning('Auto-restart after recovery failed: $e');
+      // Leave whatever state ensureRunning left us in; if it set an
+      // error message, the UI already has something to show.
+    }
   }
 
   String _collapseRepetitions(String text) {
