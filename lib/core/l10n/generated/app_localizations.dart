@@ -4472,6 +4472,66 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Word'**
   String get exportFormatWord;
+
+  /// No description provided for @recoveryExhaustedToast.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice service cannot start. Please restart the app or reload the voice model.'**
+  String get recoveryExhaustedToast;
+
+  /// No description provided for @recoveryExhaustedAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Open settings'**
+  String get recoveryExhaustedAction;
+
+  /// No description provided for @modelAbiInfoToast.
+  ///
+  /// In en, this message translates to:
+  /// **'Reloading voice model — please wait.'**
+  String get modelAbiInfoToast;
+
+  /// No description provided for @serverDownloadFailedToast.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice service could not be downloaded. Check your internet connection?'**
+  String get serverDownloadFailedToast;
+
+  /// No description provided for @serverDownloadFailedAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again'**
+  String get serverDownloadFailedAction;
+
+  /// No description provided for @serverDownloadStalledToast.
+  ///
+  /// In en, this message translates to:
+  /// **'Download stalled — reconnecting.'**
+  String get serverDownloadStalledToast;
+
+  /// No description provided for @historyWriteFailedToast.
+  ///
+  /// In en, this message translates to:
+  /// **'Entry could not be saved — please check available storage.'**
+  String get historyWriteFailedToast;
+
+  /// No description provided for @historyWriteFailedAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy diagnostics'**
+  String get historyWriteFailedAction;
+
+  /// No description provided for @factoryResetFailedToast.
+  ///
+  /// In en, this message translates to:
+  /// **'Factory reset incomplete. Restart the app?'**
+  String get factoryResetFailedToast;
+
+  /// No description provided for @factoryResetFailedAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Quit app'**
+  String get factoryResetFailedAction;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

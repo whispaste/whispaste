@@ -843,5 +843,16 @@
   "exportFormatMarkdown": "Markdown",
   "exportFormatCsv": "CSV",
   "exportFormatJson": "JSON",
-  "exportFormatWord": "Word"
+  "exportFormatWord": "Word",
+
+  "recoveryExhaustedToast": "Sprachdienst kann nicht starten. Bitte App neu starten oder Sprachmodell neu laden.",
+  "recoveryExhaustedAction": "Einstellungen öffnen",
+  "modelAbiInfoToast": "Lade Sprachmodell neu — bitte warten.",
+  "serverDownloadFailedToast": "Sprachdienst konnte nicht heruntergeladen werden. Internetverbindung prüfen?",
+  "serverDownloadFailedAction": "Erneut versuchen",
+  "serverDownloadStalledToast": "Download steht — Verbindung wird neu aufgebaut.",
+  "historyWriteFailedToast": "Eintrag konnte nicht gespeichert werden — bitte Speicherplatz prüfen.",
+  "historyWriteFailedAction": "Diagnose kopieren",
+  "factoryResetFailedToast": "Werks-Reset unvollständig. App neu starten?",
+  "factoryResetFailedAction": "App schließen"
 }

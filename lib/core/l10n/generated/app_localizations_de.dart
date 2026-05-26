@@ -2506,4 +2506,39 @@ class L10nDe extends L10n {
 
   @override
   String get exportFormatWord => 'Word';
+
+  @override
+  String get recoveryExhaustedToast =>
+      'Sprachdienst kann nicht starten. Bitte App neu starten oder Sprachmodell neu laden.';
+
+  @override
+  String get recoveryExhaustedAction => 'Einstellungen öffnen';
+
+  @override
+  String get modelAbiInfoToast => 'Lade Sprachmodell neu — bitte warten.';
+
+  @override
+  String get serverDownloadFailedToast =>
+      'Sprachdienst konnte nicht heruntergeladen werden. Internetverbindung prüfen?';
+
+  @override
+  String get serverDownloadFailedAction => 'Erneut versuchen';
+
+  @override
+  String get serverDownloadStalledToast =>
+      'Download steht — Verbindung wird neu aufgebaut.';
+
+  @override
+  String get historyWriteFailedToast =>
+      'Eintrag konnte nicht gespeichert werden — bitte Speicherplatz prüfen.';
+
+  @override
+  String get historyWriteFailedAction => 'Diagnose kopieren';
+
+  @override
+  String get factoryResetFailedToast =>
+      'Werks-Reset unvollständig. App neu starten?';
+
+  @override
+  String get factoryResetFailedAction => 'App schließen';
 }

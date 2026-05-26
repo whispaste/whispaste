@@ -12,6 +12,25 @@ import '../core/theme/tokens.dart';
 /// Toast severity levels — controls icon, color, and animation style.
 enum WpToastType { success, error, info, warning }
 
+/// Bundled label + callback for an actionable toast.
+///
+/// Use with [WpToast.show]'s [WpToast.show.action] parameter to render a
+/// trailing text-button on the toast card. The PRD-driven actions are
+/// things like „Einstellungen öffnen", „Erneut versuchen", „App schließen"
+/// and „Diagnose kopieren" — each one points the user at a single concrete
+/// next step instead of a generic „Etwas ist schiefgelaufen"-Meldung.
+///
+/// Equivalent to passing the legacy [WpToast.show.actionLabel] /
+/// [WpToast.show.onAction] pair, but bundles the two together so call
+/// sites cannot forget one half. Tapping the button fires [onPressed] and
+/// dismisses the toast.
+class WpToastAction {
+  const WpToastAction({required this.label, required this.onPressed});
+
+  final String label;
+  final VoidCallback onPressed;
+}
+
 /// Show a premium toast notification.
 ///
 /// Usage:
@@ -23,6 +42,12 @@ class WpToast {
 
   static final _log = AppLogger('Toast');
 
+  /// Show a toast.
+  ///
+  /// Pass [action] (preferred) or the legacy [actionLabel]+[onAction] pair
+  /// to render an action button on the toast card. When both are passed,
+  /// [action] wins. The action button fires its callback and then
+  /// dismisses the toast.
   static void show(
     BuildContext context, {
     required String message,
@@ -30,7 +55,12 @@ class WpToast {
     Duration duration = const Duration(seconds: 3),
     String? actionLabel,
     VoidCallback? onAction,
+    WpToastAction? action,
   }) {
+    // The bundled [WpToastAction] is the canonical surface — fall back to
+    // the legacy split pair so older call sites keep working unchanged.
+    final String? resolvedLabel = action?.label ?? actionLabel;
+    final VoidCallback? resolvedOnAction = action?.onPressed ?? onAction;
     // Route toast messages through the logging pipeline so they appear
     // in the `flutter run` terminal in debug mode.
     //
@@ -87,8 +117,8 @@ class WpToast {
         message: message,
         type: type,
         animation: controller,
-        actionLabel: actionLabel,
-        onAction: onAction,
+        actionLabel: resolvedLabel,
+        onAction: resolvedOnAction,
         onDismiss: dismiss,
       ),
     );
