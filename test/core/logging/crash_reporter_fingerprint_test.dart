@@ -1,4 +1,9 @@
-/// Unit tests for CrashReporter fingerprint support (issue-05).
+/// Unit tests for CrashReporter fingerprint support.
+///
+/// Updated for reliability-sprint issue 01: the `fingerprint` named
+/// parameter on `CrashReporter.captureError` is now **required**. These
+/// tests pin that contract by exercising the API with explicit
+/// fingerprints sourced from the central inventory.
 ///
 /// Note: the original guard-fire AC3 + AC4 coverage was removed when the
 /// recording orchestrator stopped capturing dead-mic / auto-stop as Sentry
@@ -9,6 +14,7 @@ library;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:whispaste/core/logging/crash_fingerprints.dart';
 import 'package:whispaste/core/logging/crash_reporter.dart';
 
 // ---------------------------------------------------------------------------
@@ -71,42 +77,41 @@ void main() {
     await Sentry.close();
   });
 
-  // ── AC1: fingerprint param is accepted and forwarded to the SDK ────────────
+  // ── AC1: fingerprint param is required and forwarded to the SDK ───────────
 
-  group('AC1 — captureError accepts and threads fingerprint', () {
-    test('captureError without fingerprint compiles and runs', () {
-      CrashReporter.instance!.captureError(
-        message: 'test-no-fingerprint',
-        severity: 'error',
-        type: 'test',
-      );
-      // No throw = param is optional and backward-compatible.
-    });
-
-    test('captureError with null fingerprint compiles and runs', () {
-      CrashReporter.instance!.captureError(
-        message: 'test-null-fingerprint',
-        severity: 'error',
-        type: 'test',
-        fingerprint: null,
-      );
-    });
-
-    test('captureError with empty fingerprint list compiles and runs', () {
-      CrashReporter.instance!.captureError(
-        message: 'test-empty-fingerprint',
-        severity: 'error',
-        type: 'test',
-        fingerprint: [],
-      );
-    });
-
-    test('captureError with fingerprint list compiles and runs', () {
+  group('AC1 — captureError requires and threads fingerprint', () {
+    test('captureError with single-element fingerprint runs', () {
       CrashReporter.instance!.captureError(
         message: 'test-with-fingerprint',
         severity: 'error',
         type: 'test',
-        fingerprint: ['toast-model-download-failed'],
+        fingerprint: [modelDownloadFailed],
+      );
+      // No throw = fingerprint flowed through `withScope` without issue.
+    });
+
+    test(
+      'captureError with empty fingerprint list runs (Sentry default grouping)',
+      () {
+        // The SDK treats an empty list as „no override" — captureError still
+        // runs but won't override Sentry's default exception-class grouping.
+        // We still require the parameter at the call site so reviewers see
+        // an explicit choice.
+        CrashReporter.instance!.captureError(
+          message: 'test-empty-fingerprint',
+          severity: 'error',
+          type: 'test',
+          fingerprint: [],
+        );
+      },
+    );
+
+    test('captureError accepts a multi-element fingerprint list', () {
+      CrashReporter.instance!.captureError(
+        message: 'test-multi-fingerprint',
+        severity: 'error',
+        type: 'test',
+        fingerprint: [sttExitOther, 'scoped-suffix'],
       );
     });
   });
@@ -133,28 +138,26 @@ void main() {
     });
   });
 
-  // ── Backward-compatibility: existing callers without fingerprint ───────────
+  // ── Full-parameter happy-path: an AppLogger-shape caller still runs ───────
 
-  group('Backward-compatibility', () {
-    test(
-      'captureError is fully backward-compatible (no fingerprint required)',
-      () {
-        // All existing callers (AppLogger, CrashProviderObserver) use captureError
-        // without fingerprint. This test verifies no breaking change.
-        expect(
-          () => CrashReporter.instance!.captureError(
-            message: 'existing-caller-no-fingerprint',
-            error: Exception('test'),
-            stackTrace: StackTrace.current,
-            severity: 'error',
-            type: 'error',
-            processName: 'test-process',
-            extras: {'key': 'value'},
-          ),
-          returnsNormally,
-        );
-      },
-    );
+  group('Full-parameter capture (AppLogger / observer shape)', () {
+    test('captureError with error + stackTrace + extras runs', () {
+      // Mirrors the AppLogger / CrashProviderObserver call shape with the
+      // new required-fingerprint contract bolted on.
+      expect(
+        () => CrashReporter.instance!.captureError(
+          message: 'existing-caller-shape',
+          error: Exception('test'),
+          stackTrace: StackTrace.current,
+          severity: 'error',
+          type: 'error',
+          processName: 'test-process',
+          extras: {'key': 'value'},
+          fingerprint: [appLoggerAutoEscalated],
+        ),
+        returnsNormally,
+      );
+    });
 
     test('consent gate: events dropped when consent is false', () {
       final cr = CrashReporter.instance!;
@@ -165,7 +168,7 @@ void main() {
         cr.captureError(
           message: 'should-be-dropped',
           severity: 'error',
-          fingerprint: ['test-fp'],
+          fingerprint: [sttExitOther],
         );
       } finally {
         cr.consentGranted = prevConsent;

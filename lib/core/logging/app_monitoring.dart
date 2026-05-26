@@ -15,6 +15,7 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 
 import '../app_info.dart';
 import 'app_logger.dart';
+import 'crash_fingerprints.dart';
 import 'crash_reporter.dart';
 
 /// Sentry DSN — public identifier, safe to embed in client code.
@@ -235,6 +236,7 @@ final class CrashProviderObserver extends ProviderObserver {
       stackTrace: stackTrace,
       severity: 'error',
       type: 'riverpod_error',
+      fingerprint: const [riverpodProviderFailed],
     );
   }
 }

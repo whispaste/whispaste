@@ -1,0 +1,152 @@
+/// Central inventory of Sentry crash-report fingerprint constants.
+///
+/// Every `CrashReporter.captureError` call **must** pass one of the
+/// constants from this file — inline string literals are forbidden by
+/// API (the `fingerprint` parameter on `captureError` is `required`).
+///
+/// Why this exists:
+/// - Sentry's Free-Tier issue quota is shared with every other whispaste
+///   project. Typo-induced fingerprint drift (e.g. `'stt-exit-other'` vs
+///   `'stt_exit_other'`) silently shards what should be one issue cluster
+///   into two — burning quota and obscuring diagnosis.
+/// - Code review can now spot a missing or mismatched fingerprint by
+///   constant name instead of having to recognise a magic string.
+/// - The PRD-inventory subset is contract-pinned by
+///   `test/core/logging/crash_fingerprints_test.dart` against the
+///   reliability-sprint PRD table (Modul 6 „CrashFingerprint").
+///
+/// String-value naming convention: `<domain>-<subdomain>-<kind>` (lowercase,
+/// hyphen-separated). The string is the Sentry-wire value; the Dart constant
+/// name is lowerCamelCase to satisfy `constant_identifier_names`.
+///
+/// Source of truth: `.scratch/reliability-sprint/prd.md` — Modul 6.
+library;
+
+// ---------------------------------------------------------------------------
+// PRD inventory — 13 canonical fingerprints from the reliability sprint.
+// DO NOT change these wire values without updating the contract test.
+// ---------------------------------------------------------------------------
+
+/// `STATUS_DLL_NOT_FOUND` / DLL entry-point exits from `whisper-server`.
+/// Collapses the WP-74 + WP-75 cluster (50 users, 70 events at PRD time).
+const String sttExitDllMissing = 'stt-exit-dll-missing';
+
+/// GPU-fatal exit from `whisper-server` (driver crash, CUDA OOM-side abort,
+/// Vulkan validation kill). Distinct from `sttExitHeapCorruption` so the
+/// GPU-fallback-policy can be diagnosed separately.
+const String sttExitGpuFatal = 'stt-exit-gpu-fatal';
+
+/// Heap/stack corruption exits (Windows STATUS_HEAP_CORRUPTION,
+/// STATUS_STACK_BUFFER_OVERRUN, ABRT on Unix). Often manifests as a
+/// CPU-fallback retry candidate.
+const String sttExitHeapCorruption = 'stt-exit-heap-corruption';
+
+/// Catch-all for `whisper-server` exits that the classifier could not
+/// place into a more specific bucket. Keeps every unclassified exit code
+/// in one issue instead of one-per-exit-code.
+const String sttExitOther = 'stt-exit-other';
+
+/// `modelLoad` exit when the model SHA-256 matches expected — i.e. the
+/// model file is intact but the installed `whisper-server` binary cannot
+/// load it (ABI mismatch after a server-variant change). This is the
+/// WP-32 cluster (75 users, 186 events at PRD time).
+const String sttModelAbiMismatch = 'stt-model-abi-mismatch';
+
+/// `modelLoad` exit when the model SHA-256 does NOT match expected.
+/// The on-disk model file is corrupted and needs a silent re-download.
+const String sttModelCorrupted = 'stt-model-corrupted';
+
+/// Final `SqliteException(5) database is locked` after the
+/// SqliteWriteCoordinator's retry budget is exhausted. One fingerprint
+/// for the entire write surface so duplicates like WP-7B…7M collapse to
+/// a single Sentry issue.
+const String historyWriteFailed = 'history-write-failed';
+
+/// Catch-all for Drift / SQLite mutation errors that are NOT
+/// `SqliteException(5)` (e.g. constraint violations, encoding errors,
+/// disk-full failures).
+const String historyWriteOther = 'history-write-other';
+
+/// Catch-all for `WhisperServerDownloader.download` failures that are not
+/// the stall-detector path (network errors, 404s, asset-pattern misses).
+const String serverDownloadFailed = 'server-download-failed';
+
+/// `HttpStallDetector` 30 s no-byte-progress kill in the server-binary
+/// download stream. Distinct from `serverDownloadFailed` so the stall
+/// frequency can be tracked separately.
+const String serverDownloadStalled = 'server-download-stalled';
+
+/// Catch-all for `ModelDownloadNotifier` failures (model asset fetch,
+/// SHA verification, file rename).
+const String modelDownloadFailed = 'model-download-failed';
+
+/// **Reserved but intentionally unused at capture sites**: the update
+/// check (`update_service.dart`, GitHub `releases/latest`) is removed
+/// from the Sentry capture path entirely — network failures there are
+/// expected and gulp the Free-Tier quota. Constant stays in the
+/// inventory as a contract marker so the choice is visible in review.
+const String updateCheckFailed = 'update-check-failed';
+
+/// `FactoryResetCoordinator` failed-phase fingerprint.
+const String factoryResetFailed = 'factory-reset-failed';
+
+// ---------------------------------------------------------------------------
+// Pre-existing fingerprints kept as constants so call sites do not need
+// inline string literals. These predate the PRD inventory but were already
+// in use; promoting them to named constants closes the „no inline literals"
+// loop without re-grouping historical Sentry issues.
+// ---------------------------------------------------------------------------
+
+/// `Process.start` for `whisper-server` failed (ENOENT, exec bit, path
+/// invalid). Used by `stt_server_state_notifier.dart` spawn path.
+const String sttSpawnFailed = 'stt-spawn-failed';
+
+/// `whisper-server` is alive but produced no stderr progress within the
+/// configured heartbeat window — typically a model-load stall.
+const String sttHeartbeatTimeout = 'stt-heartbeat-timeout';
+
+/// `whisper-server` exited before reaching the ready state and the exit
+/// did not flow through the classified exit-code switch (i.e. the
+/// `_EarlyExitException` escape hatch).
+const String sttEarlyExit = 'stt-early-exit';
+
+/// Auto-escalation path from `AppLogger` — any `_log.error` / `_log.fatal`
+/// that did NOT explicitly call `captureError` with its own fingerprint
+/// lands here. One bucket keeps the auto-escalation noise from sharding.
+const String appLoggerAutoEscalated = 'app-logger-auto-escalated';
+
+/// Riverpod `ProviderObserver.providerDidFail` capture. One bucket per
+/// failing provider would explode quota; collapsing to one fingerprint
+/// keeps the channel reviewable.
+const String riverpodProviderFailed = 'riverpod-provider-failed';
+
+// ---------------------------------------------------------------------------
+// Full iterable for tooling (e.g. „verify no inline fingerprint string in
+// the codebase appears outside this file"). Order is irrelevant — Sentry
+// treats fingerprints as a set of strings, not an ordered list.
+// ---------------------------------------------------------------------------
+
+/// All fingerprint wire values registered in this inventory. Iteration
+/// order is not stable and must not be relied upon.
+const List<String> allCrashFingerprints = <String>[
+  // PRD-pinned 13.
+  sttExitDllMissing,
+  sttExitGpuFatal,
+  sttExitHeapCorruption,
+  sttExitOther,
+  sttModelAbiMismatch,
+  sttModelCorrupted,
+  historyWriteFailed,
+  historyWriteOther,
+  serverDownloadFailed,
+  serverDownloadStalled,
+  modelDownloadFailed,
+  updateCheckFailed,
+  factoryResetFailed,
+  // Pre-existing call-site fingerprints retained as constants.
+  sttSpawnFailed,
+  sttHeartbeatTimeout,
+  sttEarlyExit,
+  appLoggerAutoEscalated,
+  riverpodProviderFailed,
+];
