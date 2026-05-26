@@ -80,4 +80,64 @@ void main() {
       }
     });
   });
+
+  group('CrashFingerprints — W1 inference inventory', () {
+    // The five inference-error fingerprints added by the wartung-2026-05 W1
+    // sprint. They classify HTTP-status responses from the local
+    // `whisper-server` into Sentry buckets so `InferenceErrorClassifier`
+    // (Issue 02) and the STT call-site (Issue 04) can attach class-specific
+    // fingerprints to captures.
+    final inferenceInventory = <String, String>{
+      'inferenceBadRequest': inferenceBadRequest,
+      'inferencePayloadTooLarge': inferencePayloadTooLarge,
+      'inferenceUnsupportedMedia': inferenceUnsupportedMedia,
+      'inferenceServerError': inferenceServerError,
+      'inferenceUnknownStatus': inferenceUnknownStatus,
+    };
+
+    test('each inference constant resolves to a non-empty wire value', () {
+      for (final entry in inferenceInventory.entries) {
+        expect(
+          entry.value,
+          isNotEmpty,
+          reason:
+              '${entry.key} must expose a non-empty Sentry wire value — '
+              'empty strings would collapse into Sentry default grouping.',
+        );
+      }
+    });
+
+    test('allCrashFingerprints contains every inference constant', () {
+      for (final entry in inferenceInventory.entries) {
+        expect(
+          allCrashFingerprints,
+          contains(entry.value),
+          reason:
+              'allCrashFingerprints must include ${entry.key} '
+              '(wire value: ${entry.value}) — otherwise tooling that '
+              'iterates the list cannot see it.',
+        );
+      }
+    });
+  });
+
+  group('CrashFingerprints — global uniqueness', () {
+    test('every wire value in allCrashFingerprints is unique', () {
+      // Sentry treats fingerprints as a set: duplicates silently collapse
+      // two distinct error classes into one issue, sharding diagnosis and
+      // burning Free-Tier quota. This guard catches typos and copy-paste
+      // collisions across the full inventory (PRD + pre-existing +
+      // W1-inference).
+      const values = allCrashFingerprints;
+      final unique = values.toSet();
+      expect(
+        unique.length,
+        values.length,
+        reason:
+            'Duplicate fingerprint detected in allCrashFingerprints — '
+            'two constants share a wire value. Inspect the list and '
+            'rename one of the colliding entries.',
+      );
+    });
+  });
 }

@@ -121,6 +121,45 @@ const String appLoggerAutoEscalated = 'app-logger-auto-escalated';
 const String riverpodProviderFailed = 'riverpod-provider-failed';
 
 // ---------------------------------------------------------------------------
+// W1 inference inventory (wartung-2026-05). HTTP-status classification for
+// the local `whisper-server` inference endpoint. The classifier in
+// `InferenceErrorClassifier` (Issue 02) maps a response status to one of
+// these fingerprints so Sentry buckets distinct failure modes separately.
+// `inferenceClientRejected` is intentionally NOT in this inventory: pre-flight
+// validator rejects stay as breadcrumbs and do not reach the Sentry capture
+// path.
+// ---------------------------------------------------------------------------
+
+/// HTTP 400 from `whisper-server` inference endpoint. Indicates the
+/// request was syntactically valid HTTP but semantically rejected by the
+/// server (e.g. malformed multipart, invalid prompt, unsupported sampling
+/// parameter). Distinct from the pre-flight validator path, which never
+/// captures.
+const String inferenceBadRequest = 'inference-bad-request';
+
+/// HTTP 413 (Payload Too Large) from `whisper-server` inference endpoint.
+/// The WAV exceeded the server's accepted upload size — typically a sign
+/// the pre-flight validator's size cap drifted out of sync with the
+/// server config.
+const String inferencePayloadTooLarge = 'inference-payload-too-large';
+
+/// HTTP 415 (Unsupported Media Type) from `whisper-server` inference
+/// endpoint. The uploaded audio container or codec is not supported by
+/// the running server build (e.g. WAV with an unexpected codec tag).
+const String inferenceUnsupportedMedia = 'inference-unsupported-media';
+
+/// HTTP 5xx (500–599) from `whisper-server` inference endpoint. Server-side
+/// failure — model crash, OOM, internal panic. Distinct from process-exit
+/// fingerprints because the server stayed up long enough to answer.
+const String inferenceServerError = 'inference-server-error';
+
+/// Any other non-200 status from `whisper-server` inference endpoint
+/// (e.g. 4xx that is not 400/413/415, or unexpected 3xx redirects). Acts
+/// as the catch-all bucket so unforeseen status codes do not shard into
+/// per-code Sentry issues.
+const String inferenceUnknownStatus = 'inference-unknown-status';
+
+// ---------------------------------------------------------------------------
 // Full iterable for tooling (e.g. „verify no inline fingerprint string in
 // the codebase appears outside this file"). Order is irrelevant — Sentry
 // treats fingerprints as a set of strings, not an ordered list.
@@ -149,4 +188,10 @@ const List<String> allCrashFingerprints = <String>[
   sttEarlyExit,
   appLoggerAutoEscalated,
   riverpodProviderFailed,
+  // W1 inference inventory (wartung-2026-05).
+  inferenceBadRequest,
+  inferencePayloadTooLarge,
+  inferenceUnsupportedMedia,
+  inferenceServerError,
+  inferenceUnknownStatus,
 ];
