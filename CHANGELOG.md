@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 1.2.26
+
+### Bug Fixes
+
+- **CI-Build wird wieder grün — `sqlite3`-Version explizit gepinnt**. Der v1.2.25-Build lief lokal sauber durch, aber der CI-Runner auflöste `sqlite3` auf eine ältere Major-Version (2.9.4 statt 3.3.1), weil `sentry_drift 9.20.0` einen veralteten `sqlite3: ^2.1.0`-Constraint mitschleppt, der mit dem `sqlite3: ^3.1.5`-Bedarf von `drift 2.33.0` kollidiert. Lokal blieb das durch das eingecheckte Lock-File auf 3.3.1 stabil, auf CI griff der Resolver am Lock vorbei und kippte auf 2.9.4 — dessen `SqliteException` einen anderen Konstruktor hat und damit die Coordinator-Tests beim `flutter analyze` zerlegt. `dependency_overrides: { sqlite3: ^3.3.0 }` zwingt jetzt beide Seiten auf die gleiche Major-Version. Reine Build-Hygiene — keine Verhaltensänderung an der App selbst gegenüber 1.2.25.
+
 ## 1.2.25
 
 ### Features
