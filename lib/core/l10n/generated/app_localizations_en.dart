@@ -2485,4 +2485,38 @@ class L10nEn extends L10n {
 
   @override
   String get exportFormatWord => 'Word';
+
+  @override
+  String get recoveryExhaustedToast =>
+      'Voice service cannot start. Please restart the app or reload the voice model.';
+
+  @override
+  String get recoveryExhaustedAction => 'Open settings';
+
+  @override
+  String get modelAbiInfoToast => 'Reloading voice model — please wait.';
+
+  @override
+  String get serverDownloadFailedToast =>
+      'Voice service could not be downloaded. Check your internet connection?';
+
+  @override
+  String get serverDownloadFailedAction => 'Try again';
+
+  @override
+  String get serverDownloadStalledToast => 'Download stalled — reconnecting.';
+
+  @override
+  String get historyWriteFailedToast =>
+      'Entry could not be saved — please check available storage.';
+
+  @override
+  String get historyWriteFailedAction => 'Copy diagnostics';
+
+  @override
+  String get factoryResetFailedToast =>
+      'Factory reset incomplete. Restart the app?';
+
+  @override
+  String get factoryResetFailedAction => 'Quit app';
 }

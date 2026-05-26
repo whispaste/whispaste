@@ -26,6 +26,7 @@ import '../model_download_service.dart';
 import '../path_service.dart';
 import '../process_runner.dart';
 import '../subprocess_guard.dart' as guard;
+import 'recovery_toast_notifier.dart';
 import 'server_binary_recovery.dart';
 import 'stt_exit_classifier.dart';
 import 'stt_gpu_fallback_policy.dart';
@@ -1486,11 +1487,16 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
 
     // Move the surface state to `stopped` while recovery is in flight so
     // any UI listening to `SttStatus.serverState` knows the previous
-    // process is gone (and so it can render the PRD's
-    // „Lade Sprachmodell neu — bitte warten." info-toast for the
-    // abiMismatch path — see TODO(issue-07) at the call-site once the
-    // toast surface ships).
+    // process is gone, and push the PRD's
+    // „Lade Sprachmodell neu — bitte warten." info-toast on the
+    // abiMismatch path. The UI listener (`recording_behavior.dart`)
+    // picks it up and renders the passive (no-action) toast.
     _transition(const SttStatus(serverState: SttServerState.stopped));
+    if (reason == RecoveryReason.abiMismatch) {
+      ref
+          .read(recoveryToastNotifierProvider.notifier)
+          .report(RecoveryToastKind.abiInfo);
+    }
 
     final RecoveryResult result;
     try {
@@ -1505,8 +1511,12 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       // returns RecoveryExhausted instead. If it does, treat that as
       // exhausted so we still surface the actionable message.
       _log.error('ServerBinaryRecovery threw unexpectedly: $e\n$st');
-      // TODO(issue-07): upgrade to WpToastAction with „Einstellungen öffnen"
-      // pointing at the `cloud_advanced_section` reset area.
+      // Push the actionable „Einstellungen öffnen" toast to the UI; the
+      // listener in `recording_behavior.dart` navigates to the
+      // `cloud_advanced_section` reset area on tap.
+      ref
+          .read(recoveryToastNotifierProvider.notifier)
+          .report(RecoveryToastKind.exhausted);
       _transition(
         const SttStatus(
           serverState: SttServerState.error,
@@ -1537,8 +1547,12 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
         return;
       case RecoveryExhausted(:final userMessage):
         _log.error('Recovery exhausted — surfacing actionable error state.');
-        // TODO(issue-07): upgrade to WpToastAction with „Einstellungen öffnen"
-        // pointing at the `cloud_advanced_section` reset area.
+        // Push the actionable „Einstellungen öffnen" toast to the UI; the
+        // listener in `recording_behavior.dart` navigates to the
+        // `cloud_advanced_section` reset area on tap.
+        ref
+            .read(recoveryToastNotifierProvider.notifier)
+            .report(RecoveryToastKind.exhausted);
         _transition(
           SttStatus(
             serverState: SttServerState.error,

@@ -7,7 +7,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart' show DateFormat;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../core/app_info.dart';
 import '../../core/l10n/generated/app_localizations.dart';
+import '../../core/logging/crash_fingerprints.dart';
 import '../../widgets/dialog.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/page_shell.dart';
@@ -571,12 +573,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       // Refresh detail panel if this entry is shown (Finding #3)
       ref.invalidate(historyDetailProvider(entry.id));
     } catch (e) {
-      if (!mounted) return;
-      WpToast.show(
-        context,
-        message: L10n.of(context).errorGeneric,
-        type: WpToastType.error,
-      );
+      _showHistoryWriteFailedToast();
     }
   }
 
@@ -589,12 +586,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
         await ref.read(historyDatabaseProvider).softDeleteEntry(entry.id);
       }
     } catch (e) {
-      if (!mounted) return;
-      WpToast.show(
-        context,
-        message: L10n.of(context).errorGeneric,
-        type: WpToastType.error,
-      );
+      _showHistoryWriteFailedToast();
       return;
     }
     if (_selectedEntryId == entry.id) {
@@ -617,12 +609,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       await ref.read(historyDatabaseProvider).toggleArchive(entry.id);
       ref.invalidate(historyDetailProvider(entry.id));
     } catch (e) {
-      if (!mounted) return;
-      WpToast.show(
-        context,
-        message: L10n.of(context).errorGeneric,
-        type: WpToastType.error,
-      );
+      _showHistoryWriteFailedToast();
       return;
     }
     if (_selectedEntryId == entry.id) {
@@ -635,12 +622,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       await ref.read(historyDatabaseProvider).restoreEntry(entry.id);
       ref.invalidate(historyDetailProvider(entry.id));
     } catch (e) {
-      if (!mounted) return;
-      WpToast.show(
-        context,
-        message: L10n.of(context).errorGeneric,
-        type: WpToastType.error,
-      );
+      _showHistoryWriteFailedToast();
     }
   }
 
@@ -658,12 +640,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
         duration: const Duration(seconds: 2),
       );
     } catch (e) {
-      if (!mounted) return;
-      WpToast.show(
-        context,
-        message: L10n.of(context).errorGeneric,
-        type: WpToastType.error,
-      );
+      _showHistoryWriteFailedToast();
     }
   }
 
@@ -740,12 +717,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     try {
       await db.batchArchive(_selectedIds.toList());
     } catch (e) {
-      if (!mounted) return;
-      WpToast.show(
-        context,
-        message: L10n.of(context).errorGeneric,
-        type: WpToastType.error,
-      );
+      _showHistoryWriteFailedToast();
       return;
     }
     setState(() {
@@ -764,12 +736,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
         await db.softDeleteEntries(_selectedIds.toList());
       }
     } catch (e) {
-      if (!mounted) return;
-      WpToast.show(
-        context,
-        message: L10n.of(context).errorGeneric,
-        type: WpToastType.error,
-      );
+      _showHistoryWriteFailedToast();
       return;
     }
     setState(() {
@@ -783,12 +750,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     try {
       await db.batchRestore(_selectedIds.toList());
     } catch (e) {
-      if (!mounted) return;
-      WpToast.show(
-        context,
-        message: L10n.of(context).errorGeneric,
-        type: WpToastType.error,
-      );
+      _showHistoryWriteFailedToast();
       return;
     }
     setState(() {
@@ -822,6 +784,48 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       type: WpToastType.success,
       duration: const Duration(seconds: 2),
     );
+  }
+
+  /// Shows the PRD-spec actionable toast for a history-write failure
+  /// (most often a final `SqliteException(5) database is locked` after
+  /// the `SqliteWriteCoordinator` retry budget is exhausted, mapped to
+  /// the [historyWriteFailed] Sentry fingerprint).
+  ///
+  /// The „Diagnose kopieren" action copies a compact one-liner with the
+  /// app version, platform and the canonical fingerprint string into the
+  /// clipboard so the user can paste it into a bug report. Sentry's own
+  /// event-ID is intentionally not surfaced here — the capture happens
+  /// inside the write coordinator and that path does not expose the ID
+  /// back to the UI; the fingerprint plus a timestamp is enough for the
+  /// maintainer to correlate.
+  void _showHistoryWriteFailedToast() {
+    if (!mounted) return;
+    final l10n = L10n.of(context);
+    WpToast.show(
+      context,
+      message: l10n.historyWriteFailedToast,
+      type: WpToastType.error,
+      duration: const Duration(seconds: 6),
+      action: WpToastAction(
+        label: l10n.historyWriteFailedAction,
+        onPressed: _copyHistoryWriteDiagnostics,
+      ),
+    );
+  }
+
+  void _copyHistoryWriteDiagnostics() {
+    final timestamp = DateTime.now().toUtc().toIso8601String();
+    final diag = StringBuffer()
+      ..writeln('WhisPaste diagnostics')
+      ..writeln('fingerprint: $historyWriteFailed')
+      ..writeln('app: $appName $appVersion')
+      ..writeln(
+        'platform: ${Platform.operatingSystem} '
+        '${Platform.operatingSystemVersion}',
+      )
+      ..writeln('locale: ${Platform.localeName}')
+      ..writeln('timestamp: $timestamp');
+    Clipboard.setData(ClipboardData(text: diag.toString()));
   }
 
   /// Permanently delete all items in trash after confirmation.

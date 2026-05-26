@@ -877,5 +877,16 @@
   "exportFormatMarkdown": "Markdown",
   "exportFormatCsv": "CSV",
   "exportFormatJson": "JSON",
-  "exportFormatWord": "Word"
+  "exportFormatWord": "Word",
+
+  "recoveryExhaustedToast": "Voice service cannot start. Please restart the app or reload the voice model.",
+  "recoveryExhaustedAction": "Open settings",
+  "modelAbiInfoToast": "Reloading voice model — please wait.",
+  "serverDownloadFailedToast": "Voice service could not be downloaded. Check your internet connection?",
+  "serverDownloadFailedAction": "Try again",
+  "serverDownloadStalledToast": "Download stalled — reconnecting.",
+  "historyWriteFailedToast": "Entry could not be saved — please check available storage.",
+  "historyWriteFailedAction": "Copy diagnostics",
+  "factoryResetFailedToast": "Factory reset incomplete. Restart the app?",
+  "factoryResetFailedAction": "Quit app"
 }

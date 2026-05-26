@@ -24,6 +24,7 @@ import '../services/paste/paste_failure_notifier.dart';
 import '../services/paste/paster.dart';
 import '../services/recording_orchestrator.dart';
 import '../services/sound_feedback_service.dart';
+import '../services/stt/recovery_toast_notifier.dart';
 import '../services/tray_service.dart';
 import 'oom_recovery_dialog.dart';
 import 'toast.dart';
@@ -344,7 +345,32 @@ class _RecordingBehaviorState extends ConsumerState<RecordingBehaviorWidget> {
       );
     });
 
+    // ── Server-binary recovery outcomes (issue #07 actionable toast) ──
+    ref.listen<RecoveryToastEvent?>(recoveryToastNotifierProvider, (
+      prev,
+      next,
+    ) {
+      if (next == null) return;
+      _showRecoveryToast(context, l10n, next.kind);
+      Future.microtask(
+        () => ref.read(recoveryToastNotifierProvider.notifier).clear(),
+      );
+    });
+
     return widget.child;
+  }
+
+  void _showRecoveryToast(
+    BuildContext context,
+    L10n l10n,
+    RecoveryToastKind kind,
+  ) {
+    showRecoveryToast(
+      context: context,
+      l10n: l10n,
+      kind: kind,
+      openSettings: _openSettings,
+    );
   }
 
   void _showPasteFailureToast(
@@ -392,5 +418,52 @@ class _RecordingBehaviorState extends ConsumerState<RecordingBehaviorWidget> {
     } on Exception catch (e) {
       _log.warning('Could not open Accessibility settings', e);
     }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Recovery toast — extracted so widget tests can exercise the action
+// wiring directly without bootstrapping the full RecordingBehaviorWidget.
+// ---------------------------------------------------------------------------
+
+/// Renders the PRD-spec actionable toast for a recovery outcome.
+///
+/// - [RecoveryToastKind.exhausted] → error toast + "Einstellungen
+///   öffnen" action that calls [openSettings] with the
+///   `'advanced'` deep-link target (which holds the Factory-Reset row in
+///   `cloud_advanced_section.dart`).
+/// - [RecoveryToastKind.abiInfo] → passive info toast (no action) — the
+///   silent re-download is already in flight inside
+///   `SttServerStateNotifier`.
+///
+/// [openSettings] is injected so widget tests can substitute a spy and
+/// assert that tapping the action fires the navigation request without
+/// needing the full app shell (`activePageProvider` +
+/// `settingsScrollTargetProvider` are private to the production wiring).
+void showRecoveryToast({
+  required BuildContext context,
+  required L10n l10n,
+  required RecoveryToastKind kind,
+  required void Function(String section) openSettings,
+}) {
+  switch (kind) {
+    case RecoveryToastKind.exhausted:
+      WpToast.show(
+        context,
+        message: l10n.recoveryExhaustedToast,
+        type: WpToastType.error,
+        duration: const Duration(seconds: 8),
+        action: WpToastAction(
+          label: l10n.recoveryExhaustedAction,
+          onPressed: () => openSettings('advanced'),
+        ),
+      );
+    case RecoveryToastKind.abiInfo:
+      WpToast.show(
+        context,
+        message: l10n.modelAbiInfoToast,
+        type: WpToastType.info,
+        duration: const Duration(seconds: 5),
+      );
   }
 }

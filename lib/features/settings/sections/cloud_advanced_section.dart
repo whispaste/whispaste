@@ -2,6 +2,7 @@
 library;
 
 import 'dart:async';
+import 'dart:io' as io;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -23,6 +24,17 @@ import '../../../widgets/dialog.dart';
 import '../../../widgets/section.dart';
 import '../../../widgets/toast.dart';
 import '../settings_widgets.dart';
+
+// ---------------------------------------------------------------------------
+// Test seam: the „App schließen" action on the factory-reset-failed toast
+// calls [factoryResetExitFn]. Production wires it to `dart:io`'s `exit(…)`;
+// widget tests overwrite it with a spy so they can assert the action
+// fires without actually terminating the test isolate. Kept at the
+// top-level (rather than passed through the widget tree) so the single
+// `WpToastAction` callback stays trivial — the seam is documented at the
+// only call site below.
+typedef ExitFn = void Function(int code);
+ExitFn factoryResetExitFn = io.exit;
 
 // ---------------------------------------------------------------------------
 // Advanced section
@@ -176,16 +188,21 @@ class AdvancedSection extends ConsumerWidget {
         type: WpToastType.success,
       );
     } else {
-      // TODO(issue-07): upgrade to WpToastAction with an "App schließen"
-      // action once `WpToastAction` lands from issue #07
-      // (`07-feat-actionable-toast-polish.md`). For now this is a plain
-      // info-level toast — the PRD permits the temporary surface so this
-      // module is not blocked on the toast-polish module.
+      final failL10n = L10n.of(context);
       WpToast.show(
         context,
-        message: L10n.of(context).settingsFactoryResetFailedMessage,
+        message: failL10n.factoryResetFailedToast,
         type: WpToastType.error,
         duration: const Duration(seconds: 8),
+        action: WpToastAction(
+          label: failL10n.factoryResetFailedAction,
+          // [factoryResetExitFn] is a test seam (see top of this file).
+          // Production: `dart:io`'s `exit(0)` — the desktop platforms
+          // collapse the OS process cleanly; the user can re-launch from
+          // their dock / start menu, which is the recovery path the PRD
+          // hands them.
+          onPressed: () => factoryResetExitFn(0),
+        ),
       );
     }
   }
