@@ -817,21 +817,19 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
   ///
   /// The caller MUST stop the STT subprocess before calling this method
   /// (to avoid file-locking on the whisper-server binary).
+  ///
+  /// Prefer routing user-triggered resets through [FactoryResetCoordinator]
+  /// (see `lib/services/factory_reset/factory_reset_coordinator.dart`):
+  /// it splits the destructive work into phases the UI can render and
+  /// performs the multi-GB directory deletes off-isolate so the app does
+  /// not appear frozen (the Idmir-Junio 1★ store cluster). This monolithic
+  /// method remains for non-UI callers and tests that want the entire
+  /// reset in one shot.
   Future<void> factoryReset() async {
     final db = ref.read(historyDatabaseProvider);
 
     // 1. Clear ALL secure storage API keys (best-effort).
-    try {
-      final secureStore = ref.read(secureKeyStoreProvider);
-      for (final secureKey in apiKeyMapping.values) {
-        await secureStore.deleteKey(secureKey);
-      }
-    } catch (e) {
-      dev.log(
-        'Factory reset: secure store cleanup failed: $e',
-        name: 'Settings',
-      );
-    }
+    await eraseSecureStore();
 
     // 2. Delete all database content (history, tags, projects, etc.).
     try {
@@ -847,22 +845,53 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
     final logsDir = p.join(appDataDir(), 'logs');
     _tryDeleteDir(logsDir);
 
-    // 5. Delete PID files from subprocess_guard.
+    // 5–9 — small-file cleanup + in-memory state reset. Extracted so that
+    // [FactoryResetCoordinator]'s `resetSettings` hook can reuse exactly
+    // this tail without duplicating the file list.
+    await factoryResetFinalize();
+  }
+
+  /// Best-effort secure-store cleanup. Extracted from [factoryReset] so
+  /// the [FactoryResetCoordinator]'s `eraseSecureStore` hook can call it
+  /// directly.
+  Future<void> eraseSecureStore() async {
+    try {
+      final secureStore = ref.read(secureKeyStoreProvider);
+      for (final secureKey in apiKeyMapping.values) {
+        await secureStore.deleteKey(secureKey);
+      }
+    } catch (e) {
+      dev.log(
+        'Factory reset: secure store cleanup failed: $e',
+        name: 'Settings',
+      );
+    }
+  }
+
+  /// Tail of the factory-reset sequence: deletes PID/crash-queue/legacy
+  /// files, cleans up temp WAVs, and resets the in-memory settings state
+  /// so the next render shows the onboarding overlay.
+  ///
+  /// Intended to be invoked as the `resetSettings` hook of
+  /// [FactoryResetCoordinator] after the large-IO phases (model dir,
+  /// logs dir, DB, secure store) have already run.
+  Future<void> factoryResetFinalize() async {
+    // PID files from subprocess_guard.
     _tryDeleteFile(p.join(appDataDir(), '.whisper-server.pid'));
     _tryDeleteFile(p.join(appDataDir(), '.llama-server.pid'));
 
-    // 6. Delete crash queue database.
+    // Crash queue database.
     _tryDeleteFile(p.join(appDataDir(), 'crash_queue.db'));
     _tryDeleteFile(p.join(appDataDir(), 'crash_queue.db-wal'));
     _tryDeleteFile(p.join(appDataDir(), 'crash_queue.db-shm'));
 
-    // 7. Delete legacy Go config.
+    // Legacy Go config.
     _tryDeleteFile(p.join(appDataDir(), 'config.json'));
 
-    // 8. Clean up temp WAV files.
+    // Temp WAV files.
     _cleanupTempWavFiles();
 
-    // 9. Reset in-memory state — triggers onboarding via onboardingCompleted=false.
+    // Reset in-memory state — triggers onboarding via onboardingCompleted=false.
     state = AsyncData(AppSettings.defaults);
 
     dev.log('Factory reset complete', name: 'Settings');

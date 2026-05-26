@@ -223,6 +223,13 @@
   "settingsFactoryResetMessage": "Damit werden ALLE Daten unwiderruflich gelöscht: Diktatverlauf, Tags, Sprachkürzel, heruntergeladene Modelle, Protokolle und Einstellungen. Die App wird in den Ausgangszustand zurückversetzt.\n\nDies kann nicht rückgängig gemacht werden.",
   "settingsFactoryResetConfirm": "Alles löschen",
   "settingsFactoryResetSuccess": "App wurde vollständig zurückgesetzt",
+  "settingsFactoryResetProgressTitle": "WhisPaste wird zurückgesetzt",
+  "settingsFactoryResetPhaseStoppingSubprocess": "Beende Sprachdienst…",
+  "settingsFactoryResetPhaseDeletingModels": "Lösche Sprachmodelle…",
+  "settingsFactoryResetPhaseDeletingDatabase": "Lösche Datenbank…",
+  "settingsFactoryResetPhaseResettingSecureStore": "Setze Anmeldedaten zurück…",
+  "settingsFactoryResetPhaseResettingSettings": "Setze Einstellungen zurück…",
+  "settingsFactoryResetFailedMessage": "Werks-Reset unvollständig. App neu starten?",
   "groqRemovedToast": "Groq STT wurde entfernt — Provider auf On-Device zurückgesetzt.",
   "migrationComplete": "{count, plural, one{1 Diktat von WhisPaste 1.x migriert} other{{count} Diktate von WhisPaste 1.x migriert}}",
   "@migrationComplete": {

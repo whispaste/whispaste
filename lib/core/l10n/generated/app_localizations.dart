@@ -1335,6 +1335,48 @@ abstract class L10n {
   /// **'App has been completely reset'**
   String get settingsFactoryResetSuccess;
 
+  /// No description provided for @settingsFactoryResetProgressTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Resetting WhisPaste'**
+  String get settingsFactoryResetProgressTitle;
+
+  /// No description provided for @settingsFactoryResetPhaseStoppingSubprocess.
+  ///
+  /// In en, this message translates to:
+  /// **'Stopping voice service…'**
+  String get settingsFactoryResetPhaseStoppingSubprocess;
+
+  /// No description provided for @settingsFactoryResetPhaseDeletingModels.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleting voice models…'**
+  String get settingsFactoryResetPhaseDeletingModels;
+
+  /// No description provided for @settingsFactoryResetPhaseDeletingDatabase.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleting database…'**
+  String get settingsFactoryResetPhaseDeletingDatabase;
+
+  /// No description provided for @settingsFactoryResetPhaseResettingSecureStore.
+  ///
+  /// In en, this message translates to:
+  /// **'Clearing credentials…'**
+  String get settingsFactoryResetPhaseResettingSecureStore;
+
+  /// No description provided for @settingsFactoryResetPhaseResettingSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Restoring default settings…'**
+  String get settingsFactoryResetPhaseResettingSettings;
+
+  /// No description provided for @settingsFactoryResetFailedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Factory reset incomplete. Please restart the app.'**
+  String get settingsFactoryResetFailedMessage;
+
   /// No description provided for @groqRemovedToast.
   ///
   /// In en, this message translates to:

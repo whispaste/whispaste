@@ -238,6 +238,13 @@
   "settingsFactoryResetMessage": "פעולה זו תמחק לצמיתות את כל הנתונים: היסטוריה, תגיות, קיצורים, מודלים, לוגים והגדרות. האפליקציה תחזור למצב ראשוני.\n\nאין דרך לבטל.",
   "settingsFactoryResetConfirm": "מחק הכל",
   "settingsFactoryResetSuccess": "האפליקציה אופסה לחלוטין",
+  "settingsFactoryResetProgressTitle": "Resetting WhisPaste",
+  "settingsFactoryResetPhaseStoppingSubprocess": "Stopping voice service…",
+  "settingsFactoryResetPhaseDeletingModels": "Deleting voice models…",
+  "settingsFactoryResetPhaseDeletingDatabase": "Deleting database…",
+  "settingsFactoryResetPhaseResettingSecureStore": "Clearing credentials…",
+  "settingsFactoryResetPhaseResettingSettings": "Restoring default settings…",
+  "settingsFactoryResetFailedMessage": "Factory reset incomplete. Please restart the app.",
   "migrationComplete": "{count, plural, one{תמלול אחד הועבר מ-WhisPaste 1.x} other{{count} תמלולים הועברו מ-WhisPaste 1.x}}",
   "@migrationComplete": {
     "placeholders": {

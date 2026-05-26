@@ -708,6 +708,32 @@ class L10nDe extends L10n {
       'App wurde vollständig zurückgesetzt';
 
   @override
+  String get settingsFactoryResetProgressTitle =>
+      'WhisPaste wird zurückgesetzt';
+
+  @override
+  String get settingsFactoryResetPhaseStoppingSubprocess =>
+      'Beende Sprachdienst…';
+
+  @override
+  String get settingsFactoryResetPhaseDeletingModels => 'Lösche Sprachmodelle…';
+
+  @override
+  String get settingsFactoryResetPhaseDeletingDatabase => 'Lösche Datenbank…';
+
+  @override
+  String get settingsFactoryResetPhaseResettingSecureStore =>
+      'Setze Anmeldedaten zurück…';
+
+  @override
+  String get settingsFactoryResetPhaseResettingSettings =>
+      'Setze Einstellungen zurück…';
+
+  @override
+  String get settingsFactoryResetFailedMessage =>
+      'Werks-Reset unvollständig. App neu starten?';
+
+  @override
   String get groqRemovedToast =>
       'Groq STT wurde entfernt — Provider auf On-Device zurückgesetzt.';
 
