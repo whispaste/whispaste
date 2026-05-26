@@ -171,7 +171,12 @@ class WhisperServerDownloader {
       }
     }
 
-    _log.error('Could not download whisper-server from any source');
+    // Downgraded from error → warning to avoid AppLogger's auto-escalate
+    // path (`appLoggerAutoEscalated`) emitting a duplicate Sentry event
+    // alongside the explicit fingerprinted capture below. The explicit
+    // capture is the authoritative one — it carries the stall-vs-failed
+    // distinction and the diagnostic extras.
+    _log.warning('Could not download whisper-server from any source');
     final finalMessage = lastError ?? 'Could not download whisper-server.';
     // Stall-classified failures get their own Sentry fingerprint so the
     // network-quality signal can be tracked separately from generic
