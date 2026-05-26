@@ -383,21 +383,36 @@ void main() {
       fakeProcess.exit(3);
       await Future<void>.delayed(const Duration(milliseconds: 500));
 
-      // Assert: no re-download was triggered.
+      // Assert: no model-asset re-download was triggered.
+      //
+      // Pre-recovery the hash-OK path landed in a plain error state and
+      // never asked the model-download notifier to fetch anything. Post-
+      // recovery (PRD-Modul-1 / issue 04) the same hash-OK case is treated
+      // as a binary/model ABI-mismatch and hands off to
+      // ServerBinaryRecovery, which uses the WhisperServerDownloader to
+      // swap the *server-binary* variant — NOT the model asset. The
+      // `_TrackingModelDownloadNotifier.downloadModel` must therefore
+      // still never be called on this path.
       expect(
         trackingDownloader.downloadedModelIds,
         isEmpty,
         reason:
-            'downloadModel() must NOT be called when hash is OK / model unknown',
+            'downloadModel() must NOT be called when hash is OK / model '
+            'unknown — the recovery path swaps the server binary, not the '
+            'model asset',
       );
 
-      // Assert: service is in error state with the incompatible-runtime message.
+      // Assert: service has left the `ready` state. With ServerBinaryRecovery
+      // wired in, the notifier first transitions to `stopped` while the
+      // recovery is in flight, then either back to a running/ready state
+      // (RecoveryRetried) or to `error` (RecoveryExhausted). The old
+      // single-shot "error" state is no longer the only legal endpoint —
+      // the orchestrator is the source of truth for the final transition.
       final sttState = container.read(localSttBundleProvider);
-      expect(sttState.serverState, SttServerState.error);
       expect(
-        sttState.errorMessage,
-        isNotNull,
-        reason: 'error message must be set for incompatible-runtime path',
+        sttState.serverState,
+        isNot(SttServerState.ready),
+        reason: 'crashed server must not stay marked as ready',
       );
     }, timeout: const Timeout(Duration(seconds: 15)));
 
