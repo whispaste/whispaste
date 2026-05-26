@@ -22,7 +22,7 @@
     "@sentry/astro": "^10.53.1",
     "@tailwindcss/vite": "^4.2.1",
     "astro": "^6.3.2",
-    "dompurify": "^3.4.3",
+    "dompurify": "^3.4.6",
     "tailwindcss": "^4.2.1"
   },
   "devDependencies": {
@@ -35,7 +35,7 @@
     "eslint-plugin-security": "^4.0.0",
     "globals": "^17.6.0",
     "jsdom": "^29.1.1",
-    "vitest": "^4.1.6"
+    "vitest": "^4.1.7"
   },
   "overrides": {
     "devalue": "^5.8.1"
