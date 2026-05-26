@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Bug Fixes
+
+- **Doppelte Crash-Reports bei fehlgeschlagener Sprachserver-Antwort beseitigt**. Fehlerhafte Inference-Antworten (4xx/5xx vom lokalen whisper-server) wurden bisher sowohl über den expliziten `captureError`-Pfad als auch über die `_log.error`-Auto-Eskalation an Sentry geschickt — pro Inference-Fehler landeten also zwei Events in zwei verschiedenen Issue-Gruppen. Der Orchestrator loggt diesen Pfad jetzt als Warning, und der zentrale Capture (mit stabilem Fingerprint pro Statuscode + PII-bereinigtem Body) sitzt direkt im STT-Notifier. Zusätzlich werden offensichtlich-untaugliche Anfragen (leeres WAV, kaputter Header, nicht-unterstützte Sprache, zu langes Eigenvokabular) jetzt vor dem POST abgefangen und zeigen einen konkreten Toast statt eines generischen Fehlers — Sentry sieht in diesen Fällen nur einen Breadcrumb, kein Issue.
+
 ## 1.2.26
 
 ### Bug Fixes

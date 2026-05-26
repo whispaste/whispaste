@@ -888,5 +888,10 @@
   "historyWriteFailedToast": "Entry could not be saved — please check available storage.",
   "historyWriteFailedAction": "Copy diagnostics",
   "factoryResetFailedToast": "Factory reset incomplete. Restart the app?",
-  "factoryResetFailedAction": "Quit app"
+  "factoryResetFailedAction": "Quit app",
+
+  "errorSttRejectEmpty": "אין אודיו לתמלול — נסה להקליט שוב.",
+  "errorSttRejectInvalidWav": "קובץ האודיו פגום — נסה להקליט שוב.",
+  "errorSttRejectUnsupportedLanguage": "השפה אינה נתמכת על ידי מנוע הדיבור המקומי — בדוק את השפה בהגדרות.",
+  "errorSttRejectPromptTooLong": "אוצר המילים המותאם ארוך מדי — קצר אותו בהגדרות."
 }

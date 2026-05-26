@@ -2468,4 +2468,18 @@ class L10nHe extends L10n {
 
   @override
   String get factoryResetFailedAction => 'Quit app';
+
+  @override
+  String get errorSttRejectEmpty => 'אין אודיו לתמלול — נסה להקליט שוב.';
+
+  @override
+  String get errorSttRejectInvalidWav => 'קובץ האודיו פגום — נסה להקליט שוב.';
+
+  @override
+  String get errorSttRejectUnsupportedLanguage =>
+      'השפה אינה נתמכת על ידי מנוע הדיבור המקומי — בדוק את השפה בהגדרות.';
+
+  @override
+  String get errorSttRejectPromptTooLong =>
+      'אוצר המילים המותאם ארוך מדי — קצר אותו בהגדרות.';
 }

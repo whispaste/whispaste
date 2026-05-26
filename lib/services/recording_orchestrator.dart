@@ -561,13 +561,37 @@ class RecordingOrchestrator extends Notifier<void> {
                   .read(localSttBundleProvider.notifier)
                   .notifyRecordingStopped();
               return;
+            case FailedWith(:final error) when error is InferenceClientRejected:
+              // Pre-flight reject — validator already emitted a Sentry
+              // breadcrumb in category `stt` and explicitly NOT a capture.
+              // Surface the user-message-key as the orchestrator's error
+              // code so `recording_behavior.dart` can localize the toast.
+              pipelineOutcome = 'transcribe_reject';
+              _stateMachine.transition(
+                RecordingIntent.fail,
+                errorMessage: error.userMessageKey,
+              );
+              _log.warning(
+                '[$sid] Inference rejected pre-flight: ${error.userMessageKey}',
+              );
+              ref
+                  .read(localSttBundleProvider.notifier)
+                  .notifyRecordingStopped();
+              return;
             case FailedWith(:final error) when error is TranscriberException:
               pipelineOutcome = 'transcribe_error';
               _stateMachine.transition(
                 RecordingIntent.fail,
                 errorMessage: error.message,
               );
-              _log.error('[$sid] Transcription failed: ${error.message}');
+              // Downgraded from `_log.error` to `_log.warning` so the
+              // AppLogger auto-escalation does NOT capture a second Sentry
+              // event under the catch-all `appLoggerAutoEscalated` finger-
+              // print. The explicit capture (with a real fingerprint +
+              // extras) already happens inside `SttServerStateNotifier.
+              // transcribeBytes` for non-200 responses. See CHANGELOG.md
+              // — Unreleased.
+              _log.warning('[$sid] Transcription failed: ${error.message}');
               ref
                   .read(localSttBundleProvider.notifier)
                   .notifyRecordingStopped();
@@ -586,7 +610,10 @@ class RecordingOrchestrator extends Notifier<void> {
               ref
                   .read(localSttBundleProvider.notifier)
                   .notifyRecordingStopped();
-              _log.error('[$sid] Transcription failed: $error');
+              // Downgraded to `_log.warning` — see the parallel comment a
+              // few lines up. The notifier-side `captureError` is the
+              // single source of truth for inference Sentry events.
+              _log.warning('[$sid] Transcription failed: $error');
               return;
             case Ok(:final value):
               if (audioDurMs > 0 && transcribeMs > 0) {

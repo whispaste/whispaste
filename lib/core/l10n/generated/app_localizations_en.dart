@@ -2519,4 +2519,20 @@ class L10nEn extends L10n {
 
   @override
   String get factoryResetFailedAction => 'Quit app';
+
+  @override
+  String get errorSttRejectEmpty =>
+      'No audio to transcribe — please record again.';
+
+  @override
+  String get errorSttRejectInvalidWav =>
+      'Audio file is corrupted — please record again.';
+
+  @override
+  String get errorSttRejectUnsupportedLanguage =>
+      'This language is not supported by the local speech model — please review the language in Settings.';
+
+  @override
+  String get errorSttRejectPromptTooLong =>
+      'Custom vocabulary is too long — please shorten it in Settings.';
 }
