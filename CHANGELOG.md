@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+## 1.2.25
+
+### Features
+
+- **Sprachdienst erholt sich jetzt selbst nach Crashes**. Wenn der whisper-server mit einem DLL-, ABI- oder GPU-Fehler abstürzt, fällt die App jetzt automatisch eine Stufe zurück (CUDA 12 → Vulkan → CPU auf Windows, Metal → CPU auf macOS), lädt die passende Variante nach, validiert sie und fährt den Dienst neu hoch. Pro Aufnahme-Session ist ein Versuch je Variante zulässig, damit Endlosschleifen ausgeschlossen sind. Nur wenn alle Stufen scheitern, sieht der Nutzer einen Toast — sonst läuft die nächste Aufnahme einfach weiter. Auf der Fehler-Endstufe gibt es jetzt einen aktionablen Toast „Einstellungen öffnen", der direkt in den Reset-Bereich navigiert.
+
+- **HTTP-Downloads hängen nicht mehr unbemerkt**. Ein 30-Sekunden-Stall-Detektor überwacht den Byte-Fluss bei Modell- und Server-Binary-Downloads. Wenn der Stream einfriert (kein Fortschritt, aber auch kein Abbruch — der typische schlechte WLAN-Fall), bricht die App den Versuch sauber ab und probiert die nächste Quelle. Bisher konnte der Onboarding-Download im schlimmsten Fall stundenlang stehenbleiben, ohne dass die UI das merkte. Zusätzlich sind die rohen Dio-Fehler jetzt in lesbare deutsche Texte übersetzt („Verbindung zum Server nicht möglich", „Download wurde unterbrochen") statt Stacktrace-Fragmente.
+
+- **Fehler-Toasts haben jetzt eine sinnvolle Aktion**. Sechs typische Fehlerstellen zeigen statt des generischen „Etwas ist schiefgelaufen"-Toasts einen Knopf zur direkten Lösung: „Einstellungen öffnen" bei erschöpfter Sprachdienst-Recovery, „Erneut versuchen" bei fehlgeschlagenem Server-Download, „Diagnose kopieren" bei History-Schreibfehlern, „App schließen" bei Factory-Reset-Fehler, „Accessibility-Berechtigung öffnen" beim macOS-Auto-Paste-Pfad. Wo bisher nur ein lakonischer Hinweis stand, gibt es jetzt einen Klick zur Behebung.
+
+- **Factory-Reset hängt nicht mehr und friert die UI nicht ein**. Der Reset-Flow wartet jetzt auf das tatsächliche Beenden des Sprachdienstes (PID-File-Polling, 10-Sekunden-Timeout, harter Kill als Fallback) statt auf einen blinden 800-ms-Sleep, und das Löschen mehrerer GB Modelle läuft in einem separaten Isolate, damit die UI flüssig bleibt. Eine modale Fortschrittsanzeige zeigt die einzelnen Phasen („Beende Sprachdienst…", „Lösche Modelle…") an, sodass der Nutzer sieht, dass etwas passiert. Bei Fehler wird die Phase benannt und einmalig in Sentry gemeldet — keine Doppelreports mehr.
+
+### Bug Fixes
+
+- **GPU-Erkennung hängt das Onboarding nicht mehr fest**. Die parallelen `wmic` / PowerShell-Probes auf Windows haben jetzt ein 8-Sekunden-Timeout pro Probe und laufen im Wettrennen statt seriell. Schlägt die Erkennung komplett fehl (z. B. blockierte WMI-Schnittstelle, fehlende DLL), fällt die App nun explizit auf CPU-Modus zurück und zeigt einen freundlichen Hinweis „Optimierte GPU-Beschleunigung nicht verfügbar — App nutzt CPU" — statt das System fälschlich als inkompatibel zu markieren und das Onboarding zu blockieren.
+
+- **Doppelte Crash-Reports bei fehlgeschlagenem Server-Download beseitigt**. Der finale Fehlerlog des Modell-Downloaders wurde sowohl über die Auto-Eskalation als auch über den expliziten `captureError`-Aufruf an Sentry geschickt — pro fehlgeschlagenem Download landeten also zwei Events in zwei verschiedenen Issue-Gruppen. Die redundante Log-Eskalation ist jetzt eine Warning, sodass nur noch der explizite, korrekt fingerprintete Capture-Aufruf den Vorgang meldet.
+
+### Stability (internal)
+
+- **Schreibzugriffe auf die History sind jetzt serialisiert**. Alle zwölf Schreib-Methoden der lokalen SQLite-Datenbank laufen durch einen einzelnen Lock und versuchen es bei `SQLITE_BUSY` mit `[50, 100, 200]` ms Backoff erneut, bevor sie aufgeben. Damit verschwindet die Mehrheit der bisherigen „Etwas ist schiefgelaufen"-Toasts bei parallelen Schreibvorgängen (z. B. Aufnahme abschließt, während Nutzer im History-Tab löscht), und der Sentry-Cluster aus WP-7B…7M kollabiert auf ein einzelnes Signal.
+
+- **Zentrales Crash-Fingerprint-Inventar**. Alle Sentry-Captures benutzen jetzt verpflichtend Fingerprints aus einer zentralen Inventarliste, sodass thematisch zusammengehörige Fehler sauber in eine Issue-Gruppe fallen und das Free-Tier-Kontingent nicht durch generische `Etwas ist schiefgelaufen`-Events verbrannt wird. Update-Check-Netzwerkfehler eskalieren nicht mehr nach Sentry, sondern bleiben als Breadcrumb erhalten.
+
 ## 1.2.24
 
 ### Features
