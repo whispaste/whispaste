@@ -745,6 +745,7 @@
   "onboardingModelUseCloud": "Skip — I'll use a cloud service instead",
   "onboardingModelDownloading": "Downloading…",
   "onboardingModelReady": "Model ready",
+  "onboardingModelGpuCpuFallback": "Optimised GPU acceleration unavailable — app will use the CPU",
   "onboardingReadyTitle": "You're All Set!",
   "onboardingReadySubtitle": "Here's how to use WhisPaste",
   "onboardingReadyStep1": "Press the hotkey to start recording",

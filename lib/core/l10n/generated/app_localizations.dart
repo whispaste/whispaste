@@ -3783,6 +3783,12 @@ abstract class L10n {
   /// **'Model ready'**
   String get onboardingModelReady;
 
+  /// No description provided for @onboardingModelGpuCpuFallback.
+  ///
+  /// In en, this message translates to:
+  /// **'Optimised GPU acceleration unavailable — app will use the CPU'**
+  String get onboardingModelGpuCpuFallback;
+
   /// No description provided for @onboardingReadyTitle.
   ///
   /// In en, this message translates to:

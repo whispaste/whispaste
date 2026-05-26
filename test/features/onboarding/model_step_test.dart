@@ -16,6 +16,7 @@ import 'package:whispaste/core/theme/theme.dart';
 import 'package:whispaste/features/onboarding/steps/model_step.dart';
 import 'package:whispaste/services/hardware_info_service.dart' as hw;
 import 'package:whispaste/services/model_download_service.dart';
+import 'package:whispaste/widgets/wp_accent_button.dart';
 
 class _RecordingDownloadNotifier extends ModelDownloadNotifier {
   _RecordingDownloadNotifier(this._initial);
@@ -43,6 +44,7 @@ Future<_RecordingDownloadNotifier> _pumpStep(
   WidgetTester tester, {
   required hw.GpuInfo gpu,
   ModelDownloadState initial = const ModelDownloadState(),
+  Locale? locale,
 }) async {
   late _RecordingDownloadNotifier captured;
   await tester.pumpWidget(
@@ -62,6 +64,7 @@ Future<_RecordingDownloadNotifier> _pumpStep(
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: wpDarkTheme(),
+        locale: locale,
         localizationsDelegates: L10n.localizationsDelegates,
         supportedLocales: L10n.supportedLocales,
         home: const MediaQuery(
@@ -130,6 +133,70 @@ void main() {
       );
 
       expect(find.text('Quick & Compact'), findsOneWidget);
+    });
+
+    // -----------------------------------------------------------------------
+    // GPU CPU fallback notice (issue 02-tech-gpu-detection-resilience)
+    // -----------------------------------------------------------------------
+
+    testWidgets(
+      'GpuVendor.none renders the German CPU-fallback notice and keeps the '
+      'Next button enabled once a model is downloaded',
+      (tester) async {
+        await _pumpStep(
+          tester,
+          gpu: const hw.GpuInfo(
+            vendor: hw.GpuVendor.none,
+            name: 'Detection failed — using CPU',
+          ),
+          // Pre-flag a downloaded model so the Next button is enabled and we
+          // can verify GPU detection failure does NOT block onboarding.
+          initial: const ModelDownloadState(
+            downloadedModels: {'whisper-small'},
+            phase: DownloadPhase.done,
+          ),
+          locale: const Locale('de'),
+        );
+
+        // The fallback notice is mounted via its widget key.
+        expect(find.byKey(kModelStepGpuCpuFallbackKey), findsOneWidget);
+        // Exact PRD-conformant string — vocabulary check covers this in CI.
+        expect(
+          find.text(
+            'Optimierte GPU-Beschleunigung nicht verfügbar — App nutzt CPU',
+          ),
+          findsOneWidget,
+        );
+
+        // Next button is rendered and enabled — GpuVendor.none must NOT be
+        // interpreted as „system not compatible".
+        final nextButton = find.byKey(kModelStepNextButtonKey);
+        expect(nextButton, findsOneWidget);
+        final widget = tester.widget<WpAccentButton>(nextButton);
+        expect(
+          widget.onPressed,
+          isNotNull,
+          reason:
+              'Next button must be enabled when a model is ready, '
+              'regardless of GPU detection outcome.',
+        );
+      },
+    );
+
+    testWidgets('GpuVendor.apple does NOT render the CPU-fallback notice', (
+      tester,
+    ) async {
+      await _pumpStep(
+        tester,
+        gpu: const hw.GpuInfo(
+          vendor: hw.GpuVendor.apple,
+          name: 'Apple M2',
+          vramMB: 8192,
+        ),
+        locale: const Locale('de'),
+      );
+
+      expect(find.byKey(kModelStepGpuCpuFallbackKey), findsNothing);
     });
 
     testWidgets(

@@ -2042,6 +2042,10 @@ class L10nHe extends L10n {
   String get onboardingModelReady => 'מודל מוכן';
 
   @override
+  String get onboardingModelGpuCpuFallback =>
+      'האצת GPU מיטבית אינה זמינה — האפליקציה תשתמש במעבד';
+
+  @override
   String get onboardingReadyTitle => 'הכל מוכן!';
 
   @override

@@ -2092,6 +2092,10 @@ class L10nEn extends L10n {
   String get onboardingModelReady => 'Model ready';
 
   @override
+  String get onboardingModelGpuCpuFallback =>
+      'Optimised GPU acceleration unavailable — app will use the CPU';
+
+  @override
   String get onboardingReadyTitle => 'You\'re All Set!';
 
   @override
