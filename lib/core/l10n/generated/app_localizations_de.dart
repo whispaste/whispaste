@@ -2108,6 +2108,10 @@ class L10nDe extends L10n {
   String get onboardingModelReady => 'Modell bereit';
 
   @override
+  String get onboardingModelGpuCpuFallback =>
+      'Optimierte GPU-Beschleunigung nicht verfügbar — App nutzt CPU';
+
+  @override
   String get onboardingReadyTitle => 'Alles bereit!';
 
   @override

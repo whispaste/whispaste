@@ -10,6 +10,13 @@ import '../../../services/model_download_service.dart';
 import '../../../widgets/tier_performance_presentation.dart';
 import '../../../widgets/wp_accent_button.dart';
 
+/// Widget keys exposed for testing. Kept in one place so tests and production
+/// code agree on the contract.
+@visibleForTesting
+const kModelStepGpuCpuFallbackKey = Key('modelStepGpuCpuFallbackNotice');
+@visibleForTesting
+const kModelStepNextButtonKey = Key('modelStepNextButton');
+
 /// Onboarding Step 3 — Quality tier selection & download.
 ///
 /// Shows a hardware-recommended tier with one-click download, plus an
@@ -107,6 +114,22 @@ class _ModelStepState extends ConsumerState<ModelStep> {
           style: TextStyle(fontSize: 14, color: textSecondary, height: 1.4),
         ),
         const SizedBox(height: WpSpacing.xl),
+
+        // GPU CPU fallback notice — purely informational, never blocks Next.
+        //
+        // Renders only when hardware detection returned `GpuVendor.none`,
+        // either because no GPU is present or because both Windows probes
+        // (wmic + PowerShell) failed/timed out. The user keeps access to
+        // every tier and the cloud option below; the message just sets the
+        // expectation that CPU inference will be slower.
+        if (_gpu?.vendor == hw.GpuVendor.none) ...[
+          _GpuCpuFallbackNotice(
+            key: kModelStepGpuCpuFallbackKey,
+            message: l10n.onboardingModelGpuCpuFallback,
+            isDark: isDark,
+          ),
+          const SizedBox(height: WpSpacing.md),
+        ],
 
         // Tier cards
         if (!_gpuDetected)
@@ -353,6 +376,7 @@ class _ModelStepState extends ConsumerState<ModelStep> {
             SizedBox(
               width: 140,
               child: WpAccentButton(
+                key: kModelStepNextButtonKey,
                 label: l10n.onboardingNext,
                 gradient: accentGradient,
                 onPressed: isDone ? widget.onNext : null,
@@ -686,6 +710,55 @@ class _DownloadError extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// GPU CPU fallback notice — informational, non-blocking.
+// ---------------------------------------------------------------------------
+
+/// Renders the „Optimierte GPU-Beschleunigung nicht verfügbar — App nutzt CPU"
+/// banner shown when `GpuVendor.none` is detected (either no GPU is present
+/// or both Windows probes failed/timed out).
+///
+/// Purely informational: the user keeps full access to every quality tier
+/// and the cloud option. Tier-internal performance hints
+/// ([_tierPerformanceMessage]) cover „this tier will be slow on this
+/// hardware" separately.
+class _GpuCpuFallbackNotice extends StatelessWidget {
+  const _GpuCpuFallbackNotice({
+    super.key,
+    required this.message,
+    required this.isDark,
+  });
+
+  final String message;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final infoColor = TierPerformancePresentation.color(isDark: isDark);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(WpSpacing.sm),
+      decoration: BoxDecoration(
+        color: infoColor.withValues(alpha: 0.08),
+        borderRadius: WpRadius.borderMd,
+        border: Border.all(color: infoColor.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        children: [
+          Icon(LucideIcons.info, size: 14, color: infoColor),
+          const SizedBox(width: WpSpacing.sm),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(fontSize: 12, color: infoColor),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

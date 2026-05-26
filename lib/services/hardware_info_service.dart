@@ -5,6 +5,7 @@
 /// and whether flash-attention or GPU acceleration should be enabled.
 library;
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -15,6 +16,40 @@ import 'package:path/path.dart' as p;
 import '../core/logging/app_logger.dart';
 
 final _log = AppLogger('HardwareInfo');
+
+// ---------------------------------------------------------------------------
+// Process-runner test seam
+// ---------------------------------------------------------------------------
+
+/// Function signature for a process runner that returns a [ProcessResult].
+///
+/// Production code uses [Process.run]; tests can swap in a fake that returns
+/// canned outputs or blocks for a controlled duration.
+typedef ProcessRunner =
+    Future<ProcessResult> Function(String executable, List<String> arguments);
+
+/// Default production runner — wraps [Process.run] directly.
+Future<ProcessResult> _defaultProcessRunner(
+  String executable,
+  List<String> arguments,
+) => Process.run(executable, arguments);
+
+ProcessRunner _processRunner = _defaultProcessRunner;
+
+/// Overrides the [ProcessRunner] used by Windows GPU detection.
+///
+/// Pass `null` to restore the default ([Process.run]). Intended for tests
+/// only — production code must never call this.
+@visibleForTesting
+void setProcessRunnerForTesting(ProcessRunner? runner) {
+  _processRunner = runner ?? _defaultProcessRunner;
+}
+
+/// Per-probe timeout for the parallel Windows GPU detection probes
+/// (`wmic` and `powershell`). On expiry the probe is treated as „empty"
+/// and the other probe's result wins.
+@visibleForTesting
+const Duration kWindowsGpuProbeTimeout = Duration(seconds: 8);
 
 // ---------------------------------------------------------------------------
 // RAM requirement
@@ -164,7 +199,10 @@ Future<GpuInfo> detectGpu() async {
     }
   } catch (e) {
     _log.warning('GPU detection failed, defaulting to CPU: $e');
-    _cached = const GpuInfo(vendor: GpuVendor.none, name: 'Detection failed');
+    _cached = const GpuInfo(
+      vendor: GpuVendor.none,
+      name: 'Detection failed — using CPU',
+    );
   }
 
   _log.info('Detected GPU: $_cached');
@@ -179,6 +217,14 @@ GpuInfo? get cachedGpuInfo => _cached;
 
 /// Clears the cached GPU info. Intended for testing only.
 void clearGpuCache() => _cached = null;
+
+/// Runs the Windows GPU-detection path regardless of the host platform.
+///
+/// Intended for tests that want to exercise the parallel wmic + PowerShell
+/// resilience logic on macOS / Linux CI runners. The result is **not** cached
+/// — callers may invoke this repeatedly without `clearGpuCache()`.
+@visibleForTesting
+Future<GpuInfo> detectGpuWindowsForTesting() => _detectWindows();
 
 // ---------------------------------------------------------------------------
 // Riverpod provider
@@ -445,24 +491,28 @@ Future<GpuInfo> _detectWindows() async {
   // Phase 1: Quick check — is CUDA runtime available?
   final cudaAvailable = File(r'C:\Windows\System32\nvcuda.dll').existsSync();
 
-  // Phase 2: Get GPU name(s) via wmic (faster than PowerShell).
+  // Phase 2: Run wmic + PowerShell in parallel, each with its own 8 s cap.
+  //
+  // Historically wmic ran first and only failed back to PowerShell after
+  // hitting a 5-second cap, which on a few users' machines produced an 8+ s
+  // wait at the onboarding's very first step. The probes now race:
+  //   - whichever returns a non-null result first wins immediately,
+  //   - a `TimeoutException` (or any other failure) collapses to null
+  //     without blocking the other probe,
+  //   - if both fail/timeout we fall through to the CPU-fallback `GpuInfo`.
+  final parsed = await _raceForFirstNonNull<_GpuParsed>([
+    _wmicGetGpus(),
+    _powershellGetGpus(),
+  ]);
+
   String gpuName = 'Unknown';
   GpuVendor vendor = GpuVendor.none;
   int? vramMB;
 
-  final parsed = await _wmicGetGpus();
   if (parsed != null) {
     gpuName = parsed.name;
     vendor = parsed.vendor;
     vramMB = parsed.vramMB;
-  } else {
-    // Fallback: PowerShell (slower but more reliable on newer Windows).
-    final psParsed = await _powershellGetGpus();
-    if (psParsed != null) {
-      gpuName = psParsed.name;
-      vendor = psParsed.vendor;
-      vramMB = psParsed.vramMB;
-    }
   }
 
   // Dual-GPU detection: if CUDA DLLs exist but wmic found Intel/AMD as
@@ -480,6 +530,16 @@ Future<GpuInfo> _detectWindows() async {
     vramMB = await _windowsNvidiaVramMB() ?? vramMB;
   }
 
+  // If both probes returned nothing AND we have no CUDA-DLL fallback,
+  // surface an explicit „using CPU" name so the UI/log layer can pick it up
+  // without having to special-case the generic „Unknown" string.
+  if (vendor == GpuVendor.none) {
+    return const GpuInfo(
+      vendor: GpuVendor.none,
+      name: 'Detection failed — using CPU',
+    );
+  }
+
   return GpuInfo(
     vendor: vendor,
     name: gpuName,
@@ -489,19 +549,71 @@ Future<GpuInfo> _detectWindows() async {
   );
 }
 
+/// Races a set of `Future<T?>` probes and returns the first non-null result.
+///
+/// Differs from [Future.wait] in two ways that matter for the GPU-detection
+/// path:
+///   1. A probe that resolves to a usable value short-circuits the wait —
+///      we do **not** wait for all probes to finish before continuing.
+///   2. Probes that resolve to `null` (timeout, error, empty parse) are
+///      ignored; only when **every** probe yields `null` does the helper
+///      itself return `null`.
+///
+/// The losing probes keep running in the background until they resolve;
+/// their results are discarded. This is fine for `Process.run` because
+/// the spawned child processes are short-lived (≤8 s, capped by the
+/// per-probe `timeout` in the callers).
+Future<T?> _raceForFirstNonNull<T>(List<Future<T?>> probes) {
+  if (probes.isEmpty) return Future<T?>.value(null);
+
+  final completer = Completer<T?>();
+  var remaining = probes.length;
+
+  for (final probe in probes) {
+    probe.then(
+      (value) {
+        if (completer.isCompleted) return;
+        if (value != null) {
+          completer.complete(value);
+          return;
+        }
+        remaining -= 1;
+        if (remaining == 0) completer.complete(null);
+      },
+      onError: (Object _, StackTrace _) {
+        // Defensive: each probe wraps its own try/catch and never throws.
+        // If one slips through, treat it as „nothing useful here".
+        if (completer.isCompleted) return;
+        remaining -= 1;
+        if (remaining == 0) completer.complete(null);
+      },
+    );
+  }
+
+  return completer.future;
+}
+
 /// Queries GPU info via wmic (deprecated but still fast and widely available).
+///
+/// Returns `null` if the call errored, timed out, or produced no parseable
+/// GPU block — the caller treats every „null" identically.
 Future<_GpuParsed?> _wmicGetGpus() async {
   try {
-    final result = await Process.run('wmic', [
+    final result = await _processRunner('wmic', [
       'path',
       'win32_videocontroller',
       'get',
       'name,adapterram',
       '/format:list',
-    ]).timeout(const Duration(seconds: 5));
+    ]).timeout(kWindowsGpuProbeTimeout);
 
     if (result.exitCode != 0) return null;
     return _parseWmicList(result.stdout.toString());
+  } on TimeoutException {
+    _log.debug(
+      'wmic query timed out after ${kWindowsGpuProbeTimeout.inSeconds}s',
+    );
+    return null;
   } catch (e) {
     _log.debug('wmic query failed: $e');
     return null;
@@ -510,7 +622,7 @@ Future<_GpuParsed?> _wmicGetGpus() async {
 
 Future<int?> _windowsNvidiaVramMB() async {
   try {
-    final result = await Process.run('nvidia-smi', [
+    final result = await _processRunner('nvidia-smi', [
       '--query-gpu=memory.total',
       '--format=csv,noheader,nounits',
     ]).timeout(const Duration(seconds: 5));
@@ -591,14 +703,18 @@ _GpuParsed? _parseWmicList(String output) {
 }
 
 /// Fallback: PowerShell Get-CimInstance (slower but available on all Win10+).
+///
+/// Runs in parallel with [_wmicGetGpus]; first non-null result wins.
+/// Returns `null` on timeout or any error so the parallel runner can fall
+/// back to the other probe (or to the CPU-fallback `GpuInfo`).
 Future<_GpuParsed?> _powershellGetGpus() async {
   try {
-    final result = await Process.run('powershell', [
+    final result = await _processRunner('powershell', [
       '-NoProfile',
       '-Command',
       r'Get-CimInstance Win32_VideoController | '
           r'ForEach-Object { "$($_.Name)|$($_.AdapterRAM)" }',
-    ]).timeout(const Duration(seconds: 10));
+    ]).timeout(kWindowsGpuProbeTimeout);
 
     if (result.exitCode != 0) return null;
 
@@ -624,6 +740,12 @@ Future<_GpuParsed?> _powershellGetGpus() async {
     if (gpus.isEmpty) return null;
     gpus.sort((a, b) => a.vendor.index.compareTo(b.vendor.index));
     return gpus.first;
+  } on TimeoutException {
+    _log.debug(
+      'PowerShell GPU query timed out after '
+      '${kWindowsGpuProbeTimeout.inSeconds}s',
+    );
+    return null;
   } catch (e) {
     _log.debug('PowerShell GPU query failed: $e');
     return null;

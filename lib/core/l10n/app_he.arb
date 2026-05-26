@@ -730,6 +730,7 @@
   "onboardingModelUseCloud": "דלג – אשתמש בשירות ענן",
   "onboardingModelDownloading": "מוריד…",
   "onboardingModelReady": "מודל מוכן",
+  "onboardingModelGpuCpuFallback": "האצת GPU מיטבית אינה זמינה — האפליקציה תשתמש במעבד",
   "onboardingReadyTitle": "הכל מוכן!",
   "onboardingReadySubtitle": "ככה משתמשים ב-WhisPaste",
   "onboardingReadyStep1": "לחץ על הקיצור כדי להתחיל להקליט",
