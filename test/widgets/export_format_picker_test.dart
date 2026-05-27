@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/history/data/export_service.dart';
 import 'package:whispaste/widgets/export_format_picker.dart';
 
 import '../fixtures/test_helpers.dart';
+
+late L10n l10n;
 
 /// Test harness that opens the picker on demand and records the result.
 class _PickerHarness extends StatefulWidget {
@@ -45,24 +48,32 @@ class _PickerHarnessState extends State<_PickerHarness> {
 }
 
 Future<void> _openPicker(WidgetTester tester) async {
-  await tester.pumpWidget(makeTestable(const _PickerHarness()));
+  await tester.pumpWidget(
+    makeTestable(const _PickerHarness(), locale: const Locale('en')),
+  );
   await tester.tap(find.text('Open picker'));
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 350));
 }
 
 void main() {
+  // Resolve the English copy once so format labels are looked up via the
+  // ARB key — wording tweaks in the ARB no longer silently break this suite.
+  setUpAll(() async {
+    l10n = await L10n.delegate.load(const Locale('en'));
+  });
+
   group('ExportFormatPicker', () {
     testWidgets('renders five options in stable TXT → MD → CSV → JSON → DOCX '
         'order with labels and icons', (tester) async {
       await _openPicker(tester);
 
       // All five labels visible
-      expect(find.text('Text'), findsOneWidget);
-      expect(find.text('Markdown'), findsOneWidget);
-      expect(find.text('CSV'), findsOneWidget);
-      expect(find.text('JSON'), findsOneWidget);
-      expect(find.text('Word'), findsOneWidget);
+      expect(find.text(l10n.exportFormatText), findsOneWidget);
+      expect(find.text(l10n.exportFormatMarkdown), findsOneWidget);
+      expect(find.text(l10n.exportFormatCsv), findsOneWidget);
+      expect(find.text(l10n.exportFormatJson), findsOneWidget);
+      expect(find.text(l10n.exportFormatWord), findsOneWidget);
 
       // Extension hints
       expect(find.text('.txt'), findsOneWidget);
@@ -75,11 +86,11 @@ void main() {
       expect(find.byType(Icon), findsNWidgets(5));
 
       // Order is preserved top-to-bottom
-      final txtY = tester.getCenter(find.text('Text')).dy;
-      final mdY = tester.getCenter(find.text('Markdown')).dy;
-      final csvY = tester.getCenter(find.text('CSV')).dy;
-      final jsonY = tester.getCenter(find.text('JSON')).dy;
-      final docxY = tester.getCenter(find.text('Word')).dy;
+      final txtY = tester.getCenter(find.text(l10n.exportFormatText)).dy;
+      final mdY = tester.getCenter(find.text(l10n.exportFormatMarkdown)).dy;
+      final csvY = tester.getCenter(find.text(l10n.exportFormatCsv)).dy;
+      final jsonY = tester.getCenter(find.text(l10n.exportFormatJson)).dy;
+      final docxY = tester.getCenter(find.text(l10n.exportFormatWord)).dy;
       expect(txtY < mdY, isTrue, reason: 'TXT before MD');
       expect(mdY < csvY, isTrue, reason: 'MD before CSV');
       expect(csvY < jsonY, isTrue, reason: 'CSV before JSON');
@@ -91,7 +102,7 @@ void main() {
     ) async {
       await _openPicker(tester);
 
-      await tester.tap(find.text('CSV'));
+      await tester.tap(find.text(l10n.exportFormatCsv));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 350));
 
@@ -101,7 +112,7 @@ void main() {
     testWidgets('tapping Word resolves with ExportFormat.docx', (tester) async {
       await _openPicker(tester);
 
-      await tester.tap(find.text('Word'));
+      await tester.tap(find.text(l10n.exportFormatWord));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 350));
 

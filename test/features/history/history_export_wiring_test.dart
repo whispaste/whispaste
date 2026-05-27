@@ -16,11 +16,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'package:whispaste/core/data/database.dart';
+import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/history/data/providers.dart';
 import 'package:whispaste/features/history/data/sample_data.dart';
 import 'package:whispaste/features/history/history_page.dart';
 
 import '../../fixtures/test_helpers.dart';
+
+late L10n l10n;
 
 /// Swallows pre-existing horizontal-overflow render errors so they do not fail
 /// these wiring tests. Restores the previous error handler on tearDown.
@@ -73,6 +76,10 @@ List<Object> _sampleOverrides() {
 // ─── Tests ────────────────────────────────────────────────────────────────
 
 void main() {
+  setUpAll(() async {
+    l10n = await L10n.delegate.load(const Locale('en'));
+  });
+
   group('HistoryPage — detail-panel single-entry export', () {
     testWidgets('overflow "Export…" item invokes exportFn with [tappedEntry]', (
       tester,
@@ -87,6 +94,7 @@ void main() {
           // for the detail panel's full action row.
           size: const Size(1800, 900),
           overrides: _sampleOverrides(),
+          locale: const Locale('en'),
         ),
       );
       await tester.pumpAndSettle();
@@ -102,8 +110,8 @@ void main() {
       await tester.pumpAndSettle();
 
       // Tap the localised "Export…" item.
-      expect(find.text('Export…'), findsOneWidget);
-      await tester.tap(find.text('Export…'));
+      expect(find.text(l10n.historyExportAction), findsOneWidget);
+      await tester.tap(find.text(l10n.historyExportAction));
       await tester.pumpAndSettle();
 
       // Exporter was invoked with exactly the tapped entry (`sample-1`).
@@ -133,6 +141,7 @@ void main() {
             // without triggering pre-existing tight-fit overflows.
             size: const Size(1800, 900),
             overrides: _sampleOverrides(),
+            locale: const Locale('en'),
           ),
         );
         await tester.pumpAndSettle();
@@ -148,16 +157,19 @@ void main() {
 
         // Now expand selection to all visible entries via "Select All".
         // The label is the EN ARB `historySelectAll` → "Select All".
-        await tester.tap(find.text('Select All'));
+        await tester.tap(find.text(l10n.historySelectAll));
         await tester.pumpAndSettle();
 
         // The multi-select bar should now show the new "Export…" action.
-        expect(find.text('Export…'), findsOneWidget);
+        expect(find.text(l10n.historyExportAction), findsOneWidget);
         // Scroll the action into view if the horizontal action list pushed it
         // out, then tap.
-        await tester.ensureVisible(find.text('Export…'));
+        await tester.ensureVisible(find.text(l10n.historyExportAction));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Export…'), warnIfMissed: false);
+        await tester.tap(
+          find.text(l10n.historyExportAction),
+          warnIfMissed: false,
+        );
         await tester.pumpAndSettle();
 
         // The exporter received a single batched call with multiple entries.

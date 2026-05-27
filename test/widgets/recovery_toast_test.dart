@@ -41,6 +41,13 @@ class _RecoveryHarness extends StatelessWidget {
 }
 
 void main() {
+  late L10n lDe;
+  late L10n lEn;
+  setUpAll(() async {
+    lDe = await L10n.delegate.load(const Locale('de'));
+    lEn = await L10n.delegate.load(const Locale('en'));
+  });
+
   group('showRecoveryToast', () {
     testWidgets(
       'exhausted: renders error toast + "Einstellungen öffnen" action that '
@@ -61,17 +68,11 @@ void main() {
         await tester.tap(find.text('fire-recovery-toast'));
         await tester.pumpAndSettle();
 
-        expect(
-          find.text(
-            'Sprachdienst kann nicht starten. '
-            'Bitte App neu starten oder Sprachmodell neu laden.',
-          ),
-          findsOneWidget,
-        );
-        expect(find.text('Einstellungen öffnen'), findsOneWidget);
+        expect(find.text(lDe.recoveryExhaustedToast), findsOneWidget);
+        expect(find.text(lDe.recoveryExhaustedAction), findsOneWidget);
         expect(navTargets, isEmpty);
 
-        await tester.tap(find.text('Einstellungen öffnen'));
+        await tester.tap(find.text(lDe.recoveryExhaustedAction));
         await tester.pumpAndSettle();
 
         expect(
@@ -107,12 +108,9 @@ void main() {
       await tester.tap(find.text('fire-recovery-toast'));
       await tester.pumpAndSettle();
 
-      expect(
-        find.text('Lade Sprachmodell neu — bitte warten.'),
-        findsOneWidget,
-      );
+      expect(find.text(lDe.modelAbiInfoToast), findsOneWidget);
       // No action label appears anywhere in the toast.
-      expect(find.text('Einstellungen öffnen'), findsNothing);
+      expect(find.text(lDe.recoveryExhaustedAction), findsNothing);
       expect(unexpectedNav, 0);
 
       // Drain the toast's 5s auto-dismiss timer so no Timer outlives
@@ -136,14 +134,8 @@ void main() {
       await tester.tap(find.text('fire-recovery-toast'));
       await tester.pumpAndSettle();
 
-      expect(
-        find.text(
-          'Voice service cannot start. Please restart the app or reload '
-          'the voice model.',
-        ),
-        findsOneWidget,
-      );
-      expect(find.text('Open settings'), findsOneWidget);
+      expect(find.text(lEn.recoveryExhaustedToast), findsOneWidget);
+      expect(find.text(lEn.recoveryExhaustedAction), findsOneWidget);
 
       // Drain the toast's 8s auto-dismiss timer so no Timer outlives
       // the test.

@@ -10,6 +10,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:record/record.dart';
+import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/onboarding/mic_probe.dart';
 import 'package:whispaste/features/onboarding/steps/microphone_step.dart';
 import 'package:whispaste/services/audio_routing_service.dart';
@@ -92,8 +93,13 @@ class _FakeRouting implements AudioRoutingService {
 
 void _noop() {}
 
+late L10n l10n;
+
 WpAccentButton _findNext(WidgetTester tester) => tester.widget<WpAccentButton>(
-  find.ancestor(of: find.text('Next'), matching: find.byType(WpAccentButton)),
+  find.ancestor(
+    of: find.text(l10n.onboardingNext),
+    matching: find.byType(WpAccentButton),
+  ),
 );
 
 void _expectNextEnabled(WidgetTester tester) {
@@ -135,14 +141,21 @@ Future<_FakeProbe> _pumpStep(
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  // Resolved English copy used for every label lookup below. Referencing
+  // `l10n.<key>` rather than literal strings keeps the suite stable across
+  // ARB wording changes and surfaces *missing keys* as compile-time errors.
+  setUpAll(() async {
+    l10n = await L10n.delegate.load(const Locale('en'));
+  });
+
   group('MicrophoneStep', () {
     testWidgets('initial idle render shows Grant button, Next disabled', (
       tester,
     ) async {
       await _pumpStep(tester, outcomes: const []);
 
-      expect(find.text('Grant Access'), findsOneWidget);
-      expect(find.text('Next'), findsOneWidget);
+      expect(find.text(l10n.onboardingMicRequestAccess), findsOneWidget);
+      expect(find.text(l10n.onboardingNext), findsOneWidget);
 
       _expectNextDisabled(tester);
     });
@@ -155,17 +168,14 @@ void main() {
         outcomes: const [MicProbeOutcome.permissionDenied],
       );
 
-      await tester.tap(find.text('Grant Access'));
+      await tester.tap(find.text(l10n.onboardingMicRequestAccess));
       await tester.pumpAndSettle();
 
-      expect(find.text('Microphone access denied'), findsOneWidget);
-      expect(
-        find.text('Open your system settings to grant microphone access'),
-        findsOneWidget,
-      );
+      expect(find.text(l10n.onboardingMicPermissionDenied), findsOneWidget);
+      expect(find.text(l10n.onboardingMicDeniedInstructions), findsOneWidget);
       // Grant button is still rendered so the user can retry after fixing
       // the OS-level permission.
-      expect(find.text('Grant Access'), findsOneWidget);
+      expect(find.text(l10n.onboardingMicRequestAccess), findsOneWidget);
     });
 
     testWidgets('silence outcome surfaces retry CTA and warning copy', (
@@ -173,11 +183,11 @@ void main() {
     ) async {
       await _pumpStep(tester, outcomes: const [MicProbeOutcome.silence]);
 
-      await tester.tap(find.text('Grant Access'));
+      await tester.tap(find.text(l10n.onboardingMicRequestAccess));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining("We can't hear anything"), findsOneWidget);
-      expect(find.text('Try again'), findsOneWidget);
+      expect(find.text(l10n.onboardingMicSilent), findsOneWidget);
+      expect(find.text(l10n.onboardingMicRetry), findsOneWidget);
 
       _expectNextDisabled(tester);
     });
@@ -185,13 +195,10 @@ void main() {
     testWidgets('speechDetected outcome unlocks Next button', (tester) async {
       await _pumpStep(tester, outcomes: const [MicProbeOutcome.speechDetected]);
 
-      await tester.tap(find.text('Grant Access'));
+      await tester.tap(find.text(l10n.onboardingMicRequestAccess));
       await tester.pumpAndSettle();
 
-      expect(
-        find.textContaining('your mic is working perfectly'),
-        findsOneWidget,
-      );
+      expect(find.text(l10n.onboardingMicTestDone), findsOneWidget);
       _expectNextEnabled(tester);
     });
 
@@ -204,18 +211,15 @@ void main() {
         ],
       );
 
-      await tester.tap(find.text('Grant Access'));
+      await tester.tap(find.text(l10n.onboardingMicRequestAccess));
       await tester.pumpAndSettle();
       expect(probe.startCalls, hasLength(1));
 
-      await tester.tap(find.text('Try again'));
+      await tester.tap(find.text(l10n.onboardingMicRetry));
       await tester.pumpAndSettle();
       expect(probe.startCalls, hasLength(2));
       // Second outcome was speechDetected → ready phase.
-      expect(
-        find.textContaining('your mic is working perfectly'),
-        findsOneWidget,
-      );
+      expect(find.text(l10n.onboardingMicTestDone), findsOneWidget);
     });
 
     testWidgets('device picker stays hidden while only one device exists', (
@@ -227,10 +231,10 @@ void main() {
         devices: const [InputDevice(id: 'a', label: 'Built-in')],
       );
 
-      await tester.tap(find.text('Grant Access'));
+      await tester.tap(find.text(l10n.onboardingMicRequestAccess));
       await tester.pumpAndSettle();
 
-      expect(find.text('System default'), findsNothing);
+      expect(find.text(l10n.onboardingMicDeviceSystemDefault), findsNothing);
       expect(find.text('Built-in'), findsNothing);
     });
 
@@ -246,10 +250,10 @@ void main() {
         ],
       );
 
-      await tester.tap(find.text('Grant Access'));
+      await tester.tap(find.text(l10n.onboardingMicRequestAccess));
       await tester.pumpAndSettle();
 
-      expect(find.text('System default'), findsOneWidget);
+      expect(find.text(l10n.onboardingMicDeviceSystemDefault), findsOneWidget);
     });
 
     testWidgets(
@@ -270,12 +274,12 @@ void main() {
           routing: routing,
         );
 
-        await tester.tap(find.text('Grant Access'));
+        await tester.tap(find.text(l10n.onboardingMicRequestAccess));
         await tester.pumpAndSettle();
         expect(probe.startCalls.first, isNull); // initial: system default
 
         // Open the dropdown via the picker chip.
-        await tester.tap(find.text('System default'));
+        await tester.tap(find.text(l10n.onboardingMicDeviceSystemDefault));
         await tester.pumpAndSettle();
         await tester.tap(find.text('USB Headset').last);
         await tester.pumpAndSettle();
@@ -301,9 +305,12 @@ void main() {
         await _pumpStep(tester, outcomes: const [], routing: routing);
 
         // Picker shows up before the user ever taps Grant.
-        expect(find.text('System default'), findsOneWidget);
+        expect(
+          find.text(l10n.onboardingMicDeviceSystemDefault),
+          findsOneWidget,
+        );
         // Grant button is still the primary CTA.
-        expect(find.text('Grant Access'), findsOneWidget);
+        expect(find.text(l10n.onboardingMicRequestAccess), findsOneWidget);
       },
     );
 
@@ -325,7 +332,7 @@ void main() {
         );
 
         // Pick a device before granting permission.
-        await tester.tap(find.text('System default'));
+        await tester.tap(find.text(l10n.onboardingMicDeviceSystemDefault));
         await tester.pumpAndSettle();
         await tester.tap(find.text('USB Headset').last);
         await tester.pumpAndSettle();
@@ -357,10 +364,10 @@ void main() {
           routing: routing,
         );
 
-        await tester.tap(find.text('Grant Access'));
+        await tester.tap(find.text(l10n.onboardingMicRequestAccess));
         await tester.pumpAndSettle();
 
-        await tester.tap(find.text('System default'));
+        await tester.tap(find.text(l10n.onboardingMicDeviceSystemDefault));
         await tester.pumpAndSettle();
         await tester.tap(find.text('USB Headset').last);
         await tester.pumpAndSettle();

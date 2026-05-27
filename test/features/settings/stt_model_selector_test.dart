@@ -77,6 +77,8 @@ class _FakeSttNotifier extends SttServerStateNotifier {
 ///
 /// No Drift database, no [settingsProvider] override — only
 /// [modelDownloadProvider] and [localSttBundleProvider] are stubbed.
+late L10n l10n;
+
 Widget _makeTestable({
   ModelDownloadState downloadState = const ModelDownloadState(),
   String? currentModelId,
@@ -99,6 +101,8 @@ Widget _makeTestable({
     child: MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: wpDarkTheme(),
+      // Pin locale to `en` so tier labels are deterministic across CI hosts.
+      locale: const Locale('en'),
       localizationsDelegates: L10n.localizationsDelegates,
       supportedLocales: L10n.supportedLocales,
       home: Scaffold(
@@ -118,15 +122,19 @@ Widget _makeTestable({
 // ---------------------------------------------------------------------------
 
 void main() {
+  setUpAll(() async {
+    l10n = await L10n.delegate.load(const Locale('en'));
+  });
+
   group('SttModelSelector', () {
     testWidgets('renders all three tier cards', (tester) async {
       await tester.pumpWidget(_makeTestable());
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
-      expect(find.text('Quick & Compact'), findsOneWidget);
-      expect(find.text('Balanced'), findsOneWidget);
-      expect(find.text('Best Quality'), findsOneWidget);
+      expect(find.text(l10n.qualityTierCompactLabel), findsOneWidget);
+      expect(find.text(l10n.qualityTierBalancedLabel), findsOneWidget);
+      expect(find.text(l10n.qualityTierPremiumLabel), findsOneWidget);
     });
 
     testWidgets('no Drift database required — renders in isolation', (
@@ -158,7 +166,7 @@ void main() {
         await tester.pumpAndSettle();
 
         // Tap the Compact card (it's downloaded → triggers onModelSelected).
-        await tester.tap(find.text('Quick & Compact'));
+        await tester.tap(find.text(l10n.qualityTierCompactLabel));
         await tester.pumpAndSettle();
 
         expect(selected, bestModelForTier(QualityTier.compact).id);
@@ -345,6 +353,8 @@ void main() {
           child: MaterialApp(
             debugShowCheckedModeBanner: false,
             theme: wpDarkTheme(),
+            // Pin locale to `en` so tier labels match the seeded `l10n` snapshot.
+            locale: const Locale('en'),
             localizationsDelegates: L10n.localizationsDelegates,
             supportedLocales: L10n.supportedLocales,
             home: Scaffold(
@@ -360,7 +370,7 @@ void main() {
         await tester.pumpAndSettle();
 
         // --- Step 1: Tap the Compact tier card (not downloaded) ---
-        await tester.tap(find.text('Quick & Compact'));
+        await tester.tap(find.text(l10n.qualityTierCompactLabel));
         await tester.pump();
 
         // downloadModel was called — download started.

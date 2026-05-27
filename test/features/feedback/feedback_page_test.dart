@@ -6,10 +6,13 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/feedback/feedback_page.dart';
 import 'package:whispaste/services/feedback_submission_service.dart';
 
 import '../../fixtures/test_helpers.dart';
+
+late L10n l10n;
 
 // ---------------------------------------------------------------------------
 // Service factories for testing
@@ -55,14 +58,14 @@ FeedbackSubmissionService _networkErrorService() => FeedbackSubmissionService(
 // ---------------------------------------------------------------------------
 
 Future<void> _fillAndSubmit(WidgetTester tester) async {
-  await tester.tap(find.text('General'));
+  await tester.tap(find.text(l10n.feedbackCategoryGeneral));
   await tester.pumpAndSettle();
   await tester.tap(find.text('🤩'));
   await tester.pumpAndSettle();
   await tester.enterText(find.byType(TextField), 'Test feedback');
   await tester.pumpAndSettle();
 
-  final submitFinder = find.widgetWithText(ElevatedButton, 'Send Feedback');
+  final submitFinder = find.widgetWithText(ElevatedButton, l10n.feedbackSubmit);
   await tester.ensureVisible(submitFinder);
   await tester.pumpAndSettle();
   await tester.tap(submitFinder);
@@ -110,13 +113,19 @@ void main() {
   // FeedbackPage widget tests
   // ───────────────────────────────────────────────────────────────────────
   group('FeedbackPage widget', () {
+    setUpAll(() async {
+      l10n = await L10n.delegate.load(const Locale('en'));
+    });
     setUp(() {
       SharedPreferences.setMockInitialValues({});
     });
 
     testWidgets('renders without error', (tester) async {
       await tester.pumpWidget(
-        makeTestable(FeedbackPage(submissionService: _sentService())),
+        makeTestable(
+          FeedbackPage(submissionService: _sentService()),
+          locale: const Locale('en'),
+        ),
       );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
@@ -126,12 +135,18 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(
-        makeTestable(FeedbackPage(submissionService: _sentService())),
+        makeTestable(
+          FeedbackPage(submissionService: _sentService()),
+          locale: const Locale('en'),
+        ),
       );
       await tester.pumpAndSettle();
 
       // "Send Feedback" comes from l10n.feedbackSubmit (app_en.arb).
-      final submitFinder = find.widgetWithText(ElevatedButton, 'Send Feedback');
+      final submitFinder = find.widgetWithText(
+        ElevatedButton,
+        l10n.feedbackSubmit,
+      );
       expect(submitFinder, findsOneWidget);
 
       // No rating/category/comment yet → onPressed must be null.
@@ -143,12 +158,15 @@ void main() {
       'submit button becomes enabled after all three inputs are filled',
       (tester) async {
         await tester.pumpWidget(
-          makeTestable(FeedbackPage(submissionService: _sentService())),
+          makeTestable(
+            FeedbackPage(submissionService: _sentService()),
+            locale: const Locale('en'),
+          ),
         );
         await tester.pumpAndSettle();
 
         // Select the "General" category chip (l10n.feedbackCategoryGeneral).
-        await tester.tap(find.text('General'));
+        await tester.tap(find.text(l10n.feedbackCategoryGeneral));
         await tester.pumpAndSettle();
 
         // Tap the 🤩 emoji (rating = 5).
@@ -160,7 +178,7 @@ void main() {
         await tester.pumpAndSettle();
 
         final button = tester.widget<ElevatedButton>(
-          find.widgetWithText(ElevatedButton, 'Send Feedback'),
+          find.widgetWithText(ElevatedButton, l10n.feedbackSubmit),
         );
         expect(button.onPressed, isNotNull);
       },
@@ -174,6 +192,7 @@ void main() {
         await tester.pumpWidget(
           makeTestable(
             FeedbackPage(submissionService: _notConfiguredService()),
+            locale: const Locale('en'),
           ),
         );
         await tester.pumpAndSettle();
@@ -181,12 +200,9 @@ void main() {
         await _fillAndSubmit(tester);
 
         // Must NOT show thank-you screen.
-        expect(find.text('Thank you!'), findsNothing);
+        expect(find.text(l10n.feedbackThankYou), findsNothing);
         // Must show the "not configured" error text.
-        expect(
-          find.text('Feedback is not available in this build.'),
-          findsOneWidget,
-        );
+        expect(find.text(l10n.feedbackErrorNotConfigured), findsOneWidget);
       },
     );
 
@@ -196,6 +212,7 @@ void main() {
         await tester.pumpWidget(
           makeTestable(
             FeedbackPage(submissionService: _notConfiguredService()),
+            locale: const Locale('en'),
           ),
         );
         await tester.pumpAndSettle();
@@ -213,13 +230,16 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(
-        makeTestable(FeedbackPage(submissionService: _sentService())),
+        makeTestable(
+          FeedbackPage(submissionService: _sentService()),
+          locale: const Locale('en'),
+        ),
       );
       await tester.pumpAndSettle();
 
       await _fillAndSubmit(tester);
 
-      expect(find.text('Thank you!'), findsOneWidget);
+      expect(find.text(l10n.feedbackThankYou), findsOneWidget);
 
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getInt('feedback_last_submitted_ms'), isNotNull);
@@ -231,17 +251,17 @@ void main() {
       'FeedbackServerError: shows feedbackErrorServer banner, no thank-you',
       (tester) async {
         await tester.pumpWidget(
-          makeTestable(FeedbackPage(submissionService: _serverErrorService())),
+          makeTestable(
+            FeedbackPage(submissionService: _serverErrorService()),
+            locale: const Locale('en'),
+          ),
         );
         await tester.pumpAndSettle();
 
         await _fillAndSubmit(tester);
 
-        expect(find.text('Thank you!'), findsNothing);
-        expect(
-          find.text('Something went wrong. Please try again later.'),
-          findsOneWidget,
-        );
+        expect(find.text(l10n.feedbackThankYou), findsNothing);
+        expect(find.text(l10n.feedbackErrorServer), findsOneWidget);
       },
     );
 
@@ -251,19 +271,17 @@ void main() {
       'FeedbackNetworkError: shows feedbackErrorNetwork banner, no thank-you',
       (tester) async {
         await tester.pumpWidget(
-          makeTestable(FeedbackPage(submissionService: _networkErrorService())),
+          makeTestable(
+            FeedbackPage(submissionService: _networkErrorService()),
+            locale: const Locale('en'),
+          ),
         );
         await tester.pumpAndSettle();
 
         await _fillAndSubmit(tester);
 
-        expect(find.text('Thank you!'), findsNothing);
-        expect(
-          find.text(
-            'Could not connect to the server. Please check your internet connection.',
-          ),
-          findsOneWidget,
-        );
+        expect(find.text(l10n.feedbackThankYou), findsNothing);
+        expect(find.text(l10n.feedbackErrorNetwork), findsOneWidget);
       },
     );
   });

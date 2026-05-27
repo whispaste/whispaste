@@ -40,11 +40,16 @@ class _RecordingDownloadNotifier extends ModelDownloadNotifier {
 
 void _noop() {}
 
+/// Resolved English copy used for label lookups inside the suite. The
+/// majority of `ModelStep` tests run in English; the explicit German tests
+/// load their own L10n snapshot inline.
+late L10n l10n;
+
 Future<_RecordingDownloadNotifier> _pumpStep(
   WidgetTester tester, {
   required hw.GpuInfo gpu,
   ModelDownloadState initial = const ModelDownloadState(),
-  Locale? locale,
+  Locale locale = const Locale('en'),
 }) async {
   late _RecordingDownloadNotifier captured;
   await tester.pumpWidget(
@@ -85,6 +90,10 @@ Future<_RecordingDownloadNotifier> _pumpStep(
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  setUpAll(() async {
+    l10n = await L10n.delegate.load(const Locale('en'));
+  });
+
   group('ModelStep', () {
     testWidgets('renders all three tier cards once GPU is detected', (
       tester,
@@ -100,12 +109,12 @@ void main() {
 
       expect(tester.takeException(), isNull);
       // Selected tier card + expanded alternatives reveal all 3 tier labels.
-      await tester.tap(find.text('Choose a different quality level'));
+      await tester.tap(find.text(l10n.qualityTierChooseDifferent));
       await tester.pumpAndSettle();
 
-      expect(find.text('Quick & Compact'), findsWidgets);
-      expect(find.text('Balanced'), findsWidgets);
-      expect(find.text('Best Quality'), findsWidgets);
+      expect(find.text(l10n.qualityTierCompactLabel), findsWidgets);
+      expect(find.text(l10n.qualityTierBalancedLabel), findsWidgets);
+      expect(find.text(l10n.qualityTierPremiumLabel), findsWidgets);
     });
 
     testWidgets('Apple GPU with ≥4 GB unified memory recommends Premium', (
@@ -123,7 +132,7 @@ void main() {
       // The recommended tier should be Premium → its label is shown as the
       // pre-selected card. Tier-label uniqueness on a fresh render proves the
       // selection.
-      expect(find.text('Best Quality'), findsOneWidget);
+      expect(find.text(l10n.qualityTierPremiumLabel), findsOneWidget);
     });
 
     testWidgets('CPU-only fallback recommends Compact tier', (tester) async {
@@ -132,7 +141,7 @@ void main() {
         gpu: const hw.GpuInfo(vendor: hw.GpuVendor.none, name: 'CPU only'),
       );
 
-      expect(find.text('Quick & Compact'), findsOneWidget);
+      expect(find.text(l10n.qualityTierCompactLabel), findsOneWidget);
     });
 
     // -----------------------------------------------------------------------
@@ -160,13 +169,11 @@ void main() {
 
         // The fallback notice is mounted via its widget key.
         expect(find.byKey(kModelStepGpuCpuFallbackKey), findsOneWidget);
-        // Exact PRD-conformant string — vocabulary check covers this in CI.
-        expect(
-          find.text(
-            'Optimierte GPU-Beschleunigung nicht verfügbar — App nutzt CPU',
-          ),
-          findsOneWidget,
-        );
+        // Exact PRD-conformant German string — vocabulary check covers this
+        // in CI. Resolving the German L10n snapshot inline keeps the test
+        // robust against ARB rewording.
+        final lDe = await L10n.delegate.load(const Locale('de'));
+        expect(find.text(lDe.onboardingModelGpuCpuFallback), findsOneWidget);
 
         // Next button is rendered and enabled — GpuVendor.none must NOT be
         // interpreted as „system not compatible".
@@ -212,7 +219,9 @@ void main() {
         );
 
         // Premium is recommended for 8GB Apple. The CTA contains the tier size.
-        await tester.tap(find.textContaining('Download & Continue'));
+        await tester.tap(
+          find.textContaining(l10n.qualityTierDownloadAndContinue),
+        );
         await tester.pumpAndSettle();
 
         expect(notifier.downloadModelCalls, [
@@ -241,13 +250,15 @@ void main() {
         );
 
         // Open alternative tiers (collapsed by default), pick Balanced.
-        await tester.tap(find.text('Choose a different quality level'));
+        await tester.tap(find.text(l10n.qualityTierChooseDifferent));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Balanced').last);
+        await tester.tap(find.text(l10n.qualityTierBalancedLabel).last);
         await tester.pumpAndSettle();
 
         // Tap CTA — now points at Balanced tier.
-        await tester.tap(find.textContaining('Download & Continue'));
+        await tester.tap(
+          find.textContaining(l10n.qualityTierDownloadAndContinue),
+        );
         await tester.pumpAndSettle();
 
         expect(notifier.downloadModelCalls, [
@@ -269,11 +280,13 @@ void main() {
           ),
         );
 
-        await tester.tap(find.text('Choose a different quality level'));
+        await tester.tap(find.text(l10n.qualityTierChooseDifferent));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Quick & Compact').last);
+        await tester.tap(find.text(l10n.qualityTierCompactLabel).last);
         await tester.pumpAndSettle();
-        await tester.tap(find.textContaining('Download & Continue'));
+        await tester.tap(
+          find.textContaining(l10n.qualityTierDownloadAndContinue),
+        );
         await tester.pumpAndSettle();
 
         expect(notifier.downloadModelCalls, [
