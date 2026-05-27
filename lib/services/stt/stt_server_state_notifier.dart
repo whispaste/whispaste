@@ -962,7 +962,14 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       return;
     }
 
-    final gpu = await hw.detectGpu();
+    // Route GPU detection through `gpuInfoProvider` so test overrides
+    // actually take effect. The direct `hw.detectGpu()` call here used to
+    // bypass the Riverpod override entirely, which made the Windows CI
+    // runner spin up real WMI/PowerShell probes inside unit tests —
+    // polluting Sentry-spy lists and blowing the recovery-path timing
+    // windows that those tests rely on.
+    final gpu = await ref.read(hw.gpuInfoProvider.future);
+    if (!ref.mounted) return;
     _log.info(
       'GPU: ${gpu.name} (${gpu.vendor.name}, backend=${gpu.optimalBackend})',
     );
@@ -1721,7 +1728,12 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     // server variant, downloads it, and restarts the server so the next
     // recording works without further interaction. Sentry capture happens
     // only on RecoveryExhausted (inside the orchestrator).
-    final gpu = await hw.detectGpu();
+    // Route GPU detection through `gpuInfoProvider` (same rationale as
+    // `_start`) so tests can pin a deterministic GpuInfo via Riverpod
+    // override instead of triggering real WMI/PowerShell probes on the
+    // Windows CI runner.
+    final gpu = await ref.read(hw.gpuInfoProvider.future);
+    if (!ref.mounted) return;
     await _attemptRecovery(
       reason: RecoveryReason.abiMismatch,
       gpu: gpu,
@@ -1838,8 +1850,12 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     // the hardware. Cheap (~100–500ms) and re-arms the once-per-session
     // `gpuDetectionFailed` capture guard — if the second detection is
     // also blind, Sentry sees that explicitly instead of silently
-    // inheriting a stale „using CPU" cache from app start.
+    // inheriting a stale „using CPU" cache from app start. Also
+    // invalidate the Riverpod cache so the next `ref.read` inside
+    // `_start` actually re-runs `detectGpu()` instead of returning the
+    // cached future from before the recovery.
     hw.clearGpuCache();
+    if (ref.mounted) ref.invalidate(hw.gpuInfoProvider);
 
     try {
       await ensureRunning();
