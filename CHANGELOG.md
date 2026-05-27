@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.30
+
+### Stability (internal)
+
+- **Windows-CI-Flake im STT-Notifier nachhaltig behoben.** Zwei Stellen in `SttServerStateNotifier` (`_start` und `_handleModelLoadFailure`) riefen `hw.detectGpu()` direkt auf und liefen damit am Riverpod-Override für `gpuInfoProvider` vorbei, den alle betroffenen Tests bereits gesetzt hatten. Auf dem Windows-Runner führte das pro Testlauf die echten WMI/PowerShell-GPU-Probes aus — mit zwei Folgen: erstens leakte ein verspätetes `gpuDetectionFailed`-Sentry-Event in die Capture-Count-Assertions von `stt_inference_capture_test`, weil der Detector aus dem „windows-vendor-unclassified"-Pfad noch nach dem `_capturedEvents.clear()` feuerte; zweitens lief der Recovery-Test gegen die 200-ms-Timing-Fenster, weil `clearGpuCache()` + Re-Detect den zweiten `runner.start()`-Spawn nicht mehr rechtzeitig zuließ. Beide Call-Sites gehen jetzt durch `await ref.read(hw.gpuInfoProvider.future)` (gleiches Pattern wie der Benchmark-Pfad in Zeile 767), und `_restartAfterRecovery` invalidiert den Provider parallel zum modul-internen Cache. Produktionsverhalten unverändert — gleiches Caching, gleiche Re-Detection nach Recovery — aber die Tests sehen auf dem Windows-Runner jetzt deterministisch ihr Fake-`GpuInfo` statt der echten Hardware-Probes.
+
 ## 1.2.29
 
 ### Stability (internal)
