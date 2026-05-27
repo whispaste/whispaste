@@ -41,6 +41,7 @@ import '../../../core/config/settings_enums.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/logging/app_logger.dart';
+import '../../../core/platform/macos_lifecycle_channel.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../services/desktop_paste/desktop_paste_controller.dart';
@@ -86,16 +87,6 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
   /// during the same mount. Re-set when the step is re-mounted via the
   /// fresh [State] instance.
   bool _restartHintEmitted = false;
-
-  /// Latest outcome of the diagnostic test paste, or `null` if the user has
-  /// not run it yet in this step mount. Drives the success / failure / no-
-  /// frontmost banner inside the sub-step and the Next-gate.
-  TestPasteOutcome? _testOutcome;
-
-  /// `true` once the user has clicked "Continue without testing". Mirrors
-  /// the success outcome for the Next-gate but keeps the sub-step hidden so
-  /// the user doesn't see a confusing partial state after opting out.
-  bool _userSkippedTest = false;
 
   @override
   void initState() {
@@ -199,27 +190,6 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
     }
   }
 
-  /// Runs the diagnostic test paste through the shared notifier and binds
-  /// the outcome to local state so the sub-step banner can render the right
-  /// branch. The skip latch resets implicitly because the user only sees
-  /// this CTA while the sub-step is still visible.
-  Future<void> _onRunTestPastePressed() async {
-    final l10n = L10n.of(context);
-    final notifier = ref.read(pasteCapabilityNotifierProvider.notifier);
-    final outcome = await notifier.runDiagnosticPaste(
-      l10n.onboardingPasteDemoText,
-    );
-    if (!mounted) return;
-    setState(() => _testOutcome = outcome);
-  }
-
-  /// "Continue without testing" handler — flips the skip latch and emits a
-  /// dedicated Sentry breadcrumb so we can measure the opt-out rate.
-  void _onSkipTestPressed() {
-    _emitBreadcrumb('diagnostic_paste.skipped');
-    setState(() => _userSkippedTest = true);
-  }
-
   Future<void> _onSkipPressed() async {
     // Capture the failed-grant bit BEFORE persisting the skip so the
     // breadcrumb describes the state the user actually skipped from.
@@ -278,10 +248,6 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
     if (isWindows) {
       return _WindowsBody(
         state: ref.watch(pasteCapabilityNotifierProvider),
-        testOutcome: _testOutcome,
-        userSkippedTest: _userSkippedTest,
-        onRunTestPaste: _onRunTestPastePressed,
-        onSkipTest: _onSkipTestPressed,
         onNext: widget.onNext,
         onBack: widget.onBack,
         onSkip: _onSkipPressed,
@@ -306,13 +272,9 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
       grantInFlight: _grantInFlight,
       lastRepairResult: _lastRepairResult,
       showTccMismatchBanner: showTccMismatchBanner,
-      testOutcome: _testOutcome,
-      userSkippedTest: _userSkippedTest,
       onGrant: _onGrantPressed,
       onRepair: _onRepairPressed,
       onSkip: _onSkipPressed,
-      onRunTestPaste: _onRunTestPastePressed,
-      onSkipTest: _onSkipTestPressed,
       onNext: widget.onNext,
       onBack: widget.onBack,
     );
@@ -331,13 +293,9 @@ class _MacOsBody extends StatelessWidget {
     required this.grantInFlight,
     required this.lastRepairResult,
     required this.showTccMismatchBanner,
-    required this.testOutcome,
-    required this.userSkippedTest,
     required this.onGrant,
     required this.onRepair,
     required this.onSkip,
-    required this.onRunTestPaste,
-    required this.onSkipTest,
     required this.onNext,
     required this.onBack,
   });
@@ -355,34 +313,36 @@ class _MacOsBody extends StatelessWidget {
   /// breadcrumb emission with the render decision.
   final bool showTccMismatchBanner;
 
-  /// Latest diagnostic paste outcome (or `null` before the user ran it).
-  final TestPasteOutcome? testOutcome;
-
-  /// `true` if the user clicked "Continue without testing".
-  final bool userSkippedTest;
-
   final Future<void> Function() onGrant;
   final Future<void> Function() onRepair;
   final Future<void> Function() onSkip;
-  final Future<void> Function() onRunTestPaste;
-  final VoidCallback onSkipTest;
   final VoidCallback onNext;
   final VoidCallback onBack;
+
+  /// Phase the UI is currently rendering. Derived from `state.capability`
+  /// and `state.pollingPhase` so the build is a pure function of state.
+  _AutoPastePhase get _phase {
+    final cap = state.capability;
+    if (cap == null) return _AutoPastePhase.checking;
+    if (cap.status == PasteCapabilityStatus.ready) {
+      return _AutoPastePhase.granted;
+    }
+    if (cap.status == PasteCapabilityStatus.unsupported) {
+      // Defensive — the parent step list excludes this body on Linux so the
+      // user never sees it; render the intro layout as a fallback.
+      return _AutoPastePhase.intro;
+    }
+    if (showTccMismatchBanner) return _AutoPastePhase.troubleshoot;
+    if (state.pollingPhase == PollingPhase.awaitingGrant) {
+      return _AutoPastePhase.waiting;
+    }
+    return _AutoPastePhase.intro;
+  }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
-    final cap = state.capability;
-    final isReady = cap?.status == PasteCapabilityStatus.ready;
-
-    // Lazy reveal: Repair only makes sense once the user has tried to grant
-    // permission AND the OS still reports it as missing — the classic
-    // ad-hoc-signed-Sequoia stale-TCC symptom. Before that, the button is
-    // pure noise.
-    final showRepair =
-        state.hadFailedGrantAttempt &&
-        cap?.status == PasteCapabilityStatus.permissionMissing;
 
     final textPrimary = isDark
         ? WpColorsDark.textPrimary
@@ -398,10 +358,13 @@ class _MacOsBody extends StatelessWidget {
     final errorColor = isDark ? WpColorsDark.error : WpColorsLight.error;
     final warningColor = isDark ? WpColorsDark.warning : WpColorsLight.warning;
 
+    final phase = _phase;
+    final isReady = phase == _AutoPastePhase.granted;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // -- Title ----------------------------------------------------------
+        // -- Title + subtitle stay constant across phases ------------------
         Text(
           l10n.onboardingPasteTitle,
           textAlign: TextAlign.center,
@@ -419,121 +382,23 @@ class _MacOsBody extends StatelessWidget {
         ),
         const SizedBox(height: WpSpacing.xl),
 
-        // -- Permission status card ----------------------------------------
-        _PermissionStatusCard(
-          status: cap?.status,
-          isPolling: notifier.isPolling,
+        // -- Phase body — exactly one card + one primary CTA per phase ----
+        ..._buildPhase(
+          phase: phase,
+          l10n: l10n,
           isDark: isDark,
           textPrimary: textPrimary,
           textSecondary: textSecondary,
+          textMuted: textMuted,
+          accentGradient: accentGradient,
           successColor: successColor,
           errorColor: errorColor,
-          l10n: l10n,
+          warningColor: warningColor,
         ),
 
-        // -- Polling hint card --------------------------------------------
-        // Only visible while we are actively awaiting the user's grant —
-        // hidden once polling self-stops on success/timeout, and obviously
-        // hidden before the user ever clicked Grant.
-        if (state.pollingPhase == PollingPhase.awaitingGrant) ...[
-          const SizedBox(height: WpSpacing.sm),
-          _PollingHintCard(
-            isDark: isDark,
-            textPrimary: textPrimary,
-            textSecondary: textSecondary,
-            l10n: l10n,
-          ),
-        ],
-        // -- TCC-mismatch banner -----------------------------------------
-        // Surfaces the ad-hoc-signed-Sequoia "permission granted in System
-        // Settings but `AXIsProcessTrusted()` still returns false" symptom
-        // with two actionable recovery options (Repair / restart WhisPaste).
-        // Visually slots into the same row as the polling-hint card — the
-        // two are mutually exclusive (timedOut vs awaitingGrant phases).
-        if (showTccMismatchBanner) ...[
-          const SizedBox(height: WpSpacing.sm),
-          _TccMismatchBanner(
-            isDark: isDark,
-            textPrimary: textPrimary,
-            textSecondary: textSecondary,
-            warningColor: warningColor,
-            l10n: l10n,
-          ),
-        ],
         const SizedBox(height: WpSpacing.lg),
 
-        // -- Grant CTA -- only shown until permission is ready --------------
-        if (!isReady) ...[
-          SizedBox(
-            width: double.infinity,
-            child: WpAccentButton(
-              label: l10n.onboardingPasteGrantCta,
-              gradient: accentGradient,
-              // Disable while the async grant chain (prompted check →
-              // startPolling → settings deep-link) is still resolving so a
-              // user mashing the button doesn't queue up duplicate flows.
-              onPressed: grantInFlight ? null : onGrant,
-            ),
-          ),
-          const SizedBox(height: WpSpacing.sm),
-          Text(
-            l10n.onboardingPasteWhyMac,
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12, color: textMuted, height: 1.4),
-          ),
-          // -- Lazy Repair -- only after a prompted grant attempt failed ----
-          if (showRepair) ...[
-            const SizedBox(height: WpSpacing.md),
-            _RepairPanel(
-              busy: repairInFlight,
-              lastResult: lastRepairResult,
-              onRepair: repairInFlight ? null : onRepair,
-              isDark: isDark,
-              textSecondary: textSecondary,
-              textMuted: textMuted,
-              errorColor: errorColor,
-              successColor: successColor,
-              l10n: l10n,
-            ),
-          ],
-          const SizedBox(height: WpSpacing.sm),
-          // Skip — sets afterTranscription=clipboard and advances.
-          TextButton(
-            onPressed: onSkip,
-            child: Text(
-              l10n.onboardingPasteSkip,
-              style: TextStyle(color: textSecondary, fontSize: 13),
-            ),
-          ),
-        ],
-
-        // -- Test-paste sub-step — the explicit "prove Auto-Paste works"
-        // gate. Visible exactly while the user is in the ready state and
-        // has not yet either passed the test or opted out via the skip
-        // link. After success the sub-step keeps the demo field visible
-        // (so the user can see what got pasted) but swaps the CTA row for
-        // the green confirmation banner.
-        if (isReady && !userSkippedTest) ...[
-          const SizedBox(height: WpSpacing.lg),
-          _TestPasteSubStep(
-            outcome: testOutcome,
-            isDark: isDark,
-            textPrimary: textPrimary,
-            textSecondary: textSecondary,
-            textMuted: textMuted,
-            accentGradient: accentGradient,
-            successColor: successColor,
-            errorColor: errorColor,
-            warningColor: warningColor,
-            l10n: l10n,
-            onRun: onRunTestPaste,
-            onSkip: onSkipTest,
-          ),
-        ],
-
-        const SizedBox(height: WpSpacing.lg),
-
-        // -- Navigation row -------------------------------------------------
+        // -- Navigation row (always the same shape) ------------------------
         Row(
           children: [
             TextButton(
@@ -549,16 +414,7 @@ class _MacOsBody extends StatelessWidget {
               child: WpAccentButton(
                 label: l10n.onboardingNext,
                 gradient: accentGradient,
-                // Gate: ready + (test passed OR user explicitly skipped).
-                // Before the user resolves the sub-step, Next stays
-                // disabled so we don't ship Auto-Paste users out of
-                // onboarding without ever proving the bridge works.
-                onPressed:
-                    (isReady &&
-                        (testOutcome is TestPasteOutcomeSuccess ||
-                            userSkippedTest))
-                    ? onNext
-                    : null,
+                onPressed: isReady ? onNext : null,
               ),
             ),
           ],
@@ -566,6 +422,159 @@ class _MacOsBody extends StatelessWidget {
       ],
     );
   }
+
+  List<Widget> _buildPhase({
+    required _AutoPastePhase phase,
+    required L10n l10n,
+    required bool isDark,
+    required Color textPrimary,
+    required Color textSecondary,
+    required Color textMuted,
+    required LinearGradient accentGradient,
+    required Color successColor,
+    required Color errorColor,
+    required Color warningColor,
+  }) {
+    switch (phase) {
+      case _AutoPastePhase.checking:
+        return [
+          _PermissionStatusCard(
+            status: null,
+            isPolling: false,
+            isDark: isDark,
+            textPrimary: textPrimary,
+            textSecondary: textSecondary,
+            successColor: successColor,
+            errorColor: errorColor,
+            l10n: l10n,
+          ),
+        ];
+
+      case _AutoPastePhase.granted:
+        return [
+          _PermissionStatusCard(
+            status: PasteCapabilityStatus.ready,
+            isPolling: false,
+            isDark: isDark,
+            textPrimary: textPrimary,
+            textSecondary: textSecondary,
+            successColor: successColor,
+            errorColor: errorColor,
+            l10n: l10n,
+          ),
+        ];
+
+      case _AutoPastePhase.intro:
+        return [
+          SizedBox(
+            width: double.infinity,
+            child: WpAccentButton(
+              label: l10n.onboardingPasteGrantCta,
+              gradient: accentGradient,
+              onPressed: grantInFlight ? null : onGrant,
+            ),
+          ),
+          const SizedBox(height: WpSpacing.sm),
+          Text(
+            l10n.onboardingPasteWhyMac,
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12, color: textMuted, height: 1.4),
+          ),
+          const SizedBox(height: WpSpacing.sm),
+          TextButton(
+            onPressed: onSkip,
+            child: Text(
+              l10n.onboardingPasteSkip,
+              style: TextStyle(color: textSecondary, fontSize: 13),
+            ),
+          ),
+        ];
+
+      case _AutoPastePhase.waiting:
+        return [
+          _PollingHintCard(
+            isDark: isDark,
+            textPrimary: textPrimary,
+            textSecondary: textSecondary,
+            l10n: l10n,
+          ),
+          const SizedBox(height: WpSpacing.sm),
+          TextButton(
+            onPressed: onSkip,
+            child: Text(
+              l10n.onboardingPasteSkip,
+              style: TextStyle(color: textSecondary, fontSize: 13),
+            ),
+          ),
+        ];
+
+      case _AutoPastePhase.troubleshoot:
+        return [
+          _TccMismatchBanner(
+            isDark: isDark,
+            textPrimary: textPrimary,
+            textSecondary: textSecondary,
+            warningColor: warningColor,
+            l10n: l10n,
+          ),
+          const SizedBox(height: WpSpacing.sm),
+          // Secondary fallback: reset the entry instead of restarting.
+          // Surfaces the existing repair flow without giving it equal weight.
+          OutlinedButton.icon(
+            onPressed: repairInFlight ? null : onRepair,
+            icon: repairInFlight
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(LucideIcons.wrench, size: 14),
+            label: Text(l10n.pasteCapabilityRepairButton),
+          ),
+          if (lastRepairResult != null) ...[
+            const SizedBox(height: WpSpacing.xs),
+            _RepairResultBanner(
+              result: lastRepairResult!,
+              errorColor: errorColor,
+              successColor: successColor,
+              textSecondary: textSecondary,
+              l10n: l10n,
+            ),
+          ],
+          const SizedBox(height: WpSpacing.sm),
+          TextButton(
+            onPressed: onSkip,
+            child: Text(
+              l10n.onboardingPasteSkip,
+              style: TextStyle(color: textSecondary, fontSize: 13),
+            ),
+          ),
+        ];
+    }
+  }
+}
+
+/// Discrete UI phases of the macOS Auto-Paste onboarding step. Derived from
+/// `PasteCapabilityState` so the build method stays declarative — exactly
+/// one branch renders at a time and each branch shows a single primary CTA.
+enum _AutoPastePhase {
+  /// Initial probe still resolving — show only a soft "one moment" card.
+  checking,
+
+  /// Permission is granted; render a success card and let the user advance.
+  granted,
+
+  /// Default missing-permission state: big "Allow now" CTA + Skip.
+  intro,
+
+  /// `_onGrantPressed` armed polling; show the "tick the box" hint card
+  /// while the OS settings pane is open.
+  waiting,
+
+  /// Polling timed out with the suspected TCC-cache mismatch; surface the
+  /// big "Restart WhisPaste" CTA (inside the banner) with the reset button
+  /// as a secondary fallback.
+  troubleshoot,
 }
 
 // =============================================================================
@@ -576,25 +585,12 @@ class _MacOsBody extends StatelessWidget {
 class _WindowsBody extends StatelessWidget {
   const _WindowsBody({
     required this.state,
-    required this.testOutcome,
-    required this.userSkippedTest,
-    required this.onRunTestPaste,
-    required this.onSkipTest,
     required this.onNext,
     required this.onBack,
     required this.onSkip,
   });
 
   final PasteCapabilityState state;
-
-  /// Latest diagnostic paste outcome (or `null` before the user ran it).
-  final TestPasteOutcome? testOutcome;
-
-  /// `true` if the user clicked "Continue without testing".
-  final bool userSkippedTest;
-
-  final Future<void> Function() onRunTestPaste;
-  final VoidCallback onSkipTest;
   final VoidCallback onNext;
   final VoidCallback onBack;
   final Future<void> Function() onSkip;
@@ -678,37 +674,17 @@ class _WindowsBody extends StatelessWidget {
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 12, color: textMuted, height: 1.4),
           ),
-          // -- Test-paste sub-step — the explicit "prove Auto-Paste works"
-          // gate. Visible exactly while the user is in the ready state and
-          // has not yet either passed the test or opted out via skip.
-          if (!userSkippedTest) ...[
-            const SizedBox(height: WpSpacing.lg),
-            _TestPasteSubStep(
-              outcome: testOutcome,
-              isDark: isDark,
-              textPrimary: textPrimary,
-              textSecondary: textSecondary,
-              textMuted: textMuted,
-              accentGradient: accentGradient,
-              successColor: successColor,
-              errorColor: isDark ? WpColorsDark.error : WpColorsLight.error,
-              warningColor: warningColor,
-              l10n: l10n,
-              onRun: onRunTestPaste,
-              onSkip: onSkipTest,
-            ),
-          ],
         ],
 
         const SizedBox(height: WpSpacing.lg),
 
         // -- Navigation row -----------------------------------------------
-        // Next-gate:
-        //   - UIPI edge: explicitly non-blocking; Next stays enabled so the
-        //     user can keep Auto-Paste on and still advance.
-        //   - Verify (ready) branch: gated on the test-paste sub-step —
-        //     either the diagnostic paste succeeded or the user opted out
-        //     via "Continue without testing".
+        // Next is always enabled on Windows: in the 99% Verify path the
+        // capability is already `ready`, in the UIPI edge it's explicitly
+        // non-blocking. The in-app self-paste test was removed because
+        // Flutter on macOS/Windows never reliably received the synthesised
+        // Cmd+V into its own TextField — `AXIsProcessTrusted=true` /
+        // SendInput access is enough proof for real-world recordings.
         Row(
           children: [
             TextButton(
@@ -724,12 +700,7 @@ class _WindowsBody extends StatelessWidget {
               child: WpAccentButton(
                 label: l10n.onboardingNext,
                 gradient: accentGradient,
-                onPressed:
-                    (isUipiEdge ||
-                        testOutcome is TestPasteOutcomeSuccess ||
-                        userSkippedTest)
-                    ? onNext
-                    : null,
+                onPressed: onNext,
               ),
             ),
           ],
@@ -942,88 +913,6 @@ class _PermissionStatusCard extends StatelessWidget {
   }
 }
 
-/// Lazy self-heal panel: surfaces the TCC repair button plus a contextual
-/// banner explaining why it might help, and renders the post-call outcome
-/// inline (success count / error copy) so the user never has to chase a
-/// disappearing snackbar to understand what happened.
-class _RepairPanel extends StatelessWidget {
-  const _RepairPanel({
-    required this.busy,
-    required this.lastResult,
-    required this.onRepair,
-    required this.isDark,
-    required this.textSecondary,
-    required this.textMuted,
-    required this.errorColor,
-    required this.successColor,
-    required this.l10n,
-  });
-
-  final bool busy;
-  final TccRepairResult? lastResult;
-  final VoidCallback? onRepair;
-  final bool isDark;
-  final Color textSecondary;
-  final Color textMuted;
-  final Color errorColor;
-  final Color successColor;
-  final L10n l10n;
-
-  @override
-  Widget build(BuildContext context) {
-    final surface =
-        (isDark ? WpColorsDark.surfaceVariant : WpColorsLight.surfaceVariant)
-            .withValues(alpha: 0.5);
-    final border = isDark
-        ? WpColorsDark.borderSubtle
-        : WpColorsLight.borderSubtle;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(WpSpacing.md),
-      decoration: BoxDecoration(
-        color: surface,
-        borderRadius: WpRadius.borderMd,
-        border: Border.all(color: border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            l10n.pasteCapabilityRepairHint,
-            style: TextStyle(fontSize: 12, color: textMuted, height: 1.4),
-          ),
-          const SizedBox(height: WpSpacing.sm),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: onRepair,
-              icon: busy
-                  ? const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(LucideIcons.wrench, size: 14),
-              label: Text(l10n.pasteCapabilityRepairButton),
-            ),
-          ),
-          if (lastResult != null) ...[
-            const SizedBox(height: WpSpacing.sm),
-            _RepairResultBanner(
-              result: lastResult!,
-              errorColor: errorColor,
-              successColor: successColor,
-              textSecondary: textSecondary,
-              l10n: l10n,
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
 /// Step-by-step guidance card surfaced only while
 /// [PasteCapabilityNotifier] is in the [PollingPhase.awaitingGrant] phase.
 ///
@@ -1150,33 +1039,47 @@ class _TccMismatchBanner extends StatelessWidget {
         borderRadius: WpRadius.borderMd,
         border: Border.all(color: border),
       ),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(LucideIcons.triangleAlert, size: 20, color: warningColor),
-          const SizedBox(width: WpSpacing.sm),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l10n.onboardingPasteTccMismatchTitle,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: textPrimary,
-                  ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(LucideIcons.triangleAlert, size: 20, color: warningColor),
+              const SizedBox(width: WpSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.onboardingPasteTccMismatchTitle,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: WpSpacing.xs),
+                    Text(
+                      l10n.onboardingPasteTccMismatchBody,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: textSecondary,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: WpSpacing.xs),
-                Text(
-                  l10n.onboardingPasteTccMismatchBody,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: textSecondary,
-                    height: 1.4,
-                  ),
-                ),
-              ],
+              ),
+            ],
+          ),
+          const SizedBox(height: WpSpacing.sm),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: MacOSLifecycleChannel.restart,
+              icon: const Icon(LucideIcons.rotateCw, size: 14),
+              label: Text(l10n.pasteCapabilityRestartButton),
             ),
           ),
         ],
@@ -1224,258 +1127,38 @@ class _RepairResultBanner extends StatelessWidget {
             result.appleEventsCleared.clamp(0, 999),
       );
     }
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 16, color: color),
-        const SizedBox(width: WpSpacing.xs),
-        Expanded(
-          child: Text(
-            message,
-            style: TextStyle(fontSize: 12, color: textSecondary, height: 1.4),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// Onboarding sub-step that exercises the Auto-Paste pipeline against a
-/// real input field so the user has *evidence* the bridge works before
-/// finishing onboarding. Renders three branches off the latest
-/// [TestPasteOutcome]:
-///
-///   - `null` (not run yet): demo TextField + "Run test paste" CTA +
-///     "Continue without testing" link.
-///   - [TestPasteOutcomeSuccess]: green confirmation banner; the demo
-///     field stays around so the user can see the pasted text.
-///   - [TestPasteOutcomeNoFrontmost] / [TestPasteOutcomeFailure]: warn
-///     banner with retry CTA. `failure(not_trusted)` additionally surfaces
-///     a hint about the permission edge case.
-///   - [TestPasteOutcomeUnsupported]: the parent normally hides the
-///     sub-step entirely in this case (Linux defensive). Falls through to
-///     a minimal warn banner if it ever does render — the user can still
-///     opt out via the skip link.
-class _TestPasteSubStep extends StatefulWidget {
-  const _TestPasteSubStep({
-    required this.outcome,
-    required this.isDark,
-    required this.textPrimary,
-    required this.textSecondary,
-    required this.textMuted,
-    required this.accentGradient,
-    required this.successColor,
-    required this.errorColor,
-    required this.warningColor,
-    required this.l10n,
-    required this.onRun,
-    required this.onSkip,
-  });
-
-  final TestPasteOutcome? outcome;
-  final bool isDark;
-  final Color textPrimary;
-  final Color textSecondary;
-  final Color textMuted;
-  final LinearGradient accentGradient;
-  final Color successColor;
-  final Color errorColor;
-  final Color warningColor;
-  final L10n l10n;
-  final Future<void> Function() onRun;
-  final VoidCallback onSkip;
-
-  @override
-  State<_TestPasteSubStep> createState() => _TestPasteSubStepState();
-}
-
-class _TestPasteSubStepState extends State<_TestPasteSubStep> {
-  late final TextEditingController _controller;
-  late final FocusNode _focusNode;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController();
-    _focusNode = FocusNode();
-    // Hand focus to the demo field on mount so the native Cmd+V / Ctrl+V
-    // synthesis lands in this app's text input rather than e.g. the host
-    // shell. Wrapped in addPostFrameCallback so the focus request hits a
-    // mounted, rendered field.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _focusNode.requestFocus();
-    });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    _focusNode.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final outcome = widget.outcome;
-    final surface =
-        (widget.isDark
-                ? WpColorsDark.surfaceVariant
-                : WpColorsLight.surfaceVariant)
-            .withValues(alpha: 0.5);
-    final border = widget.isDark
-        ? WpColorsDark.borderSubtle
-        : WpColorsLight.borderSubtle;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(WpSpacing.md),
-      decoration: BoxDecoration(
-        color: surface,
-        borderRadius: WpRadius.borderMd,
-        border: Border.all(color: border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            widget.l10n.onboardingPasteTestTitle,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: widget.textPrimary,
-            ),
-          ),
-          const SizedBox(height: WpSpacing.xs),
-          Text(
-            widget.l10n.onboardingPasteTestSubtitle,
-            style: TextStyle(
-              fontSize: 12,
-              color: widget.textSecondary,
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: WpSpacing.sm),
-          TextField(
-            controller: _controller,
-            focusNode: _focusNode,
-            decoration: const InputDecoration(
-              border: OutlineInputBorder(),
-              isDense: true,
-            ),
-          ),
-          const SizedBox(height: WpSpacing.sm),
-          ..._buildOutcomeBranch(outcome),
-        ],
-      ),
-    );
-  }
-
-  /// Renders the CTA row / outcome banner appropriate for the current
-  /// [TestPasteOutcome]. Split out so the build method stays readable and
-  /// each branch can declare its own widgets without indentation
-  /// gymnastics.
-  List<Widget> _buildOutcomeBranch(TestPasteOutcome? outcome) {
-    if (outcome is TestPasteOutcomeSuccess) {
-      return [
-        _OutcomeBanner(
-          icon: LucideIcons.circleCheck,
-          color: widget.successColor,
-          message: widget.l10n.onboardingPasteTestSuccess,
-          textColor: widget.textSecondary,
-        ),
-      ];
-    }
-    if (outcome is TestPasteOutcomeNoFrontmost) {
-      return [
-        _OutcomeBanner(
-          icon: LucideIcons.triangleAlert,
-          color: widget.warningColor,
-          message: widget.l10n.onboardingPasteTestNoFrontmost,
-          textColor: widget.textSecondary,
-        ),
-        const SizedBox(height: WpSpacing.sm),
-        _runAndSkipRow(),
-      ];
-    }
-    if (outcome is TestPasteOutcomeFailure) {
-      final showNotTrustedHint = outcome.reason == 'not_trusted';
-      return [
-        _OutcomeBanner(
-          icon: LucideIcons.circleAlert,
-          color: widget.errorColor,
-          message: widget.l10n.onboardingPasteTestFailure,
-          textColor: widget.textSecondary,
-        ),
-        if (showNotTrustedHint) ...[
-          const SizedBox(height: WpSpacing.xs),
-          Text(
-            widget.l10n.onboardingPasteTccMismatchBody,
-            style: TextStyle(
-              fontSize: 11,
-              color: widget.textMuted,
-              height: 1.4,
-            ),
-          ),
-        ],
-        const SizedBox(height: WpSpacing.sm),
-        _runAndSkipRow(),
-      ];
-    }
-    // outcome == null or unsupported → initial CTA row.
-    return [_runAndSkipRow()];
-  }
-
-  Widget _runAndSkipRow() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        WpAccentButton(
-          label: widget.l10n.onboardingPasteTestRunCta,
-          gradient: widget.accentGradient,
-          onPressed: widget.onRun,
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 16, color: color),
+            const SizedBox(width: WpSpacing.xs),
+            Expanded(
+              child: Text(
+                message,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: textSecondary,
+                  height: 1.4,
+                ),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: WpSpacing.xs),
-        TextButton(
-          onPressed: widget.onSkip,
-          child: Text(
-            widget.l10n.onboardingPasteTestSkip,
-            style: TextStyle(color: widget.textSecondary, fontSize: 12),
+        // Offer the restart shortcut whenever the repair didn't actually
+        // clear anything — that's the case where macOS won't re-evaluate
+        // trust without a fresh process, so the only reliable recovery is
+        // relaunching WhisPaste.
+        if (nothingCleared) ...[
+          const SizedBox(height: WpSpacing.sm),
+          OutlinedButton.icon(
+            onPressed: MacOSLifecycleChannel.restart,
+            icon: const Icon(LucideIcons.rotateCw, size: 14),
+            label: Text(l10n.pasteCapabilityRestartButton),
           ),
-        ),
-      ],
-    );
-  }
-}
-
-/// Small banner widget used inside [_TestPasteSubStep] to render the
-/// outcome of a diagnostic test paste. Style mirrors the other inline
-/// banners in this step (icon + text on the surface-variant background).
-class _OutcomeBanner extends StatelessWidget {
-  const _OutcomeBanner({
-    required this.icon,
-    required this.color,
-    required this.message,
-    required this.textColor,
-  });
-
-  final IconData icon;
-  final Color color;
-  final String message;
-  final Color textColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 16, color: color),
-        const SizedBox(width: WpSpacing.xs),
-        Expanded(
-          child: Text(
-            message,
-            style: TextStyle(fontSize: 12, color: textColor, height: 1.4),
-          ),
-        ),
+        ],
       ],
     );
   }

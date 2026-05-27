@@ -446,14 +446,13 @@ class L10nDe extends L10n {
   String get pasteFailureOpenSettings => 'Einstellungen öffnen';
 
   @override
-  String get pasteCapabilityCheckTitle => 'Auto-Einfügen prüfen';
+  String get pasteCapabilityCheckTitle => 'Einen Moment…';
 
   @override
-  String get pasteCapabilityReady => 'Bereit zum Einfügen';
+  String get pasteCapabilityReady => 'Alles bereit';
 
   @override
-  String get pasteCapabilityPermissionMissing =>
-      'Bedienungshilfen-Berechtigung fehlt';
+  String get pasteCapabilityPermissionMissing => 'Noch nicht freigegeben';
 
   @override
   String get pasteCapabilityUnsupported =>
@@ -467,10 +466,13 @@ class L10nDe extends L10n {
 
   @override
   String get pasteCapabilityRepairHint =>
-      'macOS hängt sich manchmal an alten Berechtigungs-Einträgen für WhisPaste fest. Klick unten auf \'Reparieren\', um sie zu entfernen — danach musst du WhisPaste in den Systemeinstellungen erneut zustimmen. Wenn auch das nicht hilft, ist ein App-Neustart der zuverlässige nächste Schritt.';
+      'Manchmal merkt sich macOS einen alten Eintrag und vergisst die neue Freigabe. Setz den Eintrag zurück, dann fragt macOS dich nochmal sauber.';
 
   @override
-  String get pasteCapabilityRepairButton => 'Berechtigungen reparieren';
+  String get pasteCapabilityRepairButton => 'Eintrag zurücksetzen';
+
+  @override
+  String get pasteCapabilityRestartButton => 'WhisPaste neu starten';
 
   @override
   String pasteCapabilityRepairDone(int count) {
@@ -488,32 +490,32 @@ class L10nDe extends L10n {
 
   @override
   String get pasteCapabilityRepairNothingToClear =>
-      'Keine veralteten Einträge gefunden — hier hilft am ehesten ein Neustart von WhisPaste.';
+      'Kein alter Eintrag gefunden. Wahrscheinlich hilft jetzt ein Neustart.';
 
   @override
   String get pasteCapabilityRepairFailed =>
       'macOS-Berechtigungs-Reset konnte nicht ausgeführt werden. Bitte WhisPaste manuell aus Systemeinstellungen → Bedienungshilfen entfernen.';
 
   @override
-  String get onboardingPasteTitle => 'Auto-Einfügen einrichten';
+  String get onboardingPasteTitle =>
+      'Damit dein Text dort landet, wo du tippst';
 
   @override
   String get onboardingPasteSubtitle =>
-      'WhisPaste braucht eine zusätzliche Berechtigung, um Transkripte in andere Apps einzufügen.';
+      'macOS fragt dich gleich, ob WhisPaste das darf. Sag Ja — fertig.';
 
   @override
-  String get onboardingPasteGrantCta =>
-      'Bedienungshilfen-Berechtigung erteilen';
+  String get onboardingPasteGrantCta => 'Jetzt freigeben';
 
   @override
   String get onboardingPasteVerifyCta => 'Prüfen';
 
   @override
-  String get onboardingPasteSkip => 'Überspringen — Auto-Paste deaktivieren';
+  String get onboardingPasteSkip => 'Erstmal nur kopieren — ohne Auto-Einfügen';
 
   @override
   String get onboardingPasteWhyMac =>
-      'macOS verlangt eine explizite Berechtigung für jede App, die Tasten in andere Apps schickt. Ohne sie wird dein Transkript trotzdem in die Zwischenablage kopiert, aber ⌘V wird nicht automatisch ausgelöst.';
+      'Ohne Freigabe wird dein Text in die Zwischenablage kopiert — du musst dann selbst mit ⌘V einfügen.';
 
   @override
   String get onboardingPasteWhyWin =>
@@ -525,19 +527,19 @@ class L10nDe extends L10n {
 
   @override
   String get onboardingPasteWaitingForGrantTitle =>
-      'Warte auf deine Berechtigung…';
+      'Setz das Häkchen bei WhisPaste';
 
   @override
   String get onboardingPasteWaitingForGrantHint =>
-      '1. System Settings → Bedienungshilfen ist gerade offen. 2. Schalte WhisPaste in der Liste ein. 3. Diese App erkennt die Änderung automatisch.';
+      'Die Systemeinstellungen sind offen. Such WhisPaste in der Liste und schalt es ein.\n\nNicht in der Liste? Zieh das App-Symbol einfach rein oder klick auf „+\".';
 
   @override
   String get onboardingPasteTccMismatchTitle =>
-      'macOS erkennt die neue Berechtigung nicht';
+      'macOS hat das Häkchen nicht erkannt';
 
   @override
   String get onboardingPasteTccMismatchBody =>
-      '1. Drück unten auf Reparieren — das löscht alte Berechtigungs-Einträge. Danach wirst du erneut gefragt.\n2. Wenn das auch nicht hilft, schließ WhisPaste komplett und starte die App neu — dann erkennt macOS die aktuelle App-Signatur.';
+      'Das passiert manchmal nach App-Updates. Ein Neustart reicht — dann sieht macOS WhisPaste wieder sauber.';
 
   @override
   String get onboardingPasteTestTitle => 'Probier Auto-Paste aus';
@@ -2090,20 +2092,24 @@ class L10nDe extends L10n {
   String get onboardingMicRequestAccess => 'Zugriff gewähren';
 
   @override
-  String get onboardingMicTestTitle => 'Mikrofon testen';
-
-  @override
-  String get onboardingMicTestHint => 'Tippe zum Starten einer Testaufnahme';
-
-  @override
-  String get onboardingMicTestRecording => 'Aufnahme… sprich jetzt';
+  String get onboardingMicTestRecording => 'Sag etwas — wir prüfen den Pegel';
 
   @override
   String get onboardingMicTestDone =>
       'Klingt super — dein Mikrofon funktioniert einwandfrei!';
 
   @override
-  String get onboardingMicDeviceLabel => 'Audio-Eingabegerät';
+  String get onboardingMicSilent =>
+      'Wir hören nichts. Wähle unten das richtige Mikrofon oder sprich lauter und versuch es erneut.';
+
+  @override
+  String get onboardingMicRetry => 'Erneut testen';
+
+  @override
+  String get onboardingMicDeviceLabel => 'Mikrofon';
+
+  @override
+  String get onboardingMicDeviceSystemDefault => 'System-Standard';
 
   @override
   String get onboardingMicDeniedInstructions =>

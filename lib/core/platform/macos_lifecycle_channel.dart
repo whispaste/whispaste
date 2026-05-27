@@ -69,4 +69,22 @@ class MacOSLifecycleChannel {
       // Best-effort cancel.
     }
   }
+
+  /// Programmatic relaunch of the application bundle. Used by the Auto-Paste
+  /// onboarding step when the user has hit the ad-hoc-signed TCC-cache
+  /// mismatch on macOS — after `tccutil reset` cleared stale entries,
+  /// macOS only re-evaluates the app's trust on a fresh process.
+  ///
+  /// The call returns successfully a few hundred milliseconds before the
+  /// app actually quits; callers should treat it as fire-and-forget and
+  /// expect the process to terminate shortly after.
+  static Future<void> restart() async {
+    if (!Platform.isMacOS) return;
+    try {
+      await _channel.invokeMethod('restart');
+    } on PlatformException {
+      // Best-effort — if the relaunch helper failed to spawn, the user
+      // still has the option to quit WhisPaste manually.
+    }
+  }
 }

@@ -7,6 +7,7 @@ class AppDelegate: FlutterAppDelegate {
   private var desktopPasteHost: DesktopPasteHost?
   private var floatingButtonHost: FloatingButtonHost?
   private var floatingOverlayHost: FloatingOverlayHost?
+  private var audioRoutingHost: AudioRoutingHost?
   private var lifecycleChannel: FlutterMethodChannel?
 
   override func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -39,6 +40,7 @@ class AppDelegate: FlutterAppDelegate {
     desktopPasteHost = DesktopPasteHost(messenger: messenger)
     floatingButtonHost = FloatingButtonHost(messenger: messenger)
     floatingOverlayHost = FloatingOverlayHost(messenger: messenger)
+    audioRoutingHost = AudioRoutingHost(messenger: messenger)
 
     // Lifecycle channel: activation policy toggle for close-to-tray.
     lifecycleChannel = FlutterMethodChannel(
@@ -91,6 +93,39 @@ class AppDelegate: FlutterAppDelegate {
         NSApp.cancelUserAttentionRequest(token)
       }
       result(nil)
+
+    case "restart":
+      // Programmatic relaunch — used by the Auto-Paste onboarding step when
+      // the user hits the ad-hoc-signed TCC-cache mismatch on macOS. After
+      // `tccutil reset` has wiped stale entries, macOS only re-evaluates the
+      // app's trust state for a *fresh* process, so the only reliable way
+      // to get the OS to recognise the granted permission is to relaunch
+      // WhisPaste itself.
+      result(nil)
+      let bundlePath = Bundle.main.bundlePath
+      // Spawn a detached helper that waits for us to exit, then re-opens
+      // the .app bundle. Using `/usr/bin/open -n <bundlePath>` from a
+      // detached subshell ensures the relaunched process is not parented
+      // to this one and inherits no Accessibility trust from the original.
+      let pid = ProcessInfo.processInfo.processIdentifier
+      let script = """
+        while kill -0 \(pid) 2>/dev/null; do sleep 0.1; done
+        /usr/bin/open -n "\(bundlePath)"
+        """
+      let task = Process()
+      task.executableURL = URL(fileURLWithPath: "/bin/sh")
+      task.arguments = ["-c", script]
+      do {
+        try task.run()
+      } catch {
+        // If we can't spawn the helper there's no clean fallback — bail
+        // without terminating so the user can manually relaunch.
+        return
+      }
+      // Give Dart a moment to flush its method-channel reply, then quit.
+      DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(150)) {
+        NSApp.terminate(nil)
+      }
 
     default:
       result(FlutterMethodNotImplemented)

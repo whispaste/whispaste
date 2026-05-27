@@ -438,13 +438,13 @@ class L10nHe extends L10n {
   String get pasteFailureOpenSettings => 'פתח הגדרות';
 
   @override
-  String get pasteCapabilityCheckTitle => 'בדוק הגדרת הדבקה אוטומטית';
+  String get pasteCapabilityCheckTitle => 'רגע…';
 
   @override
-  String get pasteCapabilityReady => 'מוכן להדבקה';
+  String get pasteCapabilityReady => 'הכל מוכן';
 
   @override
-  String get pasteCapabilityPermissionMissing => 'הרשאת נגישות לא הוענקה';
+  String get pasteCapabilityPermissionMissing => 'עוד לא אושר';
 
   @override
   String get pasteCapabilityUnsupported =>
@@ -458,10 +458,13 @@ class L10nHe extends L10n {
 
   @override
   String get pasteCapabilityRepairHint =>
-      'לפעמים macOS נאחז ברשומות הרשאה ישנות של WhisPaste. לחץ \'תקן\' למטה כדי לנקות אותן — לאחר מכן תצטרך לאשר את WhisPaste בהגדרות המערכת מחדש. אם גם זה לא עוזר, הפעלה מחדש של האפליקציה היא הצעד הבא האמין.';
+      'לפעמים macOS זוכר רשומה ישנה ושוכח את האישור החדש. אפס את הרשומה — macOS ישאל אותך מחדש בצורה נקייה.';
 
   @override
-  String get pasteCapabilityRepairButton => 'תקן הרשאות';
+  String get pasteCapabilityRepairButton => 'אפס רשומה';
+
+  @override
+  String get pasteCapabilityRestartButton => 'הפעל מחדש את WhisPaste';
 
   @override
   String pasteCapabilityRepairDone(int count) {
@@ -477,31 +480,31 @@ class L10nHe extends L10n {
 
   @override
   String get pasteCapabilityRepairNothingToClear =>
-      'לא נמצאו רשומות ישנות — סביר להניח שהפעלה מחדש של WhisPaste תעזור כאן.';
+      'לא נמצאה רשומה ישנה. סביר להניח שהפעלה מחדש תעזור עכשיו.';
 
   @override
   String get pasteCapabilityRepairFailed =>
       'לא ניתן היה להריץ איפוס הרשאות של macOS. הסר את WhisPaste ידנית מ־הגדרות מערכת → נגישות.';
 
   @override
-  String get onboardingPasteTitle => 'הגדרת הדבקה אוטומטית';
+  String get onboardingPasteTitle => 'כדי שהטקסט שלך ינחת איפה שאתה מקליד';
 
   @override
   String get onboardingPasteSubtitle =>
-      'WhisPaste זקוקה להרשאה נוספת כדי להדביק תמלילים באפליקציות אחרות.';
+      'macOS ישאל אותך בעוד רגע אם WhisPaste מורשה. אמור כן — וזהו.';
 
   @override
-  String get onboardingPasteGrantCta => 'הענק הרשאת נגישות';
+  String get onboardingPasteGrantCta => 'אשר עכשיו';
 
   @override
   String get onboardingPasteVerifyCta => 'בדוק';
 
   @override
-  String get onboardingPasteSkip => 'דלג — השבת הדבקה אוטומטית';
+  String get onboardingPasteSkip => 'רק להעתיק לעת עתה — בלי הדבקה אוטומטית';
 
   @override
   String get onboardingPasteWhyMac =>
-      'macOS דורש הרשאה מפורשת לכל אפליקציה ששולחת הקשות לאפליקציות אחרות. בלעדיה, התמליל עדיין יועתק ללוח, אך ⌘V לא יופעל אוטומטית.';
+      'בלי אישור, הטקסט יועתק ללוח — תצטרך להדביק ידנית עם ⌘V.';
 
   @override
   String get onboardingPasteWhyWin =>
@@ -512,18 +515,19 @@ class L10nHe extends L10n {
       'באפליקציות מסוימות עם הגנת UIPI/UAC, ההדבקה האוטומטית לא תעבוד — הטקסט יישאר בלוח, ויהיה עליך להדביקו עם Ctrl+V באופן ידני.';
 
   @override
-  String get onboardingPasteWaitingForGrantTitle => 'ממתין להרשאה שלך…';
+  String get onboardingPasteWaitingForGrantTitle =>
+      'סמן את התיבה ליד WhisPaste';
 
   @override
   String get onboardingPasteWaitingForGrantHint =>
-      '1. הגדרות המערכת → נגישות פתוחות כעת. 2. הפעל את WhisPaste ברשימה. 3. האפליקציה תזהה את השינוי באופן אוטומטי.';
+      'הגדרות המערכת פתוחות. מצא את WhisPaste ברשימה והפעל אותו.\n\nלא ברשימה? גרור את סמל האפליקציה פנימה או לחץ על „+\".';
 
   @override
-  String get onboardingPasteTccMismatchTitle => 'macOS לא מזהה את ההרשאה החדשה';
+  String get onboardingPasteTccMismatchTitle => 'macOS לא קלט את הסימון';
 
   @override
   String get onboardingPasteTccMismatchBody =>
-      '1. הקש על תיקון למטה — הפעולה מנקה רשומות הרשאה ישנות, ו-macOS יבקש ממך הרשאה שוב.\n2. אם גם זה לא עוזר, סגור את WhisPaste לחלוטין והפעל מחדש — כך macOS יזהה את חתימת האפליקציה הנוכחית.';
+      'קורה לפעמים אחרי עדכוני אפליקציה. הפעלה מחדש פותרת — אז macOS יראה את WhisPaste נקי.';
 
   @override
   String get onboardingPasteTestTitle => 'נסה הדבקה אוטומטית';
@@ -2025,20 +2029,24 @@ class L10nHe extends L10n {
   String get onboardingMicRequestAccess => 'אפשר גישה';
 
   @override
-  String get onboardingMicTestTitle => 'בדוק את המיקרופון';
-
-  @override
-  String get onboardingMicTestHint => 'לחץ כדי להתחיל הקלטת בדיקה';
-
-  @override
-  String get onboardingMicTestRecording => 'מקליט… דבר עכשיו';
+  String get onboardingMicTestRecording => 'אמור משהו — אנחנו בודקים את הרמה';
 
   @override
   String get onboardingMicTestDone =>
       'נשמע מצוין – המיקרופון עובד בצורה מושלמת!';
 
   @override
-  String get onboardingMicDeviceLabel => 'מכשיר קלט אודיו';
+  String get onboardingMicSilent =>
+      'אנחנו לא שומעים כלום. בחר את המיקרופון הנכון למטה או דבר חזק יותר ונסה שוב.';
+
+  @override
+  String get onboardingMicRetry => 'נסה שוב';
+
+  @override
+  String get onboardingMicDeviceLabel => 'מיקרופון';
+
+  @override
+  String get onboardingMicDeviceSystemDefault => 'ברירת מחדל של המערכת';
 
   @override
   String get onboardingMicDeniedInstructions =>
