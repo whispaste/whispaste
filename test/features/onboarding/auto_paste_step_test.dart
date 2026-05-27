@@ -23,6 +23,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
+import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/onboarding/steps/auto_paste_step.dart';
 import 'package:whispaste/services/desktop_paste/desktop_paste_controller.dart';
 import 'package:whispaste/services/paste/paste_capability_notifier.dart';
@@ -163,6 +164,11 @@ _pumpStep(
         child: AutoPasteStep(onNext: onNext, onBack: _noop),
       ),
       size: const Size(1280, 980),
+      // Pin the locale to `en` so labels are deterministic regardless of
+      // the host's system language — CI runners ship with varying default
+      // locales and `null` would otherwise fall back to whatever the
+      // platform reports.
+      locale: const Locale('en'),
       overrides: [
         pasteCapabilityNotifierProvider.overrideWith(() => paste),
         settingsProvider.overrideWith(() => settingsNotifier),
@@ -175,6 +181,17 @@ _pumpStep(
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  // Single resolved English copy used for every label lookup below. Using
+  // `l10n.<key>` instead of hardcoded strings keeps the suite stable across
+  // wording changes in the ARB and surfaces *missing keys* as compile-time
+  // errors. The only way to silently break this test is to actually remove
+  // the affordance from the widget — which is precisely what the assertion
+  // is supposed to catch.
+  late final L10n l10n;
+  setUpAll(() async {
+    l10n = await L10n.delegate.load(const Locale('en'));
+  });
 
   // Stub the `url_launcher` platform channel so the Grant flow's
   // deep-link into System Settings does not hang the test on a missing
@@ -210,18 +227,18 @@ void main() {
       await _pumpStep(tester, paste: paste, onNext: () => nextCalled = true);
 
       // Grant CTA shown.
-      expect(find.text('Allow now'), findsOneWidget);
+      expect(find.text(l10n.onboardingPasteGrantCta), findsOneWidget);
       // Skip secondary visible while not ready.
-      expect(find.text('Just copy for now — no auto-insert'), findsOneWidget);
+      expect(find.text(l10n.onboardingPasteSkip), findsOneWidget);
       // In the intro phase the permission status card is intentionally not
       // rendered — the Grant CTA + why-mac caption are the only signal.
-      expect(find.text('All set'), findsNothing);
+      expect(find.text(l10n.pasteCapabilityReady), findsNothing);
 
       // initState fires exactly one un-prompted check.
       expect(paste.checkCalls, [false]);
 
       // Tapping the Next CTA while disabled must not fire onNext.
-      await tester.tap(find.text('Next'));
+      await tester.tap(find.text(l10n.onboardingNext));
       await tester.pumpAndSettle();
       expect(nextCalled, isFalse);
     });
@@ -238,14 +255,14 @@ void main() {
       await _pumpStep(tester, paste: paste, onNext: () => nextCalled = true);
 
       // Success label is the only card in the granted phase.
-      expect(find.text('All set'), findsOneWidget);
+      expect(find.text(l10n.pasteCapabilityReady), findsOneWidget);
       // Skip and Grant disappear once the capability is ready — Next is the
       // single primary CTA.
-      expect(find.text('Just copy for now — no auto-insert'), findsNothing);
-      expect(find.text('Allow now'), findsNothing);
+      expect(find.text(l10n.onboardingPasteSkip), findsNothing);
+      expect(find.text(l10n.onboardingPasteGrantCta), findsNothing);
 
       // Next is enabled in the granted phase and advances directly.
-      await tester.tap(find.text('Next'));
+      await tester.tap(find.text(l10n.onboardingNext));
       await tester.pumpAndSettle();
       expect(
         nextCalled,
@@ -281,7 +298,7 @@ void main() {
           onNext: () => nextCalled = true,
         );
 
-        await tester.tap(find.text('Just copy for now — no auto-insert'));
+        await tester.tap(find.text(l10n.onboardingPasteSkip));
         await tester.pumpAndSettle();
 
         expect(
@@ -316,7 +333,7 @@ void main() {
         await _pumpStep(tester, paste: paste);
 
         expect(
-          find.text('Reset entry'),
+          find.text(l10n.pasteCapabilityRepairButton),
           findsNothing,
           reason:
               'Repair button is lazy — it must only appear after a prompted '
@@ -358,16 +375,16 @@ void main() {
 
         // Repair must NOT be present before the failed grant attempt — the
         // intro phase only shows Grant + Skip.
-        expect(find.text('Reset entry'), findsNothing);
+        expect(find.text(l10n.pasteCapabilityRepairButton), findsNothing);
 
         // Simulate user clicking Grant → notifier.check(prompt: true) runs
         // and seeds the troubleshoot conditions via _afterPromptCheck.
-        await tester.tap(find.text('Allow now'));
+        await tester.tap(find.text(l10n.onboardingPasteGrantCta));
         await tester.pump();
         await tester.pump();
 
         // Now the troubleshoot phase is active and Reset entry is visible.
-        expect(find.text('Reset entry'), findsOneWidget);
+        expect(find.text(l10n.pasteCapabilityRepairButton), findsOneWidget);
       },
     );
 
@@ -397,7 +414,7 @@ void main() {
       // suspectedTccMismatch. Use sequential pump() to flush the setState
       // frames without blocking on the polling spinner that the follow-on
       // grant flow activates.
-      await tester.tap(find.text('Reset entry'));
+      await tester.tap(find.text(l10n.pasteCapabilityRepairButton));
       await tester.pump();
       await tester.pump();
 
@@ -429,7 +446,7 @@ void main() {
       expect(paste.checkCalls.any((p) => p == true), isFalse);
       expect(paste.startPollingCalls, 0);
 
-      await tester.tap(find.text('Reset entry'));
+      await tester.tap(find.text(l10n.pasteCapabilityRepairButton));
       // Drain the async chain: repair() → setState → _onGrantPressed →
       // check(prompt:true) → startPolling. Sequential pumps flush each
       // step's microtasks without waiting for the polling spinner to
@@ -478,20 +495,17 @@ void main() {
 
         await _pumpStep(tester, paste: paste, onNext: () => nextCalled = true);
 
-        await tester.tap(find.text('Reset entry'));
+        await tester.tap(find.text(l10n.pasteCapabilityRepairButton));
         await tester.pumpAndSettle();
 
         // Inline failure copy is visible — we reuse the existing
         // `pasteCapabilityRepairFailed` string from the settings indicator.
-        expect(
-          find.textContaining('Could not run the macOS permission reset'),
-          findsOneWidget,
-        );
+        expect(find.text(l10n.pasteCapabilityRepairFailed), findsOneWidget);
 
         // Step stays in current state: no auto-advance, Repair still
         // reachable for the user to retry.
         expect(nextCalled, isFalse);
-        expect(find.text('Reset entry'), findsOneWidget);
+        expect(find.text(l10n.pasteCapabilityRepairButton), findsOneWidget);
       },
     );
 
@@ -519,7 +533,7 @@ void main() {
         // accent buttons on screen (Grant + Next); we pick the one wrapping
         // the localized Grant label.
         Finder grantButtonFinder() => find.ancestor(
-          of: find.text('Allow now'),
+          of: find.text(l10n.onboardingPasteGrantCta),
           matching: find.byType(WpAccentButton),
         );
 
@@ -532,7 +546,7 @@ void main() {
         // Tap and flush the setState(grantInFlight=true) frame. The
         // gated check() leaves the rest of the chain suspended, so we can
         // observe the disabled state.
-        await tester.tap(find.text('Allow now'));
+        await tester.tap(find.text(l10n.onboardingPasteGrantCta));
         await tester.pump();
 
         expect(
@@ -582,7 +596,7 @@ void main() {
         await _pumpStep(tester, paste: paste);
 
         // First tap arms the busy state and suspends inside check().
-        await tester.tap(find.text('Allow now'));
+        await tester.tap(find.text(l10n.onboardingPasteGrantCta));
         await tester.pump();
 
         // Second tap while in-flight must be ignored. tester.tap fails on a
@@ -590,7 +604,10 @@ void main() {
         // around the InkWell), so we use warnIfMissed:false to make the
         // attempt observable rather than a test failure — the assertion
         // below is what proves the no-op behaviour.
-        await tester.tap(find.text('Allow now'), warnIfMissed: false);
+        await tester.tap(
+          find.text(l10n.onboardingPasteGrantCta),
+          warnIfMissed: false,
+        );
         await tester.pump();
 
         // Release the gate so the original call can complete cleanly.
@@ -637,7 +654,7 @@ void main() {
 
         await _pumpStep(tester, paste: paste);
 
-        await tester.tap(find.text('Reset entry'));
+        await tester.tap(find.text(l10n.pasteCapabilityRepairButton));
         // Sequential pump() because the success path chains into the Grant
         // flow which arms polling; pumpAndSettle would deadlock on the
         // polling spinner.
@@ -645,20 +662,21 @@ void main() {
         await tester.pump();
         await tester.pump();
 
-        // The new copy is rendered — restart-of-WhisPaste guidance.
+        // The nothing-to-clear copy is rendered with restart guidance.
         expect(
-          find.textContaining('No old entry found'),
+          find.text(l10n.pasteCapabilityRepairNothingToClear),
           findsOneWidget,
           reason:
               'Banner must render pasteCapabilityRepairNothingToClear when '
               'both cleared counters are 0 and error is null.',
         );
 
-        // The generic pluralised "try paste once" copy (from the
-        // pasteCapabilityRepairDone variants) must NOT render alongside it —
-        // otherwise both messages would clash on screen.
+        // The generic pluralised pasteCapabilityRepairDone copy must NOT
+        // render alongside it — otherwise both messages would clash on
+        // screen. We check the =0 plural variant as the canonical "would
+        // have rendered" form for this seeded state.
         expect(
-          find.textContaining('try paste once'),
+          find.text(l10n.pasteCapabilityRepairDone(0)),
           findsNothing,
           reason:
               'Generic pasteCapabilityRepairDone copy must not render when '
@@ -683,10 +701,13 @@ void main() {
         await _pumpStep(tester, paste: paste);
 
         // Hint title is rendered.
-        expect(find.text('Tick the box next to WhisPaste'), findsOneWidget);
-        // Hint body is rendered (use a stable fragment).
         expect(
-          find.textContaining('Find WhisPaste in the list'),
+          find.text(l10n.onboardingPasteWaitingForGrantTitle),
+          findsOneWidget,
+        );
+        // Hint body is rendered.
+        expect(
+          find.text(l10n.onboardingPasteWaitingForGrantHint),
           findsOneWidget,
         );
       },
@@ -713,7 +734,7 @@ void main() {
           await _pumpStep(tester, paste: paste);
 
           expect(
-            find.text('Tick the box next to WhisPaste'),
+            find.text(l10n.onboardingPasteWaitingForGrantTitle),
             findsNothing,
             reason:
                 'Polling hint must not show outside the awaitingGrant phase '
@@ -751,7 +772,7 @@ void main() {
         await _pumpStep(tester, paste: paste);
 
         // Title is rendered.
-        expect(find.text("macOS didn't pick up the tick"), findsOneWidget);
+        expect(find.text(l10n.onboardingPasteTccMismatchTitle), findsOneWidget);
       },
     );
 
@@ -801,7 +822,7 @@ void main() {
         await _pumpStep(tester, paste: paste);
 
         expect(
-          find.text("macOS didn't pick up the tick"),
+          find.text(l10n.onboardingPasteTccMismatchTitle),
           findsNothing,
           reason:
               'TCC-mismatch banner must stay hidden when '
@@ -865,7 +886,7 @@ void main() {
         // Kick polling on via the production grant path. Use sequential
         // pump() because pumpAndSettle would deadlock on the in-status
         // spinner that the polling badge keeps animating.
-        await tester.tap(find.text('Allow now'));
+        await tester.tap(find.text(l10n.onboardingPasteGrantCta));
         await tester.pump();
         await tester.pump();
         expect(
@@ -916,7 +937,7 @@ void main() {
         );
 
         await _pumpStep(tester, paste: paste);
-        await tester.tap(find.text('Allow now'));
+        await tester.tap(find.text(l10n.onboardingPasteGrantCta));
         await tester.pump();
         await tester.pump();
         expect(paste.isPolling, isTrue);
@@ -981,20 +1002,20 @@ void main() {
           );
 
           // Verify card shows the success label.
-          expect(find.text('All set'), findsOneWidget);
+          expect(find.text(l10n.pasteCapabilityReady), findsOneWidget);
 
           // The Windows verify branch hides the macOS-specific Skip CTA —
           // there is no action the user has to take, so offering Skip would
           // only invite a mis-tap that disables Auto-Paste for no reason.
-          expect(find.text('Just copy for now — no auto-insert'), findsNothing);
+          expect(find.text(l10n.onboardingPasteSkip), findsNothing);
 
           // macOS-only affordances must not bleed into the Windows surface.
-          expect(find.text('Allow now'), findsNothing);
-          expect(find.text('Reset entry'), findsNothing);
+          expect(find.text(l10n.onboardingPasteGrantCta), findsNothing);
+          expect(find.text(l10n.pasteCapabilityRepairButton), findsNothing);
 
           // Next is enabled in the Windows verify branch and advances
           // immediately — there is no test-paste gate on this platform.
-          await tester.tap(find.text('Next'));
+          await tester.tap(find.text(l10n.onboardingNext));
           await tester.pumpAndSettle();
           expect(nextCalled, isTrue);
         } finally {
@@ -1025,27 +1046,25 @@ void main() {
             onNext: () => nextCalled = true,
           );
 
-          // Warn copy is rendered — we match the unique UIPI fragment so the
-          // assertion stays robust against rewording of the framing sentence.
+          // Warn copy is rendered — we assert the full localised string so
+          // an ARB rewording is caught loudly but a value tweak does not
+          // silently mismatch a substring.
           expect(
-            find.textContaining('UIPI/UAC'),
+            find.text(l10n.onboardingPasteWhyWinUipi),
             findsOneWidget,
             reason: 'UIPI warn card must render its explanation text',
           );
 
           // Skip CTA appears in the warn branch (mirrors the macOS skip flow)
           // so users in the edge case can opt out of Auto-Paste cleanly.
-          expect(
-            find.text('Just copy for now — no auto-insert'),
-            findsOneWidget,
-          );
+          expect(find.text(l10n.onboardingPasteSkip), findsOneWidget);
 
           // The macOS verify-state success label is NOT shown in this branch.
-          expect(find.text('All set'), findsNothing);
+          expect(find.text(l10n.pasteCapabilityReady), findsNothing);
 
           // Edge case is non-blocking: Next must remain active so the user
           // can keep Auto-Paste on and still move forward.
-          await tester.tap(find.text('Next'));
+          await tester.tap(find.text(l10n.onboardingNext));
           await tester.pumpAndSettle();
           expect(
             nextCalled,
@@ -1088,7 +1107,7 @@ void main() {
             onNext: () => nextCalled = true,
           );
 
-          await tester.tap(find.text('Just copy for now — no auto-insert'));
+          await tester.tap(find.text(l10n.onboardingPasteSkip));
           await tester.pumpAndSettle();
 
           expect(nextCalled, isTrue);

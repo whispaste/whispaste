@@ -28,8 +28,14 @@ class FakeSettingsNotifier extends SettingsNotifier {
   }
 }
 
+late L10n l10n;
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUpAll(() async {
+    l10n = await L10n.delegate.load(const Locale('en'));
+  });
 
   group('WelcomeStep', () {
     testWidgets('renders one selector item per supported locale', (
@@ -43,6 +49,7 @@ void main() {
         makeTestable(
           const SingleChildScrollView(child: WelcomeStep(onNext: _noop)),
           size: const Size(1280, 980),
+          locale: const Locale('en'),
           overrides: [settingsProvider.overrideWith(() => notifier)],
         ),
       );
@@ -76,6 +83,7 @@ void main() {
         makeTestable(
           const SingleChildScrollView(child: WelcomeStep(onNext: _noop)),
           size: const Size(1280, 980),
+          locale: const Locale('en'),
           overrides: [settingsProvider.overrideWith(() => notifier)],
         ),
       );
@@ -102,6 +110,7 @@ void main() {
         makeTestable(
           const SingleChildScrollView(child: WelcomeStep(onNext: _noop)),
           size: const Size(1280, 980),
+          locale: const Locale('en'),
           overrides: [settingsProvider.overrideWith(() => notifier)],
         ),
       );
@@ -128,16 +137,17 @@ void main() {
         makeTestable(
           const SingleChildScrollView(child: WelcomeStep(onNext: _noop)),
           size: const Size(1280, 980),
+          locale: const Locale('en'),
           overrides: [settingsProvider.overrideWith(() => notifier)],
         ),
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Light'));
+      await tester.tap(find.text(l10n.onboardingThemeLight));
       await tester.pumpAndSettle();
       expect(notifier.state.value!.themeMode, ThemeMode.light);
 
-      await tester.tap(find.text('System'));
+      await tester.tap(find.text(l10n.onboardingThemeSystem));
       await tester.pumpAndSettle();
       expect(notifier.state.value!.themeMode, ThemeMode.system);
     });
@@ -151,6 +161,7 @@ void main() {
             child: WelcomeStep(onNext: () => nextCalled = true),
           ),
           size: const Size(1280, 980),
+          locale: const Locale('en'),
           overrides: [
             settingsProvider.overrideWith(() => FakeSettingsNotifier()),
           ],
@@ -158,8 +169,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.ensureVisible(find.text('Continue'));
-      await tester.tap(find.text('Continue'));
+      await tester.ensureVisible(find.text(l10n.onboardingGetStarted));
+      await tester.tap(find.text(l10n.onboardingGetStarted));
       await tester.pumpAndSettle();
 
       expect(nextCalled, isTrue);

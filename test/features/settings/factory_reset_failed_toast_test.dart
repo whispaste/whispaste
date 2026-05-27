@@ -50,6 +50,13 @@ class _FailedToastHarness extends StatelessWidget {
 }
 
 void main() {
+  late L10n lDe;
+  late L10n lEn;
+  setUpAll(() async {
+    lDe = await L10n.delegate.load(const Locale('de'));
+    lEn = await L10n.delegate.load(const Locale('en'));
+  });
+
   group('factory-reset-failed actionable toast', () {
     late ExitFn originalExit;
 
@@ -74,14 +81,11 @@ void main() {
         await tester.tap(find.text('fire-failed-toast'));
         await tester.pumpAndSettle();
 
-        expect(
-          find.text('Werks-Reset unvollständig. App neu starten?'),
-          findsOneWidget,
-        );
-        expect(find.text('App schließen'), findsOneWidget);
+        expect(find.text(lDe.factoryResetFailedToast), findsOneWidget);
+        expect(find.text(lDe.factoryResetFailedAction), findsOneWidget);
         expect(exitCalls, isEmpty);
 
-        await tester.tap(find.text('App schließen'));
+        await tester.tap(find.text(lDe.factoryResetFailedAction));
         await tester.pumpAndSettle();
 
         expect(
@@ -106,11 +110,8 @@ void main() {
       await tester.tap(find.text('fire-failed-toast'));
       await tester.pumpAndSettle();
 
-      expect(
-        find.text('Factory reset incomplete. Restart the app?'),
-        findsOneWidget,
-      );
-      expect(find.text('Quit app'), findsOneWidget);
+      expect(find.text(lEn.factoryResetFailedToast), findsOneWidget);
+      expect(find.text(lEn.factoryResetFailedAction), findsOneWidget);
 
       // Drain the toast's 8s auto-dismiss timer so no Timer outlives
       // the test.

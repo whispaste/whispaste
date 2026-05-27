@@ -19,11 +19,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
+import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/onboarding/onboarding_overlay.dart';
 import 'package:whispaste/features/onboarding/steps/auto_paste_step.dart';
 import 'package:whispaste/services/paste/paste_capability_notifier.dart';
 
 import '../../fixtures/test_helpers.dart';
+
+late L10n l10n;
 
 class _FakeSettingsNotifier extends SettingsNotifier {
   _FakeSettingsNotifier([AppSettings? settings])
@@ -63,6 +66,7 @@ Future<void> _pumpOverlay(
     makeTestable(
       const OnboardingOverlay(),
       size: const Size(1280, 980),
+      locale: const Locale('en'),
       overrides: [
         settingsProvider.overrideWith(() => _FakeSettingsNotifier()),
         if (paste != null)
@@ -76,6 +80,10 @@ Future<void> _pumpOverlay(
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  setUpAll(() async {
+    l10n = await L10n.delegate.load(const Locale('en'));
+  });
+
   group('OnboardingOverlay step sequence', () {
     testWidgets('on Linux: renders 4-step flow, AutoPasteStep never appears, '
         'counter and dots reflect 4 total', (tester) async {
@@ -84,7 +92,7 @@ void main() {
         await _pumpOverlay(tester);
 
         // Counter reflects the Linux 4-step total on the initial Welcome step.
-        expect(find.text('Step 1 of 4'), findsOneWidget);
+        expect(find.text(l10n.onboardingStepOf(1, 4)), findsOneWidget);
         // AutoPasteStep is never instantiated in the Linux flow.
         expect(find.byType(AutoPasteStep), findsNothing);
       } finally {
@@ -100,7 +108,7 @@ void main() {
         await _pumpOverlay(tester);
 
         // Counter reflects the macOS 5-step total on the initial Welcome step.
-        expect(find.text('Step 1 of 5'), findsOneWidget);
+        expect(find.text(l10n.onboardingStepOf(1, 5)), findsOneWidget);
       } finally {
         debugDefaultTargetPlatformOverride = null;
       }
@@ -117,7 +125,7 @@ void main() {
       try {
         await _pumpOverlay(tester);
 
-        expect(find.text('Step 1 of 4'), findsOneWidget);
+        expect(find.text(l10n.onboardingStepOf(1, 4)), findsOneWidget);
         expect(find.byType(AutoPasteStep), findsNothing);
       } finally {
         debugDefaultTargetPlatformOverride = null;
@@ -144,18 +152,21 @@ void main() {
           await _pumpOverlay(tester);
 
           expect(
-            find.text('Skip this step'),
+            find.text(l10n.onboardingSkip),
             findsOneWidget,
             reason:
                 'Header Skip button must disambiguate that it skips only the '
                 'current step, not the whole onboarding.',
           );
           // The bare "Skip" label is the historic, ambiguous form — must be
-          // gone now.
+          // gone now. We assert that the literal "Skip" substring is not
+          // rendered on its own anywhere (in this test the only Skip-related
+          // text in the tree is the header CTA the assertion above checks).
           expect(
             find.text('Skip'),
             findsNothing,
-            reason: 'Legacy "Skip" label must be replaced by "Skip this step".',
+            reason:
+                'Legacy bare "Skip" label must be replaced by onboardingSkip.',
           );
         } finally {
           debugDefaultTargetPlatformOverride = null;

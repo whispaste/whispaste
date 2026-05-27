@@ -3,11 +3,14 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/history/data/providers.dart';
 import 'package:whispaste/features/history/data/sample_data.dart';
 import 'package:whispaste/features/history/history_page.dart';
 
 import '../../fixtures/test_helpers.dart';
+
+late L10n l10n;
 
 /// Provider overrides that supply sample data via stream providers,
 /// matching the previous behaviour where the page loaded sample entries.
@@ -24,42 +27,65 @@ List<Object> _sampleOverrides() {
 }
 
 void main() {
+  // Resolve English copy once so chip / placeholder / empty-state labels
+  // are looked up via the ARB key — keeps the suite stable across wording
+  // tweaks in the ARB. Pure test data (sample-entry titles, language codes)
+  // stays as literals because it never flows through localisation.
+  setUpAll(() async {
+    l10n = await L10n.delegate.load(const Locale('en'));
+  });
+
   group('HistoryPage', () {
     testWidgets('renders search bar and filter chips', (tester) async {
       await tester.pumpWidget(
-        makeTestable(const HistoryPage(), overrides: _sampleOverrides()),
+        makeTestable(
+          const HistoryPage(),
+          overrides: _sampleOverrides(),
+          locale: const Locale('en'),
+        ),
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Search transcriptions…'), findsOneWidget);
-      expect(find.text('All'), findsOneWidget);
+      expect(find.text(l10n.historySearchTranscriptions), findsOneWidget);
+      expect(find.text(l10n.historyAll), findsOneWidget);
       // "Today" appears as filter chip AND date group header
-      expect(find.text('Today'), findsWidgets);
-      expect(find.text('This Week'), findsWidgets);
-      expect(find.text('Favorites'), findsOneWidget);
+      expect(find.text(l10n.historyToday), findsWidgets);
+      expect(find.text(l10n.historyThisWeek), findsWidgets);
+      expect(find.text(l10n.historyPinned), findsOneWidget);
     });
 
     testWidgets('shows sample entries on load', (tester) async {
       await tester.pumpWidget(
-        makeTestable(const HistoryPage(), overrides: _sampleOverrides()),
+        makeTestable(
+          const HistoryPage(),
+          overrides: _sampleOverrides(),
+          locale: const Locale('en'),
+        ),
       );
       await tester.pumpAndSettle();
 
       // Should show date group headers
-      expect(find.text('Today'), findsWidgets); // filter chip + date header
+      expect(
+        find.text(l10n.historyToday),
+        findsWidgets,
+      ); // filter chip + date header
       // Should show at least one entry title
       expect(find.text('Meeting notes — Product roadmap Q3'), findsOneWidget);
     });
 
     testWidgets('filters entries by Today', (tester) async {
       await tester.pumpWidget(
-        makeTestable(const HistoryPage(), overrides: _sampleOverrides()),
+        makeTestable(
+          const HistoryPage(),
+          overrides: _sampleOverrides(),
+          locale: const Locale('en'),
+        ),
       );
       await tester.pumpAndSettle();
 
       // Find the "Today" filter chip (there are two — chip + date header)
       // The filter chip is inside a GestureDetector
-      final todayChips = find.text('Today');
+      final todayChips = find.text(l10n.historyToday);
       // Tap the first one (filter chip)
       await tester.tap(todayChips.first);
       await tester.pumpAndSettle();
@@ -72,11 +98,15 @@ void main() {
 
     testWidgets('filters entries by Favorites', (tester) async {
       await tester.pumpWidget(
-        makeTestable(const HistoryPage(), overrides: _sampleOverrides()),
+        makeTestable(
+          const HistoryPage(),
+          overrides: _sampleOverrides(),
+          locale: const Locale('en'),
+        ),
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Favorites'));
+      await tester.tap(find.text(l10n.historyPinned));
       await tester.pumpAndSettle();
 
       // Should show favorited entries (e.g. "Meeting notes")
@@ -87,7 +117,11 @@ void main() {
 
     testWidgets('search filters entries by text', (tester) async {
       await tester.pumpWidget(
-        makeTestable(const HistoryPage(), overrides: _sampleOverrides()),
+        makeTestable(
+          const HistoryPage(),
+          overrides: _sampleOverrides(),
+          locale: const Locale('en'),
+        ),
       );
       await tester.pumpAndSettle();
 
@@ -97,25 +131,34 @@ void main() {
 
       // Should show matching entry (case-insensitive match in content)
       expect(find.text('Rezeptidee — Pasta al limone'), findsOneWidget);
-      // Should show result count
-      expect(find.textContaining('result'), findsOneWidget);
+      // Should show result count — "pasta" hits two sample entries (the
+      // recipe title and a separate note that mentions a pasta sauce).
+      expect(find.text(l10n.historyResultCount(2)), findsOneWidget);
     });
 
     testWidgets('search with no matches shows empty state', (tester) async {
       await tester.pumpWidget(
-        makeTestable(const HistoryPage(), overrides: _sampleOverrides()),
+        makeTestable(
+          const HistoryPage(),
+          overrides: _sampleOverrides(),
+          locale: const Locale('en'),
+        ),
       );
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byType(TextField), 'zzzznonexistent');
       await tester.pumpAndSettle();
 
-      expect(find.text('No results'), findsOneWidget);
+      expect(find.text(l10n.historyNoResults), findsOneWidget);
     });
 
     testWidgets('entry rows show metadata', (tester) async {
       await tester.pumpWidget(
-        makeTestable(const HistoryPage(), overrides: _sampleOverrides()),
+        makeTestable(
+          const HistoryPage(),
+          overrides: _sampleOverrides(),
+          locale: const Locale('en'),
+        ),
       );
       await tester.pumpAndSettle();
 
@@ -127,7 +170,11 @@ void main() {
 
     testWidgets('hover shows action buttons', (tester) async {
       await tester.pumpWidget(
-        makeTestable(const HistoryPage(), overrides: _sampleOverrides()),
+        makeTestable(
+          const HistoryPage(),
+          overrides: _sampleOverrides(),
+          locale: const Locale('en'),
+        ),
       );
       await tester.pumpAndSettle();
 
@@ -152,17 +199,22 @@ void main() {
           const HistoryPage(),
           brightness: Brightness.light,
           overrides: _sampleOverrides(),
+          locale: const Locale('en'),
         ),
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Search transcriptions…'), findsOneWidget);
+      expect(find.text(l10n.historySearchTranscriptions), findsOneWidget);
       expect(find.text('Meeting notes — Product roadmap Q3'), findsOneWidget);
     });
 
     testWidgets('view mode toggle switches between views', (tester) async {
       await tester.pumpWidget(
-        makeTestable(const HistoryPage(), overrides: _sampleOverrides()),
+        makeTestable(
+          const HistoryPage(),
+          overrides: _sampleOverrides(),
+          locale: const Locale('en'),
+        ),
       );
       await tester.pumpAndSettle();
 

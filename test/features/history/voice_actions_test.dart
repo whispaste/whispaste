@@ -113,6 +113,9 @@ Widget _makeTestableButton({
     child: MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: theme,
+      // Pin the locale so the error-toast assertion below matches the
+      // English ARB entry regardless of the CI host's system language.
+      locale: const Locale('en'),
       localizationsDelegates: L10n.localizationsDelegates,
       supportedLocales: L10n.supportedLocales,
       home: Scaffold(
@@ -134,8 +137,14 @@ Widget _makeTestableButton({
 // Tests
 // ===========================================================================
 
+late L10n l10n;
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUpAll(() async {
+    l10n = await L10n.delegate.load(const Locale('en'));
+  });
 
   // =========================================================================
   // 1. Parser edge cases (supplements existing 20 tests)
@@ -429,7 +438,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
 
       // Should show a WpToast error message (overlay-based, not SnackBar).
-      expect(find.text('Voice note failed'), findsOneWidget);
+      expect(find.text(l10n.voiceNoteError), findsOneWidget);
 
       // Should return to idle (mic icon).
       expect(find.byIcon(LucideIcons.mic), findsOneWidget);

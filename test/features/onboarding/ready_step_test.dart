@@ -14,6 +14,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
+import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/onboarding/steps/ready_step.dart';
 import 'package:whispaste/services/hotkey_service.dart'
     show
@@ -54,6 +55,8 @@ class _FakeHotkeyStatusController extends HotkeyRegistrationStatusController {
 
 void _noop() {}
 
+late L10n l10n;
+
 Future<void> _pumpStep(
   WidgetTester tester, {
   required _FakeSettingsNotifier settings,
@@ -65,6 +68,7 @@ Future<void> _pumpStep(
         child: ReadyStep(onComplete: _noop, onBack: _noop),
       ),
       size: const Size(1280, 980),
+      locale: const Locale('en'),
       overrides: [
         settingsProvider.overrideWith(() => settings),
         hotkeyRegistrationStatusProvider.overrideWith(
@@ -78,6 +82,11 @@ Future<void> _pumpStep(
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  // Resolve English copy once so labels are looked up via the ARB key.
+  setUpAll(() async {
+    l10n = await L10n.delegate.load(const Locale('en'));
+  });
 
   // ── Wording-hygiene (issue 10) ───────────────────────────────────────────
   //
@@ -93,12 +102,15 @@ void main() {
       await _pumpStep(tester, settings: settings);
 
       expect(
-        find.text("Let's go"),
+        find.text(l10n.onboardingStartUsing),
         findsOneWidget,
         reason:
-            'Final CTA must use the CONTEXT.md §7-conformant "Let\'s go" '
-            'label, not the legacy "Start Dictating".',
+            'Final CTA must use the CONTEXT.md §7-conformant label '
+            '(onboardingStartUsing), not the legacy "Start Dictating".',
       );
+      // Anti-vocabulary check stays on a literal substring on purpose — we
+      // are asserting "the word 'Dictating' MUST NOT appear", regardless of
+      // which ARB key it would have come from.
       expect(
         find.textContaining('Dictating'),
         findsNothing,
@@ -125,18 +137,18 @@ void main() {
         await _pumpStep(tester, settings: settings);
 
         expect(
-          find.textContaining('Text flows straight into the active app'),
+          find.textContaining(l10n.onboardingReadyStep3AutoPaste),
           findsOneWidget,
           reason:
               'Auto-Paste users must see the active-app wording, not the '
               'clipboard fallback hint.',
         );
         expect(
-          find.textContaining('Ctrl+V'),
+          find.textContaining(l10n.onboardingReadyStep3CopyOnly),
           findsNothing,
           reason:
               'When Auto-Paste fires automatically, the manual ⌘V / Ctrl+V '
-              'hint must not appear.',
+              'hint (part of the copy-only step) must not appear.',
         );
       },
     );
@@ -155,22 +167,18 @@ void main() {
 
         await _pumpStep(tester, settings: settings);
 
+        // The copy-only ARB string ("Text is in your clipboard — press ⌘V /
+        // Ctrl+V to paste") already bundles the manual paste hint, so a
+        // single positive assertion covers both the wording and the hint.
         expect(
-          find.textContaining('Text is in your clipboard'),
+          find.textContaining(l10n.onboardingReadyStep3CopyOnly),
           findsOneWidget,
           reason:
               'Skip-Auto-Paste users must see the clipboard wording so they '
-              'know the transcript is parked there.',
+              'know the transcript is parked there and how to retrieve it.',
         );
         expect(
-          find.textContaining('Ctrl+V'),
-          findsOneWidget,
-          reason:
-              'Copy-Only wording must include the manual paste hint so users '
-              'know how to retrieve the transcript.',
-        );
-        expect(
-          find.textContaining('Text flows straight into the active app'),
+          find.textContaining(l10n.onboardingReadyStep3AutoPaste),
           findsNothing,
           reason:
               'The Auto-Paste wording must not appear when Auto-Paste is off.',
@@ -195,7 +203,7 @@ void main() {
         await _pumpStep(tester, settings: settings);
 
         expect(
-          find.textContaining('Text flows straight into the active app'),
+          find.textContaining(l10n.onboardingReadyStep3AutoPaste),
           findsOneWidget,
         );
       },
@@ -218,8 +226,12 @@ void main() {
 
       await _pumpStep(tester, settings: settings);
 
-      expect(find.textContaining('Text is in your clipboard'), findsOneWidget);
-      expect(find.textContaining('Ctrl+V'), findsOneWidget);
+      // Copy-only ARB string bundles the ⌘V / Ctrl+V hint, so a single
+      // positive assertion against the whole string covers both signals.
+      expect(
+        find.textContaining(l10n.onboardingReadyStep3CopyOnly),
+        findsOneWidget,
+      );
     });
   });
 
@@ -252,7 +264,7 @@ void main() {
           reason: 'success branch must not embed the inline recorder',
         );
         // Change-link visible (classic success path).
-        expect(find.text('Change Hotkey'), findsOneWidget);
+        expect(find.text(l10n.onboardingReadyChangeHotkey), findsOneWidget);
 
         // Start CTA active (onPressed != null).
         final button = tester.widget<WpAccentButton>(
@@ -284,7 +296,10 @@ void main() {
         );
         // Warn-box copy visible (sanity-check the localised strings reach
         // the widget).
-        expect(find.text('Hotkey already in use'), findsOneWidget);
+        expect(
+          find.text(l10n.onboardingReadyHotkeyConflictTitle),
+          findsOneWidget,
+        );
         // Inline recorder embedded directly (NOT as a modal dialog).
         expect(
           find.byKey(kReadyStepInlineRecorderKey),
@@ -298,7 +313,7 @@ void main() {
         );
         // Change-link must be GONE — the recorder is right there.
         expect(
-          find.text('Change Hotkey'),
+          find.text(l10n.onboardingReadyChangeHotkey),
           findsNothing,
           reason:
               'change-link is redundant when the recorder is already on screen',
