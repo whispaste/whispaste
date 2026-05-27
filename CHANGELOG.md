@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.2.28
+
+### Bug Fixes
+
+- **Feedback-Funktion läuft wieder durch — Schema-Drift im Supabase-Backend behoben.** Zwischen dem 21. April und 27. Mai schlug jede Feedback-Übermittlung serverseitig fehl: die `locale`-Spalte fehlte im produktiven Schema, und der `enforce_feedback_defaults`-Trigger griff auf ein nie existierendes `user_agent`-Feld zu, sodass PostgREST jeden INSERT mit HTTP 400 abwies, bevor die RLS-Prüfung überhaupt griff. Die ausstehenden Migrations (`20260418_add_feedback_locale`, `20260421_fix_security_advisor_findings`, `20260512_cleanup_edge_function_artifacts`, `20260513_cleanup_legacy_artifacts`) sind jetzt deployed — Feedback aus bereits installierten Clients der Versionen 1.2.0+ kommt sofort wieder durch, ohne dass Nutzer ein App-Update brauchen. End-to-End mit echtem Client-Payload verifiziert: HTTP 201, alle server-seitig erzwungenen Felder (id, received_at, status, ip_hash aus x-forwarded-for) korrekt befüllt, RLS-Constraints + Device-/IP-Rate-Limits unverändert wirksam.
+
+### Stability (internal)
+
+- **Server-Fehler im Feedback-Pfad eskalieren jetzt aktiv nach Sentry.** Bisher hat der `FeedbackSubmissionService` ein Backend-Problem nur als Breadcrumb mit `result: server_error` gemeldet — Breadcrumbs verschwinden mit der Session, wenn der Lauf nicht zusätzlich crasht. So konnte die fünfwöchige Schema-Drift unbemerkt durchlaufen, obwohl jeder Submit ein HTTP 400 produzierte. `FeedbackServerError` löst jetzt zusätzlich `Sentry.captureMessage('feedback_server_error', warning)` mit Status-Code und auf 500 Zeichen gekürztem Response-Body als strukturiertem `feedback_response`-Context aus. Rate-Limit-, Netzwerk- und Not-Configured-Pfade bleiben absichtlich nicht-eskaliert, damit nutzergetriebenes Verhalten den Sentry-Posteingang nicht zumüllt. Die deprecated `scope.setExtra`-API wurde gleich auf `scope.setContexts` migriert (sentry_flutter 9.x).
+- **Supabase-Migrations-History an das tatsächlich angewendete Remote-Schema angeglichen.** Zwei manuelle SQL-Editor-Sessions am 03. Mai hatten `schema_migrations`-Einträge mit voller Sekunden-Timestamp-Präzision (`20260503093151`, `20260503102718`) hinterlassen, während die Repo-Dateien nur den Tagespräfix (`20260503_…`) trugen — `supabase migration list` markierte die Remote-Zeilen als Waisen und `db push` brach mit „Remote migration versions not found in local migrations directory" ab. Die Dateien sind jetzt auf die vollen Timestamps umbenannt; History reconciled ohne destruktiven `migration repair --status reverted`.
+
 ## 1.2.27
 
 ### Features
