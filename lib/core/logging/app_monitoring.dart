@@ -63,7 +63,7 @@ class AppMonitoring {
         options.dsn = _sentryDsn;
         options.environment = kReleaseMode ? 'production' : 'development';
         options.release = sentryRelease;
-        options.dist = _currentArch();
+        options.dist = currentArchTag();
         options.sendDefaultPii = false;
         options.attachScreenshot = false;
         // Attach the widget tree (structure only — no text content) to error
@@ -103,11 +103,6 @@ class AppMonitoring {
         await appRunner();
       },
     );
-  }
-
-  static String _currentArch() {
-    const is64 = 0x7FFFFFFFFFFFFFFF > 0;
-    return is64 ? 'x64' : 'x86';
   }
 
   // ── Cascade guard ────────────────────────────────────────────────────────

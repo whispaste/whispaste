@@ -164,7 +164,7 @@ ProviderContainer _makeContainer({
   required http.Client httpClient,
   AppSettings? settings,
   ModelDownloadNotifier Function()? downloadNotifierFactory,
-  ({Duration window, int maxMissedWindows})? heartbeatConfig,
+  SttStartupHeartbeatConfig? heartbeatConfig,
 }) {
   return ProviderContainer(
     overrides: [
@@ -271,8 +271,8 @@ void main() {
         runner: runner,
         httpClient: _healthyClient(),
         settings: AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
-        heartbeatConfig: (
-          window: const Duration(milliseconds: 50),
+        heartbeatConfig: const SttStartupHeartbeatConfig(
+          window: Duration(milliseconds: 50),
           maxMissedWindows: 3,
         ),
       );
@@ -305,8 +305,8 @@ void main() {
         runner: runner,
         httpClient: _healthyClient(),
         settings: AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
-        heartbeatConfig: (
-          window: const Duration(milliseconds: 50),
+        heartbeatConfig: const SttStartupHeartbeatConfig(
+          window: Duration(milliseconds: 50),
           maxMissedWindows: 3,
         ),
       );
@@ -351,8 +351,8 @@ void main() {
         runner: runner,
         httpClient: _healthyClient(),
         settings: settings,
-        heartbeatConfig: (
-          window: const Duration(milliseconds: 50),
+        heartbeatConfig: const SttStartupHeartbeatConfig(
+          window: Duration(milliseconds: 50),
           maxMissedWindows: 3,
         ),
       );
@@ -446,8 +446,8 @@ void main() {
           runner: runner,
           httpClient: httpClient,
           settings: AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
-          heartbeatConfig: (
-            window: const Duration(milliseconds: 200),
+          heartbeatConfig: const SttStartupHeartbeatConfig(
+            window: Duration(milliseconds: 200),
             maxMissedWindows: 5,
           ),
         );
@@ -500,8 +500,8 @@ void main() {
           runner: runner,
           httpClient: _healthyClient(),
           settings: AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
-          heartbeatConfig: (
-            window: const Duration(milliseconds: 50),
+          heartbeatConfig: const SttStartupHeartbeatConfig(
+            window: Duration(milliseconds: 50),
             maxMissedWindows: 3,
           ),
         );
@@ -556,8 +556,8 @@ void main() {
           httpClient: _unhealthyClient(),
           settings: AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
           downloadNotifierFactory: () => trackingDownloader,
-          heartbeatConfig: (
-            window: const Duration(milliseconds: 50),
+          heartbeatConfig: const SttStartupHeartbeatConfig(
+            window: Duration(milliseconds: 50),
             maxMissedWindows: 3,
           ),
         );
@@ -605,8 +605,8 @@ void main() {
           runner: runner,
           httpClient: _unhealthyClient(),
           settings: AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
-          heartbeatConfig: (
-            window: const Duration(milliseconds: 50),
+          heartbeatConfig: const SttStartupHeartbeatConfig(
+            window: Duration(milliseconds: 50),
             maxMissedWindows: 3,
           ),
         );
@@ -671,8 +671,8 @@ void main() {
           runner: runner,
           httpClient: _healthyClient(),
           settings: AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
-          heartbeatConfig: (
-            window: const Duration(milliseconds: 50),
+          heartbeatConfig: const SttStartupHeartbeatConfig(
+            window: Duration(milliseconds: 50),
             maxMissedWindows: 3,
           ),
         );
@@ -735,8 +735,8 @@ void main() {
           runner: runner,
           httpClient: _healthyClient(),
           settings: AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
-          heartbeatConfig: (
-            window: const Duration(milliseconds: 50),
+          heartbeatConfig: const SttStartupHeartbeatConfig(
+            window: Duration(milliseconds: 50),
             maxMissedWindows: 3,
           ),
         );
@@ -775,8 +775,8 @@ void main() {
         runner: runner,
         httpClient: _unhealthyClient(),
         settings: AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
-        heartbeatConfig: (
-          window: const Duration(milliseconds: 50),
+        heartbeatConfig: const SttStartupHeartbeatConfig(
+          window: Duration(milliseconds: 50),
           maxMissedWindows: 3,
         ),
       );
@@ -924,7 +924,7 @@ void main() {
       () async {
         // This is the canonical heartbeat-timeout assertion from issue 02.
         // Duplicated here so the behavior snapshot is self-contained.
-        const hbConfig = (
+        const hbConfig = SttStartupHeartbeatConfig(
           window: Duration(milliseconds: 50),
           maxMissedWindows: 3,
         );
@@ -973,7 +973,7 @@ void main() {
     test(
       'stderr heartbeat within window keeps startup alive → ready when health 200',
       () async {
-        const hbConfig = (
+        const hbConfig = SttStartupHeartbeatConfig(
           window: Duration(milliseconds: 100),
           maxMissedWindows: 3,
         );

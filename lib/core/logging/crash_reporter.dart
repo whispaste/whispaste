@@ -138,7 +138,7 @@ class CrashReporter {
       scope.setUser(SentryUser(id: cr._deviceId));
       scope.setTag('app_version', appVersion);
       scope.setTag('os', Platform.operatingSystem);
-      scope.setTag('arch', _currentArch());
+      scope.setTag('arch', currentArchTag());
       scope.setContexts('device_info', {
         'device_id': cr._deviceId,
         'dart_version': Platform.version.split(' ').first,
@@ -392,10 +392,5 @@ class CrashReporter {
     } on Exception {
       return 'unknown';
     }
-  }
-
-  static String _currentArch() {
-    const is64 = 0x7FFFFFFFFFFFFFFF > 0;
-    return is64 ? 'x64' : 'x86';
   }
 }

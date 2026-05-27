@@ -121,6 +121,51 @@ void main() {
     });
   });
 
+  group('CrashFingerprints — hardware-debugging audit (2026-05)', () {
+    // Four buckets added by the hardware-debugging audit that previously
+    // collapsed into `appLoggerAutoEscalated` (or were silently absent).
+    // The contract pins the wire values so silently renaming a constant
+    // does not re-shard historical Sentry issues.
+    final hwAuditInventory = <String, String>{
+      'sttCudaOom': sttCudaOom,
+      'sttInferenceConnectionLost': sttInferenceConnectionLost,
+      'sttStartupDeadline': sttStartupDeadline,
+      'gpuDetectionFailed': gpuDetectionFailed,
+    };
+
+    test('each hardware-audit constant resolves to a non-empty wire value', () {
+      for (final entry in hwAuditInventory.entries) {
+        expect(
+          entry.value,
+          isNotEmpty,
+          reason:
+              '${entry.key} must expose a non-empty Sentry wire value — '
+              'empty strings collapse into Sentry default grouping.',
+        );
+      }
+    });
+
+    test('hardware-audit constants resolve to their pinned wire values', () {
+      expect(sttCudaOom, 'stt-cuda-oom');
+      expect(sttInferenceConnectionLost, 'stt-inference-connection-lost');
+      expect(sttStartupDeadline, 'stt-startup-deadline');
+      expect(gpuDetectionFailed, 'gpu-detection-failed');
+    });
+
+    test('allCrashFingerprints contains every hardware-audit constant', () {
+      for (final entry in hwAuditInventory.entries) {
+        expect(
+          allCrashFingerprints,
+          contains(entry.value),
+          reason:
+              'allCrashFingerprints must include ${entry.key} '
+              '(wire value: ${entry.value}) — otherwise tooling that '
+              'iterates the list cannot see it.',
+        );
+      }
+    });
+  });
+
   group('CrashFingerprints — global uniqueness', () {
     test('every wire value in allCrashFingerprints is unique', () {
       // Sentry treats fingerprints as a set: duplicates silently collapse

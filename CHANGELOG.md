@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Stability (internal)
+
+- **Hardware-spezifische Crashes sind jetzt im Sentry diagnostizierbar.** Vier Pfade, die bisher entweder gar nicht oder im `appLoggerAutoEscalated`-Catch-all gelandet sind und damit pro Crash unbrauchbare Generika produziert haben, haben jetzt eigene Fingerprints und reichen den vollständigen Hardware-Kontext mit: `sttCudaOom` (CUDA-OOM im whisper-server — mit GPU-Name, VRAM, Modell + Soll-VRAM, stderr-Tail), `sttInferenceConnectionLost` (SocketException/ClientException während Inference — Modell, Port, WAV-Größe, GPU-Modus), `sttStartupDeadline` (absolute Wall-Clock-Deadline im Startup-Loop, fängt die Long-Load-Form ab, die das Heartbeat-Fenster allein nicht beenden kann), und `gpuDetectionFailed` (GPU-Probes liefern beide nichts — typisch corporate AV / gesperrte WMI). Der GPU-Detection-Capture hat einen Once-per-Session-Guard plus Re-Arm via `clearGpuCache`, damit Sentry bei einem Recovery-Restart die Wiederholungsblindheit sieht statt von der Erstdetektion erstickt zu werden.
+- **Architektur-Tag in Sentry zeigt jetzt die echte CPU-Architektur.** Das alte `_currentArch()` war eine Compile-Time-Konstante (`0x7FFFFFFFFFFFFFFF > 0`), die auf jeder Plattform `'x64'` zurückgab — auch auf Apple Silicon. Der neue `currentArchTag()` aus `dart:ffi`-`Abi.current()` liefert `arm64` / `x64` / `x86` / `arm` / `riscv64` / `riscv32` korrekt, was Hardware-Cluster-Filter in Sentry endlich brauchbar macht. Wirkt sowohl auf das `dist`-Feld als auch auf das `arch`-Scope-Tag.
+- **Dedup-Migration der heißen STT-Pfade.** Acht `_log.error`-Stellen in `SttServerStateNotifier` (GPU-Fatal-Capture, Heap-Korruption-Capture, Other-Exit-Capture, Recovery-Exhausted, ABI-Mismatch-Pfad, Modell-Korruption, sub-optimaler Binary-Detect-Check) lagen jeweils unmittelbar vor oder nach einem expliziten `captureError` — die zusätzliche Auto-Eskalation hat denselben Vorfall doppelt nach Sentry geschickt, einmal mit dem richtigen Fingerprint und einmal im Catch-all. Die Stellen sind jetzt auf `_log.warning` heruntergestuft; die Modell-Korruption (zuvor nur via `_log.error`) bekommt ihren eigenen `sttModelCorrupted`-Capture mit Datei-Größe und Modell-ID. Im Schnitt halbiert sich damit das Sentry-Event-Volumen je harter Sprachdienst-Störung, ohne Diagnose-Information zu verlieren.
+- **`SttStartupHeartbeatConfig` als Value-Object statt Record-Type.** Provider-Typ ist jetzt eine Klasse mit Defaults (`window: 60 s`, `maxMissedWindows: 3`, `overallDeadline: 180 s`), damit der hinzugefügte Wall-Clock-Cap nicht jeden Test bricht. Alle 28 Test-Stellen, die das frühere `({Duration window, int maxMissedWindows})`-Record-Literal benutzten, sind 1:1 auf den Konstruktor migriert.
+
 ## 1.2.28
 
 ### Bug Fixes
