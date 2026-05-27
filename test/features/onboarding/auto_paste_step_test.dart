@@ -76,13 +76,6 @@ class _FakePasteCapabilityNotifier extends PasteCapabilityNotifier {
   Duration? lastPollTimeout;
   bool _isPollingFake = false;
 
-  /// Recorded calls to [runDiagnosticPaste] — proves the widget routes the
-  /// l10n demo text through the notifier without dropping or rewriting it.
-  final List<String> diagnosticCalls = <String>[];
-
-  /// Seeded outcome to return for the next [runDiagnosticPaste] call.
-  TestPasteOutcome diagnosticOutcome = const TestPasteOutcomeSuccess();
-
   /// When non-null, [check] returns this Completer's future instead of an
   /// immediately-resolving one. Tests use it to observe the widget's
   /// in-flight UI state by stalling the async chain at the first await.
@@ -131,12 +124,6 @@ class _FakePasteCapabilityNotifier extends PasteCapabilityNotifier {
     repairCalls++;
     if (_afterRepair != null) state = _afterRepair;
     return _repairResult ?? TccRepairResult.unsupported();
-  }
-
-  @override
-  Future<TestPasteOutcome> runDiagnosticPaste(String demoText) async {
-    diagnosticCalls.add(demoText);
-    return diagnosticOutcome;
   }
 }
 
@@ -208,78 +195,64 @@ void main() {
   });
 
   group('AutoPasteStep', () {
-    testWidgets(
-      'macOS pre-grant: shows permissionMissing status, Grant CTA, Next disabled, '
-      'fires one prompt-less check on mount',
-      (tester) async {
-        final paste = _FakePasteCapabilityNotifier(
-          initial: const PasteCapabilityState(
-            capability: PasteCapability(
-              status: PasteCapabilityStatus.permissionMissing,
-              canPrompt: true,
-            ),
+    testWidgets('macOS intro phase: Grant CTA + Skip visible, Next disabled, '
+        'fires one prompt-less check on mount', (tester) async {
+      final paste = _FakePasteCapabilityNotifier(
+        initial: const PasteCapabilityState(
+          capability: PasteCapability(
+            status: PasteCapabilityStatus.permissionMissing,
+            canPrompt: true,
           ),
-        );
-        var nextCalled = false;
+        ),
+      );
+      var nextCalled = false;
 
-        await _pumpStep(tester, paste: paste, onNext: () => nextCalled = true);
+      await _pumpStep(tester, paste: paste, onNext: () => nextCalled = true);
 
-        // Permission-missing label rendered.
-        expect(
-          find.text('Accessibility permission not granted'),
-          findsOneWidget,
-        );
-        // Grant CTA shown.
-        expect(find.text('Grant Accessibility permission'), findsOneWidget);
-        // Skip-Auto-Paste secondary still visible while not ready.
-        expect(find.text('Skip — disable Auto-Paste'), findsOneWidget);
+      // Grant CTA shown.
+      expect(find.text('Allow now'), findsOneWidget);
+      // Skip secondary visible while not ready.
+      expect(find.text('Just copy for now — no auto-insert'), findsOneWidget);
+      // In the intro phase the permission status card is intentionally not
+      // rendered — the Grant CTA + why-mac caption are the only signal.
+      expect(find.text('All set'), findsNothing);
 
-        // initState fires exactly one un-prompted check.
-        expect(paste.checkCalls, [false]);
+      // initState fires exactly one un-prompted check.
+      expect(paste.checkCalls, [false]);
 
-        // Tapping the Next CTA while disabled must not fire onNext.
-        await tester.tap(find.text('Next'));
-        await tester.pumpAndSettle();
-        expect(nextCalled, isFalse);
-      },
-    );
+      // Tapping the Next CTA while disabled must not fire onNext.
+      await tester.tap(find.text('Next'));
+      await tester.pumpAndSettle();
+      expect(nextCalled, isFalse);
+    });
 
-    testWidgets(
-      'ready state: success icon, Skip-Auto-Paste hidden, Next initially '
-      'disabled (test-paste sub-step is the new gate)',
-      (tester) async {
-        final paste = _FakePasteCapabilityNotifier(
-          initial: const PasteCapabilityState(
-            capability: PasteCapability(status: PasteCapabilityStatus.ready),
-          ),
-        );
-        var nextCalled = false;
+    testWidgets('granted phase: success card visible, Grant + Skip hidden, '
+        'Next is enabled and advances onNext', (tester) async {
+      final paste = _FakePasteCapabilityNotifier(
+        initial: const PasteCapabilityState(
+          capability: PasteCapability(status: PasteCapabilityStatus.ready),
+        ),
+      );
+      var nextCalled = false;
 
-        await _pumpStep(tester, paste: paste, onNext: () => nextCalled = true);
+      await _pumpStep(tester, paste: paste, onNext: () => nextCalled = true);
 
-        // "Ready to paste" label is the success message.
-        expect(find.text('Ready to paste'), findsOneWidget);
-        // Skip-Auto-Paste button is not shown anymore once status is ready.
-        expect(find.text('Skip — disable Auto-Paste'), findsNothing);
-        // Grant CTA also hidden in the success state.
-        expect(find.text('Grant Accessibility permission'), findsNothing);
-        // Test-paste sub-step is now the gate before Next opens. The user
-        // either runs the test or presses "Continue without testing".
-        expect(find.text('Run test paste'), findsOneWidget);
-        expect(find.text('Continue without testing'), findsOneWidget);
+      // Success label is the only card in the granted phase.
+      expect(find.text('All set'), findsOneWidget);
+      // Skip and Grant disappear once the capability is ready — Next is the
+      // single primary CTA.
+      expect(find.text('Just copy for now — no auto-insert'), findsNothing);
+      expect(find.text('Allow now'), findsNothing);
 
-        // Tap on Next must NOT advance until the gate is satisfied.
-        await tester.tap(find.text('Next'));
-        await tester.pumpAndSettle();
-        expect(
-          nextCalled,
-          isFalse,
-          reason:
-              'Next stays disabled in the ready state until the user '
-              'either proves the test paste landed or explicitly skips it.',
-        );
-      },
-    );
+      // Next is enabled in the granted phase and advances directly.
+      await tester.tap(find.text('Next'));
+      await tester.pumpAndSettle();
+      expect(
+        nextCalled,
+        isTrue,
+        reason: 'Next must be enabled and advance once the phase is granted',
+      );
+    });
 
     testWidgets(
       'Skip persists afterTranscription = clipboard and advances via onNext',
@@ -308,7 +281,7 @@ void main() {
           onNext: () => nextCalled = true,
         );
 
-        await tester.tap(find.text('Skip — disable Auto-Paste'));
+        await tester.tap(find.text('Just copy for now — no auto-insert'));
         await tester.pumpAndSettle();
 
         expect(
@@ -343,7 +316,7 @@ void main() {
         await _pumpStep(tester, paste: paste);
 
         expect(
-          find.text('Repair permissions'),
+          find.text('Reset entry'),
           findsNothing,
           reason:
               'Repair button is lazy — it must only appear after a prompted '
@@ -363,33 +336,38 @@ void main() {
               canPrompt: true,
             ),
           ),
-          // After the user clicks Grant, the simulated prompted check comes
-          // back as permissionMissing AND hadFailedGrantAttempt flips to
-          // true — the canonical ad-hoc-signed-Sequoia symptom.
+          // After the user clicks Grant, the simulated prompted check ends in
+          // the full TCC-mismatch state: permissionMissing + failed-grant
+          // latch + a timed-out polling loop. That conjunction is what flips
+          // the macOS body into the troubleshoot phase where Reset entry is
+          // rendered. In production the timedOut value is set by the polling
+          // timer; here we seed it directly so the widget contract assertion
+          // ("Reset entry appears once troubleshoot conditions hold") can be
+          // observed without waiting on a real timer.
           afterPromptCheck: const PasteCapabilityState(
             capability: PasteCapability(
               status: PasteCapabilityStatus.permissionMissing,
               canPrompt: true,
             ),
             hadFailedGrantAttempt: true,
+            pollingPhase: PollingPhase.timedOut,
           ),
         );
 
         await _pumpStep(tester, paste: paste);
 
-        // Repair must NOT be present before the failed grant attempt.
-        expect(find.text('Repair permissions'), findsNothing);
+        // Repair must NOT be present before the failed grant attempt — the
+        // intro phase only shows Grant + Skip.
+        expect(find.text('Reset entry'), findsNothing);
 
-        // Simulate user clicking Grant → notifier.check(prompt: true) runs.
-        // Use sequential pump() instead of pumpAndSettle(): once polling
-        // starts the in-status spinner animates forever, which would keep
-        // pumpAndSettle from ever resolving.
-        await tester.tap(find.text('Grant Accessibility permission'));
+        // Simulate user clicking Grant → notifier.check(prompt: true) runs
+        // and seeds the troubleshoot conditions via _afterPromptCheck.
+        await tester.tap(find.text('Allow now'));
         await tester.pump();
         await tester.pump();
 
-        // Now the repair button should be reachable.
-        expect(find.text('Repair permissions'), findsOneWidget);
+        // Now the troubleshoot phase is active and Reset entry is visible.
+        expect(find.text('Reset entry'), findsOneWidget);
       },
     );
 
@@ -402,7 +380,10 @@ void main() {
             status: PasteCapabilityStatus.permissionMissing,
             canPrompt: true,
           ),
+          // All three TCC-mismatch conditions seeded so the macOS body lands
+          // in the troubleshoot phase where Reset entry is rendered.
           hadFailedGrantAttempt: true,
+          pollingPhase: PollingPhase.timedOut,
         ),
         repairResult: const TccRepairResult(
           accessibilityCleared: 1,
@@ -412,11 +393,11 @@ void main() {
 
       await _pumpStep(tester, paste: paste);
 
-      // Repair is immediately visible because the seeded state already has
-      // hadFailedGrantAttempt = true. Use sequential pump() to flush the
-      // setState frames without blocking on the polling spinner that the
-      // follow-on grant flow activates.
-      await tester.tap(find.text('Repair permissions'));
+      // Reset entry is immediately visible because the seeded state satisfies
+      // suspectedTccMismatch. Use sequential pump() to flush the setState
+      // frames without blocking on the polling spinner that the follow-on
+      // grant flow activates.
+      await tester.tap(find.text('Reset entry'));
       await tester.pump();
       await tester.pump();
 
@@ -431,7 +412,10 @@ void main() {
             status: PasteCapabilityStatus.permissionMissing,
             canPrompt: true,
           ),
+          // Troubleshoot-phase seed so the Reset entry button is reachable
+          // from the first frame.
           hadFailedGrantAttempt: true,
+          pollingPhase: PollingPhase.timedOut,
         ),
         repairResult: const TccRepairResult(
           accessibilityCleared: 1,
@@ -445,7 +429,7 @@ void main() {
       expect(paste.checkCalls.any((p) => p == true), isFalse);
       expect(paste.startPollingCalls, 0);
 
-      await tester.tap(find.text('Repair permissions'));
+      await tester.tap(find.text('Reset entry'));
       // Drain the async chain: repair() → setState → _onGrantPressed →
       // check(prompt:true) → startPolling. Sequential pumps flush each
       // step's microtasks without waiting for the polling spinner to
@@ -480,7 +464,9 @@ void main() {
               status: PasteCapabilityStatus.permissionMissing,
               canPrompt: true,
             ),
+            // Troubleshoot-phase seed so Reset entry is rendered.
             hadFailedGrantAttempt: true,
+            pollingPhase: PollingPhase.timedOut,
           ),
           repairResult: const TccRepairResult(
             accessibilityCleared: -1,
@@ -492,7 +478,7 @@ void main() {
 
         await _pumpStep(tester, paste: paste, onNext: () => nextCalled = true);
 
-        await tester.tap(find.text('Repair permissions'));
+        await tester.tap(find.text('Reset entry'));
         await tester.pumpAndSettle();
 
         // Inline failure copy is visible — we reuse the existing
@@ -505,7 +491,7 @@ void main() {
         // Step stays in current state: no auto-advance, Repair still
         // reachable for the user to retry.
         expect(nextCalled, isFalse);
-        expect(find.text('Repair permissions'), findsOneWidget);
+        expect(find.text('Reset entry'), findsOneWidget);
       },
     );
 
@@ -533,7 +519,7 @@ void main() {
         // accent buttons on screen (Grant + Next); we pick the one wrapping
         // the localized Grant label.
         Finder grantButtonFinder() => find.ancestor(
-          of: find.text('Grant Accessibility permission'),
+          of: find.text('Allow now'),
           matching: find.byType(WpAccentButton),
         );
 
@@ -546,7 +532,7 @@ void main() {
         // Tap and flush the setState(grantInFlight=true) frame. The
         // gated check() leaves the rest of the chain suspended, so we can
         // observe the disabled state.
-        await tester.tap(find.text('Grant Accessibility permission'));
+        await tester.tap(find.text('Allow now'));
         await tester.pump();
 
         expect(
@@ -596,7 +582,7 @@ void main() {
         await _pumpStep(tester, paste: paste);
 
         // First tap arms the busy state and suspends inside check().
-        await tester.tap(find.text('Grant Accessibility permission'));
+        await tester.tap(find.text('Allow now'));
         await tester.pump();
 
         // Second tap while in-flight must be ignored. tester.tap fails on a
@@ -604,10 +590,7 @@ void main() {
         // around the InkWell), so we use warnIfMissed:false to make the
         // attempt observable rather than a test failure — the assertion
         // below is what proves the no-op behaviour.
-        await tester.tap(
-          find.text('Grant Accessibility permission'),
-          warnIfMissed: false,
-        );
+        await tester.tap(find.text('Allow now'), warnIfMissed: false);
         await tester.pump();
 
         // Release the gate so the original call can complete cleanly.
@@ -640,7 +623,9 @@ void main() {
               status: PasteCapabilityStatus.permissionMissing,
               canPrompt: true,
             ),
+            // Troubleshoot-phase seed so Reset entry is rendered.
             hadFailedGrantAttempt: true,
+            pollingPhase: PollingPhase.timedOut,
           ),
           // Supported result (error == null) but both counters at 0 — the
           // honest "nothing to actually fix" path the new copy targets.
@@ -652,7 +637,7 @@ void main() {
 
         await _pumpStep(tester, paste: paste);
 
-        await tester.tap(find.text('Repair permissions'));
+        await tester.tap(find.text('Reset entry'));
         // Sequential pump() because the success path chains into the Grant
         // flow which arms polling; pumpAndSettle would deadlock on the
         // polling spinner.
@@ -662,17 +647,16 @@ void main() {
 
         // The new copy is rendered — restart-of-WhisPaste guidance.
         expect(
-          find.textContaining(
-            'No stale entries found — a restart of WhisPaste',
-          ),
+          find.textContaining('No old entry found'),
           findsOneWidget,
           reason:
               'Banner must render pasteCapabilityRepairNothingToClear when '
               'both cleared counters are 0 and error is null.',
         );
 
-        // The generic pluralised "try paste once" copy must NOT render
-        // alongside it — otherwise both messages would clash on screen.
+        // The generic pluralised "try paste once" copy (from the
+        // pasteCapabilityRepairDone variants) must NOT render alongside it —
+        // otherwise both messages would clash on screen.
         expect(
           find.textContaining('try paste once'),
           findsNothing,
@@ -699,10 +683,10 @@ void main() {
         await _pumpStep(tester, paste: paste);
 
         // Hint title is rendered.
-        expect(find.text('Waiting for your permission…'), findsOneWidget);
+        expect(find.text('Tick the box next to WhisPaste'), findsOneWidget);
         // Hint body is rendered (use a stable fragment).
         expect(
-          find.textContaining('Switch WhisPaste on in the list'),
+          find.textContaining('Find WhisPaste in the list'),
           findsOneWidget,
         );
       },
@@ -729,7 +713,7 @@ void main() {
           await _pumpStep(tester, paste: paste);
 
           expect(
-            find.text('Waiting for your permission…'),
+            find.text('Tick the box next to WhisPaste'),
             findsNothing,
             reason:
                 'Polling hint must not show outside the awaitingGrant phase '
@@ -767,10 +751,7 @@ void main() {
         await _pumpStep(tester, paste: paste);
 
         // Title is rendered.
-        expect(
-          find.text("macOS isn't recognising the new permission"),
-          findsOneWidget,
-        );
+        expect(find.text("macOS didn't pick up the tick"), findsOneWidget);
       },
     );
 
@@ -820,7 +801,7 @@ void main() {
         await _pumpStep(tester, paste: paste);
 
         expect(
-          find.text("macOS isn't recognising the new permission"),
+          find.text("macOS didn't pick up the tick"),
           findsNothing,
           reason:
               'TCC-mismatch banner must stay hidden when '
@@ -884,7 +865,7 @@ void main() {
         // Kick polling on via the production grant path. Use sequential
         // pump() because pumpAndSettle would deadlock on the in-status
         // spinner that the polling badge keeps animating.
-        await tester.tap(find.text('Grant Accessibility permission'));
+        await tester.tap(find.text('Allow now'));
         await tester.pump();
         await tester.pump();
         expect(
@@ -935,7 +916,7 @@ void main() {
         );
 
         await _pumpStep(tester, paste: paste);
-        await tester.tap(find.text('Grant Accessibility permission'));
+        await tester.tap(find.text('Allow now'));
         await tester.pump();
         await tester.pump();
         expect(paste.isPolling, isTrue);
@@ -972,170 +953,6 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
-  // Test-paste sub-step — gate between cap.status == ready and Next.
-  // ---------------------------------------------------------------------------
-  group('AutoPasteStep — TestPasteSubStep', () {
-    testWidgets(
-      'visible when cap.status == ready (before any outcome / skip)',
-      (tester) async {
-        final paste = _FakePasteCapabilityNotifier(
-          initial: const PasteCapabilityState(
-            capability: PasteCapability(status: PasteCapabilityStatus.ready),
-          ),
-        );
-
-        await _pumpStep(tester, paste: paste);
-
-        expect(find.text('Try Auto-Paste'), findsOneWidget);
-        expect(find.text('Run test paste'), findsOneWidget);
-        expect(find.text('Continue without testing'), findsOneWidget);
-        // Demo TextField is rendered (one of the few TextFields on screen).
-        expect(find.byType(TextField), findsOneWidget);
-      },
-    );
-
-    testWidgets('hidden when cap.status != ready (e.g. permissionMissing)', (
-      tester,
-    ) async {
-      final paste = _FakePasteCapabilityNotifier(
-        initial: const PasteCapabilityState(
-          capability: PasteCapability(
-            status: PasteCapabilityStatus.permissionMissing,
-            canPrompt: true,
-          ),
-        ),
-      );
-
-      await _pumpStep(tester, paste: paste);
-
-      expect(find.text('Try Auto-Paste'), findsNothing);
-      expect(find.text('Run test paste'), findsNothing);
-    });
-
-    testWidgets('success outcome: green success banner, Next becomes enabled', (
-      tester,
-    ) async {
-      final paste = _FakePasteCapabilityNotifier(
-        initial: const PasteCapabilityState(
-          capability: PasteCapability(status: PasteCapabilityStatus.ready),
-        ),
-      )..diagnosticOutcome = const TestPasteOutcomeSuccess();
-      var nextCalled = false;
-
-      await _pumpStep(tester, paste: paste, onNext: () => nextCalled = true);
-
-      await tester.tap(find.text('Run test paste'));
-      await tester.pumpAndSettle();
-
-      // Notifier received exactly one diagnostic call with the demo text.
-      expect(paste.diagnosticCalls, ['WhisPaste types for you.']);
-
-      // Success copy is rendered.
-      expect(find.textContaining('Auto-Paste works'), findsOneWidget);
-
-      // Next is now enabled and advances onNext.
-      await tester.tap(find.text('Next'));
-      await tester.pumpAndSettle();
-      expect(nextCalled, isTrue);
-    });
-
-    testWidgets(
-      'failure outcome: red warning banner, Next stays disabled, retry kept',
-      (tester) async {
-        final paste = _FakePasteCapabilityNotifier(
-          initial: const PasteCapabilityState(
-            capability: PasteCapability(status: PasteCapabilityStatus.ready),
-          ),
-        )..diagnosticOutcome = const TestPasteOutcomeFailure('not_trusted');
-        var nextCalled = false;
-
-        await _pumpStep(tester, paste: paste, onNext: () => nextCalled = true);
-
-        await tester.tap(find.text('Run test paste'));
-        await tester.pumpAndSettle();
-
-        expect(find.textContaining('Test failed'), findsOneWidget);
-
-        // Next must NOT have advanced.
-        await tester.tap(find.text('Next'));
-        await tester.pumpAndSettle();
-        expect(nextCalled, isFalse);
-
-        // Retry CTA stays available so the user can try again.
-        expect(find.text('Run test paste'), findsOneWidget);
-      },
-    );
-
-    testWidgets('noFrontmost outcome: yellow warning banner with retry', (
-      tester,
-    ) async {
-      final paste = _FakePasteCapabilityNotifier(
-        initial: const PasteCapabilityState(
-          capability: PasteCapability(status: PasteCapabilityStatus.ready),
-        ),
-      )..diagnosticOutcome = const TestPasteOutcomeNoFrontmost();
-
-      await _pumpStep(tester, paste: paste);
-
-      await tester.tap(find.text('Run test paste'));
-      await tester.pumpAndSettle();
-
-      expect(find.textContaining('No input field detected'), findsOneWidget);
-      expect(find.text('Run test paste'), findsOneWidget);
-    });
-
-    testWidgets(
-      'Continue without testing skip path enables Next without running paste',
-      (tester) async {
-        final paste = _FakePasteCapabilityNotifier(
-          initial: const PasteCapabilityState(
-            capability: PasteCapability(status: PasteCapabilityStatus.ready),
-          ),
-        );
-        var nextCalled = false;
-
-        await _pumpStep(tester, paste: paste, onNext: () => nextCalled = true);
-
-        await tester.tap(find.text('Continue without testing'));
-        await tester.pumpAndSettle();
-
-        // No diagnostic paste was triggered.
-        expect(paste.diagnosticCalls, isEmpty);
-
-        // Sub-step is hidden after skip — Next is reachable directly.
-        expect(find.text('Run test paste'), findsNothing);
-
-        await tester.tap(find.text('Next'));
-        await tester.pumpAndSettle();
-        expect(nextCalled, isTrue);
-      },
-    );
-
-    testWidgets(
-      'sub-step hides after a successful outcome (the success banner takes '
-      'over and Next becomes the primary CTA)',
-      (tester) async {
-        final paste = _FakePasteCapabilityNotifier(
-          initial: const PasteCapabilityState(
-            capability: PasteCapability(status: PasteCapabilityStatus.ready),
-          ),
-        )..diagnosticOutcome = const TestPasteOutcomeSuccess();
-
-        await _pumpStep(tester, paste: paste);
-        await tester.tap(find.text('Run test paste'));
-        await tester.pumpAndSettle();
-
-        // After success the run-test CTA must not show again (the
-        // sub-step keeps the demo field around for visual context but
-        // the run-cta has been replaced with the success banner).
-        expect(find.text('Run test paste'), findsNothing);
-        // Success copy still rendered.
-        expect(find.textContaining('Auto-Paste works'), findsOneWidget);
-      },
-    );
-  });
-
-  // ---------------------------------------------------------------------------
   // Windows-specific surface (slice 05).
   //
   // Branching is driven by `defaultTargetPlatform` so we exercise both paths
@@ -1145,8 +962,8 @@ void main() {
   // ---------------------------------------------------------------------------
   group('AutoPasteStep — Windows', () {
     testWidgets(
-      'ready first-mount: verify state + test-paste sub-step gates Next, '
-      'NO macOS-specific Grant/Repair, NO Skip-Auto-Paste affordance',
+      'ready first-mount: verify card + active Next, NO macOS-specific '
+      'Grant/Repair/Skip affordances',
       (tester) async {
         debugDefaultTargetPlatformOverride = TargetPlatform.windows;
         try {
@@ -1154,7 +971,7 @@ void main() {
             initial: const PasteCapabilityState(
               capability: PasteCapability(status: PasteCapabilityStatus.ready),
             ),
-          )..diagnosticOutcome = const TestPasteOutcomeSuccess();
+          );
           var nextCalled = false;
 
           await _pumpStep(
@@ -1164,29 +981,19 @@ void main() {
           );
 
           // Verify card shows the success label.
-          expect(find.text('Ready to paste'), findsOneWidget);
+          expect(find.text('All set'), findsOneWidget);
 
           // The Windows verify branch hides the macOS-specific Skip CTA —
           // there is no action the user has to take, so offering Skip would
           // only invite a mis-tap that disables Auto-Paste for no reason.
-          expect(find.text('Skip — disable Auto-Paste'), findsNothing);
+          expect(find.text('Just copy for now — no auto-insert'), findsNothing);
 
           // macOS-only affordances must not bleed into the Windows surface.
-          expect(find.text('Grant Accessibility permission'), findsNothing);
-          expect(find.text('Repair permissions'), findsNothing);
+          expect(find.text('Allow now'), findsNothing);
+          expect(find.text('Reset entry'), findsNothing);
 
-          // Test-paste sub-step is now the gate before Next opens.
-          expect(find.text('Run test paste'), findsOneWidget);
-
-          // Next is disabled until the sub-step is resolved.
-          await tester.tap(find.text('Next'));
-          await tester.pumpAndSettle();
-          expect(nextCalled, isFalse);
-
-          // Run the test paste and watch Next become reachable.
-          await tester.tap(find.text('Run test paste'));
-          await tester.pumpAndSettle();
-
+          // Next is enabled in the Windows verify branch and advances
+          // immediately — there is no test-paste gate on this platform.
           await tester.tap(find.text('Next'));
           await tester.pumpAndSettle();
           expect(nextCalled, isTrue);
@@ -1228,10 +1035,13 @@ void main() {
 
           // Skip CTA appears in the warn branch (mirrors the macOS skip flow)
           // so users in the edge case can opt out of Auto-Paste cleanly.
-          expect(find.text('Skip — disable Auto-Paste'), findsOneWidget);
+          expect(
+            find.text('Just copy for now — no auto-insert'),
+            findsOneWidget,
+          );
 
           // The macOS verify-state success label is NOT shown in this branch.
-          expect(find.text('Ready to paste'), findsNothing);
+          expect(find.text('All set'), findsNothing);
 
           // Edge case is non-blocking: Next must remain active so the user
           // can keep Auto-Paste on and still move forward.
@@ -1278,7 +1088,7 @@ void main() {
             onNext: () => nextCalled = true,
           );
 
-          await tester.tap(find.text('Skip — disable Auto-Paste'));
+          await tester.tap(find.text('Just copy for now — no auto-insert'));
           await tester.pumpAndSettle();
 
           expect(nextCalled, isTrue);
