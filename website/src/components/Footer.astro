@@ -11,6 +11,7 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
 const impressumHref = lang === 'de' ? '/impressum/' : '/en/impressum/';
 const privacyHref = lang === 'de' ? '/datenschutz/' : '/en/privacy/';
 const changelogHref = lang === 'de' ? '/changelog/' : '/en/changelog/';
+const downloadHref = lang === 'de' ? '/download/' : '/en/download/';
 const sponsorHref = lang === 'de' ? '/sponsor/' : '/en/sponsor/';
 ---
 
@@ -22,6 +23,7 @@ const sponsorHref = lang === 'de' ? '/sponsor/' : '/en/sponsor/';
         <img src="/wordmark-light.png" alt="" class="h-5 w-auto opacity-60 nav-logo-light hidden" />
       </div>
       <nav aria-label={t(lang, "nav.footerAria")} data-i18n-aria="nav.footerAria" class="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
+        <a href={downloadHref} class="hover:text-white transition-colors" data-i18n="footer.download">{t(lang, "footer.download")}</a>
         <a href={impressumHref} class="hover:text-white transition-colors" data-i18n="footer.impressum">{t(lang, "footer.impressum")}</a>
         <a href={privacyHref} class="hover:text-white transition-colors" data-i18n="footer.privacy" data-i18n-href="footer.privacy.href">{t(lang, "footer.privacy")}</a>
         <a href="https://github.com/whispaste/whispaste/blob/main/LICENSE" target="_blank" rel="noopener" class="hover:text-white transition-colors" data-i18n="footer.license">{t(lang, "footer.license")}</a>
@@ -39,7 +41,8 @@ const sponsorHref = lang === 'de' ? '/sponsor/' : '/en/sponsor/';
   </footer>
 ) : (
   <footer class="py-6 border-t border-white/5" role="contentinfo">
-    <div class="max-w-4xl mx-auto px-6 text-center text-sm text-gray-500">
+    <div class="max-w-4xl mx-auto px-6 text-center text-sm text-gray-500 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
+      <a href={downloadHref} class="hover:text-white transition-colors" data-i18n="footer.download">{t(lang, "footer.download")}</a>
       <a href="https://github.com/whispaste/whispaste/blob/main/LICENSE" target="_blank" rel="noopener" class="hover:text-white transition-colors" data-i18n="footer.license">{t(lang, "footer.license")}</a>
     </div>
   </footer>
