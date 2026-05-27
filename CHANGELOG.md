@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.2.29
 
 ### Stability (internal)
 
