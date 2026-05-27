@@ -1,10 +1,23 @@
 # Changelog
 
-## Unreleased
+## 1.2.27
+
+### Features
+
+- **Konkrete Toasts statt „Etwas ist schiefgelaufen" bei untauglichen Aufnahmen**. Offensichtlich nicht-transkribierbare Anfragen (leeres WAV, kaputter Header, nicht-unterstützte Sprache, zu langes Eigenvokabular) werden jetzt vor dem POST an den Sprachserver erkannt und mit dem passenden Klartext-Hinweis abgewiesen — der Nutzer sieht z. B. „Aufnahme leer" oder „Sprache nicht unterstützt", statt die Antwortzeit eines Sprachserver-Rundlaufs samt generischer Fehlermeldung abzuwarten. Sentry erfasst diese Fälle nur noch als Breadcrumb, nicht mehr als Crash-Event.
 
 ### Bug Fixes
 
-- **Doppelte Crash-Reports bei fehlgeschlagener Sprachserver-Antwort beseitigt**. Fehlerhafte Inference-Antworten (4xx/5xx vom lokalen whisper-server) wurden bisher sowohl über den expliziten `captureError`-Pfad als auch über die `_log.error`-Auto-Eskalation an Sentry geschickt — pro Inference-Fehler landeten also zwei Events in zwei verschiedenen Issue-Gruppen. Der Orchestrator loggt diesen Pfad jetzt als Warning, und der zentrale Capture (mit stabilem Fingerprint pro Statuscode + PII-bereinigtem Body) sitzt direkt im STT-Notifier. Zusätzlich werden offensichtlich-untaugliche Anfragen (leeres WAV, kaputter Header, nicht-unterstützte Sprache, zu langes Eigenvokabular) jetzt vor dem POST abgefangen und zeigen einen konkreten Toast statt eines generischen Fehlers — Sentry sieht in diesen Fällen nur einen Breadcrumb, kein Issue.
+- **Doppelte Crash-Reports bei fehlgeschlagener Sprachserver-Antwort beseitigt**. Fehlerhafte Inference-Antworten (4xx/5xx vom lokalen whisper-server) wurden bisher sowohl über den expliziten `captureError`-Pfad als auch über die `_log.error`-Auto-Eskalation an Sentry geschickt — pro Inference-Fehler landeten also zwei Events in zwei verschiedenen Issue-Gruppen. Der Orchestrator loggt diesen Pfad jetzt als Warning, und der zentrale Capture (mit stabilem Fingerprint pro Statuscode + PII-bereinigtem Body) sitzt direkt im STT-Notifier. 5xx-Antworten ziehen außerdem nicht mehr die ServerBinary-Recovery in den Pfad — die war für Crash-Exit-Codes gedacht, nicht für HTTP-Fehlerantworten. Im Ergebnis kollabiert die bisherige Sentry-Issue-Streuung pro Inference-Fehler auf genau eine Gruppe je HTTP-Statuscode.
+
+### Stability (internal)
+
+- **Pre-Flight-Validator + HTTP-Klassifikator für die Inference-Pipeline**. Neuer `InferenceRequestValidator` prüft jede Aufnahme deterministisch (leere Bytes → invalider WAV-Header → nicht-unterstützte Sprache → zu langes Prompt) gegen eine versiegelte Result-Klasse; neuer `InferenceErrorClassifier` mappt whisper-server-HTTP-Antworten auf die zentrale Fingerprint-Tabelle (400 / 413 / 415 / 5xx / unknown) mit PII-bereinigtem Body (Unix-, Windows-, UNC-Pfade → `<path>`) und sechs Request-Kontext-Extras. Beide sind reine, abhängigkeitsfreie Value-Klassen, werfen keine Exceptions und sind zusammen mit der Notifier-Integration durch 1 229 neue Test-Zeilen abgedeckt.
+
+### Dependencies
+
+- **App-Stack-Patches**: `record` 6.2.0 → 6.2.1 plus die fünf Plattform-Companions (`record_android`, `record_ios`, `record_linux`, `record_macos`, `record_platform_interface`); `flutter_secure_storage` 10.2.0 → 10.3.0 (+ darwin/linux-Begleiter); `lucide_icons_flutter` 3.1.14+1 → 3.1.14+2; sechs transitive Dart-Pakete (`built_value`, `url_launcher_android`/`_web`, `vector_graphics`(`_compiler`), `vm_service`). Alle Bumps reine Patch-/Build-Updates, keine API-Änderungen — volle Test-Suite (1 775) grün, macOS-Debug-Build grün.
+- **Website-Stack-Patches**: `astro` 6.3.3 → 6.3.8, `@astrojs/sitemap` 3.7.2 → 3.7.3, `@sentry/astro` 10.53.1 → 10.54.0 (entfernt 42 OTel-Auto-Instrumentation-Pakete aus dem Build — Free-Tier-positiv, da statische Marketing-Site), `dompurify` 3.4.5 → 3.4.6, `vitest` 4.1.6 → 4.1.7 (+ sieben `@vitest/*`-Companions), `@typescript-eslint/eslint-plugin` und `parser` 8.59.3 → 8.60.0, `@playwright/test` 1.58.2 → 1.60.0. Website-Gate (tsc, eslint, vitest, build, Playwright) grün.
 
 ## 1.2.26
 
