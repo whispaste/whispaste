@@ -91,6 +91,28 @@ class CrashReporter {
   static const _maxTransactionsPerWindow = 20;
   static const _transactionWindowDuration = Duration(hours: 1);
 
+  /// Per-instance ledger of in-flight Sentry futures, used exclusively by
+  /// [flush] so tests can deterministically await fire-and-forget captures.
+  /// Production code never reads this list — entries are dropped after they
+  /// resolve to keep memory bounded.
+  final List<Future<SentryId>> _pendingCaptures = [];
+
+  void _trackCapture(Future<SentryId> future) {
+    _pendingCaptures.add(future);
+    future.whenComplete(() => _pendingCaptures.remove(future));
+  }
+
+  /// Awaits every Sentry capture started via [captureError] so far, so test
+  /// assertions on the `beforeSend` spy list are not racing the SDK's async
+  /// pipeline. No-op in production hot paths — callers there don't await
+  /// captures anyway.
+  @visibleForTesting
+  Future<void> flush() async {
+    while (_pendingCaptures.isNotEmpty) {
+      await Future.wait(List.of(_pendingCaptures), eagerError: false);
+    }
+  }
+
   /// Whether crash reporting consent has been granted.
   /// Gate-controlled: nothing is sent when `false`.
   bool get consentGranted => _consentGranted;
@@ -171,39 +193,43 @@ class CrashReporter {
     };
 
     if (error != null) {
-      Sentry.captureException(
-        error,
-        stackTrace: stackTrace,
-        withScope: (scope) {
-          scope.level = sentryLevel;
-          scope.setTag('error_type', type);
-          if (processName != null) scope.setTag('process', processName);
-          if (extras != null) {
-            scope.setContexts('extras', extras);
-          }
-          if (fingerprint.isNotEmpty) {
-            scope.fingerprint = fingerprint;
-          }
-          // Attach recent log breadcrumbs for context.
-          for (final line in getRecentBreadcrumbs().reversed.take(10)) {
-            scope.addBreadcrumb(Breadcrumb(message: line));
-          }
-        },
+      _trackCapture(
+        Sentry.captureException(
+          error,
+          stackTrace: stackTrace,
+          withScope: (scope) {
+            scope.level = sentryLevel;
+            scope.setTag('error_type', type);
+            if (processName != null) scope.setTag('process', processName);
+            if (extras != null) {
+              scope.setContexts('extras', extras);
+            }
+            if (fingerprint.isNotEmpty) {
+              scope.fingerprint = fingerprint;
+            }
+            // Attach recent log breadcrumbs for context.
+            for (final line in getRecentBreadcrumbs().reversed.take(10)) {
+              scope.addBreadcrumb(Breadcrumb(message: line));
+            }
+          },
+        ),
       );
     } else {
-      Sentry.captureMessage(
-        message,
-        level: sentryLevel,
-        withScope: (scope) {
-          scope.setTag('error_type', type);
-          if (processName != null) scope.setTag('process', processName);
-          if (extras != null) {
-            scope.setContexts('extras', extras);
-          }
-          if (fingerprint.isNotEmpty) {
-            scope.fingerprint = fingerprint;
-          }
-        },
+      _trackCapture(
+        Sentry.captureMessage(
+          message,
+          level: sentryLevel,
+          withScope: (scope) {
+            scope.setTag('error_type', type);
+            if (processName != null) scope.setTag('process', processName);
+            if (extras != null) {
+              scope.setContexts('extras', extras);
+            }
+            if (fingerprint.isNotEmpty) {
+              scope.fingerprint = fingerprint;
+            }
+          },
+        ),
       );
     }
   }
