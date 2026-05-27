@@ -1821,10 +1821,16 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
         _log.warning('Recovery exhausted — surfacing actionable error state.');
         // Push the actionable „Einstellungen öffnen" toast to the UI; the
         // listener in `recording_behavior.dart` navigates to the
-        // `cloud_advanced_section` reset area on tap.
-        ref
-            .read(recoveryToastNotifierProvider.notifier)
-            .report(RecoveryToastKind.exhausted);
+        // `cloud_advanced_section` reset area on tap. The `ref.mounted`
+        // guard mirrors the `ref.invalidate` call below — without it, a
+        // recovery completing after the provider container has been torn
+        // down (test teardown, app shutdown) throws an async leak into a
+        // disposed Riverpod scope.
+        if (ref.mounted) {
+          ref
+              .read(recoveryToastNotifierProvider.notifier)
+              .report(RecoveryToastKind.exhausted);
+        }
         _transition(
           SttStatus(
             serverState: SttServerState.error,
