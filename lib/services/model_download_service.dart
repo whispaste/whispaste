@@ -18,6 +18,7 @@ import 'hardware_info_service.dart' as hw;
 import 'http_model_fetcher.dart';
 import 'path_service.dart';
 import 'whisper_server_downloader.dart';
+import 'whisper_server_manifest.dart';
 
 final _log = AppLogger('Download');
 
@@ -385,9 +386,10 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
   @visibleForTesting
   HttpModelFetcher? fetcherOverride;
 
-  /// Injected Dio for GitHub API (non-file) requests — override in tests.
+  /// Injected manifest loader — override in tests to feed a fixture
+  /// manifest into the downloader without touching the network.
   @visibleForTesting
-  Dio? apiDioOverride;
+  WhisperServerManifestLoader? manifestLoaderOverride;
 
   /// Injected verifier — override in tests to avoid real file I/O.
   @visibleForTesting
@@ -406,7 +408,10 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
 
   WhisperServerDownloader get _serverDownloader =>
       serverDownloaderOverride ??
-      WhisperServerDownloader(fetcher: _fetcher, apiDio: apiDioOverride);
+      WhisperServerDownloader(
+        fetcher: _fetcher,
+        manifestLoader: manifestLoaderOverride,
+      );
 
   @override
   ModelDownloadState build() {
