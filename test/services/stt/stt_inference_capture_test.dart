@@ -321,8 +321,10 @@ void main() {
         throwsA(isA<HttpException>()),
       );
 
-      // Give the fire-and-forget Sentry capture a tick to land.
-      await Future<void>.delayed(const Duration(milliseconds: 50));
+      // Drain the fire-and-forget Sentry pipeline deterministically. A fixed
+      // delay was flaky on the Windows runner where the SDK's beforeSend hop
+      // takes >50ms — late events leaked into the next test's spy list.
+      await CrashReporter.instance!.flush();
 
       expect(
         _capturedEvents,
@@ -460,7 +462,7 @@ void main() {
         () => notifier.transcribeBytes(_validWav(), language: 'auto'),
         throwsA(isA<HttpException>()),
       );
-      await Future<void>.delayed(const Duration(milliseconds: 50));
+      await CrashReporter.instance!.flush();
 
       expect(recovery.recoverCalls, 0);
     });
@@ -514,7 +516,7 @@ void main() {
       expect(caught, isNotNull, reason: 'must throw InferenceClientRejected');
       expect(caught!.userMessageKey, 'stt.reject.empty');
 
-      await Future<void>.delayed(const Duration(milliseconds: 50));
+      await CrashReporter.instance!.flush();
 
       expect(
         _capturedEvents,
@@ -574,7 +576,7 @@ void main() {
 
       _capturedEvents.clear();
       logger.warning('[$Object] Transcription failed: boom');
-      await Future<void>.delayed(const Duration(milliseconds: 50));
+      await CrashReporter.instance!.flush();
 
       expect(
         _capturedEvents,
@@ -589,7 +591,7 @@ void main() {
       // downgrade actually matters (negative control).
       _capturedEvents.clear();
       logger.severe('[$Object] severe-level escalates by design');
-      await Future<void>.delayed(const Duration(milliseconds: 50));
+      await CrashReporter.instance!.flush();
       expect(_capturedEvents, hasLength(1));
     });
   });
