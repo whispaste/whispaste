@@ -37,7 +37,7 @@ const lang: Locale = rawLocale === "en" ? "en" : "de";
 const {
   title = t(lang, "meta.title.default"),
   description = t(lang, "meta.description.default"),
-  ogImage = "/og-image.png",
+  ogImage = lang === "en" ? "/og-image.png" : "/og-image-de.png",
   alternateSlugs,
 } = Astro.props;
 
