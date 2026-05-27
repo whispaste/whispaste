@@ -146,13 +146,12 @@ Future<void> _stubServerBinary(Directory dir) async {
 ///
 /// The container overrides [modelDownloadProvider] so that the notifier's
 /// [fetcherOverride] is set before [build] runs.
-ProviderContainer _makeContainer({required _FakeFetcher fetcher, Dio? apiDio}) {
+ProviderContainer _makeContainer({required _FakeFetcher fetcher}) {
   return ProviderContainer(
     overrides: [
       modelDownloadProvider.overrideWith(() {
         final notifier = ModelDownloadNotifier();
         notifier.fetcherOverride = fetcher;
-        if (apiDio != null) notifier.apiDioOverride = apiDio;
         return notifier;
       }),
     ],

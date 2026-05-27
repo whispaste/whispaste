@@ -1,9 +1,13 @@
-/// Whisper-server binary downloader — fetches the platform-appropriate
-/// whisper-server binary from GitHub releases, extracts it, and verifies
-/// the result.
+/// Whisper-server binary downloader — reads the
+/// [WhisperServerManifest], picks the binary that fits the host's
+/// platform + GPU via [WhisperBinarySelector], fetches and extracts it.
 ///
-/// Extracted from [ModelDownloadNotifier] so that the binary-download logic
-/// is independently testable and reusable without depending on Riverpod state.
+/// The previous version queried the GitHub Releases API directly and
+/// matched assets by substring. That broke as soon as a third party
+/// reorganised tags. The manifest is now the contract: the CI publishes
+/// it (raw + release-asset + bundled fallback) and this class consumes
+/// it. No more pattern matching, no more pagination, no more
+/// rate-limit-tangenz.
 library;
 
 import 'dart:io';
@@ -12,14 +16,13 @@ import 'package:archive/archive.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:path/path.dart' as p;
-import 'package:sentry_dio/sentry_dio.dart';
 
-import '../core/app_info.dart';
 import '../core/logging/app_logger.dart';
 import '../core/logging/crash_fingerprints.dart';
 import '../core/logging/crash_reporter.dart';
 import 'hardware_info_service.dart' as hw;
 import 'http_model_fetcher.dart';
+import 'whisper_server_manifest.dart';
 
 final _log = AppLogger('WhisperServerDownloader');
 
@@ -37,34 +40,30 @@ typedef ServerExtractingCallback = void Function();
 // WhisperServerDownloader
 // ---------------------------------------------------------------------------
 
-/// Downloads, extracts, and installs the whisper-server binary.
+/// Downloads, extracts, and installs the whisper-server binary that
+/// matches the host platform + GPU per the active manifest.
 ///
-/// The caller supplies:
-/// - a [fetcher] (or the default is used) for the actual HTTP download.
-/// - an [apiDio] (or the default is used) for GitHub API requests.
-/// - [onProgress] callback for download progress updates.
-/// - [onExtracting] callback fired just before ZIP extraction begins.
-///
-/// Throws [DioException] on network errors (including cancellation).
-/// Throws [Exception] when no compatible binary can be found or extracted.
+/// Throws [DioException] on user-initiated cancellation.
+/// Throws [Exception] when no compatible binary is in the manifest or
+/// when every retry exhausts.
 class WhisperServerDownloader {
-  WhisperServerDownloader({HttpModelFetcher? fetcher, Dio? apiDio})
-    : _fetcher = fetcher ?? HttpModelFetcher(),
-      _apiDio = apiDio ?? _defaultApiDio();
+  WhisperServerDownloader({
+    HttpModelFetcher? fetcher,
+    WhisperServerManifestLoader? manifestLoader,
+    WhisperBinarySelector? selector,
+  }) : _fetcher = fetcher ?? HttpModelFetcher(),
+       _manifestLoader = manifestLoader ?? WhisperServerManifestLoader(),
+       _selector = selector ?? const WhisperBinarySelector();
 
   final HttpModelFetcher _fetcher;
-  final Dio _apiDio;
-  CancelToken? _apiCancelToken;
+  final WhisperServerManifestLoader _manifestLoader;
+  final WhisperBinarySelector _selector;
 
   // -----------------------------------------------------------------------
   // Public API
   // -----------------------------------------------------------------------
 
   /// Downloads and installs the whisper-server binary into [destDir].
-  ///
-  /// [gpuMode] is the user's GPU-acceleration setting (from AppSettings).
-  /// [onProgress] receives streaming download progress events.
-  /// [onExtracting] is called once, just before ZIP extraction begins.
   Future<void> download({
     required String destDir,
     required String gpuMode,
@@ -73,257 +72,159 @@ class WhisperServerDownloader {
   }) async {
     final gpu = await hw.detectGpu();
     _log.info(
-      'Downloading whisper-server binary '
+      'Resolving whisper-server binary '
       '(gpu=${gpu.vendor.name}, name="${gpu.name}", '
       'vram=${gpu.vramMB ?? "?"}MB, cuda=${gpu.cudaAvailable}, '
-      'vulkan=${gpu.vulkanAvailable})',
+      'vulkan=${gpu.vulkanAvailable}, mode=$gpuMode)',
     );
 
-    // Source priority: WhisPaste-owned releases (may have Vulkan/custom
-    // builds), then upstream whisper.cpp (has CUDA + CPU/BLAS).
-    const repos = [('whispaste', 'whispaste'), ('ggml-org', 'whisper.cpp')];
+    final WhisperServerManifest manifest;
+    try {
+      manifest = await _manifestLoader.load();
+    } on Exception catch (e) {
+      final msg = 'Manifest load failed: $e';
+      _log.warning(msg);
+      _reportFailure(
+        gpu: gpu,
+        gpuMode: gpuMode,
+        message: msg,
+        type: 'server_download_failed',
+        fingerprint: serverDownloadFailed,
+      );
+      throw Exception(msg);
+    }
+
+    final selection = _selector.select(
+      manifest: manifest,
+      gpu: gpu,
+      gpuMode: gpuMode,
+    );
+    if (!selection.hasBinary) {
+      final reason =
+          selection.reason ?? 'No matching whisper-server binary found';
+      _log.warning(reason);
+      _reportFailure(
+        gpu: gpu,
+        gpuMode: gpuMode,
+        message: reason,
+        type: 'server_download_failed',
+        fingerprint: serverDownloadFailed,
+        manifestTag: manifest.whisperServerTag,
+      );
+      throw Exception(reason);
+    }
+
+    final binary = selection.binary!;
+    _log.info('Selected binary: $binary (url=${binary.url})');
 
     String? lastError;
     var sawStall = false;
+    for (var attempt = 1; attempt <= 2; attempt++) {
+      try {
+        final zipPath = p.join(destDir, '_whisper-server.zip');
+        await _fetcher.fetch(
+          url: binary.url,
+          destPath: zipPath,
+          expectedSize: binary.sizeBytes,
+          onProgress: onProgress,
+        );
 
-    for (final (owner, repo) in repos) {
-      // Retry each repo up to 2 times for transient failures.
-      for (var attempt = 1; attempt <= 2; attempt++) {
-        try {
-          final assetUrl = await _findServerAsset(
-            owner: owner,
-            repo: repo,
-            gpuMode: gpuMode,
-            isWhisPaste: owner == 'whispaste',
-          );
-          if (assetUrl == null) break; // No matching asset, try next repo.
+        onExtracting?.call();
+        await _extractServerZip(zipPath, destDir);
+        await File(zipPath).delete().catchError((_) => File(zipPath));
 
-          _log.info(
-            'Downloading from $owner/$repo (attempt $attempt): '
-            '${Uri.parse(assetUrl).pathSegments.last}',
-          );
+        await hw.writeServerBinaryInfo(
+          destDir,
+          gpu,
+          sourceRepo: binary.source,
+          assetName: Uri.parse(binary.url).pathSegments.lastOrNull ?? '',
+        );
 
-          // Size varies: CPU/BLAS ~17 MB, Vulkan ~30 MB, CUDA 12 ~460 MB.
-          final isCuda =
-              assetUrl.contains('cuda') || assetUrl.contains('cublas');
-          final estimatedSize = isCuda ? 460 * 1024 * 1024 : 30 * 1024 * 1024;
-          final zipPath = p.join(destDir, '_whisper-server.zip');
-          await _fetcher.fetch(
-            url: assetUrl,
-            destPath: zipPath,
-            expectedSize: estimatedSize,
-            onProgress: onProgress,
-          );
-
-          onExtracting?.call();
-
-          await _extractServerZip(zipPath, destDir);
-          await File(zipPath).delete().catchError((_) => File(zipPath));
-
-          // Write metadata so startup validation can verify compatibility
-          // without relying on DLL heuristics alone.
-          final assetName = Uri.parse(assetUrl).pathSegments.lastOrNull ?? '';
-          await hw.writeServerBinaryInfo(
-            destDir,
-            gpu,
-            sourceRepo: '$owner/$repo',
-            assetName: assetName,
-          );
-
-          _log.info('whisper-server ready (source=$owner/$repo)');
-          return;
-        } on DioException catch (e) {
-          final status = e.response?.statusCode;
-
-          // Stall-detector cancel is retriable; user-initiated cancel is
-          // a hard abort. See HttpStallDetector / PRD Modul 3.
-          final isStallCancel =
-              e.type == DioExceptionType.cancel &&
-              e.message == httpStallCancelMessage;
-          if (e.type == DioExceptionType.cancel && !isStallCancel) {
-            rethrow;
-          }
-
-          lastError = isStallCancel
-              ? describeDioError(e)
-              : status == 403
-              ? 'GitHub API rate limit exceeded (HTTP 403)'
-              : describeDioError(e);
-          if (isStallCancel) sawStall = true;
-          _log.warning(
-            'Server download failed from $owner/$repo '
-            '(attempt $attempt): $lastError',
-          );
-          if (status == 403) break; // Rate limited — skip to next repo.
-          if (attempt < 2) {
-            await Future<void>.delayed(Duration(seconds: 2 * attempt));
-          }
-        } on Exception catch (e) {
-          lastError = '$e';
-          _log.warning(
-            'Server download failed from $owner/$repo '
-            '(attempt $attempt): $e',
-          );
-          if (attempt < 2) {
-            await Future<void>.delayed(Duration(seconds: 2 * attempt));
-          }
+        _log.info(
+          'whisper-server ready (tag=${manifest.whisperServerTag}, '
+          'backend=${binary.backend}, source=${binary.source})',
+        );
+        return;
+      } on DioException catch (e) {
+        // User-initiated cancel propagates as-is. Stall-detector cancel
+        // is retriable. See HttpStallDetector / PRD Modul 3.
+        final isStallCancel =
+            e.type == DioExceptionType.cancel &&
+            e.message == httpStallCancelMessage;
+        if (e.type == DioExceptionType.cancel && !isStallCancel) {
+          rethrow;
+        }
+        if (isStallCancel) sawStall = true;
+        lastError = describeDioError(e);
+        _log.warning(
+          'Server download failed (attempt $attempt, url=${binary.url}): '
+          '$lastError',
+        );
+        if (attempt < 2) {
+          await Future<void>.delayed(Duration(seconds: 2 * attempt));
+        }
+      } on Exception catch (e) {
+        lastError = '$e';
+        _log.warning(
+          'Server download failed (attempt $attempt, url=${binary.url}): $e',
+        );
+        if (attempt < 2) {
+          await Future<void>.delayed(Duration(seconds: 2 * attempt));
         }
       }
     }
 
     // Downgraded from error → warning to avoid AppLogger's auto-escalate
-    // path (`appLoggerAutoEscalated`) emitting a duplicate Sentry event
-    // alongside the explicit fingerprinted capture below. The explicit
-    // capture is the authoritative one — it carries the stall-vs-failed
-    // distinction and the diagnostic extras.
-    _log.warning('Could not download whisper-server from any source');
-    final finalMessage = lastError ?? 'Could not download whisper-server.';
-    // Stall-classified failures get their own Sentry fingerprint so the
-    // network-quality signal can be tracked separately from generic
-    // download failures (404s, asset-pattern misses, …). See PRD Modul 6
-    // (`server-download-stalled` vs `server-download-failed`).
-    CrashReporter.instance?.captureError(
-      message: 'whisper-server download failed: $finalMessage',
-      severity: 'error',
+    // path duplicating the explicit fingerprinted Sentry capture below.
+    _log.warning('Could not download whisper-server after retries');
+    final finalMessage =
+        lastError ?? 'whisper-server download failed (no specific error)';
+    _reportFailure(
+      gpu: gpu,
+      gpuMode: gpuMode,
+      message: finalMessage,
       type: sawStall ? 'server_download_stalled' : 'server_download_failed',
-      fingerprint: <String>[
-        sawStall ? serverDownloadStalled : serverDownloadFailed,
-      ],
-      extras: {
-        'platform': Platform.operatingSystem,
-        'gpu_mode': gpuMode,
-        'gpu_vendor': gpu.vendor.name,
-        'last_error': finalMessage,
-      },
+      fingerprint: sawStall ? serverDownloadStalled : serverDownloadFailed,
+      manifestTag: manifest.whisperServerTag,
+      assetUrl: binary.url,
+      backend: binary.backend,
     );
     throw Exception(finalMessage);
   }
 
   // -----------------------------------------------------------------------
-  // Internal — GitHub release queries
+  // Sentry reporting
   // -----------------------------------------------------------------------
 
-  /// Queries GitHub releases API and finds the best matching asset URL.
-  Future<String?> _findServerAsset({
-    required String owner,
-    required String repo,
+  void _reportFailure({
+    required hw.GpuInfo gpu,
     required String gpuMode,
-    required bool isWhisPaste,
-  }) async {
-    Map<String, dynamic>? releaseData;
-
-    if (isWhisPaste) {
-      // WhisPaste uses versioned tags (whisper-server-v*). Query the
-      // releases list and pick the first one with the right prefix.
-      releaseData = await _findWhisPasteServerRelease(owner, repo);
-      if (releaseData == null) return null;
-    } else {
-      // Upstream: just query the latest release.
-      final apiUrl =
-          'https://api.github.com/repos/$owner/$repo/releases/latest';
-      final Response<Map<String, dynamic>> response;
-      try {
-        _apiCancelToken = CancelToken();
-        response = await _apiDio.get<Map<String, dynamic>>(
-          apiUrl,
-          cancelToken: _apiCancelToken,
-          options: Options(
-            headers: {'Accept': 'application/vnd.github.v3+json'},
-          ),
-        );
-      } on DioException catch (e) {
-        if (e.response?.statusCode == 404) {
-          _log.info('No releases in $owner/$repo');
-          return null;
-        }
-        rethrow;
-      }
-      releaseData = response.data;
-    }
-
-    final assets = (releaseData?['assets'] as List<dynamic>?) ?? [];
-    if (assets.isEmpty) {
-      _log.info('No assets in $owner/$repo release');
-      return null;
-    }
-
-    // Build priority list of asset name patterns based on detected GPU.
-    final gpu = await hw.detectGpu();
-    final patterns = hw.serverAssetPatterns(gpu, gpuMode, isWhisPaste);
-
-    // Architecture filter: match platform to expected binary arch.
-    final archPattern = Platform.isMacOS ? 'arm64' : 'x64';
-
-    for (final pattern in patterns) {
-      for (final asset in assets) {
-        final assetMap = asset as Map<String, dynamic>;
-        final name = (assetMap['name'] as String?) ?? '';
-        final lowerName = name.toLowerCase();
-        if (lowerName.contains(pattern) && lowerName.contains(archPattern)) {
-          _log.info(
-            'Selected server asset: $name (pattern=$pattern, '
-            'arch=$archPattern, repo=$owner/$repo)',
-          );
-          return assetMap['browser_download_url'] as String?;
-        }
-      }
-    }
-
-    _log.info(
-      'No matching server asset in $owner/$repo '
-      '(patterns=$patterns, arch=$archPattern, '
-      'available=${assets.map((a) => (a as Map)['name']).toList()})',
+    required String message,
+    required String type,
+    required String fingerprint,
+    String? manifestTag,
+    String? assetUrl,
+    String? backend,
+  }) {
+    CrashReporter.instance?.captureError(
+      message: 'whisper-server download failed: $message',
+      severity: 'error',
+      type: type,
+      fingerprint: <String>[fingerprint],
+      extras: {
+        'platform': Platform.operatingSystem,
+        'gpu_mode': gpuMode,
+        'gpu_vendor': gpu.vendor.name,
+        'manifest_tag': ?manifestTag,
+        'asset_url': ?assetUrl,
+        'backend': ?backend,
+        'last_error': message,
+      },
     );
-    return null;
-  }
-
-  /// Finds the most recent WhisPaste whisper-server release (tag prefix
-  /// `whisper-server-`). Returns the release JSON map or `null`.
-  Future<Map<String, dynamic>?> _findWhisPasteServerRelease(
-    String owner,
-    String repo,
-  ) async {
-    final apiUrl =
-        'https://api.github.com/repos/$owner/$repo/releases?per_page=20';
-    try {
-      _apiCancelToken = CancelToken();
-      final response = await _apiDio.get<List<dynamic>>(
-        apiUrl,
-        cancelToken: _apiCancelToken,
-        options: Options(headers: {'Accept': 'application/vnd.github.v3+json'}),
-      );
-
-      final remaining = response.headers['x-ratelimit-remaining']?.firstOrNull;
-      if (remaining != null) {
-        final rem = int.tryParse(remaining) ?? -1;
-        if (rem <= 5) {
-          _log.warning('GitHub API rate limit low: $rem remaining');
-        }
-      }
-
-      final releases = response.data ?? [];
-      for (final release in releases) {
-        final r = release as Map<String, dynamic>;
-        final tag = (r['tag_name'] as String?) ?? '';
-        if (tag.startsWith('whisper-server-')) {
-          _log.info('Found WhisPaste server release: $tag');
-          return r;
-        }
-      }
-
-      _log.info('No whisper-server-* release found in $owner/$repo');
-      return null;
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 404) {
-        _log.info('No releases endpoint for $owner/$repo');
-        return null;
-      }
-      rethrow;
-    }
   }
 
   // -----------------------------------------------------------------------
-  // Internal — ZIP extraction
+  // Internal — ZIP extraction (unchanged from the legacy implementation)
   // -----------------------------------------------------------------------
 
   /// Extracts whisper-server binary and libraries from a ZIP archive.
@@ -426,23 +327,4 @@ class WhisperServerDownloader {
     if (!name.contains('.')) return true;
     return false;
   }
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-Dio _defaultApiDio() {
-  final dio = Dio(
-    BaseOptions(
-      connectTimeout: const Duration(seconds: 30),
-      receiveTimeout: const Duration(minutes: 10),
-      headers: {'User-Agent': appUserAgent},
-    ),
-  );
-  // Sentry MUST be the last interceptor added — see notes in
-  // http_model_fetcher.dart. Spans piggy-back on the active transaction's
-  // sample decision and respect the global `tracesSampleRate`.
-  dio.addSentry();
-  return dio;
 }

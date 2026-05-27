@@ -26,6 +26,7 @@ import 'package:path/path.dart' as p;
 
 import 'package:whispaste/services/http_model_fetcher.dart';
 import 'package:whispaste/services/whisper_server_downloader.dart';
+import 'package:whispaste/services/whisper_server_manifest.dart';
 
 // ---------------------------------------------------------------------------
 // Fake HTTP adapter — feeds the Dio pipeline a controllable byte stream.
@@ -261,12 +262,12 @@ void main() {
       'cancel with message "stalled" is retriable — the outer loop tries '
       'the next attempt / repo and eventually throws a normal Exception',
       () async {
-        // Fetcher always throws a stalled-cancel — no source should succeed,
-        // so the loop must exhaust attempts/repos and throw an Exception
+        // Fetcher always throws a stalled-cancel — the manifest-driven
+        // downloader retries internally, then throws a normal Exception
         // (NOT rethrow the DioException as user-cancel).
         final downloader = WhisperServerDownloader(
           fetcher: _AlwaysStalledFetcher(),
-          apiDio: _fakeApiDio(),
+          manifestLoader: _fakeManifestLoader(),
         );
 
         await expectLater(
@@ -281,7 +282,7 @@ void main() {
       () async {
         final downloader = WhisperServerDownloader(
           fetcher: _UserCancelFetcher(),
-          apiDio: _fakeApiDio(),
+          manifestLoader: _fakeManifestLoader(),
         );
 
         await expectLater(
@@ -298,54 +299,49 @@ void main() {
 }
 
 // ---------------------------------------------------------------------------
-// Helpers — fake api Dio that returns a release with one matching asset
+// Helpers — fake manifest loader producing one binary per host platform/
+// arch so the downloader's selector finds a match irrespective of the
+// CI runner's actual GPU.
 // ---------------------------------------------------------------------------
 
-/// Builds a fake release-asset name that matches the current platform's
-/// arch pattern (`arm64` on macOS, `x64` elsewhere) and the variant name
-/// the WhisPaste / upstream patterns accept on the `GpuVendor.none`
-/// CPU-only fallback path.
-String _platformAssetName({required bool isWhisPaste}) {
-  final arch = Platform.isMacOS ? 'arm64' : 'x64';
-  final variant = isWhisPaste ? 'cpu' : 'blas-bin';
-  return 'whisper-server-$arch-$variant.zip';
+WhisperServerManifestLoader _fakeManifestLoader() {
+  const manifest = '''
+{
+  "schema_version": 1,
+  "whisper_server_tag": "whisper-server-test",
+  "whisper_cpp_release": "test",
+  "generated_at": "2026-01-01T00:00:00Z",
+  "binaries": [
+    {"platform":"macos","arch":"arm64","backend":"metal","url":"http://example.com/metal.zip","size_bytes":1000,"source":"whispaste"},
+    {"platform":"macos","arch":"arm64","backend":"cpu","url":"http://example.com/cpu-mac.zip","size_bytes":1000,"source":"whispaste"},
+    {"platform":"windows","arch":"x64","backend":"vulkan","url":"http://example.com/vulkan.zip","size_bytes":1000,"source":"whispaste"},
+    {"platform":"windows","arch":"x64","backend":"cuda12","url":"http://example.com/cuda.zip","size_bytes":1000,"source":"upstream"},
+    {"platform":"windows","arch":"x64","backend":"cpu","url":"http://example.com/cpu-win.zip","size_bytes":1000,"source":"upstream"},
+    {"platform":"linux","arch":"x64","backend":"cpu","url":"http://example.com/cpu-linux.zip","size_bytes":1000,"source":"upstream"}
+  ]
 }
-
-Dio _fakeApiDio() => Dio(BaseOptions())
-  ..interceptors.add(
-    InterceptorsWrapper(
-      onRequest: (options, handler) {
-        final isList = options.path.contains('per_page');
-        handler.resolve(
-          Response<dynamic>(
-            requestOptions: options,
-            data: isList
-                ? <dynamic>[
-                    {
-                      'tag_name': 'whisper-server-v1.0.0',
-                      'assets': [
-                        {
-                          'name': _platformAssetName(isWhisPaste: true),
-                          'browser_download_url': 'http://example.com/ws.zip',
-                        },
-                      ],
-                    },
-                  ]
-                : <String, dynamic>{
-                    'tag_name': 'v1.0.0',
-                    'assets': [
-                      {
-                        'name': _platformAssetName(isWhisPaste: false),
-                        'browser_download_url': 'http://example.com/ws.zip',
-                      },
-                    ],
-                  },
-            statusCode: 200,
-          ),
-        );
-      },
-    ),
+''';
+  // Force every remote attempt to short-circuit so the loader falls back
+  // to the bundled JSON without waiting on real network timeouts.
+  final offlineDio = Dio()
+    ..interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          handler.reject(
+            DioException(
+              requestOptions: options,
+              type: DioExceptionType.connectionError,
+              error: 'offline test',
+            ),
+          );
+        },
+      ),
+    );
+  return WhisperServerManifestLoader(
+    dio: offlineDio,
+    bundleReader: () async => manifest,
   );
+}
 
 class _AlwaysStalledFetcher extends HttpModelFetcher {
   @override

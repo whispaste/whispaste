@@ -270,3 +270,61 @@ jobs:
             > This release only contains variants not available upstream.
           files: assets/*.zip
           make_latest: false
+
+      # ---------------------------------------------------------------------
+      # Generate the whisper-server-manifest.json:
+      # - commit it to main so the raw.githubusercontent.com URL is current
+      #   for any newly-installed app within the next CDN refresh
+      # - upload it as an asset on the freshly-created release so the
+      #   stage-2 fallback URL `…/releases/download/<tag>/whisper-server-manifest.json`
+      #   resolves immediately
+      # ---------------------------------------------------------------------
+      - name: Generate whisper-server-manifest.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="whisper-server-${{ inputs.whisper_tag }}${{ inputs.build_suffix }}"
+          # GitHub's CDN occasionally needs a moment to surface assets we
+          # just uploaded — retry a few times before giving up.
+          for attempt in 1 2 3 4 5; do
+            if bash scripts/generate-whisper-server-manifest.sh \
+                "$TAG" "${{ inputs.whisper_tag }}" > /tmp/manifest.json; then
+              if [[ "$(jq '.binaries | length' /tmp/manifest.json)" -gt 0 ]]; then
+                break
+              fi
+            fi
+            echo "Manifest generation attempt $attempt produced no binaries — retrying in 10s"
+            sleep 10
+          done
+          if [[ "$(jq '.binaries | length' /tmp/manifest.json)" -lt 1 ]]; then
+            echo "::error::Manifest contains no binaries after retries"
+            cat /tmp/manifest.json
+            exit 1
+          fi
+          cp /tmp/manifest.json assets/whisper-server-manifest.json
+          cat assets/whisper-server-manifest.json
+
+      - name: Upload manifest to the release as an asset
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="whisper-server-${{ inputs.whisper_tag }}${{ inputs.build_suffix }}"
+          gh release upload "$TAG" assets/whisper-server-manifest.json --clobber
+
+      - name: Commit manifest to main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # If nothing changed (regenerated manifest is identical), skip.
+          if git diff --quiet -- assets/whisper-server-manifest.json; then
+            echo "Manifest already matches main — nothing to commit"
+            exit 0
+          fi
+          git add assets/whisper-server-manifest.json
+          git commit -m "chore(whisper-server): update manifest for ${{ inputs.whisper_tag }}${{ inputs.build_suffix }}"
+          # Push directly to main. Protected branches will reject; the
+          # workflow then needs `contents: write` and a branch-protection
+          # exemption for github-actions[bot] (or a deploy key).
+          git push origin HEAD:main

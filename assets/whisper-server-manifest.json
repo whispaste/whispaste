@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "whisper_server_tag": "whisper-server-v1.8.4.1",
+  "whisper_cpp_release": "v1.8.4",
+  "generated_at": "2026-05-27T16:13:31Z",
+  "binaries": [
+    {
+      "platform": "macos",
+      "arch": "arm64",
+      "backend": "metal",
+      "url": "https://github.com/whispaste/whispaste/releases/download/whisper-server-v1.8.4.1/whisper-server-metal-arm64.zip",
+      "size_bytes": 1255919,
+      "source": "whispaste"
+    },
+    {
+      "platform": "windows",
+      "arch": "x64",
+      "backend": "vulkan",
+      "url": "https://github.com/whispaste/whispaste/releases/download/whisper-server-v1.8.4.1/whisper-server-vulkan-x64.zip",
+      "size_bytes": 17706652,
+      "source": "whispaste"
+    },
+    {
+      "platform": "windows",
+      "arch": "x64",
+      "backend": "cpu",
+      "url": "https://github.com/ggml-org/whisper.cpp/releases/download/v1.8.4/whisper-blas-bin-x64.zip",
+      "size_bytes": 16645654,
+      "source": "upstream"
+    },
+    {
+      "platform": "windows",
+      "arch": "x64",
+      "backend": "cuda12",
+      "url": "https://github.com/ggml-org/whisper.cpp/releases/download/v1.8.4/whisper-cublas-12.4.0-bin-x64.zip",
+      "size_bytes": 457024596,
+      "source": "upstream"
+    }
+  ]
+}

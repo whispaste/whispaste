@@ -1,7 +1,13 @@
 /// Unit tests for [WhisperServerDownloader].
 ///
-/// Focuses on the static file-classification helpers (pure functions) and
-/// verifies the download() method surfaces cancellation errors correctly.
+/// The downloader's old GitHub-Releases-API path was replaced by the
+/// manifest-driven architecture. These tests verify:
+///
+/// 1. Static file-classification helpers (pure functions).
+/// 2. `download()` reaches the fetcher with the URL the selector picked.
+/// 3. `download()` surfaces user cancellation as a [DioException].
+/// 4. `download()` throws a descriptive [Exception] when the manifest
+///    contains no binary for the host platform.
 library;
 
 import 'dart:io';
@@ -11,6 +17,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:whispaste/services/http_model_fetcher.dart';
 import 'package:whispaste/services/whisper_server_downloader.dart';
+import 'package:whispaste/services/whisper_server_manifest.dart';
 
 void main() {
   // ─────────────────────────────────────────────────────────────────────────
@@ -90,7 +97,7 @@ void main() {
   );
 
   // ─────────────────────────────────────────────────────────────────────────
-  // download() — cancellation propagates
+  // download()
   // ─────────────────────────────────────────────────────────────────────────
 
   group('WhisperServerDownloader.download()', () {
@@ -104,129 +111,70 @@ void main() {
       await tempDir.delete(recursive: true);
     });
 
-    test('throws when no repos yield a matching asset', () async {
-      // The downloader finds no assets via GitHub (empty asset list in all
-      // releases), then falls through to throw an exception.
+    test('selector picks the binary that matches the host platform and hands '
+        'its URL to the fetcher', () async {
+      final capturing = _CapturingFetcher();
       final downloader = WhisperServerDownloader(
-        fetcher: _NeverCalledFetcher(),
-        apiDio: Dio(BaseOptions())
-          ..interceptors.add(
-            InterceptorsWrapper(
-              onRequest: (options, handler) {
-                final isListEndpoint = options.path.contains('per_page');
-                // Releases list → return a release with NO assets.
-                // Latest release → return a release map with NO assets.
-                if (isListEndpoint) {
-                  handler.resolve(
-                    Response<List<dynamic>>(
-                      requestOptions: options,
-                      data: <dynamic>[
-                        {
-                          'tag_name': 'whisper-server-v1.0.0',
-                          'assets': <dynamic>[],
-                        },
-                      ],
-                      statusCode: 200,
-                    ),
-                  );
-                } else {
-                  handler.resolve(
-                    Response<Map<String, dynamic>>(
-                      requestOptions: options,
-                      data: <String, dynamic>{
-                        'tag_name': 'v1.0.0',
-                        'assets': <dynamic>[],
-                      },
-                      statusCode: 200,
-                    ),
-                  );
-                }
-              },
-            ),
-          ),
+        fetcher: capturing,
+        manifestLoader: _fakeManifestLoader(),
       );
 
-      // No matching asset found → throws Exception.
+      // The fetcher records the URL and then throws cancel so the
+      // download loop exits without trying real disk extraction.
       await expectLater(
         () => downloader.download(destDir: tempDir.path, gpuMode: 'auto'),
-        throwsException,
+        throwsA(
+          isA<DioException>().having(
+            (e) => e.type,
+            'type',
+            DioExceptionType.cancel,
+          ),
+        ),
       );
 
-      // Fetcher was never invoked.
-      expect((_NeverCalledFetcher).runtimeType, isNotNull); // no-op assertion
+      expect(capturing.lastUrl, isNotNull);
+      // Any of the host-matching variants is acceptable — the exact
+      // backend depends on the runner's GPU detection. What matters
+      // is that we landed on a URL from the fake manifest.
+      expect(
+        capturing.lastUrl,
+        startsWith('http://example.com/'),
+        reason:
+            'Fetcher should have been called with a URL from the fake manifest',
+      );
     });
 
-    test(
-      'rethrows cancel DioException from fetcher when asset is found',
-      () async {
-        // Use a downloader where the fetcher itself cancels.
-        final downloader = WhisperServerDownloader(
-          fetcher: _CancellingFetcher(),
-          apiDio: Dio(BaseOptions())
-            ..interceptors.add(
-              InterceptorsWrapper(
-                onRequest: (options, handler) {
-                  // Return a fake release with one asset so the fetcher is invoked.
-                  handler.resolve(
-                    Response<dynamic>(
-                      requestOptions: options,
-                      data: options.path.contains('per_page')
-                          ? <dynamic>[
-                              {
-                                'tag_name': 'whisper-server-v1.0.0',
-                                'assets': [
-                                  {
-                                    'name':
-                                        'whisper-server-windows-x64-cpu.zip',
-                                    'browser_download_url':
-                                        'http://example.com/ws.zip',
-                                  },
-                                ],
-                              },
-                            ]
-                          : <String, dynamic>{
-                              'tag_name': 'v1.0.0',
-                              'assets': [
-                                {
-                                  'name': 'whisper-server-windows-x64.zip',
-                                  'browser_download_url':
-                                      'http://example.com/ws.zip',
-                                },
-                              ],
-                            },
-                      statusCode: 200,
-                    ),
-                  );
-                },
-              ),
-            ),
-        );
+    test('throws a descriptive Exception when the manifest holds no binary '
+        'for the host platform', () async {
+      final downloader = WhisperServerDownloader(
+        fetcher: _NeverCalledFetcher(),
+        manifestLoader: _emptyManifestLoader(),
+      );
 
-        // cancel → rethrown as DioException with type cancel.
-        await expectLater(
-          () => downloader.download(destDir: tempDir.path, gpuMode: 'auto'),
-          throwsA(
-            isA<DioException>().having(
-              (e) => e.type,
-              'type',
-              DioExceptionType.cancel,
-            ),
+      await expectLater(
+        () => downloader.download(destDir: tempDir.path, gpuMode: 'auto'),
+        throwsA(
+          isA<Exception>().having(
+            (e) => e.toString(),
+            'message',
+            contains('No whisper-server binary'),
           ),
-        );
-      },
-      skip: Platform.isMacOS
-          ? 'Asset pattern does not match windows assets on macOS'
-          : null,
-    );
+        ),
+      );
+    });
   });
 }
 
 // ---------------------------------------------------------------------------
-// Fake helpers
+// Fakes
 // ---------------------------------------------------------------------------
 
-/// A fetcher that immediately throws [DioExceptionType.cancel].
-class _CancellingFetcher extends HttpModelFetcher {
+/// Fetcher that records the URL it was called with and immediately
+/// throws a user-style cancel so the download loop terminates without
+/// touching the filesystem.
+class _CapturingFetcher extends HttpModelFetcher {
+  String? lastUrl;
+
   @override
   Future<void> fetch({
     required String url,
@@ -234,9 +182,11 @@ class _CancellingFetcher extends HttpModelFetcher {
     required int expectedSize,
     void Function(FetchProgress)? onProgress,
   }) async {
+    lastUrl = url;
     throw DioException(
       requestOptions: RequestOptions(path: url),
       type: DioExceptionType.cancel,
+      message: 'cancelled',
     );
   }
 
@@ -244,7 +194,8 @@ class _CancellingFetcher extends HttpModelFetcher {
   void cancel([String reason = 'cancelled']) {}
 }
 
-/// A fetcher that should never be called (fails the test if called).
+/// Fetcher that must never be invoked (used when the selector is
+/// expected to short-circuit).
 class _NeverCalledFetcher extends HttpModelFetcher {
   @override
   Future<void> fetch({
@@ -253,9 +204,72 @@ class _NeverCalledFetcher extends HttpModelFetcher {
     required int expectedSize,
     void Function(FetchProgress)? onProgress,
   }) async {
-    fail('Fetcher should not have been called');
+    fail('Fetcher should not have been called (url=$url)');
   }
 
   @override
   void cancel([String reason = 'cancelled']) {}
 }
+
+/// Manifest loader backed by a fixture covering every host platform a
+/// CI runner is likely to be. Skips the network entirely.
+WhisperServerManifestLoader _fakeManifestLoader() {
+  return WhisperServerManifestLoader(
+    dio: _offlineDio(),
+    bundleReader: () async => _crossPlatformManifestJson,
+  );
+}
+
+WhisperServerManifestLoader _emptyManifestLoader() {
+  const empty = '''
+{
+  "schema_version": 1,
+  "whisper_server_tag": "whisper-server-empty",
+  "whisper_cpp_release": "test",
+  "generated_at": "2026-01-01T00:00:00Z",
+  "binaries": [
+    {"platform":"unknown","arch":"unknown","backend":"cpu","url":"http://example.com/none.zip","size_bytes":1,"source":"test"}
+  ]
+}
+''';
+  return WhisperServerManifestLoader(
+    dio: _offlineDio(),
+    bundleReader: () async => empty,
+  );
+}
+
+Dio _offlineDio() {
+  // Reject every remote call instantly so the loader falls through to
+  // the bundled fixture without waiting on a real network timeout.
+  return Dio()
+    ..interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          handler.reject(
+            DioException(
+              requestOptions: options,
+              type: DioExceptionType.connectionError,
+              error: 'offline test',
+            ),
+          );
+        },
+      ),
+    );
+}
+
+const String _crossPlatformManifestJson = '''
+{
+  "schema_version": 1,
+  "whisper_server_tag": "whisper-server-test",
+  "whisper_cpp_release": "test",
+  "generated_at": "2026-01-01T00:00:00Z",
+  "binaries": [
+    {"platform":"macos","arch":"arm64","backend":"metal","url":"http://example.com/metal.zip","size_bytes":1000,"source":"whispaste"},
+    {"platform":"macos","arch":"arm64","backend":"cpu","url":"http://example.com/cpu-mac.zip","size_bytes":1000,"source":"whispaste"},
+    {"platform":"windows","arch":"x64","backend":"cuda12","url":"http://example.com/cuda.zip","size_bytes":1000,"source":"upstream"},
+    {"platform":"windows","arch":"x64","backend":"vulkan","url":"http://example.com/vulkan.zip","size_bytes":1000,"source":"whispaste"},
+    {"platform":"windows","arch":"x64","backend":"cpu","url":"http://example.com/cpu-win.zip","size_bytes":1000,"source":"upstream"},
+    {"platform":"linux","arch":"x64","backend":"cpu","url":"http://example.com/cpu-linux.zip","size_bytes":1000,"source":"upstream"}
+  ]
+}
+''';
