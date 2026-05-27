@@ -33,6 +33,7 @@
 		AA0003012044A3C60003C045 /* FloatingButtonHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0003002044A3C60003C045 /* FloatingButtonHost.swift */; };
 		AA0004012044A3C60003C045 /* FloatingOverlayWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0004002044A3C60003C045 /* FloatingOverlayWindow.swift */; };
 		AA0005012044A3C60003C045 /* FloatingOverlayHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0005002044A3C60003C045 /* FloatingOverlayHost.swift */; };
+		AA0006012044A3C60003C045 /* AudioRoutingHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0006002044A3C60003C045 /* AudioRoutingHost.swift */; };
 		B0286F67A32AA2FDEAEC2B2A /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0B114D31172F69CA9A787753 /* Pods_RunnerTests.framework */; };
 /* End PBXBuildFile section */
 
@@ -97,6 +98,7 @@
 		AA0003002044A3C60003C045 /* FloatingButtonHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingButtonHost.swift; sourceTree = "<group>"; };
 		AA0004002044A3C60003C045 /* FloatingOverlayWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingOverlayWindow.swift; sourceTree = "<group>"; };
 		AA0005002044A3C60003C045 /* FloatingOverlayHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingOverlayHost.swift; sourceTree = "<group>"; };
+		AA0006002044A3C60003C045 /* AudioRoutingHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRoutingHost.swift; sourceTree = "<group>"; };
 		F518BCBF13BA40121A89A04B /* Pods-RunnerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.release.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.release.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -192,6 +194,7 @@
 				AA0003002044A3C60003C045 /* FloatingButtonHost.swift */,
 				AA0004002044A3C60003C045 /* FloatingOverlayWindow.swift */,
 				AA0005002044A3C60003C045 /* FloatingOverlayHost.swift */,
+				AA0006002044A3C60003C045 /* AudioRoutingHost.swift */,
 				33E51913231747F40026EE4D /* DebugProfile.entitlements */,
 				33E51914231749380026EE4D /* Release.entitlements */,
 				33CC11242044D66E0003C045 /* Resources */,
@@ -460,6 +463,7 @@
 				AA0003012044A3C60003C045 /* FloatingButtonHost.swift in Sources */,
 				AA0004012044A3C60003C045 /* FloatingOverlayWindow.swift in Sources */,
 				AA0005012044A3C60003C045 /* FloatingOverlayHost.swift in Sources */,
+				AA0006012044A3C60003C045 /* AudioRoutingHost.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
