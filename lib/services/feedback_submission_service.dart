@@ -15,10 +15,14 @@
 /// | [FeedbackServerError] | Other non-2xx HTTP response |
 /// | [FeedbackNetworkError] | Socket / timeout / other network failure |
 ///
-/// ## Sentry breadcrumbs
+/// ## Sentry telemetry
 ///
-/// One breadcrumb per `submit()` call with `category: "feedback"` and a
-/// `result` data key. No PII is included.
+/// Every `submit()` emits exactly one breadcrumb with `category: "feedback"`
+/// and a `result` data key. In addition, a [FeedbackServerError] result also
+/// emits a Sentry `captureMessage('feedback_server_error', …)` with the HTTP
+/// status code and a truncated response body so backend schema drift surfaces
+/// within hours instead of weeks. Rate-limit and network errors are not
+/// escalated — those are user-driven and expected. No PII is included.
 library;
 
 import 'dart:convert';
@@ -114,19 +118,26 @@ final class FeedbackSubmissionService {
     required String supabasePublishableKey,
     Duration timeout = const Duration(seconds: 15),
     BreadcrumbSinkFn? breadcrumbSink,
+    MessageSinkFn? messageSink,
   }) : _client = client,
        _supabaseUrl = supabaseUrl,
        _supabasePublishableKey = supabasePublishableKey,
        _timeout = timeout,
-       _breadcrumbSink = breadcrumbSink ?? _defaultBreadcrumbSink;
+       _breadcrumbSink = breadcrumbSink ?? _defaultBreadcrumbSink,
+       _messageSink = messageSink ?? _defaultMessageSink;
 
   static final _log = AppLogger('FeedbackSubmissionService');
+
+  /// Cap on the response body slice captured in the Sentry event. Keeps the
+  /// payload small even when the server returns an HTML error page.
+  static const _maxCapturedBodyChars = 500;
 
   final http.Client _client;
   final String _supabaseUrl;
   final String _supabasePublishableKey;
   final Duration _timeout;
   final BreadcrumbSinkFn _breadcrumbSink;
+  final MessageSinkFn _messageSink;
 
   /// Submits [payload] and returns a [FeedbackSubmissionResult].
   ///
@@ -177,6 +188,17 @@ final class FeedbackSubmissionService {
           'Feedback submission error: ${response.statusCode} ${response.body}',
         );
         _emitBreadcrumb('server_error');
+        // Escalate to a Sentry event so a broken backend (schema drift, RLS
+        // misconfig, missing column) surfaces within hours instead of weeks.
+        // A breadcrumb alone disappears with the session if the run does not
+        // also crash. Rate-limit and network errors are deliberately excluded:
+        // they are expected, user-driven failure modes and would only add
+        // noise to the Sentry inbox.
+        _captureMessage(
+          'feedback_server_error',
+          statusCode: response.statusCode,
+          body: response.body,
+        );
         return FeedbackServerError(response.statusCode, response.body);
       }
 
@@ -200,13 +222,51 @@ final class FeedbackSubmissionService {
       ),
     );
   }
+
+  void _captureMessage(
+    String message, {
+    required int statusCode,
+    required String body,
+  }) {
+    final truncated = body.length > _maxCapturedBodyChars
+        ? '${body.substring(0, _maxCapturedBodyChars)}…'
+        : body;
+    _messageSink(message, SentryLevel.warning, {
+      'status_code': statusCode,
+      'body': truncated,
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------
-// BreadcrumbSink — injectable in tests
+// Sentry sinks — injectable in tests
 // ---------------------------------------------------------------------------
 
 typedef BreadcrumbSinkFn = void Function(Breadcrumb breadcrumb);
 
+typedef MessageSinkFn =
+    void Function(
+      String message,
+      SentryLevel level,
+      Map<String, Object?> extras,
+    );
+
 void _defaultBreadcrumbSink(Breadcrumb breadcrumb) =>
     Sentry.addBreadcrumb(breadcrumb);
+
+void _defaultMessageSink(
+  String message,
+  SentryLevel level,
+  Map<String, Object?> extras,
+) {
+  Sentry.captureMessage(
+    message,
+    level: level,
+    withScope: (scope) {
+      // Use Contexts instead of the deprecated setExtra API. A single
+      // structured context key keeps the response details grouped together
+      // in the Sentry issue UI.
+      scope.setContexts('feedback_response', extras);
+    },
+  );
+}

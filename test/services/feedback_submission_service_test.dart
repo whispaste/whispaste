@@ -35,19 +35,32 @@ FeedbackPayload _testPayload() => const FeedbackPayload(
   locale: 'en',
 );
 
+/// One captured Sentry message: payload, level, and the extras map.
+typedef CapturedMessage = ({
+  String message,
+  SentryLevel level,
+  Map<String, Object?> extras,
+});
+
 FeedbackSubmissionService _makeService({
   required http.Client client,
   String supabaseUrl = 'https://example.supabase.co',
   String supabasePublishableKey = 'test-key',
   List<Breadcrumb>? breadcrumbs,
+  List<CapturedMessage>? messages,
 }) {
-  final captured = breadcrumbs;
+  final capturedCrumbs = breadcrumbs;
+  final capturedMessages = messages;
   return FeedbackSubmissionService(
     client: client,
     supabaseUrl: supabaseUrl,
     supabasePublishableKey: supabasePublishableKey,
     timeout: const Duration(seconds: 5),
-    breadcrumbSink: captured != null ? captured.add : (_) {},
+    breadcrumbSink: capturedCrumbs != null ? capturedCrumbs.add : (_) {},
+    messageSink: capturedMessages != null
+        ? (msg, level, extras) =>
+              capturedMessages.add((message: msg, level: level, extras: extras))
+        : (_, _, _) {},
   );
 }
 
@@ -204,6 +217,81 @@ void main() {
         expect(breadcrumbs.first.data?['result'], 'skipped_not_configured');
       },
     );
+
+    // ── Sentry captureMessage escalation ──────────────────────────────────
+
+    test(
+      'captures Sentry message with status code and body on server error',
+      () async {
+        final messages = <CapturedMessage>[];
+        final client = MockClient(
+          (_) async => http.Response('Internal Server Error', 500),
+        );
+        final service = _makeService(client: client, messages: messages);
+        await service.submit(_testPayload());
+
+        expect(messages, hasLength(1));
+        expect(messages.first.message, 'feedback_server_error');
+        expect(messages.first.level, SentryLevel.warning);
+        expect(messages.first.extras['status_code'], 500);
+        expect(messages.first.extras['body'], 'Internal Server Error');
+      },
+    );
+
+    test('truncates oversized response body in the Sentry extra', () async {
+      final messages = <CapturedMessage>[];
+      final oversizedBody = 'x' * 1200;
+      final client = MockClient((_) async => http.Response(oversizedBody, 500));
+      final service = _makeService(client: client, messages: messages);
+      await service.submit(_testPayload());
+
+      final body = messages.single.extras['body'] as String;
+      expect(body, hasLength(501)); // 500 chars + ellipsis
+      expect(body.endsWith('…'), isTrue);
+    });
+
+    test('does NOT capture Sentry message on rate-limit (429)', () async {
+      final messages = <CapturedMessage>[];
+      final client = MockClient((_) async => http.Response('', 429));
+      final service = _makeService(client: client, messages: messages);
+      await service.submit(_testPayload());
+
+      expect(messages, isEmpty);
+    });
+
+    test(
+      'does NOT capture Sentry message on rate-limit (400 with rate_limited body)',
+      () async {
+        final messages = <CapturedMessage>[];
+        final client = MockClient(
+          (_) async => http.Response('{"message":"rate_limited"}', 400),
+        );
+        final service = _makeService(client: client, messages: messages);
+        await service.submit(_testPayload());
+
+        expect(messages, isEmpty);
+      },
+    );
+
+    test('does NOT capture Sentry message on network error', () async {
+      final messages = <CapturedMessage>[];
+      final client = MockClient((_) async {
+        throw const SocketException('Connection refused');
+      });
+      final service = _makeService(client: client, messages: messages);
+      await service.submit(_testPayload());
+
+      expect(messages, isEmpty);
+    });
+
+    test('does NOT capture Sentry message on successful submit', () async {
+      final messages = <CapturedMessage>[];
+      final client = MockClient((_) async => http.Response('', 201));
+      final service = _makeService(client: client, messages: messages);
+      await service.submit(_testPayload());
+
+      expect(messages, isEmpty);
+    });
 
     // ── Request format ────────────────────────────────────────────────────
 
