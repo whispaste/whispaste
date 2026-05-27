@@ -179,10 +179,12 @@ ProviderContainer _makeContainer({
         (_) async =>
             const hw.GpuInfo(vendor: hw.GpuVendor.none, name: 'Test CPU'),
       ),
-      sttStartupHeartbeatConfigProvider.overrideWithValue((
-        window: const Duration(milliseconds: 50),
-        maxMissedWindows: 3,
-      )),
+      sttStartupHeartbeatConfigProvider.overrideWithValue(
+        const SttStartupHeartbeatConfig(
+          window: Duration(milliseconds: 50),
+          maxMissedWindows: 3,
+        ),
+      ),
       if (recoveryOverride != null)
         serverBinaryRecoveryProvider.overrideWithValue(recoveryOverride),
     ],
@@ -466,6 +468,121 @@ void main() {
 
       expect(recovery.recoverCalls, 0);
     });
+  });
+
+  // ── Hardware-audit (2026-05): inference-time socket disconnect ──────────
+
+  group('SttServerStateNotifier.transcribeBytes — connection-lost capture', () {
+    late Directory tempDir;
+
+    setUp(() async {
+      tempDir = await _createFakeSttDir();
+    });
+
+    tearDown(() async {
+      paths.sttDirOverride = null;
+      await tempDir.delete(recursive: true);
+    });
+
+    Future<void> runConnectionLossCase({
+      required Object thrown,
+      required String expectedExceptionType,
+    }) async {
+      final fakeProcess = _FakeProcess();
+      final runner = _FakeProcessRunner(fakeProcess);
+
+      var inferenceCallCount = 0;
+      final client = MockClient((req) async {
+        if (req.url.path == '/health') return http.Response('ok', 200);
+        if (req.url.path == '/inference') {
+          inferenceCallCount += 1;
+          // First call is the GPU warmup during cold-start — let it
+          // succeed. Real inference call (second) throws to simulate
+          // the whisper-server crashing mid-response.
+          if (inferenceCallCount == 1) {
+            return http.Response('{"text":""}', 200);
+          }
+          throw thrown;
+        }
+        return http.Response('not found', 404);
+      });
+
+      final container = _makeContainer(runner: runner, httpClient: client);
+      addTearDown(() {
+        container.dispose();
+        fakeProcess.exit(0);
+      });
+
+      await _bringNotifierReady(container, fakeProcess);
+      _capturedEvents.clear();
+      _capturedBreadcrumbs.clear();
+
+      final notifier = container.read(localSttBundleProvider.notifier);
+
+      await expectLater(
+        () => notifier.transcribeBytes(_validWav(), language: 'auto'),
+        throwsA(isA<Exception>()),
+      );
+
+      await CrashReporter.instance!.flush();
+
+      expect(
+        _capturedEvents,
+        hasLength(1),
+        reason:
+            'A mid-inference $expectedExceptionType must capture exactly '
+            'one Sentry event under the sttInferenceConnectionLost bucket '
+            '(no double via AppLogger auto-escalation).',
+      );
+
+      final ev = _capturedEvents.single;
+      expect(ev.fingerprint, [
+        sttInferenceConnectionLost,
+      ], reason: 'fingerprint must be sttInferenceConnectionLost');
+      expect(ev.tags?['error_type'], 'stt_inference_connection_lost');
+
+      final extrasCtx = ev.contexts['extras'] as Map?;
+      expect(extrasCtx, isNotNull);
+      expect(
+        extrasCtx!.keys,
+        containsAll([
+          'exception_type',
+          'exception_message',
+          'model_id',
+          'port',
+          'wav_bytes',
+          'audio_duration_ms',
+          'language',
+          'gpu_mode',
+          'cpu_fallback_active',
+          'platform',
+        ]),
+        reason:
+            'hardware-context extras must accompany the capture so the '
+            'crash report is actionable without further user contact',
+      );
+      expect(extrasCtx['exception_type'], expectedExceptionType);
+    }
+
+    test(
+      'SocketException mid-inference → sttInferenceConnectionLost',
+      () async {
+        await runConnectionLossCase(
+          thrown: const SocketException('connection reset by peer'),
+          expectedExceptionType: 'SocketException',
+        );
+      },
+    );
+
+    test(
+      'ClientException mid-inference → sttInferenceConnectionLost',
+      () async {
+        await runConnectionLossCase(
+          thrown: http.ClientException('connection closed'),
+          expectedExceptionType: 'ClientException',
+        );
+      },
+    );
   });
 
   // ── Pre-flight reject path ──────────────────────────────────────────────

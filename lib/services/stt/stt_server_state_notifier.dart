@@ -50,6 +50,7 @@ export 'stt_exit_classifier.dart' show SttExitKind, classifySttExitCode;
 export 'stt_gpu_fallback_policy.dart' show SttGpuFallbackPolicy;
 export 'stt_providers.dart'
     show
+        SttStartupHeartbeatConfig,
         processRunnerProvider,
         serverBinaryRecoveryProvider,
         sttHttpClientProvider,
@@ -173,6 +174,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
   late final ProcessRunner _processRunner;
   late final Duration _heartbeatWindow;
   late final int _heartbeatMaxMissedWindows;
+  late final Duration _startupDeadline;
 
   static const _policy = SttGpuFallbackPolicy();
 
@@ -183,6 +185,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     final hbConfig = ref.read(sttStartupHeartbeatConfigProvider);
     _heartbeatWindow = hbConfig.window;
     _heartbeatMaxMissedWindows = hbConfig.maxMissedWindows;
+    _startupDeadline = hbConfig.overallDeadline;
 
     ref.onDispose(() {
       _idleTimer?.cancel();
@@ -447,15 +450,25 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
             ),
           );
     } on SocketException catch (e) {
-      _log.error(
-        'STT server connection lost during inference (SocketException): $e',
+      _captureInferenceConnectionLost(
+        exceptionType: 'SocketException',
+        exceptionMessage: '$e',
+        audioDurationMs: audioDurationMs,
+        wavBytes: wavBytes.length,
+        language: lang,
+        gpuMode: settings?.gpuAcceleration,
       );
       throw Exception(
         'STT server connection lost during inference (server may have crashed)',
       );
     } on http.ClientException catch (e) {
-      _log.error(
-        'STT server connection lost during inference (ClientException): $e',
+      _captureInferenceConnectionLost(
+        exceptionType: 'ClientException',
+        exceptionMessage: '$e',
+        audioDurationMs: audioDurationMs,
+        wavBytes: wavBytes.length,
+        language: lang,
+        gpuMode: settings?.gpuAcceleration,
       );
       throw Exception(
         'STT server connection lost during inference (server may have crashed)',
@@ -897,7 +910,27 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     const minModelBytes = 10 * 1024 * 1024;
     final modelFileSize = await modelFile.length();
     if (modelFileSize < minModelBytes) {
-      _log.error(
+      // Explicit capture under the canonical `sttModelCorrupted` bucket so
+      // disk-truncated / interrupted-download model files surface as their
+      // own Sentry issue instead of merging into the generic auto-escalate
+      // catch-all via `_log.error`. Log is downgraded to warning to avoid
+      // a second event from the AppLogger pipeline.
+      CrashReporter.instance?.captureError(
+        message:
+            'STT model file corrupted on disk '
+            '($modelFileSize bytes, expected >$minModelBytes)',
+        severity: 'error',
+        type: 'stt_model_corrupted',
+        fingerprint: const [sttModelCorrupted],
+        extras: {
+          'model_id': modelId,
+          'model_path': modelPath,
+          'file_size_bytes': modelFileSize,
+          'min_required_bytes': minModelBytes,
+          'platform': Platform.operatingSystem,
+        },
+      );
+      _log.warning(
         'STT model file appears corrupted: $modelPath '
         '($modelFileSize bytes, expected >$minModelBytes).',
       );
@@ -907,10 +940,14 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
           return modelFile;
         }),
       );
-      _fail(
-        'STT model file is incomplete or corrupted '
-        '(${(modelFileSize / 1024).round()} KB). '
-        'Please re-download the model in Settings.',
+      _transition(
+        SttStatus(
+          serverState: SttServerState.error,
+          errorMessage:
+              'STT model file is incomplete or corrupted '
+              '(${(modelFileSize / 1024).round()} KB). '
+              'Please re-download the model in Settings.',
+        ),
       );
       return;
     }
@@ -931,7 +968,14 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     );
 
     if (!hw.isServerBinaryCompatible(sttDir(), gpu)) {
-      _log.error(
+      // State-sync correction, not a crash: the installed binary does
+      // not match the current GPU (driver/hardware change since last
+      // download). `validateAndCleanIncompatibleBinary` should already
+      // have handled this at app start — when it slips through to here
+      // it is mostly a race with that startup task. Downgraded to
+      // warning to avoid auto-escalation; `_fail` below still surfaces
+      // a generic Sentry event so we keep a low-frequency signal.
+      _log.warning(
         'Proactive check: server binary incompatible with current GPU. '
         'Deleting for re-download.',
       );
@@ -1115,7 +1159,11 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
               final gpuFatalMsg =
                   'whisper-server GPU fatal abort (code $code / ${exitKind.name}) '
                   'on "${gpu.name}" and CPU fallback also failed.';
-              _log.error(gpuFatalMsg);
+              // Warning instead of error: the explicit captureError below
+              // owns the Sentry signal under `sttExitGpuFatal`; an
+              // additional `_log.error` would trigger AppLogger
+              // auto-escalation into the catch-all bucket.
+              _log.warning(gpuFatalMsg);
               CrashReporter.instance?.captureError(
                 message: gpuFatalMsg,
                 severity: 'error',
@@ -1151,7 +1199,10 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
               final heapMsg =
                   'whisper-server memory error (${exitKind.name}, code $code) '
                   'and CPU fallback also failed.';
-              _log.error(heapMsg);
+              // Warning instead of error: avoids duplicate Sentry event
+              // via AppLogger auto-escalation; explicit capture below
+              // owns the `sttExitHeapCorruption` signal.
+              _log.warning(heapMsg);
               CrashReporter.instance?.captureError(
                 message: heapMsg,
                 severity: 'error',
@@ -1181,7 +1232,11 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
             case SttExitKind.other:
               final otherMsg =
                   'whisper-server exited unexpectedly (code $code)';
-              _log.error(otherMsg);
+              // Warning instead of error: avoids duplicate Sentry event
+              // via AppLogger auto-escalation; explicit capture below
+              // owns the `sttExitOther` signal with full diagnostic
+              // context (stderr_tail, args, binary_path, gpu_mode).
+              _log.warning(otherMsg);
               // Ship the diagnostic context the previous capture was missing:
               // the actual stderr tail (the only place the binary writes its
               // own failure reason), the full args, the binary path, and the
@@ -1236,7 +1291,35 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
         stderrBroadcast,
         heartbeatWindow: _heartbeatWindow,
         maxMissedWindows: _heartbeatMaxMissedWindows,
+        overallDeadline: _startupDeadline,
       );
+    } on _StartupDeadlineException catch (e) {
+      // Server kept producing stderr heartbeats but `/health` never
+      // returned 200 within the wall-clock deadline. Distinct from the
+      // heartbeat-timeout shape (which fires on silent stalls); this
+      // one is the long-load shape — e.g. layer-by-layer model load on
+      // a thrashing disk where stderr ticks but the server is far
+      // from ready. Captured under its own fingerprint so the disk-
+      // pressure cluster is visible independently from silent stalls.
+      CrashReporter.instance?.captureError(
+        message: 'whisper-server startup deadline exceeded: ${e.message}',
+        severity: 'error',
+        type: 'stt_startup_deadline',
+        fingerprint: const [sttStartupDeadline],
+        extras: {
+          'deadline_seconds': _startupDeadline.inSeconds,
+          'stderr_tail': stderrLines,
+          'args': args,
+          'binary_path': serverPath,
+          'model_id': modelId,
+          'gpu_mode': gpuAcceleration,
+          'gpu_fallback_active': _gpuFallbackActive,
+          'platform': Platform.operatingSystem,
+        },
+      );
+      stop();
+      _fail('whisper-server not ready: $e');
+      return;
     } on _HeartbeatTimeoutException catch (e) {
       // Server is alive but produces no progress on stderr — typically a
       // model-load stall or a hang inside whisper.cpp. Sentry needs the
@@ -1332,6 +1415,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     Stream<String> stderrLines, {
     Duration heartbeatWindow = const Duration(seconds: 60),
     int maxMissedWindows = 3,
+    Duration overallDeadline = const Duration(seconds: 180),
   }) async {
     final healthUrl = Uri.parse('http://127.0.0.1:$port/health');
     final client = _httpClient;
@@ -1341,6 +1425,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
 
     var missedWindows = 0;
     var windowStart = DateTime.now();
+    final deadlineAt = DateTime.now().add(overallDeadline);
 
     final stderrSub = stderrLines.listen((_) {
       windowStart = DateTime.now();
@@ -1352,6 +1437,13 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
         if (_process != proc) {
           throw _EarlyExitException(
             'whisper-server exited before becoming ready',
+          );
+        }
+
+        if (DateTime.now().isAfter(deadlineAt)) {
+          throw _StartupDeadlineException(
+            'whisper-server still not ready after '
+            '${overallDeadline.inSeconds}s wall-clock deadline',
           );
         }
 
@@ -1484,10 +1576,34 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     _modelChangeDebounce?.cancel();
     _modelChangeDebounce = null;
 
-    _log.error(
+    final requiredVramMB = hw.sttModelVramMB[failedModelId];
+
+    // Downgraded from error → warning so AppLogger's auto-escalation does
+    // not also emit a duplicate event under the `appLoggerAutoEscalated`
+    // bucket — the explicit capture below carries the full hardware
+    // context and owns the Sentry signal for this path.
+    _log.warning(
       'whisper-server hit CUDA OOM for model=$failedModelId '
       'gpu=${gpu.name} stderr=${stderrLines.join(' | ')} '
       'errorCode=$_cudaOomErrorCode',
+    );
+
+    CrashReporter.instance?.captureError(
+      message: 'whisper-server CUDA OOM on "${gpu.name}"',
+      severity: 'error',
+      type: 'stt_cuda_oom',
+      fingerprint: const [sttCudaOom],
+      extras: {
+        'model_id': failedModelId,
+        'gpu_vendor': gpu.vendor.name,
+        'gpu_name': gpu.name,
+        'gpu_vram_mb': gpu.vramMB,
+        'required_vram_mb': requiredVramMB,
+        'cuda_available': gpu.cudaAvailable,
+        'vulkan_available': gpu.vulkanAvailable,
+        'platform': Platform.operatingSystem,
+        'stderr_tail': stderrLines,
+      },
     );
 
     _transition(
@@ -1495,6 +1611,44 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
         serverState: SttServerState.error,
         errorMessage: _cudaOomErrorCode,
       ),
+    );
+  }
+
+  /// Inference-time socket loss capture — used when the whisper-server
+  /// dies while answering /inference. Downgrades the in-process log to
+  /// warning so AppLogger's auto-escalation does not duplicate the
+  /// explicit fingerprinted capture below.
+  void _captureInferenceConnectionLost({
+    required String exceptionType,
+    required String exceptionMessage,
+    required int audioDurationMs,
+    required int wavBytes,
+    required String language,
+    required String? gpuMode,
+  }) {
+    _log.warning(
+      'STT server connection lost during inference ($exceptionType): '
+      '$exceptionMessage',
+    );
+    CrashReporter.instance?.captureError(
+      message:
+          'STT server connection lost during inference '
+          '($exceptionType)',
+      severity: 'error',
+      type: 'stt_inference_connection_lost',
+      fingerprint: const [sttInferenceConnectionLost],
+      extras: {
+        'exception_type': exceptionType,
+        'exception_message': exceptionMessage,
+        'model_id': state.modelId,
+        'port': state.port,
+        'wav_bytes': wavBytes,
+        'audio_duration_ms': audioDurationMs,
+        'language': language,
+        'gpu_mode': gpuMode ?? '<unknown>',
+        'cpu_fallback_active': _gpuFallbackActive,
+        'platform': Platform.operatingSystem,
+      },
     );
   }
 
@@ -1521,7 +1675,11 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
               'File is corrupted — triggering silent re-download.',
             );
           } else {
-            _log.error(
+            // Warning instead of error: the ServerBinaryRecovery
+            // exhausted-path owns the Sentry signal under
+            // `sttModelAbiMismatch`. Auto-escalation here would only
+            // bucket a duplicate under the catch-all.
+            _log.warning(
               'Exit code $exitCode: model SHA-256 is correct for $modelId '
               '— runtime incompatibility (binary/model ABI mismatch).',
             );
@@ -1547,7 +1705,10 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       return;
     }
 
-    _log.error(
+    // Warning instead of error: the ServerBinaryRecovery exhausted-path
+    // owns the Sentry signal under `sttModelAbiMismatch`. Auto-escalation
+    // here would only bucket a duplicate under the catch-all.
+    _log.warning(
       'whisper-server failed to load model $modelId (code $exitCode): '
       'incompatible runtime — model file is intact but cannot be loaded '
       'by the installed whisper-server binary.',
@@ -1641,7 +1802,11 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
         await _restartAfterRecovery(forceCpu: true);
         return;
       case RecoveryExhausted(:final userMessage):
-        _log.error('Recovery exhausted — surfacing actionable error state.');
+        // Warning instead of error: `ServerBinaryRecovery._exhaust`
+        // already captured a dedicated Sentry event under the
+        // reason-specific fingerprint. Auto-escalating here would only
+        // emit a duplicate in the catch-all bucket.
+        _log.warning('Recovery exhausted — surfacing actionable error state.');
         // Push the actionable „Einstellungen öffnen" toast to the UI; the
         // listener in `recording_behavior.dart` navigates to the
         // `cloud_advanced_section` reset area on tap.
@@ -1668,6 +1833,13 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     _startCompleter = null;
     _process = null;
     _activeModel = null;
+
+    // Drop the GPU-detection cache so the post-recovery launch re-probes
+    // the hardware. Cheap (~100–500ms) and re-arms the once-per-session
+    // `gpuDetectionFailed` capture guard — if the second detection is
+    // also blind, Sentry sees that explicitly instead of silently
+    // inheriting a stale „using CPU" cache from app start.
+    hw.clearGpuCache();
 
     try {
       await ensureRunning();
@@ -1754,6 +1926,14 @@ class _HeartbeatTimeoutException implements Exception {
 
   @override
   String toString() => 'HeartbeatTimeoutException: $message';
+}
+
+class _StartupDeadlineException implements Exception {
+  _StartupDeadlineException(this.message);
+  final String message;
+
+  @override
+  String toString() => 'StartupDeadlineException: $message';
 }
 
 // Providers are defined in stt_providers.dart and re-exported via stt_bundle.dart.

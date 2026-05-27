@@ -14,6 +14,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
 import '../core/logging/app_logger.dart';
+import '../core/logging/crash_fingerprints.dart';
+import '../core/logging/crash_reporter.dart';
 
 final _log = AppLogger('HardwareInfo');
 
@@ -180,6 +182,38 @@ class GpuInfo {
 
 GpuInfo? _cached;
 
+/// One-shot guard for the Sentry capture in [captureGpuDetectionFailureOnce].
+/// Re-armed by [clearGpuCache] so a recovery-driven re-detection can also
+/// re-report a failure if the second attempt is just as blind. Kept
+/// module-private — tests reset it via [clearGpuCache].
+bool _gpuDetectionCaptureSent = false;
+
+/// Emits the `gpuDetectionFailed` Sentry fingerprint at most once per app
+/// session. The guard avoids spamming the bucket on every `detectGpu()`
+/// re-entry — once per session is enough to know a machine cannot read its
+/// GPU info, even on apps that keep retrying behind the user's back.
+@visibleForTesting
+void captureGpuDetectionFailureOnce({
+  required String reason,
+  bool cudaAvailable = false,
+}) {
+  if (_gpuDetectionCaptureSent) return;
+  _gpuDetectionCaptureSent = true;
+  CrashReporter.instance?.captureError(
+    message: 'GPU detection failed — falling back to CPU ($reason)',
+    severity: 'warning',
+    type: 'gpu_detection_failed',
+    fingerprint: const [gpuDetectionFailed],
+    extras: {
+      'reason': reason,
+      'platform': Platform.operatingSystem,
+      'os_version': Platform.operatingSystemVersion,
+      'cuda_available': cudaAvailable,
+      'num_processors': Platform.numberOfProcessors,
+    },
+  );
+}
+
 /// Detects the primary GPU. Result is cached after the first call.
 ///
 /// Detection is fast (~100–500ms) and runs once per session. Subsequent
@@ -199,6 +233,7 @@ Future<GpuInfo> detectGpu() async {
     }
   } catch (e) {
     _log.warning('GPU detection failed, defaulting to CPU: $e');
+    captureGpuDetectionFailureOnce(reason: 'top-level-exception: $e');
     _cached = const GpuInfo(
       vendor: GpuVendor.none,
       name: 'Detection failed — using CPU',
@@ -215,8 +250,14 @@ Future<GpuInfo> detectGpu() async {
 /// that needs a synchronous check after detection has already run.
 GpuInfo? get cachedGpuInfo => _cached;
 
-/// Clears the cached GPU info. Intended for testing only.
-void clearGpuCache() => _cached = null;
+/// Clears the cached GPU info **and** re-arms the once-per-session Sentry
+/// guard in [captureGpuDetectionFailureOnce]. Used by tests, and by the
+/// server-binary-recovery hook so a fresh detection after recovery can
+/// re-report a failure if the second pass is also blind.
+void clearGpuCache() {
+  _cached = null;
+  _gpuDetectionCaptureSent = false;
+}
 
 /// Runs the Windows GPU-detection path regardless of the host platform.
 ///
@@ -532,11 +573,21 @@ Future<GpuInfo> _detectWindows() async {
 
   // If both probes returned nothing AND we have no CUDA-DLL fallback,
   // surface an explicit „using CPU" name so the UI/log layer can pick it up
-  // without having to special-case the generic „Unknown" string.
+  // without having to special-case the generic „Unknown" string. This is
+  // also the only blind-detection shape on Windows (locked-down WMI,
+  // disabled PowerShell, AV blocking subprocess) — capture it once per
+  // session so Sentry actually sees machines that cannot read their GPU.
   if (vendor == GpuVendor.none) {
-    return const GpuInfo(
+    captureGpuDetectionFailureOnce(
+      reason: parsed == null
+          ? 'windows-both-probes-empty'
+          : 'windows-vendor-unclassified',
+      cudaAvailable: cudaAvailable,
+    );
+    return GpuInfo(
       vendor: GpuVendor.none,
       name: 'Detection failed — using CPU',
+      cudaAvailable: cudaAvailable,
     );
   }
 

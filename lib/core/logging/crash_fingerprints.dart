@@ -160,6 +160,43 @@ const String inferenceServerError = 'inference-server-error';
 const String inferenceUnknownStatus = 'inference-unknown-status';
 
 // ---------------------------------------------------------------------------
+// Hardware-Debugging-Audit (2026-05). Adds four buckets that previously
+// collapsed into `appLoggerAutoEscalated` (or were silently absent) and
+// hid hardware-specific failure modes — CUDA-OOM, inference-time socket
+// loss, startup deadlines, and total GPU-detection blackout. Each one
+// pre-empts a class of „we know users hit this but Sentry shows nothing
+// actionable" reports.
+// ---------------------------------------------------------------------------
+
+/// whisper-server hit CUDA out-of-memory at runtime. Distinct from
+/// [sttExitGpuFatal] because OOM is a soft-recoverable shape (smaller
+/// model / CPU-fallback) whereas GPU-fatal aborts indicate driver-level
+/// trouble. Extras carry GPU name, VRAM, model id and the offending
+/// stderr tail so the next debugger can map the report to a hardware
+/// constellation without needing user access.
+const String sttCudaOom = 'stt-cuda-oom';
+
+/// `SocketException` / `http.ClientException` raised mid-inference (the
+/// whisper-server died while answering /inference). Previously fell into
+/// the catch-all auto-escalation bucket; isolating it gives a clear
+/// signal for „server crashed during transcription on this hardware".
+const String sttInferenceConnectionLost = 'stt-inference-connection-lost';
+
+/// `_waitReady` exceeded its absolute wall-clock deadline (default 180 s)
+/// even though stderr kept producing heartbeats. Catches the long-load
+/// stall shape that the heartbeat window alone cannot terminate — e.g.
+/// a model that loads layer-by-layer for 10 minutes on a thrashing disk
+/// because the OS paged everything out.
+const String sttStartupDeadline = 'stt-startup-deadline';
+
+/// GPU detection produced no usable result — every probe timed out or
+/// errored. Captured at most once per app session via an in-process
+/// guard so it does not spam Sentry on every `detectGpu()` re-entry.
+/// Mostly seen on machines where WMI / PowerShell is locked down by
+/// corporate AV or group policy.
+const String gpuDetectionFailed = 'gpu-detection-failed';
+
+// ---------------------------------------------------------------------------
 // Full iterable for tooling (e.g. „verify no inline fingerprint string in
 // the codebase appears outside this file"). Order is irrelevant — Sentry
 // treats fingerprints as a set of strings, not an ordered list.
@@ -194,4 +231,9 @@ const List<String> allCrashFingerprints = <String>[
   inferenceUnsupportedMedia,
   inferenceServerError,
   inferenceUnknownStatus,
+  // Hardware-Debugging-Audit (2026-05).
+  sttCudaOom,
+  sttInferenceConnectionLost,
+  sttStartupDeadline,
+  gpuDetectionFailed,
 ];

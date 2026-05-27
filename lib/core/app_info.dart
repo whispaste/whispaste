@@ -17,6 +17,8 @@
 /// No manual mirror — `pubspec.yaml` is the only edit site for a version bump.
 library;
 
+import 'dart:ffi' show Abi;
+
 import 'package:package_info_plus/package_info_plus.dart';
 
 /// App name for display.
@@ -59,6 +61,30 @@ const sentryProject = 'flutter_whispaste';
 
 /// Sentry instance region.
 const sentryRegion = 'de';
+
+/// Process architecture tag for Sentry's `dist` field and `arch` scope tag.
+///
+/// Replaces the previous `0x7FFFFFFFFFFFFFFF > 0` compile-time hack that
+/// hard-coded `'x64'` on every platform — and silently mislabelled every
+/// Apple-Silicon (ARM64) crash as x64. The real architecture matters for
+/// hardware-cluster filters in Sentry, especially after the Apple-Silicon
+/// transition where the same crash on arm64 and x64 have completely
+/// different native stacks.
+///
+/// Returns a compact label (`arm64`, `x64`, `x86`, `arm`, `riscv64`,
+/// `riscv32`) for the common cases and falls back to the raw `Abi`
+/// enum name (lowercased) for anything `dart:ffi` introduces later, so
+/// new architectures are visible in Sentry without a code change here.
+String currentArchTag() {
+  final raw = Abi.current().toString().split('.').last.toLowerCase();
+  if (raw.contains('arm64')) return 'arm64';
+  if (raw.contains('x64')) return 'x64';
+  if (raw.contains('ia32') || raw.endsWith('x86')) return 'x86';
+  if (raw.contains('riscv64')) return 'riscv64';
+  if (raw.contains('riscv32')) return 'riscv32';
+  if (raw.contains('arm')) return 'arm';
+  return raw;
+}
 
 // ──────────────────────────────────────────────────────────────
 // Bootstrap

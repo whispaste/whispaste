@@ -122,7 +122,7 @@ ProviderContainer _makeContainer({
   required _FakeProcess fakeProcess,
   required http.Client httpClient,
   AppSettings? settings,
-  ({Duration window, int maxMissedWindows})? heartbeatConfig,
+  SttStartupHeartbeatConfig? heartbeatConfig,
 }) {
   final runner = _FakeProcessRunner(fakeProcess);
   return ProviderContainer(
@@ -272,7 +272,7 @@ void main() {
     // Short policy values used throughout these tests.
     const testHeartbeatWindow = Duration(milliseconds: 50);
     const testMaxMissedWindows = 3;
-    const heartbeatConfig = (
+    const heartbeatConfig = SttStartupHeartbeatConfig(
       window: testHeartbeatWindow,
       maxMissedWindows: testMaxMissedWindows,
     );

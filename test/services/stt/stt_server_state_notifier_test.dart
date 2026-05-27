@@ -120,7 +120,7 @@ ProviderContainer _makeContainer({
   required ProcessRunner runner,
   required http.Client httpClient,
   AppSettings? settings,
-  ({Duration window, int maxMissedWindows})? heartbeatConfig,
+  SttStartupHeartbeatConfig? heartbeatConfig,
   ServerBinaryRecovery? recoveryOverride,
 }) {
   return ProviderContainer(
@@ -244,8 +244,8 @@ void main() {
       final container = _makeContainer(
         runner: runner,
         httpClient: _healthyClient(),
-        heartbeatConfig: (
-          window: const Duration(milliseconds: 50),
+        heartbeatConfig: const SttStartupHeartbeatConfig(
+          window: Duration(milliseconds: 50),
           maxMissedWindows: 3,
         ),
       );
@@ -270,8 +270,8 @@ void main() {
       final container = _makeContainer(
         runner: runner,
         httpClient: _healthyClient(),
-        heartbeatConfig: (
-          window: const Duration(milliseconds: 50),
+        heartbeatConfig: const SttStartupHeartbeatConfig(
+          window: Duration(milliseconds: 50),
           maxMissedWindows: 3,
         ),
       );
@@ -298,7 +298,7 @@ void main() {
     });
 
     test('heartbeat timeout → error state, model not blacklisted', () async {
-      const hbConfig = (
+      const hbConfig = SttStartupHeartbeatConfig(
         window: Duration(milliseconds: 50),
         maxMissedWindows: 3,
       );
@@ -329,8 +329,8 @@ void main() {
         final container = _makeContainer(
           runner: runner,
           httpClient: _unhealthyClient(),
-          heartbeatConfig: (
-            window: const Duration(milliseconds: 50),
+          heartbeatConfig: const SttStartupHeartbeatConfig(
+            window: Duration(milliseconds: 50),
             maxMissedWindows: 3,
           ),
         );
@@ -394,8 +394,8 @@ void main() {
         final container = _makeContainer(
           runner: runner,
           httpClient: _healthyClient(),
-          heartbeatConfig: (
-            window: const Duration(milliseconds: 50),
+          heartbeatConfig: const SttStartupHeartbeatConfig(
+            window: Duration(milliseconds: 50),
             maxMissedWindows: 3,
           ),
           recoveryOverride: recovery,
@@ -467,8 +467,8 @@ void main() {
         final container = _makeContainer(
           runner: runner,
           httpClient: _healthyClient(),
-          heartbeatConfig: (
-            window: const Duration(milliseconds: 50),
+          heartbeatConfig: const SttStartupHeartbeatConfig(
+            window: Duration(milliseconds: 50),
             maxMissedWindows: 3,
           ),
           recoveryOverride: recovery,
