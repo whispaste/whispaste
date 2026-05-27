@@ -551,6 +551,15 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
   // ---------------------------------------------------------------------------
 
   void _transition(SttStatus next) {
+    // Every state mutation flows through here, so a single mounted-guard
+    // covers async resumes that race the provider container shutdown
+    // (test teardown, app quit, hot-reload). Without it, a recovery
+    // chain that completes after the scope is torn down throws a
+    // "Cannot use the Ref … after it has been disposed" deep in
+    // `_attemptRecovery` and surfaces as a "failed after test
+    // completion" flake on CI.
+    if (!ref.mounted) return;
+
     final prev = state.serverState;
 
     if (next.serverState == SttServerState.starting &&
@@ -1760,7 +1769,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     // abiMismatch path. The UI listener (`recording_behavior.dart`)
     // picks it up and renders the passive (no-action) toast.
     _transition(const SttStatus(serverState: SttServerState.stopped));
-    if (reason == RecoveryReason.abiMismatch) {
+    if (reason == RecoveryReason.abiMismatch && ref.mounted) {
       ref
           .read(recoveryToastNotifierProvider.notifier)
           .report(RecoveryToastKind.abiInfo);
@@ -1781,10 +1790,14 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       _log.error('ServerBinaryRecovery threw unexpectedly: $e\n$st');
       // Push the actionable „Einstellungen öffnen" toast to the UI; the
       // listener in `recording_behavior.dart` navigates to the
-      // `cloud_advanced_section` reset area on tap.
-      ref
-          .read(recoveryToastNotifierProvider.notifier)
-          .report(RecoveryToastKind.exhausted);
+      // `cloud_advanced_section` reset area on tap. `ref.mounted`
+      // guards against the post-completion-async-leak case — see the
+      // identical guard in the RecoveryExhausted branch below.
+      if (ref.mounted) {
+        ref
+            .read(recoveryToastNotifierProvider.notifier)
+            .report(RecoveryToastKind.exhausted);
+      }
       _transition(
         const SttStatus(
           serverState: SttServerState.error,
