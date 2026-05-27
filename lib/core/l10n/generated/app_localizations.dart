@@ -900,19 +900,19 @@ abstract class L10n {
   /// No description provided for @pasteCapabilityCheckTitle.
   ///
   /// In en, this message translates to:
-  /// **'Check Auto-Paste setup'**
+  /// **'One moment…'**
   String get pasteCapabilityCheckTitle;
 
   /// No description provided for @pasteCapabilityReady.
   ///
   /// In en, this message translates to:
-  /// **'Ready to paste'**
+  /// **'All set'**
   String get pasteCapabilityReady;
 
   /// No description provided for @pasteCapabilityPermissionMissing.
   ///
   /// In en, this message translates to:
-  /// **'Accessibility permission not granted'**
+  /// **'Not yet allowed'**
   String get pasteCapabilityPermissionMissing;
 
   /// No description provided for @pasteCapabilityUnsupported.
@@ -936,14 +936,20 @@ abstract class L10n {
   /// No description provided for @pasteCapabilityRepairHint.
   ///
   /// In en, this message translates to:
-  /// **'macOS sometimes holds on to old permission entries for WhisPaste. Click \'Repair\' below to clear them — after that you\'ll need to approve WhisPaste in System Settings again. If that still doesn\'t help, restarting the app is the reliable next step.'**
+  /// **'Sometimes macOS remembers an old entry and forgets the new approval. Reset the entry — macOS will then ask you cleanly again.'**
   String get pasteCapabilityRepairHint;
 
   /// No description provided for @pasteCapabilityRepairButton.
   ///
   /// In en, this message translates to:
-  /// **'Repair permissions'**
+  /// **'Reset entry'**
   String get pasteCapabilityRepairButton;
+
+  /// No description provided for @pasteCapabilityRestartButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Restart WhisPaste'**
+  String get pasteCapabilityRestartButton;
 
   /// No description provided for @pasteCapabilityRepairDone.
   ///
@@ -954,7 +960,7 @@ abstract class L10n {
   /// No description provided for @pasteCapabilityRepairNothingToClear.
   ///
   /// In en, this message translates to:
-  /// **'No stale entries found — a restart of WhisPaste is most likely to help here.'**
+  /// **'No old entry found. A restart is likely to help now.'**
   String get pasteCapabilityRepairNothingToClear;
 
   /// No description provided for @pasteCapabilityRepairFailed.
@@ -966,19 +972,19 @@ abstract class L10n {
   /// No description provided for @onboardingPasteTitle.
   ///
   /// In en, this message translates to:
-  /// **'Auto-Paste setup'**
+  /// **'So your text lands where you\'re typing'**
   String get onboardingPasteTitle;
 
   /// No description provided for @onboardingPasteSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'WhisPaste needs one extra permission to paste transcripts into other apps.'**
+  /// **'macOS will ask you in a moment whether WhisPaste may do this. Say yes — done.'**
   String get onboardingPasteSubtitle;
 
   /// No description provided for @onboardingPasteGrantCta.
   ///
   /// In en, this message translates to:
-  /// **'Grant Accessibility permission'**
+  /// **'Allow now'**
   String get onboardingPasteGrantCta;
 
   /// No description provided for @onboardingPasteVerifyCta.
@@ -990,13 +996,13 @@ abstract class L10n {
   /// No description provided for @onboardingPasteSkip.
   ///
   /// In en, this message translates to:
-  /// **'Skip — disable Auto-Paste'**
+  /// **'Just copy for now — no auto-insert'**
   String get onboardingPasteSkip;
 
   /// No description provided for @onboardingPasteWhyMac.
   ///
   /// In en, this message translates to:
-  /// **'macOS requires explicit permission for any app that injects keystrokes into other apps. Without it, your transcript still copies to the clipboard, but ⌘V won\'t fire automatically.'**
+  /// **'Without permission, your text is copied to the clipboard — you\'ll then paste manually with ⌘V.'**
   String get onboardingPasteWhyMac;
 
   /// No description provided for @onboardingPasteWhyWin.
@@ -1014,25 +1020,25 @@ abstract class L10n {
   /// No description provided for @onboardingPasteWaitingForGrantTitle.
   ///
   /// In en, this message translates to:
-  /// **'Waiting for your permission…'**
+  /// **'Tick the box next to WhisPaste'**
   String get onboardingPasteWaitingForGrantTitle;
 
   /// No description provided for @onboardingPasteWaitingForGrantHint.
   ///
   /// In en, this message translates to:
-  /// **'1. System Settings → Accessibility is open right now. 2. Switch WhisPaste on in the list. 3. This app will detect the change automatically.'**
+  /// **'System Settings is open. Find WhisPaste in the list and switch it on.\n\nNot in the list? Drag the app icon in or click „+\".'**
   String get onboardingPasteWaitingForGrantHint;
 
   /// No description provided for @onboardingPasteTccMismatchTitle.
   ///
   /// In en, this message translates to:
-  /// **'macOS isn\'t recognising the new permission'**
+  /// **'macOS didn\'t pick up the tick'**
   String get onboardingPasteTccMismatchTitle;
 
   /// No description provided for @onboardingPasteTccMismatchBody.
   ///
   /// In en, this message translates to:
-  /// **'1. Tap Repair below — it clears stale permission entries so macOS asks you again.\n2. If that still doesn\'t help, quit WhisPaste completely and start it again — that lets macOS pick up the current app signature.'**
+  /// **'Happens sometimes after app updates. A restart fixes it — macOS will then see WhisPaste cleanly.'**
   String get onboardingPasteTccMismatchBody;
 
   /// No description provided for @onboardingPasteTestTitle.
@@ -3747,22 +3753,10 @@ abstract class L10n {
   /// **'Grant Access'**
   String get onboardingMicRequestAccess;
 
-  /// No description provided for @onboardingMicTestTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Test Your Microphone'**
-  String get onboardingMicTestTitle;
-
-  /// No description provided for @onboardingMicTestHint.
-  ///
-  /// In en, this message translates to:
-  /// **'Tap to start a test recording'**
-  String get onboardingMicTestHint;
-
   /// No description provided for @onboardingMicTestRecording.
   ///
   /// In en, this message translates to:
-  /// **'Recording… speak now'**
+  /// **'Say something — we\'re checking the level'**
   String get onboardingMicTestRecording;
 
   /// No description provided for @onboardingMicTestDone.
@@ -3771,11 +3765,29 @@ abstract class L10n {
   /// **'Sounds great — your mic is working perfectly!'**
   String get onboardingMicTestDone;
 
+  /// No description provided for @onboardingMicSilent.
+  ///
+  /// In en, this message translates to:
+  /// **'We can\'t hear anything. Pick the right microphone below or speak louder and try again.'**
+  String get onboardingMicSilent;
+
+  /// No description provided for @onboardingMicRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again'**
+  String get onboardingMicRetry;
+
   /// No description provided for @onboardingMicDeviceLabel.
   ///
   /// In en, this message translates to:
-  /// **'Audio Input Device'**
+  /// **'Microphone'**
   String get onboardingMicDeviceLabel;
+
+  /// No description provided for @onboardingMicDeviceSystemDefault.
+  ///
+  /// In en, this message translates to:
+  /// **'System default'**
+  String get onboardingMicDeviceSystemDefault;
 
   /// No description provided for @onboardingMicDeniedInstructions.
   ///

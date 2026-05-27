@@ -444,14 +444,13 @@ class L10nEn extends L10n {
   String get pasteFailureOpenSettings => 'Open Settings';
 
   @override
-  String get pasteCapabilityCheckTitle => 'Check Auto-Paste setup';
+  String get pasteCapabilityCheckTitle => 'One moment…';
 
   @override
-  String get pasteCapabilityReady => 'Ready to paste';
+  String get pasteCapabilityReady => 'All set';
 
   @override
-  String get pasteCapabilityPermissionMissing =>
-      'Accessibility permission not granted';
+  String get pasteCapabilityPermissionMissing => 'Not yet allowed';
 
   @override
   String get pasteCapabilityUnsupported =>
@@ -465,10 +464,13 @@ class L10nEn extends L10n {
 
   @override
   String get pasteCapabilityRepairHint =>
-      'macOS sometimes holds on to old permission entries for WhisPaste. Click \'Repair\' below to clear them — after that you\'ll need to approve WhisPaste in System Settings again. If that still doesn\'t help, restarting the app is the reliable next step.';
+      'Sometimes macOS remembers an old entry and forgets the new approval. Reset the entry — macOS will then ask you cleanly again.';
 
   @override
-  String get pasteCapabilityRepairButton => 'Repair permissions';
+  String get pasteCapabilityRepairButton => 'Reset entry';
+
+  @override
+  String get pasteCapabilityRestartButton => 'Restart WhisPaste';
 
   @override
   String pasteCapabilityRepairDone(int count) {
@@ -485,31 +487,31 @@ class L10nEn extends L10n {
 
   @override
   String get pasteCapabilityRepairNothingToClear =>
-      'No stale entries found — a restart of WhisPaste is most likely to help here.';
+      'No old entry found. A restart is likely to help now.';
 
   @override
   String get pasteCapabilityRepairFailed =>
       'Could not run the macOS permission reset. Try removing WhisPaste from System Settings → Accessibility manually.';
 
   @override
-  String get onboardingPasteTitle => 'Auto-Paste setup';
+  String get onboardingPasteTitle => 'So your text lands where you\'re typing';
 
   @override
   String get onboardingPasteSubtitle =>
-      'WhisPaste needs one extra permission to paste transcripts into other apps.';
+      'macOS will ask you in a moment whether WhisPaste may do this. Say yes — done.';
 
   @override
-  String get onboardingPasteGrantCta => 'Grant Accessibility permission';
+  String get onboardingPasteGrantCta => 'Allow now';
 
   @override
   String get onboardingPasteVerifyCta => 'Verify';
 
   @override
-  String get onboardingPasteSkip => 'Skip — disable Auto-Paste';
+  String get onboardingPasteSkip => 'Just copy for now — no auto-insert';
 
   @override
   String get onboardingPasteWhyMac =>
-      'macOS requires explicit permission for any app that injects keystrokes into other apps. Without it, your transcript still copies to the clipboard, but ⌘V won\'t fire automatically.';
+      'Without permission, your text is copied to the clipboard — you\'ll then paste manually with ⌘V.';
 
   @override
   String get onboardingPasteWhyWin =>
@@ -521,19 +523,19 @@ class L10nEn extends L10n {
 
   @override
   String get onboardingPasteWaitingForGrantTitle =>
-      'Waiting for your permission…';
+      'Tick the box next to WhisPaste';
 
   @override
   String get onboardingPasteWaitingForGrantHint =>
-      '1. System Settings → Accessibility is open right now. 2. Switch WhisPaste on in the list. 3. This app will detect the change automatically.';
+      'System Settings is open. Find WhisPaste in the list and switch it on.\n\nNot in the list? Drag the app icon in or click „+\".';
 
   @override
   String get onboardingPasteTccMismatchTitle =>
-      'macOS isn\'t recognising the new permission';
+      'macOS didn\'t pick up the tick';
 
   @override
   String get onboardingPasteTccMismatchBody =>
-      '1. Tap Repair below — it clears stale permission entries so macOS asks you again.\n2. If that still doesn\'t help, quit WhisPaste completely and start it again — that lets macOS pick up the current app signature.';
+      'Happens sometimes after app updates. A restart fixes it — macOS will then see WhisPaste cleanly.';
 
   @override
   String get onboardingPasteTestTitle => 'Try Auto-Paste';
@@ -2074,20 +2076,25 @@ class L10nEn extends L10n {
   String get onboardingMicRequestAccess => 'Grant Access';
 
   @override
-  String get onboardingMicTestTitle => 'Test Your Microphone';
-
-  @override
-  String get onboardingMicTestHint => 'Tap to start a test recording';
-
-  @override
-  String get onboardingMicTestRecording => 'Recording… speak now';
+  String get onboardingMicTestRecording =>
+      'Say something — we\'re checking the level';
 
   @override
   String get onboardingMicTestDone =>
       'Sounds great — your mic is working perfectly!';
 
   @override
-  String get onboardingMicDeviceLabel => 'Audio Input Device';
+  String get onboardingMicSilent =>
+      'We can\'t hear anything. Pick the right microphone below or speak louder and try again.';
+
+  @override
+  String get onboardingMicRetry => 'Try again';
+
+  @override
+  String get onboardingMicDeviceLabel => 'Microphone';
+
+  @override
+  String get onboardingMicDeviceSystemDefault => 'System default';
 
   @override
   String get onboardingMicDeniedInstructions =>

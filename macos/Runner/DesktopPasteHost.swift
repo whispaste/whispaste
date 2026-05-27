@@ -307,11 +307,15 @@ class DesktopPasteHost {
       self.restorePasteboard(pasteboard, backup: backup)
     }
 
-    // No frontmost window we can paste into? Bail before touching the
-    // pasteboard so the user's clipboard stays exactly as they left it.
-    guard let front = NSWorkspace.shared.frontmostApplication,
-          front.bundleIdentifier != Bundle.main.bundleIdentifier else {
-      os_log("diagnosticPaste: no usable frontmost application",
+    // The diagnostic paste is allowed to land *into* WhisPaste itself —
+    // the onboarding sub-step puts a demo TextField on screen specifically
+    // so the user can verify the keystroke synthesis works end-to-end
+    // without having to alt-tab to another app first. (The regular
+    // `pasteClipboard` flow keeps its self-target guard because there a
+    // self-paste would mean the captured target was lost.) Only bail if
+    // there is no frontmost app at all (e.g. login screen, screen locked).
+    guard NSWorkspace.shared.frontmostApplication != nil else {
+      os_log("diagnosticPaste: no frontmost application available",
              log: Self.logger, type: .info)
       result(["status": "no_frontmost"])
       return
@@ -342,10 +346,12 @@ class DesktopPasteHost {
       return
     }
 
-    // Give the OS ~80 ms to deliver the keystroke into the frontmost app,
-    // then restore the original clipboard. The wait is short enough that
-    // the user perceives the test as instant.
-    DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(80)) {
+    // Give the OS time to deliver the keystroke into the frontmost app and
+    // for the focused TextField to read the pasteboard. 80 ms was too tight
+    // on macOS 26 when WhisPaste pastes into its own demo field — Flutter's
+    // text-field paste handler runs on the platform-message queue and was
+    // sometimes still resolving when the restore wiped the clipboard.
+    DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(300)) {
       restore()
       result(["status": "success"])
     }
