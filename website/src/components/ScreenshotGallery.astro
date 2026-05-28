@@ -1,59 +1,50 @@
 ---
 /**
- * Screenshot gallery — responsive grid with theme/language toggle.
+ * Screenshot gallery — responsive grid with platform/language toggle.
  * Clicking a screenshot opens the shared lightbox (ScreenshotLightbox.astro).
+ *
+ * Theme per screenshot is fixed by the storyboard (see
+ * `test/screenshots/store_screenshots_test.dart`): goldens are only produced
+ * in one theme each, so there is nothing to toggle to at runtime.
  */
 import ScreenshotLightbox from './ScreenshotLightbox.astro';
 import { t } from '../scripts/i18n.ts';
 
 const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
 
-const screens = [
-  { id: '01_workspace_overview', i18nLabel: 'gallery.workspace', defaultLabel: 'Your transcripts at a glance', deLabel: 'Alle Transkripte auf einen Blick' },
-  { id: '02_workspace_detail',  i18nLabel: 'gallery.detail',    defaultLabel: 'Edit and refine each entry', deLabel: 'Jeden Eintrag bearbeiten und verfeinern' },
-  { id: '03_voice_shortcuts',   i18nLabel: 'gallery.shortcuts', defaultLabel: 'Voice Snippets that save keystrokes', deLabel: 'Sprach-Snippets, die Tippen ersparen' },
-  { id: '04_settings',          i18nLabel: 'gallery.settings',  defaultLabel: 'Customize to fit your workflow', deLabel: 'Anpassbar an deinen Workflow' },
-  { id: '05_analytics',         i18nLabel: 'gallery.analytics', defaultLabel: 'Track how you use your voice', deLabel: 'Verfolge, wie du deine Stimme nutzt' },
+type GalleryTheme = 'dark' | 'light';
+
+const screens: Array<{
+  id: string;
+  theme: GalleryTheme;
+  i18nLabel: string;
+  defaultLabel: string;
+  deLabel: string;
+}> = [
+  { id: '01_workspace_overview', theme: 'dark',  i18nLabel: 'gallery.workspace', defaultLabel: 'Your transcripts at a glance', deLabel: 'Alle Transkripte auf einen Blick' },
+  { id: '02_workspace_detail',   theme: 'light', i18nLabel: 'gallery.detail',    defaultLabel: 'Edit and refine each entry', deLabel: 'Jeden Eintrag bearbeiten und verfeinern' },
+  { id: '03_voice_shortcuts',    theme: 'dark',  i18nLabel: 'gallery.shortcuts', defaultLabel: 'Voice Snippets that save keystrokes', deLabel: 'Sprach-Snippets, die Tippen ersparen' },
+  { id: '04_settings',           theme: 'light', i18nLabel: 'gallery.settings',  defaultLabel: 'Customize to fit your workflow', deLabel: 'Anpassbar an deinen Workflow' },
+  { id: '05_analytics',          theme: 'dark',  i18nLabel: 'gallery.analytics', defaultLabel: 'Track how you use your voice', deLabel: 'Verfolge, wie du deine Stimme nutzt' },
 ];
 ---
 
 <div class="gallery-root" id="screenshot-gallery">
-  <!-- Controls: platform + theme toggles -->
+  <!-- Controls: platform toggle (theme is fixed per screenshot) -->
   <div class="gallery-controls">
-    <div class="gallery-control-row">
-      <!-- Platform toggle -->
-      <div class="gallery-toggles" role="group" aria-label="Platform">
-        <button
-          class="gallery-toggle gallery-toggle--active"
-          data-gallery-platform="windows"
-          aria-pressed="true"
-          data-i18n="gallery.platformWindows"
-        >{t(lang, "gallery.platformWindows")}</button>
-        <button
-          class="gallery-toggle"
-          data-gallery-platform="macos"
-          aria-pressed="false"
-          data-i18n="gallery.platformMac"
-        >{t(lang, "gallery.platformMac")}</button>
-      </div>
-
-      <div class="gallery-control-divider" aria-hidden="true"></div>
-
-      <!-- Theme toggle -->
-      <div class="gallery-toggles" role="group" aria-label="Theme">
-        <button
-          class="gallery-toggle gallery-toggle--active"
-          data-gallery-theme="dark"
-          aria-pressed="true"
-          data-i18n="gallery.themeDark"
-        >{t(lang, "gallery.themeDark")}</button>
-        <button
-          class="gallery-toggle"
-          data-gallery-theme="light"
-          aria-pressed="false"
-          data-i18n="gallery.themeLight"
-        >{t(lang, "gallery.themeLight")}</button>
-      </div>
+    <div class="gallery-toggles" role="group" aria-label="Platform">
+      <button
+        class="gallery-toggle gallery-toggle--active"
+        data-gallery-platform="windows"
+        aria-pressed="true"
+        data-i18n="gallery.platformWindows"
+      >{t(lang, "gallery.platformWindows")}</button>
+      <button
+        class="gallery-toggle"
+        data-gallery-platform="macos"
+        aria-pressed="false"
+        data-i18n="gallery.platformMac"
+      >{t(lang, "gallery.platformMac")}</button>
     </div>
   </div>
 
@@ -73,8 +64,9 @@ const screens = [
         >
           <img
             class="gallery-image"
-            src={`/screenshots/en/dark/${screen.id}.png`}
+            src={`/screenshots/${lang}/${screen.theme}/${screen.id}.png`}
             data-gallery-id={screen.id}
+            data-gallery-theme={screen.theme}
             alt={screen.defaultLabel}
             data-alt-en={screen.defaultLabel}
             data-alt-de={screen.deLabel}
@@ -108,30 +100,11 @@ const screens = [
     margin: 0 auto;
   }
 
-  /* Theme toggle */
+  /* Platform toggle */
   .gallery-controls {
     display: flex;
     justify-content: center;
     margin-bottom: 2rem;
-  }
-
-  .gallery-control-row {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-    justify-content: center;
-  }
-
-  .gallery-control-divider {
-    width: 1px;
-    height: 1.25rem;
-    background: rgba(255, 255, 255, 0.12);
-    margin: 0 0.25rem;
-  }
-
-  html.light .gallery-control-divider {
-    background: #e2e8f0;
   }
 
   .gallery-toggles {
@@ -294,11 +267,9 @@ const screens = [
     const root = document.getElementById('screenshot-gallery');
     if (!root) return;
 
-    const themeToggles = root.querySelectorAll<HTMLButtonElement>('[data-gallery-theme]');
     const platformToggles = root.querySelectorAll<HTMLButtonElement>('[data-gallery-platform]');
     const thumbButtons = root.querySelectorAll<HTMLButtonElement>('.gallery-thumb-btn');
 
-    let galleryTheme = 'dark';
     let galleryPlatform: 'windows' | 'macos' =
       detectPlatform() === 'macos' ? 'macos' : 'windows';
 
@@ -323,7 +294,8 @@ const screens = [
       const lang = getLang();
       root.querySelectorAll<HTMLImageElement>('img[data-gallery-id]').forEach(img => {
         const id = img.dataset.galleryId!;
-        const newSrc = buildSrc(id, lang, galleryTheme);
+        const theme = img.dataset.galleryTheme || 'dark';
+        const newSrc = buildSrc(id, lang, theme);
         if (img.getAttribute('src') !== newSrc) img.src = newSrc;
         const alt = lang === 'de' ? img.dataset.altDe : img.dataset.altEn;
         if (alt) img.alt = alt;
@@ -337,7 +309,7 @@ const screens = [
     function buildLightboxImages(): Array<{ src: string; alt: string }> {
       const lang = getLang();
       return Array.from(root.querySelectorAll<HTMLImageElement>('.gallery-image')).map(img => ({
-        src: buildSrc(img.dataset.galleryId!, lang, galleryTheme),
+        src: buildSrc(img.dataset.galleryId!, lang, img.dataset.galleryTheme || 'dark'),
         alt: img.alt,
       }));
     }
@@ -350,18 +322,6 @@ const screens = [
       btn.addEventListener('click', () => {
         galleryPlatform = (btn.dataset.galleryPlatform as 'windows' | 'macos') || 'windows';
         syncPlatformToggles();
-        updateImages();
-      });
-    });
-
-    // Theme toggles
-    themeToggles.forEach(btn => {
-      btn.addEventListener('click', () => {
-        galleryTheme = btn.dataset.galleryTheme || 'dark';
-        themeToggles.forEach(b => {
-          b.classList.toggle('gallery-toggle--active', b === btn);
-          b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
-        });
         updateImages();
       });
     });

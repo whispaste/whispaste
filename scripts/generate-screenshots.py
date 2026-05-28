@@ -161,8 +161,10 @@ def step_copy_website() -> list[Path]:
     Windows goldens → {locale}/{theme}/{base}.png
     Mac goldens     → mac/{locale}/{theme}/{base}.png
 
-    Each golden is copied to BOTH dark and light theme folders so the
-    website gallery works regardless of theme toggle.
+    Each golden lands in the theme folder encoded in its filename — there is
+    only one theme per screenshot (storyboard), so we no longer duplicate
+    into both light/ and dark/. The website gallery looks up the fixed theme
+    per screenshot.
     """
     copied: list[Path] = []
     copied.extend(_copy_goldens(WINDOWS_GOLDENS_DIR, WEBSITE_DIR))
@@ -178,15 +180,14 @@ def _copy_goldens(goldens_dir: Path, dest_root: Path) -> list[Path]:
         if parsed is None:
             print(f"   ⚠ Could not parse '{png.name}' — skipped")
             continue
-        base, _native_theme, locale = parsed
-        for theme in ("dark", "light"):
-            dest = dest_root / locale / theme / f"{base}.png"
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(png, dest)
-            size_kb = dest.stat().st_size / 1024
-            copied.append(dest)
-            rel = dest.relative_to(dest_root.parent.parent.parent)
-            print(f"   {rel}  ({size_kb:.0f} KB)")
+        base, theme, locale = parsed
+        dest = dest_root / locale / theme / f"{base}.png"
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(png, dest)
+        size_kb = dest.stat().st_size / 1024
+        copied.append(dest)
+        rel = dest.relative_to(dest_root.parent.parent.parent)
+        print(f"   {rel}  ({size_kb:.0f} KB)")
     return copied
 
 
