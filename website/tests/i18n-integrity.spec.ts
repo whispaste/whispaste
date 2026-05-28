@@ -179,12 +179,22 @@ test.describe('gallery page', () => {
     await expect(counter).toHaveText('1 / 5');
   });
 
-  test('gallery theme toggle swaps images', async ({ page }) => {
+  test('gallery shows storyboard mix of dark and light screenshots', async ({ page }) => {
+    // Theme is fixed per screenshot by the golden-test storyboard
+    // (01/03/05 dark, 02/04 light). The page no longer offers a theme toggle.
     await page.goto('/screenshots');
-    const firstImg = page.locator('.gallery-image').first();
-    await expect(firstImg).toHaveAttribute('src', /\/dark\//);
 
-    await page.locator('[data-gallery-theme="light"]').click();
-    await expect(firstImg).toHaveAttribute('src', /\/light\//);
+    const images = page.locator('.gallery-image');
+    await expect(images).toHaveCount(5);
+
+    const themes = await images.evaluateAll((els) =>
+      els.map((el) => (el as HTMLImageElement).dataset.galleryTheme),
+    );
+    expect(themes).toEqual(['dark', 'light', 'dark', 'light', 'dark']);
+
+    await expect(images.nth(0)).toHaveAttribute('src', /\/dark\/01_/);
+    await expect(images.nth(1)).toHaveAttribute('src', /\/light\/02_/);
+
+    await expect(page.locator('[data-gallery-theme]:not(img)')).toHaveCount(0);
   });
 });
