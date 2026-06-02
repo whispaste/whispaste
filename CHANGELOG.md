@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.32
+
+### Bug Fixes
+
+- **Sprachserver startet wieder auf älteren NVIDIA-Karten (Kepler, z. B. GeForce GTX 650).** Die Backend-Auswahl behandelte bisher jede NVIDIA-Karte mit vorhandenem `nvcuda.dll` als CUDA-optimal und lud den `cuda12`-Build. CUDA 12 hat aber Fermi- (sm_2x) und Kepler-Support (sm_3x) komplett fallengelassen — auf einer GTX 6xx/7xx bricht `whisper-server` deshalb beim CUDA-Init ab: in der Praxis sofort mit Exit-Code `-1` und leerem stderr (`FLUTTER_WHISPASTE-6X`/`-39`) oder als Model-Load-Fehler mit Exit `3` (`-6V`/`-6W`). Schlimmer: selbst wenn die Recovery auf den Vulkan-Build zurückfiel, hat der proaktive Kompatibilitäts-Check beim nächsten Start gemeldet, der Vulkan-Build sei ≠ `optimalBackend` (`cuda`), ihn gelöscht und erneut `cuda12` erzwungen — eine Endlos-Schleife, die als „Incompatible whisper-server for your GPU" (`FLUTTER_WHISPASTE-80`) sichtbar wurde. Neu: eine `GpuInfo.supportsCuda12`-Heuristik (analog zu `supportsFlashAttn`) erkennt Kepler/Fermi-Karten an der Modellbezeichnung und routet sie auf den Vulkan-Build. `optimalBackend`, der `serverAssetPatterns`-Fallback und der Manifest-`WhisperBinarySelector` respektieren das jetzt durchgängig, womit die Schleife bricht und der Self-Heal-Download sofort die lauffähige Variante zieht.
+- **Abnormaler Server-Crash fällt jetzt automatisch auf CPU zurück.** Ein unklassifizierter Abbruch mit negativem Exit-Code (Windows-Roh-DWORD wie `-1` oder POSIX-Signal-Kill) bei einem GPU-Start war bisher ein Sackgassen-`error`, weil die `SttGpuFallbackPolicy` nur die bekannten NTSTATUS-GPU-Fatals abdeckte. Genau diese Form trifft alte GPUs, deren GPU-Runtime gar nicht erst initialisiert (`FLUTTER_WHISPASTE-6X`/`-39`). Der `other`-Pfad im `SttServerStateNotifier` aktiviert jetzt — einmalig, abgesichert durch `_gpuFallbackActive` gegen Schleifen, und nur bei negativem Exit-Code — den CPU-Fallback (spiegelt die `gpuFatal`/`heapCorruption`-Arme). Ein sauberer positiver Exit (z. B. `99`) bleibt ein bewusster Server-Exit und surfacet weiterhin als Fehler.
+
 ## 1.2.31
 
 ### Features
