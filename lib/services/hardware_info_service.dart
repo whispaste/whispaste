@@ -126,7 +126,12 @@ class GpuInfo {
   String get optimalBackend {
     switch (vendor) {
       case GpuVendor.nvidia:
-        return cudaAvailable ? 'cuda' : 'vulkan';
+        if (!cudaAvailable) return 'vulkan';
+        // CUDA is present, but the prebuilt cuda12 binary only runs on
+        // Maxwell (sm_52) and newer. Kepler/Fermi cards (GeForce 4xx–7xx)
+        // must use the Vulkan build or they crash on launch — see
+        // [supportsCuda12].
+        return supportsCuda12 ? 'cuda' : 'vulkan';
       case GpuVendor.amd:
       case GpuVendor.intel:
         return 'vulkan';
@@ -167,6 +172,39 @@ class GpuInfo {
     // All other GTX cards (6xx Kepler, 7xx Kepler/Maxwell, 9xx Maxwell,
     // 10xx Pascal) do not support flash attention.
     return false;
+  }
+
+  /// Whether this NVIDIA GPU can run the CUDA 12 `whisper-server` build.
+  ///
+  /// The prebuilt cuda12 binary targets compute capability sm_50+. CUDA 12
+  /// dropped Fermi (sm_2x) and Kepler (sm_3x) support entirely, so handing it
+  /// to an older card aborts during CUDA init — in the field this surfaces as
+  /// an immediate exit code -1 with an empty stderr (FLUTTER_WHISPASTE-6X) or
+  /// a model-load failure (exit 3). Those GPUs must use the Vulkan build.
+  ///
+  /// Heuristic mirrors [supportsFlashAttn]: the model name encodes the
+  /// generation. Maxwell (GTX 9xx, sm_52) and newer are CUDA-12-capable. When
+  /// the model name is unknown — e.g. a discrete NVIDIA inferred only from
+  /// `nvcuda.dll` on a hybrid laptop, named "… + NVIDIA (discrete)" — we
+  /// assume CUDA 12 works: such machines are modern in practice, and a missed
+  /// false-negative there is far rarer than the Kepler crash-loop we guard
+  /// against.
+  bool get supportsCuda12 {
+    if (vendor != GpuVendor.nvidia || !cudaAvailable) return false;
+    final upper = name.toUpperCase();
+    // GeForce 400/500/600/700 (Fermi + Kepler): a three-digit model number in
+    // the 400–799 range. GTX 745/750/750 Ti are technically Maxwell but share
+    // the 7xx label; routing them to Vulkan only costs a little speed (Vulkan
+    // runs fine on them), whereas a missed Kepler is a hard crash loop — so we
+    // deliberately err toward Vulkan for the whole 7xx range.
+    if (RegExp(r'\b(?:GTX|GT|GEFORCE)\s*[4-7]\d{2}\b').hasMatch(upper)) {
+      return false;
+    }
+    // Kepler-era professional cards: Quadro K / Tesla K / GRID K series.
+    if (RegExp(r'\b(?:QUADRO|TESLA|GRID)\s*K\d').hasMatch(upper)) {
+      return false;
+    }
+    return true;
   }
 
   @override
@@ -295,7 +333,10 @@ List<String> serverAssetPatterns(
   if (isWhisPaste) {
     switch (gpu.vendor) {
       case GpuVendor.nvidia:
-        return gpu.cudaAvailable
+        // `supportsCuda12` (not raw `cudaAvailable`): a Kepler/Fermi card has
+        // CUDA but cannot run the cuda12 build, so it must skip straight to
+        // the Vulkan variant. See [GpuInfo.supportsCuda12].
+        return gpu.supportsCuda12
             ? ['cuda12', 'vulkan', 'cpu']
             : ['vulkan', 'cpu'];
       case GpuVendor.amd:
@@ -310,7 +351,7 @@ List<String> serverAssetPatterns(
     // Upstream whisper.cpp naming.
     switch (gpu.vendor) {
       case GpuVendor.nvidia:
-        return gpu.cudaAvailable
+        return gpu.supportsCuda12
             ? ['cublas-12', 'vulkan', 'blas-bin']
             : ['vulkan', 'blas-bin'];
       case GpuVendor.amd:

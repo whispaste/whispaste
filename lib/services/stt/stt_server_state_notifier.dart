@@ -1246,6 +1246,33 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
               return;
 
             case SttExitKind.other:
+              // An abnormal termination (negative exit code: Windows raw
+              // DWORD crash like -1, or POSIX signal kill) on a GPU launch is,
+              // in the field, almost always a GPU runtime the card cannot
+              // initialise — e.g. the cuda12 build on a Kepler GTX 6xx, which
+              // aborts with code -1 and an empty stderr before whisper.cpp
+              // logs anything (FLUTTER_WHISPASTE-6X / -39). The classified
+              // GPU-fatal NTSTATUS codes already fall back; this catches the
+              // unclassified-but-abnormal shape. Give CPU exactly one shot,
+              // guarded by `_gpuFallbackActive` so a CPU binary that also dies
+              // cannot loop. A clean positive exit (e.g. 99) is a deliberate
+              // server exit that CPU mode would not fix — those still surface
+              // an error below. Mirrors the gpuFatal / heapCorruption arms.
+              final launchedOnGpu = gpuAcceleration != 'disabled';
+              final abnormalTermination = code < 0;
+              if (!_gpuFallbackActive && launchedOnGpu && abnormalTermination) {
+                _gpuFallbackActive = true;
+                _log.warning(
+                  'whisper-server abnormal exit (code $code / ${exitKind.name}) '
+                  'on "${gpu.name}" — CPU fallback activated.',
+                );
+                _process = null;
+                _activeModel = null;
+                _transition(
+                  const SttStatus(serverState: SttServerState.stopped),
+                );
+                return;
+              }
               final otherMsg =
                   'whisper-server exited unexpectedly (code $code)';
               // Warning instead of error: avoids duplicate Sentry event
