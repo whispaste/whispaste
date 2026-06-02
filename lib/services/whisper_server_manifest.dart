@@ -301,8 +301,8 @@ class WhisperBinarySelection {
 /// | vendor / cuda / mode | backend priority           |
 /// |----------------------|----------------------------|
 /// | gpu mode = disabled  | cpu                        |
-/// | nvidia + cuda        | cuda12, vulkan, cpu        |
-/// | nvidia (no cuda)     | vulkan, cpu                |
+/// | nvidia + cuda12      | cuda12, vulkan, cpu        |
+/// | nvidia (Kepler/none) | vulkan, cpu                |
 /// | amd / intel          | vulkan, cpu                |
 /// | apple                | metal, cpu                 |
 /// | none                 | cpu                        |
@@ -322,7 +322,7 @@ class WhisperBinarySelector {
     final arch = archOverride ?? _hostArch();
     final priority = _backendPriority(
       vendor: gpu.vendor,
-      cudaAvailable: gpu.cudaAvailable,
+      cuda12Capable: gpu.supportsCuda12,
       gpuMode: gpuMode,
     );
 
@@ -351,13 +351,16 @@ class WhisperBinarySelector {
   /// the legacy `serverAssetPatterns` helper.
   static List<String> _backendPriority({
     required hw.GpuVendor vendor,
-    required bool cudaAvailable,
+    required bool cuda12Capable,
     required String gpuMode,
   }) {
     if (gpuMode == 'disabled') return const ['cpu'];
     switch (vendor) {
       case hw.GpuVendor.nvidia:
-        return cudaAvailable
+        // `cuda12Capable` (from `GpuInfo.supportsCuda12`), not raw CUDA
+        // availability: a Kepler/Fermi NVIDIA card has CUDA but cannot run the
+        // cuda12 binary, so it must fall straight to the Vulkan variant.
+        return cuda12Capable
             ? const ['cuda12', 'vulkan', 'cpu']
             : const ['vulkan', 'cpu'];
       case hw.GpuVendor.amd:

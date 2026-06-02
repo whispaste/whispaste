@@ -354,6 +354,45 @@ void main() {
         expect(status.cpuFallbackActive, isFalse);
       },
     );
+
+    test('abnormal exit code -1 on GPU launch → CPU fallback armed (stopped, '
+        'not error)', () async {
+      // FLUTTER_WHISPASTE-6X / -39: the cuda12 build aborts with code -1 and
+      // an empty stderr on a GPU the runtime cannot initialise (e.g. a
+      // Kepler GTX 6xx). A negative exit code is an abnormal termination, so
+      // — unlike the deliberate positive exit 99 above — it must arm the
+      // one-shot CPU fallback instead of dead-ending in `error`.
+      final fakeProcess = _FakeProcess();
+      final runner = _FakeProcessRunner(fakeProcess);
+      final container = _makeContainer(
+        runner: runner,
+        httpClient: _unhealthyClient(),
+        heartbeatConfig: const SttStartupHeartbeatConfig(
+          window: Duration(milliseconds: 50),
+          maxMissedWindows: 3,
+        ),
+      );
+      addTearDown(() {
+        container.dispose();
+        fakeProcess.exit(0);
+      });
+
+      await container.read(settingsProvider.future);
+
+      unawaited(
+        container.read(localSttBundleProvider.notifier).ensureRunning(),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      fakeProcess.exit(-1);
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+
+      // Server is parked in `stopped` with the fallback armed: the next
+      // `ensureRunning()` relaunches in CPU mode. It must NOT be `error`,
+      // which is the pre-fix dead-end this guards against.
+      final status = container.read(localSttBundleProvider);
+      expect(status.serverState, SttServerState.stopped);
+    });
   });
 
   group('SttServerStateNotifier — recovery hook', () {
