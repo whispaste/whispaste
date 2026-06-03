@@ -1,9 +1,14 @@
 /**
  * Tests for {@link buildReleases} — the build-time orchestrator that wires
- * fetcher → markdown-parser → translator → store into a single pipeline.
+ * fetcher → markdown-parser → store into a single pipeline.
+ *
+ * German bodies are sourced from each release's `release-notes-de.md` asset
+ * (resolved by the fetcher into `Release.deBodyMarkdown`). There is no
+ * translation step and no fallback — a release without the asset is persisted
+ * English-only.
  *
  * Strategy: inject doubles via the `deps` seam so each underlying module's
- * behaviour is fully controllable. No network, no OpenAI, no filesystem.
+ * behaviour is fully controllable. No network, no filesystem.
  */
 import { describe, expect, it, vi } from "vitest";
 
@@ -23,6 +28,7 @@ function makeRelease(overrides: Partial<Release> = {}): Release {
     htmlUrl: "https://github.com/whispaste/whispaste/releases/tag/v1.0.0",
     isPrerelease: false,
     isDraft: false,
+    deBodyMarkdown: "### Höhepunkte\n- etwas getan\n",
     ...overrides,
   };
 }
@@ -45,36 +51,39 @@ function makeDeps(overrides: Partial<BuildReleasesDeps> = {}): {
   deps: BuildReleasesDeps;
   fetchSpy: ReturnType<typeof vi.fn>;
   parseSpy: ReturnType<typeof vi.fn>;
-  translateSpy: ReturnType<typeof vi.fn>;
   writeSpy: ReturnType<typeof vi.fn>;
   logger: LoggerSpy;
 } {
   const fetchSpy = vi.fn(async () => [makeRelease()]);
   const parseSpy = vi.fn((md: string) => makeBlocks(md));
-  const translateSpy = vi.fn(async ({ markdown }: { markdown: string }) =>
-    `[de] ${markdown}`,
-  );
   const writeSpy = vi.fn(async () => undefined);
   const logger = makeLogger();
   const deps: BuildReleasesDeps = {
     fetchReleases: fetchSpy as unknown as BuildReleasesDeps["fetchReleases"],
     parseReleaseBody: parseSpy as unknown as BuildReleasesDeps["parseReleaseBody"],
-    translateBody: translateSpy as unknown as BuildReleasesDeps["translateBody"],
     writeReleases: writeSpy as unknown as BuildReleasesDeps["writeReleases"],
     logger: logger as unknown as BuildReleasesDeps["logger"],
     now: () => "2026-05-14T12:00:00.000Z",
     ...overrides,
   };
-  return { deps, fetchSpy, parseSpy, translateSpy, writeSpy, logger };
+  return { deps, fetchSpy, parseSpy, writeSpy, logger };
 }
 
 describe("buildReleases — happy path", () => {
-  it("calls fetcher → parser → translator → writer in order, composes a merged feed, and emits the three observability lines", async () => {
+  it("calls fetcher → parser → writer in order, composes a bilingual feed from EN body + DE asset, and emits the three observability lines", async () => {
     const fetchSpy = vi.fn(async () => [
-      makeRelease({ tag: "v1.0.0", bodyMarkdown: "### Highlights\n- a\n" }),
-      makeRelease({ tag: "v1.1.0", bodyMarkdown: "### Highlights\n- b\n" }),
+      makeRelease({
+        tag: "v1.0.0",
+        bodyMarkdown: "### Highlights\n- a\n",
+        deBodyMarkdown: "### Höhepunkte\n- a-de\n",
+      }),
+      makeRelease({
+        tag: "v1.1.0",
+        bodyMarkdown: "### Highlights\n- b\n",
+        deBodyMarkdown: "### Höhepunkte\n- b-de\n",
+      }),
     ]);
-    const { deps, parseSpy, translateSpy, writeSpy, logger } = makeDeps({
+    const { deps, parseSpy, writeSpy, logger } = makeDeps({
       fetchReleases: fetchSpy as unknown as BuildReleasesDeps["fetchReleases"],
     });
 
@@ -93,19 +102,18 @@ describe("buildReleases — happy path", () => {
       token: "ghs_test",
     });
 
-    // Each release: EN parse, DE translate, DE parse → 2 parses per release.
+    // Each release: EN parse + DE parse (asset present) → 2 parses per release.
     expect(parseSpy).toHaveBeenCalledTimes(4);
-    expect(translateSpy).toHaveBeenCalledTimes(2);
-    expect(translateSpy.mock.calls[0]?.[0]).toMatchObject({
-      markdown: "### Highlights\n- a\n",
-      targetLang: "de",
-    });
 
     // Writer called with the merged ReleaseEntry list.
     expect(writeSpy).toHaveBeenCalledTimes(1);
     const writeArg = writeSpy.mock.calls[0]?.[0] as {
       filePath: string;
-      releases: Array<{ tag: string; en: { bodyMarkdown: string }; de: { bodyMarkdown: string; translatedAt: string } }>;
+      releases: Array<{
+        tag: string;
+        en: { bodyMarkdown: string };
+        de?: { bodyMarkdown: string; translatedAt: string };
+      }>;
       schemaVersion: number;
     };
     expect(writeArg.filePath).toBe("/tmp/does-not-matter.json");
@@ -113,56 +121,50 @@ describe("buildReleases — happy path", () => {
     expect(writeArg.releases).toHaveLength(2);
     expect(writeArg.releases[0]?.tag).toBe("v1.0.0");
     expect(writeArg.releases[0]?.en.bodyMarkdown).toBe("### Highlights\n- a\n");
-    expect(writeArg.releases[0]?.de.bodyMarkdown).toBe("[de] ### Highlights\n- a\n");
-    expect(writeArg.releases[0]?.de.translatedAt).toBe("2026-05-14T12:00:00.000Z");
+    expect(writeArg.releases[0]?.de?.bodyMarkdown).toBe("### Höhepunkte\n- a-de\n");
+    expect(writeArg.releases[0]?.de?.translatedAt).toBe("2026-05-14T12:00:00.000Z");
 
     // Observability lines
     const warned = logger.warn.mock.calls.map((c) => String(c[0]));
     expect(warned).toContain("[release-build] fetched 2 releases");
-    expect(warned).toContain("[release-build] translated 2 bodies (0 cache-hits)");
+    expect(warned).toContain("[release-build] sourced 2 German bodies");
     expect(warned).toContain("[release-build] fallback path used: no");
 
     // Returned counters
     expect(result).toEqual({
       fetchedCount: 2,
-      translatedCount: 2,
-      cacheHits: 0,
+      germanCount: 2,
       fallbackUsed: false,
     });
   });
 
-  it("counts cache hits via the injected TranslationCache", async () => {
-    // First lookup hits, second misses — the orchestrator must surface 1 hit.
-    let callCount = 0;
-    const cache = {
-      get: vi.fn(async () => {
-        callCount++;
-        return callCount === 1 ? "[de] cached body" : null;
-      }),
-      set: vi.fn(async () => undefined),
+  it("persists a release without a German asset as English-only (no fallback)", async () => {
+    const fetchSpy = vi.fn(async () => [
+      makeRelease({ tag: "v1.0.0", deBodyMarkdown: "### Höhepunkte\n- da\n" }),
+      makeRelease({ tag: "v1.1.0", deBodyMarkdown: null }),
+    ]);
+    const { deps, parseSpy, writeSpy, logger } = makeDeps({
+      fetchReleases: fetchSpy as unknown as BuildReleasesDeps["fetchReleases"],
+    });
+
+    const result = await buildReleases({ filePath: "/tmp/x.json", deps });
+
+    // 2 EN parses + 1 DE parse (only the first release has a German body).
+    expect(parseSpy).toHaveBeenCalledTimes(3);
+
+    const writeArg = writeSpy.mock.calls[0]?.[0] as {
+      releases: Array<{ tag: string; de?: unknown }>;
     };
-    const { deps, logger } = makeDeps({
-      fetchReleases: vi.fn(async () => [
-        makeRelease({ tag: "v1.0.0", bodyMarkdown: "### Highlights\n- a\n" }),
-        makeRelease({ tag: "v1.1.0", bodyMarkdown: "### Highlights\n- b\n" }),
-      ]) as unknown as BuildReleasesDeps["fetchReleases"],
-      cache,
-      // translator must actually query the injected cache for the counter to
-      // tick — simulate the real translator's "check cache, else translate".
-      translateBody: vi.fn(async ({ markdown, cache: c }: { markdown: string; cache?: { get: (k: string) => Promise<string | null> } }) => {
-        const hit = c ? await c.get("k") : null;
-        return hit ?? `[de] ${markdown}`;
-      }) as unknown as BuildReleasesDeps["translateBody"],
-    });
+    expect(writeArg.releases[0]?.de).toBeDefined();
+    expect(writeArg.releases[1]?.de).toBeUndefined();
 
-    const result = await buildReleases({
-      filePath: "/tmp/x.json",
-      deps,
+    expect(result).toEqual({
+      fetchedCount: 2,
+      germanCount: 1,
+      fallbackUsed: false,
     });
-
-    expect(result.cacheHits).toBe(1);
     const warned = logger.warn.mock.calls.map((c) => String(c[0]));
-    expect(warned).toContain("[release-build] translated 2 bodies (1 cache-hits)");
+    expect(warned).toContain("[release-build] sourced 1 German bodies");
   });
 });
 
@@ -173,11 +175,9 @@ describe("buildReleases — fallback path", () => {
       throw fetchError;
     });
     const writeSpy = vi.fn(async () => undefined);
-    const translateSpy = vi.fn(async () => "x");
     const { deps, logger } = makeDeps({
       fetchReleases: fetchSpy as unknown as BuildReleasesDeps["fetchReleases"],
       writeReleases: writeSpy as unknown as BuildReleasesDeps["writeReleases"],
-      translateBody: translateSpy as unknown as BuildReleasesDeps["translateBody"],
     });
 
     const result = await buildReleases({
@@ -187,19 +187,17 @@ describe("buildReleases — fallback path", () => {
 
     // Writer NOT called — the committed releases.json is left untouched.
     expect(writeSpy).not.toHaveBeenCalled();
-    expect(translateSpy).not.toHaveBeenCalled();
 
     // Clearly-marked fallback warning, plus the three observability lines.
     const warned = logger.warn.mock.calls.map((c) => String(c[0]));
     expect(warned.some((line) => line.includes("[release-build] WARN: API unreachable, using committed releases.json"))).toBe(true);
     expect(warned).toContain("[release-build] fetched 0 releases");
-    expect(warned).toContain("[release-build] translated 0 bodies (0 cache-hits)");
+    expect(warned).toContain("[release-build] sourced 0 German bodies");
     expect(warned).toContain("[release-build] fallback path used: yes");
 
     expect(result).toEqual({
       fetchedCount: 0,
-      translatedCount: 0,
-      cacheHits: 0,
+      germanCount: 0,
       fallbackUsed: true,
     });
   });

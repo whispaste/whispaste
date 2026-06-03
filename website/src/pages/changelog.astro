@@ -76,7 +76,10 @@ type Lang = (typeof LANGS)[number];
               */}
               {LANGS.map((lang: Lang) => (
                 <div data-lang={lang} class="release-card-body">
-                  {release[lang].blocks.sections.map((section) => (
+                  {/* `de` is optional (no-translation pipeline); fall back to
+                      the English blocks so a release without a German asset
+                      still renders rather than crashing the build. */}
+                  {(release[lang] ?? release.en).blocks.sections.map((section) => (
                     <div class="mb-4 last:mb-0">
                       <h3 class="text-sm font-semibold text-white/70 uppercase tracking-wider mb-3">
                         {section.heading}

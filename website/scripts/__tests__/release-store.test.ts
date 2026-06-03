@@ -293,4 +293,21 @@ describe("readReleases — error categorisation", () => {
       cause: "schema",
     });
   });
+
+  it("accepts a release entry without a German body (de is optional, no-fallback pipeline)", async () => {
+    const filePath = join(tmpRoot, "releases.json");
+    const enOnly = makeEntry();
+    delete (enOnly as { de?: unknown }).de;
+
+    await writeReleases({
+      filePath,
+      releases: [enOnly],
+      fetchedAt: "2026-05-14T12:00:00Z",
+    });
+    const loaded = await readReleases(filePath);
+
+    expect(loaded.releases).toHaveLength(1);
+    expect(loaded.releases[0]?.de).toBeUndefined();
+    expect(loaded.releases[0]?.en.bodyMarkdown).toContain("Highlights");
+  });
 });

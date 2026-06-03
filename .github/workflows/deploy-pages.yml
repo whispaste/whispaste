@@ -40,8 +40,10 @@ jobs:
         run: node --experimental-strip-types --no-warnings scripts/build-releases.ts
         working-directory: website
         env:
+          # German bodies now come from each release's release-notes-de.md
+          # asset (see build-releases.ts) — no OpenAI translation in the
+          # website build, so no OPENAI_API_KEY needed here.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       - name: Build with Astro
         uses: withastro/action@v6
         with:

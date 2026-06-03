@@ -16,6 +16,7 @@ type GitHubReleasePayload = {
   html_url: string;
   prerelease: boolean;
   draft: boolean;
+  assets?: { name: string; browser_download_url: string }[];
 };
 
 function makeRelease(overrides: Partial<GitHubReleasePayload> = {}): GitHubReleasePayload {
@@ -90,6 +91,7 @@ describe("fetchReleases", () => {
         htmlUrl: "https://github.com/owner/repo/releases/tag/v2.0.0",
         isPrerelease: false,
         isDraft: false,
+        deBodyMarkdown: null,
       },
       {
         tag: "v1.9.0",
@@ -99,8 +101,64 @@ describe("fetchReleases", () => {
         htmlUrl: "https://github.com/owner/repo/releases/tag/v1.9.0",
         isPrerelease: false,
         isDraft: false,
+        deBodyMarkdown: null,
       },
     ]);
+  });
+
+  it("sources deBodyMarkdown from the release-notes-de.md asset when present", async () => {
+    const payload = [
+      makeRelease({
+        tag_name: "v1.2.33",
+        assets: [
+          {
+            name: "release-notes-de.md",
+            browser_download_url: "https://example.test/v1.2.33/release-notes-de.md",
+          },
+          {
+            name: "WhisPaste-Setup.exe",
+            browser_download_url: "https://example.test/v1.2.33/WhisPaste-Setup.exe",
+          },
+        ],
+      }),
+    ];
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.includes("release-notes-de.md")) {
+        return rawResponse("### Neu in v1.2.33\n- etwas\n");
+      }
+      return jsonResponse(payload);
+    });
+
+    const releases = await fetchReleases({ owner: "o", repo: "r" });
+
+    expect(releases).toHaveLength(1);
+    expect(releases[0]?.deBodyMarkdown).toBe("### Neu in v1.2.33\n- etwas\n");
+    // One call for the releases list + one for the German asset.
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("leaves deBodyMarkdown null when the German asset fetch fails (no fallback)", async () => {
+    const payload = [
+      makeRelease({
+        tag_name: "v1.2.33",
+        assets: [
+          {
+            name: "release-notes-de.md",
+            browser_download_url: "https://example.test/missing.md",
+          },
+        ],
+      }),
+    ];
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.includes("missing.md")) {
+        return new Response("not found", { status: 404 });
+      }
+      return jsonResponse(payload);
+    });
+
+    const releases = await fetchReleases({ owner: "o", repo: "r" });
+
+    expect(releases[0]?.deBodyMarkdown).toBeNull();
   });
 
   it("filters prerelease entries before applying the count cut", async () => {

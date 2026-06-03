@@ -16,9 +16,9 @@
  *     a stale copy or fail the build.
  *
  * This module composes the outputs of:
- *   - {@link ./release-fetcher.ts}     — raw {@link Release} list,
- *   - {@link ./markdown-to-blocks.ts}  — {@link ReleaseBlocks} per body,
- *   - {@link ./body-translator.ts}     — German body translation.
+ *   - {@link ./release-fetcher.ts}     — raw {@link Release} list (EN body +
+ *     optional German body from the `release-notes-de.md` asset),
+ *   - {@link ./markdown-to-blocks.ts}  — {@link ReleaseBlocks} per body.
  *
  * The actual orchestration that produces a {@link ReleaseEntry} list lives in
  * the deploy workflow (issue 07); this module only owns the persistent layer.
@@ -60,8 +60,14 @@ export type ReleaseEntry = {
   htmlUrl: string;
   /** English (source) payload — pulled directly from the GitHub release body. */
   en: ReleaseLocale;
-  /** German payload — `translatedAt` records when the translation was made. */
-  de: ReleaseLocale & { translatedAt: string };
+  /**
+   * German payload — sourced from the release's `release-notes-de.md` asset.
+   * Optional: releases published before the bilingual-asset pipeline (or any
+   * release whose German asset is missing) simply carry no `de` block. There
+   * is deliberately no translation fallback — `de` is present iff the asset
+   * was. `translatedAt` records when the German body was materialised.
+   */
+  de?: ReleaseLocale & { translatedAt: string };
 };
 
 /** Top-level file shape that {@link readReleases} returns and {@link writeReleases} writes. */
@@ -342,10 +348,15 @@ function isReleaseEntry(value: unknown): value is ReleaseEntry {
     return false;
   }
   if (!isReleaseLocale(v.en)) return false;
+  // `de` is optional (no-fallback bilingual pipeline). When present it must be
+  // a valid locale carrying a `translatedAt` string; when absent the entry is
+  // still valid and renders English-only.
   const de = v.de;
-  if (!isReleaseLocale(de)) return false;
-  if (typeof (de as { translatedAt?: unknown }).translatedAt !== "string") {
-    return false;
+  if (de !== undefined) {
+    if (!isReleaseLocale(de)) return false;
+    if (typeof (de as { translatedAt?: unknown }).translatedAt !== "string") {
+      return false;
+    }
   }
   return true;
 }
