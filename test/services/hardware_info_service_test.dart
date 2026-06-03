@@ -5,7 +5,12 @@
 /// spawning real GPU detection processes. Platform detection (wmic, sysctl,
 /// lspci) is NOT tested here because it requires real hardware; instead
 /// we test every function that accepts [GpuInfo] as a parameter.
-@TestOn('windows')
+///
+/// Runs on every platform: the pure-logic tests (optimalBackend, asset
+/// patterns, metadata round-trip, Layer-1 compatibility) are platform-
+/// independent, and file paths use [_serverBinary] so the binary name matches
+/// the host OS. The few tests that exercise the Windows-only DLL heuristic
+/// (Layer 2/3 inside `isServerBinaryCompatible`) skip themselves off Windows.
 library;
 
 import 'dart:io';
@@ -57,6 +62,19 @@ const _appleGpu = GpuInfo(
 );
 
 const _noGpu = GpuInfo(vendor: GpuVendor.none, name: 'No GPU detected');
+
+/// Platform-correct server binary filename — mirrors the name
+/// `isServerBinaryCompatible` / `deleteServerBinary` look for, so the on-disk
+/// fixtures are found on macOS/Linux as well as Windows.
+final _serverBinary = Platform.isWindows
+    ? 'whisper-server.exe'
+    : 'whisper-server';
+
+/// Reason string for tests that only make sense on Windows (the Layer 2/3 DLL
+/// heuristic in `isServerBinaryCompatible` is guarded by `Platform.isWindows`).
+final _skipNonWindows = Platform.isWindows
+    ? null
+    : 'Windows-only DLL heuristic (Layer 2/3)';
 
 void main() {
   // =========================================================================
@@ -273,7 +291,7 @@ void main() {
       'returns true when binary exists with matching backend (Vulkan)',
       () async {
         // Use Intel/Vulkan — no DLL heuristic to complicate things.
-        File(p.join(tmpDir.path, 'whisper-server.exe')).createSync();
+        File(p.join(tmpDir.path, _serverBinary)).createSync();
         File(p.join(tmpDir.path, 'ggml-vulkan.dll')).createSync();
         await writeServerBinaryInfo(tmpDir.path, _intelGpu);
 
@@ -282,33 +300,55 @@ void main() {
     );
 
     test('returns false when metadata backend mismatches GPU', () async {
-      File(p.join(tmpDir.path, 'whisper-server.exe')).createSync();
+      File(p.join(tmpDir.path, _serverBinary)).createSync();
       // Downloaded for Vulkan (Intel), but now on NVIDIA+CUDA.
       await writeServerBinaryInfo(tmpDir.path, _intelGpu);
 
       expect(isServerBinaryCompatible(tmpDir.path, _nvidiaWithCuda), isFalse);
     });
 
-    test('returns false when CPU binary on Vulkan-capable GPU', () async {
-      File(p.join(tmpDir.path, 'whisper-server.exe')).createSync();
+    test('returns true for CPU binary on a GPU-capable machine '
+        '(durable recovery fallback — FLUTTER_WHISPASTE-80)', () async {
+      // The CPU build is the universal fallback ServerBinaryRecovery drops
+      // to after the GPU backends fail to start (e.g. a Kepler GTX 650 whose
+      // Vulkan build aborts with model-load exit 3). It must NOT be treated
+      // as incompatible: deleting it would re-pull the failing GPU build and
+      // spin the recovery→CPU→delete→re-download→crash loop that surfaced as
+      // "Incompatible whisper-server for your GPU".
+      File(p.join(tmpDir.path, _serverBinary)).createSync();
+      // Metadata says backend=cpu (what recovery writes after the fallback).
       await writeServerBinaryInfo(tmpDir.path, _noGpu);
 
-      expect(isServerBinaryCompatible(tmpDir.path, _intelGpu), isFalse);
+      // An Intel/Vulkan GPU…
+      expect(isServerBinaryCompatible(tmpDir.path, _intelGpu), isTrue);
+      // …and the actual production case: an old NVIDIA card that needs
+      // Vulkan (cuda present, but Kepler → optimalBackend=vulkan).
+      const keplerGpu = GpuInfo(
+        vendor: GpuVendor.nvidia,
+        name: 'NVIDIA GeForce GTX 650',
+        cudaAvailable: true,
+      );
+      expect(keplerGpu.optimalBackend, 'vulkan');
+      expect(isServerBinaryCompatible(tmpDir.path, keplerGpu), isTrue);
     });
 
     // --- Layer 2: DLL heuristic (Windows-only) ---
 
-    test('returns false when CUDA DLLs present on non-NVIDIA GPU', () async {
-      File(p.join(tmpDir.path, 'whisper-server.exe')).createSync();
-      // No metadata → Layer 1 passes, but Layer 2 should catch it.
-      File(p.join(tmpDir.path, 'cublas64_12.dll')).createSync();
-      File(p.join(tmpDir.path, 'ggml-cuda.dll')).createSync();
+    test(
+      'returns false when CUDA DLLs present on non-NVIDIA GPU',
+      () async {
+        File(p.join(tmpDir.path, _serverBinary)).createSync();
+        // No metadata → Layer 1 passes, but Layer 2 should catch it.
+        File(p.join(tmpDir.path, 'cublas64_12.dll')).createSync();
+        File(p.join(tmpDir.path, 'ggml-cuda.dll')).createSync();
 
-      expect(isServerBinaryCompatible(tmpDir.path, _intelGpu), isFalse);
-    });
+        expect(isServerBinaryCompatible(tmpDir.path, _intelGpu), isFalse);
+      },
+      skip: _skipNonWindows,
+    );
 
     test('returns true when metadata matches even without CUDA DLLs', () async {
-      File(p.join(tmpDir.path, 'whisper-server.exe')).createSync();
+      File(p.join(tmpDir.path, _serverBinary)).createSync();
       // Write metadata saying "cuda" — backend matches GPU.
       await writeServerBinaryInfo(tmpDir.path, _nvidiaWithCuda);
 
@@ -318,7 +358,7 @@ void main() {
     });
 
     test('returns true when CUDA DLLs present on NVIDIA system', () async {
-      File(p.join(tmpDir.path, 'whisper-server.exe')).createSync();
+      File(p.join(tmpDir.path, _serverBinary)).createSync();
       await writeServerBinaryInfo(tmpDir.path, _nvidiaWithCuda);
       // Create CUDA DLLs — binary and metadata both say CUDA.
       File(p.join(tmpDir.path, 'cublas64_12.dll')).createSync();
@@ -329,7 +369,7 @@ void main() {
     });
 
     test('returns true for Vulkan binary on Intel (no CUDA DLLs)', () async {
-      File(p.join(tmpDir.path, 'whisper-server.exe')).createSync();
+      File(p.join(tmpDir.path, _serverBinary)).createSync();
       File(p.join(tmpDir.path, 'ggml-vulkan.dll')).createSync();
       await writeServerBinaryInfo(tmpDir.path, _intelGpu);
 
@@ -341,26 +381,27 @@ void main() {
     test(
       'returns false when no ggml-vulkan.dll on Vulkan-capable GPU',
       () async {
-        File(p.join(tmpDir.path, 'whisper-server.exe')).createSync();
+        File(p.join(tmpDir.path, _serverBinary)).createSync();
         // CPU/OpenBLAS DLLs but no Vulkan DLL — legacy upstream download.
         File(p.join(tmpDir.path, 'libopenblas.dll')).createSync();
         File(p.join(tmpDir.path, 'ggml-blas.dll')).createSync();
 
         expect(isServerBinaryCompatible(tmpDir.path, _intelGpu), isFalse);
       },
+      skip: _skipNonWindows,
     );
 
     test('returns false when no Vulkan DLL on AMD GPU', () async {
-      File(p.join(tmpDir.path, 'whisper-server.exe')).createSync();
+      File(p.join(tmpDir.path, _serverBinary)).createSync();
       File(p.join(tmpDir.path, 'libopenblas.dll')).createSync();
 
       expect(isServerBinaryCompatible(tmpDir.path, _amdGpu), isFalse);
-    });
+    }, skip: _skipNonWindows);
 
     test(
       'returns true when ggml-vulkan.dll present without metadata',
       () async {
-        File(p.join(tmpDir.path, 'whisper-server.exe')).createSync();
+        File(p.join(tmpDir.path, _serverBinary)).createSync();
         File(p.join(tmpDir.path, 'ggml-vulkan.dll')).createSync();
         // No .server-info.json — relies on DLL heuristic only.
 
@@ -371,7 +412,7 @@ void main() {
     test(
       'returns true when metadata says vulkan even without DLL (static link)',
       () async {
-        File(p.join(tmpDir.path, 'whisper-server.exe')).createSync();
+        File(p.join(tmpDir.path, _serverBinary)).createSync();
         await writeServerBinaryInfo(tmpDir.path, _intelGpu);
         // Metadata says vulkan, GPU needs vulkan → match.
         // No ggml-vulkan.dll because Vulkan is statically linked in the binary.
@@ -398,7 +439,7 @@ void main() {
     });
 
     test('deletes exe, dll, and info files', () async {
-      File(p.join(tmpDir.path, 'whisper-server.exe')).createSync();
+      File(p.join(tmpDir.path, _serverBinary)).createSync();
       File(p.join(tmpDir.path, 'cublas64_12.dll')).createSync();
       File(p.join(tmpDir.path, 'ggml-cuda.dll')).createSync();
       File(
@@ -407,10 +448,7 @@ void main() {
 
       await deleteServerBinary(tmpDir.path);
 
-      expect(
-        File(p.join(tmpDir.path, 'whisper-server.exe')).existsSync(),
-        isFalse,
-      );
+      expect(File(p.join(tmpDir.path, _serverBinary)).existsSync(), isFalse);
       expect(
         File(p.join(tmpDir.path, 'cublas64_12.dll')).existsSync(),
         isFalse,
@@ -423,7 +461,7 @@ void main() {
     });
 
     test('preserves non-binary files (models, configs)', () async {
-      File(p.join(tmpDir.path, 'whisper-server.exe')).createSync();
+      File(p.join(tmpDir.path, _serverBinary)).createSync();
       File(p.join(tmpDir.path, 'ggml-small.bin')).createSync();
       File(
         p.join(tmpDir.path, 'config.json'),
@@ -431,10 +469,7 @@ void main() {
 
       await deleteServerBinary(tmpDir.path);
 
-      expect(
-        File(p.join(tmpDir.path, 'whisper-server.exe')).existsSync(),
-        isFalse,
-      );
+      expect(File(p.join(tmpDir.path, _serverBinary)).existsSync(), isFalse);
       // Non-binary files must survive.
       expect(File(p.join(tmpDir.path, 'ggml-small.bin')).existsSync(), isTrue);
       expect(File(p.join(tmpDir.path, 'config.json')).existsSync(), isTrue);
@@ -498,7 +533,7 @@ void main() {
       final realGpu = await detectGpu();
 
       // Write a binary + matching metadata for the real GPU.
-      File(p.join(tmpDir.path, 'whisper-server.exe')).createSync();
+      File(p.join(tmpDir.path, _serverBinary)).createSync();
       await writeServerBinaryInfo(tmpDir.path, realGpu);
 
       // If the real GPU is NVIDIA+CUDA, we also need CUDA DLLs to pass
@@ -518,31 +553,28 @@ void main() {
       final deleted = await validateAndCleanIncompatibleBinary(tmpDir.path);
       expect(deleted, isFalse);
       // Binary should still exist.
-      expect(
-        File(p.join(tmpDir.path, 'whisper-server.exe')).existsSync(),
-        isTrue,
-      );
+      expect(File(p.join(tmpDir.path, _serverBinary)).existsSync(), isTrue);
     });
 
     test('deletes binary when metadata says wrong backend', () async {
       clearGpuCache();
       final realGpu = await detectGpu();
 
-      File(p.join(tmpDir.path, 'whisper-server.exe')).createSync();
+      File(p.join(tmpDir.path, _serverBinary)).createSync();
 
-      // Write metadata for a DIFFERENT backend than the real GPU.
-      final fakeGpu = realGpu.optimalBackend == 'cpu'
-          ? _intelGpu // If CPU, pretend it's Intel Vulkan.
-          : _noGpu; // If anything else, pretend it's CPU.
+      // Write metadata for a DIFFERENT, non-CPU backend than the real GPU.
+      // CPU can't be the "wrong" backend here: it is the universal fallback
+      // and now always counts as compatible (FLUTTER_WHISPASTE-80 loop fix),
+      // so a stored cpu binary would never be deleted.
+      final fakeGpu = realGpu.optimalBackend == 'vulkan'
+          ? _nvidiaWithCuda // Real GPU needs Vulkan → pretend it's CUDA.
+          : _intelGpu; // Anything else → pretend it's Intel Vulkan.
       await writeServerBinaryInfo(tmpDir.path, fakeGpu);
 
       final deleted = await validateAndCleanIncompatibleBinary(tmpDir.path);
       expect(deleted, isTrue);
       // Binary should be gone.
-      expect(
-        File(p.join(tmpDir.path, 'whisper-server.exe')).existsSync(),
-        isFalse,
-      );
+      expect(File(p.join(tmpDir.path, _serverBinary)).existsSync(), isFalse);
     });
   });
 }
