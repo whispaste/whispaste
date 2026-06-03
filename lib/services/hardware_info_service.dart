@@ -400,6 +400,18 @@ bool isServerBinaryCompatible(String sttDirPath, GpuInfo gpu) {
     final storedBackend = info['backend'] as String? ?? '';
     final currentBackend = gpu.optimalBackend;
 
+    // The CPU build is the universal fallback: it runs on every machine,
+    // independent of the GPU. ServerBinaryRecovery deliberately drops to it
+    // after the GPU backends fail to start (e.g. a Kepler GeForce GTX 650
+    // where the Vulkan build aborts with model-load exit 3). Treating that
+    // intentional, working downgrade as "incompatible" would delete the one
+    // binary that actually runs and re-pull the failing GPU build — an
+    // infinite recovery→CPU→delete→re-download→crash loop that surfaced as
+    // "Incompatible whisper-server for your GPU" (FLUTTER_WHISPASTE-80).
+    // So a CPU binary is always compatible; the user can re-download from
+    // Settings to retry GPU acceleration.
+    if (storedBackend == 'cpu') return true;
+
     if (storedBackend.isNotEmpty && storedBackend != currentBackend) {
       _log.warning(
         'Binary mismatch: installed backend="$storedBackend" but '

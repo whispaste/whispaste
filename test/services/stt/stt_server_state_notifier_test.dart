@@ -122,6 +122,7 @@ ProviderContainer _makeContainer({
   AppSettings? settings,
   SttStartupHeartbeatConfig? heartbeatConfig,
   ServerBinaryRecovery? recoveryOverride,
+  hw.GpuInfo? gpu,
 }) {
   return ProviderContainer(
     overrides: [
@@ -135,6 +136,7 @@ ProviderContainer _makeContainer({
       modelDownloadProvider.overrideWith(() => _FakeModelDownloadNotifier()),
       hw.gpuInfoProvider.overrideWith(
         (_) async =>
+            gpu ??
             const hw.GpuInfo(vendor: hw.GpuVendor.none, name: 'Test CPU'),
       ),
       if (heartbeatConfig != null)
@@ -176,12 +178,21 @@ class _RecordingRecovery implements ServerBinaryRecovery {
 }
 
 class _FakeModelDownloadNotifier extends ModelDownloadNotifier {
+  int invalidateCalls = 0;
+
   @override
   ModelDownloadState build() => const ModelDownloadState(downloadedModels: {});
 
   @override
   Future<void> downloadModel(String modelId) async {
     state = ModelDownloadState(downloadedModels: {modelId});
+  }
+
+  @override
+  Future<void> invalidateServerBinary() async {
+    // Record the self-heal hand-off without touching disk or the real
+    // download pipeline.
+    invalidateCalls += 1;
   }
 }
 
@@ -296,6 +307,58 @@ void main() {
         SttServerState.stopped,
       );
     });
+
+    test(
+      'incompatible binary → silent self-heal, no user-facing error',
+      () async {
+        // Stored metadata says the binary was fetched for a CUDA backend
+        // (the variant an older WhisPaste build picked for this card), but
+        // the current GPU — a Kepler GeForce GTX 650 — now needs the Vulkan
+        // build. The proactive compatibility check must hand off to the
+        // download notifier's self-heal instead of surfacing an
+        // "Incompatible whisper-server" error to the user. Regression guard
+        // for FLUTTER_WHISPASTE-80.
+        await hw.writeServerBinaryInfo(
+          tempDir.path,
+          const hw.GpuInfo(
+            vendor: hw.GpuVendor.nvidia,
+            name: 'NVIDIA GeForce RTX 3060',
+            cudaAvailable: true,
+          ),
+        );
+
+        final fakeProcess = _FakeProcess();
+        final runner = _FakeProcessRunner(fakeProcess);
+        final container = _makeContainer(
+          runner: runner,
+          httpClient: _healthyClient(),
+          gpu: const hw.GpuInfo(
+            vendor: hw.GpuVendor.nvidia,
+            name: 'NVIDIA GeForce GTX 650',
+            cudaAvailable: true,
+          ),
+        );
+        addTearDown(() {
+          container.dispose();
+          fakeProcess.exit(0);
+        });
+
+        await container.read(settingsProvider.future);
+        await container.read(localSttBundleProvider.notifier).ensureRunning();
+
+        final status = container.read(localSttBundleProvider);
+        // No hard error, no "go re-download in Settings" dead-end.
+        expect(status.serverState, isNot(SttServerState.error));
+        expect(status.errorMessage ?? '', isNot(contains('Incompatible')));
+        // The process was never started — we bailed at the proactive check.
+        expect(runner.startCallCount, 0);
+        // The self-heal re-download was kicked off.
+        final download =
+            container.read(modelDownloadProvider.notifier)
+                as _FakeModelDownloadNotifier;
+        expect(download.invalidateCalls, 1);
+      },
+    );
 
     test('heartbeat timeout → error state, model not blacklisted', () async {
       const hbConfig = SttStartupHeartbeatConfig(

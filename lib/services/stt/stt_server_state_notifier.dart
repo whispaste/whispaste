@@ -984,21 +984,35 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     );
 
     if (!hw.isServerBinaryCompatible(sttDir(), gpu)) {
-      // State-sync correction, not a crash: the installed binary does
-      // not match the current GPU (driver/hardware change since last
-      // download). `validateAndCleanIncompatibleBinary` should already
-      // have handled this at app start — when it slips through to here
-      // it is mostly a race with that startup task. Downgraded to
-      // warning to avoid auto-escalation; `_fail` below still surfaces
-      // a generic Sentry event so we keep a low-frequency signal.
+      // State-sync correction, not a crash: the installed binary's backend
+      // does not match what the current GPU needs. With CPU binaries now
+      // treated as universally compatible (see [hw.isServerBinaryCompatible],
+      // the FLUTTER_WHISPASTE-80 loop fix), this only fires on a genuine
+      // hardware/driver change — e.g. the STT dir moved to a machine with a
+      // different GPU vendor, so a stored `cuda` binary no longer fits.
+      //
+      // `validateAndCleanIncompatibleBinary` (main.dart, unawaited) normally
+      // heals this silently at startup; reaching here is a race with that
+      // task. Hand off to the download notifier's self-heal instead of
+      // dead-ending with a user-facing "re-download in Settings" error:
+      // `invalidateServerBinary` deletes the wrong variant AND pulls the
+      // correct one in the background, so the next recording just works.
+      // `_log.warning` (not `_fail`/`_log.error`) keeps this off the Sentry
+      // auto-escalate path. If the re-pulled GPU build then fails to start,
+      // ServerBinaryRecovery drops to the now-durable CPU fallback.
       _log.warning(
-        'Proactive check: server binary incompatible with current GPU. '
-        'Deleting for re-download.',
+        'Proactive check: server binary incompatible with current GPU '
+        '(${gpu.vendor.name}, needs backend=${gpu.optimalBackend}). '
+        'Triggering silent self-heal re-download.',
       );
-      await hw.deleteServerBinary(sttDir());
-      _fail(
-        'Incompatible whisper-server for your GPU (${gpu.name}). '
-        'Please re-download the speech model in Settings.',
+      _transition(const SttStatus(serverState: SttServerState.stopped));
+      unawaited(
+        ref
+            .read(modelDownloadProvider.notifier)
+            .invalidateServerBinary()
+            .catchError((Object e) {
+              _log.warning('Self-heal re-download failed: $e');
+            }),
       );
       return;
     }
