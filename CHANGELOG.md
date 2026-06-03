@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.33
+
+### Bug Fixes
+
+- **Sprachserver bleibt jetzt dauerhaft auf der CPU-Variante, wenn die GPU-Builds nicht starten (alte NVIDIA-Karten, z. B. GeForce GTX 650).** Der v1.2.32-Fix hat das Backend-Routing korrigiert, aber ein Restfall blieb: Auf einer Kepler-Karte bricht selbst der Vulkan-Build beim Model-Load ab (Exit-Code `3`), woraufhin `ServerBinaryRecovery` korrekt auf den **CPU-Build** zurückfällt und `backend=cpu` in die `.server-info.json` schreibt. Beim nächsten Start meldete der proaktive Kompatibilitäts-Check jedoch „installiert=`cpu`, GPU braucht aber `vulkan`", **löschte genau das eine lauffähige Binary** und warf „Incompatible whisper-server for your GPU" — eine Endlos-Schleife aus Recovery → CPU → Löschen → Re-Download → Crash, die auch durch Neuinstallation + komplettes Onboarding nicht zu beseitigen war (`FLUTTER_WHISPASTE-80`). Ursache war ein Konflikt zweier Subsysteme: Die Recovery wählt CPU bewusst als universellen Fallback, der proaktive Check wertete „CPU auf einer GPU-fähigen Maschine" aber als Fehlkonfiguration. Neu: `isServerBinaryCompatible` behandelt einen CPU-Build als **universell kompatibel** — er läuft auf jeder Hardware und ist der absichtliche Recovery-Endzustand, wird also nicht mehr gelöscht. Damit bricht die Schleife endgültig; betroffene Geräte transkribieren auf der CPU (langsamer, aber funktionsfähig). Wer GPU-Beschleunigung erneut versuchen will, kann den Sprachserver in den Einstellungen neu herunterladen.
+- **Echter Hardware-/Treiber-Wechsel führt jetzt zum stillen Self-Heal statt zur Sackgasse.** Findet der proaktive Check ein wirklich unpassendes GPU-Binary (z. B. der STT-Ordner wurde auf eine Maschine mit anderem GPU-Hersteller verschoben), lädt er die korrekte Variante jetzt im Hintergrund nach (`invalidateServerBinary`), statt mit „re-download in Settings" abzubrechen und ein Sentry-Event zu erzeugen. Scheitert der nachgeladene GPU-Build erneut, greift die nun dauerhafte CPU-Recovery.
+
 ## 1.2.32
 
 ### Bug Fixes
