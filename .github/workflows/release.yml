@@ -383,7 +383,13 @@ jobs:
           body_path: release-body.md
           draft: false
           make_latest: true
-          files: artifacts/*
+          # `release-notes-de.md` is attached as an asset so the website
+          # changelog (build-releases.ts) can source the German body directly,
+          # instead of re-translating the English body. Single DE source of
+          # truth: the same file already drives the Microsoft Store listing.
+          files: |
+            artifacts/*
+            release-notes-de.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

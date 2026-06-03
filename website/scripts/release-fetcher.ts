@@ -29,7 +29,18 @@ export type Release = {
   htmlUrl: string;
   isPrerelease: boolean;
   isDraft: boolean;
+  /**
+   * German release body, sourced from the release's `release-notes-de.md`
+   * asset (the single source of truth produced by
+   * `scripts/generate-release-notes.mjs` and attached in `release.yml`).
+   * `null` when the release carries no such asset — there is deliberately no
+   * translation fallback.
+   */
+  deBodyMarkdown: string | null;
 };
+
+/** Asset filename carrying the German release notes (attached by `release.yml`). */
+const DE_NOTES_ASSET = "release-notes-de.md";
 
 /** Categorised failure modes that callers can branch on for fallback logic. */
 export type ReleaseFetcherCause = "network" | "rate-limited" | "auth" | "parse";
@@ -144,6 +155,7 @@ export async function fetchReleases(
   }
 
   const releases: Release[] = [];
+  const deAssetUrls: (string | null)[] = [];
   for (const raw of payload) {
     if (!isReleasePayload(raw)) {
       throw new ReleaseFetcherError(
@@ -152,6 +164,7 @@ export async function fetchReleases(
       );
     }
     if (raw.draft || raw.prerelease) continue;
+    const deAsset = (raw.assets ?? []).find((a) => a.name === DE_NOTES_ASSET);
     releases.push({
       tag: raw.tag_name,
       name: raw.name ?? raw.tag_name,
@@ -160,11 +173,46 @@ export async function fetchReleases(
       htmlUrl: raw.html_url,
       isPrerelease: raw.prerelease,
       isDraft: raw.draft,
+      deBodyMarkdown: null,
     });
+    deAssetUrls.push(deAsset?.browser_download_url ?? null);
     if (releases.length >= count) break;
   }
 
+  // Resolve the German body for each release from its `release-notes-de.md`
+  // asset. Best-effort: a missing or unreachable asset leaves `deBodyMarkdown`
+  // null (English-only) — there is no translation fallback by design.
+  await Promise.all(
+    releases.map(async (release, i) => {
+      const assetUrl = deAssetUrls[i];
+      if (assetUrl) {
+        release.deBodyMarkdown = await fetchAssetText(assetUrl, token);
+      }
+    }),
+  );
+
   return releases;
+}
+
+/**
+ * Fetch the UTF-8 text of a release asset. Returns `null` on any failure
+ * (non-OK status, network error) so a missing German asset degrades the entry
+ * to English-only rather than failing the whole build.
+ */
+async function fetchAssetText(
+  url: string,
+  token?: string,
+): Promise<string | null> {
+  const headers: Record<string, string> = { Accept: "application/octet-stream" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  try {
+    const res = await fetch(url, { headers });
+    if (!res.ok) return null;
+    const text = await res.text();
+    return text.length > 0 ? text : null;
+  } catch {
+    return null;
+  }
 }
 
 function isRateLimited(response: Response): boolean {
@@ -176,6 +224,11 @@ function isRateLimited(response: Response): boolean {
   return false;
 }
 
+type GitHubReleaseAsset = {
+  name: string;
+  browser_download_url: string;
+};
+
 type GitHubReleasePayload = {
   tag_name: string;
   name: string | null;
@@ -184,7 +237,16 @@ type GitHubReleasePayload = {
   html_url: string;
   prerelease: boolean;
   draft: boolean;
+  assets?: GitHubReleaseAsset[];
 };
+
+function isReleaseAsset(value: unknown): value is GitHubReleaseAsset {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.name === "string" && typeof v.browser_download_url === "string"
+  );
+}
 
 function isReleasePayload(value: unknown): value is GitHubReleasePayload {
   if (typeof value !== "object" || value === null) return false;
@@ -196,6 +258,10 @@ function isReleasePayload(value: unknown): value is GitHubReleasePayload {
     (typeof v.body === "string" || v.body === null) &&
     typeof v.html_url === "string" &&
     typeof v.prerelease === "boolean" &&
-    typeof v.draft === "boolean"
+    typeof v.draft === "boolean" &&
+    // GitHub always returns an `assets` array (possibly empty); tolerate its
+    // absence for hand-built fixtures, but reject a non-array if present.
+    (v.assets === undefined ||
+      (Array.isArray(v.assets) && v.assets.every(isReleaseAsset)))
   );
 }

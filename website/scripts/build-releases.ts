@@ -4,12 +4,13 @@
  *
  * Pipeline:
  *   1. `fetchReleases` — pulls the N most recent published releases from
- *      `whispaste/whispaste` via the GitHub REST API.
+ *      `whispaste/whispaste` via the GitHub REST API, each carrying the EN
+ *      body plus the optional German body from its `release-notes-de.md` asset.
  *   2. `parseReleaseBody(en)` — turns each release body into structured EN blocks.
- *   3. `translateBody({ targetLang: 'de' })` — translates the body to German
- *      (cached on disk under `website/.cache/translations/`).
- *   4. `parseReleaseBody(de)` — turns the translated body into DE blocks.
- *   5. `writeReleases` — atomically writes the merged feed to `releases.json`.
+ *   3. `parseReleaseBody(de)` — when a German asset body is present, turns it
+ *      into DE blocks. There is no translation step and no fallback: a release
+ *      without the asset is persisted English-only.
+ *   4. `writeReleases` — atomically writes the merged feed to `releases.json`.
  *
  * Build-time fallback: when {@link fetchReleases} throws (network outage,
  * auth failure, GitHub down), the orchestrator falls back to the previously
@@ -18,7 +19,7 @@
  *
  * Three observability lines are emitted on every run:
  *   - `[release-build] fetched N releases`
- *   - `[release-build] translated K bodies (M cache-hits)`
+ *   - `[release-build] sourced K German bodies`
  *   - `[release-build] fallback path used: yes|no`
  *
  * Run with:
@@ -35,11 +36,6 @@ import { fileURLToPath } from "node:url";
 import { fetchReleases, type Release } from "./release-fetcher.ts";
 import { parseReleaseBody } from "./markdown-to-blocks.ts";
 import {
-  translateBody,
-  createFileCache,
-  type TranslationCache,
-} from "./body-translator.ts";
-import {
   writeReleases,
   type ReleaseEntry,
 } from "./release-store.ts";
@@ -51,9 +47,6 @@ const REPO = "whispaste";
 /** Number of releases to include in `releases.json`. */
 const RELEASE_COUNT = 5;
 
-/** Target language for the bilingual feed. */
-const TARGET_LANG = "de";
-
 /**
  * Build-time dependency seam — the orchestrator pulls each underlying module
  * through this object so tests can substitute deterministic doubles without
@@ -62,16 +55,13 @@ const TARGET_LANG = "de";
 export type BuildReleasesDeps = {
   fetchReleases: typeof fetchReleases;
   parseReleaseBody: typeof parseReleaseBody;
-  translateBody: typeof translateBody;
   writeReleases: typeof writeReleases;
-  /** Translation cache passed to {@link translateBody}. */
-  cache?: TranslationCache;
   /** Logger seam (defaults to `console`). */
   logger?: {
     warn(...args: unknown[]): void;
     error(...args: unknown[]): void;
   };
-  /** ISO timestamp for the `translatedAt` field. Defaults to `new Date().toISOString()`. */
+  /** ISO timestamp for the German `translatedAt` field. Defaults to `new Date().toISOString()`. */
   now?: () => string;
 };
 
@@ -86,8 +76,8 @@ export type BuildReleasesOptions = {
 
 export type BuildReleasesResult = {
   fetchedCount: number;
-  translatedCount: number;
-  cacheHits: number;
+  /** How many of the fetched releases carried a German asset body. */
+  germanCount: number;
   fallbackUsed: boolean;
 };
 
@@ -104,9 +94,7 @@ export async function buildReleases(
   const deps: BuildReleasesDeps = {
     fetchReleases: options.deps?.fetchReleases ?? fetchReleases,
     parseReleaseBody: options.deps?.parseReleaseBody ?? parseReleaseBody,
-    translateBody: options.deps?.translateBody ?? translateBody,
     writeReleases: options.deps?.writeReleases ?? writeReleases,
-    cache: options.deps?.cache,
     logger: options.deps?.logger ?? console,
     now: options.deps?.now ?? ((): string => new Date().toISOString()),
   };
@@ -128,63 +116,50 @@ export async function buildReleases(
       `[release-build] WARN: API unreachable, using committed releases.json (${(err as Error).message})`,
     );
     logger.warn("[release-build] fetched 0 releases");
-    logger.warn("[release-build] translated 0 bodies (0 cache-hits)");
+    logger.warn("[release-build] sourced 0 German bodies");
     logger.warn("[release-build] fallback path used: yes");
     return {
       fetchedCount: 0,
-      translatedCount: 0,
-      cacheHits: 0,
+      germanCount: 0,
       fallbackUsed: true,
     };
   }
   logger.warn(`[release-build] fetched ${String(releases.length)} releases`);
 
-  // ─── 2/3/4. Parse EN, translate DE, parse DE — one release at a time ─────
-  // Cache passed through to translateBody so cache-hit accounting works. The
-  // wrapper tallies hits by querying the cache before each call and skipping
-  // accounting when the underlying cache lookup returns a value.
-  const baseCache = deps.cache ?? createFileCache();
-  let cacheHits = 0;
-  let translatedCount = 0;
-  const countingCache: TranslationCache = {
-    async get(key: string): Promise<string | null> {
-      const hit = await baseCache.get(key);
-      if (hit !== null) cacheHits++;
-      return hit;
-    },
-    async set(key: string, value: string): Promise<void> {
-      await baseCache.set(key, value);
-    },
-  };
-
+  // ─── 2/3. Parse EN, and DE when the release carries a German asset ────────
+  // No translation, no cache: German comes solely from each release's
+  // `release-notes-de.md` asset (resolved by the fetcher). A release without
+  // that asset is persisted English-only — there is no fallback.
   const translatedAt = deps.now ? deps.now() : new Date().toISOString();
   const entries: ReleaseEntry[] = [];
+  let germanCount = 0;
   for (const release of releases) {
     const enBody = release.bodyMarkdown;
     const enBlocks = deps.parseReleaseBody(enBody);
 
-    const deBody = await deps.translateBody({
-      markdown: enBody,
-      targetLang: TARGET_LANG,
-      cache: countingCache,
-    });
-    translatedCount++;
-    const deBlocks = deps.parseReleaseBody(deBody);
-
-    entries.push({
+    const entry: ReleaseEntry = {
       tag: release.tag,
       name: release.name,
       publishedAt: release.publishedAt,
       htmlUrl: release.htmlUrl,
       en: { bodyMarkdown: enBody, blocks: enBlocks },
-      de: { bodyMarkdown: deBody, blocks: deBlocks, translatedAt },
-    });
-  }
-  logger.warn(
-    `[release-build] translated ${String(translatedCount)} bodies (${String(cacheHits)} cache-hits)`,
-  );
+    };
 
-  // ─── 5. Write the merged file ────────────────────────────────────────────
+    const deBody = release.deBodyMarkdown;
+    if (deBody !== null && deBody.length > 0) {
+      entry.de = {
+        bodyMarkdown: deBody,
+        blocks: deps.parseReleaseBody(deBody),
+        translatedAt,
+      };
+      germanCount++;
+    }
+
+    entries.push(entry);
+  }
+  logger.warn(`[release-build] sourced ${String(germanCount)} German bodies`);
+
+  // ─── 4. Write the merged file ────────────────────────────────────────────
   await deps.writeReleases({
     filePath: options.filePath,
     releases: entries,
@@ -194,8 +169,7 @@ export async function buildReleases(
 
   return {
     fetchedCount: releases.length,
-    translatedCount,
-    cacheHits,
+    germanCount,
     fallbackUsed: false,
   };
 }
