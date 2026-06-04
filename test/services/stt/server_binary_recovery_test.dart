@@ -232,41 +232,70 @@ void main() {
       // server is launched in CPU mode; see SttServerStateNotifier.
     });
 
-    test(
-      'dllMissing + already on CPU → RecoveryExhausted with PRD message',
-      () async {
-        final downloader = _FakeWhisperServerDownloader();
-        final store = _FakeBinaryStore(currentBackend: 'cpu');
-        final recovery = ServerBinaryRecovery(
-          downloader: downloader,
-          store: store,
-        );
+    test('dllMissing + already on CPU floor → RecoveryExhausted '
+        'flagged vcRuntimeMissing with VC++ message', () async {
+      final downloader = _FakeWhisperServerDownloader();
+      final store = _FakeBinaryStore(currentBackend: 'cpu');
+      final recovery = ServerBinaryRecovery(
+        downloader: downloader,
+        store: store,
+      );
 
-        final result = await recovery.recover(
-          reason: RecoveryReason.dllMissing,
-          gpu: _cpuOnly,
-          sttDirPath: '/fake/stt',
-          activeModelId: 'whisper-small',
-        );
+      // This is the FLUTTER_WHISPASTE-A0 scenario: the installed CPU
+      // build itself aborts with STATUS_DLL_NOT_FOUND because the machine
+      // lacks the Microsoft Visual C++ runtime (e.g. VCOMP140.DLL). No
+      // further variant exists, so recovery must exhaust — but with the
+      // actionable VC++ kind rather than the generic restart message.
+      final result = await recovery.recover(
+        reason: RecoveryReason.dllMissing,
+        gpu: _cpuOnly,
+        sttDirPath: '/fake/stt',
+        activeModelId: 'whisper-small',
+      );
 
-        expect(result, isA<RecoveryExhausted>());
-        expect(
-          (result as RecoveryExhausted).userMessage,
-          contains('Sprachdienst kann nicht starten'),
-        );
-        // Vocabulary check — must use „Sprachmodell", never "Modell-Datei".
-        expect(result.userMessage, contains('Sprachmodell'));
-        expect(result.userMessage, isNot(contains('Modell-Datei')));
-        expect(result.userMessage, isNot(contains('STT')));
-        expect(result.userMessage, isNot(contains('binary')));
+      expect(result, isA<RecoveryExhausted>());
+      final exhausted = result as RecoveryExhausted;
+      expect(exhausted.kind, RecoveryExhaustedKind.vcRuntimeMissing);
+      expect(exhausted.userMessage, contains('Sprachdienst kann nicht'));
+      expect(exhausted.userMessage, contains('Visual C++'));
+      // Vocabulary check — never the anti-vocabulary terms.
+      expect(exhausted.userMessage, isNot(contains('Modell-Datei')));
+      expect(exhausted.userMessage, isNot(contains('STT')));
+      expect(exhausted.userMessage, isNot(contains('binary')));
 
-        expect(
-          downloader.calls,
-          isEmpty,
-          reason: 'exhausted path must not invoke download',
-        );
-      },
-    );
+      expect(
+        downloader.calls,
+        isEmpty,
+        reason: 'exhausted path must not invoke download',
+      );
+    });
+
+    test('dllMissing while fetching CPU floor (current=GPU variant) → '
+        'generic exhaustion, NOT vcRuntimeMissing', () async {
+      // A network failure while downloading the CPU floor is not a VC++
+      // problem: the crashed binary was the GPU build, so the user
+      // message must stay generic (restart / re-download).
+      final downloader = _FakeWhisperServerDownloader(
+        throwOnDownload: Exception('network down'),
+      );
+      final store = _FakeBinaryStore(currentBackend: 'vulkan');
+      final recovery = ServerBinaryRecovery(
+        downloader: downloader,
+        store: store,
+      );
+
+      final result = await recovery.recover(
+        reason: RecoveryReason.dllMissing,
+        gpu: _nvidia,
+        sttDirPath: '/fake/stt',
+        activeModelId: 'whisper-small',
+      );
+
+      expect(result, isA<RecoveryExhausted>());
+      final exhausted = result as RecoveryExhausted;
+      expect(exhausted.kind, RecoveryExhaustedKind.generic);
+      expect(exhausted.userMessage, isNot(contains('Visual C++')));
+    });
 
     test('abiMismatch + cublas-12 → identical to dllMissing '
         '(re-download with next variant)', () async {

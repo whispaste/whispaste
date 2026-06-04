@@ -451,11 +451,16 @@ class _RecordingBehaviorState extends ConsumerState<RecordingBehaviorWidget> {
 /// assert that tapping the action fires the navigation request without
 /// needing the full app shell (`activePageProvider` +
 /// `settingsScrollTargetProvider` are private to the production wiring).
+///
+/// [installVcRuntime] is likewise injectable: it defaults to opening the
+/// Microsoft VC++ Redistributable download in the browser, but tests pass
+/// a spy to assert the action wiring without a real `launchUrl`.
 void showRecoveryToast({
   required BuildContext context,
   required L10n l10n,
   required RecoveryToastKind kind,
   required void Function(String section) openSettings,
+  VoidCallback? installVcRuntime,
 }) {
   switch (kind) {
     case RecoveryToastKind.exhausted:
@@ -469,6 +474,17 @@ void showRecoveryToast({
           onPressed: () => openSettings('advanced'),
         ),
       );
+    case RecoveryToastKind.vcRuntimeMissing:
+      WpToast.show(
+        context,
+        message: l10n.recoveryVcRuntimeToast,
+        type: WpToastType.error,
+        duration: const Duration(seconds: 10),
+        action: WpToastAction(
+          label: l10n.recoveryVcRuntimeAction,
+          onPressed: installVcRuntime ?? _openVcRuntimeDownload,
+        ),
+      );
     case RecoveryToastKind.abiInfo:
       WpToast.show(
         context,
@@ -476,5 +492,23 @@ void showRecoveryToast({
         type: WpToastType.info,
         duration: const Duration(seconds: 5),
       );
+  }
+}
+
+/// Microsoft's stable short-link to the latest x64 VC++ Redistributable.
+/// Opening this in the browser starts the download the user needs to
+/// unblock the CPU floor build (missing MSVCP140 / VCRUNTIME140 / VCOMP140).
+const _vcRuntimeDownloadUrl = 'https://aka.ms/vs/17/release/vc_redist.x64.exe';
+
+final _recoveryToastLog = AppLogger('RecoveryToast');
+
+Future<void> _openVcRuntimeDownload() async {
+  try {
+    await launchUrl(Uri.parse(_vcRuntimeDownloadUrl));
+  } on Exception catch (e) {
+    _recoveryToastLog.warning(
+      'Could not open VC++ Redistributable download',
+      e,
+    );
   }
 }

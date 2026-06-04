@@ -27,6 +27,11 @@ enum RecoveryToastKind {
   /// „Einstellungen öffnen" toast.
   exhausted,
 
+  /// The CPU floor build aborted with STATUS_DLL_NOT_FOUND — the machine
+  /// lacks the Microsoft Visual C++ runtime. Surface the actionable
+  /// „Visual C++ installieren" toast that opens the redist download.
+  vcRuntimeMissing,
+
   /// ABI mismatch caught — silent re-download in flight. Surface the
   /// passive info toast.
   abiInfo,

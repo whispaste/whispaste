@@ -143,6 +143,99 @@ jobs:
           path: whisper-server-vulkan-x64.zip
           retention-days: 1
 
+  build-cpu-windows:
+    name: CPU – Windows x64 (self-contained)
+    needs: validate-input
+    permissions:
+      contents: write
+    runs-on: windows-latest
+    # Why this job exists (FLUTTER_WHISPASTE-A0):
+    # The upstream `whisper-blas-bin-x64.zip` is the CPU floor every GPU
+    # fallback ultimately drops to — but its binaries dynamically link the
+    # MSVC runtime (MSVCP140 / VCRUNTIME140 / VCRUNTIME140_1) *and* the
+    # OpenMP runtime (VCOMP140.DLL, pulled in by ggml-cpu.dll). Those ship
+    # with the Visual C++ Redistributable, which is NOT guaranteed on a
+    # user's machine — notably VCOMP140 is absent on many older/clean
+    # Windows installs (e.g. the GeForce GTX 650 box that surfaced this).
+    # The result is STATUS_DLL_NOT_FOUND (0xC0000135) and an exhausted
+    # recovery with no further fallback. Repackaging the upstream zip with
+    # those four redistributable DLLs bundled app-local makes the CPU floor
+    # genuinely universal (app-local redistribution is permitted by MS's
+    # redistributable license terms).
+    steps:
+      - name: Download upstream BLAS CPU build
+        shell: pwsh
+        run: |
+          $url = "https://github.com/ggml-org/whisper.cpp/releases/download/${{ inputs.whisper_tag }}/whisper-blas-bin-x64.zip"
+          Write-Host "Downloading $url"
+          Invoke-WebRequest -Uri $url -OutFile blas.zip
+          Expand-Archive -Path blas.zip -DestinationPath blas-extracted -Force
+
+      - name: Stage binaries + bundle VC++ runtime DLLs
+        shell: pwsh
+        run: |
+          $stagingDir = "whisper-server-cpu-x64"
+          New-Item -ItemType Directory -Path $stagingDir -Force | Out-Null
+
+          # Upstream lays everything under a Release/ subfolder.
+          $srcDir = Get-ChildItem -Path blas-extracted -Recurse -Filter "whisper-server.exe" |
+            Select-Object -First 1 | ForEach-Object { $_.DirectoryName }
+          if (-not $srcDir) {
+            Write-Error "whisper-server.exe not found in upstream BLAS zip"
+            exit 1
+          }
+
+          # Copy the server binary + all co-located DLLs (ggml*, whisper,
+          # libopenblas, SDL2). The app's extractor flattens by basename,
+          # so a flat staging dir matches what ships today.
+          Copy-Item "$srcDir\whisper-server.exe" "$stagingDir\"
+          Get-ChildItem "$srcDir\*.dll" | ForEach-Object {
+            Copy-Item $_.FullName "$stagingDir\"
+          }
+
+          # Locate the VC++ redistributable DLLs on the runner via vswhere.
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vsRoot = & $vswhere -latest -property installationPath
+          Write-Host "VS install: $vsRoot"
+
+          # CRT runtime (msvcp140, vcruntime140, vcruntime140_1) + OpenMP
+          # (vcomp140). Pick the highest toolset version directory present.
+          $crtDir = Get-ChildItem "$vsRoot\VC\Redist\MSVC\*\x64\Microsoft.VC*.CRT" -Directory |
+            Sort-Object FullName -Descending | Select-Object -First 1
+          $ompDir = Get-ChildItem "$vsRoot\VC\Redist\MSVC\*\x64\Microsoft.VC*.OpenMP" -Directory |
+            Sort-Object FullName -Descending | Select-Object -First 1
+
+          $needed = @{
+            "msvcp140.dll"       = "$($crtDir.FullName)\msvcp140.dll"
+            "vcruntime140.dll"   = "$($crtDir.FullName)\vcruntime140.dll"
+            "vcruntime140_1.dll" = "$($crtDir.FullName)\vcruntime140_1.dll"
+            "vcomp140.dll"       = "$($ompDir.FullName)\vcomp140.dll"
+          }
+          foreach ($name in $needed.Keys) {
+            $path = $needed[$name]
+            if (-not (Test-Path $path)) {
+              Write-Error "Required redist DLL not found: $name ($path)"
+              exit 1
+            }
+            Copy-Item $path "$stagingDir\"
+            Write-Host "Bundled $name"
+          }
+
+          Write-Host "Package contents:"
+          Get-ChildItem $stagingDir | ForEach-Object {
+            Write-Host "  $($_.Name) ($([math]::Round($_.Length/1KB))KB)"
+          }
+
+          Compress-Archive -Path "$stagingDir\*" -DestinationPath "whisper-server-cpu-x64.zip"
+          Write-Host "Created whisper-server-cpu-x64.zip"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: whisper-server-cpu-x64
+          path: whisper-server-cpu-x64.zip
+          retention-days: 1
+
   build-metal-macos:
     name: Metal – macOS ARM64
     needs: validate-input
@@ -217,7 +310,7 @@ jobs:
 
   publish-release:
     name: Publish release
-    needs: [build-vulkan-windows, build-metal-macos]
+    needs: [build-vulkan-windows, build-cpu-windows, build-metal-macos]
     permissions:
       contents: write
     runs-on: ubuntu-latest
@@ -259,15 +352,17 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           tag_name: whisper-server-${{ inputs.whisper_tag }}${{ inputs.build_suffix }}
-          name: "Whisper Server (${{ inputs.whisper_tag }}) – Vulkan + Metal"
+          name: "Whisper Server (${{ inputs.whisper_tag }}) – Vulkan + CPU + Metal"
           body: |
             Pre-built whisper-server binaries.
 
             **Source**: [whisper.cpp ${{ inputs.whisper_tag }}](https://github.com/ggml-org/whisper.cpp/releases/tag/${{ inputs.whisper_tag }})
-            **Variants**: Vulkan (Windows x64) + Metal (macOS ARM64)
+            **Variants**: Vulkan (Windows x64) + CPU (Windows x64, self-contained) + Metal (macOS ARM64)
 
-            > CUDA and CPU binaries are provided by the upstream whisper.cpp project.
-            > This release only contains variants not available upstream.
+            > CUDA is provided by the upstream whisper.cpp project. The CPU
+            > floor is the upstream BLAS build repackaged with the VC++
+            > runtime DLLs bundled app-local, so it runs without a separate
+            > Visual C++ Redistributable install (FLUTTER_WHISPASTE-A0).
           files: assets/*.zip
           make_latest: false
 

@@ -2501,6 +2501,13 @@ class L10nEn extends L10n {
   String get recoveryExhaustedAction => 'Open settings';
 
   @override
+  String get recoveryVcRuntimeToast =>
+      'Voice service cannot start: a Windows component is missing (Microsoft Visual C++). Please install the Visual C++ Redistributable (x64) and restart WhisPaste.';
+
+  @override
+  String get recoveryVcRuntimeAction => 'Install';
+
+  @override
   String get modelAbiInfoToast => 'Reloading voice model — please wait.';
 
   @override

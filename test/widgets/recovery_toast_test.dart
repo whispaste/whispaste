@@ -19,10 +19,15 @@ import 'package:whispaste/widgets/recording_behavior.dart';
 import '../fixtures/test_helpers.dart';
 
 class _RecoveryHarness extends StatelessWidget {
-  const _RecoveryHarness({required this.kind, required this.openSettings});
+  const _RecoveryHarness({
+    required this.kind,
+    required this.openSettings,
+    this.installVcRuntime,
+  });
 
   final RecoveryToastKind kind;
   final void Function(String) openSettings;
+  final VoidCallback? installVcRuntime;
 
   @override
   Widget build(BuildContext context) {
@@ -33,6 +38,7 @@ class _RecoveryHarness extends StatelessWidget {
           l10n: L10n.of(context),
           kind: kind,
           openSettings: openSettings,
+          installVcRuntime: installVcRuntime,
         ),
         child: const Text('fire-recovery-toast'),
       ),
@@ -87,6 +93,48 @@ void main() {
         // the test — tapping the action dismisses the overlay but the
         // delayed-dismiss `Future.delayed` is still pending.
         await tester.pumpAndSettle(const Duration(seconds: 9));
+      },
+    );
+
+    testWidgets(
+      'vcRuntimeMissing: renders error toast + "Visual C++ installieren" '
+      'action that triggers the redist download on tap',
+      (tester) async {
+        var installTaps = 0;
+        final navTargets = <String>[];
+
+        await tester.pumpWidget(
+          makeTestable(
+            _RecoveryHarness(
+              kind: RecoveryToastKind.vcRuntimeMissing,
+              openSettings: navTargets.add,
+              installVcRuntime: () => installTaps++,
+            ),
+            locale: const Locale('de'),
+          ),
+        );
+
+        await tester.tap(find.text('fire-recovery-toast'));
+        await tester.pumpAndSettle();
+
+        expect(find.text(lDe.recoveryVcRuntimeToast), findsOneWidget);
+        expect(find.text(lDe.recoveryVcRuntimeAction), findsOneWidget);
+        expect(installTaps, 0);
+
+        await tester.tap(find.text(lDe.recoveryVcRuntimeAction));
+        await tester.pumpAndSettle();
+
+        expect(
+          installTaps,
+          1,
+          reason: 'Action must trigger the VC++ Redistributable download.',
+        );
+        // The VC++ toast must NOT navigate to settings — it is a distinct
+        // action from the generic exhausted toast.
+        expect(navTargets, isEmpty);
+
+        // Drain the toast's 10s auto-dismiss timer.
+        await tester.pumpAndSettle(const Duration(seconds: 11));
       },
     );
 

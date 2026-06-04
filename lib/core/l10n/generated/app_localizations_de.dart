@@ -2521,6 +2521,13 @@ class L10nDe extends L10n {
   String get recoveryExhaustedAction => 'Einstellungen öffnen';
 
   @override
+  String get recoveryVcRuntimeToast =>
+      'Sprachdienst kann nicht starten: eine Windows-Komponente fehlt (Microsoft Visual C++). Bitte installiere das Visual C++ Redistributable (x64) und starte WhisPaste neu.';
+
+  @override
+  String get recoveryVcRuntimeAction => 'Installieren';
+
+  @override
   String get modelAbiInfoToast => 'Lade Sprachmodell neu — bitte warten.';
 
   @override

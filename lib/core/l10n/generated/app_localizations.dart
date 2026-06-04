@@ -4497,6 +4497,18 @@ abstract class L10n {
   /// **'Open settings'**
   String get recoveryExhaustedAction;
 
+  /// No description provided for @recoveryVcRuntimeToast.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice service cannot start: a Windows component is missing (Microsoft Visual C++). Please install the Visual C++ Redistributable (x64) and restart WhisPaste.'**
+  String get recoveryVcRuntimeToast;
+
+  /// No description provided for @recoveryVcRuntimeAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Install'**
+  String get recoveryVcRuntimeAction;
+
   /// No description provided for @modelAbiInfoToast.
   ///
   /// In en, this message translates to:
