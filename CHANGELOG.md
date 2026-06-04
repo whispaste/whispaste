@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.34
+
+### Bug Fixes
+
+- **Auf alten NVIDIA-Karten (z. B. GeForce GTX 650) sagt die App jetzt klar, was fehlt, statt in einer Sackgasse zu enden.** Der v1.2.33-Fix hat den „Incompatible whisper-server"-Löschloop beendet — die Recovery bleibt nun dauerhaft auf dem CPU-Build. Damit wurde aber ein Folgefall sichtbar: Der ausgelieferte CPU-Build ist das Upstream-Asset `whisper-blas-bin-x64`, dessen Binaries dynamisch gegen die Microsoft-Visual-C++-Runtime linken — `whisper-server.exe` braucht `MSVCP140`/`VCRUNTIME140`/`VCRUNTIME140_1`, und `ggml-cpu.dll` zusätzlich die OpenMP-Runtime `VCOMP140.DLL`. Keine davon liegt im ZIP; sie stammen aus dem Visual C++ Redistributable, das auf vielen älteren/frischen Windows-Installationen fehlt (gerade die OpenMP-DLL). Folge: Der CPU-Server bricht mit `STATUS_DLL_NOT_FOUND` (`0xC0000135`) ab, die Recovery ist erschöpft, der Nutzer hängt fest (`FLUTTER_WHISPASTE-A0`). Neu: `ServerBinaryRecovery` erkennt einen `dllMissing`-Abbruch des CPU-Floors als fehlende VC++-Runtime und zeigt einen **actionable Toast** mit „Installieren"-Button, der den Download des **Visual C++ Redistributable (x64)** öffnet — statt der nutzlosen „App neu starten"-Meldung. Das Sentry-Event trägt jetzt ein `vc_runtime_missing`-Flag für eindeutige Triage.
+- **Der CPU-Fallback wird künftig self-contained ausgeliefert (Vorbereitung).** Ein neuer CI-Job `build-cpu-windows` packt das Upstream-BLAS-Asset zu `whisper-server-cpu-x64.zip` um und bündelt die vier benötigten Runtime-DLLs (`vcomp140`, `vcruntime140`, `vcruntime140_1`, `msvcp140`) app-local mit; das Manifest zeigt den `cpu`-Eintrag dann auf dieses eigene Artefakt statt auf das bare Upstream-ZIP. Wirksam nach dem nächsten `build-whisper-server`-Lauf, der das Manifest neu generiert — danach heilt sich der CPU-Floor auf jeder Maschine ohne separate Redist-Installation.
+
 ## 1.2.33
 
 ### Bug Fixes
