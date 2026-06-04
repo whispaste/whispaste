@@ -13,22 +13,38 @@
 set -euo pipefail
 
 if [[ $# -lt 2 ]]; then
-  echo "usage: $0 <whisper-server-tag> <whisper-cpp-release>" >&2
-  echo "  e.g. $0 whisper-server-v1.8.4.1 v1.8.4" >&2
+  echo "usage: $0 <whisper-server-tag> <whisper-cpp-release> [assets-dir]" >&2
+  echo "  e.g. $0 whisper-server-v1.8.4.1 v1.8.4 assets" >&2
   exit 2
 fi
 
 WHISPER_SERVER_TAG="$1"
 WHISPER_CPP_RELEASE="$2"
+# Directory holding the locally-staged WhisPaste build artifacts (the
+# *.zip files downloaded from the build jobs). Defaults to `assets`.
+ASSETS_DIR="${3:-assets}"
 GENERATED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
 # Asset name → (platform, arch, backend) projection. Tuples in this map
 # must stay in sync with the lookup keys used by WhisperBinarySelector.
 #
-# WhisPaste-built assets (one per CI matrix entry).
-WHISPASTE_ASSETS=$(gh api \
-  "/repos/whispaste/whispaste/releases/tags/${WHISPER_SERVER_TAG}" \
-  --jq '.assets // [] | map({name: .name, size_bytes: .size, url: .browser_download_url})')
+# WhisPaste-built assets are derived from the locally-staged ZIPs in
+# $ASSETS_DIR — NOT from `gh api` on the release. GitHub immutable releases
+# require every asset (including this manifest) to be part of the single
+# release-creation upload, so the manifest must be generated BEFORE the
+# release exists; we therefore cannot query the release's own assets here.
+# Download URLs are deterministic from the tag + filename; sizes come from
+# the staged files. This also removes the old CDN-propagation retry hack.
+emit_whispaste_rows() {
+  shopt -s nullglob
+  local f name size
+  for f in "$ASSETS_DIR"/*.zip; do
+    name="$(basename "$f")"
+    size="$(stat -c%s "$f")"
+    printf 'whispaste\t%s\t%s\thttps://github.com/whispaste/whispaste/releases/download/%s/%s\n' \
+      "$name" "$size" "$WHISPER_SERVER_TAG" "$name"
+  done
+}
 
 # Upstream whisper.cpp assets.
 UPSTREAM_ASSETS=$(gh api \
@@ -73,7 +89,7 @@ classify() {
 # Render the binaries array. Each line of the input arrives as
 # "<source>\t<name>\t<size>\t<url>".
 {
-  echo "$WHISPASTE_ASSETS" | jq -r '.[] | "whispaste\t\(.name)\t\(.size_bytes)\t\(.url)"'
+  emit_whispaste_rows
   echo "$UPSTREAM_ASSETS"  | jq -r '.[] | "upstream\t\(.name)\t\(.size_bytes)\t\(.url)"'
 } | while IFS=$'\t' read -r source name size url; do
   if classified=$(classify "$name" "$source"); then
