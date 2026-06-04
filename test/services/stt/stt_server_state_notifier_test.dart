@@ -456,6 +456,118 @@ void main() {
       final status = container.read(localSttBundleProvider);
       expect(status.serverState, SttServerState.stopped);
     });
+
+    test(
+      'heartbeat timeout on a GPU launch → CPU fallback + auto-restart to ready',
+      () async {
+        // FLUTTER_WHISPASTE-9W: a Vulkan build on a Kepler GeForce GTX 6xx /
+        // old AMD card initialises fully and then makes no progress — a hang,
+        // not an exit. The exit-code-only fallback (commit 33c6150f) never
+        // fires for a hang, so before this fix the GTX-650 user dead-ended in
+        // `error` and the working CPU floor was never tried. The stall path
+        // must now arm the one-shot CPU fallback and restart in CPU mode.
+        const hbConfig = SttStartupHeartbeatConfig(
+          window: Duration(milliseconds: 30),
+          maxMissedWindows: 3,
+        );
+
+        final hungProc = _FakeProcess();
+        final cpuProc = _FakeProcess();
+        final runner = _MultiStageRunner([hungProc, cpuProc]);
+
+        // `/health` is 503 for the first (hung GPU) launch and 200 once the
+        // CPU restart spawns the second process — keyed off the start count
+        // so we don't have to predict the random ports.
+        final client = MockClient((req) async {
+          if (req.url.path == '/health') {
+            return runner.startCallCount >= 2
+                ? http.Response('ok', 200)
+                : http.Response('not ready', 503);
+          }
+          if (req.url.path == '/inference') {
+            return http.Response('{"text":""}', 200);
+          }
+          return http.Response('not found', 404);
+        });
+
+        final container = _makeContainer(
+          runner: runner,
+          httpClient: client,
+          heartbeatConfig: hbConfig,
+          gpu: const hw.GpuInfo(
+            vendor: hw.GpuVendor.nvidia,
+            name: 'NVIDIA GeForce GTX 650',
+            cudaAvailable: true,
+            vulkanAvailable: true,
+          ),
+        );
+        addTearDown(() {
+          container.dispose();
+          hungProc.exit(0);
+          cpuProc.exit(0);
+        });
+
+        await container.read(settingsProvider.future);
+        // The hung process never emits stderr → heartbeat windows accumulate
+        // → _HeartbeatTimeoutException → CPU fallback → restart on cpuProc.
+        await container.read(localSttBundleProvider.notifier).ensureRunning();
+
+        final status = container.read(localSttBundleProvider);
+        expect(
+          status.serverState,
+          SttServerState.ready,
+          reason: 'CPU restart after the GPU hang must reach ready',
+        );
+        expect(
+          status.cpuFallbackActive,
+          isTrue,
+          reason: 'the surfaced status must flag the active CPU fallback',
+        );
+        expect(
+          runner.startCallCount,
+          2,
+          reason: 'the CPU fallback must spawn whisper-server a second time',
+        );
+      },
+    );
+
+    test(
+      'heartbeat timeout on a CPU-only host → error (no pointless fallback)',
+      () async {
+        // The flip side of the GPU-stall fallback: with no real GPU there is
+        // nothing to fall back *from*, so a stall stays an error rather than
+        // burning a restart on an identical CPU launch. Guards the
+        // `gpu.hasGpu` gate in [_tryStallCpuFallback].
+        const hbConfig = SttStartupHeartbeatConfig(
+          window: Duration(milliseconds: 30),
+          maxMissedWindows: 3,
+        );
+
+        final hungProc = _FakeProcess();
+        addTearDown(() => hungProc.exit(0));
+        final runner = _FakeProcessRunner(hungProc);
+        final container = _makeContainer(
+          runner: runner,
+          httpClient: _unhealthyClient(),
+          heartbeatConfig: hbConfig,
+          // Default GPU is `none` — but pin it explicitly for intent.
+          gpu: const hw.GpuInfo(vendor: hw.GpuVendor.none, name: 'Test CPU'),
+        );
+        addTearDown(container.dispose);
+
+        await container.read(settingsProvider.future);
+        await container.read(localSttBundleProvider.notifier).ensureRunning();
+
+        final status = container.read(localSttBundleProvider);
+        expect(status.serverState, SttServerState.error);
+        expect(status.cpuFallbackActive, isFalse);
+        expect(
+          runner.startCallCount,
+          1,
+          reason: 'a CPU-only host must not burn a second start on fallback',
+        );
+      },
+    );
   });
 
   group('SttServerStateNotifier — recovery hook', () {

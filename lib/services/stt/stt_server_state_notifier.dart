@@ -1357,8 +1357,18 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       // heartbeat-timeout shape (which fires on silent stalls); this
       // one is the long-load shape — e.g. layer-by-layer model load on
       // a thrashing disk where stderr ticks but the server is far
-      // from ready. Captured under its own fingerprint so the disk-
-      // pressure cluster is visible independently from silent stalls.
+      // from ready. On a GPU launch this is also a struggling-GPU shape,
+      // so give CPU one shot before surfacing an error (see
+      // [_tryStallCpuFallback]).
+      if (await _tryStallCpuFallback(
+        gpu: gpu,
+        gpuAcceleration: gpuAcceleration,
+        stallKind: 'startup deadline exceeded',
+      )) {
+        return;
+      }
+      // Captured under its own fingerprint so the disk-pressure cluster is
+      // visible independently from silent stalls.
       CrashReporter.instance?.captureError(
         message: 'whisper-server startup deadline exceeded: ${e.message}',
         severity: 'error',
@@ -1380,8 +1390,20 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       return;
     } on _HeartbeatTimeoutException catch (e) {
       // Server is alive but produces no progress on stderr — typically a
-      // model-load stall or a hang inside whisper.cpp. Sentry needs the
-      // stderr tail plus args/binary to even guess at the cause.
+      // model-load stall or a hang inside whisper.cpp. On a GPU launch the
+      // dominant field shape is a GPU backend that initialises fully and
+      // then makes no progress (FLUTTER_WHISPASTE-9W: the Vulkan build on a
+      // Kepler GTX 6xx / old AMD card allocates every compute buffer, then
+      // hangs). A hang has no exit code, so none of the exitCode-handler
+      // arms fire — give CPU exactly one shot before failing.
+      if (await _tryStallCpuFallback(
+        gpu: gpu,
+        gpuAcceleration: gpuAcceleration,
+        stallKind: 'heartbeat timeout',
+      )) {
+        return;
+      }
+      // Sentry needs the stderr tail plus args/binary to guess at the cause.
       CrashReporter.instance?.captureError(
         message: 'whisper-server heartbeat timeout: ${e.message}',
         severity: 'error',
@@ -1899,6 +1921,49 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
         );
         return;
     }
+  }
+
+  /// Arms the one-shot CPU fallback for a GPU launch that *stalled* during
+  /// startup — either a silent stall ([_HeartbeatTimeoutException]) or an
+  /// alive-but-never-ready stall ([_StartupDeadlineException]) — and kicks
+  /// off an immediate CPU restart.
+  ///
+  /// A stall produces no process exit code, so the `proc.exitCode` switch
+  /// (gpuFatal / heapCorruption / abnormal-exit arms) never runs and the
+  /// working CPU floor would otherwise never be tried. The field shape this
+  /// closes is FLUTTER_WHISPASTE-9W: a Vulkan build on a Kepler GeForce
+  /// GTX 6xx (or an old AMD card) that allocates all its compute buffers and
+  /// then hangs — the GTX-650 report where the exit-code-only fallback
+  /// (commit `33c6150f`) did not help.
+  ///
+  /// Returns `true` when the fallback was armed and a CPU restart kicked off
+  /// (the caller then returns without emitting a Sentry capture, matching
+  /// the "successful auto-recovery emits no Sentry event" convention).
+  /// Returns `false` — leaving the caller to capture + fail — when there is
+  /// no meaningful CPU fallback to make:
+  ///   - already in CPU fallback this session (`_gpuFallbackActive`), or
+  ///   - the launch was already CPU-only (`gpuAcceleration == 'disabled'`), or
+  ///   - the host has no real GPU (`!gpu.hasGpu`) — a stall there is a disk /
+  ///     model-load problem, not a GPU one, and `--no-gpu` would not change
+  ///     anything.
+  Future<bool> _tryStallCpuFallback({
+    required hw.GpuInfo gpu,
+    required String gpuAcceleration,
+    required String stallKind,
+  }) async {
+    final launchedOnGpu = gpuAcceleration != 'disabled';
+    if (_gpuFallbackActive || !launchedOnGpu || !gpu.hasGpu) return false;
+
+    _gpuFallbackActive = true;
+    // Warning, not error: a recovered stall is not a crash, and `_log.error`
+    // would auto-escalate into the catch-all Sentry bucket.
+    _log.warning(
+      'whisper-server $stallKind on "${gpu.name}" GPU launch — activating '
+      'one-shot CPU fallback and restarting in CPU mode.',
+    );
+    stop();
+    await _restartAfterRecovery(forceCpu: true);
+    return true;
   }
 
   /// Restarts the whisper-server after a successful recovery — clears any
