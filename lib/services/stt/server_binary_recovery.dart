@@ -92,19 +92,33 @@ class RecoveryFellBackToCpu extends RecoveryResult {
   String toString() => 'RecoveryFellBackToCpu';
 }
 
+/// Distinguishes *why* recovery exhausted so the caller can pick the
+/// right actionable toast. Most exhaustions are [generic] (restart / re-
+/// download). [vcRuntimeMissing] is the special case where the CPU floor
+/// build itself aborts with `STATUS_DLL_NOT_FOUND` — the machine is
+/// missing the Microsoft Visual C++ runtime the upstream BLAS build links
+/// against (notably `VCOMP140.DLL` / OpenMP), which no restart can fix.
+enum RecoveryExhaustedKind { generic, vcRuntimeMissing }
+
 /// No further fallback variant exists (already on CPU, or the generation
 /// counter saw the same variant retry twice). Caller should surface the
 /// [userMessage] to the user — this is the only path that emits a Sentry
 /// capture.
 class RecoveryExhausted extends RecoveryResult {
-  const RecoveryExhausted(this.userMessage);
+  const RecoveryExhausted(
+    this.userMessage, {
+    this.kind = RecoveryExhaustedKind.generic,
+  });
 
   /// User-facing message, vocabulary-compliant („Sprachdienst",
   /// „Sprachmodell" — never „STT" / „binary" / „Modell-Datei").
   final String userMessage;
 
+  /// Why we exhausted — drives the toast variant in the UI layer.
+  final RecoveryExhaustedKind kind;
+
   @override
-  String toString() => 'RecoveryExhausted($userMessage)';
+  String toString() => 'RecoveryExhausted($userMessage, kind=${kind.name})';
 }
 
 // ---------------------------------------------------------------------------
@@ -329,10 +343,25 @@ class ServerBinaryRecovery {
     required String? activeModelId,
     required String cause,
   }) {
+    // VC++-runtime case: the installed binary that just crashed *is* the
+    // CPU floor (`cpu` / `blas-bin`) and it died with STATUS_DLL_NOT_FOUND.
+    // The CPU build is the universal fallback, so there is no further
+    // variant to try — the real fault is a missing Microsoft Visual C++
+    // runtime DLL (the upstream BLAS build links MSVCP140 / VCRUNTIME140 /
+    // VCOMP140, none of which ship in the zip). A restart cannot fix this;
+    // the user must install the VC++ Redistributable. Detected on
+    // `current` alone (not the tried-set) so download/network failures
+    // while *fetching* the CPU floor stay on the generic message.
+    final isVcRuntimeMissing =
+        reason == RecoveryReason.dllMissing && _isCpuVariant(current);
+
     // PRD §UI-strings: vocabulary-compliant — „Sprachdienst" / „Sprachmodell".
-    const userMessage =
-        'Sprachdienst kann nicht starten. '
-        'Bitte App neu starten oder Sprachmodell neu laden.';
+    final userMessage = isVcRuntimeMissing
+        ? 'Sprachdienst kann nicht starten: eine Windows-Komponente fehlt '
+              '(Microsoft Visual C++). Bitte installiere das Visual C++ '
+              'Redistributable (x64) und starte WhisPaste neu.'
+        : 'Sprachdienst kann nicht starten. '
+              'Bitte App neu starten oder Sprachmodell neu laden.';
 
     CrashReporter.instance?.captureError(
       message:
@@ -350,10 +379,24 @@ class ServerBinaryRecovery {
         'tried_variants': _triedVariants.toList(growable: false),
         'active_model_id': activeModelId ?? '<none>',
         'platform': Platform.operatingSystem,
+        'vc_runtime_missing': isVcRuntimeMissing,
       },
     );
 
-    return const RecoveryExhausted(userMessage);
+    return RecoveryExhausted(
+      userMessage,
+      kind: isVcRuntimeMissing
+          ? RecoveryExhaustedKind.vcRuntimeMissing
+          : RecoveryExhaustedKind.generic,
+    );
+  }
+
+  /// Whether [variant] names the CPU floor build (`cpu` / `blas-bin`),
+  /// case-insensitively. Used to recognise a crashed CPU build, which is
+  /// the only variant that has no further fallback.
+  static bool _isCpuVariant(String? variant) {
+    final v = variant?.trim().toLowerCase();
+    return v == 'cpu' || v == 'blas-bin';
   }
 
   /// Maps [RecoveryReason] to a Sentry fingerprint constant from the

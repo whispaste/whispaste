@@ -849,6 +849,8 @@
 
   "recoveryExhaustedToast": "Sprachdienst kann nicht starten. Bitte App neu starten oder Sprachmodell neu laden.",
   "recoveryExhaustedAction": "Einstellungen öffnen",
+  "recoveryVcRuntimeToast": "Sprachdienst kann nicht starten: eine Windows-Komponente fehlt (Microsoft Visual C++). Bitte installiere das Visual C++ Redistributable (x64) und starte WhisPaste neu.",
+  "recoveryVcRuntimeAction": "Installieren",
   "modelAbiInfoToast": "Lade Sprachmodell neu — bitte warten.",
   "serverDownloadFailedToast": "Sprachdienst konnte nicht heruntergeladen werden. Internetverbindung prüfen?",
   "serverDownloadFailedAction": "Erneut versuchen",

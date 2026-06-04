@@ -883,6 +883,8 @@
 
   "recoveryExhaustedToast": "Voice service cannot start. Please restart the app or reload the voice model.",
   "recoveryExhaustedAction": "Open settings",
+  "recoveryVcRuntimeToast": "Voice service cannot start: a Windows component is missing (Microsoft Visual C++). Please install the Visual C++ Redistributable (x64) and restart WhisPaste.",
+  "recoveryVcRuntimeAction": "Install",
   "modelAbiInfoToast": "Reloading voice model — please wait.",
   "serverDownloadFailedToast": "Voice service could not be downloaded. Check your internet connection?",
   "serverDownloadFailedAction": "Try again",

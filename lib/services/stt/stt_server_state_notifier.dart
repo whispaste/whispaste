@@ -40,6 +40,7 @@ export '../../core/recording/recording_state.dart' show SttServerState;
 export 'server_binary_recovery.dart'
     show
         RecoveryExhausted,
+        RecoveryExhaustedKind,
         RecoveryFellBackToCpu,
         RecoveryReason,
         RecoveryResult,
@@ -1867,23 +1868,28 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
         _gpuFallbackActive = true;
         await _restartAfterRecovery(forceCpu: true);
         return;
-      case RecoveryExhausted(:final userMessage):
+      case RecoveryExhausted(:final userMessage, :final kind):
         // Warning instead of error: `ServerBinaryRecovery._exhaust`
         // already captured a dedicated Sentry event under the
         // reason-specific fingerprint. Auto-escalating here would only
         // emit a duplicate in the catch-all bucket.
         _log.warning('Recovery exhausted — surfacing actionable error state.');
-        // Push the actionable „Einstellungen öffnen" toast to the UI; the
-        // listener in `recording_behavior.dart` navigates to the
-        // `cloud_advanced_section` reset area on tap. The `ref.mounted`
-        // guard mirrors the `ref.invalidate` call below — without it, a
-        // recovery completing after the provider container has been torn
-        // down (test teardown, app shutdown) throws an async leak into a
-        // disposed Riverpod scope.
+        // Push the actionable toast to the UI; the listener in
+        // `recording_behavior.dart` navigates to the
+        // `cloud_advanced_section` reset area on tap (generic) or opens the
+        // VC++ Redistributable download (vcRuntimeMissing). The
+        // `ref.mounted` guard mirrors the `ref.invalidate` call below —
+        // without it, a recovery completing after the provider container
+        // has been torn down (test teardown, app shutdown) throws an async
+        // leak into a disposed Riverpod scope.
         if (ref.mounted) {
           ref
               .read(recoveryToastNotifierProvider.notifier)
-              .report(RecoveryToastKind.exhausted);
+              .report(
+                kind == RecoveryExhaustedKind.vcRuntimeMissing
+                    ? RecoveryToastKind.vcRuntimeMissing
+                    : RecoveryToastKind.exhausted,
+              );
         }
         _transition(
           SttStatus(

@@ -52,11 +52,12 @@ classify() {
   case "$lower" in
     *metal*arm64*) platform=macos;  arch=arm64; backend=metal   ;;
     *vulkan*x64*)  platform=windows; arch=x64;  backend=vulkan  ;;
+    *server-cpu*x64*) platform=windows; arch=x64; backend=cpu   ;; # WhisPaste self-contained CPU floor (bundles VC++ runtime) — FLUTTER_WHISPASTE-A0
     *cublas-12*x64*) platform=windows; arch=x64; backend=cuda12 ;;
     *cublas-11*x64*) ;; # legacy CUDA 11 — skip, app expects cuda12
-    *blas-bin*x64*)  platform=windows; arch=x64; backend=cpu    ;;
+    *blas-bin*x64*) ;;  # upstream BLAS build — superseded by the self-contained whispaste cpu asset (links VCOMP140/MSVCP140 which many machines lack)
     *blas-bin*win32*) ;; # 32-bit — skip
-    *bin-x64*) ;;        # plain CPU build — skip, blas-bin variant wins
+    *bin-x64*) ;;        # plain CPU build — skip, self-contained cpu variant wins
     *bin-win32*) ;;
     *xcframework*) ;;  # iOS, not desktop
     whispercpp.jar*) ;; # Java/Android, not desktop
