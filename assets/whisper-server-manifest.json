@@ -1,14 +1,22 @@
 {
   "schema_version": 1,
-  "whisper_server_tag": "whisper-server-v1.8.4.1",
+  "whisper_server_tag": "whisper-server-v1.8.4.3",
   "whisper_cpp_release": "v1.8.4",
-  "generated_at": "2026-05-27T16:13:31Z",
+  "generated_at": "2026-06-04T19:30:36Z",
   "binaries": [
+    {
+      "platform": "windows",
+      "arch": "x64",
+      "backend": "cpu",
+      "url": "https://github.com/whispaste/whispaste/releases/download/whisper-server-v1.8.4.3/whisper-server-cpu-x64.zip",
+      "size_bytes": 14873526,
+      "source": "whispaste"
+    },
     {
       "platform": "macos",
       "arch": "arm64",
       "backend": "metal",
-      "url": "https://github.com/whispaste/whispaste/releases/download/whisper-server-v1.8.4.1/whisper-server-metal-arm64.zip",
+      "url": "https://github.com/whispaste/whispaste/releases/download/whisper-server-v1.8.4.3/whisper-server-metal-arm64.zip",
       "size_bytes": 1255919,
       "source": "whispaste"
     },
@@ -16,17 +24,9 @@
       "platform": "windows",
       "arch": "x64",
       "backend": "vulkan",
-      "url": "https://github.com/whispaste/whispaste/releases/download/whisper-server-v1.8.4.1/whisper-server-vulkan-x64.zip",
-      "size_bytes": 17706652,
+      "url": "https://github.com/whispaste/whispaste/releases/download/whisper-server-v1.8.4.3/whisper-server-vulkan-x64.zip",
+      "size_bytes": 17718583,
       "source": "whispaste"
-    },
-    {
-      "platform": "windows",
-      "arch": "x64",
-      "backend": "cpu",
-      "url": "https://github.com/ggml-org/whisper.cpp/releases/download/v1.8.4/whisper-blas-bin-x64.zip",
-      "size_bytes": 16645654,
-      "source": "upstream"
     },
     {
       "platform": "windows",
