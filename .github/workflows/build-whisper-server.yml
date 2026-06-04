@@ -45,7 +45,10 @@ jobs:
     needs: validate-input
     permissions:
       contents: write
-    runs-on: windows-latest
+    # Pinned (not `windows-latest`): GitHub redirects `windows-latest` to the
+    # VS2026 image by 2026-06-15. Pinning to windows-2025 keeps the known-good
+    # toolchain stable across that migration.
+    runs-on: windows-2025
     steps:
       - uses: actions/checkout@v6
 
@@ -148,7 +151,11 @@ jobs:
     needs: validate-input
     permissions:
       contents: write
-    runs-on: windows-latest
+    # Pinned to windows-2025 for the same reason as the Vulkan job, and with
+    # extra weight here: this job harvests the VC++ redistributable DLLs from
+    # the runner's Visual Studio install via vswhere, so an unannounced VS2026
+    # image swap could move/rename those DLLs and silently break the CPU floor.
+    runs-on: windows-2025
     # Why this job exists (FLUTTER_WHISPASTE-A0):
     # The upstream `whisper-blas-bin-x64.zip` is the CPU floor every GPU
     # fallback ultimately drops to — but its binaries dynamically link the
@@ -397,14 +404,39 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          # If nothing changed (regenerated manifest is identical), skip.
-          if git diff --quiet -- assets/whisper-server-manifest.json; then
-            echo "Manifest already matches main — nothing to commit"
-            exit 0
-          fi
-          git add assets/whisper-server-manifest.json
-          git commit -m "chore(whisper-server): update manifest for ${{ inputs.whisper_tag }}${{ inputs.build_suffix }}"
-          # Push directly to main. Protected branches will reject; the
-          # workflow then needs `contents: write` and a branch-protection
-          # exemption for github-actions[bot] (or a deploy key).
-          git push origin HEAD:main
+
+          # The publish job checked out the *triggering* SHA (detached HEAD),
+          # which can be behind main after a 5–7 min build — a plain
+          # `git push HEAD:main` then dies with a non-fast-forward reject.
+          # The generated manifest lives in /tmp from the generate step, so we
+          # rebuild the commit directly on top of the current tip of main each
+          # attempt (always a single-commit fast-forward) and retry if main
+          # advances again between fetch and push. Discard the in-tree copy the
+          # generate step left modified so the first branch switch is clean.
+          git checkout -- assets/whisper-server-manifest.json 2>/dev/null || true
+
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git checkout -B main origin/main
+            cp /tmp/manifest.json assets/whisper-server-manifest.json
+
+            # If nothing changed (regenerated manifest is identical), skip.
+            if git diff --quiet -- assets/whisper-server-manifest.json; then
+              echo "Manifest already matches main — nothing to commit"
+              exit 0
+            fi
+
+            git add assets/whisper-server-manifest.json
+            git commit -m "chore(whisper-server): update manifest for ${{ inputs.whisper_tag }}${{ inputs.build_suffix }}"
+
+            # Push to main. Protected branches still require a
+            # github-actions[bot] exemption (or a deploy key) + contents: write.
+            if git push origin HEAD:main; then
+              echo "Manifest pushed to main (attempt $attempt)"
+              exit 0
+            fi
+            echo "Push rejected (attempt $attempt) — main advanced; retrying"
+          done
+
+          echo "::error::Could not push manifest to main after 3 attempts"
+          exit 1
