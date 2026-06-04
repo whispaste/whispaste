@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.35
+
+### Bug Fixes
+
+- **Hängende GPU-Sprachserver fallen jetzt auf die CPU zurück, statt in einer Sackgasse zu enden (alte NVIDIA-/AMD-Karten, z. B. GeForce GTX 650).** Die v1.2.32–v1.2.34-Fixes haben den CPU-Fallback an *Prozess-Exit-Codes* gehängt (`gpuFatal`/`heapCorruption`/abnormaler Exit). Auf einer Kepler-Karte stürzt der Vulkan-Build aber nicht zwingend ab — er **initialisiert vollständig (Modell geladen, alle Compute-Buffer allokiert) und macht dann keinen Fortschritt mehr**. Ein Hang erzeugt keinen Exit-Code, deshalb griff keiner der Exit-Code-Arme, und der `SttServerStateNotifier` lief über den Heartbeat-Timeout (`stt_heartbeat_timeout`) bzw. die Startup-Deadline (`stt_startup_deadline`) direkt in den `error`-State — der funktionierende CPU-Build wurde nie versucht (`FLUTTER_WHISPASTE-9W`). Neu: Beide Stall-Pfade lösen jetzt — wie die Exit-Code-Arme — den einmaligen CPU-Fallback aus und starten den Sprachserver sofort im CPU-Modus neu, abgesichert durch `gpu.hasGpu` (auf reinen CPU-Maschinen bleibt es korrekt beim Fehler, ohne sinnlosen Neustart) und durch `_gpuFallbackActive` gegen Schleifen. Damit erreicht der GTX-650-Fix endlich auch den Hang-Fall, den die bisherigen Exit-Code-Fixes offenließen.
+- **Erwartete Netzwerkfehler bei Update-Check und Server-/Modell-Download erzeugen keine Sentry-Events mehr.** Der Update-Check, der Manifest-Loader und der Download-Client laufen best-effort gegen Drittanbieter-Endpunkte, deren Fehler erwartet und bereits sauber behandelt sind (Fehler-State, Failover-Kette bzw. eigene fingerprinted Captures). Der `addSentry()`-Interceptor hat trotzdem jeden 5xx automatisch als Sentry-Event erfasst (Default-Range 500–599) — nutzloses Rauschen, das Free-Tier-Quota verbrennt und Download-Fehler doppelt meldete, entgegen der dokumentierten Absicht (`FLUTTER_WHISPASTE-72`). `captureFailedRequests` ist auf diesen Clients jetzt deaktiviert; Tracing-Spans und Breadcrumbs bleiben erhalten.
+
 ## 1.2.34
 
 ### Bug Fixes
