@@ -58,6 +58,35 @@ class _SocketExceptionInterceptor extends Interceptor {
   }
 }
 
+// ---------------------------------------------------------------------------
+// HttpClientAdapter that synthesises a fixed HTTP status (no real socket).
+// Lets us drive the *production* Dio config — including the `addSentry()`
+// FailedRequestInterceptor — against a 5xx response.
+// ---------------------------------------------------------------------------
+
+class _StatusCodeAdapter implements HttpClientAdapter {
+  _StatusCodeAdapter(this.statusCode);
+  final int statusCode;
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<List<int>>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    return ResponseBody.fromString(
+      '{"message":"simulated upstream failure"}',
+      statusCode,
+      headers: {
+        Headers.contentTypeHeader: [Headers.jsonContentType],
+      },
+    );
+  }
+
+  @override
+  void close({bool force = false}) {}
+}
+
 void main() {
   setUpAll(() async {
     await SentryFlutter.init((options) {
@@ -120,6 +149,42 @@ void main() {
       reason:
           'Update-check network failures must NOT escalate to Sentry. '
           'Observed events: '
+          '${_capturedEvents.map((e) => e.message?.formatted ?? e.throwable).toList()}',
+    );
+  });
+
+  test('checkForUpdate on GitHub 5xx via the PRODUCTION Dio config '
+      'WITHOUT capturing a Sentry event', () async {
+    // Exercises the real `buildUpdateDio()` — including its `addSentry()`
+    // interceptor — against a 503. With `captureFailedRequests` left at its
+    // default, the FailedRequestInterceptor (status range 500–599) would
+    // auto-capture this; the production config disables it. Guards the
+    // interceptor-path half of the Modul-6 contract that the catch-block
+    // fix alone did not cover (FLUTTER_WHISPASTE-72).
+    final productionDio = UpdateNotifier.buildUpdateDio()
+      ..httpClientAdapter = _StatusCodeAdapter(503);
+    UpdateNotifier.dioOverrideForTesting = productionDio;
+
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    await container.read(updateProvider.notifier).checkForUpdate();
+
+    final state = container.read(updateProvider);
+    expect(
+      state.phase,
+      UpdatePhase.error,
+      reason: 'a 5xx must still surface as a graceful error state',
+    );
+
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+
+    expect(
+      _capturedEvents,
+      isEmpty,
+      reason:
+          'A 5xx during the update check must NOT escalate to Sentry via the '
+          'addSentry() FailedRequestInterceptor. Observed events: '
           '${_capturedEvents.map((e) => e.message?.formatted ?? e.throwable).toList()}',
     );
   });

@@ -127,27 +127,42 @@ class UpdateNotifier extends Notifier<UpdateState> {
 
   @override
   UpdateState build() {
-    final override = dioOverrideForTesting;
-    if (override != null) {
-      _dio = override;
-    } else {
-      _dio = Dio(
-        BaseOptions(
-          connectTimeout: const Duration(seconds: 15),
-          receiveTimeout: const Duration(minutes: 5),
-          headers: {'User-Agent': appUserAgent},
-        ),
-      );
-      // Sentry MUST be the last interceptor added — see notes in
-      // http_model_fetcher.dart. Spans piggy-back on the active transaction's
-      // sample decision and respect the global `tracesSampleRate`.
-      _dio.addSentry();
-    }
+    _dio = dioOverrideForTesting ?? buildUpdateDio();
     ref.onDispose(() {
       _cancelToken?.cancel('disposed');
       _dio.close();
     });
     return const UpdateState();
+  }
+
+  /// Builds the Dio client used for update checks.
+  ///
+  /// Exposed for tests so the production Sentry-interceptor configuration is
+  /// exercised directly (the contract regression in
+  /// `update_service_no_sentry_test.dart`).
+  ///
+  /// Update-check failures — GitHub rate limits, captive portals, offline,
+  /// transient 5xx — are expected, fire on app start without user intent, and
+  /// run against a third-party API the user cannot influence.
+  /// [checkForUpdate] already surfaces them as a graceful error state, and
+  /// they must NOT become Sentry events (FLUTTER_WHISPASTE-72, reliability
+  /// sprint Modul 6). The catch-block fix only covered the explicit-capture
+  /// path; `addSentry()` would still auto-capture every 5xx through its
+  /// `captureFailedRequests` interceptor (default status range 500–599),
+  /// silently overriding that intent — so disable it for this client. Tracing
+  /// spans and request breadcrumbs are unaffected (they are installed by the
+  /// adapter/transformer that `addSentry` wraps regardless of this flag).
+  @visibleForTesting
+  static Dio buildUpdateDio() {
+    final dio = Dio(
+      BaseOptions(
+        connectTimeout: const Duration(seconds: 15),
+        receiveTimeout: const Duration(minutes: 5),
+        headers: {'User-Agent': appUserAgent},
+      ),
+    );
+    dio.addSentry(captureFailedRequests: false);
+    return dio;
   }
 
   // -----------------------------------------------------------------------

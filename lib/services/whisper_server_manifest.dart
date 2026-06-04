@@ -405,6 +405,12 @@ Dio _defaultDio() {
       headers: {'User-Agent': appUserAgent},
     ),
   );
-  dio.addSentry();
+  // `captureFailedRequests: false`: the loader deliberately walks a failover
+  // chain (raw → release-asset → bundled), swallowing each stage's failure in
+  // `_tryFetch` and moving on. Letting `addSentry()`'s interceptor auto-capture
+  // those intermediate 5xx (default range 500–599) would emit a Sentry event
+  // for an expected, fully-handled condition — the same zero-value noise the
+  // update-check client avoids. Tracing spans + breadcrumbs stay on.
+  dio.addSentry(captureFailedRequests: false);
   return dio;
 }
