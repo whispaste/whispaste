@@ -16,6 +16,7 @@ import '../../services/deploy_channel_service.dart';
 import '../../services/update_service.dart';
 import '../../widgets/brand_wordmark.dart';
 import '../../widgets/page_shell.dart';
+import 'diagnostics_report.dart';
 
 /// About page — app info, version, open-source links, support, credits,
 /// keyboard shortcuts, privacy, and system diagnostics.
@@ -881,18 +882,30 @@ class _CopyDiagnosticsButton extends StatefulWidget {
 
 class _CopyDiagnosticsButtonState extends State<_CopyDiagnosticsButton> {
   bool _copied = false;
+  bool _busy = false;
 
-  void _copy() {
-    final info = StringBuffer()
-      ..writeln('WhisPaste v$appVersion')
-      ..writeln(
-        'OS: ${Platform.operatingSystem} ${Platform.operatingSystemVersion}',
-      )
-      ..writeln('Dart: ${Platform.version}')
-      ..writeln('Locale: ${Platform.localeName}');
+  Future<void> _copy() async {
+    if (_busy) return;
+    setState(() => _busy = true);
 
-    Clipboard.setData(ClipboardData(text: info.toString()));
-    setState(() => _copied = true);
+    String report;
+    try {
+      report = await gatherDiagnosticsReport();
+    } on Object catch (e) {
+      // Never leave the user empty-handed — fall back to the minimal block.
+      report =
+          'WhisPaste v$appVersion\n'
+          'OS: ${Platform.operatingSystem} '
+          '${Platform.operatingSystemVersion}\n'
+          'Diagnose unvollstaendig: $e';
+    }
+
+    await Clipboard.setData(ClipboardData(text: report));
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _copied = true;
+    });
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) setState(() => _copied = false);
     });
