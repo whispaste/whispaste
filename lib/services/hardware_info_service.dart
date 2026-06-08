@@ -577,6 +577,65 @@ Future<void> deleteServerBinary(String sttDirPath) async {
   _log.info('Deleted $deleted server binary files from $sttDirPath');
 }
 
+/// The Microsoft Visual C++ runtime DLLs the CPU-floor (`cpu` / `blas-bin`)
+/// whisper-server build links against. None of these ship inside the binary
+/// zip; they come from the VC++ Redistributable (x64). The OpenMP runtime
+/// `vcomp140.dll` is part of the same redistributable but a separate file.
+const List<String> _vcRuntimeDllNames = <String>[
+  'vcruntime140.dll',
+  'vcruntime140_1.dll',
+  'msvcp140.dll',
+  'vcomp140.dll',
+];
+
+/// Whether *all* the Visual C++ runtime DLLs the CPU floor needs are
+/// resolvable on this system via the relevant parts of the Windows DLL
+/// search order: the binary's own directory ([sttDirPath]) and `System32`.
+///
+/// This exists to stop the recovery orchestrator from blaming a missing
+/// VC++ runtime purely because the CPU build died with STATUS_DLL_NOT_FOUND.
+/// A CPU build can fail that way for other reasons (a bundled `ggml-*.dll`
+/// that did not extract, a broken download, …) on a machine where the VC++
+/// runtime is in fact fully installed — sending the user to reinstall the
+/// redistributable then helps nothing and pollutes telemetry.
+///
+/// Non-Windows always returns `true`: STATUS_DLL_NOT_FOUND is a Windows exit
+/// code, so this probe is only meaningful there.
+bool vcRuntimeDllsPresent(String sttDirPath) {
+  if (!Platform.isWindows) return true;
+
+  final searchDirs = <String>[sttDirPath];
+  final systemRoot =
+      Platform.environment['SystemRoot'] ??
+      Platform.environment['WINDIR'] ??
+      r'C:\Windows';
+  searchDirs.add(p.join(systemRoot, 'System32'));
+
+  bool resolvable(String dll) =>
+      searchDirs.any((dir) => File(p.join(dir, dll)).existsSync());
+
+  return _vcRuntimeDllNames.every(resolvable);
+}
+
+/// Lists the file names present in [sttDirPath] (non-recursive), or an empty
+/// list when the directory is missing or unreadable. Captured into recovery
+/// telemetry so an exhausted-recovery event records exactly which binary and
+/// DLL files were on disk at the time — the single most useful datum for
+/// pinning down *which* dependency was actually missing.
+List<String> listServerDirFiles(String sttDirPath) {
+  try {
+    final dir = Directory(sttDirPath);
+    if (!dir.existsSync()) return const <String>[];
+    return dir
+        .listSync()
+        .whereType<File>()
+        .map((f) => p.basename(f.path))
+        .toList(growable: false);
+  } on FileSystemException {
+    return const <String>[];
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Windows detection
 // ---------------------------------------------------------------------------
