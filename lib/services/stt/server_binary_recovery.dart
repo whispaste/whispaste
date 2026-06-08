@@ -242,6 +242,7 @@ class ServerBinaryRecovery {
         gpu: gpu,
         current: current,
         activeModelId: activeModelId,
+        sttDirPath: sttDirPath,
         cause: 'no-fallback-variant-left',
       );
     }
@@ -260,6 +261,7 @@ class ServerBinaryRecovery {
         gpu: gpu,
         current: current,
         activeModelId: activeModelId,
+        sttDirPath: sttDirPath,
         cause: 'variant-already-tried-this-session',
       );
     }
@@ -290,6 +292,7 @@ class ServerBinaryRecovery {
         gpu: gpu,
         current: current,
         activeModelId: activeModelId,
+        sttDirPath: sttDirPath,
         cause: 'download-failed: $e',
       );
     }
@@ -308,6 +311,7 @@ class ServerBinaryRecovery {
         gpu: gpu,
         current: current,
         activeModelId: activeModelId,
+        sttDirPath: sttDirPath,
         cause: 'post-download-validation-failed',
       );
     }
@@ -341,19 +345,30 @@ class ServerBinaryRecovery {
     required hw.GpuInfo gpu,
     required String? current,
     required String? activeModelId,
+    required String sttDirPath,
     required String cause,
   }) {
     // VC++-runtime case: the installed binary that just crashed *is* the
     // CPU floor (`cpu` / `blas-bin`) and it died with STATUS_DLL_NOT_FOUND.
     // The CPU build is the universal fallback, so there is no further
-    // variant to try — the real fault is a missing Microsoft Visual C++
+    // variant to try. *One* possible fault is a missing Microsoft Visual C++
     // runtime DLL (the upstream BLAS build links MSVCP140 / VCRUNTIME140 /
-    // VCOMP140, none of which ship in the zip). A restart cannot fix this;
-    // the user must install the VC++ Redistributable. Detected on
-    // `current` alone (not the tried-set) so download/network failures
-    // while *fetching* the CPU floor stay on the generic message.
+    // VCRUNTIME140_1 / VCOMP140, none of which ship in the zip) — a restart
+    // cannot fix that; the user must install the VC++ Redistributable.
+    //
+    // But the variant name alone does NOT prove the runtime is missing: a
+    // CPU build can die with STATUS_DLL_NOT_FOUND on a machine where the
+    // VC++ runtime is fully installed (e.g. a bundled `ggml-*.dll` that did
+    // not extract). Field evidence (FLUTTER_WHISPASTE-A0: VC++ 14.51 present
+    // in System32, yet flagged vcRuntimeMissing) showed the old name-only
+    // heuristic produced false positives that sent users to reinstall a
+    // redistributable they already had. So we additionally probe the actual
+    // DLLs and only claim vcRuntimeMissing when they are genuinely absent.
+    final vcRuntimePresent = _store.vcRuntimePresent(sttDirPath);
     final isVcRuntimeMissing =
-        reason == RecoveryReason.dllMissing && _isCpuVariant(current);
+        reason == RecoveryReason.dllMissing &&
+        _isCpuVariant(current) &&
+        !vcRuntimePresent;
 
     // PRD §UI-strings: vocabulary-compliant — „Sprachdienst" / „Sprachmodell".
     final userMessage = isVcRuntimeMissing
@@ -379,7 +394,12 @@ class ServerBinaryRecovery {
         'tried_variants': _triedVariants.toList(growable: false),
         'active_model_id': activeModelId ?? '<none>',
         'platform': Platform.operatingSystem,
+        'vc_runtime_present': vcRuntimePresent,
         'vc_runtime_missing': isVcRuntimeMissing,
+        // What was actually on disk when recovery gave up — lets us see
+        // which binary/DLL files were present (or which one was missing)
+        // straight from the Sentry event, without a field round-trip.
+        'stt_dir_files': _store.listBinaryDirFiles(sttDirPath),
       },
     );
 
@@ -428,6 +448,16 @@ abstract class BinaryStore {
   /// Validates the binary in [sttDirPath] against [gpu].
   bool isCompatible(String sttDirPath, hw.GpuInfo gpu);
 
+  /// Whether the Visual C++ runtime DLLs the CPU floor links against are
+  /// present (binary directory + `System32`). Lets the orchestrator tell a
+  /// genuine missing-VC++-runtime fault apart from a CPU build that died
+  /// with STATUS_DLL_NOT_FOUND for some other reason. Non-Windows: `true`.
+  bool vcRuntimePresent(String sttDirPath);
+
+  /// File names present in [sttDirPath] — captured into the exhausted-
+  /// recovery telemetry so the event records what was actually on disk.
+  List<String> listBinaryDirFiles(String sttDirPath);
+
   /// Persists the post-recovery `.server-info.json` snapshot.
   ///
   /// [installedBackend] overrides what is written to the `backend` field
@@ -459,6 +489,14 @@ class _DefaultBinaryStore implements BinaryStore {
   @override
   bool isCompatible(String sttDirPath, hw.GpuInfo gpu) =>
       hw.isServerBinaryCompatible(sttDirPath, gpu);
+
+  @override
+  bool vcRuntimePresent(String sttDirPath) =>
+      hw.vcRuntimeDllsPresent(sttDirPath);
+
+  @override
+  List<String> listBinaryDirFiles(String sttDirPath) =>
+      hw.listServerDirFiles(sttDirPath);
 
   @override
   Future<void> writeServerInfo(

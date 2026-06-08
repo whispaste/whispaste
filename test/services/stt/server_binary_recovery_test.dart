@@ -59,10 +59,19 @@ class _FakeWhisperServerDownloader implements WhisperServerDownloader {
 /// the test pre-seed the current backend, "compatible-after-recovery"
 /// outcome, and inspect what was persisted.
 class _FakeBinaryStore implements BinaryStore {
-  _FakeBinaryStore({this.currentBackend, this.compatibleAfterRecovery = true});
+  _FakeBinaryStore({
+    this.currentBackend,
+    this.compatibleAfterRecovery = true,
+    this.vcRuntimeInstalled = true,
+  });
 
   String? currentBackend;
   bool compatibleAfterRecovery;
+
+  /// Drives [vcRuntimePresent]. Defaults to `true` — the common real case
+  /// (a modern Windows box with the VC++ Redistributable installed), which
+  /// is exactly the state that must NOT be misclassified as vcRuntimeMissing.
+  bool vcRuntimeInstalled;
 
   int deleteCalls = 0;
   int compatibilityCalls = 0;
@@ -82,6 +91,12 @@ class _FakeBinaryStore implements BinaryStore {
     compatibilityCalls += 1;
     return compatibleAfterRecovery;
   }
+
+  @override
+  bool vcRuntimePresent(String sttDirPath) => vcRuntimeInstalled;
+
+  @override
+  List<String> listBinaryDirFiles(String sttDirPath) => const <String>[];
 
   @override
   Future<void> writeServerInfo(
@@ -232,20 +247,67 @@ void main() {
       // server is launched in CPU mode; see SttServerStateNotifier.
     });
 
-    test('dllMissing + already on CPU floor → RecoveryExhausted '
-        'flagged vcRuntimeMissing with VC++ message', () async {
+    test(
+      'dllMissing + already on CPU floor + VC++ runtime ABSENT → '
+      'RecoveryExhausted flagged vcRuntimeMissing with VC++ message',
+      () async {
+        final downloader = _FakeWhisperServerDownloader();
+        // VC++ runtime genuinely missing on this box.
+        final store = _FakeBinaryStore(
+          currentBackend: 'cpu',
+          vcRuntimeInstalled: false,
+        );
+        final recovery = ServerBinaryRecovery(
+          downloader: downloader,
+          store: store,
+        );
+
+        // The installed CPU build itself aborts with STATUS_DLL_NOT_FOUND and
+        // the probe confirms the Microsoft Visual C++ runtime is absent (e.g.
+        // VCOMP140.DLL). No further variant exists, so recovery must exhaust —
+        // with the actionable VC++ kind rather than the generic message.
+        final result = await recovery.recover(
+          reason: RecoveryReason.dllMissing,
+          gpu: _cpuOnly,
+          sttDirPath: '/fake/stt',
+          activeModelId: 'whisper-small',
+        );
+
+        expect(result, isA<RecoveryExhausted>());
+        final exhausted = result as RecoveryExhausted;
+        expect(exhausted.kind, RecoveryExhaustedKind.vcRuntimeMissing);
+        expect(exhausted.userMessage, contains('Sprachdienst kann nicht'));
+        expect(exhausted.userMessage, contains('Visual C++'));
+        // Vocabulary check — never the anti-vocabulary terms.
+        expect(exhausted.userMessage, isNot(contains('Modell-Datei')));
+        expect(exhausted.userMessage, isNot(contains('STT')));
+        expect(exhausted.userMessage, isNot(contains('binary')));
+
+        expect(
+          downloader.calls,
+          isEmpty,
+          reason: 'exhausted path must not invoke download',
+        );
+      },
+    );
+
+    test('dllMissing + already on CPU floor but VC++ runtime PRESENT → '
+        'generic exhaustion, NOT vcRuntimeMissing (FLUTTER_WHISPASTE-A0 '
+        'false-positive regression)', () async {
       final downloader = _FakeWhisperServerDownloader();
-      final store = _FakeBinaryStore(currentBackend: 'cpu');
+      // The field case: VC++ runtime fully installed (System32 has VCRUNTIME140
+      // et al.), yet the CPU build still died with STATUS_DLL_NOT_FOUND — the
+      // real fault is some other DLL, NOT the redistributable. The old
+      // name-only heuristic wrongly told the user to reinstall VC++.
+      final store = _FakeBinaryStore(
+        currentBackend: 'cpu',
+        vcRuntimeInstalled: true,
+      );
       final recovery = ServerBinaryRecovery(
         downloader: downloader,
         store: store,
       );
 
-      // This is the FLUTTER_WHISPASTE-A0 scenario: the installed CPU
-      // build itself aborts with STATUS_DLL_NOT_FOUND because the machine
-      // lacks the Microsoft Visual C++ runtime (e.g. VCOMP140.DLL). No
-      // further variant exists, so recovery must exhaust — but with the
-      // actionable VC++ kind rather than the generic restart message.
       final result = await recovery.recover(
         reason: RecoveryReason.dllMissing,
         gpu: _cpuOnly,
@@ -255,13 +317,9 @@ void main() {
 
       expect(result, isA<RecoveryExhausted>());
       final exhausted = result as RecoveryExhausted;
-      expect(exhausted.kind, RecoveryExhaustedKind.vcRuntimeMissing);
-      expect(exhausted.userMessage, contains('Sprachdienst kann nicht'));
-      expect(exhausted.userMessage, contains('Visual C++'));
-      // Vocabulary check — never the anti-vocabulary terms.
-      expect(exhausted.userMessage, isNot(contains('Modell-Datei')));
-      expect(exhausted.userMessage, isNot(contains('STT')));
-      expect(exhausted.userMessage, isNot(contains('binary')));
+      expect(exhausted.kind, RecoveryExhaustedKind.generic);
+      // Must NOT send the user on a VC++ reinstall goose chase.
+      expect(exhausted.userMessage, isNot(contains('Visual C++')));
 
       expect(
         downloader.calls,
