@@ -1018,6 +1018,40 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       return;
     }
 
+    // ── Pre-launch dependency gate (Windows GPU builds) ────────────────────
+    // The installed GPU-variant binary imports a system loader DLL at LOAD
+    // time — `vulkan-1.dll` for the Vulkan build, the CUDA runtime for cuda —
+    // that the (statically linked) GGML backend needs but that is NOT bundled
+    // beside the binary. On a machine whose driver never shipped that loader
+    // (e.g. a Kepler GTX 6xx routed to the Vulkan build), spawning the binary
+    // aborts with STATUS_DLL_NOT_FOUND (0xC0000135) BEFORE it reads `--no-gpu`,
+    // so a same-binary CPU retry cannot help — FLUTTER_WHISPASTE-A0. Detect
+    // the unresolvable loader here and hand the variant swap to
+    // ServerBinaryRecovery (which drops to the dependency-free CPU/BLAS build)
+    // *before* the crash, rather than relying on the post-mortem exit
+    // classifier. The proactive `isServerBinaryCompatible` check above only
+    // matches backend-to-GPU-vendor; it does not verify the loader is present.
+    if (Platform.isWindows && gpuAcceleration != 'disabled') {
+      final missingLoader = hw.firstUnresolvableBackendLoaderDll(sttDir());
+      if (missingLoader != null) {
+        _log.warning(
+          'Pre-launch gate: GPU speech engine needs "$missingLoader" but the '
+          'system cannot resolve it — switching to the CPU build before launch '
+          'to avoid STATUS_DLL_NOT_FOUND.',
+        );
+        _process = null;
+        _activeModel = null;
+        unawaited(
+          _attemptRecovery(
+            reason: RecoveryReason.dllMissing,
+            gpu: gpu,
+            modelId: modelId,
+          ),
+        );
+        return;
+      }
+    }
+
     final threads = _threadCount(gpuAcceleration);
     final args = _serverArgs(
       modelPath: modelPath,
@@ -1037,12 +1071,15 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     }
 
     // Launch with the server binary's own directory as the working directory
-    // so whisper-server's runtime DLL resolution (ggml-cpu / ggml-blas /
-    // libopenblas, plus their VC++ deps) searches the folder the binary and
-    // its sibling DLLs actually live in. An MSIX-packaged launch that inherits
-    // the app's working directory (e.g. System32) cannot find these and aborts
-    // with STATUS_DLL_NOT_FOUND (0xC0000135) despite every DLL being present —
-    // FLUTTER_WHISPASTE-A0 (GTX 650 Kepler).
+    // so the variants that DO ship sibling DLLs (cuda: cublas64_12 / ggml-cuda;
+    // blas: ggml-blas / libopenblas) resolve them at runtime regardless of the
+    // inherited cwd. NOTE: this is defence-in-depth, not the FLUTTER_WHISPASTE-A0
+    // fix — the A0 STATUS_DLL_NOT_FOUND (0xC0000135) root cause is a missing
+    // *system* loader (vulkan-1.dll) for the GPU build, which no working
+    // directory can supply; that is handled by the pre-launch dependency gate
+    // above (`hw.firstUnresolvableBackendLoaderDll`). The smoke harness
+    // (`tools/win-smoke`) confirmed the model loads with cwd=System32 too, so
+    // the working directory alone was never the blocker.
     final serverDir = File(serverPath).parent.path;
 
     final Process proc;
