@@ -8,6 +8,7 @@ library;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:whispaste/features/about/diagnostics_report.dart';
+import 'package:whispaste/features/about/model_load_probe.dart';
 import 'package:whispaste/services/hardware_info_service.dart' as hw;
 
 void main() {
@@ -23,8 +24,16 @@ void main() {
         serverPath: r'C:\...\models\stt\whisper-server.exe',
         serverExists: true,
         serverBackend: 'cpu',
+        sttServerState: 'error',
+        sttErrorMessage: 'Sprachdienst kann das Sprachmodell nicht öffnen.',
         sttFiles: const ['whisper-server.exe', 'ggml.dll'],
         vcRuntimePresent: true,
+        modelLoadProbe: const ModelLoadProbeResult(
+          ran: true,
+          loaded: false,
+          exitCode: 3221225781,
+          stderrTail: ["whisper_init_from_file: failed to open 'model'"],
+        ),
         gpu: const hw.GpuInfo(
           vendor: hw.GpuVendor.nvidia,
           name: 'NVIDIA GeForce GTX 650',
@@ -40,7 +49,15 @@ void main() {
       expect(report, contains('Backend')); // optimalBackend label present
       expect(report, contains('vorhanden: ja'));
       expect(report, contains('backend: cpu'));
+      expect(report, contains('Status: error'));
+      expect(
+        report,
+        contains('letzter Fehler: Sprachdienst kann das Sprachmodell'),
+      );
       expect(report, contains('VC++-Runtime vorhanden: ja'));
+      expect(report, contains('Modell-Ladetest: FEHLER'));
+      expect(report, contains('0xC0000135'));
+      expect(report, contains('failed to open'));
       expect(report, contains('whisper-server.exe, ggml.dll'));
       expect(report, contains('--- letzte 2 Logzeilen ---'));
       expect(report, contains('line A'));
@@ -69,6 +86,8 @@ void main() {
         expect(report, contains('GPU: (nicht ermittelt)'));
         expect(report, contains('vorhanden: nein'));
         expect(report, isNot(contains('backend:')));
+        expect(report, isNot(contains('letzter Fehler:')));
+        expect(report, isNot(contains('Modell-Ladetest')));
         expect(report, isNot(contains('VC++-Runtime')));
         expect(report, contains('Sprachdienst-Dateien: (keine)'));
         // No log section when the tail is empty.

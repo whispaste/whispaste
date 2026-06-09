@@ -13,6 +13,7 @@ import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../services/deploy_channel_service.dart';
+import '../../services/stt/stt_bundle.dart';
 import '../../services/update_service.dart';
 import '../../widgets/brand_wordmark.dart';
 import '../../widgets/page_shell.dart';
@@ -77,11 +78,7 @@ class AboutPage extends ConsumerWidget {
                 isDark: isDark,
               ),
               _QuickAction(
-                icon: IconData(
-                  FontAwesomeIcons.github.codePoint,
-                  fontFamily: FontAwesomeIcons.github.fontFamily,
-                  fontPackage: FontAwesomeIcons.github.fontPackage,
-                ),
+                icon: FontAwesomeIcons.github.data,
                 label: l10n.aboutGitHub,
                 url: 'https://github.com/whispaste/whispaste',
                 isDark: isDark,
@@ -145,11 +142,7 @@ class AboutPage extends ConsumerWidget {
                 isDark: isDark,
               ),
               _SupportButton(
-                icon: IconData(
-                  FontAwesomeIcons.mugHot.codePoint,
-                  fontFamily: FontAwesomeIcons.mugHot.fontFamily,
-                  fontPackage: FontAwesomeIcons.mugHot.fontPackage,
-                ),
+                icon: FontAwesomeIcons.mugHot.data,
                 label: l10n.aboutKofi,
                 url: 'https://ko-fi.com/silviol',
                 isDark: isDark,
@@ -216,11 +209,7 @@ class AboutPage extends ConsumerWidget {
             isDark: isDark,
           ),
           _LinkRow(
-            icon: IconData(
-              FontAwesomeIcons.github.codePoint,
-              fontFamily: FontAwesomeIcons.github.fontFamily,
-              fontPackage: FontAwesomeIcons.github.fontPackage,
-            ),
+            icon: FontAwesomeIcons.github.data,
             label: l10n.aboutGitHubRepo,
             url: 'https://github.com/whispaste/whispaste',
             displayUrl: 'github.com/whispaste/whispaste',
@@ -872,15 +861,17 @@ class _LinkRowState extends State<_LinkRow> {
 
 // ─── Copy diagnostics button ─────────────────────────────────────────────────
 
-class _CopyDiagnosticsButton extends StatefulWidget {
+class _CopyDiagnosticsButton extends ConsumerStatefulWidget {
   const _CopyDiagnosticsButton({required this.isDark});
   final bool isDark;
 
   @override
-  State<_CopyDiagnosticsButton> createState() => _CopyDiagnosticsButtonState();
+  ConsumerState<_CopyDiagnosticsButton> createState() =>
+      _CopyDiagnosticsButtonState();
 }
 
-class _CopyDiagnosticsButtonState extends State<_CopyDiagnosticsButton> {
+class _CopyDiagnosticsButtonState
+    extends ConsumerState<_CopyDiagnosticsButton> {
   bool _copied = false;
   bool _busy = false;
 
@@ -888,9 +879,19 @@ class _CopyDiagnosticsButtonState extends State<_CopyDiagnosticsButton> {
     if (_busy) return;
     setState(() => _busy = true);
 
+    final stt = ref.read(localSttBundleProvider);
+
     String report;
     try {
-      report = await gatherDiagnosticsReport();
+      report = await gatherDiagnosticsReport(
+        sttServerState: stt.serverState.name,
+        sttErrorMessage: stt.errorMessage,
+        // Only run the real model-load probe when the server is not already
+        // up: if it's ready we know the model loads, and a second launch would
+        // load the model twice (RAM spike). The probe matters in the failure
+        // case, which is exactly when the server is not ready.
+        runModelProbe: stt.serverState != SttServerState.ready,
+      );
     } on Object catch (e) {
       // Never leave the user empty-handed — fall back to the minimal block.
       report =
@@ -935,17 +936,29 @@ class _CopyDiagnosticsButtonState extends State<_CopyDiagnosticsButton> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  _copied ? LucideIcons.checkCheck : LucideIcons.copy,
-                  size: WpIconSize.sm,
-                  color: _copied
-                      ? (widget.isDark
-                            ? WpColorsDark.success
-                            : WpColorsLight.success)
-                      : (widget.isDark
-                            ? WpColorsDark.textSecondary
-                            : WpColorsLight.textSecondary),
-                ),
+                if (_busy)
+                  SizedBox(
+                    width: WpIconSize.sm,
+                    height: WpIconSize.sm,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: widget.isDark
+                          ? WpColorsDark.textSecondary
+                          : WpColorsLight.textSecondary,
+                    ),
+                  )
+                else
+                  Icon(
+                    _copied ? LucideIcons.checkCheck : LucideIcons.copy,
+                    size: WpIconSize.sm,
+                    color: _copied
+                        ? (widget.isDark
+                              ? WpColorsDark.success
+                              : WpColorsLight.success)
+                        : (widget.isDark
+                              ? WpColorsDark.textSecondary
+                              : WpColorsLight.textSecondary),
+                  ),
                 const SizedBox(width: WpSpacing.xs),
                 Text(
                   _copied ? l10n.aboutCopied : l10n.aboutCopyDebugInfo,

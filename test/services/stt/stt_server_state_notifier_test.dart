@@ -62,12 +62,20 @@ class _FakeProcess implements Process {
 class _FakeProcessRunner extends ProcessRunner {
   final _FakeProcess process;
   int startCallCount = 0;
+  String? lastWorkingDirectory;
+  String? lastExecutable;
 
   _FakeProcessRunner(this.process);
 
   @override
-  Future<Process> start(String executable, List<String> arguments) async {
+  Future<Process> start(
+    String executable,
+    List<String> arguments, {
+    String? workingDirectory,
+  }) async {
     startCallCount++;
+    lastExecutable = executable;
+    lastWorkingDirectory = workingDirectory;
     return process;
   }
 }
@@ -82,7 +90,11 @@ class _MultiStageRunner extends ProcessRunner {
   int startCallCount = 0;
 
   @override
-  Future<Process> start(String executable, List<String> arguments) async {
+  Future<Process> start(
+    String executable,
+    List<String> arguments, {
+    String? workingDirectory,
+  }) async {
     startCallCount += 1;
     if (_queue.isEmpty) {
       throw StateError(
@@ -273,6 +285,39 @@ void main() {
       final status = container.read(localSttBundleProvider);
       expect(status.serverState, SttServerState.ready);
       expect(status.port, greaterThan(0));
+    });
+
+    test('whisper-server is launched with workingDirectory = its own dir '
+        '(DLL search path fix, FLUTTER_WHISPASTE-A0)', () async {
+      final fakeProcess = _FakeProcess();
+      final runner = _FakeProcessRunner(fakeProcess);
+      final container = _makeContainer(
+        runner: runner,
+        httpClient: _healthyClient(),
+        heartbeatConfig: const SttStartupHeartbeatConfig(
+          window: Duration(milliseconds: 50),
+          maxMissedWindows: 3,
+        ),
+      );
+      addTearDown(() {
+        container.dispose();
+        fakeProcess.exit(0);
+      });
+
+      await container.read(settingsProvider.future);
+      fakeProcess.emitStderr('[whisper] model loaded');
+      await container.read(localSttBundleProvider.notifier).ensureRunning();
+
+      // The server binary lives in the (overridden) stt dir; its working
+      // directory must be that same folder so whisper-server resolves its
+      // sibling ggml/BLAS/VC++ DLLs at runtime instead of inheriting the
+      // app's cwd (System32 under MSIX → STATUS_DLL_NOT_FOUND).
+      expect(runner.lastWorkingDirectory, isNotNull);
+      expect(
+        runner.lastWorkingDirectory,
+        File(runner.lastExecutable!).parent.path,
+      );
+      expect(runner.lastWorkingDirectory, tempDir.path);
     });
 
     test('stop() transitions to stopped', () async {
@@ -719,6 +764,64 @@ void main() {
         expect(status.errorMessage, contains('Sprachmodell'));
       },
     );
+
+    test('modelLoad exit with "failed to open" stderr → file-unreadable error, '
+        'NO binary recovery (FLUTTER_WHISPASTE-A0)', () async {
+      // Field repro: the GTX 650 Kepler box exits 3 because the server
+      // process cannot open the (present, SHA-intact) model file. That is a
+      // path/launch-context fault, not an ABI mismatch — the notifier must
+      // surface an honest error and must NOT hand the crash to
+      // ServerBinaryRecovery (a different binary variant cannot fix it).
+      final crashedProc = _FakeProcess();
+      final runner = _FakeProcessRunner(crashedProc);
+
+      // Recovery override that fails the test if it is ever invoked.
+      final recovery = _RecordingRecovery(
+        const RecoveryExhausted('should not be reached'),
+      );
+
+      final container = _makeContainer(
+        runner: runner,
+        httpClient: _healthyClient(),
+        heartbeatConfig: const SttStartupHeartbeatConfig(
+          window: Duration(milliseconds: 50),
+          maxMissedWindows: 3,
+        ),
+        recoveryOverride: recovery,
+      );
+      addTearDown(() {
+        container.dispose();
+        crashedProc.exit(0);
+      });
+
+      await container.read(settingsProvider.future);
+
+      final notifier = container.read(localSttBundleProvider.notifier);
+      unawaited(notifier.ensureRunning());
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      // whisper.cpp's real file-open failure line, then exit code 3.
+      crashedProc.emitStderr(
+        'whisper_init_from_file_with_params_no_state: failed to open '
+        "'C:\\Users\\maikg\\AppData\\Roaming\\WhisPaste\\models\\stt\\"
+        "ggml-small-q5_1.bin'",
+      );
+      crashedProc.emitStderr('error: failed to initialize whisper context');
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      crashedProc.exit(3);
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+
+      expect(
+        recovery.recoverCalls,
+        0,
+        reason: 'a file-open fault must NOT trigger binary recovery',
+      );
+
+      final status = container.read(localSttBundleProvider);
+      expect(status.serverState, SttServerState.error);
+      expect(status.errorMessage, contains('nicht öffnen'));
+      expect(status.errorMessage, contains('Debug-Informationen'));
+    });
   });
 
   group('SttServerStateNotifier — notify methods', () {

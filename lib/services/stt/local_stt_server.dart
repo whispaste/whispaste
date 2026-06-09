@@ -63,7 +63,16 @@ class LocalSttServer {
       ]);
     }
 
-    _process = await _processRunner.start(executablePath, args);
+    // Working directory = the binary's own folder so the variants that ship
+    // sibling ggml/BLAS DLLs resolve them at runtime. NOTE: this is not the
+    // FLUTTER_WHISPASTE-A0 fix — that STATUS_DLL_NOT_FOUND is a missing *system*
+    // loader (vulkan-1.dll) for the GPU build, handled by the pre-launch
+    // dependency gate in SttServerStateNotifier._start.
+    _process = await _processRunner.start(
+      executablePath,
+      args,
+      workingDirectory: File(executablePath).parent.path,
+    );
     _port = port;
   }
 

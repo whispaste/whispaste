@@ -47,4 +47,50 @@ void main() {
       expect(SttExitKind.values.length, 6);
     });
   });
+
+  group('classifyModelLoadFailure', () {
+    test(
+      'stderr "failed to open <model>" → fileUnreadable, not abiMismatch',
+      () {
+        // Field repro FLUTTER_WHISPASTE-A0 (GTX 650 Kepler): the server
+        // exits with code 3 but the real stderr is a file-open failure, not
+        // an ABI drift. The SHA-256 was verified intact moments before, so
+        // the old SHA-only heuristic mislabels this as a binary/model ABI
+        // mismatch and triggers a pointless vulkan→cpu binary fallback.
+        final stderr = <String>[
+          'whisper_init_from_file_with_params_no_state: failed to open '
+              r"'C:\Users\maikg\AppData\Roaming\WhisPaste\models\stt\"
+              "ggml-small-q5_1.bin'",
+          'error: failed to initialize whisper context',
+        ];
+        expect(
+          classifyModelLoadFailure(stderr),
+          ModelLoadFailureCause.fileUnreadable,
+        );
+      },
+    );
+
+    test('stderr without a file-open line → abiMismatch (default)', () {
+      final stderr = <String>['error: failed to initialize whisper context'];
+      expect(
+        classifyModelLoadFailure(stderr),
+        ModelLoadFailureCause.abiMismatch,
+      );
+    });
+
+    test('empty stderr → abiMismatch (no evidence of a file-access fault)', () {
+      expect(
+        classifyModelLoadFailure(const <String>[]),
+        ModelLoadFailureCause.abiMismatch,
+      );
+    });
+
+    test('match is case-insensitive and substring-based', () {
+      final stderr = <String>['WHISPER: FAILED TO OPEN model'];
+      expect(
+        classifyModelLoadFailure(stderr),
+        ModelLoadFailureCause.fileUnreadable,
+      );
+    });
+  });
 }

@@ -134,7 +134,7 @@ void main() {
       final f = InferenceErrorClassifier.classify(
         statusCode: 500,
         responseBody:
-            'error opening /Users/silvio/Documents/audio.wav for reading',
+            'error opening /Users/example/Documents/audio.wav for reading',
         context: _ctx(),
       );
       expect(f.redactedBody, 'error opening <path> for reading');
@@ -229,7 +229,7 @@ void main() {
         //
         // We can verify this by checking the redacted body contains '<path>'
         // even though a raw 200-char slice of the original would not.
-        final body = '${'x' * 199}/Users/silvio/Documents/audio.wav';
+        final body = '${'x' * 199}/Users/example/Documents/audio.wav';
         // Sanity: substring(0, 200) of the raw body would be 199 x + '/'.
         expect(body.substring(0, 200), '${'x' * 199}/');
 

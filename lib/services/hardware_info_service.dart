@@ -581,7 +581,7 @@ Future<void> deleteServerBinary(String sttDirPath) async {
 /// whisper-server build links against. None of these ship inside the binary
 /// zip; they come from the VC++ Redistributable (x64). The OpenMP runtime
 /// `vcomp140.dll` is part of the same redistributable but a separate file.
-const List<String> _vcRuntimeDllNames = <String>[
+const List<String> vcRuntimeDllNames = <String>[
   'vcruntime140.dll',
   'vcruntime140_1.dll',
   'msvcp140.dll',
@@ -614,7 +614,85 @@ bool vcRuntimeDllsPresent(String sttDirPath) {
   bool resolvable(String dll) =>
       searchDirs.any((dir) => File(p.join(dir, dll)).existsSync());
 
-  return _vcRuntimeDllNames.every(resolvable);
+  return vcRuntimeDllNames.every(resolvable);
+}
+
+/// System-provided loader DLLs each GPU-accelerated whisper-server build
+/// imports at *load time*, keyed by `.server-info.json` backend.
+///
+/// The GGML backend is statically linked into `whisper-server.exe`, so the
+/// only external GPU dependency is the platform loader the build links
+/// against: the Khronos Vulkan loader (`vulkan-1.dll`, shipped by the GPU
+/// driver) or the CUDA runtime. None of these ship beside the binary. On a
+/// machine whose driver never installed that loader — e.g. a Kepler GeForce
+/// GTX 6xx that the variant router sends to the Vulkan build — the process
+/// aborts at load time with `STATUS_DLL_NOT_FOUND` (`0xC0000135`) *before* it
+/// parses any argument. `--no-gpu` cannot prevent it, because the OS loader
+/// resolves the import before `main()` runs (FLUTTER_WHISPASTE-A0).
+///
+/// CPU / BLAS / Metal builds have no entry here — their only non-system
+/// dependency is the VC++ runtime, covered by [vcRuntimeDllsPresent].
+const Map<String, List<String>> backendLoaderDllNames = <String, List<String>>{
+  'vulkan': <String>['vulkan-1.dll'],
+  'cuda': <String>['cudart64_12.dll', 'cublas64_12.dll'],
+};
+
+/// Pure decision core of [firstUnresolvableBackendLoaderDll], exposed for
+/// testing so the backend→loader mapping can be exercised off Windows.
+///
+/// Returns the first DLL in [backend]'s loader set for which [resolve]
+/// returns `false`, or `null` when [backend] has no GPU-loader dependency
+/// (CPU / BLAS / Metal / unknown) or every dependency resolves.
+@visibleForTesting
+String? firstUnresolvableBackendLoaderDllFor({
+  required String? backend,
+  required bool Function(String dll) resolve,
+}) {
+  final b = backend?.trim().toLowerCase();
+  if (b == null || b.isEmpty) return null;
+  final required = backendLoaderDllNames[b];
+  if (required == null) return null;
+  for (final dll in required) {
+    if (!resolve(dll)) return dll;
+  }
+  return null;
+}
+
+/// Returns the first system loader DLL the installed GPU-variant binary in
+/// [sttDirPath] needs but the system cannot resolve, or `null` when every
+/// dependency resolves (or the installed variant has no GPU-loader dependency
+/// at all — CPU / BLAS / Metal, or a legacy install without
+/// `.server-info.json`).
+///
+/// Drives the pre-launch dependency gate in `SttServerStateNotifier._start`:
+/// catching the missing loader *before* the spawn lets the app switch to the
+/// dependency-free CPU build via `ServerBinaryRecovery` instead of crashing
+/// with `STATUS_DLL_NOT_FOUND` and recovering post-mortem — a same-binary
+/// `--no-gpu` retry cannot help, since the import is resolved regardless of
+/// that flag (FLUTTER_WHISPASTE-A0).
+///
+/// Resolution mirrors [vcRuntimeDllsPresent]: the binary's own directory plus
+/// `System32`. Non-Windows always returns `null` — `STATUS_DLL_NOT_FOUND` is a
+/// Windows-only failure mode.
+String? firstUnresolvableBackendLoaderDll(String sttDirPath) {
+  if (!Platform.isWindows) return null;
+
+  final backend = readServerBinaryInfo(sttDirPath)?['backend'] as String?;
+
+  final searchDirs = <String>[sttDirPath];
+  final systemRoot =
+      Platform.environment['SystemRoot'] ??
+      Platform.environment['WINDIR'] ??
+      r'C:\Windows';
+  searchDirs.add(p.join(systemRoot, 'System32'));
+
+  bool resolvable(String dll) =>
+      searchDirs.any((dir) => File(p.join(dir, dll)).existsSync());
+
+  return firstUnresolvableBackendLoaderDllFor(
+    backend: backend,
+    resolve: resolvable,
+  );
 }
 
 /// Lists the file names present in [sttDirPath] (non-recursive), or an empty
