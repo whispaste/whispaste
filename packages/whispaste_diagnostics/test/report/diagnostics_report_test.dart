@@ -6,11 +6,13 @@ library;
 
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:whispaste_diagnostics/src/analysis/dll_analysis.dart';
 import 'package:whispaste_diagnostics/src/analysis/verdict.dart';
 import 'package:whispaste_diagnostics/src/probes/av_quarantine_probe.dart';
 import 'package:whispaste_diagnostics/src/probes/hardware_probe.dart';
+import 'package:whispaste_diagnostics/src/probes/path_service.dart';
 import 'package:whispaste_diagnostics/src/probes/permissions_probe.dart';
 import 'package:whispaste_diagnostics/src/probes/settings_probe.dart';
 import 'package:whispaste_diagnostics/src/report/diagnostics_report.dart';
@@ -280,5 +282,110 @@ void main() {
       expect(report, isNot(contains(home)));
       expect(report, contains('<home>/tools/whispaste'));
     });
+  });
+
+  // -------------------------------------------------------------------------
+  // gatherDiagnosticsReport — MSIX standalone-fallback wiring (Slice 1)
+  //
+  // Drives the Windows-only MSIX-fallback branch cross-platform via the
+  // gatherer test seams (gatherIsWindowsOverride, gatherMsixDataRootResolver-
+  // Override) plus sttDirOverride. Asserts observable behaviour through the
+  // public gatherDiagnosticsReport interface:
+  //   - the effective STT directory's files are listed in the report (AC1)
+  //   - the variant label is 'Microsoft Store / MSIX' on fallback (AC4)
+  //   - no fallback when the regular STT dir exists, or when the resolver
+  //     returns null (AC2)
+  // -------------------------------------------------------------------------
+  group('gatherDiagnosticsReport — MSIX standalone-fallback wiring', () {
+    late Directory tmp;
+
+    setUp(() {
+      tmp = Directory.systemTemp.createTempSync('wd_msix_gather_');
+    });
+
+    tearDown(() {
+      // Reset all seams so no state leaks between tests (S2).
+      gatherIsWindowsOverride = null;
+      gatherMsixDataRootResolverOverride = null;
+      sttDirOverride = null;
+      localAppDataOverride = null;
+      if (tmp.existsSync()) tmp.deleteSync(recursive: true);
+    });
+
+    /// Builds a fake MSIX data root with `models/stt` containing a distinctive
+    /// marker file, and returns the root path.
+    String buildMsixRootWithStt() {
+      final root = p.join(tmp.path, 'LocalCache', 'Roaming', 'WhisPaste');
+      final stt = Directory(p.join(root, 'models', 'stt'))
+        ..createSync(recursive: true);
+      File(p.join(stt.path, 'ggml-msix-marker.bin')).writeAsStringSync('x');
+      return root;
+    }
+
+    test('AC1+AC4: regular STT dir absent + resolver yields a root → effective '
+        'STT dir is used AND variant is Microsoft Store / MSIX', () async {
+      // regularSttDir points at a non-existent path → fallback path taken.
+      sttDirOverride = p.join(tmp.path, 'does-not-exist', 'models', 'stt');
+      gatherIsWindowsOverride = true;
+      final msixRoot = buildMsixRootWithStt();
+      gatherMsixDataRootResolverOverride = () => msixRoot;
+
+      final report = await gatherDiagnosticsReport();
+
+      // AC1: the marker file living under the MSIX models/stt is reported.
+      expect(report, contains('ggml-msix-marker.bin'));
+      // AC4: the detected variant is the Store / MSIX build.
+      expect(report, contains('(Microsoft Store / MSIX)'));
+    });
+
+    test('AC2: regular STT dir present → fallback skipped, resolver not used, '
+        'variant stays the host installVariantLabel()', () async {
+      // A real, existing STT dir → regularExists == true → no fallback.
+      final realStt = Directory(p.join(tmp.path, 'real', 'models', 'stt'))
+        ..createSync(recursive: true);
+      File(
+        p.join(realStt.path, 'ggml-real-install.bin'),
+      ).writeAsStringSync('y');
+      sttDirOverride = realStt.path;
+      gatherIsWindowsOverride = true;
+
+      // Resolver would point at the MSIX marker root — but must NOT be called.
+      var resolverCalled = false;
+      gatherMsixDataRootResolverOverride = () {
+        resolverCalled = true;
+        return buildMsixRootWithStt();
+      };
+
+      final report = await gatherDiagnosticsReport();
+
+      expect(resolverCalled, isFalse);
+      // The real install's files are reported, not the MSIX marker.
+      expect(report, contains('ggml-real-install.bin'));
+      expect(report, isNot(contains('ggml-msix-marker.bin')));
+      // No MSIX override → variant is the host label (e.g. 'macos' off-Windows).
+      expect(report, isNot(contains('(Microsoft Store / MSIX)')));
+      expect(report, contains('(${installVariantLabel()})'));
+    });
+
+    test(
+      'AC2-edge: regular STT dir absent + resolver yields null → no fallback, '
+      'nominal path retained, variant stays installVariantLabel()',
+      () async {
+        sttDirOverride = p.join(tmp.path, 'empty', 'models', 'stt');
+        gatherIsWindowsOverride = true;
+        var resolverCalled = false;
+        gatherMsixDataRootResolverOverride = () {
+          resolverCalled = true;
+          return null; // no MSIX install discovered
+        };
+
+        final report = await gatherDiagnosticsReport();
+
+        expect(resolverCalled, isTrue);
+        expect(report, isNot(contains('ggml-msix-marker.bin')));
+        expect(report, isNot(contains('(Microsoft Store / MSIX)')));
+        expect(report, contains('(${installVariantLabel()})'));
+      },
+    );
   });
 }

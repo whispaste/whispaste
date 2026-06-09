@@ -7,6 +7,7 @@ library;
 
 import 'dart:io';
 
+import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
 
 import '../analysis/dll_analysis.dart';
@@ -24,7 +25,12 @@ import '../probes/settings_probe.dart';
 export '../probes/gpu_info.dart'
     show GpuInfo, GpuVendor, detectGpu, cachedGpuInfo;
 export '../probes/path_service.dart'
-    show appDataDir, sttDir, whisperServerPath, sttModelPath;
+    show
+        appDataDir,
+        sttDir,
+        whisperServerPath,
+        sttModelPath,
+        resolveMsixFallbackDataRoot;
 
 // ---------------------------------------------------------------------------
 // ModelLoadProbeResult — inline definition for the core
@@ -290,6 +296,20 @@ String formatDiagnosticsReport({
 // Gatherer
 // ---------------------------------------------------------------------------
 
+/// Test seam: forces the platform branch of [gatherDiagnosticsReport]. The
+/// MSIX-fallback logic is Windows-only in production, but the branch must be
+/// exercisable cross-platform (the CI host is macOS/Linux). When non-null this
+/// overrides [Platform.isWindows] inside the gatherer. Production leaves it null.
+@visibleForTesting
+bool? gatherIsWindowsOverride;
+
+/// Test seam: injects the MSIX fallback resolver used by
+/// [gatherDiagnosticsReport]. Production uses [resolveMsixFallbackDataRoot]
+/// (which performs real disk I/O); tests pass a stub returning a fixed root or
+/// null so the AC1/AC2/AC4 wiring is driven without touching the file system.
+@visibleForTesting
+String? Function()? gatherMsixDataRootResolverOverride;
+
 /// Gathers live environment data and returns the formatted diagnostics block.
 /// Best-effort: any single probe failing degrades that line rather than
 /// throwing, so the caller always gets *something* useful.
@@ -304,7 +324,28 @@ Future<String> gatherDiagnosticsReport({
   ModelLoadProbeResult? modelLoadProbe,
   String? logFilePath,
 }) async {
-  final sttDirPath = sttDir();
+  // On Windows, if the regular AppData/WhisPaste tree is empty (MSIX install
+  // running outside the container), fall back to the MSIX LocalCache root.
+  // We compute the effective STT directory directly here — no global mutation.
+  final isWindows = gatherIsWindowsOverride ?? Platform.isWindows;
+  String? msixDataRoot;
+  String? effectiveSttDirPath;
+  if (isWindows) {
+    // sttDir() honours sttDirOverride (test seam); use it to get the nominal path.
+    final regularSttDir = sttDir();
+    final regularExists = Directory(regularSttDir).existsSync();
+    if (!regularExists) {
+      final resolve =
+          gatherMsixDataRootResolverOverride ??
+          () => resolveMsixFallbackDataRoot();
+      msixDataRoot = resolve();
+      if (msixDataRoot != null) {
+        effectiveSttDirPath = p.join(msixDataRoot, 'models', 'stt');
+      }
+    }
+  }
+
+  final sttDirPath = effectiveSttDirPath ?? sttDir();
 
   GpuInfo? gpu;
   try {
@@ -313,7 +354,15 @@ Future<String> gatherDiagnosticsReport({
     gpu = null;
   }
 
-  final serverPath = whisperServerPath();
+  // When the effective STT dir was overridden (MSIX fallback), compute the
+  // server path from the effective dir directly instead of the global helper
+  // (which would use the nominal, potentially empty, appDataDir).
+  final serverPath = effectiveSttDirPath != null
+      ? p.join(
+          effectiveSttDirPath,
+          Platform.isWindows ? 'whisper-server.exe' : 'whisper-server',
+        )
+      : whisperServerPath();
   final serverExists = File(serverPath).existsSync();
 
   String? backend;
@@ -358,9 +407,17 @@ Future<String> gatherDiagnosticsReport({
     device = null;
   }
 
+  // When an MSIX data root was found, read the log from its logs/ sub-dir
+  // unless the caller has already supplied an explicit path.
+  final effectiveLogFilePath =
+      logFilePath ??
+      (msixDataRoot != null
+          ? p.join(msixDataRoot, 'logs', 'whispaste.log')
+          : null);
+
   List<String> logLines;
   try {
-    logLines = readFullLog(logFilePath: logFilePath).lines;
+    logLines = readFullLog(logFilePath: effectiveLogFilePath).lines;
   } on Object {
     logLines = const <String>[];
   }
@@ -388,9 +445,19 @@ Future<String> gatherDiagnosticsReport({
     verdict = null;
   }
 
+  // Determine the install-variant label.
+  // installVariantLabel() detects MSIX by checking whether the current
+  // executable lives inside WindowsApps — this works for the packaged app but
+  // the standalone Diagnose EXE is never in WindowsApps. When we resolved an
+  // MSIX data root, the installed WhisPaste is a Store / MSIX build, so we
+  // override the label accordingly.
+  final variant = msixDataRoot != null
+      ? 'Microsoft Store / MSIX'
+      : installVariantLabel();
+
   return formatDiagnosticsReport(
     version: _resolveVersion(),
-    variant: installVariantLabel(),
+    variant: variant,
     osVersion: '${Platform.operatingSystem} ${Platform.operatingSystemVersion}',
     dartVersion: Platform.version,
     locale: Platform.localeName,

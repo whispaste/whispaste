@@ -1,4 +1,5 @@
-/// Unit tests for the MSIX child-process path de-virtualization core.
+/// Unit tests for the MSIX child-process path de-virtualization core and the
+/// MSIX standalone data-root discovery (Slice 1).
 ///
 /// Regression coverage for FLUTTER_WHISPASTE-A0 (GTX 650 / Microsoft Store
 /// build): the spawned, non-packaged whisper-server child does not inherit the
@@ -146,6 +147,121 @@ void main() {
       );
       expect(result, contains(r'\LocalCache\Roaming\WhisPaste'));
       expect(result, endsWith(r'\models\stt\m.bin'));
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // msixLocalCacheCandidatesFor — pure path builder
+  // ---------------------------------------------------------------------------
+
+  group('msixLocalCacheCandidatesFor', () {
+    test('returns candidates only for entries with the WhisPaste prefix', () {
+      final candidates = msixLocalCacheCandidatesFor(
+        localAppData: _localAppData,
+        packageDirNames: [
+          '12342SilvioLindstedt.WhisPaste_1.2.37.0_x64__phagqa3gq04kr',
+          'Microsoft.WindowsStore_22306.1401.6.0_x64__8wekyb3d8bbwe',
+          '12342SilvioLindstedt.WhisPaste_1.2.36.0_x64__phagqa3gq04kr',
+        ],
+      );
+      expect(candidates, hasLength(2));
+      expect(
+        candidates.every(
+          (c) => c.contains(r'\Packages\12342SilvioLindstedt.WhisPaste'),
+        ),
+        isTrue,
+      );
+      expect(
+        candidates.every((c) => c.endsWith(r'\LocalCache\Roaming\WhisPaste')),
+        isTrue,
+      );
+    });
+
+    test('returns empty list when no WhisPaste entries are present', () {
+      final candidates = msixLocalCacheCandidatesFor(
+        localAppData: _localAppData,
+        packageDirNames: [
+          'Microsoft.WindowsStore_22306.1401.6.0_x64__8wekyb3d8bbwe',
+          'Microsoft.Windows.Photos_2024.11090.15001.0_x64__8wekyb3d8bbwe',
+        ],
+      );
+      expect(candidates, isEmpty);
+    });
+
+    test('is case-insensitive on the prefix match', () {
+      final candidates = msixLocalCacheCandidatesFor(
+        localAppData: _localAppData,
+        packageDirNames: [
+          '12342SILVIOLINDSTEDT.WHISPASTE_1.2.37.0_x64__phagqa3gq04kr',
+        ],
+      );
+      expect(candidates, hasLength(1));
+    });
+
+    test('returns empty list for empty package dir names', () {
+      final candidates = msixLocalCacheCandidatesFor(
+        localAppData: _localAppData,
+        packageDirNames: const [],
+      );
+      expect(candidates, isEmpty);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // selectMsixDataRoot — pure selection function (table tests, AC3)
+  // ---------------------------------------------------------------------------
+
+  group('selectMsixDataRoot', () {
+    const rootA =
+        r'C:\Users\maikg\AppData\Local\Packages'
+        r'\12342SilvioLindstedt.WhisPaste_1.2.36.0_x64__phagqa3gq04kr'
+        r'\LocalCache\Roaming\WhisPaste';
+
+    const rootB =
+        r'C:\Users\maikg\AppData\Local\Packages'
+        r'\12342SilvioLindstedt.WhisPaste_1.2.37.0_x64__phagqa3gq04kr'
+        r'\LocalCache\Roaming\WhisPaste';
+
+    test('returns the matching candidate when exactly one has models\\stt', () {
+      final result = selectMsixDataRoot([
+        rootA,
+        rootB,
+      ], hasSttSubdir: (root) => root == rootB);
+      expect(result, rootB);
+    });
+
+    test('returns null when no candidate has models\\stt', () {
+      final result = selectMsixDataRoot([
+        rootA,
+        rootB,
+      ], hasSttSubdir: (_) => false);
+      expect(result, isNull);
+    });
+
+    test('returns null when candidates list is empty', () {
+      final result = selectMsixDataRoot(const [], hasSttSubdir: (_) => true);
+      expect(result, isNull);
+    });
+
+    test('when multiple candidates match, returns the first in list order '
+        '(deterministic choice)', () {
+      final result = selectMsixDataRoot(
+        [rootA, rootB],
+        hasSttSubdir: (_) => true, // both match
+      );
+      expect(result, rootA); // first wins
+    });
+
+    test('single candidate that matches is returned directly', () {
+      final result = selectMsixDataRoot([
+        rootA,
+      ], hasSttSubdir: (root) => root == rootA);
+      expect(result, rootA);
+    });
+
+    test('single candidate that does not match returns null', () {
+      final result = selectMsixDataRoot([rootA], hasSttSubdir: (_) => false);
+      expect(result, isNull);
     });
   });
 }
