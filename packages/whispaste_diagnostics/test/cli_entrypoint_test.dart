@@ -103,6 +103,36 @@ void main() {
         equals(2),
       );
     });
+
+    test('deliveryStep is called with the zip path after writing', () async {
+      String? capturedZip;
+      Future<void> fakeDelivery(String zipPath) async {
+        capturedZip = zipPath;
+      }
+
+      final returnedZip = await buildAndWriteReport(
+        outputDir: tempDir.path,
+        reportProducer: () async => 'delivery-seam test',
+        deliveryStep: fakeDelivery,
+      );
+
+      expect(capturedZip, isNotNull, reason: 'deliveryStep must be called');
+      expect(capturedZip, equals(returnedZip));
+      expect(capturedZip, endsWith('.zip'));
+    });
+
+    test('deliveryStep is NOT called when null (CI mode)', () async {
+      // Omitting deliveryStep means the ZIP is still written but no delivery
+      // occurs. We verify the zip file is still produced (smoke check).
+      final returnedZip = await buildAndWriteReport(
+        outputDir: tempDir.path,
+        reportProducer: () async => 'no delivery',
+        // deliveryStep omitted → null: no Finder/mail launch
+      );
+
+      expect(returnedZip, endsWith('.zip'));
+      expect(File(returnedZip).existsSync(), isTrue);
+    });
   });
 
   group('resolveDesktopPath', () {
