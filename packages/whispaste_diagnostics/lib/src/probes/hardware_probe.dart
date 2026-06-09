@@ -403,29 +403,39 @@ Future<HardwareProbeResult> gatherHardwareProbe({GpuInfo? gpuInfo}) async {
       ]).timeout(const Duration(seconds: 5));
       if (r5.exitCode == 0) dfRaw = r5.stdout.toString();
     } else if (Platform.isWindows) {
-      final r1 = await Process.run('wmic', [
-        'os',
-        'get',
-        'TotalVisibleMemorySize',
-        '/Value',
-      ]).timeout(const Duration(seconds: 8));
-      if (r1.exitCode == 0) ramTotalRaw = r1.stdout.toString();
+      // `wmic` was removed in Windows 11 24H2 (build 26200+). Use PowerShell
+      // CIM instead, emitting the same `Key=Value` lines the existing parsers
+      // already understand (parseWmicFreeMemoryMb / parseWmicCpuInfo /
+      // _parseWmicTotalMemoryMb), so no parser change is needed.
+      Future<String?> runPs(String script) async {
+        try {
+          final r = await Process.run('powershell', [
+            '-NoProfile',
+            '-NonInteractive',
+            '-Command',
+            script,
+          ]).timeout(const Duration(seconds: 12));
+          return r.exitCode == 0 ? r.stdout.toString() : null;
+        } on Object {
+          return null;
+        }
+      }
 
-      final r2 = await Process.run('wmic', [
-        'os',
-        'get',
-        'FreePhysicalMemory',
-        '/Value',
-      ]).timeout(const Duration(seconds: 8));
-      if (r2.exitCode == 0) ramFreeRaw = r2.stdout.toString();
+      // One CIM call yields both RAM figures; feed the same buffer to both
+      // raws since each parser greps only its own key.
+      final ramRaw = await runPs(
+        r"$o=Get-CimInstance Win32_OperatingSystem;"
+        r"Write-Output ('TotalVisibleMemorySize=' + $o.TotalVisibleMemorySize);"
+        r"Write-Output ('FreePhysicalMemory=' + $o.FreePhysicalMemory)",
+      );
+      ramTotalRaw = ramRaw;
+      ramFreeRaw = ramRaw;
 
-      final r3 = await Process.run('wmic', [
-        'cpu',
-        'get',
-        'name,NumberOfLogicalProcessors',
-        '/Value',
-      ]).timeout(const Duration(seconds: 8));
-      if (r3.exitCode == 0) cpuModelRaw = r3.stdout.toString();
+      cpuModelRaw = await runPs(
+        r"$c=Get-CimInstance Win32_Processor | Select-Object -First 1;"
+        r"Write-Output ('Name=' + $c.Name);"
+        r"Write-Output ('NumberOfLogicalProcessors=' + $c.NumberOfLogicalProcessors)",
+      );
     }
   } catch (_) {
     // Best-effort — callers get null fields on any failure.
