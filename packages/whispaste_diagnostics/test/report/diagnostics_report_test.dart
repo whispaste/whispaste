@@ -4,7 +4,15 @@
 /// tests, verifying the formatter works identically from the pure-Dart core.
 library;
 
+import 'dart:io';
+
 import 'package:test/test.dart';
+import 'package:whispaste_diagnostics/src/analysis/dll_analysis.dart';
+import 'package:whispaste_diagnostics/src/analysis/verdict.dart';
+import 'package:whispaste_diagnostics/src/probes/av_quarantine_probe.dart';
+import 'package:whispaste_diagnostics/src/probes/hardware_probe.dart';
+import 'package:whispaste_diagnostics/src/probes/permissions_probe.dart';
+import 'package:whispaste_diagnostics/src/probes/settings_probe.dart';
 import 'package:whispaste_diagnostics/src/report/diagnostics_report.dart';
 
 void main() {
@@ -107,6 +115,170 @@ void main() {
   group('installVariantLabel', () {
     test('returns a non-empty string', () {
       expect(installVariantLabel(), isNotEmpty);
+    });
+  });
+
+  group('formatDiagnosticsReport — extended sections (slices 2+3)', () {
+    String baseReport({
+      String? deviceId,
+      HardwareProbeResult? hardware,
+      PermissionsProbeResult? permissions,
+      AvQuarantineResult? avQuarantine,
+      SettingsSnapshotResult? settings,
+      bool settingsUnavailable = false,
+      VerdictResult? verdict,
+      List<String> logTail = const <String>[],
+      bool fullLogs = false,
+      String executablePath = '/opt/whispaste',
+    }) {
+      return formatDiagnosticsReport(
+        version: '1.2.36',
+        variant: 'macos',
+        osVersion: 'macos 26.5',
+        dartVersion: 'Dart 3.12.1',
+        locale: 'de-DE',
+        executablePath: executablePath,
+        serverPath: '/srv/whisper-server',
+        serverExists: true,
+        sttFiles: const ['whisper-server'],
+        logTail: logTail,
+        fullLogs: fullLogs,
+        deviceId: deviceId,
+        hardware: hardware,
+        permissions: permissions,
+        avQuarantine: avQuarantine,
+        settings: settings,
+        settingsUnavailable: settingsUnavailable,
+        verdict: verdict,
+      );
+    }
+
+    test('renders the Sentry device_id', () {
+      final report = baseReport(deviceId: 'abc123def456');
+      expect(report, contains('Geräte-ID (Sentry): abc123def456'));
+    });
+
+    test('renders full hardware with RAM-scarcity marker', () {
+      final report = baseReport(
+        hardware: const HardwareProbeResult(
+          ramTotalMb: 4096,
+          ramFreeMb: 1024,
+          ramScarce: true,
+          cpuModel: 'Apple M5',
+          cpuCores: 10,
+          gpuName: 'Apple M5',
+          gpuVramMb: 16384,
+          diskFreeMb: 250000,
+        ),
+      );
+      expect(report, contains('RAM: 4096 MB gesamt'));
+      expect(report, contains('1024 MB frei'));
+      expect(report, contains('knapp')); // §6.6 scarcity marker
+      expect(report, contains('CPU: Apple M5 (10 Kerne)'));
+      expect(report, contains('Freier Speicher: 250000 MB'));
+    });
+
+    test('renders permissions incl. stale-TCC', () {
+      final report = baseReport(
+        permissions: const PermissionsProbeResult(
+          macosAccessibilityGranted: false,
+          macosAccessibilityStale: true,
+          macosAppleEventsGranted: true,
+          macosAppleEventsStale: false,
+          macosMicGranted: true,
+          windowsMicAllowed: null,
+        ),
+      );
+      expect(report, contains('Berechtigungen:'));
+      expect(report, contains('Accessibility'));
+      expect(report, contains('stale')); // stale-TCC surfaced
+    });
+
+    test('permissions section notes when nothing could be determined', () {
+      final report = baseReport(
+        permissions: const PermissionsProbeResult(
+          macosAccessibilityGranted: null,
+          macosAccessibilityStale: null,
+          macosAppleEventsGranted: null,
+          macosAppleEventsStale: null,
+          macosMicGranted: null,
+          windowsMicAllowed: null,
+        ),
+      );
+      expect(report, contains('Berechtigungen:'));
+      expect(report, contains('nicht ermittelbar'));
+    });
+
+    test('renders AV-quarantine status', () {
+      final report = baseReport(
+        avQuarantine: const AvQuarantineResult(
+          binaryPath: '/srv/whisper-server',
+          binaryExists: true,
+          quarantined: true,
+          detail: 'com.apple.quarantine present',
+        ),
+      );
+      expect(report, contains('AV/Quarantäne:'));
+      expect(report, contains('Quarantäne'));
+    });
+
+    test('renders verdict with primary fingerprint when unhealthy', () {
+      final verdict = buildVerdict(
+        dllAnalysis: const DllAnalysisResult(
+          missingDlls: <String>[],
+          vcRuntimeMissing: false,
+        ),
+        ramScarce: true,
+        avQuarantined: false,
+        staleTcc: false,
+        modelAbiMismatch: false,
+        serverExitCode: null,
+      );
+      final report = baseReport(verdict: verdict);
+      expect(report, contains('Bewertung:'));
+      expect(report, contains('stt-exit-other')); // RAM-scarce fingerprint
+    });
+
+    test('renders healthy verdict when no suspicions', () {
+      final verdict = buildVerdict(
+        dllAnalysis: const DllAnalysisResult(
+          missingDlls: <String>[],
+          vcRuntimeMissing: false,
+        ),
+        ramScarce: false,
+        avQuarantined: false,
+        staleTcc: false,
+        modelAbiMismatch: false,
+        serverExitCode: null,
+      );
+      final report = baseReport(verdict: verdict);
+      expect(report, contains('Bewertung:'));
+      expect(report, contains('keine Auffälligkeiten'));
+    });
+
+    test('notes settings unavailable in standalone mode', () {
+      final report = baseReport(settingsUnavailable: true);
+      expect(report, contains('Einstellungen:'));
+      expect(report, contains('Standalone'));
+    });
+
+    test('uses a full-log header when fullLogs is set', () {
+      final report = baseReport(
+        logTail: const ['line A', 'line B'],
+        fullLogs: true,
+      );
+      expect(report, isNot(contains('letzte 2 Logzeilen')));
+      expect(report, contains('Logzeilen'));
+    });
+
+    test('sanitizes the whole report (§6.5) — no raw home path leaks', () {
+      final home =
+          Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'];
+      // Skip on the rare CI runner with no HOME/USERPROFILE set.
+      if (home == null || home.isEmpty) return;
+      final report = baseReport(executablePath: '$home/tools/whispaste');
+      expect(report, isNot(contains(home)));
+      expect(report, contains('<home>/tools/whispaste'));
     });
   });
 }

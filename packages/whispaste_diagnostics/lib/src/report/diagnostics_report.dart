@@ -9,8 +9,17 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../analysis/dll_analysis.dart';
+import '../analysis/verdict.dart';
+import '../privacy/sanitizer.dart';
+import '../probes/av_quarantine_probe.dart';
+import '../probes/device_id_probe.dart';
 import '../probes/gpu_info.dart';
+import '../probes/hardware_probe.dart';
+import '../probes/log_reader.dart';
 import '../probes/path_service.dart';
+import '../probes/permissions_probe.dart';
+import '../probes/settings_probe.dart';
 
 export '../probes/gpu_info.dart'
     show GpuInfo, GpuVendor, detectGpu, cachedGpuInfo;
@@ -87,6 +96,14 @@ String formatDiagnosticsReport({
   ModelLoadProbeResult? modelLoadProbe,
   GpuInfo? gpu,
   required List<String> logTail,
+  bool fullLogs = false,
+  String? deviceId,
+  HardwareProbeResult? hardware,
+  PermissionsProbeResult? permissions,
+  AvQuarantineResult? avQuarantine,
+  SettingsSnapshotResult? settings,
+  bool settingsUnavailable = false,
+  VerdictResult? verdict,
 }) {
   final b = StringBuffer()
     ..writeln('WhisPaste v$version ($variant)')
@@ -94,6 +111,10 @@ String formatDiagnosticsReport({
     ..writeln('Dart: $dartVersion')
     ..writeln('Locale: $locale')
     ..writeln('Programm: $executablePath');
+
+  if (deviceId != null) {
+    b.writeln('Geräte-ID (Sentry): $deviceId');
+  }
 
   if (gpu != null) {
     b.writeln(
@@ -103,6 +124,28 @@ String formatDiagnosticsReport({
     );
   } else {
     b.writeln('GPU: (nicht ermittelt)');
+  }
+
+  if (hardware != null) {
+    final hw = hardware;
+    final ramTotal = hw.ramTotalMb;
+    final ramFree = hw.ramFreeMb;
+    final ramLine = StringBuffer('RAM: ');
+    ramLine.write(ramTotal != null ? '$ramTotal MB gesamt' : '? MB gesamt');
+    if (ramFree != null) ramLine.write(', $ramFree MB frei');
+    if (hw.ramScarce) ramLine.write('  ⚠ knapp (< 7500 MB, §6.6)');
+    b.writeln(ramLine.toString());
+
+    if (hw.cpuModel != null) {
+      final cores = hw.cpuCores;
+      b.writeln('CPU: ${hw.cpuModel}${cores != null ? " ($cores Kerne)" : ""}');
+    }
+    if (hw.gpuVramMb != null) {
+      b.writeln('GPU-VRAM: ${hw.gpuVramMb} MB');
+    }
+    if (hw.diskFreeMb != null) {
+      b.writeln('Freier Speicher: ${hw.diskFreeMb} MB');
+    }
   }
 
   b
@@ -149,13 +192,98 @@ String formatDiagnosticsReport({
     }
   }
 
-  if (logTail.isNotEmpty) {
+  if (permissions != null) {
+    final pm = permissions;
+    b.writeln('Berechtigungen:');
+    final anyKnown =
+        pm.macosAccessibilityGranted != null ||
+        pm.macosAppleEventsGranted != null ||
+        pm.macosMicGranted != null ||
+        pm.windowsMicAllowed != null;
+    if (!anyKnown) {
+      b.writeln(
+        '  (nicht ermittelbar — der Standalone-Binary hat keinen Zugriff '
+        'auf die TCC-Datenbank; in der App prüfbar)',
+      );
+    }
+    if (pm.macosAccessibilityGranted != null) {
+      final granted = pm.macosAccessibilityGranted! ? 'ja' : 'nein';
+      final stale = pm.macosAccessibilityStale == true
+          ? ' (⚠ stale TCC — §3.5: Toggle AN, aber AXIsProcessTrusted=false)'
+          : '';
+      b.writeln('  Accessibility: $granted$stale');
+    }
+    if (pm.macosAppleEventsGranted != null) {
+      b.writeln(
+        '  AppleEvents (Auto-Paste): '
+        '${pm.macosAppleEventsGranted! ? "ja" : "nein"}',
+      );
+    }
+    if (pm.macosMicGranted != null) {
+      b.writeln('  Mikrofon (TCC): ${pm.macosMicGranted! ? "ja" : "nein"}');
+    }
+    if (pm.windowsMicAllowed != null) {
+      b.writeln(
+        '  Mikrofon (Windows-Datenschutz): '
+        '${pm.windowsMicAllowed! ? "erlaubt" : "blockiert"}',
+      );
+    }
+  }
+
+  if (avQuarantine != null) {
+    final av = avQuarantine;
+    final flagged = av.quarantined == true || av.avThreatDetected == true;
+    b.writeln('AV/Quarantäne: ${flagged ? "⚠ markiert" : "unauffällig"}');
+    if (av.detail != null && av.detail!.isNotEmpty) {
+      b.writeln('  Detail: ${av.detail}');
+    }
+  }
+
+  if (settings != null) {
+    final s = settings;
     b
-      ..writeln('--- letzte ${logTail.length} Logzeilen ---')
+      ..writeln('Einstellungen:')
+      ..writeln('  Provider: ${s.sttProvider ?? "?"}')
+      ..writeln('  Modell: ${s.sttModel ?? "?"}')
+      ..writeln('  Backend: ${s.sttBackend ?? "?"}')
+      ..writeln('  Hotkey: ${s.hotkey ?? "?"}')
+      ..writeln('  After-Action: ${s.afterAction ?? "?"}')
+      ..writeln('  API-Key: ${s.apiKeyRedacted ? "<redacted>" : "(keiner)"}');
+  } else if (settingsUnavailable) {
+    b.writeln(
+      'Einstellungen: nicht im Standalone-Modus verfügbar '
+      '(die In-App-Diagnostik liefert sie).',
+    );
+  }
+
+  if (verdict != null) {
+    final v = verdict;
+    if (v.healthy) {
+      b.writeln('Bewertung: keine Auffälligkeiten gefunden.');
+    } else {
+      b.writeln(
+        'Bewertung: ${v.suspicions.length} Auffälligkeit(en) — '
+        'primärer Fingerprint: ${v.primaryFingerprint}',
+      );
+      for (final s in v.suspicions) {
+        b.writeln('  • [${s.fingerprint}] ${s.detail}');
+      }
+    }
+  }
+
+  if (logTail.isNotEmpty) {
+    final header = fullLogs
+        ? '--- Logzeilen (${logTail.length}) ---'
+        : '--- letzte ${logTail.length} Logzeilen ---';
+    b
+      ..writeln(header)
       ..writeAll(logTail, '\n');
   }
 
-  return b.toString();
+  // §6.5 hard guardrail: the privacy sanitizer runs over the ENTIRE report
+  // (path/username/AppData placeholders), not just per-probe fields — for both
+  // the standalone WhisPaste-Diagnose CLI and the In-App-Diagnostik.
+  return sanitizePaths(b.toString());
 }
 
 // ---------------------------------------------------------------------------
@@ -200,6 +328,66 @@ Future<String> gatherDiagnosticsReport({
       ? vcRuntimeDllsPresent(sttDirPath)
       : null;
 
+  // New probes (slices 2+3). Each is best-effort: a failure degrades that
+  // section to null rather than aborting the whole report.
+  HardwareProbeResult? hardware;
+  try {
+    hardware = await gatherHardwareProbe(gpuInfo: gpu);
+  } on Object {
+    hardware = null;
+  }
+
+  PermissionsProbeResult? permissions;
+  try {
+    permissions = await gatherPermissionsProbe();
+  } on Object {
+    permissions = null;
+  }
+
+  AvQuarantineResult? avQuarantine;
+  try {
+    avQuarantine = await gatherAvQuarantineProbe(serverPath);
+  } on Object {
+    avQuarantine = null;
+  }
+
+  String? device;
+  try {
+    device = deviceId();
+  } on Object {
+    device = null;
+  }
+
+  List<String> logLines;
+  try {
+    logLines = readFullLog(logFilePath: logFilePath).lines;
+  } on Object {
+    logLines = const <String>[];
+  }
+
+  // Derive the verdict from the gathered signals + DLL analysis.
+  VerdictResult? verdict;
+  try {
+    final dllAnalysis = analyzeDllDeps(
+      presentDlls: buildDllPresenceSet(sttFiles),
+      backend: backend,
+      windowsContext: Platform.isWindows,
+    );
+    verdict = buildVerdict(
+      dllAnalysis: dllAnalysis,
+      ramScarce: hardware?.ramScarce ?? false,
+      avQuarantined:
+          avQuarantine?.quarantined == true ||
+          avQuarantine?.avThreatDetected == true,
+      staleTcc: permissions?.macosAccessibilityStale == true,
+      modelAbiMismatch: false,
+      serverExitCode: modelLoadProbe?.exitCode,
+      stderrSnippet: modelLoadProbe?.stderrTail.join('\n'),
+    );
+  } on Object {
+    verdict = null;
+  }
+
   return formatDiagnosticsReport(
     version: _resolveVersion(),
     variant: installVariantLabel(),
@@ -216,7 +404,16 @@ Future<String> gatherDiagnosticsReport({
     modelLoadProbe: modelLoadProbe,
     vcRuntimePresent: vcPresent,
     gpu: gpu,
-    logTail: readLogTail(logTailLines, logFilePath: logFilePath),
+    logTail: logLines,
+    fullLogs: true,
+    deviceId: device,
+    hardware: hardware,
+    permissions: permissions,
+    avQuarantine: avQuarantine,
+    // Standalone CLI has no access to the app's SharedPreferences; the
+    // In-App-Diagnostik supplies the settings snapshot instead.
+    settingsUnavailable: true,
+    verdict: verdict,
   );
 }
 
