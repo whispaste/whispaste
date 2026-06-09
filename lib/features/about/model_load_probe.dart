@@ -15,44 +15,13 @@ import 'dart:io';
 
 import '../../services/process_runner.dart';
 
-/// Outcome of [runModelLoadProbe].
-class ModelLoadProbeResult {
-  const ModelLoadProbeResult({
-    required this.ran,
-    this.skipReason,
-    this.loaded = false,
-    this.exitCode,
-    this.stderrTail = const <String>[],
-  });
+// ModelLoadProbeResult is defined in the pure-Dart diagnostics core and
+// re-exported here so that callers of this file continue to compile unchanged.
+export 'package:whispaste_diagnostics/whispaste_diagnostics.dart'
+    show ModelLoadProbeResult;
 
-  /// Whether the probe actually launched the server. `false` means the binary
-  /// or model could not be located; [skipReason] then explains why.
-  final bool ran;
-
-  /// Why the probe was skipped (only set when [ran] is `false`).
-  final String? skipReason;
-
-  /// `true` when the server started and stayed up for the probe window — i.e.
-  /// it loaded the model without crashing.
-  final bool loaded;
-
-  /// Exit code when the server exited inside the window (null if it stayed up
-  /// or the probe was skipped).
-  final int? exitCode;
-
-  /// Windows-style hex form of [exitCode] (e.g. `0xC0000135`), or null when
-  /// there is no exit code. Masked to 32 bits so a signed crash code prints
-  /// the same hex Windows reports.
-  String? get exitCodeHex {
-    final code = exitCode;
-    if (code == null) return null;
-    final masked = code & 0xFFFFFFFF;
-    return '0x${masked.toRadixString(16).toUpperCase().padLeft(8, '0')}';
-  }
-
-  /// Last few stderr lines from the server (most useful on a crash).
-  final List<String> stderrTail;
-}
+import 'package:whispaste_diagnostics/whispaste_diagnostics.dart'
+    show ModelLoadProbeResult;
 
 /// Launches [serverPath] against [modelPath] with `--no-gpu` and watches it for
 /// [window]. If the process is still alive when the window elapses it is killed

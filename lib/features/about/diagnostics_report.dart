@@ -1,14 +1,16 @@
-/// Builds the in-app diagnostics block that the About page copies to the
-/// clipboard. This is the lightweight, no-download counterpart to the
-/// standalone `tools/whispaste-diagnose.ps1` tool: it surfaces the same
-/// essentials (variant, GPU, Sprachdienst binary state, bundled DLL files,
-/// VC++ runtime presence, recent log tail) so a user can paste them straight
-/// into a bug report.
+/// In-App-Diagnostik report builder — delegates to the pure-Dart core.
+///
+/// This file is the app-layer adapter. The formatter ([formatDiagnosticsReport])
+/// and its data types live in `package:whispaste_diagnostics`. This file
+/// re-exports those symbols and adds the app-side gather orchestration:
+/// live Riverpod/app state (sttServerState, sttErrorMessage) and the
+/// model-load probe (which spawns a subprocess and stays app-side).
 library;
 
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
+import 'package:whispaste_diagnostics/whispaste_diagnostics.dart' as core;
 
 import '../../core/app_info.dart';
 import '../../core/logging/app_logger.dart';
@@ -16,98 +18,23 @@ import '../../services/hardware_info_service.dart' as hw;
 import '../../services/path_service.dart' as paths;
 import 'model_load_probe.dart';
 
-/// Formats the diagnostics block. Pure and synchronous so it is unit-testable;
-/// the async filesystem/GPU gathering lives in [gatherDiagnosticsReport].
-///
-/// [vcRuntimePresent] is `null` on non-Windows platforms (the concept and the
-/// STATUS_DLL_NOT_FOUND failure mode it guards are Windows-only).
-String formatDiagnosticsReport({
-  required String version,
-  required String variant,
-  required String osVersion,
-  required String dartVersion,
-  required String locale,
-  required String executablePath,
-  required String serverPath,
-  required bool serverExists,
-  String? serverBackend,
-  String? sttServerState,
-  String? sttErrorMessage,
-  required List<String> sttFiles,
-  bool? vcRuntimePresent,
-  ModelLoadProbeResult? modelLoadProbe,
-  hw.GpuInfo? gpu,
-  required List<String> logTail,
-}) {
-  final b = StringBuffer()
-    ..writeln('WhisPaste v$version ($variant)')
-    ..writeln('OS: $osVersion')
-    ..writeln('Dart: $dartVersion')
-    ..writeln('Locale: $locale')
-    ..writeln('Programm: $executablePath');
+// ---------------------------------------------------------------------------
+// Re-exports — keep all existing callers unchanged
+// ---------------------------------------------------------------------------
 
-  if (gpu != null) {
-    b.writeln(
-      'GPU: ${gpu.name} (Hersteller ${gpu.vendor.name}, '
-      'Backend ${gpu.optimalBackend}, CUDA ${gpu.cudaAvailable}, '
-      'Vulkan ${gpu.vulkanAvailable})',
-    );
-  } else {
-    b.writeln('GPU: (nicht ermittelt)');
-  }
+export 'package:whispaste_diagnostics/whispaste_diagnostics.dart'
+    show
+        GpuInfo,
+        GpuVendor,
+        formatDiagnosticsReport,
+        findInstalledModelPath,
+        installVariantLabel,
+        readLogTail,
+        ModelLoadProbeResult;
 
-  b
-    ..writeln('Sprachdienst: $serverPath')
-    ..writeln(
-      '  vorhanden: ${serverExists ? "ja" : "nein"}'
-      '${serverBackend != null ? "  backend: $serverBackend" : ""}',
-    );
-
-  if (sttServerState != null) {
-    b.writeln('  Status: $sttServerState');
-  }
-  if (sttErrorMessage != null && sttErrorMessage.isNotEmpty) {
-    b.writeln('  letzter Fehler: $sttErrorMessage');
-  }
-
-  if (vcRuntimePresent != null) {
-    b.writeln('  VC++-Runtime vorhanden: ${vcRuntimePresent ? "ja" : "nein"}');
-  }
-
-  b.writeln(
-    '  Sprachdienst-Dateien: '
-    '${sttFiles.isEmpty ? "(keine)" : sttFiles.join(", ")}',
-  );
-
-  if (modelLoadProbe != null) {
-    final probe = modelLoadProbe;
-    if (!probe.ran) {
-      b.writeln('Modell-Ladetest: übersprungen (${probe.skipReason})');
-    } else if (probe.loaded) {
-      b.writeln('Modell-Ladetest: OK — Server lädt das Modell.');
-    } else {
-      final hex = probe.exitCodeHex;
-      b.writeln(
-        'Modell-Ladetest: FEHLER — Server beendet mit Code '
-        '${probe.exitCode}${hex != null ? " ($hex)" : ""}.',
-      );
-      if (probe.stderrTail.isNotEmpty) {
-        b.writeln('  stderr:');
-        for (final line in probe.stderrTail) {
-          b.writeln('    $line');
-        }
-      }
-    }
-  }
-
-  if (logTail.isNotEmpty) {
-    b
-      ..writeln('--- letzte ${logTail.length} Logzeilen ---')
-      ..writeAll(logTail, '\n');
-  }
-
-  return b.toString();
-}
+// ---------------------------------------------------------------------------
+// App-side gather (with live state + model-load probe)
+// ---------------------------------------------------------------------------
 
 /// Gathers live environment data and returns the formatted diagnostics block.
 /// Best-effort: any single probe failing degrades that line rather than
@@ -142,12 +69,14 @@ Future<String> gatherDiagnosticsReport({
       ? hw.vcRuntimeDllsPresent(sttDirPath)
       : null;
 
+  // ModelLoadProbeResult is now from the core (re-exported through
+  // model_load_probe.dart), so no type conversion is needed.
   ModelLoadProbeResult? probe;
   if (runModelProbe) {
     try {
       probe = await runModelLoadProbe(
         serverPath: serverPath,
-        modelPath: findInstalledModelPath(sttDirPath),
+        modelPath: core.findInstalledModelPath(sttDirPath),
       );
     } on Object catch (e) {
       probe = ModelLoadProbeResult(
@@ -157,9 +86,9 @@ Future<String> gatherDiagnosticsReport({
     }
   }
 
-  return formatDiagnosticsReport(
+  return core.formatDiagnosticsReport(
     version: appVersion,
-    variant: installVariantLabel(),
+    variant: core.installVariantLabel(),
     osVersion: '${Platform.operatingSystem} ${Platform.operatingSystemVersion}',
     dartVersion: Platform.version,
     locale: Platform.localeName,
@@ -173,50 +102,19 @@ Future<String> gatherDiagnosticsReport({
     modelLoadProbe: probe,
     vcRuntimePresent: vcPresent,
     gpu: gpu,
-    logTail: readLogTail(logTailLines),
+    logTail: _readAppLogTail(logTailLines),
   );
 }
 
-/// Finds the installed whisper model in [sttDir] — the largest `ggml-*.bin`
-/// file, mirroring how the smoke harness picks the model. Returns null when no
-/// model is present yet. Best-effort: any IO error degrades to null.
-String? findInstalledModelPath(String sttDir) {
-  try {
-    final dir = Directory(sttDir);
-    if (!dir.existsSync()) return null;
-    final bins =
-        dir
-            .listSync()
-            .whereType<File>()
-            .where(
-              (f) =>
-                  p.basename(f.path).startsWith('ggml-') &&
-                  f.path.toLowerCase().endsWith('.bin'),
-            )
-            .toList()
-          ..sort((a, b) => b.lengthSync().compareTo(a.lengthSync()));
-    return bins.isEmpty ? null : bins.first.path;
-  } on Object {
-    return null;
-  }
-}
+// ---------------------------------------------------------------------------
+// Log-tail helper
+// ---------------------------------------------------------------------------
 
-/// Human-readable install-variant label. Distinguishes the Microsoft Store
-/// (MSIX) build — which runs from `WindowsApps\Packages\…` — from the
-/// standalone EXE installer build.
-String installVariantLabel() {
-  if (!Platform.isWindows) return Platform.operatingSystem;
-  final exe = Platform.resolvedExecutable.toLowerCase();
-  if (exe.contains(r'\windowsapps\') || exe.contains(r'\packages\')) {
-    return 'Microsoft Store / MSIX';
-  }
-  return 'EXE-Installer';
-}
-
-/// Reads the last [n] lines of the current log file, or an empty list when it
-/// is unavailable. Falls back to the conventional path when the logger has not
-/// published one yet.
-List<String> readLogTail(int n) {
+/// Reads the last [n] lines of the current log file.
+///
+/// Uses the live log-file path from [AppLogger] when available, falling back
+/// to the conventional path in AppData.
+List<String> _readAppLogTail(int n) {
   try {
     final path =
         logFilePath ?? p.join(paths.appDataDir(), 'logs', 'whispaste.log');

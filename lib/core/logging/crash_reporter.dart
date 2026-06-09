@@ -33,25 +33,11 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:whispaste_diagnostics/whispaste_diagnostics.dart'
+    show containsSensitiveData;
 
 import '../app_info.dart';
 import 'app_logger.dart';
-
-// ---------------------------------------------------------------------------
-// Sensitive data patterns for PII sanitization
-// ---------------------------------------------------------------------------
-
-// ignore_for_file: valid_regexps
-final _sensitivePatterns = [
-  RegExp(
-    r'''(?i)["']?(api[_-]?key|token|password|authorization)["']?\s*[:=]\s*['"]?[^\s'",}]+''',
-  ),
-  RegExp(r'(?i)\bbearer\s+\S+'),
-  RegExp(r'\bsk-[A-Za-z0-9][A-Za-z0-9_]{5,}\b'),
-  RegExp(r'\bgsk_[A-Za-z0-9][A-Za-z0-9_]{5,}\b'),
-  RegExp(r'\bsk-ant-[A-Za-z0-9_]{8,}\b'),
-  RegExp(r'\bAIza[0-9A-Za-z_]{10,}\b'),
-];
 
 // ---------------------------------------------------------------------------
 // CrashReporter
@@ -276,13 +262,13 @@ class CrashReporter {
     final exceptions = event.exceptions;
     if (exceptions != null) {
       for (final ex in exceptions) {
-        if (ex.value != null && _containsSensitiveData(ex.value!)) {
+        if (ex.value != null && containsSensitiveData(ex.value!)) {
           return null;
         }
       }
     }
     final message = event.message;
-    if (message != null && _containsSensitiveData(message.formatted)) {
+    if (message != null && containsSensitiveData(message.formatted)) {
       return null;
     }
 
@@ -349,34 +335,6 @@ class CrashReporter {
     if (_txCount > _maxTransactionsPerWindow) return null;
 
     return transaction;
-  }
-
-  // -------------------------------------------------------------------------
-  // Private — PII sanitization
-  // -------------------------------------------------------------------------
-
-  static bool _containsSensitiveData(String s) {
-    return _sensitivePatterns.any((p) => p.hasMatch(s));
-  }
-
-  /// Replaces user-specific path segments with placeholders.
-  static String sanitizePaths(String s) {
-    var result = s;
-    final userProfile =
-        Platform.environment['USERPROFILE'] ?? Platform.environment['HOME'];
-    if (userProfile != null && userProfile.isNotEmpty) {
-      result = result.replaceAll(userProfile, '<home>');
-    }
-    final appData = Platform.environment['APPDATA'];
-    if (appData != null && appData.isNotEmpty) {
-      result = result.replaceAll(appData, '<appdata>');
-    }
-    final user =
-        Platform.environment['USERNAME'] ?? Platform.environment['USER'];
-    if (user != null && user.isNotEmpty) {
-      result = result.replaceAll(user, '<user>');
-    }
-    return result;
   }
 
   // -------------------------------------------------------------------------

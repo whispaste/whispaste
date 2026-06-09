@@ -1,14 +1,11 @@
-/// Unit tests for the About-page diagnostics block formatter.
+/// Unit tests for the core diagnostics report formatter.
 ///
-/// Only [formatDiagnosticsReport] (the pure formatter) is exercised here —
-/// the async `gatherDiagnosticsReport` does real filesystem/GPU probing and
-/// belongs to an integration surface, not a unit test.
+/// Mirrors the app-side `test/features/about/diagnostics_report_test.dart`
+/// tests, verifying the formatter works identically from the pure-Dart core.
 library;
 
-import 'package:flutter_test/flutter_test.dart';
-
-import 'package:whispaste/features/about/diagnostics_report.dart';
-import 'package:whispaste/services/hardware_info_service.dart' as hw;
+import 'package:test/test.dart';
+import 'package:whispaste_diagnostics/src/report/diagnostics_report.dart';
 
 void main() {
   group('formatDiagnosticsReport', () {
@@ -33,8 +30,8 @@ void main() {
           exitCode: 3221225781,
           stderrTail: ["whisper_init_from_file: failed to open 'model'"],
         ),
-        gpu: const hw.GpuInfo(
-          vendor: hw.GpuVendor.nvidia,
+        gpu: const GpuInfo(
+          vendor: GpuVendor.nvidia,
           name: 'NVIDIA GeForce GTX 650',
           cudaAvailable: false,
           vulkanAvailable: true,
@@ -45,7 +42,7 @@ void main() {
       expect(report, contains('WhisPaste v1.2.35 (Microsoft Store / MSIX)'));
       expect(report, contains('Locale: de-DE'));
       expect(report, contains('NVIDIA GeForce GTX 650'));
-      expect(report, contains('Backend')); // optimalBackend label present
+      expect(report, contains('Backend'));
       expect(report, contains('vorhanden: ja'));
       expect(report, contains('backend: cpu'));
       expect(report, contains('Status: error'));
@@ -89,9 +86,27 @@ void main() {
         expect(report, isNot(contains('Modell-Ladetest')));
         expect(report, isNot(contains('VC++-Runtime')));
         expect(report, contains('Sprachdienst-Dateien: (keine)'));
-        // No log section when the tail is empty.
         expect(report, isNot(contains('Logzeilen')));
       },
     );
+  });
+
+  group('ModelLoadProbeResult.exitCodeHex', () {
+    test('STATUS_DLL_NOT_FOUND maps to 0xC0000135', () {
+      // 3221225781 is the signed int representation of 0xC0000135
+      const probe = ModelLoadProbeResult(ran: true, exitCode: 3221225781);
+      expect(probe.exitCodeHex, '0xC0000135');
+    });
+
+    test('null exitCode returns null hex', () {
+      const probe = ModelLoadProbeResult(ran: true, loaded: true);
+      expect(probe.exitCodeHex, isNull);
+    });
+  });
+
+  group('installVariantLabel', () {
+    test('returns a non-empty string', () {
+      expect(installVariantLabel(), isNotEmpty);
+    });
   });
 }

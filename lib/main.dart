@@ -77,6 +77,10 @@ Future<void> main(List<String> args) async {
       // without user consent (default is true until this runs).
       CrashReporter.instance?.consentGranted = settings.errorReporting;
 
+      // Wire up the GPU-detection-failure → Sentry telemetry callback.
+      // Must run after CrashReporter.init() (done inside AppMonitoring.bootstrap).
+      hw.initHardwareInfoTelemetry();
+
       // Desktop window setup — use persisted geometry when available.
       if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
         await windowManager.ensureInitialized();
