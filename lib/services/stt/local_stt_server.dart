@@ -63,10 +63,11 @@ class LocalSttServer {
       ]);
     }
 
-    // Working directory = the binary's own folder so whisper-server resolves
-    // its sibling ggml/BLAS/VC++ DLLs at runtime (see ProcessRunner.start /
-    // FLUTTER_WHISPASTE-A0). Without it an MSIX launch aborts with
-    // STATUS_DLL_NOT_FOUND despite every DLL being present.
+    // Working directory = the binary's own folder so the variants that ship
+    // sibling ggml/BLAS DLLs resolve them at runtime. NOTE: this is not the
+    // FLUTTER_WHISPASTE-A0 fix — that STATUS_DLL_NOT_FOUND is a missing *system*
+    // loader (vulkan-1.dll) for the GPU build, handled by the pre-launch
+    // dependency gate in SttServerStateNotifier._start.
     _process = await _processRunner.start(
       executablePath,
       args,
