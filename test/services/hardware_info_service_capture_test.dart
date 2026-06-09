@@ -40,6 +40,9 @@ void main() {
     });
     CrashReporter.init();
     CrashReporter.instance!.consentGranted = true;
+    // Wire the GPU-detection-failure callback so captureGpuDetectionFailureOnce
+    // reaches Sentry via CrashReporter (same as production).
+    hw.initHardwareInfoTelemetry();
   });
 
   tearDownAll(() async {
