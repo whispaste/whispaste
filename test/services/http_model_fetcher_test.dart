@@ -33,9 +33,7 @@ class _RequestRecord {
 /// Configurable fake adapter.  Each [fetch] call pops the first handler from
 /// [handlers]; if the list is empty, it falls back to [defaultHandler].
 class _FakeAdapter implements HttpClientAdapter {
-  _FakeAdapter({
-    required Future<ResponseBody> Function(_RequestRecord) defaultHandler,
-  }) : _defaultHandler = defaultHandler;
+  _FakeAdapter({required this._defaultHandler});
 
   final Future<ResponseBody> Function(_RequestRecord) _defaultHandler;
   final _handlers = <Future<ResponseBody> Function(_RequestRecord)>[];

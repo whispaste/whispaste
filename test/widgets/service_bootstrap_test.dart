@@ -103,7 +103,7 @@ class _FakeFloatingOverlayService extends FloatingOverlayService {
 /// from [AsyncLoading] to [AsyncData] within the same microtask, before
 /// any caller in the bootstrap reads it.
 class _FakeSettingsNotifier extends SettingsNotifier {
-  _FakeSettingsNotifier({required bool pushToTalk}) : _pushToTalk = pushToTalk;
+  _FakeSettingsNotifier({required this._pushToTalk});
 
   bool _pushToTalk;
 

@@ -17,16 +17,12 @@ import '../core/logging/app_logger.dart';
 /// recording action based on the current mode.
 class RecordingTriggerHandler {
   RecordingTriggerHandler({
-    required Future<void> Function() startRecording,
-    required Future<void> Function() stopRecording,
-    required Future<void> Function() toggleRecording,
-    required bool Function() pushToTalkEnabled,
-    required bool Function() registrarSupportsKeyUp,
-  }) : _startRecording = startRecording,
-       _stopRecording = stopRecording,
-       _toggleRecording = toggleRecording,
-       _pushToTalkEnabled = pushToTalkEnabled,
-       _registrarSupportsKeyUp = registrarSupportsKeyUp;
+    required this._startRecording,
+    required this._stopRecording,
+    required this._toggleRecording,
+    required this._pushToTalkEnabled,
+    required this._registrarSupportsKeyUp,
+  });
 
   static final _log = AppLogger('RecordingTriggerHandler');
 

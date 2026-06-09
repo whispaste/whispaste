@@ -64,8 +64,7 @@ Future<void> _recordFeedbackSubmission() async {
 /// Top-aligned, responsive: narrow form column on wide screens with generous
 /// padding so it breathes on maximized desktop windows.
 class FeedbackPage extends StatefulWidget {
-  const FeedbackPage({super.key, FeedbackSubmissionService? submissionService})
-    : _submissionService = submissionService;
+  const FeedbackPage({super.key, this._submissionService});
 
   final FeedbackSubmissionService? _submissionService;
 

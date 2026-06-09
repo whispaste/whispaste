@@ -46,14 +46,11 @@ class _FakePasteCapabilityNotifier extends PasteCapabilityNotifier {
   _FakePasteCapabilityNotifier({
     PasteCapabilityState initial = const PasteCapabilityState(),
     PasteCapabilityState? afterCheck,
-    PasteCapabilityState? afterPromptCheck,
-    TccRepairResult? repairResult,
-    PasteCapabilityState? afterRepair,
-  }) : _initial = initial,
-       _afterCheck = afterCheck ?? initial,
-       _afterPromptCheck = afterPromptCheck,
-       _repairResult = repairResult,
-       _afterRepair = afterRepair;
+    this._afterPromptCheck,
+    this._repairResult,
+  }) : _afterRepair = null,
+       _initial = initial,
+       _afterCheck = afterCheck ?? initial;
 
   final PasteCapabilityState _initial;
   final PasteCapabilityState _afterCheck;

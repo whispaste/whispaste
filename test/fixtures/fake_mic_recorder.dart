@@ -16,16 +16,12 @@ import 'package:whispaste/features/onboarding/mic_probe.dart';
 
 class FakeMicRecorder implements MicProbeRecorder {
   FakeMicRecorder({
-    bool hasPermission = true,
-    bool throwOnPermission = false,
-    bool throwOnStart = false,
-    List<InputDevice> devices = const [],
-    bool throwOnListDevices = false,
-  }) : _hasPermission = hasPermission,
-       _throwOnPermission = throwOnPermission,
-       _throwOnStart = throwOnStart,
-       _devices = devices,
-       _throwOnListDevices = throwOnListDevices;
+    this._hasPermission = true,
+    this._throwOnPermission = false,
+    this._throwOnStart = false,
+    this._devices = const [],
+    this._throwOnListDevices = false,
+  });
 
   bool _hasPermission;
   final bool _throwOnPermission;

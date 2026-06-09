@@ -94,21 +94,19 @@ class HttpModelFetcher {
   /// If [dio] is omitted, a default instance with sensible timeouts and
   /// the WhisPaste user-agent header is created.
   ///
-  /// [stallThreshold] is the maximum allowed gap between received chunks
+  /// [_stallThreshold] is the maximum allowed gap between received chunks
   /// before the in-flight download is cancelled with
   /// `DioException(cancel, '$httpStallCancelMessage')`. Default 30 s — the
   /// PRD-pinned value. Tests override this to keep runtimes in milliseconds.
   ///
-  /// [stallCheckInterval] is how often the detector wakes to compare „now"
+  /// [_stallCheckInterval] is how often the detector wakes to compare „now"
   /// against the timestamp of the last received chunk. Default 5 s — the
-  /// PRD-pinned value. Must be ≤ [stallThreshold].
+  /// PRD-pinned value. Must be ≤ [_stallThreshold].
   HttpModelFetcher({
     Dio? dio,
-    Duration stallThreshold = const Duration(seconds: 30),
-    Duration stallCheckInterval = const Duration(seconds: 5),
-  }) : _dio = dio ?? _defaultDio(),
-       _stallThreshold = stallThreshold,
-       _stallCheckInterval = stallCheckInterval;
+    this._stallThreshold = const Duration(seconds: 30),
+    this._stallCheckInterval = const Duration(seconds: 5),
+  }) : _dio = dio ?? _defaultDio();
 
   final Dio _dio;
   CancelToken? _cancelToken;

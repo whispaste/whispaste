@@ -166,29 +166,24 @@ class FactoryResetCoordinator {
   /// Production constructor — wires the real filesystem, the real
   /// `Isolate.run`-backed deleter, and the live [CrashReporter].
   ///
-  /// All other collaborators ([subprocess], [eraseDatabase],
-  /// [eraseSecureStore], [resetSettings], and the directory paths) are
+  /// All other collaborators ([_subprocess], [_eraseDatabase],
+  /// [_eraseSecureStore], [_resetSettings], and the directory paths) are
   /// required because they encode application-specific intent
   /// (which subprocess, which DB file, which secure-store provider,
   /// which settings notifier).
   FactoryResetCoordinator({
-    required SubprocessController subprocess,
+    required this._subprocess,
     required this.modelDirPath,
     required this.logsDirPath,
-    required DatabaseEraser eraseDatabase,
-    required SecureStoreEraser eraseSecureStore,
-    required SettingsReset resetSettings,
-    Duration stopSubprocessTimeout = kDefaultStopSubprocessTimeout,
+    required this._eraseDatabase,
+    required this._eraseSecureStore,
+    required this._resetSettings,
+    this._stopSubprocessTimeout = kDefaultStopSubprocessTimeout,
     FileSystem? fileSystem,
     DirectoryDeleter? directoryDeleter,
     CrashCaptureSink? captureSink,
-  }) : _subprocess = subprocess,
-       _stopSubprocessTimeout = stopSubprocessTimeout,
-       _fileSystem = fileSystem ?? const LocalFileSystem(),
+  }) : _fileSystem = fileSystem ?? const LocalFileSystem(),
        _directoryDeleter = directoryDeleter ?? _isolateDirectoryDeleter,
-       _eraseDatabase = eraseDatabase,
-       _eraseSecureStore = eraseSecureStore,
-       _resetSettings = resetSettings,
        _capture = captureSink ?? _defaultCaptureSink;
 
   // ---------------------------------------------------------------------------
@@ -356,10 +351,9 @@ void _defaultCaptureSink({
 class WhisperServerSubprocessController implements SubprocessController {
   WhisperServerSubprocessController({
     required this.pidFilePath,
-    required Future<void> Function() cooperativeStop,
-    Duration pollInterval = kDefaultSubprocessPollInterval,
-  }) : _cooperativeStop = cooperativeStop,
-       _pollInterval = pollInterval;
+    required this._cooperativeStop,
+    this._pollInterval = kDefaultSubprocessPollInterval,
+  });
 
   /// Absolute path to `.whisper-server.pid` (under the app data dir).
   final String pidFilePath;
