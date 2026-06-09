@@ -14,6 +14,7 @@ import '../../core/app_info.dart';
 import '../../core/logging/app_logger.dart';
 import '../../services/hardware_info_service.dart' as hw;
 import '../../services/path_service.dart' as paths;
+import 'model_load_probe.dart';
 
 /// Formats the diagnostics block. Pure and synchronous so it is unit-testable;
 /// the async filesystem/GPU gathering lives in [gatherDiagnosticsReport].
@@ -30,8 +31,11 @@ String formatDiagnosticsReport({
   required String serverPath,
   required bool serverExists,
   String? serverBackend,
+  String? sttServerState,
+  String? sttErrorMessage,
   required List<String> sttFiles,
   bool? vcRuntimePresent,
+  ModelLoadProbeResult? modelLoadProbe,
   hw.GpuInfo? gpu,
   required List<String> logTail,
 }) {
@@ -59,6 +63,13 @@ String formatDiagnosticsReport({
       '${serverBackend != null ? "  backend: $serverBackend" : ""}',
     );
 
+  if (sttServerState != null) {
+    b.writeln('  Status: $sttServerState');
+  }
+  if (sttErrorMessage != null && sttErrorMessage.isNotEmpty) {
+    b.writeln('  letzter Fehler: $sttErrorMessage');
+  }
+
   if (vcRuntimePresent != null) {
     b.writeln('  VC++-Runtime vorhanden: ${vcRuntimePresent ? "ja" : "nein"}');
   }
@@ -67,6 +78,27 @@ String formatDiagnosticsReport({
     '  Sprachdienst-Dateien: '
     '${sttFiles.isEmpty ? "(keine)" : sttFiles.join(", ")}',
   );
+
+  if (modelLoadProbe != null) {
+    final probe = modelLoadProbe;
+    if (!probe.ran) {
+      b.writeln('Modell-Ladetest: übersprungen (${probe.skipReason})');
+    } else if (probe.loaded) {
+      b.writeln('Modell-Ladetest: OK — Server lädt das Modell.');
+    } else {
+      final hex = probe.exitCodeHex;
+      b.writeln(
+        'Modell-Ladetest: FEHLER — Server beendet mit Code '
+        '${probe.exitCode}${hex != null ? " ($hex)" : ""}.',
+      );
+      if (probe.stderrTail.isNotEmpty) {
+        b.writeln('  stderr:');
+        for (final line in probe.stderrTail) {
+          b.writeln('    $line');
+        }
+      }
+    }
+  }
 
   if (logTail.isNotEmpty) {
     b
@@ -80,7 +112,12 @@ String formatDiagnosticsReport({
 /// Gathers live environment data and returns the formatted diagnostics block.
 /// Best-effort: any single probe failing degrades that line rather than
 /// throwing, so the button always produces *something* useful to paste.
-Future<String> gatherDiagnosticsReport({int logTailLines = 40}) async {
+Future<String> gatherDiagnosticsReport({
+  int logTailLines = 40,
+  String? sttServerState,
+  String? sttErrorMessage,
+  bool runModelProbe = true,
+}) async {
   final sttDirPath = paths.sttDir();
 
   hw.GpuInfo? gpu;
@@ -105,6 +142,21 @@ Future<String> gatherDiagnosticsReport({int logTailLines = 40}) async {
       ? hw.vcRuntimeDllsPresent(sttDirPath)
       : null;
 
+  ModelLoadProbeResult? probe;
+  if (runModelProbe) {
+    try {
+      probe = await runModelLoadProbe(
+        serverPath: serverPath,
+        modelPath: findInstalledModelPath(sttDirPath),
+      );
+    } on Object catch (e) {
+      probe = ModelLoadProbeResult(
+        ran: false,
+        skipReason: 'Ladetest fehlgeschlagen: $e',
+      );
+    }
+  }
+
   return formatDiagnosticsReport(
     version: appVersion,
     variant: installVariantLabel(),
@@ -115,11 +167,38 @@ Future<String> gatherDiagnosticsReport({int logTailLines = 40}) async {
     serverPath: serverPath,
     serverExists: serverExists,
     serverBackend: backend,
+    sttServerState: sttServerState,
+    sttErrorMessage: sttErrorMessage,
     sttFiles: sttFiles,
+    modelLoadProbe: probe,
     vcRuntimePresent: vcPresent,
     gpu: gpu,
     logTail: readLogTail(logTailLines),
   );
+}
+
+/// Finds the installed whisper model in [sttDir] — the largest `ggml-*.bin`
+/// file, mirroring how the smoke harness picks the model. Returns null when no
+/// model is present yet. Best-effort: any IO error degrades to null.
+String? findInstalledModelPath(String sttDir) {
+  try {
+    final dir = Directory(sttDir);
+    if (!dir.existsSync()) return null;
+    final bins =
+        dir
+            .listSync()
+            .whereType<File>()
+            .where(
+              (f) =>
+                  p.basename(f.path).startsWith('ggml-') &&
+                  f.path.toLowerCase().endsWith('.bin'),
+            )
+            .toList()
+          ..sort((a, b) => b.lengthSync().compareTo(a.lengthSync()));
+    return bins.isEmpty ? null : bins.first.path;
+  } on Object {
+    return null;
+  }
 }
 
 /// Human-readable install-variant label. Distinguishes the Microsoft Store

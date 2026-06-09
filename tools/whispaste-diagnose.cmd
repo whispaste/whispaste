@@ -21,11 +21,12 @@ if not exist "%SCRIPT%" (
   exit /b 1
 )
 
-powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT%" %*
+rem Das ps1 gibt selbst eine ausfuehrliche Abschluss-Anweisung aus; die Pause
+rem uebernimmt diese .cmd (daher -NoPause), damit der Nutzer nicht zweimal
+rem bestaetigen muss.
+powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT%" -NoPause %*
 set "RC=%ERRORLEVEL%"
 
-echo.
-echo Fertig. Bitte die erzeugte WhisPaste-Diagnose_*.txt vom Desktop zuruecksenden.
 echo.
 pause
 exit /b %RC%

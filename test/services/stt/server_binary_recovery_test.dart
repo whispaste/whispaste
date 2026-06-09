@@ -63,10 +63,17 @@ class _FakeBinaryStore implements BinaryStore {
     this.currentBackend,
     this.compatibleAfterRecovery = true,
     this.vcRuntimeInstalled = true,
+    this.dirFiles = const <String>[],
   });
 
   String? currentBackend;
   bool compatibleAfterRecovery;
+
+  /// Drives [listBinaryDirFiles] — the file inventory the orchestrator uses
+  /// to corroborate (or veto) a `vcRuntimeMissing` claim when the
+  /// `existsSync`-based [vcRuntimePresent] probe disagrees with what is
+  /// actually on disk (the MSIX false-negative behind FLUTTER_WHISPASTE-A0).
+  List<String> dirFiles;
 
   /// Drives [vcRuntimePresent]. Defaults to `true` — the common real case
   /// (a modern Windows box with the VC++ Redistributable installed), which
@@ -96,7 +103,7 @@ class _FakeBinaryStore implements BinaryStore {
   bool vcRuntimePresent(String sttDirPath) => vcRuntimeInstalled;
 
   @override
-  List<String> listBinaryDirFiles(String sttDirPath) => const <String>[];
+  List<String> listBinaryDirFiles(String sttDirPath) => dirFiles;
 
   @override
   Future<void> writeServerInfo(
@@ -320,12 +327,53 @@ void main() {
       expect(exhausted.kind, RecoveryExhaustedKind.generic);
       // Must NOT send the user on a VC++ reinstall goose chase.
       expect(exhausted.userMessage, isNot(contains('Visual C++')));
+      // Every exhaustion routes the user to the diagnostics export so they
+      // know what to send us.
+      expect(exhausted.userMessage, contains('Debug-Informationen'));
 
       expect(
         downloader.calls,
         isEmpty,
         reason: 'exhausted path must not invoke download',
       );
+    });
+
+    test('dllMissing + CPU floor + existsSync probe says ABSENT but the VC++ '
+        'DLLs ARE in the dir listing → generic, NOT vcRuntimeMissing '
+        '(MSIX existsSync false-negative corroboration)', () async {
+      // The exact FLUTTER_WHISPASTE-A0 field shape: the diagnostic dump shows
+      // VCRUNTIME140/MSVCP140/VCOMP140 present in the stt dir, yet the live
+      // `existsSync`-based probe returned false under MSIX and the user was
+      // told to reinstall a redistributable they already had. When the file
+      // inventory contradicts the probe, trust the inventory and stay generic.
+      final downloader = _FakeWhisperServerDownloader();
+      final store = _FakeBinaryStore(
+        currentBackend: 'cpu',
+        vcRuntimeInstalled: false, // existsSync probe (flaky) says absent
+        dirFiles: const [
+          'whisper-server.exe',
+          'vcruntime140.dll',
+          'vcruntime140_1.dll',
+          'msvcp140.dll',
+          'vcomp140.dll',
+          'ggml-cpu.dll',
+        ],
+      );
+      final recovery = ServerBinaryRecovery(
+        downloader: downloader,
+        store: store,
+      );
+
+      final result = await recovery.recover(
+        reason: RecoveryReason.dllMissing,
+        gpu: _cpuOnly,
+        sttDirPath: '/fake/stt',
+        activeModelId: 'whisper-small',
+      );
+
+      final exhausted = result as RecoveryExhausted;
+      expect(exhausted.kind, RecoveryExhaustedKind.generic);
+      expect(exhausted.userMessage, isNot(contains('Visual C++')));
     });
 
     test('dllMissing while fetching CPU floor (current=GPU variant) → '

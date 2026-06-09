@@ -127,3 +127,15 @@ tmp_funcs.sql
 
 # Design source files
 *.afdesign
+
+# Internal dev tools (local only — never public). The user-facing
+# whispaste-diagnose.* tools stay tracked: they are built and shipped as
+# release artifacts by .github/workflows/release.yml.
+tools/win-smoke/
+tools/check-outdated.sh
+tools/feature-audit.sh
+
+# Generated diagnose reports (contain machine-specific paths/hardware — never track)
+WhisPaste-Diagnose_*.txt
+tools/win-smoke/*.txt
+tools/**/report.txt

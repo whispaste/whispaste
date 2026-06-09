@@ -365,18 +365,38 @@ class ServerBinaryRecovery {
     // redistributable they already had. So we additionally probe the actual
     // DLLs and only claim vcRuntimeMissing when they are genuinely absent.
     final vcRuntimePresent = _store.vcRuntimePresent(sttDirPath);
+
+    // Corroborate the `existsSync`-based probe against the actual on-disk file
+    // inventory. Field evidence (FLUTTER_WHISPASTE-A0, v1.2.35) showed the
+    // probe returning false under MSIX even though the diagnostic dump listed
+    // VCRUNTIME140/MSVCP140/VCOMP140 right there in the stt dir — an
+    // `existsSync` false-negative on the virtualised `%APPDATA%\Roaming` path.
+    // When the inventory contradicts the probe, trust the inventory: claiming
+    // „install VC++" on a machine that already has it sends the user on a
+    // useless goose chase and pollutes telemetry.
+    final dirFiles = _store.listBinaryDirFiles(sttDirPath);
+    final lowerDirFiles = dirFiles.map((f) => f.toLowerCase()).toSet();
+    final vcDllsOnDisk = hw.vcRuntimeDllNames.every(lowerDirFiles.contains);
+
     final isVcRuntimeMissing =
         reason == RecoveryReason.dllMissing &&
         _isCpuVariant(current) &&
-        !vcRuntimePresent;
+        !vcRuntimePresent &&
+        !vcDllsOnDisk;
+
+    // Always route the user to the in-app diagnostics export so they know what
+    // to send us regardless of which exhaustion branch they hit.
+    const diagnosticsHint =
+        ' Erstelle bitte über „Debug-Informationen kopieren" eine Diagnose '
+        'und sende sie uns.';
 
     // PRD §UI-strings: vocabulary-compliant — „Sprachdienst" / „Sprachmodell".
     final userMessage = isVcRuntimeMissing
         ? 'Sprachdienst kann nicht starten: eine Windows-Komponente fehlt '
               '(Microsoft Visual C++). Bitte installiere das Visual C++ '
-              'Redistributable (x64) und starte WhisPaste neu.'
+              'Redistributable (x64) und starte WhisPaste neu.$diagnosticsHint'
         : 'Sprachdienst kann nicht starten. '
-              'Bitte App neu starten oder Sprachmodell neu laden.';
+              'Bitte App neu starten oder Sprachmodell neu laden.$diagnosticsHint';
 
     CrashReporter.instance?.captureError(
       message:
@@ -396,10 +416,13 @@ class ServerBinaryRecovery {
         'platform': Platform.operatingSystem,
         'vc_runtime_present': vcRuntimePresent,
         'vc_runtime_missing': isVcRuntimeMissing,
+        // Corroboration signal: whether the VC++ DLLs were actually in the
+        // on-disk listing even when the `existsSync` probe said otherwise.
+        'vc_dlls_on_disk': vcDllsOnDisk,
         // What was actually on disk when recovery gave up — lets us see
         // which binary/DLL files were present (or which one was missing)
         // straight from the Sentry event, without a field round-trip.
-        'stt_dir_files': _store.listBinaryDirFiles(sttDirPath),
+        'stt_dir_files': dirFiles,
       },
     );
 

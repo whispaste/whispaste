@@ -1,0 +1,13 @@
+{
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+  // Entry points are auto-detected by the Astro plugin (src/pages/**/*.astro)
+  // plus package.json scripts — no explicit "entry" needed.
+  "duplicates": {
+    // Hide pair-only clones; focus on widespread copy-paste worth refactoring.
+    // Lower to 2 to report every duplicate pair.
+    "minOccurrences": 3
+  },
+  "rules": {
+    "unused-dependencies": "warn"
+  }
+}

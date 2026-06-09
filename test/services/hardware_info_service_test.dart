@@ -577,4 +577,87 @@ void main() {
       expect(File(p.join(tmpDir.path, _serverBinary)).existsSync(), isFalse);
     });
   });
+
+  // -------------------------------------------------------------------------
+  // Pre-launch backend-loader gate (FLUTTER_WHISPASTE-A0)
+  // -------------------------------------------------------------------------
+  //
+  // Pure-logic tests for the backend→system-loader-DLL decision that the
+  // Windows pre-launch gate uses to avoid a STATUS_DLL_NOT_FOUND crash. The
+  // filesystem/Platform wrapper (`firstUnresolvableBackendLoaderDll`) is
+  // Windows-only; here we drive the decision core with a fake resolver so it
+  // runs on every platform.
+  group('firstUnresolvableBackendLoaderDllFor', () {
+    bool allResolve(String _) => true;
+    bool noneResolve(String _) => false;
+
+    test('vulkan backend with vulkan-1.dll present → null (launch GPU)', () {
+      expect(
+        firstUnresolvableBackendLoaderDllFor(
+          backend: 'vulkan',
+          resolve: allResolve,
+        ),
+        isNull,
+      );
+    });
+
+    test(
+      'vulkan backend with vulkan-1.dll missing → names it (gate fires)',
+      () {
+        expect(
+          firstUnresolvableBackendLoaderDllFor(
+            backend: 'vulkan',
+            resolve: noneResolve,
+          ),
+          'vulkan-1.dll',
+        );
+      },
+    );
+
+    test('cuda backend reports the first missing runtime DLL', () {
+      // cudart present, cublas missing → returns the cublas name.
+      expect(
+        firstUnresolvableBackendLoaderDllFor(
+          backend: 'cuda',
+          resolve: (dll) => dll == 'cudart64_12.dll',
+        ),
+        'cublas64_12.dll',
+      );
+    });
+
+    test('backend match is case-insensitive', () {
+      expect(
+        firstUnresolvableBackendLoaderDllFor(
+          backend: 'Vulkan',
+          resolve: noneResolve,
+        ),
+        'vulkan-1.dll',
+      );
+    });
+
+    test('cpu / blas-bin / metal have no GPU loader dependency → null', () {
+      for (final backend in const ['cpu', 'blas-bin', 'metal']) {
+        expect(
+          firstUnresolvableBackendLoaderDllFor(
+            backend: backend,
+            resolve: noneResolve,
+          ),
+          isNull,
+          reason: '$backend must not trip the GPU-loader gate',
+        );
+      }
+    });
+
+    test('null / empty / unknown backend → null (conservative no-op)', () {
+      for (final backend in <String?>[null, '', '  ', 'future-backend']) {
+        expect(
+          firstUnresolvableBackendLoaderDllFor(
+            backend: backend,
+            resolve: noneResolve,
+          ),
+          isNull,
+        );
+      }
+    });
+  });
 }
