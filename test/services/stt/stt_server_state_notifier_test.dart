@@ -516,6 +516,25 @@ void main() {
           maxMissedWindows: 3,
         );
 
+        const gtx650 = hw.GpuInfo(
+          vendor: hw.GpuVendor.nvidia,
+          name: 'NVIDIA GeForce GTX 650',
+          cudaAvailable: true,
+          vulkanAvailable: true,
+        );
+
+        // Present the installed binary as a healthy, correctly-provisioned
+        // Vulkan build: matching `.server-info.json` metadata + the system
+        // Vulkan loader on the search path. Otherwise the Windows-only
+        // pre-launch checks short-circuit before the runtime stall this test
+        // targets — `isServerBinaryCompatible` would flag the no-metadata
+        // NVIDIA dir as needing a re-download, and the loader-DLL gate would
+        // reroute a `vulkan` build with no resolvable `vulkan-1.dll` to
+        // recovery. FLUTTER_WHISPASTE-9W is a *runtime* hang, not a missing
+        // dependency, so both must pass to reach the heartbeat path.
+        await hw.writeServerBinaryInfo(tempDir.path, gtx650);
+        await File('${tempDir.path}/vulkan-1.dll').writeAsBytes(const [0]);
+
         final hungProc = _FakeProcess();
         final cpuProc = _FakeProcess();
         final runner = _MultiStageRunner([hungProc, cpuProc]);
@@ -539,12 +558,7 @@ void main() {
           runner: runner,
           httpClient: client,
           heartbeatConfig: hbConfig,
-          gpu: const hw.GpuInfo(
-            vendor: hw.GpuVendor.nvidia,
-            name: 'NVIDIA GeForce GTX 650',
-            cudaAvailable: true,
-            vulkanAvailable: true,
-          ),
+          gpu: gtx650,
         );
         addTearDown(() {
           container.dispose();
