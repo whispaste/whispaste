@@ -30,7 +30,10 @@ export '../probes/path_service.dart'
         sttDir,
         whisperServerPath,
         sttModelPath,
-        resolveMsixFallbackDataRoot;
+        resolveMsixFallbackDataRoot,
+        resolveAllDataRoots,
+        DataRootEntry,
+        collectAllDataRoots;
 
 // ---------------------------------------------------------------------------
 // ModelLoadProbeResult — inline definition for the core
@@ -85,6 +88,10 @@ class ModelLoadProbeResult {
 ///
 /// [vcRuntimePresent] is `null` on non-Windows platforms (the concept and the
 /// STATUS_DLL_NOT_FOUND failure mode it guards are Windows-only).
+///
+/// [installRoots] — when non-empty, a multi-root summary section is rendered
+/// after the header line listing every discovered data root with its variant
+/// label. When empty or null, this section is omitted (single-root behaviour).
 String formatDiagnosticsReport({
   required String version,
   required String variant,
@@ -110,6 +117,7 @@ String formatDiagnosticsReport({
   SettingsSnapshotResult? settings,
   bool settingsUnavailable = false,
   VerdictResult? verdict,
+  List<DataRootEntry>? installRoots,
 }) {
   final b = StringBuffer()
     ..writeln('WhisPaste v$version ($variant)')
@@ -117,6 +125,13 @@ String formatDiagnosticsReport({
     ..writeln('Dart: $dartVersion')
     ..writeln('Locale: $locale')
     ..writeln('Programm: $executablePath');
+
+  if (installRoots != null && installRoots.isNotEmpty) {
+    b.writeln('Installations-Roots (${installRoots.length}):');
+    for (final entry in installRoots) {
+      b.writeln('  [${entry.label}]  ${entry.root}');
+    }
+  }
 
   if (deviceId != null) {
     b.writeln('Geräte-ID (Sentry): $deviceId');
@@ -307,8 +322,18 @@ bool? gatherIsWindowsOverride;
 /// [gatherDiagnosticsReport]. Production uses [resolveMsixFallbackDataRoot]
 /// (which performs real disk I/O); tests pass a stub returning a fixed root or
 /// null so the AC1/AC2/AC4 wiring is driven without touching the file system.
+///
+/// Slice 1 legacy seam — kept for backward compatibility. Slice 2 tests should
+/// use [gatherAllDataRootsResolverOverride] instead.
 @visibleForTesting
 String? Function()? gatherMsixDataRootResolverOverride;
+
+/// Test seam: injects the multi-root resolver used by [gatherDiagnosticsReport]
+/// for Slice 2 (multi-root listing). When non-null, this takes precedence over
+/// [gatherMsixDataRootResolverOverride]. Production uses [resolveAllDataRoots]
+/// (real disk I/O). Tests pass a stub returning a deterministic list.
+@visibleForTesting
+List<DataRootEntry> Function()? gatherAllDataRootsResolverOverride;
 
 /// Gathers live environment data and returns the formatted diagnostics block.
 /// Best-effort: any single probe failing degrades that line rather than
@@ -324,23 +349,50 @@ Future<String> gatherDiagnosticsReport({
   ModelLoadProbeResult? modelLoadProbe,
   String? logFilePath,
 }) async {
-  // On Windows, if the regular AppData/WhisPaste tree is empty (MSIX install
-  // running outside the container), fall back to the MSIX LocalCache root.
-  // We compute the effective STT directory directly here — no global mutation.
+  // On Windows, discover all WhisPaste data roots (EXE + every MSIX version).
+  // The "primary" root is used for STT-file listing, server path and log path;
+  // all roots are surfaced in the report via the installRoots section (Slice 2).
   final isWindows = gatherIsWindowsOverride ?? Platform.isWindows;
-  String? msixDataRoot;
+
+  // allRoots: all roots whose models/stt dir is present (EXE first, then MSIX).
+  List<DataRootEntry> allRoots = const [];
+  String? primaryMsixDataRoot; // first MSIX root (or null) — drives STT dir
   String? effectiveSttDirPath;
+
   if (isWindows) {
-    // sttDir() honours sttDirOverride (test seam); use it to get the nominal path.
-    final regularSttDir = sttDir();
-    final regularExists = Directory(regularSttDir).existsSync();
-    if (!regularExists) {
-      final resolve =
-          gatherMsixDataRootResolverOverride ??
-          () => resolveMsixFallbackDataRoot();
-      msixDataRoot = resolve();
-      if (msixDataRoot != null) {
-        effectiveSttDirPath = p.join(msixDataRoot, 'models', 'stt');
+    // Resolve all roots via the appropriate seam.
+    if (gatherAllDataRootsResolverOverride != null) {
+      allRoots = gatherAllDataRootsResolverOverride!();
+    } else if (gatherMsixDataRootResolverOverride != null) {
+      // Slice 1 legacy seam: single-root resolver.  Wrap it as a list.
+      // Only used when no explicit EXE STT dir exists (same logic as Slice 1).
+      final regularSttDir = sttDir();
+      final regularExists = Directory(regularSttDir).existsSync();
+      if (!regularExists) {
+        final single = gatherMsixDataRootResolverOverride!();
+        if (single != null) {
+          allRoots = [
+            DataRootEntry(root: single, label: 'Microsoft Store / MSIX'),
+          ];
+        }
+      }
+    } else {
+      // Production: use the real multi-root resolver.
+      allRoots = resolveAllDataRoots();
+    }
+
+    // The primary root for STT-detail probes is the first MSIX root
+    // (EXE root is already covered by the default sttDir path).
+    // If the EXE root is present in allRoots we keep sttDir() as-is;
+    // if not, we fall back to the first MSIX root.
+    final exePresent = allRoots.any((e) => e.label == 'EXE-Installer');
+    if (!exePresent) {
+      final firstMsix = allRoots
+          .where((e) => e.label == 'Microsoft Store / MSIX')
+          .firstOrNull;
+      if (firstMsix != null) {
+        primaryMsixDataRoot = firstMsix.root;
+        effectiveSttDirPath = p.join(primaryMsixDataRoot, 'models', 'stt');
       }
     }
   }
@@ -411,8 +463,8 @@ Future<String> gatherDiagnosticsReport({
   // unless the caller has already supplied an explicit path.
   final effectiveLogFilePath =
       logFilePath ??
-      (msixDataRoot != null
-          ? p.join(msixDataRoot, 'logs', 'whispaste.log')
+      (primaryMsixDataRoot != null
+          ? p.join(primaryMsixDataRoot, 'logs', 'whispaste.log')
           : null);
 
   List<String> logLines;
@@ -445,15 +497,32 @@ Future<String> gatherDiagnosticsReport({
     verdict = null;
   }
 
-  // Determine the install-variant label.
+  // Determine the install-variant label for the header line.
+  // - Any MSIX root found (no EXE root) → 'Microsoft Store / MSIX'
+  // - Only EXE root → 'EXE-Installer'
+  // - Both or neither → installVariantLabel() (host-executable detection)
   // installVariantLabel() detects MSIX by checking whether the current
-  // executable lives inside WindowsApps — this works for the packaged app but
-  // the standalone Diagnose EXE is never in WindowsApps. When we resolved an
-  // MSIX data root, the installed WhisPaste is a Store / MSIX build, so we
-  // override the label accordingly.
-  final variant = msixDataRoot != null
-      ? 'Microsoft Store / MSIX'
-      : installVariantLabel();
+  // executable lives inside WindowsApps — works for the packaged app but the
+  // standalone Diagnose EXE is never in WindowsApps.
+  final String variant;
+  if (allRoots.isNotEmpty) {
+    final hasExe = allRoots.any((e) => e.label == 'EXE-Installer');
+    final hasMsix = allRoots.any((e) => e.label == 'Microsoft Store / MSIX');
+    if (hasMsix && !hasExe) {
+      variant = 'Microsoft Store / MSIX';
+    } else if (hasExe && !hasMsix) {
+      variant = 'EXE-Installer';
+    } else {
+      // Both present or unusual combination — fall back to host-label.
+      variant = installVariantLabel();
+    }
+  } else {
+    variant = installVariantLabel();
+  }
+
+  // Only pass installRoots when there are multiple roots (or at least one found
+  // root that enriches the report with a Installations-Roots section).
+  final installRootsForReport = allRoots.length > 1 ? allRoots : null;
 
   return formatDiagnosticsReport(
     version: _resolveVersion(),
@@ -481,6 +550,7 @@ Future<String> gatherDiagnosticsReport({
     // In-App-Diagnostik supplies the settings snapshot instead.
     settingsUnavailable: true,
     verdict: verdict,
+    installRoots: installRootsForReport,
   );
 }
 
