@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.2.36
+
+### Bug Fixes
+
+- **GPU-Sprachserver fällt jetzt schon *vor* dem Start auf die CPU zurück, wenn die nötige System-Bibliothek fehlt (alte NVIDIA-Karten, z. B. GeForce GTX 650).** Die GPU-Builds von `whisper-server` linken die GGML-Backends zwar statisch, importieren aber zur *Ladezeit* einen System-Loader, den der Grafiktreiber mitbringt — der Vulkan-Build `vulkan-1.dll`, der CUDA-Build die CUDA-Runtime. Diese liegt nicht im ZIP. Auf einer Maschine, deren Treiber den Loader nie installiert hat und die der Varianten-Router auf Vulkan leitet (Kepler-GTX-6xx), bricht der Prozess deshalb mit `STATUS_DLL_NOT_FOUND` (`0xC0000135`) **ab, bevor `main()` läuft** — `--no-gpu` kann das nicht verhindern, weil der OS-Loader den Import auflöst, bevor das Flag gelesen wird (`FLUTTER_WHISPASTE-A0`). Neu: Ein Pre-Launch-Gate prüft unter Windows die Loader-DLLs der installierten Variante (Binary-Ordner + `System32`, analog zur VC++-Runtime-Prüfung) und übergibt einen fehlenden Loader an `ServerBinaryRecovery`, das **vor** dem Crash auf den abhängigkeitsfreien CPU-Build wechselt — statt erst post-mortem über den Exit-Klassifikator zu recovern. Ein Windows-Smoke-Test hat bestätigt, dass das Arbeitsverzeichnis nie der Blocker war (das Modell lädt auch mit `cwd=System32`).
+
+### Features
+
+- **In-App-Diagnose („Debug-Infos kopieren") liefert jetzt einen vollständigen Sprachdienst-Dump inklusive echtem Modell-Lade-Test.** Der Dump erfasst den STT-Failure-State und probt den Modell-Load real, statt nur Metadaten zu sammeln — die wichtigste Information, um einen Startfehler aus der Ferne zu diagnostizieren.
+- **Eigenständige Sprachdienst-Diagnose-Tools für Windows und macOS, an jedes Release angehängt.** Nutzer ohne lauffähige App können einen Debug-Report erzeugen: unter Windows als Standalone-`.exe` (plus AV-sicheres Skript-Bundle), unter macOS als doppelklickbares `.command` im DMG.
+- **Diagnose-Anleitung auf der Download-Seite** führt Schritt für Schritt durch das Erstellen und Teilen eines Sprachdienst-Reports.
+
 ## 1.2.35
 
 ### Bug Fixes
