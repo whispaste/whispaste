@@ -118,6 +118,138 @@ String? sttModelPath(String modelId) {
 }
 
 // ---------------------------------------------------------------------------
+// MSIX standalone-tool data-root discovery (Slice 1)
+// ---------------------------------------------------------------------------
+
+/// Identity prefix for WhisPaste MSIX packages as published to the Microsoft
+/// Store. Glob-equivalent: `12342SilvioLindstedt.WhisPaste_*`.
+const String msixPackageIdentityPrefix = '12342SilvioLindstedt.WhisPaste';
+
+/// Builds the list of candidate data-root directories a WhisPaste MSIX
+/// installation might have written its data to.
+///
+/// Each candidate is:
+///   `<localAppData>\Packages\<entry>\LocalCache\Roaming\WhisPaste`
+/// where `<entry>` is every directory name inside
+///   `<localAppData>\Packages\`
+/// that starts with [msixPackageIdentityPrefix].
+///
+/// Pure function — no I/O. [packageDirNames] is the pre-read list of entry
+/// names directly under the `Packages\` directory (no path prefix).
+///
+/// Exposed [@visibleForTesting] so that the table tests can drive it without
+/// touching the real file system. The production I/O wrapper is
+/// [resolveMsixFallbackDataRoot].
+@visibleForTesting
+List<String> msixLocalCacheCandidatesFor({
+  required String localAppData,
+  required List<String> packageDirNames,
+}) {
+  final results = <String>[];
+  for (final name in packageDirNames) {
+    if (name.toLowerCase().startsWith(
+      msixPackageIdentityPrefix.toLowerCase(),
+    )) {
+      results.add(
+        p.windows.join(
+          localAppData,
+          'Packages',
+          name,
+          'LocalCache',
+          'Roaming',
+          'WhisPaste',
+        ),
+      );
+    }
+  }
+  return results;
+}
+
+/// Selects the effective MSIX data root from a list of [candidates].
+///
+/// Returns the first candidate for which [hasSttSubdir] returns `true`
+/// (i.e. the `models\stt` sub-directory is present). When multiple
+/// candidates match, the **first** one in list order is chosen — callers
+/// should provide candidates in a deterministic order (e.g. sorted by
+/// package family name) so the selection is stable.
+///
+/// Returns `null` when [candidates] is empty or none of the candidates
+/// pass [hasSttSubdir].
+///
+/// Pure function — [hasSttSubdir] is the only I/O seam.
+@visibleForTesting
+String? selectMsixDataRoot(
+  List<String> candidates, {
+  required bool Function(String candidateRoot) hasSttSubdir,
+}) {
+  for (final candidate in candidates) {
+    if (hasSttSubdir(candidate)) return candidate;
+  }
+  return null;
+}
+
+/// Injectable seam: overrides the `%LOCALAPPDATA%` value used by
+/// [resolveMsixFallbackDataRoot]. Production code leaves this null.
+@visibleForTesting
+String? localAppDataOverride;
+
+/// Resolves the effective WhisPaste data root for a Standalone-Diagnose run
+/// when the regular [appDataDir] is empty or absent (MSIX install outside the
+/// container).
+///
+/// Steps:
+///   1. List `%LOCALAPPDATA%\Packages\` and filter for entries that start
+///      with [msixPackageIdentityPrefix].
+///   2. For each candidate data root, probe whether `models\stt` exists.
+///   3. Return the first matching root, or `null` when none match.
+///
+/// No-op (returns `null`) on non-Windows.
+///
+/// [localAppDataOverride] and [sttDirExistsCheck] are injectable seams for
+/// tests; production code omits both.
+String? resolveMsixFallbackDataRoot({
+  String? Function()? localAppDataProvider,
+  bool Function(String candidateRoot)? sttDirExistsCheck,
+}) {
+  if (!Platform.isWindows) return null;
+
+  final localAppData =
+      (localAppDataProvider != null ? localAppDataProvider() : null) ??
+      localAppDataOverride ??
+      Platform.environment['LOCALAPPDATA'];
+
+  if (localAppData == null || localAppData.isEmpty) return null;
+
+  final packagesDir = Directory(p.join(localAppData, 'Packages'));
+
+  List<String> entries;
+  try {
+    if (!packagesDir.existsSync()) return null;
+    entries =
+        packagesDir
+            .listSync()
+            .whereType<Directory>()
+            .map((d) => p.basename(d.path))
+            .toList()
+          ..sort(); // deterministic order
+  } on FileSystemException {
+    return null;
+  }
+
+  final candidates = msixLocalCacheCandidatesFor(
+    localAppData: localAppData,
+    packageDirNames: entries,
+  );
+
+  return selectMsixDataRoot(
+    candidates,
+    hasSttSubdir:
+        sttDirExistsCheck ??
+        (root) => Directory(p.join(root, 'models', 'stt')).existsSync(),
+  );
+}
+
+// ---------------------------------------------------------------------------
 // MSIX child-process path de-virtualization (FLUTTER_WHISPASTE-A0)
 // ---------------------------------------------------------------------------
 
