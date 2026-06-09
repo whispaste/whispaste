@@ -107,31 +107,20 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "NSIS build failed" }
           Write-Host "Built: installer\WhisPaste-Setup.exe"
 
-      # --- Diagnose-Tool als eigenständige .exe (ps2exe) ------------------
-      # ps2exe braucht Windows PowerShell 5.1 (nicht pwsh). Erzeugt die
-      # Standalone-Diagnose-.exe, die ans Release gehängt wird, damit Nutzer
-      # ohne installierte App einen Sprachdienst-Report erstellen können.
-      - name: Build diagnose .exe
-        shell: powershell
+      # --- WhisPaste-Diagnose: Dart-native .exe (dart compile exe) ---------
+      # Native Windows build — no ps2exe, no PowerShell wrapper. Produces a
+      # self-contained Dart AOT binary that ships as the release artifact.
+      - name: Build WhisPaste-Diagnose.exe (Dart)
+        working-directory: packages/whispaste_diagnostics
+        shell: pwsh
         run: |
-          $raw = (Get-Content pubspec.yaml | Select-String '^\s*version:').ToString()
-          $semver = ($raw -replace '^\s*version:\s*', '' -replace '\+.*', '').Trim()
-          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
-          Install-Module ps2exe -Scope CurrentUser -Force
-          New-Item -ItemType Directory -Force -Path dist-diagnose | Out-Null
-          Invoke-ps2exe `
-            -inputFile  tools\whispaste-diagnose.ps1 `
-            -outputFile dist-diagnose\WhisPaste-Diagnose.exe `
-            -x64 `
-            -title       'WhisPaste Sprachdienst-Diagnose' `
-            -product     'WhisPaste' `
-            -company     'Silvio Lindstedt' `
-            -description 'Liest die WhisPaste-Sprachdienst-Umgebung aus und erstellt einen Debug-Report.' `
-            -copyright   'MIT License - Silvio Lindstedt' `
-            -version     "$semver.0"
-          if (-not (Test-Path dist-diagnose\WhisPaste-Diagnose.exe)) {
-            throw 'ps2exe hat keine .exe erzeugt.'
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          dart pub get
+          dart compile exe bin/whispaste_diagnose.dart -o dist/WhisPaste-Diagnose.exe
+          if (-not (Test-Path dist/WhisPaste-Diagnose.exe)) {
+            throw 'dart compile exe did not produce WhisPaste-Diagnose.exe'
           }
+          Write-Output "Binary size: $((Get-Item dist/WhisPaste-Diagnose.exe).Length) bytes"
 
       # Wichtig: Portable ZIP MUSS vor `msix:create` gebaut werden, sonst
       # landet die später erzeugte .msix-Datei im Release-Ordner und damit
@@ -157,12 +146,8 @@ jobs:
           # NSIS installer (stable filename for direct download links)
           Copy-Item "installer\WhisPaste-Setup.exe" "$artifactDir\"
 
-          # Diagnose tool: standalone .exe + AV-safe script bundle (.ps1/.cmd).
-          Copy-Item "dist-diagnose\WhisPaste-Diagnose.exe" "$artifactDir\"
-          $scriptZip = "WhisPaste-Diagnose-script-$version.zip"
-          Compress-Archive `
-            -Path "tools\whispaste-diagnose.ps1", "tools\whispaste-diagnose.cmd" `
-            -DestinationPath "$artifactDir\$scriptZip"
+          # WhisPaste-Diagnose: Dart-native standalone .exe.
+          Copy-Item "packages\whispaste_diagnostics\dist\WhisPaste-Diagnose.exe" "$artifactDir\"
 
           Write-Host "Release artifacts:"
           Get-ChildItem $artifactDir
@@ -313,14 +298,15 @@ jobs:
             "$ARTIFACT_DIR/WhisPaste-macos-arm64.dmg" \
             "$APP_PATH" || true
 
-          # Diagnose tool DMG: a single double-clickable .command. Packaged as a
-          # DMG (like the app) so the executable bit survives the download and
-          # macOS users without the app can still produce a Sprachdienst report.
-          DIAG_STAGE=$(mktemp -d)
-          cp tools/whispaste-diagnose-macos.command "$DIAG_STAGE/WhisPaste-Diagnose.command"
-          chmod +x "$DIAG_STAGE/WhisPaste-Diagnose.command"
-          hdiutil create -volname "WhisPaste Diagnose" \
-            -srcfolder "$DIAG_STAGE" -ov -format UDZO \
+          # WhisPaste-Diagnose: Dart-native .app bundle + DMG.
+          # Builds the standalone diagnostics tool (pure Dart, no Flutter).
+          cd packages/whispaste_diagnostics
+          dart pub get
+          bash tool/build_app_bundle.sh
+          cd "$OLDPWD"
+          hdiutil create -volname "WhisPaste-Diagnose" \
+            -srcfolder "packages/whispaste_diagnostics/dist/WhisPaste-Diagnose.app" \
+            -ov -format UDZO \
             "$ARTIFACT_DIR/WhisPaste-Diagnose-macOS.dmg"
 
           echo "Release artifacts:"
