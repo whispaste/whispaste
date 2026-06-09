@@ -794,7 +794,7 @@ if ($NoRunTest) {
             if (-not $exited2) {
                 Add-Line '  ERGEBNIS: Server laeuft nach 20 s stabil -> Modell + Backends'
                 Add-Line '  wurden erfolgreich geladen. KEIN Ladefehler. Wird beendet.'
-                try { $proc2.Kill() } catch { }
+                try { $proc2.Kill() } catch { $null = $_ }
             } else {
                 $code2 = $proc2.ExitCode
                 $hex2 = ('0x{0:X8}' -f ([uint32]($code2 -band 0xFFFFFFFF)))
@@ -916,5 +916,6 @@ if (-not $NoPause -and $interactive) {
         Read-Host -Prompt 'Zum Schliessen die Eingabetaste druecken'
     } catch {
         # Read-Host kann in nicht-interaktiven Hosts werfen -> still ignorieren.
+        $null = $_
     }
 }
