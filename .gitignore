@@ -127,3 +127,8 @@ tmp_funcs.sql
 
 # Design source files
 *.afdesign
+
+# Generated diagnose reports (contain machine-specific paths/hardware — never track)
+WhisPaste-Diagnose_*.txt
+tools/win-smoke/*.txt
+tools/**/report.txt
