@@ -51,7 +51,11 @@ param(
     [string]$ServerPath,
     [string]$OutFile,
     [switch]$NoRunTest,
-    [int]$LogTail = 120
+    [int]$LogTail = 120,
+    # Unterdrueckt die Abschluss-Pause am Ende (fuer CI / automatisierte Laeufe).
+    # Interaktiv (Doppelklick / .exe) bleibt das Fenster sonst offen, damit der
+    # Nutzer die Abschluss-Anweisung lesen kann.
+    [switch]$NoPause
 )
 
 Set-StrictMode -Version Latest
@@ -753,6 +757,76 @@ if ($NoRunTest) {
     } finally {
         Remove-Item -LiteralPath $errFile, $outFileTmp -ErrorAction SilentlyContinue
     }
+
+    # --- Echter Modell-Lade-Test ------------------------------------------
+    # Der --help-Test oben laedt NUR den Hilfetext: er initialisiert weder das
+    # Modell noch die ggml-Compute-Backends (ggml-cpu/ggml-blas/libopenblas).
+    # Genau deshalb meldete er im Feld "Exit 0", obwohl die App den Server mit
+    # 0xC0000135 (STATUS_DLL_NOT_FOUND) abstuerzen sah -- der Fehler tritt erst
+    # beim echten Laden auf (FLUTTER_WHISPASTE-A0, GTX 650 Kepler). Dieser
+    # zweite Test startet den Server so, wie die App es tut: mit echtem Modell
+    # und --no-gpu, gegen einen freien Port, und faengt den realen Exit-Code.
+    Add-Line ''
+    Add-Line 'Echter Modell-Lade-Test (wie die App startet, --no-gpu)...'
+    $serverDirForTest = Split-Path -Parent $ServerPath
+    $modelFile = Get-ChildItem -LiteralPath $serverDirForTest -Filter 'ggml-*.bin' -File -ErrorAction SilentlyContinue |
+        Sort-Object Length -Descending | Select-Object -First 1
+    if (-not $modelFile) {
+        Add-Line '  Uebersprungen - kein Modell (ggml-*.bin) neben der Binary gefunden.'
+    } else {
+        $errFile2 = [System.IO.Path]::GetTempFileName()
+        $outFile2 = [System.IO.Path]::GetTempFileName()
+        # Freien lokalen Port suchen, damit der Test keinen echten Server stoert.
+        $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
+        $listener.Start()
+        $testPort = ([System.Net.IPEndPoint]$listener.LocalEndpoint).Port
+        $listener.Stop()
+        try {
+            Add-Line ("  Modell: {0} ({1:N0} Bytes)" -f $modelFile.Name, $modelFile.Length)
+            $args2 = @(
+                '--model', $modelFile.FullName,
+                '--host', '127.0.0.1', '--port', "$testPort",
+                '--threads', '4', '--no-timestamps', '--no-gpu'
+            )
+            $proc2 = Start-Process -FilePath $ServerPath -ArgumentList $args2 -PassThru `
+                -RedirectStandardError $errFile2 -RedirectStandardOutput $outFile2 -WindowStyle Hidden
+            $exited2 = $proc2.WaitForExit(20000)
+            if (-not $exited2) {
+                Add-Line '  ERGEBNIS: Server laeuft nach 20 s stabil -> Modell + Backends'
+                Add-Line '  wurden erfolgreich geladen. KEIN Ladefehler. Wird beendet.'
+                try { $proc2.Kill() } catch { }
+            } else {
+                $code2 = $proc2.ExitCode
+                $hex2 = ('0x{0:X8}' -f ([uint32]($code2 -band 0xFFFFFFFF)))
+                $meaning2 = switch ($code2) {
+                    -1073741515 { 'STATUS_DLL_NOT_FOUND - Backend-/Laufzeit-DLL fehlt im Suchpfad (0xC0000135)' }
+                    -1073741511 { 'STATUS_ENTRYPOINT_NOT_FOUND - DLL da, aber falsche Version (0xC0000139)' }
+                    -1073740791 { 'STATUS_STACK_BUFFER_OVERRUN / Abbruch (0xC0000409)' }
+                    -1073741819 { 'STATUS_ACCESS_VIOLATION (0xC0000005)' }
+                    3           { 'Modell konnte nicht geladen/geoeffnet werden (whisper exit 3)' }
+                    0           { 'OK (sauberer Start/Beenden)' }
+                    default     { '(siehe Exit-Code / stderr unten)' }
+                }
+                Add-Line ("  ERGEBNIS: Exit-Code {0} ({1})" -f $code2, $hex2)
+                Add-Line ("  Bedeutung: {0}" -f $meaning2)
+                if ($code2 -ne 0) {
+                    Add-Line '  >> DAS ist der reale Startfehler, den die App sieht (nicht der'
+                    Add-Line '  >> --help-Test darueber). Exit-Code + stderr hier sind massgeblich.'
+                }
+            }
+            $errText2 = (Get-Content -LiteralPath $errFile2 -Raw -ErrorAction SilentlyContinue)
+            if ($errText2 -and $errText2.Trim()) {
+                Add-Line '  --- stderr (gekuerzt) ---'
+                foreach ($line in ($errText2 -split "`n" | Select-Object -First 25)) {
+                    if ($line.Trim()) { Add-Line ("    {0}" -f $line.TrimEnd()) }
+                }
+            }
+        } catch {
+            Add-Line ("  Start fehlgeschlagen: {0}" -f $_.Exception.Message)
+        } finally {
+            Remove-Item -LiteralPath $errFile2, $outFile2 -ErrorAction SilentlyContinue
+        }
+    }
 }
 
 # --- Abschnitt: Bewertung -----------------------------------------------
@@ -807,3 +881,40 @@ try {
 $script:Report | ForEach-Object { Write-Output $_ }
 Write-Output ''
 Write-Output ("Report gespeichert unter: {0}" -f $OutFile)
+
+# =========================================================================
+# Abschluss-Anweisung fuer den Nutzer + Pause
+#
+# Wichtig: Als kompilierte .exe (ps2exe) oder per Doppelklick schliesst sich
+# das Konsolenfenster sonst sofort -- der Nutzer sieht nie, dass ueberhaupt
+# ein Report erzeugt wurde, und weiss nicht, was als Naechstes zu tun ist.
+# Darum hier eine klare, freundliche Schluss-Meldung und eine Pause. In CI /
+# automatisierten Laeufen wird die Pause per -NoPause uebersprungen.
+# =========================================================================
+Write-Output ''
+Write-Output ('=' * 72)
+Write-Output '  FERTIG - was du jetzt tun solltest:'
+Write-Output ('=' * 72)
+Write-Output ''
+Write-Output '  1. Es wurde eine Diagnose-Datei erstellt:'
+Write-Output ("       {0}" -f $OutFile)
+Write-Output '     (liegt normalerweise auf deinem Desktop).'
+Write-Output ''
+Write-Output '  2. Bitte sende diese Datei an den Support / per Mail zurueck.'
+Write-Output '     Sie enthaelt keine persoenlichen Inhalte - nur technische'
+Write-Output '     Infos zu Hardware, Treibern und dem Sprachdienst-Start.'
+Write-Output ''
+Write-Output '  3. Danach kannst du dieses Fenster schliessen.'
+Write-Output ''
+
+# Pause nur, wenn interaktiv und nicht ausdruecklich unterdrueckt. Ohne diese
+# Guards wuerde ein CI-Lauf (ps2exe-Build/Smoke-Test) ewig haengen.
+$interactive = $false
+try { $interactive = [Environment]::UserInteractive } catch { $interactive = $false }
+if (-not $NoPause -and $interactive) {
+    try {
+        Read-Host -Prompt 'Zum Schliessen die Eingabetaste druecken'
+    } catch {
+        # Read-Host kann in nicht-interaktiven Hosts werfen -> still ignorieren.
+    }
+}
