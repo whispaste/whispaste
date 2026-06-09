@@ -1036,9 +1036,22 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       await Process.run('xattr', ['-d', 'com.apple.quarantine', serverPath]);
     }
 
+    // Launch with the server binary's own directory as the working directory
+    // so whisper-server's runtime DLL resolution (ggml-cpu / ggml-blas /
+    // libopenblas, plus their VC++ deps) searches the folder the binary and
+    // its sibling DLLs actually live in. An MSIX-packaged launch that inherits
+    // the app's working directory (e.g. System32) cannot find these and aborts
+    // with STATUS_DLL_NOT_FOUND (0xC0000135) despite every DLL being present —
+    // FLUTTER_WHISPASTE-A0 (GTX 650 Kepler).
+    final serverDir = File(serverPath).parent.path;
+
     final Process proc;
     try {
-      proc = await _processRunner.start(serverPath, args);
+      proc = await _processRunner.start(
+        serverPath,
+        args,
+        workingDirectory: serverDir,
+      );
     } on ProcessException catch (e, st) {
       // Spawn failure (binary missing, path invalid, exec bit, ENOENT, …).
       // Previously only `_fail()`'d into local state — Sentry never saw it,
@@ -1256,7 +1269,11 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
               _process = null;
               _activeModel = null;
               unawaited(
-                _handleModelLoadFailure(modelId: modelId, exitCode: code),
+                _handleModelLoadFailure(
+                  modelId: modelId,
+                  exitCode: code,
+                  stderrLines: List<String>.of(stderrLines),
+                ),
               );
               return;
 
@@ -1713,9 +1730,55 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
   Future<void> _handleModelLoadFailure({
     required String modelId,
     required int exitCode,
+    List<String> stderrLines = const <String>[],
   }) async {
     final modelInfo = findSttModel(modelId);
     final modelPath = sttModelPath(modelId);
+
+    // Exit code 3 alone does NOT mean "binary/model ABI mismatch". whisper.cpp
+    // also exits 3 when it cannot even open the model file
+    // (`whisper_init_from_file…: failed to open '<path>'`). On the GTX 650 /
+    // GTX 650 Kepler repro (FLUTTER_WHISPASTE-A0) the model SHA-256 verified intact
+    // moments earlier, so the SHA-only heuristic mislabelled a file-access
+    // fault as ABI drift and kicked off a pointless vulkan→cpu binary
+    // fallback. A different binary variant cannot fix a path/access fault, so
+    // we short-circuit here: surface an honest error and capture a distinct
+    // signal instead of handing the crash to ServerBinaryRecovery.
+    if (classifyModelLoadFailure(stderrLines) ==
+        ModelLoadFailureCause.fileUnreadable) {
+      _log.warning(
+        'whisper-server could not open model $modelId (code $exitCode): the '
+        'file is present and intact but unreadable by the server process — '
+        'this is a path/launch-context fault, not an ABI mismatch. '
+        'stderr=${stderrLines.join(' | ')}',
+      );
+      CrashReporter.instance?.captureError(
+        message: 'whisper-server could not open model file',
+        severity: 'error',
+        type: 'stt_model_file_unreadable',
+        fingerprint: const [sttModelFileUnreadable],
+        extras: {
+          'model_id': modelId,
+          'model_path': modelPath ?? '<unknown>',
+          'exit_code': exitCode,
+          'stderr_tail': stderrLines,
+          'platform': Platform.operatingSystem,
+        },
+      );
+      _process = null;
+      _activeModel = null;
+      _transition(
+        const SttStatus(
+          serverState: SttServerState.error,
+          errorMessage:
+              'Sprachdienst kann das Sprachmodell nicht öffnen, obwohl die '
+              'Datei vorhanden ist. Bitte WhisPaste neu starten. Tritt das '
+              'erneut auf, erstelle bitte über „Debug-Informationen kopieren" '
+              'eine Diagnose und sende sie uns.',
+        ),
+      );
+      return;
+    }
 
     bool hashMismatch = false;
     if (modelInfo != null && modelPath != null) {

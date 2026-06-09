@@ -63,7 +63,15 @@ class LocalSttServer {
       ]);
     }
 
-    _process = await _processRunner.start(executablePath, args);
+    // Working directory = the binary's own folder so whisper-server resolves
+    // its sibling ggml/BLAS/VC++ DLLs at runtime (see ProcessRunner.start /
+    // FLUTTER_WHISPASTE-A0). Without it an MSIX launch aborts with
+    // STATUS_DLL_NOT_FOUND despite every DLL being present.
+    _process = await _processRunner.start(
+      executablePath,
+      args,
+      workingDirectory: File(executablePath).parent.path,
+    );
     _port = port;
   }
 

@@ -81,7 +81,11 @@ class _FakeProcessRunner extends ProcessRunner {
   _FakeProcessRunner(this.process);
 
   @override
-  Future<Process> start(String executable, List<String> arguments) async {
+  Future<Process> start(
+    String executable,
+    List<String> arguments, {
+    String? workingDirectory,
+  }) async {
     startCallCount++;
     lastExecutable = executable;
     lastArguments = arguments;
@@ -100,7 +104,11 @@ class _MultiFakeProcessRunner extends ProcessRunner {
   _MultiFakeProcessRunner(this.factory);
 
   @override
-  Future<Process> start(String executable, List<String> arguments) async {
+  Future<Process> start(
+    String executable,
+    List<String> arguments, {
+    String? workingDirectory,
+  }) async {
     startCallCount++;
     lastProcess = factory();
     return lastProcess!;

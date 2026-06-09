@@ -581,7 +581,7 @@ Future<void> deleteServerBinary(String sttDirPath) async {
 /// whisper-server build links against. None of these ship inside the binary
 /// zip; they come from the VC++ Redistributable (x64). The OpenMP runtime
 /// `vcomp140.dll` is part of the same redistributable but a separate file.
-const List<String> _vcRuntimeDllNames = <String>[
+const List<String> vcRuntimeDllNames = <String>[
   'vcruntime140.dll',
   'vcruntime140_1.dll',
   'msvcp140.dll',
@@ -614,7 +614,7 @@ bool vcRuntimeDllsPresent(String sttDirPath) {
   bool resolvable(String dll) =>
       searchDirs.any((dir) => File(p.join(dir, dll)).existsSync());
 
-  return _vcRuntimeDllNames.every(resolvable);
+  return vcRuntimeDllNames.every(resolvable);
 }
 
 /// Lists the file names present in [sttDirPath] (non-recursive), or an empty

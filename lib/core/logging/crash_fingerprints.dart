@@ -56,6 +56,15 @@ const String sttModelAbiMismatch = 'stt-model-abi-mismatch';
 /// The on-disk model file is corrupted and needs a silent re-download.
 const String sttModelCorrupted = 'stt-model-corrupted';
 
+/// `modelLoad` exit (code 3) whose stderr is a file-open failure
+/// (`whisper_init_from_file…: failed to open '<path>'`) while the model
+/// SHA-256 is intact. The server process cannot read a present, valid model
+/// file — a path / launch-context fault (e.g. an MSIX child process that does
+/// not see the virtualised `%APPDATA%\Roaming` path), NOT an ABI mismatch.
+/// Distinct bucket so these stop polluting [sttModelAbiMismatch] and the
+/// launch-context hypothesis can be confirmed from the field.
+const String sttModelFileUnreadable = 'stt-model-file-unreadable';
+
 /// Final `SqliteException(5) database is locked` after the
 /// SqliteWriteCoordinator's retry budget is exhausted. One fingerprint
 /// for the entire write surface so duplicates like WP-7B…7M collapse to
