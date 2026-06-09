@@ -1053,8 +1053,14 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     }
 
     final threads = _threadCount(gpuAcceleration);
+    // FLUTTER_WHISPASTE-A0: under the Microsoft Store / MSIX build the spawned
+    // whisper-server child does not inherit the parent's AppData redirection,
+    // so the virtualized `%APPDATA%\WhisPaste\…` path resolves to an empty real
+    // Roaming dir for the child ("search path … does not exist" → exit 3). Hand
+    // the child the physical package-local path instead. No-op off MSIX.
+    final childModelPath = deVirtualizeMsixChildPath(modelPath);
     final args = _serverArgs(
-      modelPath: modelPath,
+      modelPath: childModelPath,
       port: port,
       threads: threads,
       gpuMode: gpuAcceleration,
@@ -1080,12 +1086,18 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     // above (`hw.firstUnresolvableBackendLoaderDll`). A Windows smoke test
     // confirmed the model loads with cwd=System32 too, so the working directory
     // alone was never the blocker.
-    final serverDir = File(serverPath).parent.path;
+    // Launch via the child-resolvable path too (FLUTTER_WHISPASTE-A0): the
+    // child derives its own module directory — and thus its ggml backend-DLL
+    // search path — from the path it was launched with, so launching via the
+    // virtualized path makes it scan an empty real Roaming dir. The physical
+    // path keeps both the model arg and the backend search consistent.
+    final childServerPath = deVirtualizeMsixChildPath(serverPath);
+    final serverDir = File(childServerPath).parent.path;
 
     final Process proc;
     try {
       proc = await _processRunner.start(
-        serverPath,
+        childServerPath,
         args,
         workingDirectory: serverDir,
       );

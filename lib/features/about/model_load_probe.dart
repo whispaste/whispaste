@@ -21,7 +21,7 @@ export 'package:whispaste_diagnostics/whispaste_diagnostics.dart'
     show ModelLoadProbeResult;
 
 import 'package:whispaste_diagnostics/whispaste_diagnostics.dart'
-    show ModelLoadProbeResult;
+    show ModelLoadProbeResult, deVirtualizeMsixChildPath;
 
 /// Launches [serverPath] against [modelPath] with `--no-gpu` and watches it for
 /// [window]. If the process is still alive when the window elapses it is killed
@@ -52,11 +52,17 @@ Future<ModelLoadProbeResult> runModelLoadProbe({
     );
   }
 
-  final serverDir = File(serverPath).parent.path;
+  // FLUTTER_WHISPASTE-A0: existence is checked on the logical (parent-resolved)
+  // paths above, but the child must be handed the physical MSIX path — see
+  // [deVirtualizeMsixChildPath]. No-op off the Store/MSIX build, so the probe
+  // mirrors exactly what the runtime launch now does.
+  final childServerPath = deVirtualizeMsixChildPath(serverPath);
+  final childModelPath = deVirtualizeMsixChildPath(modelPath);
+  final serverDir = File(childServerPath).parent.path;
   final port = await (resolvePort ?? _findFreePort)();
   final args = <String>[
     '--model',
-    modelPath,
+    childModelPath,
     '--host',
     '127.0.0.1',
     '--port',
@@ -69,7 +75,11 @@ Future<ModelLoadProbeResult> runModelLoadProbe({
 
   final Process proc;
   try {
-    proc = await runner.start(serverPath, args, workingDirectory: serverDir);
+    proc = await runner.start(
+      childServerPath,
+      args,
+      workingDirectory: serverDir,
+    );
   } on Object catch (e) {
     return ModelLoadProbeResult(
       ran: true,
