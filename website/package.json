@@ -21,7 +21,7 @@
     "@astrojs/sitemap": "^3.7.3",
     "@sentry/astro": "^10.54.0",
     "@tailwindcss/vite": "^4.2.1",
-    "astro": "^6.3.8",
+    "astro": "6.3.8",
     "dompurify": "^3.4.6",
     "tailwindcss": "^4.2.1"
   },
@@ -38,6 +38,7 @@
     "vitest": "^4.1.7"
   },
   "overrides": {
-    "devalue": "^5.8.1"
+    "devalue": "^5.8.1",
+    "vite": "7.3.3"
   }
 }
