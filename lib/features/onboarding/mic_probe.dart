@@ -97,9 +97,8 @@ class OnboardingMicProbe {
     this.timeout = const Duration(seconds: 5),
     this.speechThresholdDbFs = -42.0,
     this.sustainedAbove = const Duration(milliseconds: 120),
-    Duration pollInterval = const Duration(milliseconds: 40),
-  }) : _recorder = recorder ?? _RealMicProbeRecorder(),
-       _pollInterval = pollInterval;
+    this._pollInterval = const Duration(milliseconds: 40),
+  }) : _recorder = recorder ?? _RealMicProbeRecorder();
 
   /// Wall-clock budget for detecting speech before the probe gives up.
   final Duration timeout;

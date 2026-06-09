@@ -79,7 +79,7 @@ Future<String> buildAndWriteReport({
   final txtBytes = File(txtPath).readAsBytesSync();
   archive.addFile(ArchiveFile('$stem.txt', txtBytes.length, txtBytes));
   final zipBytes = ZipEncoder().encode(archive);
-  File(zipPath).writeAsBytesSync(zipBytes!);
+  File(zipPath).writeAsBytesSync(zipBytes);
 
   // 4. Post-report delivery: reveal ZIP + open prefilled mail client.
   //    Skipped when deliveryStep is null (e.g. CI smoke runs).

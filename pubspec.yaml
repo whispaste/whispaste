@@ -4,7 +4,8 @@ publish_to: 'none'
 version: 1.2.36+1
 
 environment:
-  sdk: ^3.11.0
+  sdk: ^3.12.0
+  flutter: ">=3.44.0"
 
 dependencies:
   flutter:
@@ -21,15 +22,15 @@ dependencies:
   # Single-writer lock for the SqliteWriteCoordinator. Generic Dart sync
   # primitive (no Firebase, no GCP) — chosen in the reliability-sprint PRD
   # Modul 5 to serialise all history mutations against SQLITE_BUSY.
-  synchronized: ^3.4.0
+  synchronized: ^3.4.1
 
   # Desktop window management
   window_manager: ^0.5.1
-  screen_retriever: ^0.2.0
+  screen_retriever: ^0.2.1
   flutter_acrylic: ^1.1.0
 
   # System tray (desktop)
-  tray_manager: ^0.5.2
+  tray_manager: ^0.5.3
 
   # Global hotkeys (desktop)
   hotkey_manager: ^0.2.0
@@ -38,7 +39,7 @@ dependencies:
   super_clipboard: ^0.9.1
 
   # Audio recording
-  record: ^6.2.1
+  record: ^7.0.0
 
   # Autostart (desktop)
   launch_at_startup: ^0.5.1
@@ -48,9 +49,9 @@ dependencies:
   dio: ^5.7.0
 
   # Crash reporting
-  sentry_flutter: ^9.20.0
-  sentry_dio: ^9.20.0     # HTTP-Spans für Dio-Clients
-  sentry_drift: ^9.20.0   # DB-Query-Spans für Drift
+  sentry_flutter: ^9.21.0
+  sentry_dio: ^9.21.0     # HTTP-Spans für Dio-Clients
+  sentry_drift: ^9.21.0   # DB-Query-Spans für Drift
 
   # Path utilities
   path_provider: ^2.1.5
@@ -60,7 +61,7 @@ dependencies:
   ffi: ^2.2.0
 
   # Cross-platform audio engine (replaces Win32 PlaySoundW)
-  flutter_soloud: ^4.0.0
+  flutter_soloud: ^4.0.7
 
   # Utilities
   intl: ^0.20.2
@@ -79,7 +80,7 @@ dependencies:
   # reliably even when notification permission is denied.
   local_notifier: ^0.1.6
   equatable: ^2.0.7
-  flutter_secure_storage: ^10.3.0
+  flutter_secure_storage: ^10.3.1
   flutter_svg: ^2.1.0
   lucide_icons_flutter: ^3.1.12
   flutter_lucide_animated: ^0.0.4
@@ -111,7 +112,7 @@ dev_dependencies:
   mocktail: ^1.0.4
   msix: ^3.16.8
   golden_screenshot: ^11.0.1
-  sentry_dart_plugin: ^3.3.0
+  sentry_dart_plugin: ^3.4.0
   # Deterministic simulated time for testing periodic timers + injected
   # wall-clock sources. Direct dev-dep so it is usable without relying on
   # the transitive pull-in via flutter_test.

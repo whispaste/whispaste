@@ -75,20 +75,18 @@ final class GiveUp extends RecoveryDecision {
 class OomRecoveryHandler {
   /// Creates an [OomRecoveryHandler].
   ///
-  /// [maxRetries]           — maximum number of model-fallback attempts before
+  /// [_maxRetries]           — maximum number of model-fallback attempts before
   ///                          giving up or switching to cloud.
-  /// [nextModelIdForCurrent] — returns the next lighter model ID for a given
+  /// [_nextModelIdForCurrent] — returns the next lighter model ID for a given
   ///                           model, or `null` if there is no lighter model.
   ///                           Delegates to `LocalSttServer.applyModelFallback`
   ///                           (or equivalent lookup) in production.
-  /// [hasCloudConfigured]   — returns `true` when a cloud API key is available.
+  /// [_hasCloudConfigured]   — returns `true` when a cloud API key is available.
   OomRecoveryHandler({
-    required int maxRetries,
-    required String? Function(String currentModelId) nextModelIdForCurrent,
-    required bool Function() hasCloudConfigured,
-  }) : _maxRetries = maxRetries,
-       _nextModelIdForCurrent = nextModelIdForCurrent,
-       _hasCloudConfigured = hasCloudConfigured;
+    required this._maxRetries,
+    required this._nextModelIdForCurrent,
+    required this._hasCloudConfigured,
+  });
 
   final int _maxRetries;
   final String? Function(String currentModelId) _nextModelIdForCurrent;

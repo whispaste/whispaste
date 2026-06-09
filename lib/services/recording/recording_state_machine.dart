@@ -69,11 +69,7 @@ enum RecordingIntent {
 /// The machine delegates every allowed transition to the notifier and
 /// never reads or writes [RecordingNotifier.state] directly.
 class RecordingStateMachine {
-  RecordingStateMachine({
-    required RecordingPhase Function() phaseReader,
-    required RecordingNotifier notifier,
-  }) : _phaseReader = phaseReader,
-       _notifier = notifier;
+  RecordingStateMachine({required this._phaseReader, required this._notifier});
 
   static final _log = AppLogger('RecordingStateMachine');
 

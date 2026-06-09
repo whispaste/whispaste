@@ -11,7 +11,7 @@ import 'package:http/http.dart' as http;
 /// An injectable [http.Client] is accepted so tests can supply a mock without
 /// spinning up a real HTTP server.
 class SttHealthProbe {
-  const SttHealthProbe({required http.Client client}) : _client = client;
+  const SttHealthProbe({required this._client});
 
   final http.Client _client;
 

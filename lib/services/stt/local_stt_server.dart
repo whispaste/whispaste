@@ -14,8 +14,7 @@ import '../process_runner.dart';
 ///
 /// Health-polling and idle-timer concerns live in separate modules.
 class LocalSttServer {
-  LocalSttServer({required ProcessRunner processRunner})
-    : _processRunner = processRunner;
+  LocalSttServer({required this._processRunner});
 
   final ProcessRunner _processRunner;
   Process? _process;

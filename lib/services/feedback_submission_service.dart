@@ -113,17 +113,13 @@ final class FeedbackNetworkError extends FeedbackSubmissionResult {
 /// [FeedbackSkippedNotConfigured] without touching the network.
 final class FeedbackSubmissionService {
   FeedbackSubmissionService({
-    required http.Client client,
-    required String supabaseUrl,
-    required String supabasePublishableKey,
-    Duration timeout = const Duration(seconds: 15),
+    required this._client,
+    required this._supabaseUrl,
+    required this._supabasePublishableKey,
+    this._timeout = const Duration(seconds: 15),
     BreadcrumbSinkFn? breadcrumbSink,
     MessageSinkFn? messageSink,
-  }) : _client = client,
-       _supabaseUrl = supabaseUrl,
-       _supabasePublishableKey = supabasePublishableKey,
-       _timeout = timeout,
-       _breadcrumbSink = breadcrumbSink ?? _defaultBreadcrumbSink,
+  }) : _breadcrumbSink = breadcrumbSink ?? _defaultBreadcrumbSink,
        _messageSink = messageSink ?? _defaultMessageSink;
 
   static final _log = AppLogger('FeedbackSubmissionService');
