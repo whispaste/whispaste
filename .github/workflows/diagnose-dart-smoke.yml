@@ -1,0 +1,137 @@
+name: WhisPaste-Diagnose Dart Smoke
+
+# Builds and smoke-tests the pure-Dart WhisPaste-Diagnose CLI on both
+# native runners. Each runner compiles its own binary (no cross-compile),
+# runs it against a temp output directory (no WhisPaste installed on the
+# runner), asserts exit 0, and asserts a report file was written.
+#
+# Triggered on every push to dev/main that touches the diagnostics package
+# or this workflow. Also supports manual dispatch.
+
+on:
+  push:
+    branches: [dev, main]
+    paths:
+      - 'packages/whispaste_diagnostics/**'
+      - '.github/workflows/diagnose-dart-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke-windows:
+    name: Smoke — Windows (dart compile exe)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Get dependencies
+        working-directory: packages/whispaste_diagnostics
+        run: dart pub get
+
+      - name: Compile WhisPaste-Diagnose.exe
+        working-directory: packages/whispaste_diagnostics
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          dart compile exe bin/whispaste_diagnose.dart -o dist/WhisPaste-Diagnose.exe
+          if (-not (Test-Path dist/WhisPaste-Diagnose.exe)) {
+            throw 'dart compile exe did not produce WhisPaste-Diagnose.exe'
+          }
+          Write-Output "Binary size: $((Get-Item dist/WhisPaste-Diagnose.exe).Length) bytes"
+
+      - name: Smoke test — run binary, assert exit 0, assert report written
+        working-directory: packages/whispaste_diagnostics
+        shell: pwsh
+        run: |
+          $outDir = Join-Path $env:RUNNER_TEMP 'diagnose-smoke'
+          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+          & dist/WhisPaste-Diagnose.exe --output-dir $outDir
+          if ($LASTEXITCODE -ne 0) {
+            throw "Binary exited with code $LASTEXITCODE (expected 0)"
+          }
+          $txt = Get-ChildItem $outDir -Filter '*.txt'
+          $zip = Get-ChildItem $outDir -Filter '*.zip'
+          if ($txt.Count -eq 0) { throw 'No .txt report file written' }
+          if ($zip.Count -eq 0) { throw 'No .zip bundle written' }
+          Write-Output "==> Smoke OK — report written:"
+          Write-Output "    $($txt[0].FullName) ($($txt[0].Length) bytes)"
+          Write-Output "    $($zip[0].FullName) ($($zip[0].Length) bytes)"
+          Write-Output "--- Report head ---"
+          Get-Content $txt[0].FullName -TotalCount 12
+
+      - name: Upload smoke artifact (diagnose .exe)
+        uses: actions/upload-artifact@v4
+        with:
+          name: whispaste-diagnose-dart-exe
+          path: packages/whispaste_diagnostics/dist/WhisPaste-Diagnose.exe
+          if-no-files-found: error
+
+  smoke-macos:
+    name: Smoke — macOS (dart compile exe + .app bundle)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Get dependencies
+        working-directory: packages/whispaste_diagnostics
+        run: dart pub get
+
+      - name: Build .app bundle via tool/build_app_bundle.sh
+        working-directory: packages/whispaste_diagnostics
+        run: bash tool/build_app_bundle.sh
+
+      - name: Verify .app structure (exec bit + Mach-O + Info.plist)
+        working-directory: packages/whispaste_diagnostics
+        run: |
+          APP="dist/WhisPaste-Diagnose.app"
+          EXEC="$APP/Contents/MacOS/WhisPaste-Diagnose"
+          PLIST="$APP/Contents/Info.plist"
+
+          [ -f "$EXEC" ] || { echo "ERROR: executable not found at $EXEC"; exit 1; }
+          [ -x "$EXEC" ] || { echo "ERROR: executable bit not set"; exit 1; }
+          [ -f "$PLIST" ] || { echo "ERROR: Info.plist not found"; exit 1; }
+
+          FILE_TYPE=$(file "$EXEC")
+          echo "file: $FILE_TYPE"
+          echo "$FILE_TYPE" | grep -q 'Mach-O' || { echo "ERROR: not a Mach-O binary"; exit 1; }
+
+          echo "==> .app structure OK"
+
+      - name: Smoke test — run .app bundle executable, assert exit 0, assert report written
+        working-directory: packages/whispaste_diagnostics
+        run: |
+          OUT_DIR=$(mktemp -d)
+          ./dist/WhisPaste-Diagnose.app/Contents/MacOS/WhisPaste-Diagnose --output-dir "$OUT_DIR"
+          EXIT_CODE=$?
+          if [ "$EXIT_CODE" -ne 0 ]; then
+            echo "ERROR: Binary exited with code $EXIT_CODE (expected 0)"
+            exit 1
+          fi
+          TXT_COUNT=$(find "$OUT_DIR" -name '*.txt' | wc -l | tr -d ' ')
+          ZIP_COUNT=$(find "$OUT_DIR" -name '*.zip' | wc -l | tr -d ' ')
+          [ "$TXT_COUNT" -ge 1 ] || { echo "ERROR: No .txt report file written"; exit 1; }
+          [ "$ZIP_COUNT" -ge 1 ] || { echo "ERROR: No .zip bundle written"; exit 1; }
+          echo "==> Smoke OK — report written:"
+          find "$OUT_DIR" -type f
+          echo "--- Report head ---"
+          find "$OUT_DIR" -name '*.txt' -exec head -12 {} \;
+          rm -rf "$OUT_DIR"
+
+      - name: Upload smoke artifact (diagnose .app)
+        uses: actions/upload-artifact@v4
+        with:
+          name: whispaste-diagnose-dart-app
+          path: packages/whispaste_diagnostics/dist/WhisPaste-Diagnose.app
+          if-no-files-found: error

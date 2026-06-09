@@ -2,6 +2,7 @@
 // Shared between the In-App-Diagnostik (Flutter app) and the future
 // standalone WhisPaste-Diagnose CLI. No Flutter dependency.
 
+export 'src/cli/cli_orchestrator.dart';
 export 'src/analysis/dll_analysis.dart';
 export 'src/analysis/fingerprint_mapping.dart';
 export 'src/analysis/verdict.dart';
