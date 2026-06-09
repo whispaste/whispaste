@@ -116,3 +116,102 @@ String? sttModelPath(String modelId) {
   if (filename == null) return null;
   return p.join(sttDir(), filename);
 }
+
+// ---------------------------------------------------------------------------
+// MSIX child-process path de-virtualization (FLUTTER_WHISPASTE-A0)
+// ---------------------------------------------------------------------------
+
+/// Test seam: overrides the executable path used to detect an MSIX package and
+/// derive its family name. Production reads [Platform.resolvedExecutable].
+@visibleForTesting
+String? resolvedExecutableOverride;
+
+/// Derives the MSIX **Package Family Name** (`Name_PublisherId`) from a
+/// `…\WindowsApps\<PackageFullName>\…` executable path, or `null` when the path
+/// is not inside a WindowsApps package directory.
+///
+/// A package full name is `Name_Version_Arch_ResourceId_PublisherId` — the
+/// ResourceId segment is usually empty, leaving a `__` before the publisher
+/// hash (e.g. `12342SilvioLindstedt.WhisPaste_1.2.36.0_x64__phagqa3gq04kr`).
+/// The family name keeps only the first (`Name`) and last (`PublisherId`)
+/// segments. All logic is plain string handling so it is unit-testable off
+/// Windows.
+@visibleForTesting
+String? msixPackageFamilyFromExePath(String exePath) {
+  final normalized = exePath.replaceAll('/', r'\');
+  const marker = r'\windowsapps\';
+  final idx = normalized.toLowerCase().indexOf(marker);
+  if (idx < 0) return null;
+  final after = normalized.substring(idx + marker.length);
+  final fullName = after.split(r'\').first;
+  final parts = fullName.split('_');
+  if (parts.length < 2) return null;
+  final name = parts.first;
+  final publisherId = parts.last;
+  if (name.isEmpty || publisherId.isEmpty) return null;
+  return '${name}_$publisherId';
+}
+
+/// Pure core of [deVirtualizeMsixChildPath] — every input is injected so the
+/// mapping can be exercised cross-platform. Uses the Windows path style
+/// unconditionally because MSIX is a Windows-only concept.
+///
+/// Returns [path] unchanged when [exePath] is not a WindowsApps package path,
+/// either env var is missing, or [path] is not under `%APPDATA%\WhisPaste`.
+@visibleForTesting
+String deVirtualizeMsixChildPathFor({
+  required String path,
+  required String exePath,
+  required String? appData,
+  required String? localAppData,
+}) {
+  final family = msixPackageFamilyFromExePath(exePath);
+  if (family == null) return path;
+  if (appData == null || appData.isEmpty) return path;
+  if (localAppData == null || localAppData.isEmpty) return path;
+
+  final virtualRoot = p.windows.join(appData, 'WhisPaste');
+  // Windows paths are case-insensitive; compare lower-cased.
+  if (!path.toLowerCase().startsWith(virtualRoot.toLowerCase())) return path;
+
+  final physicalRoot = p.windows.join(
+    localAppData,
+    'Packages',
+    family,
+    'LocalCache',
+    'Roaming',
+    'WhisPaste',
+  );
+  return '$physicalRoot${path.substring(virtualRoot.length)}';
+}
+
+/// Rewrites a logical WhisPaste data [path] (under the MSIX-virtualized
+/// `%APPDATA%\WhisPaste` root) into the **physical** package-local path the
+/// MSIX runtime redirects those writes to:
+///
+///     %APPDATA%\WhisPaste\…
+///       → %LOCALAPPDATA%\Packages\`<PFN>`\LocalCache\Roaming\WhisPaste\…
+///
+/// The packaged parent process resolves the virtualized path transparently via
+/// the runtime's AppData redirection. A spawned **non-packaged** child (the
+/// downloaded `whisper-server.exe`) does **not** inherit that redirection — it
+/// resolves the literal string against the un-virtualized filesystem, where the
+/// real `%APPDATA%\WhisPaste` is empty. Passing the child the physical path
+/// makes it resolve the model / binary / working-dir identically to the parent.
+///
+/// Field repro — FLUTTER_WHISPASTE-A0 (GTX 650, Microsoft Store / MSIX build):
+/// whisper-server exits 3 with `ggml_backend_load_best: search path … does not
+/// exist` and `whisper_init_from_file…: failed to open` the model, even though
+/// the packaged app sees the file present and SHA-256-verified.
+///
+/// Returns [path] unchanged on non-Windows, on non-MSIX builds, or when [path]
+/// is not under the `%APPDATA%\WhisPaste` root.
+String deVirtualizeMsixChildPath(String path) {
+  if (!Platform.isWindows) return path;
+  return deVirtualizeMsixChildPathFor(
+    path: path,
+    exePath: resolvedExecutableOverride ?? Platform.resolvedExecutable,
+    appData: Platform.environment['APPDATA'],
+    localAppData: Platform.environment['LOCALAPPDATA'],
+  );
+}

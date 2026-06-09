@@ -13,4 +13,5 @@ export 'package:whispaste_diagnostics/whispaste_diagnostics.dart'
         appDataDir,
         sttDir,
         whisperServerPath,
-        sttModelPath;
+        sttModelPath,
+        deVirtualizeMsixChildPath;
