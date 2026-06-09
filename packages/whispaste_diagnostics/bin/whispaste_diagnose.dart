@@ -17,16 +17,21 @@ library;
 import 'dart:io';
 
 import 'package:whispaste_diagnostics/src/cli/cli_orchestrator.dart';
+import 'package:whispaste_diagnostics/src/cli/delivery.dart';
 import 'package:whispaste_diagnostics/src/report/diagnostics_report.dart';
 
 Future<void> main(List<String> args) async {
   // Allow --output-dir override for CI smoke tests so the binary does not
   // write to a potentially non-existent Desktop on the runner.
   String outputDir = resolveDesktopPath();
-  for (var i = 0; i < args.length - 1; i++) {
-    if (args[i] == '--output-dir') {
+  // --no-deliver suppresses Finder reveal + mail-client open (used in CI).
+  var skipDelivery = false;
+  for (var i = 0; i < args.length; i++) {
+    if (args[i] == '--output-dir' && i + 1 < args.length) {
       outputDir = args[i + 1];
-      break;
+    }
+    if (args[i] == '--no-deliver') {
+      skipDelivery = true;
     }
   }
 
@@ -34,6 +39,7 @@ Future<void> main(List<String> args) async {
     final zipPath = await buildAndWriteReport(
       outputDir: outputDir,
       reportProducer: () async => gatherDiagnosticsReport(),
+      deliveryStep: skipDelivery ? null : deliverReport,
     );
 
     final txtPath = zipPath.replaceAll(RegExp(r'\.zip$'), '.txt');
