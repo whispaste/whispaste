@@ -21,6 +21,16 @@ import 'package:whispaste_diagnostics/src/cli/delivery.dart';
 import 'package:whispaste_diagnostics/src/report/diagnostics_report.dart';
 
 Future<void> main(List<String> args) async {
+  // Stamp the report with the build version passed at compile time
+  // (`dart compile exe --define=whispaste_version=<X>`). Falls back to
+  // 'unbekannt' for ad-hoc local builds without the define.
+  setAppVersion(
+    const String.fromEnvironment(
+      'whispaste_version',
+      defaultValue: 'unbekannt',
+    ),
+  );
+
   // Allow --output-dir override for CI smoke tests so the binary does not
   // write to a potentially non-existent Desktop on the runner.
   String outputDir = resolveDesktopPath();

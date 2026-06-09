@@ -29,7 +29,17 @@ EXE_PATH="$DIST_DIR/$APP_NAME"
 
 echo "==> Building $APP_NAME Mach-O binary..."
 mkdir -p "$DIST_DIR"
-dart compile exe "$PACKAGE_DIR/bin/whispaste_diagnose.dart" -o "$EXE_PATH"
+
+# Stamp the report with the repo app version (from the root pubspec).
+REPO_ROOT="$(cd "$PACKAGE_DIR/../.." && pwd)"
+APP_VERSION="$(grep -m1 '^version:' "$REPO_ROOT/pubspec.yaml" 2>/dev/null \
+  | sed -E 's/^version:[[:space:]]*//; s/\+.*$//' || true)"
+APP_VERSION="${APP_VERSION:-unbekannt}"
+echo "    Version: $APP_VERSION"
+
+dart compile exe "$PACKAGE_DIR/bin/whispaste_diagnose.dart" \
+  --define=whispaste_version="$APP_VERSION" \
+  -o "$EXE_PATH"
 
 echo "==> Assembling .app bundle..."
 # Clean any previous bundle.
