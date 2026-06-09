@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.37
+
+### Bug Fixes
+
+- **Der Sprachdienst startet jetzt auch in der Microsoft-Store-Variante (MSIX) zuverlässig — das Sprachmodell wird gefunden, statt mit „kann nicht geöffnet werden" zu scheitern (alte NVIDIA-Karten, z. B. GeForce GTX 650).** In der gepackten Store-Variante schreibt WhisPaste Modell und `whisper-server` nach `%APPDATA%\WhisPaste\models\stt`; die MSIX-Laufzeit leitet diese Schreibzugriffe transparent in den paket-eigenen `LocalCache` um. Der **als Kindprozess gestartete `whisper-server` erbt diese Umleitung jedoch nicht** — er löst denselben Pfad gegen das **un-virtualisierte, leere** echte Roaming-Verzeichnis auf und bricht mit Exit-Code 3 ab (`ggml_backend_load_best: search path … does not exist` / `failed to open`), obwohl die App die Datei als vorhanden und SHA-256-geprüft sieht (`FLUTTER_WHISPASTE-A0`). Neu: Die an den Kindprozess übergebenen Pfade (Modell-Argument, Start-Pfad und Arbeitsverzeichnis) werden vor dem Start auf den **physischen** Paketpfad `%LOCALAPPDATA%\Packages\<Paketname>\LocalCache\Roaming\WhisPaste` umgeschrieben, sodass Eltern- und Kindprozess dieselbe Datei auflösen. Die Ablage bleibt unverändert (kein erneuter Download), die Umschreibung ist außerhalb von Windows/MSIX wirkungslos. Damit war die GTX-650-Odyssee aus v1.2.32–v1.2.36 zuletzt nicht GPU- oder DLL-bedingt, sondern reine MSIX-Pfad-Virtualisierung.
+
+### Features
+
+- **Neues plattformübergreifendes Diagnose-Werkzeug (Dart-nativ) löst das alte Skript-basierte Tool ab.** Der eigenständige Sprachdienst-Report wird jetzt aus einer geteilten Pure-Dart-Kernbibliothek erzeugt — unter Windows als `dart compile exe`-Binary, unter macOS als `.app`/DMG — statt aus dem bisherigen Windows-only PowerShell-Skript. Der Report deckt zusätzlich Hardware-, Berechtigungs-, AV-/Quarantäne- und Einstellungs-Proben, eine DLL-Abhängigkeitsanalyse mit Fingerprint-Zuordnung sowie eine automatische Bewertung ab und durchläuft einen durchgängigen Privacy-Sanitizer (Pfade/Benutzernamen). Auslieferung ohne Backend: Der Report wird im Dateimanager angezeigt und eine vorbefüllte Mail geöffnet.
+
 ## 1.2.36
 
 ### Bug Fixes
