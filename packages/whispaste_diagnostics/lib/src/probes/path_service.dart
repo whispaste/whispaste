@@ -188,6 +188,73 @@ String? selectMsixDataRoot(
   return null;
 }
 
+// ---------------------------------------------------------------------------
+// Multi-root collection (Slice 2) — all found data roots with labels
+// ---------------------------------------------------------------------------
+
+/// A discovered WhisPaste data root together with its install-variant label.
+///
+/// The [label] is one of the canonical variant strings:
+///   - `'EXE-Installer'`
+///   - `'Microsoft Store / MSIX'`
+class DataRootEntry {
+  const DataRootEntry({required this.root, required this.label});
+
+  /// The absolute path to the data root (e.g. `%APPDATA%\WhisPaste` or a
+  /// `LocalCache\Roaming\WhisPaste` path).
+  final String root;
+
+  /// Canonical install-variant label for this root.
+  final String label;
+
+  @override
+  String toString() => 'DataRootEntry(root: $root, label: $label)';
+
+  @override
+  bool operator ==(Object other) =>
+      other is DataRootEntry && other.root == root && other.label == label;
+
+  @override
+  int get hashCode => Object.hash(root, label);
+}
+
+/// Collects **all** WhisPaste data roots that have an `models\stt`
+/// sub-directory, across both the EXE and every MSIX candidate.
+///
+/// Ordering (deterministic):
+///   1. EXE root (`%APPDATA%\WhisPaste`) — if [exeDataRoot] is non-null and
+///      passes [hasSttSubdir].
+///   2. Every MSIX candidate (in [msixCandidates] list order) that passes
+///      [hasSttSubdir], each labelled `'Microsoft Store / MSIX'`.
+///
+/// Returns an empty list when no root has the `models\stt` sub-directory.
+///
+/// Pure function — [hasSttSubdir] is the only I/O seam. Callers must provide
+/// [msixCandidates] in a deterministic order (already sorted by the
+/// [resolveMsixFallbackDataRoot] I/O wrapper).
+@visibleForTesting
+List<DataRootEntry> collectAllDataRoots({
+  required String? exeDataRoot,
+  required List<String> msixCandidates,
+  required bool Function(String candidateRoot) hasSttSubdir,
+}) {
+  final results = <DataRootEntry>[];
+
+  if (exeDataRoot != null && hasSttSubdir(exeDataRoot)) {
+    results.add(DataRootEntry(root: exeDataRoot, label: 'EXE-Installer'));
+  }
+
+  for (final candidate in msixCandidates) {
+    if (hasSttSubdir(candidate)) {
+      results.add(
+        DataRootEntry(root: candidate, label: 'Microsoft Store / MSIX'),
+      );
+    }
+  }
+
+  return results;
+}
+
 /// Injectable seam: overrides the `%LOCALAPPDATA%` value used by
 /// [resolveMsixFallbackDataRoot]. Production code leaves this null.
 @visibleForTesting
@@ -246,6 +313,70 @@ String? resolveMsixFallbackDataRoot({
     hasSttSubdir:
         sttDirExistsCheck ??
         (root) => Directory(p.join(root, 'models', 'stt')).existsSync(),
+  );
+}
+
+/// Resolves **all** WhisPaste data roots visible from a Standalone-Diagnose
+/// run: both the regular EXE root (`%APPDATA%\WhisPaste`) and every
+/// MSIX-LocalCache root found under `%LOCALAPPDATA%\Packages\`.
+///
+/// Returns only roots for which `models\stt` is present on disk.  The EXE
+/// root comes first (when present), followed by all MSIX roots in sorted
+/// package-directory order — fully deterministic.
+///
+/// No-op (returns empty list) on non-Windows.
+///
+/// Injectable seams ([localAppDataProvider], [sttDirExistsCheck]) are the
+/// same as [resolveMsixFallbackDataRoot]; test code uses them to exercise the
+/// multi-root logic without touching the real file system.
+List<DataRootEntry> resolveAllDataRoots({
+  String? Function()? localAppDataProvider,
+  bool Function(String candidateRoot)? sttDirExistsCheck,
+}) {
+  if (!Platform.isWindows) return const [];
+
+  final localAppData =
+      (localAppDataProvider != null ? localAppDataProvider() : null) ??
+      localAppDataOverride ??
+      Platform.environment['LOCALAPPDATA'];
+
+  if (localAppData == null || localAppData.isEmpty) return const [];
+
+  final packagesDir = Directory(p.join(localAppData, 'Packages'));
+
+  List<String> entries;
+  try {
+    if (!packagesDir.existsSync()) return const [];
+    entries =
+        packagesDir
+            .listSync()
+            .whereType<Directory>()
+            .map((d) => p.basename(d.path))
+            .toList()
+          ..sort(); // deterministic order
+  } on FileSystemException {
+    return const [];
+  }
+
+  final msixCandidates = msixLocalCacheCandidatesFor(
+    localAppData: localAppData,
+    packageDirNames: entries,
+  );
+
+  final hasStt =
+      sttDirExistsCheck ??
+      (String root) => Directory(p.join(root, 'models', 'stt')).existsSync();
+
+  // The EXE root lives under APPDATA (from environment), not LOCALAPPDATA.
+  final appData = Platform.environment['APPDATA'];
+  final exeRoot = (appData != null && appData.isNotEmpty)
+      ? p.windows.join(appData, 'WhisPaste')
+      : null;
+
+  return collectAllDataRoots(
+    exeDataRoot: exeRoot,
+    msixCandidates: msixCandidates,
+    hasSttSubdir: hasStt,
   );
 }
 

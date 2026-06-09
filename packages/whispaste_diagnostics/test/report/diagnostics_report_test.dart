@@ -307,6 +307,7 @@ void main() {
       // Reset all seams so no state leaks between tests (S2).
       gatherIsWindowsOverride = null;
       gatherMsixDataRootResolverOverride = null;
+      gatherAllDataRootsResolverOverride = null;
       sttDirOverride = null;
       localAppDataOverride = null;
       if (tmp.existsSync()) tmp.deleteSync(recursive: true);
@@ -385,6 +386,138 @@ void main() {
         expect(report, isNot(contains('ggml-msix-marker.bin')));
         expect(report, isNot(contains('(Microsoft Store / MSIX)')));
         expect(report, contains('(${installVariantLabel()})'));
+      },
+    );
+  });
+
+  // -------------------------------------------------------------------------
+  // gatherDiagnosticsReport — Slice 2: multi-root listing
+  //
+  // Drives the multi-root (EXE + MSIX) report path via gatherAllDataRootsResolver-
+  // Override. Asserts observable behaviour through gatherDiagnosticsReport:
+  //   - AC1: both EXE and MSIX roots appear in the report with their labels.
+  //   - AC2: multiple MSIX roots all listed.
+  //   - AC4: no roots → no Installations-Roots section (no hit → clear absence).
+  // -------------------------------------------------------------------------
+  group('gatherDiagnosticsReport — multi-root listing (Slice 2)', () {
+    late Directory tmp;
+
+    setUp(() {
+      tmp = Directory.systemTemp.createTempSync('wd_multiroot_');
+    });
+
+    tearDown(() {
+      gatherIsWindowsOverride = null;
+      gatherAllDataRootsResolverOverride = null;
+      gatherMsixDataRootResolverOverride = null;
+      sttDirOverride = null;
+      localAppDataOverride = null;
+      if (tmp.existsSync()) tmp.deleteSync(recursive: true);
+    });
+
+    /// Builds a fake STT dir under [base] with a marker [filename].
+    String buildSttDir(String base, String filename) {
+      final stt = Directory(p.join(base, 'models', 'stt'))
+        ..createSync(recursive: true);
+      File(p.join(stt.path, filename)).writeAsStringSync('x');
+      return base;
+    }
+
+    test(
+      'AC1: EXE root + MSIX root → both appear in report with their labels',
+      () async {
+        final exeRoot = buildSttDir(
+          p.join(tmp.path, 'exe-root'),
+          'ggml-exe-marker.bin',
+        );
+        final msixRoot = buildSttDir(
+          p.join(tmp.path, 'msix-root'),
+          'ggml-msix-marker.bin',
+        );
+
+        // Use the EXE root as the "primary" STT dir so file listing works.
+        sttDirOverride = p.join(exeRoot, 'models', 'stt');
+        gatherIsWindowsOverride = true;
+        gatherAllDataRootsResolverOverride = () => [
+          DataRootEntry(root: exeRoot, label: 'EXE-Installer'),
+          DataRootEntry(root: msixRoot, label: 'Microsoft Store / MSIX'),
+        ];
+
+        final report = await gatherDiagnosticsReport();
+
+        // Both roots must appear with their labels in the report.
+        expect(report, contains('[EXE-Installer]'));
+        expect(report, contains('[Microsoft Store / MSIX]'));
+        expect(report, contains(exeRoot));
+        expect(report, contains(msixRoot));
+        // Multi-root section header.
+        expect(report, contains('Installations-Roots (2)'));
+      },
+    );
+
+    test(
+      'AC2: two MSIX roots → both listed with Microsoft Store / MSIX label',
+      () async {
+        final msixRoot1 = buildSttDir(
+          p.join(tmp.path, 'msix-v1'),
+          'ggml-msix-v1.bin',
+        );
+        final msixRoot2 = buildSttDir(
+          p.join(tmp.path, 'msix-v2'),
+          'ggml-msix-v2.bin',
+        );
+
+        sttDirOverride = p.join(msixRoot1, 'models', 'stt');
+        gatherIsWindowsOverride = true;
+        gatherAllDataRootsResolverOverride = () => [
+          DataRootEntry(root: msixRoot1, label: 'Microsoft Store / MSIX'),
+          DataRootEntry(root: msixRoot2, label: 'Microsoft Store / MSIX'),
+        ];
+
+        final report = await gatherDiagnosticsReport();
+
+        expect(report, contains('Installations-Roots (2)'));
+        expect(report, contains(msixRoot1));
+        expect(report, contains(msixRoot2));
+        // Both entries carry the MSIX label.
+        expect(
+          '[Microsoft Store / MSIX]'.allMatches(report).length,
+          greaterThanOrEqualTo(2),
+        );
+      },
+    );
+
+    test(
+      'AC4: no roots found → no Installations-Roots section in report',
+      () async {
+        sttDirOverride = p.join(tmp.path, 'absent', 'models', 'stt');
+        gatherIsWindowsOverride = true;
+        gatherAllDataRootsResolverOverride = () => const [];
+
+        final report = await gatherDiagnosticsReport();
+
+        expect(report, isNot(contains('Installations-Roots')));
+      },
+    );
+
+    test(
+      'AC1-variant label: only EXE root → variant header is EXE-Installer',
+      () async {
+        final exeRoot = buildSttDir(
+          p.join(tmp.path, 'exe-only'),
+          'ggml-exe-only.bin',
+        );
+        sttDirOverride = p.join(exeRoot, 'models', 'stt');
+        gatherIsWindowsOverride = true;
+        gatherAllDataRootsResolverOverride = () => [
+          DataRootEntry(root: exeRoot, label: 'EXE-Installer'),
+        ];
+
+        final report = await gatherDiagnosticsReport();
+
+        // Single root → no multi-root section, but header variant is EXE.
+        expect(report, contains('(EXE-Installer)'));
+        expect(report, isNot(contains('Installations-Roots')));
       },
     );
   });

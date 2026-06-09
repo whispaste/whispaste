@@ -264,4 +264,137 @@ void main() {
       expect(result, isNull);
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // collectAllDataRoots — pure multi-root collector (table tests, AC1–AC4)
+  // ---------------------------------------------------------------------------
+
+  group('collectAllDataRoots', () {
+    const exeRoot = r'C:\Users\maikg\AppData\Roaming\WhisPaste';
+
+    const msixRoot1 =
+        r'C:\Users\maikg\AppData\Local\Packages'
+        r'\12342SilvioLindstedt.WhisPaste_1.2.36.0_x64__phagqa3gq04kr'
+        r'\LocalCache\Roaming\WhisPaste';
+
+    const msixRoot2 =
+        r'C:\Users\maikg\AppData\Local\Packages'
+        r'\12342SilvioLindstedt.WhisPaste_1.2.37.0_x64__phagqa3gq04kr'
+        r'\LocalCache\Roaming\WhisPaste';
+
+    // AC4: no roots at all.
+    test('returns empty list when no root has models\\stt', () {
+      final result = collectAllDataRoots(
+        exeDataRoot: exeRoot,
+        msixCandidates: [msixRoot1, msixRoot2],
+        hasSttSubdir: (_) => false,
+      );
+      expect(result, isEmpty);
+    });
+
+    test('returns empty list when exeDataRoot is null and no MSIX match', () {
+      final result = collectAllDataRoots(
+        exeDataRoot: null,
+        msixCandidates: [msixRoot1],
+        hasSttSubdir: (_) => false,
+      );
+      expect(result, isEmpty);
+    });
+
+    // AC1: EXE + MSIX coexist.
+    test('AC1: both EXE and MSIX roots present → both returned, EXE first', () {
+      final result = collectAllDataRoots(
+        exeDataRoot: exeRoot,
+        msixCandidates: [msixRoot1],
+        hasSttSubdir: (_) => true,
+      );
+      expect(result, hasLength(2));
+      expect(
+        result[0],
+        const DataRootEntry(root: exeRoot, label: 'EXE-Installer'),
+      );
+      expect(
+        result[1],
+        const DataRootEntry(root: msixRoot1, label: 'Microsoft Store / MSIX'),
+      );
+    });
+
+    // AC2: multiple MSIX roots all listed.
+    test('AC2: two MSIX candidates both matching → both returned in order', () {
+      final result = collectAllDataRoots(
+        exeDataRoot: null,
+        msixCandidates: [msixRoot1, msixRoot2],
+        hasSttSubdir: (_) => true,
+      );
+      expect(result, hasLength(2));
+      expect(
+        result[0],
+        const DataRootEntry(root: msixRoot1, label: 'Microsoft Store / MSIX'),
+      );
+      expect(
+        result[1],
+        const DataRootEntry(root: msixRoot2, label: 'Microsoft Store / MSIX'),
+      );
+    });
+
+    // AC3: deterministic order (EXE before MSIX; MSIX in candidate list order).
+    test(
+      'AC3: order is deterministic — EXE before MSIX, MSIX in list order',
+      () {
+        // All three match; verify the canonical ordering.
+        final result = collectAllDataRoots(
+          exeDataRoot: exeRoot,
+          msixCandidates: [msixRoot2, msixRoot1], // deliberately reversed
+          hasSttSubdir: (_) => true,
+        );
+        expect(result, hasLength(3));
+        expect(result[0].label, 'EXE-Installer');
+        expect(result[1].root, msixRoot2); // candidate list order preserved
+        expect(result[2].root, msixRoot1);
+      },
+    );
+
+    test('AC3: single MSIX match is the only result (no EXE)', () {
+      final result = collectAllDataRoots(
+        exeDataRoot: null,
+        msixCandidates: [msixRoot1, msixRoot2],
+        hasSttSubdir: (r) => r == msixRoot2,
+      );
+      expect(result, hasLength(1));
+      expect(result[0].root, msixRoot2);
+      expect(result[0].label, 'Microsoft Store / MSIX');
+    });
+
+    test('only EXE matches → single EXE entry returned', () {
+      final result = collectAllDataRoots(
+        exeDataRoot: exeRoot,
+        msixCandidates: [msixRoot1, msixRoot2],
+        hasSttSubdir: (r) => r == exeRoot,
+      );
+      expect(result, hasLength(1));
+      expect(
+        result[0],
+        const DataRootEntry(root: exeRoot, label: 'EXE-Installer'),
+      );
+    });
+
+    test('empty MSIX candidates + EXE present → only EXE returned', () {
+      final result = collectAllDataRoots(
+        exeDataRoot: exeRoot,
+        msixCandidates: const [],
+        hasSttSubdir: (_) => true,
+      );
+      expect(result, hasLength(1));
+      expect(result[0].label, 'EXE-Installer');
+    });
+
+    test('DataRootEntry equality and hashCode', () {
+      const a = DataRootEntry(root: exeRoot, label: 'EXE-Installer');
+      const b = DataRootEntry(root: exeRoot, label: 'EXE-Installer');
+      const c = DataRootEntry(root: msixRoot1, label: 'Microsoft Store / MSIX');
+      expect(a, equals(b));
+      expect(a.hashCode, equals(b.hashCode));
+      expect(a, isNot(equals(c)));
+    });
+  });
 }
