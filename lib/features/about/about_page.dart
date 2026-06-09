@@ -77,11 +77,7 @@ class AboutPage extends ConsumerWidget {
                 isDark: isDark,
               ),
               _QuickAction(
-                icon: IconData(
-                  FontAwesomeIcons.github.codePoint,
-                  fontFamily: FontAwesomeIcons.github.fontFamily,
-                  fontPackage: FontAwesomeIcons.github.fontPackage,
-                ),
+                icon: FontAwesomeIcons.github.data,
                 label: l10n.aboutGitHub,
                 url: 'https://github.com/whispaste/whispaste',
                 isDark: isDark,
@@ -145,11 +141,7 @@ class AboutPage extends ConsumerWidget {
                 isDark: isDark,
               ),
               _SupportButton(
-                icon: IconData(
-                  FontAwesomeIcons.mugHot.codePoint,
-                  fontFamily: FontAwesomeIcons.mugHot.fontFamily,
-                  fontPackage: FontAwesomeIcons.mugHot.fontPackage,
-                ),
+                icon: FontAwesomeIcons.mugHot.data,
                 label: l10n.aboutKofi,
                 url: 'https://ko-fi.com/silviol',
                 isDark: isDark,
@@ -216,11 +208,7 @@ class AboutPage extends ConsumerWidget {
             isDark: isDark,
           ),
           _LinkRow(
-            icon: IconData(
-              FontAwesomeIcons.github.codePoint,
-              fontFamily: FontAwesomeIcons.github.fontFamily,
-              fontPackage: FontAwesomeIcons.github.fontPackage,
-            ),
+            icon: FontAwesomeIcons.github.data,
             label: l10n.aboutGitHubRepo,
             url: 'https://github.com/whispaste/whispaste',
             displayUrl: 'github.com/whispaste/whispaste',
