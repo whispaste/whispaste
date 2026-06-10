@@ -84,6 +84,10 @@ const ogLocaleAlternate = lang === "de" ? "en_US" : "de_DE";
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
     <meta name="theme-color" content="#131826" />
     <meta name="author" content="Silvio Lindstedt" />
+    {/* Preload the primary self-hosted variable fonts (latin subset) to
+        avoid a flash of fallback text for the above-the-fold copy. */}
+    <link rel="preload" href="/fonts/hanken-grotesk-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/bricolage-grotesque-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="icon" type="image/png" href="/app-icon.png" />
     <link rel="apple-touch-icon" href="/app-icon.png" />
     <link rel="sitemap" href="/sitemap-index.xml" />

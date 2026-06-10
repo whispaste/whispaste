@@ -9,7 +9,7 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
   <div class="relative max-w-xl mx-auto px-6 text-center scroll-reveal">
     <div class="p-8 sm:p-10 rounded-3xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm">
       <h2 class="text-2xl sm:text-3xl font-bold text-white" data-i18n="support.title">{t(lang, "support.title")}</h2>
-      <p class="mt-3 text-gray-400 text-sm sm:text-base" data-i18n="support.desc">{t(lang, "support.desc")}</p>
+      <p class="mt-3 text-ink-muted text-sm sm:text-base" data-i18n="support.desc">{t(lang, "support.desc")}</p>
       <div class="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
         <a href="https://github.com/sponsors/silvio-l" target="_blank" rel="noopener" class="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white/[0.04] text-white font-medium rounded-xl border border-white/10 hover:bg-pink-500/10 hover:border-pink-500/30 hover:text-pink-400 transition-all text-sm">
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>

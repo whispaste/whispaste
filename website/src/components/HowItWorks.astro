@@ -25,8 +25,8 @@ const steps = [
   <div class="relative max-w-5xl mx-auto px-6">
     <div class="text-center mb-16 scroll-reveal">
       <p class="text-brand-cyan text-sm font-semibold tracking-wider uppercase mb-3" data-i18n="howitworks.label">{t(lang, "howitworks.label")}</p>
-      <h2 class="text-3xl sm:text-4xl font-bold text-white" data-i18n="howitworks.title">{t(lang, "howitworks.title")}</h2>
-      <p class="mt-4 text-gray-400 text-lg max-w-3xl mx-auto" data-i18n="howitworks.desc">{t(lang, "howitworks.desc")}</p>
+      <h2 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-white" data-i18n="howitworks.title">{t(lang, "howitworks.title")}</h2>
+      <p class="mt-4 text-ink-muted text-lg max-w-3xl mx-auto" data-i18n="howitworks.desc">{t(lang, "howitworks.desc")}</p>
     </div>
     <div class="relative">
       <!-- Connecting line (desktop only) -->
@@ -38,7 +38,7 @@ const steps = [
             </div>
             <div class="text-xs font-mono text-brand-cyan tracking-wider mb-1.5" data-i18n={`howitworks.${key}.label`}>{t(lang, `howitworks.${key}.label`)}</div>
             <h3 class="text-white font-semibold mb-1" data-i18n={`howitworks.${key}.title`}>{t(lang, `howitworks.${key}.title`)}</h3>
-            <p class="text-gray-400 text-sm" data-i18n={`howitworks.${key}.desc`}>{t(lang, `howitworks.${key}.desc`)}</p>
+            <p class="text-ink-muted text-sm" data-i18n={`howitworks.${key}.desc`}>{t(lang, `howitworks.${key}.desc`)}</p>
           </div>
         ))}
       </div>

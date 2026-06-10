@@ -25,15 +25,15 @@ const cards = [
   <div class="relative max-w-4xl mx-auto px-6">
     <div class="text-center mb-16 scroll-reveal">
       <p class="text-brand-cyan text-sm font-semibold tracking-wider uppercase mb-3" data-i18n="privacy.label">{t(lang, "privacy.label")}</p>
-      <h2 class="text-3xl sm:text-4xl font-bold text-white" data-i18n="privacy.title">{t(lang, "privacy.title")}</h2>
-      <p class="mt-4 text-gray-400 text-lg max-w-3xl mx-auto" data-i18n="privacy.desc">{t(lang, "privacy.desc")}</p>
+      <h2 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-white" data-i18n="privacy.title">{t(lang, "privacy.title")}</h2>
+      <p class="mt-4 text-ink-muted text-lg max-w-3xl mx-auto" data-i18n="privacy.desc">{t(lang, "privacy.desc")}</p>
     </div>
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 scroll-reveal">
       {cards.map(({ key, icon }) => (
         <div class="text-center">
           <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-brand-cyan/10 text-brand-cyan mb-4" set:html={icon} />
           <h3 class="text-white font-semibold mb-1.5" data-i18n={`privacy.${key}.title`}>{t(lang, `privacy.${key}.title`)}</h3>
-          <p class="text-gray-400 text-sm leading-relaxed" data-i18n={`privacy.${key}.desc`}>{t(lang, `privacy.${key}.desc`)}</p>
+          <p class="text-ink-muted text-sm leading-relaxed" data-i18n={`privacy.${key}.desc`}>{t(lang, `privacy.${key}.desc`)}</p>
         </div>
       ))}
     </div>

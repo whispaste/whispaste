@@ -28,12 +28,13 @@ const backHref = lang === 'de' ? '/' : '/en/';
 ---
 
 <nav
+  id="site-nav"
   aria-label={t(lang, "nav.mainAria")}
   data-i18n-aria="nav.mainAria"
   class="fixed top-0 w-full z-50 bg-brand-darker/40 backdrop-blur-2xl backdrop-saturate-150 border-b border-white/[0.06]"
 >
   <div
-    class={`mx-auto px-6 h-14 flex items-center justify-between ${variant === "subpage" ? "max-w-4xl" : "max-w-6xl"}`}
+    class={`nav-inner mx-auto px-6 h-14 flex items-center justify-between ${variant === "subpage" ? "max-w-4xl" : "max-w-6xl"}`}
   >
     <a
       href={variant === "subpage" ? backHref : "#"}
@@ -143,6 +144,16 @@ const backHref = lang === 'de' ? '/' : '/en/';
 
 <script is:inline>
   document.addEventListener('DOMContentLoaded', function () {
+    var siteNav = document.getElementById('site-nav');
+    if (siteNav) {
+      var onNavScroll = function () {
+        siteNav.setAttribute('data-scrolled', window.scrollY > 8 ? 'true' : 'false');
+      };
+      onNavScroll();
+      window.addEventListener('scroll', function () {
+        requestAnimationFrame(onNavScroll);
+      }, { passive: true });
+    }
     document.getElementById('langToggle')?.addEventListener('click', function () {
       if (typeof toggleLang === 'function') toggleLang();
     });
@@ -190,6 +201,32 @@ const backHref = lang === 'de' ? '/' : '/en/';
 </script>
 
 <style>
+  /* Shrink-on-scroll: nav grows denser + gains depth once the page moves. */
+  #site-nav {
+    transition: background-color 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+  }
+  #site-nav .nav-inner {
+    transition: height 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  #site-nav[data-scrolled="true"] {
+    background-color: rgba(19, 24, 38, 0.72);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+  }
+  #site-nav[data-scrolled="true"] .nav-inner {
+    height: 3rem;
+  }
+  :global(html.light) #site-nav[data-scrolled="true"] {
+    background-color: rgba(241, 245, 249, 0.8) !important;
+    box-shadow: 0 4px 20px rgba(15, 23, 42, 0.08);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #site-nav,
+    #site-nav .nav-inner {
+      transition: none;
+    }
+  }
+
   nav::before {
     content: '';
     position: absolute;

@@ -1,0 +1,92 @@
+---
+import { t } from '../scripts/i18n.ts';
+
+const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
+const downloadHref = lang === 'de' ? '/download/' : '/en/download/';
+---
+
+<!-- Sticky mobile download bar — reveals once the hero has scrolled out.
+     Mobile only (sm:hidden); desktop keeps the nav download button. -->
+<div id="mobile-cta" class="mobile-cta sm:hidden" aria-hidden="true">
+  <a
+    href={downloadHref}
+    class="mobile-cta-btn"
+    data-i18n="nav.download"
+    tabindex="-1"
+  >
+    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+    {t(lang, "nav.download")}
+  </a>
+</div>
+
+<style>
+  .mobile-cta {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom, 0px));
+    background: rgba(19, 24, 38, 0.85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    transform: translateY(120%);
+    opacity: 0;
+    transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.35s ease;
+    pointer-events: none;
+  }
+  .mobile-cta.visible {
+    transform: translateY(0);
+    opacity: 1;
+    pointer-events: auto;
+  }
+  :global(html.light) .mobile-cta {
+    background: rgba(241, 245, 249, 0.9);
+    border-top-color: #e2e8f0;
+  }
+  .mobile-cta-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.85rem 1rem;
+    border-radius: 0.85rem;
+    background: var(--color-brand-cyan);
+    color: var(--color-brand-darker);
+    font-weight: 600;
+    font-size: 0.95rem;
+    box-shadow: 0 6px 18px rgba(56, 217, 240, 0.25);
+    transition: transform 0.12s ease;
+  }
+  .mobile-cta-btn:active {
+    transform: scale(0.98);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .mobile-cta {
+      transition: opacity 0.2s ease;
+    }
+  }
+</style>
+
+<script>
+  const bar = document.getElementById('mobile-cta');
+  const link = bar?.querySelector<HTMLAnchorElement>('.mobile-cta-btn');
+  if (bar) {
+    let shown = false;
+    const update = () => {
+      // Reveal once the user has scrolled roughly past the hero viewport.
+      const past = window.scrollY > window.innerHeight * 0.85;
+      if (past !== shown) {
+        shown = past;
+        bar.classList.toggle('visible', past);
+        bar.setAttribute('aria-hidden', past ? 'false' : 'true');
+        if (link) link.tabIndex = past ? 0 : -1;
+      }
+    };
+    update();
+    window.addEventListener('scroll', () => requestAnimationFrame(update), { passive: true });
+    window.addEventListener('resize', update, { passive: true });
+  }
+</script>
