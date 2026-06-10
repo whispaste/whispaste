@@ -199,6 +199,25 @@ describe("STORES config invariants", () => {
     expect(STORES.macos.downloadUrl).toContain("arm64");
   });
 
+  it("macOS arch is ['arm64'] — only Apple Silicon build, no Intel/x64", () => {
+    expect(STORES.macos.arch).toEqual(["arm64"]);
+    expect(STORES.macos.arch).not.toContain("x64");
+    expect(STORES.macos.arch).not.toContain("x86_64");
+  });
+
+  it("macOS archLabel is 'Apple Silicon (arm64)'", () => {
+    expect(STORES.macos.archLabel).toBe("Apple Silicon (arm64)");
+  });
+
+  it("macOS archLabel contains 'arm64'", () => {
+    expect(STORES.macos.archLabel).toContain("arm64");
+  });
+
+  it("windows and linux have empty archLabel (multi-arch or not applicable)", () => {
+    expect(STORES.windows.archLabel).toBe("");
+    expect(STORES.linux.archLabel).toBe("");
+  });
+
   it("macOS has no Apple Store listing (flag=false, no storeProductId)", () => {
     expect(STORES.macos.hasStoreListing).toBe(false);
     expect(STORES.macos.storeProductId).toBe("");

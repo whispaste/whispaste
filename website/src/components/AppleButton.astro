@@ -3,7 +3,7 @@
 // Mirrors StoreButton layout/sizing for visual parity in the Hero row.
 // URL sourced exclusively from the central platform config.
 import { t } from '../scripts/i18n.ts';
-import { MACOS_DMG_URL } from '../data/platforms.ts';
+import { MACOS_DMG_URL, STORES } from '../data/platforms.ts';
 
 interface Props {
   size?: 'default' | 'lg';
@@ -16,6 +16,13 @@ const { size = 'default', class: className = '' } = Astro.props;
 const isLarge = size === 'lg';
 
 const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
+
+// Architecture label — single source of truth. The config
+// (`STORES.macos.archLabel`) is the "is there an arch label?" fact; the
+// visible, translated text comes from the i18n key `platform.macos.archLabel`.
+// Rendered only when the config declares a non-empty label, so Windows/Linux
+// (empty archLabel) never get an empty badge.
+const archLabel = STORES.macos.archLabel ? t(lang, 'platform.macos.archLabel') : '';
 ---
 
 <a
@@ -39,11 +46,19 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
   {isLarge ? (
     <span class="wp-apple-btn__text">
       <span class="wp-apple-btn__label" data-i18n="hero.download.macos.hint">{t(lang, "hero.download.macos.hint")}</span>
-      <span class="wp-apple-btn__platform" data-i18n="hero.download.macos.platform">{t(lang, "hero.download.macos.platform")}</span>
+      <span class="wp-apple-btn__platform-row">
+        <span class="wp-apple-btn__platform" data-i18n="hero.download.macos.platform">{t(lang, "hero.download.macos.platform")}</span>
+        {archLabel && (
+          <span class="wp-apple-btn__arch" data-i18n="platform.macos.archLabel">{archLabel}</span>
+        )}
+      </span>
     </span>
   ) : (
     <span class="wp-apple-btn__text">
       <span data-i18n="hero.download.macos">{t(lang, "hero.download.macos")}</span>
+      {archLabel && (
+        <span class="wp-apple-btn__arch" data-i18n="platform.macos.archLabel">{archLabel}</span>
+      )}
     </span>
   )}
 </a>
@@ -108,6 +123,8 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
   /* Default: single line */
   .wp-apple-btn:not(.wp-apple-btn--lg) .wp-apple-btn__text {
     flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
     font-size: 0.9375rem;
     font-weight: 600;
   }
@@ -120,10 +137,29 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
     letter-spacing: 0.01em;
   }
 
+  .wp-apple-btn__platform-row {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.5rem;
+  }
+
   .wp-apple-btn--lg .wp-apple-btn__platform {
     font-size: 1.0625rem;
     font-weight: 700;
     color: #fff;
+  }
+
+  /* Architecture badge — subtle, clearly separate from the platform name */
+  .wp-apple-btn__arch {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+    padding: 0.15rem 0.4rem;
+    border-radius: 6px;
+    color: rgba(255, 255, 255, 0.75);
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.14);
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -162,5 +198,12 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
   :global(.light) .wp-apple-btn--lg .wp-apple-btn__platform,
   :root.light .wp-apple-btn--lg .wp-apple-btn__platform {
     color: #0c1425;
+  }
+
+  :global(.light) .wp-apple-btn__arch,
+  :root.light .wp-apple-btn__arch {
+    color: rgba(12, 20, 37, 0.6);
+    background: rgba(8, 145, 178, 0.08);
+    border-color: rgba(8, 145, 178, 0.2);
   }
 </style>

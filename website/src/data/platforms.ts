@@ -20,8 +20,14 @@ export type Os = 'windows' | 'macos' | 'linux' | 'unknown';
 export interface PlatformOffer {
   /** Primary download URL for this platform. */
   downloadUrl: string;
-  /** Human-readable architecture label (e.g. "arm64"). */
+  /** Machine-readable architecture identifiers (e.g. ["arm64"]). */
   arch: string[];
+  /**
+   * Human-readable architecture label for display purposes.
+   * Empty string when no single-arch label is needed (multi-arch or unknown).
+   * Example: "Apple Silicon (arm64)" for the macOS DMG.
+   */
+  archLabel: string;
   /** Store product ID (e.g. MS Store ID). Empty string if not applicable. */
   storeProductId: string;
   /**
@@ -125,6 +131,7 @@ export const STORES: Record<Exclude<Os, 'unknown'>, PlatformOffer> = {
   windows: {
     downloadUrl: MS_STORE_URL,
     arch: ['x64'],
+    archLabel: '',
     storeProductId: MS_STORE_PRODUCT_ID,
     reviewUrl: MS_STORE_REVIEW_URL,
     hasStoreListing: true,
@@ -132,6 +139,12 @@ export const STORES: Record<Exclude<Os, 'unknown'>, PlatformOffer> = {
   macos: {
     downloadUrl: MACOS_DMG_URL,
     arch: ['arm64'],
+    /**
+     * Human-readable architecture label shown next to the macOS download.
+     * Only one build exists — Apple Silicon (arm64). No Intel/x64 build.
+     * The i18n counterpart is `platform.macos.archLabel` (DE+EN).
+     */
+    archLabel: 'Apple Silicon (arm64)',
     storeProductId: '',
     // No Apple App Store listing exists. The review action for macOS users is
     // a GitHub star — same as the existing "Star on GitHub" CTA in Support/Modal.
@@ -141,6 +154,7 @@ export const STORES: Record<Exclude<Os, 'unknown'>, PlatformOffer> = {
   linux: {
     downloadUrl: 'https://github.com/whispaste/whispaste/releases/latest',
     arch: [],
+    archLabel: '',
     storeProductId: '',
     reviewUrl: '',
     hasStoreListing: false,
