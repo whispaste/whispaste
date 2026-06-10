@@ -1,15 +1,15 @@
 ---
 // StoreButton.astro — Brand-consistent Microsoft Store download button.
-// Single source of truth for Store product ID and link across all pages.
+// URL and product ID sourced exclusively from the central platform config.
 import { t } from '../scripts/i18n.ts';
+import { MS_STORE_URL } from '../data/platforms.ts';
 
 interface Props {
   size?: 'default' | 'lg';
   class?: string;
 }
 
-const STORE_PRODUCT_ID = '9p22jvkrq2v0';
-const STORE_URL = `https://apps.microsoft.com/detail/${STORE_PRODUCT_ID}`;
+const STORE_URL = MS_STORE_URL;
 
 const { size = 'default', class: className = '' } = Astro.props;
 const isLarge = size === 'lg';
