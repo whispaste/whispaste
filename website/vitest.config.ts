@@ -22,6 +22,10 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     environment: "node",
+    // jsdom (Vitest 4) leaves localStorage/sessionStorage undefined; the setup
+    // file polyfills them so storage-dependent browser tests run. See
+    // vitest.setup.ts for the full rationale.
+    setupFiles: ["./vitest.setup.ts"],
     include: [
       "scripts/__tests__/**/*.test.ts",
       "src/scripts/__tests__/**/*.test.ts",

@@ -1,5 +1,52 @@
 @import "tailwindcss";
 
+/* ---------------------------------------------------------------------------
+   Self-hosted variable fonts (no external CDN / Google Fonts request).
+   Body: Hanken Grotesk — neutral, highly legible grotesk.
+   Display: Bricolage Grotesque — characterful headline grotesk.
+   Latin subset covers full German (incl. ä ö ü ß); latin-ext as fallback.
+   --------------------------------------------------------------------------- */
+@font-face {
+  font-family: "Hanken Grotesk Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("/fonts/hanken-grotesk-latin-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Hanken Grotesk Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("/fonts/hanken-grotesk-latin-ext-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7,
+    U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
+    U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Bricolage Grotesque Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 800;
+  src: url("/fonts/bricolage-grotesque-latin-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Bricolage Grotesque Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 800;
+  src: url("/fonts/bricolage-grotesque-latin-ext-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7,
+    U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
+    U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
 @theme {
   --color-brand-cyan: #38D9F0;
   --color-brand-teal: #14B8D4;
@@ -7,11 +54,49 @@
   --color-brand-darker: #131826;
   --color-brand-card: #1D2538;
   --color-brand-border: #2e3138;
+
+  /* Semantic text tokens — mirror the Flutter app's text hierarchy 1:1
+     (WpColorsDark.textPrimary/Secondary/Muted in lib/core/theme/colors.dart,
+     the same values the recording-overlay pill already uses). Utilities
+     `text-ink` / `text-ink-muted` / `text-ink-subtle` flip automatically
+     between themes via the `html.light` overrides below — no per-utility
+     `!important` light-mode patching. All three clear WCAG AA on #131826
+     (muted #ABB8CC ≈ 7.7:1, subtle #8A99B2 ≈ 5.6:1). */
+  --color-ink: #F0F4FA;
+  --color-ink-muted: #ABB8CC;
+  --color-ink-subtle: #8A99B2;
+
+  /* Typography: body grotesk + characterful display grotesk for headings.
+     Setting --font-sans makes it the document default (Tailwind v4 preflight). */
+  --font-sans: "Hanken Grotesk Variable", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-display: "Bricolage Grotesque Variable", "Hanken Grotesk Variable",
+    ui-sans-serif, system-ui, sans-serif;
 }
 
 @layer base {
   html {
     scroll-behavior: smooth;
+  }
+  /* Display grotesk for the big headlines (hero + section titles).
+     Card-level h3s deliberately stay on the body font for legibility. */
+  h1,
+  h2 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+    font-weight: 700;
+  }
+  /* Cohesive keyboard-focus ring for all interactive elements (A11y).
+     Keyboard-only via :focus-visible — mouse clicks don't get a ring. */
+  a:focus-visible,
+  button:focus-visible,
+  summary:focus-visible,
+  [tabindex]:focus-visible,
+  input:focus-visible,
+  select:focus-visible {
+    outline: 2px solid var(--color-brand-cyan);
+    outline-offset: 2px;
+    border-radius: 4px;
   }
   /* Subtle noise texture for atmospheric depth */
   body::before {
@@ -34,9 +119,29 @@ html.light {
   --color-brand-darker: #EEF2F6;
   --color-brand-card: #FFFFFF;
   --color-brand-border: #E2E8F0;
+  /* Semantic text tokens flip here — mirror WpColorsLight text hierarchy. */
+  --color-ink: #101828;
+  --color-ink-muted: #44556E;
+  --color-ink-subtle: #5B697E;
   color: #1E293B;
 }
 html.light body::before { opacity: 0.015; }
+
+/* Brand gradient text — cyan → teal → cyan, mirrors the app accent gradient.
+   Global utility so any component (Hero, Pricing…) can apply it. */
+.text-gradient-brand {
+  background: linear-gradient(135deg, #38D9F0 0%, #14B8D4 50%, #38D9F0 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+html.light .text-gradient-brand {
+  background: linear-gradient(135deg, #0891B2 0%, #0E7490 50%, #0891B2 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
 
 /* Platform-adaptive download buttons (FOUC-free: data-os set by inline script) */
 [data-os="windows"] [data-platform-btn="macos"] { display: none; }

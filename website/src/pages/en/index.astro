@@ -12,6 +12,7 @@ import Support from "../../components/Support.astro";
 import Testimonials from "../../components/Testimonials.astro";
 import Footer from "../../components/Footer.astro";
 import DownloadSupportModal from "../../components/DownloadSupportModal.astro";
+import MobileCta from "../../components/MobileCta.astro";
 import SoftwareApplicationSchema from "../../components/schema/SoftwareApplicationSchema.astro";
 import FAQPageSchema from "../../components/schema/FAQPageSchema.astro";
 import HowToSchema from "../../components/schema/HowToSchema.astro";
@@ -49,6 +50,7 @@ const faqKeys = [
   </main>
   <Footer variant="landing" />
   <DownloadSupportModal />
+  <MobileCta />
 
   {/* See `pages/index.astro` for the rationale on schema components. */}
   <SoftwareApplicationSchema locale={lang} />

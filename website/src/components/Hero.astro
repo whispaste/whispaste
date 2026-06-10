@@ -44,8 +44,22 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
           class="w-14 h-14 sm:w-20 sm:h-20 mx-auto rounded-xl sm:rounded-2xl"
         />
       </div>
+
+      <!-- Hotkey motif: the product's core gesture, shown as real keycaps -->
+      <div class="hero-hotkey" aria-hidden="true">
+        <span class="hero-hotkey-label" data-i18n="hero.hotkey.label">{t(lang, "hero.hotkey.label")}</span>
+        <span class="hero-hotkey-keys">
+          <kbd class="hk-key" data-platform-btn="windows" data-i18n="hero.hotkey.mod">{t(lang, "hero.hotkey.mod")}</kbd>
+          <kbd class="hk-key" data-platform-btn="macos">⌘</kbd>
+          <span class="hero-hotkey-plus">+</span>
+          <kbd class="hk-key">⇧</kbd>
+          <span class="hero-hotkey-plus">+</span>
+          <kbd class="hk-key">D</kbd>
+        </span>
+      </div>
+
       <h1
-        class="text-4xl sm:text-7xl lg:text-8xl font-bold tracking-tight text-white leading-[1.05]"
+        class="hero-title text-5xl sm:text-7xl lg:text-[8.5rem] tracking-tight text-white leading-[0.98]"
       >
         <span data-i18n="hero.title1">{t(lang, "hero.title1")}</span><br />
         <span class="hero-gradient" data-i18n="hero.title2"
@@ -53,7 +67,7 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
         >
       </h1>
       <p
-        class="mt-4 sm:mt-6 text-base sm:text-xl text-gray-400 max-w-2xl mx-auto leading-relaxed"
+        class="mt-4 sm:mt-6 text-base sm:text-xl text-ink-muted max-w-2xl mx-auto leading-relaxed"
         data-i18n="hero.desc"
       >
         {t(lang, "hero.desc")}
@@ -121,6 +135,74 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
 </section>
 
 <style>
+  /* ---- Display headline: crank Bricolage to its characterful heavy weight ---- */
+  .hero-title {
+    font-family: var(--font-display);
+    font-variation-settings: "wght" 800;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+  }
+
+  /* ---- Hotkey motif (keycaps) ---- */
+  .hero-hotkey {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+  }
+  .hero-hotkey-label {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--color-ink-subtle);
+  }
+  .hero-hotkey-keys {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .hero-hotkey-plus {
+    color: var(--color-ink-subtle);
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+  .hk-key {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2rem;
+    height: 2rem;
+    padding: 0 0.6rem;
+    font-family: var(--font-sans);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #e2e8f0;
+    border-radius: 8px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.04) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    box-shadow:
+      0 3px 0 rgba(0, 0, 0, 0.35),
+      0 5px 10px rgba(0, 0, 0, 0.25),
+      inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    transform: translateY(-1px);
+  }
+  /* Platform-adaptive modifier: default to Windows key, swap to ⌘ on macOS */
+  .hero-hotkey [data-platform-btn="macos"] { display: none; }
+  :global([data-os="macos"]) .hero-hotkey [data-platform-btn="macos"] { display: inline-flex; }
+  :global([data-os="macos"]) .hero-hotkey [data-platform-btn="windows"] { display: none; }
+
+  :global(.light) .hk-key {
+    color: #334155;
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.04) 0%, rgba(0, 0, 0, 0.07) 100%);
+    border-color: rgba(0, 0, 0, 0.14);
+    box-shadow:
+      0 3px 0 rgba(0, 0, 0, 0.12),
+      0 5px 10px rgba(0, 0, 0, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  }
+
   /* Hero-specific animations */
   @keyframes fade-in {
     from {
@@ -139,7 +221,8 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
     animation: fade-in 0.8s ease-out 0.3s both;
   }
   .hero-gradient {
-    background: linear-gradient(135deg, #38D9F0 0%, #0e7490 50%, #38D9F0 100%);
+    /* Mirrors the app's WpColorsDark.accentWarmGradient (cyan → teal). */
+    background: linear-gradient(135deg, #38D9F0 0%, #14B8D4 50%, #38D9F0 100%);
     background-size: 200% 200%;
     -webkit-background-clip: text;
     background-clip: text;

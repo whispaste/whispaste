@@ -26,6 +26,8 @@
     "tailwindcss": "^4.2.1"
   },
   "devDependencies": {
+    "@fontsource-variable/bricolage-grotesque": "^5.2.10",
+    "@fontsource-variable/hanken-grotesk": "^5.2.8",
     "@playwright/test": "^1.58.2",
     "@types/dompurify": "^3.0.5",
     "@types/jsdom": "^28.0.3",
