@@ -1,5 +1,6 @@
 ---
 import StoreButton from './StoreButton.astro';
+import AppleButton from './AppleButton.astro';
 import { t } from '../scripts/i18n.ts';
 
 const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
@@ -52,13 +53,12 @@ const features = [
         </ul>
 
         <div class="flex flex-col items-center gap-4">
-          <StoreButton />
+          <!-- Platform-adaptive download buttons: mirrors Hero CTA pattern -->
+          <div class="flex flex-wrap items-stretch justify-center gap-3">
+            <div data-platform-btn="windows"><StoreButton /></div>
+            <div data-platform-btn="macos"><AppleButton /></div>
+          </div>
           <p class="text-ink-subtle text-xs" data-i18n="hero.store.hint">{t(lang, "hero.store.hint")}</p>
-          <a
-            href="https://github.com/whispaste/whispaste/releases/latest"
-            class="text-sm text-gray-400 hover:text-white transition-colors underline underline-offset-2"
-            data-i18n="hero.free.link"
-          >{t(lang, "hero.free.link")}</a>
         </div>
       </div>
     </div>
