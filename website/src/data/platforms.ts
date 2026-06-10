@@ -104,6 +104,15 @@ export const MS_STORE_REVIEW_URL = `https://apps.microsoft.com/detail/${MS_STORE
 
 export const MACOS_DMG_URL = `${GITHUB_RELEASE_BASE}/WhisPaste-macos-arm64.dmg`;
 
+/** Direct GitHub download for the Windows installer (.exe). */
+export const WINDOWS_SETUP_URL = `${GITHUB_RELEASE_BASE}/WhisPaste-Setup.exe`;
+
+/** Standalone diagnostics tool for Windows. */
+export const DIAGNOSE_WINDOWS_URL = `${GITHUB_RELEASE_BASE}/WhisPaste-Diagnose.exe`;
+
+/** Standalone diagnostics tool for macOS. */
+export const DIAGNOSE_MACOS_URL = `${GITHUB_RELEASE_BASE}/WhisPaste-Diagnose-macOS.dmg`;
+
 /**
  * Static per-platform metadata.
  *
