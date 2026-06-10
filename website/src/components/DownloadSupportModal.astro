@@ -2,8 +2,11 @@
 // DownloadSupportModal.astro — appears ~1.5s after a download button is clicked.
 // Uses native <dialog> for free focus-trap and Escape-key handling.
 import { t } from '../scripts/i18n.ts';
+import { STORES } from '../data/platforms.ts';
 
 const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
+const msReviewUrl = STORES.windows.reviewUrl;
+const macosReviewUrl = STORES.macos.reviewUrl;
 ---
 
 <dialog 
@@ -34,14 +37,15 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
         </a>
       </li>
       <li data-platform-btn="windows">
-        <a href="https://apps.microsoft.com/detail/9p22jvkrq2v0?hl=en-us&gl=US#activetab=pivot:reviewsTab" target="_blank" rel="noopener" class="dlm-action-link">
+        <a href={msReviewUrl} target="_blank" rel="noopener" class="dlm-action-link">
           <svg class="dlm-action-icon" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
           <span data-i18n="downloadModal.rateMsStore">{t(lang, "downloadModal.rateMsStore")}</span>
           <svg class="dlm-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
         </a>
       </li>
+      <!-- GitHub star for macOS (no Apple App Store listing exists) -->
       <li data-platform-btn="macos">
-        <a href="https://apps.apple.com/app/whispaste" target="_blank" rel="noopener" class="dlm-action-link">
+        <a href={macosReviewUrl} target="_blank" rel="noopener" class="dlm-action-link">
           <svg class="dlm-action-icon" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
           <span data-i18n="downloadModal.rateAppStore">{t(lang, "downloadModal.rateAppStore")}</span>
           <svg class="dlm-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>

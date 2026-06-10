@@ -12,6 +12,7 @@ import {
   STORES,
   resolvePrimary,
   MS_STORE_PRODUCT_ID,
+  GITHUB_REPO_URL,
   type OsDetectionInput,
 } from "../platforms.ts";
 
@@ -203,8 +204,9 @@ describe("STORES config invariants", () => {
     expect(STORES.macos.storeProductId).toBe("");
   });
 
-  it("macOS reviewUrl is empty (no valid Apple Store listing)", () => {
-    expect(STORES.macos.reviewUrl).toBe("");
+  it("macOS reviewUrl points to the GitHub repo (no Apple Store listing — GitHub star is the review path)", () => {
+    expect(STORES.macos.reviewUrl).toBe(GITHUB_REPO_URL);
+    expect(STORES.macos.reviewUrl).toMatch(/^https:\/\/github\.com\//);
   });
 });
 
