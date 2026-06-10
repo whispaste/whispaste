@@ -96,6 +96,8 @@ export function detectOs(input: OsDetectionInput): Os {
 const GITHUB_RELEASE_BASE =
   'https://github.com/whispaste/whispaste/releases/latest/download';
 
+export const GITHUB_REPO_URL = 'https://github.com/whispaste/whispaste';
+
 export const MS_STORE_PRODUCT_ID = '9p22jvkrq2v0';
 export const MS_STORE_URL = `https://apps.microsoft.com/detail/${MS_STORE_PRODUCT_ID}`;
 export const MS_STORE_REVIEW_URL = `https://apps.microsoft.com/detail/${MS_STORE_PRODUCT_ID}?activetab=pivot:reviewsTab`;
@@ -122,9 +124,9 @@ export const STORES: Record<Exclude<Os, 'unknown'>, PlatformOffer> = {
     downloadUrl: MACOS_DMG_URL,
     arch: ['arm64'],
     storeProductId: '',
-    // No valid Apple Store listing — apps.apple.com/app/whispaste is structurally
-    // invalid (missing /idXXXXXXXX). Cleared until a listing exists.
-    reviewUrl: '',
+    // No Apple App Store listing exists. The review action for macOS users is
+    // a GitHub star — same as the existing "Star on GitHub" CTA in Support/Modal.
+    reviewUrl: GITHUB_REPO_URL,
     hasStoreListing: false,
   },
   linux: {
