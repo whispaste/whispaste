@@ -1,15 +1,16 @@
 ---
 // AppleButton.astro — Brand-consistent macOS DMG download button.
 // Mirrors StoreButton layout/sizing for visual parity in the Hero row.
+// URL sourced exclusively from the central platform config.
 import { t } from '../scripts/i18n.ts';
+import { MACOS_DMG_URL } from '../data/platforms.ts';
 
 interface Props {
   size?: 'default' | 'lg';
   class?: string;
 }
 
-const DMG_URL =
-  'https://github.com/whispaste/whispaste/releases/latest/download/WhisPaste-macos-arm64.dmg';
+const DMG_URL = MACOS_DMG_URL;
 
 const { size = 'default', class: className = '' } = Astro.props;
 const isLarge = size === 'lg';

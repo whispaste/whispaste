@@ -143,9 +143,33 @@ html.light .text-gradient-brand {
   -webkit-text-fill-color: transparent;
 }
 
-/* Platform-adaptive download buttons (FOUC-free: data-os set by inline script) */
-[data-os="windows"] [data-platform-btn="macos"] { display: none; }
-[data-os="macos"] [data-platform-btn="windows"] { display: none; }
+/* Platform-adaptive download buttons (FOUC-free: data-os set by inline script).
+ *
+ * Default (no data-os = unknown): ALL platform containers are visible — every
+ * OS is shown equally. Crawlers, bots, and privacy tools get a full view.
+ *
+ * When a specific OS is detected, only the non-matching containers are hidden.
+ * `visibility:hidden` alone would leave the element taking up space; we use
+ * `display:none` combined with `pointer-events:none` to also prevent tab focus
+ * on the hidden interactive children (A11y: no invisible tab stops).
+ *
+ * Symmetric rule set: windows / macos / linux — each hides the other two.
+ */
+[data-os="windows"] [data-platform-btn="macos"],
+[data-os="windows"] [data-platform-btn="linux"] {
+  display: none;
+  pointer-events: none;
+}
+[data-os="macos"] [data-platform-btn="windows"],
+[data-os="macos"] [data-platform-btn="linux"] {
+  display: none;
+  pointer-events: none;
+}
+[data-os="linux"] [data-platform-btn="windows"],
+[data-os="linux"] [data-platform-btn="macos"] {
+  display: none;
+  pointer-events: none;
+}
 
 /* Theme-aware wordmark */
 .nav-logo-light { display: none; }

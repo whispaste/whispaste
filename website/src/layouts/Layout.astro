@@ -142,14 +142,19 @@ const ogLocaleAlternate = lang === "de" ? "en_US" : "de_DE";
         var ua = navigator.userAgent;
         var uad = navigator.userAgentData;
         var os = '';
+        // Mobile guard: phones/tablets never get a desktop OS tag.
+        if (/iPhone|iPad|iPod|Android/.test(ua)) { return; }
         if (uad && uad.platform) {
           var p = uad.platform.toLowerCase();
           if (p === 'macos') os = 'macos';
           else if (p === 'windows') os = 'windows';
-        } else if (/Macintosh|MacIntel|Mac OS X/.test(ua) && !/iPhone|iPad|iPod/.test(ua)) {
+          else if (p === 'linux') os = 'linux';
+        } else if (/Macintosh|MacIntel|Mac OS X/.test(ua)) {
           os = 'macos';
         } else if (/Windows/.test(ua)) {
           os = 'windows';
+        } else if (/Linux/.test(ua)) {
+          os = 'linux';
         }
         if (os) document.documentElement.dataset.os = os;
       })();

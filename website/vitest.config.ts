@@ -34,6 +34,9 @@ export default defineConfig({
       // `src/components/schema/builders.ts`; kein DOM-Setup nötig, weil die
       // Builder einfache JSON-LD-Objekte zurückgeben.
       "src/components/schema/__tests__/**/*.test.ts",
+      // Platform/Store SSoT tests (Issue 01, platform-store-consistency).
+      // Pure-TS unit tests for detectOs and STORES config invariants.
+      "src/data/__tests__/**/*.test.ts",
     ],
   },
 });
