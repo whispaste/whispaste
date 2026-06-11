@@ -111,10 +111,6 @@ void main() {
       expect(WpLayout.sidebarWidth, lessThanOrEqualTo(120));
     });
 
-    test('expanded sidebar is wider than collapsed', () {
-      expect(WpLayout.sidebarWidthExpanded, greaterThan(WpLayout.sidebarWidth));
-    });
-
     test('status bar height is compact', () {
       expect(WpLayout.statusBarHeight, greaterThan(0));
       expect(WpLayout.statusBarHeight, lessThanOrEqualTo(48));

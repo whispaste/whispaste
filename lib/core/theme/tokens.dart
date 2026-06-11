@@ -95,7 +95,6 @@ abstract final class WpMotion {
 // ---------------------------------------------------------------------------
 abstract final class WpLayout {
   static const double sidebarWidth = 72;
-  static const double sidebarWidthExpanded = 220;
   static const double statusBarHeight = 48;
   static const double fabSize = 56;
   static const double appBarHeight = 64;
