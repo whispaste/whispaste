@@ -34,6 +34,7 @@ import 'server_binary_recovery.dart';
 import 'stt_exit_classifier.dart';
 import 'stt_gpu_fallback_policy.dart';
 import 'stt_providers.dart';
+import 'wav_header_repair.dart';
 
 // Re-export for external consumers.
 export '../../core/recording/recording_state.dart' show SttServerState;
@@ -423,10 +424,37 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       throw InferenceClientRejected(validation.userMessageKey);
     }
 
+    // ── Pre-send WAV header repair (FLUTTER_WHISPASTE-7X) ─────────────────
+    // A recording whose header patch never ran ships valid PCM data behind
+    // zeroed RIFF/data size fields — whisper-server rejects that container
+    // with HTTP 400 "Invalid request". The sizes are derivable from the byte
+    // length, so repair them instead of losing the user's dictation. The
+    // breadcrumb keeps a field signal for how often this still fires.
+    var payload = wavView;
+    final repairedWav = repairZeroedWavSizeFields(wavView);
+    if (repairedWav != null) {
+      payload = repairedWav;
+      Sentry.addBreadcrumb(
+        Breadcrumb(
+          message: 'WAV size fields were zero — repaired before inference',
+          category: 'stt',
+          level: SentryLevel.warning,
+          data: <String, dynamic>{
+            'wav_size_bytes': wavBytes.length,
+            'audio_duration_ms': audioDurationMs,
+          },
+        ),
+      );
+      _log.warning(
+        'WAV header size fields were zero (unpatched header) — repaired '
+        'in-memory before inference (${wavBytes.length} bytes).',
+      );
+    }
+
     final uri = Uri.parse('${state.endpoint}/inference');
     final request = http.MultipartRequest('POST', uri)
       ..files.add(
-        http.MultipartFile.fromBytes('file', wavBytes, filename: 'audio.wav'),
+        http.MultipartFile.fromBytes('file', payload, filename: 'audio.wav'),
       )
       ..fields['response_format'] = 'json'
       ..fields['temperature'] = '0.0';

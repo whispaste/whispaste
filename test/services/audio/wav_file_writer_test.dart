@@ -7,10 +7,52 @@
 /// handles the empty-file edge case.
 library;
 
+import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/services/audio/wav_file_writer.dart';
+
+/// Mimics [RandomAccessFile]'s concurrency semantics: starting a second
+/// async operation while one is still pending throws a
+/// [FileSystemException] ("An async operation is currently pending").
+/// Lets the tests prove the writer serialises its sink operations the way
+/// the production [FilePcmSink] requires.
+class _RafLikeSink implements PcmSink {
+  final BytesSink _inner = BytesSink();
+  bool _busy = false;
+  int overlapAttempts = 0;
+
+  Future<T> _guard<T>(Future<T> Function() op) async {
+    if (_busy) {
+      overlapAttempts++;
+      throw const FileSystemException(
+        'An async operation is currently pending',
+      );
+    }
+    _busy = true;
+    try {
+      // Force a real async gap so overlapping callers are actually caught.
+      await Future<void>.delayed(const Duration(milliseconds: 2));
+      return await op();
+    } finally {
+      _busy = false;
+    }
+  }
+
+  @override
+  Future<void> add(List<int> bytes) => _guard(() => _inner.add(bytes));
+
+  @override
+  Future<void> overwrite(int offset, List<int> bytes) =>
+      _guard(() => _inner.overwrite(offset, bytes));
+
+  @override
+  Future<void> close() => _guard(() => _inner.close());
+
+  Uint8List takeBytes() => _inner.takeBytes();
+}
 
 /// Reads a little-endian unsigned 32-bit integer from [bytes] at [offset].
 int _readU32LE(Uint8List bytes, int offset) =>
@@ -93,6 +135,47 @@ void main() {
 
       // Payload roundtrip.
       expect(bytes.sublist(44), pcm);
+    });
+  });
+
+  group('WavFileWriter — sink-operation serialisation', () {
+    test('fire-and-forget writeChunk racing close() must not skip the '
+        'header patch (FLUTTER_WHISPASTE-7X)', () async {
+      final sink = _RafLikeSink();
+      final writer = WavFileWriter(
+        sink: sink,
+        sampleRate: 16000,
+        channels: 1,
+        bitsPerSample: 16,
+      );
+
+      // Mirror the production call shape (audio_service.dart): the PCM
+      // listener fires writeChunk without awaiting, then stopRecording()
+      // closes while chunk writes may still be in flight. Overlapping ops
+      // on the RandomAccessFile-backed sink throw — pre-fix this made the
+      // close() header patch fail silently, shipping a WAV whose RIFF/data
+      // size fields were still zero. whisper-server rejects exactly that
+      // shape with HTTP 400 "Invalid request".
+      final chunk = Uint8List(3200);
+      for (var i = 0; i < 5; i++) {
+        unawaited(writer.writeChunk(chunk).catchError((Object _) {}));
+      }
+      await writer.close();
+
+      final bytes = sink.takeBytes();
+      expect(
+        sink.overlapAttempts,
+        0,
+        reason:
+            'sink operations must be serialised — RandomAccessFile rejects '
+            'overlapping async operations',
+      );
+      expect(
+        _readU32LE(bytes, 40),
+        5 * 3200,
+        reason: 'all chunks must land and the data-size field be patched',
+      );
+      expect(_readU32LE(bytes, 4), 36 + 5 * 3200, reason: 'RIFF size patched');
     });
   });
 

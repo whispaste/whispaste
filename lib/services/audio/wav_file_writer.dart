@@ -145,7 +145,9 @@ class WavFileWriter {
     required this.channels,
     required this.bitsPerSample,
   }) {
-    _headerWritten = _writeHeader();
+    // Head of the operation queue: every later writeChunk/close is chained
+    // behind the header write, so callers never need to await construction.
+    unawaited(_enqueue(_writeHeader));
   }
 
   /// Output sink. Owned by the writer — [close] closes it.
@@ -166,10 +168,25 @@ class WavFileWriter {
   /// True after [close] has run.
   bool _closed = false;
 
-  /// Future that resolves once the placeholder header has hit the sink. Used
-  /// to serialise [writeChunk] / [close] against header-write ordering even
-  /// when callers do not `await` construction.
-  late final Future<void> _headerWritten;
+  /// Tail of the sink-operation queue. Every sink access ([_writeHeader],
+  /// [writeChunk], [close]) is chained onto this future so at most one
+  /// operation is in flight at a time. The production sink wraps a
+  /// [RandomAccessFile], which throws ("An async operation is currently
+  /// pending") on overlapping async calls — the recording pipeline fires
+  /// [writeChunk] without awaiting it, so an un-serialised [close] racing a
+  /// late chunk made the header patch fail silently and shipped a WAV with
+  /// zeroed RIFF/data size fields. whisper-server rejects exactly that shape
+  /// with HTTP 400 "Invalid request" (FLUTTER_WHISPASTE-7X).
+  Future<void> _pending = Future<void>.value();
+
+  /// Chains [op] onto the queue tail and returns its future. Errors of
+  /// earlier operations do not poison the queue — each caller still sees
+  /// its own operation's error.
+  Future<T> _enqueue<T>(Future<T> Function() op) {
+    final result = _pending.then((_) => op());
+    _pending = result.then((_) {}, onError: (Object _) {});
+    return result;
+  }
 
   /// PCM format code (1 = uncompressed linear PCM).
   static const int _formatPcm = 1;
@@ -234,29 +251,34 @@ class WavFileWriter {
     if (_closed) {
       throw StateError('WavFileWriter is closed');
     }
-    await _headerWritten;
     if (bytes.isEmpty) return;
-    await sink.add(bytes);
-    _dataLength += bytes.length;
+    await _enqueue(() async {
+      await sink.add(bytes);
+      _dataLength += bytes.length;
+    });
   }
 
   /// Finalises the WAV file: patches the RIFF and data length fields with
   /// their actual values and closes the underlying sink.
+  ///
+  /// Queued [writeChunk] operations complete first (queue order), so the
+  /// patched sizes always cover every chunk that was accepted before close.
   Future<void> close() async {
     if (_closed) return;
-    await _headerWritten;
     _closed = true;
 
-    final riffSize = _headerSize - 8 + _dataLength;
-    final dataSize = _dataLength;
+    await _enqueue(() async {
+      final riffSize = _headerSize - 8 + _dataLength;
+      final dataSize = _dataLength;
 
-    final patch = ByteData(4);
-    patch.setUint32(0, riffSize, Endian.little);
-    await sink.overwrite(_riffSizeOffset, patch.buffer.asUint8List());
+      final patch = ByteData(4);
+      patch.setUint32(0, riffSize, Endian.little);
+      await sink.overwrite(_riffSizeOffset, patch.buffer.asUint8List());
 
-    patch.setUint32(0, dataSize, Endian.little);
-    await sink.overwrite(_dataSizeOffset, patch.buffer.asUint8List());
+      patch.setUint32(0, dataSize, Endian.little);
+      await sink.overwrite(_dataSizeOffset, patch.buffer.asUint8List());
 
-    await sink.close();
+      await sink.close();
+    });
   }
 }
