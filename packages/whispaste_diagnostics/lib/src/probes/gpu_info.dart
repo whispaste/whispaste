@@ -464,12 +464,32 @@ bool isServerBinaryCompatible(String sttDirPath, GpuInfo gpu) {
 
     // --- Layer 3: Vulkan DLL heuristic --------------------------------------
     // Vulkan binaries always include ggml-vulkan.dll. If the GPU needs
-    // Vulkan but the DLL is absent, the binary is a CPU-only build.
+    // Vulkan but the DLL is absent, the binary is not a Vulkan build.
     if (gpu.optimalBackend == 'vulkan') {
       final hasVulkanDll = File(
         p.join(sttDirPath, 'ggml-vulkan.dll'),
       ).existsSync();
       if (!hasVulkanDll) {
+        // CPU/BLAS floor markers → this is the universal fallback build,
+        // possibly installed by ServerBinaryRecovery with a failed
+        // .server-info.json write (best-effort, observed under MSIX).
+        // Deleting it would re-pull the GPU build and re-enter the
+        // delete→re-download loop the FLUTTER_WHISPASTE-80 fix closed for
+        // metadata'd CPU builds — so the floor stays, the user can upgrade
+        // explicitly via Settings. (CUDA leftovers never reach this branch:
+        // the wrong-vendor check above already flagged them.)
+        const cpuFloorMarkers = [
+          'ggml-blas.dll',
+          'libopenblas.dll',
+          'ggml-cpu.dll',
+        ];
+        final looksLikeCpuFloor = cpuFloorMarkers.any(
+          (dll) => File(p.join(sttDirPath, dll)).existsSync(),
+        );
+        if (looksLikeCpuFloor) return true;
+        // No backend runtime DLLs at all: a torso from a broken extraction,
+        // not a working fallback — keep flagging it so the startup
+        // self-heal re-downloads a working build.
         return false;
       }
     }

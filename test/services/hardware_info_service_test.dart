@@ -417,21 +417,39 @@ void main() {
     // --- Layer 3: Vulkan DLL heuristic ---
 
     test(
-      'returns false when no ggml-vulkan.dll on Vulkan-capable GPU',
+      'returns true for metadata-less CPU/BLAS build on Vulkan-capable GPU '
+      '(universal fallback must never be deleted — FLUTTER_WHISPASTE-80)',
       () async {
+        // A CPU/BLAS build whose .server-info.json write failed (best-effort,
+        // observed under MSIX). The old Layer-3 heuristic flagged it as
+        // incompatible because the GPU "needs" Vulkan — deleting the one
+        // binary that runs and re-pulling the GPU build, the same loop class
+        // the W-80 fix closed for metadata'd CPU builds.
         File(p.join(tmpDir.path, _serverBinary)).createSync();
-        // CPU/OpenBLAS DLLs but no Vulkan DLL — legacy upstream download.
         File(p.join(tmpDir.path, 'libopenblas.dll')).createSync();
         File(p.join(tmpDir.path, 'ggml-blas.dll')).createSync();
 
-        expect(isServerBinaryCompatible(tmpDir.path, _intelGpu), isFalse);
+        expect(isServerBinaryCompatible(tmpDir.path, _intelGpu), isTrue);
+        expect(isServerBinaryCompatible(tmpDir.path, _amdGpu), isTrue);
       },
       skip: _skipNonWindows,
     );
 
-    test('returns false when no Vulkan DLL on AMD GPU', () async {
+    test('returns true for metadata-less WhisPaste cpu build (ggml-cpu.dll) on '
+        'Vulkan-capable GPU', () async {
       File(p.join(tmpDir.path, _serverBinary)).createSync();
-      File(p.join(tmpDir.path, 'libopenblas.dll')).createSync();
+      File(p.join(tmpDir.path, 'ggml-cpu.dll')).createSync();
+
+      expect(isServerBinaryCompatible(tmpDir.path, _amdGpu), isTrue);
+    }, skip: _skipNonWindows);
+
+    test('returns false for broken extraction (no backend DLLs at all) on '
+        'Vulkan-capable GPU — self-heal re-download stays armed', () async {
+      // whisper-server.exe extracted, but neither Vulkan nor any CPU/BLAS
+      // runtime DLL made it to disk and no metadata exists: this is not a
+      // working fallback, it is a torso. Layer 3 must keep flagging it so
+      // validateAndCleanIncompatibleBinary re-downloads a working build.
+      File(p.join(tmpDir.path, _serverBinary)).createSync();
 
       expect(isServerBinaryCompatible(tmpDir.path, _amdGpu), isFalse);
     }, skip: _skipNonWindows);
