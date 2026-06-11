@@ -11,6 +11,7 @@ import {
   WINDOWS_SETUP_URL,
   DIAGNOSE_WINDOWS_URL,
   DIAGNOSE_MACOS_URL,
+  GITHUB_REPO_URL,
 } from "../data/platforms.ts";
 
 const lang = (Astro.currentLocale === "en" ? "en" : "de") as "de" | "en";
@@ -149,7 +150,62 @@ const breadcrumbItems = [
           </div>
         </div>
 
-        <!-- Section 3: Free from GitHub (Windows) -->
+        <!-- Section 3: Linux — Build from Source -->
+        <div class="download-card rounded-2xl border p-6 sm:p-8 mb-6 relative" data-platform-card="linux">
+          <div class="flex items-start gap-3 mb-5">
+            <div class="shrink-0 w-10 h-10 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center">
+              <!-- Linux Tux-inspired terminal icon -->
+              <svg class="w-5 h-5 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg>
+            </div>
+            <div>
+              <h2 class="text-xl font-semibold text-white" data-i18n="download.linux.title">{t(lang, "download.linux.title")}</h2>
+              <p class="text-gray-400 text-sm mt-1" data-i18n="download.linux.desc">{t(lang, "download.linux.desc")}</p>
+            </div>
+          </div>
+
+          <p class="text-gray-400 text-sm mb-5 leading-relaxed" data-i18n="download.linux.build.intro">{t(lang, "download.linux.build.intro")}</p>
+
+          <div class="space-y-3 mb-5">
+            <div class="flex gap-3">
+              <div class="shrink-0 w-6 h-6 rounded-full bg-brand-cyan/10 border border-brand-cyan/20 flex items-center justify-center text-brand-cyan font-semibold text-xs">1</div>
+              <div>
+                <h4 class="font-medium text-white text-sm" data-i18n="download.linux.build.step1.title">{t(lang, "download.linux.build.step1.title")}</h4>
+                <p class="text-gray-400 text-xs mt-0.5 leading-relaxed" data-i18n="download.linux.build.step1.desc">{t(lang, "download.linux.build.step1.desc")}</p>
+              </div>
+            </div>
+            <div class="flex gap-3">
+              <div class="shrink-0 w-6 h-6 rounded-full bg-brand-cyan/10 border border-brand-cyan/20 flex items-center justify-center text-brand-cyan font-semibold text-xs">2</div>
+              <div>
+                <h4 class="font-medium text-white text-sm" data-i18n="download.linux.build.step2.title">{t(lang, "download.linux.build.step2.title")}</h4>
+                <p class="text-gray-400 text-xs mt-0.5 leading-relaxed" data-i18n="download.linux.build.step2.desc">{t(lang, "download.linux.build.step2.desc")}</p>
+              </div>
+            </div>
+            <div class="flex gap-3">
+              <div class="shrink-0 w-6 h-6 rounded-full bg-brand-cyan/10 border border-brand-cyan/20 flex items-center justify-center text-brand-cyan font-semibold text-xs">3</div>
+              <div>
+                <h4 class="font-medium text-white text-sm" data-i18n="download.linux.build.step3.title">{t(lang, "download.linux.build.step3.title")}</h4>
+                <p class="text-gray-400 text-xs mt-0.5 leading-relaxed" data-i18n="download.linux.build.step3.desc">{t(lang, "download.linux.build.step3.desc")}</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex justify-center">
+            <a
+              href={GITHUB_REPO_URL}
+              class="dl-btn"
+              target="_blank"
+              rel="noopener noreferrer"
+              data-testid="linux-github-button"
+            >
+              <svg class="dl-btn__icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+              <span class="dl-btn__text">
+                <span class="dl-btn__platform" data-i18n="download.linux.build.repo">{t(lang, "download.linux.build.repo")}</span>
+              </span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Section 4: Free from GitHub (Windows) -->
         <div class="download-card rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 sm:p-8 mb-6">
           <div class="flex items-start gap-3 mb-5">
             <div class="shrink-0 w-10 h-10 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center">
@@ -321,12 +377,14 @@ const breadcrumbItems = [
   }
   /* OS-matched card: cyan-tinted background + border (overrides base .download-card) */
   :global([data-os="windows"]) .download-card[data-platform-card="windows"],
-  :global([data-os="macos"]) .download-card[data-platform-card="macos"] {
+  :global([data-os="macos"]) .download-card[data-platform-card="macos"],
+  :global([data-os="linux"]) .download-card[data-platform-card="linux"] {
     border-color: rgba(56, 217, 240, 0.2);
     background: linear-gradient(135deg, rgba(56, 217, 240, 0.03) 0%, rgba(29, 37, 56, 0.4) 100%);
   }
   :global(html.light [data-os="windows"]) .download-card[data-platform-card="windows"],
-  :global(html.light [data-os="macos"]) .download-card[data-platform-card="macos"] {
+  :global(html.light [data-os="macos"]) .download-card[data-platform-card="macos"],
+  :global(html.light [data-os="linux"]) .download-card[data-platform-card="linux"] {
     border-color: rgba(8, 145, 178, 0.25) !important;
     background: rgba(8, 145, 178, 0.04) !important;
   }
