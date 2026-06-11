@@ -147,7 +147,7 @@ class FloatingOverlayService
 
   @override
   FloatingOverlayController? createController() =>
-      FloatingOverlayController.create();
+      createFloatingOverlayController();
 
   @override
   Stream<FloatingOverlayEvent> eventsFrom(FloatingOverlayController c) =>

@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
 import '../../core/config/secure_key_store.dart';
-import 'transcriber.dart';
+import 'transcriber_interface.dart';
 
 /// Calls OpenAI Whisper API (`/v1/audio/transcriptions`).
 ///

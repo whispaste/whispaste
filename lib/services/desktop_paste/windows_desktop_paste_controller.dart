@@ -1,6 +1,6 @@
 import 'package:flutter/services.dart';
 
-import 'desktop_paste_controller.dart';
+import 'desktop_paste_controller_interface.dart';
 
 /// Windows bridge for desktop auto-paste.
 class WindowsDesktopPasteController extends DesktopPasteController {
