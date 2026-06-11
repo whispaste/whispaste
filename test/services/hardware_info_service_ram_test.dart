@@ -7,6 +7,7 @@
 library;
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/core/config/ram_gate_config.dart';
 import 'package:whispaste/services/hardware_info_service.dart';
 
 void main() {
@@ -14,6 +15,35 @@ void main() {
     test('equals 8192 (8 GB)', () {
       expect(kMinRamMB, equals(8192));
     });
+  });
+
+  group('resolveRamThresholds', () {
+    test('returns production defaults when no override is provided', () {
+      final t = resolveRamThresholds();
+      // These values must stay 8192/7500 when the test binary was NOT compiled
+      // with WHISPASTE_TEST_RAM_MIN_MB / WHISPASTE_TEST_RAM_THRESHOLD_MB.
+      expect(t.minRamMB, equals(8192));
+      expect(t.thresholdMB, equals(7500));
+    });
+
+    test('returns injected values when test parameters are provided', () {
+      final t = resolveRamThresholds(testMinRamMB: 4096, testThresholdMB: 3500);
+      expect(t.minRamMB, equals(4096));
+      expect(t.thresholdMB, equals(3500));
+    });
+
+    test(
+      'injection overrides the dart-define even when dart-define would win',
+      () {
+        // Direct injection always wins — used for focused unit-test scenarios.
+        final t = resolveRamThresholds(
+          testMinRamMB: 2048,
+          testThresholdMB: 1800,
+        );
+        expect(t.minRamMB, equals(2048));
+        expect(t.thresholdMB, equals(1800));
+      },
+    );
   });
 
   group('parseSysctlMemsizeMb', () {

@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app.dart';
 import 'core/app_info.dart';
+import 'core/config/ram_gate_config.dart';
 import 'core/config/settings_provider.dart';
 import 'core/data/database.dart';
 import 'core/l10n/generated/app_localizations.dart';
@@ -151,7 +152,8 @@ Future<void> main(List<String> args) async {
       // in the error UI.
       if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
         final ramMB = await hw.detectRamMB();
-        if (ramMB != null && ramMB < hw.kRamCheckThresholdMB) {
+        final ramThresholds = resolveRamThresholds();
+        if (ramMB != null && ramMB < ramThresholds.thresholdMB) {
           final detectedGb = ramMB / 1024.0;
           runApp(
             UncontrolledProviderScope(
