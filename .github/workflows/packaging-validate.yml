@@ -13,6 +13,15 @@ on:
     paths:
       - 'packaging/**'
       - '.github/workflows/packaging-validate.yml'
+  # Called from release.yml after manifest-bump commits updated manifests to dev.
+  # The `ref` input lets the caller pin validation to the bumped commit/branch.
+  workflow_call:
+    inputs:
+      ref:
+        description: 'Git ref to check out and validate (empty = workflow default)'
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: read
@@ -24,6 +33,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.ref }}
 
       - name: Validate Scoop JSON
         run: |
@@ -90,6 +101,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.ref }}
 
       - name: Check winget availability
         id: check_winget
@@ -137,6 +150,8 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.ref }}
 
       - name: Check brew availability
         id: check_brew
