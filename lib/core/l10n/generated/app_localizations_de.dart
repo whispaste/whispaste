@@ -836,10 +836,10 @@ class L10nDe extends L10n {
   String get tooltipProcessing => 'Audio wird verarbeitet…';
 
   @override
-  String get tooltipEngineNotReady => 'Sprach-Engine nicht bereit';
+  String get tooltipEngineNotReady => 'Sprachdienst nicht bereit';
 
   @override
-  String get tooltipEngineDownloading => 'Sprach-Engine wird heruntergeladen…';
+  String get tooltipEngineDownloading => 'Sprachdienst wird heruntergeladen…';
 
   @override
   String get tooltipModelMissing => 'Kein Sprachmodell heruntergeladen';
@@ -1317,7 +1317,7 @@ class L10nDe extends L10n {
   String get sttStatusError => 'Fehler';
 
   @override
-  String get statusBarSttTooltip => 'Sprach-Engine und aktueller Status';
+  String get statusBarSttTooltip => 'Sprachdienst und aktueller Status';
 
   @override
   String get statusBarRecording => 'Aufnahme…';
@@ -1401,13 +1401,13 @@ class L10nDe extends L10n {
   String get tooltipSwitchToDark => 'Zu dunklem Modus wechseln';
 
   @override
-  String get modelServerReady => 'Sprach-Engine bereit';
+  String get modelServerReady => 'Sprachdienst bereit';
 
   @override
-  String get modelServerMissing => 'Sprach-Engine nicht installiert';
+  String get modelServerMissing => 'Sprachdienst nicht installiert';
 
   @override
-  String get modelServerWhisper => 'Lokale Engine';
+  String get modelServerWhisper => 'Lokaler Sprachdienst';
 
   @override
   String get modelReady => 'Bereit';
@@ -1422,7 +1422,7 @@ class L10nDe extends L10n {
   String get modelDownloading => 'Wird geladen…';
 
   @override
-  String get modelDownloadingEngine => 'Sprachmodul wird vorbereitet…';
+  String get modelDownloadingEngine => 'Sprachdienst wird vorbereitet…';
 
   @override
   String get modelVerifying => 'Wird überprüft…';
@@ -1550,11 +1550,11 @@ class L10nDe extends L10n {
 
   @override
   String get infoEngineDownloading =>
-      'Sprach-Engine wird vorbereitet. Bitte warte einen Moment.';
+      'Sprachdienst wird vorbereitet. Bitte warte einen Moment.';
 
   @override
   String get infoEngineAutoDownload =>
-      'Sprach-Engine fehlt — wird automatisch heruntergeladen…';
+      'Sprachdienst fehlt — wird automatisch heruntergeladen…';
 
   @override
   String get infoModelMissing =>
@@ -1619,11 +1619,11 @@ class L10nDe extends L10n {
 
   @override
   String get errorSttServerNotFound =>
-      'Sprachmodul nicht gefunden. Bitte lade ein Sprachmodell in den Einstellungen herunter.';
+      'Sprachdienst nicht gefunden. Bitte lade ein Sprachmodell in den Einstellungen herunter.';
 
   @override
   String get errorSttServerConnectionLost =>
-      'Sprachmodul wurde unerwartet beendet. Bitte versuche es erneut.';
+      'Sprachdienst wurde unerwartet beendet. Bitte versuche es erneut.';
 
   @override
   String get errorSttCudaOom =>
@@ -1655,7 +1655,7 @@ class L10nDe extends L10n {
 
   @override
   String get errorSttServerFailed =>
-      'Sprachmodul konnte nicht gestartet werden';
+      'Sprachdienst konnte nicht gestartet werden';
 
   @override
   String get errorSttModelIncompatibleRuntime =>
@@ -1679,7 +1679,7 @@ class L10nDe extends L10n {
 
   @override
   String get errorSttCpuFallbackFailed =>
-      'Das Sprachmodul ist sowohl auf der GPU als auch auf der CPU fehlgeschlagen. Bitte starte die App neu oder lade das Modell neu herunter.';
+      'Der Sprachdienst ist sowohl auf der GPU als auch auf der CPU fehlgeschlagen. Bitte starte die App neu oder lade das Modell neu herunter.';
 
   @override
   String get errorPipelineTimeout =>
@@ -1695,7 +1695,7 @@ class L10nDe extends L10n {
 
   @override
   String get errorSttStartTimeout =>
-      'Sprachmodul startet noch. Bitte versuche es gleich nochmal.';
+      'Sprachdienst startet noch. Bitte versuche es gleich nochmal.';
 
   @override
   String get errorTranscriptionTimeout =>
@@ -2120,7 +2120,7 @@ class L10nDe extends L10n {
 
   @override
   String get onboardingModelSubtitle =>
-      'Lade die Sprach-Engine herunter, um offline zu diktieren — deine Stimme verlässt nie dein Gerät.';
+      'Lade das Sprachmodell herunter, um offline zu diktieren — deine Stimme verlässt nie dein Gerät.';
 
   @override
   String get onboardingModelRecommended => 'Empfohlen für dein Gerät';
@@ -2413,11 +2413,11 @@ class L10nDe extends L10n {
       'Immer sichtbarer Aufnahme-Button für schnellen Zugriff';
 
   @override
-  String get settingsSttIdleTimeout => 'Sprachmodul-Leerlauf';
+  String get settingsSttIdleTimeout => 'Sprachdienst-Leerlauf';
 
   @override
   String get settingsSttIdleTimeoutSubtitle =>
-      'Wie lange das Sprachmodul nach Nutzung geladen bleibt';
+      'Wie lange der Sprachdienst nach Nutzung geladen bleibt';
 
   @override
   String get settingsSttIdleTimeoutKeepAlive => 'Dauerhaft aktiv';

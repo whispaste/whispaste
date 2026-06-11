@@ -1566,13 +1566,13 @@ abstract class L10n {
   /// No description provided for @tooltipEngineNotReady.
   ///
   /// In en, this message translates to:
-  /// **'Speech engine not ready'**
+  /// **'Speech service not ready'**
   String get tooltipEngineNotReady;
 
   /// No description provided for @tooltipEngineDownloading.
   ///
   /// In en, this message translates to:
-  /// **'Downloading speech engine…'**
+  /// **'Downloading speech service…'**
   String get tooltipEngineDownloading;
 
   /// No description provided for @tooltipModelMissing.
@@ -2448,7 +2448,7 @@ abstract class L10n {
   /// No description provided for @statusBarSttTooltip.
   ///
   /// In en, this message translates to:
-  /// **'Speech engine and current status'**
+  /// **'Speech service and current status'**
   String get statusBarSttTooltip;
 
   /// No description provided for @statusBarRecording.
@@ -2610,19 +2610,19 @@ abstract class L10n {
   /// No description provided for @modelServerReady.
   ///
   /// In en, this message translates to:
-  /// **'Speech engine ready'**
+  /// **'Speech service ready'**
   String get modelServerReady;
 
   /// No description provided for @modelServerMissing.
   ///
   /// In en, this message translates to:
-  /// **'Speech engine not installed'**
+  /// **'Speech service not installed'**
   String get modelServerMissing;
 
   /// No description provided for @modelServerWhisper.
   ///
   /// In en, this message translates to:
-  /// **'Local engine'**
+  /// **'Local speech service'**
   String get modelServerWhisper;
 
   /// No description provided for @modelReady.
@@ -2652,7 +2652,7 @@ abstract class L10n {
   /// No description provided for @modelDownloadingEngine.
   ///
   /// In en, this message translates to:
-  /// **'Preparing speech engine…'**
+  /// **'Preparing speech service…'**
   String get modelDownloadingEngine;
 
   /// No description provided for @modelVerifying.
@@ -2868,13 +2868,13 @@ abstract class L10n {
   /// No description provided for @infoEngineDownloading.
   ///
   /// In en, this message translates to:
-  /// **'Speech engine is being prepared. Please wait a moment.'**
+  /// **'Speech service is being prepared. Please wait a moment.'**
   String get infoEngineDownloading;
 
   /// No description provided for @infoEngineAutoDownload.
   ///
   /// In en, this message translates to:
-  /// **'Speech engine missing — downloading automatically…'**
+  /// **'Speech service missing — downloading automatically…'**
   String get infoEngineAutoDownload;
 
   /// No description provided for @infoModelMissing.
@@ -2976,13 +2976,13 @@ abstract class L10n {
   /// No description provided for @errorSttServerNotFound.
   ///
   /// In en, this message translates to:
-  /// **'Speech engine not found. Please download a speech model in Settings.'**
+  /// **'Speech service not found. Please download a speech model in Settings.'**
   String get errorSttServerNotFound;
 
   /// No description provided for @errorSttServerConnectionLost.
   ///
   /// In en, this message translates to:
-  /// **'Speech engine stopped unexpectedly. Please try again.'**
+  /// **'Speech service stopped unexpectedly. Please try again.'**
   String get errorSttServerConnectionLost;
 
   /// No description provided for @errorSttCudaOom.
@@ -3030,7 +3030,7 @@ abstract class L10n {
   /// No description provided for @errorSttServerFailed.
   ///
   /// In en, this message translates to:
-  /// **'Speech engine failed to start'**
+  /// **'Speech service failed to start'**
   String get errorSttServerFailed;
 
   /// No description provided for @errorSttModelIncompatibleRuntime.
@@ -3066,7 +3066,7 @@ abstract class L10n {
   /// No description provided for @errorSttCpuFallbackFailed.
   ///
   /// In en, this message translates to:
-  /// **'Speech engine failed on both GPU and CPU. Please restart the app or re-download the model.'**
+  /// **'Speech service failed on both GPU and CPU. Please restart the app or re-download the model.'**
   String get errorSttCpuFallbackFailed;
 
   /// No description provided for @errorPipelineTimeout.
@@ -3090,7 +3090,7 @@ abstract class L10n {
   /// No description provided for @errorSttStartTimeout.
   ///
   /// In en, this message translates to:
-  /// **'Speech engine is still starting. Please try again in a moment.'**
+  /// **'Speech service is still starting. Please try again in a moment.'**
   String get errorSttStartTimeout;
 
   /// No description provided for @errorTranscriptionTimeout.
@@ -3804,7 +3804,7 @@ abstract class L10n {
   /// No description provided for @onboardingModelSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Download the speech engine to dictate offline — your voice never leaves your device.'**
+  /// **'Download the speech model to dictate offline — your voice never leaves your device.'**
   String get onboardingModelSubtitle;
 
   /// No description provided for @onboardingModelRecommended.
@@ -4332,7 +4332,7 @@ abstract class L10n {
   /// No description provided for @settingsSttIdleTimeoutSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'How long the speech engine stays loaded after use'**
+  /// **'How long the speech service stays loaded after use'**
   String get settingsSttIdleTimeoutSubtitle;
 
   /// No description provided for @settingsSttIdleTimeoutKeepAlive.
