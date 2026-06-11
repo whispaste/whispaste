@@ -1081,7 +1081,28 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       }
     }
 
-    final threads = _threadCount(gpuAcceleration);
+    // ── Proactive GPU capability gate ─────────────────────────────────────────
+    // Precedence:
+    //   1. User override (`enabled`/`disabled`): respect as-is.
+    //   2. `auto` + shouldUseGpu==false: route to CPU without a Sentry error.
+    //      This avoids the slow reactive stall→CPU path for known-bad GPUs
+    //      (Kepler/Fermi NVIDIA, old AMD GCN). The reactive _gpuFallbackActive
+    //      path remains the safety net for unknown/missed cases.
+    //   3. `auto` + shouldUseGpu==true: normal auto-path continues below.
+    final effectiveGpuAcceleration =
+        (gpuAcceleration == 'auto' && !hw.shouldUseGpu(gpu))
+        ? 'disabled'
+        : gpuAcceleration;
+
+    if (effectiveGpuAcceleration != gpuAcceleration) {
+      _log.info(
+        'GPU capability gate: proactively routing "${gpu.name}" to CPU '
+        '(shouldUseGpu=false, user setting=$gpuAcceleration). '
+        'Reactive fallback remains active.',
+      );
+    }
+
+    final threads = _threadCount(effectiveGpuAcceleration);
     // FLUTTER_WHISPASTE-A0: under the Microsoft Store / MSIX build the spawned
     // whisper-server child does not inherit the parent's AppData redirection,
     // so the virtualized `%APPDATA%\WhisPaste\…` path resolves to an empty real
@@ -1092,12 +1113,13 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       modelPath: childModelPath,
       port: port,
       threads: threads,
-      gpuMode: gpuAcceleration,
+      gpuMode: effectiveGpuAcceleration,
+      gpu: gpu,
     );
 
     _log.info(
       'Starting whisper-server: model=$modelId threads=$threads '
-      'gpu=$gpuAcceleration port=$port',
+      'gpu=$effectiveGpuAcceleration port=$port',
     );
     _log.info('Command: $serverPath ${args.join(' ')}');
 
@@ -1149,7 +1171,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
           'os_message': e.message,
           'platform': Platform.operatingSystem,
           'model_id': modelId,
-          'gpu_mode': gpuAcceleration,
+          'gpu_mode': effectiveGpuAcceleration,
         },
       );
       _fail('Failed to start whisper-server: $e');
@@ -1368,7 +1390,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
               // cannot loop. A clean positive exit (e.g. 99) is a deliberate
               // server exit that CPU mode would not fix — those still surface
               // an error below. Mirrors the gpuFatal / heapCorruption arms.
-              final launchedOnGpu = gpuAcceleration != 'disabled';
+              final launchedOnGpu = effectiveGpuAcceleration != 'disabled';
               final abnormalTermination = code < 0;
               if (!_gpuFallbackActive && launchedOnGpu && abnormalTermination) {
                 _gpuFallbackActive = true;
@@ -1408,7 +1430,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
                   'args': args,
                   'binary_path': serverPath,
                   'model_id': modelId,
-                  'gpu_mode': gpuAcceleration,
+                  'gpu_mode': effectiveGpuAcceleration,
                   'gpu_fallback_active': _gpuFallbackActive,
                   'platform': Platform.operatingSystem,
                 },
@@ -1457,7 +1479,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       // [_tryStallCpuFallback]).
       if (await _tryStallCpuFallback(
         gpu: gpu,
-        gpuAcceleration: gpuAcceleration,
+        gpuAcceleration: effectiveGpuAcceleration,
         stallKind: 'startup deadline exceeded',
       )) {
         return;
@@ -1475,7 +1497,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
           'args': args,
           'binary_path': serverPath,
           'model_id': modelId,
-          'gpu_mode': gpuAcceleration,
+          'gpu_mode': effectiveGpuAcceleration,
           'gpu_fallback_active': _gpuFallbackActive,
           'platform': Platform.operatingSystem,
         },
@@ -1493,7 +1515,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       // arms fire — give CPU exactly one shot before failing.
       if (await _tryStallCpuFallback(
         gpu: gpu,
-        gpuAcceleration: gpuAcceleration,
+        gpuAcceleration: effectiveGpuAcceleration,
         stallKind: 'heartbeat timeout',
       )) {
         return;
@@ -1509,7 +1531,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
           'args': args,
           'binary_path': serverPath,
           'model_id': modelId,
-          'gpu_mode': gpuAcceleration,
+          'gpu_mode': effectiveGpuAcceleration,
           'gpu_fallback_active': _gpuFallbackActive,
           'platform': Platform.operatingSystem,
         },
@@ -1520,7 +1542,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     } on _EarlyExitException catch (e) {
       _process = null;
       _activeModel = null;
-      if (_gpuFallbackActive && gpuAcceleration != 'disabled') return;
+      if (_gpuFallbackActive && effectiveGpuAcceleration != 'disabled') return;
       // Already captured by the proc.exitCode handler above (dllMissing /
       // gpuFatal / heapCorruption / modelLoad / other) — emitting again
       // here would double-count the same incident in Sentry.
@@ -1543,7 +1565,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
           'args': args,
           'binary_path': serverPath,
           'model_id': modelId,
-          'gpu_mode': gpuAcceleration,
+          'gpu_mode': effectiveGpuAcceleration,
           'gpu_fallback_active': _gpuFallbackActive,
           'platform': Platform.operatingSystem,
         },
@@ -1677,6 +1699,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     required int port,
     required int threads,
     required String gpuMode,
+    required hw.GpuInfo gpu,
   }) {
     final args = <String>[
       '--model',
@@ -1698,9 +1721,13 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     if (!useGpu) {
       args.add('--no-gpu');
     } else {
-      final gpu = hw.cachedGpuInfo;
-      if (gpu != null && gpu.supportsFlashAttn) {
+      if (gpu.supportsFlashAttn) {
         args.add('--flash-attn');
+      } else {
+        // The whisper-server binary defaults flash-attn ON on GPU builds.
+        // Explicitly disable it on GPUs that do not support it to prevent an
+        // illegal-instruction abort (e.g. Maxwell GTX 9xx, Pascal GTX 10xx).
+        args.add('--no-flash-attn');
       }
     }
 
