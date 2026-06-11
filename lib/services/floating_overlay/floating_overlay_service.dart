@@ -227,14 +227,20 @@ class FloatingOverlayService
 
     _lastPhase = next;
 
-    // Phase-driven waveform-pipeline lifecycle.
-    //
-    //   idle → recording: start the animation timer with a fresh pipeline.
-    //   recording → transcribing: enter release-out — keep the timer alive
-    //       for ~releaseOutDurationMs, but feed it `pushSample(0.0, …)` so
-    //       the live zone decays gracefully via the pipeline's release-tau.
-    //   recording → done / error: skip release-out, stop hard.
-    //   anything → done / error during release-out: stop hard immediately.
+    _updateWaveformLifecycle(prev, next);
+    await _handlePhaseUi(prev, next, settings);
+  }
+
+  /// Updates the waveform-pipeline and animation-timer lifecycle based on the
+  /// phase transition.
+  ///
+  //   idle → recording: start the animation timer with a fresh pipeline.
+  //   recording → transcribing: enter release-out — keep the timer alive
+  //       for ~releaseOutDurationMs, but feed it `pushSample(0.0, …)` so
+  //       the live zone decays gracefully via the pipeline's release-tau.
+  //   recording → done / error: skip release-out, stop hard.
+  //   anything → done / error during release-out: stop hard immediately.
+  void _updateWaveformLifecycle(RecordingPhase prev, RecordingPhase next) {
     if (next == RecordingPhase.recording) {
       _startWaveformLoop();
     } else if (prev == RecordingPhase.recording &&
@@ -250,7 +256,14 @@ class FloatingOverlayService
       // transcribing → done / error / idle mid-release-out: stop hard.
       _stopWaveformLoop();
     }
+  }
 
+  /// Sends overlay UI updates and schedules timers for the given phase.
+  Future<void> _handlePhaseUi(
+    RecordingPhase prev,
+    RecordingPhase next,
+    AppSettings settings,
+  ) async {
     switch (next) {
       case RecordingPhase.idle:
         if (prev == RecordingPhase.done &&
