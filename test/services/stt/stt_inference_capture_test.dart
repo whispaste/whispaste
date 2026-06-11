@@ -213,6 +213,56 @@ Future<Directory> _createFakeSttDir({String modelId = 'whisper-small'}) async {
   return dir;
 }
 
+/// A canonical 44-byte-header WAV (16 kHz mono 16-bit) with [dataBytes] of
+/// payload. [patchSizes] mirrors whether `WavFileWriter.close()` got to
+/// patch the RIFF/data size fields — `false` produces the unpatched-header
+/// shape behind FLUTTER_WHISPASTE-7X.
+Uint8List _canonicalWav({required int dataBytes, required bool patchSizes}) {
+  final buf = Uint8List(44 + dataBytes);
+  final bd = ByteData.view(buf.buffer);
+  void tag(int offset, String t) {
+    for (var i = 0; i < t.length; i++) {
+      buf[offset + i] = t.codeUnitAt(i);
+    }
+  }
+
+  tag(0, 'RIFF');
+  bd.setUint32(4, patchSizes ? 36 + dataBytes : 0, Endian.little);
+  tag(8, 'WAVE');
+  tag(12, 'fmt ');
+  bd.setUint32(16, 16, Endian.little);
+  bd.setUint16(20, 1, Endian.little);
+  bd.setUint16(22, 1, Endian.little);
+  bd.setUint32(24, 16000, Endian.little);
+  bd.setUint32(28, 32000, Endian.little);
+  bd.setUint16(32, 2, Endian.little);
+  bd.setUint16(34, 16, Endian.little);
+  tag(36, 'data');
+  bd.setUint32(40, patchSizes ? dataBytes : 0, Endian.little);
+  for (var i = 44; i < buf.length; i++) {
+    buf[i] = 0xAB;
+  }
+  return buf;
+}
+
+/// Locates the embedded WAV inside a multipart body via its RIFF magic and
+/// reads the little-endian u32 at [fieldOffset] relative to the WAV start.
+int _wavFieldInMultipart(Uint8List body, int fieldOffset) {
+  for (var i = 0; i + 4 <= body.length; i++) {
+    if (body[i] == 0x52 &&
+        body[i + 1] == 0x49 &&
+        body[i + 2] == 0x46 &&
+        body[i + 3] == 0x46) {
+      final o = i + fieldOffset;
+      return body[o] |
+          (body[o + 1] << 8) |
+          (body[o + 2] << 16) |
+          (body[o + 3] << 24);
+    }
+  }
+  fail('no RIFF magic found in multipart body');
+}
+
 /// A minimal valid WAV header (RIFF/WAVE magic + 16 kHz mono 16-bit) so the
 /// validator's RIFF/WAVE check passes. Anything larger than 44 bytes; the
 /// content is irrelevant for the routing tests.
@@ -665,6 +715,114 @@ void main() {
   });
 
   // ── Orchestrator dedup — the AppLogger auto-escalation MUST stay quiet ──
+
+  // ── WAV-header repair: unpatched recordings still transcribe ─────────────
+
+  group('SttServerStateNotifier.transcribeBytes — WAV header repair', () {
+    late Directory tempDir;
+
+    setUp(() async {
+      tempDir = await _createFakeSttDir();
+    });
+
+    tearDown(() async {
+      paths.sttDirOverride = null;
+      await tempDir.delete(recursive: true);
+    });
+
+    Future<(String text, Uint8List sentBody)> runWithWav(Uint8List wav) async {
+      final fakeProcess = _FakeProcess();
+      final runner = _FakeProcessRunner(fakeProcess);
+
+      Uint8List? sentBody;
+      final client = MockClient((req) async {
+        if (req.url.path == '/health') return http.Response('ok', 200);
+        if (req.url.path == '/inference') {
+          sentBody = req.bodyBytes;
+          return http.Response('{"text":"hallo welt"}', 200);
+        }
+        return http.Response('not found', 404);
+      });
+
+      final container = _makeContainer(runner: runner, httpClient: client);
+      addTearDown(() {
+        container.dispose();
+        fakeProcess.exit(0);
+      });
+
+      await _bringNotifierReady(container, fakeProcess);
+      _capturedEvents.clear();
+      _capturedBreadcrumbs.clear();
+
+      final text = await container
+          .read(localSttBundleProvider.notifier)
+          .transcribeBytes(wav, language: 'auto');
+      return (text, sentBody!);
+    }
+
+    test('recording with zeroed RIFF/data size fields is repaired before the '
+        'POST and still transcribes (FLUTTER_WHISPASTE-7X)', () async {
+      // The unpatched-header shape: WavFileWriter.close() never patched the
+      // size fields. whisper-server rejects exactly this container with
+      // HTTP 400 "Invalid request" — the dictation must not be lost.
+      const dataBytes = 1000;
+      final broken = _canonicalWav(dataBytes: dataBytes, patchSizes: false);
+
+      final (text, sentBody) = await runWithWav(broken);
+
+      expect(text, 'hallo welt');
+      expect(
+        _wavFieldInMultipart(sentBody, 4),
+        36 + dataBytes,
+        reason: 'RIFF size field must be repaired in the shipped payload',
+      );
+      expect(
+        _wavFieldInMultipart(sentBody, 40),
+        dataBytes,
+        reason: 'data size field must be repaired in the shipped payload',
+      );
+      expect(
+        _capturedBreadcrumbs.where(
+          (b) =>
+              b.category == 'stt' && (b.message?.contains('repaired') ?? false),
+        ),
+        hasLength(1),
+        reason: 'the repair must leave a field signal as an stt breadcrumb',
+      );
+      expect(
+        _capturedEvents,
+        isEmpty,
+        reason: 'a successfully repaired request is not an error',
+      );
+    });
+
+    test('correctly patched recording ships byte-identical (no over-eager '
+        'repair)', () async {
+      const dataBytes = 1000;
+      final ok = _canonicalWav(dataBytes: dataBytes, patchSizes: true);
+
+      final (text, sentBody) = await runWithWav(ok);
+
+      expect(text, 'hallo welt');
+      // Locate the WAV inside the multipart body and compare it verbatim.
+      final start = () {
+        for (var i = 0; i + 4 <= sentBody.length; i++) {
+          if (sentBody[i] == 0x52 &&
+              sentBody[i + 1] == 0x49 &&
+              sentBody[i + 2] == 0x46 &&
+              sentBody[i + 3] == 0x46) {
+            return i;
+          }
+        }
+        fail('no RIFF magic in body');
+      }();
+      expect(
+        sentBody.sublist(start, start + ok.length),
+        ok,
+        reason: 'a well-formed WAV must pass through unmodified',
+      );
+    });
+  });
 
   group('AppLogger dedup — _log.warning does not auto-escalate', () {
     test('a warning-level log line in the orchestrator transcription failure '
