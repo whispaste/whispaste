@@ -404,16 +404,6 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
     final detailAsync = ref.watch(historyDetailProvider(entry.id));
     final tags = detailAsync.asData?.value.tags ?? [];
 
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
-    final textSecondary = isDark
-        ? WpColorsDark.textSecondary
-        : WpColorsLight.textSecondary;
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final avatarCol = historyAvatarColor(entry, isDark);
-
     return CallbackShortcuts(
       bindings: <ShortcutActivator, VoidCallback>{
         const SingleActivator(LogicalKeyboardKey.escape): () {
@@ -483,237 +473,25 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
           child: Column(
             children: [
               // Header bar
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  WpSpacing.xl,
-                  WpSpacing.md,
-                  WpSpacing.md,
-                  WpSpacing.sm,
-                ),
-                child: ClipRect(
-                  child: Row(
-                    children: [
-                      HistoryEntryAvatar(
-                        color: avatarCol,
-                        icon: historyAvatarIcon(entry),
-                        isPinned: entry.pinned,
-                        isDark: isDark,
-                      ),
-                      const SizedBox(width: WpSpacing.sm),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (_isEditingTitle)
-                              TextField(
-                                controller: _titleController,
-                                focusNode: _titleFocusNode,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                  color: textPrimary,
-                                ),
-                                decoration: InputDecoration(
-                                  hintText: l10n.historyTitlePlaceholder,
-                                  isDense: true,
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: WpSpacing.xs,
-                                    vertical: 4,
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: WpRadius.borderSm,
-                                    borderSide: BorderSide(
-                                      color: accent,
-                                      width: 1.5,
-                                    ),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: WpRadius.borderSm,
-                                    borderSide: BorderSide(
-                                      color: isDark
-                                          ? WpColorsDark.borderSubtle
-                                          : WpColorsLight.borderSubtle,
-                                    ),
-                                  ),
-                                ),
-                                onSubmitted: (_) => _saveTitle(),
-                                onEditingComplete: _saveTitle,
-                              )
-                            else
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Tooltip(
-                                      message: isTrashView
-                                          ? ''
-                                          : l10n.historyEditTitle,
-                                      waitDuration: const Duration(
-                                        milliseconds: 600,
-                                      ),
-                                      child: GestureDetector(
-                                        onDoubleTap: isTrashView
-                                            ? null
-                                            : _startTitleEdit,
-                                        child: MouseRegion(
-                                          cursor: isTrashView
-                                              ? SystemMouseCursors.basic
-                                              : SystemMouseCursors.click,
-                                          child: HighlightedText(
-                                            text: entry.title.isNotEmpty
-                                                ? entry.title
-                                                : l10n.historyUntitled,
-                                            style: TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w700,
-                                              color: textPrimary,
-                                            ),
-                                            isDark: isDark,
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            const SizedBox(height: 2),
-                            Text(
-                              _fullTimestamp(context),
-                              style: TextStyle(fontSize: 12, color: textMuted),
-                            ),
-                          ],
-                        ),
-                      ),
-                      // Action buttons
-                      if (isTrashView) ...[
-                        HistoryDetailAction(
-                          icon: LucideIcons.undo2,
-                          tooltip: l10n.historyRestore,
-                          isDark: isDark,
-                          onTap: onRestore,
-                        ),
-                        HistoryDetailAction(
-                          icon: LucideIcons.trash2,
-                          tooltip: l10n.historyDeleteForever,
-                          isDark: isDark,
-                          onTap: onDelete,
-                          isDestructive: true,
-                        ),
-                      ] else ...[
-                        HistoryDetailAction(
-                          icon: LucideIcons.copy,
-                          tooltip: '${l10n.historyCopyText} (Ctrl+C)',
-                          isDark: isDark,
-                          onTap: onCopy,
-                        ),
-                        HistoryDetailAction(
-                          faIcon: entry.pinned
-                              ? FontAwesomeIcons.solidStar
-                              : null,
-                          icon: entry.pinned ? null : LucideIcons.star,
-                          activeColor: entry.pinned
-                              ? Colors.amber.shade600
-                              : null,
-                          tooltip:
-                              '${entry.pinned ? l10n.historyUnpin : l10n.historyPinToTop} (F)',
-                          isDark: isDark,
-                          onTap: onPin,
-                        ),
-                        // Overflow menu for secondary actions
-                        PopupMenuButton<String>(
-                          icon: Icon(
-                            LucideIcons.ellipsisVertical,
-                            size: 18,
-                            color: textSecondary,
-                          ),
-                          tooltip: '',
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(
-                            minWidth: 32,
-                            minHeight: 32,
-                          ),
-                          color: isDark
-                              ? WpColorsDark.surfaceElevated
-                              : WpColorsLight.surfaceElevated,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(WpRadius.md),
-                          ),
-                          onSelected: (value) {
-                            switch (value) {
-                              case 'markdown':
-                                onCopyMarkdown?.call();
-                              case 'duplicate':
-                                onDuplicate?.call();
-                              case 'export':
-                                _exportEntry();
-                              case 'archive':
-                                onArchive();
-                              case 'delete':
-                                onDelete();
-                            }
-                          },
-                          itemBuilder: (context) => [
-                            if (onCopyMarkdown != null)
-                              PopupMenuItem(
-                                value: 'markdown',
-                                child: HistoryPopupMenuRow(
-                                  icon: LucideIcons.fileText,
-                                  label: l10n.historyCopyAsMarkdown,
-                                  isDark: isDark,
-                                ),
-                              ),
-                            if (onDuplicate != null)
-                              PopupMenuItem(
-                                value: 'duplicate',
-                                child: HistoryPopupMenuRow(
-                                  icon: LucideIcons.files,
-                                  label: l10n.historyDuplicate,
-                                  isDark: isDark,
-                                ),
-                              ),
-                            PopupMenuItem(
-                              value: 'export',
-                              child: HistoryPopupMenuRow(
-                                icon: LucideIcons.download,
-                                label: l10n.historyExportAction,
-                                isDark: isDark,
-                              ),
-                            ),
-                            PopupMenuItem(
-                              value: 'archive',
-                              child: HistoryPopupMenuRow(
-                                icon: entry.archived
-                                    ? LucideIcons.archiveRestore
-                                    : LucideIcons.archive,
-                                label: entry.archived
-                                    ? l10n.historyUnarchive
-                                    : l10n.historyArchive,
-                                isDark: isDark,
-                              ),
-                            ),
-                            PopupMenuItem(
-                              value: 'delete',
-                              child: HistoryPopupMenuRow(
-                                icon: LucideIcons.trash2,
-                                label: l10n.actionDelete,
-                                isDark: isDark,
-                                isDestructive: true,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                      const SizedBox(width: WpSpacing.xxs),
-                      HistoryDetailAction(
-                        icon: LucideIcons.x,
-                        tooltip: '${l10n.historyClose} (Esc)',
-                        isDark: isDark,
-                        onTap: onClose,
-                      ),
-                    ],
-                  ),
-                ),
+              _DetailPanelHeader(
+                entry: entry,
+                isDark: isDark,
+                isTrashView: isTrashView,
+                isEditingTitle: _isEditingTitle,
+                titleController: _titleController,
+                titleFocusNode: _titleFocusNode,
+                timestamp: _fullTimestamp(context),
+                onStartTitleEdit: _startTitleEdit,
+                onSaveTitle: _saveTitle,
+                onCopy: onCopy,
+                onPin: onPin,
+                onDelete: onDelete,
+                onArchive: onArchive,
+                onRestore: onRestore,
+                onDuplicate: onDuplicate,
+                onCopyMarkdown: onCopyMarkdown,
+                onExport: _exportEntry,
+                onClose: onClose,
               ),
               // Divider
               Container(
@@ -736,50 +514,10 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           // ── Context zone: metadata + tags ──
-                          Wrap(
-                            spacing: WpSpacing.sm,
-                            runSpacing: WpSpacing.xs,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            children: [
-                              _MetaChip(
-                                icon: LucideIcons.clock,
-                                label: _durationLabel,
-                                isDark: isDark,
-                              ),
-                              if (entry.language.isNotEmpty)
-                                _MetaChip(
-                                  icon: LucideIcons.globe,
-                                  label: entry.language.toUpperCase(),
-                                  isDark: isDark,
-                                ),
-                              _MetaChip(
-                                icon: entry.isLocal
-                                    ? LucideIcons.hardDrive
-                                    : LucideIcons.cloud,
-                                label: entry.isLocal
-                                    ? l10n.historyOnDevice
-                                    : l10n.statusCloud,
-                                isDark: isDark,
-                              ),
-                              if (entry.model.isNotEmpty) ...[
-                                () {
-                                  final modelName = displayNameForModel(
-                                    entry.model,
-                                    l10n,
-                                  );
-                                  return Tooltip(
-                                    message: '${l10n.historyModel}: $modelName',
-                                    child: _MetaChip(
-                                      icon: LucideIcons.cpu,
-                                      label: modelName.length > 25
-                                          ? '${modelName.substring(0, 25)}…'
-                                          : modelName,
-                                      isDark: isDark,
-                                    ),
-                                  );
-                                }(),
-                              ],
-                            ],
+                          _DetailMetaChips(
+                            entry: entry,
+                            isDark: isDark,
+                            durationLabel: _durationLabel,
                           ),
                           const SizedBox(height: WpSpacing.sm),
                           // Tags — label + chips in a single inline flow
@@ -803,216 +541,17 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                           ),
                           const SizedBox(height: WpSpacing.md),
                           // ── Content zone: transcript + edit controls ──
-                          if (_isEditingTranscript) ...[
-                            WpMarkdownToolbar(
-                              controller: _transcriptController,
-                              isDark: isDark,
-                              focusNode: _editorFocusNode,
-                            ),
-                            const SizedBox(height: WpSpacing.xs),
-                          ],
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _isEditingTranscript
-                                    ? TextField(
-                                        controller: _transcriptController,
-                                        focusNode: _editorFocusNode,
-                                        maxLines: null,
-                                        autofocus: true,
-                                        style: TextStyle(
-                                          fontSize: 15.5,
-                                          fontFamily: 'monospace',
-                                          color: textPrimary,
-                                          height: 1.65,
-                                        ),
-                                        decoration: InputDecoration(
-                                          border: OutlineInputBorder(
-                                            borderRadius: WpRadius.borderSm,
-                                            borderSide: BorderSide(
-                                              color: isDark
-                                                  ? WpColorsDark.borderSubtle
-                                                  : WpColorsLight.borderSubtle,
-                                            ),
-                                          ),
-                                          focusedBorder: OutlineInputBorder(
-                                            borderRadius: WpRadius.borderSm,
-                                            borderSide: BorderSide(
-                                              color: accent,
-                                              width: 1.5,
-                                            ),
-                                          ),
-                                          contentPadding: const EdgeInsets.all(
-                                            WpSpacing.sm,
-                                          ),
-                                        ),
-                                        onSubmitted: (_) => _saveTranscript(),
-                                      )
-                                    : Tooltip(
-                                        message: l10n.historyEditTranscript,
-                                        waitDuration: const Duration(
-                                          milliseconds: 600,
-                                        ),
-                                        child: GestureDetector(
-                                          onTap: isTrashView
-                                              ? null
-                                              : _toggleEdit,
-                                          behavior: HitTestBehavior.translucent,
-                                          child: MouseRegion(
-                                            cursor: isTrashView
-                                                ? SystemMouseCursors.basic
-                                                : SystemMouseCursors.click,
-                                            child: HighlightedText(
-                                              text: entry.content.isEmpty
-                                                  ? '\u200B'
-                                                  : entry.content,
-                                              style: TextStyle(
-                                                fontSize: 15.5,
-                                                color: textPrimary,
-                                                height: 1.65,
-                                              ),
-                                              isDark: isDark,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                              ),
-                            ],
+                          _DetailTranscriptZone(
+                            entry: entry,
+                            isDark: isDark,
+                            isTrashView: isTrashView,
+                            isEditing: _isEditingTranscript,
+                            transcriptController: _transcriptController,
+                            editorFocusNode: _editorFocusNode,
+                            wordCountLabel: _wordCountLabel(l10n),
+                            onToggleEdit: _toggleEdit,
+                            onSaveTranscript: _saveTranscript,
                           ),
-                          if (!isTrashView) ...[
-                            const SizedBox(height: WpSpacing.xs),
-                            Row(
-                              children: [
-                                // Left: metadata fills available space
-                                Expanded(
-                                  child: Row(
-                                    children: [
-                                      if (entry.titleEdited ||
-                                          _isEditingTranscript)
-                                        Flexible(
-                                          child: Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: WpSpacing.sm,
-                                              vertical: 3,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: _isEditingTranscript
-                                                  ? accent.withValues(
-                                                      alpha: 0.15,
-                                                    )
-                                                  : textMuted.withValues(
-                                                      alpha: 0.1,
-                                                    ),
-                                              borderRadius: WpRadius.borderFull,
-                                            ),
-                                            child: Text(
-                                              _isEditingTranscript
-                                                  ? l10n.historyEditing
-                                                  : l10n.historyEditTranscript,
-                                              style: TextStyle(
-                                                fontSize: 10,
-                                                fontWeight: _isEditingTranscript
-                                                    ? FontWeight.w600
-                                                    : FontWeight.normal,
-                                                color: _isEditingTranscript
-                                                    ? accent
-                                                    : textMuted,
-                                              ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                        ),
-                                      if ((entry.titleEdited ||
-                                              _isEditingTranscript) &&
-                                          (entry.content.isNotEmpty ||
-                                              _isEditingTranscript))
-                                        const SizedBox(width: WpSpacing.xs),
-                                      if (entry.content.isNotEmpty ||
-                                          _isEditingTranscript)
-                                        ConstrainedBox(
-                                          constraints: const BoxConstraints(
-                                            maxWidth: 120,
-                                          ),
-                                          child: Text(
-                                            _wordCountLabel(l10n),
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              color: textMuted,
-                                            ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: WpSpacing.xs),
-                                // Right: edit/save button — always right-aligned
-                                Tooltip(
-                                  message: _isEditingTranscript
-                                      ? '${l10n.historySaveTranscript} (Ctrl+S / Ctrl+↵)'
-                                      : '${l10n.historyEditTranscript} (Ctrl+E)',
-                                  child: Material(
-                                    color: Colors.transparent,
-                                    borderRadius: WpRadius.borderFull,
-                                    child: InkWell(
-                                      borderRadius: const BorderRadius.all(
-                                        Radius.circular(999),
-                                      ),
-                                      onTap: _toggleEdit,
-                                      child: AnimatedContainer(
-                                        duration: WpMotion.fast,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: WpSpacing.sm,
-                                          vertical: 6,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: _isEditingTranscript
-                                              ? accent.withValues(alpha: 0.15)
-                                              : textMuted.withValues(
-                                                  alpha: 0.08,
-                                                ),
-                                          borderRadius: WpRadius.borderFull,
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(
-                                              _isEditingTranscript
-                                                  ? LucideIcons.check
-                                                  : LucideIcons.pencil,
-                                              size: 14,
-                                              color: _isEditingTranscript
-                                                  ? accent
-                                                  : textMuted,
-                                            ),
-                                            const SizedBox(width: 6),
-                                            Flexible(
-                                              child: Text(
-                                                _isEditingTranscript
-                                                    ? l10n.historySaveTranscript
-                                                    : l10n.historyEditTranscript,
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w500,
-                                                  color: _isEditingTranscript
-                                                      ? accent
-                                                      : textMuted,
-                                                ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
                           // ── Notes section ──
                           const SizedBox(height: WpSpacing.lg),
                           HistoryNotesSection(
@@ -1032,6 +571,634 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
           ),
         ),
       ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Detail panel header (avatar + title/edit + timestamp + action buttons)
+// ---------------------------------------------------------------------------
+
+class _DetailPanelHeader extends StatelessWidget {
+  const _DetailPanelHeader({
+    required this.entry,
+    required this.isDark,
+    required this.isTrashView,
+    required this.isEditingTitle,
+    required this.titleController,
+    required this.titleFocusNode,
+    required this.timestamp,
+    required this.onStartTitleEdit,
+    required this.onSaveTitle,
+    required this.onCopy,
+    required this.onPin,
+    required this.onDelete,
+    required this.onArchive,
+    required this.onRestore,
+    required this.onDuplicate,
+    required this.onCopyMarkdown,
+    required this.onExport,
+    required this.onClose,
+  });
+
+  final HistoryEntry entry;
+  final bool isDark;
+  final bool isTrashView;
+  final bool isEditingTitle;
+  final TextEditingController titleController;
+  final FocusNode titleFocusNode;
+  final String timestamp;
+  final VoidCallback onStartTitleEdit;
+  final VoidCallback onSaveTitle;
+  final VoidCallback onCopy;
+  final VoidCallback onPin;
+  final VoidCallback onDelete;
+  final VoidCallback onArchive;
+  final VoidCallback onRestore;
+  final VoidCallback? onDuplicate;
+  final VoidCallback? onCopyMarkdown;
+  final VoidCallback onExport;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    final textPrimary = isDark
+        ? WpColorsDark.textPrimary
+        : WpColorsLight.textPrimary;
+    final textSecondary = isDark
+        ? WpColorsDark.textSecondary
+        : WpColorsLight.textSecondary;
+    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    final avatarCol = historyAvatarColor(entry, isDark);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        WpSpacing.xl,
+        WpSpacing.md,
+        WpSpacing.md,
+        WpSpacing.sm,
+      ),
+      child: ClipRect(
+        child: Row(
+          children: [
+            HistoryEntryAvatar(
+              color: avatarCol,
+              icon: historyAvatarIcon(entry),
+              isPinned: entry.pinned,
+              isDark: isDark,
+            ),
+            const SizedBox(width: WpSpacing.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (isEditingTitle)
+                    TextField(
+                      controller: titleController,
+                      focusNode: titleFocusNode,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: textPrimary,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: l10n.historyTitlePlaceholder,
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: WpSpacing.xs,
+                          vertical: 4,
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: WpRadius.borderSm,
+                          borderSide: BorderSide(color: accent, width: 1.5),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: WpRadius.borderSm,
+                          borderSide: BorderSide(
+                            color: isDark
+                                ? WpColorsDark.borderSubtle
+                                : WpColorsLight.borderSubtle,
+                          ),
+                        ),
+                      ),
+                      onSubmitted: (_) => onSaveTitle(),
+                      onEditingComplete: onSaveTitle,
+                    )
+                  else
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Tooltip(
+                            message: isTrashView ? '' : l10n.historyEditTitle,
+                            waitDuration: const Duration(milliseconds: 600),
+                            child: GestureDetector(
+                              onDoubleTap: isTrashView
+                                  ? null
+                                  : onStartTitleEdit,
+                              child: MouseRegion(
+                                cursor: isTrashView
+                                    ? SystemMouseCursors.basic
+                                    : SystemMouseCursors.click,
+                                child: HighlightedText(
+                                  text: entry.title.isNotEmpty
+                                      ? entry.title
+                                      : l10n.historyUntitled,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: textPrimary,
+                                  ),
+                                  isDark: isDark,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  const SizedBox(height: 2),
+                  Text(
+                    timestamp,
+                    style: TextStyle(fontSize: 12, color: textMuted),
+                  ),
+                ],
+              ),
+            ),
+            // Action buttons
+            if (isTrashView) ...[
+              HistoryDetailAction(
+                icon: LucideIcons.undo2,
+                tooltip: l10n.historyRestore,
+                isDark: isDark,
+                onTap: onRestore,
+              ),
+              HistoryDetailAction(
+                icon: LucideIcons.trash2,
+                tooltip: l10n.historyDeleteForever,
+                isDark: isDark,
+                onTap: onDelete,
+                isDestructive: true,
+              ),
+            ] else ...[
+              HistoryDetailAction(
+                icon: LucideIcons.copy,
+                tooltip: '${l10n.historyCopyText} (Ctrl+C)',
+                isDark: isDark,
+                onTap: onCopy,
+              ),
+              HistoryDetailAction(
+                faIcon: entry.pinned ? FontAwesomeIcons.solidStar : null,
+                icon: entry.pinned ? null : LucideIcons.star,
+                activeColor: entry.pinned ? Colors.amber.shade600 : null,
+                tooltip:
+                    '${entry.pinned ? l10n.historyUnpin : l10n.historyPinToTop} (F)',
+                isDark: isDark,
+                onTap: onPin,
+              ),
+              // Overflow menu for secondary actions
+              _DetailOverflowMenu(
+                entry: entry,
+                isDark: isDark,
+                textSecondary: textSecondary,
+                onCopyMarkdown: onCopyMarkdown,
+                onDuplicate: onDuplicate,
+                onExport: onExport,
+                onArchive: onArchive,
+                onDelete: onDelete,
+              ),
+            ],
+            const SizedBox(width: WpSpacing.xxs),
+            HistoryDetailAction(
+              icon: LucideIcons.x,
+              tooltip: '${l10n.historyClose} (Esc)',
+              isDark: isDark,
+              onTap: onClose,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Overflow popup menu (secondary header actions)
+// ---------------------------------------------------------------------------
+
+class _DetailOverflowMenu extends StatelessWidget {
+  const _DetailOverflowMenu({
+    required this.entry,
+    required this.isDark,
+    required this.textSecondary,
+    required this.onCopyMarkdown,
+    required this.onDuplicate,
+    required this.onExport,
+    required this.onArchive,
+    required this.onDelete,
+  });
+
+  final HistoryEntry entry;
+  final bool isDark;
+  final Color textSecondary;
+  final VoidCallback? onCopyMarkdown;
+  final VoidCallback? onDuplicate;
+  final VoidCallback onExport;
+  final VoidCallback onArchive;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    return PopupMenuButton<String>(
+      icon: Icon(LucideIcons.ellipsisVertical, size: 18, color: textSecondary),
+      tooltip: '',
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+      color: isDark
+          ? WpColorsDark.surfaceElevated
+          : WpColorsLight.surfaceElevated,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(WpRadius.md),
+      ),
+      onSelected: (value) {
+        switch (value) {
+          case 'markdown':
+            onCopyMarkdown?.call();
+          case 'duplicate':
+            onDuplicate?.call();
+          case 'export':
+            onExport();
+          case 'archive':
+            onArchive();
+          case 'delete':
+            onDelete();
+        }
+      },
+      itemBuilder: (context) => [
+        if (onCopyMarkdown != null)
+          PopupMenuItem(
+            value: 'markdown',
+            child: HistoryPopupMenuRow(
+              icon: LucideIcons.fileText,
+              label: l10n.historyCopyAsMarkdown,
+              isDark: isDark,
+            ),
+          ),
+        if (onDuplicate != null)
+          PopupMenuItem(
+            value: 'duplicate',
+            child: HistoryPopupMenuRow(
+              icon: LucideIcons.files,
+              label: l10n.historyDuplicate,
+              isDark: isDark,
+            ),
+          ),
+        PopupMenuItem(
+          value: 'export',
+          child: HistoryPopupMenuRow(
+            icon: LucideIcons.download,
+            label: l10n.historyExportAction,
+            isDark: isDark,
+          ),
+        ),
+        PopupMenuItem(
+          value: 'archive',
+          child: HistoryPopupMenuRow(
+            icon: entry.archived
+                ? LucideIcons.archiveRestore
+                : LucideIcons.archive,
+            label: entry.archived ? l10n.historyUnarchive : l10n.historyArchive,
+            isDark: isDark,
+          ),
+        ),
+        PopupMenuItem(
+          value: 'delete',
+          child: HistoryPopupMenuRow(
+            icon: LucideIcons.trash2,
+            label: l10n.actionDelete,
+            isDark: isDark,
+            isDestructive: true,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Meta chips row (duration, language, storage, model)
+// ---------------------------------------------------------------------------
+
+class _DetailMetaChips extends StatelessWidget {
+  const _DetailMetaChips({
+    required this.entry,
+    required this.isDark,
+    required this.durationLabel,
+  });
+
+  final HistoryEntry entry;
+  final bool isDark;
+  final String durationLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    return Wrap(
+      spacing: WpSpacing.sm,
+      runSpacing: WpSpacing.xs,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        _MetaChip(
+          icon: LucideIcons.clock,
+          label: durationLabel,
+          isDark: isDark,
+        ),
+        if (entry.language.isNotEmpty)
+          _MetaChip(
+            icon: LucideIcons.globe,
+            label: entry.language.toUpperCase(),
+            isDark: isDark,
+          ),
+        _MetaChip(
+          icon: entry.isLocal ? LucideIcons.hardDrive : LucideIcons.cloud,
+          label: entry.isLocal ? l10n.historyOnDevice : l10n.statusCloud,
+          isDark: isDark,
+        ),
+        if (entry.model.isNotEmpty) ...[
+          () {
+            final modelName = displayNameForModel(entry.model, l10n);
+            return Tooltip(
+              message: '${l10n.historyModel}: $modelName',
+              child: _MetaChip(
+                icon: LucideIcons.cpu,
+                label: modelName.length > 25
+                    ? '${modelName.substring(0, 25)}…'
+                    : modelName,
+                isDark: isDark,
+              ),
+            );
+          }(),
+        ],
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Transcript zone (view/edit mode + edit status bar)
+// ---------------------------------------------------------------------------
+
+class _DetailTranscriptZone extends StatelessWidget {
+  const _DetailTranscriptZone({
+    required this.entry,
+    required this.isDark,
+    required this.isTrashView,
+    required this.isEditing,
+    required this.transcriptController,
+    required this.editorFocusNode,
+    required this.wordCountLabel,
+    required this.onToggleEdit,
+    required this.onSaveTranscript,
+  });
+
+  final HistoryEntry entry;
+  final bool isDark;
+  final bool isTrashView;
+  final bool isEditing;
+  final TextEditingController transcriptController;
+  final FocusNode editorFocusNode;
+  final String wordCountLabel;
+  final VoidCallback onToggleEdit;
+  final VoidCallback onSaveTranscript;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    final textPrimary = isDark
+        ? WpColorsDark.textPrimary
+        : WpColorsLight.textPrimary;
+    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (isEditing) ...[
+          WpMarkdownToolbar(
+            controller: transcriptController,
+            isDark: isDark,
+            focusNode: editorFocusNode,
+          ),
+          const SizedBox(height: WpSpacing.xs),
+        ],
+        Row(
+          children: [
+            Expanded(
+              child: isEditing
+                  ? TextField(
+                      controller: transcriptController,
+                      focusNode: editorFocusNode,
+                      maxLines: null,
+                      autofocus: true,
+                      style: TextStyle(
+                        fontSize: 15.5,
+                        fontFamily: 'monospace',
+                        color: textPrimary,
+                        height: 1.65,
+                      ),
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(
+                          borderRadius: WpRadius.borderSm,
+                          borderSide: BorderSide(
+                            color: isDark
+                                ? WpColorsDark.borderSubtle
+                                : WpColorsLight.borderSubtle,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: WpRadius.borderSm,
+                          borderSide: BorderSide(color: accent, width: 1.5),
+                        ),
+                        contentPadding: const EdgeInsets.all(WpSpacing.sm),
+                      ),
+                      onSubmitted: (_) => onSaveTranscript(),
+                    )
+                  : Tooltip(
+                      message: l10n.historyEditTranscript,
+                      waitDuration: const Duration(milliseconds: 600),
+                      child: GestureDetector(
+                        onTap: isTrashView ? null : onToggleEdit,
+                        behavior: HitTestBehavior.translucent,
+                        child: MouseRegion(
+                          cursor: isTrashView
+                              ? SystemMouseCursors.basic
+                              : SystemMouseCursors.click,
+                          child: HighlightedText(
+                            text: entry.content.isEmpty
+                                ? '\u200B'
+                                : entry.content,
+                            style: TextStyle(
+                              fontSize: 15.5,
+                              color: textPrimary,
+                              height: 1.65,
+                            ),
+                            isDark: isDark,
+                          ),
+                        ),
+                      ),
+                    ),
+            ),
+          ],
+        ),
+        if (!isTrashView) ...[
+          const SizedBox(height: WpSpacing.xs),
+          _TranscriptEditBar(
+            entry: entry,
+            isDark: isDark,
+            isEditing: isEditing,
+            wordCountLabel: wordCountLabel,
+            onToggleEdit: onToggleEdit,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Edit status bar below transcript (status badge + word count + edit button)
+// ---------------------------------------------------------------------------
+
+class _TranscriptEditBar extends StatelessWidget {
+  const _TranscriptEditBar({
+    required this.entry,
+    required this.isDark,
+    required this.isEditing,
+    required this.wordCountLabel,
+    required this.onToggleEdit,
+  });
+
+  final HistoryEntry entry;
+  final bool isDark;
+  final bool isEditing;
+  final String wordCountLabel;
+  final VoidCallback onToggleEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    final showBadge = entry.titleEdited || isEditing;
+    final showWordCount = entry.content.isNotEmpty || isEditing;
+
+    return Row(
+      children: [
+        // Left: metadata fills available space
+        Expanded(
+          child: Row(
+            children: [
+              if (showBadge)
+                Flexible(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: WpSpacing.sm,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isEditing
+                          ? accent.withValues(alpha: 0.15)
+                          : textMuted.withValues(alpha: 0.1),
+                      borderRadius: WpRadius.borderFull,
+                    ),
+                    child: Text(
+                      isEditing
+                          ? l10n.historyEditing
+                          : l10n.historyEditTranscript,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: isEditing
+                            ? FontWeight.w600
+                            : FontWeight.normal,
+                        color: isEditing ? accent : textMuted,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+              if (showBadge && showWordCount)
+                const SizedBox(width: WpSpacing.xs),
+              if (showWordCount)
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 120),
+                  child: Text(
+                    wordCountLabel,
+                    style: TextStyle(fontSize: 11, color: textMuted),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(width: WpSpacing.xs),
+        // Right: edit/save button — always right-aligned
+        Tooltip(
+          message: isEditing
+              ? '${l10n.historySaveTranscript} (Ctrl+S / Ctrl+↵)'
+              : '${l10n.historyEditTranscript} (Ctrl+E)',
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: WpRadius.borderFull,
+            child: InkWell(
+              borderRadius: const BorderRadius.all(Radius.circular(999)),
+              onTap: onToggleEdit,
+              child: AnimatedContainer(
+                duration: WpMotion.fast,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: WpSpacing.sm,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: isEditing
+                      ? accent.withValues(alpha: 0.15)
+                      : textMuted.withValues(alpha: 0.08),
+                  borderRadius: WpRadius.borderFull,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isEditing ? LucideIcons.check : LucideIcons.pencil,
+                      size: 14,
+                      color: isEditing ? accent : textMuted,
+                    ),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        isEditing
+                            ? l10n.historySaveTranscript
+                            : l10n.historyEditTranscript,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: isEditing ? accent : textMuted,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

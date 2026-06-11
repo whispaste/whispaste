@@ -94,16 +94,13 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
   @override
   Widget build(BuildContext context) {
     final isDark = widget.isDark;
-    final l10n = L10n.of(context);
     final avatarCol = historyAvatarColor(widget.entry, isDark);
 
     // Row background
     final Color bg;
     if (widget.isSelected) {
       bg = isDark ? WpColorsDark.accentSubtle : WpColorsLight.accentSubtle;
-    } else if (widget.isFocused) {
-      bg = isDark ? WpColorsDark.hover : WpColorsLight.hover;
-    } else if (_isHovered) {
+    } else if (widget.isFocused || _isHovered) {
       bg = isDark ? WpColorsDark.hover : WpColorsLight.hover;
     } else {
       bg = isDark
@@ -111,13 +108,6 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
           : WpColorsLight.hoverTransparent;
     }
 
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
-    final textSecondary = isDark
-        ? WpColorsDark.textSecondary
-        : WpColorsLight.textSecondary;
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
     final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
 
     final showActions =
@@ -186,204 +176,280 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
               const SizedBox(width: WpSpacing.sm),
               // Content
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Row 1: Title + (time label OR quick actions).
-                    // Fixed-height slot keeps the row from jittering when
-                    // the trailing widget swaps between the small time
-                    // label and the taller action button group.
-                    SizedBox(
-                      height: 28,
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Expanded(
-                            child: HighlightedText(
-                              text: widget.entry.title.isNotEmpty
-                                  ? widget.entry.title
-                                  : l10n.historyUntitledRecording,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              isDark: isDark,
-                              style: TextStyle(
-                                fontSize: 14.5,
-                                fontWeight: FontWeight.w600,
-                                color: textPrimary,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: WpSpacing.xs),
-                          if (showActions)
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                HistoryRowAction(
-                                  icon: LucideIcons.copy,
-                                  tooltip: l10n.historyCopyText,
-                                  isDark: isDark,
-                                  onTap: widget.onCopy,
-                                  dense: true,
-                                ),
-                                HistoryRowAction(
-                                  faIcon: widget.entry.pinned
-                                      ? FontAwesomeIcons.solidStar
-                                      : null,
-                                  icon: widget.entry.pinned
-                                      ? null
-                                      : LucideIcons.star,
-                                  activeColor: widget.entry.pinned
-                                      ? Colors.amber.shade600
-                                      : null,
-                                  tooltip: widget.entry.pinned
-                                      ? l10n.historyUnpin
-                                      : l10n.historyPinToTop,
-                                  isDark: isDark,
-                                  onTap: widget.onPin,
-                                  dense: true,
-                                ),
-                                HistoryRowAction(
-                                  icon: LucideIcons.trash2,
-                                  tooltip: l10n.actionDelete,
-                                  isDark: isDark,
-                                  onTap: widget.onDelete,
-                                  isDestructive: true,
-                                  dense: true,
-                                ),
-                              ],
-                            )
-                          else
-                            Text(
-                              _timeLabel,
-                              style: TextStyle(fontSize: 11, color: textMuted),
-                            ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    // Row 2: Content preview — two lines for more context
-                    HighlightedText(
-                      text: widget.entry.content,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      isDark: isDark,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: textSecondary,
-                        height: 1.35,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    // Row 3: Subtle inline metadata (duration + language)
-                    Row(
-                      children: [
-                        Icon(
-                          LucideIcons.clock,
-                          size: WpIconSize.xs,
-                          color: textMuted,
-                        ),
-                        const SizedBox(width: 3),
-                        Flexible(
-                          child: Text(
-                            _durationLabel,
-                            style: TextStyle(fontSize: 10, color: textMuted),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        if (_wordCount > 0) ...[
-                          const SizedBox(width: WpSpacing.xs),
-                          Text(
-                            '· ~$_wordCount w',
-                            style: TextStyle(fontSize: 10, color: textMuted),
-                          ),
-                        ],
-                        if (widget.entry.language.isNotEmpty) ...[
-                          const SizedBox(width: WpSpacing.xs),
-                          Text(
-                            '·',
-                            style: TextStyle(fontSize: 10, color: textMuted),
-                          ),
-                          const SizedBox(width: WpSpacing.xs),
-                          Flexible(
-                            child: Text(
-                              widget.entry.language.toUpperCase(),
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: textMuted,
-                                fontWeight: FontWeight.w500,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                        if (!widget.entry.isLocal) ...[
-                          const SizedBox(width: WpSpacing.xs),
-                          Text(
-                            '·',
-                            style: TextStyle(fontSize: 10, color: textMuted),
-                          ),
-                          const SizedBox(width: WpSpacing.xs),
-                          Icon(
-                            LucideIcons.cloud,
-                            size: WpIconSize.xs,
-                            color: textMuted,
-                          ),
-                        ],
-                      ],
-                    ),
-                    // Tag chips — only rendered when entry has tags
-                    if (_entryTags.isNotEmpty) ...[
-                      const SizedBox(height: 3),
-                      Wrap(
-                        spacing: 4,
-                        runSpacing: 2,
-                        children: [
-                          for (final tag in _entryTags.take(3))
-                            GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: () => widget.onTagTap?.call(tag),
-                              child: MouseRegion(
-                                cursor: widget.onTagTap != null
-                                    ? SystemMouseCursors.click
-                                    : MouseCursor.defer,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 5,
-                                    vertical: 1,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: accent.withValues(
-                                      alpha: isDark ? 0.12 : 0.10,
-                                    ),
-                                    borderRadius: WpRadius.borderSm,
-                                  ),
-                                  child: Text(
-                                    '#$tag',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      color: accent.withValues(alpha: 0.9),
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          if (_entryTags.length > 3)
-                            Text(
-                              '+${_entryTags.length - 3}',
-                              style: TextStyle(fontSize: 10, color: textMuted),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ],
+                child: _EntryRowContent(
+                  entry: widget.entry,
+                  isDark: isDark,
+                  showActions: showActions,
+                  timeLabel: _timeLabel,
+                  durationLabel: _durationLabel,
+                  wordCount: _wordCount,
+                  tags: _entryTags,
+                  onCopy: widget.onCopy,
+                  onPin: widget.onPin,
+                  onDelete: widget.onDelete,
+                  onTagTap: widget.onTagTap,
                 ),
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Private sub-widgets for HistoryEntryRow
+// ---------------------------------------------------------------------------
+
+class _EntryRowContent extends StatelessWidget {
+  const _EntryRowContent({
+    required this.entry,
+    required this.isDark,
+    required this.showActions,
+    required this.timeLabel,
+    required this.durationLabel,
+    required this.wordCount,
+    required this.tags,
+    required this.onCopy,
+    required this.onPin,
+    required this.onDelete,
+    this.onTagTap,
+  });
+
+  final HistoryEntry entry;
+  final bool isDark;
+  final bool showActions;
+  final String timeLabel;
+  final String durationLabel;
+  final int wordCount;
+  final List<String> tags;
+  final VoidCallback onCopy;
+  final VoidCallback onPin;
+  final VoidCallback onDelete;
+  final void Function(String tag)? onTagTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    final textPrimary = isDark
+        ? WpColorsDark.textPrimary
+        : WpColorsLight.textPrimary;
+    final textSecondary = isDark
+        ? WpColorsDark.textSecondary
+        : WpColorsLight.textSecondary;
+    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Row 1: Title + (time label OR quick actions).
+        // Fixed-height slot keeps the row from jittering when
+        // the trailing widget swaps between the small time
+        // label and the taller action button group.
+        SizedBox(
+          height: 28,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: HighlightedText(
+                  text: entry.title.isNotEmpty
+                      ? entry.title
+                      : l10n.historyUntitledRecording,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  isDark: isDark,
+                  style: TextStyle(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w600,
+                    color: textPrimary,
+                  ),
+                ),
+              ),
+              const SizedBox(width: WpSpacing.xs),
+              if (showActions)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    HistoryRowAction(
+                      icon: LucideIcons.copy,
+                      tooltip: l10n.historyCopyText,
+                      isDark: isDark,
+                      onTap: onCopy,
+                      dense: true,
+                    ),
+                    HistoryRowAction(
+                      faIcon: entry.pinned ? FontAwesomeIcons.solidStar : null,
+                      icon: entry.pinned ? null : LucideIcons.star,
+                      activeColor: entry.pinned ? Colors.amber.shade600 : null,
+                      tooltip: entry.pinned
+                          ? l10n.historyUnpin
+                          : l10n.historyPinToTop,
+                      isDark: isDark,
+                      onTap: onPin,
+                      dense: true,
+                    ),
+                    HistoryRowAction(
+                      icon: LucideIcons.trash2,
+                      tooltip: l10n.actionDelete,
+                      isDark: isDark,
+                      onTap: onDelete,
+                      isDestructive: true,
+                      dense: true,
+                    ),
+                  ],
+                )
+              else
+                Text(
+                  timeLabel,
+                  style: TextStyle(fontSize: 11, color: textMuted),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 3),
+        // Row 2: Content preview — two lines for more context
+        HighlightedText(
+          text: entry.content,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          isDark: isDark,
+          style: TextStyle(fontSize: 14, color: textSecondary, height: 1.35),
+        ),
+        const SizedBox(height: 4),
+        // Row 3: Subtle inline metadata (duration + language)
+        _EntryMetaRow(
+          durationLabel: durationLabel,
+          wordCount: wordCount,
+          language: entry.language,
+          isLocal: entry.isLocal,
+          isDark: isDark,
+        ),
+        // Tag chips — only rendered when entry has tags
+        if (tags.isNotEmpty) ...[
+          const SizedBox(height: 3),
+          _EntryTagChips(tags: tags, isDark: isDark, onTagTap: onTagTap),
+        ],
+      ],
+    );
+  }
+}
+
+class _EntryMetaRow extends StatelessWidget {
+  const _EntryMetaRow({
+    required this.durationLabel,
+    required this.wordCount,
+    required this.language,
+    required this.isLocal,
+    required this.isDark,
+  });
+
+  final String durationLabel;
+  final int wordCount;
+  final String language;
+  final bool isLocal;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    return Row(
+      children: [
+        Icon(LucideIcons.clock, size: WpIconSize.xs, color: textMuted),
+        const SizedBox(width: 3),
+        Flexible(
+          child: Text(
+            durationLabel,
+            style: TextStyle(fontSize: 10, color: textMuted),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        if (wordCount > 0) ...[
+          const SizedBox(width: WpSpacing.xs),
+          Text(
+            '· ~$wordCount w',
+            style: TextStyle(fontSize: 10, color: textMuted),
+          ),
+        ],
+        if (language.isNotEmpty) ...[
+          const SizedBox(width: WpSpacing.xs),
+          Text('·', style: TextStyle(fontSize: 10, color: textMuted)),
+          const SizedBox(width: WpSpacing.xs),
+          Flexible(
+            child: Text(
+              language.toUpperCase(),
+              style: TextStyle(
+                fontSize: 10,
+                color: textMuted,
+                fontWeight: FontWeight.w500,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+        if (!isLocal) ...[
+          const SizedBox(width: WpSpacing.xs),
+          Text('·', style: TextStyle(fontSize: 10, color: textMuted)),
+          const SizedBox(width: WpSpacing.xs),
+          Icon(LucideIcons.cloud, size: WpIconSize.xs, color: textMuted),
+        ],
+      ],
+    );
+  }
+}
+
+class _EntryTagChips extends StatelessWidget {
+  const _EntryTagChips({
+    required this.tags,
+    required this.isDark,
+    this.onTagTap,
+  });
+
+  final List<String> tags;
+  final bool isDark;
+  final void Function(String tag)? onTagTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    return Wrap(
+      spacing: 4,
+      runSpacing: 2,
+      children: [
+        for (final tag in tags.take(3))
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => onTagTap?.call(tag),
+            child: MouseRegion(
+              cursor: onTagTap != null
+                  ? SystemMouseCursors.click
+                  : MouseCursor.defer,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: isDark ? 0.12 : 0.10),
+                  borderRadius: WpRadius.borderSm,
+                ),
+                child: Text(
+                  '#$tag',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: accent.withValues(alpha: 0.9),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        if (tags.length > 3)
+          Text(
+            '+${tags.length - 3}',
+            style: TextStyle(fontSize: 10, color: textMuted),
+          ),
+      ],
     );
   }
 }
