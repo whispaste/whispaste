@@ -205,7 +205,7 @@ void main() {
       TestWidgetsFlutterBinding.ensureInitialized();
       // On Windows: creates WindowsFloatingOverlayController.
       // On CI (Linux): returns null since Platform.isWindows is false.
-      final controller = FloatingOverlayController.create();
+      final controller = createFloatingOverlayController();
       if (controller != null) {
         expect(controller, isA<FloatingOverlayController>());
       }

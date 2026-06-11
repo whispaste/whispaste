@@ -1,7 +1,7 @@
 import 'package:flutter/services.dart';
 
 import '../method_channel_platform_host.dart';
-import 'floating_overlay_controller.dart';
+import 'floating_overlay_controller_interface.dart';
 import 'floating_overlay_events.dart';
 
 /// macOS implementation of [FloatingOverlayController].

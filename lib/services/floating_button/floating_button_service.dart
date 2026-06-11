@@ -52,7 +52,7 @@ class FloatingButtonService
 
   @override
   FloatingButtonController? createController() =>
-      FloatingButtonController.create();
+      createFloatingButtonController();
 
   @override
   Stream<FloatingButtonEvent> eventsFrom(FloatingButtonController controller) =>

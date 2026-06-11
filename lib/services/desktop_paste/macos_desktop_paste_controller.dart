@@ -1,6 +1,6 @@
 import 'package:flutter/services.dart';
 
-import 'desktop_paste_controller.dart';
+import 'desktop_paste_controller_interface.dart';
 
 /// macOS bridge for desktop auto-paste via CGEvent Cmd+V.
 class MacOSDesktopPasteController extends DesktopPasteController {

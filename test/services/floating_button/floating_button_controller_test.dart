@@ -28,7 +28,7 @@ void main() {
       // On Windows test VM: creates a WindowsFloatingButtonController.
       // On CI (Linux): returns null since Platform.isWindows is false.
       // We just verify the factory doesn't throw.
-      final controller = FloatingButtonController.create();
+      final controller = createFloatingButtonController();
       // On Windows: non-null controller. On Linux/macOS CI: null.
       if (controller != null) {
         expect(controller, isA<FloatingButtonController>());
