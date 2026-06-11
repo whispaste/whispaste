@@ -248,12 +248,6 @@ class _TierRowState extends State<_TierRow> {
   @override
   Widget build(BuildContext context) {
     final accent = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final textPrimary = widget.isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
-    final textSecondary = widget.isDark
-        ? WpColorsDark.textSecondary
-        : WpColorsLight.textSecondary;
     final textMuted = widget.isDark
         ? WpColorsDark.textMuted
         : WpColorsLight.textMuted;
@@ -261,8 +255,6 @@ class _TierRowState extends State<_TierRow> {
     final success = widget.isDark
         ? WpColorsDark.success
         : WpColorsLight.success;
-
-    final bestModel = bestModelForTier(widget.tier);
 
     // Performance info is only shown on the current tier
     final showPerformanceInfo = widget.isCurrentTier || widget.isBenchmarking;
@@ -323,136 +315,21 @@ class _TierRowState extends State<_TierRow> {
                   const SizedBox(width: WpSpacing.sm),
                   // Tier info
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Flexible(
-                              child: Text(
-                                _tierLabel(widget.l10n),
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: textPrimary,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: WpSpacing.xxs),
-                            Tooltip(
-                              message: widget.l10n.qualityTierModelTooltip(
-                                bestModel.label,
-                                bestModel.sizeLabel,
-                              ),
-                              child: Icon(
-                                LucideIcons.info,
-                                size: 14,
-                                color: textMuted,
-                              ),
-                            ),
-                            if (widget.isRecommended) ...[
-                              const SizedBox(width: WpSpacing.xs),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 1,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: accent.withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(
-                                    WpRadius.full,
-                                  ),
-                                ),
-                                child: Text(
-                                  widget.l10n.qualityTierRecommended,
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
-                                    color: accent,
-                                  ),
-                                ),
-                              ),
-                            ],
-                            const SizedBox(width: WpSpacing.sm),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 1,
-                              ),
-                              decoration: BoxDecoration(
-                                color: _isDownloaded
-                                    ? success.withValues(alpha: 0.12)
-                                    : textMuted.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(
-                                  WpRadius.full,
-                                ),
-                              ),
-                              child: Text(
-                                tierSizeLabel(widget.tier),
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w500,
-                                  color: _isDownloaded ? success : textMuted,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          _tierDesc(widget.l10n),
-                          style: TextStyle(fontSize: 11, color: textSecondary),
-                        ),
-                        if (widget.isBenchmarking) ...[
-                          const SizedBox(height: 3),
-                          Row(
-                            children: [
-                              SizedBox(
-                                width: 12,
-                                height: 12,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: infoColor,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  widget.l10n.qualityTierInfoBenchmarking,
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: infoColor,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ] else if (infoMessage != null) ...[
-                          const SizedBox(height: 3),
-                          Row(
-                            children: [
-                              Icon(
-                                TierPerformancePresentation.icon(
-                                  widget.performance,
-                                ),
-                                size: WpIconSize.xs,
-                                color: infoColor,
-                              ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  infoMessage,
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: infoColor,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ],
+                    child: _TierRowInfo(
+                      tier: widget.tier,
+                      label: _tierLabel(widget.l10n),
+                      desc: _tierDesc(widget.l10n),
+                      isRecommended: widget.isRecommended,
+                      isDownloaded: _isDownloaded,
+                      isBenchmarking: widget.isBenchmarking,
+                      infoMessage: infoMessage,
+                      infoColor: infoColor,
+                      performance: widget.performance,
+                      isDark: widget.isDark,
+                      l10n: widget.l10n,
+                      accent: accent,
+                      textMuted: textMuted,
+                      success: success,
                     ),
                   ),
                   // Action
@@ -545,6 +422,162 @@ class _TierRowState extends State<_TierRow> {
     }
 
     return const SizedBox.shrink();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tier row info — label, description, benchmarking, performance hint
+// ---------------------------------------------------------------------------
+
+class _TierRowInfo extends StatelessWidget {
+  const _TierRowInfo({
+    required this.tier,
+    required this.label,
+    required this.desc,
+    required this.isRecommended,
+    required this.isDownloaded,
+    required this.isBenchmarking,
+    required this.infoMessage,
+    required this.infoColor,
+    required this.performance,
+    required this.isDark,
+    required this.l10n,
+    required this.accent,
+    required this.textMuted,
+    required this.success,
+  });
+
+  final QualityTier tier;
+  final String label;
+  final String desc;
+  final bool isRecommended;
+  final bool isDownloaded;
+  final bool isBenchmarking;
+  final String? infoMessage;
+  final Color infoColor;
+  final TierPerformance performance;
+  final bool isDark;
+  final L10n l10n;
+  final Color accent;
+  final Color textMuted;
+  final Color success;
+
+  @override
+  Widget build(BuildContext context) {
+    final textPrimary = isDark
+        ? WpColorsDark.textPrimary
+        : WpColorsLight.textPrimary;
+    final textSecondary = isDark
+        ? WpColorsDark.textSecondary
+        : WpColorsLight.textSecondary;
+    final bestModel = bestModelForTier(tier);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Flexible(
+              child: Text(
+                label,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: textPrimary,
+                ),
+              ),
+            ),
+            const SizedBox(width: WpSpacing.xxs),
+            Tooltip(
+              message: l10n.qualityTierModelTooltip(
+                bestModel.label,
+                bestModel.sizeLabel,
+              ),
+              child: Icon(LucideIcons.info, size: 14, color: textMuted),
+            ),
+            if (isRecommended) ...[
+              const SizedBox(width: WpSpacing.xs),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(WpRadius.full),
+                ),
+                child: Text(
+                  l10n.qualityTierRecommended,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: accent,
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(width: WpSpacing.sm),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              decoration: BoxDecoration(
+                color: isDownloaded
+                    ? success.withValues(alpha: 0.12)
+                    : textMuted.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(WpRadius.full),
+              ),
+              child: Text(
+                tierSizeLabel(tier),
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                  color: isDownloaded ? success : textMuted,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Text(desc, style: TextStyle(fontSize: 11, color: textSecondary)),
+        if (isBenchmarking) ...[
+          const SizedBox(height: 3),
+          Row(
+            children: [
+              SizedBox(
+                width: 12,
+                height: 12,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: infoColor,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  l10n.qualityTierInfoBenchmarking,
+                  style: TextStyle(fontSize: 10, color: infoColor),
+                ),
+              ),
+            ],
+          ),
+        ] else if (infoMessage != null) ...[
+          const SizedBox(height: 3),
+          Row(
+            children: [
+              Icon(
+                TierPerformancePresentation.icon(performance),
+                size: WpIconSize.xs,
+                color: infoColor,
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  infoMessage!,
+                  style: TextStyle(fontSize: 10, color: infoColor),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
   }
 }
 
