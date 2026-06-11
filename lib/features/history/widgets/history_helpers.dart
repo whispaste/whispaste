@@ -62,45 +62,69 @@ Color historyAvatarColor(HistoryEntry entry, bool isDark) {
   return palette[hash % palette.length];
 }
 
+/// A single avatar-icon rule: matches when any [tagKeywords] is found in the
+/// entry's tags OR any [titleKeywords] is found in the entry's title.  Tag and
+/// title keyword lists are kept SEPARATE so each rule can be asymmetric (some
+/// rules deliberately check only tags, others only the title).
+typedef _AvatarIconRule = ({
+  List<String> tagKeywords,
+  List<String> titleKeywords,
+  IconData icon,
+});
+
+// Rules evaluated in order; first match wins.  Mapping is asymmetric per rule.
+const _avatarIconRules = <_AvatarIconRule>[
+  (
+    tagKeywords: ['meeting'],
+    titleKeywords: ['meeting', 'standup'],
+    icon: LucideIcons.users,
+  ),
+  (
+    tagKeywords: ['email'],
+    titleKeywords: ['email', 'follow'],
+    icon: LucideIcons.mail,
+  ),
+  (
+    tagKeywords: ['blog', 'writing'],
+    titleKeywords: ['blog', 'draft'],
+    icon: LucideIcons.penLine,
+  ),
+  (
+    tagKeywords: ['personal', 'recipe'],
+    titleKeywords: [],
+    icon: LucideIcons.heart,
+  ),
+  (
+    tagKeywords: ['feedback'],
+    titleKeywords: ['feedback', 'review'],
+    icon: LucideIcons.messageSquare,
+  ),
+  (
+    tagKeywords: ['project'],
+    titleKeywords: ['project', 'brief'],
+    icon: LucideIcons.folderOpen,
+  ),
+  (
+    tagKeywords: ['idea', 'team'],
+    titleKeywords: [],
+    icon: LucideIcons.lightbulb,
+  ),
+  (
+    tagKeywords: [],
+    titleKeywords: ['reminder', 'todo'],
+    icon: LucideIcons.bellRing,
+  ),
+];
+
 /// Icon for the entry avatar — based on content/source hints.
 IconData historyAvatarIcon(HistoryEntry entry) {
   final title = entry.title.toLowerCase();
   final tags = entry.tags.toLowerCase();
-
-  if (tags.contains('meeting') ||
-      title.contains('meeting') ||
-      title.contains('standup')) {
-    return LucideIcons.users;
-  }
-  if (tags.contains('email') ||
-      title.contains('email') ||
-      title.contains('follow')) {
-    return LucideIcons.mail;
-  }
-  if (tags.contains('blog') ||
-      tags.contains('writing') ||
-      title.contains('blog') ||
-      title.contains('draft')) {
-    return LucideIcons.penLine;
-  }
-  if (tags.contains('personal') || tags.contains('recipe')) {
-    return LucideIcons.heart;
-  }
-  if (tags.contains('feedback') ||
-      title.contains('feedback') ||
-      title.contains('review')) {
-    return LucideIcons.messageSquare;
-  }
-  if (tags.contains('project') ||
-      title.contains('project') ||
-      title.contains('brief')) {
-    return LucideIcons.folderOpen;
-  }
-  if (tags.contains('idea') || tags.contains('team')) {
-    return LucideIcons.lightbulb;
-  }
-  if (title.contains('reminder') || title.contains('todo')) {
-    return LucideIcons.bellRing;
+  for (final rule in _avatarIconRules) {
+    final matched =
+        rule.tagKeywords.any(tags.contains) ||
+        rule.titleKeywords.any(title.contains);
+    if (matched) return rule.icon;
   }
   return LucideIcons.mic;
 }
