@@ -243,8 +243,7 @@ class AfterTranscriptionSection extends ConsumerWidget {
         children: [
           SettingRow(
             icon: LucideIcons.clipboardCheck,
-            label: l10n.settingsAfterTranscription,
-            subtitle: l10n.settingsAfterTranscriptionSubtitle,
+            label: l10n.settingsAfterTranscriptionActionLabel,
             trailing: settingsDropdown(
               context: context,
               value: settings.afterTranscription,

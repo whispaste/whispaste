@@ -153,6 +153,7 @@
   "settingsSoundVolume": "Sound Volume",
   "settingsAfterTranscription": "After Transcription",
   "settingsAfterTranscriptionSubtitle": "What happens with the transcribed text",
+  "settingsAfterTranscriptionActionLabel": "Action",
   "settingsAfterTranscriptionClipboard": "Copy to Clipboard",
   "settingsAfterTranscriptionPaste": "Auto-Paste at Cursor",
   "settingsAfterTranscriptionBoth": "Copy & Auto-Paste",

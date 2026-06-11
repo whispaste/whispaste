@@ -417,6 +417,9 @@ class L10nEn extends L10n {
       'What happens with the transcribed text';
 
   @override
+  String get settingsAfterTranscriptionActionLabel => 'Action';
+
+  @override
   String get settingsAfterTranscriptionClipboard => 'Copy to Clipboard';
 
   @override
