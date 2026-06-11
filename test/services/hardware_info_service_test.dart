@@ -299,13 +299,51 @@ void main() {
       },
     );
 
-    test('returns false when metadata backend mismatches GPU', () async {
+    test('returns false when the stored backend cannot run on this GPU '
+        '(cuda binary on AMD / Apple)', () async {
       File(p.join(tmpDir.path, _serverBinary)).createSync();
-      // Downloaded for Vulkan (Intel), but now on NVIDIA+CUDA.
-      await writeServerBinaryInfo(tmpDir.path, _intelGpu);
+      // Downloaded for CUDA (NVIDIA), but the machine now has an AMD GPU —
+      // the cuda build genuinely cannot run there.
+      await writeServerBinaryInfo(tmpDir.path, _nvidiaWithCuda);
 
-      expect(isServerBinaryCompatible(tmpDir.path, _nvidiaWithCuda), isFalse);
+      expect(isServerBinaryCompatible(tmpDir.path, _amdGpu), isFalse);
+      expect(isServerBinaryCompatible(tmpDir.path, _appleGpu), isFalse);
     });
+
+    test('returns true for Vulkan binary on NVIDIA+CUDA machine '
+        '(intentional recovery downgrade — FLUTTER_WHISPASTE-A0)', () async {
+      // ServerBinaryRecovery installs the Vulkan build after the cuda build
+      // fails to start and records backend=vulkan. The proactive startup
+      // check must NOT treat that downgrade as incompatible: deleting it
+      // re-pulls the failing cuda build, recovery wants vulkan again, the
+      // generation guard fires ("variant-already-tried-this-session") and
+      // the user dead-ends without the CPU floor ever being tried.
+      File(p.join(tmpDir.path, _serverBinary)).createSync();
+      await writeServerBinaryInfo(tmpDir.path, _intelGpu); // backend=vulkan
+
+      expect(isServerBinaryCompatible(tmpDir.path, _nvidiaWithCuda), isTrue);
+    });
+
+    test(
+      'normalizes backend naming drift (cuda12 / cublas-12 / blas-bin)',
+      () async {
+        File(p.join(tmpDir.path, _serverBinary)).createSync();
+        final infoFile = File(p.join(tmpDir.path, '.server-info.json'));
+
+        // Recovery writes `cuda12` (WhisPaste naming) when .server-info.json
+        // was missing; the GPU detector says `cuda`. Must match.
+        infoFile.writeAsStringSync('{"backend":"cuda12"}');
+        expect(isServerBinaryCompatible(tmpDir.path, _nvidiaWithCuda), isTrue);
+
+        infoFile.writeAsStringSync('{"backend":"cublas-12"}');
+        expect(isServerBinaryCompatible(tmpDir.path, _nvidiaWithCuda), isTrue);
+
+        // Upstream CPU naming — universal fallback on every machine.
+        infoFile.writeAsStringSync('{"backend":"blas-bin"}');
+        expect(isServerBinaryCompatible(tmpDir.path, _nvidiaWithCuda), isTrue);
+        expect(isServerBinaryCompatible(tmpDir.path, _amdGpu), isTrue);
+      },
+    );
 
     test('returns true for CPU binary on a GPU-capable machine '
         '(durable recovery fallback — FLUTTER_WHISPASTE-80)', () async {
@@ -408,6 +446,21 @@ void main() {
         expect(isServerBinaryCompatible(tmpDir.path, _intelGpu), isTrue);
       },
     );
+
+    test('returns true for metadata-less Vulkan build on NVIDIA+CUDA machine '
+        '(recovery downgrade whose .server-info.json write failed)', () async {
+      // `writeServerBinaryInfo` swallows FileSystemException (best-effort,
+      // observed under MSIX). A recovery-installed Vulkan build can thus
+      // sit on disk without metadata. The old inverse heuristic („no CUDA
+      // DLLs on a CUDA-capable NVIDIA system → incompatible") would delete
+      // it and re-pull the failing cuda build — same ping-pong as the
+      // Layer-1 case in FLUTTER_WHISPASTE-A0.
+      File(p.join(tmpDir.path, _serverBinary)).createSync();
+      File(p.join(tmpDir.path, 'ggml-vulkan.dll')).createSync();
+      // No .server-info.json.
+
+      expect(isServerBinaryCompatible(tmpDir.path, _nvidiaWithCuda), isTrue);
+    });
 
     test(
       'returns true when metadata says vulkan even without DLL (static link)',

@@ -425,8 +425,8 @@ void main() {
       expect(store.serverInfoWrites.single.backend, 'vulkan');
     });
 
-    test('generation-counter guard: second recover() with same current '
-        'variant exhausts without re-downloading', () async {
+    test('generation-counter guard: repeat recover() walks past the already '
+        'tried variant down to the CPU floor, then exhausts', () async {
       final downloader = _FakeWhisperServerDownloader();
       final store = _FakeBinaryStore(currentBackend: 'cublas-12');
       final recovery = ServerBinaryRecovery(
@@ -446,8 +446,10 @@ void main() {
 
       // Second attempt within the same session — current variant is
       // still cublas-12 (the recovery did not flip it because the test
-      // store does not auto-mutate); the orchestrator must recognise
-      // "vulkan was already tried" and exhaust without a new download.
+      // store does not auto-mutate). "vulkan" was already tried, so the
+      // orchestrator must walk the chain past it to the CPU floor instead
+      // of exhausting (FLUTTER_WHISPASTE-A0: exhausting here left users
+      // without the CPU fallback that would have worked).
       final second = await recovery.recover(
         reason: RecoveryReason.dllMissing,
         gpu: _nvidia,
@@ -455,12 +457,68 @@ void main() {
         activeModelId: 'whisper-small',
       );
 
-      expect(second, isA<RecoveryExhausted>());
+      expect(second, isA<RecoveryFellBackToCpu>());
+      expect(downloader.calls, hasLength(2));
+      expect(
+        downloader.calls.last.gpuMode,
+        'disabled',
+        reason: 'CPU floor download forces the CPU/BLAS asset',
+      );
+
+      // Third attempt: every fallback variant has now been tried — only
+      // here may the guard exhaust, and it must do so without another
+      // download (this is the actual infinite-loop protection).
+      final third = await recovery.recover(
+        reason: RecoveryReason.dllMissing,
+        gpu: _nvidia,
+        sttDirPath: '/fake/stt',
+        activeModelId: 'whisper-small',
+      );
+
+      expect(third, isA<RecoveryExhausted>());
       expect(
         downloader.calls,
-        hasLength(1),
+        hasLength(2),
         reason: 'guard must short-circuit before re-invoking download',
       );
+    });
+
+    test('FLUTTER_WHISPASTE-A0 field shape: cuda re-installed behind '
+        'recovery\'s back, vulkan already tried → falls back to CPU '
+        'instead of exhausting', () async {
+      final downloader = _FakeWhisperServerDownloader();
+      final store = _FakeBinaryStore(currentBackend: 'cuda');
+      final recovery = ServerBinaryRecovery(
+        downloader: downloader,
+        store: store,
+      );
+
+      // Round 1: cuda fails → recovery installs vulkan.
+      final first = await recovery.recover(
+        reason: RecoveryReason.dllMissing,
+        gpu: _nvidia,
+        sttDirPath: '/fake/stt',
+        activeModelId: 'whisper-medium',
+      );
+      expect(first, isA<RecoveryRetried>());
+      expect((first as RecoveryRetried).chosenVariant, 'vulkan');
+
+      // Meanwhile the proactive startup check re-installed the optimal
+      // cuda build (the pre-fix `isServerBinaryCompatible` behaviour).
+      store.currentBackend = 'cuda';
+
+      // Round 2: cuda fails again. Old behaviour: nextVariant(cuda)=vulkan,
+      // already tried → RecoveryExhausted("variant-already-tried-this-
+      // session") — the exact Sentry event. New behaviour: walk on to cpu.
+      final second = await recovery.recover(
+        reason: RecoveryReason.dllMissing,
+        gpu: _nvidia,
+        sttDirPath: '/fake/stt',
+        activeModelId: 'whisper-medium',
+      );
+
+      expect(second, isA<RecoveryFellBackToCpu>());
+      expect(recovery.triedVariantsForTesting, containsAll(['vulkan', 'cpu']));
     });
 
     test(

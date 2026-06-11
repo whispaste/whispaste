@@ -366,6 +366,37 @@ List<String> serverAssetPatterns(
 /// Metadata file written after each successful whisper-server download.
 const _serverInfoFilename = '.server-info.json';
 
+/// Whether a binary downloaded for [storedBackend] can run on a machine
+/// whose GPU-optimal backend is [optimalBackend].
+///
+/// Pure decision core of the Layer-1 metadata check in
+/// [isServerBinaryCompatible] — see the rationale there. Normalises the
+/// naming drift between the GPU detector (`cuda`), WhisPaste release assets
+/// (`cuda12` / `cpu`) and upstream whisper.cpp assets (`cublas-12` /
+/// `blas-bin`).
+bool storedBackendRunsOn({
+  required String storedBackend,
+  required String optimalBackend,
+}) {
+  final stored = switch (storedBackend.trim().toLowerCase()) {
+    'cuda' || 'cuda12' || 'cublas-12' => 'cuda',
+    'blas-bin' => 'cpu',
+    final other => other,
+  };
+
+  // The CPU floor runs on every machine (FLUTTER_WHISPASTE-80).
+  if (stored == 'cpu') return true;
+
+  return switch (optimalBackend) {
+    // NVIDIA: cuda is optimal, vulkan is the recovery downgrade — both run.
+    'cuda' => stored == 'cuda' || stored == 'vulkan',
+    'vulkan' => stored == 'vulkan',
+    'metal' => stored == 'metal',
+    // Optimal cpu (no GPU): only the cpu floor fits — handled above.
+    _ => false,
+  };
+}
+
 /// Checks if the existing whisper-server binary in [sttDirPath] is compatible
 /// with the detected [gpu].
 ///
@@ -389,32 +420,27 @@ bool isServerBinaryCompatible(String sttDirPath, GpuInfo gpu) {
   if (!serverFile.existsSync()) return true; // Nothing to validate.
 
   // --- Layer 1: Metadata-based check ----------------------------------------
+  // "Compatible" means *runnable on this machine*, not *optimal for it*:
+  // ServerBinaryRecovery deliberately installs more conservative variants
+  // (cuda → vulkan → cpu) after a GPU build fails to start. Treating such an
+  // intentional downgrade as incompatible deletes the one binary that works
+  // and re-pulls the failing optimal build — recovery then wants the
+  // downgrade again, the per-session generation guard fires and the user
+  // dead-ends in „recovery exhausted" although the next variant down would
+  // have worked. Field shapes: FLUTTER_WHISPASTE-80 (cpu floor deleted on a
+  // GPU machine) and FLUTTER_WHISPASTE-A0 (vulkan deleted on a cuda machine,
+  // cuda↔vulkan ping-pong). Only a backend the machine genuinely cannot run
+  // (cuda on AMD, metal on Windows, …) is incompatible.
   final info = readServerBinaryInfo(sttDirPath);
   if (info != null) {
-    final storedBackend = info['backend'] as String? ?? '';
-    final currentBackend = gpu.optimalBackend;
-
-    // The CPU build is the universal fallback: it runs on every machine,
-    // independent of the GPU. ServerBinaryRecovery deliberately drops to it
-    // after the GPU backends fail to start (e.g. a Kepler GeForce GTX 650
-    // where the Vulkan build aborts with model-load exit 3). Treating that
-    // intentional, working downgrade as "incompatible" would delete the one
-    // binary that actually runs and re-pull the failing GPU build — an
-    // infinite recovery→CPU→delete→re-download→crash loop that surfaced as
-    // "Incompatible whisper-server for your GPU" (FLUTTER_WHISPASTE-80).
-    // So a CPU binary is always compatible; the user can re-download from
-    // Settings to retry GPU acceleration.
-    if (storedBackend == 'cpu') return true;
-
-    if (storedBackend.isNotEmpty && storedBackend != currentBackend) {
-      return false;
-    }
-
-    // Metadata present and backend matches → binary was correctly downloaded
-    // for this GPU. Trust the metadata and skip DLL heuristics below.
-    // DLL checks (L2/L3) are fallbacks for legacy downloads without metadata.
+    final storedBackend = (info['backend'] as String? ?? '')
+        .trim()
+        .toLowerCase();
     if (storedBackend.isNotEmpty) {
-      return true;
+      return storedBackendRunsOn(
+        storedBackend: storedBackend,
+        optimalBackend: gpu.optimalBackend,
+      );
     }
   }
 
@@ -429,10 +455,12 @@ bool isServerBinaryCompatible(String sttDirPath, GpuInfo gpu) {
       return false;
     }
 
-    // Inverse: non-CUDA binary on a CUDA-capable NVIDIA system.
-    if (!hasCudaDlls && gpu.vendor == GpuVendor.nvidia && gpu.cudaAvailable) {
-      return false;
-    }
+    // No inverse check ("non-CUDA binary on a CUDA-capable NVIDIA system"):
+    // `writeServerBinaryInfo` is best-effort (FileSystemException swallowed,
+    // observed failing under MSIX), so a recovery-installed Vulkan or CPU
+    // build can legitimately sit here without metadata. Flagging it as
+    // incompatible would re-enter the same delete→re-pull ping-pong the
+    // Layer-1 downgrade tolerance above exists to prevent.
 
     // --- Layer 3: Vulkan DLL heuristic --------------------------------------
     // Vulkan binaries always include ggml-vulkan.dll. If the GPU needs
@@ -607,15 +635,24 @@ String? firstUnresolvableBackendLoaderDll(String sttDirPath) {
 
   final backend = readServerBinaryInfo(sttDirPath)?['backend'] as String?;
 
-  final searchDirs = <String>[sttDirPath];
+  // Resolve against the *directory listing* for the binary dir instead of
+  // per-file `existsSync`: field evidence (FLUTTER_WHISPASTE-A0) showed
+  // `existsSync` returning false-negatives on the virtualised
+  // `%APPDATA%\Roaming` path under MSIX while the same files appeared in the
+  // `listSync`-based inventory. A false "missing" here needlessly kicks the
+  // working GPU build into recovery. System32 is not virtualised, so the
+  // plain probe stays fine there.
+  final dirInventory = listServerDirFiles(
+    sttDirPath,
+  ).map((f) => f.toLowerCase()).toSet();
   final systemRoot =
       Platform.environment['SystemRoot'] ??
       Platform.environment['WINDIR'] ??
       r'C:\Windows';
-  searchDirs.add(p.join(systemRoot, 'System32'));
+  final system32 = p.join(systemRoot, 'System32');
 
   bool resolvable(String dll) =>
-      searchDirs.any((dir) => File(p.join(dir, dll)).existsSync());
+      dirInventory.contains(dll) || File(p.join(system32, dll)).existsSync();
 
   return firstUnresolvableBackendLoaderDllFor(
     backend: backend,
