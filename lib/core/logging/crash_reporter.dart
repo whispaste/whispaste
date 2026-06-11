@@ -220,18 +220,6 @@ class CrashReporter {
     }
   }
 
-  /// Captures a Flutter framework error via Sentry.
-  void captureFlutterError(FlutterErrorDetails details) {
-    if (!_consentGranted) return;
-    Sentry.captureException(
-      details.exception,
-      stackTrace: details.stack,
-      withScope: (scope) {
-        scope.setTag('error_type', 'flutter_error');
-      },
-    );
-  }
-
   // -------------------------------------------------------------------------
   // Sentry beforeSend — PII sanitization + consent gate
   // -------------------------------------------------------------------------

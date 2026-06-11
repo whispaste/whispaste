@@ -24,18 +24,3 @@ String localeNativeName(Locale locale) {
     _ => code.toUpperCase(),
   };
 }
-
-/// Conventional flag asset path for [locale].
-///
-/// Returns the path the project **would** look up — the actual presence in
-/// the asset bundle is decided at runtime via [AssetManifest], because
-/// flags are decorative and missing assets must never crash the UI or
-/// render a placeholder.
-///
-/// English is a special case: WhisPaste historically ships the US flag
-/// (`us.svg`).  Every other locale maps to `<languageCode>.svg`.
-String localeFlagAssetPath(Locale locale) {
-  final code = locale.languageCode.toLowerCase();
-  final fileStem = code == 'en' ? 'us' : code;
-  return 'assets/flags/$fileStem.svg';
-}

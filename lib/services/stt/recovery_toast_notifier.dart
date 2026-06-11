@@ -37,14 +37,11 @@ enum RecoveryToastKind {
   abiInfo,
 }
 
-/// One recovery event emitted by `_attemptRecovery`. The timestamp lets
-/// the UI distinguish a freshly-emitted event from a stale leftover when
-/// the listener wakes up mid-flight.
+/// One recovery event emitted by `_attemptRecovery`.
 class RecoveryToastEvent {
-  RecoveryToastEvent({required this.kind, required this.at});
+  RecoveryToastEvent({required this.kind});
 
   final RecoveryToastKind kind;
-  final DateTime at;
 }
 
 /// Notifier the `SttServerStateNotifier` pushes recovery outcomes into.
@@ -53,7 +50,7 @@ class RecoveryToastNotifier extends Notifier<RecoveryToastEvent?> {
   RecoveryToastEvent? build() => null;
 
   void report(RecoveryToastKind kind) {
-    state = RecoveryToastEvent(kind: kind, at: DateTime.now());
+    state = RecoveryToastEvent(kind: kind);
   }
 
   void clear() {

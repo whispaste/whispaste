@@ -35,9 +35,6 @@ class AppLogger {
 
   final Logger _logger;
 
-  void trace(Object? message, [Object? error, StackTrace? stackTrace]) =>
-      _logger.finest(message, error, stackTrace);
-
   void debug(Object? message, [Object? error, StackTrace? stackTrace]) =>
       _logger.fine(message, error, stackTrace);
 
@@ -49,9 +46,6 @@ class AppLogger {
 
   void error(Object? message, [Object? error, StackTrace? stackTrace]) =>
       _logger.severe(message, error, stackTrace);
-
-  void fatal(Object? message, [Object? error, StackTrace? stackTrace]) =>
-      _logger.shout(message, error, stackTrace);
 }
 
 // ---------------------------------------------------------------------------

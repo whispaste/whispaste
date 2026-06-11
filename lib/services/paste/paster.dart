@@ -67,8 +67,6 @@ class PasteCapability {
 
   /// Free-form detail string from the native side for debug logging.
   final String? detail;
-
-  bool get isReady => status == PasteCapabilityStatus.ready;
 }
 
 /// Configuration for a paste operation, derived from [AppSettings].

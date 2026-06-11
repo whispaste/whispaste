@@ -129,14 +129,6 @@ String formatHotkeyShortcut(
   ).join(separator);
 }
 
-/// Returns a short, localized status label for the active overlay mode.
-String overlayModeStatusLabel(OverlayMode mode, L10n l10n) {
-  return switch (mode) {
-    OverlayMode.floating => l10n.statusBarOverlayFloating,
-    OverlayMode.off => l10n.statusBarOverlayOff,
-  };
-}
-
 /// Returns a short, localized label for the post-transcription action.
 String afterTranscriptionStatusLabel(
   AfterTranscriptionAction action,

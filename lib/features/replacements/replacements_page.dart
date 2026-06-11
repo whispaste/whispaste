@@ -25,12 +25,6 @@ class Replacement {
   final String id;
   final String trigger;
   final String replacement;
-
-  Replacement copyWith({String? trigger, String? replacement}) => Replacement(
-    id: id,
-    trigger: trigger ?? this.trigger,
-    replacement: replacement ?? this.replacement,
-  );
 }
 
 // ---------------------------------------------------------------------------

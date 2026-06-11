@@ -141,18 +141,6 @@ List<ConflictEntry> get platformConflicts {
   return const [];
 }
 
-/// Returns true when [modifiers] + [key] match a known system-reserved
-/// shortcut on the current platform.
-///
-/// Comparison is case-insensitive and order-independent for modifier tokens.
-///
-/// [modifiers] — storage string such as `'ctrl+shift'` or `'meta'`.
-/// [key] — non-modifier key label from [HotkeyRecorderDialog.keyLabel],
-///          e.g. `'Space'`, `'F4'`, `'D'`.
-bool isSystemConflict(String modifiers, String key) {
-  return findConflict(modifiers, key, conflicts: platformConflicts) != null;
-}
-
 /// Returns the matching [ConflictEntry] or `null` if no conflict is found.
 ///
 /// Accepts an optional [conflicts] list for testing purposes; defaults to

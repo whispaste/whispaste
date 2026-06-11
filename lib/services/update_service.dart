@@ -392,17 +392,6 @@ class UpdateNotifier extends Notifier<UpdateState> {
     }
   }
 
-  /// Cancel an in-progress download.
-  void cancelDownload() {
-    _cancelToken?.cancel('user cancelled');
-    state = const UpdateState(phase: UpdatePhase.idle);
-  }
-
-  /// Reset to idle state (e.g. dismiss an error or "up to date" notice).
-  void dismiss() {
-    state = const UpdateState(phase: UpdatePhase.idle);
-  }
-
   // -----------------------------------------------------------------------
   // Semver comparison
   // -----------------------------------------------------------------------

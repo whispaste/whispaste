@@ -35,7 +35,6 @@ class SttModelInfo {
     required this.sizeBytes,
     required this.url,
     required this.sha256,
-    this.description = '',
   });
 
   final String id;
@@ -44,7 +43,6 @@ class SttModelInfo {
   final int sizeBytes;
   final String url;
   final String sha256;
-  final String description;
 
   String get sizeLabel {
     if (sizeBytes >= 1024 * 1024 * 1024) {
@@ -70,7 +68,6 @@ const List<SttModelInfo> sttModels = [
     url:
         'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin',
     sha256: 'ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb',
-    description: 'Recommended for most users',
   ),
   SttModelInfo(
     id: 'whisper-medium',
@@ -80,7 +77,6 @@ const List<SttModelInfo> sttModels = [
     url:
         'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium-q5_0.bin',
     sha256: '19fea4b380c3a618ec4723c3eef2eb785ffba0d0538cf43f8f235e7b3b34220f',
-    description: 'High accuracy, needs more RAM',
   ),
   SttModelInfo(
     id: 'whisper-large-v3-turbo',
@@ -90,7 +86,6 @@ const List<SttModelInfo> sttModels = [
     url:
         'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin',
     sha256: '394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2',
-    description: 'Best speed/quality ratio for large models',
   ),
 ];
 
