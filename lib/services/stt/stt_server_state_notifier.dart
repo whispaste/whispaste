@@ -34,6 +34,7 @@ import 'server_binary_recovery.dart';
 import 'stt_exit_classifier.dart';
 import 'stt_gpu_fallback_policy.dart';
 import 'stt_providers.dart';
+import 'stt_warm_liveness_policy.dart';
 import 'wav_header_repair.dart';
 
 // Re-export for external consumers.
@@ -250,12 +251,16 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     }
 
     if (state.isReady && state.modelId == modelId && _process != null) {
-      if (await _quickHealthCheck(state.port)) {
+      final port = state.port;
+      final livenessResult = await SttWarmLivenessPolicy().checkWithGrace(
+        () => _quickHealthCheck(port),
+      );
+      if (livenessResult == WarmLivenessResult.healthy) {
         _resetIdleTimer();
-        _log.debug('STT server already running (warm) on port ${state.port}');
+        _log.debug('STT server already running (warm) on port $port');
         return;
       }
-      _log.warning('STT server health check failed, restarting');
+      _log.info('STT warm liveness grace exhausted on port $port — restarting');
       _cleanupProcess();
     }
 
