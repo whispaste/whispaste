@@ -71,6 +71,17 @@ platform :mac do
   desc "Build + notarize the Developer-ID build (direct download / Homebrew)"
   lane :devid_release do
     # Developer-ID auto-paste build — full feature set, distributed outside MAS.
+    #
+    # Prerequisites (see docs/store-release.md):
+    #   - Developer ID Application certificate in keychain
+    #   - ASC API key at ASC_KEY_PATH (~/.appstoreconnect/private_keys/AuthKey_REDACTED-ASC-KEY-ID.p8)
+    #   - create-dmg installed: brew install create-dmg
+    #
+    # Skip path: set SKIP_NOTARIZATION=1 to build+sign without notarizing/stapling
+    # (useful for quick local smoke tests without internet access).
+
+    api_key = load_asc_api_key
+
     sh("cd .. && flutter build macos --release")
 
     build_mac_app(
@@ -83,12 +94,40 @@ platform :mac do
       output_name:      "WhisPaste"
     )
 
-    notarize(
-      package:      lane_context[SharedValues::PKG_OUTPUT_PATH] || "../build/fastlane/WhisPaste.app",
-      bundle_id:    "de.whispaste.app",
-      api_key_path: ASC_KEY_PATH
+    app_path = lane_context[SharedValues::APP_PATH] || "../build/fastlane/WhisPaste.app"
+
+    unless ENV["SKIP_NOTARIZATION"] == "1"
+      # notarize submits via notarytool, waits for Apple's response, and
+      # staples the ticket to the .app on success.
+      notarize(
+        package:      app_path,
+        bundle_id:    "de.whispaste.app",
+        api_key:      api_key
+      )
+    end
+
+    # Wrap the notarized+stapled .app in a DMG for the website/Homebrew artifact.
+    dmg_path = "../build/fastlane/WhisPaste.dmg"
+    sh(
+      "create-dmg",
+      "--volname",       "WhisPaste",
+      "--window-size",   "500",
+      "320",
+      "--icon-size",     "80",
+      "--app-drop-link", "380",
+      "170",
+      "--icon",          "WhisPaste.app",
+      "120",
+      "170",
+      dmg_path,
+      app_path
     )
-    # The notarize action staples automatically on success. Wrap the .app in a
-    # DMG afterwards (create-dmg) for the website/Homebrew artifact.
+
+    # Post-build smoke: verify staple ticket and Gatekeeper acceptance.
+    sh("stapler validate #{app_path}")
+    sh("spctl --assess --type exec --verbose #{app_path}")
+
+    UI.success("Developer-ID build complete: #{dmg_path}")
+    UI.success("App path: #{app_path}")
   end
 end
