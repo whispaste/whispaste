@@ -13,6 +13,40 @@ import 'package:hotkey_manager/hotkey_manager.dart';
 // Key resolution
 // ---------------------------------------------------------------------------
 
+/// Lookup table for arrow-key resolution.  Keyed on the upper-cased storage
+/// token (symbol or word form).
+const Map<String, LogicalKeyboardKey> _arrowKeyMap = {
+  '←': LogicalKeyboardKey.arrowLeft,
+  'ARROWLEFT': LogicalKeyboardKey.arrowLeft,
+  'LEFT': LogicalKeyboardKey.arrowLeft,
+  '↑': LogicalKeyboardKey.arrowUp,
+  'ARROWUP': LogicalKeyboardKey.arrowUp,
+  'UP': LogicalKeyboardKey.arrowUp,
+  '↓': LogicalKeyboardKey.arrowDown,
+  'ARROWDOWN': LogicalKeyboardKey.arrowDown,
+  'DOWN': LogicalKeyboardKey.arrowDown,
+  '→': LogicalKeyboardKey.arrowRight,
+  'ARROWRIGHT': LogicalKeyboardKey.arrowRight,
+  'RIGHT': LogicalKeyboardKey.arrowRight,
+};
+
+/// Lookup table for named-key resolution.  Keyed on the upper-cased storage
+/// token.
+const Map<String, LogicalKeyboardKey> _namedKeyMap = {
+  'SPACE': LogicalKeyboardKey.space,
+  'ENTER': LogicalKeyboardKey.enter,
+  'TAB': LogicalKeyboardKey.tab,
+  'ESCAPE': LogicalKeyboardKey.escape,
+  'ESC': LogicalKeyboardKey.escape,
+  'BACKSPACE': LogicalKeyboardKey.backspace,
+  'DELETE': LogicalKeyboardKey.delete,
+  'INSERT': LogicalKeyboardKey.insert,
+  'HOME': LogicalKeyboardKey.home,
+  'END': LogicalKeyboardKey.end,
+  'PAGEUP': LogicalKeyboardKey.pageUp,
+  'PAGEDOWN': LogicalKeyboardKey.pageDown,
+};
+
 /// Maps a stored key label (e.g. `'D'`, `'F1'`, `'←'`) to a
 /// [LogicalKeyboardKey].
 ///
@@ -39,25 +73,9 @@ import 'package:hotkey_manager/hotkey_manager.dart';
 LogicalKeyboardKey resolveKey(String label) {
   final upper = label.toUpperCase().trim();
 
-  // Arrow keys (symbol and word forms)
-  switch (upper) {
-    case '←':
-    case 'ARROWLEFT':
-    case 'LEFT':
-      return LogicalKeyboardKey.arrowLeft;
-    case '↑':
-    case 'ARROWUP':
-    case 'UP':
-      return LogicalKeyboardKey.arrowUp;
-    case '↓':
-    case 'ARROWDOWN':
-    case 'DOWN':
-      return LogicalKeyboardKey.arrowDown;
-    case '→':
-    case 'ARROWRIGHT':
-    case 'RIGHT':
-      return LogicalKeyboardKey.arrowRight;
-  }
+  // Arrow keys (symbol and word forms) — map lookup replaces switch.
+  final arrow = _arrowKeyMap[upper];
+  if (arrow != null) return arrow;
 
   // Single letter A–Z
   if (upper.length == 1 &&
@@ -86,21 +104,8 @@ LogicalKeyboardKey resolveKey(String label) {
     }
   }
 
-  // Named keys
-  final named = switch (upper) {
-    'SPACE' => LogicalKeyboardKey.space,
-    'ENTER' => LogicalKeyboardKey.enter,
-    'TAB' => LogicalKeyboardKey.tab,
-    'ESCAPE' || 'ESC' => LogicalKeyboardKey.escape,
-    'BACKSPACE' => LogicalKeyboardKey.backspace,
-    'DELETE' => LogicalKeyboardKey.delete,
-    'INSERT' => LogicalKeyboardKey.insert,
-    'HOME' => LogicalKeyboardKey.home,
-    'END' => LogicalKeyboardKey.end,
-    'PAGEUP' => LogicalKeyboardKey.pageUp,
-    'PAGEDOWN' => LogicalKeyboardKey.pageDown,
-    _ => null,
-  };
+  // Named keys — map lookup replaces switch expression.
+  final named = _namedKeyMap[upper];
   if (named != null) return named;
 
   // Punctuation tokens (US-layout canonical). The `uni_platform` keymap that
@@ -136,6 +141,45 @@ LogicalKeyboardKey? _punctuationToken(String token) => _punctuationKeys[token];
 // Reverse mapping
 // ---------------------------------------------------------------------------
 
+/// Reverse lookup: [LogicalKeyboardKey] → arrow-symbol label.
+/// `final` (not `const`) because [LogicalKeyboardKey] does not have primitive
+/// equality and cannot be a key in a `const` map.
+final Map<LogicalKeyboardKey, String> _arrowKeyLabels = {
+  LogicalKeyboardKey.arrowLeft: '←',
+  LogicalKeyboardKey.arrowUp: '↑',
+  LogicalKeyboardKey.arrowDown: '↓',
+  LogicalKeyboardKey.arrowRight: '→',
+};
+
+/// Reverse lookup: [LogicalKeyboardKey] → named-key display label.
+/// `final` for the same reason as [_arrowKeyLabels].
+final Map<LogicalKeyboardKey, String> _namedKeyLabels = {
+  LogicalKeyboardKey.space: 'Space',
+  LogicalKeyboardKey.enter: 'Enter',
+  LogicalKeyboardKey.tab: 'Tab',
+  LogicalKeyboardKey.escape: 'Esc',
+  LogicalKeyboardKey.backspace: 'Backspace',
+  LogicalKeyboardKey.delete: 'Delete',
+  LogicalKeyboardKey.insert: 'Insert',
+  LogicalKeyboardKey.home: 'Home',
+  LogicalKeyboardKey.end: 'End',
+  LogicalKeyboardKey.pageUp: 'PageUp',
+  LogicalKeyboardKey.pageDown: 'PageDown',
+};
+
+/// Precomputed F1–F12 reverse lookup.  Uses the same keyId arithmetic as
+/// [resolveKey] so the two tables stay in sync.
+final Map<LogicalKeyboardKey, String> _fnKeyLabels = {
+  for (var n = 1; n <= 12; n++)
+    LogicalKeyboardKey(0x00100000070 + n - 1): 'F$n',
+};
+
+/// Reverse lookup built from [_punctuationKeys] so there is a single source of
+/// truth for the token↔key mapping.
+final Map<LogicalKeyboardKey, String> _reversePunctuationKeys = {
+  for (final e in _punctuationKeys.entries) e.value: e.key,
+};
+
 /// Returns the storage/display label for a [LogicalKeyboardKey].
 ///
 /// Arrow keys are returned as Unicode symbols (`'←'`, `'↑'`, `'↓'`, `'→'`)
@@ -144,29 +188,17 @@ LogicalKeyboardKey? _punctuationToken(String token) => _punctuationKeys[token];
 /// Returns `null` for keys that have no known label in the resolver's table
 /// (e.g. media keys, numpad keys).
 String? labelForKey(LogicalKeyboardKey key) {
-  // Arrow keys
-  if (key == LogicalKeyboardKey.arrowLeft) return '←';
-  if (key == LogicalKeyboardKey.arrowUp) return '↑';
-  if (key == LogicalKeyboardKey.arrowDown) return '↓';
-  if (key == LogicalKeyboardKey.arrowRight) return '→';
+  // Arrow keys — map lookup replaces if-chain.
+  final arrow = _arrowKeyLabels[key];
+  if (arrow != null) return arrow;
 
-  // Named keys
-  if (key == LogicalKeyboardKey.space) return 'Space';
-  if (key == LogicalKeyboardKey.enter) return 'Enter';
-  if (key == LogicalKeyboardKey.tab) return 'Tab';
-  if (key == LogicalKeyboardKey.escape) return 'Esc';
-  if (key == LogicalKeyboardKey.backspace) return 'Backspace';
-  if (key == LogicalKeyboardKey.delete) return 'Delete';
-  if (key == LogicalKeyboardKey.insert) return 'Insert';
-  if (key == LogicalKeyboardKey.home) return 'Home';
-  if (key == LogicalKeyboardKey.end) return 'End';
-  if (key == LogicalKeyboardKey.pageUp) return 'PageUp';
-  if (key == LogicalKeyboardKey.pageDown) return 'PageDown';
+  // Named keys — map lookup replaces if-chain.
+  final named = _namedKeyLabels[key];
+  if (named != null) return named;
 
-  // Function keys
-  for (var n = 1; n <= 12; n++) {
-    if (key == LogicalKeyboardKey(0x00100000070 + n - 1)) return 'F$n';
-  }
+  // Function keys — map lookup replaces for-loop.
+  final fn = _fnKeyLabels[key];
+  if (fn != null) return fn;
 
   // Single letter A–Z
   final keyId = key.keyId;
@@ -179,12 +211,8 @@ String? labelForKey(LogicalKeyboardKey key) {
     return String.fromCharCode(keyId);
   }
 
-  // Punctuation keys whose physical position is in uni_platform's keymap.
-  for (final entry in _punctuationKeys.entries) {
-    if (entry.value == key) return entry.key;
-  }
-
-  return null;
+  // Punctuation keys — reverse-map lookup replaces for-loop.
+  return _reversePunctuationKeys[key];
 }
 
 // ---------------------------------------------------------------------------

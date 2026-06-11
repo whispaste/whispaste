@@ -130,17 +130,11 @@ class SttStatus {
 }
 
 // ---------------------------------------------------------------------------
-// Pure helpers (no I/O — unit-testable without DI)
+// Pure helpers (top-level, testable)
 // ---------------------------------------------------------------------------
 
-/// Returns `true` when [fileSizeBytes] is below the minimum expected size of a
-/// valid STT model file.
-///
-/// Any model file smaller than [minModelBytes] (default 10 MiB) is considered
-/// a truncated/corrupt download and must be re-downloaded silently.
-///
-/// Pure function: no file I/O, no side-effects. Testable without a
-/// [ProviderContainer].
+/// Returns `true` when [fileSizeBytes] is suspiciously small for a valid GGML
+/// model, indicating a truncated or failed download.
 bool isSttModelFileTooSmall(
   int fileSizeBytes, {
   int minModelBytes = 10 * 1024 * 1024,
@@ -398,21 +392,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
 
     final settings = ref.read(settingsProvider).value;
     final vocab = settings?.customVocabulary.trim() ?? '';
-    String? promptValue;
-    if (_lastPrompt != null &&
-        _lastPrompt!.isNotEmpty &&
-        _lastPromptTime != null &&
-        DateTime.now().difference(_lastPromptTime!) < _promptExpiry) {
-      promptValue = _lastPrompt!;
-    } else if (_lastPrompt != null) {
-      _lastPrompt = null;
-      _lastPromptTime = null;
-    }
-    final combinedPrompt = <String>[
-      if (vocab.isNotEmpty) vocab,
-      if (promptValue != null && promptValue.isNotEmpty) promptValue,
-    ].join(' ');
-    final effectivePrompt = combinedPrompt.isEmpty ? null : combinedPrompt;
+    final effectivePrompt = _resolveEffectivePrompt(vocab);
 
     // ── Pre-flight validation ─────────────────────────────────────────────
     // Reject obvious-garbage requests before they leave the process. Sentry
@@ -452,42 +432,17 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     // with HTTP 400 "Invalid request". The sizes are derivable from the byte
     // length, so repair them instead of losing the user's dictation. The
     // breadcrumb keeps a field signal for how often this still fires.
-    var payload = wavView;
-    final repairedWav = repairZeroedWavSizeFields(wavView);
-    if (repairedWav != null) {
-      payload = repairedWav;
-      Sentry.addBreadcrumb(
-        Breadcrumb(
-          message: 'WAV size fields were zero — repaired before inference',
-          category: 'stt',
-          level: SentryLevel.warning,
-          data: <String, dynamic>{
-            'wav_size_bytes': wavBytes.length,
-            'audio_duration_ms': audioDurationMs,
-          },
-        ),
-      );
-      _log.warning(
-        'WAV header size fields were zero (unpatched header) — repaired '
-        'in-memory before inference (${wavBytes.length} bytes).',
-      );
-    }
+    final payload = _repairWavIfNeeded(
+      wavView,
+      audioDurationMs,
+      wavBytes.length,
+    );
 
-    final uri = Uri.parse('${state.endpoint}/inference');
-    final request = http.MultipartRequest('POST', uri)
-      ..files.add(
-        http.MultipartFile.fromBytes('file', payload, filename: 'audio.wav'),
-      )
-      ..fields['response_format'] = 'json'
-      ..fields['temperature'] = '0.0';
-
-    if (lang.isNotEmpty && lang != 'auto') {
-      request.fields['language'] = lang;
-    }
-
-    if (effectivePrompt != null) {
-      request.fields['prompt'] = effectivePrompt;
-    }
+    final request = _buildInferenceRequest(
+      payload: payload,
+      lang: lang,
+      effectivePrompt: effectivePrompt,
+    );
 
     final http.StreamedResponse streamedResponse;
     try {
@@ -596,6 +551,83 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     _idleExtended = false;
     _isRecordingActive = false;
     _transition(const SttStatus());
+  }
+
+  // ---------------------------------------------------------------------------
+  // transcribeBytes helpers
+  // ---------------------------------------------------------------------------
+
+  /// Builds the effective prompt from the custom vocabulary setting and the
+  /// rolling context window, updating [_lastPrompt]/[_lastPromptTime] on
+  /// expiry.  Extracted from [transcribeBytes] to lower its cyclomatic count.
+  String? _resolveEffectivePrompt(String vocab) {
+    String? promptValue;
+    if (_lastPrompt != null &&
+        _lastPrompt!.isNotEmpty &&
+        _lastPromptTime != null &&
+        DateTime.now().difference(_lastPromptTime!) < _promptExpiry) {
+      promptValue = _lastPrompt!;
+    } else if (_lastPrompt != null) {
+      _lastPrompt = null;
+      _lastPromptTime = null;
+    }
+    final combined = <String>[
+      if (vocab.isNotEmpty) vocab,
+      if (promptValue != null && promptValue.isNotEmpty) promptValue,
+    ].join(' ');
+    return combined.isEmpty ? null : combined;
+  }
+
+  /// Repairs zeroed WAV size fields in-memory (FLUTTER_WHISPASTE-7X) and
+  /// emits a Sentry breadcrumb + warning log when a repair was needed.
+  /// Returns [wavView] unmodified when no repair is required.
+  Uint8List _repairWavIfNeeded(
+    Uint8List wavView,
+    int audioDurationMs,
+    int wavBytesLength,
+  ) {
+    final repairedWav = repairZeroedWavSizeFields(wavView);
+    if (repairedWav == null) return wavView;
+    Sentry.addBreadcrumb(
+      Breadcrumb(
+        message: 'WAV size fields were zero — repaired before inference',
+        category: 'stt',
+        level: SentryLevel.warning,
+        data: <String, dynamic>{
+          'wav_size_bytes': wavBytesLength,
+          'audio_duration_ms': audioDurationMs,
+        },
+      ),
+    );
+    _log.warning(
+      'WAV header size fields were zero (unpatched header) — repaired '
+      'in-memory before inference ($wavBytesLength bytes).',
+    );
+    return repairedWav;
+  }
+
+  /// Assembles the multipart inference request for [payload], setting the
+  /// optional language and prompt fields only when non-empty / non-null.
+  http.MultipartRequest _buildInferenceRequest({
+    required Uint8List payload,
+    required String lang,
+    required String? effectivePrompt,
+  }) {
+    final uri = Uri.parse('${state.endpoint}/inference');
+    final request = http.MultipartRequest('POST', uri)
+      ..files.add(
+        http.MultipartFile.fromBytes('file', payload, filename: 'audio.wav'),
+      )
+      ..fields['response_format'] = 'json'
+      ..fields['temperature'] = '0.0';
+
+    if (lang.isNotEmpty && lang != 'auto') {
+      request.fields['language'] = lang;
+    }
+    if (effectivePrompt != null) {
+      request.fields['prompt'] = effectivePrompt;
+    }
+    return request;
   }
 
   // ---------------------------------------------------------------------------
@@ -1210,40 +1242,10 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     guard.writePid('whisper-server', proc.pid);
 
     final stderrLines = <String>[];
-    var sawCudaOom = false;
-
-    void rememberStderr(String line) {
-      final normalized = line.trim();
-      if (normalized.isEmpty) return;
-      stderrLines.add(normalized);
-      if (stderrLines.length > _maxStderrLines) stderrLines.removeAt(0);
-      final lower = normalized.toLowerCase();
-      if (_looksLikeCudaOom(lower)) sawCudaOom = true;
-      final looksBad =
-          lower.contains('error') ||
-          lower.contains('failed') ||
-          lower.contains('fatal') ||
-          lower.contains('abort');
-      if (looksBad) {
-        _log.warning('whisper-server: $normalized');
-        // Selective Sentry breadcrumb: only the lines that look like they
-        // describe a problem. Goal is to attach the stderr signal to ANY
-        // Sentry event captured shortly after (not just the dedicated
-        // stt_exit captures, which already carry the full tail). Trimmed
-        // to 500 chars to avoid blowing the breadcrumb size budget.
-        Sentry.addBreadcrumb(
-          Breadcrumb(
-            message: normalized.length > 500
-                ? '${normalized.substring(0, 500)}…'
-                : normalized,
-            category: 'stt.stderr',
-            level: SentryLevel.warning,
-          ),
-        );
-      } else {
-        _log.debug('whisper-server: $normalized');
-      }
-    }
+    // Single-element list used as a mutable bool reference so that
+    // `_recordStderrLine` (a class method, not a closure) can set the flag
+    // and the `exitCode.then(...)` callback can read its final value.
+    final sawCudaOom = [false];
 
     proc.stdout
         .transform(const SystemEncoding().decoder)
@@ -1254,227 +1256,23 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
         .transform(const SystemEncoding().decoder)
         .transform(const LineSplitter())
         .asBroadcastStream();
-    stderrBroadcast.listen(rememberStderr);
+    stderrBroadcast.listen(
+      (line) => _recordStderrLine(line, stderrLines, sawCudaOom),
+    );
 
     unawaited(
       proc.exitCode.then((code) {
-        if (_process == proc) {
-          guard.deletePid('whisper-server');
-          if (sawCudaOom || _stderrHasCudaOom(stderrLines)) {
-            _handleCudaOom(
-              proc: proc,
-              failedModelId: modelId,
-              gpu: gpu,
-              stderrLines: stderrLines,
-            );
-            return;
-          }
-
-          final exitKind = classifySttExitCode(code);
-          // Map the classifier output to a constant from the central
-          // fingerprint inventory. Each exit-kind keeps its own Sentry
-          // bucket; modelLoad branches to ABI-mismatch vs corrupted later
-          // inside `_handleModelLoadFailure`, so the bucket here is only
-          // a default for branches that capture before the SHA check.
-          final fingerprint = switch (exitKind) {
-            SttExitKind.dllMissing ||
-            SttExitKind.dllEntryPoint => const [sttExitDllMissing],
-            SttExitKind.gpuFatal => const [sttExitGpuFatal],
-            SttExitKind.heapCorruption => const [sttExitHeapCorruption],
-            // modelLoad doesn't capture directly here — see
-            // `_handleModelLoadFailure` for the corrupted vs ABI split.
-            SttExitKind.modelLoad => const [sttModelAbiMismatch],
-            SttExitKind.other => const [sttExitOther],
-          };
-
-          // Use the GPU fallback policy to decide if CPU retry is warranted.
-          final shouldFallback = _policy.shouldRetryOnCpu(exitKind);
-
-          switch (exitKind) {
-            case SttExitKind.dllMissing:
-            case SttExitKind.dllEntryPoint:
-              // PRD Modul 1: hand the crash to ServerBinaryRecovery rather
-              // than capturing here. The orchestrator picks the next-most-
-              // conservative variant, downloads it, validates it, and tells
-              // us whether to restart, fall back to CPU, or surface an
-              // exhausted-toast. Sentry capture happens only on
-              // RecoveryExhausted (inside the orchestrator), matching the
-              // AC "successful Auto-Recoveries do not emit a Sentry event".
-              _log.warning(
-                'DLL crash (${exitKind.name}, code $code) — '
-                'invoking ServerBinaryRecovery.',
-              );
-              _process = null;
-              _activeModel = null;
-              final reason = exitKind == SttExitKind.dllMissing
-                  ? RecoveryReason.dllMissing
-                  : RecoveryReason.dllEntryPoint;
-              unawaited(
-                _attemptRecovery(reason: reason, gpu: gpu, modelId: modelId),
-              );
-              return;
-
-            case SttExitKind.gpuFatal:
-              if (!_gpuFallbackActive && shouldFallback) {
-                _gpuFallbackActive = true;
-                _log.warning(
-                  'GPU fatal abort (code $code / ${exitKind.name}) on '
-                  '"${gpu.name}" — CPU fallback activated.',
-                );
-                _process = null;
-                _activeModel = null;
-                _transition(
-                  const SttStatus(serverState: SttServerState.stopped),
-                );
-                return;
-              }
-              final gpuFatalMsg =
-                  'whisper-server GPU fatal abort (code $code / ${exitKind.name}) '
-                  'on "${gpu.name}" and CPU fallback also failed.';
-              // Warning instead of error: the explicit captureError below
-              // owns the Sentry signal under `sttExitGpuFatal`; an
-              // additional `_log.error` would trigger AppLogger
-              // auto-escalation into the catch-all bucket.
-              _log.warning(gpuFatalMsg);
-              CrashReporter.instance?.captureError(
-                message: gpuFatalMsg,
-                severity: 'error',
-                type: 'stt_exit',
-                fingerprint: fingerprint,
-              );
-              _process = null;
-              _activeModel = null;
-              _transition(
-                SttStatus(
-                  serverState: SttServerState.error,
-                  errorMessage:
-                      'Speech engine failed on both GPU and CPU (code $code). '
-                      'Please restart the app or re-download the model.',
-                ),
-              );
-              return;
-
-            case SttExitKind.heapCorruption:
-              if (!_gpuFallbackActive && shouldFallback) {
-                _gpuFallbackActive = true;
-                _log.warning(
-                  'Memory error (${exitKind.name}, code $code) on '
-                  '"${gpu.name}" — CPU fallback activated.',
-                );
-                _process = null;
-                _activeModel = null;
-                _transition(
-                  const SttStatus(serverState: SttServerState.stopped),
-                );
-                return;
-              }
-              final heapMsg =
-                  'whisper-server memory error (${exitKind.name}, code $code) '
-                  'and CPU fallback also failed.';
-              // Warning instead of error: avoids duplicate Sentry event
-              // via AppLogger auto-escalation; explicit capture below
-              // owns the `sttExitHeapCorruption` signal.
-              _log.warning(heapMsg);
-              CrashReporter.instance?.captureError(
-                message: heapMsg,
-                severity: 'error',
-                type: 'stt_exit',
-                fingerprint: fingerprint,
-              );
-              _process = null;
-              _activeModel = null;
-              _transition(
-                SttStatus(
-                  serverState: SttServerState.error,
-                  errorMessage:
-                      'Speech engine failed on both GPU and CPU (code $code). '
-                      'Please restart the app or re-download the model.',
-                ),
-              );
-              return;
-
-            case SttExitKind.modelLoad:
-              _process = null;
-              _activeModel = null;
-              unawaited(
-                _handleModelLoadFailure(
-                  modelId: modelId,
-                  exitCode: code,
-                  stderrLines: List<String>.of(stderrLines),
-                ),
-              );
-              return;
-
-            case SttExitKind.other:
-              // An abnormal termination (negative exit code: Windows raw
-              // DWORD crash like -1, or POSIX signal kill) on a GPU launch is,
-              // in the field, almost always a GPU runtime the card cannot
-              // initialise — e.g. the cuda12 build on a Kepler GTX 6xx, which
-              // aborts with code -1 and an empty stderr before whisper.cpp
-              // logs anything (FLUTTER_WHISPASTE-6X / -39). The classified
-              // GPU-fatal NTSTATUS codes already fall back; this catches the
-              // unclassified-but-abnormal shape. Give CPU exactly one shot,
-              // guarded by `_gpuFallbackActive` so a CPU binary that also dies
-              // cannot loop. A clean positive exit (e.g. 99) is a deliberate
-              // server exit that CPU mode would not fix — those still surface
-              // an error below. Mirrors the gpuFatal / heapCorruption arms.
-              final launchedOnGpu = effectiveGpuAcceleration != 'disabled';
-              final abnormalTermination = code < 0;
-              if (!_gpuFallbackActive && launchedOnGpu && abnormalTermination) {
-                _gpuFallbackActive = true;
-                _log.warning(
-                  'whisper-server abnormal exit (code $code / ${exitKind.name}) '
-                  'on "${gpu.name}" — CPU fallback activated.',
-                );
-                _process = null;
-                _activeModel = null;
-                _transition(
-                  const SttStatus(serverState: SttServerState.stopped),
-                );
-                return;
-              }
-              final otherMsg =
-                  'whisper-server exited unexpectedly (code $code)';
-              // Warning instead of error: avoids duplicate Sentry event
-              // via AppLogger auto-escalation; explicit capture below
-              // owns the `sttExitOther` signal with full diagnostic
-              // context (stderr_tail, args, binary_path, gpu_mode).
-              _log.warning(otherMsg);
-              // Ship the diagnostic context the previous capture was missing:
-              // the actual stderr tail (the only place the binary writes its
-              // own failure reason), the full args, the binary path, and the
-              // GPU mode. Without these, exit-code -1 / non-classified codes
-              // were undiagnosable from Sentry alone — the symptom behind
-              // FLUTTER_WHISPASTE-6X and the related Windows ABI mismatches.
-              CrashReporter.instance?.captureError(
-                message: otherMsg,
-                severity: 'error',
-                type: 'stt_exit',
-                fingerprint: fingerprint,
-                extras: {
-                  'exit_code': code,
-                  'exit_kind': exitKind.name,
-                  'stderr_tail': stderrLines,
-                  'args': args,
-                  'binary_path': serverPath,
-                  'model_id': modelId,
-                  'gpu_mode': effectiveGpuAcceleration,
-                  'gpu_fallback_active': _gpuFallbackActive,
-                  'platform': Platform.operatingSystem,
-                },
-              );
-              _process = null;
-              _activeModel = null;
-              _transition(
-                SttStatus(
-                  serverState: SttServerState.error,
-                  errorMessage:
-                      'whisper-server exited before becoming ready (code $code)',
-                ),
-              );
-              return;
-          }
-        }
+        _handleProcessExit(
+          code: code,
+          proc: proc,
+          modelId: modelId,
+          gpu: gpu,
+          stderrLines: stderrLines,
+          sawCudaOom: sawCudaOom[0],
+          args: args,
+          serverPath: serverPath,
+          gpuAcceleration: effectiveGpuAcceleration,
+        );
       }),
     );
 
@@ -1487,120 +1285,18 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     );
 
     final coldStart = Stopwatch()..start();
-    try {
-      await _waitReady(
-        port,
-        proc,
-        stderrBroadcast,
-        heartbeatWindow: _heartbeatWindow,
-        maxMissedWindows: _heartbeatMaxMissedWindows,
-        overallDeadline: _startupDeadline,
-      );
-    } on _StartupDeadlineException catch (e) {
-      // Server kept producing stderr heartbeats but `/health` never
-      // returned 200 within the wall-clock deadline. Distinct from the
-      // heartbeat-timeout shape (which fires on silent stalls); this
-      // one is the long-load shape — e.g. layer-by-layer model load on
-      // a thrashing disk where stderr ticks but the server is far
-      // from ready. On a GPU launch this is also a struggling-GPU shape,
-      // so give CPU one shot before surfacing an error (see
-      // [_tryStallCpuFallback]).
-      if (await _tryStallCpuFallback(
-        gpu: gpu,
-        gpuAcceleration: effectiveGpuAcceleration,
-        stallKind: 'startup deadline exceeded',
-      )) {
-        return;
-      }
-      // Captured under its own fingerprint so the disk-pressure cluster is
-      // visible independently from silent stalls.
-      CrashReporter.instance?.captureError(
-        message: 'whisper-server startup deadline exceeded: ${e.message}',
-        severity: 'error',
-        type: 'stt_startup_deadline',
-        fingerprint: const [sttStartupDeadline],
-        extras: {
-          'deadline_seconds': _startupDeadline.inSeconds,
-          'stderr_tail': stderrLines,
-          'args': args,
-          'binary_path': serverPath,
-          'model_id': modelId,
-          'gpu_mode': effectiveGpuAcceleration,
-          'gpu_fallback_active': _gpuFallbackActive,
-          'platform': Platform.operatingSystem,
-        },
-      );
-      stop();
-      _fail('whisper-server not ready: $e');
-      return;
-    } on _HeartbeatTimeoutException catch (e) {
-      // Server is alive but produces no progress on stderr — typically a
-      // model-load stall or a hang inside whisper.cpp. On a GPU launch the
-      // dominant field shape is a GPU backend that initialises fully and
-      // then makes no progress (FLUTTER_WHISPASTE-9W: the Vulkan build on a
-      // Kepler GTX 6xx / old AMD card allocates every compute buffer, then
-      // hangs). A hang has no exit code, so none of the exitCode-handler
-      // arms fire — give CPU exactly one shot before failing.
-      if (await _tryStallCpuFallback(
-        gpu: gpu,
-        gpuAcceleration: effectiveGpuAcceleration,
-        stallKind: 'heartbeat timeout',
-      )) {
-        return;
-      }
-      // Sentry needs the stderr tail plus args/binary to guess at the cause.
-      CrashReporter.instance?.captureError(
-        message: 'whisper-server heartbeat timeout: ${e.message}',
-        severity: 'error',
-        type: 'stt_heartbeat_timeout',
-        fingerprint: const [sttHeartbeatTimeout],
-        extras: {
-          'stderr_tail': stderrLines,
-          'args': args,
-          'binary_path': serverPath,
-          'model_id': modelId,
-          'gpu_mode': effectiveGpuAcceleration,
-          'gpu_fallback_active': _gpuFallbackActive,
-          'platform': Platform.operatingSystem,
-        },
-      );
-      stop();
-      _fail('whisper-server not ready: $e');
-      return;
-    } on _EarlyExitException catch (e) {
-      _process = null;
-      _activeModel = null;
-      if (_gpuFallbackActive && effectiveGpuAcceleration != 'disabled') return;
-      // Already captured by the proc.exitCode handler above (dllMissing /
-      // gpuFatal / heapCorruption / modelLoad / other) — emitting again
-      // here would double-count the same incident in Sentry.
-      if (state.serverState == SttServerState.error) return;
-      if (state.serverState == SttServerState.stopped && _process == null) {
-        return;
-      }
-      // Reaches here only when the early-exit path did NOT correspond to a
-      // classified exit (e.g. process disappeared without an exitCode that
-      // ran through the switch above). This is the FLUTTER_WHISPASTE-4P
-      // shape — "exited before becoming ready" — that was being _fail()'d
-      // into local state without any Sentry signal.
-      CrashReporter.instance?.captureError(
-        message: 'whisper-server early exit: ${e.message}',
-        severity: 'error',
-        type: 'stt_early_exit',
-        fingerprint: const [sttEarlyExit],
-        extras: {
-          'stderr_tail': stderrLines,
-          'args': args,
-          'binary_path': serverPath,
-          'model_id': modelId,
-          'gpu_mode': effectiveGpuAcceleration,
-          'gpu_fallback_active': _gpuFallbackActive,
-          'platform': Platform.operatingSystem,
-        },
-      );
-      _fail(e.message);
-      return;
-    }
+    final startupFailed = await _awaitServerReady(
+      port: port,
+      proc: proc,
+      stderrBroadcast: stderrBroadcast,
+      stderrLines: stderrLines,
+      args: args,
+      serverPath: serverPath,
+      modelId: modelId,
+      gpuAcceleration: effectiveGpuAcceleration,
+      gpu: gpu,
+    );
+    if (startupFailed) return;
     coldStart.stop();
 
     _activeModel = modelId;
@@ -2190,6 +1886,387 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       _log.warning('Auto-restart after recovery failed: $e');
       // Leave whatever state ensureRunning left us in; if it set an
       // error message, the UI already has something to show.
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // _start helpers
+  // ---------------------------------------------------------------------------
+
+  /// Appends a whisper-server stderr [line] to [buffer], updates the
+  /// [sawCudaOom] flag (index 0), and emits a Sentry breadcrumb for lines
+  /// that look like errors.  Extracted from [_start] to lower its cyclomatic
+  /// count; behaviour is identical to the original `rememberStderr` closure.
+  void _recordStderrLine(
+    String line,
+    List<String> buffer,
+    List<bool> sawCudaOom,
+  ) {
+    final normalized = line.trim();
+    if (normalized.isEmpty) return;
+    buffer.add(normalized);
+    if (buffer.length > _maxStderrLines) buffer.removeAt(0);
+    final lower = normalized.toLowerCase();
+    if (_looksLikeCudaOom(lower)) sawCudaOom[0] = true;
+    final looksBad =
+        lower.contains('error') ||
+        lower.contains('failed') ||
+        lower.contains('fatal') ||
+        lower.contains('abort');
+    if (looksBad) {
+      _log.warning('whisper-server: $normalized');
+      // Selective Sentry breadcrumb: only the lines that look like they
+      // describe a problem. Goal is to attach the stderr signal to ANY
+      // Sentry event captured shortly after (not just the dedicated
+      // stt_exit captures, which already carry the full tail). Trimmed
+      // to 500 chars to avoid blowing the breadcrumb size budget.
+      Sentry.addBreadcrumb(
+        Breadcrumb(
+          message: normalized.length > 500
+              ? '${normalized.substring(0, 500)}…'
+              : normalized,
+          category: 'stt.stderr',
+          level: SentryLevel.warning,
+        ),
+      );
+    } else {
+      _log.debug('whisper-server: $normalized');
+    }
+  }
+
+  /// Handles the process exit event fired by [proc.exitCode.then(...)].
+  /// Extracted from [_start] to lower its cyclomatic count.  All captured
+  /// variables are passed explicitly so this method can be unit-tested in
+  /// isolation.  [sawCudaOom] is evaluated at call-time (when the exit fires),
+  /// matching the original closure-capture semantics exactly.
+  void _handleProcessExit({
+    required int code,
+    required Process proc,
+    required String modelId,
+    required hw.GpuInfo gpu,
+    required List<String> stderrLines,
+    required bool sawCudaOom,
+    required List<String> args,
+    required String serverPath,
+    required String gpuAcceleration,
+  }) {
+    if (_process != proc) return;
+
+    guard.deletePid('whisper-server');
+    if (sawCudaOom || _stderrHasCudaOom(stderrLines)) {
+      _handleCudaOom(
+        proc: proc,
+        failedModelId: modelId,
+        gpu: gpu,
+        stderrLines: stderrLines,
+      );
+      return;
+    }
+
+    final exitKind = classifySttExitCode(code);
+    // Map the classifier output to a constant from the central fingerprint
+    // inventory.  Each exit-kind keeps its own Sentry bucket; modelLoad
+    // branches to ABI-mismatch vs corrupted later inside
+    // `_handleModelLoadFailure`, so the bucket here is only a default for
+    // branches that capture before the SHA check.
+    final fingerprint = switch (exitKind) {
+      SttExitKind.dllMissing ||
+      SttExitKind.dllEntryPoint => const [sttExitDllMissing],
+      SttExitKind.gpuFatal => const [sttExitGpuFatal],
+      SttExitKind.heapCorruption => const [sttExitHeapCorruption],
+      // modelLoad doesn't capture directly here — see
+      // `_handleModelLoadFailure` for the corrupted vs ABI split.
+      SttExitKind.modelLoad => const [sttModelAbiMismatch],
+      SttExitKind.other => const [sttExitOther],
+    };
+
+    // Use the GPU fallback policy to decide if CPU retry is warranted.
+    final shouldFallback = _policy.shouldRetryOnCpu(exitKind);
+
+    switch (exitKind) {
+      case SttExitKind.dllMissing:
+      case SttExitKind.dllEntryPoint:
+        // PRD Modul 1: hand the crash to ServerBinaryRecovery rather than
+        // capturing here.  The orchestrator picks the next-most-conservative
+        // variant, downloads it, validates it, and tells us whether to
+        // restart, fall back to CPU, or surface an exhausted-toast.  Sentry
+        // capture happens only on RecoveryExhausted (inside the orchestrator),
+        // matching the AC "successful Auto-Recoveries do not emit a Sentry
+        // event".
+        _log.warning(
+          'DLL crash (${exitKind.name}, code $code) — '
+          'invoking ServerBinaryRecovery.',
+        );
+        _process = null;
+        _activeModel = null;
+        final reason = exitKind == SttExitKind.dllMissing
+            ? RecoveryReason.dllMissing
+            : RecoveryReason.dllEntryPoint;
+        unawaited(_attemptRecovery(reason: reason, gpu: gpu, modelId: modelId));
+        return;
+
+      case SttExitKind.gpuFatal:
+        if (!_gpuFallbackActive && shouldFallback) {
+          _gpuFallbackActive = true;
+          _log.warning(
+            'GPU fatal abort (code $code / ${exitKind.name}) on '
+            '"${gpu.name}" — CPU fallback activated.',
+          );
+          _process = null;
+          _activeModel = null;
+          _transition(const SttStatus(serverState: SttServerState.stopped));
+          return;
+        }
+        final gpuFatalMsg =
+            'whisper-server GPU fatal abort (code $code / ${exitKind.name}) '
+            'on "${gpu.name}" and CPU fallback also failed.';
+        // Warning instead of error: the explicit captureError below owns the
+        // Sentry signal under `sttExitGpuFatal`; an additional `_log.error`
+        // would trigger AppLogger auto-escalation into the catch-all bucket.
+        _log.warning(gpuFatalMsg);
+        CrashReporter.instance?.captureError(
+          message: gpuFatalMsg,
+          severity: 'error',
+          type: 'stt_exit',
+          fingerprint: fingerprint,
+        );
+        _process = null;
+        _activeModel = null;
+        _transition(
+          SttStatus(
+            serverState: SttServerState.error,
+            errorMessage:
+                'Speech engine failed on both GPU and CPU (code $code). '
+                'Please restart the app or re-download the model.',
+          ),
+        );
+        return;
+
+      case SttExitKind.heapCorruption:
+        if (!_gpuFallbackActive && shouldFallback) {
+          _gpuFallbackActive = true;
+          _log.warning(
+            'Memory error (${exitKind.name}, code $code) on '
+            '"${gpu.name}" — CPU fallback activated.',
+          );
+          _process = null;
+          _activeModel = null;
+          _transition(const SttStatus(serverState: SttServerState.stopped));
+          return;
+        }
+        final heapMsg =
+            'whisper-server memory error (${exitKind.name}, code $code) '
+            'and CPU fallback also failed.';
+        // Warning instead of error: avoids duplicate Sentry event via
+        // AppLogger auto-escalation; explicit capture below owns the
+        // `sttExitHeapCorruption` signal.
+        _log.warning(heapMsg);
+        CrashReporter.instance?.captureError(
+          message: heapMsg,
+          severity: 'error',
+          type: 'stt_exit',
+          fingerprint: fingerprint,
+        );
+        _process = null;
+        _activeModel = null;
+        _transition(
+          SttStatus(
+            serverState: SttServerState.error,
+            errorMessage:
+                'Speech engine failed on both GPU and CPU (code $code). '
+                'Please restart the app or re-download the model.',
+          ),
+        );
+        return;
+
+      case SttExitKind.modelLoad:
+        _process = null;
+        _activeModel = null;
+        unawaited(
+          _handleModelLoadFailure(
+            modelId: modelId,
+            exitCode: code,
+            stderrLines: List<String>.of(stderrLines),
+          ),
+        );
+        return;
+
+      case SttExitKind.other:
+        // An abnormal termination (negative exit code: Windows raw DWORD
+        // crash like -1, or POSIX signal kill) on a GPU launch is, in the
+        // field, almost always a GPU runtime the card cannot initialise —
+        // e.g. the cuda12 build on a Kepler GTX 6xx (FLUTTER_WHISPASTE-6X
+        // / -39).  Give CPU exactly one shot, guarded by `_gpuFallbackActive`
+        // so a CPU binary that also dies cannot loop.  A clean positive exit
+        // (e.g. 99) is a deliberate server exit that CPU mode would not fix.
+        final launchedOnGpu = gpuAcceleration != 'disabled';
+        final abnormalTermination = code < 0;
+        if (!_gpuFallbackActive && launchedOnGpu && abnormalTermination) {
+          _gpuFallbackActive = true;
+          _log.warning(
+            'whisper-server abnormal exit (code $code / ${exitKind.name}) '
+            'on "${gpu.name}" — CPU fallback activated.',
+          );
+          _process = null;
+          _activeModel = null;
+          _transition(const SttStatus(serverState: SttServerState.stopped));
+          return;
+        }
+        final otherMsg = 'whisper-server exited unexpectedly (code $code)';
+        // Warning instead of error: avoids duplicate Sentry event via
+        // AppLogger auto-escalation; explicit capture below owns the
+        // `sttExitOther` signal with full diagnostic context.
+        _log.warning(otherMsg);
+        CrashReporter.instance?.captureError(
+          message: otherMsg,
+          severity: 'error',
+          type: 'stt_exit',
+          fingerprint: fingerprint,
+          extras: {
+            'exit_code': code,
+            'exit_kind': exitKind.name,
+            'stderr_tail': stderrLines,
+            'args': args,
+            'binary_path': serverPath,
+            'model_id': modelId,
+            'gpu_mode': gpuAcceleration,
+            'gpu_fallback_active': _gpuFallbackActive,
+            'platform': Platform.operatingSystem,
+          },
+        );
+        _process = null;
+        _activeModel = null;
+        _transition(
+          SttStatus(
+            serverState: SttServerState.error,
+            errorMessage:
+                'whisper-server exited before becoming ready (code $code)',
+          ),
+        );
+        return;
+    }
+  }
+
+  /// Calls [_waitReady] and handles the three startup-failure exceptions.
+  ///
+  /// Returns `true` when startup failed and [_start] should return early,
+  /// or `false` when the server reached the ready state and [_start] should
+  /// continue to post-ready setup.
+  Future<bool> _awaitServerReady({
+    required int port,
+    required Process proc,
+    required Stream<String> stderrBroadcast,
+    required List<String> stderrLines,
+    required List<String> args,
+    required String serverPath,
+    required String modelId,
+    required String gpuAcceleration,
+    required hw.GpuInfo gpu,
+  }) async {
+    try {
+      await _waitReady(
+        port,
+        proc,
+        stderrBroadcast,
+        heartbeatWindow: _heartbeatWindow,
+        maxMissedWindows: _heartbeatMaxMissedWindows,
+        overallDeadline: _startupDeadline,
+      );
+      return false; // success — server is ready
+    } on _StartupDeadlineException catch (e) {
+      // Server kept producing stderr heartbeats but `/health` never returned
+      // 200 within the wall-clock deadline.  On a GPU launch this is also a
+      // struggling-GPU shape, so give CPU one shot before surfacing an error.
+      if (await _tryStallCpuFallback(
+        gpu: gpu,
+        gpuAcceleration: gpuAcceleration,
+        stallKind: 'startup deadline exceeded',
+      )) {
+        return true;
+      }
+      // Captured under its own fingerprint so the disk-pressure cluster is
+      // visible independently from silent stalls.
+      CrashReporter.instance?.captureError(
+        message: 'whisper-server startup deadline exceeded: ${e.message}',
+        severity: 'error',
+        type: 'stt_startup_deadline',
+        fingerprint: const [sttStartupDeadline],
+        extras: {
+          'deadline_seconds': _startupDeadline.inSeconds,
+          'stderr_tail': stderrLines,
+          'args': args,
+          'binary_path': serverPath,
+          'model_id': modelId,
+          'gpu_mode': gpuAcceleration,
+          'gpu_fallback_active': _gpuFallbackActive,
+          'platform': Platform.operatingSystem,
+        },
+      );
+      stop();
+      _fail('whisper-server not ready: $e');
+      return true;
+    } on _HeartbeatTimeoutException catch (e) {
+      // Server is alive but produces no progress on stderr — typically a
+      // model-load stall or a hang inside whisper.cpp (FLUTTER_WHISPASTE-9W).
+      // Give CPU exactly one shot before failing.
+      if (await _tryStallCpuFallback(
+        gpu: gpu,
+        gpuAcceleration: gpuAcceleration,
+        stallKind: 'heartbeat timeout',
+      )) {
+        return true;
+      }
+      // Sentry needs the stderr tail plus args/binary to guess at the cause.
+      CrashReporter.instance?.captureError(
+        message: 'whisper-server heartbeat timeout: ${e.message}',
+        severity: 'error',
+        type: 'stt_heartbeat_timeout',
+        fingerprint: const [sttHeartbeatTimeout],
+        extras: {
+          'stderr_tail': stderrLines,
+          'args': args,
+          'binary_path': serverPath,
+          'model_id': modelId,
+          'gpu_mode': gpuAcceleration,
+          'gpu_fallback_active': _gpuFallbackActive,
+          'platform': Platform.operatingSystem,
+        },
+      );
+      stop();
+      _fail('whisper-server not ready: $e');
+      return true;
+    } on _EarlyExitException catch (e) {
+      _process = null;
+      _activeModel = null;
+      if (_gpuFallbackActive && gpuAcceleration != 'disabled') return true;
+      // Already captured by the proc.exitCode handler above (dllMissing /
+      // gpuFatal / heapCorruption / modelLoad / other) — emitting again here
+      // would double-count the same incident in Sentry.
+      if (state.serverState == SttServerState.error) return true;
+      if (state.serverState == SttServerState.stopped && _process == null) {
+        return true;
+      }
+      // Reaches here only when the early-exit path did NOT correspond to a
+      // classified exit (e.g. process disappeared without an exitCode that
+      // ran through the switch above).  This is the FLUTTER_WHISPASTE-4P
+      // shape — "exited before becoming ready".
+      CrashReporter.instance?.captureError(
+        message: 'whisper-server early exit: ${e.message}',
+        severity: 'error',
+        type: 'stt_early_exit',
+        fingerprint: const [sttEarlyExit],
+        extras: {
+          'stderr_tail': stderrLines,
+          'args': args,
+          'binary_path': serverPath,
+          'model_id': modelId,
+          'gpu_mode': gpuAcceleration,
+          'gpu_fallback_active': _gpuFallbackActive,
+          'platform': Platform.operatingSystem,
+        },
+      );
+      _fail(e.message);
+      return true;
     }
   }
 
