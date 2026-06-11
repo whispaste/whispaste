@@ -251,115 +251,134 @@ class _RecordingBehaviorState extends ConsumerState<RecordingBehaviorWidget> {
     ref.read(activePageProvider.notifier).setPage('settings');
   }
 
+  void _handleErrorState(BuildContext context, L10n l10n, RecordingState next) {
+    try {
+      ref.read(soundFeedbackProvider.notifier).playError();
+    } catch (e) {
+      _log.warning('Error sound playback failed (non-fatal)', e);
+    }
+    WpToast.show(
+      context,
+      message: localizeRecordingError(l10n, next.errorMessage!),
+      type: WpToastType.error,
+      duration: const Duration(seconds: 5),
+      actionLabel: l10n.actionDismiss,
+      onAction: () {
+        ref.read(recordingOrchestratorProvider.notifier).reset();
+      },
+    );
+    // Auto-reset after toast display so FAB returns to idle.
+    Future.delayed(const Duration(seconds: 5), () {
+      try {
+        if (mounted && ref.read(recordingProvider).isError) {
+          _log.debug('Error auto-reset timer fired');
+          ref.read(recordingOrchestratorProvider.notifier).reset();
+        }
+      } catch (e) {
+        _log.warning('Error auto-reset failed', e);
+      }
+    });
+  }
+
+  void _handleDoneState(BuildContext context, L10n l10n, RecordingState next) {
+    _log.debug('State → done, scheduling sound + toast + 2s reset');
+    try {
+      ref.read(soundFeedbackProvider.notifier).playTranscriptionComplete();
+    } catch (e) {
+      _log.error('Success sound playback failed (non-fatal)', e);
+    }
+    WpToast.show(
+      context,
+      message:
+          '${l10n.statusTranscriptionDone} — ${next.transcript!.length > 80 ? '${next.transcript!.substring(0, 80)}…' : next.transcript!}',
+      type: WpToastType.success,
+    );
+    // Auto-reset after a short delay so the FAB returns to idle.
+    _doneResetTimer?.cancel();
+    _doneResetTimer = Timer(const Duration(seconds: 2), () {
+      try {
+        _log.debug('Done reset timer fired — calling reset()');
+        if (mounted) {
+          ref.read(recordingOrchestratorProvider.notifier).reset();
+          _log.debug('Done reset completed');
+        }
+      } catch (e, st) {
+        _log.error('Done reset timer error', e, st);
+      }
+    });
+  }
+
+  void _onRecordingStateChanged(
+    BuildContext context,
+    L10n l10n,
+    RecordingState? prev,
+    RecordingState next,
+  ) {
+    final tray = ref.read(trayServiceProvider.notifier);
+    tray.updateRecordingState(next, l10n: l10n);
+
+    if (next.isError && next.errorMessage != null) {
+      _handleErrorState(context, l10n, next);
+    } else if (next.isRecording && (prev == null || !prev.isRecording)) {
+      try {
+        ref.read(soundFeedbackProvider.notifier).playRecordStart();
+      } catch (e) {
+        _log.warning('Record-start sound failed (non-fatal)', e);
+      }
+    } else if (next.isTranscribing && (prev == null || !prev.isTranscribing)) {
+      try {
+        ref.read(soundFeedbackProvider.notifier).playRecordStop();
+      } catch (e) {
+        _log.warning('Record-stop sound failed (non-fatal)', e);
+      }
+    } else if (next.isDone && next.transcript != null) {
+      _handleDoneState(context, l10n, next);
+    } else if (next.isIdle && prev != null && !prev.isIdle) {
+      _log.debug('State → idle (from ${prev.phase})');
+      _doneResetTimer?.cancel();
+      Future.microtask(() => _showPendingOomRecovery(l10n));
+    }
+  }
+
+  void _onRecordingInfoChanged(BuildContext context, L10n l10n, String? next) {
+    if (next == null) return;
+    // Recovery hints that tell the user to "download in Settings" must
+    // carry the last logical step — a one-tap jump to the STT settings
+    // section — instead of leaving them to hunt for it.
+    final bool needsSettingsAction =
+        next == 'info_model_missing' || next == 'info_engine_auto_download';
+    WpToast.show(
+      context,
+      message: localizeRecordingInfo(l10n, next),
+      type: WpToastType.info,
+      duration: needsSettingsAction
+          ? const Duration(seconds: 6)
+          : const Duration(seconds: 4),
+      action: needsSettingsAction
+          ? WpToastAction(
+              label: l10n.pasteFailureOpenSettings,
+              onPressed: () => _openSettings('stt'),
+            )
+          : null,
+    );
+    Future.microtask(() => ref.read(recordingInfoProvider.notifier).clear());
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
 
     // ── Recording state transitions ──
-    ref.listen<RecordingState>(recordingProvider, (prev, next) {
-      final tray = ref.read(trayServiceProvider.notifier);
-      tray.updateRecordingState(next, l10n: l10n);
-
-      if (next.isError && next.errorMessage != null) {
-        try {
-          ref.read(soundFeedbackProvider.notifier).playError();
-        } catch (e) {
-          _log.warning('Error sound playback failed (non-fatal)', e);
-        }
-        WpToast.show(
-          context,
-          message: localizeRecordingError(l10n, next.errorMessage!),
-          type: WpToastType.error,
-          duration: const Duration(seconds: 5),
-          actionLabel: l10n.actionDismiss,
-          onAction: () {
-            ref.read(recordingOrchestratorProvider.notifier).reset();
-          },
-        );
-        // Auto-reset after toast display so FAB returns to idle.
-        Future.delayed(const Duration(seconds: 5), () {
-          try {
-            if (mounted && ref.read(recordingProvider).isError) {
-              _log.debug('Error auto-reset timer fired');
-              ref.read(recordingOrchestratorProvider.notifier).reset();
-            }
-          } catch (e) {
-            _log.warning('Error auto-reset failed', e);
-          }
-        });
-      } else if (next.isRecording && (prev == null || !prev.isRecording)) {
-        try {
-          ref.read(soundFeedbackProvider.notifier).playRecordStart();
-        } catch (e) {
-          _log.warning('Record-start sound failed (non-fatal)', e);
-        }
-      } else if (next.isTranscribing &&
-          (prev == null || !prev.isTranscribing)) {
-        try {
-          ref.read(soundFeedbackProvider.notifier).playRecordStop();
-        } catch (e) {
-          _log.warning('Record-stop sound failed (non-fatal)', e);
-        }
-      } else if (next.isDone && next.transcript != null) {
-        _log.debug('State → done, scheduling sound + toast + 2s reset');
-        try {
-          ref.read(soundFeedbackProvider.notifier).playTranscriptionComplete();
-        } catch (e) {
-          _log.error('Success sound playback failed (non-fatal)', e);
-        }
-        WpToast.show(
-          context,
-          message:
-              '${l10n.statusTranscriptionDone} — ${next.transcript!.length > 80 ? '${next.transcript!.substring(0, 80)}…' : next.transcript!}',
-          type: WpToastType.success,
-        );
-        // Auto-reset after a short delay so the FAB returns to idle.
-        _doneResetTimer?.cancel();
-        _doneResetTimer = Timer(const Duration(seconds: 2), () {
-          try {
-            _log.debug('Done reset timer fired — calling reset()');
-            if (mounted) {
-              ref.read(recordingOrchestratorProvider.notifier).reset();
-              _log.debug('Done reset completed');
-            }
-          } catch (e, st) {
-            _log.error('Done reset timer error', e, st);
-          }
-        });
-      } else if (next.isIdle && prev != null && !prev.isIdle) {
-        _log.debug('State → idle (from ${prev.phase})');
-        _doneResetTimer?.cancel();
-        Future.microtask(() => _showPendingOomRecovery(l10n));
-      }
-    });
+    ref.listen<RecordingState>(
+      recordingProvider,
+      (prev, next) => _onRecordingStateChanged(context, l10n, prev, next),
+    );
 
     // ── Info notifications (soft preflight, auto-download) ──
-    ref.listen<String?>(recordingInfoProvider, (prev, next) {
-      if (next != null) {
-        // Recovery hints that tell the user to "download in Settings" must
-        // carry the last logical step — a one-tap jump to the STT settings
-        // section — instead of leaving them to hunt for it.
-        final bool needsSettingsAction =
-            next == 'info_model_missing' || next == 'info_engine_auto_download';
-        WpToast.show(
-          context,
-          message: localizeRecordingInfo(l10n, next),
-          type: WpToastType.info,
-          duration: needsSettingsAction
-              ? const Duration(seconds: 6)
-              : const Duration(seconds: 4),
-          action: needsSettingsAction
-              ? WpToastAction(
-                  label: l10n.pasteFailureOpenSettings,
-                  onPressed: () => _openSettings('stt'),
-                )
-              : null,
-        );
-        Future.microtask(
-          () => ref.read(recordingInfoProvider.notifier).clear(),
-        );
-      }
-    });
+    ref.listen<String?>(
+      recordingInfoProvider,
+      (prev, next) => _onRecordingInfoChanged(context, l10n, next),
+    );
 
     // ── Paste failures (silent before — now surfaced with action) ──
     ref.listen<PasteFailureEvent?>(pasteFailureNotifierProvider, (prev, next) {
