@@ -418,6 +418,9 @@ class L10nDe extends L10n {
       'Was mit dem transkribierten Text geschieht';
 
   @override
+  String get settingsAfterTranscriptionActionLabel => 'Aktion';
+
+  @override
   String get settingsAfterTranscriptionClipboard =>
       'In Zwischenablage kopieren';
 

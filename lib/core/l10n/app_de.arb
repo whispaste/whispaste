@@ -137,6 +137,7 @@
   "settingsSoundVolume": "Ton-Lautstärke",
   "settingsAfterTranscription": "Nach der Transkription",
   "settingsAfterTranscriptionSubtitle": "Was mit dem transkribierten Text geschieht",
+  "settingsAfterTranscriptionActionLabel": "Aktion",
   "settingsAfterTranscriptionClipboard": "In Zwischenablage kopieren",
   "settingsAfterTranscriptionPaste": "Automatisch einfügen",
   "settingsAfterTranscriptionBoth": "Kopieren & einfügen",

@@ -411,6 +411,9 @@ class L10nHe extends L10n {
   String get settingsAfterTranscriptionSubtitle => 'מה לעשות עם הטקסט שתומלל';
 
   @override
+  String get settingsAfterTranscriptionActionLabel => 'פעולה';
+
+  @override
   String get settingsAfterTranscriptionClipboard => 'העתק ללוח';
 
   @override

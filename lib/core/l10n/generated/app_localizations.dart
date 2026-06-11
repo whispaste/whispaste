@@ -849,6 +849,12 @@ abstract class L10n {
   /// **'What happens with the transcribed text'**
   String get settingsAfterTranscriptionSubtitle;
 
+  /// No description provided for @settingsAfterTranscriptionActionLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Action'**
+  String get settingsAfterTranscriptionActionLabel;
+
   /// No description provided for @settingsAfterTranscriptionClipboard.
   ///
   /// In en, this message translates to:

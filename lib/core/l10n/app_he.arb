@@ -150,6 +150,7 @@
   "settingsSoundVolume": "עוצמת צליל",
   "settingsAfterTranscription": "אחרי תמלול",
   "settingsAfterTranscriptionSubtitle": "מה לעשות עם הטקסט שתומלל",
+  "settingsAfterTranscriptionActionLabel": "פעולה",
   "settingsAfterTranscriptionClipboard": "העתק ללוח",
   "settingsAfterTranscriptionPaste": "הדבק אוטומטי במקום הסמן",
   "settingsAfterTranscriptionBoth": "העתק + הדבק אוטומטי",
