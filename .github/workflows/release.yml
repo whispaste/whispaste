@@ -213,6 +213,101 @@ jobs:
         shell: pwsh
         run: echo "ok=true" >> $env:GITHUB_OUTPUT
 
+  wack-gate:
+    name: WACK Pre-Certification (non-blocking)
+    needs: [build-windows]
+    # Only run when an MSIX was actually built. Non-blocking: continue-on-error
+    # at job level ensures a WACK tooling failure never blocks the release.
+    continue-on-error: true
+    if: |
+      !cancelled() &&
+      needs.build-windows.outputs.msix-built == 'true' &&
+      needs.build-windows.outputs.build-succeeded == 'true'
+    runs-on: windows-latest
+    steps:
+      - name: Download MSIX artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: msix-release
+          path: msix/
+
+      - name: Run WACK (Windows App Certification Kit)
+        id: wack
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          # Locate appcert.exe from the Windows SDK (installed on windows-latest runners).
+          $appcert = @(
+            'C:\Program Files (x86)\Windows Kits\10\App Certification Kit\appcert.exe',
+            'C:\Program Files\Windows Kits\10\App Certification Kit\appcert.exe'
+          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+
+          if (-not $appcert) {
+            Write-Host "::warning::appcert.exe not found on this runner — WACK skipped (headless/tooling limitation)."
+            echo "wack_skipped=true" >> $env:GITHUB_OUTPUT
+            exit 0
+          }
+
+          $msixPath = Get-ChildItem msix\*.msix | Select-Object -First 1 -ExpandProperty FullName
+          if (-not $msixPath) {
+            Write-Host "::warning::No .msix file found in msix/ — WACK skipped."
+            echo "wack_skipped=true" >> $env:GITHUB_OUTPUT
+            exit 0
+          }
+
+          $reportPath = "$env:RUNNER_TEMP\wack-report.xml"
+          Write-Host ":: Running WACK against: $msixPath"
+          Write-Host ":: Report output: $reportPath"
+
+          # Reset any previous WACK state.
+          & $appcert reset
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::warning::appcert reset failed (exit $LASTEXITCODE) — likely a headless/desktop-session limitation. WACK result unreliable."
+            echo "wack_skipped=true" >> $env:GITHUB_OUTPUT
+            exit 0
+          }
+
+          & $appcert test -appxpackagepath $msixPath -reportoutputpath $reportPath
+          $wackExit = $LASTEXITCODE
+          echo "wack_exit=$wackExit" >> $env:GITHUB_OUTPUT
+          echo "wack_skipped=false" >> $env:GITHUB_OUTPUT
+
+          if ($wackExit -ne 0) {
+            Write-Host "::warning::appcert exited with code $wackExit. This may indicate a headless limitation or a real certification issue — review the uploaded WACK report artifact."
+          } else {
+            Write-Host ":: appcert test completed (exit 0)."
+          }
+
+          # Parse the XML report for FAIL results and surface them as warnings.
+          if (Test-Path $reportPath) {
+            try {
+              [xml]$report = Get-Content $reportPath -Encoding UTF8
+              $tests = $report.REPORT.REQUIREMENT | ForEach-Object { $_ }
+              $failed = @($tests | Where-Object { $_.RESULT -eq 'FAIL' })
+              $passed = @($tests | Where-Object { $_.RESULT -eq 'PASS' })
+              $skipped = @($tests | Where-Object { $_.RESULT -notin @('PASS','FAIL') })
+              Write-Host ":: WACK results — PASS: $($passed.Count), FAIL: $($failed.Count), OTHER: $($skipped.Count)"
+              foreach ($t in $failed) {
+                $name = if ($t.REQUIREMENTNAME) { $t.REQUIREMENTNAME } else { $t.Name }
+                $desc = if ($t.DESCRIPTION) { " — $($t.DESCRIPTION)" } else { '' }
+                Write-Host "::warning::WACK FAIL: $name$desc"
+              }
+              if ($failed.Count -eq 0 -and $wackExit -eq 0) {
+                Write-Host "::notice::WACK: all certification tests passed."
+              }
+            } catch {
+              Write-Host "::warning::Could not parse WACK XML report: $_"
+            }
+          }
+
+      - name: Upload WACK report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: wack-report
+          path: ${{ runner.temp }}\wack-report.xml
+          if-no-files-found: warn
+
   build-macos:
     name: Build macOS
     runs-on: macos-latest
@@ -544,7 +639,7 @@ jobs:
 
   submit-ms-store:
     name: Submit to Microsoft Store
-    needs: [build-windows, create-release]
+    needs: [build-windows, wack-gate, create-release]
     if: |
       !cancelled() &&
       startsWith(github.ref, 'refs/tags/v') &&
