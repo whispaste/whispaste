@@ -137,6 +137,22 @@ class WhisperServerDownloader {
           onProgress: onProgress,
         );
 
+        // SHA-256 integrity check — only when the manifest supplies a hash.
+        if (binary.sha256 != null) {
+          try {
+            await verifyFileSha256(File(zipPath), binary.sha256!);
+          } on WhisperBinaryIntegrityException catch (e) {
+            // Discard the corrupt artefact before surfacing the error.
+            await File(zipPath).delete().catchError((_) => File(zipPath));
+            _log.warning('SHA-256 mismatch — artefact discarded: $e');
+            lastError = e.toString();
+            if (attempt < 2) {
+              await Future<void>.delayed(Duration(seconds: 2 * attempt));
+            }
+            continue;
+          }
+        }
+
         onExtracting?.call();
         await _extractServerZip(zipPath, destDir);
         await File(zipPath).delete().catchError((_) => File(zipPath));

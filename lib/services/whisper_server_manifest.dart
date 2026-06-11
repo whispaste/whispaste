@@ -24,7 +24,9 @@ library;
 import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:sentry_dio/sentry_dio.dart';
@@ -67,6 +69,7 @@ class WhisperBinary {
     required this.url,
     required this.sizeBytes,
     required this.source,
+    this.sha256,
   });
 
   /// `macos`, `windows`, `linux`.
@@ -88,6 +91,12 @@ class WhisperBinary {
   /// (taken straight from a ggml-org/whisper.cpp release).
   final String source;
 
+  /// Optional SHA-256 hex digest of the ZIP archive. When present the
+  /// downloader verifies the downloaded artefact before extraction.
+  /// Absent in legacy manifests — treated as "no verification" (backward-
+  /// compatible).
+  final String? sha256;
+
   factory WhisperBinary.fromJson(Map<String, dynamic> json) {
     return WhisperBinary(
       platform: json['platform'] as String,
@@ -96,6 +105,7 @@ class WhisperBinary {
       url: json['url'] as String,
       sizeBytes: (json['size_bytes'] as num).toInt(),
       source: json['source'] as String? ?? 'unknown',
+      sha256: json['sha256'] as String?,
     );
   }
 
@@ -103,6 +113,48 @@ class WhisperBinary {
   String toString() =>
       'WhisperBinary($platform/$arch/$backend, ${sizeBytes ~/ (1024 * 1024)}MB, $source)';
 }
+
+// ---------------------------------------------------------------------------
+// SHA-256 integrity helpers
+// ---------------------------------------------------------------------------
+
+/// Thrown when the SHA-256 digest of a downloaded artefact does not match
+/// the value recorded in the manifest.
+class WhisperBinaryIntegrityException implements Exception {
+  const WhisperBinaryIntegrityException({
+    required this.expected,
+    required this.actual,
+    required this.path,
+  });
+
+  final String expected;
+  final String actual;
+  final String path;
+
+  @override
+  String toString() =>
+      'WhisperBinaryIntegrityException: SHA-256 mismatch for $path '
+      '(expected=$expected, actual=$actual)';
+}
+
+/// Verifies [file] against [expectedHex].
+///
+/// Throws [WhisperBinaryIntegrityException] on mismatch.
+/// Returns normally when the digests match.
+Future<void> verifyFileSha256(File file, String expectedHex) async {
+  final bytes = await file.readAsBytes();
+  final actual = sha256.convert(bytes).toString();
+  if (actual != expectedHex.toLowerCase()) {
+    throw WhisperBinaryIntegrityException(
+      expected: expectedHex.toLowerCase(),
+      actual: actual,
+      path: file.path,
+    );
+  }
+}
+
+/// Computes the SHA-256 hex digest of [data].
+String computeSha256Hex(Uint8List data) => sha256.convert(data).toString();
 
 /// Parsed manifest. Immutable.
 class WhisperServerManifest {

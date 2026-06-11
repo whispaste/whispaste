@@ -8,10 +8,14 @@
 /// 3. `download()` surfaces user cancellation as a [DioException].
 /// 4. `download()` throws a descriptive [Exception] when the manifest
 ///    contains no binary for the host platform.
+/// 5. SHA-256 integrity: matching hash accepted, mismatch discards artefact,
+///    missing field (legacy) is accepted without verification.
 library;
 
 import 'dart:io';
 import 'dart:typed_data';
+
+import 'package:crypto/crypto.dart' as crypto;
 
 import 'package:archive/archive.dart';
 import 'package:dio/dio.dart';
@@ -165,6 +169,121 @@ void main() {
         ),
       );
     });
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // SHA-256 integrity verification
+  // ─────────────────────────────────────────────────────────────────────────
+
+  group('SHA-256 integrity', () {
+    late Directory tempDir;
+
+    setUp(() async {
+      tempDir = await Directory.systemTemp.createTemp('wp_sha256_dl_');
+    });
+
+    tearDown(() async {
+      await tempDir.delete(recursive: true);
+    });
+
+    test(
+      'matching sha256 in manifest → download succeeds and binary is present',
+      () async {
+        final zipBytes = _buildLinuxServerZip();
+        final expectedHex = crypto.sha256.convert(zipBytes).toString();
+        final downloader = WhisperServerDownloader(
+          fetcher: _ZipServingFetcher(zipBytes),
+          manifestLoader: WhisperServerManifestLoader(
+            dio: _offlineDio(),
+            bundleReader: () async =>
+                _manifestWithSha256(expectedHex, 'linux', 'x64', 'cpu'),
+          ),
+        );
+
+        await downloader.download(
+          destDir: tempDir.path,
+          gpuMode: 'disabled',
+          platformOverride: 'linux',
+          archOverride: 'x64',
+        );
+
+        expect(
+          File(p.join(tempDir.path, 'whisper-server')).existsSync(),
+          isTrue,
+          reason: 'binary should be present after hash-verified download',
+        );
+      },
+      skip: Platform.isWindows ? 'chmod +x not applicable on Windows' : null,
+    );
+
+    test('mismatched sha256 → artefact discarded, Exception thrown, '
+        'no binary left on disk', () async {
+      final zipBytes = _buildLinuxServerZip();
+      const wrongHex =
+          '0000000000000000000000000000000000000000000000000000000000000000';
+      final downloader = WhisperServerDownloader(
+        fetcher: _ZipServingFetcher(zipBytes),
+        manifestLoader: WhisperServerManifestLoader(
+          dio: _offlineDio(),
+          bundleReader: () async =>
+              _manifestWithSha256(wrongHex, 'linux', 'x64', 'cpu'),
+        ),
+      );
+
+      await expectLater(
+        () => downloader.download(
+          destDir: tempDir.path,
+          gpuMode: 'disabled',
+          platformOverride: 'linux',
+          archOverride: 'x64',
+        ),
+        throwsA(isA<Exception>()),
+      );
+
+      // The staging ZIP must have been deleted (artefact discarded).
+      expect(
+        File(p.join(tempDir.path, '_whisper-server.zip')).existsSync(),
+        isFalse,
+        reason: 'staging zip should be discarded after hash mismatch',
+      );
+      // No binary should be present either.
+      expect(
+        File(p.join(tempDir.path, 'whisper-server')).existsSync(),
+        isFalse,
+        reason: 'no binary should exist after hash mismatch',
+      );
+    });
+
+    test(
+      'no sha256 in manifest (legacy) → download succeeds without hash check',
+      () async {
+        final zipBytes = _buildLinuxServerZip();
+        final downloader = WhisperServerDownloader(
+          fetcher: _ZipServingFetcher(zipBytes),
+          manifestLoader: WhisperServerManifestLoader(
+            dio: _offlineDio(),
+            bundleReader: () async =>
+                _manifestWithoutSha256('linux', 'x64', 'cpu'),
+          ),
+        );
+
+        await downloader.download(
+          destDir: tempDir.path,
+          gpuMode: 'disabled',
+          platformOverride: 'linux',
+          archOverride: 'x64',
+        );
+
+        expect(
+          File(p.join(tempDir.path, 'whisper-server')).existsSync(),
+          isTrue,
+          reason:
+              'binary should be present even when manifest has no sha256 '
+              '(legacy backward-compatible path)',
+        );
+      },
+      skip: Platform.isWindows ? 'chmod +x not applicable on Windows' : null,
+    );
   });
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -367,3 +486,52 @@ Uint8List _buildLinuxServerZip() {
   final archive = Archive()..addFile(ArchiveFile.string('server', 'ELF-stub'));
   return ZipEncoder().encodeBytes(archive);
 }
+
+/// Manifest JSON string with a single binary entry that includes [sha256].
+String _manifestWithSha256(
+  String sha256,
+  String platform,
+  String arch,
+  String backend,
+) =>
+    '''
+{
+  "schema_version": 1,
+  "whisper_server_tag": "whisper-server-sha256-test",
+  "whisper_cpp_release": "test",
+  "generated_at": "2026-01-01T00:00:00Z",
+  "binaries": [
+    {
+      "platform": "$platform",
+      "arch": "$arch",
+      "backend": "$backend",
+      "url": "http://example.com/$platform-$arch-$backend.zip",
+      "size_bytes": 1000,
+      "source": "whispaste",
+      "sha256": "$sha256"
+    }
+  ]
+}
+''';
+
+/// Manifest JSON string with a single binary entry that has NO sha256 field
+/// (legacy format).
+String _manifestWithoutSha256(String platform, String arch, String backend) =>
+    '''
+{
+  "schema_version": 1,
+  "whisper_server_tag": "whisper-server-legacy-test",
+  "whisper_cpp_release": "test",
+  "generated_at": "2026-01-01T00:00:00Z",
+  "binaries": [
+    {
+      "platform": "$platform",
+      "arch": "$arch",
+      "backend": "$backend",
+      "url": "http://example.com/$platform-$arch-$backend.zip",
+      "size_bytes": 1000,
+      "source": "whispaste"
+    }
+  ]
+}
+''';
