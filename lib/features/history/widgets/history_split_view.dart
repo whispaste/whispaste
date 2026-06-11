@@ -267,49 +267,20 @@ class _HistorySplitViewState extends State<HistorySplitView>
                   ),
                 ),
                 // Draggable divider
-                MouseRegion(
-                  cursor: SystemMouseCursors.resizeColumn,
-                  child: GestureDetector(
-                    onHorizontalDragStart: (_) =>
-                        setState(() => _isDragging = true),
-                    onHorizontalDragUpdate: (details) {
-                      setState(() {
-                        final dragMax = detailFraction > 0.05
-                            ? maxListForDetail.clamp(_minListWidth, maxListW)
-                            : maxListW;
-                        _listWidth = (_listWidth + details.delta.dx).clamp(
-                          _minListWidth,
-                          dragMax,
-                        );
-                      });
-                    },
-                    onHorizontalDragEnd: (_) =>
-                        setState(() => _isDragging = false),
-                    child: Container(
-                      width: _dividerHitWidth,
-                      color: Colors.transparent,
-                      child: Center(
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 150),
-                          width: _isDragging ? 3.0 : _dividerVisualWidth,
-                          decoration: BoxDecoration(
-                            color: _isDragging
-                                ? (widget.isDark
-                                      ? WpColorsDark.accent.withValues(
-                                          alpha: 0.5,
-                                        )
-                                      : WpColorsLight.accent.withValues(
-                                          alpha: 0.5,
-                                        ))
-                                : (widget.isDark
-                                      ? WpColorsDark.borderSubtle
-                                      : WpColorsLight.borderSubtle),
-                            borderRadius: BorderRadius.circular(1.5),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+                _SplitViewDivider(
+                  isDark: widget.isDark,
+                  isDragging: _isDragging,
+                  hitWidth: _dividerHitWidth,
+                  visualWidth: _dividerVisualWidth,
+                  dragMax: detailFraction > 0.05
+                      ? maxListForDetail.clamp(_minListWidth, maxListW)
+                      : maxListW,
+                  minListWidth: _minListWidth,
+                  currentListWidth: _listWidth,
+                  onDragStart: () => setState(() => _isDragging = true),
+                  onDragUpdate: (newWidth) =>
+                      setState(() => _listWidth = newWidth),
+                  onDragEnd: () => setState(() => _isDragging = false),
                 ),
                 SizedBox(
                   width: detailW.clamp(0.0, totalWidth - _minListWidth),
@@ -341,6 +312,74 @@ class _HistorySplitViewState extends State<HistorySplitView>
           },
         );
       },
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Draggable column divider for the split view
+// ---------------------------------------------------------------------------
+
+class _SplitViewDivider extends StatelessWidget {
+  const _SplitViewDivider({
+    required this.isDark,
+    required this.isDragging,
+    required this.hitWidth,
+    required this.visualWidth,
+    required this.dragMax,
+    required this.minListWidth,
+    required this.currentListWidth,
+    required this.onDragStart,
+    required this.onDragUpdate,
+    required this.onDragEnd,
+  });
+
+  final bool isDark;
+  final bool isDragging;
+  final double hitWidth;
+  final double visualWidth;
+  final double dragMax;
+  final double minListWidth;
+  final double currentListWidth;
+  final VoidCallback onDragStart;
+  final ValueChanged<double> onDragUpdate;
+  final VoidCallback onDragEnd;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.resizeColumn,
+      child: GestureDetector(
+        onHorizontalDragStart: (_) => onDragStart(),
+        onHorizontalDragUpdate: (details) {
+          final newWidth = (currentListWidth + details.delta.dx).clamp(
+            minListWidth,
+            dragMax,
+          );
+          onDragUpdate(newWidth);
+        },
+        onHorizontalDragEnd: (_) => onDragEnd(),
+        child: Container(
+          width: hitWidth,
+          color: Colors.transparent,
+          child: Center(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              width: isDragging ? 3.0 : visualWidth,
+              decoration: BoxDecoration(
+                color: isDragging
+                    ? (isDark
+                          ? WpColorsDark.accent.withValues(alpha: 0.5)
+                          : WpColorsLight.accent.withValues(alpha: 0.5))
+                    : (isDark
+                          ? WpColorsDark.borderSubtle
+                          : WpColorsLight.borderSubtle),
+                borderRadius: BorderRadius.circular(1.5),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
