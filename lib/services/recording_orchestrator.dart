@@ -28,6 +28,7 @@ import 'recording/safety_guard.dart';
 import 'review_prompt_service.dart';
 import 'sound_feedback_service.dart';
 import 'paste/paste_failure_notifier.dart';
+import 'paste/paste_policy.dart';
 import 'paste/paster.dart';
 import 'system_attention_service.dart';
 import 'tray_service.dart';
@@ -1148,7 +1149,11 @@ class RecordingOrchestrator extends Notifier<void> {
     String transcript,
     AppSettings settings,
   ) async {
-    final action = settings.afterTranscriptionAction;
+    // In the sandboxed Mac App Store build, simulated paste is unavailable, so
+    // paste actions are downgraded to clipboard-only (user pastes with ⌘V).
+    final action = resolveAfterTranscriptionAction(
+      settings.afterTranscriptionAction,
+    );
 
     switch (action) {
       case AfterTranscriptionAction.nothing:

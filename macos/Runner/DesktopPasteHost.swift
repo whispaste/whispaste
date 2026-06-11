@@ -231,6 +231,12 @@ class DesktopPasteHost {
   ///
   /// Returns one of: `"ok"`, `"permission_missing"`, `"error:<details>"`.
   private func sendCmdVViaAppleScript() -> String {
+#if MAS_BUILD
+    // Mac App Store build: AppleEvents/Automation keystroke injection is not
+    // permitted; compiled out so the shipped binary contains no NSAppleScript
+    // "keystroke" payload. Never reached (auto-paste disabled on Dart side).
+    return "unsupported"
+#else
     let source = """
       tell application "System Events" to keystroke "v" using {command down}
       """
@@ -248,6 +254,7 @@ class DesktopPasteHost {
       return "error:\(code):\(err["NSAppleScriptErrorMessage"] ?? "?")"
     }
     return "ok"
+#endif
   }
 
   /// Probes whether Auto-Paste would work right now — without pasting.
@@ -385,6 +392,14 @@ class DesktopPasteHost {
   /// Posts Cmd+V via CGEvent to the frontmost application. Returns true
   /// when both events were successfully created and posted.
   private func sendCmdV() -> Bool {
+#if MAS_BUILD
+    // Mac App Store build: synthesizing keystrokes into other apps is not
+    // permitted (App Sandbox + App Review Guideline 2.4.5). Compiled out so the
+    // shipped binary contains no CGEvent keystroke-posting symbols, which Apple
+    // statically scans for. Auto-paste is disabled on the Dart side too
+    // (see lib/core/config/build_config.dart), so this is never reached.
+    return false
+#else
     let vKeyCode: CGKeyCode = 0x09 // 'v' key
 
     guard let keyDown = CGEvent(keyboardEventSource: nil, virtualKey: vKeyCode, keyDown: true),
@@ -398,5 +413,6 @@ class DesktopPasteHost {
     keyDown.post(tap: .cghidEventTap)
     keyUp.post(tap: .cghidEventTap)
     return true
+#endif
   }
 }
