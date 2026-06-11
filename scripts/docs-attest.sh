@@ -197,6 +197,25 @@ check_removed_features() {
       echo "$hits" | sed "s|$ROOT/|    |"
     fi
   done
+
+  # i18n-Text-Quellen (website/src/scripts/i18n.ts u. ä.): DAS ist die eigentliche
+  # user-sichtbare Website-Sprache (die .astro-Seiten referenzieren nur Keys).
+  # Historische `changelog.*`-Keys werden ausgenommen — dort sind alte Provider-
+  # Nennungen legitim (Beschreibung eines vergangenen Releases).
+  local i18n_files f
+  i18n_files="$(git -C "$ROOT" ls-files 'website/src/**i18n*.ts' 2>/dev/null || true)"
+  while IFS= read -r f; do
+    [ -z "$f" ] && continue
+    [ -f "$ROOT/$f" ] || continue
+    for t in "${terms[@]}"; do
+      local cur
+      cur="$(grep -nF -- "$t" "$ROOT/$f" 2>/dev/null | grep -v "'changelog\\." || true)"
+      if [ -n "$cur" ]; then
+        note "entferntes/nie-ausgeliefertes Feature \"$t\" als aktueller String in $f:"
+        echo "$cur" | sed -E 's/^([0-9]+):.*/    Zeile \1/'
+      fi
+    done
+  done <<< "$i18n_files"
 }
 
 # --- i18n (DE-primär + EN-Mirror) -------------------------------------------
