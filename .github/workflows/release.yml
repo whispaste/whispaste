@@ -517,10 +517,134 @@ jobs:
         id: mark_success
         run: echo "ok=true" >> "$GITHUB_OUTPUT"
 
+  build-linux:
+    name: Build Linux x86_64
+    runs-on: ubuntu-latest
+    outputs:
+      # See build-windows for rationale (decouple from Post-step failures).
+      build-succeeded: ${{ steps.mark_success.outputs.ok == 'true' }}
+    steps:
+      - uses: actions/checkout@v6
+
+      # ── §3.1 Build-Stolperfallen — vollständig abgebildet ──────────────────────
+      # sentry-native: libcurl4-openssl-dev + zlib1g-dev
+      # jni-Plugin: default-jdk + JAVA_HOME
+      # flutter_soloud x86 Xiph: libflac-dev + libogg-dev + libopus-dev + libvorbis-dev
+      # libasound2-dev: ALSA (audio pipeline)
+      # libkeybinder-3.0-dev + libnotify-dev + libayatana-appindicator3-dev: desktop integration
+      # libsecret-1-dev + libgtk-3-dev: Flutter Linux baseline
+      # clang + cmake + ninja-build + pkg-config: Flutter Linux build toolchain
+      # -Werror: already removed in linux/CMakeLists.txt (commit 26fab952)
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev libsecret-1-dev \
+            libkeybinder-3.0-dev libnotify-dev \
+            libayatana-appindicator3-dev libasound2-dev \
+            libcurl4-openssl-dev zlib1g-dev \
+            libflac-dev libogg-dev libopus-dev libvorbis-dev \
+            default-jdk
+
+      # jni-Plugin: JAVA_HOME muss gesetzt sein (§3.1)
+      - name: Set JAVA_HOME
+        run: |
+          JAVAC_PATH="$(which javac)"
+          JAVA_HOME_PATH="$(dirname "$(dirname "$(readlink -f "$JAVAC_PATH")")")"
+          echo "JAVA_HOME=$JAVA_HOME_PATH" >> "$GITHUB_ENV"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.44.1
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build Linux release
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          # flutter_soloud §3.1: Xiph system libs statt x86-only Bundles verwenden
+          TRY_SYSTEM_LIBS_FIRST: "1"
+        run: |
+          URL="$(printf '%s' "$SUPABASE_URL" | tr -d '\r\n')"
+          KEY="$(printf '%s' "$SUPABASE_PUBLISHABLE_KEY" | tr -d '\r\n')"
+
+          # Resolve version from tag (preferred) or pubspec.yaml
+          REF_NAME="${GITHUB_REF_NAME#v}"
+          if echo "$REF_NAME" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+'; then
+            VERSION="$REF_NAME"
+          else
+            VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //;s/+.*//' | tr -d '[:space:]')
+          fi
+
+          flutter build linux --release --no-tree-shake-icons \
+            "--dart-define=SUPABASE_URL=$URL" \
+            "--dart-define=SUPABASE_PUBLISHABLE_KEY=$KEY" \
+            "--dart-define=APP_VERSION=$VERSION"
+
+      # §3.1: crashpad_handler braucht chmod +x (kann nach dem Flutter-Build fehlen)
+      - name: Ensure crashpad_handler is executable
+        run: |
+          HANDLER="build/linux/x64/release/bundle/lib/crashpad_handler"
+          if [ -f "$HANDLER" ]; then
+            chmod +x "$HANDLER"
+            echo "crashpad_handler: chmod +x applied"
+          else
+            echo "crashpad_handler not found at expected path — skipping (may be bundled differently)"
+          fi
+
+      - name: Prepare release artifacts
+        run: |
+          REF_NAME="${GITHUB_REF_NAME#v}"
+          if echo "$REF_NAME" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+'; then
+            VERSION="$REF_NAME"
+          else
+            VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //;s/+.*//' | tr -d '[:space:]')
+          fi
+          ARTIFACT_DIR="release-artifacts"
+          mkdir -p "$ARTIFACT_DIR"
+
+          BUNDLE_DIR="build/linux/x64/release/bundle"
+          if [ ! -d "$BUNDLE_DIR" ]; then
+            echo "::error::Flutter Linux release bundle not found at $BUNDLE_DIR"
+            exit 1
+          fi
+
+          ZIP_NAME="WhisPaste-${VERSION}-linux-x64.tar.gz"
+          tar -czf "$ARTIFACT_DIR/$ZIP_NAME" -C "$BUNDLE_DIR" .
+
+          echo "Release artifacts:"
+          ls -lh "$ARTIFACT_DIR"
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: linux-release
+          path: release-artifacts/
+
+      - name: Mark build succeeded
+        id: mark_success
+        run: echo "ok=true" >> "$GITHUB_OUTPUT"
+
+  # ── Optional follow-up: Linux arm64 ───────────────────────────────────────────
+  # arm64 is explicitly NOT active (maintainer decision: x86_64 first).
+  # To add arm64 support later, duplicate build-linux above with:
+  #   runs-on: ubuntu-24.04-arm   (GitHub-hosted arm64 runner, available on paid plans)
+  #   artifact name: linux-arm64-release
+  #   ZIP_NAME: WhisPaste-${VERSION}-linux-arm64.tar.gz
+  # No other changes needed — the Flutter Linux build is arch-agnostic given
+  # the same system-library versions. Tested locally on Pi 5 / Ubuntu 26.04 arm64.
+  # ──────────────────────────────────────────────────────────────────────────────
+
   create-release:
     name: Create GitHub Release
-    needs: [build-windows, build-macos]
-    # Beide Platform-Builds müssen erfolgreich sein. (MSIX ist optional —
+    needs: [build-windows, build-macos, build-linux]
+    # Alle drei Platform-Builds müssen erfolgreich sein. (MSIX ist optional —
     # wenn MSIX_PUBLISHER nicht gesetzt ist, läuft Build-Windows trotzdem
     # erfolgreich durch und das msix-release-Artefakt fehlt einfach.)
     #
@@ -534,7 +658,8 @@ jobs:
       !cancelled() &&
       startsWith(github.ref, 'refs/tags/v') &&
       needs.build-windows.outputs.build-succeeded == 'true' &&
-      needs.build-macos.outputs.build-succeeded == 'true'
+      needs.build-macos.outputs.build-succeeded == 'true' &&
+      needs.build-linux.outputs.build-succeeded == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -552,6 +677,12 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           name: macos-release
+          path: artifacts/
+
+      - name: Download Linux artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: linux-release
           path: artifacts/
 
       - name: Download MSIX artifact
