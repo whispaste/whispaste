@@ -119,6 +119,21 @@ check_version_sync() {
   fi
 }
 
+# --- MSIX-Version-Sync -------------------------------------------------------
+# msix_version: X.Y.Z.0 muss deterministisch aus pubspec `version: X.Y.Z+B`
+# abgeleitet sein. Formel: nimm den semver-Teil (X.Y.Z), hänge .0 an.
+# Korrekte Ableitung: pubspec version 1.2.37+1 → msix_version 1.2.37.0.
+check_msix_version_sync() {
+  [ -f "$PUBSPEC" ] || { note "pubspec.yaml fehlt (msix-sync)"; return; }
+  local semver derived actual
+  semver="$(sed -nE 's/^version:[[:space:]]*([0-9]+\.[0-9]+\.[0-9]+)(\+[0-9]+)?[[:space:]]*$/\1/p' "$PUBSPEC" | head -1)"
+  [ -z "$semver" ] && { note "pubspec.yaml: keine semver version gefunden (msix-sync)"; return; }
+  derived="${semver}.0"
+  actual="$(sed -nE 's/^[[:space:]]*msix_version:[[:space:]]*([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)[[:space:]]*$/\1/p' "$PUBSPEC" | head -1)"
+  [ -z "$actual" ] && { note "pubspec.yaml: kein msix_version-Eintrag im msix_config-Block gefunden"; return; }
+  [ "$actual" = "$derived" ] || note "msix_version ($actual) ≠ abgeleiteter Wert aus pubspec version ($derived)"
+}
+
 # --- Plattform/Store-Konsistenz (WhisPaste-Kern) ----------------------------
 # platforms.ts dokumentiert: „Consumers read exclusively from this file — no
 # literal URLs or product IDs elsewhere." Genau diese Drift-Klasse (tote Apple-
@@ -264,11 +279,12 @@ cmd_check() {
   check_readme
   check_antivocab
   check_version_sync
+  check_msix_version_sync
   check_platform_store
   check_removed_features
   check_i18n
   [ "$fail" -eq 0 ] || { echo "Public-Docs-QS (check) fehlgeschlagen." >&2; exit 1; }
-  echo "Public-Docs-QS check: ok (README+SECURITY+store · anti-vocab · version-sync · platform/store-SSoT · removed-features · i18n)"
+  echo "Public-Docs-QS check: ok (README+SECURITY+store · anti-vocab · version-sync · msix-version-sync · platform/store-SSoT · removed-features · i18n)"
 }
 
 cmd_attest() {
