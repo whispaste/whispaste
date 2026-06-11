@@ -33,8 +33,11 @@ EOF
 }
 
 # ── Schicht 1: Public-Docs-QS (Struktur) ─────────────────────────────────────
-if [ -x "$ATTESTSH" ]; then
-  "$ATTESTSH" check >/dev/null || block "Public-Docs-QS (scripts/docs-attest.sh check) fehlgeschlagen — Details: scripts/docs-attest.sh check"
+# Sub-Skripte werden via `bash` aufgerufen (nicht direkt exec'd), damit ein
+# verlorenes Exec-Bit am Skript den Hook nicht aushebelt — nur DIESE Datei muss
+# für den globalen Dispatcher executable sein.
+if [ -f "$ATTESTSH" ]; then
+  bash "$ATTESTSH" check >/dev/null || block "Public-Docs-QS (scripts/docs-attest.sh check) fehlgeschlagen — Details: bash scripts/docs-attest.sh check"
 fi
 
 # ── KI-Co-Authored-By-Trailer-Riegel ─────────────────────────────────────────
@@ -62,8 +65,8 @@ EOF
 # ── Schicht 2: Attest-Schranke ───────────────────────────────────────────────
 # Der zu pushende Commit muss bewusst attestiert sein. Die EINZIGE Art, die
 # Schranke zu passieren: nach echter Prüfung `scripts/docs-attest.sh attest`.
-if [ -x "$ATTESTSH" ]; then
-  attested="$("$ATTESTSH" attested)"
+if [ -f "$ATTESTSH" ]; then
+  attested="$(bash "$ATTESTSH" attested)"
   attest_block() {
     block "öffentliche Docs nicht für diesen Stand attestiert.
   $1
@@ -88,7 +91,7 @@ EOF
 fi
 
 # ── Schicht 3: Security-Net (bestehende Hook-Logik wiederbelebt) ─────────────
-if [ -x "$SECURITY" ]; then
+if [ -f "$SECURITY" ]; then
   printf '%s\n' "$REFS" | bash "$SECURITY" "$REMOTE" "$URL" || exit 1
 fi
 
@@ -104,7 +107,7 @@ done <<EOF
 $REFS
 EOF
 if [ "$run_drift" = 1 ] && [ "${WHISPASTE_SKIP_DRIFT:-}" != 1 ] \
-   && [ -x "$DRIFTSH" ] && command -v claude >/dev/null 2>&1; then
+   && [ -f "$DRIFTSH" ] && command -v claude >/dev/null 2>&1; then
   echo "" >&2
   echo "◆ docs-drift (advisory, non-blocking — release push) …" >&2
   bash "$DRIFTSH" --llm 2>&1 | sed 's/^/  /' >&2 || true
