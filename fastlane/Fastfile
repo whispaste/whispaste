@@ -1,0 +1,94 @@
+# Fastlane lanes for WhisPaste macOS distribution.
+#
+# Two distribution tracks from ONE codebase (see lib/core/config/build_config.dart):
+#   - mas_release    → Mac App Store (sandboxed, NO auto-paste)
+#   - devid_release  → Developer-ID notarized .app/.dmg (full auto-paste)
+#
+# Authentication reuses the shared App Store Connect API key (Team REDACTED-APPLE-TEAM-ID),
+# exactly like REDACTED-OTHER-PROJECT:
+#   ~/.appstoreconnect/private_keys/AuthKey_REDACTED-ASC-KEY-ID.p8
+#
+# ── PREREQUISITES (see docs/store-release.md) ─────────────────────────────────
+#   1. Bundle-ID migrated to de.whispaste.app.
+#   2. Xcode build configurations wired:
+#        - MAS build: CODE_SIGN_ENTITLEMENTS = Runner/AppStore.entitlements
+#          (sandbox=true) + OTHER_SWIFT_FLAGS includes "-D MAS_BUILD".
+#        - Developer-ID build: CODE_SIGN_ENTITLEMENTS = Runner/Release.entitlements
+#          (sandbox=false) + Hardened Runtime ON.
+#   3. Certificates present in keychain (Mac App Distribution + Mac Installer
+#      Distribution for MAS; Developer ID Application + Installer for direct).
+
+ASC_KEY_ID    = "REDACTED-ASC-KEY-ID"
+ASC_ISSUER_ID = "REDACTED-ASC-ISSUER-ID"
+ASC_KEY_PATH  = File.expand_path("~/.appstoreconnect/private_keys/AuthKey_REDACTED-ASC-KEY-ID.p8")
+
+def load_asc_api_key
+  app_store_connect_api_key(
+    key_id:        ASC_KEY_ID,
+    issuer_id:     ASC_ISSUER_ID,
+    key_filepath:  ASC_KEY_PATH,
+    in_house:      false,
+    duration:      1200
+  )
+end
+
+default_platform(:mac)
+
+platform :mac do
+  desc "Verify App Store Connect API access"
+  lane :validate do
+    load_asc_api_key
+    UI.success("App Store Connect API key OK (Team #{ENV['FASTLANE_TEAM_ID'] || 'REDACTED-APPLE-TEAM-ID'})")
+  end
+
+  desc "Build + upload the Mac App Store build (sandboxed, no auto-paste)"
+  lane :mas_release do
+    load_asc_api_key
+    precheck   # metadata hygiene against App Review Guidelines (no binary check)
+
+    sh("cd .. && flutter build macos --release --dart-define=WHISPASTE_MAS=true")
+
+    build_mac_app(
+      workspace:        "../macos/Runner.xcworkspace",
+      scheme:           "Runner",                # must be marked "Shared" in Xcode
+      configuration:    "Release",
+      export_method:    "app-store",             # produces a signed .pkg
+      export_team_id:   "REDACTED-APPLE-TEAM-ID",
+      output_directory: "../build/fastlane",
+      output_name:      "WhisPaste"
+    )
+
+    upload_to_app_store(
+      platform:          "osx",
+      pkg:               lane_context[SharedValues::PKG_OUTPUT_PATH],
+      submit_for_review: false,
+      skip_screenshots:  true,
+      skip_metadata:     true,     # set false once fastlane/metadata is filled
+      precheck_include_in_app_purchases: false
+    )
+  end
+
+  desc "Build + notarize the Developer-ID build (direct download / Homebrew)"
+  lane :devid_release do
+    # Developer-ID auto-paste build — full feature set, distributed outside MAS.
+    sh("cd .. && flutter build macos --release")
+
+    build_mac_app(
+      workspace:        "../macos/Runner.xcworkspace",
+      scheme:           "Runner",
+      configuration:    "Release",
+      export_method:    "developer-id",
+      export_team_id:   "REDACTED-APPLE-TEAM-ID",
+      output_directory: "../build/fastlane",
+      output_name:      "WhisPaste"
+    )
+
+    notarize(
+      package:      lane_context[SharedValues::PKG_OUTPUT_PATH] || "../build/fastlane/WhisPaste.app",
+      bundle_id:    "de.whispaste.app",
+      api_key_path: ASC_KEY_PATH
+    )
+    # The notarize action staples automatically on success. Wrap the .app in a
+    # DMG afterwards (create-dmg) for the website/Homebrew artifact.
+  end
+end

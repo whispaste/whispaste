@@ -1,0 +1,12 @@
+# Apple distribution config for WhisPaste (macOS).
+#
+# Reuses the same Apple Developer account / Team as REDACTED-OTHER-PROJECT (Team REDACTED-APPLE-TEAM-ID)
+# and the same App Store Connect API key, so no new key needs to be generated.
+#
+# ⚠️ app_identifier is the REGISTERED App ID (de.whispaste.app). The macOS Xcode
+# project must be migrated from com.whispaste.whispaste to this id first
+# (see docs/store-release.md → "Bundle-ID-Migration").
+app_identifier("de.whispaste.app")
+apple_id("REDACTED-EMAIL")
+team_id("REDACTED-APPLE-TEAM-ID")
+itc_team_id("REDACTED-APPLE-TEAM-ID")
