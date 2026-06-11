@@ -28,6 +28,7 @@ import '../../services/path_service.dart';
 import '../../services/model_download_service.dart' show QualityTier;
 import 'secure_key_store.dart';
 import 'settings_enums.dart';
+import 'whisper_languages.dart';
 import 'settings_sections.dart';
 
 /// All persisted app settings in one immutable aggregate.
@@ -323,17 +324,24 @@ class AppSettings {
   String get effectiveModelId =>
       stt.model.isEmpty ? 'whisper-medium' : stt.model;
 
-  /// STT language code for the whisper server (e.g. `en`, `de`, `auto`).
+  /// STT language code for the whisper server (e.g. `en`, `ru`, `auto`).
   ///
-  /// Converts the user-facing display value stored in [stt.language] to the
-  /// short code expected by whisper-server's `language` parameter.
-  String get sttLanguageCode => switch (stt.language) {
-    'English' => 'en',
-    'German' => 'de',
-    'French' => 'fr',
-    'Spanish' => 'es',
-    _ => 'auto',
-  };
+  /// Normalizes the persisted [stt.language] value to the short code
+  /// expected by whisper-server's `language` parameter. Accepts both the
+  /// legacy display values written by ≤1.2.x ('Auto-detect', 'English', …)
+  /// and the short codes written since the 99-language settings dropdown.
+  /// Anything outside the [whisperLanguages] catalog degrades to `'auto'`.
+  String get sttLanguageCode {
+    final value = stt.language;
+    if (whisperLanguages.containsKey(value)) return value;
+    return switch (value) {
+      'English' => 'en',
+      'German' => 'de',
+      'French' => 'fr',
+      'Spanish' => 'es',
+      _ => 'auto',
+    };
+  }
 
   /// Platform-aware factory-reset defaults.
   ///

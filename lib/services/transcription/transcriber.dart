@@ -13,30 +13,9 @@ import '../../core/config/settings_provider.dart';
 import '../stt/local_transcriber.dart' show LocalSttTranscriber;
 import 'deepgram_transcriber.dart';
 import 'openai_transcriber.dart';
+import 'transcriber_interface.dart';
 
-export 'transcriber_exception.dart';
-
-/// Common interface for all STT adapters.
-abstract class Transcriber {
-  /// Ensures the backend is ready to accept transcription requests.
-  ///
-  /// For local whisper-server: starts subprocess if not running.
-  /// For cloud: validates that an API key is configured.
-  ///
-  /// Throws [TranscriberException] on failure.
-  Future<void> prepare();
-
-  /// Transcribes [wavBytes] to text.
-  ///
-  /// Throws [TranscriberException] on any failure.
-  Future<String> transcribe(List<int> wavBytes, {String? language});
-
-  /// Releases resources held by the adapter.
-  ///
-  /// For local whisper-server: triggers stop/idle timer.
-  /// For cloud: no-op (HTTP connections are stateless).
-  void release();
-}
+export 'transcriber_interface.dart';
 
 /// Selects the correct [Transcriber] adapter based on the current settings.
 final transcriberProvider = Provider<Transcriber>((ref) {
