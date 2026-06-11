@@ -829,10 +829,10 @@ class L10nEn extends L10n {
   String get tooltipProcessing => 'Processing audio…';
 
   @override
-  String get tooltipEngineNotReady => 'Speech engine not ready';
+  String get tooltipEngineNotReady => 'Speech service not ready';
 
   @override
-  String get tooltipEngineDownloading => 'Downloading speech engine…';
+  String get tooltipEngineDownloading => 'Downloading speech service…';
 
   @override
   String get tooltipModelMissing => 'No speech model downloaded';
@@ -1307,7 +1307,7 @@ class L10nEn extends L10n {
   String get sttStatusError => 'Error';
 
   @override
-  String get statusBarSttTooltip => 'Speech engine and current status';
+  String get statusBarSttTooltip => 'Speech service and current status';
 
   @override
   String get statusBarRecording => 'Recording…';
@@ -1389,13 +1389,13 @@ class L10nEn extends L10n {
   String get tooltipSwitchToDark => 'Switch to Dark Mode';
 
   @override
-  String get modelServerReady => 'Speech engine ready';
+  String get modelServerReady => 'Speech service ready';
 
   @override
-  String get modelServerMissing => 'Speech engine not installed';
+  String get modelServerMissing => 'Speech service not installed';
 
   @override
-  String get modelServerWhisper => 'Local engine';
+  String get modelServerWhisper => 'Local speech service';
 
   @override
   String get modelReady => 'Ready';
@@ -1410,7 +1410,7 @@ class L10nEn extends L10n {
   String get modelDownloading => 'Downloading…';
 
   @override
-  String get modelDownloadingEngine => 'Preparing speech engine…';
+  String get modelDownloadingEngine => 'Preparing speech service…';
 
   @override
   String get modelVerifying => 'Verifying…';
@@ -1535,11 +1535,11 @@ class L10nEn extends L10n {
 
   @override
   String get infoEngineDownloading =>
-      'Speech engine is being prepared. Please wait a moment.';
+      'Speech service is being prepared. Please wait a moment.';
 
   @override
   String get infoEngineAutoDownload =>
-      'Speech engine missing — downloading automatically…';
+      'Speech service missing — downloading automatically…';
 
   @override
   String get infoModelMissing =>
@@ -1605,11 +1605,11 @@ class L10nEn extends L10n {
 
   @override
   String get errorSttServerNotFound =>
-      'Speech engine not found. Please download a speech model in Settings.';
+      'Speech service not found. Please download a speech model in Settings.';
 
   @override
   String get errorSttServerConnectionLost =>
-      'Speech engine stopped unexpectedly. Please try again.';
+      'Speech service stopped unexpectedly. Please try again.';
 
   @override
   String get errorSttCudaOom =>
@@ -1639,7 +1639,7 @@ class L10nEn extends L10n {
       'Transcription returned empty text — please try again';
 
   @override
-  String get errorSttServerFailed => 'Speech engine failed to start';
+  String get errorSttServerFailed => 'Speech service failed to start';
 
   @override
   String get errorSttModelIncompatibleRuntime =>
@@ -1663,7 +1663,7 @@ class L10nEn extends L10n {
 
   @override
   String get errorSttCpuFallbackFailed =>
-      'Speech engine failed on both GPU and CPU. Please restart the app or re-download the model.';
+      'Speech service failed on both GPU and CPU. Please restart the app or re-download the model.';
 
   @override
   String get errorPipelineTimeout =>
@@ -1679,7 +1679,7 @@ class L10nEn extends L10n {
 
   @override
   String get errorSttStartTimeout =>
-      'Speech engine is still starting. Please try again in a moment.';
+      'Speech service is still starting. Please try again in a moment.';
 
   @override
   String get errorTranscriptionTimeout =>
@@ -2105,7 +2105,7 @@ class L10nEn extends L10n {
 
   @override
   String get onboardingModelSubtitle =>
-      'Download the speech engine to dictate offline — your voice never leaves your device.';
+      'Download the speech model to dictate offline — your voice never leaves your device.';
 
   @override
   String get onboardingModelRecommended => 'Recommended for your device';
@@ -2397,7 +2397,7 @@ class L10nEn extends L10n {
 
   @override
   String get settingsSttIdleTimeoutSubtitle =>
-      'How long the speech engine stays loaded after use';
+      'How long the speech service stays loaded after use';
 
   @override
   String get settingsSttIdleTimeoutKeepAlive => 'Keep alive';
