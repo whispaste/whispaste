@@ -1,9 +1,11 @@
-import 'package:flutter/foundation.dart' show defaultTargetPlatform;
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, visibleForTesting;
 import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:window_manager/window_manager.dart';
+import '../../core/config/build_config.dart';
 import '../../core/config/settings_provider.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
@@ -15,12 +17,48 @@ import 'steps/microphone_step.dart';
 import 'steps/model_step.dart';
 import 'steps/ready_step.dart';
 
+/// Identifier for each step in the first-run onboarding flow.
+///
+/// The set of steps rendered by [OnboardingOverlay] varies by platform and
+/// build variant:
+/// - [autoPaste] is included only on macOS Developer-ID builds where
+///   [kAutoPasteSupported] is `true` (the user must grant Accessibility/TCC).
+/// - MAS builds and non-macOS platforms omit [autoPaste] entirely.
+enum OnboardingStepId { welcome, microphone, autoPaste, model, ready }
+
+/// Returns the ordered list of onboarding step IDs for the given platform and
+/// build configuration.
+///
+/// Extracted as a top-level function so unit tests can assert the exact step
+/// sequence without pumping the full widget tree or touching global state.
+/// Wire [kAutoPasteSupported] at the call site; pass it as a parameter here
+/// so tests can inject both `true` and `false` without a real MAS compile.
+///
+/// [autoPaste] is included when [platform] is [TargetPlatform.macOS] **and**
+/// [autoPasteSupported] is `true`. MAS builds pass `false`; non-macOS
+/// platforms never reach the macOS branch regardless.
+@visibleForTesting
+List<OnboardingStepId> buildOnboardingStepIds({
+  required TargetPlatform platform,
+  required bool autoPasteSupported,
+}) {
+  final isMacOs = platform == TargetPlatform.macOS;
+  return [
+    OnboardingStepId.welcome,
+    OnboardingStepId.microphone,
+    if (isMacOs && autoPasteSupported) OnboardingStepId.autoPaste,
+    OnboardingStepId.model,
+    OnboardingStepId.ready,
+  ];
+}
+
 /// Full-screen onboarding overlay with frosted glass backdrop.
 ///
 /// Sits on top of the main app shell in a [Stack]. Shows 4–5 steps with
 /// animated transitions, stepper dots, and a skip button. Step count is
-/// platform-dependent (see [_onboardingSteps]): macOS renders 5, Windows
-/// and Linux render 4. On completion (or skip) persists
+/// platform- and build-variant-dependent (see [buildOnboardingStepIds]):
+/// macOS Developer-ID renders 5 steps; macOS MAS, Windows, and Linux
+/// render 4 (Auto-Paste step omitted). On completion (or skip) persists
 /// [AppSettings.onboardingCompleted] = true.
 class OnboardingOverlay extends ConsumerStatefulWidget {
   const OnboardingOverlay({super.key});
@@ -28,16 +66,6 @@ class OnboardingOverlay extends ConsumerStatefulWidget {
   @override
   ConsumerState<OnboardingOverlay> createState() => _OnboardingOverlayState();
 }
-
-/// Platform-dependent identifier for each onboarding step.
-///
-/// The set of steps the overlay renders varies by platform: only macOS
-/// includes the Auto-Paste permission step, because macOS is the only host
-/// where the user actually has to grant something (Accessibility / TCC).
-/// Windows needs no extra permission in the 99 % case and Linux has no
-/// matching capability at all, so both platforms drop the step entirely to
-/// keep the onboarding flow tight.
-enum _OnboardingStepId { welcome, microphone, autoPaste, model, ready }
 
 class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
   int _currentStep = 0;
@@ -73,27 +101,17 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
   // Step sequence
   // ---------------------------------------------------------------------------
 
-  /// Returns the ordered step IDs for the current platform.
+  /// Returns the ordered step IDs for the current platform and build variant.
   ///
-  /// Only macOS includes [AutoPasteStep]: that platform requires the user to
-  /// grant the Accessibility permission before WhisPaste can simulate ⌘V,
-  /// and the diagnostic test paste in the step is the verifiable proof that
-  /// the grant landed. Windows and Linux skip the step entirely — Windows
-  /// because the SendInput bridge needs no permission in the 99 % case and
-  /// the test-paste sub-step was reading as "press a hotkey" during real
-  /// onboarding sessions, breaking the flow without delivering value; Linux
-  /// because the underlying capability is not supported there at all. The
-  /// rare Windows UIPI/UAC edge stays surfaced through the Settings paste
-  /// capability indicator instead of holding up first-run.
-  List<_OnboardingStepId> _onboardingSteps() {
-    final isMacOs = defaultTargetPlatform == TargetPlatform.macOS;
-    return [
-      _OnboardingStepId.welcome,
-      _OnboardingStepId.microphone,
-      if (isMacOs) _OnboardingStepId.autoPaste,
-      _OnboardingStepId.model,
-      _OnboardingStepId.ready,
-    ];
+  /// Delegates to [buildOnboardingStepIds], wiring [defaultTargetPlatform] and
+  /// [kAutoPasteSupported] from the build environment. MAS builds have
+  /// [kAutoPasteSupported] == `false` at compile time, so the Auto-Paste step
+  /// is omitted without any runtime branching on a separate flag.
+  List<OnboardingStepId> _onboardingSteps() {
+    return buildOnboardingStepIds(
+      platform: defaultTargetPlatform,
+      autoPasteSupported: kAutoPasteSupported,
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -142,19 +160,19 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
   // Step builder
   // ---------------------------------------------------------------------------
 
-  Widget _buildStep(_OnboardingStepId id) {
+  Widget _buildStep(OnboardingStepId id) {
     return switch (id) {
-      _OnboardingStepId.welcome => WelcomeStep(onNext: _goNext),
-      _OnboardingStepId.microphone => MicrophoneStep(
+      OnboardingStepId.welcome => WelcomeStep(onNext: _goNext),
+      OnboardingStepId.microphone => MicrophoneStep(
         onNext: _goNext,
         onBack: _goBack,
       ),
-      _OnboardingStepId.autoPaste => AutoPasteStep(
+      OnboardingStepId.autoPaste => AutoPasteStep(
         onNext: _goNext,
         onBack: _goBack,
       ),
-      _OnboardingStepId.model => ModelStep(onNext: _goNext, onBack: _goBack),
-      _OnboardingStepId.ready => ReadyStep(
+      OnboardingStepId.model => ModelStep(onNext: _goNext, onBack: _goBack),
+      OnboardingStepId.ready => ReadyStep(
         onComplete: _complete,
         onBack: _goBack,
       ),
@@ -287,9 +305,7 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
                             );
                           },
                           child: KeyedSubtree(
-                            key: ValueKey<_OnboardingStepId>(
-                              steps[safeCurrent],
-                            ),
+                            key: ValueKey<OnboardingStepId>(steps[safeCurrent]),
                             child: _buildStep(steps[safeCurrent]),
                           ),
                         ),
