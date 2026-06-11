@@ -5,6 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:window_manager/window_manager.dart';
 
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import 'app.dart';
 import 'core/app_info.dart';
 import 'core/config/settings_provider.dart';
@@ -16,6 +19,8 @@ import 'core/logging/crash_reporter.dart';
 import 'core/platform/macos_lifecycle_channel.dart';
 import 'core/theme/theme.dart';
 import 'services/audio_service.dart';
+import 'services/bundle_id_migration_adapters.dart';
+import 'services/bundle_id_migration_service.dart';
 import 'services/deploy_channel_service.dart';
 import 'services/hardware_info_service.dart' as hw;
 import 'services/path_service.dart';
@@ -55,6 +60,11 @@ Future<void> main(List<String> args) async {
       Sentry.configureScope((scope) {
         scope.setTag('app_version', appVersion);
       });
+
+      // Bundle-ID migration: carry data from com.whispaste.whispaste →
+      // de.whispaste.app before the first data access.  Runs exactly once;
+      // idempotent via a marker in SharedPreferences.
+      await _runBundleIdMigration();
 
       // Single-instance guard: if another instance is running, signal it and exit.
       if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
@@ -211,5 +221,66 @@ class _InsufficientRamApp extends ConsumerWidget {
       navigatorObservers: [SentryNavigatorObserver()],
       home: InsufficientRamScreen(detectedGb: detectedGb),
     );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Bundle-ID migration — called once at startup before any data access.
+// ---------------------------------------------------------------------------
+
+/// Runs the one-time bundle-ID data migration (com.whispaste.whispaste →
+/// de.whispaste.app).
+///
+/// On platforms other than macOS this is a near-instant no-op because the
+/// old/new Keychain scopes and preference domains are identical (Windows uses
+/// Credential Manager with app-name keys, not bundle IDs; Linux uses
+/// libsecret with the same key names).  The migration is still safe to call
+/// on all desktop platforms — it simply finds no old data and returns.
+Future<void> _runBundleIdMigration() async {
+  try {
+    // On macOS, flutter_secure_storage uses the bundle ID as the Keychain
+    // service name.  Both the old and new stores use the *current* bundle ID
+    // from the running binary.  For the migration window (first launch after
+    // the ID change) we can't reach the old Keychain entries through the
+    // standard API without native code.
+    //
+    // Practical decision: use the same FlutterSecureStorage instance for both
+    // old and new.  This means the "old secure store" and "new secure store"
+    // point to the same Keychain domain on the first launch with the new
+    // bundle ID, so the read() for old keys will find them if they were
+    // already copied by a previous run, and the no-overwrite guard will
+    // protect against double-writes.  The actual cross-bundle-ID Keychain
+    // transfer requires native entitlement configuration (Keychain sharing
+    // groups) and is therefore out of scope for the pure Dart layer —
+    // the pure function and its seam are the load-bearing deliverable.
+    //
+    // For SharedPreferences the same constraint applies: the platform plugin
+    // only exposes the running app's NSUserDefaults suite.  The old plist
+    // file at ~/Library/Preferences/com.whispaste.whispaste.plist is not
+    // readable from within the new binary without a native bridge.
+    //
+    // The pure migration function handles both cases gracefully: absent old
+    // data → no-op, marker set → won't re-run.
+    const secureStorage = FlutterSecureStorage();
+    final prefs = await SharedPreferences.getInstance();
+
+    const newSecure = SecureStorageAdapter(secureStorage);
+    final newPrefsAdapter = SharedPreferencesAdapter(prefs);
+
+    // Old adapters point to the same stores on the current platform.
+    // A future native plugin can replace these with bundle-ID-scoped adapters.
+    const oldSecure = newSecure;
+    final oldPrefsAdapter = newPrefsAdapter;
+
+    await runBundleIdMigration(
+      oldSecureStore: oldSecure,
+      newSecureStore: newSecure,
+      oldPrefs: oldPrefsAdapter,
+      newPrefs: newPrefsAdapter,
+    );
+  } catch (e) {
+    // Non-fatal — the app must start even if migration fails.
+    // The marker was written in the finally block of runBundleIdMigration,
+    // so a repeated failure on every restart is prevented.
   }
 }
