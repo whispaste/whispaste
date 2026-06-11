@@ -702,3 +702,205 @@ jobs:
             -MsixPath      '${{ steps.msix.outputs.path }}' `
             -WhatsNewEn    $wnEn `
             -WhatsNewDe    $wnDe
+
+  # ── Manifest-Auto-Bump ────────────────────────────────────────────────────────
+  # Updates version + SHA256 in all three packaging manifests as part of the release.
+  # Each channel step is fault-tolerant: a failed channel emits ::warning:: and
+  # continues without blocking the others.
+  # The bumped manifests are committed back to dev, which then triggers the
+  # packaging-validate workflow automatically. The explicit validate-packaging job
+  # below provides in-workflow dependency tracking (AC5 wiring).
+  manifest-bump:
+    name: Bump packaging manifests (Scoop · winget · Homebrew)
+    needs: [create-release]
+    if: |
+      !cancelled() &&
+      startsWith(github.ref, 'refs/tags/v') &&
+      needs.create-release.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out dev branch
+        uses: actions/checkout@v6
+        with:
+          ref: dev
+          fetch-depth: 1
+
+      - name: Resolve version
+        id: ver
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+
+      # ── Scoop ──────────────────────────────────────────────────────────────────
+      # Downloads the Windows ZIP from the just-published release, computes SHA256,
+      # and patches version + url + hash in packaging/scoop/whispaste.json.
+      # The checkver/autoupdate blocks stay intact for the Scoop bucket bot.
+      - name: Bump Scoop manifest
+        id: scoop
+        continue-on-error: true
+        run: |
+          VERSION="${{ steps.ver.outputs.version }}"
+          TAG="${{ steps.ver.outputs.tag }}"
+          URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/WhisPaste-${VERSION}-windows-x64.zip"
+
+          SHA256=$(curl -fsSL --retry 3 "$URL" | sha256sum | awk '{print $1}')
+          if [[ -z "$SHA256" ]]; then
+            echo "::warning::Scoop bump: could not compute SHA256 from $URL — skipped"
+            exit 0
+          fi
+
+          jq --indent 4 \
+            --arg v "$VERSION" --arg h "$SHA256" \
+            '.version = $v |
+             .architecture["64bit"].hash = $h |
+             .architecture["64bit"].url  = ("https://github.com/whispaste/whispaste/releases/download/v" + $v + "/WhisPaste-" + $v + "-windows-x64.zip")' \
+            packaging/scoop/whispaste.json > packaging/scoop/whispaste.json.tmp \
+          && mv packaging/scoop/whispaste.json.tmp packaging/scoop/whispaste.json
+          echo "::notice::Scoop manifest → $VERSION (sha256: ${SHA256:0:16}…)"
+
+      # ── winget ─────────────────────────────────────────────────────────────────
+      # Primary: wingetcreate update (downloads installer, computes SHA256, updates YAMLs).
+      # No --submit flag — local manifest update only; submit is a separate manual step.
+      # Fallback: direct YAML + SHA256 update via sed/curl (used until the package
+      # is indexed in winget-pkgs and wingetcreate update succeeds).
+      - name: Bump winget manifests (wingetcreate update — no submit)
+        id: winget
+        continue-on-error: true
+        run: |
+          VERSION="${{ steps.ver.outputs.version }}"
+          TAG="${{ steps.ver.outputs.tag }}"
+          INSTALLER_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/WhisPaste-Setup.exe"
+
+          export PATH="$PATH:$HOME/.dotnet/tools"
+
+          # Primary: wingetcreate update — no --submit, local output only.
+          if dotnet tool install --global Microsoft.WingetCreate --ignore-failed-sources 2>/dev/null \
+          && wingetcreate update SilvioLindstedt.WhisPaste \
+               --version "$VERSION" \
+               --urls    "$INSTALLER_URL" \
+               --out     packaging/winget \
+               --token   "${{ secrets.GITHUB_TOKEN }}" 2>&1; then
+            echo "::notice::winget manifests → $VERSION via wingetcreate (no submit)"
+            exit 0
+          fi
+
+          echo "::warning::wingetcreate update skipped or failed — falling back to direct YAML bump"
+
+          # Fallback: download installer, compute SHA256 (uppercase), update YAML inline.
+          SHA256=$(curl -fsSL --retry 3 "$INSTALLER_URL" | sha256sum | awk '{print $1}' | tr '[:lower:]' '[:upper:]')
+          if [[ -z "$SHA256" ]]; then
+            echo "::warning::winget bump: could not compute SHA256 from installer URL — skipped"
+            exit 0
+          fi
+
+          sed -i "s/^PackageVersion:.*/PackageVersion: $VERSION/"  packaging/winget/SilvioLindstedt.WhisPaste.yaml
+          sed -i "s/^PackageVersion:.*/PackageVersion: $VERSION/"  packaging/winget/SilvioLindstedt.WhisPaste.installer.yaml
+          sed -i "s/^PackageVersion:.*/PackageVersion: $VERSION/"  packaging/winget/SilvioLindstedt.WhisPaste.locale.en-US.yaml
+          sed -i "s|InstallerUrl:.*|InstallerUrl: $INSTALLER_URL|" packaging/winget/SilvioLindstedt.WhisPaste.installer.yaml
+          sed -i "s/InstallerSha256:.*/InstallerSha256: $SHA256/"  packaging/winget/SilvioLindstedt.WhisPaste.installer.yaml
+          echo "::notice::winget manifests → $VERSION (direct YAML bump, no submit)"
+
+      # ── Homebrew ───────────────────────────────────────────────────────────────
+      # Guard: only runs when notarization secrets are present, i.e. the macOS build
+      # was notarized. An unnotarized DMG must not be pushed to the Homebrew tap
+      # (Gatekeeper would quarantine it). Mirrors the signing-check idiom in build-macos.
+      - name: Check notarization secrets (Homebrew guard)
+        id: notarization_check
+        run: |
+          if [[ -z "${{ secrets.MACOS_DEVELOPER_ID_CERT_BASE64 }}" || \
+                -z "${{ secrets.MACOS_DEVELOPER_ID_CERT_PASSWORD }}" || \
+                -z "${{ secrets.ASC_API_KEY_BASE64 }}" ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::Homebrew bump: notarization secrets absent — cask bump skipped (requires notarized build)"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Bump Homebrew cask
+        id: homebrew
+        continue-on-error: true
+        if: steps.notarization_check.outputs.skip != 'true'
+        run: |
+          VERSION="${{ steps.ver.outputs.version }}"
+          TAG="${{ steps.ver.outputs.tag }}"
+          URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/WhisPaste-${VERSION}-macos-arm64.zip"
+
+          SHA256=$(curl -fsSL --retry 3 "$URL" | sha256sum | awk '{print $1}')
+          if [[ -z "$SHA256" ]]; then
+            echo "::warning::Homebrew bump: could not compute SHA256 from $URL — skipped"
+            exit 0
+          fi
+
+          sed -i "s/version \"[^\"]*\"/version \"$VERSION\"/" packaging/homebrew/whispaste.rb
+          sed -i "s/sha256 \"[^\"]*\"/sha256 \"$SHA256\"/"   packaging/homebrew/whispaste.rb
+          echo "::notice::Homebrew cask → $VERSION (sha256: ${SHA256:0:16}…)"
+
+      # ── Validate Scoop manifest inline before committing ───────────────────────
+      # Re-runs the same logic as packaging-validate.yml / scoop job to ensure the
+      # bumped JSON is valid before it lands on dev. The full 3-channel validation
+      # (including winget + Homebrew) runs in the validate-packaging job below.
+      - name: Validate bumped Scoop manifest (packaging-validate gate)
+        run: |
+          python3 - packaging/scoop/whispaste.json <<'PYEOF'
+          import json, sys, pathlib
+          data = json.loads(pathlib.Path(sys.argv[1]).read_text())
+          errors = []
+          if not data.get("version"):
+              errors.append("missing: version")
+          has_url  = bool(data.get("url"))
+          has_arch = isinstance(data.get("architecture"), dict)
+          if not has_url and not has_arch:
+              errors.append("missing: url / architecture")
+          has_hash      = bool(data.get("hash"))
+          has_arch_hash = any(
+              isinstance(v, dict) and v.get("hash")
+              for v in (data.get("architecture") or {}).values()
+          )
+          if not has_hash and not has_arch_hash:
+              errors.append("missing: hash / architecture.<arch>.hash")
+          if not data.get("bin"):
+              errors.append("missing: bin")
+          if not data.get("autoupdate"):
+              errors.append("missing: autoupdate")
+          if errors:
+              for e in errors:
+                  print(f"::error::{e}")
+              sys.exit(1)
+          print("  ✓ Scoop manifest valid")
+          PYEOF
+
+      # ── Commit and push bumped manifests to dev ─────────────────────────────────
+      # This push triggers packaging-validate.yml automatically (push: branches: dev,
+      # paths: packaging/**) and also feeds the explicit validate-packaging job below.
+      - name: Commit and push bumped manifests
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet packaging/; then
+            echo "No manifest changes to commit."
+            exit 0
+          fi
+
+          git add packaging/
+          git commit -m "chore(packaging): bump manifests to ${{ steps.ver.outputs.version }}"
+          git push origin dev
+
+  # ── Validate bumped manifests (full 3-channel, packaging-validate gate) ────────
+  # Runs the packaging-validate reusable workflow against the bumped manifests on dev.
+  # Depends on manifest-bump so it only starts after manifests are committed.
+  # Non-blocking: continue-on-error would be set here if this gate should warn rather
+  # than fail; currently it is a hard gate (failures are visible in the release run).
+  validate-packaging:
+    name: Validate bumped packaging manifests (packaging-validate gate)
+    needs: [manifest-bump]
+    if: |
+      !cancelled() &&
+      startsWith(github.ref, 'refs/tags/v') &&
+      needs.manifest-bump.result == 'success'
+    uses: ./.github/workflows/packaging-validate.yml
+    with:
+      ref: dev
