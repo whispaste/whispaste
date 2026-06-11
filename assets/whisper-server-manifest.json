@@ -10,7 +10,8 @@
       "backend": "cpu",
       "url": "https://github.com/whispaste/whispaste/releases/download/whisper-server-v1.8.4.4/whisper-server-cpu-x64.zip",
       "size_bytes": 14873526,
-      "source": "whispaste"
+      "source": "whispaste",
+      "sha256": "26eee5acc8383fa4d4f07617c3aec0c460a4e2d4f3208d3d0534b9e0058b7d3b"
     },
     {
       "platform": "macos",
@@ -18,7 +19,8 @@
       "backend": "metal",
       "url": "https://github.com/whispaste/whispaste/releases/download/whisper-server-v1.8.4.4/whisper-server-metal-arm64.zip",
       "size_bytes": 1255919,
-      "source": "whispaste"
+      "source": "whispaste",
+      "sha256": "95386932042094221d9f937b5482304ea0e6f934d932fa519f69a356bb68125f"
     },
     {
       "platform": "windows",
@@ -26,7 +28,8 @@
       "backend": "vulkan",
       "url": "https://github.com/whispaste/whispaste/releases/download/whisper-server-v1.8.4.4/whisper-server-vulkan-x64.zip",
       "size_bytes": 17706788,
-      "source": "whispaste"
+      "source": "whispaste",
+      "sha256": "2c52ba63ed2e4bad55803ddf62f73f1ae8f7966c9835efb3b164eddbeb55e006"
     },
     {
       "platform": "windows",

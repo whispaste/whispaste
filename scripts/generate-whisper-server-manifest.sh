@@ -35,14 +35,27 @@ GENERATED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 # release exists; we therefore cannot query the release's own assets here.
 # Download URLs are deterministic from the tag + filename; sizes come from
 # the staged files. This also removes the old CDN-propagation retry hack.
+
+# Compute the SHA-256 hex digest of a file. Works on both Linux (sha256sum)
+# and macOS (shasum -a 256) without external deps.
+sha256_of() {
+  local f="$1"
+  if command -v sha256sum &>/dev/null; then
+    sha256sum "$f" | awk '{print $1}'
+  else
+    shasum -a 256 "$f" | awk '{print $1}'
+  fi
+}
+
 emit_whispaste_rows() {
   shopt -s nullglob
-  local f name size
+  local f name size digest
   for f in "$ASSETS_DIR"/*.zip; do
     name="$(basename "$f")"
-    size="$(stat -c%s "$f")"
-    printf 'whispaste\t%s\t%s\thttps://github.com/whispaste/whispaste/releases/download/%s/%s\n' \
-      "$name" "$size" "$WHISPER_SERVER_TAG" "$name"
+    size="$(stat -c%s "$f" 2>/dev/null || stat -f%z "$f")"
+    digest="$(sha256_of "$f")"
+    printf 'whispaste\t%s\t%s\t%s\thttps://github.com/whispaste/whispaste/releases/download/%s/%s\n' \
+      "$name" "$size" "$digest" "$WHISPER_SERVER_TAG" "$name"
   done
 }
 
@@ -87,22 +100,39 @@ classify() {
   printf '%s\t%s\t%s\t%s\n' "$platform" "$arch" "$backend" "$source"
 }
 
-# Render the binaries array. Each line of the input arrives as
-# "<source>\t<name>\t<size>\t<url>".
+# Render the binaries array.
+#
+# WhisPaste rows (from emit_whispaste_rows):
+#   "<source>\t<name>\t<size>\t<sha256>\t<url>"
+# Upstream rows (from jq on the GitHub API response):
+#   "upstream\t<name>\t<size>\t\t<url>"  (empty sha256 field)
 {
   emit_whispaste_rows
-  echo "$UPSTREAM_ASSETS"  | jq -r '.[] | "upstream\t\(.name)\t\(.size_bytes)\t\(.url)"'
-} | while IFS=$'\t' read -r source name size url; do
+  # Inject an empty sha256 field as the 4th column for upstream assets.
+  echo "$UPSTREAM_ASSETS" | jq -r '.[] | "upstream\t\(.name)\t\(.size_bytes)\t\t\(.url)"'
+} | while IFS=$'\t' read -r source name size digest url; do
   if classified=$(classify "$name" "$source"); then
     IFS=$'\t' read -r platform arch backend _ <<< "$classified"
-    jq -n \
-      --arg platform "$platform" \
-      --arg arch "$arch" \
-      --arg backend "$backend" \
-      --arg url "$url" \
-      --argjson size "$size" \
-      --arg source "$source" \
-      '{platform: $platform, arch: $arch, backend: $backend, url: $url, size_bytes: $size, source: $source}'
+    if [[ -n "$digest" ]]; then
+      jq -n \
+        --arg platform "$platform" \
+        --arg arch "$arch" \
+        --arg backend "$backend" \
+        --arg url "$url" \
+        --argjson size "$size" \
+        --arg source "$source" \
+        --arg sha256 "$digest" \
+        '{platform: $platform, arch: $arch, backend: $backend, url: $url, size_bytes: $size, source: $source, sha256: $sha256}'
+    else
+      jq -n \
+        --arg platform "$platform" \
+        --arg arch "$arch" \
+        --arg backend "$backend" \
+        --arg url "$url" \
+        --argjson size "$size" \
+        --arg source "$source" \
+        '{platform: $platform, arch: $arch, backend: $backend, url: $url, size_bytes: $size, source: $source}'
+    fi
   fi
 done | jq -s --arg tag "$WHISPER_SERVER_TAG" \
               --arg cpp "$WHISPER_CPP_RELEASE" \
