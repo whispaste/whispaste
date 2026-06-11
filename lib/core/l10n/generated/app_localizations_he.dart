@@ -1970,16 +1970,6 @@ class L10nHe extends L10n {
       'לדוגמה: com.apple.Terminal, com.1password';
 
   @override
-  String get settingsTextReplacements => 'החלפות טקסט';
-
-  @override
-  String get settingsTextReplacementsSubtitle =>
-      'החלף אוטומטית מילים או ביטויים אחרי תמלול';
-
-  @override
-  String get settingsTextReplacementsEnabled => 'הפעל החלפות טקסט';
-
-  @override
   String get settingsCheckUpdates => 'בדוק עדכונים';
 
   @override

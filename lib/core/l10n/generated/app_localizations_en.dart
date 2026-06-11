@@ -2015,16 +2015,6 @@ class L10nEn extends L10n {
       'e.g. com.apple.Terminal, com.1password';
 
   @override
-  String get settingsTextReplacements => 'Text Replacements';
-
-  @override
-  String get settingsTextReplacementsSubtitle =>
-      'Automatically replace specific words or phrases after transcription';
-
-  @override
-  String get settingsTextReplacementsEnabled => 'Enable Text Replacements';
-
-  @override
   String get settingsCheckUpdates => 'Check for Updates';
 
   @override
