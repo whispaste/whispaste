@@ -197,30 +197,8 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
     // comparison is unnecessary.
     final inputGain = settings?.audioInput.inputGain ?? 1.0;
     final useUserGain = inputGain != 1.0;
-    InputDevice? selectedDevice;
 
-    if (micLabel != 'Default') {
-      try {
-        final devices = await recorder.listInputDevices();
-        _log.info(
-          'Enumerated ${devices.length} input devices: '
-          '[${devices.map((d) => '"${d.label}"#${d.id}').join(", ")}]',
-        );
-        for (final d in devices) {
-          if (d.label == micLabel) {
-            selectedDevice = d;
-            break;
-          }
-        }
-        if (selectedDevice == null) {
-          _log.warning(
-            'Configured mic "$micLabel" NOT found — falling back to system default',
-          );
-        }
-      } on Exception catch (e) {
-        _log.warning('Failed to enumerate input devices: $e');
-      }
-    }
+    final selectedDevice = await _resolveInputDevice(recorder, micLabel);
 
     final libraryAutoGain = !useUserGain;
 
@@ -234,34 +212,7 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
     // Flip the system default to the chosen device for the recording's
     // lifetime; restore in stop/error paths. `_originalDefaultInputUid` is
     // also our "active override" flag.
-    _originalDefaultInputUid = null;
-    if (selectedDevice != null && _audioRouting.isSupported) {
-      final originalUid = await _audioRouting.getDefaultInputDevice();
-      if (originalUid != null && originalUid != selectedDevice.id) {
-        final ok = await _audioRouting.setDefaultInputDevice(selectedDevice.id);
-        if (ok) {
-          _originalDefaultInputUid = originalUid;
-          _log.info(
-            'Routing override: default input $originalUid → ${selectedDevice.id}',
-          );
-          // Settle window: CoreAudio's `kAudioHardwarePropertyDefaultInputDevice`
-          // switch returns immediately but the HAL needs a moment to bring the
-          // newly-default device into a live state (esp. the built-in mic,
-          // which macOS power-saves when idle). AVAudioEngine queries the
-          // default at `start()` time — without this wait the engine binds to
-          // a device that's still spinning up and the first 100–500 ms of
-          // PCM frames come through silent (or the stream returns no frames
-          // at all, which whisper.cpp rejects as "failed to read audio data").
-          // Poll the default-UID until it matches what we just set, with a
-          // hard cap so we never block startup forever on a flaky HAL.
-          await _waitForDefaultInputSwitch(selectedDevice.id);
-        } else {
-          _log.warning(
-            'Routing override failed — recording will use system default',
-          );
-        }
-      }
-    }
+    await _applyInputRoutingOverride(selectedDevice);
 
     _log.info(
       'Start recording → $wavPath | '
@@ -277,24 +228,7 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
     _gainProcessor = useUserGain ? PcmGainProcessor(gain: inputGain) : null;
 
     // Prepare amplitude stream and PCM-side helpers.
-    _amplitudeController?.close();
-    _amplitudeController = StreamController<double>.broadcast();
-
-    final amplitudeFromPcm = AmplitudeFromPcm(
-      pollInterval: amplitudePollInterval,
-    );
-    _amplitudeFromPcm = amplitudeFromPcm;
-
-    const levelMapper = SpeechLevelMapper();
-    _ampSub?.cancel();
-    _ampSub = amplitudeFromPcm.stream.listen(
-      (dbFs) {
-        _amplitudeController?.add(levelMapper.map(dbFs));
-      },
-      onError: (Object e) {
-        dev.log('Amplitude error: $e', name: 'AudioService');
-      },
-    );
+    final amplitudeFromPcm = _initAmplitudeStream();
 
     // Open the WAV writer up-front so the file exists from t=0.
     FilePcmSink? pcmSink;
@@ -374,6 +308,96 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
       captureState: AudioCaptureState.recording,
       filePath: wavPath,
     );
+  }
+
+  /// Resolves the configured microphone label to an [InputDevice] by
+  /// enumerating available inputs. Returns `null` when the label is
+  /// `'Default'` or when the named device is not found (falls back to
+  /// the system default).
+  Future<InputDevice?> _resolveInputDevice(
+    AudioRecorder recorder,
+    String micLabel,
+  ) async {
+    if (micLabel == 'Default') return null;
+
+    try {
+      final devices = await recorder.listInputDevices();
+      _log.info(
+        'Enumerated ${devices.length} input devices: '
+        '[${devices.map((d) => '"${d.label}"#${d.id}').join(", ")}]',
+      );
+      for (final d in devices) {
+        if (d.label == micLabel) return d;
+      }
+      _log.warning(
+        'Configured mic "$micLabel" NOT found — falling back to system default',
+      );
+    } on Exception catch (e) {
+      _log.warning('Failed to enumerate input devices: $e');
+    }
+    return null;
+  }
+
+  /// Applies the macOS system-default-input routing override for [device] when
+  /// the audio-routing service is supported and the device differs from the
+  /// current default.
+  ///
+  /// Sets [_originalDefaultInputUid] so [_restoreDefaultInputRouting] can undo
+  /// the override on stop/error. No-op when [device] is `null`, the routing
+  /// service is unsupported, or the device is already the system default.
+  Future<void> _applyInputRoutingOverride(InputDevice? device) async {
+    _originalDefaultInputUid = null;
+    if (device == null || !_audioRouting.isSupported) return;
+
+    final originalUid = await _audioRouting.getDefaultInputDevice();
+    if (originalUid == null || originalUid == device.id) return;
+
+    final ok = await _audioRouting.setDefaultInputDevice(device.id);
+    if (ok) {
+      _originalDefaultInputUid = originalUid;
+      _log.info('Routing override: default input $originalUid → ${device.id}');
+      // Settle window: CoreAudio's `kAudioHardwarePropertyDefaultInputDevice`
+      // switch returns immediately but the HAL needs a moment to bring the
+      // newly-default device into a live state (esp. the built-in mic,
+      // which macOS power-saves when idle). AVAudioEngine queries the
+      // default at `start()` time — without this wait the engine binds to
+      // a device that's still spinning up and the first 100–500 ms of
+      // PCM frames come through silent (or the stream returns no frames
+      // at all, which whisper.cpp rejects as "failed to read audio data").
+      // Poll the default-UID until it matches what we just set, with a
+      // hard cap so we never block startup forever on a flaky HAL.
+      await _waitForDefaultInputSwitch(device.id);
+    } else {
+      _log.warning(
+        'Routing override failed — recording will use system default',
+      );
+    }
+  }
+
+  /// Tears down any existing amplitude stream and creates a fresh
+  /// [AmplitudeFromPcm] + [StreamController] pair for the new recording
+  /// session. Returns the [AmplitudeFromPcm] instance so callers can feed
+  /// PCM chunks to it.
+  AmplitudeFromPcm _initAmplitudeStream() {
+    _amplitudeController?.close();
+    _amplitudeController = StreamController<double>.broadcast();
+
+    final amplitudeFromPcm = AmplitudeFromPcm(
+      pollInterval: amplitudePollInterval,
+    );
+    _amplitudeFromPcm = amplitudeFromPcm;
+
+    const levelMapper = SpeechLevelMapper();
+    _ampSub?.cancel();
+    _ampSub = amplitudeFromPcm.stream.listen(
+      (dbFs) {
+        _amplitudeController?.add(levelMapper.map(dbFs));
+      },
+      onError: (Object e) {
+        dev.log('Amplitude error: $e', name: 'AudioService');
+      },
+    );
+    return amplitudeFromPcm;
   }
 
   /// Tears down active recording resources after a fatal mid-recording
