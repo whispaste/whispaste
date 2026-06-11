@@ -57,14 +57,30 @@ canon="$(perl -0777 -ne '
 ' "$GLOSSARY" 2>/dev/null || true)"
 
 # Öffentliche Docs, deren PROSA der Implementierung folgen muss.
+# INLINE = wird dem LLM wörtlich vorgelegt (One-Shot-Prompt, kein Datei-Zugriff).
+# Deckt die öffentlich sichtbaren Kern-Artefakte ab: README, Security-Policy,
+# CHANGELOG (gekappt), die STORE-LISTING-Texte (store/*.md) und die driftträchtigsten
+# Website-Seiten (Home + Download, DE+EN).
 INLINE_DOCS=(
   "README.md"
+  "SECURITY.md"
   "CHANGELOG.md"
+  "store/README.md"
+  "store/dmg-distribution.md"
+  "store/microsoft-store-long-description.md"
+  "website/src/pages/index.astro"
+  "website/src/pages/en/index.astro"
+  "website/src/pages/download.astro"
+  "website/src/pages/en/download.astro"
 )
+# LISTED = ein Agent mit Repo-Zugriff soll diese zusätzlich öffnen (zu groß/zu viele
+# zum vollständigen Inlinen pro Lauf — der deterministische docs-attest deckt sie
+# strukturell ohnehin ab).
 LISTED_DOCS=(
-  "website/src/pages/index.astro · website/src/pages/en/index.astro (Hero/Feature-Liste)"
-  "website/src/pages/download.astro · website/src/pages/en/download.astro (Plattform-/Store-CTAs)"
-  "website/src/pages/whisper-desktop.astro · …/offline-speech-to-text.astro (Feature-Beschreibungen)"
+  "website/src/pages/whisper-desktop.astro · …/offline-speech-to-text.astro · …/screenshots.astro (DE+EN)"
+  "website/src/pages/vergleich/*.astro · en/comparison/*.astro (Vergleichs-Seiten)"
+  "website/src/pages/use-cases/*.astro · en/use-cases/*.astro"
+  "website/src/pages/datenschutz.astro · en/privacy.astro · privatsphaere-spracherkennung.astro · en/privacy-speech-recognition.astro"
   "website/src/data/platforms.ts (Plattform/Store-SSoT)"
 )
 
@@ -75,6 +91,10 @@ prompt="$(mktemp)"
 You are a documentation-drift auditor for WhisPaste (a cross-platform offline
 voice-input desktop app — Windows/macOS/Linux). Below is the CURRENT
 implementation ground truth (derived from code/data), then the public-facing docs.
+The inlined docs include the README, security policy, CHANGELOG, the Microsoft
+Store / DMG store-listing copy (store/*.md), and the website home + download pages
+(DE+EN). Review EVERY inlined file — store listings and the website count as much
+as the README.
 
 Find prose, examples, or claims that CONTRADICT, UNDERSTATE, or OMIT what the
 product actually ships now — the semantic staleness a structural linter cannot
@@ -116,8 +136,13 @@ EOF
     [ -f "$ROOT/$d" ] || continue
     echo ""
     echo "===== FILE: $d ====="
-    # CHANGELOG kann lang sein -> auf die obersten ~120 Zeilen begrenzen (neueste Releases).
-    if [ "$d" = "CHANGELOG.md" ]; then head -120 "$ROOT/$d"; else cat "$ROOT/$d"; fi
+    # Token-Bound: CHANGELOG (historisch lang) und .astro (Markup) kappen; die
+    # kleinen Prosa-/Store-/Policy-Dateien vollständig inlinen.
+    case "$d" in
+      CHANGELOG.md) head -120 "$ROOT/$d" ;;
+      *.astro)      head -300 "$ROOT/$d" ;;
+      *)            cat "$ROOT/$d" ;;
+    esac
   done
 } > "$prompt"
 

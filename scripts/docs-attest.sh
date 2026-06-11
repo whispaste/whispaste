@@ -64,13 +64,34 @@ check_readme() {
     [ -e "$ROOT/$r" ] || note "README verweist auf fehlenden lokalen Pfad: $r"
   done <<< "$refs"
 
-  # (c) Anti-Vokabular (nur ABSOLUT verbotene Begriffe — kontrastiv-erlaubte
-  #     bleiben dem nuancierten seo-audit-Skill überlassen, 0 False-Positives hier).
+}
+
+# Öffentliche Prosa-Artefakte jenseits der Website — getrackt, nicht-gitignored:
+# Root-READMEs/Policies + die Store-Listing-Texte unter store/. Anti-Vokabular und
+# Removed-Features gelten hier genauso. CHANGELOG.md ist BEWUSST ausgenommen:
+# historische „… entfernt"-Notizen (z. B. „Groq removed") sind dort legitim.
+public_docs() {
+  local f
+  for f in "$README" "$ROOT/SECURITY.md" "$ROOT/CONTRIBUTING.md"; do
+    [ -f "$f" ] && echo "$f"
+  done
+  [ -d "$ROOT/store" ] && find "$ROOT/store" -name '*.md' -type f 2>/dev/null
+}
+
+# Anti-Vokabular über ALLE öffentlichen Prosa-Artefakte (README, SECURITY, Store-
+# Listings). Nur ABSOLUT verbotene Begriffe — kontrastiv-erlaubte bleiben dem
+# nuancierten seo-audit-Skill + dem Soft-Drift-Check überlassen (0 False-Positives).
+check_antivocab() {
   local abs; abs="$(absolute_antivocab_terms)"
-  while IFS= read -r t; do
-    [ -z "$t" ] && continue
-    if grep -qiF -- "$t" "$README"; then note "README enthält Anti-Vokabular: \"$t\""; fi
-  done <<< "$abs"
+  [ -z "$abs" ] && return 0
+  local f t
+  while IFS= read -r f; do
+    [ -z "$f" ] && continue
+    while IFS= read -r t; do
+      [ -z "$t" ] && continue
+      if grep -qiF -- "$t" "$f"; then note "Anti-Vokabular \"$t\" in ${f#$ROOT/}"; fi
+    done <<< "$abs"
+  done <<< "$(public_docs)"
 }
 
 # Extrahiert aus brand-glossary.ts die `term`-Werte, deren Eintrag NICHT
@@ -148,9 +169,13 @@ check_platform_store() {
   done
 
   # (D) macOS-Arch-Konsistenz: arm64-Build ist der einzige; kein Intel/x64-Claim
-  #     für macOS in der Website-Quelle.
-  if grep -qiE 'mac.*(intel|x64|x86_64)' "$WEBSRC"/pages/*.astro 2>/dev/null; then
-    note "macOS Intel/x64-Behauptung in der Website-Quelle (es gibt nur Apple-Silicon-arm64)"
+  #     für macOS in der Website-Quelle. Rekursiv über ALLE Seiten (inkl.
+  #     en/, vergleich/, use-cases/) — nicht nur top-level.
+  local macintel
+  macintel="$(grep -rliE 'mac.{0,12}(intel|x86_64)' --include='*.astro' "$WEBSRC/pages" 2>/dev/null || true)"
+  if [ -n "$macintel" ]; then
+    note "macOS Intel/x86_64-Behauptung in der Website-Quelle (es gibt nur Apple-Silicon-arm64):"
+    echo "$macintel" | sed "s|$ROOT/|    |"
   fi
 }
 
@@ -161,7 +186,9 @@ check_platform_store() {
 check_removed_features() {
   local terms=( 'Groq' 'Smart Mode' 'Smart-Korrektur' 'Anthropic STT' 'Gemini STT' 'Command palette' )
   local t files
-  files="$README"
+  # Alle öffentlichen Prosa-Artefakte (README, SECURITY, store/*.md) + ALLE
+  # Website-Seiten rekursiv (inkl. en/, vergleich/, use-cases/).
+  files="$(public_docs | tr '\n' ' ')"
   [ -d "$WEBSRC/pages" ] && files="$files $(find "$WEBSRC/pages" -name '*.astro' -type f 2>/dev/null | tr '\n' ' ')"
   for t in "${terms[@]}"; do
     local hits; hits="$(grep -ilF -- "$t" $files 2>/dev/null || true)"
@@ -212,12 +239,13 @@ cmd_check() {
   fail=0
   [ -f "$SPEC" ] || echo "  ⚠ ${SPEC#$ROOT/} nicht vorhanden (lokal/gitignored) — README-Marker-Checks übersprungen." >&2
   check_readme
+  check_antivocab
   check_version_sync
   check_platform_store
   check_removed_features
   check_i18n
   [ "$fail" -eq 0 ] || { echo "Public-Docs-QS (check) fehlgeschlagen." >&2; exit 1; }
-  echo "Public-Docs-QS check: ok (README · version-sync · platform/store-SSoT · removed-features · i18n)"
+  echo "Public-Docs-QS check: ok (README+SECURITY+store · anti-vocab · version-sync · platform/store-SSoT · removed-features · i18n)"
 }
 
 cmd_attest() {
