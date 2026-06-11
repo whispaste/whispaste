@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.2.38
+
+### Bug Fixes
+
+- **Diktat geht nicht mehr verloren, wenn eine Aufnahme schnell wieder gestoppt wird.** Beim Stoppen konnte ein noch laufender, nicht abgewarteter Schreibvorgang den WAV-Header mit Null-Größen zurücklassen; der Sprachdienst lehnte eine solche Datei mit `HTTP 400 „Invalid request"` ab und die Transkription ging verloren (`FLUTTER_WHISPASTE-7X`). Die Aufnahme-Pipeline serialisiert die Schreibvorgänge jetzt und repariert vor der Inferenz fehlerhafte RIFF/data-Größenfelder.
+- **GPU-Sprachserver landet nicht mehr in einer cuda↔vulkan-Endlosschleife, sondern fällt zuverlässig auf die CPU zurück (alte NVIDIA-Karten).** Ein per Recovery installierter Vulkan-Build wurde auf einer cuda-optimalen Karte fälschlich als inkompatibel gelöscht und der abstürzende cuda-Build erneut geladen — die Recovery erschöpfte sich, ohne je den CPU-Build zu versuchen (`FLUTTER_WHISPASTE-A0`). Kompatibilität heißt jetzt „auf dieser Maschine lauffähig", nicht „optimal"; gewollte Downgrades bleiben bestehen.
+- **Der ausgelieferte CPU/BLAS-Fallback wird auf Vulkan-optimalen Maschinen nicht mehr bei jedem Start gelöscht.** Eine DLL-Heuristik stufte einen CPU-Floor-Build ohne `.server-info.json` (unter MSIX beobachtet) als inkompatibel ein und löste denselben Lösch-→-Neudownload-→-Crash-Kreis aus. Die Heuristik unterscheidet jetzt CPU-Floor- von GPU-Builds.
+- **Stille und Hintergrundgeräusche fügen keine Platzhalter mehr in den Text ein.** Tags wie `[Musik]`, `[BLANK_AUDIO]` oder `[Applause]` werden vor dem Einfügen/Speichern entfernt; ein reiner Marker-Text wird korrekt als leere Transkription behandelt. In Klammern diktierter Text bleibt unangetastet.
+- **Hinweise bei fehlendem Sprachmodell oder Sprachdienst sind jetzt anklickbar.** Die zuvor passiven Hinweis-Toasts („in den Einstellungen herunterladen") tragen jetzt eine „Einstellungen öffnen"-Aktion, die direkt zum richtigen Bereich springt.
+- **Einheitliche Bezeichnung „Sprachdienst" in der gesamten Oberfläche.** Die zuvor vermischten Begriffe „Sprach-Engine", „Sprachmodul" und „Sprachdienst" sind vereinheitlicht (EN: „speech service"); der Modell-Schritt im Onboarding spricht korrekt vom „Sprachmodell".
+- **Doppelte Überschrift im Bereich „Nach der Transkription" entfernt.** Die Aktions-Auswahl wiederholte den Sektionstitel wörtlich; sie trägt jetzt ein eigenes „Aktion"-Label.
+- **Toter Apple-Store-Bewertungslink entfernt.** Bewerten-Pfad ist jetzt plattformgerecht (Windows-Store-Link bzw. GitHub-Stern), ohne strukturell ungültige `apps.apple.com`-URL.
+
+### Features
+
+- **Neue Installationswege: Scoop, winget und Homebrew.** Zusätzlich zum Installer und der Microsoft-Store-Variante stehen jetzt Paketmanager-Manifeste für Scoop, winget (Windows) und Homebrew-Cask (macOS) bereit; die Download-Seite dokumentiert die Scoop-Installation.
+- **Das eigenständige Diagnose-Werkzeug listet jetzt alle Installations-Datenpfade nebeneinander.** Koexistieren eine EXE-Installation und eine oder mehrere MSIX-`LocalCache`-Installationen, zeigt der Report jeden gefundenen Datenpfad mit Variantenbezeichnung, statt stillschweigend einen auszuwählen.
+- **Einmalige, idempotente Datenmigration für den Bundle-ID-Wechsel.** API-Schlüssel und Einstellungen werden beim ersten Start einmalig übernommen, ohne vorhandene Daten zu überschreiben.
+- **Onboarding passt sich der Auto-Einfügen-Unterstützung an.** Auf Builds ohne automatisches Einfügen entfallen die nicht zutreffenden Auto-Einfügen-/Bedienungshilfen-Schritte.
+
 ## 1.2.37
 
 ### Bug Fixes
