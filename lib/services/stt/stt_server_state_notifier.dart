@@ -550,6 +550,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     final json = jsonDecode(responseBody) as Map<String, dynamic>;
     var text = (json['text'] as String? ?? '').trim();
 
+    text = _stripNonSpeechMarkers(text);
     text = _collapseRepetitions(text);
 
     if (text.isNotEmpty) {
@@ -2135,6 +2136,32 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       // Leave whatever state ensureRunning left us in; if it set an
       // error message, the UI already has something to show.
     }
+  }
+
+  /// Strips whisper.cpp non-speech annotations from the transcript.
+  ///
+  /// On silence or background noise, whisper emits bracketed sound tags
+  /// instead of words — `[Musik]`, `[Music]`, `[BLANK_AUDIO]`, `[Applause]`,
+  /// `[ Pause ]` and the like. These are never something the user dictated,
+  /// yet they were being pasted into the active text field and saved to the
+  /// history. whisper.cpp wraps these markers in square brackets, so we drop
+  /// any token wholly enclosed in `[...]`. Round brackets are deliberately
+  /// left untouched — a user may legitimately dictate parenthesised text,
+  /// whereas square brackets effectively never occur in spoken input.
+  ///
+  /// If the whole transcript was nothing but such markers the result is the
+  /// empty string, which the orchestrator already surfaces as
+  /// `transcription_empty` instead of inserting noise.
+  String _stripNonSpeechMarkers(String text) {
+    if (text.isEmpty) return text;
+    final stripped = text
+        .replaceAll(RegExp(r'\[[^\]]*\]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    if (stripped != text) {
+      _log.info('Stripped non-speech markers from transcript');
+    }
+    return stripped;
   }
 
   String _collapseRepetitions(String text) {
