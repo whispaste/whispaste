@@ -3,6 +3,7 @@
 library;
 
 import 'dart:convert' show jsonDecode;
+import 'dart:io' show Platform;
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -264,6 +265,112 @@ void main() {
       expect(result.reason, contains('linux/x64'));
       expect(result.reason, contains('whisper-server-test'));
     });
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Linux binary selection (AC1 + AC2)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  group('Linux binary selection', () {
+    // Fixture manifest with Linux x64 and arm64 CPU entries.
+    final linuxManifest = WhisperServerManifest.fromJson({
+      'schema_version': 1,
+      'whisper_server_tag': 'whisper-server-linux-test',
+      'whisper_cpp_release': 'v1.8.4',
+      'generated_at': '2026-01-01T00:00:00Z',
+      'binaries': [
+        _bin('linux', 'x64', 'cpu'),
+        _bin('linux', 'arm64', 'cpu'),
+        _bin('macos', 'arm64', 'metal'),
+        _bin('windows', 'x64', 'cpu'),
+      ],
+    });
+
+    test('linux/x64 CPU host selects linux/x64/cpu', () {
+      const selector = WhisperBinarySelector();
+      final result = selector.select(
+        manifest: linuxManifest,
+        gpu: const hw.GpuInfo(vendor: hw.GpuVendor.none, name: 'none'),
+        gpuMode: 'auto',
+        platformOverride: 'linux',
+        archOverride: 'x64',
+      );
+      expect(result.hasBinary, isTrue);
+      expect(result.binary!.platform, 'linux');
+      expect(result.binary!.arch, 'x64');
+      expect(result.binary!.backend, 'cpu');
+    });
+
+    test('linux/arm64 CPU host selects linux/arm64/cpu', () {
+      const selector = WhisperBinarySelector();
+      final result = selector.select(
+        manifest: linuxManifest,
+        gpu: const hw.GpuInfo(vendor: hw.GpuVendor.none, name: 'none'),
+        gpuMode: 'auto',
+        platformOverride: 'linux',
+        archOverride: 'arm64',
+      );
+      expect(result.hasBinary, isTrue);
+      expect(result.binary!.platform, 'linux');
+      expect(result.binary!.arch, 'arm64');
+      expect(result.binary!.backend, 'cpu');
+    });
+
+    test('linux/arm64 host → clean miss when manifest has no arm64 entry', () {
+      final x64OnlyManifest = WhisperServerManifest.fromJson({
+        'schema_version': 1,
+        'whisper_server_tag': 'whisper-server-x64-only',
+        'whisper_cpp_release': 'v1',
+        'generated_at': '2026-01-01T00:00:00Z',
+        'binaries': [_bin('linux', 'x64', 'cpu')],
+      });
+      const selector = WhisperBinarySelector();
+      final result = selector.select(
+        manifest: x64OnlyManifest,
+        gpu: const hw.GpuInfo(vendor: hw.GpuVendor.none, name: 'none'),
+        gpuMode: 'auto',
+        platformOverride: 'linux',
+        archOverride: 'arm64',
+      );
+      expect(result.hasBinary, isFalse);
+      expect(result.reason, isNotNull);
+      expect(result.reason, contains('linux/arm64'));
+      expect(result.reason, contains('whisper-server-x64-only'));
+    });
+
+    // AC1 — verify that _hostArch() uses the real host arch (no archOverride).
+    // On macOS the result must be arm64 (macOS behaviour unchanged).
+    test(
+      '_hostArch() returns arm64 on macOS (macOS behaviour unchanged)',
+      () {
+        final multiArchManifest = WhisperServerManifest.fromJson({
+          'schema_version': 1,
+          'whisper_server_tag': 'test',
+          'whisper_cpp_release': 'v1',
+          'generated_at': '2026-01-01T00:00:00Z',
+          'binaries': [
+            _bin('macos', 'arm64', 'metal'),
+            _bin('macos', 'x64', 'metal'),
+          ],
+        });
+        const selector = WhisperBinarySelector();
+        // platformOverride fixes the platform; archOverride is omitted so
+        // _hostArch() is exercised.
+        final result = selector.select(
+          manifest: multiArchManifest,
+          gpu: const hw.GpuInfo(vendor: hw.GpuVendor.apple, name: 'Apple'),
+          gpuMode: 'auto',
+          platformOverride: 'macos',
+        );
+        expect(result.hasBinary, isTrue);
+        expect(
+          result.binary!.arch,
+          'arm64',
+          reason: 'macOS host should always resolve to arm64',
+        );
+      },
+      skip: Platform.isMacOS ? null : 'macOS-only arch verification',
+    );
   });
 }
 

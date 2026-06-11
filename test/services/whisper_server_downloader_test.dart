@@ -11,9 +11,12 @@
 library;
 
 import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:archive/archive.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 
 import 'package:whispaste/services/http_model_fetcher.dart';
 import 'package:whispaste/services/whisper_server_downloader.dart';
@@ -163,6 +166,70 @@ void main() {
       );
     });
   });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Linux ZIP extraction (AC3)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  group(
+    'Linux ZIP extraction',
+    () {
+      late Directory tempDir;
+
+      setUp(() async {
+        tempDir = await Directory.systemTemp.createTemp('wp_linux_zip_');
+      });
+
+      tearDown(() async {
+        await tempDir.delete(recursive: true);
+      });
+
+      test(
+        'extracts extensionless server binary, renames server→whisper-server, '
+        'and sets the executable bit',
+        () async {
+          final downloader = WhisperServerDownloader(
+            fetcher: _ZipServingFetcher(_buildLinuxServerZip()),
+            manifestLoader: WhisperServerManifestLoader(
+              dio: _offlineDio(),
+              bundleReader: () async => _crossPlatformManifestJson,
+            ),
+          );
+
+          await downloader.download(
+            destDir: tempDir.path,
+            gpuMode: 'disabled', // forces CPU backend
+            platformOverride: 'linux',
+            archOverride: 'x64',
+          );
+
+          final serverBin = File(p.join(tempDir.path, 'whisper-server'));
+          expect(
+            serverBin.existsSync(),
+            isTrue,
+            reason: 'server should be extracted and renamed to whisper-server',
+          );
+
+          // The original 'server' name must not appear on disk.
+          expect(
+            File(p.join(tempDir.path, 'server')).existsSync(),
+            isFalse,
+            reason: 'server (pre-rename) should not exist',
+          );
+
+          // Executable bit must be set (chmod +x).
+          final stat = serverBin.statSync();
+          // 0x49 == 0o111 == owner|group|other execute bits.
+          expect(
+            stat.mode & 0x49,
+            isNot(0),
+            reason: 'whisper-server must be executable after extraction',
+          );
+        },
+      );
+    },
+    skip: Platform.isWindows ? 'chmod +x not applicable on Windows' : null,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -188,6 +255,26 @@ class _CapturingFetcher extends HttpModelFetcher {
       type: DioExceptionType.cancel,
       message: 'cancelled',
     );
+  }
+
+  @override
+  void cancel([String reason = 'cancelled']) {}
+}
+
+/// Fetcher that writes a pre-built ZIP to [destPath] and returns normally.
+/// Used to test the extraction path without a real network download.
+class _ZipServingFetcher extends HttpModelFetcher {
+  final Uint8List _zipBytes;
+  _ZipServingFetcher(this._zipBytes);
+
+  @override
+  Future<void> fetch({
+    required String url,
+    required String destPath,
+    required int expectedSize,
+    void Function(FetchProgress)? onProgress,
+  }) async {
+    await File(destPath).writeAsBytes(_zipBytes);
   }
 
   @override
@@ -273,3 +360,10 @@ const String _crossPlatformManifestJson = '''
   ]
 }
 ''';
+
+/// Builds an in-memory ZIP containing a single extensionless `server` file,
+/// mimicking the layout of a real Linux whisper-server release archive.
+Uint8List _buildLinuxServerZip() {
+  final archive = Archive()..addFile(ArchiveFile.string('server', 'ELF-stub'));
+  return ZipEncoder().encodeBytes(archive);
+}
