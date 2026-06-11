@@ -21,6 +21,7 @@
 library;
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -872,6 +873,76 @@ void main() {
       logger.severe('[$Object] severe-level escalates by design');
       await CrashReporter.instance!.flush();
       expect(_capturedEvents, hasLength(1));
+    });
+  });
+
+  // ── Non-speech marker stripping on the 200 path ──
+  //
+  // whisper emits bracketed sound tags ([Musik], [BLANK_AUDIO], …) on
+  // silence/noise. These must never reach the transcript that gets pasted
+  // into the active app or saved to history.
+  group('SttServerStateNotifier.transcribeBytes — non-speech markers', () {
+    late Directory tempDir;
+
+    setUp(() async {
+      tempDir = await _createFakeSttDir();
+    });
+
+    tearDown(() async {
+      paths.sttDirOverride = null;
+      await tempDir.delete(recursive: true);
+    });
+
+    Future<String> transcribeWithText(String serverText) async {
+      final fakeProcess = _FakeProcess();
+      final runner = _FakeProcessRunner(fakeProcess);
+
+      final client = MockClient((req) async {
+        if (req.url.path == '/health') return http.Response('ok', 200);
+        if (req.url.path == '/inference') {
+          return http.Response(
+            jsonEncode({'text': serverText}),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response('not found', 404);
+      });
+
+      final container = _makeContainer(runner: runner, httpClient: client);
+      addTearDown(() {
+        container.dispose();
+        fakeProcess.exit(0);
+      });
+
+      await _bringNotifierReady(container, fakeProcess);
+      final notifier = container.read(localSttBundleProvider.notifier);
+      return notifier.transcribeBytes(_validWav(), language: 'auto');
+    }
+
+    test(
+      'strips a leading/trailing [Musik] marker, keeps the speech',
+      () async {
+        final text = await transcribeWithText('[Musik] Hallo Welt. [Musik]');
+        expect(text, 'Hallo Welt.');
+      },
+    );
+
+    test('strips [BLANK_AUDIO] and collapses the surrounding space', () async {
+      final text = await transcribeWithText('Guten [BLANK_AUDIO] Morgen');
+      expect(text, 'Guten Morgen');
+    });
+
+    test('a marker-only transcript collapses to empty', () async {
+      final text = await transcribeWithText('[BLANK_AUDIO]');
+      expect(text, isEmpty);
+    });
+
+    test('leaves parenthesised dictated text untouched', () async {
+      final text = await transcribeWithText(
+        'Berlin (die Hauptstadt) ist schön',
+      );
+      expect(text, 'Berlin (die Hauptstadt) ist schön');
     });
   });
 }
