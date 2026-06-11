@@ -720,9 +720,6 @@
   "settingsAutoPasteBlocklist": "Auto-Paste Blocklist",
   "settingsAutoPasteBlocklistSubtitle": "Comma-separated app identifiers where auto-paste is disabled",
   "settingsAutoPasteBlocklistPlaceholder": "e.g. com.apple.Terminal, com.1password",
-  "settingsTextReplacements": "Text Replacements",
-  "settingsTextReplacementsSubtitle": "Automatically replace specific words or phrases after transcription",
-  "settingsTextReplacementsEnabled": "Enable Text Replacements",
   "settingsCheckUpdates": "Check for Updates",
   "settingsCheckUpdatesSubtitle": "Automatically check for new versions on startup",
 

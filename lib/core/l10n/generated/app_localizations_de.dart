@@ -2032,16 +2032,6 @@ class L10nDe extends L10n {
       'z. B. com.apple.Terminal, com.1password';
 
   @override
-  String get settingsTextReplacements => 'Textersetzungen';
-
-  @override
-  String get settingsTextReplacementsSubtitle =>
-      'Bestimmte Wörter oder Phrasen nach der Transkription automatisch ersetzen';
-
-  @override
-  String get settingsTextReplacementsEnabled => 'Textersetzungen aktivieren';
-
-  @override
   String get settingsCheckUpdates => 'Auf Updates prüfen';
 
   @override

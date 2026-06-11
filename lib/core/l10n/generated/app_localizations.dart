@@ -3645,24 +3645,6 @@ abstract class L10n {
   /// **'e.g. com.apple.Terminal, com.1password'**
   String get settingsAutoPasteBlocklistPlaceholder;
 
-  /// No description provided for @settingsTextReplacements.
-  ///
-  /// In en, this message translates to:
-  /// **'Text Replacements'**
-  String get settingsTextReplacements;
-
-  /// No description provided for @settingsTextReplacementsSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Automatically replace specific words or phrases after transcription'**
-  String get settingsTextReplacementsSubtitle;
-
-  /// No description provided for @settingsTextReplacementsEnabled.
-  ///
-  /// In en, this message translates to:
-  /// **'Enable Text Replacements'**
-  String get settingsTextReplacementsEnabled;
-
   /// No description provided for @settingsCheckUpdates.
   ///
   /// In en, this message translates to:

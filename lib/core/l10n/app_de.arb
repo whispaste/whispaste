@@ -666,9 +666,6 @@
   "settingsAutoPasteBlocklist": "Auto-Einfüge-Sperrliste",
   "settingsAutoPasteBlocklistSubtitle": "Kommagetrennte App-Kennungen, bei denen Auto-Einfügen deaktiviert ist",
   "settingsAutoPasteBlocklistPlaceholder": "z. B. com.apple.Terminal, com.1password",
-  "settingsTextReplacements": "Textersetzungen",
-  "settingsTextReplacementsSubtitle": "Bestimmte Wörter oder Phrasen nach der Transkription automatisch ersetzen",
-  "settingsTextReplacementsEnabled": "Textersetzungen aktivieren",
   "settingsCheckUpdates": "Auf Updates prüfen",
   "settingsCheckUpdatesSubtitle": "Beim Start automatisch nach neuen Versionen suchen",
 
