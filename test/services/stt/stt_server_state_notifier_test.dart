@@ -191,12 +191,16 @@ class _RecordingRecovery implements ServerBinaryRecovery {
 
 class _FakeModelDownloadNotifier extends ModelDownloadNotifier {
   int invalidateCalls = 0;
+  int downloadModelCalls = 0;
+  String? lastDownloadedModelId;
 
   @override
   ModelDownloadState build() => const ModelDownloadState(downloadedModels: {});
 
   @override
   Future<void> downloadModel(String modelId) async {
+    downloadModelCalls += 1;
+    lastDownloadedModelId = modelId;
     state = ModelDownloadState(downloadedModels: {modelId});
   }
 
@@ -926,6 +930,149 @@ void main() {
         expect(
           container.read(localSttBundleProvider).serverState,
           SttServerState.stopped,
+        );
+      },
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // Pure decision function — isSttModelFileTooSmall (AC3)
+  // ---------------------------------------------------------------------------
+
+  group('isSttModelFileTooSmall — pure decision function', () {
+    // Table-driven: each entry is (fileSizeBytes, expected)
+    const cases = <(int, bool)>[
+      (0, true), // empty file
+      (1024, true), // 1 KB — clearly truncated
+      (9 * 1024 * 1024, true), // 9 MiB — just below threshold
+      (10 * 1024 * 1024 - 1, true), // one byte below threshold
+      (10 * 1024 * 1024, false), // exactly at threshold — not corrupt
+      (11 * 1024 * 1024, false), // 11 MiB — healthy model
+      (200 * 1024 * 1024, false), // 200 MiB — large model, healthy
+    ];
+
+    for (final (size, expected) in cases) {
+      test('${size ~/ 1024} KB → isTooSmall=$expected', () {
+        expect(isSttModelFileTooSmall(size), equals(expected));
+      });
+    }
+
+    test('custom minModelBytes threshold is respected', () {
+      // 5 MiB min — a 6 MiB file should pass.
+      expect(
+        isSttModelFileTooSmall(6 * 1024 * 1024, minModelBytes: 5 * 1024 * 1024),
+        isFalse,
+      );
+      // Same 6 MiB file fails against the default 10 MiB threshold.
+      expect(isSttModelFileTooSmall(6 * 1024 * 1024), isTrue);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Corrupt/too-small model → silent re-download (AC1, AC2)
+  // ---------------------------------------------------------------------------
+
+  group('SttServerStateNotifier — corrupt model auto-reload', () {
+    late Directory tempDir;
+
+    setUp(() async {
+      tempDir = await _createFakeSttDir();
+    });
+
+    tearDown(() async {
+      paths.sttDirOverride = null;
+      await tempDir.delete(recursive: true);
+    });
+
+    test('too-small model file triggers silent re-download via '
+        'modelDownloadProvider (AC1, AC2)', () async {
+      // Overwrite the 11 MiB model that _createFakeSttDir wrote with a
+      // truncated 1 KiB stub — simulating an interrupted download.
+      final modelFilename =
+          findSttModel('whisper-small')?.filename ?? 'ggml-small-q5_1.bin';
+      final modelFile = File('${tempDir.path}/$modelFilename');
+      await modelFile.writeAsBytes(Uint8List(1024)); // 1 KB — below 10 MiB
+
+      final fakeProcess = _FakeProcess();
+      final runner = _FakeProcessRunner(fakeProcess);
+      final container = _makeContainer(
+        runner: runner,
+        httpClient: _healthyClient(),
+      );
+      addTearDown(() {
+        container.dispose();
+        fakeProcess.exit(0);
+      });
+
+      await container.read(settingsProvider.future);
+      await container.read(localSttBundleProvider.notifier).ensureRunning();
+
+      // The notifier must park in `stopped` (mirroring the SHA-mismatch
+      // self-heal path) and hand off to modelDownloadProvider.downloadModel.
+      final status = container.read(localSttBundleProvider);
+      expect(
+        status.serverState,
+        SttServerState.stopped,
+        reason:
+            'corrupt model path must park in stopped, not error '
+            '(consistent with SHA-mismatch self-heal — AC2)',
+      );
+
+      final download =
+          container.read(modelDownloadProvider.notifier)
+              as _FakeModelDownloadNotifier;
+      expect(
+        download.downloadModelCalls,
+        1,
+        reason: 'silent re-download must be triggered exactly once (AC1)',
+      );
+      expect(
+        download.lastDownloadedModelId,
+        'whisper-small',
+        reason: 're-download must request the active model id',
+      );
+      // Whisper-server must NOT have been spawned for a corrupt model.
+      expect(
+        runner.startCallCount,
+        0,
+        reason: 'no server process must be started for a corrupt model file',
+      );
+    });
+
+    test(
+      'healthy 11 MiB model file does NOT trigger re-download (regression guard)',
+      () async {
+        // _createFakeSttDir already writes an 11 MiB file — no override needed.
+        final fakeProcess = _FakeProcess();
+        final runner = _FakeProcessRunner(fakeProcess);
+        final container = _makeContainer(
+          runner: runner,
+          httpClient: _healthyClient(),
+          heartbeatConfig: const SttStartupHeartbeatConfig(
+            window: Duration(milliseconds: 50),
+            maxMissedWindows: 3,
+          ),
+        );
+        addTearDown(() {
+          container.dispose();
+          fakeProcess.exit(0);
+        });
+
+        await container.read(settingsProvider.future);
+        fakeProcess.emitStderr('[whisper] model loaded');
+        await container.read(localSttBundleProvider.notifier).ensureRunning();
+
+        final download =
+            container.read(modelDownloadProvider.notifier)
+                as _FakeModelDownloadNotifier;
+        expect(
+          download.downloadModelCalls,
+          0,
+          reason: 'a healthy model must never trigger a silent re-download',
+        );
+        expect(
+          container.read(localSttBundleProvider).serverState,
+          SttServerState.ready,
         );
       },
     );
