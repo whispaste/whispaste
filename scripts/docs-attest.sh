@@ -190,6 +190,10 @@ check_removed_features() {
   # Website-Seiten rekursiv (inkl. en/, vergleich/, use-cases/).
   files="$(public_docs | tr '\n' ' ')"
   [ -d "$WEBSRC/pages" ] && files="$files $(find "$WEBSRC/pages" -name '*.astro' -type f 2>/dev/null | tr '\n' ' ')"
+  # Öffentlich ausgelieferte statische Text-Artefakte (llms.txt-Standard, ai.txt):
+  # auf entfernte Features scannen (unmissverständlich) — NICHT auf Anti-Vokabular,
+  # da diese Glossar-/AI-Discovery-Dateien Anti-Begriffe definitorisch/kontrastiv führen.
+  [ -d "$ROOT/website/public" ] && files="$files $(find "$ROOT/website/public" -maxdepth 1 -name '*.txt' -type f 2>/dev/null | tr '\n' ' ')"
   for t in "${terms[@]}"; do
     local hits; hits="$(grep -ilF -- "$t" $files 2>/dev/null || true)"
     if [ -n "$hits" ]; then
