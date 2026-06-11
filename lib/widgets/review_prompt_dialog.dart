@@ -5,6 +5,7 @@
 library;
 
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,6 +17,20 @@ import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import '../services/deploy_channel_service.dart';
 import '../services/review_prompt_service.dart';
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const _kGitHubUrl = 'https://github.com/whispaste/whispaste';
+
+const _kWindowsStoreReviewUrl =
+    'ms-windows-store://review/?ProductId=9p22jvkrq2v0';
+
+/// Override for testing. When non-null, [ReviewPromptWatcher] uses this value
+/// instead of [Platform.isWindows].
+@visibleForTesting
+bool? platformIsWindowsOverride;
 
 // ---------------------------------------------------------------------------
 // Public entry point
@@ -39,6 +54,8 @@ class ReviewPromptWatcher extends ConsumerStatefulWidget {
 class _ReviewPromptWatcherState extends ConsumerState<ReviewPromptWatcher> {
   Timer? _delay;
   bool _dialogShowing = false;
+
+  bool get _isWindows => platformIsWindowsOverride ?? Platform.isWindows;
 
   @override
   void dispose() {
@@ -88,6 +105,7 @@ class _ReviewPromptWatcherState extends ConsumerState<ReviewPromptWatcher> {
               ),
               _ReviewPromptDialog(
                 channel: channel,
+                isWindows: _isWindows,
                 animation: animation,
                 onResult: (action) async {
                   Navigator.of(ctx).pop();
@@ -117,11 +135,11 @@ class _ReviewPromptWatcherState extends ConsumerState<ReviewPromptWatcher> {
             await review.requestReview();
           }
         } else {
-          await _launchUrl(_storeUrl(channel));
+          await _launchUrl(_storeUrl());
         }
       case _ReviewAction.starGitHub:
         await notifier.markShown();
-        await _launchUrl('https://github.com/whispaste/whispaste');
+        await _launchUrl(_kGitHubUrl);
       case _ReviewAction.notNow:
         await notifier.dismiss(permanent: false);
       case _ReviewAction.never:
@@ -129,12 +147,8 @@ class _ReviewPromptWatcherState extends ConsumerState<ReviewPromptWatcher> {
     }
   }
 
-  String _storeUrl(DeployChannel channel) {
-    if (channel == DeployChannel.store) {
-      return 'ms-windows-store://review/?ProductId=9p22jvkrq2v0';
-    }
-    return 'https://apps.apple.com/app/whispaste';
-  }
+  // Only called for non-store channels on Windows — always the Windows Store URL.
+  String _storeUrl() => _kWindowsStoreReviewUrl;
 
   Future<void> _launchUrl(String url) async {
     final uri = Uri.parse(url);
@@ -165,11 +179,13 @@ enum _ReviewAction { rateStore, starGitHub, notNow, never }
 class _ReviewPromptDialog extends StatelessWidget {
   const _ReviewPromptDialog({
     required this.channel,
+    required this.isWindows,
     required this.animation,
     required this.onResult,
   });
 
   final DeployChannel channel;
+  final bool isWindows;
   final Animation<double> animation;
   final void Function(_ReviewAction) onResult;
 
@@ -271,16 +287,29 @@ class _ReviewPromptDialog extends StatelessWidget {
     ),
   ];
 
-  List<Widget> _portableButtons(L10n l10n, ThemeData theme, bool isDark) => [
-    FilledButton(
-      autofocus: true,
-      onPressed: () => onResult(_ReviewAction.rateStore),
-      child: Text(l10n.reviewPromptRateStore),
-    ),
-    const SizedBox(height: WpSpacing.xs),
-    OutlinedButton(
-      onPressed: () => onResult(_ReviewAction.starGitHub),
-      child: Text(l10n.reviewPromptStarGitHub),
-    ),
-  ];
+  List<Widget> _portableButtons(L10n l10n, ThemeData theme, bool isDark) {
+    if (isWindows) {
+      // Windows non-store: both Store review and GitHub star are valid targets.
+      return [
+        FilledButton(
+          autofocus: true,
+          onPressed: () => onResult(_ReviewAction.rateStore),
+          child: Text(l10n.reviewPromptRateStore),
+        ),
+        const SizedBox(height: WpSpacing.xs),
+        OutlinedButton(
+          onPressed: () => onResult(_ReviewAction.starGitHub),
+          child: Text(l10n.reviewPromptStarGitHub),
+        ),
+      ];
+    }
+    // macOS / Linux: no store listing exists — show only the GitHub star path.
+    return [
+      FilledButton(
+        autofocus: true,
+        onPressed: () => onResult(_ReviewAction.starGitHub),
+        child: Text(l10n.reviewPromptStarGitHub),
+      ),
+    ];
+  }
 }
