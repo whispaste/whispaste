@@ -130,6 +130,23 @@ class SttStatus {
 }
 
 // ---------------------------------------------------------------------------
+// Pure helpers (no I/O — unit-testable without DI)
+// ---------------------------------------------------------------------------
+
+/// Returns `true` when [fileSizeBytes] is below the minimum expected size of a
+/// valid STT model file.
+///
+/// Any model file smaller than [minModelBytes] (default 10 MiB) is considered
+/// a truncated/corrupt download and must be re-downloaded silently.
+///
+/// Pure function: no file I/O, no side-effects. Testable without a
+/// [ProviderContainer].
+bool isSttModelFileTooSmall(
+  int fileSizeBytes, {
+  int minModelBytes = 10 * 1024 * 1024,
+}) => fileSizeBytes < minModelBytes;
+
+// ---------------------------------------------------------------------------
 // SttServerStateNotifier
 // ---------------------------------------------------------------------------
 
@@ -953,7 +970,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
 
     const minModelBytes = 10 * 1024 * 1024;
     final modelFileSize = await modelFile.length();
-    if (modelFileSize < minModelBytes) {
+    if (isSttModelFileTooSmall(modelFileSize, minModelBytes: minModelBytes)) {
       // Explicit capture under the canonical `sttModelCorrupted` bucket so
       // disk-truncated / interrupted-download model files surface as their
       // own Sentry issue instead of merging into the generic auto-escalate
@@ -976,7 +993,8 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       );
       _log.warning(
         'STT model file appears corrupted: $modelPath '
-        '($modelFileSize bytes, expected >$minModelBytes).',
+        '($modelFileSize bytes, expected >$minModelBytes). '
+        'Triggering silent re-download.',
       );
       unawaited(
         modelFile.delete().catchError((Object e) {
@@ -984,14 +1002,19 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
           return modelFile;
         }),
       );
-      _transition(
-        SttStatus(
-          serverState: SttServerState.error,
-          errorMessage:
-              'STT model file is incomplete or corrupted '
-              '(${(modelFileSize / 1024).round()} KB). '
-              'Please re-download the model in Settings.',
-        ),
+      // Mirror the SHA-mismatch self-heal: park in stopped, then trigger a
+      // silent re-download via modelDownloadProvider — identical to the
+      // hashMismatch path in _handleModelLoadFailure.
+      _transition(const SttStatus(serverState: SttServerState.stopped));
+      unawaited(
+        ref
+            .read(modelDownloadProvider.notifier)
+            .downloadModel(modelId)
+            .catchError((Object e) {
+              _log.warning(
+                'Silent re-download of corrupt model $modelId failed: $e',
+              );
+            }),
       );
       return;
     }
