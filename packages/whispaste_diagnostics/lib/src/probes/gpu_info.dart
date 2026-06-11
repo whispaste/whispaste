@@ -360,6 +360,52 @@ List<String> serverAssetPatterns(
 }
 
 // ---------------------------------------------------------------------------
+// Proactive GPU capability gating
+// ---------------------------------------------------------------------------
+
+/// Whether it is safe to use GPU acceleration for this [gpu].
+///
+/// Returns `false` for known-problematic GPUs that should be routed to CPU
+/// BEFORE the server starts — avoiding the slow reactive stall→CPU fallback.
+/// Returns `true` (conservative) for all other cases: unknown names, modern
+/// cards, non-GPU vendors that embed a fixed backend (Metal, Vulkan on Intel).
+///
+/// Precedence in [SttServerStateNotifier._start]:
+///   1. User override (`gpuAcceleration` = `enabled`/`disabled`)
+///   2. This predicate (`shouldUseGpu == false` → CPU)
+///   3. The existing `auto`-path (optimalBackend etc.)
+///
+/// The reactive [SttServerStateNotifier._gpuFallbackActive] fallback remains
+/// the safety net for cases this predicate does not catch.
+bool shouldUseGpu(GpuInfo gpu) {
+  // GpuVendor.none → no GPU present, CPU is the only option.
+  if (gpu.vendor == GpuVendor.none) return false;
+
+  // NVIDIA Kepler/Fermi: already detected by supportsCuda12 (false for 4xx–7xx
+  // GeForce and Quadro K / Tesla K). These cards either crash the cuda12 build
+  // or hang the Vulkan build (FLUTTER_WHISPASTE-9W / -6X). Route to CPU.
+  if (gpu.vendor == GpuVendor.nvidia) {
+    // supportsCuda12 returns false for Kepler/Fermi, regardless of backend.
+    // Reuse the same heuristic to keep the logic DRY.
+    if (!gpu.supportsCuda12) return false;
+    return true;
+  }
+
+  // AMD: old GCN (HD 7xxx / HD 8xxx, codenames Tahiti / Cape Verde / Pitcairn)
+  // predates the ROCm/Vulkan support level whisper.cpp needs. Identified
+  // conservatively by three-digit model numbers in the 7000–8999 range.
+  // Post-GCN1 Polaris and later (RX 4xx / 5xx+) are fine — additive approach.
+  if (gpu.vendor == GpuVendor.amd) {
+    final upper = gpu.name.toUpperCase();
+    if (RegExp(r'\bHD\s*[78]\d{3}\b').hasMatch(upper)) return false;
+    return true;
+  }
+
+  // Intel, Apple, and any future vendor: allow GPU (conservative).
+  return true;
+}
+
+// ---------------------------------------------------------------------------
 // Binary compatibility check
 // ---------------------------------------------------------------------------
 

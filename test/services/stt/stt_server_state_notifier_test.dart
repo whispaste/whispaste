@@ -525,11 +525,20 @@ void main() {
 
     test('abnormal exit code -1 on GPU launch → CPU fallback armed (stopped, '
         'not error)', () async {
-      // FLUTTER_WHISPASTE-6X / -39: the cuda12 build aborts with code -1 and
-      // an empty stderr on a GPU the runtime cannot initialise (e.g. a
-      // Kepler GTX 6xx). A negative exit code is an abnormal termination, so
-      // — unlike the deliberate positive exit 99 above — it must arm the
-      // one-shot CPU fallback instead of dead-ending in `error`.
+      // FLUTTER_WHISPASTE-6X / -39: a GPU build aborts with code -1 and an
+      // empty stderr when the runtime cannot initialise the GPU. A negative
+      // exit code is an abnormal termination, so — unlike the deliberate
+      // positive exit 99 above — it must arm the one-shot CPU fallback instead
+      // of dead-ending in `error`.
+      // Use a modern NVIDIA GPU (shouldUseGpu==true) so the proactive
+      // capability gate does not pre-empt the reactive fallback path under
+      // test.
+      const modernGpu = hw.GpuInfo(
+        vendor: hw.GpuVendor.nvidia,
+        name: 'NVIDIA GeForce RTX 4090',
+        cudaAvailable: true,
+        vulkanAvailable: true,
+      );
       final fakeProcess = _FakeProcess();
       final runner = _FakeProcessRunner(fakeProcess);
       final container = _makeContainer(
@@ -539,6 +548,7 @@ void main() {
           window: Duration(milliseconds: 50),
           maxMissedWindows: 3,
         ),
+        gpu: modernGpu,
       );
       addTearDown(() {
         container.dispose();
@@ -565,34 +575,29 @@ void main() {
     test(
       'heartbeat timeout on a GPU launch → CPU fallback + auto-restart to ready',
       () async {
-        // FLUTTER_WHISPASTE-9W: a Vulkan build on a Kepler GeForce GTX 6xx /
-        // old AMD card initialises fully and then makes no progress — a hang,
-        // not an exit. The exit-code-only fallback (commit 33c6150f) never
-        // fires for a hang, so before this fix the GTX-650 user dead-ended in
-        // `error` and the working CPU floor was never tried. The stall path
-        // must now arm the one-shot CPU fallback and restart in CPU mode.
+        // FLUTTER_WHISPASTE-9W: a GPU build initialises fully then makes no
+        // progress — a hang, not an exit. The exit-code-only fallback never
+        // fires for a hang, so the stall path must arm the one-shot CPU
+        // fallback and restart in CPU mode.
+        // Use a modern GPU (shouldUseGpu==true) so the proactive capability
+        // gate does not pre-empt the reactive stall path under test.
         const hbConfig = SttStartupHeartbeatConfig(
           window: Duration(milliseconds: 30),
           maxMissedWindows: 3,
         );
 
-        const gtx650 = hw.GpuInfo(
+        const modernGpu = hw.GpuInfo(
           vendor: hw.GpuVendor.nvidia,
-          name: 'NVIDIA GeForce GTX 650',
+          name: 'NVIDIA GeForce RTX 4090',
           cudaAvailable: true,
           vulkanAvailable: true,
         );
 
         // Present the installed binary as a healthy, correctly-provisioned
-        // Vulkan build: matching `.server-info.json` metadata + the system
-        // Vulkan loader on the search path. Otherwise the Windows-only
-        // pre-launch checks short-circuit before the runtime stall this test
-        // targets — `isServerBinaryCompatible` would flag the no-metadata
-        // NVIDIA dir as needing a re-download, and the loader-DLL gate would
-        // reroute a `vulkan` build with no resolvable `vulkan-1.dll` to
-        // recovery. FLUTTER_WHISPASTE-9W is a *runtime* hang, not a missing
-        // dependency, so both must pass to reach the heartbeat path.
-        await hw.writeServerBinaryInfo(tempDir.path, gtx650);
+        // CUDA build: matching `.server-info.json` metadata so
+        // `isServerBinaryCompatible` does not flag the dir as needing a
+        // re-download before the heartbeat path is reached.
+        await hw.writeServerBinaryInfo(tempDir.path, modernGpu);
         await File('${tempDir.path}/vulkan-1.dll').writeAsBytes(const [0]);
 
         final hungProc = _FakeProcess();
@@ -618,7 +623,7 @@ void main() {
           runner: runner,
           httpClient: client,
           heartbeatConfig: hbConfig,
-          gpu: gtx650,
+          gpu: modernGpu,
         );
         addTearDown(() {
           container.dispose();

@@ -52,7 +52,8 @@ export 'package:whispaste_diagnostics/whispaste_diagnostics.dart'
         parseSysctlMemsizeMb,
         parseLinuxMemTotalMb,
         parseWmicOsMemoryMb,
-        detectRamMB;
+        detectRamMB,
+        shouldUseGpu;
 
 // ---------------------------------------------------------------------------
 // Riverpod provider — app-side only
