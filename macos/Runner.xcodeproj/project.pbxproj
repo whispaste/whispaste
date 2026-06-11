@@ -102,7 +102,7 @@
 		AA0006002044A3C60003C045 /* AudioRoutingHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRoutingHost.swift; sourceTree = "<group>"; };
 		F518BCBF13BA40121A89A04B /* Pods-RunnerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.release.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.release.xcconfig"; sourceTree = "<group>"; };
 		AA1001000000000000000005 /* AppStore.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AppStore.entitlements; sourceTree = "<group>"; };
-		AA1001000000000000000006 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = file.xcprivacy; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		AA1001000000000000000006 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = file.xcprivacy; name = PrivacyInfo.xcprivacy; path = Runner/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
