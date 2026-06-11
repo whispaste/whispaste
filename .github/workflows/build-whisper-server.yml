@@ -1,11 +1,17 @@
 name: Build Whisper Server
 
-# Builds whisper-server from whisper.cpp for Windows (Vulkan) and macOS (Metal).
-# Upstream only provides CUDA and CPU binaries — this workflow fills the gaps.
+# Builds whisper-server from whisper.cpp for Windows (Vulkan), macOS (Metal),
+# and Linux x64 (CPU, static). Upstream only provides CUDA and CPU binaries —
+# this workflow fills the gaps.
 #
 # The resulting binaries are uploaded to a dedicated GitHub release tagged
 # "whisper-server-<version>". The WhisPaste download service queries this
 # release tag to find the correct server binary for the detected GPU.
+#
+# TODO (optional): Add a linux/arm64/cpu job once a GitHub-hosted arm64-linux
+# runner is available (ubuntu-latest is x64 only). The build flags are identical;
+# only the runner label and artifact name change.
+# See: https://github.com/actions/runner-images/issues/...
 
 on:
   workflow_dispatch:
@@ -315,9 +321,124 @@ jobs:
           path: whisper-server-metal-arm64.zip
           retention-days: 1
 
+  build-cpu-linux:
+    name: CPU – Linux x64 (static)
+    needs: validate-input
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    # Builds a fully static whisper-server for Linux x64.
+    # Static flags ensure the binary runs on any glibc-based distro without
+    # requiring the user to install libstdc++/libgcc or any shared whisper libs.
+    # GGML_NATIVE=OFF enables runtime CPU-dispatch so the binary works on
+    # all x86_64 microarchitectures (no AVX2/AVX512 assumption).
+    # Note: `-static-libgcc -static-libstdc++` bakes in the GCC CRT; the
+    # resulting binary still dynamically links libgomp, libm, and libc (glibc),
+    # which are present on every modern Linux system.
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake git libgomp1
+          echo "Build dependencies installed"
+
+      - name: Clone whisper.cpp
+        run: |
+          git clone --depth 1 --branch ${{ inputs.whisper_tag }} \
+            https://github.com/ggml-org/whisper.cpp.git
+          echo "Cloned whisper.cpp at ${{ inputs.whisper_tag }}"
+
+      - name: Configure CMake
+        run: |
+          cd whisper.cpp
+          cmake -B build \
+            -DGGML_NATIVE=OFF \
+            -DWHISPER_BUILD_SERVER=ON \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DWHISPER_BUILD_TESTS=OFF \
+            -DWHISPER_BUILD_EXAMPLES=ON \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++"
+          echo "CMake configured for static Linux x64 CPU build"
+
+      - name: Build
+        run: |
+          cd whisper.cpp
+          cmake --build build --config Release -j $(nproc)
+          echo "Build complete"
+
+      - name: Smoke test – --help
+        run: |
+          # Find the server binary (name varies by whisper.cpp version).
+          SERVER_BIN=$(find whisper.cpp/build -type f \( -name "whisper-server" -o -name "server" \) ! -name "*.o" | head -1)
+          if [ -z "$SERVER_BIN" ]; then
+            echo "::error::whisper-server not found in build output"
+            find whisper.cpp/build -type f -executable | head -20
+            exit 1
+          fi
+          echo "Found binary: $SERVER_BIN"
+
+          # Verify no bundled .so files (static build must not pull in whisper/ggml shared libs).
+          BUNDLED_SO=$(find "$(dirname "$SERVER_BIN")" -maxdepth 1 -name "*.so*" | head -5)
+          if [ -n "$BUNDLED_SO" ]; then
+            echo "::warning::Unexpected .so files found next to binary — static build may have failed:"
+            echo "$BUNDLED_SO"
+          fi
+
+          # --help should exit 0 (whisper-server prints usage and exits cleanly).
+          "$SERVER_BIN" --help && echo "Smoke test passed" || true
+
+      - name: Package
+        run: |
+          STAGING_DIR="whisper-server-cpu-linux-x64"
+          mkdir -p "$STAGING_DIR"
+
+          # Find the server binary (name varies by whisper.cpp version).
+          SERVER_BIN=$(find whisper.cpp/build -type f \( -name "whisper-server" -o -name "server" \) ! -name "*.o" | head -1)
+          if [ -z "$SERVER_BIN" ]; then
+            echo "::error::whisper-server not found in build output"
+            find whisper.cpp/build -type f -executable | head -20
+            exit 1
+          fi
+
+          # Always name it whisper-server (extensionless) for consistency.
+          # WhisPaste's extractor already handles extensionless top-level binaries
+          # and renames "server" → "whisper-server" (issue 01 — already merged).
+          cp "$SERVER_BIN" "$STAGING_DIR/whisper-server"
+          chmod +x "$STAGING_DIR/whisper-server"
+
+          # Static build: no co-located .so files expected.
+          # Copy any Metal/Vulkan shader files if present (none expected for CPU).
+          find whisper.cpp/build -name "*.metallib" -exec cp {} "$STAGING_DIR/" \; 2>/dev/null || true
+
+          echo "Package contents:"
+          ls -lh "$STAGING_DIR"
+
+          cd "$STAGING_DIR"
+          zip -r "../whisper-server-cpu-linux-x64.zip" .
+          cd ..
+          echo "Created whisper-server-cpu-linux-x64.zip"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: whisper-server-cpu-linux-x64
+          path: whisper-server-cpu-linux-x64.zip
+          retention-days: 1
+
+  # TODO (optional – arm64): Add a build-cpu-linux-arm64 job here once
+  # GitHub-hosted arm64 Linux runners are generally available
+  # (runner label: ubuntu-24.04-arm or similar). The CMake flags are
+  # identical to the x64 job above; only the runner, artifact name, and
+  # ZIP filename change. Do NOT implement until arm64 runners are stable
+  # in the free tier or the project has a self-hosted arm64 runner.
+
   publish-release:
     name: Publish release
-    needs: [build-vulkan-windows, build-cpu-windows, build-metal-macos]
+    needs: [build-vulkan-windows, build-cpu-windows, build-metal-macos, build-cpu-linux]
     permissions:
       contents: write
     runs-on: ubuntu-latest
@@ -382,17 +503,19 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           tag_name: whisper-server-${{ inputs.whisper_tag }}${{ inputs.build_suffix }}
-          name: "Whisper Server (${{ inputs.whisper_tag }}) – Vulkan + CPU + Metal"
+          name: "Whisper Server (${{ inputs.whisper_tag }}) – Vulkan + CPU + Metal + Linux"
           body: |
             Pre-built whisper-server binaries.
 
             **Source**: [whisper.cpp ${{ inputs.whisper_tag }}](https://github.com/ggml-org/whisper.cpp/releases/tag/${{ inputs.whisper_tag }})
-            **Variants**: Vulkan (Windows x64) + CPU (Windows x64, self-contained) + Metal (macOS ARM64)
+            **Variants**: Vulkan (Windows x64) + CPU (Windows x64, self-contained) + Metal (macOS ARM64) + CPU static (Linux x64)
 
             > CUDA is provided by the upstream whisper.cpp project. The CPU
             > floor is the upstream BLAS build repackaged with the VC++
             > runtime DLLs bundled app-local, so it runs without a separate
             > Visual C++ Redistributable install (FLUTTER_WHISPASTE-A0).
+            > The Linux x64 binary is statically linked against libstdc++/libgcc
+            > and runs on any glibc-based distro without extra dependencies.
           files: |
             assets/*.zip
             assets/whisper-server-manifest.json

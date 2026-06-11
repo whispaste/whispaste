@@ -68,6 +68,7 @@ classify() {
   case "$lower" in
     *metal*arm64*) platform=macos;  arch=arm64; backend=metal   ;;
     *vulkan*x64*)  platform=windows; arch=x64;  backend=vulkan  ;;
+    *cpu*linux*x64*) platform=linux; arch=x64; backend=cpu      ;; # WhisPaste static Linux x64 CPU build — must precede *server-cpu*x64*
     *server-cpu*x64*) platform=windows; arch=x64; backend=cpu   ;; # WhisPaste self-contained CPU floor (bundles VC++ runtime) — FLUTTER_WHISPASTE-A0
     *cublas-12*x64*) platform=windows; arch=x64; backend=cuda12 ;;
     *cublas-11*x64*) ;; # legacy CUDA 11 — skip, app expects cuda12
