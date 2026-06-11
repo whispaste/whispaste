@@ -267,6 +267,24 @@ const breadcrumbItems = [
           </div>
         </div>
 
+        <!-- Section 5: Package managers (power users) -->
+        <div class="download-card rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 sm:p-8 mb-6">
+          <div class="flex items-start gap-3 mb-5">
+            <div class="shrink-0 w-10 h-10 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center">
+              <svg class="w-5 h-5 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg>
+            </div>
+            <div>
+              <h2 class="text-xl font-semibold text-white" data-i18n="download.pkg.title">{t(lang, "download.pkg.title")}</h2>
+              <p class="text-gray-400 text-sm mt-1" data-i18n="download.pkg.desc">{t(lang, "download.pkg.desc")}</p>
+            </div>
+          </div>
+          <div class="rounded-xl border border-white/10 bg-black/30 p-4 font-mono text-xs sm:text-sm text-gray-200 overflow-x-auto" data-testid="pkg-scoop">
+            <div class="text-gray-500 mb-1"># Windows · Scoop</div>
+            <div>scoop bucket add whispaste https://github.com/whispaste/scoop-bucket</div>
+            <div>scoop install whispaste</div>
+          </div>
+        </div>
+
         <!-- Diagnose: Sprachdienst-Fehler -->
         <div class="download-card rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 sm:p-8 mb-6">
           <div class="flex items-start gap-3 mb-5">
