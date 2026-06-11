@@ -3,6 +3,10 @@ import tailwindcss from '@tailwindcss/vite';
 import sitemap from '@astrojs/sitemap';
 import sentry from '@sentry/astro';
 
+// Build-Zeitstempel als Sitemap-`lastmod`. Einmal pro Build ausgewertet,
+// damit alle Einträge denselben konsistenten Wert tragen.
+const BUILD_LASTMOD = new Date().toISOString();
+
 export default defineConfig({
   site: 'https://whispaste.de',
   // i18n-Routing: Deutsch ist Default (kein Prefix), Englisch unter `/en/`.
@@ -28,6 +32,13 @@ export default defineConfig({
           de: 'de',
           en: 'en',
         },
+      },
+      // `lastmod` auf den Build-Zeitstempel setzen — bei einer statisch
+      // generierten Site ist der Build/Deploy der letzte Änderungszeitpunkt
+      // jeder Seite. Hilft Crawlern, ein knappes Crawl-Budget zu priorisieren.
+      serialize(item) {
+        item.lastmod = BUILD_LASTMOD;
+        return item;
       },
     }),
     // Source-Maps werden nur hochgeladen, wenn SENTRY_AUTH_TOKEN gesetzt ist
