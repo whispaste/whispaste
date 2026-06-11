@@ -1,0 +1,12 @@
+# Apple distribution config for WhisPaste (macOS).
+#
+# Reuses the same Apple Developer account / Team as hellerio (Team Q7V3X27S2U)
+# and the same App Store Connect API key, so no new key needs to be generated.
+#
+# ⚠️ app_identifier is the REGISTERED App ID (de.whispaste.app). The macOS Xcode
+# project must be migrated from com.whispaste.whispaste to this id first
+# (see docs/store-release.md → "Bundle-ID-Migration").
+app_identifier("de.whispaste.app")
+apple_id("silvio-lindstedt@outlook.com")
+team_id("Q7V3X27S2U")
+itc_team_id("Q7V3X27S2U")
