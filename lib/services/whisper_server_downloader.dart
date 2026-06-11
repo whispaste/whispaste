@@ -259,65 +259,74 @@ class WhisperServerDownloader {
     final bytes = await File(zipPath).readAsBytes();
     final archive = ZipDecoder().decodeBytes(bytes);
 
-    // Clean old server files.
-    final destDirObj = Directory(destDir);
-    if (destDirObj.existsSync()) {
-      for (final f in destDirObj.listSync()) {
-        if (f is File) {
-          final name = p.basename(f.path).toLowerCase();
-          if (isServerFile(name)) {
-            await f.delete();
-          }
-        }
-      }
-    }
-
-    for (final file in archive) {
-      if (file.isFile) {
-        final name = p.basename(file.name).toLowerCase();
-        if (isExtractableServerFile(name)) {
-          // Zip Slip protection.
-          final outPath = p.join(destDir, p.basename(file.name));
-          if (!p.isWithin(destDir, outPath)) continue;
-
-          // Rename bare server binary → whisper-server if needed.
-          String finalName = p.basename(file.name);
-          if (Platform.isWindows) {
-            if (finalName.toLowerCase() == 'server.exe') {
-              finalName = 'whisper-server.exe';
-            }
-          } else {
-            if (finalName.toLowerCase() == 'server') {
-              finalName = 'whisper-server';
-            }
-          }
-          final finalPath = p.join(destDir, finalName);
-          final outFile = File(finalPath);
-          await outFile.writeAsBytes(file.content as List<int>);
-        }
-      }
-    }
-
-    // On Unix, make the binary executable and remove quarantine.
-    if (!Platform.isWindows) {
-      final serverPath = _whisperServerPathIn(destDir);
-      if (File(serverPath).existsSync()) {
-        await Process.run('chmod', ['+x', serverPath]);
-        // macOS quarantines downloaded files, blocking execution.
-        if (Platform.isMacOS) {
-          await Process.run('xattr', [
-            '-d',
-            'com.apple.quarantine',
-            serverPath,
-          ]);
-        }
-      }
-    }
+    await _cleanOldServerFiles(destDir);
+    await _extractArchiveFiles(archive, destDir);
+    await _makeServerExecutable(destDir);
 
     // Verify extraction produced the expected binary.
     final expectedPath = _whisperServerPathIn(destDir);
     if (!File(expectedPath).existsSync()) {
       throw Exception('${p.basename(expectedPath)} not found in archive');
+    }
+  }
+
+  /// Deletes any pre-existing server files in [destDir] so a fresh extraction
+  /// starts from a clean slate.
+  Future<void> _cleanOldServerFiles(String destDir) async {
+    final destDirObj = Directory(destDir);
+    if (!destDirObj.existsSync()) return;
+    for (final f in destDirObj.listSync()) {
+      if (f is File) {
+        final name = p.basename(f.path).toLowerCase();
+        if (isServerFile(name)) {
+          await f.delete();
+        }
+      }
+    }
+  }
+
+  /// Writes every extractable entry from [archive] into [destDir], renaming
+  /// bare `server`/`server.exe` entries to the canonical binary name.
+  Future<void> _extractArchiveFiles(Archive archive, String destDir) async {
+    for (final file in archive) {
+      if (!file.isFile) continue;
+      final name = p.basename(file.name).toLowerCase();
+      if (!isExtractableServerFile(name)) continue;
+
+      // Zip Slip protection.
+      final outPath = p.join(destDir, p.basename(file.name));
+      if (!p.isWithin(destDir, outPath)) continue;
+
+      final finalName = _resolveServerBinaryName(p.basename(file.name));
+      await File(
+        p.join(destDir, finalName),
+      ).writeAsBytes(file.content as List<int>);
+    }
+  }
+
+  /// Renames a bare `server` / `server.exe` entry to the canonical binary
+  /// name; leaves all other names unchanged.
+  static String _resolveServerBinaryName(String originalName) {
+    if (Platform.isWindows) {
+      if (originalName.toLowerCase() == 'server.exe') {
+        return 'whisper-server.exe';
+      }
+    } else {
+      if (originalName.toLowerCase() == 'server') return 'whisper-server';
+    }
+    return originalName;
+  }
+
+  /// On Unix systems, sets the executable bit on the server binary and (on
+  /// macOS) removes the quarantine attribute set by the OS on downloaded files.
+  Future<void> _makeServerExecutable(String destDir) async {
+    if (Platform.isWindows) return;
+    final serverPath = _whisperServerPathIn(destDir);
+    if (!File(serverPath).existsSync()) return;
+    await Process.run('chmod', ['+x', serverPath]);
+    // macOS quarantines downloaded files, blocking execution.
+    if (Platform.isMacOS) {
+      await Process.run('xattr', ['-d', 'com.apple.quarantine', serverPath]);
     }
   }
 
