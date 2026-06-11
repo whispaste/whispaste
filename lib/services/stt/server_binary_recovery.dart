@@ -228,7 +228,26 @@ class ServerBinaryRecovery {
     required String? activeModelId,
   }) async {
     final current = _store.readBackend(sttDirPath);
-    final next = nextVariant(current, gpu);
+
+    // Pick the next variant, walking the fallback chain PAST variants this
+    // session has already attempted instead of exhausting on the first
+    // repeat. Field shape FLUTTER_WHISPASTE-A0: the proactive startup check
+    // re-installed the optimal cuda build over a recovery-installed vulkan
+    // build; when cuda failed again, `nextVariant(cuda)` yielded the
+    // already-tried "vulkan" and recovery exhausted — although the CPU floor
+    // was never attempted and would have worked. The chain is finite
+    // (cuda → vulkan → cpu → null), so the walk always terminates and each
+    // variant still gets at most one download per session.
+    var next = nextVariant(current, gpu);
+    var skippedTried = false;
+    while (next != null && _triedVariants.contains(next)) {
+      skippedTried = true;
+      _log.warning(
+        'Recovery: variant "$next" already tried this session — walking '
+        'further down the fallback chain.',
+      );
+      next = nextVariant(next, gpu);
+    }
 
     _log.info(
       'Recovery requested: reason=${reason.name} '
@@ -243,7 +262,9 @@ class ServerBinaryRecovery {
         current: current,
         activeModelId: activeModelId,
         sttDirPath: sttDirPath,
-        cause: 'no-fallback-variant-left',
+        cause: skippedTried
+            ? 'all-fallback-variants-already-tried-this-session'
+            : 'no-fallback-variant-left',
       );
     }
 
@@ -251,20 +272,7 @@ class ServerBinaryRecovery {
     // We register the attempt BEFORE the download so a failed download
     // also counts as "tried" — preventing the retry from re-entering
     // the same variant and looping forever.
-    if (!_triedVariants.add(next)) {
-      _log.warning(
-        'Recovery short-circuit: variant "$next" already tried this '
-        'session; exhausting to break potential infinite loop.',
-      );
-      return _exhaust(
-        reason: reason,
-        gpu: gpu,
-        current: current,
-        activeModelId: activeModelId,
-        sttDirPath: sttDirPath,
-        cause: 'variant-already-tried-this-session',
-      );
-    }
+    _triedVariants.add(next);
 
     // Best-effort: clear the incompatible binary so the next download
     // doesn't trip over leftover DLLs that the compatibility check
