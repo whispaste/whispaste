@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+# WhisPaste .githooks/pre-push — versioniert, vom globalen pre-push-Dispatcher
+# (~/.git-hooks/pre-push, core.hooksPath) automatisch ausgeführt.
+#
+# Drei Schichten, alle hart (kein --no-verify als legitimer Weg):
+#   1. Public-Docs-QS (deterministisch, 0 Token): scripts/docs-attest.sh check
+#   2. Attest-Schranke: der zu pushende Commit MUSS bewusst attestiert sein
+#      (scripts/docs-attest.sh attest), sonst Block.
+#   3. Security-Net: die bestehende scripts/git-hooks/pre-push (protected paths,
+#      .gitignore-PROTECTED, Secrets, Semgrep, OSV) — hier wieder lebendig, da
+#      .git/hooks unter dem globalen core.hooksPath sonst geshadowt wäre.
+#   + KI-Co-Authored-By-Trailer-Riegel (HARD RULE).
+#
+# git übergibt Remote-Name ($1), URL ($2) und die Ref-Liste auf stdin. stdin
+# wird EINMAL gepuffert und an alle Schichten weitergereicht.
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+ATTESTSH="$ROOT/scripts/docs-attest.sh"
+SECURITY="$ROOT/scripts/git-hooks/pre-push"
+REMOTE="${1:-}"
+URL="${2:-}"
+ZERO="0000000000000000000000000000000000000000"
+REFS="$(cat || true)"
+
+block() {
+  cat >&2 <<EOF
+
+╳ Push blockiert — $1
+EOF
+  exit 1
+}
+
+# ── Schicht 1: Public-Docs-QS (Struktur) ─────────────────────────────────────
+if [ -x "$ATTESTSH" ]; then
+  "$ATTESTSH" check >/dev/null || block "Public-Docs-QS (scripts/docs-attest.sh check) fehlgeschlagen — Details: scripts/docs-attest.sh check"
+fi
+
+# ── KI-Co-Authored-By-Trailer-Riegel ─────────────────────────────────────────
+# HARD RULE: kein KI-Trailer darf je gepusht werden. Zweiter Riegel zusätzlich
+# zum globalen commit-msg-Hook (fängt Merges/Cherry-Picks/--no-verify/Imports).
+AI_TRAILER='^[Cc]o-[Aa]uthored-[Bb]y:.*(anthropic|copilot|claude|cursor|codeium)'
+while read -r _lref local_sha _rref remote_sha; do
+  [ -z "${local_sha:-}" ] && continue
+  [ "$local_sha" = "$ZERO" ] && continue
+  local_sha="$(git rev-parse --verify --quiet "${local_sha}^{commit}" 2>/dev/null || echo "$local_sha")"
+  if [ "${remote_sha:-$ZERO}" = "$ZERO" ]; then
+    range="$(git rev-list "$local_sha" --not --remotes 2>/dev/null || true)"
+  else
+    range="$(git rev-list "${remote_sha}..${local_sha}" 2>/dev/null || true)"
+  fi
+  [ -z "$range" ] && continue
+  hit="$(git log --no-walk --format='%B' $range 2>/dev/null | grep -iE "$AI_TRAILER" || true)"
+  [ -n "$hit" ] && block "KI-Co-Authored-By-Trailer gefunden:
+$hit
+  → Trailer entfernen (rebase -i / commit --amend), dann erneut pushen."
+done <<EOF
+$REFS
+EOF
+
+# ── Schicht 2: Attest-Schranke ───────────────────────────────────────────────
+# Der zu pushende Commit muss bewusst attestiert sein. Die EINZIGE Art, die
+# Schranke zu passieren: nach echter Prüfung `scripts/docs-attest.sh attest`.
+if [ -x "$ATTESTSH" ]; then
+  attested="$("$ATTESTSH" attested)"
+  attest_block() {
+    block "öffentliche Docs nicht für diesen Stand attestiert.
+  $1
+  → README/CHANGELOG/Website gegen den aktuellen Repo-Stand PRÜFEN, dann BEWUSST
+    bestätigen:   scripts/docs-attest.sh attest
+  (kein --no-verify)"
+  }
+  pushed_any=0
+  while read -r _local_ref local_sha _remote_ref _remote_sha; do
+    [ -z "${local_sha:-}" ] && continue
+    [ "$local_sha" = "$ZERO" ] && continue   # Branch-Löschung -> egal
+    pushed_any=1
+    commit_sha="$(git rev-parse --verify --quiet "${local_sha}^{commit}" 2>/dev/null || echo "$local_sha")"
+    [ "$commit_sha" = "$attested" ] || attest_block "Zu pushen: ${commit_sha:0:12} · zuletzt attestiert: ${attested:0:12}"
+  done <<EOF
+$REFS
+EOF
+  if [ "$pushed_any" -eq 0 ]; then
+    head="$(git rev-parse HEAD)"
+    [ "$head" = "$attested" ] || attest_block "HEAD ${head:0:12} ist nicht attestiert."
+  fi
+fi
+
+# ── Schicht 3: Security-Net (bestehende Hook-Logik wiederbelebt) ─────────────
+if [ -x "$SECURITY" ]; then
+  printf '%s\n' "$REFS" | bash "$SECURITY" "$REMOTE" "$URL" || exit 1
+fi
+
+echo "WhisPaste pre-push: Docs-QS ok · attestiert · kein KI-Trailer · Security-Net grün — Push frei."

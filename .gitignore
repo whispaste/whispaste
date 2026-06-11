@@ -92,6 +92,8 @@ scripts/*
 !scripts/install-hooks.sh
 !scripts/submit-ms-store.ps1
 !scripts/generate-whisper-server-manifest.sh
+!scripts/docs-attest.sh
+!scripts/docs-drift.sh
 
 # Internal website files
 website/design-system/
@@ -139,3 +141,6 @@ tools/feature-audit.sh
 WhisPaste-Diagnose_*.txt
 tools/win-smoke/*.txt
 tools/**/report.txt
+
+# Lokaler Public-Docs-Attest-Stempel (scripts/docs-attest.sh) — maschinen-/clone-lokal
+.docs-attest
