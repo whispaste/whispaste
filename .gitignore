@@ -94,6 +94,7 @@ scripts/*
 !scripts/generate-whisper-server-manifest.sh
 !scripts/docs-attest.sh
 !scripts/docs-drift.sh
+!scripts/probe-packaging-validate.sh
 
 # Internal website files
 website/design-system/

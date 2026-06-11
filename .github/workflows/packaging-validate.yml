@@ -1,0 +1,175 @@
+name: packaging-validate
+
+# Validates all three distribution manifests under packaging/ before they
+# are ever published. Runs on every push to dev and on PRs to main.
+on:
+  push:
+    branches: [dev]
+    paths:
+      - 'packaging/**'
+      - '.github/workflows/packaging-validate.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'packaging/**'
+      - '.github/workflows/packaging-validate.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  # ── Scoop (Ubuntu, only needs python3 + jq — always available) ─────────────
+  scoop:
+    name: Scoop manifest (JSON parse + required fields)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Validate Scoop JSON
+        run: |
+          MANIFEST="packaging/scoop/whispaste.json"
+          echo "Validating $MANIFEST …"
+
+          # 1. JSON-parseable?
+          python3 -c "import json,sys; json.load(open('$MANIFEST'))" \
+            || { echo "::error::$MANIFEST is not valid JSON"; exit 1; }
+          echo "  ✓ JSON parse OK"
+
+          # 2. Required top-level fields
+          REQUIRED_FIELDS="version url_or_arch hash_or_arch bin autoupdate"
+          MISSING=""
+
+          python3 - "$MANIFEST" <<'PYEOF'
+          import json, sys, pathlib
+
+          MANIFEST = pathlib.Path(sys.argv[1])
+          data = json.loads(MANIFEST.read_text())
+
+          errors = []
+
+          # version
+          if not data.get("version"):
+              errors.append("missing required field: version")
+
+          # url / architecture (Scoop accepts either a top-level url or an
+          # architecture block with per-arch url entries)
+          has_url = bool(data.get("url"))
+          has_arch = isinstance(data.get("architecture"), dict)
+          if not has_url and not has_arch:
+              errors.append("missing required field: url (or architecture)")
+
+          # hash (same dual-path logic as url)
+          has_hash = bool(data.get("hash"))
+          arch = data.get("architecture") or {}
+          has_arch_hash = any(
+              isinstance(v, dict) and v.get("hash")
+              for v in arch.values()
+          )
+          if not has_hash and not has_arch_hash:
+              errors.append("missing required field: hash (or architecture.<arch>.hash)")
+
+          # bin
+          if not data.get("bin"):
+              errors.append("missing required field: bin")
+
+          # autoupdate
+          if not data.get("autoupdate"):
+              errors.append("missing required field: autoupdate")
+
+          if errors:
+              for e in errors:
+                  print(f"::error::{e}")
+              sys.exit(1)
+
+          print("  ✓ All required fields present")
+          PYEOF
+
+  # ── winget (Windows, winget is pre-installed on windows-latest) ────────────
+  winget:
+    name: winget manifest (winget validate)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Check winget availability
+        id: check_winget
+        shell: pwsh
+        run: |
+          if (Get-Command winget -ErrorAction SilentlyContinue) {
+            echo "available=true" >> $env:GITHUB_OUTPUT
+            Write-Host "winget found: $(winget --version)"
+          } else {
+            echo "available=false" >> $env:GITHUB_OUTPUT
+            Write-Host "::notice::winget not available on this runner — skipping winget validate"
+          }
+
+      - name: Validate winget manifests
+        if: steps.check_winget.outputs.available == 'true'
+        shell: pwsh
+        run: |
+          $manifests = @(
+            "packaging/winget/SilvioLindstedt.WhisPaste.yaml",
+            "packaging/winget/SilvioLindstedt.WhisPaste.installer.yaml",
+            "packaging/winget/SilvioLindstedt.WhisPaste.locale.en-US.yaml"
+          )
+          $failed = $false
+          foreach ($m in $manifests) {
+            Write-Host "Validating $m …"
+            winget validate --manifest $m
+            if ($LASTEXITCODE -ne 0) {
+              Write-Host "::error::winget validate failed for $m"
+              $failed = $true
+            } else {
+              Write-Host "  OK: $m"
+            }
+          }
+          if ($failed) { exit 1 }
+
+      - name: Skip notice (winget unavailable)
+        if: steps.check_winget.outputs.available != 'true'
+        shell: pwsh
+        run: |
+          Write-Host "::notice::winget validate skipped — tool not found on runner. Validate locally with: winget validate --manifest packaging/winget/"
+
+  # ── Homebrew (macOS, brew is pre-installed on macos-latest) ────────────────
+  homebrew:
+    name: Homebrew cask (brew audit + brew style)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Check brew availability
+        id: check_brew
+        run: |
+          if command -v brew &>/dev/null; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+            echo "brew found: $(brew --version | head -1)"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::brew not available on this runner — skipping Homebrew checks"
+          fi
+
+      - name: brew audit (Homebrew cask)
+        if: steps.check_brew.outputs.available == 'true'
+        run: |
+          CASK="packaging/homebrew/whispaste.rb"
+          echo "Running brew audit --cask --online=false on $CASK …"
+          # --no-appcast skips live-network checks (URL reachability) so CI
+          # stays fast and reproducible without actual release binaries.
+          brew audit --cask --no-appcast "$CASK" \
+            || { echo "::error::brew audit failed for $CASK"; exit 1; }
+          echo "  ✓ brew audit OK"
+
+      - name: brew style (Homebrew cask)
+        if: steps.check_brew.outputs.available == 'true'
+        run: |
+          CASK="packaging/homebrew/whispaste.rb"
+          echo "Running brew style on $CASK …"
+          brew style "$CASK" \
+            || { echo "::error::brew style failed for $CASK"; exit 1; }
+          echo "  ✓ brew style OK"
+
+      - name: Skip notice (brew unavailable)
+        if: steps.check_brew.outputs.available != 'true'
+        run: |
+          echo "::notice::Homebrew checks skipped — brew not found on runner. Validate locally with: brew audit --cask packaging/homebrew/whispaste.rb && brew style packaging/homebrew/whispaste.rb"
