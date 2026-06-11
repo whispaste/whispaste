@@ -336,10 +336,24 @@ class _RecordingBehaviorState extends ConsumerState<RecordingBehaviorWidget> {
     // ── Info notifications (soft preflight, auto-download) ──
     ref.listen<String?>(recordingInfoProvider, (prev, next) {
       if (next != null) {
+        // Recovery hints that tell the user to "download in Settings" must
+        // carry the last logical step — a one-tap jump to the STT settings
+        // section — instead of leaving them to hunt for it.
+        final bool needsSettingsAction =
+            next == 'info_model_missing' || next == 'info_engine_auto_download';
         WpToast.show(
           context,
           message: localizeRecordingInfo(l10n, next),
           type: WpToastType.info,
+          duration: needsSettingsAction
+              ? const Duration(seconds: 6)
+              : const Duration(seconds: 4),
+          action: needsSettingsAction
+              ? WpToastAction(
+                  label: l10n.pasteFailureOpenSettings,
+                  onPressed: () => _openSettings('stt'),
+                )
+              : null,
         );
         Future.microtask(
           () => ref.read(recordingInfoProvider.notifier).clear(),
