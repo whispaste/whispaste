@@ -261,6 +261,66 @@ void main() {
       expect(status.serverState, SttServerState.stopped);
     });
 
+    test('recovery-downgraded Vulkan build on a cuda-optimal NVIDIA machine '
+        'starts instead of triggering the self-heal re-download '
+        '(FLUTTER_WHISPASTE-A0)', () async {
+      // ServerBinaryRecovery installed the Vulkan build and recorded
+      // backend=vulkan. Pre-fix, _start()'s proactive compatibility check
+      // flagged vulkan != cuda as incompatible, parked the server in
+      // `stopped` and handed off to invalidateServerBinary() — which
+      // deleted the working build and re-pulled the failing cuda one
+      // (the cuda↔vulkan ping-pong that exhausted recovery in the field).
+      await File(
+        '${tempDir.path}/.server-info.json',
+      ).writeAsString('{"backend":"vulkan"}');
+      // Satisfy the Windows-only pre-launch loader gate.
+      await File('${tempDir.path}/vulkan-1.dll').writeAsBytes(const [0]);
+
+      const rtx = hw.GpuInfo(
+        vendor: hw.GpuVendor.nvidia,
+        name: 'NVIDIA GeForce RTX 5060 Laptop GPU',
+        cudaAvailable: true,
+        vulkanAvailable: true,
+      );
+
+      final fakeProcess = _FakeProcess();
+      final runner = _FakeProcessRunner(fakeProcess);
+      final container = _makeContainer(
+        runner: runner,
+        httpClient: _healthyClient(),
+        gpu: rtx,
+        heartbeatConfig: const SttStartupHeartbeatConfig(
+          window: Duration(milliseconds: 50),
+          maxMissedWindows: 3,
+        ),
+      );
+      addTearDown(() {
+        container.dispose();
+        fakeProcess.exit(0);
+      });
+
+      await container.read(settingsProvider.future);
+      fakeProcess.emitStderr('[whisper] model loaded');
+
+      await container.read(localSttBundleProvider.notifier).ensureRunning();
+
+      expect(
+        container.read(localSttBundleProvider).serverState,
+        SttServerState.ready,
+        reason: 'the intentional downgrade must launch, not bail into stopped',
+      );
+      final download =
+          container.read(modelDownloadProvider.notifier)
+              as _FakeModelDownloadNotifier;
+      expect(
+        download.invalidateCalls,
+        0,
+        reason:
+            'the proactive check must NOT hand a runnable downgrade to the '
+            'self-heal delete/re-download path',
+      );
+    });
+
     test('ensureRunning() transitions to ready on healthy server', () async {
       final fakeProcess = _FakeProcess();
       final runner = _FakeProcessRunner(fakeProcess);
