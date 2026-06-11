@@ -10,9 +10,14 @@
 #
 # Dieses Skript stellt die IMPLEMENTIERUNGS-Ground-Truth (aus Code/Daten abgeleitet)
 # plus die öffentlich sichtbaren Docs zusammen und lässt ein LLM genau diese Drift
-# flaggen. ADVISORY und NICHT-BLOCKIEREND — niemals in einen Git-Hook verdrahten
-# (ein LLM ist nicht-deterministisch und kostet Token). Vor einem Release laufen
-# lassen oder nach nennenswerter Feature-Arbeit.
+# flaggen. Strikt ADVISORY und NICHT-BLOCKIEREND.
+#
+# Einsatz (Solo-Dev, eingeloggte CLI): als nicht-blockierender Advisory-Schritt im
+# lokalen .githooks/pre-push — und zwar NUR bei release-relevanten Pushes (main oder
+# v*-Tag), damit routinemäßige dev-Pushes schnell und token-frei bleiben. Bewusst
+# KEIN CI-Workflow: für einen Solo-Dev, der lokal mit eingeloggter CLI pusht, wäre
+# das redundant und bräuchte ein langlebiges OAuth-Secret im Repo (Credential-at-rest).
+# Manuell jederzeit: `scripts/docs-drift.sh --llm`.
 #
 #   docs-drift.sh            Ground-Truth + Doc-Bündel + fertiger Review-Prompt
 #   docs-drift.sh --print    (lesen, an ein LLM pipen oder einem Agenten geben).

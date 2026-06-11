@@ -17,6 +17,7 @@ set -euo pipefail
 
 ROOT="$(git rev-parse --show-toplevel)"
 ATTESTSH="$ROOT/scripts/docs-attest.sh"
+DRIFTSH="$ROOT/scripts/docs-drift.sh"
 SECURITY="$ROOT/scripts/git-hooks/pre-push"
 REMOTE="${1:-}"
 URL="${2:-}"
@@ -89,6 +90,24 @@ fi
 # ── Schicht 3: Security-Net (bestehende Hook-Logik wiederbelebt) ─────────────
 if [ -x "$SECURITY" ]; then
   printf '%s\n' "$REFS" | bash "$SECURITY" "$REMOTE" "$URL" || exit 1
+fi
+
+# ── Advisory: docs-drift (weich, LLM, NICHT-BLOCKIEREND) ─────────────────────
+# Semantik-Drift-Soft-Check über die eingeloggte claude-CLI (Subscription). Läuft
+# NUR bei release-relevanten Pushes (main/master oder v*-Tag) — routinemäßige
+# dev-Pushes bleiben schnell und token-frei. Blockt NIE (|| true). Opt-out:
+# WHISPASTE_SKIP_DRIFT=1. Kein CI-Pendant (bewusst, siehe scripts/docs-drift.sh).
+run_drift=0
+while read -r _lr _ls rref _rs; do
+  case "$rref" in refs/heads/main|refs/heads/master|refs/tags/v*) run_drift=1 ;; esac
+done <<EOF
+$REFS
+EOF
+if [ "$run_drift" = 1 ] && [ "${WHISPASTE_SKIP_DRIFT:-}" != 1 ] \
+   && [ -x "$DRIFTSH" ] && command -v claude >/dev/null 2>&1; then
+  echo "" >&2
+  echo "◆ docs-drift (advisory, non-blocking — release push) …" >&2
+  bash "$DRIFTSH" --llm 2>&1 | sed 's/^/  /' >&2 || true
 fi
 
 echo "WhisPaste pre-push: Docs-QS ok · attestiert · kein KI-Trailer · Security-Net grün — Push frei."
