@@ -110,9 +110,6 @@ class RecordingOrchestrator extends Notifier<void> {
   // Public API
   // -------------------------------------------------------------------------
 
-  /// Returns the current [RecordingPhase] without creating a subscription.
-  RecordingPhase get currentPhase => ref.read(recordingProvider).phase;
-
   /// Acquires the shared `_startInFlight` lock for a voice-note recording
   /// session that runs outside the main dictation pipeline.
   ///

@@ -65,10 +65,4 @@ class SingleInstanceService {
       _log.warning('Failed to signal existing instance: $e');
     }
   }
-
-  /// Release the single-instance lock.
-  static Future<void> dispose() async {
-    await _server?.close();
-    _server = null;
-  }
 }

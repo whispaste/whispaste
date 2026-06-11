@@ -30,11 +30,11 @@ class WaveformPipeline {
   ///   deterministic micromodulation added to live-zone bars.
   WaveformPipeline({
     required this.barCount,
-    required this.liveZoneRatio,
+    required double liveZoneRatio,
     required this.attackTimeConstantMs,
     required this.releaseTimeConstantMs,
-    required this.tickHz,
-    required this.historyDurationMs,
+    required double tickHz,
+    required double historyDurationMs,
     required this.minBarLevel,
     required this.microModulationAmplitude,
   }) : _liveZoneBarCount = math.max(
@@ -49,11 +49,8 @@ class WaveformPipeline {
   }
 
   final int barCount;
-  final double liveZoneRatio;
   final double attackTimeConstantMs;
   final double releaseTimeConstantMs;
-  final double tickHz;
-  final double historyDurationMs;
   final double minBarLevel;
   final double microModulationAmplitude;
 

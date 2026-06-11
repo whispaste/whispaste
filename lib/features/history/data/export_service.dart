@@ -98,15 +98,6 @@ class ExportService {
     return 'whispaste-export$ext';
   }
 
-  /// File dialog filter string for each format.
-  static String filterLabel(ExportFormat format) => switch (format) {
-    ExportFormat.txt => 'Text Files (*.txt)',
-    ExportFormat.md => 'Markdown (*.md)',
-    ExportFormat.json => 'JSON Files (*.json)',
-    ExportFormat.csv => 'CSV Files (*.csv)',
-    ExportFormat.docx => 'Word Documents (*.docx)',
-  };
-
   // ── Text ────────────────────────────────────────────────────────────────
 
   static String _formatTxt(ExportEntry e) {

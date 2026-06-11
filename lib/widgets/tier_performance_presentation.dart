@@ -51,18 +51,4 @@ abstract final class TierPerformancePresentation {
     // Always use info icon for all performance levels
     return LucideIcons.info;
   }
-
-  /// Returns a descriptive label for the performance level.
-  static String performanceLabel(TierPerformance performance, L10n l10n) {
-    switch (performance) {
-      case TierPerformance.fast:
-        return 'Fast';
-      case TierPerformance.moderate:
-        return 'Moderate';
-      case TierPerformance.slow:
-        return 'Slower';
-      case TierPerformance.unmeasured:
-        return 'Unknown';
-    }
-  }
 }

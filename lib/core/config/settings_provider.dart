@@ -283,9 +283,6 @@ class AppSettings {
   @Deprecated('Use onboarding.onboardingCompleted instead')
   bool get onboardingCompleted => onboarding.onboardingCompleted;
 
-  @Deprecated('Use onboarding.autoPasteOffHintDismissed instead')
-  bool get autoPasteOffHintDismissed => onboarding.autoPasteOffHintDismissed;
-
   @Deprecated('Use benchmark.tierBenchmarkRtf instead')
   Map<QualityTier, double>? get tierBenchmarkRtf => benchmark.tierBenchmarkRtf;
 
@@ -321,8 +318,6 @@ class AppSettings {
       OverlayAutoHide.fromValue(overlay.overlayAutoHide);
   FloatingButtonSize get floatingButtonSizeType =>
       FloatingButtonSize.fromValue(overlay.floatingButtonSize);
-  GpuAcceleration get gpuAccelerationType =>
-      GpuAcceleration.fromValue(behavior.gpuAcceleration);
 
   /// Resolved model ID — falls back to `whisper-medium` if empty.
   String get effectiveModelId =>

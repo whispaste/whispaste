@@ -3,14 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'paster.dart';
 
 /// One paste-failure event observed by the UI.
-///
-/// Holds the [outcome] plus the wall-clock time it occurred, which the UI
-/// uses to dismiss stale banners after a few seconds.
 class PasteFailureEvent {
-  PasteFailureEvent({required this.outcome, required this.at});
+  PasteFailureEvent({required this.outcome});
 
   final PasteOutcome outcome;
-  final DateTime at;
 }
 
 /// Notifier that the [RecordingOrchestrator] pushes paste failures into and
@@ -24,7 +20,7 @@ class PasteFailureNotifier extends Notifier<PasteFailureEvent?> {
   PasteFailureEvent? build() => null;
 
   void report(PasteOutcome outcome) {
-    state = PasteFailureEvent(outcome: outcome, at: DateTime.now());
+    state = PasteFailureEvent(outcome: outcome);
   }
 
   void clear() {

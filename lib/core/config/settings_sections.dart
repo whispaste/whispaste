@@ -1159,8 +1159,6 @@ class BenchmarkSettings {
   /// When the benchmark was last run.
   final DateTime? benchmarkTimestamp;
 
-  static const BenchmarkSettings defaults = BenchmarkSettings();
-
   factory BenchmarkSettings.fromMap(Map<String, String> v) => BenchmarkSettings(
     tierBenchmarkRtf: _readBenchmarkRtf(v['tier_benchmark_rtf']),
     benchmarkHardwareId: v['benchmark_hardware_id'],

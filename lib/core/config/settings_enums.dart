@@ -199,11 +199,4 @@ enum GpuAcceleration {
 
   const GpuAcceleration(this.value);
   final String value;
-
-  static GpuAcceleration fromValue(String? v) {
-    for (final e in values) {
-      if (e.value == v) return e;
-    }
-    return auto;
-  }
 }

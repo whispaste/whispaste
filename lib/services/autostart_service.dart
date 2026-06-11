@@ -52,24 +52,6 @@ class AutostartService extends Notifier<bool> {
       _log.warning('Autostart sync failed: $e');
     }
   }
-
-  /// Enable or disable autostart and persist the setting.
-  Future<void> setEnabled(bool enabled) async {
-    try {
-      if (enabled) {
-        await launchAtStartup.enable();
-      } else {
-        await launchAtStartup.disable();
-      }
-      state = enabled;
-      await ref
-          .read(settingsProvider.notifier)
-          .updateSettings((s) => s.copyWith(launchAtStartup: enabled));
-      _log.info('Autostart ${enabled ? "enabled" : "disabled"}');
-    } catch (e) {
-      _log.warning('Autostart set failed: $e');
-    }
-  }
 }
 
 final autostartServiceProvider = NotifierProvider<AutostartService, bool>(

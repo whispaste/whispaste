@@ -83,17 +83,16 @@ class BytesSink implements PcmSink {
 /// File-backed [PcmSink] using a [RandomAccessFile] to allow header
 /// fix-up via `setPosition`. Production sink used by [WavFileWriter].
 class FilePcmSink implements PcmSink {
-  FilePcmSink._(this._raf, this.path);
+  FilePcmSink._(this._raf);
 
   /// Opens [path] for writing (truncates if it exists).
   static Future<FilePcmSink> open(String path) async {
     final file = File(path);
     final raf = await file.open(mode: FileMode.write);
-    return FilePcmSink._(raf, path);
+    return FilePcmSink._(raf);
   }
 
   final RandomAccessFile _raf;
-  final String path;
   int _length = 0;
 
   @override
@@ -199,9 +198,6 @@ class WavFileWriter {
 
   /// Byte offset of the data sub-chunk size field.
   static const int _dataSizeOffset = 40;
-
-  /// Number of bytes written so far (header + payload).
-  int get bytesWritten => _headerSize + _dataLength;
 
   Future<void> _writeHeader() async {
     final byteRate = sampleRate * channels * bitsPerSample ~/ 8;

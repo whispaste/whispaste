@@ -75,9 +75,6 @@ class WpTagInputState extends State<WpTagInput> {
     widget.onSearchChanged?.call('');
   }
 
-  /// Also callable externally — used by focusTagInput() alias.
-  void focusTagInput() => enterAddMode();
-
   @override
   void initState() {
     super.initState();

@@ -53,15 +53,6 @@ String get appUserAgent => '$appName/$appVersion';
 /// `whispaste@$version` tag the release workflow uploads symbols against.
 String get sentryRelease => '$appName@$appVersion';
 
-/// Sentry organization slug. Used in CI/CD workflows.
-const sentryOrg = 'silvio-lindstedt-und-maik-g-y2';
-
-/// Sentry project slug. Used in CI/CD workflows.
-const sentryProject = 'flutter_whispaste';
-
-/// Sentry instance region.
-const sentryRegion = 'de';
-
 /// Process architecture tag for Sentry's `dist` field and `arch` scope tag.
 ///
 /// Replaces the previous `0x7FFFFFFFFFFFFFFF > 0` compile-time hack that
