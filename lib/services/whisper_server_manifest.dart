@@ -22,6 +22,7 @@
 library;
 
 import 'dart:convert';
+import 'dart:ffi';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -381,9 +382,13 @@ class WhisperBinarySelector {
   }
 
   static String _hostArch() {
-    // macOS desktop ships arm64 only (Intel Mac support dropped). Every
-    // other supported desktop platform is x64 today.
-    return Platform.isMacOS ? 'arm64' : 'x64';
+    // macOS ships arm64-only (Intel Mac support was dropped).
+    if (Platform.isMacOS) return 'arm64';
+    // Use dart:ffi Abi to detect the real CPU architecture so arm64 Linux
+    // hosts receive the correct binary instead of the hard-coded x64 fallback.
+    final abi = Abi.current();
+    if (abi == Abi.linuxArm64 || abi == Abi.windowsArm64) return 'arm64';
+    return 'x64';
   }
 }
 

@@ -64,11 +64,17 @@ class WhisperServerDownloader {
   // -----------------------------------------------------------------------
 
   /// Downloads and installs the whisper-server binary into [destDir].
+  ///
+  /// [platformOverride] and [archOverride] are forwarded to
+  /// [WhisperBinarySelector.select] and exist for testing only
+  /// (simulate a specific host platform/arch without running on that hardware).
   Future<void> download({
     required String destDir,
     required String gpuMode,
     ServerFetchProgressCallback? onProgress,
     ServerExtractingCallback? onExtracting,
+    @visibleForTesting String? platformOverride,
+    @visibleForTesting String? archOverride,
   }) async {
     final gpu = await hw.detectGpu();
     _log.info(
@@ -98,6 +104,8 @@ class WhisperServerDownloader {
       manifest: manifest,
       gpu: gpu,
       gpuMode: gpuMode,
+      platformOverride: platformOverride,
+      archOverride: archOverride,
     );
     if (!selection.hasBinary) {
       final reason =

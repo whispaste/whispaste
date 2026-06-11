@@ -39,6 +39,8 @@ class _FakeWhisperServerDownloader implements WhisperServerDownloader {
     required String gpuMode,
     ServerFetchProgressCallback? onProgress,
     ServerExtractingCallback? onExtracting,
+    String? platformOverride,
+    String? archOverride,
   }) async {
     calls.add((destDir: destDir, gpuMode: gpuMode));
     if (throwOnDownload != null) throw throwOnDownload!;
