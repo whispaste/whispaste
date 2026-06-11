@@ -3,8 +3,10 @@
 library;
 
 import 'dart:convert' show jsonDecode;
-import 'dart:io' show Platform;
+import 'dart:io' show Directory, File, Platform;
+import 'dart:typed_data' show Uint8List;
 
+import 'package:crypto/crypto.dart' as crypto;
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -371,6 +373,121 @@ void main() {
       },
       skip: Platform.isMacOS ? null : 'macOS-only arch verification',
     );
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // SHA-256 field: backward compatibility + model parsing
+  // ─────────────────────────────────────────────────────────────────────────
+
+  group('WhisperBinary sha256 field', () {
+    test('parses sha256 when present in JSON', () {
+      const hex =
+          'aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899';
+      final binary = WhisperBinary.fromJson({
+        'platform': 'macos',
+        'arch': 'arm64',
+        'backend': 'metal',
+        'url': 'https://example.com/metal.zip',
+        'size_bytes': 1000,
+        'source': 'whispaste',
+        'sha256': hex,
+      });
+      expect(binary.sha256, hex);
+    });
+
+    test(
+      'sha256 is null when field is absent (legacy manifest — backward-compatible)',
+      () {
+        final binary = WhisperBinary.fromJson({
+          'platform': 'macos',
+          'arch': 'arm64',
+          'backend': 'metal',
+          'url': 'https://example.com/metal.zip',
+          'size_bytes': 1000,
+          'source': 'whispaste',
+          // no sha256 key
+        });
+        expect(binary.sha256, isNull);
+      },
+    );
+
+    test('manifest without any sha256 fields still parses successfully', () {
+      final manifest = WhisperServerManifest.fromJson({
+        'schema_version': 1,
+        'whisper_server_tag': 'whisper-server-legacy',
+        'whisper_cpp_release': 'v1',
+        'generated_at': '2026-01-01T00:00:00Z',
+        'binaries': [
+          {
+            'platform': 'macos',
+            'arch': 'arm64',
+            'backend': 'metal',
+            'url': 'https://example.com/metal.zip',
+            'size_bytes': 1000,
+            'source': 'whispaste',
+          },
+        ],
+      });
+      expect(manifest.binaries.first.sha256, isNull);
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // verifyFileSha256 integrity helper
+  // ─────────────────────────────────────────────────────────────────────────
+
+  group('verifyFileSha256', () {
+    late Directory tempDir;
+
+    setUp(() async {
+      tempDir = await Directory.systemTemp.createTemp('wp_sha256_test_');
+    });
+
+    tearDown(() async {
+      await tempDir.delete(recursive: true);
+    });
+
+    test('accepts a file whose digest matches the expected hex', () async {
+      final data = Uint8List.fromList([1, 2, 3, 4, 5]);
+      final expected = crypto.sha256.convert(data).toString();
+      final file = File('${tempDir.path}/ok.zip')..writeAsBytesSync(data);
+
+      // Must not throw.
+      await expectLater(verifyFileSha256(file, expected), completes);
+    });
+
+    test('throws WhisperBinaryIntegrityException on digest mismatch', () async {
+      final data = Uint8List.fromList([1, 2, 3, 4, 5]);
+      final file = File('${tempDir.path}/bad.zip')..writeAsBytesSync(data);
+      const wrongHex =
+          '0000000000000000000000000000000000000000000000000000000000000000';
+
+      await expectLater(
+        () => verifyFileSha256(file, wrongHex),
+        throwsA(isA<WhisperBinaryIntegrityException>()),
+      );
+    });
+
+    test('is case-insensitive — upper-case expected hex is accepted', () async {
+      final data = Uint8List.fromList([10, 20, 30]);
+      final expectedLower = crypto.sha256.convert(data).toString();
+      final expectedUpper = expectedLower.toUpperCase();
+      final file = File('${tempDir.path}/case.zip')..writeAsBytesSync(data);
+
+      await expectLater(verifyFileSha256(file, expectedUpper), completes);
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // computeSha256Hex helper
+  // ─────────────────────────────────────────────────────────────────────────
+
+  group('computeSha256Hex', () {
+    test('returns the correct hex digest', () {
+      final data = Uint8List.fromList([0xde, 0xad, 0xbe, 0xef]);
+      final expected = crypto.sha256.convert(data).toString();
+      expect(computeSha256Hex(data), expected);
+    });
   });
 }
 
