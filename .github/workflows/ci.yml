@@ -144,6 +144,54 @@ jobs:
       - name: Secure storage integration test
         run: flutter test integration_test/secure_storage_test.dart -d macos
 
+  flutter-app-linux:
+    name: Flutter App (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      # Linux-Desktop-Toolchain fuer `flutter build linux`. Die reinen Unit-/
+      # Widget-Tests (`flutter test`) brauchen das nicht, der Build aber schon.
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev libsecret-1-dev
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.44.1
+          cache: true
+
+      - name: Verify Flutter installation
+        run: flutter --version
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Analyze (lint + static analysis)
+        run: flutter analyze --fatal-infos
+
+      # Reproduzierbare, plattformidentische Unit-/Widget-/App-Flow-Tests
+      # (inkl. test/app/app_flows_test.dart) — laufen headless ohne Display.
+      - name: Run tests
+        run: flutter test --exclude-tags=golden
+
+      - name: Build Linux (debug)
+        run: flutter build linux --debug
+
+      - name: Verify build output
+        run: |
+          BIN="build/linux/x64/debug/bundle/whispaste"
+          if [ ! -f "$BIN" ]; then
+            echo "::error::Flutter build failed: $BIN not found"
+            exit 1
+          fi
+          SIZE=$(du -sh "build/linux/x64/debug/bundle" | cut -f1)
+          echo "Flutter Linux bundle size: $SIZE"
+
   website:
     name: Website
     runs-on: ubuntu-latest
