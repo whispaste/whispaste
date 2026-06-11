@@ -1,0 +1,27 @@
+{
+    "version": "1.2.37",
+    "description": "Cross-platform dictation — hotkey, speak, paste anywhere.",
+    "homepage": "https://whispaste.de",
+    "license": "MIT",
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/whispaste/whispaste/releases/download/v1.2.37/WhisPaste-1.2.37-windows-x64.zip",
+            "hash": "21335bef4570fc783b10d0f8ee6517ea8aa26c15aaef751e399926bcf06b28db"
+        }
+    },
+    "bin": "whispaste.exe",
+    "shortcuts": [
+        [
+            "whispaste.exe",
+            "WhisPaste"
+        ]
+    ],
+    "checkver": "github",
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/whispaste/whispaste/releases/download/v$version/WhisPaste-$version-windows-x64.zip"
+            }
+        }
+    }
+}
