@@ -157,174 +157,45 @@ class _ModelStepState extends ConsumerState<ModelStep> {
 
           // Download progress, error, success, or download button
           const SizedBox(height: WpSpacing.md),
-          if (isDownloading)
-            _DownloadProgress(
-              phase: dlState.phase,
-              progress: dlState.progressPercent / 100.0,
-              isDark: isDark,
-              accent: accent,
-              l10n: l10n,
-            )
-          else if (isError)
-            _DownloadError(
-              message: dlState.errorMessage,
-              isDark: isDark,
-              l10n: l10n,
-              onRetry: _startDownload,
-            )
-          else if (isDone)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  LucideIcons.circleCheck,
-                  size: 18,
-                  color: isDark ? WpColorsDark.success : WpColorsLight.success,
-                ),
-                const SizedBox(width: WpSpacing.xs),
-                Text(
-                  l10n.modelReady,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: isDark
-                        ? WpColorsDark.success
-                        : WpColorsLight.success,
-                  ),
-                ),
-              ],
-            )
-          else
-            SizedBox(
-              width: double.infinity,
-              child: WpAccentButton(
-                label:
-                    '${l10n.qualityTierDownloadAndContinue} (${tierSizeLabel(selectedTier)})',
-                gradient: accentGradient,
-                onPressed: _startDownload,
-              ),
-            ),
+          _ModelStepDownloadStatus(
+            dlState: dlState,
+            isDownloading: isDownloading,
+            isError: isError,
+            isDone: isDone,
+            isDark: isDark,
+            accent: accent,
+            accentGradient: accentGradient,
+            selectedTier: selectedTier,
+            l10n: l10n,
+            onStartDownload: _startDownload,
+          ),
 
           // Hardware warning
-          if (_gpu != null) ...[
-            Builder(
-              builder: (context) {
-                final infoMessage = _tierPerformanceMessage(
-                  l10n: l10n,
-                  tier: selectedTier,
-                  performance: selectedPerformance,
-                );
-                if (infoMessage == null) return const SizedBox.shrink();
-                final infoColor = TierPerformancePresentation.color(
-                  isDark: isDark,
-                );
-                final infoIcon = TierPerformancePresentation.icon(
-                  selectedPerformance,
-                );
-                return Padding(
-                  padding: const EdgeInsets.only(top: WpSpacing.sm),
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(WpSpacing.sm),
-                    decoration: BoxDecoration(
-                      color: infoColor.withValues(alpha: 0.08),
-                      borderRadius: WpRadius.borderMd,
-                      border: Border.all(
-                        color: infoColor.withValues(alpha: 0.2),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(infoIcon, size: 14, color: infoColor),
-                        const SizedBox(width: WpSpacing.sm),
-                        Expanded(
-                          child: Text(
-                            infoMessage,
-                            style: TextStyle(fontSize: 12, color: infoColor),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ],
-
-          // Choose different tier
-          const SizedBox(height: WpSpacing.md),
-          if (!isDownloading && !isDone)
-            Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () =>
-                    setState(() => _showAlternatives = !_showAlternatives),
-                borderRadius: WpRadius.borderSm,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: WpSpacing.sm,
-                    vertical: WpSpacing.xs,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        l10n.qualityTierChooseDifferent,
-                        style: TextStyle(fontSize: 13, color: accent),
-                      ),
-                      const SizedBox(width: 4),
-                      AnimatedRotation(
-                        turns: _showAlternatives ? 0.5 : 0,
-                        duration: WpMotion.fast,
-                        child: Icon(
-                          LucideIcons.chevronDown,
-                          size: 14,
-                          color: accent,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+          if (_gpu != null)
+            _TierPerformanceWarning(
+              tier: selectedTier,
+              performance: selectedPerformance,
+              isDark: isDark,
+              l10n: l10n,
             ),
 
-          // Alternative tiers
-          AnimatedSize(
-            duration: WpMotion.smooth,
-            curve: WpMotion.defaultCurve,
-            child: _showAlternatives && !isDownloading && !isDone
-                ? Padding(
-                    padding: const EdgeInsets.only(top: WpSpacing.sm),
-                    child: Column(
-                      children: [
-                        for (final tier in QualityTier.values)
-                          if (tier != _selectedTier)
-                            Padding(
-                              padding: const EdgeInsets.only(
-                                bottom: WpSpacing.xs,
-                              ),
-                              child: _TierCard(
-                                tier: tier,
-                                isRecommended: tier == _recommendedTier,
-                                isSelected: false,
-                                performance: _gpu != null
-                                    ? tierPerformance(tier, _gpu!)
-                                    : TierPerformance.unmeasured,
-                                gpu: _gpu,
-                                isDark: isDark,
-                                l10n: l10n,
-                                onTap: () {
-                                  setState(() {
-                                    _selectedTier = tier;
-                                    _showAlternatives = false;
-                                  });
-                                },
-                              ),
-                            ),
-                      ],
-                    ),
-                  )
-                : const SizedBox.shrink(),
+          // Choose different tier + alternative tier cards
+          _ModelStepAlternatives(
+            isDownloading: isDownloading,
+            isDone: isDone,
+            showAlternatives: _showAlternatives,
+            selectedTier: _selectedTier,
+            recommendedTier: _recommendedTier,
+            gpu: _gpu,
+            isDark: isDark,
+            accent: accent,
+            l10n: l10n,
+            onToggleAlternatives: () =>
+                setState(() => _showAlternatives = !_showAlternatives),
+            onSelectTier: (tier) => setState(() {
+              _selectedTier = tier;
+              _showAlternatives = false;
+            }),
           ),
         ],
 
@@ -337,28 +208,10 @@ class _ModelStepState extends ConsumerState<ModelStep> {
         const SizedBox(height: WpSpacing.xxs),
 
         // Cloud option
-        Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: widget.onNext,
-            borderRadius: WpRadius.borderSm,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: WpSpacing.sm,
-                vertical: WpSpacing.xs,
-              ),
-              child: Text(
-                l10n.onboardingModelUseCloud,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: accent,
-                  decoration: TextDecoration.underline,
-                  decorationColor: accent,
-                ),
-              ),
-            ),
-          ),
+        _ModelStepCloudOption(
+          accent: accent,
+          label: l10n.onboardingModelUseCloud,
+          onTap: widget.onNext,
         ),
         const SizedBox(height: WpSpacing.lg),
 
@@ -385,6 +238,288 @@ class _ModelStepState extends ConsumerState<ModelStep> {
           ],
         ),
       ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Download status — progress / error / success / download button
+// ---------------------------------------------------------------------------
+
+class _ModelStepDownloadStatus extends StatelessWidget {
+  const _ModelStepDownloadStatus({
+    required this.dlState,
+    required this.isDownloading,
+    required this.isError,
+    required this.isDone,
+    required this.isDark,
+    required this.accent,
+    required this.accentGradient,
+    required this.selectedTier,
+    required this.l10n,
+    required this.onStartDownload,
+  });
+
+  final ModelDownloadState dlState;
+  final bool isDownloading;
+  final bool isError;
+  final bool isDone;
+  final bool isDark;
+  final Color accent;
+  final LinearGradient accentGradient;
+  final QualityTier selectedTier;
+  final L10n l10n;
+  final VoidCallback onStartDownload;
+
+  @override
+  Widget build(BuildContext context) {
+    if (isDownloading) {
+      return _DownloadProgress(
+        phase: dlState.phase,
+        progress: dlState.progressPercent / 100.0,
+        isDark: isDark,
+        accent: accent,
+        l10n: l10n,
+      );
+    }
+    if (isError) {
+      return _DownloadError(
+        message: dlState.errorMessage,
+        isDark: isDark,
+        l10n: l10n,
+        onRetry: onStartDownload,
+      );
+    }
+    if (isDone) {
+      final success = isDark ? WpColorsDark.success : WpColorsLight.success;
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(LucideIcons.circleCheck, size: 18, color: success),
+          const SizedBox(width: WpSpacing.xs),
+          Text(
+            l10n.modelReady,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: success,
+            ),
+          ),
+        ],
+      );
+    }
+    return SizedBox(
+      width: double.infinity,
+      child: WpAccentButton(
+        label:
+            '${l10n.qualityTierDownloadAndContinue} (${tierSizeLabel(selectedTier)})',
+        gradient: accentGradient,
+        onPressed: onStartDownload,
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tier performance warning — shown below selected tier when GPU data is present
+// ---------------------------------------------------------------------------
+
+class _TierPerformanceWarning extends StatelessWidget {
+  const _TierPerformanceWarning({
+    required this.tier,
+    required this.performance,
+    required this.isDark,
+    required this.l10n,
+  });
+
+  final QualityTier tier;
+  final TierPerformance performance;
+  final bool isDark;
+  final L10n l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    final infoMessage = _tierPerformanceMessage(
+      l10n: l10n,
+      tier: tier,
+      performance: performance,
+    );
+    if (infoMessage == null) return const SizedBox.shrink();
+    final infoColor = TierPerformancePresentation.color(isDark: isDark);
+    final infoIcon = TierPerformancePresentation.icon(performance);
+    return Padding(
+      padding: const EdgeInsets.only(top: WpSpacing.sm),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(WpSpacing.sm),
+        decoration: BoxDecoration(
+          color: infoColor.withValues(alpha: 0.08),
+          borderRadius: WpRadius.borderMd,
+          border: Border.all(color: infoColor.withValues(alpha: 0.2)),
+        ),
+        child: Row(
+          children: [
+            Icon(infoIcon, size: 14, color: infoColor),
+            const SizedBox(width: WpSpacing.sm),
+            Expanded(
+              child: Text(
+                infoMessage,
+                style: TextStyle(fontSize: 12, color: infoColor),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Alternatives section — toggle + expandable list of alternative tier cards
+// ---------------------------------------------------------------------------
+
+class _ModelStepAlternatives extends StatelessWidget {
+  const _ModelStepAlternatives({
+    required this.isDownloading,
+    required this.isDone,
+    required this.showAlternatives,
+    required this.selectedTier,
+    required this.recommendedTier,
+    required this.gpu,
+    required this.isDark,
+    required this.accent,
+    required this.l10n,
+    required this.onToggleAlternatives,
+    required this.onSelectTier,
+  });
+
+  final bool isDownloading;
+  final bool isDone;
+  final bool showAlternatives;
+  final QualityTier? selectedTier;
+  final QualityTier? recommendedTier;
+  final hw.GpuInfo? gpu;
+  final bool isDark;
+  final Color accent;
+  final L10n l10n;
+  final VoidCallback onToggleAlternatives;
+  final void Function(QualityTier tier) onSelectTier;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(height: WpSpacing.md),
+        if (!isDownloading && !isDone)
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onToggleAlternatives,
+              borderRadius: WpRadius.borderSm,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: WpSpacing.sm,
+                  vertical: WpSpacing.xs,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      l10n.qualityTierChooseDifferent,
+                      style: TextStyle(fontSize: 13, color: accent),
+                    ),
+                    const SizedBox(width: 4),
+                    AnimatedRotation(
+                      turns: showAlternatives ? 0.5 : 0,
+                      duration: WpMotion.fast,
+                      child: Icon(
+                        LucideIcons.chevronDown,
+                        size: 14,
+                        color: accent,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        AnimatedSize(
+          duration: WpMotion.smooth,
+          curve: WpMotion.defaultCurve,
+          child: showAlternatives && !isDownloading && !isDone
+              ? Padding(
+                  padding: const EdgeInsets.only(top: WpSpacing.sm),
+                  child: Column(
+                    children: [
+                      for (final tier in QualityTier.values)
+                        if (tier != selectedTier)
+                          Padding(
+                            padding: const EdgeInsets.only(
+                              bottom: WpSpacing.xs,
+                            ),
+                            child: _TierCard(
+                              tier: tier,
+                              isRecommended: tier == recommendedTier,
+                              isSelected: false,
+                              performance: gpu != null
+                                  ? tierPerformance(tier, gpu!)
+                                  : TierPerformance.unmeasured,
+                              gpu: gpu,
+                              isDark: isDark,
+                              l10n: l10n,
+                              onTap: () => onSelectTier(tier),
+                            ),
+                          ),
+                    ],
+                  ),
+                )
+              : const SizedBox.shrink(),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Cloud option link
+// ---------------------------------------------------------------------------
+
+class _ModelStepCloudOption extends StatelessWidget {
+  const _ModelStepCloudOption({
+    required this.accent,
+    required this.label,
+    required this.onTap,
+  });
+
+  final Color accent;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: WpRadius.borderSm,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: WpSpacing.sm,
+            vertical: WpSpacing.xs,
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              color: accent,
+              decoration: TextDecoration.underline,
+              decorationColor: accent,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
