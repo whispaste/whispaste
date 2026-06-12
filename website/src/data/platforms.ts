@@ -174,3 +174,75 @@ export function resolvePrimary(os: Os): PlatformOffer {
   if (os === 'unknown') return STORES.windows;
   return STORES[os];
 }
+
+// ---------------------------------------------------------------------------
+// Package-manager channels — SSoT for Scoop / winget / Homebrew
+// ---------------------------------------------------------------------------
+
+export type PkgManagerId = 'scoop' | 'winget' | 'homebrew';
+
+export interface PkgManagerChannel {
+  /** Unique identifier for this channel. */
+  id: PkgManagerId;
+  /**
+   * Whether this channel is live/published.
+   * false → channel not yet published; must NOT be rendered on the website.
+   * Guards winget and Homebrew until they are submitted and verified.
+   */
+  live: boolean;
+  /** Platform this channel targets. */
+  platform: Exclude<Os, 'unknown'>;
+  /** Install/update commands shown verbatim in the code block. */
+  commands: string[];
+  /**
+   * Bilingual comment line displayed above the commands (code-block header).
+   * Keyed by locale so both DE and EN pages can read from the same source.
+   */
+  comment: { de: string; en: string };
+}
+
+/**
+ * Package-manager channels for WhisPaste.
+ *
+ * Consumers (download.astro, en/download.astro) import this array and call
+ * getLivePkgManagers() — no literal commands or channel names elsewhere.
+ *
+ * live: true  → rendered on the download page immediately.
+ * live: false → channel not yet published; suppressed by getLivePkgManagers().
+ *               Flip to true once the channel is verified and live.
+ */
+export const PKG_MANAGERS: PkgManagerChannel[] = [
+  {
+    id: 'scoop',
+    live: true,
+    platform: 'windows',
+    commands: [
+      'scoop bucket add whispaste https://github.com/whispaste/scoop-bucket',
+      'scoop install whispaste',
+    ],
+    comment: { de: '# Windows · Scoop', en: '# Windows · Scoop' },
+  },
+  {
+    id: 'winget',
+    live: false,
+    platform: 'windows',
+    commands: ['winget install whispaste.whispaste'],
+    comment: { de: '# Windows · winget', en: '# Windows · winget' },
+  },
+  {
+    id: 'homebrew',
+    live: false,
+    platform: 'macos',
+    commands: ['brew install --cask whispaste'],
+    comment: { de: '# macOS · Homebrew', en: '# macOS · Homebrew' },
+  },
+];
+
+/**
+ * Returns only the live/published package-manager channels.
+ * Use this to filter what gets rendered on the website — channels with
+ * live: false are not yet published and must not appear on the page.
+ */
+export function getLivePkgManagers(): PkgManagerChannel[] {
+  return PKG_MANAGERS.filter((ch) => ch.live);
+}
