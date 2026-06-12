@@ -159,15 +159,16 @@ class FloatingOverlayHost {
   private func handleUpdateSnapshot(_ args: [String: Any]) {
     let visible = args["visible"] as? Bool ?? false
     let compact = args["compact"] as? Bool ?? false
+    let sizeChanged = compact != isCompact
+    // Set the size class BEFORE lazy-creating the panel so the very first
+    // (possibly compact) snapshot sizes the shell correctly instead of
+    // creating it at normal size and resizing a frame later.
+    isCompact = compact
 
-    // Lazy-create the panel + render engine on first visible snapshot.
     if visible && panel == nil {
       ensurePanel()
-    }
-
-    // Resize the shell if the size class changed (compact ↔ normal).
-    if compact != isCompact {
-      isCompact = compact
+    } else if sizeChanged {
+      // Re-size + re-anchor the existing shell on a compact ↔ normal switch.
       resizePanelToContent()
     }
 
@@ -244,7 +245,11 @@ class FloatingOverlayHost {
     guard let p = panel else { return }
     let origin = p.frame.origin
     p.setContentSize(contentSize())
-    p.setFrameOrigin(origin)
+    // Re-anchor: a top/bottom-centre overlay must stay centred after the size
+    // changes; a dragged (topLeft) overlay keeps its raw origin.
+    let resolved = resolvePosition(
+      x: Double(origin.x), y: Double(origin.y), anchorMode: pendingAnchorMode)
+    p.setFrameOrigin(resolved)
   }
 
   // MARK: - Render-engine interactions (overlay engine → native → main engine)
