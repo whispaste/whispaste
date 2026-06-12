@@ -162,14 +162,12 @@ class WhisperServerManifest {
     required this.schemaVersion,
     required this.whisperServerTag,
     required this.whisperCppRelease,
-    required this.generatedAt,
     required this.binaries,
   });
 
   final int schemaVersion;
   final String whisperServerTag;
   final String whisperCppRelease;
-  final DateTime generatedAt;
   final List<WhisperBinary> binaries;
 
   factory WhisperServerManifest.fromJson(Map<String, dynamic> json) {
@@ -190,9 +188,6 @@ class WhisperServerManifest {
       schemaVersion: schema,
       whisperServerTag: json['whisper_server_tag'] as String,
       whisperCppRelease: json['whisper_cpp_release'] as String? ?? 'unknown',
-      generatedAt:
-          DateTime.tryParse(json['generated_at'] as String? ?? '') ??
-          DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
       binaries: [
         for (final b in binariesJson)
           WhisperBinary.fromJson(b as Map<String, dynamic>),

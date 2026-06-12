@@ -40,6 +40,18 @@ typedef ServerExtractingCallback = void Function();
 // WhisperServerDownloader
 // ---------------------------------------------------------------------------
 
+/// Internal marker for a download attempt that failed in a retriable way
+/// (e.g. SHA-256 mismatch). Carries the reason for the final failure report.
+/// Never escapes [WhisperServerDownloader.download].
+class _RetriableDownloadError implements Exception {
+  _RetriableDownloadError(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 /// Downloads, extracts, and installs the whisper-server binary that
 /// matches the host platform + GPU per the active manifest.
 ///
@@ -84,9 +96,86 @@ class WhisperServerDownloader {
       'vulkan=${gpu.vulkanAvailable}, mode=$gpuMode)',
     );
 
-    final WhisperServerManifest manifest;
+    final manifest = await _loadManifestOrReport(gpu: gpu, gpuMode: gpuMode);
+    final binary = _resolveBinaryOrReport(
+      manifest: manifest,
+      gpu: gpu,
+      gpuMode: gpuMode,
+      platformOverride: platformOverride,
+      archOverride: archOverride,
+    );
+
+    String? lastError;
+    var sawStall = false;
+    for (var attempt = 1; attempt <= 2; attempt++) {
+      try {
+        await _installAttempt(
+          binary: binary,
+          destDir: destDir,
+          gpu: gpu,
+          manifest: manifest,
+          onProgress: onProgress,
+          onExtracting: onExtracting,
+        );
+        return;
+      } on _RetriableDownloadError catch (e) {
+        // Failure reason was already logged at the point it occurred.
+        lastError = e.message;
+      } on DioException catch (e) {
+        // User-initiated cancel propagates as-is. Stall-detector cancel
+        // is retriable. See HttpStallDetector / PRD Modul 3.
+        final isStallCancel =
+            e.type == DioExceptionType.cancel &&
+            e.message == httpStallCancelMessage;
+        if (e.type == DioExceptionType.cancel && !isStallCancel) {
+          rethrow;
+        }
+        if (isStallCancel) sawStall = true;
+        lastError = describeDioError(e);
+        _log.warning(
+          'Server download failed (attempt $attempt, url=${binary.url}): '
+          '$lastError',
+        );
+      } on Exception catch (e) {
+        lastError = '$e';
+        _log.warning(
+          'Server download failed (attempt $attempt, url=${binary.url}): $e',
+        );
+      }
+      if (attempt < 2) {
+        await Future<void>.delayed(Duration(seconds: 2 * attempt));
+      }
+    }
+
+    // Downgraded from error → warning to avoid AppLogger's auto-escalate
+    // path duplicating the explicit fingerprinted Sentry capture below.
+    _log.warning('Could not download whisper-server after retries');
+    final finalMessage =
+        lastError ?? 'whisper-server download failed (no specific error)';
+    _reportFailure(
+      gpu: gpu,
+      gpuMode: gpuMode,
+      message: finalMessage,
+      type: sawStall ? 'server_download_stalled' : 'server_download_failed',
+      fingerprint: sawStall ? serverDownloadStalled : serverDownloadFailed,
+      manifestTag: manifest.whisperServerTag,
+      assetUrl: binary.url,
+      backend: binary.backend,
+    );
+    throw Exception(finalMessage);
+  }
+
+  // -----------------------------------------------------------------------
+  // Download steps (extracted to keep `download` under the complexity gate)
+  // -----------------------------------------------------------------------
+
+  /// Loads the manifest, reporting + rethrowing on failure.
+  Future<WhisperServerManifest> _loadManifestOrReport({
+    required hw.GpuInfo gpu,
+    required String gpuMode,
+  }) async {
     try {
-      manifest = await _manifestLoader.load();
+      return await _manifestLoader.load();
     } on Exception catch (e) {
       final msg = 'Manifest load failed: $e';
       _log.warning(msg);
@@ -99,7 +188,16 @@ class WhisperServerDownloader {
       );
       throw Exception(msg);
     }
+  }
 
+  /// Selects the matching binary, reporting + throwing when none fits.
+  WhisperBinary _resolveBinaryOrReport({
+    required WhisperServerManifest manifest,
+    required hw.GpuInfo gpu,
+    required String gpuMode,
+    String? platformOverride,
+    String? archOverride,
+  }) {
     final selection = _selector.select(
       manifest: manifest,
       gpu: gpu,
@@ -121,99 +219,57 @@ class WhisperServerDownloader {
       );
       throw Exception(reason);
     }
-
     final binary = selection.binary!;
     _log.info('Selected binary: $binary (url=${binary.url})');
+    return binary;
+  }
 
-    String? lastError;
-    var sawStall = false;
-    for (var attempt = 1; attempt <= 2; attempt++) {
+  /// One fetch → verify → extract → install attempt. Throws
+  /// [_RetriableDownloadError] for a retriable failure (e.g. SHA mismatch);
+  /// lets [DioException]/[Exception] propagate for the caller to classify.
+  Future<void> _installAttempt({
+    required WhisperBinary binary,
+    required String destDir,
+    required hw.GpuInfo gpu,
+    required WhisperServerManifest manifest,
+    ServerFetchProgressCallback? onProgress,
+    ServerExtractingCallback? onExtracting,
+  }) async {
+    final zipPath = p.join(destDir, '_whisper-server.zip');
+    await _fetcher.fetch(
+      url: binary.url,
+      destPath: zipPath,
+      expectedSize: binary.sizeBytes,
+      onProgress: onProgress,
+    );
+
+    // SHA-256 integrity check — only when the manifest supplies a hash.
+    if (binary.sha256 != null) {
       try {
-        final zipPath = p.join(destDir, '_whisper-server.zip');
-        await _fetcher.fetch(
-          url: binary.url,
-          destPath: zipPath,
-          expectedSize: binary.sizeBytes,
-          onProgress: onProgress,
-        );
-
-        // SHA-256 integrity check — only when the manifest supplies a hash.
-        if (binary.sha256 != null) {
-          try {
-            await verifyFileSha256(File(zipPath), binary.sha256!);
-          } on WhisperBinaryIntegrityException catch (e) {
-            // Discard the corrupt artefact before surfacing the error.
-            await File(zipPath).delete().catchError((_) => File(zipPath));
-            _log.warning('SHA-256 mismatch — artefact discarded: $e');
-            lastError = e.toString();
-            if (attempt < 2) {
-              await Future<void>.delayed(Duration(seconds: 2 * attempt));
-            }
-            continue;
-          }
-        }
-
-        onExtracting?.call();
-        await _extractServerZip(zipPath, destDir);
+        await verifyFileSha256(File(zipPath), binary.sha256!);
+      } on WhisperBinaryIntegrityException catch (e) {
+        // Discard the corrupt artefact before surfacing the error.
         await File(zipPath).delete().catchError((_) => File(zipPath));
-
-        await hw.writeServerBinaryInfo(
-          destDir,
-          gpu,
-          sourceRepo: binary.source,
-          assetName: Uri.parse(binary.url).pathSegments.lastOrNull ?? '',
-        );
-
-        _log.info(
-          'whisper-server ready (tag=${manifest.whisperServerTag}, '
-          'backend=${binary.backend}, source=${binary.source})',
-        );
-        return;
-      } on DioException catch (e) {
-        // User-initiated cancel propagates as-is. Stall-detector cancel
-        // is retriable. See HttpStallDetector / PRD Modul 3.
-        final isStallCancel =
-            e.type == DioExceptionType.cancel &&
-            e.message == httpStallCancelMessage;
-        if (e.type == DioExceptionType.cancel && !isStallCancel) {
-          rethrow;
-        }
-        if (isStallCancel) sawStall = true;
-        lastError = describeDioError(e);
-        _log.warning(
-          'Server download failed (attempt $attempt, url=${binary.url}): '
-          '$lastError',
-        );
-        if (attempt < 2) {
-          await Future<void>.delayed(Duration(seconds: 2 * attempt));
-        }
-      } on Exception catch (e) {
-        lastError = '$e';
-        _log.warning(
-          'Server download failed (attempt $attempt, url=${binary.url}): $e',
-        );
-        if (attempt < 2) {
-          await Future<void>.delayed(Duration(seconds: 2 * attempt));
-        }
+        _log.warning('SHA-256 mismatch — artefact discarded: $e');
+        throw _RetriableDownloadError(e.toString());
       }
     }
 
-    // Downgraded from error → warning to avoid AppLogger's auto-escalate
-    // path duplicating the explicit fingerprinted Sentry capture below.
-    _log.warning('Could not download whisper-server after retries');
-    final finalMessage =
-        lastError ?? 'whisper-server download failed (no specific error)';
-    _reportFailure(
-      gpu: gpu,
-      gpuMode: gpuMode,
-      message: finalMessage,
-      type: sawStall ? 'server_download_stalled' : 'server_download_failed',
-      fingerprint: sawStall ? serverDownloadStalled : serverDownloadFailed,
-      manifestTag: manifest.whisperServerTag,
-      assetUrl: binary.url,
-      backend: binary.backend,
+    onExtracting?.call();
+    await _extractServerZip(zipPath, destDir);
+    await File(zipPath).delete().catchError((_) => File(zipPath));
+
+    await hw.writeServerBinaryInfo(
+      destDir,
+      gpu,
+      sourceRepo: binary.source,
+      assetName: Uri.parse(binary.url).pathSegments.lastOrNull ?? '',
     );
-    throw Exception(finalMessage);
+
+    _log.info(
+      'whisper-server ready (tag=${manifest.whisperServerTag}, '
+      'backend=${binary.backend}, source=${binary.source})',
+    );
   }
 
   // -----------------------------------------------------------------------
