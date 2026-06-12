@@ -176,6 +176,16 @@ jobs:
       - name: Analyze (lint + static analysis)
         run: flutter analyze --fatal-infos
 
+      # loam ratchet gate — fails when a new complexity hotspot or import
+      # cycle is introduced relative to the committed baseline.json (0 findings).
+      # See .scratch/linux-support issue 33 (H-8). Pinned for reproducibility.
+      - name: Loam ratchet gate (complexity + cycles)
+        run: |
+          dart pub global activate loam 0.1.7
+          export PATH="$PATH:$HOME/.pub-cache/bin"
+          export DART_SDK="$(dirname "$(command -v flutter)")/cache/dart-sdk"
+          loam gate --no-update-check
+
       # Reproduzierbare, plattformidentische Unit-/Widget-/App-Flow-Tests
       # (inkl. test/app/app_flows_test.dart) — laufen headless ohne Display.
       - name: Run tests
