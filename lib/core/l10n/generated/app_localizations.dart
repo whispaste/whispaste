@@ -459,6 +459,42 @@ abstract class L10n {
   /// **'Press the record button or use the hotkey to start dictating.\nYour transcriptions will appear here.'**
   String get historyNoRecordingsHint;
 
+  /// No description provided for @historyNoPinned.
+  ///
+  /// In en, this message translates to:
+  /// **'No favorites yet'**
+  String get historyNoPinned;
+
+  /// No description provided for @historyNoPinnedHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark a transcription as a favorite to find it here quickly.'**
+  String get historyNoPinnedHint;
+
+  /// No description provided for @historyNoToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing recorded today'**
+  String get historyNoToday;
+
+  /// No description provided for @historyNoTodayHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s transcriptions will appear here.'**
+  String get historyNoTodayHint;
+
+  /// No description provided for @historyNoThisWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing recorded this week'**
+  String get historyNoThisWeek;
+
+  /// No description provided for @historyNoThisWeekHint.
+  ///
+  /// In en, this message translates to:
+  /// **'This week\'s transcriptions will appear here.'**
+  String get historyNoThisWeekHint;
+
   /// No description provided for @historyCopiedToClipboard.
   ///
   /// In en, this message translates to:

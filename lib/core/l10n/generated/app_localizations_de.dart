@@ -202,6 +202,26 @@ class L10nDe extends L10n {
       'Drücke den Aufnahmeknopf oder nutze den Hotkey, um mit dem Diktieren zu beginnen.\nDeine Transkriptionen erscheinen hier.';
 
   @override
+  String get historyNoPinned => 'Noch keine Favoriten';
+
+  @override
+  String get historyNoPinnedHint =>
+      'Markiere eine Transkription als Favorit, um sie schnell wiederzufinden.';
+
+  @override
+  String get historyNoToday => 'Heute noch keine Aufnahmen';
+
+  @override
+  String get historyNoTodayHint => 'Die Aufnahmen von heute erscheinen hier.';
+
+  @override
+  String get historyNoThisWeek => 'Diese Woche noch keine Aufnahmen';
+
+  @override
+  String get historyNoThisWeekHint =>
+      'Die Aufnahmen dieser Woche erscheinen hier.';
+
+  @override
   String get historyCopiedToClipboard => 'In die Zwischenablage kopiert';
 
   @override
