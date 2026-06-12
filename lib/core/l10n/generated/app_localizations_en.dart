@@ -2550,4 +2550,20 @@ class L10nEn extends L10n {
   @override
   String get errorSttRejectPromptTooLong =>
       'Custom vocabulary is too long — please shorten it in Settings.';
+
+  @override
+  String get settingsGpuAcceleration => 'Graphics Acceleration';
+
+  @override
+  String get settingsGpuAccelerationSubtitle =>
+      'Controls whether the speech service uses GPU or CPU for local recognition';
+
+  @override
+  String get settingsGpuAccelerationAuto => 'Automatic (recommended)';
+
+  @override
+  String get settingsGpuAccelerationEnabled => 'GPU (force)';
+
+  @override
+  String get settingsGpuAccelerationDisabled => 'CPU only';
 }

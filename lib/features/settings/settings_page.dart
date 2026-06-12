@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/navigation/page_state.dart';
+import '../../app.dart';
 import '../../widgets/page_shell.dart';
 import 'sections/cloud_advanced_section.dart' show AdvancedSection;
 import 'sections/feedback_section.dart';
+import 'sections/gpu_acceleration_section.dart';
 import 'sections/history_section.dart';
 import 'sections/interface_section.dart';
 import 'sections/overlay_button_section.dart';
@@ -28,6 +29,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   final _sectionKeys = <String, GlobalKey>{
     'interface': GlobalKey(),
     'stt': GlobalKey(),
+    'gpu': GlobalKey(),
     'audio': GlobalKey(),
     'afterTranscription': GlobalKey(),
     'overlay': GlobalKey(),
@@ -91,6 +93,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           //  CORE WORKFLOW
           // ═══════════════════════════════════════════
           SpeechRecognitionSection(key: _sectionKeys['stt']),
+          settingsSectionDivider(context),
+          GpuAccelerationSection(key: _sectionKeys['gpu']),
           settingsSectionDivider(context),
           AudioSection(key: _sectionKeys['audio']),
           settingsSectionDivider(context),

@@ -561,8 +561,6 @@
   "errorTranscriptionTimeout": "Transkription hat zu lange gedauert. Bitte versuche eine kürzere Aufnahme.",
   "errorMicPermissionDenied": "Mikrofonzugriff wird benötigt. Bitte erlaube ihn in den Systemeinstellungen.",
   "errorRecordingStartFailed": "Aufnahme konnte nicht gestartet werden. Bitte versuche es erneut.",
-  "errorCloudAuth": "API-Schlüssel fehlt oder ist ungültig. Prüfe ihn unter Einstellungen → Spracherkennung.",
-  "errorCloudQuota": "Rate-Limit des Cloud-Anbieters erreicht. Warte kurz und versuche es erneut.",
   "errorGeneric": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
   "modelDownloadFailed": "Download fehlgeschlagen. Bitte überprüfe deine Internetverbindung.",
 
@@ -863,5 +861,11 @@
   "errorSttRejectEmpty": "Keine Audiodaten zum Transkribieren — bitte Aufnahme wiederholen.",
   "errorSttRejectInvalidWav": "Audiodatei ist beschädigt — bitte Aufnahme wiederholen.",
   "errorSttRejectUnsupportedLanguage": "Diese Sprache wird vom lokalen Sprachmodell nicht unterstützt — bitte Sprache in den Einstellungen prüfen.",
-  "errorSttRejectPromptTooLong": "Eigenes Vokabular ist zu lang — bitte in den Einstellungen kürzen."
+  "errorSttRejectPromptTooLong": "Eigenes Vokabular ist zu lang — bitte in den Einstellungen kürzen.",
+
+  "settingsGpuAcceleration": "Grafikbeschleunigung",
+  "settingsGpuAccelerationSubtitle": "Legt fest, ob der Sprachdienst GPU oder CPU für die lokale Erkennung verwendet",
+  "settingsGpuAccelerationAuto": "Automatisch (empfohlen)",
+  "settingsGpuAccelerationEnabled": "GPU (erzwingen)",
+  "settingsGpuAccelerationDisabled": "Nur CPU"
 }
