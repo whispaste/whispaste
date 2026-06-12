@@ -23,6 +23,7 @@ import 'file_verification_service.dart';
 import 'hardware_info_service.dart' as hw;
 import 'http_model_fetcher.dart';
 import 'path_service.dart';
+import 'tmp_reaper.dart';
 import 'whisper_server_downloader.dart';
 import 'whisper_server_manifest.dart';
 
@@ -670,6 +671,11 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
     } catch (e) {
       _log.warning('Failed to persist sttModel=$modelId: $e');
     }
+
+    // After download completion the .tmp was already renamed to the final
+    // file by HttpModelFetcher. Reap any OTHER orphaned .tmp fragments that
+    // may still linger (fire-and-forget).
+    unawaited(sweepOrphanedTmpFiles(directory: sttDir()));
   }
 
   // -----------------------------------------------------------------------

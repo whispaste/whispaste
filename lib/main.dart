@@ -27,6 +27,7 @@ import 'services/hardware_info_service.dart' as hw;
 import 'services/path_service.dart';
 import 'services/single_instance_service.dart';
 import 'services/subprocess_guard.dart' as guard;
+import 'services/tmp_reaper.dart';
 import 'services/update_service.dart';
 import 'widgets/insufficient_ram_screen.dart';
 
@@ -127,6 +128,11 @@ Future<void> _runApp(List<String> args) async {
 
   // Kill orphaned whisper-server / llama-server from crashed sessions.
   unawaited(guard.cleanupOrphans());
+
+  // Reap orphaned .tmp fragments from aborted model/server downloads
+  // (fire-and-forget). At app-start no download is active, so the
+  // active-downloads set is empty — any aged .tmp is safe to delete.
+  unawaited(sweepOrphanedTmpFiles(directory: sttDir()));
 
   // Pre-cache GPU detection and validate the whisper-server binary matches
   // the current hardware. If the GPU changed since the binary was
