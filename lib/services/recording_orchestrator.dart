@@ -210,7 +210,11 @@ class RecordingOrchestrator extends Notifier<void> {
 
       // Kick off STT server in parallel — files already confirmed by preflight.
       // Fires before the two async calls below to maximise warm-up lead time.
-      unawaited(sttNot.ensureRunning());
+      // Cloud providers transcribe over HTTP and need no local server.
+      final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+      if (settings.sttProviderType.isLocal) {
+        unawaited(sttNot.ensureRunning());
+      }
 
       await ref.read(pasterProvider)?.prime();
 
@@ -245,8 +249,6 @@ class RecordingOrchestrator extends Notifier<void> {
         );
 
         // Safety guard subscription — routes SafetyEvents to handlers.
-        final settings =
-            ref.read(settingsProvider).value ?? AppSettings.defaults;
         final guardConfig = SafetyGuardConfig(
           deadMicTimeout: settings.recordingSafety.deadMicTimeout,
           autoStopSilence: settings.recordingSafety.autoStopSilence,
@@ -1041,6 +1043,22 @@ class RecordingOrchestrator extends Notifier<void> {
     if (!settings.onboardingCompleted) {
       _log.warning('Preflight FAIL: onboarding not completed');
       return 'onboarding_not_completed';
+    }
+
+    // Cloud providers transcribe over HTTP — they need an API key, not the
+    // local whisper runtime. Requiring server/model files here would block
+    // cloud-only users who never downloaded a local model.
+    final providerType = settings.sttProviderType;
+    if (!providerType.isLocal) {
+      if (!_hasApiKeyForProvider(settings, providerType)) {
+        _log.warning(
+          'Preflight FAIL: no API key for cloud provider '
+          '${providerType.value}',
+        );
+        return 'cloud_auth_error';
+      }
+      _log.info('Preflight OK: cloud provider ${providerType.value}');
+      return null;
     }
 
     // Ensure STT directory exists.
