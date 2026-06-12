@@ -697,13 +697,7 @@ String _settingModelFromConfig(String modelId) {
 }
 
 String _settingLanguageFromConfig(String languageCode) {
-  return switch (languageCode) {
-    'en' => 'English',
-    'de' => 'German',
-    'fr' => 'French',
-    'es' => 'Spanish',
-    _ => 'Auto-detect',
-  };
+  return whisperLanguages.containsKey(languageCode) ? languageCode : 'auto';
 }
 
 /// Central settings notifier — loads from and persists to Drift/SQLite.

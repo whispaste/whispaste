@@ -54,6 +54,31 @@ void main() {
     });
   });
 
+  group('AppSettings.fromGoConfig transcription language', () {
+    test('keeps any catalog code from the legacy Go config', () {
+      final s = AppSettings.fromGoConfig({'transcription_language': 'ru'});
+      expect(s.sttLanguageCode, 'ru');
+    });
+
+    test('legacy four still migrate', () {
+      final s = AppSettings.fromGoConfig({'transcription_language': 'de'});
+      expect(s.sttLanguageCode, 'de');
+    });
+
+    test('unknown or missing values degrade to auto', () {
+      expect(
+        AppSettings.fromGoConfig({
+          'transcription_language': 'xx',
+        }).sttLanguageCode,
+        'auto',
+      );
+      expect(
+        AppSettings.fromGoConfig(<String, dynamic>{}).sttLanguageCode,
+        'auto',
+      );
+    });
+  });
+
   group('whisperLanguages catalog', () {
     test('covers the full 99-language Whisper set', () {
       expect(whisperLanguages, hasLength(99));
