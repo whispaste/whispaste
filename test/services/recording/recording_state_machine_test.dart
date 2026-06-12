@@ -114,6 +114,17 @@ void main() {
       expect(phase(c), RecordingPhase.transcribing);
     });
 
+    // 3b. idle ─fail→ error (hard preflight failure, e.g. missing
+    // cloud API key — fails before the start transition ever fires).
+    test('idle ─fail→ error (hard preflight failure)', () {
+      machine.transition(
+        RecordingIntent.fail,
+        errorMessage: 'cloud_auth_error',
+      );
+      expect(phase(c), RecordingPhase.error);
+      expect(errorMessage(c), 'cloud_auth_error');
+    });
+
     // 4. recording ─fail→ error
     test('recording ─fail→ error', () {
       goToRecording(c);
@@ -197,11 +208,6 @@ void main() {
 
     test('idle ─complete→ rejected (phase stays idle)', () {
       machine.transition(RecordingIntent.complete, transcript: 'ignored');
-      expect(phase(c), RecordingPhase.idle);
-    });
-
-    test('idle ─fail→ rejected (phase stays idle)', () {
-      machine.transition(RecordingIntent.fail, errorMessage: 'ignored');
       expect(phase(c), RecordingPhase.idle);
     });
 

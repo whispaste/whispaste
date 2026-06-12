@@ -1406,6 +1406,62 @@ void main() {
       },
     );
   });
+
+  // =========================================================================
+  // Cloud preflight
+  // =========================================================================
+
+  group('Cloud preflight', () {
+    AppSettings cloudSettings({String deepgramKey = ''}) => AppSettings(
+      stt: const SttSettings(
+        provider: 'Deepgram',
+        model: 'whisper-small',
+        language: 'English',
+      ),
+      cloudProvider: CloudProviderSettings(
+        deepgramApiKey: deepgramKey,
+        cloudSttProvider: 'deepgram',
+      ),
+      afterTranscriptionSection: const AfterTranscriptionSettings(
+        afterTranscription: 'nothing',
+      ),
+      onboarding: const OnboardingSettings(onboardingCompleted: true),
+    );
+
+    test(
+      'records without local whisper files when an API key is set',
+      () async {
+        // Regression: preflight used to require the local whisper-server
+        // binary and model file even for cloud providers, blocking cloud-only
+        // users who never downloaded a local model. The scratch sttDir in
+        // these tests contains neither file.
+        container.dispose();
+        container = buildContainer(cloudSettings(deepgramKey: 'dg-test'));
+        final orch = container.read(recordingOrchestratorProvider.notifier);
+        await Future<void>.delayed(Duration.zero);
+
+        await orch.startRecording();
+
+        expect(
+          container.read(recordingProvider).phase,
+          RecordingPhase.recording,
+        );
+      },
+    );
+
+    test('fails fast with cloud_auth_error when no API key is set', () async {
+      container.dispose();
+      container = buildContainer(cloudSettings());
+      final orch = container.read(recordingOrchestratorProvider.notifier);
+      await Future<void>.delayed(Duration.zero);
+
+      await orch.startRecording();
+
+      final state = container.read(recordingProvider);
+      expect(state.phase, RecordingPhase.error);
+      expect(state.errorMessage, 'cloud_auth_error');
+    });
+  });
 }
 
 // ---------------------------------------------------------------------------
