@@ -89,7 +89,19 @@ void main() {
       expect(wf.activeColorThreshold, 0.30);
       expect(wf.activeAccentOpacity, 0.85);
       expect(wf.mutedOpacity, 0.50);
+      expect(wf.attackTimeConstantMs, 20);
+      expect(wf.releaseTimeConstantMs, 300);
     });
+
+    test(
+      'release smoothing is slower than attack (silence fades, not snaps)',
+      () {
+        const wf = OverlayDesignSpec.waveform;
+        // A pause must visibly decay to the floor rather than snap flat, so the
+        // falling edge is deliberately gentler than the rising edge.
+        expect(wf.releaseTimeConstantMs, greaterThan(wf.attackTimeConstantMs));
+      },
+    );
 
     test('bar count is shared across both sizes (compact is not reduced)', () {
       // The single waveform spec is used for both sizes; only the bar HEIGHT

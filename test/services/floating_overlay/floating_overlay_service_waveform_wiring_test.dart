@@ -36,6 +36,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/recording/recording_state.dart';
+import 'package:whispaste/core/theme/overlay_design_spec.dart';
 import 'package:whispaste/services/floating_overlay/floating_overlay_controller.dart';
 import 'package:whispaste/services/floating_overlay/floating_overlay_events.dart';
 import 'package:whispaste/services/floating_overlay/floating_overlay_service.dart';
@@ -213,9 +214,9 @@ void main() {
             reason: 'Timer must fire within one period of entering recording',
           );
 
-          // Each push is the canonical 30-bar snapshot.
+          // Each push is the canonical spec-sized snapshot.
           for (final bars in h.fake.waveformPushes) {
-            expect(bars.length, 30);
+            expect(bars.length, OverlayDesignSpec.waveform.barCount);
             for (final v in bars) {
               expect(v, inInclusiveRange(0.0, 1.0));
             }
@@ -241,25 +242,17 @@ void main() {
 
           expect(h.fake.waveformPushes, isNotEmpty);
           final last = h.fake.waveformPushes.last;
-          // Live zone is the middle 20% of 30 bars → bars 12..18 (indices).
-          // After ~200 ms of constant 0.9 input the displayed level should
-          // be ≥ 0.5 — anything lower means pushSample is not wired.
-          final liveStart = ((30 - (0.20 * 30).round()) / 2).floor();
-          final liveEnd = liveStart + (0.20 * 30).round();
-          var anyAboveHalf = false;
-          for (var i = liveStart; i < liveEnd; i++) {
-            if (last[i] >= 0.5) {
-              anyAboveHalf = true;
-              break;
-            }
-          }
+          // Scrolling-history model: the freshest moments sit at the right
+          // edge. After ~200 ms of constant 0.9 input the loudest (recent)
+          // bars should be ≥ 0.5 — anything lower means pushSample is not
+          // wired into the history.
+          final peak = last.reduce((a, b) => a > b ? a : b);
           expect(
-            anyAboveHalf,
-            isTrue,
+            peak,
+            greaterThanOrEqualTo(0.5),
             reason:
-                'Live zone must reflect a high audio level after smoothing '
-                'window — got bars[$liveStart..$liveEnd] = '
-                '${last.sublist(liveStart, liveEnd)}',
+                'Waveform must reflect a high audio level after the smoothing '
+                'window — peak bar was $peak in $last',
           );
         } finally {
           h.dispose();
@@ -365,17 +358,20 @@ void main() {
     );
 
     test(
-      'release-out: live-zone bars decay monotonically (non-increasing)',
+      'release-out: snapshot peak decays monotonically (non-increasing)',
       () {
-        // AC3: two consecutive trailing snapshots must not show the live zone
-        // climbing back up — pipeline only sees pushSample(0.0).
+        // AC3: during release-out the pipeline only sees pushSample(0.0), so no
+        // new energy enters. In the scrolling-history model the per-bar index
+        // holds different time-moments across frames, but the overall PEAK
+        // (the loudest bar) must never climb back up — it only fades and
+        // scrolls out.
         FakeAsync().run((async) {
           final h = _buildHarness(async);
           try {
             h.container.read(recordingProvider.notifier).startRecording();
             async.elapse(const Duration(milliseconds: 5));
 
-            // Drive the level high so the live zone has somewhere to fall from.
+            // Drive the level high so the waveform has somewhere to fall from.
             h.container.read(recordingProvider.notifier).updateAudioLevel(0.95);
             async.elapse(const Duration(milliseconds: 250));
 
@@ -388,23 +384,20 @@ void main() {
             async.elapse(const Duration(milliseconds: 100));
             expect(h.fake.waveformPushes.length, greaterThanOrEqualTo(2));
 
-            // Live zone: middle 20% of 30 bars → bars [12..18).
-            final liveStart = ((30 - (0.20 * 30).round()) / 2).floor();
-            final liveEnd = liveStart + (0.20 * 30).round();
+            double peak(List<double> bars) =>
+                bars.reduce((a, b) => a > b ? a : b);
 
             for (var t = 1; t < h.fake.waveformPushes.length; t++) {
-              final prev = h.fake.waveformPushes[t - 1];
-              final curr = h.fake.waveformPushes[t];
-              for (var i = liveStart; i < liveEnd; i++) {
-                expect(
-                  curr[i],
-                  lessThanOrEqualTo(prev[i] + 1e-9),
-                  reason:
-                      'Live-zone bar[$i] climbed from ${prev[i]} to ${curr[i]} '
-                      'across trailing snapshots $t-1 → $t (must be '
-                      'non-increasing during release-out).',
-                );
-              }
+              final prev = peak(h.fake.waveformPushes[t - 1]);
+              final curr = peak(h.fake.waveformPushes[t]);
+              expect(
+                curr,
+                lessThanOrEqualTo(prev + 1e-9),
+                reason:
+                    'Snapshot peak climbed from $prev to $curr across trailing '
+                    'snapshots $t-1 → $t (must be non-increasing during '
+                    'release-out).',
+              );
             }
           } finally {
             h.dispose();
@@ -489,29 +482,25 @@ void main() {
           // Sample a baseline trailing snapshot.
           async.elapse(const Duration(milliseconds: 50));
           expect(fake.waveformPushes, isNotEmpty);
-          final baseline = fake.waveformPushes.last;
+          double peak(List<double> bars) =>
+              bars.reduce((a, b) => a > b ? a : b);
+          final baselinePeak = peak(fake.waveformPushes.last);
 
           // Force a fresh high audioLevel during the release-out — this
           // bypasses RecordingNotifier's own phase gate. If the service is
-          // gating correctly, the live zone must NOT climb back up.
+          // gating correctly, the waveform must NOT climb back up.
           notifier.forceAudioLevel(0.9);
           async.elapse(const Duration(milliseconds: 100));
 
-          final liveStart = ((30 - (0.20 * 30).round()) / 2).floor();
-          final liveEnd = liveStart + (0.20 * 30).round();
-
           for (var snap = 0; snap < fake.waveformPushes.length; snap++) {
-            final s = fake.waveformPushes[snap];
-            for (var i = liveStart; i < liveEnd; i++) {
-              expect(
-                s[i],
-                lessThanOrEqualTo(baseline[i] + 1e-9),
-                reason:
-                    'Live-zone bar[$i] climbed to ${s[i]} > baseline '
-                    '${baseline[i]} after a high audioLevel during '
-                    'release-out (snapshot index $snap).',
-              );
-            }
+            final p = peak(fake.waveformPushes[snap]);
+            expect(
+              p,
+              lessThanOrEqualTo(baselinePeak + 1e-9),
+              reason:
+                  'Snapshot peak climbed to $p > baseline $baselinePeak after '
+                  'a high audioLevel during release-out (snapshot index $snap).',
+            );
           }
         } finally {
           container.dispose();
