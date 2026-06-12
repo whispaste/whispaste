@@ -158,6 +158,8 @@
   "pasteCapabilityUnsupported": "Auto-Einfügen ist auf dieser Plattform nicht verfügbar",
   "pasteCapabilityTestButton": "Jetzt testen",
   "pasteCapabilityGrantButton": "Berechtigung erteilen",
+  "pasteCapabilityWhyMac": "WhisPaste braucht die Bedienungshilfen-Berechtigung, um Text in die App einzufügen, in der du gerade schreibst.",
+  "pasteCapabilityTroubleshoot": "Probleme?",
   "pasteCapabilityRepairHint": "Manchmal merkt sich macOS einen alten Eintrag und vergisst die neue Freigabe. Setz den Eintrag zurück, dann fragt macOS dich nochmal sauber.",
   "pasteCapabilityRepairButton": "Eintrag zurücksetzen",
   "pasteCapabilityRestartButton": "WhisPaste neu starten",

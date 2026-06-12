@@ -975,6 +975,18 @@ abstract class L10n {
   /// **'Grant permission'**
   String get pasteCapabilityGrantButton;
 
+  /// No description provided for @pasteCapabilityWhyMac.
+  ///
+  /// In en, this message translates to:
+  /// **'WhisPaste needs Accessibility permission to type text into the app you\'re working in.'**
+  String get pasteCapabilityWhyMac;
+
+  /// No description provided for @pasteCapabilityTroubleshoot.
+  ///
+  /// In en, this message translates to:
+  /// **'Having trouble?'**
+  String get pasteCapabilityTroubleshoot;
+
   /// No description provided for @pasteCapabilityRepairHint.
   ///
   /// In en, this message translates to:

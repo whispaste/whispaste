@@ -174,6 +174,8 @@
   "pasteCapabilityUnsupported": "Auto-Paste is not available on this platform",
   "pasteCapabilityTestButton": "Test now",
   "pasteCapabilityGrantButton": "Grant permission",
+  "pasteCapabilityWhyMac": "WhisPaste needs Accessibility permission to type text into the app you're working in.",
+  "pasteCapabilityTroubleshoot": "Having trouble?",
   "pasteCapabilityRepairHint": "Sometimes macOS remembers an old entry and forgets the new approval. Reset the entry — macOS will then ask you cleanly again.",
   "pasteCapabilityRepairButton": "Reset entry",
   "pasteCapabilityRestartButton": "Restart WhisPaste",

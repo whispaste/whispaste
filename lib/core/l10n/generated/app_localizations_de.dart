@@ -488,6 +488,13 @@ class L10nDe extends L10n {
   String get pasteCapabilityGrantButton => 'Berechtigung erteilen';
 
   @override
+  String get pasteCapabilityWhyMac =>
+      'WhisPaste braucht die Bedienungshilfen-Berechtigung, um Text in die App einzufügen, in der du gerade schreibst.';
+
+  @override
+  String get pasteCapabilityTroubleshoot => 'Probleme?';
+
+  @override
   String get pasteCapabilityRepairHint =>
       'Manchmal merkt sich macOS einen alten Eintrag und vergisst die neue Freigabe. Setz den Eintrag zurück, dann fragt macOS dich nochmal sauber.';
 

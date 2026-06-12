@@ -479,6 +479,13 @@ class L10nHe extends L10n {
   String get pasteCapabilityGrantButton => 'הענק הרשאה';
 
   @override
+  String get pasteCapabilityWhyMac =>
+      'WhisPaste needs Accessibility permission to type text into the app you\'re working in.';
+
+  @override
+  String get pasteCapabilityTroubleshoot => 'Having trouble?';
+
+  @override
   String get pasteCapabilityRepairHint =>
       'לפעמים macOS זוכר רשומה ישנה ושוכח את האישור החדש. אפס את הרשומה — macOS ישאל אותך מחדש בצורה נקייה.';
 
