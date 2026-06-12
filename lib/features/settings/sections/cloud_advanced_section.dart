@@ -14,7 +14,7 @@ import '../../../core/data/analytics_provider.dart';
 import '../../../core/data/database.dart' show historyDatabaseProvider;
 import '../../../core/data/history_providers.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
-import '../../../app.dart' show activePageProvider;
+import '../../../core/navigation/page_state.dart' show activePageProvider;
 import '../../../services/factory_reset/factory_reset_coordinator.dart';
 import '../../../services/hardware_info_service.dart';
 import '../../../services/model_download_service.dart';
