@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.2.39
+
+### Bug Fixes
+
+- **Alle 99 Whisper-Sprachen funktionieren wieder, und die automatische Spracherkennung läuft jetzt tatsächlich.** Die Store-Review meldete „nur 4 Sprachen funktionieren, Russisch kommt als Englisch heraus". Ursache waren drei gestapelte app-seitige Einschränkungen — die ausgelieferten mehrsprachigen Modelle können alle 99 Sprachen: Bei „Automatisch" wurde die Sprache durch die UI-Sprache ersetzt (die Erkennung lief nie), das Sprachfeld wurde bei der Inferenz weggelassen (Server und Deepgram fielen still auf Englisch zurück), und sowohl die Vorab-Prüfliste als auch das Einstellungs-Dropdown waren auf en/de/fr/es festverdrahtet. Jetzt wird „Automatisch" explizit übertragen, Deepgram bekommt `detect_language=true`, und Dropdown wie Whitelist nutzen den vollständigen Sprachkatalog.
+- **Cloud-Transkription (Deepgram/OpenAI) funktioniert jetzt auf macOS.** Der API-Schlüssel wurde in den Einstellungen zwar angenommen, aber jede Aufnahme scheiterte nach ~100 ms mit der generischen Fehlermeldung. Ursache: `flutter_secure_storage` schrieb in den macOS-Data-Protection-Schlüsselbund, der ein Entitlement verlangt, das der nicht-sandboxed Build nicht mitbringt — der Schlüssel landete nie im Schlüsselbund, und die Cloud-Transkriber sahen stets einen leeren Schlüssel. Die Ablage nutzt jetzt den dateibasierten Login-Schlüsselbund; Cloud-Authentifizierungsfehler werden zudem klar gemeldet.
+- **Cloud-Anbieter lassen sich ohne lokales Sprachmodell nutzen.** Die Vorab-Prüfung verlangte fälschlich auch bei Deepgram/OpenAI den lokalen `whisper-server` und ein heruntergeladenes Modell, und der lokale Server wurde bedingungslos hochgefahren — reine Cloud-Nutzer konnten so nie eine Aufnahme starten. Die Cloud-Vorab-Prüfung prüft jetzt den konfigurierten API-Schlüssel (scheitert früh statt erst nach dem Diktat) und überspringt das Hochfahren des lokalen Servers.
+- **Ein beschädigtes oder zu kleines Sprachmodell lädt sich automatisch still neu.** Beim Start wird eine fehlerhafte Modelldatei jetzt — wie schon bei einer SHA-Abweichung — automatisch erneut heruntergeladen, statt nur gelöscht zu werden und auf die Einstellungen zu verweisen.
+
+### Features
+
+- **Linux-Desktop-Unterstützung: der Sprachserver für Linux x64 wird automatisch beschafft.** Das ausgelieferte Manifest enthält jetzt einen echten `linux/x64/cpu`-Eintrag (statisch gelinkt, läuft auf jeder glibc-Distribution); eine Linux-Installation lädt, entpackt und startet den `whisper-server` über den bestehenden Selbst-Download-Mechanismus — Diktat funktioniert wie unter Windows/macOS. Begleitend stehen Linux-Pakete als Flatpak, Snap, AppImage und `.deb` bereit.
+- **Neuer Einstellungsbereich „Grafikbeschleunigung" (Automatisch / Ein / Aus).** Eine bewusste Nutzer-Vorgabe hat jetzt Vorrang vor der automatischen GPU/CPU-Wahl des Sprachdienstes.
+- **Problematische ältere Grafikkarten gehen schon vor dem Start auf die CPU.** Bekannt heikle GPUs (Kepler/Fermi, alte AMD-GCN) werden proaktiv auf den CPU-Pfad geleitet, statt erst nach einem Absturz zurückzufallen; unpassende Flash-Attention wird aktiv abgeschaltet.
+- **Sanftere Reaktion auf kurze Aussetzer des Sprachdienstes.** Ein vorübergehendes Zucken der Lebendigkeitsprüfung erzwingt keinen vollständigen Neustart mehr (begrenzte Wiederholung mit Karenz); ein echter Hänger löst weiterhin genau einen Neustart aus.
+- **Selbst heruntergeladene `whisper-server`-Binärdateien werden per SHA-256 geprüft.** Bei einer Abweichung wird das Artefakt verworfen und ein sauberer Fehler gemeldet, statt eine beschädigte Binärdatei zu starten.
+- **Eigene Leer-Zustände für die Verlaufsfilter (Favoriten / Heute / Diese Woche).** Ein leerer Filter zeigt jetzt einen passenden Hinweis, statt den Eindruck zu erwecken, der gesamte Verlauf sei verschwunden.
+- **Verwaiste `.tmp`-Fragmente abgebrochener Modell-Downloads werden aufgeräumt.** Beim Start und nach abgeschlossenem Download werden alte Fragmente konservativ entfernt; fortsetzbare Downloads bleiben unangetastet.
+
 ## 1.2.38
 
 ### Bug Fixes
