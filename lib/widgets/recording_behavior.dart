@@ -14,7 +14,8 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../app.dart' show activePageProvider, settingsScrollTargetProvider;
+import '../core/navigation/page_state.dart'
+    show activePageProvider, settingsScrollTargetProvider;
 import '../core/config/settings_provider.dart';
 import '../core/l10n/generated/app_localizations.dart';
 import '../core/logging/app_logger.dart';

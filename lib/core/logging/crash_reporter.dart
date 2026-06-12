@@ -37,7 +37,7 @@ import 'package:whispaste_diagnostics/whispaste_diagnostics.dart'
     show containsSensitiveData;
 
 import '../app_info.dart';
-import 'app_logger.dart';
+import 'breadcrumbs.dart';
 
 // ---------------------------------------------------------------------------
 // CrashReporter

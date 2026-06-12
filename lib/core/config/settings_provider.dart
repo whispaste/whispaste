@@ -25,7 +25,7 @@ import 'package:path/path.dart' as p;
 
 import '../data/database.dart';
 import '../../services/path_service.dart';
-import '../../services/model_download_service.dart' show QualityTier;
+import 'quality_tier.dart' show QualityTier;
 import 'secure_key_store.dart';
 import 'settings_enums.dart';
 import 'whisper_languages.dart';

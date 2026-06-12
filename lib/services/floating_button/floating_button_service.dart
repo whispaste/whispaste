@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 
-import '../../app.dart' show activePageProvider;
+import '../../core/navigation/page_state.dart' show activePageProvider;
 import '../../core/config/settings_provider.dart';
 import '../../core/data/database.dart';
 import '../../core/data/history_providers.dart';
