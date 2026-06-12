@@ -12,6 +12,7 @@ und GitHub Releases. Alle Manifeste zeigen auf die Assets der GitHub Releases
 | Flatpak / Flathub | `flatpak/de.whispaste.app.yml` | Linux x86_64 | ⚠️ PR an `flathub/flathub` nötig — Runbook: `flatpak/README.md` |
 | AppImage | `appimage/build-appimage.sh` | Linux x86_64 | ✅ in `release.yml` gebaut, als Release-Asset angehängt — Runbook: `appimage/README.md` |
 | `.deb` (Debian/Ubuntu) | `deb/build-deb.sh` + `deb/control.template` | Linux x86_64 | ✅ in `release.yml` gebaut, als Release-Asset angehängt — Runbook: `deb/README.md` |
+| Snap (Snap Store / Ubuntu App Center) | `snap/snapcraft.yaml` | Linux x86_64 | ⚠️ `snapcraft upload` an den Snap Store nötig — Runbook: `snap/README.md` |
 
 Beim Release einer neuen Version müssen `version` + `hash`/`sha256` in jedem
 Manifest aktualisiert werden (Scoop kann das via `checkver`/`autoupdate` selbst).
@@ -119,3 +120,22 @@ App schreibt zur Laufzeit ausschließlich in den User-Config-Pfad. Solange das
 veröffentlichte Linux-`whisper-server`-Artefakt fehlt (Issue 03, human-blocked),
 ist der Self-Download-E2E nur dokumentiert, nicht ausgeführt — Details in den
 beiden Runbooks.
+
+---
+
+## Snap (Snap Store / Ubuntu App Center) — `snapcraft upload`
+
+Vierter Linux-Kanal laut PRD §8.3 (Snap zuletzt). Das `snap/snapcraft.yaml`
+stagt — wie Flatpak/AppImage/`.deb` — das fertige Linux-x86_64-Release-Bundle
+des `build-linux`-Jobs (kein Flutter-Rebuild); die `gnome`-Extension verdrahtet
+die GTK/GNOME-Laufzeit darum. **Strict** Confinement (Store-auto-review-
+freundlich); die Plugs decken Display/Clipboard (`wayland`/`x11`/`desktop`/
+`desktop-legacy`), Hotkey (`unity7`), Audio (`audio-record`/`audio-playback`)
+und den Netzwerk-Self-Download (`network`) ab. Der Self-Download-Schreibpfad
+funktioniert unter strict Confinement, weil snapd `$XDG_CONFIG_HOME` auf das
+beschreibbare, exec-fähige `$SNAP_USER_DATA/.config` remappt. Desktop-Entry,
+AppStream-`metainfo.xml` und Icon stammen aus derselben Quelle wie die anderen
+Kanäle (`packaging/flatpak/` bzw. `assets/icons/app_icon.png`). Validierung
+(YAML-Shape + Pflicht-Keys + Plug-Abdeckung) läuft toolchain-unabhängig im Job
+`snap` in `packaging-validate.yml`; `snapcraft pack`/`upload` läuft in CI bzw.
+auf der NAS-x86-VM. Runbook: `snap/README.md`.
