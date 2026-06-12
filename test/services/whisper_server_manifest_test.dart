@@ -2,6 +2,7 @@
 /// failover chain, and the [WhisperBinarySelector] backend-priority logic.
 library;
 
+import 'dart:async';
 import 'dart:convert' show jsonDecode;
 import 'dart:io' show Directory, File, Platform;
 import 'dart:typed_data' show Uint8List;
@@ -9,6 +10,7 @@ import 'dart:typed_data' show Uint8List;
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:logging/logging.dart';
 
 import 'package:whispaste/services/hardware_info_service.dart' as hw;
 import 'package:whispaste/services/whisper_server_manifest.dart';
@@ -487,6 +489,160 @@ void main() {
       final data = Uint8List.fromList([0xde, 0xad, 0xbe, 0xef]);
       final expected = crypto.sha256.convert(data).toString();
       expect(computeSha256Hex(data), expected);
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Log-level contracts (AC1 / AC2)
+  //
+  // The failover chain (raw → release-asset → bundled) is the *expected*
+  // operating mode; per-stage failures must therefore log at INFO so that
+  // normal operation produces no WARNING noise.  Only truly anomalous
+  // conditions (e.g. missing bundled manifest in a shipping build) stay at
+  // WARNING.
+  // ─────────────────────────────────────────────────────────────────────────
+
+  group('WhisperServerManifestLoader log levels', () {
+    late List<LogRecord> captured;
+    late StreamSubscription<LogRecord> sub;
+
+    setUp(() {
+      captured = [];
+      Logger.root.level = Level.ALL;
+      sub = Logger.root.onRecord.listen(captured.add);
+    });
+
+    tearDown(() async {
+      await sub.cancel();
+      captured.clear();
+    });
+
+    Iterable<LogRecord> manifestLogs() =>
+        captured.where((r) => r.loggerName == 'WhisperServerManifest');
+
+    // AC1 — per-stage DioException is INFO, cause retained in message.
+    test('AC1: per-stage remote fetch failure (DioException) is logged at '
+        'INFO, not WARNING; concrete cause is in the message', () async {
+      final loader = WhisperServerManifestLoader(
+        dio: _routedDio(
+          onRaw: () => _connectionError(),
+          onReleaseAsset: () => _releaseAssetManifest,
+        ),
+        bundleReader: () async => _bundledManifest,
+      );
+
+      await loader.load();
+
+      final warnings = manifestLogs()
+          .where((r) => r.level >= Level.WARNING)
+          .toList();
+      expect(
+        warnings,
+        isEmpty,
+        reason:
+            'Per-stage fetch failure is an expected fallback — must log at INFO',
+      );
+
+      // The failure cause must appear in at least one INFO log.
+      final infoWithCause = manifestLogs()
+          .where(
+            (r) =>
+                r.level == Level.INFO &&
+                r.message.contains('raw') &&
+                r.message.contains('fetch failed'),
+          )
+          .toList();
+      expect(
+        infoWithCause,
+        isNotEmpty,
+        reason:
+            'Failure cause (source label + error) must appear in the INFO log',
+      );
+    });
+
+    // AC1 — both remotes fail + bundled used: no WARNING, bundled path logged.
+    test('AC1: both-remotes-fail + bundled-used → no WARNING, '
+        'INFO log confirms bundled fallback', () async {
+      final loader = WhisperServerManifestLoader(
+        dio: _routedDio(
+          onRaw: () => _connectionError(),
+          onReleaseAsset: () => _connectionError(),
+        ),
+        bundleReader: () async => _bundledManifest,
+      );
+
+      final manifest = await loader.load();
+      expect(manifest.whisperServerTag, 'whisper-server-bundled');
+
+      final warnings = manifestLogs()
+          .where((r) => r.level >= Level.WARNING)
+          .toList();
+      expect(
+        warnings,
+        isEmpty,
+        reason:
+            'Using the bundled manifest is the expected successful fallback — '
+            'must not emit WARNING',
+      );
+
+      final bundledLog = manifestLogs()
+          .where((r) => r.level == Level.INFO && r.message.contains('bundled'))
+          .toList();
+      expect(
+        bundledLog,
+        isNotEmpty,
+        reason: 'INFO log should confirm the bundled fallback was used',
+      );
+    });
+
+    // AC2 — bundle anomaly (missing in shipping build) still logs at WARNING;
+    // remote fetch failures remain INFO even in the all-sources-fail path.
+    test('AC2: bundle-missing + all-remotes-fail → loader throws, '
+        'bundle-unreadable anomaly logged at WARNING, '
+        'remote failures stay at INFO', () async {
+      final loader = WhisperServerManifestLoader(
+        dio: _routedDio(
+          onRaw: () => _connectionError(),
+          onReleaseAsset: () => _connectionError(),
+        ),
+        bundleReader: () async => throw Exception('no bundle'),
+      );
+
+      await expectLater(
+        () => loader.load(),
+        throwsA(isA<WhisperServerManifestException>()),
+      );
+
+      // The bundle-unreadable anomaly must still be logged at WARNING.
+      final bundleWarning = manifestLogs()
+          .where(
+            (r) =>
+                r.level >= Level.WARNING &&
+                r.message.contains('Bundled manifest unreadable'),
+          )
+          .toList();
+      expect(
+        bundleWarning,
+        isNotEmpty,
+        reason:
+            'Bundle unreadable is an anomalous build state — must log at WARNING',
+      );
+
+      // Remote-fetch failures must NOT produce additional WARNINGs.
+      final remoteWarnings = manifestLogs()
+          .where(
+            (r) =>
+                r.level >= Level.WARNING &&
+                (r.message.contains('raw') ||
+                    r.message.contains('release-asset')),
+          )
+          .toList();
+      expect(
+        remoteWarnings,
+        isEmpty,
+        reason:
+            'Remote fetch failures are INFO even in the all-sources-fail path',
+      );
     });
   });
 }
