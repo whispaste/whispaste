@@ -554,6 +554,27 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
         hint: l10n.historyNoArchivedItemsHint,
       );
     }
+    if (activeFilter == HistoryFilter.pinned) {
+      return WpEmptyState(
+        icon: LucideIcons.star,
+        title: l10n.historyNoPinned,
+        hint: l10n.historyNoPinnedHint,
+      );
+    }
+    if (activeFilter == HistoryFilter.today) {
+      return WpEmptyState(
+        icon: LucideIcons.calendar,
+        title: l10n.historyNoToday,
+        hint: l10n.historyNoTodayHint,
+      );
+    }
+    if (activeFilter == HistoryFilter.week) {
+      return WpEmptyState(
+        icon: LucideIcons.calendarRange,
+        title: l10n.historyNoThisWeek,
+        hint: l10n.historyNoThisWeekHint,
+      );
+    }
     return WpEmptyState(
       icon: LucideIcons.mic,
       title: l10n.historyEmpty,

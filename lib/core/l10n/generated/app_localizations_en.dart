@@ -202,6 +202,26 @@ class L10nEn extends L10n {
       'Press the record button or use the hotkey to start dictating.\nYour transcriptions will appear here.';
 
   @override
+  String get historyNoPinned => 'No favorites yet';
+
+  @override
+  String get historyNoPinnedHint =>
+      'Mark a transcription as a favorite to find it here quickly.';
+
+  @override
+  String get historyNoToday => 'Nothing recorded today';
+
+  @override
+  String get historyNoTodayHint => 'Today\'s transcriptions will appear here.';
+
+  @override
+  String get historyNoThisWeek => 'Nothing recorded this week';
+
+  @override
+  String get historyNoThisWeekHint =>
+      'This week\'s transcriptions will appear here.';
+
+  @override
   String get historyCopiedToClipboard => 'Copied to clipboard';
 
   @override
