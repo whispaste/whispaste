@@ -36,6 +36,14 @@ class FloatingOverlayHost {
   private var contextMenuItems: [(id: String, label: String)] = []
   private var screenObserver: NSObjectProtocol?
 
+  // The render engine boots asynchronously: its Dart MethodChannel handler is
+  // only ready a few runloop turns after `engine.run`. Until the engine sends
+  // `ready`, relayed messages would be dropped — so we cache the latest render
+  // state here and flush it the moment the engine announces itself.
+  private var renderReady: Bool = false
+  private var latestSnapshotArgs: [String: Any]?
+  private var latestBars: [String: Any]?
+
   init(messenger: FlutterBinaryMessenger) {
     channel = FlutterMethodChannel(
       name: "com.whispaste.floating_overlay",
@@ -89,7 +97,10 @@ class FloatingOverlayHost {
         result(nil)
         return
       }
-      renderChannel?.invokeMethod("setWaveformBars", arguments: args)
+      latestBars = args
+      if renderReady {
+        renderChannel?.invokeMethod("setWaveformBars", arguments: args)
+      }
       result(nil)
 
     case "setPosition":
@@ -129,7 +140,9 @@ class FloatingOverlayHost {
         return
       }
       pendingOpacity = opacity
-      renderChannel?.invokeMethod("setOpacity", arguments: ["opacity": opacity])
+      if renderReady {
+        renderChannel?.invokeMethod("setOpacity", arguments: ["opacity": opacity])
+      }
       result(nil)
 
     case "destroy":
@@ -158,8 +171,11 @@ class FloatingOverlayHost {
       resizePanelToContent()
     }
 
-    // Relay the full snapshot to the render engine.
-    renderChannel?.invokeMethod("updateSnapshot", arguments: args)
+    // Cache + relay (relay no-ops until the engine is ready; flushed on ready).
+    latestSnapshotArgs = args
+    if renderReady {
+      renderChannel?.invokeMethod("updateSnapshot", arguments: args)
+    }
 
     // Show or hide the native shell.
     if visible {
@@ -183,11 +199,21 @@ class FloatingOverlayHost {
 
   private func ensurePanel() {
     let size = contentSize()
+    renderReady = false
 
     // Boot the dedicated overlay engine and host its view in the panel.
+    // macOS `runWithEntrypoint:` resolves the name only against the ROOT
+    // library, so `floatingOverlayMain` is declared in Dart's main.dart (it
+    // delegates into the overlay render app). There is no `libraryURI:`
+    // variant on macOS FlutterEngine.
     let engine = FlutterEngine(name: "floating_overlay", project: nil)
-    engine.run(withEntrypoint: "floatingOverlayMain")
+    let didRun = engine.run(withEntrypoint: "floatingOverlayMain")
+    NSLog("[overlay] ensurePanel: engine.run(floatingOverlayMain) -> \(didRun)")
+
     let vc = FlutterViewController(engine: engine, nibName: nil, bundle: nil)
+    // REAL surface transparency: must be set so the engine composites onto a
+    // clear surface instead of opaque black. Set before the view is shown.
+    vc.backgroundColor = .clear
 
     let renderCh = FlutterMethodChannel(
       name: "com.whispaste.floating_overlay_render",
@@ -200,17 +226,12 @@ class FloatingOverlayHost {
     let p = FloatingOverlayPanel(width: size.width, height: size.height)
     p.contentViewController = vc
     p.setContentSize(size)
-    // REAL surface transparency: without a clear VC background the engine
-    // composites onto opaque black and the pill sits in a black box.
-    vc.backgroundColor = .clear
 
     panel = p
     renderEngine = engine
     renderViewController = vc
     renderChannel = renderCh
-
-    // Apply any opacity that arrived before the engine existed.
-    renderCh.invokeMethod("setOpacity", arguments: ["opacity": pendingOpacity])
+    NSLog("[overlay] ensurePanel: panel created, content \(size.width)x\(size.height)")
 
     // Apply pending position if one was set before the panel existed.
     if let pos = pendingPosition {
@@ -230,6 +251,20 @@ class FloatingOverlayHost {
 
   private func handleRenderCall(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     switch call.method {
+    case "ready":
+      // The render engine's Dart handler is live — flush the cached state so
+      // the first visible frame is never lost to the boot race.
+      NSLog("[overlay] render engine ready — flushing cached state")
+      renderReady = true
+      renderChannel?.invokeMethod("setOpacity", arguments: ["opacity": pendingOpacity])
+      if let bars = latestBars {
+        renderChannel?.invokeMethod("setWaveformBars", arguments: bars)
+      }
+      if let snap = latestSnapshotArgs {
+        renderChannel?.invokeMethod("updateSnapshot", arguments: snap)
+      }
+      result(nil)
+
     case "startDrag":
       if let event = NSApp.currentEvent, let p = panel {
         p.performDrag(with: event)
@@ -295,6 +330,9 @@ class FloatingOverlayHost {
     renderChannel = nil
     renderEngine?.shutDownEngine()
     renderEngine = nil
+    renderReady = false
+    latestSnapshotArgs = nil
+    latestBars = nil
     channel.setMethodCallHandler(nil)
   }
 

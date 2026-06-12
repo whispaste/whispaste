@@ -32,13 +32,14 @@ import 'services/tmp_reaper.dart';
 import 'services/update_service.dart';
 import 'widgets/insufficient_ram_screen.dart';
 
-/// Secondary Dart entrypoints booted by name from the native window shells
-/// (ADR 0002 phase 2 — e.g. macOS `FloatingOverlayHost` runs
-/// [floatingOverlayMain] in a dedicated engine). Listing the tear-offs here
-/// keeps the entrypoint libraries in the compiled graph and out of the
-/// tree-shaker; they are never invoked from Dart.
+/// Secondary Dart entrypoint booted by name from the native overlay shell
+/// (ADR 0002 phase 2). macOS `FloatingOverlayHost` runs a dedicated Flutter
+/// engine with `runWithEntrypoint: "floatingOverlayMain"`, which resolves the
+/// name only against this root library — so the entrypoint MUST live here. It
+/// delegates straight into [runFloatingOverlayEngine]; it is never called from
+/// Dart, and the pragma keeps it out of the tree-shaker.
 @pragma('vm:entry-point')
-final List<void Function()> nativeShellEntrypoints = [floatingOverlayMain];
+void floatingOverlayMain() => runFloatingOverlayEngine();
 
 Future<ProviderContainer> bootstrapAppContainer({
   List overrides = const [],

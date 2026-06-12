@@ -78,6 +78,13 @@ class OverlayRenderChannel {
     _channel.invokeMethod('showContextMenu');
   }
 
+  /// Tells the native shell the inbound handler is registered, so it can flush
+  /// the render state cached during the engine boot race. Must be called only
+  /// after the handler is set (i.e. after construction).
+  void notifyReady() {
+    _channel.invokeMethod('ready');
+  }
+
   /// Detaches the handler. The engine outlives individual app widgets, so this
   /// is mainly for tests and hot-restart hygiene.
   void dispose() {
