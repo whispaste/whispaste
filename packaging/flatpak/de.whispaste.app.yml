@@ -13,7 +13,7 @@
 # Per-release the maintainer updates the `archive` source `url` + `sha256`
 # (see packaging/flatpak/README.md for the runbook). The `url`/`sha256` below
 # are placeholders pinned by the runbook at submission time.
-app-id: com.whispaste.whispaste
+app-id: de.whispaste.app
 runtime: org.freedesktop.Platform
 runtime-version: '24.08'
 sdk: org.freedesktop.Sdk
@@ -63,12 +63,12 @@ modules:
       - install -d /app/bin
       - ln -s /app/whispaste/whispaste /app/bin/whispaste
       # Desktop entry + AppStream metainfo + icon (Flathub requirements).
-      - install -Dm644 com.whispaste.whispaste.desktop
-        /app/share/applications/com.whispaste.whispaste.desktop
-      - install -Dm644 com.whispaste.whispaste.metainfo.xml
-        /app/share/metainfo/com.whispaste.whispaste.metainfo.xml
-      - install -Dm644 com.whispaste.whispaste.png
-        /app/share/icons/hicolor/512x512/apps/com.whispaste.whispaste.png
+      - install -Dm644 de.whispaste.app.desktop
+        /app/share/applications/de.whispaste.app.desktop
+      - install -Dm644 de.whispaste.app.metainfo.xml
+        /app/share/metainfo/de.whispaste.app.metainfo.xml
+      - install -Dm644 de.whispaste.app.png
+        /app/share/icons/hicolor/512x512/apps/de.whispaste.app.png
     sources:
       # ── Prebuilt Linux x86_64 release bundle from release.yml `build-linux` ──
       # Per-release: bump `url` to the tag's asset and `sha256` to its digest
@@ -81,10 +81,10 @@ modules:
         # The tarball root IS the Flutter bundle (no leading bundle/ dir).
         strip-components: 0
       - type: file
-        path: com.whispaste.whispaste.desktop
+        path: de.whispaste.app.desktop
       - type: file
-        path: com.whispaste.whispaste.metainfo.xml
+        path: de.whispaste.app.metainfo.xml
       - type: file
         # Bundled app icon, renamed to the App-ID for Flathub icon-naming rules.
         path: ../../assets/icons/app_icon.png
-        dest-filename: com.whispaste.whispaste.png
+        dest-filename: de.whispaste.app.png

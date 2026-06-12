@@ -194,7 +194,7 @@ jobs:
 
       - name: Validate Flatpak manifest YAML + required finish-args
         run: |
-          MANIFEST="packaging/flatpak/com.whispaste.whispaste.yml"
+          MANIFEST="packaging/flatpak/de.whispaste.app.yml"
           echo "Validating $MANIFEST …"
 
           # 1. YAML-parseable?
@@ -213,8 +213,8 @@ jobs:
           errors = []
 
           # App-ID must match the existing reverse-DNS identifier.
-          if data.get("app-id") != "com.whispaste.whispaste":
-              errors.append("app-id must be com.whispaste.whispaste")
+          if data.get("app-id") != "de.whispaste.app":
+              errors.append("app-id must be de.whispaste.app")
 
           for key in ("runtime", "sdk", "command", "modules", "finish-args"):
               if not data.get(key):
@@ -254,7 +254,7 @@ jobs:
 
       - name: Validate desktop entry
         run: |
-          DESKTOP="packaging/flatpak/com.whispaste.whispaste.desktop"
+          DESKTOP="packaging/flatpak/de.whispaste.app.desktop"
           echo "Validating $DESKTOP …"
           desktop-file-validate "$DESKTOP" \
             || { echo "::error::$DESKTOP failed desktop-file-validate"; exit 1; }
@@ -262,9 +262,80 @@ jobs:
 
       - name: Validate AppStream metainfo
         run: |
-          META="packaging/flatpak/com.whispaste.whispaste.metainfo.xml"
+          META="packaging/flatpak/de.whispaste.app.metainfo.xml"
           echo "Validating $META …"
           # --no-net: skip remote screenshot/URL fetches (deterministic, offline).
           appstreamcli validate --no-net "$META" \
             || { echo "::error::$META failed appstreamcli validate"; exit 1; }
           echo "  ✓ appstreamcli validate OK"
+
+  # ── AppImage + .deb direct-download packages (Ubuntu) ──────────────────────
+  # Validates the build recipes + .deb control metadata deterministically —
+  # mirroring the tool-independent Scoop/Homebrew/Flatpak checks. The actual
+  # AppImage/.deb *build* runs in release.yml `build-linux` from the release
+  # bundle (it needs the Flutter bundle, which only exists at release time).
+  appimage-deb:
+    name: AppImage + .deb (script syntax + control metadata)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Validate build-script syntax
+        run: |
+          for s in packaging/deb/build-deb.sh packaging/appimage/build-appimage.sh; do
+            echo "bash -n $s …"
+            bash -n "$s" || { echo "::error::$s has a syntax error"; exit 1; }
+            echo "  ✓ $s syntax OK"
+          done
+
+      - name: Validate .deb control metadata
+        run: |
+          CTRL="packaging/deb/control.template"
+          echo "Validating $CTRL …"
+          fail=0
+          # Required control fields (Debian policy minimum for a binary package).
+          for field in 'Package:' 'Version:' 'Architecture:' 'Maintainer:' \
+                       'Depends:' 'Description:' 'Section:' 'Priority:' 'Homepage:'; do
+            grep -q "^$field" "$CTRL" \
+              || { echo "::error::missing control field: ${field%:}"; fail=1; }
+          done
+          # Architecture must be amd64 (x86_64 build).
+          grep -q '^Architecture: amd64$' "$CTRL" \
+            || { echo "::error::Architecture must be amd64"; fail=1; }
+          # __VERSION__ placeholder must be present (substituted by build-deb.sh).
+          grep -q '__VERSION__' "$CTRL" \
+            || { echo "::error::missing __VERSION__ placeholder in Version"; fail=1; }
+          # Runtime deps must cover the libraries the build-linux job links
+          # against (cross-checked vs the -dev packages in release.yml).
+          for dep in libgtk-3-0 libsecret-1-0 libnotify4 \
+                     libayatana-appindicator3-1 libasound2 libcurl4 \
+                     libkeybinder-3.0-0; do
+            grep -q "$dep" "$CTRL" \
+              || { echo "::error::Depends: is missing $dep"; fail=1; }
+          done
+          [ "$fail" -eq 0 ] || exit 1
+          echo "  ✓ control metadata + Depends complete"
+
+      - name: Cross-check Depends vs build-linux -dev packages
+        run: |
+          # The .deb runtime Depends must correspond to the -dev packages the
+          # build-linux job installs. Map each runtime dep → its -dev sibling and
+          # assert that sibling is installed in release.yml.
+          REL=".github/workflows/release.yml"
+          fail=0
+          # runtime-dep  ->  -dev package expected in release.yml
+          check() {
+            grep -q "$2" "$REL" \
+              || { echo "::error::release.yml lacks $2 (sibling of $1)"; fail=1; }
+          }
+          check libgtk-3-0                  libgtk-3-dev
+          check libsecret-1-0               libsecret-1-dev
+          check libnotify4                  libnotify-dev
+          check libayatana-appindicator3-1  libayatana-appindicator3-dev
+          check libasound2                  libasound2-dev
+          check libcurl4                    libcurl4-openssl-dev
+          check libkeybinder-3.0-0          libkeybinder-3.0-dev
+          [ "$fail" -eq 0 ] || exit 1
+          echo "  ✓ Depends ↔ build-linux -dev packages consistent"
