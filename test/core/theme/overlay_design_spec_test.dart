@@ -59,27 +59,18 @@ void main() {
     });
 
     test(
-      'theme colour pairs are complete — no field is shared by accident',
+      'dark and light resolve to the SAME single spike design',
       () {
-        const dark = OverlayDesignSpec.dark;
-        const light = OverlayDesignSpec.light;
-        // Every theme-specific colour must actually differ between themes.
-        expect(dark.surface, isNot(light.surface));
-        expect(dark.text, isNot(light.text));
-        expect(dark.secondaryText, isNot(light.secondaryText));
-        expect(dark.border, isNot(light.border));
-        expect(dark.accent, isNot(light.accent));
-        expect(dark.success, isNot(light.success));
-        expect(dark.error, isNot(light.error));
-        expect(dark.waveformMuted, isNot(light.waveformMuted));
-        // Recording dot is intentionally shared.
-        expect(dark.recordingDot, light.recordingDot);
+        // ADR 0002 / the approved spike (web-parity-board) defines one capsule
+        // design — a light teal tint-gradient capsule shown identically over
+        // light AND dark backgrounds. There is no separate dark variant.
+        expect(OverlayDesignSpec.dark, same(OverlayDesignSpec.light));
       },
     );
 
-    test('accent values are the finalised cyan pair', () {
-      expect(OverlayDesignSpec.dark.accent, const Color(0xFF38D9F0));
+    test('accent is the finalised spike teal in BOTH themes', () {
       expect(OverlayDesignSpec.light.accent, const Color(0xFF0887A8));
+      expect(OverlayDesignSpec.dark.accent, const Color(0xFF0887A8));
     });
   });
 
@@ -199,19 +190,20 @@ void main() {
       expect(OverlayDesignSpec.compactSize.capsuleRadius, 20);
     });
 
-    test('per-theme tint-gradient fill stops + accent border exist', () {
-      // Light is the verbatim approved spike palette.
+    test('tint-gradient fill stops + accent border are the verbatim spike set',
+        () {
+      // The single approved spike palette (used for both themes).
       expect(OverlayDesignSpec.light.capsuleFillStart, const Color(0xFFF7FAFD));
       expect(OverlayDesignSpec.light.capsuleFillEnd, const Color(0xFFE6EEF5));
       expect(OverlayDesignSpec.light.capsuleBorder, const Color(0x330887A8));
-      // Dark provides an analogous, distinct set (never half-defined).
+      // Dark renders the same single design.
       expect(
         OverlayDesignSpec.dark.capsuleFillStart,
-        isNot(OverlayDesignSpec.light.capsuleFillStart),
+        OverlayDesignSpec.light.capsuleFillStart,
       );
       expect(
         OverlayDesignSpec.dark.capsuleFillEnd,
-        isNot(OverlayDesignSpec.light.capsuleFillEnd),
+        OverlayDesignSpec.light.capsuleFillEnd,
       );
     });
 

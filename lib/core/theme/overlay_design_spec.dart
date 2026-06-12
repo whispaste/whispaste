@@ -695,29 +695,21 @@ abstract final class OverlayDesignSpec {
 
   // -- Theme colours ---------------------------------------------------------
 
-  /// Dark theme colour set.
-  static const OverlayThemeColors dark = OverlayThemeColors(
-    surface: Color(0xFF141926),
-    capsuleFillStart: Color(0xFF1E2738),
-    capsuleFillEnd: Color(0xFF12161F),
-    capsuleBorder: Color(0x3338D9F0),
-    text: Color(0xFFF0F4FA),
-    secondaryText: Color(0xFF8A99B2),
-    border: Color(0x14FFFFFF),
-    accent: Color(0xFF38D9F0),
-    success: Color(0xFF36D98B),
-    error: Color(0xFFFF7B7B),
-    waveformMuted: Color(0xFF8A99B2),
-    recordingDot: Color(0xFFFF5252),
-  );
-
-  /// Light theme colour set.
+  /// The approved spike (`spike/lib/main.dart` `kFinalDesign`, mirrored by the
+  /// web `web-parity-board`) defines a **single** capsule design — a light
+  /// tint-gradient teal capsule — shown identically over light AND dark
+  /// backgrounds. There is deliberately no separate dark capsule variant; the
+  /// translucent fill carries the design over any desktop. So [light] holds the
+  /// spike tokens and [dark] resolves to the exact same set (1:1 parity).
+  ///
+  /// Colours come verbatim from `kFinalDesign`: content `#14202E`,
+  /// accent `#0887A8`, fill `#F7FAFD → #E6EEF5`, border `#330887A8`.
   static const OverlayThemeColors light = OverlayThemeColors(
     surface: Color(0xFFF0F3F7),
     capsuleFillStart: Color(0xFFF7FAFD),
     capsuleFillEnd: Color(0xFFE6EEF5),
     capsuleBorder: Color(0x330887A8),
-    text: Color(0xFF101828),
+    text: Color(0xFF14202E),
     secondaryText: Color(0xFF5B697E),
     border: Color(0x140F172A),
     accent: Color(0xFF0887A8),
@@ -726,6 +718,9 @@ abstract final class OverlayDesignSpec {
     waveformMuted: Color(0xFF5B697E),
     recordingDot: Color(0xFFFF5252),
   );
+
+  /// Dark theme colour set — identical to [light]: the spike has one design.
+  static const OverlayThemeColors dark = light;
 
   /// Resolves the colour set for [theme].
   static OverlayThemeColors colors(OverlayDesignTheme theme) =>

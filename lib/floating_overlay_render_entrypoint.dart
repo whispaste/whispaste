@@ -34,11 +34,16 @@ import 'widgets/floating_overlay/floating_overlay_view.dart';
 /// must not collide.
 const String _renderChannelName = 'com.whispaste.floating_overlay_render';
 
-/// Boots the overlay render engine. Referenced by name from Swift, so it must
-/// stay a top-level function with the `vm:entry-point` pragma intact.
-@pragma('vm:entry-point')
-void floatingOverlayMain() {
+/// Boots the overlay render engine.
+///
+/// The actual `@pragma('vm:entry-point') floatingOverlayMain` lives in
+/// `main.dart` (the root library) because macOS `runWithEntrypoint:` resolves
+/// the entrypoint name only against the root library — it has no `libraryURI`
+/// variant. That thin entrypoint delegates here so the real wiring stays in
+/// this cohesive, unit-tested file.
+void runFloatingOverlayEngine() {
   WidgetsFlutterBinding.ensureInitialized();
+  debugPrint('[overlay-engine] runFloatingOverlayEngine booted');
   runApp(const _OverlayRenderApp());
 }
 
@@ -71,6 +76,9 @@ class _OverlayRenderAppState extends State<_OverlayRenderApp> {
       onWaveformBars: (b) => setState(() => _bars = b),
       onOpacity: (o) => setState(() => _opacity = o),
     );
+    // Handler is now registered — tell the native shell to flush any render
+    // state it cached while this engine was still booting.
+    _channel.notifyReady();
   }
 
   @override
