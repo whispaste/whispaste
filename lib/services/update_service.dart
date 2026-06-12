@@ -148,6 +148,14 @@ class UpdateNotifier extends Notifier<UpdateState> {
   @visibleForTesting
   static Future<void> Function(String dmgPath)? macOpenDmgOverrideForTesting;
 
+  /// Test-only state setter. The notifier's `state` is protected, so tests use
+  /// this to drive [installUpdate] into [UpdatePhase.readyToInstall] (with a
+  /// resolved [downloadedPath]) without running the full download flow.
+  @visibleForTesting
+  void debugSetStateForTesting(UpdateState newState) {
+    state = newState;
+  }
+
   @override
   UpdateState build() {
     _dio = dioOverrideForTesting ?? buildUpdateDio();
