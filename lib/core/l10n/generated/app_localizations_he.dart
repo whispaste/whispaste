@@ -202,6 +202,25 @@ class L10nHe extends L10n {
       'לחץ על כפתור ההקלטה או השתמש בקיצור כדי להתחיל.\nהתמלולים שלך יופיעו כאן.';
 
   @override
+  String get historyNoPinned => 'עדיין אין מועדפים';
+
+  @override
+  String get historyNoPinnedHint =>
+      'סמן תמלול כמועדף כדי למצוא אותו כאן במהירות.';
+
+  @override
+  String get historyNoToday => 'לא הוקלט היום';
+
+  @override
+  String get historyNoTodayHint => 'הקלטות מהיום יופיעו כאן.';
+
+  @override
+  String get historyNoThisWeek => 'לא הוקלט השבוע';
+
+  @override
+  String get historyNoThisWeekHint => 'הקלטות מהשבוע יופיעו כאן.';
+
+  @override
   String get historyCopiedToClipboard => 'הועתק ללוח';
 
   @override

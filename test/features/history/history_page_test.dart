@@ -250,5 +250,118 @@ void main() {
       expect(find.text('Meeting notes — Product roadmap Q3'), findsOneWidget);
       expect(find.byIcon(LucideIcons.clock), findsWidgets);
     });
+
+    group('filter-specific empty states', () {
+      testWidgets('pinned filter shows specific empty state when no favorites', (
+        tester,
+      ) async {
+        final all = generateSampleEntries();
+        // Use only non-pinned active entries so the Favorites filter is empty.
+        final noPinned = all
+            .where((e) => e.deletedAt == null && !e.archived && !e.pinned)
+            .toList();
+        await tester.pumpWidget(
+          makeTestable(
+            const HistoryPage(),
+            overrides: [
+              historyEntriesProvider.overrideWith(
+                (ref) => Stream.value(noPinned),
+              ),
+              archivedEntriesProvider.overrideWith((ref) => Stream.value([])),
+              trashEntriesProvider.overrideWith((ref) => Stream.value([])),
+            ],
+            locale: const Locale('en'),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text(l10n.historyPinned));
+        await tester.pumpAndSettle();
+
+        expect(find.text(l10n.historyNoPinned), findsOneWidget);
+        expect(find.text(l10n.historyNoPinnedHint), findsOneWidget);
+        expect(find.text(l10n.historyEmpty), findsNothing);
+      });
+
+      testWidgets(
+        'today filter shows specific empty state when no entries today',
+        (tester) async {
+          final all = generateSampleEntries();
+          // Use only entries older than 7 days so the Today filter is empty.
+          final oldEntries = all
+              .where(
+                (e) =>
+                    e.deletedAt == null &&
+                    !e.archived &&
+                    e.timestamp.isBefore(
+                      DateTime.now().subtract(const Duration(days: 7)),
+                    ),
+              )
+              .toList();
+          await tester.pumpWidget(
+            makeTestable(
+              const HistoryPage(),
+              overrides: [
+                historyEntriesProvider.overrideWith(
+                  (ref) => Stream.value(oldEntries),
+                ),
+                archivedEntriesProvider.overrideWith((ref) => Stream.value([])),
+                trashEntriesProvider.overrideWith((ref) => Stream.value([])),
+              ],
+              locale: const Locale('en'),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          // "Today" appears only as filter chip (no today entries in list).
+          await tester.tap(find.text(l10n.historyToday).first);
+          await tester.pumpAndSettle();
+
+          expect(find.text(l10n.historyNoToday), findsOneWidget);
+          expect(find.text(l10n.historyNoTodayHint), findsOneWidget);
+          expect(find.text(l10n.historyEmpty), findsNothing);
+        },
+      );
+
+      testWidgets(
+        'week filter shows specific empty state when no entries this week',
+        (tester) async {
+          final all = generateSampleEntries();
+          // Use only entries older than 7 days so the This Week filter is empty.
+          final oldEntries = all
+              .where(
+                (e) =>
+                    e.deletedAt == null &&
+                    !e.archived &&
+                    e.timestamp.isBefore(
+                      DateTime.now().subtract(const Duration(days: 7)),
+                    ),
+              )
+              .toList();
+          await tester.pumpWidget(
+            makeTestable(
+              const HistoryPage(),
+              overrides: [
+                historyEntriesProvider.overrideWith(
+                  (ref) => Stream.value(oldEntries),
+                ),
+                archivedEntriesProvider.overrideWith((ref) => Stream.value([])),
+                trashEntriesProvider.overrideWith((ref) => Stream.value([])),
+              ],
+              locale: const Locale('en'),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          // "This Week" appears only as filter chip (no this-week entries in list).
+          await tester.tap(find.text(l10n.historyThisWeek).first);
+          await tester.pumpAndSettle();
+
+          expect(find.text(l10n.historyNoThisWeek), findsOneWidget);
+          expect(find.text(l10n.historyNoThisWeekHint), findsOneWidget);
+          expect(find.text(l10n.historyEmpty), findsNothing);
+        },
+      );
+    });
   });
 }
