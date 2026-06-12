@@ -615,8 +615,6 @@
   "errorTranscriptionTimeout": "Transcription took too long. Please try a shorter recording.",
   "errorMicPermissionDenied": "Microphone access is needed. Please allow it in your system settings.",
   "errorRecordingStartFailed": "Could not start recording. Please try again.",
-  "errorCloudAuth": "Cloud API key is missing or invalid. Check it in Settings → Speech Recognition.",
-  "errorCloudQuota": "Cloud provider rate limit reached. Please wait a moment and try again.",
   "errorGeneric": "Something went wrong. Please try again.",
   "modelDownloadFailed": "Download failed. Please check your internet connection.",
 
@@ -937,5 +935,11 @@
   "errorSttRejectEmpty": "No audio to transcribe — please record again.",
   "errorSttRejectInvalidWav": "Audio file is corrupted — please record again.",
   "errorSttRejectUnsupportedLanguage": "This language is not supported by the local speech model — please review the language in Settings.",
-  "errorSttRejectPromptTooLong": "Custom vocabulary is too long — please shorten it in Settings."
+  "errorSttRejectPromptTooLong": "Custom vocabulary is too long — please shorten it in Settings.",
+
+  "settingsGpuAcceleration": "Graphics Acceleration",
+  "settingsGpuAccelerationSubtitle": "Controls whether the speech service uses GPU or CPU for local recognition",
+  "settingsGpuAccelerationAuto": "Automatic (recommended)",
+  "settingsGpuAccelerationEnabled": "GPU (force)",
+  "settingsGpuAccelerationDisabled": "CPU only"
 }

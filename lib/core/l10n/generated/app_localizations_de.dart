@@ -2571,4 +2571,20 @@ class L10nDe extends L10n {
   @override
   String get errorSttRejectPromptTooLong =>
       'Eigenes Vokabular ist zu lang — bitte in den Einstellungen kürzen.';
+
+  @override
+  String get settingsGpuAcceleration => 'Grafikbeschleunigung';
+
+  @override
+  String get settingsGpuAccelerationSubtitle =>
+      'Legt fest, ob der Sprachdienst GPU oder CPU für die lokale Erkennung verwendet';
+
+  @override
+  String get settingsGpuAccelerationAuto => 'Automatisch (empfohlen)';
+
+  @override
+  String get settingsGpuAccelerationEnabled => 'GPU (erzwingen)';
+
+  @override
+  String get settingsGpuAccelerationDisabled => 'Nur CPU';
 }

@@ -598,8 +598,6 @@
   "errorTranscriptionTimeout": "התמלול לקח יותר מדי זמן. נסה הקלטה קצרה יותר.",
   "errorMicPermissionDenied": "נדרש גישה למיקרופון. אפשר בהגדרות המערכת.",
   "errorRecordingStartFailed": "לא הצלחתי להתחיל הקלטה. נסה שוב.",
-  "errorCloudAuth": "מפתח ה-API חסר או שגוי. בדוק אותו בהגדרות ← זיהוי דיבור.",
-  "errorCloudQuota": "הגעת למגבלת הקצב של ספק הענן. המתן רגע ונסה שוב.",
   "errorGeneric": "משהו השתבש. נסה שוב.",
   "modelDownloadFailed": "הורדה נכשלה. בדוק חיבור אינטרנט.",
   "statusSttLoading": "טוען מודל…",
@@ -897,5 +895,11 @@
   "errorSttRejectEmpty": "אין אודיו לתמלול — נסה להקליט שוב.",
   "errorSttRejectInvalidWav": "קובץ האודיו פגום — נסה להקליט שוב.",
   "errorSttRejectUnsupportedLanguage": "השפה אינה נתמכת על ידי מנוע הדיבור המקומי — בדוק את השפה בהגדרות.",
-  "errorSttRejectPromptTooLong": "אוצר המילים המותאם ארוך מדי — קצר אותו בהגדרות."
+  "errorSttRejectPromptTooLong": "אוצר המילים המותאם ארוך מדי — קצר אותו בהגדרות.",
+
+  "settingsGpuAcceleration": "האצת גרפיקה",
+  "settingsGpuAccelerationSubtitle": "קובע אם שירות הדיבור ישתמש ב-GPU או CPU לזיהוי מקומי",
+  "settingsGpuAccelerationAuto": "אוטומטי (מומלץ)",
+  "settingsGpuAccelerationEnabled": "GPU (כפוי)",
+  "settingsGpuAccelerationDisabled": "CPU בלבד"
 }
