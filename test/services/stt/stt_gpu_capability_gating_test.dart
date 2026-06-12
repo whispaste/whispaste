@@ -120,6 +120,11 @@ ProviderContainer _makeContainer({
       // DLL gate. Without this the real probe sees an empty server dir on the
       // Windows runner and short-circuits `_start` before the args are built.
       backendLoaderGateProvider.overrideWithValue((_) => null),
+      // Same rationale: the bare fake binary staged here has no backend DLLs,
+      // so the real compatibility probe would flag it incompatible on the
+      // Windows runner and self-heal before the args are built. Force compatible
+      // — these tests assert the shouldUseGpu/--no-gpu wiring, not binary compat.
+      serverBinaryCompatibilityProvider.overrideWithValue((_, _) => true),
       sttHttpClientProvider.overrideWithValue(_healthyClient()),
       settingsProvider.overrideWith(
         () => _FakeSettingsNotifier(

@@ -158,6 +158,22 @@ final backendLoaderGateProvider = Provider<String? Function(String)>(
   (ref) => hw.firstUnresolvableBackendLoaderDll,
 );
 
+/// Injectable seam for the server-binary compatibility check
+/// (`isServerBinaryCompatible`). Like the loader gate above, the real
+/// implementation does host-OS-specific filesystem I/O — on Windows it probes
+/// the server dir for backend DLLs (`ggml-vulkan.dll`, CUDA libs) to decide
+/// whether the installed binary fits the detected GPU. The GPU-capability-gating
+/// unit tests stage a bare fake binary without those DLLs, so on the Windows
+/// runner the real check flags the dir as incompatible and `_start` hands off to
+/// the self-heal re-download before reaching the `--no-gpu` args. Routing through
+/// a provider lets those tests force "compatible" deterministically; the
+/// self-heal-path tests keep the real default. Returns true when the installed
+/// binary is runnable on the current GPU.
+final serverBinaryCompatibilityProvider =
+    Provider<bool Function(String, hw.GpuInfo)>(
+      (ref) => hw.isServerBinaryCompatible,
+    );
+
 /// Riverpod [Notifier] that composes [SttExitClassifier], [SttGpuFallbackPolicy],
 /// [SttHealthProbe], [SttIdleTimer], [SttBenchmark] and [LocalSttServer] behind
 /// a single [SttStatus] surface.
@@ -1087,7 +1103,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       'GPU: ${gpu.name} (${gpu.vendor.name}, backend=${gpu.optimalBackend})',
     );
 
-    if (!hw.isServerBinaryCompatible(sttDir(), gpu)) {
+    if (!ref.read(serverBinaryCompatibilityProvider)(sttDir(), gpu)) {
       // State-sync correction, not a crash: the installed binary's backend
       // does not match what the current GPU needs. With CPU binaries now
       // treated as universally compatible (see [hw.isServerBinaryCompatible],
