@@ -271,7 +271,7 @@ class WhisperServerManifestLoader {
 
     // Stage 3: bundled fallback.
     if (bundled != null) {
-      _log.warning(
+      _log.info(
         'Both remote manifest sources unreachable — using bundled copy '
         '(tag=${bundled.whisperServerTag})',
       );
@@ -286,6 +286,11 @@ class WhisperServerManifestLoader {
   /// Single fetch attempt. Returns `null` on any failure so the caller
   /// can proceed to the next stage. Errors are logged for diagnostics
   /// but never thrown.
+  ///
+  /// Failures are logged at INFO — walking a multi-stage failover chain is
+  /// the expected behaviour, not an error condition.  The concrete cause
+  /// (status code, network error) is preserved in the message so the log
+  /// is still useful for diagnosing persistent connectivity problems.
   Future<WhisperServerManifest?> _tryFetch(
     String url, {
     required String label,
@@ -301,7 +306,7 @@ class WhisperServerManifestLoader {
       );
       final data = response.data;
       if (data == null) {
-        _log.warning('Manifest $label returned empty body ($url)');
+        _log.info('Manifest $label returned empty body ($url)');
         return null;
       }
       final manifest = WhisperServerManifest.fromJson(data);
@@ -311,13 +316,13 @@ class WhisperServerManifestLoader {
       );
       return manifest;
     } on DioException catch (e) {
-      _log.warning('Manifest $label fetch failed: ${describeDioError(e)}');
+      _log.info('Manifest $label fetch failed: ${describeDioError(e)}');
       return null;
     } on WhisperServerManifestException catch (e) {
-      _log.warning('Manifest $label parse failed: ${e.message}');
+      _log.info('Manifest $label parse failed: ${e.message}');
       return null;
     } on Exception catch (e) {
-      _log.warning('Manifest $label unexpected error: $e');
+      _log.info('Manifest $label unexpected error: $e');
       return null;
     }
   }
