@@ -66,10 +66,6 @@ class MacOSFloatingButtonController
   Future<void> setSize(int size) => invokeMethod('setSize', {'size': size});
 
   @override
-  Future<void> setOpacity(double opacity) =>
-      invokeMethod('setOpacity', {'opacity': opacity});
-
-  @override
   Future<void> setContextMenuItems(List<Map<String, String>> items) =>
       invokeMethod('setContextMenuItems', {'items': items});
 

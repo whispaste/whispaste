@@ -5,8 +5,8 @@ import 'floating_overlay_controller_interface.dart';
 /// The render-engine side of the overlay shell seam (ADR 0002 phase 2).
 ///
 /// Lives inside the dedicated overlay Flutter engine. It receives the relayed
-/// render state from the native shell (`updateSnapshot` / `setWaveformBars` /
-/// `setOpacity`) and sends the three coarse interactions back
+/// render state from the native shell (`updateSnapshot` / `setWaveformBars`)
+/// and relays the three coarse interactions back
 /// (`startDrag` / `bodyClicked` / `showContextMenu`). It owns no window or
 /// rendering state itself — the host widget keeps that and rebuilds on each
 /// callback.
@@ -19,7 +19,6 @@ class OverlayRenderChannel {
     required String name,
     required this.onSnapshot,
     required this.onWaveformBars,
-    required this.onOpacity,
     MethodChannel? channel,
   }) : _channel = channel ?? MethodChannel(name) {
     _channel.setMethodCallHandler(_handle);
@@ -32,9 +31,6 @@ class OverlayRenderChannel {
 
   /// Called with the latest pre-computed waveform bar array.
   final void Function(List<double> bars) onWaveformBars;
-
-  /// Called with the master opacity (0–1).
-  final void Function(double opacity) onOpacity;
 
   Future<dynamic> _handle(MethodCall call) async {
     switch (call.method) {
@@ -52,11 +48,6 @@ class OverlayRenderChannel {
             raw.map((e) => (e as num?)?.toDouble() ?? 0.0).toList(),
           );
         }
-        return null;
-      case 'setOpacity':
-        final args = call.arguments;
-        final value = args is Map ? args['opacity'] : null;
-        if (value is num) onOpacity(value.toDouble());
         return null;
       default:
         return null;

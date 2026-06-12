@@ -7,7 +7,7 @@
 ///    constant. (Native-on-device pixel parity is issue 08b/hardware.)
 ///  - AC4: the done state tints the mic with the SSOT done gradient whose
 ///    middle stop is the canonical green `#30C065`.
-///  - AC5: the three settings sizes (44/56/80) and master opacity behave
+///  - AC5: the three settings sizes (44/56/80) behave
 ///    identically; every state builds & paints without throwing.
 ///  - V2 fidelity: white disc, hairline border, NO glow.
 library;
@@ -87,16 +87,6 @@ void main() {
     );
   });
 
-  group('master opacity flows straight through (AC5)', () {
-    test('opacity is passed to the painter (disc-chrome-only dimming)', () {
-      final painter = FloatingButtonView.painterFor(
-        state: FloatingButtonVisualState.idle,
-        opacity: 0.7,
-      );
-      expect(painter.masterOpacity, 0.7);
-    });
-  });
-
   group('window size reserves shadow padding around the disc', () {
     test('disc + 2 × shadowPadding on every side', () {
       for (final d in const [44.0, 56.0, 80.0]) {
@@ -115,11 +105,7 @@ void main() {
             Directionality(
               textDirection: TextDirection.ltr,
               child: Center(
-                child: FloatingButtonView(
-                  state: state,
-                  diameter: size,
-                  opacity: 0.9,
-                ),
+                child: FloatingButtonView(state: state, diameter: size),
               ),
             ),
           );
@@ -133,19 +119,14 @@ void main() {
   });
 
   group('FloatingButtonPainter.shouldRepaint', () {
-    test('repaints when state gradient or opacity changes', () {
+    test('repaints when state gradient changes', () {
       final idle = FloatingButtonView.painterFor(
         state: FloatingButtonVisualState.idle,
       );
       final done = FloatingButtonView.painterFor(
         state: FloatingButtonVisualState.done,
       );
-      final idleDim = FloatingButtonView.painterFor(
-        state: FloatingButtonVisualState.idle,
-        opacity: 0.5,
-      );
       expect(idle.shouldRepaint(done), isTrue);
-      expect(idle.shouldRepaint(idleDim), isTrue);
       expect(idle.shouldRepaint(idle), isFalse);
     });
   });

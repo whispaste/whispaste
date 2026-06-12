@@ -73,8 +73,6 @@ class _FakeController implements FloatingButtonController {
   Future<void> setSize(int size) async {}
 
   @override
-  Future<void> setOpacity(double opacity) async {}
-
   @override
   Future<void> setContextMenuItems(List<Map<String, String>> items) async {}
 

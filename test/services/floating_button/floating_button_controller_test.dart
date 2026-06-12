@@ -98,11 +98,6 @@ void main() {
       expect(controller.calls, ['setSize(72)']);
     });
 
-    test('setOpacity() records call', () async {
-      await controller.setOpacity(0.8);
-      expect(controller.calls, ['setOpacity(0.8)']);
-    });
-
     test('getPosition() returns stored position', () async {
       controller.positionToReturn = (x: 42.0, y: 84.0);
       final pos = await controller.getPosition();
@@ -166,11 +161,6 @@ class _MockController extends FloatingButtonController {
   @override
   Future<void> setSize(int size) async {
     calls.add('setSize($size)');
-  }
-
-  @override
-  Future<void> setOpacity(double opacity) async {
-    calls.add('setOpacity($opacity)');
   }
 
   @override

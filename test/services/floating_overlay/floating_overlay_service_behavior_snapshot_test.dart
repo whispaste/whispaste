@@ -73,9 +73,6 @@ class _FakeController implements FloatingOverlayController {
   Future<void> setContextMenuItems(
     List<({String id, String label})> items,
   ) async {}
-
-  @override
-  Future<void> setOpacity(double opacity) async {}
 }
 
 // ── Testable service subclass ─────────────────────────────────────────────────

@@ -42,9 +42,6 @@ abstract class FloatingButtonController {
   /// Resize the button (logical pixels: 48, 56, or 72).
   Future<void> setSize(int size);
 
-  /// Set master opacity (0.0–1.0).
-  Future<void> setOpacity(double opacity);
-
   /// Set context menu items shown on right-click.
   ///
   /// Each item is a map with `id` (String) and `label` (String).

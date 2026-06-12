@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/config/settings_enums.dart';
 import '../../core/config/settings_labels.dart';
 import '../../core/config/settings_provider.dart';
-import '../../core/theme/overlay_design_spec.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/logging/app_logger.dart';
 import '../../core/recording/recording_state.dart';
@@ -39,6 +38,9 @@ const Duration _kTickPeriod = Duration(milliseconds: 33);
 /// moment. After the window elapses the animation timer stops and the last
 /// snapshot remains frozen on screen.
 const int releaseOutDurationMs = 300;
+
+/// Fixed auto-hide delay after the overlay enters the done state.
+const Duration kOverlayAutoHideDelay = Duration(seconds: 2);
 
 // ── FloatingPlatformHost note ─────────────────────────────────────────────────
 //
@@ -171,7 +173,6 @@ class FloatingOverlayService
 
     _l10n = _resolveL10n();
     _sendContextMenuItems();
-    c.setOpacity(OverlayDesignSpec.masterOpacity);
 
     final phase = ref.read(recordingPhaseProvider);
     if (phase != RecordingPhase.idle) {
@@ -248,7 +249,7 @@ class FloatingOverlayService
 
       case RecordingPhase.done:
         _sendSnapshot(settings, next);
-        _scheduleAutoHide(settings);
+        _scheduleAutoHide();
 
       case RecordingPhase.error:
         _sendSnapshot(settings, next);
@@ -394,14 +395,11 @@ class FloatingOverlayService
 
   // ── Auto-hide ─────────────────────────────────────────────────────────────
 
-  void _scheduleAutoHide(AppSettings s) {
+  void _scheduleAutoHide() {
     _autoHideTimer?.cancel();
 
-    final autoHide = s.overlayAutoHideType;
-    if (autoHide == OverlayAutoHide.manual) return;
-
     final gen = _generation;
-    _autoHideTimer = Timer(Duration(seconds: autoHide.seconds), () {
+    _autoHideTimer = Timer(kOverlayAutoHideDelay, () {
       if (_generation == gen) {
         _hideOverlay();
       }

@@ -12,9 +12,9 @@
 /// — there are deliberately **no** design constants in this file. Calm-UI rules
 /// (ADR 0002): no glows, no shimmer, no privacy badge.
 ///
-/// Accessibility: [masterOpacity] scales ONLY the translucent pill chrome (fill
-/// gradient, painted shadow, hairline border). The content layer — text, dot,
-/// waveform, stop square, timeline, status icons — always stays fully opaque.
+/// The content layer — text, dot, waveform, stop square, timeline, status icons
+/// — is always fully opaque. The chrome (fill gradient, shadow, border) uses
+/// the intrinsic per-element opacity from [OverlayDesignSpec].
 library;
 
 import 'dart:math' as math;
@@ -36,7 +36,6 @@ class OverlayPainter extends CustomPainter {
     required this.timerText,
     required this.statusText,
     required this.progress,
-    required this.masterOpacity,
     required this.dotPulse,
   });
 
@@ -69,9 +68,6 @@ class OverlayPainter extends CustomPainter {
   /// Recording progress toward the max duration (0–1); 0 hides the timeline.
   final double progress;
 
-  /// Master opacity (0–1). Scales the pill chrome only (see class docs).
-  final double masterOpacity;
-
   /// Recording-dot pulse phase (0–1), driven by the host widget's ticker.
   final double dotPulse;
 
@@ -102,14 +98,14 @@ class OverlayPainter extends CustomPainter {
     canvas.restore();
   }
 
-  // ── Chrome (scaled by masterOpacity) ────────────────────────────────────────
+  // ── Chrome ────────────────────────────────────────────────────────────────────
 
   void _drawShadow(Canvas canvas, RRect rrect) {
     canvas.drawRRect(
       rrect.shift(OverlayDesignSpec.shadowOffset),
       Paint()
         ..color = OverlayDesignSpec.shadowColor.withValues(
-          alpha: OverlayDesignSpec.shadowOpacity * masterOpacity,
+          alpha: OverlayDesignSpec.shadowOpacity,
         )
         ..maskFilter = const MaskFilter.blur(
           BlurStyle.normal,
@@ -119,7 +115,7 @@ class OverlayPainter extends CustomPainter {
   }
 
   void _drawFill(Canvas canvas, RRect rrect, Rect pill) {
-    final a = OverlayDesignSpec.fillOpacityFactor * masterOpacity;
+    const a = OverlayDesignSpec.fillOpacityFactor;
     canvas.drawRRect(
       rrect,
       Paint()
@@ -141,7 +137,7 @@ class OverlayPainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.0
         ..color = colors.capsuleBorder.withValues(
-          alpha: colors.capsuleBorder.a * masterOpacity,
+          alpha: colors.capsuleBorder.a,
         ),
     );
   }
@@ -391,7 +387,6 @@ class OverlayPainter extends CustomPainter {
         old.timerText != timerText ||
         old.statusText != statusText ||
         old.progress != progress ||
-        old.masterOpacity != masterOpacity ||
         old.dotPulse != dotPulse ||
         !identical(old.waveformBars, waveformBars);
   }

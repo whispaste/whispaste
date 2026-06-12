@@ -10,7 +10,7 @@ import FlutterMacOS
 ///
 /// Seam:
 /// - The app's MAIN engine talks to this host over `com.whispaste.floating_overlay`
-///   exactly as before (`updateSnapshot` / `setWaveformBars` / `setOpacity` /
+///   exactly as before (`updateSnapshot` / `setWaveformBars` /
 ///   `setPosition` / `setContextMenuItems`).
 /// - This host relays the render payloads to the overlay engine over the
 ///   private `com.whispaste.floating_overlay_render` channel, and translates
@@ -30,7 +30,6 @@ class FloatingOverlayHost {
   private var renderChannel: FlutterMethodChannel?
 
   private var pendingPosition: NSPoint?
-  private var pendingOpacity: Double = 1.0
   private var pendingAnchorMode: String = "topCenter"
   private var isCompact: Bool = false
   private var contextMenuItems: [(id: String, label: String)] = []
@@ -130,18 +129,6 @@ class FloatingOverlayHost {
         guard let id = item["id"] as? String,
               let label = item["label"] as? String else { return nil }
         return (id: id, label: label)
-      }
-      result(nil)
-
-    case "setOpacity":
-      guard let args = call.arguments as? [String: Any],
-            let opacity = (args["opacity"] as? NSNumber)?.doubleValue else {
-        result(nil)
-        return
-      }
-      pendingOpacity = opacity
-      if renderReady {
-        renderChannel?.invokeMethod("setOpacity", arguments: ["opacity": opacity])
       }
       result(nil)
 
@@ -261,7 +248,6 @@ class FloatingOverlayHost {
       // the first visible frame is never lost to the boot race.
       NSLog("[overlay] render engine ready — flushing cached state")
       renderReady = true
-      renderChannel?.invokeMethod("setOpacity", arguments: ["opacity": pendingOpacity])
       if let bars = latestBars {
         renderChannel?.invokeMethod("setWaveformBars", arguments: bars)
       }

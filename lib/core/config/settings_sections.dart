@@ -495,7 +495,6 @@ class OverlaySettings {
     this.overlayMode = 'floating',
     this.overlayStartPosition = 'top-center',
     this.overlaySize = 'normal',
-    this.overlayAutoHide = '5s',
     this.showFloatingButton = false,
     this.floatingButtonSize = 'normal',
   });
@@ -511,8 +510,6 @@ class OverlaySettings {
   /// 'normal' or 'compact'.
   final String overlaySize;
 
-  /// '2s', '5s', '10s', or 'manual'.
-  final String overlayAutoHide;
   final bool showFloatingButton;
   final String floatingButtonSize;
 
@@ -528,7 +525,6 @@ class OverlaySettings {
     overlayStartPosition:
         v['overlay_start_position'] ?? defaults.overlayStartPosition,
     overlaySize: v['overlay_size'] ?? defaults.overlaySize,
-    overlayAutoHide: v['overlay_auto_hide'] ?? defaults.overlayAutoHide,
     showFloatingButton: _readBool(
       v,
       'show_floating_button',
@@ -543,7 +539,6 @@ class OverlaySettings {
     'overlay_mode': overlayMode,
     'overlay_start_position': overlayStartPosition,
     'overlay_size': overlaySize,
-    'overlay_auto_hide': overlayAutoHide,
     'show_floating_button': '$showFloatingButton',
     'floating_button_size': floatingButtonSize,
   };
@@ -553,7 +548,6 @@ class OverlaySettings {
     String? overlayMode,
     String? overlayStartPosition,
     String? overlaySize,
-    String? overlayAutoHide,
     bool? showFloatingButton,
     String? floatingButtonSize,
   }) => OverlaySettings(
@@ -561,7 +555,6 @@ class OverlaySettings {
     overlayMode: overlayMode ?? this.overlayMode,
     overlayStartPosition: overlayStartPosition ?? this.overlayStartPosition,
     overlaySize: overlaySize ?? this.overlaySize,
-    overlayAutoHide: overlayAutoHide ?? this.overlayAutoHide,
     showFloatingButton: showFloatingButton ?? this.showFloatingButton,
     floatingButtonSize: floatingButtonSize ?? this.floatingButtonSize,
   );
@@ -574,7 +567,6 @@ class OverlaySettings {
           overlayMode == other.overlayMode &&
           overlayStartPosition == other.overlayStartPosition &&
           overlaySize == other.overlaySize &&
-          overlayAutoHide == other.overlayAutoHide &&
           showFloatingButton == other.showFloatingButton &&
           floatingButtonSize == other.floatingButtonSize;
 
@@ -584,7 +576,6 @@ class OverlaySettings {
     overlayMode,
     overlayStartPosition,
     overlaySize,
-    overlayAutoHide,
     showFloatingButton,
     floatingButtonSize,
   );

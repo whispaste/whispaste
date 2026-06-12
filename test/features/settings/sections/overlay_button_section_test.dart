@@ -158,8 +158,8 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        // Floating mode reveals start-position + size + auto-hide dropdowns.
-        expect(find.byType(DropdownButton<String>), findsNWidgets(3));
+        // Floating mode reveals start-position + size dropdowns.
+        expect(find.byType(DropdownButton<String>), findsNWidgets(2));
       },
     );
   });

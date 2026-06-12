@@ -34,7 +34,6 @@ class FloatingOverlayView extends StatefulWidget {
     super.key,
     required this.snapshot,
     this.waveformBars = const [],
-    this.opacity = 1.0,
   });
 
   /// Fully-resolved render state.
@@ -42,9 +41,6 @@ class FloatingOverlayView extends StatefulWidget {
 
   /// Live normalised waveform levels (length [WaveformSpec.barCount]).
   final List<double> waveformBars;
-
-  /// Master opacity (0–1). Only the pill chrome is dimmed; see [OverlayPainter].
-  final double opacity;
 
   /// Maps the runtime visual state onto the design-spec state.
   static OverlayDesignState designStateFor(OverlayVisualState s) => switch (s) {
@@ -66,7 +62,6 @@ class FloatingOverlayView extends StatefulWidget {
   static OverlayPainter painterFor({
     required FloatingOverlaySnapshot snapshot,
     List<double> waveformBars = const [],
-    double opacity = 1.0,
     double dotPulse = 1.0,
   }) {
     final theme = themeFor(snapshot.isDark);
@@ -84,7 +79,6 @@ class FloatingOverlayView extends StatefulWidget {
       statusText:
           snapshot.doneMessage ?? snapshot.errorMessage ?? snapshot.label,
       progress: snapshot.progress,
-      masterOpacity: opacity,
       dotPulse: dotPulse,
     );
   }
@@ -129,7 +123,6 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
               painter: FloatingOverlayView.painterFor(
                 snapshot: widget.snapshot,
                 waveformBars: widget.waveformBars,
-                opacity: widget.opacity,
                 dotPulse: _dot.value,
               ),
             );

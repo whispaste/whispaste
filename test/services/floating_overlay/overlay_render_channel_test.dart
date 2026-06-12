@@ -26,7 +26,6 @@ void main() {
         name: name,
         onSnapshot: (s) => received = s,
         onWaveformBars: (_) {},
-        onOpacity: (_) {},
       );
       addTearDown(channel.dispose);
 
@@ -54,7 +53,6 @@ void main() {
         name: name,
         onSnapshot: (_) {},
         onWaveformBars: (b) => bars = b,
-        onOpacity: (_) {},
       );
       addTearDown(channel.dispose);
 
@@ -63,21 +61,6 @@ void main() {
       });
 
       expect(bars, [0.1, 0.5, 1.0]);
-    });
-
-    test('setOpacity forwards the master opacity', () async {
-      double? opacity;
-      final channel = OverlayRenderChannel(
-        name: name,
-        onSnapshot: (_) {},
-        onWaveformBars: (_) {},
-        onOpacity: (o) => opacity = o,
-      );
-      addTearDown(channel.dispose);
-
-      await sendFromNative('setOpacity', {'opacity': 0.65});
-
-      expect(opacity, 0.65);
     });
   });
 
@@ -95,7 +78,6 @@ void main() {
         name: name,
         onSnapshot: (_) {},
         onWaveformBars: (_) {},
-        onOpacity: (_) {},
       );
       addTearDown(channel.dispose);
 

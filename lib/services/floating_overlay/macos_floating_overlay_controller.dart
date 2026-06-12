@@ -65,8 +65,4 @@ class MacOSFloatingOverlayController
             .map((item) => {'id': item.id, 'label': item.label})
             .toList(),
       });
-
-  @override
-  Future<void> setOpacity(double opacity) =>
-      invokeMethod('setOpacity', {'opacity': opacity});
 }

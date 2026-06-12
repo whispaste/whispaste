@@ -238,11 +238,6 @@ void main() {
       expect(_roundtrip(s).overlaySize, 'compact');
     });
 
-    test('overlayAutoHide 10s survives roundtrip', () {
-      final s = AppSettings.defaults.copyWith(overlayAutoHide: '10s');
-      expect(_roundtrip(s).overlayAutoHide, '10s');
-    });
-
     test('showFloatingButton true survives roundtrip', () {
       final s = AppSettings.defaults.copyWith(showFloatingButton: true);
       expect(_roundtrip(s).showFloatingButton, isTrue);
@@ -683,7 +678,6 @@ void main() {
         overlayMode: 'floating',
         overlayStartPosition: 'last-position',
         overlaySize: 'compact',
-        overlayAutoHide: 'manual',
         showFloatingButton: true,
         floatingButtonSize: 'small',
       );
@@ -692,7 +686,6 @@ void main() {
       expect(map['overlay_mode'], 'floating');
       expect(map['overlay_start_position'], 'last-position');
       expect(map['overlay_size'], 'compact');
-      expect(map['overlay_auto_hide'], 'manual');
       expect(map['show_floating_button'], 'true');
       expect(map['floating_button_size'], 'small');
       // Opacity keys are no longer written (issue 11).
@@ -706,7 +699,6 @@ void main() {
         overlayMode: OverlayMode.floating.value,
         overlayStartPosition: OverlayStartPosition.lastPosition.value,
         overlaySize: FloatingOverlaySize.compact.value,
-        overlayAutoHide: OverlayAutoHide.seconds10.value,
         showFloatingButton: true,
         floatingButtonSize: FloatingButtonSize.large.value,
       );
@@ -715,7 +707,6 @@ void main() {
       expect(r.overlayMode, OverlayMode.floating.value);
       expect(r.overlayStartPosition, OverlayStartPosition.lastPosition.value);
       expect(r.overlaySize, FloatingOverlaySize.compact.value);
-      expect(r.overlayAutoHide, OverlayAutoHide.seconds10.value);
       expect(r.showFloatingButton, isTrue);
       expect(r.floatingButtonSize, FloatingButtonSize.large.value);
     });
