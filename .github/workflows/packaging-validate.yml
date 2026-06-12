@@ -339,3 +339,90 @@ jobs:
           check libkeybinder-3.0-0          libkeybinder-3.0-dev
           [ "$fail" -eq 0 ] || exit 1
           echo "  ✓ Depends ↔ build-linux -dev packages consistent"
+
+  # ── Snap (Snap Store / Ubuntu App Center) (Ubuntu) ─────────────────────────
+  # Validates the snapcraft.yaml deterministically — mirroring the
+  # tool-independent Scoop/Homebrew/Flatpak checks: YAML parse + required
+  # top-level keys + plug coverage for every app function + strict confinement.
+  # The actual `snapcraft pack` build runs on the Linux x86_64 runner (it stages
+  # the release bundle, which only exists at release time) — not here.
+  snap:
+    name: Snap manifest (YAML + required keys + plugs + confinement)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Install validators
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-yaml
+
+      - name: Validate snapcraft.yaml YAML + required keys + plugs + confinement
+        run: |
+          MANIFEST="packaging/snap/snapcraft.yaml"
+          echo "Validating $MANIFEST …"
+
+          # 1. YAML-parseable?
+          python3 -c "import yaml; yaml.safe_load(open('$MANIFEST'))" \
+            || { echo "::error::$MANIFEST is not valid YAML"; exit 1; }
+          echo "  ✓ YAML parse OK"
+
+          # 2. Required top-level keys + strict confinement + plug coverage for
+          #    every app function (Display/Clipboard, Hotkey, Audio, Network
+          #    self-download). See packaging/snap/README.md confinement table.
+          python3 - "$MANIFEST" <<'PYEOF'
+          import sys, yaml, pathlib
+
+          MANIFEST = pathlib.Path(sys.argv[1])
+          data = yaml.safe_load(MANIFEST.read_text())
+          errors = []
+
+          # Snap store name is the lowercase `whispaste`; the app-id stays
+          # de.whispaste.app (carried in the app's common-id + desktop file).
+          if data.get("name") != "whispaste":
+              errors.append("name must be whispaste")
+
+          for key in ("base", "version", "summary", "description",
+                      "grade", "confinement", "apps", "parts"):
+              if not data.get(key):
+                  errors.append(f"missing required key: {key}")
+
+          # Strict confinement keeps the snap store-auto-reviewable.
+          if data.get("confinement") != "strict":
+              errors.append("confinement must be strict")
+
+          # The app must reference the reverse-DNS id via common-id + desktop.
+          app = (data.get("apps") or {}).get("whispaste") or {}
+          if app.get("common-id") != "de.whispaste.app":
+              errors.append("apps.whispaste.common-id must be de.whispaste.app")
+          if "gnome" not in (app.get("extensions") or []):
+              errors.append("apps.whispaste must use the gnome extension")
+
+          # Plug coverage for every app function.
+          plugs = set(app.get("plugs") or [])
+          required_plugs = {
+              # Audio (Aufnahme)
+              "audio-record": "audio record",
+              "audio-playback": "audio playback",
+              # Network self-download of the Sprachdienst
+              "network": "network self-download",
+              # Hotkey + tray/appindicator (session bus)
+              "unity7": "hotkey / appindicator",
+              # Display sockets (clipboard/paste rides on these)
+              "wayland": "wayland display",
+              "x11": "x11 display",
+              "desktop": "desktop session",
+          }
+          for plug, label in required_plugs.items():
+              if plug not in plugs:
+                  errors.append(f"missing plug for {label}: {plug}")
+
+          if errors:
+              for e in errors:
+                  print(f"::error::{e}")
+              sys.exit(1)
+          print("  ✓ Required keys + strict confinement + plugs present "
+                "(display/clipboard, hotkey, audio, network self-download)")
+          PYEOF

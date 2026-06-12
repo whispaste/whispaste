@@ -1,0 +1,128 @@
+# Snap manifest — WhisPaste (Snap Store / Ubuntu App Center).
+#
+# Fourth Linux channel per PRD §8.3 (Flatpak → AppImage → .deb → Snap, Snap last).
+#
+# Like the Flatpak/AppImage/.deb channels, this snap is assembled from the
+# prebuilt Linux x86_64 release bundle produced by the `build-linux` job in
+# .github/workflows/release.yml (artifact `linux-release` →
+# WhisPaste-<version>-linux-x64.tar.gz, created with
+# `tar -czf … -C build/linux/x64/release/bundle .`). We do NOT rebuild Flutter
+# inside the snap — the tarball root already contains the `whispaste`
+# executable, `lib/` and `data/`, with every §3.1 build pitfall (sentry-native,
+# flutter_soloud Xiph, crashpad_handler chmod +x) already baked in.
+#
+# The `flutter` extension still wires up the GTK/GNOME runtime plumbing
+# (GSettings, GDK pixbuf loaders, fontconfig, the desktop launchers) around the
+# staged bundle so the app starts cleanly under confinement.
+#
+# App-ID = the existing reverse-DNS identifier de.whispaste.app (the snap *name*
+# in the store is the lowercase `whispaste`; the desktop entry / app-id keep
+# de.whispaste.app). Do not invent a new identifier.
+#
+# Per-release the maintainer bumps `version` + the `source` (tag URL) of the
+# `whispaste-bundle` part — see packaging/snap/README.md for the runbook.
+name: whispaste
+base: core24
+version: '0.0.0'
+summary: 'Voice-input tool: hotkey, speak, paste anywhere'
+description: |
+  WhisPaste is a voice-input tool. Press a global hotkey, speak, and the
+  transcribed text is pasted at the cursor position of whatever application you
+  are currently typing in — system-wide, not bound to a single app.
+
+  Transcription runs locally on your device via whisper.cpp (no network
+  traffic) or, optionally, through a cloud provider you choose. The local
+  Sprachdienst is downloaded automatically on first use; audio never leaves
+  your device in local mode.
+
+  WhisPaste is explicitly not an always-listening assistant, not a recording or
+  file-transcription tool, and not a voice-command system — its output is text
+  that flows into the active application.
+
+# Stable, store-submittable build (not a devel grade).
+grade: stable
+# Strict confinement keeps the snap store-auto-reviewable. The self-download of
+# the Sprachdienst (whisper-server) still works under strict confinement: the
+# app reads $XDG_CONFIG_HOME first (path_service.dart appDataDir), which snapd
+# remaps to $SNAP_USER_DATA/.config (writable AND exec-allowed — not mounted
+# noexec), so the downloaded binary is chmod +x'd and executed there.
+confinement: strict
+
+platforms:
+  amd64:
+    build-on: [amd64]
+    build-for: [amd64]
+
+apps:
+  whispaste:
+    # The flutter extension prepends the GTK/GNOME launcher wrappers.
+    command: bin/whispaste
+    extensions: [gnome]
+    common-id: de.whispaste.app
+    desktop: usr/share/applications/de.whispaste.app.desktop
+    plugs:
+      # ── Display / windowing + Clipboard / Paste (CONTEXT.md §2.4) ────────────
+      # Clipboard write rides on the Wayland/X11 sockets; the desktop plugs cover
+      # it. (Auto-Paste keystroke synthesis is unsupported on Linux —
+      # PasteCapabilityStatus.unsupported, CONTEXT.md §2.7 — so no input-injection
+      # interface is requested.)
+      - wayland
+      - x11
+      - desktop
+      - desktop-legacy
+      # ── Global Hotkey (CONTEXT.md §2.5) ──────────────────────────────────────
+      # The session bus reaches the WM / GlobalShortcuts portal + the keybinder
+      # path. unity7 also carries the legacy session-bus + appindicator surface.
+      - unity7
+      # ── Audio (Aufnahme — CONTEXT.md §2.2) ───────────────────────────────────
+      - audio-record
+      - audio-playback
+      # ── Network: self-download of the Sprachdienst (whisper-server) + model ───
+      # The app fetches the whisper-server manifest + binary + ggml model at
+      # first run (lib/services/whisper_server_*.dart) over the network.
+      - network
+      # ── System tray / app indicator + notifications (libayatana-appindicator) ─
+      - desktop  # appindicator/StatusNotifier rides the desktop session bus
+
+parts:
+  # Stage the prebuilt Linux x86_64 release bundle (no Flutter rebuild).
+  whispaste-bundle:
+    plugin: dump
+    # Per-release: bump `source` to the tag's tarball asset. Until the first
+    # Linux release tag exists this is a documented placeholder — CI validates
+    # the manifest *shape*; the real archive is pinned at submission time.
+    source: https://github.com/whispaste/whispaste/releases/download/v0.0.0/WhisPaste-0.0.0-linux-x64.tar.gz
+    source-type: tar
+    organize:
+      # The bundle root (whispaste executable, lib/, data/) lands under
+      # $SNAP/whispaste; the launcher symlink is created in the desktop part.
+      '*': whispaste/
+    # Runtime shared libraries the bundle links against — mirrors the -dev
+    # packages installed in release.yml `build-linux` (runtime soname siblings).
+    stage-packages:
+      - libgtk-3-0
+      - libsecret-1-0
+      - libnotify4
+      - libayatana-appindicator3-1
+      - libasound2
+      - libcurl4
+      - libkeybinder-3.0-0
+      - liblzma5
+      - zlib1g
+
+  # Desktop entry + AppStream metainfo + icon + launcher symlink. Reuses the
+  # single packaging source (packaging/flatpak/*) — no duplication.
+  whispaste-desktop:
+    after: [whispaste-bundle]
+    plugin: nil
+    source: .
+    override-build: |
+      craftctl default
+      install -d "$CRAFT_PART_INSTALL/bin"
+      ln -sf ../whispaste/whispaste "$CRAFT_PART_INSTALL/bin/whispaste"
+      install -Dm644 "$CRAFT_PROJECT_DIR/../flatpak/de.whispaste.app.desktop" \
+        "$CRAFT_PART_INSTALL/usr/share/applications/de.whispaste.app.desktop"
+      install -Dm644 "$CRAFT_PROJECT_DIR/../flatpak/de.whispaste.app.metainfo.xml" \
+        "$CRAFT_PART_INSTALL/usr/share/metainfo/de.whispaste.app.metainfo.xml"
+      install -Dm644 "$CRAFT_PROJECT_DIR/../../assets/icons/app_icon.png" \
+        "$CRAFT_PART_INSTALL/usr/share/icons/hicolor/512x512/apps/de.whispaste.app.png"
