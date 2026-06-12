@@ -195,6 +195,49 @@ void main() {
       expect(snap.doneMessage, isNull);
       expect(snap.progress, 0.0);
     });
+
+    test('fromMap(toMap()) round-trips every field', () {
+      const original = FloatingOverlaySnapshot(
+        visible: true,
+        state: OverlayVisualState.done,
+        isDark: false,
+        compact: true,
+        label: 'Done',
+        elapsed: '0:07',
+        hint: 'Press ⌘ to stop',
+        transcript: 'hello world',
+        errorMessage: 'boom',
+        privacyMode: 'cloud',
+        doneMessage: 'Copied',
+        progress: 0.42,
+      );
+
+      final restored = FloatingOverlaySnapshot.fromMap(original.toMap());
+
+      expect(restored.visible, original.visible);
+      expect(restored.state, original.state);
+      expect(restored.isDark, original.isDark);
+      expect(restored.compact, original.compact);
+      expect(restored.label, original.label);
+      expect(restored.elapsed, original.elapsed);
+      expect(restored.hint, original.hint);
+      expect(restored.transcript, original.transcript);
+      expect(restored.errorMessage, original.errorMessage);
+      expect(restored.privacyMode, original.privacyMode);
+      expect(restored.doneMessage, original.doneMessage);
+      expect(restored.progress, original.progress);
+    });
+
+    test('fromMap() falls back to safe defaults on a malformed payload', () {
+      final snap = FloatingOverlaySnapshot.fromMap({'state': 'bogus-state'});
+
+      expect(snap.visible, isFalse);
+      expect(snap.state, OverlayVisualState.recording);
+      expect(snap.isDark, isTrue);
+      expect(snap.compact, isFalse);
+      expect(snap.label, '');
+      expect(snap.progress, 0.0);
+    });
   });
 
   group('FloatingOverlayController factory', () {

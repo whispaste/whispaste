@@ -62,6 +62,36 @@ class FloatingOverlaySnapshot {
     'doneMessage': doneMessage,
     'progress': progress,
   };
+
+  /// Rebuilds a snapshot from its [toMap] form.
+  ///
+  /// Used by the in-process overlay render engine (ADR 0002 phase 2): the
+  /// native shell relays the main engine's [toMap] payload to the dedicated
+  /// overlay Flutter engine, which deserialises it here before feeding
+  /// [FloatingOverlayView]. Unknown/absent `state` falls back to
+  /// [OverlayVisualState.recording] so a malformed relay never crashes the
+  /// render isolate.
+  factory FloatingOverlaySnapshot.fromMap(Map<dynamic, dynamic> map) {
+    final stateName = map['state'] as String?;
+    final state = OverlayVisualState.values.firstWhere(
+      (s) => s.name == stateName,
+      orElse: () => OverlayVisualState.recording,
+    );
+    return FloatingOverlaySnapshot(
+      visible: map['visible'] as bool? ?? false,
+      state: state,
+      isDark: map['isDark'] as bool? ?? true,
+      compact: map['compact'] as bool? ?? false,
+      label: map['label'] as String? ?? '',
+      elapsed: map['elapsed'] as String? ?? '',
+      hint: map['hint'] as String? ?? '',
+      transcript: map['transcript'] as String?,
+      errorMessage: map['errorMessage'] as String?,
+      privacyMode: map['privacyMode'] as String? ?? 'local',
+      doneMessage: map['doneMessage'] as String?,
+      progress: (map['progress'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
 }
 
 /// Platform-agnostic interface for the native floating overlay window.
