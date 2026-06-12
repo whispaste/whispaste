@@ -86,5 +86,7 @@ modules:
         path: de.whispaste.app.metainfo.xml
       - type: file
         # Bundled app icon, renamed to the App-ID for Flathub icon-naming rules.
-        path: ../../assets/icons/app_icon.png
+        # 512px derivative — the master app_icon.png is 1024x1024 and does not
+        # match the hicolor 512x512 slot.
+        path: ../../assets/icons/app_icon_512.png
         dest-filename: de.whispaste.app.png

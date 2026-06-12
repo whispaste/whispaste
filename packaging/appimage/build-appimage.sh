@@ -51,13 +51,18 @@ install -Dm644 "$PKG_ROOT/packaging/flatpak/$APP_ID.desktop" \
   "$APPDIR/usr/share/applications/$APP_ID.desktop"
 install -Dm644 "$PKG_ROOT/packaging/flatpak/$APP_ID.metainfo.xml" \
   "$APPDIR/usr/share/metainfo/$APP_ID.metainfo.xml"
-install -Dm644 "$PKG_ROOT/assets/icons/app_icon.png" \
+# The hicolor 512x512 slot needs a real 512px icon — the master app_icon.png is
+# 1024x1024, which linuxdeploy rejects ("invalid x resolution: 1024"). Use the
+# committed 512px derivative so no build-time image tooling is required.
+install -Dm644 "$PKG_ROOT/assets/icons/app_icon_512.png" \
   "$APPDIR/usr/share/icons/hicolor/512x512/apps/$APP_ID.png"
 
 # ── 2. Run linuxdeploy ───────────────────────────────────────────────────────
-# linuxdeploy bundles the executable's shared-library dependencies. We also
-# point it at the Flutter bundle's own lib/ so its plugin .so files are picked
-# up. ARCH + OUTPUT control the emitted file.
+# linuxdeploy bundles the executable's shared-library dependencies. The Flutter
+# plugin .so files already sit in the AppDir at usr/bin/lib (copied above);
+# --deploy-deps-only points linuxdeploy at them so it resolves THEIR system
+# dependencies and fixes their rpath without re-copying. (There is no
+# --library-path flag in linuxdeploy — that was rejected as an unknown option.)
 export ARCH=x86_64
 export OUTPUT="$OUT_DIR/WhisPaste-${VERSION}-linux-x64.AppImage"
 install -d "$OUT_DIR"
@@ -67,7 +72,7 @@ linuxdeploy \
   --executable "$APPDIR/usr/bin/whispaste" \
   --desktop-file "$APPDIR/usr/share/applications/$APP_ID.desktop" \
   --icon-file "$APPDIR/usr/share/icons/hicolor/512x512/apps/$APP_ID.png" \
-  --library-path "$APPDIR/usr/bin/lib" \
+  --deploy-deps-only "$APPDIR/usr/bin/lib" \
   --output appimage
 
 echo "Built $OUTPUT"
