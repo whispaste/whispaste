@@ -17,6 +17,7 @@ import 'package:sentry_flutter/sentry_flutter.dart'
     show Breadcrumb, Sentry, SentryLevel;
 
 import '../../core/config/settings_provider.dart';
+import '../../core/config/whisper_languages.dart';
 import '../../core/logging/app_logger.dart';
 import '../../core/logging/crash_fingerprints.dart';
 import '../../core/logging/crash_reporter.dart';
@@ -155,15 +156,12 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
   static const _cudaOomErrorCode = 'stt_cuda_oom';
   static const _maxStderrLines = 50;
 
-  /// Whitelist of short language codes the local whisper-server build
-  /// supports — kept in sync with [AppSettings.sttLanguageCode]. `'auto'`
-  /// bypasses the whitelist inside the validator.
-  static const Set<String> _whisperSupportedLanguages = {
-    'en',
-    'de',
-    'fr',
-    'es',
-  };
+  /// Pre-flight whitelist: the full 99-language catalog of the bundled
+  /// multilingual Whisper models ([whisperLanguages]). `'auto'` bypasses
+  /// the whitelist inside the validator. Until June 2026 this was a
+  /// hard-coded en/de/fr/es subset, which wrongly rejected every other
+  /// language the models support (store review: Russian).
+  static final Set<String> _whisperSupportedLanguages = whisperLanguageCodes;
 
   /// Upper bound on the combined `vocab + lastPrompt` string handed to the
   /// whisper-server. The server itself accepts ~224 tokens (~900 chars) but
@@ -621,7 +619,10 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       ..fields['response_format'] = 'json'
       ..fields['temperature'] = '0.0';
 
-    if (lang.isNotEmpty && lang != 'auto') {
+    // `auto` is sent explicitly: whisper-server resolves an *omitted* field
+    // to its startup default (`en` unless --language was passed), which
+    // silently disabled language detection for auto-detect users.
+    if (lang.isNotEmpty) {
       request.fields['language'] = lang;
     }
     if (effectivePrompt != null) {

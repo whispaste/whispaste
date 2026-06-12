@@ -92,6 +92,9 @@ class FakeSttService extends SttServerStateNotifier {
   bool throwTimeoutException = false;
   bool transcribeThrows = false;
 
+  /// Language the orchestrator handed to the last [transcribeBytes] call.
+  String? lastLanguage;
+
   @override
   SttStatus build() =>
       const SttStatus(serverState: SttServerState.ready, port: 9999);
@@ -112,6 +115,7 @@ class FakeSttService extends SttServerStateNotifier {
 
   @override
   Future<String> transcribeBytes(List<int> wavBytes, {String? language}) async {
+    lastLanguage = language;
     if (transcribeThrows) {
       throw Exception('Transcription failed');
     }
@@ -367,6 +371,69 @@ void main() {
     expect(container.read(recordingProvider).phase, RecordingPhase.recording);
     return orch;
   }
+
+  // =========================================================================
+  // Recognition language (store-review regression, June 2026)
+  // =========================================================================
+
+  group('Recognition language', () {
+    /// Rebuilds the container with [stt]/[interface_] overrides and runs a
+    /// full record→transcribe cycle, returning the language the transcriber
+    /// received.
+    Future<String?> languageSeenByTranscriber({
+      required SttSettings stt,
+      InterfaceSettings interface_ = const InterfaceSettings(),
+    }) async {
+      container.dispose();
+      container = buildContainer(
+        AppSettings(
+          interface_: interface_,
+          stt: stt,
+          afterTranscriptionSection: const AfterTranscriptionSettings(
+            afterTranscription: 'nothing',
+          ),
+          onboarding: const OnboardingSettings(onboardingCompleted: true),
+        ),
+      );
+      await container.read(settingsProvider.future);
+      final orch = await startRecordingPhase();
+      await orch.stopRecording();
+      return fakeStt.lastLanguage;
+    }
+
+    test('auto-detect reaches the transcriber as auto — never the UI '
+        'locale', () async {
+      // A Russian speaker on an English UI: before the fix the app forced
+      // language=en and whisper produced English text from Russian audio.
+      final lang = await languageSeenByTranscriber(
+        stt: const SttSettings(model: 'whisper-small'),
+        interface_: const InterfaceSettings(locale: 'en'),
+      );
+      expect(lang, 'auto');
+    });
+
+    test('auto-detect ignores non-English UI locales too', () async {
+      final lang = await languageSeenByTranscriber(
+        stt: const SttSettings(model: 'whisper-small'),
+        interface_: const InterfaceSettings(locale: 'he'),
+      );
+      expect(lang, 'auto');
+    });
+
+    test('a catalog language code reaches the transcriber unchanged', () async {
+      final lang = await languageSeenByTranscriber(
+        stt: const SttSettings(model: 'whisper-small', language: 'ru'),
+      );
+      expect(lang, 'ru');
+    });
+
+    test('legacy display value still resolves to its code', () async {
+      final lang = await languageSeenByTranscriber(
+        stt: const SttSettings(model: 'whisper-small', language: 'German'),
+      );
+      expect(lang, 'de');
+    });
+  });
 
   // =========================================================================
   // Happy path

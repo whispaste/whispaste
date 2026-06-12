@@ -13,6 +13,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/config/settings_enums.dart';
 import '../../../core/config/settings_provider.dart';
+import '../../../core/config/whisper_languages.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
@@ -24,6 +25,11 @@ import '../settings_widgets.dart';
 // ---------------------------------------------------------------------------
 // Speech Recognition section
 // ---------------------------------------------------------------------------
+
+/// Whisper catalog sorted by English display name for the dropdown.
+final List<MapEntry<String, String>> _languagesByName =
+    whisperLanguages.entries.toList()
+      ..sort((a, b) => a.value.compareTo(b.value));
 
 class SpeechRecognitionSection extends ConsumerStatefulWidget {
   const SpeechRecognitionSection({super.key});
@@ -97,26 +103,20 @@ class _SpeechRecognitionSectionState
             ),
           ],
 
-          // Language selector (shared)
+          // Language selector (shared) — Auto-detect plus the full
+          // 99-language Whisper catalog. Values are short codes ('auto',
+          // 'en', 'ru', …); `sttLanguageCode` normalizes legacy persisted
+          // display values ('German') so they keep selecting correctly.
           SettingRow(
             icon: LucideIcons.languages,
             label: l10n.settingsRecognitionLanguage,
             trailing: settingsDropdown(
               context: context,
-              value: settings.sttLanguage,
-              items: const [
-                'Auto-detect',
-                'English',
-                'German',
-                'French',
-                'Spanish',
-              ],
+              value: settings.sttLanguageCode,
+              items: ['auto', ..._languagesByName.map((e) => e.key)],
               labels: [
                 l10n.settingsLanguageAutoDetect,
-                l10n.settingsLanguageEnglish,
-                l10n.settingsLanguageGerman,
-                l10n.settingsLanguageFrench,
-                l10n.settingsLanguageSpanish,
+                ..._languagesByName.map((e) => e.value),
               ],
               onChanged: (v) => ref
                   .read(settingsProvider.notifier)
