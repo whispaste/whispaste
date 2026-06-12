@@ -299,11 +299,14 @@ class _RecordingBehaviorState extends ConsumerState<RecordingBehaviorWidget> {
       type: WpToastType.success,
     );
     // Auto-reset after a short delay so the FAB returns to idle.
+    // Guard on isDone: if the user already preempted the linger by starting a
+    // new recording (orchestrator.startRecording resets done → idle → recording),
+    // this stale timer must NOT reset the fresh recording.
     _doneResetTimer?.cancel();
     _doneResetTimer = Timer(const Duration(seconds: 2), () {
       try {
-        _log.debug('Done reset timer fired — calling reset()');
-        if (mounted) {
+        if (mounted && ref.read(recordingProvider).isDone) {
+          _log.debug('Done reset timer fired — calling reset()');
           ref.read(recordingOrchestratorProvider.notifier).reset();
           _log.debug('Done reset completed');
         }

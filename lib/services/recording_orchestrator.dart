@@ -147,17 +147,20 @@ class RecordingOrchestrator extends Notifier<void> {
 
   /// Starts or stops recording based on the current phase.
   ///
-  /// Idle → starts recording. Recording → stops and transcribes.
-  /// Other phases are ignored.
+  /// Recording → stops and transcribes. Idle / done / error → starts a new
+  /// recording (a lingering "done"/"error" status is preempted by
+  /// [startRecording] — see there). Transcribing is in-flight → ignored.
   Future<void> toggleRecording() async {
     final recording = ref.read(recordingProvider);
-    if (recording.isIdle) {
-      // Kick off server warm-up before preflight to maximise parallel window.
-      unawaited(_prewarmStt());
-      await startRecording();
-    } else if (recording.isRecording) {
+    if (recording.isRecording) {
       await stopRecording();
+      return;
     }
+    if (recording.phase == RecordingPhase.transcribing) return;
+    // idle, done, or error → start. Kick off server warm-up before preflight
+    // to maximise the parallel window.
+    unawaited(_prewarmStt());
+    await startRecording();
   }
 
   /// Starts the recording pipeline.
@@ -168,6 +171,21 @@ class RecordingOrchestrator extends Notifier<void> {
       return;
     }
     _startInFlight = true;
+
+    // Flow-first: a fresh start while a terminal "done"/"error" status is still
+    // lingering preempts it immediately. By the time the phase is `done` the
+    // transcript is already pasted (see _finalizeTranscription), and `error` is
+    // merely a dismissable status — so there is nothing to lose, and the user
+    // can fire the next dictation without waiting out the linger timer (matters
+    // most for push-to-hold). This resets to idle so the start can proceed; the
+    // now-stale linger timers in recording_behavior.dart no-op on a non-terminal
+    // phase.
+    final entryPhase = ref.read(recordingProvider).phase;
+    if (entryPhase == RecordingPhase.done ||
+        entryPhase == RecordingPhase.error) {
+      _log.debug('startRecording preempting lingering $entryPhase → idle');
+      _stateMachine.transition(RecordingIntent.reset);
+    }
 
     // Re-check phase immediately after acquiring the in-flight lock.
     // A concurrent caller may have already advanced the state machine while
