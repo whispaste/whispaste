@@ -19,6 +19,7 @@ import 'core/logging/app_monitoring.dart';
 import 'core/logging/crash_reporter.dart';
 import 'core/platform/macos_lifecycle_channel.dart';
 import 'core/theme/theme.dart';
+import 'floating_overlay_render_entrypoint.dart';
 import 'services/audio_service.dart';
 import 'services/bundle_id_migration_adapters.dart';
 import 'services/bundle_id_migration_service.dart';
@@ -30,6 +31,14 @@ import 'services/subprocess_guard.dart' as guard;
 import 'services/tmp_reaper.dart';
 import 'services/update_service.dart';
 import 'widgets/insufficient_ram_screen.dart';
+
+/// Secondary Dart entrypoints booted by name from the native window shells
+/// (ADR 0002 phase 2 — e.g. macOS `FloatingOverlayHost` runs
+/// [floatingOverlayMain] in a dedicated engine). Listing the tear-offs here
+/// keeps the entrypoint libraries in the compiled graph and out of the
+/// tree-shaker; they are never invoked from Dart.
+@pragma('vm:entry-point')
+final List<void Function()> nativeShellEntrypoints = [floatingOverlayMain];
 
 Future<ProviderContainer> bootstrapAppContainer({
   List overrides = const [],
