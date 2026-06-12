@@ -194,6 +194,35 @@ jobs:
           SIZE=$(du -sh "build/linux/x64/debug/bundle" | cut -f1)
           echo "Flutter Linux bundle size: $SIZE"
 
+  # Golden / visual-regression tests — run only the @Tags(['golden']) suite on
+  # macOS so font and rendering results match the locally generated baselines.
+  # The main flutter-app-* jobs keep --exclude-tags=golden unchanged.
+  golden-tests:
+    name: Golden Tests (macOS)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.44.1
+          cache: true
+
+      - name: Verify Flutter installation
+        run: flutter --version
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      # Runs only the golden-tagged tests. Uses the macOS runner so font
+      # rendering matches the checked-in baseline PNGs (generated on macOS).
+      # golden_screenshot applies a 0.1 % fuzzy tolerance automatically;
+      # plain matchesGoldenFile tests use exact pixel comparison.
+      - name: Run golden tests
+        run: flutter test --tags=golden
+
   website:
     name: Website
     runs-on: ubuntu-latest
