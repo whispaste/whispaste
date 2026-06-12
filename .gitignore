@@ -3,6 +3,16 @@
 .env.local
 .mcp.json
 
+# Code-Signing-Geheimnisse — NIEMALS ins Repo (defense-in-depth, falls je
+# versehentlich hierher kopiert). Das stabile Selbst-Signatur-Zertifikat lebt
+# außerhalb des Repos unter ~/.config/whispaste-signing/ und als GitHub-Secret.
+*.p12
+*.keychain-db
+*.keychain
+identity.p12
+key.pem
+whispaste-signing/
+
 # Flutter
 .dart_tool/
 .flutter-plugins
@@ -95,6 +105,8 @@ scripts/*
 !scripts/docs-attest.sh
 !scripts/docs-drift.sh
 !scripts/probe-packaging-validate.sh
+!scripts/macos-selfsign.sh
+!scripts/macos-selfsign-export-secret.sh
 
 # Internal website files
 website/design-system/
