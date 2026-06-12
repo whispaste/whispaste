@@ -32,6 +32,7 @@ class _PasteCapabilityIndicatorState
   static final _log = AppLogger('PasteCapability');
 
   bool _busy = false;
+  bool _showTroubleshoot = false;
 
   @override
   void initState() {
@@ -90,10 +91,17 @@ class _PasteCapabilityIndicatorState
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    final cap = ref.watch(pasteCapabilityNotifierProvider).capability;
+    final capState = ref.watch(pasteCapabilityNotifierProvider);
+    final cap = capState.capability;
 
     final (icon, color, label) = _resolveStatus(cap, l10n);
     final notifier = ref.read(pasteCapabilityNotifierProvider.notifier);
+
+    final missing =
+        cap?.status == PasteCapabilityStatus.permissionMissing &&
+        Platform.isMacOS;
+    final waiting =
+        _busy || capState.pollingPhase == PollingPhase.awaitingGrant;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -117,7 +125,7 @@ class _PasteCapabilityIndicatorState
                   ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
                 ),
               ),
-              if (_busy)
+              if (waiting)
                 const SizedBox(
                   width: 16,
                   height: 16,
@@ -125,19 +133,85 @@ class _PasteCapabilityIndicatorState
                 ),
             ],
           ),
-          if (cap?.status == PasteCapabilityStatus.permissionMissing &&
-              Platform.isMacOS) ...[
+          // One clear path when the permission is missing: explain why, offer a
+          // single primary action, and tuck self-help away. (With stable
+          // code-signing the grant now survives updates, so the old multi-button
+          // repair cluster is no longer the default surface.)
+          if (missing) ...[
             const SizedBox(height: 8),
             Text(
-              l10n.pasteCapabilityRepairHint,
+              l10n.pasteCapabilityWhyMac,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Theme.of(
                   context,
                 ).colorScheme.onSurfaceVariant.withValues(alpha: 0.85),
               ),
             ),
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: FilledButton.icon(
+                // Prompt, open the right Settings pane, then poll so the status
+                // flips to "ready" on its own once the user ticks the box.
+                onPressed: _busy
+                    ? null
+                    : () => _run(() async {
+                        await notifier.check(prompt: true);
+                        await _openAccessibilitySettings();
+                        notifier.startPolling();
+                      }),
+                icon: const Icon(LucideIcons.shield, size: 14),
+                label: Text(l10n.pasteCapabilityGrantButton),
+              ),
+            ),
+            _buildTroubleshoot(context, l10n, notifier),
           ],
-          const SizedBox(height: 10),
+        ],
+      ),
+    );
+  }
+
+  /// Collapsed self-help for the rare stale-TCC-entry case. Unnecessary with
+  /// stable signing, but still rescues users updating from older ad-hoc builds.
+  Widget _buildTroubleshoot(
+    BuildContext context,
+    L10n l10n,
+    PasteCapabilityNotifier notifier,
+  ) {
+    final muted = Theme.of(
+      context,
+    ).colorScheme.onSurfaceVariant.withValues(alpha: 0.85);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: () =>
+                setState(() => _showTroubleshoot = !_showTroubleshoot),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              minimumSize: const Size(0, 32),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            icon: Icon(
+              _showTroubleshoot
+                  ? LucideIcons.chevronDown
+                  : LucideIcons.chevronRight,
+              size: 14,
+            ),
+            label: Text(l10n.pasteCapabilityTroubleshoot),
+          ),
+        ),
+        if (_showTroubleshoot) ...[
+          Text(
+            l10n.pasteCapabilityRepairHint,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: muted),
+          ),
+          const SizedBox(height: 6),
           Wrap(
             spacing: 8,
             runSpacing: 6,
@@ -147,33 +221,15 @@ class _PasteCapabilityIndicatorState
                 icon: const Icon(LucideIcons.refreshCw, size: 14),
                 label: Text(l10n.pasteCapabilityTestButton),
               ),
-              if (cap?.status == PasteCapabilityStatus.permissionMissing &&
-                  Platform.isMacOS) ...[
-                FilledButton.icon(
-                  onPressed: _busy
-                      ? null
-                      : () => _run(() async {
-                          await notifier.check(prompt: true);
-                          await _openAccessibilitySettings();
-                        }),
-                  icon: const Icon(LucideIcons.shield, size: 14),
-                  label: Text(l10n.pasteCapabilityGrantButton),
-                ),
-                TextButton.icon(
-                  onPressed: _openAccessibilitySettings,
-                  icon: const Icon(LucideIcons.settings, size: 14),
-                  label: Text(l10n.pasteFailureOpenSettings),
-                ),
-                TextButton.icon(
-                  onPressed: _busy ? null : _repair,
-                  icon: const Icon(LucideIcons.wrench, size: 14),
-                  label: Text(l10n.pasteCapabilityRepairButton),
-                ),
-              ],
+              TextButton.icon(
+                onPressed: _busy ? null : _repair,
+                icon: const Icon(LucideIcons.wrench, size: 14),
+                label: Text(l10n.pasteCapabilityRepairButton),
+              ),
             ],
           ),
         ],
-      ),
+      ],
     );
   }
 
