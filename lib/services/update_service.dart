@@ -17,6 +17,7 @@ import 'package:sentry_dio/sentry_dio.dart';
 
 import '../core/app_info.dart';
 import '../core/logging/app_logger.dart';
+import '../core/recording/recording_state.dart';
 import 'deploy_channel_service.dart';
 
 final _log = AppLogger('Update');
@@ -344,6 +345,20 @@ class UpdateNotifier extends Notifier<UpdateState> {
   Future<void> installUpdate() async {
     if (state.phase != UpdatePhase.readyToInstall ||
         state.downloadedPath == null) {
+      return;
+    }
+
+    // Recording guard: installing restarts the app, which would tear down an
+    // in-flight dictation and lose the transcript. Refuse while a recording or
+    // transcription is active (the user retries once it settles). Platform-
+    // neutral — also protects the Windows installer relaunch.
+    final recordingPhase = ref.read(recordingProvider).phase;
+    if (recordingPhase == RecordingPhase.recording ||
+        recordingPhase == RecordingPhase.transcribing) {
+      _log.info(
+        'installUpdate deferred — recording in progress '
+        '($recordingPhase)',
+      );
       return;
     }
 
