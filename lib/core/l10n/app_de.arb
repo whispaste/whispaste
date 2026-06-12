@@ -561,6 +561,8 @@
   "errorTranscriptionTimeout": "Transkription hat zu lange gedauert. Bitte versuche eine kürzere Aufnahme.",
   "errorMicPermissionDenied": "Mikrofonzugriff wird benötigt. Bitte erlaube ihn in den Systemeinstellungen.",
   "errorRecordingStartFailed": "Aufnahme konnte nicht gestartet werden. Bitte versuche es erneut.",
+  "errorCloudAuth": "API-Schlüssel fehlt oder ist ungültig. Prüfe ihn unter Einstellungen → Spracherkennung.",
+  "errorCloudQuota": "Rate-Limit des Cloud-Anbieters erreicht. Warte kurz und versuche es erneut.",
   "errorGeneric": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
   "modelDownloadFailed": "Download fehlgeschlagen. Bitte überprüfe deine Internetverbindung.",
 

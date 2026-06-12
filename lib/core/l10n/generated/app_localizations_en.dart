@@ -1697,6 +1697,14 @@ class L10nEn extends L10n {
       'Could not start recording. Please try again.';
 
   @override
+  String get errorCloudAuth =>
+      'Cloud API key is missing or invalid. Check it in Settings → Speech Recognition.';
+
+  @override
+  String get errorCloudQuota =>
+      'Cloud provider rate limit reached. Please wait a moment and try again.';
+
+  @override
   String get errorGeneric => 'Something went wrong. Please try again.';
 
   @override

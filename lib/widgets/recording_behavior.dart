@@ -75,6 +75,10 @@ String localizeRecordingError(L10n l10n, String errorCode) {
       return l10n.errorMicPermissionDenied;
     case 'recording_start_failed':
       return l10n.errorRecordingStartFailed;
+    case 'cloud_auth_error':
+      return l10n.errorCloudAuth;
+    case 'cloud_quota_exceeded':
+      return l10n.errorCloudQuota;
     // Pre-flight reject keys emitted by `InferenceRequestValidator` via
     // the `InferenceClientRejected` exception. Dotted IDs (stable string
     // contract owned by the validator) → camelCase ARB getters.

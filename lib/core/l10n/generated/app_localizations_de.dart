@@ -1713,6 +1713,14 @@ class L10nDe extends L10n {
       'Aufnahme konnte nicht gestartet werden. Bitte versuche es erneut.';
 
   @override
+  String get errorCloudAuth =>
+      'API-Schlüssel fehlt oder ist ungültig. Prüfe ihn unter Einstellungen → Spracherkennung.';
+
+  @override
+  String get errorCloudQuota =>
+      'Rate-Limit des Cloud-Anbieters erreicht. Warte kurz und versuche es erneut.';
+
+  @override
   String get errorGeneric =>
       'Etwas ist schiefgelaufen. Bitte versuche es erneut.';
 

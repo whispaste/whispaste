@@ -541,7 +541,7 @@ class RecordingOrchestrator extends Notifier<void> {
         timing.outcome = 'stt_start_error';
         _stateMachine.transition(
           RecordingIntent.fail,
-          errorMessage: error.message,
+          errorMessage: _transcriberErrorCode(error),
         );
         _log.warning('[$sid] STT prepare failed: ${error.message}');
         ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
@@ -645,7 +645,7 @@ class RecordingOrchestrator extends Notifier<void> {
         timing.outcome = 'transcribe_error';
         _stateMachine.transition(
           RecordingIntent.fail,
-          errorMessage: error.message,
+          errorMessage: _transcriberErrorCode(error),
         );
         // Downgraded from `_log.error` to `_log.warning` so the
         // AppLogger auto-escalation does NOT capture a second Sentry
@@ -786,6 +786,19 @@ class RecordingOrchestrator extends Notifier<void> {
         break;
     }
   }
+
+  /// Maps a [TranscriberException] to a stable error code for the UI layer.
+  ///
+  /// Cloud adapters (OpenAI, Deepgram) carry English prose in
+  /// [TranscriberException.message]; the toast layer can only localize
+  /// stable codes, so auth/quota failures are mapped via the reason enum.
+  /// All other reasons pass the message through — the local adapter already
+  /// uses code-shaped messages (e.g. `stt_cuda_oom`).
+  String _transcriberErrorCode(TranscriberException e) => switch (e.reason) {
+    TranscriberFailureReason.authError => 'cloud_auth_error',
+    TranscriberFailureReason.quotaExceeded => 'cloud_quota_exceeded',
+    _ => e.message,
+  };
 
   /// Resolves the effective transcription language from [settings].
   ///
