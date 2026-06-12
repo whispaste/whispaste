@@ -1,4 +1,18 @@
-// Hero carousel — auto-advancing slides with waveform + typing animations
+// Hero carousel — auto-advancing slides with a canvas overlay mockup + typing.
+//
+// Scene 2 renders the WhisPaste recording overlay on a <canvas> via the shared
+// `overlay-mockup` renderer, which mirrors the in-app `OverlayPainter` 1:1 (same
+// SSOT tokens + math). Canvas — not CSS chrome — guarantees Safari/WebKit and
+// Chrome/Chromium draw the pill identically (browser parity, issue 10).
+
+import {
+  OVERLAY_GEOMETRY,
+  OVERLAY_WAVEFORM_MOTION,
+  FROZEN_BARS,
+  WaveformHistory,
+  drawOverlayPill,
+  type OverlayTheme,
+} from "./overlay-mockup";
 
 const track = document.getElementById("carousel-track");
 const dots = document.querySelectorAll(".carousel-dot");
@@ -10,116 +24,105 @@ const reducedMotion = window.matchMedia(
   "(prefers-reduced-motion: reduce)",
 ).matches;
 
-const OVERLAY_MAX_SECONDS = 120;
-let overlayTimerInterval: ReturnType<typeof setInterval>;
-let waveformInterval: ReturnType<typeof setInterval>;
+// ── Overlay mockup (canvas) ────────────────────────────────────────────────
 
-const WAVE_BAR_COUNT = 30;
-const WAVE_HEIGHT = 24;
-const WAVE_MIN_HEIGHT = 4;
-const WAVE_BRIGHT_THRESHOLD = 0.30;
-const WAVE_TICK_MS = 120;
+const canvas = document.getElementById(
+  "overlay-canvas",
+) as HTMLCanvasElement | null;
+const ctx = canvas?.getContext("2d") ?? null;
+const history = new WaveformHistory();
+let overlayInterval: ReturnType<typeof setInterval>;
 
-function startOverlayTimer() {
-  clearInterval(overlayTimerInterval);
-  const timerEl = document.getElementById("overlay-timer");
-  if (!timerEl) return;
-  let seconds = 0;
-  updateOverlayProgress(seconds);
-  overlayTimerInterval = setInterval(() => {
-    seconds++;
-    updateOverlayProgress(seconds);
-  }, 1000);
+const OVERLAY_FRAME_MS = 1000 / 30; // 30 fps redraw (OverlayMotion.frameRateFps)
+const OVERLAY_TICK_EVERY = Math.max(
+  1,
+  Math.round(OVERLAY_WAVEFORM_MOTION.tickMs / OVERLAY_FRAME_MS),
+);
+const OVERLAY_DOT_PERIOD_MS = 900; // OverlayMotion.dotPulsePeriod
+const OVERLAY_DEMO_MAX_SECONDS = 12; // mockup pace so the timeline visibly fills
+
+function currentTheme(): OverlayTheme {
+  return document.documentElement.classList.contains("light")
+    ? "light"
+    : "dark";
 }
 
-function stopOverlayTimer() {
-  clearInterval(overlayTimerInterval);
+function sizeCanvas() {
+  if (!canvas || !ctx) return;
+  const dpr = Math.min(window.devicePixelRatio || 1, 3);
+  const cssW = OVERLAY_GEOMETRY.width + OVERLAY_GEOMETRY.shadowPad * 2;
+  const cssH = OVERLAY_GEOMETRY.height + OVERLAY_GEOMETRY.shadowPad * 2;
+  canvas.width = Math.round(cssW * dpr);
+  canvas.height = Math.round(cssH * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 
-function updateOverlayProgress(seconds: number) {
-  const timerEl = document.getElementById("overlay-timer");
-  const progressFillEl = document.getElementById("overlay-progress-fill");
-  if (!timerEl || !progressFillEl) return;
-
-  const fraction = Math.min(seconds / OVERLAY_MAX_SECONDS, 1);
-  let activeColor = "var(--overlay-primary)";
-
-  if (fraction >= 0.9) {
-    activeColor = "#FF5252";
-  } else if (fraction >= 0.75) {
-    activeColor = "#FFC107";
-  }
-
-  timerEl.textContent =
-    Math.floor(seconds / 60) + ":" + String(seconds % 60).padStart(2, "0");
-  timerEl.style.color = activeColor;
-  progressFillEl.style.width = `${fraction * 100}%`;
-  progressFillEl.style.backgroundColor = activeColor;
-}
-
-const waveformEl = document.getElementById("overlay-waveform");
-const waveBars: HTMLElement[] = [];
-let waveHistory: number[] = [];
-let waveStep = 0;
-
-function boostedLevel(raw: number) {
-  const clamped = Math.min(1, Math.max(0, raw));
-  return Math.min(1, Math.sqrt(clamped) * 1.5);
-}
-
-function nextWaveSample(step: number) {
-  const phrase = 0.18 * Math.max(0, Math.sin(step * 0.31 + 0.9));
-  const cadence = 0.34 * Math.max(0, Math.sin(step * 0.57));
-  const emphasis = 0.22 * Math.max(0, Math.sin(step * 0.93 + 0.45));
-  const breath = step % 18 === 0 ? 0.0 : 0.08;
-  const raw = Math.min(1, phrase + cadence + emphasis + breath);
-  return raw < 0.1 ? 0.0 : raw;
-}
-
-function renderWaveform() {
-  if (!waveBars.length) return;
-
-  const padded = Array<number>(WAVE_BAR_COUNT).fill(0);
-  const visibleHistory = waveHistory.slice(-WAVE_BAR_COUNT);
-  padded.splice(WAVE_BAR_COUNT - visibleHistory.length, visibleHistory.length, ...visibleHistory);
-
-  waveBars.forEach((bar, index) => {
-    const level = boostedLevel(padded[index]);
-    const height = Math.max(WAVE_MIN_HEIGHT, Math.round(level * WAVE_HEIGHT));
-    bar.style.height = `${height}px`;
-    bar.dataset.bright = level > WAVE_BRIGHT_THRESHOLD ? "true" : "false";
+function drawOverlay(
+  bars: readonly number[],
+  timerText: string,
+  progress: number,
+  dotPulse: number,
+) {
+  if (!ctx) return;
+  drawOverlayPill(ctx, {
+    theme: currentTheme(),
+    bars,
+    timerText,
+    progress,
+    dotPulse,
   });
 }
 
-function resetWaveform() {
-  waveHistory = [];
-  waveStep = 0;
-  renderWaveform();
+function formatTimer(seconds: number) {
+  return Math.floor(seconds / 60) + ":" + String(seconds % 60).padStart(2, "0");
 }
 
-function tickWaveform() {
-  waveStep += 1;
-  waveHistory.push(nextWaveSample(waveStep));
-  if (waveHistory.length > WAVE_BAR_COUNT) {
-    waveHistory.shift();
+// Deterministic resting/reduced-motion frame: the spike-verified snapshot.
+function drawFrozenOverlay() {
+  drawOverlay(FROZEN_BARS, "0:07", 0.6, 1);
+}
+
+// Speech-like envelope with periodic pauses, so the release smoothing visibly
+// decays the waveform toward flat during a pause (silence → nearly flat).
+function syntheticLevel(tick: number) {
+  const t = tick * 0.32;
+  if (Math.sin(t * 0.45) < -0.5) return 0; // pause
+  const phrase = 0.5 + 0.5 * Math.sin(t);
+  const accent = 0.28 * Math.max(0, Math.sin(t * 2.7 + 0.6));
+  return Math.min(1, 0.2 + 0.65 * phrase * phrase + accent);
+}
+
+function startOverlay() {
+  clearInterval(overlayInterval);
+  if (!ctx) return;
+  if (reducedMotion) {
+    drawFrozenOverlay();
+    return;
   }
-  renderWaveform();
+  history.reset();
+  let elapsedMs = 0;
+  let ticks = 0;
+  overlayInterval = setInterval(() => {
+    elapsedMs += OVERLAY_FRAME_MS;
+    ticks += 1;
+    if (ticks % OVERLAY_TICK_EVERY === 0) {
+      history.tick(syntheticLevel(ticks));
+    }
+    const seconds = Math.floor(elapsedMs / 1000);
+    const progress =
+      Math.min(elapsedMs / (OVERLAY_DEMO_MAX_SECONDS * 1000), 1) * 0.78;
+    const dotPulse =
+      0.5 + 0.5 * Math.sin((elapsedMs / OVERLAY_DOT_PERIOD_MS) * Math.PI * 2);
+    drawOverlay(history.values(), formatTimer(seconds), progress, dotPulse);
+  }, OVERLAY_FRAME_MS);
 }
 
-function startWaveform() {
-  clearInterval(waveformInterval);
-  resetWaveform();
-  if (reducedMotion || !waveBars.length) return;
-  tickWaveform();
-  waveformInterval = setInterval(tickWaveform, WAVE_TICK_MS);
+function stopOverlay() {
+  clearInterval(overlayInterval);
+  drawFrozenOverlay();
 }
 
-function stopWaveform(reset = false) {
-  clearInterval(waveformInterval);
-  if (reset) {
-    resetWaveform();
-  }
-}
+// ── Carousel ────────────────────────────────────────────────────────────────
 
 function goToSlide(n: number) {
   currentSlide = n;
@@ -138,12 +141,9 @@ function goToSlide(n: number) {
     }
   });
   if (n === 1) {
-    startOverlayTimer();
-    startWaveform();
+    startOverlay();
   } else {
-    stopOverlayTimer();
-    updateOverlayProgress(0);
-    stopWaveform(true);
+    stopOverlay();
   }
   if (n === 2) startTyping();
 }
@@ -175,18 +175,17 @@ dots.forEach((dot) => {
   });
 });
 
-// Waveform bars
-if (waveformEl) {
-  waveformEl.textContent = "";
-  for (let i = 0; i < WAVE_BAR_COUNT; i++) {
-    const bar = document.createElement("div");
-    bar.className = "overlay-wave-bar";
-    bar.style.height = `${WAVE_MIN_HEIGHT}px`;
-    bar.dataset.bright = "false";
-    waveformEl.appendChild(bar);
-    waveBars.push(bar);
-  }
-  renderWaveform();
+// Redraw the resting/reduced frame on theme toggle so the mockup follows the
+// site theme even when it is not animating.
+if (canvas) {
+  sizeCanvas();
+  const themeObserver = new MutationObserver(() => {
+    if (currentSlide !== 1 || reducedMotion) drawFrozenOverlay();
+  });
+  themeObserver.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["class"],
+  });
 }
 
 // Typing animation for scene 3
@@ -194,7 +193,7 @@ const typedEl = document.getElementById("typed-text");
 let typingTimeout: ReturnType<typeof setTimeout>;
 
 function getTypingSegments() {
-  const lang = (window as any).currentLang || "en";
+  const lang = (window as unknown as { currentLang?: string }).currentLang || "en";
   if (lang === "de") {
     return [
       { text: "Hey, diesen Text habe ich\ngerade eben eingesprochen\nund " },
@@ -220,7 +219,8 @@ function startTyping() {
   typedEl.innerHTML = '<span class="typing-cursor"></span>';
   let segIdx = 0,
     charIdx = 0;
-  let currentSpan: any = null;
+  let currentSpan: (HTMLElement & { _segIdx?: number; _isText?: boolean }) | { _segIdx: number; _isText: boolean } | null =
+    null;
 
   function typeChar() {
     if (segIdx >= segments.length || currentSlide !== 2) return;
@@ -230,20 +230,23 @@ function startTyping() {
 
     if (!currentSpan || currentSpan._segIdx !== segIdx) {
       if (seg.cls) {
-        currentSpan = document.createElement("span");
-        currentSpan.className = seg.cls;
-        currentSpan._segIdx = segIdx;
-        typedEl!.insertBefore(currentSpan, cursor);
+        const span = document.createElement("span") as HTMLElement & {
+          _segIdx?: number;
+        };
+        span.className = seg.cls;
+        span._segIdx = segIdx;
+        typedEl!.insertBefore(span, cursor);
+        currentSpan = span;
       } else {
         currentSpan = { _segIdx: segIdx, _isText: true };
       }
     }
 
     const ch = seg.text[charIdx];
-    if (currentSpan._isText) {
+    if ("_isText" in currentSpan && currentSpan._isText) {
       typedEl!.insertBefore(document.createTextNode(ch), cursor);
     } else {
-      currentSpan.appendChild(document.createTextNode(ch));
+      (currentSpan as HTMLElement).appendChild(document.createTextNode(ch));
     }
 
     charIdx++;
@@ -262,4 +265,3 @@ function startTyping() {
 
 startCarousel();
 goToSlide(0);
-
