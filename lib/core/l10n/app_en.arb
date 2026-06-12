@@ -595,6 +595,8 @@
   "errorSttServerNotFound": "Speech service not found. Please download a speech model in Settings.",
   "errorSttServerConnectionLost": "Speech service stopped unexpectedly. Please try again.",
   "errorSttCudaOom": "Your GPU ran out of memory. Quality was reduced so the next try should work.",
+  "errorCloudAuth": "Cloud API key is missing or invalid. Check it in Settings → Speech Recognition.",
+  "errorCloudQuota": "Cloud provider rate limit reached. Please wait a moment and try again.",
   "errorOnboardingNotCompleted": "Please complete the setup wizard first.",
   "errorSttModelNotFound": "Speech model not found. Please download it in Settings.",
   "errorSttModelUnknown": "Unknown speech model. Please select a valid model in Settings.",

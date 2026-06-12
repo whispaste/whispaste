@@ -578,6 +578,8 @@
   "errorSttServerNotFound": "מנוע דיבור לא נמצא. הורד מודל בהגדרות.",
   "errorSttServerConnectionLost": "מנוע הדיבור נעצר באופן בלתי צפוי. נסה שוב.",
   "errorSttCudaOom": "ה-GPU נגמר לו הזיכרון. האיכות הופחתה.",
+  "errorCloudAuth": "מפתח ה-API חסר או שגוי. בדוק אותו בהגדרות ← זיהוי דיבור.",
+  "errorCloudQuota": "הגעת למגבלת הקצב של ספק הענן. המתן רגע ונסה שוב.",
   "errorSttCpuFallbackFailed": "מנוע הדיבור נכשל הן ב-GPU והן ב-CPU. הפעל מחדש את האפליקציה או הורד מחדש את המודל.",
   "errorSttDllMissing": "רכיב מערכת נדרש חסר. מנסה מחדש עם מצב CPU.",
   "errorSttGpuFatal": "האצת GPU נכשלה. מנסה מחדש עם מצב CPU.",
