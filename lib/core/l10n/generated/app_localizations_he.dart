@@ -2498,4 +2498,20 @@ class L10nHe extends L10n {
   @override
   String get errorSttRejectPromptTooLong =>
       'אוצר המילים המותאם ארוך מדי — קצר אותו בהגדרות.';
+
+  @override
+  String get settingsGpuAcceleration => 'האצת גרפיקה';
+
+  @override
+  String get settingsGpuAccelerationSubtitle =>
+      'קובע אם שירות הדיבור ישתמש ב-GPU או CPU לזיהוי מקומי';
+
+  @override
+  String get settingsGpuAccelerationAuto => 'אוטומטי (מומלץ)';
+
+  @override
+  String get settingsGpuAccelerationEnabled => 'GPU (כפוי)';
+
+  @override
+  String get settingsGpuAccelerationDisabled => 'CPU בלבד';
 }

@@ -4580,6 +4580,36 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Custom vocabulary is too long — please shorten it in Settings.'**
   String get errorSttRejectPromptTooLong;
+
+  /// No description provided for @settingsGpuAcceleration.
+  ///
+  /// In en, this message translates to:
+  /// **'Graphics Acceleration'**
+  String get settingsGpuAcceleration;
+
+  /// No description provided for @settingsGpuAccelerationSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Controls whether the speech service uses GPU or CPU for local recognition'**
+  String get settingsGpuAccelerationSubtitle;
+
+  /// No description provided for @settingsGpuAccelerationAuto.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic (recommended)'**
+  String get settingsGpuAccelerationAuto;
+
+  /// No description provided for @settingsGpuAccelerationEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'GPU (force)'**
+  String get settingsGpuAccelerationEnabled;
+
+  /// No description provided for @settingsGpuAccelerationDisabled.
+  ///
+  /// In en, this message translates to:
+  /// **'CPU only'**
+  String get settingsGpuAccelerationDisabled;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {
