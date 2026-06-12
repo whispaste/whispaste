@@ -53,8 +53,10 @@ install -Dm644 "$PKG_ROOT/packaging/flatpak/$APP_ID.desktop" \
   "$STAGE/usr/share/applications/$APP_ID.desktop"
 install -Dm644 "$PKG_ROOT/packaging/flatpak/$APP_ID.metainfo.xml" \
   "$STAGE/usr/share/metainfo/$APP_ID.metainfo.xml"
-# Icon, renamed to the App-ID per the freedesktop icon-naming spec.
-install -Dm644 "$PKG_ROOT/assets/icons/app_icon.png" \
+# Icon, renamed to the App-ID per the freedesktop icon-naming spec. Uses the
+# committed 512px derivative — the master app_icon.png is 1024x1024, which does
+# not match the hicolor 512x512 slot.
+install -Dm644 "$PKG_ROOT/assets/icons/app_icon_512.png" \
   "$STAGE/usr/share/icons/hicolor/512x512/apps/$APP_ID.png"
 
 # ── 2. Control metadata ──────────────────────────────────────────────────────
