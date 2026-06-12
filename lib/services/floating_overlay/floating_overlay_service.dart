@@ -19,50 +19,20 @@ import '../../widgets/recording_behavior.dart' show localizeRecordingError;
 
 final _log = AppLogger('FloatingOverlayService');
 
-// ── Waveform pipeline constants (keep in sync with native renderers) ─────────
+// ── Waveform animation-timer constants ───────────────────────────────────────
 //
-// These values configure the single [WaveformPipeline] instance that owns the
-// floating-overlay waveform state. The native renderers
-// (`macos/Runner/FloatingOverlayWindow.swift`,
-//  `windows/runner/floating_overlay_window.cpp`) only know `kBarCount` /
-// `kMinBarHeightPx` / `kActiveColorThreshold`; every other constant lives
-// here because the pipeline is fully Dart-side.
+// The waveform's SHAPE (bar count, min height, attack/release smoothing) lives
+// entirely in the SSOT [OverlayDesignSpec.waveform] and is owned by the
+// [WaveformPipeline]; the service holds no waveform-shape constants. What
+// remains here is only the animation-timer cadence that drives the pipeline.
 
-/// Number of bars in the rendered waveform snapshot. Mirrors the native
-/// `kBarCount` (Swift) / `kWaveformBars` (C++).
-const int _kBarCount = 30;
-
-/// Fraction of bars that form the central live zone (the rest scrolls as
-/// history flanks).
-const double _kLiveZoneRatio = 0.20;
-
-/// Time constant (ms) for the rising flank of the smoothed live level.
-const double _kAttackTimeConstantMs = 20;
-
-/// Time constant (ms) for the falling flank of the smoothed live level.
-const double _kReleaseTimeConstantMs = 300;
-
-/// Animation tick rate (Hz). Drives both the periodic [Timer] and the ring
-/// buffer length.
-const double _kTickHz = 30;
-
-/// Animation tick period — derived from [_kTickHz] (~33 ms ≈ 30 fps).
+/// Animation tick period (~33 ms ≈ 30 fps). One bar of waveform history scrolls
+/// per tick.
 const Duration _kTickPeriod = Duration(milliseconds: 33);
-
-/// Nominal history window (ms). Ring buffer length ≈ tickHz × this / 1000.
-const double _kHistoryDurationMs = 2000;
-
-/// Hard floor for every bar value in the snapshot. `3.0 / 24.0` matches the
-/// native minimum bar height of 3 px in a 24 px tall waveform.
-const double _kMinBarLevel = 3.0 / 24.0;
-
-/// Maximum relative amplitude of the deterministic micro-modulation added to
-/// live-zone bars.
-const double _kMicroModulationAmplitude = 0.10;
 
 /// Duration (ms) of the trailing release-out animation that follows the
 /// `recording → transcribing` phase transition. During this window the
-/// pipeline keeps ticking with `pushSample(0.0, …)` so the live zone decays
+/// pipeline keeps ticking with `pushSample(0.0, …)` so the waveform decays
 /// gracefully toward the rest floor instead of freezing at the snapshot
 /// moment. After the window elapses the animation timer stops and the last
 /// snapshot remains frozen on screen.
@@ -126,7 +96,7 @@ class FloatingOverlayService
   /// True while the service is in the release-out tail that follows the
   /// `recording → transcribing` transition. While set, `audioLevelProvider`
   /// updates are ignored and the timer tick pushes `pushSample(0.0, _now())`
-  /// instead, so the live zone decays gracefully via the pipeline's release
+  /// instead, so the waveform decays gracefully via the pipeline's release
   /// smoothing.
   bool _isInReleaseOut = false;
 
@@ -161,16 +131,7 @@ class FloatingOverlayService
 
   @override
   void onControllerReady(FloatingOverlayController controller) {
-    _pipeline = WaveformPipeline(
-      barCount: _kBarCount,
-      liveZoneRatio: _kLiveZoneRatio,
-      attackTimeConstantMs: _kAttackTimeConstantMs,
-      releaseTimeConstantMs: _kReleaseTimeConstantMs,
-      tickHz: _kTickHz,
-      historyDurationMs: _kHistoryDurationMs,
-      minBarLevel: _kMinBarLevel,
-      microModulationAmplitude: _kMicroModulationAmplitude,
-    );
+    _pipeline = WaveformPipeline();
 
     ref.onDispose(() {
       _autoHideTimer?.cancel();
@@ -237,7 +198,7 @@ class FloatingOverlayService
   //   idle → recording: start the animation timer with a fresh pipeline.
   //   recording → transcribing: enter release-out — keep the timer alive
   //       for ~releaseOutDurationMs, but feed it `pushSample(0.0, …)` so
-  //       the live zone decays gracefully via the pipeline's release-tau.
+  //       the waveform decays gracefully via the pipeline's release-tau.
   //   recording → done / error: skip release-out, stop hard.
   //   anything → done / error during release-out: stop hard immediately.
   void _updateWaveformLifecycle(RecordingPhase prev, RecordingPhase next) {
@@ -315,7 +276,7 @@ class FloatingOverlayService
   }
 
   /// Enters the trailing release-out window: the timer keeps ticking but the
-  /// pipeline is fed silence (`pushSample(0.0, …)`) so the live zone decays
+  /// pipeline is fed silence (`pushSample(0.0, …)`) so the waveform decays
   /// via the configured release time constant. After `releaseOutDurationMs`
   /// elapses, the tick callback stops the timer itself.
   void _startReleaseOut() {

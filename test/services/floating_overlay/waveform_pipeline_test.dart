@@ -1,293 +1,325 @@
-/// Tests for [WaveformPipeline].
+/// Tests for [WaveformPipeline] — the scrolling-history waveform model.
 ///
-/// Verifies the nine acceptance criteria for the pure-Dart smoothing +
-/// ring-buffer + snapshot-composition module.
+/// Verifies the canonical model (PRD §D4, ADR 0002): right→left scrolling
+/// history, volume-faithful amplitude, silence decaying to the min-height floor
+/// without jitter, compact-as-scaled (not reduced), spec-sourced parameters and
+/// determinism.
 library;
 
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:whispaste/core/theme/overlay_design_spec.dart';
 import 'package:whispaste/services/floating_overlay/waveform_pipeline.dart';
-
-/// Factory for a default-configured pipeline; matches the service-facing
-/// defaults documented in the issue.
-WaveformPipeline _defaultPipeline() {
-  return WaveformPipeline(
-    barCount: 30,
-    liveZoneRatio: 0.20,
-    attackTimeConstantMs: 20,
-    releaseTimeConstantMs: 300,
-    tickHz: 30,
-    historyDurationMs: 2000,
-    minBarLevel: 3.0 / 24.0,
-    microModulationAmplitude: 0.10,
-  );
-}
 
 /// Anchor time used as t0 in every time-dependent test.
 final DateTime _t0 = DateTime.utc(2026, 1, 1);
 
+/// Canonical bar count / floor straight from the SSOT.
+final int _barCount = OverlayDesignSpec.waveform.barCount;
+final double _minLevel =
+    OverlayDesignSpec.waveform.minBarHeightPx /
+    OverlayDesignSpec.normalSize.waveformMaxHeight;
+
+/// Drives [steps] ticks at 33 ms cadence, holding [level] as the input the
+/// whole time, returning the final snapshot.
+List<double> _runConstant(WaveformPipeline p, double level, int steps) {
+  for (var i = 0; i < steps; i++) {
+    p.pushSample(level, _t0.add(Duration(milliseconds: 33 * i)));
+    p.tick(_t0.add(Duration(milliseconds: 33 * i)));
+  }
+  return p.snapshot();
+}
+
 void main() {
-  group('WaveformPipeline — AC1: constructor + interface', () {
-    test('exposes pushSample/tick/snapshot/reset and accepts all 8 params', () {
-      final p = _defaultPipeline();
-      // Just smoke-call the API surface.
+  group('WaveformPipeline — interface + spec sourcing', () {
+    test('exposes the pushSample/tick/snapshot/reset surface', () {
+      final p = WaveformPipeline();
       p.pushSample(0.0, _t0);
       p.tick(_t0);
-      final s = p.snapshot();
-      expect(s, isA<List<double>>());
+      expect(p.snapshot(), isA<List<double>>());
       p.reset();
     });
+
+    test('bar count and floor come from the SSOT, not local constants', () {
+      final p = WaveformPipeline();
+      expect(p.barCount, OverlayDesignSpec.waveform.barCount);
+      expect(p.snapshot(), hasLength(OverlayDesignSpec.waveform.barCount));
+      expect(p.minBarLevel, closeTo(_minLevel, 1e-12));
+    });
   });
 
-  group('WaveformPipeline — AC2: initial state', () {
-    test(
-      'fresh snapshot has length barCount and all values == minBarLevel',
-      () {
-        final p = _defaultPipeline();
-        final s = p.snapshot();
-        expect(s.length, 30);
-        for (final v in s) {
-          expect(v, closeTo(3.0 / 24.0, 1e-12));
-        }
-      },
-    );
-  });
-
-  group('WaveformPipeline — AC3: attack rise', () {
-    test('live-zone bars exceed 0.9 within 2 ticks (≤ 50 ms) for step 0→1', () {
-      final p = _defaultPipeline();
-      p.pushSample(0.0, _t0);
-      p.tick(_t0); // establish baseline
-      p.pushSample(1.0, _t0);
-      // Two 30 ms ticks → 60 ms total, well above the 50 ms budget? The
-      // issue says "≤ 50 ms (max. 2 Ticks)". With α = 1 - exp(-30/20) ≈
-      // 0.7769 per tick, after 2 ticks display ≈ 1 - 0.2231² ≈ 0.9502.
-      // We assert the value reached, capped at 2 ticks regardless of
-      // wall-clock framing.
-      p.tick(_t0.add(const Duration(milliseconds: 30)));
-      p.tick(_t0.add(const Duration(milliseconds: 60)));
+  group('WaveformPipeline — initial state', () {
+    test('fresh snapshot is length barCount, every bar at the floor', () {
+      final p = WaveformPipeline();
       final s = p.snapshot();
-      // Live-zone bars sit in the middle of the snapshot.
-      final liveZoneCount = (0.20 * 30).round(); // 6
-      final liveStart = ((30 - liveZoneCount) / 2).floor();
-      for (var i = liveStart; i < liveStart + liveZoneCount; i++) {
-        expect(s[i], greaterThanOrEqualTo(0.9));
+      expect(s, hasLength(_barCount));
+      for (final v in s) {
+        expect(v, closeTo(_minLevel, 1e-12));
       }
     });
   });
 
-  group('WaveformPipeline — AC4: release decay', () {
-    test('after saturation, level decays per release time constant', () {
-      final p = _defaultPipeline();
-      // Saturate by driving the display level to ~1.0 with continuous ticks.
-      p.pushSample(1.0, _t0);
-      p.tick(_t0);
-      // 30 ticks at 30 ms → 900 ms; with attack τ = 20 ms display ≈ 1.0.
-      for (var i = 1; i <= 30; i++) {
-        p.tick(_t0.add(Duration(milliseconds: 30 * i)));
-      }
-      final liveZoneCount = (0.20 * 30).round();
-      final liveStart = ((30 - liveZoneCount) / 2).floor();
-      final afterSat = p.snapshot();
-      // Sanity: live bars saturated near 1.0 before release.
-      expect(afterSat[liveStart], greaterThanOrEqualTo(0.9));
-
-      // Release starts immediately after the last saturation tick so the
-      // first tick after pushSample sees a small delta (30 ms), not a
-      // multi-second gap that would collapse the smoother in one step.
-      final releaseStart = _t0.add(const Duration(milliseconds: 30 * 30));
-      p.pushSample(0.0, releaseStart);
-
-      // Tick at 30 ms cadence up to ~100 ms after release.
-      // With τ = 300 ms: display(100 ms) ≈ exp(-100/300) ≈ 0.717.
-      p.tick(releaseStart.add(const Duration(milliseconds: 30)));
-      p.tick(releaseStart.add(const Duration(milliseconds: 60)));
-      p.tick(releaseStart.add(const Duration(milliseconds: 90)));
-      // Snapshot at ~100 ms after release.
-      final at100ms = p.snapshot();
-      expect(at100ms[liveStart], greaterThanOrEqualTo(0.4));
-
-      // Continue to ~500 ms after release. With τ = 300 ms the modelled
-      // display would be exp(-500/300) ≈ 0.189. The minBarLevel floor is
-      // 3/24 ≈ 0.125, so visible bars cannot drop below that; the spec's
-      // "≤ 0.1" must therefore be interpreted on the underlying smoother
-      // state, not the visible bar. We assert the bar value has reached
-      // the floor — which means the underlying display is ≤ minBarLevel
-      // and the smoother has decayed past the spec's 0.1 threshold.
-      // To accelerate past the 500 ms budget we keep ticking; verify that
-      // by ~1500 ms the bar has clamped to the floor.
-      for (var i = 4; i <= 50; i++) {
-        p.tick(releaseStart.add(Duration(milliseconds: 30 * i)));
-      }
-      final afterLong = p.snapshot();
-      expect(afterLong[liveStart], closeTo(minBarLevelDefault, 1e-9));
-    });
-  });
-
-  group('WaveformPipeline — AC5: asymmetry ratio', () {
-    test('release-to-attack time ratio is ≥ 5:1 for 90% approach', () {
-      // Measure ticks-to-90% on a step up vs. ticks-to-10% on a step down.
-      double measureRise(WaveformPipeline p) {
-        p.pushSample(0.0, _t0);
-        p.tick(_t0);
-        p.pushSample(1.0, _t0);
-        for (var i = 1; i <= 500; i++) {
-          p.tick(_t0.add(Duration(milliseconds: i)));
-          final s = p.snapshot();
-          final liveZoneCount = (0.20 * 30).round();
-          final liveStart = ((30 - liveZoneCount) / 2).floor();
-          if (s[liveStart] >= 0.9) {
-            return i.toDouble();
+  group('WaveformPipeline — AC: scrolling history (right→left)', () {
+    test(
+      'newest sample sits at the right edge; samples scroll left each tick',
+      () {
+        final p = WaveformPipeline();
+        // Saturate attack to make a pushed level reach the bar almost fully in
+        // one tick is unrealistic; instead feed the same value for several
+        // ticks so the right-edge bar tracks it closely, then read positions.
+        // Use three distinct sustained plateaus and confirm ordering.
+        final marker = <double>[0.9, 0.6, 0.3];
+        // Feed each plateau for 6 ticks (≈ 5τ at 33 ms cadence) so the display
+        // level settles, leaving a recognisable trail in the history.
+        var t = 0;
+        for (final level in marker) {
+          for (var k = 0; k < 6; k++) {
+            p.pushSample(level, _t0.add(Duration(milliseconds: 33 * t)));
+            p.tick(_t0.add(Duration(milliseconds: 33 * t)));
+            t++;
           }
         }
-        return double.infinity;
-      }
+        final s = p.snapshot();
+        // The right edge is the freshest plateau (0.3 ≈ low), and walking left
+        // we cross into the older, taller plateaus (0.6 then 0.9). The maximum
+        // of the right-most third is below the maximum of the left two-thirds.
+        final third = _barCount ~/ 3;
+        final rightMax = s
+            .sublist(_barCount - third)
+            .reduce((a, b) => a > b ? a : b);
+        final leftMax = s
+            .sublist(0, _barCount - third)
+            .reduce((a, b) => a > b ? a : b);
+        expect(
+          rightMax,
+          lessThan(leftMax),
+          reason:
+              'Newest (low) plateau must sit at the right; older (loud) '
+              'plateaus scrolled left. Got $s',
+        );
+      },
+    );
 
-      double measureFall(WaveformPipeline p) {
-        // Saturate first via continuous 1 ms ticks.
-        p.pushSample(1.0, _t0);
-        p.tick(_t0);
-        for (var i = 1; i <= 1000; i++) {
-          p.tick(_t0.add(Duration(milliseconds: i)));
-        }
-        // Fall starts immediately after the last saturation tick — no
-        // multi-second gap that would collapse the smoother in one step.
-        final fallStart = _t0.add(const Duration(milliseconds: 1000));
-        p.pushSample(0.0, fallStart);
-        for (var i = 1; i <= 5000; i++) {
-          p.tick(fallStart.add(Duration(milliseconds: i)));
-          final liveZoneCount = (0.20 * 30).round();
-          final liveStart = ((30 - liveZoneCount) / 2).floor();
-          final s = p.snapshot();
-          // Approaching 10 % of the original range (1.0 → 0.0) means
-          // displayLevel ≤ 0.1. Bar values include the min-floor of
-          // 3/24 ≈ 0.125; we treat the bar reaching ≤ 0.15 as "underlying
-          // smoother is at or below 0.15".
-          if (s[liveStart] <= 0.15) {
-            return i.toDouble();
-          }
-        }
-        return double.infinity;
-      }
+    test('a single pushed level advances one bar per tick (deterministic)', () {
+      final p = WaveformPipeline();
+      // One loud tick, then silence: the loud moment must march left by exactly
+      // one bar per subsequent tick.
+      p.pushSample(1.0, _t0);
+      p.tick(_t0); // baseline tick: no smoothing yet, scrolls rest in.
+      p.pushSample(1.0, _t0.add(const Duration(milliseconds: 33)));
+      p.tick(_t0.add(const Duration(milliseconds: 33)));
+      final afterLoud = p.snapshot();
+      final loudIndex = _argMax(afterLoud);
+      expect(
+        loudIndex,
+        _barCount - 1,
+        reason: 'Loud moment enters at the right edge.',
+      );
 
-      final risePipeline = _defaultPipeline();
-      final rise = measureRise(risePipeline);
-      final fallPipeline = _defaultPipeline();
-      final fall = measureFall(fallPipeline);
-      expect(rise, lessThan(double.infinity));
-      expect(fall, lessThan(double.infinity));
-      expect(fall / rise, greaterThanOrEqualTo(5.0));
+      // Now feed silence; the loud peak should slide one index left per tick.
+      p.pushSample(0.0, _t0.add(const Duration(milliseconds: 66)));
+      p.tick(_t0.add(const Duration(milliseconds: 66)));
+      final s1 = p.snapshot();
+      expect(_argMax(s1), _barCount - 2);
+
+      p.pushSample(0.0, _t0.add(const Duration(milliseconds: 99)));
+      p.tick(_t0.add(const Duration(milliseconds: 99)));
+      final s2 = p.snapshot();
+      expect(_argMax(s2), _barCount - 3);
     });
   });
 
-  group('WaveformPipeline — AC6: ring-buffer order', () {
-    test(
-      'youngest sample sits adjacent to live zone, oldest at outer edge',
-      () {
-        final p = _defaultPipeline();
-        final values = <double>[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9];
-        for (var i = 0; i < values.length; i++) {
-          p.pushSample(values[i], _t0.add(Duration(milliseconds: 30 * i)));
-          p.tick(_t0.add(Duration(milliseconds: 30 * i)));
+  group('WaveformPipeline — AC: volume-faithful amplitude', () {
+    test('a louder sustained level yields a taller right-edge bar', () {
+      final quiet = WaveformPipeline();
+      final loud = WaveformPipeline();
+      // Settle each at a constant level for plenty of ticks.
+      final sQuiet = _runConstant(quiet, 0.3, 12);
+      final sLoud = _runConstant(loud, 0.9, 12);
+      // Right edge = the freshest, fully-settled moment.
+      expect(
+        sLoud.last,
+        greaterThan(sQuiet.last),
+        reason: 'Higher input volume must drive a taller bar.',
+      );
+      // Sanity: the loud bar tracks its input reasonably (≥ 0.7 after settling).
+      expect(sLoud.last, greaterThan(0.7));
+    });
+
+    test('monotonic mapping: rising input never lowers the right-edge bar', () {
+      final p = WaveformPipeline();
+      double? prev;
+      for (var i = 0; i <= 10; i++) {
+        final level = i / 10.0;
+        // Hold each rung for a few ticks so the smoother can climb.
+        for (var k = 0; k < 4; k++) {
+          final t = _t0.add(Duration(milliseconds: 33 * (i * 4 + k)));
+          p.pushSample(level, t);
+          p.tick(t);
         }
-        final s = p.snapshot();
-        final liveZoneCount = (0.20 * 30).round(); // 6
-        final liveStart = ((30 - liveZoneCount) / 2).floor(); // 12
-        final liveEnd = liveStart + liveZoneCount; // 18
-
-        // Bar at (liveStart - 1) holds the youngest sample = 0.9 (after clamp).
-        expect(s[liveStart - 1], closeTo(0.9, 1e-9));
-        // Bar at (liveEnd) — first right-flank bar — also holds 0.9 by mirror.
-        expect(s[liveEnd], closeTo(0.9, 1e-9));
-        // Walking outward, samples get older.
-        expect(s[liveStart - 2], closeTo(0.8, 1e-9));
-        expect(s[liveStart - 3], closeTo(0.7, 1e-9));
-        // Beyond the inserted samples, the slot is the buffer's default (0),
-        // which is clamped up to minBarLevel.
-        expect(s[0], closeTo(3.0 / 24.0, 1e-9));
-      },
-    );
-  });
-
-  group('WaveformPipeline — AC7: symmetry outside live zone', () {
-    test('left and right flanks mirror across the centre', () {
-      final p = _defaultPipeline();
-      for (var i = 0; i < 20; i++) {
-        p.pushSample(0.05 * (i + 1), _t0.add(Duration(milliseconds: 30 * i)));
-        p.tick(_t0.add(Duration(milliseconds: 30 * i)));
-      }
-      final s = p.snapshot();
-      final liveZoneCount = (0.20 * 30).round();
-      final liveStart = ((30 - liveZoneCount) / 2).floor();
-      final liveEnd = liveStart + liveZoneCount;
-      for (var i = 0; i < liveStart; i++) {
-        final mirror = 30 - 1 - i;
-        // Only test outside the live zone.
-        if (mirror >= liveEnd) {
+        final edge = p.snapshot().last;
+        if (prev != null) {
           expect(
-            s[i],
-            closeTo(s[mirror], 1e-12),
-            reason: 'flank asymmetry at bar $i vs $mirror',
+            edge,
+            greaterThanOrEqualTo(prev - 1e-9),
+            reason: 'Right-edge bar dropped while input rose ($level).',
           );
         }
+        prev = edge;
       }
     });
   });
 
-  group('WaveformPipeline — AC8: determinism', () {
+  group('WaveformPipeline — AC: silence decays to a flat floor', () {
     test(
-      'two pipelines with same config + inputs produce identical snapshots',
+      'after a loud burst, sustained silence settles every bar at the floor',
       () {
-        final a = _defaultPipeline();
-        final b = _defaultPipeline();
-        final samples = <double>[0.0, 0.2, 0.5, 0.8, 1.0, 0.7, 0.3, 0.1];
-        for (var i = 0; i < samples.length; i++) {
-          final now = _t0.add(Duration(milliseconds: 33 * i));
-          a.pushSample(samples[i], now);
-          b.pushSample(samples[i], now);
-          a.tick(now);
-          b.tick(now);
-          final sa = a.snapshot();
-          final sb = b.snapshot();
-          expect(sa.length, sb.length);
-          for (var k = 0; k < sa.length; k++) {
-            expect(sa[k], sb[k], reason: 'snapshot mismatch at step $i bar $k');
+        final p = WaveformPipeline();
+        // Loud for a while.
+        _runConstant(p, 1.0, 12);
+        final loud = p.snapshot();
+        expect(loud.last, greaterThan(0.7));
+
+        // Then a long silence: more than barCount ticks so the loud history fully
+        // scrolls out, plus release decay to the floor.
+        final settled = _runConstant(p, 0.0, _barCount + 30);
+        for (var i = 0; i < settled.length; i++) {
+          expect(
+            settled[i],
+            closeTo(_minLevel, 1e-9),
+            reason:
+                'Held silence must flatten bar $i to the floor. Got $settled',
+          );
+        }
+      },
+    );
+
+    test(
+      'a held pause does not jitter the floor (consecutive frames equal)',
+      () {
+        final p = WaveformPipeline();
+        _runConstant(p, 1.0, 8);
+        // Let silence fully settle.
+        _runConstant(p, 0.0, _barCount + 40);
+        // Now capture several consecutive frames of continued silence; with no
+        // synthetic modulation they must be identical (no floor "wabern").
+        final frames = <List<double>>[];
+        for (var i = 0; i < 5; i++) {
+          p.pushSample(0.0, _t0.add(Duration(milliseconds: 33 * (200 + i))));
+          p.tick(_t0.add(Duration(milliseconds: 33 * (200 + i))));
+          frames.add(p.snapshot());
+        }
+        for (var f = 1; f < frames.length; f++) {
+          for (var i = 0; i < _barCount; i++) {
+            expect(
+              frames[f][i],
+              closeTo(frames[0][i], 1e-12),
+              reason: 'Floor jittered at bar $i between silent frames.',
+            );
           }
         }
       },
     );
-  });
 
-  group('WaveformPipeline — AC9: reset restores initial state', () {
-    test('after arbitrary input + reset, snapshot equals fresh snapshot', () {
-      final p = _defaultPipeline();
-      for (var i = 0; i < 20; i++) {
-        p.pushSample(0.05 * (i + 1), _t0.add(Duration(milliseconds: 30 * i)));
-        p.tick(_t0.add(Duration(milliseconds: 30 * i)));
-      }
-      p.reset();
-      final s = p.snapshot();
-      expect(s.length, 30);
-      for (final v in s) {
-        expect(v, closeTo(3.0 / 24.0, 1e-12));
+    test('the floor is the hard lower bound under prolonged zero input', () {
+      final p = WaveformPipeline();
+      for (var i = 0; i < 300; i++) {
+        p.pushSample(0.0, _t0.add(Duration(milliseconds: 33 * i)));
+        p.tick(_t0.add(Duration(milliseconds: 33 * i)));
+        for (final v in p.snapshot()) {
+          expect(v, greaterThanOrEqualTo(_minLevel - 1e-12));
+        }
       }
     });
   });
 
-  group('WaveformPipeline — AC10: min-floor invariant', () {
-    test('no bar drops below minBarLevel even with prolonged zero input', () {
-      final p = _defaultPipeline();
-      for (var i = 0; i < 500; i++) {
-        p.pushSample(0.0, _t0.add(Duration(milliseconds: 30 * i)));
-        p.tick(_t0.add(Duration(milliseconds: 30 * i)));
-        final s = p.snapshot();
-        for (final v in s) {
-          expect(v, greaterThanOrEqualTo(3.0 / 24.0 - 1e-12));
+  group('WaveformPipeline — AC: compact is scaled, not reduced', () {
+    test('barHeights keeps the same count for both sizes', () {
+      final p = WaveformPipeline();
+      _runConstant(p, 0.7, 10);
+      final normal = p.barHeights(compact: false);
+      final compact = p.barHeights(compact: true);
+      expect(normal, hasLength(_barCount));
+      expect(compact, hasLength(_barCount));
+      expect(
+        compact.length,
+        normal.length,
+        reason: 'No 8-vs-30 split: compact must not reduce the bar count.',
+      );
+    });
+
+    test('compact heights equal normal × compactScale, bar for bar', () {
+      final p = WaveformPipeline();
+      // Mix of levels so heights vary across bars.
+      for (var i = 0; i < 14; i++) {
+        final level = (i.isEven) ? 0.8 : 0.2;
+        p.pushSample(level, _t0.add(Duration(milliseconds: 33 * i)));
+        p.tick(_t0.add(Duration(milliseconds: 33 * i)));
+      }
+      final normal = p.barHeights(compact: false);
+      final compact = p.barHeights(compact: true);
+      for (var i = 0; i < _barCount; i++) {
+        expect(
+          compact[i],
+          closeTo(normal[i] * OverlayDesignSpec.compactScale, 1e-9),
+          reason: 'Compact bar $i is not a clean scaling of the normal bar.',
+        );
+      }
+    });
+
+    test('snapshot data is identical regardless of size (one data source)', () {
+      final p = WaveformPipeline();
+      _runConstant(p, 0.55, 9);
+      final snap = p.snapshot();
+      final normal = p.barHeights(compact: false);
+      final maxNormal = OverlayDesignSpec.normalSize.waveformMaxHeight;
+      for (var i = 0; i < _barCount; i++) {
+        expect(normal[i], closeTo(snap[i] * maxNormal, 1e-9));
+      }
+    });
+  });
+
+  group('WaveformPipeline — determinism + reset', () {
+    test('same inputs produce identical snapshots across two pipelines', () {
+      final a = WaveformPipeline();
+      final b = WaveformPipeline();
+      final samples = <double>[0.0, 0.2, 0.5, 0.8, 1.0, 0.7, 0.3, 0.1, 0.9];
+      for (var i = 0; i < samples.length; i++) {
+        final now = _t0.add(Duration(milliseconds: 33 * i));
+        a.pushSample(samples[i], now);
+        b.pushSample(samples[i], now);
+        a.tick(now);
+        b.tick(now);
+        final sa = a.snapshot();
+        final sb = b.snapshot();
+        expect(sa.length, sb.length);
+        for (var k = 0; k < sa.length; k++) {
+          expect(sa[k], sb[k], reason: 'mismatch at step $i bar $k');
         }
+      }
+    });
+
+    test('reset restores the fresh-floor state', () {
+      final p = WaveformPipeline();
+      for (var i = 0; i < 20; i++) {
+        p.pushSample(0.05 * (i + 1), _t0.add(Duration(milliseconds: 33 * i)));
+        p.tick(_t0.add(Duration(milliseconds: 33 * i)));
+      }
+      p.reset();
+      final s = p.snapshot();
+      expect(s, hasLength(_barCount));
+      for (final v in s) {
+        expect(v, closeTo(_minLevel, 1e-12));
       }
     });
   });
 }
 
-/// Convenience constant matching the default floor used in [_defaultPipeline].
-const double minBarLevelDefault = 3.0 / 24.0;
+/// Index of the maximum value in [xs].
+int _argMax(List<double> xs) {
+  var best = 0;
+  for (var i = 1; i < xs.length; i++) {
+    if (xs[i] > xs[best]) best = i;
+  }
+  return best;
+}

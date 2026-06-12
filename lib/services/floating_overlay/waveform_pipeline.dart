@@ -1,149 +1,135 @@
-/// Pure-Dart smoothing + history pipeline for the floating-overlay waveform.
+/// Pure-Dart scrolling-history pipeline for the floating-overlay waveform.
 ///
-/// Single source of truth for:
-/// - Asymmetric attack/release smoothing of the live speech level.
-/// - Ring-buffer history of past samples.
-/// - Composition of the final bar-snapshot (central live zone + symmetric
-///   scrolling history flanks).
+/// This is the **logic/data** layer of the waveform — no painter, no widget,
+/// no native code. The renderer (issue 05) consumes the snapshot it produces.
+///
+/// Canonical model (PRD §D4, ADR 0002):
+/// - **Scrolling history**: every bar is one time-moment. New samples enter at
+///   the right edge and the whole row scrolls right→left, one bar per [tick].
+/// - **Volume-faithful amplitude**: a louder sample drives a taller bar via a
+///   short attack time constant.
+/// - **Silence → nearly flat**: with no input the level decays to the min-height
+///   floor through a longer release time constant; there is no synthetic
+///   modulation, so a held pause settles flat instead of jittering.
+/// - **Compact = scaled, not reduced**: the bar COUNT is identical for both
+///   sizes; only the per-bar pixel height scales by the size's max height
+///   ([barHeights]). No 8-vs-30 split.
+///
+/// All parameters come from the single source of truth
+/// ([OverlayDesignSpec.waveform] / [OverlayDesignSpec.normalSize]); the pipeline
+/// defines no waveform constants of its own.
 ///
 /// Deterministic by design:
-/// - No `DateTime.now()`; time is supplied via [pushSample] and [tick].
-/// - Micromodulation uses a fixed sine pattern per bar index, no `Random`.
+/// - No `DateTime.now()`; time is supplied via [tick].
+/// - No `Random`; identical inputs produce identical snapshots.
 library;
 
 import 'dart:math' as math;
 
-/// Bar-snapshot pipeline. Configured entirely via the constructor — there are
-/// no module-level defaults.
+import '../../core/theme/overlay_design_spec.dart';
+
+/// Scrolling bar-history pipeline. Reads its shape (bar count, min height,
+/// attack/release smoothing) entirely from [OverlayDesignSpec].
 class WaveformPipeline {
   /// Creates a pipeline.
   ///
-  /// - [barCount]: number of bars in the rendered snapshot.
-  /// - [liveZoneRatio]: fraction of bars that form the central live zone.
-  /// - [attackTimeConstantMs]: time constant for rising display level.
-  /// - [releaseTimeConstantMs]: time constant for falling display level.
-  /// - [tickHz]: nominal tick rate; controls ring-buffer length.
-  /// - [historyDurationMs]: nominal history window; ring-buffer length is
-  ///   `round(historyDurationMs × tickHz / 1000)`.
-  /// - [minBarLevel]: hard floor for every bar value in the snapshot.
-  /// - [microModulationAmplitude]: maximum relative amplitude of the
-  ///   deterministic micromodulation added to live-zone bars.
-  WaveformPipeline({
-    required this.barCount,
-    required double liveZoneRatio,
-    required this.attackTimeConstantMs,
-    required this.releaseTimeConstantMs,
-    required double tickHz,
-    required double historyDurationMs,
-    required this.minBarLevel,
-    required this.microModulationAmplitude,
-  }) : _liveZoneBarCount = math.max(
-         0,
-         math.min(barCount, (liveZoneRatio * barCount).round()),
-       ),
-       _ringBufferLength = math.max(
-         1,
-         (historyDurationMs * tickHz / 1000.0).round(),
-       ) {
-    _history = List<double>.filled(_ringBufferLength, 0.0);
+  /// [spec] defaults to the canonical [OverlayDesignSpec.waveform]; it is only
+  /// overridable to keep the type testable. The normalised min-height floor is
+  /// derived from the SSOT pair `minBarHeightPx / normalSize.waveformMaxHeight`.
+  WaveformPipeline({WaveformSpec? spec})
+    : _spec = spec ?? OverlayDesignSpec.waveform {
+    _minBarLevel =
+        _spec.minBarHeightPx / OverlayDesignSpec.normalSize.waveformMaxHeight;
+    _history = List<double>.filled(_spec.barCount, 0.0);
   }
 
-  final int barCount;
-  final double attackTimeConstantMs;
-  final double releaseTimeConstantMs;
-  final double minBarLevel;
-  final double microModulationAmplitude;
+  final WaveformSpec _spec;
 
-  final int _liveZoneBarCount;
-  final int _ringBufferLength;
+  /// Normalised floor every bar clamps up to. Derived from the SSOT.
+  late final double _minBarLevel;
 
-  /// Ring buffer: index 0 holds the most recently pushed sample, index
-  /// `_ringBufferLength - 1` holds the oldest sample currently retained.
-  late List<double> _history;
+  /// Scrolling history: index 0 is the oldest retained moment (left edge),
+  /// the last index is the newest moment (right edge). Holds raw (un-clamped)
+  /// smoothed levels so the floor is applied only at [snapshot] time.
+  late final List<double> _history;
 
   double _targetLevel = 0.0;
   double _displayLevel = 0.0;
   DateTime? _lastTickTime;
 
-  /// Records a new normalised input level. Shifts the ring buffer so the new
-  /// sample sits at slot 0 and older samples move toward the tail.
+  /// Number of bars in every snapshot — taken from the spec, shared across
+  /// both overlay sizes.
+  int get barCount => _spec.barCount;
+
+  /// Normalised hard floor for every bar (`minBarHeightPx / max`).
+  double get minBarLevel => _minBarLevel;
+
+  /// Records a new normalised input level (volume). The next [tick] smooths the
+  /// display level toward it and scrolls it into the history.
   void pushSample(double level, DateTime now) {
     _targetLevel = level;
-    // Shift history one slot toward the tail, drop the oldest entry.
-    for (var i = _ringBufferLength - 1; i > 0; i--) {
-      _history[i] = _history[i - 1];
-    }
-    _history[0] = level;
   }
 
-  /// Advances the smoothing state toward [_targetLevel] using asymmetric
-  /// time constants. The first call after construction or reset establishes
-  /// the time baseline without changing the display level.
+  /// Advances one time-moment: smooths the display level toward the last pushed
+  /// sample using asymmetric attack/release time constants, then scrolls the
+  /// history left and writes the new level into the right edge.
+  ///
+  /// The first call after construction or [reset] only establishes the time
+  /// baseline for the smoother, but it still scrolls a (rest-level) moment in
+  /// so the history advances at a steady one-bar-per-tick cadence.
   void tick(DateTime now) {
     final last = _lastTickTime;
-    if (last == null) {
-      _lastTickTime = now;
-      return;
-    }
-    final deltaMs = now.difference(last).inMicroseconds / 1000.0;
     _lastTickTime = now;
-    if (deltaMs <= 0) {
-      return;
+    if (last != null) {
+      final deltaMs = now.difference(last).inMicroseconds / 1000.0;
+      if (deltaMs > 0) {
+        final rising = _targetLevel > _displayLevel;
+        final tau = rising
+            ? _spec.attackTimeConstantMs
+            : _spec.releaseTimeConstantMs;
+        if (tau <= 0) {
+          _displayLevel = _targetLevel;
+        } else {
+          final alpha = 1.0 - math.exp(-deltaMs / tau);
+          _displayLevel += (_targetLevel - _displayLevel) * alpha;
+        }
+      }
     }
-    final rising = _targetLevel > _displayLevel;
-    final tau = rising ? attackTimeConstantMs : releaseTimeConstantMs;
-    if (tau <= 0) {
-      _displayLevel = _targetLevel;
-      return;
+    // Scroll right→left: drop the oldest moment, append the newest at the edge.
+    for (var i = 0; i < _spec.barCount - 1; i++) {
+      _history[i] = _history[i + 1];
     }
-    final alpha = 1.0 - math.exp(-deltaMs / tau);
-    _displayLevel += (_targetLevel - _displayLevel) * alpha;
+    _history[_spec.barCount - 1] = _displayLevel;
   }
 
-  /// Returns the rendered bar heights. Length is always [barCount]; every
-  /// value lies in `[minBarLevel, 1.0]`.
+  /// Returns the rendered bar levels, oldest→newest (left→right). Length is
+  /// always [barCount]; every value lies in `[minBarLevel, 1.0]`.
   List<double> snapshot() {
-    final out = List<double>.filled(barCount, minBarLevel);
-    if (barCount == 0) {
-      return out;
-    }
-
-    // Live zone occupies the central [liveStart, liveEnd) window.
-    final liveStart = ((barCount - _liveZoneBarCount) / 2).floor();
-    final liveEnd = liveStart + _liveZoneBarCount;
-
-    // Fill live zone with smoothed live level + deterministic micromodulation.
-    for (var i = liveStart; i < liveEnd; i++) {
-      final mod = _microModulation(i);
-      final value = _displayLevel + mod * _displayLevel;
-      out[i] = _clamp(value);
-    }
-
-    // Fill flanks symmetrically from the ring buffer.
-    //
-    // Left flank: bar at `liveStart - 1` shows the youngest sample (slot 0),
-    // bar at index 0 shows the oldest sample reachable within
-    // `liveStart` slots.
-    for (var k = 0; k < liveStart; k++) {
-      final leftIndex = liveStart - 1 - k;
-      final rightIndex = liveEnd + k;
-      final historySlot = math.min(k, _ringBufferLength - 1);
-      final value = _history[historySlot];
-      final clamped = _clamp(value);
-      if (leftIndex >= 0 && leftIndex < barCount) {
-        out[leftIndex] = clamped;
-      }
-      if (rightIndex >= 0 && rightIndex < barCount) {
-        out[rightIndex] = clamped;
-      }
-    }
-
-    return out;
+    return List<double>.generate(
+      _spec.barCount,
+      (i) => _clamp(_history[i]),
+      growable: false,
+    );
   }
 
-  /// Clears the ring buffer, the smoothing state, and the tick baseline.
+  /// Returns the same [snapshot] data scaled to pixel heights for the given
+  /// size. The bar COUNT is identical for both sizes — compact is a true
+  /// scaling (`level × maxHeight`), never a reduced second bar set.
+  List<double> barHeights({required bool compact}) {
+    final maxHeight = OverlayDesignSpec.size(
+      compact: compact,
+    ).waveformMaxHeight;
+    final levels = snapshot();
+    return List<double>.generate(
+      levels.length,
+      (i) => levels[i] * maxHeight,
+      growable: false,
+    );
+  }
+
+  /// Clears the history, the smoothing state, and the tick baseline.
   void reset() {
-    for (var i = 0; i < _ringBufferLength; i++) {
+    for (var i = 0; i < _spec.barCount; i++) {
       _history[i] = 0.0;
     }
     _targetLevel = 0.0;
@@ -152,21 +138,8 @@ class WaveformPipeline {
   }
 
   double _clamp(double value) {
-    if (value < minBarLevel) return minBarLevel;
+    if (value < _minBarLevel) return _minBarLevel;
     if (value > 1.0) return 1.0;
     return value;
-  }
-
-  /// Deterministic, seed-free micromodulation factor for bar [barIndex].
-  ///
-  /// Returns a value in `[-microModulationAmplitude, microModulationAmplitude]`
-  /// derived from a fixed sine pattern keyed on the bar index. Multiplying by
-  /// the current live level keeps modulation proportional and silent at rest.
-  double _microModulation(int barIndex) {
-    // Mix two coprime sine phases per bar index for visual variation while
-    // staying fully deterministic and dependency-free.
-    final phase = barIndex * 1.7;
-    final wave = (math.sin(phase) + math.sin(phase * 1.31 + 0.5)) / 2.0;
-    return wave * microModulationAmplitude;
   }
 }

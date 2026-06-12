@@ -107,6 +107,8 @@ class WaveformSpec {
     required this.activeColorThreshold,
     required this.activeAccentOpacity,
     required this.mutedOpacity,
+    required this.attackTimeConstantMs,
+    required this.releaseTimeConstantMs,
   });
 
   /// Number of bars in the rendered snapshot — identical for both sizes.
@@ -124,6 +126,17 @@ class WaveformSpec {
 
   /// Opacity applied to the muted colour for inactive bars.
   final double mutedOpacity;
+
+  /// Smoothing time constant (ms) for the **rising** edge of the live level —
+  /// how fast a bar climbs when the speaker gets louder. Short, so loud onsets
+  /// register promptly (volume-faithful amplitude).
+  final double attackTimeConstantMs;
+
+  /// Smoothing time constant (ms) for the **falling** edge of the live level —
+  /// how fast a bar decays toward the floor during a pause. Longer than
+  /// [attackTimeConstantMs] so a pause visibly fades the waveform to the min
+  /// height instead of snapping flat (silence → nearly flat, no floor jitter).
+  final double releaseTimeConstantMs;
 }
 
 /// All geometry and typography for one overlay size (normal or compact).
@@ -467,6 +480,8 @@ abstract final class OverlayDesignSpec {
     activeColorThreshold: 0.30,
     activeAccentOpacity: 0.85,
     mutedOpacity: 0.50,
+    attackTimeConstantMs: 20,
+    releaseTimeConstantMs: 300,
   );
 
   // -- Sizes -----------------------------------------------------------------
