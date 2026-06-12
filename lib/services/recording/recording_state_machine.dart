@@ -11,6 +11,7 @@
 /// ## Allowed transitions
 /// ```
 /// idle          ─start→        recording
+/// idle          ─fail→         error
 /// recording     ─stop→         transcribing
 /// recording     ─guardFire→    transcribing
 /// recording     ─fail→         error
@@ -89,6 +90,9 @@ class RecordingStateMachine {
       <RecordingPhase, Map<RecordingIntent, _TransitionAction>>{
         RecordingPhase.idle: {
           RecordingIntent.start: _TransitionAction.startRecording,
+          // Hard preflight failures (e.g. missing cloud API key) fail before
+          // the start transition fires — they must still surface as errors.
+          RecordingIntent.fail: _TransitionAction.fail,
           RecordingIntent.reset: _TransitionAction.reset,
         },
         RecordingPhase.recording: {
