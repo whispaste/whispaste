@@ -9,7 +9,9 @@ und GitHub Releases. Alle Manifeste zeigen auf die Assets der GitHub Releases
 | Scoop | `scoop/whispaste.json` | Windows x64 | ✅ sofort nutzbar |
 | winget | `winget/SilvioLindstedt.WhisPaste.*.yaml` | Windows x64 | ⚠️ PR an `microsoft/winget-pkgs` nötig |
 | Homebrew Cask | `homebrew/whispaste.rb` | macOS arm64 | ⛔ erst nach Notarization veröffentlichen |
-| Flatpak / Flathub | `flatpak/com.whispaste.whispaste.yml` | Linux x86_64 | ⚠️ PR an `flathub/flathub` nötig — Runbook: `flatpak/README.md` |
+| Flatpak / Flathub | `flatpak/de.whispaste.app.yml` | Linux x86_64 | ⚠️ PR an `flathub/flathub` nötig — Runbook: `flatpak/README.md` |
+| AppImage | `appimage/build-appimage.sh` | Linux x86_64 | ✅ in `release.yml` gebaut, als Release-Asset angehängt — Runbook: `appimage/README.md` |
+| `.deb` (Debian/Ubuntu) | `deb/build-deb.sh` + `deb/control.template` | Linux x86_64 | ✅ in `release.yml` gebaut, als Release-Asset angehängt — Runbook: `deb/README.md` |
 
 Beim Release einer neuen Version müssen `version` + `hash`/`sha256` in jedem
 Manifest aktualisiert werden (Scoop kann das via `checkver`/`autoupdate` selbst).
@@ -84,3 +86,36 @@ Release aktualisiert werden (oder via `brew bump-cask-pr` automatisiert).
 
 Cask nutzt das versionierte ZIP (`WhisPaste-<version>-macos-arm64.zip`), nicht die
 unversionierte DMG — saubere URL fürs Versionstracking.
+
+---
+
+## Linux Direkt-Download (AppImage + `.deb`) — als Release-Asset angehängt
+
+Für Nutzer, die **nicht** über Flathub/Snap installieren wollen. Beide Pakete
+werden im `build-linux`-Job in `.github/workflows/release.yml` **aus dem fertigen
+Linux-x86_64-Release-Bundle** gebaut (kein Flutter-Rebuild — alle §3.1-Build-
+Stolperfallen sind bereits im Bundle) und landen in `release-artifacts/`. Von
+dort hängt sie der `create-release`-Job über das vorhandene `files: artifacts/*`-
+Glob automatisch an das GitHub-Release an — keine separate Upload-Verdrahtung.
+
+| Format | Build-Recipe | Runbook |
+|---|---|---|
+| AppImage (`WhisPaste-<version>-linux-x64.AppImage`) | `appimage/build-appimage.sh` (via `linuxdeploy`) | `appimage/README.md` |
+| `.deb` (`WhisPaste-<version>-linux-x64.deb`) | `deb/build-deb.sh` + `deb/control.template` (via `dpkg-deb`) | `deb/README.md` |
+
+Beide nutzen denselben `.desktop`-Entry, dieselbe AppStream-`metainfo.xml` und
+dasselbe Icon wie der Flatpak-Kanal (`packaging/flatpak/` bzw.
+`assets/icons/app_icon.png`) — eine Quelle für App-ID `de.whispaste.app`,
+Name, Kategorien, Keywords. Validierung (Script-Syntax + `.deb`-`control`-Shape +
+`Depends:`↔`release.yml`-Konsistenz) läuft toolchain-unabhängig im Job
+`appimage-deb` in `packaging-validate.yml`.
+
+**Self-Download des Sprachdienstes:** Beide Formate berücksichtigen den
+Schreibpfad des selbst-heruntergeladenen Sprachdienstes
+(`$XDG_CONFIG_HOME/whispaste/models/stt`, Default `~/.config/whispaste/models/stt`
+— user-spezifisch, beschreibbar, nicht `noexec`). AppImage läuft unsandboxed
+(Netzwerk + Schreibpfad frei); das `.deb` installiert read-only nach `/opt`, die
+App schreibt zur Laufzeit ausschließlich in den User-Config-Pfad. Solange das
+veröffentlichte Linux-`whisper-server`-Artefakt fehlt (Issue 03, human-blocked),
+ist der Self-Download-E2E nur dokumentiert, nicht ausgeführt — Details in den
+beiden Runbooks.

@@ -621,6 +621,46 @@ jobs:
           echo "Release artifacts:"
           ls -lh "$ARTIFACT_DIR"
 
+      # ── Direct-download Linux packages (Slice 17): AppImage + .deb ───────────
+      # Both are packaged FROM the bundle above (no Flutter rebuild — the §3.1
+      # pitfalls are already baked in). They land in $ARTIFACT_DIR so they ride
+      # the existing `linux-release` artifact and the create-release
+      # `files: artifacts/*` glob (AC4). Build recipes + writable-path rationale:
+      # packaging/appimage/, packaging/deb/, packaging/README.md.
+      - name: Build .deb package
+        run: |
+          REF_NAME="${GITHUB_REF_NAME#v}"
+          if echo "$REF_NAME" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+'; then
+            VERSION="$REF_NAME"
+          else
+            VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //;s/+.*//' | tr -d '[:space:]')
+          fi
+          bash packaging/deb/build-deb.sh \
+            build/linux/x64/release/bundle "$VERSION" release-artifacts
+
+      - name: Install AppImage tooling
+        run: |
+          cd /tmp
+          curl -fsSL -o linuxdeploy \
+            https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          chmod +x linuxdeploy
+          sudo install linuxdeploy /usr/local/bin/linuxdeploy
+          # FUSE is unavailable on the runner — extract+run the AppImage instead.
+          echo "APPIMAGE_EXTRACT_AND_RUN=1" >> "$GITHUB_ENV"
+
+      - name: Build AppImage
+        run: |
+          REF_NAME="${GITHUB_REF_NAME#v}"
+          if echo "$REF_NAME" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+'; then
+            VERSION="$REF_NAME"
+          else
+            VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //;s/+.*//' | tr -d '[:space:]')
+          fi
+          bash packaging/appimage/build-appimage.sh \
+            build/linux/x64/release/bundle "$VERSION" release-artifacts
+          echo "All Linux release artifacts:"
+          ls -lh release-artifacts
+
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v7
         with:
