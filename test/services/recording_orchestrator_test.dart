@@ -617,6 +617,76 @@ void main() {
   });
 
   // =========================================================================
+  // Flow-first re-trigger: a lingering done/error status must never block the
+  // next dictation (push-to-hold should fire immediately after a paste).
+  // =========================================================================
+
+  group('Re-trigger preempts lingering terminal status', () {
+    test('startRecording from done preempts the linger (leaves done)', () async {
+      fakeStt.transcriptToReturn = 'first';
+      final orch = await startRecordingPhase();
+      await orch.stopRecording();
+      expect(container.read(recordingProvider).phase, RecordingPhase.done);
+
+      final phases = <RecordingPhase>[];
+      container.listen(
+        recordingProvider.select((s) => s.phase),
+        (_, p) => phases.add(p),
+        fireImmediately: false,
+      );
+
+      // Real startRecording preempts done → idle before preflight. Preflight may
+      // then fail in the test sandbox, but the lingering done — the thing that
+      // used to block the next recording — must already be gone.
+      await orch.startRecording();
+
+      expect(phases, contains(RecordingPhase.idle));
+      expect(
+        container.read(recordingProvider).phase,
+        isNot(RecordingPhase.done),
+      );
+    });
+
+    test('toggleRecording from done no longer silently ignores', () async {
+      fakeStt.transcriptToReturn = 'first';
+      final orch = await startRecordingPhase();
+      await orch.stopRecording();
+      expect(container.read(recordingProvider).phase, RecordingPhase.done);
+
+      await orch.toggleRecording();
+
+      // Old behavior left the phase stuck in done; now it preempts and attempts
+      // a fresh start.
+      expect(
+        container.read(recordingProvider).phase,
+        isNot(RecordingPhase.done),
+      );
+    });
+
+    test('startRecording from error preempts the linger', () async {
+      fakeStt.ensureRunningThrows = true;
+      final orch = await startRecordingPhase();
+      await orch.stopRecording();
+      expect(container.read(recordingProvider).phase, RecordingPhase.error);
+
+      final phases = <RecordingPhase>[];
+      container.listen(
+        recordingProvider.select((s) => s.phase),
+        (_, p) => phases.add(p),
+        fireImmediately: false,
+      );
+
+      await orch.startRecording();
+
+      expect(phases, contains(RecordingPhase.idle));
+      expect(
+        container.read(recordingProvider).phase,
+        isNot(RecordingPhase.error),
+      );
+    });
+  });
+
+  // =========================================================================
   // Phase transitions
   // =========================================================================
 
@@ -922,17 +992,28 @@ void main() {
       );
     });
 
-    test('does nothing in error phase', () async {
+    test('preempts a lingering error so a new dictation can start', () async {
       container.read(recordingProvider.notifier).fail('test error');
 
       container.read(recordingOrchestratorProvider);
       await Future<void>.delayed(Duration.zero);
 
+      final phases = <RecordingPhase>[];
+      container.listen(
+        recordingProvider.select((s) => s.phase),
+        (_, p) => phases.add(p),
+        fireImmediately: false,
+      );
+
       await container
           .read(recordingOrchestratorProvider.notifier)
           .toggleRecording();
 
-      expect(container.read(recordingProvider).phase, RecordingPhase.error);
+      // Flow-first: an error status is dismissable and its transcript is already
+      // lost, so toggling preempts it (error → idle) and attempts a fresh start
+      // instead of silently ignoring the press. (Contrast: transcribing is
+      // in-flight work and is still guarded above.)
+      expect(phases, contains(RecordingPhase.idle));
     });
   });
 
