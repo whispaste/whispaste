@@ -607,6 +607,13 @@ abstract final class OverlayDesignSpec {
   /// over a worst-case white background drops under WCAG AA (ADR 0002).
   static const double minRecommendedOpacity = 0.65;
 
+  /// Fixed master opacity for both floating surfaces (overlay capsule + button
+  /// disc). The opacity is no longer user-configurable (issue 11); the
+  /// capsule/disc translucency lives in the intrinsic fill alphas
+  /// ([fillOpacityFactor] 0.92 / [FloatingButtonSpec.discFillOpacity] 0.95).
+  /// The spike runs at kMasterOpacity default = 1.0.
+  static const double masterOpacity = 1.0;
+
   // -- Capsule chrome (painted shadow + capsule shape) -----------------------
 
   /// Painted soft-shadow colour (cross-platform, no OS blur). Alpha is applied

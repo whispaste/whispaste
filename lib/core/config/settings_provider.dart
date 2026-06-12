@@ -194,14 +194,8 @@ class AppSettings {
   @Deprecated('Use overlay.showFloatingButton instead')
   bool get showFloatingButton => overlay.showFloatingButton;
 
-  @Deprecated('Use overlay.floatingButtonOpacity instead')
-  double get floatingButtonOpacity => overlay.floatingButtonOpacity;
-
   @Deprecated('Use overlay.floatingButtonSize instead')
   String get floatingButtonSize => overlay.floatingButtonSize;
-
-  @Deprecated('Use overlay.floatingOverlayOpacity instead')
-  double get floatingOverlayOpacity => overlay.floatingOverlayOpacity;
 
   @Deprecated('Use cloudProvider.openAiApiKey instead')
   String get openAiApiKey => cloudProvider.openAiApiKey;
@@ -518,9 +512,7 @@ class AppSettings {
     String? overlaySize,
     String? overlayAutoHide,
     bool? showFloatingButton,
-    double? floatingButtonOpacity,
     String? floatingButtonSize,
-    double? floatingOverlayOpacity,
     String? openAiApiKey,
     String? deepgramApiKey,
     String? cloudSttProvider,
@@ -595,9 +587,7 @@ class AppSettings {
         overlaySize: overlaySize,
         overlayAutoHide: overlayAutoHide,
         showFloatingButton: showFloatingButton,
-        floatingButtonOpacity: floatingButtonOpacity,
         floatingButtonSize: floatingButtonSize,
-        floatingOverlayOpacity: floatingOverlayOpacity,
       ),
       cloudProvider: cloudProvider.copyWith(
         openAiApiKey: openAiApiKey,

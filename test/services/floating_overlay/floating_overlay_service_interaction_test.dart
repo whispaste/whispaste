@@ -5,7 +5,7 @@
 /// semantics unchanged):
 ///   - AC6: a native `onDragEnded` event persists the new position into
 ///     settings (`floatingOverlayX/Y`).
-///   - AC3: the master opacity is pushed to the shell on settings sync.
+///   - AC3: the fixed master opacity (1.0) is pushed to the shell on settings sync.
 ///   - AC3: entering recording sends the start-position anchor from settings.
 ///   - AC4: `done` schedules the auto-hide timer and hides after it elapses.
 ///
@@ -148,8 +148,9 @@ void main() {
         final h = _build(async);
         try {
           expect(h.fake.opacityCalls, greaterThanOrEqualTo(1));
-          // Default OverlaySettings.floatingOverlayOpacity == 0.9.
-          expect(h.fake.lastOpacity, 0.9);
+          // Opacity is now the fixed OverlayDesignSpec.masterOpacity == 1.0
+          // (issue 11 — opacity no longer user-configurable).
+          expect(h.fake.lastOpacity, 1.0);
         } finally {
           h.dispose();
         }
