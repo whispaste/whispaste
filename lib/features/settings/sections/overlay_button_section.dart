@@ -104,29 +104,6 @@ class OverlaySection extends ConsumerWidget {
                 },
               ),
             ),
-            const Divider(height: 1),
-            SettingRow(
-              icon: LucideIcons.timerReset,
-              label: l10n.settingsOverlayAutoHide,
-              subtitle: l10n.settingsOverlayAutoHideSubtitle,
-              trailing: settingsDropdown(
-                context: context,
-                value: settings.overlayAutoHideType.value,
-                items: OverlayAutoHide.values.map((e) => e.value).toList(),
-                labels: [
-                  l10n.settingsOverlayAutoHide2s,
-                  l10n.settingsOverlayAutoHide5s,
-                  l10n.settingsOverlayAutoHide10s,
-                  l10n.settingsOverlayAutoHideManual,
-                ],
-                onChanged: (v) {
-                  if (v == null) return;
-                  ref
-                      .read(settingsProvider.notifier)
-                      .updateSettings((s) => s.copyWith(overlayAutoHide: v));
-                },
-              ),
-            ),
           ],
         ],
       ),

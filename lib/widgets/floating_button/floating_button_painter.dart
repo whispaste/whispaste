@@ -12,8 +12,8 @@
 /// [OverlayDesignSpec.stateGradients] (per-state mic tint, e.g. the done green
 /// `#30C065`) — there are deliberately **no** design constants in this file.
 ///
-/// Accessibility (mirrors the overlay): [masterOpacity] scales ONLY the disc
-/// chrome (fill gradient + painted shadow). The mic glyph stays fully opaque.
+/// The disc chrome (fill gradient + painted shadow) uses the intrinsic
+/// per-element opacity from [OverlayDesignSpec]. The mic glyph stays fully opaque.
 library;
 
 import 'package:flutter/widgets.dart';
@@ -28,7 +28,6 @@ class FloatingButtonPainter extends CustomPainter {
     required this.diameter,
     required this.iconColor,
     required this.iconGradient,
-    required this.masterOpacity,
   });
 
   /// The V2 button appearance tokens, from the spec.
@@ -45,9 +44,6 @@ class FloatingButtonPainter extends CustomPainter {
   /// glyph's bounding box.
   final List<Color>? iconGradient;
 
-  /// Master opacity (0–1). Scales the disc chrome only (see class docs).
-  final double masterOpacity;
-
   @override
   void paint(Canvas canvas, Size size) {
     final r = diameter / 2;
@@ -62,7 +58,7 @@ class FloatingButtonPainter extends CustomPainter {
     _drawMic(canvas, center);
   }
 
-  // ── Chrome (scaled by masterOpacity) ────────────────────────────────────────
+  // ── Chrome ────────────────────────────────────────────────────────────────────
 
   void _drawShadow(Canvas canvas, Offset center, double r) {
     canvas.drawCircle(
@@ -70,7 +66,7 @@ class FloatingButtonPainter extends CustomPainter {
       r,
       Paint()
         ..color = OverlayDesignSpec.shadowColor.withValues(
-          alpha: OverlayDesignSpec.shadowOpacity * masterOpacity,
+          alpha: OverlayDesignSpec.shadowOpacity,
         )
         ..maskFilter = const MaskFilter.blur(
           BlurStyle.normal,
@@ -80,7 +76,7 @@ class FloatingButtonPainter extends CustomPainter {
   }
 
   void _drawDisc(Canvas canvas, Offset center, double r) {
-    final a = spec.discFillOpacity * masterOpacity;
+    final a = spec.discFillOpacity;
     final rect = Rect.fromCircle(center: center, radius: r);
     canvas.drawCircle(
       center,
@@ -177,8 +173,7 @@ class FloatingButtonPainter extends CustomPainter {
     return old.spec != spec ||
         old.diameter != diameter ||
         old.iconColor != iconColor ||
-        !_sameGradient(old.iconGradient, iconGradient) ||
-        old.masterOpacity != masterOpacity;
+        !_sameGradient(old.iconGradient, iconGradient);
   }
 
   static bool _sameGradient(List<Color>? a, List<Color>? b) {

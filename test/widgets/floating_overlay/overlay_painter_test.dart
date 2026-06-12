@@ -2,7 +2,7 @@
 ///
 /// Covers:
 ///  - AC1: the painter is sourced **only** from [OverlayDesignSpec] — colours,
-///    size, layout and master opacity wired by [FloatingOverlayView.painterFor]
+///    size and layout wired by [FloatingOverlayView.painterFor]
 ///    equal the spec values, never a platform-local constant.
 ///  - Spike fidelity: the painter consumes the approved capsule/tint/layout
 ///    tokens (capsule radius, tint-gradient fill stops, accent dot, spike
@@ -81,18 +81,6 @@ void main() {
           expect(painter.layout, OverlayDesignSpec.layout(compact: compact));
         }
       }
-    });
-
-    test('master opacity is passed straight through (chrome-only dimming)', () {
-      final painter = FloatingOverlayView.painterFor(
-        snapshot: _snap(
-          OverlayVisualState.recording,
-          isDark: true,
-          compact: false,
-        ),
-        opacity: 0.8,
-      );
-      expect(painter.masterOpacity, 0.8);
     });
 
     test('waveform bars only flow to the recording state', () {
@@ -178,7 +166,6 @@ void main() {
                   child: FloatingOverlayView(
                     snapshot: _snap(state, isDark: isDark, compact: compact),
                     waveformBars: bars,
-                    opacity: 0.9,
                   ),
                 ),
               ),

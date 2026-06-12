@@ -188,9 +188,6 @@ class AppSettings {
   @Deprecated('Use overlay.overlaySize instead')
   String get overlaySize => overlay.overlaySize;
 
-  @Deprecated('Use overlay.overlayAutoHide instead')
-  String get overlayAutoHide => overlay.overlayAutoHide;
-
   @Deprecated('Use overlay.showFloatingButton instead')
   bool get showFloatingButton => overlay.showFloatingButton;
 
@@ -309,8 +306,6 @@ class AppSettings {
       OverlayStartPosition.fromValue(overlay.overlayStartPosition);
   FloatingOverlaySize get overlaySizeType =>
       FloatingOverlaySize.fromValue(overlay.overlaySize);
-  OverlayAutoHide get overlayAutoHideType =>
-      OverlayAutoHide.fromValue(overlay.overlayAutoHide);
   FloatingButtonSize get floatingButtonSizeType =>
       FloatingButtonSize.fromValue(overlay.floatingButtonSize);
 
@@ -510,7 +505,6 @@ class AppSettings {
     String? overlayMode,
     String? overlayStartPosition,
     String? overlaySize,
-    String? overlayAutoHide,
     bool? showFloatingButton,
     String? floatingButtonSize,
     String? openAiApiKey,
@@ -585,7 +579,6 @@ class AppSettings {
         overlayMode: overlayMode,
         overlayStartPosition: overlayStartPosition,
         overlaySize: overlaySize,
-        overlayAutoHide: overlayAutoHide,
         showFloatingButton: showFloatingButton,
         floatingButtonSize: floatingButtonSize,
       ),

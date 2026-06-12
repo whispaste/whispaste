@@ -38,7 +38,6 @@ class FloatingButtonView extends StatelessWidget {
     super.key,
     required this.state,
     this.diameter = 56,
-    this.opacity = 1.0,
   });
 
   /// Current button visual state (idle / recording / … / disabled).
@@ -46,9 +45,6 @@ class FloatingButtonView extends StatelessWidget {
 
   /// Disc diameter in logical pixels (settings-owned: 44 / 56 / 80).
   final double diameter;
-
-  /// Master opacity (0–1). Only the disc chrome is dimmed; see the painter.
-  final double opacity;
 
   /// Maps a button visual state onto the design-spec state that owns its mic
   /// tint gradient, or null for states with no gradient (idle/disabled).
@@ -78,14 +74,12 @@ class FloatingButtonView extends StatelessWidget {
   static FloatingButtonPainter painterFor({
     required FloatingButtonVisualState state,
     double diameter = 56,
-    double opacity = 1.0,
   }) {
     return FloatingButtonPainter(
       spec: OverlayDesignSpec.button,
       diameter: diameter,
       iconColor: OverlayDesignSpec.button.iconColor,
       iconGradient: iconGradientFor(state),
-      masterOpacity: opacity,
     );
   }
 
@@ -98,11 +92,7 @@ class FloatingButtonView extends StatelessWidget {
         height: window.height,
         child: CustomPaint(
           size: window,
-          painter: painterFor(
-            state: state,
-            diameter: diameter,
-            opacity: opacity,
-          ),
+          painter: painterFor(state: state, diameter: diameter),
         ),
       ),
     );

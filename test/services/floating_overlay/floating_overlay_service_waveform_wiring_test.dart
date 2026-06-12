@@ -48,7 +48,6 @@ class _RecordingController implements FloatingOverlayController {
   int snapshotCalls = 0;
   int contextMenuCalls = 0;
   int positionCalls = 0;
-  int opacityCalls = 0;
   bool disposed = false;
 
   final _eventCtrl = StreamController<FloatingOverlayEvent>.broadcast();
@@ -83,11 +82,6 @@ class _RecordingController implements FloatingOverlayController {
     List<({String id, String label})> items,
   ) async {
     contextMenuCalls++;
-  }
-
-  @override
-  Future<void> setOpacity(double opacity) async {
-    opacityCalls++;
   }
 }
 

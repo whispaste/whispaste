@@ -129,15 +129,6 @@ class FloatingButtonHost {
       }
       result(nil)
 
-    case "setOpacity":
-      guard let args = call.arguments as? [String: Any],
-            let opacity = (args["opacity"] as? NSNumber)?.doubleValue else {
-        result(nil)
-        return
-      }
-      buttonView?.masterOpacity = CGFloat(opacity)
-      result(nil)
-
     case "getPosition":
       guard let p = panel else {
         result(nil)

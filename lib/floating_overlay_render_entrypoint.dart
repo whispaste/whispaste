@@ -10,7 +10,7 @@
 /// ## The seam
 ///
 /// The app's MAIN engine is untouched: `FloatingOverlayService` still pushes
-/// `updateSnapshot` / `setWaveformBars` / `setOpacity` over the
+/// `updateSnapshot` / `setWaveformBars` over the
 /// `com.whispaste.floating_overlay` channel to the native host. The host then
 /// **relays** those payloads to THIS engine over a private render channel
 /// ([_renderChannelName]). Interaction goes the other way: this engine asks the
@@ -65,7 +65,6 @@ class _OverlayRenderAppState extends State<_OverlayRenderApp> {
     label: '',
   );
   List<double> _bars = const [];
-  double _opacity = 1.0;
 
   @override
   void initState() {
@@ -74,7 +73,6 @@ class _OverlayRenderAppState extends State<_OverlayRenderApp> {
       name: _renderChannelName,
       onSnapshot: (s) => setState(() => _snapshot = s),
       onWaveformBars: (b) => setState(() => _bars = b),
-      onOpacity: (o) => setState(() => _opacity = o),
     );
     // Handler is now registered — tell the native shell to flush any render
     // state it cached while this engine was still booting.
@@ -102,11 +100,7 @@ class _OverlayRenderAppState extends State<_OverlayRenderApp> {
         onPanStart: _channel.startDrag,
         onTap: _channel.bodyClicked,
         onSecondaryTapOrLongPress: _channel.showContextMenu,
-        child: FloatingOverlayView(
-          snapshot: _snapshot,
-          waveformBars: _bars,
-          opacity: _opacity,
-        ),
+        child: FloatingOverlayView(snapshot: _snapshot, waveformBars: _bars),
       ),
     );
   }

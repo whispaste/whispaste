@@ -5,7 +5,6 @@
 /// semantics unchanged):
 ///   - AC6: a native `onDragEnded` event persists the new position into
 ///     settings (`floatingOverlayX/Y`).
-///   - AC3: the fixed master opacity (1.0) is pushed to the shell on settings sync.
 ///   - AC3: entering recording sends the start-position anchor from settings.
 ///   - AC4: `done` schedules the auto-hide timer and hides after it elapses.
 ///
@@ -31,8 +30,6 @@ class _FakeController implements FloatingOverlayController {
   final _eventCtrl = StreamController<FloatingOverlayEvent>.broadcast();
 
   FloatingOverlaySnapshot? lastSnapshot;
-  double? lastOpacity;
-  int opacityCalls = 0;
   ({double x, double y, OverlayAnchorMode anchor})? lastPosition;
   int positionCalls = 0;
   bool disposed = false;
@@ -62,12 +59,6 @@ class _FakeController implements FloatingOverlayController {
   Future<void> setContextMenuItems(
     List<({String id, String label})> items,
   ) async {}
-
-  @override
-  Future<void> setOpacity(double opacity) async {
-    opacityCalls++;
-    lastOpacity = opacity;
-  }
 
   @override
   Future<void> dispose() async {
@@ -143,20 +134,6 @@ void main() {
       });
     });
 
-    test('AC3: master opacity is pushed to the shell on sync', () {
-      FakeAsync().run((async) {
-        final h = _build(async);
-        try {
-          expect(h.fake.opacityCalls, greaterThanOrEqualTo(1));
-          // Opacity is now the fixed OverlayDesignSpec.masterOpacity == 1.0
-          // (issue 11 — opacity no longer user-configurable).
-          expect(h.fake.lastOpacity, 1.0);
-        } finally {
-          h.dispose();
-        }
-      });
-    });
-
     test('AC3: entering recording sends the start-position anchor', () {
       FakeAsync().run((async) {
         final h = _build(async);
@@ -193,8 +170,8 @@ void main() {
           );
           expect(h.fake.lastSnapshot?.visible, isTrue);
 
-          // Default auto-hide is 5 s; walk just past it.
-          async.elapse(const Duration(seconds: 5, milliseconds: 100));
+          // Auto-hide is fixed at 2 s; walk just past it.
+          async.elapse(const Duration(seconds: 2, milliseconds: 100));
           async.flushMicrotasks();
 
           expect(

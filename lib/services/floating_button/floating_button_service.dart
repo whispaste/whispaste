@@ -7,7 +7,6 @@ import 'package:window_manager/window_manager.dart';
 
 import '../../core/navigation/page_state.dart' show activePageProvider;
 import '../../core/config/settings_provider.dart';
-import '../../core/theme/overlay_design_spec.dart';
 import '../../core/data/database.dart';
 import '../../core/data/history_providers.dart';
 import '../../core/l10n/generated/app_localizations.dart';
@@ -112,7 +111,6 @@ class FloatingButtonService
 
         await c.show(x: x, y: y, size: size);
         await c.setSize(size);
-        await c.setOpacity(OverlayDesignSpec.masterOpacity);
 
         // Send theme. ThemeMode.system derives from the live platform
         // brightness via the shared resolver — the same path the overlay uses,

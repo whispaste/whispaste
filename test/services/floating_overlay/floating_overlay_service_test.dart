@@ -148,29 +148,6 @@ void main() {
     });
   });
 
-  group('OverlayAutoHide enum', () {
-    test('has expected values', () {
-      expect(OverlayAutoHide.values, hasLength(4));
-    });
-
-    test('seconds property returns correct durations', () {
-      expect(OverlayAutoHide.seconds2.seconds, 2);
-      expect(OverlayAutoHide.seconds5.seconds, 5);
-      expect(OverlayAutoHide.seconds10.seconds, 10);
-      expect(OverlayAutoHide.manual.seconds, 0);
-    });
-
-    test('fromValue roundtrips correctly', () {
-      for (final autoHide in OverlayAutoHide.values) {
-        expect(OverlayAutoHide.fromValue(autoHide.value), autoHide);
-      }
-    });
-
-    test('fromValue with unknown returns seconds5 (default)', () {
-      expect(OverlayAutoHide.fromValue('unknown'), OverlayAutoHide.seconds5);
-    });
-  });
-
   group('OverlayStartPosition enum', () {
     test('has expected values', () {
       expect(OverlayStartPosition.values, hasLength(3));
@@ -348,13 +325,6 @@ void main() {
       }
 
       expect(hideCalled, true);
-    });
-
-    test('manual auto-hide skips timer scheduling', () {
-      // OverlayAutoHide.manual has seconds == 0.
-      expect(OverlayAutoHide.manual.seconds, 0);
-      // The service checks: if autoHide == manual, return early.
-      // So no timer is ever created for manual.
     });
   });
 
