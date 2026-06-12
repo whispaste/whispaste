@@ -9,12 +9,15 @@ import '../../core/navigation/page_state.dart' show activePageProvider;
 import '../../core/config/settings_provider.dart';
 import '../../core/data/database.dart';
 import '../../core/data/history_providers.dart';
+import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/logging/app_logger.dart';
 import '../../core/platform/macos_lifecycle_channel.dart';
 import '../../core/recording/recording_state.dart';
 import '../floating_platform_service_base.dart';
+import '../floating_theme_brightness.dart';
 import '../recording_orchestrator.dart';
 import '../stt/stt_bundle.dart';
+import 'floating_button_context_menu.dart';
 import 'floating_button_controller.dart';
 import 'floating_button_events.dart';
 
@@ -47,6 +50,10 @@ class FloatingButtonService
 
   /// Cached history entries for context menu (last 5).
   List<({String id, String content})> _menuEntries = [];
+
+  /// Localizations for the right-click context menu, resolved from the system
+  /// locale (the native button window has no [BuildContext] of its own).
+  L10n? _l10n;
 
   // ── FloatingPlatformServiceBase contract ──────────────────────────────────
 
@@ -106,8 +113,10 @@ class FloatingButtonService
         await c.setSize(size);
         await c.setOpacity(s.floatingButtonOpacity);
 
-        // Send theme based on current themeMode.
-        final isDark = s.themeMode != ThemeMode.light;
+        // Send theme. ThemeMode.system derives from the live platform
+        // brightness via the shared resolver — the same path the overlay uses,
+        // so both surfaces never disagree (issue 08, bug D5).
+        final isDark = resolveFloatingSurfaceIsDark(s.themeMode);
         await c.setTheme(isDark: isDark);
 
         // Send current recording phase.
@@ -246,35 +255,25 @@ class FloatingButtonService
     final recent = entries.take(5).toList();
     _menuEntries = recent.map((e) => (id: e.id, content: e.content)).toList();
 
-    // Action items (always shown at top).
-    final actionItems = [
-      {'id': '__open__', 'label': 'Open WhisPaste'},
-      {'id': '__new_recording__', 'label': '⏺  Start Recording'},
-      {'id': '__history__', 'label': 'Show History'},
-      {'id': '__settings__', 'label': 'Settings'},
-      {'id': '__sep1__', 'label': '---'},
-    ];
-
-    // Recent history items.
-    final historyItems = _menuEntries.map((e) {
-      // Truncate label to 50 chars for readability.
-      final label = e.content.length > 50
-          ? '${e.content.substring(0, 47)}...'
-          : e.content;
-      return {'id': e.id, 'label': label};
-    }).toList();
-
-    // Separator + Quit at the bottom.
-    final footerItems = [
-      if (historyItems.isNotEmpty) {'id': '__sep2__', 'label': '---'},
-      {'id': '__quit__', 'label': 'Quit WhisPaste'},
-    ];
-
-    final items = [...actionItems, ...historyItems, ...footerItems];
+    final l10n = _l10n ??= _resolveL10n();
+    final items = buildFloatingButtonContextMenu(
+      l10n: l10n,
+      entries: _menuEntries,
+    );
 
     c.setContextMenuItems(items).catchError((e, st) {
       _log.error('Failed to update context menu items', e, st);
     });
+  }
+
+  /// Resolves localizations from the system locale, falling back to English.
+  L10n _resolveL10n() {
+    final locale = WidgetsBinding.instance.platformDispatcher.locale;
+    try {
+      return lookupL10n(locale);
+    } catch (_) {
+      return lookupL10n(const Locale('en'));
+    }
   }
 
   Future<void> _copyEntryToClipboard(String id) async {

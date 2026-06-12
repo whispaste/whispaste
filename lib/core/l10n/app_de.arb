@@ -791,6 +791,11 @@
   "overlayContextSwitchNormal": "Zu Normal wechseln",
   "overlayContextSwitchCompact": "Zu Kompakt wechseln",
   "overlayContextHide": "Overlay ausblenden",
+  "buttonContextOpen": "WhisPaste öffnen",
+  "buttonContextStartRecording": "Aufnahme starten",
+  "buttonContextShowHistory": "Verlauf anzeigen",
+  "buttonContextSettings": "Einstellungen",
+  "buttonContextQuit": "WhisPaste beenden",
 
   "settingsHistory": "Verlauf",
   "settingsHistorySubtitle": "Aufbewahrung und automatische Bereinigung",

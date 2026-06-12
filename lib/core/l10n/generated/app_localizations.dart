@@ -4317,6 +4317,36 @@ abstract class L10n {
   /// **'Hide overlay'**
   String get overlayContextHide;
 
+  /// No description provided for @buttonContextOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Open WhisPaste'**
+  String get buttonContextOpen;
+
+  /// No description provided for @buttonContextStartRecording.
+  ///
+  /// In en, this message translates to:
+  /// **'Start Recording'**
+  String get buttonContextStartRecording;
+
+  /// No description provided for @buttonContextShowHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'Show History'**
+  String get buttonContextShowHistory;
+
+  /// No description provided for @buttonContextSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get buttonContextSettings;
+
+  /// No description provided for @buttonContextQuit.
+  ///
+  /// In en, this message translates to:
+  /// **'Quit WhisPaste'**
+  String get buttonContextQuit;
+
   /// No description provided for @settingsHistory.
   ///
   /// In en, this message translates to:

@@ -2385,6 +2385,21 @@ class L10nEn extends L10n {
   String get overlayContextHide => 'Hide overlay';
 
   @override
+  String get buttonContextOpen => 'Open WhisPaste';
+
+  @override
+  String get buttonContextStartRecording => 'Start Recording';
+
+  @override
+  String get buttonContextShowHistory => 'Show History';
+
+  @override
+  String get buttonContextSettings => 'Settings';
+
+  @override
+  String get buttonContextQuit => 'Quit WhisPaste';
+
+  @override
   String get settingsHistory => 'History';
 
   @override

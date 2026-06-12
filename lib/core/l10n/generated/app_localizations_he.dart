@@ -2334,6 +2334,21 @@ class L10nHe extends L10n {
   String get overlayContextHide => 'הסתר שכבה';
 
   @override
+  String get buttonContextOpen => 'פתח את WhisPaste';
+
+  @override
+  String get buttonContextStartRecording => 'התחל הקלטה';
+
+  @override
+  String get buttonContextShowHistory => 'הצג היסטוריה';
+
+  @override
+  String get buttonContextSettings => 'הגדרות';
+
+  @override
+  String get buttonContextQuit => 'צא מ-WhisPaste';
+
+  @override
   String get settingsHistory => 'היסטוריה';
 
   @override

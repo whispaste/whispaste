@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/theme/overlay_design_spec.dart';
@@ -288,6 +290,35 @@ void main() {
       expect(b.borderWidth, 1.0);
       expect(b.iconRatio, 24 / 56);
       expect(b.hasGlow, isFalse);
+    });
+
+    test('additive V2 disc-gradient / border tokens (issue 08)', () {
+      const b = OverlayDesignSpec.button;
+      expect(b.discGradientEnd, const Color(0xFFEDF1F6));
+      expect(b.discFillOpacity, 0.95);
+      expect(b.borderInset, 0.5);
+      expect(b.mic, same(FloatingButtonMicSpec.spike));
+    });
+
+    test('mic geometry is the spike _mic, referenced to a 56px disc', () {
+      const m = FloatingButtonMicSpec.spike;
+      expect(m.bodyWidthRatio * 56, closeTo(9, 1e-9));
+      expect(m.bodyHeightRatio * 56, closeTo(14, 1e-9));
+      expect(m.bodyRadiusRatio * 56, closeTo(4.5, 1e-9));
+      expect(m.bodyCenterDyRatio * 56, closeTo(-4, 1e-9));
+      expect(m.arcRadiusRatio * 56, closeTo(8.5, 1e-9));
+      expect(m.arcCenterDyRatio * 56, closeTo(-1, 1e-9));
+      expect(m.arcStartAngle, 0.35);
+      expect(m.arcSweepAngle, closeTo(math.pi - 0.7, 1e-9));
+      expect(m.strokeRatio * 56, closeTo(2, 1e-9));
+      expect(m.stemTopDyRatio * 56, closeTo(7.5, 1e-9));
+      expect(m.stemBottomDyRatio * 56, closeTo(11, 1e-9));
+    });
+
+    test('button window size reserves shadow padding around the disc', () {
+      expect(OverlayDesignSpec.buttonWindowSize(56), const Size(72, 72));
+      expect(OverlayDesignSpec.buttonWindowSize(44), const Size(60, 60));
+      expect(OverlayDesignSpec.buttonWindowSize(80), const Size(96, 96));
     });
   });
 
