@@ -9,6 +9,7 @@ und GitHub Releases. Alle Manifeste zeigen auf die Assets der GitHub Releases
 | Scoop | `scoop/whispaste.json` | Windows x64 | ✅ sofort nutzbar |
 | winget | `winget/SilvioLindstedt.WhisPaste.*.yaml` | Windows x64 | ⚠️ PR an `microsoft/winget-pkgs` nötig |
 | Homebrew Cask | `homebrew/whispaste.rb` | macOS arm64 | ⛔ erst nach Notarization veröffentlichen |
+| Flatpak / Flathub | `flatpak/com.whispaste.whispaste.yml` | Linux x86_64 | ⚠️ PR an `flathub/flathub` nötig — Runbook: `flatpak/README.md` |
 
 Beim Release einer neuen Version müssen `version` + `hash`/`sha256` in jedem
 Manifest aktualisiert werden (Scoop kann das via `checkver`/`autoupdate` selbst).

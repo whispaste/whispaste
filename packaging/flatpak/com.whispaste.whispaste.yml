@@ -1,0 +1,90 @@
+# Flatpak manifest — WhisPaste (primary cross-distro Linux channel, Flathub).
+#
+# Builds the Flatpak from the prebuilt Linux x86_64 release bundle produced by
+# the `build-linux` job in .github/workflows/release.yml
+# (artifact `linux-release` → WhisPaste-<version>-linux-x64.tar.gz, created with
+# `tar -czf … -C build/linux/x64/release/bundle .`). The archive root therefore
+# contains the `whispaste` executable, `lib/` and `data/` directly — we do NOT
+# rebuild Flutter inside the Flatpak sandbox.
+#
+# App-ID = the existing reverse-DNS identifier (linux/CMakeLists.txt
+# APPLICATION_ID, macOS PRODUCT_BUNDLE_IDENTIFIER). Do not invent a new one.
+#
+# Per-release the maintainer updates the `archive` source `url` + `sha256`
+# (see packaging/flatpak/README.md for the runbook). The `url`/`sha256` below
+# are placeholders pinned by the runbook at submission time.
+app-id: com.whispaste.whispaste
+runtime: org.freedesktop.Platform
+runtime-version: '24.08'
+sdk: org.freedesktop.Sdk
+command: whispaste
+separate-locales: false
+
+finish-args:
+  # ── Display / windowing ────────────────────────────────────────────────────
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+  # ── Global Hotkey (CONTEXT.md §2.5) ─────────────────────────────────────────
+  # X11 grabs the global hotkey directly; under Wayland the GlobalShortcuts
+  # portal + the keybinder path both need the session bus to talk to the WM/
+  # portal frontend.
+  - --socket=session-bus
+  # ── Clipboard / Paste (CONTEXT.md §2.4) ─────────────────────────────────────
+  # Clipboard inject runs over the Wayland/X11 sockets above; no extra arg is
+  # needed for clipboard write. (Auto-Paste keystroke synthesis is unsupported
+  # on Linux — PasteCapabilityStatus.unsupported, CONTEXT.md §2.7 — so we do not
+  # request input-device injection here.)
+  # ── Audio (Aufnahme — CONTEXT.md §2.2) ──────────────────────────────────────
+  - --socket=pulseaudio
+  # ── Network: self-download of the Sprachdienst (whisper-server) + model ─────
+  # The app fetches the whisper-server manifest from
+  # raw.githubusercontent.com/whispaste/whispaste and downloads the matching
+  # binary + ggml model at first run (lib/services/whisper_server_*.dart).
+  - --share=network
+  # ── Writable data dir for the self-downloaded Sprachdienst + Sprachmodell ───
+  # The downloaded whisper-server binary is chmod +x'd and executed in-sandbox
+  # (local_stt_server.dart). XDG_DATA_HOME is already writable inside the
+  # sandbox; we expose it explicitly so the contract is auditable. No host
+  # filesystem access beyond the app's own per-app data dir is requested.
+  - --filesystem=xdg-data/whispaste:create
+  # System tray / app indicator (libayatana-appindicator) used by the Linux build.
+  - --talk-name=org.kde.StatusNotifierWatcher
+  - --talk-name=org.freedesktop.Notifications
+
+modules:
+  - name: whispaste
+    buildsystem: simple
+    build-commands:
+      # Lay the prebuilt bundle out under /app and expose the executable on PATH.
+      - install -d /app/whispaste
+      - cp -r ./* /app/whispaste/
+      - install -d /app/bin
+      - ln -s /app/whispaste/whispaste /app/bin/whispaste
+      # Desktop entry + AppStream metainfo + icon (Flathub requirements).
+      - install -Dm644 com.whispaste.whispaste.desktop
+        /app/share/applications/com.whispaste.whispaste.desktop
+      - install -Dm644 com.whispaste.whispaste.metainfo.xml
+        /app/share/metainfo/com.whispaste.whispaste.metainfo.xml
+      - install -Dm644 com.whispaste.whispaste.png
+        /app/share/icons/hicolor/512x512/apps/com.whispaste.whispaste.png
+    sources:
+      # ── Prebuilt Linux x86_64 release bundle from release.yml `build-linux` ──
+      # Per-release: bump `url` to the tag's asset and `sha256` to its digest
+      # (runbook step in README.md). Until the first Linux release tag exists
+      # these are documented placeholders — CI validates manifest *shape*, the
+      # real archive is pinned at submission time.
+      - type: archive
+        url: https://github.com/whispaste/whispaste/releases/download/v0.0.0/WhisPaste-0.0.0-linux-x64.tar.gz
+        sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+        # The tarball root IS the Flutter bundle (no leading bundle/ dir).
+        strip-components: 0
+      - type: file
+        path: com.whispaste.whispaste.desktop
+      - type: file
+        path: com.whispaste.whispaste.metainfo.xml
+      - type: file
+        # Bundled app icon, renamed to the App-ID for Flathub icon-naming rules.
+        path: ../../assets/icons/app_icon.png
+        dest-filename: com.whispaste.whispaste.png
