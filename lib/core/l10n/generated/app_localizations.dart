@@ -2997,6 +2997,18 @@ abstract class L10n {
   /// **'Your GPU ran out of memory. Quality was reduced so the next try should work.'**
   String get errorSttCudaOom;
 
+  /// No description provided for @errorCloudAuth.
+  ///
+  /// In en, this message translates to:
+  /// **'Cloud API key is missing or invalid. Check it in Settings → Speech Recognition.'**
+  String get errorCloudAuth;
+
+  /// No description provided for @errorCloudQuota.
+  ///
+  /// In en, this message translates to:
+  /// **'Cloud provider rate limit reached. Please wait a moment and try again.'**
+  String get errorCloudQuota;
+
   /// No description provided for @errorOnboardingNotCompleted.
   ///
   /// In en, this message translates to:
@@ -3116,18 +3128,6 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Could not start recording. Please try again.'**
   String get errorRecordingStartFailed;
-
-  /// No description provided for @errorCloudAuth.
-  ///
-  /// In en, this message translates to:
-  /// **'Cloud API key is missing or invalid. Check it in Settings → Speech Recognition.'**
-  String get errorCloudAuth;
-
-  /// No description provided for @errorCloudQuota.
-  ///
-  /// In en, this message translates to:
-  /// **'Cloud provider rate limit reached. Please wait a moment and try again.'**
-  String get errorCloudQuota;
 
   /// No description provided for @errorGeneric.
   ///
