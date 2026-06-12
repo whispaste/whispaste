@@ -5,6 +5,7 @@
 /// All keys are namespaced with a `wp_` prefix.
 library;
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -14,9 +15,21 @@ const apiKeyMapping = <String, String>{
   'deepgramApiKey': 'wp_deepgram_api_key',
 };
 
+/// Default storage backend.
+///
+/// macOS: the plugin default (`usesDataProtectionKeychain: true`) requires a
+/// `keychain-access-groups` entitlement that the non-sandboxed WhisPaste
+/// Runner does not have — every write fails with errSecMissingEntitlement
+/// (-34018) and reads return null, so API keys silently never persist.
+/// The file-based login keychain works without entitlements.
+@visibleForTesting
+const defaultSecureStorage = FlutterSecureStorage(
+  mOptions: MacOsOptions(usesDataProtectionKeychain: false),
+);
+
 class SecureKeyStore {
   SecureKeyStore([FlutterSecureStorage? storage])
-    : _storage = storage ?? const FlutterSecureStorage();
+    : _storage = storage ?? defaultSecureStorage;
 
   final FlutterSecureStorage _storage;
 

@@ -615,6 +615,8 @@
   "errorTranscriptionTimeout": "Transcription took too long. Please try a shorter recording.",
   "errorMicPermissionDenied": "Microphone access is needed. Please allow it in your system settings.",
   "errorRecordingStartFailed": "Could not start recording. Please try again.",
+  "errorCloudAuth": "Cloud API key is missing or invalid. Check it in Settings → Speech Recognition.",
+  "errorCloudQuota": "Cloud provider rate limit reached. Please wait a moment and try again.",
   "errorGeneric": "Something went wrong. Please try again.",
   "modelDownloadFailed": "Download failed. Please check your internet connection.",
 

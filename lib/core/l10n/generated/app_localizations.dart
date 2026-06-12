@@ -3117,6 +3117,18 @@ abstract class L10n {
   /// **'Could not start recording. Please try again.'**
   String get errorRecordingStartFailed;
 
+  /// No description provided for @errorCloudAuth.
+  ///
+  /// In en, this message translates to:
+  /// **'Cloud API key is missing or invalid. Check it in Settings → Speech Recognition.'**
+  String get errorCloudAuth;
+
+  /// No description provided for @errorCloudQuota.
+  ///
+  /// In en, this message translates to:
+  /// **'Cloud provider rate limit reached. Please wait a moment and try again.'**
+  String get errorCloudQuota;
+
   /// No description provided for @errorGeneric.
   ///
   /// In en, this message translates to:
