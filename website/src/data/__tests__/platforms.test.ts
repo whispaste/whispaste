@@ -7,10 +7,15 @@
  * invariants hold. No internal regex is tested directly.
  */
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   detectOs,
   STORES,
   resolvePrimary,
+  PKG_MANAGERS,
+  getLivePkgManagers,
   MS_STORE_PRODUCT_ID,
   GITHUB_REPO_URL,
   type OsDetectionInput,
@@ -248,5 +253,126 @@ describe("resolvePrimary", () => {
 
   it("returns the windows offer for 'unknown' (widest-reach fallback)", () => {
     expect(resolvePrimary("unknown")).toBe(STORES.windows);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PKG_MANAGERS — package-manager channel SSoT
+// ---------------------------------------------------------------------------
+
+describe("PKG_MANAGERS config invariants", () => {
+  it("exports PKG_MANAGERS as a non-empty array", () => {
+    expect(Array.isArray(PKG_MANAGERS)).toBe(true);
+    expect(PKG_MANAGERS.length).toBeGreaterThan(0);
+  });
+
+  it("scoop is live (renders immediately on the download page)", () => {
+    const scoop = PKG_MANAGERS.find((m) => m.id === "scoop");
+    expect(scoop, "scoop channel must exist").toBeDefined();
+    expect(scoop!.live).toBe(true);
+  });
+
+  it("winget is NOT live (behind live-guard — not yet published)", () => {
+    const winget = PKG_MANAGERS.find((m) => m.id === "winget");
+    expect(winget, "winget channel must exist").toBeDefined();
+    expect(winget!.live).toBe(false);
+  });
+
+  it("homebrew is NOT live (behind live-guard — not yet published)", () => {
+    const homebrew = PKG_MANAGERS.find((m) => m.id === "homebrew");
+    expect(homebrew, "homebrew channel must exist").toBeDefined();
+    expect(homebrew!.live).toBe(false);
+  });
+
+  it("all channels have at least one non-empty command", () => {
+    for (const ch of PKG_MANAGERS) {
+      expect(
+        ch.commands.length,
+        `${ch.id}.commands must be non-empty`
+      ).toBeGreaterThan(0);
+      for (const cmd of ch.commands) {
+        expect(cmd.trim(), `${ch.id}: empty command string`).not.toBe("");
+      }
+    }
+  });
+
+  it("all channels have bilingual comment labels (de + en)", () => {
+    for (const ch of PKG_MANAGERS) {
+      expect(
+        ch.comment.de,
+        `${ch.id}.comment.de must be non-empty`
+      ).toBeTruthy();
+      expect(
+        ch.comment.en,
+        `${ch.id}.comment.en must be non-empty`
+      ).toBeTruthy();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getLivePkgManagers — live-guard filter
+// ---------------------------------------------------------------------------
+
+describe("getLivePkgManagers", () => {
+  it("returns only channels with live: true", () => {
+    const live = getLivePkgManagers();
+    expect(live.every((m) => m.live)).toBe(true);
+  });
+
+  it("does NOT include winget (not yet published)", () => {
+    const ids = getLivePkgManagers().map((m) => m.id);
+    expect(ids).not.toContain("winget");
+  });
+
+  it("does NOT include homebrew (not yet published)", () => {
+    const ids = getLivePkgManagers().map((m) => m.id);
+    expect(ids).not.toContain("homebrew");
+  });
+
+  it("includes scoop (live)", () => {
+    const ids = getLivePkgManagers().map((m) => m.id);
+    expect(ids).toContain("scoop");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SSoT enforcement — no literal package-manager commands in download pages
+// ---------------------------------------------------------------------------
+
+describe("SSoT: no literal package-manager commands in download pages", () => {
+  // Resolve paths relative to this test file's location (src/data/__tests__/).
+  const thisDir = dirname(fileURLToPath(import.meta.url));
+  const deDownload = readFileSync(
+    resolve(thisDir, "../../pages/download.astro"),
+    "utf8"
+  );
+  const enDownload = readFileSync(
+    resolve(thisDir, "../../pages/en/download.astro"),
+    "utf8"
+  );
+
+  // The Scoop bucket-add command is the canonical canary for "literals exist".
+  const scoopBucketCmd = "scoop bucket add whispaste https://github.com/whispaste/scoop-bucket";
+
+  it("DE download.astro contains no literal Scoop bucket command", () => {
+    expect(deDownload).not.toContain(scoopBucketCmd);
+  });
+
+  it("EN en/download.astro contains no literal Scoop bucket command", () => {
+    expect(enDownload).not.toContain(scoopBucketCmd);
+  });
+
+  it("DE download.astro imports getLivePkgManagers from platforms.ts (data-driven)", () => {
+    expect(deDownload).toContain("getLivePkgManagers");
+  });
+
+  it("EN en/download.astro imports getLivePkgManagers from platforms.ts (data-driven)", () => {
+    expect(enDownload).toContain("getLivePkgManagers");
+  });
+
+  it("both pages render the pkg-managers block (data-testid)", () => {
+    expect(deDownload).toContain('data-testid="pkg-managers"');
+    expect(enDownload).toContain('data-testid="pkg-managers"');
   });
 });
