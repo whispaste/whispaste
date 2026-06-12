@@ -49,19 +49,21 @@ void main() {
   });
 
   group('OverlayVisualState enum', () {
-    test('contains exactly 5 states', () {
-      expect(OverlayVisualState.values, hasLength(5));
+    test('contains exactly 4 states', () {
+      expect(OverlayVisualState.values, hasLength(4));
+    });
+
+    test('does not contain removed processing state', () {
+      expect(
+        OverlayVisualState.values.map((e) => e.name),
+        isNot(contains('processing')),
+      );
     });
 
     test('state names match C++ OverlayVisualState', () {
       // C++ ParseState expects lowercase state names via MethodChannel.
-      const expected = [
-        'recording',
-        'transcribing',
-        'processing',
-        'done',
-        'error',
-      ];
+      // 'processing' was removed — native renderers are tolerant of missing fields.
+      const expected = ['recording', 'transcribing', 'done', 'error'];
       expect(OverlayVisualState.values.map((e) => e.name).toList(), expected);
     });
   });
@@ -203,7 +205,6 @@ void main() {
       expect(snap.state, OverlayVisualState.recording);
       expect(snap.elapsed, '0:12');
       expect(snap.hint, isNotEmpty);
-      expect(snap.showRetry, false);
       expect(snap.doneMessage, isNull);
     });
 
@@ -232,10 +233,9 @@ void main() {
       );
 
       expect(snap.doneMessage, 'Pasted!');
-      expect(snap.showRetry, false);
     });
 
-    test('error snapshot has retry flag and message', () {
+    test('error snapshot has error message', () {
       const snap = FloatingOverlaySnapshot(
         visible: true,
         state: OverlayVisualState.error,
@@ -243,11 +243,9 @@ void main() {
         compact: false,
         label: 'Error',
         errorMessage: 'Network timeout',
-        showRetry: true,
       );
 
       expect(snap.errorMessage, 'Network timeout');
-      expect(snap.showRetry, true);
     });
 
     test('hidden snapshot for auto-hide', () {

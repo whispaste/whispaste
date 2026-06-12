@@ -8,7 +8,7 @@ library;
 import 'floating_overlay_events.dart';
 
 /// Visual state of the overlay (matches C++ OverlayVisualState).
-enum OverlayVisualState { recording, transcribing, processing, done, error }
+enum OverlayVisualState { recording, transcribing, done, error }
 
 /// Anchor position mode for the overlay window.
 enum OverlayAnchorMode { topCenter, bottomCenter, topLeft }
@@ -29,9 +29,7 @@ class FloatingOverlaySnapshot {
     this.transcript,
     this.errorMessage,
     this.privacyMode = 'local',
-    this.showRetry = false,
     this.doneMessage,
-    this.processingLabel,
     this.progress = 0.0,
   });
 
@@ -45,9 +43,7 @@ class FloatingOverlaySnapshot {
   final String? transcript;
   final String? errorMessage;
   final String privacyMode;
-  final bool showRetry;
   final String? doneMessage;
-  final String? processingLabel;
 
   /// Recording progress (0.0–1.0). 0 = unlimited/no limit set.
   final double progress;
@@ -63,9 +59,7 @@ class FloatingOverlaySnapshot {
     'transcript': transcript,
     'errorMessage': errorMessage,
     'privacyMode': privacyMode,
-    'showRetry': showRetry,
     'doneMessage': doneMessage,
-    'processingLabel': processingLabel,
     'progress': progress,
   };
 }
