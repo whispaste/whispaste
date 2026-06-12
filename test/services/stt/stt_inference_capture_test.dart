@@ -715,6 +715,79 @@ void main() {
     });
   });
 
+  // ── Language field on the wire (store-review regression, June 2026) ─────
+
+  group('SttServerStateNotifier.transcribeBytes — language field', () {
+    late Directory tempDir;
+
+    setUp(() async {
+      tempDir = await _createFakeSttDir();
+    });
+
+    tearDown(() async {
+      paths.sttDirOverride = null;
+      await tempDir.delete(recursive: true);
+    });
+
+    /// Runs one inference with [language] and returns the value of the
+    /// `language` multipart field whisper-server would have received
+    /// (null = field absent from the request).
+    Future<String?> capturedLanguageField(String language) async {
+      final fakeProcess = _FakeProcess();
+      final runner = _FakeProcessRunner(fakeProcess);
+
+      String? captured;
+      var sawInference = false;
+      final client = MockClient((req) async {
+        if (req.url.path == '/health') return http.Response('ok', 200);
+        if (req.url.path == '/inference') {
+          sawInference = true;
+          captured = RegExp(
+            r'name="language"\r\n\r\n([^\r]*)',
+          ).firstMatch(req.body)?.group(1);
+          return http.Response('{"text":"ok"}', 200);
+        }
+        return http.Response('not found', 404);
+      });
+
+      final container = _makeContainer(runner: runner, httpClient: client);
+      addTearDown(() {
+        container.dispose();
+        fakeProcess.exit(0);
+      });
+
+      await _bringNotifierReady(container, fakeProcess);
+      final notifier = container.read(localSttBundleProvider.notifier);
+      await notifier.transcribeBytes(_validWav(), language: language);
+
+      expect(sawInference, isTrue, reason: 'request must reach /inference');
+      return captured;
+    }
+
+    test('auto is sent explicitly — an omitted field falls back to '
+        "whisper-server's startup default (en), not auto-detection", () async {
+      expect(await capturedLanguageField('auto'), 'auto');
+    });
+
+    test('an explicit language code is sent as-is', () async {
+      expect(await capturedLanguageField('de'), 'de');
+    });
+
+    test('catalog languages beyond the legacy four pass pre-flight '
+        '(store review: Russian was rejected)', () async {
+      expect(await capturedLanguageField('ru'), 'ru');
+      expect(await capturedLanguageField('he'), 'he');
+      expect(await capturedLanguageField('uk'), 'uk');
+    });
+
+    test('codes outside the Whisper catalog still reject pre-flight', () async {
+      await expectLater(
+        capturedLanguageField('xx'),
+        throwsA(isA<InferenceClientRejected>()),
+      );
+    });
+  });
+
   // ── Orchestrator dedup — the AppLogger auto-escalation MUST stay quiet ──
 
   // ── WAV-header repair: unpatched recordings still transcribe ─────────────

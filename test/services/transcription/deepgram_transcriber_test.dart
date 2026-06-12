@@ -220,6 +220,24 @@ void main() {
       expect(capturedUri?.queryParameters['language'], 'fr');
     });
 
+    test('auto language requests detect_language instead of Deepgram\'s '
+        'en default (store-review regression, June 2026)', () async {
+      Uri? capturedUri;
+      final client = MockClient((request) async {
+        capturedUri = request.url;
+        return http.Response(_deepgramResponse('privet'), 200);
+      });
+      final container = _makeContainer({'wp_deepgram_api_key': 'dg-test'});
+      addTearDown(container.dispose);
+
+      final transcriber = container.read(_testTranscriberProvider(client));
+      await transcriber.prepare();
+      await transcriber.transcribe(_silentWav(), language: 'auto');
+
+      expect(capturedUri?.queryParameters.containsKey('language'), isFalse);
+      expect(capturedUri?.queryParameters['detect_language'], 'true');
+    });
+
     test('uses model=nova-3 and smart_format=true query parameters', () async {
       Uri? capturedUri;
       final client = MockClient((request) async {

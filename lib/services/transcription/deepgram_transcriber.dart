@@ -54,8 +54,12 @@ class DeepgramTranscriber implements Transcriber {
     final queryParams = <String, String>{
       'model': _model,
       'smart_format': 'true',
+      // Deepgram defaults an omitted `language` to English — auto-detect
+      // must be requested explicitly via detect_language.
       if (language != null && language.isNotEmpty && language != 'auto')
-        'language': language,
+        'language': language
+      else
+        'detect_language': 'true',
     };
 
     final uri = Uri.parse(_baseEndpoint).replace(queryParameters: queryParams);

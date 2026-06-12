@@ -789,16 +789,15 @@ class RecordingOrchestrator extends Notifier<void> {
 
   /// Resolves the effective transcription language from [settings].
   ///
-  /// When the language code is empty or `"auto"`, falls back to the app
-  /// locale so local whisper models don't guess wrong (mirrors Go's
-  /// `GetEffectiveLocalTranscriptionLanguage` which uses UILanguage).
-  String? _resolveEffectiveLang(AppSettings settings) {
+  /// `"auto"` is passed through as-is so the whisper model performs real
+  /// language detection. The previous behavior (falling back to the app UI
+  /// locale, inherited from Go's `GetEffectiveLocalTranscriptionLanguage`)
+  /// silently forced every auto-detect user onto their UI language — a
+  /// Russian speaker on an English UI got English output (store review,
+  /// June 2026).
+  String _resolveEffectiveLang(AppSettings settings) {
     final language = settings.sttLanguageCode;
-    if (language.isNotEmpty && language != 'auto') return language;
-
-    final appLocale = ref.read(settingsProvider).value?.locale;
-    if (appLocale != null && appLocale.isNotEmpty) return appLocale;
-    return null;
+    return language.isEmpty ? 'auto' : language;
   }
 
   /// Collapses extraneous whitespace from a raw whisper transcript.
