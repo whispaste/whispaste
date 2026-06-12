@@ -115,6 +115,11 @@ ProviderContainer _makeContainer({
   return ProviderContainer(
     overrides: [
       processRunnerProvider.overrideWithValue(runner),
+      // Make the Windows pre-launch loader gate inert and host-OS-independent:
+      // these tests exercise the proactive shouldUseGpu/--no-gpu path, not the
+      // DLL gate. Without this the real probe sees an empty server dir on the
+      // Windows runner and short-circuits `_start` before the args are built.
+      backendLoaderGateProvider.overrideWithValue((_) => null),
       sttHttpClientProvider.overrideWithValue(_healthyClient()),
       settingsProvider.overrideWith(
         () => _FakeSettingsNotifier(

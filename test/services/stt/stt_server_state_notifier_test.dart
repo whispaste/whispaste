@@ -139,6 +139,11 @@ ProviderContainer _makeContainer({
   return ProviderContainer(
     overrides: [
       processRunnerProvider.overrideWithValue(runner),
+      // Make the Windows pre-launch loader gate inert and host-OS-independent.
+      // Replaces the old fragile workaround of writing a real vulkan-1.dll into
+      // the temp server dir — that only satisfied the Vulkan loader and still
+      // tripped on the Windows runner for CUDA-routed GPUs.
+      backendLoaderGateProvider.overrideWithValue((_) => null),
       sttHttpClientProvider.overrideWithValue(httpClient),
       settingsProvider.overrideWith(
         () => _FakeSettingsNotifier(

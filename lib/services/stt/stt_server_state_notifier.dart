@@ -145,6 +145,19 @@ bool isSttModelFileTooSmall(
 // SttServerStateNotifier
 // ---------------------------------------------------------------------------
 
+/// Injectable seam for the Windows pre-launch backend-loader DLL gate
+/// (`firstUnresolvableBackendLoaderDll`). The real implementation does
+/// Windows-only filesystem I/O — it probes the server dir + `System32` for the
+/// GPU build's load-time loader (`vulkan-1.dll` / the CUDA runtime). Routing the
+/// call through a provider lets tests make the gate deterministic on every host
+/// OS (the GPU-gating unit tests run on the Windows runner too, where the real
+/// probe would otherwise see an empty server dir and short-circuit `_start`
+/// before the `--no-gpu` args are built). Returns the name of the first
+/// unresolvable loader DLL, or null when every required loader is present.
+final backendLoaderGateProvider = Provider<String? Function(String)>(
+  (ref) => hw.firstUnresolvableBackendLoaderDll,
+);
+
 /// Riverpod [Notifier] that composes [SttExitClassifier], [SttGpuFallbackPolicy],
 /// [SttHealthProbe], [SttIdleTimer], [SttBenchmark] and [LocalSttServer] behind
 /// a single [SttStatus] surface.
@@ -1122,7 +1135,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     // classifier. The proactive `isServerBinaryCompatible` check above only
     // matches backend-to-GPU-vendor; it does not verify the loader is present.
     if (Platform.isWindows && gpuAcceleration != 'disabled') {
-      final missingLoader = hw.firstUnresolvableBackendLoaderDll(sttDir());
+      final missingLoader = ref.read(backendLoaderGateProvider)(sttDir());
       if (missingLoader != null) {
         _log.warning(
           'Pre-launch gate: GPU speech engine needs "$missingLoader" but the '
