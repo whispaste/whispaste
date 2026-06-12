@@ -1654,6 +1654,14 @@ class L10nHe extends L10n {
   String get errorRecordingStartFailed => 'לא הצלחתי להתחיל הקלטה. נסה שוב.';
 
   @override
+  String get errorCloudAuth =>
+      'מפתח ה-API חסר או שגוי. בדוק אותו בהגדרות ← זיהוי דיבור.';
+
+  @override
+  String get errorCloudQuota =>
+      'הגעת למגבלת הקצב של ספק הענן. המתן רגע ונסה שוב.';
+
+  @override
   String get errorGeneric => 'משהו השתבש. נסה שוב.';
 
   @override

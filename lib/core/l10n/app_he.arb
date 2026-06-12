@@ -598,6 +598,8 @@
   "errorTranscriptionTimeout": "התמלול לקח יותר מדי זמן. נסה הקלטה קצרה יותר.",
   "errorMicPermissionDenied": "נדרש גישה למיקרופון. אפשר בהגדרות המערכת.",
   "errorRecordingStartFailed": "לא הצלחתי להתחיל הקלטה. נסה שוב.",
+  "errorCloudAuth": "מפתח ה-API חסר או שגוי. בדוק אותו בהגדרות ← זיהוי דיבור.",
+  "errorCloudQuota": "הגעת למגבלת הקצב של ספק הענן. המתן רגע ונסה שוב.",
   "errorGeneric": "משהו השתבש. נסה שוב.",
   "modelDownloadFailed": "הורדה נכשלה. בדוק חיבור אינטרנט.",
   "statusSttLoading": "טוען מודל…",

@@ -1369,6 +1369,43 @@ void main() {
       expect(clipping.shouldShowBanner, isTrue);
     });
   });
+
+  // =========================================================================
+  // Cloud transcriber failures
+  // =========================================================================
+
+  group('Cloud transcriber failures', () {
+    test(
+      'missing Deepgram key fails with stable cloud_auth_error code',
+      () async {
+        // Regression: the raw TranscriberException prose ("Deepgram API key
+        // not set. …") used to reach the toast layer as the error code, which
+        // has no mapping and degraded to the generic "something went wrong"
+        // message with no hint at the actual problem.
+        container.dispose();
+        container = buildContainer(
+          const AppSettings(
+            stt: SttSettings(
+              provider: 'Deepgram',
+              model: 'whisper-small',
+              language: 'English',
+            ),
+            afterTranscriptionSection: AfterTranscriptionSettings(
+              afterTranscription: 'nothing',
+            ),
+            onboarding: OnboardingSettings(onboardingCompleted: true),
+          ),
+        );
+        final orch = await startRecordingPhase();
+
+        await orch.stopRecording();
+
+        final state = container.read(recordingProvider);
+        expect(state.phase, RecordingPhase.error);
+        expect(state.errorMessage, 'cloud_auth_error');
+      },
+    );
+  });
 }
 
 // ---------------------------------------------------------------------------
