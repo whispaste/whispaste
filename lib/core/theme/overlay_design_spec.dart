@@ -48,6 +48,9 @@ enum OverlayAnchor { topCenter, bottomCenter, lastPosition }
 class OverlayThemeColors {
   const OverlayThemeColors({
     required this.surface,
+    required this.capsuleFillStart,
+    required this.capsuleFillEnd,
+    required this.capsuleBorder,
     required this.text,
     required this.secondaryText,
     required this.border,
@@ -60,6 +63,17 @@ class OverlayThemeColors {
 
   /// Pill background fill (before the fill-opacity factor is applied).
   final Color surface;
+
+  /// Top-left stop of the capsule's tint gradient fill (approved spike design:
+  /// light `#F7FAFD`). The gradient runs top-left → bottom-right and is part of
+  /// the translucent pill chrome scaled by the opacity setting.
+  final Color capsuleFillStart;
+
+  /// Bottom-right stop of the capsule's tint gradient fill (light `#E6EEF5`).
+  final Color capsuleFillEnd;
+
+  /// Accent-tinted hairline capsule border (light `#330887A8`).
+  final Color capsuleBorder;
 
   /// Primary text (timer, done/error message).
   final Color text;
@@ -231,6 +245,10 @@ class OverlaySizeSpec {
   /// Secondary (elapsed during transcribing) text font size.
   final double secondaryFontSize;
 
+  /// Capsule corner radius — the approved spike pill is a full capsule
+  /// (`height / 2` → 32 normal, 20 compact), not the legacy [cornerRadius].
+  double get capsuleRadius => height / 2;
+
   /// The full normal-size spec — the canonical base all compact values scale
   /// from. Dimensions finalised here per ADR 0002.
   static const OverlaySizeSpec normal = OverlaySizeSpec(
@@ -297,6 +315,98 @@ class OverlaySizeSpec {
       secondaryFontSize: secondaryFontSize * s,
     );
   }
+}
+
+/// Hand-tuned per-size content layout, taken verbatim from the approved spike
+/// (`spike/lib/main.dart` `_drawPill`). These offsets are deliberately **not**
+/// derived from [OverlayDesignSpec.compactScale] — the spike spacing is its own
+/// approved truth, so the painter reads it from here instead of carrying magic
+/// numbers. All values are logical pixels relative to the pill box.
+@immutable
+class OverlayLayoutSpec {
+  const OverlayLayoutSpec({
+    required this.padH,
+    required this.closeArm,
+    required this.closeStroke,
+    required this.closeOffset,
+    required this.dotInset,
+    required this.dotRadius,
+    required this.timerGap,
+    required this.timerFontSize,
+    required this.waveStartGap,
+    required this.waveEndGap,
+    required this.stopSize,
+    required this.lineStrokeMin,
+  });
+
+  /// Inner horizontal padding (left/right), from the pill edge.
+  final double padH;
+
+  /// Half-length of one stroke of the close (✕) glyph.
+  final double closeArm;
+
+  /// Close-glyph stroke width (spike `1.6` normal / `1.4` compact).
+  final double closeStroke;
+
+  /// Close-glyph centre, measured from `left + padH`.
+  final double closeOffset;
+
+  /// Recording-dot / status-icon centre, measured from `left + padH`.
+  final double dotInset;
+
+  /// Recording-dot radius.
+  final double dotRadius;
+
+  /// Gap from the dot centre to the timer/label left edge.
+  final double timerGap;
+
+  /// Timer/label font size (semibold).
+  final double timerFontSize;
+
+  /// Gap from the timer/label right edge to the waveform left edge.
+  final double waveStartGap;
+
+  /// Gap kept between the waveform right edge and the stop square.
+  final double waveEndGap;
+
+  /// Stop-square side length (recording only).
+  final double stopSize;
+
+  /// Minimum waveform line stroke width (the line is the thicker of this and
+  /// `barWidth × waveformLineStrokeFactor`).
+  final double lineStrokeMin;
+
+  /// Normal-size layout (spike values, `_drawPill` non-compact branch).
+  static const OverlayLayoutSpec normal = OverlayLayoutSpec(
+    padH: 22,
+    closeArm: 4.0,
+    closeStroke: 1.6,
+    closeOffset: 5,
+    dotInset: 28,
+    dotRadius: 4.5,
+    timerGap: 16,
+    timerFontSize: 14,
+    waveStartGap: 18,
+    waveEndGap: 16,
+    stopSize: 12,
+    lineStrokeMin: 2.0,
+  );
+
+  /// Compact-size layout (spike values, `_drawPill` compact branch).
+  static const OverlayLayoutSpec compact = OverlayLayoutSpec(
+    padH: 16,
+    closeArm: 3.5,
+    closeStroke: 1.4,
+    closeOffset: 5,
+    dotInset: 20,
+    dotRadius: 3.5,
+    timerGap: 12,
+    timerFontSize: 12,
+    waveStartGap: 12,
+    waveEndGap: 10,
+    stopSize: 10,
+    lineStrokeMin: 1.5,
+  );
 }
 
 /// Calm animation timings. No glow, no shimmer — soft and slow by brand rule.
@@ -393,13 +503,91 @@ abstract final class OverlayDesignSpec {
   /// 15 pt timer to the compact 10 pt.
   static const double compactScale = 2 / 3;
 
-  /// The opacity setting multiplies ONLY the pill fill by this factor. Text,
-  /// icons and the waveform always stay fully opaque (accessibility, ADR 0002).
-  static const double fillOpacityFactor = 0.96;
+  /// Base alpha of the capsule's tint gradient fill (approved spike value
+  /// `0.92`). The opacity setting scales ONLY the translucent pill chrome
+  /// (fill gradient, painted shadow, border) by `fillOpacityFactor × opacity`;
+  /// the content layer (text, icons, dot, waveform, stop, timeline) always
+  /// stays fully opaque (accessibility, ADR 0002).
+  static const double fillOpacityFactor = 0.92;
 
   /// Recommended slider floor for the opacity setting — below this white text
   /// over a worst-case white background drops under WCAG AA (ADR 0002).
   static const double minRecommendedOpacity = 0.65;
+
+  // -- Capsule chrome (painted shadow + capsule shape) -----------------------
+
+  /// Painted soft-shadow colour (cross-platform, no OS blur). Alpha is applied
+  /// at paint time as `shadowOpacity × opacity`.
+  static const Color shadowColor = Color(0xFF000000);
+
+  /// Painted-shadow opacity at full master opacity (spike `0.20`).
+  static const double shadowOpacity = 0.20;
+
+  /// Painted-shadow Gaussian blur sigma (spike `MaskFilter.blur(normal, 7)`).
+  static const double shadowBlur = 7.0;
+
+  /// Painted-shadow offset (spike `(0, 3)`, i.e. cast downward).
+  static const Offset shadowOffset = Offset(0, 3);
+
+  /// Padding reserved on every side of the pill inside the native window so the
+  /// painted shadow is not clipped (spike: a 64 px pill in an 80 px window →
+  /// 8 px each side). [windowSize] adds this; the native shells must match it.
+  static const double shadowPadding = 8.0;
+
+  /// Resolves the hand-tuned per-size layout (spike `_drawPill`).
+  static OverlayLayoutSpec layout({required bool compact}) =>
+      compact ? OverlayLayoutSpec.compact : OverlayLayoutSpec.normal;
+
+  /// Full native-window size for one pill = pill box + [shadowPadding] on every
+  /// side. The pill itself is painted at `Offset(shadowPadding, shadowPadding)`.
+  static Size windowSize({required bool compact}) {
+    final s = size(compact: compact);
+    return Size(s.width + 2 * shadowPadding, s.height + 2 * shadowPadding);
+  }
+
+  // -- Stop square (recording only) ------------------------------------------
+
+  /// Stop-square corner radius (spike `2`).
+  static const double stopSquareRadius = 2.0;
+
+  /// Stop-square fill opacity over the content colour (spike `0.9`).
+  static const double stopSquareOpacity = 0.9;
+
+  // -- Bottom progress timeline (inset hairline) -----------------------------
+
+  /// Timeline inset from the pill bottom edge (spike `bottom − 6`).
+  static const double timelineInsetBottom = 6.0;
+
+  /// Timeline stroke width (spike `2`).
+  static const double timelineStrokeWidth = 2.0;
+
+  /// Trailing-stop opacity of the timeline accent gradient (spike `0.25`).
+  static const double timelineEndOpacity = 0.25;
+
+  // -- Waveform line rendering (thin accent lines) ---------------------------
+
+  /// Number of trailing (most-recent) bars drawn in the bright active accent;
+  /// the rest are drawn muted (spike `i > len − 5`).
+  static const int waveformActiveCount = 5;
+
+  /// Accent alpha for the active trailing bars (spike `0.95`).
+  static const double waveformActiveOpacity = 0.95;
+
+  /// Accent alpha for the muted leading bars while recording (spike `0.5`).
+  static const double waveformMutedLineOpacity = 0.50;
+
+  /// Accent alpha for the flat waveform shown outside recording (spike `0.3`).
+  static const double waveformInactiveStateOpacity = 0.30;
+
+  /// Fraction of the pill height the loudest bar may reach (spike `0.6`).
+  static const double waveformHeightFactor = 0.60;
+
+  /// Line stroke width as a fraction of the per-bar column width (spike `0.5`).
+  static const double waveformLineStrokeFactor = 0.5;
+
+  /// Flat rest level used for the faint waveform outside recording (spike
+  /// `0.06`).
+  static const double waveformRestLevel = 0.06;
 
   // -- Font weights (theme-wide, not scaled) ---------------------------------
 
@@ -417,6 +605,9 @@ abstract final class OverlayDesignSpec {
   /// Dark theme colour set.
   static const OverlayThemeColors dark = OverlayThemeColors(
     surface: Color(0xFF141926),
+    capsuleFillStart: Color(0xFF1E2738),
+    capsuleFillEnd: Color(0xFF12161F),
+    capsuleBorder: Color(0x3338D9F0),
     text: Color(0xFFF0F4FA),
     secondaryText: Color(0xFF8A99B2),
     border: Color(0x14FFFFFF),
@@ -430,6 +621,9 @@ abstract final class OverlayDesignSpec {
   /// Light theme colour set.
   static const OverlayThemeColors light = OverlayThemeColors(
     surface: Color(0xFFF0F3F7),
+    capsuleFillStart: Color(0xFFF7FAFD),
+    capsuleFillEnd: Color(0xFFE6EEF5),
+    capsuleBorder: Color(0x330887A8),
     text: Color(0xFF101828),
     secondaryText: Color(0xFF5B697E),
     border: Color(0x140F172A),
@@ -504,7 +698,8 @@ abstract final class OverlayDesignSpec {
     spinnerPeriod: Duration(milliseconds: 750),
     stateTransition: Duration(milliseconds: 200),
     frameRateFps: 30,
-    dotPulseMinAlpha: 0.45,
+    // Approved spike pulse range is 0.6 .. 1.0 (`0.6 + 0.4 × …`).
+    dotPulseMinAlpha: 0.6,
   );
 
   // -- Interaction -----------------------------------------------------------

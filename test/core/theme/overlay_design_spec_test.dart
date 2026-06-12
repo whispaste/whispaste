@@ -183,9 +183,86 @@ void main() {
   });
 
   group('OverlayDesignSpec — accessibility', () {
-    test('opacity affects only the fill; floor is WCAG-safe', () {
-      expect(OverlayDesignSpec.fillOpacityFactor, 0.96);
+    test('opacity affects only the chrome; floor is WCAG-safe', () {
+      // Approved spike fill alpha is 0.92; the factor scales only the pill
+      // chrome (fill gradient, shadow, border), never the content.
+      expect(OverlayDesignSpec.fillOpacityFactor, 0.92);
       expect(OverlayDesignSpec.minRecommendedOpacity, 0.65);
+    });
+  });
+
+  group('OverlayDesignSpec — approved spike capsule design', () {
+    test('the pill is a capsule (radius = height / 2)', () {
+      expect(OverlayDesignSpec.normalSize.capsuleRadius, 32);
+      expect(OverlayDesignSpec.compactSize.capsuleRadius, 20);
+    });
+
+    test('per-theme tint-gradient fill stops + accent border exist', () {
+      // Light is the verbatim approved spike palette.
+      expect(OverlayDesignSpec.light.capsuleFillStart, const Color(0xFFF7FAFD));
+      expect(OverlayDesignSpec.light.capsuleFillEnd, const Color(0xFFE6EEF5));
+      expect(OverlayDesignSpec.light.capsuleBorder, const Color(0x330887A8));
+      // Dark provides an analogous, distinct set (never half-defined).
+      expect(
+        OverlayDesignSpec.dark.capsuleFillStart,
+        isNot(OverlayDesignSpec.light.capsuleFillStart),
+      );
+      expect(
+        OverlayDesignSpec.dark.capsuleFillEnd,
+        isNot(OverlayDesignSpec.light.capsuleFillEnd),
+      );
+    });
+
+    test(
+      'painted-shadow tokens match the spike (α0.20, blur 7, offset 0,3)',
+      () {
+        expect(OverlayDesignSpec.shadowOpacity, 0.20);
+        expect(OverlayDesignSpec.shadowBlur, 7.0);
+        expect(OverlayDesignSpec.shadowOffset, const Offset(0, 3));
+        expect(OverlayDesignSpec.shadowPadding, 8.0);
+      },
+    );
+
+    test('windowSize = pill box + shadow padding on every side', () {
+      expect(OverlayDesignSpec.windowSize(compact: false), const Size(346, 80));
+      expect(OverlayDesignSpec.windowSize(compact: true), const Size(236, 56));
+    });
+
+    test('stop-square + timeline tokens are the spike values', () {
+      expect(OverlayDesignSpec.stopSquareRadius, 2.0);
+      expect(OverlayDesignSpec.stopSquareOpacity, 0.9);
+      expect(OverlayDesignSpec.timelineInsetBottom, 6.0);
+      expect(OverlayDesignSpec.timelineStrokeWidth, 2.0);
+      expect(OverlayDesignSpec.timelineEndOpacity, 0.25);
+    });
+
+    test('waveform line rendering tokens are the spike values', () {
+      expect(OverlayDesignSpec.waveformActiveCount, 5);
+      expect(OverlayDesignSpec.waveformActiveOpacity, 0.95);
+      expect(OverlayDesignSpec.waveformMutedLineOpacity, 0.50);
+      expect(OverlayDesignSpec.waveformInactiveStateOpacity, 0.30);
+      expect(OverlayDesignSpec.waveformHeightFactor, 0.60);
+      expect(OverlayDesignSpec.waveformLineStrokeFactor, 0.5);
+      expect(OverlayDesignSpec.waveformRestLevel, 0.06);
+    });
+
+    test('recording dot pulse floor is the spike 0.6', () {
+      expect(OverlayDesignSpec.motion.dotPulseMinAlpha, 0.6);
+    });
+
+    test('layout offsets match the spike _drawPill (normal + compact)', () {
+      const n = OverlayLayoutSpec.normal;
+      const c = OverlayLayoutSpec.compact;
+      expect(
+        [n.padH, n.dotInset, n.timerGap, n.stopSize, n.timerFontSize],
+        [22, 28, 16, 12, 14],
+      );
+      expect(
+        [c.padH, c.dotInset, c.timerGap, c.stopSize, c.timerFontSize],
+        [16, 20, 12, 10, 12],
+      );
+      expect(OverlayDesignSpec.layout(compact: false), same(n));
+      expect(OverlayDesignSpec.layout(compact: true), same(c));
     });
   });
 
