@@ -12,7 +12,10 @@ import {
   DIAGNOSE_WINDOWS_URL,
   DIAGNOSE_MACOS_URL,
   GITHUB_REPO_URL,
+  getLivePkgManagers,
 } from "../data/platforms.ts";
+
+const livePkgManagers = getLivePkgManagers();
 
 const lang = (Astro.currentLocale === "en" ? "en" : "de") as "de" | "en";
 const breadcrumbItems = [
@@ -267,8 +270,8 @@ const breadcrumbItems = [
           </div>
         </div>
 
-        <!-- Section 5: Package managers (power users) -->
-        <div class="download-card rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 sm:p-8 mb-6">
+        <!-- Section 5: Package managers (power users) — data-driven from platforms.ts SSoT -->
+        <div class="download-card rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 sm:p-8 mb-6" data-testid="pkg-managers">
           <div class="flex items-start gap-3 mb-5">
             <div class="shrink-0 w-10 h-10 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center">
               <svg class="w-5 h-5 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg>
@@ -278,11 +281,22 @@ const breadcrumbItems = [
               <p class="text-gray-400 text-sm mt-1" data-i18n="download.pkg.desc">{t(lang, "download.pkg.desc")}</p>
             </div>
           </div>
-          <div class="rounded-xl border border-white/10 bg-black/30 p-4 font-mono text-xs sm:text-sm text-gray-200 overflow-x-auto" data-testid="pkg-scoop">
-            <div class="text-gray-500 mb-1"># Windows · Scoop</div>
-            <div>scoop bucket add whispaste https://github.com/whispaste/scoop-bucket</div>
-            <div>scoop install whispaste</div>
-          </div>
+          {livePkgManagers.map((ch) => (
+            <div class="rounded-xl border border-white/10 bg-black/30 p-4 font-mono text-xs sm:text-sm text-gray-200 overflow-x-auto mb-3 last:mb-0" data-testid={`pkg-${ch.id}`}>
+              <div class="flex items-center justify-between mb-1">
+                <div class="text-gray-500">{ch.comment[lang]}</div>
+                <button
+                  class="text-xs text-gray-400 hover:text-gray-200 transition-colors px-2 py-0.5 rounded border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] font-sans"
+                  data-copy-text={ch.commands.join('\n')}
+                  data-copy-feedback={t(lang, "download.pkg.copied")}
+                  aria-label={t(lang, "download.pkg.copyBtn")}
+                >{t(lang, "download.pkg.copyBtn")}</button>
+              </div>
+              {ch.commands.map((cmd) => (
+                <div>{cmd}</div>
+              ))}
+            </div>
+          ))}
         </div>
 
         <!-- Diagnose: Sprachdienst-Fehler -->
@@ -384,6 +398,19 @@ const breadcrumbItems = [
 
     applyLang();
     updateThemeIcon();
+
+    // Copy-to-clipboard for package manager command blocks.
+    document.querySelectorAll<HTMLButtonElement>('[data-copy-text]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const text = btn.dataset.copyText ?? '';
+        const feedback = btn.dataset.copyFeedback ?? 'Copied!';
+        navigator.clipboard.writeText(text).then(() => {
+          const orig = btn.textContent ?? '';
+          btn.textContent = feedback;
+          setTimeout(() => { btn.textContent = orig; }, 2000);
+        }).catch(() => { /* clipboard permission denied — silent fail */ });
+      });
+    });
   </script>
 
   <BreadcrumbListSchema items={breadcrumbItems} />
