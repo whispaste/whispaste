@@ -143,6 +143,29 @@ while read -r local_ref local_sha remote_ref remote_sha; do
       echo "  Match (truncated): $(echo "$secret_match" | cut -c1-40)"
       violations=1
     fi
+
+    # ── L4.5: Contributor hygiene — no bot author / committer / trailer ──
+    # GitHub builds its Contributors list from commit authors AND
+    # `Co-authored-by:` trailers. Solo project → only Silvio may appear.
+    # This backstops the commit-msg hook (catches rebases / --no-verify).
+    BOT_RE='(co-?pilot|anthropic|claude|github-actions|dependabot|\[bot\]|users\.noreply\.github\.com|noreply@github\.com)'
+    ident=$(git log -1 --format='%an <%ae>%n%cn <%ce>' "$commit" 2>/dev/null || true)
+    if echo "$ident" | grep -qiE "$BOT_RE"; then
+      print_block_header "bot author/committer in pushed commit"
+      echo "  Commit: $commit"
+      echo "$ident" | sed 's/^/    /'
+      violations=1
+    fi
+    trailer=$(git log -1 --format='%B' "$commit" 2>/dev/null \
+      | grep -iE '^[[:space:]]*(co-?authored-by:|generated-by:|assisted-by:|helped-by:|🤖[[:space:]]*generated|generated with \[?(claude|copilot)|.*generated with \[?claude code)' \
+      | head -1 || true)
+    if [ -n "$trailer" ]; then
+      print_block_header "AI/co-author trailer in pushed commit"
+      echo "  Commit: $commit"
+      echo "    $(echo "$trailer" | cut -c1-72)"
+      echo "  Strip it: git rebase -i to edit the message, or re-run with the commit-msg hook active."
+      violations=1
+    fi
   done
 done
 

@@ -1,0 +1,74 @@
+#!/bin/bash
+# ╔═════════════════════════════════════════════════════════════════════╗
+# ║  WhisPaste Commit-Msg Guard — Contributor Hygiene                   ║
+# ║                                                                     ║
+# ║  Solo project: Silvio Lindstedt is the ONLY author/contributor.     ║
+# ║  GitHub builds its "Contributors" sidebar from commit authors AND   ║
+# ║  from `Co-authored-by:` trailers (email → account). Any AI/bot      ║
+# ║  trailer or bot author identity pollutes that list permanently      ║
+# ║  (it survives in PR refs even after a history rewrite).             ║
+# ║                                                                     ║
+# ║  This hook does two things on every commit:                         ║
+# ║    1. STRIPS all co-author / AI-marker trailers from the message.   ║
+# ║    2. BLOCKS commits whose author OR committer identity is a bot.   ║
+# ║                                                                     ║
+# ║  Install: bash scripts/install-hooks.sh                             ║
+# ║  Tracked in the repo so it survives cloning.                        ║
+# ╚═════════════════════════════════════════════════════════════════════╝
+
+set -e
+
+MSG_FILE="$1"
+[ -z "$MSG_FILE" ] && exit 0
+
+# ── 1. Block bot author / committer identities ────────────────────────
+# Denylist of identity fragments that must never author or commit here.
+BOT_IDENTITY_RE='(co-?pilot|anthropic|claude|github-actions|dependabot|\[bot\]|users\.noreply\.github\.com|noreply@github\.com)'
+
+AUTHOR_IDENT="$(git var GIT_AUTHOR_IDENT 2>/dev/null || echo '')"
+COMMITTER_IDENT="$(git var GIT_COMMITTER_IDENT 2>/dev/null || echo '')"
+
+if echo "$AUTHOR_IDENT"    | grep -qiE "$BOT_IDENTITY_RE" \
+|| echo "$COMMITTER_IDENT" | grep -qiE "$BOT_IDENTITY_RE"; then
+  echo ""
+  echo "╔═══════════════════════════════════════════════════════════╗"
+  echo "║  ✗ COMMIT BLOCKED — bot author/committer identity          ║"
+  echo "╠═══════════════════════════════════════════════════════════╣"
+  echo "║  This repo allows exactly ONE contributor (Silvio).        ║"
+  echo "║  Author:    $AUTHOR_IDENT"
+  echo "║  Committer: $COMMITTER_IDENT"
+  echo "║                                                            ║"
+  echo "║  Fix your identity:                                        ║"
+  echo "║    git config user.name  'Silvio Lindstedt'                ║"
+  echo "║    git config user.email 'silvio-lindstedt@outlook.com'    ║"
+  echo "╚═══════════════════════════════════════════════════════════╝"
+  echo ""
+  exit 1
+fi
+
+# ── 2. Strip co-author / AI-marker / bot trailers from the message ────
+# Matched lines are removed silently-but-reported. Covers:
+#   Co-authored-by:, Co-Authored-By: (any author — solo project)
+#   🤖 Generated with ... / Generated with [Claude Code] / Generated-by:
+#   Assisted-by:, Helped-by:, Signed-off-by: <bot>, Authored-by: <bot>
+STRIP_RE='^[[:space:]]*(co-?authored-by:|generated-by:|assisted-by:|helped-by:|🤖[[:space:]]*generated|generated with \[?(claude|copilot)|.*generated with \[?claude code\]?|(signed-off-by|authored-by):.*'"$BOT_IDENTITY_RE"')'
+
+if grep -qiE "$STRIP_RE" "$MSG_FILE"; then
+  STRIPPED="$(grep -iE "$STRIP_RE" "$MSG_FILE" || true)"
+  # Remove the offending lines.
+  grep -ivE "$STRIP_RE" "$MSG_FILE" > "$MSG_FILE.tmp" || true
+  # Collapse 3+ blank lines (left by removals) down to a single blank line,
+  # and trim trailing blank lines at EOF.
+  awk 'BEGIN{blank=0}
+       /^[[:space:]]*$/{blank++; next}
+       {while(blank>0 && NR>1){print ""; blank--} ; print; blank=0}
+       END{}' "$MSG_FILE.tmp" > "$MSG_FILE"
+  rm -f "$MSG_FILE.tmp"
+  echo ""
+  echo "  ⚠  commit-msg guard stripped contributor-polluting trailer(s):"
+  echo "$STRIPPED" | sed 's/^/       removed: /'
+  echo "     (solo project — only Silvio appears as contributor)"
+  echo ""
+fi
+
+exit 0
