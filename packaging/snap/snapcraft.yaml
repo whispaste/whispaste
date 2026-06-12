@@ -22,8 +22,16 @@
 # Per-release the maintainer bumps `version` + the `source` (tag URL) of the
 # `whispaste-bundle` part — see packaging/snap/README.md for the runbook.
 name: whispaste
+title: WhisPaste
 base: core24
 version: '0.0.0'
+license: MIT
+website: https://whispaste.de/
+contact: https://github.com/whispaste/whispaste/issues
+issues: https://github.com/whispaste/whispaste/issues
+source-code: https://github.com/whispaste/whispaste
+# Store icon (also satisfies the desktop file's Icon=de.whispaste.app lookup).
+icon: de.whispaste.app.png
 summary: 'Voice-input tool: hotkey, speak, paste anywhere'
 description: |
   WhisPaste is a voice-input tool. Press a global hotkey, speak, and the
@@ -85,20 +93,12 @@ apps:
       - desktop  # appindicator/StatusNotifier rides the desktop session bus
 
 parts:
-  # Stage the prebuilt Linux x86_64 release bundle (no Flutter rebuild).
-  whispaste-bundle:
-    plugin: dump
-    # Per-release: bump `source` to the tag's tarball asset. Until the first
-    # Linux release tag exists this is a documented placeholder — CI validates
-    # the manifest *shape*; the real archive is pinned at submission time.
-    source: https://github.com/whispaste/whispaste/releases/download/v0.0.0/WhisPaste-0.0.0-linux-x64.tar.gz
-    source-type: tar
-    organize:
-      # The bundle root (whispaste executable, lib/, data/) lands under
-      # $SNAP/whispaste; the launcher symlink is created in the desktop part.
-      '*': whispaste/
-    # Runtime shared libraries the bundle links against — mirrors the -dev
-    # packages installed in release.yml `build-linux` (runtime soname siblings).
+  # Runtime shared libraries the bundle links against — mirrors the -dev packages
+  # installed in release.yml `build-linux` (runtime soname siblings). Kept in a
+  # separate part so they stage under $SNAP/usr/... and never get folded into the
+  # bundle directory below.
+  runtime-libs:
+    plugin: nil
     stage-packages:
       - libgtk-3-0
       - libsecret-1-0
@@ -110,8 +110,25 @@ parts:
       - liblzma5
       - zlib1g
 
-  # Desktop entry + AppStream metainfo + icon + launcher symlink. Reuses the
-  # single packaging source (packaging/flatpak/*) — no duplication.
+  # Stage the prebuilt Linux x86_64 release bundle (no Flutter rebuild) under
+  # $SNAP/whispaste. Per-release: bump `source` to the tag's tarball asset.
+  # Until the first Linux release tag exists this is a documented placeholder —
+  # CI validates the manifest *shape*; the real archive is pinned at submission.
+  whispaste-bundle:
+    plugin: dump
+    source: https://github.com/whispaste/whispaste/releases/download/v0.0.0/WhisPaste-0.0.0-linux-x64.tar.gz
+    source-type: tar
+    # The tarball root contains a file named `whispaste` alongside lib/ and
+    # data/, so `organize: '*': whispaste/` collides with that file
+    # (FileExistsError). Copy the pulled bundle into whispaste/ explicitly.
+    override-build: |
+      install -d "${CRAFT_PART_INSTALL}/whispaste"
+      cp --archive "${CRAFT_PART_BUILD}/." "${CRAFT_PART_INSTALL}/whispaste/"
+
+  # Desktop entry + AppStream metainfo + icon + launcher symlink. The source
+  # files are snap-local copies (kept in sync with packaging/flatpak/*): under
+  # strict managed builds snapcraft only mounts THIS project directory, so the
+  # part cannot reach ../flatpak or ../../assets.
   whispaste-desktop:
     after: [whispaste-bundle]
     plugin: nil
@@ -120,9 +137,9 @@ parts:
       craftctl default
       install -d "$CRAFT_PART_INSTALL/bin"
       ln -sf ../whispaste/whispaste "$CRAFT_PART_INSTALL/bin/whispaste"
-      install -Dm644 "$CRAFT_PROJECT_DIR/../flatpak/de.whispaste.app.desktop" \
+      install -Dm644 "$CRAFT_PROJECT_DIR/de.whispaste.app.desktop" \
         "$CRAFT_PART_INSTALL/usr/share/applications/de.whispaste.app.desktop"
-      install -Dm644 "$CRAFT_PROJECT_DIR/../flatpak/de.whispaste.app.metainfo.xml" \
+      install -Dm644 "$CRAFT_PROJECT_DIR/de.whispaste.app.metainfo.xml" \
         "$CRAFT_PART_INSTALL/usr/share/metainfo/de.whispaste.app.metainfo.xml"
-      install -Dm644 "$CRAFT_PROJECT_DIR/../../assets/icons/app_icon_512.png" \
+      install -Dm644 "$CRAFT_PROJECT_DIR/de.whispaste.app.png" \
         "$CRAFT_PART_INSTALL/usr/share/icons/hicolor/512x512/apps/de.whispaste.app.png"
