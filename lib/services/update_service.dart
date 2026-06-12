@@ -19,6 +19,7 @@ import '../core/app_info.dart';
 import '../core/logging/app_logger.dart';
 import '../core/recording/recording_state.dart';
 import 'deploy_channel_service.dart';
+import 'update/mac_update_installer.dart';
 
 final _log = AppLogger('Update');
 
@@ -125,6 +126,27 @@ class UpdateNotifier extends Notifier<UpdateState> {
   /// sprint Modul 6).
   @visibleForTesting
   static Dio? dioOverrideForTesting;
+
+  /// Test-only seam for the macOS update swap. When set, [installUpdate] calls
+  /// this instead of spawning the real detached helper, so tests observe the
+  /// resolved (dmg, target) arguments without mounting or relaunching.
+  @visibleForTesting
+  static MacUpdateInstaller? macInstallerOverrideForTesting;
+
+  /// Test-only seam for resolving the running app bundle on macOS. Returning a
+  /// path drives the swap; returning `null` drives the manual-install fallback.
+  @visibleForTesting
+  static String? Function()? macBundlePathOverrideForTesting;
+
+  /// Test-only seam for process exit. When set, [installUpdate] calls this
+  /// instead of `exit(0)` so the test runner is not terminated.
+  @visibleForTesting
+  static void Function(int code)? exitOverrideForTesting;
+
+  /// Test-only seam for the macOS manual-install fallback (open the DMG). When
+  /// set, [installUpdate] calls this instead of spawning a real `open` process.
+  @visibleForTesting
+  static Future<void> Function(String dmgPath)? macOpenDmgOverrideForTesting;
 
   @override
   UpdateState build() {
@@ -379,13 +401,30 @@ class UpdateNotifier extends Notifier<UpdateState> {
 
     try {
       if (Platform.isMacOS) {
-        // Open the DMG — macOS mounts it and the user drags to Applications.
-        // Don't exit: user needs to complete drag-install manually.
-        await Process.start('open', [
-          installerPath,
-        ], mode: ProcessStartMode.detached);
-        state = state.copyWith(phase: UpdatePhase.idle);
-        return;
+        final bundle =
+            (macBundlePathOverrideForTesting ?? resolveMacAppBundlePath)();
+        if (bundle == null) {
+          // Dev / non-bundle context — no valid `.app` to swap. Fall back to
+          // opening the DMG so the user can install manually.
+          _log.info(
+            'No resolvable .app bundle — opening DMG for manual install',
+          );
+          final openDmg =
+              macOpenDmgOverrideForTesting ??
+              (path) async {
+                await Process.start('open', [
+                  path,
+                ], mode: ProcessStartMode.detached);
+              };
+          await openDmg(installerPath);
+          state = state.copyWith(phase: UpdatePhase.idle);
+          return;
+        }
+        // Spawn the detached helper that swaps the new bundle in once we exit,
+        // then exit — exactly like the Windows installer flow.
+        final installer =
+            macInstallerOverrideForTesting ?? const DefaultMacUpdateInstaller();
+        await installer.swap(dmgPath: installerPath, targetBundlePath: bundle);
       } else {
         // Windows: launch the NSIS installer which handles everything.
         await Process.start(
@@ -395,9 +434,9 @@ class UpdateNotifier extends Notifier<UpdateState> {
         );
       }
 
-      // Give the installer a moment to start before we exit.
+      // Give the helper/installer a moment to start before we exit.
       await Future<void>.delayed(const Duration(milliseconds: 500));
-      exit(0);
+      (exitOverrideForTesting ?? exit)(0);
     } catch (e, st) {
       _log.error('Failed to launch installer', e, st);
       state = state.copyWith(
