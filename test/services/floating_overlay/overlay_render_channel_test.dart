@@ -82,17 +82,14 @@ void main() {
   });
 
   group('OverlayRenderChannel — outbound (render engine → native)', () {
-    test('startDrag / bodyClicked / showContextMenu invoke the host',
-        () async {
+    test('startDrag / bodyClicked / showContextMenu invoke the host', () async {
       final calls = <String>[];
       const probe = MethodChannel(name);
       binaryMessenger.setMockMethodCallHandler(probe, (call) async {
         calls.add(call.method);
         return null;
       });
-      addTearDown(
-        () => binaryMessenger.setMockMethodCallHandler(probe, null),
-      );
+      addTearDown(() => binaryMessenger.setMockMethodCallHandler(probe, null));
 
       final channel = OverlayRenderChannel(
         name: name,

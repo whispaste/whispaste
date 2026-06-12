@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/config/settings_enums.dart';
 import '../../core/config/settings_labels.dart';
 import '../../core/config/settings_provider.dart';
+import '../../core/theme/overlay_design_spec.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/logging/app_logger.dart';
 import '../../core/recording/recording_state.dart';
@@ -170,7 +171,7 @@ class FloatingOverlayService
 
     _l10n = _resolveL10n();
     _sendContextMenuItems();
-    c.setOpacity(s.floatingOverlayOpacity);
+    c.setOpacity(OverlayDesignSpec.masterOpacity);
 
     final phase = ref.read(recordingPhaseProvider);
     if (phase != RecordingPhase.idle) {

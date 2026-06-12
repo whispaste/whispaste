@@ -219,7 +219,7 @@ void main() {
     );
 
     testWidgets(
-      'nested size dropdown and opacity slider hidden when showFloatingButton is false',
+      'nested size dropdown hidden when showFloatingButton is false',
       (tester) async {
         if (!_isFloatingButtonPlatform) return; // Platform guard.
 
@@ -241,28 +241,27 @@ void main() {
       },
     );
 
-    testWidgets(
-      'nested size dropdown and opacity slider visible when showFloatingButton is true',
-      (tester) async {
-        if (!_isFloatingButtonPlatform) return; // Platform guard.
+    testWidgets('nested size dropdown visible when showFloatingButton is true', (
+      tester,
+    ) async {
+      if (!_isFloatingButtonPlatform) return; // Platform guard.
 
-        final notifier = _FakeSettingsNotifier(
-          AppSettings.defaults.copyWithSections(
-            overlay: const OverlaySettings(showFloatingButton: true),
-          ),
-        );
-        await tester.pumpWidget(
-          makeTestable(
-            const SingleChildScrollView(child: FloatingButtonSection()),
-            overrides: [settingsProvider.overrideWith(() => notifier)],
-          ),
-        );
-        await tester.pumpAndSettle();
+      final notifier = _FakeSettingsNotifier(
+        AppSettings.defaults.copyWithSections(
+          overlay: const OverlaySettings(showFloatingButton: true),
+        ),
+      );
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: FloatingButtonSection()),
+          overrides: [settingsProvider.overrideWith(() => notifier)],
+        ),
+      );
+      await tester.pumpAndSettle();
 
-        // Size dropdown + opacity slider.
-        expect(find.byType(DropdownButton<String>), findsOneWidget);
-        expect(find.byType(Slider), findsOneWidget);
-      },
-    );
+      // Size dropdown visible; opacity slider removed (issue 11 — fixed opacity).
+      expect(find.byType(DropdownButton<String>), findsOneWidget);
+      expect(find.byType(Slider), findsNothing);
+    });
   });
 }

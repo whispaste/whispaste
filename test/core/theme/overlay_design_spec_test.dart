@@ -58,15 +58,12 @@ void main() {
       );
     });
 
-    test(
-      'dark and light resolve to the SAME single spike design',
-      () {
-        // ADR 0002 / the approved spike (web-parity-board) defines one capsule
-        // design — a light teal tint-gradient capsule shown identically over
-        // light AND dark backgrounds. There is no separate dark variant.
-        expect(OverlayDesignSpec.dark, same(OverlayDesignSpec.light));
-      },
-    );
+    test('dark and light resolve to the SAME single spike design', () {
+      // ADR 0002 / the approved spike (web-parity-board) defines one capsule
+      // design — a light teal tint-gradient capsule shown identically over
+      // light AND dark backgrounds. There is no separate dark variant.
+      expect(OverlayDesignSpec.dark, same(OverlayDesignSpec.light));
+    });
 
     test('accent is the finalised spike teal in BOTH themes', () {
       expect(OverlayDesignSpec.light.accent, const Color(0xFF0887A8));
@@ -190,22 +187,27 @@ void main() {
       expect(OverlayDesignSpec.compactSize.capsuleRadius, 20);
     });
 
-    test('tint-gradient fill stops + accent border are the verbatim spike set',
-        () {
-      // The single approved spike palette (used for both themes).
-      expect(OverlayDesignSpec.light.capsuleFillStart, const Color(0xFFF7FAFD));
-      expect(OverlayDesignSpec.light.capsuleFillEnd, const Color(0xFFE6EEF5));
-      expect(OverlayDesignSpec.light.capsuleBorder, const Color(0x330887A8));
-      // Dark renders the same single design.
-      expect(
-        OverlayDesignSpec.dark.capsuleFillStart,
-        OverlayDesignSpec.light.capsuleFillStart,
-      );
-      expect(
-        OverlayDesignSpec.dark.capsuleFillEnd,
-        OverlayDesignSpec.light.capsuleFillEnd,
-      );
-    });
+    test(
+      'tint-gradient fill stops + accent border are the verbatim spike set',
+      () {
+        // The single approved spike palette (used for both themes).
+        expect(
+          OverlayDesignSpec.light.capsuleFillStart,
+          const Color(0xFFF7FAFD),
+        );
+        expect(OverlayDesignSpec.light.capsuleFillEnd, const Color(0xFFE6EEF5));
+        expect(OverlayDesignSpec.light.capsuleBorder, const Color(0x330887A8));
+        // Dark renders the same single design.
+        expect(
+          OverlayDesignSpec.dark.capsuleFillStart,
+          OverlayDesignSpec.light.capsuleFillStart,
+        );
+        expect(
+          OverlayDesignSpec.dark.capsuleFillEnd,
+          OverlayDesignSpec.light.capsuleFillEnd,
+        );
+      },
+    );
 
     test(
       'painted-shadow tokens match the spike (α0.20, blur 7, offset 0,3)',

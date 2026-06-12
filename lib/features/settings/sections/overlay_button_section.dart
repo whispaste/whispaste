@@ -127,26 +127,6 @@ class OverlaySection extends ConsumerWidget {
                 },
               ),
             ),
-            const Divider(height: 1),
-            SettingRow(
-              icon: LucideIcons.sun,
-              label: l10n.settingsFloatingOverlayOpacity,
-              subtitle: l10n.settingsFloatingOverlayOpacitySubtitle,
-              trailing: settingsSlider(
-                context: context,
-                value: settings.floatingOverlayOpacity,
-                min: 0.3,
-                max: 1.0,
-                divisions: 7,
-                valueLabel:
-                    '${(settings.floatingOverlayOpacity * 100).round()}%',
-                onChanged: (v) => ref
-                    .read(settingsProvider.notifier)
-                    .updateSettings(
-                      (s) => s.copyWith(floatingOverlayOpacity: v),
-                    ),
-              ),
-            ),
           ],
         ],
       ),
@@ -207,25 +187,6 @@ class FloatingButtonSection extends ConsumerWidget {
                       .read(settingsProvider.notifier)
                       .updateSettings((s) => s.copyWith(floatingButtonSize: v));
                 },
-              ),
-            ),
-            SettingRow(
-              icon: LucideIcons.sun,
-              label: l10n.settingsFloatingButtonOpacity,
-              subtitle: l10n.settingsFloatingButtonOpacitySubtitle,
-              trailing: settingsSlider(
-                context: context,
-                value: settings.floatingButtonOpacity,
-                min: 0.3,
-                max: 1.0,
-                divisions: 7,
-                valueLabel:
-                    '${(settings.floatingButtonOpacity * 100).round()}%',
-                onChanged: (v) => ref
-                    .read(settingsProvider.notifier)
-                    .updateSettings(
-                      (s) => s.copyWith(floatingButtonOpacity: v),
-                    ),
               ),
             ),
           ],

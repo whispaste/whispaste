@@ -248,19 +248,9 @@ void main() {
       expect(_roundtrip(s).showFloatingButton, isTrue);
     });
 
-    test('floatingButtonOpacity survives roundtrip', () {
-      final s = AppSettings.defaults.copyWith(floatingButtonOpacity: 0.5);
-      expect(_roundtrip(s).floatingButtonOpacity, 0.5);
-    });
-
     test('floatingButtonSize large survives roundtrip', () {
       final s = AppSettings.defaults.copyWith(floatingButtonSize: 'large');
       expect(_roundtrip(s).floatingButtonSize, 'large');
-    });
-
-    test('floatingOverlayOpacity survives roundtrip', () {
-      final s = AppSettings.defaults.copyWith(floatingOverlayOpacity: 0.7);
-      expect(_roundtrip(s).floatingOverlayOpacity, 0.7);
     });
 
     // --- Cloud Provider (API keys excluded from SQLite) ---
@@ -695,9 +685,7 @@ void main() {
         overlaySize: 'compact',
         overlayAutoHide: 'manual',
         showFloatingButton: true,
-        floatingButtonOpacity: 0.8,
         floatingButtonSize: 'small',
-        floatingOverlayOpacity: 0.6,
       );
       final map = s.toStorageMap();
       expect(map['show_overlay'], 'true');
@@ -706,9 +694,10 @@ void main() {
       expect(map['overlay_size'], 'compact');
       expect(map['overlay_auto_hide'], 'manual');
       expect(map['show_floating_button'], 'true');
-      expect(map['floating_button_opacity'], '0.8');
       expect(map['floating_button_size'], 'small');
-      expect(map['floating_overlay_opacity'], '0.6');
+      // Opacity keys are no longer written (issue 11).
+      expect(map.containsKey('floating_button_opacity'), isFalse);
+      expect(map.containsKey('floating_overlay_opacity'), isFalse);
     });
 
     test('overlay cluster full roundtrip', () {
@@ -719,9 +708,7 @@ void main() {
         overlaySize: FloatingOverlaySize.compact.value,
         overlayAutoHide: OverlayAutoHide.seconds10.value,
         showFloatingButton: true,
-        floatingButtonOpacity: 0.4,
         floatingButtonSize: FloatingButtonSize.large.value,
-        floatingOverlayOpacity: 0.3,
       );
       final r = _roundtrip(s);
       expect(r.showOverlay, isTrue);
@@ -730,9 +717,7 @@ void main() {
       expect(r.overlaySize, FloatingOverlaySize.compact.value);
       expect(r.overlayAutoHide, OverlayAutoHide.seconds10.value);
       expect(r.showFloatingButton, isTrue);
-      expect(r.floatingButtonOpacity, 0.4);
       expect(r.floatingButtonSize, FloatingButtonSize.large.value);
-      expect(r.floatingOverlayOpacity, 0.3);
     });
 
     test('legacy in-window overlayMode typed accessor migrates to floating', () {

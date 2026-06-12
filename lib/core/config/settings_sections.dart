@@ -497,9 +497,7 @@ class OverlaySettings {
     this.overlaySize = 'normal',
     this.overlayAutoHide = '5s',
     this.showFloatingButton = false,
-    this.floatingButtonOpacity = 0.9,
     this.floatingButtonSize = 'normal',
-    this.floatingOverlayOpacity = 0.9,
   });
 
   final bool showOverlay;
@@ -516,9 +514,7 @@ class OverlaySettings {
   /// '2s', '5s', '10s', or 'manual'.
   final String overlayAutoHide;
   final bool showFloatingButton;
-  final double floatingButtonOpacity;
   final String floatingButtonSize;
-  final double floatingOverlayOpacity;
 
   static const OverlaySettings defaults = OverlaySettings();
 
@@ -538,18 +534,8 @@ class OverlaySettings {
       'show_floating_button',
       defaults.showFloatingButton,
     ),
-    floatingButtonOpacity: _readDouble(
-      v,
-      'floating_button_opacity',
-      defaults.floatingButtonOpacity,
-    ),
     floatingButtonSize:
         v['floating_button_size'] ?? defaults.floatingButtonSize,
-    floatingOverlayOpacity: _readDouble(
-      v,
-      'floating_overlay_opacity',
-      defaults.floatingOverlayOpacity,
-    ),
   );
 
   Map<String, String> toMap() => {
@@ -559,9 +545,7 @@ class OverlaySettings {
     'overlay_size': overlaySize,
     'overlay_auto_hide': overlayAutoHide,
     'show_floating_button': '$showFloatingButton',
-    'floating_button_opacity': '$floatingButtonOpacity',
     'floating_button_size': floatingButtonSize,
-    'floating_overlay_opacity': '$floatingOverlayOpacity',
   };
 
   OverlaySettings copyWith({
@@ -571,9 +555,7 @@ class OverlaySettings {
     String? overlaySize,
     String? overlayAutoHide,
     bool? showFloatingButton,
-    double? floatingButtonOpacity,
     String? floatingButtonSize,
-    double? floatingOverlayOpacity,
   }) => OverlaySettings(
     showOverlay: showOverlay ?? this.showOverlay,
     overlayMode: overlayMode ?? this.overlayMode,
@@ -581,10 +563,7 @@ class OverlaySettings {
     overlaySize: overlaySize ?? this.overlaySize,
     overlayAutoHide: overlayAutoHide ?? this.overlayAutoHide,
     showFloatingButton: showFloatingButton ?? this.showFloatingButton,
-    floatingButtonOpacity: floatingButtonOpacity ?? this.floatingButtonOpacity,
     floatingButtonSize: floatingButtonSize ?? this.floatingButtonSize,
-    floatingOverlayOpacity:
-        floatingOverlayOpacity ?? this.floatingOverlayOpacity,
   );
 
   @override
@@ -597,9 +576,7 @@ class OverlaySettings {
           overlaySize == other.overlaySize &&
           overlayAutoHide == other.overlayAutoHide &&
           showFloatingButton == other.showFloatingButton &&
-          floatingButtonOpacity == other.floatingButtonOpacity &&
-          floatingButtonSize == other.floatingButtonSize &&
-          floatingOverlayOpacity == other.floatingOverlayOpacity;
+          floatingButtonSize == other.floatingButtonSize;
 
   @override
   int get hashCode => Object.hash(
@@ -609,9 +586,7 @@ class OverlaySettings {
     overlaySize,
     overlayAutoHide,
     showFloatingButton,
-    floatingButtonOpacity,
     floatingButtonSize,
-    floatingOverlayOpacity,
   );
 }
 
