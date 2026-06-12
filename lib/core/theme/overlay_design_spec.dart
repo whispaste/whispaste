@@ -23,6 +23,8 @@
 ///   [OverlayDesignSpec.minRecommendedOpacity].
 library;
 
+import 'dart:math' as math;
+
 import 'package:flutter/widgets.dart';
 
 /// The four real recording states the overlay and button render.
@@ -456,6 +458,79 @@ class OverlayInteraction {
   final double screenEdgeMargin;
 }
 
+/// Mic-glyph geometry for the floating button, expressed as **ratios of the
+/// disc diameter** so the glyph scales identically across the settings-owned
+/// button sizes (44/56/80). Every ratio is the approved spike value
+/// (`spike/lib/main.dart` `_mic`, tuned at a 56 px disc) divided by 56, so a
+/// 56 px disc reproduces the spike pixel-for-pixel and the painter carries no
+/// magic numbers.
+@immutable
+class FloatingButtonMicSpec {
+  const FloatingButtonMicSpec({
+    required this.bodyWidthRatio,
+    required this.bodyHeightRatio,
+    required this.bodyRadiusRatio,
+    required this.bodyCenterDyRatio,
+    required this.arcRadiusRatio,
+    required this.arcCenterDyRatio,
+    required this.arcStartAngle,
+    required this.arcSweepAngle,
+    required this.strokeRatio,
+    required this.stemTopDyRatio,
+    required this.stemBottomDyRatio,
+  });
+
+  /// Mic-capsule body width ÷ diameter (spike `9` in a 56 disc).
+  final double bodyWidthRatio;
+
+  /// Mic-capsule body height ÷ diameter (spike `14`).
+  final double bodyHeightRatio;
+
+  /// Mic-capsule corner radius ÷ diameter (spike `4.5`).
+  final double bodyRadiusRatio;
+
+  /// Body-centre vertical offset from the disc centre ÷ diameter (spike `-4`,
+  /// i.e. the capsule sits above centre).
+  final double bodyCenterDyRatio;
+
+  /// Cradle-arc radius ÷ diameter (spike `8.5`).
+  final double arcRadiusRatio;
+
+  /// Cradle-arc centre vertical offset from the disc centre ÷ diameter
+  /// (spike `-1`).
+  final double arcCenterDyRatio;
+
+  /// Cradle-arc start angle in radians (spike `0.35`); scale-free.
+  final double arcStartAngle;
+
+  /// Cradle-arc sweep angle in radians (spike `π − 0.7`); scale-free.
+  final double arcSweepAngle;
+
+  /// Glyph stroke width ÷ diameter (spike `2`).
+  final double strokeRatio;
+
+  /// Stem top endpoint vertical offset ÷ diameter (spike `7.5`).
+  final double stemTopDyRatio;
+
+  /// Stem bottom endpoint vertical offset ÷ diameter (spike `11`).
+  final double stemBottomDyRatio;
+
+  /// The approved spike mic geometry (`_mic`), referenced to a 56 px disc.
+  static const FloatingButtonMicSpec spike = FloatingButtonMicSpec(
+    bodyWidthRatio: 9 / 56,
+    bodyHeightRatio: 14 / 56,
+    bodyRadiusRatio: 4.5 / 56,
+    bodyCenterDyRatio: -4 / 56,
+    arcRadiusRatio: 8.5 / 56,
+    arcCenterDyRatio: -1 / 56,
+    arcStartAngle: 0.35,
+    arcSweepAngle: math.pi - 0.7,
+    strokeRatio: 2 / 56,
+    stemTopDyRatio: 7.5 / 56,
+    stemBottomDyRatio: 11 / 56,
+  );
+}
+
 /// Floating-button appearance — the V2 style (ADR 0002): a white disc with a
 /// dark mic glyph and a hairline border. No accent ring, no glow.
 ///
@@ -466,16 +541,28 @@ class OverlayInteraction {
 class FloatingButtonSpec {
   const FloatingButtonSpec({
     required this.discColor,
+    required this.discGradientEnd,
+    required this.discFillOpacity,
     required this.iconColor,
     required this.borderColor,
     required this.borderWidth,
+    required this.borderInset,
     required this.iconRatio,
     required this.hasGlow,
+    required this.mic,
     required this.stateTransition,
   });
 
-  /// Disc fill — white.
+  /// Disc fill gradient start — white (top-left), spike `Colors.white`.
   final Color discColor;
+
+  /// Disc fill gradient end — `#EDF1F6` (bottom-right), spike value.
+  final Color discGradientEnd;
+
+  /// Base opacity of the disc fill gradient (spike `0.95`). The opacity setting
+  /// scales the disc chrome (fill + shadow) by `discFillOpacity × opacity`; the
+  /// mic glyph stays fully opaque (accessibility, mirrors the overlay).
+  final double discFillOpacity;
 
   /// Idle mic glyph colour — dark `#101828`.
   final Color iconColor;
@@ -486,11 +573,17 @@ class FloatingButtonSpec {
   /// Border stroke width (logical pixels, pre-DPR).
   final double borderWidth;
 
+  /// Border inset from the disc radius (spike draws the stroke at `r − 0.5`).
+  final double borderInset;
+
   /// Glyph size as a fraction of the disc diameter (24 in a 56 disc).
   final double iconRatio;
 
   /// Always false — the V2 button has no glow/accent ring.
   final bool hasGlow;
+
+  /// Mic-glyph geometry (ratios of the disc diameter).
+  final FloatingButtonMicSpec mic;
 
   /// State-change cross-fade duration.
   final Duration stateTransition;
@@ -720,11 +813,22 @@ abstract final class OverlayDesignSpec {
   /// V2 floating-button appearance.
   static const FloatingButtonSpec button = FloatingButtonSpec(
     discColor: Color(0xFFFFFFFF),
+    discGradientEnd: Color(0xFFEDF1F6),
+    discFillOpacity: 0.95,
     iconColor: Color(0xFF101828),
     borderColor: Color(0x1A101828),
     borderWidth: 1.0,
+    borderInset: 0.5,
     iconRatio: 24 / 56,
     hasGlow: false,
+    mic: FloatingButtonMicSpec.spike,
     stateTransition: Duration(milliseconds: 200),
   );
+
+  /// Full native-window size for a button disc of [diameter] = disc +
+  /// [shadowPadding] on every side, so the painted soft shadow is not clipped
+  /// (mirrors [windowSize] for the overlay). The disc centre is painted at
+  /// `Offset(shadowPadding + diameter / 2, shadowPadding + diameter / 2)`.
+  static Size buttonWindowSize(double diameter) =>
+      Size(diameter + 2 * shadowPadding, diameter + 2 * shadowPadding);
 }

@@ -11,6 +11,7 @@ import '../../core/logging/app_logger.dart';
 import '../../core/recording/recording_state.dart';
 import '../../core/recording/recording_helpers.dart';
 import '../floating_platform_service_base.dart';
+import '../floating_theme_brightness.dart';
 import '../recording_orchestrator.dart';
 import 'floating_overlay_controller.dart';
 import 'floating_overlay_events.dart';
@@ -596,15 +597,8 @@ class FloatingOverlayService
     return '$minutes:$seconds';
   }
 
-  bool _computeIsDark(AppSettings s) {
-    return switch (s.themeMode) {
-      ThemeMode.dark => true,
-      ThemeMode.light => false,
-      ThemeMode.system =>
-        WidgetsBinding.instance.platformDispatcher.platformBrightness ==
-            Brightness.dark,
-    };
-  }
+  bool _computeIsDark(AppSettings s) =>
+      resolveFloatingSurfaceIsDark(s.themeMode);
 
   L10n? _resolveL10n() {
     final locale = WidgetsBinding.instance.platformDispatcher.locale;

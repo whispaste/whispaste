@@ -2404,6 +2404,21 @@ class L10nDe extends L10n {
   String get overlayContextHide => 'Overlay ausblenden';
 
   @override
+  String get buttonContextOpen => 'WhisPaste öffnen';
+
+  @override
+  String get buttonContextStartRecording => 'Aufnahme starten';
+
+  @override
+  String get buttonContextShowHistory => 'Verlauf anzeigen';
+
+  @override
+  String get buttonContextSettings => 'Einstellungen';
+
+  @override
+  String get buttonContextQuit => 'WhisPaste beenden';
+
+  @override
   String get settingsHistory => 'Verlauf';
 
   @override

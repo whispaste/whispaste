@@ -865,6 +865,11 @@
   "overlayContextSwitchNormal": "Switch to Normal",
   "overlayContextSwitchCompact": "Switch to Compact",
   "overlayContextHide": "Hide overlay",
+  "buttonContextOpen": "Open WhisPaste",
+  "buttonContextStartRecording": "Start Recording",
+  "buttonContextShowHistory": "Show History",
+  "buttonContextSettings": "Settings",
+  "buttonContextQuit": "Quit WhisPaste",
 
   "settingsHistory": "History",
   "settingsHistorySubtitle": "Retention and automatic cleanup",
