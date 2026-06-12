@@ -400,11 +400,9 @@ class FloatingOverlayService
           ? localizeRecordingError(l10n, recording.errorMessage!)
           : recording.errorMessage,
       privacyMode: isLocal ? 'local' : 'cloud',
-      showRetry: phase == RecordingPhase.error,
       doneMessage: phase == RecordingPhase.done && l10n != null
           ? doneMessageFor(s.afterTranscription, l10n)
           : null,
-      processingLabel: null,
       progress: progress,
     );
 

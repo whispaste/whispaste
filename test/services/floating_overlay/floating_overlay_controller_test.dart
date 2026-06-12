@@ -30,28 +30,24 @@ void main() {
 
   group('OverlayVisualState', () {
     test('has all expected values', () {
-      expect(OverlayVisualState.values, hasLength(5));
+      expect(OverlayVisualState.values, hasLength(4));
       expect(
         OverlayVisualState.values.map((e) => e.name),
-        containsAll([
-          'recording',
-          'transcribing',
-          'processing',
-          'done',
-          'error',
-        ]),
+        containsAll(['recording', 'transcribing', 'done', 'error']),
+      );
+    });
+
+    test('does not contain removed processing state', () {
+      expect(
+        OverlayVisualState.values.map((e) => e.name),
+        isNot(contains('processing')),
       );
     });
 
     test('state names match C++ OverlayVisualState enum', () {
       // C++ ParseState expects lowercase names via MethodChannel.
-      const expected = [
-        'recording',
-        'transcribing',
-        'processing',
-        'done',
-        'error',
-      ];
+      // 'processing' was removed — native renderers tolerate missing fields.
+      const expected = ['recording', 'transcribing', 'done', 'error'];
       expect(OverlayVisualState.values.map((e) => e.name).toList(), expected);
     });
   });
@@ -79,9 +75,7 @@ void main() {
         transcript: 'Hello world',
         errorMessage: null,
         privacyMode: 'local',
-        showRetry: false,
         doneMessage: null,
-        processingLabel: null,
       );
 
       final map = snap.toMap();
@@ -95,9 +89,7 @@ void main() {
       expect(map['transcript'], 'Hello world');
       expect(map['errorMessage'], isNull);
       expect(map['privacyMode'], 'local');
-      expect(map['showRetry'], false);
       expect(map['doneMessage'], isNull);
-      expect(map['processingLabel'], isNull);
       expect(map['progress'], 0.0);
     });
 
@@ -109,7 +101,6 @@ void main() {
         compact: true,
         label: 'Error',
         errorMessage: 'Connection failed',
-        showRetry: true,
       );
 
       final map = snap.toMap();
@@ -117,7 +108,6 @@ void main() {
       expect(map['isDark'], false);
       expect(map['compact'], true);
       expect(map['errorMessage'], 'Connection failed');
-      expect(map['showRetry'], true);
     });
 
     test('toMap() serializes done state correctly', () {
@@ -135,22 +125,33 @@ void main() {
       expect(map['doneMessage'], 'Pasted!');
     });
 
-    test('toMap() serializes processing state correctly', () {
-      const snap = FloatingOverlaySnapshot(
-        visible: true,
-        state: OverlayVisualState.processing,
-        isDark: true,
-        compact: false,
-        label: 'Refining…',
-        processingLabel: 'Polishing with AI…',
-      );
+    test(
+      'toMap() contains no dead fields (processingLabel and showRetry absent)',
+      () {
+        // AC: the serialised contract must not carry processingLabel or showRetry.
+        const snap = FloatingOverlaySnapshot(
+          visible: false,
+          state: OverlayVisualState.recording,
+          isDark: true,
+          compact: false,
+          label: '',
+        );
+        final map = snap.toMap();
+        expect(
+          map.containsKey('processingLabel'),
+          isFalse,
+          reason:
+              'processingLabel is a dead field and must not appear in toMap()',
+        );
+        expect(
+          map.containsKey('showRetry'),
+          isFalse,
+          reason: 'showRetry is a dead field and must not appear in toMap()',
+        );
+      },
+    );
 
-      final map = snap.toMap();
-      expect(map['state'], 'processing');
-      expect(map['processingLabel'], 'Polishing with AI…');
-    });
-
-    test('toMap() includes all 14 keys', () {
+    test('toMap() includes all 12 keys', () {
       const snap = FloatingOverlaySnapshot(
         visible: false,
         state: OverlayVisualState.recording,
@@ -160,7 +161,7 @@ void main() {
       );
 
       final map = snap.toMap();
-      expect(map.keys, hasLength(14));
+      expect(map.keys, hasLength(12));
       expect(map.keys.toSet(), {
         'visible',
         'state',
@@ -172,9 +173,7 @@ void main() {
         'transcript',
         'errorMessage',
         'privacyMode',
-        'showRetry',
         'doneMessage',
-        'processingLabel',
         'progress',
       });
     });
@@ -193,9 +192,7 @@ void main() {
       expect(snap.transcript, isNull);
       expect(snap.errorMessage, isNull);
       expect(snap.privacyMode, 'local');
-      expect(snap.showRetry, false);
       expect(snap.doneMessage, isNull);
-      expect(snap.processingLabel, isNull);
       expect(snap.progress, 0.0);
     });
   });
