@@ -11,8 +11,14 @@ import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
+import '../core/config/quality_tier.dart';
 import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
+
+// Re-export QualityTier so existing import sites (e.g. tests) that use
+// `model_download_service.dart` as the source continue to resolve without
+// changes.
+export '../core/config/quality_tier.dart' show QualityTier;
 import 'file_verification_service.dart';
 import 'hardware_info_service.dart' as hw;
 import 'http_model_fetcher.dart';
@@ -101,8 +107,8 @@ SttModelInfo? findSttModel(String id) {
 // Quality Tiers — user-facing abstraction over raw model names
 // ---------------------------------------------------------------------------
 
-/// User-facing quality tiers that abstract away model internals.
-enum QualityTier { compact, balanced, premium }
+// QualityTier is defined in lib/core/config/quality_tier.dart and
+// re-exported above so all existing import sites continue to resolve.
 
 /// Performance level of a quality tier based on real-time benchmark.
 /// Used to determine UI display (info messages) and tier recommendations.

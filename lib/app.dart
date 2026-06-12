@@ -7,6 +7,7 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:window_manager/window_manager.dart';
 import 'core/config/settings_labels.dart';
 import 'core/config/settings_provider.dart';
+import 'core/navigation/page_state.dart';
 import 'core/l10n/generated/app_localizations.dart';
 import 'core/l10n/locale_provider.dart';
 import 'core/theme/theme.dart';
@@ -42,29 +43,12 @@ import 'package:url_launcher/url_launcher.dart';
 import 'widgets/toast.dart';
 import 'widgets/review_prompt_dialog.dart';
 
-/// Active navigation page state (Riverpod 3.x Notifier).
-class _ActivePageNotifier extends Notifier<String> {
-  @override
-  String build() => 'history';
-
-  void setPage(String id) => state = id;
-}
-
-final activePageProvider = NotifierProvider<_ActivePageNotifier, String>(
-  _ActivePageNotifier.new,
-);
-
-/// Optional settings section to scroll to after navigating to Settings.
-/// Set before calling setPage('settings') — SettingsPage consumes & clears it.
-class _SettingsScrollTarget extends Notifier<String?> {
-  @override
-  String? build() => null;
-
-  void set(String? target) => state = target;
-}
-
-final settingsScrollTargetProvider =
-    NotifierProvider<_SettingsScrollTarget, String?>(_SettingsScrollTarget.new);
+// activePageProvider and settingsScrollTargetProvider are defined in
+// lib/core/navigation/page_state.dart (imported above).
+// Re-exported below so existing import sites (e.g. tests) that use
+// `show activePageProvider` on this file continue to resolve without changes.
+export 'core/navigation/page_state.dart'
+    show activePageProvider, settingsScrollTargetProvider;
 
 /// Main WhisPaste application widget.
 class WhisPasteApp extends ConsumerWidget {

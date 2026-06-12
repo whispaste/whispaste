@@ -19,7 +19,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
-import '../../services/model_download_service.dart' show QualityTier;
+import 'quality_tier.dart' show QualityTier;
 import 'settings_enums.dart';
 
 // ---------------------------------------------------------------------------

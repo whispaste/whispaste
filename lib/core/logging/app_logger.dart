@@ -11,7 +11,6 @@
 /// The file is rotated when it exceeds 2 MB.
 library;
 
-import 'dart:collection';
 import 'dart:developer' as dev;
 import 'dart:io';
 
@@ -19,6 +18,7 @@ import 'package:flutter/foundation.dart';
 import 'package:logging/logging.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import '../../services/path_service.dart' as paths;
+import 'breadcrumbs.dart';
 import 'crash_fingerprints.dart';
 import 'crash_reporter.dart';
 
@@ -51,25 +51,6 @@ class AppLogger {
 // ---------------------------------------------------------------------------
 // Global logging configuration
 // ---------------------------------------------------------------------------
-
-/// Breadcrumb ring buffer — last N log lines kept for crash context.
-class _BreadcrumbRing {
-  _BreadcrumbRing(this._capacity);
-  final int _capacity;
-  final _buf = Queue<String>();
-
-  void add(String line) {
-    if (_buf.length >= _capacity) _buf.removeFirst();
-    _buf.add(line);
-  }
-
-  List<String> get recent => _buf.toList();
-}
-
-final _breadcrumbs = _BreadcrumbRing(30);
-
-/// Returns the most recent log lines for crash report context.
-List<String> getRecentBreadcrumbs() => _breadcrumbs.recent;
 
 // ---------------------------------------------------------------------------
 // Persistent file logging
@@ -181,7 +162,7 @@ Future<void> configureLogging() async {
         '[${record.level.name}] ${record.loggerName}: ${record.message}';
 
     // Always feed breadcrumb ring.
-    _breadcrumbs.add(line);
+    breadcrumbRing.add(line);
 
     // Print to Dart DevTools (visible in DevTools log tab).
     dev.log(
