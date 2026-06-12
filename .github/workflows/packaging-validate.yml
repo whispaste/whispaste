@@ -172,3 +172,99 @@ jobs:
           done
           [ "$fail" -eq 0 ] || exit 1
           echo "  ✓ All required stanzas present"
+
+  # ── Flatpak / Flathub (Ubuntu) ─────────────────────────────────────────────
+  # Validates the Flatpak manifest + Flathub-required sidecar files
+  # (.desktop, AppStream .metainfo.xml) deterministically — mirroring the
+  # tool-independent Scoop/Homebrew checks. A full `flatpak-builder` build of
+  # the bundle runs at submission time / on the Linux release runner, not here
+  # (the manifest consumes the release tarball from release.yml `build-linux`).
+  flatpak:
+    name: Flatpak manifest (YAML + finish-args + AppStream + desktop)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Install validators
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-yaml desktop-file-utils appstream
+
+      - name: Validate Flatpak manifest YAML + required finish-args
+        run: |
+          MANIFEST="packaging/flatpak/com.whispaste.whispaste.yml"
+          echo "Validating $MANIFEST …"
+
+          # 1. YAML-parseable?
+          python3 -c "import yaml; yaml.safe_load(open('$MANIFEST'))" \
+            || { echo "::error::$MANIFEST is not valid YAML"; exit 1; }
+          echo "  ✓ YAML parse OK"
+
+          # 2. Required top-level keys + finish-args covering every app function
+          #    (Hotkey, Clipboard/Paste, Audio, Network self-download +
+          #    writable data dir). See packaging/flatpak/README.md audit table.
+          python3 - "$MANIFEST" <<'PYEOF'
+          import sys, yaml, pathlib
+
+          MANIFEST = pathlib.Path(sys.argv[1])
+          data = yaml.safe_load(MANIFEST.read_text())
+          errors = []
+
+          # App-ID must match the existing reverse-DNS identifier.
+          if data.get("app-id") != "com.whispaste.whispaste":
+              errors.append("app-id must be com.whispaste.whispaste")
+
+          for key in ("runtime", "sdk", "command", "modules", "finish-args"):
+              if not data.get(key):
+                  errors.append(f"missing required key: {key}")
+
+          fa = data.get("finish-args") or []
+          required_args = {
+              # Audio (Aufnahme)
+              "--socket=pulseaudio": "audio",
+              # Network self-download of the Sprachdienst
+              "--share=network": "network self-download",
+              # Hotkey (session bus reaches the WM / GlobalShortcuts portal)
+              "--socket=session-bus": "hotkey",
+              # Display sockets (clipboard/paste rides on these)
+              "--socket=wayland": "wayland display",
+              "--socket=fallback-x11": "x11 display",
+          }
+          for arg, label in required_args.items():
+              if arg not in fa:
+                  errors.append(f"missing finish-arg for {label}: {arg}")
+
+          # Writable data dir for the self-downloaded + executed whisper-server.
+          if not any(a.startswith("--filesystem=xdg-data/whispaste") for a in fa):
+              errors.append(
+                  "missing writable data-dir finish-arg "
+                  "(--filesystem=xdg-data/whispaste:create)"
+              )
+
+          if errors:
+              for e in errors:
+                  print(f"::error::{e}")
+              sys.exit(1)
+          print("  ✓ Required keys + finish-args present "
+                "(hotkey, clipboard/paste, audio, network self-download, "
+                "writable data dir)")
+          PYEOF
+
+      - name: Validate desktop entry
+        run: |
+          DESKTOP="packaging/flatpak/com.whispaste.whispaste.desktop"
+          echo "Validating $DESKTOP …"
+          desktop-file-validate "$DESKTOP" \
+            || { echo "::error::$DESKTOP failed desktop-file-validate"; exit 1; }
+          echo "  ✓ desktop-file-validate OK"
+
+      - name: Validate AppStream metainfo
+        run: |
+          META="packaging/flatpak/com.whispaste.whispaste.metainfo.xml"
+          echo "Validating $META …"
+          # --no-net: skip remote screenshot/URL fetches (deterministic, offline).
+          appstreamcli validate --no-net "$META" \
+            || { echo "::error::$META failed appstreamcli validate"; exit 1; }
+          echo "  ✓ appstreamcli validate OK"
