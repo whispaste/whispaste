@@ -1633,6 +1633,14 @@ class L10nDe extends L10n {
       'Deiner GPU ist der Speicher ausgegangen. Die Qualität wurde reduziert, damit der nächste Versuch funktionieren sollte.';
 
   @override
+  String get errorCloudAuth =>
+      'API-Schlüssel fehlt oder ist ungültig. Prüfe ihn unter Einstellungen → Spracherkennung.';
+
+  @override
+  String get errorCloudQuota =>
+      'Rate-Limit des Cloud-Anbieters erreicht. Warte kurz und versuche es erneut.';
+
+  @override
   String get errorOnboardingNotCompleted =>
       'Bitte schließe zuerst die Einrichtung ab.';
 
@@ -1711,14 +1719,6 @@ class L10nDe extends L10n {
   @override
   String get errorRecordingStartFailed =>
       'Aufnahme konnte nicht gestartet werden. Bitte versuche es erneut.';
-
-  @override
-  String get errorCloudAuth =>
-      'API-Schlüssel fehlt oder ist ungültig. Prüfe ihn unter Einstellungen → Spracherkennung.';
-
-  @override
-  String get errorCloudQuota =>
-      'Rate-Limit des Cloud-Anbieters erreicht. Warte kurz und versuche es erneut.';
 
   @override
   String get errorGeneric =>

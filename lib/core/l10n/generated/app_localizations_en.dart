@@ -1619,6 +1619,14 @@ class L10nEn extends L10n {
       'Your GPU ran out of memory. Quality was reduced so the next try should work.';
 
   @override
+  String get errorCloudAuth =>
+      'Cloud API key is missing or invalid. Check it in Settings → Speech Recognition.';
+
+  @override
+  String get errorCloudQuota =>
+      'Cloud provider rate limit reached. Please wait a moment and try again.';
+
+  @override
   String get errorOnboardingNotCompleted =>
       'Please complete the setup wizard first.';
 
@@ -1695,14 +1703,6 @@ class L10nEn extends L10n {
   @override
   String get errorRecordingStartFailed =>
       'Could not start recording. Please try again.';
-
-  @override
-  String get errorCloudAuth =>
-      'Cloud API key is missing or invalid. Check it in Settings → Speech Recognition.';
-
-  @override
-  String get errorCloudQuota =>
-      'Cloud provider rate limit reached. Please wait a moment and try again.';
 
   @override
   String get errorGeneric => 'Something went wrong. Please try again.';

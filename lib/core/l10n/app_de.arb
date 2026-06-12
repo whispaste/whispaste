@@ -541,6 +541,8 @@
   "errorSttServerNotFound": "Sprachdienst nicht gefunden. Bitte lade ein Sprachmodell in den Einstellungen herunter.",
   "errorSttServerConnectionLost": "Sprachdienst wurde unerwartet beendet. Bitte versuche es erneut.",
   "errorSttCudaOom": "Deiner GPU ist der Speicher ausgegangen. Die Qualität wurde reduziert, damit der nächste Versuch funktionieren sollte.",
+  "errorCloudAuth": "API-Schlüssel fehlt oder ist ungültig. Prüfe ihn unter Einstellungen → Spracherkennung.",
+  "errorCloudQuota": "Rate-Limit des Cloud-Anbieters erreicht. Warte kurz und versuche es erneut.",
   "errorOnboardingNotCompleted": "Bitte schließe zuerst die Einrichtung ab.",
   "errorSttModelNotFound": "Sprachmodell nicht gefunden. Bitte lade es in den Einstellungen herunter.",
   "errorSttModelUnknown": "Unbekanntes Sprachmodell. Bitte wähle ein gültiges Modell in den Einstellungen.",

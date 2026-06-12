@@ -1585,6 +1585,14 @@ class L10nHe extends L10n {
   String get errorSttCudaOom => 'ה-GPU נגמר לו הזיכרון. האיכות הופחתה.';
 
   @override
+  String get errorCloudAuth =>
+      'מפתח ה-API חסר או שגוי. בדוק אותו בהגדרות ← זיהוי דיבור.';
+
+  @override
+  String get errorCloudQuota =>
+      'הגעת למגבלת הקצב של ספק הענן. המתן רגע ונסה שוב.';
+
+  @override
   String get errorOnboardingNotCompleted => 'סיים קודם את אשף ההתקנה.';
 
   @override
@@ -1652,14 +1660,6 @@ class L10nHe extends L10n {
 
   @override
   String get errorRecordingStartFailed => 'לא הצלחתי להתחיל הקלטה. נסה שוב.';
-
-  @override
-  String get errorCloudAuth =>
-      'מפתח ה-API חסר או שגוי. בדוק אותו בהגדרות ← זיהוי דיבור.';
-
-  @override
-  String get errorCloudQuota =>
-      'הגעת למגבלת הקצב של ספק הענן. המתן רגע ונסה שוב.';
 
   @override
   String get errorGeneric => 'משהו השתבש. נסה שוב.';
