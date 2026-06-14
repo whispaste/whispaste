@@ -19,6 +19,7 @@ import 'core/logging/app_monitoring.dart';
 import 'core/logging/crash_reporter.dart';
 import 'core/platform/macos_lifecycle_channel.dart';
 import 'core/theme/theme.dart';
+import 'floating_button_render_entrypoint.dart';
 import 'floating_overlay_render_entrypoint.dart';
 import 'services/audio_service.dart';
 import 'services/bundle_id_migration_adapters.dart';
@@ -40,6 +41,15 @@ import 'widgets/insufficient_ram_screen.dart';
 /// Dart, and the pragma keeps it out of the tree-shaker.
 @pragma('vm:entry-point')
 void floatingOverlayMain() => runFloatingOverlayEngine();
+
+/// Secondary Dart entrypoint booted by name from the native button shell
+/// (ADR 0002 phase 2). macOS `FloatingButtonHost` runs a dedicated Flutter
+/// engine with `runWithEntrypoint: "floatingButtonMain"`, which resolves the
+/// name only against this root library — so the entrypoint MUST live here. It
+/// delegates straight into [runFloatingButtonEngine]; it is never called from
+/// Dart, and the pragma keeps it out of the tree-shaker.
+@pragma('vm:entry-point')
+void floatingButtonMain() => runFloatingButtonEngine();
 
 Future<ProviderContainer> bootstrapAppContainer({
   List overrides = const [],

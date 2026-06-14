@@ -3,13 +3,44 @@ import FlutterMacOS
 
 /// MethodChannel host for the floating button on macOS.
 ///
-/// Manages the lifecycle of a [FloatingButtonPanel] and routes
-/// method calls between Dart and the native panel/view.
+/// ADR 0002 (Approach 1 / Variant B): the button window is a lifecycle-only
+/// shell. It no longer draws — it hosts a dedicated **second Flutter engine**
+/// (entrypoint `floatingButtonMain`) inside a transparent, non-activating
+/// `FloatingButtonPanel` and forwards the main engine's render state to it.
+///
+/// Seam:
+/// - The app's MAIN engine talks to this host over `com.whispaste.floating_button`
+///   exactly as before (`show` / `hide` / `setState` / `setTheme` / `setPosition` /
+///   `setSize` / `getPosition` / `setContextMenuItems` / `destroy`).
+/// - This host relays the render payloads to the button engine over the
+///   private `com.whispaste.floating_button_render` channel, and translates
+///   the button engine's interactions (`clicked` / `startDrag` /
+///   `showContextMenu`) back into the existing main-engine events
+///   (`onClicked` / `onDragEnded` / `onContextMenu` / `onSecondaryClicked`).
+///
+/// The panel is lazily created on the first `show` — matching the old host
+/// behaviour and the Windows C++ host.
 class FloatingButtonHost {
   private var channel: FlutterMethodChannel
+
+  // Lazy-created on first show.
   private var panel: FloatingButtonPanel?
-  private var buttonView: FloatingButtonView?
+
+  // Secondary Flutter engine that renders the shared FloatingButtonView.
+  private var renderEngine: FlutterEngine?
+  private var renderViewController: FlutterViewController?
+  private var renderChannel: FlutterMethodChannel?
+
+  private var contextMenuItems: [(id: String, label: String)] = []
   private var screenObserver: NSObjectProtocol?
+
+  // The render engine boots asynchronously: its Dart MethodChannel handler is
+  // only ready a few runloop turns after `engine.run`. Until the engine sends
+  // `ready`, relayed messages would be dropped — so we cache the latest render
+  // state here and flush it the moment the engine announces itself.
+  private var renderReady: Bool = false
+  private var latestState: String?
+  private var latestDiameter: Double = 56
 
   init(messenger: FlutterBinaryMessenger) {
     channel = FlutterMethodChannel(
@@ -56,9 +87,11 @@ class FloatingButtonHost {
 
     if origin != p.frame.origin {
       p.setFrameOrigin(origin)
-      // Notify Dart about the corrected position so it can persist it.
       let adjusted = p.frame.origin
-      channel.invokeMethod("onDragEnded", arguments: ["x": adjusted.x, "y": adjusted.y])
+      channel.invokeMethod("onDragEnded", arguments: [
+        "x": Double(adjusted.x),
+        "y": Double(adjusted.y),
+      ])
     }
   }
 
@@ -81,21 +114,25 @@ class FloatingButtonHost {
 
     case "setState":
       guard let args = call.arguments as? [String: Any],
-            let stateName = args["state"] as? String,
-            let state = FloatingButtonVisualState(rawValue: stateName) else {
+            let stateName = args["state"] as? String else {
         result(nil)
         return
       }
-      buttonView?.visualState = state
+      latestState = stateName
+      if renderReady {
+        renderChannel?.invokeMethod("setState", arguments: ["state": stateName])
+      }
       result(nil)
 
     case "setTheme":
-      guard let args = call.arguments as? [String: Any],
-            let isDark = args["isDark"] as? Bool else {
+      guard let args = call.arguments as? [String: Any] else {
         result(nil)
         return
       }
-      buttonView?.isDark = isDark
+      // Relay to render engine (V2 disc is theme-independent, render ignores).
+      if renderReady {
+        renderChannel?.invokeMethod("setTheme", arguments: args)
+      }
       result(nil)
 
     case "setPosition":
@@ -114,18 +151,15 @@ class FloatingButtonHost {
         result(nil)
         return
       }
+      latestDiameter = size
+      let totalSize = size + 16 // OverlayDesignSpec.shadowPadding (8) * 2
       if let p = panel {
-        let margin: Double = 28 // 14pt each side — must match show()
-        let totalSize = size + margin
         var frame = p.frame
         frame.size = NSSize(width: totalSize, height: totalSize)
         p.setFrame(frame, display: true)
-        // Resize the button view to match — full totalSize so shadow margin is preserved.
-        buttonView?.frame = NSRect(
-          x: 0, y: 0,
-          width: totalSize, height: totalSize
-        )
-        buttonView?.needsDisplay = true
+      }
+      if renderReady {
+        renderChannel?.invokeMethod("setDiameter", arguments: ["diameter": size])
       }
       result(nil)
 
@@ -135,7 +169,7 @@ class FloatingButtonHost {
         return
       }
       let origin = p.frame.origin
-      result(["x": origin.x, "y": origin.y])
+      result(["x": Double(origin.x), "y": Double(origin.y)])
 
     case "setContextMenuItems":
       guard let args = call.arguments as? [String: Any],
@@ -143,18 +177,15 @@ class FloatingButtonHost {
         result(nil)
         return
       }
-      buttonView?.contextMenuItems = items
+      contextMenuItems = items.compactMap { item in
+        guard let id = item["id"] as? String,
+              let label = item["label"] as? String else { return nil }
+        return (id: id, label: label)
+      }
       result(nil)
 
     case "destroy":
-      if let obs = screenObserver {
-        NotificationCenter.default.removeObserver(obs)
-        screenObserver = nil
-      }
-      panel?.close()
-      panel = nil
-      buttonView = nil
-      channel.setMethodCallHandler(nil)
+      teardown()
       result(nil)
 
     default:
@@ -162,37 +193,163 @@ class FloatingButtonHost {
     }
   }
 
-  private func show(x: Double, y: Double, size: Double) {
-    // Add shadow margin so the view has room for multi-layer soft shadows
-    let margin: Double = 28 // 14pt each side
-    let totalSize = size + margin
+  // MARK: - Panel + render-engine creation
 
-    if panel == nil {
-      let p = FloatingButtonPanel(size: CGFloat(totalSize))
-      let view = FloatingButtonView(frame: NSRect(x: 0, y: 0, width: totalSize, height: totalSize))
+  private func ensurePanel(totalSize: Double) {
+    guard panel == nil else { return }
 
-      // Wire native → Dart events.
-      view.onClicked = { [weak self] in
-        self?.channel.invokeMethod("onClicked", arguments: nil)
-      }
-      view.onSecondaryClicked = { [weak self] in
-        self?.channel.invokeMethod("onSecondaryClicked", arguments: nil)
-      }
-      view.onContextMenu = { [weak self] id in
-        self?.channel.invokeMethod("onContextMenu", arguments: ["id": id])
-      }
-      view.onDragEnded = { [weak self] dx, dy in
-        self?.channel.invokeMethod("onDragEnded", arguments: ["x": dx, "y": dy])
-      }
+    renderReady = false
 
-      p.contentView = view
-      panel = p
-      buttonView = view
+    // Boot the dedicated button engine and host its view in the panel.
+    // macOS `runWithEntrypoint:` resolves the name only against the ROOT
+    // library, so `floatingButtonMain` is declared in Dart's main.dart (it
+    // delegates into the button render app). There is no `libraryURI:` variant
+    // on macOS FlutterEngine.
+    let engine = FlutterEngine(name: "floating_button", project: nil)
+    let didRun = engine.run(withEntrypoint: "floatingButtonMain")
+    NSLog("[button] ensurePanel: engine.run(floatingButtonMain) -> \(didRun)")
+
+    let vc = FlutterViewController(engine: engine, nibName: nil, bundle: nil)
+    // REAL surface transparency: must be set so the engine composites onto a
+    // clear surface instead of opaque black. Set before the view is shown.
+    vc.backgroundColor = .clear
+
+    let renderCh = FlutterMethodChannel(
+      name: "com.whispaste.floating_button_render",
+      binaryMessenger: engine.binaryMessenger
+    )
+    renderCh.setMethodCallHandler { [weak self] call, result in
+      self?.handleRenderCall(call, result: result)
     }
 
-    // Offset by half-margin so the logical center aligns with (x,y)
-    let offset = margin / 2
-    panel?.setFrameOrigin(NSPoint(x: x - offset, y: y - offset))
+    let p = FloatingButtonPanel(size: CGFloat(totalSize))
+    p.contentViewController = vc
+    p.setContentSize(NSSize(width: totalSize, height: totalSize))
+
+    panel = p
+    renderEngine = engine
+    renderViewController = vc
+    renderChannel = renderCh
+    NSLog("[button] ensurePanel: panel created \(totalSize)x\(totalSize)")
+  }
+
+  private func show(x: Double, y: Double, size: Double) {
+    // Total window size = disc + shadowPadding on every side.
+    // OverlayDesignSpec.shadowPadding = 8  →  totalSize = size + 16
+    let totalSize = size + 16
+    latestDiameter = size
+
+    ensurePanel(totalSize: totalSize)
+
+    // If size changed after the panel was already created, resize it.
+    if let p = panel {
+      let newSize = NSSize(width: totalSize, height: totalSize)
+      if p.frame.size != newSize {
+        var frame = p.frame
+        frame.size = newSize
+        p.setFrame(frame, display: true)
+        if renderReady {
+          renderChannel?.invokeMethod("setDiameter", arguments: ["diameter": size])
+        }
+      }
+    }
+
+    // Offset the panel origin so the logical position (x, y) aligns with the
+    // disc center: (totalSize - size) / 2 == shadowPadding == 8.
+    let shadowPadding = (totalSize - size) / 2
+    panel?.setFrameOrigin(NSPoint(x: x - shadowPadding, y: y - shadowPadding))
     panel?.orderFront(nil)
+  }
+
+  // MARK: - Render-engine interactions (button engine → native → main engine)
+
+  private func handleRenderCall(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+    switch call.method {
+    case "ready":
+      // The render engine's Dart handler is live — flush the cached state so
+      // the first visible frame is never lost to the boot race.
+      NSLog("[button] render engine ready — flushing cached state")
+      renderReady = true
+      if let state = latestState {
+        renderChannel?.invokeMethod("setState", arguments: ["state": state])
+      }
+      renderChannel?.invokeMethod("setDiameter", arguments: ["diameter": latestDiameter])
+      result(nil)
+
+    case "startDrag":
+      if let event = NSApp.currentEvent, let p = panel {
+        p.performDrag(with: event)
+        // The drag loop has ended — persist the final origin via the existing
+        // main-engine event.
+        let origin = p.frame.origin
+        channel.invokeMethod("onDragEnded", arguments: [
+          "x": Double(origin.x),
+          "y": Double(origin.y),
+        ])
+      }
+      result(nil)
+
+    case "clicked":
+      channel.invokeMethod("onClicked", arguments: nil)
+      result(nil)
+
+    case "showContextMenu":
+      showNativeContextMenu()
+      result(nil)
+
+    default:
+      result(FlutterMethodNotImplemented)
+    }
+  }
+
+  private func showNativeContextMenu() {
+    if contextMenuItems.isEmpty {
+      // No items configured — mirror the old native behaviour: fall back to
+      // the secondary-click event on the public channel.
+      channel.invokeMethod("onSecondaryClicked", arguments: nil)
+      return
+    }
+    let menu = NSMenu()
+    for item in contextMenuItems {
+      if item.label == "---" {
+        menu.addItem(NSMenuItem.separator())
+        continue
+      }
+      let menuItem = NSMenuItem(
+        title: item.label,
+        action: #selector(contextMenuItemSelected(_:)),
+        keyEquivalent: ""
+      )
+      menuItem.target = self
+      menuItem.representedObject = item.id
+      menu.addItem(menuItem)
+    }
+    if let event = NSApp.currentEvent, let view = renderViewController?.view {
+      NSMenu.popUpContextMenu(menu, with: event, for: view)
+    }
+  }
+
+  @objc private func contextMenuItemSelected(_ sender: NSMenuItem) {
+    guard let id = sender.representedObject as? String else { return }
+    channel.invokeMethod("onContextMenu", arguments: ["id": id])
+  }
+
+  // MARK: - Teardown
+
+  private func teardown() {
+    if let obs = screenObserver {
+      NotificationCenter.default.removeObserver(obs)
+      screenObserver = nil
+    }
+    renderChannel?.setMethodCallHandler(nil)
+    panel?.close()
+    panel = nil
+    renderViewController = nil
+    renderChannel = nil
+    renderEngine?.shutDownEngine()
+    renderEngine = nil
+    renderReady = false
+    latestState = nil
+    channel.setMethodCallHandler(nil)
   }
 }
