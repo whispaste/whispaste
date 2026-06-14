@@ -64,6 +64,29 @@ Future<ProviderContainer> bootstrapAppContainer({
 }
 
 Future<void> main(List<String> args) async {
+  // Linux-only fast-path: the GTK embedder has no named-entrypoint API
+  // (unlike macOS FlutterEngine.run(withEntrypoint:) / Windows
+  // FlutterDesktopEngineCreate). Instead the native FloatingOverlayWindow
+  // passes "--floating-overlay" as a Dart entrypoint argument via
+  // fl_dart_project_set_dart_entrypoint_arguments. We branch here so the
+  // second engine never runs the full app bootstrap.
+  //
+  // macOS and Windows never pass args to main() — the named-entrypoint
+  // pragma functions (floatingOverlayMain / floatingButtonMain) above are
+  // what those platforms boot. So these branches are effectively Linux-only.
+  if (args.contains('--floating-overlay')) {
+    // runFloatingOverlayEngine() calls ensureInitialized() and runApp()
+    // internally; no zone guards needed here (we're still in the root zone).
+    runFloatingOverlayEngine();
+    return;
+  }
+  if (args.contains('--floating-button')) {
+    // runFloatingButtonEngine() calls ensureInitialized() and runApp()
+    // internally; no zone guards needed here (we're still in the root zone).
+    runFloatingButtonEngine();
+    return;
+  }
+
   // NOTE: WidgetsFlutterBinding.ensureInitialized() is called INSIDE the
   // bootstrap callback so that the binding and runApp() share the same zone.
   // Calling it here (root zone) while runApp() runs in the guarded zone
