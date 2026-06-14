@@ -1,34 +1,46 @@
-// Native Win32 floating button window — GDI+ rendered, always-on-top overlay.
-// No Flutter dependency. Pure Win32/GDI+.
+// Thin Win32 WS_POPUP shell for the floating button (ADR 0002 Phase 2).
+//
+// This file is the remnant of the old GDI+ window after Phase 2 surgery:
+// ALL drawing code (GDI+, UpdateLayeredWindow, animation timer) has been
+// removed. The class is now lifecycle-only: create/show/hide/move/resize the
+// shell window and host the Flutter child HWND inside it.
+//
+// Choice (Option B): keep the file as a thin shell class instead of deleting
+// it and folding everything into the host. Rationale: the host already had
+// a `window_` pointer and the show/hide/setPosition/getPosition split is a
+// clean seam. The GDI+ statics, gdiplus_helper, and all Paint* methods are
+// gone.
+//
+// Transparency approach (DWM):
+// - Window styles: WS_POPUP, WS_EX_TOPMOST | WS_EX_TOOLWINDOW |
+//   WS_EX_NOACTIVATE. NO WS_EX_LAYERED — Flutter drives its own surface and
+//   UpdateLayeredWindow does NOT apply to windows hosting a Flutter ANGLE/D3D
+//   child.
+// - DWM transparent frame: DwmExtendFrameIntoClientArea with -1 margins
+//   (sheet-of-glass) so DWM composites the Flutter surface over a transparent
+//   background. The Flutter Dart side already paints no background in the
+//   button render entrypoint.
+// - Risk: on some GPU/driver combinations the DWM approach may produce a
+//   black background instead of transparency. If that occurs on-device, the
+//   alternative is to use the flutter_acrylic plugin's
+//   Window.setEffect(effect: WindowEffect.transparent) API from the Dart
+//   render entrypoint — see TRANSPARENCY_NOTE in .cpp.
 
 #ifndef FLOATING_BUTTON_WINDOW_H_
 #define FLOATING_BUTTON_WINDOW_H_
 
 #include <windows.h>
-#include <gdiplus.h>
+#include <dwmapi.h>
 
 #include <functional>
-#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
-// Visual state of the floating button (set from Dart).
-enum class FloatingButtonState {
-  kIdle = 0,
-  kRecording,
-  kTranscribing,
-  kDone,
-  kError,
-  kDisabled,
-};
-
-// Native Win32 layered popup window rendered with GDI+.
-// Owned by FloatingButtonHost (Phase 3.2) which connects it to Flutter.
+// Thin lifecycle-only WS_POPUP shell.
+// All GDI+ drawing has been removed; the Flutter engine child HWND paints.
 class FloatingButtonWindow {
  public:
-  using ClickCallback = std::function<void()>;
-  using ContextMenuCallback = std::function<void(const std::string& id)>;
   using DragEndCallback =
       std::function<void(double logical_x, double logical_y)>;
 
@@ -38,9 +50,12 @@ class FloatingButtonWindow {
   FloatingButtonWindow(const FloatingButtonWindow&) = delete;
   FloatingButtonWindow& operator=(const FloatingButtonWindow&) = delete;
 
-  // Create the native window as an owned popup of |owner|.
-  // Position is in logical (DIP) pixels.
-  bool Create(HWND owner, double logical_x, double logical_y, int logical_size);
+  // Create the WS_POPUP shell. Position is in logical (DIP) pixels.
+  // |flutter_child| is the HWND returned by
+  // render_controller->view()->GetNativeWindow() — it is reparented into
+  // the shell and fills the client area.
+  bool Create(HWND owner, double logical_x, double logical_y,
+              int total_logical_size, HWND flutter_child);
   void Destroy();
 
   void Show();
@@ -48,31 +63,26 @@ class FloatingButtonWindow {
   bool IsVisible() const { return visible_; }
   HWND GetHandle() const { return hwnd_; }
 
-  void SetState(FloatingButtonState state);
-  void SetTheme(bool is_dark);
-  void SetOpacity(double opacity);
-  void SetSize(int logical_size);
+  // Resize the shell (and its Flutter child) to |total_logical_size| × same.
+  // total_logical_size = disc_diameter + 2 * shadowPadding (i.e. size + 16).
+  void SetTotalSize(int total_logical_size);
+
   void SetPosition(double logical_x, double logical_y);
   std::pair<double, double> GetPosition() const;
 
-  void SetClickCallback(ClickCallback cb) { click_cb_ = std::move(cb); }
-  void SetSecondaryClickCallback(ClickCallback cb) {
-    secondary_click_cb_ = std::move(cb);
-  }
-  void SetContextMenuCallback(ContextMenuCallback cb) {
-    context_menu_cb_ = std::move(cb);
-  }
+  // Re-asserts HWND_TOPMOST z-order. Call from FlutterWindow::MessageHandler
+  // on WM_SIZE(minimize) and WM_ACTIVATEAPP.
+  void RefreshTopmost();
+
+  // Context menu items forwarded from Dart (for native TrackPopupMenu).
   void SetContextMenuItems(
       std::vector<std::pair<std::string, std::wstring>> items) {
     context_menu_items_ = std::move(items);
   }
+
   void SetDragEndCallback(DragEndCallback cb) {
     drag_end_cb_ = std::move(cb);
   }
-
-  // Re-asserts HWND_TOPMOST z-order. Call after any event that may disrupt
-  // the floating window's position in the topmost z-order (e.g., minimize).
-  void RefreshTopmost();
 
  private:
   // ── Win32 window ────────────────────────────────────────────────────
@@ -83,92 +93,33 @@ class FloatingButtonWindow {
   static bool EnsureClassRegistered();
   static bool class_registered_;
 
-  // ── GDI+ lifecycle (ref-counted, once per process) ──────────────────
-  static bool AddGdiPlusRef();
-  static void ReleaseGdiPlusRef();
-  static int gdiplus_ref_count_;
-  static ULONG_PTR gdiplus_token_;
-
-  // ── Rendering ───────────────────────────────────────────────────────
-  void Render();
-  void PaintShadow(Gdiplus::Graphics& g, float cx, float cy, float body_r);
-  void PaintBody(Gdiplus::Graphics& g, float cx, float cy, float r);
-  void PaintIcon(Gdiplus::Graphics& g, float cx, float cy, float icon_size);
-  void PaintPulseRing(Gdiplus::Graphics& g, float cx, float cy, float base_r);
-
-  // Lucide icon drawing (all in 24×24 coordinate space).
-  void DrawMicIcon(Gdiplus::Graphics& g, Gdiplus::Pen& pen);
-  void DrawSquareIcon(Gdiplus::Graphics& g, Gdiplus::Pen& pen);
-  void DrawLoaderIcon(Gdiplus::Graphics& g, Gdiplus::Pen& pen,
-                      float rotation_deg);
-  void DrawCheckIcon(Gdiplus::Graphics& g, Gdiplus::Pen& pen);
-  void DrawAlertIcon(Gdiplus::Graphics& g, Gdiplus::Pen& pen);
-
-  // ── Animation ───────────────────────────────────────────────────────
-  static void CALLBACK AnimTimerProc(HWND, UINT, UINT_PTR, DWORD);
-  void OnAnimTick();
-  void StartAnimTimer();
-  void StopAnimTimer();
-  bool NeedsAnimation() const;
-
   // ── DPI ─────────────────────────────────────────────────────────────
   double GetDpiScale() const;
   double GetDpiScaleForOwner() const;
   int ToPhysical(double logical) const;
   double ToLogical(int physical) const;
-  int GetOuterPhysical() const;
 
-  // ── Position ────────────────────────────────────────────────────────
   void ApplyWindowPosition();
   void ValidatePosition();
+  void ApplyChildSize();
 
-  // ── Thread safety ──────────────────────────────────────────────────
-  bool IsOnCreatingThread() const;
-
-  // ── Gradient helpers ────────────────────────────────────────────────
-  struct Gradient {
-    Gdiplus::Color c0, c1, c2;  // c1 is the mid-stop (used for 3-stop)
-    bool three_stop;
-  };
-  Gradient ColorsFor(FloatingButtonState s) const;
-  static Gdiplus::Color LerpColor(const Gdiplus::Color& a,
-                                  const Gdiplus::Color& b, float t);
-
-  // ── State ───────────────────────────────────────────────────────────
+  // ── State ────────────────────────────────────────────────────────────
   HWND hwnd_ = nullptr;
-  HWND owner_ = nullptr;
+  HWND flutter_child_ = nullptr;  // child Flutter view HWND (not owned)
+  HWND owner_ = nullptr;          // kept for DPI lookups only
   bool shutting_down_ = false;
   bool visible_ = false;
-  bool gdi_plus_acquired_ = false;
   DWORD creating_thread_id_ = 0;
 
-  FloatingButtonState state_ = FloatingButtonState::kIdle;
-  FloatingButtonState prev_state_ = FloatingButtonState::kIdle;
-  bool is_dark_ = true;
-  double opacity_ = 1.0;
-  int logical_size_ = 56;
+  int total_logical_size_ = 72;  // disc + 2*shadowPadding
   double logical_x_ = 0.0;
   double logical_y_ = 0.0;
 
-  // Animation
-  UINT_PTR anim_timer_ = 0;
-  DWORD anim_origin_ = 0;       // GetTickCount at animation start
-  DWORD transition_start_ = 0;  // GetTickCount at last state change
-
-  // Drag
-  bool dragging_ = false;
-  bool drag_moved_ = false;
-  POINT drag_cursor_start_ = {};
-  POINT drag_window_start_ = {};
-
-  // Callbacks
-  ClickCallback click_cb_;
-  ClickCallback secondary_click_cb_;
-  ContextMenuCallback context_menu_cb_;
-  DragEndCallback drag_end_cb_;
-
-  // Context menu items (id, wideLabel).
+  // Context menu items (id, wideLabel) — used by host for TrackPopupMenu.
   std::vector<std::pair<std::string, std::wstring>> context_menu_items_;
+
+  // Called by the host after the OS drag loop ends.
+  DragEndCallback drag_end_cb_;
 };
 
 #endif  // FLOATING_BUTTON_WINDOW_H_
