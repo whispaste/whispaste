@@ -29,8 +29,10 @@ set(CMAKE_SHARED_LINKER_FLAGS_PROFILE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE}")
 set(CMAKE_C_FLAGS_PROFILE "${CMAKE_C_FLAGS_RELEASE}")
 set(CMAKE_CXX_FLAGS_PROFILE "${CMAKE_CXX_FLAGS_RELEASE}")
 
-# Use Unicode for all projects.
-add_definitions(-DUNICODE -D_UNICODE)
+# Use Unicode for all projects. NOMINMAX stops <windows.h> from defining the
+# min/max macros, which otherwise clobber std::min/std::max in plugin sources
+# (e.g. flutter_soloud's player.cpp) on a from-scratch Windows build.
+add_definitions(-DUNICODE -D_UNICODE -DNOMINMAX)
 
 # Compilation settings that should be applied to most targets.
 #
