@@ -629,33 +629,6 @@ class L10nHe extends L10n {
       'כפתור קטן תמיד עליון להתחלת/עצירת הקלטה';
 
   @override
-  String get settingsFloatingButtonOpacity => 'שקיפות כפתור צף';
-
-  @override
-  String get settingsFloatingButtonOpacitySubtitle => 'משפיע רק על הכפתור הצף';
-
-  @override
-  String get settingsFloatingOverlayOpacity => 'שקיפות שכבת הקלטה';
-
-  @override
-  String get settingsFloatingOverlayOpacitySubtitle => 'שקיפות של שכבת ההקלטה';
-
-  @override
-  String get settingsFloatingButtonSize => 'גודל כפתור צף';
-
-  @override
-  String get settingsFloatingButtonSizeSubtitle => 'כמה בולט יהיה הכפתור';
-
-  @override
-  String get settingsSizeSmall => 'קטן';
-
-  @override
-  String get settingsSizeNormal => 'רגיל';
-
-  @override
-  String get settingsSizeLarge => 'גדול';
-
-  @override
   String get settingsLanguage => 'שפה';
 
   @override
@@ -2295,25 +2268,6 @@ class L10nHe extends L10n {
 
   @override
   String get settingsOverlaySizeCompact => 'קומפקטי';
-
-  @override
-  String get settingsOverlayAutoHide => 'זמן הסתרה אוטומטית';
-
-  @override
-  String get settingsOverlayAutoHideSubtitle =>
-      'כמה זמן השכבה נשארת גלויה אחרי סיום';
-
-  @override
-  String get settingsOverlayAutoHide2s => '2 שניות';
-
-  @override
-  String get settingsOverlayAutoHide5s => '5 שניות';
-
-  @override
-  String get settingsOverlayAutoHide10s => '10 שניות';
-
-  @override
-  String get settingsOverlayAutoHideManual => 'עד לסגירה ידנית';
 
   @override
   String get overlayRetry => 'נסה שוב';

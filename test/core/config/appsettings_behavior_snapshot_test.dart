@@ -243,11 +243,6 @@ void main() {
       expect(_roundtrip(s).showFloatingButton, isTrue);
     });
 
-    test('floatingButtonSize large survives roundtrip', () {
-      final s = AppSettings.defaults.copyWith(floatingButtonSize: 'large');
-      expect(_roundtrip(s).floatingButtonSize, 'large');
-    });
-
     // --- Cloud Provider (API keys excluded from SQLite) ---
     test('openAiApiKey is NOT stored in SQLite map', () {
       final s = AppSettings.defaults.copyWith(openAiApiKey: 'sk-secret');
@@ -679,7 +674,6 @@ void main() {
         overlayStartPosition: 'last-position',
         overlaySize: 'compact',
         showFloatingButton: true,
-        floatingButtonSize: 'small',
       );
       final map = s.toStorageMap();
       expect(map['show_overlay'], 'true');
@@ -687,8 +681,8 @@ void main() {
       expect(map['overlay_start_position'], 'last-position');
       expect(map['overlay_size'], 'compact');
       expect(map['show_floating_button'], 'true');
-      expect(map['floating_button_size'], 'small');
-      // Opacity keys are no longer written (issue 11).
+      // Size and opacity keys are no longer written (issue 11).
+      expect(map.containsKey('floating_button_size'), isFalse);
       expect(map.containsKey('floating_button_opacity'), isFalse);
       expect(map.containsKey('floating_overlay_opacity'), isFalse);
     });
@@ -700,7 +694,6 @@ void main() {
         overlayStartPosition: OverlayStartPosition.lastPosition.value,
         overlaySize: FloatingOverlaySize.compact.value,
         showFloatingButton: true,
-        floatingButtonSize: FloatingButtonSize.large.value,
       );
       final r = _roundtrip(s);
       expect(r.showOverlay, isTrue);
@@ -708,7 +701,6 @@ void main() {
       expect(r.overlayStartPosition, OverlayStartPosition.lastPosition.value);
       expect(r.overlaySize, FloatingOverlaySize.compact.value);
       expect(r.showFloatingButton, isTrue);
-      expect(r.floatingButtonSize, FloatingButtonSize.large.value);
     });
 
     test('legacy in-window overlayMode typed accessor migrates to floating', () {

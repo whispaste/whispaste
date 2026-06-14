@@ -3,8 +3,8 @@
 /// Covers:
 /// - OverlaySection: toggle round-trip (overlayMode off → floating), nested
 ///   overlay dropdowns hidden when off and visible when floating.
-/// - FloatingButtonSection: toggle round-trip (showFloatingButton false → true),
-///   nested size/opacity controls hidden when off and visible when on.
+/// - FloatingButtonSection: toggle round-trip (showFloatingButton false → true).
+///   No sub-controls (size picker was removed in issue 11 — fixed 56 dp).
 ///
 /// Platform notes:
 /// - OverlaySection renders the toggle on all desktop platforms
@@ -219,49 +219,38 @@ void main() {
     );
 
     testWidgets(
-      'nested size dropdown hidden when showFloatingButton is false',
+      'no sub-controls rendered regardless of showFloatingButton state',
       (tester) async {
         if (!_isFloatingButtonPlatform) return; // Platform guard.
 
-        final notifier = _FakeSettingsNotifier(
-          AppSettings.defaults.copyWithSections(
-            overlay: const OverlaySettings(showFloatingButton: false),
-          ),
-        );
-        await tester.pumpWidget(
-          makeTestable(
-            const SingleChildScrollView(child: FloatingButtonSection()),
-            overrides: [settingsProvider.overrideWith(() => notifier)],
-          ),
-        );
-        await tester.pumpAndSettle();
+        // The size picker was removed in issue 11 (fixed 56 dp design token).
+        // The toggle is the only interactive control in this section.
+        for (final show in [false, true]) {
+          final notifier = _FakeSettingsNotifier(
+            AppSettings.defaults.copyWithSections(
+              overlay: OverlaySettings(showFloatingButton: show),
+            ),
+          );
+          await tester.pumpWidget(
+            makeTestable(
+              const SingleChildScrollView(child: FloatingButtonSection()),
+              overrides: [settingsProvider.overrideWith(() => notifier)],
+            ),
+          );
+          await tester.pumpAndSettle();
 
-        expect(find.byType(DropdownButton<String>), findsNothing);
-        expect(find.byType(Slider), findsNothing);
+          expect(
+            find.byType(DropdownButton<String>),
+            findsNothing,
+            reason: 'showFloatingButton=$show: no dropdown expected',
+          );
+          expect(
+            find.byType(Slider),
+            findsNothing,
+            reason: 'showFloatingButton=$show: no slider expected',
+          );
+        }
       },
     );
-
-    testWidgets('nested size dropdown visible when showFloatingButton is true', (
-      tester,
-    ) async {
-      if (!_isFloatingButtonPlatform) return; // Platform guard.
-
-      final notifier = _FakeSettingsNotifier(
-        AppSettings.defaults.copyWithSections(
-          overlay: const OverlaySettings(showFloatingButton: true),
-        ),
-      );
-      await tester.pumpWidget(
-        makeTestable(
-          const SingleChildScrollView(child: FloatingButtonSection()),
-          overrides: [settingsProvider.overrideWith(() => notifier)],
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      // Size dropdown visible; opacity slider removed (issue 11 — fixed opacity).
-      expect(find.byType(DropdownButton<String>), findsOneWidget);
-      expect(find.byType(Slider), findsNothing);
-    });
   });
 }

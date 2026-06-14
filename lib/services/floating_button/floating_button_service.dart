@@ -8,6 +8,7 @@ import 'package:window_manager/window_manager.dart';
 import '../../core/navigation/page_state.dart' show activePageProvider;
 import '../../core/config/settings_provider.dart';
 import '../../core/data/database.dart';
+import '../../core/theme/overlay_design_spec.dart' show FloatingButtonSpec;
 import '../../core/data/history_providers.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/logging/app_logger.dart';
@@ -105,7 +106,7 @@ class FloatingButtonService
 
     try {
       if (s.showFloatingButton) {
-        final size = s.floatingButtonSizeType.pixels;
+        final size = FloatingButtonSpec.buttonDiameter.toInt();
         final x = s.floatingButtonX;
         final y = s.floatingButtonY;
 

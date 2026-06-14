@@ -191,9 +191,6 @@ class AppSettings {
   @Deprecated('Use overlay.showFloatingButton instead')
   bool get showFloatingButton => overlay.showFloatingButton;
 
-  @Deprecated('Use overlay.floatingButtonSize instead')
-  String get floatingButtonSize => overlay.floatingButtonSize;
-
   @Deprecated('Use cloudProvider.openAiApiKey instead')
   String get openAiApiKey => cloudProvider.openAiApiKey;
 
@@ -306,8 +303,6 @@ class AppSettings {
       OverlayStartPosition.fromValue(overlay.overlayStartPosition);
   FloatingOverlaySize get overlaySizeType =>
       FloatingOverlaySize.fromValue(overlay.overlaySize);
-  FloatingButtonSize get floatingButtonSizeType =>
-      FloatingButtonSize.fromValue(overlay.floatingButtonSize);
 
   /// Resolved model ID — falls back to `whisper-medium` if empty.
   String get effectiveModelId =>
@@ -506,7 +501,6 @@ class AppSettings {
     String? overlayStartPosition,
     String? overlaySize,
     bool? showFloatingButton,
-    String? floatingButtonSize,
     String? openAiApiKey,
     String? deepgramApiKey,
     String? cloudSttProvider,
@@ -580,7 +574,6 @@ class AppSettings {
         overlayStartPosition: overlayStartPosition,
         overlaySize: overlaySize,
         showFloatingButton: showFloatingButton,
-        floatingButtonSize: floatingButtonSize,
       ),
       cloudProvider: cloudProvider.copyWith(
         openAiApiKey: openAiApiKey,

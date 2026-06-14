@@ -496,7 +496,6 @@ class OverlaySettings {
     this.overlayStartPosition = 'top-center',
     this.overlaySize = 'normal',
     this.showFloatingButton = false,
-    this.floatingButtonSize = 'normal',
   });
 
   final bool showOverlay;
@@ -511,7 +510,6 @@ class OverlaySettings {
   final String overlaySize;
 
   final bool showFloatingButton;
-  final String floatingButtonSize;
 
   static const OverlaySettings defaults = OverlaySettings();
 
@@ -530,8 +528,8 @@ class OverlaySettings {
       'show_floating_button',
       defaults.showFloatingButton,
     ),
-    floatingButtonSize:
-        v['floating_button_size'] ?? defaults.floatingButtonSize,
+    // 'floating_button_size' is intentionally not read — removed in issue 11.
+    // Old configs may have it; the key is silently ignored (no migration needed).
   );
 
   Map<String, String> toMap() => {
@@ -540,7 +538,6 @@ class OverlaySettings {
     'overlay_start_position': overlayStartPosition,
     'overlay_size': overlaySize,
     'show_floating_button': '$showFloatingButton',
-    'floating_button_size': floatingButtonSize,
   };
 
   OverlaySettings copyWith({
@@ -549,14 +546,12 @@ class OverlaySettings {
     String? overlayStartPosition,
     String? overlaySize,
     bool? showFloatingButton,
-    String? floatingButtonSize,
   }) => OverlaySettings(
     showOverlay: showOverlay ?? this.showOverlay,
     overlayMode: overlayMode ?? this.overlayMode,
     overlayStartPosition: overlayStartPosition ?? this.overlayStartPosition,
     overlaySize: overlaySize ?? this.overlaySize,
     showFloatingButton: showFloatingButton ?? this.showFloatingButton,
-    floatingButtonSize: floatingButtonSize ?? this.floatingButtonSize,
   );
 
   @override
@@ -567,8 +562,7 @@ class OverlaySettings {
           overlayMode == other.overlayMode &&
           overlayStartPosition == other.overlayStartPosition &&
           overlaySize == other.overlaySize &&
-          showFloatingButton == other.showFloatingButton &&
-          floatingButtonSize == other.floatingButtonSize;
+          showFloatingButton == other.showFloatingButton;
 
   @override
   int get hashCode => Object.hash(
@@ -577,7 +571,6 @@ class OverlaySettings {
     overlayStartPosition,
     overlaySize,
     showFloatingButton,
-    floatingButtonSize,
   );
 }
 
