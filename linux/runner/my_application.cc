@@ -6,10 +6,20 @@
 #endif
 
 #include "flutter/generated_plugin_registrant.h"
+#include "floating_button_host.h"
+#include "floating_overlay_host.h"
 
 struct _MyApplication {
   GtkApplication parent_instance;
   char** dart_entrypoint_arguments;
+  // Owns the public overlay MethodChannel and lazily manages the 2nd engine
+  // window. Created once the main FlView/engine is live (in activate); deleted
+  // in dispose. Raw pointer is intentional — GObject lifecycle does not manage
+  // C++ objects.
+  FloatingOverlayHost* floating_overlay_host;
+  // Owns the public button MethodChannel and lazily manages the button engine
+  // window. Same lifecycle as floating_overlay_host above.
+  FloatingButtonHost* floating_button_host;
 };
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
@@ -75,6 +85,16 @@ static void my_application_activate(GApplication* application) {
 
   fl_register_plugins(FL_PLUGIN_REGISTRY(view));
 
+  // Wire the floating overlay host to the main engine's binary messenger.
+  // The host opens the public MethodChannel (com.whispaste.floating_overlay)
+  // and lazily creates the 2nd-engine overlay shell when Dart sends the first
+  // updateSnapshot(visible: true).
+  FlEngine* main_engine = fl_view_get_engine(view);
+  FlBinaryMessenger* main_messenger =
+      fl_engine_get_binary_messenger(main_engine);
+  self->floating_overlay_host = new FloatingOverlayHost(main_messenger);
+  self->floating_button_host = new FloatingButtonHost(main_messenger);
+
   gtk_widget_grab_focus(GTK_WIDGET(view));
 }
 
@@ -121,6 +141,10 @@ static void my_application_shutdown(GApplication* application) {
 static void my_application_dispose(GObject* object) {
   MyApplication* self = MY_APPLICATION(object);
   g_clear_pointer(&self->dart_entrypoint_arguments, g_strfreev);
+  delete self->floating_overlay_host;
+  self->floating_overlay_host = nullptr;
+  delete self->floating_button_host;
+  self->floating_button_host = nullptr;
   G_OBJECT_CLASS(my_application_parent_class)->dispose(object);
 }
 
