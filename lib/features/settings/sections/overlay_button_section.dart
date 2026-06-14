@@ -10,7 +10,6 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../core/config/settings_enums.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
-
 import '../../../widgets/section.dart';
 import '../settings_widgets.dart';
 
@@ -144,29 +143,6 @@ class FloatingButtonSection extends ConsumerWidget {
                   .updateSettings((s) => s.copyWith(showFloatingButton: v)),
             ),
           ),
-          if (settings.showFloatingButton) ...[
-            SettingRow(
-              icon: LucideIcons.maximize2,
-              label: l10n.settingsFloatingButtonSize,
-              subtitle: l10n.settingsFloatingButtonSizeSubtitle,
-              trailing: settingsDropdown(
-                context: context,
-                value: settings.floatingButtonSizeType.value,
-                items: FloatingButtonSize.values.map((e) => e.value).toList(),
-                labels: [
-                  l10n.settingsSizeSmall,
-                  l10n.settingsSizeNormal,
-                  l10n.settingsSizeLarge,
-                ],
-                onChanged: (v) {
-                  if (v == null) return;
-                  ref
-                      .read(settingsProvider.notifier)
-                      .updateSettings((s) => s.copyWith(floatingButtonSize: v));
-                },
-              ),
-            ),
-          ],
         ],
       ),
     );

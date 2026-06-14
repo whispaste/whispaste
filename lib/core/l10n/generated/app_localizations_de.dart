@@ -644,37 +644,6 @@ class L10nDe extends L10n {
       'Kleiner immer sichtbarer Button zum Starten oder Stoppen der Aufnahme aus jeder App';
 
   @override
-  String get settingsFloatingButtonOpacity =>
-      'Deckkraft des schwebenden Buttons';
-
-  @override
-  String get settingsFloatingButtonOpacitySubtitle =>
-      'Betrifft nur den schwebenden Button, nicht das Aufnahme-Overlay';
-
-  @override
-  String get settingsFloatingOverlayOpacity => 'Overlay-Deckkraft';
-
-  @override
-  String get settingsFloatingOverlayOpacitySubtitle =>
-      'Transparenz des schwebenden Aufnahme-Overlays';
-
-  @override
-  String get settingsFloatingButtonSize => 'Größe des schwebenden Buttons';
-
-  @override
-  String get settingsFloatingButtonSizeSubtitle =>
-      'Lege fest, wie präsent der immer sichtbare Button wirken soll';
-
-  @override
-  String get settingsSizeSmall => 'Klein';
-
-  @override
-  String get settingsSizeNormal => 'Normal';
-
-  @override
-  String get settingsSizeLarge => 'Groß';
-
-  @override
   String get settingsLanguage => 'Sprache';
 
   @override
@@ -2365,25 +2334,6 @@ class L10nDe extends L10n {
 
   @override
   String get settingsOverlaySizeCompact => 'Kompakt';
-
-  @override
-  String get settingsOverlayAutoHide => 'Automatisches Ausblenden';
-
-  @override
-  String get settingsOverlayAutoHideSubtitle =>
-      'Wie lange das Overlay nach Abschluss sichtbar bleibt';
-
-  @override
-  String get settingsOverlayAutoHide2s => '2 Sekunden';
-
-  @override
-  String get settingsOverlayAutoHide5s => '5 Sekunden';
-
-  @override
-  String get settingsOverlayAutoHide10s => '10 Sekunden';
-
-  @override
-  String get settingsOverlayAutoHideManual => 'Bis manuell geschlossen';
 
   @override
   String get overlayRetry => 'Erneut versuchen';

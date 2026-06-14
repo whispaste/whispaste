@@ -534,11 +534,20 @@ class FloatingButtonMicSpec {
 /// Floating-button appearance — the V2 style (ADR 0002): a white disc with a
 /// dark mic glyph and a hairline border. No accent ring, no glow.
 ///
-/// Button **sizes** are settings-owned (`FloatingButtonSize`: 44/56/80) and are
-/// intentionally not redefined here. Per-state icon tinting reuses
+/// The button diameter is fixed at [buttonDiameter] (56 dp) — the approved
+/// design-token value. The former size picker (Small/Normal/Large) was removed
+/// in issue 11 because the Zielgruppe does not benefit from micro-tuning the
+/// button chrome. Per-state icon tinting reuses
 /// [OverlayDesignSpec.stateGradients] (consumed in issue 08).
 @immutable
 class FloatingButtonSpec {
+  /// Fixed button disc diameter in logical pixels (design-token value, ADR 0002).
+  ///
+  /// Formerly `FloatingButtonSize.normal.pixels` (56); the user-facing size
+  /// picker was removed in issue 11. All rendering code should reference this
+  /// constant instead of a hard-coded literal.
+  static const double buttonDiameter = 56.0;
+
   const FloatingButtonSpec({
     required this.discColor,
     required this.discGradientEnd,

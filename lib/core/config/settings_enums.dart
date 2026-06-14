@@ -121,30 +121,6 @@ enum OverlayStartPosition {
 }
 
 // ---------------------------------------------------------------------------
-// Floating Button Size
-// ---------------------------------------------------------------------------
-
-/// Floating button size presets.
-enum FloatingButtonSize {
-  small('small', 44),
-  normal('normal', 56),
-  large('large', 80);
-
-  const FloatingButtonSize(this.value, this.pixels);
-  final String value;
-  final int pixels;
-
-  static FloatingButtonSize fromValue(String? v) {
-    if (v == null) return normal;
-    final lower = v.toLowerCase();
-    for (final e in values) {
-      if (e.value == lower) return e;
-    }
-    return normal;
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Floating Overlay Size
 // ---------------------------------------------------------------------------
 

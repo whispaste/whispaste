@@ -639,36 +639,6 @@ class L10nEn extends L10n {
       'Small always-on-top button for starting or stopping recording from any app';
 
   @override
-  String get settingsFloatingButtonOpacity => 'Floating button opacity';
-
-  @override
-  String get settingsFloatingButtonOpacitySubtitle =>
-      'Only affects the floating button, not the recording overlay';
-
-  @override
-  String get settingsFloatingOverlayOpacity => 'Overlay opacity';
-
-  @override
-  String get settingsFloatingOverlayOpacitySubtitle =>
-      'Transparency of the floating recording overlay';
-
-  @override
-  String get settingsFloatingButtonSize => 'Floating button size';
-
-  @override
-  String get settingsFloatingButtonSizeSubtitle =>
-      'Choose how prominent the always-on-top button should feel';
-
-  @override
-  String get settingsSizeSmall => 'Small';
-
-  @override
-  String get settingsSizeNormal => 'Normal';
-
-  @override
-  String get settingsSizeLarge => 'Large';
-
-  @override
   String get settingsLanguage => 'Language';
 
   @override
@@ -2346,25 +2316,6 @@ class L10nEn extends L10n {
 
   @override
   String get settingsOverlaySizeCompact => 'Compact';
-
-  @override
-  String get settingsOverlayAutoHide => 'Auto-hide delay';
-
-  @override
-  String get settingsOverlayAutoHideSubtitle =>
-      'How long the overlay stays visible after completion';
-
-  @override
-  String get settingsOverlayAutoHide2s => '2 seconds';
-
-  @override
-  String get settingsOverlayAutoHide5s => '5 seconds';
-
-  @override
-  String get settingsOverlayAutoHide10s => '10 seconds';
-
-  @override
-  String get settingsOverlayAutoHideManual => 'Until dismissed';
 
   @override
   String get overlayRetry => 'Retry';

@@ -1221,60 +1221,6 @@ abstract class L10n {
   /// **'Small always-on-top button for starting or stopping recording from any app'**
   String get settingsShowFloatingButtonSubtitle;
 
-  /// No description provided for @settingsFloatingButtonOpacity.
-  ///
-  /// In en, this message translates to:
-  /// **'Floating button opacity'**
-  String get settingsFloatingButtonOpacity;
-
-  /// No description provided for @settingsFloatingButtonOpacitySubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Only affects the floating button, not the recording overlay'**
-  String get settingsFloatingButtonOpacitySubtitle;
-
-  /// No description provided for @settingsFloatingOverlayOpacity.
-  ///
-  /// In en, this message translates to:
-  /// **'Overlay opacity'**
-  String get settingsFloatingOverlayOpacity;
-
-  /// No description provided for @settingsFloatingOverlayOpacitySubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Transparency of the floating recording overlay'**
-  String get settingsFloatingOverlayOpacitySubtitle;
-
-  /// No description provided for @settingsFloatingButtonSize.
-  ///
-  /// In en, this message translates to:
-  /// **'Floating button size'**
-  String get settingsFloatingButtonSize;
-
-  /// No description provided for @settingsFloatingButtonSizeSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Choose how prominent the always-on-top button should feel'**
-  String get settingsFloatingButtonSizeSubtitle;
-
-  /// No description provided for @settingsSizeSmall.
-  ///
-  /// In en, this message translates to:
-  /// **'Small'**
-  String get settingsSizeSmall;
-
-  /// No description provided for @settingsSizeNormal.
-  ///
-  /// In en, this message translates to:
-  /// **'Normal'**
-  String get settingsSizeNormal;
-
-  /// No description provided for @settingsSizeLarge.
-  ///
-  /// In en, this message translates to:
-  /// **'Large'**
-  String get settingsSizeLarge;
-
   /// No description provided for @settingsLanguage.
   ///
   /// In en, this message translates to:
@@ -4244,42 +4190,6 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Compact'**
   String get settingsOverlaySizeCompact;
-
-  /// No description provided for @settingsOverlayAutoHide.
-  ///
-  /// In en, this message translates to:
-  /// **'Auto-hide delay'**
-  String get settingsOverlayAutoHide;
-
-  /// No description provided for @settingsOverlayAutoHideSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'How long the overlay stays visible after completion'**
-  String get settingsOverlayAutoHideSubtitle;
-
-  /// No description provided for @settingsOverlayAutoHide2s.
-  ///
-  /// In en, this message translates to:
-  /// **'2 seconds'**
-  String get settingsOverlayAutoHide2s;
-
-  /// No description provided for @settingsOverlayAutoHide5s.
-  ///
-  /// In en, this message translates to:
-  /// **'5 seconds'**
-  String get settingsOverlayAutoHide5s;
-
-  /// No description provided for @settingsOverlayAutoHide10s.
-  ///
-  /// In en, this message translates to:
-  /// **'10 seconds'**
-  String get settingsOverlayAutoHide10s;
-
-  /// No description provided for @settingsOverlayAutoHideManual.
-  ///
-  /// In en, this message translates to:
-  /// **'Until dismissed'**
-  String get settingsOverlayAutoHideManual;
 
   /// No description provided for @overlayRetry.
   ///
