@@ -1,0 +1,50 @@
+# loam.yaml — loam.dev configuration (codebase intelligence & anti-AI-slop)
+# CLI: loam  |  Docs: https://github.com/silvio-l/loam
+#
+# Repo-root config: shared defaults for the whole monorepo. loam discovers it
+# by walking up from the analysed project to the git root; a per-package
+# loam.yaml (if added) layers on top (nearer wins; ignore lists are additive).
+#
+# Checks: `loam scan` (full audit) · `loam gate` (CI ratchet, against baseline.json)
+# · `loam health` · `loam slop` (AI-slop only) · `loam a11y`.
+
+# No update-availability notice on stderr (offline / AFK runs).
+update_check: false
+
+# Production source scanned for complexity/health (per project). Default is
+# [lib, bin]; test/, integration_test/, tool/, example/, benchmark/ are excluded
+# by default and *.g.dart is always excluded.
+source_dirs:
+  - lib
+  - bin
+
+# ---------------------------------------------------------------------------
+# ignore — repo-relative globs suppressed across ALL findings (every rule
+# category). Fully excludes a file/dir from the check. Additive with inline
+# `// loam-ignore: <ruleId> – reason`. Globs use `**/` so they match in every
+# package of the monorepo.
+# ---------------------------------------------------------------------------
+#
+# NOTE: both the bare (`test/**`) and the `**/`-prefixed (`**/test/**`) form are
+# listed for each dir on purpose. When loam is run from a package dir the paths
+# are package-relative (`test/...`, no leading segment) and only the bare glob
+# matches; when run from the repo root they are `packages/<pkg>/test/...` and
+# the `**/` form matches. Listing both makes the exclusion hold at either root.
+ignore:
+  - "test/**"                 # test code is intentionally out of scope
+  - "**/test/**"
+  - "integration_test/**"
+  - "**/integration_test/**"
+  - "test_driver/**"
+  - "**/test_driver/**"
+  - "tool/**"                 # dev-only helpers (e.g. the reference-WAV generator)
+  - "**/tool/**"
+  - "**/*.g.dart"             # generated code
+  - "generated/**"            # generated output (l10n, etc.)
+  - "**/generated/**"
+
+# ---------------------------------------------------------------------------
+# rules — per-rule on/off switches (ruleId: true/false). All active by default;
+# add overrides here to keep the gate flexible.
+# ---------------------------------------------------------------------------
+rules: {}
