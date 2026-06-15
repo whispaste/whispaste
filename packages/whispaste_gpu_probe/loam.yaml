@@ -1,0 +1,38 @@
+# loam.yaml — loam.dev configuration (codebase intelligence & anti-AI-slop)
+# CLI: loam  |  Docs: https://github.com/silvio-l/loam
+#
+# Checks: `loam scan` (full audit) · `loam gate` (CI ratchet) · `loam health`
+# · `loam slop` (AI-slop only) · `loam a11y`.
+#
+# Monorepo note: a repo-root loam.yaml could provide shared defaults; this
+# per-package file layers on top (nearer wins; ignore lists are additive).
+
+# No update-availability notice on stderr (offline / AFK runs).
+update_check: false
+
+# ---------------------------------------------------------------------------
+# source_dirs — production source scanned for complexity/health.
+# Default is [lib, bin]; test/, integration_test/, tool/, example/, benchmark/
+# are excluded by default and *.g.dart is always excluded. Listed explicitly
+# here so the intent is obvious to the next reader.
+# ---------------------------------------------------------------------------
+source_dirs:
+  - lib
+  - bin
+
+# ---------------------------------------------------------------------------
+# ignore — project-relative globs suppressed across ALL findings (every rule
+# category, not just complexity). This is what fully excludes a file/dir from
+# the check. Additive with inline `// loam-ignore: <ruleId> – reason`.
+# ---------------------------------------------------------------------------
+ignore:
+  - "test/**"              # test code is intentionally out of scope
+  - "integration_test/**"
+  - "tool/**"              # dev-only helpers (e.g. the reference-WAV generator)
+  - "**/*.g.dart"          # generated code
+
+# ---------------------------------------------------------------------------
+# rules — per-rule on/off switches (ruleId: true/false). All rules are active
+# by default; add overrides here to keep the gate flexible.
+# ---------------------------------------------------------------------------
+rules: {}
