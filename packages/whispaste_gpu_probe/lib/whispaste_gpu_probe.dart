@@ -5,3 +5,4 @@
 export 'src/probe_types.dart';
 export 'src/probe_orchestrator.dart';
 export 'src/outcome_classifier.dart';
+export 'src/probe_runner.dart';
