@@ -8,6 +8,7 @@ library;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_localized_locales/flutter_localized_locales.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -25,11 +26,6 @@ import '../settings_widgets.dart';
 // ---------------------------------------------------------------------------
 // Speech Recognition section
 // ---------------------------------------------------------------------------
-
-/// Whisper catalog sorted by English display name for the dropdown.
-final List<MapEntry<String, String>> _languagesByName =
-    whisperLanguages.entries.toList()
-      ..sort((a, b) => a.value.compareTo(b.value));
 
 class SpeechRecognitionSection extends ConsumerStatefulWidget {
   const SpeechRecognitionSection({super.key});
@@ -55,6 +51,22 @@ class _SpeechRecognitionSectionState
     final l10n = L10n.of(context);
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
     final isLocal = settings.sttProviderType.isLocal;
+
+    // Recognition-language names localised to the active UI language via CLDR
+    // data; falls back to the catalog's English name for any Whisper-specific
+    // code CLDR doesn't know. Sorted by the localised name so the list reads
+    // naturally in every UI language.
+    final localeNames = LocaleNames.of(context);
+    final sttLanguages =
+        whisperLanguages.keys
+            .map(
+              (code) => MapEntry(
+                code,
+                localeNames?.nameOf(code) ?? whisperLanguages[code]!,
+              ),
+            )
+            .toList()
+          ..sort((a, b) => a.value.compareTo(b.value));
 
     return WpSection(
       title: l10n.settingsSpeechRecognition,
@@ -113,10 +125,10 @@ class _SpeechRecognitionSectionState
             trailing: settingsDropdown(
               context: context,
               value: settings.sttLanguageCode,
-              items: ['auto', ..._languagesByName.map((e) => e.key)],
+              items: ['auto', ...sttLanguages.map((e) => e.key)],
               labels: [
                 l10n.settingsLanguageAutoDetect,
-                ..._languagesByName.map((e) => e.value),
+                ...sttLanguages.map((e) => e.value),
               ],
               onChanged: (v) => ref
                   .read(settingsProvider.notifier)
