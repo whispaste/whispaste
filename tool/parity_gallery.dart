@@ -101,9 +101,24 @@ class _GalleryAppState extends State<_GalleryApp> {
 
   @override
   Widget build(BuildContext context) {
+    // Force the captured boundary to the full canvas size regardless of the
+    // OS window size. Tiling WMs (e.g. sway on the Linux CI VM) clamp the
+    // window to the output resolution; without this the RepaintBoundary would
+    // lay out at the clamped size and the capture would be cropped. The
+    // RepaintBoundary records its whole subtree into its own layer, so
+    // `toImage` captures the full canvas even though only part is on screen.
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: RepaintBoundary(key: _boundaryKey, child: const _Gallery()),
+      home: Center(
+        child: OverflowBox(
+          minWidth: _canvas.width,
+          maxWidth: _canvas.width,
+          minHeight: _canvas.height,
+          maxHeight: _canvas.height,
+          alignment: Alignment.topLeft,
+          child: RepaintBoundary(key: _boundaryKey, child: const _Gallery()),
+        ),
+      ),
     );
   }
 }
