@@ -156,6 +156,46 @@ List<CatalogModel> defaultModelCatalog() {
     );
   }
 
+  // CTranslate2 Whisper bundle for faster-whisper: model.bin + config.json +
+  // tokenizer.json + vocabulary.txt downloaded into models/<id>/. The id is
+  // `faster-whisper-<size>` on purpose — Purfview's standalone resolves a model
+  // as `<model_dir>/faster-whisper-<name>`, so the bundle dir name IS the lookup
+  // key (see FasterWhisperCandidate).
+  CatalogModel ct2(String size, int modelBin, String label) {
+    Uri u(String f) => Uri.parse(
+      'https://huggingface.co/Systran/faster-whisper-$size/resolve/main/$f',
+    );
+    // tokenizer.json / vocabulary.txt are identical across sizes; config.json
+    // is tiny. Sizes drive the display + progress fallback only.
+    return CatalogModel(
+      id: 'faster-whisper-$size',
+      label: label,
+      family: 'ct2-whisper',
+      files: [
+        BundleFile(
+          url: u('model.bin'),
+          filename: 'model.bin',
+          sizeBytes: modelBin,
+        ),
+        BundleFile(
+          url: u('config.json'),
+          filename: 'config.json',
+          sizeBytes: 2370,
+        ),
+        BundleFile(
+          url: u('tokenizer.json'),
+          filename: 'tokenizer.json',
+          sizeBytes: 2203239,
+        ),
+        BundleFile(
+          url: u('vocabulary.txt'),
+          filename: 'vocabulary.txt',
+          sizeBytes: 459861,
+        ),
+      ],
+    );
+  }
+
   return [
     // GGML — whisper.cpp + Const-me.
     make(
@@ -254,6 +294,13 @@ List<CatalogModel> defaultModelCatalog() {
       374196283,
       571059257,
       'sherpa-onnx Whisper Medium (int8) · ~946 MB · genau',
+    ),
+    // CTranslate2 — faster-whisper (Purfview standalone), CPU + CUDA.
+    ct2('base', 145217532, 'faster-whisper Base (CT2) · ~148 MB · schnell'),
+    ct2(
+      'small',
+      483546902,
+      'faster-whisper Small (CT2) · ~466 MB · ausgewogen',
     ),
   ];
 }

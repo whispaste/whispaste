@@ -31,9 +31,10 @@ BenchRun _run({
 
 void main() {
   group('isGpuBackend', () {
-    test('cpu and onnx-cpu are not GPU', () {
+    test('cpu / onnx-cpu / ct2-cpu are not GPU', () {
       expect(isGpuBackend('cpu'), isFalse);
       expect(isGpuBackend('onnx-cpu'), isFalse);
+      expect(isGpuBackend('ct2-cpu'), isFalse);
     });
 
     test('accelerator backends are GPU', () {
@@ -44,6 +45,7 @@ void main() {
         'vulkan',
         'directml',
         'wav2vec2-directml',
+        'ct2-cuda',
       ]) {
         expect(isGpuBackend(b), isTrue, reason: b);
       }

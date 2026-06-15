@@ -36,8 +36,23 @@ void main() {
           'whisper-cpp-cuda12',
           'sherpa-onnx-cpu',
           'sherpa-onnx-cuda',
+          'faster-whisper-cpu',
+          'faster-whisper-cuda',
         ]),
       );
+    });
+
+    test('faster-whisper engines declare the ct2-whisper model family', () {
+      final engines = defaultEngineRegistry(exeDir: '/x');
+      final cpu = engines.firstWhere((e) => e.id == 'faster-whisper-cpu');
+      expect(cpu.modelFamily, 'ct2-whisper');
+      expect(cpu.backend, 'ct2-cpu');
+      expect(cpu.candidate().id, 'faster-whisper-cpu');
+
+      final cuda = engines.firstWhere((e) => e.id == 'faster-whisper-cuda');
+      expect(cuda.modelFamily, 'ct2-whisper');
+      expect(cuda.backend, 'ct2-cuda');
+      expect(cuda.candidate().id, 'faster-whisper-cuda');
     });
 
     test('sherpa-onnx engines declare the sherpa-onnx model family', () {
