@@ -102,7 +102,9 @@ class SoundFeedbackService extends Notifier<void> {
         _log.warning('All preloads failed — restarting engine for recovery');
         try {
           _engine.deinit();
-        } catch (_) {}
+        } catch (e) {
+          _log.debug('SoLoud deinit failed during recovery (non-fatal): $e');
+        }
         await _engine.init(bufferSize: 1024, channels: Channels.mono);
         for (final name in assets) {
           try {
@@ -159,7 +161,9 @@ class SoundFeedbackService extends Notifier<void> {
       while (_activeHandles.length >= _maxTrackedHandles) {
         try {
           _engine.stop(_activeHandles.removeAt(0));
-        } catch (_) {}
+        } catch (e) {
+          _log.debug('SoLoud stop handle failed during prune (non-fatal): $e');
+        }
       }
     } catch (e) {
       _log.debug('Handle prune error: $e');
@@ -172,13 +176,19 @@ class SoundFeedbackService extends Notifier<void> {
     for (final handle in _activeHandles) {
       try {
         _engine.stop(handle);
-      } catch (_) {}
+      } catch (e) {
+        _log.debug('SoLoud stop handle failed during dispose (non-fatal): $e');
+      }
     }
     _activeHandles.clear();
     for (final source in _sources.values) {
       try {
         _engine.disposeSource(source);
-      } catch (_) {}
+      } catch (e) {
+        _log.debug(
+          'SoLoud disposeSource failed during dispose (non-fatal): $e',
+        );
+      }
     }
     _sources.clear();
     _initialized = false;

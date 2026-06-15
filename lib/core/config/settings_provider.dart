@@ -24,6 +24,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
 import '../data/database.dart';
+import '../logging/app_logger.dart';
 import '../../services/path_service.dart';
 import 'quality_tier.dart' show QualityTier;
 import 'secure_key_store.dart';
@@ -682,6 +683,8 @@ String _settingLanguageFromConfig(String languageCode) {
 /// the in-memory [AppSettings] on load. A one-time migration moves any
 /// plaintext keys from SQLite into secure storage and clears the SQLite rows.
 class SettingsNotifier extends AsyncNotifier<AppSettings> {
+  static final _log = AppLogger('SettingsNotifier');
+
   /// Completes when deferred secure-key migration/merge finishes.
   @visibleForTesting
   Future<void>? secureKeysFuture;
@@ -718,8 +721,10 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
         // secure storage so no stale credentials remain on device.
         try {
           await secureStore.deleteKey('wp_groq_api_key');
-        } catch (_) {
-          // Best-effort — keychain may be locked or key absent.
+        } catch (e) {
+          _log.debug(
+            'Groq key cleanup failed (non-fatal, keychain may be locked): $e',
+          );
         }
         final merged = await _mergeSecureKeys(
           state.value ?? settings,
@@ -728,8 +733,10 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
         if (state.value != merged) {
           state = AsyncData(merged);
         }
-      } catch (_) {
-        // Non-fatal — keys will be missing until next restart.
+      } catch (e) {
+        _log.warning(
+          'Secure key migration/merge failed (non-fatal, keys missing until restart): $e',
+        );
       }
     });
 

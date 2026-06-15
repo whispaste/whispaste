@@ -168,8 +168,8 @@ class _RecordingBehaviorState extends ConsumerState<RecordingBehaviorWidget> {
       } else {
         _doneEnteredAt = null;
       }
-    } catch (_) {
-      // Provider may not be ready yet during startup.
+    } catch (e) {
+      _log.debug('Recording watchdog check skipped (provider not ready): $e');
     }
   }
 

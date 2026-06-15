@@ -33,6 +33,7 @@ import 'features/onboarding/onboarding_overlay.dart';
 import 'core/platform/macos_lifecycle_channel.dart';
 import 'core/recording/recording_state.dart';
 import 'core/data/database.dart';
+import 'core/logging/app_logger.dart';
 import 'core/logging/crash_reporter.dart';
 import 'services/stt/stt_bundle.dart';
 import 'services/tray_service.dart';
@@ -131,6 +132,7 @@ class _AppShell extends ConsumerStatefulWidget {
 }
 
 class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
+  static final _log = AppLogger('AppShell');
   Timer? _windowSaveTimer;
   bool _isMaximized = false;
 
@@ -260,14 +262,20 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
     // User opted for "close = quit": kill subprocesses then destroy.
     try {
       ref.read(localSttBundleProvider.notifier).stop();
-    } catch (_) {}
+    } catch (e) {
+      _log.debug(
+        'STT subprocess stop failed during window close (non-fatal): $e',
+      );
+    }
 
     try {
       await ref
           .read(historyDatabaseProvider)
           .close()
           .timeout(const Duration(seconds: 2));
-    } catch (_) {}
+    } catch (e) {
+      _log.debug('DB close failed during window close (non-fatal): $e');
+    }
 
     await windowManager.destroy();
   }

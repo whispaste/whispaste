@@ -11,6 +11,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../core/config/settings_provider.dart';
 import '../../../core/data/analytics_provider.dart';
+import '../../../core/logging/app_logger.dart';
 import '../../../core/data/database.dart' show historyDatabaseProvider;
 import '../../../core/data/history_providers.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
@@ -35,6 +36,8 @@ import '../settings_widgets.dart';
 // only call site below.
 typedef ExitFn = void Function(int code);
 ExitFn factoryResetExitFn = io.exit;
+
+final _log = AppLogger('AdvancedSection');
 
 // ---------------------------------------------------------------------------
 // Advanced section
@@ -143,9 +146,10 @@ class AdvancedSection extends ConsumerWidget {
         cooperativeStop: () async {
           try {
             ref.read(localSttBundleProvider.notifier).stop();
-          } catch (_) {
-            // Best-effort — the coordinator's force-kill path is the
-            // backstop for any failure of the cooperative stop.
+          } catch (e) {
+            _log.debug(
+              'STT cooperative stop failed during factory reset (non-fatal): $e',
+            );
           }
         },
       ),
@@ -154,11 +158,10 @@ class AdvancedSection extends ConsumerWidget {
       eraseDatabase: () async {
         try {
           await ref.read(historyDatabaseProvider).deleteAllData();
-        } catch (_) {
-          // Mirrors the pre-coordinator behaviour: a DB-erase failure
-          // should not abort the rest of the reset. The user has chosen
-          // to wipe everything; a partial wipe is still better than a
-          // halt that leaves the app in a half-reset state.
+        } catch (e) {
+          _log.warning(
+            'DB erase failed during factory reset (partial wipe continues): $e',
+          );
         }
       },
       eraseSecureStore: () => settingsNotifier.eraseSecureStore(),

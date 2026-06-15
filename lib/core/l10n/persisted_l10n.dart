@@ -1,7 +1,10 @@
 import 'package:flutter/widgets.dart';
 
 import '../data/database.dart';
+import '../logging/app_logger.dart';
 import 'generated/app_localizations.dart';
+
+final _log = AppLogger('PersistedL10n');
 
 /// Resolves [L10n] from the persisted locale without a [Localizations]
 /// ancestor.
@@ -22,8 +25,8 @@ Future<L10n> resolvePersistedL10n() async {
     final values = await db.readAppSettings();
     final stored = values['locale'];
     if (stored != null && supported.contains(stored)) code = stored;
-  } catch (_) {
-    // Best-effort: keep the English fallback on any read failure.
+  } catch (e) {
+    _log.debug('Failed to read persisted locale (falling back to en): $e');
   } finally {
     await db.close();
   }

@@ -9,6 +9,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/app_info.dart';
 import '../../core/l10n/generated/app_localizations.dart';
+import '../../core/logging/app_logger.dart';
 import '../../core/logging/crash_fingerprints.dart';
 import '../../widgets/dialog.dart';
 import '../../widgets/empty_state.dart';
@@ -54,6 +55,7 @@ class HistoryPage extends ConsumerStatefulWidget {
 }
 
 class _HistoryPageState extends ConsumerState<HistoryPage> {
+  static final _log = AppLogger('HistoryPage');
   final _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   String? _selectedEntryId;
@@ -703,7 +705,9 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     try {
       final decoded = jsonDecode(raw);
       if (decoded is List) return decoded.cast<String>();
-    } catch (_) {}
+    } catch (e) {
+      _log.debug('Failed to parse tags JSON (falling back to empty list): $e');
+    }
     return [];
   }
 

@@ -102,8 +102,8 @@ class SystemAttentionService {
     if (Platform.isWindows && _windowsFlashActive) {
       try {
         await _windowsChannel.invokeMethod('cancelUserAttentionRequest');
-      } on PlatformException {
-        // Best-effort cancel.
+      } on PlatformException catch (e) {
+        _log.debug('Windows taskbar flash cancel failed (non-fatal): $e');
       }
       _windowsFlashActive = false;
     }
@@ -149,8 +149,10 @@ class SystemAttentionService {
         _windowsFlashActive = true;
       } on PlatformException catch (e) {
         _log.debug('Windows taskbar flash failed (non-fatal)', e);
-      } on MissingPluginException {
-        // Channel not registered (test env / older build).
+      } on MissingPluginException catch (e) {
+        _log.debug(
+          'Windows taskbar flash channel not registered (non-fatal): $e',
+        );
       }
     }
   }

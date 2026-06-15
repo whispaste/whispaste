@@ -111,8 +111,10 @@ class _LogFileSink {
         _rotateIfNeeded();
         _sink = _file!.openWrite(mode: FileMode.append);
       }
-    } catch (_) {
+    } catch (e) {
       // Best-effort — don't propagate file I/O errors to logging callers.
+      // debugPrint is used deliberately here to avoid recursive logger calls.
+      debugPrint('LogFileSink: writeLine failed: $e');
     }
   }
 

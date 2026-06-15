@@ -93,16 +93,27 @@ class WpToast {
         controller.reverse().then((_) {
           try {
             if (entry.mounted) entry.remove();
-          } catch (_) {}
+          } catch (e) {
+            _log.debug('Toast overlay entry remove failed (non-fatal): $e');
+          }
           try {
             controller.dispose();
-          } catch (_) {}
+          } catch (e) {
+            _log.debug(
+              'Toast animation controller dispose failed (non-fatal): $e',
+            );
+          }
         });
-      } catch (_) {
+      } catch (e) {
         // Controller already disposed or in bad state — force cleanup.
+        _log.debug('Toast reverse animation failed, forcing cleanup: $e');
         try {
           if (entry.mounted) entry.remove();
-        } catch (_) {}
+        } catch (e2) {
+          _log.debug(
+            'Toast force-cleanup entry remove failed (non-fatal): $e2',
+          );
+        }
       }
     }
 

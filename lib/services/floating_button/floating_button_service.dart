@@ -215,8 +215,8 @@ class FloatingButtonService
   Future<void> _quit() async {
     try {
       ref.read(localSttBundleProvider.notifier).stop();
-    } catch (_) {
-      // Best-effort shutdown of STT subprocess.
+    } catch (e) {
+      _log.debug('STT subprocess stop failed during quit (non-fatal): $e');
     }
 
     // Explicitly close the Drift database before engine teardown.
@@ -228,7 +228,9 @@ class FloatingButtonService
           .read(historyDatabaseProvider)
           .close()
           .timeout(const Duration(seconds: 2));
-    } catch (_) {}
+    } catch (e) {
+      _log.debug('DB close failed during quit (non-fatal): $e');
+    }
 
     await windowManager.destroy();
   }
