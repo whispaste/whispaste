@@ -18,7 +18,6 @@ import 'core/theme/tokens.dart';
 import 'widgets/sidebar.dart';
 import 'widgets/sidebar_settings_button.dart';
 import 'widgets/status_bar.dart';
-import 'widgets/fab.dart';
 import 'widgets/frame_watermark.dart';
 import 'widgets/recording_indicator_bar.dart';
 import 'widgets/title_bar.dart';
@@ -35,7 +34,6 @@ import 'core/platform/macos_lifecycle_channel.dart';
 import 'core/recording/recording_state.dart';
 import 'core/data/database.dart';
 import 'core/logging/crash_reporter.dart';
-import 'services/recording_orchestrator.dart';
 import 'services/stt/stt_bundle.dart';
 import 'services/tray_service.dart';
 import 'services/update_service.dart';
@@ -124,7 +122,7 @@ const wpPageWidgets = <String, Widget>{
   'feedback': FeedbackPage(),
 };
 
-/// Root layout: title bar + sidebar + content + status bar + FAB.
+/// Root layout: title bar + sidebar + content + status bar.
 class _AppShell extends ConsumerStatefulWidget {
   const _AppShell();
 
@@ -278,7 +276,6 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
   Widget build(BuildContext context) {
     final activePage = ref.watch(activePageProvider);
     final recordingPhase = ref.watch(recordingPhaseProvider);
-    final readiness = ref.watch(recordingReadinessProvider);
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -485,31 +482,6 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
                   const Positioned.fill(child: OnboardingOverlay()),
               ],
             ),
-            // Hide in-window FAB during onboarding (user can't record yet).
-            floatingActionButton: !settings.onboardingCompleted
-                ? null
-                : Padding(
-                    padding: const EdgeInsets.only(
-                      bottom: WpLayout.statusBarHeight,
-                      right: 0,
-                    ),
-                    child: WpRecordingFab(
-                      phase: recordingPhase,
-                      readiness: readiness,
-                      onPressed: () {
-                        if (readiness != RecordingReadiness.ready) {
-                          // Still tappable — triggers soft preflight for info toast.
-                          ref
-                              .read(recordingOrchestratorProvider.notifier)
-                              .toggleRecording();
-                          return;
-                        }
-                        ref
-                            .read(recordingOrchestratorProvider.notifier)
-                            .toggleRecording();
-                      },
-                    ),
-                  ),
           ), // Scaffold
         ), // RecordingBehaviorWidget
       ), // ServiceBootstrapWidget

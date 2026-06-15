@@ -808,24 +808,6 @@ class L10nHe extends L10n {
   String get actionSave => 'שמור';
 
   @override
-  String get tooltipRecord => 'התחל הקלטה';
-
-  @override
-  String get tooltipStopRecord => 'עצור הקלטה';
-
-  @override
-  String get tooltipProcessing => 'מעבד אודיו…';
-
-  @override
-  String get tooltipEngineNotReady => 'מנוע הדיבור לא מוכן';
-
-  @override
-  String get tooltipEngineDownloading => 'מוריד מנוע דיבור…';
-
-  @override
-  String get tooltipModelMissing => 'לא הורד מודל דיבור';
-
-  @override
   String get tooltipTheme => 'החלף ערכת נושא';
 
   @override

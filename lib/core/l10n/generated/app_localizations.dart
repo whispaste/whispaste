@@ -1545,42 +1545,6 @@ abstract class L10n {
   /// **'Save'**
   String get actionSave;
 
-  /// No description provided for @tooltipRecord.
-  ///
-  /// In en, this message translates to:
-  /// **'Start recording'**
-  String get tooltipRecord;
-
-  /// No description provided for @tooltipStopRecord.
-  ///
-  /// In en, this message translates to:
-  /// **'Stop recording'**
-  String get tooltipStopRecord;
-
-  /// No description provided for @tooltipProcessing.
-  ///
-  /// In en, this message translates to:
-  /// **'Processing audio…'**
-  String get tooltipProcessing;
-
-  /// No description provided for @tooltipEngineNotReady.
-  ///
-  /// In en, this message translates to:
-  /// **'Speech service not ready'**
-  String get tooltipEngineNotReady;
-
-  /// No description provided for @tooltipEngineDownloading.
-  ///
-  /// In en, this message translates to:
-  /// **'Downloading speech service…'**
-  String get tooltipEngineDownloading;
-
-  /// No description provided for @tooltipModelMissing.
-  ///
-  /// In en, this message translates to:
-  /// **'No speech model downloaded'**
-  String get tooltipModelMissing;
-
   /// No description provided for @tooltipTheme.
   ///
   /// In en, this message translates to:

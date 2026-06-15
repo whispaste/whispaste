@@ -44,7 +44,6 @@ import 'package:whispaste/services/audio_service.dart';
 import 'package:whispaste/services/hardware_info_service.dart' as hw;
 import 'package:whispaste/services/model_download_service.dart';
 import 'package:whispaste/services/stt/stt_bundle.dart';
-import 'package:whispaste/widgets/fab.dart';
 import 'package:whispaste/widgets/frame_watermark.dart';
 import 'package:whispaste/widgets/recording_indicator_bar.dart';
 import 'package:whispaste/widgets/sidebar.dart';
@@ -110,7 +109,7 @@ void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
 
   // Single testWidgets for all locale/theme combos — avoids the framework's
-  // inter-test pumpAndSettle which hangs on infinite animations (FAB breathe).
+  // inter-test pumpAndSettle which hangs on infinite animations.
   testWidgets('Store screenshots', (tester) async {
     // Configure window — not maximized, for rounded-corner screenshots
     await tester.runAsync(() async {
@@ -367,15 +366,6 @@ class _ScreenshotShell extends StatelessWidget {
           ],
         ),
       ),
-      // FAB — idle state with accent gradient
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: WpLayout.statusBarHeight),
-        child: WpRecordingFab(
-          phase: RecordingPhase.idle,
-          readiness: RecordingReadiness.ready,
-          onPressed: () {},
-        ),
-      ),
     );
   }
 }
@@ -410,7 +400,7 @@ class _ScreenshotThemeToggle extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 /// Let animations settle without requiring `pumpAndSettle` (which hangs on
-/// infinite animations like the FAB breathe or Lottie loops).
+/// infinite animations like Lottie loops).
 Future<void> _settle(
   WidgetTester tester, [
   Duration d = const Duration(milliseconds: 500),

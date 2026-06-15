@@ -826,24 +826,6 @@ class L10nDe extends L10n {
   String get actionSave => 'Speichern';
 
   @override
-  String get tooltipRecord => 'Aufnahme starten';
-
-  @override
-  String get tooltipStopRecord => 'Aufnahme stoppen';
-
-  @override
-  String get tooltipProcessing => 'Audio wird verarbeitet…';
-
-  @override
-  String get tooltipEngineNotReady => 'Sprachdienst nicht bereit';
-
-  @override
-  String get tooltipEngineDownloading => 'Sprachdienst wird heruntergeladen…';
-
-  @override
-  String get tooltipModelMissing => 'Kein Sprachmodell heruntergeladen';
-
-  @override
   String get tooltipTheme => 'Design wechseln';
 
   @override
