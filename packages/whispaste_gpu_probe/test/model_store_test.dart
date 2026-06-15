@@ -84,4 +84,77 @@ void main() {
       expect(calls, 1);
     });
   });
+
+  group('ModelStore — sherpa-onnx bundle models', () {
+    late Directory tmp;
+    setUp(() => tmp = Directory.systemTemp.createTempSync('ms-bundle-'));
+    tearDown(() => tmp.deleteSync(recursive: true));
+
+    test('catalogue lists sherpa bundles with family sherpa-onnx', () {
+      final c = defaultModelCatalog();
+      final sherpa = c.where((m) => m.family == 'sherpa-onnx').toList();
+      expect(sherpa.map((m) => m.id), contains('sherpa-whisper-base'));
+      expect(sherpa.every((m) => m.isBundle), isTrue);
+    });
+
+    test(
+      'downloads every bundle file into models/<id>/ then marks present',
+      () async {
+        final fetched = <String>[];
+        Future<void> fake(Uri u, File t, void Function(int, int) onP) async {
+          fetched.add(p.basename(t.path));
+          onP(10, 10);
+          await t.writeAsBytes(List.filled(10, 0));
+        }
+
+        final s = ModelStore(directory: tmp.path, downloader: fake);
+        await s.download('sherpa-whisper-base');
+
+        // All three files fetched.
+        expect(fetched, hasLength(3));
+        expect(fetched.any((f) => f.contains('encoder')), isTrue);
+        expect(fetched.any((f) => f.contains('decoder')), isTrue);
+        expect(fetched.any((f) => f.contains('tokens')), isTrue);
+
+        // localPath is the bundle DIRECTORY, not a single file.
+        final path = s.localPathIfPresent('sherpa-whisper-base');
+        expect(path, isNotNull);
+        expect(Directory(path!).existsSync(), isTrue);
+        expect(p.basename(path), 'sherpa-whisper-base');
+
+        final status = s.statusJson().firstWhere(
+          (m) => m['id'] == 'sherpa-whisper-base',
+        );
+        expect(status['state'], 'present');
+      },
+    );
+
+    test('detects a present bundle on construction', () {
+      final dir = Directory(p.join(tmp.path, 'sherpa-whisper-base'))
+        ..createSync(recursive: true);
+      File(p.join(dir.path, 'base-encoder.int8.onnx')).writeAsBytesSync([1]);
+      File(p.join(dir.path, 'base-decoder.int8.onnx')).writeAsBytesSync([1]);
+      File(p.join(dir.path, 'base-tokens.txt')).writeAsBytesSync([1]);
+
+      final s = ModelStore(directory: tmp.path);
+      final status = s.statusJson().firstWhere(
+        (m) => m['id'] == 'sherpa-whisper-base',
+      );
+      expect(status['state'], 'present');
+    });
+
+    test('a partial bundle is not present', () {
+      final dir = Directory(p.join(tmp.path, 'sherpa-whisper-base'))
+        ..createSync(recursive: true);
+      File(p.join(dir.path, 'base-encoder.int8.onnx')).writeAsBytesSync([1]);
+      // decoder + tokens missing.
+
+      final s = ModelStore(directory: tmp.path);
+      final status = s.statusJson().firstWhere(
+        (m) => m['id'] == 'sherpa-whisper-base',
+      );
+      expect(status['state'], 'absent');
+      expect(s.localPathIfPresent('sherpa-whisper-base'), isNull);
+    });
+  });
 }

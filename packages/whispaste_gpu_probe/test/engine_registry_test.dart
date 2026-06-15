@@ -34,8 +34,17 @@ void main() {
           'wav2vec2-directml-de',
           'whisper-cpp-vulkan',
           'whisper-cpp-cuda12',
+          'sherpa-onnx-cpu',
         ]),
       );
+    });
+
+    test('sherpa-onnx engine declares the sherpa-onnx model family', () {
+      final engines = defaultEngineRegistry(exeDir: '/x');
+      final sherpa = engines.firstWhere((e) => e.id == 'sherpa-onnx-cpu');
+      expect(sherpa.modelFamily, 'sherpa-onnx');
+      expect(sherpa.backend, 'onnx-cpu');
+      expect(sherpa.candidate().id, 'sherpa-onnx-cpu');
     });
 
     test('engines declare model families (ggml / onnx-whisper / wav2vec2)', () {
