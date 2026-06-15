@@ -416,8 +416,6 @@ String fmtDuration(BuildContext context, int seconds) {
   return s == 0 ? '${m}m' : '${m}m ${s}s';
 }
 
-String fmtMs(int ms) => '${ms}ms';
-
 /// Syncs a [TextEditingController] with a settings value without losing cursor.
 void syncController(TextEditingController controller, String value) {
   if (controller.text == value) return;
