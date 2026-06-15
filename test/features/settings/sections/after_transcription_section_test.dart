@@ -1,8 +1,8 @@
 /// Round-trip widget tests for [AfterTranscriptionSection].
 ///
-/// Covers: dropdown round-trip (action → provider), conditional visibility
-/// of the auto-paste delay slider (only shown for paste / clipboard_and_paste),
-/// and the delay slider round-trip.
+/// Covers: dropdown round-trip (action → provider), and confirms that
+/// the auto-paste delay slider and blocklist field are NOT rendered in
+/// this section (slider removed; blocklist moved to AdvancedSection).
 ///
 /// [PasteCapabilityNotifier] is faked to prevent OS-level paste-capability
 /// probes when the section renders in paste mode.
@@ -72,9 +72,11 @@ void main() {
   });
 
   group('AfterTranscriptionSection', () {
-    // ── Conditional visibility ──────────────────────────────────────────────
+    // ── Slider removed ──────────────────────────────────────────────────────
+    // The auto-paste delay slider was removed from this section (delay is
+    // now fixed at 200 ms). It must not appear in ANY action mode.
 
-    testWidgets('auto-paste delay slider hidden for clipboard mode', (
+    testWidgets('auto-paste delay slider never shown — clipboard mode', (
       tester,
     ) async {
       final notifier = _FakeSettingsNotifier(
@@ -89,11 +91,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // No Slider visible in clipboard-only mode.
       expect(find.byType(Slider), findsNothing);
     });
 
-    testWidgets('auto-paste delay slider hidden for nothing mode', (
+    testWidgets('auto-paste delay slider never shown — nothing mode', (
       tester,
     ) async {
       final notifier = _FakeSettingsNotifier(
@@ -111,7 +112,7 @@ void main() {
       expect(find.byType(Slider), findsNothing);
     });
 
-    testWidgets('auto-paste delay slider visible for paste mode', (
+    testWidgets('auto-paste delay slider never shown — paste mode', (
       tester,
     ) async {
       final notifier = _FakeSettingsNotifier(
@@ -131,14 +132,42 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.byType(Slider), findsOneWidget);
+      expect(find.byType(Slider), findsNothing);
     });
 
-    testWidgets('auto-paste delay slider visible for clipboardAndPaste mode', (
+    testWidgets(
+      'auto-paste delay slider never shown — clipboardAndPaste mode',
+      (tester) async {
+        final notifier = _FakeSettingsNotifier(
+          _settingsWithAction(AfterTranscriptionAction.clipboardAndPaste),
+        );
+        await tester.pumpWidget(
+          makeTestable(
+            const SingleChildScrollView(child: AfterTranscriptionSection()),
+            overrides: [
+              settingsProvider.overrideWith(() => notifier),
+              pasteCapabilityNotifierProvider.overrideWith(
+                () => _FakePasteCapabilityNotifier(),
+              ),
+            ],
+            locale: const Locale('en'),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byType(Slider), findsNothing);
+      },
+    );
+
+    // ── Blocklist removed from this section ─────────────────────────────────
+    // The blocklist TextField was moved to AdvancedSection. It must not appear
+    // in AfterTranscriptionSection even when paste mode is active.
+
+    testWidgets('blocklist TextField not in this section — paste mode', (
       tester,
     ) async {
       final notifier = _FakeSettingsNotifier(
-        _settingsWithAction(AfterTranscriptionAction.clipboardAndPaste),
+        _settingsWithAction(AfterTranscriptionAction.paste),
       );
       await tester.pumpWidget(
         makeTestable(
@@ -154,7 +183,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.byType(Slider), findsOneWidget);
+      expect(find.byType(TextField), findsNothing);
     });
 
     // ── Dropdown round-trips ────────────────────────────────────────────────
@@ -218,40 +247,12 @@ void main() {
       );
     });
 
-    // ── Delay slider ────────────────────────────────────────────────────────
+    // ── autoPasteDelay fixed at default ─────────────────────────────────────
+    // Even though the slider is gone, the model field must still hold the
+    // default 200 ms value (it was not dropped from the model).
 
-    testWidgets(
-      'auto-paste delay slider round-trip updates behavior.autoPasteDelay',
-      (tester) async {
-        final notifier = _FakeSettingsNotifier(
-          _settingsWithAction(AfterTranscriptionAction.paste),
-        );
-        await tester.pumpWidget(
-          makeTestable(
-            const SingleChildScrollView(child: AfterTranscriptionSection()),
-            overrides: [
-              settingsProvider.overrideWith(() => notifier),
-              pasteCapabilityNotifierProvider.overrideWith(
-                () => _FakePasteCapabilityNotifier(),
-              ),
-            ],
-            locale: const Locale('en'),
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        final initialDelay = notifier.state.value!.behavior.autoPasteDelay;
-
-        // Slider range 0–2000, div 20 (step 100), width 180 px.
-        // Center (90 px) + 60 px = 150 px → 150/180*2000 = 1667 → 1700 ≠ 200.
-        await tester.drag(find.byType(Slider).first, const Offset(60, 0));
-        await tester.pump();
-
-        expect(
-          notifier.state.value!.behavior.autoPasteDelay,
-          isNot(initialDelay),
-        );
-      },
-    );
+    test('behavior.autoPasteDelay default is 200 ms', () {
+      expect(AppSettings.defaults.behavior.autoPasteDelay, 200);
+    });
   });
 }
