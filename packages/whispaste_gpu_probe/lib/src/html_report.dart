@@ -388,7 +388,8 @@ void _writeLivePanel(
     for (final e in engines ?? const []) {
       final avail = e['available'] == true;
       b.writeln(
-        '      <option value="${_esc('${e['id']}')}"${avail ? '' : ' disabled'}>'
+        '      <option value="${_esc('${e['id']}')}" '
+        'data-family="${_esc('${e['family']}')}"${avail ? '' : ' disabled'}>'
         '${_esc('${e['label']}')}${avail ? '' : ' — nicht verfügbar'}</option>',
       );
     }
@@ -401,7 +402,8 @@ void _writeLivePanel(
       final present = m['state'] == 'present';
       b.writeln(
         '      <option value="${_esc('${m['id']}')}" '
-        'data-model-opt="${_esc('${m['id']}')}"${present ? '' : ' disabled'}>'
+        'data-model-opt="${_esc('${m['id']}')}" '
+        'data-family="${_esc('${m['family']}')}"${present ? '' : ' disabled'}>'
         '${_esc('${m['label']}')}${present ? '' : ' — nicht geladen'}</option>',
       );
     }
@@ -464,19 +466,21 @@ void _writeModelsSection(StringBuffer b, List<Map<String, Object?>> models) {
   b.writeln('<div class="table-wrap">');
   b.writeln('<table>');
   b.writeln(
-    '<thead><tr><th>Modell</th><th class="num">Größe</th>'
+    '<thead><tr><th>Modell</th><th>Familie</th><th class="num">Größe</th>'
     '<th>Status</th><th class="col-live">Aktion</th></tr></thead>',
   );
   b.writeln('<tbody>');
   for (final m in models) {
     final id = _esc('${m['id']}');
     final label = _esc('${m['label']}');
+    final family = _esc('${m['family']}');
     final sizeBytes = (m['sizeBytes'] as num?)?.toInt() ?? 0;
     final state = '${m['state']}';
     final present = state == 'present';
     final downloading = state == 'downloading';
-    b.writeln('<tr class="model-row" data-model="$id">');
+    b.writeln('<tr class="model-row" data-model="$id" data-family="$family">');
     b.writeln('  <td class="candidate-name">$label</td>');
+    b.writeln('  <td class="mono">$family</td>');
     b.writeln('  <td class="num mono">${_esc(_formatBytes(sizeBytes))}</td>');
     b.writeln('  <td class="model-status">');
     b.writeln(
@@ -503,10 +507,17 @@ void _writeModelsSection(StringBuffer b, List<Map<String, Object?>> models) {
 void _writeEnginesSection(StringBuffer b, List<Map<String, Object?>> engines) {
   b.writeln('<section class="reveal" style="animation-delay:.08s">');
   b.writeln('<h2>Engines</h2>');
+  b.writeln(
+    '<p class="live-hint">Die Kandidaten-Matrix des Shootouts — '
+    'Whisper-Alternativen gegen den whisper.cpp-CPU-Baseline. Eine Engine ist '
+    '„verfügbar", sobald ihre Binary neben dem Tool liegt; sonst zeigt der '
+    'Shootout sie als (noch) nicht beschaffbar.</p>',
+  );
   b.writeln('<div class="table-wrap">');
   b.writeln('<table>');
   b.writeln(
-    '<thead><tr><th>Engine</th><th>Backend</th><th>Status</th></tr></thead>',
+    '<thead><tr><th>Engine</th><th>Backend</th><th>Modell-Familie</th>'
+    '<th>Status</th><th>Hinweis</th></tr></thead>',
   );
   b.writeln('<tbody>');
   for (final e in engines) {
@@ -514,9 +525,13 @@ void _writeEnginesSection(StringBuffer b, List<Map<String, Object?>> engines) {
     b.writeln('<tr>');
     b.writeln('  <td class="candidate-name">${_esc('${e['label']}')}</td>');
     b.writeln('  <td class="mono">${_esc('${e['backend']}')}</td>');
+    b.writeln('  <td class="mono">${_esc('${e['family']}')}</td>');
     b.writeln(
       '  <td><span class="badge ${avail ? 'outcome-ok' : 'outcome-skipped'}">'
       '${avail ? 'verfügbar' : 'nicht verfügbar'}</span></td>',
+    );
+    b.writeln(
+      '  <td class="error-detail">${e['note'] != null ? _esc('${e['note']}') : '—'}</td>',
     );
     b.writeln('</tr>');
   }
@@ -1165,6 +1180,30 @@ const String _liveScript = r'''<script>
     });
   });
 
+  // Show only models whose family matches the selected engine.
+  function selectedEngineFamily() {
+    if (!benchEngine) return null;
+    var o = benchEngine.options[benchEngine.selectedIndex];
+    return o ? o.getAttribute('data-family') : null;
+  }
+  function filterModelsToEngine() {
+    if (!benchEngine || !benchModel) return;
+    var fam = selectedEngineFamily(), firstMatch = -1;
+    for (var i = 0; i < benchModel.options.length; i++) {
+      var opt = benchModel.options[i], match = (opt.getAttribute('data-family') === fam);
+      opt.hidden = !match;
+      if (match && !opt.disabled && firstMatch < 0) firstMatch = i;
+    }
+    var cur = benchModel.options[benchModel.selectedIndex];
+    if (!cur || cur.hidden || cur.disabled) {
+      if (firstMatch >= 0) benchModel.selectedIndex = firstMatch;
+    }
+  }
+  if (benchEngine) {
+    benchEngine.addEventListener('change', filterModelsToEngine);
+    filterModelsToEngine();
+  }
+
   // Live model-download progress over SSE.
   if (benchModel) {
     try {
@@ -1195,8 +1234,7 @@ const String _liveScript = r'''<script>
       if (opt) {
         opt.disabled = false;
         opt.textContent = opt.textContent.replace(' — nicht geladen', '');
-        var sel = benchModel;
-        if (sel && (sel.selectedIndex < 0 || sel.options[sel.selectedIndex].disabled)) sel.value = m.id;
+        filterModelsToEngine();
       }
     }
   }

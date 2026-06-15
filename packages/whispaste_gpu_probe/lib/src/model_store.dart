@@ -35,6 +35,7 @@ class CatalogModel {
   const CatalogModel({
     required this.id,
     required this.label,
+    required this.family,
     required this.entry,
   });
 
@@ -44,44 +45,119 @@ class CatalogModel {
   /// Human label shown in the UI (e.g. `Small · 466 MB · gut/schnell`).
   final String label;
 
+  /// Model family this model belongs to — must match a [ProbeEngine.modelFamily]
+  /// (`ggml`, `onnx-whisper`, `onnx-wav2vec2`). Determines which engines can
+  /// run it in the live test.
+  final String family;
+
   /// Fetch metadata (URL, target filename, size, checksum).
   final ModelEntry entry;
 }
 
-/// The default Whisper (ggml / whisper.cpp) model catalogue, smallest → largest.
+/// The default multi-family model catalogue — the PRD's model axis.
 ///
-/// Source: the official `ggerganov/whisper.cpp` models on Hugging Face. Sizes
-/// are approximate on-disk sizes used purely for display + download progress.
+/// - `ggml`         : whisper.cpp + Const-me (GGML .bin, ggerganov/whisper.cpp)
+/// - `onnx-whisper` : ONNX Runtime + DirectML Whisper-ONNX (microsoft/…-directml)
+/// - `onnx-wav2vec2`: non-Whisper German wav2vec2 ONNX (jonatasgrosman/…)
+///
+/// Sizes are approximate on-disk sizes for display + download progress.
 List<CatalogModel> defaultModelCatalog() {
-  CatalogModel m(String id, String file, int bytes, String label) =>
-      CatalogModel(
-        id: id,
-        label: label,
-        entry: ModelEntry(
-          name: id,
-          downloadUrl: Uri.parse(
-            'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/$file',
-          ),
-          sha256: '', // checksum optional; empty = verify by presence only
-          targetFilename: file,
-          sizeBytes: bytes,
-        ),
-      );
+  CatalogModel make(
+    String id,
+    String family,
+    Uri url,
+    String file,
+    int bytes,
+    String label,
+  ) => CatalogModel(
+    id: id,
+    label: label,
+    family: family,
+    entry: ModelEntry(
+      name: id,
+      downloadUrl: url,
+      sha256: '', // checksum optional; empty = verify by presence only
+      targetFilename: file,
+      sizeBytes: bytes,
+    ),
+  );
+  Uri ggmlUrl(String file) => Uri.parse(
+    'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/$file',
+  );
+
   return [
-    m('ggml-tiny', 'ggml-tiny.bin', 77691713, 'Tiny · ~75 MB · sehr schnell'),
-    m('ggml-base', 'ggml-base.bin', 147951465, 'Base · ~141 MB · schnell'),
-    m(
+    // GGML — whisper.cpp + Const-me.
+    make(
+      'ggml-tiny',
+      'ggml',
+      ggmlUrl('ggml-tiny.bin'),
+      'ggml-tiny.bin',
+      77691713,
+      'Tiny · ~75 MB · sehr schnell',
+    ),
+    make(
+      'ggml-base',
+      'ggml',
+      ggmlUrl('ggml-base.bin'),
+      'ggml-base.bin',
+      147951465,
+      'Base · ~141 MB · schnell',
+    ),
+    make(
       'ggml-small',
+      'ggml',
+      ggmlUrl('ggml-small.bin'),
       'ggml-small.bin',
       487601967,
       'Small · ~465 MB · ausgewogen',
     ),
-    m('ggml-medium', 'ggml-medium.bin', 1533763059, 'Medium · ~1,5 GB · genau'),
-    m(
+    make(
+      'ggml-medium',
+      'ggml',
+      ggmlUrl('ggml-medium.bin'),
+      'ggml-medium.bin',
+      1533763059,
+      'Medium · ~1,5 GB · genau',
+    ),
+    make(
       'ggml-large-v3',
+      'ggml',
+      ggmlUrl('ggml-large-v3.bin'),
       'ggml-large-v3.bin',
       3094623691,
       'Large v3 · ~2,9 GB · höchste Qualität',
+    ),
+    // ONNX Whisper — ONNX Runtime + DirectML.
+    make(
+      'onnx-whisper-small',
+      'onnx-whisper',
+      Uri.parse(
+        'https://huggingface.co/microsoft/whisper-small-directml/resolve/main/whisper_small_int8.onnx',
+      ),
+      'whisper_small_int8.onnx',
+      242000000,
+      'Whisper Small (ONNX int8) · ~242 MB',
+    ),
+    make(
+      'onnx-whisper-medium',
+      'onnx-whisper',
+      Uri.parse(
+        'https://huggingface.co/microsoft/whisper-medium-directml/resolve/main/whisper_medium_int8.onnx',
+      ),
+      'whisper_medium_int8.onnx',
+      769000000,
+      'Whisper Medium (ONNX int8) · ~769 MB · Crash-Risiko',
+    ),
+    // Non-Whisper — German wav2vec2 (ONNX).
+    make(
+      'wav2vec2-de-xlsr53',
+      'onnx-wav2vec2',
+      Uri.parse(
+        'https://huggingface.co/jonatasgrosman/wav2vec2-large-xlsr-53-german/resolve/main/model.onnx',
+      ),
+      'wav2vec2-large-xlsr-53-german.onnx',
+      1180000000,
+      'wav2vec2 XLSR-53 Deutsch (ONNX) · ~1,18 GB',
     ),
   ];
 }
@@ -151,6 +227,7 @@ class ModelStore {
         return <String, Object?>{
           'id': m.id,
           'label': m.label,
+          'family': m.family,
           'sizeBytes': m.entry.sizeBytes,
           'state': e.state.name,
           'received': e.received,

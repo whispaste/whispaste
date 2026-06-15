@@ -164,12 +164,8 @@ Future<void> _runServe({
     // ranking is intentionally empty — the bench is interactive (download a
     // model, then run the live test against engine × model).
     final exeDir = p.dirname(Platform.resolvedExecutable);
-    final cpuBinary = p.join(
-      exeDir,
-      Platform.isWindows ? 'whisper.exe' : 'whisper',
-    );
     modelStore = ModelStore(directory: p.join(exeDir, 'models'));
-    engines = defaultEngineRegistry(cpuBinary: cpuBinary);
+    engines = defaultEngineRegistry(exeDir: exeDir);
     candidates = const <ProbeCandidate>[];
     hardware = null;
     effVersion = version;
