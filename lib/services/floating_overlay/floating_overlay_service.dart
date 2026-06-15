@@ -370,6 +370,10 @@ class FloatingOverlayService
       progress: progress,
     );
 
+    _log.debug(
+      'Overlay show: phase=${phase.name} compact=$compact '
+      'isDark=$isDark visible=true',
+    );
     c.updateSnapshot(snapshot).catchError((e, st) {
       _log.error('Failed to send overlay snapshot', e, st);
     });
@@ -380,14 +384,22 @@ class FloatingOverlayService
     if (c == null) return;
     _autoHideTimer?.cancel();
 
-    const hidden = FloatingOverlaySnapshot(
+    // Preserve the configured size on hide. Forcing `compact: false` here made
+    // the native shell needlessly resize to normal on every hide (and could
+    // flash the wrong size on the next show); keep the real setting so the
+    // panel size never flips. Falls back to compact=false only if settings are
+    // unavailable.
+    final s = ref.read(settingsProvider).value;
+    final compact = s?.overlaySizeType == FloatingOverlaySize.compact;
+    final hidden = FloatingOverlaySnapshot(
       visible: false,
       state: OverlayVisualState.recording,
       isDark: true,
-      compact: false,
+      compact: compact,
       label: '',
     );
 
+    _log.debug('Overlay hide (compact=$compact)');
     c.updateSnapshot(hidden).catchError((e, st) {
       _log.error('Failed to hide overlay', e, st);
     });
