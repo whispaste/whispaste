@@ -10,6 +10,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../core/config/settings_enums.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
+import '../../../widgets/overlay_preview.dart';
 import '../../../widgets/section.dart';
 import '../settings_widgets.dart';
 
@@ -102,6 +103,11 @@ class OverlaySection extends ConsumerWidget {
                       .updateSettings((s) => s.copyWith(overlaySize: v));
                 },
               ),
+            ),
+            const Divider(height: 1),
+            OverlayPositionPreview(
+              position: settings.overlayStartPositionType,
+              size: settings.overlaySizeType,
             ),
           ],
         ],
