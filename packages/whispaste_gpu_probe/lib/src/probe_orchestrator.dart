@@ -13,6 +13,7 @@ import 'package:path/path.dart' as p;
 import 'package:whispaste_diagnostics/whispaste_diagnostics.dart'
     show sanitizePaths;
 
+import 'html_report.dart';
 import 'probe_types.dart';
 
 /// Injectable delivery step: receives the ZIP path after writing.
@@ -149,6 +150,7 @@ Future<String> runProbeOrchestrator({
 
   final jsonPath = p.join(outputDir, '$stem.json');
   final mdPath = p.join(outputDir, '$stem.md');
+  final htmlPath = p.join(outputDir, '$stem.html');
   final zipPath = p.join(outputDir, '$stem.zip');
 
   // Write JSON — sanitized at the DATA level (before encoding), not on the
@@ -165,12 +167,18 @@ Future<String> runProbeOrchestrator({
   final mdContent = sanitizePaths(formatProbeReportMarkdown(report));
   File(mdPath).writeAsStringSync(mdContent);
 
-  // Bundle both into ZIP.
+  // Write HTML — sanitized before touching disk.
+  final htmlContent = sanitizePaths(formatProbeReportHtml(report));
+  File(htmlPath).writeAsStringSync(htmlContent);
+
+  // Bundle all three into ZIP.
   final archive = Archive();
   final jsonBytes = File(jsonPath).readAsBytesSync();
   archive.addFile(ArchiveFile('$stem.json', jsonBytes.length, jsonBytes));
   final mdBytes = File(mdPath).readAsBytesSync();
   archive.addFile(ArchiveFile('$stem.md', mdBytes.length, mdBytes));
+  final htmlBytes = File(htmlPath).readAsBytesSync();
+  archive.addFile(ArchiveFile('$stem.html', htmlBytes.length, htmlBytes));
   final zipBytes = ZipEncoder().encode(archive);
   File(zipPath).writeAsBytesSync(zipBytes);
 

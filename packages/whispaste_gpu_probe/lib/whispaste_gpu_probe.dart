@@ -5,6 +5,8 @@
 export 'src/probe_types.dart';
 export 'src/ranking.dart';
 export 'src/probe_orchestrator.dart';
+export 'src/html_report.dart';
+export 'src/demo_report.dart';
 export 'src/outcome_classifier.dart';
 export 'src/probe_runner.dart';
 export 'src/model_manifest.dart';

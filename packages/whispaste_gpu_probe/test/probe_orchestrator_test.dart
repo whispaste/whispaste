@@ -95,7 +95,7 @@ void main() {
       if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
     });
 
-    test('writes exactly three files: .json, .md, .zip', () async {
+    test('writes exactly four files: .json, .md, .html, .zip', () async {
       final candidate = _FakeOkCandidate();
       await runProbeOrchestrator(
         candidates: [candidate],
@@ -108,10 +108,12 @@ void main() {
       final files = tempDir.listSync().whereType<File>().toList();
       final jsonFiles = files.where((f) => f.path.endsWith('.json')).toList();
       final mdFiles = files.where((f) => f.path.endsWith('.md')).toList();
+      final htmlFiles = files.where((f) => f.path.endsWith('.html')).toList();
       final zipFiles = files.where((f) => f.path.endsWith('.zip')).toList();
 
       expect(jsonFiles, hasLength(1), reason: 'exactly one .json file');
       expect(mdFiles, hasLength(1), reason: 'exactly one .md file');
+      expect(htmlFiles, hasLength(1), reason: 'exactly one .html file');
       expect(zipFiles, hasLength(1), reason: 'exactly one .zip file');
     });
 
@@ -445,7 +447,7 @@ void main() {
 
   group('bin/whispaste_gpu_probe.dart entrypoint', () {
     test(
-      'main writes three artefacts to --output-dir with --no-deliver',
+      'main writes four artefacts to --output-dir with --no-deliver',
       () async {
         final tempDir = Directory.systemTemp.createTempSync(
           'gpu_probe_entry_test_',
@@ -473,10 +475,81 @@ void main() {
         expect(File(zipPath).existsSync(), isTrue, reason: 'ZIP must exist');
         final jsonPath = zipPath.replaceAll(RegExp(r'\.zip$'), '.json');
         final mdPath = zipPath.replaceAll(RegExp(r'\.zip$'), '.md');
+        final htmlPath = zipPath.replaceAll(RegExp(r'\.zip$'), '.html');
         expect(File(jsonPath).existsSync(), isTrue, reason: 'JSON must exist');
         expect(File(mdPath).existsSync(), isTrue, reason: 'MD must exist');
+        expect(File(htmlPath).existsSync(), isTrue, reason: 'HTML must exist');
         expect(candidate.runCount, equals(1));
       },
     );
+  });
+
+  // ---------------------------------------------------------------------------
+  // HTML output and ZIP bundle
+  // ---------------------------------------------------------------------------
+
+  group('HTML artefact', () {
+    late Directory tempDir;
+
+    setUp(() {
+      tempDir = Directory.systemTemp.createTempSync('gpu_probe_html_test_');
+    });
+
+    tearDown(() {
+      if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
+    });
+
+    test('.html file exists in output dir after run', () async {
+      await runProbeOrchestrator(
+        candidates: [_FakeOkCandidate()],
+        context: _minimalContext,
+        outputDir: tempDir.path,
+        version: _testVersion,
+        clock: _fixedClock,
+      );
+
+      final htmlFiles = tempDir
+          .listSync()
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.html'))
+          .toList();
+      expect(htmlFiles, hasLength(1), reason: 'exactly one .html file');
+    });
+
+    test('.html file contains <!DOCTYPE html>', () async {
+      await runProbeOrchestrator(
+        candidates: [_FakeOkCandidate()],
+        context: _minimalContext,
+        outputDir: tempDir.path,
+        version: _testVersion,
+        clock: _fixedClock,
+      );
+
+      final htmlFile = tempDir.listSync().whereType<File>().firstWhere(
+        (f) => f.path.endsWith('.html'),
+      );
+      expect(htmlFile.readAsStringSync(), contains('<!DOCTYPE html>'));
+    });
+
+    test('ZIP contains a .html entry', () async {
+      final zipPath = await runProbeOrchestrator(
+        candidates: [_FakeOkCandidate()],
+        context: _minimalContext,
+        outputDir: tempDir.path,
+        version: _testVersion,
+        clock: _fixedClock,
+      );
+
+      final zipBytes = File(zipPath).readAsBytesSync();
+      final archive = ZipDecoder().decodeBytes(zipBytes);
+      final htmlEntries = archive.files
+          .where((f) => f.isFile && f.name.endsWith('.html'))
+          .toList();
+      expect(
+        htmlEntries,
+        hasLength(1),
+        reason: 'ZIP must contain one .html entry',
+      );
+    });
   });
 }
