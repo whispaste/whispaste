@@ -59,8 +59,11 @@ import 'package:file/file.dart';
 import 'package:file/local.dart';
 import 'package:path/path.dart' as p;
 
+import '../../core/logging/app_logger.dart';
 import '../../core/logging/crash_fingerprints.dart';
 import '../../core/logging/crash_reporter.dart';
+
+final _log = AppLogger('FactoryResetCoordinator');
 
 // ---------------------------------------------------------------------------
 // Public phase enum — order matches the PRD-specified happy-path sequence.
@@ -392,9 +395,10 @@ class WhisperServerSubprocessController implements SubprocessController {
       } else {
         io.Process.killPid(pid, io.ProcessSignal.sigkill);
       }
-    } catch (_) {
+    } catch (e, st) {
       // Best-effort — the goal is to free the file handles, and if
       // the OS reports "no such process" the goal is already met.
+      _log.debug('forceKill failed (process may have already exited)', e, st);
     }
   }
 

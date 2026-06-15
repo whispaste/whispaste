@@ -4,7 +4,10 @@ library;
 import 'dart:async';
 import 'dart:io';
 
+import '../../core/logging/app_logger.dart';
 import '../process_runner.dart';
+
+final _log = AppLogger('LocalSttServer');
 
 /// Manages the whisper-server subprocess via an injectable [ProcessRunner].
 ///
@@ -88,8 +91,9 @@ class LocalSttServer {
           const Duration(seconds: 2),
           onTimeout: () => -1,
         );
-      } on ProcessException {
+      } on ProcessException catch (e) {
         // Already exited — fine.
+        _log.debug('ProcessException during stop (process already exited)', e);
       }
     }
   }

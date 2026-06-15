@@ -110,7 +110,12 @@ Future<int> _scanAndKillByName() async {
         Process.killPid(pid);
         _log.info('Killed orphaned $name (PID $pid) via process scan');
         killed++;
-      } catch (_) {}
+      } catch (e) {
+        _log.debug(
+          'killPid($pid) for $name failed (may have already exited)',
+          e,
+        );
+      }
     }
   }
   return killed;
@@ -178,8 +183,9 @@ Future<List<int>> _findProcessesByName(String name) async {
         if (pid != null && pid > 0) pids.add(pid);
       }
     }
-  } catch (_) {
+  } catch (e) {
     // pgrep/tasklist not available — best effort.
+    _log.debug('Process scan for "$name" failed (tool unavailable?)', e);
   }
   return pids;
 }

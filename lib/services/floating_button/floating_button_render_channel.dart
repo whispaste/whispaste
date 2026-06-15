@@ -1,6 +1,9 @@
 import 'package:flutter/services.dart';
 
+import '../../core/logging/app_logger.dart';
 import 'floating_button_controller_interface.dart';
+
+final _log = AppLogger('FloatingButtonRenderChannel');
 
 /// The render-engine side of the button shell seam (ADR 0002 phase 2).
 ///
@@ -40,9 +43,13 @@ class FloatingButtonRenderChannel {
           if (raw is String) {
             try {
               onState(FloatingButtonVisualState.values.byName(raw));
-            } catch (_) {
+            } catch (e) {
               // Unknown state name — ignore gracefully so a future state added
               // on the host side does not crash an older render engine.
+              _log.debug(
+                'Unknown FloatingButtonVisualState "$raw" — ignored',
+                e,
+              );
             }
           }
         }
