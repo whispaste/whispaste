@@ -59,6 +59,25 @@ class _FixedResultCandidate implements ProbeCandidate {
   Future<CandidateResult> run(ProbeContext ctx) async => _result;
 }
 
+/// Wraps a candidate with an artificial delay. Used ONLY for `--demo` serve
+/// runs so the "Analyse läuft…" progress shell is actually visible — real
+/// engines take seconds on their own, the synthetic demo candidates do not.
+class _DelayedCandidate implements ProbeCandidate {
+  const _DelayedCandidate(this._inner, this._delay);
+
+  final ProbeCandidate _inner;
+  final Duration _delay;
+
+  @override
+  String get id => _inner.id;
+
+  @override
+  Future<CandidateResult> run(ProbeContext ctx) async {
+    await Future<void>.delayed(_delay);
+    return _inner.run(ctx);
+  }
+}
+
 Future<void> main(List<String> args) async {
   // Stamp the report with the build version passed at compile time
   // (`dart compile exe --define=whispaste_version=<X>`). Falls back to
@@ -127,7 +146,12 @@ Future<void> _runServe({
   if (demoMode) {
     final demo = buildDemoReport();
     candidates = demo.results
-        .map<ProbeCandidate>(_FixedResultCandidate.new)
+        .map<ProbeCandidate>(
+          (r) => _DelayedCandidate(
+            _FixedResultCandidate(r),
+            const Duration(milliseconds: 1100),
+          ),
+        )
         .toList();
     hardware = demo.hardwareContext;
     effVersion = version == 'unbekannt' ? 'demo' : '$version-demo';
