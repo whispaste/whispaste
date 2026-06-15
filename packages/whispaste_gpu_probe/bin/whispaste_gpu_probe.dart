@@ -49,7 +49,7 @@ Future<void> main(List<String> args) async {
   // Allow --output-dir override for CI smoke tests so the binary does not
   // write to a potentially non-existent Desktop on the runner.
   String outputDir = resolveDesktopPath();
-  // --no-deliver suppresses file-manager reveal (used in CI).
+  // --no-deliver suppresses file-manager reveal + mail (used in CI).
   var skipDelivery = false;
 
   for (var i = 0; i < args.length; i++) {
@@ -75,7 +75,9 @@ Future<void> main(List<String> args) async {
       context: context,
       outputDir: outputDir,
       version: version,
-      deliveryStep: skipDelivery ? null : _revealZip,
+      deliveryStep: skipDelivery
+          ? null
+          : (zip) => deliverReport(zip, launcher: defaultDeliveryLauncher),
     );
 
     final jsonPath = zipPath.replaceAll(RegExp(r'\.zip$'), '.json');
@@ -90,21 +92,5 @@ Future<void> main(List<String> args) async {
     stderr.writeln('  $e');
     stderr.writeln('  $st');
     exit(1);
-  }
-}
-
-/// Opens the containing folder of the ZIP in the platform file manager.
-Future<void> _revealZip(String zipPath) async {
-  try {
-    if (Platform.isMacOS) {
-      await Process.run('open', ['-R', zipPath]);
-    } else if (Platform.isWindows) {
-      await Process.run('explorer', ['/select,$zipPath']);
-    } else {
-      final parent = zipPath.substring(0, zipPath.lastIndexOf('/'));
-      await Process.run('xdg-open', [parent]);
-    }
-  } on Object {
-    // Best-effort: don't abort if reveal fails.
   }
 }

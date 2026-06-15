@@ -91,6 +91,7 @@ String formatProbeReportMarkdown(ProbeReport report) {
 /// [clock] is an injectable seam (defaults to [DateTime.now]).
 /// [context] is the [ProbeContext] passed to every candidate.
 /// [deliveryStep] is called with the ZIP path when non-null.
+/// [logger] receives progress and outcome lines (defaults to [print]).
 ///
 /// Returns the path to the written ZIP file.
 Future<String> runProbeOrchestrator({
@@ -100,7 +101,9 @@ Future<String> runProbeOrchestrator({
   required String version,
   DateTime Function()? clock,
   ProbeDeliveryStep? deliveryStep,
+  void Function(String)? logger,
 }) async {
+  final log = logger ?? print;
   final now = (clock ?? DateTime.now)();
   final stem = buildProbeStem(now);
 
@@ -109,10 +112,14 @@ Future<String> runProbeOrchestrator({
     dir.createSync(recursive: true);
   }
 
-  // Run each candidate exactly once.
+  // Run each candidate exactly once, emitting progress lines.
   final results = <CandidateResult>[];
-  for (final candidate in candidates) {
+  final total = candidates.length;
+  for (var i = 0; i < total; i++) {
+    final candidate = candidates[i];
+    log('${i + 1} von $total — ${candidate.id}');
     final result = await candidate.run(context);
+    log('${candidate.id}: ${result.outcome.name}');
     results.add(result);
   }
 
