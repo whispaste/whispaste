@@ -41,6 +41,7 @@ class WpSidebar extends StatelessWidget {
           const Spacer(flex: 4),
           // Nav items with generous spacing
           for (final item in items)
+            // loam-ignore: a11y-interactive-semantics – semantics provided in _NavItemWidget.build
             _NavItemWidget(
               item: item,
               isActive: item.id == activeId,

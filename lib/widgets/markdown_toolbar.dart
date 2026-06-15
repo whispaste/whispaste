@@ -124,6 +124,7 @@ class WpMarkdownToolbar extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // loam-ignore: a11y-interactive-semantics – semantics provided in _ToolbarButton.build
             _ToolbarButton(
               icon: LucideIcons.bold,
               tooltip: 'Bold (Ctrl+B)',
@@ -132,6 +133,7 @@ class WpMarkdownToolbar extends StatelessWidget {
               muted: mutedColor,
               onTap: () => _wrapSelection('**'),
             ),
+            // loam-ignore: a11y-interactive-semantics – semantics provided in _ToolbarButton.build
             _ToolbarButton(
               icon: LucideIcons.italic,
               tooltip: 'Italic (Ctrl+I)',
@@ -146,6 +148,7 @@ class WpMarkdownToolbar extends StatelessWidget {
               margin: const EdgeInsets.symmetric(horizontal: WpSpacing.xxs),
               color: divColor,
             ),
+            // loam-ignore: a11y-interactive-semantics – semantics provided in _ToolbarButton.build
             _ToolbarButton(
               icon: LucideIcons.heading,
               tooltip: 'Heading',
@@ -154,6 +157,7 @@ class WpMarkdownToolbar extends StatelessWidget {
               muted: mutedColor,
               onTap: () => _toggleLinePrefix('## '),
             ),
+            // loam-ignore: a11y-interactive-semantics – semantics provided in _ToolbarButton.build
             _ToolbarButton(
               icon: LucideIcons.list,
               tooltip: 'Bullet list (Ctrl+Shift+L)',
@@ -162,6 +166,7 @@ class WpMarkdownToolbar extends StatelessWidget {
               muted: mutedColor,
               onTap: () => _toggleLinePrefix('- '),
             ),
+            // loam-ignore: a11y-interactive-semantics – semantics provided in _ToolbarButton.build
             _ToolbarButton(
               icon: LucideIcons.listOrdered,
               tooltip: 'Numbered list',
@@ -176,6 +181,7 @@ class WpMarkdownToolbar extends StatelessWidget {
               margin: const EdgeInsets.symmetric(horizontal: WpSpacing.xxs),
               color: divColor,
             ),
+            // loam-ignore: a11y-interactive-semantics – semantics provided in _ToolbarButton.build
             _ToolbarButton(
               icon: LucideIcons.quote,
               tooltip: 'Quote',
@@ -184,6 +190,7 @@ class WpMarkdownToolbar extends StatelessWidget {
               muted: mutedColor,
               onTap: () => _toggleLinePrefix('> '),
             ),
+            // loam-ignore: a11y-interactive-semantics – semantics provided in _ToolbarButton.build
             _ToolbarButton(
               icon: LucideIcons.code,
               tooltip: 'Code',
@@ -225,28 +232,32 @@ class _ToolbarButtonState extends State<_ToolbarButton> {
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
-      message: widget.tooltip,
-      waitDuration: const Duration(milliseconds: 400),
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _hovered = true),
-        onExit: (_) => setState(() => _hovered = false),
-        child: GestureDetector(
-          onTap: widget.onTap,
-          child: AnimatedContainer(
-            duration: WpMotion.hoverOut,
-            padding: const EdgeInsets.all(WpSpacing.xs),
-            decoration: BoxDecoration(
-              color: _hovered
-                  ? widget.accent.withValues(alpha: 0.12)
-                  : Colors.transparent,
-              borderRadius: WpRadius.borderSm,
-            ),
-            child: Icon(
-              widget.icon,
-              size: 14,
-              color: _hovered ? widget.accent : widget.muted,
+    return Semantics(
+      label: widget.tooltip,
+      button: true,
+      child: Tooltip(
+        message: widget.tooltip,
+        waitDuration: const Duration(milliseconds: 400),
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          onEnter: (_) => setState(() => _hovered = true),
+          onExit: (_) => setState(() => _hovered = false),
+          child: GestureDetector(
+            onTap: widget.onTap,
+            child: AnimatedContainer(
+              duration: WpMotion.hoverOut,
+              padding: const EdgeInsets.all(WpSpacing.xs),
+              decoration: BoxDecoration(
+                color: _hovered
+                    ? widget.accent.withValues(alpha: 0.12)
+                    : Colors.transparent,
+                borderRadius: WpRadius.borderSm,
+              ),
+              child: Icon(
+                widget.icon,
+                size: 14,
+                color: _hovered ? widget.accent : widget.muted,
+              ),
             ),
           ),
         ),

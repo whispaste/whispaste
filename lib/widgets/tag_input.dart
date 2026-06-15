@@ -271,6 +271,7 @@ class WpTagInputState extends State<WpTagInput> {
                   onRemove: () => widget.onRemove(tag.id),
                 ),
               if (hiddenCount > 0)
+                // loam-ignore: a11y-interactive-semantics – semantics provided in _OverflowChip.build
                 _OverflowChip(
                   count: hiddenCount,
                   isDark: widget.isDark,
@@ -284,6 +285,7 @@ class WpTagInputState extends State<WpTagInput> {
                   borderCol: borderCol,
                 )
               else
+                // loam-ignore: a11y-interactive-semantics – semantics provided in _AddTagTrigger.build
                 _AddTagTrigger(
                   isDark: widget.isDark,
                   label: widget.tags.isEmpty ? widget.hintText : null,
@@ -309,6 +311,7 @@ class WpTagInputState extends State<WpTagInput> {
                   padding: const EdgeInsets.symmetric(vertical: WpSpacing.xxs),
                   children: [
                     for (var i = 0; i < suggestions.length; i++)
+                      // loam-ignore: a11y-interactive-semantics – semantics provided in _SuggestionTile.build
                       _SuggestionTile(
                         tag: suggestions[i],
                         isDark: widget.isDark,
@@ -317,6 +320,7 @@ class WpTagInputState extends State<WpTagInput> {
                         onTap: () => _selectSuggestion(suggestions[i]),
                       ),
                     if (showCreate)
+                      // loam-ignore: a11y-interactive-semantics – semantics provided in _CreateTagTile.build
                       _CreateTagTile(
                         text: _controller.text.trim().toLowerCase(),
                         isDark: widget.isDark,
@@ -628,45 +632,49 @@ class _SuggestionTileState extends State<_SuggestionTile> {
     final accent = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
     final hoverBg = widget.isDark ? WpColorsDark.hover : WpColorsLight.hover;
 
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: widget.onTap,
-        behavior: HitTestBehavior.opaque,
-        child: AnimatedContainer(
-          duration: WpMotion.fast,
-          padding: const EdgeInsets.symmetric(
-            horizontal: WpSpacing.sm,
-            vertical: WpSpacing.sm,
-          ),
-          color: (_isHovered || widget.isSelected)
-              ? hoverBg
-              : Colors.transparent,
-          child: Row(
-            children: [
-              Icon(
-                LucideIcons.hash,
-                size: WpIconSize.sm,
-                color: accent.withValues(alpha: 0.6),
-              ),
-              const SizedBox(width: WpSpacing.xs),
-              Expanded(
-                child: Text(
-                  widget.tag.name,
-                  style: TextStyle(fontSize: 13, color: textPrimary),
+    return Semantics(
+      label: widget.tag.name,
+      button: true,
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: widget.onTap,
+          behavior: HitTestBehavior.opaque,
+          child: AnimatedContainer(
+            duration: WpMotion.fast,
+            padding: const EdgeInsets.symmetric(
+              horizontal: WpSpacing.sm,
+              vertical: WpSpacing.sm,
+            ),
+            color: (_isHovered || widget.isSelected)
+                ? hoverBg
+                : Colors.transparent,
+            child: Row(
+              children: [
+                Icon(
+                  LucideIcons.hash,
+                  size: WpIconSize.sm,
+                  color: accent.withValues(alpha: 0.6),
                 ),
-              ),
-              if (widget.count != null && widget.count! > 0)
-                Text(
-                  '${widget.count}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: textPrimary.withValues(alpha: 0.4),
+                const SizedBox(width: WpSpacing.xs),
+                Expanded(
+                  child: Text(
+                    widget.tag.name,
+                    style: TextStyle(fontSize: 13, color: textPrimary),
                   ),
                 ),
-            ],
+                if (widget.count != null && widget.count! > 0)
+                  Text(
+                    '${widget.count}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: textPrimary.withValues(alpha: 0.4),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
@@ -708,37 +716,41 @@ class _CreateTagTileState extends State<_CreateTagTile> {
     final accent = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
     final hoverBg = widget.isDark ? WpColorsDark.hover : WpColorsLight.hover;
 
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: widget.onTap,
-        behavior: HitTestBehavior.opaque,
-        child: AnimatedContainer(
-          duration: WpMotion.fast,
-          padding: const EdgeInsets.symmetric(
-            horizontal: WpSpacing.sm,
-            vertical: WpSpacing.sm,
-          ),
-          color: (_isHovered || widget.isSelected)
-              ? hoverBg
-              : Colors.transparent,
-          child: Row(
-            children: [
-              Icon(LucideIcons.plus, size: WpIconSize.sm, color: accent),
-              const SizedBox(width: WpSpacing.xs),
-              Expanded(
-                child: Text(
-                  widget.label,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: textPrimary,
-                    fontWeight: FontWeight.w500,
+    return Semantics(
+      label: widget.label,
+      button: true,
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: widget.onTap,
+          behavior: HitTestBehavior.opaque,
+          child: AnimatedContainer(
+            duration: WpMotion.fast,
+            padding: const EdgeInsets.symmetric(
+              horizontal: WpSpacing.sm,
+              vertical: WpSpacing.sm,
+            ),
+            color: (_isHovered || widget.isSelected)
+                ? hoverBg
+                : Colors.transparent,
+            child: Row(
+              children: [
+                Icon(LucideIcons.plus, size: WpIconSize.sm, color: accent),
+                const SizedBox(width: WpSpacing.xs),
+                Expanded(
+                  child: Text(
+                    widget.label,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: textPrimary,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

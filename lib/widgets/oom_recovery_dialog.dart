@@ -137,6 +137,7 @@ class _OomRecoveryDialog extends StatelessWidget {
                     ),
                     const SizedBox(height: WpSpacing.xl),
                     if (!isPermanentFail && modelName != null) ...[
+                      // loam-ignore: a11y-interactive-semantics – semantics provided in _ActionButton.build
                       _ActionButton(
                         label: l10n.oomRecoveryTrySmaller,
                         hint: l10n.oomRecoveryTrySmallerHint(modelName!),
@@ -147,6 +148,7 @@ class _OomRecoveryDialog extends StatelessWidget {
                       const SizedBox(height: WpSpacing.sm),
                     ],
                     if (hasCloudConfigured) ...[
+                      // loam-ignore: a11y-interactive-semantics – semantics provided in _ActionButton.build
                       _ActionButton(
                         label: l10n.oomRecoverySwitchCloud,
                         hint: l10n.oomRecoverySwitchCloudHint,
@@ -158,6 +160,7 @@ class _OomRecoveryDialog extends StatelessWidget {
                       const SizedBox(height: WpSpacing.sm),
                     ],
                     if (isPermanentFail || !hasCloudConfigured) ...[
+                      // loam-ignore: a11y-interactive-semantics – semantics provided in _ActionButton.build
                       _ActionButton(
                         label: l10n.oomRecoveryPermanentCloud,
                         hint: null,
@@ -232,11 +235,15 @@ class _ActionButton extends StatelessWidget {
       ],
     );
 
-    return SizedBox(
-      width: double.infinity,
-      child: outlined
-          ? OutlinedButton(onPressed: onPressed, style: style, child: child)
-          : FilledButton(onPressed: onPressed, style: style, child: child),
+    return Semantics(
+      label: label,
+      button: true,
+      child: SizedBox(
+        width: double.infinity,
+        child: outlined
+            ? OutlinedButton(onPressed: onPressed, style: style, child: child)
+            : FilledButton(onPressed: onPressed, style: style, child: child),
+      ),
     );
   }
 }

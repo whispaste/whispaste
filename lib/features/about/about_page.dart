@@ -90,6 +90,7 @@ class AboutPage extends ConsumerWidget {
                 isDark: isDark,
               ),
               if (channel != DeployChannel.store)
+                // loam-ignore: a11y-interactive-semantics – semantics provided in _UpdateCheckAction.build
                 _UpdateCheckAction(
                   updateState: updateState,
                   channel: channel,
