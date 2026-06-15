@@ -9,6 +9,7 @@
 /// (candidate × model size) is fully declarative here.
 library;
 
+import 'const_me_candidate.dart';
 import 'probe_types.dart';
 import 'probe_runner.dart';
 import 'model_manifest.dart';
@@ -110,14 +111,19 @@ class CandidateManifest {
   List<ProbeCandidate> get candidates =>
       entries.map((e) => e.candidate).toList();
 
-  /// Default production manifest with the full whisper.cpp family.
+  /// Default production manifest with the full whisper.cpp family plus
+  /// Const-me/Whisper (DirectCompute).
   ///
   /// [runner] is applied to all subprocess-backed candidates; pass a
   /// custom [ProbeRunner] in tests to inject a fake launcher.
   /// [referenceTranscript] is forwarded to each candidate for WER computation.
+  /// [cpuFeatures] is forwarded to the Const-me candidate for its CPU
+  /// pre-flight check. In production, populate from a platform-specific
+  /// detection call. Defaults to an empty set (all CPU checks will skip).
   factory CandidateManifest.defaults({
     ProbeRunner runner = const ProbeRunner(),
     String? referenceTranscript,
+    CpuFeatureSet cpuFeatures = const {},
   }) {
     final models = defaultModelManifest();
 
@@ -126,6 +132,10 @@ class CandidateManifest {
 
     // The legacy OpenCL/CLBlast build only targets the smaller models.
     final legacySizes = {modelSizeSmall, modelSizeMedium};
+
+    // Const-me is probed across small + medium (medium = hybrid model with
+    // stricter CPU requirements; large is not supported by Const-me/Whisper).
+    final constMeSizes = {modelSizeSmall, modelSizeMedium};
 
     return CandidateManifest(
       entries: [
@@ -157,6 +167,21 @@ class CandidateManifest {
           candidate: const WhisperCppOpenClCandidate(),
           modelSizes: legacySizes,
           models: models,
+        ),
+        // Const-me/Whisper — DirectCompute (Direct3D 11).
+        // Each size needs its own candidate instance because the CPU
+        // pre-flight check is per-model-size (medium = hybrid requirements).
+        ...constMeSizes.map(
+          (size) => CandidateEntry(
+            candidate: constMeDirectComputeCandidate(
+              modelSizeKey: size,
+              cpuFeatures: cpuFeatures,
+              runner: runner,
+              referenceTranscript: referenceTranscript,
+            ),
+            modelSizes: {size},
+            models: models,
+          ),
         ),
       ],
     );

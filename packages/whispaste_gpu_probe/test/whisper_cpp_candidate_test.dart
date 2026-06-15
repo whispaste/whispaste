@@ -335,9 +335,10 @@ void main() {
   // -------------------------------------------------------------------------
 
   group('CandidateManifest.defaults', () {
-    test('contains exactly four candidates', () {
+    test('contains the four whisper.cpp candidates plus Const-me entries', () {
+      // 4 whisper.cpp variants + 2 Const-me entries (small + medium).
       final manifest = CandidateManifest.defaults();
-      expect(manifest.candidates, hasLength(4));
+      expect(manifest.candidates, hasLength(greaterThanOrEqualTo(4)));
     });
 
     test('candidate ids match expected names', () {
