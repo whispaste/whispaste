@@ -83,7 +83,6 @@ void main() {
       expect(WpShadows.subtle, isNotEmpty);
       expect(WpShadows.card, isNotEmpty);
       expect(WpShadows.elevated, isNotEmpty);
-      expect(WpShadows.fab, isNotEmpty);
       expect(WpShadows.glassInner, isNotEmpty);
     });
 
@@ -119,11 +118,6 @@ void main() {
     test('app bar height is reasonable', () {
       expect(WpLayout.appBarHeight, greaterThanOrEqualTo(40));
       expect(WpLayout.appBarHeight, lessThanOrEqualTo(80));
-    });
-
-    test('FAB size matches Material spec range', () {
-      expect(WpLayout.fabSize, greaterThanOrEqualTo(40));
-      expect(WpLayout.fabSize, lessThanOrEqualTo(72));
     });
   });
 

@@ -559,8 +559,7 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                             entryId: entry.id,
                             isDark: isDark,
                           ),
-                          // FAB clearance so content isn't hidden behind the floating button
-                          const SizedBox(height: 80),
+                          const SizedBox(height: WpSpacing.xl),
                         ],
                       ),
                     );

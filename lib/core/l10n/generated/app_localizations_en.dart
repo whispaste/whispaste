@@ -820,24 +820,6 @@ class L10nEn extends L10n {
   String get actionSave => 'Save';
 
   @override
-  String get tooltipRecord => 'Start recording';
-
-  @override
-  String get tooltipStopRecord => 'Stop recording';
-
-  @override
-  String get tooltipProcessing => 'Processing audio…';
-
-  @override
-  String get tooltipEngineNotReady => 'Speech service not ready';
-
-  @override
-  String get tooltipEngineDownloading => 'Downloading speech service…';
-
-  @override
-  String get tooltipModelMissing => 'No speech model downloaded';
-
-  @override
   String get tooltipTheme => 'Toggle theme';
 
   @override

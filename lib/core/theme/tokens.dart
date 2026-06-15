@@ -55,11 +55,6 @@ abstract final class WpShadows {
     BoxShadow(color: Color(0x1A000000), blurRadius: 3, offset: Offset(0, 1)),
   ];
 
-  static const List<BoxShadow> fab = [
-    BoxShadow(color: Color(0x66000000), blurRadius: 12, offset: Offset(0, 4)),
-    BoxShadow(color: Color(0x1A000000), blurRadius: 2),
-  ];
-
   /// Warm inner shadow for glass panels — subtle top-light illusion
   static const List<BoxShadow> glassInner = [
     BoxShadow(
@@ -96,7 +91,6 @@ abstract final class WpMotion {
 abstract final class WpLayout {
   static const double sidebarWidth = 72;
   static const double statusBarHeight = 48;
-  static const double fabSize = 56;
   static const double appBarHeight = 64;
 
   /// Material 3 minimum touch target — all interactive elements must meet this.
