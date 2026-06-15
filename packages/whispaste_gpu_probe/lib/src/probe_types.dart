@@ -4,6 +4,8 @@
 /// Classification and ranking land in later slices.
 library;
 
+import 'ranking.dart';
+
 /// Result outcome of a single [ProbeCandidate] run.
 enum Outcome {
   /// The candidate completed successfully and produced expected output.
@@ -116,12 +118,65 @@ class CandidateResult {
   final int? peakVramMb;
 }
 
+/// Hardware context captured at probe time (optional; null fields mean unknown).
+class HardwareContext {
+  const HardwareContext({
+    this.cpuModel,
+    this.ramGb,
+    this.gpuModel,
+    this.vramGb,
+    this.os,
+    this.driverVersion,
+  });
+
+  /// CPU model string, e.g. `Intel Core i7-12700K`.
+  final String? cpuModel;
+
+  /// Total system RAM in gigabytes, e.g. `32`.
+  final int? ramGb;
+
+  /// GPU model string, e.g. `NVIDIA GeForce RTX 3070`.
+  final String? gpuModel;
+
+  /// Total GPU VRAM in gigabytes, e.g. `8`.
+  final int? vramGb;
+
+  /// Operating system identifier, e.g. `Windows 11 23H2`.
+  final String? os;
+
+  /// GPU driver version, e.g. `546.33`.
+  final String? driverVersion;
+
+  /// Converts to a JSON-serialisable map (omits null values).
+  Map<String, Object?> toJson() => {
+    if (cpuModel != null) 'cpuModel': cpuModel,
+    if (ramGb != null) 'ramGb': ramGb,
+    if (gpuModel != null) 'gpuModel': gpuModel,
+    if (vramGb != null) 'vramGb': vramGb,
+    if (os != null) 'os': os,
+    if (driverVersion != null) 'driverVersion': driverVersion,
+  };
+
+  /// Renders a short prose summary for the Markdown hardware context section.
+  String toMarkdownLines() {
+    final lines = <String>[];
+    if (cpuModel != null) lines.add('- **CPU:** $cpuModel');
+    if (ramGb != null) lines.add('- **RAM:** $ramGb GB');
+    if (gpuModel != null) lines.add('- **GPU:** $gpuModel');
+    if (vramGb != null) lines.add('- **VRAM:** $vramGb GB');
+    if (os != null) lines.add('- **OS:** $os');
+    if (driverVersion != null) lines.add('- **Driver:** $driverVersion');
+    return lines.join('\n');
+  }
+}
+
 /// Aggregated report produced by the [ProbeOrchestrator].
 class ProbeReport {
   const ProbeReport({
     required this.timestamp,
     required this.results,
     required this.version,
+    this.hardwareContext,
   });
 
   /// When the probe run started (UTC).
@@ -133,11 +188,16 @@ class ProbeReport {
   /// Tool version stamp (from `--define=whispaste_version=…`).
   final String version;
 
-  /// Converts the report to a JSON-serialisable map.
-  Map<String, Object> toJson() {
+  /// Optional hardware context captured at probe time.
+  final HardwareContext? hardwareContext;
+
+  /// Converts the report to a JSON-serialisable map, including ranking data.
+  Map<String, Object?> toJson() {
+    final ranking = computeRanking(this);
     return {
       'timestamp': timestamp.toIso8601String(),
       'version': version,
+      if (hardwareContext != null) 'hardwareContext': hardwareContext!.toJson(),
       'results': results
           .map(
             (r) => <String, Object?>{
@@ -148,10 +208,60 @@ class ProbeReport {
                 'transcribedText': r.transcribedText,
               if (r.errorDetail != null) 'errorDetail': r.errorDetail,
               if (r.exitCode != null) 'exitCode': r.exitCode,
+              if (r.realtimeFactor != null) 'realtimeFactor': r.realtimeFactor,
+              if (r.wer != null) 'wer': r.wer,
+              if (r.backend != null) 'backend': r.backend,
             },
           )
           .toList(),
+      'ranking': rankingToJson(ranking),
     };
+  }
+
+  /// Converts the report to a Markdown document with hardware context,
+  /// speed ranking table, failed-candidate section, and outcome overview.
+  String toMarkdown() {
+    final ranking = computeRanking(this);
+    final b = StringBuffer();
+
+    // Header
+    b.writeln('# WhisPaste GPU Probe Report');
+    b.writeln();
+    b.writeln('**Timestamp:** ${timestamp.toIso8601String()}');
+    b.writeln('**Version:** $version');
+    b.writeln();
+
+    // Hardware context
+    if (hardwareContext != null) {
+      b.writeln('## Hardware Context');
+      b.writeln();
+      b.writeln(hardwareContext!.toMarkdownLines());
+      b.writeln();
+    }
+
+    // Ranking table + failed section
+    b.write(rankingToMarkdown(ranking));
+
+    // Outcome overview (raw results)
+    b.writeln('## Outcome Overview');
+    b.writeln();
+    b.writeln('| Candidate | Outcome | Duration (ms) | WER | RTF |');
+    b.writeln('|:---|:---|---:|---:|---:|');
+    for (final r in results) {
+      final dur = r.durationMs?.toString() ?? '—';
+      final wer = r.wer != null
+          ? '${(r.wer! * 100).toStringAsFixed(1)} %'
+          : '—';
+      final rtf = r.realtimeFactor != null
+          ? r.realtimeFactor!.toStringAsFixed(2)
+          : '—';
+      b.writeln(
+        '| ${r.candidateId} | ${r.outcome.name} | $dur | $wer | $rtf |',
+      );
+    }
+    b.writeln();
+
+    return b.toString();
   }
 }
 
