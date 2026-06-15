@@ -24,9 +24,9 @@ library;
 import 'package:flutter/widgets.dart';
 
 import 'core/l10n/generated/app_localizations.dart';
-import 'core/l10n/persisted_l10n.dart';
 import 'services/floating_button/floating_button_controller_interface.dart';
 import 'services/floating_button/floating_button_render_channel.dart';
+import 'shared_render_engine_helpers.dart';
 import 'widgets/floating_button/floating_button_view.dart';
 
 /// Private channel between the native button shell and this render engine.
@@ -56,92 +56,30 @@ class _ButtonRenderApp extends StatefulWidget {
   State<_ButtonRenderApp> createState() => _ButtonRenderAppState();
 }
 
-class _ButtonRenderAppState extends State<_ButtonRenderApp> {
-  late final FloatingButtonRenderChannel _channel;
+class _ButtonRenderAppState
+    extends RenderEngineState<_ButtonRenderApp, FloatingButtonRenderChannel> {
+  _ButtonRenderAppState()
+    : super(lookupL10n(const Locale('en')).a11yRecordingButton);
 
   FloatingButtonVisualState _state = FloatingButtonVisualState.idle;
   double _diameter = 56;
 
-  // Defaults to the English label until the persisted locale resolves; this
-  // engine has no Localizations ancestor, so the string is looked up directly.
-  String _semanticsLabel = lookupL10n(const Locale('en')).a11yRecordingButton;
+  @override
+  FloatingButtonRenderChannel createChannel() => FloatingButtonRenderChannel(
+    name: _renderChannelName,
+    onState: (s) => setState(() => _state = s),
+    onDiameter: (d) => setState(() => _diameter = d),
+  );
 
   @override
-  void initState() {
-    super.initState();
-    _channel = FloatingButtonRenderChannel(
-      name: _renderChannelName,
-      onState: (s) => setState(() => _state = s),
-      onDiameter: (d) => setState(() => _diameter = d),
-    );
-    // Handler is now registered — tell the native shell to flush any render
-    // state it cached while this engine was still booting.
-    _channel.notifyReady();
-    _resolveSemanticsLabel();
-  }
-
-  Future<void> _resolveSemanticsLabel() async {
-    final l10n = await resolvePersistedL10n();
-    if (mounted) setState(() => _semanticsLabel = l10n.a11yRecordingButton);
-  }
+  String labelOf(L10n l10n) => l10n.a11yRecordingButton;
 
   @override
-  void dispose() {
-    _channel.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // No Material/Scaffold and no background fill: the engine surface is
-    // cleared by the native shell, so anything we don't paint stays
-    // transparent. Directionality is provided defensively for any future
-    // text-bearing descendant; the painter itself needs none.
-    return Directionality(
-      textDirection: TextDirection.ltr,
-      child: _ButtonGestureLayer(
-        semanticsLabel: _semanticsLabel,
-        onTap: _channel.clicked,
-        onPanStart: _channel.startDrag,
-        onSecondary: _channel.showContextMenu,
-        child: FloatingButtonView(state: _state, diameter: _diameter),
-      ),
-    );
-  }
-}
-
-/// Forwards the three coarse button interactions to the native shell.
-///
-/// Drag to move, tap to toggle recording, right-click / long-press for the
-/// context menu — mirroring the old native-drawing view's mouse handlers.
-class _ButtonGestureLayer extends StatelessWidget {
-  const _ButtonGestureLayer({
-    required this.semanticsLabel,
-    required this.onTap,
-    required this.onPanStart,
-    required this.onSecondary,
-    required this.child,
-  });
-
-  final String semanticsLabel;
-  final VoidCallback onTap;
-  final VoidCallback onPanStart;
-  final VoidCallback onSecondary;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: semanticsLabel,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        onPanStart: (_) => onPanStart(),
-        onSecondaryTap: onSecondary,
-        onLongPress: onSecondary,
-        child: child,
-      ),
-    );
-  }
+  Widget build(BuildContext context) => buildRenderEngineRoot(
+    semanticsLabel: semanticsLabel,
+    onTap: channel.clicked,
+    onPanStart: channel.startDrag,
+    onSecondaryOrLongPress: channel.showContextMenu,
+    child: FloatingButtonView(state: _state, diameter: _diameter),
+  );
 }

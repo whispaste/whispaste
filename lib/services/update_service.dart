@@ -13,12 +13,12 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:path/path.dart' as p;
-import 'package:sentry_dio/sentry_dio.dart';
 
 import '../core/app_info.dart';
 import '../core/logging/app_logger.dart';
 import '../core/recording/recording_state.dart';
 import 'deploy_channel_service.dart';
+import 'http_model_fetcher.dart' show buildDioWithSentry;
 import 'update/mac_update_installer.dart';
 
 final _log = AppLogger('Update');
@@ -184,17 +184,10 @@ class UpdateNotifier extends Notifier<UpdateState> {
   /// spans and request breadcrumbs are unaffected (they are installed by the
   /// adapter/transformer that `addSentry` wraps regardless of this flag).
   @visibleForTesting
-  static Dio buildUpdateDio() {
-    final dio = Dio(
-      BaseOptions(
-        connectTimeout: const Duration(seconds: 15),
-        receiveTimeout: const Duration(minutes: 5),
-        headers: {'User-Agent': appUserAgent},
-      ),
-    );
-    dio.addSentry(captureFailedRequests: false);
-    return dio;
-  }
+  static Dio buildUpdateDio() => buildDioWithSentry(
+    connectTimeout: const Duration(seconds: 15),
+    receiveTimeout: const Duration(minutes: 5),
+  );
 
   // -----------------------------------------------------------------------
   // Public API

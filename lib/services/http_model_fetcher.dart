@@ -307,28 +307,31 @@ class HttpModelFetcher {
 // Helpers
 // ---------------------------------------------------------------------------
 
-Dio _defaultDio() {
+/// Builds a [Dio] instance with the standard app User-Agent header and the
+/// Sentry interceptor attached (`captureFailedRequests: false`).
+///
+/// Used by both [HttpModelFetcher] and [UpdateService] to avoid duplicating
+/// the Dio setup pattern. Callers supply their own timeouts.
+Dio buildDioWithSentry({
+  required Duration connectTimeout,
+  required Duration receiveTimeout,
+}) {
   final dio = Dio(
     BaseOptions(
-      connectTimeout: const Duration(seconds: 30),
-      receiveTimeout: const Duration(minutes: 10),
+      connectTimeout: connectTimeout,
+      receiveTimeout: receiveTimeout,
       headers: {'User-Agent': appUserAgent},
     ),
   );
   // Sentry MUST be the last interceptor added — it wraps existing ones.
-  // Spans piggy-back on the active transaction's sample decision; with the
-  // low `tracesSampleRate` set in app_monitoring.dart, the Free-Tier span
-  // quota is safe even under heavy model downloads.
-  //
-  // `captureFailedRequests: false`: download failures already have explicit,
-  // de-duplicated Sentry signal downstream — model pulls via
-  // `_handleDioError` → `_log.error` (AppLogger auto-escalation), server pulls
-  // via `WhisperServerDownloader._reportFailure` (fingerprinted). The
-  // interceptor's auto-capture (default range 500–599) would only double-report
-  // the same incident under a second bucket.
   dio.addSentry(captureFailedRequests: false);
   return dio;
 }
+
+Dio _defaultDio() => buildDioWithSentry(
+  connectTimeout: const Duration(seconds: 30),
+  receiveTimeout: const Duration(minutes: 10),
+);
 
 class _SpeedSample {
   const _SpeedSample(this.time, this.bytes);

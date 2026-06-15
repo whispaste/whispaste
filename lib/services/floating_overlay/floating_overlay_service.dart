@@ -553,17 +553,15 @@ class FloatingOverlayService
     }
   }
 
-  Future<void> _savePosition(double x, double y) async {
-    try {
-      await ref
-          .read(settingsProvider.notifier)
-          .updateSettings(
-            (s) => s.copyWith(floatingOverlayX: x, floatingOverlayY: y),
-          );
-    } catch (e, st) {
-      _log.error('Failed to save overlay position', e, st);
-    }
-  }
+  Future<void> _savePosition(double x, double y) => saveSettingsSafely(
+    _log,
+    'Failed to save overlay position',
+    () => ref
+        .read(settingsProvider.notifier)
+        .updateSettings(
+          (s) => s.copyWith(floatingOverlayX: x, floatingOverlayY: y),
+        ),
+  );
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 

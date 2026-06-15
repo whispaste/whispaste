@@ -235,17 +235,15 @@ class FloatingButtonService
     await windowManager.destroy();
   }
 
-  Future<void> _savePosition(double x, double y) async {
-    try {
-      await ref
-          .read(settingsProvider.notifier)
-          .updateSettings(
-            (s) => s.copyWith(floatingButtonX: x, floatingButtonY: y),
-          );
-    } catch (e, st) {
-      _log.error('Failed to save floating button position', e, st);
-    }
-  }
+  Future<void> _savePosition(double x, double y) => saveSettingsSafely(
+    _log,
+    'Failed to save floating button position',
+    () => ref
+        .read(settingsProvider.notifier)
+        .updateSettings(
+          (s) => s.copyWith(floatingButtonX: x, floatingButtonY: y),
+        ),
+  );
 
   // ── Context menu ──────────────────────────────────────────────────────────
 

@@ -4,6 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/data/database.dart';
+import '../data/providers.dart' show DateGroup;
 
 /// View mode for the history page.
 enum HistoryViewMode { list, cards, compact }
@@ -12,22 +13,14 @@ enum HistoryViewMode { list, cards, compact }
 enum HistorySortOrder { newest, oldest, longest }
 
 /// Resolves a [DateGroup.labelKey] to a localized string.
-String resolveDateLabel(String key, L10n l10n) {
-  switch (key) {
-    case 'today':
-      return l10n.historyToday;
-    case 'yesterday':
-      return l10n.historyYesterday;
-    case 'thisWeek':
-      return l10n.historyThisWeek;
-    case 'older':
-      return l10n.historyOlder;
-    case 'all':
-      return l10n.historyAll;
-    default:
-      return key;
-  }
-}
+String resolveDateLabel(String key, L10n l10n) => switch (key) {
+  'today' => l10n.historyToday,
+  'yesterday' => l10n.historyYesterday,
+  'thisWeek' => l10n.historyThisWeek,
+  'older' => l10n.historyOlder,
+  'all' => l10n.historyAll,
+  _ => key,
+};
 
 /// Formats timestamp as HH:MM.
 String formatHistoryTime(DateTime t) =>
@@ -188,4 +181,42 @@ class HistoryEntryAvatar extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Returns true when the focused widget is an [EditableText] (text input).
+///
+/// `EditableText.build()` creates an internal `Focus` widget that overwrites
+/// the FocusNode context, so `context.widget` ends up being `Focus`, not
+/// `EditableText`. We check the widget directly AND walk ancestors as a
+/// fallback to cover both cases.
+bool isTextFieldFocused() {
+  final primary = FocusManager.instance.primaryFocus;
+  if (primary == null) return false;
+  final context = primary.context;
+  if (context == null) return false;
+  if (context.widget is EditableText) return true;
+  return context.findAncestorWidgetOfExactType<EditableText>() != null;
+}
+
+/// Lightweight union for flattened header/entry items used by list and compact
+/// views. Avoids pre-building widgets — the actual widget is created lazily
+/// inside [ListView.builder].
+class HistoryFlatItem {
+  const HistoryFlatItem.header(this.headerLabel) : entry = null;
+  const HistoryFlatItem.entry(this.entry) : headerLabel = null;
+
+  final String? headerLabel;
+  final HistoryEntry? entry;
+}
+
+/// Flattens a list of [DateGroup]s into header/entry items for a [ListView].
+List<HistoryFlatItem> buildHistoryFlatItems(List<DateGroup> groups) {
+  final result = <HistoryFlatItem>[];
+  for (final group in groups) {
+    result.add(HistoryFlatItem.header(group.labelKey));
+    for (final entry in group.entries) {
+      result.add(HistoryFlatItem.entry(entry));
+    }
+  }
+  return result;
 }

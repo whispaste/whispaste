@@ -43,18 +43,7 @@ class HistoryEntryList extends StatelessWidget {
   final void Function(String tag)? onTagTap;
 
   /// Flattened index: each element is either a date header or an entry row.
-  late final List<_FlatItem> _flatItems = _buildFlatItems();
-
-  List<_FlatItem> _buildFlatItems() {
-    final result = <_FlatItem>[];
-    for (final group in groups) {
-      result.add(_FlatItem.header(group.labelKey));
-      for (final entry in group.entries) {
-        result.add(_FlatItem.entry(entry));
-      }
-    }
-    return result;
-  }
+  late final List<HistoryFlatItem> _flatItems = buildHistoryFlatItems(groups);
 
   @override
   Widget build(BuildContext context) {
@@ -91,14 +80,4 @@ class HistoryEntryList extends StatelessWidget {
       },
     );
   }
-}
-
-/// Lightweight union for flattened header/entry items (avoids pre-building
-/// widgets — the actual widget is created lazily inside [ListView.builder]).
-class _FlatItem {
-  const _FlatItem.header(this.headerLabel) : entry = null;
-  const _FlatItem.entry(this.entry) : headerLabel = null;
-
-  final String? headerLabel;
-  final HistoryEntry? entry;
 }

@@ -27,7 +27,7 @@ class SttBenchmark {
     final owned = client == null;
     final c = client ?? http.Client();
     try {
-      final benchmarkWav = _generateBenchmarkWav();
+      final benchmarkWav = generateBenchmarkWav();
       final uri = Uri.parse('http://$host:$port/inference');
       final request = http.MultipartRequest('POST', uri)
         ..files.add(
@@ -59,7 +59,7 @@ class SttBenchmark {
   }
 
   /// Generates a 3-second silent WAV (16 kHz, mono, 16-bit PCM).
-  static Uint8List _generateBenchmarkWav() {
+  static Uint8List generateBenchmarkWav() {
     const sampleRate = 16000;
     const durationSeconds = 3;
     const durationSamples = sampleRate * durationSeconds;

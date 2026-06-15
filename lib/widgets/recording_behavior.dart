@@ -96,22 +96,14 @@ String localizeRecordingError(L10n l10n, String errorCode) {
 }
 
 /// Maps info codes from the recording pipeline to localized messages.
-String localizeRecordingInfo(L10n l10n, String infoCode) {
-  switch (infoCode) {
-    case 'info_engine_auto_download':
-      return l10n.infoEngineAutoDownload;
-    case 'info_engine_downloading':
-      return l10n.infoEngineDownloading;
-    case 'info_model_missing':
-      return l10n.infoModelMissing;
-    case 'info_stt_cuda_oom_model':
-      return l10n.infoSttCudaOomFallbackModel;
-    case 'info_stt_cuda_oom_cpu':
-      return l10n.infoSttCudaOomFallbackCpu;
-    default:
-      return infoCode;
-  }
-}
+String localizeRecordingInfo(L10n l10n, String infoCode) => switch (infoCode) {
+  'info_engine_auto_download' => l10n.infoEngineAutoDownload,
+  'info_engine_downloading' => l10n.infoEngineDownloading,
+  'info_model_missing' => l10n.infoModelMissing,
+  'info_stt_cuda_oom_model' => l10n.infoSttCudaOomFallbackModel,
+  'info_stt_cuda_oom_cpu' => l10n.infoSttCudaOomFallbackCpu,
+  _ => infoCode,
+};
 
 // ---------------------------------------------------------------------------
 // Widget

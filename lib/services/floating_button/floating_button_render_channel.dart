@@ -1,6 +1,7 @@
 import 'package:flutter/services.dart';
 
 import '../../core/logging/app_logger.dart';
+import '../../shared_render_engine_helpers.dart' show RenderChannel;
 import 'floating_button_controller_interface.dart';
 
 final _log = AppLogger('FloatingButtonRenderChannel');
@@ -15,7 +16,7 @@ final _log = AppLogger('FloatingButtonRenderChannel');
 ///
 /// Kept separate from the entrypoint so the wiring is unit-testable without
 /// booting a second engine.
-class FloatingButtonRenderChannel {
+class FloatingButtonRenderChannel implements RenderChannel {
   /// Binds the handler on [name] and remembers the interaction sink.
   FloatingButtonRenderChannel({
     required String name,
@@ -98,12 +99,14 @@ class FloatingButtonRenderChannel {
   /// Tells the native shell the inbound handler is registered, so it can flush
   /// the render state cached during the engine boot race. Must be called only
   /// after the handler is set (i.e. after construction).
+  @override
   void notifyReady() {
     _channel.invokeMethod('ready');
   }
 
   /// Detaches the handler. The engine outlives individual app widgets, so this
   /// is mainly for tests and hot-restart hygiene.
+  @override
   void dispose() {
     _channel.setMethodCallHandler(null);
   }

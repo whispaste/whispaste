@@ -5,8 +5,6 @@
 /// UI widgets become pure consumers — no direct DB calls.
 library;
 
-import 'dart:math';
-
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -103,7 +101,7 @@ class HistoryDetailNotifier extends AsyncNotifier<HistoryDetailState> {
     final now = DateTime.now();
     await _db.upsertNote(
       EntryNotesCompanion(
-        id: Value(_uuid()),
+        id: Value(generateV4Uuid()),
         entryId: Value(_entryId),
         content: Value(content.trim()),
         createdAt: Value(now),
@@ -169,39 +167,26 @@ class HistoryDetailNotifier extends AsyncNotifier<HistoryDetailState> {
 
   // ── Entry actions ─────────────────────────────────────────────────────
 
-  Future<void> togglePin() async {
+  Future<void> _applyEntryAction(Future<void> Function() action) async {
     final current = state.asData?.value;
     if (current == null) return;
-    await _db.togglePin(_entryId);
+    await action();
     final entry = await _db.getEntry(_entryId);
     if (entry != null) {
       state = AsyncValue.data(current.copyWith(entry: entry));
     }
   }
 
-  Future<void> toggleArchive() async {
-    final current = state.asData?.value;
-    if (current == null) return;
-    await _db.toggleArchive(_entryId);
-    final entry = await _db.getEntry(_entryId);
-    if (entry != null) {
-      state = AsyncValue.data(current.copyWith(entry: entry));
-    }
-  }
+  Future<void> togglePin() => _applyEntryAction(() => _db.togglePin(_entryId));
+
+  Future<void> toggleArchive() =>
+      _applyEntryAction(() => _db.toggleArchive(_entryId));
 
   Future<void> softDelete() async {
     await _db.softDeleteEntry(_entryId);
   }
 
-  Future<void> restore() async {
-    final current = state.asData?.value;
-    if (current == null) return;
-    await _db.restoreEntry(_entryId);
-    final entry = await _db.getEntry(_entryId);
-    if (entry != null) {
-      state = AsyncValue.data(current.copyWith(entry: entry));
-    }
-  }
+  Future<void> restore() => _applyEntryAction(() => _db.restoreEntry(_entryId));
 
   Future<void> permanentDelete() async {
     await _db.permanentDeleteEntry(_entryId);
@@ -209,16 +194,6 @@ class HistoryDetailNotifier extends AsyncNotifier<HistoryDetailState> {
 
   Future<HistoryEntry?> duplicate() async {
     return _db.duplicateEntry(_entryId);
-  }
-
-  static String _uuid() {
-    final r = Random.secure();
-    final bytes = List.generate(16, (_) => r.nextInt(256));
-    bytes[6] = (bytes[6] & 0x0f) | 0x40;
-    bytes[8] = (bytes[8] & 0x3f) | 0x80;
-    final h = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
-    return '${h.substring(0, 8)}-${h.substring(8, 12)}-'
-        '${h.substring(12, 16)}-${h.substring(16, 20)}-${h.substring(20)}';
   }
 }
 
