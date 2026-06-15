@@ -67,6 +67,12 @@ class CandidateResult {
     this.transcribedText,
     this.errorDetail,
     this.exitCode,
+    this.stderrTail,
+    this.realtimeFactor,
+    this.modelId,
+    this.backend,
+    this.wer,
+    this.peakVramMb,
   });
 
   /// Identifier of the candidate that produced this result.
@@ -86,6 +92,28 @@ class CandidateResult {
 
   /// Process exit code, if the candidate was a subprocess.
   final int? exitCode;
+
+  /// Last lines of stderr output, for post-mortem analysis.
+  final String? stderrTail;
+
+  /// Ratio of audio duration to wall-clock processing time (lower is faster).
+  ///
+  /// A value of 1.0 means real-time; 0.5 means twice as fast as real-time.
+  final double? realtimeFactor;
+
+  /// Identifier of the Whisper model that was loaded (e.g. `ggml-small-q5_1`).
+  final String? modelId;
+
+  /// Inference backend used by the candidate (e.g. `cuda`, `vulkan`, `cpu`).
+  final String? backend;
+
+  /// Word Error Rate of the transcription, as a fraction in [0, ∞).
+  ///
+  /// Values above [werWrongOutputThreshold] are classified as [Outcome.wrongOutput].
+  final double? wer;
+
+  /// Peak GPU VRAM usage in megabytes, if measurable.
+  final int? peakVramMb;
 }
 
 /// Aggregated report produced by the [ProbeOrchestrator].
