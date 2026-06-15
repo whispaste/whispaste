@@ -37,6 +37,7 @@ class KeyboardShortcutSection extends ConsumerWidget {
           SettingRow(
             icon: LucideIcons.toggleRight,
             label: l10n.settingsHotkeyEnabled,
+            semanticToggledValue: settings.hotkeyEnabled,
             trailing: Switch(
               value: settings.hotkeyEnabled,
               onChanged: (v) => ref
@@ -179,13 +180,10 @@ class SoundFeedbackSection extends ConsumerWidget {
           SettingRow(
             icon: LucideIcons.volume2,
             label: l10n.settingsSoundsEnabled,
-            trailing: Semantics(
-              label: l10n.settingsSoundsEnabled,
-              toggled: masterOn,
-              child: settingsToggle(
-                value: masterOn,
-                onChanged: onMasterChanged,
-              ),
+            semanticToggledValue: masterOn,
+            trailing: settingsToggle(
+              value: masterOn,
+              onChanged: onMasterChanged,
             ),
           ),
           if (masterOn)
