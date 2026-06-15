@@ -58,7 +58,20 @@ FloatingButtonVisualState get _buttonState => switch (_state) {
   OverlayVisualState.error => FloatingButtonVisualState.error,
 };
 
-Future<void> main() async {
+Future<void> main(List<String> args) async {
+  // Linux GTK embedder has no named-entrypoint API — the native shells boot
+  // their second engine via entrypoint ARGUMENTS instead. Branch exactly like
+  // main.dart so those engines run the shared render apps. (macOS/Windows boot
+  // the named pragma entrypoints above and never pass these args.)
+  if (args.contains('--floating-overlay')) {
+    runFloatingOverlayEngine();
+    return;
+  }
+  if (args.contains('--floating-button')) {
+    runFloatingButtonEngine();
+    return;
+  }
+
   WidgetsFlutterBinding.ensureInitialized();
   await windowManager.ensureInitialized();
   // Keep the driver's own window out of the screenshot.
