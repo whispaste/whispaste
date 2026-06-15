@@ -16,7 +16,7 @@ import 'dart:io';
 
 /// Inference backends that run on the CPU. Everything else is treated as a
 /// GPU/accelerator backend for the report's "fastest GPU vs CPU" highlight.
-const Set<String> _cpuBackends = {'cpu', 'onnx-cpu'};
+const Set<String> _cpuBackends = {'cpu', 'onnx-cpu', 'ct2-cpu'};
 
 /// True when [backend] denotes a GPU/accelerator path (directcompute, cuda,
 /// cuda12, vulkan, directml, …) rather than a plain CPU path.

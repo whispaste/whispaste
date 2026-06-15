@@ -97,6 +97,44 @@ void main() {
       expect(sherpa.every((m) => m.isBundle), isTrue);
     });
 
+    test('catalogue lists CT2 bundles with family ct2-whisper', () {
+      final c = defaultModelCatalog();
+      final ct2 = c.where((m) => m.family == 'ct2-whisper').toList();
+      expect(
+        ct2.map((m) => m.id),
+        containsAll(['faster-whisper-base', 'faster-whisper-small']),
+      );
+      expect(ct2.every((m) => m.isBundle), isTrue);
+      // The bundle carries the four CTranslate2 files.
+      final small = ct2.firstWhere((m) => m.id == 'faster-whisper-small');
+      expect(
+        small.files!.map((f) => f.filename),
+        containsAll([
+          'model.bin',
+          'config.json',
+          'tokenizer.json',
+          'vocabulary.txt',
+        ]),
+      );
+    });
+
+    test('downloads a CT2 bundle into models/<id>/ (4 files)', () async {
+      final fetched = <String>[];
+      Future<void> fake(Uri u, File t, void Function(int, int) onP) async {
+        fetched.add(p.basename(t.path));
+        onP(10, 10);
+        await t.writeAsBytes(List.filled(10, 0));
+      }
+
+      final s = ModelStore(directory: tmp.path, downloader: fake);
+      await s.download('faster-whisper-base');
+      expect(fetched, hasLength(4));
+      expect(fetched, contains('model.bin'));
+      final path = s.localPathIfPresent('faster-whisper-base');
+      expect(path, isNotNull);
+      expect(p.basename(path!), 'faster-whisper-base');
+    });
+
     test(
       'downloads every bundle file into models/<id>/ then marks present',
       () async {

@@ -17,6 +17,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import 'const_me_candidate.dart';
+import 'faster_whisper_candidate.dart';
 import 'onnx_direct_ml_candidate.dart';
 import 'probe_runner.dart';
 import 'probe_types.dart';
@@ -29,6 +30,7 @@ const String familyGgml = 'ggml'; // whisper.cpp + Const-me (GGML .bin)
 const String familyOnnxWhisper = 'onnx-whisper'; // ONNX Runtime Whisper-ONNX
 const String familyOnnxWav2vec2 = 'onnx-wav2vec2'; // non-Whisper wav2vec2 ONNX
 const String familySherpaOnnx = 'sherpa-onnx'; // sherpa-onnx Whisper bundle
+const String familyCt2Whisper = 'ct2-whisper'; // faster-whisper CTranslate2
 
 /// One selectable engine in the bench: a candidate + its model family +
 /// availability (is the engine binary bundled?).
@@ -168,6 +170,40 @@ List<ProbeEngine> defaultEngineRegistry({
         binaryName: sub('sherpa-onnx-cuda', 'sherpa-onnx-offline'),
         backend: 'cuda',
         provider: 'cuda',
+        runner: runner,
+      ),
+    ),
+    ProbeEngine(
+      id: 'faster-whisper-cpu',
+      label: 'faster-whisper · CTranslate2 (CPU)',
+      backend: 'ct2-cpu',
+      modelFamily: familyCt2Whisper,
+      binary: sub('faster-whisper', 'whisper-faster'),
+      note: 'Top-gepflegte CTranslate2-Engine (Purfview-Standalone), CPU int8',
+      builder: () => FasterWhisperCandidate(
+        id: 'faster-whisper-cpu',
+        binaryName: sub('faster-whisper', 'whisper-faster'),
+        backend: 'ct2-cpu',
+        device: 'cpu',
+        computeType: 'int8',
+        runner: runner,
+      ),
+    ),
+    ProbeEngine(
+      id: 'faster-whisper-cuda',
+      label: 'faster-whisper · CTranslate2 (CUDA)',
+      backend: 'ct2-cuda',
+      modelFamily: familyCt2Whisper,
+      binary: sub('faster-whisper', 'whisper-faster'),
+      note:
+          'GPU-Pfad (CTranslate2/CUDA) — XXL-Build bündelt CUDA-Runtime; '
+          'Kepler erwartet Fehlschlag',
+      builder: () => FasterWhisperCandidate(
+        id: 'faster-whisper-cuda',
+        binaryName: sub('faster-whisper', 'whisper-faster'),
+        backend: 'ct2-cuda',
+        device: 'cuda',
+        computeType: 'int8_float16',
         runner: runner,
       ),
     ),
