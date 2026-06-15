@@ -4,6 +4,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/logging/app_logger.dart';
 
+/// Executes [save] and logs any exception via [log].
+///
+/// Both floating-surface services share this try/catch pattern around
+/// settings writes that are fire-and-forget but should not swallow errors.
+Future<void> saveSettingsSafely(
+  AppLogger log,
+  String label,
+  Future<void> Function() save,
+) async {
+  try {
+    await save();
+  } catch (e, st) {
+    log.error(label, e, st);
+  }
+}
+
 /// Abstract base for platform floating-window services (Layer 3).
 ///
 /// Eliminates the boilerplate that [FloatingButtonService] and

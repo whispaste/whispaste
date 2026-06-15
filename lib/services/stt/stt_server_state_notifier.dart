@@ -32,6 +32,7 @@ import 'inference_error_classifier.dart';
 import 'inference_request_validator.dart';
 import 'recovery_toast_notifier.dart';
 import 'server_binary_recovery.dart';
+import 'stt_benchmark.dart' show SttBenchmark;
 import 'stt_exit_classifier.dart';
 import 'stt_gpu_fallback_policy.dart';
 import 'stt_providers.dart';
@@ -834,7 +835,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
 
     final sw = Stopwatch()..start();
     try {
-      final benchmarkWav = _generateBenchmarkWav();
+      final benchmarkWav = SttBenchmark.generateBenchmarkWav();
       final uri = Uri.parse('http://127.0.0.1:$port/inference');
       final request = http.MultipartRequest('POST', uri)
         ..files.add(
@@ -907,52 +908,6 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     } catch (e) {
       _log.debug('Failed to store benchmark: $e');
     }
-  }
-
-  static Uint8List _generateBenchmarkWav() {
-    const sampleRate = 16000;
-    const durationSeconds = 3;
-    const durationSamples = sampleRate * durationSeconds;
-    const bitsPerSample = 16;
-    const numChannels = 1;
-    const bytesPerSample = bitsPerSample ~/ 8;
-    const dataSize = durationSamples * numChannels * bytesPerSample;
-    const headerSize = 44;
-
-    final buffer = Uint8List(headerSize + dataSize);
-    final data = ByteData.sublistView(buffer);
-
-    buffer[0] = 0x52;
-    buffer[1] = 0x49;
-    buffer[2] = 0x46;
-    buffer[3] = 0x46;
-    data.setUint32(4, headerSize + dataSize - 8, Endian.little);
-    buffer[8] = 0x57;
-    buffer[9] = 0x41;
-    buffer[10] = 0x56;
-    buffer[11] = 0x45;
-    buffer[12] = 0x66;
-    buffer[13] = 0x6D;
-    buffer[14] = 0x74;
-    buffer[15] = 0x20;
-    data.setUint32(16, 16, Endian.little);
-    data.setUint16(20, 1, Endian.little);
-    data.setUint16(22, numChannels, Endian.little);
-    data.setUint32(24, sampleRate, Endian.little);
-    data.setUint32(
-      28,
-      sampleRate * numChannels * bytesPerSample,
-      Endian.little,
-    );
-    data.setUint16(32, numChannels * bytesPerSample, Endian.little);
-    data.setUint16(34, bitsPerSample, Endian.little);
-    buffer[36] = 0x64;
-    buffer[37] = 0x61;
-    buffer[38] = 0x74;
-    buffer[39] = 0x61;
-    data.setUint32(40, dataSize, Endian.little);
-
-    return buffer;
   }
 
   static Uint8List _generateSilentWav() {

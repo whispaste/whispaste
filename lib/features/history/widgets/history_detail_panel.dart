@@ -148,21 +148,6 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
     widget.exportFn(context, [entry]);
   }
 
-  /// Returns true if any text input field currently has focus.
-  ///
-  /// `EditableText.build()` creates an internal `Focus` widget that overwrites
-  /// the FocusNode context, so `context.widget` ends up being `Focus`, not
-  /// `EditableText`. We check the widget directly AND walk ancestors as a
-  /// fallback to cover both cases.
-  bool _isTextFieldFocused() {
-    final primary = FocusManager.instance.primaryFocus;
-    if (primary == null) return false;
-    final context = primary.context;
-    if (context == null) return false;
-    if (context.widget is EditableText) return true;
-    return context.findAncestorWidgetOfExactType<EditableText>() != null;
-  }
-
   void _saveTranscript() {
     final newContent = _transcriptController.text.trim();
     if (newContent != entry.content) {
@@ -417,10 +402,10 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
           }
         },
         const SingleActivator(LogicalKeyboardKey.f2): () {
-          if (!_isTextFieldFocused()) _startTitleEdit();
+          if (!isTextFieldFocused()) _startTitleEdit();
         },
         const SingleActivator(LogicalKeyboardKey.keyE, control: true): () {
-          if (_isTextFieldFocused()) return;
+          if (isTextFieldFocused()) return;
           _toggleEdit();
         },
         const SingleActivator(LogicalKeyboardKey.keyS, control: true): () {
@@ -459,7 +444,7 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
         },
         // Shortcut help overlay
         const SingleActivator(LogicalKeyboardKey.slash, shift: true): () {
-          if (!_isTextFieldFocused()) _showShortcutHelp();
+          if (!isTextFieldFocused()) _showShortcutHelp();
         },
       },
       child: Focus(

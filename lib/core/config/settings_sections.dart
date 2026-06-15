@@ -707,16 +707,17 @@ class BehaviorSettings {
   );
 
   @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is BehaviorSettings &&
-          maxRecordDuration == other.maxRecordDuration &&
-          closeToTray == other.closeToTray &&
-          errorReporting == other.errorReporting &&
-          gpuAcceleration == other.gpuAcceleration &&
-          autoPasteDelay == other.autoPasteDelay &&
-          autoPasteBlocklist == other.autoPasteBlocklist &&
-          textReplacementsEnabled == other.textReplacementsEnabled;
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! BehaviorSettings) return false;
+    return maxRecordDuration == other.maxRecordDuration &&
+        closeToTray == other.closeToTray &&
+        errorReporting == other.errorReporting &&
+        gpuAcceleration == other.gpuAcceleration &&
+        autoPasteDelay == other.autoPasteDelay &&
+        autoPasteBlocklist == other.autoPasteBlocklist &&
+        textReplacementsEnabled == other.textReplacementsEnabled;
+  }
 
   @override
   int get hashCode => Object.hash(

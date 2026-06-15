@@ -24,9 +24,9 @@ library;
 import 'package:flutter/widgets.dart';
 
 import 'core/l10n/generated/app_localizations.dart';
-import 'core/l10n/persisted_l10n.dart';
 import 'services/floating_overlay/floating_overlay_controller_interface.dart';
 import 'services/floating_overlay/overlay_render_channel.dart';
+import 'shared_render_engine_helpers.dart';
 import 'widgets/floating_overlay/floating_overlay_view.dart';
 
 /// Private channel between the native overlay shell and this render engine.
@@ -56,8 +56,10 @@ class _OverlayRenderApp extends StatefulWidget {
   State<_OverlayRenderApp> createState() => _OverlayRenderAppState();
 }
 
-class _OverlayRenderAppState extends State<_OverlayRenderApp> {
-  late final OverlayRenderChannel _channel;
+class _OverlayRenderAppState
+    extends RenderEngineState<_OverlayRenderApp, OverlayRenderChannel> {
+  _OverlayRenderAppState()
+    : super(lookupL10n(const Locale('en')).a11yRecordingOverlay);
 
   FloatingOverlaySnapshot _snapshot = const FloatingOverlaySnapshot(
     visible: false,
@@ -68,90 +70,25 @@ class _OverlayRenderAppState extends State<_OverlayRenderApp> {
   );
   List<double> _bars = const [];
 
-  // Defaults to the English label until the persisted locale resolves; this
-  // engine has no Localizations ancestor, so the string is looked up directly.
-  String _semanticsLabel = lookupL10n(const Locale('en')).a11yRecordingOverlay;
+  @override
+  OverlayRenderChannel createChannel() => OverlayRenderChannel(
+    name: _renderChannelName,
+    onSnapshot: (s) => setState(() => _snapshot = s),
+    onWaveformBars: (b) => setState(() => _bars = b),
+  );
 
   @override
-  void initState() {
-    super.initState();
-    _channel = OverlayRenderChannel(
-      name: _renderChannelName,
-      onSnapshot: (s) => setState(() => _snapshot = s),
-      onWaveformBars: (b) => setState(() => _bars = b),
-    );
-    // Handler is now registered — tell the native shell to flush any render
-    // state it cached while this engine was still booting.
-    _channel.notifyReady();
-    _resolveSemanticsLabel();
-  }
-
-  Future<void> _resolveSemanticsLabel() async {
-    final l10n = await resolvePersistedL10n();
-    if (mounted) setState(() => _semanticsLabel = l10n.a11yRecordingOverlay);
-  }
+  String labelOf(L10n l10n) => l10n.a11yRecordingOverlay;
 
   @override
-  void dispose() {
-    _channel.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // No Material/Scaffold and no background fill: the engine surface is
-    // cleared by the native shell, so anything we don't paint stays
-    // transparent. Directionality is provided defensively for any future
-    // text-bearing descendant; the painter itself needs none.
-    return Directionality(
-      textDirection: TextDirection.ltr,
-      child: _OverlayGestureLayer(
-        semanticsLabel: _semanticsLabel,
-        // While hidden the snapshot still renders an (empty) box; the native
-        // shell is what orders the panel out, so we simply paint nothing
-        // meaningful until the next visible snapshot arrives.
-        onPanStart: _channel.startDrag,
-        onTap: _channel.bodyClicked,
-        onSecondaryTapOrLongPress: _channel.showContextMenu,
-        child: FloatingOverlayView(snapshot: _snapshot, waveformBars: _bars),
-      ),
-    );
-  }
-}
-
-/// Forwards the three coarse overlay interactions to the native shell.
-///
-/// Fine-grained hit targets (the dedicated close `×` and stop button regions)
-/// are a follow-up; the whole pill currently behaves like the spike's: drag to
-/// move, tap to toggle recording, right-click for the context menu.
-class _OverlayGestureLayer extends StatelessWidget {
-  const _OverlayGestureLayer({
-    required this.semanticsLabel,
-    required this.onPanStart,
-    required this.onTap,
-    required this.onSecondaryTapOrLongPress,
-    required this.child,
-  });
-
-  final String semanticsLabel;
-  final VoidCallback onPanStart;
-  final VoidCallback onTap;
-  final VoidCallback onSecondaryTapOrLongPress;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: semanticsLabel,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        onPanStart: (_) => onPanStart(),
-        onSecondaryTap: onSecondaryTapOrLongPress,
-        onLongPress: onSecondaryTapOrLongPress,
-        child: child,
-      ),
-    );
-  }
+  Widget build(BuildContext context) => buildRenderEngineRoot(
+    // While hidden the snapshot still renders an (empty) box; the native
+    // shell is what orders the panel out, so we simply paint nothing
+    // meaningful until the next visible snapshot arrives.
+    semanticsLabel: semanticsLabel,
+    onTap: channel.bodyClicked,
+    onPanStart: channel.startDrag,
+    onSecondaryOrLongPress: channel.showContextMenu,
+    child: FloatingOverlayView(snapshot: _snapshot, waveformBars: _bars),
+  );
 }

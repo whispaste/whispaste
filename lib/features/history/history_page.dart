@@ -120,21 +120,6 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     }
   }
 
-  /// Returns true when any text input field currently has keyboard focus.
-  ///
-  /// `EditableText.build()` creates an internal `Focus` widget that overwrites
-  /// the FocusNode context, so `context.widget` ends up being `Focus`, not
-  /// `EditableText`. We check the widget directly AND walk ancestors as a
-  /// fallback to cover both cases.
-  bool _isTextFieldFocused() {
-    final primary = FocusManager.instance.primaryFocus;
-    if (primary == null) return false;
-    final context = primary.context;
-    if (context == null) return false;
-    if (context.widget is EditableText) return true;
-    return context.findAncestorWidgetOfExactType<EditableText>() != null;
-  }
-
   void _moveFocus(int delta, List<HistoryEntry> flat) {
     if (flat.isEmpty) return;
     final currentIdx = flat.indexWhere((e) => e.id == _focusedEntryId);
@@ -218,7 +203,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     List<HistoryEntry> flat,
   ) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
-    if (_isTextFieldFocused()) return KeyEventResult.ignored;
+    if (isTextFieldFocused()) return KeyEventResult.ignored;
 
     final key = event.logicalKey;
     if (key == LogicalKeyboardKey.arrowDown) {
@@ -288,7 +273,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       bindings: <ShortcutActivator, VoidCallback>{
         // Ctrl+A: Select all visible items
         const SingleActivator(LogicalKeyboardKey.keyA, control: true): () {
-          if (_isTextFieldFocused()) return;
+          if (isTextFieldFocused()) return;
           setState(() {
             _multiSelectMode = true;
             _selectedIds
@@ -302,7 +287,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
           control: true,
           shift: true,
         ): () {
-          if (_isTextFieldFocused()) return;
+          if (isTextFieldFocused()) return;
           setState(() {
             _selectedIds.clear();
             _multiSelectMode = false;
@@ -310,7 +295,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
         },
         // Ctrl+C: Copy focused/selected entry text (suppressed when editing)
         const SingleActivator(LogicalKeyboardKey.keyC, control: true): () {
-          if (_isTextFieldFocused()) return;
+          if (isTextFieldFocused()) return;
           if (_multiSelectMode && _selectedIds.isNotEmpty) {
             _copySelectedEntries(flat);
           } else {
@@ -320,14 +305,14 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
         },
         // Ctrl+M: Merge selected entries
         const SingleActivator(LogicalKeyboardKey.keyM, control: true): () {
-          if (_isTextFieldFocused()) return;
+          if (isTextFieldFocused()) return;
           if (_multiSelectMode && _selectedIds.length >= 2) {
             _mergeSelected();
           }
         },
         // Ctrl+Enter: open detail panel for focused entry
         const SingleActivator(LogicalKeyboardKey.enter, control: true): () {
-          if (_isTextFieldFocused()) return;
+          if (isTextFieldFocused()) return;
           final entry = _focusedEntry(flat);
           if (entry != null) {
             setState(() {
@@ -742,6 +727,13 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     });
   }
 
+  void _clearSelection() {
+    setState(() {
+      _selectedIds.clear();
+      _multiSelectMode = false;
+    });
+  }
+
   void _archiveSelected() async {
     final db = ref.read(historyDatabaseProvider);
     try {
@@ -750,10 +742,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       _showHistoryWriteFailedToast();
       return;
     }
-    setState(() {
-      _selectedIds.clear();
-      _multiSelectMode = false;
-    });
+    _clearSelection();
   }
 
   void _deleteSelected() async {
@@ -769,10 +758,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       _showHistoryWriteFailedToast();
       return;
     }
-    setState(() {
-      _selectedIds.clear();
-      _multiSelectMode = false;
-    });
+    _clearSelection();
   }
 
   void _restoreSelected() async {
@@ -783,10 +769,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       _showHistoryWriteFailedToast();
       return;
     }
-    setState(() {
-      _selectedIds.clear();
-      _multiSelectMode = false;
-    });
+    _clearSelection();
   }
 
   /// Run the export flow for the currently selected entries.

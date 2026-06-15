@@ -943,16 +943,24 @@ class HistoryDatabase extends _$HistoryDatabase {
     });
   }
 
-  /// Toggle archive status.
-  Future<void> toggleArchive(String entryId) async {
+  Future<void> _toggleBoolField(
+    String entryId,
+    HistoryEntriesCompanion Function(HistoryEntry e) companionBuilder,
+  ) async {
     final entry = await (select(
       historyEntries,
     )..where((e) => e.id.equals(entryId))).getSingleOrNull();
     if (entry == null) return;
-    await (update(historyEntries)..where((e) => e.id.equals(entryId))).write(
-      HistoryEntriesCompanion(archived: Value(!entry.archived)),
-    );
+    await (update(
+      historyEntries,
+    )..where((e) => e.id.equals(entryId))).write(companionBuilder(entry));
   }
+
+  /// Toggle archive status.
+  Future<void> toggleArchive(String entryId) => _toggleBoolField(
+    entryId,
+    (e) => HistoryEntriesCompanion(archived: Value(!e.archived)),
+  );
 
   /// Bulk soft-delete multiple entries.
   Future<void> softDeleteEntries(List<String> entryIds) async {
@@ -1108,15 +1116,10 @@ class HistoryDatabase extends _$HistoryDatabase {
   }
 
   /// Toggle pin status.
-  Future<void> togglePin(String entryId) async {
-    final entry = await (select(
-      historyEntries,
-    )..where((e) => e.id.equals(entryId))).getSingleOrNull();
-    if (entry == null) return;
-    await (update(historyEntries)..where((e) => e.id.equals(entryId))).write(
-      HistoryEntriesCompanion(pinned: Value(!entry.pinned)),
-    );
-  }
+  Future<void> togglePin(String entryId) => _toggleBoolField(
+    entryId,
+    (e) => HistoryEntriesCompanion(pinned: Value(!e.pinned)),
+  );
 
   /// Watch all non-deleted, non-archived entries as a live stream.
   Stream<List<HistoryEntry>> watchEntries({int? limit}) {
@@ -1366,15 +1369,7 @@ class HistoryDatabase extends _$HistoryDatabase {
   }
 
   /// Generates a v4 UUID without external dependencies.
-  static String _uuid() {
-    final r = Random.secure();
-    final bytes = List.generate(16, (_) => r.nextInt(256));
-    bytes[6] = (bytes[6] & 0x0f) | 0x40;
-    bytes[8] = (bytes[8] & 0x3f) | 0x80;
-    final h = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
-    return '${h.substring(0, 8)}-${h.substring(8, 12)}-'
-        '${h.substring(12, 16)}-${h.substring(16, 20)}-${h.substring(20)}';
-  }
+  static String _uuid() => generateV4Uuid();
 
   // ---------------------------------------------------------------------------
   // App settings
@@ -1588,49 +1583,34 @@ class HistoryDatabase extends _$HistoryDatabase {
   // Analytics queries — read from DailyStats (history-independent)
   // ---------------------------------------------------------------------------
 
-  /// Total number of recordings ever made.
-  Future<int> analyticsEntryCount({DateTime? since}) async {
-    final total = dailyStats.count.sum();
+  Future<T?> _sumDailyStat<T extends num>(
+    Expression<T> column,
+    DateTime? since,
+  ) async {
+    final total = column.sum();
     final q = selectOnly(dailyStats)..addColumns([total]);
     if (since != null) {
       q.where(dailyStats.date.isBiggerOrEqualValue(_dateKey(since)));
     }
     final row = await q.getSingle();
-    return row.read(total) ?? 0;
+    return row.read(total);
   }
+
+  /// Total number of recordings ever made.
+  Future<int> analyticsEntryCount({DateTime? since}) async =>
+      (await _sumDailyStat(dailyStats.count, since)) ?? 0;
 
   /// Sum of recording duration in seconds.
-  Future<double> analyticsTotalDurationSec({DateTime? since}) async {
-    final total = dailyStats.totalDurationSec.sum();
-    final q = selectOnly(dailyStats)..addColumns([total]);
-    if (since != null) {
-      q.where(dailyStats.date.isBiggerOrEqualValue(_dateKey(since)));
-    }
-    final row = await q.getSingle();
-    return row.read(total) ?? 0.0;
-  }
+  Future<double> analyticsTotalDurationSec({DateTime? since}) async =>
+      (await _sumDailyStat(dailyStats.totalDurationSec, since)) ?? 0.0;
 
   /// Total word count across all recordings.
-  Future<int> analyticsTotalWords({DateTime? since}) async {
-    final total = dailyStats.totalWords.sum();
-    final q = selectOnly(dailyStats)..addColumns([total]);
-    if (since != null) {
-      q.where(dailyStats.date.isBiggerOrEqualValue(_dateKey(since)));
-    }
-    final row = await q.getSingle();
-    return row.read(total) ?? 0;
-  }
+  Future<int> analyticsTotalWords({DateTime? since}) async =>
+      (await _sumDailyStat(dailyStats.totalWords, since)) ?? 0;
 
   /// Total cloud cost in USD.
-  Future<double> analyticsTotalCostUsd({DateTime? since}) async {
-    final total = dailyStats.totalCostUsd.sum();
-    final q = selectOnly(dailyStats)..addColumns([total]);
-    if (since != null) {
-      q.where(dailyStats.date.isBiggerOrEqualValue(_dateKey(since)));
-    }
-    final row = await q.getSingle();
-    return row.read(total) ?? 0.0;
-  }
+  Future<double> analyticsTotalCostUsd({DateTime? since}) async =>
+      (await _sumDailyStat(dailyStats.totalCostUsd, since)) ?? 0.0;
 
   /// Estimated savings: sum durationSec of local entries × rate/min.
   Future<double> analyticsLocalSavingsUsd({
@@ -1818,3 +1798,18 @@ final historyDatabaseProvider = Provider<HistoryDatabase>((ref) {
   ref.onDispose(db.close);
   return db;
 });
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/// Generates a v4 UUID without external dependencies.
+String generateV4Uuid() {
+  final r = Random.secure();
+  final bytes = List.generate(16, (_) => r.nextInt(256));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  final h = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+  return '${h.substring(0, 8)}-${h.substring(8, 12)}-'
+      '${h.substring(12, 16)}-${h.substring(16, 20)}-${h.substring(20)}';
+}
