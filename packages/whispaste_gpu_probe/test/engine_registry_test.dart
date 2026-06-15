@@ -35,16 +35,22 @@ void main() {
           'whisper-cpp-vulkan',
           'whisper-cpp-cuda12',
           'sherpa-onnx-cpu',
+          'sherpa-onnx-cuda',
         ]),
       );
     });
 
-    test('sherpa-onnx engine declares the sherpa-onnx model family', () {
+    test('sherpa-onnx engines declare the sherpa-onnx model family', () {
       final engines = defaultEngineRegistry(exeDir: '/x');
-      final sherpa = engines.firstWhere((e) => e.id == 'sherpa-onnx-cpu');
-      expect(sherpa.modelFamily, 'sherpa-onnx');
-      expect(sherpa.backend, 'onnx-cpu');
-      expect(sherpa.candidate().id, 'sherpa-onnx-cpu');
+      final cpu = engines.firstWhere((e) => e.id == 'sherpa-onnx-cpu');
+      expect(cpu.modelFamily, 'sherpa-onnx');
+      expect(cpu.backend, 'onnx-cpu');
+      expect(cpu.candidate().id, 'sherpa-onnx-cpu');
+
+      final cuda = engines.firstWhere((e) => e.id == 'sherpa-onnx-cuda');
+      expect(cuda.modelFamily, 'sherpa-onnx');
+      expect(cuda.backend, 'cuda');
+      expect(cuda.candidate().id, 'sherpa-onnx-cuda');
     });
 
     test('engines declare model families (ggml / onnx-whisper / wav2vec2)', () {

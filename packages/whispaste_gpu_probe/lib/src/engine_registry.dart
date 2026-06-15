@@ -151,6 +151,23 @@ List<ProbeEngine> defaultEngineRegistry({
         id: 'sherpa-onnx-cpu',
         binaryName: sub('sherpa-onnx', 'sherpa-onnx-offline'),
         backend: 'onnx-cpu',
+        provider: 'cpu',
+        runner: runner,
+      ),
+    ),
+    ProbeEngine(
+      id: 'sherpa-onnx-cuda',
+      label: 'sherpa-onnx · Whisper (ONNX, CUDA)',
+      backend: 'cuda',
+      modelFamily: familySherpaOnnx,
+      binary: sub('sherpa-onnx-cuda', 'sherpa-onnx-offline'),
+      note:
+          'GPU-Pfad für moderne NVIDIA (CUDA 12) — Kepler erwartet Fehlschlag',
+      builder: () => SherpaOnnxCandidate(
+        id: 'sherpa-onnx-cuda',
+        binaryName: sub('sherpa-onnx-cuda', 'sherpa-onnx-offline'),
+        backend: 'cuda',
+        provider: 'cuda',
         runner: runner,
       ),
     ),
