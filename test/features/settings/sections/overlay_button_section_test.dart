@@ -3,6 +3,7 @@
 /// Covers:
 /// - OverlaySection: toggle round-trip (overlayMode off → floating), nested
 ///   overlay dropdowns hidden when off and visible when floating.
+/// - OverlaySection: preview widget visibility, position and size reflection.
 /// - FloatingButtonSection: toggle round-trip (showFloatingButton false → true).
 ///   No sub-controls (size picker was removed in issue 11 — fixed 56 dp).
 ///
@@ -23,6 +24,7 @@ import 'package:whispaste/core/config/settings_enums.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/features/settings/sections/overlay_button_section.dart';
+import 'package:whispaste/widgets/overlay_preview.dart';
 
 import '../../../fixtures/test_helpers.dart';
 
@@ -252,5 +254,256 @@ void main() {
         }
       },
     );
+  });
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // OverlaySection — preview widget
+  // ══════════════════════════════════════════════════════════════════════════
+
+  group('OverlaySection preview', () {
+    testWidgets('preview absent when overlay is off', (tester) async {
+      if (!_isDesktop) return; // Platform guard.
+
+      final notifier = _FakeSettingsNotifier(
+        AppSettings.defaults.copyWithSections(
+          overlay: const OverlaySettings(overlayMode: 'off'),
+        ),
+      );
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: OverlaySection()),
+          overrides: [settingsProvider.overrideWith(() => notifier)],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(OverlayPositionPreview), findsNothing);
+    });
+
+    testWidgets('preview present when overlay is floating', (tester) async {
+      if (!_isDesktop) return; // Platform guard.
+
+      final notifier = _FakeSettingsNotifier(
+        AppSettings.defaults.copyWithSections(
+          overlay: const OverlaySettings(overlayMode: 'floating'),
+        ),
+      );
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: OverlaySection()),
+          overrides: [settingsProvider.overrideWith(() => notifier)],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(OverlayPositionPreview), findsOneWidget);
+    });
+
+    testWidgets('preview key reflects top-center position', (tester) async {
+      if (!_isDesktop) return; // Platform guard.
+
+      final notifier = _FakeSettingsNotifier(
+        AppSettings.defaults.copyWithSections(
+          overlay: const OverlaySettings(
+            overlayMode: 'floating',
+            overlayStartPosition: 'top-center',
+          ),
+        ),
+      );
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: OverlaySection()),
+          overrides: [settingsProvider.overrideWith(() => notifier)],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('overlay-pill-top-center')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('preview key reflects bottom-center position', (tester) async {
+      if (!_isDesktop) return; // Platform guard.
+
+      final notifier = _FakeSettingsNotifier(
+        AppSettings.defaults.copyWithSections(
+          overlay: const OverlaySettings(
+            overlayMode: 'floating',
+            overlayStartPosition: 'bottom-center',
+          ),
+        ),
+      );
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: OverlaySection()),
+          overrides: [settingsProvider.overrideWith(() => notifier)],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('overlay-pill-bottom-center')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('preview key reflects last-position anchor', (tester) async {
+      if (!_isDesktop) return; // Platform guard.
+
+      final notifier = _FakeSettingsNotifier(
+        AppSettings.defaults.copyWithSections(
+          overlay: const OverlaySettings(
+            overlayMode: 'floating',
+            overlayStartPosition: 'last-position',
+          ),
+        ),
+      );
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: OverlaySection()),
+          overrides: [settingsProvider.overrideWith(() => notifier)],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('overlay-pill-last-position')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('preview key reflects normal size', (tester) async {
+      if (!_isDesktop) return; // Platform guard.
+
+      final notifier = _FakeSettingsNotifier(
+        AppSettings.defaults.copyWithSections(
+          overlay: const OverlaySettings(
+            overlayMode: 'floating',
+            overlaySize: 'normal',
+          ),
+        ),
+      );
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: OverlaySection()),
+          overrides: [settingsProvider.overrideWith(() => notifier)],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('overlay-pill-size-normal')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('preview key reflects compact size', (tester) async {
+      if (!_isDesktop) return; // Platform guard.
+
+      final notifier = _FakeSettingsNotifier(
+        AppSettings.defaults.copyWithSections(
+          overlay: const OverlaySettings(
+            overlayMode: 'floating',
+            overlaySize: 'compact',
+          ),
+        ),
+      );
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: OverlaySection()),
+          overrides: [settingsProvider.overrideWith(() => notifier)],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('overlay-pill-size-compact')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('position dropdown change updates preview key immediately', (
+      tester,
+    ) async {
+      if (!_isDesktop) return; // Platform guard.
+
+      final notifier = _FakeSettingsNotifier(
+        AppSettings.defaults.copyWithSections(
+          overlay: const OverlaySettings(
+            overlayMode: 'floating',
+            overlayStartPosition: 'top-center',
+          ),
+        ),
+      );
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: OverlaySection()),
+          overrides: [settingsProvider.overrideWith(() => notifier)],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Initially top-center.
+      expect(
+        find.byKey(const ValueKey('overlay-pill-top-center')),
+        findsOneWidget,
+      );
+
+      // Simulate settings change via notifier (mirrors dropdown round-trip).
+      notifier.updateSettings(
+        (s) => s.copyWith(overlayStartPosition: 'bottom-center'),
+      );
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey('overlay-pill-bottom-center')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('overlay-pill-top-center')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('size dropdown change updates preview key immediately', (
+      tester,
+    ) async {
+      if (!_isDesktop) return; // Platform guard.
+
+      final notifier = _FakeSettingsNotifier(
+        AppSettings.defaults.copyWithSections(
+          overlay: const OverlaySettings(
+            overlayMode: 'floating',
+            overlaySize: 'normal',
+          ),
+        ),
+      );
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: OverlaySection()),
+          overrides: [settingsProvider.overrideWith(() => notifier)],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('overlay-pill-size-normal')),
+        findsOneWidget,
+      );
+
+      notifier.updateSettings((s) => s.copyWith(overlaySize: 'compact'));
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey('overlay-pill-size-compact')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('overlay-pill-size-normal')),
+        findsNothing,
+      );
+    });
   });
 }
