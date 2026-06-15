@@ -65,6 +65,8 @@ dependencies:
 
   # Utilities
   intl: ^0.20.2
+  # CLDR-localised language display names (STT recognition-language dropdown).
+  flutter_localized_locales: ^2.0.5
   collection: ^1.19.1
   crypto: ^3.0.6
   # Reads the build-time version from Info.plist / Windows resource block /

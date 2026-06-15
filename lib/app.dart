@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:flutter_localized_locales/flutter_localized_locales.dart';
 import 'package:window_manager/window_manager.dart';
 import 'core/config/settings_labels.dart';
 import 'core/config/settings_provider.dart';
@@ -66,7 +67,10 @@ class WhisPasteApp extends ConsumerWidget {
       darkTheme: wpDarkTheme(),
       themeMode: themeMode,
       locale: locale,
-      localizationsDelegates: L10n.localizationsDelegates,
+      localizationsDelegates: const [
+        ...L10n.localizationsDelegates,
+        LocaleNamesLocalizationsDelegate(),
+      ],
       supportedLocales: L10n.supportedLocales,
       // Tracks dialog/route pushes (toasts, review prompt, file pickers) as
       // Sentry breadcrumbs and transactions. Page-level navigation is handled
