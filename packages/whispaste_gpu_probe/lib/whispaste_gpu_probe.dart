@@ -12,3 +12,5 @@ export 'src/reference_clip.dart';
 export 'src/wer.dart';
 export 'src/vram_gating.dart';
 export 'src/delivery.dart';
+export 'src/whisper_cpp_candidate.dart';
+export 'src/candidate_manifest.dart';
