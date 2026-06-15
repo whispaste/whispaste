@@ -28,14 +28,16 @@ describe("AC1: tokens mirror the SSOT design spec", () => {
     expect(OVERLAY_TOKENS.light.fillStart).toBe("#F7FAFD");
     expect(OVERLAY_TOKENS.light.fillEnd).toBe("#E6EEF5");
     expect(OVERLAY_TOKENS.light.accent).toBe("#0887A8");
-    expect(OVERLAY_TOKENS.light.content).toBe("#101828");
+    expect(OVERLAY_TOKENS.light.content).toBe("#14202E"); // OverlayDesignSpec.light.text
   });
 
-  it("uses the dark colour set (OverlayDesignSpec.dark)", () => {
-    expect(OVERLAY_TOKENS.dark.fillStart).toBe("#1E2738");
-    expect(OVERLAY_TOKENS.dark.fillEnd).toBe("#12161F");
-    expect(OVERLAY_TOKENS.dark.accent).toBe("#38D9F0");
-    expect(OVERLAY_TOKENS.dark.content).toBe("#F0F4FA");
+  it("uses the dark colour set (OverlayDesignSpec.dark = light — one single capsule design)", () => {
+    // The SSOT declares `static const OverlayThemeColors dark = light;`
+    // There is deliberately no separate dark capsule variant.
+    expect(OVERLAY_TOKENS.dark.fillStart).toBe("#F7FAFD");
+    expect(OVERLAY_TOKENS.dark.fillEnd).toBe("#E6EEF5");
+    expect(OVERLAY_TOKENS.dark.accent).toBe("#0887A8");
+    expect(OVERLAY_TOKENS.dark.content).toBe("#14202E");
   });
 
   it("uses the normal-size geometry anchors (full capsule = height / 2)", () => {

@@ -46,13 +46,16 @@ export const OVERLAY_TOKENS: Readonly<Record<OverlayTheme, OverlayThemeTokens>> 
     fillStart: '#F7FAFD', // OverlayDesignSpec.light.capsuleFillStart
     fillEnd: '#E6EEF5', //   OverlayDesignSpec.light.capsuleFillEnd
     accent: '#0887A8', //    OverlayDesignSpec.light.accent
-    content: '#101828', //   OverlayDesignSpec.light.text
+    content: '#14202E', //   OverlayDesignSpec.light.text
   },
+  // The SSOT declares `dark = light` — one single capsule design renders
+  // identically over light AND dark desktops (OverlayDesignSpec: "There is
+  // deliberately no separate dark capsule variant").
   dark: {
-    fillStart: '#1E2738', // OverlayDesignSpec.dark.capsuleFillStart
-    fillEnd: '#12161F', //   OverlayDesignSpec.dark.capsuleFillEnd
-    accent: '#38D9F0', //    OverlayDesignSpec.dark.accent
-    content: '#F0F4FA', //   OverlayDesignSpec.dark.text
+    fillStart: '#F7FAFD', // OverlayDesignSpec.dark.capsuleFillStart (= light)
+    fillEnd: '#E6EEF5', //   OverlayDesignSpec.dark.capsuleFillEnd   (= light)
+    accent: '#0887A8', //    OverlayDesignSpec.dark.accent            (= light)
+    content: '#14202E', //   OverlayDesignSpec.dark.text              (= light)
   },
 };
 
