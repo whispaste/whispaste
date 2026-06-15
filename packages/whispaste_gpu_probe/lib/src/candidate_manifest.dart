@@ -10,6 +10,7 @@
 library;
 
 import 'const_me_candidate.dart';
+import 'onnx_direct_ml_candidate.dart';
 import 'probe_types.dart';
 import 'probe_runner.dart';
 import 'model_manifest.dart';
@@ -64,6 +65,46 @@ ModelManifest defaultModelManifest() => ModelManifest(
 );
 
 // ---------------------------------------------------------------------------
+// ONNX model registry
+// ---------------------------------------------------------------------------
+
+/// The model sizes the ONNX DirectML family is probed across.
+///
+/// ONNX Whisper model identifiers follow the same naming convention as the
+/// GGML models so the VRAM gate keys are compatible.
+const String onnxModelSizeSmall = 'whisper-small';
+const String onnxModelSizeMedium = 'whisper-medium';
+
+/// [ModelManifest] for Whisper-ONNX models.
+///
+/// Points to the Microsoft-hosted ONNX model files on Hugging Face.
+/// The medium model carries the known `887A0006` crash risk on Kepler with
+/// DirectML in maintenance mode — include it deliberately so the probe can
+/// observe the crash empirically.
+ModelManifest onnxModelManifest() => ModelManifest(
+  entries: [
+    ModelEntry(
+      name: onnxModelSizeSmall,
+      downloadUrl: Uri.parse(
+        'https://huggingface.co/microsoft/whisper-small-directml/resolve/main/whisper_small_int8.onnx',
+      ),
+      sha256: '',
+      targetFilename: 'whisper_small_int8.onnx',
+      sizeBytes: 242000000,
+    ),
+    ModelEntry(
+      name: onnxModelSizeMedium,
+      downloadUrl: Uri.parse(
+        'https://huggingface.co/microsoft/whisper-medium-directml/resolve/main/whisper_medium_int8.onnx',
+      ),
+      sha256: '',
+      targetFilename: 'whisper_medium_int8.onnx',
+      sizeBytes: 769000000,
+    ),
+  ],
+);
+
+// ---------------------------------------------------------------------------
 // CandidateEntry
 // ---------------------------------------------------------------------------
 
@@ -112,7 +153,7 @@ class CandidateManifest {
       entries.map((e) => e.candidate).toList();
 
   /// Default production manifest with the full whisper.cpp family plus
-  /// Const-me/Whisper (DirectCompute).
+  /// Const-me/Whisper (DirectCompute) and ONNX Runtime + DirectML.
   ///
   /// [runner] is applied to all subprocess-backed candidates; pass a
   /// custom [ProbeRunner] in tests to inject a fake launcher.
@@ -126,6 +167,7 @@ class CandidateManifest {
     CpuFeatureSet cpuFeatures = const {},
   }) {
     final models = defaultModelManifest();
+    final onnxModels = onnxModelManifest();
 
     // The GPU/CPU backends are probed across the full model-size set.
     final fullSizes = {modelSizeSmall, modelSizeMedium, modelSizeLargeTurbo};
@@ -136,6 +178,11 @@ class CandidateManifest {
     // Const-me is probed across small + medium (medium = hybrid model with
     // stricter CPU requirements; large is not supported by Const-me/Whisper).
     final constMeSizes = {modelSizeSmall, modelSizeMedium};
+
+    // ONNX DirectML is probed across small + medium.
+    // The medium model intentionally includes the known 887A0006 crash risk
+    // so the probe can observe it empirically.
+    final onnxSizes = {onnxModelSizeSmall, onnxModelSizeMedium};
 
     return CandidateManifest(
       entries: [
@@ -182,6 +229,17 @@ class CandidateManifest {
             modelSizes: {size},
             models: models,
           ),
+        ),
+        // ONNX Runtime + DirectML — Whisper-ONNX models.
+        // Probed across small + medium; medium intentionally included to
+        // surface the 887A0006 crash empirically.
+        CandidateEntry(
+          candidate: onnxDirectMlCandidate(
+            runner: runner,
+            referenceTranscript: referenceTranscript,
+          ),
+          modelSizes: onnxSizes,
+          models: onnxModels,
         ),
       ],
     );
