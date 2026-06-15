@@ -28,7 +28,11 @@ String formatProbeReportHtml(
   ProbeReport report, {
   bool live = false,
   String? token,
+  List<Map<String, Object?>>? models,
+  List<Map<String, Object?>>? engines,
 }) {
+  // Bench mode: the engine × model test bench (model download + selectors).
+  final bench = live && engines != null;
   final ranking = computeRanking(report);
   final b = StringBuffer();
 
@@ -60,10 +64,20 @@ String formatProbeReportHtml(
   b.writeln('<body>');
   _writeHeader(b, report, live: live);
   b.writeln('<main class="container">');
-  _writeBaselineMissingWarning(b, ranking);
-  _writeWinnerBanner(b, ranking, winner);
-  if (live) _writeLivePanel(b);
-  _writeRankingTable(b, ranking, winner, maxSpeedup, live: live);
+  // The baseline warning + winner banner describe the auto-probe ranking; in
+  // bench mode that ranking is empty (the matrix runs on demand), so skip them.
+  if (!bench) {
+    _writeBaselineMissingWarning(b, ranking);
+    _writeWinnerBanner(b, ranking, winner);
+  }
+  if (bench) {
+    _writeLivePanel(b, bench: true, engines: engines, models: models);
+    _writeModelsSection(b, models ?? const []);
+    _writeEnginesSection(b, engines);
+  } else if (live) {
+    _writeLivePanel(b, bench: false);
+  }
+  _writeRankingTable(b, ranking, winner, maxSpeedup, live: live && !bench);
   _writeFailedSection(b, ranking);
   _writeHardwareSection(b, report);
   b.writeln('</main>');
@@ -346,25 +360,63 @@ void _writeRankingRow(
   b.writeln('</tr>');
 }
 
-void _writeLivePanel(StringBuffer b) {
-  b.writeln('<section class="live-panel reveal" id="live-panel" hidden>');
+void _writeLivePanel(
+  StringBuffer b, {
+  required bool bench,
+  List<Map<String, Object?>>? engines,
+  List<Map<String, Object?>>? models,
+}) {
+  final hidden = bench ? '' : ' hidden';
+  b.writeln('<section class="live-panel reveal" id="live-panel"$hidden>');
   b.writeln('  <div class="live-head">');
   b.writeln('    <h2>Live-Mikrofon-Test</h2>');
-  b.writeln('    <span class="live-cand mono" id="live-cand">—</span>');
+  if (!bench) {
+    b.writeln('    <span class="live-cand mono" id="live-cand">—</span>');
+  }
   b.writeln('  </div>');
   b.writeln(
     '  <p class="live-hint">Sprich einen Satz ein. Das Tool jagt deine '
-    'Aufnahme durch die gewählte Engine und misst, wie lange es vom Ende des '
-    'Sprechens bis zum fertigen Text dauert.</p>',
+    'Aufnahme durch die gewählte Engine + Modell und misst, wie lange es vom '
+    'Ende des Sprechens bis zum fertigen Text dauert.</p>',
   );
+  if (bench) {
+    b.writeln('  <div class="live-selects">');
+    b.writeln(
+      '    <label class="sel"><span>Engine</span>'
+      '<select id="bench-engine">',
+    );
+    for (final e in engines ?? const []) {
+      final avail = e['available'] == true;
+      b.writeln(
+        '      <option value="${_esc('${e['id']}')}"${avail ? '' : ' disabled'}>'
+        '${_esc('${e['label']}')}${avail ? '' : ' — nicht verfügbar'}</option>',
+      );
+    }
+    b.writeln('    </select></label>');
+    b.writeln(
+      '    <label class="sel"><span>Modell</span>'
+      '<select id="bench-model">',
+    );
+    for (final m in models ?? const []) {
+      final present = m['state'] == 'present';
+      b.writeln(
+        '      <option value="${_esc('${m['id']}')}" '
+        'data-model-opt="${_esc('${m['id']}')}"${present ? '' : ' disabled'}>'
+        '${_esc('${m['label']}')}${present ? '' : ' — nicht geladen'}</option>',
+      );
+    }
+    b.writeln('    </select></label>');
+    b.writeln('  </div>');
+  }
   b.writeln('  <div class="live-controls">');
   b.writeln(
-    '    <button type="button" class="rec-btn" id="rec-btn" disabled>'
-    '● Aufnahme starten</button>',
+    '    <button type="button" class="rec-btn" id="rec-btn"'
+    '${bench ? '' : ' disabled'}>● Aufnahme starten</button>',
   );
   b.writeln(
     '    <span class="rec-state mono" id="rec-state">'
-    'Kandidat oben wählen</span>',
+    '${bench ? 'bereit — Engine + Modell wählen' : 'Kandidat oben wählen'}'
+    '</span>',
   );
   b.writeln('  </div>');
   b.writeln('  <div class="live-result" id="live-result" hidden>');
@@ -396,6 +448,81 @@ void _writeLivePanel(StringBuffer b) {
     '</blockquote>',
   );
   b.writeln('  </div>');
+  b.writeln('</section>');
+}
+
+void _writeModelsSection(StringBuffer b, List<Map<String, Object?>> models) {
+  b.writeln(
+    '<section class="reveal" id="models-section" '
+    'style="animation-delay:.04s">',
+  );
+  b.writeln('<h2>Modelle</h2>');
+  b.writeln(
+    '<p class="live-hint">Lade die Modelle, die du testen willst — auch '
+    'größere. Geladene Modelle stehen im Live-Test als Auswahl bereit.</p>',
+  );
+  b.writeln('<div class="table-wrap">');
+  b.writeln('<table>');
+  b.writeln(
+    '<thead><tr><th>Modell</th><th class="num">Größe</th>'
+    '<th>Status</th><th class="col-live">Aktion</th></tr></thead>',
+  );
+  b.writeln('<tbody>');
+  for (final m in models) {
+    final id = _esc('${m['id']}');
+    final label = _esc('${m['label']}');
+    final sizeBytes = (m['sizeBytes'] as num?)?.toInt() ?? 0;
+    final state = '${m['state']}';
+    final present = state == 'present';
+    final downloading = state == 'downloading';
+    b.writeln('<tr class="model-row" data-model="$id">');
+    b.writeln('  <td class="candidate-name">$label</td>');
+    b.writeln('  <td class="num mono">${_esc(_formatBytes(sizeBytes))}</td>');
+    b.writeln('  <td class="model-status">');
+    b.writeln(
+      '    <span class="model-state mono">${_modelStateLabel(state)}</span>',
+    );
+    b.writeln(
+      '    <span class="dl-track"><span class="dl-bar" '
+      'style="width:${present ? 100 : 0}%"></span></span>',
+    );
+    b.writeln('  </td>');
+    b.writeln(
+      '  <td class="col-live"><button type="button" class="model-dl-btn" '
+      'data-model="$id"${present || downloading ? ' disabled' : ''}>'
+      '${present ? 'geladen ✓' : 'Laden'}</button></td>',
+    );
+    b.writeln('</tr>');
+  }
+  b.writeln('</tbody>');
+  b.writeln('</table>');
+  b.writeln('</div>');
+  b.writeln('</section>');
+}
+
+void _writeEnginesSection(StringBuffer b, List<Map<String, Object?>> engines) {
+  b.writeln('<section class="reveal" style="animation-delay:.08s">');
+  b.writeln('<h2>Engines</h2>');
+  b.writeln('<div class="table-wrap">');
+  b.writeln('<table>');
+  b.writeln(
+    '<thead><tr><th>Engine</th><th>Backend</th><th>Status</th></tr></thead>',
+  );
+  b.writeln('<tbody>');
+  for (final e in engines) {
+    final avail = e['available'] == true;
+    b.writeln('<tr>');
+    b.writeln('  <td class="candidate-name">${_esc('${e['label']}')}</td>');
+    b.writeln('  <td class="mono">${_esc('${e['backend']}')}</td>');
+    b.writeln(
+      '  <td><span class="badge ${avail ? 'outcome-ok' : 'outcome-skipped'}">'
+      '${avail ? 'verfügbar' : 'nicht verfügbar'}</span></td>',
+    );
+    b.writeln('</tr>');
+  }
+  b.writeln('</tbody>');
+  b.writeln('</table>');
+  b.writeln('</div>');
   b.writeln('</section>');
 }
 
@@ -510,6 +637,25 @@ String _formatMs(int ms) {
   if (ms < 1000) return '$ms ms';
   return '${(ms / 1000).toStringAsFixed(1).replaceAll('.', ',')} s';
 }
+
+/// Formats a byte count as a compact German size, e.g. `466 MB`, `2,9 GB`.
+String _formatBytes(int bytes) {
+  if (bytes <= 0) return '—';
+  const mb = 1000 * 1000;
+  const gb = 1000 * 1000 * 1000;
+  if (bytes >= gb) {
+    return '${(bytes / gb).toStringAsFixed(1).replaceAll('.', ',')} GB';
+  }
+  return '${(bytes / mb).round()} MB';
+}
+
+/// German label for a model download state.
+String _modelStateLabel(String state) => switch (state) {
+  'present' => 'geladen',
+  'downloading' => 'lädt …',
+  'error' => 'Fehler',
+  _ => 'nicht geladen',
+};
 
 /// Formats speedup factor in German locale notation, e.g. `6,0×`.
 String _formatSpeedupDe(double factor) {
@@ -800,6 +946,36 @@ const String _css = '''
   .live-cand { color: var(--signal); font-size: 13px; }
   .live-hint { color: var(--muted); font-size: 13px; margin: 10px 0 18px; max-width: 70ch; }
   .live-controls { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .live-selects { display: flex; gap: 16px; flex-wrap: wrap; margin: 4px 0 18px; }
+  .sel { display: flex; flex-direction: column; gap: 5px; min-width: 220px; }
+  .sel > span {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .12em;
+    color: var(--muted); font-weight: 700;
+  }
+  .sel select {
+    font-family: var(--mono); font-size: 13px; color: var(--txt);
+    background: var(--bg-2); border: 1px solid var(--line); border-radius: 8px;
+    padding: 9px 12px; appearance: none; cursor: pointer;
+  }
+  .sel select:focus { outline: 2px solid var(--signal); outline-offset: 1px; }
+  .dl-track {
+    display: block; height: 5px; margin-top: 6px; width: 160px;
+    background: rgba(255,255,255,.08); border-radius: 99px; overflow: hidden;
+  }
+  .dl-bar {
+    display: block; height: 100%; width: 0; border-radius: 99px;
+    background: linear-gradient(90deg, var(--signal-dim), var(--signal));
+    transition: width .25s ease;
+  }
+  .model-state { font-size: 11px; color: var(--muted); }
+  .model-dl-btn {
+    font-family: var(--mono); font-size: 11px; font-weight: 700; cursor: pointer;
+    color: var(--signal); background: rgba(56,217,240,.08);
+    border: 1px solid rgba(56,217,240,.3); border-radius: 8px; padding: 6px 14px;
+    white-space: nowrap; transition: background .12s;
+  }
+  .model-dl-btn:hover:not(:disabled) { background: rgba(56,217,240,.16); }
+  .model-dl-btn:disabled { opacity: .55; cursor: default; }
   .rec-btn {
     font-family: var(--mono); font-size: 14px; font-weight: 700; cursor: pointer;
     color: var(--bg); background: var(--signal); border: 0; border-radius: 10px;
@@ -955,13 +1131,21 @@ const String _liveScript = r'''<script>
 
   var panel = $('live-panel'), candEl = $('live-cand'), recBtn = $('rec-btn'),
       stateEl = $('rec-state'), result = $('live-result');
+  var benchEngine = $('bench-engine'), benchModel = $('bench-model');
   var currentCand = null, recorder = null, stream = null, chunks = [],
       recording = false, stopAt = 0;
 
+  function cssEsc(s) { return (window.CSS && CSS.escape) ? CSS.escape(s) : s; }
+  function stateLabel(s) {
+    return s === 'present' ? 'geladen' : s === 'downloading' ? 'lädt …'
+      : s === 'error' ? 'Fehler' : 'nicht geladen';
+  }
+
+  // Per-candidate buttons (demo mode only).
   document.querySelectorAll('.live-btn').forEach(function (b) {
     b.addEventListener('click', function () {
       currentCand = b.dataset.cand;
-      candEl.textContent = b.dataset.label || b.dataset.cand;
+      if (candEl) candEl.textContent = b.dataset.label || b.dataset.cand;
       panel.hidden = false;
       result.hidden = true;
       recBtn.disabled = false;
@@ -969,6 +1153,53 @@ const String _liveScript = r'''<script>
       panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   });
+
+  // Model download buttons (bench mode).
+  document.querySelectorAll('.model-dl-btn').forEach(function (btn) {
+    btn.addEventListener('click', async function () {
+      var id = btn.dataset.model;
+      btn.disabled = true; btn.textContent = 'lädt …';
+      try {
+        await fetch(u('/api/model/download?id=' + encodeURIComponent(id)), { method: 'POST' });
+      } catch (e) { btn.disabled = false; btn.textContent = 'Laden'; }
+    });
+  });
+
+  // Live model-download progress over SSE.
+  if (benchModel) {
+    try {
+      var es = new EventSource(u('/events'));
+      es.onmessage = function (ev) {
+        var msg; try { msg = JSON.parse(ev.data); } catch (e) { return; }
+        if (msg.type === 'model') applyModel(msg);
+      };
+    } catch (e) { /* no SSE — manual reload still works */ }
+  }
+  function applyModel(m) {
+    var row = document.querySelector('.model-row[data-model="' + cssEsc(m.id) + '"]');
+    var pct = (m.total > 0) ? Math.min(100, Math.round(m.received / m.total * 100)) : 0;
+    if (m.state === 'present') pct = 100;
+    if (row) {
+      var bar = row.querySelector('.dl-bar'), st = row.querySelector('.model-state'),
+          btn = row.querySelector('.model-dl-btn');
+      if (bar) bar.style.width = pct + '%';
+      if (st) st.textContent = stateLabel(m.state) + (m.state === 'downloading' ? ' ' + pct + '%' : '');
+      if (btn) {
+        if (m.state === 'present') { btn.disabled = true; btn.textContent = 'geladen ✓'; }
+        else if (m.state === 'downloading') { btn.disabled = true; btn.textContent = 'lädt …'; }
+        else if (m.state === 'error') { btn.disabled = false; btn.textContent = 'Erneut laden'; }
+      }
+    }
+    if (m.state === 'present') {
+      var opt = document.querySelector('#bench-model option[data-model-opt="' + cssEsc(m.id) + '"]');
+      if (opt) {
+        opt.disabled = false;
+        opt.textContent = opt.textContent.replace(' — nicht geladen', '');
+        var sel = benchModel;
+        if (sel && (sel.selectedIndex < 0 || sel.options[sel.selectedIndex].disabled)) sel.value = m.id;
+      }
+    }
+  }
 
   recBtn.addEventListener('click', function () {
     if (!recording) startRec(); else stopRec();
@@ -1021,21 +1252,33 @@ const String _liveScript = r'''<script>
       ac.close();
       var wav = encodeWav16k(decoded);
       var audioMs = Math.round(decoded.duration * 1000);
-      setBusy('transkribiere mit ' + currentCand + ' …');
-      var t0 = performance.now();
-      var resp = await fetch(u('/api/transcribe?candidate=' + encodeURIComponent(currentCand)), {
+      setBusy('transkribiere …');
+      var resp = await fetch(u(transcribeUrl()), {
         method: 'POST',
         headers: { 'Content-Type': 'audio/wav' },
         body: wav
       });
       var totalMs = Math.round(performance.now() - stopAt);
-      if (!resp.ok) throw new Error('Server-Fehler ' + resp.status);
-      var data = await resp.json();
+      var data = {};
+      try { data = await resp.json(); } catch (e) { data = {}; }
+      if (!resp.ok) {
+        stateEl.textContent = 'Fehler: ' + (data.error || ('Server ' + resp.status));
+        recBtn.classList.remove('busy'); recBtn.disabled = false;
+        return;
+      }
       showResult(data, audioMs, totalMs);
     } catch (e) {
       stateEl.textContent = 'Fehler: ' + (e && e.message ? e.message : e);
       recBtn.classList.remove('busy'); recBtn.disabled = false;
     }
+  }
+
+  function transcribeUrl() {
+    if (benchEngine) {
+      return '/api/transcribe?engine=' + encodeURIComponent(benchEngine.value) +
+        '&model=' + encodeURIComponent(benchModel ? benchModel.value : '');
+    }
+    return '/api/transcribe?candidate=' + encodeURIComponent(currentCand);
   }
 
   function fmtMs(ms) {

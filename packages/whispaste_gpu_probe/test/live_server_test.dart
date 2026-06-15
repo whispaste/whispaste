@@ -236,4 +236,120 @@ void main() {
       await server.awaitShutdown(); // resolves once the server stops
     });
   });
+
+  group('LiveProbeServer bench mode (models × engines)', () {
+    late Directory tmp;
+    late ModelStore store;
+    late LiveProbeServer server;
+    late Uri url;
+    late HttpClient client;
+
+    setUp(() async {
+      tmp = Directory.systemTemp.createTempSync('bench-');
+      // A "downloader" that just writes a small file so a model becomes present.
+      Future<void> fake(Uri u, File t, void Function(int, int) onP) async {
+        onP(1, 1);
+        await t.writeAsBytes([0, 1, 2]);
+      }
+
+      store = ModelStore(directory: tmp.path, downloader: fake);
+      final cpuBin = File(pathJoin(tmp.path, 'whisper'))
+        ..writeAsStringSync('x');
+      server = LiveProbeServer(
+        candidates: const [],
+        contextTemplate: const ProbeContext(
+          referenceWavPath: '',
+          modelPath: '',
+          workDir: '',
+        ),
+        version: 'bench-test',
+        random: Random(9),
+        logger: (_) {},
+        modelStore: store,
+        engines: defaultEngineRegistry(cpuBinary: cpuBin.path),
+      );
+      url = await server.start();
+      client = HttpClient();
+    });
+
+    tearDown(() async {
+      client.close(force: true);
+      await server.stop();
+      tmp.deleteSync(recursive: true);
+    });
+
+    test('report shows Modelle + Engines + bench selectors', () async {
+      final res = await (await client.getUrl(url)).close();
+      final html = await res.transform(utf8.decoder).join();
+      expect(html, contains('Modelle'));
+      expect(html, contains('Engines'));
+      expect(html, contains('bench-engine'));
+      expect(html, contains('ggml-tiny'));
+    });
+
+    test('GET /api/models lists the catalogue', () async {
+      final mUrl = url.replace(path: '/api/models');
+      final res = await (await client.getUrl(mUrl)).close();
+      final json =
+          jsonDecode(await res.transform(utf8.decoder).join())
+              as Map<String, Object?>;
+      final models = json['models'] as List;
+      expect(models.any((m) => (m as Map)['id'] == 'ggml-tiny'), isTrue);
+    });
+
+    test('GET /api/engines reports CPU available', () async {
+      final eUrl = url.replace(path: '/api/engines');
+      final res = await (await client.getUrl(eUrl)).close();
+      final json =
+          jsonDecode(await res.transform(utf8.decoder).join())
+              as Map<String, Object?>;
+      final engines = json['engines'] as List;
+      final cpu = engines.firstWhere(
+        (e) => (e as Map)['id'] == 'whisper-cpp-cpu',
+      );
+      expect((cpu as Map)['available'], isTrue);
+    });
+
+    test('transcribe rejects an unknown engine (404)', () async {
+      final tUrl = url.replace(
+        path: '/api/transcribe',
+        queryParameters: {'engine': 'ghost', 't': server.token},
+      );
+      final req = await client.postUrl(tUrl);
+      req.add(const [1, 2, 3]);
+      final res = await req.close();
+      expect(res.statusCode, HttpStatus.notFound);
+      await res.drain<void>();
+    });
+
+    test('transcribe rejects a not-loaded model (400)', () async {
+      final tUrl = url.replace(
+        path: '/api/transcribe',
+        queryParameters: {
+          'engine': 'whisper-cpp-cpu',
+          'model': 'ggml-tiny',
+          't': server.token,
+        },
+      );
+      final req = await client.postUrl(tUrl);
+      req.add(const [1, 2, 3]);
+      final res = await req.close();
+      expect(res.statusCode, HttpStatus.badRequest);
+      await res.drain<void>();
+    });
+
+    test('model download endpoint makes the model present', () async {
+      final dUrl = url.replace(
+        path: '/api/model/download',
+        queryParameters: {'id': 'ggml-tiny', 't': server.token},
+      );
+      final res = await (await client.postUrl(dUrl)).close();
+      expect(res.statusCode, HttpStatus.accepted);
+      await res.drain<void>();
+      await _waitUntil(() => store.localPathIfPresent('ggml-tiny') != null);
+    });
+  });
 }
+
+/// Local path join helper (the package's `p` is not re-exported).
+String pathJoin(String a, String b) => '$a${Platform.pathSeparator}$b';

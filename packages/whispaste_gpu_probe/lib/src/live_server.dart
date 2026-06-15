@@ -27,7 +27,9 @@ import 'package:path/path.dart' as p;
 import 'package:whispaste_diagnostics/whispaste_diagnostics.dart'
     show sanitizePaths;
 
+import 'engine_registry.dart';
 import 'html_report.dart';
+import 'model_store.dart';
 import 'probe_types.dart';
 
 /// Run state of a single candidate, mirrored to the progress shell.
@@ -56,6 +58,8 @@ class LiveProbeServer {
     required this.version,
     this.hardwareContext,
     this.onComplete,
+    this.modelStore,
+    this.engines,
     DateTime Function()? clock,
     void Function(String)? logger,
     Random? random,
@@ -81,6 +85,13 @@ class LiveProbeServer {
   /// Called once with the finished report (e.g. to write the disk artifacts).
   final Future<void> Function(ProbeReport report)? onComplete;
 
+  /// Optional model test bench — when present the report shows the model
+  /// catalogue + download UI and the live test runs a chosen engine × model.
+  final ModelStore? modelStore;
+
+  /// Optional engine registry for the live test bench (whisper.cpp backends).
+  final List<ProbeEngine>? engines;
+
   /// Per-session guard token, embedded in the opened URL.
   final String token;
 
@@ -92,7 +103,6 @@ class LiveProbeServer {
   late DateTime _startedAt;
   bool _finished = false;
   ProbeReport? _report;
-  String? _reportHtml;
 
   final Set<HttpResponse> _sseClients = {};
   HttpServer? _server;
@@ -185,7 +195,6 @@ class LiveProbeServer {
       hardwareContext: hardwareContext,
     );
     _report = report;
-    _reportHtml = formatProbeReportHtml(report, live: true, token: token);
     _finished = true;
     _broadcast({'type': 'done'});
 
@@ -217,6 +226,16 @@ class LiveProbeServer {
         await _handleIndex(req);
       } else if (path == '/events' && req.method == 'GET') {
         _handleSse(req);
+      } else if (path == '/api/models' && req.method == 'GET') {
+        await _writeJson(req, HttpStatus.ok, {
+          'models': modelStore?.statusJson() ?? const [],
+        });
+      } else if (path == '/api/engines' && req.method == 'GET') {
+        await _writeJson(req, HttpStatus.ok, {
+          'engines': engines != null ? enginesJson(engines!) : const [],
+        });
+      } else if (path == '/api/model/download' && req.method == 'POST') {
+        await _handleModelDownload(req);
       } else if (path == '/api/transcribe' && req.method == 'POST') {
         await _handleTranscribe(req);
       } else if (path == '/api/shutdown' && req.method == 'POST') {
@@ -241,7 +260,18 @@ class LiveProbeServer {
   /// Returns the HTML for `GET /`: the progress shell while running, the full
   /// report once finished.
   String indexHtml() {
-    if (_finished && _reportHtml != null) return _reportHtml!;
+    final report = _report;
+    if (_finished && report != null) {
+      // Render fresh each time so the model catalogue reflects current
+      // download state (models can arrive after the probe finished).
+      return formatProbeReportHtml(
+        report,
+        live: true,
+        token: token,
+        models: modelStore?.statusJson(),
+        engines: engines != null ? enginesJson(engines!) : null,
+      );
+    }
     return formatProgressShellHtml(
       candidates: [for (final s in _states) (id: s.id, label: s.label)],
       version: version,
@@ -337,13 +367,50 @@ class LiveProbeServer {
   }
 
   Future<void> _handleTranscribe(HttpRequest req) async {
-    final id = req.uri.queryParameters['candidate'];
-    final candidate = candidateById(id);
-    if (candidate == null) {
-      await _writeJson(req, HttpStatus.notFound, {
-        'error': 'Unbekannter Kandidat: ${id ?? '(keiner)'}',
-      });
-      return;
+    final q = req.uri.queryParameters;
+    final engineId = q['engine'];
+    final modelId = q['model'];
+
+    ProbeCandidate? candidate;
+    var modelPath = contextTemplate.modelPath;
+    final engs = engines;
+
+    if (engineId != null && engs != null) {
+      // Engine × model bench path: run the chosen engine on the chosen model.
+      ProbeEngine? engine;
+      for (final e in engs) {
+        if (e.id == engineId) {
+          engine = e;
+          break;
+        }
+      }
+      if (engine == null) {
+        await _writeJson(req, HttpStatus.notFound, {
+          'error': 'Unbekannte Engine: $engineId',
+        });
+        return;
+      }
+      final store = modelStore;
+      if (store != null && modelId != null) {
+        final mp = store.localPathIfPresent(modelId);
+        if (mp == null) {
+          await _writeJson(req, HttpStatus.badRequest, {
+            'error': 'Modell nicht geladen: $modelId',
+          });
+          return;
+        }
+        modelPath = mp;
+      }
+      candidate = engine.candidate();
+    } else {
+      // Legacy / demo path: a fixed candidate by id.
+      candidate = candidateById(q['candidate']);
+      if (candidate == null) {
+        await _writeJson(req, HttpStatus.notFound, {
+          'error': 'Unbekannter Kandidat: ${q['candidate'] ?? '(keiner)'}',
+        });
+        return;
+      }
     }
 
     final bytes = await _readBody(req);
@@ -354,7 +421,7 @@ class LiveProbeServer {
 
     final ctx = ProbeContext(
       referenceWavPath: wavPath,
-      modelPath: contextTemplate.modelPath,
+      modelPath: modelPath,
       workDir: tmp.path,
       language: contextTemplate.language,
       timeout: contextTemplate.timeout,
@@ -390,6 +457,36 @@ class LiveProbeServer {
     final created = await Directory.systemTemp.createTemp('whispaste-live-');
     _liveTmpDir = created;
     return created;
+  }
+
+  // -------------------------------------------------------------------------
+  // Model download (progress fanned out over SSE)
+  // -------------------------------------------------------------------------
+
+  Future<void> _handleModelDownload(HttpRequest req) async {
+    final id = req.uri.queryParameters['id'];
+    final store = modelStore;
+    if (store == null || id == null || store.byId(id) == null) {
+      await _writeJson(req, HttpStatus.notFound, {
+        'error': 'Unbekanntes Modell: ${id ?? '(keines)'}',
+      });
+      return;
+    }
+    // Kick off the download; progress ticks broadcast the model's status entry.
+    unawaited(
+      store.download(
+        id,
+        onChange: () {
+          for (final m in store.statusJson()) {
+            if (m['id'] == id) {
+              _broadcast({'type': 'model', ...m});
+              break;
+            }
+          }
+        },
+      ),
+    );
+    await _writeJson(req, HttpStatus.accepted, {'started': id});
   }
 
   // -------------------------------------------------------------------------
@@ -448,6 +545,8 @@ Future<void> runLiveProbe({
   HardwareContext? hardwareContext,
   Future<void> Function(ProbeReport report)? onComplete,
   void Function(String)? logger,
+  ModelStore? modelStore,
+  List<ProbeEngine>? engines,
 }) async {
   final server = LiveProbeServer(
     candidates: candidates,
@@ -456,6 +555,8 @@ Future<void> runLiveProbe({
     hardwareContext: hardwareContext,
     onComplete: onComplete,
     logger: logger,
+    modelStore: modelStore,
+    engines: engines,
   );
   final url = await server.start();
   await openBrowser(url);
