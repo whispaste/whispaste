@@ -1,8 +1,11 @@
 /// Regression tests confirming that CloudProvidersSection has been removed
 /// and that API-key fields are not duplicated anywhere in the settings UI.
+/// Also confirms that the auto-paste blocklist field is present in AdvancedSection
+/// (moved here from AfterTranscriptionSection).
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' show AsyncData;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/core/config/settings_enums.dart';
@@ -29,6 +32,41 @@ void main() {
       final icons = tester.widgetList<Icon>(find.byType(Icon));
       final hasKeyIcon = icons.any((i) => i.icon == LucideIcons.keyRound);
       expect(hasKeyIcon, isFalse);
+    });
+
+    // ── Blocklist moved here from AfterTranscriptionSection ─────────────────
+
+    testWidgets('blocklist TextField is visible in AdvancedSection', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        makeTestable(const SingleChildScrollView(child: AdvancedSection())),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(TextField), findsOneWidget);
+    });
+
+    testWidgets('blocklist TextField round-trip updates autoPasteBlocklist', (
+      tester,
+    ) async {
+      final notifier = _FakeSettingsNotifier(AppSettings.defaults);
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: AdvancedSection()),
+          overrides: [settingsProvider.overrideWith(() => notifier)],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'com.example.blocked');
+      // Wait for the debounce timer.
+      await tester.pump(const Duration(milliseconds: 700));
+
+      expect(
+        notifier.state.value!.behavior.autoPasteBlocklist,
+        'com.example.blocked',
+      );
     });
   });
 
@@ -113,9 +151,10 @@ void main() {
 }
 
 // ---------------------------------------------------------------------------
-// Minimal fake settings notifier for override
+// Fake settings notifiers for override
 // ---------------------------------------------------------------------------
 
+/// Read-only fake — used by SpeechRecognitionSection tests.
 class FakeSettingsNotifier extends SettingsNotifier {
   FakeSettingsNotifier(this._value);
 
@@ -123,4 +162,19 @@ class FakeSettingsNotifier extends SettingsNotifier {
 
   @override
   Future<AppSettings> build() async => _value;
+}
+
+/// Mutable fake — used by AdvancedSection round-trip tests.
+class _FakeSettingsNotifier extends SettingsNotifier {
+  _FakeSettingsNotifier(this._settings);
+  AppSettings _settings;
+
+  @override
+  Future<AppSettings> build() async => _settings;
+
+  @override
+  Future<void> updateSettings(AppSettings Function(AppSettings) updater) async {
+    _settings = updater(state.value ?? _settings);
+    state = AsyncData(_settings);
+  }
 }

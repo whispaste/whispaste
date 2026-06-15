@@ -1,8 +1,6 @@
 /// Keyboard Shortcut & Sound Feedback settings sections.
 library;
 
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -260,103 +258,11 @@ class AfterTranscriptionSection extends ConsumerWidget {
                   AfterTranscriptionAction.paste ||
               settings.afterTranscriptionAction ==
                   AfterTranscriptionAction.clipboardAndPaste)
-            SettingRow(
-              icon: LucideIcons.timer,
-              label: l10n.settingsAutoPasteDelay,
-              subtitle: l10n.settingsAutoPasteDelaySubtitle,
-              trailing: settingsSlider(
-                context: context,
-                value: settings.autoPasteDelay.toDouble(),
-                min: 0,
-                max: 2000,
-                divisions: 20,
-                valueLabel: fmtMs(settings.autoPasteDelay),
-                onChanged: (v) => ref
-                    .read(settingsProvider.notifier)
-                    .updateSettings(
-                      (s) => s.copyWith(autoPasteDelay: v.round()),
-                    ),
-              ),
-            ),
-          if (settings.afterTranscriptionAction ==
-                  AfterTranscriptionAction.paste ||
-              settings.afterTranscriptionAction ==
-                  AfterTranscriptionAction.clipboardAndPaste)
-            _AutoPasteBlocklistField(settings: settings, ref: ref),
-          if (settings.afterTranscriptionAction ==
-                  AfterTranscriptionAction.paste ||
-              settings.afterTranscriptionAction ==
-                  AfterTranscriptionAction.clipboardAndPaste)
             const Padding(
               padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
               child: PasteCapabilityIndicator(),
             ),
         ],
-      ),
-    );
-  }
-}
-
-/// Text field for per-app auto-paste blocklist (comma-separated bundle IDs).
-class _AutoPasteBlocklistField extends StatefulWidget {
-  const _AutoPasteBlocklistField({required this.settings, required this.ref});
-
-  final AppSettings settings;
-  final WidgetRef ref;
-
-  @override
-  State<_AutoPasteBlocklistField> createState() =>
-      _AutoPasteBlocklistFieldState();
-}
-
-class _AutoPasteBlocklistFieldState extends State<_AutoPasteBlocklistField> {
-  late final TextEditingController _controller;
-  Timer? _debounce;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController(
-      text: widget.settings.autoPasteBlocklist,
-    );
-  }
-
-  @override
-  void didUpdateWidget(_AutoPasteBlocklistField old) {
-    super.didUpdateWidget(old);
-    if (old.settings.autoPasteBlocklist != widget.settings.autoPasteBlocklist) {
-      _controller.text = widget.settings.autoPasteBlocklist;
-    }
-  }
-
-  @override
-  void dispose() {
-    _debounce?.cancel();
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _onChanged(String value) {
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 600), () {
-      widget.ref
-          .read(settingsProvider.notifier)
-          .updateSettings((s) => s.copyWith(autoPasteBlocklist: value));
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = L10n.of(context);
-    return SettingRow(
-      icon: LucideIcons.shieldBan,
-      label: l10n.settingsAutoPasteBlocklist,
-      subtitle: l10n.settingsAutoPasteBlocklistSubtitle,
-      trailing: settingsTextField(
-        context: context,
-        controller: _controller,
-        hintText: l10n.settingsAutoPasteBlocklistPlaceholder,
-        onChanged: _onChanged,
       ),
     );
   }

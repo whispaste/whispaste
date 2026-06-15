@@ -53,6 +53,7 @@ class AdvancedSection extends ConsumerWidget {
       padding: EdgeInsets.zero,
       child: Column(
         children: [
+          _AutoPasteBlocklistField(settings: settings, ref: ref),
           SettingRow(
             icon: LucideIcons.shieldCheck,
             label: l10n.settingsErrorReporting,
@@ -247,6 +248,76 @@ class AdvancedSection extends ConsumerWidget {
       if (nav.canPop()) nav.pop();
     }
     return terminal;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Auto-paste blocklist field (moved here from AfterTranscriptionSection)
+// ---------------------------------------------------------------------------
+
+/// Text field for per-app auto-paste blocklist (comma-separated bundle IDs).
+/// Rendered inside [AdvancedSection] so it is visually scoped as a niche option.
+class _AutoPasteBlocklistField extends StatefulWidget {
+  const _AutoPasteBlocklistField({required this.settings, required this.ref});
+
+  final AppSettings settings;
+  final WidgetRef ref;
+
+  @override
+  State<_AutoPasteBlocklistField> createState() =>
+      _AutoPasteBlocklistFieldState();
+}
+
+class _AutoPasteBlocklistFieldState extends State<_AutoPasteBlocklistField> {
+  late final TextEditingController _controller;
+  Timer? _debounce;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(
+      text: widget.settings.autoPasteBlocklist,
+    );
+  }
+
+  @override
+  void didUpdateWidget(_AutoPasteBlocklistField old) {
+    super.didUpdateWidget(old);
+    if (old.settings.autoPasteBlocklist != widget.settings.autoPasteBlocklist) {
+      _controller.text = widget.settings.autoPasteBlocklist;
+    }
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onChanged(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 600), () {
+      widget.ref
+          .read(settingsProvider.notifier)
+          .updateSettings((s) => s.copyWith(autoPasteBlocklist: value));
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    return SettingRow(
+      icon: LucideIcons.shieldBan,
+      label: l10n.settingsAutoPasteBlocklist,
+      subtitle: l10n.settingsAutoPasteBlocklistSubtitle,
+      trailing: settingsTextField(
+        context: context,
+        controller: _controller,
+        hintText: l10n.settingsAutoPasteBlocklistPlaceholder,
+        onChanged: _onChanged,
+      ),
+    );
   }
 }
 
