@@ -1,9 +1,11 @@
 /// Delivery step for WhisPaste-GPU-Probe.
 ///
 /// After the ZIP bundle is written to the Desktop this module:
-///   1. Opens the HTML report in the default browser.
-///   2. Reveals the ZIP file in the native file-manager (Finder / Explorer).
-///   3. Opens the local mail client with a pre-filled `mailto:` URL.
+///   1. Reveals the ZIP file in the native file-manager (Finder / Explorer).
+///   2. Opens the HTML report in the default browser (last = front-most window).
+///
+/// [buildMailtoUrl] and [mailOpenCommand] are kept for potential future use
+/// but are NOT invoked by [deliverReport] automatically.
 ///
 /// All platform commands are constructed as pure, testable functions.
 /// The actual process launch is delegated to an injectable [DeliveryLauncher]
@@ -138,13 +140,16 @@ String buildMailtoUrl({
 // ---------------------------------------------------------------------------
 
 /// Performs the post-report delivery step:
-///   1. Opens the HTML report in the default browser.
-///   2. Reveals [zipPath] in the native file manager.
-///   3. Opens the local mail client with a pre-filled support mail.
+///   1. Reveals [zipPath] in the native file manager (Finder / Explorer).
+///   2. Opens the HTML report in the default browser — opened last so it ends
+///      up as the front-most window.
 ///
 /// The HTML path is derived from [zipPath] by replacing the `.zip` extension
 /// with `.html` — the orchestrator always writes both files to the same
 /// directory with the same stem.
+///
+/// The mail client is NOT opened automatically; use [buildMailtoUrl] and
+/// [mailOpenCommand] manually if needed.
 ///
 /// [platform] and [launcher] are injectable for tests.
 Future<void> deliverReport(
@@ -154,17 +159,12 @@ Future<void> deliverReport(
 }) async {
   final launch = launcher ?? defaultDeliveryLauncher;
 
-  // 1. Open the HTML report in the default browser.
-  final htmlPath = zipPath.replaceAll(RegExp(r'\.zip$'), '.html');
-  final browserCmd = openInBrowserCommand(htmlPath, platformOverride: platform);
-  await launch(browserCmd.first, browserCmd.sublist(1));
-
-  // 2. Reveal the ZIP in Finder / Explorer.
+  // 1. Reveal the ZIP in Finder / Explorer.
   final reveal = revealCommand(zipPath, platform: platform);
   await launch(reveal.executable, reveal.arguments);
 
-  // 3. Open the local mail client.
-  final mailtoUrl = buildMailtoUrl();
-  final mail = mailOpenCommand(mailtoUrl, platform: platform);
-  await launch(mail.executable, mail.arguments);
+  // 2. Open the HTML report in the default browser (last = front-most).
+  final htmlPath = zipPath.replaceAll(RegExp(r'\.zip$'), '.html');
+  final browserCmd = openInBrowserCommand(htmlPath, platformOverride: platform);
+  await launch(browserCmd.first, browserCmd.sublist(1));
 }
