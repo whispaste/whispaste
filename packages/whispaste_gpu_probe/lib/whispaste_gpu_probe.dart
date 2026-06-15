@@ -8,3 +8,4 @@ export 'src/outcome_classifier.dart';
 export 'src/probe_runner.dart';
 export 'src/model_manifest.dart';
 export 'src/reference_clip.dart';
+export 'src/wer.dart';
