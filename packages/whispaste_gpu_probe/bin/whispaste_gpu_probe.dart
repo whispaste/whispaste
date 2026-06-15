@@ -22,6 +22,7 @@ library;
 
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
 import 'package:whispaste_gpu_probe/whispaste_gpu_probe.dart';
 
 /// Fake candidate used for the tracer-bullet skeleton.
@@ -142,6 +143,8 @@ Future<void> _runServe({
   final List<ProbeCandidate> candidates;
   final HardwareContext? hardware;
   final String effVersion;
+  ModelStore? modelStore;
+  List<ProbeEngine>? engines;
 
   if (demoMode) {
     final demo = buildDemoReport();
@@ -156,7 +159,18 @@ Future<void> _runServe({
     hardware = demo.hardwareContext;
     effVersion = version == 'unbekannt' ? 'demo' : '$version-demo';
   } else {
-    candidates = const [_FakeOkCandidate()];
+    // Real bench: engines (whisper.cpp family, CPU bundled next to the exe)
+    // and an on-demand model catalogue stored alongside the exe. The auto-probe
+    // ranking is intentionally empty — the bench is interactive (download a
+    // model, then run the live test against engine × model).
+    final exeDir = p.dirname(Platform.resolvedExecutable);
+    final cpuBinary = p.join(
+      exeDir,
+      Platform.isWindows ? 'whisper.exe' : 'whisper',
+    );
+    modelStore = ModelStore(directory: p.join(exeDir, 'models'));
+    engines = defaultEngineRegistry(cpuBinary: cpuBinary);
+    candidates = const <ProbeCandidate>[];
     hardware = null;
     effVersion = version;
   }
@@ -170,6 +184,8 @@ Future<void> _runServe({
     ),
     version: effVersion,
     hardwareContext: hardware,
+    modelStore: modelStore,
+    engines: engines,
     logger: (m) => stderr.writeln(m),
     openBrowser: (url) async {
       stderr.writeln('WhisPaste-GPU-Probe: Server läuft auf $url');
