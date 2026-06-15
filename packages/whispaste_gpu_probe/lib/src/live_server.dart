@@ -27,6 +27,7 @@ import 'package:path/path.dart' as p;
 import 'package:whispaste_diagnostics/whispaste_diagnostics.dart'
     show sanitizePaths;
 
+import 'bench_history.dart';
 import 'engine_registry.dart';
 import 'html_report.dart';
 import 'model_store.dart';
@@ -60,6 +61,7 @@ class LiveProbeServer {
     this.onComplete,
     this.modelStore,
     this.engines,
+    this.history,
     DateTime Function()? clock,
     void Function(String)? logger,
     Random? random,
@@ -91,6 +93,10 @@ class LiveProbeServer {
 
   /// Optional engine registry for the live test bench (whisper.cpp backends).
   final List<ProbeEngine>? engines;
+
+  /// Optional persistent benchmark history — every live/batch run is appended
+  /// here and rendered as a comparison table across sessions.
+  final BenchHistory? history;
 
   /// Per-session guard token, embedded in the opened URL.
   final String token;
@@ -238,6 +244,8 @@ class LiveProbeServer {
         await _handleModelDownload(req);
       } else if (path == '/api/transcribe' && req.method == 'POST') {
         await _handleTranscribe(req);
+      } else if (path == '/api/transcribe-batch' && req.method == 'POST') {
+        await _handleTranscribeBatch(req);
       } else if (path == '/api/shutdown' && req.method == 'POST') {
         await _handleShutdown(req);
       } else {
@@ -271,6 +279,7 @@ class LiveProbeServer {
         token: token,
         models: modelStore?.statusJson(),
         engines: engines != null ? enginesJson(engines!) : null,
+        history: history?.load(),
       );
     }
     return formatProgressShellHtml(
@@ -370,48 +379,36 @@ class LiveProbeServer {
   Future<void> _handleTranscribe(HttpRequest req) async {
     final q = req.uri.queryParameters;
     final engineId = q['engine'];
-    final modelId = q['model'];
+    final audioMs = int.tryParse(q['audioMs'] ?? '');
 
-    ProbeCandidate? candidate;
-    var modelPath = contextTemplate.modelPath;
-    final engs = engines;
+    // Engine × model bench path: route through the shared combo runner (records
+    // history). The legacy demo path (a fixed candidate by id) stays separate.
+    if (engineId != null && engines != null) {
+      final bytes = await _readBody(req);
+      final tmp = await _ensureTmpDir();
+      final wavPath = p.join(tmp.path, 'live-${_liveCounter++}.wav');
+      final wavFile = File(wavPath);
+      await wavFile.writeAsBytes(bytes);
+      final outcome = await _runEngineModel(
+        engineId: engineId,
+        modelId: q['model'],
+        wavPath: wavPath,
+        tmpPath: tmp.path,
+        audioMs: audioMs,
+        audioBytes: bytes.length,
+      );
+      await _deleteTmpWav(wavFile);
+      await _writeJson(req, outcome.status, outcome.body);
+      return;
+    }
 
-    if (engineId != null && engs != null) {
-      // Engine × model bench path: run the chosen engine on the chosen model.
-      ProbeEngine? engine;
-      for (final e in engs) {
-        if (e.id == engineId) {
-          engine = e;
-          break;
-        }
-      }
-      if (engine == null) {
-        await _writeJson(req, HttpStatus.notFound, {
-          'error': 'Unbekannte Engine: $engineId',
-        });
-        return;
-      }
-      final store = modelStore;
-      if (store != null && modelId != null) {
-        final mp = store.localPathIfPresent(modelId);
-        if (mp == null) {
-          await _writeJson(req, HttpStatus.badRequest, {
-            'error': 'Modell nicht geladen: $modelId',
-          });
-          return;
-        }
-        modelPath = mp;
-      }
-      candidate = engine.candidate();
-    } else {
-      // Legacy / demo path: a fixed candidate by id.
-      candidate = candidateById(q['candidate']);
-      if (candidate == null) {
-        await _writeJson(req, HttpStatus.notFound, {
-          'error': 'Unbekannter Kandidat: ${q['candidate'] ?? '(keiner)'}',
-        });
-        return;
-      }
+    // Legacy / demo path: a fixed candidate by id.
+    final candidate = candidateById(q['candidate']);
+    if (candidate == null) {
+      await _writeJson(req, HttpStatus.notFound, {
+        'error': 'Unbekannter Kandidat: ${q['candidate'] ?? '(keiner)'}',
+      });
+      return;
     }
 
     final bytes = await _readBody(req);
@@ -421,14 +418,12 @@ class LiveProbeServer {
     await wavFile.writeAsBytes(bytes);
 
     _log(
-      'LIVE-TEST start: engine=${engineId ?? candidate.id} '
-      'model=${modelId ?? '(template)'} modelPath=${sanitizePaths(modelPath)} '
-      'audioBytes=${bytes.length}',
+      'LIVE-TEST start: candidate=${candidate.id} audioBytes=${bytes.length}',
     );
 
     final ctx = ProbeContext(
       referenceWavPath: wavPath,
-      modelPath: modelPath,
+      modelPath: contextTemplate.modelPath,
       workDir: tmp.path,
       language: contextTemplate.language,
       timeout: contextTemplate.timeout,
@@ -437,21 +432,12 @@ class LiveProbeServer {
     final sw = Stopwatch()..start();
     final result = await candidate.run(ctx);
     sw.stop();
-
-    try {
-      await wavFile.delete();
-    } on Object catch (e) {
-      _log('GPU-Probe-Server: Temp-WAV nicht löschbar: $e');
-    }
+    await _deleteTmpWav(wavFile);
 
     final durationMs = result.durationMs ?? sw.elapsedMilliseconds;
     _log(
-      'LIVE-TEST done: engine=${engineId ?? candidate.id} '
-      'outcome=${result.outcome.name} durationMs=$durationMs '
-      'exit=${result.exitCode} '
-      'text="${result.transcribedText ?? ''}" '
-      'error=${result.errorDetail != null ? sanitizePaths(result.errorDetail!) : '-'} '
-      'stderrTail=${result.stderrTail != null ? sanitizePaths(result.stderrTail!) : '-'}',
+      'LIVE-TEST done: candidate=${candidate.id} '
+      'outcome=${result.outcome.name} durationMs=$durationMs',
     );
     await _writeJson(req, HttpStatus.ok, {
       'candidateId': result.candidateId,
@@ -464,6 +450,218 @@ class LiveProbeServer {
       if (result.errorDetail != null)
         'errorDetail': sanitizePaths(result.errorDetail!),
     });
+  }
+
+  /// Multi-model batch: run ONE uploaded clip through several engine × model
+  /// combos, append each to the history, and return a speed-ranked list
+  /// (fastest `ok` first). Combos arrive as `engineId~modelId` pairs joined by
+  /// commas in the `combos` query parameter.
+  Future<void> _handleTranscribeBatch(HttpRequest req) async {
+    final q = req.uri.queryParameters;
+    final combos = _parseCombos(q['combos']);
+    if (combos.isEmpty || engines == null) {
+      await _writeJson(req, HttpStatus.badRequest, {
+        'error': 'Keine Engine×Modell-Kombination angegeben.',
+      });
+      return;
+    }
+    final audioMs = int.tryParse(q['audioMs'] ?? '');
+    final bytes = await _readBody(req);
+    final tmp = await _ensureTmpDir();
+    final wavPath = p.join(tmp.path, 'live-${_liveCounter++}.wav');
+    final wavFile = File(wavPath);
+    await wavFile.writeAsBytes(bytes);
+
+    _log(
+      'BATCH-TEST start: combos=${combos.length} audioBytes=${bytes.length}',
+    );
+
+    final runs = <Map<String, Object?>>[];
+    for (final c in combos) {
+      final outcome = await _runEngineModel(
+        engineId: c.engineId,
+        modelId: c.modelId.isEmpty ? null : c.modelId,
+        wavPath: wavPath,
+        tmpPath: tmp.path,
+        audioMs: audioMs,
+        audioBytes: bytes.length,
+      );
+      runs.add(outcome.body);
+    }
+    await _deleteTmpWav(wavFile);
+
+    // Rank: successful runs by ascending engine time; everything else trails.
+    runs.sort(_compareRuns);
+    await _writeJson(req, HttpStatus.ok, {'runs': runs});
+  }
+
+  /// Resolves [engineId] + [modelId], runs the engine on [wavPath], records the
+  /// run to history (when it actually ran), and returns an HTTP status + JSON
+  /// body. Resolution failures come back as a 4xx body, never an exception.
+  Future<({int status, Map<String, Object?> body})> _runEngineModel({
+    required String engineId,
+    required String wavPath,
+    required String tmpPath,
+    String? modelId,
+    int? audioMs,
+    int? audioBytes,
+  }) async {
+    ProbeEngine? engine;
+    for (final e in engines ?? const <ProbeEngine>[]) {
+      if (e.id == engineId) {
+        engine = e;
+        break;
+      }
+    }
+    if (engine == null) {
+      return (
+        status: HttpStatus.notFound,
+        body: {
+          'engineId': engineId,
+          'outcome': 'skipped',
+          'error': 'Unbekannte Engine: $engineId',
+        },
+      );
+    }
+
+    var modelPath = contextTemplate.modelPath;
+    String? modelLabel;
+    final store = modelStore;
+    if (store != null && modelId != null) {
+      final mp = store.localPathIfPresent(modelId);
+      if (mp == null) {
+        return (
+          status: HttpStatus.badRequest,
+          body: {
+            'engineId': engineId,
+            'engineLabel': engine.label,
+            'backend': engine.backend,
+            'modelId': modelId,
+            'outcome': 'skipped',
+            'error': 'Modell nicht geladen: $modelId',
+          },
+        );
+      }
+      modelPath = mp;
+      modelLabel = store.byId(modelId)?.label;
+    }
+
+    _log(
+      'RUN start: engine=$engineId model=${modelId ?? '(template)'} '
+      'modelPath=${sanitizePaths(modelPath)} audioBytes=${audioBytes ?? '-'}',
+    );
+
+    final ctx = ProbeContext(
+      referenceWavPath: wavPath,
+      modelPath: modelPath,
+      workDir: tmpPath,
+      language: contextTemplate.language,
+      timeout: contextTemplate.timeout,
+    );
+    final sw = Stopwatch()..start();
+    final result = await engine.candidate().run(ctx);
+    sw.stop();
+
+    final durationMs = result.durationMs ?? sw.elapsedMilliseconds;
+    final rtf = (audioMs != null && audioMs > 0)
+        ? durationMs / audioMs
+        : result.realtimeFactor;
+
+    _log(
+      'RUN done: engine=$engineId outcome=${result.outcome.name} '
+      'durationMs=$durationMs exit=${result.exitCode} '
+      'text="${result.transcribedText ?? ''}" '
+      'error=${result.errorDetail != null ? sanitizePaths(result.errorDetail!) : '-'} '
+      'stderrTail=${result.stderrTail != null ? sanitizePaths(result.stderrTail!) : '-'}',
+    );
+
+    _recordHistory(
+      BenchRun(
+        timestamp: _clock(),
+        engineId: engineId,
+        engineLabel: engine.label,
+        backend: engine.backend,
+        outcome: result.outcome.name,
+        modelId: modelId,
+        modelLabel: modelLabel,
+        durationMs: durationMs,
+        audioMs: audioMs,
+        realtimeFactor: rtf,
+        transcribedText: result.transcribedText,
+        version: version,
+      ),
+    );
+
+    return (
+      status: HttpStatus.ok,
+      body: {
+        'engineId': engineId,
+        'engineLabel': engine.label,
+        'backend': engine.backend,
+        'isGpu': isGpuBackend(engine.backend),
+        'modelId': ?modelId,
+        'modelLabel': ?modelLabel,
+        'outcome': result.outcome.name,
+        // Transcription is the user's own speech — passed through verbatim.
+        'transcribedText': result.transcribedText,
+        'durationMs': durationMs,
+        'audioMs': ?audioMs,
+        'realtimeFactor': ?rtf,
+        // errorDetail may carry a temp path → scrub before it leaves.
+        if (result.errorDetail != null)
+          'errorDetail': sanitizePaths(result.errorDetail!),
+      },
+    );
+  }
+
+  /// Appends [run] to the history, logging (not throwing) on a write error.
+  void _recordHistory(BenchRun run) {
+    final h = history;
+    if (h == null) return;
+    try {
+      h.append(run);
+    } on Object catch (e) {
+      _log('GPU-Probe-Server: History-Schreiben fehlgeschlagen: $e');
+    }
+  }
+
+  /// Parses the `combos` query value into `(engineId, modelId)` pairs.
+  /// Format: `engineA~modelA,engineB~modelB`; a missing `~` means no model.
+  List<({String engineId, String modelId})> _parseCombos(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return const [];
+    final out = <({String engineId, String modelId})>[];
+    for (final part in raw.split(',')) {
+      final t = part.trim();
+      if (t.isEmpty) continue;
+      final sep = t.indexOf('~');
+      if (sep < 0) {
+        out.add((engineId: t, modelId: ''));
+      } else {
+        out.add((engineId: t.substring(0, sep), modelId: t.substring(sep + 1)));
+      }
+    }
+    return out;
+  }
+
+  /// Ranks batch runs: `ok` first, then by ascending engine time (nulls last).
+  static int _compareRuns(Map<String, Object?> a, Map<String, Object?> b) {
+    final aok = a['outcome'] == 'ok';
+    final bok = b['outcome'] == 'ok';
+    if (aok != bok) return aok ? -1 : 1;
+    final ad = (a['durationMs'] as num?)?.toInt();
+    final bd = (b['durationMs'] as num?)?.toInt();
+    if (ad == null && bd == null) return 0;
+    if (ad == null) return 1;
+    if (bd == null) return -1;
+    return ad.compareTo(bd);
+  }
+
+  Future<void> _deleteTmpWav(File wavFile) async {
+    try {
+      await wavFile.delete();
+    } on Object catch (e) {
+      _log('GPU-Probe-Server: Temp-WAV nicht löschbar: $e');
+    }
   }
 
   Future<Directory> _ensureTmpDir() async {
@@ -562,6 +760,7 @@ Future<void> runLiveProbe({
   void Function(String)? logger,
   ModelStore? modelStore,
   List<ProbeEngine>? engines,
+  BenchHistory? history,
 }) async {
   final server = LiveProbeServer(
     candidates: candidates,
@@ -572,6 +771,7 @@ Future<void> runLiveProbe({
     logger: logger,
     modelStore: modelStore,
     engines: engines,
+    history: history,
   );
   final url = await server.start();
   await openBrowser(url);

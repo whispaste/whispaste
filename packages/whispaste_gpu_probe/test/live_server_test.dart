@@ -31,6 +31,24 @@ class _GateCandidate implements ProbeCandidate {
   }
 }
 
+/// Candidate that returns a fixed result instantly — for batch/history tests
+/// that must be deterministic without launching a real engine.
+class _FixedCandidate implements ProbeCandidate {
+  _FixedCandidate(this.id, this.durationMs);
+
+  @override
+  final String id;
+  final int durationMs;
+
+  @override
+  Future<CandidateResult> run(ProbeContext ctx) async => CandidateResult(
+    candidateId: id,
+    outcome: Outcome.ok,
+    durationMs: durationMs,
+    transcribedText: 'hallo',
+  );
+}
+
 Future<String> _getBody(HttpClient client, Uri url) async {
   final res = await (await client.getUrl(url)).close();
   return res.transform(utf8.decoder).join();
@@ -347,6 +365,137 @@ void main() {
       expect(res.statusCode, HttpStatus.accepted);
       await res.drain<void>();
       await _waitUntil(() => store.localPathIfPresent('ggml-tiny') != null);
+    });
+  });
+
+  group('LiveProbeServer multi-model batch + history', () {
+    late Directory tmp;
+    late BenchHistory history;
+    late LiveProbeServer server;
+    late Uri url;
+    late HttpClient client;
+
+    setUp(() async {
+      tmp = Directory.systemTemp.createTempSync('batch-');
+      history = BenchHistory(File(pathJoin(tmp.path, 'bench-history.jsonl')));
+      final engines = [
+        ProbeEngine(
+          id: 'fast-gpu',
+          label: 'Fast GPU',
+          backend: 'cuda',
+          modelFamily: 'ggml',
+          binary: 'x',
+          builder: () => _FixedCandidate('fast-gpu', 100),
+        ),
+        ProbeEngine(
+          id: 'slow-cpu',
+          label: 'Slow CPU',
+          backend: 'cpu',
+          modelFamily: 'ggml',
+          binary: 'x',
+          builder: () => _FixedCandidate('slow-cpu', 500),
+        ),
+      ];
+      server = LiveProbeServer(
+        candidates: const [],
+        contextTemplate: const ProbeContext(
+          referenceWavPath: '',
+          modelPath: '',
+          workDir: '',
+        ),
+        version: 'batch-test',
+        random: Random(11),
+        logger: (_) {},
+        engines: engines,
+        history: history,
+      );
+      url = await server.start();
+      client = HttpClient();
+    });
+
+    tearDown(() async {
+      client.close(force: true);
+      await server.stop();
+      tmp.deleteSync(recursive: true);
+    });
+
+    Future<Map<String, Object?>> postBatch(String combos) async {
+      final tUrl = url.replace(
+        path: '/api/transcribe-batch',
+        queryParameters: {
+          'combos': combos,
+          'audioMs': '1000',
+          't': server.token,
+        },
+      );
+      final req = await client.postUrl(tUrl);
+      req.add(const [82, 73, 70, 70]);
+      final res = await req.close();
+      return jsonDecode(await res.transform(utf8.decoder).join())
+          as Map<String, Object?>;
+    }
+
+    test('runs all combos and ranks the fastest first', () async {
+      // Submit slowest-first; the server must reorder by speed.
+      final json = await postBatch('slow-cpu~,fast-gpu~');
+      final runs = (json['runs'] as List).cast<Map<String, Object?>>();
+      expect(runs, hasLength(2));
+      expect(runs.first['engineId'], 'fast-gpu');
+      expect(runs.first['isGpu'], isTrue);
+      expect(runs.first['durationMs'], 100);
+      expect(runs.first['realtimeFactor'], closeTo(0.1, 0.001));
+      expect(runs.last['engineId'], 'slow-cpu');
+      expect(runs.last['isGpu'], isFalse);
+    });
+
+    test('every batch run is appended to the history', () async {
+      await postBatch('fast-gpu~,slow-cpu~');
+      final runs = history.load();
+      expect(
+        runs.map((r) => r.engineId),
+        containsAll(['fast-gpu', 'slow-cpu']),
+      );
+      expect(runs.firstWhere((r) => r.engineId == 'fast-gpu').isGpu, isTrue);
+      expect(runs.firstWhere((r) => r.engineId == 'slow-cpu').backend, 'cpu');
+    });
+
+    test('empty combos → 400', () async {
+      final tUrl = url.replace(
+        path: '/api/transcribe-batch',
+        queryParameters: {'combos': '', 't': server.token},
+      );
+      final req = await client.postUrl(tUrl);
+      req.add(const [1]);
+      final res = await req.close();
+      expect(res.statusCode, HttpStatus.badRequest);
+      await res.drain<void>();
+    });
+
+    test('single transcribe via engine path records history', () async {
+      final tUrl = url.replace(
+        path: '/api/transcribe',
+        queryParameters: {
+          'engine': 'slow-cpu',
+          'audioMs': '1000',
+          't': server.token,
+        },
+      );
+      final req = await client.postUrl(tUrl);
+      req.add(const [1, 2, 3]);
+      final res = await req.close();
+      final json =
+          jsonDecode(await res.transform(utf8.decoder).join())
+              as Map<String, Object?>;
+      expect(json['outcome'], 'ok');
+      expect(json['backend'], 'cpu');
+      expect(history.load(), hasLength(1));
+    });
+
+    test('report renders the Benchmark-Historie section', () async {
+      await _waitUntil(() => server.isFinished);
+      final html = await _getBody(client, url);
+      expect(html, contains('Benchmark-Historie'));
+      expect(html, contains('Vergleichsliste'));
     });
   });
 }

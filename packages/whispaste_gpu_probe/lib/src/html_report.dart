@@ -9,6 +9,7 @@
 /// and a staggered load reveal.
 library;
 
+import 'bench_history.dart';
 import 'brand_assets.dart';
 import 'probe_types.dart';
 import 'ranking.dart';
@@ -30,6 +31,7 @@ String formatProbeReportHtml(
   String? token,
   List<Map<String, Object?>>? models,
   List<Map<String, Object?>>? engines,
+  List<BenchRun>? history,
 }) {
   // Bench mode: the engine × model test bench (model download + selectors).
   final bench = live && engines != null;
@@ -72,6 +74,7 @@ String formatProbeReportHtml(
   }
   if (bench) {
     _writeLivePanel(b, bench: true, engines: engines, models: models);
+    _writeHistorySection(b, history ?? const []);
     _writeModelsSection(b, models ?? const []);
     _writeEnginesSection(b, engines);
   } else if (live) {
@@ -375,9 +378,15 @@ void _writeLivePanel(
   }
   b.writeln('  </div>');
   b.writeln(
-    '  <p class="live-hint">Sprich einen Satz ein. Das Tool jagt deine '
-    'Aufnahme durch die gewählte Engine + Modell und misst, wie lange es vom '
-    'Ende des Sprechens bis zum fertigen Text dauert.</p>',
+    bench
+        ? '  <p class="live-hint">Wähle eine Engine + ein Modell und füge die '
+              'Kombination der Vergleichsliste hinzu — beliebig viele. Dann '
+              '<strong>einmal</strong> sprechen: das Tool jagt dieselbe '
+              'Aufnahme durch alle Kombinationen und rankt sie nach Tempo. '
+              'Jeder Lauf landet in der Benchmark-Historie.</p>'
+        : '  <p class="live-hint">Sprich einen Satz ein. Das Tool jagt deine '
+              'Aufnahme durch die gewählte Engine + Modell und misst, wie lange '
+              'es vom Ende des Sprechens bis zum fertigen Text dauert.</p>',
   );
   if (bench) {
     b.writeln('  <div class="live-selects">');
@@ -408,16 +417,27 @@ void _writeLivePanel(
       );
     }
     b.writeln('    </select></label>');
+    b.writeln(
+      '    <button type="button" class="add-btn" id="bench-add">'
+      '+ Zur Vergleichsliste</button>',
+    );
     b.writeln('  </div>');
+    b.writeln(
+      '  <div class="bench-chips" id="bench-list" '
+      'data-empty="Noch keine Kombination gewählt.">'
+      '<span class="chips-empty">Noch keine Kombination gewählt.</span></div>',
+    );
   }
   b.writeln('  <div class="live-controls">');
   b.writeln(
     '    <button type="button" class="rec-btn" id="rec-btn"'
-    '${bench ? '' : ' disabled'}>● Aufnahme starten</button>',
+    '${bench ? ' disabled' : ' disabled'}>'
+    '${bench ? '● Aufnehmen &amp; vergleichen' : '● Aufnahme starten'}'
+    '</button>',
   );
   b.writeln(
     '    <span class="rec-state mono" id="rec-state">'
-    '${bench ? 'bereit — Engine + Modell wählen' : 'Kandidat oben wählen'}'
+    '${bench ? 'Kombinationen zur Liste hinzufügen' : 'Kandidat oben wählen'}'
     '</span>',
   );
   b.writeln('  </div>');
@@ -450,6 +470,23 @@ void _writeLivePanel(
     '</blockquote>',
   );
   b.writeln('  </div>');
+  if (bench) {
+    // Multi-model ranked results land here (filled by the live script).
+    b.writeln('  <div class="batch-results" id="batch-results" hidden>');
+    b.writeln(
+      '    <div class="live-transcript-label">Vergleich (schnellste zuerst)</div>',
+    );
+    b.writeln('    <div class="table-wrap"><table id="batch-table">');
+    b.writeln(
+      '      <thead><tr><th class="col-rank">#</th><th>Engine</th>'
+      '<th>Backend</th><th>Modell</th><th>Ergebnis</th>'
+      '<th class="num">Latenz</th><th class="num">RT-Faktor</th>'
+      '<th>Transkript</th></tr></thead>',
+    );
+    b.writeln('      <tbody></tbody>');
+    b.writeln('    </table></div>');
+    b.writeln('  </div>');
+  }
   b.writeln('</section>');
 }
 
@@ -539,6 +576,125 @@ void _writeEnginesSection(StringBuffer b, List<Map<String, Object?>> engines) {
   b.writeln('</table>');
   b.writeln('</div>');
   b.writeln('</section>');
+}
+
+void _writeHistorySection(StringBuffer b, List<BenchRun> history) {
+  // Fastest successful GPU and CPU run — highlighted as the head-to-head answer.
+  BenchRun? fastestGpu;
+  BenchRun? fastestCpu;
+  for (final r in history) {
+    if (r.outcome != 'ok' || r.durationMs == null) continue;
+    if (r.isGpu) {
+      if (fastestGpu == null || r.durationMs! < fastestGpu.durationMs!) {
+        fastestGpu = r;
+      }
+    } else {
+      if (fastestCpu == null || r.durationMs! < fastestCpu.durationMs!) {
+        fastestCpu = r;
+      }
+    }
+  }
+
+  b.writeln(
+    '<section class="reveal" id="history-section" '
+    'style="animation-delay:.05s">',
+  );
+  b.writeln('<h2>Benchmark-Historie</h2>');
+  b.writeln(
+    '<p class="live-hint">Alle bisherigen Läufe auf dieser Hardware — neueste '
+    'zuerst. Spalten lassen sich per Klick auf die Überschrift sortieren. Die '
+    'schnellste GPU- und die schnellste CPU-Lösung sind markiert.</p>',
+  );
+  b.writeln('<div class="table-wrap">');
+  b.writeln('<table class="sortable" id="history-table">');
+  b.writeln('<thead><tr>');
+  b.writeln('  <th data-sort="text">Zeit</th>');
+  b.writeln('  <th data-sort="text">Engine</th>');
+  b.writeln('  <th data-sort="text">Backend</th>');
+  b.writeln('  <th data-sort="text">Modell</th>');
+  b.writeln('  <th data-sort="text">Ergebnis</th>');
+  b.writeln('  <th class="num" data-sort="num">Latenz</th>');
+  b.writeln('  <th class="num" data-sort="num">RT-Faktor</th>');
+  b.writeln('  <th>Transkript</th>');
+  b.writeln('</tr></thead>');
+  b.writeln('<tbody>');
+  if (history.isEmpty) {
+    b.writeln(
+      '  <tr class="history-empty"><td colspan="8" class="error-detail">'
+      'Noch keine Läufe — nimm oben eine Vergleichsliste auf.</td></tr>',
+    );
+  } else {
+    for (final r in history.reversed) {
+      _writeHistoryRow(
+        b,
+        r,
+        isFastestGpu: r == fastestGpu,
+        isFastestCpu: r == fastestCpu,
+      );
+    }
+  }
+  b.writeln('</tbody>');
+  b.writeln('</table>');
+  b.writeln('</div>');
+  b.writeln('</section>');
+}
+
+void _writeHistoryRow(
+  StringBuffer b,
+  BenchRun r, {
+  required bool isFastestGpu,
+  required bool isFastestCpu,
+}) {
+  final dur = r.durationMs;
+  final durStr = dur != null ? _formatMs(dur) : '—';
+  final rtfStr = r.realtimeFactor != null
+      ? r.realtimeFactor!.toStringAsFixed(2)
+      : '—';
+  final modelStr = r.modelLabel ?? r.modelId ?? '—';
+  final backendTag = r.isGpu
+      ? '<span class="hw-tag hw-gpu">GPU</span>'
+      : '<span class="hw-tag hw-cpu">CPU</span>';
+  final marks = StringBuffer();
+  if (isFastestGpu) {
+    marks.write(
+      ' <span class="badge-best badge-best-gpu">schnellste GPU</span>',
+    );
+  }
+  if (isFastestCpu) {
+    marks.write(
+      ' <span class="badge-best badge-best-cpu">schnellste CPU</span>',
+    );
+  }
+  final rowClass = isFastestGpu
+      ? ' class="row-best-gpu"'
+      : isFastestCpu
+      ? ' class="row-best-cpu"'
+      : '';
+  final transcript = r.transcribedText != null && r.transcribedText!.isNotEmpty
+      ? r.transcribedText!
+      : '—';
+
+  b.writeln('<tr$rowClass>');
+  b.writeln(
+    '  <td class="mono" data-v="${_esc(r.timestamp.toIso8601String())}">'
+    '${_esc(_formatTimestamp(r.timestamp))}</td>',
+  );
+  b.writeln('  <td class="candidate-name">${_esc(r.engineLabel)}$marks</td>');
+  b.writeln('  <td class="mono">${_esc(r.backend)} $backendTag</td>');
+  b.writeln('  <td class="mono">${_esc(modelStr)}</td>');
+  b.writeln(
+    '  <td><span class="badge ${_outcomeClassName(r.outcome)}">'
+    '${_esc(_outcomeLabelName(r.outcome))}</span></td>',
+  );
+  b.writeln(
+    '  <td class="num mono" data-v="${dur ?? ''}">${_esc(durStr)}</td>',
+  );
+  b.writeln(
+    '  <td class="num mono" data-v="${r.realtimeFactor ?? ''}">'
+    '${_esc(rtfStr)}</td>',
+  );
+  b.writeln('  <td class="error-detail">${_esc(transcript)}</td>');
+  b.writeln('</tr>');
 }
 
 void _writeFailedSection(StringBuffer b, RankingResult ranking) {
@@ -695,6 +851,26 @@ String _outcomeClass(Outcome outcome) {
     Outcome.wrongOutput => 'outcome-hung',
     Outcome.skipped => 'outcome-skipped',
   };
+}
+
+/// Resolves an outcome [name] to its [Outcome], falling back to skipped.
+Outcome _outcomeByName(String name) => Outcome.values.firstWhere(
+  (o) => o.name == name,
+  orElse: () => Outcome.skipped,
+);
+
+/// CSS class for an outcome given by its string name (history rows).
+String _outcomeClassName(String name) => _outcomeClass(_outcomeByName(name));
+
+/// German label for an outcome given by its string name (history rows).
+String _outcomeLabelName(String name) => _outcomeLabel(_outcomeByName(name));
+
+/// Formats a timestamp as `YYYY-MM-DD HH:MM` (local), for the history table.
+String _formatTimestamp(DateTime ts) {
+  final d = ts.toLocal();
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${d.year}-${two(d.month)}-${two(d.day)} '
+      '${two(d.hour)}:${two(d.minute)}';
 }
 
 /// Returns a short German display label for an outcome.
@@ -1027,6 +1203,53 @@ const String _css = '''
   }
   .quit-btn:hover { color: var(--red); border-color: rgba(248,113,113,.4); }
 
+  /* ── Bench compare list (chips) + batch results ──────────────────────── */
+  .add-btn {
+    font-family: var(--mono); font-size: 12px; font-weight: 700; cursor: pointer;
+    color: var(--signal); background: rgba(56,217,240,.08);
+    border: 1px solid rgba(56,217,240,.3); border-radius: 8px; padding: 9px 14px;
+    white-space: nowrap; align-self: flex-end; transition: background .12s;
+  }
+  .add-btn:hover { background: rgba(56,217,240,.16); }
+  .bench-chips {
+    display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 18px;
+    min-height: 20px;
+  }
+  .chips-empty { color: var(--faint); font-size: 12px; font-style: italic; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--mono); font-size: 11px; color: var(--txt);
+    background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 99px; padding: 5px 6px 5px 12px;
+  }
+  .chip .chip-x {
+    cursor: pointer; border: 0; background: rgba(255,255,255,.06);
+    color: var(--muted); border-radius: 99px; width: 18px; height: 18px;
+    line-height: 1; font-size: 12px; display: inline-flex;
+    align-items: center; justify-content: center; padding: 0;
+  }
+  .chip .chip-x:hover { background: rgba(248,113,113,.2); color: var(--red); }
+  .batch-results { margin-top: 20px; }
+  .hw-tag {
+    display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 4px;
+    font-family: var(--mono); font-size: 9px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .08em; vertical-align: middle;
+  }
+  .hw-gpu { background: rgba(56,217,240,.15); color: var(--cyan); }
+  .hw-cpu { background: rgba(128,144,168,.16); color: var(--muted); }
+  .badge-best {
+    display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 4px;
+    font-family: var(--mono); font-size: 9px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .06em; vertical-align: middle;
+  }
+  .badge-best-gpu { background: rgba(54,217,139,.18); color: var(--green); }
+  .badge-best-cpu { background: rgba(245,200,66,.16); color: var(--amber); }
+  .row-best-gpu td { background: rgba(54,217,139,.06); }
+  .row-best-cpu td { background: rgba(245,200,66,.05); }
+  table.sortable th { cursor: pointer; user-select: none; }
+  table.sortable th:hover { color: var(--signal); }
+  .batch-rank-1 td { background: rgba(56,217,240,.07); }
+
   /* ── Progress shell ──────────────────────────────────────────────────── */
   .run-hero { text-align: center; padding: 30px 20px 6px; }
   .run-pulse { display: flex; justify-content: center; gap: 8px; margin-bottom: 20px; }
@@ -1147,8 +1370,10 @@ const String _liveScript = r'''<script>
   var panel = $('live-panel'), candEl = $('live-cand'), recBtn = $('rec-btn'),
       stateEl = $('rec-state'), result = $('live-result');
   var benchEngine = $('bench-engine'), benchModel = $('bench-model');
+  var benchAdd = $('bench-add'), benchList = $('bench-list'),
+      batchResults = $('batch-results'), historyTable = $('history-table');
   var currentCand = null, recorder = null, stream = null, chunks = [],
-      recording = false, stopAt = 0;
+      recording = false, stopAt = 0, combos = [];
 
   function cssEsc(s) { return (window.CSS && CSS.escape) ? CSS.escape(s) : s; }
   function stateLabel(s) {
@@ -1202,6 +1427,95 @@ const String _liveScript = r'''<script>
   if (benchEngine) {
     benchEngine.addEventListener('change', filterModelsToEngine);
     filterModelsToEngine();
+  }
+
+  // ── Compare list (chips): pick engine + model, add, repeat, then record once.
+  function selOptText(sel) {
+    var o = sel && sel.options[sel.selectedIndex];
+    return o ? o.textContent.replace(' — nicht geladen', '').replace(' — nicht verfügbar', '') : '';
+  }
+  function comboKey(engine, model) { return engine + '~' + model; }
+  function renderChips() {
+    if (!benchList) return;
+    if (!combos.length) {
+      benchList.innerHTML = '<span class="chips-empty">' +
+        (benchList.dataset.empty || 'Noch keine Kombination gewählt.') + '</span>';
+    } else {
+      benchList.innerHTML = combos.map(function (c, i) {
+        return '<span class="chip">' + esc(c.engineLabel) + ' · ' + esc(c.modelLabel) +
+          '<button type="button" class="chip-x" data-i="' + i + '" ' +
+          'aria-label="Entfernen">×</button></span>';
+      }).join('');
+    }
+    if (recBtn) {
+      recBtn.disabled = combos.length === 0;
+      stateEl.textContent = combos.length
+        ? 'bereit — Aufnahme starten'
+        : 'Kombinationen zur Liste hinzufügen';
+    }
+  }
+  function esc(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  if (benchAdd) {
+    benchAdd.addEventListener('click', function () {
+      var eOpt = benchEngine.options[benchEngine.selectedIndex];
+      var mOpt = benchModel.options[benchModel.selectedIndex];
+      if (!eOpt || eOpt.disabled || !mOpt || mOpt.disabled) {
+        stateEl.textContent = 'Engine + geladenes Modell wählen.';
+        return;
+      }
+      var key = comboKey(benchEngine.value, benchModel.value);
+      if (combos.some(function (c) { return comboKey(c.engine, c.model) === key; })) return;
+      combos.push({
+        engine: benchEngine.value, model: benchModel.value,
+        engineLabel: selOptText(benchEngine), modelLabel: selOptText(benchModel)
+      });
+      renderChips();
+    });
+  }
+  if (benchList) {
+    benchList.addEventListener('click', function (ev) {
+      var btn = ev.target.closest && ev.target.closest('.chip-x');
+      if (!btn) return;
+      combos.splice(parseInt(btn.dataset.i, 10), 1);
+      renderChips();
+    });
+    renderChips();
+  }
+
+  // Click-to-sort on any table.sortable header.
+  document.querySelectorAll('table.sortable').forEach(function (tbl) {
+    var ths = tbl.tHead ? tbl.tHead.rows[0].cells : [];
+    for (var ci = 0; ci < ths.length; ci++) {
+      (function (idx, th) {
+        th.addEventListener('click', function () {
+          var asc = th.getAttribute('data-asc') !== 'true';
+          for (var k = 0; k < ths.length; k++) ths[k].removeAttribute('data-asc');
+          th.setAttribute('data-asc', asc ? 'true' : 'false');
+          var numeric = th.getAttribute('data-sort') === 'num';
+          var body = tbl.tBodies[0];
+          var rows = Array.prototype.slice.call(body.rows).filter(function (r) {
+            return !r.classList.contains('history-empty');
+          });
+          rows.sort(function (a, b) {
+            var av = cellVal(a.cells[idx], numeric), bv = cellVal(b.cells[idx], numeric);
+            if (av < bv) return asc ? -1 : 1;
+            if (av > bv) return asc ? 1 : -1;
+            return 0;
+          });
+          rows.forEach(function (r) { body.appendChild(r); });
+        });
+      })(ci, ths[ci]);
+    }
+  });
+  function cellVal(cell, numeric) {
+    if (!cell) return numeric ? -Infinity : '';
+    var v = cell.getAttribute('data-v');
+    if (v == null) v = cell.textContent;
+    if (numeric) { var n = parseFloat(v); return isNaN(n) ? -Infinity : n; }
+    return v.toLowerCase();
   }
 
   // Live model-download progress over SSE.
@@ -1304,6 +1618,7 @@ const String _liveScript = r'''<script>
       ac.close();
       var wav = encodeWav16k(decoded);
       var audioMs = Math.round(decoded.duration * 1000);
+      if (benchEngine && combos.length) { await runBatch(wav, audioMs); return; }
       setBusy('transkribiere …');
       var resp = await fetch(u(transcribeUrl()), {
         method: 'POST',
@@ -1350,6 +1665,112 @@ const String _liveScript = r'''<script>
     var rtf = (data.durationMs && audioMs) ? (data.durationMs / audioMs) : null;
     $('m-rtf').textContent = rtf != null ? rtf.toFixed(2) : '—';
     $('m-text').textContent = data.transcribedText || data.errorDetail || '(kein Text)';
+  }
+
+  // ── Multi-model batch (record once → run all combos → ranked list). ──────
+  function outLabel(o) {
+    return o === 'ok' ? 'ok' : o === 'crashed' ? 'abgestürzt'
+      : o === 'hung' ? 'hängt' : o === 'failedToStart' ? 'Startfehler'
+      : o === 'outOfMemory' ? 'OOM' : o === 'wrongOutput' ? 'falsches Ergebnis'
+      : 'übersprungen';
+  }
+  function outClass(o) {
+    return o === 'ok' ? 'outcome-ok'
+      : (o === 'hung' || o === 'wrongOutput') ? 'outcome-hung'
+      : o === 'skipped' ? 'outcome-skipped' : 'outcome-crashed';
+  }
+  function hwTag(isGpu) {
+    return isGpu ? '<span class="hw-tag hw-gpu">GPU</span>'
+      : '<span class="hw-tag hw-cpu">CPU</span>';
+  }
+  function rtfOf(run, audioMs) {
+    if (run.realtimeFactor != null) return run.realtimeFactor;
+    if (run.durationMs != null && audioMs) return run.durationMs / audioMs;
+    return null;
+  }
+
+  async function runBatch(wav, audioMs) {
+    setBusy('vergleiche ' + combos.length + ' Kombination' +
+      (combos.length > 1 ? 'en' : '') + ' …');
+    var q = combos.map(function (c) { return c.engine + '~' + c.model; }).join(',');
+    var url = '/api/transcribe-batch?combos=' + encodeURIComponent(q) + '&audioMs=' + audioMs;
+    var resp, data = {};
+    try {
+      resp = await fetch(u(url), {
+        method: 'POST', headers: { 'Content-Type': 'audio/wav' }, body: wav
+      });
+      try { data = await resp.json(); } catch (e) { data = {}; }
+    } catch (e) {
+      clearBusy(); recBtn.classList.remove('busy'); recBtn.disabled = false;
+      stateEl.textContent = 'Fehler: ' + (e && e.message ? e.message : e);
+      return;
+    }
+    clearBusy(); recBtn.classList.remove('busy'); recBtn.disabled = false;
+    if (!resp.ok) {
+      stateEl.textContent = 'Fehler: ' + (data.error || ('Server ' + resp.status));
+      return;
+    }
+    var runs = data.runs || [];
+    stateEl.textContent = 'fertig — ' + runs.length + ' Lauf' +
+      (runs.length === 1 ? '' : 'e') + ' verglichen';
+    result.hidden = true; // single-result block is unused in bench mode
+    renderBatch(runs, audioMs);
+    appendHistory(runs, audioMs);
+  }
+
+  function renderBatch(runs, audioMs) {
+    if (!batchResults) return;
+    var tb = document.querySelector('#batch-table tbody');
+    var okSeen = 0;
+    tb.innerHTML = runs.map(function (run) {
+      var rtf = rtfOf(run, audioMs);
+      var ok = run.outcome === 'ok';
+      var rank = ok ? (++okSeen) : '—';
+      return '<tr' + (ok && okSeen === 1 ? ' class="batch-rank-1"' : '') + '>' +
+        '<td class="col-rank rank">' + rank + '</td>' +
+        '<td class="candidate-name">' + esc(run.engineLabel || run.engineId) + '</td>' +
+        '<td class="mono">' + esc(run.backend || '') + ' ' + hwTag(run.isGpu) + '</td>' +
+        '<td class="mono">' + esc(run.modelLabel || run.modelId || '—') + '</td>' +
+        '<td><span class="badge ' + outClass(run.outcome) + '">' +
+          esc(outLabel(run.outcome)) + '</span></td>' +
+        '<td class="num mono">' + fmtMs(run.durationMs) + '</td>' +
+        '<td class="num mono">' + (rtf != null ? rtf.toFixed(2) : '—') + '</td>' +
+        '<td class="error-detail">' +
+          esc(run.transcribedText || run.errorDetail || run.error || '—') + '</td>' +
+        '</tr>';
+    }).join('');
+    batchResults.hidden = false;
+  }
+
+  function appendHistory(runs, audioMs) {
+    if (!historyTable || !historyTable.tBodies.length) return;
+    var body = historyTable.tBodies[0];
+    var empty = body.querySelector('.history-empty');
+    if (empty) empty.parentNode.removeChild(empty);
+    var now = new Date();
+    function two(n) { return String(n).padStart(2, '0'); }
+    var tstr = now.getFullYear() + '-' + two(now.getMonth() + 1) + '-' + two(now.getDate()) +
+      ' ' + two(now.getHours()) + ':' + two(now.getMinutes());
+    var iso = now.toISOString();
+    // Prepend in reverse so the fastest of this batch ends up topmost.
+    runs.slice().reverse().forEach(function (run) {
+      var rtf = rtfOf(run, audioMs);
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td class="mono" data-v="' + esc(iso) + '">' + esc(tstr) + '</td>' +
+        '<td class="candidate-name">' + esc(run.engineLabel || run.engineId) + '</td>' +
+        '<td class="mono">' + esc(run.backend || '') + ' ' + hwTag(run.isGpu) + '</td>' +
+        '<td class="mono">' + esc(run.modelLabel || run.modelId || '—') + '</td>' +
+        '<td><span class="badge ' + outClass(run.outcome) + '">' +
+          esc(outLabel(run.outcome)) + '</span></td>' +
+        '<td class="num mono" data-v="' + (run.durationMs != null ? run.durationMs : '') +
+          '">' + fmtMs(run.durationMs) + '</td>' +
+        '<td class="num mono" data-v="' + (rtf != null ? rtf : '') + '">' +
+          (rtf != null ? rtf.toFixed(2) : '—') + '</td>' +
+        '<td class="error-detail">' +
+          esc(run.transcribedText || run.errorDetail || run.error || '—') + '</td>';
+      body.insertBefore(tr, body.firstChild);
+    });
   }
 
   // Downmix to mono, resample to 16 kHz, encode 16-bit PCM WAV.

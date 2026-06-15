@@ -279,4 +279,83 @@ void main() {
       expect(htmlCpuOnly, contains('CPU'));
     });
   });
+
+  // -------------------------------------------------------------------------
+  // Benchmark history section (bench mode only)
+  // -------------------------------------------------------------------------
+  group('formatProbeReportHtml — Benchmark-Historie', () {
+    final benchReport = ProbeReport(
+      timestamp: DateTime.utc(2026, 6, 15, 12),
+      results: const [],
+      version: 'hist-test',
+    );
+    const engines = [
+      {
+        'id': 'sherpa-onnx-cpu',
+        'label': 'sherpa CPU',
+        'backend': 'onnx-cpu',
+        'family': 'sherpa-onnx',
+        'available': true,
+      },
+    ];
+
+    String renderWith(List<BenchRun> history) => formatProbeReportHtml(
+      benchReport,
+      live: true,
+      token: 'tok',
+      engines: engines,
+      models: const [],
+      history: history,
+    );
+
+    test('renders the compare-list controls in bench mode', () {
+      final html = renderWith(const []);
+      expect(html, contains('Benchmark-Historie'));
+      expect(html, contains('bench-add'));
+      expect(html, contains('Vergleichsliste'));
+      expect(html, contains('batch-table'));
+      // Empty state when there is no history yet.
+      expect(html, contains('history-empty'));
+    });
+
+    test('marks the fastest GPU and fastest CPU runs', () {
+      final ts = DateTime.utc(2026, 6, 15, 12);
+      final history = [
+        BenchRun(
+          timestamp: ts,
+          engineId: 'whisper-cpp-cpu',
+          engineLabel: 'whisper CPU',
+          backend: 'cpu',
+          outcome: 'ok',
+          durationMs: 5000,
+        ),
+        BenchRun(
+          timestamp: ts.add(const Duration(minutes: 1)),
+          engineId: 'const-me',
+          engineLabel: 'Const-me GPU',
+          backend: 'directcompute',
+          outcome: 'ok',
+          durationMs: 1500,
+        ),
+        BenchRun(
+          timestamp: ts.add(const Duration(minutes: 2)),
+          engineId: 'sherpa-cuda',
+          engineLabel: 'sherpa CUDA',
+          backend: 'cuda',
+          outcome: 'ok',
+          durationMs: 900,
+        ),
+      ];
+      final html = renderWith(history);
+      expect(html, contains('schnellste GPU'));
+      expect(html, contains('schnellste CPU'));
+      expect(html, contains('row-best-gpu'));
+      expect(html, contains('row-best-cpu'));
+      // GPU/CPU tags rendered per row.
+      expect(html, contains('hw-gpu'));
+      expect(html, contains('hw-cpu'));
+      // Real rows present → no empty-state placeholder text.
+      expect(html, isNot(contains('Noch keine Läufe')));
+    });
+  });
 }
