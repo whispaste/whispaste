@@ -24,8 +24,20 @@ import 'package:flutter/widgets.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'package:whispaste/core/theme/overlay_design_spec.dart';
+import 'package:whispaste/floating_button_render_entrypoint.dart';
+import 'package:whispaste/floating_overlay_render_entrypoint.dart';
 import 'package:whispaste/services/floating_button/floating_button_controller.dart';
 import 'package:whispaste/services/floating_overlay/floating_overlay_controller.dart';
+
+// The native shells boot their second render engine by NAME, resolved against
+// the ROOT library — which, under `flutter run -t tool/overlay_live_driver.dart`,
+// is THIS file (not main.dart). So the two named entrypoints must be re-declared
+// here, delegating to the same shared engine boots the production app uses.
+@pragma('vm:entry-point')
+void floatingOverlayMain() => runFloatingOverlayEngine();
+
+@pragma('vm:entry-point')
+void floatingButtonMain() => runFloatingButtonEngine();
 
 const String _stateName = String.fromEnvironment(
   'STATE',
