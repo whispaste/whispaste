@@ -171,6 +171,26 @@ Future<void> _runServe({
     effVersion = version;
   }
 
+  // Persistent log file next to the report — for field debugging and so beta
+  // testers can send back a diagnostic trail. Tees every log line to stderr
+  // (visible console) and the file.
+  final logDir = Directory(outputDir);
+  if (!logDir.existsSync()) logDir.createSync(recursive: true);
+  final logFile = File(p.join(outputDir, 'WhisPaste-GPU-Probe.log'));
+  void log(String m) {
+    stderr.writeln(m);
+    try {
+      logFile.writeAsStringSync(
+        '${DateTime.now().toIso8601String()}  $m\n',
+        mode: FileMode.append,
+      );
+    } on Object catch (e) {
+      stderr.writeln('WhisPaste-GPU-Probe: Log-Schreiben fehlgeschlagen: $e');
+    }
+  }
+
+  log('=== WhisPaste-GPU-Probe $effVersion gestartet (serve) ===');
+
   await runLiveProbe(
     candidates: candidates,
     context: const ProbeContext(
@@ -182,7 +202,7 @@ Future<void> _runServe({
     hardwareContext: hardware,
     modelStore: modelStore,
     engines: engines,
-    logger: (m) => stderr.writeln(m),
+    logger: log,
     openBrowser: (url) async {
       stderr.writeln('WhisPaste-GPU-Probe: Server läuft auf $url');
       stderr.writeln(

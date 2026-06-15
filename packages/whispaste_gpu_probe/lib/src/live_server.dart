@@ -243,7 +243,8 @@ class LiveProbeServer {
       } else {
         await _writeText(req, HttpStatus.notFound, 'Nicht gefunden.');
       }
-    } on Object catch (e) {
+    } on Object catch (e, st) {
+      _log('GPU-Probe-Server: Handler-Fehler bei ${req.uri.path}: $e\n$st');
       try {
         await _writeText(
           req,
@@ -419,6 +420,12 @@ class LiveProbeServer {
     final wavFile = File(wavPath);
     await wavFile.writeAsBytes(bytes);
 
+    _log(
+      'LIVE-TEST start: engine=${engineId ?? candidate.id} '
+      'model=${modelId ?? '(template)'} modelPath=${sanitizePaths(modelPath)} '
+      'audioBytes=${bytes.length}',
+    );
+
     final ctx = ProbeContext(
       referenceWavPath: wavPath,
       modelPath: modelPath,
@@ -438,6 +445,14 @@ class LiveProbeServer {
     }
 
     final durationMs = result.durationMs ?? sw.elapsedMilliseconds;
+    _log(
+      'LIVE-TEST done: engine=${engineId ?? candidate.id} '
+      'outcome=${result.outcome.name} durationMs=$durationMs '
+      'exit=${result.exitCode} '
+      'text="${result.transcribedText ?? ''}" '
+      'error=${result.errorDetail != null ? sanitizePaths(result.errorDetail!) : '-'} '
+      'stderrTail=${result.stderrTail != null ? sanitizePaths(result.stderrTail!) : '-'}',
+    );
     await _writeJson(req, HttpStatus.ok, {
       'candidateId': result.candidateId,
       'outcome': result.outcome.name,
