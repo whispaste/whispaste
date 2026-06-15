@@ -1281,6 +1281,12 @@ abstract class L10n {
   /// **'Deepgram API Key'**
   String get settingsDeepgramApiKey;
 
+  /// Tooltip for the show/hide button on API key input fields.
+  ///
+  /// In en, this message translates to:
+  /// **'Toggle API key visibility'**
+  String get settingsToggleApiKeyVisibility;
+
   /// No description provided for @settingsAdvanced.
   ///
   /// In en, this message translates to:
@@ -3135,6 +3141,12 @@ abstract class L10n {
   /// **'Add note'**
   String get historyAddNote;
 
+  /// Accessibility label for the note edit text field in the history detail panel.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit note'**
+  String get historyEditNote;
+
   /// No description provided for @historyNotes.
   ///
   /// In en, this message translates to:
@@ -3416,6 +3428,18 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Recent searches'**
   String get historyRecentSearches;
+
+  /// Accessibility label for the button that removes a single entry from the recent searches list.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove recent search'**
+  String get historyRemoveRecentSearch;
+
+  /// Accessibility label for the button that removes an active filter chip from the history search bar.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove filter'**
+  String get historyRemoveFilter;
 
   /// No description provided for @historyQuickActions.
   ///

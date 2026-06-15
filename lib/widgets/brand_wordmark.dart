@@ -23,6 +23,7 @@ class WpBrandWordmark extends StatelessWidget {
       height: height,
       filterQuality: FilterQuality.high,
       isAntiAlias: true,
+      excludeFromSemantics: true,
     );
   }
 }

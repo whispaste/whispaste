@@ -396,20 +396,24 @@ class _NoteItemState extends State<_NoteItem> {
                           widget.onSave();
                         }
                       },
-                      child: TextField(
-                        controller: widget.editController,
-                        autofocus: true,
-                        maxLines: 5,
-                        minLines: 1,
-                        textInputAction: TextInputAction.newline,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: widget.textPrimary,
-                        ),
-                        decoration: const InputDecoration(
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(
-                            vertical: WpSpacing.xxs,
+                      child: Semantics(
+                        label: L10n.of(context).historyEditNote,
+                        textField: true,
+                        child: TextField(
+                          controller: widget.editController,
+                          autofocus: true,
+                          maxLines: 5,
+                          minLines: 1,
+                          textInputAction: TextInputAction.newline,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: widget.textPrimary,
+                          ),
+                          decoration: const InputDecoration(
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(
+                              vertical: WpSpacing.xxs,
+                            ),
                           ),
                         ),
                       ),

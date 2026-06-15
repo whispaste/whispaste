@@ -34,6 +34,7 @@ class WpBrandLogo extends StatelessWidget {
           height: size,
           filterQuality: FilterQuality.medium,
           isAntiAlias: true,
+          excludeFromSemantics: true,
         ),
       );
     }
@@ -48,6 +49,7 @@ class WpBrandLogo extends StatelessWidget {
       height: size,
       filterQuality: FilterQuality.medium,
       isAntiAlias: true,
+      excludeFromSemantics: true,
     );
   }
 }
