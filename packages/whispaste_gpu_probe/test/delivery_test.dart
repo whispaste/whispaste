@@ -1,5 +1,5 @@
-/// Tests for delivery.dart: revealCommand, buildMailtoUrl, mailOpenCommand,
-/// deliverReport.
+/// Tests for delivery.dart: openInBrowserCommand, revealCommand,
+/// buildMailtoUrl, mailOpenCommand, deliverReport.
 ///
 /// No real processes are spawned — all tests use the injectable
 /// [DeliveryLauncher] seam.
@@ -9,6 +9,45 @@ import 'package:test/test.dart';
 import 'package:whispaste_gpu_probe/whispaste_gpu_probe.dart';
 
 void main() {
+  // ---------------------------------------------------------------------------
+  // openInBrowserCommand
+  // ---------------------------------------------------------------------------
+
+  group('openInBrowserCommand', () {
+    test('macOS: open <htmlPath>', () {
+      final cmd = openInBrowserCommand(
+        '/tmp/report.html',
+        platformOverride: 'macos',
+      );
+      expect(cmd, equals(['open', '/tmp/report.html']));
+    });
+
+    test('windows: cmd /c start "" <htmlPath>', () {
+      final cmd = openInBrowserCommand(
+        r'C:\Users\test\Desktop\report.html',
+        platformOverride: 'windows',
+      );
+      expect(
+        cmd,
+        equals([
+          'cmd',
+          '/c',
+          'start',
+          '',
+          r'C:\Users\test\Desktop\report.html',
+        ]),
+      );
+    });
+
+    test('linux: xdg-open <htmlPath>', () {
+      final cmd = openInBrowserCommand(
+        '/home/user/Desktop/report.html',
+        platformOverride: 'linux',
+      );
+      expect(cmd, equals(['xdg-open', '/home/user/Desktop/report.html']));
+    });
+  });
+
   // ---------------------------------------------------------------------------
   // revealCommand
   // ---------------------------------------------------------------------------
@@ -113,56 +152,8 @@ void main() {
   // ---------------------------------------------------------------------------
 
   group('deliverReport', () {
-    test('calls launcher exactly twice (reveal + mail)', () async {
-      final calls = <(String, List<String>)>[];
-      Future<void> fakeLauncher(String exe, List<String> args) async {
-        calls.add((exe, args));
-      }
-
-      await deliverReport(
-        '/tmp/report.zip',
-        platform: 'macos',
-        launcher: fakeLauncher,
-      );
-
-      expect(calls, hasLength(2));
-    });
-
-    test('first call is the reveal command (open -R on macOS)', () async {
-      final calls = <(String, List<String>)>[];
-      Future<void> fakeLauncher(String exe, List<String> args) async {
-        calls.add((exe, args));
-      }
-
-      await deliverReport(
-        '/tmp/report.zip',
-        platform: 'macos',
-        launcher: fakeLauncher,
-      );
-
-      expect(calls.first.$1, equals('open'));
-      expect(calls.first.$2, equals(['-R', '/tmp/report.zip']));
-    });
-
-    test('second call opens mail client with a mailto URL', () async {
-      final calls = <(String, List<String>)>[];
-      Future<void> fakeLauncher(String exe, List<String> args) async {
-        calls.add((exe, args));
-      }
-
-      await deliverReport(
-        '/tmp/report.zip',
-        platform: 'macos',
-        launcher: fakeLauncher,
-      );
-
-      final mailArgs = calls[1].$2;
-      expect(mailArgs, hasLength(1));
-      expect(mailArgs.first, startsWith('mailto:'));
-    });
-
     test(
-      'mailto URL in second call contains GPU-Probe-Report subject',
+      'calls launcher exactly three times (browser + reveal + mail)',
       () async {
         final calls = <(String, List<String>)>[];
         Future<void> fakeLauncher(String exe, List<String> args) async {
@@ -175,28 +166,27 @@ void main() {
           launcher: fakeLauncher,
         );
 
-        final mailtoUrl = calls[1].$2.first;
-        expect(mailtoUrl, contains('GPU-Probe-Report'));
+        expect(calls, hasLength(3));
       },
     );
 
-    test('uses xdg-open for reveal on linux', () async {
+    test('first call opens browser with html path (open on macOS)', () async {
       final calls = <(String, List<String>)>[];
       Future<void> fakeLauncher(String exe, List<String> args) async {
         calls.add((exe, args));
       }
 
       await deliverReport(
-        '/home/user/Desktop/report.zip',
-        platform: 'linux',
+        '/tmp/report.zip',
+        platform: 'macos',
         launcher: fakeLauncher,
       );
 
-      expect(calls.first.$1, equals('xdg-open'));
-      expect(calls.first.$2.first, equals('/home/user/Desktop'));
+      expect(calls[0].$1, equals('open'));
+      expect(calls[0].$2, equals(['/tmp/report.html']));
     });
 
-    test('windows reveal uses explorer with /select, prefix', () async {
+    test('first call on windows uses cmd /c start for html', () async {
       final calls = <(String, List<String>)>[];
       Future<void> fakeLauncher(String exe, List<String> args) async {
         calls.add((exe, args));
@@ -208,11 +198,117 @@ void main() {
         launcher: fakeLauncher,
       );
 
-      expect(calls.first.$1, equals('explorer'));
+      expect(calls[0].$1, equals('cmd'));
       expect(
-        calls.first.$2.first,
-        equals(r'/select,C:\Users\test\Desktop\report.zip'),
+        calls[0].$2,
+        equals(['/c', 'start', '', r'C:\Users\test\Desktop\report.html']),
       );
     });
+
+    test('first call on linux uses xdg-open for html', () async {
+      final calls = <(String, List<String>)>[];
+      Future<void> fakeLauncher(String exe, List<String> args) async {
+        calls.add((exe, args));
+      }
+
+      await deliverReport(
+        '/home/user/Desktop/report.zip',
+        platform: 'linux',
+        launcher: fakeLauncher,
+      );
+
+      expect(calls[0].$1, equals('xdg-open'));
+      expect(calls[0].$2, equals(['/home/user/Desktop/report.html']));
+    });
+
+    test('second call is the reveal command (open -R on macOS)', () async {
+      final calls = <(String, List<String>)>[];
+      Future<void> fakeLauncher(String exe, List<String> args) async {
+        calls.add((exe, args));
+      }
+
+      await deliverReport(
+        '/tmp/report.zip',
+        platform: 'macos',
+        launcher: fakeLauncher,
+      );
+
+      expect(calls[1].$1, equals('open'));
+      expect(calls[1].$2, equals(['-R', '/tmp/report.zip']));
+    });
+
+    test('third call opens mail client with a mailto URL', () async {
+      final calls = <(String, List<String>)>[];
+      Future<void> fakeLauncher(String exe, List<String> args) async {
+        calls.add((exe, args));
+      }
+
+      await deliverReport(
+        '/tmp/report.zip',
+        platform: 'macos',
+        launcher: fakeLauncher,
+      );
+
+      final mailArgs = calls[2].$2;
+      expect(mailArgs, hasLength(1));
+      expect(mailArgs.first, startsWith('mailto:'));
+    });
+
+    test(
+      'mailto URL in third call contains GPU-Probe-Report subject',
+      () async {
+        final calls = <(String, List<String>)>[];
+        Future<void> fakeLauncher(String exe, List<String> args) async {
+          calls.add((exe, args));
+        }
+
+        await deliverReport(
+          '/tmp/report.zip',
+          platform: 'macos',
+          launcher: fakeLauncher,
+        );
+
+        final mailtoUrl = calls[2].$2.first;
+        expect(mailtoUrl, contains('GPU-Probe-Report'));
+      },
+    );
+
+    test('uses xdg-open for reveal on linux (second call)', () async {
+      final calls = <(String, List<String>)>[];
+      Future<void> fakeLauncher(String exe, List<String> args) async {
+        calls.add((exe, args));
+      }
+
+      await deliverReport(
+        '/home/user/Desktop/report.zip',
+        platform: 'linux',
+        launcher: fakeLauncher,
+      );
+
+      expect(calls[1].$1, equals('xdg-open'));
+      expect(calls[1].$2.first, equals('/home/user/Desktop'));
+    });
+
+    test(
+      'windows reveal uses explorer with /select, prefix (second call)',
+      () async {
+        final calls = <(String, List<String>)>[];
+        Future<void> fakeLauncher(String exe, List<String> args) async {
+          calls.add((exe, args));
+        }
+
+        await deliverReport(
+          r'C:\Users\test\Desktop\report.zip',
+          platform: 'windows',
+          launcher: fakeLauncher,
+        );
+
+        expect(calls[1].$1, equals('explorer'));
+        expect(
+          calls[1].$2.first,
+          equals(r'/select,C:\Users\test\Desktop\report.zip'),
+        );
+      },
+    );
   });
 }
