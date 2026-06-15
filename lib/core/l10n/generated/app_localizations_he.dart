@@ -409,6 +409,9 @@ class L10nHe extends L10n {
   String get settingsSoundFeedbackSubtitle => 'צלילים לאירועי הקלטה';
 
   @override
+  String get settingsSoundsEnabled => 'צלילים';
+
+  @override
   String get settingsRecordStartSound => 'צליל התחלת הקלטה';
 
   @override

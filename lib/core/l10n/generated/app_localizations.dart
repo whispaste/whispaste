@@ -843,6 +843,12 @@ abstract class L10n {
   /// **'Audio cues for recording events'**
   String get settingsSoundFeedbackSubtitle;
 
+  /// No description provided for @settingsSoundsEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Sounds'**
+  String get settingsSoundsEnabled;
+
   /// No description provided for @settingsRecordStartSound.
   ///
   /// In en, this message translates to:

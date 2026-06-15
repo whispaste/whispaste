@@ -136,6 +136,7 @@
   "settingsLanguageHebrew": "Hebräisch",
   "settingsSoundFeedback": "Ton & Feedback",
   "settingsSoundFeedbackSubtitle": "Audio-Signale für Aufnahme-Ereignisse",
+  "settingsSoundsEnabled": "Töne",
   "settingsRecordStartSound": "Aufnahme-Startton",
   "settingsRecordStopSound": "Aufnahme-Stoppton",
   "settingsTranscriptionCompleteSound": "Transkription-fertig-Ton",
