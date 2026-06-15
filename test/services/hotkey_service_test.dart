@@ -503,4 +503,46 @@ void main() {
       );
     });
   });
+
+  group('HotkeyService — auto-repeat suppression (held key)', () {
+    test('macOS (keyUp): held key streams key-downs but toggles once; release '
+        'then press toggles again', () async {
+      final registrar = FakeHotKeyRegistrar(supportsKeyUp: true);
+      final service = _makeService(registrar);
+      var presses = 0;
+      service.onHotkeyPressed = () => presses++;
+      await service.updateHotkey(key: LogicalKeyboardKey.keyD);
+      final hk = registrar.registered.first;
+
+      // Hold: OS streams repeated key-downs — only the first must count.
+      registrar.capturedKeyDownHandler!(hk);
+      registrar.capturedKeyDownHandler!(hk);
+      registrar.capturedKeyDownHandler!(hk);
+      expect(presses, 1, reason: 'auto-repeat key-downs must be swallowed');
+
+      // Release, then a genuine new press toggles again.
+      registrar.capturedKeyUpHandler!(hk);
+      registrar.capturedKeyDownHandler!(hk);
+      expect(presses, 2, reason: 'press after release must register');
+    });
+
+    test(
+      'Windows/Linux (no keyUp): rapid auto-repeat key-downs toggle once',
+      () async {
+        final registrar = FakeHotKeyRegistrar(supportsKeyUp: false);
+        final service = _makeService(registrar);
+        var presses = 0;
+        service.onHotkeyPressed = () => presses++;
+        await service.updateHotkey(key: LogicalKeyboardKey.keyD);
+        final hk = registrar.registered.first;
+
+        // A held key with no key-up streams fast repeats within the window;
+        // they must collapse to a single toggle (no start/stop flapping).
+        for (var i = 0; i < 20; i++) {
+          registrar.capturedKeyDownHandler!(hk);
+        }
+        expect(presses, 1, reason: 'held key must not flip start/stop');
+      },
+    );
+  });
 }

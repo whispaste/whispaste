@@ -157,13 +157,26 @@ class HotkeyService extends Notifier<void> {
 
   HotKey? _registeredHotKey;
   bool _initialized = false;
-  DateTime? _lastHotkeyPress;
+
+  /// Whether the hotkey is currently considered held down. Set on an accepted
+  /// key-down, cleared on key-up (macOS) or once the auto-repeat window lapses
+  /// (Windows/Linux, which have no key-up). Used to swallow OS key-repeat so a
+  /// held key triggers exactly once.
+  bool _keyHeld = false;
+
+  /// Timestamp of the most recent key-down event (accepted OR suppressed), used
+  /// to bridge the auto-repeat stream on platforms without key-up.
+  DateTime? _lastKeyDownAt;
 
   /// Pluggable registrar — defaults to the package singleton; override in
   /// tests by calling [injectRegistrar].
   HotKeyRegistrar _registrar = const _PackageHotKeyRegistrar();
 
-  static const _debounceMs = 600;
+  /// How long a key-down stream is treated as OS auto-repeat. Refreshed on
+  /// every key-down (including suppressed repeats), so a held key keeps the
+  /// window alive; a genuine re-press arrives after a longer gap and is
+  /// honoured. Comfortably larger than typical auto-repeat initial delays.
+  static const _autoRepeatWindow = Duration(milliseconds: 1200);
 
   @override
   void build() {
@@ -223,22 +236,9 @@ class HotkeyService extends Notifier<void> {
     try {
       await _registrar.register(
         _registeredHotKey!,
-        keyDownHandler: (_) {
-          final now = DateTime.now();
-          if (_lastHotkeyPress != null &&
-              now.difference(_lastHotkeyPress!).inMilliseconds < _debounceMs) {
-            _log.debug('Hotkey debounced (within ${_debounceMs}ms window)');
-            return;
-          }
-          _lastHotkeyPress = now;
-          _log.info('Global hotkey pressed');
-          onHotkeyPressed?.call();
-        },
+        keyDownHandler: (_) => _handleKeyDown('Global'),
         keyUpHandler: _registrar.supportsKeyUp
-            ? (_) {
-                _log.info('Global hotkey released');
-                onHotkeyReleased?.call();
-              }
+            ? (_) => _handleKeyUp('Global')
             : null,
       );
       _log.info('Hotkey registered successfully');
@@ -354,21 +354,9 @@ class HotkeyService extends Notifier<void> {
     try {
       await _registrar.register(
         fallback,
-        keyDownHandler: (_) {
-          final now = DateTime.now();
-          if (_lastHotkeyPress != null &&
-              now.difference(_lastHotkeyPress!).inMilliseconds < _debounceMs) {
-            return;
-          }
-          _lastHotkeyPress = now;
-          _log.info('Safe-default hotkey pressed');
-          onHotkeyPressed?.call();
-        },
+        keyDownHandler: (_) => _handleKeyDown('Safe-default'),
         keyUpHandler: _registrar.supportsKeyUp
-            ? (_) {
-                _log.info('Safe-default hotkey released');
-                onHotkeyReleased?.call();
-              }
+            ? (_) => _handleKeyUp('Safe-default')
             : null,
       );
       _log.info(
@@ -384,6 +372,38 @@ class HotkeyService extends Notifier<void> {
     }
   }
 
+  /// Handles a hotkey key-down, swallowing OS auto-repeat so a held key fires
+  /// exactly once.
+  ///
+  /// On macOS (key-up available) a held key is detected directly via [_keyHeld],
+  /// cleared on key-up. On Windows/Linux (no key-up) the [_autoRepeatWindow]
+  /// sliding window — refreshed on every key-down including suppressed repeats —
+  /// bridges the repeat stream; a genuine re-press lands after a longer gap and
+  /// is honoured. Without this, holding the key in toggle mode rapidly flips
+  /// start/stop and wedges the recording state.
+  void _handleKeyDown(String label) {
+    final now = DateTime.now();
+    final last = _lastKeyDownAt;
+    _lastKeyDownAt = now;
+    final isAutoRepeat =
+        _keyHeld && last != null && now.difference(last) < _autoRepeatWindow;
+    if (isAutoRepeat) {
+      _log.debug('Hotkey auto-repeat ignored (key held)');
+      return;
+    }
+    _keyHeld = true;
+    _log.info('$label hotkey pressed');
+    onHotkeyPressed?.call();
+  }
+
+  /// Handles a hotkey key-up (macOS only). Clears the held state so the next
+  /// press is honoured immediately, and forwards to [onHotkeyReleased].
+  void _handleKeyUp(String label) {
+    _keyHeld = false;
+    _log.info('$label hotkey released');
+    onHotkeyReleased?.call();
+  }
+
   Future<void> _unregister() async {
     if (_registeredHotKey != null) {
       try {
@@ -393,6 +413,9 @@ class HotkeyService extends Notifier<void> {
       }
       _registeredHotKey = null;
     }
+    // Reset auto-repeat state so a fresh registration starts clean.
+    _keyHeld = false;
+    _lastKeyDownAt = null;
   }
 
   Future<void> _destroy() async {
