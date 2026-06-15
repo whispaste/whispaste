@@ -47,9 +47,7 @@ const int _kEnvThresholdMB = int.fromEnvironment(
 ///
 /// Priority (highest wins): direct injection → dart-define → production default.
 ({int minRamMB, int thresholdMB}) resolveRamThresholds({
-  // ignore: invalid_use_of_visible_for_testing_member
   int? testMinRamMB,
-  // ignore: invalid_use_of_visible_for_testing_member
   int? testThresholdMB,
 }) {
   final min =
