@@ -17,6 +17,8 @@ library;
 
 import 'dart:io';
 
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, debugDefaultTargetPlatformOverride;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' show AsyncData;
 import 'package:flutter_test/flutter_test.dart';
@@ -52,8 +54,6 @@ class _FakeSettingsNotifier extends SettingsNotifier {
 
 bool get _isDesktop =>
     Platform.isWindows || Platform.isMacOS || Platform.isLinux;
-
-bool get _isFloatingButtonPlatform => Platform.isWindows || Platform.isMacOS;
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -172,23 +172,25 @@ void main() {
 
   group('FloatingButtonSection', () {
     testWidgets(
-      'renders on macOS / Windows, empty SizedBox on other platforms',
+      'renders on macOS / Windows (Switch visible), empty SizedBox on Linux',
       (tester) async {
-        final notifier = _FakeSettingsNotifier(AppSettings.defaults);
-        await tester.pumpWidget(
-          makeTestable(
-            const SingleChildScrollView(child: FloatingButtonSection()),
-            overrides: [settingsProvider.overrideWith(() => notifier)],
-          ),
-        );
-        await tester.pumpAndSettle();
+        // FloatingButtonSection uses defaultTargetPlatform for branching, so
+        // we use debugDefaultTargetPlatformOverride to exercise each branch.
+        debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+        try {
+          final notifier = _FakeSettingsNotifier(AppSettings.defaults);
+          await tester.pumpWidget(
+            makeTestable(
+              const SingleChildScrollView(child: FloatingButtonSection()),
+              overrides: [settingsProvider.overrideWith(() => notifier)],
+            ),
+          );
+          await tester.pumpAndSettle();
 
-        if (_isFloatingButtonPlatform) {
-          // Section should render with at least the toggle Switch.
+          // Section should render with at least the toggle Switch on Windows.
           expect(find.byType(Switch), findsOneWidget);
-        } else {
-          // Unsupported platform: widget tree is empty (SizedBox.shrink).
-          expect(find.byType(Switch), findsNothing);
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
         }
       },
     );
@@ -196,41 +198,11 @@ void main() {
     testWidgets(
       'floating button toggle round-trip updates overlay.showFloatingButton',
       (tester) async {
-        if (!_isFloatingButtonPlatform) return; // Platform guard.
-
-        final notifier = _FakeSettingsNotifier(
-          AppSettings.defaults.copyWithSections(
-            overlay: const OverlaySettings(showFloatingButton: false),
-          ),
-        );
-        await tester.pumpWidget(
-          makeTestable(
-            const SingleChildScrollView(child: FloatingButtonSection()),
-            overrides: [settingsProvider.overrideWith(() => notifier)],
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        expect(notifier.state.value!.overlay.showFloatingButton, isFalse);
-
-        await tester.tap(find.byType(Switch).first);
-        await tester.pump();
-
-        expect(notifier.state.value!.overlay.showFloatingButton, isTrue);
-      },
-    );
-
-    testWidgets(
-      'no sub-controls rendered regardless of showFloatingButton state',
-      (tester) async {
-        if (!_isFloatingButtonPlatform) return; // Platform guard.
-
-        // The size picker was removed in issue 11 (fixed 56 dp design token).
-        // The toggle is the only interactive control in this section.
-        for (final show in [false, true]) {
+        debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+        try {
           final notifier = _FakeSettingsNotifier(
             AppSettings.defaults.copyWithSections(
-              overlay: OverlaySettings(showFloatingButton: show),
+              overlay: const OverlaySettings(showFloatingButton: false),
             ),
           );
           await tester.pumpWidget(
@@ -241,16 +213,52 @@ void main() {
           );
           await tester.pumpAndSettle();
 
-          expect(
-            find.byType(DropdownButton<String>),
-            findsNothing,
-            reason: 'showFloatingButton=$show: no dropdown expected',
-          );
-          expect(
-            find.byType(Slider),
-            findsNothing,
-            reason: 'showFloatingButton=$show: no slider expected',
-          );
+          expect(notifier.state.value!.overlay.showFloatingButton, isFalse);
+
+          await tester.tap(find.byType(Switch).first);
+          await tester.pump();
+
+          expect(notifier.state.value!.overlay.showFloatingButton, isTrue);
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      },
+    );
+
+    testWidgets(
+      'no sub-controls (dropdown/slider) rendered regardless of showFloatingButton state',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+        try {
+          // The size picker was removed in issue 11 (fixed 56 dp design token).
+          // Only the toggle and (when enabled) the preview are rendered.
+          for (final show in [false, true]) {
+            final notifier = _FakeSettingsNotifier(
+              AppSettings.defaults.copyWithSections(
+                overlay: OverlaySettings(showFloatingButton: show),
+              ),
+            );
+            await tester.pumpWidget(
+              makeTestable(
+                const SingleChildScrollView(child: FloatingButtonSection()),
+                overrides: [settingsProvider.overrideWith(() => notifier)],
+              ),
+            );
+            await tester.pumpAndSettle();
+
+            expect(
+              find.byType(DropdownButton<String>),
+              findsNothing,
+              reason: 'showFloatingButton=$show: no dropdown expected',
+            );
+            expect(
+              find.byType(Slider),
+              findsNothing,
+              reason: 'showFloatingButton=$show: no slider expected',
+            );
+          }
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
         }
       },
     );
@@ -505,5 +513,171 @@ void main() {
         findsNothing,
       );
     });
+  });
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // FloatingButtonSection — preview widget (issue 05)
+  // ══════════════════════════════════════════════════════════════════════════
+
+  group('FloatingButtonSection preview', () {
+    testWidgets('preview absent when showFloatingButton is false (Windows)', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      try {
+        final notifier = _FakeSettingsNotifier(
+          AppSettings.defaults.copyWithSections(
+            overlay: const OverlaySettings(showFloatingButton: false),
+          ),
+        );
+        await tester.pumpWidget(
+          makeTestable(
+            const SingleChildScrollView(child: FloatingButtonSection()),
+            overrides: [settingsProvider.overrideWith(() => notifier)],
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byType(FloatingButtonPositionPreview), findsNothing);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
+    testWidgets('preview present when showFloatingButton is true (Windows)', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      try {
+        final notifier = _FakeSettingsNotifier(
+          AppSettings.defaults.copyWithSections(
+            overlay: const OverlaySettings(showFloatingButton: true),
+          ),
+        );
+        await tester.pumpWidget(
+          makeTestable(
+            const SingleChildScrollView(child: FloatingButtonSection()),
+            overrides: [settingsProvider.overrideWith(() => notifier)],
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byType(FloatingButtonPositionPreview), findsOneWidget);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
+    testWidgets('preview present when showFloatingButton is true (macOS)', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        final notifier = _FakeSettingsNotifier(
+          AppSettings.defaults.copyWithSections(
+            overlay: const OverlaySettings(showFloatingButton: true),
+          ),
+        );
+        await tester.pumpWidget(
+          makeTestable(
+            const SingleChildScrollView(child: FloatingButtonSection()),
+            overrides: [settingsProvider.overrideWith(() => notifier)],
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byType(FloatingButtonPositionPreview), findsOneWidget);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
+    testWidgets('entire section hidden on Linux (preview also absent)', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      try {
+        final notifier = _FakeSettingsNotifier(
+          AppSettings.defaults.copyWithSections(
+            overlay: const OverlaySettings(showFloatingButton: true),
+          ),
+        );
+        await tester.pumpWidget(
+          makeTestable(
+            const SingleChildScrollView(child: FloatingButtonSection()),
+            overrides: [settingsProvider.overrideWith(() => notifier)],
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byType(FloatingButtonPositionPreview), findsNothing);
+        expect(find.byType(Switch), findsNothing);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
+    testWidgets(
+      'toggle on → preview appears; toggle off → preview disappears (Windows)',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+        try {
+          final notifier = _FakeSettingsNotifier(
+            AppSettings.defaults.copyWithSections(
+              overlay: const OverlaySettings(showFloatingButton: false),
+            ),
+          );
+          await tester.pumpWidget(
+            makeTestable(
+              const SingleChildScrollView(child: FloatingButtonSection()),
+              overrides: [settingsProvider.overrideWith(() => notifier)],
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          // Initially off — no preview.
+          expect(find.byType(FloatingButtonPositionPreview), findsNothing);
+
+          // Turn on via settings notifier (mirrors what the toggle does).
+          notifier.updateSettings((s) => s.copyWith(showFloatingButton: true));
+          await tester.pump();
+
+          expect(find.byType(FloatingButtonPositionPreview), findsOneWidget);
+
+          // Turn off again.
+          notifier.updateSettings((s) => s.copyWith(showFloatingButton: false));
+          await tester.pump();
+
+          expect(find.byType(FloatingButtonPositionPreview), findsNothing);
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      },
+    );
+
+    testWidgets(
+      'preview carries observable button-pill key when visible (Windows)',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+        try {
+          final notifier = _FakeSettingsNotifier(
+            AppSettings.defaults.copyWithSections(
+              overlay: const OverlaySettings(showFloatingButton: true),
+            ),
+          );
+          await tester.pumpWidget(
+            makeTestable(
+              const SingleChildScrollView(child: FloatingButtonSection()),
+              overrides: [settingsProvider.overrideWith(() => notifier)],
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          expect(find.byKey(const ValueKey('button-pill')), findsOneWidget);
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      },
+    );
   });
 }
