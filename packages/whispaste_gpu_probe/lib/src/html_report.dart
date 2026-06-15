@@ -1243,9 +1243,23 @@ const String _liveScript = r'''<script>
     if (!recording) startRec(); else stopRec();
   });
 
+  var busyTimer = null;
   function setBusy(txt) {
     recBtn.classList.remove('recording'); recBtn.classList.add('busy');
-    recBtn.disabled = true; stateEl.textContent = txt;
+    recBtn.disabled = true;
+    var t0 = performance.now();
+    stateEl.textContent = txt;
+    clearBusy();
+    // Live elapsed counter — GPU engines (Const-me) can take 30–60 s per run
+    // (model load + DirectCompute shader compile each time); without this the
+    // wait looks like a hang.
+    busyTimer = setInterval(function () {
+      var s = Math.round((performance.now() - t0) / 1000);
+      stateEl.textContent = txt + ' — läuft seit ' + s + ' s …';
+    }, 1000);
+  }
+  function clearBusy() {
+    if (busyTimer) { clearInterval(busyTimer); busyTimer = null; }
   }
 
   async function startRec() {
@@ -1300,12 +1314,14 @@ const String _liveScript = r'''<script>
       var data = {};
       try { data = await resp.json(); } catch (e) { data = {}; }
       if (!resp.ok) {
+        clearBusy();
         stateEl.textContent = 'Fehler: ' + (data.error || ('Server ' + resp.status));
         recBtn.classList.remove('busy'); recBtn.disabled = false;
         return;
       }
       showResult(data, audioMs, totalMs);
     } catch (e) {
+      clearBusy();
       stateEl.textContent = 'Fehler: ' + (e && e.message ? e.message : e);
       recBtn.classList.remove('busy'); recBtn.disabled = false;
     }
@@ -1324,6 +1340,7 @@ const String _liveScript = r'''<script>
     return ms < 1000 ? ms + ' ms' : (ms / 1000).toFixed(1).replace('.', ',') + ' s';
   }
   function showResult(data, audioMs, totalMs) {
+    clearBusy();
     recBtn.classList.remove('busy'); recBtn.disabled = false;
     stateEl.textContent = data.outcome === 'ok' ? 'fertig' : ('Ergebnis: ' + data.outcome);
     result.hidden = false;
