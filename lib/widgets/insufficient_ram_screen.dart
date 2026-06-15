@@ -117,6 +117,7 @@ class _AppIcon extends StatelessWidget {
       'assets/icons/app_icon.png',
       width: 80,
       height: 80,
+      excludeFromSemantics: true,
       errorBuilder: (_, e, s) => const SizedBox(
         width: 80,
         height: 80,

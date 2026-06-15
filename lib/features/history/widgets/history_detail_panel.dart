@@ -1002,33 +1002,37 @@ class _DetailTranscriptZone extends StatelessWidget {
           children: [
             Expanded(
               child: isEditing
-                  ? TextField(
-                      controller: transcriptController,
-                      focusNode: editorFocusNode,
-                      maxLines: null,
-                      autofocus: true,
-                      style: TextStyle(
-                        fontSize: 15.5,
-                        fontFamily: 'monospace',
-                        color: textPrimary,
-                        height: 1.65,
-                      ),
-                      decoration: InputDecoration(
-                        border: OutlineInputBorder(
-                          borderRadius: WpRadius.borderSm,
-                          borderSide: BorderSide(
-                            color: isDark
-                                ? WpColorsDark.borderSubtle
-                                : WpColorsLight.borderSubtle,
+                  ? Semantics(
+                      label: l10n.historyEditTranscript,
+                      textField: true,
+                      child: TextField(
+                        controller: transcriptController,
+                        focusNode: editorFocusNode,
+                        maxLines: null,
+                        autofocus: true,
+                        style: TextStyle(
+                          fontSize: 15.5,
+                          fontFamily: 'monospace',
+                          color: textPrimary,
+                          height: 1.65,
+                        ),
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(
+                            borderRadius: WpRadius.borderSm,
+                            borderSide: BorderSide(
+                              color: isDark
+                                  ? WpColorsDark.borderSubtle
+                                  : WpColorsLight.borderSubtle,
+                            ),
                           ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: WpRadius.borderSm,
+                            borderSide: BorderSide(color: accent, width: 1.5),
+                          ),
+                          contentPadding: const EdgeInsets.all(WpSpacing.sm),
                         ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: WpRadius.borderSm,
-                          borderSide: BorderSide(color: accent, width: 1.5),
-                        ),
-                        contentPadding: const EdgeInsets.all(WpSpacing.sm),
+                        onSubmitted: (_) => onSaveTranscript(),
                       ),
-                      onSubmitted: (_) => onSaveTranscript(),
                     )
                   : Tooltip(
                       message: l10n.historyEditTranscript,

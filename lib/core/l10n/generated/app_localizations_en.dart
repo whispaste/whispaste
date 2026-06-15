@@ -671,6 +671,9 @@ class L10nEn extends L10n {
   String get settingsDeepgramApiKey => 'Deepgram API Key';
 
   @override
+  String get settingsToggleApiKeyVisibility => 'Toggle API key visibility';
+
+  @override
   String get settingsAdvanced => 'Advanced';
 
   @override
@@ -1709,6 +1712,9 @@ class L10nEn extends L10n {
   String get historyAddNote => 'Add note';
 
   @override
+  String get historyEditNote => 'Edit note';
+
+  @override
   String get historyNotes => 'Notes';
 
   @override
@@ -1887,6 +1893,12 @@ class L10nEn extends L10n {
 
   @override
   String get historyRecentSearches => 'Recent searches';
+
+  @override
+  String get historyRemoveRecentSearch => 'Remove recent search';
+
+  @override
+  String get historyRemoveFilter => 'Remove filter';
 
   @override
   String get historyQuickActions => 'Quick filters';

@@ -348,6 +348,7 @@ Widget settingsApiKeyField({
             color: isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
           ),
           onPressed: onToggle,
+          tooltip: L10n.of(context).settingsToggleApiKeyVisibility,
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
         ),

@@ -230,6 +230,10 @@
   "settingsSttModels": "Speech Recognition Models",
   "settingsOpenAiApiKey": "OpenAI API Key",
   "settingsDeepgramApiKey": "Deepgram API Key",
+  "settingsToggleApiKeyVisibility": "Toggle API key visibility",
+  "@settingsToggleApiKeyVisibility": {
+    "description": "Tooltip for the show/hide button on API key input fields."
+  },
   "settingsAdvanced": "Advanced",
   "settingsResetToDefaults": "Reset to Defaults",
   "settingsResetTitle": "Reset Settings",
@@ -620,6 +624,10 @@
   "historyDuplicate": "Duplicate",
   "historyDuplicated": "Entry duplicated",
   "historyAddNote": "Add note",
+  "historyEditNote": "Edit note",
+  "@historyEditNote": {
+    "description": "Accessibility label for the note edit text field in the history detail panel."
+  },
   "historyNotes": "Notes",
   "historyNotePlaceholder": "Write a note…",
   "historyNoteAdded": "Note added",
@@ -678,6 +686,14 @@
   "historySearchHelpFreeText": "Or just type any keyword",
   "historySearchQuickTags": "Popular tags",
   "historyRecentSearches": "Recent searches",
+  "historyRemoveRecentSearch": "Remove recent search",
+  "@historyRemoveRecentSearch": {
+    "description": "Accessibility label for the button that removes a single entry from the recent searches list."
+  },
+  "historyRemoveFilter": "Remove filter",
+  "@historyRemoveFilter": {
+    "description": "Accessibility label for the button that removes an active filter chip from the history search bar."
+  },
   "historyQuickActions": "Quick filters",
   "historyQuickActionAllLangs": "All languages",
   "historyQuickActionFavorites": "Favorites only",

@@ -426,16 +426,20 @@ class _HistorySearchFilterBarState
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            GestureDetector(
-              onTap: () {
-                ref.read(recentSearchesProvider.notifier).removeSearch(query);
-                setState(() {
-                  _recentSearches = _recentSearches
-                      .where((s) => s != query)
-                      .toList();
-                });
-              },
-              child: Icon(LucideIcons.x, size: 12, color: textMuted),
+            Semantics(
+              label: L10n.of(context).historyRemoveRecentSearch,
+              button: true,
+              child: GestureDetector(
+                onTap: () {
+                  ref.read(recentSearchesProvider.notifier).removeSearch(query);
+                  setState(() {
+                    _recentSearches = _recentSearches
+                        .where((s) => s != query)
+                        .toList();
+                  });
+                },
+                child: Icon(LucideIcons.x, size: 12, color: textMuted),
+              ),
             ),
           ],
         ),
@@ -604,6 +608,7 @@ class _HistorySearchFilterBarState
                         size: WpIconSize.sm,
                         color: textMuted,
                       ),
+                      tooltip: l10n.historyClearSearch,
                       onPressed: () {
                         widget.controller.clear();
                         _clearSuggestions();
@@ -863,9 +868,13 @@ class _CommandChip extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 3),
-          GestureDetector(
-            onTap: onRemove,
-            child: Icon(LucideIcons.x, size: 11, color: accent),
+          Semantics(
+            label: L10n.of(context).historyRemoveFilter,
+            button: true,
+            child: GestureDetector(
+              onTap: onRemove,
+              child: Icon(LucideIcons.x, size: 11, color: accent),
+            ),
           ),
         ],
       ),

@@ -660,6 +660,9 @@ class L10nHe extends L10n {
   String get settingsDeepgramApiKey => 'מפתח Deepgram';
 
   @override
+  String get settingsToggleApiKeyVisibility => 'הצג/הסתר מפתח API';
+
+  @override
   String get settingsAdvanced => 'מתקדם';
 
   @override
@@ -1667,6 +1670,9 @@ class L10nHe extends L10n {
   String get historyAddNote => 'הוסף הערה';
 
   @override
+  String get historyEditNote => 'ערוך הערה';
+
+  @override
   String get historyNotes => 'הערות';
 
   @override
@@ -1845,6 +1851,12 @@ class L10nHe extends L10n {
 
   @override
   String get historyRecentSearches => 'חיפושים אחרונים';
+
+  @override
+  String get historyRemoveRecentSearch => 'הסר חיפוש אחרון';
+
+  @override
+  String get historyRemoveFilter => 'הסר מסנן';
 
   @override
   String get historyQuickActions => 'מסננים מהירים';
