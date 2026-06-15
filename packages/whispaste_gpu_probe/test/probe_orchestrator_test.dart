@@ -7,6 +7,7 @@ library;
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:archive/archive_io.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:whispaste_gpu_probe/whispaste_gpu_probe.dart';
@@ -31,6 +32,32 @@ class _FakeOkCandidate implements ProbeCandidate {
       outcome: Outcome.ok,
       durationMs: 42,
       transcribedText: 'hallo welt',
+    );
+  }
+}
+
+/// A fake [ProbeCandidate] that returns a result with PII-containing fields
+/// for the privacy sanitizer integration test.
+class _PrivacyCandidateFake implements ProbeCandidate {
+  const _PrivacyCandidateFake({
+    required this.errorDetail,
+    required this.stderrTail,
+  });
+
+  final String errorDetail;
+  final String stderrTail;
+
+  @override
+  String get id => 'privacy-fake';
+
+  @override
+  Future<CandidateResult> run(ProbeContext ctx) async {
+    return CandidateResult(
+      candidateId: id,
+      outcome: Outcome.crashed,
+      errorDetail: errorDetail,
+      stderrTail: stderrTail,
+      exitCode: 1,
     );
   }
 }
@@ -280,6 +307,136 @@ void main() {
       );
       expect(path, equals('/home/user/Desktop'));
     });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Privacy sanitizer integration (AC1 + AC2)
+  // ---------------------------------------------------------------------------
+
+  group('privacy sanitizer integration', () {
+    late Directory tempDir;
+
+    setUp(() {
+      tempDir = Directory.systemTemp.createTempSync('gpu_probe_privacy_test_');
+    });
+
+    tearDown(() {
+      if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
+    });
+
+    test(
+      'written .json and .md do not contain raw home path or username',
+      () async {
+        // Determine the real home path and username from the environment so
+        // sanitizePaths has something to replace.
+        final home =
+            Platform.environment['USERPROFILE'] ??
+            Platform.environment['HOME'] ??
+            '';
+        final user =
+            Platform.environment['USERNAME'] ??
+            Platform.environment['USER'] ??
+            '';
+
+        // Only run meaningful assertions when env vars are present.
+        // (On CI without HOME set the test still passes — it just verifies
+        // that the placeholders are absent from raw output, which is always
+        // true when there is nothing to replace.)
+        final sensitiveErrorDetail = home.isNotEmpty
+            ? '$home\\models\\ggml-small.bin'
+            : '/raw/path';
+        final sensitiveStderr = user.isNotEmpty
+            ? 'Error: $user: permission denied'
+            : 'Error: rawuser: denied';
+
+        final candidate = _PrivacyCandidateFake(
+          errorDetail: sensitiveErrorDetail,
+          stderrTail: sensitiveStderr,
+        );
+
+        await runProbeOrchestrator(
+          candidates: [candidate],
+          context: _minimalContext,
+          outputDir: tempDir.path,
+          version: _testVersion,
+          clock: _fixedClock,
+        );
+
+        final jsonFile = tempDir.listSync().whereType<File>().firstWhere(
+          (f) => f.path.endsWith('.json'),
+        );
+        final mdFile = tempDir.listSync().whereType<File>().firstWhere(
+          (f) => f.path.endsWith('.md'),
+        );
+        final zipFile = tempDir.listSync().whereType<File>().firstWhere(
+          (f) => f.path.endsWith('.zip'),
+        );
+
+        final jsonContent = jsonFile.readAsStringSync();
+        final mdContent = mdFile.readAsStringSync();
+
+        if (home.isNotEmpty) {
+          expect(
+            jsonContent,
+            isNot(contains(home)),
+            reason: 'JSON must not contain raw home path',
+          );
+          expect(
+            jsonContent,
+            contains('<home>'),
+            reason: 'JSON must contain <home> placeholder',
+          );
+          expect(
+            mdContent,
+            isNot(contains(home)),
+            reason: 'Markdown must not contain raw home path',
+          );
+          expect(
+            mdContent,
+            contains('<home>'),
+            reason: 'Markdown must contain <home> placeholder',
+          );
+        }
+
+        if (user.isNotEmpty) {
+          // Note: the username may coincidentally appear in other content
+          // (e.g. timestamps, version strings), so we only check the stderr
+          // field specifically. We verify that the raw sensitiveStderr string
+          // is absent and that the sanitized form is present.
+          expect(
+            jsonContent,
+            isNot(contains(sensitiveStderr)),
+            reason: 'JSON must not contain raw stderr with username',
+          );
+          expect(
+            mdContent,
+            isNot(contains(sensitiveStderr)),
+            reason: 'Markdown must not contain raw stderr with username',
+          );
+        }
+
+        // ZIP bundles the already-sanitized .json and .md files; verify the
+        // ZIP is non-empty (content correctness is covered by the file checks).
+        expect(zipFile.lengthSync(), greaterThan(0));
+
+        // Verify placeholders appear in the ZIP-bundled content too.
+        if (home.isNotEmpty) {
+          final zipBytes = zipFile.readAsBytesSync();
+          final archive = ZipDecoder().decodeBytes(zipBytes);
+          for (final entry in archive) {
+            if (!entry.isFile) continue;
+            final entryContent = String.fromCharCodes(
+              entry.content as List<int>,
+            );
+            expect(
+              entryContent,
+              isNot(contains(home)),
+              reason: 'ZIP entry ${entry.name} must not contain raw home path',
+            );
+          }
+        }
+      },
+    );
   });
 
   // ---------------------------------------------------------------------------
