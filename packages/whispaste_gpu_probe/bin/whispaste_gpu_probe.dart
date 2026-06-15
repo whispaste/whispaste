@@ -51,6 +51,8 @@ Future<void> main(List<String> args) async {
   String outputDir = resolveDesktopPath();
   // --no-deliver suppresses file-manager reveal + mail (used in CI).
   var skipDelivery = false;
+  // --demo renders a representative synthetic report for preview purposes.
+  var demoMode = false;
 
   for (var i = 0; i < args.length; i++) {
     if (args[i] == '--output-dir' && i + 1 < args.length) {
@@ -59,32 +61,71 @@ Future<void> main(List<String> args) async {
     if (args[i] == '--no-deliver') {
       skipDelivery = true;
     }
+    if (args[i] == '--demo') {
+      demoMode = true;
+    }
   }
 
-  // Minimal ProbeContext for the skeleton — no real WAV or model needed
-  // because the fake candidate ignores them.
-  const context = ProbeContext(
-    referenceWavPath: '',
-    modelPath: '',
-    workDir: '',
-  );
-
   try {
-    final zipPath = await runProbeOrchestrator(
-      candidates: const [_FakeOkCandidate()],
-      context: context,
-      outputDir: outputDir,
-      version: version,
-      deliveryStep: skipDelivery
-          ? null
-          : (zip) => deliverReport(zip, launcher: defaultDeliveryLauncher),
-    );
+    final String zipPath;
+
+    if (demoMode) {
+      // --demo: build a synthetic representative report without running any
+      // real engine. Useful for previewing the HTML output.
+      final demoReport = buildDemoReport();
+      final demoVersion = version == 'unbekannt' ? 'demo' : '$version-demo';
+
+      // Wrap each synthetic result in a fake candidate so the orchestrator
+      // can drive the standard pipeline (file writing, ZIP, delivery).
+      final demoCandidates = demoReport.results
+          .map<ProbeCandidate>((r) => _FixedResultCandidate(r))
+          .toList();
+
+      zipPath = await runProbeOrchestrator(
+        candidates: demoCandidates,
+        context: const ProbeContext(
+          referenceWavPath: '',
+          modelPath: '',
+          workDir: '',
+        ),
+        outputDir: outputDir,
+        version: demoVersion,
+        deliveryStep: skipDelivery
+            ? null
+            : (zip) => deliverReport(zip, launcher: defaultDeliveryLauncher),
+      );
+
+      stderr.writeln(
+        'WhisPaste-GPU-Probe (Demo-Modus): Report geschrieben nach:',
+      );
+    } else {
+      // Minimal ProbeContext for the skeleton — no real WAV or model needed
+      // because the fake candidate ignores them.
+      const context = ProbeContext(
+        referenceWavPath: '',
+        modelPath: '',
+        workDir: '',
+      );
+
+      zipPath = await runProbeOrchestrator(
+        candidates: const [_FakeOkCandidate()],
+        context: context,
+        outputDir: outputDir,
+        version: version,
+        deliveryStep: skipDelivery
+            ? null
+            : (zip) => deliverReport(zip, launcher: defaultDeliveryLauncher),
+      );
+
+      stderr.writeln('WhisPaste-GPU-Probe: Report geschrieben nach:');
+    }
 
     final jsonPath = zipPath.replaceAll(RegExp(r'\.zip$'), '.json');
     final mdPath = zipPath.replaceAll(RegExp(r'\.zip$'), '.md');
-    stderr.writeln('WhisPaste-GPU-Probe: Report geschrieben nach:');
+    final htmlPath = zipPath.replaceAll(RegExp(r'\.zip$'), '.html');
     stderr.writeln('  $jsonPath');
     stderr.writeln('  $mdPath');
+    stderr.writeln('  $htmlPath');
     stderr.writeln('  $zipPath');
     exit(0);
   } on Object catch (e, st) {
@@ -93,4 +134,20 @@ Future<void> main(List<String> args) async {
     stderr.writeln('  $st');
     exit(1);
   }
+}
+
+/// A [ProbeCandidate] that always returns a fixed pre-built [CandidateResult].
+///
+/// Used in `--demo` mode to replay synthetic results through the standard
+/// orchestrator pipeline without running any real engine.
+class _FixedResultCandidate implements ProbeCandidate {
+  const _FixedResultCandidate(this._result);
+
+  final CandidateResult _result;
+
+  @override
+  String get id => _result.candidateId;
+
+  @override
+  Future<CandidateResult> run(ProbeContext ctx) async => _result;
 }
