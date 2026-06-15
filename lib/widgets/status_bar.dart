@@ -141,6 +141,7 @@ class WpStatusBar extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // loam-ignore: a11y-interactive-semantics – semantics provided in _SttChip.build
                     _SttChip(
                       modeLabel: sttModeLabel,
                       state: sttState,
@@ -166,6 +167,7 @@ class WpStatusBar extends StatelessWidget {
                     ],
                     if (showAutoPasteOffHint) ...[
                       const SizedBox(width: WpSpacing.xs),
+                      // loam-ignore: a11y-interactive-semantics – semantics provided in _AutoPasteOffHintChip.build
                       _AutoPasteOffHintChip(
                         textStyle: textStyle,
                         isDark: isDark,
@@ -176,6 +178,7 @@ class WpStatusBar extends StatelessWidget {
                     ],
                     if (hotkeyLabel != null) ...[
                       const SizedBox(width: WpSpacing.xs),
+                      // loam-ignore: a11y-interactive-semantics – semantics provided in _StatusChip.build
                       _StatusChip(
                         icon: hotkeyEnabled
                             ? LucideIcons.keyboard
@@ -190,6 +193,7 @@ class WpStatusBar extends StatelessWidget {
                     ],
                     if (updateVersion != null) ...[
                       const SizedBox(width: WpSpacing.xs),
+                      // loam-ignore: a11y-interactive-semantics – semantics provided in _StatusChip.build
                       _StatusChip(
                         icon: LucideIcons.download,
                         label: l10n.updateStatusBarChip(updateVersion!),
@@ -289,52 +293,56 @@ class _SttChipState extends State<_SttChip> {
     final (Color dotColor, String stateLabel, bool showSpinner) =
         _resolveDisplay();
 
-    return Tooltip(
-      message: widget.l10n.statusBarSttTooltip,
-      child: InkWell(
-        onTap: widget.onTap,
-        borderRadius: WpRadius.borderFull,
-        mouseCursor: widget.onTap != null
-            ? SystemMouseCursors.click
-            : SystemMouseCursors.basic,
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: WpSpacing.sm,
-            vertical: WpSpacing.xxs,
-          ),
-          decoration: BoxDecoration(
-            color: widget.isDark
-                ? WpColorsDark.surface.withValues(alpha: 0.5)
-                : WpColorsLight.surfaceVariant,
-            borderRadius: WpRadius.borderFull,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (showSpinner)
-                SizedBox(
-                  width: 8,
-                  height: 8,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 1.5,
-                    color: dotColor,
+    return Semantics(
+      label: widget.l10n.statusBarSttTooltip,
+      button: true,
+      child: Tooltip(
+        message: widget.l10n.statusBarSttTooltip,
+        child: InkWell(
+          onTap: widget.onTap,
+          borderRadius: WpRadius.borderFull,
+          mouseCursor: widget.onTap != null
+              ? SystemMouseCursors.click
+              : SystemMouseCursors.basic,
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: WpSpacing.sm,
+              vertical: WpSpacing.xxs,
+            ),
+            decoration: BoxDecoration(
+              color: widget.isDark
+                  ? WpColorsDark.surface.withValues(alpha: 0.5)
+                  : WpColorsLight.surfaceVariant,
+              borderRadius: WpRadius.borderFull,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (showSpinner)
+                  SizedBox(
+                    width: 8,
+                    height: 8,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 1.5,
+                      color: dotColor,
+                    ),
+                  )
+                else
+                  Container(
+                    width: 7,
+                    height: 7,
+                    decoration: BoxDecoration(
+                      color: dotColor,
+                      shape: BoxShape.circle,
+                    ),
                   ),
-                )
-              else
-                Container(
-                  width: 7,
-                  height: 7,
-                  decoration: BoxDecoration(
-                    color: dotColor,
-                    shape: BoxShape.circle,
-                  ),
+                const SizedBox(width: 6),
+                Text(
+                  '${widget.modeLabel} — $stateLabel',
+                  style: widget.textStyle,
                 ),
-              const SizedBox(width: 6),
-              Text(
-                '${widget.modeLabel} — $stateLabel',
-                style: widget.textStyle,
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -433,34 +441,38 @@ class _StatusChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
-    final chip = Opacity(
-      opacity: dimmed ? 0.5 : 1.0,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: WpRadius.borderFull,
-        mouseCursor: onTap != null
-            ? SystemMouseCursors.click
-            : SystemMouseCursors.basic,
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: WpSpacing.sm,
-            vertical: WpSpacing.xxs,
-          ),
-          decoration: BoxDecoration(
-            color: isDark
-                ? WpColorsDark.surface.withValues(alpha: 0.5)
-                : WpColorsLight.surfaceVariant,
-            borderRadius: WpRadius.borderFull,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (icon != null) ...[
-                Icon(icon, size: WpIconSize.xs, color: cs.secondary),
-                const SizedBox(width: WpSpacing.xxs),
+    final chip = Semantics(
+      label: tooltip ?? label,
+      button: true,
+      child: Opacity(
+        opacity: dimmed ? 0.5 : 1.0,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: WpRadius.borderFull,
+          mouseCursor: onTap != null
+              ? SystemMouseCursors.click
+              : SystemMouseCursors.basic,
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: WpSpacing.sm,
+              vertical: WpSpacing.xxs,
+            ),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? WpColorsDark.surface.withValues(alpha: 0.5)
+                  : WpColorsLight.surfaceVariant,
+              borderRadius: WpRadius.borderFull,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (icon != null) ...[
+                  Icon(icon, size: WpIconSize.xs, color: cs.secondary),
+                  const SizedBox(width: WpSpacing.xxs),
+                ],
+                Text(label, style: textStyle),
               ],
-              Text(label, style: textStyle),
-            ],
+            ),
           ),
         ),
       ),
@@ -601,64 +613,67 @@ class _AutoPasteOffHintChip extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
 
-    return Tooltip(
-      message: l10n.statusBarAutoPasteOffHintTooltip,
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: WpSpacing.sm,
-          vertical: WpSpacing.xxs,
-        ),
-        decoration: BoxDecoration(
-          color: isDark
-              ? WpColorsDark.surface.withValues(alpha: 0.5)
-              : WpColorsLight.surfaceVariant,
-          borderRadius: WpRadius.borderFull,
-          border: Border.all(color: accent.withValues(alpha: 0.4)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            InkWell(
-              onTap: onTap,
-              borderRadius: WpRadius.borderFull,
-              mouseCursor: onTap != null
-                  ? SystemMouseCursors.click
-                  : SystemMouseCursors.basic,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    LucideIcons.clipboardX,
-                    size: WpIconSize.xs,
-                    color: accent,
-                  ),
-                  const SizedBox(width: WpSpacing.xxs),
-                  Text(l10n.statusBarAutoPasteOffHint, style: textStyle),
-                ],
-              ),
-            ),
-            const SizedBox(width: WpSpacing.xs),
-            Tooltip(
-              message: l10n.statusBarAutoPasteOffHintDismiss,
-              child: InkWell(
-                onTap: onDismiss,
+    return Semantics(
+      label: l10n.statusBarAutoPasteOffHintTooltip,
+      child: Tooltip(
+        message: l10n.statusBarAutoPasteOffHintTooltip,
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: WpSpacing.sm,
+            vertical: WpSpacing.xxs,
+          ),
+          decoration: BoxDecoration(
+            color: isDark
+                ? WpColorsDark.surface.withValues(alpha: 0.5)
+                : WpColorsLight.surfaceVariant,
+            borderRadius: WpRadius.borderFull,
+            border: Border.all(color: accent.withValues(alpha: 0.4)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              InkWell(
+                onTap: onTap,
                 borderRadius: WpRadius.borderFull,
-                mouseCursor: onDismiss != null
+                mouseCursor: onTap != null
                     ? SystemMouseCursors.click
                     : SystemMouseCursors.basic,
-                child: SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: Icon(
-                    LucideIcons.x,
-                    size: WpIconSize.xs,
-                    color: cs.onSurface.withValues(alpha: 0.6),
-                    semanticLabel: l10n.statusBarAutoPasteOffHintDismiss,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      LucideIcons.clipboardX,
+                      size: WpIconSize.xs,
+                      color: accent,
+                    ),
+                    const SizedBox(width: WpSpacing.xxs),
+                    Text(l10n.statusBarAutoPasteOffHint, style: textStyle),
+                  ],
+                ),
+              ),
+              const SizedBox(width: WpSpacing.xs),
+              Tooltip(
+                message: l10n.statusBarAutoPasteOffHintDismiss,
+                child: InkWell(
+                  onTap: onDismiss,
+                  borderRadius: WpRadius.borderFull,
+                  mouseCursor: onDismiss != null
+                      ? SystemMouseCursors.click
+                      : SystemMouseCursors.basic,
+                  child: SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: Icon(
+                      LucideIcons.x,
+                      size: WpIconSize.xs,
+                      color: cs.onSurface.withValues(alpha: 0.6),
+                      semanticLabel: l10n.statusBarAutoPasteOffHintDismiss,
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

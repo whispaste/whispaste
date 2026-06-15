@@ -251,6 +251,7 @@ class _ExportFormatPickerDialogState extends State<_ExportFormatPickerDialog> {
                   ),
                   const SizedBox(height: WpSpacing.sm),
                   for (var i = 0; i < _orderedFormats.length; i++)
+                    // loam-ignore: a11y-interactive-semantics – semantics provided in _FormatOption.build
                     _FormatOption(
                       format: _orderedFormats[i],
                       label: _labelFor(_orderedFormats[i], l10n),
@@ -304,38 +305,46 @@ class _FormatOption extends StatelessWidget {
 
     final mutedText = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: WpSpacing.xxs / 2),
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) => onHover(),
-        child: InkWell(
-          borderRadius: WpRadius.borderMd,
-          onTap: onTap,
-          child: AnimatedContainer(
-            duration: WpMotion.hoverOut,
-            padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.md,
-              vertical: WpSpacing.sm,
-            ),
-            decoration: BoxDecoration(
-              color: highlighted ? highlightColor : Colors.transparent,
-              borderRadius: WpRadius.borderMd,
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  icon,
-                  size: WpIconSize.lg,
-                  color: theme.colorScheme.primary,
-                ),
-                const SizedBox(width: WpSpacing.md),
-                Expanded(child: Text(label, style: theme.textTheme.bodyLarge)),
-                Text(
-                  extension,
-                  style: theme.textTheme.bodyMedium?.copyWith(color: mutedText),
-                ),
-              ],
+    return Semantics(
+      label: label,
+      button: true,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: WpSpacing.xxs / 2),
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          onEnter: (_) => onHover(),
+          child: InkWell(
+            borderRadius: WpRadius.borderMd,
+            onTap: onTap,
+            child: AnimatedContainer(
+              duration: WpMotion.hoverOut,
+              padding: const EdgeInsets.symmetric(
+                horizontal: WpSpacing.md,
+                vertical: WpSpacing.sm,
+              ),
+              decoration: BoxDecoration(
+                color: highlighted ? highlightColor : Colors.transparent,
+                borderRadius: WpRadius.borderMd,
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    icon,
+                    size: WpIconSize.lg,
+                    color: theme.colorScheme.primary,
+                  ),
+                  const SizedBox(width: WpSpacing.md),
+                  Expanded(
+                    child: Text(label, style: theme.textTheme.bodyLarge),
+                  ),
+                  Text(
+                    extension,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: mutedText,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

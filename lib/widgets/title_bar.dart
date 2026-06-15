@@ -45,16 +45,20 @@ class WpTitleBar extends StatelessWidget {
             ...actions,
             if (actions.isNotEmpty) const SizedBox(width: WpSpacing.sm),
             // Window controls — all subtle gray, no red close
+            // loam-ignore: a11y-interactive-semantics – semantics provided in _WindowButton.build
             _WindowButton(
               icon: LucideIcons.minus,
               onPressed: () => windowManager.minimize(),
               isDark: isDark,
+              semanticLabel: 'Minimize window',
             ),
             _MaximizeButton(isDark: isDark),
+            // loam-ignore: a11y-interactive-semantics – semantics provided in _WindowButton.build
             _WindowButton(
               icon: LucideIcons.x,
               onPressed: () => windowManager.close(),
               isDark: isDark,
+              semanticLabel: 'Close window',
             ),
           ],
         ),
@@ -69,11 +73,13 @@ class _WindowButton extends StatefulWidget {
     required this.icon,
     required this.onPressed,
     required this.isDark,
+    required this.semanticLabel,
   });
 
   final IconData icon;
   final VoidCallback onPressed;
   final bool isDark;
+  final String semanticLabel;
 
   @override
   State<_WindowButton> createState() => _WindowButtonState();
@@ -92,30 +98,34 @@ class _WindowButtonState extends State<_WindowButton> {
         ? WpColorsDark.textSecondary
         : WpColorsLight.textSecondary;
 
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: GestureDetector(
-        onTap: widget.onPressed,
-        child: AnimatedContainer(
-          duration: WpMotion.hoverIn,
-          curve: WpMotion.defaultCurve,
-          width: 40,
-          height: 32,
-          decoration: BoxDecoration(
-            color: _isHovered
-                ? hoverBg
-                : (widget.isDark
-                      ? WpColorsDark.hoverTransparent
-                      : WpColorsLight.hoverTransparent),
-            borderRadius: BorderRadius.circular(WpRadius.sm),
-          ),
-          alignment: Alignment.center,
-          child: Icon(
-            widget.icon,
-            size: 15,
-            color: _isHovered ? hoverFg : mutedColor,
+    return Semantics(
+      label: widget.semanticLabel,
+      button: true,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: GestureDetector(
+          onTap: widget.onPressed,
+          child: AnimatedContainer(
+            duration: WpMotion.hoverIn,
+            curve: WpMotion.defaultCurve,
+            width: 40,
+            height: 32,
+            decoration: BoxDecoration(
+              color: _isHovered
+                  ? hoverBg
+                  : (widget.isDark
+                        ? WpColorsDark.hoverTransparent
+                        : WpColorsLight.hoverTransparent),
+              borderRadius: BorderRadius.circular(WpRadius.sm),
+            ),
+            alignment: Alignment.center,
+            child: Icon(
+              widget.icon,
+              size: 15,
+              color: _isHovered ? hoverFg : mutedColor,
+            ),
           ),
         ),
       ),

@@ -331,6 +331,7 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
                               ref.read(activePageProvider.notifier).setPage(id);
                             },
                             bottomItems: [
+                              // loam-ignore: a11y-interactive-semantics – semantics provided in WpSidebarSettingsButton.build
                               WpSidebarSettingsButton(
                                 isActive: activePage == 'settings',
                                 onTap: () => ref

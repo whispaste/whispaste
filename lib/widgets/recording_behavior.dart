@@ -363,6 +363,7 @@ class _RecordingBehaviorState extends ConsumerState<RecordingBehaviorWidget> {
           ? const Duration(seconds: 6)
           : const Duration(seconds: 4),
       action: needsSettingsAction
+          // loam-ignore: a11y-interactive-semantics – WpToastAction is a data class; label is the button text
           ? WpToastAction(
               label: l10n.pasteFailureOpenSettings,
               onPressed: () => _openSettings('stt'),
@@ -510,6 +511,7 @@ void showRecoveryToast({
         message: l10n.recoveryExhaustedToast,
         type: WpToastType.error,
         duration: const Duration(seconds: 8),
+        // loam-ignore: a11y-interactive-semantics – WpToastAction is a data class; label is the button text
         action: WpToastAction(
           label: l10n.recoveryExhaustedAction,
           onPressed: () => openSettings('advanced'),
@@ -521,6 +523,7 @@ void showRecoveryToast({
         message: l10n.recoveryVcRuntimeToast,
         type: WpToastType.error,
         duration: const Duration(seconds: 10),
+        // loam-ignore: a11y-interactive-semantics – WpToastAction is a data class; label is the button text
         action: WpToastAction(
           label: l10n.recoveryVcRuntimeAction,
           onPressed: installVcRuntime ?? _openVcRuntimeDownload,

@@ -90,53 +90,57 @@ class _SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: WpRadius.borderSm,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: WpSpacing.xxs),
-        child: Row(
-          children: [
-            // Accent bar — warm gradient vertical line
-            Container(
-              width: 3,
-              height: 18,
-              margin: const EdgeInsets.only(right: WpSpacing.sm),
-              decoration: BoxDecoration(
-                gradient: isDark
-                    ? WpColorsDark.accentWarmGradient
-                    : WpColorsLight.accentWarmGradient,
-                borderRadius: WpRadius.borderFull,
-              ),
-            ),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: headerStyle),
-                  if (subtitle != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Text(
-                        subtitle!,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            ?trailing,
-            if (isExpanded != null)
-              AnimatedRotation(
-                turns: isExpanded! ? 0.5 : 0,
-                duration: WpMotion.normal,
-                child: Icon(
-                  LucideIcons.chevronDown,
-                  color: colorScheme.secondary,
-                  size: WpIconSize.sm,
+    return Semantics(
+      label: title,
+      button: onTap != null,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: WpRadius.borderSm,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: WpSpacing.xxs),
+          child: Row(
+            children: [
+              // Accent bar — warm gradient vertical line
+              Container(
+                width: 3,
+                height: 18,
+                margin: const EdgeInsets.only(right: WpSpacing.sm),
+                decoration: BoxDecoration(
+                  gradient: isDark
+                      ? WpColorsDark.accentWarmGradient
+                      : WpColorsLight.accentWarmGradient,
+                  borderRadius: WpRadius.borderFull,
                 ),
               ),
-          ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: headerStyle),
+                    if (subtitle != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          subtitle!,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              ?trailing,
+              if (isExpanded != null)
+                AnimatedRotation(
+                  turns: isExpanded! ? 0.5 : 0,
+                  duration: WpMotion.normal,
+                  child: Icon(
+                    LucideIcons.chevronDown,
+                    color: colorScheme.secondary,
+                    size: WpIconSize.sm,
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -210,6 +214,7 @@ class _CollapsibleSectionState extends State<_CollapsibleSection>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // loam-ignore: a11y-interactive-semantics – semantics provided in _SectionHeader.build
           _SectionHeader(
             title: widget.title,
             subtitle: widget.subtitle,
