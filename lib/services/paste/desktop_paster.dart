@@ -23,8 +23,9 @@ class DesktopPaster implements Paster {
   Future<void> prime() async {
     try {
       await _controller.capturePasteTarget();
-    } on MissingPluginException {
+    } on MissingPluginException catch (e) {
       // Not available in test environments — silently degrade.
+      _log.debug('capturePasteTarget unavailable (MissingPlugin)', e);
     }
   }
 
@@ -71,8 +72,12 @@ class DesktopPaster implements Paster {
             return PasteOutcome.blocked;
           }
         }
-      } on MissingPluginException {
+      } on MissingPluginException catch (e) {
         // Bundle ID lookup unsupported — skip blocklist.
+        _log.debug(
+          'getTargetBundleId unavailable (MissingPlugin) — blocklist skipped',
+          e,
+        );
       }
     }
 
@@ -83,8 +88,12 @@ class DesktopPaster implements Paster {
         Clipboard.kTextPlain,
       ).timeout(const Duration(seconds: 2));
       previousClipboard = data?.text;
-    } on Exception {
+    } on Exception catch (e) {
       // Best-effort snapshot; failure here is non-fatal.
+      _log.debug(
+        'Clipboard read before paste failed — proceeding without restore',
+        e,
+      );
     }
 
     // 3. Write transcript to clipboard.
@@ -136,8 +145,9 @@ class DesktopPaster implements Paster {
       await Clipboard.setData(
         ClipboardData(text: previousClipboard ?? ''),
       ).timeout(const Duration(seconds: 5));
-    } on Exception {
+    } on Exception catch (e) {
       // Non-fatal — clipboard restore is best-effort.
+      _log.debug('Clipboard restore after paste failed', e);
     }
 
     return PasteOutcome.success;

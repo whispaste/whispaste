@@ -18,10 +18,13 @@ import 'package:sentry_drift/sentry_drift.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import '../../services/path_service.dart' as paths;
 
+import '../logging/app_logger.dart';
 import 'sqlite_write_coordinator.dart';
 import 'tables.dart';
 
 part 'database.g.dart';
+
+final _log = AppLogger('HistoryDatabase');
 
 @DriftDatabase(
   tables: [
@@ -582,8 +585,13 @@ class HistoryDatabase extends _$HistoryDatabase {
 
       debugPrint('[Migration] Migrating JSON tags → Tags/EntryTags tables');
       await _migrateJsonTags();
-    } catch (_) {
+    } catch (e, st) {
       // Tables may not exist yet during initial creation — skip.
+      _log.debug(
+        '_migrateJsonTagsIfNeeded skipped (tables not yet ready)',
+        e,
+        st,
+      );
     }
   }
 
@@ -598,8 +606,13 @@ class HistoryDatabase extends _$HistoryDatabase {
         'CREATE INDEX IF NOT EXISTS idx_entry_tags_tag_id '
         'ON entry_tags(tag_id)',
       );
-    } catch (_) {
+    } catch (e, st) {
       // Table may not exist yet during initial creation — skip.
+      _log.debug(
+        '_ensureEntryTagIndexes skipped (tables not yet ready)',
+        e,
+        st,
+      );
     }
   }
 
@@ -1781,7 +1794,13 @@ Future<void> _migrateFromNestedPath(String correctDir) async {
     // Remove old nested directory (best-effort).
     try {
       await Directory(p.join(correctDir, 'WhisPaste')).delete(recursive: true);
-    } catch (_) {}
+    } catch (e, st) {
+      _log.debug(
+        'Failed to remove nested WhisPaste directory after migration',
+        e,
+        st,
+      );
+    }
 
     debugPrint('DB migrated from nested WhisPaste/WhisPaste/ path');
   } catch (e) {

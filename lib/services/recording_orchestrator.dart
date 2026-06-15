@@ -1401,7 +1401,9 @@ class RecordingOrchestrator extends Notifier<void> {
     unawaited(ref.read(systemAttentionServiceProvider).clearAttention());
     try {
       ref.read(trayServiceProvider.notifier).clearActionNeeded();
-    } on Exception catch (_) {}
+    } on Exception catch (e) {
+      _log.debug('clearActionNeeded failed', e);
+    }
   }
 }
 

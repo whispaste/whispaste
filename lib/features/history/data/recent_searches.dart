@@ -8,6 +8,10 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/logging/app_logger.dart';
+
+final _log = AppLogger('RecentSearches');
+
 const _kPrefKey = 'recent_searches';
 const _kMaxEntries = 5;
 
@@ -26,8 +30,9 @@ class RecentSearchesNotifier extends Notifier<List<String>> {
     try {
       final list = (jsonDecode(raw) as List).cast<String>();
       state = list.take(_kMaxEntries).toList();
-    } catch (_) {
+    } catch (e, st) {
       // Corrupted data — reset silently.
+      _log.warning('Failed to parse recent searches — resetting', e, st);
     }
   }
 

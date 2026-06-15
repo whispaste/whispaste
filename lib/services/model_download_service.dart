@@ -357,8 +357,9 @@ ModelDownloadState _scanExistingModels() {
   if (!dir.existsSync()) {
     try {
       dir.createSync(recursive: true);
-    } on FileSystemException {
+    } on FileSystemException catch (e) {
       // Best-effort — will fail later with a clear error.
+      _log.warning('Failed to create STT directory', e);
     }
   }
   if (dir.existsSync()) {

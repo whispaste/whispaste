@@ -2,6 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/services.dart';
 
+import '../core/logging/app_logger.dart';
+
+final _log = AppLogger('MethodChannelPlatformHost');
+
 /// Generic base class for native floating-surface platform controllers.
 ///
 /// Owns the shared method-channel plumbing used by the four floating-surface
@@ -80,8 +84,9 @@ abstract class MethodChannelPlatformHost<E> {
     _channel.setMethodCallHandler(null);
     try {
       await _channel.invokeMethod<void>('destroy');
-    } on MissingPluginException {
+    } on MissingPluginException catch (e) {
       // Expected in test environments where no native handler is registered.
+      _log.debug('destroy channel unavailable (MissingPlugin)', e);
     }
     await _eventController.close();
   }

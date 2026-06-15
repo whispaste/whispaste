@@ -1,6 +1,9 @@
 import 'package:flutter/services.dart';
 
+import '../../core/logging/app_logger.dart';
 import 'desktop_paste_controller_interface.dart';
+
+final _log = AppLogger('WindowsDesktopPasteController');
 
 /// Windows bridge for desktop auto-paste.
 class WindowsDesktopPasteController extends DesktopPasteController {
@@ -90,8 +93,9 @@ class WindowsDesktopPasteController extends DesktopPasteController {
     _disposed = true;
     try {
       await _channel.invokeMethod<void>('destroy');
-    } on MissingPluginException {
+    } on MissingPluginException catch (e) {
       // Expected in test environments without the native runner bridge.
+      _log.debug('destroy channel unavailable (MissingPlugin)', e);
     }
   }
 }

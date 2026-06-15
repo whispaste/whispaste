@@ -8,6 +8,10 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 
+import '../logging/app_logger.dart';
+
+final _log = AppLogger('MacOSLifecycleChannel');
+
 /// Controls macOS NSApplication activation policy from Dart.
 ///
 /// Call [setRegular] when restoring the main window (dock icon visible).
@@ -22,8 +26,9 @@ class MacOSLifecycleChannel {
     if (!Platform.isMacOS) return;
     try {
       await _channel.invokeMethod('setActivationPolicy', {'policy': 'regular'});
-    } on PlatformException {
-      // Silently ignore — non-critical UX enhancement.
+    } on PlatformException catch (e) {
+      // Non-critical UX enhancement.
+      _log.debug('setActivationPolicy(regular) failed', e);
     }
   }
 
@@ -34,8 +39,9 @@ class MacOSLifecycleChannel {
       await _channel.invokeMethod('setActivationPolicy', {
         'policy': 'accessory',
       });
-    } on PlatformException {
-      // Silently ignore — non-critical UX enhancement.
+    } on PlatformException catch (e) {
+      // Non-critical UX enhancement.
+      _log.debug('setActivationPolicy(accessory) failed', e);
     }
   }
 
@@ -53,7 +59,8 @@ class MacOSLifecycleChannel {
         'level': critical ? 'critical' : 'informational',
       });
       return token;
-    } on PlatformException {
+    } on PlatformException catch (e) {
+      _log.debug('requestUserAttention failed', e);
       return null;
     }
   }
@@ -65,8 +72,9 @@ class MacOSLifecycleChannel {
       await _channel.invokeMethod('cancelUserAttentionRequest', {
         'token': token,
       });
-    } on PlatformException {
+    } on PlatformException catch (e) {
       // Best-effort cancel.
+      _log.debug('cancelUserAttention($token) failed', e);
     }
   }
 
@@ -82,9 +90,10 @@ class MacOSLifecycleChannel {
     if (!Platform.isMacOS) return;
     try {
       await _channel.invokeMethod('restart');
-    } on PlatformException {
+    } on PlatformException catch (e) {
       // Best-effort — if the relaunch helper failed to spawn, the user
       // still has the option to quit WhisPaste manually.
+      _log.warning('App restart via platform channel failed', e);
     }
   }
 }
