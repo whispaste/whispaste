@@ -125,7 +125,16 @@ List<ProbeEngine> defaultEngineRegistry({
         id: 'const-me-directcompute',
         binaryName: sub('const-me', 'main'),
         modelSizeKey: 'whisper-small',
-        cpuFeatures: const {},
+        // Const-me needs AVX1 + F16C (hybrid also FMA3 + BMI1). The live bench
+        // is an explicit user choice, so assume the common modern x64 baseline
+        // rather than pre-skipping; if the CPU truly lacks them, Const-me fails
+        // and the outcome classifier records it. (Sandy/Ivy/Haswell-Bridge+.)
+        cpuFeatures: const {
+          cpuFeatureAvx,
+          cpuFeatureF16c,
+          cpuFeatureFma3,
+          cpuFeatureBmi1,
+        },
         runner: runner,
       ),
     ),
