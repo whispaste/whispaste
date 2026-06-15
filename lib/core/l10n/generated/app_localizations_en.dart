@@ -2198,6 +2198,12 @@ class L10nEn extends L10n {
   String get floatingButtonQuit => 'Quit';
 
   @override
+  String get a11yRecordingButton => 'Recording button';
+
+  @override
+  String get a11yRecordingOverlay => 'Recording overlay';
+
+  @override
   String get trayStatusRecording => 'Recording…';
 
   @override

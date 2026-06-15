@@ -730,6 +730,8 @@
   "overlayProcessingCloud": "Cloud",
   "floatingButtonHide": "Ausblenden",
   "floatingButtonQuit": "Beenden",
+  "a11yRecordingButton": "Aufnahmeknopf",
+  "a11yRecordingOverlay": "Aufnahme-Overlay",
   "trayStatusRecording": "Aufnahme…",
   "trayStatusReady": "Bereit",
   "trayStartRecording": "Aufnahme starten",

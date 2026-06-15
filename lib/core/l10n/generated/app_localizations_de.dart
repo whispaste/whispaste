@@ -2215,6 +2215,12 @@ class L10nDe extends L10n {
   String get floatingButtonQuit => 'Beenden';
 
   @override
+  String get a11yRecordingButton => 'Aufnahmeknopf';
+
+  @override
+  String get a11yRecordingOverlay => 'Aufnahme-Overlay';
+
+  @override
   String get trayStatusRecording => 'Aufnahme…';
 
   @override

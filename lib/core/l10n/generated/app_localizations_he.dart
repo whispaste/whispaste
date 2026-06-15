@@ -2151,6 +2151,12 @@ class L10nHe extends L10n {
   String get floatingButtonQuit => 'צא';
 
   @override
+  String get a11yRecordingButton => 'כפתור הקלטה';
+
+  @override
+  String get a11yRecordingOverlay => 'שכבת הקלטה';
+
+  @override
   String get trayStatusRecording => 'מקליט…';
 
   @override

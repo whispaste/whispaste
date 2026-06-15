@@ -764,6 +764,8 @@
   "overlayProcessingCloud": "ענן",
   "floatingButtonHide": "הסתר",
   "floatingButtonQuit": "צא",
+  "a11yRecordingButton": "כפתור הקלטה",
+  "a11yRecordingOverlay": "שכבת הקלטה",
   "trayStatusRecording": "מקליט…",
   "trayStatusReady": "מוכן",
   "trayStartRecording": "התחל הקלטה",

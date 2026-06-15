@@ -143,6 +143,7 @@ class _ModelStepState extends ConsumerState<ModelStep> {
           )
         else ...[
           // Recommended tier card (always visible)
+          // loam-ignore: a11y-interactive-semantics – semantics provided in _TierCardState.build
           _TierCard(
             tier: selectedTier,
             isRecommended:
@@ -208,6 +209,7 @@ class _ModelStepState extends ConsumerState<ModelStep> {
         const SizedBox(height: WpSpacing.xxs),
 
         // Cloud option
+        // loam-ignore: a11y-interactive-semantics – semantics provided in _ModelStepCloudOption.build
         _ModelStepCloudOption(
           accent: accent,
           label: l10n.onboardingModelUseCloud,
@@ -228,6 +230,7 @@ class _ModelStepState extends ConsumerState<ModelStep> {
             const Spacer(),
             SizedBox(
               width: 140,
+              // loam-ignore: a11y-interactive-semantics – semantics provided in WpAccentButton.build
               child: WpAccentButton(
                 key: kModelStepNextButtonKey,
                 label: l10n.onboardingNext,
@@ -308,6 +311,7 @@ class _ModelStepDownloadStatus extends StatelessWidget {
         ],
       );
     }
+    // loam-ignore: a11y-interactive-semantics – semantics provided in WpAccentButton.build
     return SizedBox(
       width: double.infinity,
       child: WpAccentButton(
@@ -458,6 +462,7 @@ class _ModelStepAlternatives extends StatelessWidget {
                             padding: const EdgeInsets.only(
                               bottom: WpSpacing.xs,
                             ),
+                            // loam-ignore: a11y-interactive-semantics – semantics provided in _TierCardState.build
                             child: _TierCard(
                               tier: tier,
                               isRecommended: tier == recommendedTier,
@@ -498,24 +503,28 @@ class _ModelStepCloudOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: WpRadius.borderSm,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: WpSpacing.sm,
-            vertical: WpSpacing.xs,
-          ),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 12,
-              color: accent,
-              decoration: TextDecoration.underline,
-              decorationColor: accent,
+    return Semantics(
+      button: true,
+      label: label,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: WpRadius.borderSm,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: WpSpacing.sm,
+              vertical: WpSpacing.xs,
+            ),
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                color: accent,
+                decoration: TextDecoration.underline,
+                decorationColor: accent,
+              ),
             ),
           ),
         ),
@@ -619,106 +628,115 @@ class _TierCardState extends State<_TierCard> {
     final subtitleColor = textSecondary;
     final iconColor = accent;
 
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      cursor: isTappable ? SystemMouseCursors.click : SystemMouseCursors.basic,
-      child: GestureDetector(
-        onTap: isTappable ? widget.onTap : null,
-        child: AnimatedContainer(
-          duration: WpMotion.fast,
-          curve: WpMotion.defaultCurve,
-          padding: const EdgeInsets.all(WpSpacing.md),
-          decoration: BoxDecoration(
-            color: widget.isSelected
-                ? accent.withValues(alpha: 0.08)
-                : _hovered
-                ? accent.withValues(alpha: 0.05)
-                : surface.withValues(alpha: 0.5),
-            border: Border.all(
-              color: borderColor,
-              width: widget.isSelected ? 1.5 : 1,
+    return Semantics(
+      button: isTappable,
+      label: isTappable ? _tierLabel(widget.l10n) : null,
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        cursor: isTappable
+            ? SystemMouseCursors.click
+            : SystemMouseCursors.basic,
+        child: GestureDetector(
+          onTap: isTappable ? widget.onTap : null,
+          child: AnimatedContainer(
+            duration: WpMotion.fast,
+            curve: WpMotion.defaultCurve,
+            padding: const EdgeInsets.all(WpSpacing.md),
+            decoration: BoxDecoration(
+              color: widget.isSelected
+                  ? accent.withValues(alpha: 0.08)
+                  : _hovered
+                  ? accent.withValues(alpha: 0.05)
+                  : surface.withValues(alpha: 0.5),
+              border: Border.all(
+                color: borderColor,
+                width: widget.isSelected ? 1.5 : 1,
+              ),
+              borderRadius: WpRadius.borderMd,
             ),
-            borderRadius: WpRadius.borderMd,
-          ),
-          child: Row(
-            children: [
-              Icon(_tierIcon, size: 22, color: iconColor),
-              const SizedBox(width: WpSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          _tierLabel(widget.l10n),
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: textColor,
-                          ),
-                        ),
-                        if (widget.isRecommended) ...[
-                          const SizedBox(width: WpSpacing.xs),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: accent.withValues(alpha: 0.15),
-                              borderRadius: WpRadius.borderFull,
-                            ),
-                            child: Text(
-                              widget.l10n.qualityTierRecommended,
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                                color: accent,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      _tierDesc(widget.l10n),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: subtitleColor,
-                        height: 1.3,
-                      ),
-                    ),
-                    if (infoMessage != null) ...[
-                      const SizedBox(height: 4),
+            child: Row(
+              children: [
+                Icon(_tierIcon, size: 22, color: iconColor),
+                const SizedBox(width: WpSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Row(
                         children: [
-                          Icon(infoIcon, size: 12, color: infoColor),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              infoMessage,
-                              style: TextStyle(fontSize: 11, color: infoColor),
+                          Text(
+                            _tierLabel(widget.l10n),
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: textColor,
                             ),
                           ),
+                          if (widget.isRecommended) ...[
+                            const SizedBox(width: WpSpacing.xs),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: accent.withValues(alpha: 0.15),
+                                borderRadius: WpRadius.borderFull,
+                              ),
+                              child: Text(
+                                widget.l10n.qualityTierRecommended,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: accent,
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _tierDesc(widget.l10n),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: subtitleColor,
+                          height: 1.3,
+                        ),
+                      ),
+                      if (infoMessage != null) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(infoIcon, size: 12, color: infoColor),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                infoMessage,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: infoColor,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: WpSpacing.sm),
-              Text(
-                tierSizeLabel(widget.tier),
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: subtitleColor,
+                const SizedBox(width: WpSpacing.sm),
+                Text(
+                  tierSizeLabel(widget.tier),
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: subtitleColor,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

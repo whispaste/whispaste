@@ -784,6 +784,14 @@
   "overlayProcessingCloud": "Cloud",
   "floatingButtonHide": "Hide",
   "floatingButtonQuit": "Quit",
+  "a11yRecordingButton": "Recording button",
+  "@a11yRecordingButton": {
+    "description": "Accessibility label for the floating recording button (screen readers)"
+  },
+  "a11yRecordingOverlay": "Recording overlay",
+  "@a11yRecordingOverlay": {
+    "description": "Accessibility label for the floating recording overlay (screen readers)"
+  },
   "trayStatusRecording": "Recording…",
   "trayStatusReady": "Ready",
   "trayStartRecording": "Start Recording",

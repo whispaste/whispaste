@@ -411,6 +411,7 @@ class _MacOsBody extends StatelessWidget {
             const Spacer(),
             SizedBox(
               width: 140,
+              // loam-ignore: a11y-interactive-semantics – semantics provided in WpAccentButton.build
               child: WpAccentButton(
                 label: l10n.onboardingNext,
                 gradient: accentGradient,
@@ -468,6 +469,7 @@ class _MacOsBody extends StatelessWidget {
         return [
           SizedBox(
             width: double.infinity,
+            // loam-ignore: a11y-interactive-semantics – semantics provided in WpAccentButton.build
             child: WpAccentButton(
               label: l10n.onboardingPasteGrantCta,
               gradient: accentGradient,
@@ -697,6 +699,7 @@ class _WindowsBody extends StatelessWidget {
             const Spacer(),
             SizedBox(
               width: 140,
+              // loam-ignore: a11y-interactive-semantics – semantics provided in WpAccentButton.build
               child: WpAccentButton(
                 label: l10n.onboardingNext,
                 gradient: accentGradient,
