@@ -145,6 +145,7 @@ Future<void> _runServe({
   final String effVersion;
   ModelStore? modelStore;
   List<ProbeEngine>? engines;
+  BenchHistory? history;
 
   if (demoMode) {
     final demo = buildDemoReport();
@@ -166,6 +167,8 @@ Future<void> _runServe({
     final exeDir = p.dirname(Platform.resolvedExecutable);
     modelStore = ModelStore(directory: p.join(exeDir, 'models'));
     engines = defaultEngineRegistry(exeDir: exeDir);
+    // Persistent benchmark history travels with the tool install (next to exe).
+    history = BenchHistory(File(p.join(exeDir, 'bench-history.jsonl')));
     candidates = const <ProbeCandidate>[];
     hardware = null;
     effVersion = version;
@@ -202,6 +205,7 @@ Future<void> _runServe({
     hardwareContext: hardware,
     modelStore: modelStore,
     engines: engines,
+    history: history,
     logger: log,
     openBrowser: (url) async {
       stderr.writeln('WhisPaste-GPU-Probe: Server läuft auf $url');

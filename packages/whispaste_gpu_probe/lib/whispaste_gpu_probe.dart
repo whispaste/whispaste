@@ -14,6 +14,7 @@ export 'src/reference_clip.dart';
 export 'src/wer.dart';
 export 'src/vram_gating.dart';
 export 'src/delivery.dart';
+export 'src/bench_history.dart';
 export 'src/engine_registry.dart';
 export 'src/live_server.dart';
 export 'src/model_store.dart';
