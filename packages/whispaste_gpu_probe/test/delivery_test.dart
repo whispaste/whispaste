@@ -153,7 +153,7 @@ void main() {
 
   group('deliverReport', () {
     test(
-      'calls launcher exactly three times (browser + reveal + mail)',
+      'calls launcher exactly twice (reveal + browser); no mail client',
       () async {
         final calls = <(String, List<String>)>[];
         Future<void> fakeLauncher(String exe, List<String> args) async {
@@ -166,11 +166,31 @@ void main() {
           launcher: fakeLauncher,
         );
 
-        expect(calls, hasLength(3));
+        expect(calls, hasLength(2));
       },
     );
 
-    test('first call opens browser with html path (open on macOS)', () async {
+    test('mail-open command is never invoked by deliverReport', () async {
+      final calls = <(String, List<String>)>[];
+      Future<void> fakeLauncher(String exe, List<String> args) async {
+        calls.add((exe, args));
+      }
+
+      await deliverReport(
+        '/tmp/report.zip',
+        platform: 'macos',
+        launcher: fakeLauncher,
+      );
+
+      // No call should contain a mailto: URL.
+      for (final (_, args) in calls) {
+        for (final arg in args) {
+          expect(arg, isNot(startsWith('mailto:')));
+        }
+      }
+    });
+
+    test('first call is the reveal command (open -R on macOS)', () async {
       final calls = <(String, List<String>)>[];
       Future<void> fakeLauncher(String exe, List<String> args) async {
         calls.add((exe, args));
@@ -183,45 +203,10 @@ void main() {
       );
 
       expect(calls[0].$1, equals('open'));
-      expect(calls[0].$2, equals(['/tmp/report.html']));
+      expect(calls[0].$2, equals(['-R', '/tmp/report.zip']));
     });
 
-    test('first call on windows uses cmd /c start for html', () async {
-      final calls = <(String, List<String>)>[];
-      Future<void> fakeLauncher(String exe, List<String> args) async {
-        calls.add((exe, args));
-      }
-
-      await deliverReport(
-        r'C:\Users\test\Desktop\report.zip',
-        platform: 'windows',
-        launcher: fakeLauncher,
-      );
-
-      expect(calls[0].$1, equals('cmd'));
-      expect(
-        calls[0].$2,
-        equals(['/c', 'start', '', r'C:\Users\test\Desktop\report.html']),
-      );
-    });
-
-    test('first call on linux uses xdg-open for html', () async {
-      final calls = <(String, List<String>)>[];
-      Future<void> fakeLauncher(String exe, List<String> args) async {
-        calls.add((exe, args));
-      }
-
-      await deliverReport(
-        '/home/user/Desktop/report.zip',
-        platform: 'linux',
-        launcher: fakeLauncher,
-      );
-
-      expect(calls[0].$1, equals('xdg-open'));
-      expect(calls[0].$2, equals(['/home/user/Desktop/report.html']));
-    });
-
-    test('second call is the reveal command (open -R on macOS)', () async {
+    test('second call opens browser with html path (open on macOS)', () async {
       final calls = <(String, List<String>)>[];
       Future<void> fakeLauncher(String exe, List<String> args) async {
         calls.add((exe, args));
@@ -234,46 +219,29 @@ void main() {
       );
 
       expect(calls[1].$1, equals('open'));
-      expect(calls[1].$2, equals(['-R', '/tmp/report.zip']));
+      expect(calls[1].$2, equals(['/tmp/report.html']));
     });
 
-    test('third call opens mail client with a mailto URL', () async {
+    test('second call on windows uses cmd /c start for html', () async {
       final calls = <(String, List<String>)>[];
       Future<void> fakeLauncher(String exe, List<String> args) async {
         calls.add((exe, args));
       }
 
       await deliverReport(
-        '/tmp/report.zip',
-        platform: 'macos',
+        r'C:\Users\test\Desktop\report.zip',
+        platform: 'windows',
         launcher: fakeLauncher,
       );
 
-      final mailArgs = calls[2].$2;
-      expect(mailArgs, hasLength(1));
-      expect(mailArgs.first, startsWith('mailto:'));
+      expect(calls[1].$1, equals('cmd'));
+      expect(
+        calls[1].$2,
+        equals(['/c', 'start', '', r'C:\Users\test\Desktop\report.html']),
+      );
     });
 
-    test(
-      'mailto URL in third call contains GPU-Probe-Report subject',
-      () async {
-        final calls = <(String, List<String>)>[];
-        Future<void> fakeLauncher(String exe, List<String> args) async {
-          calls.add((exe, args));
-        }
-
-        await deliverReport(
-          '/tmp/report.zip',
-          platform: 'macos',
-          launcher: fakeLauncher,
-        );
-
-        final mailtoUrl = calls[2].$2.first;
-        expect(mailtoUrl, contains('GPU-Probe-Report'));
-      },
-    );
-
-    test('uses xdg-open for reveal on linux (second call)', () async {
+    test('second call on linux uses xdg-open for html', () async {
       final calls = <(String, List<String>)>[];
       Future<void> fakeLauncher(String exe, List<String> args) async {
         calls.add((exe, args));
@@ -286,11 +254,27 @@ void main() {
       );
 
       expect(calls[1].$1, equals('xdg-open'));
-      expect(calls[1].$2.first, equals('/home/user/Desktop'));
+      expect(calls[1].$2, equals(['/home/user/Desktop/report.html']));
+    });
+
+    test('uses xdg-open for reveal on linux (first call)', () async {
+      final calls = <(String, List<String>)>[];
+      Future<void> fakeLauncher(String exe, List<String> args) async {
+        calls.add((exe, args));
+      }
+
+      await deliverReport(
+        '/home/user/Desktop/report.zip',
+        platform: 'linux',
+        launcher: fakeLauncher,
+      );
+
+      expect(calls[0].$1, equals('xdg-open'));
+      expect(calls[0].$2.first, equals('/home/user/Desktop'));
     });
 
     test(
-      'windows reveal uses explorer with /select, prefix (second call)',
+      'windows reveal uses explorer with /select, prefix (first call)',
       () async {
         final calls = <(String, List<String>)>[];
         Future<void> fakeLauncher(String exe, List<String> args) async {
@@ -303,9 +287,9 @@ void main() {
           launcher: fakeLauncher,
         );
 
-        expect(calls[1].$1, equals('explorer'));
+        expect(calls[0].$1, equals('explorer'));
         expect(
-          calls[1].$2.first,
+          calls[0].$2.first,
           equals(r'/select,C:\Users\test\Desktop\report.zip'),
         );
       },
