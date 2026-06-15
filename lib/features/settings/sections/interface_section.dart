@@ -71,6 +71,7 @@ class InterfaceSection extends ConsumerWidget {
           SettingRow(
             icon: LucideIcons.power,
             label: l10n.settingsLaunchAtStartup,
+            semanticToggledValue: settings.launchAtStartup,
             trailing: settingsToggle(
               value: settings.launchAtStartup,
               onChanged: (v) => ref
@@ -83,6 +84,7 @@ class InterfaceSection extends ConsumerWidget {
               icon: LucideIcons.eyeOff,
               label: l10n.settingsStartMinimized,
               subtitle: l10n.settingsStartMinimizedSubtitle,
+              semanticToggledValue: settings.startMinimized,
               trailing: settingsToggle(
                 value: settings.startMinimized,
                 onChanged: (v) => ref
@@ -93,6 +95,7 @@ class InterfaceSection extends ConsumerWidget {
           SettingRow(
             icon: LucideIcons.bell,
             label: l10n.settingsShowNotifications,
+            semanticToggledValue: settings.showNotifications,
             trailing: settingsToggle(
               value: settings.showNotifications,
               onChanged: (v) => ref
@@ -104,6 +107,7 @@ class InterfaceSection extends ConsumerWidget {
             icon: LucideIcons.panelBottomClose,
             label: l10n.settingsCloseToTray,
             subtitle: l10n.settingsCloseToTraySubtitle,
+            semanticToggledValue: settings.closeToTray,
             trailing: settingsToggle(
               value: settings.closeToTray,
               onChanged: (v) => ref
@@ -116,6 +120,7 @@ class InterfaceSection extends ConsumerWidget {
               icon: LucideIcons.refreshCw,
               label: l10n.settingsCheckUpdates,
               subtitle: l10n.settingsCheckUpdatesSubtitle,
+              semanticToggledValue: settings.checkUpdates,
               trailing: settingsToggle(
                 value: settings.checkUpdates,
                 onChanged: (v) => ref

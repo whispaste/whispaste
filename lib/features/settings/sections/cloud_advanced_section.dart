@@ -58,6 +58,7 @@ class AdvancedSection extends ConsumerWidget {
             icon: LucideIcons.shieldCheck,
             label: l10n.settingsErrorReporting,
             subtitle: l10n.settingsErrorReportingSubtitle,
+            semanticToggledValue: settings.errorReporting,
             trailing: settingsToggle(
               value: settings.errorReporting,
               onChanged: (v) => ref

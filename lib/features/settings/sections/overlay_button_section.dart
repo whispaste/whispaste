@@ -43,6 +43,7 @@ class OverlaySection extends ConsumerWidget {
               icon: LucideIcons.layers,
               label: l10n.settingsShowOverlay,
               subtitle: l10n.settingsShowOverlaySubtitle,
+              semanticToggledValue: effectiveMode == OverlayMode.floating,
               trailing: settingsToggle(
                 value: effectiveMode == OverlayMode.floating,
                 onChanged: (v) => ref
@@ -154,6 +155,7 @@ class FloatingButtonSection extends ConsumerWidget {
             icon: LucideIcons.circle,
             label: l10n.settingsShowFloatingButton,
             subtitle: l10n.settingsShowFloatingButtonSubtitle,
+            semanticToggledValue: settings.showFloatingButton,
             trailing: settingsToggle(
               value: settings.showFloatingButton,
               onChanged: (v) => ref

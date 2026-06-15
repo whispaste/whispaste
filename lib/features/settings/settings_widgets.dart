@@ -20,12 +20,19 @@ class SettingRow extends StatefulWidget {
     required this.label,
     required this.trailing,
     this.subtitle,
+    // When the row hosts a toggle, pass the current on/off state here so
+    // screen-readers announce "on" / "off" alongside the label.
+    this.semanticToggledValue,
   });
 
   final IconData icon;
   final String label;
   final Widget trailing;
   final String? subtitle;
+
+  /// When non-null, the Semantics node carries `toggled: semanticToggledValue`.
+  /// Pass this for every row whose [trailing] is a toggle switch.
+  final bool? semanticToggledValue;
 
   @override
   State<SettingRow> createState() => _SettingRowState();
@@ -37,61 +44,61 @@ class _SettingRowState extends State<SettingRow> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // Subtitle style: use the theme bodySmall token but substitute textMuted
+    // for slightly softer contrast (both textMuted and cs.secondary pass WCAG AA).
+    final subtitleStyle = tt.bodySmall?.copyWith(
+      color: isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
+    );
 
     return Semantics(
       label: widget.label,
       hint: widget.subtitle,
+      toggled: widget.semanticToggledValue,
       child: MouseRegion(
         onEnter: (_) => setState(() => _isHovered = true),
         onExit: (_) => setState(() => _isHovered = false),
-        child: AnimatedContainer(
-          duration: WpMotion.hoverIn,
-          curve: WpMotion.defaultCurve,
-          padding: const EdgeInsets.symmetric(
-            horizontal: WpSpacing.sm,
-            vertical: WpSpacing.sm,
-          ),
-          decoration: BoxDecoration(
-            color: _isHovered
-                ? (isDark ? WpColorsDark.hover : WpColorsLight.hover)
-                : (isDark
-                      ? WpColorsDark.hoverTransparent
-                      : WpColorsLight.hoverTransparent),
-            borderRadius: WpRadius.borderSm,
-          ),
-          child: Row(
-            children: [
-              Icon(widget.icon, size: WpIconSize.sm, color: cs.secondary),
-              const SizedBox(width: WpSpacing.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      widget.label,
-                      style: Theme.of(context).textTheme.bodyLarge,
-                    ),
-                    if (widget.subtitle != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          widget.subtitle!,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: isDark
-                                ? WpColorsDark.textMuted
-                                : WpColorsLight.textMuted,
-                          ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: WpLayout.minTouchTarget),
+          child: AnimatedContainer(
+            duration: WpMotion.hoverIn,
+            curve: WpMotion.defaultCurve,
+            padding: const EdgeInsets.symmetric(
+              horizontal: WpSpacing.sm,
+              vertical: WpSpacing.sm,
+            ),
+            decoration: BoxDecoration(
+              color: _isHovered
+                  ? (isDark ? WpColorsDark.hover : WpColorsLight.hover)
+                  : (isDark
+                        ? WpColorsDark.hoverTransparent
+                        : WpColorsLight.hoverTransparent),
+              borderRadius: WpRadius.borderSm,
+            ),
+            child: Row(
+              children: [
+                Icon(widget.icon, size: WpIconSize.sm, color: cs.secondary),
+                const SizedBox(width: WpSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(widget.label, style: tt.bodyLarge),
+                      if (widget.subtitle != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(widget.subtitle!, style: subtitleStyle),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: WpSpacing.sm),
-              widget.trailing,
-            ],
+                const SizedBox(width: WpSpacing.sm),
+                widget.trailing,
+              ],
+            ),
           ),
         ),
       ),
