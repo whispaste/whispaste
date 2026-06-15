@@ -15,6 +15,7 @@ import 'core/config/settings_provider.dart';
 import 'core/data/database.dart';
 import 'core/l10n/generated/app_localizations.dart';
 import 'core/l10n/locale_provider.dart';
+import 'core/logging/app_logger.dart';
 import 'core/logging/app_monitoring.dart';
 import 'core/logging/crash_reporter.dart';
 import 'core/platform/macos_lifecycle_channel.dart';
@@ -295,6 +296,8 @@ class _InsufficientRamApp extends ConsumerWidget {
 // Bundle-ID migration — called once at startup before any data access.
 // ---------------------------------------------------------------------------
 
+final _log = AppLogger('Main');
+
 /// Runs the one-time bundle-ID data migration (com.whispaste.whispaste →
 /// de.whispaste.app).
 ///
@@ -346,8 +349,8 @@ Future<void> _runBundleIdMigration() async {
       newPrefs: newPrefsAdapter,
     );
   } catch (e) {
-    // Non-fatal — the app must start even if migration fails.
-    // The marker was written in the finally block of runBundleIdMigration,
-    // so a repeated failure on every restart is prevented.
+    _log.warning(
+      'Bundle-ID migration failed (non-fatal, app starts normally): $e',
+    );
   }
 }

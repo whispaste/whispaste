@@ -323,8 +323,8 @@ class HotkeyService extends Notifier<void> {
   void _setStatus(HotkeyRegistrationStatus status) {
     try {
       ref.read(hotkeyRegistrationStatusProvider.notifier).set(status);
-    } on Object catch (_) {
-      // No ref available (standalone test instance) — skip silently.
+    } on Object catch (e) {
+      _log.debug('Hotkey status update skipped (standalone test instance): $e');
     }
   }
 
@@ -408,8 +408,8 @@ class HotkeyService extends Notifier<void> {
     if (_registeredHotKey != null) {
       try {
         await _registrar.unregister(_registeredHotKey!);
-      } on Object catch (_) {
-        // Best-effort cleanup.
+      } on Object catch (e) {
+        _log.debug('Hotkey unregister failed during cleanup (non-fatal): $e');
       }
       _registeredHotKey = null;
     }

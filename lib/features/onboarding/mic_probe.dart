@@ -19,6 +19,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:record/record.dart';
 
+import '../../core/logging/app_logger.dart';
 import '../../services/audio/amplitude_from_pcm.dart';
 
 /// Result of a single [OnboardingMicProbe.start] run.
@@ -92,6 +93,8 @@ class _RealMicProbeRecorder implements MicProbeRecorder {
 /// `start` can be called again after `stop` — used by the retry / device-
 /// switch flow.
 class OnboardingMicProbe {
+  static final _log = AppLogger('MicProbe');
+
   OnboardingMicProbe({
     MicProbeRecorder? recorder,
     this.timeout = const Duration(seconds: 5),
@@ -256,8 +259,10 @@ class OnboardingMicProbe {
       if (await _recorder.isRecording()) {
         await _recorder.stop();
       }
-    } catch (_) {
-      // best-effort — the recorder may already be torn down on some hosts
+    } catch (e) {
+      _log.debug(
+        'MicProbe recorder stop failed during teardown (non-fatal): $e',
+      );
     }
   }
 
@@ -268,8 +273,8 @@ class OnboardingMicProbe {
     await _teardownCapture();
     try {
       await _recorder.dispose();
-    } catch (_) {
-      // best-effort
+    } catch (e) {
+      _log.debug('MicProbe recorder dispose failed (non-fatal): $e');
     }
   }
 }

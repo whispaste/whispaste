@@ -276,12 +276,14 @@ class TrayService extends Notifier<void> implements TrayListener {
     // Stop the STT subprocess before destroying to prevent orphaned processes.
     try {
       ref.read(localSttBundleProvider.notifier).stop();
-    } catch (_) {}
+    } catch (e) {
+      _log.debug('STT subprocess stop failed during quit (non-fatal): $e');
+    }
 
     try {
       await trayManager.destroy().timeout(const Duration(seconds: 1));
-    } on Exception catch (_) {
-      // Best-effort cleanup.
+    } on Exception catch (e) {
+      _log.debug('Tray destroy failed during quit (non-fatal): $e');
     }
 
     // Close Drift DB before engine teardown — prevents SIGABRT from
@@ -292,7 +294,9 @@ class TrayService extends Notifier<void> implements TrayListener {
           .read(historyDatabaseProvider)
           .close()
           .timeout(const Duration(seconds: 2));
-    } catch (_) {}
+    } catch (e) {
+      _log.debug('DB close failed during quit (non-fatal): $e');
+    }
 
     await windowManager.destroy();
   }
