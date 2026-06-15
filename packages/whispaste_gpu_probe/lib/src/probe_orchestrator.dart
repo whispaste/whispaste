@@ -10,6 +10,8 @@ import 'dart:io';
 
 import 'package:archive/archive_io.dart';
 import 'package:path/path.dart' as p;
+import 'package:whispaste_diagnostics/whispaste_diagnostics.dart'
+    show sanitizePaths;
 
 import 'probe_types.dart';
 
@@ -124,14 +126,14 @@ Future<String> runProbeOrchestrator({
   final mdPath = p.join(outputDir, '$stem.md');
   final zipPath = p.join(outputDir, '$stem.zip');
 
-  // Write JSON.
-  final jsonContent = const JsonEncoder.withIndent(
-    '  ',
-  ).convert(report.toJson());
+  // Write JSON — sanitized before touching disk.
+  final jsonContent = sanitizePaths(
+    const JsonEncoder.withIndent('  ').convert(report.toJson()),
+  );
   File(jsonPath).writeAsStringSync(jsonContent);
 
-  // Write Markdown.
-  final mdContent = formatProbeReportMarkdown(report);
+  // Write Markdown — sanitized before touching disk.
+  final mdContent = sanitizePaths(formatProbeReportMarkdown(report));
   File(mdPath).writeAsStringSync(mdContent);
 
   // Bundle both into ZIP.
