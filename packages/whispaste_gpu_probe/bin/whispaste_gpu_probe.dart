@@ -89,6 +89,7 @@ Future<void> main(List<String> args) async {
   );
 
   var outputDir = resolveDesktopPath();
+  var outputDirExplicit = false;
   var skipDelivery = false;
   var demoMode = false;
   var serve = true;
@@ -97,6 +98,7 @@ Future<void> main(List<String> args) async {
     final a = args[i];
     if (a == '--output-dir' && i + 1 < args.length) {
       outputDir = args[i + 1];
+      outputDirExplicit = true;
     } else if (a == '--no-deliver') {
       skipDelivery = true;
     } else if (a == '--demo') {
@@ -113,6 +115,7 @@ Future<void> main(List<String> args) async {
       await _runServe(
         version: version,
         outputDir: outputDir,
+        outputDirExplicit: outputDirExplicit,
         demoMode: demoMode,
         openBrowser: !skipDelivery,
       );
@@ -137,9 +140,17 @@ Future<void> main(List<String> args) async {
 Future<void> _runServe({
   required String version,
   required String outputDir,
+  required bool outputDirExplicit,
   required bool demoMode,
   required bool openBrowser,
 }) async {
+  // Default the on-disk output (log + any artifacts) NEXT TO THE EXE rather than
+  // the Desktop — the interactive bench is the product and its results persist
+  // in bench-history.jsonl next to the exe, so dumping report bundles on the
+  // Desktop on every launch is just clutter. An explicit --output-dir wins.
+  final exeDir = p.dirname(Platform.resolvedExecutable);
+  final effectiveOutputDir = outputDirExplicit ? outputDir : exeDir;
+
   final List<ProbeCandidate> candidates;
   final HardwareContext? hardware;
   final String effVersion;
@@ -164,7 +175,6 @@ Future<void> _runServe({
     // and an on-demand model catalogue stored alongside the exe. The auto-probe
     // ranking is intentionally empty — the bench is interactive (download a
     // model, then run the live test against engine × model).
-    final exeDir = p.dirname(Platform.resolvedExecutable);
     modelStore = ModelStore(directory: p.join(exeDir, 'models'));
     engines = defaultEngineRegistry(exeDir: exeDir);
     // Persistent benchmark history travels with the tool install (next to exe).
@@ -174,12 +184,12 @@ Future<void> _runServe({
     effVersion = version;
   }
 
-  // Persistent log file next to the report — for field debugging and so beta
+  // Persistent log file next to the exe — for field debugging and so beta
   // testers can send back a diagnostic trail. Tees every log line to stderr
   // (visible console) and the file.
-  final logDir = Directory(outputDir);
+  final logDir = Directory(effectiveOutputDir);
   if (!logDir.existsSync()) logDir.createSync(recursive: true);
-  final logFile = File(p.join(outputDir, 'WhisPaste-GPU-Probe.log'));
+  final logFile = File(p.join(effectiveOutputDir, 'WhisPaste-GPU-Probe.log'));
   void log(String m) {
     stderr.writeln(m);
     try {
@@ -219,10 +229,14 @@ Future<void> _runServe({
       }
     },
     onComplete: (report) async {
+      // The interactive bench has no auto-probe results — don't write an empty
+      // report bundle (that was the Desktop clutter). Only archive when there
+      // is something to archive (e.g. demo mode).
+      if (report.results.isEmpty) return;
       final stem = buildProbeStem(report.timestamp);
       final zipPath = writeProbeArtifacts(
         report: report,
-        outputDir: outputDir,
+        outputDir: effectiveOutputDir,
         stem: stem,
       );
       stderr.writeln('WhisPaste-GPU-Probe: Report-Artefakte geschrieben:');
