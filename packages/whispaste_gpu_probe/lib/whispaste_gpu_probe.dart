@@ -20,5 +20,6 @@ export 'src/model_store.dart';
 export 'src/whisper_cpp_candidate.dart';
 export 'src/const_me_candidate.dart';
 export 'src/onnx_direct_ml_candidate.dart';
+export 'src/sherpa_onnx_candidate.dart';
 export 'src/wav2vec2_direct_ml_candidate.dart';
 export 'src/candidate_manifest.dart';

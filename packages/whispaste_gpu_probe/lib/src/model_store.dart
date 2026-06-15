@@ -30,14 +30,42 @@ typedef ProgressDownloader =
       void Function(int received, int total) onProgress,
     );
 
-/// One catalogue model: display metadata + the [ModelEntry] used to fetch it.
+/// One file of a multi-file model bundle (e.g. a sherpa-onnx encoder/decoder/
+/// tokens triple). Bundle files are downloaded into a per-model subdirectory.
+class BundleFile {
+  const BundleFile({
+    required this.url,
+    required this.filename,
+    required this.sizeBytes,
+  });
+
+  /// Source URL.
+  final Uri url;
+
+  /// Target filename inside the model's bundle directory.
+  final String filename;
+
+  /// Approximate size in bytes (display + progress-bar fallback).
+  final int sizeBytes;
+}
+
+/// One catalogue model: display metadata plus the fetch spec.
+///
+/// A model is either **single-file** (one [entry], stored directly in the
+/// models directory — GGML/ONNX-Whisper/wav2vec2) or a **bundle** ([files],
+/// downloaded into `models/<id>/` — sherpa-onnx). Exactly one of the two is
+/// set.
 class CatalogModel {
   const CatalogModel({
     required this.id,
     required this.label,
     required this.family,
-    required this.entry,
-  });
+    this.entry,
+    this.files,
+  }) : assert(
+         (entry == null) != (files == null),
+         'Exactly one of entry / files must be set',
+       );
 
   /// Stable identifier used in the UI / API (e.g. `ggml-small`).
   final String id;
@@ -46,12 +74,24 @@ class CatalogModel {
   final String label;
 
   /// Model family this model belongs to — must match a [ProbeEngine.modelFamily]
-  /// (`ggml`, `onnx-whisper`, `onnx-wav2vec2`). Determines which engines can
-  /// run it in the live test.
+  /// (`ggml`, `onnx-whisper`, `onnx-wav2vec2`, `sherpa-onnx`). Determines which
+  /// engines can run it in the live test.
   final String family;
 
-  /// Fetch metadata (URL, target filename, size, checksum).
-  final ModelEntry entry;
+  /// Single-file fetch metadata (URL, target filename, size, checksum), or null
+  /// for bundle models.
+  final ModelEntry? entry;
+
+  /// Bundle files downloaded into `models/<id>/`, or null for single-file models.
+  final List<BundleFile>? files;
+
+  /// True when this model is a multi-file bundle.
+  bool get isBundle => files != null;
+
+  /// Total on-disk size used for display + progress-bar fallback.
+  int get totalSizeBytes => isBundle
+      ? files!.fold(0, (sum, f) => sum + f.sizeBytes)
+      : entry!.sizeBytes;
 }
 
 /// The default multi-family model catalogue — the PRD's model axis.
@@ -84,6 +124,37 @@ List<CatalogModel> defaultModelCatalog() {
   Uri ggmlUrl(String file) => Uri.parse(
     'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/$file',
   );
+  // sherpa-onnx Whisper bundle: encoder + decoder + tokens (int8) downloaded
+  // into models/<id>/. Sizes are the real Hugging Face file sizes.
+  CatalogModel sherpa(String size, int enc, int dec, String label) {
+    Uri u(String f) => Uri.parse(
+      'https://huggingface.co/csukuangfj/sherpa-onnx-whisper-$size'
+      '/resolve/main/$f',
+    );
+    const tokens = 816730;
+    return CatalogModel(
+      id: 'sherpa-whisper-$size',
+      label: label,
+      family: 'sherpa-onnx',
+      files: [
+        BundleFile(
+          url: u('$size-encoder.int8.onnx'),
+          filename: '$size-encoder.int8.onnx',
+          sizeBytes: enc,
+        ),
+        BundleFile(
+          url: u('$size-decoder.int8.onnx'),
+          filename: '$size-decoder.int8.onnx',
+          sizeBytes: dec,
+        ),
+        BundleFile(
+          url: u('$size-tokens.txt'),
+          filename: '$size-tokens.txt',
+          sizeBytes: tokens,
+        ),
+      ],
+    );
+  }
 
   return [
     // GGML — whisper.cpp + Const-me.
@@ -159,6 +230,31 @@ List<CatalogModel> defaultModelCatalog() {
       1180000000,
       'wav2vec2 XLSR-53 Deutsch (ONNX) · ~1,18 GB',
     ),
+    // sherpa-onnx (k2-fsa) — multilingual Whisper-ONNX bundles, CPU EP.
+    sherpa(
+      'tiny',
+      12937772,
+      89855401,
+      'sherpa-onnx Whisper Tiny (int8) · ~103 MB · sehr schnell',
+    ),
+    sherpa(
+      'base',
+      29120534,
+      130672026,
+      'sherpa-onnx Whisper Base (int8) · ~161 MB · schnell',
+    ),
+    sherpa(
+      'small',
+      112442483,
+      262226114,
+      'sherpa-onnx Whisper Small (int8) · ~376 MB · ausgewogen',
+    ),
+    sherpa(
+      'medium',
+      374196283,
+      571059257,
+      'sherpa-onnx Whisper Medium (int8) · ~946 MB · genau',
+    ),
   ];
 }
 
@@ -199,21 +295,49 @@ class ModelStore {
   void _rescan() {
     for (final e in _entries.values) {
       if (e.state == ModelState.downloading) continue;
-      final f = File(p.join(directory, e.model.entry.targetFilename));
-      if (f.existsSync() && f.lengthSync() > 0) {
-        e
-          ..state = ModelState.present
-          ..received = f.lengthSync()
-          ..total = f.lengthSync();
+      final m = e.model;
+      if (m.isBundle) {
+        final dir = Directory(p.join(directory, m.id));
+        if (!dir.existsSync()) continue;
+        var sum = 0;
+        var allPresent = true;
+        for (final bf in m.files!) {
+          final f = File(p.join(dir.path, bf.filename));
+          if (!f.existsSync() || f.lengthSync() <= 0) {
+            allPresent = false;
+            break;
+          }
+          sum += f.lengthSync();
+        }
+        if (allPresent) {
+          e
+            ..state = ModelState.present
+            ..received = sum
+            ..total = sum;
+        }
+      } else {
+        final f = File(p.join(directory, m.entry!.targetFilename));
+        if (f.existsSync() && f.lengthSync() > 0) {
+          e
+            ..state = ModelState.present
+            ..received = f.lengthSync()
+            ..total = f.lengthSync();
+        }
       }
     }
   }
 
-  /// Absolute path of the model file for [id] when present, else null.
+  /// Absolute path the candidate consumes when [id] is present, else null.
+  ///
+  /// For single-file models this is the model file; for bundle models it is the
+  /// `models/<id>/` directory (the candidate resolves its files inside).
   String? localPathIfPresent(String id) {
     final e = _entries[id];
     if (e == null || e.state != ModelState.present) return null;
-    return p.join(directory, e.model.entry.targetFilename);
+    final m = e.model;
+    return m.isBundle
+        ? p.join(directory, m.id)
+        : p.join(directory, m.entry!.targetFilename);
   }
 
   /// The catalogue model for [id], or null.
@@ -228,10 +352,10 @@ class ModelStore {
           'id': m.id,
           'label': m.label,
           'family': m.family,
-          'sizeBytes': m.entry.sizeBytes,
+          'sizeBytes': m.totalSizeBytes,
           'state': e.state.name,
           'received': e.received,
-          'total': e.total > 0 ? e.total : m.entry.sizeBytes,
+          'total': e.total > 0 ? e.total : m.totalSizeBytes,
           if (e.error != null) 'error': e.error,
         };
       }(),
@@ -252,27 +376,46 @@ class ModelStore {
     if (e.state == ModelState.present || e.state == ModelState.downloading) {
       return;
     }
+    final m = e.model;
     e
       ..state = ModelState.downloading
       ..received = 0
-      ..total = e.model.entry.sizeBytes
+      ..total = m.totalSizeBytes
       ..error = null;
     onChange?.call();
 
-    final dir = Directory(directory);
-    if (!dir.existsSync()) dir.createSync(recursive: true);
-    final target = File(p.join(directory, e.model.entry.targetFilename));
-
     try {
-      await _downloader(e.model.entry.downloadUrl, target, (received, total) {
+      if (m.isBundle) {
+        final dir = Directory(p.join(directory, m.id));
+        if (!dir.existsSync()) dir.createSync(recursive: true);
+        var completed = 0;
+        for (final bf in m.files!) {
+          final target = File(p.join(dir.path, bf.filename));
+          await _downloader(bf.url, target, (received, _) {
+            e
+              ..received = completed + received
+              ..total = m.totalSizeBytes;
+            onChange?.call();
+          });
+          completed += target.existsSync() ? target.lengthSync() : bf.sizeBytes;
+        }
         e
-          ..received = received
-          ..total = total > 0 ? total : e.model.entry.sizeBytes;
-        onChange?.call();
-      });
-      e
-        ..state = ModelState.present
-        ..received = target.existsSync() ? target.lengthSync() : e.received;
+          ..state = ModelState.present
+          ..received = completed;
+      } else {
+        final dir = Directory(directory);
+        if (!dir.existsSync()) dir.createSync(recursive: true);
+        final target = File(p.join(directory, m.entry!.targetFilename));
+        await _downloader(m.entry!.downloadUrl, target, (received, total) {
+          e
+            ..received = received
+            ..total = total > 0 ? total : m.entry!.sizeBytes;
+          onChange?.call();
+        });
+        e
+          ..state = ModelState.present
+          ..received = target.existsSync() ? target.lengthSync() : e.received;
+      }
     } on Object catch (err) {
       e
         ..state = ModelState.error

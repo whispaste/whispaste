@@ -20,6 +20,7 @@ import 'const_me_candidate.dart';
 import 'onnx_direct_ml_candidate.dart';
 import 'probe_runner.dart';
 import 'probe_types.dart';
+import 'sherpa_onnx_candidate.dart';
 import 'wav2vec2_direct_ml_candidate.dart';
 import 'whisper_cpp_candidate.dart';
 
@@ -27,6 +28,7 @@ import 'whisper_cpp_candidate.dart';
 const String familyGgml = 'ggml'; // whisper.cpp + Const-me (GGML .bin)
 const String familyOnnxWhisper = 'onnx-whisper'; // ONNX Runtime Whisper-ONNX
 const String familyOnnxWav2vec2 = 'onnx-wav2vec2'; // non-Whisper wav2vec2 ONNX
+const String familySherpaOnnx = 'sherpa-onnx'; // sherpa-onnx Whisper bundle
 
 /// One selectable engine in the bench: a candidate + its model family +
 /// availability (is the engine binary bundled?).
@@ -135,6 +137,20 @@ List<ProbeEngine> defaultEngineRegistry({
           cpuFeatureFma3,
           cpuFeatureBmi1,
         },
+        runner: runner,
+      ),
+    ),
+    ProbeEngine(
+      id: 'sherpa-onnx-cpu',
+      label: 'sherpa-onnx · Whisper (ONNX, CPU)',
+      backend: 'onnx-cpu',
+      modelFamily: familySherpaOnnx,
+      binary: sub('sherpa-onnx', 'sherpa-onnx-offline'),
+      note: 'Top-gepflegte Alternative (k2-fsa) — ONNX Runtime, vendor-neutral',
+      builder: () => SherpaOnnxCandidate(
+        id: 'sherpa-onnx-cpu',
+        binaryName: sub('sherpa-onnx', 'sherpa-onnx-offline'),
+        backend: 'onnx-cpu',
         runner: runner,
       ),
     ),
