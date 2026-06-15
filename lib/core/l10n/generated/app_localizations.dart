@@ -3969,6 +3969,18 @@ abstract class L10n {
   /// **'Quit'**
   String get floatingButtonQuit;
 
+  /// Accessibility label for the floating recording button (screen readers)
+  ///
+  /// In en, this message translates to:
+  /// **'Recording button'**
+  String get a11yRecordingButton;
+
+  /// Accessibility label for the floating recording overlay (screen readers)
+  ///
+  /// In en, this message translates to:
+  /// **'Recording overlay'**
+  String get a11yRecordingOverlay;
+
   /// No description provided for @trayStatusRecording.
   ///
   /// In en, this message translates to:

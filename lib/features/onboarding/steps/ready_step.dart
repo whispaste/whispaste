@@ -238,6 +238,7 @@ class ReadyStep extends ConsumerWidget {
             const Spacer(),
             Expanded(
               flex: 2,
+              // loam-ignore: a11y-interactive-semantics – semantics provided in WpAccentButton.build
               child: WpAccentButton(
                 key: kReadyStepStartButtonKey,
                 label: l10n.onboardingStartUsing,

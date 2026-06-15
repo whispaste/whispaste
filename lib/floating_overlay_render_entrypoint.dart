@@ -23,6 +23,8 @@ library;
 
 import 'package:flutter/widgets.dart';
 
+import 'core/l10n/generated/app_localizations.dart';
+import 'core/l10n/persisted_l10n.dart';
 import 'services/floating_overlay/floating_overlay_controller_interface.dart';
 import 'services/floating_overlay/overlay_render_channel.dart';
 import 'widgets/floating_overlay/floating_overlay_view.dart';
@@ -66,6 +68,10 @@ class _OverlayRenderAppState extends State<_OverlayRenderApp> {
   );
   List<double> _bars = const [];
 
+  // Defaults to the English label until the persisted locale resolves; this
+  // engine has no Localizations ancestor, so the string is looked up directly.
+  String _semanticsLabel = lookupL10n(const Locale('en')).a11yRecordingOverlay;
+
   @override
   void initState() {
     super.initState();
@@ -77,6 +83,12 @@ class _OverlayRenderAppState extends State<_OverlayRenderApp> {
     // Handler is now registered — tell the native shell to flush any render
     // state it cached while this engine was still booting.
     _channel.notifyReady();
+    _resolveSemanticsLabel();
+  }
+
+  Future<void> _resolveSemanticsLabel() async {
+    final l10n = await resolvePersistedL10n();
+    if (mounted) setState(() => _semanticsLabel = l10n.a11yRecordingOverlay);
   }
 
   @override
@@ -94,6 +106,7 @@ class _OverlayRenderAppState extends State<_OverlayRenderApp> {
     return Directionality(
       textDirection: TextDirection.ltr,
       child: _OverlayGestureLayer(
+        semanticsLabel: _semanticsLabel,
         // While hidden the snapshot still renders an (empty) box; the native
         // shell is what orders the panel out, so we simply paint nothing
         // meaningful until the next visible snapshot arrives.
@@ -113,12 +126,14 @@ class _OverlayRenderAppState extends State<_OverlayRenderApp> {
 /// move, tap to toggle recording, right-click for the context menu.
 class _OverlayGestureLayer extends StatelessWidget {
   const _OverlayGestureLayer({
+    required this.semanticsLabel,
     required this.onPanStart,
     required this.onTap,
     required this.onSecondaryTapOrLongPress,
     required this.child,
   });
 
+  final String semanticsLabel;
   final VoidCallback onPanStart;
   final VoidCallback onTap;
   final VoidCallback onSecondaryTapOrLongPress;
@@ -126,13 +141,17 @@ class _OverlayGestureLayer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      onPanStart: (_) => onPanStart(),
-      onSecondaryTap: onSecondaryTapOrLongPress,
-      onLongPress: onSecondaryTapOrLongPress,
-      child: child,
+    return Semantics(
+      button: true,
+      label: semanticsLabel,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        onPanStart: (_) => onPanStart(),
+        onSecondaryTap: onSecondaryTapOrLongPress,
+        onLongPress: onSecondaryTapOrLongPress,
+        child: child,
+      ),
     );
   }
 }

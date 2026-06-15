@@ -155,6 +155,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                     spacing: WpSpacing.sm,
                     runSpacing: WpSpacing.sm,
                     children: [
+                      // loam-ignore: a11y-interactive-semantics – semantics provided in _CategoryChipState.build
                       _CategoryChip(
                         icon: LucideIcons.bug,
                         label: l10n.feedbackCategoryBug,
@@ -163,6 +164,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                         isDark: isDark,
                         onTap: (v) => setState(() => _category = v),
                       ),
+                      // loam-ignore: a11y-interactive-semantics – semantics provided in _CategoryChipState.build
                       _CategoryChip(
                         icon: LucideIcons.lightbulb,
                         label: l10n.feedbackCategoryFeature,
@@ -171,6 +173,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                         isDark: isDark,
                         onTap: (v) => setState(() => _category = v),
                       ),
+                      // loam-ignore: a11y-interactive-semantics – semantics provided in _CategoryChipState.build
                       _CategoryChip(
                         icon: LucideIcons.messageCircle,
                         label: l10n.feedbackCategoryGeneral,
@@ -179,6 +182,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                         isDark: isDark,
                         onTap: (v) => setState(() => _category = v),
                       ),
+                      // loam-ignore: a11y-interactive-semantics – semantics provided in _CategoryChipState.build
                       _CategoryChip(
                         icon: LucideIcons.sparkles,
                         label: l10n.feedbackCategoryAiQuality,
@@ -550,46 +554,51 @@ class _CategoryChipState extends State<_CategoryChip> {
           : WpColorsLight.textSecondary;
     }
 
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        onTap: () => widget.onTap(widget.value),
-        child: AnimatedContainer(
-          duration: _hovered ? WpMotion.hoverIn : WpMotion.hoverOut,
-          curve: WpMotion.defaultCurve,
-          padding: const EdgeInsets.symmetric(
-            horizontal: WpSpacing.md,
-            vertical: WpSpacing.xs,
-          ),
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: WpRadius.borderFull,
-            border: isActive
-                ? Border.all(
-                    color:
-                        (widget.isDark
-                                ? WpColorsDark.accent
-                                : WpColorsLight.accent)
-                            .withValues(alpha: 0.3),
-                  )
-                : Border.all(color: Colors.transparent),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(widget.icon, size: WpIconSize.sm, color: fg),
-              const SizedBox(width: WpSpacing.xs),
-              Text(
-                widget.label,
-                style: TextStyle(
-                  color: fg,
-                  fontSize: 13,
-                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+    return Semantics(
+      button: true,
+      selected: isActive,
+      label: widget.label,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: GestureDetector(
+          onTap: () => widget.onTap(widget.value),
+          child: AnimatedContainer(
+            duration: _hovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+            curve: WpMotion.defaultCurve,
+            padding: const EdgeInsets.symmetric(
+              horizontal: WpSpacing.md,
+              vertical: WpSpacing.xs,
+            ),
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: WpRadius.borderFull,
+              border: isActive
+                  ? Border.all(
+                      color:
+                          (widget.isDark
+                                  ? WpColorsDark.accent
+                                  : WpColorsLight.accent)
+                              .withValues(alpha: 0.3),
+                    )
+                  : Border.all(color: Colors.transparent),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(widget.icon, size: WpIconSize.sm, color: fg),
+                const SizedBox(width: WpSpacing.xs),
+                Text(
+                  widget.label,
+                  style: TextStyle(
+                    color: fg,
+                    fontSize: 13,
+                    fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

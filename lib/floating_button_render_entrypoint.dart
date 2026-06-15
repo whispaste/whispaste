@@ -23,6 +23,8 @@ library;
 
 import 'package:flutter/widgets.dart';
 
+import 'core/l10n/generated/app_localizations.dart';
+import 'core/l10n/persisted_l10n.dart';
 import 'services/floating_button/floating_button_controller_interface.dart';
 import 'services/floating_button/floating_button_render_channel.dart';
 import 'widgets/floating_button/floating_button_view.dart';
@@ -60,6 +62,10 @@ class _ButtonRenderAppState extends State<_ButtonRenderApp> {
   FloatingButtonVisualState _state = FloatingButtonVisualState.idle;
   double _diameter = 56;
 
+  // Defaults to the English label until the persisted locale resolves; this
+  // engine has no Localizations ancestor, so the string is looked up directly.
+  String _semanticsLabel = lookupL10n(const Locale('en')).a11yRecordingButton;
+
   @override
   void initState() {
     super.initState();
@@ -71,6 +77,12 @@ class _ButtonRenderAppState extends State<_ButtonRenderApp> {
     // Handler is now registered — tell the native shell to flush any render
     // state it cached while this engine was still booting.
     _channel.notifyReady();
+    _resolveSemanticsLabel();
+  }
+
+  Future<void> _resolveSemanticsLabel() async {
+    final l10n = await resolvePersistedL10n();
+    if (mounted) setState(() => _semanticsLabel = l10n.a11yRecordingButton);
   }
 
   @override
@@ -88,6 +100,7 @@ class _ButtonRenderAppState extends State<_ButtonRenderApp> {
     return Directionality(
       textDirection: TextDirection.ltr,
       child: _ButtonGestureLayer(
+        semanticsLabel: _semanticsLabel,
         onTap: _channel.clicked,
         onPanStart: _channel.startDrag,
         onSecondary: _channel.showContextMenu,
@@ -103,12 +116,14 @@ class _ButtonRenderAppState extends State<_ButtonRenderApp> {
 /// context menu — mirroring the old native-drawing view's mouse handlers.
 class _ButtonGestureLayer extends StatelessWidget {
   const _ButtonGestureLayer({
+    required this.semanticsLabel,
     required this.onTap,
     required this.onPanStart,
     required this.onSecondary,
     required this.child,
   });
 
+  final String semanticsLabel;
   final VoidCallback onTap;
   final VoidCallback onPanStart;
   final VoidCallback onSecondary;
@@ -116,13 +131,17 @@ class _ButtonGestureLayer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      onPanStart: (_) => onPanStart(),
-      onSecondaryTap: onSecondary,
-      onLongPress: onSecondary,
-      child: child,
+    return Semantics(
+      button: true,
+      label: semanticsLabel,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        onPanStart: (_) => onPanStart(),
+        onSecondaryTap: onSecondary,
+        onLongPress: onSecondary,
+        child: child,
+      ),
     );
   }
 }

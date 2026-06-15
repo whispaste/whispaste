@@ -196,6 +196,7 @@ class AdvancedSection extends ConsumerWidget {
         message: failL10n.factoryResetFailedToast,
         type: WpToastType.error,
         duration: const Duration(seconds: 8),
+        // loam-ignore: a11y-interactive-semantics – semantics provided by TextButton in WpToast._ToastCard.build
         action: WpToastAction(
           label: failL10n.factoryResetFailedAction,
           // [factoryResetExitFn] is a test seam (see top of this file).

@@ -3,13 +3,15 @@
 /// Verifies that central widgets expose accessible names via
 /// `find.bySemanticsLabel(...)` so screen readers can announce them.
 ///
-/// Scope: widgets addressed in issue 01-a11y-semantics-core.
+/// Scope: widgets addressed in issue 01-a11y-semantics-core and
+/// issue 03-a11y-semantics-onboarding.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/widgets/markdown_toolbar.dart';
 import 'package:whispaste/widgets/sidebar.dart';
+import 'package:whispaste/widgets/wp_accent_button.dart';
 
 import '../../fixtures/test_helpers.dart';
 
@@ -103,6 +105,67 @@ void main() {
         find.bySemanticsLabel('History'),
         findsWidgets,
         reason: 'Nav item must expose its label for screen readers',
+      );
+    });
+  });
+
+  group('WpAccentButton — onboarding step button semantics', () {
+    testWidgets(
+      'WpAccentButton is navigable via semantics for screen readers',
+      (tester) async {
+        await tester.pumpWidget(
+          makeTestable(
+            WpAccentButton(
+              label: 'Continue',
+              gradient: const LinearGradient(
+                colors: [Colors.orange, Colors.red],
+              ),
+              onPressed: () {},
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // WpAccentButton wraps its content in Semantics(button: true, label:).
+        // The label is propagated to the semantics tree via SemanticsNode.
+        final button = find.byType(WpAccentButton);
+        expect(button, findsOneWidget);
+
+        final semantics = tester.getSemantics(button);
+        expect(
+          semantics.label,
+          contains('Continue'),
+          reason:
+              'WpAccentButton must expose its label for screen readers — '
+              'used throughout onboarding (issue 03-a11y-semantics-onboarding)',
+        );
+      },
+    );
+
+    testWidgets('Disabled WpAccentButton still exposes semantics label', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        makeTestable(
+          const WpAccentButton(
+            label: 'Next',
+            gradient: LinearGradient(colors: [Colors.blue, Colors.purple]),
+            onPressed: null, // disabled
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final button = find.byType(WpAccentButton);
+      expect(button, findsOneWidget);
+
+      final semantics = tester.getSemantics(button);
+      expect(
+        semantics.label,
+        contains('Next'),
+        reason:
+            'Disabled WpAccentButton must still expose its label so screen '
+            'readers can announce it and its disabled state',
       );
     });
   });

@@ -358,6 +358,7 @@ class _MicrophoneStepState extends State<MicrophoneStep> {
             const Spacer(),
             SizedBox(
               width: 140,
+              // loam-ignore: a11y-interactive-semantics – semantics provided in WpAccentButton.build
               child: WpAccentButton(
                 label: l10n.onboardingNext,
                 gradient: accentGradient,
@@ -410,6 +411,7 @@ class _MicrophoneStepState extends State<MicrophoneStep> {
             ],
             SizedBox(
               width: 220,
+              // loam-ignore: a11y-interactive-semantics – semantics provided in WpAccentButton.build
               child: WpAccentButton(
                 label: l10n.onboardingMicRequestAccess,
                 gradient: accentGradient,
@@ -423,6 +425,7 @@ class _MicrophoneStepState extends State<MicrophoneStep> {
         return SizedBox(
           key: const ValueKey('action-silent'),
           width: 220,
+          // loam-ignore: a11y-interactive-semantics – semantics provided in WpAccentButton.build
           child: WpAccentButton(
             label: l10n.onboardingMicRetry,
             gradient: accentGradient,

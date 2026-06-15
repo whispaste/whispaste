@@ -95,18 +95,21 @@ class WelcomeStep extends ConsumerWidget {
         // Theme selector
         _SegmentedSelector(
           items: [
+            // loam-ignore: a11y-interactive-semantics – semantics provided in _SegmentButton.build
             _SegmentItem(
               icon: const Icon(LucideIcons.sun),
               label: l10n.onboardingThemeLight,
               isActive: settings.themeMode == ThemeMode.light,
               onTap: () => selectThemeMode(ThemeMode.light),
             ),
+            // loam-ignore: a11y-interactive-semantics – semantics provided in _SegmentButton.build
             _SegmentItem(
               icon: const Icon(LucideIcons.moon),
               label: l10n.onboardingThemeDark,
               isActive: settings.themeMode == ThemeMode.dark,
               onTap: () => selectThemeMode(ThemeMode.dark),
             ),
+            // loam-ignore: a11y-interactive-semantics – semantics provided in _SegmentButton.build
             _SegmentItem(
               icon: const Icon(LucideIcons.monitor),
               label: l10n.onboardingThemeSystem,
@@ -125,6 +128,7 @@ class WelcomeStep extends ConsumerWidget {
         // CTA
         SizedBox(
           width: double.infinity,
+          // loam-ignore: a11y-interactive-semantics – semantics provided in WpAccentButton.build
           child: WpAccentButton(
             label: l10n.onboardingGetStarted,
             gradient: accentGradient,
