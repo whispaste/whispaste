@@ -1,0 +1,17 @@
+name: whispaste_gpu_probe
+description: "Pure-Dart GPU probe tool for WhisPaste. No Flutter dependency."
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: ^3.11.0
+
+dependencies:
+  archive: ^4.0.9
+  path: ^1.9.1
+  whispaste_diagnostics:
+    path: ../whispaste_diagnostics
+
+dev_dependencies:
+  lints: ^6.1.0
+  test: ^1.25.0
