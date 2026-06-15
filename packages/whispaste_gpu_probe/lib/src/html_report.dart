@@ -9,6 +9,7 @@
 /// and a staggered load reveal.
 library;
 
+import 'brand_assets.dart';
 import 'probe_types.dart';
 import 'ranking.dart';
 
@@ -106,7 +107,8 @@ String formatProgressShellHtml({
 
   b.writeln('<header class="site-header">');
   b.writeln(
-    '  <span class="brand"><span class="brand-bars">▍▍▍</span>'
+    '  <span class="brand">'
+    '<img class="brand-logo" alt="WhisPaste" src="$whispasteLogoDataUri">'
     ' WhisPaste GPU-Probe Report</span>',
   );
   b.writeln(
@@ -169,7 +171,8 @@ String formatProgressShellHtml({
 void _writeHeader(StringBuffer b, ProbeReport report, {required bool live}) {
   b.writeln('<header class="site-header reveal">');
   b.writeln(
-    '  <span class="brand"><span class="brand-bars">▍▍▍</span>'
+    '  <span class="brand">'
+    '<img class="brand-logo" alt="WhisPaste" src="$whispasteLogoDataUri">'
     ' WhisPaste GPU-Probe Report</span>',
   );
   b.writeln(
@@ -553,20 +556,22 @@ String _outcomeLabel(Outcome outcome) {
 const String _css = '''
 <style>
   :root {
-    --bg: #0a0e16;
-    --bg-2: #0f1522;
-    --panel: #131a28;
-    --panel-2: #182030;
-    --line: #243049;
-    --line-soft: #1b2334;
-    --txt: #e6edf6;
-    --muted: #8090a8;
+    /* WhisPaste brand palette — mirrors lib/core/theme/colors.dart (dark). */
+    --bg: #131826;          /* background */
+    --bg-2: #171d2c;        /* surface */
+    --panel: #1d2538;       /* surfaceElevated */
+    --panel-2: #232c40;     /* surfaceVariant */
+    --line: rgba(255,255,255,.19);      /* borderDefault */
+    --line-soft: rgba(255,255,255,.12); /* borderSubtle */
+    --txt: #f0f4fa;         /* textPrimary */
+    --muted: #8a99b2;       /* textMuted */
     --faint: #5b6b85;
-    --signal: #a3e635;
-    --signal-dim: #65871f;
-    --cyan: #38bdf8;
-    --amber: #fbbf24;
-    --red: #f87171;
+    --signal: #38d9f0;      /* accent — vibrant cyan */
+    --signal-dim: #14b8d4;  /* teal (accentWarmGradient mid) */
+    --green: #36d98b;       /* success */
+    --cyan: #38d9f0;
+    --amber: #f5c842;       /* warning */
+    --red: #ff7b7b;         /* error */
     --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", "Fira Code",
             ui-monospace, Menlo, Consolas, monospace;
     --sans: "Segoe UI Variable Display", "Segoe UI", system-ui,
@@ -581,8 +586,8 @@ const String _css = '''
     line-height: 1.6;
     background-color: var(--bg);
     background-image:
-      radial-gradient(1100px 520px at 78% -8%, rgba(163,230,53,.10), transparent 60%),
-      radial-gradient(900px 480px at 8% 0%, rgba(56,189,248,.07), transparent 55%),
+      radial-gradient(1100px 520px at 78% -8%, rgba(56,217,240,.10), transparent 60%),
+      radial-gradient(900px 480px at 8% 0%, rgba(56,217,240,.07), transparent 55%),
       linear-gradient(transparent 0 31px, rgba(255,255,255,.018) 31px 32px),
       linear-gradient(90deg, transparent 0 31px, rgba(255,255,255,.018) 31px 32px);
     background-size: auto, auto, 32px 32px, 32px 32px;
@@ -602,8 +607,14 @@ const String _css = '''
     backdrop-filter: blur(6px);
     position: sticky; top: 0; z-index: 20;
   }
-  .brand { font-size: 15px; font-weight: 700; letter-spacing: .04em; }
-  .brand-bars { color: var(--signal); letter-spacing: -.12em; margin-right: 4px; }
+  .brand {
+    display: inline-flex; align-items: center;
+    font-size: 15px; font-weight: 700; letter-spacing: .04em;
+  }
+  .brand-logo {
+    height: 26px; width: 26px; margin-right: 10px;
+    filter: drop-shadow(0 0 10px rgba(56,217,240,.28));
+  }
   .header-meta {
     font-family: var(--mono); font-size: 12px; color: var(--muted);
   }
@@ -653,9 +664,9 @@ const String _css = '''
     border: 1px solid var(--signal-dim); border-radius: 16px;
     padding: 26px 28px;
     background:
-      radial-gradient(640px 240px at 88% -40%, rgba(163,230,53,.18), transparent 70%),
+      radial-gradient(640px 240px at 88% -40%, rgba(56,217,240,.18), transparent 70%),
       linear-gradient(180deg, var(--panel-2), var(--panel));
-    box-shadow: 0 0 0 1px rgba(163,230,53,.08), 0 24px 60px -30px rgba(163,230,53,.25);
+    box-shadow: 0 0 0 1px rgba(56,217,240,.08), 0 24px 60px -30px rgba(56,217,240,.25);
   }
   .winner-flag {
     font-family: var(--mono); font-size: 11px; font-weight: 700;
@@ -674,7 +685,7 @@ const String _css = '''
   .winner-big-num {
     font-family: var(--mono); font-weight: 800; line-height: .9;
     font-size: clamp(44px, 9vw, 76px); color: var(--signal);
-    text-shadow: 0 0 40px rgba(163,230,53,.35);
+    text-shadow: 0 0 40px rgba(56,217,240,.35);
     font-variant-numeric: tabular-nums;
   }
   .winner-big-cap {
@@ -715,9 +726,9 @@ const String _css = '''
   }
   tbody tr { transition: background .12s ease; }
   tbody tr:hover td { background: rgba(255,255,255,.022); }
-  .row-baseline td { background: rgba(56,189,248,.05); }
-  .row-winner td { background: rgba(163,230,53,.06); }
-  .row-winner:hover td { background: rgba(163,230,53,.1); }
+  .row-baseline td { background: rgba(56,217,240,.05); }
+  .row-winner td { background: rgba(56,217,240,.06); }
+  .row-winner:hover td { background: rgba(56,217,240,.1); }
   .col-rank { width: 42px; text-align: center; }
   .rank {
     font-family: var(--mono); font-weight: 700; color: var(--muted);
@@ -738,7 +749,7 @@ const String _css = '''
   }
   .bar {
     display: block; height: 100%; border-radius: 99px;
-    background: linear-gradient(90deg, var(--cyan), #7dd3fc);
+    background: linear-gradient(90deg, #3a4a66, #5b6b85);
     animation: grow .8s cubic-bezier(.2,.8,.2,1) both;
   }
   .bar-winner { background: linear-gradient(90deg, var(--signal-dim), var(--signal)); }
@@ -751,14 +762,14 @@ const String _css = '''
     font-family: var(--mono); font-size: 10px; font-weight: 700;
     text-transform: uppercase; letter-spacing: .06em; border: 1px solid transparent;
   }
-  .outcome-ok { background: rgba(163,230,53,.14); color: var(--signal); border-color: rgba(163,230,53,.3); }
+  .outcome-ok { background: rgba(54,217,139,.16); color: var(--green); border-color: rgba(54,217,139,.35); }
   .outcome-crashed { background: rgba(248,113,113,.14); color: var(--red); border-color: rgba(248,113,113,.3); }
   .outcome-hung { background: rgba(251,191,36,.14); color: var(--amber); border-color: rgba(251,191,36,.3); }
   .outcome-skipped { background: rgba(128,144,168,.14); color: var(--muted); border-color: rgba(128,144,168,.3); }
   .badge-baseline {
     display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 4px;
     font-family: var(--mono); font-size: 9px; font-weight: 700;
-    background: rgba(56,189,248,.15); color: var(--cyan);
+    background: rgba(56,217,240,.15); color: var(--cyan);
     text-transform: uppercase; letter-spacing: .08em; vertical-align: middle;
   }
 
@@ -811,11 +822,11 @@ const String _css = '''
   }
   .live-btn {
     font-family: var(--mono); font-size: 11px; font-weight: 700; cursor: pointer;
-    color: var(--signal); background: rgba(163,230,53,.08);
-    border: 1px solid rgba(163,230,53,.3); border-radius: 8px; padding: 6px 12px;
+    color: var(--signal); background: rgba(56,217,240,.08);
+    border: 1px solid rgba(56,217,240,.3); border-radius: 8px; padding: 6px 12px;
     white-space: nowrap; transition: background .12s, transform .08s;
   }
-  .live-btn:hover { background: rgba(163,230,53,.16); }
+  .live-btn:hover { background: rgba(56,217,240,.16); }
   .live-btn:active { transform: translateY(1px); }
   .col-live { text-align: right; }
   .quit-btn {
@@ -849,7 +860,7 @@ const String _css = '''
     background: var(--faint); box-shadow: 0 0 0 4px rgba(255,255,255,.03); }
   .run-item[data-state="running"] .run-dot { background: var(--amber);
     animation: pulse 1.1s ease-in-out infinite; }
-  .run-item[data-state="ok"] .run-dot { background: var(--signal); }
+  .run-item[data-state="ok"] .run-dot { background: var(--green); }
   .run-item[data-state="fail"] .run-dot { background: var(--red); }
   .run-item[data-state="skip"] .run-dot { background: var(--muted); }
   .run-name { font-family: var(--mono); font-size: 13px; flex: 1; }
