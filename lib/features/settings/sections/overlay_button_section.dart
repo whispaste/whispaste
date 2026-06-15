@@ -3,6 +3,8 @@ library;
 
 import 'dart:io';
 
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -117,20 +119,30 @@ class OverlaySection extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Floating Button section (Windows only)
+// Floating Button section (Windows / macOS only)
 // ---------------------------------------------------------------------------
 
 class FloatingButtonSection extends ConsumerWidget {
   const FloatingButtonSection({super.key});
 
+  /// Whether the current platform supports the Floating Button.
+  ///
+  /// Uses [defaultTargetPlatform] instead of [Platform.isWindows/isMacOS] so
+  /// that widget tests can override the platform via
+  /// [debugDefaultTargetPlatformOverride] without touching real OS checks.
+  static bool get _isSupportedPlatform =>
+      defaultTargetPlatform == TargetPlatform.windows ||
+      defaultTargetPlatform == TargetPlatform.macOS;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (!(Platform.isWindows || Platform.isMacOS)) {
+    if (!_isSupportedPlatform) {
       return const SizedBox.shrink();
     }
 
     final l10n = L10n.of(context);
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return WpSection(
       title: l10n.settingsFloatingButtonSection,
@@ -149,6 +161,10 @@ class FloatingButtonSection extends ConsumerWidget {
                   .updateSettings((s) => s.copyWith(showFloatingButton: v)),
             ),
           ),
+          if (settings.showFloatingButton) ...[
+            const Divider(height: 1),
+            FloatingButtonPositionPreview(isDark: isDark),
+          ],
         ],
       ),
     );
