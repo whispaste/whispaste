@@ -212,6 +212,7 @@ void main() {
       expect(args, isNotNull);
       expect(args, contains('--whisper-language=de'));
       expect(args, contains('--whisper-task=transcribe'));
+      expect(args, contains('--provider=cpu'));
       expect(
         args!.any(
           (a) => a.startsWith('--whisper-encoder=') && a.contains('encoder'),
@@ -224,6 +225,27 @@ void main() {
       );
       // The wav path is the last positional argument.
       expect(args!.last, '/fake/ref.wav');
+    });
+
+    test('cuda provider is passed via --provider=cuda', () async {
+      final dir = _bundleDir();
+      addTearDown(() => dir.deleteSync(recursive: true));
+      List<String>? args;
+      final candidate = SherpaOnnxCandidate(
+        id: 'sherpa-onnx-cuda',
+        binaryName: 'sherpa-onnx-offline',
+        backend: 'cuda',
+        provider: 'cuda',
+        runner: _fastRunner(
+          _fakeLauncher(
+            exitCode: 0,
+            stdoutLines: [_resultJson],
+            onArgs: (a) => args = a,
+          ),
+        ),
+      );
+      await candidate.run(_ctx(dir.path));
+      expect(args, contains('--provider=cuda'));
     });
 
     test('missing model files → Outcome.skipped', () async {

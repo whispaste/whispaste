@@ -141,6 +141,7 @@ class SherpaOnnxCandidate implements ProbeCandidate {
     required this.id,
     required this.binaryName,
     this.backend = 'onnx-cpu',
+    this.provider = 'cpu',
     this.runner = const ProbeRunner(),
     this.referenceTranscript,
     this.numThreads = 4,
@@ -154,6 +155,11 @@ class SherpaOnnxCandidate implements ProbeCandidate {
 
   /// Backend label stored in [CandidateResult.backend].
   final String backend;
+
+  /// ONNX Runtime execution provider passed via `--provider`
+  /// (`cpu`, `cuda`, `directml`, …). `cuda` requires a CUDA-enabled sherpa
+  /// build + a supported NVIDIA GPU; it falls back / fails otherwise.
+  final String provider;
 
   /// Injectable runner (production default; override in tests).
   final ProbeRunner runner;
@@ -193,6 +199,7 @@ class SherpaOnnxCandidate implements ProbeCandidate {
         '--whisper-encoder=${files.encoder}',
         '--whisper-decoder=${files.decoder}',
         '--tokens=${files.tokens}',
+        '--provider=$provider',
         '--whisper-language=${ctx.language}',
         '--whisper-task=transcribe',
         '--num-threads=$numThreads',
