@@ -414,6 +414,9 @@ class L10nEn extends L10n {
   String get settingsSoundFeedbackSubtitle => 'Audio cues for recording events';
 
   @override
+  String get settingsSoundsEnabled => 'Sounds';
+
+  @override
   String get settingsRecordStartSound => 'Record Start Sound';
 
   @override

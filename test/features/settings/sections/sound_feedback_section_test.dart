@@ -1,7 +1,7 @@
 /// Round-trip widget tests for [SoundFeedbackSection].
 ///
-/// Covers: record-start, record-stop, transcription-complete, and
-/// duration-warning sound toggles plus the volume slider.
+/// Covers: a single "Sounds" master toggle (replaces the four individual
+/// sound toggles) plus the volume slider (only visible when master is ON).
 ///
 /// [SoundFeedbackService] is faked out to prevent real audio engine
 /// initialisation in headless test environments.
@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' show AsyncData;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
+import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/features/settings/sections/feedback_section.dart';
 import 'package:whispaste/services/sound_feedback_service.dart';
 
@@ -56,10 +57,10 @@ void main() {
   ];
 
   group('SoundFeedbackSection', () {
-    // ── Toggle: record start ────────────────────────────────────────────────
+    // ── Master toggle visibility ─────────────────────────────────────────────
 
     testWidgets(
-      'record-start sound toggle round-trip flips sound.recordStartSound',
+      'single "Sounds" master toggle is visible (four individual toggles are not)',
       (tester) async {
         final notifier = _FakeSettingsNotifier(AppSettings.defaults);
         await tester.pumpWidget(
@@ -70,19 +71,17 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        // Default = true; Switch at index 0 = recordStartSound.
-        expect(notifier.state.value!.sound.recordStartSound, isTrue);
-        await tester.tap(find.byType(Switch).at(0));
-        await tester.pump();
-        expect(notifier.state.value!.sound.recordStartSound, isFalse);
+        // Only one Switch should be visible (master + volume slider which is a Slider, not Switch).
+        expect(find.byType(Switch), findsOneWidget);
       },
     );
 
-    // ── Toggle: record stop ─────────────────────────────────────────────────
+    // ── Toggle OFF → all four false ──────────────────────────────────────────
 
     testWidgets(
-      'record-stop sound toggle round-trip flips sound.recordStopSound',
+      'tapping master toggle OFF sets all four sound fields to false',
       (tester) async {
+        // Start with all sounds enabled (defaults).
         final notifier = _FakeSettingsNotifier(AppSettings.defaults);
         await tester.pumpWidget(
           makeTestable(
@@ -92,19 +91,69 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(notifier.state.value!.sound.recordStopSound, isTrue);
-        await tester.tap(find.byType(Switch).at(1));
+        // Master is ON (all four defaults = true). Tap to turn OFF.
+        await tester.tap(find.byType(Switch).first);
         await tester.pump();
-        expect(notifier.state.value!.sound.recordStopSound, isFalse);
+
+        final sound = notifier.state.value!.sound;
+        expect(sound.recordStartSound, isFalse);
+        expect(sound.recordStopSound, isFalse);
+        expect(sound.transcriptionCompleteSound, isFalse);
+        expect(sound.durationWarningSound, isFalse);
       },
     );
 
-    // ── Toggle: transcription complete ──────────────────────────────────────
+    // ── Toggle ON → all four true ────────────────────────────────────────────
+
+    testWidgets('tapping master toggle ON sets all four sound fields to true', (
+      tester,
+    ) async {
+      // Start with all sounds disabled.
+      final notifier = _FakeSettingsNotifier(
+        AppSettings.defaults.copyWithSections(
+          sound: const SoundSettings(
+            recordStartSound: false,
+            recordStopSound: false,
+            transcriptionCompleteSound: false,
+            durationWarningSound: false,
+          ),
+        ),
+      );
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: SoundFeedbackSection()),
+          overrides: buildOverrides(notifier),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Master is OFF. Tap to turn ON.
+      await tester.tap(find.byType(Switch).first);
+      await tester.pump();
+
+      final sound = notifier.state.value!.sound;
+      expect(sound.recordStartSound, isTrue);
+      expect(sound.recordStopSound, isTrue);
+      expect(sound.transcriptionCompleteSound, isTrue);
+      expect(sound.durationWarningSound, isTrue);
+    });
+
+    // ── Derived initial state: mixed config with ≥1 active → master ON ───────
 
     testWidgets(
-      'transcription-complete toggle round-trip flips sound.transcriptionCompleteSound',
+      'master derives ON when at least one sound field is true (mixed config)',
       (tester) async {
-        final notifier = _FakeSettingsNotifier(AppSettings.defaults);
+        // Only one sound enabled — master should show as ON.
+        final notifier = _FakeSettingsNotifier(
+          AppSettings.defaults.copyWithSections(
+            sound: const SoundSettings(
+              recordStartSound: true,
+              recordStopSound: false,
+              transcriptionCompleteSound: false,
+              durationWarningSound: false,
+            ),
+          ),
+        );
         await tester.pumpWidget(
           makeTestable(
             const SingleChildScrollView(child: SoundFeedbackSection()),
@@ -113,35 +162,49 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(notifier.state.value!.sound.transcriptionCompleteSound, isTrue);
-        await tester.tap(find.byType(Switch).at(2));
-        await tester.pump();
-        expect(notifier.state.value!.sound.transcriptionCompleteSound, isFalse);
+        final masterSwitch = tester.widget<Switch>(find.byType(Switch).first);
+        expect(masterSwitch.value, isTrue);
       },
     );
 
-    // ── Toggle: duration warning ────────────────────────────────────────────
+    // ── Volume control visibility ────────────────────────────────────────────
 
-    testWidgets(
-      'duration-warning sound toggle round-trip flips sound.durationWarningSound',
-      (tester) async {
-        final notifier = _FakeSettingsNotifier(AppSettings.defaults);
-        await tester.pumpWidget(
-          makeTestable(
-            const SingleChildScrollView(child: SoundFeedbackSection()),
-            overrides: buildOverrides(notifier),
+    testWidgets('volume slider is visible when master is ON', (tester) async {
+      final notifier = _FakeSettingsNotifier(AppSettings.defaults);
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: SoundFeedbackSection()),
+          overrides: buildOverrides(notifier),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(Slider), findsOneWidget);
+    });
+
+    testWidgets('volume slider is hidden when master is OFF', (tester) async {
+      final notifier = _FakeSettingsNotifier(
+        AppSettings.defaults.copyWithSections(
+          sound: const SoundSettings(
+            recordStartSound: false,
+            recordStopSound: false,
+            transcriptionCompleteSound: false,
+            durationWarningSound: false,
           ),
-        );
-        await tester.pumpAndSettle();
+        ),
+      );
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: SoundFeedbackSection()),
+          overrides: buildOverrides(notifier),
+        ),
+      );
+      await tester.pumpAndSettle();
 
-        expect(notifier.state.value!.sound.durationWarningSound, isTrue);
-        await tester.tap(find.byType(Switch).at(3));
-        await tester.pump();
-        expect(notifier.state.value!.sound.durationWarningSound, isFalse);
-      },
-    );
+      expect(find.byType(Slider), findsNothing);
+    });
 
-    // ── Volume slider ───────────────────────────────────────────────────────
+    // ── Volume slider round-trip ─────────────────────────────────────────────
 
     testWidgets('volume slider round-trip updates sound.soundVolume', (
       tester,

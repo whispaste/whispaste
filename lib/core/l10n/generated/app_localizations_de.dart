@@ -416,6 +416,9 @@ class L10nDe extends L10n {
       'Audio-Signale für Aufnahme-Ereignisse';
 
   @override
+  String get settingsSoundsEnabled => 'Töne';
+
+  @override
   String get settingsRecordStartSound => 'Aufnahme-Startton';
 
   @override

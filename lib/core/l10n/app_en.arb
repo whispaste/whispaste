@@ -152,6 +152,7 @@
   "settingsLanguageHebrew": "Hebrew",
   "settingsSoundFeedback": "Sound & Feedback",
   "settingsSoundFeedbackSubtitle": "Audio cues for recording events",
+  "settingsSoundsEnabled": "Sounds",
   "settingsRecordStartSound": "Record Start Sound",
   "settingsRecordStopSound": "Record Stop Sound",
   "settingsTranscriptionCompleteSound": "Transcription Complete Sound",
