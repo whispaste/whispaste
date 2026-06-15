@@ -832,6 +832,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       message: l10n.historyWriteFailedToast,
       type: WpToastType.error,
       duration: const Duration(seconds: 6),
+      // loam-ignore: a11y-interactive-semantics – WpToastAction is a data class; the TextButton in _ToastCard.build uses its child Text as the accessible label
       action: WpToastAction(
         label: l10n.historyWriteFailedAction,
         onPressed: _copyHistoryWriteDiagnostics,

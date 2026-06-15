@@ -63,6 +63,7 @@ class HistoryCompactView extends StatelessWidget {
           );
         }
         final entry = item.entry!;
+        // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryCompactRowState.build
         return HistoryCompactRow(
           entry: entry,
           isDark: isDark,
@@ -132,101 +133,110 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
           : WpColorsLight.hoverTransparent;
     }
 
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
-          curve: WpMotion.defaultCurve,
-          margin: const EdgeInsets.symmetric(horizontal: WpSpacing.xs),
-          padding: const EdgeInsets.symmetric(
-            horizontal: WpSpacing.sm,
-            vertical: 4,
-          ),
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: WpRadius.borderSm,
-            border: widget.isFocused
-                ? Border.all(color: accent.withValues(alpha: 0.5), width: 1.5)
-                : null,
-          ),
-          child: Row(
-            children: [
-              // Multi-select checkbox
-              if (widget.multiSelectMode)
-                Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: Checkbox(
-                      value: widget.isChecked,
-                      onChanged: (_) => widget.onTap(),
-                      activeColor: accent,
-                      side: BorderSide(
-                        color: isDark
-                            ? WpColorsDark.textMuted
-                            : WpColorsLight.textMuted,
+    final l10n = L10n.of(context);
+    final semanticLabel = widget.entry.title.isNotEmpty
+        ? widget.entry.title
+        : l10n.historyUntitledRecording;
+
+    return Semantics(
+      label: semanticLabel,
+      button: true,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+            curve: WpMotion.defaultCurve,
+            margin: const EdgeInsets.symmetric(horizontal: WpSpacing.xs),
+            padding: const EdgeInsets.symmetric(
+              horizontal: WpSpacing.sm,
+              vertical: 4,
+            ),
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: WpRadius.borderSm,
+              border: widget.isFocused
+                  ? Border.all(color: accent.withValues(alpha: 0.5), width: 1.5)
+                  : null,
+            ),
+            child: Row(
+              children: [
+                // Multi-select checkbox
+                if (widget.multiSelectMode)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: Checkbox(
+                        value: widget.isChecked,
+                        onChanged: (_) => widget.onTap(),
+                        activeColor: accent,
+                        side: BorderSide(
+                          color: isDark
+                              ? WpColorsDark.textMuted
+                              : WpColorsLight.textMuted,
+                        ),
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
                       ),
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+                // Favorite indicator
+                if (widget.entry.pinned)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: FaIcon(
+                      FontAwesomeIcons.solidStar,
+                      size: 10,
+                      color: Colors.amber.shade600,
+                    ),
+                  ),
+                // Title
+                Expanded(
+                  child: HighlightedText(
+                    text: widget.entry.title.isNotEmpty
+                        ? widget.entry.title
+                        : l10n.historyUntitledRecording,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    isDark: isDark,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: textPrimary,
                     ),
                   ),
                 ),
-              // Favorite indicator
-              if (widget.entry.pinned)
-                Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: FaIcon(
-                    FontAwesomeIcons.solidStar,
-                    size: 10,
-                    color: Colors.amber.shade600,
-                  ),
-                ),
-              // Title
-              Expanded(
-                child: HighlightedText(
-                  text: widget.entry.title.isNotEmpty
-                      ? widget.entry.title
-                      : L10n.of(context).historyUntitledRecording,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  isDark: isDark,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: textPrimary,
-                  ),
-                ),
-              ),
-              const SizedBox(width: WpSpacing.sm),
-              // Duration
-              Text(
-                formatHistoryDuration(widget.entry.durationSec),
-                style: TextStyle(fontSize: 11, color: textMuted),
-              ),
-              // Language
-              if (widget.entry.language.isNotEmpty) ...[
                 const SizedBox(width: WpSpacing.sm),
+                // Duration
                 Text(
-                  widget.entry.language.toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: textMuted,
-                    fontWeight: FontWeight.w500,
+                  formatHistoryDuration(widget.entry.durationSec),
+                  style: TextStyle(fontSize: 11, color: textMuted),
+                ),
+                // Language
+                if (widget.entry.language.isNotEmpty) ...[
+                  const SizedBox(width: WpSpacing.sm),
+                  Text(
+                    widget.entry.language.toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: textMuted,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
+                ],
+                const SizedBox(width: WpSpacing.sm),
+                // Time
+                Text(
+                  formatHistoryTime(widget.entry.timestamp),
+                  style: TextStyle(fontSize: 11, color: textMuted),
                 ),
               ],
-              const SizedBox(width: WpSpacing.sm),
-              // Time
-              Text(
-                formatHistoryTime(widget.entry.timestamp),
-                style: TextStyle(fontSize: 11, color: textMuted),
-              ),
-            ],
+            ),
           ),
         ),
       ),

@@ -71,6 +71,7 @@ class HistoryEntryList extends StatelessWidget {
           );
         }
         final entry = item.entry!;
+        // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryEntryRowState.build
         return HistoryEntryRow(
           entry: entry,
           isDark: isDark,
