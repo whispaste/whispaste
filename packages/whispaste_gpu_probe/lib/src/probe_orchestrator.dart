@@ -33,13 +33,31 @@ String resolveDesktopPath({
   final env = environment ?? Platform.environment;
   final platform = platformOverride ?? Platform.operatingSystem;
 
+  // Join with the path style of the TARGET platform, not the host running
+  // this code — so the result is correct both natively and when a foreign
+  // platform is simulated via [platformOverride] (e.g. on CI/macOS).
   if (platform == 'windows') {
     final userProfile = env['USERPROFILE'] ?? env['HOME'] ?? '';
-    return p.join(userProfile, 'Desktop');
+    return p.windows.join(userProfile, 'Desktop');
   }
   // macOS and Linux both put the Desktop under $HOME/Desktop.
   final home = env['HOME'] ?? '';
-  return p.join(home, 'Desktop');
+  return p.posix.join(home, 'Desktop');
+}
+
+/// Recursively applies [sanitizePaths] to every string *value* in a JSON-able
+/// tree (map values and list elements), leaving map keys untouched. Used to
+/// scrub the report before JSON encoding so backslash path escaping cannot
+/// hide raw Windows paths from the sanitizer.
+Object? _sanitizeJsonTree(Object? node) {
+  if (node is String) return sanitizePaths(node);
+  if (node is Map) {
+    return node.map((key, value) => MapEntry(key, _sanitizeJsonTree(value)));
+  }
+  if (node is List) {
+    return node.map(_sanitizeJsonTree).toList();
+  }
+  return node;
 }
 
 /// Timestamp-based file stem, e.g. `WhisPaste-GPU-Probe-20260615-143022`.
@@ -133,10 +151,14 @@ Future<String> runProbeOrchestrator({
   final mdPath = p.join(outputDir, '$stem.md');
   final zipPath = p.join(outputDir, '$stem.zip');
 
-  // Write JSON — sanitized before touching disk.
-  final jsonContent = sanitizePaths(
-    const JsonEncoder.withIndent('  ').convert(report.toJson()),
-  );
+  // Write JSON — sanitized at the DATA level (before encoding), not on the
+  // encoded string. JSON escapes backslashes (`C:\Users` -> `C:\\Users`), so
+  // sanitizing the encoded string would never match a raw Windows path and
+  // would leak it; sanitizing the string values first then encoding works on
+  // every platform.
+  final jsonContent = const JsonEncoder.withIndent(
+    '  ',
+  ).convert(_sanitizeJsonTree(report.toJson()));
   File(jsonPath).writeAsStringSync(jsonContent);
 
   // Write Markdown — sanitized before touching disk.
