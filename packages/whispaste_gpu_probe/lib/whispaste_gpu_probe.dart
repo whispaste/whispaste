@@ -14,6 +14,7 @@ export 'src/reference_clip.dart';
 export 'src/wer.dart';
 export 'src/vram_gating.dart';
 export 'src/delivery.dart';
+export 'src/live_server.dart';
 export 'src/whisper_cpp_candidate.dart';
 export 'src/const_me_candidate.dart';
 export 'src/onnx_direct_ml_candidate.dart';

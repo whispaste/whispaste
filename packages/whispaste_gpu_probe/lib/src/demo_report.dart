@@ -36,6 +36,7 @@ ProbeReport buildDemoReport() {
       realtimeFactor: 0.5,
       backend: 'cpu',
       modelId: 'small',
+      transcribedText: 'Bitte transkribiere diesen Satz schnell und korrekt.',
     ),
     CandidateResult(
       candidateId: 'const-me-directcompute',
@@ -45,6 +46,7 @@ ProbeReport buildDemoReport() {
       realtimeFactor: 0.083,
       backend: 'directml',
       modelId: 'small',
+      transcribedText: 'Bitte transkribiere diesen Satz schnell und korrekt.',
     ),
     CandidateResult(
       candidateId: 'wav2vec2-directml-de',
@@ -54,6 +56,7 @@ ProbeReport buildDemoReport() {
       realtimeFactor: 0.125,
       backend: 'directml',
       modelId: 'small',
+      transcribedText: 'bitte transkribiere diesen satz schnel und korekt',
     ),
     CandidateResult(
       candidateId: 'onnx-directml',
@@ -63,6 +66,7 @@ ProbeReport buildDemoReport() {
       realtimeFactor: 0.156,
       backend: 'directml',
       modelId: 'small',
+      transcribedText: 'Bitte transkribiere diesen Satz schnell und korrekt.',
     ),
     CandidateResult(
       candidateId: 'whisper-cpp-vulkan',
