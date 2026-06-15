@@ -253,8 +253,8 @@ void main() {
       }
 
       store = ModelStore(directory: tmp.path, downloader: fake);
-      final cpuBin = File(pathJoin(tmp.path, 'whisper'))
-        ..writeAsStringSync('x');
+      // Bundled CPU binary lives next to the exe → exeDir == tmp.
+      File(pathJoin(tmp.path, 'whisper')).writeAsStringSync('x');
       server = LiveProbeServer(
         candidates: const [],
         contextTemplate: const ProbeContext(
@@ -266,7 +266,7 @@ void main() {
         random: Random(9),
         logger: (_) {},
         modelStore: store,
-        engines: defaultEngineRegistry(cpuBinary: cpuBin.path),
+        engines: defaultEngineRegistry(exeDir: tmp.path),
       );
       url = await server.start();
       client = HttpClient();
