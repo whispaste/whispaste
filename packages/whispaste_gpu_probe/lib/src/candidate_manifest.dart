@@ -14,6 +14,7 @@ import 'onnx_direct_ml_candidate.dart';
 import 'probe_types.dart';
 import 'probe_runner.dart';
 import 'model_manifest.dart';
+import 'wav2vec2_direct_ml_candidate.dart';
 import 'whisper_cpp_candidate.dart';
 
 // ---------------------------------------------------------------------------
@@ -240,6 +241,13 @@ class CandidateManifest {
           ),
           modelSizes: onnxSizes,
           models: onnxModels,
+        ),
+        // wav2vec2/Conformer — German non-Whisper ONNX model via DirectML.
+        // Alternative STT backend for the shootout, reusing the Slice-14
+        // OnnxDirectMlCandidate runner with a custom output parser.
+        wav2vec2CandidateEntry(
+          runner: runner,
+          referenceTranscript: referenceTranscript,
         ),
       ],
     );
