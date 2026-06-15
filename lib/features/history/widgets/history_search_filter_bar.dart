@@ -670,6 +670,7 @@ class _HistorySearchFilterBarState
                   child: ListView(
                     scrollDirection: Axis.horizontal,
                     children: [
+                      // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryFilterChipState.build
                       HistoryFilterChip(
                         label: l10n.historyAll,
                         isActive: widget.activeFilter == HistoryFilter.all,
@@ -678,6 +679,7 @@ class _HistorySearchFilterBarState
                         count: searchCounts?[HistoryFilter.all],
                       ),
                       const SizedBox(width: WpSpacing.xs),
+                      // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryFilterChipState.build
                       HistoryFilterChip(
                         label: l10n.historyToday,
                         isActive: widget.activeFilter == HistoryFilter.today,
@@ -687,6 +689,7 @@ class _HistorySearchFilterBarState
                         count: searchCounts?[HistoryFilter.today],
                       ),
                       const SizedBox(width: WpSpacing.xs),
+                      // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryFilterChipState.build
                       HistoryFilterChip(
                         label: l10n.historyThisWeek,
                         isActive: widget.activeFilter == HistoryFilter.week,
@@ -695,6 +698,7 @@ class _HistorySearchFilterBarState
                         count: searchCounts?[HistoryFilter.week],
                       ),
                       const SizedBox(width: WpSpacing.xs),
+                      // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryFilterChipState.build
                       HistoryFilterChip(
                         label: l10n.historyPinned,
                         icon: LucideIcons.star,
@@ -705,6 +709,7 @@ class _HistorySearchFilterBarState
                         count: searchCounts?[HistoryFilter.pinned],
                       ),
                       const SizedBox(width: WpSpacing.xs),
+                      // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryFilterChipState.build
                       HistoryFilterChip(
                         label: l10n.historyArchived,
                         icon: LucideIcons.archive,
@@ -715,6 +720,7 @@ class _HistorySearchFilterBarState
                         count: searchCounts?[HistoryFilter.archived],
                       ),
                       const SizedBox(width: WpSpacing.xs),
+                      // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryFilterChipState.build
                       HistoryFilterChip(
                         label: l10n.historyTrash,
                         icon: LucideIcons.trash2,
@@ -981,6 +987,7 @@ class HistoryMultiSelectBar extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (onMerge != null)
+                    // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryMultiSelectActionState.build
                     HistoryMultiSelectAction(
                       icon: LucideIcons.merge,
                       label: l10n.historyMerge,
@@ -993,6 +1000,7 @@ class HistoryMultiSelectBar extends StatelessWidget {
                       onTap: onMerge!,
                     ),
                   if (onBatchCopy != null)
+                    // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryMultiSelectActionState.build
                     HistoryMultiSelectAction(
                       icon: LucideIcons.copy,
                       label: l10n.historyCopyText,
@@ -1005,6 +1013,7 @@ class HistoryMultiSelectBar extends StatelessWidget {
                       onTap: onBatchCopy!,
                     ),
                   if (onExport != null)
+                    // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryMultiSelectActionState.build
                     HistoryMultiSelectAction(
                       icon: LucideIcons.download,
                       label: l10n.historyExportAction,
@@ -1012,6 +1021,7 @@ class HistoryMultiSelectBar extends StatelessWidget {
                       onTap: onExport!,
                     ),
                   if (onRestore != null)
+                    // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryMultiSelectActionState.build
                     HistoryMultiSelectAction(
                       icon: LucideIcons.undo2,
                       label: l10n.historyRestore,
@@ -1019,6 +1029,7 @@ class HistoryMultiSelectBar extends StatelessWidget {
                       onTap: onRestore!,
                     ),
                   if (onArchive != null)
+                    // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryMultiSelectActionState.build
                     HistoryMultiSelectAction(
                       icon: isArchiveView
                           ? LucideIcons.archiveRestore
@@ -1030,6 +1041,7 @@ class HistoryMultiSelectBar extends StatelessWidget {
                       onTap: onArchive!,
                     ),
                   if (onDelete != null)
+                    // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryMultiSelectActionState.build
                     HistoryMultiSelectAction(
                       icon: LucideIcons.trash2,
                       label: isTrashView
@@ -1102,33 +1114,37 @@ class _HistoryMultiSelectActionState extends State<HistoryMultiSelectAction> {
               : WpColorsLight.textPrimary);
     final color = _hovered ? hoverColor : textSecondary;
 
-    return Padding(
-      padding: const EdgeInsets.only(right: WpSpacing.xs),
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _hovered = true),
-        onExit: (_) => setState(() => _hovered = false),
-        child: Tooltip(
-          message: widget.shortcutHint != null
-              ? '${widget.label} (${widget.shortcutHint})'
-              : widget.label,
-          child: InkWell(
-            borderRadius: WpRadius.borderSm,
-            onTap: widget.onTap,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: WpSpacing.sm,
-                vertical: WpSpacing.xxs + 2,
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(widget.icon, size: 14, color: color),
-                  const SizedBox(width: 4),
-                  Text(
-                    widget.label,
-                    style: TextStyle(fontSize: 12, color: color),
-                  ),
-                ],
+    return Semantics(
+      label: widget.label,
+      button: true,
+      child: Padding(
+        padding: const EdgeInsets.only(right: WpSpacing.xs),
+        child: MouseRegion(
+          onEnter: (_) => setState(() => _hovered = true),
+          onExit: (_) => setState(() => _hovered = false),
+          child: Tooltip(
+            message: widget.shortcutHint != null
+                ? '${widget.label} (${widget.shortcutHint})'
+                : widget.label,
+            child: InkWell(
+              borderRadius: WpRadius.borderSm,
+              onTap: widget.onTap,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: WpSpacing.sm,
+                  vertical: WpSpacing.xxs + 2,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(widget.icon, size: 14, color: color),
+                    const SizedBox(width: 4),
+                    Text(
+                      widget.label,
+                      style: TextStyle(fontSize: 12, color: color),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -1168,20 +1184,26 @@ class HistoryViewModeToggle extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryViewModeButton.build
           _HistoryViewModeButton(
             icon: LucideIcons.list,
+            label: L10n.of(context).historyList,
             isActive: viewMode == HistoryViewMode.list,
             isDark: isDark,
             onTap: () => onChanged(HistoryViewMode.list),
           ),
+          // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryViewModeButton.build
           _HistoryViewModeButton(
             icon: LucideIcons.layoutGrid,
+            label: L10n.of(context).historyCards,
             isActive: viewMode == HistoryViewMode.cards,
             isDark: isDark,
             onTap: () => onChanged(HistoryViewMode.cards),
           ),
+          // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryViewModeButton.build
           _HistoryViewModeButton(
             icon: LucideIcons.rows3,
+            label: L10n.of(context).historyCompact,
             isActive: viewMode == HistoryViewMode.compact,
             isDark: isDark,
             onTap: () => onChanged(HistoryViewMode.compact),
@@ -1195,12 +1217,14 @@ class HistoryViewModeToggle extends StatelessWidget {
 class _HistoryViewModeButton extends StatelessWidget {
   const _HistoryViewModeButton({
     required this.icon,
+    required this.label,
     required this.isActive,
     required this.isDark,
     required this.onTap,
   });
 
   final IconData icon;
+  final String label;
   final bool isActive;
   final bool isDark;
   final VoidCallback onTap;
@@ -1213,14 +1237,21 @@ class _HistoryViewModeButton extends StatelessWidget {
     final bg = isActive
         ? (isDark ? WpColorsDark.accentSubtle : WpColorsLight.accentSubtle)
         : Colors.transparent;
-    return GestureDetector(
-      onTap: onTap,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: Container(
-          padding: const EdgeInsets.all(WpSpacing.xxs),
-          decoration: BoxDecoration(color: bg, borderRadius: WpRadius.borderSm),
-          child: Icon(icon, size: WpIconSize.sm, color: color),
+    return Semantics(
+      label: label,
+      button: true,
+      child: GestureDetector(
+        onTap: onTap,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: Container(
+            padding: const EdgeInsets.all(WpSpacing.xxs),
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: WpRadius.borderSm,
+            ),
+            child: Icon(icon, size: WpIconSize.sm, color: color),
+          ),
         ),
       ),
     );

@@ -729,12 +729,14 @@ class _DetailPanelHeader extends StatelessWidget {
             ),
             // Action buttons
             if (isTrashView) ...[
+              // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryDetailActionState.build
               HistoryDetailAction(
                 icon: LucideIcons.undo2,
                 tooltip: l10n.historyRestore,
                 isDark: isDark,
                 onTap: onRestore,
               ),
+              // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryDetailActionState.build
               HistoryDetailAction(
                 icon: LucideIcons.trash2,
                 tooltip: l10n.historyDeleteForever,
@@ -743,12 +745,14 @@ class _DetailPanelHeader extends StatelessWidget {
                 isDestructive: true,
               ),
             ] else ...[
+              // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryDetailActionState.build
               HistoryDetailAction(
                 icon: LucideIcons.copy,
                 tooltip: '${l10n.historyCopyText} (Ctrl+C)',
                 isDark: isDark,
                 onTap: onCopy,
               ),
+              // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryDetailActionState.build
               HistoryDetailAction(
                 faIcon: entry.pinned ? FontAwesomeIcons.solidStar : null,
                 icon: entry.pinned ? null : LucideIcons.star,
@@ -771,6 +775,7 @@ class _DetailPanelHeader extends StatelessWidget {
               ),
             ],
             const SizedBox(width: WpSpacing.xxs),
+            // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryDetailActionState.build
             HistoryDetailAction(
               icon: LucideIcons.x,
               tooltip: '${l10n.historyClose} (Esc)',
@@ -1286,30 +1291,38 @@ class _HistoryDetailActionState extends State<HistoryDetailAction> {
           : WpColorsLight.textMuted;
     }
 
-    return Tooltip(
-      message: widget.tooltip,
-      preferBelow: false,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
-        child: GestureDetector(
-          onTap: widget.onTap,
-          behavior: HitTestBehavior.opaque,
-          child: AnimatedContainer(
-            duration: _isHovered ? Duration.zero : WpMotion.hoverOut,
-            padding: const EdgeInsets.all(WpSpacing.sm),
-            decoration: BoxDecoration(
-              color: _isHovered
-                  ? (widget.isDark ? WpColorsDark.hover : WpColorsLight.hover)
-                  : (widget.isDark
-                        ? WpColorsDark.hoverTransparent
-                        : WpColorsLight.hoverTransparent),
-              borderRadius: WpRadius.borderSm,
+    return Semantics(
+      label: widget.tooltip,
+      button: true,
+      child: Tooltip(
+        message: widget.tooltip,
+        preferBelow: false,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          onEnter: (_) => setState(() => _isHovered = true),
+          onExit: (_) => setState(() => _isHovered = false),
+          child: GestureDetector(
+            onTap: widget.onTap,
+            behavior: HitTestBehavior.opaque,
+            child: AnimatedContainer(
+              duration: _isHovered ? Duration.zero : WpMotion.hoverOut,
+              padding: const EdgeInsets.all(WpSpacing.sm),
+              decoration: BoxDecoration(
+                color: _isHovered
+                    ? (widget.isDark ? WpColorsDark.hover : WpColorsLight.hover)
+                    : (widget.isDark
+                          ? WpColorsDark.hoverTransparent
+                          : WpColorsLight.hoverTransparent),
+                borderRadius: WpRadius.borderSm,
+              ),
+              child: widget.faIcon != null
+                  ? FaIcon(
+                      widget.faIcon!,
+                      size: WpIconSize.md,
+                      color: iconColor,
+                    )
+                  : Icon(widget.icon!, size: WpIconSize.md, color: iconColor),
             ),
-            child: widget.faIcon != null
-                ? FaIcon(widget.faIcon!, size: WpIconSize.md, color: iconColor)
-                : Icon(widget.icon!, size: WpIconSize.md, color: iconColor),
           ),
         ),
       ),

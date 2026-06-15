@@ -114,83 +114,95 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
         (_isHovered || _isTouchPlatform || widget.isFocused) &&
         !widget.multiSelectMode;
 
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
-          curve: WpMotion.defaultCurve,
-          margin: const EdgeInsets.symmetric(
-            horizontal: WpSpacing.xs,
-            vertical: 1,
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: WpSpacing.sm,
-            vertical: WpSpacing.md,
-          ),
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: WpRadius.borderMd,
-            // Use uniform border for selected state (compatible with borderRadius)
-            border: widget.isSelected
-                ? Border.all(color: accent, width: 2)
-                : widget.isFocused
-                ? Border.all(color: accent.withValues(alpha: 0.5), width: 1.5)
-                : null,
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Multi-select checkbox
-              if (widget.multiSelectMode)
-                Padding(
-                  padding: const EdgeInsets.only(right: WpSpacing.xs, top: 10),
-                  child: SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: Checkbox(
-                      value: widget.isChecked,
-                      onChanged: (_) => widget.onTap(),
-                      activeColor: accent,
-                      side: BorderSide(
-                        color: isDark
-                            ? WpColorsDark.textMuted
-                            : WpColorsLight.textMuted,
+    final l10n = L10n.of(context);
+    final semanticLabel = widget.entry.title.isNotEmpty
+        ? widget.entry.title
+        : l10n.historyUntitledRecording;
+
+    return Semantics(
+      label: semanticLabel,
+      button: true,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+            curve: WpMotion.defaultCurve,
+            margin: const EdgeInsets.symmetric(
+              horizontal: WpSpacing.xs,
+              vertical: 1,
+            ),
+            padding: const EdgeInsets.symmetric(
+              horizontal: WpSpacing.sm,
+              vertical: WpSpacing.md,
+            ),
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: WpRadius.borderMd,
+              // Use uniform border for selected state (compatible with borderRadius)
+              border: widget.isSelected
+                  ? Border.all(color: accent, width: 2)
+                  : widget.isFocused
+                  ? Border.all(color: accent.withValues(alpha: 0.5), width: 1.5)
+                  : null,
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Multi-select checkbox
+                if (widget.multiSelectMode)
+                  Padding(
+                    padding: const EdgeInsets.only(
+                      right: WpSpacing.xs,
+                      top: 10,
+                    ),
+                    child: SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: Checkbox(
+                        value: widget.isChecked,
+                        onChanged: (_) => widget.onTap(),
+                        activeColor: accent,
+                        side: BorderSide(
+                          color: isDark
+                              ? WpColorsDark.textMuted
+                              : WpColorsLight.textMuted,
+                        ),
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
                       ),
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      visualDensity: VisualDensity.compact,
                     ),
                   ),
-                ),
-              // Avatar — colored circle with content-type icon
-              HistoryEntryAvatar(
-                color: avatarCol,
-                icon: historyAvatarIcon(widget.entry),
-                isPinned: widget.entry.pinned,
-                isDark: isDark,
-                size: 42,
-              ),
-              const SizedBox(width: WpSpacing.sm),
-              // Content
-              Expanded(
-                child: _EntryRowContent(
-                  entry: widget.entry,
+                // Avatar — colored circle with content-type icon
+                HistoryEntryAvatar(
+                  color: avatarCol,
+                  icon: historyAvatarIcon(widget.entry),
+                  isPinned: widget.entry.pinned,
                   isDark: isDark,
-                  showActions: showActions,
-                  timeLabel: _timeLabel,
-                  durationLabel: _durationLabel,
-                  wordCount: _wordCount,
-                  tags: _entryTags,
-                  onCopy: widget.onCopy,
-                  onPin: widget.onPin,
-                  onDelete: widget.onDelete,
-                  onTagTap: widget.onTagTap,
+                  size: 42,
                 ),
-              ),
-            ],
+                const SizedBox(width: WpSpacing.sm),
+                // Content
+                Expanded(
+                  child: _EntryRowContent(
+                    entry: widget.entry,
+                    isDark: isDark,
+                    showActions: showActions,
+                    timeLabel: _timeLabel,
+                    durationLabel: _durationLabel,
+                    wordCount: _wordCount,
+                    tags: _entryTags,
+                    onCopy: widget.onCopy,
+                    onPin: widget.onPin,
+                    onDelete: widget.onDelete,
+                    onTagTap: widget.onTagTap,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -272,6 +284,7 @@ class _EntryRowContent extends StatelessWidget {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryRowActionState.build
                     HistoryRowAction(
                       icon: LucideIcons.copy,
                       tooltip: l10n.historyCopyText,
@@ -279,6 +292,7 @@ class _EntryRowContent extends StatelessWidget {
                       onTap: onCopy,
                       dense: true,
                     ),
+                    // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryRowActionState.build
                     HistoryRowAction(
                       faIcon: entry.pinned ? FontAwesomeIcons.solidStar : null,
                       icon: entry.pinned ? null : LucideIcons.star,
@@ -290,6 +304,7 @@ class _EntryRowContent extends StatelessWidget {
                       onTap: onPin,
                       dense: true,
                     ),
+                    // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryRowActionState.build
                     HistoryRowAction(
                       icon: LucideIcons.trash2,
                       tooltip: l10n.actionDelete,

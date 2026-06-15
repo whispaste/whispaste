@@ -59,36 +59,40 @@ class _HistoryRowActionState extends State<HistoryRowAction> {
           : WpColorsLight.textMuted;
     }
 
-    return Tooltip(
-      message: widget.tooltip,
-      preferBelow: false,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
-        child: GestureDetector(
-          onTap: widget.onTap,
-          child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: widget.dense ? 0 : WpSpacing.xxs,
-              vertical: widget.dense ? 0 : WpSpacing.xxs,
-            ),
-            child: AnimatedContainer(
-              duration: WpMotion.fast,
-              padding: EdgeInsets.all(widget.dense ? 6 : 10),
-              decoration: BoxDecoration(
-                color: _isHovered
-                    ? (widget.isDark
-                          ? WpColorsDark.active
-                          : WpColorsLight.active)
-                    : (widget.isDark
-                          ? WpColorsDark.hoverTransparent
-                          : WpColorsLight.hoverTransparent),
-                borderRadius: WpRadius.borderSm,
+    return Semantics(
+      label: widget.tooltip,
+      button: true,
+      child: Tooltip(
+        message: widget.tooltip,
+        preferBelow: false,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          onEnter: (_) => setState(() => _isHovered = true),
+          onExit: (_) => setState(() => _isHovered = false),
+          child: GestureDetector(
+            onTap: widget.onTap,
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: widget.dense ? 0 : WpSpacing.xxs,
+                vertical: widget.dense ? 0 : WpSpacing.xxs,
               ),
-              child: widget.faIcon != null
-                  ? FaIcon(widget.faIcon!, size: 16, color: iconColor)
-                  : Icon(widget.icon!, size: 16, color: iconColor),
+              child: AnimatedContainer(
+                duration: WpMotion.fast,
+                padding: EdgeInsets.all(widget.dense ? 6 : 10),
+                decoration: BoxDecoration(
+                  color: _isHovered
+                      ? (widget.isDark
+                            ? WpColorsDark.active
+                            : WpColorsLight.active)
+                      : (widget.isDark
+                            ? WpColorsDark.hoverTransparent
+                            : WpColorsLight.hoverTransparent),
+                  borderRadius: WpRadius.borderSm,
+                ),
+                child: widget.faIcon != null
+                    ? FaIcon(widget.faIcon!, size: 16, color: iconColor)
+                    : Icon(widget.icon!, size: 16, color: iconColor),
+              ),
             ),
           ),
         ),
