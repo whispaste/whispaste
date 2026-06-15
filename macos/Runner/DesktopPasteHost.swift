@@ -127,22 +127,21 @@ class DesktopPasteHost {
       // call is void and CG never reports delivery failure, so the only
       // signal we have for "the OS dropped it silently" is AX state.
       let cgOk = self.sendCmdV()
+      // CGEvent only actually lands when Accessibility is granted (otherwise
+      // the event is silently dropped). This is also the gate for the fallback.
+      let cgLanded = cgOk && trusted
 
-      // Channel B: AppleScript — uses the AppleEvents (Automation) TCC
-      // service, an independent permission channel. On first call macOS
-      // shows "<app> would like to control 'System Events'" and remembers
-      // the user's choice; subsequent calls return -1743 if denied or
-      // execute silently if allowed.
-      let appleScriptResult = self.sendCmdVViaAppleScript()
+      // Channel B: AppleScript fallback — uses the AppleEvents (Automation) TCC
+      // service, an independent permission channel. Run it ONLY when CGEvent
+      // could not have landed; running both when both permissions are granted
+      // pastes the clipboard twice (double-paste bug).
+      let appleScriptResult = cgLanded ? "skipped" : self.sendCmdVViaAppleScript()
 
       let detail = "ax=\(trusted) cg=\(cgOk) as=\(appleScriptResult) target=\(bundle)"
       os_log("pasteClipboard: %{public}@", log: Self.logger, type: .info, detail)
 
-      // Honest success determination — CGEvent only counts when AX is
-      // actually granted (otherwise the event was silently dropped).
-      // AppleScript "ok" is trustworthy because System Events propagates
-      // a clear error code when permission is missing.
-      let cgLanded = cgOk && trusted
+      // AppleScript "ok" is trustworthy because System Events propagates a
+      // clear error code when permission is missing.
       let asLanded = appleScriptResult == "ok"
 
       if cgLanded || asLanded {
