@@ -49,22 +49,15 @@ enum OverlayAnchor { topCenter, bottomCenter, lastPosition }
 @immutable
 class OverlayThemeColors {
   const OverlayThemeColors({
-    required this.surface,
     required this.capsuleFillStart,
     required this.capsuleFillEnd,
     required this.capsuleBorder,
     required this.text,
-    required this.secondaryText,
-    required this.border,
     required this.accent,
     required this.success,
     required this.error,
-    required this.waveformMuted,
     required this.recordingDot,
   });
-
-  /// Pill background fill (before the fill-opacity factor is applied).
-  final Color surface;
 
   /// Top-left stop of the capsule's tint gradient fill (approved spike design:
   /// light `#F7FAFD`). The gradient runs top-left → bottom-right and is part of
@@ -80,12 +73,6 @@ class OverlayThemeColors {
   /// Primary text (timer, done/error message).
   final Color text;
 
-  /// Secondary/muted text (elapsed time during transcribing).
-  final Color secondaryText;
-
-  /// Hairline pill border (already carries its low alpha).
-  final Color border;
-
   /// Cyan accent — spinner, waveform active bars, unlimited-progress line.
   final Color accent;
 
@@ -94,9 +81,6 @@ class OverlayThemeColors {
 
   /// Error colour — error icon + message.
   final Color error;
-
-  /// Muted waveform bar colour (bars below the active threshold).
-  final Color waveformMuted;
 
   /// Recording dot — fixed across themes.
   final Color recordingDot;
@@ -416,23 +400,11 @@ class OverlayLayoutSpec {
 class OverlayMotion {
   const OverlayMotion({
     required this.dotPulsePeriod,
-    required this.spinnerPeriod,
-    required this.stateTransition,
-    required this.frameRateFps,
     required this.dotPulseMinAlpha,
   });
 
   /// Recording dot pulse period.
   final Duration dotPulsePeriod;
-
-  /// Transcribing spinner rotation period.
-  final Duration spinnerPeriod;
-
-  /// State-change cross-fade duration.
-  final Duration stateTransition;
-
-  /// Redraw rate for animated elements.
-  final int frameRateFps;
 
   /// Minimum alpha the recording dot dips to at the bottom of its pulse.
   final double dotPulseMinAlpha;
@@ -559,7 +531,6 @@ class FloatingButtonSpec {
     required this.iconRatio,
     required this.hasGlow,
     required this.mic,
-    required this.stateTransition,
   });
 
   /// Disc fill gradient start — white (top-left), spike `Colors.white`.
@@ -593,9 +564,6 @@ class FloatingButtonSpec {
 
   /// Mic-glyph geometry (ratios of the disc diameter).
   final FloatingButtonMicSpec mic;
-
-  /// State-change cross-fade duration.
-  final Duration stateTransition;
 }
 
 /// The overlay/button design Single Source of Truth.
@@ -714,17 +682,13 @@ abstract final class OverlayDesignSpec {
   /// Colours come verbatim from `kFinalDesign`: content `#14202E`,
   /// accent `#0887A8`, fill `#F7FAFD → #E6EEF5`, border `#330887A8`.
   static const OverlayThemeColors light = OverlayThemeColors(
-    surface: Color(0xFFF0F3F7),
     capsuleFillStart: Color(0xFFF7FAFD),
     capsuleFillEnd: Color(0xFFE6EEF5),
     capsuleBorder: Color(0x330887A8),
     text: Color(0xFF14202E),
-    secondaryText: Color(0xFF5B697E),
-    border: Color(0x140F172A),
     accent: Color(0xFF0887A8),
     success: Color(0xFF05875C),
     error: Color(0xFFCC1C1C),
-    waveformMuted: Color(0xFF5B697E),
     recordingDot: Color(0xFFFF5252),
   );
 
@@ -792,9 +756,6 @@ abstract final class OverlayDesignSpec {
   /// Calm animation timings.
   static const OverlayMotion motion = OverlayMotion(
     dotPulsePeriod: Duration(milliseconds: 900),
-    spinnerPeriod: Duration(milliseconds: 750),
-    stateTransition: Duration(milliseconds: 200),
-    frameRateFps: 30,
     // Approved spike pulse range is 0.6 .. 1.0 (`0.6 + 0.4 × …`).
     dotPulseMinAlpha: 0.6,
   );
@@ -826,7 +787,6 @@ abstract final class OverlayDesignSpec {
     iconRatio: 24 / 56,
     hasGlow: false,
     mic: FloatingButtonMicSpec.spike,
-    stateTransition: Duration(milliseconds: 200),
   );
 
   /// Full native-window size for a button disc of [diameter] = disc +
