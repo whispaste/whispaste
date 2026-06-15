@@ -43,8 +43,26 @@ String formatProbeReportHtml(ProbeReport report) {
   b.writeln(_css);
   b.writeln('</head>');
   b.writeln('<body>');
+  _writeHeader(b, report);
+  b.writeln('<main class="container">');
+  _writeBaselineMissingWarning(b, ranking);
+  _writeWinnerBanner(b, ranking, winner);
+  _writeRankingTable(b, ranking, winner);
+  _writeFailedSection(b, ranking);
+  _writeHardwareSection(b, report);
+  b.writeln('</main>');
+  _writeFooter(b, report);
+  b.writeln('</body>');
+  b.write('</html>');
 
-  // ─── Header bar ───────────────────────────────────────────────────────────
+  return b.toString();
+}
+
+// ---------------------------------------------------------------------------
+// Section helpers
+// ---------------------------------------------------------------------------
+
+void _writeHeader(StringBuffer b, ProbeReport report) {
   b.writeln('<header class="site-header">');
   b.writeln('  <span class="header-title">WhisPaste GPU-Probe Report</span>');
   b.writeln(
@@ -52,48 +70,26 @@ String formatProbeReportHtml(ProbeReport report) {
     ' &nbsp;·&nbsp; ${_esc(report.timestamp.toIso8601String())}</span>',
   );
   b.writeln('</header>');
+}
 
-  b.writeln('<main class="container">');
+void _writeBaselineMissingWarning(StringBuffer b, RankingResult ranking) {
+  if (!ranking.cpuBaselineMissing) return;
+  b.writeln('<div class="banner banner-warn">');
+  b.writeln(
+    '  <strong>⚠ Warnung:</strong> Kein CPU-Baseline-Kandidat gefunden '
+    '(ID-Präfix <code>whisper-cpp-cpu</code> oder Backend <code>cpu</code>). '
+    'Speedup-Faktoren können nicht berechnet werden.',
+  );
+  b.writeln('</div>');
+}
 
-  // ─── CPU-baseline-missing warning ─────────────────────────────────────────
-  if (ranking.cpuBaselineMissing) {
-    b.writeln('<div class="banner banner-warn">');
-    b.writeln(
-      '  <strong>⚠ Warnung:</strong> Kein CPU-Baseline-Kandidat gefunden '
-      '(ID-Präfix <code>whisper-cpp-cpu</code> oder Backend <code>cpu</code>). '
-      'Speedup-Faktoren können nicht berechnet werden.',
-    );
-    b.writeln('</div>');
-  }
-
-  // ─── Winner banner ────────────────────────────────────────────────────────
+void _writeWinnerBanner(
+  StringBuffer b,
+  RankingResult ranking,
+  RankedCandidate? winner,
+) {
   if (winner != null) {
-    final speedupStr = _formatSpeedupDe(winner.speedupFactor);
-    final werStr = _formatWerDe(winner.result.wer);
-    final latMs = winner.result.durationMs;
-    final latStr = latMs != null ? '$latMs ms' : '—';
-    final label = _candidateLabel(winner.result);
-
-    b.writeln('<div class="banner banner-winner">');
-    b.writeln(
-      '  <div class="winner-crown">🏆 Beste lauffähige GPU-Option</div>',
-    );
-    b.writeln('  <div class="winner-name">${_esc(label)}</div>');
-    b.writeln('  <div class="winner-stats">');
-    b.writeln(
-      '    <span class="stat"><span class="stat-label">Speedup</span>'
-      '<span class="stat-value">${_esc(speedupStr)} schneller als CPU</span></span>',
-    );
-    b.writeln(
-      '    <span class="stat"><span class="stat-label">WER</span>'
-      '<span class="stat-value">${_esc(werStr)}</span></span>',
-    );
-    b.writeln(
-      '    <span class="stat"><span class="stat-label">Latenz</span>'
-      '<span class="stat-value">${_esc(latStr)}</span></span>',
-    );
-    b.writeln('  </div>');
-    b.writeln('</div>');
+    _writeWinnerFound(b, winner);
   } else if (!ranking.cpuBaselineMissing) {
     b.writeln('<div class="banner banner-info">');
     b.writeln(
@@ -102,134 +98,166 @@ String formatProbeReportHtml(ProbeReport report) {
     );
     b.writeln('</div>');
   }
+}
 
-  // ─── Speed ranking table ──────────────────────────────────────────────────
-  if (ranking.ranked.isNotEmpty) {
-    b.writeln('<section>');
-    b.writeln('<h2>Geschwindigkeits-Ranking</h2>');
-    b.writeln('<table>');
-    b.writeln('<thead><tr>');
-    b.writeln('  <th>Rang</th>');
-    b.writeln('  <th>Kandidat</th>');
-    b.writeln('  <th>Ergebnis</th>');
-    b.writeln('  <th>Latenz</th>');
-    b.writeln('  <th>Realtime-Faktor</th>');
-    b.writeln('  <th>× vs. CPU</th>');
-    b.writeln('  <th>WER</th>');
-    b.writeln('</tr></thead>');
-    b.writeln('<tbody>');
+void _writeWinnerFound(StringBuffer b, RankedCandidate winner) {
+  final speedupStr = _formatSpeedupDe(winner.speedupFactor);
+  final werStr = _formatWerDe(winner.result.wer);
+  final latMs = winner.result.durationMs;
+  final latStr = latMs != null ? '$latMs ms' : '—';
+  final label = _candidateLabel(winner.result);
 
-    for (var i = 0; i < ranking.ranked.length; i++) {
-      final rc = ranking.ranked[i];
-      final rank = i + 1;
-      final isWinner =
-          winner != null && rc.result.candidateId == winner.result.candidateId;
-      final rowClass = StringBuffer('');
-      if (rc.isCpuBaseline) rowClass.write(' row-baseline');
-      if (isWinner) rowClass.write(' row-winner');
+  b.writeln('<div class="banner banner-winner">');
+  b.writeln('  <div class="winner-crown">🏆 Beste lauffähige GPU-Option</div>');
+  b.writeln('  <div class="winner-name">${_esc(label)}</div>');
+  b.writeln('  <div class="winner-stats">');
+  b.writeln(
+    '    <span class="stat"><span class="stat-label">Speedup</span>'
+    '<span class="stat-value">${_esc(speedupStr)} schneller als CPU</span></span>',
+  );
+  b.writeln(
+    '    <span class="stat"><span class="stat-label">WER</span>'
+    '<span class="stat-value">${_esc(werStr)}</span></span>',
+  );
+  b.writeln(
+    '    <span class="stat"><span class="stat-label">Latenz</span>'
+    '<span class="stat-value">${_esc(latStr)}</span></span>',
+  );
+  b.writeln('  </div>');
+  b.writeln('</div>');
+}
 
-      final durStr = rc.result.durationMs != null
-          ? '${rc.result.durationMs} ms'
-          : '—';
-      final rtfStr = rc.result.realtimeFactor != null
-          ? rc.result.realtimeFactor!.toStringAsFixed(2)
-          : '—';
-      final speedStr = _formatSpeedupDe(rc.speedupFactor);
-      final werStr = _formatWerDe(rc.result.wer);
-      final label = rc.isCpuBaseline
-          ? '${_candidateLabel(rc.result)} <span class="badge-baseline">Baseline</span>'
-          : _esc(_candidateLabel(rc.result));
-
-      b.writeln('<tr class="${rowClass.toString().trim()}">');
-      b.writeln('  <td class="rank">$rank</td>');
-      b.writeln('  <td class="candidate-name">$label</td>');
-      b.writeln('  <td><span class="badge outcome-ok">ok</span></td>');
-      b.writeln('  <td>${_esc(durStr)}</td>');
-      b.writeln('  <td>${_esc(rtfStr)}</td>');
-      b.writeln('  <td class="speedup">${_esc(speedStr)}</td>');
-      b.writeln('  <td>${_esc(werStr)}</td>');
-      b.writeln('</tr>');
-    }
-
-    b.writeln('</tbody>');
-    b.writeln('</table>');
-    b.writeln('</section>');
+void _writeRankingTable(
+  StringBuffer b,
+  RankingResult ranking,
+  RankedCandidate? winner,
+) {
+  if (ranking.ranked.isEmpty) return;
+  b.writeln('<section>');
+  b.writeln('<h2>Geschwindigkeits-Ranking</h2>');
+  b.writeln('<table>');
+  b.writeln('<thead><tr>');
+  b.writeln('  <th>Rang</th>');
+  b.writeln('  <th>Kandidat</th>');
+  b.writeln('  <th>Ergebnis</th>');
+  b.writeln('  <th>Latenz</th>');
+  b.writeln('  <th>Realtime-Faktor</th>');
+  b.writeln('  <th>× vs. CPU</th>');
+  b.writeln('  <th>WER</th>');
+  b.writeln('</tr></thead>');
+  b.writeln('<tbody>');
+  for (var i = 0; i < ranking.ranked.length; i++) {
+    _writeRankingRow(b, ranking.ranked[i], i + 1, winner);
   }
+  b.writeln('</tbody>');
+  b.writeln('</table>');
+  b.writeln('</section>');
+}
 
-  // ─── Failed / not-runnable section ────────────────────────────────────────
-  if (ranking.failed.isNotEmpty) {
-    b.writeln('<section>');
-    b.writeln('<h2>Nicht lauffähige Kandidaten</h2>');
-    b.writeln('<table>');
-    b.writeln('<thead><tr>');
-    b.writeln('  <th>Kandidat</th>');
-    b.writeln('  <th>Ergebnis</th>');
-    b.writeln('  <th>Detail</th>');
-    b.writeln('</tr></thead>');
-    b.writeln('<tbody>');
+void _writeRankingRow(
+  StringBuffer b,
+  RankedCandidate rc,
+  int rank,
+  RankedCandidate? winner,
+) {
+  final isWinner =
+      winner != null && rc.result.candidateId == winner.result.candidateId;
+  final rowClass = StringBuffer('');
+  if (rc.isCpuBaseline) rowClass.write(' row-baseline');
+  if (isWinner) rowClass.write(' row-winner');
 
-    for (final r in ranking.failed) {
-      final outcomeClass = _outcomeClass(r.outcome);
-      final outcomeLabel = _outcomeLabel(r.outcome);
-      final detail = r.errorDetail ?? r.stderrTail ?? '—';
+  final durStr = rc.result.durationMs != null
+      ? '${rc.result.durationMs} ms'
+      : '—';
+  final rtfStr = rc.result.realtimeFactor != null
+      ? rc.result.realtimeFactor!.toStringAsFixed(2)
+      : '—';
+  final speedStr = _formatSpeedupDe(rc.speedupFactor);
+  final werStr = _formatWerDe(rc.result.wer);
+  final label = rc.isCpuBaseline
+      ? '${_candidateLabel(rc.result)} <span class="badge-baseline">Baseline</span>'
+      : _esc(_candidateLabel(rc.result));
 
-      b.writeln('<tr>');
-      b.writeln('  <td class="candidate-name">${_esc(r.candidateId)}</td>');
-      b.writeln(
-        '  <td><span class="badge $outcomeClass">'
-        '${_esc(outcomeLabel)}</span></td>',
-      );
-      b.writeln('  <td class="error-detail">${_esc(detail)}</td>');
-      b.writeln('</tr>');
-    }
+  b.writeln('<tr class="${rowClass.toString().trim()}">');
+  b.writeln('  <td class="rank">$rank</td>');
+  b.writeln('  <td class="candidate-name">$label</td>');
+  b.writeln('  <td><span class="badge outcome-ok">ok</span></td>');
+  b.writeln('  <td>${_esc(durStr)}</td>');
+  b.writeln('  <td>${_esc(rtfStr)}</td>');
+  b.writeln('  <td class="speedup">${_esc(speedStr)}</td>');
+  b.writeln('  <td>${_esc(werStr)}</td>');
+  b.writeln('</tr>');
+}
 
-    b.writeln('</tbody>');
-    b.writeln('</table>');
-    b.writeln('</section>');
+void _writeFailedSection(StringBuffer b, RankingResult ranking) {
+  if (ranking.failed.isEmpty) return;
+  b.writeln('<section>');
+  b.writeln('<h2>Nicht lauffähige Kandidaten</h2>');
+  b.writeln('<table>');
+  b.writeln('<thead><tr>');
+  b.writeln('  <th>Kandidat</th>');
+  b.writeln('  <th>Ergebnis</th>');
+  b.writeln('  <th>Detail</th>');
+  b.writeln('</tr></thead>');
+  b.writeln('<tbody>');
+  for (final r in ranking.failed) {
+    _writeFailedRow(b, r);
   }
+  b.writeln('</tbody>');
+  b.writeln('</table>');
+  b.writeln('</section>');
+}
 
-  // ─── Hardware context section ─────────────────────────────────────────────
-  if (report.hardwareContext != null) {
-    final hw = report.hardwareContext!;
-    b.writeln('<section>');
-    b.writeln('<h2>Hardware-Kontext</h2>');
-    b.writeln('<dl class="hw-grid">');
-    if (hw.gpuModel != null) {
-      b.writeln('  <dt>GPU</dt><dd>${_esc(hw.gpuModel!)}</dd>');
-    }
-    if (hw.vramGb != null) {
-      b.writeln('  <dt>VRAM</dt><dd>${_esc('${hw.vramGb} GB')}</dd>');
-    }
-    if (hw.cpuModel != null) {
-      b.writeln('  <dt>CPU</dt><dd>${_esc(hw.cpuModel!)}</dd>');
-    }
-    if (hw.ramGb != null) {
-      b.writeln('  <dt>RAM</dt><dd>${_esc('${hw.ramGb} GB')}</dd>');
-    }
-    if (hw.os != null) {
-      b.writeln('  <dt>OS</dt><dd>${_esc(hw.os!)}</dd>');
-    }
-    if (hw.driverVersion != null) {
-      b.writeln('  <dt>Treiber</dt><dd>${_esc(hw.driverVersion!)}</dd>');
-    }
-    b.writeln('</dl>');
-    b.writeln('</section>');
+void _writeFailedRow(StringBuffer b, CandidateResult r) {
+  final outcomeClass = _outcomeClass(r.outcome);
+  final outcomeLabel = _outcomeLabel(r.outcome);
+  final detail = r.errorDetail ?? r.stderrTail ?? '—';
+
+  b.writeln('<tr>');
+  b.writeln('  <td class="candidate-name">${_esc(r.candidateId)}</td>');
+  b.writeln(
+    '  <td><span class="badge $outcomeClass">'
+    '${_esc(outcomeLabel)}</span></td>',
+  );
+  b.writeln('  <td class="error-detail">${_esc(detail)}</td>');
+  b.writeln('</tr>');
+}
+
+void _writeHardwareSection(StringBuffer b, ProbeReport report) {
+  if (report.hardwareContext == null) return;
+  final hw = report.hardwareContext!;
+  b.writeln('<section>');
+  b.writeln('<h2>Hardware-Kontext</h2>');
+  b.writeln('<dl class="hw-grid">');
+  if (hw.gpuModel != null) {
+    b.writeln('  <dt>GPU</dt><dd>${_esc(hw.gpuModel!)}</dd>');
   }
+  if (hw.vramGb != null) {
+    b.writeln('  <dt>VRAM</dt><dd>${_esc('${hw.vramGb} GB')}</dd>');
+  }
+  if (hw.cpuModel != null) {
+    b.writeln('  <dt>CPU</dt><dd>${_esc(hw.cpuModel!)}</dd>');
+  }
+  if (hw.ramGb != null) {
+    b.writeln('  <dt>RAM</dt><dd>${_esc('${hw.ramGb} GB')}</dd>');
+  }
+  if (hw.os != null) {
+    b.writeln('  <dt>OS</dt><dd>${_esc(hw.os!)}</dd>');
+  }
+  if (hw.driverVersion != null) {
+    b.writeln('  <dt>Treiber</dt><dd>${_esc(hw.driverVersion!)}</dd>');
+  }
+  b.writeln('</dl>');
+  b.writeln('</section>');
+}
 
-  b.writeln('</main>');
-
-  // ─── Footer ───────────────────────────────────────────────────────────────
+void _writeFooter(StringBuffer b, ProbeReport report) {
   b.writeln('<footer class="site-footer">');
   b.writeln(
     '  WhisPaste GPU-Probe v${_esc(report.version)} &nbsp;·&nbsp; '
     '${_esc(report.timestamp.toIso8601String())}',
   );
   b.writeln('</footer>');
-
-  b.writeln('</body>');
-  b.write('</html>');
-
-  return b.toString();
 }
 
 // ---------------------------------------------------------------------------
