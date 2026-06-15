@@ -1,17 +1,23 @@
 /// WhisPaste-GPU-Probe — standalone CLI entrypoint.
 ///
-/// Runs a list of GPU probe candidates against a reference WAV + model,
-/// writes a JSON + Markdown report and a ZIP bundle to the user's Desktop,
-/// then exits 0.
+/// Default (serve mode): starts a local loopback server, opens the browser at
+/// an "Analyse läuft…" page, streams per-candidate progress, then serves the
+/// finished report with a live microphone test. Runs until the report's
+/// "Tool beenden" button (or the window) closes it. The JSON/MD/HTML/ZIP
+/// artifacts are written to the Desktop once the probe finishes.
+///
+/// Flags:
+///   --serve / --no-serve   serve mode (default on) vs. one-shot write+exit
+///   --demo                 render a representative synthetic report
+///   --no-deliver           do not open the browser / reveal in file manager
+///   --output-dir PATH      override the artifact output directory
 ///
 /// Build commands:
-///   Windows (on windows-latest runner):
-///     dart compile exe bin/whispaste_gpu_probe.dart -o dist/WhisPaste-GPU-Probe.exe
-///   macOS (arm64, on macos-latest runner):
-///     dart compile exe bin/whispaste_gpu_probe.dart -o dist/WhisPaste-GPU-Probe
+///   Windows:  dart compile exe bin/whispaste_gpu_probe.dart -o dist/WhisPaste-GPU-Probe.exe
+///   macOS:    dart compile exe bin/whispaste_gpu_probe.dart -o dist/WhisPaste-GPU-Probe
 ///
-/// The orchestration logic lives in [runProbeOrchestrator] (injectable seams)
-/// so the flow is fully unit-testable without this main().
+/// All orchestration lives in injectable seams (runProbeOrchestrator,
+/// runLiveProbe) so the flow is fully unit-testable without this main().
 library;
 
 import 'dart:io';
@@ -37,109 +43,10 @@ class _FakeOkCandidate implements ProbeCandidate {
   }
 }
 
-Future<void> main(List<String> args) async {
-  // Stamp the report with the build version passed at compile time
-  // (`dart compile exe --define=whispaste_version=<X>`). Falls back to
-  // 'unbekannt' for ad-hoc local builds without the define.
-  const version = String.fromEnvironment(
-    'whispaste_version',
-    defaultValue: 'unbekannt',
-  );
-
-  // Allow --output-dir override for CI smoke tests so the binary does not
-  // write to a potentially non-existent Desktop on the runner.
-  String outputDir = resolveDesktopPath();
-  // --no-deliver suppresses file-manager reveal + mail (used in CI).
-  var skipDelivery = false;
-  // --demo renders a representative synthetic report for preview purposes.
-  var demoMode = false;
-
-  for (var i = 0; i < args.length; i++) {
-    if (args[i] == '--output-dir' && i + 1 < args.length) {
-      outputDir = args[i + 1];
-    }
-    if (args[i] == '--no-deliver') {
-      skipDelivery = true;
-    }
-    if (args[i] == '--demo') {
-      demoMode = true;
-    }
-  }
-
-  try {
-    final String zipPath;
-
-    if (demoMode) {
-      // --demo: build a synthetic representative report without running any
-      // real engine. Useful for previewing the HTML output.
-      final demoReport = buildDemoReport();
-      final demoVersion = version == 'unbekannt' ? 'demo' : '$version-demo';
-
-      // Wrap each synthetic result in a fake candidate so the orchestrator
-      // can drive the standard pipeline (file writing, ZIP, delivery).
-      final demoCandidates = demoReport.results
-          .map<ProbeCandidate>((r) => _FixedResultCandidate(r))
-          .toList();
-
-      zipPath = await runProbeOrchestrator(
-        candidates: demoCandidates,
-        context: const ProbeContext(
-          referenceWavPath: '',
-          modelPath: '',
-          workDir: '',
-        ),
-        outputDir: outputDir,
-        version: demoVersion,
-        deliveryStep: skipDelivery
-            ? null
-            : (zip) => deliverReport(zip, launcher: defaultDeliveryLauncher),
-      );
-
-      stderr.writeln(
-        'WhisPaste-GPU-Probe (Demo-Modus): Report geschrieben nach:',
-      );
-    } else {
-      // Minimal ProbeContext for the skeleton — no real WAV or model needed
-      // because the fake candidate ignores them.
-      const context = ProbeContext(
-        referenceWavPath: '',
-        modelPath: '',
-        workDir: '',
-      );
-
-      zipPath = await runProbeOrchestrator(
-        candidates: const [_FakeOkCandidate()],
-        context: context,
-        outputDir: outputDir,
-        version: version,
-        deliveryStep: skipDelivery
-            ? null
-            : (zip) => deliverReport(zip, launcher: defaultDeliveryLauncher),
-      );
-
-      stderr.writeln('WhisPaste-GPU-Probe: Report geschrieben nach:');
-    }
-
-    final jsonPath = zipPath.replaceAll(RegExp(r'\.zip$'), '.json');
-    final mdPath = zipPath.replaceAll(RegExp(r'\.zip$'), '.md');
-    final htmlPath = zipPath.replaceAll(RegExp(r'\.zip$'), '.html');
-    stderr.writeln('  $jsonPath');
-    stderr.writeln('  $mdPath');
-    stderr.writeln('  $htmlPath');
-    stderr.writeln('  $zipPath');
-    exit(0);
-  } on Object catch (e, st) {
-    stderr.writeln('WhisPaste-GPU-Probe: Fehler beim Schreiben des Reports:');
-    stderr.writeln('  $e');
-    stderr.writeln('  $st');
-    exit(1);
-  }
-}
-
 /// A [ProbeCandidate] that always returns a fixed pre-built [CandidateResult].
 ///
 /// Used in `--demo` mode to replay synthetic results through the standard
-/// orchestrator pipeline without running any real engine.
+/// pipeline (probe loop, live server, artifact writing) without a real engine.
 class _FixedResultCandidate implements ProbeCandidate {
   const _FixedResultCandidate(this._result);
 
@@ -150,4 +57,172 @@ class _FixedResultCandidate implements ProbeCandidate {
 
   @override
   Future<CandidateResult> run(ProbeContext ctx) async => _result;
+}
+
+Future<void> main(List<String> args) async {
+  // Stamp the report with the build version passed at compile time
+  // (`dart compile exe --define=whispaste_version=<X>`). Falls back to
+  // 'unbekannt' for ad-hoc local builds without the define.
+  const version = String.fromEnvironment(
+    'whispaste_version',
+    defaultValue: 'unbekannt',
+  );
+
+  var outputDir = resolveDesktopPath();
+  var skipDelivery = false;
+  var demoMode = false;
+  var serve = true;
+
+  for (var i = 0; i < args.length; i++) {
+    final a = args[i];
+    if (a == '--output-dir' && i + 1 < args.length) {
+      outputDir = args[i + 1];
+    } else if (a == '--no-deliver') {
+      skipDelivery = true;
+    } else if (a == '--demo') {
+      demoMode = true;
+    } else if (a == '--serve') {
+      serve = true;
+    } else if (a == '--no-serve') {
+      serve = false;
+    }
+  }
+
+  try {
+    if (serve) {
+      await _runServe(
+        version: version,
+        outputDir: outputDir,
+        demoMode: demoMode,
+        openBrowser: !skipDelivery,
+      );
+    } else {
+      await _runOneShot(
+        version: version,
+        outputDir: outputDir,
+        demoMode: demoMode,
+        skipDelivery: skipDelivery,
+      );
+    }
+    exit(0);
+  } on Object catch (e, st) {
+    stderr.writeln('WhisPaste-GPU-Probe: Fehler:');
+    stderr.writeln('  $e');
+    stderr.writeln('  $st');
+    exit(1);
+  }
+}
+
+/// Serve mode: progress shell → live report → live microphone test.
+Future<void> _runServe({
+  required String version,
+  required String outputDir,
+  required bool demoMode,
+  required bool openBrowser,
+}) async {
+  final List<ProbeCandidate> candidates;
+  final HardwareContext? hardware;
+  final String effVersion;
+
+  if (demoMode) {
+    final demo = buildDemoReport();
+    candidates = demo.results
+        .map<ProbeCandidate>(_FixedResultCandidate.new)
+        .toList();
+    hardware = demo.hardwareContext;
+    effVersion = version == 'unbekannt' ? 'demo' : '$version-demo';
+  } else {
+    candidates = const [_FakeOkCandidate()];
+    hardware = null;
+    effVersion = version;
+  }
+
+  await runLiveProbe(
+    candidates: candidates,
+    context: const ProbeContext(
+      referenceWavPath: '',
+      modelPath: '',
+      workDir: '',
+    ),
+    version: effVersion,
+    hardwareContext: hardware,
+    logger: (m) => stderr.writeln(m),
+    openBrowser: (url) async {
+      stderr.writeln('WhisPaste-GPU-Probe: Server läuft auf $url');
+      stderr.writeln(
+        '  Der Report öffnet sich im Browser. Zum Beenden den '
+        '„Tool beenden"-Knopf klicken oder dieses Fenster schließen.',
+      );
+      if (openBrowser) {
+        final cmd = openInBrowserCommand(url.toString());
+        await defaultDeliveryLauncher(cmd.first, cmd.sublist(1));
+      }
+    },
+    onComplete: (report) async {
+      final stem = buildProbeStem(report.timestamp);
+      final zipPath = writeProbeArtifacts(
+        report: report,
+        outputDir: outputDir,
+        stem: stem,
+      );
+      stderr.writeln('WhisPaste-GPU-Probe: Report-Artefakte geschrieben:');
+      stderr.writeln('  $zipPath');
+    },
+  );
+}
+
+/// One-shot mode: run, write artifacts, optionally reveal/open, exit.
+Future<void> _runOneShot({
+  required String version,
+  required String outputDir,
+  required bool demoMode,
+  required bool skipDelivery,
+}) async {
+  ProbeDeliveryStep? delivery() => skipDelivery
+      ? null
+      : (zip) => deliverReport(zip, launcher: defaultDeliveryLauncher);
+
+  final String zipPath;
+  if (demoMode) {
+    final demoReport = buildDemoReport();
+    final demoVersion = version == 'unbekannt' ? 'demo' : '$version-demo';
+    final demoCandidates = demoReport.results
+        .map<ProbeCandidate>(_FixedResultCandidate.new)
+        .toList();
+    zipPath = await runProbeOrchestrator(
+      candidates: demoCandidates,
+      context: const ProbeContext(
+        referenceWavPath: '',
+        modelPath: '',
+        workDir: '',
+      ),
+      outputDir: outputDir,
+      version: demoVersion,
+      deliveryStep: delivery(),
+    );
+    stderr.writeln(
+      'WhisPaste-GPU-Probe (Demo-Modus): Report geschrieben nach:',
+    );
+  } else {
+    zipPath = await runProbeOrchestrator(
+      candidates: const [_FakeOkCandidate()],
+      context: const ProbeContext(
+        referenceWavPath: '',
+        modelPath: '',
+        workDir: '',
+      ),
+      outputDir: outputDir,
+      version: version,
+      deliveryStep: delivery(),
+    );
+    stderr.writeln('WhisPaste-GPU-Probe: Report geschrieben nach:');
+  }
+
+  final jsonPath = zipPath.replaceAll(RegExp(r'\.zip$'), '.json');
+  final mdPath = zipPath.replaceAll(RegExp(r'\.zip$'), '.md');
+  final htmlPath = zipPath.replaceAll(RegExp(r'\.zip$'), '.html');
+  stderr.writeln('  $jsonPath');
+  stderr.writeln('  $mdPath');
+  stderr.writeln('  $htmlPath');
+  stderr.writeln('  $zipPath');
 }

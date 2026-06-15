@@ -148,6 +148,33 @@ Future<String> runProbeOrchestrator({
     version: version,
   );
 
+  final zipPath = writeProbeArtifacts(
+    report: report,
+    outputDir: outputDir,
+    stem: stem,
+  );
+
+  await deliveryStep?.call(zipPath);
+
+  return zipPath;
+}
+
+/// Writes the `.json` + `.md` + `.html` report files plus a `.zip` bundle for
+/// [report] into [outputDir], named after [stem]. Returns the ZIP path.
+///
+/// Factored out of [runProbeOrchestrator] so the serve-mode live server can
+/// reuse the exact same artifact-writing (and path sanitisation) once its
+/// background probe finishes.
+String writeProbeArtifacts({
+  required ProbeReport report,
+  required String outputDir,
+  required String stem,
+}) {
+  final dir = Directory(outputDir);
+  if (!dir.existsSync()) {
+    dir.createSync(recursive: true);
+  }
+
   final jsonPath = p.join(outputDir, '$stem.json');
   final mdPath = p.join(outputDir, '$stem.md');
   final htmlPath = p.join(outputDir, '$stem.html');
@@ -167,7 +194,7 @@ Future<String> runProbeOrchestrator({
   final mdContent = sanitizePaths(formatProbeReportMarkdown(report));
   File(mdPath).writeAsStringSync(mdContent);
 
-  // Write HTML — sanitized before touching disk.
+  // Write HTML (static variant — no live JS) — sanitized before touching disk.
   final htmlContent = sanitizePaths(formatProbeReportHtml(report));
   File(htmlPath).writeAsStringSync(htmlContent);
 
@@ -181,8 +208,6 @@ Future<String> runProbeOrchestrator({
   archive.addFile(ArchiveFile('$stem.html', htmlBytes.length, htmlBytes));
   final zipBytes = ZipEncoder().encode(archive);
   File(zipPath).writeAsBytesSync(zipBytes);
-
-  await deliveryStep?.call(zipPath);
 
   return zipPath;
 }
