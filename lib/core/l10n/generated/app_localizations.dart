@@ -4604,6 +4604,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'CPU only'**
   String get settingsGpuAccelerationDisabled;
+
+  /// No description provided for @settingsSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search settings…'**
+  String get settingsSearchHint;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

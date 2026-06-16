@@ -2583,4 +2583,7 @@ class L10nDe extends L10n {
 
   @override
   String get settingsGpuAccelerationDisabled => 'Nur CPU';
+
+  @override
+  String get settingsSearchHint => 'Einstellungen durchsuchen…';
 }

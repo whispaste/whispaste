@@ -42,3 +42,24 @@ final settingsScrollTargetProvider =
     NotifierProvider<SettingsScrollTargetNotifier, String?>(
       SettingsScrollTargetNotifier.new,
     );
+
+// ---------------------------------------------------------------------------
+// Settings highlight-target provider
+// ---------------------------------------------------------------------------
+
+/// Optional settings section key to briefly highlight after a scroll-jump.
+///
+/// The settings search field sets this alongside [settingsScrollTargetProvider]
+/// when the user selects a suggestion. [SettingsPage] listens and renders a
+/// temporary border around the target section, then clears the provider.
+class SettingsHighlightTargetNotifier extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void set(String? target) => state = target;
+}
+
+final settingsHighlightTargetProvider =
+    NotifierProvider<SettingsHighlightTargetNotifier, String?>(
+      SettingsHighlightTargetNotifier.new,
+    );

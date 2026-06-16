@@ -868,5 +868,7 @@
   "settingsGpuAccelerationSubtitle": "Legt fest, ob der Sprachdienst GPU oder CPU für die lokale Erkennung verwendet",
   "settingsGpuAccelerationAuto": "Automatisch (empfohlen)",
   "settingsGpuAccelerationEnabled": "GPU (erzwingen)",
-  "settingsGpuAccelerationDisabled": "Nur CPU"
+  "settingsGpuAccelerationDisabled": "Nur CPU",
+
+  "settingsSearchHint": "Einstellungen durchsuchen…"
 }
