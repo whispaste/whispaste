@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import '../../shared_render_engine_helpers.dart' show RenderChannel;
@@ -16,16 +17,31 @@ import 'floating_overlay_controller_interface.dart';
 /// booting a second engine.
 class OverlayRenderChannel implements RenderChannel {
   /// Binds the handler on [name] and remembers the interaction sink.
+  ///
+  /// [clock] overrides the time source used by the receive-telemetry throttle.
+  /// Leave null in production (defaults to [DateTime.now]); inject a fake clock
+  /// in unit tests to exercise the throttle boundary without real time delays.
   OverlayRenderChannel({
     required String name,
     required this.onSnapshot,
     required this.onWaveformBars,
     MethodChannel? channel,
-  }) : _channel = channel ?? MethodChannel(name) {
+    DateTime Function()? clock,
+  }) : _channel = channel ?? MethodChannel(name),
+       _clock = clock ?? _wallClock {
     _channel.setMethodCallHandler(_handle);
   }
 
+  static DateTime _wallClock() => DateTime.now();
+
   final MethodChannel _channel;
+  final DateTime Function() _clock;
+
+  // Throttle: emit at most one log per [_kLogThrottle] for high-frequency
+  // events so the ~30Hz waveform path is not flooded.
+  static const Duration _kLogThrottle = Duration(seconds: 1);
+  DateTime? _lastSnapshotLog;
+  DateTime? _lastWaveformLog;
 
   /// Called with a fully-resolved snapshot relayed from the main engine.
   final void Function(FloatingOverlaySnapshot snapshot) onSnapshot;
@@ -38,16 +54,31 @@ class OverlayRenderChannel implements RenderChannel {
       case 'updateSnapshot':
         final args = call.arguments;
         if (args is Map) {
-          onSnapshot(FloatingOverlaySnapshot.fromMap(args));
+          final snapshot = FloatingOverlaySnapshot.fromMap(args);
+          final now = _clock();
+          if (_lastSnapshotLog == null ||
+              now.difference(_lastSnapshotLog!) >= _kLogThrottle) {
+            _lastSnapshotLog = now;
+            debugPrint(
+              '[overlay-engine] onSnapshot: '
+              'visible=${snapshot.visible} state=${snapshot.state.name}',
+            );
+          }
+          onSnapshot(snapshot);
         }
         return null;
       case 'setWaveformBars':
         final args = call.arguments;
         final raw = args is Map ? args['bars'] : null;
         if (raw is List) {
-          onWaveformBars(
-            raw.map((e) => (e as num?)?.toDouble() ?? 0.0).toList(),
-          );
+          final bars = raw.map((e) => (e as num?)?.toDouble() ?? 0.0).toList();
+          final now = _clock();
+          if (_lastWaveformLog == null ||
+              now.difference(_lastWaveformLog!) >= _kLogThrottle) {
+            _lastWaveformLog = now;
+            debugPrint('[overlay-engine] onWaveformBars: ${bars.length} bars');
+          }
+          onWaveformBars(bars);
         }
         return null;
       default:
@@ -75,6 +106,9 @@ class OverlayRenderChannel implements RenderChannel {
   /// after the handler is set (i.e. after construction).
   @override
   void notifyReady() {
+    debugPrint(
+      '[overlay-engine] notifyReady → channel ready, flushing pending state',
+    );
     _channel.invokeMethod('ready');
   }
 
