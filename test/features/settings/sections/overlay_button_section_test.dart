@@ -1,16 +1,16 @@
 /// Round-trip widget tests for [OverlaySection] and [FloatingButtonSection].
 ///
 /// Covers:
-/// - OverlaySection: toggle round-trip (overlayMode off → floating), nested
-///   overlay dropdowns hidden when off and visible when floating.
+/// - OverlaySection: consolidated start-position dropdown (off = overlay
+///   disabled; real position = overlay enabled). No separate show-overlay
+///   toggle row.
 /// - OverlaySection: real overlay preview (OverlayRealPreview / FloatingOverlayView)
-///   visibility and size reflection.
+///   inside the size row's trailing when enabled, absent when disabled.
 /// - FloatingButtonSection: toggle round-trip (showFloatingButton false → true).
 ///   FloatingButtonView is always visible in the trailing of the toggle row.
 ///
 /// Platform notes:
-/// - OverlaySection renders the toggle on all desktop platforms
-///   (Windows / macOS / Linux).
+/// - OverlaySection renders on all desktop platforms (Windows / macOS / Linux).
 /// - FloatingButtonSection renders only on Windows and macOS; tests for it
 ///   use a runtime platform guard instead of `skip` so they pass vacuously on
 ///   Linux CI rather than being counted as skipped.
@@ -70,52 +70,36 @@ void main() {
   // ══════════════════════════════════════════════════════════════════════════
 
   group('OverlaySection', () {
-    testWidgets('renders toggle on desktop platforms', (tester) async {
-      final notifier = _FakeSettingsNotifier(
-        AppSettings.defaults.copyWithSections(
-          overlay: const OverlaySettings(overlayMode: 'off'),
-        ),
-      );
-      await tester.pumpWidget(
-        makeTestable(
-          const SingleChildScrollView(child: OverlaySection()),
-          overrides: [settingsProvider.overrideWith(() => notifier)],
-        ),
-      );
-      await tester.pumpAndSettle();
+    testWidgets(
+      'no Switch in OverlaySection; start-position dropdown always visible on desktop',
+      (tester) async {
+        final notifier = _FakeSettingsNotifier(
+          AppSettings.defaults.copyWithSections(
+            overlay: const OverlaySettings(overlayMode: 'off'),
+          ),
+        );
+        await tester.pumpWidget(
+          makeTestable(
+            const SingleChildScrollView(child: OverlaySection()),
+            overrides: [settingsProvider.overrideWith(() => notifier)],
+          ),
+        );
+        await tester.pumpAndSettle();
 
-      if (_isDesktop) {
-        expect(find.byType(Switch), findsOneWidget);
-      } else {
-        // Non-desktop: no overlay toggle rendered.
+        // The on/off toggle has been replaced by the start-position dropdown.
         expect(find.byType(Switch), findsNothing);
-      }
-    });
 
-    testWidgets('nested overlay dropdowns hidden when overlayMode is off', (
-      tester,
-    ) async {
-      if (!_isDesktop) return; // Platform guard.
-
-      final notifier = _FakeSettingsNotifier(
-        AppSettings.defaults.copyWithSections(
-          overlay: const OverlaySettings(overlayMode: 'off'),
-        ),
-      );
-      await tester.pumpWidget(
-        makeTestable(
-          const SingleChildScrollView(child: OverlaySection()),
-          overrides: [settingsProvider.overrideWith(() => notifier)],
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      // Only the toggle switch — no dropdowns visible.
-      expect(find.byType(DropdownButton<String>), findsNothing);
-    });
+        if (_isDesktop) {
+          // Start-position dropdown (with 'Aus' as first entry) always visible.
+          expect(find.byType(DropdownButton<String>), findsOneWidget);
+        } else {
+          expect(find.byType(DropdownButton<String>), findsNothing);
+        }
+      },
+    );
 
     testWidgets(
-      'overlay toggle round-trip sets overlay.overlayMode to floating',
+      'one dropdown visible when overlay is off (start position showing Aus)',
       (tester) async {
         if (!_isDesktop) return; // Platform guard.
 
@@ -132,16 +116,53 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        // Toggle is off initially.
+        // Start-position dropdown is always visible on desktop; it shows
+        // the 'Aus' (off) entry when the overlay is disabled.
+        expect(find.byType(DropdownButton<String>), findsOneWidget);
+        // Size dropdown hidden — overlay is off.
+        expect(find.byType(OverlayRealPreview), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'switching overlayMode to floating reveals size + preview row',
+      (tester) async {
+        if (!_isDesktop) return; // Platform guard.
+
+        final notifier = _FakeSettingsNotifier(
+          AppSettings.defaults.copyWithSections(
+            overlay: const OverlaySettings(overlayMode: 'off'),
+          ),
+        );
+        await tester.pumpWidget(
+          makeTestable(
+            const SingleChildScrollView(child: OverlaySection()),
+            overrides: [settingsProvider.overrideWith(() => notifier)],
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Initially: 1 dropdown, no size row.
+        expect(find.byType(DropdownButton<String>), findsOneWidget);
         expect(notifier.state.value!.overlay.overlayMode, 'off');
 
-        await tester.tap(find.byType(Switch).first);
+        // Simulate selecting a real start position → overlay enabled.
+        notifier.updateSettings(
+          (s) => s.copyWith(
+            overlayMode: OverlayMode.floating.value,
+            showOverlay: true,
+            overlayStartPosition: OverlayStartPosition.topCenter.value,
+          ),
+        );
         await tester.pump();
 
         expect(
           notifier.state.value!.overlay.overlayMode,
           OverlayMode.floating.value,
         );
+        expect(notifier.state.value!.overlay.showOverlay, isTrue);
+        // Start-position + size dropdowns now both visible.
+        expect(find.byType(DropdownButton<String>), findsNWidgets(2));
       },
     );
 
@@ -168,6 +189,179 @@ void main() {
 
         // Floating mode reveals start-position + size dropdowns.
         expect(find.byType(DropdownButton<String>), findsNWidgets(2));
+      },
+    );
+
+    // -- AC (a) ---------------------------------------------------------------
+    testWidgets(
+      'selecting Aus via state sets overlayMode off, showOverlay false, '
+      'hides size row',
+      (tester) async {
+        if (!_isDesktop) return; // Platform guard.
+
+        final notifier = _FakeSettingsNotifier(
+          AppSettings.defaults.copyWithSections(
+            overlay: const OverlaySettings(overlayMode: 'floating'),
+          ),
+        );
+        await tester.pumpWidget(
+          makeTestable(
+            const SingleChildScrollView(child: OverlaySection()),
+            overrides: [settingsProvider.overrideWith(() => notifier)],
+          ),
+        );
+        await tester.pump();
+        await tester.pump();
+
+        // Floating: 2 dropdowns visible.
+        expect(find.byType(DropdownButton<String>), findsNWidgets(2));
+
+        // Simulate 'Aus' selection callback.
+        notifier.updateSettings(
+          (s) => s.copyWith(
+            overlayMode: OverlayMode.off.value,
+            showOverlay: false,
+          ),
+        );
+        await tester.pump();
+
+        expect(notifier.state.value!.overlay.overlayMode, 'off');
+        expect(notifier.state.value!.overlay.showOverlay, isFalse);
+        // Only start-position dropdown remains; size row hidden.
+        expect(find.byType(DropdownButton<String>), findsOneWidget);
+        expect(find.byType(OverlayRealPreview), findsNothing);
+      },
+    );
+
+    // -- AC (b) ---------------------------------------------------------------
+    testWidgets('selecting a position via state sets overlayMode floating, '
+        'showOverlay true, reveals size row', (tester) async {
+      if (!_isDesktop) return; // Platform guard.
+
+      final notifier = _FakeSettingsNotifier(
+        AppSettings.defaults.copyWithSections(
+          overlay: const OverlaySettings(overlayMode: 'off'),
+        ),
+      );
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: OverlaySection()),
+          overrides: [settingsProvider.overrideWith(() => notifier)],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(DropdownButton<String>), findsOneWidget);
+
+      // Simulate selecting 'top-center' from the dropdown.
+      notifier.updateSettings(
+        (s) => s.copyWith(
+          overlayMode: OverlayMode.floating.value,
+          showOverlay: true,
+          overlayStartPosition: OverlayStartPosition.topCenter.value,
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        notifier.state.value!.overlay.overlayMode,
+        OverlayMode.floating.value,
+      );
+      expect(notifier.state.value!.overlay.showOverlay, isTrue);
+      expect(find.byType(DropdownButton<String>), findsNWidgets(2));
+    });
+
+    // -- AC (c) ---------------------------------------------------------------
+    testWidgets(
+      'no separate show-overlay Switch exists in OverlaySection on desktop',
+      (tester) async {
+        if (!_isDesktop) return; // Platform guard.
+
+        // Even with overlay enabled, no Switch widget should appear.
+        final notifier = _FakeSettingsNotifier(
+          AppSettings.defaults.copyWithSections(
+            overlay: const OverlaySettings(overlayMode: 'floating'),
+          ),
+        );
+        await tester.pumpWidget(
+          makeTestable(
+            const SingleChildScrollView(child: OverlaySection()),
+            overrides: [settingsProvider.overrideWith(() => notifier)],
+          ),
+        );
+        await tester.pump();
+        await tester.pump();
+
+        expect(find.byType(Switch), findsNothing);
+      },
+    );
+
+    // -- AC (d) ---------------------------------------------------------------
+    testWidgets(
+      'OverlayRealPreview in size-row trailing: only one Divider when floating',
+      (tester) async {
+        if (!_isDesktop) return; // Platform guard.
+
+        final notifier = _FakeSettingsNotifier(
+          AppSettings.defaults.copyWithSections(
+            overlay: const OverlaySettings(overlayMode: 'floating'),
+          ),
+        );
+        await tester.pumpWidget(
+          makeTestable(
+            const SingleChildScrollView(child: OverlaySection()),
+            overrides: [settingsProvider.overrideWith(() => notifier)],
+          ),
+        );
+        await tester.pump();
+        await tester.pump();
+
+        // Preview is present …
+        expect(find.byType(OverlayRealPreview), findsOneWidget);
+        // … and has no standalone Divider before it: only one Divider separates
+        // the start-position row from the size row (which contains the preview).
+        expect(find.byType(Divider), findsOneWidget);
+      },
+    );
+
+    // -- AC (e) ---------------------------------------------------------------
+    testWidgets(
+      'no RenderFlex overflow at 400 px narrow width with floating overlay',
+      (tester) async {
+        if (!_isDesktop) return; // Platform guard.
+
+        final overflows = <String>[];
+        final originalHandler = FlutterError.onError;
+        FlutterError.onError = (details) {
+          if (details.toString().contains('overflowed')) {
+            overflows.add(details.toString());
+          } else {
+            originalHandler?.call(details);
+          }
+        };
+        addTearDown(() => FlutterError.onError = originalHandler);
+
+        final notifier = _FakeSettingsNotifier(
+          AppSettings.defaults.copyWithSections(
+            overlay: const OverlaySettings(overlayMode: 'floating'),
+          ),
+        );
+        await tester.pumpWidget(
+          makeTestable(
+            const SingleChildScrollView(child: OverlaySection()),
+            overrides: [settingsProvider.overrideWith(() => notifier)],
+            size: const Size(400, 600),
+          ),
+        );
+        // FloatingOverlayView has an infinite AnimationController — pump() only.
+        await tester.pump();
+        await tester.pump();
+
+        expect(
+          overflows,
+          isEmpty,
+          reason: 'RenderFlex overflow at 400 px:\n${overflows.join('\n')}',
+        );
       },
     );
   });
