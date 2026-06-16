@@ -62,14 +62,28 @@ foreach ($f in $flatFiles) {
   Copy-Item $src $stage -Force
 }
 
+# Model/cache subfolders that an engine may have accumulated at runtime but that
+# must NOT ship (models are downloaded on demand into the extracted folder).
+# NB: do NOT prune onnx-directml\_internal — those are the PyInstaller runtime
+# deps the runner needs.
+$pruneDirs = @("_models", "models", ".cache", "out")
+
 foreach ($d in $engineDirs) {
   $src = Join-Path $RunDir $d
-  if (Test-Path $src) {
-    Copy-Item $src (Join-Path $stage $d) -Recurse -Force
-    Write-Host "  + engine: $d"
-  } else {
+  if (-not (Test-Path $src)) {
     Write-Warning "engine folder absent, skipped: $d"
+    continue
   }
+  $dstDir = Join-Path $stage $d
+  Copy-Item $src $dstDir -Recurse -Force
+  foreach ($p in $pruneDirs) {
+    Get-ChildItem $dstDir -Recurse -Directory -Filter $p -ErrorAction SilentlyContinue |
+      ForEach-Object { Remove-Item $_.FullName -Recurse -Force -ErrorAction SilentlyContinue }
+  }
+  Get-ChildItem $dstDir -Recurse -File -Include *.log, *.jsonl -ErrorAction SilentlyContinue |
+    Remove-Item -Force -ErrorAction SilentlyContinue
+  $mb = [math]::Round(((Get-ChildItem $dstDir -Recurse -File | Measure-Object Length -Sum).Sum / 1MB), 0)
+  Write-Host "  + engine: $d ($mb MB)"
 }
 
 # LIESMICH.txt with the version substituted.
