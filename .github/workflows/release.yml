@@ -772,6 +772,8 @@ jobs:
           if [[ -z "${{ secrets.MS_STORE_APP_ID }}" ]]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
             echo "::warning::MS_STORE_APP_ID not set — skipping MS Store submission"
+            echo "### Microsoft Store submission: ⏭️ skipped (MS_STORE_* secrets not set)" >> "$GITHUB_STEP_SUMMARY"
+            echo "Set the four \`MS_STORE_*\` secrets (see scripts/GITHUB-SECRETS-SETUP.md) to enable auto-submission." >> "$GITHUB_STEP_SUMMARY"
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi

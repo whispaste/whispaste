@@ -88,6 +88,15 @@ function Read-FeaturesList {
   )
 }
 
+# Appends a line to the GitHub Actions run summary when running in CI, so an
+# AFK submission is auditable at a glance instead of buried in the job log.
+function Write-Summary {
+  param([string] $Line)
+  if ($env:GITHUB_STEP_SUMMARY) {
+    Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value $Line -Encoding UTF8
+  }
+}
+
 # ── Authenticate ──────────────────────────────────────────────────────────────
 
 Write-Host ":: Authenticating with Partner Center API..."
@@ -233,6 +242,10 @@ while ((Get-Date) -lt $deadline) {
   if ($cs -in $failed) {
     $errors = ($status.statusDetails.errors |
       ForEach-Object { "  • $($_.code): $($_.details)" }) -join "`n"
+    Write-Summary "### Microsoft Store submission: ❌ FAILED ($cs)"
+    Write-Summary ""
+    Write-Summary "Submission ``$subId`` was rejected by Partner Center:"
+    Write-Summary "$errors"
     throw "Submission $subId failed ($cs):`n$errors"
   }
 
@@ -240,9 +253,15 @@ while ((Get-Date) -lt $deadline) {
     Write-Host ""
     Write-Host "Submission accepted by Partner Center."
     Write-Host "Review: https://partner.microsoft.com/en-us/dashboard/apps/$AppId/submissions/$subId"
+    Write-Summary "### Microsoft Store submission: ✅ accepted ($cs)"
+    Write-Summary ""
+    Write-Summary "Submission ``$subId`` accepted — now in certification. [Review in Partner Center](https://partner.microsoft.com/en-us/dashboard/apps/$AppId/submissions/$subId)"
     exit 0
   }
 }
 
 Write-Warning "Timed out waiting for commit acceptance — submission may still be processing."
 Write-Host "Check: https://partner.microsoft.com/en-us/dashboard/apps/$AppId/submissions/$subId"
+Write-Summary "### Microsoft Store submission: ⏳ timed out waiting for acceptance"
+Write-Summary ""
+Write-Summary "The commit was sent but Partner Center had not confirmed acceptance within 10 min — it may still be processing. [Check the submission](https://partner.microsoft.com/en-us/dashboard/apps/$AppId/submissions/$subId)"

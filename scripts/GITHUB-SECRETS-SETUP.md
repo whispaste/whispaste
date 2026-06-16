@@ -63,6 +63,32 @@ python3 scripts/setup-gh-secrets.py --list
 | `SENTRY_DSN` | `lib/core/logging/app_monitoring.dart` | Sentry Project Settings → Client Keys (DSN) |
 | `SUPABASE_URL` | `.github/workflows/ci.yml` | Supabase Dashboard → Project Settings → API |
 | `SUPABASE_PUBLISHABLE_KEY` | `.github/workflows/ci.yml` | Supabase Dashboard → Project Settings → API Keys |
+| `MS_STORE_APP_ID` | `release.yml` (submit-ms-store) | Partner Center → app → **Product ID** (e.g. `9P22JVKRQ2V0`) |
+| `MS_STORE_TENANT_ID` | `release.yml` (submit-ms-store) | Microsoft Entra admin center → Overview → **Tenant ID** |
+| `MS_STORE_CLIENT_ID` | `release.yml` (submit-ms-store) | Entra → App registrations → your app → **Application (client) ID** |
+| `MS_STORE_CLIENT_SECRET` | `release.yml` (submit-ms-store) | Entra → App registrations → your app → Certificates & secrets → **client secret value** |
+
+### Microsoft Store auto-submission (AFK)
+
+When the four `MS_STORE_*` secrets above are set, the `submit-ms-store` job in
+`release.yml` submits each tagged release to the Microsoft Store **fully
+automatically** (no manual step, no Windows box) via the Partner Center
+submission API, including the bilingual "What's new" notes. When they are absent
+the job logs a warning and skips — so the rest of the release is never blocked.
+
+One-time prerequisites (see `docs/store-release.md` → *Microsoft-Store-Automatisierung*
+for the full walkthrough):
+
+1. Register an app in **Microsoft Entra ID** and create a **client secret**.
+2. In Partner Center → *Account settings → User management → Microsoft Entra
+   applications*, add that app with the **Manager** role.
+3. Put `MS_STORE_APP_ID`, `MS_STORE_TENANT_ID`, `MS_STORE_CLIENT_ID`,
+   `MS_STORE_CLIENT_SECRET` into `.env`, then run `./scripts/setup-gh-secrets.sh`.
+
+> **Rotation:** Entra client secrets expire (max 24 months). The scheduled
+> `ms-store-credential-health.yml` workflow does a weekly test-auth and fails
+> loudly (GitHub emails you) **before** a release silently skips. Rotate the
+> secret and re-run `setup-gh-secrets.sh` when it warns.
 
 ## Local vs GitHub Secrets
 
