@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.2.40
+
+### Features
+
+- **Die Einstellungen sind jetzt durchsuchbar und vollständig per Tastatur bedienbar.** Ein Suchfeld am oberen Rand filtert die Bereiche live mit, springt zum Treffer und bleibt beim Scrollen sichtbar. Die gesamte Bedienung funktioniert per Tastatur und mit Screenreadern (sinnvolle Fokus-Reihenfolge, Sprungmarken, Vorlese-Beschriftungen).
+- **Die Einstellungen wurden aufgeräumt und verdichtet.** Verwandte Schalter sind zusammengefasst: „Ton an/aus" steckt jetzt im Lautstärkeregler, die Autostart-Optionen in einem einzigen Dropdown, die Verlaufs-Aufbewahrung in einer Voreinstellung (Standard/Benutzerdefiniert), und „Overlay anzeigen" samt Position liegen beieinander. Das Sprach-Dropdown zeigt die Erkennungssprachen jetzt in der Sprache der Oberfläche.
+- **Live-Vorschau für Overlay und Aufnahme-Button direkt in den Einstellungen.** Beide werden in Originalgröße (1:1) und reaktiv dargestellt, sodass eine Änderung sofort so aussieht, wie sie später erscheint.
+- **Die Aufnahme-Anzeige (Overlay und Button) wurde neu gestaltet und ist plattformübergreifend identisch.** Eine gemeinsame Design-Quelle wird nativ auf macOS, Windows und Linux dargestellt — dieselbe Wellenform mit mitlaufender Historie, dasselbe Erscheinungsbild in jedem Farbschema und eine korrekt dimensionierte, sauber positionierte kompakte Variante.
+- **Automatische In-App-Aktualisierung auf macOS.** WhisPaste kann sich auf macOS jetzt selbst aktualisieren (atomarer DMG-Austausch, bei Bedarf mit Rechte-Eskalation); eine laufende Aufnahme verschiebt die Installation, bis sie abgeschlossen ist.
+- **Durchgängige Screenreader-Unterstützung.** Onboarding, Verlauf, die zentralen Bedienelemente, die „Über"-Seite, der Feedback- und der Cloud-Bereich tragen jetzt Vorlese-Beschriftungen; nicht-interaktive Bilder, Formularfelder und Icon-Schaltflächen sind korrekt ausgezeichnet.
+
+### Bug Fixes
+
+- **Ein ausgeblendetes Overlay fängt keine Mausklicks mehr ab.** Ein unsichtbares Overlay konnte zuvor weiterhin Klicks abfangen. Beim Ausblenden — auch bei der automatischen Ausblendung nach „Fertig" — wird das native Fenster jetzt zuverlässig vom Bildschirm genommen, statt unsichtbar liegen zu bleiben.
+- **Diktat geht beim schnellen Stoppen nicht mehr verloren.** Die Stopp-Pfade (manuell, automatisch bei Stille, bei totem Mikrofon) sind konsolidiert: ein totes Mikrofon bricht eine bereits laufende Transkription nicht mehr ab (das war stiller Datenverlust), und gleichzeitige Stopp-Aufrufe laufen sauber zu einem einzigen Durchlauf zusammen.
+- **Eine gehaltene Tastenkombination löst genau einmal aus.** Die Auto-Wiederholung des Betriebssystems wird abgefangen, sodass ein gedrückt gehaltener Hotkey nicht mehrfach feuert.
+- **Kein doppeltes Einfügen mehr auf macOS.** Ist das Einfügen bereits per CGEvent gelandet, wird der AppleScript-Fallback nicht zusätzlich ausgeführt.
+- **Keine Ruckler mehr beim Öffnen durch den Modell-Scan.** Die Prüfung vorhandener Sprachmodelle läuft nicht mehr blockierend auf dem UI-Thread (insbesondere auf virtualisierten Dateisystemen), sodass Wellenform und Zeitanzeige flüssig bleiben.
+- **Eine neue Aufnahme lässt sich sofort starten, während die „Fertig"-/Fehler-Anzeige noch nachläuft** — der Auslöser reagiert nicht mehr verzögert, solange das Overlay noch sichtbar ist.
+- **Das Overlay behält beim Ausblenden seine eingestellte Größe** und blendet sich nach „Fertig" zuverlässig nach 2 Sekunden aus.
+- **Bei einer Neuinstallation zeigt die Verlaufs-Aufbewahrung die Voreinstellung „Standard"** statt fälschlich „Benutzerdefiniert".
+- **Linux-Pakete laufen zuverlässiger.** Das Flatpak startet jetzt auf der GNOME-Runtime mit gebündelten nativen Bibliotheken; der Snap-Build entsteht unter verwalteter LXD und bringt vollständige Store-Metadaten mit.
+
 ## 1.2.39
 
 ### Bug Fixes
