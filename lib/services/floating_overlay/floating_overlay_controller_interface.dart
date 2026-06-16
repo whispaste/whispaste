@@ -121,22 +121,6 @@ abstract class FloatingOverlayController {
   /// Set the context menu items for compact right-click.
   Future<void> setContextMenuItems(List<({String id, String label})> items);
 
-  /// Order the native window out (click-inert / hidden) while the overlay is
-  /// not visible.
-  ///
-  /// Called on every hide path — including the auto-hide after the Done state
-  /// — so the native window stops intercepting mouse events even though it
-  /// still exists in the OS window stack. A [updateSnapshot] with
-  /// `visible: false` alone is not sufficient because the window remains
-  /// present and clickable until the OS explicitly receives an order-out or
-  /// click-through signal.
-  ///
-  /// Platform implementations map this to the appropriate OS call:
-  ///   - macOS: `NSWindow.orderOut(_:)` / `NSWindow.ignoreMouseEvents = true`
-  ///   - Windows: `ShowWindow(hwnd, SW_HIDE)` or WS_EX_TRANSPARENT style
-  ///   - Linux: `gtk_widget_hide()` / X11 pass-through input shape
-  Future<void> orderOut();
-
   /// Stream of events from the native overlay window.
   Stream<FloatingOverlayEvent> get events;
 

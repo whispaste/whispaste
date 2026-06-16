@@ -169,9 +169,6 @@ class _OverlayFake implements FloatingOverlayController {
   Future<void> setContextMenuItems(
     List<({String id, String label})> items,
   ) async {}
-
-  @override
-  Future<void> orderOut() async {}
 }
 
 /// [FloatingOverlayService] subclass configured for leak testing.

@@ -40,7 +40,4 @@ class LinuxFloatingOverlayController
             .map((item) => {'id': item.id, 'label': item.label})
             .toList(),
       });
-
-  @override
-  Future<void> orderOut() => invokeMethod('orderOut', {});
 }
