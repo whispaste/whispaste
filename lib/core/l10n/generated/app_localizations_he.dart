@@ -2344,6 +2344,21 @@ class L10nHe extends L10n {
   }
 
   @override
+  String get settingsHistoryRetentionPreset => 'שמירה';
+
+  @override
+  String get settingsHistoryPresetMinimal => 'מינימלי';
+
+  @override
+  String get settingsHistoryPresetStandard => 'רגיל';
+
+  @override
+  String get settingsHistoryPresetUnlimited => 'ללא הגבלה';
+
+  @override
+  String get settingsHistoryPresetCustom => 'מותאם אישית';
+
+  @override
   String get settingsFloatingButtonSection => 'כפתור צף';
 
   @override

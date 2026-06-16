@@ -794,6 +794,11 @@
   "settingsHistoryAutoTrashNever": "Nie",
   "settingsHistoryAutoTrashDaysLabel": "{count, plural, =1{1 Tag} other{{count} Tage}}",
   "@settingsHistoryAutoTrashDaysLabel": { "placeholders": { "count": { "type": "int" } } },
+  "settingsHistoryRetentionPreset": "Aufbewahrung",
+  "settingsHistoryPresetMinimal": "Minimal",
+  "settingsHistoryPresetStandard": "Standard",
+  "settingsHistoryPresetUnlimited": "Unbegrenzt",
+  "settingsHistoryPresetCustom": "Benutzerdefiniert",
 
   "settingsFloatingButtonSection": "Schwebender Button",
   "settingsFloatingButtonSectionSubtitle": "Immer sichtbarer Aufnahme-Button für schnellen Zugriff",

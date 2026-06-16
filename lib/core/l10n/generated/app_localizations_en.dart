@@ -2392,6 +2392,21 @@ class L10nEn extends L10n {
   }
 
   @override
+  String get settingsHistoryRetentionPreset => 'Retention';
+
+  @override
+  String get settingsHistoryPresetMinimal => 'Minimal';
+
+  @override
+  String get settingsHistoryPresetStandard => 'Standard';
+
+  @override
+  String get settingsHistoryPresetUnlimited => 'Unlimited';
+
+  @override
+  String get settingsHistoryPresetCustom => 'Custom';
+
+  @override
   String get settingsFloatingButtonSection => 'Floating Button';
 
   @override
