@@ -118,6 +118,32 @@ void main() {
       );
     });
 
+    test('catalogue lists ONNX-Whisper bundles with family onnx-whisper', () {
+      final c = defaultModelCatalog();
+      final onnx = c.where((m) => m.family == 'onnx-whisper').toList();
+      expect(
+        onnx.map((m) => m.id),
+        containsAll(['onnx-whisper-base', 'onnx-whisper-small']),
+      );
+      expect(onnx.every((m) => m.isBundle), isTrue);
+      // The bundle carries the encoder, decoder and tokenizer the DirectML
+      // runner resolves inside models/<id>/.
+      final base = onnx.firstWhere((m) => m.id == 'onnx-whisper-base');
+      expect(
+        base.files!.map((f) => f.filename),
+        containsAll([
+          'encoder_model_int8.onnx',
+          'decoder_model_int8.onnx',
+          'tokenizer.json',
+        ]),
+      );
+      // Source is the public onnx-community export (Microsoft's repos are 401).
+      expect(
+        base.files!.first.url.toString(),
+        contains('onnx-community/whisper-base'),
+      );
+    });
+
     test('downloads a CT2 bundle into models/<id>/ (4 files)', () async {
       final fetched = <String>[];
       Future<void> fake(Uri u, File t, void Function(int, int) onP) async {

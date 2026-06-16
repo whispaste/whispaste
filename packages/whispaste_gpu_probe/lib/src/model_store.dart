@@ -97,7 +97,7 @@ class CatalogModel {
 /// The default multi-family model catalogue — the PRD's model axis.
 ///
 /// - `ggml`         : whisper.cpp + Const-me (GGML .bin, ggerganov/whisper.cpp)
-/// - `onnx-whisper` : ONNX Runtime + DirectML Whisper-ONNX (microsoft/…-directml)
+/// - `onnx-whisper` : ONNX Runtime + DirectML Whisper-ONNX (onnx-community/…)
 /// - `onnx-wav2vec2`: non-Whisper German wav2vec2 ONNX (jonatasgrosman/…)
 ///
 /// Sizes are approximate on-disk sizes for display + download progress.
@@ -151,6 +151,41 @@ List<CatalogModel> defaultModelCatalog() {
           url: u('$size-tokens.txt'),
           filename: '$size-tokens.txt',
           sizeBytes: tokens,
+        ),
+      ],
+    );
+  }
+
+  // ONNX Runtime + DirectML Whisper bundle: encoder + decoder (int8) +
+  // tokenizer downloaded into models/<id>/. The onnx-directml runner resolves
+  // encoder_model_int8.onnx / decoder_model_int8.onnx / tokenizer.json inside
+  // that dir. Source is the public onnx-community export — Microsoft's
+  // whisper-*-directml repos went private (HTTP 401), so the old single-file
+  // catalogue entries no longer resolve.
+  CatalogModel onnxc(String size, int enc, int dec, String label) {
+    Uri u(String f) => Uri.parse(
+      'https://huggingface.co/onnx-community/whisper-$size/resolve/main/$f',
+    );
+    const tokenizer = 2480466; // tokenizer.json is identical across sizes
+    return CatalogModel(
+      id: 'onnx-whisper-$size',
+      label: label,
+      family: 'onnx-whisper',
+      files: [
+        BundleFile(
+          url: u('onnx/encoder_model_int8.onnx'),
+          filename: 'encoder_model_int8.onnx',
+          sizeBytes: enc,
+        ),
+        BundleFile(
+          url: u('onnx/decoder_model_int8.onnx'),
+          filename: 'decoder_model_int8.onnx',
+          sizeBytes: dec,
+        ),
+        BundleFile(
+          url: u('tokenizer.json'),
+          filename: 'tokenizer.json',
+          sizeBytes: tokenizer,
         ),
       ],
     );
@@ -238,26 +273,18 @@ List<CatalogModel> defaultModelCatalog() {
       3094623691,
       'Large v3 · ~2,9 GB · höchste Qualität',
     ),
-    // ONNX Whisper — ONNX Runtime + DirectML.
-    make(
-      'onnx-whisper-small',
-      'onnx-whisper',
-      Uri.parse(
-        'https://huggingface.co/microsoft/whisper-small-directml/resolve/main/whisper_small_int8.onnx',
-      ),
-      'whisper_small_int8.onnx',
-      242000000,
-      'Whisper Small (ONNX int8) · ~242 MB',
+    // ONNX Whisper — ONNX Runtime + DirectML (onnx-community export).
+    onnxc(
+      'base',
+      23201297,
+      53310178,
+      'Whisper Base (ONNX int8, DirectML) · ~78 MB · schnell',
     ),
-    make(
-      'onnx-whisper-medium',
-      'onnx-whisper',
-      Uri.parse(
-        'https://huggingface.co/microsoft/whisper-medium-directml/resolve/main/whisper_medium_int8.onnx',
-      ),
-      'whisper_medium_int8.onnx',
-      769000000,
-      'Whisper Medium (ONNX int8) · ~769 MB · Crash-Risiko',
+    onnxc(
+      'small',
+      92326127,
+      155989346,
+      'Whisper Small (ONNX int8, DirectML) · ~243 MB · ausgewogen',
     ),
     // Non-Whisper — German wav2vec2 (ONNX).
     make(
