@@ -41,6 +41,7 @@ class _FakeAudioService extends AudioServiceNotifier {
   bool errorOnStart = false;
   StreamController<double>? _ampCtrl;
   int startCallCount = 0;
+  int stopCallCount = 0;
 
   @override
   AudioStatus build() => const AudioStatus();
@@ -68,6 +69,7 @@ class _FakeAudioService extends AudioServiceNotifier {
 
   @override
   Future<String?> stopRecording() async {
+    stopCallCount++;
     _ampCtrl?.close();
     _ampCtrl = null;
     state = AudioStatus(filePath: wavPathToReturn);
@@ -1073,5 +1075,101 @@ void main() {
       );
       orch.releaseStartLock();
     });
+  });
+
+  // =====================================================================
+  // Group 4: Stop-path consolidation (slice 02)
+  // =====================================================================
+
+  group('Stop-path consolidation', () {
+    test(
+      'AC3: dead-mic event while transcribing leaves the pipeline untouched',
+      () async {
+        // Wire the orchestrator fully so _guardSub is active.
+        final stubs = createFakeStubFiles();
+        addTearDown(() {
+          for (final f in stubs) {
+            try {
+              if (f.existsSync()) f.deleteSync();
+            } catch (_) {}
+          }
+        });
+
+        final c = buildContainer(
+          const AppSettings(
+            stt: SttSettings(model: 'whisper-small', language: 'English'),
+            afterTranscriptionSection: AfterTranscriptionSettings(
+              afterTranscription: 'nothing',
+            ),
+            onboarding: OnboardingSettings(onboardingCompleted: true),
+            recordingSafety: RecordingSafetySettings(
+              deadMicTimeout: 1.0, // 25 samples @ 25 Hz → dead-mic
+              autoStopSilence: 0,
+            ),
+            behavior: BehaviorSettings(maxRecordDuration: 0),
+          ),
+        );
+        addTearDown(c.dispose);
+        await c.read(settingsProvider.future);
+        await Future<void>.delayed(Duration.zero);
+
+        // Start via full orchestrator path to wire _guardSub.
+        unawaited(
+          c.read(recordingOrchestratorProvider.notifier).toggleRecording(),
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        expect(c.read(recordingProvider).phase, RecordingPhase.recording);
+
+        // Advance the state machine to transcribing directly (not via
+        // orchestrator.stopRecording), so _guardSub stays subscribed.
+        c.read(recordingProvider.notifier).stopRecording();
+        expect(c.read(recordingProvider).phase, RecordingPhase.transcribing);
+
+        // Emit 25 silent samples — enough to trigger the dead-mic guard.
+        for (var i = 0; i < 25; i++) {
+          fakeAudio.emitLevel(0.0);
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+
+        // The dead-mic handler must see phase == transcribing and skip.
+        // Phase must remain transcribing — not jump to error via abort.
+        expect(
+          c.read(recordingProvider).phase,
+          equals(RecordingPhase.transcribing),
+          reason:
+              'dead-mic must not abort a transcribing pipeline (silent data '
+              'loss); phase guard must prevent the fail transition (AC3)',
+        );
+      },
+    );
+
+    test(
+      'AC4: concurrent stopRecording calls converge on one audio-layer stop',
+      () async {
+        final orch = container.read(recordingOrchestratorProvider.notifier);
+        await Future<void>.delayed(Duration.zero);
+
+        // Drive to recording phase (bypasses preflight — no stub files needed).
+        container.read(recordingProvider.notifier).startRecording();
+        await container.read(audioServiceProvider.notifier).startRecording();
+        expect(
+          container.read(recordingProvider).phase,
+          RecordingPhase.recording,
+        );
+
+        // Fire two stopRecording() calls concurrently.
+        // The first call synchronously sets _stopInFlight = true before its
+        // first await; the second call sees the flag and returns immediately.
+        await Future.wait([orch.stopRecording(), orch.stopRecording()]);
+
+        expect(
+          fakeAudio.stopCallCount,
+          equals(1),
+          reason:
+              'the _stopInFlight guard must allow only ONE audio-layer stop; '
+              'the second concurrent call must be a no-op (AC4)',
+        );
+      },
+    );
   });
 }
