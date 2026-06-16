@@ -54,7 +54,11 @@ jobs:
         run: flutter pub get
 
       - name: Analyze (lint + static analysis)
-        run: flutter analyze --fatal-infos
+        # Scope to the app's own sources. A bare `flutter analyze` descends
+        # into the standalone packages/ tools (own pubspec/lints, not pulled
+        # via pub get in CI), which fails on unresolved package: self-imports.
+        # Those packages are covered by the loam gate below.
+        run: flutter analyze --fatal-infos lib test integration_test tool
 
       - name: Run tests
         run: flutter test --exclude-tags=golden
@@ -119,7 +123,11 @@ jobs:
         run: flutter pub get
 
       - name: Analyze (lint + static analysis)
-        run: flutter analyze --fatal-infos
+        # Scope to the app's own sources. A bare `flutter analyze` descends
+        # into the standalone packages/ tools (own pubspec/lints, not pulled
+        # via pub get in CI), which fails on unresolved package: self-imports.
+        # Those packages are covered by the loam gate below.
+        run: flutter analyze --fatal-infos lib test integration_test tool
 
       - name: Run tests
         run: flutter test --exclude-tags=golden
@@ -174,7 +182,11 @@ jobs:
         run: flutter pub get
 
       - name: Analyze (lint + static analysis)
-        run: flutter analyze --fatal-infos
+        # Scope to the app's own sources. A bare `flutter analyze` descends
+        # into the standalone packages/ tools (own pubspec/lints, not pulled
+        # via pub get in CI), which fails on unresolved package: self-imports.
+        # Those packages are covered by the loam gate below.
+        run: flutter analyze --fatal-infos lib test integration_test tool
 
       # loam ratchet gate — fails when any new a11y, anti-AI-slop,
       # code-duplicate, unused-public-export, complexity-hotspot or
