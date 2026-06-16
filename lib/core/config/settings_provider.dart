@@ -88,7 +88,7 @@ class AppSettings {
   /// General behavior settings (tray, error reporting, GPU, paste).
   final BehaviorSettings behavior;
 
-  /// Audio processing settings (trim silence).
+  /// Audio processing settings.
   final AudioProcessingSettings audioProcessing;
 
   /// Update check settings.
@@ -218,9 +218,6 @@ class AppSettings {
 
   @Deprecated('Use behavior.autoPasteBlocklist instead')
   String get autoPasteBlocklist => behavior.autoPasteBlocklist;
-
-  @Deprecated('Use audioProcessing.trimSilence instead')
-  bool get trimSilence => audioProcessing.trimSilence;
 
   @Deprecated('Use behavior.textReplacementsEnabled instead')
   bool get textReplacementsEnabled => behavior.textReplacementsEnabled;
@@ -511,7 +508,6 @@ class AppSettings {
     String? gpuAcceleration,
     int? autoPasteDelay,
     String? autoPasteBlocklist,
-    bool? trimSilence,
     bool? textReplacementsEnabled,
     bool? checkUpdates,
     int? historyMaxEntries,
@@ -590,7 +586,7 @@ class AppSettings {
         autoPasteBlocklist: autoPasteBlocklist,
         textReplacementsEnabled: textReplacementsEnabled,
       ),
-      audioProcessing: audioProcessing.copyWith(trimSilence: trimSilence),
+      audioProcessing: audioProcessing.copyWith(),
       updates: updates.copyWith(checkUpdates: checkUpdates),
       history: history.copyWith(
         historyMaxEntries: historyMaxEntries,

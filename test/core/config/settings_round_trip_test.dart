@@ -27,7 +27,6 @@ void main() {
         restored.textReplacementsEnabled,
         original.textReplacementsEnabled,
       );
-      expect(restored.trimSilence, original.trimSilence);
       expect(restored.inputGain, original.inputGain);
     });
 

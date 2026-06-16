@@ -736,29 +736,23 @@ class BehaviorSettings {
 // ===========================================================================
 
 class AudioProcessingSettings {
-  const AudioProcessingSettings({this.trimSilence = false});
-
-  final bool trimSilence;
+  const AudioProcessingSettings();
 
   static const AudioProcessingSettings defaults = AudioProcessingSettings();
 
-  factory AudioProcessingSettings.fromMap(Map<String, String> v) =>
-      AudioProcessingSettings(
-        trimSilence: _readBool(v, 'trim_silence', defaults.trimSilence),
-      );
+  factory AudioProcessingSettings.fromMap(Map<String, String> _) =>
+      const AudioProcessingSettings();
 
-  Map<String, String> toMap() => {'trim_silence': '$trimSilence'};
+  Map<String, String> toMap() => const <String, String>{};
 
-  AudioProcessingSettings copyWith({bool? trimSilence}) =>
-      AudioProcessingSettings(trimSilence: trimSilence ?? this.trimSilence);
+  AudioProcessingSettings copyWith() => const AudioProcessingSettings();
 
   @override
   bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is AudioProcessingSettings && trimSilence == other.trimSilence;
+      identical(this, other) || other is AudioProcessingSettings;
 
   @override
-  int get hashCode => trimSilence.hashCode;
+  int get hashCode => 0;
 }
 
 // ===========================================================================
