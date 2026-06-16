@@ -880,5 +880,12 @@
 
   "settingsSearchHint": "Einstellungen durchsuchen…",
   "settingsSearchNoResults": "Keine Treffer",
-  "settingsSearchNoResultsHint": "Versuche einen anderen Suchbegriff."
+  "settingsSearchNoResultsHint": "Versuche einen anderen Suchbegriff.",
+  "settingsSearchFieldLabel": "Einstellungen durchsuchen",
+  "settingsSearchResultCount": "{count, plural, =0{Keine Treffer} =1{1 Treffer} other{{count} Treffer}}",
+  "@settingsSearchResultCount": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  }
 }

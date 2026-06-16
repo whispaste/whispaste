@@ -912,5 +912,12 @@
 
   "settingsSearchHint": "חיפוש הגדרות…",
   "settingsSearchNoResults": "אין תוצאות",
-  "settingsSearchNoResultsHint": "נסה מונח חיפוש אחר."
+  "settingsSearchNoResultsHint": "נסה מונח חיפוש אחר.",
+  "settingsSearchFieldLabel": "חיפוש הגדרות",
+  "settingsSearchResultCount": "{count, plural, =0{אין תוצאות} other{{count} תוצאות}}",
+  "@settingsSearchResultCount": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  }
 }
