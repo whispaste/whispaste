@@ -1,0 +1,83 @@
+WhisPaste GPU-Probe   (Version {{VERSION}})
+==========================================
+
+Danke fürs Mittesten! Dieses kleine Werkzeug misst, welches
+Spracherkennungs-Backend auf DEINER Hardware am schnellsten und besten läuft.
+Es hilft uns, WhisPaste für deinen Rechner optimal einzustellen.
+
+Alles läuft lokal auf deinem PC. Deine Aufnahme verlässt das Gerät nicht.
+
+
+SO STARTEST DU (3 Schritte)
+---------------------------
+
+1. Diese ZIP-Datei entpacken:
+   Rechtsklick auf die ZIP  ->  "Alle extrahieren..."  ->  Ordner wählen.
+   Wichtig: erst ENTPACKEN, nicht aus der ZIP heraus starten.
+
+2. Im entpackten Ordner einen Doppelklick auf:
+   WhisPaste-GPU-Probe.exe
+
+3. Falls Windows blau warnt ("Der Computer wurde durch Windows geschützt"):
+   "Weitere Informationen"  ->  "Trotzdem ausführen".
+   (Das kommt, weil das Tool nicht signiert ist - es ist unbedenklich.)
+
+Es öffnet sich ein kleines schwarzes Fenster und danach dein Browser mit der
+Test-Oberfläche. Das schwarze Fenster bitte offen lassen, solange du testest.
+
+
+SO TESTEST DU
+-------------
+
+1. Oben ein Modell auswählen (z. B. "Small") und auf Laden/Download klicken.
+   Beim ersten Mal wird das Modell aus dem Internet geladen (einmalig) -
+   du brauchst dafür kurz eine Internetverbindung.
+
+2. Auf "Aufnehmen & vergleichen" klicken, einen kurzen Satz sprechen
+   (z. B. "Das Wetter heute ist sonnig und warm"), Aufnahme beenden.
+
+3. Das Tool transkribiert deinen Satz mit mehreren Engines und zeigt eine
+   Bestenliste: wer war am schnellsten, wer am genauesten.
+
+Tipp: Du kannst mehrere Modelle laden und denselben Satz durch mehrere
+Engines schicken - die Ergebnisse sammeln sich in der Vergleichsliste.
+
+
+WAS NORMAL IST
+--------------
+
+- Manche GPU-Engines erscheinen als "nicht verfügbar" oder schlagen fehl.
+  Das ist gewollt: das Tool prüft, was auf deiner Hardware geht und was nicht.
+- Auf kurzen Sätzen kann die GPU langsamer sein als der Prozessor (CPU) -
+  auch das ist ein gültiges Messergebnis.
+
+
+BEENDEN
+-------
+
+Im Browser auf "Tool beenden" klicken (oder einfach das schwarze Fenster
+schließen).
+
+
+ERGEBNISSE ZURÜCKSCHICKEN
+-------------------------
+
+Wenn du magst, schick uns nach dem Test diese zwei Dateien aus dem
+entpackten Ordner zurück - daraus lesen wir die Messwerte:
+
+  - bench-history.jsonl
+  - WhisPaste-GPU-Probe.log
+
+Beide entstehen erst beim Testen und enthalten nur Messwerte und den von dir
+gesprochenen Text, keine Audiodaten.
+
+
+VORAUSSETZUNGEN
+---------------
+
+- Windows 10 oder 11 (64-Bit)
+- Aktuelle Grafiktreiber (für die GPU-Engines)
+- Ein Mikrofon
+- Kurz Internet beim ersten Modell-Download
+
+Bei Problemen einfach melden und die WhisPaste-GPU-Probe.log mitschicken.
