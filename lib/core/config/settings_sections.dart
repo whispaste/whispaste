@@ -790,8 +790,8 @@ class UpdateSettings {
 
 class HistorySettings {
   const HistorySettings({
-    this.historyMaxEntries = 0,
-    this.historyAutoTrashDays = 30,
+    this.historyMaxEntries = 1000,
+    this.historyAutoTrashDays = 90,
   });
 
   /// Max active (non-trashed) history entries to keep. 0 = unlimited.
