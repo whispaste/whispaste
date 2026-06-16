@@ -900,5 +900,7 @@
   "settingsGpuAccelerationSubtitle": "קובע אם שירות הדיבור ישתמש ב-GPU או CPU לזיהוי מקומי",
   "settingsGpuAccelerationAuto": "אוטומטי (מומלץ)",
   "settingsGpuAccelerationEnabled": "GPU (כפוי)",
-  "settingsGpuAccelerationDisabled": "CPU בלבד"
+  "settingsGpuAccelerationDisabled": "CPU בלבד",
+
+  "settingsSearchHint": "חיפוש הגדרות…"
 }

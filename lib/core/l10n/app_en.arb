@@ -960,5 +960,7 @@
   "settingsGpuAccelerationSubtitle": "Controls whether the speech service uses GPU or CPU for local recognition",
   "settingsGpuAccelerationAuto": "Automatic (recommended)",
   "settingsGpuAccelerationEnabled": "GPU (force)",
-  "settingsGpuAccelerationDisabled": "CPU only"
+  "settingsGpuAccelerationDisabled": "CPU only",
+
+  "settingsSearchHint": "Search settings…"
 }
