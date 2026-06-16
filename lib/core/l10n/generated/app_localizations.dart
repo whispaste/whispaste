@@ -651,6 +651,24 @@ abstract class L10n {
   /// **'Start in the background when launched at system boot'**
   String get settingsStartMinimizedSubtitle;
 
+  /// No description provided for @settingsAutostartNever.
+  ///
+  /// In en, this message translates to:
+  /// **'Never'**
+  String get settingsAutostartNever;
+
+  /// No description provided for @settingsAutostartNormal.
+  ///
+  /// In en, this message translates to:
+  /// **'Normal'**
+  String get settingsAutostartNormal;
+
+  /// No description provided for @settingsAutostartMinimized.
+  ///
+  /// In en, this message translates to:
+  /// **'Minimized'**
+  String get settingsAutostartMinimized;
+
   /// No description provided for @settingsShowNotifications.
   ///
   /// In en, this message translates to:

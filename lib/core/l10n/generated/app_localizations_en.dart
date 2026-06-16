@@ -312,6 +312,15 @@ class L10nEn extends L10n {
       'Start in the background when launched at system boot';
 
   @override
+  String get settingsAutostartNever => 'Never';
+
+  @override
+  String get settingsAutostartNormal => 'Normal';
+
+  @override
+  String get settingsAutostartMinimized => 'Minimized';
+
+  @override
   String get settingsShowNotifications => 'Show Notifications';
 
   @override
