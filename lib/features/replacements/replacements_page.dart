@@ -257,6 +257,7 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
                               const SizedBox(height: WpSpacing.xs),
                           itemBuilder: (context, index) {
                             final r = visible[index];
+                            // loam-ignore: a11y-interactive-semantics – semantics provided in _ReplacementTileState.build
                             return _ReplacementTile(
                               replacement: r,
                               isDark: isDark,
@@ -522,98 +523,103 @@ class _ReplacementTileState extends State<_ReplacementTile> {
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
-          curve: WpMotion.defaultCurve,
-          padding: const EdgeInsets.symmetric(
-            horizontal: WpSpacing.md,
-            vertical: WpSpacing.sm,
-          ),
-          decoration: BoxDecoration(
-            color: _isHovered
-                ? (widget.isDark ? WpColorsDark.hover : WpColorsLight.hover)
-                : (widget.isDark
-                      ? WpColorsDark.surfaceElevated
-                      : WpColorsLight.surfaceElevated),
-            borderRadius: WpRadius.borderMd,
-            border: Border.all(
-              color: _isHovered
-                  ? (widget.isDark
-                        ? WpColorsDark.glassBorder
-                        : WpColorsLight.borderDefault)
-                  : (widget.isDark
-                        ? WpColorsDark.borderSubtle
-                        : WpColorsLight.borderSubtle),
+    return Semantics(
+      button: true,
+      label:
+          '${L10n.of(context).replacementsEditShortcut}: ${widget.replacement.trigger}',
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+            curve: WpMotion.defaultCurve,
+            padding: const EdgeInsets.symmetric(
+              horizontal: WpSpacing.md,
+              vertical: WpSpacing.sm,
             ),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                LucideIcons.arrowRightLeft,
-                size: WpIconSize.sm,
-                color: widget.isDark
-                    ? WpColorsDark.accent
-                    : WpColorsLight.accent,
+            decoration: BoxDecoration(
+              color: _isHovered
+                  ? (widget.isDark ? WpColorsDark.hover : WpColorsLight.hover)
+                  : (widget.isDark
+                        ? WpColorsDark.surfaceElevated
+                        : WpColorsLight.surfaceElevated),
+              borderRadius: WpRadius.borderMd,
+              border: Border.all(
+                color: _isHovered
+                    ? (widget.isDark
+                          ? WpColorsDark.glassBorder
+                          : WpColorsLight.borderDefault)
+                    : (widget.isDark
+                          ? WpColorsDark.borderSubtle
+                          : WpColorsLight.borderSubtle),
               ),
-              const SizedBox(width: WpSpacing.sm),
-              // Trigger
-              Text(
-                '"${widget.replacement.trigger}"',
-                style: TextStyle(
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  LucideIcons.arrowRightLeft,
+                  size: WpIconSize.sm,
                   color: widget.isDark
-                      ? WpColorsDark.textPrimary
-                      : WpColorsLight.textPrimary,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
+                      ? WpColorsDark.accent
+                      : WpColorsLight.accent,
                 ),
-              ),
-              const SizedBox(width: WpSpacing.sm),
-              Icon(
-                LucideIcons.arrowRight,
-                size: WpIconSize.xs,
-                color: widget.isDark
-                    ? WpColorsDark.textMuted
-                    : WpColorsLight.textMuted,
-              ),
-              const SizedBox(width: WpSpacing.sm),
-              // Replacement
-              Expanded(
-                child: Text(
-                  '"${widget.replacement.replacement}"',
+                const SizedBox(width: WpSpacing.sm),
+                // Trigger
+                Text(
+                  '"${widget.replacement.trigger}"',
                   style: TextStyle(
                     color: widget.isDark
-                        ? WpColorsDark.textSecondary
-                        : WpColorsLight.textSecondary,
+                        ? WpColorsDark.textPrimary
+                        : WpColorsLight.textPrimary,
+                    fontWeight: FontWeight.w600,
                     fontSize: 13,
                   ),
-                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-              // Delete on hover
-              if (_isHovered)
-                IconButton(
-                  tooltip: L10n.of(context).actionDelete,
-                  icon: Icon(
-                    LucideIcons.trash2,
-                    size: WpIconSize.sm,
-                    color: widget.isDark
-                        ? WpColorsDark.error
-                        : WpColorsLight.error,
-                  ),
-                  onPressed: widget.onDelete,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                    minWidth: 28,
-                    minHeight: 28,
+                const SizedBox(width: WpSpacing.sm),
+                Icon(
+                  LucideIcons.arrowRight,
+                  size: WpIconSize.xs,
+                  color: widget.isDark
+                      ? WpColorsDark.textMuted
+                      : WpColorsLight.textMuted,
+                ),
+                const SizedBox(width: WpSpacing.sm),
+                // Replacement
+                Expanded(
+                  child: Text(
+                    '"${widget.replacement.replacement}"',
+                    style: TextStyle(
+                      color: widget.isDark
+                          ? WpColorsDark.textSecondary
+                          : WpColorsLight.textSecondary,
+                      fontSize: 13,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-            ],
+                // Delete on hover
+                if (_isHovered)
+                  IconButton(
+                    tooltip: L10n.of(context).actionDelete,
+                    icon: Icon(
+                      LucideIcons.trash2,
+                      size: WpIconSize.sm,
+                      color: widget.isDark
+                          ? WpColorsDark.error
+                          : WpColorsLight.error,
+                    ),
+                    onPressed: widget.onDelete,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 28,
+                      minHeight: 28,
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),

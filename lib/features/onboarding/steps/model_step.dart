@@ -311,9 +311,9 @@ class _ModelStepDownloadStatus extends StatelessWidget {
         ],
       );
     }
-    // loam-ignore: a11y-interactive-semantics – semantics provided in WpAccentButton.build
     return SizedBox(
       width: double.infinity,
+      // loam-ignore: a11y-interactive-semantics – semantics provided in WpAccentButton.build
       child: WpAccentButton(
         label:
             '${l10n.qualityTierDownloadAndContinue} (${tierSizeLabel(selectedTier)})',

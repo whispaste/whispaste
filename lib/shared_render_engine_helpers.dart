@@ -100,6 +100,7 @@ Widget buildRenderEngineRoot({
   // text-bearing descendant; the painter itself needs none.
   return Directionality(
     textDirection: TextDirection.ltr,
+    // loam-ignore: a11y-interactive-semantics – semantics provided in RenderEngineGestureLayer.build
     child: RenderEngineGestureLayer(
       semanticsLabel: semanticsLabel,
       onTap: onTap,
