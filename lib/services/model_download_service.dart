@@ -347,29 +347,36 @@ class ModelDownloadState {
 // Disk scanner
 // ---------------------------------------------------------------------------
 
-/// Scans the STT directory and returns the current [ModelDownloadState].
+/// Scans the STT directory asynchronously and returns the current
+/// [ModelDownloadState].
 ///
 /// Creates the directory if it does not exist (best-effort). Called during
-/// notifier initialisation and on explicit [ModelDownloadNotifier.refresh].
-ModelDownloadState _scanExistingModels() {
+/// notifier initialisation (deferred to a microtask) and on explicit
+/// [ModelDownloadNotifier.refresh].
+///
+/// [fileExists] is an injectable checker used instead of `File(path).exists()`
+/// so tests can avoid real FS I/O and verify the non-blocking contract.
+Future<ModelDownloadState> _scanExistingModelsAsync(
+  Future<bool> Function(String path) fileExists,
+) async {
   final downloaded = <String>{};
   final dir = Directory(sttDir());
-  if (!dir.existsSync()) {
+  if (!await dir.exists()) {
     try {
-      dir.createSync(recursive: true);
+      await dir.create(recursive: true);
     } on FileSystemException catch (e) {
       // Best-effort — will fail later with a clear error.
       _log.warning('Failed to create STT directory', e);
     }
   }
-  if (dir.existsSync()) {
+  if (await dir.exists()) {
     for (final model in sttModels) {
-      if (File(p.join(dir.path, model.filename)).existsSync()) {
+      if (await fileExists(p.join(dir.path, model.filename))) {
         downloaded.add(model.id);
       }
     }
   }
-  final serverExists = File(whisperServerPath()).existsSync();
+  final serverExists = await fileExists(whisperServerPath());
 
   _log.info(
     'Scan: ${downloaded.length} STT models, server=${serverExists ? "ready" : "missing"}',
@@ -402,7 +409,26 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
   @visibleForTesting
   WhisperServerDownloader? serverDownloaderOverride;
 
+  /// Injected file-exists checker — override in tests to avoid real FS I/O
+  /// and to verify the non-blocking scan contract. When non-null, replaces
+  /// `File(path).exists()` in the async disk scan.
+  @visibleForTesting
+  Future<bool> Function(String path)? existsHookOverride;
+
   bool _autoDownloadAttempted = false;
+
+  /// Resolves to the injected checker or the real `File.exists` implementation.
+  Future<bool> Function(String path) get _checker =>
+      existsHookOverride ?? (path) => File(path).exists();
+
+  /// Guards post-disposal state writes from the deferred scan microtask.
+  bool _mounted = false;
+
+  /// Completes when the initial async disk scan has finished (or been skipped).
+  /// [downloadModel] awaits this before checking [ModelDownloadState.serverReady]
+  /// so that Phase-1 (engine) decisions are based on the scanned state, not
+  /// the empty initial state.
+  Completer<void>? _initialScanCompleter;
 
   HttpModelFetcher get _fetcher => fetcherOverride ?? HttpModelFetcher();
 
@@ -418,21 +444,49 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
 
   @override
   ModelDownloadState build() {
+    _mounted = true;
+    _initialScanCompleter = Completer<void>();
+    final checker = _checker;
+
     ref.onDispose(() {
+      _mounted = false;
       _fetcher.cancel('disposed');
+      // Unblock any awaiter in downloadModel if the notifier is disposed while
+      // the scan is still in flight.
+      if (!(_initialScanCompleter?.isCompleted ?? true)) {
+        _initialScanCompleter!.complete();
+      }
     });
-    // Scan disk for already-downloaded models.
-    final initial = _scanExisting();
 
-    // Self-heal: if models exist but server is missing, auto-download.
-    if (!initial.serverReady &&
-        initial.downloadedModels.isNotEmpty &&
-        !_autoDownloadAttempted) {
-      _autoDownloadAttempted = true;
-      Future.microtask(() => ensureServerBinary());
-    }
+    // Defer the blocking disk scan off the build frame so waveform timers and
+    // UI rendering are not stalled (fixes UI-thread stalls 636–1830 ms on
+    // MSIX/virtualised FS). The initial state is empty; state is updated once
+    // the scan completes asynchronously.
+    Future.microtask(() async {
+      try {
+        final scanned = await _scanExistingModelsAsync(checker);
+        if (_mounted) {
+          state = scanned;
 
-    return initial;
+          // Self-heal: if models exist but server is missing, auto-download.
+          if (!scanned.serverReady &&
+              scanned.downloadedModels.isNotEmpty &&
+              !_autoDownloadAttempted) {
+            _autoDownloadAttempted = true;
+            Future.microtask(ensureServerBinary);
+          }
+        }
+      } catch (e, st) {
+        _log.warning('Initial disk scan failed', e, st);
+      } finally {
+        if (!(_initialScanCompleter?.isCompleted ?? true)) {
+          _initialScanCompleter!.complete();
+        }
+        _initialScanCompleter = null;
+      }
+    });
+
+    return const ModelDownloadState();
   }
 
   // -----------------------------------------------------------------------
@@ -442,6 +496,9 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
   /// Downloads an STT model file. If whisper-server is missing, downloads
   /// that first. Orchestrates: Engine → Fetch → Verify → Activate.
   Future<void> downloadModel(String modelId) async {
+    // Ensure the initial disk scan has completed so serverReady reflects the
+    // on-disk state before we decide whether Phase-1 (engine download) is needed.
+    await _initialScanCompleter?.future;
     if (state.isBusy) return;
 
     final model = findSttModel(modelId);
@@ -576,12 +633,10 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
     );
   }
 
-  /// Refreshes disk scan.
-  void refresh() {
-    state = _scanExisting();
+  /// Refreshes disk scan asynchronously and updates state.
+  Future<void> refresh() async {
+    state = await _scanExistingModelsAsync(_checker);
   }
-
-  ModelDownloadState _scanExisting() => _scanExistingModels();
 
   /// Marks the server binary as incompatible and deletes it.
   ///

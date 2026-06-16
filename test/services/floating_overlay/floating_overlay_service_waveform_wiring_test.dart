@@ -45,6 +45,7 @@ import 'package:whispaste/services/floating_overlay/floating_overlay_service.dar
 
 class _RecordingController implements FloatingOverlayController {
   final List<List<double>> waveformPushes = [];
+  final List<FloatingOverlaySnapshot> snapshots = [];
   int snapshotCalls = 0;
   int contextMenuCalls = 0;
   int positionCalls = 0;
@@ -64,6 +65,7 @@ class _RecordingController implements FloatingOverlayController {
   @override
   Future<void> updateSnapshot(FloatingOverlaySnapshot snapshot) async {
     snapshotCalls++;
+    snapshots.add(snapshot);
   }
 
   @override
@@ -549,6 +551,97 @@ void main() {
                   'reset(), got history leftover instead.',
             );
           }
+        } finally {
+          h.dispose();
+        }
+      });
+    });
+
+    // ── AC4: updateSnapshot.elapsed filled during recording ──────────────────
+    //
+    // Asserts the three FloatingOverlayService wave-behaviour contracts from
+    // issue 05 AC4 in a single test:
+    //   (a) wave-tick cadence during recording (already covered above; verified
+    //       here once more as a gate condition before checking elapsed).
+    //   (b) updateSnapshot carries a non-empty `elapsed` string after the
+    //       1-second elapsed timer fires.
+    //   (c) release-out on recording → transcribing: trailing waveform pushes
+    //       land (already covered; re-verified as a gate here).
+    test('AC4: updateSnapshot.elapsed is filled during recording and '
+        'empty after transcribing transition', () {
+      FakeAsync().run((async) {
+        final h = _buildHarness(async);
+        try {
+          // Gate (a): arm the recording and confirm the waveform timer starts.
+          // First elapse lets the ref.listen callback fire (phase change);
+          // second elapse runs past one tick period (~33 ms) so at least one
+          // setWaveformBars call lands on the fake controller.
+          h.container.read(recordingProvider.notifier).startRecording();
+          async.elapse(const Duration(milliseconds: 5));
+          async.elapse(const Duration(milliseconds: 50));
+          expect(
+            h.fake.waveformPushes,
+            isNotEmpty,
+            reason: 'Wave-tick cadence: timer must fire within 33+5 ms',
+          );
+
+          // (b): advance past the 1-second elapsed timer so the elapsed
+          // field in the snapshot is non-empty.
+          h.fake.snapshots.clear();
+          async.elapse(const Duration(seconds: 1, milliseconds: 10));
+
+          // The recordingElapsedProvider fires every second and triggers
+          // _onElapsedChanged → _sendSnapshot with a non-empty elapsed string.
+          final recordingSnapshots = h.fake.snapshots
+              .where(
+                (s) => s.state == OverlayVisualState.recording && s.visible,
+              )
+              .toList();
+
+          expect(
+            recordingSnapshots,
+            isNotEmpty,
+            reason:
+                'At least one snapshot must have been sent during recording '
+                'after the 1-second elapsed tick',
+          );
+
+          for (final snap in recordingSnapshots) {
+            expect(
+              snap.elapsed,
+              isNotEmpty,
+              reason:
+                  'updateSnapshot.elapsed must be non-empty during recording; '
+                  'got "${snap.elapsed}"',
+            );
+          }
+
+          // Gate (c): recording → transcribing triggers release-out.
+          h.fake.waveformPushes.clear();
+          h.container.read(recordingProvider.notifier).stopRecording();
+          async.elapse(const Duration(milliseconds: 5));
+
+          // During transcribing, elapsed must be empty in new snapshots.
+          final transcribingSnapshots = h.fake.snapshots
+              .where((s) => s.state == OverlayVisualState.transcribing)
+              .toList();
+          for (final snap in transcribingSnapshots) {
+            expect(
+              snap.elapsed,
+              isEmpty,
+              reason:
+                  'elapsed must be empty during transcribing; '
+                  'got "${snap.elapsed}"',
+            );
+          }
+
+          // Release-out delivers trailing waveform pushes.
+          async.elapse(const Duration(milliseconds: releaseOutDurationMs));
+          expect(
+            h.fake.waveformPushes,
+            isNotEmpty,
+            reason: 'release-out must deliver trailing waveform pushes',
+          );
         } finally {
           h.dispose();
         }
