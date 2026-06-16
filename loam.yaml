@@ -1,5 +1,6 @@
 # loam.yaml — loam.dev configuration (codebase intelligence & anti-AI-slop)
 # CLI: loam  |  Docs: https://github.com/silvio-l/loam
+# Active ruleset: loam 0.1.13 (full rule set: a11y-*, slop-*, code-duplicates, unused-public-exports, complexity-hotspots, circular-dependencies)
 #
 # Repo-root config: shared defaults for the whole monorepo. loam discovers it
 # by walking up from the analysed project to the git root; a per-package

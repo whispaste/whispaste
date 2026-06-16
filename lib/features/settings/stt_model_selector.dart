@@ -360,6 +360,7 @@ class _TierRowState extends State<_TierRow> {
         (_phase == DownloadPhase.downloading ||
             _phase == DownloadPhase.extracting ||
             _phase == DownloadPhase.verifying)) {
+      // loam-ignore: a11y-interactive-semantics – semantics provided in _ActionChip.build
       return _ActionChip(
         label: widget.l10n.actionCancel,
         icon: LucideIcons.x,
@@ -373,6 +374,7 @@ class _TierRowState extends State<_TierRow> {
       if (_isDownloaded) {
         // Downloaded + active → show ready / delete on hover
         if (_isHovered) {
+          // loam-ignore: a11y-interactive-semantics – semantics provided in _ActionChip.build
           return _ActionChip(
             label: widget.l10n.actionDelete,
             icon: LucideIcons.trash2,
@@ -413,6 +415,7 @@ class _TierRowState extends State<_TierRow> {
 
     // Inactive tier — show delete on hover if downloaded
     if (_isDownloaded && _isHovered) {
+      // loam-ignore: a11y-interactive-semantics – semantics provided in _ActionChip.build
       return _ActionChip(
         label: widget.l10n.actionDelete,
         icon: LucideIcons.trash2,
@@ -763,28 +766,32 @@ class _ActionChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(WpRadius.sm),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: WpSpacing.xs,
-          vertical: WpSpacing.xxs,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: WpIconSize.sm, color: color),
-            const SizedBox(width: WpSpacing.xxs),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: color,
+    return Semantics(
+      button: true,
+      label: label,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(WpRadius.sm),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: WpSpacing.xs,
+            vertical: WpSpacing.xxs,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: WpIconSize.sm, color: color),
+              const SizedBox(width: WpSpacing.xxs),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: color,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
