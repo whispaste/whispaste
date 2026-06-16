@@ -34,6 +34,7 @@ class FloatingOverlayView extends StatefulWidget {
     super.key,
     required this.snapshot,
     this.waveformBars = const [],
+    this.animate = true,
   });
 
   /// Fully-resolved render state.
@@ -41,6 +42,11 @@ class FloatingOverlayView extends StatefulWidget {
 
   /// Live normalised waveform levels (length [WaveformSpec.barCount]).
   final List<double> waveformBars;
+
+  /// Whether to run the calm accent-dot pulse. The live overlay animates; a
+  /// static preview (e.g. the Settings page) passes `false` so the widget
+  /// settles — a perpetual animation never lets `pumpAndSettle` complete.
+  final bool animate;
 
   /// Maps the runtime visual state onto the design-spec state.
   static OverlayDesignState designStateFor(OverlayVisualState s) => switch (s) {
@@ -97,7 +103,11 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
     _dot = AnimationController(
       vsync: this,
       duration: OverlayDesignSpec.motion.dotPulsePeriod,
-    )..repeat(reverse: true);
+      value: 1.0,
+    );
+    if (widget.animate) {
+      _dot.repeat(reverse: true);
+    }
   }
 
   @override
