@@ -843,20 +843,25 @@ void main() {
       );
     });
 
-    test('rejected: toggleRecording while in error phase is a no-op', () async {
-      container.read(recordingProvider.notifier).fail('test_error');
-      await Future<void>.delayed(Duration.zero);
+    test(
+      'toggleRecording from error phase initiates a start (not rejected)',
+      () async {
+        container.read(recordingProvider.notifier).fail('test_error');
+        await Future<void>.delayed(Duration.zero);
 
-      await container
-          .read(recordingOrchestratorProvider.notifier)
-          .toggleRecording();
+        await container
+            .read(recordingOrchestratorProvider.notifier)
+            .toggleRecording();
 
-      expect(
-        container.read(recordingProvider).phase,
-        RecordingPhase.error,
-        reason: 'toggleRecording must be rejected while in error phase',
-      );
-    });
+        expect(
+          container.read(recordingProvider).phase,
+          isNot(RecordingPhase.error),
+          reason:
+              'toggleRecording treats error like idle/done and kicks off a '
+              'new start (see RecordingOrchestrator.toggleRecording)',
+        );
+      },
+    );
 
     test('rejected: startRecording() while recording is a no-op', () async {
       final orch = await goToRecording();
