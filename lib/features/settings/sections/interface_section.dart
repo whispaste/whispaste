@@ -71,27 +71,37 @@ class InterfaceSection extends ConsumerWidget {
           SettingRow(
             icon: LucideIcons.power,
             label: l10n.settingsLaunchAtStartup,
-            semanticToggledValue: settings.launchAtStartup,
-            trailing: settingsToggle(
-              value: settings.launchAtStartup,
-              onChanged: (v) => ref
-                  .read(settingsProvider.notifier)
-                  .updateSettings((s) => s.copyWith(launchAtStartup: v)),
+            trailing: settingsDropdown(
+              context: context,
+              value: !settings.launchAtStartup
+                  ? 'never'
+                  : settings.startMinimized
+                  ? 'minimized'
+                  : 'normal',
+              items: const ['never', 'normal', 'minimized'],
+              labels: [
+                l10n.settingsAutostartNever,
+                l10n.settingsAutostartNormal,
+                l10n.settingsAutostartMinimized,
+              ],
+              onChanged: (v) {
+                final (launch, minimized) = switch (v) {
+                  'normal' => (true, false),
+                  'minimized' => (true, true),
+                  _ => (false, false),
+                };
+                ref
+                    .read(settingsProvider.notifier)
+                    .updateSettings(
+                      // ignore: deprecated_member_use
+                      (s) => s.copyWith(
+                        launchAtStartup: launch,
+                        startMinimized: minimized,
+                      ),
+                    );
+              },
             ),
           ),
-          if (settings.launchAtStartup)
-            SettingRow(
-              icon: LucideIcons.eyeOff,
-              label: l10n.settingsStartMinimized,
-              subtitle: l10n.settingsStartMinimizedSubtitle,
-              semanticToggledValue: settings.startMinimized,
-              trailing: settingsToggle(
-                value: settings.startMinimized,
-                onChanged: (v) => ref
-                    .read(settingsProvider.notifier)
-                    .updateSettings((s) => s.copyWith(startMinimized: v)),
-              ),
-            ),
           SettingRow(
             icon: LucideIcons.bell,
             label: l10n.settingsShowNotifications,

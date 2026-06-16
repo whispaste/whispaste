@@ -310,6 +310,15 @@ class L10nHe extends L10n {
   String get settingsStartMinimizedSubtitle => 'התחל ברקע כשהמחשב נדלק';
 
   @override
+  String get settingsAutostartNever => 'לעולם לא';
+
+  @override
+  String get settingsAutostartNormal => 'רגיל';
+
+  @override
+  String get settingsAutostartMinimized => 'ממוזער';
+
+  @override
   String get settingsShowNotifications => 'הצג התראות';
 
   @override
