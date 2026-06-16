@@ -4323,6 +4323,36 @@ abstract class L10n {
   /// **'{count, plural, =1{1 day} other{{count} days}}'**
   String settingsHistoryAutoTrashDaysLabel(int count);
 
+  /// No description provided for @settingsHistoryRetentionPreset.
+  ///
+  /// In en, this message translates to:
+  /// **'Retention'**
+  String get settingsHistoryRetentionPreset;
+
+  /// No description provided for @settingsHistoryPresetMinimal.
+  ///
+  /// In en, this message translates to:
+  /// **'Minimal'**
+  String get settingsHistoryPresetMinimal;
+
+  /// No description provided for @settingsHistoryPresetStandard.
+  ///
+  /// In en, this message translates to:
+  /// **'Standard'**
+  String get settingsHistoryPresetStandard;
+
+  /// No description provided for @settingsHistoryPresetUnlimited.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlimited'**
+  String get settingsHistoryPresetUnlimited;
+
+  /// No description provided for @settingsHistoryPresetCustom.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom'**
+  String get settingsHistoryPresetCustom;
+
   /// No description provided for @settingsFloatingButtonSection.
   ///
   /// In en, this message translates to:

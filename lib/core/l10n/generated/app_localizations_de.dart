@@ -2412,6 +2412,21 @@ class L10nDe extends L10n {
   }
 
   @override
+  String get settingsHistoryRetentionPreset => 'Aufbewahrung';
+
+  @override
+  String get settingsHistoryPresetMinimal => 'Minimal';
+
+  @override
+  String get settingsHistoryPresetStandard => 'Standard';
+
+  @override
+  String get settingsHistoryPresetUnlimited => 'Unbegrenzt';
+
+  @override
+  String get settingsHistoryPresetCustom => 'Benutzerdefiniert';
+
+  @override
   String get settingsFloatingButtonSection => 'Schwebender Button';
 
   @override

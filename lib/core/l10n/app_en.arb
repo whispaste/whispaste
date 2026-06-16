@@ -886,6 +886,11 @@
   "settingsHistoryAutoTrashNever": "Never",
   "settingsHistoryAutoTrashDaysLabel": "{count, plural, =1{1 day} other{{count} days}}",
   "@settingsHistoryAutoTrashDaysLabel": { "placeholders": { "count": { "type": "int" } } },
+  "settingsHistoryRetentionPreset": "Retention",
+  "settingsHistoryPresetMinimal": "Minimal",
+  "settingsHistoryPresetStandard": "Standard",
+  "settingsHistoryPresetUnlimited": "Unlimited",
+  "settingsHistoryPresetCustom": "Custom",
 
   "settingsFloatingButtonSection": "Floating Button",
   "settingsFloatingButtonSectionSubtitle": "Always-on-top recording button for quick access",
