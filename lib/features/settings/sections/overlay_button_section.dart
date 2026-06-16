@@ -12,6 +12,9 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../core/config/settings_enums.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
+import '../../../core/theme/tokens.dart';
+import '../../../services/floating_button/floating_button_controller_interface.dart';
+import '../../../widgets/floating_button/floating_button_view.dart';
 import '../../../widgets/overlay_preview.dart';
 import '../../../widgets/section.dart';
 import '../settings_widgets.dart';
@@ -108,10 +111,7 @@ class OverlaySection extends ConsumerWidget {
               ),
             ),
             const Divider(height: 1),
-            OverlayPositionPreview(
-              position: settings.overlayStartPositionType,
-              size: settings.overlaySizeType,
-            ),
+            OverlayRealPreview(size: settings.overlaySizeType),
           ],
         ],
       ),
@@ -143,7 +143,6 @@ class FloatingButtonSection extends ConsumerWidget {
 
     final l10n = L10n.of(context);
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return WpSection(
       title: l10n.settingsFloatingButtonSection,
@@ -156,17 +155,23 @@ class FloatingButtonSection extends ConsumerWidget {
             label: l10n.settingsShowFloatingButton,
             subtitle: l10n.settingsShowFloatingButtonSubtitle,
             semanticToggledValue: settings.showFloatingButton,
-            trailing: settingsToggle(
-              value: settings.showFloatingButton,
-              onChanged: (v) => ref
-                  .read(settingsProvider.notifier)
-                  .updateSettings((s) => s.copyWith(showFloatingButton: v)),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const FloatingButtonView(
+                  state: FloatingButtonVisualState.idle,
+                  diameter: 32,
+                ),
+                const SizedBox(width: WpSpacing.xs),
+                settingsToggle(
+                  value: settings.showFloatingButton,
+                  onChanged: (v) => ref
+                      .read(settingsProvider.notifier)
+                      .updateSettings((s) => s.copyWith(showFloatingButton: v)),
+                ),
+              ],
             ),
           ),
-          if (settings.showFloatingButton) ...[
-            const Divider(height: 1),
-            FloatingButtonPositionPreview(isDark: isDark),
-          ],
         ],
       ),
     );
