@@ -63,6 +63,8 @@ class OverlayRealPreview extends StatelessWidget {
             key: ValueKey('overlay-real-preview-${size.value}'),
             snapshot: snapshot,
             waveformBars: _sampleBars,
+            // Static preview — no perpetual pulse, so pumpAndSettle settles.
+            animate: false,
           ),
         ),
       ),
