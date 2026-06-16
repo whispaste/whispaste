@@ -104,6 +104,12 @@ abstract class FloatingPlatformServiceBase<C extends Object, E>
       return;
     }
 
+    // Cancel any subscription left from a prior build() run before overwriting
+    // the field. During hot-reload (or any scenario where build() is called on
+    // the same Notifier instance without an onDispose cycle) the old
+    // StreamSubscription would otherwise stay active, causing each subsequent
+    // native event to fire onEvent one extra time per leaked subscription.
+    unawaited(_eventSub?.cancel());
     _eventSub = eventsFrom(_controller!).listen(onEvent);
 
     ref.onDispose(() async {
