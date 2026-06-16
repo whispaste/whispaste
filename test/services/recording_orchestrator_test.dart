@@ -1249,6 +1249,29 @@ void main() {
       },
     );
 
+    test('AC4 (issue-06): two toggleRecording() calls during recording → '
+        'one stop pipeline (double native onClicked guard)', () async {
+      fakeStt.transcriptToReturn = 'one pipeline only';
+      final orch = await startRecordingPhase();
+
+      // Both futures start in the same event-loop turn.
+      // toggleRecording() reads isRecording == true on both calls and
+      // delegates to stopRecording(). The _stopInFlight guard inside
+      // stopRecording() lets only one pipeline through.
+      final f1 = orch.toggleRecording();
+      final f2 = orch.toggleRecording();
+      await Future.wait([f1, f2]);
+
+      expect(
+        fakeStt.transcribeCallCount,
+        1,
+        reason:
+            '_stopInFlight guard must let only one pipeline through '
+            'even when toggleRecording() is called twice in the same turn',
+      );
+      expect(container.read(recordingProvider).phase, RecordingPhase.done);
+    });
+
     test('guard resets after pipeline completes — a subsequent stopRecording() '
         'starts a fresh pipeline', () async {
       fakeStt.transcriptToReturn = 'first';

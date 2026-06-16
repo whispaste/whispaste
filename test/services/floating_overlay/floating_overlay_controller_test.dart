@@ -455,6 +455,12 @@ class MockFloatingOverlayController extends FloatingOverlayController {
   }
 
   @override
+  Future<void> orderOut() async {
+    if (isDisposed) return;
+    calls.add('orderOut');
+  }
+
+  @override
   Future<void> dispose() async {
     if (isDisposed) return;
     isDisposed = true;

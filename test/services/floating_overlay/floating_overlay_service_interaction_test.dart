@@ -32,6 +32,7 @@ class _FakeController implements FloatingOverlayController {
   FloatingOverlaySnapshot? lastSnapshot;
   ({double x, double y, OverlayAnchorMode anchor})? lastPosition;
   int positionCalls = 0;
+  int orderOutCalls = 0;
   bool disposed = false;
 
   void emit(FloatingOverlayEvent event) {
@@ -59,6 +60,11 @@ class _FakeController implements FloatingOverlayController {
   Future<void> setContextMenuItems(
     List<({String id, String label})> items,
   ) async {}
+
+  @override
+  Future<void> orderOut() async {
+    orderOutCalls++;
+  }
 
   @override
   Future<void> dispose() async {
@@ -178,6 +184,82 @@ void main() {
             h.fake.lastSnapshot?.visible,
             isFalse,
             reason: 'overlay must hide after the auto-hide timer elapses',
+          );
+        } finally {
+          h.dispose();
+        }
+      });
+    });
+  });
+
+  group('FloatingOverlayService — hide = click-inert (issue-06)', () {
+    // AC5: FloatingOverlayService seam test — hide calls orderOut() on
+    //      the controller, not only visible:false snapshot.
+    test('AC5: idle transition calls orderOut() on the controller', () {
+      FakeAsync().run((async) {
+        final h = _build(async);
+        try {
+          // Start recording so the overlay becomes active.
+          h.container.read(recordingProvider.notifier).startRecording();
+          async.elapse(const Duration(milliseconds: 5));
+          async.flushMicrotasks();
+
+          final orderOutBefore = h.fake.orderOutCalls;
+
+          // Transition to idle — triggers _hideOverlay().
+          h.container.read(recordingProvider.notifier).reset();
+          async.elapse(const Duration(milliseconds: 5));
+          async.flushMicrotasks();
+
+          expect(
+            h.fake.lastSnapshot?.visible,
+            isFalse,
+            reason: 'snapshot must carry visible:false on hide',
+          );
+          expect(
+            h.fake.orderOutCalls,
+            greaterThan(orderOutBefore),
+            reason: 'hide must call orderOut() — not only push visible:false',
+          );
+        } finally {
+          h.dispose();
+        }
+      });
+    });
+
+    // AC2: Done auto-hide path also calls orderOut() so the window is truly
+    //      click-inert after the linger timer expires.
+    test('AC2: Done auto-hide path calls orderOut() on the controller', () {
+      FakeAsync().run((async) {
+        final h = _build(async);
+        try {
+          final rec = h.container.read(recordingProvider.notifier);
+          rec.startRecording();
+          async.elapse(const Duration(milliseconds: 5));
+          rec.stopRecording(); // → transcribing
+          async.elapse(const Duration(milliseconds: 5));
+          rec.completeTranscription('hello world'); // → done
+          async.elapse(const Duration(milliseconds: 5));
+
+          expect(h.fake.lastSnapshot?.visible, isTrue);
+
+          final orderOutBefore = h.fake.orderOutCalls;
+
+          // Walk past the 2 s auto-hide delay.
+          async.elapse(const Duration(seconds: 2, milliseconds: 100));
+          async.flushMicrotasks();
+
+          expect(
+            h.fake.lastSnapshot?.visible,
+            isFalse,
+            reason: 'overlay must be hidden after auto-hide timer',
+          );
+          expect(
+            h.fake.orderOutCalls,
+            greaterThan(orderOutBefore),
+            reason:
+                'Done auto-hide must call orderOut() so the window is '
+                'click-inert after the linger delay',
           );
         } finally {
           h.dispose();
