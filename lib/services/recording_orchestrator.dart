@@ -69,6 +69,10 @@ class RecordingOrchestrator extends Notifier<void> {
   /// the async preflight.
   bool _startInFlight = false;
 
+  /// Prevents concurrent `stopRecording()` calls from launching multiple
+  /// transcription pipelines (e.g. hotkey-stop + auto-stop firing together).
+  bool _stopInFlight = false;
+
   /// Handles OOM retry policy and model-fallback decisions.
   ///
   /// Initialized lazily in [build] so that [ref] is available for the
@@ -306,6 +310,14 @@ class RecordingOrchestrator extends Notifier<void> {
   ///
   /// Pipeline timing is logged at completion (or failure) for diagnostics.
   Future<void> stopRecording() async {
+    // Concurrency guard: prevent double-stop from hotkey spam, auto-stop, or
+    // simultaneous toggleRecording() calls racing through the pipeline.
+    if (_stopInFlight) {
+      _log.debug('stopRecording ignored — already in flight');
+      return;
+    }
+    _stopInFlight = true;
+
     final sid = ref.read(recordingProvider).sessionId ?? '?';
     String? wavPath;
 
@@ -355,6 +367,7 @@ class RecordingOrchestrator extends Notifier<void> {
       ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
       _log.error('[$sid] Pipeline error: $e');
     } finally {
+      _stopInFlight = false;
       pipelineSw.stop();
       _logPipelineSummary(sid, pipelineSw, timing);
 
