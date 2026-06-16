@@ -367,7 +367,6 @@ class RecordingOrchestrator extends Notifier<void> {
       ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
       _log.error('[$sid] Pipeline error: $e');
     } finally {
-      _stopInFlight = false;
       pipelineSw.stop();
       _logPipelineSummary(sid, pipelineSw, timing);
 
@@ -375,6 +374,11 @@ class RecordingOrchestrator extends Notifier<void> {
       if (wavPath != null) {
         await ref.read(audioServiceProvider.notifier).cleanupFile(wavPath);
       }
+
+      // Release the re-entry guard only after cleanup completes, so a
+      // concurrent stop cannot slip into this window and double-clean the
+      // same WAV file.
+      _stopInFlight = false;
     }
   }
 
@@ -1244,6 +1248,17 @@ class RecordingOrchestrator extends Notifier<void> {
 
   /// Auto-stop triggered: stop recording and run transcription pipeline.
   Future<void> _handleAutoStop() async {
+    // Phase guard: only auto-stop while actually recording. A stale
+    // SilenceAutoStop / DurationLimitReached event can arrive after the
+    // pipeline already moved on (e.g. to done); acting on it would drive a
+    // no_audio capture and a fail transition the state machine rejects.
+    // Mirrors the dead-mic guard.
+    final phase = ref.read(recordingProvider).phase;
+    if (phase != RecordingPhase.recording) {
+      _log.debug('Auto-stop guard skipped — phase is $phase (not recording)');
+      return;
+    }
+
     // Guard-fire is expected user behaviour (silence after speech), not a crash.
     // Goes in at info level so the AppLogger pipeline turns it into a Sentry
     // breadcrumb — context for any later real error, but not a standalone issue.
