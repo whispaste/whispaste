@@ -95,6 +95,9 @@ class FakeSttService extends SttServerStateNotifier {
   /// Language the orchestrator handed to the last [transcribeBytes] call.
   String? lastLanguage;
 
+  /// Counts how many times [transcribeBytes] was invoked.
+  int transcribeCallCount = 0;
+
   @override
   SttStatus build() =>
       const SttStatus(serverState: SttServerState.ready, port: 9999);
@@ -115,6 +118,7 @@ class FakeSttService extends SttServerStateNotifier {
 
   @override
   Future<String> transcribeBytes(List<int> wavBytes, {String? language}) async {
+    transcribeCallCount++;
     lastLanguage = language;
     if (transcribeThrows) {
       throw Exception('Transcription failed');
@@ -1184,6 +1188,92 @@ void main() {
         reason: 'New tap after release must be able to acquire the lock',
       );
       orch.releaseStartLock();
+    });
+  });
+
+  // =========================================================================
+  // Stop re-entry guard (_stopInFlight)
+  // =========================================================================
+
+  group('Stop re-entry guard', () {
+    test('two concurrent stopRecording() calls produce exactly one '
+        'transcription pipeline', () async {
+      fakeStt.transcriptToReturn = 'one pipeline only';
+      final orch = await startRecordingPhase();
+
+      // Both futures start immediately in the same event-loop turn.
+      // The first call sets _stopInFlight = true synchronously before any
+      // await; the second sees the flag and returns without running the
+      // pipeline.
+      final f1 = orch.stopRecording();
+      final f2 = orch.stopRecording();
+      await Future.wait([f1, f2]);
+
+      // Exactly one STT inference ran.
+      expect(
+        fakeStt.transcribeCallCount,
+        1,
+        reason: 'Guard must allow only one pipeline through',
+      );
+
+      // Exactly one history entry was saved.
+      final entries = await db.allEntries();
+      expect(entries, hasLength(1));
+      expect(entries.first.content, 'one pipeline only');
+
+      // Phase settled to done, not error (no state-machine invariant violation).
+      expect(container.read(recordingProvider).phase, RecordingPhase.done);
+    });
+
+    test(
+      'hotkey stop + simultaneous auto-stop produce exactly one pipeline',
+      () async {
+        // Mirrors the production scenario: the hotkey handler and _handleAutoStop
+        // both call stopRecording() in the same event-loop turn.
+        fakeStt.transcriptToReturn = 'auto-stop result';
+        final orch = await startRecordingPhase();
+
+        // Simulate hotkey-triggered stop and auto-stop firing at the same time.
+        final hotkey = orch.stopRecording();
+        final autoStop = orch.stopRecording(); // mirrors _handleAutoStop path
+        await Future.wait([hotkey, autoStop]);
+
+        expect(
+          fakeStt.transcribeCallCount,
+          1,
+          reason: 'Hotkey + auto-stop must share a single pipeline',
+        );
+        final entries = await db.allEntries();
+        expect(entries, hasLength(1));
+        expect(container.read(recordingProvider).phase, RecordingPhase.done);
+      },
+    );
+
+    test('guard resets after pipeline completes — a subsequent stopRecording() '
+        'starts a fresh pipeline', () async {
+      fakeStt.transcriptToReturn = 'first';
+      final orch = await startRecordingPhase();
+      await orch.stopRecording();
+
+      expect(fakeStt.transcribeCallCount, 1);
+      expect(container.read(recordingProvider).phase, RecordingPhase.done);
+
+      // Simulate a fresh recording cycle.
+      wavFile = createFakeWav(
+        'test_audio_second_${DateTime.now().millisecondsSinceEpoch}.wav',
+      );
+      fakeAudio.wavPathToReturn = wavFile.absolute.path;
+      fakeStt.transcriptToReturn = 'second';
+      container.read(recordingProvider.notifier).reset();
+      container.read(recordingProvider.notifier).startRecording();
+
+      await orch.stopRecording();
+
+      // Guard was released → second pipeline ran.
+      expect(fakeStt.transcribeCallCount, 2);
+      final entries = await db.allEntries();
+      expect(entries, hasLength(2));
+      expect(container.read(recordingProvider).phase, RecordingPhase.done);
     });
   });
 
