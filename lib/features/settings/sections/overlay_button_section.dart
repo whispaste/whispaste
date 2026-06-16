@@ -34,84 +34,97 @@ class OverlaySection extends ConsumerWidget {
     final isDesktop =
         Platform.isWindows || Platform.isMacOS || Platform.isLinux;
 
+    // Consolidated dropdown value: 'off' when overlay is disabled, real
+    // position otherwise (back-compat: overlayStartPosition is never 'off').
+    final startPosValue = effectiveMode == OverlayMode.floating
+        ? settings.overlayStartPositionType.value
+        : OverlayStartPosition.off.value;
+
     return WpSection(
       title: l10n.settingsOverlayFloatingButton,
       subtitle: l10n.settingsOverlayFloatingButtonSubtitle,
       padding: EdgeInsets.zero,
       child: Column(
         children: [
-          // ── Floating overlay toggle (desktop only) ───────────────────
+          // ── Start position (always visible on desktop; 'Aus' = off) ──
           if (isDesktop) ...[
-            SettingRow(
-              icon: LucideIcons.layers,
-              label: l10n.settingsShowOverlay,
-              subtitle: l10n.settingsShowOverlaySubtitle,
-              semanticToggledValue: effectiveMode == OverlayMode.floating,
-              trailing: settingsToggle(
-                value: effectiveMode == OverlayMode.floating,
-                onChanged: (v) => ref
-                    .read(settingsProvider.notifier)
-                    .updateSettings(
-                      (s) => s.copyWith(
-                        overlayMode: v
-                            ? OverlayMode.floating.value
-                            : OverlayMode.off.value,
-                        showOverlay: v,
-                      ),
-                    ),
-              ),
-            ),
-          ],
-
-          // ── Floating overlay settings (visible when enabled) ─────────
-          if (effectiveMode == OverlayMode.floating) ...[
-            const Divider(height: 1),
             SettingRow(
               icon: LucideIcons.mapPin,
               label: l10n.settingsOverlayStartPosition,
               subtitle: l10n.settingsOverlayStartPositionSubtitle,
               trailing: settingsDropdown(
                 context: context,
-                value: settings.overlayStartPositionType.value,
+                value: startPosValue,
                 items: OverlayStartPosition.values.map((e) => e.value).toList(),
                 labels: [
+                  l10n.settingsOff,
                   l10n.settingsOverlayStartTopCenter,
                   l10n.settingsOverlayStartBottomCenter,
                   l10n.settingsOverlayStartLastPosition,
                 ],
                 onChanged: (v) {
                   if (v == null) return;
-                  ref
-                      .read(settingsProvider.notifier)
-                      .updateSettings(
-                        (s) => s.copyWith(overlayStartPosition: v),
-                      );
+                  if (v == OverlayStartPosition.off.value) {
+                    ref
+                        .read(settingsProvider.notifier)
+                        .updateSettings(
+                          (s) => s.copyWith(
+                            overlayMode: OverlayMode.off.value,
+                            showOverlay: false,
+                          ),
+                        );
+                  } else {
+                    ref
+                        .read(settingsProvider.notifier)
+                        .updateSettings(
+                          (s) => s.copyWith(
+                            overlayMode: OverlayMode.floating.value,
+                            showOverlay: true,
+                            overlayStartPosition: v,
+                          ),
+                        );
+                  }
                 },
               ),
             ),
+          ],
+
+          // ── Size + preview (visible only when overlay is enabled) ─────
+          if (effectiveMode == OverlayMode.floating) ...[
             const Divider(height: 1),
             SettingRow(
               icon: LucideIcons.maximize2,
               label: l10n.settingsOverlaySize,
               subtitle: l10n.settingsOverlaySizeSubtitle,
-              trailing: settingsDropdown(
-                context: context,
-                value: settings.overlaySizeType.value,
-                items: FloatingOverlaySize.values.map((e) => e.value).toList(),
-                labels: [
-                  l10n.settingsOverlaySizeNormal,
-                  l10n.settingsOverlaySizeCompact,
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 96,
+                    height: 48,
+                    child: OverlayRealPreview(size: settings.overlaySizeType),
+                  ),
+                  const SizedBox(width: WpSpacing.xs),
+                  settingsDropdown(
+                    context: context,
+                    value: settings.overlaySizeType.value,
+                    items: FloatingOverlaySize.values
+                        .map((e) => e.value)
+                        .toList(),
+                    labels: [
+                      l10n.settingsOverlaySizeNormal,
+                      l10n.settingsOverlaySizeCompact,
+                    ],
+                    onChanged: (v) {
+                      if (v == null) return;
+                      ref
+                          .read(settingsProvider.notifier)
+                          .updateSettings((s) => s.copyWith(overlaySize: v));
+                    },
+                  ),
                 ],
-                onChanged: (v) {
-                  if (v == null) return;
-                  ref
-                      .read(settingsProvider.notifier)
-                      .updateSettings((s) => s.copyWith(overlaySize: v));
-                },
               ),
             ),
-            const Divider(height: 1),
-            OverlayRealPreview(size: settings.overlaySizeType),
           ],
         ],
       ),

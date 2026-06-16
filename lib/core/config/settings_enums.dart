@@ -104,7 +104,12 @@ enum OverlayMode {
 // ---------------------------------------------------------------------------
 
 /// Where the floating overlay initially appears when recording starts.
+///
+/// [off] is a virtual entry used only in the consolidated start-position
+/// dropdown to represent "overlay disabled" — it is never written to the
+/// persisted [OverlaySettings.overlayStartPosition] field.
 enum OverlayStartPosition {
+  off('off'),
   topCenter('top-center'),
   bottomCenter('bottom-center'),
   lastPosition('last-position');

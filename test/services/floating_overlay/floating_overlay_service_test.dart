@@ -150,8 +150,10 @@ void main() {
 
   group('OverlayStartPosition enum', () {
     test('has expected values', () {
-      expect(OverlayStartPosition.values, hasLength(3));
+      // 'off' is the virtual first entry used by the consolidated dropdown.
+      expect(OverlayStartPosition.values, hasLength(4));
       expect(OverlayStartPosition.values.map((e) => e.name), [
+        'off',
         'topCenter',
         'bottomCenter',
         'lastPosition',
@@ -162,6 +164,13 @@ void main() {
       for (final pos in OverlayStartPosition.values) {
         expect(OverlayStartPosition.fromValue(pos.value), pos);
       }
+    });
+
+    test('fromValue unknown falls back to topCenter', () {
+      expect(
+        OverlayStartPosition.fromValue('unknown'),
+        OverlayStartPosition.topCenter,
+      );
     });
   });
 
@@ -366,6 +375,7 @@ void main() {
     test('start position maps to correct anchor mode', () {
       // Mirrors the service's _setStartPosition logic.
       OverlayAnchorMode anchorFor(OverlayStartPosition pos) => switch (pos) {
+        OverlayStartPosition.off ||
         OverlayStartPosition.topCenter => OverlayAnchorMode.topCenter,
         OverlayStartPosition.bottomCenter => OverlayAnchorMode.bottomCenter,
         OverlayStartPosition.lastPosition => OverlayAnchorMode.topLeft,
