@@ -400,15 +400,11 @@ class FloatingOverlayService
     );
 
     _log.debug('Overlay hide (compact=$compact)');
+    // A `visible:false` snapshot orders the native shell off-screen
+    // (macOS `orderOut`, Windows `SW_HIDE`, Linux `gtk_widget_hide`), so the
+    // hidden window no longer intercepts mouse events.
     c.updateSnapshot(hidden).catchError((e, st) {
       _log.error('Failed to hide overlay', e, st);
-    });
-    // Order the native window click-inert so it no longer intercepts mouse
-    // events while invisible. A `visible:false` snapshot alone leaves the
-    // window present on the OS window stack — the native shell must receive
-    // an explicit order-out / click-through signal.
-    c.orderOut().catchError((e, st) {
-      _log.error('Failed to order overlay out', e, st);
     });
   }
 
