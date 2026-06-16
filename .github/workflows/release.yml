@@ -126,6 +126,58 @@ jobs:
           }
           Write-Output "Binary size: $((Get-Item dist/WhisPaste-Diagnose.exe).Length) bytes"
 
+      # --- WhisPaste-GPU-Probe: voll gebündelte, entpack-und-doppelklick ZIP --
+      # Kompiliert die Dart-native Probe-exe frisch (mit Versions-Define) und
+      # fügt sie mit dem statischen, vorab gepinnten Engine-Bundle zur fertigen
+      # ZIP zusammen (make-dist.ps1). Das Engine-Bundle (const-me, sherpa,
+      # faster-whisper, Vulkan, DirectML + CPU-Baseline) ändert sich praktisch
+      # nie und wird daher NICHT pro Release neu gebaut, sondern aus dem festen
+      # Tag `gpu-probe-engines` gezogen (siehe tools/pack-engines.ps1).
+      # Tolerant via continue-on-error: fehlt das Bundle (z. B. vor dem ersten
+      # manuellen Upload), wird die GPU-Probe-ZIP übersprungen statt das ganze
+      # Release zu brechen.
+      - name: Build WhisPaste-GPU-Probe ZIP
+        id: gpu_probe
+        continue-on-error: true
+        working-directory: packages/whispaste_gpu_probe
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ENGINES_TAG: gpu-probe-engines
+          ENGINES_ASSET: gpu-probe-engines-x64.zip
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          if ([string]::IsNullOrWhiteSpace($version)) { $version = 'unbekannt' }
+
+          $runDir = Join-Path $env:RUNNER_TEMP 'gpuprobe-run'
+          $outDir = Join-Path $env:RUNNER_TEMP 'gpuprobe-dist'
+          New-Item -ItemType Directory -Force -Path $runDir, $outDir | Out-Null
+
+          # Statisches Engine-Bundle vom gepinnten Release ziehen und in den
+          # RunDir entpacken (Inhalt liegt im Blob bereits auf Root-Ebene).
+          gh release download $env:ENGINES_TAG `
+            --repo "${{ github.repository }}" `
+            --pattern $env:ENGINES_ASSET `
+            --dir $env:RUNNER_TEMP --clobber
+          if ($LASTEXITCODE -ne 0) {
+            throw "engine bundle '$env:ENGINES_ASSET' not found on tag '$env:ENGINES_TAG' — skipping GPU-Probe ZIP"
+          }
+          Expand-Archive -Path (Join-Path $env:RUNNER_TEMP $env:ENGINES_ASSET) `
+            -DestinationPath $runDir -Force
+
+          # Probe-exe frisch kompilieren (Versions-Define landet im Report).
+          dart pub get
+          dart compile exe bin/whispaste_gpu_probe.dart `
+            --define=whispaste_version=$version `
+            -o (Join-Path $runDir 'whispaste-gpu-probe.exe')
+
+          # Probe-exe + Engines + LIESMICH.txt zur nutzbaren ZIP zusammenführen.
+          & ".\tools\make-dist.ps1" -Version $version -RunDir $runDir -OutDir $outDir
+          $zip = Join-Path $outDir "WhisPaste-GPU-Probe-$version.zip"
+          if (-not (Test-Path $zip)) { throw "make-dist did not produce $zip" }
+          Write-Output "GPU-Probe ZIP: $zip ($([math]::Round((Get-Item $zip).Length / 1MB, 0)) MB)"
+          echo "zip=$zip" >> $env:GITHUB_OUTPUT
+
       # Wichtig: Portable ZIP MUSS vor `msix:create` gebaut werden, sonst
       # landet die später erzeugte .msix-Datei im Release-Ordner und damit
       # auch im Portable-Zip.
@@ -152,6 +204,16 @@ jobs:
 
           # WhisPaste-Diagnose: Dart-native standalone .exe.
           Copy-Item "packages\whispaste_diagnostics\dist\WhisPaste-Diagnose.exe" "$artifactDir\"
+
+          # WhisPaste-GPU-Probe: voll gebündelte, nutzbare ZIP (falls gebaut —
+          # der Schritt ist continue-on-error, das Engine-Bundle kann fehlen).
+          $gpuZip = "${{ steps.gpu_probe.outputs.zip }}"
+          if ($gpuZip -and (Test-Path $gpuZip)) {
+            Copy-Item $gpuZip "$artifactDir\"
+            Write-Host "Added GPU-Probe ZIP: $gpuZip"
+          } else {
+            Write-Warning "GPU-Probe ZIP not built — skipping (engine bundle missing?)"
+          }
 
           Write-Host "Release artifacts:"
           Get-ChildItem $artifactDir
