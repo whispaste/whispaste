@@ -4680,7 +4680,7 @@ abstract class L10n {
   /// No description provided for @settingsSearchResultCount.
   ///
   /// In en, this message translates to:
-  /// **'{count} results'**
+  /// **'{count, plural, =0{No results} =1{1 result} other{{count} results}}'**
   String settingsSearchResultCount(int count);
 }
 
