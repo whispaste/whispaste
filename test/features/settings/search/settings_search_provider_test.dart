@@ -178,11 +178,11 @@ void main() {
       expect(keys.length, equals(_all.length));
     });
 
-    test('all 12 sections are covered', () {
+    test('all 11 sections are covered', () {
+      // GPU no longer has its own entry — its keywords moved to the STT entry.
       const expectedKeys = {
         'interface',
         'stt',
-        'gpu',
         'audio',
         'afterTranscription',
         'overlay',
@@ -195,6 +195,16 @@ void main() {
       };
       final tableKeys = _all.map((e) => e.sectionKey).toSet();
       expect(tableKeys, containsAll(expectedKeys));
+    });
+
+    test('GPU search keywords resolve to the STT section', () {
+      // The GPU dropdown was moved into the STT section (local mode only).
+      // Searching "GPU" must jump to the STT section, not a removed entry.
+      final keysEn = _sectionKeysFor('GPU', locale: 'en');
+      expect(keysEn, contains('stt'));
+
+      final keysDe = _sectionKeysFor('Grafik', locale: 'de');
+      expect(keysDe, contains('stt'));
     });
   });
 

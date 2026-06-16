@@ -8,7 +8,6 @@ import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import 'sections/cloud_advanced_section.dart' show AdvancedSection;
 import 'sections/feedback_section.dart';
-import 'sections/gpu_acceleration_section.dart';
 import 'sections/history_section.dart';
 import 'sections/interface_section.dart';
 import 'sections/overlay_button_section.dart';
@@ -37,7 +36,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   final _sectionKeys = <String, GlobalKey>{
     'interface': GlobalKey(),
     'stt': GlobalKey(),
-    'gpu': GlobalKey(),
     'audio': GlobalKey(),
     'afterTranscription': GlobalKey(),
     'overlay': GlobalKey(),
@@ -171,11 +169,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 sectionWithHighlight(
                   'stt',
                   SpeechRecognitionSection(key: _sectionKeys['stt']),
-                ),
-                settingsSectionDivider(context),
-                sectionWithHighlight(
-                  'gpu',
-                  GpuAccelerationSection(key: _sectionKeys['gpu']),
                 ),
                 settingsSectionDivider(context),
                 sectionWithHighlight(
