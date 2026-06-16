@@ -297,5 +297,18 @@ void main() {
       expect(resolveRetentionPreset(0, 30), HistoryRetentionPreset.custom);
       expect(resolveRetentionPreset(100, 0), HistoryRetentionPreset.custom);
     });
+    test(
+      'default HistorySettings resolves to standard (no "Custom" on first run)',
+      () {
+        const defaults = HistorySettings();
+        expect(
+          resolveRetentionPreset(
+            defaults.historyMaxEntries,
+            defaults.historyAutoTrashDays,
+          ),
+          HistoryRetentionPreset.standard,
+        );
+      },
+    );
   });
 }
