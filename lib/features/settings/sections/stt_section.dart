@@ -100,6 +100,28 @@ class _SpeechRecognitionSectionState
             const SizedBox(height: WpSpacing.xs),
             // Re-run benchmark button
             _BenchmarkButton(l10n: l10n, ref: ref),
+            // GPU acceleration — local mode only (irrelevant for cloud providers)
+            SettingRow(
+              icon: LucideIcons.zap,
+              label: l10n.settingsGpuAcceleration,
+              trailing: settingsDropdown(
+                context: context,
+                value: settings.behavior.gpuAcceleration,
+                items: GpuAcceleration.values.map((e) => e.value).toList(),
+                labels: [
+                  l10n.settingsGpuAccelerationAuto,
+                  l10n.settingsGpuAccelerationEnabled,
+                  l10n.settingsGpuAccelerationDisabled,
+                ],
+                onChanged: (v) => ref
+                    .read(settingsProvider.notifier)
+                    .updateSettings(
+                      (s) => s.copyWithSections(
+                        behavior: s.behavior.copyWith(gpuAcceleration: v!),
+                      ),
+                    ),
+              ),
+            ),
             const Divider(height: 24),
           ],
 

@@ -52,7 +52,7 @@ class SettingsSearchEntry {
 // Table
 // ---------------------------------------------------------------------------
 
-/// Static search table covering all 12 settings sections.
+/// Static search table covering all 11 settings sections.
 ///
 /// Keywords deliberately include both DE and EN synonyms so the matcher works
 /// regardless of the app language the user has selected.
@@ -89,20 +89,9 @@ const List<SettingsSearchEntry> kSettingsSearchTable = [
       'model', 'whisper', 'quality', 'transcription', 'service', 'local',
       'on-device', 'cloud', 'language', 'timeout', 'vocabulary',
       'dictionary', 'words', 'STT', 'voice',
-    ],
-  ),
-  SettingsSearchEntry(
-    id: 'gpu',
-    sectionKey: 'gpu',
-    titleDe: 'Grafikbeschleunigung',
-    titleEn: 'Graphics Acceleration',
-    subtitleDe: 'GPU oder CPU für die lokale Spracherkennung',
-    subtitleEn: 'GPU or CPU for local speech recognition',
-    keywords: [
-      // DE
-      'GPU', 'Grafik', 'Beschleunigung', 'CPU', 'Prozessor', 'Hardware',
-      // EN
-      'GPU', 'graphics', 'acceleration', 'CPU', 'processor', 'hardware',
+      // GPU (now embedded in STT section, local mode only)
+      'GPU', 'Grafik', 'Beschleunigung', 'Prozessor', 'Hardware',
+      'graphics', 'acceleration', 'processor', 'hardware',
     ],
   ),
   SettingsSearchEntry(
