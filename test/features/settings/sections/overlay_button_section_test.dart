@@ -5,7 +5,7 @@
 ///   disabled; real position = overlay enabled). No separate show-overlay
 ///   toggle row.
 /// - OverlaySection: real overlay preview (OverlayRealPreview / FloatingOverlayView)
-///   inside the size row's trailing when enabled, absent when disabled.
+///   in its own full-size row below the size row when enabled, absent when disabled.
 /// - FloatingButtonSection: toggle round-trip (showFloatingButton false → true).
 ///   FloatingButtonView is always visible in the trailing of the toggle row.
 ///
@@ -298,7 +298,7 @@ void main() {
 
     // -- AC (d) ---------------------------------------------------------------
     testWidgets(
-      'OverlayRealPreview in size-row trailing: only one Divider when floating',
+      'OverlayRealPreview is a standalone full-size row below the size row',
       (tester) async {
         if (!_isDesktop) return; // Platform guard.
 
@@ -316,11 +316,11 @@ void main() {
         await tester.pump();
         await tester.pump();
 
-        // Preview is present …
+        // Preview is present as its own row, rendered at real (1:1) size …
         expect(find.byType(OverlayRealPreview), findsOneWidget);
-        // … and has no standalone Divider before it: only one Divider separates
-        // the start-position row from the size row (which contains the preview).
-        expect(find.byType(Divider), findsOneWidget);
+        // … with its own Divider: one before the size row, one before the
+        // standalone preview row → two Dividers in the floating sub-section.
+        expect(find.byType(Divider), findsNWidgets(2));
       },
     );
 
