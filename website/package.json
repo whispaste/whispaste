@@ -21,8 +21,8 @@
     "@astrojs/sitemap": "^3.7.3",
     "@sentry/astro": "^10.54.0",
     "@tailwindcss/vite": "^4.2.1",
-    "astro": "6.3.8",
-    "dompurify": "^3.4.6",
+    "astro": "6.4.6",
+    "dompurify": "^3.4.9",
     "tailwindcss": "^4.2.1"
   },
   "devDependencies": {
@@ -41,7 +41,8 @@
   },
   "overrides": {
     "devalue": "^5.8.1",
-    "vite": "7.3.3",
-    "esbuild": "^0.28.1"
+    "vite": "7.3.5",
+    "esbuild": "^0.28.1",
+    "@opentelemetry/core": "^2.8.0"
   }
 }
