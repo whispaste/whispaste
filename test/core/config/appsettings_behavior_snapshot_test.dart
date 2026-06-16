@@ -305,12 +305,6 @@ void main() {
       expect(_roundtrip(s).autoPasteBlocklist, 'com.example.app,other.app');
     });
 
-    // --- Audio Processing ---
-    test('trimSilence true survives roundtrip', () {
-      final s = AppSettings.defaults.copyWith(trimSilence: true);
-      expect(_roundtrip(s).trimSilence, isTrue);
-    });
-
     // --- Text Replacements ---
     test('textReplacementsEnabled true survives roundtrip', () {
       final s = AppSettings.defaults.copyWith(textReplacementsEnabled: true);
@@ -814,17 +808,26 @@ void main() {
 
   // ---- Section 9: Audio Processing ----------------------------------------
   group('Section: audio processing', () {
-    test('all audio processing fields use expected storage keys', () {
-      final s = AppSettings.defaults.copyWith(trimSilence: true);
-      final map = s.toStorageMap();
-      expect(map['trim_silence'], 'true');
-    });
+    test(
+      'legacy trim_silence key is silently ignored on load (back-compat)',
+      () {
+        // Old app versions persisted `trim_silence` in SQLite. After removing
+        // the field, the key must be silently ignored — no crash, no other
+        // settings disturbed.
+        final map = Map<String, String>.from(
+          AppSettings.defaults.toStorageMap(),
+        )..['trim_silence'] = 'true';
 
-    test('audio processing cluster full roundtrip', () {
-      final s = AppSettings.defaults.copyWith(trimSilence: true);
-      final r = _roundtrip(s);
-      expect(r.trimSilence, isTrue);
-    });
+        expect(() => AppSettings.fromStorageMap(map), returnsNormally);
+
+        final restored = AppSettings.fromStorageMap(map);
+        // Other settings must be unchanged.
+        expect(restored.themeMode, AppSettings.defaults.themeMode);
+        expect(restored.sttModel, AppSettings.defaults.sttModel);
+        // Round-tripping must NOT re-emit the removed key.
+        expect(restored.toStorageMap().containsKey('trim_silence'), isFalse);
+      },
+    );
 
     test(
       'legacy VAD keys are ignored on load (forward-compat after removal)',
@@ -842,7 +845,6 @@ void main() {
 
         final restored = AppSettings.fromStorageMap(map);
         // Other settings unchanged.
-        expect(restored.trimSilence, AppSettings.defaults.trimSilence);
         expect(restored.themeMode, AppSettings.defaults.themeMode);
         expect(restored.sttModel, AppSettings.defaults.sttModel);
         // Round-tripping the restored settings does NOT re-emit the legacy
