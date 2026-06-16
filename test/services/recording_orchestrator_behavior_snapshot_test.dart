@@ -39,6 +39,7 @@ import 'package:whispaste/services/stt/stt_bundle.dart';
 class _FakeAudioService extends AudioServiceNotifier {
   String? wavPathToReturn;
   bool errorOnStart = false;
+  bool throwOnStop = false;
   StreamController<double>? _ampCtrl;
   int startCallCount = 0;
   int stopCallCount = 0;
@@ -70,6 +71,7 @@ class _FakeAudioService extends AudioServiceNotifier {
   @override
   Future<String?> stopRecording() async {
     stopCallCount++;
+    if (throwOnStop) throw Exception('stop_failed');
     _ampCtrl?.close();
     _ampCtrl = null;
     state = AudioStatus(filePath: wavPathToReturn);
@@ -1121,7 +1123,10 @@ void main() {
         expect(c.read(recordingProvider).phase, RecordingPhase.recording);
 
         // Advance the state machine to transcribing directly (not via
-        // orchestrator.stopRecording), so _guardSub stays subscribed.
+        // orchestrator.stopRecording), so _guardSub stays subscribed. This
+        // validates the phase guard in isolation; it does not reproduce the
+        // exact event-queue timing (a sample queued before _cancelAmplitude
+        // tears the stream down) that originally surfaced the bug.
         c.read(recordingProvider.notifier).stopRecording();
         expect(c.read(recordingProvider).phase, RecordingPhase.transcribing);
 
@@ -1168,6 +1173,74 @@ void main() {
           reason:
               'the _stopInFlight guard must allow only ONE audio-layer stop; '
               'the second concurrent call must be a no-op (AC4)',
+        );
+      },
+    );
+
+    test(
+      'AC5: dead-mic whose audio-stop throws still releases the re-entry guard',
+      () async {
+        // Wire the orchestrator fully (toggleRecording → _guardSub active) so
+        // the real dead-mic path runs, mirroring AC3.
+        final stubs = createFakeStubFiles();
+        addTearDown(() {
+          for (final f in stubs) {
+            try {
+              if (f.existsSync()) f.deleteSync();
+            } catch (_) {}
+          }
+        });
+
+        final c = buildContainer(
+          const AppSettings(
+            stt: SttSettings(model: 'whisper-small', language: 'English'),
+            afterTranscriptionSection: AfterTranscriptionSettings(
+              afterTranscription: 'nothing',
+            ),
+            onboarding: OnboardingSettings(onboardingCompleted: true),
+            recordingSafety: RecordingSafetySettings(
+              deadMicTimeout: 1.0, // 25 samples @ 25 Hz → dead-mic
+              autoStopSilence: 0,
+            ),
+            behavior: BehaviorSettings(maxRecordDuration: 0),
+          ),
+        );
+        addTearDown(c.dispose);
+        await c.read(settingsProvider.future);
+        await Future<void>.delayed(Duration.zero);
+
+        final orch = c.read(recordingOrchestratorProvider.notifier);
+        unawaited(orch.toggleRecording());
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        expect(c.read(recordingProvider).phase, RecordingPhase.recording);
+
+        // Make the audio-layer stop throw, then let the dead-mic guard fire.
+        fakeAudio.throwOnStop = true;
+        for (var i = 0; i < 25; i++) {
+          fakeAudio.emitLevel(0.0);
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+
+        // The catch path must still surface the error and run the finally that
+        // resets _stopInFlight.
+        expect(
+          c.read(recordingProvider).phase,
+          RecordingPhase.error,
+          reason: 'dead-mic must transition to error even when stop throws',
+        );
+        final stopsAfterDeadMic = fakeAudio.stopCallCount;
+        expect(stopsAfterDeadMic, equals(1));
+
+        // If the guard were stuck true, this stop would be a no-op and never
+        // reach the audio layer. A second stop reaching the audio layer proves
+        // the finally released the guard after the dead-mic exception.
+        await orch.stopRecording();
+        expect(
+          fakeAudio.stopCallCount,
+          greaterThan(stopsAfterDeadMic),
+          reason:
+              'the finally block must reset _stopInFlight after the dead-mic '
+              'exception, so a later stop is not permanently blocked (AC5)',
         );
       },
     );
