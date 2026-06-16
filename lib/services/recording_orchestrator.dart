@@ -1198,6 +1198,25 @@ class RecordingOrchestrator extends Notifier<void> {
 
   /// Dead-mic triggered: stop recording and surface error.
   Future<void> _handleDeadMic() async {
+    // Phase guard: only act while actually recording.
+    // A dead-mic event can arrive in a race window after transcription has
+    // already started (the guard stream can queue a sample before
+    // _cancelAmplitude() tears it down). Acting here would abort a legitimate
+    // transcription in flight — silent data loss.
+    final phase = ref.read(recordingProvider).phase;
+    if (phase != RecordingPhase.recording) {
+      _log.debug('Dead-mic guard skipped — phase is $phase (not recording)');
+      return;
+    }
+
+    // Re-entry guard: a concurrent stop (regular or auto-stop) may already be
+    // driving the pipeline. Don't race against it.
+    if (_stopInFlight) {
+      _log.debug('Dead-mic guard skipped — stop already in flight');
+      return;
+    }
+    _stopInFlight = true;
+
     // Guard-fire is expected user behaviour (no microphone input), not a crash.
     // Goes in at info level so the AppLogger pipeline turns it into a Sentry
     // breadcrumb — context for any later real error, but not a standalone issue.
@@ -1218,6 +1237,8 @@ class RecordingOrchestrator extends Notifier<void> {
         RecordingIntent.fail,
         errorMessage: 'recording_guard_failed',
       );
+    } finally {
+      _stopInFlight = false;
     }
   }
 
