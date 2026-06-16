@@ -194,6 +194,160 @@ void main() {
     });
   });
 
+  group('sound mute migration (issue 12)', () {
+    /// Helper: build a fresh container seeded with the given storage map.
+    Future<(ProviderContainer, HistoryDatabase)> buildSeeded(
+      Map<String, String> storageMap,
+    ) async {
+      final seedDb = HistoryDatabase.forTesting(NativeDatabase.memory());
+      await seedDb.writeAppSettings(storageMap);
+      final seedStore = FakeSecureKeyStore();
+      final c = ProviderContainer(
+        overrides: [
+          historyDatabaseProvider.overrideWith((ref) {
+            ref.onDispose(seedDb.close);
+            return seedDb;
+          }),
+          secureKeyStoreProvider.overrideWithValue(seedStore),
+        ],
+      );
+      await c.read(settingsProvider.future);
+      await c.read(settingsProvider.notifier).secureKeysFuture;
+      return (c, seedDb);
+    }
+
+    test(
+      'all four bools false + soundVolume > 0 → volume set to 0 and persisted',
+      () async {
+        // Simulate a previously-muted user: all sound bools off, volume at default.
+        final legacySettings = AppSettings.defaults.copyWithSections(
+          sound: const SoundSettings(
+            recordStartSound: false,
+            recordStopSound: false,
+            transcriptionCompleteSound: false,
+            durationWarningSound: false,
+            soundVolume: 80.0,
+          ),
+        );
+        final (c, db) = await buildSeeded(legacySettings.toStorageMap());
+        addTearDown(c.dispose);
+
+        final loaded = c.read(settingsProvider).value!;
+        expect(
+          loaded.sound.soundVolume,
+          0.0,
+          reason: 'migration should set soundVolume to 0',
+        );
+
+        // Verify the migration is persisted (next load would also see 0).
+        final persisted = AppSettings.fromStorageMap(
+          await db.readAppSettings(),
+        );
+        expect(persisted.sound.soundVolume, 0.0);
+      },
+    );
+
+    test('migration does not fire when at least one bool is true', () async {
+      final settings = AppSettings.defaults.copyWithSections(
+        sound: const SoundSettings(
+          recordStartSound: true,
+          recordStopSound: false,
+          transcriptionCompleteSound: false,
+          durationWarningSound: false,
+          soundVolume: 80.0,
+        ),
+      );
+      final (c, _) = await buildSeeded(settings.toStorageMap());
+      addTearDown(c.dispose);
+
+      final loaded = c.read(settingsProvider).value!;
+      expect(
+        loaded.sound.soundVolume,
+        80.0,
+        reason: 'migration must not fire when a bool is true',
+      );
+    });
+
+    test('migration does not fire when soundVolume is already 0', () async {
+      final settings = AppSettings.defaults.copyWithSections(
+        sound: const SoundSettings(
+          recordStartSound: false,
+          recordStopSound: false,
+          transcriptionCompleteSound: false,
+          durationWarningSound: false,
+          soundVolume: 0.0,
+        ),
+      );
+      final (c, db) = await buildSeeded(settings.toStorageMap());
+      addTearDown(c.dispose);
+
+      final loaded = c.read(settingsProvider).value!;
+      expect(loaded.sound.soundVolume, 0.0);
+      // No extra write: persisted value is still 0 (no DB write needed).
+      final persisted = AppSettings.fromStorageMap(await db.readAppSettings());
+      expect(persisted.sound.soundVolume, 0.0);
+    });
+
+    test(
+      'idempotent: after migration + user raises volume, restart keeps it (no re-fire)',
+      () async {
+        // Share ONE DB across two container lifecycles (= two app starts).
+        final sharedDb = HistoryDatabase.forTesting(NativeDatabase.memory());
+        addTearDown(sharedDb.close);
+
+        // Seed a previously-muted user: all four bools false, volume 80.
+        final legacy = AppSettings.defaults.copyWithSections(
+          sound: const SoundSettings(
+            recordStartSound: false,
+            recordStopSound: false,
+            transcriptionCompleteSound: false,
+            durationWarningSound: false,
+            soundVolume: 80.0,
+          ),
+        );
+        await sharedDb.writeAppSettings(legacy.toStorageMap());
+
+        // First start: migration fires → volume 0.
+        final c1 = ProviderContainer(
+          overrides: [
+            historyDatabaseProvider.overrideWith((ref) => sharedDb),
+            secureKeyStoreProvider.overrideWithValue(FakeSecureKeyStore()),
+          ],
+        );
+        await c1.read(settingsProvider.future);
+        await c1.read(settingsProvider.notifier).secureKeysFuture;
+        expect(c1.read(settingsProvider).value!.sound.soundVolume, 0.0);
+
+        // User raises the volume to 50 (and the migration re-enabled the bools).
+        await c1
+            .read(settingsProvider.notifier)
+            .updateSettings(
+              (s) => s.copyWithSections(
+                sound: s.sound.copyWith(soundVolume: 50.0),
+              ),
+            );
+        c1.dispose();
+
+        // Second start with the SAME DB: migration must NOT re-fire.
+        final c2 = ProviderContainer(
+          overrides: [
+            historyDatabaseProvider.overrideWith((ref) => sharedDb),
+            secureKeyStoreProvider.overrideWithValue(FakeSecureKeyStore()),
+          ],
+        );
+        addTearDown(c2.dispose);
+        await c2.read(settingsProvider.future);
+        await c2.read(settingsProvider.notifier).secureKeysFuture;
+
+        expect(
+          c2.read(settingsProvider).value!.sound.soundVolume,
+          50.0,
+          reason: 'migration must not reset a volume the user raised later',
+        );
+      },
+    );
+  });
+
   group('effectiveOverlayMode', () {
     test('passes through floating as valid mode', () {
       const s = AppSettings(overlay: OverlaySettings(overlayMode: 'floating'));

@@ -125,6 +125,7 @@ class SoundFeedbackService extends Notifier<void> {
   }
 
   Future<void> _play(String assetName, bool enabled) async {
+    if (_volume <= 0) return;
     if (!enabled) return;
     try {
       await _ensureInit();

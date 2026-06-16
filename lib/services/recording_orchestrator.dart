@@ -1238,7 +1238,7 @@ class RecordingOrchestrator extends Notifier<void> {
   /// Play duration warning sound (90% of max duration reached).
   void _playDurationWarning() {
     final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
-    if (!settings.sound.durationWarningSound) return;
+    if (settings.sound.soundVolume <= 0) return;
     try {
       ref.read(soundFeedbackProvider.notifier).playDurationWarning();
     } catch (e) {

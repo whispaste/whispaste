@@ -151,26 +151,6 @@ class SoundFeedbackSection extends ConsumerWidget {
     final l10n = L10n.of(context);
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
 
-    // Master state: ON iff at least one of the four sound fields is true.
-    final masterOn =
-        settings.sound.recordStartSound ||
-        settings.sound.recordStopSound ||
-        settings.sound.transcriptionCompleteSound ||
-        settings.sound.durationWarningSound;
-
-    void onMasterChanged(bool v) {
-      ref
-          .read(settingsProvider.notifier)
-          .updateSettings(
-            (s) => s.copyWith(
-              recordStartSound: v,
-              recordStopSound: v,
-              transcriptionCompleteSound: v,
-              durationWarningSound: v,
-            ),
-          );
-    }
-
     return WpSection(
       title: l10n.settingsSoundFeedback,
       subtitle: l10n.settingsSoundFeedbackSubtitle,
@@ -178,33 +158,24 @@ class SoundFeedbackSection extends ConsumerWidget {
       child: Column(
         children: [
           SettingRow(
-            icon: LucideIcons.volume2,
-            label: l10n.settingsSoundsEnabled,
-            semanticToggledValue: masterOn,
-            trailing: settingsToggle(
-              value: masterOn,
-              onChanged: onMasterChanged,
+            icon: LucideIcons.volume1,
+            label: l10n.settingsSoundVolume,
+            trailing: settingsSlider(
+              context: context,
+              value: settings.soundVolume,
+              min: 0,
+              max: 100,
+              divisions: 20,
+              valueLabel: settings.soundVolume == 0
+                  ? l10n.settingsOff
+                  : '${settings.soundVolume.round()}%',
+              onChanged: (v) => ref
+                  .read(settingsProvider.notifier)
+                  .updateSettings((s) => s.copyWith(soundVolume: v)),
+              onChangeEnd: (v) =>
+                  ref.read(soundFeedbackProvider.notifier).playVolumePreview(v),
             ),
           ),
-          if (masterOn)
-            SettingRow(
-              icon: LucideIcons.volume1,
-              label: l10n.settingsSoundVolume,
-              trailing: settingsSlider(
-                context: context,
-                value: settings.soundVolume,
-                min: 0,
-                max: 100,
-                divisions: 20,
-                valueLabel: '${settings.soundVolume.round()}%',
-                onChanged: (v) => ref
-                    .read(settingsProvider.notifier)
-                    .updateSettings((s) => s.copyWith(soundVolume: v)),
-                onChangeEnd: (v) => ref
-                    .read(soundFeedbackProvider.notifier)
-                    .playVolumePreview(v),
-              ),
-            ),
         ],
       ),
     );

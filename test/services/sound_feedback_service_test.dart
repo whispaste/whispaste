@@ -447,15 +447,43 @@ void main() {
       // reads). We verify the dispose itself is clean.
     });
 
-    test('volume 0 still calls play (just silently)', () {
-      // Volume 0 maps to 0.0 — the play call still goes through,
-      // the engine just plays at zero volume.
-      const settings = AppSettings(sound: SoundSettings(soundVolume: 0.0));
-      // Verify the mapping is 0.0, not some sentinel that skips playback.
-      expect((settings.soundVolume / 100.0).clamp(0.0, 1.0), 0.0);
-      // recordStartSound is still true — the play method should be invoked.
-      expect(settings.recordStartSound, isTrue);
-    });
+    test(
+      'volume 0 → _play returns early (soundVolume==0 is the off-state)',
+      () async {
+        // Volume 0 maps to 0.0 — the new volume gate in _play returns immediately,
+        // so no engine access happens even if the individual bool flags are true.
+        final container = buildContainer(
+          settings: const AppSettings(sound: SoundSettings(soundVolume: 0.0)),
+        );
+        addTearDown(container.dispose);
+        await container.read(settingsProvider.future);
+        final notifier = container.read(soundFeedbackProvider.notifier);
+
+        // All calls should complete without touching the engine (no throw,
+        // no engine init because the volume gate fires first).
+        await notifier.playRecordStart();
+        await notifier.playRecordStop();
+        await notifier.playTranscriptionComplete();
+        await notifier.playDurationWarning();
+        // playError passes enabled=true but volume gate still fires first.
+        await notifier.playError();
+      },
+    );
+
+    test(
+      'volume > 0 → play is attempted (engine unavailable in test → no throw)',
+      () async {
+        final container = buildContainer(
+          settings: const AppSettings(sound: SoundSettings(soundVolume: 50.0)),
+        );
+        addTearDown(container.dispose);
+        await container.read(settingsProvider.future);
+        final notifier = container.read(soundFeedbackProvider.notifier);
+
+        // Engine unavailable → caught internally. No throw.
+        await expectLater(notifier.playRecordStart(), completes);
+      },
+    );
 
     test('settings with extreme volume values', () {
       // Verify settings can hold extreme values without error.
