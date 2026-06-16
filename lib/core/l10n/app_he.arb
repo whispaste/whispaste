@@ -910,5 +910,7 @@
   "settingsGpuAccelerationEnabled": "GPU (כפוי)",
   "settingsGpuAccelerationDisabled": "CPU בלבד",
 
-  "settingsSearchHint": "חיפוש הגדרות…"
+  "settingsSearchHint": "חיפוש הגדרות…",
+  "settingsSearchNoResults": "אין תוצאות",
+  "settingsSearchNoResultsHint": "נסה מונח חיפוש אחר."
 }

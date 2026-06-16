@@ -970,5 +970,7 @@
   "settingsGpuAccelerationEnabled": "GPU (force)",
   "settingsGpuAccelerationDisabled": "CPU only",
 
-  "settingsSearchHint": "Search settings…"
+  "settingsSearchHint": "Search settings…",
+  "settingsSearchNoResults": "No Results",
+  "settingsSearchNoResultsHint": "Try a different search term."
 }
