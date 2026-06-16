@@ -2595,4 +2595,19 @@ class L10nEn extends L10n {
 
   @override
   String get settingsSearchNoResultsHint => 'Try a different search term.';
+
+  @override
+  String get settingsSearchFieldLabel => 'Search settings';
+
+  @override
+  String settingsSearchResultCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      zero: 'No results',
+      one: '1 result',
+      other: '$count results',
+    );
+    return '$_temp0';
+  }
 }

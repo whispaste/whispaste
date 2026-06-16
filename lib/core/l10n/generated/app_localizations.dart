@@ -4670,6 +4670,18 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Try a different search term.'**
   String get settingsSearchNoResultsHint;
+
+  /// No description provided for @settingsSearchFieldLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Search settings'**
+  String get settingsSearchFieldLabel;
+
+  /// No description provided for @settingsSearchResultCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} results'**
+  String settingsSearchResultCount(int count);
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

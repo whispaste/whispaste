@@ -972,5 +972,12 @@
 
   "settingsSearchHint": "Search settings…",
   "settingsSearchNoResults": "No Results",
-  "settingsSearchNoResultsHint": "Try a different search term."
+  "settingsSearchNoResultsHint": "Try a different search term.",
+  "settingsSearchFieldLabel": "Search settings",
+  "settingsSearchResultCount": "{count, plural, =0{No results} =1{1 result} other{{count} results}}",
+  "@settingsSearchResultCount": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  }
 }

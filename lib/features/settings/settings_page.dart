@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -37,6 +39,8 @@ class SettingsPage extends ConsumerStatefulWidget {
 }
 
 class _SettingsPageState extends ConsumerState<SettingsPage> {
+  final _searchFocusNode = FocusNode();
+
   final _sectionKeys = <String, GlobalKey>{
     'interface': GlobalKey(),
     'stt': GlobalKey(),
@@ -64,6 +68,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   @override
   void dispose() {
     _highlightClearTimer?.cancel();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
@@ -247,32 +252,51 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       );
     }
 
-    return Column(
-      children: [
-        // ── Sticky search field (stays visible while scrolling) ───────────
-        const Padding(
-          padding: EdgeInsets.fromLTRB(
-            WpSpacing.xl,
-            WpSpacing.sm,
-            WpSpacing.xl,
-            0,
-          ),
-          child: SettingsSearchField(),
-        ),
-
-        // ── Scrollable settings content ───────────────────────────────────
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(
-              WpSpacing.xl,
-              WpSpacing.sm,
-              WpSpacing.xl,
-              WpSpacing.xl,
+    return CallbackShortcuts(
+      bindings: <ShortcutActivator, VoidCallback>{
+        // Ctrl+F / Cmd+F: focus the settings search field
+        SingleActivator(
+          LogicalKeyboardKey.keyF,
+          control: !Platform.isMacOS,
+          meta: Platform.isMacOS,
+        ): () {
+          _searchFocusNode.requestFocus();
+        },
+      },
+      // Focus wrapper: autofocus ensures a descendant of CallbackShortcuts
+      // has focus when the page loads so that the Ctrl+F / Cmd+F shortcut is
+      // reachable via key-event bubbling without stealing interactive focus.
+      child: Focus(
+        autofocus: true,
+        skipTraversal: true,
+        child: Column(
+          children: [
+            // ── Sticky search field (stays visible while scrolling) ───────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                WpSpacing.xl,
+                WpSpacing.sm,
+                WpSpacing.xl,
+                0,
+              ),
+              child: SettingsSearchField(focusNode: _searchFocusNode),
             ),
-            child: scrollContent,
-          ),
+
+            // ── Scrollable settings content ───────────────────────────────────
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(
+                  WpSpacing.xl,
+                  WpSpacing.sm,
+                  WpSpacing.xl,
+                  WpSpacing.xl,
+                ),
+                child: scrollContent,
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
