@@ -193,5 +193,48 @@ void main() {
         );
       },
     );
+
+    test(
+      'dispose during in-flight scan unblocks downloadModel without throwing',
+      () async {
+        final scanStarted = Completer<void>();
+        final scanGate = Completer<void>();
+
+        // Hold the scan in-flight: the first existsHook call parks on the gate.
+        final container = _makeContainerWithHook((path) async {
+          if (!scanStarted.isCompleted) scanStarted.complete();
+          await scanGate.future;
+          return false;
+        });
+
+        final notifier = container.read(modelDownloadProvider.notifier);
+
+        // Wait until the deferred scan is actually running.
+        await scanStarted.future.timeout(const Duration(seconds: 5));
+
+        // Start a download that parks on the initial-scan completer.
+        Object? downloadError;
+        final download = notifier
+            .downloadModel('nonexistent-model-id')
+            .catchError((Object e) => downloadError = e);
+
+        // Dispose while the scan is still in-flight — onDispose completes the
+        // initial-scan completer so the parked downloadModel awaiter resumes.
+        container.dispose();
+
+        // The parked download must return cleanly via the mounted-guard,
+        // not throw a StateError on the disposed notifier.
+        await download.timeout(
+          const Duration(seconds: 5),
+          onTimeout: () => fail('downloadModel did not unblock after dispose'),
+        );
+        expect(downloadError, isNull);
+
+        // Release the held scan; the post-await mounted-guard must skip the
+        // state write on the disposed notifier without throwing.
+        scanGate.complete();
+        await Future<void>.delayed(Duration.zero);
+      },
+    );
   });
 }

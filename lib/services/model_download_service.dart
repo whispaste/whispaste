@@ -473,7 +473,9 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
               scanned.downloadedModels.isNotEmpty &&
               !_autoDownloadAttempted) {
             _autoDownloadAttempted = true;
-            Future.microtask(ensureServerBinary);
+            Future.microtask(() {
+              if (_mounted) ensureServerBinary();
+            });
           }
         }
       } catch (e, st) {
@@ -499,6 +501,7 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
     // Ensure the initial disk scan has completed so serverReady reflects the
     // on-disk state before we decide whether Phase-1 (engine download) is needed.
     await _initialScanCompleter?.future;
+    if (!_mounted) return;
     if (state.isBusy) return;
 
     final model = findSttModel(modelId);
@@ -635,7 +638,9 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
 
   /// Refreshes disk scan asynchronously and updates state.
   Future<void> refresh() async {
-    state = await _scanExistingModelsAsync(_checker);
+    final scanned = await _scanExistingModelsAsync(_checker);
+    if (!_mounted) return;
+    state = scanned;
   }
 
   /// Marks the server binary as incompatible and deletes it.
