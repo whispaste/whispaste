@@ -96,35 +96,27 @@ class OverlaySection extends ConsumerWidget {
               icon: LucideIcons.maximize2,
               label: l10n.settingsOverlaySize,
               subtitle: l10n.settingsOverlaySizeSubtitle,
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: 96,
-                    height: 48,
-                    child: OverlayRealPreview(size: settings.overlaySizeType),
-                  ),
-                  const SizedBox(width: WpSpacing.xs),
-                  settingsDropdown(
-                    context: context,
-                    value: settings.overlaySizeType.value,
-                    items: FloatingOverlaySize.values
-                        .map((e) => e.value)
-                        .toList(),
-                    labels: [
-                      l10n.settingsOverlaySizeNormal,
-                      l10n.settingsOverlaySizeCompact,
-                    ],
-                    onChanged: (v) {
-                      if (v == null) return;
-                      ref
-                          .read(settingsProvider.notifier)
-                          .updateSettings((s) => s.copyWith(overlaySize: v));
-                    },
-                  ),
+              trailing: settingsDropdown(
+                context: context,
+                value: settings.overlaySizeType.value,
+                items: FloatingOverlaySize.values.map((e) => e.value).toList(),
+                labels: [
+                  l10n.settingsOverlaySizeNormal,
+                  l10n.settingsOverlaySizeCompact,
                 ],
+                onChanged: (v) {
+                  if (v == null) return;
+                  ref
+                      .read(settingsProvider.notifier)
+                      .updateSettings((s) => s.copyWith(overlaySize: v));
+                },
               ),
             ),
+            const Divider(height: 1),
+            // Preview at real (1:1) size in its own full-width row so the
+            // Normal vs. Compact difference is actually recognisable. FittedBox
+            // inside only scales down on windows narrower than the real pill.
+            OverlayRealPreview(size: settings.overlaySizeType),
           ],
         ],
       ),
