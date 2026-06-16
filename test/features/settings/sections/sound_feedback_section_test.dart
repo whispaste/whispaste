@@ -1,7 +1,9 @@
 /// Round-trip widget tests for [SoundFeedbackSection].
 ///
-/// Covers: a single "Sounds" master toggle (replaces the four individual
-/// sound toggles) plus the volume slider (only visible when master is ON).
+/// Covers: volume slider always visible; `soundVolume == 0` is the off-state
+/// (slider shows "Aus" / "Off"); `soundVolume > 0` is the on-state.
+/// The "Sounds enabled" master toggle has been removed — volume alone controls
+/// whether sounds play.
 ///
 /// [SoundFeedbackService] is faked out to prevent real audio engine
 /// initialisation in headless test environments.
@@ -57,10 +59,10 @@ void main() {
   ];
 
   group('SoundFeedbackSection', () {
-    // ── Master toggle visibility ─────────────────────────────────────────────
+    // ── No master toggle ─────────────────────────────────────────────────────
 
     testWidgets(
-      'single "Sounds" master toggle is visible (four individual toggles are not)',
+      'no "Sounds enabled" master toggle — no Switch widget rendered',
       (tester) async {
         final notifier = _FakeSettingsNotifier(AppSettings.defaults);
         await tester.pumpWidget(
@@ -71,105 +73,15 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        // Only one Switch should be visible (master + volume slider which is a Slider, not Switch).
-        expect(find.byType(Switch), findsOneWidget);
+        expect(find.byType(Switch), findsNothing);
       },
     );
 
-    // ── Toggle OFF → all four false ──────────────────────────────────────────
+    // ── Slider always visible ────────────────────────────────────────────────
 
-    testWidgets(
-      'tapping master toggle OFF sets all four sound fields to false',
-      (tester) async {
-        // Start with all sounds enabled (defaults).
-        final notifier = _FakeSettingsNotifier(AppSettings.defaults);
-        await tester.pumpWidget(
-          makeTestable(
-            const SingleChildScrollView(child: SoundFeedbackSection()),
-            overrides: buildOverrides(notifier),
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        // Master is ON (all four defaults = true). Tap to turn OFF.
-        await tester.tap(find.byType(Switch).first);
-        await tester.pump();
-
-        final sound = notifier.state.value!.sound;
-        expect(sound.recordStartSound, isFalse);
-        expect(sound.recordStopSound, isFalse);
-        expect(sound.transcriptionCompleteSound, isFalse);
-        expect(sound.durationWarningSound, isFalse);
-      },
-    );
-
-    // ── Toggle ON → all four true ────────────────────────────────────────────
-
-    testWidgets('tapping master toggle ON sets all four sound fields to true', (
+    testWidgets('volume slider is visible at default settings (volume 80)', (
       tester,
     ) async {
-      // Start with all sounds disabled.
-      final notifier = _FakeSettingsNotifier(
-        AppSettings.defaults.copyWithSections(
-          sound: const SoundSettings(
-            recordStartSound: false,
-            recordStopSound: false,
-            transcriptionCompleteSound: false,
-            durationWarningSound: false,
-          ),
-        ),
-      );
-      await tester.pumpWidget(
-        makeTestable(
-          const SingleChildScrollView(child: SoundFeedbackSection()),
-          overrides: buildOverrides(notifier),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      // Master is OFF. Tap to turn ON.
-      await tester.tap(find.byType(Switch).first);
-      await tester.pump();
-
-      final sound = notifier.state.value!.sound;
-      expect(sound.recordStartSound, isTrue);
-      expect(sound.recordStopSound, isTrue);
-      expect(sound.transcriptionCompleteSound, isTrue);
-      expect(sound.durationWarningSound, isTrue);
-    });
-
-    // ── Derived initial state: mixed config with ≥1 active → master ON ───────
-
-    testWidgets(
-      'master derives ON when at least one sound field is true (mixed config)',
-      (tester) async {
-        // Only one sound enabled — master should show as ON.
-        final notifier = _FakeSettingsNotifier(
-          AppSettings.defaults.copyWithSections(
-            sound: const SoundSettings(
-              recordStartSound: true,
-              recordStopSound: false,
-              transcriptionCompleteSound: false,
-              durationWarningSound: false,
-            ),
-          ),
-        );
-        await tester.pumpWidget(
-          makeTestable(
-            const SingleChildScrollView(child: SoundFeedbackSection()),
-            overrides: buildOverrides(notifier),
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        final masterSwitch = tester.widget<Switch>(find.byType(Switch).first);
-        expect(masterSwitch.value, isTrue);
-      },
-    );
-
-    // ── Volume control visibility ────────────────────────────────────────────
-
-    testWidgets('volume slider is visible when master is ON', (tester) async {
       final notifier = _FakeSettingsNotifier(AppSettings.defaults);
       await tester.pumpWidget(
         makeTestable(
@@ -182,17 +94,79 @@ void main() {
       expect(find.byType(Slider), findsOneWidget);
     });
 
-    testWidgets('volume slider is hidden when master is OFF', (tester) async {
-      final notifier = _FakeSettingsNotifier(
-        AppSettings.defaults.copyWithSections(
-          sound: const SoundSettings(
-            recordStartSound: false,
-            recordStopSound: false,
-            transcriptionCompleteSound: false,
-            durationWarningSound: false,
+    testWidgets(
+      'volume slider is visible even when soundVolume is 0 (off state)',
+      (tester) async {
+        final notifier = _FakeSettingsNotifier(
+          AppSettings.defaults.copyWithSections(
+            sound: const SoundSettings(soundVolume: 0),
           ),
-        ),
-      );
+        );
+        await tester.pumpWidget(
+          makeTestable(
+            const SingleChildScrollView(child: SoundFeedbackSection()),
+            overrides: buildOverrides(notifier),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byType(Slider), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'volume slider is visible when all four sound bools are false',
+      (tester) async {
+        final notifier = _FakeSettingsNotifier(
+          AppSettings.defaults.copyWithSections(
+            sound: const SoundSettings(
+              recordStartSound: false,
+              recordStopSound: false,
+              transcriptionCompleteSound: false,
+              durationWarningSound: false,
+              soundVolume: 0,
+            ),
+          ),
+        );
+        await tester.pumpWidget(
+          makeTestable(
+            const SingleChildScrollView(child: SoundFeedbackSection()),
+            overrides: buildOverrides(notifier),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byType(Slider), findsOneWidget);
+      },
+    );
+
+    // ── "Aus" / "Off" label at volume 0 ─────────────────────────────────────
+
+    testWidgets(
+      'slider value label shows "Aus" (de) or "Off" (en) at volume 0',
+      (tester) async {
+        final notifier = _FakeSettingsNotifier(
+          AppSettings.defaults.copyWithSections(
+            sound: const SoundSettings(soundVolume: 0),
+          ),
+        );
+        await tester.pumpWidget(
+          makeTestable(
+            const SingleChildScrollView(child: SoundFeedbackSection()),
+            overrides: buildOverrides(notifier),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // The test locale in makeTestable is 'en', so expect "Off".
+        expect(find.text('Off'), findsOneWidget);
+      },
+    );
+
+    testWidgets('slider value label shows percentage at volume > 0', (
+      tester,
+    ) async {
+      final notifier = _FakeSettingsNotifier(AppSettings.defaults); // volume 80
       await tester.pumpWidget(
         makeTestable(
           const SingleChildScrollView(child: SoundFeedbackSection()),
@@ -201,7 +175,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.byType(Slider), findsNothing);
+      expect(find.text('80%'), findsOneWidget);
+      expect(find.text('Off'), findsNothing);
     });
 
     // ── Volume slider round-trip ─────────────────────────────────────────────

@@ -698,6 +698,32 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
     AppSettings settings;
     if (values.isNotEmpty) {
       settings = AppSettings.fromStorageMap(values);
+      // One-time migration (issue 12): users who muted sounds via the old
+      // master toggle had all four sound bools set to false but soundVolume
+      // still at the default (80). Under the new scheme soundVolume==0 is
+      // the off-state, so we set it to 0 and persist once.
+      final soundSection = settings.sound;
+      if (!soundSection.recordStartSound &&
+          !soundSection.recordStopSound &&
+          !soundSection.transcriptionCompleteSound &&
+          !soundSection.durationWarningSound &&
+          soundSection.soundVolume > 0) {
+        // Also re-enable the four bools so this migration never re-fires.
+        // Under the new scheme they are always true and soundVolume==0 is the
+        // off-state; leaving them false would keep the condition true and reset
+        // the volume to 0 on every future build() if the user raised it again.
+        settings = settings.copyWithSections(
+          sound: soundSection.copyWith(
+            recordStartSound: true,
+            recordStopSound: true,
+            transcriptionCompleteSound: true,
+            durationWarningSound: true,
+            soundVolume: 0,
+          ),
+        );
+        await db.writeAppSettings(settings.toStorageMap());
+        dev.log('Sound mute migration: soundVolume set to 0', name: 'Settings');
+      }
     } else {
       // One-time migration: read the legacy Go config.json if it exists.
       final migrated = _tryMigrateGoConfig();
