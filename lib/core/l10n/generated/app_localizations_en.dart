@@ -2604,9 +2604,9 @@ class L10nEn extends L10n {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      zero: 'No results',
-      one: '1 result',
       other: '$count results',
+      one: '1 result',
+      zero: 'No results',
     );
     return '$_temp0';
   }
