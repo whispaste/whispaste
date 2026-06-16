@@ -2589,4 +2589,10 @@ class L10nEn extends L10n {
 
   @override
   String get settingsSearchHint => 'Search settings…';
+
+  @override
+  String get settingsSearchNoResults => 'No Results';
+
+  @override
+  String get settingsSearchNoResultsHint => 'Try a different search term.';
 }

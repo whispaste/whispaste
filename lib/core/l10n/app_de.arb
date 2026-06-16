@@ -878,5 +878,7 @@
   "settingsGpuAccelerationEnabled": "GPU (erzwingen)",
   "settingsGpuAccelerationDisabled": "Nur CPU",
 
-  "settingsSearchHint": "Einstellungen durchsuchen…"
+  "settingsSearchHint": "Einstellungen durchsuchen…",
+  "settingsSearchNoResults": "Keine Treffer",
+  "settingsSearchNoResultsHint": "Versuche einen anderen Suchbegriff."
 }

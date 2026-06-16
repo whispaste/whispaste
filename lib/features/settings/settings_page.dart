@@ -2,10 +2,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/navigation/page_state.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
+import '../../widgets/empty_state.dart';
+import 'search/settings_search_provider.dart';
 import 'sections/cloud_advanced_section.dart' show AdvancedSection;
 import 'sections/feedback_section.dart';
 import 'sections/history_section.dart';
@@ -92,6 +96,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final l10n = L10n.of(context);
 
     // Watch scroll target — triggers when search field selects a suggestion.
     ref.listen(settingsScrollTargetProvider, (_, target) {
@@ -111,6 +116,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
     final highlightTarget = ref.watch(settingsHighlightTargetProvider);
 
+    // null = show all; non-null Set = show only those sectionKeys.
+    final matchSet = ref.watch(settingsSectionMatchSetProvider);
+
     Widget sectionWithHighlight(String sectionKey, Widget child) {
       final isHighlighted = highlightTarget == sectionKey;
       final accentColor = isDark ? WpColorsDark.accent : WpColorsLight.accent;
@@ -126,6 +134,116 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               )
             : const BoxDecoration(),
         child: child,
+      );
+    }
+
+    // Ordered list of (sectionKey, widget-builder) pairs.
+    final allSections = <(String, Widget Function())>[
+      (
+        'interface',
+        () => sectionWithHighlight(
+          'interface',
+          InterfaceSection(key: _sectionKeys['interface']),
+        ),
+      ),
+      (
+        'stt',
+        () => sectionWithHighlight(
+          'stt',
+          SpeechRecognitionSection(key: _sectionKeys['stt']),
+        ),
+      ),
+      (
+        'audio',
+        () => sectionWithHighlight(
+          'audio',
+          AudioSection(key: _sectionKeys['audio']),
+        ),
+      ),
+      (
+        'afterTranscription',
+        () => sectionWithHighlight(
+          'afterTranscription',
+          AfterTranscriptionSection(key: _sectionKeys['afterTranscription']),
+        ),
+      ),
+      (
+        'overlay',
+        () => sectionWithHighlight(
+          'overlay',
+          OverlaySection(key: _sectionKeys['overlay']),
+        ),
+      ),
+      (
+        'floatingButton',
+        () => sectionWithHighlight(
+          'floatingButton',
+          FloatingButtonSection(key: _sectionKeys['floatingButton']),
+        ),
+      ),
+      (
+        'hotkey',
+        () => sectionWithHighlight(
+          'hotkey',
+          KeyboardShortcutSection(key: _sectionKeys['hotkey']),
+        ),
+      ),
+      (
+        'sound',
+        () => sectionWithHighlight(
+          'sound',
+          SoundFeedbackSection(key: _sectionKeys['sound']),
+        ),
+      ),
+      (
+        'recordingSafety',
+        () => sectionWithHighlight(
+          'recordingSafety',
+          RecordingSafetySection(key: _sectionKeys['recordingSafety']),
+        ),
+      ),
+      (
+        'history',
+        () => sectionWithHighlight(
+          'history',
+          HistorySection(key: _sectionKeys['history']),
+        ),
+      ),
+      (
+        'advanced',
+        () => sectionWithHighlight(
+          'advanced',
+          AdvancedSection(key: _sectionKeys['advanced']),
+        ),
+      ),
+    ];
+
+    // Filter to visible sections (matchSet == null means show all).
+    final visibleSections = matchSet == null
+        ? allSections
+        : allSections.where((s) => matchSet.contains(s.$1)).toList();
+
+    // Build scrollable content — either the filtered list or a "no results" state.
+    Widget scrollContent;
+    if (visibleSections.isEmpty && matchSet != null) {
+      // Zero matches → centred empty state.
+      scrollContent = WpEmptyState(
+        icon: LucideIcons.searchX,
+        title: l10n.settingsSearchNoResults,
+        hint: l10n.settingsSearchNoResultsHint,
+      );
+    } else {
+      // Build sections with dividers only between visible neighbours.
+      final children = <Widget>[];
+      for (var i = 0; i < visibleSections.length; i++) {
+        children.add(visibleSections[i].$2());
+        if (i < visibleSections.length - 1) {
+          children.add(settingsSectionDivider(context));
+        }
+      }
+      scrollContent = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: children,
       );
     }
 
@@ -151,90 +269,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               WpSpacing.xl,
               WpSpacing.xl,
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ═══════════════════════════════════════════
-                //  GENERAL
-                // ═══════════════════════════════════════════
-                sectionWithHighlight(
-                  'interface',
-                  InterfaceSection(key: _sectionKeys['interface']),
-                ),
-                settingsSectionDivider(context),
-
-                // ═══════════════════════════════════════════
-                //  CORE WORKFLOW
-                // ═══════════════════════════════════════════
-                sectionWithHighlight(
-                  'stt',
-                  SpeechRecognitionSection(key: _sectionKeys['stt']),
-                ),
-                settingsSectionDivider(context),
-                sectionWithHighlight(
-                  'audio',
-                  AudioSection(key: _sectionKeys['audio']),
-                ),
-                settingsSectionDivider(context),
-                sectionWithHighlight(
-                  'afterTranscription',
-                  AfterTranscriptionSection(
-                    key: _sectionKeys['afterTranscription'],
-                  ),
-                ),
-                settingsSectionDivider(context),
-
-                // ═══════════════════════════════════════════
-                //  FLOATING UI ELEMENTS
-                // ═══════════════════════════════════════════
-                sectionWithHighlight(
-                  'overlay',
-                  OverlaySection(key: _sectionKeys['overlay']),
-                ),
-                settingsSectionDivider(context),
-                sectionWithHighlight(
-                  'floatingButton',
-                  FloatingButtonSection(key: _sectionKeys['floatingButton']),
-                ),
-                settingsSectionDivider(context),
-
-                // ═══════════════════════════════════════════
-                //  INTERACTION
-                // ═══════════════════════════════════════════
-                sectionWithHighlight(
-                  'hotkey',
-                  KeyboardShortcutSection(key: _sectionKeys['hotkey']),
-                ),
-                settingsSectionDivider(context),
-                sectionWithHighlight(
-                  'sound',
-                  SoundFeedbackSection(key: _sectionKeys['sound']),
-                ),
-                settingsSectionDivider(context),
-
-                // ═══════════════════════════════════════════
-                //  DATA MANAGEMENT
-                // ═══════════════════════════════════════════
-                sectionWithHighlight(
-                  'recordingSafety',
-                  RecordingSafetySection(key: _sectionKeys['recordingSafety']),
-                ),
-                settingsSectionDivider(context),
-                sectionWithHighlight(
-                  'history',
-                  HistorySection(key: _sectionKeys['history']),
-                ),
-                settingsSectionDivider(context),
-
-                // ═══════════════════════════════════════════
-                //  TECHNICAL / RARELY CHANGED
-                // ═══════════════════════════════════════════
-                sectionWithHighlight(
-                  'advanced',
-                  AdvancedSection(key: _sectionKeys['advanced']),
-                ),
-              ],
-            ),
+            child: scrollContent,
           ),
         ),
       ],

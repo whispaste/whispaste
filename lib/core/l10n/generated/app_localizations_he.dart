@@ -2539,4 +2539,10 @@ class L10nHe extends L10n {
 
   @override
   String get settingsSearchHint => 'חיפוש הגדרות…';
+
+  @override
+  String get settingsSearchNoResults => 'אין תוצאות';
+
+  @override
+  String get settingsSearchNoResultsHint => 'נסה מונח חיפוש אחר.';
 }

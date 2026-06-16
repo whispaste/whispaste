@@ -45,6 +45,18 @@ final settingsSearchMatchesProvider = Provider<List<SettingsSearchEntry>>((
   return matchSettingsEntries(kSettingsSearchTable, query, locale);
 });
 
+/// Set of section keys whose entries match the current query.
+///
+/// Returns `null` when the query is blank — meaning "show all sections".
+/// Returns a (possibly empty) [Set<String>] of matching [SettingsSearchEntry.sectionKey]
+/// values when the query is non-blank.
+final settingsSectionMatchSetProvider = Provider<Set<String>?>((ref) {
+  final query = ref.watch(settingsSearchQueryProvider).trim();
+  if (query.isEmpty) return null;
+  final matches = ref.watch(settingsSearchMatchesProvider);
+  return matches.map((e) => e.sectionKey).toSet();
+});
+
 // ---------------------------------------------------------------------------
 // Pure match function (testable without Flutter context)
 // ---------------------------------------------------------------------------
