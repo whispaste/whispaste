@@ -403,6 +403,13 @@ class FloatingOverlayService
     c.updateSnapshot(hidden).catchError((e, st) {
       _log.error('Failed to hide overlay', e, st);
     });
+    // Order the native window click-inert so it no longer intercepts mouse
+    // events while invisible. A `visible:false` snapshot alone leaves the
+    // window present on the OS window stack — the native shell must receive
+    // an explicit order-out / click-through signal.
+    c.orderOut().catchError((e, st) {
+      _log.error('Failed to order overlay out', e, st);
+    });
   }
 
   // ── Auto-hide ─────────────────────────────────────────────────────────────
