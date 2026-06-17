@@ -291,20 +291,24 @@ class WhisperServerManifestLoader {
     required String label,
   }) async {
     try {
-      final response = await _dio.get<Map<String, dynamic>>(
+      // GitHub serves JSON manifests as text/plain (raw host) or
+      // application/octet-stream (release assets). Fetch as plain text and
+      // parse explicitly so content-type heuristics cannot turn valid JSON
+      // into a DioExceptionType.unknown.
+      final response = await _dio.get<String>(
         url,
         options: Options(
-          responseType: ResponseType.json,
+          responseType: ResponseType.plain,
           sendTimeout: _remoteTimeout,
           receiveTimeout: _remoteTimeout,
         ),
       );
-      final data = response.data;
-      if (data == null) {
+      final body = response.data;
+      if (body == null || body.isEmpty) {
         _log.info('Manifest $label returned empty body ($url)');
         return null;
       }
-      final manifest = WhisperServerManifest.fromJson(data);
+      final manifest = WhisperServerManifest.fromJson(_parseJson(body));
       _log.info(
         'Loaded manifest from $label (tag=${manifest.whisperServerTag}, '
         'binaries=${manifest.binaries.length})',
@@ -383,7 +387,8 @@ class WhisperBinarySelector {
       for (final binary in manifest.binaries) {
         if (binary.platform == platform &&
             binary.arch == arch &&
-            binary.backend == backend) {
+            binary.backend == backend &&
+            _isDownloadable(binary)) {
           return WhisperBinarySelection.match(binary);
         }
       }
@@ -398,6 +403,11 @@ class WhisperBinarySelector {
       'priorities $priority (manifest provides: $available, '
       'manifest tag=${manifest.whisperServerTag})',
     );
+  }
+
+  static bool _isDownloadable(WhisperBinary binary) {
+    final url = binary.url.trim();
+    return url.startsWith('http://') || url.startsWith('https://');
   }
 
   /// Backend priority list — first match wins. Same precedence rules as

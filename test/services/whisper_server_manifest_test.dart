@@ -3,7 +3,6 @@
 library;
 
 import 'dart:async';
-import 'dart:convert' show jsonDecode;
 import 'dart:io' show Directory, File, Platform;
 import 'dart:typed_data' show Uint8List;
 
@@ -115,6 +114,37 @@ void main() {
       expect(releaseHits, 0);
     });
 
+    test(
+      'parses JSON served as text/plain (GitHub raw host content-type)',
+      () async {
+        final dio = Dio();
+        dio.interceptors.add(
+          InterceptorsWrapper(
+            onRequest: (options, handler) {
+              handler.resolve(
+                Response(
+                  requestOptions: options,
+                  statusCode: 200,
+                  headers: Headers.fromMap({
+                    'content-type': ['text/plain; charset=utf-8'],
+                  }),
+                  data: _rawManifest,
+                ),
+              );
+            },
+          ),
+        );
+
+        final loader = WhisperServerManifestLoader(
+          dio: dio,
+          bundleReader: () async => _bundledManifest,
+        );
+
+        final manifest = await loader.load();
+        expect(manifest.whisperServerTag, 'whisper-server-raw');
+      },
+    );
+
     test('falls back to the release-asset URL when the raw URL fails, using '
         'the tag from the bundled manifest to construct it', () async {
       var releaseHits = 0;
@@ -214,6 +244,34 @@ void main() {
         archOverride: 'x64',
       );
       expect(result.binary!.backend, 'cuda12');
+    });
+
+    test('skips cuda12 with empty url and falls back to vulkan', () {
+      const selector = WhisperBinarySelector();
+      final brokenManifest = WhisperServerManifest.fromJson({
+        'schema_version': 1,
+        'whisper_server_tag': 'whisper-server-test',
+        'whisper_cpp_release': 'v1.8.4',
+        'generated_at': '2026-01-01T00:00:00Z',
+        'binaries': [
+          {..._bin('windows', 'x64', 'cuda12'), 'url': ''},
+          _bin('windows', 'x64', 'vulkan'),
+          _bin('windows', 'x64', 'cpu'),
+        ],
+      });
+      final result = selector.select(
+        manifest: brokenManifest,
+        gpu: const hw.GpuInfo(
+          vendor: hw.GpuVendor.nvidia,
+          name: 'NV',
+          cudaAvailable: true,
+        ),
+        gpuMode: 'auto',
+        platformOverride: 'windows',
+        archOverride: 'x64',
+      );
+      expect(result.hasBinary, isTrue);
+      expect(result.binary!.backend, 'vulkan');
     });
 
     test('NVIDIA without CUDA → vulkan beats cpu', () {
@@ -718,10 +776,10 @@ Dio _routedDio({
           }
           if (result is String) {
             handler.resolve(
-              Response<Map<String, dynamic>>(
+              Response<String>(
                 requestOptions: options,
                 statusCode: 200,
-                data: jsonDecode(result) as Map<String, dynamic>,
+                data: result,
               ),
             );
             return;
