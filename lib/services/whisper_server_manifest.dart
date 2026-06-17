@@ -291,20 +291,25 @@ class WhisperServerManifestLoader {
     required String label,
   }) async {
     try {
-      final response = await _dio.get<Map<String, dynamic>>(
+      // GitHub serves JSON manifests as text/plain (raw host) or
+      // application/octet-stream (release assets). Dio's ResponseType.json
+      // leaves the body as a String for those content-types and the
+      // `<Map<String, dynamic>>` cast then fails with DioExceptionType.unknown
+      // ("Netzwerkfehler: unknown"). Fetch as plain text and parse ourselves.
+      final response = await _dio.get<String>(
         url,
         options: Options(
-          responseType: ResponseType.json,
+          responseType: ResponseType.plain,
           sendTimeout: _remoteTimeout,
           receiveTimeout: _remoteTimeout,
         ),
       );
-      final data = response.data;
-      if (data == null) {
+      final body = response.data;
+      if (body == null || body.isEmpty) {
         _log.info('Manifest $label returned empty body ($url)');
         return null;
       }
-      final manifest = WhisperServerManifest.fromJson(data);
+      final manifest = WhisperServerManifest.fromJson(_parseJson(body));
       _log.info(
         'Loaded manifest from $label (tag=${manifest.whisperServerTag}, '
         'binaries=${manifest.binaries.length})',

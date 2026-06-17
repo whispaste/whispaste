@@ -3,7 +3,6 @@
 library;
 
 import 'dart:async';
-import 'dart:convert' show jsonDecode;
 import 'dart:io' show Directory, File, Platform;
 import 'dart:typed_data' show Uint8List;
 
@@ -113,6 +112,34 @@ void main() {
       expect(manifest.whisperServerTag, 'whisper-server-raw');
       expect(rawHits, 1);
       expect(releaseHits, 0);
+    });
+
+    test('parses JSON served as text/plain (GitHub raw host content-type)', () async {
+      final dio = Dio();
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            handler.resolve(
+              Response(
+                requestOptions: options,
+                statusCode: 200,
+                headers: Headers.fromMap({
+                  'content-type': ['text/plain; charset=utf-8'],
+                }),
+                data: _rawManifest,
+              ),
+            );
+          },
+        ),
+      );
+
+      final loader = WhisperServerManifestLoader(
+        dio: dio,
+        bundleReader: () async => _bundledManifest,
+      );
+
+      final manifest = await loader.load();
+      expect(manifest.whisperServerTag, 'whisper-server-raw');
     });
 
     test('falls back to the release-asset URL when the raw URL fails, using '
@@ -749,10 +776,10 @@ Dio _routedDio({
           }
           if (result is String) {
             handler.resolve(
-              Response<Map<String, dynamic>>(
+              Response<String>(
                 requestOptions: options,
                 statusCode: 200,
-                data: jsonDecode(result) as Map<String, dynamic>,
+                data: result,
               ),
             );
             return;
