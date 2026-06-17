@@ -383,7 +383,8 @@ class WhisperBinarySelector {
       for (final binary in manifest.binaries) {
         if (binary.platform == platform &&
             binary.arch == arch &&
-            binary.backend == backend) {
+            binary.backend == backend &&
+            _isDownloadable(binary)) {
           return WhisperBinarySelection.match(binary);
         }
       }
@@ -398,6 +399,12 @@ class WhisperBinarySelector {
       'priorities $priority (manifest provides: $available, '
       'manifest tag=${manifest.whisperServerTag})',
     );
+  }
+
+  /// Whether [binary] has a non-empty http(s) URL the downloader can fetch.
+  static bool _isDownloadable(WhisperBinary binary) {
+    final url = binary.url.trim();
+    return url.startsWith('http://') || url.startsWith('https://');
   }
 
   /// Backend priority list — first match wins. Same precedence rules as

@@ -216,6 +216,37 @@ void main() {
       expect(result.binary!.backend, 'cuda12');
     });
 
+    test('skips cuda12 with empty url and falls back to vulkan', () {
+      const selector = WhisperBinarySelector();
+      final brokenManifest = WhisperServerManifest.fromJson({
+        'schema_version': 1,
+        'whisper_server_tag': 'whisper-server-test',
+        'whisper_cpp_release': 'v1.8.4',
+        'generated_at': '2026-01-01T00:00:00Z',
+        'binaries': [
+          {
+            ..._bin('windows', 'x64', 'cuda12'),
+            'url': '',
+          },
+          _bin('windows', 'x64', 'vulkan'),
+          _bin('windows', 'x64', 'cpu'),
+        ],
+      });
+      final result = selector.select(
+        manifest: brokenManifest,
+        gpu: const hw.GpuInfo(
+          vendor: hw.GpuVendor.nvidia,
+          name: 'NV',
+          cudaAvailable: true,
+        ),
+        gpuMode: 'auto',
+        platformOverride: 'windows',
+        archOverride: 'x64',
+      );
+      expect(result.hasBinary, isTrue);
+      expect(result.binary!.backend, 'vulkan');
+    });
+
     test('NVIDIA without CUDA → vulkan beats cpu', () {
       const selector = WhisperBinarySelector();
       final result = selector.select(
