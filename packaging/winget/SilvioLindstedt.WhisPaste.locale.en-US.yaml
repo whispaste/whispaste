@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.6.0.schema.json
 PackageIdentifier: SilvioLindstedt.WhisPaste
-PackageVersion: 1.2.38
+PackageVersion: 1.2.40
 PackageLocale: en-US
 Publisher: Silvio Lindstedt
 PublisherUrl: https://whispaste.de/

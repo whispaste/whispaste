@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.6.0.schema.json
 PackageIdentifier: SilvioLindstedt.WhisPaste
-PackageVersion: 1.2.38
+PackageVersion: 1.2.40
 InstallerLocale: en-US
 InstallerType: nullsoft
 Scope: user
@@ -9,7 +9,7 @@ InstallModes:
   - silent
 Installers:
   - Architecture: x64
-    InstallerUrl: https://github.com/whispaste/whispaste/releases/download/v1.2.38/WhisPaste-Setup.exe
-    InstallerSha256: 9F94ACCEA3345298DC93621EB7007B1564D5121BA1A854661F5E342296093C20
+    InstallerUrl: https://github.com/whispaste/whispaste/releases/download/v1.2.40/WhisPaste-Setup.exe
+    InstallerSha256: A8B23BFF78FE7F5389075B26086D416D793B5E026FF9A1A50B7D68E7CF72F360
 ManifestType: installer
 ManifestVersion: 1.6.0

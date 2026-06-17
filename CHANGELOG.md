@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.41
+
+### Bug Fixes
+
+- **Der lokale Sprachdienst lässt sich unter Windows mit NVIDIA-Grafik wieder zuverlässig herunterladen.** WhisPaste überspringt nun kaputte Download-Einträge, fällt bei Bedarf sauber auf Vulkan oder CPU zurück und verarbeitet die von GitHub ausgelieferten Manifestdateien robust, statt mit „Netzwerkfehler: unknown" hängen zu bleiben.
+
 ## 1.2.40
 
 ### Features
