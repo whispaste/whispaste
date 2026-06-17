@@ -280,7 +280,7 @@ jobs:
         run: npm run build
 
       - name: Install Playwright
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium webkit
 
       - name: Run tests
         run: npm run test:ci
