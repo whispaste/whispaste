@@ -44,10 +44,10 @@
       "platform": "windows",
       "arch": "x64",
       "backend": "cuda12",
-      "url": "",
+      "url": "https://github.com/ggml-org/whisper.cpp/releases/download/v1.8.4/whisper-cublas-12.4.0-bin-x64.zip",
       "size_bytes": 457024596,
       "source": "upstream",
-      "sha256": "https://github.com/ggml-org/whisper.cpp/releases/download/v1.8.4/whisper-cublas-12.4.0-bin-x64.zip"
+      "sha256": "b07cff4e59831b227896018facbb6334907bf324a342c84597c44f087823d252"
     }
   ]
 }
