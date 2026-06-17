@@ -176,7 +176,65 @@ if [ "$violations" -eq 1 ]; then
   exit 1
 fi
 
-# ── L5: Semgrep SAST scan ─────────────────────────────────────────────
+# ── L5: Loam ratchet gate ─────────────────────────────────────────────
+# Mirrors the Linux CI ratchet gate so a push cannot introduce new a11y,
+# anti-slop, duplicate-code, unused-export, complexity or cycle findings.
+
+if command -v dart >/dev/null 2>&1; then
+  echo ""
+  echo "◆ Loam ratchet gate..."
+  dart pub global activate loam 0.1.13 >/dev/null
+  export PATH="$PATH:$HOME/.pub-cache/bin"
+  if command -v flutter >/dev/null 2>&1; then
+    export DART_SDK="$(dirname "$(command -v flutter)")/cache/dart-sdk"
+  fi
+  if ! loam gate --no-update-check 2>&1; then
+    echo ""
+    echo "╔═══════════════════════════════════════════════════════════╗"
+    echo "║  ❌ BLOCKED: Loam ratchet gate found findings            ║"
+    echo "╚═══════════════════════════════════════════════════════════╝"
+    echo ""
+    echo "Fix all findings above before pushing."
+    echo "To bypass (DANGEROUS): git push --no-verify"
+    echo ""
+    exit 1
+  fi
+  echo "  ✓ Loam: no findings"
+else
+  echo "  ⚠ dart not available — skipping Loam (install Flutter/Dart)"
+fi
+
+# ── L6: Website CI gate ───────────────────────────────────────────────
+# Mirrors the GitHub Website job enough to catch Playwright/browser drift
+# before a push leaves the machine.
+
+if [ -f website/package.json ]; then
+  if command -v npm >/dev/null 2>&1 && [ -d website/node_modules ]; then
+    echo ""
+    echo "◆ Website CI check..."
+    if ! (
+      cd website &&
+        npm run build &&
+        npx playwright install chromium webkit &&
+        npm run test:ci
+    ) 2>&1; then
+      echo ""
+      echo "╔═══════════════════════════════════════════════════════════╗"
+      echo "║  ❌ BLOCKED: website CI gate failed                      ║"
+      echo "╚═══════════════════════════════════════════════════════════╝"
+      echo ""
+      echo "Fix website errors above before pushing."
+      echo "To bypass (DANGEROUS): git push --no-verify"
+      echo ""
+      exit 1
+    fi
+    echo "  ✓ Website CI: OK"
+  else
+    echo "  ⚠ Website CI skipped — run: cd website && npm install"
+  fi
+fi
+
+# ── L7: Semgrep SAST scan ─────────────────────────────────────────────
 # Runs the community CI rule pack on all source files.
 # Skipped if semgrep is not installed (non-blocking for new machines).
 
@@ -210,7 +268,7 @@ else
   echo "  ⚠ Semgrep not available — skipping (install: brew install semgrep)"
 fi
 
-# ── L6: OSV-Scanner — dependency vulnerability check ─────────────────
+# ── L8: OSV-Scanner — dependency vulnerability check ─────────────────
 # Scans pubspec.lock (Dart/Flutter) and website/package-lock.json (npm)
 # against the OSV database — same source as Dependabot.
 # Skipped if osv-scanner is not installed (non-blocking for new machines).

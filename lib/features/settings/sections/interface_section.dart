@@ -93,6 +93,8 @@ class InterfaceSection extends ConsumerWidget {
                 ref
                     .read(settingsProvider.notifier)
                     .updateSettings(
+                      // Compatibility write until legacy autostart fields are
+                      // removed from AppSettings.copyWith.
                       // ignore: deprecated_member_use
                       (s) => s.copyWith(
                         launchAtStartup: launch,

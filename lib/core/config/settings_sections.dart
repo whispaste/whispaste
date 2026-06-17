@@ -738,8 +738,6 @@ class BehaviorSettings {
 class AudioProcessingSettings {
   const AudioProcessingSettings();
 
-  static const AudioProcessingSettings defaults = AudioProcessingSettings();
-
   factory AudioProcessingSettings.fromMap(Map<String, String> _) =>
       const AudioProcessingSettings();
 
