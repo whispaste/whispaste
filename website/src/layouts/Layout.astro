@@ -2,6 +2,7 @@
 import "../styles/global.css";
 import { t, type Locale } from "../scripts/i18n.ts";
 import OrganizationSchema from "../components/schema/OrganizationSchema.astro";
+import WebVitals from "../components/WebVitals.astro";
 
 interface Props {
   title?: string;
@@ -159,6 +160,25 @@ const ogLocaleAlternate = lang === "de" ? "en_US" : "de_DE";
         if (os) document.documentElement.dataset.os = os;
       })();
     </script>
+    {/* Matomo Analytics — prod-only, cookiefrei, DSGVO-konfiguriert. Site 4 = WhisPaste. */}
+    {import.meta.env.PROD && (
+      <script is:inline set:html={`var _paq = (window._paq = window._paq || []);
+_paq.push(["disableCookies"]);
+_paq.push(["setDoNotTrack", true]);
+_paq.push(["setAnonymizeIp", true]);
+_paq.push(["trackPageView"]);
+_paq.push(["enableLinkTracking"]);
+(function () {
+  _paq.push(["setTrackerUrl", "https://matomo.silvio-und-maik.de/matomo.php"]);
+  _paq.push(["setSiteId", "4"]);
+  var d = document, g = d.createElement("script");
+  g.src = "https://matomo.silvio-und-maik.de/matomo.js";
+  g.async = true;
+  d.head.appendChild(g);
+})();`} />
+    )}
+    {/* Core Web Vitals (RUM) → Matomo custom events. First-party bundled, prod-only. */}
+    {import.meta.env.PROD && <WebVitals enabled={true} />}
   </head>
   <body class="antialiased">
     <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:bg-brand-cyan focus:text-brand-darker focus:rounded-lg focus:font-semibold focus:shadow-lg" data-i18n="nav.skip">
