@@ -116,8 +116,9 @@ const { lang, seo, breadcrumbs, hero, cta, alternateSlugs } = Astro.props;
           <slot />
         </div>
 
-        {/* CTA-Block — konsistente Position am Ende jeder Long-Tail-Page */}
-        <aside class="mt-14 rounded-2xl border border-brand-cyan/20 bg-brand-cyan/[0.03] p-8 text-center">
+        {/* CTA-Block — konsistente Position am Ende jeder Long-Tail-Page.
+            id=lp-cta dient zugleich als Sentinel fürs „Inhalt gelesen"-Event. */}
+        <aside id="lp-cta" class="mt-14 rounded-2xl border border-brand-cyan/20 bg-brand-cyan/[0.03] p-8 text-center">
           <a
             href={cta.href}
             class="inline-flex items-center gap-2 rounded-xl bg-brand-cyan px-6 py-3 font-semibold text-brand-darker transition-transform hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-cyan"
@@ -145,6 +146,24 @@ const { lang, seo, breadcrumbs, hero, cta, alternateSlugs } = Astro.props;
     import { updateThemeIcon } from '../scripts/theme';
     applyLang();
     updateThemeIcon();
+
+    // Engagement-Event „Inhalt gelesen" (cookieless, einmalig): feuert, sobald der
+    // CTA-Block am Seitenende sichtbar wird — Beleg, dass die Long-Tail-Seite bis
+    // zum Ende konsumiert wurde. Name = Seitentitel. Guard: _paq nur in Prod.
+    const sentinel = document.getElementById('lp-cta');
+    if (sentinel && 'IntersectionObserver' in window) {
+      const obs = new IntersectionObserver((entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) {
+            const paq = (window as any)._paq;
+            if (paq) paq.push(['trackEvent', 'Engagement', 'Inhalt gelesen', document.title]);
+            obs.disconnect();
+            break;
+          }
+        }
+      }, { threshold: 0.6 });
+      obs.observe(sentinel);
+    }
   </script>
 
   {/* BreadcrumbList-JSON-LD — Items 1:1 wie in der sichtbaren Nav oben */}
