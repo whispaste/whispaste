@@ -51,8 +51,8 @@ type Lang = (typeof LANGS)[number];
         <div id="changelog-list" class="space-y-8" data-top-version={releases[0]?.tag ?? ''}>
           {releases.map((release, index) => (
             <article class="release-card rounded-2xl border border-white/[0.06] p-6 sm:p-8 scroll-reveal">
-              <!-- Version header -->
-              <div class="flex items-center gap-3 mb-5">
+              <!-- Version header — h2 für saubere Heading-Hierarchie (h1 → h2 → h3-Sektionen) -->
+              <h2 class="flex items-center gap-3 mb-5">
                 <span class={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-semibold ${index === 0 ? 'bg-brand-cyan/15 text-brand-cyan border border-brand-cyan/20' : 'bg-white/[0.06] text-gray-300 border border-white/[0.08]'}`}>
                   {index === 0 && (
                     <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
@@ -63,7 +63,7 @@ type Lang = (typeof LANGS)[number];
                 {index === 0 && (
                   <span class="text-xs font-medium text-brand-cyan/70 uppercase tracking-wider" data-i18n="changelog.latest">{t(pageLang, "changelog.latest")}</span>
                 )}
-              </div>
+              </h2>
 
               {/*
                 Per-card body: we emit BOTH languages so the static HTML carries

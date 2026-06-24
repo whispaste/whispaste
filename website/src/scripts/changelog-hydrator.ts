@@ -284,7 +284,8 @@ export function defaultCardRenderer(release: Release): HTMLElement {
   const article = document.createElement("article");
   article.className =
     "release-card rounded-2xl border border-white/[0.06] p-6 sm:p-8 scroll-reveal visible";
-  const header = document.createElement("div");
+  // h2 (statt div) für konsistente Heading-Hierarchie mit den statischen Karten.
+  const header = document.createElement("h2");
   header.className = "flex items-center gap-3 mb-5";
   const badge = document.createElement("span");
   badge.className =
