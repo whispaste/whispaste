@@ -1,6 +1,6 @@
 /// Review prompt dialog — surfaces a rating/star nudge based on the deploy channel.
 ///
-/// For store builds: uses [InAppReview.requestReview] directly.
+/// For store builds: opens the Microsoft Store review deep-link via url_launcher.
 /// For portable/installer builds: shows links to GitHub star and Store review.
 library;
 
@@ -9,7 +9,6 @@ import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:in_app_review/in_app_review.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/app_urls.dart';
@@ -102,7 +101,7 @@ class _ReviewPromptWatcherState extends ConsumerState<ReviewPromptWatcher> {
                 onResult: (action) async {
                   Navigator.of(ctx).pop();
                   _dialogShowing = false;
-                  await _handleAction(action, channel);
+                  await _handleAction(action);
                 },
               ),
             ],
@@ -113,22 +112,12 @@ class _ReviewPromptWatcherState extends ConsumerState<ReviewPromptWatcher> {
     _dialogShowing = false;
   }
 
-  Future<void> _handleAction(
-    _ReviewAction action,
-    DeployChannel channel,
-  ) async {
+  Future<void> _handleAction(_ReviewAction action) async {
     final notifier = ref.read(reviewPromptProvider.notifier);
     switch (action) {
       case _ReviewAction.rateStore:
         await notifier.markShown();
-        if (channel == DeployChannel.store) {
-          final review = InAppReview.instance;
-          if (await review.isAvailable()) {
-            await review.requestReview();
-          }
-        } else {
-          await _launchUrl(_storeUrl());
-        }
+        await _launchUrl(_storeUrl());
       case _ReviewAction.starGitHub:
         await notifier.markShown();
         await _launchUrl(kGitHubRepoUrl);
@@ -139,7 +128,8 @@ class _ReviewPromptWatcherState extends ConsumerState<ReviewPromptWatcher> {
     }
   }
 
-  // Only called for non-store channels on Windows — always the Windows Store URL.
+  // Always the Windows Store review URL — the rateStore action is only
+  // reachable when the Store button is shown (Windows store/installer/portable).
   String _storeUrl() => kWindowsStoreReviewUrl;
 
   Future<void> _launchUrl(String url) async {

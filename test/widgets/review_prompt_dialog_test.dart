@@ -222,6 +222,23 @@ void main() {
       expect(capturedUrl, kWindowsStoreReviewUrl);
     });
 
+    testWidgets(
+      'Windows store Yes-button → Windows Store review URL (channel-agnostic)',
+      (tester) async {
+        await _showDialog(
+          tester,
+          DeployChannel.store,
+          isWindows: true,
+          l10n: l10n,
+        );
+
+        await tester.tap(find.text(l10n.reviewPromptYes));
+        await tester.pumpAndSettle();
+
+        expect(capturedUrl, kWindowsStoreReviewUrl);
+      },
+    );
+
     testWidgets('macOS/Linux Star-on-GitHub tap → GitHub repo URL', (
       tester,
     ) async {
