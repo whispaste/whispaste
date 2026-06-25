@@ -5,8 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'dart:convert';
 import '../../core/app_info.dart';
+import '../../core/app_urls.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/logging/app_logger.dart';
 import '../../core/theme/colors.dart';
@@ -24,6 +26,12 @@ const _supabasePublishableKey = String.fromEnvironment(
   'SUPABASE_PUBLISHABLE_KEY',
   defaultValue: '',
 );
+
+/// Override for testing. When non-null, the Thank-You-View review CTAs use
+/// this value instead of [Platform.isWindows] to decide whether the
+/// Store-Review button is shown alongside the GitHub-Stern button.
+@visibleForTesting
+bool? feedbackPlatformIsWindowsOverride;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -57,6 +65,16 @@ Future<bool> _isClientRateLimited() async {
 Future<void> _recordFeedbackSubmission() async {
   final prefs = await SharedPreferences.getInstance();
   await prefs.setInt(_kLastFeedbackKey, DateTime.now().millisecondsSinceEpoch);
+}
+
+/// Opens [url] in the external handler (store app or browser). Used by the
+/// Thank-You-View review CTAs — URLs come from the single-source
+/// `app_urls.dart` constants.
+Future<void> _launchExternalUrl(String url) async {
+  final uri = Uri.parse(url);
+  if (await canLaunchUrl(uri)) {
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
 }
 
 /// Feedback page — polished, chat-inspired feedback form.
@@ -112,8 +130,14 @@ class _FeedbackPageState extends State<FeedbackPage> {
     final l10n = L10n.of(context);
 
     if (_submitted) {
+      final isWindows = feedbackPlatformIsWindowsOverride ?? Platform.isWindows;
       return WpPageShell(
-        child: _ThankYouView(isDark: isDark, ts: ts, onReset: _reset),
+        child: _ThankYouView(
+          isDark: isDark,
+          ts: ts,
+          onReset: _reset,
+          isWindows: isWindows,
+        ),
       );
     }
 
@@ -435,11 +459,13 @@ class _ThankYouView extends StatelessWidget {
     required this.isDark,
     required this.ts,
     required this.onReset,
+    required this.isWindows,
   });
 
   final bool isDark;
   final TextTheme ts;
   final VoidCallback onReset;
+  final bool isWindows;
 
   @override
   Widget build(BuildContext context) {
@@ -493,11 +519,71 @@ class _ThankYouView extends StatelessWidget {
                   ),
                   label: Text(l10n.feedbackSendAnother),
                 ),
+                const SizedBox(height: WpSpacing.xxxl),
+                _ReviewSupportCtas(
+                  isDark: isDark,
+                  ts: ts,
+                  isWindows: isWindows,
+                ),
               ],
             ),
           ),
         );
       },
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Review-CTA section — discrete "Rate & support WhisPaste" actions shown only
+// in the Thank-You-View, so they never compete with the feedback submit. URLs
+// come from the single-source app_urls.dart constants; l10n keys + button
+// language mirror the review-prompt dialog and the settings entry.
+// ---------------------------------------------------------------------------
+
+class _ReviewSupportCtas extends StatelessWidget {
+  const _ReviewSupportCtas({
+    required this.isDark,
+    required this.ts,
+    required this.isWindows,
+  });
+
+  final bool isDark;
+  final TextTheme ts;
+  final bool isWindows;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(l10n.reviewSupportEntry, style: ts.titleSmall),
+        const SizedBox(height: WpSpacing.xs),
+        Text(
+          l10n.reviewSupportSubtitle,
+          textAlign: TextAlign.center,
+          style: ts.bodySmall?.copyWith(
+            color: isDark
+                ? WpColorsDark.textSecondary
+                : WpColorsLight.textSecondary,
+          ),
+        ),
+        const SizedBox(height: WpSpacing.md),
+        // Windows has a store listing → offer the Store-Review deep-link as the
+        // primary action; macOS/Linux have no store, so only GitHub is offered.
+        if (isWindows) ...[
+          FilledButton(
+            onPressed: () => _launchExternalUrl(kWindowsStoreReviewUrl),
+            child: Text(l10n.reviewPromptRateStore),
+          ),
+          const SizedBox(height: WpSpacing.xs),
+        ],
+        OutlinedButton(
+          onPressed: () => _launchExternalUrl(kGitHubRepoUrl),
+          child: Text(l10n.reviewPromptStarGitHub),
+        ),
+      ],
     );
   }
 }
