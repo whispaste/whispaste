@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/config/settings_labels.dart';
 import '../../core/config/settings_provider.dart';
 import '../../core/app_info.dart';
+import '../../core/app_urls.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
@@ -80,13 +81,13 @@ class AboutPage extends ConsumerWidget {
               _QuickAction(
                 icon: FontAwesomeIcons.github.data,
                 label: l10n.aboutGitHub,
-                url: 'https://github.com/whispaste/whispaste',
+                url: kGitHubRepoUrl,
                 isDark: isDark,
               ),
               _QuickAction(
                 icon: LucideIcons.circleAlert,
                 label: l10n.aboutReportIssue,
-                url: 'https://github.com/whispaste/whispaste/issues',
+                url: '$kGitHubRepoUrl/issues',
                 isDark: isDark,
               ),
               if (channel != DeployChannel.store)
@@ -151,7 +152,7 @@ class AboutPage extends ConsumerWidget {
               _SupportButton(
                 icon: LucideIcons.star,
                 label: l10n.aboutStarOnGitHub,
-                url: 'https://github.com/whispaste/whispaste',
+                url: kGitHubRepoUrl,
                 isDark: isDark,
               ),
             ],
@@ -212,14 +213,14 @@ class AboutPage extends ConsumerWidget {
           _LinkRow(
             icon: FontAwesomeIcons.github.data,
             label: l10n.aboutGitHubRepo,
-            url: 'https://github.com/whispaste/whispaste',
-            displayUrl: 'github.com/whispaste/whispaste',
+            url: kGitHubRepoUrl,
+            displayUrl: kGitHubRepoUrl.replaceFirst('https://', ''),
             isDark: isDark,
           ),
           _LinkRow(
             icon: LucideIcons.scale,
             label: l10n.aboutMitLicense,
-            url: 'https://github.com/whispaste/whispaste/blob/main/LICENSE',
+            url: '$kGitHubRepoUrl/blob/main/LICENSE',
             displayUrl: l10n.aboutViewOnGitHub,
             isDark: isDark,
           ),

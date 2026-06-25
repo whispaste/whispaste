@@ -12,20 +12,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:in_app_review/in_app_review.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../core/app_urls.dart';
 import '../core/l10n/generated/app_localizations.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import '../services/deploy_channel_service.dart';
 import '../services/review_prompt_service.dart';
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-const _kGitHubUrl = 'https://github.com/whispaste/whispaste';
-
-const _kWindowsStoreReviewUrl =
-    'ms-windows-store://review/?ProductId=9p22jvkrq2v0';
 
 /// Override for testing. When non-null, [ReviewPromptWatcher] uses this value
 /// instead of [Platform.isWindows].
@@ -139,7 +131,7 @@ class _ReviewPromptWatcherState extends ConsumerState<ReviewPromptWatcher> {
         }
       case _ReviewAction.starGitHub:
         await notifier.markShown();
-        await _launchUrl(_kGitHubUrl);
+        await _launchUrl(kGitHubRepoUrl);
       case _ReviewAction.notNow:
         await notifier.dismiss(permanent: false);
       case _ReviewAction.never:
@@ -148,7 +140,7 @@ class _ReviewPromptWatcherState extends ConsumerState<ReviewPromptWatcher> {
   }
 
   // Only called for non-store channels on Windows — always the Windows Store URL.
-  String _storeUrl() => _kWindowsStoreReviewUrl;
+  String _storeUrl() => kWindowsStoreReviewUrl;
 
   Future<void> _launchUrl(String url) async {
     final uri = Uri.parse(url);

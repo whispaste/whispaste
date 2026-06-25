@@ -13,6 +13,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/core/app_urls.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/services/deploy_channel_service.dart';
 import 'package:whispaste/services/review_prompt_service.dart';
@@ -218,7 +219,7 @@ void main() {
       await tester.tap(find.text(l10n.reviewPromptRateStore));
       await tester.pumpAndSettle();
 
-      expect(capturedUrl, 'ms-windows-store://review/?ProductId=9p22jvkrq2v0');
+      expect(capturedUrl, kWindowsStoreReviewUrl);
     });
 
     testWidgets('macOS/Linux Star-on-GitHub tap → GitHub repo URL', (
@@ -234,7 +235,9 @@ void main() {
       await tester.tap(find.text(l10n.reviewPromptStarGitHub));
       await tester.pumpAndSettle();
 
-      expect(capturedUrl, 'https://github.com/whispaste/whispaste');
+      // AC5 — the dialog launches the single-source GitHub URL constant, not a
+      // private duplicate.
+      expect(capturedUrl, kGitHubRepoUrl);
     });
 
     testWidgets('no apps.apple.com URL is ever launched — AC1', (tester) async {
