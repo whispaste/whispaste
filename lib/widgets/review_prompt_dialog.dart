@@ -13,6 +13,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../core/app_urls.dart';
 import '../core/l10n/generated/app_localizations.dart';
+import '../core/navigation/page_state.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import '../services/deploy_channel_service.dart';
@@ -125,6 +126,12 @@ class _ReviewPromptWatcherState extends ConsumerState<ReviewPromptWatcher> {
         await notifier.dismiss(permanent: false);
       case _ReviewAction.never:
         await notifier.dismiss(permanent: true);
+      case _ReviewAction.gateNegative:
+        // Negative sentiment → route to the internal feedback page (not the
+        // store). Snooze the prompt via the SharedPreferences-backed cooldown
+        // so it does not re-ask on the next session.
+        await notifier.dismiss(permanent: false);
+        ref.read(activePageProvider.notifier).setPage('feedback');
     }
   }
 
@@ -152,13 +159,19 @@ class _ReviewPromptWatcherState extends ConsumerState<ReviewPromptWatcher> {
 // Action enum
 // ---------------------------------------------------------------------------
 
-enum _ReviewAction { rateStore, starGitHub, notNow, never }
+enum _ReviewAction { rateStore, starGitHub, notNow, never, gateNegative }
+
+/// Two-stage flow of the dialog: the neutral sentiment question is shown
+/// first ([_GateStage.gate]); a positive answer reveals the review CTAs
+/// ([_GateStage.review]). A negative answer never reaches the review stage —
+/// it routes the user to the internal feedback page instead.
+enum _GateStage { gate, review }
 
 // ---------------------------------------------------------------------------
 // Dialog widget
 // ---------------------------------------------------------------------------
 
-class _ReviewPromptDialog extends StatelessWidget {
+class _ReviewPromptDialog extends StatefulWidget {
   const _ReviewPromptDialog({
     required this.channel,
     required this.isWindows,
@@ -172,16 +185,22 @@ class _ReviewPromptDialog extends StatelessWidget {
   final void Function(_ReviewAction) onResult;
 
   @override
+  State<_ReviewPromptDialog> createState() => _ReviewPromptDialogState();
+}
+
+class _ReviewPromptDialogState extends State<_ReviewPromptDialog> {
+  _GateStage _stage = _GateStage.gate;
+
+  @override
   Widget build(BuildContext context) {
     final slide = Tween<Offset>(
       begin: const Offset(0, 0.05),
       end: Offset.zero,
-    ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut));
+    ).animate(CurvedAnimation(parent: widget.animation, curve: Curves.easeOut));
 
     final l10n = L10n.of(context);
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final isStore = channel == DeployChannel.store;
 
     return Center(
       child: SlideTransition(
@@ -215,7 +234,12 @@ class _ReviewPromptDialog extends StatelessWidget {
                 ),
                 const SizedBox(height: WpSpacing.sm),
                 Text(
-                  l10n.reviewPromptBody,
+                  // The gate stage frames the question as internal feedback
+                  // (Microsoft Code of Conduct §3); only the review stage
+                  // mentions the store rating.
+                  _stage == _GateStage.gate
+                      ? l10n.reviewPromptGateBody
+                      : l10n.reviewPromptBody,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: isDark
                         ? WpColorsDark.textSecondary
@@ -224,22 +248,19 @@ class _ReviewPromptDialog extends StatelessWidget {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: WpSpacing.lg),
-                if (isStore)
-                  ..._storeButtons(l10n, theme)
-                else
-                  ..._portableButtons(l10n, theme, isDark),
+                ..._stageButtons(l10n, theme, isDark),
                 const SizedBox(height: WpSpacing.sm),
                 Row(
                   children: [
                     Expanded(
                       child: TextButton(
-                        onPressed: () => onResult(_ReviewAction.notNow),
+                        onPressed: () => widget.onResult(_ReviewAction.notNow),
                         child: Text(l10n.reviewPromptNotNow),
                       ),
                     ),
                     Expanded(
                       child: TextButton(
-                        onPressed: () => onResult(_ReviewAction.never),
+                        onPressed: () => widget.onResult(_ReviewAction.never),
                         child: Text(
                           l10n.reviewPromptNever,
                           style: TextStyle(
@@ -261,26 +282,55 @@ class _ReviewPromptDialog extends StatelessWidget {
     );
   }
 
-  List<Widget> _storeButtons(L10n l10n, ThemeData theme) => [
+  // Resolves the middle button row to the current stage: the neutral gate
+  // answers first, then — after a positive answer — the channel-specific
+  // review CTAs.
+  List<Widget> _stageButtons(L10n l10n, ThemeData theme, bool isDark) {
+    switch (_stage) {
+      case _GateStage.gate:
+        return _gateButtons(l10n);
+      case _GateStage.review:
+        return widget.channel == DeployChannel.store
+            ? _storeButtons(l10n)
+            : _portableButtons(l10n, theme, isDark);
+    }
+  }
+
+  // Neutral sentiment answers — positive reveals the review CTAs, negative
+  // routes to the internal feedback page (never to the store).
+  List<Widget> _gateButtons(L10n l10n) => [
     FilledButton(
       autofocus: true,
-      onPressed: () => onResult(_ReviewAction.rateStore),
+      onPressed: () => setState(() => _stage = _GateStage.review),
+      child: Text(l10n.reviewPromptGateYes),
+    ),
+    const SizedBox(height: WpSpacing.xs),
+    OutlinedButton(
+      onPressed: () => widget.onResult(_ReviewAction.gateNegative),
+      child: Text(l10n.reviewPromptGateNo),
+    ),
+  ];
+
+  List<Widget> _storeButtons(L10n l10n) => [
+    FilledButton(
+      autofocus: true,
+      onPressed: () => widget.onResult(_ReviewAction.rateStore),
       child: Text(l10n.reviewPromptYes),
     ),
   ];
 
   List<Widget> _portableButtons(L10n l10n, ThemeData theme, bool isDark) {
-    if (isWindows) {
+    if (widget.isWindows) {
       // Windows non-store: both Store review and GitHub star are valid targets.
       return [
         FilledButton(
           autofocus: true,
-          onPressed: () => onResult(_ReviewAction.rateStore),
+          onPressed: () => widget.onResult(_ReviewAction.rateStore),
           child: Text(l10n.reviewPromptRateStore),
         ),
         const SizedBox(height: WpSpacing.xs),
         OutlinedButton(
-          onPressed: () => onResult(_ReviewAction.starGitHub),
+          onPressed: () => widget.onResult(_ReviewAction.starGitHub),
           child: Text(l10n.reviewPromptStarGitHub),
         ),
       ];
@@ -289,7 +339,7 @@ class _ReviewPromptDialog extends StatelessWidget {
     return [
       FilledButton(
         autofocus: true,
-        onPressed: () => onResult(_ReviewAction.starGitHub),
+        onPressed: () => widget.onResult(_ReviewAction.starGitHub),
         child: Text(l10n.reviewPromptStarGitHub),
       ),
     ];

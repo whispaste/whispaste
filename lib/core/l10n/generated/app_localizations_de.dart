@@ -2477,6 +2477,16 @@ class L10nDe extends L10n {
   String get reviewPromptRateStore => '★ Im Store bewerten';
 
   @override
+  String get reviewPromptGateBody =>
+      'Nur eine kurze Frage an uns — das ist keine Store-Bewertung.';
+
+  @override
+  String get reviewPromptGateYes => 'Ja, gefällt mir';
+
+  @override
+  String get reviewPromptGateNo => 'Eher nicht';
+
+  @override
   String get insufficientRamTitle => 'Zu wenig Arbeitsspeicher';
 
   @override

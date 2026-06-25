@@ -12,9 +12,11 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/app_urls.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
+import 'package:whispaste/core/navigation/page_state.dart';
 import 'package:whispaste/services/deploy_channel_service.dart';
 import 'package:whispaste/services/review_prompt_service.dart';
 import 'package:whispaste/widgets/review_prompt_dialog.dart';
@@ -31,6 +33,12 @@ class _FakeReviewPromptNotifier extends ReviewPromptNotifier {
   _FakeReviewPromptNotifier(this._channel);
   final DeployChannel _channel;
 
+  /// Recorder for the persistence seam — the real notifier writes the
+  /// cooldown to SharedPreferences inside [dismiss]; the fake just records
+  /// that the gate's negative path invoked it.
+  bool dismissCalled = false;
+  bool? dismissPermanent;
+
   @override
   ReviewPromptState build() =>
       ReviewPromptState(shouldShowPrompt: false, channel: _channel);
@@ -45,8 +53,11 @@ class _FakeReviewPromptNotifier extends ReviewPromptNotifier {
       state = state.copyWith(shouldShowPrompt: false);
 
   @override
-  Future<void> dismiss({required bool permanent}) async =>
-      state = state.copyWith(shouldShowPrompt: false);
+  Future<void> dismiss({required bool permanent}) async {
+    dismissCalled = true;
+    dismissPermanent = permanent;
+    state = state.copyWith(shouldShowPrompt: false);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -90,6 +101,14 @@ Future<void> _dismiss(WidgetTester tester, L10n l10n) async {
   await tester.pumpAndSettle();
 }
 
+/// Taps the positive gate answer to advance from the neutral-question stage
+/// to the review-buttons stage (AC2). No-op if the dialog already shows the
+/// review buttons.
+Future<void> _answerGateYes(WidgetTester tester, L10n l10n) async {
+  await tester.tap(find.text(l10n.reviewPromptGateYes));
+  await tester.pumpAndSettle();
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -115,6 +134,105 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
+  // AC1 / AC5 — sentiment gate renders first
+  // ---------------------------------------------------------------------------
+
+  group('sentiment gate', () {
+    testWidgets('renders the neutral gate question first — no review buttons '
+        'visible until answered (AC1)', (tester) async {
+      await _showDialog(
+        tester,
+        DeployChannel.installer,
+        isWindows: true,
+        l10n: l10n,
+      );
+
+      // Neutral question + internal-feedback declaration are visible.
+      expect(find.text(l10n.reviewPromptTitle), findsOneWidget);
+      expect(find.text(l10n.reviewPromptGateBody), findsOneWidget);
+      // The two sentiment answers are present.
+      expect(find.text(l10n.reviewPromptGateYes), findsOneWidget);
+      expect(find.text(l10n.reviewPromptGateNo), findsOneWidget);
+
+      // No review CTA is reachable yet — they only appear after a positive
+      // answer (AC2), so the user is never pushed straight to the store.
+      expect(find.text(l10n.reviewPromptRateStore), findsNothing);
+      expect(find.text(l10n.reviewPromptStarGitHub), findsNothing);
+      expect(find.text(l10n.reviewPromptYes), findsNothing);
+
+      await _dismiss(tester, l10n);
+    });
+
+    testWidgets('positive answer reveals the channel-specific review buttons '
+        '(AC2)', (tester) async {
+      await _showDialog(
+        tester,
+        DeployChannel.installer,
+        isWindows: true,
+        l10n: l10n,
+      );
+      await _answerGateYes(tester, l10n);
+
+      // The gate answers are gone and the review CTAs are now reachable.
+      expect(find.text(l10n.reviewPromptGateYes), findsNothing);
+      expect(find.text(l10n.reviewPromptGateNo), findsNothing);
+      expect(find.text(l10n.reviewPromptRateStore), findsOneWidget);
+      expect(find.text(l10n.reviewPromptStarGitHub), findsOneWidget);
+
+      await _dismiss(tester, l10n);
+    });
+
+    testWidgets('negative answer navigates to the feedback page — never '
+        'launches a store URL (AC3)', (tester) async {
+      String? capturedUrl;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(_launcherChannel, (call) async {
+            if (call.method == 'canLaunch' || call.method == 'launch') {
+              capturedUrl = (call.arguments as Map)['url'] as String?;
+            }
+            return true;
+          });
+
+      await _showDialog(
+        tester,
+        DeployChannel.installer,
+        isWindows: true,
+        l10n: l10n,
+      );
+
+      await tester.tap(find.text(l10n.reviewPromptGateNo));
+      await tester.pumpAndSettle();
+
+      // Routed to the internal feedback page — not the store.
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ReviewPromptWatcher)),
+      );
+      expect(container.read(activePageProvider), 'feedback');
+      // No store (or any) URL was launched on the negative path.
+      expect(capturedUrl, isNull);
+    });
+
+    testWidgets('negative answer snoozes the prompt so it does not re-ask '
+        'across sessions (AC4)', (tester) async {
+      final notifier = await _showDialog(
+        tester,
+        DeployChannel.installer,
+        isWindows: true,
+        l10n: l10n,
+      );
+
+      await tester.tap(find.text(l10n.reviewPromptGateNo));
+      await tester.pumpAndSettle();
+
+      // The SharedPreferences-backed dismiss seam was invoked (non-permanent
+      // snooze) and the prompt is no longer surfacing.
+      expect(notifier.dismissCalled, isTrue);
+      expect(notifier.dismissPermanent, isFalse);
+      expect(notifier.state.shouldShowPrompt, isFalse);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // AC2 / AC3 / AC4 — button layout per platform × channel
   // ---------------------------------------------------------------------------
 
@@ -127,6 +245,7 @@ void main() {
         isWindows: false,
         l10n: l10n,
       );
+      await _answerGateYes(tester, l10n);
 
       expect(find.text(l10n.reviewPromptStarGitHub), findsOneWidget);
       expect(find.text(l10n.reviewPromptRateStore), findsNothing);
@@ -143,6 +262,7 @@ void main() {
           isWindows: true,
           l10n: l10n,
         );
+        await _answerGateYes(tester, l10n);
 
         expect(find.text(l10n.reviewPromptRateStore), findsOneWidget);
         expect(find.text(l10n.reviewPromptStarGitHub), findsOneWidget);
@@ -160,6 +280,7 @@ void main() {
           isWindows: true,
           l10n: l10n,
         );
+        await _answerGateYes(tester, l10n);
 
         expect(find.text(l10n.reviewPromptRateStore), findsOneWidget);
         expect(find.text(l10n.reviewPromptStarGitHub), findsOneWidget);
@@ -177,6 +298,7 @@ void main() {
           isWindows: true,
           l10n: l10n,
         );
+        await _answerGateYes(tester, l10n);
 
         expect(find.text(l10n.reviewPromptYes), findsOneWidget);
         expect(find.text(l10n.reviewPromptRateStore), findsNothing);
@@ -215,6 +337,7 @@ void main() {
         isWindows: true,
         l10n: l10n,
       );
+      await _answerGateYes(tester, l10n);
 
       await tester.tap(find.text(l10n.reviewPromptRateStore));
       await tester.pumpAndSettle();
@@ -231,6 +354,7 @@ void main() {
           isWindows: true,
           l10n: l10n,
         );
+        await _answerGateYes(tester, l10n);
 
         await tester.tap(find.text(l10n.reviewPromptYes));
         await tester.pumpAndSettle();
@@ -248,6 +372,7 @@ void main() {
         isWindows: false,
         l10n: l10n,
       );
+      await _answerGateYes(tester, l10n);
 
       await tester.tap(find.text(l10n.reviewPromptStarGitHub));
       await tester.pumpAndSettle();
@@ -265,6 +390,7 @@ void main() {
         isWindows: true,
         l10n: l10n,
       );
+      await _answerGateYes(tester, l10n);
 
       await tester.tap(find.text(l10n.reviewPromptRateStore));
       await tester.pumpAndSettle();

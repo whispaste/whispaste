@@ -864,6 +864,9 @@
   "reviewPromptNever": "אל תשאל שוב",
   "reviewPromptStarGitHub": "⭐ כוכב ב-GitHub",
   "reviewPromptRateStore": "★ דרג בחנות",
+  "reviewPromptGateBody": "רק שאלה קצרה אלינו — זו אינה דירוג בחנות.",
+  "reviewPromptGateYes": "כן, אני אוהב את זה",
+  "reviewPromptGateNo": "לא ממש",
   "insufficientRamTitle": "אין מספיק זיכרון",
   "insufficientRamBody": "WhisPaste דורש לפחות {requiredGb} GB RAM. למערכת שלך יש {detectedGb} GB.\n\nעם פחות זיכרון, מנוע ה-AI עלול להיכשל.",
   "@insufficientRamBody": {

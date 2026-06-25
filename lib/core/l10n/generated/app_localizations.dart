@@ -4431,6 +4431,24 @@ abstract class L10n {
   /// **'★ Rate on the Store'**
   String get reviewPromptRateStore;
 
+  /// No description provided for @reviewPromptGateBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Just a quick question for us — this isn\'t a store rating.'**
+  String get reviewPromptGateBody;
+
+  /// No description provided for @reviewPromptGateYes.
+  ///
+  /// In en, this message translates to:
+  /// **'Yes, I like it'**
+  String get reviewPromptGateYes;
+
+  /// No description provided for @reviewPromptGateNo.
+  ///
+  /// In en, this message translates to:
+  /// **'Not really'**
+  String get reviewPromptGateNo;
+
   /// No description provided for @insufficientRamTitle.
   ///
   /// In en, this message translates to:
