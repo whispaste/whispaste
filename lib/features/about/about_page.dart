@@ -33,6 +33,12 @@ class AboutPage extends ConsumerWidget {
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
     final channel = ref.watch(deployChannelProvider);
     final updateState = ref.watch(updateProvider);
+    // Always-on review & support entry: opens the Microsoft Store review
+    // deep-link on Windows (where a store listing exists) and the GitHub
+    // repository on macOS/Linux. Single-source URLs from app_urls.dart.
+    final reviewSupportUrl = Platform.isWindows
+        ? kWindowsStoreReviewUrl
+        : kGitHubRepoUrl;
     final hotkeyLabel = formatHotkeyShortcut(
       settings.hotkeyModifiers,
       settings.hotkeyKey,
@@ -137,6 +143,12 @@ class AboutPage extends ConsumerWidget {
             spacing: WpSpacing.sm,
             runSpacing: WpSpacing.sm,
             children: [
+              _SupportButton(
+                icon: LucideIcons.star,
+                label: l10n.reviewSupportEntry,
+                url: reviewSupportUrl,
+                isDark: isDark,
+              ),
               _SupportButton(
                 icon: LucideIcons.heart,
                 label: l10n.aboutGitHubSponsors,

@@ -290,7 +290,8 @@ void main() {
     );
 
     testWidgets(
-      'Windows store: only "Loving it!" Yes-button — no portable buttons',
+      'Windows store: primary Store-Review button plus secondary GitHub-Stern '
+      'button (Doppelspur) — AC3',
       (tester) async {
         await _showDialog(
           tester,
@@ -300,9 +301,12 @@ void main() {
         );
         await _answerGateYes(tester, l10n);
 
+        // Primary store-review button (store-channel wording "Loving it!").
         expect(find.text(l10n.reviewPromptYes), findsOneWidget);
+        // Secondary GitHub-Stern button next to it (GitHub-Stern-Doppelspur).
+        expect(find.text(l10n.reviewPromptStarGitHub), findsOneWidget);
+        // The portable "Rate on the Store" wording is still NOT used here.
         expect(find.text(l10n.reviewPromptRateStore), findsNothing);
-        expect(find.text(l10n.reviewPromptStarGitHub), findsNothing);
 
         await _dismiss(tester, l10n);
       },

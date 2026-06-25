@@ -4449,6 +4449,24 @@ abstract class L10n {
   /// **'Not really'**
   String get reviewPromptGateNo;
 
+  /// No description provided for @reviewSupportEntry.
+  ///
+  /// In en, this message translates to:
+  /// **'Rate & support WhisPaste'**
+  String get reviewSupportEntry;
+
+  /// No description provided for @reviewSupportSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your rating helps others discover WhisPaste and supports the project.'**
+  String get reviewSupportSubtitle;
+
+  /// No description provided for @reviewSupportAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Rate'**
+  String get reviewSupportAction;
+
   /// No description provided for @insufficientRamTitle.
   ///
   /// In en, this message translates to:

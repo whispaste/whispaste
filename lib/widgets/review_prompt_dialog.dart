@@ -311,11 +311,20 @@ class _ReviewPromptDialogState extends State<_ReviewPromptDialog> {
     ),
   ];
 
+  // Store channel: the primary Store-Review button is accompanied by a
+  // secondary GitHub-Stern button (GitHub-Stern-Doppelspur) so store users
+  // can also support the open-source project. Mirrors the portable Windows
+  // layout (primary store review, secondary GitHub star).
   List<Widget> _storeButtons(L10n l10n) => [
     FilledButton(
       autofocus: true,
       onPressed: () => widget.onResult(_ReviewAction.rateStore),
       child: Text(l10n.reviewPromptYes),
+    ),
+    const SizedBox(height: WpSpacing.xs),
+    OutlinedButton(
+      onPressed: () => widget.onResult(_ReviewAction.starGitHub),
+      child: Text(l10n.reviewPromptStarGitHub),
     ),
   ];
 

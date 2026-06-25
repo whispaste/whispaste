@@ -2419,6 +2419,16 @@ class L10nHe extends L10n {
   String get reviewPromptGateNo => 'לא ממש';
 
   @override
+  String get reviewSupportEntry => 'דרגו ותמוכו ב-WhisPaste';
+
+  @override
+  String get reviewSupportSubtitle =>
+      'הדירוג שלך עוזר לאחרים לגלות את WhisPaste ותומך בפרויקט.';
+
+  @override
+  String get reviewSupportAction => 'דרגו';
+
+  @override
   String get insufficientRamTitle => 'אין מספיק זיכרון';
 
   @override

@@ -97,5 +97,22 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text(l10n.settingsResetToDefaults), findsOneWidget);
     });
+
+    testWidgets('shows always-on "Rate & support WhisPaste" entry — AC1', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        makeTestable(const SettingsPage(), locale: const Locale('en')),
+      );
+      await tester.pumpAndSettle();
+      // The entry lives at the end of the settings list — scroll it into view.
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, -1200),
+      );
+      await tester.pumpAndSettle();
+      // Always-on entry is visible and not gated by the review-prompt cooldown.
+      expect(find.text(l10n.reviewSupportEntry), findsOneWidget);
+    });
   });
 }

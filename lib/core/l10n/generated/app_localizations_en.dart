@@ -2467,6 +2467,16 @@ class L10nEn extends L10n {
   String get reviewPromptGateNo => 'Not really';
 
   @override
+  String get reviewSupportEntry => 'Rate & support WhisPaste';
+
+  @override
+  String get reviewSupportSubtitle =>
+      'Your rating helps others discover WhisPaste and supports the project.';
+
+  @override
+  String get reviewSupportAction => 'Rate';
+
+  @override
   String get insufficientRamTitle => 'Not Enough Memory';
 
   @override

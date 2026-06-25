@@ -2487,6 +2487,16 @@ class L10nDe extends L10n {
   String get reviewPromptGateNo => 'Eher nicht';
 
   @override
+  String get reviewSupportEntry => 'WhisPaste bewerten & unterstützen';
+
+  @override
+  String get reviewSupportSubtitle =>
+      'Deine Bewertung hilft anderen, WhisPaste zu finden, und unterstützt das Projekt.';
+
+  @override
+  String get reviewSupportAction => 'Bewerten';
+
+  @override
   String get insufficientRamTitle => 'Zu wenig Arbeitsspeicher';
 
   @override
