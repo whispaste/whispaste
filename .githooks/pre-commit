@@ -94,6 +94,27 @@ EOF
   fi
 fi
 
+# ── 0b. AI-Identity-Guard ───────────────────────────────────────────────
+# Blockt Commits, deren Author oder Committer ein KI-Agent ist (Identität,
+# nicht nur Trailer). Spiegelt den globalen ~/.git-hooks/pre-commit Guard,
+# der von unserem lokalen core.hooksPath geshadowt wird.
+IDENT="$(git var GIT_AUTHOR_IDENT 2>/dev/null) $(git var GIT_COMMITTER_IDENT 2>/dev/null)"
+if printf '%s' "$IDENT" | grep -qiE 'anthropic|claude|copilot|cursor\.so|codeium|opencode|\[bot\]@'; then
+  cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  BLOCKIERT: KI-Agent als Author/Committer
+╚══════════════════════════════════════════════════════════════╝
+
+$IDENT
+
+Kein KI-Agent darf als Author/Committer/Contributor erscheinen.
+  git config user.name "Your Name"
+  git config user.email "your@email.com"
+EOF
+  exit 1
+fi
+
 STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null || true)
 [ -z "$STAGED_FILES" ] && exit 0
 
