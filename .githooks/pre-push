@@ -1,116 +1,360 @@
 #!/usr/bin/env bash
-# WhisPaste .githooks/pre-push — versioniert, vom globalen pre-push-Dispatcher
-# (~/.git-hooks/pre-push, core.hooksPath) automatisch ausgeführt.
 #
-# Drei Schichten, alle hart (kein --no-verify als legitimer Weg):
-#   1. Public-Docs-QS (deterministisch, 0 Token): scripts/docs-attest.sh check
-#   2. Attest-Schranke: der zu pushende Commit MUSS bewusst attestiert sein
-#      (scripts/docs-attest.sh attest), sonst Block.
-#   3. Security-Net: die bestehende scripts/git-hooks/pre-push (protected paths,
-#      .gitignore-PROTECTED, Secrets, Semgrep, OSV) — hier wieder lebendig, da
-#      .git/hooks unter dem globalen core.hooksPath sonst geshadowt wäre.
-#   + KI-Co-Authored-By-Trailer-Riegel (HARD RULE).
+# WhisPaste — pre-push Hook (OSS-Allowlist-Guard, dritte Schicht)
 #
-# git übergibt Remote-Name ($1), URL ($2) und die Ref-Liste auf stdin. stdin
-# wird EINMAL gepuffert und an alle Schichten weitergereicht.
+# Fängt Commits ab, die den pre-commit-Hook umgangen haben
+# (`git commit --no-verify`). Scannt den gesamten Push-Range + HEAD-Baum.
+#
+# Aktivierung: `git config core.hooksPath .githooks`.
+# Bash-3.2-kompatibel (macOS /bin/bash) — kein mapfile/readarray.
+#
 set -euo pipefail
 
 ROOT="$(git rev-parse --show-toplevel)"
+ALLOWLIST="$ROOT/.ossallowlist"
 ATTESTSH="$ROOT/scripts/docs-attest.sh"
 DRIFTSH="$ROOT/scripts/docs-drift.sh"
-SECURITY="$ROOT/scripts/git-hooks/pre-push"
 REMOTE="${1:-}"
-URL="${2:-}"
 ZERO="0000000000000000000000000000000000000000"
-REFS="$(cat || true)"
 
-block() {
-  cat >&2 <<EOF
+# ── 1. Allowlist-Schranke (Push-Range + HEAD-Baum) ──────────────────────
+if [ ! -f "$ALLOWLIST" ]; then
+  echo "pre-push: WARN — .ossallowlist nicht gefunden, Guard inaktiv." >&2
+else
+  ALLOWED=()
+  while IFS= read -r line; do
+    case "$line" in ''|\#*) continue ;; esac
+    ALLOWED+=("$line")
+  done < "$ALLOWLIST"
 
-╳ Push blockiert — $1
+  is_allowed() {
+    local p="$1" a
+    for a in "${ALLOWED[@]}"; do
+      [ "$p" = "$a" ] && return 0
+      case "$a" in */) [[ "$p" == "$a"* ]] && return 0 ;; esac
+    done
+    return 1
+  }
+
+  violations=()
+  block() { cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  PUSH BLOCKIERT durch .ossallowlist                         ║
+╠══════════════════════════════════════════════════════════════╣
+║  $1
+╚══════════════════════════════════════════════════════════════╝
 EOF
-  exit 1
-}
+    printf '  - %s\n' "${violations[@]}" >&2
+    cat >&2 <<EOF
 
-# ── Schicht 1: Public-Docs-QS (Struktur) ─────────────────────────────────────
-# Sub-Skripte werden via `bash` aufgerufen (nicht direkt exec'd), damit ein
-# verlorenes Exec-Bit am Skript den Hook nicht aushebelt — nur DIESE Datei muss
-# für den globalen Dispatcher executable sein.
-if [ -f "$ATTESTSH" ]; then
-  bash "$ATTESTSH" check >/dev/null || block "Public-Docs-QS (scripts/docs-attest.sh check) fehlgeschlagen — Details: bash scripts/docs-attest.sh check"
+Nicht-öffentliche Pfade würden auf origin landen.
+Datei mit `git rm --cached` aus dem Tracking nehmen oder nach
+.scratch/ verschieben. Bei bewusster Ausnahme: .ossallowlist
+erweitern (nach Review).
+EOF
+    exit 1
+  }
+
+  while read -r local_ref local_sha remote_ref remote_sha; do
+    [ "$local_sha" = "$ZERO" ] && continue
+
+    if [ "$remote_sha" != "$ZERO" ]; then
+      range="${remote_sha}..${local_sha}"
+    else
+      range="$(git rev-list "$local_sha" --not --branches --remotes 2>/dev/null \
+        || echo "$local_sha")"
+    fi
+
+    # (a) Im Range hinzugefügte Dateien
+    while IFS= read -r path; do
+      [ -z "$path" ] && continue
+      ! is_allowed "$path" && violations+=("$path")
+    done < <(git log --diff-filter=A --name-only --pretty=format: "$range" 2>/dev/null || true)
+
+    # (b) HEAD-Baum komplett (aktuell getrackte Dateien am Push-Stand)
+    while IFS= read -r path; do
+      [ -z "$path" ] && continue
+      ! is_allowed "$path" && violations+=("$path")
+    done < <(git ls-tree -r --name-only "$local_sha" 2>/dev/null || true)
+  done
+
+  if [ ${#violations[@]} -gt 0 ]; then
+    unique=()
+    while IFS= read -r line; do
+      [ -n "$line" ] && unique+=("$line")
+    done < <(printf '%s\n' "${violations[@]}" | sort -u)
+    violations=("${unique[@]}")
+    block "Nicht-öffentliche Pfade im Push:"
+  fi
 fi
 
-# ── KI-Co-Authored-By-Trailer-Riegel ─────────────────────────────────────────
-# HARD RULE: kein KI-Trailer darf je gepusht werden. Zweiter Riegel zusätzlich
-# zum globalen commit-msg-Hook (fängt Merges/Cherry-Picks/--no-verify/Imports).
-AI_TRAILER='^[Cc]o-[Aa]uthored-[Bb]y:.*(anthropic|copilot|claude|cursor|codeium)'
-while read -r _lref local_sha _rref remote_sha; do
-  [ -z "${local_sha:-}" ] && continue
+# ── 2. Force-push auf main blockiert ───────────────────────────────────
+while read -r _lr local_sha rref remote_sha; do
   [ "$local_sha" = "$ZERO" ] && continue
-  local_sha="$(git rev-parse --verify --quiet "${local_sha}^{commit}" 2>/dev/null || echo "$local_sha")"
-  if [ "${remote_sha:-$ZERO}" = "$ZERO" ]; then
-    range="$(git rev-list "$local_sha" --not --remotes 2>/dev/null || true)"
-  else
-    range="$(git rev-list "${remote_sha}..${local_sha}" 2>/dev/null || true)"
-  fi
-  [ -z "$range" ] && continue
-  hit="$(git log --no-walk --format='%B' $range 2>/dev/null | grep -iE "$AI_TRAILER" || true)"
-  [ -n "$hit" ] && block "KI-Co-Authored-By-Trailer gefunden:
-$hit
-  → Trailer entfernen (rebase -i / commit --amend), dann erneut pushen."
-done <<EOF
-$REFS
-EOF
+  branch="${rref#refs/heads/}"
+  if [ "$branch" = "main" ] && [ "$remote_sha" != "$ZERO" ]; then
+    if ! git merge-base --is-ancestor "$remote_sha" "$local_sha" 2>/dev/null; then
+      if [ "$WP_ALLOW_FORCE_MAIN" != "1" ]; then
+        cat >&2 <<EOF
 
-# ── Schicht 2: Attest-Schranke ───────────────────────────────────────────────
-# Der zu pushende Commit muss bewusst attestiert sein. Die EINZIGE Art, die
-# Schranke zu passieren: nach echter Prüfung `scripts/docs-attest.sh attest`.
-if [ -f "$ATTESTSH" ]; then
-  attested="$(bash "$ATTESTSH" attested)"
-  attest_block() {
-    block "öffentliche Docs nicht für diesen Stand attestiert.
-  $1
-  → README/CHANGELOG/Website gegen den aktuellen Repo-Stand PRÜFEN, dann BEWUSST
-    bestätigen:   scripts/docs-attest.sh attest
-  (kein --no-verify)"
-  }
-  pushed_any=0
-  while read -r _local_ref local_sha _remote_ref _remote_sha; do
-    [ -z "${local_sha:-}" ] && continue
-    [ "$local_sha" = "$ZERO" ] && continue   # Branch-Löschung -> egal
-    pushed_any=1
-    commit_sha="$(git rev-parse --verify --quiet "${local_sha}^{commit}" 2>/dev/null || echo "$local_sha")"
-    [ "$commit_sha" = "$attested" ] || attest_block "Zu pushen: ${commit_sha:0:12} · zuletzt attestiert: ${attested:0:12}"
-  done <<EOF
-$REFS
+╔══════════════════════════════════════════════════════════════╗
+║  BLOCKIERT: Force-push auf main
+║  main ist ein Release-Branch — seine History muss linear
+║  bleiben. Remote-Tip $remote_sha ist kein Ancestor von $local_sha.
+║  Override (GEFÄHRLICH): WP_ALLOW_FORCE_MAIN=1 git push
+╚══════════════════════════════════════════════════════════════╝
 EOF
+        exit 1
+      fi
+      echo "WP_ALLOW_FORCE_MAIN=1 — Force-push auf main erlaubt"
+    fi
+  fi
+done
+
+# ── 3. Full Push-Range Scan (PROTECTED, Secrets, AI-Trailer) ───────────
+B1="SUPA"; B2="BASE_SERVICE_ROLE_KEY"; B3="ADMIN_API"; B4="_KEY"
+SECRET_PATTERNS="${B1}${B2}=.{20,}|${B3}${B4}=.{20,}|sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{20,}"
+AI_TRAILER_RE='^[Cc]o-[Aa]uthored-[Bb]y:.*(anthropic|copilot|claude|cursor|codeium|opencode)'
+BOT_RE='(co-?pilot|anthropic|claude|opencode|github-actions|dependabot|\[bot\]|users\.noreply\.github\.com|noreply@github\.com)'
+
+while read -r _lr local_sha rref remote_sha; do
+  [ "$local_sha" = "$ZERO" ] && continue
+
+  [ "$remote_sha" != "$ZERO" ] \
+    && range="${remote_sha}..${local_sha}" \
+    || range="$(git rev-list "$local_sha" --not --branches --remotes 2>/dev/null || echo "$local_sha")"
+
+  [ -z "$range" ] && continue
+
+  for commit in $(git rev-list "$range" 2>/dev/null); do
+    files=$(git diff-tree --no-commit-id --name-only --diff-filter=ACMR -r "$commit" 2>/dev/null || true)
+    [ -z "$files" ] && continue
+
+    # .gitignore PROTECTED weakening
+    if echo "$files" | grep -q "^\.gitignore$"; then
+      new_block=$(git show "$commit:.gitignore" 2>/dev/null \
+        | tr -d '\r' | sed -n '/PROTECTED-START/,/PROTECTED-END/p')
+      old_block=$(git show "${commit}^:.gitignore" 2>/dev/null \
+        | tr -d '\r' | sed -n '/PROTECTED-START/,/PROTECTED-END/p' || true)
+      if [ -n "$old_block" ]; then
+        old_ents=$(echo "$old_block" | grep -v '^#' | grep -v '^$' | grep -v 'PROTECTED' | sort -u)
+        new_ents=$(echo "$new_block" | grep -v '^#' | grep -v '^$' | grep -v 'PROTECTED' | sort -u)
+        removed=$(comm -23 <(echo "$old_ents") <(echo "$new_ents") 2>/dev/null || true)
+        if [ -n "$removed" ]; then
+          cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  PUSH BLOCKIERT: .gitignore PROTECTED entries entfernt      ║
+║  Commit: ${commit:0:12}
+╚══════════════════════════════════════════════════════════════╝
+EOF
+          echo "$removed" >&2
+          exit 1
+        fi
+      fi
+    fi
+
+    # Secret patterns
+    smatch=$(git show "$commit" 2>/dev/null \
+      | grep -oE "$SECRET_PATTERNS" 2>/dev/null | head -1 || true)
+    if [ -n "$smatch" ]; then
+      cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  PUSH BLOCKIERT: potentielles Secret in Commit ${commit:0:12}
+║  ${smatch:0:60}
+╚══════════════════════════════════════════════════════════════╝
+EOF
+      exit 1
+    fi
+
+    # AI/Co-Authored-By Trailer — HARD RULE (global CLAUDE.md)
+    trailer=$(git log -1 --format='%B' "$commit" 2>/dev/null \
+      | grep -iE "$AI_TRAILER_RE" | head -1 || true)
+    if [ -n "$trailer" ]; then
+      cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  PUSH BLOCKIERT: KI-Co-Authored-By-Trailer in Commit ${commit:0:12}
+║  $(echo "$trailer" | cut -c1-72)
+║  Trailer entfernen (rebase -i / commit --amend), dann pushen.
+╚══════════════════════════════════════════════════════════════╝
+EOF
+      exit 1
+    fi
+
+    # Bot author/committer
+    ident=$(git log -1 --format='%an <%ae>%n%cn <%ce>' "$commit" 2>/dev/null || true)
+    if echo "$ident" | grep -qiE "$BOT_RE"; then
+      cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  PUSH BLOCKIERT: Bot-Author/Committer in Commit ${commit:0:12}
+║  $(echo "$ident" | head -c80)
+╚══════════════════════════════════════════════════════════════╝
+EOF
+      exit 1
+    fi
+  done
+done
+
+# ── 4. Docs-Attest-Schranke (WhisPaste) ─────────────────────────────────
+if [ -f "$ATTESTSH" ]; then
+  if ! bash "$ATTESTSH" check >/dev/null 2>&1; then
+    cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  PUSH BLOCKIERT: Public-Docs-QS (scripts/docs-attest.sh     ║
+║  check) fehlgeschlagen.                                     ║
+║  Details: bash scripts/docs-attest.sh check                 ║
+╚══════════════════════════════════════════════════════════════╝
+EOF
+    exit 1
+  fi
+
+  attested="$(bash "$ATTESTSH" attested)"
+  pushed_any=0
+  while read -r _lr local_sha _rr _rs; do
+    [ -z "${local_sha:-}" ] && continue
+    [ "$local_sha" = "$ZERO" ] && continue
+    pushed_any=1
+    cs="$(git rev-parse --verify --quiet "${local_sha}^{commit}" 2>/dev/null || echo "$local_sha")"
+    [ "$cs" = "$attested" ] || {
+      cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  PUSH BLOCKIERT: öffentliche Docs nicht für diesen Stand     ║
+║  attestiert. Zu pushen: ${cs:0:12} · attestiert: ${attested:0:12}
+║  → README/CHANGELOG/Website gegen den aktuellen Repo-Stand
+║    PRÜFEN, dann BEWUSST bestätigen:
+║    scripts/docs-attest.sh attest
+║  (kein --no-verify)
+╚══════════════════════════════════════════════════════════════╝
+EOF
+      exit 1
+    }
+  done
   if [ "$pushed_any" -eq 0 ]; then
     head="$(git rev-parse HEAD)"
-    [ "$head" = "$attested" ] || attest_block "HEAD ${head:0:12} ist nicht attestiert."
+    [ "$head" = "$attested" ] || {
+      cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  PUSH BLOCKIERT: HEAD ${head:0:12} ist nicht attestiert.
+║  → BEWUSST bestätigen: scripts/docs-attest.sh attest
+╚══════════════════════════════════════════════════════════════╝
+EOF
+      exit 1
+    }
   fi
 fi
 
-# ── Schicht 3: Security-Net (bestehende Hook-Logik wiederbelebt) ─────────────
-if [ -f "$SECURITY" ]; then
-  printf '%s\n' "$REFS" | bash "$SECURITY" "$REMOTE" "$URL" || exit 1
+# ── 4b. Doc-Gate (Content-Level: Infra-Leaks, Sprache, Security-Werbung) ─
+if [ -f "$ROOT/.githooks/check-docs.sh" ]; then
+  bash "$ROOT/.githooks/check-docs.sh" head || exit 1
 fi
 
-# ── Advisory: docs-drift (weich, LLM, NICHT-BLOCKIEREND) ─────────────────────
-# Semantik-Drift-Soft-Check über die eingeloggte claude-CLI (Subscription). Läuft
-# NUR bei release-relevanten Pushes (main/master oder v*-Tag) — routinemäßige
-# dev-Pushes bleiben schnell und token-frei. Blockt NIE (|| true). Opt-out:
-# WHISPASTE_SKIP_DRIFT=1. Kein CI-Pendant (bewusst, siehe scripts/docs-drift.sh).
+# ── 5. Quality/Security-Gates (sparsam, blockierend) ───────────────────
+
+# Loam ratchet gate (Dart-only)
+if command -v dart >/dev/null 2>&1; then
+  echo ""; echo "Loam ratchet gate..."
+  dart pub global activate loam 0.1.13 >/dev/null
+  export PATH="$PATH:$HOME/.pub-cache/bin"
+  # Resolve Dart SDK path (must follow Homebrew symlinks on macOS)
+  if [ -z "${DART_SDK:-}" ]; then
+    if command -v flutter >/dev/null 2>&1; then
+      _f=$(command -v flutter)
+      while [ -L "$_f" ]; do
+        _t=$(readlink "$_f"); case "$_t" in /*) _f="$_t" ;; *) _f="$(dirname "$_f")/$_t" ;; esac
+      done
+      export DART_SDK="$(dirname "$_f")/cache/dart-sdk"
+    elif command -v dart >/dev/null 2>&1; then
+      _d=$(command -v dart)
+      while [ -L "$_d" ]; do
+        _t=$(readlink "$_d"); case "$_t" in /*) _d="$_t" ;; *) _d="$(dirname "$_d")/$_t" ;; esac
+      done
+      export DART_SDK="$(dirname "$(dirname "$_d")")"
+    fi
+  fi
+  if ! loam gate --no-update-check 2>&1; then
+    cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  PUSH BLOCKIERT: Loam ratchet gate fand Findings            ║
+╚══════════════════════════════════════════════════════════════╝
+EOF
+    exit 1
+  fi
+  echo "  Loam: clean"
+fi
+
+# Semgrep SAST (sparsam: nur wenn installiert)
+if command -v semgrep >/dev/null 2>&1; then
+  echo ""; echo "Semgrep SAST scan..."
+  if ! semgrep --config p/ci --error --quiet \
+    --include="*.ts" --include="*.js" --include="*.mjs" \
+    --include="*.cpp" --include="*.h" \
+    --exclude="node_modules" --exclude="dist" --exclude="build" \
+    --exclude=".dart_tool" . 2>&1; then
+    cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  PUSH BLOCKIERT: Semgrep fand Security-Issues               ║
+╚══════════════════════════════════════════════════════════════╝
+EOF
+    exit 1
+  fi
+  echo "  Semgrep: clean"
+fi
+
+# OSV-Scanner (vuln check; sparsam: nur wenn installiert)
+if command -v osv-scanner >/dev/null 2>&1; then
+  echo ""; echo "OSV vulnerability scan..."
+  OSV_ARGS=""
+  [ -f "$ROOT/pubspec.lock" ]              && OSV_ARGS="$OSV_ARGS --lockfile=$ROOT/pubspec.lock"
+  [ -f "$ROOT/website/package-lock.json" ] && OSV_ARGS="$OSV_ARGS --lockfile=$ROOT/website/package-lock.json"
+  if [ -n "$OSV_ARGS" ]; then
+    if ! osv-scanner scan $OSV_ARGS 2>&1; then
+      cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  PUSH BLOCKIERT: OSV fand vulnerable Dependencies           ║
+╚══════════════════════════════════════════════════════════════╝
+EOF
+      exit 1
+    fi
+    echo "  OSV: clean"
+  fi
+fi
+
+# Website CI (sparsam: nur wenn module installiert)
+if [ -f "$ROOT/website/package.json" ] && command -v npm >/dev/null 2>&1 \
+   && [ -d "$ROOT/website/node_modules" ]; then
+  echo ""; echo "Website CI check..."
+  if ! (cd "$ROOT/website" && npm run build && npx playwright install chromium webkit && npm run test:ci) 2>&1; then
+    cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  PUSH BLOCKIERT: website CI gate fehlgeschlagen             ║
+╚══════════════════════════════════════════════════════════════╝
+EOF
+    exit 1
+  fi
+  echo "  Website CI: OK"
+fi
+
+# ── 6. Advisory: docs-drift (weich, NIE blockierend) ────────────────────
 run_drift=0
 while read -r _lr _ls rref _rs; do
   case "$rref" in refs/heads/main|refs/heads/master|refs/tags/v*) run_drift=1 ;; esac
-done <<EOF
-$REFS
-EOF
+done
 if [ "$run_drift" = 1 ] && [ "${WHISPASTE_SKIP_DRIFT:-}" != 1 ] \
    && [ -f "$DRIFTSH" ] && command -v claude >/dev/null 2>&1; then
   echo "" >&2
-  echo "◆ docs-drift (advisory, non-blocking — release push) …" >&2
+  echo "docs-drift (advisory, non-blocking — release push) …" >&2
   bash "$DRIFTSH" --llm 2>&1 | sed 's/^/  /' >&2 || true
 fi
 
-echo "WhisPaste pre-push: Docs-QS ok · attestiert · kein KI-Trailer · Security-Net grün — Push frei."
+exit 0

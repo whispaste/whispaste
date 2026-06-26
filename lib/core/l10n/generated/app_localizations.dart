@@ -4431,6 +4431,42 @@ abstract class L10n {
   /// **'★ Rate on the Store'**
   String get reviewPromptRateStore;
 
+  /// No description provided for @reviewPromptGateBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Just a quick question for us — this isn\'t a store rating.'**
+  String get reviewPromptGateBody;
+
+  /// No description provided for @reviewPromptGateYes.
+  ///
+  /// In en, this message translates to:
+  /// **'Yes, I like it'**
+  String get reviewPromptGateYes;
+
+  /// No description provided for @reviewPromptGateNo.
+  ///
+  /// In en, this message translates to:
+  /// **'Not really'**
+  String get reviewPromptGateNo;
+
+  /// No description provided for @reviewSupportEntry.
+  ///
+  /// In en, this message translates to:
+  /// **'Rate & support WhisPaste'**
+  String get reviewSupportEntry;
+
+  /// No description provided for @reviewSupportSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your rating helps others discover WhisPaste and supports the project.'**
+  String get reviewSupportSubtitle;
+
+  /// No description provided for @reviewSupportAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Rate'**
+  String get reviewSupportAction;
+
   /// No description provided for @insufficientRamTitle.
   ///
   /// In en, this message translates to:
@@ -4682,6 +4718,30 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'{count, plural, =0{No results} =1{1 result} other{{count} results}}'**
   String settingsSearchResultCount(int count);
+
+  /// No description provided for @settingsPrivacy.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy'**
+  String get settingsPrivacy;
+
+  /// No description provided for @settingsPrivacySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Control what data WhisPaste shares'**
+  String get settingsPrivacySubtitle;
+
+  /// No description provided for @settingsShareUsageStats.
+  ///
+  /// In en, this message translates to:
+  /// **'Share anonymous usage statistics'**
+  String get settingsShareUsageStats;
+
+  /// No description provided for @settingsShareUsageStatsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sent cookieless and without any identifiers — help us understand how WhisPaste is used'**
+  String get settingsShareUsageStatsSubtitle;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

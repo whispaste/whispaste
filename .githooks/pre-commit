@@ -1,0 +1,287 @@
+#!/usr/bin/env bash
+#
+# WhisPaste — pre-commit Hook (OSS-Allowlist-Guard + Quality Gates)
+#
+# Zwei Schichten:
+#   1. Allowlist-Schranke — nur Pfade aus .ossallowlist dürfen committet
+#      werden. Fängt `git add -f` und versehentliches Stagen ab.
+#      Default-deny: neue interne Pfade sind standardmäßig blockiert.
+#   2. Quality-Gates — Flutter analyze, Loam ratchet, ESLint, cppcheck,
+#      Website CI. Erzwingen Code-Qualität vor dem Commit.
+#
+# Aktivierung: `git config core.hooksPath .githooks` (einmalig pro Clone).
+# Umgehen mit `git commit --no-verify` → dann greift pre-push als dritte Schicht.
+#
+# Bash-3.2-kompatibel (macOS /bin/bash) — kein mapfile/readarray.
+#
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+ALLOWLIST="$ROOT/.ossallowlist"
+
+# ── 0. Branch-Schutz (kein Commit auf main/master) ─────────────────────
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+if [ "$CURRENT_BRANCH" = "main" ] || [ "$CURRENT_BRANCH" = "master" ]; then
+  if [ "${WP_ALLOW_COMMIT_ON_MAIN:-0}" != "1" ]; then
+    cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  BLOCKIERT: Commit auf '$CURRENT_BRANCH'
+╠══════════════════════════════════════════════════════════════╣
+║  Entwicklung läuft auf 'dev'. '$CURRENT_BRANCH' ist nur für
+║  Release-Merges (dev → main) reserviert.
+║
+║  Wechsle: git switch dev
+║  Bypass (NUR für Release-Merge):
+║    WP_ALLOW_COMMIT_ON_MAIN=1 git commit ...
+╚══════════════════════════════════════════════════════════════╝
+EOF
+    exit 1
+  else
+    echo "WP_ALLOW_COMMIT_ON_MAIN=1 — Commit auf '$CURRENT_BRANCH' erlaubt (Release-Modus)."
+  fi
+fi
+
+# ── 1. Allowlist-Schranke ───────────────────────────────────────────────
+if [ ! -f "$ALLOWLIST" ]; then
+  echo "pre-commit: WARN — .ossallowlist nicht gefunden, Guard inaktiv." >&2
+else
+  ALLOWED=()
+  while IFS= read -r line; do
+    case "$line" in
+      ''|\#*) continue ;;
+    esac
+    ALLOWED+=("$line")
+  done < "$ALLOWLIST"
+
+  is_allowed() {
+    local p="$1" a
+    for a in "${ALLOWED[@]}"; do
+      [ "$p" = "$a" ] && return 0
+      case "$a" in
+        */) [[ "$p" == "$a"* ]] && return 0 ;;
+      esac
+    done
+    return 1
+  }
+
+  violations=()
+  while IFS= read -r p; do
+    [ -z "$p" ] && continue
+    if ! is_allowed "$p"; then
+      violations+=("$p")
+    fi
+  done < <(git diff --cached --name-only --diff-filter=ACM)
+
+  if [ ${#violations[@]} -gt 0 ]; then
+    cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  BLOCKIERT durch .ossallowlist — nicht-öffentliche Pfade   ║
+╠══════════════════════════════════════════════════════════════╣
+║  Die folgenden Dateien sind nicht in der Allowlist und     ║
+║  dürfen nicht ins öffentliche Repo committet werden:       ║
+╚══════════════════════════════════════════════════════════════╝
+EOF
+    printf '  - %s\n' "${violations[@]}" >&2
+    cat >&2 <<EOF
+
+Interne Doku/Planung gehört nach .scratch/ (gitignored).
+Öffentlich erlaubte Pfade stehen in .ossallowlist.
+Bei bewusster Ausnahme: .ossallowlist erweitern (nach Review).
+EOF
+    exit 1
+  fi
+fi
+
+# ── 0b. AI-Identity-Guard ───────────────────────────────────────────────
+# Blockt Commits, deren Author oder Committer ein KI-Agent ist (Identität,
+# nicht nur Trailer). Spiegelt den globalen ~/.git-hooks/pre-commit Guard,
+# der von unserem lokalen core.hooksPath geshadowt wird.
+IDENT="$(git var GIT_AUTHOR_IDENT 2>/dev/null) $(git var GIT_COMMITTER_IDENT 2>/dev/null)"
+if printf '%s' "$IDENT" | grep -qiE 'anthropic|claude|copilot|cursor\.so|codeium|opencode|\[bot\]@'; then
+  cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  BLOCKIERT: KI-Agent als Author/Committer
+╚══════════════════════════════════════════════════════════════╝
+
+$IDENT
+
+Kein KI-Agent darf als Author/Committer/Contributor erscheinen.
+  git config user.name "Your Name"
+  git config user.email "your@email.com"
+EOF
+  exit 1
+fi
+
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null || true)
+[ -z "$STAGED_FILES" ] && exit 0
+
+# ── 2. .gitignore PROTECTED section nicht geschwächt? ──────────────────
+if echo "$STAGED_FILES" | grep -q "^\.gitignore$"; then
+  STAGED_PROTECTED=$(git show :0:.gitignore 2>/dev/null | tr -d '\r' \
+    | sed -n '/PROTECTED-START/,/PROTECTED-END/p')
+  COMMITTED_PROTECTED=$(git show HEAD:.gitignore 2>/dev/null | tr -d '\r' \
+    | sed -n '/PROTECTED-START/,/PROTECTED-END/p' || true)
+
+  if [ -n "$COMMITTED_PROTECTED" ] && [ "$STAGED_PROTECTED" != "$COMMITTED_PROTECTED" ]; then
+    COMMITTED_ENTRIES=$(echo "$COMMITTED_PROTECTED" | grep -v '^#' | grep -v '^$' | grep -v 'PROTECTED' | sort)
+    STAGED_ENTRIES=$(echo "$STAGED_PROTECTED" | grep -v '^#' | grep -v '^$' | grep -v 'PROTECTED' | sort)
+    REMOVED=$(comm -23 <(echo "$COMMITTED_ENTRIES") <(echo "$STAGED_ENTRIES") 2>/dev/null || true)
+
+    if [ -n "$REMOVED" ]; then
+      cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  BLOCKIERT: .gitignore PROTECTED section geschwächt        ║
+╠══════════════════════════════════════════════════════════════╣
+║  Entfernte PROTECTED-Einträge:                              ║
+╚══════════════════════════════════════════════════════════════╝
+EOF
+      echo "$REMOVED" >&2
+      echo "" >&2
+      echo "Neue Einträge sind erlaubt. Bestehende zu entfernen nicht." >&2
+      exit 1
+    fi
+  fi
+fi
+
+# ── 3. Secrets-Muster ──────────────────────────────────────────────────
+B1="SUPA"; B2="BASE_SERVICE_ROLE_KEY"; B3="ADMIN_API"; B4="_KEY"
+SECRET_PATTERNS="${B1}${B2}=.{20,}|${B3}${B4}=.{20,}|sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{20,}"
+
+for file in $STAGED_FILES; do
+  case "$file" in
+    *.png|*.jpg|*.ico|*.svg|*.exe|*.dll|*.bin|.env.example) continue ;;
+  esac
+  CONTENT=$(git show ":0:$file" 2>/dev/null || true)
+  [ -z "$CONTENT" ] && continue
+  SECRET_MATCH=$(echo "$CONTENT" | grep -oE "$SECRET_PATTERNS" 2>/dev/null | head -3 || true)
+  if [ -n "$SECRET_MATCH" ]; then
+    cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  BLOCKIERT: Potentielles Secret in $file
+╚══════════════════════════════════════════════════════════════╝
+
+$(echo "$SECRET_MATCH" | head -1 | cut -c1-60)
+
+Secrets NIE committen. Weg damit, dann erneut versuchen.
+EOF
+    exit 1
+  fi
+done
+
+# ── 4. Flutter analyze (nur wenn Dart/Flutter-Dateien gestaged sind) ──
+DART_STAGED=$(echo "$STAGED_FILES" | grep -E '\.dart$|^pubspec\.yaml$' || true)
+if [ -n "$DART_STAGED" ]; then
+  echo ""
+  echo "Flutter analyze..."
+
+  # --fatal-infos --fatal-warnings erzwingt clean exit
+  flutter_ok=true
+  flutter analyze --fatal-infos --fatal-warnings 2>&1 || flutter_ok=false
+
+  if [ "$flutter_ok" = "true" ] && [ -f "$ROOT/loam.yaml" ] && command -v dart >/dev/null 2>&1; then
+    echo ""
+    echo "Loam ratchet gate..."
+    dart pub global activate loam 0.1.13 >/dev/null
+    export PATH="$PATH:$HOME/.pub-cache/bin"
+    if command -v flutter >/dev/null 2>&1; then
+      export DART_SDK="$(dirname "$(command -v flutter)")/cache/dart-sdk"
+    fi
+    if ! loam gate --no-update-check 2>&1; then
+      cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  BLOCKIERT: Loam ratchet gate fand Findings                 ║
+╚══════════════════════════════════════════════════════════════╝
+EOF
+      exit 1
+    fi
+    echo "  Loam: clean"
+  elif [ "$flutter_ok" != "true" ]; then
+    cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  BLOCKIERT: flutter analyze fand Issues                     ║
+╚══════════════════════════════════════════════════════════════╝
+EOF
+    exit 1
+  fi
+  echo "  Flutter analyze + Loam: clean"
+fi
+
+# ── 5. ESLint (nur wenn JS/TS-Dateien in website/src/ gestaged sind) ─
+JS_TS_STAGED=$(echo "$STAGED_FILES" | grep -E '^website/src/.*\.(js|mjs|ts|mts)$' || true)
+if [ -n "$JS_TS_STAGED" ]; then
+  if command -v node >/dev/null 2>&1 && [ -f "$ROOT/website/node_modules/.bin/eslint" ]; then
+    echo ""
+    echo "ESLint (website)..."
+    if ! (cd "$ROOT/website" && node_modules/.bin/eslint src/ --max-warnings=0 2>&1); then
+      cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  BLOCKIERT: ESLint fand Issues in website/src/              ║
+╚══════════════════════════════════════════════════════════════╝
+EOF
+      exit 1
+    fi
+    echo "  ESLint: clean"
+  else
+    echo "  ESLint nicht verfügbar — skipping (cd website && npm install)"
+  fi
+fi
+
+# ── 6. cppcheck (nur wenn C++ in windows/runner/ gestaged) ─────────────
+CPP_STAGED=$(echo "$STAGED_FILES" | grep -E '^windows/runner/.*\.(cpp|h)$' || true)
+if [ -n "$CPP_STAGED" ] && command -v cppcheck >/dev/null 2>&1; then
+  echo ""
+  echo "cppcheck (windows/runner)..."
+  FINDS=$(cppcheck --enable=style,warning,performance,portability \
+    --platform=win64 --std=c++17 \
+    --suppressions-list="$ROOT/windows/runner/.cppcheck-suppress" \
+    --inline-suppr --quiet "$ROOT/windows/runner/" 2>&1 \
+    | grep -E ': (error|warning|style|performance|portability):' || true)
+  if [ -n "$FINDS" ]; then
+    echo "$FINDS" >&2
+    cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  BLOCKIERT: cppcheck fand Issues in windows/runner/         ║
+╚══════════════════════════════════════════════════════════════╝
+EOF
+    exit 1
+  fi
+  echo "  cppcheck: clean"
+fi
+
+# ── 7. Website CI gate (nur wenn website/ gestaged) ────────────────────
+WEBSITE_STAGED=$(echo "$STAGED_FILES" | grep -E '^website/' || true)
+if [ -n "$WEBSITE_STAGED" ] && command -v npm >/dev/null 2>&1 && [ -d "$ROOT/website/node_modules" ]; then
+  echo ""
+  echo "Website CI check..."
+  if ! (
+    cd "$ROOT/website" &&
+      npm run build &&
+      npx playwright install chromium webkit &&
+      npm run test:ci
+  ) 2>&1; then
+    cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  BLOCKIERT: website CI gate fehlgeschlagen                  ║
+╚══════════════════════════════════════════════════════════════╝
+EOF
+    exit 1
+  fi
+  echo "  Website CI: OK"
+fi
+
+# ── 8. Doc-Gate (Content-Level: Infra-Leaks, Sprache, Security-Werbung) ─
+if [ -f "$ROOT/.githooks/check-docs.sh" ]; then
+  bash "$ROOT/.githooks/check-docs.sh" staged || exit 1
+fi
+
+exit 0

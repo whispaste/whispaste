@@ -23,7 +23,8 @@
     "@tailwindcss/vite": "^4.2.1",
     "astro": "6.4.6",
     "dompurify": "^3.4.9",
-    "tailwindcss": "^4.2.1"
+    "tailwindcss": "^4.2.1",
+    "web-vitals": "^5.3.0"
   },
   "devDependencies": {
     "@fontsource-variable/bricolage-grotesque": "^5.2.10",

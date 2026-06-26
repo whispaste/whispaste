@@ -864,6 +864,13 @@
   "reviewPromptNever": "אל תשאל שוב",
   "reviewPromptStarGitHub": "⭐ כוכב ב-GitHub",
   "reviewPromptRateStore": "★ דרג בחנות",
+  "reviewPromptGateBody": "רק שאלה קצרה אלינו — זו אינה דירוג בחנות.",
+  "reviewPromptGateYes": "כן, אני אוהב את זה",
+  "reviewPromptGateNo": "לא ממש",
+
+  "reviewSupportEntry": "דרגו ותמוכו ב-WhisPaste",
+  "reviewSupportSubtitle": "הדירוג שלך עוזר לאחרים לגלות את WhisPaste ותומך בפרויקט.",
+  "reviewSupportAction": "דרגו",
   "insufficientRamTitle": "אין מספיק זיכרון",
   "insufficientRamBody": "WhisPaste דורש לפחות {requiredGb} GB RAM. למערכת שלך יש {detectedGb} GB.\n\nעם פחות זיכרון, מנוע ה-AI עלול להיכשל.",
   "@insufficientRamBody": {
@@ -919,5 +926,10 @@
     "placeholders": {
       "count": {"type": "int"}
     }
-  }
+  },
+
+  "settingsPrivacy": "Privacy",
+  "settingsPrivacySubtitle": "Control what data WhisPaste shares",
+  "settingsShareUsageStats": "Share anonymous usage statistics",
+  "settingsShareUsageStatsSubtitle": "Sent cookieless and without any identifiers — help us understand how WhisPaste is used"
 }

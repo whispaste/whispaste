@@ -2477,6 +2477,26 @@ class L10nDe extends L10n {
   String get reviewPromptRateStore => '★ Im Store bewerten';
 
   @override
+  String get reviewPromptGateBody =>
+      'Nur eine kurze Frage an uns — das ist keine Store-Bewertung.';
+
+  @override
+  String get reviewPromptGateYes => 'Ja, gefällt mir';
+
+  @override
+  String get reviewPromptGateNo => 'Eher nicht';
+
+  @override
+  String get reviewSupportEntry => 'WhisPaste bewerten & unterstützen';
+
+  @override
+  String get reviewSupportSubtitle =>
+      'Deine Bewertung hilft anderen, WhisPaste zu finden, und unterstützt das Projekt.';
+
+  @override
+  String get reviewSupportAction => 'Bewerten';
+
+  @override
   String get insufficientRamTitle => 'Zu wenig Arbeitsspeicher';
 
   @override
@@ -2632,4 +2652,18 @@ class L10nDe extends L10n {
     );
     return '$_temp0';
   }
+
+  @override
+  String get settingsPrivacy => 'Datenschutz';
+
+  @override
+  String get settingsPrivacySubtitle =>
+      'Lege fest, welche Daten WhisPaste teilt';
+
+  @override
+  String get settingsShareUsageStats => 'Anonyme Nutzungsstatistiken senden';
+
+  @override
+  String get settingsShareUsageStatsSubtitle =>
+      'Cookiefrei und ohne Identifikatoren — hilf uns zu verstehen, wie WhisPaste genutzt wird';
 }

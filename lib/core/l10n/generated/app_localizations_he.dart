@@ -2409,6 +2409,26 @@ class L10nHe extends L10n {
   String get reviewPromptRateStore => '★ דרג בחנות';
 
   @override
+  String get reviewPromptGateBody =>
+      'רק שאלה קצרה אלינו — זו אינה דירוג בחנות.';
+
+  @override
+  String get reviewPromptGateYes => 'כן, אני אוהב את זה';
+
+  @override
+  String get reviewPromptGateNo => 'לא ממש';
+
+  @override
+  String get reviewSupportEntry => 'דרגו ותמוכו ב-WhisPaste';
+
+  @override
+  String get reviewSupportSubtitle =>
+      'הדירוג שלך עוזר לאחרים לגלות את WhisPaste ותומך בפרויקט.';
+
+  @override
+  String get reviewSupportAction => 'דרגו';
+
+  @override
   String get insufficientRamTitle => 'אין מספיק זיכרון';
 
   @override
@@ -2559,4 +2579,17 @@ class L10nHe extends L10n {
     );
     return '$_temp0';
   }
+
+  @override
+  String get settingsPrivacy => 'Privacy';
+
+  @override
+  String get settingsPrivacySubtitle => 'Control what data WhisPaste shares';
+
+  @override
+  String get settingsShareUsageStats => 'Share anonymous usage statistics';
+
+  @override
+  String get settingsShareUsageStatsSubtitle =>
+      'Sent cookieless and without any identifiers — help us understand how WhisPaste is used';
 }

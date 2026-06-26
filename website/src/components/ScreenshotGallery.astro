@@ -330,6 +330,10 @@ const screens: Array<{
     thumbButtons.forEach(btn => {
       btn.addEventListener('click', () => {
         const idx = parseInt(btn.dataset.galleryIdx || '0', 10);
+        // Engagement-Event „Screenshots angesehen" (cookieless) — Name = Plattform.
+        if ((window as any)._paq) {
+          (window as any)._paq.push(['trackEvent', 'Engagement', 'Screenshots angesehen', galleryPlatform]);
+        }
         const images = buildLightboxImages();
         if ((window as any).openScreenshotLightbox) {
           (window as any).openScreenshotLightbox(images, idx);

@@ -90,8 +90,6 @@ dependencies:
 
   # Export (DOCX ZIP generation)
   archive: ^4.0.4
-  in_app_review: ^2.0.11
-
   # Pure-Dart diagnostics core — shared between In-App-Diagnostik and CLI.
   whispaste_diagnostics:
     path: packages/whispaste_diagnostics
@@ -102,6 +100,7 @@ dependencies:
   # MemoryFileSystem, production keeps the LocalFileSystem default.
   # Generic Google-maintained package — NOT Firebase / NOT GCP.
   file: ^7.0.0
+  matomo_tracker: ^6.1.1
 
 dev_dependencies:
   flutter_test:

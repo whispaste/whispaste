@@ -1,11 +1,13 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:whispaste/core/app_urls.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/feedback/feedback_page.dart';
 import 'package:whispaste/services/feedback_submission_service.dart';
@@ -284,5 +286,141 @@ void main() {
         expect(find.text(l10n.feedbackErrorNetwork), findsOneWidget);
       },
     );
+  });
+
+  // ───────────────────────────────────────────────────────────────────────
+  // Thank-You-View review CTAs (Säule A+ — feedback page as a review surface)
+  // ───────────────────────────────────────────────────────────────────────
+
+  const launcherChannel = MethodChannel('plugins.flutter.io/url_launcher');
+
+  group('Thank-You-View review CTAs', () {
+    setUp(() {
+      SharedPreferences.setMockInitialValues({});
+      feedbackPlatformIsWindowsOverride = null;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(launcherChannel, (_) async => true);
+    });
+
+    tearDown(() {
+      feedbackPlatformIsWindowsOverride = null;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(launcherChannel, null);
+    });
+
+    testWidgets('CTAs are NOT visible on the form view before submit (AC2)', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        makeTestable(
+          FeedbackPage(submissionService: _sentService()),
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // The review CTAs live exclusively in the Thank-You-View, so the form
+      // view must not surface them — they never compete with the submit.
+      expect(find.text(l10n.reviewSupportEntry), findsNothing);
+      expect(find.text(l10n.reviewPromptRateStore), findsNothing);
+      expect(find.text(l10n.reviewPromptStarGitHub), findsNothing);
+    });
+
+    testWidgets(
+      'Windows Thank-You-View shows Store-Review + GitHub-Stern CTAs (AC1)',
+      (tester) async {
+        feedbackPlatformIsWindowsOverride = true;
+        await tester.pumpWidget(
+          makeTestable(
+            FeedbackPage(submissionService: _sentService()),
+            locale: const Locale('en'),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await _fillAndSubmit(tester);
+
+        expect(find.text(l10n.feedbackThankYou), findsOneWidget);
+        expect(find.text(l10n.reviewSupportEntry), findsOneWidget);
+        expect(find.text(l10n.reviewPromptRateStore), findsOneWidget);
+        expect(find.text(l10n.reviewPromptStarGitHub), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'macOS/Linux Thank-You-View shows GitHub-Stern CTA only — no store (AC1)',
+      (tester) async {
+        feedbackPlatformIsWindowsOverride = false;
+        await tester.pumpWidget(
+          makeTestable(
+            FeedbackPage(submissionService: _sentService()),
+            locale: const Locale('en'),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await _fillAndSubmit(tester);
+
+        expect(find.text(l10n.reviewPromptStarGitHub), findsOneWidget);
+        expect(find.text(l10n.reviewPromptRateStore), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'Store-Review CTA launches the Windows Store review URL (AC3/AC4)',
+      (tester) async {
+        feedbackPlatformIsWindowsOverride = true;
+        String? capturedUrl;
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(launcherChannel, (call) async {
+              if (call.method == 'canLaunch' || call.method == 'launch') {
+                capturedUrl = (call.arguments as Map)['url'] as String?;
+              }
+              return true;
+            });
+
+        await tester.pumpWidget(
+          makeTestable(
+            FeedbackPage(submissionService: _sentService()),
+            locale: const Locale('en'),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await _fillAndSubmit(tester);
+
+        await tester.tap(find.text(l10n.reviewPromptRateStore));
+        await tester.pumpAndSettle();
+
+        expect(capturedUrl, kWindowsStoreReviewUrl);
+      },
+    );
+
+    testWidgets('GitHub-Stern CTA launches the GitHub repo URL (AC3/AC4)', (
+      tester,
+    ) async {
+      feedbackPlatformIsWindowsOverride = false;
+      String? capturedUrl;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(launcherChannel, (call) async {
+            if (call.method == 'canLaunch' || call.method == 'launch') {
+              capturedUrl = (call.arguments as Map)['url'] as String?;
+            }
+            return true;
+          });
+
+      await tester.pumpWidget(
+        makeTestable(
+          FeedbackPage(submissionService: _sentService()),
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _fillAndSubmit(tester);
+
+      await tester.tap(find.text(l10n.reviewPromptStarGitHub));
+      await tester.pumpAndSettle();
+
+      expect(capturedUrl, kGitHubRepoUrl);
+    });
   });
 }

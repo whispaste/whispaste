@@ -32,6 +32,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:sentry_dio/sentry_dio.dart';
 
 import '../core/app_info.dart';
+import '../core/app_urls.dart';
 import '../core/logging/app_logger.dart';
 import 'hardware_info_service.dart' as hw;
 import 'http_model_fetcher.dart';
@@ -200,7 +201,7 @@ class WhisperServerManifest {
   /// tag so an installed app can always self-bootstrap from its bundled
   /// copy.
   String get releaseAssetManifestUrl =>
-      'https://github.com/whispaste/whispaste/releases/download/'
+      '$kGitHubRepoUrl/releases/download/'
       '$whisperServerTag/whisper-server-manifest.json';
 }
 

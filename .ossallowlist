@@ -1,0 +1,119 @@
+# WhisPaste — OSS-Allowlist (öffentliche Pfade)
+#
+# Was hier NICHT steht, wird vom pre-commit- und pre-push-Hook blockiert
+# (.githooks/). Interne Doku/Planung gehört nach .scratch/ (gitignored).
+#
+# Erlaubt sind: exakte Dateipfade ODER Verzeichnis-Präfixe (mit "/").
+# Kommentare (#) und Leerzeilen sind erlaubt.
+
+# Root-Markdown + Lizenz + Disclosure
+README.md
+SECURITY.md
+LICENSE
+CHANGELOG.md
+
+# Build-/Paket-Metadaten
+pubspec.yaml
+pubspec.lock
+analysis_options.yaml
+l10n.yaml
+baseline.json
+loam.yaml
+Gemfile
+.metadata
+
+# Config-Vorlagen (keine Secrets)
+.env.example
+
+# Konfig-/Guard-Dateien (öffentlich, kein Infra-Leak)
+.gitignore
+.gitattributes
+.gitleaks.toml
+.ossallowlist
+.clang-tidy
+
+# CI / GitHub Actions (Workflows, CodeQL, Funding)
+.github/
+
+# Versionierte Hooks (muss committet sein, um für Klonende zu gelten)
+.githooks/
+
+# Öffentliche Quell-Code-/Plattform-Verzeichnisse (Flutter + Native)
+lib/
+test/
+integration_test/
+packages/
+assets/
+resources/
+
+# Plattform-Projekte
+android/
+ios/
+macos/
+linux/
+windows/
+
+# Installer + Packaging
+installer/
+packaging/
+
+# Website (öffentlicher Astro-Quellcode; dist/node_modules/design-system/test-results
+# sind über website/.gitignore ausgeschlossen)
+website/.fallowrc.json
+website/.gitignore
+website/astro.config.mjs
+website/eslint.config.mjs
+website/package.json
+website/package-lock.json
+website/playwright.config.ts
+website/tsconfig.json
+website/vitest.config.ts
+website/vitest.setup.ts
+website/sentry.client.config.js
+website/sentry.server.config.js
+website/src/
+website/public/
+website/tests/
+website/scripts/
+
+# Store-Listings (öffentliche Marketing-Texte, MS-Store-Partner-Center)
+store/
+
+# Supabase-Migrationen (öffentliche Infra-as-Code; Secrets via CI)
+supabase/
+
+# Public-Release-Skripte (einzeln aufgelistet — scripts/* ist gitignored
+# und nur diese Ausnahmen sind öffentlich erlaubt)
+scripts/git-hooks/
+scripts/GITHUB-SECRETS-SETUP.md
+scripts/docs-attest.sh
+scripts/docs-drift.sh
+scripts/extract-cumulative-changelog.mjs
+scripts/generate-release-notes.mjs
+scripts/generate-release-notes.ps1
+scripts/generate-screenshots.py
+scripts/generate-store-icons.py
+scripts/store-screenshots.py
+scripts/capture-store-screenshots.py
+scripts/generate-whisper-server-manifest.sh
+scripts/install-hooks.sh
+scripts/macos-selfsign.sh
+scripts/macos-selfsign-export-secret.sh
+scripts/probe-packaging-validate.sh
+scripts/setup-gh-secrets.sh
+scripts/setup-gh-secrets.ps1
+scripts/setup-gh-secrets.py
+scripts/security-scan.ps1
+scripts/cppcheck.ps1
+scripts/submit-ms-store.ps1
+
+# Tooling (Build-/Store-Helfer; deploy-spezifische Skripte wie win-smoke/
+# sind über .gitignore ausgeschlossen und dürfen NIE in die Allowlist)
+tools/appstore-screens/
+tools/store-icons/
+
+# iOS-Build-Automation
+fastlane/
+
+# Diagnose-Tool-CLI (öffentlich gebaut und als Release-Artefakt ausgeliefert)
+tool/

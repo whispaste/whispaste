@@ -208,7 +208,9 @@ check_removed_features() {
   # Öffentlich ausgelieferte statische Text-Artefakte (llms.txt-Standard, ai.txt):
   # auf entfernte Features scannen (unmissverständlich) — NICHT auf Anti-Vokabular,
   # da diese Glossar-/AI-Discovery-Dateien Anti-Begriffe definitorisch/kontrastiv führen.
-  [ -d "$ROOT/website/public" ] && files="$files $(find "$ROOT/website/public" -maxdepth 1 -name '*.txt' -type f 2>/dev/null | tr '\n' ' ')"
+  # llms.txt / llms-full.txt sind generierte AI-Discovery-Aggregate (gesamter
+  # Changelog) — historische „entfernt"-Notizen sind dort legitim, nicht scannen.
+  [ -d "$ROOT/website/public" ] && files="$files $(find "$ROOT/website/public" -maxdepth 1 \( -name '*.txt' ! -name 'llms.txt' ! -name 'llms-full.txt' \) -type f 2>/dev/null | tr '\n' ' ')"
   for t in "${terms[@]}"; do
     local hits; hits="$(grep -ilF -- "$t" $files 2>/dev/null || true)"
     if [ -n "$hits" ]; then

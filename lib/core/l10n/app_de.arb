@@ -815,6 +815,13 @@
   "reviewPromptNever": "Nicht mehr fragen",
   "reviewPromptStarGitHub": "⭐ Auf GitHub einen Stern geben",
   "reviewPromptRateStore": "★ Im Store bewerten",
+  "reviewPromptGateBody": "Nur eine kurze Frage an uns — das ist keine Store-Bewertung.",
+  "reviewPromptGateYes": "Ja, gefällt mir",
+  "reviewPromptGateNo": "Eher nicht",
+
+  "reviewSupportEntry": "WhisPaste bewerten & unterstützen",
+  "reviewSupportSubtitle": "Deine Bewertung hilft anderen, WhisPaste zu finden, und unterstützt das Projekt.",
+  "reviewSupportAction": "Bewerten",
 
   "insufficientRamTitle": "Zu wenig Arbeitsspeicher",
   "insufficientRamBody": "WhisPaste benötigt mindestens {requiredGb}\u202fGB Arbeitsspeicher. Dein System hat {detectedGb}\u202fGB.\n\nMit weniger Arbeitsspeicher kann die KI-Transkription möglicherweise nicht geladen werden oder stürzt ab.",
@@ -887,5 +894,10 @@
     "placeholders": {
       "count": {"type": "int"}
     }
-  }
+  },
+
+  "settingsPrivacy": "Datenschutz",
+  "settingsPrivacySubtitle": "Lege fest, welche Daten WhisPaste teilt",
+  "settingsShareUsageStats": "Anonyme Nutzungsstatistiken senden",
+  "settingsShareUsageStatsSubtitle": "Cookiefrei und ohne Identifikatoren — hilf uns zu verstehen, wie WhisPaste genutzt wird"
 }

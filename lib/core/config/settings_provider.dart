@@ -55,6 +55,7 @@ class AppSettings {
     this.windowPosition = const WindowPositionSettings(),
     this.onboarding = const OnboardingSettings(),
     this.benchmark = const BenchmarkSettings(),
+    this.privacy = const PrivacySettings(),
   });
 
   // ---------------------------------------------------------------------------
@@ -108,6 +109,9 @@ class AppSettings {
 
   /// Benchmark data for tier performance recommendations.
   final BenchmarkSettings benchmark;
+
+  /// Privacy settings (analytics consent, crash reporting consent is in behavior).
+  final PrivacySettings privacy;
 
   // ---------------------------------------------------------------------------
   // @Deprecated shims — delegate to sections.
@@ -351,6 +355,7 @@ class AppSettings {
       windowPosition: WindowPositionSettings.fromMap(values),
       onboarding: OnboardingSettings.fromMap(values),
       benchmark: BenchmarkSettings.fromMap(values),
+      privacy: PrivacySettings.fromMap(values),
     );
   }
 
@@ -409,6 +414,7 @@ class AppSettings {
     ...windowPosition.toMap(),
     ...onboarding.toMap(),
     ...benchmark.toMap(),
+    ...privacy.toMap(),
   };
 
   // ---------------------------------------------------------------------------
@@ -440,6 +446,7 @@ class AppSettings {
     WindowPositionSettings? windowPosition,
     OnboardingSettings? onboarding,
     BenchmarkSettings? benchmark,
+    PrivacySettings? privacy,
   }) {
     return AppSettings(
       interface_: interface_ ?? this.interface_,
@@ -459,6 +466,7 @@ class AppSettings {
       windowPosition: windowPosition ?? this.windowPosition,
       onboarding: onboarding ?? this.onboarding,
       benchmark: benchmark ?? this.benchmark,
+      privacy: privacy ?? this.privacy,
     );
   }
 
@@ -530,6 +538,7 @@ class AppSettings {
     Map<QualityTier, double>? tierBenchmarkRtf,
     String? benchmarkHardwareId,
     DateTime? benchmarkTimestamp,
+    bool? shareUsageStats,
   }) {
     return AppSettings(
       interface_: interface_.copyWith(
@@ -618,6 +627,7 @@ class AppSettings {
         benchmarkHardwareId: benchmarkHardwareId,
         benchmarkTimestamp: benchmarkTimestamp,
       ),
+      privacy: privacy.copyWith(shareUsageStats: shareUsageStats),
     );
   }
 
@@ -641,7 +651,8 @@ class AppSettings {
           hotkey == other.hotkey &&
           windowPosition == other.windowPosition &&
           onboarding == other.onboarding &&
-          benchmark == other.benchmark;
+          benchmark == other.benchmark &&
+          privacy == other.privacy;
 
   @override
   int get hashCode => Object.hash(
@@ -661,6 +672,7 @@ class AppSettings {
     windowPosition,
     onboarding,
     benchmark,
+    privacy,
   );
 }
 
