@@ -13,7 +13,7 @@
 **WhisPaste** ist ein **Sprach-Eingabe-Tool**: Es nimmt auf Anforderung des Nutzers eine Sprachaufnahme entgegen und fügt den transkribierten Text an der Cursor-Position der aktiven Anwendung ein — der Stelle, an der der Nutzer gerade tippen würde.
 
 **Aktiv unterstützt:** Windows, macOS, Linux.
-**Geplant:** iOS, Android.
+**Nicht geplant:** iOS, Android (WhisPaste ist eine reine Desktop-App).
 
 ### WhisPaste ist explizit nicht …
 
@@ -51,6 +51,7 @@ Im Code: `RecordingPhase.recording`. In der UI: Statusbalken zeigt „Aufnahme l
 
 **Transkription** (DE) / **Transcription** (EN)
 
+Die Phase, in der die aufgezeichnete WAV-Datei durch eine STT-Engine in Text gewandelt wird. Lokal via whisper.cpp, cloud via OpenAI/Deepgram/Groq.
 
 Im Code: `RecordingPhase.transcribing`, Sub-System unter `lib/services/stt/`.
 
@@ -279,8 +280,9 @@ zu verlassen.
   Lokale STT ist Default; Cloud-Anbieter sind optional und opt-in pro Nutzer.
 - **Eigener Desktop** (Windows oder macOS, perspektivisch Linux), nicht: geteilte
   Familien-PCs, öffentliche Geräte, Firmen-Pool-Rechner mit gelocktem Mikrofon.
-- **Mobile ist Nebenschauplatz** — iOS/Android sind geplant, aber der Hauptpfad
-  ist Desktop-Dictation in fremde Anwendungen.
+- **Mobile ist nicht geplant** — WhisPaste ist eine reine Desktop-App
+  (Windows/macOS/Linux); der Hauptpfad ist Desktop-Dictation in fremde
+  Anwendungen.
 - **Leitfrage** im Kopf: „Wie bekomme ich diesen Satz in das Feld, ohne aus
   meinem aktuellen Fenster zu wechseln?"
 
@@ -313,7 +315,8 @@ dort einfügt, wo der Cursor steht — egal in welcher App.
   bewusst geblockt; alles andere paste-kompatibel).
 - **Geräusch-arme UI** — keine grellen Effekte, kein Glow, ruhige Animationen,
   Light/Dark/System-Theme, EN/DE.
-- **Cross-Platform-Parität** für Windows und macOS; Linux folgt; mobile später.
+- **Cross-Platform-Parität** für Windows, macOS und Linux; Mobile ist nicht
+  geplant.
 
 ## Nicht optimieren für
 
