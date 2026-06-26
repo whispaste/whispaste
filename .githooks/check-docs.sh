@@ -24,7 +24,9 @@ fail=0
 err(){ echo "  ✗ $1" >&2; fail=1; }
 
 # --- Generische Infra-/Secret-Marker (provider-agnostisch) ---
-HARD_RE='/Users/[A-Za-z]|/home/[a-z][a-z0-9_-]*/|BEGIN [A-Z ]*PRIVATE KEY|AKIA[0-9A-Z]{16}'
+# Lokale Pfade (in Test-Fixtures legitim) vs. echte Secrets (nie legitim).
+PATH_RE='/Users/[A-Za-z]|/home/[a-z][a-z0-9_-]*/'
+SECRET_HARD_RE='BEGIN [A-Z ]*PRIVATE KEY|AKIA[0-9A-Z]{16}'
 IP_RE='192\.168\.[0-9]|10\.[0-9]+\.[0-9]+\.[0-9]+|172\.(1[6-9]|2[0-9]|3[01])\.[0-9]'
 # Generic secret patterns (keys, tokens, passwords in code)
 KEY_RE='(API_KEY|SECRET_KEY|SERVICE_ROLE_KEY|ACCESS_KEY)\s*[:=]\s*["\x27][A-Za-z0-9_-]{16,}'
@@ -53,6 +55,8 @@ exists(){
   else git cat-file -e "HEAD:$1" 2>/dev/null; fi
 }
 is_test(){ case "$1" in test/*|*/test/*|*/__tests__/*|integration_test/*) return 0 ;; esac; return 1; }
+# Source-code files that may contain version/build numbers matching private-IP patterns.
+is_source(){ case "$1" in *.cpp|*.h|*.dart|*.c|*.swift|*.java|*.kt|*.rs|*.go) return 0 ;; esac; return 1; }
 skip_file(){
   case "$1" in
     .githooks/*) return 0 ;;
@@ -80,9 +84,18 @@ while IFS= read -r f; do
   content="$(read_file "$f")"
   [ -z "$content" ] && continue
 
-  if printf '%s' "$content" | LC_ALL=C grep -qE "$HARD_RE"; then
-    hit="$(printf '%s' "$content" | LC_ALL=C grep -nE "$HARD_RE" | head -1 | sed 's/^[[:space:]]*//; s/  */ /g' | cut -c1-100)"
-    err "$f: Infra-/Secret-Leak → $hit"
+  # Lokale Pfade — nur in Nicht-Test-Dateien flaggen (Test-Fixtures dürfen
+  # /Users/test/, /home/user/ etc. enthalten).
+  if ! is_test "$f"; then
+    if printf '%s' "$content" | LC_ALL=C grep -qE "$PATH_RE"; then
+      hit="$(printf '%s' "$content" | LC_ALL=C grep -nE "$PATH_RE" | head -1 | sed 's/^[[:space:]]*//; s/  */ /g' | cut -c1-100)"
+      err "$f: lokaler Pfad (Infra-Leak) → $hit"
+    fi
+  fi
+  # Echte Secrets — IMMER flaggen, auch in Test-Dateien (keine Fixture-Legitimität).
+  if printf '%s' "$content" | LC_ALL=C grep -qE "$SECRET_HARD_RE"; then
+    hit="$(printf '%s' "$content" | LC_ALL=C grep -nE "$SECRET_HARD_RE" | head -1 | sed 's/^[[:space:]]*//; s/  */ /g' | cut -c1-100)"
+    err "$f: Secret/Hard-Key-Leak → $hit"
   fi
   if printf '%s' "$content" | LC_ALL=C grep -qE "$KEY_RE"; then
     hit="$(printf '%s' "$content" | LC_ALL=C grep -nE "$KEY_RE" | head -1 | sed 's/^[[:space:]]*//; s/  */ /g' | cut -c1-100)"
@@ -92,7 +105,8 @@ while IFS= read -r f; do
     hit="$(printf '%s' "$content" | LC_ALL=C grep -niE "$LOCAL_RE" | head -1 | sed 's/^[[:space:]]*//; s/  */ /g' | cut -c1-100)"
     err "$f: Blocklisten-Treffer (Internas) → $hit"
   fi
-  if ! is_test "$f"; then
+  # Private IPs — nicht in Test-Dateien und nicht in Source-Code (Build-Nummern, SDK-Versionen).
+  if ! is_test "$f" && ! is_source "$f"; then
     if printf '%s' "$content" | LC_ALL=C grep -qE "$IP_RE"; then
       hit="$(printf '%s' "$content" | LC_ALL=C grep -nE "$IP_RE" | head -1 | sed 's/^[[:space:]]*//; s/  */ /g' | cut -c1-100)"
       err "$f: private IP (Infra-Leak) → $hit"
