@@ -188,8 +188,14 @@ if [ -n "$DART_STAGED" ]; then
     echo "Loam ratchet gate..."
     dart pub global activate loam 0.1.13 >/dev/null
     export PATH="$PATH:$HOME/.pub-cache/bin"
-    if command -v flutter >/dev/null 2>&1; then
-      export DART_SDK="$(dirname "$(command -v flutter)")/cache/dart-sdk"
+    if [ -z "${DART_SDK:-}" ]; then
+      if command -v flutter >/dev/null 2>&1; then
+        _f=$(command -v flutter)
+        while [ -L "$_f" ]; do
+          _t=$(readlink "$_f"); case "$_t" in /*) _f="$_t" ;; *) _f="$(dirname "$_f")/$_t" ;; esac
+        done
+        export DART_SDK="$(dirname "$_f")/cache/dart-sdk"
+      fi
     fi
     if ! loam gate --no-update-check 2>&1; then
       cat >&2 <<EOF
