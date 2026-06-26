@@ -58,18 +58,6 @@ class AdvancedSection extends ConsumerWidget {
         children: [
           _AutoPasteBlocklistField(settings: settings, ref: ref),
           SettingRow(
-            icon: LucideIcons.shieldCheck,
-            label: l10n.settingsErrorReporting,
-            subtitle: l10n.settingsErrorReportingSubtitle,
-            semanticToggledValue: settings.errorReporting,
-            trailing: settingsToggle(
-              value: settings.errorReporting,
-              onChanged: (v) => ref
-                  .read(settingsProvider.notifier)
-                  .updateSettings((s) => s.copyWith(errorReporting: v)),
-            ),
-          ),
-          SettingRow(
             icon: LucideIcons.rotateCcw,
             label: l10n.settingsResetToDefaults,
             trailing: OutlinedButton(

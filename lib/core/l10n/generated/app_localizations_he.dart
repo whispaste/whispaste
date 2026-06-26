@@ -2579,4 +2579,17 @@ class L10nHe extends L10n {
     );
     return '$_temp0';
   }
+
+  @override
+  String get settingsPrivacy => 'Privacy';
+
+  @override
+  String get settingsPrivacySubtitle => 'Control what data WhisPaste shares';
+
+  @override
+  String get settingsShareUsageStats => 'Share anonymous usage statistics';
+
+  @override
+  String get settingsShareUsageStatsSubtitle =>
+      'Sent cookieless and without any identifiers — help us understand how WhisPaste is used';
 }

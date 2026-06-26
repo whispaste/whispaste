@@ -52,7 +52,7 @@ class SettingsSearchEntry {
 // Table
 // ---------------------------------------------------------------------------
 
-/// Static search table covering all 11 settings sections.
+/// Static search table covering all 12 settings sections.
 ///
 /// Keywords deliberately include both DE and EN synonyms so the matcher works
 /// regardless of the app language the user has selected.
@@ -238,6 +238,24 @@ const List<SettingsSearchEntry> kSettingsSearchTable = [
       'reset', 'defaults', 'error reporting', 'updates', 'tray',
       'system tray', 'auto-paste delay', 'blocklist', 'text replacements',
       'max duration', 'factory reset', 'close to tray',
+    ],
+  ),
+  SettingsSearchEntry(
+    id: 'privacy',
+    sectionKey: 'privacy',
+    titleDe: 'Datenschutz',
+    titleEn: 'Privacy',
+    subtitleDe: 'Lege fest, welche Daten WhisPaste teilt',
+    subtitleEn: 'Control what data WhisPaste shares',
+    keywords: [
+      // DE
+      'Datenschutz', 'Analyse', 'Statistik', 'Tracking', 'anonym',
+      'Fehlerberichte', 'Absturzberichte', 'Nutzungsstatistiken',
+      'Daten', 'Teilen', 'Privatsphäre',
+      // EN
+      'privacy', 'analytics', 'statistics', 'tracking', 'anonymous',
+      'error reports', 'crash reports', 'usage stats',
+      'data', 'share', 'consent',
     ],
   ),
 ];

@@ -1147,6 +1147,39 @@ class BenchmarkSettings {
 }
 
 // ===========================================================================
+// Section 17 — Privacy
+// ===========================================================================
+
+class PrivacySettings {
+  const PrivacySettings({this.shareUsageStats = false});
+
+  final bool shareUsageStats;
+
+  static const PrivacySettings defaults = PrivacySettings();
+
+  factory PrivacySettings.fromMap(Map<String, String> v) => PrivacySettings(
+    shareUsageStats: _readBool(
+      v,
+      'share_usage_stats',
+      defaults.shareUsageStats,
+    ),
+  );
+
+  Map<String, String> toMap() => {'share_usage_stats': '$shareUsageStats'};
+
+  PrivacySettings copyWith({bool? shareUsageStats}) =>
+      PrivacySettings(shareUsageStats: shareUsageStats ?? this.shareUsageStats);
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PrivacySettings && shareUsageStats == other.shareUsageStats;
+
+  @override
+  int get hashCode => shareUsageStats.hashCode;
+}
+
+// ===========================================================================
 // Platform-aware defaults factory
 // ===========================================================================
 

@@ -100,6 +100,7 @@ dependencies:
   # MemoryFileSystem, production keeps the LocalFileSystem default.
   # Generic Google-maintained package — NOT Firebase / NOT GCP.
   file: ^7.0.0
+  matomo_tracker: ^6.1.1
 
 dev_dependencies:
   flutter_test:

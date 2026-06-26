@@ -894,5 +894,10 @@
     "placeholders": {
       "count": {"type": "int"}
     }
-  }
+  },
+
+  "settingsPrivacy": "Datenschutz",
+  "settingsPrivacySubtitle": "Lege fest, welche Daten WhisPaste teilt",
+  "settingsShareUsageStats": "Anonyme Nutzungsstatistiken senden",
+  "settingsShareUsageStatsSubtitle": "Cookiefrei und ohne Identifikatoren — hilf uns zu verstehen, wie WhisPaste genutzt wird"
 }

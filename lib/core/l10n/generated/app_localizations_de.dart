@@ -2652,4 +2652,18 @@ class L10nDe extends L10n {
     );
     return '$_temp0';
   }
+
+  @override
+  String get settingsPrivacy => 'Datenschutz';
+
+  @override
+  String get settingsPrivacySubtitle =>
+      'Lege fest, welche Daten WhisPaste teilt';
+
+  @override
+  String get settingsShareUsageStats => 'Anonyme Nutzungsstatistiken senden';
+
+  @override
+  String get settingsShareUsageStatsSubtitle =>
+      'Cookiefrei und ohne Identifikatoren — hilf uns zu verstehen, wie WhisPaste genutzt wird';
 }

@@ -17,6 +17,7 @@ import 'sections/feedback_section.dart';
 import 'sections/history_section.dart';
 import 'sections/interface_section.dart';
 import 'sections/overlay_button_section.dart';
+import 'sections/privacy_section.dart';
 import 'sections/recording_sections.dart';
 import 'sections/review_support_section.dart';
 import 'sections/stt_section.dart';
@@ -55,6 +56,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     'history': GlobalKey(),
     'advanced': GlobalKey(),
     'reviewSupport': GlobalKey(),
+    'privacy': GlobalKey(),
   };
 
   Timer? _highlightClearTimer;
@@ -228,6 +230,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         () => sectionWithHighlight(
           'reviewSupport',
           ReviewSupportSection(key: _sectionKeys['reviewSupport']),
+        ),
+      ),
+      (
+        'privacy',
+        () => sectionWithHighlight(
+          'privacy',
+          PrivacySection(key: _sectionKeys['privacy']),
         ),
       ),
     ];

@@ -4718,6 +4718,30 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'{count, plural, =0{No results} =1{1 result} other{{count} results}}'**
   String settingsSearchResultCount(int count);
+
+  /// No description provided for @settingsPrivacy.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy'**
+  String get settingsPrivacy;
+
+  /// No description provided for @settingsPrivacySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Control what data WhisPaste shares'**
+  String get settingsPrivacySubtitle;
+
+  /// No description provided for @settingsShareUsageStats.
+  ///
+  /// In en, this message translates to:
+  /// **'Share anonymous usage statistics'**
+  String get settingsShareUsageStats;
+
+  /// No description provided for @settingsShareUsageStatsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sent cookieless and without any identifiers — help us understand how WhisPaste is used'**
+  String get settingsShareUsageStatsSubtitle;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

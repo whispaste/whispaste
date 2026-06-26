@@ -926,5 +926,10 @@
     "placeholders": {
       "count": {"type": "int"}
     }
-  }
+  },
+
+  "settingsPrivacy": "Privacy",
+  "settingsPrivacySubtitle": "Control what data WhisPaste shares",
+  "settingsShareUsageStats": "Share anonymous usage statistics",
+  "settingsShareUsageStatsSubtitle": "Sent cookieless and without any identifiers — help us understand how WhisPaste is used"
 }
