@@ -51,7 +51,6 @@ Im Code: `RecordingPhase.recording`. In der UI: Statusbalken zeigt „Aufnahme l
 
 **Transkription** (DE) / **Transcription** (EN)
 
-Die Phase, in der die aufgezeichnete WAV-Datei durch eine STT-Engine in Text gewandelt wird. Lokal via whisper.cpp, cloud via OpenAI/Deepgram/Groq.
 
 Im Code: `RecordingPhase.transcribing`, Sub-System unter `lib/services/stt/`.
 
