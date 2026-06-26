@@ -177,15 +177,6 @@ _paq.push(["enableLinkTracking"]);
   d.head.appendChild(g);
 })();`} />
     )}
-    {/* Engagement-Event „Download gestartet" → Matomo. Hört auf das bestehende
-        download:triggered-CustomEvent (Store-/Apple-Button); Name = erkanntes OS
-        (data-os aus dem OS-Detektor oben). Cookieless, prod-only, _paq-Muster. */}
-    {import.meta.env.PROD && (
-      <script is:inline set:html={`document.addEventListener("download:triggered", function () {
-  var os = document.documentElement.dataset.os || "unbekannt";
-  if (window._paq) window._paq.push(["trackEvent", "Engagement", "Download gestartet", os]);
-});`} />
-    )}
     {/* Core Web Vitals (RUM) → Matomo custom events. First-party bundled, prod-only. */}
     {import.meta.env.PROD && <WebVitals enabled={true} />}
   </head>
