@@ -81,6 +81,12 @@ skills.yaml
 CLAUDE.md
 CONTEXT.md
 
+# ASO-Research-Runs (lokale Analyse-Outputs — nie öffentlich)
+.aso-research/
+
+# Lokale Leak-Blockliste (nie committen — enthält projektinterne Namen/Hosts)
+.githooks/leak-blocklist.local
+
 # Internal dev tools (local only)
 cmd/
 scripts/*

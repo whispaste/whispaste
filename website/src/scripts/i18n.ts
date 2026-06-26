@@ -497,7 +497,7 @@ export const i18n: Record<string, Record<string, string>> = {
     'meta.title.default': 'WhisPaste — Spracheingabe direkt am Cursor',
     'meta.description.default': 'Desktop-Sprach-Eingabe-Tool — verwandelt deine Stimme in Text, offline oder mit Cloud-Anbietern. Kostenlos & Open Source.',
     'meta.title.home': 'WhisPaste — Spracheingabe für den Desktop, von Haus aus privat',
-    'meta.description.home': 'WhisPaste macht aus deiner Stimme Text — genau dort, wo dein Cursor steht. Offline-first, optional mit Cloud-Anbietern. Kostenlos & Open Source.',
+    'meta.description.home': 'WhisPaste macht aus deiner Stimme Text, genau dort, wo dein Cursor steht — Sprache zu Text ohne Cloud-Pflicht, offline als Standard. Kostenlos & Open Source.',
     'meta.title.download': 'WhisPaste herunterladen — Spracheingabe für Windows & macOS',
     'meta.description.download': 'WhisPaste für Windows und macOS herunterladen — über den Microsoft Store, als DMG oder kostenlos von GitHub. Offline-first, ohne Account, ohne Abo.',
     'meta.title.privacy': 'Datenschutz — WhisPaste',
@@ -1162,3 +1162,4 @@ export function localePath(locale: Locale, baseSlug: string): string {
   }
   return slug.length === 0 ? '/en/' : `/en/${slug}/`;
 }
+// legit comment
