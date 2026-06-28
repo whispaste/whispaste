@@ -35,7 +35,7 @@ const breadcrumbItems = [
           <section>
             <h2 class="text-2xl font-semibold text-white mb-3">1. Core Principle</h2>
             <p>
-              WhisPaste is designed with <strong class="text-white">privacy first</strong>. The application collects <strong class="text-white">no analytics, no telemetry, and no tracking data</strong>. All user data stays on your device unless you explicitly choose to use a cloud-based transcription service.
+              WhisPaste is designed with <strong class="text-white">privacy first</strong>. Your <strong class="text-white">content — audio and transcribed text — never leaves your device</strong> unless you explicitly choose a cloud transcription service. The app does collect <strong class="text-white">anonymous, aggregated usage statistics</strong> (self-hosted) and optional crash reports to guide development; these are cookieless, carry no account or device identifier, never contain your audio, text, or history, and can be switched off at any time (see section&nbsp;10).
             </p>
           </section>
 
@@ -95,7 +95,7 @@ const breadcrumbItems = [
           <section>
             <h2 class="text-2xl font-semibold text-white mb-3">8. Third-Party Data Sharing</h2>
             <p>
-              WhisPaste does <strong class="text-white">not share any data with third parties</strong>. The only exception is when you explicitly choose to use the OpenAI Whisper API for transcription, in which case audio data is sent directly to OpenAI under their terms. No other data is shared with any third party.
+              WhisPaste does <strong class="text-white">not share your content with third parties</strong>. Audio is sent to a cloud provider only when you explicitly choose one (e.g. the OpenAI Whisper API), directly from your device under that provider's terms. Anonymous usage statistics go to a <strong class="text-white">self-hosted</strong> Matomo server operated by us (not a third party). Optional crash reports are processed by Sentry as a data processor. Both can be switched off — see section&nbsp;10.
             </p>
           </section>
 
@@ -107,29 +107,41 @@ const breadcrumbItems = [
             <ul class="list-disc list-inside space-y-1 ml-4">
               <li>OpenAI Whisper API — when cloud transcription is enabled (user-initiated)</li>
               <li>HuggingFace — when downloading offline AI models (user-initiated)</li>
-              <li>GitHub Releases API — for automatic update checks</li>
+              <li>GitHub Releases / appcast — for automatic update checks</li>
+              <li>Self-hosted Matomo — anonymous, opt-out usage statistics (see section 10)</li>
+              <li>Sentry — optional crash reports (opt-out)</li>
             </ul>
             <p class="mt-3">
-              All network connections use <strong class="text-white">HTTPS</strong> encryption. No background network activity occurs beyond the update check.
+              All network connections use <strong class="text-white">HTTPS</strong> encryption. Aside from the update check and the anonymous telemetry described in section 10, no background network activity occurs.
             </p>
           </section>
 
           <section>
-            <h2 class="text-2xl font-semibold text-white mb-3">10. Children's Privacy</h2>
+            <h2 class="text-2xl font-semibold text-white mb-3">10. Anonymous Usage Statistics &amp; Crash Reports</h2>
+            <p>
+              To guide development, WhisPaste collects <strong class="text-white">anonymous, aggregated usage statistics</strong> by default via a <strong class="text-white">self-hosted</strong> Matomo server, plus optional crash reports (Sentry). Both are cookieless and carry no account, user, or device identifier; the IP address is fully anonymised server-side, and an active operating-system Do-Not-Track setting is honoured.
+            </p>
+            <p>
+              <strong class="text-white">Never</strong> transmitted: your audio, transcribed text, history, snippets, tags, notes, API keys, concrete hotkeys, file paths, cursor position, or the target application. Only aggregated event counters and categories are collected (app version, platform, selected provider, install channel, language). Legal basis: Art. 6(1)(f) GDPR (legitimate interest). You can switch off each stream independently at any time under <strong class="text-white">Settings → Privacy</strong>.
+            </p>
+          </section>
+
+          <section>
+            <h2 class="text-2xl font-semibold text-white mb-3">11. Children's Privacy</h2>
             <p>
               WhisPaste does not knowingly collect data from children. Since the application does not collect any personal data or require account creation, there are no age-related data concerns.
             </p>
           </section>
 
           <section>
-            <h2 class="text-2xl font-semibold text-white mb-3">11. Changes to This Policy</h2>
+            <h2 class="text-2xl font-semibold text-white mb-3">12. Changes to This Policy</h2>
             <p>
               This privacy policy may be updated to reflect changes in the application. Significant changes will be noted in the application's release notes on GitHub.
             </p>
           </section>
 
           <section>
-            <h2 class="text-2xl font-semibold text-white mb-3">12. Contact</h2>
+            <h2 class="text-2xl font-semibold text-white mb-3">13. Contact</h2>
             <p>
               For privacy-related questions or concerns, please refer to the <a href="/impressum/" class="text-brand-cyan hover:underline">Legal Notice (Impressum)</a> page for contact information.
             </p>

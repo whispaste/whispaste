@@ -53,7 +53,7 @@ You can revoke either permission at any time in **System Settings → Privacy & 
 
 - **On-device mode** (default): your audio never leaves your Mac.
 - **Cloud mode** (opt-in): audio is sent straight from your device to the provider you selected — never through a WhisPaste server.
-- **No account, no tracking.** Optional crash reports are transparent and can be turned off at any time.
+- **No account.** Anonymous, self-hosted usage statistics and optional crash reports help guide development — both are opt-out (Settings → Privacy) and never contain your audio, text, or history.
 
 ## License and source
 
