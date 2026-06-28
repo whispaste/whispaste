@@ -2,8 +2,16 @@ import 'dart:async';
 
 import 'package:http/http.dart' as http;
 
-final class AnalyticsService {
-  AnalyticsService({
+/// Cookieless, identifierless usage-telemetry sender (Matomo `matomo.php`
+/// endpoint). Named *telemetry* — not *analytics* — to stay distinct from the
+/// in-app analytics dashboard (`analyticsProvider` / `AnalyticsData`), which is
+/// an unrelated local feature.
+///
+/// Hard privacy rules (PRD Säule D): no cookie, no `_id`/`pk_id`, no visitor
+/// id, no user id. A request only leaves the app when [consentGranted] is true,
+/// the endpoint is configured, and OS Do-Not-Track is off.
+final class TelemetryService {
+  TelemetryService({
     required this.client,
     required this.endpointUrl,
     required this.siteId,

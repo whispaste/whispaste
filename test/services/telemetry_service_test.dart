@@ -2,16 +2,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
-import 'package:whispaste/services/analytics_service.dart';
+import 'package:whispaste/services/telemetry_service.dart';
 
-AnalyticsService _makeService({
+TelemetryService _makeService({
   required http.Client client,
   String endpointUrl = 'https://example.matomo.cloud',
   int siteId = 1,
   bool consentGranted = true,
   bool dntActive = false,
 }) {
-  return AnalyticsService(
+  return TelemetryService(
     client: client,
     endpointUrl: endpointUrl,
     siteId: siteId,
@@ -21,7 +21,7 @@ AnalyticsService _makeService({
 }
 
 void main() {
-  group('AnalyticsService', () {
+  group('TelemetryService', () {
     test('does not send HTTP request when consentGranted is false', () async {
       var httpCallMade = false;
       final client = MockClient((_) async {

@@ -23,6 +23,7 @@ import 'core/theme/theme.dart';
 import 'floating_button_render_entrypoint.dart';
 import 'floating_overlay_render_entrypoint.dart';
 import 'services/audio_service.dart';
+import 'services/auto_updater_service.dart';
 import 'services/bundle_id_migration_adapters.dart';
 import 'services/bundle_id_migration_service.dart';
 import 'services/deploy_channel_service.dart';
@@ -259,10 +260,16 @@ void _scheduleStartupSideEffects(
   // Check for updates on startup if enabled and not running from Store.
   final channel = container.read(deployChannelProvider);
   if (settings.checkUpdates && channel != DeployChannel.store) {
-    // Short delay so the UI renders first.
-    Future<void>.delayed(const Duration(seconds: 3), () {
-      container.read(updateProvider.notifier).checkForUpdate();
-    });
+    if (Platform.isLinux) {
+      // Linux — no Sparkle/WinSparkle; keep the GitHub API check.
+      Future<void>.delayed(const Duration(seconds: 3), () {
+        container.read(updateProvider.notifier).checkForUpdate();
+      });
+    } else {
+      // macOS / Windows non-store — initialize Sparkle/WinSparkle which
+      // handles periodic checks natively via appcast.xml feed.
+      unawaited(initAutoUpdater(channel));
+    }
   }
 }
 

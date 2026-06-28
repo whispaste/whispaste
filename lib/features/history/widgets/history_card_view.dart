@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart'
-    show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -13,12 +11,6 @@ import 'highlighted_text.dart';
 import 'history_date_header.dart';
 import 'history_helpers.dart';
 import 'history_row_action.dart';
-
-/// Whether the current platform uses touch as primary input.
-bool get _isTouchPlatform {
-  final p = defaultTargetPlatform;
-  return p == TargetPlatform.android || p == TargetPlatform.iOS;
-}
 
 // ---------------------------------------------------------------------------
 // Card view — responsive grid of entry cards
@@ -234,8 +226,8 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
                         ),
                       ),
                     ),
-                    // Action buttons — visible on hover/focus (desktop) or always (touch)
-                    if (_isHovered || _isTouchPlatform || widget.isFocused)
+                    // Action buttons — visible on hover/focus
+                    if (_isHovered || widget.isFocused)
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
