@@ -309,8 +309,10 @@ dort einfügt, wo der Cursor steht — egal in welcher App.
   konfigurierbares Modell, Text-Replacements für wiederkehrende Korrekturen.
 - **Verlauf mit Suche** — was wurde wann gesagt, neu kopieren oder als TXT/MD/
   CSV/JSON/DOCX exportieren.
-- **Datenhoheit**: Audio verlässt das Gerät niemals ohne aktive Cloud-Auswahl;
-  kein Tracking, kein Account, optionales Crash-Reporting mit PII-Filtern.
+- **Datenhoheit**: Audio & transkribierter Text verlassen das Gerät niemals ohne
+  aktive Cloud-Auswahl; kein Account. Anonyme, self-hosted Nutzungsstatistik und
+  Absturzberichte sind opt-out (in Settings → Datenschutz abschaltbar) und
+  enthalten **niemals** Audio, Text, Verlauf, Tags oder Notizen.
 - **Sicheres Pasten auch in geschützte Felder** (Banken, Passwortfelder werden
   bewusst geblockt; alles andere paste-kompatibel).
 - **Geräusch-arme UI** — keine grellen Effekte, kein Glow, ruhige Animationen,
