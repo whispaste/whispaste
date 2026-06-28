@@ -24,10 +24,10 @@ abstract final class WpSpacing {
 // Border radius
 // ---------------------------------------------------------------------------
 abstract final class WpRadius {
-  static const double sm = 6;
-  static const double md = 10;
-  static const double lg = 14;
-  static const double xl = 18;
+  static const double sm = 8;
+  static const double md = 12;
+  static const double lg = 16;
+  static const double xl = 22;
   static const double full = 9999;
 
   static final BorderRadius borderSm = BorderRadius.circular(sm);
@@ -41,18 +41,20 @@ abstract final class WpRadius {
 // Shadows — clean layered depth, NO colored/glow shadows
 // ---------------------------------------------------------------------------
 abstract final class WpShadows {
+  // Apple-grade ambient depth: soft, diffuse, low-opacity — larger blur,
+  // gentler alpha than crisp/tight shadows.
   static const List<BoxShadow> subtle = [
-    BoxShadow(color: Color(0x26000000), blurRadius: 3, offset: Offset(0, 1)),
+    BoxShadow(color: Color(0x1F000000), blurRadius: 8, offset: Offset(0, 2)),
   ];
 
   static const List<BoxShadow> card = [
-    BoxShadow(color: Color(0x40000000), blurRadius: 6, offset: Offset(0, 2)),
-    BoxShadow(color: Color(0x1A000000), blurRadius: 1),
+    BoxShadow(color: Color(0x33000000), blurRadius: 14, offset: Offset(0, 4)),
+    BoxShadow(color: Color(0x14000000), blurRadius: 2, offset: Offset(0, 1)),
   ];
 
   static const List<BoxShadow> elevated = [
-    BoxShadow(color: Color(0x4D000000), blurRadius: 16, offset: Offset(0, 6)),
-    BoxShadow(color: Color(0x1A000000), blurRadius: 3, offset: Offset(0, 1)),
+    BoxShadow(color: Color(0x40000000), blurRadius: 28, offset: Offset(0, 10)),
+    BoxShadow(color: Color(0x1A000000), blurRadius: 6, offset: Offset(0, 2)),
   ];
 
   /// Warm inner shadow for glass panels — subtle top-light illusion

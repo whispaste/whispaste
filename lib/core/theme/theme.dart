@@ -272,7 +272,7 @@ TextTheme _textTheme(ColorScheme cs) {
       fontSize: 22,
       fontWeight: FontWeight.w700,
       color: cs.onSurface,
-      letterSpacing: -0.5,
+      letterSpacing: -0.6,
       height: 1.2,
     ),
     // Heading → Section headers (16px / 600)
@@ -280,7 +280,7 @@ TextTheme _textTheme(ColorScheme cs) {
       fontSize: 16,
       fontWeight: FontWeight.w600,
       color: cs.onSurface,
-      letterSpacing: -0.2,
+      letterSpacing: -0.35,
       height: 1.3,
     ),
     // Subheading → Card titles (14px / 600)
@@ -288,7 +288,7 @@ TextTheme _textTheme(ColorScheme cs) {
       fontSize: 14,
       fontWeight: FontWeight.w600,
       color: cs.onSurface,
-      letterSpacing: -0.1,
+      letterSpacing: -0.2,
     ),
     // Body → Default text (13px / 400)
     bodyLarge: TextStyle(
