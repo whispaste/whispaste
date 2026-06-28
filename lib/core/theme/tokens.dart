@@ -5,6 +5,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
 
 // ---------------------------------------------------------------------------
 // Spacing scale (px → logical pixels)
@@ -69,7 +70,36 @@ abstract final class WpShadows {
 }
 
 // ---------------------------------------------------------------------------
-// Motion / Animation durations
+// Motion / Animation durations + easing
+//
+// ## Easing-Set Rules (Apple-grade premium motion — Phase A)
+//
+// | Slot             | Curve / Description              | Duration cap     | Use for                                      |
+// |------------------|----------------------------------|------------------|----------------------------------------------|
+// | defaultCurve     | Curves.easeOut                   | fast / normal    | All standard UI transitions                  |
+// | smooth_          | Curves.easeInOut                 | smooth / dramatic | Enter/exit cross-fades, page transitions    |
+// | spring           | easeOutCubic (no overshoot)      | smooth (300 ms)  | Signature recording-arc appear/dismiss ONLY  |
+// | springDescription | SpringDescription 170/26        | physics-based    | Physics-spring consumers (SpringSimulation)  |
+//
+// Caps (Phase 0 measurements, macOS 60 Hz):
+//   Signature transition  — Soft-Cap 300 ms / Hard-Cap 700 ms
+//   All other motion      — ≤ 200–300 ms (defaultCurve / easeOut)
+//   Hover in              — 0 ms (instant, prevents flicker between adjacent targets)
+//   Hover out             — 80 ms
+//
+// Always prefer [durationFor] over raw Duration constants to respect the
+// system "Reduce Motion" accessibility flag.
+//
+// ## Figma Motion Variable Mirror (doc-only; Figma has no animation-curve scope)
+// Keep in sync with the Figma "Motion" variable collection:
+//   fast            → 120 ms
+//   normal          → 200 ms
+//   smooth          → 300 ms
+//   dramatic        → 500 ms
+//   hoverIn         → 0 ms (instant)
+//   hoverOut        → 80 ms
+//   spring curve    → easeOutCubic (cubic-bezier 0.215, 0.61, 0.355, 1.0)
+//   spring mass     → 1 | stiffness → 170 | damping → 26
 // ---------------------------------------------------------------------------
 abstract final class WpMotion {
   static const Duration fast = Duration(milliseconds: 120);
@@ -83,8 +113,34 @@ abstract final class WpMotion {
   static const Duration hoverOut = Duration(milliseconds: 80);
 
   static const Curve defaultCurve = Curves.easeOut;
-  static const Curve spring = Curves.elasticOut;
+
+  /// Signature spring curve — critically-damped cubic-bezier approximation
+  /// (no overshoot / bouncing). Approximates [springDescription] (Gentle
+  /// 170/26, ratio ≈ 1.0). Replaces the former Curves.elasticOut.
+  ///
+  /// Use exclusively for the recording-arc (capsule appear / dismiss).
+  /// For physics-based simulation, use [springDescription] instead.
+  static const Curve spring = Curves.easeOutCubic;
+
+  /// Critically-damped spring parameters (Phase-0 Gentle preset, ratio ≈ 1.0,
+  /// no overshoot). For use with [SpringSimulation] in physics-based animations.
+  /// Curve-based callers use [spring].
+  static const SpringDescription springDescription = SpringDescription(
+    mass: 1,
+    stiffness: 170,
+    damping: 26,
+  );
+
   static const Curve smooth_ = Curves.easeInOut;
+
+  /// Returns [duration] as-is, unless the system accessibility flag
+  /// "Reduce Motion" is active — in that case returns [Duration.zero]
+  /// (immediate state change, no movement). Prefer this over raw constants
+  /// in every animated widget.
+  static Duration durationFor(BuildContext context, Duration duration) {
+    if (MediaQuery.of(context).disableAnimations) return Duration.zero;
+    return duration;
+  }
 }
 
 // ---------------------------------------------------------------------------
