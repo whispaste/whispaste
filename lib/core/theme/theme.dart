@@ -67,7 +67,8 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
     useMaterial3: true,
     colorScheme: colorScheme,
     scaffoldBackgroundColor: bg,
-    fontFamily: 'Segoe UI',
+    fontFamily: 'Inter',
+    fontFamilyFallback: const ['Helvetica Neue', 'Arial', 'sans-serif'],
 
     // Typography
     textTheme: textTheme,
@@ -118,7 +119,7 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
           // Explicit fontFamily ensures buttons render correctly in tests.
           // Flutter's _ButtonStyleButton replaces DefaultTextStyle entirely,
           // so the ThemeData.fontFamily cascade is severed without this.
-          fontFamily: 'Segoe UI',
+          fontFamily: 'Inter',
         ),
       ),
     ),
@@ -135,7 +136,7 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
         textStyle: const TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.w500,
-          fontFamily: 'Segoe UI',
+          fontFamily: 'Inter',
         ),
       ),
     ),
@@ -273,9 +274,8 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
 ///
 /// Figma mirror (Code = SSoT): each role corresponds to a `Type/*` text style
 /// in the Figma file with identical size / weight / tracking / line-height.
-/// Inter is the Figma proxy (Segoe UI not available in Figma Cloud); the
-/// fontFamily is set per-role as a comment so 04-a3-inter-bundeln can switch
-/// with a single pass.
+/// Inter is the bundled app font (OFL 4.001) and the Figma proxy font.
+/// It renders identically on Windows, macOS and Linux.
 ///
 /// | Role           | Size | Weight | LS    | LH  | Figma Type/…  |
 /// |----------------|------|--------|-------|-----|---------------|
@@ -309,7 +309,6 @@ TextTheme _textTheme(ColorScheme cs) {
       height: 1.3,
     ),
     // Dialog / panel title (17px / 600) — WpDialog, review prompts, export picker
-    // Inter-ready: switch fontFamily when 04-a3-inter-bundeln lands.
     titleLarge: TextStyle(
       fontSize: 17,
       fontWeight: FontWeight.w600,
@@ -325,7 +324,6 @@ TextTheme _textTheme(ColorScheme cs) {
       letterSpacing: -0.2,
     ),
     // Form field label / section subheading (13px / 600)
-    // Inter-ready: switch fontFamily when 04-a3-inter-bundeln lands.
     titleSmall: TextStyle(
       fontSize: 13,
       fontWeight: FontWeight.w600,
@@ -355,7 +353,6 @@ TextTheme _textTheme(ColorScheme cs) {
       height: 1.4,
     ),
     // Button label / CTA (16px / 700) — WpAccentButton, SF-style tight tracking
-    // Inter-ready: switch fontFamily when 04-a3-inter-bundeln lands.
     labelLarge: TextStyle(
       fontSize: 16,
       fontWeight: FontWeight.w700,
@@ -363,7 +360,6 @@ TextTheme _textTheme(ColorScheme cs) {
       letterSpacing: -0.3,
     ),
     // Toast / snackbar message (13px / 500)
-    // Inter-ready: switch fontFamily when 04-a3-inter-bundeln lands.
     labelMedium: TextStyle(
       fontSize: 13,
       fontWeight: FontWeight.w500,

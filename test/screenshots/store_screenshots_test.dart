@@ -146,7 +146,7 @@ void _screenshotTest(_ScreenDef screen, String locale) {
             'packages/font_awesome_flutter/FontAwesomeRegular',
             'packages/font_awesome_flutter/FontAwesomeBrands',
             'MaterialIcons',
-            'Segoe UI',
+            'Inter',
           ],
         );
         // One additional frame so widgets re-render with the loaded fonts.

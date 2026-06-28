@@ -145,6 +145,18 @@ flutter:
     - assets/flags/
     - assets/whisper-server-manifest.json
 
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Inter-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Inter-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Inter-Bold.ttf
+          weight: 700
+
 msix_config:
   display_name: WhisPaste
   publisher_display_name: silvio_lindstedt
