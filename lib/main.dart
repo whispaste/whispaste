@@ -31,6 +31,7 @@ import 'services/hardware_info_service.dart' as hw;
 import 'services/path_service.dart';
 import 'services/single_instance_service.dart';
 import 'services/subprocess_guard.dart' as guard;
+import 'services/telemetry_service.dart';
 import 'services/tmp_reaper.dart';
 import 'services/update_service.dart';
 import 'widgets/insufficient_ram_screen.dart';
@@ -271,6 +272,13 @@ void _scheduleStartupSideEffects(
       unawaited(initAutoUpdater(channel));
     }
   }
+
+  // Anonymous usage telemetry (opt-out). No-op without consent, config, or
+  // when OS Do-Not-Track is set. The app_version dimension on this event
+  // doubles as version-adoption signal.
+  container
+      .read(telemetryProvider)
+      .trackEvent(category: 'lifecycle', action: 'start');
 }
 
 /// Minimal app shown when RAM is below the 8 GB minimum.

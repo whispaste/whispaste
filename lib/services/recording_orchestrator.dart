@@ -27,6 +27,7 @@ import 'recording/recording_state_machine.dart';
 import 'recording/safety_guard.dart';
 import 'review_prompt_service.dart';
 import 'sound_feedback_service.dart';
+import 'telemetry_service.dart';
 import 'paste/paste_failure_notifier.dart';
 import 'paste/paste_policy.dart';
 import 'paste/paster.dart';
@@ -369,6 +370,7 @@ class RecordingOrchestrator extends Notifier<void> {
     } finally {
       pipelineSw.stop();
       _logPipelineSummary(sid, pipelineSw, timing);
+      _trackPipelineOutcome(timing, pipelineSw.elapsedMilliseconds);
 
       // Always clean up the temp WAV file.
       if (wavPath != null) {
@@ -866,6 +868,36 @@ class RecordingOrchestrator extends Notifier<void> {
       _log.info('[$sid] Whitespace cleanup: $rawLen→${cleaned.length} chars');
     }
     return cleaned;
+  }
+
+  /// Fire-and-forget categorical telemetry for a finished pipeline run.
+  /// [_PipelineTiming.outcome] is an internal enum string (no PII); latency is
+  /// bucketed. Telemetry failures never affect the recording pipeline.
+  void _trackPipelineOutcome(_PipelineTiming timing, int elapsedMs) {
+    try {
+      ref
+          .read(telemetryProvider)
+          .trackEvent(
+            category: 'pipeline',
+            action: timing.outcome == 'ok' ? 'success' : 'fail',
+            name: timing.outcome,
+            value: _latencyBucketSeconds(elapsedMs),
+          );
+    } catch (e) {
+      // Telemetry must never break recording — log and move on.
+      _log.debug('Telemetry pipeline event skipped: $e');
+    }
+  }
+
+  /// Coarse latency bucket (whole seconds, capped) so no precise timing leaks.
+  static int _latencyBucketSeconds(int ms) {
+    final s = ms ~/ 1000;
+    if (s <= 1) return 1;
+    if (s <= 3) return 3;
+    if (s <= 5) return 5;
+    if (s <= 10) return 10;
+    if (s <= 30) return 30;
+    return 60;
   }
 
   /// Logs a structured pipeline summary to the app log.

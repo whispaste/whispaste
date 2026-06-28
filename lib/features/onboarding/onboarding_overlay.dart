@@ -10,7 +10,9 @@ import '../../core/config/settings_provider.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/logging/app_logger.dart';
 import '../../services/paste/paste_capability_notifier.dart';
+import '../../services/telemetry_service.dart';
 import 'steps/auto_paste_step.dart';
 import 'steps/welcome_step.dart';
 import 'steps/microphone_step.dart';
@@ -68,6 +70,8 @@ class OnboardingOverlay extends ConsumerStatefulWidget {
 }
 
 class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
+  static final _log = AppLogger('Onboarding');
+
   int _currentStep = 0;
   int _previousStep = 0;
 
@@ -78,6 +82,13 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
   /// a chance to run its own dispose; defending here guarantees no zombie
   /// polling timer survives the overlay.
   PasteCapabilityNotifier? _cachedPasteNotifier;
+
+  @override
+  void initState() {
+    super.initState();
+    // Funnel entry: the first step is reached without a _goNext call.
+    _trackStep('step', _onboardingSteps().first);
+  }
 
   @override
   void didChangeDependencies() {
@@ -118,13 +129,27 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
   // Navigation helpers
   // ---------------------------------------------------------------------------
 
+  /// Fire-and-forget categorical onboarding telemetry (step id only — no PII).
+  /// Feeds the per-step abandonment funnel (PRD US30). Never throws.
+  void _trackStep(String action, OnboardingStepId step) {
+    try {
+      ref
+          .read(telemetryProvider)
+          .trackEvent(category: 'onboarding', action: action, name: step.name);
+    } catch (e) {
+      // Telemetry must never break onboarding — log and move on.
+      _log.debug('Telemetry onboarding event skipped: $e');
+    }
+  }
+
   void _goNext() {
-    final total = _onboardingSteps().length;
-    if (_currentStep < total - 1) {
+    final steps = _onboardingSteps();
+    if (_currentStep < steps.length - 1) {
       setState(() {
         _previousStep = _currentStep;
         _currentStep++;
       });
+      _trackStep('step', steps[_currentStep]);
     }
   }
 
@@ -142,8 +167,9 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
     // onboarding immediately. This lets users skip individual steps while
     // still seeing the remaining ones. On the last step there is no skip
     // button — only the "Let's go" CTA.
-    final total = _onboardingSteps().length;
-    if (_currentStep < total - 1) {
+    final steps = _onboardingSteps();
+    if (_currentStep < steps.length - 1) {
+      _trackStep('skip', steps[_currentStep]);
       _goNext();
     } else {
       _complete();
@@ -151,6 +177,7 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
   }
 
   Future<void> _complete() async {
+    _trackStep('complete', OnboardingStepId.ready);
     await ref
         .read(settingsProvider.notifier)
         .updateSettings((s) => s.copyWith(onboardingCompleted: true));
