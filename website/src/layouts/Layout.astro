@@ -161,6 +161,9 @@ const ogLocaleAlternate = lang === "de" ? "en_US" : "de_DE";
       })();
     </script>
     {/* Matomo Analytics — prod-only, cookiefrei, DSGVO-konfiguriert. Site 4 = WhisPaste. */}
+    {/* WARNUNG: NIEMALS _paq.push(["setAnonymizeIp", ...]) ergänzen — keine gültige Matomo-5-
+        JS-Methode, wirft TypeError und bricht die _paq-Queue ab (trackPageView läuft nie ->
+        Tracking-Totalausfall, Juni 2026). IP-Anonymisierung passiert serverseitig in Matomo. */}
     {import.meta.env.PROD && (
       <script is:inline set:html={`var _paq = (window._paq = window._paq || []);
 _paq.push(["disableCookies"]);
