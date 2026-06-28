@@ -163,31 +163,42 @@ abstract final class WpColorsDark {
 // Light Theme Colors
 // ---------------------------------------------------------------------------
 abstract final class WpColorsLight {
-  static const Color background = Color(0xFFEEF2F6);
-  static const Color surface = Color(0xFFFAFBFD);
-  static const Color surfaceElevated = Color(0xFFFCFDFE);
-  static const Color surfaceVariant = Color(0xFFF1F5FA);
-  static const Color hover = Color(0xFFE6ECF4);
-  static const Color hoverTransparent = Color(0x00E6ECF4);
-  static const Color active = Color(0xFFD9E2EE);
+  /// Window frame — pearl-blue tint for brand identity; analogous to Dark's deep navy
+  static const Color background = Color(0xFFE8EFF8);
+
+  /// Content surfaces — cool pearl-white with visible cyan tint (not sterile white)
+  static const Color surface = Color(0xFFF2F6FC);
+
+  /// Elevated panels, cards — lighter than surface, still clearly tinted
+  static const Color surfaceElevated = Color(0xFFF7FAFD);
+
+  /// Variant surface for alternate rows, secondary panels
+  static const Color surfaceVariant = Color(0xFFEBF1F8);
+  static const Color hover = Color(0xFFE3EBF5);
+
+  /// Transparent version of hover for smooth AnimatedContainer transitions
+  /// (prevents flash when interpolating from transparent to hover)
+  static const Color hoverTransparent = Color(0x00E3EBF5);
+  static const Color active = Color(0xFFD5DFEE);
 
   static const Color borderSubtle = Color(0x140F172A);
   static const Color borderDefault = Color(0x24131F32);
-  static const Color borderAccent = Color(0x4A0891B2);
+  static const Color borderAccent = Color(0x4A0887A8); // accent @ 29%
 
   /// Strong text contrast for light theme
   static const Color textPrimary = Color(0xFF101828);
   static const Color textSecondary = Color(0xFF44556E);
   static const Color textMuted = Color(0xFF5B697E);
 
+  /// Deep teal accent — analogous to Dark's #3CCBE6 but darkened for WCAG AA on light
   static const Color accent = Color(0xFF0887A8);
   static const Color accentHover = Color(0xFF0C6B87);
-  static const Color accentSubtle = Color(0x1C0891B2);
+  static const Color accentSubtle = Color(0x1C0887A8); // accent @ 11%
 
   /// Instance-safe tint tokens — see [WpColorsDark.accentChipFill] for rationale.
   static const Color accentChipFill = Color(0x1A0887A8); // accent @ 10%
   static const Color accentChipFillHover = Color(0x2E0887A8); // accent @ 18%
-  static const Color accentMiniTagFill = Color(0x1A0887A8); // accent @ 10%
+  static const Color accentMiniTagFill = Color(0x1F0887A8); // accent @ 12%
   static const Color accentBorder30 = Color(0x4D0887A8); // accent @ 30%
   static const Color accentButtonFill = Color(0x140887A8); // accent @ 8%
   static const Color accentActiveFill = Color(0x1F0887A8); // accent @ 12%
@@ -195,7 +206,7 @@ abstract final class WpColorsLight {
   static const Color accentBorder20 = Color(0x330887A8); // accent @ 20%
   static const Color accentRowHover = Color(0x0F0887A8); // accent @ 6%
   static const Color surfaceChipFill = Color(
-    0xFFF1F5FA,
+    0xFFEBF1F8,
   ); // = surfaceVariant (opaque)
   static const Color surfaceMutedFill = Color(0x145B697E); // textMuted @ 8%
 
@@ -203,36 +214,46 @@ abstract final class WpColorsLight {
   static const Color warning = Color(0xFFC97A06);
   static const Color error = Color(0xFFCC1C1C);
 
+  /// Orange-600 — used for RAM/hardware preflight warnings.
+  static const Color warningOrange = Color(0xFFEA580C);
+
+  /// Solid red shades for destructive action buttons (e.g. quit CTA).
+  static const Color errorRed = Color(0xFFDC2626);
+  static const Color errorRedHover = Color(0xFFB91C1C);
+
+  /// Premium pearl-blue card gradient — subtle diagonal wash
   static const LinearGradient surfaceGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFFCFBFD), Color(0xFFF7FAFD)],
+    colors: [Color(0xFFF5F9FD), Color(0xFFEDF3FA)],
   );
 
-  /// Content gradient — pearl/slate family with a subtle cool-warm shift.
+  /// Content gradient — cool pearl to tinted pearl, brand-aligned shift
   static const LinearGradient warmSurfaceGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFFCFAFB), Color(0xFFF9FBFD), Color(0xFFF4F7FB)],
+    colors: [Color(0xFFF4F8FC), Color(0xFFEFF4FA), Color(0xFFE9EFF8)],
     stops: [0.0, 0.5, 1.0],
   );
 
-  /// Frame gradient — intentionally flatter than content, but in the same hue family.
+  /// Frame gradient — matches background pearl-blue, subtle depth
   static const LinearGradient frameGradient = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [Color(0xFFF0F3F7), Color(0xFFEBF0F5), Color(0xFFEAEFF5)],
+    colors: [Color(0xFFEAF1F9), Color(0xFFE6EDF7), Color(0xFFE5ECF6)],
     stops: [0.0, 0.48, 1.0],
   );
 
+  /// Top accent line gradient — teal to deep teal
   static const LinearGradient accentGradient = LinearGradient(
-    colors: [Color(0xFF0891B2), Color(0xFF0284C7)],
+    colors: [Color(0xFF0887A8), Color(0xFF076A8A)],
   );
 
+  /// Warm accent gradient — teal to deep teal, consistent with accent
   static const LinearGradient accentWarmGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF0891B2), Color(0xFF0E7490), Color(0xFF155E75)],
+    colors: [Color(0xFF0887A8), Color(0xFF0E7490), Color(0xFF155E75)],
   );
 
   /// Glass tint — soft white overlay for light frosted panels
@@ -245,7 +266,7 @@ abstract final class WpColorsLight {
   static const Color watermark = Color(0x0A243B53);
 
   // -- Semantic state gradients (FAB / overlay) ----------------------------
-  // Light theme uses the same state gradients (they're against white bg)
+  // Light theme uses the same state gradients (they're saturated against any bg)
 
   static const LinearGradient recordingGradient =
       WpColorsDark.recordingGradient;
