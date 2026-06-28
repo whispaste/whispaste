@@ -58,6 +58,7 @@ abstract final class WpColorsDark {
   static const Color accentActiveFill = Color(0x1F38D9F0); // accent @ 12%
   static const Color accentBadgeFill = Color(0x2638D9F0); // accent @ 15%
   static const Color accentBorder20 = Color(0x3338D9F0); // accent @ 20%
+  static const Color accentRowHover = Color(0x0F38D9F0); // accent @ 6%
   static const Color surfaceChipFill = Color(0x80171D2C); // surface @ 50%
   static const Color surfaceMutedFill = Color(0x148A99B2); // textMuted @ 8%
 
@@ -192,6 +193,7 @@ abstract final class WpColorsLight {
   static const Color accentActiveFill = Color(0x1F0887A8); // accent @ 12%
   static const Color accentBadgeFill = Color(0x260887A8); // accent @ 15%
   static const Color accentBorder20 = Color(0x330887A8); // accent @ 20%
+  static const Color accentRowHover = Color(0x0F0887A8); // accent @ 6%
   static const Color surfaceChipFill = Color(
     0xFFF1F5FA,
   ); // = surfaceVariant (opaque)

@@ -315,7 +315,11 @@ class _TagRowState extends State<_TagRow> {
       onExit: (_) => setState(() => _hovered = false),
       child: AnimatedContainer(
         duration: WpMotion.hoverOut,
-        color: _hovered ? accent.withValues(alpha: 0.06) : Colors.transparent,
+        color: _hovered
+            ? (widget.isDark
+                  ? WpColorsDark.accentRowHover
+                  : WpColorsLight.accentRowHover)
+            : Colors.transparent,
         padding: const EdgeInsets.symmetric(
           horizontal: WpSpacing.lg,
           vertical: WpSpacing.xs,
