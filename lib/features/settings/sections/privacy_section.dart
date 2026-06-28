@@ -4,11 +4,15 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
+import '../../../core/logging/app_logger.dart';
+import '../../../services/telemetry_service.dart';
 import '../../../widgets/section.dart';
 import '../settings_widgets.dart';
 
 class PrivacySection extends ConsumerWidget {
   const PrivacySection({super.key});
+
+  static final _log = AppLogger('PrivacySection');
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -28,9 +32,18 @@ class PrivacySection extends ConsumerWidget {
             semanticToggledValue: settings.errorReporting,
             trailing: settingsToggle(
               value: settings.errorReporting,
-              onChanged: (v) => ref
-                  .read(settingsProvider.notifier)
-                  .updateSettings((s) => s.copyWith(errorReporting: v)),
+              onChanged: (v) {
+                ref
+                    .read(settingsProvider.notifier)
+                    .updateSettings((s) => s.copyWith(errorReporting: v));
+                try {
+                  ref
+                      .read(telemetryProvider)
+                      .trackSettingChange('error_reporting');
+                } catch (e) {
+                  _log.debug('telemetry failed: $e');
+                }
+              },
             ),
           ),
           SettingRow(
@@ -40,9 +53,18 @@ class PrivacySection extends ConsumerWidget {
             semanticToggledValue: settings.privacy.shareUsageStats,
             trailing: settingsToggle(
               value: settings.privacy.shareUsageStats,
-              onChanged: (v) => ref
-                  .read(settingsProvider.notifier)
-                  .updateSettings((s) => s.copyWith(shareUsageStats: v)),
+              onChanged: (v) {
+                ref
+                    .read(settingsProvider.notifier)
+                    .updateSettings((s) => s.copyWith(shareUsageStats: v));
+                try {
+                  ref
+                      .read(telemetryProvider)
+                      .trackSettingChange('share_usage_stats');
+                } catch (e) {
+                  _log.debug('telemetry failed: $e');
+                }
+              },
             ),
           ),
         ],

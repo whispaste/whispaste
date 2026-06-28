@@ -16,9 +16,11 @@ import '../../../core/config/settings_enums.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/config/whisper_languages.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
+import '../../../core/logging/app_logger.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../services/stt/stt_bundle.dart';
+import '../../../services/telemetry_service.dart';
 import '../../../widgets/model_download_card.dart';
 import '../../../widgets/section.dart';
 import '../settings_widgets.dart';
@@ -37,6 +39,8 @@ class SpeechRecognitionSection extends ConsumerStatefulWidget {
 
 class _SpeechRecognitionSectionState
     extends ConsumerState<SpeechRecognitionSection> {
+  static final _log = AppLogger('SpeechRecognitionSection');
+
   final _apiKeyCtrl = TextEditingController();
   bool _showKey = false;
 
@@ -87,9 +91,18 @@ class _SpeechRecognitionSectionState
                 'OpenAI',
                 'Deepgram',
               ],
-              onChanged: (v) => ref
-                  .read(settingsProvider.notifier)
-                  .updateSettings((s) => s.copyWith(sttProvider: v!)),
+              onChanged: (v) {
+                ref
+                    .read(settingsProvider.notifier)
+                    .updateSettings((s) => s.copyWith(sttProvider: v!));
+                try {
+                  ref
+                      .read(telemetryProvider)
+                      .trackSettingChange('stt_provider');
+                } catch (e) {
+                  _log.debug('telemetry failed: $e');
+                }
+              },
             ),
           ),
 

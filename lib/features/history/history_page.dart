@@ -17,6 +17,7 @@ import '../../widgets/page_shell.dart';
 import '../../widgets/toast.dart';
 import 'package:whispaste/core/data/database.dart';
 import '../../services/history/history_exporter.dart' as history_exporter;
+import '../../services/telemetry_service.dart';
 import 'data/history_detail_provider.dart';
 import 'data/providers.dart';
 import 'widgets/widgets.dart';
@@ -571,6 +572,13 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
 
   void _copyEntry(HistoryEntry entry) {
     Clipboard.setData(ClipboardData(text: entry.content));
+    try {
+      ref
+          .read(telemetryProvider)
+          .trackEvent(category: 'history', action: 'copy');
+    } catch (e) {
+      _log.debug('telemetry failed: $e');
+    }
     if (!mounted) return;
     WpToast.show(
       context,

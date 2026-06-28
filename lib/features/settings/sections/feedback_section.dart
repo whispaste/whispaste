@@ -8,9 +8,11 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../core/config/settings_enums.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
+import '../../../core/logging/app_logger.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../services/hotkey_service.dart';
 import '../../../services/sound_feedback_service.dart';
+import '../../../services/telemetry_service.dart';
 import '../../../widgets/hotkey_recorder.dart';
 import '../../../widgets/paste_capability_indicator.dart';
 import '../../../widgets/section.dart';
@@ -108,6 +110,8 @@ class KeyboardShortcutSection extends ConsumerWidget {
 class _PushToTalkRow extends ConsumerWidget {
   const _PushToTalkRow({required this.settings});
 
+  static final _log = AppLogger('PushToTalkRow');
+
   final AppSettings settings;
 
   @override
@@ -123,9 +127,16 @@ class _PushToTalkRow extends ConsumerWidget {
     final toggle = Switch(
       value: settings.pushToTalk,
       onChanged: supportsKeyUp
-          ? (v) => ref
-                .read(settingsProvider.notifier)
-                .updateSettings((s) => s.copyWith(pushToTalk: v))
+          ? (v) {
+              ref
+                  .read(settingsProvider.notifier)
+                  .updateSettings((s) => s.copyWith(pushToTalk: v));
+              try {
+                ref.read(telemetryProvider).trackSettingChange('hotkey_mode');
+              } catch (e) {
+                _log.debug('telemetry failed: $e');
+              }
+            }
           : null, // null disables the switch
     );
 
@@ -189,6 +200,8 @@ class SoundFeedbackSection extends ConsumerWidget {
 class AfterTranscriptionSection extends ConsumerWidget {
   const AfterTranscriptionSection({super.key});
 
+  static final _log = AppLogger('AfterTranscriptionSection');
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = L10n.of(context);
@@ -220,6 +233,11 @@ class AfterTranscriptionSection extends ConsumerWidget {
                 ref
                     .read(settingsProvider.notifier)
                     .updateSettings((s) => s.copyWith(afterTranscription: v));
+                try {
+                  ref.read(telemetryProvider).trackSettingChange('auto_paste');
+                } catch (e) {
+                  _log.debug('telemetry failed: $e');
+                }
               },
             ),
           ),

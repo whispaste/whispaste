@@ -19,6 +19,7 @@ import '../../../core/theme/tokens.dart';
 import '../../../services/audio_service.dart';
 import '../../../services/recording_orchestrator.dart';
 import '../../../services/stt/stt_bundle.dart';
+import '../../../services/telemetry_service.dart';
 import '../../../services/voice_action_service.dart';
 import '../../../widgets/toast.dart';
 import '../data/history_detail_provider.dart';
@@ -209,6 +210,13 @@ class _VoiceNoteButtonState extends ConsumerState<VoiceNoteButton> {
     _log.info(
       'Voice action dispatched: ${action.type.name} → "${action.payload}"',
     );
+    try {
+      ref
+          .read(telemetryProvider)
+          .trackEvent(category: 'voice_note', action: 'create');
+    } catch (e) {
+      _log.debug('telemetry failed: $e');
+    }
     _reset();
   }
 

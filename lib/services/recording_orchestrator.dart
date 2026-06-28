@@ -227,6 +227,15 @@ class RecordingOrchestrator extends Notifier<void> {
       final sid = ref.read(recordingProvider).sessionId ?? '?';
       _log.info('[$sid] Recording started');
 
+      // Fire-and-forget categorical telemetry — must never break recording.
+      try {
+        ref
+            .read(telemetryProvider)
+            .trackEvent(category: 'recording', action: 'start');
+      } catch (e) {
+        _log.debug('telemetry failed: $e');
+      }
+
       // Notify STT service that a recording is active (pauses idle timer).
       final sttNot = ref.read(localSttBundleProvider.notifier);
       sttNot.notifyRecordingStarted();
@@ -808,6 +817,20 @@ class RecordingOrchestrator extends Notifier<void> {
     unawaited(ref.read(reviewPromptProvider.notifier).checkAndMaybePrompt());
     _oomHandler.reset();
     timing.outcome = 'ok';
+
+    // Fire-and-forget categorical telemetry — must never break the pipeline.
+    try {
+      ref
+          .read(telemetryProvider)
+          .trackEvent(
+            category: 'recording',
+            action: 'complete',
+            value: _latencyBucketSeconds(audioDurMs),
+          );
+    } catch (e) {
+      _log.debug('telemetry failed: $e');
+    }
+
     return true;
   }
 
@@ -954,6 +977,11 @@ class RecordingOrchestrator extends Notifier<void> {
         cloudSttProvider: _cloudProviderValue(provider),
       );
     });
+    try {
+      ref.read(telemetryProvider).trackSettingChange('cloud_stt_provider');
+    } catch (e) {
+      _log.debug('telemetry failed: $e');
+    }
     _oomHandler.reset();
     ref.read(oomRecoveryPendingProvider.notifier).clear();
     ref.read(localSttBundleProvider.notifier).stop();
@@ -1366,13 +1394,34 @@ class RecordingOrchestrator extends Notifier<void> {
         return;
       case AfterTranscriptionAction.clipboard:
         await _copyTranscriptToClipboard(transcript);
+        try {
+          ref
+              .read(telemetryProvider)
+              .trackEvent(category: 'insertion', action: 'clipboard');
+        } catch (e) {
+          _log.debug('telemetry failed: $e');
+        }
         return;
       case AfterTranscriptionAction.paste:
         await _pasteTranscript(transcript, settings);
+        try {
+          ref
+              .read(telemetryProvider)
+              .trackEvent(category: 'insertion', action: 'auto_paste');
+        } catch (e) {
+          _log.debug('telemetry failed: $e');
+        }
         return;
       case AfterTranscriptionAction.clipboardAndPaste:
         await _copyTranscriptToClipboard(transcript);
         await _pasteTranscript(transcript, settings);
+        try {
+          ref
+              .read(telemetryProvider)
+              .trackEvent(category: 'insertion', action: 'auto_paste');
+        } catch (e) {
+          _log.debug('telemetry failed: $e');
+        }
         return;
     }
   }

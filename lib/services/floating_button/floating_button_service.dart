@@ -17,6 +17,7 @@ import '../../core/recording/recording_state.dart';
 import '../floating_platform_service_base.dart';
 import '../floating_theme_brightness.dart';
 import '../recording_orchestrator.dart';
+import '../telemetry_service.dart';
 import '../stt/stt_bundle.dart';
 import 'floating_button_context_menu.dart';
 import 'floating_button_controller.dart';
@@ -162,6 +163,13 @@ class FloatingButtonService
       case FloatingButtonClicked():
         _log.debug('Floating button clicked → toggleRecording');
         ref.read(recordingOrchestratorProvider.notifier).toggleRecording();
+        try {
+          ref
+              .read(telemetryProvider)
+              .trackEvent(category: 'ui', action: 'fab_click');
+        } catch (e) {
+          _log.debug('telemetry failed: $e');
+        }
 
       case FloatingButtonSecondaryClicked():
         _log.debug('Floating button secondary click → show main window');

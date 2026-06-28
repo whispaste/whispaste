@@ -7,13 +7,17 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
+import '../../../core/logging/app_logger.dart';
 import '../../../services/deploy_channel_service.dart';
+import '../../../services/telemetry_service.dart';
 import '../../../widgets/language_selector.dart';
 import '../../../widgets/section.dart';
 import '../settings_widgets.dart';
 
 class InterfaceSection extends ConsumerWidget {
   const InterfaceSection({super.key});
+
+  static final _log = AppLogger('InterfaceSection');
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -52,6 +56,11 @@ class InterfaceSection extends ConsumerWidget {
                 ref
                     .read(settingsProvider.notifier)
                     .updateSettings((s) => s.copyWith(themeMode: mode));
+                try {
+                  ref.read(telemetryProvider).trackSettingChange('theme');
+                } catch (e) {
+                  _log.debug('telemetry failed: $e');
+                }
               },
             ),
           ),
@@ -62,9 +71,16 @@ class InterfaceSection extends ConsumerWidget {
               width: 180,
               child: LanguageSelector(
                 currentLocale: settings.locale,
-                onChanged: (code) => ref
-                    .read(settingsProvider.notifier)
-                    .updateSettings((s) => s.copyWith(locale: code)),
+                onChanged: (code) {
+                  ref
+                      .read(settingsProvider.notifier)
+                      .updateSettings((s) => s.copyWith(locale: code));
+                  try {
+                    ref.read(telemetryProvider).trackSettingChange('language');
+                  } catch (e) {
+                    _log.debug('telemetry failed: $e');
+                  }
+                },
               ),
             ),
           ),
@@ -135,9 +151,18 @@ class InterfaceSection extends ConsumerWidget {
               semanticToggledValue: settings.checkUpdates,
               trailing: settingsToggle(
                 value: settings.checkUpdates,
-                onChanged: (v) => ref
-                    .read(settingsProvider.notifier)
-                    .updateSettings((s) => s.copyWith(checkUpdates: v)),
+                onChanged: (v) {
+                  ref
+                      .read(settingsProvider.notifier)
+                      .updateSettings((s) => s.copyWith(checkUpdates: v));
+                  try {
+                    ref
+                        .read(telemetryProvider)
+                        .trackSettingChange('check_updates');
+                  } catch (e) {
+                    _log.debug('telemetry failed: $e');
+                  }
+                },
               ),
             ),
         ],

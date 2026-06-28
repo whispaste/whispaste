@@ -11,6 +11,8 @@ import 'package:drift/native.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:whispaste/core/config/settings_enums.dart';
 import 'package:whispaste/core/config/secure_key_store.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
@@ -24,6 +26,7 @@ import 'package:whispaste/services/model_download_service.dart';
 import 'package:whispaste/services/path_service.dart' show sttDirOverride;
 import 'package:whispaste/services/recording_orchestrator.dart';
 import 'package:whispaste/services/stt/stt_bundle.dart';
+import 'package:whispaste/services/telemetry_service.dart';
 
 // ---------------------------------------------------------------------------
 // Fakes
@@ -1655,6 +1658,122 @@ void main() {
       expect(state.phase, RecordingPhase.error);
       expect(state.errorMessage, 'cloud_auth_error');
     });
+  });
+
+  // =========================================================================
+  // AC4 — Telemetry PII-leak guard
+  // =========================================================================
+
+  group('Telemetry PII-leak guard', () {
+    test(
+      'pipeline_telemetry_no_pii: real transcription pipeline emits NO '
+      'transcript text, audio bytes, or history content in Matomo payloads',
+      () async {
+        // Known sentinel that must NEVER appear in any telemetry payload.
+        const fakeTranscript = 'SECRET_DICTATED_CONTENT_xyz987';
+        fakeStt.transcriptToReturn = fakeTranscript;
+
+        final capturedBodies = <String>[];
+        final fakeHttpClient = MockClient((req) async {
+          capturedBodies.add(req.body);
+          return http.Response('', 200);
+        });
+        final fakeTelemetry = TelemetryService(
+          client: fakeHttpClient,
+          endpointUrl: 'https://test.matomo.example',
+          siteId: 1,
+          consentGranted: true,
+          dntActive: false,
+        );
+
+        // Build a fresh container with telemetry override so all events
+        // during this run go to our fake HTTP client.
+        container.dispose();
+        container = ProviderContainer(
+          overrides: [
+            historyDatabaseProvider.overrideWith((ref) {
+              ref.onDispose(db.close);
+              return db;
+            }),
+            audioServiceProvider.overrideWith(() => fakeAudio),
+            localSttBundleProvider.overrideWith(() => fakeStt),
+            settingsProvider.overrideWith(
+              () => FakeSettingsNotifier(
+                const AppSettings(
+                  stt: SttSettings(model: 'whisper-small', language: 'en'),
+                  afterTranscriptionSection: AfterTranscriptionSettings(
+                    afterTranscription: 'clipboard',
+                  ),
+                  onboarding: OnboardingSettings(onboardingCompleted: true),
+                ),
+              ),
+            ),
+            secureKeyStoreProvider.overrideWith((ref) => FakeSecureKeyStore()),
+            desktopPasteControllerProvider.overrideWith(
+              (ref) => fakeDesktopPaste,
+            ),
+            modelDownloadProvider.overrideWith(
+              () => FakeModelDownloadNotifier({
+                'whisper-small',
+                'whisper-medium',
+                'whisper-large-v3-turbo',
+              }),
+            ),
+            telemetryProvider.overrideWith((ref) => fakeTelemetry),
+          ],
+        );
+        await container.read(settingsProvider.future);
+
+        // Drive the pipeline: manually set phase to recording (bypasses
+        // preflight against the real filesystem), then stop and transcribe.
+        container.read(recordingProvider.notifier).startRecording();
+        expect(
+          container.read(recordingProvider).phase,
+          RecordingPhase.recording,
+        );
+
+        final orch = container.read(recordingOrchestratorProvider.notifier);
+        await orch.stopRecording();
+
+        // Settle async microtasks, then flush pending telemetry requests.
+        await Future<void>.delayed(Duration.zero);
+        await fakeTelemetry.flush();
+
+        // Assert: every captured payload is PII-free.
+        expect(
+          capturedBodies,
+          isNotEmpty,
+          reason: 'Expected at least one telemetry event during the pipeline',
+        );
+
+        for (final body in capturedBodies) {
+          final lower = body.toLowerCase();
+          // Transcript text must not appear.
+          expect(
+            lower,
+            isNot(contains('secret_dictated')),
+            reason: 'Transcript text leaked into telemetry payload',
+          );
+          expect(
+            lower,
+            isNot(contains('xyz987')),
+            reason: 'Transcript sentinel leaked into telemetry payload',
+          );
+          // Raw WAV header bytes must not appear (RIFF magic).
+          expect(
+            lower,
+            isNot(contains('riff')),
+            reason: 'WAV audio bytes leaked into telemetry payload',
+          );
+          // History entry content keys must not appear.
+          expect(
+            lower,
+            isNot(contains('content=')),
+            reason: 'History content field leaked into telemetry payload',
+          );
+        }
+      },
+    );
   });
 }
 
