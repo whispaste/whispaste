@@ -219,6 +219,32 @@ Future<Directory> _createFakeSttDir({String modelId = 'whisper-small'}) async {
   return dir;
 }
 
+/// Deletes a test temp dir, tolerating the Windows file-lock race.
+///
+/// On Windows a model-file handle (e.g. the SHA-256 hash read in the Exit-3
+/// flow) can briefly outlive the test body, so `delete(recursive: true)` throws
+/// `PathAccessException` (errno 32, "being used by another process"). Retrying
+/// with a short backoff lets the OS release the handle; a leftover temp dir is
+/// harmless (systemTemp is reclaimed by the OS), so after exhausting the
+/// retries we give up quietly rather than failing an otherwise-green test.
+Future<void> _deleteTempDir(
+  Directory dir, {
+  int attempts = 10,
+  Duration step = const Duration(milliseconds: 50),
+}) async {
+  for (var i = 0; i < attempts; i++) {
+    try {
+      if (dir.existsSync()) {
+        await dir.delete(recursive: true);
+      }
+      return;
+    } on FileSystemException {
+      if (i == attempts - 1) return; // leftover temp is harmless — give up
+      await Future<void>.delayed(step);
+    }
+  }
+}
+
 // ── Exit-code classifier tests (pure function, no DI needed) ─────────────────
 
 /// Polls [condition] on the real clock until it holds or [timeout] elapses.
@@ -289,7 +315,7 @@ void main() {
 
     tearDown(() async {
       paths.sttDirOverride = null;
-      await tempDir.delete(recursive: true);
+      await _deleteTempDir(tempDir);
     });
 
     test('ensureRunning() starts the subprocess via ProcessRunner', () async {
@@ -446,7 +472,7 @@ void main() {
 
     tearDown(() async {
       paths.sttDirOverride = null;
-      await tempDir.delete(recursive: true);
+      await _deleteTempDir(tempDir);
     });
 
     test(
@@ -567,7 +593,7 @@ void main() {
 
     tearDown(() async {
       paths.sttDirOverride = null;
-      await tempDir.delete(recursive: true);
+      await _deleteTempDir(tempDir);
     });
 
     test(
@@ -687,7 +713,7 @@ void main() {
 
     tearDown(() async {
       paths.sttDirOverride = null;
-      await tempDir.delete(recursive: true);
+      await _deleteTempDir(tempDir);
     });
 
     // On non-Windows platforms gpuFatal/heapCorruption exit codes (NTSTATUS)
@@ -973,7 +999,7 @@ void main() {
 
     tearDown(() async {
       paths.sttDirOverride = null;
-      await tempDir.delete(recursive: true);
+      await _deleteTempDir(tempDir);
     });
 
     test(
