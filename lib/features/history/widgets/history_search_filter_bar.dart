@@ -482,9 +482,15 @@ class _HistorySearchFilterBarState
           vertical: WpSpacing.xxs + 1,
         ),
         decoration: BoxDecoration(
-          color: accent.withValues(alpha: 0.08),
+          color: widget.isDark
+              ? WpColorsDark.accentButtonFill
+              : WpColorsLight.accentButtonFill,
           borderRadius: WpRadius.borderFull,
-          border: Border.all(color: accent.withValues(alpha: 0.20)),
+          border: Border.all(
+            color: widget.isDark
+                ? WpColorsDark.accentBorder20
+                : WpColorsLight.accentBorder20,
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -523,7 +529,9 @@ class _HistorySearchFilterBarState
               vertical: WpSpacing.xs,
             ),
             color: selected
-                ? accent.withValues(alpha: 0.12)
+                ? (widget.isDark
+                      ? WpColorsDark.accentActiveFill
+                      : WpColorsLight.accentActiveFill)
                 : Colors.transparent,
             child: Row(
               children: [
@@ -852,9 +860,15 @@ class _CommandChip extends StatelessWidget {
         vertical: 2,
       ),
       decoration: BoxDecoration(
-        color: accent.withValues(alpha: 0.12),
+        color: isDark
+            ? WpColorsDark.accentActiveFill
+            : WpColorsLight.accentActiveFill,
         borderRadius: BorderRadius.circular(100),
-        border: Border.all(color: accent.withValues(alpha: 0.30)),
+        border: Border.all(
+          color: isDark
+              ? WpColorsDark.accentBorder30
+              : WpColorsLight.accentBorder30,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -937,7 +951,12 @@ class HistoryMultiSelectBar extends StatelessWidget {
       decoration: BoxDecoration(
         color: bg,
         border: Border(
-          bottom: BorderSide(color: accent.withValues(alpha: 0.2), width: 1),
+          bottom: BorderSide(
+            color: isDark
+                ? WpColorsDark.accentBorder20
+                : WpColorsLight.accentBorder20,
+            width: 1,
+          ),
         ),
       ),
       child: Row(
@@ -950,7 +969,9 @@ class HistoryMultiSelectBar extends StatelessWidget {
                 vertical: WpSpacing.xxs,
               ),
               decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.15),
+                color: isDark
+                    ? WpColorsDark.accentBadgeFill
+                    : WpColorsLight.accentBadgeFill,
                 borderRadius: WpRadius.borderFull,
               ),
               child: Text(
@@ -1385,7 +1406,9 @@ class _HelpRow extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
             decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.1),
+              color: isDark
+                  ? WpColorsDark.accentChipFill
+                  : WpColorsLight.accentChipFill,
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
