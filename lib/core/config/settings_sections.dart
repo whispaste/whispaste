@@ -1151,7 +1151,11 @@ class BenchmarkSettings {
 // ===========================================================================
 
 class PrivacySettings {
-  const PrivacySettings({this.shareUsageStats = false});
+  // Opt-out by design (PRD Säule D): anonymous, cookieless, self-hosted usage
+  // stats default ON, with DSGVO Art. 6 (1) (f) as the legal basis. Consistent
+  // with the default-on Sentry crash reporter; a discrete Datenschutz toggle
+  // lets users opt out.
+  const PrivacySettings({this.shareUsageStats = true});
 
   final bool shareUsageStats;
 
