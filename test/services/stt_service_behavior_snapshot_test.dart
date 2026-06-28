@@ -221,6 +221,26 @@ Future<Directory> _createFakeSttDir({String modelId = 'whisper-small'}) async {
 
 // ── Exit-code classifier tests (pure function, no DI needed) ─────────────────
 
+/// Polls [condition] on the real clock until it holds or [timeout] elapses.
+///
+/// Replaces brittle fixed-duration `Future.delayed` waits. A slow/loaded CI
+/// runner (historically Linux) could elapse a fixed delay while the async
+/// exit/heartbeat handler was still mid-flight, then throw *after* the test
+/// body returned — the flaky "failed after test completion". Polling returns
+/// the instant the observable state is reached, and the generous timeout makes
+/// a slow runner wait longer instead of racing. Waiting until a terminal state
+/// also drains the startup heartbeat so no timer survives the test body.
+Future<void> _waitUntil(
+  bool Function() condition, {
+  Duration timeout = const Duration(seconds: 5),
+  Duration step = const Duration(milliseconds: 10),
+}) async {
+  final sw = Stopwatch()..start();
+  while (!condition() && sw.elapsed < timeout) {
+    await Future<void>.delayed(step);
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -576,19 +596,24 @@ void main() {
 
         await container.read(settingsProvider.future);
 
-        // Start ensureRunning() without awaiting — we'll trigger the exit below.
-        unawaited(
-          container.read(localSttBundleProvider.notifier).ensureRunning(),
-        );
+        // Start ensureRunning() without awaiting — triggering the exit below
+        // makes it complete with an early-exit error. Capture the future and
+        // drain it (awaited catchError) before the body returns, so the
+        // completion can never escape as a "failed after completion" flake.
+        final running = container
+            .read(localSttBundleProvider.notifier)
+            .ensureRunning();
 
-        // Wait for the notifier to register the process.
-        await Future<void>.delayed(const Duration(milliseconds: 50));
+        // Wait until the notifier has actually started the process before we
+        // signal its exit (deterministic — no fixed-delay race).
+        await _waitUntil(() => runner.startCallCount > 0);
 
         // Simulate exit code 3 (modelLoad failure).
         fakeProcess.exit(3);
 
-        // Give the async exit handler time to run and call downloadModel().
-        await Future<void>.delayed(const Duration(milliseconds: 300));
+        // Wait until the async exit handler has run downloadModel().
+        await _waitUntil(() => trackingDownloader.downloadCallCount > 0);
+        await running.catchError((Object _) {});
 
         expect(
           trackingDownloader.downloadCallCount,
@@ -625,14 +650,23 @@ void main() {
 
         await container.read(settingsProvider.future);
 
-        unawaited(
-          container.read(localSttBundleProvider.notifier).ensureRunning(),
-        );
-        await Future<void>.delayed(const Duration(milliseconds: 50));
+        final running = container
+            .read(localSttBundleProvider.notifier)
+            .ensureRunning();
+        await _waitUntil(() => runner.startCallCount > 0);
 
         fakeProcess.exit(3);
 
-        await Future<void>.delayed(const Duration(milliseconds: 300));
+        // Wait until the server reaches a terminal state, then drain the
+        // (now-errored) ensureRunning future inside the test body.
+        await _waitUntil(
+          () =>
+              container.read(localSttBundleProvider).serverState ==
+                  SttServerState.stopped ||
+              container.read(localSttBundleProvider).serverState ==
+                  SttServerState.error,
+        );
+        await running.catchError((Object _) {});
 
         expect(
           container.read(localSttBundleProvider).serverState,
@@ -693,15 +727,20 @@ void main() {
 
         await container.read(settingsProvider.future);
 
-        unawaited(
-          container.read(localSttBundleProvider.notifier).ensureRunning(),
-        );
-        await Future<void>.delayed(const Duration(milliseconds: 50));
+        final running = container
+            .read(localSttBundleProvider.notifier)
+            .ensureRunning();
+        await _waitUntil(() => processes.isNotEmpty);
 
         // Emit gpuFatal NTSTATUS code.
         processes.last.exit(-1073740791); // STATUS_STACK_BUFFER_OVERRUN
 
-        await Future<void>.delayed(const Duration(milliseconds: 200));
+        await _waitUntil(
+          () =>
+              container.read(localSttBundleProvider).serverState ==
+              SttServerState.stopped,
+        );
+        await running.catchError((Object _) {});
 
         // After the first GPU fatal, the service must silently activate CPU
         // fallback (stopped state) and NOT transition to error yet.
@@ -757,14 +796,19 @@ void main() {
 
         await container.read(settingsProvider.future);
 
-        unawaited(
-          container.read(localSttBundleProvider.notifier).ensureRunning(),
-        );
-        await Future<void>.delayed(const Duration(milliseconds: 50));
+        final running = container
+            .read(localSttBundleProvider.notifier)
+            .ensureRunning();
+        await _waitUntil(() => processes.isNotEmpty);
 
         processes.last.exit(-1073741819); // STATUS_ACCESS_VIOLATION
 
-        await Future<void>.delayed(const Duration(milliseconds: 200));
+        await _waitUntil(
+          () =>
+              container.read(localSttBundleProvider).serverState ==
+              SttServerState.stopped,
+        );
+        await running.catchError((Object _) {});
 
         expect(
           container.read(localSttBundleProvider).serverState,
@@ -795,15 +839,20 @@ void main() {
 
       await container.read(settingsProvider.future);
 
-      unawaited(
-        container.read(localSttBundleProvider.notifier).ensureRunning(),
-      );
-      await Future<void>.delayed(const Duration(milliseconds: 50));
+      final running = container
+          .read(localSttBundleProvider.notifier)
+          .ensureRunning();
+      await _waitUntil(() => runner.startCallCount > 0);
 
       // Exit code 99 → SttExitKind.other on all platforms.
       fakeProcess.exit(99);
 
-      await Future<void>.delayed(const Duration(milliseconds: 200));
+      await _waitUntil(
+        () =>
+            container.read(localSttBundleProvider).serverState ==
+            SttServerState.error,
+      );
+      await running.catchError((Object _) {});
 
       final status = container.read(localSttBundleProvider);
       expect(
