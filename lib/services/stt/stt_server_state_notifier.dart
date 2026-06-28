@@ -1648,6 +1648,12 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       }
     }
 
+    // The SHA-256 check above has async gaps. Bail out if the provider was
+    // disposed meanwhile (app shutdown, hot-reload, test teardown) so the
+    // `ref.read` below cannot throw a post-dispose "used after it has been
+    // disposed" error — the recurring Linux-CI "failed after test completion".
+    if (!ref.mounted) return;
+
     if (hashMismatch) {
       _log.info('Triggering silent re-download for corrupted model $modelId');
       _transition(const SttStatus(serverState: SttServerState.stopped));
