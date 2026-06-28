@@ -425,6 +425,12 @@ class _TagChipState extends State<_TagChip> {
   @override
   Widget build(BuildContext context) {
     final accent = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    final chipFill = widget.isDark
+        ? WpColorsDark.accentChipFill
+        : WpColorsLight.accentChipFill;
+    final chipFillHover = widget.isDark
+        ? WpColorsDark.accentChipFillHover
+        : WpColorsLight.accentChipFillHover;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -436,7 +442,7 @@ class _TagChipState extends State<_TagChip> {
           vertical: WpSpacing.xxs + 2,
         ),
         decoration: BoxDecoration(
-          color: accent.withValues(alpha: _isHovered ? 0.18 : 0.10),
+          color: _isHovered ? chipFillHover : chipFill,
           borderRadius: WpRadius.borderFull,
         ),
         child: Row(
@@ -446,7 +452,7 @@ class _TagChipState extends State<_TagChip> {
               widget.tag.name,
               style: TextStyle(
                 fontSize: 13,
-                color: accent.withValues(alpha: 0.9),
+                color: accent,
                 fontWeight: FontWeight.w500,
               ),
             ),

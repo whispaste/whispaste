@@ -44,6 +44,13 @@ abstract final class WpColorsDark {
   static const Color accentHover = Color(0xFF6AE8F8);
   static const Color accentSubtle = Color(0x2A38D9F0);
 
+  /// Accent-tinted chip fills (e.g. tag chips). Named tokens rather than inline
+  /// `accent.withValues(...)` so the Figma library can bind a colour *variable*
+  /// (alpha baked into the value) — paint-opacity overrides do not survive
+  /// nested component instances, named tokens do.
+  static const Color accentChipFill = Color(0x1A38D9F0); // accent @ 10%
+  static const Color accentChipFillHover = Color(0x2E38D9F0); // accent @ 18%
+
   /// Saturated status colors — rich and warm
   static const Color success = Color(0xFF36D98B);
   static const Color warning = Color(0xFFF5C842);
@@ -165,6 +172,10 @@ abstract final class WpColorsLight {
   static const Color accent = Color(0xFF0887A8);
   static const Color accentHover = Color(0xFF0C6B87);
   static const Color accentSubtle = Color(0x1C0891B2);
+
+  /// Accent-tinted chip fills — see [WpColorsDark.accentChipFill] for rationale.
+  static const Color accentChipFill = Color(0x1A0887A8); // accent @ 10%
+  static const Color accentChipFillHover = Color(0x2E0887A8); // accent @ 18%
 
   static const Color success = Color(0xFF05875C);
   static const Color warning = Color(0xFFC97A06);
