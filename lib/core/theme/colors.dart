@@ -13,13 +13,13 @@ import 'package:flutter/material.dart';
 // ---------------------------------------------------------------------------
 abstract final class WpColorsDark {
   /// Window frame — close to surface for unified monochrome feel
-  static const Color background = Color(0xFF131826);
+  static const Color background = Color(0xFF0F1320);
 
   /// Content surfaces — minimal step up from frame (≈ 2% lightness delta)
-  static const Color surface = Color(0xFF171D2C);
+  static const Color surface = Color(0xFF141A29);
 
   /// Elevated panels, cards — richer blue tint
-  static const Color surfaceElevated = Color(0xFF1D2538);
+  static const Color surfaceElevated = Color(0xFF1B2336);
 
   /// Variant surface for alternate rows, secondary panels
   static const Color surfaceVariant = Color(0xFF232C40);
@@ -32,7 +32,7 @@ abstract final class WpColorsDark {
 
   static const Color borderSubtle = Color(0x1EFFFFFF);
   static const Color borderDefault = Color(0x30FFFFFF);
-  static const Color borderAccent = Color(0x6022D3EE);
+  static const Color borderAccent = Color(0x603CCBE6);
 
   /// Text — readable, not overly bright to avoid harshness
   static const Color textPrimary = Color(0xFFF0F4FA);
@@ -40,9 +40,9 @@ abstract final class WpColorsDark {
   static const Color textMuted = Color(0xFF8A99B2);
 
   /// Vibrant cyan accent — highly saturated
-  static const Color accent = Color(0xFF38D9F0);
-  static const Color accentHover = Color(0xFF6AE8F8);
-  static const Color accentSubtle = Color(0x2A38D9F0);
+  static const Color accent = Color(0xFF3CCBE6);
+  static const Color accentHover = Color(0xFF66DBEE);
+  static const Color accentSubtle = Color(0x2A3CCBE6);
 
   /// Instance-safe tint tokens: translucent fills/borders whose alpha lives in
   /// the *value*, used inside components that get reused as nested instances.
@@ -50,16 +50,16 @@ abstract final class WpColorsDark {
   /// variable-bound values, so these named tokens (mirrored as Figma colour
   /// variables) survive reuse and keep code↔Figma in sync. Prefer them over
   /// inline `colour.withValues(...)` for component fills/borders.
-  static const Color accentChipFill = Color(0x1A38D9F0); // accent @ 10%
-  static const Color accentChipFillHover = Color(0x2E38D9F0); // accent @ 18%
-  static const Color accentMiniTagFill = Color(0x1F38D9F0); // accent @ 12%
-  static const Color accentBorder30 = Color(0x4D38D9F0); // accent @ 30%
-  static const Color accentButtonFill = Color(0x1438D9F0); // accent @ 8%
-  static const Color accentActiveFill = Color(0x1F38D9F0); // accent @ 12%
-  static const Color accentBadgeFill = Color(0x2638D9F0); // accent @ 15%
-  static const Color accentBorder20 = Color(0x3338D9F0); // accent @ 20%
-  static const Color accentRowHover = Color(0x0F38D9F0); // accent @ 6%
-  static const Color surfaceChipFill = Color(0x80171D2C); // surface @ 50%
+  static const Color accentChipFill = Color(0x1A3CCBE6); // accent @ 10%
+  static const Color accentChipFillHover = Color(0x2E3CCBE6); // accent @ 18%
+  static const Color accentMiniTagFill = Color(0x1F3CCBE6); // accent @ 12%
+  static const Color accentBorder30 = Color(0x4D3CCBE6); // accent @ 30%
+  static const Color accentButtonFill = Color(0x143CCBE6); // accent @ 8%
+  static const Color accentActiveFill = Color(0x1F3CCBE6); // accent @ 12%
+  static const Color accentBadgeFill = Color(0x263CCBE6); // accent @ 15%
+  static const Color accentBorder20 = Color(0x333CCBE6); // accent @ 20%
+  static const Color accentRowHover = Color(0x0F3CCBE6); // accent @ 6%
+  static const Color surfaceChipFill = Color(0x80141A29); // surface @ 50%
   static const Color surfaceMutedFill = Color(0x148A99B2); // textMuted @ 8%
 
   /// Saturated status colors — rich and warm
@@ -78,14 +78,14 @@ abstract final class WpColorsDark {
   static const LinearGradient surfaceGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF1C2640), Color(0xFF171D2C)],
+    colors: [Color(0xFF1C2640), Color(0xFF141A29)],
   );
 
   /// Warm surface gradient — subtle diagonal wash with blue-indigo tint
   static const LinearGradient warmSurfaceGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF1A243C), Color(0xFF171D2C), Color(0xFF182236)],
+    colors: [Color(0xFF1A243C), Color(0xFF141A29), Color(0xFF182236)],
     stops: [0.0, 0.55, 1.0],
   );
 
@@ -98,14 +98,14 @@ abstract final class WpColorsDark {
 
   /// Top accent line gradient
   static const LinearGradient accentGradient = LinearGradient(
-    colors: [Color(0xFF38D9F0), Color(0xFF1AB5E0)],
+    colors: [Color(0xFF3CCBE6), Color(0xFF1AB5E0)],
   );
 
   /// Warm accent gradient — cyan to teal, rich and saturated
   static const LinearGradient accentWarmGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF38D9F0), Color(0xFF14B8D4), Color(0xFF0A99B8)],
+    colors: [Color(0xFF3CCBE6), Color(0xFF14B8D4), Color(0xFF0A99B8)],
   );
 
   /// Glass tint — semi-transparent overlay for frosted panels
