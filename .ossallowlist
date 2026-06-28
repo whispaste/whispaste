@@ -96,6 +96,7 @@ scripts/generate-store-icons.py
 scripts/store-screenshots.py
 scripts/capture-store-screenshots.py
 scripts/generate-whisper-server-manifest.sh
+scripts/generate_appcast.sh
 scripts/install-hooks.sh
 scripts/macos-selfsign.sh
 scripts/macos-selfsign-export-secret.sh

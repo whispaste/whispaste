@@ -113,6 +113,7 @@ scripts/*
 !scripts/probe-packaging-validate.sh
 !scripts/macos-selfsign.sh
 !scripts/macos-selfsign-export-secret.sh
+!scripts/generate_appcast.sh
 
 # Internal website files
 website/design-system/
