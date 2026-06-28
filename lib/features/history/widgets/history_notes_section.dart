@@ -299,7 +299,7 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
 }
 
 // ---------------------------------------------------------------------------
-// Single note item — actions always visible (mobile-first)
+// Single note item — actions always visible.
 // ---------------------------------------------------------------------------
 
 class _NoteItem extends StatefulWidget {

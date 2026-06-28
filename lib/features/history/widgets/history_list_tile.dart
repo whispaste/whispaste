@@ -1,7 +1,5 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart'
-    show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -13,12 +11,6 @@ import 'package:whispaste/core/data/database.dart';
 import 'highlighted_text.dart';
 import 'history_helpers.dart';
 import 'history_row_action.dart';
-
-/// Whether the current platform uses touch as primary input.
-bool get _isTouchPlatform {
-  final p = defaultTargetPlatform;
-  return p == TargetPlatform.android || p == TargetPlatform.iOS;
-}
 
 // ---------------------------------------------------------------------------
 // History entry row — WhatsApp/ChatGPT/Discord-inspired
@@ -111,8 +103,7 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
     final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
 
     final showActions =
-        (_isHovered || _isTouchPlatform || widget.isFocused) &&
-        !widget.multiSelectMode;
+        (_isHovered || widget.isFocused) && !widget.multiSelectMode;
 
     final l10n = L10n.of(context);
     final semanticLabel = widget.entry.title.isNotEmpty

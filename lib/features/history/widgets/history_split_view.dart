@@ -217,7 +217,7 @@ class _HistorySplitViewState extends State<HistorySplitView>
         final totalWidth = constraints.maxWidth;
         final isCompact = totalWidth < WpLayout.breakpointMobile;
 
-        // ── Compact / mobile: full-screen detail overlay ──
+        // ── Compact: full-screen detail overlay ──
         if (isCompact) {
           final entry = widget.selectedEntry ?? _displayedEntry;
           if (entry != null && widget.selectedEntry != null) {
