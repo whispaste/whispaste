@@ -56,11 +56,11 @@ class _WpAccentButtonState extends State<WpAccentButton> {
                   alignment: Alignment.center,
                   child: Text(
                     widget.label,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
+                    // labelLarge = Type/button role (16 / 700 / ls -0.3).
+                    // Always white: button sits on an accent-gradient background.
+                    style: Theme.of(
+                      context,
+                    ).textTheme.labelLarge?.copyWith(color: Colors.white),
                   ),
                 ),
               ),

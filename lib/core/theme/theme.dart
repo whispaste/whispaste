@@ -60,6 +60,8 @@ ThemeData wpLightTheme() {
 
 ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
   final bg = isDark ? WpColorsDark.background : WpColorsLight.background;
+  // Build textTheme first so component themes can reference it (e.g. snackBar).
+  final textTheme = _textTheme(colorScheme);
 
   return ThemeData(
     useMaterial3: true,
@@ -68,7 +70,7 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
     fontFamily: 'Segoe UI',
 
     // Typography
-    textTheme: _textTheme(colorScheme),
+    textTheme: textTheme,
 
     // AppBar
     appBarTheme: AppBarTheme(
@@ -242,7 +244,9 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
       backgroundColor: isDark
           ? WpColorsDark.surfaceElevated
           : colorScheme.surface,
-      contentTextStyle: TextStyle(color: colorScheme.onSurface, fontSize: 13),
+      contentTextStyle: textTheme.labelMedium?.copyWith(
+        color: colorScheme.onSurface,
+      ),
       shape: RoundedRectangleBorder(borderRadius: WpRadius.borderMd),
       behavior: SnackBarBehavior.floating,
       elevation: 4,
@@ -265,6 +269,27 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
   );
 }
 
+/// WhisPaste type scale — all roles mapped to SF-grade tracking + line-height.
+///
+/// Figma mirror (Code = SSoT): each role corresponds to a `Type/*` text style
+/// in the Figma file with identical size / weight / tracking / line-height.
+/// Inter is the Figma proxy (Segoe UI not available in Figma Cloud); the
+/// fontFamily is set per-role as a comment so 04-a3-inter-bundeln can switch
+/// with a single pass.
+///
+/// | Role           | Size | Weight | LS    | LH  | Figma Type/…  |
+/// |----------------|------|--------|-------|-----|---------------|
+/// | headlineLarge  | 22   | 700    | -0.60 | 1.2 | headlineLarge |
+/// | headlineMedium | 16   | 600    | -0.35 | 1.3 | headlineMedium|
+/// | titleLarge     | 17   | 600    | -0.20 | 1.3 | titleLarge    |
+/// | titleMedium    | 14   | 600    | -0.20 | —   | titleMedium   |
+/// | titleSmall     | 13   | 600    | -0.10 | 1.4 | titleSmall    |
+/// | bodyLarge      | 13   | 400    |  0    | 1.5 | bodyLarge     |
+/// | bodyMedium     | 13   | 400    |  0    | 1.5 | bodyMedium    |
+/// | bodySmall      | 12   | 400    |  0    | 1.4 | bodySmall     |
+/// | labelLarge     | 16   | 700    | -0.30 | —   | button        |
+/// | labelMedium    | 13   | 500    |  0    | 1.4 | label         |
+/// | labelSmall     | 11   | 500    | +0.20 | —   | labelSmall    |
 TextTheme _textTheme(ColorScheme cs) {
   return TextTheme(
     // Display → Page titles (22px / 700)
@@ -283,12 +308,30 @@ TextTheme _textTheme(ColorScheme cs) {
       letterSpacing: -0.35,
       height: 1.3,
     ),
+    // Dialog / panel title (17px / 600) — WpDialog, review prompts, export picker
+    // Inter-ready: switch fontFamily when 04-a3-inter-bundeln lands.
+    titleLarge: TextStyle(
+      fontSize: 17,
+      fontWeight: FontWeight.w600,
+      color: cs.onSurface,
+      letterSpacing: -0.2,
+      height: 1.3,
+    ),
     // Subheading → Card titles (14px / 600)
     titleMedium: TextStyle(
       fontSize: 14,
       fontWeight: FontWeight.w600,
       color: cs.onSurface,
       letterSpacing: -0.2,
+    ),
+    // Form field label / section subheading (13px / 600)
+    // Inter-ready: switch fontFamily when 04-a3-inter-bundeln lands.
+    titleSmall: TextStyle(
+      fontSize: 13,
+      fontWeight: FontWeight.w600,
+      color: cs.onSurface,
+      letterSpacing: -0.1,
+      height: 1.4,
     ),
     // Body → Default text (13px / 400)
     bodyLarge: TextStyle(
@@ -309,6 +352,23 @@ TextTheme _textTheme(ColorScheme cs) {
       fontSize: 12,
       fontWeight: FontWeight.w400,
       color: cs.secondary,
+      height: 1.4,
+    ),
+    // Button label / CTA (16px / 700) — WpAccentButton, SF-style tight tracking
+    // Inter-ready: switch fontFamily when 04-a3-inter-bundeln lands.
+    labelLarge: TextStyle(
+      fontSize: 16,
+      fontWeight: FontWeight.w700,
+      color: cs.onSurface,
+      letterSpacing: -0.3,
+    ),
+    // Toast / snackbar message (13px / 500)
+    // Inter-ready: switch fontFamily when 04-a3-inter-bundeln lands.
+    labelMedium: TextStyle(
+      fontSize: 13,
+      fontWeight: FontWeight.w500,
+      color: cs.onSurface,
+      letterSpacing: 0,
       height: 1.4,
     ),
     // Micro → status chips (11px / 500)

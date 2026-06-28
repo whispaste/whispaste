@@ -289,9 +289,9 @@ class _ToastCard extends StatelessWidget {
               Flexible(
                 child: Text(
                   message,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
+                  // labelMedium = Type/label role (13 / 500). Compact line-height
+                  // (1.3 vs theme's 1.4) preserved for the tight toast card layout.
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
                     color: textPrimary,
                     height: 1.3,
                   ),
