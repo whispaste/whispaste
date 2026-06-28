@@ -78,11 +78,9 @@ class _HistoryFilterChipState extends State<HistoryFilterChip> {
               borderRadius: WpRadius.borderFull,
               border: widget.isActive
                   ? Border.all(
-                      color:
-                          (widget.isDark
-                                  ? WpColorsDark.accent
-                                  : WpColorsLight.accent)
-                              .withValues(alpha: 0.3),
+                      color: widget.isDark
+                          ? WpColorsDark.accentBorder30
+                          : WpColorsLight.accentBorder30,
                     )
                   : null,
             ),

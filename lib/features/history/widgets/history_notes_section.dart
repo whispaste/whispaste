@@ -209,7 +209,11 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
                 decoration: BoxDecoration(
                   color: surfaceElevated,
                   borderRadius: WpRadius.borderSm,
-                  border: Border.all(color: accent.withValues(alpha: 0.3)),
+                  border: Border.all(
+                    color: widget.isDark
+                        ? WpColorsDark.accentBorder30
+                        : WpColorsLight.accentBorder30,
+                  ),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.end,

@@ -44,12 +44,18 @@ abstract final class WpColorsDark {
   static const Color accentHover = Color(0xFF6AE8F8);
   static const Color accentSubtle = Color(0x2A38D9F0);
 
-  /// Accent-tinted chip fills (e.g. tag chips). Named tokens rather than inline
-  /// `accent.withValues(...)` so the Figma library can bind a colour *variable*
-  /// (alpha baked into the value) — paint-opacity overrides do not survive
-  /// nested component instances, named tokens do.
+  /// Instance-safe tint tokens: translucent fills/borders whose alpha lives in
+  /// the *value*, used inside components that get reused as nested instances.
+  /// Figma drops paint-opacity overrides across instance nesting but keeps
+  /// variable-bound values, so these named tokens (mirrored as Figma colour
+  /// variables) survive reuse and keep code↔Figma in sync. Prefer them over
+  /// inline `colour.withValues(...)` for component fills/borders.
   static const Color accentChipFill = Color(0x1A38D9F0); // accent @ 10%
   static const Color accentChipFillHover = Color(0x2E38D9F0); // accent @ 18%
+  static const Color accentMiniTagFill = Color(0x1F38D9F0); // accent @ 12%
+  static const Color accentBorder30 = Color(0x4D38D9F0); // accent @ 30%
+  static const Color surfaceChipFill = Color(0x80171D2C); // surface @ 50%
+  static const Color surfaceMutedFill = Color(0x148A99B2); // textMuted @ 8%
 
   /// Saturated status colors — rich and warm
   static const Color success = Color(0xFF36D98B);
@@ -173,9 +179,15 @@ abstract final class WpColorsLight {
   static const Color accentHover = Color(0xFF0C6B87);
   static const Color accentSubtle = Color(0x1C0891B2);
 
-  /// Accent-tinted chip fills — see [WpColorsDark.accentChipFill] for rationale.
+  /// Instance-safe tint tokens — see [WpColorsDark.accentChipFill] for rationale.
   static const Color accentChipFill = Color(0x1A0887A8); // accent @ 10%
   static const Color accentChipFillHover = Color(0x2E0887A8); // accent @ 18%
+  static const Color accentMiniTagFill = Color(0x1A0887A8); // accent @ 10%
+  static const Color accentBorder30 = Color(0x4D0887A8); // accent @ 30%
+  static const Color surfaceChipFill = Color(
+    0xFFF1F5FA,
+  ); // = surfaceVariant (opaque)
+  static const Color surfaceMutedFill = Color(0x145B697E); // textMuted @ 8%
 
   static const Color success = Color(0xFF05875C);
   static const Color warning = Color(0xFFC97A06);

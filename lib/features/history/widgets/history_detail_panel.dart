@@ -1159,7 +1159,9 @@ class _TranscriptEditBar extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: isEditing
                       ? accent.withValues(alpha: 0.15)
-                      : textMuted.withValues(alpha: 0.08),
+                      : (isDark
+                            ? WpColorsDark.surfaceMutedFill
+                            : WpColorsLight.surfaceMutedFill),
                   borderRadius: WpRadius.borderFull,
                 ),
                 child: Row(

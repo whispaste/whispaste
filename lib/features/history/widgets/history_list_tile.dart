@@ -436,7 +436,9 @@ class _EntryTagChips extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                 decoration: BoxDecoration(
-                  color: accent.withValues(alpha: isDark ? 0.12 : 0.10),
+                  color: isDark
+                      ? WpColorsDark.accentMiniTagFill
+                      : WpColorsLight.accentMiniTagFill,
                   borderRadius: WpRadius.borderSm,
                 ),
                 child: Text(

@@ -311,8 +311,8 @@ class _SttChipState extends State<_SttChip> {
             ),
             decoration: BoxDecoration(
               color: widget.isDark
-                  ? WpColorsDark.surface.withValues(alpha: 0.5)
-                  : WpColorsLight.surfaceVariant,
+                  ? WpColorsDark.surfaceChipFill
+                  : WpColorsLight.surfaceChipFill,
               borderRadius: WpRadius.borderFull,
             ),
             child: Row(
@@ -459,8 +459,8 @@ class _StatusChip extends StatelessWidget {
             ),
             decoration: BoxDecoration(
               color: isDark
-                  ? WpColorsDark.surface.withValues(alpha: 0.5)
-                  : WpColorsLight.surfaceVariant,
+                  ? WpColorsDark.surfaceChipFill
+                  : WpColorsLight.surfaceChipFill,
               borderRadius: WpRadius.borderFull,
             ),
             child: Row(
@@ -567,8 +567,8 @@ class _AfterActionChip extends StatelessWidget {
         ),
         decoration: BoxDecoration(
           color: isDark
-              ? WpColorsDark.surface.withValues(alpha: 0.5)
-              : WpColorsLight.surfaceVariant,
+              ? WpColorsDark.surfaceChipFill
+              : WpColorsLight.surfaceChipFill,
           borderRadius: WpRadius.borderFull,
         ),
         child: Row(
@@ -624,8 +624,8 @@ class _AutoPasteOffHintChip extends StatelessWidget {
           ),
           decoration: BoxDecoration(
             color: isDark
-                ? WpColorsDark.surface.withValues(alpha: 0.5)
-                : WpColorsLight.surfaceVariant,
+                ? WpColorsDark.surfaceChipFill
+                : WpColorsLight.surfaceChipFill,
             borderRadius: WpRadius.borderFull,
             border: Border.all(color: accent.withValues(alpha: 0.4)),
           ),
