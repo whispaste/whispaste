@@ -2643,4 +2643,20 @@ class L10nEn extends L10n {
   @override
   String get settingsShareUsageStatsSubtitle =>
       'Sent cookieless and without any identifiers — help us understand how WhisPaste is used';
+
+  @override
+  String get storeThankYouTitle => 'Thanks for your support!';
+
+  @override
+  String get storeThankYouBody =>
+      'We\'re really glad you\'re here. If WhisPaste makes your day a little easier, a short review means a lot to us.';
+
+  @override
+  String get storeThankYouCtaStore => '★ Rate on the Store';
+
+  @override
+  String get storeThankYouCtaGitHub => '⭐ Star on GitHub';
+
+  @override
+  String get storeThankYouDismiss => 'Close';
 }

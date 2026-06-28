@@ -931,5 +931,11 @@
   "settingsPrivacy": "Privacy",
   "settingsPrivacySubtitle": "Control what data WhisPaste shares",
   "settingsShareUsageStats": "Share anonymous usage statistics",
-  "settingsShareUsageStatsSubtitle": "Sent cookieless and without any identifiers — help us understand how WhisPaste is used"
+  "settingsShareUsageStatsSubtitle": "Sent cookieless and without any identifiers — help us understand how WhisPaste is used",
+
+  "storeThankYouTitle": "תודה על תמיכתך!",
+  "storeThankYouBody": "אנחנו שמחים שאתה איתנו. אם WhisPaste עוזר לך בעבודה, דירוג קצר יעשה עבורנו הבדל גדול.",
+  "storeThankYouCtaStore": "★ דרג בחנות",
+  "storeThankYouCtaGitHub": "⭐ כוכב ב-GitHub",
+  "storeThankYouDismiss": "סגור"
 }

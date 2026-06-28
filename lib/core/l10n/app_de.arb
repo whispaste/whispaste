@@ -899,5 +899,11 @@
   "settingsPrivacy": "Datenschutz",
   "settingsPrivacySubtitle": "Lege fest, welche Daten WhisPaste teilt",
   "settingsShareUsageStats": "Anonyme Nutzungsstatistiken senden",
-  "settingsShareUsageStatsSubtitle": "Cookiefrei und ohne Identifikatoren — hilf uns zu verstehen, wie WhisPaste genutzt wird"
+  "settingsShareUsageStatsSubtitle": "Cookiefrei und ohne Identifikatoren — hilf uns zu verstehen, wie WhisPaste genutzt wird",
+
+  "storeThankYouTitle": "Danke für deine Unterstützung!",
+  "storeThankYouBody": "Wir freuen uns sehr, dass du dabei bist. Wenn dir WhisPaste im Alltag hilft, würde uns eine kurze Bewertung sehr freuen.",
+  "storeThankYouCtaStore": "★ Im Store bewerten",
+  "storeThankYouCtaGitHub": "⭐ Stern auf GitHub",
+  "storeThankYouDismiss": "Schließen"
 }

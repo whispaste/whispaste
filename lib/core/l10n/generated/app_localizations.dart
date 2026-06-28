@@ -4742,6 +4742,36 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Sent cookieless and without any identifiers — help us understand how WhisPaste is used'**
   String get settingsShareUsageStatsSubtitle;
+
+  /// No description provided for @storeThankYouTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Thanks for your support!'**
+  String get storeThankYouTitle;
+
+  /// No description provided for @storeThankYouBody.
+  ///
+  /// In en, this message translates to:
+  /// **'We\'re really glad you\'re here. If WhisPaste makes your day a little easier, a short review means a lot to us.'**
+  String get storeThankYouBody;
+
+  /// No description provided for @storeThankYouCtaStore.
+  ///
+  /// In en, this message translates to:
+  /// **'★ Rate on the Store'**
+  String get storeThankYouCtaStore;
+
+  /// No description provided for @storeThankYouCtaGitHub.
+  ///
+  /// In en, this message translates to:
+  /// **'⭐ Star on GitHub'**
+  String get storeThankYouCtaGitHub;
+
+  /// No description provided for @storeThankYouDismiss.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get storeThankYouDismiss;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

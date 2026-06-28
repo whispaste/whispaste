@@ -2666,4 +2666,20 @@ class L10nDe extends L10n {
   @override
   String get settingsShareUsageStatsSubtitle =>
       'Cookiefrei und ohne Identifikatoren — hilf uns zu verstehen, wie WhisPaste genutzt wird';
+
+  @override
+  String get storeThankYouTitle => 'Danke für deine Unterstützung!';
+
+  @override
+  String get storeThankYouBody =>
+      'Wir freuen uns sehr, dass du dabei bist. Wenn dir WhisPaste im Alltag hilft, würde uns eine kurze Bewertung sehr freuen.';
+
+  @override
+  String get storeThankYouCtaStore => '★ Im Store bewerten';
+
+  @override
+  String get storeThankYouCtaGitHub => '⭐ Stern auf GitHub';
+
+  @override
+  String get storeThankYouDismiss => 'Schließen';
 }
