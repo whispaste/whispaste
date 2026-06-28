@@ -1145,7 +1145,7 @@ class L10nDe extends L10n {
 
   @override
   String get aboutPrivacyNoTracking =>
-      'Keine Analysen, kein Tracking, keine Benutzerkonten. Update-Prüfungen kontaktieren GitHub (nur Version + IP).';
+      'Die Nutzungsstatistik ist anonym, self-hosted und in Einstellungen → Datenschutz abschaltbar. Keine Benutzerkonten. Update-Prüfungen kontaktieren GitHub (nur Version + IP).';
 
   @override
   String get aboutKeyboardShortcuts => 'Tastenkürzel';

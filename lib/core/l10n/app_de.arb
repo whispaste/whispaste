@@ -365,7 +365,7 @@
   "aboutPrivacy": "Datenschutz & Daten",
   "aboutPrivacyLocal": "Alle Transkriptionen und der Verlauf werden lokal auf deinem Gerät gespeichert — niemals auf externen Servern.",
   "aboutPrivacyCloud": "Cloud-Anbieter (OpenAI, Deepgram) erhalten nur Audio, wenn du sie aktiv nutzt. Deren Datenschutzrichtlinien gelten.",
-  "aboutPrivacyNoTracking": "Keine Analysen, kein Tracking, keine Benutzerkonten. Update-Prüfungen kontaktieren GitHub (nur Version + IP).",
+  "aboutPrivacyNoTracking": "Die Nutzungsstatistik ist anonym, self-hosted und in Einstellungen → Datenschutz abschaltbar. Keine Benutzerkonten. Update-Prüfungen kontaktieren GitHub (nur Version + IP).",
   "aboutKeyboardShortcuts": "Tastenkürzel",
   "aboutShortcutRecord": "Aufnahme starten / stoppen",
   "aboutLinks": "Links",

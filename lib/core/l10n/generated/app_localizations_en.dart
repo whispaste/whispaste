@@ -1136,7 +1136,7 @@ class L10nEn extends L10n {
 
   @override
   String get aboutPrivacyNoTracking =>
-      'No analytics, no tracking, no user accounts. Update checks contact GitHub (version + IP only).';
+      'Usage statistics are anonymous, self-hosted, and can be switched off in Settings → Privacy. No user accounts. Update checks contact GitHub (version + IP only).';
 
   @override
   String get aboutKeyboardShortcuts => 'Keyboard Shortcuts';

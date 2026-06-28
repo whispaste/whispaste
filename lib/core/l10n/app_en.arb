@@ -422,7 +422,7 @@
   "aboutPrivacy": "Privacy & Data",
   "aboutPrivacyLocal": "All transcriptions and history are stored locally on your device — never on external servers.",
   "aboutPrivacyCloud": "Cloud providers (OpenAI, Deepgram) only receive audio when you actively use them. Their privacy policies apply.",
-  "aboutPrivacyNoTracking": "No analytics, no tracking, no user accounts. Update checks contact GitHub (version + IP only).",
+  "aboutPrivacyNoTracking": "Usage statistics are anonymous, self-hosted, and can be switched off in Settings → Privacy. No user accounts. Update checks contact GitHub (version + IP only).",
   "aboutKeyboardShortcuts": "Keyboard Shortcuts",
   "aboutShortcutRecord": "Start / Stop recording",
   "aboutLinks": "Links",

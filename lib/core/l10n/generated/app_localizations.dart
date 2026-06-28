@@ -2124,7 +2124,7 @@ abstract class L10n {
   /// No description provided for @aboutPrivacyNoTracking.
   ///
   /// In en, this message translates to:
-  /// **'No analytics, no tracking, no user accounts. Update checks contact GitHub (version + IP only).'**
+  /// **'Usage statistics are anonymous, self-hosted, and can be switched off in Settings → Privacy. No user accounts. Update checks contact GitHub (version + IP only).'**
   String get aboutPrivacyNoTracking;
 
   /// No description provided for @aboutKeyboardShortcuts.
