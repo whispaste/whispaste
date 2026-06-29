@@ -365,7 +365,10 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
                                     ),
                                     // Page header with smooth title transition
                                     AnimatedSwitcher(
-                                      duration: WpMotion.fast,
+                                      duration: WpMotion.durationFor(
+                                        context,
+                                        WpMotion.fast,
+                                      ),
                                       child: _PageHeader(
                                         key: ValueKey('header-$activePage'),
                                         title: wpPageTitle(
@@ -378,9 +381,12 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
                                     // Content with page transition animation
                                     Expanded(
                                       child: AnimatedSwitcher(
-                                        duration: WpMotion.smooth,
-                                        switchInCurve: Curves.easeOutCubic,
-                                        switchOutCurve: Curves.easeInCubic,
+                                        duration: WpMotion.durationFor(
+                                          context,
+                                          WpMotion.normal,
+                                        ),
+                                        switchInCurve: WpMotion.defaultCurve,
+                                        switchOutCurve: WpMotion.defaultCurve,
                                         transitionBuilder: (child, animation) {
                                           return FadeTransition(
                                             opacity: animation,
