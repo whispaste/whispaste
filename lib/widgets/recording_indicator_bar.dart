@@ -8,6 +8,7 @@ library;
 import 'package:flutter/material.dart';
 
 import '../core/recording/recording_state.dart';
+import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 
 /// Recording indicator bar — sits above page content inside the content panel.
@@ -15,6 +16,19 @@ class WpRecordingIndicatorBar extends StatefulWidget {
   const WpRecordingIndicatorBar({super.key, required this.phase});
 
   final RecordingPhase phase;
+
+  /// Returns the bar colour for [phase] and the current [isDark] setting.
+  ///
+  /// Recording → error token (red), transcribing → warning token (amber).
+  /// Exposed `@visibleForTesting` so the colour-token mapping can be pinned
+  /// without depending on the full widget/render pipeline.
+  @visibleForTesting
+  static Color colorFor(RecordingPhase phase, {required bool isDark}) {
+    if (phase == RecordingPhase.recording) {
+      return isDark ? WpColorsDark.error : WpColorsLight.error;
+    }
+    return isDark ? WpColorsDark.warning : WpColorsLight.warning;
+  }
 
   @override
   State<WpRecordingIndicatorBar> createState() =>
@@ -74,9 +88,11 @@ class _WpRecordingIndicatorBarState extends State<WpRecordingIndicatorBar>
         widget.phase == RecordingPhase.recording ||
         widget.phase == RecordingPhase.transcribing;
 
-    final color = widget.phase == RecordingPhase.recording
-        ? const Color(0xFFEF4444)
-        : const Color(0xFFF59E0B);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final color = WpRecordingIndicatorBar.colorFor(
+      widget.phase,
+      isDark: isDark,
+    );
 
     return AnimatedContainer(
       duration: WpMotion.durationFor(context, WpMotion.normal),

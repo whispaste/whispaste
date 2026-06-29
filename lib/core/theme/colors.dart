@@ -205,9 +205,7 @@ abstract final class WpColorsLight {
   static const Color accentBadgeFill = Color(0x260887A8); // accent @ 15%
   static const Color accentBorder20 = Color(0x330887A8); // accent @ 20%
   static const Color accentRowHover = Color(0x0F0887A8); // accent @ 6%
-  static const Color surfaceChipFill = Color(
-    0xFFEBF1F8,
-  ); // = surfaceVariant (opaque)
+  static const Color surfaceChipFill = Color(0x80F2F6FC); // surface @ 50%
   static const Color surfaceMutedFill = Color(0x145B697E); // textMuted @ 8%
 
   static const Color success = Color(0xFF05875C);
