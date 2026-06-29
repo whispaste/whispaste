@@ -144,6 +144,9 @@ website/public/screenshots/ui/
 # Test coverage output
 coverage/
 
+# Flutter test runner artifacts (root-level)
+/test-results/
+
 # Temporary files
 tmp_funcs.sql
 
