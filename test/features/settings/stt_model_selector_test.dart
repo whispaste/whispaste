@@ -322,6 +322,32 @@ void main() {
     });
 
     // -------------------------------------------------------------------------
+    // AC6: Error banner with retry button
+    // -------------------------------------------------------------------------
+
+    testWidgets('error banner shows retry button when download is in error', (
+      tester,
+    ) async {
+      const errorMsg = 'Download failed';
+      const state = ModelDownloadState(
+        phase: DownloadPhase.error,
+        errorMessage: errorMsg,
+      );
+
+      await tester.pumpWidget(_makeTestable(downloadState: state));
+      await tester.pumpAndSettle();
+
+      // Error message is shown
+      expect(find.text(errorMsg), findsOneWidget);
+      // Retry button is present
+      expect(find.text(l10n.actionRetry), findsOneWidget);
+      // Tapping retry does not throw
+      await tester.tap(find.text(l10n.actionRetry));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+
+    // -------------------------------------------------------------------------
     // AC4 regression: cancelled download must NOT trigger onModelSelected
     // -------------------------------------------------------------------------
 

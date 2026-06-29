@@ -290,6 +290,7 @@
   "actionCancel": "Cancel",
   "actionConfirm": "Confirm",
   "actionSave": "Save",
+  "actionRetry": "Try again",
   "tooltipTheme": "Toggle theme",
   "tooltipLanguage": "Language",
   "aboutVersion": "Version {version}",

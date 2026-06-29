@@ -1575,6 +1575,12 @@ abstract class L10n {
   /// **'Save'**
   String get actionSave;
 
+  /// No description provided for @actionRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again'**
+  String get actionRetry;
+
   /// No description provided for @tooltipTheme.
   ///
   /// In en, this message translates to:

@@ -271,6 +271,7 @@
   "actionCancel": "Abbrechen",
   "actionConfirm": "Bestätigen",
   "actionSave": "Speichern",
+  "actionRetry": "Erneut versuchen",
   "tooltipTheme": "Design wechseln",
   "tooltipLanguage": "Sprache",
   "aboutVersion": "Version {version}",

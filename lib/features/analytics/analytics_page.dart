@@ -11,6 +11,7 @@ import '../../core/recording/recording_helpers.dart' show displayNameForModel;
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/dialog.dart';
+import '../../widgets/empty_state.dart';
 import '../../widgets/page_shell.dart';
 import '../../widgets/section.dart';
 import '../../widgets/toast.dart';
@@ -56,11 +57,20 @@ class AnalyticsPage extends ConsumerWidget {
     final l10n = L10n.of(context);
 
     return asyncData.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Error: $e')),
+      loading: () => _AnalyticsSkeleton(isDark: isDark),
+      error: (e, _) => WpEmptyState(
+        icon: LucideIcons.triangleAlert,
+        title: l10n.errorGeneric,
+        actionLabel: l10n.actionRetry,
+        onAction: () => ref.invalidate(analyticsProvider),
+      ),
       data: (data) {
         if (data.isEmpty) {
-          return _EmptyAnalytics(isDark: isDark, l10n: l10n);
+          return WpEmptyState(
+            icon: LucideIcons.chartNoAxesColumn,
+            title: l10n.analyticsEmptyTitle,
+            hint: l10n.analyticsEmptySubtitle,
+          );
         }
         return _AnalyticsDashboard(data: data, isDark: isDark);
       },
@@ -69,48 +79,77 @@ class AnalyticsPage extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Empty state
+// Loading skeleton — page-shaped placeholder (4 stat cards + chart area)
 // ---------------------------------------------------------------------------
 
-class _EmptyAnalytics extends StatelessWidget {
-  const _EmptyAnalytics({required this.isDark, required this.l10n});
+class _AnalyticsSkeleton extends StatelessWidget {
+  const _AnalyticsSkeleton({required this.isDark});
 
   final bool isDark;
-  final L10n l10n;
 
   @override
   Widget build(BuildContext context) {
-    final textSecondary = isDark
-        ? WpColorsDark.textSecondary
-        : WpColorsLight.textSecondary;
+    final boxColor = isDark
+        ? WpColorsDark.borderSubtle
+        : WpColorsLight.borderSubtle;
+
     return WpPageShell(
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              LucideIcons.chartNoAxesColumn,
-              size: 48,
-              color: textSecondary.withAlpha(120),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // 4 hero stat card placeholders
+          Row(
+            children: List.generate(4, (i) {
+              return Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(right: i < 3 ? WpSpacing.sm : 0),
+                  child: Container(
+                    height: 88,
+                    decoration: BoxDecoration(
+                      color: boxColor,
+                      borderRadius: WpRadius.borderMd,
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ),
+          const SizedBox(height: WpSpacing.xxl),
+          // Chart area placeholder
+          Container(
+            height: 180,
+            decoration: BoxDecoration(
+              color: boxColor,
+              borderRadius: WpRadius.borderMd,
             ),
-            const SizedBox(height: WpSpacing.md),
-            Text(
-              l10n.analyticsEmptyTitle,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: isDark
-                    ? WpColorsDark.textPrimary
-                    : WpColorsLight.textPrimary,
+          ),
+          const SizedBox(height: WpSpacing.xxl),
+          // Two side-by-side panel placeholders
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Container(
+                  height: 120,
+                  decoration: BoxDecoration(
+                    color: boxColor,
+                    borderRadius: WpRadius.borderMd,
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(height: WpSpacing.xs),
-            Text(
-              l10n.analyticsEmptySubtitle,
-              style: TextStyle(fontSize: 13, color: textSecondary),
-            ),
-          ],
-        ),
+              const SizedBox(width: WpSpacing.sm),
+              Expanded(
+                child: Container(
+                  height: 120,
+                  decoration: BoxDecoration(
+                    color: boxColor,
+                    borderRadius: WpRadius.borderMd,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

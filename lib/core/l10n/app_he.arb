@@ -280,6 +280,7 @@
   "actionCancel": "בטל",
   "actionConfirm": "אישור",
   "actionSave": "שמור",
+  "actionRetry": "נסה שנית",
   "tooltipTheme": "החלף ערכת נושא",
   "tooltipLanguage": "שפה",
   "aboutVersion": "גרסה {version}",

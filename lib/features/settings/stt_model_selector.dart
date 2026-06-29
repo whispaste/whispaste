@@ -122,6 +122,7 @@ class _SttModelSelectorState extends ConsumerState<SttModelSelector> {
             message: downloadState.errorMessage!,
             isDark: isDark,
             l10n: l10n,
+            onRetry: () => ref.invalidate(modelDownloadProvider),
           ),
         ],
       ],
@@ -807,11 +808,13 @@ class _ErrorBanner extends StatelessWidget {
     required this.message,
     required this.isDark,
     required this.l10n,
+    this.onRetry,
   });
 
   final String message;
   final bool isDark;
   final L10n l10n;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -835,6 +838,24 @@ class _ErrorBanner extends StatelessWidget {
               style: TextStyle(fontSize: 12, color: errorColor),
             ),
           ),
+          if (onRetry != null) ...[
+            const SizedBox(width: WpSpacing.xs),
+            TextButton(
+              onPressed: onRetry,
+              style: TextButton.styleFrom(
+                foregroundColor: errorColor,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: WpSpacing.xs,
+                  vertical: WpSpacing.xxs,
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              child: Text(l10n.actionRetry),
+            ),
+          ],
         ],
       ),
     );

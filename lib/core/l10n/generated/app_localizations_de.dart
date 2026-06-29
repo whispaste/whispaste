@@ -842,6 +842,9 @@ class L10nDe extends L10n {
   String get actionSave => 'Speichern';
 
   @override
+  String get actionRetry => 'Erneut versuchen';
+
+  @override
   String get tooltipTheme => 'Design wechseln';
 
   @override

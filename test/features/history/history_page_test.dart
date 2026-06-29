@@ -363,5 +363,67 @@ void main() {
         },
       );
     });
+
+    // -------------------------------------------------------------------------
+    // AC4: Loading skeleton state
+    // -------------------------------------------------------------------------
+
+    testWidgets(
+      'shows skeleton (no CircularProgressIndicator) when stream is loading',
+      (tester) async {
+        await tester.pumpWidget(
+          makeTestable(
+            const HistoryPage(),
+            overrides: [
+              // Empty stream → StreamProvider stays in AsyncLoading
+              historyEntriesProvider.overrideWith(
+                (ref) => const Stream.empty(),
+              ),
+              archivedEntriesProvider.overrideWith((ref) => Stream.value([])),
+              trashEntriesProvider.overrideWith((ref) => Stream.value([])),
+            ],
+            locale: const Locale('en'),
+          ),
+        );
+        // Single pump — do not settle so the loading state is captured.
+        await tester.pump();
+
+        expect(find.byType(CircularProgressIndicator), findsNothing);
+        // Skeleton renders at least one ListView (the skeleton rows).
+        // The page may also have a horizontal ListView for the filter bar.
+        expect(find.byType(ListView), findsWidgets);
+      },
+    );
+
+    // -------------------------------------------------------------------------
+    // AC5: Error state
+    // -------------------------------------------------------------------------
+
+    testWidgets('shows WpEmptyState with error icon when stream errors', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        makeTestable(
+          const HistoryPage(),
+          overrides: [
+            historyEntriesProvider.overrideWith(
+              // Riverpod 2.x retries Exception errors (stays loading).
+              // Use StateError (an Error subclass) to skip retry and reach
+              // AsyncError immediately.
+              (ref) => Stream.error(StateError('db failure'), StackTrace.empty),
+            ),
+            archivedEntriesProvider.overrideWith((ref) => Stream.value([])),
+            trashEntriesProvider.overrideWith((ref) => Stream.value([])),
+          ],
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(LucideIcons.triangleAlert), findsOneWidget);
+      expect(find.text(l10n.errorGeneric), findsOneWidget);
+      expect(find.text(l10n.actionRetry), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+    });
   });
 }

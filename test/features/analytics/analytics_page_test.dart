@@ -4,6 +4,8 @@
 /// period chips (7d / 30d / 90d / all), reset confirm dialog.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -260,7 +262,69 @@ void main() {
     });
 
     // -------------------------------------------------------------------------
-    // 5. Works in light theme
+    // 5. Error state (AC2)
+    // -------------------------------------------------------------------------
+
+    testWidgets('shows WpEmptyState with error icon when provider throws', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        makeTestable(
+          const AnalyticsPage(),
+          overrides: [
+            analyticsProvider.overrideWith(
+              // Riverpod 2.x retries Exception-typed errors (stays in
+              // AsyncLoading). Throwing an Error subclass (StateError) skips
+              // the retry logic and immediately transitions to AsyncError.
+              (ref) => Future<AnalyticsData>.error(
+                StateError('test error'),
+                StackTrace.empty,
+              ),
+            ),
+          ],
+          locale: const Locale('en'),
+        ),
+      );
+      // pump() once to flush the microtask that rejects the future,
+      // then pumpAndSettle to let Riverpod rebuild the widget.
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.errorGeneric), findsOneWidget);
+      expect(find.text(l10n.actionRetry), findsOneWidget);
+      expect(find.byIcon(LucideIcons.triangleAlert), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+    });
+
+    // -------------------------------------------------------------------------
+    // 6. Loading skeleton state (AC3)
+    // -------------------------------------------------------------------------
+
+    testWidgets(
+      'shows skeleton (no CircularProgressIndicator) during loading',
+      (tester) async {
+        // Use a Completer that never resolves — avoids pending timer issues.
+        final completer = Completer<AnalyticsData>();
+        await tester.pumpWidget(
+          makeTestable(
+            const AnalyticsPage(),
+            overrides: [
+              analyticsProvider.overrideWith((ref) => completer.future),
+            ],
+            locale: const Locale('en'),
+          ),
+        );
+        // Single pump — Completer never resolves, so provider stays in loading.
+        await tester.pump();
+
+        expect(find.byType(CircularProgressIndicator), findsNothing);
+        // Skeleton renders Container boxes arranged in rows
+        expect(find.byType(Row), findsWidgets);
+      },
+    );
+
+    // -------------------------------------------------------------------------
+    // 7. Works in light theme
     // -------------------------------------------------------------------------
 
     testWidgets('renders without error in light theme', (tester) async {

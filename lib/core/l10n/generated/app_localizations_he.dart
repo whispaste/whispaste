@@ -823,6 +823,9 @@ class L10nHe extends L10n {
   String get actionSave => 'שמור';
 
   @override
+  String get actionRetry => 'נסה שנית';
+
+  @override
   String get tooltipTheme => 'החלף ערכת נושא';
 
   @override

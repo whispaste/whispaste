@@ -11,6 +11,8 @@ import '../../core/app_info.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/logging/app_logger.dart';
 import '../../core/logging/crash_fingerprints.dart';
+import '../../core/theme/colors.dart';
+import '../../core/theme/tokens.dart';
 import '../../widgets/dialog.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/page_shell.dart';
@@ -503,9 +505,16 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                       isArchiveView,
                     );
                   },
-                  loading: () =>
-                      const Center(child: CircularProgressIndicator()),
-                  error: (e, _) => _emptyStateForFilter(isDark, activeFilter),
+                  loading: () => _HistorySkeleton(isDark: isDark),
+                  error: (e, _) {
+                    final l10n = L10n.of(context);
+                    return WpEmptyState(
+                      icon: LucideIcons.triangleAlert,
+                      title: l10n.errorGeneric,
+                      actionLabel: l10n.actionRetry,
+                      onAction: () => ref.invalidate(historyEntriesProvider),
+                    );
+                  },
                 ),
               ),
             ],
@@ -876,5 +885,38 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       _multiSelectMode = false;
       _selectedEntryId = null;
     });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Loading skeleton — list-shaped placeholder rows
+// ---------------------------------------------------------------------------
+
+class _HistorySkeleton extends StatelessWidget {
+  const _HistorySkeleton({required this.isDark});
+
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final boxColor = isDark
+        ? WpColorsDark.borderSubtle
+        : WpColorsLight.borderSubtle;
+
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(
+        horizontal: WpSpacing.md,
+        vertical: WpSpacing.sm,
+      ),
+      itemCount: 6,
+      separatorBuilder: (_, _) => const SizedBox(height: WpSpacing.xs),
+      itemBuilder: (_, _) => Container(
+        height: 52,
+        decoration: BoxDecoration(
+          color: boxColor,
+          borderRadius: WpRadius.borderMd,
+        ),
+      ),
+    );
   }
 }
