@@ -2,6 +2,10 @@
 
 ## 1.2.41
 
+### Features
+
+- **Anonyme, selbst-gehostete Nutzungsstatistik zur bedarfsgerechten Weiterentwicklung.** Standardmäßig aktiv, jederzeit unter Einstellungen → Datenschutz abschaltbar — cookiefrei, ohne Konto- oder Geräte-Identifikator und niemals mit Inhalten (Text, Audio, Verlauf). Details in der Datenschutzerklärung.
+
 ### Bug Fixes
 
 - **Der lokale Sprachdienst lässt sich unter Windows mit NVIDIA-Grafik wieder zuverlässig herunterladen.** WhisPaste überspringt nun kaputte Download-Einträge, fällt bei Bedarf sauber auf Vulkan oder CPU zurück und verarbeitet die von GitHub ausgelieferten Manifestdateien robust, statt mit „Netzwerkfehler: unknown" hängen zu bleiben.

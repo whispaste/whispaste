@@ -94,7 +94,7 @@ flutter build macos   --release --no-tree-shake-icons \
 
 - **Local mode** — audio never leaves your device
 - **Cloud mode** — audio goes directly to your selected provider, not through WhisPaste servers
-- **No tracking**, no account required — optional crash reporting can be turned off
+- **No account required** — usage analytics are anonymous, self-hosted, and opt-out; optional crash reporting can be turned off
 - **Open source** — audit every line
 
 ## Support

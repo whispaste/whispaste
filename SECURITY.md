@@ -52,4 +52,4 @@ The following are **out of scope**:
 - Auto-update downloads are verified via SHA-256 checksums
 - API keys are stored in platform-native secure storage (OS keychain / credential manager)
 - Crash reporting via Sentry is **consent-gated** — users must opt in; PII is sanitized before transmission
-- No analytics telemetry or tracking is collected
+- Usage analytics are anonymous, self-hosted, and opt-out — no tracking cookies, no account, no personal or device identifiers (see the privacy policy)
