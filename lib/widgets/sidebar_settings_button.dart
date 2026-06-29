@@ -63,8 +63,13 @@ class _WpSidebarSettingsButtonState extends State<WpSidebarSettingsButton> {
           cursor: SystemMouseCursors.click,
           onEnter: (_) => setState(() => _isHovered = true),
           onExit: (_) => setState(() => _isHovered = false),
-          child: GestureDetector(
+          child: InkWell(
             onTap: widget.onTap,
+            // Transparent so B2 owns all focus-ring / hover visuals.
+            focusColor: Colors.transparent,
+            hoverColor: Colors.transparent,
+            splashColor: Colors.transparent,
+            highlightColor: Colors.transparent,
             child: SizedBox(
               width: WpLayout.sidebarWidth,
               height: 42,
