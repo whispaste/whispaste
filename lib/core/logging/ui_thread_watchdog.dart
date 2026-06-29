@@ -4,6 +4,31 @@
 /// callback fires significantly later than expected, the UI thread was
 /// blocked by synchronous work. Logs a warning so we can diagnose jank
 /// without the user having to reproduce it with DevTools attached.
+///
+/// ## Coverage (wired in ServiceBootstrapWidget.initState / dispose)
+///
+/// The watchdog is process-wide, so it covers ALL paths that run on the
+/// main isolate. This includes, but is not limited to:
+///   - Navigation transitions (AnimatedSwitcher in _AppShell)
+///   - History-list scroll (ListView in HistoryPage)
+///   - Overlay show/hide (FloatingOverlayService phase changes)
+///   - Any other work dispatched to the UI thread
+///
+/// ## What this watchdog does NOT do
+///
+/// It detects STALLS (timer jitter ≥ [_threshold] = 500 ms) — NOT dropped
+/// frames (single frames taking ≥ 16.7 ms @ 60 Hz). A dropped frame
+/// that does not block the thread long enough to miss a watchdog tick is
+/// invisible to this implementation.
+///
+/// For per-frame drop profiling, use Flutter DevTools → Performance tab
+/// during dogfooding (issue 16). The watchdog is a first-line alert
+/// for regressions that cause noticeable freezes.
+///
+/// ## Budget reference
+///
+/// See [PerfBudgets.watchdogThresholdMs] (= 500) — mirrors [_threshold]
+/// so the budget is visible without navigating to the private constant.
 library;
 
 import 'dart:async';

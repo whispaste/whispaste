@@ -8,6 +8,7 @@ import '../../core/config/settings_labels.dart';
 import '../../core/config/settings_provider.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/logging/app_logger.dart';
+import '../../core/logging/perf_instrumentation.dart';
 import '../../core/recording/recording_state.dart';
 import '../../core/recording/recording_helpers.dart';
 import '../floating_platform_service_base.dart';
@@ -243,6 +244,10 @@ class FloatingOverlayService
           await _setStartPosition(settings);
         }
         _sendSnapshot(settings, next);
+        // t₁ for hotkey→overlay latency: snapshot sent, native side can now
+        // show the overlay. Counterpart: PerfMarkers.markHotkeyPressed() in
+        // HotkeyService. HUMAN GATE (issue 16): read the log during dogfooding.
+        PerfMarkers.instance.markOverlayShown();
 
       case RecordingPhase.transcribing:
         _sendSnapshot(settings, next);

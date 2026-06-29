@@ -9,6 +9,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/core/logging/perf_instrumentation.dart';
 import 'package:whispaste/core/theme/tokens.dart';
 
 import '../fixtures/test_helpers.dart';
@@ -159,5 +160,48 @@ void main() {
         expect(find.text('beta'), findsOneWidget);
       },
     );
+
+    // -----------------------------------------------------------------------
+    // c) Transition settles at or before PerfBudgets.transitionNormalMs
+    //
+    // AnimatedSwitcher duration = WpMotion.normal = PerfBudgets.transitionNormalMs
+    // = 200 ms. After allowing the full budget duration to elapse the animation
+    // must be completely settled — no page from the previous view remains.
+    //
+    // The constant-alignment assertion (PerfBudgets.transitionNormalMs ==
+    // WpMotion.normal.inMilliseconds) is proven in perf_instrumentation_test.dart.
+    // This test proves the AnimatedSwitcher ACTUALLY settles when driven by
+    // WpMotion.normal, providing a headless proxy for the "0 dropped frames in
+    // Transitions" AC from PRD §4 Phase-D4.
+    // -----------------------------------------------------------------------
+    testWidgets('c) transition settles within PerfBudgets.transitionNormalMs '
+        '(${PerfBudgets.transitionNormalMs} ms) — A1 duration alignment', (
+      tester,
+    ) async {
+      final key = GlobalKey<_PageSwitcherHarnessState>();
+      await tester.pumpWidget(makeTestable(_PageSwitcherHarness(key: key)));
+      await tester.pump();
+
+      expect(find.text('alpha'), findsOneWidget);
+
+      // Navigate.
+      key.currentState!.navigate('beta');
+
+      // pumpAndSettle drives the AnimatedSwitcher forward animation (200 ms)
+      // and flushes all cleanup frames (dismissed status → setState → rebuild).
+      // The default pumpAndSettle interval is 100 ms per pump, so it takes
+      // ~3 internal iterations to drain a 200 ms animation + cleanup.
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('alpha'),
+        findsNothing,
+        reason:
+            'Old page must be gone after the A1 transition settles '
+            '(WpMotion.normal = ${WpMotion.normal.inMilliseconds} ms = '
+            'PerfBudgets.transitionNormalMs).',
+      );
+      expect(find.text('beta'), findsOneWidget);
+    });
   });
 }

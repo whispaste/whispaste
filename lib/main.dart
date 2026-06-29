@@ -18,6 +18,7 @@ import 'core/l10n/locale_provider.dart';
 import 'core/logging/app_logger.dart';
 import 'core/logging/app_monitoring.dart';
 import 'core/logging/crash_reporter.dart';
+import 'core/logging/perf_instrumentation.dart';
 import 'core/platform/macos_lifecycle_channel.dart';
 import 'core/theme/theme.dart';
 import 'floating_button_render_entrypoint.dart';
@@ -101,6 +102,13 @@ Future<void> main(List<String> args) async {
 /// Executes the full application startup sequence inside the Sentry-guarded
 /// zone established by [AppMonitoring.bootstrap].
 Future<void> _runApp(List<String> args) async {
+  // Cold-start t₀: stamp before ensureInitialized so we capture the full
+  // Flutter bootstrap time. Log is emitted in the first-frame callback below.
+  // HUMAN GATE (issue 16): read '[PERF] cold-start → first-frame: Xms' log
+  // in the console during dogfooding. Budget: PerfBudgets.coldStartFirstFrameMs
+  // (currently TBD — PRD §8 open mini-point).
+  PerfMarkers.instance.markColdStartBegin();
+
   WidgetsFlutterBinding.ensureInitialized();
 
   // No-op for CI release builds (--dart-define=APP_VERSION=… makes
@@ -195,6 +203,12 @@ Future<void> _runApp(List<String> args) async {
       child: const WhisPasteApp(),
     ),
   );
+
+  // Cold-start t₁: fires after the first frame is rendered.
+  // Logs '[PERF] cold-start → first-frame: Xms' for dogfooding (issue 16).
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    PerfMarkers.instance.markFirstFrame();
+  });
 }
 
 /// Initialises the desktop window manager and applies persisted geometry.

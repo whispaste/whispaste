@@ -17,6 +17,7 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import '../core/config/settings_labels.dart';
 import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
+import '../core/logging/perf_instrumentation.dart';
 import 'hotkey_key_resolver.dart';
 
 // ---------------------------------------------------------------------------
@@ -393,6 +394,10 @@ class HotkeyService extends Notifier<void> {
     }
     _keyHeld = true;
     _log.info('$label hotkey pressed');
+    // Stamp t₀ for hotkey→overlay latency BEFORE dispatching so the mark
+    // captures the earliest possible Dart-layer moment of this event.
+    // Counterpart: PerfMarkers.markOverlayShown() in FloatingOverlayService.
+    PerfMarkers.instance.markHotkeyPressed();
     onHotkeyPressed?.call();
   }
 
