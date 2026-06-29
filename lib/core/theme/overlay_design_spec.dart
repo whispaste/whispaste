@@ -395,6 +395,101 @@ class OverlayLayoutSpec {
   );
 }
 
+/// Platform vibrancy material for the overlay native window.
+///
+/// Decided in Phase-0 spike (spike-notes.md 2026-06-29):
+/// - macOS: `hudWindow` — real NSVisualEffectView blur, perf ~1 ms/frame avg.
+/// - Windows: `acrylic` — flutter_acrylic Acrylic (pending Windows test).
+/// - Linux / unknown: `flat` — tinted capsule fill, no OS-level blur.
+enum OverlayVibrancyMaterial {
+  /// macOS NSVisualEffectMaterial.hudWindow (Phase-0 approved, best optics).
+  hudWindow,
+
+  /// Windows Acrylic via flutter_acrylic (planned).
+  acrylic,
+
+  /// Windows Mica via flutter_acrylic (alternative to acrylic).
+  mica,
+
+  /// Tinted flat fill, no OS blur — Linux default / universal fallback.
+  flat,
+}
+
+/// Platform-aware vibrancy material selection for the overlay window.
+///
+/// Consumed by the platform controllers (Swift / C++ / Linux) to configure
+/// the native window's visual effect layer. The Flutter widget consumes
+/// [forPlatform] to select the correct fill opacity.
+@immutable
+class OverlayVibrancySpec {
+  const OverlayVibrancySpec({
+    required this.macOS,
+    required this.windows,
+    required this.linux,
+  });
+
+  /// Material for macOS overlay windows.
+  final OverlayVibrancyMaterial macOS;
+
+  /// Material for Windows overlay windows.
+  final OverlayVibrancyMaterial windows;
+
+  /// Material for Linux overlay windows (always flat — no OS blur available).
+  final OverlayVibrancyMaterial linux;
+
+  /// Resolves the material for the given [platform] string
+  /// (`'macos'`, `'windows'`, `'linux'`). Anything unknown → [flat].
+  OverlayVibrancyMaterial forPlatform(String platform) => switch (platform) {
+    'macos' => macOS,
+    'windows' => windows,
+    'linux' => linux,
+    _ => OverlayVibrancyMaterial.flat,
+  };
+}
+
+/// Signature arc motion parameters.
+///
+/// Govern the two animated events in the recording arc:
+/// 1. **Appear**: capsule springs in from [appearScale] → 1.0 + opacity 0 → 1.
+///    Curve = easeOutCubic (WpMotion.spring), no overshoot, gentle.
+/// 2. **State-transition crossfade**: brief opacity fade between arc states.
+///
+/// All durations are subject to `MediaQuery.disableAnimations` — callers must
+/// use `WpMotion.durationFor(context, duration)` so reduced-motion collapses
+/// everything to Duration.zero (instant state change, no movement).
+@immutable
+class OverlayArcMotion {
+  const OverlayArcMotion({
+    required this.appearDuration,
+    required this.appearCurve,
+    required this.appearScale,
+    required this.stateTransitionDuration,
+    required this.stateTransitionCurve,
+  });
+
+  /// Duration of the capsule spring-in (appear).
+  ///
+  /// Phase-0 cap: Soft-Cap 300 ms / Hard-Cap 700 ms. Set to [smooth] (300 ms)
+  /// so the perceived snap is ~250 ms.
+  final Duration appearDuration;
+
+  /// Easing for the spring-in. Must be non-overshooting.
+  ///
+  /// Phase-0 decision: easeOutCubic (mirrors `WpMotion.spring`).
+  final Curve appearCurve;
+
+  /// Initial scale from which the capsule springs in (e.g. 0.88 → 1.0).
+  ///
+  /// Subtle — the viewer notices movement, not a dramatic jump-cut.
+  final double appearScale;
+
+  /// Duration of the state-transition crossfade (recording→transcribing etc.).
+  final Duration stateTransitionDuration;
+
+  /// Easing for the state-transition crossfade.
+  final Curve stateTransitionCurve;
+}
+
 /// Calm animation timings. No glow, no shimmer — soft and slow by brand rule.
 @immutable
 class OverlayMotion {
@@ -758,6 +853,42 @@ abstract final class OverlayDesignSpec {
     dotPulsePeriod: Duration(milliseconds: 900),
     // Approved spike pulse range is 0.6 .. 1.0 (`0.6 + 0.4 × …`).
     dotPulseMinAlpha: 0.6,
+  );
+
+  /// Signature recording-arc motion parameters (Phase-0, issue 09).
+  ///
+  /// - [OverlayArcMotion.appearDuration]: 300 ms (WpMotion.smooth soft-cap).
+  /// - [OverlayArcMotion.appearCurve]: easeOutCubic (= WpMotion.spring).
+  /// - [OverlayArcMotion.appearScale]: 0.88 — subtle spring-in, not dramatic.
+  /// - [OverlayArcMotion.stateTransitionDuration]: 150 ms — calm crossfade.
+  ///
+  /// All durations are gated by `WpMotion.durationFor` in callers so that
+  /// `MediaQuery.disableAnimations = true` collapses them to Duration.zero.
+  static const OverlayArcMotion arc = OverlayArcMotion(
+    appearDuration: Duration(milliseconds: 300),
+    appearCurve: Curves.easeOutCubic, // WpMotion.spring — no overshoot
+    appearScale: 0.88,
+    stateTransitionDuration: Duration(milliseconds: 150),
+    stateTransitionCurve: Curves.easeOut,
+  );
+
+  // -- Vibrancy --------------------------------------------------------------
+
+  /// Fill opacity used on platforms where no OS blur is available (flat
+  /// fallback — Linux and any unsupported runtime). Higher than
+  /// [fillOpacityFactor] because without a blur layer the capsule needs more
+  /// opaque chrome to remain readable over any desktop background.
+  static const double flatFallbackFillOpacity = 1.0;
+
+  /// Platform-aware vibrancy material selection.
+  ///
+  /// macOS = `hudWindow` (Phase-0 GO, 1.0 ms avg, best optics confirmed).
+  /// Windows = `acrylic` (pending Windows measurement).
+  /// Linux = `flat` (no OS blur — tinted flat fill via [flatFallbackFillOpacity]).
+  static const OverlayVibrancySpec vibrancy = OverlayVibrancySpec(
+    macOS: OverlayVibrancyMaterial.hudWindow,
+    windows: OverlayVibrancyMaterial.acrylic,
+    linux: OverlayVibrancyMaterial.flat,
   );
 
   // -- Interaction -----------------------------------------------------------
