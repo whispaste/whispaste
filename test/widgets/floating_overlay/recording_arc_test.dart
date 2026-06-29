@@ -749,5 +749,123 @@ void main() {
         reason: 'duration must be non-zero so durationFor gate has effect',
       );
     });
+
+    testWidgets('pill-width spring snaps to target under reduced-motion '
+        '(pumpAndSettle completes, no hanging spring ticker)', (tester) async {
+      // Mount recording state, visible, reduced-motion.
+      await tester.pumpWidget(
+        _wrap(
+          FloatingOverlayView(
+            snapshot: _snap(
+              OverlayVisualState.recording,
+              visible: true,
+              elapsed: '0:05',
+              progress: 0.1,
+            ),
+          ),
+          disableAnimations: true,
+        ),
+      );
+      await tester.pump();
+
+      // Transition to done — under reduced-motion the spring must not start.
+      await tester.pumpWidget(
+        _wrap(
+          FloatingOverlayView(
+            snapshot: _snap(
+              OverlayVisualState.done,
+              visible: true,
+              doneMessage: 'Eingefügt!',
+            ),
+          ),
+          disableAnimations: true,
+        ),
+      );
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+
+      // pumpAndSettle must finish — a running spring ticker would hang here.
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  });
+
+  // ── Dynamic pill-width spring (issue 10) ──────────────────────────────────
+
+  group('pill-width spring (issue 10)', () {
+    testWidgets(
+      'spring animates width mid-transition (no pumpAndSettle mid-flight)',
+      (tester) async {
+        // Mount recording visible — appear settles to 1.0.
+        await tester.pumpWidget(
+          _wrap(
+            FloatingOverlayView(
+              snapshot: _snap(
+                OverlayVisualState.recording,
+                visible: true,
+                elapsed: '0:05',
+                progress: 0.1,
+              ),
+            ),
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 350));
+
+        // Steady-state: one CustomPaint, no exception.
+        expect(find.byType(CustomPaint), findsOneWidget);
+
+        // Transition to done — spring should start.
+        await tester.pumpWidget(
+          _wrap(
+            FloatingOverlayView(
+              snapshot: _snap(
+                OverlayVisualState.done,
+                visible: true,
+                doneMessage: 'Eingefügt!',
+              ),
+            ),
+          ),
+        );
+
+        // Advance a few ticks — spring is running, no exception.
+        await tester.pump(const Duration(milliseconds: 50));
+        expect(tester.takeException(), isNull);
+
+        // Advance past a generous spring settle time (spring 170/26 ≈ 600 ms).
+        await tester.pump(const Duration(milliseconds: 700));
+        expect(tester.takeException(), isNull);
+
+        // After settling: back to single CustomPaint (crossfade also done).
+        expect(
+          find.byType(CustomPaint),
+          findsOneWidget,
+          reason: 'after spring + crossfade settle: single painter',
+        );
+
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+
+    testWidgets('pill-width spring does not crash on rapid state changes '
+        '(interruption test)', (tester) async {
+      Future<void> push(OverlayVisualState s) async {
+        await tester.pumpWidget(
+          _wrap(FloatingOverlayView(snapshot: _snap(s, visible: true))),
+        );
+        await tester.pump(const Duration(milliseconds: 30));
+      }
+
+      await push(OverlayVisualState.recording);
+      await push(OverlayVisualState.transcribing);
+      await push(OverlayVisualState.done);
+      await push(OverlayVisualState.error);
+      await push(OverlayVisualState.recording);
+
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
   });
 }

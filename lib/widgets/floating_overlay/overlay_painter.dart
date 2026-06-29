@@ -46,6 +46,7 @@ class OverlayPainter extends CustomPainter {
     required this.dotPulse,
     this.paintFill = true,
     this.paintContent = true,
+    this.pillWidth,
   });
 
   /// The visual state being rendered.
@@ -90,14 +91,26 @@ class OverlayPainter extends CustomPainter {
   /// state-transition crossfade so only the fill is drawn.
   final bool paintContent;
 
+  /// Optional override for the rendered pill width in logical pixels (issue 10).
+  ///
+  /// When non-null the pill is drawn **centred** within [sizeSpec.width]:
+  /// `left = shadowPadding + (sizeSpec.width − pillWidth) / 2`.
+  /// When null the full [sizeSpec.width] is used (default steady-state).
+  /// Height and corner radius are unaffected.
+  final double? pillWidth;
+
   bool get _isRecording => state == OverlayDesignState.recording;
 
   @override
   void paint(Canvas canvas, Size size) {
+    // Dynamic pill width: when narrower than the full spec width the pill is
+    // centred so that both sides shrink symmetrically. Content (dot, text,
+    // waveform) is clipped to the pill and auto-reflowts via pill.left/right.
+    final effectiveWidth = pillWidth ?? sizeSpec.width;
     final pill = Rect.fromLTWH(
+      OverlayDesignSpec.shadowPadding + (sizeSpec.width - effectiveWidth) / 2,
       OverlayDesignSpec.shadowPadding,
-      OverlayDesignSpec.shadowPadding,
-      sizeSpec.width,
+      effectiveWidth,
       sizeSpec.height,
     );
     final radius = sizeSpec.capsuleRadius;
@@ -413,6 +426,7 @@ class OverlayPainter extends CustomPainter {
         old.dotPulse != dotPulse ||
         old.paintFill != paintFill ||
         old.paintContent != paintContent ||
+        old.pillWidth != pillWidth ||
         !identical(old.waveformBars, waveformBars);
   }
 }

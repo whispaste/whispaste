@@ -488,6 +488,18 @@ class OverlayArcMotion {
 
   /// Easing for the state-transition crossfade.
   final Curve stateTransitionCurve;
+
+  /// Gentle spring for the pill-width morph (issue 10 — dynamic pill growth).
+  ///
+  /// Critically-damped Gentle preset (mass=1, stiffness=170, damping=26 ≈ 2√170).
+  /// No overshoot; a clean, soft width transition between recording-arc states.
+  /// Identical parameters to [WpMotion.springDescription]; mirrored here so
+  /// [OverlayDesignSpec] consumers need only one import.
+  static const SpringDescription pillSpring = SpringDescription(
+    mass: 1,
+    stiffness: 170,
+    damping: 26,
+  );
 }
 
 /// Calm animation timings. No glow, no shimmer — soft and slow by brand rule.
@@ -903,6 +915,36 @@ abstract final class OverlayDesignSpec {
     ],
     screenEdgeMargin: 24,
   );
+
+  // -- Dynamic pill-width (issue 10) -----------------------------------------
+
+  /// Width ratio for the pill at each design state, relative to
+  /// [OverlaySizeSpec.width].
+  ///
+  /// | State        | Ratio  | Normal px (≈) |
+  /// |---|---|---|
+  /// | recording    | 1.000  | 330           |
+  /// | transcribing | 0.758  | 250           |
+  /// | done         | 0.606  | 200           |
+  /// | error        | 0.758  | 250           |
+  ///
+  /// Both normal (330) and compact (220) sizes scale automatically because the
+  /// ratio is applied against [OverlaySizeSpec.width], not a literal pixel value.
+  static double pillWidthRatio(OverlayDesignState state) => switch (state) {
+    OverlayDesignState.recording => 1.0,
+    OverlayDesignState.transcribing => 0.758,
+    OverlayDesignState.done => 0.606,
+    OverlayDesignState.error => 0.758,
+  };
+
+  /// Target pill width in logical pixels for [state] at the given [sizeSpec].
+  ///
+  /// Convenience wrapper: `sizeSpec.width × pillWidthRatio(state)`.
+  /// Callers pass this directly as `pillWidth` to [OverlayPainter].
+  static double pillWidthFor(
+    OverlayDesignState state,
+    OverlaySizeSpec sizeSpec,
+  ) => sizeSpec.width * pillWidthRatio(state);
 
   // -- Floating button -------------------------------------------------------
 

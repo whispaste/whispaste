@@ -47,6 +47,7 @@
 /// constants of its own and renders no privacy badge.
 library;
 
+import 'package:flutter/physics.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../core/theme/overlay_design_spec.dart';
@@ -100,6 +101,7 @@ class FloatingOverlayView extends StatefulWidget {
     double dotPulse = 1.0,
     bool paintFill = true,
     bool paintContent = true,
+    double? pillWidth,
   }) {
     final theme = themeFor(snapshot.isDark);
     final designState = designStateFor(snapshot.state);
@@ -119,6 +121,7 @@ class FloatingOverlayView extends StatefulWidget {
       dotPulse: dotPulse,
       paintFill: paintFill,
       paintContent: paintContent,
+      pillWidth: pillWidth,
     );
   }
 
@@ -141,6 +144,25 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
   /// to 0.0 when the snapshot is hidden so the first `visible=true` push
   /// triggers the spring from the standby state.
   late final AnimationController _appear;
+
+  // -- Pill-width spring (dynamic pill growth — issue 10) ----------------------
+
+  /// Drives the pill-width morph from 0 (fromWidth) → 1 (toWidth) via a
+  /// [SpringSimulation] on each state transition.
+  ///
+  /// Actual width = `_pillFromWidth + (_pillToWidth - _pillFromWidth) × value`.
+  /// Starts at 1.0 so the initial mount shows no animation.
+  late final AnimationController _pillWidth;
+
+  /// Source width (logical px) at the start of the current spring.
+  double _pillFromWidth = 0.0;
+
+  /// Target width (logical px) for the current spring.
+  double _pillToWidth = 0.0;
+
+  /// Animated pill width at the current controller value.
+  double get _currentPillWidth =>
+      _pillFromWidth + (_pillToWidth - _pillFromWidth) * _pillWidth.value;
 
   // -- State-transition crossfade (recording → transcribing → done/error) ------
 
@@ -193,6 +215,24 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
       // Start at 1.0: no crossfade is happening at mount.
       value: 1.0,
     );
+
+    // Pill-width spring controller: value in [0, 1] maps fromWidth → toWidth.
+    // Initialise to the target width for the current state so no animation
+    // fires on mount (value=1.0 → _currentPillWidth = _pillToWidth = target).
+    final initialDesignState = FloatingOverlayView.designStateFor(
+      widget.snapshot.state,
+    );
+    final initialSizeSpec = OverlayDesignSpec.size(
+      compact: widget.snapshot.compact,
+    );
+    final initialWidth = OverlayDesignSpec.pillWidthFor(
+      initialDesignState,
+      initialSizeSpec,
+    );
+    _pillFromWidth = initialWidth;
+    _pillToWidth = initialWidth;
+    _pillWidth = AnimationController(vsync: this, value: 1.0);
+
     // Dot pulse is started in didChangeDependencies once we have a context
     // and know the reduced-motion preference.
   }
@@ -222,6 +262,16 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
       // Clear outgoing snapshot; the AnimatedBuilder rebuilds via
       // _stateTransition notification and renders the normal single painter.
       _outgoing = null;
+      // Snap pill width to the current state's target immediately.
+      final sizeSpec = OverlayDesignSpec.size(compact: widget.snapshot.compact);
+      final designState = FloatingOverlayView.designStateFor(
+        widget.snapshot.state,
+      );
+      final targetWidth = OverlayDesignSpec.pillWidthFor(designState, sizeSpec);
+      _pillFromWidth = targetWidth;
+      _pillToWidth = targetWidth;
+      _pillWidth.stop();
+      _pillWidth.value = 1.0;
     } else if (widget.animate) {
       // Resume the dot pulse now that reduced-motion is off.
       _dot.repeat(reverse: true);
@@ -255,24 +305,32 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
       _triggerAppear();
     }
 
-    // State-transition crossfade: recording → transcribing → done/error.
+    // State-transition crossfade + pill-width spring:
+    // recording → transcribing → done/error.
     //
     // Only fires on an authentic visible-state change — not on appear/disappear
-    // (those are handled by _appear) and not under reduced-motion (snap only).
+    // (those are handled by _appear).
     if (widget.snapshot.state != oldWidget.snapshot.state &&
         widget.snapshot.visible &&
-        oldWidget.snapshot.visible &&
-        !_reducedMotion) {
-      setState(() {
-        _outgoing = oldWidget.snapshot;
-      });
-      _stateTransition.forward(from: 0).then((_) {
-        if (mounted) {
-          setState(() {
-            _outgoing = null;
-          });
-        }
-      });
+        oldWidget.snapshot.visible) {
+      // Crossfade: content-only opacity fade (skipped under reduced-motion).
+      if (!_reducedMotion) {
+        setState(() {
+          _outgoing = oldWidget.snapshot;
+        });
+        _stateTransition.forward(from: 0).then((_) {
+          if (mounted) {
+            setState(() {
+              _outgoing = null;
+            });
+          }
+        });
+      }
+      // Pill-width spring: morphs width to the new state's target.
+      // Reduced-motion is handled inside _startPillSpring (snap, not spring).
+      _startPillSpring(
+        FloatingOverlayView.designStateFor(widget.snapshot.state),
+      );
     }
 
     // Handle changes to the animate flag (e.g. settings preview ↔ live overlay).
@@ -284,6 +342,40 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
         _dot.value = 1.0;
       }
     }
+  }
+
+  /// Springs the pill width to the target for [newState].
+  ///
+  /// Captures the current animated width and velocity so that interrupted
+  /// transitions continue smoothly without a visual snap. Under reduced-motion
+  /// the target width is applied instantly (no spring).
+  void _startPillSpring(OverlayDesignState newState) {
+    final sizeSpec = OverlayDesignSpec.size(compact: widget.snapshot.compact);
+    final targetWidth = OverlayDesignSpec.pillWidthFor(newState, sizeSpec);
+    final currentWidth = _currentPillWidth;
+
+    if (_reducedMotion) {
+      _pillFromWidth = targetWidth;
+      _pillToWidth = targetWidth;
+      _pillWidth.stop();
+      _pillWidth.value = 1.0;
+      return;
+    }
+
+    // Preserve pixel velocity across interruptions so the spring feels
+    // continuous when a state change arrives mid-animation.
+    final pixelVelocity = _pillWidth.velocity * (_pillToWidth - _pillFromWidth);
+
+    _pillFromWidth = currentWidth;
+    _pillToWidth = targetWidth;
+
+    final span = targetWidth - currentWidth;
+    // Map pixel velocity into the [0, 1] controller space.
+    final initialVelocity = span.abs() > 0.01 ? pixelVelocity / span : 0.0;
+
+    _pillWidth.animateWith(
+      SpringSimulation(OverlayArcMotion.pillSpring, 0.0, 1.0, initialVelocity),
+    );
   }
 
   /// Springs the capsule in: opacity 0→1, scale [appearScale]→1.0.
@@ -306,6 +398,7 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
     _dot.dispose();
     _appear.dispose();
     _stateTransition.dispose();
+    _pillWidth.dispose();
     super.dispose();
   }
 
@@ -321,11 +414,20 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
         width: window.width,
         height: window.height,
         child: AnimatedBuilder(
-          animation: Listenable.merge([_dot, _appear, _stateTransition]),
+          animation: Listenable.merge([
+            _dot,
+            _appear,
+            _stateTransition,
+            _pillWidth,
+          ]),
           builder: (context, child) {
             final t = _appear.value;
             // Scale: appearScale → 1.0; calm, sub-1.0 start, no overshoot.
             final scale = appearScale + (1.0 - appearScale) * t;
+
+            // Animated pill width — shared across all painters in this frame so
+            // all crossfade layers morph in perfect sync.
+            final animatedPillWidth = _currentPillWidth;
 
             final outgoing = _outgoing;
             Widget content;
@@ -335,6 +437,8 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
               // The fill is drawn once (background-only painter) to avoid
               // double-compositing the semi-transparent glass gradient.
               // Only the content layers are crossfaded at opposite opacities.
+              // All three layers use the same animatedPillWidth so the pill
+              // border and content always match during the crossfade.
               final ct = OverlayDesignSpec.arc.stateTransitionCurve.transform(
                 _stateTransition.value,
               );
@@ -349,6 +453,7 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
                       dotPulse: _dot.value,
                       paintFill: true,
                       paintContent: false,
+                      pillWidth: animatedPillWidth,
                     ),
                   ),
                   // Layer 2: outgoing state content fading out.
@@ -362,6 +467,7 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
                         dotPulse: _dot.value,
                         paintFill: false,
                         paintContent: true,
+                        pillWidth: animatedPillWidth,
                       ),
                     ),
                   ),
@@ -376,6 +482,7 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
                         dotPulse: _dot.value,
                         paintFill: false,
                         paintContent: true,
+                        pillWidth: animatedPillWidth,
                       ),
                     ),
                   ),
@@ -389,6 +496,7 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
                   snapshot: widget.snapshot,
                   waveformBars: widget.waveformBars,
                   dotPulse: _dot.value,
+                  pillWidth: animatedPillWidth,
                 ),
               );
             }
