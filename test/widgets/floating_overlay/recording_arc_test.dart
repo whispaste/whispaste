@@ -237,6 +237,48 @@ void main() {
       },
     );
 
+    testWidgets(
+      're-show: overlay is opaque again on a second show after a hide '
+      '(regression — overlay was invisible on every recording after the first)',
+      (tester) async {
+        Widget view(bool visible) => _wrap(
+          FloatingOverlayView(
+            snapshot: _snap(
+              OverlayVisualState.recording,
+              visible: visible,
+              elapsed: visible ? '0:02' : '',
+            ),
+          ),
+        );
+
+        // First recording: appear settles to fully opaque.
+        await tester.pumpWidget(view(true));
+        await tester.pump(const Duration(milliseconds: 350));
+        expect(
+          tester.widget<Opacity>(find.byType(Opacity).first).opacity,
+          closeTo(1.0, 0.001),
+        );
+
+        // Recording ends: hide snaps the appear controller back to 0.
+        await tester.pumpWidget(view(false));
+        await tester.pump();
+        expect(tester.widget<Opacity>(find.byType(Opacity).first).opacity, 0.0);
+
+        // Second recording: the capsule MUST fade back in — before the re-show
+        // guard it stayed transparent (Opacity 0) while the native panel was
+        // ordered front, so nothing was visible from the second recording on.
+        await tester.pumpWidget(view(true));
+        await tester.pump(const Duration(milliseconds: 350));
+        expect(
+          tester.widget<Opacity>(find.byType(Opacity).first).opacity,
+          closeTo(1.0, 0.001),
+          reason: 'overlay must be opaque again on the second show',
+        );
+
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+
     testWidgets('spring-in uses scale from below 1.0 (spec appearScale)', (
       tester,
     ) async {

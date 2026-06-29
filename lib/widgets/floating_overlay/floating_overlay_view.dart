@@ -205,6 +205,18 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
         // the next appear starts from the correct initial value.
         _appear.value = 0.0;
       }
+    } else if (widget.snapshot.visible &&
+        _appear.status == AnimationStatus.dismissed) {
+      // Re-show guard: a visible snapshot arrived but the appear controller is
+      // still at rest 0 — so the capsule would paint fully transparent
+      // (Opacity 0) even though the native panel is ordered front. This happens
+      // on the second and later recordings: the hide snapshot snaps `_appear`
+      // to 0, and the subsequent visible snapshot does not always register as a
+      // `visible` transition here (the render engine coalesces the hide→show
+      // pair, or re-attaches with the main engine already considering the
+      // overlay visible). Without this, the overlay was invisible on every
+      // recording after the first. Trigger the appear so the capsule fades in.
+      _triggerAppear();
     }
 
     // Handle changes to the animate flag (e.g. settings preview ↔ live overlay).
