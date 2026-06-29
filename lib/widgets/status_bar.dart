@@ -9,6 +9,7 @@ import '../core/recording/recording_state.dart'
     show RecordingPhase, SttServerState;
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
+import 'wp_focus_ring.dart';
 
 /// Returns `true` when the "Auto-Paste deaktiviert" status-bar hint chip
 /// should be visible.
@@ -253,6 +254,7 @@ class _SttChip extends StatefulWidget {
 
 class _SttChipState extends State<_SttChip> {
   Timer? _elapsedTicker;
+  final _focusNode = FocusNode();
 
   @override
   void initState() {
@@ -272,6 +274,7 @@ class _SttChipState extends State<_SttChip> {
   @override
   void dispose() {
     _elapsedTicker?.cancel();
+    _focusNode.dispose();
     super.dispose();
   }
 
@@ -293,59 +296,66 @@ class _SttChipState extends State<_SttChip> {
     final (Color dotColor, String stateLabel, bool showSpinner) =
         _resolveDisplay();
 
+    final inkWell = InkWell(
+      onTap: widget.onTap,
+      focusNode: widget.onTap != null ? _focusNode : null,
+      borderRadius: WpRadius.borderFull,
+      focusColor: Colors.transparent,
+      highlightColor: Colors.transparent,
+      mouseCursor: widget.onTap != null
+          ? SystemMouseCursors.click
+          : SystemMouseCursors.basic,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: WpSpacing.sm,
+          vertical: WpSpacing.xxs,
+        ),
+        decoration: BoxDecoration(
+          color: widget.isDark
+              ? WpColorsDark.surfaceChipFill
+              : WpColorsLight.surfaceChipFill,
+          borderRadius: WpRadius.borderFull,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (showSpinner)
+              SizedBox(
+                width: 8,
+                height: 8,
+                child: CircularProgressIndicator(
+                  strokeWidth: 1.5,
+                  color: dotColor,
+                ),
+              )
+            else
+              Container(
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(
+                  color: dotColor,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            const SizedBox(width: 6),
+            Text('${widget.modeLabel} — $stateLabel', style: widget.textStyle),
+          ],
+        ),
+      ),
+    );
+
+    final body = widget.onTap != null
+        ? WpFocusRing(
+            focusNode: _focusNode,
+            radius: WpRadius.full,
+            child: inkWell,
+          )
+        : inkWell;
+
     return Semantics(
       label: widget.l10n.statusBarSttTooltip,
       button: true,
-      child: Tooltip(
-        message: widget.l10n.statusBarSttTooltip,
-        child: InkWell(
-          onTap: widget.onTap,
-          borderRadius: WpRadius.borderFull,
-          mouseCursor: widget.onTap != null
-              ? SystemMouseCursors.click
-              : SystemMouseCursors.basic,
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.sm,
-              vertical: WpSpacing.xxs,
-            ),
-            decoration: BoxDecoration(
-              color: widget.isDark
-                  ? WpColorsDark.surfaceChipFill
-                  : WpColorsLight.surfaceChipFill,
-              borderRadius: WpRadius.borderFull,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (showSpinner)
-                  SizedBox(
-                    width: 8,
-                    height: 8,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 1.5,
-                      color: dotColor,
-                    ),
-                  )
-                else
-                  Container(
-                    width: 7,
-                    height: 7,
-                    decoration: BoxDecoration(
-                      color: dotColor,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                const SizedBox(width: 6),
-                Text(
-                  '${widget.modeLabel} — $stateLabel',
-                  style: widget.textStyle,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+      child: Tooltip(message: widget.l10n.statusBarSttTooltip, child: body),
     );
   }
 
@@ -418,7 +428,7 @@ class _SttChipState extends State<_SttChip> {
   }
 }
 
-class _StatusChip extends StatelessWidget {
+class _StatusChip extends StatefulWidget {
   const _StatusChip({
     required this.label,
     required this.textStyle,
@@ -438,48 +448,71 @@ class _StatusChip extends StatelessWidget {
   final bool dimmed;
 
   @override
+  State<_StatusChip> createState() => _StatusChipState();
+}
+
+class _StatusChipState extends State<_StatusChip> {
+  final _focusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
-    final chip = Semantics(
-      label: tooltip ?? label,
-      button: true,
-      child: Opacity(
-        opacity: dimmed ? 0.5 : 1.0,
-        child: InkWell(
-          onTap: onTap,
+    final inkWell = InkWell(
+      onTap: widget.onTap,
+      focusNode: widget.onTap != null ? _focusNode : null,
+      borderRadius: WpRadius.borderFull,
+      focusColor: Colors.transparent,
+      highlightColor: Colors.transparent,
+      mouseCursor: widget.onTap != null
+          ? SystemMouseCursors.click
+          : SystemMouseCursors.basic,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: WpSpacing.sm,
+          vertical: WpSpacing.xxs,
+        ),
+        decoration: BoxDecoration(
+          color: widget.isDark
+              ? WpColorsDark.surfaceChipFill
+              : WpColorsLight.surfaceChipFill,
           borderRadius: WpRadius.borderFull,
-          mouseCursor: onTap != null
-              ? SystemMouseCursors.click
-              : SystemMouseCursors.basic,
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.sm,
-              vertical: WpSpacing.xxs,
-            ),
-            decoration: BoxDecoration(
-              color: isDark
-                  ? WpColorsDark.surfaceChipFill
-                  : WpColorsLight.surfaceChipFill,
-              borderRadius: WpRadius.borderFull,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (icon != null) ...[
-                  Icon(icon, size: WpIconSize.xs, color: cs.secondary),
-                  const SizedBox(width: WpSpacing.xxs),
-                ],
-                Text(label, style: textStyle),
-              ],
-            ),
-          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (widget.icon != null) ...[
+              Icon(widget.icon, size: WpIconSize.xs, color: cs.secondary),
+              const SizedBox(width: WpSpacing.xxs),
+            ],
+            Text(widget.label, style: widget.textStyle),
+          ],
         ),
       ),
     );
 
-    if (tooltip != null) {
-      return Tooltip(message: tooltip!, child: chip);
+    final body = widget.onTap != null
+        ? WpFocusRing(
+            focusNode: _focusNode,
+            radius: WpRadius.full,
+            child: inkWell,
+          )
+        : inkWell;
+
+    final chip = Semantics(
+      label: widget.tooltip ?? widget.label,
+      button: true,
+      child: Opacity(opacity: widget.dimmed ? 0.5 : 1.0, child: body),
+    );
+
+    if (widget.tooltip != null) {
+      return Tooltip(message: widget.tooltip!, child: chip);
     }
     return chip;
   }

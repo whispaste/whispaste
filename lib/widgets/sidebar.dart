@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
+import 'wp_focus_ring.dart';
 
 /// Navigation item data for the sidebar.
 class WpNavItem {
@@ -77,6 +78,13 @@ class _NavItemWidget extends StatefulWidget {
 
 class _NavItemWidgetState extends State<_NavItemWidget> {
   bool _isHovered = false;
+  final _focusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -117,55 +125,67 @@ class _NavItemWidgetState extends State<_NavItemWidget> {
           cursor: SystemMouseCursors.click,
           onEnter: (_) => setState(() => _isHovered = true),
           onExit: (_) => setState(() => _isHovered = false),
-          child: InkWell(
-            onTap: widget.onTap,
-            // Transparent so B2 owns all focus-ring / hover visuals.
-            focusColor: Colors.transparent,
-            hoverColor: Colors.transparent,
-            splashColor: Colors.transparent,
-            highlightColor: Colors.transparent,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: WpSpacing.xs),
-              child: SizedBox(
-                width: WpLayout.sidebarWidth,
-                height: 42,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Accent indicator bar for active item.
-                    // PositionedDirectional(start: 0) so it appears on the
-                    // left in LTR and on the right in RTL (e.g. Hebrew).
-                    if (widget.isActive)
-                      PositionedDirectional(
-                        start: 0,
-                        child: Container(
-                          width: 3,
-                          height: 22,
-                          decoration: BoxDecoration(
-                            gradient: widget.isDark
-                                ? WpColorsDark.accentWarmGradient
-                                : WpColorsLight.accentWarmGradient,
-                            borderRadius: const BorderRadius.only(
-                              topRight: Radius.circular(WpRadius.sm),
-                              bottomRight: Radius.circular(WpRadius.sm),
+          child: WpFocusRing(
+            focusNode: _focusNode,
+            radius: WpRadius.md,
+            child: InkWell(
+              onTap: widget.onTap,
+              focusNode: _focusNode,
+              // WpFocusRing owns all focus visuals — suppress InkWell's own.
+              focusColor: Colors.transparent,
+              hoverColor: Colors.transparent,
+              splashColor: Colors.transparent,
+              highlightColor: Colors.transparent,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: WpSpacing.xs),
+                child: SizedBox(
+                  width: WpLayout.sidebarWidth,
+                  height: 42,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // Accent indicator bar for active item.
+                      // PositionedDirectional(start: 0) so it appears on the
+                      // left in LTR and on the right in RTL (e.g. Hebrew).
+                      if (widget.isActive)
+                        PositionedDirectional(
+                          start: 0,
+                          child: Container(
+                            width: 3,
+                            height: 22,
+                            decoration: BoxDecoration(
+                              gradient: widget.isDark
+                                  ? WpColorsDark.accentWarmGradient
+                                  : WpColorsLight.accentWarmGradient,
+                              borderRadius: const BorderRadius.only(
+                                topRight: Radius.circular(WpRadius.sm),
+                                bottomRight: Radius.circular(WpRadius.sm),
+                              ),
                             ),
                           ),
                         ),
+                      // Icon pill
+                      AnimatedContainer(
+                        duration: WpMotion.durationFor(
+                          context,
+                          WpMotion.hoverIn,
+                        ),
+                        curve: WpMotion.defaultCurve,
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: bgColor,
+                          borderRadius: BorderRadius.circular(WpRadius.md),
+                        ),
+                        alignment: Alignment.center,
+                        child: Icon(
+                          widget.item.icon,
+                          color: iconColor,
+                          size: 21,
+                        ),
                       ),
-                    // Icon pill
-                    AnimatedContainer(
-                      duration: WpMotion.hoverIn,
-                      curve: WpMotion.defaultCurve,
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: bgColor,
-                        borderRadius: BorderRadius.circular(WpRadius.md),
-                      ),
-                      alignment: Alignment.center,
-                      child: Icon(widget.item.icon, color: iconColor, size: 21),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

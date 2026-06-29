@@ -10,6 +10,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../core/l10n/generated/app_localizations.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
+import 'wp_focus_ring.dart';
 
 /// Sidebar settings gear — pinned to the bottom of the nav rail.
 class WpSidebarSettingsButton extends StatefulWidget {
@@ -29,6 +30,13 @@ class WpSidebarSettingsButton extends StatefulWidget {
 
 class _WpSidebarSettingsButtonState extends State<WpSidebarSettingsButton> {
   bool _isHovered = false;
+  final _focusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -63,53 +71,58 @@ class _WpSidebarSettingsButtonState extends State<WpSidebarSettingsButton> {
           cursor: SystemMouseCursors.click,
           onEnter: (_) => setState(() => _isHovered = true),
           onExit: (_) => setState(() => _isHovered = false),
-          child: InkWell(
-            onTap: widget.onTap,
-            // Transparent so B2 owns all focus-ring / hover visuals.
-            focusColor: Colors.transparent,
-            hoverColor: Colors.transparent,
-            splashColor: Colors.transparent,
-            highlightColor: Colors.transparent,
-            child: SizedBox(
-              width: WpLayout.sidebarWidth,
-              height: 42,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  if (widget.isActive)
-                    Positioned(
-                      left: 0,
-                      child: Container(
-                        width: 3,
-                        height: 22,
-                        decoration: BoxDecoration(
-                          gradient: isDark
-                              ? WpColorsDark.accentWarmGradient
-                              : WpColorsLight.accentWarmGradient,
-                          borderRadius: const BorderRadius.only(
-                            topRight: Radius.circular(WpRadius.sm),
-                            bottomRight: Radius.circular(WpRadius.sm),
+          child: WpFocusRing(
+            focusNode: _focusNode,
+            radius: WpRadius.md,
+            child: InkWell(
+              onTap: widget.onTap,
+              focusNode: _focusNode,
+              // WpFocusRing owns all focus visuals — suppress InkWell's own.
+              focusColor: Colors.transparent,
+              hoverColor: Colors.transparent,
+              splashColor: Colors.transparent,
+              highlightColor: Colors.transparent,
+              child: SizedBox(
+                width: WpLayout.sidebarWidth,
+                height: 42,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    if (widget.isActive)
+                      Positioned(
+                        left: 0,
+                        child: Container(
+                          width: 3,
+                          height: 22,
+                          decoration: BoxDecoration(
+                            gradient: isDark
+                                ? WpColorsDark.accentWarmGradient
+                                : WpColorsLight.accentWarmGradient,
+                            borderRadius: const BorderRadius.only(
+                              topRight: Radius.circular(WpRadius.sm),
+                              bottomRight: Radius.circular(WpRadius.sm),
+                            ),
                           ),
                         ),
                       ),
+                    AnimatedContainer(
+                      duration: WpMotion.durationFor(context, WpMotion.hoverIn),
+                      curve: WpMotion.defaultCurve,
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: bgColor,
+                        borderRadius: BorderRadius.circular(WpRadius.md),
+                      ),
+                      alignment: Alignment.center,
+                      child: Icon(
+                        LucideIcons.settings,
+                        color: iconColor,
+                        size: 21,
+                      ),
                     ),
-                  AnimatedContainer(
-                    duration: WpMotion.hoverIn,
-                    curve: WpMotion.defaultCurve,
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: bgColor,
-                      borderRadius: BorderRadius.circular(WpRadius.md),
-                    ),
-                    alignment: Alignment.center,
-                    child: Icon(
-                      LucideIcons.settings,
-                      color: iconColor,
-                      size: 21,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

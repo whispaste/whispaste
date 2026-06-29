@@ -26,18 +26,24 @@ class _WpRecordingIndicatorBarState extends State<WpRecordingIndicatorBar>
   late final AnimationController _pulse;
   late final Animation<double> _opacity;
 
+  static const _kPulseDuration = Duration(milliseconds: 1200);
+
   @override
   void initState() {
     super.initState();
-    _pulse = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    );
+    _pulse = AnimationController(vsync: this, duration: _kPulseDuration);
     _opacity = Tween<double>(
       begin: 0.45,
       end: 1.0,
     ).animate(CurvedAnimation(parent: _pulse, curve: Curves.easeInOut));
     _syncPulse();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Route pulse duration through the reduced-motion guard.
+    _pulse.duration = WpMotion.durationFor(context, _kPulseDuration);
   }
 
   @override
@@ -73,7 +79,7 @@ class _WpRecordingIndicatorBarState extends State<WpRecordingIndicatorBar>
         : const Color(0xFFF59E0B);
 
     return AnimatedContainer(
-      duration: WpMotion.normal,
+      duration: WpMotion.durationFor(context, WpMotion.normal),
       height: isActive ? 3.0 : 0.0,
       child: isActive
           ? AnimatedBuilder(

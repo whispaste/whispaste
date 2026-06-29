@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
+import 'wp_focus_ring.dart';
 
 /// Content section with header — flat, clean, with optional collapse.
 ///
@@ -76,6 +77,7 @@ class _SectionHeader extends StatelessWidget {
     required this.colorScheme,
     this.onTap,
     this.isExpanded,
+    this.focusNode,
   });
 
   final String title;
@@ -86,63 +88,79 @@ class _SectionHeader extends StatelessWidget {
   final VoidCallback? onTap;
   final bool? isExpanded;
 
+  /// When non-null, [WpFocusRing] is applied and this node is shared with the
+  /// inner [InkWell] for keyboard activation (Enter/Space).
+  final FocusNode? focusNode;
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    final inkWell = InkWell(
+      onTap: onTap,
+      focusNode: focusNode,
+      borderRadius: WpRadius.borderSm,
+      // WpFocusRing owns focus visuals when focusNode is provided.
+      focusColor: Colors.transparent,
+      highlightColor: Colors.transparent,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: WpSpacing.xxs),
+        child: Row(
+          children: [
+            // Accent bar — warm gradient vertical line
+            Container(
+              width: 3,
+              height: 18,
+              margin: const EdgeInsets.only(right: WpSpacing.sm),
+              decoration: BoxDecoration(
+                gradient: isDark
+                    ? WpColorsDark.accentWarmGradient
+                    : WpColorsLight.accentWarmGradient,
+                borderRadius: WpRadius.borderFull,
+              ),
+            ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: headerStyle),
+                  if (subtitle != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        subtitle!,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            ?trailing,
+            if (isExpanded != null)
+              AnimatedRotation(
+                turns: isExpanded! ? 0.5 : 0,
+                duration: WpMotion.durationFor(context, WpMotion.normal),
+                child: Icon(
+                  LucideIcons.chevronDown,
+                  color: colorScheme.secondary,
+                  size: WpIconSize.sm,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+
     return Semantics(
       label: title,
       button: onTap != null,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: WpRadius.borderSm,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: WpSpacing.xxs),
-          child: Row(
-            children: [
-              // Accent bar — warm gradient vertical line
-              Container(
-                width: 3,
-                height: 18,
-                margin: const EdgeInsets.only(right: WpSpacing.sm),
-                decoration: BoxDecoration(
-                  gradient: isDark
-                      ? WpColorsDark.accentWarmGradient
-                      : WpColorsLight.accentWarmGradient,
-                  borderRadius: WpRadius.borderFull,
-                ),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: headerStyle),
-                    if (subtitle != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          subtitle!,
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              ?trailing,
-              if (isExpanded != null)
-                AnimatedRotation(
-                  turns: isExpanded! ? 0.5 : 0,
-                  duration: WpMotion.normal,
-                  child: Icon(
-                    LucideIcons.chevronDown,
-                    color: colorScheme.secondary,
-                    size: WpIconSize.sm,
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
+      child: focusNode != null
+          ? WpFocusRing(
+              focusNode: focusNode,
+              radius: WpRadius.sm,
+              child: inkWell,
+            )
+          : inkWell,
     );
   }
 }
@@ -177,6 +195,7 @@ class _CollapsibleSectionState extends State<_CollapsibleSection>
   late bool _isExpanded;
   late final AnimationController _controller;
   late final Animation<double> _heightFactor;
+  final _focusNode = FocusNode();
 
   @override
   void initState() {
@@ -191,7 +210,15 @@ class _CollapsibleSectionState extends State<_CollapsibleSection>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Route collapse animation through the reduced-motion guard.
+    _controller.duration = WpMotion.durationFor(context, WpMotion.smooth);
+  }
+
+  @override
   void dispose() {
+    _focusNode.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -223,6 +250,7 @@ class _CollapsibleSectionState extends State<_CollapsibleSection>
             colorScheme: widget.colorScheme,
             isExpanded: _isExpanded,
             onTap: _toggle,
+            focusNode: _focusNode,
           ),
           ClipRect(
             child: AnimatedBuilder(

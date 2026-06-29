@@ -436,7 +436,7 @@ class _TagChipState extends State<_TagChip> {
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: AnimatedContainer(
-        duration: WpMotion.fast,
+        duration: WpMotion.durationFor(context, WpMotion.fast),
         padding: const EdgeInsets.symmetric(
           horizontal: WpSpacing.sm,
           vertical: WpSpacing.xxs + 2,
@@ -467,7 +467,10 @@ class _TagChipState extends State<_TagChip> {
                   padding: const EdgeInsets.all(2),
                   child: AnimatedOpacity(
                     opacity: _isHovered ? 0.9 : 0.35,
-                    duration: _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+                    duration: WpMotion.durationFor(
+                      context,
+                      _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+                    ),
                     child: Icon(
                       LucideIcons.x,
                       size: WpIconSize.xs,
@@ -568,7 +571,7 @@ class _AddTagTriggerState extends State<_AddTagTrigger> {
           onTap: widget.onTap,
           behavior: HitTestBehavior.opaque,
           child: AnimatedContainer(
-            duration: WpMotion.fast,
+            duration: WpMotion.durationFor(context, WpMotion.fast),
             padding: const EdgeInsets.symmetric(
               horizontal: WpSpacing.sm,
               vertical: WpSpacing.xxs,
@@ -649,7 +652,7 @@ class _SuggestionTileState extends State<_SuggestionTile> {
           onTap: widget.onTap,
           behavior: HitTestBehavior.opaque,
           child: AnimatedContainer(
-            duration: WpMotion.fast,
+            duration: WpMotion.durationFor(context, WpMotion.fast),
             padding: const EdgeInsets.symmetric(
               horizontal: WpSpacing.sm,
               vertical: WpSpacing.sm,
@@ -733,7 +736,7 @@ class _CreateTagTileState extends State<_CreateTagTile> {
           onTap: widget.onTap,
           behavior: HitTestBehavior.opaque,
           child: AnimatedContainer(
-            duration: WpMotion.fast,
+            duration: WpMotion.durationFor(context, WpMotion.fast),
             padding: const EdgeInsets.symmetric(
               horizontal: WpSpacing.sm,
               vertical: WpSpacing.sm,
