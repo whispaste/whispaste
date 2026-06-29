@@ -147,6 +147,149 @@ void main() {
     });
   });
 
+  // ── Dynamic pill-width (issue 10) ─────────────────────────────────────────
+
+  group('pillWidthRatio — per-state target widths', () {
+    test('recording = 1.0 (full width)', () {
+      expect(
+        OverlayDesignSpec.pillWidthRatio(OverlayDesignState.recording),
+        1.0,
+      );
+    });
+
+    test('transcribing ≈ 0.758', () {
+      expect(
+        OverlayDesignSpec.pillWidthRatio(OverlayDesignState.transcribing),
+        closeTo(0.758, 0.001),
+      );
+    });
+
+    test('done ≈ 0.606 (narrowest state)', () {
+      expect(
+        OverlayDesignSpec.pillWidthRatio(OverlayDesignState.done),
+        closeTo(0.606, 0.001),
+      );
+    });
+
+    test('error ≈ 0.758 (same as transcribing)', () {
+      expect(
+        OverlayDesignSpec.pillWidthRatio(OverlayDesignState.error),
+        closeTo(0.758, 0.001),
+      );
+    });
+
+    test('pillWidthFor normal — recording = full width (330)', () {
+      const spec = OverlaySizeSpec.normal;
+      expect(
+        OverlayDesignSpec.pillWidthFor(OverlayDesignState.recording, spec),
+        closeTo(330.0, 0.01),
+      );
+    });
+
+    test('pillWidthFor normal — done ≈ 200 px', () {
+      const spec = OverlaySizeSpec.normal;
+      expect(
+        OverlayDesignSpec.pillWidthFor(OverlayDesignState.done, spec),
+        closeTo(330.0 * 0.606, 0.5),
+      );
+    });
+
+    test('pillWidthFor compact scales by compact width (220)', () {
+      final spec = OverlaySizeSpec.compact;
+      expect(
+        OverlayDesignSpec.pillWidthFor(OverlayDesignState.recording, spec),
+        closeTo(220.0, 0.01),
+      );
+      expect(
+        OverlayDesignSpec.pillWidthFor(OverlayDesignState.done, spec),
+        closeTo(220.0 * 0.606, 0.5),
+      );
+    });
+
+    test(
+      'pillSpring is the Gentle preset (mass=1, stiffness=170, damping=26)',
+      () {
+        const s = OverlayArcMotion.pillSpring;
+        expect(s.mass, 1.0);
+        expect(s.stiffness, 170.0);
+        expect(s.damping, 26.0);
+      },
+    );
+  });
+
+  group('OverlayPainter — pillWidth parameter', () {
+    test('shouldRepaint detects pillWidth change', () {
+      const snap = FloatingOverlaySnapshot(
+        visible: true,
+        state: OverlayVisualState.recording,
+        isDark: false,
+        compact: false,
+        label: 'Recording',
+        elapsed: '0:05',
+        progress: 0.1,
+      );
+      final p330 = FloatingOverlayView.painterFor(
+        snapshot: snap,
+        pillWidth: 330.0,
+      );
+      final p200 = FloatingOverlayView.painterFor(
+        snapshot: snap,
+        pillWidth: 200.0,
+      );
+      final p330b = FloatingOverlayView.painterFor(
+        snapshot: snap,
+        pillWidth: 330.0,
+      );
+
+      expect(
+        p330.shouldRepaint(p200),
+        isTrue,
+        reason: 'different pillWidth must trigger repaint',
+      );
+      expect(
+        p200.shouldRepaint(p330),
+        isTrue,
+        reason: 'different pillWidth must trigger repaint (reverse)',
+      );
+      expect(
+        p330.shouldRepaint(p330b),
+        isFalse,
+        reason: 'same pillWidth must not trigger repaint',
+      );
+    });
+
+    test('pillWidth field is forwarded to OverlayPainter', () {
+      const snap = FloatingOverlaySnapshot(
+        visible: true,
+        state: OverlayVisualState.transcribing,
+        isDark: false,
+        compact: false,
+        label: 'Transcribing…',
+        elapsed: '',
+        progress: 0.0,
+      );
+      final painter = FloatingOverlayView.painterFor(
+        snapshot: snap,
+        pillWidth: 250.0,
+      );
+      expect(painter.pillWidth, 250.0);
+    });
+
+    test('pillWidth null → uses full sizeSpec.width (default behaviour)', () {
+      const snap = FloatingOverlaySnapshot(
+        visible: true,
+        state: OverlayVisualState.recording,
+        isDark: false,
+        compact: false,
+        label: 'Recording',
+        elapsed: '0:01',
+        progress: 0.0,
+      );
+      final painter = FloatingOverlayView.painterFor(snapshot: snap);
+      expect(painter.pillWidth, isNull);
+    });
+  });
+
   group('FloatingOverlayView — paints every state/theme/size (AC2)', () {
     for (final state in OverlayVisualState.values) {
       for (final isDark in [true, false]) {
