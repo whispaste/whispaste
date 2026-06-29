@@ -227,14 +227,9 @@ class RecordingOrchestrator extends Notifier<void> {
       final sid = ref.read(recordingProvider).sessionId ?? '?';
       _log.info('[$sid] Recording started');
 
-      // Fire-and-forget categorical telemetry — must never break recording.
-      try {
-        ref
-            .read(telemetryProvider)
-            .trackEvent(category: 'recording', action: 'start');
-      } catch (e) {
-        _log.debug('telemetry failed: $e');
-      }
+      // No per-start telemetry: a recording's outcome is captured once at the
+      // end via the aggregated pipeline-outcome counter (see
+      // _trackPipelineOutcome), keeping Matomo volume off the hot path.
 
       // Notify STT service that a recording is active (pauses idle timer).
       final sttNot = ref.read(localSttBundleProvider.notifier);
@@ -818,18 +813,8 @@ class RecordingOrchestrator extends Notifier<void> {
     _oomHandler.reset();
     timing.outcome = 'ok';
 
-    // Fire-and-forget categorical telemetry — must never break the pipeline.
-    try {
-      ref
-          .read(telemetryProvider)
-          .trackEvent(
-            category: 'recording',
-            action: 'complete',
-            value: _latencyBucketSeconds(audioDurMs),
-          );
-    } catch (e) {
-      _log.debug('telemetry failed: $e');
-    }
+    // No separate 'complete' event — the aggregated pipeline outcome (emitted
+    // once per run in _trackPipelineOutcome) already records the success path.
 
     return true;
   }
@@ -893,23 +878,22 @@ class RecordingOrchestrator extends Notifier<void> {
     return cleaned;
   }
 
-  /// Fire-and-forget categorical telemetry for a finished pipeline run.
-  /// [_PipelineTiming.outcome] is an internal enum string (no PII); latency is
-  /// bucketed. Telemetry failures never affect the recording pipeline.
+  /// Aggregated categorical telemetry for a finished pipeline run — the single
+  /// per-recording signal. [_PipelineTiming.outcome] is an internal enum string
+  /// (no PII); latency is bucketed into its own low-cardinality counter. Both
+  /// are tallied in-memory and flushed once at shutdown, never per recording.
   void _trackPipelineOutcome(_PipelineTiming timing, int elapsedMs) {
-    try {
-      ref
-          .read(telemetryProvider)
-          .trackEvent(
-            category: 'pipeline',
-            action: timing.outcome == 'ok' ? 'success' : 'fail',
-            name: timing.outcome,
-            value: _latencyBucketSeconds(elapsedMs),
-          );
-    } catch (e) {
-      // Telemetry must never break recording — log and move on.
-      _log.debug('Telemetry pipeline event skipped: $e');
-    }
+    final agg = ref.read(telemetrySessionAggregatorProvider);
+    agg.count(
+      category: 'pipeline',
+      action: timing.outcome == 'ok' ? 'success' : 'fail',
+      name: timing.outcome,
+    );
+    agg.count(
+      category: 'pipeline',
+      action: 'latency',
+      name: 'b${_latencyBucketSeconds(elapsedMs)}',
+    );
   }
 
   /// Coarse latency bucket (whole seconds, capped) so no precise timing leaks.
@@ -1394,34 +1378,22 @@ class RecordingOrchestrator extends Notifier<void> {
         return;
       case AfterTranscriptionAction.clipboard:
         await _copyTranscriptToClipboard(transcript);
-        try {
-          ref
-              .read(telemetryProvider)
-              .trackEvent(category: 'insertion', action: 'clipboard');
-        } catch (e) {
-          _log.debug('telemetry failed: $e');
-        }
+        ref
+            .read(telemetrySessionAggregatorProvider)
+            .count(category: 'insertion', action: 'clipboard');
         return;
       case AfterTranscriptionAction.paste:
         await _pasteTranscript(transcript, settings);
-        try {
-          ref
-              .read(telemetryProvider)
-              .trackEvent(category: 'insertion', action: 'auto_paste');
-        } catch (e) {
-          _log.debug('telemetry failed: $e');
-        }
+        ref
+            .read(telemetrySessionAggregatorProvider)
+            .count(category: 'insertion', action: 'auto_paste');
         return;
       case AfterTranscriptionAction.clipboardAndPaste:
         await _copyTranscriptToClipboard(transcript);
         await _pasteTranscript(transcript, settings);
-        try {
-          ref
-              .read(telemetryProvider)
-              .trackEvent(category: 'insertion', action: 'auto_paste');
-        } catch (e) {
-          _log.debug('telemetry failed: $e');
-        }
+        ref
+            .read(telemetrySessionAggregatorProvider)
+            .count(category: 'insertion', action: 'auto_paste');
         return;
     }
   }

@@ -8,7 +8,15 @@
 /// registry) is sent so Matomo can count visits reliably; it does not enable
 /// cross-session tracking. Only aggregated event counters + categorical
 /// dimensions ever leave the app, and only when [consentGranted] is true, the
-/// endpoint is configured, and OS Do-Not-Track is off. The hard negative list
+/// endpoint is configured, and OS Do-Not-Track is off.
+///
+/// **Volume**: hot-path events (recording outcome, insertion, voice-note,
+/// snippet, history-copy, FAB click) are NOT sent per occurrence. They are
+/// tallied in [TelemetrySessionAggregator] and flushed as one aggregated event
+/// per distinct tuple at shutdown — so a session with 200 dictations produces a
+/// handful of hits, not ~800. Only genuinely low-frequency signals
+/// (lifecycle/start, settings change, onboarding) are sent immediately. The
+/// hard negative list
 /// (transcribed text, audio, history, tags, notes, API keys, concrete hotkeys,
 /// file paths, cursor position, target app) is enforced structurally: the
 /// public API only accepts categories/actions/buckets, never free-form content.
@@ -151,6 +159,58 @@ final class TelemetryService {
 }
 
 // ---------------------------------------------------------------------------
+// Session aggregator — hot-path volume control
+// ---------------------------------------------------------------------------
+
+/// Accumulates **hot-path** usage counters in memory during the app session and
+/// emits them as a small set of aggregated events at shutdown — instead of one
+/// network hit per recording/insertion/click. This keeps Matomo volume
+/// proportional to app *runs* (~a handful of hits per session) rather than to
+/// dictation count (which could be hundreds per day for a heavy user).
+///
+/// Only categorical `(category, action, name)` tuples are counted — never
+/// content, exactly like [TelemetryService.trackEvent]. The session count is
+/// sent as the Matomo event `value`.
+///
+/// Long-lived (one instance per app process via
+/// [telemetrySessionAggregatorProvider]): the counters must survive the
+/// [telemetryProvider] rebuilds triggered by settings changes (consent toggle,
+/// locale, provider).
+final class TelemetrySessionAggregator {
+  final Map<(String, String, String?), int> _counts = {};
+
+  /// Increments the in-memory counter for a categorical event tuple. Infallible
+  /// (no I/O) — safe to call from the recording hot path without try/catch.
+  /// Content must never be passed — same rules as [TelemetryService.trackEvent].
+  void count({required String category, required String action, String? name}) {
+    _counts.update((category, action, name), (n) => n + 1, ifAbsent: () => 1);
+  }
+
+  /// Drains all accumulated counters into [service] as aggregated events
+  /// (`value` = session count) and clears them. Call right before
+  /// [TelemetryService.flush] at shutdown. No-op when nothing was counted; the
+  /// service's own consent/DNT/config gate still applies per emitted event.
+  void drainTo(TelemetryService service) {
+    if (_counts.isEmpty) return;
+    for (final entry in _counts.entries) {
+      final (category, action, name) = entry.key;
+      service.trackEvent(
+        category: category,
+        action: action,
+        name: name,
+        value: entry.value,
+      );
+    }
+    _counts.clear();
+  }
+
+  /// Snapshot of the current counters — test-only.
+  @visibleForTesting
+  Map<(String, String, String?), int> get debugCounts =>
+      Map.unmodifiable(_counts);
+}
+
+// ---------------------------------------------------------------------------
 // Runtime wiring (Riverpod)
 // ---------------------------------------------------------------------------
 
@@ -177,6 +237,15 @@ final _telemetryHttpClientProvider = Provider<http.Client>((ref) {
   ref.onDispose(client.close);
   return client;
 });
+
+/// Process-lifetime aggregator for hot-path usage counters. Deliberately
+/// independent of [telemetryProvider] (which rebuilds on every settings change)
+/// so per-session counters are not reset by a consent/locale/provider toggle.
+/// Drained into the telemetry service at shutdown (see app.dart / floating
+/// button quit paths).
+final telemetrySessionAggregatorProvider = Provider<TelemetrySessionAggregator>(
+  (ref) => TelemetrySessionAggregator(),
+);
 
 /// The telemetry sender, rebuilt whenever settings change so the live consent
 /// toggle and categorical dimensions (provider/locale) stay current.

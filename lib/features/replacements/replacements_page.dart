@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../core/config/settings_provider.dart';
 import '../../core/l10n/generated/app_localizations.dart';
-import '../../core/logging/app_logger.dart';
 import '../../services/telemetry_service.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
@@ -127,8 +126,6 @@ class ReplacementsPage extends ConsumerStatefulWidget {
 }
 
 class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
-  static final _log = AppLogger('ReplacementsPage');
-
   final _searchController = TextEditingController();
   String _searchQuery = '';
 
@@ -297,13 +294,9 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
       );
     } else {
       notifier.add(trigger, replacement);
-      try {
-        ref
-            .read(telemetryProvider)
-            .trackEvent(category: 'snippets', action: 'create');
-      } catch (e) {
-        _log.debug('telemetry failed: $e');
-      }
+      ref
+          .read(telemetrySessionAggregatorProvider)
+          .count(category: 'snippets', action: 'create');
     }
   }
 

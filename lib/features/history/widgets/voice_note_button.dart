@@ -210,13 +210,9 @@ class _VoiceNoteButtonState extends ConsumerState<VoiceNoteButton> {
     _log.info(
       'Voice action dispatched: ${action.type.name} → "${action.payload}"',
     );
-    try {
-      ref
-          .read(telemetryProvider)
-          .trackEvent(category: 'voice_note', action: 'create');
-    } catch (e) {
-      _log.debug('telemetry failed: $e');
-    }
+    ref
+        .read(telemetrySessionAggregatorProvider)
+        .count(category: 'voice_note', action: 'create');
     _reset();
   }
 

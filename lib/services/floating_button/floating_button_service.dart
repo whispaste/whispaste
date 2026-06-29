@@ -163,13 +163,9 @@ class FloatingButtonService
       case FloatingButtonClicked():
         _log.debug('Floating button clicked → toggleRecording');
         ref.read(recordingOrchestratorProvider.notifier).toggleRecording();
-        try {
-          ref
-              .read(telemetryProvider)
-              .trackEvent(category: 'ui', action: 'fab_click');
-        } catch (e) {
-          _log.debug('telemetry failed: $e');
-        }
+        ref
+            .read(telemetrySessionAggregatorProvider)
+            .count(category: 'ui', action: 'fab_click');
 
       case FloatingButtonSecondaryClicked():
         _log.debug('Floating button secondary click → show main window');
@@ -241,10 +237,14 @@ class FloatingButtonService
     }
 
     try {
-      await ref
-          .read(telemetryProvider)
-          .flush()
-          .timeout(const Duration(seconds: 2), onTimeout: () {});
+      final telemetry = ref.read(telemetryProvider);
+      // Drain session-aggregated hot-path counters before flushing so the
+      // session's usage leaves as one batch, not one hit per recording.
+      ref.read(telemetrySessionAggregatorProvider).drainTo(telemetry);
+      await telemetry.flush().timeout(
+        const Duration(seconds: 2),
+        onTimeout: () {},
+      );
     } catch (e) {
       _log.debug('telemetry flush failed during quit (non-fatal): $e');
     }

@@ -1735,15 +1735,22 @@ void main() {
         final orch = container.read(recordingOrchestratorProvider.notifier);
         await orch.stopRecording();
 
-        // Settle async microtasks, then flush pending telemetry requests.
+        // Settle async microtasks. Hot-path events (pipeline outcome, latency,
+        // insertion) are aggregated in memory and only sent at shutdown — drain
+        // the session aggregator to mirror that path, then flush, so the PII
+        // guard inspects the actual emitted payloads.
         await Future<void>.delayed(Duration.zero);
+        container
+            .read(telemetrySessionAggregatorProvider)
+            .drainTo(fakeTelemetry);
         await fakeTelemetry.flush();
 
         // Assert: every captured payload is PII-free.
         expect(
           capturedBodies,
           isNotEmpty,
-          reason: 'Expected at least one telemetry event during the pipeline',
+          reason:
+              'Expected at least one aggregated telemetry event at shutdown',
         );
 
         for (final body in capturedBodies) {

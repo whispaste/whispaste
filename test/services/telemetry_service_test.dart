@@ -443,4 +443,94 @@ void main() {
       },
     );
   });
+
+  // ── Session aggregation — hot-path volume control ─────────────────────────
+
+  group('TelemetrySessionAggregator', () {
+    test('count() tallies repeated tuples; drainTo emits one event with the '
+        'session count as value', () async {
+      final bodies = <String>[];
+      final client = MockClient((req) async {
+        bodies.add(req.body);
+        return http.Response('', 200);
+      });
+      final service = _makeService(client: client);
+
+      final agg = TelemetrySessionAggregator();
+      // 3 successful recordings + 2 clipboard insertions in one session.
+      agg.count(category: 'pipeline', action: 'success', name: 'ok');
+      agg.count(category: 'pipeline', action: 'success', name: 'ok');
+      agg.count(category: 'pipeline', action: 'success', name: 'ok');
+      agg.count(category: 'insertion', action: 'clipboard');
+      agg.count(category: 'insertion', action: 'clipboard');
+
+      agg.drainTo(service);
+      await service.flush();
+
+      // One HTTP hit per distinct tuple — not one per occurrence.
+      expect(bodies, hasLength(2));
+      final byTuple = {
+        for (final b in bodies)
+          () {
+            final p = Uri.splitQueryString(b);
+            return '${p['e_c']}/${p['e_a']}/${p['e_n'] ?? ''}';
+          }(): Uri.splitQueryString(
+            b,
+          )['e_v'],
+      };
+      expect(byTuple['pipeline/success/ok'], '3');
+      expect(byTuple['insertion/clipboard/'], '2');
+    });
+
+    test('drainTo clears counters — a second drain is a no-op', () async {
+      var hits = 0;
+      final client = MockClient((_) async {
+        hits++;
+        return http.Response('', 200);
+      });
+      final service = _makeService(client: client);
+
+      final agg = TelemetrySessionAggregator();
+      agg.count(category: 'ui', action: 'fab_click');
+      agg.drainTo(service);
+      await service.flush();
+      expect(hits, 1);
+
+      // Nothing accumulated since → second drain emits nothing.
+      agg.drainTo(service);
+      await service.flush();
+      expect(hits, 1);
+      expect(agg.debugCounts, isEmpty);
+    });
+
+    test('drainTo respects the service consent gate — no HTTP without '
+        'consent', () async {
+      var hits = 0;
+      final client = MockClient((_) async {
+        hits++;
+        return http.Response('', 200);
+      });
+      final service = _makeService(client: client, consentGranted: false);
+
+      final agg = TelemetrySessionAggregator();
+      agg.count(category: 'pipeline', action: 'success', name: 'ok');
+      agg.drainTo(service);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(hits, 0);
+    });
+
+    test('empty aggregator drainTo sends nothing', () async {
+      var hits = 0;
+      final client = MockClient((_) async {
+        hits++;
+        return http.Response('', 200);
+      });
+      final service = _makeService(client: client);
+
+      TelemetrySessionAggregator().drainTo(service);
+      await service.flush();
+      expect(hits, 0);
+    });
+  });
 }

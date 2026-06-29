@@ -280,10 +280,14 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
     }
 
     try {
-      await ref
-          .read(telemetryProvider)
-          .flush()
-          .timeout(const Duration(seconds: 2), onTimeout: () {});
+      final telemetry = ref.read(telemetryProvider);
+      // Drain session-aggregated hot-path counters into the sender first, then
+      // flush — so the whole session leaves as one batch, not per recording.
+      ref.read(telemetrySessionAggregatorProvider).drainTo(telemetry);
+      await telemetry.flush().timeout(
+        const Duration(seconds: 2),
+        onTimeout: () {},
+      );
     } catch (e) {
       _log.debug('telemetry flush failed during window close (non-fatal): $e');
     }

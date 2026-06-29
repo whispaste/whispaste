@@ -581,13 +581,9 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
 
   void _copyEntry(HistoryEntry entry) {
     Clipboard.setData(ClipboardData(text: entry.content));
-    try {
-      ref
-          .read(telemetryProvider)
-          .trackEvent(category: 'history', action: 'copy');
-    } catch (e) {
-      _log.debug('telemetry failed: $e');
-    }
+    ref
+        .read(telemetrySessionAggregatorProvider)
+        .count(category: 'history', action: 'copy');
     if (!mounted) return;
     WpToast.show(
       context,
