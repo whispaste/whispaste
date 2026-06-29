@@ -54,15 +54,30 @@ class PrivacySection extends ConsumerWidget {
             trailing: settingsToggle(
               value: settings.privacy.shareUsageStats,
               onChanged: (v) {
+                if (!v) {
+                  // Deactivating: fire the opt-out event while consent is still
+                  // active, before updateSettings revokes it.
+                  try {
+                    ref
+                        .read(telemetryProvider)
+                        .trackSettingChange('share_usage_stats');
+                  } catch (e) {
+                    _log.debug('telemetry failed: $e');
+                  }
+                }
                 ref
                     .read(settingsProvider.notifier)
                     .updateSettings((s) => s.copyWith(shareUsageStats: v));
-                try {
-                  ref
-                      .read(telemetryProvider)
-                      .trackSettingChange('share_usage_stats');
-                } catch (e) {
-                  _log.debug('telemetry failed: $e');
+                if (v) {
+                  // Activating: persist first so the telemetry provider
+                  // reflects the new consent before firing the event.
+                  try {
+                    ref
+                        .read(telemetryProvider)
+                        .trackSettingChange('share_usage_stats');
+                  } catch (e) {
+                    _log.debug('telemetry failed: $e');
+                  }
                 }
               },
             ),

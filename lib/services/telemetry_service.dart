@@ -1,19 +1,22 @@
-/// Cookieless, identifierless usage-telemetry sender (Matomo `matomo.php`
-/// endpoint). Named *telemetry* — not *analytics* — to stay distinct from the
-/// in-app analytics dashboard (`analyticsProvider` / `AnalyticsData`), which is
-/// an unrelated local feature.
+/// Cookieless usage-telemetry sender (Matomo `matomo.php` endpoint). Named
+/// *telemetry* — not *analytics* — to stay distinct from the in-app analytics
+/// dashboard (`analyticsProvider` / `AnalyticsData`), which is an unrelated
+/// local feature.
 ///
-/// Hard privacy rules (PRD Säule D): no cookie, no `_id`/`pk_id`, no visitor
-/// id, no user id. Only aggregated event counters + categorical dimensions
-/// ever leave the app, and only when [consentGranted] is true, the endpoint is
-/// configured, and OS Do-Not-Track is off. The hard negative list (transcribed
-/// text, audio, history, tags, notes, API keys, concrete hotkeys, file paths,
-/// cursor position, target app) is enforced structurally: the public API only
-/// accepts categories/actions/buckets, never free-form content.
+/// Hard privacy rules (PRD Säule D): no persistent cookie, no `pk_id`, no user
+/// id. A per-app-start random `_id` (16 hex chars, never persisted to disk or
+/// registry) is sent so Matomo can count visits reliably; it does not enable
+/// cross-session tracking. Only aggregated event counters + categorical
+/// dimensions ever leave the app, and only when [consentGranted] is true, the
+/// endpoint is configured, and OS Do-Not-Track is off. The hard negative list
+/// (transcribed text, audio, history, tags, notes, API keys, concrete hotkeys,
+/// file paths, cursor position, target app) is enforced structurally: the
+/// public API only accepts categories/actions/buckets, never free-form content.
 library;
 
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -40,6 +43,20 @@ const Set<String> kTrackableSettingKeys = {
   'hotkey_mode',
 };
 
+/// Generates a cryptographically random 16-character hex string for use as
+/// a per-session Matomo visitor ID. Called once at app-start via
+/// [_appSessionVisitorId]; never written to disk.
+String _generateSessionVisitorId() {
+  final random = Random.secure();
+  return List.generate(
+    8,
+    (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0'),
+  ).join();
+}
+
+/// Single visitor ID for the current app process (in-memory only).
+final String _appSessionVisitorId = _generateSessionVisitorId();
+
 final class TelemetryService {
   TelemetryService({
     required this.client,
@@ -48,7 +65,8 @@ final class TelemetryService {
     required this.consentGranted,
     required this.dntActive,
     this.dimensions = const {},
-  });
+    String? sessionVisitorId,
+  }) : _sessionVisitorId = sessionVisitorId ?? _appSessionVisitorId;
 
   final http.Client client;
   final String endpointUrl;
@@ -59,6 +77,9 @@ final class TelemetryService {
   /// Categorical custom dimensions (`dimension1`..`dimensionN`) appended to
   /// every request — all categories, never content.
   final Map<String, String> dimensions;
+
+  /// Per-app-start visitor ID sent as Matomo `_id`; never persisted.
+  final String _sessionVisitorId;
 
   final List<Future<http.Response>> _pending = [];
 
@@ -120,6 +141,7 @@ final class TelemetryService {
       body: {
         ...body,
         ...dimensions,
+        '_id': _sessionVisitorId,
         'apiv': '1',
         'send_image': '0',
         'rand': DateTime.now().microsecondsSinceEpoch.toString(),

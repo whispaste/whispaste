@@ -36,6 +36,7 @@ import 'core/data/database.dart';
 import 'core/logging/app_logger.dart';
 import 'core/logging/crash_reporter.dart';
 import 'services/stt/stt_bundle.dart';
+import 'services/telemetry_service.dart';
 import 'services/tray_service.dart';
 import 'services/update_service.dart';
 import 'services/deploy_channel_service.dart';
@@ -276,6 +277,15 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
           .timeout(const Duration(seconds: 2));
     } catch (e) {
       _log.debug('DB close failed during window close (non-fatal): $e');
+    }
+
+    try {
+      await ref
+          .read(telemetryProvider)
+          .flush()
+          .timeout(const Duration(seconds: 2), onTimeout: () {});
+    } catch (e) {
+      _log.debug('telemetry flush failed during window close (non-fatal): $e');
     }
 
     await windowManager.destroy();

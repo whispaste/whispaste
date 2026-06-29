@@ -240,6 +240,15 @@ class FloatingButtonService
       _log.debug('DB close failed during quit (non-fatal): $e');
     }
 
+    try {
+      await ref
+          .read(telemetryProvider)
+          .flush()
+          .timeout(const Duration(seconds: 2), onTimeout: () {});
+    } catch (e) {
+      _log.debug('telemetry flush failed during quit (non-fatal): $e');
+    }
+
     await windowManager.destroy();
   }
 

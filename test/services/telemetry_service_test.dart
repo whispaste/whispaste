@@ -11,6 +11,7 @@ TelemetryService _makeService({
   bool consentGranted = true,
   bool dntActive = false,
   Map<String, String> dimensions = const {},
+  String? sessionVisitorId,
 }) {
   return TelemetryService(
     client: client,
@@ -19,6 +20,7 @@ TelemetryService _makeService({
     consentGranted: consentGranted,
     dntActive: dntActive,
     dimensions: dimensions,
+    sessionVisitorId: sessionVisitorId,
   );
 }
 
@@ -94,7 +96,7 @@ void main() {
     );
 
     test(
-      'sends cookieless request without _id, pk_id, or session cookies when consent granted',
+      'sends cookieless request without pk_id or session cookies when consent granted',
       () async {
         http.Request? capturedRequest;
         final client = MockClient((req) async {
@@ -117,16 +119,15 @@ void main() {
             .toLowerCase();
         expect(allHeaders.contains('cookie'), false);
 
-        // No _id cookie parameter in URL or body
-        expect(url.contains('_id='), false);
-        expect(body.contains('_id='), false);
-
-        // No pk_id in URL or body
+        // No pk_id in URL or body (persistent cross-session identifier)
         expect(url.contains('pk_id'), false);
         expect(body.contains('pk_id'), false);
 
         // No session cookie parameter
         expect(body.contains('_cvar'), false);
+
+        // _id is the per-session visitor ID — present but ephemeral (not persisted).
+        expect(body.contains('_id='), true);
       },
     );
 
@@ -160,22 +161,27 @@ void main() {
       expect(url.contains('idsite=7'), true);
     });
 
-    test('request body does not contain visitor ID parameter', () async {
-      http.Request? capturedRequest;
-      final client = MockClient((req) async {
-        capturedRequest = req;
-        return http.Response('', 200);
-      });
-      final service = _makeService(client: client);
+    test(
+      'request body does not contain persistent cross-session identifiers',
+      () async {
+        http.Request? capturedRequest;
+        final client = MockClient((req) async {
+          capturedRequest = req;
+          return http.Response('', 200);
+        });
+        final service = _makeService(client: client);
 
-      service.trackPageView('/test');
-      await service.flush();
+        service.trackPageView('/test');
+        await service.flush();
 
-      final body = capturedRequest!.body;
-      expect(body.contains('_id'), false);
-      expect(body.contains('uid'), false);
-      expect(body.contains('cid'), false);
-    });
+        final body = capturedRequest!.body;
+        // uid and cid are persistent user/client identifiers — never sent.
+        expect(body.contains('uid='), false);
+        expect(body.contains('cid='), false);
+        // _id is the ephemeral per-session visitor ID — present and expected.
+        expect(body.contains('_id='), true);
+      },
+    );
   });
 
   group('TelemetryService events', () {
@@ -202,7 +208,8 @@ void main() {
       final headers = captured!.headers.keys.join(',').toLowerCase();
       expect(headers.contains('cookie'), false);
       expect(captured!.body.contains('pk_id'), false);
-      expect(captured!.body.contains('_id='), false);
+      // _id is the ephemeral per-session visitor ID — present and expected.
+      expect(captured!.body.contains('_id='), true);
     });
 
     test('trackEvent omits name and value when null', () async {
@@ -292,6 +299,147 @@ void main() {
         ]) {
           expect(body.contains(forbidden), false, reason: 'leaked: $forbidden');
         }
+      },
+    );
+  });
+
+  // ── Aufgabe D: session visitor ID ─────────────────────────────────────────
+
+  group('TelemetryService session visitor ID (Aufgabe D)', () {
+    test('_id is a 16-character lowercase hex string', () async {
+      http.Request? captured;
+      final client = MockClient((req) async {
+        captured = req;
+        return http.Response('', 200);
+      });
+      const fixedId = 'aabbccddeeff0011';
+      final service = _makeService(client: client, sessionVisitorId: fixedId);
+
+      service.trackPageView('/test');
+      await service.flush();
+
+      final params = Uri.splitQueryString(captured!.body);
+      expect(params['_id'], fixedId);
+      expect(params['_id']!.length, 16);
+      expect(RegExp(r'^[0-9a-f]{16}$').hasMatch(params['_id']!), true);
+    });
+
+    test(
+      '_id is stable across multiple _send calls on the same instance',
+      () async {
+        final capturedIds = <String>[];
+        final client = MockClient((req) async {
+          final id = Uri.splitQueryString(req.body)['_id'];
+          if (id != null) capturedIds.add(id);
+          return http.Response('', 200);
+        });
+        const fixedId = '1234567890abcdef';
+        final service = _makeService(client: client, sessionVisitorId: fixedId);
+
+        service.trackPageView('/a');
+        service.trackEvent(category: 'lifecycle', action: 'start');
+        service.trackPageView('/b');
+        await service.flush();
+
+        expect(capturedIds, hasLength(3));
+        expect(capturedIds.every((id) => id == fixedId), true);
+      },
+    );
+
+    test('default _id passes 16-char hex validation', () async {
+      // Tests that the auto-generated app-level ID has the correct shape.
+      http.Request? captured;
+      final client = MockClient((req) async {
+        captured = req;
+        return http.Response('', 200);
+      });
+      // No sessionVisitorId override — uses _appSessionVisitorId.
+      final service = _makeService(client: client);
+
+      service.trackPageView('/shape-check');
+      await service.flush();
+
+      final id = Uri.splitQueryString(captured!.body)['_id'];
+      expect(id, isNotNull);
+      expect(id!.length, 16);
+      expect(RegExp(r'^[0-9a-f]{16}$').hasMatch(id), true);
+    });
+  });
+
+  // ── Aufgabe E: flush im Shutdown-Pfad ─────────────────────────────────────
+  //
+  // Die Aufrufe von flush() in app.dart (onWindowClose) und
+  // floating_button_service.dart (_quit) werden im Flutter-Engine-Kontext
+  // ausgeführt und sind ohne vollständigen Widget-Test-Harness nicht
+  // sinnvoll unit-testbar. Stattdessen wird flush() selbst abgedeckt.
+
+  group('TelemetryService flush (Aufgabe E)', () {
+    test(
+      'flush completes all pending requests and clears the buffer',
+      () async {
+        var requestCount = 0;
+        final client = MockClient((_) async {
+          requestCount++;
+          return http.Response('', 200);
+        });
+        final service = _makeService(client: client);
+
+        service.trackEvent(category: 'lifecycle', action: 'start');
+        service.trackPageView('/test');
+        await service.flush();
+
+        expect(requestCount, 2);
+
+        // Second flush with empty buffer is a no-op.
+        await service.flush();
+        expect(requestCount, 2);
+      },
+    );
+  });
+
+  // ── Aufgabe F: Opt-out-Toggle-Reihenfolge ─────────────────────────────────
+
+  group('TelemetryService opt-out ordering (Aufgabe F)', () {
+    test(
+      'opt-out event is dispatched when trackSettingChange is called while consent is still active',
+      () async {
+        // Simulates the correct ordering in PrivacySection: trackSettingChange
+        // is called BEFORE updateSettings revokes consent (v=false path).
+        final bodies = <String>[];
+        final client = MockClient((req) async {
+          bodies.add(req.body);
+          return http.Response('', 200);
+        });
+        final service = _makeService(client: client, consentGranted: true);
+        service.trackSettingChange('share_usage_stats');
+        await service.flush();
+
+        expect(bodies, hasLength(1));
+        final params = Uri.splitQueryString(bodies.single);
+        expect(params['e_n'], 'share_usage_stats');
+      },
+    );
+
+    test(
+      'opt-out event is silently dropped when consent is already revoked (wrong order)',
+      () async {
+        // Simulates the WRONG ordering: trackSettingChange called after
+        // updateSettings already set shareUsageStats=false. The PrivacySection
+        // fix ensures this wrong-order path never occurs in production.
+        var dispatched = false;
+        final client = MockClient((_) async {
+          dispatched = true;
+          return http.Response('', 200);
+        });
+        final service = _makeService(client: client, consentGranted: false);
+        service.trackSettingChange('share_usage_stats');
+        await Future.delayed(Duration.zero);
+
+        expect(
+          dispatched,
+          false,
+          reason: 'Event must be sent BEFORE consent is revoked, not after',
+        );
       },
     );
   });
