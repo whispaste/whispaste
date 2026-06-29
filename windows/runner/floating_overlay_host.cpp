@@ -173,9 +173,20 @@ bool FloatingOverlayHost::EnsureEngineAndShell(bool compact) {
   auto project = std::make_unique<flutter::DartProject>(L"data");
   project->set_dart_entrypoint("floatingOverlayMain");
 
-  // Create the Flutter view controller at the logical overlay size.
+  // Create the Flutter view controller at the PHYSICAL overlay size.
+  // FlutterViewController takes physical pixels; passing logical px makes the
+  // engine's logical canvas = logical / devicePixelRatio (e.g. 236x56 -> 157x37
+  // on a 150% display). The Dart overlay paints a fixed-size SizedBox/CustomPaint
+  // at the logical spec (236x56 / 346x80), so an undersized canvas clips the
+  // capsule to a flat sliver — the "flat ellipse" bug on scaled Windows displays.
+  // Scale by the owner monitor's DPI (mirrors FloatingOverlayWindow's sizing).
+  UINT owner_dpi = owner_ ? GetDpiForWindow(owner_) : 96;
+  double dpi_scale = (owner_dpi > 0) ? owner_dpi / 96.0 : 1.0;
+  int phys_w = static_cast<int>(logical_w * dpi_scale + 0.5);
+  int phys_h = static_cast<int>(logical_h * dpi_scale + 0.5);
+
   auto controller = std::make_unique<flutter::FlutterViewController>(
-      logical_w, logical_h, *project);
+      phys_w, phys_h, *project);
 
   if (!controller->engine() || !controller->view()) {
     OutputDebugStringW(
