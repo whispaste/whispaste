@@ -54,6 +54,30 @@ class HistoryDatabase extends _$HistoryDatabase {
   /// lock-in-lock deadlock called out in the PRD §Risiken.
   final SqliteWriteCoordinator _writeCoordinator = SqliteWriteCoordinator();
 
+  /// Guards against the double-close that causes a native crash in
+  /// `sqlite3_update_hook`.
+  ///
+  /// Shutdown sequence: [onWindowClose] / [_quit] calls [close()] explicitly,
+  /// then calls `windowManager.destroy()`. The engine teardown that follows
+  /// unmounts the [ProviderScope], which triggers [ProviderContainer.dispose],
+  /// which runs the `ref.onDispose(db.close)` registered in
+  /// [historyDatabaseProvider] — a second [close()] call on an already-freed
+  /// SQLite handle. SQLite's internal cleanup path (`sqlite3_close_v2`
+  /// → deregister hooks) then accesses freed memory, manifesting as a crash
+  /// inside `sqlite3_update_hook`. The guard turns the second call into a
+  /// cheap no-op.
+  bool _isClosed = false;
+
+  /// Idempotent close: the first call delegates to drift's [GeneratedDatabase];
+  /// subsequent calls are no-ops that prevent use-after-free in the native
+  /// SQLite update-hook deregistration path.
+  @override
+  Future<void> close() {
+    if (_isClosed) return Future.value();
+    _isClosed = true;
+    return super.close();
+  }
+
   @override
   int get schemaVersion => 10;
 
@@ -1123,6 +1147,7 @@ class HistoryDatabase extends _$HistoryDatabase {
 
   /// Watch all non-deleted, non-archived entries as a live stream.
   Stream<List<HistoryEntry>> watchEntries({int? limit}) {
+    if (_isClosed) return const Stream.empty();
     final query = select(historyEntries)
       ..where((e) => e.deletedAt.isNull() & e.archived.equals(false))
       ..orderBy([
@@ -1135,6 +1160,7 @@ class HistoryDatabase extends _$HistoryDatabase {
 
   /// Watch archived entries.
   Stream<List<HistoryEntry>> watchArchived({int? limit}) {
+    if (_isClosed) return const Stream.empty();
     final query = select(historyEntries)
       ..where((e) => e.archived.equals(true) & e.deletedAt.isNull())
       ..orderBy([
@@ -1146,6 +1172,7 @@ class HistoryDatabase extends _$HistoryDatabase {
 
   /// Watch trash entries.
   Stream<List<HistoryEntry>> watchTrash({int? limit}) {
+    if (_isClosed) return const Stream.empty();
     final query = select(historyEntries)
       ..where((e) => e.deletedAt.isNotNull())
       ..orderBy([
@@ -1269,6 +1296,7 @@ class HistoryDatabase extends _$HistoryDatabase {
 
   /// Reactive stream of tags for a specific entry.
   Stream<List<Tag>> watchTagsForEntry(String entryId) {
+    if (_isClosed) return const Stream.empty();
     final query =
         select(
             tags,
@@ -1442,8 +1470,10 @@ class HistoryDatabase extends _$HistoryDatabase {
   Future<List<TextReplacement>> readAllReplacements() =>
       select(textReplacements).get();
 
-  Stream<List<TextReplacement>> watchAllReplacements() =>
-      select(textReplacements).watch();
+  Stream<List<TextReplacement>> watchAllReplacements() {
+    if (_isClosed) return const Stream.empty();
+    return select(textReplacements).watch();
+  }
 
   Future<void> upsertReplacement(TextReplacementsCompanion entry) =>
       into(textReplacements).insertOnConflictUpdate(entry);
@@ -1464,6 +1494,7 @@ class HistoryDatabase extends _$HistoryDatabase {
 
   /// Watch notes for a specific entry as a live stream.
   Stream<List<EntryNote>> watchNotesForEntry(String entryId) {
+    if (_isClosed) return const Stream.empty();
     return (select(entryNotes)
           ..where((n) => n.entryId.equals(entryId))
           ..orderBy([(n) => OrderingTerm.desc(n.createdAt)]))

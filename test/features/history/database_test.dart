@@ -430,4 +430,96 @@ void main() {
       expect(results, hasLength(1));
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // Shutdown / teardown safety
+  // ---------------------------------------------------------------------------
+  //
+  // These tests cover the double-close bug that caused a native crash in
+  // sqlite3_update_hook during app shutdown.
+  //
+  // The crash scenario:
+  //   1. onWindowClose / _quit() calls db.close() explicitly.
+  //   2. windowManager.destroy() triggers engine teardown.
+  //   3. ProviderScope.dispose() → ProviderContainer.dispose() runs
+  //      ref.onDispose(db.close) from historyDatabaseProvider — a second
+  //      close() on an already-freed SQLite handle.
+  //   4. sqlite3_close_v2 deregisters the update_hook on freed memory →
+  //      SIGABRT inside sqlite3_update_hook.
+  //
+  // A native C crash is not catchable in Dart unit tests, so these tests
+  // verify the Dart-visible invariants that the fix establishes:
+  //   - close() is idempotent (second call does not throw).
+  //   - watch*() methods return Stream.empty() after close, so any
+  //     Riverpod StreamProvider rebuild triggered by ProviderScope teardown
+  //     does not attempt to register a new sqlite3_update_hook on the freed
+  //     connection.
+
+  group('shutdown safety', () {
+    test('close() is idempotent — second call does not throw', () async {
+      // First close: orderly drift / SQLite shutdown.
+      await db.close();
+      // Second close: simulates the ref.onDispose(db.close) that fires during
+      // ProviderScope teardown after windowManager.destroy().
+      // Must be a no-op, not a native crash or Dart exception.
+      await expectLater(db.close(), completes);
+    });
+
+    test('watchEntries() returns Stream.empty() after close', () async {
+      await db.close();
+      final events = await db.watchEntries().toList();
+      expect(events, isEmpty);
+    });
+
+    test('watchArchived() returns Stream.empty() after close', () async {
+      await db.close();
+      final events = await db.watchArchived().toList();
+      expect(events, isEmpty);
+    });
+
+    test('watchTrash() returns Stream.empty() after close', () async {
+      await db.close();
+      final events = await db.watchTrash().toList();
+      expect(events, isEmpty);
+    });
+
+    test('watchAllReplacements() returns Stream.empty() after close', () async {
+      await db.close();
+      final events = await db.watchAllReplacements().toList();
+      expect(events, isEmpty);
+    });
+
+    test('watchNotesForEntry() returns Stream.empty() after close', () async {
+      await db.close();
+      final events = await db.watchNotesForEntry('any-id').toList();
+      expect(events, isEmpty);
+    });
+
+    test('watchTagsForEntry() returns Stream.empty() after close', () async {
+      await db.close();
+      final events = await db.watchTagsForEntry('any-id').toList();
+      expect(events, isEmpty);
+    });
+
+    test('close() is idempotent even with an active watch subscription', () async {
+      await db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'shutdown-1',
+          timestamp: DateTime(2025, 1, 15),
+        ),
+      );
+
+      // Simulate a live historyEntriesProvider subscription still open.
+      final subscription = db.watchEntries().listen((_) {});
+
+      // First close: should complete the watch stream and close the connection.
+      await db.close();
+
+      // Second close: ref.onDispose() path — must be a no-op.
+      await expectLater(db.close(), completes);
+
+      // Clean up the subscription (stream completed, so cancel is a no-op too).
+      await subscription.cancel();
+    });
+  });
 }
