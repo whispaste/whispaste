@@ -55,6 +55,8 @@ jobs:
           flutter build windows --release --no-tree-shake-icons `
             --dart-define=SUPABASE_URL="${{ secrets.SUPABASE_URL }}" `
             --dart-define=SUPABASE_PUBLISHABLE_KEY="${{ secrets.SUPABASE_PUBLISHABLE_KEY }}" `
+            --dart-define=WHISPASTE_MATOMO_URL="${{ secrets.WHISPASTE_MATOMO_URL }}" `
+            --dart-define=WHISPASTE_MATOMO_SITE_ID="${{ secrets.WHISPASTE_MATOMO_SITE_ID }}" `
             --dart-define=APP_VERSION="$version"
 
       # Upload native PDB/DLL debug symbols so Sentry can symbolicate
@@ -393,9 +395,13 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          WHISPASTE_MATOMO_URL: ${{ secrets.WHISPASTE_MATOMO_URL }}
+          WHISPASTE_MATOMO_SITE_ID: ${{ secrets.WHISPASTE_MATOMO_SITE_ID }}
         run: |
           URL="$(printf '%s' "$SUPABASE_URL" | tr -d '\r\n')"
           KEY="$(printf '%s' "$SUPABASE_PUBLISHABLE_KEY" | tr -d '\r\n')"
+          MATOMO_URL="$(printf '%s' "$WHISPASTE_MATOMO_URL" | tr -d '\r\n')"
+          MATOMO_SITE_ID="$(printf '%s' "$WHISPASTE_MATOMO_SITE_ID" | tr -d '\r\n')"
 
           # Resolve the version from the tag (preferred) or pubspec.yaml so
           # APP_VERSION can be baked into the binary via --dart-define. This
@@ -411,6 +417,8 @@ jobs:
           flutter build macos --release --no-tree-shake-icons \
             "--dart-define=SUPABASE_URL=$URL" \
             "--dart-define=SUPABASE_PUBLISHABLE_KEY=$KEY" \
+            "--dart-define=WHISPASTE_MATOMO_URL=$MATOMO_URL" \
+            "--dart-define=WHISPASTE_MATOMO_SITE_ID=$MATOMO_SITE_ID" \
             "--dart-define=APP_VERSION=$VERSION"
 
       # Upload .dSYM debug symbols for native crash symbolication.
@@ -571,11 +579,15 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          WHISPASTE_MATOMO_URL: ${{ secrets.WHISPASTE_MATOMO_URL }}
+          WHISPASTE_MATOMO_SITE_ID: ${{ secrets.WHISPASTE_MATOMO_SITE_ID }}
           # flutter_soloud §3.1: Xiph system libs statt x86-only Bundles verwenden
           TRY_SYSTEM_LIBS_FIRST: "1"
         run: |
           URL="$(printf '%s' "$SUPABASE_URL" | tr -d '\r\n')"
           KEY="$(printf '%s' "$SUPABASE_PUBLISHABLE_KEY" | tr -d '\r\n')"
+          MATOMO_URL="$(printf '%s' "$WHISPASTE_MATOMO_URL" | tr -d '\r\n')"
+          MATOMO_SITE_ID="$(printf '%s' "$WHISPASTE_MATOMO_SITE_ID" | tr -d '\r\n')"
 
           # Resolve version from tag (preferred) or pubspec.yaml
           REF_NAME="${GITHUB_REF_NAME#v}"
@@ -588,6 +600,8 @@ jobs:
           flutter build linux --release --no-tree-shake-icons \
             "--dart-define=SUPABASE_URL=$URL" \
             "--dart-define=SUPABASE_PUBLISHABLE_KEY=$KEY" \
+            "--dart-define=WHISPASTE_MATOMO_URL=$MATOMO_URL" \
+            "--dart-define=WHISPASTE_MATOMO_SITE_ID=$MATOMO_SITE_ID" \
             "--dart-define=APP_VERSION=$VERSION"
 
       # §3.1: crashpad_handler braucht chmod +x (kann nach dem Flutter-Build fehlen)
