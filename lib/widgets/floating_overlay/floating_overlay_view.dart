@@ -91,10 +91,15 @@ class FloatingOverlayView extends StatefulWidget {
   /// The whole painter configuration is derived from [OverlayDesignSpec] here —
   /// nothing platform-local feeds the renderer (issue 05 AC1). Exposed
   /// statically so the wiring is directly unit-testable.
+  ///
+  /// [paintFill] and [paintContent] are forwarded to [OverlayPainter] to enable
+  /// split-layer rendering during the state-transition crossfade (issue 09).
   static OverlayPainter painterFor({
     required FloatingOverlaySnapshot snapshot,
     List<double> waveformBars = const [],
     double dotPulse = 1.0,
+    bool paintFill = true,
+    bool paintContent = true,
   }) {
     final theme = themeFor(snapshot.isDark);
     final designState = designStateFor(snapshot.state);
@@ -112,6 +117,8 @@ class FloatingOverlayView extends StatefulWidget {
           snapshot.doneMessage ?? snapshot.errorMessage ?? snapshot.label,
       progress: snapshot.progress,
       dotPulse: dotPulse,
+      paintFill: paintFill,
+      paintContent: paintContent,
     );
   }
 
@@ -134,6 +141,22 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
   /// to 0.0 when the snapshot is hidden so the first `visible=true` push
   /// triggers the spring from the standby state.
   late final AnimationController _appear;
+
+  // -- State-transition crossfade (recording → transcribing → done/error) ------
+
+  /// Drives the 150 ms content-only crossfade between recording-arc states.
+  ///
+  /// Advances from 0 → 1 on each visible state change. During the transition
+  /// the outgoing content paints at opacity `1 − t` and the incoming content at
+  /// opacity `t`; the capsule fill is drawn once (background-only painter) so
+  /// the semi-transparent gradient does not double-darken.
+  ///
+  /// Starts at 1.0 so the initial mount shows no crossfade.
+  late final AnimationController _stateTransition;
+
+  /// The snapshot being faded out during an active state-transition crossfade.
+  /// Null when no crossfade is in flight.
+  FloatingOverlaySnapshot? _outgoing;
 
   /// Whether reduced-motion is active (mirrors `MediaQuery.disableAnimations`).
   /// Updated in [didChangeDependencies].
@@ -163,6 +186,13 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
       // If already visible at mount, show immediately (no spring-in needed).
       value: widget.snapshot.visible ? 1.0 : 0.0,
     );
+
+    _stateTransition = AnimationController(
+      vsync: this,
+      duration: OverlayDesignSpec.arc.stateTransitionDuration,
+      // Start at 1.0: no crossfade is happening at mount.
+      value: 1.0,
+    );
     // Dot pulse is started in didChangeDependencies once we have a context
     // and know the reduced-motion preference.
   }
@@ -186,6 +216,12 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
       _dot.value = 1.0;
       _appear.stop();
       _appear.value = widget.snapshot.visible ? 1.0 : 0.0;
+      // Snap any in-flight crossfade to its final state.
+      _stateTransition.stop();
+      _stateTransition.value = 1.0;
+      // Clear outgoing snapshot; the AnimatedBuilder rebuilds via
+      // _stateTransition notification and renders the normal single painter.
+      _outgoing = null;
     } else if (widget.animate) {
       // Resume the dot pulse now that reduced-motion is off.
       _dot.repeat(reverse: true);
@@ -219,6 +255,26 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
       _triggerAppear();
     }
 
+    // State-transition crossfade: recording → transcribing → done/error.
+    //
+    // Only fires on an authentic visible-state change — not on appear/disappear
+    // (those are handled by _appear) and not under reduced-motion (snap only).
+    if (widget.snapshot.state != oldWidget.snapshot.state &&
+        widget.snapshot.visible &&
+        oldWidget.snapshot.visible &&
+        !_reducedMotion) {
+      setState(() {
+        _outgoing = oldWidget.snapshot;
+      });
+      _stateTransition.forward(from: 0).then((_) {
+        if (mounted) {
+          setState(() {
+            _outgoing = null;
+          });
+        }
+      });
+    }
+
     // Handle changes to the animate flag (e.g. settings preview ↔ live overlay).
     if (widget.animate != oldWidget.animate) {
       if (widget.animate && !_reducedMotion) {
@@ -249,6 +305,7 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
   void dispose() {
     _dot.dispose();
     _appear.dispose();
+    _stateTransition.dispose();
     super.dispose();
   }
 
@@ -264,24 +321,81 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
         width: window.width,
         height: window.height,
         child: AnimatedBuilder(
-          animation: Listenable.merge([_dot, _appear]),
+          animation: Listenable.merge([_dot, _appear, _stateTransition]),
           builder: (context, child) {
             final t = _appear.value;
             // Scale: appearScale → 1.0; calm, sub-1.0 start, no overshoot.
             final scale = appearScale + (1.0 - appearScale) * t;
+
+            final outgoing = _outgoing;
+            Widget content;
+            if (outgoing != null && _stateTransition.value < 1.0) {
+              // State-transition crossfade in flight.
+              //
+              // The fill is drawn once (background-only painter) to avoid
+              // double-compositing the semi-transparent glass gradient.
+              // Only the content layers are crossfaded at opposite opacities.
+              final ct = OverlayDesignSpec.arc.stateTransitionCurve.transform(
+                _stateTransition.value,
+              );
+              content = Stack(
+                children: [
+                  // Layer 1: capsule background for the incoming state (fill only).
+                  CustomPaint(
+                    size: window,
+                    painter: FloatingOverlayView.painterFor(
+                      snapshot: widget.snapshot,
+                      waveformBars: widget.waveformBars,
+                      dotPulse: _dot.value,
+                      paintFill: true,
+                      paintContent: false,
+                    ),
+                  ),
+                  // Layer 2: outgoing state content fading out.
+                  Opacity(
+                    opacity: 1.0 - ct,
+                    child: CustomPaint(
+                      size: window,
+                      painter: FloatingOverlayView.painterFor(
+                        snapshot: outgoing,
+                        waveformBars: widget.waveformBars,
+                        dotPulse: _dot.value,
+                        paintFill: false,
+                        paintContent: true,
+                      ),
+                    ),
+                  ),
+                  // Layer 3: incoming state content fading in.
+                  Opacity(
+                    opacity: ct,
+                    child: CustomPaint(
+                      size: window,
+                      painter: FloatingOverlayView.painterFor(
+                        snapshot: widget.snapshot,
+                        waveformBars: widget.waveformBars,
+                        dotPulse: _dot.value,
+                        paintFill: false,
+                        paintContent: true,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            } else {
+              // Steady state: single painter, full fill + content.
+              content = CustomPaint(
+                size: window,
+                painter: FloatingOverlayView.painterFor(
+                  snapshot: widget.snapshot,
+                  waveformBars: widget.waveformBars,
+                  dotPulse: _dot.value,
+                ),
+              );
+            }
+
             return Transform.scale(
               scale: scale,
-              child: Opacity(
-                opacity: t,
-                child: CustomPaint(
-                  size: window,
-                  painter: FloatingOverlayView.painterFor(
-                    snapshot: widget.snapshot,
-                    waveformBars: widget.waveformBars,
-                    dotPulse: _dot.value,
-                  ),
-                ),
-              ),
+              child: Opacity(opacity: t, child: content),
             );
           },
         ),

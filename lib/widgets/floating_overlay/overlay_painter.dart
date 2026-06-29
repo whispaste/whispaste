@@ -26,6 +26,13 @@ import '../../core/theme/overlay_design_spec.dart';
 /// Paints the overlay capsule and its per-state content from the SSOT spec.
 class OverlayPainter extends CustomPainter {
   /// Creates a painter for one immutable overlay frame.
+  ///
+  /// [paintFill] and [paintContent] let the host widget split the draw into two
+  /// independent layers for the state-transition crossfade: the fill layer
+  /// (shadow + gradient capsule background) is drawn once, while only the
+  /// content layer (dot, text, waveform, icons) is crossfaded. Drawing the
+  /// semi-transparent fill twice at different opacities would darken the capsule
+  /// during the transition; this flag pair prevents that.
   const OverlayPainter({
     required this.state,
     required this.theme,
@@ -37,6 +44,8 @@ class OverlayPainter extends CustomPainter {
     required this.statusText,
     required this.progress,
     required this.dotPulse,
+    this.paintFill = true,
+    this.paintContent = true,
   });
 
   /// The visual state being rendered.
@@ -71,6 +80,16 @@ class OverlayPainter extends CustomPainter {
   /// Recording-dot pulse phase (0–1), driven by the host widget's ticker.
   final double dotPulse;
 
+  /// Whether to draw the capsule fill layer (shadow, gradient background,
+  /// border). Defaults to `true`. Set `false` on content-only painters during
+  /// state-transition crossfade so the fill is drawn exactly once.
+  final bool paintFill;
+
+  /// Whether to draw the content layer (dot, text, waveform, icons, timeline).
+  /// Defaults to `true`. Set `false` on the background painter during
+  /// state-transition crossfade so only the fill is drawn.
+  final bool paintContent;
+
   bool get _isRecording => state == OverlayDesignState.recording;
 
   @override
@@ -87,15 +106,19 @@ class OverlayPainter extends CustomPainter {
       Radius.circular(radius),
     );
 
-    _drawShadow(canvas, rrect);
-    _drawFill(canvas, rrect, pill);
-    _drawBorder(canvas, rrect);
+    if (paintFill) {
+      _drawShadow(canvas, rrect);
+      _drawFill(canvas, rrect, pill);
+      _drawBorder(canvas, rrect);
+    }
 
-    // Content layer — clipped to the capsule, always fully opaque.
-    canvas.save();
-    canvas.clipRRect(rrect);
-    _drawContent(canvas, pill);
-    canvas.restore();
+    if (paintContent) {
+      // Content layer — clipped to the capsule, always fully opaque.
+      canvas.save();
+      canvas.clipRRect(rrect);
+      _drawContent(canvas, pill);
+      canvas.restore();
+    }
   }
 
   // ── Chrome ────────────────────────────────────────────────────────────────────
@@ -388,6 +411,8 @@ class OverlayPainter extends CustomPainter {
         old.statusText != statusText ||
         old.progress != progress ||
         old.dotPulse != dotPulse ||
+        old.paintFill != paintFill ||
+        old.paintContent != paintContent ||
         !identical(old.waveformBars, waveformBars);
   }
 }

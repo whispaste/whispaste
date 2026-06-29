@@ -483,6 +483,138 @@ void main() {
     });
   });
 
+  // ── Issue 09 wiring: state-transition crossfade ───────────────────────────
+
+  group('state-transition crossfade (issue 09 wiring)', () {
+    testWidgets('(a) visible state change renders 3-layer Stack mid-crossfade '
+        '(fill + outgoing content + incoming content)', (tester) async {
+      // Mount with recording visible and let appear settle.
+      await tester.pumpWidget(
+        _wrap(
+          FloatingOverlayView(
+            snapshot: _snap(
+              OverlayVisualState.recording,
+              visible: true,
+              elapsed: '0:05',
+              progress: 0.1,
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 350));
+      // Steady state: one CustomPaint.
+      expect(find.byType(CustomPaint), findsOneWidget);
+
+      // Transition to transcribing (visible → visible state change).
+      await tester.pumpWidget(
+        _wrap(
+          FloatingOverlayView(
+            snapshot: _snap(OverlayVisualState.transcribing, visible: true),
+          ),
+        ),
+      );
+      // Pump to mid-crossfade (< stateTransitionDuration = 150 ms).
+      await tester.pump(const Duration(milliseconds: 50));
+
+      // During crossfade: 3 CustomPaint layers.
+      expect(
+        find.byType(CustomPaint),
+        findsNWidgets(3),
+        reason:
+            'mid-crossfade must render fill + outgoing-content + '
+            'incoming-content painters',
+      );
+
+      // Advance past full crossfade + setState drain.
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pump();
+
+      // Steady state again: one CustomPaint.
+      expect(
+        find.byType(CustomPaint),
+        findsOneWidget,
+        reason: 'after crossfade completes only one painter should remain',
+      );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
+    test(
+      '(b) OverlayPainter paintFill/paintContent flags affect shouldRepaint',
+      () {
+        final snap = _snap(OverlayVisualState.recording, visible: true);
+        final base = FloatingOverlayView.painterFor(snapshot: snap);
+        final fillOnly = FloatingOverlayView.painterFor(
+          snapshot: snap,
+          paintContent: false,
+        );
+        final contentOnly = FloatingOverlayView.painterFor(
+          snapshot: snap,
+          paintFill: false,
+        );
+
+        // shouldRepaint detects flag differences.
+        expect(
+          base.shouldRepaint(fillOnly),
+          isTrue,
+          reason: 'paintContent change must trigger repaint',
+        );
+        expect(
+          base.shouldRepaint(contentOnly),
+          isTrue,
+          reason: 'paintFill change must trigger repaint',
+        );
+
+        // Field accessors are correct.
+        expect(base.paintFill, isTrue);
+        expect(base.paintContent, isTrue);
+        expect(fillOnly.paintContent, isFalse);
+        expect(contentOnly.paintFill, isFalse);
+      },
+    );
+
+    testWidgets(
+      '(c) reduced-motion skips crossfade — single CustomPaint after state change',
+      (tester) async {
+        // Mount recording visible under reduced-motion.
+        await tester.pumpWidget(
+          _wrap(
+            FloatingOverlayView(
+              snapshot: _snap(
+                OverlayVisualState.recording,
+                visible: true,
+                elapsed: '0:03',
+              ),
+            ),
+            disableAnimations: true,
+          ),
+        );
+        await tester.pump();
+
+        // Transition to transcribing.
+        await tester.pumpWidget(
+          _wrap(
+            FloatingOverlayView(
+              snapshot: _snap(OverlayVisualState.transcribing, visible: true),
+            ),
+            disableAnimations: true,
+          ),
+        );
+        await tester.pump();
+
+        // Under reduced-motion no crossfade: single CustomPaint only.
+        expect(
+          find.byType(CustomPaint),
+          findsOneWidget,
+          reason: 'reduced-motion must snap — no 3-layer Stack',
+        );
+        expect(tester.takeException(), isNull);
+
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  });
+
   // ── AC6: Reduced-motion ───────────────────────────────────────────────────
 
   group('AC6 — reduced-motion (disableAnimations)', () {
