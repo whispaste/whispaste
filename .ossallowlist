@@ -118,3 +118,7 @@ fastlane/
 
 # Diagnose-Tool-CLI (öffentlich gebaut und als Release-Artefakt ausgeliefert)
 tool/
+
+# Figma Code Connect (.figma.ts Mappings — öffentlicher Repo-Code; node_modules
+# via root .gitignore ausgeschlossen)
+figma/
