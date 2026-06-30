@@ -27,9 +27,9 @@ const cards = [
       <h2 class="section-title"><span data-i18n="privacy.titleLead">{t(lang, "privacy.titleLead")}</span><span class="text-gradient-brand" data-i18n="privacy.titleAccent">{t(lang, "privacy.titleAccent")}</span><span data-i18n="privacy.titleTail">{t(lang, "privacy.titleTail")}</span></h2>
       <p class="mt-4 text-ink-muted text-lg max-w-3xl mx-auto" data-i18n="privacy.desc">{t(lang, "privacy.desc")}</p>
     </div>
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 scroll-reveal">
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 stagger-children">
       {cards.map(({ key, icon }) => (
-        <div class="text-center">
+        <div class="text-center stagger-item">
           <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-brand-cyan/10 text-brand-cyan mb-4" set:html={icon} />
           <h3 class="text-white font-semibold mb-1.5" data-i18n={`privacy.${key}.title`}>{t(lang, `privacy.${key}.title`)}</h3>
           <p class="text-ink-muted text-sm leading-relaxed" data-i18n={`privacy.${key}.desc`}>{t(lang, `privacy.${key}.desc`)}</p>

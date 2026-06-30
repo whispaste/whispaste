@@ -212,6 +212,107 @@ html.light .band-raised {
   font-size: clamp(2.25rem, 1.35rem + 3.7vw, 4rem);
 }
 
+/* ===========================================================================
+   Scroll-Driven Motion Utilities
+
+   Baseline: .scroll-reveal + IntersectionObserver (src/pages/index.astro) —
+   universal fade-up fallback, no JS library, all browsers.
+
+   Enhancement: Native CSS Scroll-Driven Animations gated in @supports.
+   Chromium 115+, Firefox 110+, Safari 18+. Unsupported engines fall through
+   to the IO fallback unchanged — no regression, zero extra JS.
+
+   Standalone utilities for use alongside or instead of .scroll-reveal:
+   - .reveal-up            — single-element fade + rise reveal
+   - .stagger-children     — marks a grid/flex container whose children stagger
+   - .stagger-item         — applied to each child inside .stagger-children
+
+   prefers-reduced-motion: reduce — all new animations are stripped; elements
+   render at full opacity immediately. The IO guard in index.astro also fires
+   independently for .scroll-reveal elements.
+   --------------------------------------------------------------------------- */
+
+@keyframes wp-reveal-up {
+  from {
+    opacity: 0;
+    translate: 0 20px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+@keyframes wp-stagger-in {
+  from {
+    opacity: 0;
+    translate: 0 14px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+@supports (animation-timeline: view()) {
+  /* Upgrade .scroll-reveal to CSS scroll-driven animation in capable browsers.
+     The animation cascade level is above regular author styles, so the CSS
+     animation owns opacity + translate even where index.astro sets them via
+     class toggle. The IO still runs and adds .visible — harmless. */
+  .scroll-reveal {
+    animation: wp-reveal-up linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 40%;
+  }
+
+  /* Standalone reveal — for elements that opt into CSS-only animation without
+     an IO fallback. In unsupported browsers they are simply visible. */
+  .reveal-up {
+    animation: wp-reveal-up linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 40%;
+  }
+
+  /* Staggered children: parent marks the container (.stagger-children), each
+     direct child carries .stagger-item. Each child tracks its own view()
+     timeline; the animation-range offset per nth-child staggers the entrance.
+     Specificity (0,2,0) overrides .scroll-reveal (0,1,0) when both appear. */
+  .stagger-children > .stagger-item {
+    animation: wp-stagger-in linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 50%;
+  }
+  .stagger-children > .stagger-item:nth-child(2) {
+    animation-range: entry 8% entry 58%;
+  }
+  .stagger-children > .stagger-item:nth-child(3) {
+    animation-range: entry 16% entry 66%;
+  }
+  .stagger-children > .stagger-item:nth-child(4) {
+    animation-range: entry 24% entry 74%;
+  }
+  .stagger-children > .stagger-item:nth-child(5) {
+    animation-range: entry 32% entry 82%;
+  }
+  .stagger-children > .stagger-item:nth-child(6) {
+    animation-range: entry 40% entry 90%;
+  }
+}
+
+/* Reduced motion — all new animations resolve to immediate full opacity.
+   !important overrides the animation cascade so these rules win even in
+   @supports-capable browsers when the user prefers reduced motion.
+   The IO guard in index.astro covers .scroll-reveal independently. */
+@media (prefers-reduced-motion: reduce) {
+  .scroll-reveal,
+  .reveal-up,
+  .stagger-children > .stagger-item {
+    animation: none !important;
+    opacity: 1 !important;
+    translate: none !important;
+  }
+}
+
 /* Platform-adaptive download buttons (FOUC-free: data-os set by inline script).
  *
  * Default (no data-os = unknown): ALL platform containers are visible — every

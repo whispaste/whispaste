@@ -30,9 +30,9 @@ const steps = [
     <div class="relative">
       <!-- Connecting line (desktop only) -->
       <div class="hidden lg:block absolute top-8 left-[16.67%] right-[16.67%] h-px bg-gradient-to-r from-brand-cyan/0 via-brand-cyan/30 to-brand-cyan/0"></div>
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-8">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-8 stagger-children">
         {steps.map(({ key, icon }) => (
-          <div class="text-center scroll-reveal">
+          <div class="text-center stagger-item">
             <div class="relative inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-brand-card/80 border border-brand-border/60 mb-4 text-brand-cyan shadow-lg shadow-brand-cyan/[0.05]" set:html={icon}>
             </div>
             <div class="text-xs font-mono text-brand-cyan tracking-wider mb-1.5" data-i18n={`howitworks.${key}.label`}>{t(lang, `howitworks.${key}.label`)}</div>
