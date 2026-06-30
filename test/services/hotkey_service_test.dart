@@ -98,6 +98,12 @@ class FakeKeyboardUpMonitor implements KeyboardUpMonitor {
 HotkeyService _makeService(FakeHotKeyRegistrar registrar) {
   final service = HotkeyService();
   service.injectRegistrar(registrar);
+  // Inject a no-op key-up monitor so capability is driven solely by the
+  // injected registrar and stays deterministic regardless of the host platform.
+  // On Windows the default ChannelKeyboardUpMonitor reports supportsKeyUp=true
+  // and would otherwise leak into these tests (#39). Monitor-path tests override
+  // this with their own FakeKeyboardUpMonitor.
+  service.injectMonitor(NoopKeyboardUpMonitor());
   return service;
 }
 

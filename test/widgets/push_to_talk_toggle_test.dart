@@ -10,6 +10,7 @@ import 'package:hotkey_manager/hotkey_manager.dart';
 
 import 'package:whispaste/features/settings/sections/feedback_section.dart';
 import 'package:whispaste/services/hotkey_service.dart';
+import 'package:whispaste/services/keyboard_up_monitor.dart';
 
 import '../fixtures/test_helpers.dart';
 
@@ -42,6 +43,11 @@ class _FakeRegistrar implements HotKeyRegistrar {
 HotkeyService _fakeHotkeyService({required bool supportsKeyUp}) {
   final svc = HotkeyService();
   svc.injectRegistrar(_FakeRegistrar(supportsKeyUp: supportsKeyUp));
+  // Pin the key-up monitor to a no-op so the overall capability equals the
+  // injected registrar value on every host platform. Without this, the default
+  // Windows ChannelKeyboardUpMonitor (supportsKeyUp=true) would make the toggle
+  // appear enabled in the supportsKeyUp=false cases on Windows CI (#39).
+  svc.injectMonitor(NoopKeyboardUpMonitor());
   return svc;
 }
 
