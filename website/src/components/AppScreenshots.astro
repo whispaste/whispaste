@@ -23,29 +23,86 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
     <!-- Two hero screenshots: workspace (dark) + detail (light) -->
     <div class="teaser-pair scroll-reveal">
       <figure class="teaser-card teaser-card--primary">
-        <button
-          class="teaser-thumb-btn"
-          data-teaser-idx="0"
-          aria-label="Your transcripts at a glance — click to enlarge"
-          data-aria-label-en="Your transcripts at a glance — click to enlarge"
-          data-aria-label-de="Alle Transkripte auf einen Blick — klicken zum Vergrößern"
-        >
-          <img
-            class="teaser-img"
-            src="/screenshots/en/dark/01_workspace_overview.png"
-            data-screenshot-en="/screenshots/en/dark/01_workspace_overview.png"
-            data-screenshot-de="/screenshots/de/dark/01_workspace_overview.png"
-            data-screenshot-mac-en="/screenshots/mac/en/dark/01_workspace_overview.png"
-            data-screenshot-mac-de="/screenshots/mac/de/dark/01_workspace_overview.png"
-            data-alt-en="WhisPaste workspace — dark theme"
-            data-alt-de="WhisPaste Workspace — dunkles Design"
-            alt="WhisPaste workspace — dark theme"
-            width="1920"
-            height="1080"
-            loading="eager"
-            decoding="async"
-          />
-        </button>
+        {/* MacBook device frame — grounds the app as a real macOS desktop app.
+            Purely decorative chrome around the existing screenshot button; the
+            lightbox wiring and lang/os/theme sync stay untouched. */}
+        <div class="mbp">
+          <div class="mbp-lid">
+            <div class="mbp-screen">
+              {/* The display: macOS wallpaper behind a menu bar, a windowed app,
+                  and the dock — matching how a real notched MacBook renders. */}
+              <div class="mbp-display">
+                {/* Camera notch — cut into the centre of the menu bar */}
+                <div class="mbp-notch" aria-hidden="true"></div>
+
+                {/* macOS menu bar over the wallpaper, flowing around the notch */}
+                <div class="mbp-menubar" aria-hidden="true">
+                  <div class="mbp-mb-left">
+                    <svg class="mbp-apple" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M16.365 1.43c0 1.14-.493 2.27-1.177 3.08-.744.9-1.99 1.57-2.987 1.57-.12 0-.23-.02-.3-.03-.01-.06-.04-.22-.04-.39 0-1.15.572-2.27 1.206-2.98.804-.94 2.142-1.64 3.248-1.68.03.13.05.28.05.43zm4.565 15.71c-.03.07-.463 1.58-1.518 3.12-.945 1.34-1.94 2.71-3.43 2.71-1.517 0-1.9-.88-3.63-.88-1.698 0-2.302.91-3.67.91-1.377 0-2.332-1.26-3.428-2.8-1.287-1.82-2.323-4.63-2.323-7.28 0-4.28 2.797-6.55 5.552-6.55 1.448 0 2.675.95 3.6.95.865 0 2.222-1.01 3.902-1.01.613 0 2.886.06 4.374 2.19-.13.09-2.383 1.37-2.383 4.19 0 3.26 2.854 4.42 2.955 4.45z"/>
+                    </svg>
+                    <span class="mbp-mb-app">WhisPaste</span>
+                    <span class="mbp-mb-menus mbp-lang-de">Ablage&nbsp;&nbsp;Bearbeiten&nbsp;&nbsp;Darstellung&nbsp;&nbsp;Fenster&nbsp;&nbsp;Hilfe</span>
+                    <span class="mbp-mb-menus mbp-lang-en">File&nbsp;&nbsp;Edit&nbsp;&nbsp;View&nbsp;&nbsp;Window&nbsp;&nbsp;Help</span>
+                  </div>
+                  <div class="mbp-mb-right">
+                    <svg class="mbp-mb-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="11" cy="11" r="6"/><path d="m20 20-3.2-3.2"/>
+                    </svg>
+                    <svg class="mbp-mb-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M4 11.5a11 11 0 0 1 16 0"/><path d="M7.5 15a6 6 0 0 1 9 0"/><circle cx="12" cy="18.5" r="1" fill="currentColor" stroke="none"/>
+                    </svg>
+                    <svg class="mbp-mb-glyph mbp-mb-battery" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="2" y="8" width="17" height="8" rx="2.5"/><rect x="4" y="10" width="11" height="4" rx="1" fill="currentColor" stroke="none"/><path d="M21.5 11.5v3"/>
+                    </svg>
+                    <span class="mbp-clock">9:41</span>
+                  </div>
+                </div>
+
+                {/* The app as a maximised window — stops above the dock, wallpaper
+                    showing around it (it does not run edge-to-edge). */}
+                <div class="mbp-window">
+                  <button
+                    class="teaser-thumb-btn"
+                    data-teaser-idx="0"
+                    aria-label="Your transcripts at a glance — click to enlarge"
+                    data-aria-label-en="Your transcripts at a glance — click to enlarge"
+                    data-aria-label-de="Alle Transkripte auf einen Blick — klicken zum Vergrößern"
+                  >
+                    <img
+                      class="teaser-img"
+                      src="/screenshots/en/dark/01_workspace_overview.png"
+                      data-screenshot-en="/screenshots/en/dark/01_workspace_overview.png"
+                      data-screenshot-de="/screenshots/de/dark/01_workspace_overview.png"
+                      data-screenshot-mac-en="/screenshots/mac/en/dark/01_workspace_overview.png"
+                      data-screenshot-mac-de="/screenshots/mac/de/dark/01_workspace_overview.png"
+                      data-alt-en="WhisPaste workspace — dark theme"
+                      data-alt-de="WhisPaste Workspace — dunkles Design"
+                      alt="WhisPaste workspace — dark theme"
+                      width="1920"
+                      height="1080"
+                      loading="eager"
+                      decoding="async"
+                    />
+                  </button>
+                </div>
+
+                {/* macOS Dock — translucent, floats over the wallpaper at the bottom */}
+                <div class="mbp-dock" aria-hidden="true">
+                  <span class="mbp-dock-icon" style="background:linear-gradient(160deg,#5ec2ff,#1f7fe0)"></span>
+                  <span class="mbp-dock-icon" style="background:linear-gradient(160deg,#9ad0ff,#2b6fd6)"></span>
+                  <span class="mbp-dock-icon" style="background:linear-gradient(160deg,#7be0a0,#1faf6a)"></span>
+                  <img class="mbp-dock-icon mbp-dock-app" src="/app-icon-dark.png" alt="" width="48" height="48" />
+                  <span class="mbp-dock-icon" style="background:linear-gradient(160deg,#ffd866,#f2a93b)"></span>
+                  <span class="mbp-dock-icon" style="background:linear-gradient(160deg,#c8ccd2,#8a9099)"></span>
+                  <span class="mbp-dock-sep"></span>
+                  <span class="mbp-dock-icon" style="background:linear-gradient(160deg,#cfd4da,#9aa0a8)"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="mbp-base" aria-hidden="true"></div>
+        </div>
       </figure>
 
       <figure class="teaser-card teaser-card--secondary">
@@ -177,6 +234,267 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
     box-shadow:
       0 26px 60px rgba(15, 23, 42, 0.18),
       0 0 0 1px rgba(8, 145, 178, 0.2);
+  }
+
+  /* =========================================================================
+     MacBook device frame (primary teaser) — pure CSS, theme-independent
+     aluminium so it reads as a real space-gray laptop on either band.
+     ========================================================================= */
+  /* The frame provides its own silhouette + shadow, so the primary card must
+     not clip it or stack a second radius/shadow on top. */
+  .teaser-card--primary {
+    overflow: visible;
+    border-radius: 0;
+  }
+
+  .mbp {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .mbp:hover,
+  .mbp:focus-within {
+    transform: translateY(-6px);
+  }
+
+  /* Lid: aluminium edge wrapping the screen */
+  .mbp-lid {
+    width: 94%;
+    padding: 8px 8px 0;
+    border-radius: 16px 16px 8px 8px;
+    background: linear-gradient(180deg, #43464c 0%, #2b2d32 100%);
+    box-shadow:
+      0 30px 60px rgba(0, 0, 0, 0.5),
+      inset 0 1px 0 rgba(255, 255, 255, 0.12),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  }
+
+  /* Screen: black bezel. Container so the mocked macOS chrome scales with width. */
+  .mbp-screen {
+    position: relative;
+    padding: 11px;
+    border-radius: 10px 10px 4px 4px;
+    background: #050506;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+    overflow: hidden;
+    container-type: inline-size;
+  }
+
+  /* Display: macOS wallpaper behind the menu bar, the windowed app, and the dock.
+     padding-bottom reserves the wallpaper strip the floating dock sits in, so the
+     app window does not run edge-to-edge — exactly how a maximised macOS window
+     stops above the dock. */
+  .mbp-display {
+    position: relative;
+    border-radius: 3px;
+    overflow: hidden;
+    /* Real notched-MacBook display proportion (~16:10.5) so the device keeps
+       authentic dimensions; the app window flexes to fill the inner space. */
+    aspect-ratio: 16 / 10.5;
+    display: flex;
+    flex-direction: column;
+    background:
+      radial-gradient(120% 90% at 78% 10%, rgba(120, 230, 240, 0.45) 0%, transparent 45%),
+      radial-gradient(120% 100% at 10% 96%, rgba(40, 70, 150, 0.5) 0%, transparent 55%),
+      linear-gradient(150deg, #14304c 0%, #1d4f6e 32%, #1f6f87 56%, #2f93a8 78%, #57bcd0 100%);
+  }
+
+  /* macOS camera notch — black cut-out in the centre of the menu bar */
+  .mbp-notch {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 17cqw;
+    height: 3.4cqw;
+    background: #050506;
+    border-radius: 0 0 1.4cqw 1.4cqw;
+    z-index: 5;
+  }
+
+  /* ---- macOS menu bar (translucent over the wallpaper) ---- */
+  .mbp-menubar {
+    position: relative;
+    z-index: 4;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex: 0 0 auto;
+    height: 3.4cqw;
+    padding: 0 2.2cqw;
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.34) 0%, rgba(0, 0, 0, 0.1) 100%);
+    color: rgba(255, 255, 255, 0.92);
+    font-size: 1.5cqw;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+  .mbp-mb-left {
+    display: flex;
+    align-items: center;
+    gap: 1.7cqw;
+    min-width: 0;
+    max-width: 40%; /* stay clear of the centre notch */
+  }
+  .mbp-apple {
+    width: 1.9cqw;
+    height: 1.9cqw;
+    flex-shrink: 0;
+  }
+  .mbp-mb-app {
+    font-weight: 700;
+    color: #fff;
+  }
+  .mbp-mb-menus {
+    color: rgba(255, 255, 255, 0.85);
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .mbp-mb-right {
+    display: flex;
+    align-items: center;
+    gap: 1.5cqw;
+    flex-shrink: 0;
+  }
+  .mbp-mb-glyph {
+    width: 2cqw;
+    height: 2cqw;
+  }
+  .mbp-mb-battery {
+    width: 2.6cqw;
+    height: 2.6cqw;
+  }
+  .mbp-clock {
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+  }
+  /* Language toggle for the menu titles (driven by <html lang>) */
+  .mbp-lang-en { display: none; }
+  :global(html[lang="en"]) .mbp-lang-en { display: inline; }
+  :global(html[lang="en"]) .mbp-lang-de { display: none; }
+
+  /* Hide the menu titles when the device gets narrow — keep apple + app name. */
+  @container (max-width: 360px) {
+    .mbp-mb-menus { display: none; }
+    :global(html[lang="en"]) .mbp-mb-menus { display: none; }
+  }
+
+  /* ---- App window: maximised, but stopping above the dock ---- */
+  .mbp-window {
+    position: relative;
+    z-index: 2;
+    flex: 1 1 auto;
+    min-height: 0;
+    /* bottom margin reserves the wallpaper strip for the floating dock */
+    margin: 1.6cqw 2.2cqw 10cqw;
+    border-radius: 1.3cqw;
+    overflow: hidden;
+    box-shadow:
+      0 2.2cqw 4cqw rgba(0, 0, 0, 0.4),
+      0 0 0 1px rgba(0, 0, 0, 0.25);
+  }
+
+  /* The screenshot fills its window: drop its standalone chrome and let it
+     cover the window box, anchored to the top so the app header stays visible. */
+  .mbp .teaser-thumb-btn {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
+  }
+  .mbp .teaser-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top center;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    transform: none !important;
+  }
+
+  /* ---- macOS dock (floats over the wallpaper strip) ---- */
+  .mbp-dock {
+    position: absolute;
+    left: 50%;
+    bottom: 2cqw;
+    transform: translateX(-50%);
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    gap: 1.4cqw;
+    padding: 1cqw 1.3cqw;
+    border-radius: 2.4cqw;
+    background: rgba(255, 255, 255, 0.16);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    backdrop-filter: blur(10px) saturate(140%);
+    -webkit-backdrop-filter: blur(10px) saturate(140%);
+    box-shadow: 0 1.2cqw 2.4cqw rgba(0, 0, 0, 0.3);
+    pointer-events: none;
+  }
+  .mbp-dock-icon {
+    width: 5.2cqw;
+    height: 5.2cqw;
+    border-radius: 1.4cqw;
+    flex-shrink: 0;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 0.4cqw 0.8cqw rgba(0, 0, 0, 0.28);
+  }
+  .mbp-dock-app {
+    object-fit: cover;
+    background: #0b1622;
+  }
+  .mbp-dock-sep {
+    width: 1px;
+    height: 4.6cqw;
+    background: rgba(255, 255, 255, 0.3);
+    margin: 0 0.4cqw;
+    flex-shrink: 0;
+    box-shadow: none;
+  }
+
+  /* Base deck: slightly wider than the lid, with the opening groove */
+  .mbp-base {
+    position: relative;
+    width: 100%;
+    height: 13px;
+    background: linear-gradient(180deg, #4d5057 0%, #303237 55%, #1c1d21 100%);
+    border-radius: 2px 2px 11px 11px / 2px 2px 9px 9px;
+    box-shadow: 0 16px 26px rgba(0, 0, 0, 0.45);
+  }
+  .mbp-base::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 16%;
+    height: 7px;
+    background: linear-gradient(180deg, #141519, #26282d);
+    border-radius: 0 0 7px 7px;
+  }
+
+  /* Light theme: lighten the cast shadows so the deck does not look heavy. */
+  html.light .mbp-lid {
+    box-shadow:
+      0 24px 50px rgba(15, 23, 42, 0.18),
+      inset 0 1px 0 rgba(255, 255, 255, 0.12),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  }
+  html.light .mbp-base {
+    box-shadow: 0 14px 22px rgba(15, 23, 42, 0.16);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mbp {
+      transition: none;
+    }
+    .mbp:hover,
+    .mbp:focus-within {
+      transform: none;
+    }
   }
 
 </style>

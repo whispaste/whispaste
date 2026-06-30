@@ -142,7 +142,9 @@ test.describe('screenshot section', () => {
     await section.scrollIntoViewIfNeeded();
     await expect(section).toBeVisible();
 
-    const images = section.locator('img');
+    // Two hero teaser screenshots (the MacBook frame adds a decorative dock
+    // app-icon <img>, so scope to the teaser images specifically).
+    const images = section.locator('.teaser-img');
     await expect(images).toHaveCount(2);
   });
 
