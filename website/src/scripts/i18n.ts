@@ -531,6 +531,20 @@ export const i18n: Record<string, Record<string, string>> = {
     'appdemo.mockHeading': 'Q3 Review',
     'appdemo.mockPrefix': 'Notes: ',
     'appdemo.mockTyped': 'team hit target, up twelve percent.',
+    // WorkflowSelector (Phase C, Issue 05) — Zielgruppen-Einstieg nach HowItWorks
+    'workflowSelector.label': 'For your workflow',
+    'workflowSelector.titleLead': 'Voice input for your ',
+    'workflowSelector.titleAccent': 'writing flow',
+    'workflowSelector.titleTail': '',
+    'workflowSelector.developer.title': 'Developers',
+    'workflowSelector.developer.desc': 'Speak code reviews, commit messages, and issue replies — without leaving the browser or reaching for the mouse.',
+    'workflowSelector.developer.ariaLabel': 'WhisPaste for developers — learn more',
+    'workflowSelector.support.title': 'Support staff',
+    'workflowSelector.support.desc': 'Answer tickets faster by speaking the reply straight into the ticket UI — no app switch, no copy-paste.',
+    'workflowSelector.support.ariaLabel': 'WhisPaste for support staff — learn more',
+    'workflowSelector.rsi.title': 'RSI & typing pain',
+    'workflowSelector.rsi.desc': 'Keep working on the days your hands need a break — voice input in any app, no extra tool.',
+    'workflowSelector.rsi.ariaLabel': 'WhisPaste for RSI and typing pain — learn more',
   },
   de: {
     'meta.title.default': 'WhisPaste — Spracheingabe direkt am Cursor',
@@ -1059,6 +1073,20 @@ export const i18n: Record<string, Record<string, string>> = {
     'appdemo.mockHeading': 'Q3-Überblick',
     'appdemo.mockPrefix': 'Notizen: ',
     'appdemo.mockTyped': 'Team hat das Ziel um zwölf Prozent übertroffen.',
+    // WorkflowSelector (Phase C, Issue 05) — Zielgruppen-Einstieg nach HowItWorks
+    'workflowSelector.label': 'Für deinen Workflow',
+    'workflowSelector.titleLead': 'Spracheingabe für deinen ',
+    'workflowSelector.titleAccent': 'Schreibfluss',
+    'workflowSelector.titleTail': '',
+    'workflowSelector.developer.title': 'Entwickler',
+    'workflowSelector.developer.desc': 'Code-Reviews, Commit-Messages und Issue-Antworten sprechen — ohne den Browser zu verlassen oder zur Maus zu greifen.',
+    'workflowSelector.developer.ariaLabel': 'WhisPaste für Entwickler — mehr erfahren',
+    'workflowSelector.support.title': 'Support',
+    'workflowSelector.support.desc': 'Tickets schneller beantworten — Antwort direkt in die Ticket-Oberfläche sprechen, ohne App-Wechsel, ohne Copy-Paste.',
+    'workflowSelector.support.ariaLabel': 'WhisPaste für Support — mehr erfahren',
+    'workflowSelector.rsi.title': 'RSI & Tippschmerzen',
+    'workflowSelector.rsi.desc': 'Weiterarbeiten, auch wenn die Hände eine Pause brauchen — Spracheingabe in jeder App, ohne Extra-Werkzeug.',
+    'workflowSelector.rsi.ariaLabel': 'WhisPaste bei RSI und Tippschmerzen — mehr erfahren',
   }
 };
 

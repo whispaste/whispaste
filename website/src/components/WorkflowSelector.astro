@@ -1,0 +1,191 @@
+---
+import { t } from '../scripts/i18n.ts';
+
+const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
+const isEn = lang === 'en';
+
+const workflows = [
+  {
+    key: 'developer',
+    href: isEn ? '/en/use-cases/programmer/' : '/use-cases/programmierer/',
+    icon: `<svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m9 8 3 3-3 3"/><path d="M14 16h4"/></svg>`,
+  },
+  {
+    key: 'support',
+    href: isEn ? '/en/use-cases/support-staff/' : '/use-cases/support-mitarbeiter/',
+    icon: `<svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`,
+  },
+  {
+    key: 'rsi',
+    href: isEn ? '/en/use-cases/rsi/' : '/use-cases/rsi/',
+    icon: `<svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"/><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg>`,
+  },
+] as const;
+---
+
+<!-- WorkflowSelector Section — Zielgruppen-Einstieg nach "How it works" -->
+<section id="workflow-selector" class="band band-raised py-24 sm:py-32 relative scroll-mt-20">
+  <div class="relative max-w-5xl mx-auto px-6">
+    <div class="text-center mb-14 scroll-reveal">
+      <p class="text-brand-cyan text-sm font-semibold tracking-wider uppercase mb-3"
+         data-i18n="workflowSelector.label">{t(lang, 'workflowSelector.label')}</p>
+      <h2 class="section-title">
+        <span data-i18n="workflowSelector.titleLead">{t(lang, 'workflowSelector.titleLead')}</span><!--
+        --><span class="text-gradient-brand" data-i18n="workflowSelector.titleAccent">{t(lang, 'workflowSelector.titleAccent')}</span><!--
+        --><span data-i18n="workflowSelector.titleTail">{t(lang, 'workflowSelector.titleTail')}</span>
+      </h2>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 stagger-children">
+      {workflows.map(({ key, href, icon }) => (
+        <a
+          href={href}
+          class="workflow-card stagger-item group"
+          aria-label={t(lang, `workflowSelector.${key}.ariaLabel`)}
+          data-i18n-aria={`workflowSelector.${key}.ariaLabel`}
+        >
+          <div class="workflow-card__icon">
+            <Fragment set:html={icon} />
+          </div>
+          <h3 class="workflow-card__title"
+              data-i18n={`workflowSelector.${key}.title`}>{t(lang, `workflowSelector.${key}.title`)}</h3>
+          <p class="workflow-card__desc"
+             data-i18n={`workflowSelector.${key}.desc`}>{t(lang, `workflowSelector.${key}.desc`)}</p>
+          <span class="workflow-card__arrow" aria-hidden="true">→</span>
+        </a>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .workflow-card {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    padding: 1.75rem;
+    border-radius: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: linear-gradient(135deg, rgba(29, 37, 56, 0.5) 0%, rgba(23, 29, 44, 0.3) 100%);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+    will-change: transform;
+  }
+
+  .workflow-card::after {
+    content: "";
+    position: absolute;
+    inset-inline: 1.25rem;
+    top: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(56, 217, 240, 0.55), transparent);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+  }
+
+  .workflow-card:hover {
+    border-color: rgba(56, 217, 240, 0.3);
+    transform: translateY(-4px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  .workflow-card:hover::after {
+    opacity: 1;
+  }
+
+  .workflow-card__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 0.875rem;
+    background: rgba(56, 217, 240, 0.10);
+    color: var(--color-brand-cyan);
+    margin-bottom: 1rem;
+    flex-shrink: 0;
+    transition: background 0.3s ease, transform 0.3s ease;
+  }
+
+  .workflow-card:hover .workflow-card__icon {
+    background: rgba(56, 217, 240, 0.18);
+    transform: scale(1.08);
+  }
+
+  .workflow-card__title {
+    font-size: 1.0625rem;
+    font-weight: 600;
+    color: var(--color-ink);
+    margin-bottom: 0.5rem;
+    line-height: 1.3;
+  }
+
+  .workflow-card__desc {
+    font-size: 0.9375rem;
+    line-height: 1.65;
+    color: var(--color-ink-muted);
+    flex: 1;
+  }
+
+  .workflow-card__arrow {
+    display: inline-block;
+    margin-top: 1rem;
+    font-size: 1rem;
+    color: var(--color-brand-cyan);
+    opacity: 0.7;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    align-self: flex-start;
+  }
+
+  .workflow-card:hover .workflow-card__arrow {
+    opacity: 1;
+    transform: translateX(4px);
+  }
+
+  /* Light theme */
+  :root.light .workflow-card {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.85) 0%, rgba(248, 250, 252, 0.6) 100%);
+    border-color: rgba(0, 0, 0, 0.08);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  }
+
+  :root.light .workflow-card:hover {
+    border-color: rgba(8, 145, 178, 0.35);
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  }
+
+  :root.light .workflow-card__icon {
+    background: rgba(8, 145, 178, 0.10);
+  }
+
+  :root.light .workflow-card:hover .workflow-card__icon {
+    background: rgba(8, 145, 178, 0.16);
+  }
+
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    .workflow-card,
+    .workflow-card::after,
+    .workflow-card__icon,
+    .workflow-card__arrow {
+      transition: none;
+    }
+
+    .workflow-card:hover {
+      transform: none;
+      box-shadow: none;
+    }
+
+    .workflow-card:hover .workflow-card__icon {
+      transform: none;
+    }
+
+    .workflow-card:hover .workflow-card__arrow {
+      transform: none;
+    }
+  }
+</style>
