@@ -553,6 +553,10 @@ export const i18n: Record<string, Record<string, string>> = {
     'workflowSelector.everyday.title': 'Everyday writing',
     'workflowSelector.everyday.desc': 'Speak your emails, chat replies, and quick notes instead of typing them — in any app, no tool to switch to.',
     'workflowSelector.everyday.ariaLabel': 'WhisPaste for everyday writing — learn more',
+    'marketing.moment.titleLead': 'Speak the way ',
+    'marketing.moment.titleAccent': 'you think.',
+    'marketing.moment.sub': 'Press the hotkey and talk — the text is already there, calm and at your own pace, right where your cursor sits.',
+    'marketing.moment.alt': 'Illustration: a person at a laptop, a speech bubble showing a sound waveform and another with flowing text.',
   },
   de: {
     'meta.title.default': 'WhisPaste — Spracheingabe direkt am Cursor',
@@ -1103,6 +1107,10 @@ export const i18n: Record<string, Record<string, string>> = {
     'workflowSelector.everyday.title': 'Vielschreiber',
     'workflowSelector.everyday.desc': 'E-Mails, Chat-Nachrichten und schnelle Notizen einfach sprechen — in jeder App, ohne Tippen, ohne Tool-Wechsel.',
     'workflowSelector.everyday.ariaLabel': 'WhisPaste für Vielschreiber — mehr erfahren',
+    'marketing.moment.titleLead': 'Sprich, wie du ',
+    'marketing.moment.titleAccent': 'denkst.',
+    'marketing.moment.sub': 'Tastenkürzel drücken und reden — der Text steht schon da, ruhig und in deinem Tempo, genau dort, wo dein Cursor blinkt.',
+    'marketing.moment.alt': 'Illustration: eine Person am Laptop, eine Sprechblase mit Sound-Wellenform und eine weitere mit fließendem Text.',
   }
 };
 

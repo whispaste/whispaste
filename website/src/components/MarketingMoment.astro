@@ -1,0 +1,117 @@
+---
+/**
+ * `MarketingMoment.astro` — ein einzelner, warmer Marken-Moment auf der
+ * Landing (inspiriert von wisprflow.ai): eine verspielte, hand-illustrierte
+ * Szene in UNSERER Palette (Teal/Cyan + ein warmer Amber-Akzent) neben einer
+ * ruhigen editorialen Zeile.
+ *
+ * Bewusst EINE Illustration — die Seite ist sonst bereits bildstark. Dieser
+ * Moment fügt Wärme und Menschlichkeit hinzu und bleibt durch den
+ * Illustrations-Stil (statt Fotografie) brand-kohärent zu den Use-Case-Bildern.
+ */
+import { t } from '../scripts/i18n.ts';
+
+const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
+---
+
+<section id="marketing-moment" class="band band-deep py-20 sm:py-28 scroll-reveal">
+  <div class="max-w-5xl mx-auto px-6">
+    <div class="mm-grid">
+      <figure class="mm-figure">
+        <img
+          class="mm-img"
+          src="/illustrations/marketing-speak-illustration.webp"
+          alt={t(lang, 'marketing.moment.alt')}
+          width="1024"
+          height="1024"
+          loading="lazy"
+          decoding="async"
+        />
+      </figure>
+      <div class="mm-copy">
+        <p class="mm-title"><!--
+          --><span data-i18n="marketing.moment.titleLead">{t(lang, 'marketing.moment.titleLead')}</span><!--
+          --><span class="text-gradient-brand" data-i18n="marketing.moment.titleAccent">{t(lang, 'marketing.moment.titleAccent')}</span><!--
+        --></p>
+        <p class="mm-sub" data-i18n="marketing.moment.sub">{t(lang, 'marketing.moment.sub')}</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .mm-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: clamp(1.5rem, 4vw, 3.5rem);
+    align-items: center;
+  }
+  @media (min-width: 768px) {
+    .mm-grid {
+      grid-template-columns: 0.85fr 1fr;
+    }
+  }
+
+  .mm-figure {
+    margin: 0;
+    border-radius: 1.25rem;
+    overflow: hidden;
+    max-width: 400px;
+    justify-self: center;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(56, 217, 240, 0.08);
+    transition:
+      transform 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform;
+  }
+  /* Micro-delight: the illustration tile lifts and the brand-cyan halo
+     intensifies on hover — a small tactile reward. */
+  .mm-figure:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 34px 74px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(56, 217, 240, 0.3),
+      0 0 40px rgba(56, 217, 240, 0.12);
+  }
+  :global(html.light) .mm-figure {
+    border-color: rgba(15, 23, 42, 0.1);
+    box-shadow: 0 18px 44px rgba(15, 23, 42, 0.14);
+  }
+  :global(html.light) .mm-figure:hover {
+    box-shadow: 0 26px 56px rgba(15, 23, 42, 0.18), 0 0 0 1px rgba(8, 145, 178, 0.3);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .mm-figure {
+      transition: none;
+    }
+    .mm-figure:hover {
+      transform: none;
+    }
+  }
+  .mm-img {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+  }
+
+  .mm-copy {
+    max-width: 30ch;
+  }
+  .mm-title {
+    font-family: var(--font-display, inherit);
+    font-weight: 700;
+    color: var(--color-ink, #fff);
+    font-size: clamp(1.75rem, 4.5vw, 3rem);
+    line-height: 1.04;
+    letter-spacing: -0.02em;
+    margin: 0;
+  }
+  .mm-sub {
+    margin: 1rem 0 0;
+    color: var(--color-ink-muted, rgba(226, 232, 240, 0.9));
+    font-size: clamp(1rem, 1.7vw, 1.1875rem);
+    line-height: 1.65;
+    max-width: 46ch;
+  }
+</style>
