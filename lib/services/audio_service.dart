@@ -463,10 +463,23 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
 
     // Stop the recorder first; this closes the platform PCM stream and
     // triggers `onDone` on our subscription.
+    //
+    // Bounded by a timeout: the `record` package can hang in `stop()` on
+    // Windows for very short recordings (the platform PCM stream's `onDone`
+    // never fires). That previously stalled the orchestrator's whole 10s
+    // capture budget and dropped the session into a lingering error
+    // (Sentry FLUTTER_WHISPASTE-80) — making rapid push-to-talk unreliable. Our
+    // own WAV is finalized below by the wav writer regardless of the platform
+    // stop, so timing out here and proceeding loses nothing.
     final recorder = _recorder;
     if (recorder != null) {
       try {
-        await recorder.stop();
+        await recorder.stop().timeout(const Duration(seconds: 3));
+      } on TimeoutException {
+        dev.log(
+          'recorder.stop() timed out after 3s — proceeding with captured WAV',
+          name: 'AudioService',
+        );
       } on Exception catch (e) {
         dev.log('Error stopping recorder: $e', name: 'AudioService');
       }
