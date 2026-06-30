@@ -21,6 +21,7 @@
 - **Das Zurücksetzen der Einstellungen (erneutes Onboarding) läuft jetzt immer vollständig durch** — auch wenn ein Teilschritt fehlschlägt.
 - **Kein seltener Absturz mehr beim Beenden**, während der Verlauf noch gespeichert wird.
 - **Eine Layout-Ungenauigkeit in der Transkript-Bearbeitungsleiste ist behoben** — die Wortzahl weicht jetzt sauber aus, statt am Rand minimal abzuschneiden.
+- **Der „Datenschutzerklärung"-Link auf der Über-Seite führt wieder ans Ziel.** Er zeigt jetzt sprachabhängig auf die aktuelle Datenschutzerklärung, statt auf eine veraltete Adresse ins Leere zu laufen.
 
 ## 1.2.41
 
