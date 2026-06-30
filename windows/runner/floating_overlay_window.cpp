@@ -237,6 +237,21 @@ LRESULT FloatingOverlayWindow::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
     case WM_MOUSEACTIVATE:
       return MA_NOACTIVATE;
 
+    // ── Sticky topmost: pin to the top of the z-order BEFORE the change ──
+    // This shell has no Win32 owner (by design, to avoid auto-minimising with
+    // the tray-bound main window). An ownerless topmost popup can be pushed
+    // below other windows when they come forward; forcing `hwndInsertAfter`
+    // back to HWND_TOPMOST on every incoming z-order change keeps it pinned
+    // above all normal windows. No-op when SWP_NOZORDER is set (our own
+    // size/position SetWindowPos calls), so it never fights internal updates.
+    case WM_WINDOWPOSCHANGING: {
+      auto* wp_pos = reinterpret_cast<WINDOWPOS*>(lp);
+      if (visible_ && !(wp_pos->flags & SWP_NOZORDER)) {
+        wp_pos->hwndInsertAfter = HWND_TOPMOST;
+      }
+      return DefWindowProcW(hwnd_, msg, wp, lp);
+    }
+
     // ── Re-assert topmost if z-order was changed externally ────────────
     case WM_WINDOWPOSCHANGED: {
       auto* wp_pos = reinterpret_cast<WINDOWPOS*>(lp);

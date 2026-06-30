@@ -112,16 +112,23 @@ test.describe('i18n integrity', () => {
     expect(violations).toEqual([]);
   });
 
+  // Section titles are split into lead/accent/tail spans so the accent word can
+  // carry the cyan brand gradient. The trailing `*.titleTail` segment is empty
+  // by design whenever the accent word ends the title (e.g. "stays yours"). The
+  // key must still exist so the runtime `applyLang` toggle can clear the span,
+  // so these are legitimately-empty and exempt from the no-empty-value check.
+  const isIntentionallyEmpty = (key: string) => key.endsWith('.titleTail');
+
   test('EN translations have no empty values', () => {
     const empty = Object.entries(en)
-      .filter(([, v]) => v.trim() === '')
+      .filter(([k, v]) => v.trim() === '' && !isIntentionallyEmpty(k))
       .map(([k]) => k);
     expect(empty, `Empty EN values: ${empty.join(', ')}`).toEqual([]);
   });
 
   test('DE translations have no empty values', () => {
     const empty = Object.entries(de)
-      .filter(([, v]) => v.trim() === '')
+      .filter(([k, v]) => v.trim() === '' && !isIntentionallyEmpty(k))
       .map(([k]) => k);
     expect(empty, `Empty DE values: ${empty.join(', ')}`).toEqual([]);
   });

@@ -20,12 +20,11 @@ const cards = [
 ---
 
 <!-- Privacy Section (dark block) -->
-<section class="py-24 sm:py-32 relative bg-brand-darker/80">
-  <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(20,184,212,0.06)_0%,_transparent_60%)]"></div>
+<section class="band band-spotlight py-24 sm:py-32 relative">
   <div class="relative max-w-4xl mx-auto px-6">
     <div class="text-center mb-16 scroll-reveal">
       <p class="text-brand-cyan text-sm font-semibold tracking-wider uppercase mb-3" data-i18n="privacy.label">{t(lang, "privacy.label")}</p>
-      <h2 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-white" data-i18n="privacy.title">{t(lang, "privacy.title")}</h2>
+      <h2 class="section-title"><span data-i18n="privacy.titleLead">{t(lang, "privacy.titleLead")}</span><span class="text-gradient-brand" data-i18n="privacy.titleAccent">{t(lang, "privacy.titleAccent")}</span><span data-i18n="privacy.titleTail">{t(lang, "privacy.titleTail")}</span></h2>
       <p class="mt-4 text-ink-muted text-lg max-w-3xl mx-auto" data-i18n="privacy.desc">{t(lang, "privacy.desc")}</p>
     </div>
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 scroll-reveal">
