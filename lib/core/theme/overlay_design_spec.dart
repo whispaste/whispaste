@@ -680,12 +680,24 @@ abstract final class OverlayDesignSpec {
   /// 15 pt timer to the compact 10 pt.
   static const double compactScale = 2 / 3;
 
-  /// Base alpha of the capsule's tint gradient fill (approved spike value
-  /// `0.92`). The opacity setting scales ONLY the translucent pill chrome
-  /// (fill gradient, painted shadow, border) by `fillOpacityFactor × opacity`;
-  /// the content layer (text, icons, dot, waveform, stop, timeline) always
-  /// stays fully opaque (accessibility, ADR 0002).
-  static const double fillOpacityFactor = 0.92;
+  /// Base alpha of the capsule's tint gradient fill. Lowered from the original
+  /// near-opaque spike value (`0.92`) to `0.66` for the chosen **faux-glass**
+  /// look (task #38): the capsule now reads as translucent glass — the desktop
+  /// shows through and the [glassSheenOpacity] highlight reads as a glass edge.
+  /// Cross-platform (pure Dart in [OverlayPainter], identical on macOS/Windows/
+  /// Linux); no OS-level blur is used. Stays above [minRecommendedOpacity] so
+  /// content contrast holds over a worst-case background.
+  ///
+  /// The opacity setting scales ONLY the translucent pill chrome (fill gradient,
+  /// painted shadow, border) by `fillOpacityFactor × opacity`; the content layer
+  /// (text, icons, dot, waveform, stop, timeline) always stays fully opaque
+  /// (accessibility, ADR 0002).
+  static const double fillOpacityFactor = 0.66;
+
+  /// Alpha of the white glass sheen painted over the capsule fill (task #38):
+  /// a top-down highlight plus a bright inner rim that reads as a glass edge,
+  /// giving the faux-glass capsule its "frosted" feel without any OS blur.
+  static const double glassSheenOpacity = 0.40;
 
   /// Recommended slider floor for the opacity setting — below this white text
   /// over a worst-case white background drops under WCAG AA (ADR 0002).

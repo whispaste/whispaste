@@ -174,9 +174,11 @@ void main() {
 
   group('OverlayDesignSpec — accessibility', () {
     test('opacity affects only the chrome; floor is WCAG-safe', () {
-      // Approved spike fill alpha is 0.92; the factor scales only the pill
+      // Faux-glass fill alpha is 0.66 (task #38) — translucent enough to read as
+      // glass, still above the WCAG floor. The factor scales only the pill
       // chrome (fill gradient, shadow, border), never the content.
-      expect(OverlayDesignSpec.fillOpacityFactor, 0.92);
+      expect(OverlayDesignSpec.fillOpacityFactor, 0.66);
+      expect(OverlayDesignSpec.fillOpacityFactor, greaterThan(0.65));
       expect(OverlayDesignSpec.minRecommendedOpacity, 0.65);
     });
   });

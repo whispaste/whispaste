@@ -122,6 +122,7 @@ class OverlayPainter extends CustomPainter {
     if (paintFill) {
       _drawShadow(canvas, rrect);
       _drawFill(canvas, rrect, pill);
+      _drawGlassSheen(canvas, rrect, pill);
       _drawBorder(canvas, rrect);
     }
 
@@ -163,6 +164,35 @@ class OverlayPainter extends CustomPainter {
             colors.capsuleFillEnd.withValues(alpha: a),
           ],
         ).createShader(pill),
+    );
+  }
+
+  /// Faux-glass sheen (task #38): a top-down white highlight plus a bright inner
+  /// rim that reads as a glass edge, giving the translucent capsule its frosted
+  /// feel without any OS blur. Cross-platform — drawn identically everywhere.
+  void _drawGlassSheen(Canvas canvas, RRect rrect, Rect pill) {
+    const sheen = OverlayDesignSpec.glassSheenOpacity;
+    canvas.drawRRect(
+      rrect,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            const Color(0xFFFFFFFF).withValues(alpha: sheen),
+            const Color(0x00FFFFFF),
+          ],
+          stops: const [0.0, 0.55],
+        ).createShader(pill),
+    );
+    // Bright glass rim over the tinted border (drawn here so the border still
+    // overlays it for the colour accent).
+    canvas.drawRRect(
+      rrect,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0
+        ..color = const Color(0xFFFFFFFF).withValues(alpha: sheen * 0.9),
     );
   }
 

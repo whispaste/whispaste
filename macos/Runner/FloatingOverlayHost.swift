@@ -218,8 +218,14 @@ class FloatingOverlayHost {
     // subview instead of as the panel's `contentViewController` breaks the
     // Flutter view's sizing / backing-scale on this NSPanel → the overlay
     // renders grossly oversized and clipped. Reproduced TWICE (2026-06-30) and
-    // reverted both times. Real desktop-blur vibrancy here needs a proven path
-    // (e.g. `macos_window_utils`), not a hand-rolled container. See ADR 0002.
+    // reverted both times.
+    //
+    // NOTE (2026-06-30, task #38): a proper view-controller-CONTAINMENT spike
+    // (Flutter VC added as a child VC behind a pill-masked NSVisualEffectView)
+    // DID keep sizing correct and produced real desktop blur — but the chosen
+    // "frosted glass" is the cross-platform faux-glass painted in Dart
+    // (OverlayPainter, identical on macOS/Windows/Linux), so no native blur is
+    // wired here. The panel stays a clear shell. See ADR 0002.
     p.contentViewController = vc
     p.setContentSize(size)
 
