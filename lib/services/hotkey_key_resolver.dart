@@ -407,6 +407,12 @@ List<HotKeyModifier> resolveModifiers(String modifiers) {
         result.add(HotKeyModifier.alt);
       case 'meta' || 'win' || 'super' || 'cmd':
         result.add(HotKeyModifier.meta);
+      // AltGr is physically Ctrl+Alt (Windows). Registering it as Ctrl+Alt is
+      // what makes an AltGr+key hotkey actually fire — a plain Alt registration
+      // never matches because AltGr also holds the (left) Ctrl (#39).
+      case 'altgr':
+        result.add(HotKeyModifier.control);
+        result.add(HotKeyModifier.alt);
       // Self-healing aliases for DBs corrupted by the pre-fix recorder, which
       // persisted localized display labels (Option/Strg/Umschalt/Befehl) as
       // storage strings. Accept them once so existing users don't have to

@@ -19,6 +19,7 @@ import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import '../services/hotkey_conflicts.dart';
 import '../services/hotkey_key_resolver.dart' as key_resolver;
+import '../services/win_layout_label.dart';
 import 'dialog.dart';
 
 // ---------------------------------------------------------------------------
@@ -114,11 +115,6 @@ class HotkeyRecorderDialog extends StatefulWidget {
 
   // ── Key-parsing helpers ──────────────────────────────────────────────
 
-  /// Parses a storage string like `'ctrl+shift'` into display labels.
-  static List<String> parseModifiers(String modifiers) {
-    return hotkeyModifierLabels(modifiers);
-  }
-
   /// Serializes a set of held modifier keys to storage format.
   ///
   /// Delegates to [key_resolver.serializeModifiers] — the canonical single
@@ -195,8 +191,6 @@ final Set<LogicalKeyboardKey> singleKeyWhitelist = {
 };
 
 class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
-  late List<String> _modifierLabels;
-
   /// User-visible label rendered inside the key cap (e.g. `'D'`, `'Ö'`,
   /// `'F1'`). May diverge from [_storageKey] when the user pressed a
   /// layout-dependent character.
@@ -207,16 +201,20 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
   /// key is currently recorded.
   late String _storageKey;
 
-  /// Canonical storage-format modifier string (e.g. `'ctrl+shift'`) captured
-  /// at the moment the last valid combo was recorded.
-  ///
-  /// Distinct from [_modifierLabels], which holds display labels for the UI.
-  /// Persisted via [HotkeyResult] on save so registrar reads see canonical
-  /// tokens, not localized display strings.
+  /// Canonical storage-format modifier string (e.g. `'ctrl+shift'`, `'altgr'`)
+  /// captured at the moment the last valid combo was recorded. Display labels
+  /// are derived from this at render time via [hotkeyModifierLabels] so they
+  /// stay localized and platform-correct (Strg/Option/AltGr …). Persisted via
+  /// [HotkeyResult] on save so registrar reads see canonical tokens.
   late String _modifiersStorage;
 
   /// Tracks currently held modifier keys during recording.
   final Set<LogicalKeyboardKey> _heldModifiers = {};
+
+  /// True when the held Alt is AltGr (Windows RightAlt + synthetic LeftCtrl).
+  /// Stored as plain `alt` (AltGr is not a registrable modifier) but displayed
+  /// as `AltGr` so the cap matches what the user pressed (#39).
+  bool _isAltGr = false;
 
   /// True when the current [_keyLabel] was set by a whitelisted single key
   /// (F1–F12 or selected media keys) pressed without any modifier.
@@ -235,9 +233,6 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
   @override
   void initState() {
     super.initState();
-    _modifierLabels = HotkeyRecorderDialog.parseModifiers(
-      widget.initialModifiers,
-    );
     _modifiersStorage = widget.initialModifiers;
     // Validate the persisted key before trusting it as a valid combo.
     // Pre-fix DBs may contain non-resolvable tokens (e.g. raw `'Ö'`) that the
@@ -255,7 +250,8 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
     }
     // When the dialog opens with a pre-existing whitelisted single-key binding
     // (no modifiers), mark it so the Save button is enabled immediately.
-    _isSingleKey = _modifierLabels.isEmpty && _isWhitelistedLabel(_storageKey);
+    _isSingleKey =
+        _modifiersStorage.isEmpty && _isWhitelistedLabel(_storageKey);
     // Check initial combo against the system conflict list (use storage token
     // so the conflict table matches its US-layout keys).
     _conflict = _storageKey.isEmpty
@@ -297,91 +293,118 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
     if (event is KeyDownEvent || event is KeyRepeatEvent) {
       if (_modifierKeys.contains(key)) {
         _heldModifiers.add(key);
-        // AltGr guard (Windows only): pressing AltGr (physical RightAlt) makes
-        // Windows inject a synthetic LeftCtrl alongside RightAlt, which would
-        // otherwise be recorded as "ctrl+alt". Drop that synthetic ctrl so AltGr
-        // binds as a plain Alt. Skipped if a RightCtrl is also held (then the
-        // user genuinely wants Ctrl). Linux AltGr injects no control key, so the
-        // guard is Windows-specific. `defaultTargetPlatform` (not dart:io) keeps
-        // this unit-testable via debugDefaultTargetPlatformOverride.
-        if (defaultTargetPlatform == TargetPlatform.windows &&
-            key == LogicalKeyboardKey.altRight &&
-            !_heldModifiers.contains(LogicalKeyboardKey.controlRight)) {
-          _heldModifiers.remove(LogicalKeyboardKey.controlLeft);
-        }
+        _detectAltGr(key);
       } else if (_heldModifiers.isNotEmpty ||
           singleKeyWhitelist.contains(key) ||
           key_resolver.canonicalRecordableKey(event) != null) {
-        // Resolve the canonical storage key (logical or via physical-position
-        // fallback for layout-dependent chars like Ö/Ä/Ü on DE).
-        // Display-vs-storage symmetry across platforms:
-        // - macOS: Flutter reports a Unicode logical key for layout-dependent
-        //   chars (e.g. 0xF6 for Ö) regardless of modifiers — the physical
-        //   fallback below preserves the user-pressed display label `Ö`.
-        // - Windows: layout-dependent chars work too, but Ctrl-combinations
-        //   suppress the layout translation, so Flutter reports the canonical
-        //   `LogicalKeyboardKey.semicolon` directly. The fast path then keeps
-        //   the canonical label as both storage and display — functional, but
-        //   the cap reads `;` instead of `Ö`. Tracking the layout char through
-        //   `event.character` is intentionally not added here yet: it requires
-        //   per-platform verification and the limitation is cosmetic.
-        final canonical = key_resolver.canonicalRecordableKey(event);
-        if (canonical == null) {
-          setState(() {
-            _showInvalidKeyHint = true;
-          });
-          return;
-        }
-        // Need either a held modifier OR a single-key whitelist member —
-        // letters / punctuation alone must not be capturable as global
-        // shortcuts (would swallow normal typing).
-        final structurallyAllowed =
-            _heldModifiers.isNotEmpty || singleKeyWhitelist.contains(canonical);
-        if (!structurallyAllowed) {
-          setState(() {
-            _showInvalidKeyHint = true;
-          });
-          return;
-        }
-        final serializedMods = HotkeyRecorderDialog.serializeModifiers(
-          _heldModifiers,
-        );
-        final storageLabel = HotkeyRecorderDialog.keyLabel(canonical);
-        // Display label: prefer the original character the user pressed when
-        // it differs from the canonical token (e.g. `Ö` ≠ `;`). For canonical
-        // matches keep the resolver label so casing/symbols stay consistent.
-        final pressedLabel = HotkeyRecorderDialog.keyLabel(key);
-        final displayLabel =
-            (canonical != key &&
-                pressedLabel.isNotEmpty &&
-                pressedLabel != storageLabel)
-            ? pressedLabel
-            : storageLabel;
-        setState(() {
-          _modifiersStorage = serializedMods;
-          _modifierLabels = HotkeyRecorderDialog.parseModifiers(serializedMods);
-          _storageKey = storageLabel;
-          _keyLabel = displayLabel;
-          _isSingleKey =
-              _heldModifiers.isEmpty && singleKeyWhitelist.contains(canonical);
-          _conflict = findConflict(serializedMods, storageLabel);
-          _showInvalidKeyHint = false;
-        });
+        _recordKey(event, key);
       }
     } else if (event is KeyUpEvent) {
       _heldModifiers.remove(key);
+      if (key == LogicalKeyboardKey.altRight) _isAltGr = false;
     }
+  }
+
+  /// Marks the held Alt as AltGr (Windows only). Pressing AltGr (physical
+  /// RightAlt) makes Windows inject a synthetic LeftCtrl alongside RightAlt —
+  /// that pairing distinguishes AltGr from a plain RightAlt. The combo is then
+  /// stored as the distinct `altgr` token: registered as Ctrl+Alt (AltGr
+  /// physically *is* Ctrl+Alt, so it actually fires) and shown as a localized
+  /// "AltGr". Skipped when a RightCtrl is also held (the user genuinely wants
+  /// Ctrl). Linux AltGr injects no control key, macOS has none — Windows-only.
+  /// `defaultTargetPlatform` keeps this testable via the override.
+  void _detectAltGr(LogicalKeyboardKey key) {
+    if (defaultTargetPlatform == TargetPlatform.windows &&
+        key == LogicalKeyboardKey.altRight &&
+        _heldModifiers.contains(LogicalKeyboardKey.controlLeft) &&
+        !_heldModifiers.contains(LogicalKeyboardKey.controlRight)) {
+      _isAltGr = true;
+    }
+  }
+
+  /// Records a non-modifier key press as the hotkey's main key (with the
+  /// currently-held modifiers), or shows the invalid-key hint when it cannot be
+  /// used. Storage stays canonical/layout-stable; the displayed cap prefers the
+  /// real character the user pressed (e.g. `Ö`), resolved natively on Windows.
+  void _recordKey(KeyEvent event, LogicalKeyboardKey key) {
+    final canonical = key_resolver.canonicalRecordableKey(event);
+    if (canonical == null) {
+      setState(() => _showInvalidKeyHint = true);
+      return;
+    }
+    // Need either a held modifier OR a single-key whitelist member — letters /
+    // punctuation alone must not be capturable (would swallow normal typing).
+    final structurallyAllowed =
+        _heldModifiers.isNotEmpty || singleKeyWhitelist.contains(canonical);
+    if (!structurallyAllowed) {
+      setState(() => _showInvalidKeyHint = true);
+      return;
+    }
+    final serializedMods = _isAltGr
+        ? _altGrModifierStorage()
+        : HotkeyRecorderDialog.serializeModifiers(_heldModifiers);
+    final storageLabel = HotkeyRecorderDialog.keyLabel(canonical);
+    // Display label: prefer the character the user actually pressed when it
+    // differs from the canonical token (e.g. `Ö` ≠ `;`); otherwise the resolver
+    // label so casing/symbols stay consistent.
+    final pressedLabel = HotkeyRecorderDialog.keyLabel(key);
+    final displayLabel =
+        (canonical != key &&
+            pressedLabel.isNotEmpty &&
+            pressedLabel != storageLabel)
+        ? pressedLabel
+        : storageLabel;
+    setState(() {
+      _modifiersStorage = serializedMods;
+      _storageKey = storageLabel;
+      _keyLabel = displayLabel;
+      _isSingleKey =
+          _heldModifiers.isEmpty && singleKeyWhitelist.contains(canonical);
+      _conflict = findConflict(serializedMods, storageLabel);
+      _showInvalidKeyHint = false;
+    });
+    // Windows: a key captured under a Ctrl/AltGr modifier arrives as its
+    // US-canonical form — resolve the real layout label (Ö/Ä/Ü) for the cap.
+    unawaited(_resolveLayoutLabel(canonical, storageLabel));
+  }
+
+  /// Replaces the displayed key cap with the active-layout character (e.g. `Ö`)
+  /// once the native lookup returns, if the same key is still selected.
+  Future<void> _resolveLayoutLabel(
+    LogicalKeyboardKey canonical,
+    String storageLabel,
+  ) async {
+    final resolved = await resolveWindowsLayoutLabel(canonical);
+    if (resolved != null && mounted && _storageKey == storageLabel) {
+      setState(() => _keyLabel = resolved);
+    }
+  }
+
+  /// Builds the storage string for an AltGr combo: the distinct `altgr` token
+  /// (resolves to Ctrl+Alt for registration, shows as a localized "AltGr"),
+  /// preserving any other held modifier (e.g. Shift → `shift+altgr`).
+  String _altGrModifierStorage() {
+    final others = <LogicalKeyboardKey>{
+      for (final k in _heldModifiers)
+        if (k != LogicalKeyboardKey.altLeft &&
+            k != LogicalKeyboardKey.altRight &&
+            k != LogicalKeyboardKey.controlLeft &&
+            k != LogicalKeyboardKey.controlRight)
+          k,
+    };
+    final base = HotkeyRecorderDialog.serializeModifiers(others);
+    return base.isEmpty ? 'altgr' : '$base+altgr';
   }
 
   void _clear() {
     setState(() {
-      _modifierLabels = [];
       _modifiersStorage = '';
       _keyLabel = '';
       _storageKey = '';
       _isSingleKey = false;
       _conflict = null;
       _heldModifiers.clear();
+      _isAltGr = false;
       _showInvalidKeyHint = false;
     });
   }
@@ -424,13 +447,18 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
     final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
     final l10n = L10n.of(context);
 
+    // Modifier chips, derived from the canonical storage tokens at render time
+    // so they stay localized AND platform-correct (Strg/Option/AltGr/Win …).
+    final modifierLabels = hotkeyModifierLabels(_modifiersStorage, l10n: l10n);
+
     // A valid combo requires a resolvable storage key plus either a modifier
     // or a whitelisted single key (F1–F12, media keys — stored in
     // _isSingleKey). Driven by the canonical storage key, not the display
     // label, so a stale DB value (e.g. `'Ö'`) that initState rejected keeps
     // Save disabled.
     final hasCombo =
-        _storageKey.isNotEmpty && (_modifierLabels.isNotEmpty || _isSingleKey);
+        _storageKey.isNotEmpty &&
+        (_modifiersStorage.isNotEmpty || _isSingleKey);
 
     return Center(
       child: KeyboardListener(
@@ -491,8 +519,8 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
                       switchInCurve: WpMotion.defaultCurve,
                       switchOutCurve: WpMotion.defaultCurve,
                       child: _KeyComboDisplay(
-                        key: ValueKey('$_modifierLabels-$_keyLabel'),
-                        modifiers: _modifierLabels,
+                        key: ValueKey('$modifierLabels-$_keyLabel'),
+                        modifiers: modifierLabels,
                         keyLabel: _keyLabel,
                         isDark: isDark,
                       ),

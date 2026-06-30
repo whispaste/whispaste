@@ -44,5 +44,15 @@ void main() {
 
       expect(formatHotkeyShortcut('ctrl', 'd', l10n: l10n), 'Ctrl+D');
     });
+
+    testWidgets('altgr token renders as the AltGr label (#39)', (tester) async {
+      final l10n = await pumpLocale(tester, const Locale('de'));
+
+      expect(hotkeyModifierLabels('altgr', l10n: l10n), ['AltGr']);
+      expect(hotkeyModifierLabels('shift+altgr', l10n: l10n), [
+        'Umschalt',
+        'AltGr',
+      ]);
+    });
   });
 }

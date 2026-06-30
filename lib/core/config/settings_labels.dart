@@ -53,6 +53,9 @@ List<String> hotkeyModifierLabels(String modifiers, {L10n? l10n}) {
           'meta' || 'win' || 'super' =>
             isMac ? (l10n?.modifierCmd ?? 'Cmd') : (l10n?.modifierWin ?? 'Win'),
           'cmd' => l10n?.modifierCmd ?? 'Cmd',
+          // AltGr (Windows): stored distinctly so it survives a save and shows
+          // as "AltGr"; registers as Ctrl+Alt (see resolveModifiers) (#39).
+          'altgr' => l10n?.modifierAltGr ?? 'AltGr',
           _ => modifier,
         },
       )

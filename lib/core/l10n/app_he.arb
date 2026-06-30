@@ -478,6 +478,7 @@
   "modifierWin": "Win",
   "modifierCmd": "Cmd",
   "modifierOption": "Option",
+  "modifierAltGr": "AltGr",
   "shortcutKeySpace": "רווח",
   "shortcutKeyEnter": "Enter",
   "shortcutKeyEscape": "Esc",

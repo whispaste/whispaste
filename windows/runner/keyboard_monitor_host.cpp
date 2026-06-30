@@ -2,8 +2,10 @@
 
 #include <flutter/encodable_value.h>
 
+#include <string>
 #include <vector>
 
+using flutter::EncodableMap;
 using flutter::EncodableValue;
 using flutter::MethodCall;
 using flutter::MethodResult;
@@ -79,6 +81,30 @@ void KeyboardMonitorHost::ArmRelease() {
   }
 }
 
+std::string KeyboardMonitorHost::ResolveLayoutLabel(int vk) {
+  if (vk <= 0) return "";
+  const HKL hkl = ::GetKeyboardLayout(0);
+  const UINT sc = ::MapVirtualKeyExW(static_cast<UINT>(vk), MAPVK_VK_TO_VSC, hkl);
+  BYTE keystate[256] = {0};  // no modifiers held → the bare key char
+  wchar_t buf[8] = {0};
+  const int n =
+      ::ToUnicodeEx(static_cast<UINT>(vk), sc, keystate, buf, 8, 0, hkl);
+  if (n < 0) {
+    // Dead key (e.g. ^ ` ´): the accent is in buf[0], but the call armed the
+    // layout's dead-key state — call again to flush it so live typing is not
+    // affected.
+    wchar_t flush[8] = {0};
+    ::ToUnicodeEx(static_cast<UINT>(vk), sc, keystate, flush, 8, 0, hkl);
+  }
+  if (buf[0] == 0) return "";
+
+  char utf8[8] = {0};
+  const int len = ::WideCharToMultiByte(CP_UTF8, 0, buf, 1, utf8,
+                                        sizeof(utf8), nullptr, nullptr);
+  if (len <= 0) return "";
+  return std::string(utf8, len);
+}
+
 void KeyboardMonitorHost::HandleMethodCall(
     const MethodCall<EncodableValue>& call,
     std::unique_ptr<MethodResult<EncodableValue>> result) {
@@ -98,6 +124,20 @@ void KeyboardMonitorHost::HandleMethodCall(
   if (method == "armRelease") {
     ArmRelease();
     result->Success();
+    return;
+  }
+
+  if (method == "resolveLayoutLabel") {
+    const auto* args = call.arguments();
+    const EncodableMap* map = args ? std::get_if<EncodableMap>(args) : nullptr;
+    int vk = 0;
+    if (map) {
+      auto it = map->find(EncodableValue("vk"));
+      if (it != map->end()) {
+        if (const auto* v = std::get_if<int>(&it->second)) vk = *v;
+      }
+    }
+    result->Success(EncodableValue(ResolveLayoutLabel(vk)));
     return;
   }
 

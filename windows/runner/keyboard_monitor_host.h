@@ -28,6 +28,7 @@
 #include <windows.h>
 
 #include <memory>
+#include <string>
 
 class KeyboardMonitorHost {
  public:
@@ -54,6 +55,13 @@ class KeyboardMonitorHost {
   // Snapshots the currently-held non-modifier key as the one whose release
   // ends the hold (see header comment).
   void ArmRelease();
+
+  // Resolves the character the given Windows virtual-key produces on the ACTIVE
+  // keyboard layout, unmodified (e.g. US `;` VK_OEM_1 → "ö" on a German layout).
+  // Lets the hotkey recorder show the real key (Ö/Ä/Ü) instead of the canonical
+  // US label that Flutter reports when a Ctrl/AltGr modifier is held (#39).
+  // Returns "" when the key has no character (function keys etc.).
+  std::string ResolveLayoutLabel(int vk);
 
   flutter::FlutterEngine* engine_;
   HWND owner_;

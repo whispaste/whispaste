@@ -441,12 +441,14 @@ void main() {
     });
 
     testWidgets(
-      'Windows AltGr (RightAlt) → "alt" — synthetic LeftCtrl dropped (#39)',
+      'Windows AltGr (RightAlt) → "altgr" token (registers as Ctrl+Alt) (#39)',
       (tester) async {
         debugDefaultTargetPlatformOverride = TargetPlatform.windows;
         try {
-          // Windows injects a synthetic LeftCtrl right before RightAlt when
-          // AltGr is pressed; the recorder must not persist that as "ctrl+alt".
+          // Windows injects a synthetic LeftCtrl right before RightAlt for
+          // AltGr. The recorder stores the distinct `altgr` token, which
+          // resolves to Ctrl+Alt for registration (so the hotkey fires) and
+          // displays as a localized "AltGr".
           final result = await openRecorderAndCapture(
             tester,
             keys: [
@@ -460,10 +462,10 @@ void main() {
           expect(result!.key, 'D');
           expect(
             result.modifiers,
-            'alt',
+            'altgr',
             reason:
-                'AltGr binds as plain Alt; the synthetic LeftCtrl Windows '
-                'injects with RightAlt must not be stored as "ctrl+alt".',
+                'AltGr is stored as its own token so it survives a save and '
+                'registers as Ctrl+Alt (not a non-firing plain Alt).',
           );
         } finally {
           debugDefaultTargetPlatformOverride = null;

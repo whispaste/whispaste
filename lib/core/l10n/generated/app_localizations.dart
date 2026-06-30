@@ -2529,6 +2529,12 @@ abstract class L10n {
   /// **'Option'**
   String get modifierOption;
 
+  /// No description provided for @modifierAltGr.
+  ///
+  /// In en, this message translates to:
+  /// **'AltGr'**
+  String get modifierAltGr;
+
   /// No description provided for @shortcutKeySpace.
   ///
   /// In en, this message translates to:

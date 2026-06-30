@@ -482,6 +482,23 @@ void main() {
       expect(resolveModifiers('meta'), [HotKeyModifier.meta]);
     });
 
+    test('altgr maps to control+alt (so an AltGr hotkey actually fires)', () {
+      // AltGr is physically Ctrl+Alt on Windows; registering it as Ctrl+Alt is
+      // what makes the hotkey fire (#39).
+      expect(resolveModifiers('altgr'), [
+        HotKeyModifier.control,
+        HotKeyModifier.alt,
+      ]);
+    });
+
+    test('shift+altgr maps to shift+control+alt', () {
+      expect(resolveModifiers('shift+altgr'), [
+        HotKeyModifier.shift,
+        HotKeyModifier.control,
+        HotKeyModifier.alt,
+      ]);
+    });
+
     test('cmd maps to meta', () {
       expect(resolveModifiers('cmd'), [HotKeyModifier.meta]);
     });

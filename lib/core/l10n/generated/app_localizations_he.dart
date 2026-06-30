@@ -1331,6 +1331,9 @@ class L10nHe extends L10n {
   String get modifierOption => 'Option';
 
   @override
+  String get modifierAltGr => 'AltGr';
+
+  @override
   String get shortcutKeySpace => 'רווח';
 
   @override
