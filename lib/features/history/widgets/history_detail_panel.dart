@@ -1126,13 +1126,18 @@ class _TranscriptEditBar extends StatelessWidget {
               if (showBadge && showWordCount)
                 const SizedBox(width: WpSpacing.xs),
               if (showWordCount)
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 120),
-                  child: Text(
-                    wordCountLabel,
-                    style: TextStyle(fontSize: 11, color: textMuted),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                // Flexible (not a hard ConstrainedBox) so the word-count yields
+                // space when the badge + count would otherwise overrun the row
+                // by a couple of pixels (FLUTTER_WHISPASTE-64).
+                Flexible(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 120),
+                    child: Text(
+                      wordCountLabel,
+                      style: TextStyle(fontSize: 11, color: textMuted),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ),
             ],
