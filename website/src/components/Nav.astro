@@ -31,10 +31,10 @@ const backHref = lang === 'de' ? '/' : '/en/';
   id="site-nav"
   aria-label={t(lang, "nav.mainAria")}
   data-i18n-aria="nav.mainAria"
-  class="fixed top-0 w-full z-50 bg-brand-darker/40 backdrop-blur-2xl backdrop-saturate-150 border-b border-white/[0.06]"
+  class="fixed top-0 inset-x-0 z-50 px-4 pt-3 sm:pt-4 pointer-events-none"
 >
   <div
-    class={`nav-inner mx-auto px-6 h-14 flex items-center justify-between ${variant === "subpage" ? "max-w-4xl" : "max-w-6xl"}`}
+    class={`nav-pill pointer-events-auto mx-auto px-5 sm:px-6 h-14 flex items-center justify-between rounded-2xl border border-white/[0.08] ${variant === "subpage" ? "max-w-4xl" : "max-w-6xl"}`}
   >
     <a
       href={variant === "subpage" ? backHref : "#"}
@@ -120,8 +120,8 @@ const backHref = lang === 'de' ? '/' : '/en/';
     )}
   </div>
   {variant === "landing" && (
-    <div id="mobileMenu" class="sm:hidden hidden border-t border-white/[0.06]">
-      <div class="max-w-6xl mx-auto px-6 py-3 flex flex-col">
+    <div id="mobileMenu" class="sm:hidden hidden pointer-events-auto mx-auto mt-2 max-w-6xl rounded-2xl border border-white/[0.08] overflow-hidden">
+      <div class="px-5 py-3 flex flex-col">
         <a href="#how-it-works" class="mobile-nav-link block py-3 text-gray-300 hover:text-white transition-colors text-[15px]" data-i18n="nav.howitworks">{t(lang, "nav.howitworks")}</a>
         <a href="#faq" class="mobile-nav-link block py-3 text-gray-300 hover:text-white transition-colors text-[15px] border-t border-white/[0.04]" data-i18n="nav.faq">{t(lang, "nav.faq")}</a>
         <div class="flex items-center gap-5 py-3 border-t border-white/[0.04]">
@@ -201,49 +201,61 @@ const backHref = lang === 'de' ? '/' : '/en/';
 </script>
 
 <style>
-  /* Shrink-on-scroll: nav grows denser + gains depth once the page moves. */
-  #site-nav {
-    transition: background-color 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+  /* Floating frosted-glass pill: lives above the content with a gutter left
+     and right, centered, and a little see-through. The blur stays strong; only
+     the fill opacity is dialed down so the page shows through. On scroll the
+     pill condenses + gains depth (same shrink-on-scroll behaviour as before). */
+  #site-nav .nav-pill {
+    position: relative;
+    background-color: rgba(19, 24, 38, 0.28);
+    backdrop-filter: blur(24px) saturate(150%);
+    -webkit-backdrop-filter: blur(24px) saturate(150%);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    transition: background-color 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease,
+      height 0.3s cubic-bezier(0.22, 1, 0.36, 1);
   }
-  #site-nav .nav-inner {
-    transition: height 0.3s cubic-bezier(0.22, 1, 0.36, 1);
-  }
-  #site-nav[data-scrolled="true"] {
-    background-color: rgba(19, 24, 38, 0.72);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
-    border-bottom-color: rgba(255, 255, 255, 0.1);
-  }
-  #site-nav[data-scrolled="true"] .nav-inner {
+  #site-nav[data-scrolled="true"] .nav-pill {
+    background-color: rgba(19, 24, 38, 0.6);
+    box-shadow: 0 10px 36px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+    border-color: rgba(255, 255, 255, 0.12);
     height: 3rem;
   }
-  :global(html.light) #site-nav[data-scrolled="true"] {
-    background-color: rgba(241, 245, 249, 0.8) !important;
-    box-shadow: 0 4px 20px rgba(15, 23, 42, 0.08);
+  :global(html.light) #site-nav .nav-pill {
+    background-color: rgba(241, 245, 249, 0.55);
+    border-color: rgba(15, 23, 42, 0.08);
+    box-shadow: 0 8px 28px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  }
+  :global(html.light) #site-nav[data-scrolled="true"] .nav-pill {
+    background-color: rgba(241, 245, 249, 0.8);
+    box-shadow: 0 10px 32px rgba(15, 23, 42, 0.12);
+    border-color: rgba(15, 23, 42, 0.12);
   }
   @media (prefers-reduced-motion: reduce) {
-    #site-nav,
-    #site-nav .nav-inner {
+    #site-nav .nav-pill {
       transition: none;
     }
   }
 
-  nav::before {
+  /* Top-edge highlight for the glassy look, clipped to the pill's radius. */
+  #site-nav .nav-pill::before {
     content: '';
     position: absolute;
     inset: 0;
-    background: linear-gradient(180deg, rgba(255,255,255,0.04) 0%, transparent 60%);
+    border-radius: inherit;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, transparent 60%);
     pointer-events: none;
   }
-  :global(.light) nav::before {
-    background: linear-gradient(180deg, rgba(255,255,255,0.5) 0%, transparent 60%);
+  :global(.light) #site-nav .nav-pill::before {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, transparent 60%);
   }
   #mobileMenu {
-    background: rgba(3, 14, 24, 0.97);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
+    background: rgba(3, 14, 24, 0.85);
+    backdrop-filter: blur(24px) saturate(150%);
+    -webkit-backdrop-filter: blur(24px) saturate(150%);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
   }
   :global(.light) #mobileMenu {
-    background: rgba(255, 255, 255, 0.97);
+    background: rgba(255, 255, 255, 0.9);
   }
   :global(.light) #mobileMenu a,
   :global(.light) #mobileMenu button {

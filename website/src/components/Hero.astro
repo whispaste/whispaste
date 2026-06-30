@@ -9,11 +9,11 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
 
 <!-- Hero Section -->
 <section
-  class="relative sm:min-h-[100svh] flex items-center justify-center overflow-hidden pt-14 pb-16 sm:pb-24"
+  class="relative sm:min-h-[100svh] flex items-center justify-center overflow-hidden pt-28 sm:pt-32 pb-16 sm:pb-24"
 >
   <!-- W-wave background (exact brand logo: wave + audio bars) -->
   <div class="absolute inset-0 flex items-center justify-center pointer-events-none" aria-hidden="true">
-    <svg class="hero-wave shrink-0 w-[160vw] h-auto opacity-[0.10] -translate-y-[8%]" viewBox="0 0 1024 1024" fill="none" preserveAspectRatio="xMidYMid meet">
+    <svg class="hero-wave hero-sign shrink-0 w-[160vw] h-auto opacity-[0.10] -translate-y-[8%]" viewBox="0 0 1024 1024" fill="none" preserveAspectRatio="xMidYMid meet">
       <defs>
         <linearGradient id="wave-grad" x1="0.14" y1="0.79" x2="0.88" y2="0.38">
           <stop offset="0%" stop-color="#155e75"/>
@@ -28,7 +28,7 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
       <path class="hero-bar" d="M360.273,303.88c-0,-13.778 -11.186,-24.963 -24.963,-24.963c-13.778,-0 -24.964,11.185 -24.964,24.963l0,151.95c0,13.777 11.186,24.963 24.964,24.963c13.777,0 24.963,-11.186 24.963,-24.963l-0,-151.95Z"/>
       <path class="hero-bar" d="M442.76,364.358c-0,-13.778 -11.186,-24.963 -24.963,-24.963c-13.778,-0 -24.964,11.185 -24.964,24.963l0,30.994c0,13.777 11.186,24.963 24.964,24.963c13.777,-0 24.963,-11.186 24.963,-24.963l-0,-30.994Z"/>
       <!-- Wave ribbon with arrow tip -->
-      <path d="M146.212,719.902c-4.132,0.29 6.44,-33.608 43.916,-64.584c20.132,-16.64 60.123,-9.232 68.877,-4.246c8.755,4.986 87.274,47.06 101.106,48.82c13.832,1.761 35.239,15.204 67.761,-20.191c26.084,-28.388 41.853,-164.146 47.759,-185.163c9.127,-32.481 24.944,-73.876 63.259,-88.423c21.063,-7.996 59.88,-1.585 85.684,17.554c25.804,19.139 98.554,82.556 152.256,85.654c33.909,1.957 53.679,-9.322 88.027,-50.342c31.87,-38.059 38.129,-82.06 39.455,-71.794c5.143,39.819 10.088,210.11 -156.164,365.44c-22.045,20.597 37.157,-107.81 29.301,-115.515c-4.005,-3.927 -69.86,25.691 -126.834,-28.472c-65.774,-62.531 -117.571,-86.552 -138.331,-1.705c-15.245,62.309 -30.941,146.424 -66.41,175.983c-33.242,27.703 -80.659,31.246 -112.757,16.712c-27.303,-12.363 -84.89,-45.739 -96.26,-53.668c-47.365,-33.027 -77.969,-26.951 -90.645,-26.06Z" fill="url(#wave-grad)"/>
+      <path class="hero-ribbon" d="M146.212,719.902c-4.132,0.29 6.44,-33.608 43.916,-64.584c20.132,-16.64 60.123,-9.232 68.877,-4.246c8.755,4.986 87.274,47.06 101.106,48.82c13.832,1.761 35.239,15.204 67.761,-20.191c26.084,-28.388 41.853,-164.146 47.759,-185.163c9.127,-32.481 24.944,-73.876 63.259,-88.423c21.063,-7.996 59.88,-1.585 85.684,17.554c25.804,19.139 98.554,82.556 152.256,85.654c33.909,1.957 53.679,-9.322 88.027,-50.342c31.87,-38.059 38.129,-82.06 39.455,-71.794c5.143,39.819 10.088,210.11 -156.164,365.44c-22.045,20.597 37.157,-107.81 29.301,-115.515c-4.005,-3.927 -69.86,25.691 -126.834,-28.472c-65.774,-62.531 -117.571,-86.552 -138.331,-1.705c-15.245,62.309 -30.941,146.424 -66.41,175.983c-33.242,27.703 -80.659,31.246 -112.757,16.712c-27.303,-12.363 -84.89,-45.739 -96.26,-53.668c-47.365,-33.027 -77.969,-26.951 -90.645,-26.06Z" fill="url(#wave-grad)"/>
     </svg>
   </div>
 
@@ -43,19 +43,6 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
           height="80"
           class="w-14 h-14 sm:w-20 sm:h-20 mx-auto rounded-xl sm:rounded-2xl"
         />
-      </div>
-
-      <!-- Hotkey motif: the product's core gesture, shown as real keycaps -->
-      <div class="hero-hotkey" aria-hidden="true">
-        <span class="hero-hotkey-label" data-i18n="hero.hotkey.label">{t(lang, "hero.hotkey.label")}</span>
-        <span class="hero-hotkey-keys">
-          <kbd class="hk-key" data-platform-btn="windows" data-i18n="hero.hotkey.mod">{t(lang, "hero.hotkey.mod")}</kbd>
-          <kbd class="hk-key" data-platform-btn="macos">⌘</kbd>
-          <span class="hero-hotkey-plus">+</span>
-          <kbd class="hk-key">⇧</kbd>
-          <span class="hero-hotkey-plus">+</span>
-          <kbd class="hk-key">D</kbd>
-        </span>
       </div>
 
       <h1
@@ -143,66 +130,6 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
     letter-spacing: -0.04em;
   }
 
-  /* ---- Hotkey motif (keycaps) ---- */
-  .hero-hotkey {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.75rem;
-    margin-bottom: 1.25rem;
-  }
-  .hero-hotkey-label {
-    font-size: 0.6875rem;
-    font-weight: 600;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--color-ink-subtle);
-  }
-  .hero-hotkey-keys {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-  }
-  .hero-hotkey-plus {
-    color: var(--color-ink-subtle);
-    font-size: 0.85rem;
-    font-weight: 600;
-  }
-  .hk-key {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 2rem;
-    height: 2rem;
-    padding: 0 0.6rem;
-    font-family: var(--font-sans);
-    font-size: 0.8125rem;
-    font-weight: 600;
-    color: #e2e8f0;
-    border-radius: 8px;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.04) 100%);
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    box-shadow:
-      0 3px 0 rgba(0, 0, 0, 0.35),
-      0 5px 10px rgba(0, 0, 0, 0.25),
-      inset 0 1px 0 rgba(255, 255, 255, 0.18);
-    transform: translateY(-1px);
-  }
-  /* Platform-adaptive modifier: default to Windows key, swap to ⌘ on macOS */
-  .hero-hotkey [data-platform-btn="macos"] { display: none; }
-  :global([data-os="macos"]) .hero-hotkey [data-platform-btn="macos"] { display: inline-flex; }
-  :global([data-os="macos"]) .hero-hotkey [data-platform-btn="windows"] { display: none; }
-
-  :global(.light) .hk-key {
-    color: #334155;
-    background: linear-gradient(180deg, rgba(0, 0, 0, 0.04) 0%, rgba(0, 0, 0, 0.07) 100%);
-    border-color: rgba(0, 0, 0, 0.14);
-    box-shadow:
-      0 3px 0 rgba(0, 0, 0, 0.12),
-      0 5px 10px rgba(0, 0, 0, 0.08),
-      inset 0 1px 0 rgba(255, 255, 255, 0.7);
-  }
-
   /* Hero-specific animations */
   @keyframes fade-in {
     from {
@@ -243,13 +170,51 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
   .hero-bar {
     fill: #ebebeb;
     fill-opacity: 0.35;
+    /* Pivot each bar at its base so the signature scaleY grows upward. */
+    transform-box: fill-box;
+    transform-origin: 50% 100%;
   }
   :global(.light) .hero-bar {
     fill: #052235;
     fill-opacity: 0.4;
   }
+
+  /* Signature burst — gated behind `.hero-sign`, which is (re)applied by JS on
+     load and on an interval. Bars grow from their base, staggered. */
+  .hero-wave.hero-sign .hero-bar {
+    animation: hero-bar-rise 0.85s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .hero-wave.hero-sign .hero-bar:nth-of-type(1) { animation-delay: 0.05s; }
+  .hero-wave.hero-sign .hero-bar:nth-of-type(2) { animation-delay: 0.16s; }
+  .hero-wave.hero-sign .hero-bar:nth-of-type(3) { animation-delay: 0.27s; }
+  .hero-wave.hero-sign .hero-bar:nth-of-type(4) { animation-delay: 0.38s; }
+  @keyframes hero-bar-rise {
+    from { transform: scaleY(0); }
+    to   { transform: scaleY(1); }
+  }
+
+  /* Signature burst — the wave ribbon wipes in left-to-right after the bars. */
+  .hero-wave.hero-sign .hero-ribbon {
+    animation: hero-ribbon-draw 1.15s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both;
+  }
+  @keyframes hero-ribbon-draw {
+    from { clip-path: inset(0 100% 0 0); }
+    to   { clip-path: inset(0 0 0 0); }
+  }
+
+  /* Baseline: the glyph breathes calmly. During a signature burst the
+     `.hero-sign` class overrides this with a one-shot surface-and-settle surge,
+     then JS removes the class so breathing resumes between bursts. */
   .hero-wave {
     animation: wave-breathe 8s ease-in-out infinite;
+  }
+  .hero-wave.hero-sign {
+    animation: hero-wave-intro 1.9s ease-out;
+  }
+  @keyframes hero-wave-intro {
+    0%   { opacity: 0; }
+    55%  { opacity: 0.28; }
+    100% { opacity: 0.10; }
   }
   @keyframes wave-breathe {
     0%, 100% { opacity: 0.10; }
@@ -258,18 +223,61 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
   :global(.light) .hero-wave {
     animation: wave-breathe-light 8s ease-in-out infinite;
   }
+  :global(.light) .hero-wave.hero-sign {
+    animation: hero-wave-intro-light 1.9s ease-out;
+  }
+  @keyframes hero-wave-intro-light {
+    0%   { opacity: 0; }
+    55%  { opacity: 0.16; }
+    100% { opacity: 0.07; }
+  }
   @keyframes wave-breathe-light {
     0%, 100% { opacity: 0.07; }
     50% { opacity: 0.10; }
   }
 
-  /* Reduced motion for hero animations */
+  /* Reduced motion for hero animations (incl. the gated signature burst) */
   @media (prefers-reduced-motion: reduce) {
     .hero-gradient,
     .hero-wave,
+    .hero-bar,
+    .hero-ribbon,
     .animate-fade-in,
     .animate-fade-in-delay {
       animation: none !important;
     }
+    /* show the assembled glyph immediately */
+    .hero-bar { transform: none !important; }
+    .hero-ribbon { clip-path: none !important; }
   }
 </style>
+
+<script>
+  // Replay the hero signature burst on an interval. The first burst is
+  // server-rendered (`.hero-sign` is in the markup); JS settles it back to the
+  // calm breathing watermark, then re-triggers every few seconds via a reflow
+  // restart. Skipped entirely under reduced-motion; paused while the tab is
+  // hidden so it never animates off-screen.
+  const wave = document.querySelector<HTMLElement>('.hero-wave');
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (wave && !reduce) {
+    const BURST_MS = 1900; // matches the longest signature animation
+    const PERIOD_MS = 6000; // burst-to-burst cadence
+    let settleTimer: ReturnType<typeof setTimeout>;
+
+    const settle = () => {
+      settleTimer = setTimeout(() => wave.classList.remove('hero-sign'), BURST_MS);
+    };
+    const burst = () => {
+      if (document.hidden) return;
+      clearTimeout(settleTimer);
+      wave.classList.remove('hero-sign');
+      void wave.offsetWidth; // force reflow so the keyframes restart
+      wave.classList.add('hero-sign');
+      settle();
+    };
+
+    settle(); // settle the initial (markup-rendered) burst
+    setInterval(burst, PERIOD_MS);
+  }
+</script>
