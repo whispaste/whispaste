@@ -12,8 +12,12 @@
 
 **WhisPaste** ist ein **Sprach-Eingabe-Tool**: Es nimmt auf Anforderung des Nutzers eine Sprachaufnahme entgegen und fügt den transkribierten Text an der Cursor-Position der aktiven Anwendung ein — der Stelle, an der der Nutzer gerade tippen würde.
 
-**Aktiv unterstützt:** Windows, macOS, Linux.
-**Nicht geplant:** iOS, Android (WhisPaste ist eine reine Desktop-App).
+**Aktiv unterstützt (App):** macOS, Windows und Ubuntu Linux — **drei gleichrangige Desktop-Hauptplattformen**. (Distributions-Stand: fertige Installer für Windows & macOS; Linux derzeit via Quellcode-Build / AppImage geplant — Ziel ist Binär-Parität auf allen drei.)
+**Nicht geplant (App):** iOS, Android (WhisPaste ist eine reine Desktop-App).
+
+**Website ≠ App.** Die Marketing-Website (`website/`) ist davon unberührt und **muss auf Mobilgeräten (iPhone, Google Pixel & Co.) voll funktionieren und hochwertig aussehen** — sie bewirbt die Desktop-App, läuft aber selbst überall. „Mobile nicht geplant" gilt ausschließlich für die **App**, nie für die Website.
+
+**Nordstern.** WhisPaste will der **absolute Experte und künftige Marktführer unter den Open-Source-Tools** für systemweites Desktop-Diktat auf macOS, Windows und Ubuntu Linux sein. Jede Produkt-, Design- und Copy-Entscheidung zahlt auf dieses Ziel ein.
 
 ### WhisPaste ist explizit nicht …
 
@@ -278,11 +282,13 @@ zu verlassen.
   Notiz im Editor, Suchfeld, Bug-Report, Antwort an Kunden, schnelle Idee.
 - **Voll offline nutzbar** (Flugzeug, Bahn, schlechtes Netz, Datenschutz-Kontext).
   Lokale STT ist Default; Cloud-Anbieter sind optional und opt-in pro Nutzer.
-- **Eigener Desktop** (Windows oder macOS, perspektivisch Linux), nicht: geteilte
+- **Eigener Desktop** (macOS, Windows und Ubuntu Linux — drei gleichrangige Hauptplattformen), nicht: geteilte
   Familien-PCs, öffentliche Geräte, Firmen-Pool-Rechner mit gelocktem Mikrofon.
-- **Mobile ist nicht geplant** — WhisPaste ist eine reine Desktop-App
-  (Windows/macOS/Linux); der Hauptpfad ist Desktop-Dictation in fremde
-  Anwendungen.
+- **Mobile ist nicht geplant — für die App.** WhisPaste ist eine reine
+  Desktop-App (macOS/Windows/Ubuntu Linux); der Hauptpfad ist Desktop-Dictation
+  in fremde Anwendungen. **Die Website hingegen muss auf Mobilgeräten (iPhone,
+  Pixel & Co.) voll funktionieren und gut aussehen** — sie bewirbt die App,
+  läuft aber selbst überall.
 - **Leitfrage** im Kopf: „Wie bekomme ich diesen Satz in das Feld, ohne aus
   meinem aktuellen Fenster zu wechseln?"
 
