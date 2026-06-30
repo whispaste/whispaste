@@ -6,14 +6,17 @@
 // is no "hotkey up" message on Windows. That makes hold-to-talk (push-to-talk)
 // impossible through the registrar alone.
 //
-// This host closes the gap WITHOUT taking over the hotkey: it uses RawInput
-// (RIDEV_INPUTSINK) to OBSERVE keyboard transitions globally. It never
-// intercepts or swallows keys, so the existing RegisterHotKey still suppresses
-// the keystroke and provides the key-down; this host only reports the release
-// of the watched main key back to Dart as `onKeyUp`.
+// How it works WITHOUT taking over the hotkey: RawInput (RIDEV_INPUTSINK)
+// observes keyboard transitions globally (never intercepting / swallowing
+// keys, so RegisterHotKey still suppresses the keystroke and provides the
+// key-down). Crucially, RegisterHotKey ALSO suppresses the hotkey key's DOWN
+// from the RawInput stream — only its release is observable — so the main key
+// cannot be learned by watching for a make. Instead Dart calls ArmRelease()
+// the moment the hotkey fires; the host snapshots the non-modifier key that is
+// physically down (GetAsyncKeyState) and reports `onKeyUp` when it is released.
 //
 // Channel: com.whispaste.keyboard_monitor
-//   Dart → native:  start({keyId, keyLabel, modifiers})  ·  stop()
+//   Dart → native:  start()  ·  armRelease()  ·  stop()
 //   native → Dart:  onKeyUp   (watched main key released)
 
 #ifndef KEYBOARD_MONITOR_HOST_H_
@@ -34,9 +37,7 @@ class KeyboardMonitorHost {
   KeyboardMonitorHost(const KeyboardMonitorHost&) = delete;
   KeyboardMonitorHost& operator=(const KeyboardMonitorHost&) = delete;
 
-  // Called by FlutterWindow's message handler for WM_INPUT. Returns true if the
-  // message was a keyboard RawInput event this host consumed for observation
-  // (the caller should still fall through to DefWindowProc for WM_INPUT).
+  // Called by FlutterWindow's message handler for WM_INPUT.
   void HandleRawInput(HRAWINPUT raw_input);
 
   void Destroy();
@@ -50,25 +51,17 @@ class KeyboardMonitorHost {
   bool EnsureRawInputRegistered();
   void UnregisterRawInput();
 
-  // Whether every modifier the hotkey requires is physically down right now.
-  bool RequiredModifiersDown() const;
+  // Snapshots the currently-held non-modifier key as the one whose release
+  // ends the hold (see header comment).
+  void ArmRelease();
 
   flutter::FlutterEngine* engine_;
   HWND owner_;
   bool destroyed_ = false;
   bool raw_input_registered_ = false;
 
-  // The hotkey's required modifiers, parsed from the Dart `start` payload. The
-  // monitor self-arms (layout-independently) by watching for a non-modifier key
-  // that goes DOWN while all of these are held — no key-name / VK mapping.
-  bool req_ctrl_ = false;
-  bool req_alt_ = false;
-  bool req_shift_ = false;
-  bool req_meta_ = false;
-
-  // Virtual-key of the currently armed main key (0 = not armed). Set when a
-  // non-modifier key goes down with the required modifiers held; its release
-  // (break) fires `onKeyUp`.
+  // Virtual-key of the armed main key (0 = not armed). Set by ArmRelease(); its
+  // release (break) fires `onKeyUp`.
   USHORT watched_vk_ = 0;
 
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> channel_;

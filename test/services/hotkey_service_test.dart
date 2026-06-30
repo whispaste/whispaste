@@ -68,6 +68,7 @@ class FakeKeyboardUpMonitor implements KeyboardUpMonitor {
 
   final List<HotKey> started = [];
   int stopCount = 0;
+  int armCount = 0;
   VoidCallback? _onKeyUp;
 
   @override
@@ -75,6 +76,9 @@ class FakeKeyboardUpMonitor implements KeyboardUpMonitor {
 
   @override
   Future<void> start(HotKey hotKey) async => started.add(hotKey);
+
+  @override
+  Future<void> armRelease() async => armCount++;
 
   @override
   Future<void> stop() async => stopCount++;
@@ -477,6 +481,20 @@ void main() {
         expect(released, isFalse);
       },
     );
+
+    test('a hotkey key-down arms the monitor release-watch', () async {
+      // RegisterHotKey hides the hotkey key's DOWN from RawInput, so the
+      // monitor must be armed from the Dart key-down to snapshot the held key.
+      final registrar = FakeHotKeyRegistrar(supportsKeyUp: false);
+      final service = _makeService(registrar);
+      final monitor = FakeKeyboardUpMonitor();
+      service.injectMonitor(monitor);
+
+      await service.updateHotkey(key: LogicalKeyboardKey.keyD);
+      registrar.capturedKeyDownHandler!(registrar.registered.first);
+
+      expect(monitor.armCount, 1);
+    });
 
     test('re-registering stops the previous monitor watch', () async {
       final registrar = FakeHotKeyRegistrar(supportsKeyUp: false);

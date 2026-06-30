@@ -41,6 +41,14 @@ abstract class KeyboardUpMonitor {
   /// No-op when [supportsKeyUp] is `false`.
   Future<void> start(HotKey hotKey);
 
+  /// Arms the release-watch — call when the hotkey fires (key-down). The native
+  /// side snapshots the currently-held main key so its release ends the hold.
+  ///
+  /// Required because `RegisterHotKey` suppresses the hotkey key's DOWN from
+  /// the RawInput stream, so the main key cannot be detected by observation
+  /// alone (#39). No-op when [supportsKeyUp] is `false`.
+  Future<void> armRelease();
+
   /// Stops observing. No-op when not started.
   Future<void> stop();
 
@@ -56,6 +64,9 @@ class NoopKeyboardUpMonitor implements KeyboardUpMonitor {
 
   @override
   Future<void> start(HotKey hotKey) async {}
+
+  @override
+  Future<void> armRelease() async {}
 
   @override
   Future<void> stop() async {}
@@ -92,11 +103,21 @@ class ChannelKeyboardUpMonitor implements KeyboardUpMonitor {
   Future<void> start(HotKey hotKey) async {
     if (!supportsKeyUp) return;
     try {
-      await _channel.invokeMethod<void>('start', _encode(hotKey));
+      await _channel.invokeMethod<void>('start');
     } on Object catch (e) {
       // Missing-plugin / channel errors must never break hotkey registration —
       // hold-to-talk simply stays unavailable until the next attempt.
       _log.warning('Keyboard monitor start failed (key-up unavailable): $e');
+    }
+  }
+
+  @override
+  Future<void> armRelease() async {
+    if (!supportsKeyUp) return;
+    try {
+      await _channel.invokeMethod<void>('armRelease');
+    } on Object catch (e) {
+      _log.debug('Keyboard monitor armRelease failed (non-fatal): $e');
     }
   }
 
@@ -115,19 +136,4 @@ class ChannelKeyboardUpMonitor implements KeyboardUpMonitor {
       _onKeyUp?.call();
     }
   }
-
-  /// Payload the native RawInput host needs to match the watched key-up.
-  ///
-  /// Carries the logical key id (and label) plus the modifier tokens; the
-  /// native side maps these to the Windows virtual-key it sees in the RawInput
-  /// stream. Kept deliberately descriptive so the native matching strategy
-  /// (VK vs. physical scan code, layout handling) can be finalised on the
-  /// Windows box without a Dart-side change.
-  Map<String, Object?> _encode(HotKey hotKey) => {
-    'keyId': hotKey.logicalKey.keyId,
-    'keyLabel': hotKey.logicalKey.keyLabel,
-    'modifiers': [
-      for (final m in hotKey.modifiers ?? const <HotKeyModifier>[]) m.name,
-    ],
-  };
 }

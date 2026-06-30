@@ -2,11 +2,8 @@
 
 #include <flutter/encodable_value.h>
 
-#include <string>
 #include <vector>
 
-using flutter::EncodableList;
-using flutter::EncodableMap;
 using flutter::EncodableValue;
 using flutter::MethodCall;
 using flutter::MethodResult;
@@ -39,8 +36,6 @@ bool IsModifierVk(USHORT vk) {
   }
 }
 
-bool KeyDown(int vk) { return (::GetAsyncKeyState(vk) & 0x8000) != 0; }
-
 }  // namespace
 
 KeyboardMonitorHost::KeyboardMonitorHost(flutter::FlutterEngine* engine,
@@ -69,12 +64,19 @@ void KeyboardMonitorHost::Destroy() {
   }
 }
 
-bool KeyboardMonitorHost::RequiredModifiersDown() const {
-  if (req_ctrl_ && !KeyDown(VK_CONTROL)) return false;
-  if (req_alt_ && !KeyDown(VK_MENU)) return false;
-  if (req_shift_ && !KeyDown(VK_SHIFT)) return false;
-  if (req_meta_ && !(KeyDown(VK_LWIN) || KeyDown(VK_RWIN))) return false;
-  return true;
+void KeyboardMonitorHost::ArmRelease() {
+  // The hotkey just fired, so its main key is physically down now. Find the
+  // first non-modifier key GetAsyncKeyState reports as down and watch for its
+  // release. GetAsyncKeyState reflects true key state even though RegisterHotKey
+  // suppressed the key's DOWN from the RawInput stream.
+  watched_vk_ = 0;
+  for (int vk = 0x08; vk <= 0xFE; ++vk) {
+    if (IsModifierVk(static_cast<USHORT>(vk))) continue;
+    if ((::GetAsyncKeyState(vk) & 0x8000) != 0) {
+      watched_vk_ = static_cast<USHORT>(vk);
+      break;
+    }
+  }
 }
 
 void KeyboardMonitorHost::HandleMethodCall(
@@ -88,27 +90,14 @@ void KeyboardMonitorHost::HandleMethodCall(
   const auto& method = call.method_name();
 
   if (method == "start") {
-    const auto* args = call.arguments();
-    const EncodableMap* map = args ? std::get_if<EncodableMap>(args) : nullptr;
-    req_ctrl_ = req_alt_ = req_shift_ = req_meta_ = false;
     watched_vk_ = 0;
-    if (map) {
-      auto it = map->find(EncodableValue("modifiers"));
-      if (it != map->end()) {
-        if (const auto* mods = std::get_if<EncodableList>(&it->second)) {
-          for (const auto& m : *mods) {
-            if (const auto* name = std::get_if<std::string>(&m)) {
-              if (*name == "control") req_ctrl_ = true;
-              else if (*name == "alt") req_alt_ = true;
-              else if (*name == "shift") req_shift_ = true;
-              else if (*name == "meta") req_meta_ = true;
-            }
-          }
-        }
-      }
-    }
-    const bool ok = EnsureRawInputRegistered();
-    result->Success(EncodableValue(ok));
+    result->Success(EncodableValue(EnsureRawInputRegistered()));
+    return;
+  }
+
+  if (method == "armRelease") {
+    ArmRelease();
+    result->Success();
     return;
   }
 
@@ -152,7 +141,7 @@ void KeyboardMonitorHost::UnregisterRawInput() {
 }
 
 void KeyboardMonitorHost::HandleRawInput(HRAWINPUT raw_input) {
-  if (destroyed_) return;
+  if (destroyed_ || watched_vk_ == 0) return;
 
   UINT size = 0;
   if (::GetRawInputData(raw_input, RID_INPUT, nullptr, &size,
@@ -171,21 +160,10 @@ void KeyboardMonitorHost::HandleRawInput(HRAWINPUT raw_input) {
   if (ri->header.dwType != RIM_TYPEKEYBOARD) return;
 
   const RAWKEYBOARD& kb = ri->data.keyboard;
-  const USHORT vk = kb.VKey;
-  // 0xFF is an escaped/fake key (e.g. part of an extended sequence); ignore.
-  if (vk == 0 || vk == 0xFF || IsModifierVk(vk)) return;
-
   const bool is_break = (kb.Flags & RI_KEY_BREAK) != 0;
-
-  if (!is_break) {
-    // A non-modifier key went down. If the hotkey's modifiers are all held,
-    // this is (the latest candidate for) the hotkey's main key — arm its
-    // release. Layout-independent: we never map a key name to a VK.
-    if (RequiredModifiersDown()) {
-      watched_vk_ = vk;
-    }
-  } else if (watched_vk_ != 0 && vk == watched_vk_) {
-    // The armed main key was released → report the hotkey key-up.
+  // Only the RELEASE is matched: arming happens via ArmRelease() because
+  // RegisterHotKey hides the hotkey key's DOWN from RawInput (#39).
+  if (is_break && kb.VKey == watched_vk_) {
     watched_vk_ = 0;
     // Window-proc thread == platform thread, so InvokeMethod is safe here.
     channel_->InvokeMethod("onKeyUp", nullptr);

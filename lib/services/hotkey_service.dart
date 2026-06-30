@@ -426,6 +426,10 @@ class HotkeyService extends Notifier<void> {
     // Counterpart: PerfMarkers.markOverlayShown() in FloatingOverlayService.
     PerfMarkers.instance.markHotkeyPressed();
     onHotkeyPressed?.call();
+    // Arm the RawInput release-watch (Windows): RegisterHotKey hides the hotkey
+    // key's DOWN from RawInput, so the native monitor snapshots the held key
+    // now and reports its release. No-op on other platforms (#39).
+    unawaited(_monitor.armRelease());
   }
 
   /// Handles a hotkey key-up (macOS only). Clears the held state so the next
