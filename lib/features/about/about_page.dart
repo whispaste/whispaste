@@ -11,6 +11,7 @@ import '../../core/config/settings_provider.dart';
 import '../../core/app_info.dart';
 import '../../core/app_urls.dart';
 import '../../core/l10n/generated/app_localizations.dart';
+import '../../core/l10n/locale_provider.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../services/deploy_channel_service.dart';
@@ -30,6 +31,7 @@ class AboutPage extends ConsumerWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final ts = Theme.of(context).textTheme;
     final l10n = L10n.of(context);
+    final langCode = ref.watch(localeProvider).languageCode;
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
     final channel = ref.watch(deployChannelProvider);
     final updateState = ref.watch(updateProvider);
@@ -244,8 +246,8 @@ class AboutPage extends ConsumerWidget {
               _LinkRow(
                 icon: LucideIcons.globe,
                 label: l10n.aboutWebsite,
-                url: 'https://whispaste.com',
-                displayUrl: 'whispaste.com',
+                url: websiteHomeUrl(langCode),
+                displayUrl: 'whispaste.de',
                 isDark: isDark,
               ),
               _LinkRow(
@@ -265,8 +267,10 @@ class AboutPage extends ConsumerWidget {
               _LinkRow(
                 icon: LucideIcons.fileText,
                 label: l10n.aboutPrivacyPolicy,
-                url: 'https://whispaste.com/privacy',
-                displayUrl: 'whispaste.com/privacy',
+                url: privacyPolicyUrl(langCode),
+                displayUrl: privacyPolicyUrl(
+                  langCode,
+                ).replaceFirst('https://', '').replaceFirst(RegExp(r'/$'), ''),
                 isDark: isDark,
               ),
             ],
