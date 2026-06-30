@@ -123,144 +123,177 @@ class AboutPage extends ConsumerWidget {
                 ),
             ],
           ),
-          const SizedBox(height: WpSpacing.xxxl),
+          const SizedBox(height: WpSpacing.xl),
 
           // ── Support this project ──
-          _SectionHeader(title: l10n.aboutSupportTitle, isDark: isDark),
-          const SizedBox(height: WpSpacing.xs),
-          Text(
-            l10n.aboutSupportDescription,
-            style: TextStyle(
-              color: isDark
-                  ? WpColorsDark.textSecondary
-                  : WpColorsLight.textSecondary,
-              fontSize: 13,
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: WpSpacing.md),
-          Wrap(
-            spacing: WpSpacing.sm,
-            runSpacing: WpSpacing.sm,
+          _AboutCard(
+            isDark: isDark,
             children: [
-              _SupportButton(
-                icon: LucideIcons.star,
-                label: l10n.reviewSupportEntry,
-                url: reviewSupportUrl,
+              _SectionHeader(title: l10n.aboutSupportTitle, isDark: isDark),
+              const SizedBox(height: WpSpacing.xs),
+              Text(
+                l10n.aboutSupportDescription,
+                style: TextStyle(
+                  color: isDark
+                      ? WpColorsDark.textSecondary
+                      : WpColorsLight.textSecondary,
+                  fontSize: 13,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: WpSpacing.md),
+              Wrap(
+                spacing: WpSpacing.sm,
+                runSpacing: WpSpacing.sm,
+                children: [
+                  _SupportButton(
+                    icon: LucideIcons.star,
+                    label: l10n.reviewSupportEntry,
+                    url: reviewSupportUrl,
+                    isDark: isDark,
+                  ),
+                  _SupportButton(
+                    icon: LucideIcons.heart,
+                    label: l10n.aboutGitHubSponsors,
+                    url: 'https://github.com/sponsors/silvio-l',
+                    isDark: isDark,
+                  ),
+                  _SupportButton(
+                    icon: FontAwesomeIcons.mugHot.data,
+                    label: l10n.aboutKofi,
+                    url: 'https://ko-fi.com/silviol',
+                    isDark: isDark,
+                  ),
+                  _SupportButton(
+                    icon: LucideIcons.star,
+                    label: l10n.aboutStarOnGitHub,
+                    url: kGitHubRepoUrl,
+                    isDark: isDark,
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: WpSpacing.lg),
+
+          // ── Built with ──
+          _AboutCard(
+            isDark: isDark,
+            children: [
+              _SectionHeader(title: l10n.aboutBuiltWith, isDark: isDark),
+              const SizedBox(height: WpSpacing.sm),
+              _BuiltWithRow(
+                icon: LucideIcons.codeXml,
+                title: l10n.aboutFlutterGo,
+                description: l10n.aboutFlutterGoDesc,
                 isDark: isDark,
               ),
-              _SupportButton(
-                icon: LucideIcons.heart,
-                label: l10n.aboutGitHubSponsors,
-                url: 'https://github.com/sponsors/silvio-l',
+              _BuiltWithRow(
+                icon: LucideIcons.mic,
+                title: l10n.aboutWhisper,
+                description: l10n.aboutWhisperDesc,
                 isDark: isDark,
               ),
-              _SupportButton(
-                icon: FontAwesomeIcons.mugHot.data,
-                label: l10n.aboutKofi,
-                url: 'https://ko-fi.com/silviol',
-                isDark: isDark,
-              ),
-              _SupportButton(
-                icon: LucideIcons.star,
-                label: l10n.aboutStarOnGitHub,
-                url: kGitHubRepoUrl,
+              _BuiltWithRow(
+                icon: LucideIcons.shield,
+                title: l10n.aboutPrivacyFirst,
+                description: l10n.aboutPrivacyFirstDesc,
                 isDark: isDark,
               ),
             ],
           ),
-          const SizedBox(height: WpSpacing.xxxl),
-
-          // ── Built with ──
-          _SectionHeader(title: l10n.aboutBuiltWith, isDark: isDark),
-          const SizedBox(height: WpSpacing.sm),
-          _BuiltWithRow(
-            icon: LucideIcons.codeXml,
-            title: l10n.aboutFlutterGo,
-            description: l10n.aboutFlutterGoDesc,
-            isDark: isDark,
-          ),
-          _BuiltWithRow(
-            icon: LucideIcons.mic,
-            title: l10n.aboutWhisper,
-            description: l10n.aboutWhisperDesc,
-            isDark: isDark,
-          ),
-          _BuiltWithRow(
-            icon: LucideIcons.shield,
-            title: l10n.aboutPrivacyFirst,
-            description: l10n.aboutPrivacyFirstDesc,
-            isDark: isDark,
-          ),
-          const SizedBox(height: WpSpacing.xxxl),
+          const SizedBox(height: WpSpacing.lg),
 
           // ── Privacy & Data ──
-          _SectionHeader(title: l10n.aboutPrivacy, isDark: isDark),
-          const SizedBox(height: WpSpacing.sm),
-          _PrivacyPoint(text: l10n.aboutPrivacyLocal, isDark: isDark),
-          _PrivacyPoint(text: l10n.aboutPrivacyCloud, isDark: isDark),
-          _PrivacyPoint(text: l10n.aboutPrivacyNoTracking, isDark: isDark),
-          const SizedBox(height: WpSpacing.xxxl),
+          _AboutCard(
+            isDark: isDark,
+            children: [
+              _SectionHeader(title: l10n.aboutPrivacy, isDark: isDark),
+              const SizedBox(height: WpSpacing.sm),
+              _PrivacyPoint(text: l10n.aboutPrivacyLocal, isDark: isDark),
+              _PrivacyPoint(text: l10n.aboutPrivacyCloud, isDark: isDark),
+              _PrivacyPoint(text: l10n.aboutPrivacyNoTracking, isDark: isDark),
+            ],
+          ),
+          const SizedBox(height: WpSpacing.lg),
 
           // ── Keyboard shortcuts ──
-          _SectionHeader(title: l10n.aboutKeyboardShortcuts, isDark: isDark),
-          const SizedBox(height: WpSpacing.sm),
-          _ShortcutRow(
-            label: l10n.aboutShortcutRecord,
-            shortcut: hotkeyLabel,
+          _AboutCard(
             isDark: isDark,
+            children: [
+              _SectionHeader(
+                title: l10n.aboutKeyboardShortcuts,
+                isDark: isDark,
+              ),
+              const SizedBox(height: WpSpacing.sm),
+              _ShortcutRow(
+                label: l10n.aboutShortcutRecord,
+                shortcut: hotkeyLabel,
+                isDark: isDark,
+              ),
+            ],
           ),
-          const SizedBox(height: WpSpacing.xxxl),
+          const SizedBox(height: WpSpacing.lg),
 
           // ── Links ──
-          _SectionHeader(title: l10n.aboutLinks, isDark: isDark),
-          const SizedBox(height: WpSpacing.sm),
-          _LinkRow(
-            icon: LucideIcons.globe,
-            label: l10n.aboutWebsite,
-            url: 'https://whispaste.com',
-            displayUrl: 'whispaste.com',
+          _AboutCard(
             isDark: isDark,
+            children: [
+              _SectionHeader(title: l10n.aboutLinks, isDark: isDark),
+              const SizedBox(height: WpSpacing.sm),
+              _LinkRow(
+                icon: LucideIcons.globe,
+                label: l10n.aboutWebsite,
+                url: 'https://whispaste.com',
+                displayUrl: 'whispaste.com',
+                isDark: isDark,
+              ),
+              _LinkRow(
+                icon: FontAwesomeIcons.github.data,
+                label: l10n.aboutGitHubRepo,
+                url: kGitHubRepoUrl,
+                displayUrl: kGitHubRepoUrl.replaceFirst('https://', ''),
+                isDark: isDark,
+              ),
+              _LinkRow(
+                icon: LucideIcons.scale,
+                label: l10n.aboutMitLicense,
+                url: '$kGitHubRepoUrl/blob/main/LICENSE',
+                displayUrl: l10n.aboutViewOnGitHub,
+                isDark: isDark,
+              ),
+              _LinkRow(
+                icon: LucideIcons.fileText,
+                label: l10n.aboutPrivacyPolicy,
+                url: 'https://whispaste.com/privacy',
+                displayUrl: 'whispaste.com/privacy',
+                isDark: isDark,
+              ),
+            ],
           ),
-          _LinkRow(
-            icon: FontAwesomeIcons.github.data,
-            label: l10n.aboutGitHubRepo,
-            url: kGitHubRepoUrl,
-            displayUrl: kGitHubRepoUrl.replaceFirst('https://', ''),
-            isDark: isDark,
-          ),
-          _LinkRow(
-            icon: LucideIcons.scale,
-            label: l10n.aboutMitLicense,
-            url: '$kGitHubRepoUrl/blob/main/LICENSE',
-            displayUrl: l10n.aboutViewOnGitHub,
-            isDark: isDark,
-          ),
-          _LinkRow(
-            icon: LucideIcons.fileText,
-            label: l10n.aboutPrivacyPolicy,
-            url: 'https://whispaste.com/privacy',
-            displayUrl: 'whispaste.com/privacy',
-            isDark: isDark,
-          ),
-          const SizedBox(height: WpSpacing.xxxl),
+          const SizedBox(height: WpSpacing.lg),
 
           // ── System diagnostics ──
-          _SectionHeader(title: l10n.aboutSystemInfo, isDark: isDark),
-          const SizedBox(height: WpSpacing.xs),
-          Text(
-            l10n.aboutSystemInfoDesc,
-            style: TextStyle(
-              color: isDark
-                  ? WpColorsDark.textSecondary
-                  : WpColorsLight.textSecondary,
-              fontSize: 13,
-            ),
-          ),
-          const SizedBox(height: WpSpacing.sm),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: _CopyDiagnosticsButton(isDark: isDark),
+          _AboutCard(
+            isDark: isDark,
+            children: [
+              _SectionHeader(title: l10n.aboutSystemInfo, isDark: isDark),
+              const SizedBox(height: WpSpacing.xs),
+              Text(
+                l10n.aboutSystemInfoDesc,
+                style: TextStyle(
+                  color: isDark
+                      ? WpColorsDark.textSecondary
+                      : WpColorsLight.textSecondary,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(height: WpSpacing.sm),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: _CopyDiagnosticsButton(isDark: isDark),
+              ),
+            ],
           ),
           const SizedBox(height: WpSpacing.xxxl),
 
@@ -289,6 +322,41 @@ class AboutPage extends ConsumerWidget {
           ),
           const SizedBox(height: WpSpacing.xl),
         ],
+      ),
+    );
+  }
+}
+
+// ─── About card ────────────────────────────────────────────────────────────
+
+/// Surface card that groups one About section (header + its content) so the
+/// page reads as structured panels rather than a flat document. Tokens only:
+/// elevated surface, subtle border, [WpRadius.borderLg], [WpSpacing.lg] pad.
+class _AboutCard extends StatelessWidget {
+  const _AboutCard({required this.isDark, required this.children});
+
+  final bool isDark;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(WpSpacing.lg),
+      decoration: BoxDecoration(
+        color: isDark
+            ? WpColorsDark.surfaceElevated
+            : WpColorsLight.surfaceElevated,
+        borderRadius: WpRadius.borderLg,
+        border: Border.all(
+          color: isDark
+              ? WpColorsDark.borderSubtle
+              : WpColorsLight.borderSubtle,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: children,
       ),
     );
   }

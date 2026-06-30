@@ -42,8 +42,8 @@ void main() {
         expect(steps, contains(OnboardingStepId.microphone));
       });
 
-      test('returns 5 steps in total', () {
-        expect(steps, hasLength(5));
+      test('returns 6 steps in total', () {
+        expect(steps, hasLength(6));
       });
 
       test('autoPaste step appears after microphone and before model', () {
@@ -80,8 +80,8 @@ void main() {
         expect(steps, contains(OnboardingStepId.microphone));
       });
 
-      test('returns 4 steps in total', () {
-        expect(steps, hasLength(4));
+      test('returns 5 steps in total', () {
+        expect(steps, hasLength(5));
       });
     });
 
@@ -92,7 +92,7 @@ void main() {
           autoPasteSupported: true,
         );
         expect(steps, isNot(contains(OnboardingStepId.autoPaste)));
-        expect(steps, hasLength(4));
+        expect(steps, hasLength(5));
       });
 
       test('Linux: omits autoPaste regardless of autoPasteSupported', () {
@@ -101,8 +101,28 @@ void main() {
           autoPasteSupported: true,
         );
         expect(steps, isNot(contains(OnboardingStepId.autoPaste)));
-        expect(steps, hasLength(4));
+        expect(steps, hasLength(5));
       });
+    });
+
+    test('privacy step always sits right after welcome, before microphone', () {
+      for (final platform in [
+        TargetPlatform.macOS,
+        TargetPlatform.windows,
+        TargetPlatform.linux,
+      ]) {
+        for (final autoPasteSupported in [true, false]) {
+          final steps = buildOnboardingStepIds(
+            platform: platform,
+            autoPasteSupported: autoPasteSupported,
+          );
+          expect(steps[1], OnboardingStepId.privacy);
+          expect(
+            steps.indexOf(OnboardingStepId.privacy),
+            lessThan(steps.indexOf(OnboardingStepId.microphone)),
+          );
+        }
+      }
     });
 
     test('step order is always welcome → microphone → … → model → ready', () {

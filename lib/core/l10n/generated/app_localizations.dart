@@ -2130,7 +2130,7 @@ abstract class L10n {
   /// No description provided for @aboutPrivacyNoTracking.
   ///
   /// In en, this message translates to:
-  /// **'Usage statistics are anonymous, self-hosted, and can be switched off in Settings → Privacy. No user accounts. Update checks contact GitHub (version + IP only).'**
+  /// **'Usage statistics are anonymous and GDPR-compliant (EU server), and can be switched off in Settings → Privacy. No user accounts. Update checks contact GitHub (version + IP only).'**
   String get aboutPrivacyNoTracking;
 
   /// No description provided for @aboutKeyboardShortcuts.
@@ -3704,6 +3704,30 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Back'**
   String get onboardingBack;
+
+  /// No description provided for @onboardingPrivacyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Help make WhisPaste better'**
+  String get onboardingPrivacyTitle;
+
+  /// No description provided for @onboardingPrivacyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'WhisPaste sends anonymous usage statistics to an EU server — GDPR-compliant and without your recordings, text, or personal data. Change it anytime in Settings → Privacy.'**
+  String get onboardingPrivacyHint;
+
+  /// No description provided for @onboardingPrivacyToggle.
+  ///
+  /// In en, this message translates to:
+  /// **'Share anonymous usage statistics'**
+  String get onboardingPrivacyToggle;
+
+  /// No description provided for @onboardingPrivacyToggleHint.
+  ///
+  /// In en, this message translates to:
+  /// **'On by default — switch off anytime'**
+  String get onboardingPrivacyToggleHint;
 
   /// No description provided for @onboardingStepOf.
   ///

@@ -1,5 +1,5 @@
-/// Durchgehender Onboarding-Walkthrough-Test: Welcome → Microphone → Model →
-/// Ready (Linux-Pfad, 4 Schritte, kein Auto-Paste).
+/// Durchgehender Onboarding-Walkthrough-Test: Welcome → Privacy → Microphone →
+/// Model → Ready (Linux-Pfad, 5 Schritte, kein Auto-Paste).
 ///
 /// Dieser Test treibt die [OnboardingOverlay] über alle Schritte bis zum
 /// Ready-Zustand und assertiert dabei:
@@ -25,6 +25,7 @@ import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/onboarding/onboarding_overlay.dart';
 import 'package:whispaste/features/onboarding/steps/microphone_step.dart';
 import 'package:whispaste/features/onboarding/steps/model_step.dart';
+import 'package:whispaste/features/onboarding/steps/privacy_step.dart';
 import 'package:whispaste/features/onboarding/steps/ready_step.dart';
 import 'package:whispaste/features/onboarding/steps/welcome_step.dart';
 import 'package:whispaste/services/hotkey_service.dart'
@@ -94,7 +95,7 @@ Future<void> _withoutOverflowErrors(Future<void> Function() action) async {
   }
 }
 
-/// Rendert den [OnboardingOverlay] im Linux-Modus (4 Schritte) mit minimalen
+/// Rendert den [OnboardingOverlay] im Linux-Modus (5 Schritte) mit minimalen
 /// Fake-Overrides.
 ///
 /// WICHTIG: `debugDefaultTargetPlatformOverride` muss vom Aufrufer in einem
@@ -132,9 +133,10 @@ void main() {
     l10n = await L10n.delegate.load(const Locale('en'));
   });
 
-  group('Onboarding Walkthrough — Welcome → Microphone → Model → Ready', () {
+  group('Onboarding Walkthrough — Welcome → Privacy → Microphone → Model → '
+      'Ready', () {
     testWidgets(
-      'Schritt 1: WelcomeStep wird als erster Schritt angezeigt (1 of 4)',
+      'Schritt 1: WelcomeStep wird als erster Schritt angezeigt (1 of 5)',
       (tester) async {
         debugDefaultTargetPlatformOverride = TargetPlatform.linux;
         try {
@@ -143,8 +145,8 @@ void main() {
           // WelcomeStep muss sichtbar sein.
           expect(find.byType(WelcomeStep), findsOneWidget);
 
-          // Schritt-Zähler: "Step 1 of 4".
-          expect(find.text(l10n.onboardingStepOf(1, 4)), findsOneWidget);
+          // Schritt-Zähler: "Step 1 of 5".
+          expect(find.text(l10n.onboardingStepOf(1, 5)), findsOneWidget);
 
           // Skip-Button ist auf dem ersten Schritt sichtbar (≠ letzter Schritt).
           expect(find.text(l10n.onboardingSkip), findsOneWidget);
@@ -155,7 +157,7 @@ void main() {
     );
 
     testWidgets(
-      'Schritt 1 → 2: "Continue" auf WelcomeStep führt zu MicrophoneStep',
+      'Schritt 1 → 2: "Continue" auf WelcomeStep führt zu PrivacyStep',
       (tester) async {
         debugDefaultTargetPlatformOverride = TargetPlatform.linux;
         try {
@@ -165,9 +167,9 @@ void main() {
           await tester.tap(find.text(l10n.onboardingGetStarted));
           await tester.pumpAndSettle();
 
-          // Jetzt muss MicrophoneStep sichtbar sein.
-          expect(find.byType(MicrophoneStep), findsOneWidget);
-          expect(find.text(l10n.onboardingStepOf(2, 4)), findsOneWidget);
+          // Jetzt muss der Privacy-Step sichtbar sein.
+          expect(find.byType(PrivacyStep), findsOneWidget);
+          expect(find.text(l10n.onboardingStepOf(2, 5)), findsOneWidget);
         } finally {
           debugDefaultTargetPlatformOverride = null;
         }
@@ -175,15 +177,40 @@ void main() {
     );
 
     testWidgets(
-      'Schritt 2 → 3: "Skip this step" auf MicrophoneStep führt zu ModelStep',
+      'Schritt 2 → 3: "Next" auf PrivacyStep führt zu MicrophoneStep',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+        try {
+          await _pumpOverlay(tester);
+
+          await tester.tap(find.text(l10n.onboardingGetStarted));
+          await tester.pumpAndSettle();
+          expect(find.byType(PrivacyStep), findsOneWidget);
+
+          // Privacy-Step weiter (informiertes Opt-out — Weiter immer aktiv).
+          await tester.tap(find.text(l10n.onboardingNext));
+          await tester.pumpAndSettle();
+
+          expect(find.byType(MicrophoneStep), findsOneWidget);
+          expect(find.text(l10n.onboardingStepOf(3, 5)), findsOneWidget);
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      },
+    );
+
+    testWidgets(
+      'Schritt 3 → 4: "Skip this step" auf MicrophoneStep führt zu ModelStep',
       (tester) async {
         debugDefaultTargetPlatformOverride = TargetPlatform.linux;
         try {
           await _withoutOverflowErrors(() async {
             await _pumpOverlay(tester);
 
-            // Welcome überspringen.
+            // Welcome → Privacy → Microphone.
             await tester.tap(find.text(l10n.onboardingGetStarted));
+            await tester.pumpAndSettle();
+            await tester.tap(find.text(l10n.onboardingNext));
             await tester.pumpAndSettle();
             expect(find.byType(MicrophoneStep), findsOneWidget);
 
@@ -192,7 +219,7 @@ void main() {
             await tester.pumpAndSettle();
 
             expect(find.byType(ModelStep), findsOneWidget);
-            expect(find.text(l10n.onboardingStepOf(3, 4)), findsOneWidget);
+            expect(find.text(l10n.onboardingStepOf(4, 5)), findsOneWidget);
           });
         } finally {
           debugDefaultTargetPlatformOverride = null;
@@ -201,7 +228,7 @@ void main() {
     );
 
     testWidgets(
-      'Schritt 3 → 4: "Skip this step" auf ModelStep führt zu ReadyStep',
+      'Schritt 4 → 5: "Skip this step" auf ModelStep führt zu ReadyStep',
       (tester) async {
         debugDefaultTargetPlatformOverride = TargetPlatform.linux;
         try {
@@ -209,6 +236,8 @@ void main() {
             await _pumpOverlay(tester);
 
             await tester.tap(find.text(l10n.onboardingGetStarted));
+            await tester.pumpAndSettle();
+            await tester.tap(find.text(l10n.onboardingNext));
             await tester.pumpAndSettle();
             await tester.tap(find.text(l10n.onboardingSkip));
             await tester.pumpAndSettle();
@@ -219,7 +248,7 @@ void main() {
             await tester.pumpAndSettle();
 
             expect(find.byType(ReadyStep), findsOneWidget);
-            expect(find.text(l10n.onboardingStepOf(4, 4)), findsOneWidget);
+            expect(find.text(l10n.onboardingStepOf(5, 5)), findsOneWidget);
 
             // Auf dem letzten Schritt darf kein Skip-Button mehr vorhanden sein.
             expect(find.text(l10n.onboardingSkip), findsNothing);
@@ -241,25 +270,31 @@ void main() {
 
             // Schritt 1 → 2: Welcome
             expect(find.byType(WelcomeStep), findsOneWidget);
-            expect(find.text(l10n.onboardingStepOf(1, 4)), findsOneWidget);
+            expect(find.text(l10n.onboardingStepOf(1, 5)), findsOneWidget);
             await tester.tap(find.text(l10n.onboardingGetStarted));
             await tester.pumpAndSettle();
 
-            // Schritt 2 → 3: Microphone
+            // Schritt 2 → 3: Privacy (informiertes Opt-out)
+            expect(find.byType(PrivacyStep), findsOneWidget);
+            expect(find.text(l10n.onboardingStepOf(2, 5)), findsOneWidget);
+            await tester.tap(find.text(l10n.onboardingNext));
+            await tester.pumpAndSettle();
+
+            // Schritt 3 → 4: Microphone
             expect(find.byType(MicrophoneStep), findsOneWidget);
-            expect(find.text(l10n.onboardingStepOf(2, 4)), findsOneWidget);
+            expect(find.text(l10n.onboardingStepOf(3, 5)), findsOneWidget);
             await tester.tap(find.text(l10n.onboardingSkip));
             await tester.pumpAndSettle();
 
-            // Schritt 3 → 4: Model (known overlay overflow suppressed)
+            // Schritt 4 → 5: Model (known overlay overflow suppressed)
             expect(find.byType(ModelStep), findsOneWidget);
-            expect(find.text(l10n.onboardingStepOf(3, 4)), findsOneWidget);
+            expect(find.text(l10n.onboardingStepOf(4, 5)), findsOneWidget);
             await tester.tap(find.text(l10n.onboardingSkip));
             await tester.pumpAndSettle();
 
-            // Schritt 4: Ready
+            // Schritt 5: Ready
             expect(find.byType(ReadyStep), findsOneWidget);
-            expect(find.text(l10n.onboardingStepOf(4, 4)), findsOneWidget);
+            expect(find.text(l10n.onboardingStepOf(5, 5)), findsOneWidget);
             expect(find.text(l10n.onboardingSkip), findsNothing);
 
             // Vor dem abschließenden Tap ist onboardingCompleted noch false.

@@ -1139,7 +1139,7 @@ class L10nEn extends L10n {
 
   @override
   String get aboutPrivacyNoTracking =>
-      'Usage statistics are anonymous, self-hosted, and can be switched off in Settings → Privacy. No user accounts. Update checks contact GitHub (version + IP only).';
+      'Usage statistics are anonymous and GDPR-compliant (EU server), and can be switched off in Settings → Privacy. No user accounts. Update checks contact GitHub (version + IP only).';
 
   @override
   String get aboutKeyboardShortcuts => 'Keyboard Shortcuts';
@@ -2046,6 +2046,20 @@ class L10nEn extends L10n {
 
   @override
   String get onboardingBack => 'Back';
+
+  @override
+  String get onboardingPrivacyTitle => 'Help make WhisPaste better';
+
+  @override
+  String get onboardingPrivacyHint =>
+      'WhisPaste sends anonymous usage statistics to an EU server — GDPR-compliant and without your recordings, text, or personal data. Change it anytime in Settings → Privacy.';
+
+  @override
+  String get onboardingPrivacyToggle => 'Share anonymous usage statistics';
+
+  @override
+  String get onboardingPrivacyToggleHint =>
+      'On by default — switch off anytime';
 
   @override
   String onboardingStepOf(int current, int total) {

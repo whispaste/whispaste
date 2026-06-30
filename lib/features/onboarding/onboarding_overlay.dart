@@ -15,6 +15,7 @@ import '../../services/paste/paste_capability_notifier.dart';
 import '../../services/telemetry_service.dart';
 import 'steps/auto_paste_step.dart';
 import 'steps/welcome_step.dart';
+import 'steps/privacy_step.dart';
 import 'steps/microphone_step.dart';
 import 'steps/model_step.dart';
 import 'steps/ready_step.dart';
@@ -26,7 +27,7 @@ import 'steps/ready_step.dart';
 /// - [autoPaste] is included only on macOS Developer-ID builds where
 ///   [kAutoPasteSupported] is `true` (the user must grant Accessibility/TCC).
 /// - MAS builds and non-macOS platforms omit [autoPaste] entirely.
-enum OnboardingStepId { welcome, microphone, autoPaste, model, ready }
+enum OnboardingStepId { welcome, privacy, microphone, autoPaste, model, ready }
 
 /// Returns the ordered list of onboarding step IDs for the given platform and
 /// build configuration.
@@ -47,6 +48,7 @@ List<OnboardingStepId> buildOnboardingStepIds({
   final isMacOs = platform == TargetPlatform.macOS;
   return [
     OnboardingStepId.welcome,
+    OnboardingStepId.privacy,
     OnboardingStepId.microphone,
     if (isMacOs && autoPasteSupported) OnboardingStepId.autoPaste,
     OnboardingStepId.model,
@@ -56,11 +58,11 @@ List<OnboardingStepId> buildOnboardingStepIds({
 
 /// Full-screen onboarding overlay with frosted glass backdrop.
 ///
-/// Sits on top of the main app shell in a [Stack]. Shows 4–5 steps with
+/// Sits on top of the main app shell in a [Stack]. Shows 5–6 steps with
 /// animated transitions, stepper dots, and a skip button. Step count is
 /// platform- and build-variant-dependent (see [buildOnboardingStepIds]):
-/// macOS Developer-ID renders 5 steps; macOS MAS, Windows, and Linux
-/// render 4 (Auto-Paste step omitted). On completion (or skip) persists
+/// macOS Developer-ID renders 6 steps; macOS MAS, Windows, and Linux
+/// render 5 (Auto-Paste step omitted). On completion (or skip) persists
 /// [AppSettings.onboardingCompleted] = true.
 class OnboardingOverlay extends ConsumerStatefulWidget {
   const OnboardingOverlay({super.key});
@@ -190,6 +192,7 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
   Widget _buildStep(OnboardingStepId id) {
     return switch (id) {
       OnboardingStepId.welcome => WelcomeStep(onNext: _goNext),
+      OnboardingStepId.privacy => PrivacyStep(onNext: _goNext, onBack: _goBack),
       OnboardingStepId.microphone => MicrophoneStep(
         onNext: _goNext,
         onBack: _goBack,

@@ -1126,7 +1126,7 @@ class L10nHe extends L10n {
 
   @override
   String get aboutPrivacyNoTracking =>
-      'אין אנליטיקס, אין מעקב, אין חשבונות משתמש.';
+      'נתוני השימוש אנונימיים ותואמי GDPR (שרת באיחוד האירופי) וניתן לכבותם בהגדרות ← פרטיות. ללא חשבונות משתמש. בדיקות עדכון פונות ל-GitHub (גרסה ו-IP בלבד).';
 
   @override
   String get aboutKeyboardShortcuts => 'קיצורי מקלדת';
@@ -2003,6 +2003,20 @@ class L10nHe extends L10n {
 
   @override
   String get onboardingBack => 'חזור';
+
+  @override
+  String get onboardingPrivacyTitle => 'עזרו לנו לשפר את WhisPaste';
+
+  @override
+  String get onboardingPrivacyHint =>
+      'WhisPaste שולח נתוני שימוש אנונימיים לשרת באיחוד האירופי — בהתאם ל-GDPR וללא ההקלטות, הטקסט או הנתונים האישיים שלך. ניתן לשנות בכל עת בהגדרות ← פרטיות.';
+
+  @override
+  String get onboardingPrivacyToggle => 'שיתוף נתוני שימוש אנונימיים';
+
+  @override
+  String get onboardingPrivacyToggleHint =>
+      'פעיל כברירת מחדל — ניתן לכבות בכל עת';
 
   @override
   String onboardingStepOf(int current, int total) {
