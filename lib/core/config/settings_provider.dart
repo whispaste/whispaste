@@ -890,6 +890,11 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
   /// [FactoryResetCoordinator] after the large-IO phases (model dir,
   /// logs dir, DB, secure store) have already run.
   Future<void> factoryResetFinalize() async {
+    // Reset in-memory state FIRST so onboarding re-entry (onboardingCompleted=
+    // false) is guaranteed even if a file cleanup below throws — that is the
+    // user-visible outcome of a factory reset and must never be skipped.
+    state = AsyncData(AppSettings.defaults);
+
     // PID files from subprocess_guard.
     _tryDeleteFile(p.join(appDataDir(), '.whisper-server.pid'));
     _tryDeleteFile(p.join(appDataDir(), '.llama-server.pid'));
@@ -904,9 +909,6 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
 
     // Temp WAV files.
     _cleanupTempWavFiles();
-
-    // Reset in-memory state — triggers onboarding via onboardingCompleted=false.
-    state = AsyncData(AppSettings.defaults);
 
     dev.log('Factory reset complete', name: 'Settings');
   }

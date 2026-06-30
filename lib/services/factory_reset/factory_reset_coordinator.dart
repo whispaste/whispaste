@@ -230,40 +230,56 @@ class FactoryResetCoordinator {
   /// rethrown into the stream, so the UI dialog can render the failed
   /// phase without needing a try/catch around the listener.
   Stream<ResetPhase> run() async* {
-    try {
-      // Phase 1 — stop subprocess, wait for actual exit.
-      yield ResetPhase.stoppingSubprocess;
-      await _stopSubprocessWithBackstop();
+    // Each phase is best-effort: a failure is captured but NEVER aborts the
+    // sequence. This guarantees the final settings-reset phase always runs —
+    // the user-visible outcome (settings → defaults, onboarding re-entry) must
+    // not depend on whether an earlier destructive phase could complete. The
+    // canonical failure was a locked `whisper-server.exe` blocking the
+    // model-dir delete on Windows, which used to abort the whole reset and
+    // leave `onboardingCompleted = true` (no re-onboarding).
+    var failed = false;
 
-      // Phase 2 — wipe model directory + logs (the large I/O work).
-      yield ResetPhase.deletingModels;
+    Future<void> runPhase(Future<void> Function() work) async {
+      try {
+        await work();
+      } catch (error, stackTrace) {
+        failed = true;
+        _capture(
+          message: 'Factory reset phase failed',
+          fingerprint: const <String>[factoryResetFailed],
+          error: error,
+          stackTrace: stackTrace,
+        );
+      }
+    }
+
+    // Phase 1 — stop subprocess, wait for actual exit.
+    yield ResetPhase.stoppingSubprocess;
+    await runPhase(_stopSubprocessWithBackstop);
+
+    // Phase 2 — wipe model directory + logs (the large I/O work).
+    yield ResetPhase.deletingModels;
+    await runPhase(() async {
       await _deleteIfExists(modelDirPath);
       await _deleteIfExists(logsDirPath);
+    });
 
-      // Phase 3 — drop the history database file.
-      yield ResetPhase.deletingDatabase;
-      await _eraseDatabase();
+    // Phase 3 — drop the history database file.
+    yield ResetPhase.deletingDatabase;
+    await runPhase(_eraseDatabase);
 
-      // Phase 4 — clear secure-store credentials.
-      yield ResetPhase.resettingSecureStore;
-      await _eraseSecureStore();
+    // Phase 4 — clear secure-store credentials.
+    yield ResetPhase.resettingSecureStore;
+    await runPhase(_eraseSecureStore);
 
-      // Phase 5 — reset in-memory settings (triggers onboarding re-entry
-      // via `onboardingCompleted = false`).
-      yield ResetPhase.resettingSettings;
-      await _resetSettings();
+    // Phase 5 — reset in-memory settings (triggers onboarding re-entry via
+    // `onboardingCompleted = false`). ALWAYS runs, even after earlier failures.
+    yield ResetPhase.resettingSettings;
+    await runPhase(_resetSettings);
 
-      // Terminal — done.
-      yield ResetPhase.done;
-    } catch (error, stackTrace) {
-      _capture(
-        message: 'Factory reset failed',
-        fingerprint: const <String>[factoryResetFailed],
-        error: error,
-        stackTrace: stackTrace,
-      );
-      yield ResetPhase.failed;
-    }
+    // Terminal — `done` only when every phase succeeded; otherwise `failed`
+    // (partial reset: settings were still reset, but some data may remain).
+    yield failed ? ResetPhase.failed : ResetPhase.done;
   }
 
   // ---------------------------------------------------------------------------

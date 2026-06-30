@@ -8,9 +8,10 @@
 ///      `forceKill` (SIGKILL / taskkill /F) fires.
 ///   3. Subprocess hangs past the configured stop-timeout — `forceKill`
 ///      fires and the stream advances to `deletingModels`.
-///   4. A delete phase throws — stream emits `failed`, the
-///      `CrashReporter.captureError` sink is invoked with the
-///      `factory-reset-failed` fingerprint.
+///   4. A delete phase throws — phases are best-effort: every remaining phase
+///      (including the settings reset that re-enters onboarding) still runs,
+///      the `CrashReporter.captureError` sink is invoked with the
+///      `factory-reset-failed` fingerprint, and the stream ends on `failed`.
 ///
 /// Test seam recap (mirrors the PRD design):
 /// - In-memory filesystem via `package:file` MemoryFileSystem so the
@@ -317,52 +318,60 @@ void main() {
   });
 
   group('FactoryResetCoordinator — failure path', () {
-    test('a throwing delete phase emits failed and captures via the '
-        'factory-reset-failed fingerprint', () async {
+    test('a throwing delete phase is best-effort: later phases still run, '
+        'settings are STILL reset, and the stream ends on failed', () async {
       await _seedDirectories(fs, modelDir: modelDir, logsDir: logsDir);
 
       final subprocess = _FakeSubprocessController(
         waitForExitResults: const <bool>[true],
       );
       final capture = _RecordingCaptureSink();
+      var erasedDatabase = false;
+      var erasedSecureStore = false;
+      var resetSettingsRan = false;
       final coordinator = FactoryResetCoordinator(
         subprocess: subprocess,
         modelDirPath: modelDir,
         logsDirPath: logsDir,
         fileSystem: fs,
-        // Simulate the OS denying us the delete (permission denied,
-        // file-locked, etc.). The deleter for the *model dir* throws;
-        // every subsequent phase must be skipped.
+        // Simulate the OS denying us the model-dir delete (permission denied,
+        // a locked whisper-server.exe, etc.). This must NOT abort the reset —
+        // the user-visible settings reset (re-onboarding) has to run anyway.
         directoryDeleter: (path) async {
           if (path == modelDir) {
             throw const FileSystemException('permission denied', modelDir);
           }
-          // Fallback for other paths (logs) — not reached because the
-          // model-dir delete is attempted first.
           await fs.directory(path).delete(recursive: true);
         },
-        eraseDatabase: () async {
-          fail('eraseDatabase must not run after a deletingModels failure');
-        },
-        eraseSecureStore: () async {
-          fail('eraseSecureStore must not run after a deletingModels failure');
-        },
-        resetSettings: () async {
-          fail('resetSettings must not run after a deletingModels failure');
-        },
+        eraseDatabase: () async => erasedDatabase = true,
+        eraseSecureStore: () async => erasedSecureStore = true,
+        resetSettings: () async => resetSettingsRan = true,
         captureSink: capture.call,
       );
 
       final phases = await coordinator.run().toList();
 
-      // The stream must terminate on `failed` and not on `done`.
+      // The overall outcome is `failed` (a phase threw) — not `done`.
       expect(phases.last, ResetPhase.failed);
       expect(phases, isNot(contains(ResetPhase.done)));
-      // The phases up to (and including) the failing step are emitted.
+      // …but every phase marker was still emitted (best-effort continuation).
       expect(phases, contains(ResetPhase.stoppingSubprocess));
       expect(phases, contains(ResetPhase.deletingModels));
+      expect(phases, contains(ResetPhase.deletingDatabase));
+      expect(phases, contains(ResetPhase.resettingSecureStore));
+      expect(phases, contains(ResetPhase.resettingSettings));
+      // Crucially: the later phases — and the settings reset — DID run.
+      expect(erasedDatabase, isTrue);
+      expect(erasedSecureStore, isTrue);
+      expect(
+        resetSettingsRan,
+        isTrue,
+        reason:
+            'settings reset (onboarding re-entry) must run despite an '
+            'earlier delete failure',
+      );
 
-      // Exactly one capture event, with the PRD-pinned fingerprint.
+      // The model-dir delete failure was captured with the pinned fingerprint.
       expect(capture.events, hasLength(1));
       expect(capture.events.single.fingerprint, <String>[factoryResetFailed]);
       expect(capture.events.single.error, isA<FileSystemException>());
