@@ -517,6 +517,20 @@ export const i18n: Record<string, Record<string, string>> = {
     'comparison.osDictation.faq.multiLanguage.q': 'Can WhisPaste handle multiple languages better than the OS dictation?',
     'comparison.osDictation.faq.multiLanguage.a': 'Yes, in two ways. First, a single Whisper recording can contain code-switching (English-German, Spanish-English, etc.) and the model transcribes it as spoken, where the OS dictation usually forces a single input language per session. Second, switching the primary language is a setting toggle in WhisPaste; in the OS dictation it is tied to the system input source, which has its own UX cost.',
     'comparison.osDictation.cta.label': 'Get WhisPaste — free and open source',
+    // App-in-Any-Context Demo (Phase B, Issue 04).
+    // Section that demonstrates the core promise: hotkey → speak → text appears
+    // at cursor in the currently open app, without any app switch.
+    'appdemo.label': 'In every app',
+    'appdemo.titleLead': 'Your voice — ',
+    'appdemo.titleAccent': 'right at the cursor',
+    'appdemo.titleTail': '',
+    'appdemo.subtitle': 'Press the hotkey in any app. Speak. Text appears right at your cursor — no app switch, no copy-paste.',
+    'appdemo.hotkeyHint': 'Speak. Text appears at cursor.',
+    'appdemo.noSwitch': 'No app switching',
+    'appdemo.noAiEdit': 'Transcribed, not rewritten',
+    'appdemo.mockHeading': 'Q3 Review',
+    'appdemo.mockPrefix': 'Notes: ',
+    'appdemo.mockTyped': 'team hit target, up twelve percent.',
   },
   de: {
     'meta.title.default': 'WhisPaste — Spracheingabe direkt am Cursor',
@@ -1033,6 +1047,18 @@ export const i18n: Record<string, Record<string, string>> = {
     'comparison.osDictation.faq.multiLanguage.q': 'Kommt WhisPaste besser mit mehreren Sprachen klar als das OS-Diktat?',
     'comparison.osDictation.faq.multiLanguage.a': 'Ja, in zwei Hinsichten. Erstens kann eine einzelne Whisper-Aufnahme Code-Switching enthalten (Englisch-Deutsch, Spanisch-Englisch usw.), und das Modell transkribiert es so, wie es gesprochen wurde — das OS-Diktat erzwingt meist eine einzige Eingabesprache pro Sitzung. Zweitens ist der Wechsel der Primärsprache in WhisPaste ein Setting-Schalter; im OS-Diktat hängt er an der Systemeingabequelle, was eigene UX-Kosten verursacht.',
     'comparison.osDictation.cta.label': 'WhisPaste holen — kostenlos und Open Source',
+    // App-in-Any-Context Demo (Phase B, Issue 04).
+    'appdemo.label': 'In jeder App',
+    'appdemo.titleLead': 'Deine Stimme — ',
+    'appdemo.titleAccent': 'direkt am Cursor',
+    'appdemo.titleTail': '',
+    'appdemo.subtitle': 'Hotkey drücken — in welcher App auch immer. Sprechen. Text erscheint direkt am Cursor, ohne App-Wechsel, ohne Copy-Paste.',
+    'appdemo.hotkeyHint': 'Sprechen. Text erscheint am Cursor.',
+    'appdemo.noSwitch': 'Kein App-Wechsel',
+    'appdemo.noAiEdit': 'Transkribiert, nicht umformuliert',
+    'appdemo.mockHeading': 'Q3-Überblick',
+    'appdemo.mockPrefix': 'Notizen: ',
+    'appdemo.mockTyped': 'Team hat das Ziel um zwölf Prozent übertroffen.',
   }
 };
 
