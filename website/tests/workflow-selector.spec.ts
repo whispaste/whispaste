@@ -35,8 +35,8 @@ test.describe('WorkflowSelector', () => {
     }
     // Verify exact slugs
     expect(hrefs).toContain('/use-cases/programmierer/');
-    expect(hrefs).toContain('/use-cases/support-mitarbeiter/');
-    expect(hrefs).toContain('/use-cases/rsi/');
+    expect(hrefs).toContain('/use-cases/studierende/');
+    expect(hrefs).toContain('/use-cases/vielschreiber/');
   });
 
   test('EN cards link to /en/use-cases/... slugs', async ({ page }) => {
@@ -54,8 +54,8 @@ test.describe('WorkflowSelector', () => {
     }
     // Verify exact slugs
     expect(hrefs).toContain('/en/use-cases/programmer/');
-    expect(hrefs).toContain('/en/use-cases/support-staff/');
-    expect(hrefs).toContain('/en/use-cases/rsi/');
+    expect(hrefs).toContain('/en/use-cases/students/');
+    expect(hrefs).toContain('/en/use-cases/everyday/');
   });
 
   test('cards are natively keyboard-focusable (anchor elements with href)', async ({ page }) => {

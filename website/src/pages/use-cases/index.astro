@@ -1,0 +1,115 @@
+---
+/**
+ * `/use-cases/` — Use-Case-Hub. Übersichtsseite, die die einzelnen
+ * Use-Case-Detailseiten (Entwickler, Studierende, Vielschreiber) bündelt. Schließt
+ * zugleich die Breadcrumb-Lücke: die Detailseiten verlinken ihren mittleren
+ * Krümel auf `/use-cases/` — ohne diese Index-Seite lief der Link ins 404.
+ *
+ * Card-Texte werden aus den vorhandenen `workflowSelector.*`-Keys
+ * wiederverwendet (Single Source — kein Copy-Duplikat zur Startseiten-Sektion).
+ */
+import LandingPageLayout from "../../layouts/LandingPageLayout.astro";
+import { t, localePath } from "../../scripts/i18n.ts";
+
+const lang = "de" as const;
+
+const breadcrumbs = [
+  { name: t(lang, "breadcrumb.home"), item: localePath(lang, "") },
+  { name: t(lang, "breadcrumb.useCases"), item: localePath(lang, "use-cases") },
+];
+
+const seo = {
+  title: t(lang, "useCaseHub.seoTitle"),
+  description: t(lang, "useCaseHub.seoDescription"),
+};
+
+const hero = {
+  heading: t(lang, "useCaseHub.heroHeading"),
+  lead: t(lang, "useCaseHub.heroLead"),
+};
+
+const cta = {
+  label: t(lang, "useCase.students.cta.label"),
+  href: localePath(lang, "download"),
+};
+
+const cards = [
+  { key: "developer", href: localePath(lang, "use-cases/programmierer") },
+  { key: "students", href: localePath(lang, "use-cases/studierende") },
+  { key: "everyday", href: localePath(lang, "use-cases/vielschreiber") },
+] as const;
+---
+
+<LandingPageLayout
+  lang={lang}
+  seo={seo}
+  breadcrumbs={breadcrumbs}
+  hero={hero}
+  cta={cta}
+>
+  <div class="uc-hub-grid">
+    {cards.map(({ key, href }) => (
+      <a href={href} class="uc-hub-card">
+        <h2>{t(lang, `workflowSelector.${key}.title`)}</h2>
+        <p>{t(lang, `workflowSelector.${key}.desc`)}</p>
+        <span class="uc-hub-arrow">{t(lang, "useCaseHub.cardCta")} →</span>
+      </a>
+    ))}
+  </div>
+</LandingPageLayout>
+
+<style>
+  .uc-hub-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  @media (min-width: 640px) {
+    .uc-hub-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+  .uc-hub-card {
+    display: flex;
+    flex-direction: column;
+    padding: 1.5rem 1.75rem;
+    border-radius: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: linear-gradient(135deg, rgba(29, 37, 56, 0.4) 0%, rgba(23, 29, 44, 0.2) 100%);
+    text-decoration: none;
+    transition: border-color 0.3s ease, transform 0.3s ease;
+  }
+  .uc-hub-card:hover {
+    border-color: rgba(56, 217, 240, 0.3);
+    transform: translateY(-4px);
+  }
+  .uc-hub-card h2 {
+    color: var(--color-ink);
+    font-weight: 600;
+    font-size: 1.0625rem;
+    margin-bottom: 0.5rem;
+  }
+  .uc-hub-card p {
+    color: var(--color-ink-muted);
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    flex: 1;
+  }
+  .uc-hub-arrow {
+    margin-top: 1rem;
+    color: var(--color-brand-cyan);
+    font-size: 0.9375rem;
+    font-weight: 500;
+  }
+  :root.light .uc-hub-card {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.85) 0%, rgba(248, 250, 252, 0.6) 100%);
+    border-color: rgba(0, 0, 0, 0.08);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .uc-hub-card,
+    .uc-hub-card:hover {
+      transition: none;
+      transform: none;
+    }
+  }
+</style>

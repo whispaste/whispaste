@@ -1,0 +1,120 @@
+---
+/**
+ * `/use-cases/vielschreiber/` — Use-Case-Page für Vielschreiber im Alltag:
+ * Menschen, die den Großteil des Tages in E-Mails, Chats und Notizen
+ * verbringen (ersetzt die frühere RSI-Seite — bewusst alltagsnah und ohne
+ * medizinischen/risikobehafteten Bezug).
+ *
+ * Beantwortet den `docs/zielgruppe.md`-Lackmustest („Wie bekomme ich diesen
+ * Satz in das Feld, ohne mein Fenster zu verlassen?") direkt im Hero-Lead.
+ * Drei Sections decken die häufigsten Alltags-Friction-Punkte ab: E-Mails/
+ * Nachrichten, Notizen/Ideen, App-Unabhängigkeit.
+ *
+ * Schema-Wahl: FAQPage (statt HowTo), weil Alltagsnutzer typischerweise mit
+ * konkreten Einstiegsfragen ankommen („Brauche ich technisches Wissen?",
+ * „Geht das in WhatsApp Web?", „Was kostet das?"). Die Fragen/Antworten
+ * spiegeln die i18n-Keys 1:1 — Google verlangt, dass Schema-Inhalt visuell
+ * auf der Seite existiert.
+ *
+ * Slug-Divergenz DE/EN: DE `vielschreiber`, EN `everyday`. Über
+ * `alternateSlugs` an `LandingPageLayout` → `Layout` durchgereicht, damit
+ * hreflang-Alternates korrekt zwischen den beiden Routen pendeln.
+ */
+import LandingPageLayout from "../../layouts/LandingPageLayout.astro";
+import FAQPageSchema from "../../components/schema/FAQPageSchema.astro";
+import { t, localePath } from "../../scripts/i18n.ts";
+
+const lang = "de" as const;
+
+const breadcrumbs = [
+  { name: t(lang, "breadcrumb.home"), item: localePath(lang, "") },
+  { name: t(lang, "breadcrumb.useCases"), item: localePath(lang, "use-cases") },
+  { name: t(lang, "useCase.everyday.breadcrumb"), item: localePath(lang, "use-cases/vielschreiber") },
+];
+
+const seo = {
+  title: t(lang, "useCase.everyday.seoTitle"),
+  description: t(lang, "useCase.everyday.seoDescription"),
+};
+
+const hero = {
+  heading: t(lang, "useCase.everyday.heroHeading"),
+  lead: t(lang, "useCase.everyday.heroLead"),
+};
+
+const cta = {
+  label: t(lang, "useCase.everyday.cta.label"),
+  href: localePath(lang, "download"),
+};
+
+const faqQuestions = [
+  {
+    question: t(lang, "useCase.everyday.faq.noTech.q"),
+    answer: t(lang, "useCase.everyday.faq.noTech.a"),
+  },
+  {
+    question: t(lang, "useCase.everyday.faq.apps.q"),
+    answer: t(lang, "useCase.everyday.faq.apps.a"),
+  },
+  {
+    question: t(lang, "useCase.everyday.faq.cost.q"),
+    answer: t(lang, "useCase.everyday.faq.cost.a"),
+  },
+];
+
+const alternateSlugs = { de: "use-cases/vielschreiber", en: "use-cases/everyday" };
+---
+
+<LandingPageLayout
+  lang={lang}
+  seo={seo}
+  breadcrumbs={breadcrumbs}
+  hero={hero}
+  heroImage={{ src: "/illustrations/use-case-everyday.webp", alt: t(lang, "useCase.everyday.illustrationAlt") }}
+  cta={cta}
+  alternateSlugs={alternateSlugs}
+>
+  <section>
+    <h2>{t(lang, "useCase.everyday.section.email.heading")}</h2>
+    <p>{t(lang, "useCase.everyday.section.email.body")}</p>
+  </section>
+
+  <section>
+    <h2>{t(lang, "useCase.everyday.section.notes.heading")}</h2>
+    <p>{t(lang, "useCase.everyday.section.notes.body")}</p>
+  </section>
+
+  <section>
+    <h2>{t(lang, "useCase.everyday.section.anywhere.heading")}</h2>
+    <p>{t(lang, "useCase.everyday.section.anywhere.body")}</p>
+    <dl class="faq-list">
+      {faqQuestions.map((entry) => (
+        <div class="faq-item">
+          <dt>{entry.question}</dt>
+          <dd>{entry.answer}</dd>
+        </div>
+      ))}
+    </dl>
+  </section>
+
+  <FAQPageSchema locale={lang} questions={faqQuestions} />
+</LandingPageLayout>
+
+<style>
+  .faq-list {
+    margin-top: 1rem;
+  }
+  .faq-item + .faq-item {
+    margin-top: 1rem;
+  }
+  .faq-list dt {
+    color: #e5e7eb;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+  }
+  .faq-list dd {
+    color: #9ca3af;
+    line-height: 1.6;
+    margin: 0;
+  }
+</style>

@@ -1,6 +1,6 @@
 # WhisPaste
 
-> WhisPaste is an MIT-licensed voice-input tool for Windows, macOS, and Linux that transcribes speech locally via whisper.cpp and inserts the transcript at the cursor position of the active application. iOS and Android are planned.
+> WhisPaste is an MIT-licensed voice-input tool for Windows, macOS, and Linux that transcribes speech locally via whisper.cpp and inserts the transcript at the cursor position of the active application. It is a desktop-only app; iOS and Android are not planned.
 
 ## Download
 
@@ -16,6 +16,11 @@
 
 - [Datenschutz (Deutsch)](https://whispaste.de/datenschutz/): Audio bleibt lokal; optionales opt-in für Cloud-Provider
 - [Privacy (English)](https://whispaste.de/en/privacy/): Audio stays local; cloud providers are opt-in
+
+## Use Cases
+
+- [Anwendungsfälle (Deutsch)](https://whispaste.de/use-cases/): Spracheingabe für Entwickler, Studierende und den Schreib-Alltag — direkt am Cursor in jeder App
+- [Use cases (English)](https://whispaste.de/en/use-cases/): Voice input for developers, students, and everyday writing — straight at the cursor in any app
 
 ## Comparisons
 

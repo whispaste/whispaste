@@ -272,6 +272,21 @@ const LLMS_TXT_SECTIONS = Object.freeze([
     ],
   },
   {
+    title: "Use Cases",
+    links: [
+      {
+        label: "Anwendungsfälle (Deutsch)",
+        url: "https://whispaste.de/use-cases/",
+        note: "Spracheingabe für Entwickler, Studierende und den Schreib-Alltag — direkt am Cursor in jeder App",
+      },
+      {
+        label: "Use cases (English)",
+        url: "https://whispaste.de/en/use-cases/",
+        note: "Voice input for developers, students, and everyday writing — straight at the cursor in any app",
+      },
+    ],
+  },
+  {
     title: "Comparisons",
     links: [
       {
@@ -314,7 +329,7 @@ const LLMS_TXT_SECTIONS = Object.freeze([
  */
 const LLMS_TXT_TITLE = "WhisPaste";
 const LLMS_TXT_DESCRIPTION =
-  "WhisPaste is an MIT-licensed voice-input tool for Windows, macOS, and Linux that transcribes speech locally via whisper.cpp and inserts the transcript at the cursor position of the active application. iOS and Android are planned.";
+  "WhisPaste is an MIT-licensed voice-input tool for Windows, macOS, and Linux that transcribes speech locally via whisper.cpp and inserts the transcript at the cursor position of the active application. It is a desktop-only app; iOS and Android are not planned.";
 
 /**
  * Liefert die default-Section-Liste, die `main()` für den Production-Build

@@ -1,0 +1,131 @@
+---
+/**
+ * `/use-cases/studierende/` — Use-Case-Page für Studierende und Forschende.
+ *
+ * Beantwortet den `docs/zielgruppe.md`-Lackmustest („Wie bekomme ich diesen
+ * Satz in das Feld, ohne mein Fenster zu verlassen?") direkt im Hero-Lead.
+ * Drei Sections decken die häufigsten Friction-Punkte ab: Gedanke beim Lesen
+ * festhalten, Schreibtool-Vielfalt, lange Schreibsessions.
+ *
+ * Schema-Wahl: HowTo (statt FAQPage), weil der Schreib-Flow inhärent
+ * sequentiell ist („Dokument öffnen → Cursor setzen → Sprechen →
+ * Weiterschreiben") und Google HowTo-Rich-Results für solche Step-by-Step-
+ * Inhalte ausspielt. Die Schritte spiegeln 1:1 die sichtbare `<ol>`-Liste
+ * auf der Page.
+ *
+ * Slug-Divergenz DE/EN: DE `studierende`, EN `students`. Über
+ * `alternateSlugs` an `LandingPageLayout` → `Layout` durchgereicht, damit
+ * hreflang-Alternates korrekt zwischen den beiden Routen pendeln (analog
+ * zu `programmierer` ↔ `programmer`).
+ */
+import LandingPageLayout from "../../layouts/LandingPageLayout.astro";
+import HowToSchema from "../../components/schema/HowToSchema.astro";
+import { t, localePath } from "../../scripts/i18n.ts";
+
+const lang = "de" as const;
+
+const breadcrumbs = [
+  { name: t(lang, "breadcrumb.home"), item: localePath(lang, "") },
+  { name: t(lang, "breadcrumb.useCases"), item: localePath(lang, "use-cases") },
+  { name: t(lang, "useCase.students.breadcrumb"), item: localePath(lang, "use-cases/studierende") },
+];
+
+const seo = {
+  title: t(lang, "useCase.students.seoTitle"),
+  description: t(lang, "useCase.students.seoDescription"),
+};
+
+const hero = {
+  heading: t(lang, "useCase.students.heroHeading"),
+  lead: t(lang, "useCase.students.heroLead"),
+};
+
+const cta = {
+  label: t(lang, "useCase.students.cta.label"),
+  href: localePath(lang, "download"),
+};
+
+const howToSteps = [
+  {
+    name: t(lang, "useCase.students.howTo.step1.name"),
+    text: t(lang, "useCase.students.howTo.step1.text"),
+  },
+  {
+    name: t(lang, "useCase.students.howTo.step2.name"),
+    text: t(lang, "useCase.students.howTo.step2.text"),
+  },
+  {
+    name: t(lang, "useCase.students.howTo.step3.name"),
+    text: t(lang, "useCase.students.howTo.step3.text"),
+  },
+];
+
+const alternateSlugs = { de: "use-cases/studierende", en: "use-cases/students" };
+---
+
+<LandingPageLayout
+  lang={lang}
+  seo={seo}
+  breadcrumbs={breadcrumbs}
+  hero={hero}
+  heroImage={{ src: "/illustrations/use-case-students.webp", alt: t(lang, "useCase.students.illustrationAlt") }}
+  cta={cta}
+  alternateSlugs={alternateSlugs}
+>
+  <section>
+    <h2>{t(lang, "useCase.students.section.workflow.heading")}</h2>
+    <p>{t(lang, "useCase.students.section.workflow.body")}</p>
+  </section>
+
+  <section>
+    <h2>{t(lang, "useCase.students.section.tools.heading")}</h2>
+    <p>{t(lang, "useCase.students.section.tools.body")}</p>
+  </section>
+
+  <section>
+    <h2>{t(lang, "useCase.students.section.savings.heading")}</h2>
+    <p>{t(lang, "useCase.students.section.savings.body")}</p>
+    <ol class="howto-steps">
+      <li>
+        <h3>{t(lang, "useCase.students.howTo.step1.name")}</h3>
+        <p>{t(lang, "useCase.students.howTo.step1.text")}</p>
+      </li>
+      <li>
+        <h3>{t(lang, "useCase.students.howTo.step2.name")}</h3>
+        <p>{t(lang, "useCase.students.howTo.step2.text")}</p>
+      </li>
+      <li>
+        <h3>{t(lang, "useCase.students.howTo.step3.name")}</h3>
+        <p>{t(lang, "useCase.students.howTo.step3.text")}</p>
+      </li>
+    </ol>
+  </section>
+
+  <HowToSchema
+    locale={lang}
+    name={t(lang, "useCase.students.seoTitle")}
+    description={t(lang, "useCase.students.heroLead")}
+    steps={howToSteps}
+  />
+</LandingPageLayout>
+
+<style>
+  .howto-steps {
+    margin-top: 1rem;
+    padding-left: 1.25rem;
+    list-style: decimal;
+    color: #9ca3af;
+  }
+  .howto-steps li + li {
+    margin-top: 0.75rem;
+  }
+  .howto-steps h3 {
+    color: #e5e7eb;
+    font-weight: 600;
+    font-size: 1rem;
+    margin-bottom: 0.25rem;
+  }
+  .howto-steps p {
+    line-height: 1.55;
+  }
+</style>
