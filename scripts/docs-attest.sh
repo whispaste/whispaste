@@ -260,8 +260,8 @@ check_i18n() {
     "vergleich/whispaste-vs-system-spracheingabe.astro|en/comparison/whispaste-vs-system-speech-to-text.astro"
     "vergleich/diktiersoftware-alternativen.astro|en/comparison/voice-input-tool-alternatives.astro"
     "use-cases/programmierer.astro|en/use-cases/programmer.astro"
-    "use-cases/support-mitarbeiter.astro|en/use-cases/support-staff.astro"
-    "use-cases/rsi.astro|en/use-cases/rsi.astro"
+    "use-cases/studierende.astro|en/use-cases/students.astro"
+    "use-cases/vielschreiber.astro|en/use-cases/everyday.astro"
   )
   local pair de en
   for pair in "${PAIRS[@]}"; do
