@@ -8,6 +8,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -296,6 +297,18 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
     if (event is KeyDownEvent || event is KeyRepeatEvent) {
       if (_modifierKeys.contains(key)) {
         _heldModifiers.add(key);
+        // AltGr guard (Windows only): pressing AltGr (physical RightAlt) makes
+        // Windows inject a synthetic LeftCtrl alongside RightAlt, which would
+        // otherwise be recorded as "ctrl+alt". Drop that synthetic ctrl so AltGr
+        // binds as a plain Alt. Skipped if a RightCtrl is also held (then the
+        // user genuinely wants Ctrl). Linux AltGr injects no control key, so the
+        // guard is Windows-specific. `defaultTargetPlatform` (not dart:io) keeps
+        // this unit-testable via debugDefaultTargetPlatformOverride.
+        if (defaultTargetPlatform == TargetPlatform.windows &&
+            key == LogicalKeyboardKey.altRight &&
+            !_heldModifiers.contains(LogicalKeyboardKey.controlRight)) {
+          _heldModifiers.remove(LogicalKeyboardKey.controlLeft);
+        }
       } else if (_heldModifiers.isNotEmpty ||
           singleKeyWhitelist.contains(key) ||
           key_resolver.canonicalRecordableKey(event) != null) {

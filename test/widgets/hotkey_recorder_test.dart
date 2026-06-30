@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, debugDefaultTargetPlatformOverride;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -437,6 +439,61 @@ void main() {
       expect(result, isNotNull);
       expect(result!.modifiers, 'ctrl+alt');
     });
+
+    testWidgets(
+      'Windows AltGr (RightAlt) → "alt" — synthetic LeftCtrl dropped (#39)',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+        try {
+          // Windows injects a synthetic LeftCtrl right before RightAlt when
+          // AltGr is pressed; the recorder must not persist that as "ctrl+alt".
+          final result = await openRecorderAndCapture(
+            tester,
+            keys: [
+              LogicalKeyboardKey.controlLeft,
+              LogicalKeyboardKey.altRight,
+              LogicalKeyboardKey.keyD,
+            ],
+          );
+
+          expect(result, isNotNull);
+          expect(result!.key, 'D');
+          expect(
+            result.modifiers,
+            'alt',
+            reason:
+                'AltGr binds as plain Alt; the synthetic LeftCtrl Windows '
+                'injects with RightAlt must not be stored as "ctrl+alt".',
+          );
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      },
+    );
+
+    testWidgets(
+      'non-Windows: LeftCtrl+RightAlt stays "ctrl+alt" (AltGr guard is gated)',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+        try {
+          // Linux AltGr injects no control key, so a held LeftCtrl+RightAlt is a
+          // genuine combo and must survive — proving the guard is Windows-only.
+          final result = await openRecorderAndCapture(
+            tester,
+            keys: [
+              LogicalKeyboardKey.controlLeft,
+              LogicalKeyboardKey.altRight,
+              LogicalKeyboardKey.keyD,
+            ],
+          );
+
+          expect(result, isNotNull);
+          expect(result!.modifiers, 'ctrl+alt');
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      },
+    );
 
     testWidgets(
       'DE locale: Strg+Umschalt+E still stores canonical "ctrl+shift"',
