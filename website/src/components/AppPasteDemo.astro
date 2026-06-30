@@ -36,6 +36,37 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
     <!-- Editor mockup stage -->
     <div class="apd-stage">
 
+      <!-- "In any app" constellation — own generic glyphs (no third-party
+           brand marks), tucked behind the editor window to say: the same
+           capability, in every kind of app. Decorative, hidden on mobile. -->
+      <div class="apd-apps" aria-hidden="true">
+        <span class="apd-app apd-app--1">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 5L2 7"/>
+          </svg>
+        </span>
+        <span class="apd-app apd-app--2">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+        </span>
+        <span class="apd-app apd-app--3">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m4 17 6-6-6-6"/><path d="M12 19h8"/>
+          </svg>
+        </span>
+        <span class="apd-app apd-app--4">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 9h20"/><circle cx="5.5" cy="6.5" r="0.6" fill="currentColor"/>
+          </svg>
+        </span>
+        <span class="apd-app apd-app--5">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/>
+          </svg>
+        </span>
+      </div>
+
       <!-- Floating hotkey badge -->
       <div class="apd-hotkey-badge" aria-hidden="true">
         <kbd class="apd-key" data-i18n="hero.hotkey.mod">{t(lang, 'hero.hotkey.mod')}</kbd>
@@ -161,6 +192,66 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
   }
 
   /* =========================================================================
+     "In any app" constellation — generic app glyphs tucked behind the window
+     ========================================================================= */
+  .apd-apps {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+  }
+  .apd-app {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.875rem;
+    height: 2.875rem;
+    border-radius: 0.75rem;
+    background: color-mix(in srgb, var(--color-brand-card) 94%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-brand-cyan) 22%, var(--color-brand-border));
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.32);
+    color: color-mix(in srgb, var(--color-brand-cyan) 80%, var(--color-ink-muted));
+    opacity: 0;
+    transform: translateY(8px) scale(0.94);
+    transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  html.light .apd-app {
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.12);
+  }
+  .apd-app svg { width: 1.4rem; height: 1.4rem; }
+
+  .apd-app--1 { top: 6%;  left: -1.6rem; }
+  .apd-app--2 { top: -1.6rem; right: 18%; }
+  .apd-app--3 { top: 46%; left: -1.9rem; }
+  .apd-app--4 { bottom: 16%; right: -1.7rem; }
+  .apd-app--5 { bottom: -1.5rem; left: 20%; }
+
+  /* Reveal-in, staggered, once the section is visible. */
+  .scroll-reveal.visible .apd-app {
+    opacity: 0.95;
+    transform: none;
+  }
+  .scroll-reveal.visible .apd-app--1 { transition-delay: 0.15s; }
+  .scroll-reveal.visible .apd-app--2 { transition-delay: 0.25s; }
+  .scroll-reveal.visible .apd-app--3 { transition-delay: 0.35s; }
+  .scroll-reveal.visible .apd-app--4 { transition-delay: 0.45s; }
+  .scroll-reveal.visible .apd-app--5 { transition-delay: 0.55s; }
+
+  /* Hide the constellation on narrow screens to avoid collision with the window. */
+  @media (max-width: 767px) {
+    .apd-apps { display: none; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .apd-app {
+      opacity: 0.95;
+      transform: none;
+      transition: none;
+    }
+  }
+
+  /* =========================================================================
      Hotkey badge — floats top-right, presses once on scroll-enter
      ========================================================================= */
   .apd-hotkey-badge {
@@ -208,6 +299,8 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
      Editor window chrome
      ========================================================================= */
   .apd-window {
+    position: relative;
+    z-index: 2;
     border-radius: 12px;
     overflow: hidden;
     border: 1px solid var(--color-brand-border);
