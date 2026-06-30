@@ -212,6 +212,14 @@ class FloatingOverlayHost {
     }
 
     let p = FloatingOverlayPanel(width: size.width, height: size.height)
+    // ⚠️ DO NOT replace `contentViewController` with a manual container/subview
+    // setup (e.g. to slip an NSVisualEffectView behind the Flutter surface for
+    // "frosted glass"). Hosting the FlutterViewController's view as a plain
+    // subview instead of as the panel's `contentViewController` breaks the
+    // Flutter view's sizing / backing-scale on this NSPanel → the overlay
+    // renders grossly oversized and clipped. Reproduced TWICE (2026-06-30) and
+    // reverted both times. Real desktop-blur vibrancy here needs a proven path
+    // (e.g. `macos_window_utils`), not a hand-rolled container. See ADR 0002.
     p.contentViewController = vc
     p.setContentSize(size)
 
