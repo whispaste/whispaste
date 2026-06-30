@@ -286,6 +286,13 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
     if (widget.snapshot.visible != oldWidget.snapshot.visible) {
       if (widget.snapshot.visible) {
         _triggerAppear();
+        // Re-show: snap the pill width to THIS state's target. Without this the
+        // pill keeps the width left over from the previous episode's final
+        // state (e.g. the narrow `done` width), because the pill-width spring
+        // only fires on a state change between two *visible* snapshots — and a
+        // recording→recording re-show is not such a change. A stuck-narrow pill
+        // clips the live waveform to nothing ("waveform gone on 2nd recording").
+        _snapPillToCurrentState();
       } else {
         // Native window handles the visual hide; snap the controller to 0 so
         // the next appear starts from the correct initial value.
@@ -303,6 +310,10 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
       // overlay visible). Without this, the overlay was invisible on every
       // recording after the first. Trigger the appear so the capsule fades in.
       _triggerAppear();
+      // Same fix as the visible-transition branch: reset the pill width to the
+      // current state so the re-shown recording capsule is full-width and the
+      // waveform is not clipped away.
+      _snapPillToCurrentState();
     }
 
     // State-transition crossfade + pill-width spring:
@@ -342,6 +353,23 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
         _dot.value = 1.0;
       }
     }
+  }
+
+  /// Snaps the pill width to the current snapshot state's target immediately
+  /// (no spring). Called on every (re-)appear so a re-shown overlay starts at
+  /// the correct width regardless of what width the previous episode left
+  /// behind — this is what keeps the re-shown recording capsule full-width so
+  /// the live waveform is not clipped.
+  void _snapPillToCurrentState() {
+    final sizeSpec = OverlayDesignSpec.size(compact: widget.snapshot.compact);
+    final width = OverlayDesignSpec.pillWidthFor(
+      FloatingOverlayView.designStateFor(widget.snapshot.state),
+      sizeSpec,
+    );
+    _pillFromWidth = width;
+    _pillToWidth = width;
+    _pillWidth.stop();
+    _pillWidth.value = 1.0;
   }
 
   /// Springs the pill width to the target for [newState].

@@ -18,6 +18,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/theme/overlay_design_spec.dart';
 import 'package:whispaste/services/floating_overlay/floating_overlay_controller_interface.dart';
 import 'package:whispaste/widgets/floating_overlay/floating_overlay_view.dart';
+import 'package:whispaste/widgets/floating_overlay/overlay_painter.dart';
 
 // ── Snapshot helper ──────────────────────────────────────────────────────────
 
@@ -865,6 +866,106 @@ void main() {
       await push(OverlayVisualState.recording);
 
       expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  });
+
+  // ── Re-show pill width (waveform-gone-on-2nd-recording regression) ─────────
+  //
+  // Proven root cause: the pill-width spring only fires on a state change
+  // between two *visible* snapshots. A second recording is a hide→show where
+  // both the hide snapshot and the show snapshot carry state=recording, so no
+  // spring fires and the pill stays at the previous episode's final `done`
+  // (narrow) width — which clips the live waveform to nothing. The fix snaps
+  // the pill to the current state's width on every (re-)appear.
+
+  group('re-show pill width', () {
+    double? steadyPillWidth(WidgetTester tester) {
+      final painters = tester
+          .widgetList<CustomPaint>(find.byType(CustomPaint))
+          .map((w) => w.painter)
+          .whereType<OverlayPainter>()
+          .toList();
+      // Steady state renders exactly one painter; during a crossfade there are
+      // three. We only assert in steady state.
+      return painters.length == 1 ? painters.single.pillWidth : null;
+    }
+
+    testWidgets('re-show after done restores the full recording width so the '
+        'waveform is not clipped away', (tester) async {
+      final sizeSpec = OverlayDesignSpec.size(compact: false);
+      final recW = OverlayDesignSpec.pillWidthFor(
+        OverlayDesignState.recording,
+        sizeSpec,
+      );
+      final doneW = OverlayDesignSpec.pillWidthFor(
+        OverlayDesignState.done,
+        sizeSpec,
+      );
+      expect(
+        doneW,
+        lessThan(recW),
+        reason: 'precondition: the done pill is narrower than recording',
+      );
+
+      // Episode 1: recording visible — pill at full recording width.
+      await tester.pumpWidget(
+        _wrap(
+          FloatingOverlayView(
+            snapshot: _snap(OverlayVisualState.recording, visible: true),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(steadyPillWidth(tester), closeTo(recW, 0.5));
+
+      // recording → done: pill springs to the narrow done width.
+      await tester.pumpWidget(
+        _wrap(
+          FloatingOverlayView(
+            snapshot: _snap(
+              OverlayVisualState.done,
+              visible: true,
+              doneMessage: 'Eingefügt!',
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(seconds: 2));
+      expect(
+        steadyPillWidth(tester),
+        closeTo(doneW, 1.0),
+        reason: 'after recording→done the pill should have shrunk',
+      );
+
+      // done → hidden. In production the hide snapshot carries state=recording,
+      // so the next show is NOT a state change — reproduce that exactly.
+      await tester.pumpWidget(
+        _wrap(
+          FloatingOverlayView(
+            snapshot: _snap(OverlayVisualState.recording, visible: false),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Episode 2: re-show recording — pill MUST be back to full width.
+      await tester.pumpWidget(
+        _wrap(
+          FloatingOverlayView(
+            snapshot: _snap(OverlayVisualState.recording, visible: true),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(
+        steadyPillWidth(tester),
+        closeTo(recW, 0.5),
+        reason:
+            'BUG: re-shown recording pill stuck at the previous done width → '
+            'live waveform clipped away ("gone on 2nd recording")',
+      );
+
       await tester.pumpWidget(const SizedBox.shrink());
     });
   });
