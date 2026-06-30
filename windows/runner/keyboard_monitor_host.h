@@ -50,13 +50,25 @@ class KeyboardMonitorHost {
   bool EnsureRawInputRegistered();
   void UnregisterRawInput();
 
+  // Whether every modifier the hotkey requires is physically down right now.
+  bool RequiredModifiersDown() const;
+
   flutter::FlutterEngine* engine_;
   HWND owner_;
   bool destroyed_ = false;
   bool raw_input_registered_ = false;
 
-  // The Win32 virtual-key code of the watched hotkey's MAIN key (0 = not
-  // watching). Derived from the Dart payload.
+  // The hotkey's required modifiers, parsed from the Dart `start` payload. The
+  // monitor self-arms (layout-independently) by watching for a non-modifier key
+  // that goes DOWN while all of these are held — no key-name / VK mapping.
+  bool req_ctrl_ = false;
+  bool req_alt_ = false;
+  bool req_shift_ = false;
+  bool req_meta_ = false;
+
+  // Virtual-key of the currently armed main key (0 = not armed). Set when a
+  // non-modifier key goes down with the required modifiers held; its release
+  // (break) fires `onKeyUp`.
   USHORT watched_vk_ = 0;
 
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> channel_;

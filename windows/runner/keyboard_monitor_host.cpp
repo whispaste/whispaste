@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+using flutter::EncodableList;
 using flutter::EncodableMap;
 using flutter::EncodableValue;
 using flutter::MethodCall;
@@ -14,38 +15,31 @@ namespace {
 
 constexpr char kChannelName[] = "com.whispaste.keyboard_monitor";
 
-// Reads a string entry from an EncodableMap, or "" if absent.
-std::string ReadString(const EncodableMap* map, const char* key) {
-  if (!map) return "";
-  auto it = map->find(EncodableValue(key));
-  if (it == map->end()) return "";
-  if (auto* s = std::get_if<std::string>(&it->second)) return *s;
-  return "";
+// True for virtual-keys that are modifiers/locks — these never become the
+// watched "main key" of a hotkey.
+bool IsModifierVk(USHORT vk) {
+  switch (vk) {
+    case VK_SHIFT:
+    case VK_LSHIFT:
+    case VK_RSHIFT:
+    case VK_CONTROL:
+    case VK_LCONTROL:
+    case VK_RCONTROL:
+    case VK_MENU:
+    case VK_LMENU:
+    case VK_RMENU:
+    case VK_LWIN:
+    case VK_RWIN:
+    case VK_CAPITAL:
+    case VK_NUMLOCK:
+    case VK_SCROLL:
+      return true;
+    default:
+      return false;
+  }
 }
 
-// Derives the Win32 virtual-key code of the watched MAIN key from the Dart
-// payload. Returns 0 if it cannot be mapped (the monitor then matches nothing).
-//
-// v1 handles the common case (A–Z / 0–9, whose VK equals the ASCII uppercase)
-// and falls back to the active keyboard layout for other single characters via
-// VkKeyScan. Layout-dependent OEM keys and F-keys still need scan-code matching
-// — to be finalised on the Windows box where real RawInput can be observed
-// (see issue #39); a letter hotkey exercises the full plumbing meanwhile.
-USHORT DeriveWatchedVk(const std::string& key_label) {
-  if (key_label.size() == 1) {
-    char c = key_label[0];
-    if (c >= 'a' && c <= 'z') c = static_cast<char>(c - 'a' + 'A');
-    if ((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) {
-      return static_cast<USHORT>(c);
-    }
-    const SHORT scan = ::VkKeyScanW(static_cast<wchar_t>(
-        static_cast<unsigned char>(key_label[0])));
-    if (scan != -1) {
-      return static_cast<USHORT>(scan & 0xFF);
-    }
-  }
-  return 0;
-}
+bool KeyDown(int vk) { return (::GetAsyncKeyState(vk) & 0x8000) != 0; }
 
 }  // namespace
 
@@ -75,6 +69,14 @@ void KeyboardMonitorHost::Destroy() {
   }
 }
 
+bool KeyboardMonitorHost::RequiredModifiersDown() const {
+  if (req_ctrl_ && !KeyDown(VK_CONTROL)) return false;
+  if (req_alt_ && !KeyDown(VK_MENU)) return false;
+  if (req_shift_ && !KeyDown(VK_SHIFT)) return false;
+  if (req_meta_ && !(KeyDown(VK_LWIN) || KeyDown(VK_RWIN))) return false;
+  return true;
+}
+
 void KeyboardMonitorHost::HandleMethodCall(
     const MethodCall<EncodableValue>& call,
     std::unique_ptr<MethodResult<EncodableValue>> result) {
@@ -88,11 +90,24 @@ void KeyboardMonitorHost::HandleMethodCall(
   if (method == "start") {
     const auto* args = call.arguments();
     const EncodableMap* map = args ? std::get_if<EncodableMap>(args) : nullptr;
-    const std::string key_label = ReadString(map, "keyLabel");
-    watched_vk_ = DeriveWatchedVk(key_label);
+    req_ctrl_ = req_alt_ = req_shift_ = req_meta_ = false;
+    watched_vk_ = 0;
+    if (map) {
+      auto it = map->find(EncodableValue("modifiers"));
+      if (it != map->end()) {
+        if (const auto* mods = std::get_if<EncodableList>(&it->second)) {
+          for (const auto& m : *mods) {
+            if (const auto* name = std::get_if<std::string>(&m)) {
+              if (*name == "control") req_ctrl_ = true;
+              else if (*name == "alt") req_alt_ = true;
+              else if (*name == "shift") req_shift_ = true;
+              else if (*name == "meta") req_meta_ = true;
+            }
+          }
+        }
+      }
+    }
     const bool ok = EnsureRawInputRegistered();
-    // Success even if the VK could not be derived: registration still works and
-    // a later re-start with a mappable key will begin matching.
     result->Success(EncodableValue(ok));
     return;
   }
@@ -137,7 +152,7 @@ void KeyboardMonitorHost::UnregisterRawInput() {
 }
 
 void KeyboardMonitorHost::HandleRawInput(HRAWINPUT raw_input) {
-  if (destroyed_ || watched_vk_ == 0) return;
+  if (destroyed_) return;
 
   UINT size = 0;
   if (::GetRawInputData(raw_input, RID_INPUT, nullptr, &size,
@@ -156,9 +171,22 @@ void KeyboardMonitorHost::HandleRawInput(HRAWINPUT raw_input) {
   if (ri->header.dwType != RIM_TYPEKEYBOARD) return;
 
   const RAWKEYBOARD& kb = ri->data.keyboard;
-  // RI_KEY_BREAK marks a key-UP (release).
+  const USHORT vk = kb.VKey;
+  // 0xFF is an escaped/fake key (e.g. part of an extended sequence); ignore.
+  if (vk == 0 || vk == 0xFF || IsModifierVk(vk)) return;
+
   const bool is_break = (kb.Flags & RI_KEY_BREAK) != 0;
-  if (kb.VKey == watched_vk_ && is_break) {
+
+  if (!is_break) {
+    // A non-modifier key went down. If the hotkey's modifiers are all held,
+    // this is (the latest candidate for) the hotkey's main key — arm its
+    // release. Layout-independent: we never map a key name to a VK.
+    if (RequiredModifiersDown()) {
+      watched_vk_ = vk;
+    }
+  } else if (watched_vk_ != 0 && vk == watched_vk_) {
+    // The armed main key was released → report the hotkey key-up.
+    watched_vk_ = 0;
     // Window-proc thread == platform thread, so InvokeMethod is safe here.
     channel_->InvokeMethod("onKeyUp", nullptr);
   }
