@@ -15,6 +15,7 @@ add_executable(${BINARY_NAME} WIN32
   "floating_overlay_host.cpp"
   "floating_overlay_window.cpp"
   "gdiplus_helper.cpp"
+  "keyboard_monitor_host.cpp"
   "main.cpp"
   "utils.cpp"
   "win32_window.cpp"

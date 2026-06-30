@@ -42,6 +42,10 @@ bool FlutterWindow::OnCreate() {
   attention_host_ = std::make_unique<AttentionHost>(
       flutter_controller_->engine(), GetHandle());
 
+  // Create the RawInput key-up monitor (push-to-talk on Windows, #39).
+  keyboard_monitor_host_ = std::make_unique<KeyboardMonitorHost>(
+      flutter_controller_->engine(), GetHandle());
+
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
@@ -74,6 +78,10 @@ void FlutterWindow::OnDestroy() {
     attention_host_->Destroy();
     attention_host_.reset();
   }
+  if (keyboard_monitor_host_) {
+    keyboard_monitor_host_->Destroy();
+    keyboard_monitor_host_.reset();
+  }
 
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
@@ -93,6 +101,14 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
       (message == WM_ACTIVATEAPP && wparam)) {
     if (floating_button_host_) floating_button_host_->RefreshTopmost();
     if (floating_overlay_host_) floating_overlay_host_->RefreshTopmost();
+  }
+
+  // Observe RawInput for the global hotkey's key-up (push-to-talk, #39). This
+  // never consumes the message — it falls through to DefWindowProc so RawInput
+  // is cleaned up and normal key delivery is unaffected.
+  if (message == WM_INPUT && keyboard_monitor_host_) {
+    keyboard_monitor_host_->HandleRawInput(
+        reinterpret_cast<HRAWINPUT>(lparam));
   }
 
   // Give Flutter, including plugins, an opportunity to handle window messages.

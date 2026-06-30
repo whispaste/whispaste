@@ -19,6 +19,7 @@ import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
 import '../core/logging/perf_instrumentation.dart';
 import 'hotkey_key_resolver.dart';
+import 'keyboard_up_monitor.dart';
 
 // ---------------------------------------------------------------------------
 // Registrar abstraction (enables unit testing without platform channels)
@@ -153,8 +154,12 @@ class HotkeyService extends Notifier<void> {
   /// that prompts the user to re-bind their shortcut in Settings.
   VoidCallback? onRegistrationFailed;
 
-  /// Whether the current platform supports key-up events for global hotkeys.
-  bool get supportsKeyUp => _registrar.supportsKeyUp;
+  /// Whether the current platform can deliver key-up events for global hotkeys.
+  ///
+  /// macOS gets key-up from the registrar; Windows gets it from the RawInput
+  /// [_monitor] (issue #39). Either source enabling key-up makes push-to-talk
+  /// available — this is the capability flag the settings toggle reads.
+  bool get supportsKeyUp => _registrar.supportsKeyUp || _monitor.supportsKeyUp;
 
   HotKey? _registeredHotKey;
   bool _initialized = false;
@@ -173,6 +178,14 @@ class HotkeyService extends Notifier<void> {
   /// tests by calling [injectRegistrar].
   HotKeyRegistrar _registrar = const _PackageHotKeyRegistrar();
 
+  /// Key-up source for platforms whose registrar is key-down only (Windows
+  /// RawInput; issue #39). On macOS/Linux this is a no-op monitor and the
+  /// registrar (or nothing) provides key-up. Override in tests via
+  /// [injectMonitor].
+  KeyboardUpMonitor _monitor = Platform.isWindows
+      ? ChannelKeyboardUpMonitor()
+      : NoopKeyboardUpMonitor();
+
   /// How long a key-down stream is treated as OS auto-repeat. Refreshed on
   /// every key-down (including suppressed repeats), so a held key keeps the
   /// window alive; a genuine re-press arrives after a longer gap and is
@@ -182,6 +195,8 @@ class HotkeyService extends Notifier<void> {
   @override
   void build() {
     if (!_isDesktop) return;
+
+    _monitor.onKeyUp = () => _handleKeyUp('Global');
 
     ref.listen<AsyncValue<AppSettings>>(settingsProvider, (prev, next) {
       final previous = prev?.value;
@@ -211,6 +226,14 @@ class HotkeyService extends Notifier<void> {
   }
 
   // ── Public API ────────────────────────────────────────────────────────────
+
+  /// Injects a custom [KeyboardUpMonitor] for unit testing and wires its
+  /// key-up callback. Call before [updateHotkey].
+  @visibleForTesting
+  void injectMonitor(KeyboardUpMonitor monitor) {
+    _monitor = monitor;
+    _monitor.onKeyUp = () => _handleKeyUp('Global');
+  }
 
   /// Injects a custom [HotKeyRegistrar] for unit testing.
   ///
@@ -244,6 +267,9 @@ class HotkeyService extends Notifier<void> {
       );
       _log.info('Hotkey registered successfully');
       _setStatus(HotkeyRegistrationStatus.success);
+      // Start the RawInput key-up monitor for the same combo (Windows; no-op
+      // elsewhere) so push-to-talk has a release event (#39).
+      await _monitor.start(_registeredHotKey!);
     } on Object catch (e, st) {
       // Catch Object (not just Exception) so TypeError from hotkey_manager
       // is handled gracefully.
@@ -364,6 +390,7 @@ class HotkeyService extends Notifier<void> {
         'Safe-default hotkey registered successfully ($safeDefaultHotKeyLabel)',
       );
       _initialized = true;
+      await _monitor.start(fallback);
       onRegistrationFailed?.call();
     } on Object catch (e) {
       // Even the fallback failed — log and leave the service in a non-crashing
@@ -404,6 +431,12 @@ class HotkeyService extends Notifier<void> {
   /// Handles a hotkey key-up (macOS only). Clears the held state so the next
   /// press is honoured immediately, and forwards to [onHotkeyReleased].
   void _handleKeyUp(String label) {
+    // Ignore a key-up with no matching key-down. The Windows RawInput monitor
+    // (#39) observes the bare watched key globally, so it can see the key
+    // released without modifiers — a case where RegisterHotKey never fired a
+    // down. Without this guard a stray up would drive onHotkeyReleased (and the
+    // push-to-talk trigger handler, which assumes a preceding press) spuriously.
+    if (!_keyHeld) return;
     _keyHeld = false;
     _log.info('$label hotkey released');
     onHotkeyReleased?.call();
@@ -418,6 +451,7 @@ class HotkeyService extends Notifier<void> {
       }
       _registeredHotKey = null;
     }
+    await _monitor.stop();
     // Reset auto-repeat state so a fresh registration starts clean.
     _keyHeld = false;
     _lastKeyDownAt = null;

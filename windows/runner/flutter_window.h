@@ -10,6 +10,7 @@
 #include "desktop_paste_host.h"
 #include "floating_button_host.h"
 #include "floating_overlay_host.h"
+#include "keyboard_monitor_host.h"
 #include "win32_window.h"
 
 // A window that does nothing but host a Flutter view.
@@ -46,6 +47,10 @@ class FlutterWindow : public Win32Window {
   // macOS Dock-bounce request — used to surface action items when the
   // main window is hidden.
   std::unique_ptr<AttentionHost> attention_host_;
+
+  // RawInput key-up source for global hotkeys, enabling push-to-talk on
+  // Windows (RegisterHotKey is key-down only). See keyboard_monitor_host.h.
+  std::unique_ptr<KeyboardMonitorHost> keyboard_monitor_host_;
 };
 
 #endif  // RUNNER_FLUTTER_WINDOW_H_

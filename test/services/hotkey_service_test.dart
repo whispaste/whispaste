@@ -9,6 +9,7 @@ import 'package:hotkey_manager/hotkey_manager.dart';
 
 import 'package:whispaste/services/hotkey_key_resolver.dart';
 import 'package:whispaste/services/hotkey_service.dart';
+import 'package:whispaste/services/keyboard_up_monitor.dart';
 
 // ---------------------------------------------------------------------------
 // Fakes
@@ -55,6 +56,31 @@ class FakeHotKeyRegistrar implements HotKeyRegistrar {
     unregistered.add(hotKey);
     registered.removeWhere((k) => k.identifier == hotKey.identifier);
   }
+}
+
+/// Fake RawInput key-up monitor (#39). Records start/stop and can emit a
+/// synthetic key-up to drive the service's release path.
+class FakeKeyboardUpMonitor implements KeyboardUpMonitor {
+  FakeKeyboardUpMonitor({this.supportsKeyUp = true});
+
+  @override
+  final bool supportsKeyUp;
+
+  final List<HotKey> started = [];
+  int stopCount = 0;
+  VoidCallback? _onKeyUp;
+
+  @override
+  set onKeyUp(VoidCallback? handler) => _onKeyUp = handler;
+
+  @override
+  Future<void> start(HotKey hotKey) async => started.add(hotKey);
+
+  @override
+  Future<void> stop() async => stopCount++;
+
+  /// Simulates the native host reporting the watched hotkey's release.
+  void emitKeyUp() => _onKeyUp?.call();
 }
 
 // ---------------------------------------------------------------------------
@@ -377,6 +403,93 @@ void main() {
       final registrarFalse = FakeHotKeyRegistrar(supportsKeyUp: false);
       final serviceFalse = _makeService(registrarFalse);
       expect(serviceFalse.supportsKeyUp, isFalse);
+    });
+  });
+
+  group('HotkeyService — RawInput key-up monitor (#39, Windows PTT)', () {
+    test(
+      'a key-up monitor enables supportsKeyUp even with a key-down-only registrar',
+      () {
+        // Mirrors Windows: registrar (RegisterHotKey) has no key-up, but the
+        // RawInput monitor does → push-to-talk becomes available.
+        final registrar = FakeHotKeyRegistrar(supportsKeyUp: false);
+        final service = _makeService(registrar);
+        service.injectMonitor(FakeKeyboardUpMonitor(supportsKeyUp: true));
+
+        expect(service.supportsKeyUp, isTrue);
+      },
+    );
+
+    test(
+      'the registered hotkey is handed to the monitor on registration',
+      () async {
+        final registrar = FakeHotKeyRegistrar(supportsKeyUp: false);
+        final service = _makeService(registrar);
+        final monitor = FakeKeyboardUpMonitor();
+        service.injectMonitor(monitor);
+
+        await service.updateHotkey(key: LogicalKeyboardKey.keyD);
+
+        expect(monitor.started, hasLength(1));
+        expect(monitor.started.first.logicalKey, LogicalKeyboardKey.keyD);
+      },
+    );
+
+    test(
+      'a monitor key-up fires onHotkeyReleased (no registrar key-up)',
+      () async {
+        final registrar = FakeHotKeyRegistrar(supportsKeyUp: false);
+        final service = _makeService(registrar);
+        final monitor = FakeKeyboardUpMonitor();
+        service.injectMonitor(monitor);
+
+        var released = false;
+        service.onHotkeyReleased = () => released = true;
+
+        await service.updateHotkey(key: LogicalKeyboardKey.keyD);
+        // The registrar never delivers key-up on Windows…
+        expect(registrar.capturedKeyUpHandler, isNull);
+        // …RegisterHotKey fires the DOWN (a press is in flight)…
+        registrar.capturedKeyDownHandler!(registrar.registered.first);
+        // …and the RawInput monitor delivers the matching release.
+        monitor.emitKeyUp();
+
+        expect(released, isTrue);
+      },
+    );
+
+    test(
+      'a stray monitor key-up without a preceding down is ignored',
+      () async {
+        final registrar = FakeHotKeyRegistrar(supportsKeyUp: false);
+        final service = _makeService(registrar);
+        final monitor = FakeKeyboardUpMonitor();
+        service.injectMonitor(monitor);
+
+        var released = false;
+        service.onHotkeyReleased = () => released = true;
+
+        await service.updateHotkey(key: LogicalKeyboardKey.keyD);
+        // No key-down happened (bare key seen by RawInput) → must be a no-op,
+        // never reaching the push-to-talk trigger handler.
+        monitor.emitKeyUp();
+
+        expect(released, isFalse);
+      },
+    );
+
+    test('re-registering stops the previous monitor watch', () async {
+      final registrar = FakeHotKeyRegistrar(supportsKeyUp: false);
+      final service = _makeService(registrar);
+      final monitor = FakeKeyboardUpMonitor();
+      service.injectMonitor(monitor);
+
+      await service.updateHotkey(key: LogicalKeyboardKey.keyD);
+      await service.updateHotkey(key: LogicalKeyboardKey.keyE);
+
+      // updateHotkey unregisters first → monitor.stop ran at least once.
+      expect(monitor.stopCount, greaterThanOrEqualTo(1));
+      expect(monitor.started, hasLength(2));
     });
   });
 
