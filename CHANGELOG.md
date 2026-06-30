@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.2.42
+
+### Features
+
+- **Push-to-Talk und zuverlässigere Tastenkürzel unter Windows.** Gedrückt halten zum Sprechen, loslassen zum Stoppen funktioniert jetzt sauber. AltGr und layout-spezifische Tasten werden korrekt erkannt und nicht mehr fälschlich als Strg+Alt gewertet — egal welches Tastaturlayout aktiv ist.
+- **Neu gestaltetes Aufnahme-Overlay.** Ein dezenter Frosted-Glass-Look, eine Pille, die je nach Phase ruhig mitwächst, und weiche Übergänge zwischen Aufnahme, Transkription und „Fertig" — plattformübergreifend identisch und in jedem Farbschema stimmig.
+- **Klare Leer-, Lade- und Fehlerzustände** in Verlauf, Statistik und Einstellungen, statt leerer Flächen — du siehst jederzeit, was gerade passiert.
+- **Durchgängige Tastatur- und Barrierefreiheit.** Ein sichtbarer Fokusring erscheint nur bei Tastaturbedienung, Seitenleiste und Einstellungen sind vollständig per Tastatur erreichbar, und „Bewegung reduzieren" wird überall respektiert.
+- **Ruhigere Animationen.** Ein gedämpftes Bewegungssystem ersetzt die früheren federnden Effekte und richtet sich nach der Systemeinstellung „Bewegung reduzieren".
+- **Einheitlicheres Schriftbild.** WhisPaste bringt jetzt die Schriftart Inter mit, für ein konsistentes Erscheinungsbild auf allen Plattformen.
+- **Transparenter Telemetrie-Hinweis im Onboarding.** Die anonyme, jederzeit abschaltbare Nutzungsstatistik wird beim ersten Start erklärt und lässt sich direkt dort deaktivieren; die „Über"-Seite fasst die wichtigsten Punkte zusammen.
+
+### Bug Fixes
+
+- **Die Aufnahme bleibt beim schnellen Stoppen nicht mehr hängen.** Ein zügiges Stoppen kann den Aufnahme-Schritt nicht mehr blockieren — keine Transkription endet mehr in einer Zeitüberschreitung.
+- **Das Overlay bleibt unter Windows zuverlässig über allen Fenstern** und rutscht nicht mehr hinter andere Programme.
+- **Die Wellenform bleibt auch bei der zweiten und jeder weiteren Aufnahme sichtbar** und wird nicht mehr abgeschnitten.
+- **Das Overlay wird unter Windows in voller Bildschirmschärfe gezeichnet** statt leicht verwaschen.
+- **Das Zurücksetzen der Einstellungen (erneutes Onboarding) läuft jetzt immer vollständig durch** — auch wenn ein Teilschritt fehlschlägt.
+- **Kein seltener Absturz mehr beim Beenden**, während der Verlauf noch gespeichert wird.
+- **Eine Layout-Ungenauigkeit in der Transkript-Bearbeitungsleiste ist behoben** — die Wortzahl weicht jetzt sauber aus, statt am Rand minimal abzuschneiden.
+
 ## 1.2.41
 
 ### Features
