@@ -1,0 +1,1 @@
+Speech-to-text right at your cursor, in any app. Press a hotkey, speak, done. Whisper AI transcribes on-device, cloud optional. History, tags, and export included.

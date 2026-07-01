@@ -1,0 +1,11 @@
+{
+  "locales": {
+    "en-US": "en-us",
+    "de-DE": "de"
+  },
+  "default": {
+    "Title": "WhisPaste – Speech to Text & Dictation",
+    "VoiceTitle": "WhisPaste",
+    "DevStudio": "Silvio Lindstedt"
+  }
+}

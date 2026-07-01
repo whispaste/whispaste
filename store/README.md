@@ -7,33 +7,53 @@ and deployed automatically on every `v*` tag push.
 
 ```
 store/
-  en-US/description.txt   EN product description (Partner Center → "Description")
-  en-US/features.txt      EN feature bullets, one per line (max 200 chars each)
-  de-DE/description.txt   DE product description
-  de-DE/features.txt      DE feature bullets
+  defaults.json               sprachneutral (Title, VoiceTitle, DevStudio) + locale→column map
+  en-US/description.txt       Description           (required)
+  en-US/short-description.txt ShortDescription      (required)
+  en-US/features.txt          Feature1..N, one bullet per line (max 200 chars each)
+  en-US/search-terms.txt      SearchTerm1..N, one term per line
+  en-US/release-notes.txt     ReleaseNotes ("What's new") — defaults to changelog link
+  en-US/copyright.txt         CopyrightTrademarkInformation
+  en-US/license-terms.txt     AdditionalLicenseTerms
+  de-DE/…                     same files, German
 ```
 
-"What's new" is injected automatically from the AI-generated release notes
-(`release-notes-en.md` / `release-notes-de.md`) produced by
-`scripts/generate-release-notes.mjs` during the release workflow.
+Optional files (skipped if absent): `short-title.txt`, `sort-title.txt`,
+`minimum-hardware.txt`, `recommended-hardware.txt`.
 
-## Automation
+## Updating store listing text (local CSV import)
 
-`scripts/submit-ms-store.ps1` submits via Partner Center Submission API.
-Called by the `submit-ms-store` job in `.github/workflows/release.yml`.
+Text changes are made here in the repo (versioned, git-diff-able) and pushed to
+Partner Center via a compact **import CSV** — no manual field-fiddling in the
+dashboard. This is a purely local workflow; it runs no GitHub Action and never
+touches screenshots, logos, trailers, or their internal asset URLs.
 
-### Required GitHub Secrets
+1. Edit the relevant `.txt` / `defaults.json`.
+2. Build the import CSV (writes to the gitignored `store/_build/`):
 
-| Secret                  | Value                                          |
-|-------------------------|------------------------------------------------|
-| `MS_STORE_APP_ID`       | `9P22JVKRQ2V0`                                 |
-| `MS_STORE_TENANT_ID`    | Azure AD tenant ID (from Partner Center Users) |
-| `MS_STORE_CLIENT_ID`    | App registration Client ID                     |
-| `MS_STORE_CLIENT_SECRET`| App registration client secret                 |
+   ```
+   node scripts/generate-store-listing.mjs        # → store/_build/listing-import.csv
+   node scripts/generate-store-listing.mjs --check # validate only, write nothing
+   ```
 
-### One-time Azure AD setup
+3. In Partner Center → app overview → **Import listings** → **Import .csv** →
+   upload `store/_build/listing-import.csv`. Resolve any reported errors, repeat.
 
-1. partner.microsoft.com → Account settings → Users → Azure AD applications
-2. Add Azure AD application → role: Manager
-3. Add a new client secret → copy immediately
-4. Add the four values above as GitHub repo secrets
+The generator emits only the text rows it manages (per MS docs, an import CSV may
+contain just the rows you edit); every other field — screenshots, logos, captions,
+hardware requirements — stays untouched in Partner Center.
+
+"What's new" (ReleaseNotes) can follow two paths: the local CSV path above
+(`release-notes.txt`), or the AI-generated notes injected by the release API
+(see Automation below). During a normal MSIX release the API path wins; the CSV
+path is for standalone listing-text refreshes.
+
+## Release / submission
+
+Listing text is maintained here and turned into an import CSV locally
+(`scripts/generate-store-listing.mjs`, see above). The CSV is uploaded by hand
+via Partner Center → "Import listings".
+
+The previous GitHub-based MS Store auto-submission (`scripts/submit-ms-store.ps1`,
+the `submit-ms-store` job in `release.yml`, and `ms-store-credential-health.yml`)
+has been removed — the release flow runs locally on macOS now.
