@@ -46,6 +46,28 @@
     U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
     U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
+/* Serif accent — Fraunces (editorial display serif). NOT the body/display font;
+   applied deliberately per-title via `.headline-serif` for the editorial look. */
+@font-face {
+  font-family: "Fraunces Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("/fonts/fraunces-latin-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Fraunces Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("/fonts/fraunces-latin-ext-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7,
+    U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
+    U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
 
 @theme {
   --color-brand-cyan: #38D9F0;
@@ -72,6 +94,9 @@
     "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-display: "Bricolage Grotesque Variable", "Hanken Grotesk Variable",
     ui-sans-serif, system-ui, sans-serif;
+  /* Serif accent for editorial headline moments — applied via `.headline-serif`,
+     never as a document default. Keeps body/display grotesk untouched. */
+  --font-serif: "Fraunces Variable", ui-serif, Georgia, "Times New Roman", serif;
 }
 
 @layer base {
@@ -210,6 +235,21 @@ html.light .band-raised {
   line-height: 1.03;
   color: var(--color-ink);
   font-size: clamp(2.25rem, 1.35rem + 3.7vw, 4rem);
+}
+
+/* ===========================================================================
+   Editorial serif accent — Fraunces.
+   Opt-in per headline (add `.headline-serif` to a title or a wrapping <span>)
+   for the editorial voice; body/display grotesk stay the default everywhere
+   else. `opsz` pushes Fraunces into its high-contrast display cut; `wght` sits
+   at a warm medium. Loosen the aggressive display tracking of `.section-title`
+   so the serif can breathe. Combine freely with `.text-gradient-brand`.
+   --------------------------------------------------------------------------- */
+.headline-serif {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  font-variation-settings: "opsz" 144, "wght" 500;
+  letter-spacing: -0.015em;
 }
 
 /* ===========================================================================
