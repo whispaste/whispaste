@@ -65,3 +65,61 @@ const languages = [
     </div>
   </div>
 </section>
+
+<style>
+  .lang-pill {
+    position: relative;
+    /* smooth grow/shrink for the ambient highlight (in addition to hover) */
+    transition: transform 0.35s ease, border-color 0.35s ease, color 0.2s ease, background-color 0.2s ease;
+  }
+  .lang-pop {
+    transform: translateY(-2px) scale(1.14);
+    z-index: 2;
+    border-color: color-mix(in srgb, var(--color-brand-cyan) 45%, transparent);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .lang-pop {
+      transform: none;
+    }
+  }
+</style>
+
+<script>
+  // Ambient "twinkle": randomly enlarge one language pill briefly, then the next,
+  // giving a gentle sense of many living languages. Respects reduced-motion and
+  // pauses while the tab is hidden.
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const section = document.getElementById('languages');
+  const pills = section
+    ? Array.from(section.querySelectorAll<HTMLElement>('.lang-pill')).filter((p) => p.querySelector('img'))
+    : [];
+
+  if (!reduce.matches && pills.length > 1) {
+    let last = -1;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const tick = () => {
+      let i = last;
+      while (i === last) i = Math.floor(Math.random() * pills.length);
+      last = i;
+      const el = pills[i];
+      el.classList.add('lang-pop');
+      setTimeout(() => el.classList.remove('lang-pop'), 650);
+      timer = setTimeout(tick, 850 + Math.random() * 950);
+    };
+
+    const start = () => {
+      if (!timer) timer = setTimeout(tick, 300);
+    };
+    const stop = () => {
+      if (timer) clearTimeout(timer);
+      timer = undefined;
+    };
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) stop();
+      else start();
+    });
+    setTimeout(start, 1200);
+  }
+</script>
