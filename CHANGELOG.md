@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.44
+
+### New Features
+
+- **Automatische Updates.** WhisPaste hält sich ab jetzt von selbst aktuell: signierte, kryptografisch geprüfte Updates auf macOS (Sparkle) und Windows (WinSparkle, Ed25519) — kein manueller Download mehr. Wer die App einmal installiert hat, bekommt künftige Versionen automatisch zugestellt.
+
+### Bug Fixes
+
+- **Absturzberichte richtig zugeordnet.** Native Stack-Traces landen nun in der korrekten Sentry-Release (`whispaste@…`), sodass Abstürze zuverlässig entschlüsselt und dem richtigen Build zugeordnet werden.
+
 ## 1.2.43
 
 ### Bug Fixes
