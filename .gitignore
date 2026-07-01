@@ -102,6 +102,7 @@ scripts/*
 !scripts/generate-screenshots.py
 !scripts/generate-store-icons.py
 !scripts/generate-store-listing.mjs
+!scripts/build-store-trailer.sh
 !scripts/store-screenshots.py
 !scripts/capture-store-screenshots.py
 !scripts/premium-screenshots.py
