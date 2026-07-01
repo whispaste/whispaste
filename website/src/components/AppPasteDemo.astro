@@ -5,6 +5,22 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
 
 // Locale-correct typographic quotes for the spoken line in step 2.
 const quote = lang === 'de' ? { open: '„', close: '“' } : { open: '“', close: '”' };
+
+// Decorative "in every app" icon cloud — generic, brand-neutral app-category
+// glyphs (own line-art, no third-party logos). Mirrors the same SVGs shipped
+// at public/illustrations/app-icons/*.svg; inlined here (matching the
+// set:html icon pattern already used by Features/HowItWorks/Privacy) so the
+// wrapper's `color` can tint them via currentColor — an <img>-embedded SVG
+// would not inherit CSS color.
+const appCloudIcons = [
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="E-Mail"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="m3.5 6.5 8.5 5.5 8.5-5.5"/></svg>',
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Chat"><path d="M4 5.5h16A1.5 1.5 0 0 1 21.5 7v8a1.5 1.5 0 0 1-1.5 1.5H9.5L5 20.5v-4H4A1.5 1.5 0 0 1 2.5 15V7A1.5 1.5 0 0 1 4 5.5Z"/><path d="M7 10h10M7 13h6"/></svg>',
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Dokument"><path d="M6.5 2.5h6l4.5 4.5V20A1.5 1.5 0 0 1 15.5 21.5h-9A1.5 1.5 0 0 1 5 20V4A1.5 1.5 0 0 1 6.5 2.5Z"/><path d="M12.5 2.5V7h4.5"/><path d="M8 13h8M8 16.5h8M8 9.5h2.5"/></svg>',
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Terminal"><rect x="2.5" y="4" width="19" height="16" rx="2.5"/><path d="m6.5 9.5 3 2.5-3 2.5M12.5 14.5h5"/></svg>',
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Browser"><rect x="2.5" y="4.5" width="19" height="15" rx="2.5"/><path d="M2.5 9h19"/><circle cx="5.75" cy="6.75" r=".55" fill="currentColor" stroke="none"/><circle cx="8" cy="6.75" r=".55" fill="currentColor" stroke="none"/><circle cx="10.25" cy="6.75" r=".55" fill="currentColor" stroke="none"/></svg>',
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Editor"><rect x="2.5" y="4" width="19" height="16" rx="2.5"/><path d="M2.5 8.5h19"/><path d="m8.5 12-2 2 2 2M15.5 12l2 2-2 2M13 11.5l-2 5"/></svg>',
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Notiz"><path d="M4.5 4.5h15v9L13 20H6a1.5 1.5 0 0 1-1.5-1.5Z"/><path d="M19.5 13.5H14a.5.5 0 0 0-.5.5v5.5"/><path d="M8 9h8M8 12.5h4"/></svg>',
+];
 ---
 
 <!-- App-in-Any-Context Demo — hotkey → speak → text lands at the cursor.
@@ -36,6 +52,19 @@ const quote = lang === 'de' ? { open: '„', close: '“' } : { open: '“', clo
         class="mt-4 text-ink-muted text-lg max-w-2xl mx-auto"
         data-i18n="appdemo.subtitle"
       >{t(lang, 'appdemo.subtitle')}</p>
+    </div>
+
+    <!-- Decorative "in every app" icon cloud — generic app-category glyphs
+         only (mail/chat/document/terminal/browser/editor/note), no
+         third-party brand marks. Dezent, in-flow (never overlaps the
+         storyboard/CTA at any width), gently bobbing; reduced-motion safe
+         via the shared .illo-float utility. Purely atmospheric — the
+         "in jeder App" claim is already conveyed in text, so this is
+         aria-hidden. -->
+    <div class="apd-appcloud" aria-hidden="true">
+      {appCloudIcons.map((icon) => (
+        <span class="apd-appcloud-icon illo-float" set:html={icon} />
+      ))}
     </div>
 
     <!-- Three-step storyboard: press hotkey → speak → text at cursor. -->
@@ -199,6 +228,50 @@ const quote = lang === 'de' ? { open: '„', close: '“' } : { open: '“', clo
     --apd-chat: #55C79A;
     --apd-code: #B49BF5;
   }
+
+  /* =========================================================================
+     "In every app" icon cloud — dezent, in-flow row of generic app-category
+     glyphs between the subtitle and the storyboard. In-flow (not absolutely
+     positioned) so it can never overlap the storyboard/CTA at any viewport;
+     wraps cleanly down to 390px. Low opacity + small size keep it as
+     atmospheric beiwerk, not a competing focal point.
+     ========================================================================= */
+  .apd-appcloud {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 0.9rem;
+    max-width: 30rem;
+    margin: 0 auto 2.5rem;
+  }
+  .apd-appcloud-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    flex-shrink: 0;
+    border-radius: 50%;
+    color: var(--color-ink-subtle);
+    background: color-mix(in srgb, var(--color-ink-subtle) 8%, transparent);
+    opacity: 0.65;
+  }
+  .apd-appcloud-icon :global(svg) {
+    width: 1.15rem;
+    height: 1.15rem;
+  }
+  /* Out-of-phase stagger (below) is what reads as a loose "floating cloud"
+     rather than a rigid strip — a static per-icon transform offset would be
+     fought by .illo-float's own keyframes (which set an absolute
+     translateY each frame), so the scatter comes from timing, not position. */
+  .apd-appcloud-icon:nth-child(1) { animation-delay: 0s; }
+  .apd-appcloud-icon:nth-child(2) { animation-delay: 0.9s; }
+  .apd-appcloud-icon:nth-child(3) { animation-delay: 1.8s; }
+  .apd-appcloud-icon:nth-child(4) { animation-delay: 2.7s; }
+  .apd-appcloud-icon:nth-child(5) { animation-delay: 1.3s; }
+  .apd-appcloud-icon:nth-child(6) { animation-delay: 2.2s; }
+  .apd-appcloud-icon:nth-child(7) { animation-delay: 0.4s; }
 
   /* =========================================================================
      Storyboard flow — three step cards with connectors between them
