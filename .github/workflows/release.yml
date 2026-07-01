@@ -272,6 +272,56 @@ jobs:
           name: msix-release
           path: build/windows/x64/runner/Release/*.msix
 
+      # Build a Store symbol package (.appxupload) so the Partner Center can
+      # resolve failureHash/Stack-Signaturen for native crashes. .appxsym ist
+      # schlicht ein ZIP der PDBs (kein MakeAppx nötig); .appxupload ist ein
+      # ZIP aus MSIX + .appxsym, das der Partner Center beim Submission-Upload
+      # automatisch in App + Symbole zerlegt.
+      # Fault-tolerant: ein Fehlschlag blockiert niemals den Release — Sentry
+      # bleibt die kanonische Crash-Quelle (Issue 04). Ergänzt MS für
+      # failureHash-Trending pro Signatur + early-boot-Native-Crashes die
+      # Sentry nie erreicht. Beim manuellen Submission das .appxupload statt
+      # der nackten .msix hochladen.
+      - name: Build Store symbol package (.appxupload)
+        if: steps.msix_config.outputs.skip != 'true'
+        id: appxupload
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $buildDir = "build\windows\x64\runner\Release"
+          $pdbs = Get-ChildItem -Path $buildDir -Filter *.pdb -Recurse -ErrorAction SilentlyContinue
+          $msix = Get-ChildItem "$buildDir\*.msix" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $pdbs -or $pdbs.Count -eq 0 -or -not $msix) {
+            Write-Warning "No PDBs ($($pdbs.Count)) or MSIX ($msix) — skipping .appxupload"
+            echo "built=false" >> $env:GITHUB_OUTPUT
+            exit 0
+          }
+          $symStaging = "$buildDir\appxsym-staging"
+          New-Item -ItemType Directory -Path $symStaging -Force | Out-Null
+          $pdbs | Copy-Item -Destination $symStaging -Force
+          $appxsym = "$buildDir\WhisPaste.appxsym"
+          Compress-Archive -Path "$symStaging\*.pdb" -DestinationPath $appxsym -Force
+          Remove-Item -Recurse -Force $symStaging
+          if (-not (Test-Path release-artifacts)) { New-Item -ItemType Directory -Path release-artifacts -Force | Out-Null }
+          $upStaging = "$buildDir\appxupload-staging"
+          New-Item -ItemType Directory -Path $upStaging -Force | Out-Null
+          Copy-Item $msix.FullName $upStaging
+          Copy-Item $appxsym $upStaging
+          $appxupload = "release-artifacts\WhisPaste.appxupload"
+          Compress-Archive -Path "$upStaging\*" -DestinationPath $appxupload -Force
+          Remove-Item -Recurse -Force $upStaging
+          $sizeMB = [math]::Round((Get-Item $appxupload).Length / 1MB, 1)
+          Write-Host "Built .appxupload with $($pdbs.Count) PDBs ($sizeMB MB)"
+          echo "built=true" >> $env:GITHUB_OUTPUT
+
+      - name: Upload MSIX symbol package
+        if: steps.appxupload.outputs.built == 'true'
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: msix-symbol-package
+          path: release-artifacts/*.appxupload
+
       - name: Mark build succeeded
         id: mark_success
         shell: pwsh
@@ -830,11 +880,13 @@ jobs:
   # Listing text → import CSV via scripts/generate-store-listing.mjs (see store/README.md).
 
   # ── Sparkle appcast (self-update feed, PRD Säule E) ───────────────────────────
-  # Signs the macOS DMG with the EdDSA key (secret SPARKLE_SIGNING_KEY) and
-  # publishes a signed appcast.xml to the release. Sparkle (macOS) rejects
-  # unsigned feeds, so this job is MANDATORY for the in-app self-update to work.
-  # Runs on macOS because the Sparkle CLI tools (sign_update) are Mach-O
-  # binaries; the script bootstraps them from the official Sparkle release.
+  # Signs the macOS DMG + Windows Setup.exe with the EdDSA key (secret
+  # SPARKLE_SIGNING_KEY) and publishes ONE signed appcast.xml carrying two
+  # enclosures (sparkle:os="macos" + "windows"). Sparkle (macOS) and WinSparkle
+  # 0.9.x (Windows, vendored) both reject unsigned feeds, so this job is MANDATORY
+  # for the in-app self-update on either platform. Runs on macOS because the
+  # Sparkle CLI tools (sign_update) are Mach-O binaries; the script bootstraps
+  # them from the official Sparkle release.
   publish-appcast:
     name: Publish signed Sparkle appcast
     needs: [create-release]
@@ -849,6 +901,12 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           name: macos-release
+          path: artifacts/
+
+      - name: Download Windows artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: windows-release
           path: artifacts/
 
       - name: Generate & upload signed appcast

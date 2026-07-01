@@ -69,8 +69,41 @@ if [[ ! -x "$SIGN_UPDATE" ]]; then
   chmod +x "$TOOLS_DIR/"*
 fi
 
-# --- 2. Resolve the macOS DMG ----------------------------------------------
+# --- helper: sign one payload with EdDSA; stdout = "<sig> <length>" ----------
+# sign_update prints `sparkle:edSignature="<sig>" length="<n>"`; both are parsed.
+# Non-zero exit (with a stderr message) if either field is missing, so callers
+# fail loudly rather than emit an unsigned enclosure (Sparkle/WinSparkle reject
+# those). The progress line goes to stderr so stdout stays the clean sig pair.
+sign_enclosure() {
+  local payload="$1" label="$2" out sig length
+  out="$(printf '%s' "$SPARKLE_SIGNING_KEY" | "$SIGN_UPDATE" --ed-key-file - "$payload")"
+  sig="$(printf '%s' "$out" | grep -o 'edSignature="[^"]*"' | head -1 | sed 's/edSignature="//;s/"//')"
+  length="$(printf '%s' "$out" | grep -o 'length="[0-9]*"' | head -1 | sed 's/length="//;s/"//')"
+  if [[ -z "$sig" || -z "$length" ]]; then
+    echo "ERROR: sign_update did not yield edSignature/length for $label." >&2
+    echo "Output was: $out" >&2
+    return 1
+  fi
+  echo "  ${label}: edSignature=${sig:0:24}…  length=$length" >&2
+  printf '%s %s' "$sig" "$length"
+}
 
+# Sparkle compares <sparkle:version> against the installed app's CFBundleVersion.
+# Both are the dotted version string (CFBundleVersion=$(FLUTTER_BUILD_NAME) in
+# Info.plist), so e.g. "1.2.44" > "1.2.40" offers the update and
+# "1.2.44" == "1.2.44" does NOT (no update loop).
+PUBDATE="$(date -u '+%a, %d %b %Y %H:%M:%S +0000')"
+APPCAST="$ARTIFACTS_DIR/appcast.xml"
+
+# Enclosure URL base: GitHub Releases by default. WP_ENCLOSURE_BASE overrides for
+# the local E2E self-update test (served from http://localhost:PORT/).
+ENC_BASE="https://github.com/$GITHUB_REPO_SLUG/releases/download/$TAG"
+if [[ -n "${WP_ENCLOSURE_BASE:-}" ]]; then
+  ENC_BASE="${WP_ENCLOSURE_BASE%/}"
+fi
+
+# --- 2. Resolve + sign the macOS DMG (required) -----------------------------
+# macOS Sparkle consumes this enclosure (sparkle:os="macos"); always present in CI.
 DMG_NAME="WhisPaste-macos-arm64.dmg"
 DMG="$ARTIFACTS_DIR/$DMG_NAME"
 if [[ ! -f "$DMG" ]]; then
@@ -78,36 +111,42 @@ if [[ ! -f "$DMG" ]]; then
   echo "Available artifacts:"; ls -la "$ARTIFACTS_DIR" >&2
   exit 1
 fi
+echo "Signing macOS payload…"
+sig_line="$(sign_enclosure "$DMG" "$DMG_NAME")" || exit 1
+read -r MAC_SIG MAC_LEN <<<"$sig_line"
+MACOS_ITEM="    <item>
+      <title>Version ${VERSION}</title>
+      <pubDate>${PUBDATE}</pubDate>
+      <sparkle:version>${VERSION}</sparkle:version>
+      <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
+      <enclosure url=\"${ENC_BASE}/${DMG_NAME}\" sparkle:edSignature=\"${MAC_SIG}\" length=\"${MAC_LEN}\" type=\"application/octet-stream\" sparkle:os=\"macos\"/>
+    </item>"
 
-# --- 3. Sign the DMG with sign_update (key via stdin, verbatim) ------------
-
-echo "Signing $DMG_NAME with EdDSA key…"
-SIGN_OUT="$(printf '%s' "$SPARKLE_SIGNING_KEY" | "$SIGN_UPDATE" --ed-key-file - "$DMG")"
-# sign_update prints: sparkle:edSignature="<sig>" length="<n>"
-ED_SIG="$(printf '%s' "$SIGN_OUT" | grep -o 'edSignature="[^"]*"' | head -1 | sed 's/edSignature="//;s/"//')"
-LENGTH="$(printf '%s' "$SIGN_OUT" | grep -o 'length="[0-9]*"' | head -1 | sed 's/length="//;s/"//')"
-
-if [[ -z "$ED_SIG" || -z "$LENGTH" ]]; then
-  echo "ERROR: sign_update did not yield edSignature/length." >&2
-  echo "Output was: $SIGN_OUT" >&2
-  exit 1
+# --- 3. Resolve + sign the Windows Setup.exe (optional) ---------------------
+# WinSparkle 0.9.x (vendored) consumes this enclosure (sparkle:os="windows"),
+# verifying it with the SAME EdDSA pubkey embedded in the Windows runner — so one
+# signed feed serves both platforms. The Setup.exe is absent during a macOS-only
+# local E2E test; then we emit a macOS-only feed and skip Windows (no error).
+SETUP_NAME="WhisPaste-Setup.exe"
+SETUP="$ARTIFACTS_DIR/$SETUP_NAME"
+WINDOWS_ITEM=""
+if [[ -f "$SETUP" ]]; then
+  echo "Signing Windows payload…"
+  sig_line="$(sign_enclosure "$SETUP" "$SETUP_NAME")" || exit 1
+  read -r WIN_SIG WIN_LEN <<<"$sig_line"
+  WINDOWS_ITEM="    <item>
+      <title>Version ${VERSION}</title>
+      <pubDate>${PUBDATE}</pubDate>
+      <sparkle:version>${VERSION}</sparkle:version>
+      <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
+      <enclosure url=\"${ENC_BASE}/${SETUP_NAME}\" sparkle:edSignature=\"${WIN_SIG}\" length=\"${WIN_LEN}\" type=\"application/octet-stream\" sparkle:os=\"windows\"/>
+    </item>"
+else
+  echo "No $SETUP_NAME in artifacts — emitting macOS-only appcast (Windows enclosure skipped)."
 fi
-echo "  edSignature=${ED_SIG:0:24}…  length=$LENGTH"
 
 # --- 4. Emit deterministic appcast.xml -------------------------------------
-# Sparkle compares <sparkle:version> against the installed app's CFBundleVersion.
-# Both are the dotted version string (CFBundleVersion=$(FLUTTER_BUILD_NAME) in
-# Info.plist), so e.g. "1.2.44" > "1.2.40" correctly offers the update and
-# "1.2.44" == "1.2.44" correctly does NOT (no update loop).
-
-DMG_URL="https://github.com/$GITHUB_REPO_SLUG/releases/download/$TAG/$DMG_NAME"
-# Local E2E test / alternative CDN override (production-safe: empty → GitHub).
-if [[ -n "${WP_ENCLOSURE_BASE:-}" ]]; then
-  DMG_URL="${WP_ENCLOSURE_BASE%/}/$DMG_NAME"
-fi
-PUBDATE="$(date -u '+%a, %d %b %Y %H:%M:%S +0000')"
-APPCAST="$ARTIFACTS_DIR/appcast.xml"
-
 cat > "$APPCAST" <<XML
 <?xml version="1.0" standalone="yes"?>
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
@@ -116,14 +155,8 @@ cat > "$APPCAST" <<XML
     <link>${NOTES_URL}</link>
     <description>Most recent WhisPaste releases</description>
     <language>en</language>
-    <item>
-      <title>Version ${VERSION}</title>
-      <pubDate>${PUBDATE}</pubDate>
-      <sparkle:version>${VERSION}</sparkle:version>
-      <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
-      <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
-      <enclosure url="${DMG_URL}" sparkle:edSignature="${ED_SIG}" length="${LENGTH}" type="application/octet-stream" sparkle:os="macos"/>
-    </item>
+${MACOS_ITEM}
+${WINDOWS_ITEM}
   </channel>
 </rss>
 XML

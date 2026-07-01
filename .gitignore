@@ -28,6 +28,9 @@ build/
 *.dll
 *.so
 *.dylib
+# Vendored WinSparkle 0.9.3 runtime DLLs (auto_updater_windows fork) —
+# intentional binary commit, provenance + SHA-256 in WinSparkle-0.9.3/PROVENANCE.md
+!packages/auto_updater_windows/windows/WinSparkle-0.9.3/**/*.dll
 
 # IDE
 .idea/

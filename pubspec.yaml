@@ -128,6 +128,12 @@ dev_dependencies:
 # loosens its bound, override here so both sides resolve to the same major.
 dependency_overrides:
   sqlite3: ^3.3.0
+  # Vendored fork of auto_updater_windows: bundles WinSparkle 0.9.3 (upstream
+  # 1.0.0 ships 0.8.1 = DSA-only, no EdDSA) and wires the WhisPaste EdDSA pubkey
+  # via win_sparkle_set_eddsa_public_key() in windows/auto_updater.cpp. This makes
+  # the Windows self-update chain EdDSA-verified, mirroring macOS Sparkle.
+  auto_updater_windows:
+    path: packages/auto_updater_windows
 
 flutter:
   uses-material-design: true
