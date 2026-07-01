@@ -34,6 +34,7 @@ import '../core/app_info.dart' as app_info;
 import '../core/config/settings_provider.dart';
 import '../core/l10n/locale_provider.dart';
 import 'deploy_channel_service.dart';
+import 'update_channel_service.dart';
 
 /// Settings keys that may be reported when a setting changes. Only the KEY
 /// (never the value) is sent, and only keys on this static whitelist — an
@@ -241,6 +242,19 @@ bool telemetryDntActive() {
   return Platform.environment['DNT'] == '1';
 }
 
+/// The Matomo Dimension 6 ("Update Channel") value for a request — categorical
+/// only (`stable`/`beta`/`n/a`), never content. Store builds have no Sparkle
+/// feed, so their update channel is reported as `n/a`; direct builds report the
+/// persisted [UpdateChannel.name]. Extracted as a top-level pure function so
+/// the categorical-discipline is unit-testable in isolation (PRD §12 Q3).
+String updateChannelDimension({
+  required DeployChannel deployChannel,
+  required UpdateChannel updateChannel,
+}) {
+  if (deployChannel == DeployChannel.store) return 'n/a';
+  return updateChannel.name;
+}
+
 /// Long-lived HTTP client for telemetry — created once, closed on dispose.
 final _telemetryHttpClientProvider = Provider<http.Client>((ref) {
   final client = http.Client();
@@ -264,6 +278,11 @@ final telemetryProvider = Provider<TelemetryService>((ref) {
   final consent = settings?.privacy.shareUsageStats ?? false;
   final channel = ref.watch(deployChannelProvider);
   final locale = ref.watch(localeProvider);
+  // Update channel loads async from SharedPreferences; fall back to the
+  // stable default until it resolves (categorical — the dimension corrects on
+  // the rebuild once prefs are in).
+  final updateChannel =
+      ref.watch(updateChannelProvider).value ?? UpdateChannel.stable;
 
   return TelemetryService(
     client: ref.watch(_telemetryHttpClientProvider),
@@ -277,6 +296,10 @@ final telemetryProvider = Provider<TelemetryService>((ref) {
       'dimension3': settings?.stt.provider ?? 'unknown',
       'dimension4': channel.name,
       'dimension5': locale.languageCode,
+      'dimension6': updateChannelDimension(
+        deployChannel: channel,
+        updateChannel: updateChannel,
+      ),
     },
   );
 });

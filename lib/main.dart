@@ -34,6 +34,7 @@ import 'services/single_instance_service.dart';
 import 'services/subprocess_guard.dart' as guard;
 import 'services/telemetry_service.dart';
 import 'services/tmp_reaper.dart';
+import 'services/update_channel_service.dart';
 import 'services/update_service.dart';
 import 'widgets/insufficient_ram_screen.dart';
 
@@ -282,8 +283,14 @@ void _scheduleStartupSideEffects(
       });
     } else {
       // macOS / Windows non-store — initialize Sparkle/WinSparkle which
-      // handles periodic checks natively via appcast.xml feed.
-      unawaited(initAutoUpdater(channel));
+      // handles periodic checks natively. Load the persisted update channel
+      // first so the correct feed (stable/beta appcast) is requested from the
+      // very first check.
+      unawaited(
+        container
+            .read(updateChannelProvider.future)
+            .then((updateChannel) => initAutoUpdater(channel, updateChannel)),
+      );
     }
   }
 

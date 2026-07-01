@@ -41,6 +41,7 @@ import 'services/tray_service.dart';
 import 'services/update_service.dart';
 import 'services/deploy_channel_service.dart';
 import 'services/auto_updater_service.dart';
+import 'services/update_channel_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'widgets/toast.dart';
 import 'widgets/review_prompt_dialog.dart';
@@ -543,7 +544,10 @@ class _AppShellState extends ConsumerState<_AppShell>
                           // non-store): open the native update dialog which
                           // performs the in-app download + swap + relaunch.
                           if (shouldUseAutoUpdater(deployChannel)) {
-                            presentSparkleUpdate();
+                            presentSparkleUpdate(
+                              ref.read(updateChannelProvider).value ??
+                                  UpdateChannel.stable,
+                            );
                             return;
                           }
                           // Linux & portable fallback: no native in-place

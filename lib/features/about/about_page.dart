@@ -16,6 +16,7 @@ import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../services/deploy_channel_service.dart';
 import '../../services/auto_updater_service.dart';
+import '../../services/update_channel_service.dart';
 import '../../services/stt/stt_bundle.dart';
 import '../../services/update_service.dart';
 import '../../widgets/brand_wordmark.dart';
@@ -112,7 +113,10 @@ class AboutPage extends ConsumerWidget {
                       // Sparkle/WinSparkle platforms: native dialog. Linux &
                       // portable fallback: open the release page.
                       if (shouldUseAutoUpdater(channel)) {
-                        presentSparkleUpdate();
+                        presentSparkleUpdate(
+                          ref.read(updateChannelProvider).value ??
+                              UpdateChannel.stable,
+                        );
                       } else {
                         final url = updateState.releaseNotesUrl;
                         if (url != null) launchUrl(Uri.parse(url));
