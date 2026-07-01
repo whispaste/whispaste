@@ -128,8 +128,8 @@ const { lang, seo, breadcrumbs, hero, heroImage, cta, alternateSlugs } = Astro.p
               />
             </div>
           )}
-          <h1 class="text-3xl sm:text-4xl font-bold text-white mb-4 leading-tight">{hero.heading}</h1>
-          <p class="text-gray-300 text-lg leading-relaxed">{hero.lead}</p>
+          <h1 class="lp-hero-title text-3xl sm:text-4xl mb-4 leading-tight">{hero.heading}</h1>
+          <p class="lp-hero-lead text-lg leading-relaxed">{hero.lead}</p>
         </header>
 
         {/* Sections-Slot — Konsumenten füllen mit `<section>`-Blöcken */}
@@ -192,33 +192,76 @@ const { lang, seo, breadcrumbs, hero, heroImage, cta, alternateSlugs } = Astro.p
 </Layout>
 
 <style>
+  /* Editorial serif accent for the hero title; adaptive ink tokens. */
+  .lp-hero-title {
+    font-family: var(--font-serif);
+    font-weight: 600;
+    font-variation-settings: "opsz" 144, "wght" 600;
+    letter-spacing: -0.015em;
+    color: var(--color-ink);
+  }
+  .lp-hero-lead {
+    color: var(--color-ink-muted);
+    max-width: 48ch;
+  }
+
+  /* Long-tail / use-case body: airy editorial sections.
+     Colours come from adaptive theme tokens (--color-ink / -muted / brand),
+     so both light and dark render with correct contrast. A slim cyan rail
+     replaces the old flat panel for a lighter, more editorial rhythm. */
   .landing-content :global(section) {
-    background: linear-gradient(135deg, rgba(29, 37, 56, 0.4) 0%, rgba(23, 29, 44, 0.2) 100%);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 1rem;
-    padding: 1.5rem 1.75rem;
+    position: relative;
+    background: color-mix(in srgb, var(--color-brand-card) 42%, transparent);
+    border: 1px solid var(--color-brand-border);
+    border-radius: 1.25rem;
+    padding: 1.6rem 1.75rem 1.6rem 2rem;
+  }
+  .landing-content :global(section)::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 1.6rem;
+    bottom: 1.6rem;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background: linear-gradient(
+      var(--color-brand-cyan),
+      color-mix(in srgb, var(--color-brand-cyan) 25%, transparent)
+    );
   }
   .landing-content :global(section h2) {
-    color: #fff;
+    font-family: var(--font-serif);
     font-weight: 600;
-    font-size: 1.25rem;
+    font-variation-settings: "opsz" 80, "wght" 600;
+    font-size: 1.5rem;
+    letter-spacing: -0.01em;
+    color: var(--color-ink);
     margin-bottom: 0.75rem;
   }
   .landing-content :global(section p) {
-    color: #9ca3af;
-    line-height: 1.6;
+    color: var(--color-ink-muted);
+    line-height: 1.7;
+    max-width: 62ch;
   }
   .landing-content :global(section p + p) {
-    margin-top: 0.75rem;
+    margin-top: 0.85rem;
   }
   .landing-content :global(section ul) {
-    color: #9ca3af;
-    line-height: 1.6;
-    margin-top: 0.75rem;
-    padding-left: 1.25rem;
+    color: var(--color-ink-muted);
+    line-height: 1.65;
+    margin-top: 0.85rem;
+    padding-left: 1.35rem;
     list-style: disc;
+    max-width: 62ch;
   }
   .landing-content :global(section ul li + li) {
-    margin-top: 0.35rem;
+    margin-top: 0.4rem;
+  }
+
+  /* Light canvas: crisp white cards instead of the translucent dark panel. */
+  :global(html.light) .landing-content :global(section) {
+    background: rgba(255, 255, 255, 0.75);
+    border-color: rgba(15, 23, 42, 0.08);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
   }
 </style>
