@@ -3,11 +3,22 @@ import { t } from '../scripts/i18n.ts';
 
 const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
 
+// Each language shows a representative country flag (a language is not a
+// country — the flag is chosen pragmatically for visual recognition). Flag
+// SVGs are self-hosted from flag-icons (MIT) — see public/flags/ATTRIBUTION.txt.
 const languages = [
-  "English", "Deutsch", "Español", "Français", "Italiano", "Português",
-  "日本語", "中文", "한국어", "Русский", "العربية", "हिन्दी",
-  "Polski", "Nederlands", "Türkçe", "Svenska", "Čeština", "Українська",
-  "Bahasa", "Tiếng Việt", "ไทย", "Ελληνικά", "Română", "Magyar",
+  { name: "English", flag: "gb" }, { name: "Deutsch", flag: "de" },
+  { name: "Español", flag: "es" }, { name: "Français", flag: "fr" },
+  { name: "Italiano", flag: "it" }, { name: "Português", flag: "pt" },
+  { name: "日本語", flag: "jp" }, { name: "中文", flag: "cn" },
+  { name: "한국어", flag: "kr" }, { name: "Русский", flag: "ru" },
+  { name: "العربية", flag: "sa" }, { name: "हिन्दी", flag: "in" },
+  { name: "Polski", flag: "pl" }, { name: "Nederlands", flag: "nl" },
+  { name: "Türkçe", flag: "tr" }, { name: "Svenska", flag: "se" },
+  { name: "Čeština", flag: "cz" }, { name: "Українська", flag: "ua" },
+  { name: "Bahasa", flag: "id" }, { name: "Tiếng Việt", flag: "vn" },
+  { name: "ไทย", flag: "th" }, { name: "Ελληνικά", flag: "gr" },
+  { name: "Română", flag: "ro" }, { name: "Magyar", flag: "hu" },
 ];
 ---
 
@@ -33,12 +44,22 @@ const languages = [
     </div>
 
     <div class="flex flex-wrap justify-center gap-2.5 scroll-reveal">
-      {languages.map((languageName) => (
-        <span class="lang-pill px-4 py-2 rounded-full text-sm font-medium border border-white/[0.08] text-gray-300 bg-white/[0.03] hover:border-brand-cyan/30 hover:text-white transition-all cursor-default">
-          {languageName}
+      {languages.map(({ name, flag }) => (
+        <span class="lang-pill group inline-flex items-center gap-2 pl-2.5 pr-4 py-2 rounded-full text-sm font-medium border border-white/[0.08] text-gray-300 bg-white/[0.03] hover:border-brand-cyan/30 hover:text-white hover:-translate-y-0.5 transition-all cursor-default">
+          <img
+            src={`/flags/${flag}.svg`}
+            alt=""
+            aria-hidden="true"
+            width="20"
+            height="15"
+            loading="lazy"
+            decoding="async"
+            class="h-3.5 w-5 rounded-[3px] object-cover ring-1 ring-black/10 shadow-sm motion-safe:transition-transform motion-safe:duration-200 motion-safe:group-hover:scale-110"
+          />
+          {name}
         </span>
       ))}
-      <span class="lang-pill px-4 py-2 rounded-full text-sm font-medium border border-brand-cyan/20 text-brand-cyan bg-brand-cyan/[0.06] cursor-default" data-i18n="languages.more">
+      <span class="lang-pill px-4 py-2 rounded-full text-sm font-medium border border-brand-cyan/20 text-brand-cyan bg-brand-cyan/[0.06] hover:-translate-y-0.5 transition-all cursor-default" data-i18n="languages.more">
         {t(lang, "languages.more")}
       </span>
     </div>
