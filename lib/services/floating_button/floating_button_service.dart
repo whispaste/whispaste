@@ -240,11 +240,10 @@ class FloatingButtonService
       final telemetry = ref.read(telemetryProvider);
       // Drain session-aggregated hot-path counters before flushing so the
       // session's usage leaves as one batch, not one hit per recording.
-      ref.read(telemetrySessionAggregatorProvider).drainTo(telemetry);
-      await telemetry.flush().timeout(
-        const Duration(seconds: 2),
-        onTimeout: () {},
-      );
+      await ref
+          .read(telemetrySessionAggregatorProvider)
+          .drainAndFlush(telemetry)
+          .timeout(const Duration(seconds: 2), onTimeout: () {});
     } catch (e) {
       _log.debug('telemetry flush failed during quit (non-fatal): $e');
     }

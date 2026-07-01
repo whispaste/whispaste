@@ -19,7 +19,7 @@
 	<key>CFBundleShortVersionString</key>
 	<string>$(FLUTTER_BUILD_NAME)</string>
 	<key>CFBundleVersion</key>
-	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<string>$(FLUTTER_BUILD_NAME)</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>NSHumanReadableCopyright</key>
@@ -30,5 +30,14 @@
 	<string>NSApplication</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>WhisPaste needs microphone access for speech-to-text dictation.</string>
+	<!-- Sparkle self-update (PRD Säule E). EdDSA public key matches the private
+	     key that signs appcast.xml in CI (secret SPARKLE_SIGNING_KEY). The feed
+	     URL mirrors kAppcastFeedUrl in lib/services/auto_updater_service.dart;
+	     Sparkle reads SUFeedURL before the Dart side calls setFeedURL, so it
+	     must be present here for the first launch check. -->
+	<key>SUPublicEDKey</key>
+	<string>Ek8FS/co3CPMeZt7ss9XMDkga7jIG6RWNWbefZhtRck=</string>
+	<key>SUFeedURL</key>
+	<string>https://github.com/whispaste/whispaste/releases/latest/download/appcast.xml</string>
 </dict>
 </plist>

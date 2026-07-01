@@ -532,5 +532,37 @@ void main() {
       await service.flush();
       expect(hits, 0);
     });
+
+    test('drainAndFlush combines drain + flush in one call', () async {
+      final bodies = <String>[];
+      final client = MockClient((req) async {
+        bodies.add(req.body);
+        return http.Response('', 200);
+      });
+      final service = _makeService(client: client);
+
+      final agg = TelemetrySessionAggregator();
+      agg.count(category: 'pipeline', action: 'success', name: 'ok');
+      agg.count(category: 'insertion', action: 'clipboard');
+
+      // Single call drains the counters AND awaits the pending requests.
+      await agg.drainAndFlush(service);
+
+      expect(bodies, hasLength(2));
+      expect(agg.debugCounts, isEmpty);
+    });
+
+    test('drainAndFlush on an empty aggregator sends nothing', () async {
+      var hits = 0;
+      final client = MockClient((_) async {
+        hits++;
+        return http.Response('', 200);
+      });
+      final service = _makeService(client: client);
+
+      await TelemetrySessionAggregator().drainAndFlush(service);
+
+      expect(hits, 0);
+    });
   });
 }

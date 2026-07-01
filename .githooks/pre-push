@@ -17,6 +17,22 @@ DRIFTSH="$ROOT/scripts/docs-drift.sh"
 REMOTE="${1:-}"
 ZERO="0000000000000000000000000000000000000000"
 
+# Two-Path-Sync Advisory (Lektion aus 1.2.43: Store submitted, Tag vergessen
+# → Website/Downloads/Sentry asynchron). Advisory-only, nie blockierend.
+# Der Hook sieht nur die git-Seite; die Store-Submission läuft außerhalb und
+# ist primär über wp-release-windows.sh (release/github-sync) abgesichert.
+advise_two_path_sync() {
+  case "$1" in
+    refs/tags/v*)
+      cat >&2 <<EOF
+  note: ${1#refs/tags/} gepusht → release.yml triggert (Website/Sentry/Scoop).
+        Two-Path-Sync sicherstellen: Store-Submission erfolgt?
+        (wp-release-windows.sh release | github-sync | submit <msix>)
+EOF
+      ;;
+  esac
+}
+
 # ── 1. Allowlist-Schranke (Push-Range + HEAD-Baum) ──────────────────────
 if [ ! -f "$ALLOWLIST" ]; then
   echo "pre-push: WARN — .ossallowlist nicht gefunden, Guard inaktiv." >&2
@@ -77,6 +93,8 @@ EOF
       [ -z "$path" ] && continue
       ! is_allowed "$path" && violations+=("$path")
     done < <(git ls-tree -r --name-only "$local_sha" 2>/dev/null || true)
+
+    advise_two_path_sync "$remote_ref"
   done
 
   if [ ${#violations[@]} -gt 0 ]; then

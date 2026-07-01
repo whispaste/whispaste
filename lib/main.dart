@@ -293,6 +293,35 @@ void _scheduleStartupSideEffects(
   container
       .read(telemetryProvider)
       .trackEvent(category: 'lifecycle', action: 'start');
+
+  // Best-effort telemetry drain on logout/kill. macOS/Linux emit SIGTERM on
+  // session end; SIGINT covers Ctrl+C everywhere. Windows has no real
+  // SIGTERM, so only sigint is wired there.
+  _installTelemetrySignalHandlers(container);
+}
+
+/// Installs best-effort signal handlers that drain session-aggregated
+/// telemetry before the process exits on logout/kill. Non-blocking budget of
+/// 2 s; counts already put on the wire via the periodic flush timer are not
+/// lost when this still misses the drain.
+void _installTelemetrySignalHandlers(ProviderContainer container) {
+  Future<void> drainAndExit() async {
+    try {
+      final telemetry = container.read(telemetryProvider);
+      await container
+          .read(telemetrySessionAggregatorProvider)
+          .drainAndFlush(telemetry)
+          .timeout(const Duration(seconds: 2), onTimeout: () {});
+    } catch (_) {
+      // Best-effort — never block exit.
+    }
+    exit(0);
+  }
+
+  ProcessSignal.sigint.watch().listen((_) => drainAndExit());
+  if (!Platform.isWindows) {
+    ProcessSignal.sigterm.watch().listen((_) => drainAndExit());
+  }
 }
 
 /// Minimal app shown when RAM is below the 8 GB minimum.

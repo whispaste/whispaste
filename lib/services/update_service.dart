@@ -12,7 +12,6 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
-import 'package:path/path.dart' as p;
 
 import '../core/app_info.dart';
 import '../core/logging/app_logger.dart';
@@ -287,77 +286,6 @@ class UpdateNotifier extends Notifier<UpdateState> {
       // Sentry capture.
       _log.warning('Update check failed: $e\n$st');
       state = UpdateState(phase: UpdatePhase.error, errorMessage: e.toString());
-    }
-  }
-
-  /// Download the installer and prepare for installation.
-  ///
-  /// Only works when [state.phase] is [UpdatePhase.available] and
-  /// [state.downloadUrl] is non-null.
-  Future<void> downloadUpdate() async {
-    if (state.phase != UpdatePhase.available || state.downloadUrl == null) {
-      return;
-    }
-
-    final channel = ref.read(deployChannelProvider);
-    if (channel != DeployChannel.installer && !Platform.isMacOS) {
-      // Portable channel can't auto-install; just open the release page.
-      // macOS always downloads the DMG regardless of deploy channel.
-      return;
-    }
-
-    _cancelToken = CancelToken();
-
-    // Validate the download URL comes from GitHub (defense-in-depth).
-    final uri = Uri.parse(state.downloadUrl!);
-    if (!uri.host.endsWith('github.com') &&
-        !uri.host.endsWith('githubusercontent.com')) {
-      state = state.copyWith(
-        phase: UpdatePhase.error,
-        errorMessage: 'Download URL is not from GitHub',
-      );
-      return;
-    }
-
-    state = state.copyWith(phase: UpdatePhase.downloading, progressPercent: 0);
-
-    final tempDir = Directory.systemTemp;
-    final targetPath = p.join(tempDir.path, _setupAssetName);
-
-    try {
-      await _dio.download(
-        state.downloadUrl!,
-        targetPath,
-        cancelToken: _cancelToken,
-        onReceiveProgress: (received, total) {
-          if (total > 0) {
-            state = state.copyWith(progressPercent: received / total);
-          }
-        },
-      );
-
-      _log.info('Downloaded update to $targetPath');
-      state = state.copyWith(
-        phase: UpdatePhase.readyToInstall,
-        downloadedPath: targetPath,
-        progressPercent: 1.0,
-      );
-    } on DioException catch (e) {
-      if (e.type == DioExceptionType.cancel) {
-        state = const UpdateState(phase: UpdatePhase.idle);
-        return;
-      }
-      _log.error('Download failed', e);
-      state = state.copyWith(
-        phase: UpdatePhase.error,
-        errorMessage: 'Download failed: ${e.message}',
-      );
-    } catch (e, st) {
-      _log.error('Download failed', e, st);
-      state = state.copyWith(
-        phase: UpdatePhase.error,
-        errorMessage: 'Download failed: $e',
-      );
     }
   }
 

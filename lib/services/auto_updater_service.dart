@@ -30,8 +30,14 @@ final _log = AppLogger('AutoUpdater');
 /// Appcast feed — CI publishes `appcast.xml` as a release asset per tag, so the
 /// `latest/download` path always resolves to the newest release's feed. Built
 /// from [kGitHubRepoUrl] to keep external URLs single-source.
-const String kAppcastFeedUrl =
-    '$kGitHubRepoUrl/releases/latest/download/appcast.xml';
+///
+/// Overridable at build time via `--dart-define=WP_APPCAST_URL=…` for the
+/// local E2E self-update test (served from `http://localhost:PORT/`). Stays
+/// `const` so it is treeshakeable and production-safe (no define → GitHub feed).
+const String kAppcastFeedUrl = String.fromEnvironment(
+  'WP_APPCAST_URL',
+  defaultValue: '$kGitHubRepoUrl/releases/latest/download/appcast.xml',
+);
 
 /// Scheduled background check interval (24 h). Sparkle/WinSparkle enforce a
 /// 3600 s minimum.
@@ -95,5 +101,25 @@ Future<void> initAutoUpdater(DeployChannel channel) async {
     _log.info('Self-updater initialized (channel=$channel)');
   } on Exception catch (e) {
     _log.warning('Self-updater init failed: $e');
+  }
+}
+
+/// Presents Sparkle/WinSparkle's native update window immediately.
+///
+/// This is the in-app entry point for the status-bar "update available" chip:
+/// tapping it opens the platform-native "A new version is available — install
+/// now?" dialog, which performs the download + in-place swap + relaunch.
+///
+/// Must only be called when [shouldUseAutoUpdater] is `true` (the caller in
+/// `app.dart` routes on it). Re-asserts the feed URL first so a foreground
+/// check works even if the startup init race hasn't completed yet. Failures are
+/// logged, never thrown — a broken present must not crash the tap handler.
+Future<void> presentSparkleUpdate() async {
+  try {
+    await setFeedUrlFn(kAppcastFeedUrl);
+    await checkForUpdatesFn(inBackground: false);
+    _log.info('Sparkle foreground update check presented');
+  } on Exception catch (e) {
+    _log.warning('Sparkle foreground check failed: $e');
   }
 }

@@ -104,4 +104,28 @@ void main() {
       },
     );
   });
+
+  group('presentSparkleUpdate', () {
+    test(
+      're-asserts the feed URL and triggers a FOREGROUND (UI) check — '
+      'the status-bar chip opens the native dialog, not a background probe',
+      () async {
+        installSeams(sparklePlatform: true);
+        await presentSparkleUpdate();
+        expect(feedUrl, kAppcastFeedUrl);
+        expect(checkCalled, isTrue);
+        expect(checkInBackground, isFalse); // foreground → shows Sparkle UI
+      },
+    );
+
+    test(
+      'a failing native call is swallowed — the tap never crashes',
+      () async {
+        installSeams(sparklePlatform: true);
+        setFeedUrlFn = (_) async => throw Exception('native plugin missing');
+        await presentSparkleUpdate(); // must not throw
+        expect(checkCalled, isFalse);
+      },
+    );
+  });
 }

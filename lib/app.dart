@@ -40,6 +40,7 @@ import 'services/telemetry_service.dart';
 import 'services/tray_service.dart';
 import 'services/update_service.dart';
 import 'services/deploy_channel_service.dart';
+import 'services/auto_updater_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'widgets/toast.dart';
 import 'widgets/review_prompt_dialog.dart';
@@ -133,10 +134,29 @@ class _AppShell extends ConsumerStatefulWidget {
   ConsumerState<_AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
+class _AppShellState extends ConsumerState<_AppShell>
+    with WindowListener, WidgetsBindingObserver {
   static final _log = AppLogger('AppShell');
   Timer? _windowSaveTimer;
+  Timer? _telemetryFlushTimer;
   bool _isMaximized = false;
+
+  /// Best-effort flush of session-aggregated telemetry. Drains the hot-path
+  /// counters into the sender and awaits pending HTTP requests. No-op without
+  /// consent/config, and never throws — telemetry must not break the app.
+  Future<void> _drainAndFlushTelemetry({
+    Duration timeout = const Duration(seconds: 2),
+  }) async {
+    try {
+      final telemetry = ref.read(telemetryProvider);
+      await ref
+          .read(telemetrySessionAggregatorProvider)
+          .drainAndFlush(telemetry)
+          .timeout(timeout, onTimeout: () {});
+    } catch (e) {
+      _log.debug('telemetry flush failed (non-fatal): $e');
+    }
+  }
 
   @override
   void initState() {
@@ -146,6 +166,18 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
       windowManager.setPreventClose(true);
       windowManager.isMaximized().then((v) => _isMaximized = v);
     }
+
+    // Observe app lifecycle (background/suspend) so session-aggregated
+    // telemetry is flushed even when the window-close path is skipped
+    // (closeToTray is the default). A periodic safety-net timer caps the
+    // loss at one interval should the process be killed mid-session.
+    WidgetsBinding.instance.addObserver(this);
+    _telemetryFlushTimer = Timer.periodic(
+      const Duration(seconds: 60),
+      (_) => unawaited(
+        _drainAndFlushTelemetry(timeout: const Duration(seconds: 3)),
+      ),
+    );
 
     // Show one-time migration toast if Go → Flutter migration happened.
     // Force a DB query first to ensure beforeOpen/migrations have completed.
@@ -195,8 +227,23 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
     if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
       windowManager.removeListener(this);
     }
+    _telemetryFlushTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     _windowSaveTimer?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Flush on background/suspend so telemetry is not lost when the OS
+    // reclaims the app without reaching the window-close handler (logout,
+    // lid-close, switch-user). On desktop `detached`/`hidden` fire late but
+    // are still worth a best-effort drain.
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.detached) {
+      unawaited(_drainAndFlushTelemetry());
+    }
   }
 
   /// Debounced save to avoid excessive DB writes during drag/resize.
@@ -279,18 +326,8 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
       _log.debug('DB close failed during window close (non-fatal): $e');
     }
 
-    try {
-      final telemetry = ref.read(telemetryProvider);
-      // Drain session-aggregated hot-path counters into the sender first, then
-      // flush — so the whole session leaves as one batch, not per recording.
-      ref.read(telemetrySessionAggregatorProvider).drainTo(telemetry);
-      await telemetry.flush().timeout(
-        const Duration(seconds: 2),
-        onTimeout: () {},
-      );
-    } catch (e) {
-      _log.debug('telemetry flush failed during window close (non-fatal): $e');
-    }
+    // Drain session-aggregated hot-path counters into the sender, then flush.
+    await _drainAndFlushTelemetry();
 
     await windowManager.destroy();
   }
@@ -502,12 +539,17 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
                               );
                         },
                         onUpdateTap: () {
-                          if (deployChannel == DeployChannel.portable) {
-                            final url = updateState.releaseNotesUrl;
-                            if (url != null) launchUrl(Uri.parse(url));
-                          } else {
-                            ref.read(updateProvider.notifier).downloadUpdate();
+                          // Sparkle/WinSparkle platforms (macOS + Windows
+                          // non-store): open the native update dialog which
+                          // performs the in-app download + swap + relaunch.
+                          if (shouldUseAutoUpdater(deployChannel)) {
+                            presentSparkleUpdate();
+                            return;
                           }
+                          // Linux & portable fallback: no native in-place
+                          // updater — open the GitHub release page.
+                          final url = updateState.releaseNotesUrl;
+                          if (url != null) launchUrl(Uri.parse(url));
                         },
                       ),
                     ],

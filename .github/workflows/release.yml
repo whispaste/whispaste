@@ -829,6 +829,56 @@ jobs:
   # Microsoft Store submission removed — release flow runs locally on macOS now.
   # Listing text → import CSV via scripts/generate-store-listing.mjs (see store/README.md).
 
+  # ── Sparkle appcast (self-update feed, PRD Säule E) ───────────────────────────
+  # Signs the macOS DMG with the EdDSA key (secret SPARKLE_SIGNING_KEY) and
+  # publishes a signed appcast.xml to the release. Sparkle (macOS) rejects
+  # unsigned feeds, so this job is MANDATORY for the in-app self-update to work.
+  # Runs on macOS because the Sparkle CLI tools (sign_update) are Mach-O
+  # binaries; the script bootstraps them from the official Sparkle release.
+  publish-appcast:
+    name: Publish signed Sparkle appcast
+    needs: [create-release]
+    if: ${{ !cancelled() && startsWith(github.ref, 'refs/tags/v') }}
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download macOS artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: macos-release
+          path: artifacts/
+
+      - name: Generate & upload signed appcast
+        env:
+          SPARKLE_SIGNING_KEY: ${{ secrets.SPARKLE_SIGNING_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          bash scripts/generate_appcast.sh \
+            "${GITHUB_REF_NAME}" \
+            "artifacts" \
+            "https://github.com/whispaste/whispaste/releases/tag/${GITHUB_REF_NAME#v}"
+
+      - name: Gate — verify published appcast is fetchable & every enclosure signed
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          sleep 5  # let the release-asset CDN settle after upload
+          FEED="https://github.com/whispaste/whispaste/releases/latest/download/appcast.xml"
+          echo "Fetching $FEED"
+          curl -fsSL -o /tmp/published-appcast.xml "$FEED"
+          ENC=$(grep -c '<enclosure' /tmp/published-appcast.xml || true)
+          SIG=$(grep -c 'sparkle:edSignature=' /tmp/published-appcast.xml || true)
+          echo "Published enclosures: ${SIG}/${ENC} signed"
+          [[ "$ENC" -ge 1 && "$SIG" -eq "$ENC" ]] || {
+            echo "ERROR: published appcast is unsigned or empty — self-update would be rejected by Sparkle." >&2
+            exit 1
+          }
+          echo "OK — signed appcast live at $FEED"
+
   # ── Manifest-Auto-Bump ────────────────────────────────────────────────────────
   # Updates version + SHA256 in all three packaging manifests as part of the release.
   # Each channel step is fault-tolerant: a failed channel emits ::warning:: and

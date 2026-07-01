@@ -15,6 +15,7 @@ import '../../core/l10n/locale_provider.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../services/deploy_channel_service.dart';
+import '../../services/auto_updater_service.dart';
 import '../../services/stt/stt_bundle.dart';
 import '../../services/update_service.dart';
 import '../../widgets/brand_wordmark.dart';
@@ -108,12 +109,13 @@ class AboutPage extends ConsumerWidget {
                   onTap: () {
                     final notifier = ref.read(updateProvider.notifier);
                     if (updateState.phase == UpdatePhase.available) {
-                      if (channel == DeployChannel.portable) {
-                        // Portable can't auto-install; open release page.
+                      // Sparkle/WinSparkle platforms: native dialog. Linux &
+                      // portable fallback: open the release page.
+                      if (shouldUseAutoUpdater(channel)) {
+                        presentSparkleUpdate();
+                      } else {
                         final url = updateState.releaseNotesUrl;
                         if (url != null) launchUrl(Uri.parse(url));
-                      } else {
-                        notifier.downloadUpdate();
                       }
                     } else if (updateState.phase ==
                         UpdatePhase.readyToInstall) {

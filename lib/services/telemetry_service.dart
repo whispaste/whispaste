@@ -204,6 +204,16 @@ final class TelemetrySessionAggregator {
     _counts.clear();
   }
 
+  /// Drains accumulated counters into [service] and awaits the sender's
+  /// pending HTTP requests (best-effort). Convenience for shutdown / lifecycle
+  /// flush points so callers don't repeat the drain→flush sequence. No-op when
+  /// nothing was counted; the service's own consent/DNT/config gate still
+  /// applies per emitted event.
+  Future<void> drainAndFlush(TelemetryService service) async {
+    drainTo(service);
+    await service.flush();
+  }
+
   /// Snapshot of the current counters — test-only.
   @visibleForTesting
   Map<(String, String, String?), int> get debugCounts =>

@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  @font-face {
+    font-family: "Bricolage";
+    src: url("/fonts/bricolage-grotesque-latin-wght-normal.woff2") format("woff2-variations");
+    font-weight: 400 900;
+    font-display: block;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1200px; height: 630px; overflow: hidden; }
+  body {
+    font-family: "Bricolage", system-ui, sans-serif;
+    background: #131826;
+    color: #F4F7FC;
+    position: relative;
+  }
+  .glow {
+    position: absolute; inset: 0; pointer-events: none;
+    background:
+      radial-gradient(ellipse 72% 62% at 80% 50%, rgba(56,217,240,0.24) 0%, transparent 66%),
+      radial-gradient(ellipse 55% 48% at 18% 32%, rgba(20,184,212,0.12) 0%, transparent 60%);
+  }
+  .wrap {
+    position: relative; z-index: 2;
+    display: grid; grid-template-columns: 1fr 360px;
+    gap: 48px; height: 100%;
+    padding: 64px 72px 60px;
+  }
+  .left { display: flex; flex-direction: column; justify-content: space-between; min-width: 0; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand img { height: 34px; width: auto; display: block; }
+  .brand .appicon { height: 36px; width: 36px; border-radius: 8px; }
+  .tagline {
+    font-family: "Bricolage", system-ui, sans-serif;
+    font-weight: 800;
+    font-variation-settings: "wght" 800;
+    letter-spacing: -0.038em;
+    line-height: 0.90;
+    font-size: 124px;
+    color: #FFFFFF;
+  }
+  .tagline .accent {
+    background: linear-gradient(135deg, #6BECFA 0%, #38D9F0 48%, #14B8D4 100%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent; color: transparent;
+  }
+  .sub {
+    margin-top: 24px;
+    font-size: 24px; line-height: 1.4;
+    color: #D7E0EE; font-weight: 500;
+    max-width: 34ch;
+  }
+  .sub b { color: #6BECFA; font-weight: 700; }
+  .pills { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 9px 16px; border-radius: 999px;
+    border: 1px solid rgba(107,236,250,0.30);
+    background: rgba(107,236,250,0.05);
+    color: #F4F7FC; font-size: 18px; font-weight: 600;
+  }
+  .pill svg { width: 17px; height: 17px; color: #6BECFA; }
+  .right { position: relative; display: flex; align-items: center; justify-content: center; }
+  .halo {
+    position: absolute; width: 380px; height: 380px; left: 50%; top: 50%;
+    transform: translate(-50%,-50%);
+    background: radial-gradient(circle at 50% 45%, rgba(56,217,240,0.42) 0%, rgba(56,217,240,0.10) 42%, transparent 70%);
+    filter: blur(26px);
+  }
+  .appicon-hero {
+    position: relative; z-index: 2;
+    width: 268px; height: 268px; border-radius: 62px;
+    box-shadow: 0 40px 90px rgba(0,0,0,0.55), 0 0 0 1px rgba(107,236,250,0.22);
+  }
+  .url {
+    position: absolute; bottom: 36px; right: 72px; z-index: 3;
+    font-size: 18px; font-weight: 700; letter-spacing: 0.01em; color: #D7E0EE;
+  }
+  .url b { color: #6BECFA; font-weight: 800; }
+</style>
+</head>
+<body>
+  <div class="glow"></div>
+  <div class="wrap">
+    <div class="left">
+      <div class="brand">
+        <img class="appicon" src="/app-icon.png" alt="">
+        <img src="/wordmark-light.png" alt="WhisPaste">
+      </div>
+      <div>
+        <div class="tagline">Press.<br>Speak.<br><span class="accent">Done.</span></div>
+        <div class="sub">Desktop dictation — <b>100% offline · Open Source</b>.</div>
+      </div>
+      <div class="pills">
+        <span class="pill"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 5.4 10.6 4.2v7.3H3V5.4zM11.6 4.05 21 2.6v8.9h-9.4V4.05zM3 12.5h7.6v6.6L3 17.9v-5.4zM11.6 12.5H21v8.9l-9.4-1.45V12.5z"/></svg>Windows</span>
+        <span class="pill"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.063 2.086-.993 3.918-.993 1.833 0 2.344.993 3.962.961 1.637-.029 2.676-1.454 3.676-2.916 1.156-1.688 1.636-3.313 1.662-3.398-.039-.014-3.182-1.221-3.182-4.838 0-3.035 2.466-4.485 2.594-4.564-1.426-2.099-3.635-2.234-4.408-2.293zM15.219 3.648c.898-1.089 1.504-2.605 1.338-4.115-1.293.052-2.861.86-3.781 1.948-.831.972-1.557 2.519-1.362 3.998 1.441.112 2.912-.732 3.805-1.831z"/></svg>macOS</span>
+        <span class="pill"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm0 1.6c5.741 0 10.4 4.859 10.4 10.4 0 .097-.003.193-.006.29-1.078-.226-2.158-.276-3.052-.064-.376.09-.956.243-1.6.41-.234-.55-.51-1.106-.81-1.66 1.89-1.36 3.06-3.06 3.12-3.15A10.34 10.34 0 0112 1.6zm6.95 3.05c-.06.1-1.13 1.7-2.93 2.95A23.7 23.7 0 0011.5 2.4 10.42 10.42 0 0118.95 4.65zM9.4 2.78a27.6 27.6 0 014.46 6.93c-3.66 1.06-7.61 1.04-7.79 1.04A10.43 10.43 0 019.4 2.78zM2.55 12.6h.3c.2 0 4.84.06 9.18-1.18.26.5.5 1 .72 1.5-.1.03-.21.06-.3.09-4.5 1.45-6.95 5.42-7.15 5.75A10.38 10.38 0 012.55 12.6zm9.45 9.8a10.4 10.4 0 01-6.4-2.2c.15-.3 1.9-3.68 6.85-5.4l.06-.02c1.22 3.18 1.72 5.84 1.85 6.6A10.3 10.3 0 0112 22.4zm3.5-1.18c-.09-.55-.55-3.1-1.68-6.24 2.45-.4 4.6.24 4.87.33a10.42 10.42 0 01-3.19 5.91z"/></svg>Linux</span>
+      </div>
+    </div>
+    <div class="right">
+      <div class="halo"></div>
+      <img class="appicon-hero" src="/app-icon.png" alt="WhisPaste">
+    </div>
+  </div>
+  <div class="url"><b>whispaste</b>.de</div>
+</body>
+</html>
