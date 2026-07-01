@@ -53,4 +53,23 @@ void main() {
       expect(currentArchTag(), equals(tag));
     });
   });
+
+  group('sentryRelease', () {
+    test('uses the lowercase "whispaste@" prefix, not the display appName', () {
+      // Regression guard for the case-sensitivity bug: CI uploads symbols
+      // and creates the Sentry release as `whispaste@<version>` (release.yml),
+      // but appName is `'WhisPaste'`. Sentry release names are case-sensitive,
+      // so a `WhisPaste@…` event would never match the `whispaste@…` symbols
+      // → native frames stay unsymbolicated. This pin prevents drift back.
+      final release = sentryRelease;
+      expect(release, startsWith('whispaste@'));
+      expect(release, isNot(startsWith('WhisPaste@')));
+    });
+
+    test('appends the current appVersion', () {
+      // In the test host, appVersion falls back to 'unknown' (no compile-time
+      // APP_VERSION define). The contract is just: <prefix>@<version>.
+      expect(sentryRelease, equals('whispaste@$appVersion'));
+    });
+  });
 }

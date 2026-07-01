@@ -51,7 +51,14 @@ String get appUserAgent => '$appName/$appVersion';
 /// Sentry release identifier. Format: `whispaste@{version}`.
 /// Used in app_monitoring.dart for release tracking and must match the
 /// `whispaste@$version` tag the release workflow uploads symbols against.
-String get sentryRelease => '$appName@$appVersion';
+///
+/// Deliberately lowercased and decoupled from [appName]: the CI
+/// (`release.yml`) hardcodes `whispaste@$version` for symbol upload and
+/// release creation, and Sentry release names are case-sensitive. Using
+/// `appName` (which is `'WhisPaste'`) previously sent events as
+/// `WhisPaste@…` while symbols landed under `whispaste@…`, leaving every
+/// native frame unsymbolicated.
+String get sentryRelease => 'whispaste@$appVersion';
 
 /// Process architecture tag for Sentry's `dist` field and `arch` scope tag.
 ///
