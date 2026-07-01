@@ -45,6 +45,27 @@ const faqKeys = [
 >
   <Nav variant="landing" />
   <main id="main-content">
+    {/*
+      Section-Ton-Rhythmus (band-System aus src/styles/global.css) — bewusst
+      alternierend, damit keine zwei Sektionen mit gleichem Ton aneinanderstoßen:
+        Hero              deep (implizit, kein .band — deckt sich mit der <html>-Fläche)
+        HowItWorks        raised   (band-raised, in HowItWorks.astro)
+        WorkflowSelector  spotlight (band-spotlight, in WorkflowSelector.astro — Hero-naher
+                                     Zielgruppen-Einstieg bekommt den Marken-Glow)
+        MarketingMoment   deep     (band-deep, in MarketingMoment.astro)
+        AppPasteDemo      spotlight (band-spotlight, in AppPasteDemo.astro)
+        SpeedComparison   raised   (band-raised, in SpeedComparison.astro)
+        AppScreenshots    deep     (band-deep, in AppScreenshots.astro)
+        Privacy           spotlight (band-spotlight, in Privacy.astro)
+        Pricing           raised   (band-raised, in Pricing.astro)
+        Languages         deep     (band-deep, in Languages.astro)
+        FAQ               raised   (band-raised, in FAQ.astro)
+        Support           deep (implizit, kein .band)
+        Testimonials      spotlight (band-spotlight, in Testimonials.astro)
+        Footer            eigenständiges Chrome außerhalb von <main>, kein Band
+      Jede band-Klasse wird an genau einer Stelle (der jeweiligen Sektions-
+      Komponente) gesetzt — hier nur dokumentiert, nicht dupliziert gesetzt.
+    */}
     <Hero />
     <HowItWorks />
     <WorkflowSelector />
