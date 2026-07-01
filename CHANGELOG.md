@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.43
+
+### Bug Fixes
+
+- **Datenschutz- und Website-Links zeigen wieder auf die richtige Adresse und in der richtigen Sprache.** Die Links in der App (Über-Seite) führen jetzt sprachabhängig zur deutschen oder englischen Datenschutzerklärung auf whispaste.de — vorher liefen sie teils auf eine veraltete Adresse ins Leere. Die englische Datenschutzseite der Website wurde außerdem um die fehlenden Hosting- und Tracking-Hinweise ergänzt, sodass deutsch- und englischsprachige Besucher dieselbe Aufklärung erhalten.
+
 ## 1.2.42
 
 ### Features
