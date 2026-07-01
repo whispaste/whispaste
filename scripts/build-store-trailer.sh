@@ -51,16 +51,30 @@ else
   INPUT_ARGS=(-f concat -safe 0 -i "$CONCAT_LIST")
 fi
 
+# Detect audio in the first input. Playwright web captures have no audio
+# stream; synthesize a silent AAC track in that case so the output stays
+# MS-Store-conformant (AAC-LC stream required even when mute).
+HAS_AUDIO=$(ffprobe -v error -select_streams a:0 -show_entries stream=codec_type -of csv=p=0 "${CLIPS[0]}" 2>/dev/null | head -1)
+
 # Concat + encode to MS Store spec. -vf scales/pads any aspect to 1920x1080.
-ffmpeg -hide_banner -loglevel warning "${INPUT_ARGS[@]}" -t 60 \
-  -vf "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30" \
-  -c:v libx264 -profile:v high \
-  -b:v 50M -maxrate 50M -bufsize 100M \
-  -x264-params "bframes=2:cabac=1" \
-  -pix_fmt yuv420p \
-  -c:a aac -b:a 384k -ar 48000 -ac 2 \
-  -movflags +faststart \
-  -y "$TRAILER"
+FF=(ffmpeg -hide_banner -loglevel warning "${INPUT_ARGS[@]}")
+if [[ "$HAS_AUDIO" != "audio" ]]; then
+  FF+=(-f lavfi -i anullsrc=channel_layout=stereo:sample_rate=48000)
+fi
+FF+=(
+  -t 60
+  -vf "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30"
+  -map 0:v:0
+  -c:v libx264 -profile:v high -b:v 50M -maxrate 50M -bufsize 100M
+  -x264-params "bframes=2:cabac=1" -pix_fmt yuv420p
+)
+if [[ "$HAS_AUDIO" == "audio" ]]; then
+  FF+=(-map 0:a:0 -c:a aac -b:a 384k -ar 48000 -ac 2)
+else
+  FF+=(-map 1:a:0 -shortest -c:a aac -b:a 384k)
+fi
+FF+=(-movflags +faststart -y "$TRAILER")
+"${FF[@]}"
 
 # Thumbnail at ~1 s in (fallback: first frame for very short clips).
 ffmpeg -hide_banner -loglevel error -ss 1 -i "$TRAILER" -frames:v 1 -y "$THUMB" 2>/dev/null \
