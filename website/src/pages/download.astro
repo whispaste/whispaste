@@ -38,6 +38,12 @@ const breadcrumbItems = [
           <p class="text-gray-400 text-lg" data-i18n="download.subtitle">{t(lang, "download.subtitle")}</p>
         </div>
 
+        <!-- OS-adaptive primary CTA group: order is reassigned per data-os
+             below the fold, no DOM reflow (data-os is set before first paint
+             by the inline head script in Layout.astro). Unknown OS keeps the
+             natural source order — no forced Store CTA. -->
+        <div class="download-primary-group">
+
         <!-- Section 1: Microsoft Store (recommended for Windows) -->
         <div class="download-card rounded-2xl border p-6 sm:p-8 mb-6 relative" data-platform-card="windows">
           <div class="absolute -top-3 left-6">
@@ -155,7 +161,13 @@ const breadcrumbItems = [
 
         <!-- Section 3: Linux — Build from Source -->
         <div class="download-card rounded-2xl border p-6 sm:p-8 mb-6 relative" data-platform-card="linux">
-          <div class="flex items-start gap-3 mb-5">
+          <div class="absolute -top-3 left-6">
+            <span class="items-center gap-1 px-3 py-1 rounded-full recommended-badge ring-1 ring-brand-cyan/30 text-brand-cyan text-xs font-semibold">
+              <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+              <span data-i18n="download.store.recommended">{t(lang, "download.store.recommended")}</span>
+            </span>
+          </div>
+          <div class="flex items-start gap-3 mb-5 mt-2">
             <div class="shrink-0 w-10 h-10 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center">
               <!-- Linux Tux-inspired terminal icon -->
               <svg class="w-5 h-5 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg>
@@ -208,8 +220,8 @@ const breadcrumbItems = [
           </div>
         </div>
 
-        <!-- Section 4: Free from GitHub (Windows) -->
-        <div class="download-card rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 sm:p-8 mb-6">
+        <!-- Section 4: Free from GitHub (Windows) — the free path, always visible -->
+        <div class="download-card rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 sm:p-8 mb-6" data-platform-card="windows-free">
           <div class="flex items-start gap-3 mb-5">
             <div class="shrink-0 w-10 h-10 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center">
               <svg class="w-5 h-5 text-gray-300" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
@@ -269,6 +281,9 @@ const breadcrumbItems = [
             </div>
           </div>
         </div>
+
+        </div>
+        <!-- /download-primary-group -->
 
         <!-- Section 5: Package managers (power users) — data-driven from platforms.ts SSoT -->
         <div class="download-card rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 sm:p-8 mb-6" data-testid="pkg-managers">
@@ -440,13 +455,42 @@ const breadcrumbItems = [
   }
   /* Show badge only on the OS-matched platform card */
   :global([data-os="windows"]) .download-card[data-platform-card="windows"] .recommended-badge,
-  :global([data-os="macos"]) .download-card[data-platform-card="macos"] .recommended-badge {
+  :global([data-os="macos"]) .download-card[data-platform-card="macos"] .recommended-badge,
+  :global([data-os="linux"]) .download-card[data-platform-card="linux"] .recommended-badge {
     display: inline-flex;
   }
   :root.light .recommended-badge {
     background: #ECFEFF;
     --tw-ring-color: rgba(8, 145, 178, 0.3);
   }
+
+  /* OS-adaptive primary CTA ordering (US-01…04, issue 12).
+   * `.download-primary-group` is a flex column so `order` can move the
+   * OS-matched primary card above the fold without touching the DOM —
+   * data-os is set synchronously before first paint (Layout.astro inline
+   * head script), so there is no reflow/flash. Unknown OS (no data-os
+   * attribute on <html>) keeps the natural source order below: Store,
+   * macOS, Linux, GitHub-free — all four equally weighted, no forced
+   * Store CTA. The free path (`windows-free`) is never hidden, only
+   * reprioritised. */
+  .download-primary-group {
+    display: flex;
+    flex-direction: column;
+  }
+  :global([data-os="windows"]) .download-primary-group [data-platform-card="windows"] { order: 1; }
+  :global([data-os="windows"]) .download-primary-group [data-platform-card="windows-free"] { order: 2; }
+  :global([data-os="windows"]) .download-primary-group [data-platform-card="macos"] { order: 3; }
+  :global([data-os="windows"]) .download-primary-group [data-platform-card="linux"] { order: 4; }
+
+  :global([data-os="macos"]) .download-primary-group [data-platform-card="macos"] { order: 1; }
+  :global([data-os="macos"]) .download-primary-group [data-platform-card="linux"] { order: 2; }
+  :global([data-os="macos"]) .download-primary-group [data-platform-card="windows"] { order: 3; }
+  :global([data-os="macos"]) .download-primary-group [data-platform-card="windows-free"] { order: 4; }
+
+  :global([data-os="linux"]) .download-primary-group [data-platform-card="linux"] { order: 1; }
+  :global([data-os="linux"]) .download-primary-group [data-platform-card="macos"] { order: 2; }
+  :global([data-os="linux"]) .download-primary-group [data-platform-card="windows"] { order: 3; }
+  :global([data-os="linux"]) .download-primary-group [data-platform-card="windows-free"] { order: 4; }
   :root.light .smartscreen-box {
     background: rgba(245, 158, 11, 0.06);
     border-color: rgba(245, 158, 11, 0.15);
