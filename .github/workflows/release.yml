@@ -236,6 +236,18 @@ jobs:
         env:
           MSIX_PUBLISHER: ${{ secrets.MSIX_PUBLISHER }}
         run: |
+          # AC-5 / Q2 (PRD §6.3): Beta tags build NO MSIX and trigger NO Store
+          # submission. Setting skip=true here short-circuits every downstream
+          # MSIX step in this job (Build MSIX, Upload MSIX, .appxupload, symbol
+          # upload) AND flips the `msix-built` job output to false, which in
+          # turn skips wack-gate and the MSIX download in create-release.
+          $refName = "${{ github.ref_name }}"
+          if ($refName -match '-beta\.') {
+            Write-Warning "Beta tag ($refName) — skipping MSIX build + Store submission (AC-5/Q2)."
+            echo "skip=true" >> $env:GITHUB_OUTPUT
+            exit 0
+          }
+
           if (-not $env:MSIX_PUBLISHER) {
             Write-Warning "MSIX_PUBLISHER secret not set — skipping MSIX build"
             echo "skip=true" >> $env:GITHUB_OUTPUT
@@ -774,6 +786,29 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      # PRD §5.2/§5.3 + Q1: route by Git tag. Beta (vX.Y.Z-beta.N) is published
+      # as a GitHub Prerelease and excluded from `releases/latest` (make_latest
+      # false). Stable (vX.Y.Z, no suffix) is a non-prerelease and becomes the
+      # org's latest release so `releases/latest` resolves to it. Downstream
+      # steps consume these outputs instead of re-deriving the channel.
+      - name: Resolve release channel
+        id: channel
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF_NAME}" == *-beta.* ]]; then
+            {
+              echo "channel=beta"
+              echo "prerelease=true"
+              echo "make_latest=false"
+            } >> "$GITHUB_OUTPUT"
+          else
+            {
+              echo "channel=stable"
+              echo "prerelease=false"
+              echo "make_latest=true"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Download Windows artifacts
         uses: actions/download-artifact@v8
         with:
@@ -838,13 +873,30 @@ jobs:
             release-notes-en.md
             release-notes-de.md
 
+      # PRD §13 release discipline: the maintainer runs `docs-attest.sh attest`
+      # locally before pushing a tag (enforced by .githooks/pre-push, which
+      # blocks the push unless HEAD is stamped in the gitignored .docs-attest).
+      # CI re-runs the structural `check` here as defense-in-depth right before
+      # a release goes public — the invariant set behind `attest` (anti-vocab,
+      # version-sync, msix-version-sync, platform/store SSoT, removed-features,
+      # i18n) must hold at the public-release moment. `.docs-attest` itself is
+      # local/gitignored, so CI can only verify the invariants, not stamp them.
+      - name: docs-attest gate (public-docs consistency)
+        shell: bash
+        run: bash scripts/docs-attest.sh check
+
       - name: Create Release
         uses: softprops/action-gh-release@v3
         with:
           name: WhisPaste v${{ steps.notes.outputs.version }}
           body_path: release-body.md
           draft: false
-          make_latest: true
+          # Q1/§5.3: Stable → non-prerelease + make_latest=true so
+          # releases/latest resolves to it. Beta → prerelease + make_latest=false
+          # so it never displaces the stable feed (Beta never reaches
+          # releases/latest). Computed in the Resolve release channel step.
+          prerelease: ${{ steps.channel.outputs.prerelease }}
+          make_latest: ${{ steps.channel.outputs.make_latest }}
           # `release-notes-de.md` is attached as an asset so the website
           # changelog (build-releases.ts) can source the German body directly,
           # instead of re-translating the English body. Single DE source of
@@ -914,10 +966,38 @@ jobs:
           SPARKLE_SIGNING_KEY: ${{ secrets.SPARKLE_SIGNING_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # PRD §5.2: --channel selects the feed asset filename. Beta tags emit
+          # appcast-beta.xml (consumed via the beta-latest pointer, §5.3); stable
+          # tags emit appcast.xml (consumed via releases/latest). Feed CONTENT is
+          # identical across channels (both EdDSA enclosures); only the name
+          # differs (Issue 03).
+          if [[ "${GITHUB_REF_NAME}" == *-beta.* ]]; then
+            CHANNEL="beta"
+          else
+            CHANNEL="stable"
+          fi
           bash scripts/generate_appcast.sh \
+            --channel "$CHANNEL" \
             "${GITHUB_REF_NAME}" \
             "artifacts" \
             "https://github.com/whispaste/whispaste/releases/tag/${GITHUB_REF_NAME#v}"
+
+      # PRD §5.3 (beta only): force-move the lightweight `beta-latest` tag onto
+      # the current beta release commit. It is a MOVING POINTER, not a separate
+      # release — it co-tags the existing beta prerelease so the beta appcast
+      # feed URL (releases/download/beta-latest/appcast-beta.xml) anchors on the
+      # most recent beta. Exactly one extra tag per beta cycle; no asset
+      # clobbering. (Live resolution of the beta-latest download URL is verified
+      # in the Issue 07 beta cycle; this step implements the mechanism.)
+      - name: Move beta-latest tag to this beta release
+        if: contains(github.ref_name, '-beta.')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git tag -f beta-latest "${{ github.sha }}"
+          git push origin refs/tags/beta-latest --force
+          echo "Moved beta-latest → ${{ github.sha }} (${{ github.ref_name }})"
 
       - name: Gate — verify published appcast is fetchable & every enclosure signed
         env:
@@ -925,7 +1005,17 @@ jobs:
         run: |
           set -euo pipefail
           sleep 5  # let the release-asset CDN settle after upload
-          FEED="https://github.com/whispaste/whispaste/releases/latest/download/appcast.xml"
+          if [[ "${GITHUB_REF_NAME}" == *-beta.* ]]; then
+            # Beta feed: fetch the just-uploaded asset via its version tag (the
+            # beta-latest URL resolution is the Issue 07 live proof; the version-
+            # tag URL is reliable right after upload and exercises the same
+            # signed bytes the app will consume).
+            FEED="https://github.com/whispaste/whispaste/releases/download/${GITHUB_REF_NAME}/appcast-beta.xml"
+          else
+            # Stable feed: releases/latest resolves to this non-prerelease
+            # (make_latest=true in create-release).
+            FEED="https://github.com/whispaste/whispaste/releases/latest/download/appcast.xml"
+          fi
           echo "Fetching $FEED"
           curl -fsSL -o /tmp/published-appcast.xml "$FEED"
           ENC=$(grep -c '<enclosure' /tmp/published-appcast.xml || true)
@@ -947,9 +1037,14 @@ jobs:
   manifest-bump:
     name: Bump packaging manifests (Scoop · winget · Homebrew)
     needs: [create-release]
+    # PRD §5.1: Scoop/winget/Homebrew are STABLE direct-download channels. A
+    # beta must never bump them (it would offer an `-beta.N` version to stable
+    # channel users). Stable-only here; validate-packaging inherits the skip via
+    # its `needs.manifest-bump.result == 'success'` condition.
     if: |
       !cancelled() &&
       startsWith(github.ref, 'refs/tags/v') &&
+      !contains(github.ref_name, '-') &&
       needs.create-release.result == 'success'
     runs-on: ubuntu-latest
     permissions:
