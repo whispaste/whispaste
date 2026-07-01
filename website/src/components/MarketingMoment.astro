@@ -99,12 +99,13 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
     max-width: 30ch;
   }
   .mm-title {
-    font-family: var(--font-display, inherit);
-    font-weight: 700;
+    font-family: var(--font-serif);
+    font-weight: 500;
+    font-variation-settings: "opsz" 144, "wght" 500;
     color: var(--color-ink, #fff);
     font-size: clamp(1.75rem, 4.5vw, 3rem);
     line-height: 1.04;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.015em;
     margin: 0;
   }
   .mm-sub {
