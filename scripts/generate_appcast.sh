@@ -20,7 +20,8 @@
 # `sign_update --help`). The matching public key (SUPublicEDKey) is embedded in
 # macos/Runner/Info.plist.
 #
-# Usage: generate_appcast.sh <tag> <artifacts-dir> [notes-url]
+# Usage: generate_appcast.sh [--channel beta|stable] <tag> <artifacts-dir> [notes-url]
+#   --channel beta → appcast-beta.xml; stable (default) → appcast.xml.
 #
 # Env (required):
 #   SPARKLE_SIGNING_KEY   44-char base64 Ed25519 private key (GitHub secret)
@@ -30,9 +31,73 @@
 
 set -euo pipefail
 
-TAG="${1:?usage: generate_appcast.sh <tag> <artifacts-dir> [notes-url]}"
-ARTIFACTS_DIR="${2:?missing artifacts-dir}"
-NOTES_URL="${3:-https://github.com/whispaste/whispaste/releases/tag/${TAG#v}}"
+usage() {
+  cat <<'USG'
+Usage: generate_appcast.sh [--channel beta|stable] <tag> <artifacts-dir> [notes-url]
+
+Options:
+  --channel beta|stable   Output feed filename + release asset name.
+                          stable (default) → appcast.xml
+                          beta             → appcast-beta.xml
+                          Feed CONTENT is identical across channels (both
+                          EdDSA enclosures, macOS+Windows); only the filename
+                          differs. Omitting --channel defaults to stable so
+                          existing positional callers are unaffected.
+
+Env: SPARKLE_SIGNING_KEY (required), GITHUB_TOKEN (optional; upload skipped
+     when unset). Exit codes: 2 = signing key missing, 1 = other failure.
+USG
+}
+
+# --- 0a. Parse arguments ----------------------------------------------------
+# Positional args keep their original order (<tag> <artifacts-dir> [notes-url])
+# so the existing CI/local callers do not break. --channel is an optional flag
+# that may appear anywhere and only selects the output feed filename.
+CHANNEL="stable"
+POSITIONAL=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --channel)
+      [[ $# -ge 2 ]] || { echo "ERROR: --channel requires a value (stable|beta)." >&2; usage >&2; exit 1; }
+      CHANNEL="$2"
+      shift 2
+      ;;
+    --channel=*)
+      CHANNEL="${1#--channel=}"
+      shift
+      ;;
+    -h|--help)
+      usage; exit 0
+      ;;
+    --*)
+      echo "ERROR: unknown option: $1" >&2
+      usage >&2
+      exit 1
+      ;;
+    *)
+      POSITIONAL+=("$1")
+      shift
+      ;;
+  esac
+done
+
+case "$CHANNEL" in
+  stable|beta) ;;
+  *)
+    echo "ERROR: --channel must be 'stable' or 'beta' (got: '${CHANNEL:-<empty>}')." >&2
+    usage >&2
+    exit 1
+    ;;
+esac
+
+TAG="${POSITIONAL[0]:-}"
+ARTIFACTS_DIR="${POSITIONAL[1]:-}"
+if [[ -z "$TAG" || -z "$ARTIFACTS_DIR" ]]; then
+  echo "ERROR: tag and artifacts-dir are required." >&2
+  usage >&2
+  exit 1
+fi
+NOTES_URL="${POSITIONAL[2]:-https://github.com/whispaste/whispaste/releases/tag/${TAG#v}}"
 SPARKLE_VERSION="${SPARKLE_VERSION:-2.9.3}"
 
 GITHUB_REPO_SLUG="${GITHUB_REPOSITORY:-whispaste/whispaste}"
@@ -93,7 +158,14 @@ sign_enclosure() {
 # Info.plist), so e.g. "1.2.44" > "1.2.40" offers the update and
 # "1.2.44" == "1.2.44" does NOT (no update loop).
 PUBDATE="$(date -u '+%a, %d %b %Y %H:%M:%S +0000')"
-APPCAST="$ARTIFACTS_DIR/appcast.xml"
+# --channel selects the output filename (and thus the release asset name).
+# Feed content is identical across channels; only the filename differs.
+if [[ "$CHANNEL" == "beta" ]]; then
+  APPCAST_NAME="appcast-beta.xml"
+else
+  APPCAST_NAME="appcast.xml"
+fi
+APPCAST="$ARTIFACTS_DIR/$APPCAST_NAME"
 
 # Enclosure URL base: GitHub Releases by default. WP_ENCLOSURE_BASE overrides for
 # the local E2E self-update test (served from http://localhost:PORT/).
@@ -178,7 +250,7 @@ echo "Wrote $APPCAST"
 # the feed itself). In CI the token is always present.
 
 if [[ -n "${GITHUB_TOKEN:-}" ]]; then
-  echo "Uploading appcast.xml to release $TAG…"
+  echo "Uploading $APPCAST_NAME to release $TAG…"
   gh release upload "$TAG" "$APPCAST" --clobber
   echo "OK — signed appcast published for $TAG."
 else
