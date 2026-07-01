@@ -50,9 +50,9 @@ const faqKeys = [
       alternierend, damit keine zwei Sektionen mit gleichem Ton aneinanderstoßen:
         Hero              deep (implizit, kein .band — deckt sich mit der <html>-Fläche)
         HowItWorks        raised   (band-raised, in HowItWorks.astro)
-        WorkflowSelector  spotlight (band-spotlight, in WorkflowSelector.astro — Hero-naher
-                                     Zielgruppen-Einstieg bekommt den Marken-Glow)
-        MarketingMoment   deep     (band-deep, in MarketingMoment.astro)
+        MarketingMoment   deep     (band-deep, in MarketingMoment.astro — bricht bewusst
+                                     das doppelte 3-Spalten-Grid HowItWorks↔WorkflowSelector)
+        WorkflowSelector  raised   (band-raised, in WorkflowSelector.astro)
         AppPasteDemo      spotlight (band-spotlight, in AppPasteDemo.astro)
         SpeedComparison   raised   (band-raised, in SpeedComparison.astro)
         AppScreenshots    deep     (band-deep, in AppScreenshots.astro)
@@ -68,8 +68,8 @@ const faqKeys = [
     */}
     <Hero />
     <HowItWorks />
-    <WorkflowSelector />
     <MarketingMoment />
+    <WorkflowSelector />
     <AppPasteDemo />
     <SpeedComparison />
     <AppScreenshots />
