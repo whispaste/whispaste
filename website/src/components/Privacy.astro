@@ -21,11 +21,28 @@ const cards = [
 
 <!-- Privacy Section (dark block) -->
 <section class="band band-spotlight py-24 sm:py-32 relative">
-  <div class="relative max-w-4xl mx-auto px-6">
-    <div class="text-center mb-16 scroll-reveal">
-      <p class="text-brand-cyan text-sm font-semibold tracking-wider uppercase mb-3" data-i18n="privacy.label">{t(lang, "privacy.label")}</p>
-      <h2 class="section-title"><span data-i18n="privacy.titleLead">{t(lang, "privacy.titleLead")}</span><span class="text-gradient-brand" data-i18n="privacy.titleAccent">{t(lang, "privacy.titleAccent")}</span><span data-i18n="privacy.titleTail">{t(lang, "privacy.titleTail")}</span></h2>
-      <p class="mt-4 text-ink-muted text-lg max-w-3xl mx-auto" data-i18n="privacy.desc">{t(lang, "privacy.desc")}</p>
+  <div class="relative max-w-5xl mx-auto px-6">
+    <!-- Header row: a floating cut-out trust illustration integrated beside the
+         copy (no boxed tile) — voice stays private, offline. -->
+    <div class="grid items-center gap-8 md:gap-12 md:grid-cols-[0.72fr_1fr] mb-14 scroll-reveal">
+      <div class="illo-halo illo-float mx-auto md:mx-0 w-52 sm:w-64 md:w-full max-w-[17rem]">
+        <img
+          src="/illustrations/private-local.webp"
+          alt={lang === 'en'
+            ? 'A shield holding a voice waveform, with a padlock and an offline cloud — your voice stays private and local'
+            : 'Ein Schild mit Sprach-Wellenform, Vorhängeschloss und Offline-Wolke — deine Stimme bleibt privat und lokal'}
+          width="1024"
+          height="1024"
+          loading="lazy"
+          decoding="async"
+          class="block w-full h-auto"
+        />
+      </div>
+      <div class="text-center md:text-left">
+        <p class="text-brand-cyan text-sm font-semibold tracking-wider uppercase mb-3" data-i18n="privacy.label">{t(lang, "privacy.label")}</p>
+        <h2 class="section-title"><span data-i18n="privacy.titleLead">{t(lang, "privacy.titleLead")}</span><span class="text-gradient-brand" data-i18n="privacy.titleAccent">{t(lang, "privacy.titleAccent")}</span><span data-i18n="privacy.titleTail">{t(lang, "privacy.titleTail")}</span></h2>
+        <p class="mt-4 text-ink-muted text-lg" data-i18n="privacy.desc">{t(lang, "privacy.desc")}</p>
+      </div>
     </div>
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 stagger-children">
       {cards.map(({ key, icon }) => (

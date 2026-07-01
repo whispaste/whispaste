@@ -17,7 +17,19 @@ const faqs = [
 ---
 
 <!-- FAQ Section -->
-<section id="faq" class="band band-raised py-24 sm:py-32 relative scroll-mt-20">
+<section id="faq" class="band band-raised py-24 sm:py-32 relative scroll-mt-20 overflow-hidden">
+  <!-- Decorative context motif: speech bubbles with a question mark — the FAQ
+       "ask us anything" cue. Theme-adaptive, faint, non-interactive. -->
+  <div
+    aria-hidden="true"
+    class="pointer-events-none absolute left-1/2 top-8 -translate-x-1/2 text-brand-cyan opacity-[0.11]"
+  >
+    <svg width="250" height="200" viewBox="0 0 250 200" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M35 25h150a20 20 0 0 1 20 20v70a20 20 0 0 1-20 20h-70l-40 30v-30h-40a20 20 0 0 1-20-20V45a20 20 0 0 1 20-20Z" />
+      <path d="M92 68a18 18 0 1 1 30 13c-7 6-12 9-12 17" />
+      <path d="M110 118h.01" />
+    </svg>
+  </div>
   <div class="relative max-w-3xl mx-auto px-6">
     <div class="text-center mb-12 scroll-reveal">
       <p class="text-brand-cyan text-sm font-semibold tracking-wider uppercase mb-3" data-i18n="faq.label">{t(lang, "faq.label")}</p>

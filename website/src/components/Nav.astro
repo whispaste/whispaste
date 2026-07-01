@@ -38,7 +38,7 @@ const backHref = lang === 'de' ? '/' : '/en/';
   >
     <a
       href={variant === "subpage" ? backHref : "#"}
-      class="flex items-center gap-2 text-white font-semibold tracking-tight"
+      class="flex shrink-0 items-center gap-2 text-white font-semibold tracking-tight"
     >
       <img
         src="/wordmark-dark.png"
@@ -52,9 +52,15 @@ const backHref = lang === 'de' ? '/' : '/en/';
       />
     </a>
     {variant === "landing" && (
-      <div class="hidden sm:flex items-center gap-6 text-sm text-gray-400">
+      <div class="hidden sm:flex flex-1 items-center justify-center gap-7 lg:gap-8 text-sm text-gray-400">
         <a href="#how-it-works" class="hover:text-white transition-colors" data-i18n="nav.howitworks">{t(lang, "nav.howitworks")}</a>
+        <a href="#languages" class="hover:text-white transition-colors" data-i18n="nav.languages">{t(lang, "nav.languages")}</a>
         <a href="#faq" class="hover:text-white transition-colors" data-i18n="nav.faq">{t(lang, "nav.faq")}</a>
+        <a href="#support" class="hover:text-white transition-colors" data-i18n="nav.support">{t(lang, "nav.support")}</a>
+      </div>
+    )}
+    {variant === "landing" && (
+      <div class="hidden sm:flex shrink-0 items-center gap-5 text-sm text-gray-400">
         <button
           id="langToggle"
           data-testid="lang-toggle"
@@ -77,6 +83,7 @@ const backHref = lang === 'de' ? '/' : '/en/';
         <a href="https://github.com/whispaste/whispaste" target="_blank" rel="noopener" class="text-gray-400 hover:text-white transition-colors" aria-label="GitHub" title="GitHub">
           <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.83 2.8 1.3 3.49 1 .1-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6.02 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3"/></svg>
         </a>
+        <span class="nav-divider" aria-hidden="true"></span>
         <a href={downloadHref} class="inline-flex items-center gap-1.5 px-4 py-1.5 bg-brand-cyan text-brand-darker text-sm font-semibold rounded-lg hover:scale-[1.02] active:scale-[0.98] transition-all shadow-sm" data-i18n="nav.download">
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
           {t(lang, "nav.download")}
@@ -123,7 +130,9 @@ const backHref = lang === 'de' ? '/' : '/en/';
     <div id="mobileMenu" class="sm:hidden hidden pointer-events-auto mx-auto mt-2 max-w-6xl rounded-2xl border border-white/[0.08] overflow-hidden">
       <div class="px-5 py-3 flex flex-col">
         <a href="#how-it-works" class="mobile-nav-link block py-3 text-gray-300 hover:text-white transition-colors text-[15px]" data-i18n="nav.howitworks">{t(lang, "nav.howitworks")}</a>
+        <a href="#languages" class="mobile-nav-link block py-3 text-gray-300 hover:text-white transition-colors text-[15px] border-t border-white/[0.04]" data-i18n="nav.languages">{t(lang, "nav.languages")}</a>
         <a href="#faq" class="mobile-nav-link block py-3 text-gray-300 hover:text-white transition-colors text-[15px] border-t border-white/[0.04]" data-i18n="nav.faq">{t(lang, "nav.faq")}</a>
+        <a href="#support" class="mobile-nav-link block py-3 text-gray-300 hover:text-white transition-colors text-[15px] border-t border-white/[0.04]" data-i18n="nav.support">{t(lang, "nav.support")}</a>
         <div class="flex items-center gap-5 py-3 border-t border-white/[0.04]">
           <button id="mobileLangToggle" class="lang-toggle-btn text-gray-400 hover:text-white transition-colors text-sm font-medium" aria-label={t(lang, "nav.switchLanguageAria")} data-i18n-aria="nav.switchLanguageAria">{langToggleLabel}</button>
           <button id="mobileThemeToggle" class="text-gray-400 hover:text-white transition-colors" aria-label={t(lang, "nav.toggleThemeAria")} data-i18n-aria="nav.toggleThemeAria">
@@ -234,6 +243,18 @@ const backHref = lang === 'de' ? '/' : '/en/';
     #site-nav .nav-pill {
       transition: none;
     }
+  }
+
+  /* Thin vertical divider that separates the utility icons from the primary
+     Download CTA — mirrors the competitor's nav grouping. */
+  #site-nav .nav-divider {
+    width: 1px;
+    height: 1.25rem;
+    background-color: rgba(255, 255, 255, 0.12);
+    flex: 0 0 auto;
+  }
+  :global(html.light) #site-nav .nav-divider {
+    background-color: rgba(15, 23, 42, 0.12);
   }
 
   /* Top-edge highlight for the glassy look, clipped to the pill's radius. */

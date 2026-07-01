@@ -6,36 +6,36 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
 const steps = [
   {
     key: 'step1',
-    icon: `<svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m9 8 3 3-3 3"/><path d="M14 16h4"/></svg>`,
+    icon: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m9 8 3 3-3 3"/><path d="M14 16h4"/></svg>`,
   },
   {
     key: 'step2',
-    icon: `<svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>`,
+    icon: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>`,
   },
   {
     key: 'step3',
-    icon: `<svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg>`,
+    icon: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg>`,
   },
 ];
 ---
 
 <!-- How It Works Section -->
-<section id="how-it-works" class="band band-raised py-24 sm:py-32 relative scroll-mt-20">
-  <div class="relative max-w-5xl mx-auto px-6">
-    <div class="text-center mb-16 scroll-reveal">
+<section id="how-it-works" class="band band-raised py-16 sm:py-20 relative scroll-mt-20">
+  <div class="relative max-w-4xl mx-auto px-6">
+    <div class="text-center mb-10 scroll-reveal">
       <p class="text-brand-cyan text-sm font-semibold tracking-wider uppercase mb-3" data-i18n="howitworks.label">{t(lang, "howitworks.label")}</p>
       <h2 class="section-title"><span data-i18n="howitworks.titleLead">{t(lang, "howitworks.titleLead")}</span><span class="text-gradient-brand" data-i18n="howitworks.titleAccent">{t(lang, "howitworks.titleAccent")}</span><span data-i18n="howitworks.titleTail">{t(lang, "howitworks.titleTail")}</span></h2>
       <p class="mt-4 text-ink-muted text-lg max-w-3xl mx-auto" data-i18n="howitworks.desc">{t(lang, "howitworks.desc")}</p>
     </div>
     <div class="relative">
       <!-- Connecting line (desktop only) -->
-      <div class="hidden lg:block absolute top-8 left-[16.67%] right-[16.67%] h-px bg-gradient-to-r from-brand-cyan/0 via-brand-cyan/30 to-brand-cyan/0"></div>
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-8 stagger-children">
+      <div class="hidden lg:block absolute top-6 left-[16.67%] right-[16.67%] h-px bg-gradient-to-r from-brand-cyan/0 via-brand-cyan/30 to-brand-cyan/0"></div>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 stagger-children">
         {steps.map(({ key, icon }) => (
           <div class="text-center stagger-item">
-            <div class="relative inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-brand-card/80 border border-brand-border/60 mb-4 text-brand-cyan shadow-lg shadow-brand-cyan/[0.05]" set:html={icon}>
+            <div class="relative inline-flex items-center justify-center w-12 h-12 rounded-xl bg-brand-card/80 border border-brand-border/60 mb-3 text-brand-cyan shadow-lg shadow-brand-cyan/[0.05]" set:html={icon}>
             </div>
-            <div class="text-xs font-mono text-brand-cyan tracking-wider mb-1.5" data-i18n={`howitworks.${key}.label`}>{t(lang, `howitworks.${key}.label`)}</div>
+            <div class="text-xs font-mono text-brand-cyan tracking-wider mb-1" data-i18n={`howitworks.${key}.label`}>{t(lang, `howitworks.${key}.label`)}</div>
             <h3 class="text-white font-semibold mb-1" data-i18n={`howitworks.${key}.title`}>{t(lang, `howitworks.${key}.title`)}</h3>
             <p class="text-ink-muted text-sm" data-i18n={`howitworks.${key}.desc`}>{t(lang, `howitworks.${key}.desc`)}</p>
           </div>

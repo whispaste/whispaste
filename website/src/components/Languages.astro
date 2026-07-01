@@ -12,7 +12,19 @@ const languages = [
 ---
 
 <!-- Languages Section -->
-<section id="languages" class="band band-deep py-24 sm:py-32 relative scroll-mt-20">
+<section id="languages" class="band band-deep py-24 sm:py-32 relative scroll-mt-20 overflow-hidden">
+  <!-- Decorative context motif: a globe — "speak in many languages". Theme-
+       adaptive (brand token), faint, non-interactive. -->
+  <div
+    aria-hidden="true"
+    class="pointer-events-none absolute left-1/2 top-10 -translate-x-1/2 text-brand-cyan opacity-[0.11]"
+  >
+    <svg width="250" height="250" viewBox="0 0 220 220" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="110" cy="110" r="90" />
+      <ellipse cx="110" cy="110" rx="40" ry="90" />
+      <path d="M22 110h176M38 68h144M38 152h144" />
+    </svg>
+  </div>
   <div class="relative max-w-4xl mx-auto px-6">
     <div class="text-center mb-12 scroll-reveal">
       <p class="text-brand-cyan text-sm font-semibold tracking-wider uppercase mb-3" data-i18n="languages.label">{t(lang, "languages.label")}</p>
