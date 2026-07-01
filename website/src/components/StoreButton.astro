@@ -81,11 +81,21 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
     outline-offset: 2px;
   }
 
-  /* Large variant (Hero, Download page) */
+  /* Large variant (Hero, Download page) — the primary CTA gets more visual
+     weight: a quiet brand-cyan glow at rest that blooms on hover/lift, so it
+     reads as *the* button to press without shouting. */
   .wp-store-btn--lg {
     padding: 0.75rem 2rem;
     min-height: 52px;
     gap: 0.875rem;
+    border-color: rgba(56, 217, 240, 0.32);
+    box-shadow: 0 4px 20px -6px rgba(56, 217, 240, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  .wp-store-btn--lg:hover {
+    transform: translateY(-2px);
+    border-color: rgba(56, 217, 240, 0.55);
+    box-shadow: 0 10px 28px -6px rgba(56, 217, 240, 0.5), 0 2px 8px rgba(0, 0, 0, 0.25);
   }
 
   .wp-store-btn__icon {
@@ -149,6 +159,16 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
   :root.light .wp-store-btn:hover {
     border-color: rgba(8, 145, 178, 0.45);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.06);
+  }
+
+  :global(.light) .wp-store-btn--lg,
+  :root.light .wp-store-btn--lg {
+    box-shadow: 0 4px 18px -6px rgba(8, 145, 178, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  }
+
+  :global(.light) .wp-store-btn--lg:hover,
+  :root.light .wp-store-btn--lg:hover {
+    box-shadow: 0 10px 24px -6px rgba(8, 145, 178, 0.38), 0 2px 8px rgba(15, 23, 42, 0.08);
   }
 
   :global(.light) .wp-store-btn__icon,

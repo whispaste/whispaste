@@ -3,6 +3,12 @@ import HeroCarousel from './HeroCarousel.astro';
 import StoreButton from './StoreButton.astro';
 import AppleButton from './AppleButton.astro';
 import { t } from '../scripts/i18n.ts';
+// Inline-tintable OS glyphs for the platform-badge row (Issue 09). Raw-imported
+// so `fill="currentColor"` inherits the pill's `color` — an <img>-embedded SVG
+// cannot do this. See website/public/os-icons/ATTRIBUTION.txt for provenance.
+import appleIconRaw from '../../public/os-icons/apple.svg?raw';
+import windowsIconRaw from '../../public/os-icons/windows.svg?raw';
+import ubuntuIconRaw from '../../public/os-icons/ubuntu.svg?raw';
 
 const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
 ---
@@ -75,13 +81,53 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
     <svg class="w-3 h-3 text-pink-400/60" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
     <span data-i18n="hero.store.hint">{t(lang, "hero.store.hint")}</span>
   </p>
+
+  <!-- Privacy hook (Nordstern differentiator): honest, non-absolute claim —
+       mirrors the app's own "aboutPrivacyFirstDesc" wording (on-device by
+       default, cloud only if the user opts in). No dark pattern. -->
+  <p class="inline-flex items-center gap-1.5 text-xs sm:text-sm text-ink-muted">
+    <svg class="w-3.5 h-3.5 shrink-0 text-brand-cyan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"></path><path d="m9 12 2 2 4-4"></path></svg>
+    <span data-i18n="hero.privacy.line">{t(lang, "hero.privacy.line")}</span>
+  </p>
 </div>
-    <p
-      class="mt-3 sm:mt-4 text-xs sm:text-sm text-gray-500 animate-fade-in-delay"
-      data-i18n="hero.meta"
-    >
-      {t(lang, "hero.meta")}
-    </p>
+
+    <!-- Plattform-Badge-Reihe (Issue 09): macOS · Windows · Ubuntu Linux only —
+         no mobile. The OS detected by the existing data-os head-script (see
+         Layout.astro) is highlighted via CSS attribute selectors only, so
+         there is no reflow and it degrades gracefully (unknown OS → all three
+         shown equally, see global.css `[data-os=...]` convention). -->
+    <div class="platform-row mt-3 sm:mt-4 flex flex-col items-center gap-2 animate-fade-in-delay">
+      <p class="text-xs sm:text-sm text-gray-500" data-i18n="hero.platforms.claim">
+        {t(lang, "hero.platforms.claim")}
+      </p>
+      <div class="flex flex-wrap items-center justify-center gap-2 sm:gap-2.5">
+        <span
+          class="platform-badge inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-brand-card/60 px-3 py-1.5 sm:px-3.5 sm:py-1.5 text-xs sm:text-sm text-gray-200 backdrop-blur-sm"
+          data-platform-badge="macos"
+        >
+          <span class="platform-badge__icon inline-flex w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" aria-hidden="true" set:html={appleIconRaw} />
+          <span data-i18n="hero.platforms.macos">{t(lang, "hero.platforms.macos")}</span>
+          <span class="platform-badge__current">(<span data-i18n="hero.platforms.current">{t(lang, "hero.platforms.current")}</span>)</span>
+        </span>
+        <span
+          class="platform-badge inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-brand-card/60 px-3 py-1.5 sm:px-3.5 sm:py-1.5 text-xs sm:text-sm text-gray-200 backdrop-blur-sm"
+          data-platform-badge="windows"
+        >
+          <span class="platform-badge__icon inline-flex w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" aria-hidden="true" set:html={windowsIconRaw} />
+          <span data-i18n="hero.platforms.windows">{t(lang, "hero.platforms.windows")}</span>
+          <span class="platform-badge__current">(<span data-i18n="hero.platforms.current">{t(lang, "hero.platforms.current")}</span>)</span>
+        </span>
+        <span
+          class="platform-badge inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-brand-card/60 px-3 py-1.5 sm:px-3.5 sm:py-1.5 text-xs sm:text-sm text-gray-200 backdrop-blur-sm"
+          data-platform-badge="linux"
+        >
+          <span class="platform-badge__icon inline-flex w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" aria-hidden="true" set:html={ubuntuIconRaw} />
+          <span data-i18n="hero.platforms.linux">{t(lang, "hero.platforms.linux")}</span>
+          <span class="platform-badge__current">(<span data-i18n="hero.platforms.current">{t(lang, "hero.platforms.current")}</span>)</span>
+        </span>
+      </div>
+    </div>
+
     <p class="mt-2 text-xs text-gray-600 animate-fade-in-delay" data-i18n="hero.reviewNudge">
       {t(lang, "hero.reviewNudge")}
     </p>
@@ -128,6 +174,43 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
     font-variation-settings: "wght" 800;
     font-weight: 800;
     letter-spacing: -0.04em;
+  }
+
+  /* ---- Platform-badge row (Issue 09): macOS / Windows / Ubuntu Linux ----
+     The base pill look matches the trust chips below (same Tailwind utility
+     classes) for visual consistency; only the highlight state below needs
+     custom CSS, since it must react to the `data-os` attribute set on <html>
+     by the inline head script (Layout.astro) before first paint. */
+  .platform-badge__icon :global(svg) {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  .platform-badge__current {
+    display: none;
+    color: var(--color-brand-cyan);
+    font-weight: 600;
+  }
+  /* Detected OS gets a quiet accent — border/background/icon tint from the
+     brand-cyan token, plus the "(your system)" qualifier. Everything else
+     (including the unknown/bot fallback) keeps the neutral pill look, so all
+     three platforms read as equally supported by default. */
+  :global([data-os="macos"]) .platform-badge[data-platform-badge="macos"],
+  :global([data-os="windows"]) .platform-badge[data-platform-badge="windows"],
+  :global([data-os="linux"]) .platform-badge[data-platform-badge="linux"] {
+    border-color: color-mix(in srgb, var(--color-brand-cyan) 45%, transparent);
+    background: color-mix(in srgb, var(--color-brand-cyan) 14%, var(--color-brand-card) 86%);
+    color: var(--color-ink);
+  }
+  :global([data-os="macos"]) .platform-badge[data-platform-badge="macos"] .platform-badge__icon,
+  :global([data-os="windows"]) .platform-badge[data-platform-badge="windows"] .platform-badge__icon,
+  :global([data-os="linux"]) .platform-badge[data-platform-badge="linux"] .platform-badge__icon {
+    color: var(--color-brand-cyan);
+  }
+  :global([data-os="macos"]) .platform-badge[data-platform-badge="macos"] .platform-badge__current,
+  :global([data-os="windows"]) .platform-badge[data-platform-badge="windows"] .platform-badge__current,
+  :global([data-os="linux"]) .platform-badge[data-platform-badge="linux"] .platform-badge__current {
+    display: inline;
   }
 
   /* Hero-specific animations */

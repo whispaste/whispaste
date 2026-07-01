@@ -95,11 +95,20 @@ const archLabel = STORES.macos.archLabel ? t(lang, 'platform.macos.archLabel') :
     outline-offset: 2px;
   }
 
-  /* Large variant */
+  /* Large variant — same quiet brand-cyan glow treatment as StoreButton's
+     `--lg`, so the two primary Hero/Download CTAs read as one visual family. */
   .wp-apple-btn--lg {
     padding: 0.75rem 2rem;
     min-height: 52px;
     gap: 0.875rem;
+    border-color: rgba(56, 217, 240, 0.32);
+    box-shadow: 0 4px 20px -6px rgba(56, 217, 240, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  .wp-apple-btn--lg:hover {
+    transform: translateY(-2px);
+    border-color: rgba(56, 217, 240, 0.55);
+    box-shadow: 0 10px 28px -6px rgba(56, 217, 240, 0.5), 0 2px 8px rgba(0, 0, 0, 0.25);
   }
 
   .wp-apple-btn__icon {
@@ -183,6 +192,16 @@ const archLabel = STORES.macos.archLabel ? t(lang, 'platform.macos.archLabel') :
   :root.light .wp-apple-btn:hover {
     border-color: rgba(8, 145, 178, 0.45);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.06);
+  }
+
+  :global(.light) .wp-apple-btn--lg,
+  :root.light .wp-apple-btn--lg {
+    box-shadow: 0 4px 18px -6px rgba(8, 145, 178, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  }
+
+  :global(.light) .wp-apple-btn--lg:hover,
+  :root.light .wp-apple-btn--lg:hover {
+    box-shadow: 0 10px 24px -6px rgba(8, 145, 178, 0.38), 0 2px 8px rgba(15, 23, 42, 0.08);
   }
 
   :global(.light) .wp-apple-btn__icon,

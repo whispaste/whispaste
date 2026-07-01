@@ -1,0 +1,7 @@
+OS glyphs for the platform-support row.
+
+- apple.svg, ubuntu.svg, linux.svg: from simple-icons (https://simple-icons.org),
+  released under CC0-1.0. Apple and Ubuntu marks are trademarks of their
+  respective owners; used here nominatively to indicate platform compatibility.
+- windows.svg: an original, generic four-pane glyph (no Microsoft trademark),
+  authored for this project.
