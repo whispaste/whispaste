@@ -9,6 +9,26 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    # Promote-Job (PRD §5.2/§7.2, Issue 05): a manual dispatch that promotes a
+    # validated beta build to stable WITHOUT rebuilding — it copies the beta
+    # release artifacts verbatim under a new stable tag and re-derives the
+    # stable appcast (same EdDSA signature, since the bytes + seed are
+    # identical). The `promote` boolean gates the dedicated job below so a plain
+    # manual dispatch keeps its previous behavior (build jobs run as today).
+    inputs:
+      promote:
+        description: 'Promote a validated beta build to stable — copy artifacts + same EdDSA signature, NO rebuild (PRD §7.2)'
+        type: boolean
+        required: true
+        default: false
+      beta-tag:
+        description: 'Source beta tag, e.g. v1.2.44-beta.1'
+        type: string
+        required: true
+      stable-version:
+        description: 'Target stable version, e.g. 1.2.44 (released under tag vX.Y.Z)'
+        type: string
+        required: true
 
 permissions:
   contents: read
@@ -17,6 +37,11 @@ jobs:
   build-windows:
     name: Build Windows (NSIS + MSIX)
     runs-on: windows-latest
+    # Skip the (expensive) multi-platform rebuilds on a Promote dispatch — the
+    # promote job copies beta artifacts verbatim instead of building (PRD §7.2).
+    # Tag pushes and plain manual dispatches are unaffected (the guard only
+    # short-circuits when promote=true).
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.promote == 'true') }}
     outputs:
       msix-built: ${{ steps.msix_config.outputs.skip != 'true' }}
       # Explicit success marker: set by the last real build step. Decouples
@@ -437,6 +462,8 @@ jobs:
   build-macos:
     name: Build macOS
     runs-on: macos-latest
+    # See build-windows: skip on a Promote dispatch (no rebuild).
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.promote == 'true') }}
     outputs:
       # See build-windows for rationale (decouple from Post-step failures).
       build-succeeded: ${{ steps.mark_success.outputs.ok == 'true' }}
@@ -593,6 +620,8 @@ jobs:
   build-linux:
     name: Build Linux x86_64
     runs-on: ubuntu-latest
+    # See build-windows: skip on a Promote dispatch (no rebuild).
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.promote == 'true') }}
     outputs:
       # See build-windows for rationale (decouple from Post-step failures).
       build-succeeded: ${{ steps.mark_success.outputs.ok == 'true' }}
@@ -1230,3 +1259,180 @@ jobs:
     uses: ./.github/workflows/packaging-validate.yml
     with:
       ref: dev
+
+  # ── Promote: validated beta build → stable (PRD §5.2/§7.2, Issue 05) ─────────
+  # A manual workflow_dispatch (inputs.promote=true) that turns a field-validated
+  # beta X.Y.Z-beta.N into the stable X.Y.Z WITHOUT rebuilding anything. It
+  # copies the beta release artifacts verbatim under a new non-prerelease tag
+  # vX.Y.Z, re-derives the stable appcast (identical EdDSA signature — same
+  # artifact bytes + same seed), and surfaces the operator Store-Submission step.
+  #
+  # Idempotent: if vX.Y.Z already exists, the existence guard re-publishes the
+  # identical assets (--clobber) instead of duplicating them (AC-3). The build
+  # jobs above are skipped on this dispatch, so nothing is rebuilt.
+  promote-beta-to-stable:
+    name: Promote beta → stable (same build, no rebuild)
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.promote == 'true' }}
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Resolve promote inputs
+        id: vars
+        shell: bash
+        run: |
+          set -euo pipefail
+          BETA_TAG="${{ inputs.beta-tag }}"
+          STABLE_VERSION="${{ inputs.stable-version }}"
+          # Normalize: guarantee a leading 'v' on the beta tag and strip it
+          # from the stable version (re-added as the stable tag below).
+          BETA_TAG="v${BETA_TAG#v}"
+          STABLE_VERSION="${STABLE_VERSION#v}"
+          STABLE_TAG="v${STABLE_VERSION}"
+          {
+            echo "beta-tag=${BETA_TAG}"
+            echo "stable-version=${STABLE_VERSION}"
+            echo "stable-tag=${STABLE_TAG}"
+          } >> "$GITHUB_OUTPUT"
+          echo "Promoting ${BETA_TAG} → ${STABLE_TAG} (no rebuild)"
+
+      - name: Verify source beta release exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! gh release view "${{ steps.vars.outputs.beta-tag }}" --repo "${{ github.repository }}" >/dev/null; then
+            echo "::error::Source beta release ${{ steps.vars.outputs.beta-tag }} not found — promote aborted."
+            exit 1
+          fi
+          echo "Source beta release found: ${{ steps.vars.outputs.beta-tag }}"
+
+      - name: Idempotency guard — does the stable release already exist?
+        id: exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # AC-3: detect an existing stable release BEFORE creating one. If it
+          # exists, the promote becomes a re-publish (upload --clobber) instead
+          # of a duplicate — the same stable version can be re-promoted safely.
+          if gh release view "${{ steps.vars.outputs.stable-tag }}" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Stable release ${{ steps.vars.outputs.stable-tag }} already exists — re-publishing assets (idempotent)."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "Stable release ${{ steps.vars.outputs.stable-tag }} absent — will create it."
+          fi
+
+      - name: Create stable release (non-prerelease) if absent
+        if: steps.exists.outputs.exists != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Non-prerelease + --make-latest so releases/latest resolves to this
+          # stable release (Q1/§5.3) and the stable feed URL anchors here.
+          gh release create "${{ steps.vars.outputs.stable-tag }}" \
+            --repo "${{ github.repository }}" \
+            --title "WhisPaste v${{ steps.vars.outputs.stable-version }}" \
+            --notes "Stable release ${{ steps.vars.outputs.stable-version }} — promoted from ${{ steps.vars.outputs.beta-tag }} (same build, same EdDSA signature; PRD §7.2)." \
+            --make-latest
+
+      - name: Copy beta artifacts verbatim (no rebuild)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p promote-artifacts
+          # Download ALL assets from the validated beta release. These are the
+          # exact build artefacts (DMG, Setup.exe, portable ZIPs, Linux tarball
+          # + .deb + AppImage, Diagnose, GPU-Probe, release-notes-de.md) — copied
+          # VERBATIM. Nothing is rebuilt (PRD §7.2: gleicher Build).
+          gh release download "${{ steps.vars.outputs.beta-tag }}" \
+            --repo "${{ github.repository }}" \
+            --dir promote-artifacts --clobber
+
+          # Drop the beta feed(s): the stable release gets a freshly derived
+          # appcast.xml (stable version + stable enclosure URLs) in the next
+          # step. Carrying appcast-beta.xml into stable would anchor the stable
+          # feed on the beta tag.
+          rm -f promote-artifacts/appcast-beta.xml promote-artifacts/appcast.xml
+
+          echo "Verbatim-copied stable artifacts:"
+          ls -lh promote-artifacts
+
+      - name: Attach artifacts to stable release (--clobber → idempotent, no duplicate)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # --clobber overwrites an existing same-named asset instead of
+          # erroring or duplicating — this is the idempotency guarantee (AC-3):
+          # a second promote of the same version re-publishes the identical
+          # bytes, never a double asset.
+          shopt -s nullglob
+          gh release upload "${{ steps.vars.outputs.stable-tag }}" promote-artifacts/* --clobber
+          echo "Artifacts attached to ${{ steps.vars.outputs.stable-tag }}."
+
+      - name: Publish stable appcast (identical signature — same bytes + same seed)
+        env:
+          SPARKLE_SIGNING_KEY: ${{ secrets.SPARKLE_SIGNING_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # PRD §7.2 + §5.2: derive the STABLE appcast (appcast.xml, version
+          # X.Y.Z, stable enclosure URLs) from the verbatim-copied binaries via
+          # the SAME script the beta path uses. The enclosure sparkle:edSignature
+          # is BYTE-IDENTICAL to the beta's, because sign_update is deterministic
+          # over the SAME artifact bytes and uses the SAME EdDSA seed (pubkey
+          # Ek8FS/…). AC-2 holds: the promoted build's signature is the original
+          # beta's — no rebuild, no different key.
+          bash scripts/generate_appcast.sh \
+            --channel stable \
+            "${{ steps.vars.outputs.stable-tag }}" \
+            "promote-artifacts" \
+            "https://github.com/${{ github.repository }}/releases/tag/${{ steps.vars.outputs.stable-version }}"
+
+      - name: Verify promoted stable feed is live + fully signed
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          sleep 5  # let the release-asset CDN settle after the upload
+          FEED="https://github.com/${{ github.repository }}/releases/latest/download/appcast.xml"
+          echo "Fetching promoted stable feed: $FEED"
+          curl -fsSL -o /tmp/promoted-appcast.xml "$FEED"
+          ENC=$(grep -c '<enclosure' /tmp/promoted-appcast.xml || true)
+          SIG=$(grep -c 'sparkle:edSignature=' /tmp/promoted-appcast.xml || true)
+          echo "Promoted stable enclosures: ${SIG}/${ENC} signed"
+          [[ "$ENC" -ge 1 && "$SIG" -eq "$ENC" ]] || {
+            echo "::error::Promoted stable appcast is unsigned or empty — self-update would be rejected by Sparkle." >&2
+            exit 1
+          }
+          echo "OK — stable feed live at $FEED with $ENC signed enclosure(s)."
+
+      - name: Store-Submission (operator follow-up — Hard-Internas, PRD §6.3/§13)
+        shell: bash
+        run: |
+          # AC-4: the Store-Submission path is WIRED here (correct local script
+          # reference + correct invocation form). The actual LIVE run is an
+          # operator task: Partner-Center creds + the stable MSIX signing live
+          # on the box, never in CI (CLAUDE.md Microsoft-Store-Operations). The
+          # beta carried NO MSIX (AC-5/Q2: beta skips the MSIX build), so the
+          # stable MSIX is built + submitted on the box by the operator:
+          STABLE="${{ steps.vars.outputs.stable-tag }}"
+          echo "::notice::Stable ${{ steps.vars.outputs.stable-version }} promoted. Store-Submission is an operator task (PRD §6.3):"
+          echo "    on SilviosPC:  bash wp-release-windows.sh build  ${STABLE}"
+          echo "    then submit:   bash wp-release-windows.sh submit ${STABLE}"
+          echo "    (script: .scratch/windows-release-pipeline/scripts/wp-release-windows.sh — gitignored Hard-Internas)"
+          echo "    (creds:  ~/.config/microsoft-partnercenter/.env)"
+          echo "  First real run closes PRD §13 (wp-submit-store.ps1 live test)."

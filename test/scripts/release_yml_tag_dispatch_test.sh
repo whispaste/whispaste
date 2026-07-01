@@ -126,18 +126,29 @@ PY
 check "manifest-bump gated !contains(github.ref_name, '-')" "$?"
 
 # ---------------------------------------------------------------------------
-# T9: STRUCTURE — no CI Store-Submission (Store runs locally, Hard-Internas)
-#     AC-5's "keine Store-Submission" holds because submission is NOT a CI job:
-#     the local wp-submit-store.ps1 / wp-release-windows.sh scripts (under the
-#     gitignored .scratch/windows-release-pipeline/) are never invoked here.
-#     For stable the MSIX artifact is the local submission prerequisite.
+# T9: STRUCTURE — no CI Store-Submission EXECUTION (Store runs locally)
+#     AC-5's "keine Store-Submission" holds because submission is NOT EXECUTED
+#     in CI: the local wp-submit-store.ps1 / wp-release-windows.sh scripts
+#     (under the gitignored .scratch/windows-release-pipeline/) are run by the
+#     operator on the box. The promote job (Issue 05) DOCUMENTS that operator
+#     step in a notice/echo (AC-4 wiring) — that reference is expected and is
+#     excluded here. Every OTHER job must stay free of any store-script reference.
 # ---------------------------------------------------------------------------
-echo "== T9: Store-Submission is local (no CI job) =="
-if grep -qE 'wp-submit-store|wp-release-windows|microsoft-partnercenter|partner[._-]center' "$WF"; then
-  check "no CI Store-Submission job (Store is local Hard-Internas)" 1
-else
-  check "no CI Store-Submission job (Store is local Hard-Internas)" 0
-fi
+echo "== T9: Store-Submission is local (no CI execution; promote job only documents it) =="
+python3 - "$WF" <<'PY' >/dev/null 2>&1; check "no tag-dispatch job references store scripts (AC-5 holds)" "$?"
+import sys, yaml, re
+wf = yaml.safe_load(open(sys.argv[1]))
+pat = re.compile(r'wp-submit-store|wp-release-windows|microsoft-partnercenter|partner[._-]center', re.I)
+bad = []
+for name, job in wf.get("jobs", {}).items():
+    if name == "promote-beta-to-stable":
+        continue  # operator instruction (echo/notice), not a CI execution
+    for s in job.get("steps", []):
+        blob = "\n".join(str(s.get(k, "")) for k in ("name", "run", "uses", "with", "if"))
+        if pat.search(blob):
+            bad.append(name)
+sys.exit(1 if bad else 0)
+PY
 
 # ---------------------------------------------------------------------------
 # T10/T11/T12: LOGIC — route sample tags through the workflow's primitives
