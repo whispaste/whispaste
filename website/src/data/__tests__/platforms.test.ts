@@ -16,6 +16,7 @@ import {
   resolvePrimary,
   PKG_MANAGERS,
   getLivePkgManagers,
+  getLivePkgManagersGroupedByPlatform,
   MS_STORE_PRODUCT_ID,
   GITHUB_REPO_URL,
   type OsDetectionInput,
@@ -266,6 +267,13 @@ describe("PKG_MANAGERS config invariants", () => {
     expect(PKG_MANAGERS.length).toBeGreaterThan(0);
   });
 
+  it("covers all seven channel IDs (scoop, winget, homebrew, aur, flathub, snap, chocolatey)", () => {
+    const ids = PKG_MANAGERS.map((m) => m.id).sort();
+    expect(ids).toEqual(
+      ["aur", "chocolatey", "flathub", "homebrew", "scoop", "snap", "winget"].sort()
+    );
+  });
+
   it("scoop is live (renders immediately on the download page)", () => {
     const scoop = PKG_MANAGERS.find((m) => m.id === "scoop");
     expect(scoop, "scoop channel must exist").toBeDefined();
@@ -284,6 +292,22 @@ describe("PKG_MANAGERS config invariants", () => {
     expect(homebrew!.live).toBe(false);
   });
 
+  it("aur, flathub, snap are Linux stubs, not live", () => {
+    for (const id of ["aur", "flathub", "snap"] as const) {
+      const ch = PKG_MANAGERS.find((m) => m.id === id);
+      expect(ch, `${id} channel must exist`).toBeDefined();
+      expect(ch!.live, `${id}.live must be false`).toBe(false);
+      expect(ch!.platform, `${id}.platform must be linux`).toBe("linux");
+    }
+  });
+
+  it("chocolatey is a Windows stub, not live", () => {
+    const choco = PKG_MANAGERS.find((m) => m.id === "chocolatey");
+    expect(choco, "chocolatey channel must exist").toBeDefined();
+    expect(choco!.live).toBe(false);
+    expect(choco!.platform).toBe("windows");
+  });
+
   it("all channels have at least one non-empty command", () => {
     for (const ch of PKG_MANAGERS) {
       expect(
@@ -293,6 +317,31 @@ describe("PKG_MANAGERS config invariants", () => {
       for (const cmd of ch.commands) {
         expect(cmd.trim(), `${ch.id}: empty command string`).not.toBe("");
       }
+    }
+  });
+
+  it("all channels have a non-empty brand name and a valid managerInstallUrl", () => {
+    for (const ch of PKG_MANAGERS) {
+      expect(ch.name, `${ch.id}.name must be non-empty`).toBeTruthy();
+      expect(
+        ch.managerInstallUrl,
+        `${ch.id}.managerInstallUrl must start with https://`
+      ).toMatch(/^https:\/\//);
+    }
+  });
+
+  it("all channel IDs are unique", () => {
+    const ids = PKG_MANAGERS.map((m) => m.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("all channels have a valid platform (windows, macos, or linux)", () => {
+    const validPlatforms = new Set(["windows", "macos", "linux"]);
+    for (const ch of PKG_MANAGERS) {
+      expect(
+        validPlatforms.has(ch.platform),
+        `${ch.id}.platform "${ch.platform}" must be windows/macos/linux`
+      ).toBe(true);
     }
   });
 
@@ -333,6 +382,30 @@ describe("getLivePkgManagers", () => {
   it("includes scoop (live)", () => {
     const ids = getLivePkgManagers().map((m) => m.id);
     expect(ids).toContain("scoop");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getLivePkgManagersGroupedByPlatform — live channels grouped by platform
+// ---------------------------------------------------------------------------
+
+describe("getLivePkgManagersGroupedByPlatform", () => {
+  it("returns groups in the fixed order windows -> macos -> linux, live-only channels", () => {
+    const groups = getLivePkgManagersGroupedByPlatform();
+
+    // Only live: true channels appear inside any group.
+    for (const group of groups) {
+      for (const ch of group.channels) {
+        expect(ch.live, `${ch.id} must be live`).toBe(true);
+        expect(ch.platform).toBe(group.platform);
+      }
+    }
+
+    // Present platforms must respect windows -> macos -> linux ordering.
+    const order = ["windows", "macos", "linux"];
+    const indices = groups.map((g) => order.indexOf(g.platform));
+    const sorted = [...indices].sort((a, b) => a - b);
+    expect(indices).toEqual(sorted);
   });
 });
 

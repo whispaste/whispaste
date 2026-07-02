@@ -179,11 +179,20 @@ export function resolvePrimary(os: Os): PlatformOffer {
 // Package-manager channels — SSoT for Scoop / winget / Homebrew
 // ---------------------------------------------------------------------------
 
-export type PkgManagerId = 'scoop' | 'winget' | 'homebrew';
+export type PkgManagerId =
+  | 'scoop'
+  | 'winget'
+  | 'homebrew'
+  | 'aur'
+  | 'flathub'
+  | 'snap'
+  | 'chocolatey';
 
 export interface PkgManagerChannel {
   /** Unique identifier for this channel. */
   id: PkgManagerId;
+  /** Human-readable brand name for display/SEO (e.g. "Homebrew", "winget"). */
+  name: string;
   /**
    * Whether this channel is live/published.
    * false → channel not yet published; must NOT be rendered on the website.
@@ -199,6 +208,11 @@ export interface PkgManagerChannel {
    * Keyed by locale so both DE and EN pages can read from the same source.
    */
   comment: { de: string; en: string };
+  /**
+   * Setup/install URL for the package manager itself (not for WhisPaste) —
+   * target of the "never used this manager?" onboarding help link.
+   */
+  managerInstallUrl: string;
 }
 
 /**
@@ -214,6 +228,7 @@ export interface PkgManagerChannel {
 export const PKG_MANAGERS: PkgManagerChannel[] = [
   {
     id: 'scoop',
+    name: 'Scoop',
     live: true,
     platform: 'windows',
     commands: [
@@ -221,20 +236,62 @@ export const PKG_MANAGERS: PkgManagerChannel[] = [
       'scoop install whispaste',
     ],
     comment: { de: '# Windows · Scoop', en: '# Windows · Scoop' },
+    managerInstallUrl: 'https://scoop.sh',
   },
   {
     id: 'winget',
+    name: 'winget',
     live: false,
     platform: 'windows',
     commands: ['winget install whispaste.whispaste'],
     comment: { de: '# Windows · winget', en: '# Windows · winget' },
+    managerInstallUrl:
+      'https://learn.microsoft.com/windows/package-manager/winget/',
   },
   {
     id: 'homebrew',
+    name: 'Homebrew',
     live: false,
     platform: 'macos',
     commands: ['brew install --cask whispaste'],
     comment: { de: '# macOS · Homebrew', en: '# macOS · Homebrew' },
+    managerInstallUrl: 'https://brew.sh',
+  },
+  {
+    id: 'aur',
+    name: 'AUR',
+    live: false,
+    platform: 'linux',
+    commands: ['yay -S whispaste'],
+    comment: { de: '# Linux · AUR', en: '# Linux · AUR' },
+    managerInstallUrl: 'https://wiki.archlinux.org/title/AUR_helpers',
+  },
+  {
+    id: 'flathub',
+    name: 'Flathub',
+    live: false,
+    platform: 'linux',
+    commands: ['flatpak install flathub io.github.whispaste.WhisPaste'],
+    comment: { de: '# Linux · Flathub', en: '# Linux · Flathub' },
+    managerInstallUrl: 'https://flatpak.org/setup/',
+  },
+  {
+    id: 'snap',
+    name: 'Snap',
+    live: false,
+    platform: 'linux',
+    commands: ['snap install whispaste'],
+    comment: { de: '# Linux · Snap', en: '# Linux · Snap' },
+    managerInstallUrl: 'https://snapcraft.io/docs/installing-snapd',
+  },
+  {
+    id: 'chocolatey',
+    name: 'Chocolatey',
+    live: false,
+    platform: 'windows',
+    commands: ['choco install whispaste'],
+    comment: { de: '# Windows · Chocolatey', en: '# Windows · Chocolatey' },
+    managerInstallUrl: 'https://chocolatey.org/install',
   },
 ];
 
@@ -245,4 +302,26 @@ export const PKG_MANAGERS: PkgManagerChannel[] = [
  */
 export function getLivePkgManagers(): PkgManagerChannel[] {
   return PKG_MANAGERS.filter((ch) => ch.live);
+}
+
+/** One platform's live package-manager channels, for grouped rendering. */
+export interface PkgManagerPlatformGroup {
+  platform: Exclude<Os, 'unknown'>;
+  channels: PkgManagerChannel[];
+}
+
+const PLATFORM_ORDER: Exclude<Os, 'unknown'>[] = ['windows', 'macos', 'linux'];
+
+/**
+ * Returns the live/published package-manager channels grouped by platform,
+ * in the fixed order Windows → macOS → Linux. Platforms with no live
+ * channel are omitted. Consumed by a follow-up issue (branded, grouped
+ * rendering) — this only provides and tests the data shape.
+ */
+export function getLivePkgManagersGroupedByPlatform(): PkgManagerPlatformGroup[] {
+  const live = getLivePkgManagers();
+  return PLATFORM_ORDER.map((platform) => ({
+    platform,
+    channels: live.filter((ch) => ch.platform === platform),
+  })).filter((group) => group.channels.length > 0);
 }
