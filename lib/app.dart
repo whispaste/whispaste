@@ -39,10 +39,8 @@ import 'services/stt/stt_bundle.dart';
 import 'services/telemetry_service.dart';
 import 'services/tray_service.dart';
 import 'services/update_service.dart';
+import 'services/update_actions.dart';
 import 'services/deploy_channel_service.dart';
-import 'services/auto_updater_service.dart';
-import 'services/update_channel_service.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'widgets/toast.dart';
 import 'widgets/review_prompt_dialog.dart';
 import 'widgets/store_thank_you_dialog.dart';
@@ -488,6 +486,8 @@ class _AppShellState extends ConsumerState<_AppShell>
                             updateState.phase == UpdatePhase.available
                             ? updateState.latestVersion
                             : null,
+                        updateReadyToInstall:
+                            updateState.phase == UpdatePhase.readyToInstall,
                         showAutoPasteOffHint: shouldShowAutoPasteOffHint(
                           afterAction: settings.afterTranscriptionAction,
                           onboardingCompleted:
@@ -539,22 +539,11 @@ class _AppShellState extends ConsumerState<_AppShell>
                                 ),
                               );
                         },
-                        onUpdateTap: () {
-                          // Sparkle/WinSparkle platforms (macOS + Windows
-                          // non-store): open the native update dialog which
-                          // performs the in-app download + swap + relaunch.
-                          if (shouldUseAutoUpdater(deployChannel)) {
-                            presentSparkleUpdate(
-                              ref.read(updateChannelProvider).value ??
-                                  UpdateChannel.stable,
-                            );
-                            return;
-                          }
-                          // Linux & portable fallback: no native in-place
-                          // updater — open the GitHub release page.
-                          final url = updateState.releaseNotesUrl;
-                          if (url != null) launchUrl(Uri.parse(url));
-                        },
+                        onUpdateTap: () => triggerUpdateAction(
+                          ref: ref,
+                          updateState: updateState,
+                          channel: deployChannel,
+                        ),
                       ),
                     ],
                   ),

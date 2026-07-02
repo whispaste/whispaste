@@ -23,7 +23,9 @@ import '../../../core/theme/tokens.dart';
 import '../../../services/deploy_channel_service.dart';
 import '../../../services/stable_revert_hint_service.dart';
 import '../../../services/telemetry_service.dart';
+import '../../../services/update_actions.dart';
 import '../../../services/update_channel_service.dart';
+import '../../../services/update_service.dart';
 import '../../../widgets/section.dart';
 import '../settings_widgets.dart';
 
@@ -46,6 +48,13 @@ class UpdatesSection extends ConsumerWidget {
         ref.watch(updateChannelProvider).value ?? UpdateChannel.stable;
     final isBeta = updateChannel == UpdateChannel.beta;
     final revertHint = ref.watch(stableRevertHintProvider);
+    final updateState = ref.watch(updateProvider);
+    final (checkIcon, checkLabel) = resolveUpdateActionDisplay(
+      phase: updateState.phase,
+      channel: channel,
+      state: updateState,
+      l10n: l10n,
+    );
 
     return WpSection(
       title: l10n.settingsUpdates,
@@ -72,6 +81,24 @@ class UpdatesSection extends ConsumerWidget {
                   _log.debug('telemetry failed: $e');
                 }
               },
+            ),
+          ),
+          // Manual check — routes identically to the About page and status
+          // bar chip via `triggerUpdateAction` (PRD Bug 5: this used to be
+          // the only surface with a working manual check).
+          SettingRow(
+            icon: LucideIcons.downloadCloud,
+            label: l10n.settingsCheckForUpdatesNow,
+            trailing: OutlinedButton.icon(
+              onPressed: updateState.isBusy
+                  ? null
+                  : () => triggerUpdateAction(
+                      ref: ref,
+                      updateState: updateState,
+                      channel: channel,
+                    ),
+              icon: Icon(checkIcon, size: WpIconSize.xs),
+              label: Text(checkLabel),
             ),
           ),
           SettingRow(

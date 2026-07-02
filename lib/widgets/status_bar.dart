@@ -59,6 +59,7 @@ class WpStatusBar extends StatelessWidget {
     this.hotkeyLabel,
     this.hotkeyEnabled = true,
     this.updateVersion,
+    this.updateReadyToInstall = false,
     this.showAutoPasteOffHint = false,
     this.onSttTap,
     this.onAfterActionChanged,
@@ -92,8 +93,15 @@ class WpStatusBar extends StatelessWidget {
   /// Whether the global hotkey is enabled.
   final bool hotkeyEnabled;
 
-  /// Available update version label, e.g. "1.3.0", or null to hide.
+  /// Available update version label, e.g. "1.3.0", or null to hide (unless
+  /// [updateReadyToInstall] is set — that chip needs no version string).
   final String? updateVersion;
+
+  /// Whether a downloaded update is ready to install (PRD Bug 6 — the chip
+  /// used to only ever appear for the `available` phase, even though the
+  /// About page already surfaces this state). Takes precedence over
+  /// [updateVersion] when both are set.
+  final bool updateReadyToInstall;
 
   /// Whether to render the persistent "Auto-Paste off" hint chip.
   ///
@@ -192,7 +200,18 @@ class WpStatusBar extends StatelessWidget {
                         dimmed: !hotkeyEnabled,
                       ),
                     ],
-                    if (updateVersion != null) ...[
+                    if (updateReadyToInstall) ...[
+                      const SizedBox(width: WpSpacing.xs),
+                      // loam-ignore: a11y-interactive-semantics – semantics provided in _StatusChip.build
+                      _StatusChip(
+                        icon: LucideIcons.packageCheck,
+                        label: l10n.updateInstall,
+                        textStyle: textStyle,
+                        isDark: isDark,
+                        tooltip: l10n.updateInstall,
+                        onTap: onUpdateTap,
+                      ),
+                    ] else if (updateVersion != null) ...[
                       const SizedBox(width: WpSpacing.xs),
                       // loam-ignore: a11y-interactive-semantics – semantics provided in _StatusChip.build
                       _StatusChip(

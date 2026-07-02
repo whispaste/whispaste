@@ -1996,6 +1996,9 @@ class L10nHe extends L10n {
       'בדוק אוטומטית גרסאות חדשות בהפעלה';
 
   @override
+  String get settingsCheckForUpdatesNow => 'בדוק עדכונים עכשיו';
+
+  @override
   String get settingsUpdates => 'עדכונים';
 
   @override

@@ -20,6 +20,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/app_info.dart';
 import '../core/logging/app_logger.dart';
+import '../core/semver.dart' as semver;
 import 'auto_updater_service.dart';
 import 'http_model_fetcher.dart' show buildDioWithSentry;
 import 'update_channel_service.dart';
@@ -53,84 +54,21 @@ String? parseAppcastVersion(String xml) {
 // Pure SemVer precedence comparison — no network, fully unit-testable
 // ---------------------------------------------------------------------------
 
-class _ParsedVersion {
-  const _ParsedVersion(this.core, this.preRelease);
-
-  /// [major, minor, patch].
-  final List<int> core;
-
-  /// e.g. `beta.1`, or `null` for a plain release.
-  final String? preRelease;
-}
-
-_ParsedVersion? _parseVersion(String version) {
-  final clean = version.startsWith('v') ? version.substring(1) : version;
-  final noBuild = clean.split('+').first; // strip build metadata ("+4")
-  final dashIndex = noBuild.indexOf('-');
-  final corePart = dashIndex == -1 ? noBuild : noBuild.substring(0, dashIndex);
-  final preRelease = dashIndex == -1 ? null : noBuild.substring(dashIndex + 1);
-  final parts = corePart.split('.');
-  if (parts.length < 3) return null;
-  try {
-    final core = [
-      int.parse(parts[0]),
-      int.parse(parts[1]),
-      int.parse(parts[2]),
-    ];
-    return _ParsedVersion(
-      core,
-      (preRelease?.isEmpty ?? true) ? null : preRelease,
-    );
-  } on FormatException {
-    return null;
-  }
-}
-
-/// SemVer pre-release precedence: dot-separated identifiers compared
-/// left-to-right, numeric identifiers compared numerically, everything else
-/// lexically. A version with fewer identifiers has lower precedence when the
-/// shared prefix is equal (per semver.org §11).
-int _comparePreRelease(String a, String b) {
-  final aParts = a.split('.');
-  final bParts = b.split('.');
-  final len = aParts.length < bParts.length ? aParts.length : bParts.length;
-  for (var i = 0; i < len; i++) {
-    final an = int.tryParse(aParts[i]);
-    final bn = int.tryParse(bParts[i]);
-    final cmp = (an != null && bn != null)
-        ? an.compareTo(bn)
-        : aParts[i].compareTo(bParts[i]);
-    if (cmp != 0) return cmp;
-  }
-  return aParts.length.compareTo(bParts.length);
-}
-
 /// Returns `true` when [installed] has strictly higher SemVer precedence
 /// than [stableLatest] — the edge case from PRD §7.3: the installed beta is
 /// ahead of what the stable feed currently offers, so Sparkle/WinSparkle
 /// cannot present an update (they never downgrade).
 ///
 /// Returns `false` (never shows the hint) when either version fails to
-/// parse — an unparseable feed must not be treated as "ahead".
+/// parse — an unparseable feed must not be treated as "ahead". Delegates to
+/// the shared `core/semver.dart` comparator (see its doc for precedence
+/// rules).
 @visibleForTesting
 bool isInstalledAheadOfStable(String installed, String stableLatest) {
-  final a = _parseVersion(installed);
-  final b = _parseVersion(stableLatest);
+  final a = semver.parseSemver(installed);
+  final b = semver.parseSemver(stableLatest);
   if (a == null || b == null) return false;
-
-  for (var i = 0; i < 3; i++) {
-    if (a.core[i] != b.core[i]) return a.core[i] > b.core[i];
-  }
-  // Equal numeric core — SemVer precedence: a plain release outranks a
-  // pre-release of the same core version.
-  if (a.preRelease == null && b.preRelease == null) return false; // equal
-  if (a.preRelease == null) {
-    return true; // installed=release, stable=pre-release
-  }
-  if (b.preRelease == null) {
-    return false; // installed=pre-release, stable=release
-  }
-  return _comparePreRelease(a.preRelease!, b.preRelease!) > 0;
+  return semver.compareParsedSemver(a, b) > 0;
 }
 
 // ---------------------------------------------------------------------------

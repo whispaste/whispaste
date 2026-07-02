@@ -739,6 +739,7 @@
   "settingsAutoPasteBlocklistPlaceholder": "e.g. com.apple.Terminal, com.1password",
   "settingsCheckUpdates": "Check for Updates",
   "settingsCheckUpdatesSubtitle": "Automatically check for new versions on startup",
+  "settingsCheckForUpdatesNow": "Check for updates now",
   "settingsUpdates": "Updates",
   "settingsUpdatesSubtitle": "Release channel and update checks",
   "settingsBetaUpdates": "Beta Updates",

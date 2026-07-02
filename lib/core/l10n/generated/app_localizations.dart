@@ -3687,6 +3687,12 @@ abstract class L10n {
   /// **'Automatically check for new versions on startup'**
   String get settingsCheckUpdatesSubtitle;
 
+  /// No description provided for @settingsCheckForUpdatesNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Check for updates now'**
+  String get settingsCheckForUpdatesNow;
+
   /// No description provided for @settingsUpdates.
   ///
   /// In en, this message translates to:

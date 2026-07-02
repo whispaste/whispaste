@@ -2056,6 +2056,9 @@ class L10nDe extends L10n {
       'Beim Start automatisch nach neuen Versionen suchen';
 
   @override
+  String get settingsCheckForUpdatesNow => 'Jetzt nach Updates suchen';
+
+  @override
   String get settingsUpdates => 'Updates';
 
   @override

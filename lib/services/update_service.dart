@@ -16,9 +16,11 @@ import 'package:flutter/foundation.dart' show visibleForTesting;
 import '../core/app_info.dart';
 import '../core/logging/app_logger.dart';
 import '../core/recording/recording_state.dart';
+import '../core/semver.dart' as semver;
 import 'deploy_channel_service.dart';
 import 'http_model_fetcher.dart' show buildDioWithSentry;
 import 'update/mac_update_installer.dart';
+import 'update_channel_service.dart';
 
 final _log = AppLogger('Update');
 
@@ -30,6 +32,13 @@ const _githubOwner = 'whispaste';
 const _githubRepo = 'whispaste';
 const _releasesApiUrl =
     'https://api.github.com/repos/$_githubOwner/$_githubRepo/releases/latest';
+
+/// The list endpoint, newest-first — unlike `/releases/latest` (which is
+/// GitHub-defined as the newest *non-prerelease*), this includes betas. Used
+/// on [UpdateChannel.beta] so a beta-opted-in user's check can actually find
+/// a beta release (PRD Bug 4 — the channel used to be ignored entirely).
+const _releasesListApiUrl =
+    'https://api.github.com/repos/$_githubOwner/$_githubRepo/releases';
 
 /// Returns the platform-specific installer asset name to search for.
 String get _setupAssetName {
@@ -207,13 +216,35 @@ class UpdateNotifier extends Notifier<UpdateState> {
     state = const UpdateState(phase: UpdatePhase.checking);
     _log.info('Checking for updates...');
 
-    try {
-      final response = await _dio.get<Map<String, dynamic>>(
-        _releasesApiUrl,
-        options: Options(headers: {'Accept': 'application/vnd.github.v3+json'}),
-      );
+    final updateChannel =
+        ref.read(updateChannelProvider).value ?? UpdateChannel.stable;
 
-      final data = response.data;
+    try {
+      Map<String, dynamic>? data;
+      if (updateChannel == UpdateChannel.beta) {
+        // `/releases/latest` structurally excludes prereleases — the list
+        // endpoint is newest-first and includes them, so the newest entry
+        // is exactly what a beta-channel user opted into.
+        final response = await _dio.get<List<dynamic>>(
+          _releasesListApiUrl,
+          options: Options(
+            headers: {'Accept': 'application/vnd.github.v3+json'},
+          ),
+        );
+        final list = response.data;
+        data = (list != null && list.isNotEmpty)
+            ? list.first as Map<String, dynamic>
+            : null;
+      } else {
+        final response = await _dio.get<Map<String, dynamic>>(
+          _releasesApiUrl,
+          options: Options(
+            headers: {'Accept': 'application/vnd.github.v3+json'},
+          ),
+        );
+        data = response.data;
+      }
+
       if (data == null) {
         state = const UpdateState(
           phase: UpdatePhase.error,
@@ -287,6 +318,47 @@ class UpdateNotifier extends Notifier<UpdateState> {
       _log.warning('Update check failed: $e\n$st');
       state = UpdateState(phase: UpdatePhase.error, errorMessage: e.toString());
     }
+  }
+
+  // -----------------------------------------------------------------------
+  // Native (Sparkle/WinSparkle) event mirrors
+  // -----------------------------------------------------------------------
+  //
+  // On macOS/Windows the self-updater (`auto_updater_service.dart`) runs its
+  // own native check against the correct stable/beta appcast — but until
+  // these mirrors existed, nothing fed its result back into [state], so
+  // every UI surface (status bar chip, About page, Settings) stayed blind to
+  // it (PRD Bug 1). `main.dart` registers a Sparkle `UpdaterListener` that
+  // calls these on every native event.
+
+  /// Mirrors a native "checking for update" event.
+  void markCheckingNative() {
+    if (state.isBusy) return;
+    state = const UpdateState(phase: UpdatePhase.checking);
+  }
+
+  /// Mirrors a native "update available" event.
+  void markAvailableNative({required String version, String? releaseNotesUrl}) {
+    _log.info('Native updater found: $version (current=$appVersion)');
+    state = UpdateState(
+      phase: UpdatePhase.available,
+      latestVersion: version,
+      releaseNotesUrl: releaseNotesUrl,
+    );
+  }
+
+  /// Mirrors a native "no update available" event.
+  void markUpToDateNative({String? latestVersion}) {
+    state = UpdateState(
+      phase: UpdatePhase.upToDate,
+      latestVersion: latestVersion ?? state.latestVersion,
+    );
+  }
+
+  /// Mirrors a native updater error event.
+  void markErrorNative(String message) {
+    _log.warning('Native updater error: $message');
+    state = UpdateState(phase: UpdatePhase.error, errorMessage: message);
   }
 
   /// Launch the downloaded installer and exit the app.
@@ -379,38 +451,19 @@ class UpdateNotifier extends Notifier<UpdateState> {
   // Semver comparison
   // -----------------------------------------------------------------------
 
-  /// Returns `true` if [candidate] is strictly newer than [current].
-  ///
-  /// Only compares major.minor.patch — pre-release tags are ignored.
+  /// Returns `true` if [candidate] has strictly higher SemVer precedence
+  /// than [current] — full precedence including pre-release tags (PRD Bug 3:
+  /// this used to compare only major.minor.patch, so `1.2.44-beta.6` never
+  /// counted as newer than `1.2.44-beta.5`). Delegates to `core/semver.dart`.
   @visibleForTesting
-  static bool isNewer(String candidate, String current) {
-    final candidateParts = parseSemver(candidate);
-    final currentParts = parseSemver(current);
-    if (candidateParts == null || currentParts == null) return false;
+  static bool isNewer(String candidate, String current) =>
+      semver.isSemverNewer(candidate, current);
 
-    for (var i = 0; i < 3; i++) {
-      if (candidateParts[i] > currentParts[i]) return true;
-      if (candidateParts[i] < currentParts[i]) return false;
-    }
-    return false; // equal
-  }
-
-  /// Parse "X.Y.Z" into [major, minor, patch]. Returns null on failure.
+  /// Parse "X.Y.Z" into [major, minor, patch], ignoring any pre-release/build
+  /// suffix. Returns null on failure.
   @visibleForTesting
-  static List<int>? parseSemver(String version) {
-    // Strip leading 'v' if present.
-    final clean = version.startsWith('v') ? version.substring(1) : version;
-    // Strip build metadata (e.g. "+4") and pre-release suffix (e.g. "-beta.1").
-    final noBuild = clean.split('+').first;
-    final base = noBuild.split('-').first;
-    final parts = base.split('.');
-    if (parts.length < 3) return null;
-    try {
-      return [int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2])];
-    } catch (_) {
-      return null;
-    }
-  }
+  static List<int>? parseSemver(String version) =>
+      semver.parseSemver(version)?.core;
 }
 
 // ---------------------------------------------------------------------------

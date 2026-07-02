@@ -2039,6 +2039,9 @@ class L10nEn extends L10n {
       'Automatically check for new versions on startup';
 
   @override
+  String get settingsCheckForUpdatesNow => 'Check for updates now';
+
+  @override
   String get settingsUpdates => 'Updates';
 
   @override

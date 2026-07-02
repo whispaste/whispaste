@@ -38,7 +38,9 @@ enum UpdateChannel {
   /// Production feed (`…/releases/latest/download/appcast.xml`).
   stable,
 
-  /// Pre-release feed (`…/releases/download/beta-latest/appcast-beta.xml`).
+  /// Pre-release feed, served from the `beta-appcast-pointer` branch (see
+  /// `auto_updater_service.dart`'s `_betaAppcastFeedUrl` for why it's a
+  /// branch, not a `releases/download/...` URL).
   beta,
 }
 

@@ -1,3 +1,4 @@
+import 'package:auto_updater/auto_updater.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/services/auto_updater_service.dart';
 import 'package:whispaste/services/deploy_channel_service.dart';
@@ -32,6 +33,7 @@ void main() {
     setFeedUrlFn = (_) async {};
     setIntervalFn = (_) async {};
     checkForUpdatesFn = ({inBackground}) async {};
+    addUpdaterListenerFn = (_) {};
   });
 
   group('appcastFeedUrl', () {
@@ -44,9 +46,7 @@ void main() {
     test('beta → raw.githubusercontent.com beta-appcast-pointer branch', () {
       expect(
         appcastFeedUrl(UpdateChannel.beta),
-        endsWith(
-          '/beta-appcast-pointer/appcast-beta.xml',
-        ),
+        endsWith('/beta-appcast-pointer/appcast-beta.xml'),
       );
       expect(
         appcastFeedUrl(UpdateChannel.beta),
@@ -186,5 +186,104 @@ void main() {
         expect(checkCalled, isFalse);
       },
     );
+  });
+
+  group('registerSparkleListener', () {
+    // Captured callback invocations for the current test.
+    var checkingCalled = false;
+    String? availableVersion;
+    String? availableNotesUrl;
+    var upToDateCalled = false;
+    String? errorMessage;
+    UpdaterListener? captured;
+
+    void reset() {
+      checkingCalled = false;
+      availableVersion = null;
+      availableNotesUrl = null;
+      upToDateCalled = false;
+      errorMessage = null;
+      captured = null;
+    }
+
+    void register({required bool sparklePlatform}) {
+      reset();
+      platformSupportsSparkle = () => sparklePlatform;
+      addUpdaterListenerFn = (listener) => captured = listener;
+      registerSparkleListener(
+        onChecking: () => checkingCalled = true,
+        onAvailable: (version, releaseNotesUrl) {
+          availableVersion = version;
+          availableNotesUrl = releaseNotesUrl;
+        },
+        onUpToDate: () => upToDateCalled = true,
+        onError: (message) => errorMessage = message,
+      );
+    }
+
+    test('non-Sparkle platform (Linux) → no listener registered', () {
+      register(sparklePlatform: false);
+      expect(captured, isNull);
+    });
+
+    test('Sparkle platform → registers a listener', () {
+      register(sparklePlatform: true);
+      expect(captured, isNotNull);
+    });
+
+    test(
+      'onUpdaterUpdateAvailable → onAvailable fires with version + notes URL '
+      '(PRD Bug 1: this is what mirrors the native check into the app UI)',
+      () {
+        register(sparklePlatform: true);
+        captured!.onUpdaterUpdateAvailable(
+          const AppcastItem(
+            displayVersionString: '1.2.44-beta.6',
+            releaseNotesURL: 'https://example.invalid/notes',
+          ),
+        );
+        expect(availableVersion, '1.2.44-beta.6');
+        expect(availableNotesUrl, 'https://example.invalid/notes');
+      },
+    );
+
+    test('onUpdaterUpdateAvailable falls back to versionString when '
+        'displayVersionString is absent', () {
+      register(sparklePlatform: true);
+      captured!.onUpdaterUpdateAvailable(
+        const AppcastItem(versionString: '1.2.44-beta.6'),
+      );
+      expect(availableVersion, '1.2.44-beta.6');
+    });
+
+    test('onUpdaterUpdateAvailable with a null item → no callback fires', () {
+      register(sparklePlatform: true);
+      captured!.onUpdaterUpdateAvailable(null);
+      expect(availableVersion, isNull);
+    });
+
+    test('onUpdaterCheckingForUpdate → onChecking fires', () {
+      register(sparklePlatform: true);
+      captured!.onUpdaterCheckingForUpdate(null);
+      expect(checkingCalled, isTrue);
+    });
+
+    test('onUpdaterUpdateNotAvailable → onUpToDate fires', () {
+      register(sparklePlatform: true);
+      captured!.onUpdaterUpdateNotAvailable(null);
+      expect(upToDateCalled, isTrue);
+    });
+
+    test('onUpdaterError → onError fires with the message', () {
+      register(sparklePlatform: true);
+      captured!.onUpdaterError(UpdaterError('boom'));
+      expect(errorMessage, 'boom');
+    });
+
+    test('onUpdaterError with a null error → a fallback message is used', () {
+      register(sparklePlatform: true);
+      captured!.onUpdaterError(null);
+      expect(errorMessage, isNotEmpty);
+    });
   });
 }

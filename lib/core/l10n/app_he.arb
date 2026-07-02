@@ -711,6 +711,7 @@
   "settingsAutoPasteBlocklistPlaceholder": "לדוגמה: com.apple.Terminal, com.1password",
   "settingsCheckUpdates": "בדוק עדכונים",
   "settingsCheckUpdatesSubtitle": "בדוק אוטומטית גרסאות חדשות בהפעלה",
+  "settingsCheckForUpdatesNow": "בדוק עדכונים עכשיו",
   "settingsUpdates": "עדכונים",
   "settingsUpdatesSubtitle": "ערוץ גרסאות ובדיקת עדכונים",
   "settingsBetaUpdates": "עדכוני בטא",

@@ -15,9 +15,8 @@ import '../../core/l10n/locale_provider.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../services/deploy_channel_service.dart';
-import '../../services/auto_updater_service.dart';
-import '../../services/update_channel_service.dart';
 import '../../services/stt/stt_bundle.dart';
+import '../../services/update_actions.dart';
 import '../../services/update_service.dart';
 import '../../widgets/brand_wordmark.dart';
 import '../../widgets/page_shell.dart';
@@ -107,27 +106,11 @@ class AboutPage extends ConsumerWidget {
                   channel: channel,
                   isDark: isDark,
                   l10n: l10n,
-                  onTap: () {
-                    final notifier = ref.read(updateProvider.notifier);
-                    if (updateState.phase == UpdatePhase.available) {
-                      // Sparkle/WinSparkle platforms: native dialog. Linux &
-                      // portable fallback: open the release page.
-                      if (shouldUseAutoUpdater(channel)) {
-                        presentSparkleUpdate(
-                          ref.read(updateChannelProvider).value ??
-                              UpdateChannel.stable,
-                        );
-                      } else {
-                        final url = updateState.releaseNotesUrl;
-                        if (url != null) launchUrl(Uri.parse(url));
-                      }
-                    } else if (updateState.phase ==
-                        UpdatePhase.readyToInstall) {
-                      notifier.installUpdate();
-                    } else {
-                      notifier.checkForUpdate();
-                    }
-                  },
+                  onTap: () => triggerUpdateAction(
+                    ref: ref,
+                    updateState: updateState,
+                    channel: channel,
+                  ),
                 ),
             ],
           ),
@@ -571,32 +554,12 @@ class _UpdateCheckActionState extends State<_UpdateCheckAction> {
     );
   }
 
-  (IconData, String) _resolveDisplay() {
-    final l10n = widget.l10n;
-    return switch (widget.updateState.phase) {
-      UpdatePhase.idle => (LucideIcons.refreshCw, l10n.updateCheckNow),
-      UpdatePhase.checking => (LucideIcons.refreshCw, l10n.updateCheckNow),
-      UpdatePhase.available =>
-        widget.channel == DeployChannel.portable
-            ? (LucideIcons.externalLink, l10n.updateViewRelease)
-            : (
-                LucideIcons.download,
-                l10n.updateAvailable(widget.updateState.latestVersion ?? ''),
-              ),
-      UpdatePhase.downloading => (
-        LucideIcons.download,
-        l10n.updateDownloading(
-          (widget.updateState.progressPercent * 100).round(),
-        ),
-      ),
-      UpdatePhase.readyToInstall => (
-        LucideIcons.packageCheck,
-        l10n.updateInstall,
-      ),
-      UpdatePhase.upToDate => (LucideIcons.circleCheck, l10n.updateUpToDate),
-      UpdatePhase.error => (LucideIcons.triangleAlert, l10n.updateError),
-    };
-  }
+  (IconData, String) _resolveDisplay() => resolveUpdateActionDisplay(
+    phase: widget.updateState.phase,
+    channel: widget.channel,
+    state: widget.updateState,
+    l10n: widget.l10n,
+  );
 }
 
 // ─── Support button ──────────────────────────────────────────────────────────

@@ -96,6 +96,13 @@ Future<void> Function(int seconds) setIntervalFn =
 Future<void> Function({bool? inBackground}) checkForUpdatesFn =
     autoUpdater.checkForUpdates;
 
+/// Seam over [autoUpdater.addListener]. Lazily defaults to the real plugin
+/// call; tests overwrite it before [registerSparkleListener] so the native
+/// singleton is never touched.
+@visibleForTesting
+void Function(UpdaterListener listener) addUpdaterListenerFn =
+    autoUpdater.addListener;
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -156,4 +163,81 @@ Future<void> presentSparkleUpdate(UpdateChannel updateChannel) async {
   } on Exception catch (e) {
     _log.warning('Sparkle foreground check failed: $e');
   }
+}
+
+// ---------------------------------------------------------------------------
+// Mirroring native events into the app's own update state
+// ---------------------------------------------------------------------------
+
+/// Translates native Sparkle/WinSparkle events into plain callbacks.
+///
+/// Before this existed, the native self-updater's "update available" state
+/// was invisible to the rest of the app — the status bar chip, About page,
+/// and Settings all read `updateProvider` (`update_service.dart`), which
+/// only the GitHub-API mechanism ever populated, and that mechanism only ran
+/// automatically on Linux. On macOS/Windows the native 24h background check
+/// found updates that no UI surface ever reflected (fix target: PRD Bug 1).
+class _SparkleUpdaterListener with UpdaterListener {
+  _SparkleUpdaterListener({
+    required this.onChecking,
+    required this.onAvailable,
+    required this.onUpToDate,
+    required this.onError,
+  });
+
+  final void Function() onChecking;
+  final void Function(String version, String? releaseNotesUrl) onAvailable;
+  final void Function() onUpToDate;
+  final void Function(String message) onError;
+
+  @override
+  void onUpdaterCheckingForUpdate(Appcast? appcast) => onChecking();
+
+  @override
+  void onUpdaterUpdateAvailable(AppcastItem? appcastItem) {
+    final version =
+        appcastItem?.displayVersionString ?? appcastItem?.versionString;
+    if (version == null) return;
+    onAvailable(version, appcastItem?.releaseNotesURL);
+  }
+
+  @override
+  void onUpdaterUpdateNotAvailable(UpdaterError? error) => onUpToDate();
+
+  @override
+  void onUpdaterUpdateDownloaded(AppcastItem? appcastItem) {
+    // Sparkle/WinSparkle take over the download + install prompt natively
+    // from here; [UpdateState] has no downloading/readyToInstall
+    // representation for the native path, so there is nothing to mirror.
+  }
+
+  @override
+  void onUpdaterBeforeQuitForUpdate(AppcastItem? appcastItem) {}
+
+  @override
+  void onUpdaterError(UpdaterError? error) =>
+      onError(error?.message ?? 'Unknown updater error');
+}
+
+/// Registers a listener that mirrors native Sparkle/WinSparkle events via
+/// [onChecking]/[onAvailable]/[onUpToDate]/[onError]. No-op on platforms
+/// without a Sparkle/WinSparkle backend. Call once, before [initAutoUpdater],
+/// from `main.dart` — the caller wires the callbacks to the shared
+/// `UpdateNotifier` mutators (`markCheckingNative` et al. in
+/// `update_service.dart`) so every UI surface shares one source of truth.
+void registerSparkleListener({
+  required void Function() onChecking,
+  required void Function(String version, String? releaseNotesUrl) onAvailable,
+  required void Function() onUpToDate,
+  required void Function(String message) onError,
+}) {
+  if (!platformSupportsSparkle()) return;
+  addUpdaterListenerFn(
+    _SparkleUpdaterListener(
+      onChecking: onChecking,
+      onAvailable: onAvailable,
+      onUpToDate: onUpToDate,
+      onError: onError,
+    ),
+  );
 }

@@ -283,9 +283,23 @@ void _scheduleStartupSideEffects(
       });
     } else {
       // macOS / Windows non-store — initialize Sparkle/WinSparkle which
-      // handles periodic checks natively. Load the persisted update channel
-      // first so the correct feed (stable/beta appcast) is requested from the
-      // very first check.
+      // handles periodic checks natively. Register a listener FIRST so the
+      // native "update available"/"up to date"/error events are mirrored
+      // into `updateProvider` — otherwise the status bar chip, About page,
+      // and Settings never learn what the native background check found
+      // (PRD Bug 1). Load the persisted update channel first so the correct
+      // feed (stable/beta appcast) is requested from the very first check.
+      final updateNotifier = container.read(updateProvider.notifier);
+      registerSparkleListener(
+        onChecking: updateNotifier.markCheckingNative,
+        onAvailable: (version, releaseNotesUrl) =>
+            updateNotifier.markAvailableNative(
+              version: version,
+              releaseNotesUrl: releaseNotesUrl,
+            ),
+        onUpToDate: updateNotifier.markUpToDateNative,
+        onError: updateNotifier.markErrorNative,
+      );
       unawaited(
         container
             .read(updateChannelProvider.future)
