@@ -140,12 +140,26 @@ import sys, yaml, re
 wf = yaml.safe_load(open(sys.argv[1]))
 pat = re.compile(r'wp-submit-store|wp-release-windows|microsoft-partnercenter|partner[._-]center', re.I)
 bad = []
+echo_pat = re.compile(r'(echo|::notice::|::warning::|::error::)')
 for name, job in wf.get("jobs", {}).items():
-    if name == "promote-beta-to-stable":
-        continue  # operator instruction (echo/notice), not a CI execution
+    is_promote = (name == "promote-beta-to-stable")
     for s in job.get("steps", []):
+        run = str(s.get("run", ""))
         blob = "\n".join(str(s.get(k, "")) for k in ("name", "run", "uses", "with", "if"))
-        if pat.search(blob):
+        if not pat.search(blob):
+            continue
+        if is_promote:
+            # Forward-looking hardening: the promote job may reference store
+            # scripts ONLY in echo/::notice::/::warning::/::error:: lines
+            # (operator instruction, never executed in CI). Any executable
+            # reference is a regression (AC-5 break).
+            for line in run.split("\n"):
+                ls = line.strip()
+                if not ls or ls.startswith("#"):
+                    continue
+                if pat.search(line) and not echo_pat.search(line):
+                    bad.append(f"{name}: executable store reference (not echo/notice): {ls}")
+        else:
             bad.append(name)
 sys.exit(1 if bad else 0)
 PY

@@ -32,9 +32,9 @@
 	<string>WhisPaste needs microphone access for speech-to-text dictation.</string>
 	<!-- Sparkle self-update (PRD Säule E). EdDSA public key matches the private
 	     key that signs appcast.xml in CI (secret SPARKLE_SIGNING_KEY). The feed
-	     URL mirrors kAppcastFeedUrl in lib/services/auto_updater_service.dart;
-	     Sparkle reads SUFeedURL before the Dart side calls setFeedURL, so it
-	     must be present here for the first launch check. -->
+	     URL below is the stable default for the first launch check; the Dart
+	     side overrides it at runtime via setFeedURL(appcastFeedUrl(channel))
+	     from lib/services/auto_updater_service.dart (beta → beta-latest tag). -->
 	<key>SUPublicEDKey</key>
 	<string>Ek8FS/co3CPMeZt7ss9XMDkga7jIG6RWNWbefZhtRck=</string>
 	<key>SUFeedURL</key>
