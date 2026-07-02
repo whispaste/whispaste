@@ -1450,19 +1450,19 @@ jobs:
           }
           echo "OK — stable feed live at $FEED with $ENC signed enclosure(s)."
 
-      - name: Store-Submission (operator follow-up — Hard-Internas, PRD §6.3/§13)
+      - name: Store-Submission (operator follow-up — PRD §6.3/§13)
         shell: bash
         run: |
-          # AC-4: the Store-Submission path is WIRED here (correct local script
-          # reference + correct invocation form). The actual LIVE run is an
-          # operator task: Partner-Center creds + the stable MSIX signing live
-          # on the box, never in CI (CLAUDE.md Microsoft-Store-Operations). The
-          # beta carried NO MSIX (AC-5/Q2: beta skips the MSIX build), so the
-          # stable MSIX is built + submitted on the box by the operator:
+          # AC-4: the Store-Submission path is WIRED here (correct invocation
+          # form, no CI execution). The actual LIVE run is an operator task:
+          # Partner Center credentials + the stable MSIX signing happen on the
+          # operator's local machine, never in CI (CLAUDE.md
+          # Microsoft-Store-Operations — no host names, local paths, or
+          # credential locations belong in this tracked, public workflow).
+          # The beta carried NO MSIX (AC-5/Q2: beta skips the MSIX build), so
+          # the stable MSIX is built + submitted locally by the operator:
           STABLE="${{ steps.vars.outputs.stable-tag }}"
           echo "::notice::Stable ${{ steps.vars.outputs.stable-version }} promoted. Store-Submission is an operator task (PRD §6.3):"
-          echo "    on SilviosPC:  bash wp-release-windows.sh build  ${STABLE}"
-          echo "    then submit:   bash wp-release-windows.sh submit ${STABLE}"
-          echo "    (script: .scratch/windows-release-pipeline/scripts/wp-release-windows.sh — gitignored Hard-Internas)"
-          echo "    (creds:  ~/.config/microsoft-partnercenter/.env)"
-          echo "  First real run closes PRD §13 (wp-submit-store.ps1 live test)."
+          echo "    Build and submit the stable MSIX for ${STABLE} via the local Windows release pipeline."
+          echo "    See internal release-ops documentation for the exact commands and credentials."
+          echo "  First real run closes PRD §13 (Store submission live test)."

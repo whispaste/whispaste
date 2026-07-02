@@ -153,13 +153,19 @@ grep -qiE -- '--clobber' <<<"$PROMOTE_TEXT"; c2=$?
   check "AC-3: upload uses --clobber (no duplicate asset on re-promote)" "$?"
 
 # ---------------------------------------------------------------------------
-# T8 (AC-1 + AC-4): Store-Submission path wired (operator script reference)
+# T8 (AC-1 + AC-4): Store-Submission path wired (generic operator instruction)
 # ---------------------------------------------------------------------------
 echo "== T8: Store-Submission wired (AC-4) =="
-grep -qE 'wp-release-windows\.sh' <<<"$PROMOTE_TEXT"; w1=$?
-grep -qE 'submit' <<<"$PROMOTE_TEXT"; w2=$?
+grep -qiE 'operator' <<<"$PROMOTE_TEXT"; w1=$?
+grep -qiE 'submit' <<<"$PROMOTE_TEXT"; w2=$?
 [[ $w1 -eq 0 && $w2 -eq 0 ]]; \
-  check "AC-4: store-submission script + 'submit' invocation referenced" "$?"
+  check "AC-4: store-submission operator instruction + 'submit' referenced" "$?"
+
+# CLAUDE.md Microsoft-Store-Operations Hard-Internas: this tracked, public
+# workflow must stay a GENERIC instruction string — no host names, no local
+# filesystem/home paths, no credential-file locations.
+grep -qiE 'silviospc|~/\.config|\.scratch/|/Users/' <<<"$PROMOTE_TEXT"; rc=$?
+[[ $rc -ne 0 ]]; check "AC-4: no host/path/credential Hard-Internas leaked into release.yml" "$?"
 
 # ---------------------------------------------------------------------------
 # T9: build jobs skip on a promote dispatch; tag-push still builds (regression)
