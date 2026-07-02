@@ -20,6 +20,8 @@
 #   AC    Stable-Tag → Release + Stable-Feed + MSIX + Store-Trigger → T4/T3 + T11
 #   AC    releases/latest (Stable in, Beta out)              → T5 + T12
 #   AC    docs-attest-Gate im Release-Pfad                   → T7
+#   NEU   beta-latest ist ein echtes, idempotentes GitHub-Release
+#         (nicht nur ein bewegter Git-Tag) — Issue 08 Fix              → T13
 #
 # Run: bash test/scripts/release_yml_tag_dispatch_test.sh
 
@@ -36,6 +38,30 @@ bad() { printf '  FAIL - %s\n' "$1"; FAIL=$((FAIL + 1)); }
 check() { if [[ "$2" -eq 0 ]]; then ok "$1"; else bad "$1"; fi; }
 
 [[ -f "$WF" ]] || { echo "workflow not found: $WF"; exit 2; }
+
+# --- helpers ----------------------------------------------------------------
+
+# YAML model of the publish-appcast job's step text (names + if + run + uses),
+# robust against comment/indentation drift. Echoes the concatenated text on
+# stdout. Mirrors promote_flow_test.sh's promote_job_text() helper.
+publish_appcast_job_text() {
+  python3 - "$WF" <<'PY'
+import sys, yaml
+wf = yaml.safe_load(open(sys.argv[1]))
+job = wf.get("jobs", {}).get("publish-appcast")
+if not job:
+    sys.exit(0)
+parts = []
+for s in job.get("steps", []):
+    for k in ("name", "if", "run", "uses"):
+        v = s.get(k)
+        if v:
+            parts.append(str(v))
+print("\n".join(parts))
+PY
+}
+
+PUBLISH_APPCAST_TEXT="$(publish_appcast_job_text)"
 
 # ---------------------------------------------------------------------------
 # T1: YAML parses
@@ -232,6 +258,73 @@ echo "== T12: logic — releases/latest resolution (Q1/§5.3) =="
   check "Stable appears in releases/latest (non-prerelease, make_latest)" "$?"
 [[ "$(dec "$BTAG" in_releases_latest)" == "false" ]]; \
   check "Beta does NOT appear in releases/latest (prerelease)" "$?"
+
+# ---------------------------------------------------------------------------
+# T13: STRUCTURE + IDEMPOTENCY — beta-latest is a real, reused GitHub Release
+#      (Issue 08 fix), not merely a moved git tag. Mirrors promote_flow_test.sh
+#      T7's idempotency-guard pattern (existence check → conditional
+#      create/upload, --clobber on upload, --prerelease so it never surfaces
+#      via releases/latest).
+# ---------------------------------------------------------------------------
+echo "== T13: beta-latest real GitHub Release, idempotent (Issue 08 fix) =="
+
+# The old wrong assumption (tag move alone serves the download URL) must no
+# longer be perpetuated — the workflow comment must explain the actual
+# resolution mechanism (Release object's tag_name, not the git ref).
+grep -qi 'tag_name' "$WF"
+check "comment explains GitHub resolves releases/download/<tag> via a Release's tag_name (not the git ref)" "$?"
+
+# Existence guard before create — same primitive as `gh release view` (T7 of
+# promote_flow_test.sh), applied to the beta-latest pointer release.
+grep -qE 'gh release view beta-latest' <<<"$PUBLISH_APPCAST_TEXT"
+check "idempotency: existence check (gh release view beta-latest) before create" "$?"
+
+# Create path present (first beta cycle) and gated on the pointer being absent.
+grep -qE 'gh release create beta-latest' <<<"$PUBLISH_APPCAST_TEXT"
+check "gh release create beta-latest path present" "$?"
+
+# Upload path present (subsequent beta cycles) using --clobber → overwrite,
+# never a duplicate asset error on a simulated second beta cycle.
+grep -qE 'gh release upload beta-latest' <<<"$PUBLISH_APPCAST_TEXT"; c1=$?
+grep -qiE -- '--clobber' <<<"$PUBLISH_APPCAST_TEXT"; c2=$?
+[[ $c1 -eq 0 && $c2 -eq 0 ]]
+check "gh release upload beta-latest uses --clobber (no duplicate asset on repeat beta cycle)" "$?"
+
+# The correct asset (appcast-beta.xml) is what gets published/updated on the
+# pointer release — not the installers (those stay on the versioned release).
+grep -qE 'appcast-beta\.xml' <<<"$PUBLISH_APPCAST_TEXT"
+check "beta-latest pointer release carries appcast-beta.xml" "$?"
+
+# Stays a prerelease so it never displaces releases/latest (regression guard
+# against the stable Q1/§5.3 path).
+grep -qiE -- '--prerelease' <<<"$PUBLISH_APPCAST_TEXT"
+check "beta-latest release created as --prerelease (never in releases/latest)" "$?"
+
+# Both beta-gated steps (tag-move + pointer-release) share the same tag guard.
+grep -c "if: contains(github.ref_name, '-beta.')" "$WF" | grep -qE '^[2-9][0-9]*$'
+check "both beta-latest steps (tag-move + pointer-release) are beta-gated" "$?"
+
+# --- T13b: simulated second beta cycle — no duplicate-create structurally ---
+# The create step must live in the branch where `gh release view` FAILED
+# (i.e. inside an if/else, not unconditionally run every cycle) — otherwise a
+# second beta tag would hit "release already exists" from `gh release create`.
+echo "== T13b: simulated second beta cycle stays idempotent =="
+python3 - "$WF" <<'PY' >/dev/null 2>&1; check "gh release create beta-latest is only reached when 'gh release view' failed (if/else), not on every cycle" "$?"
+import sys, re, yaml
+wf = yaml.safe_load(open(sys.argv[1]))
+job = wf.get("jobs", {}).get("publish-appcast", {})
+run = ""
+for s in job.get("steps", []):
+    if "beta-latest" in str(s.get("name", "")) and "view" in str(s.get("run", "")):
+        run = str(s.get("run", ""))
+        break
+# Must be an if/else around `gh release view beta-latest`, with `create` only
+# in the else-branch and `upload` only in the if-branch (mutually exclusive on
+# a single run — no path executes both, so a repeat beta cycle never hits a
+# duplicate-create error).
+ok = bool(re.search(r'if\s+gh release view beta-latest.*\n.*gh release upload beta-latest.*\n.*else\n.*gh release create beta-latest', run, re.S))
+sys.exit(0 if ok else 1)
+PY
 
 echo
 echo "================================================================"

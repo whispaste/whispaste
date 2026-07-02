@@ -1011,13 +1011,14 @@ jobs:
             "artifacts" \
             "https://github.com/whispaste/whispaste/releases/tag/${GITHUB_REF_NAME#v}"
 
-      # PRD §5.3 (beta only): force-move the lightweight `beta-latest` tag onto
-      # the current beta release commit. It is a MOVING POINTER, not a separate
-      # release — it co-tags the existing beta prerelease so the beta appcast
-      # feed URL (releases/download/beta-latest/appcast-beta.xml) anchors on the
-      # most recent beta. Exactly one extra tag per beta cycle; no asset
-      # clobbering. (Live resolution of the beta-latest download URL is verified
-      # in the Issue 07 beta cycle; this step implements the mechanism.)
+      # PRD §5.3 (beta only): force-move the lightweight `beta-latest` git tag
+      # onto the current beta release commit. This is a convenience pointer for
+      # tooling (e.g. `git describe`) — it does NOT by itself serve the beta
+      # feed download URL. GitHub's `releases/download/<tag>/<file>` route
+      # resolves via a GitHub Release OBJECT's `tag_name` DB field, not by
+      # resolving the git ref, so moving only this raw tag would leave
+      # releases/download/beta-latest/appcast-beta.xml 404ing (Issue 08). The
+      # actual pointer Release is published/updated in the step below.
       - name: Move beta-latest tag to this beta release
         if: contains(github.ref_name, '-beta.')
         env:
@@ -1027,6 +1028,35 @@ jobs:
           git tag -f beta-latest "${{ github.sha }}"
           git push origin refs/tags/beta-latest --force
           echo "Moved beta-latest → ${{ github.sha }} (${{ github.ref_name }})"
+
+      # Issue 08 fix: maintain a REAL, reused GitHub Release object tagged
+      # `beta-latest` carrying the current appcast-beta.xml as an asset — this
+      # is what actually serves
+      # releases/download/beta-latest/appcast-beta.xml (see comment above).
+      # Idempotent, analogous to the promote job's existence-guard pattern
+      # (Issue 05): `gh release view` checks whether the pointer release
+      # already exists; `--clobber` on upload republishes the asset without
+      # erroring on repeat beta cycles. Only appcast-beta.xml lives here — the
+      # actual installers/DMG/Setup.exe stay on the versioned beta release
+      # (e.g. v1.2.44-beta.1); the appcast's enclosure URLs already point
+      # there and are unchanged by this fix.
+      - name: Publish/update beta-latest pointer release (Issue 08 fix)
+        if: contains(github.ref_name, '-beta.')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          REPO="${{ github.repository }}"
+          if gh release view beta-latest --repo "$REPO" >/dev/null 2>&1; then
+            gh release upload beta-latest artifacts/appcast-beta.xml --clobber --repo "$REPO"
+            echo "Updated existing beta-latest release with current appcast-beta.xml"
+          else
+            gh release create beta-latest artifacts/appcast-beta.xml \
+              --repo "$REPO" --prerelease \
+              --title "Beta (rolling pointer — nicht als Version verwenden)" \
+              --notes "Diese Release-Zeile ist nur ein technischer Zeiger auf den aktuellen Beta-Appcast. Lade Installer immer über die versionierte Beta-Release-Seite herunter, nicht hier."
+            echo "Created beta-latest release with appcast-beta.xml"
+          fi
 
       - name: Gate — verify published appcast is fetchable & every enclosure signed
         env:
