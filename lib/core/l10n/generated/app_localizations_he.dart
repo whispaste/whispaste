@@ -2008,6 +2008,15 @@ class L10nHe extends L10n {
   String get settingsBetaUpdatesSubtitle => 'קבל גרסאות טרום-הפצה שנבדקו פחות.';
 
   @override
+  String get settingsStableRevertHintMessage =>
+      'לא ניתן לחזור אוטומטית לגרסה היציבה — כבר מותקנת אצלך גרסת בטא חדשה יותר.';
+
+  @override
+  String settingsStableRevertHintLink(String stableVersion) {
+    return 'הורדה ידנית של הגרסה היציבה $stableVersion';
+  }
+
+  @override
   String get onboardingGetStarted => 'התחל';
 
   @override

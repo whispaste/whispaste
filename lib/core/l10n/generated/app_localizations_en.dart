@@ -2052,6 +2052,15 @@ class L10nEn extends L10n {
       'Get pre-release versions that are less tested.';
 
   @override
+  String get settingsStableRevertHintMessage =>
+      'Switching back to Stable automatically isn\'t possible here — you already have a newer beta version installed.';
+
+  @override
+  String settingsStableRevertHintLink(String stableVersion) {
+    return 'Manually download stable $stableVersion';
+  }
+
+  @override
   String get onboardingGetStarted => 'Continue';
 
   @override

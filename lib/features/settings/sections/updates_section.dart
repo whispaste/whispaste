@@ -7,14 +7,21 @@
 /// [DeployChannel.store] — AC „Store-Build blendet den Toggle sinnvoll aus".
 library;
 
+import 'dart:async' show unawaited;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/app_urls.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/logging/app_logger.dart';
+import '../../../core/theme/colors.dart';
+import '../../../core/theme/tokens.dart';
 import '../../../services/deploy_channel_service.dart';
+import '../../../services/stable_revert_hint_service.dart';
 import '../../../services/telemetry_service.dart';
 import '../../../services/update_channel_service.dart';
 import '../../../widgets/section.dart';
@@ -38,6 +45,7 @@ class UpdatesSection extends ConsumerWidget {
     final updateChannel =
         ref.watch(updateChannelProvider).value ?? UpdateChannel.stable;
     final isBeta = updateChannel == UpdateChannel.beta;
+    final revertHint = ref.watch(stableRevertHintProvider);
 
     return WpSection(
       title: l10n.settingsUpdates,
@@ -84,8 +92,121 @@ class UpdatesSection extends ConsumerWidget {
                 } catch (e) {
                   _log.debug('telemetry failed: $e');
                 }
+                if (!v) {
+                  // Switching back to Stable: check once whether the
+                  // installed beta is ahead of the current stable-latest
+                  // (PRD §7.3, AC-7) — Sparkle can't downgrade, so surface a
+                  // one-time manual-download hint instead of doing nothing.
+                  unawaited(
+                    ref
+                        .read(stableRevertHintProvider.notifier)
+                        .checkAfterSwitchToStable(),
+                  );
+                } else {
+                  ref.read(stableRevertHintProvider.notifier).dismiss();
+                }
               },
             ),
+          ),
+          if (revertHint.visible)
+            _StableRevertHintNotice(
+              stableVersion: revertHint.stableVersion!,
+              onDismiss: () =>
+                  ref.read(stableRevertHintProvider.notifier).dismiss(),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One-time "beta ahead of stable" hint (PRD §7.3, AC-7) — a reuse
+/// composition of the existing warning-badge visual pattern already
+/// established in `insufficient_ram_screen.dart` (warning-tinted surface,
+/// icon, text), token-bound throughout. No new component, no new visual
+/// language — see Issue 06 Figma-reuse judgment.
+class _StableRevertHintNotice extends StatelessWidget {
+  const _StableRevertHintNotice({
+    required this.stableVersion,
+    required this.onDismiss,
+  });
+
+  final String stableVersion;
+  final VoidCallback onDismiss;
+
+  Future<void> _openStableRelease() async {
+    try {
+      await launchUrl(
+        Uri.parse('$kGitHubRepoUrl/releases/latest'),
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (e) {
+      UpdatesSection._log.warning('Could not open stable release URL: $e');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final warning = isDark ? WpColorsDark.warning : WpColorsLight.warning;
+    final textPrimary = isDark
+        ? WpColorsDark.textPrimary
+        : WpColorsLight.textPrimary;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(
+        horizontal: WpSpacing.sm,
+        vertical: WpSpacing.xs,
+      ),
+      padding: const EdgeInsets.all(WpSpacing.md),
+      decoration: BoxDecoration(
+        color: warning.withValues(alpha: 0.12),
+        borderRadius: WpRadius.borderMd,
+        border: Border.all(color: warning.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(LucideIcons.triangleAlert, size: WpIconSize.sm, color: warning),
+          const SizedBox(width: WpSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  l10n.settingsStableRevertHintMessage,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: textPrimary),
+                ),
+                const SizedBox(height: WpSpacing.xxs),
+                Semantics(
+                  link: true,
+                  label: l10n.settingsStableRevertHintLink(stableVersion),
+                  child: GestureDetector(
+                    onTap: () => unawaited(_openStableRelease()),
+                    child: Text(
+                      l10n.settingsStableRevertHintLink(stableVersion),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: warning,
+                        fontWeight: FontWeight.w600,
+                        decoration: TextDecoration.underline,
+                        decorationColor: warning,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(LucideIcons.x, size: WpIconSize.xs),
+            tooltip: l10n.actionDismiss,
+            onPressed: onDismiss,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
           ),
         ],
       ),

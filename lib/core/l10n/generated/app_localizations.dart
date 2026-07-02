@@ -3711,6 +3711,18 @@ abstract class L10n {
   /// **'Get pre-release versions that are less tested.'**
   String get settingsBetaUpdatesSubtitle;
 
+  /// No description provided for @settingsStableRevertHintMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Switching back to Stable automatically isn\'t possible here — you already have a newer beta version installed.'**
+  String get settingsStableRevertHintMessage;
+
+  /// No description provided for @settingsStableRevertHintLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Manually download stable {stableVersion}'**
+  String settingsStableRevertHintLink(String stableVersion);
+
   /// No description provided for @onboardingGetStarted.
   ///
   /// In en, this message translates to:

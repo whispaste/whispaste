@@ -715,6 +715,15 @@
   "settingsUpdatesSubtitle": "ערוץ גרסאות ובדיקת עדכונים",
   "settingsBetaUpdates": "עדכוני בטא",
   "settingsBetaUpdatesSubtitle": "קבל גרסאות טרום-הפצה שנבדקו פחות.",
+  "settingsStableRevertHintMessage": "לא ניתן לחזור אוטומטית לגרסה היציבה — כבר מותקנת אצלך גרסת בטא חדשה יותר.",
+  "settingsStableRevertHintLink": "הורדה ידנית של הגרסה היציבה {stableVersion}",
+  "@settingsStableRevertHintLink": {
+    "placeholders": {
+      "stableVersion": {
+        "type": "String"
+      }
+    }
+  },
   "onboardingGetStarted": "התחל",
   "onboardingSkip": "דלג על שלב זה",
   "onboardingNext": "הבא",

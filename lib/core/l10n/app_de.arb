@@ -677,6 +677,15 @@
   "settingsUpdatesSubtitle": "Release-Kanal und Update-Prüfung",
   "settingsBetaUpdates": "Beta-Updates",
   "settingsBetaUpdatesSubtitle": "Vorab-Versionen erhalten, die weniger getestet sind.",
+  "settingsStableRevertHintMessage": "Automatisches Zurückkehren zu Stable ist hier nicht möglich – du hast bereits eine neuere Beta-Version installiert.",
+  "settingsStableRevertHintLink": "Stable {stableVersion} manuell herunterladen",
+  "@settingsStableRevertHintLink": {
+    "placeholders": {
+      "stableVersion": {
+        "type": "String"
+      }
+    }
+  },
 
   "onboardingGetStarted": "Weiter",
   "onboardingSkip": "Diesen Schritt überspringen",

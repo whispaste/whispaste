@@ -743,6 +743,15 @@
   "settingsUpdatesSubtitle": "Release channel and update checks",
   "settingsBetaUpdates": "Beta Updates",
   "settingsBetaUpdatesSubtitle": "Get pre-release versions that are less tested.",
+  "settingsStableRevertHintMessage": "Switching back to Stable automatically isn't possible here — you already have a newer beta version installed.",
+  "settingsStableRevertHintLink": "Manually download stable {stableVersion}",
+  "@settingsStableRevertHintLink": {
+    "placeholders": {
+      "stableVersion": {
+        "type": "String"
+      }
+    }
+  },
 
   "onboardingGetStarted": "Continue",
   "onboardingSkip": "Skip this step",

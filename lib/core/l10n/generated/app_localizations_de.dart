@@ -2069,6 +2069,15 @@ class L10nDe extends L10n {
       'Vorab-Versionen erhalten, die weniger getestet sind.';
 
   @override
+  String get settingsStableRevertHintMessage =>
+      'Automatisches Zurückkehren zu Stable ist hier nicht möglich – du hast bereits eine neuere Beta-Version installiert.';
+
+  @override
+  String settingsStableRevertHintLink(String stableVersion) {
+    return 'Stable $stableVersion manuell herunterladen';
+  }
+
+  @override
   String get onboardingGetStarted => 'Weiter';
 
   @override
