@@ -66,6 +66,13 @@ const faqQuestions = [
 ];
 
 const alternateSlugs = { de: "privatsphaere-spracherkennung", en: "privacy-speech-recognition" };
+
+const relatedPages = [
+  { label: t(lang, "explainer.whisperDesktop.breadcrumb"), href: localePath(lang, "whisper-desktop") },
+  { label: t(lang, "explainer.offlineStt.breadcrumb"), href: localePath(lang, "offline-speech-to-text") },
+  { label: t(lang, "comparison.dictationAlternatives.breadcrumb"), href: localePath(lang, "vergleich/diktiersoftware-alternativen") },
+  { label: t(lang, "comparison.osDictation.breadcrumb"), href: localePath(lang, "vergleich/whispaste-vs-system-spracheingabe") },
+];
 ---
 
 <LandingPageLayout
@@ -75,6 +82,7 @@ const alternateSlugs = { de: "privatsphaere-spracherkennung", en: "privacy-speec
   hero={hero}
   cta={cta}
   alternateSlugs={alternateSlugs}
+  relatedPages={relatedPages}
 >
   <section>
     <h2>{t(lang, "explainer.privacy.section.offlineDefault.heading")}</h2>

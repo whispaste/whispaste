@@ -35,7 +35,7 @@ import Layout from "./Layout.astro";
 import Nav from "../components/Nav.astro";
 import Footer from "../components/Footer.astro";
 import BreadcrumbListSchema from "../components/schema/BreadcrumbListSchema.astro";
-import type { Locale } from "../scripts/i18n.ts";
+import { t, type Locale } from "../scripts/i18n.ts";
 
 interface SeoProps {
   readonly title: string;
@@ -62,6 +62,11 @@ interface CtaProps {
   readonly href: string;
 }
 
+interface RelatedPageLink {
+  readonly label: string;
+  readonly href: string;
+}
+
 interface Props {
   readonly lang: Locale;
   readonly seo: SeoProps;
@@ -72,9 +77,12 @@ interface Props {
   readonly heroImage?: HeroImageProps;
   readonly cta: CtaProps;
   readonly alternateSlugs?: { de: string; en: string };
+  /** Optionale Querverlinkung zu thematisch verwandten Long-Tail-Pages —
+      hält den Content-Cluster intern verlinkt statt als Sitemap-Waisen. */
+  readonly relatedPages?: readonly RelatedPageLink[];
 }
 
-const { lang, seo, breadcrumbs, hero, heroImage, cta, alternateSlugs } = Astro.props;
+const { lang, seo, breadcrumbs, hero, heroImage, cta, alternateSlugs, relatedPages } = Astro.props;
 ---
 
 <Layout
@@ -136,6 +144,25 @@ const { lang, seo, breadcrumbs, hero, heroImage, cta, alternateSlugs } = Astro.p
         <div class="landing-content space-y-10">
           <slot />
         </div>
+
+        {/* Related-Pages — hält den Long-Tail-Content-Cluster intern verlinkt,
+            statt dass jede Page nur über die Sitemap erreichbar ist. */}
+        {relatedPages && relatedPages.length > 0 && (
+          <nav aria-label={t(lang, "explainer.related.aria")} class="mt-10 pt-8 border-t border-white/5">
+            <p class="text-xs font-semibold uppercase tracking-wider text-ink-subtle mb-3">
+              {t(lang, "explainer.related.heading")}
+            </p>
+            <ul class="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+              {relatedPages.map((page) => (
+                <li>
+                  <a href={page.href} class="text-ink-muted hover:text-white transition-colors">
+                    {page.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        )}
 
         {/* CTA-Block — konsistente Position am Ende jeder Long-Tail-Page.
             id=lp-cta dient zugleich als Sentinel fürs „Inhalt gelesen"-Event. */}

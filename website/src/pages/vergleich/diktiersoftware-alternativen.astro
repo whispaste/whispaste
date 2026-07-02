@@ -74,6 +74,13 @@ const alternateSlugs = {
   de: "vergleich/diktiersoftware-alternativen",
   en: "comparison/voice-input-tool-alternatives",
 };
+
+const relatedPages = [
+  { label: t(lang, "explainer.whisperDesktop.breadcrumb"), href: localePath(lang, "whisper-desktop") },
+  { label: t(lang, "explainer.offlineStt.breadcrumb"), href: localePath(lang, "offline-speech-to-text") },
+  { label: t(lang, "explainer.privacy.breadcrumb"), href: localePath(lang, "privatsphaere-spracherkennung") },
+  { label: t(lang, "comparison.osDictation.breadcrumb"), href: localePath(lang, "vergleich/whispaste-vs-system-spracheingabe") },
+];
 ---
 
 <LandingPageLayout
@@ -83,6 +90,7 @@ const alternateSlugs = {
   hero={hero}
   cta={cta}
   alternateSlugs={alternateSlugs}
+  relatedPages={relatedPages}
 >
   {/*
     Kontrastiver Block — der Brand-Vocabulary-Gate ignoriert alle Anti-Vokabular-

@@ -59,6 +59,13 @@ const howToSteps = [
 ];
 
 const alternateSlugs = { de: "whisper-desktop", en: "whisper-desktop" };
+
+const relatedPages = [
+  { label: t(lang, "explainer.offlineStt.breadcrumb"), href: localePath(lang, "offline-speech-to-text") },
+  { label: t(lang, "explainer.privacy.breadcrumb"), href: localePath(lang, "privatsphaere-spracherkennung") },
+  { label: t(lang, "comparison.dictationAlternatives.breadcrumb"), href: localePath(lang, "vergleich/diktiersoftware-alternativen") },
+  { label: t(lang, "comparison.osDictation.breadcrumb"), href: localePath(lang, "vergleich/whispaste-vs-system-spracheingabe") },
+];
 ---
 
 <LandingPageLayout
@@ -68,6 +75,7 @@ const alternateSlugs = { de: "whisper-desktop", en: "whisper-desktop" };
   hero={hero}
   cta={cta}
   alternateSlugs={alternateSlugs}
+  relatedPages={relatedPages}
 >
   <section>
     <h2>{t(lang, "explainer.whisperDesktop.section.setup.heading")}</h2>

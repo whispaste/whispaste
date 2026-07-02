@@ -46,6 +46,13 @@ const faqQuestions = [
 ];
 
 const alternateSlugs = { de: "offline-speech-to-text", en: "offline-speech-to-text" };
+
+const relatedPages = [
+  { label: t(lang, "explainer.whisperDesktop.breadcrumb"), href: localePath(lang, "whisper-desktop") },
+  { label: t(lang, "explainer.privacy.breadcrumb"), href: localePath(lang, "privacy-speech-recognition") },
+  { label: t(lang, "comparison.dictationAlternatives.breadcrumb"), href: localePath(lang, "comparison/voice-input-tool-alternatives") },
+  { label: t(lang, "comparison.osDictation.breadcrumb"), href: localePath(lang, "comparison/whispaste-vs-system-speech-to-text") },
+];
 ---
 
 <LandingPageLayout
@@ -55,6 +62,7 @@ const alternateSlugs = { de: "offline-speech-to-text", en: "offline-speech-to-te
   hero={hero}
   cta={cta}
   alternateSlugs={alternateSlugs}
+  relatedPages={relatedPages}
 >
   <section>
     <h2>{t(lang, "explainer.offlineStt.section.modes.heading")}</h2>

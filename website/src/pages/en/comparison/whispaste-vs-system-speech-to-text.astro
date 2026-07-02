@@ -54,6 +54,13 @@ const alternateSlugs = {
   de: "vergleich/whispaste-vs-system-spracheingabe",
   en: "comparison/whispaste-vs-system-speech-to-text",
 };
+
+const relatedPages = [
+  { label: t(lang, "explainer.whisperDesktop.breadcrumb"), href: localePath(lang, "whisper-desktop") },
+  { label: t(lang, "explainer.offlineStt.breadcrumb"), href: localePath(lang, "offline-speech-to-text") },
+  { label: t(lang, "explainer.privacy.breadcrumb"), href: localePath(lang, "privacy-speech-recognition") },
+  { label: t(lang, "comparison.dictationAlternatives.breadcrumb"), href: localePath(lang, "comparison/voice-input-tool-alternatives") },
+];
 ---
 
 <LandingPageLayout
@@ -63,6 +70,7 @@ const alternateSlugs = {
   hero={hero}
   cta={cta}
   alternateSlugs={alternateSlugs}
+  relatedPages={relatedPages}
 >
   {/*
     Astro strips raw HTML comments from .astro template bodies during build,
