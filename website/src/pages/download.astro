@@ -12,10 +12,11 @@ import {
   DIAGNOSE_WINDOWS_URL,
   DIAGNOSE_MACOS_URL,
   GITHUB_REPO_URL,
-  getLivePkgManagers,
+  getLivePkgManagersGroupedByPlatform,
 } from "../data/platforms.ts";
+import { PKG_MANAGER_ICONS } from "../scripts/pkgManagerIcons.ts";
 
-const livePkgManagers = getLivePkgManagers();
+const pkgManagerGroups = getLivePkgManagersGroupedByPlatform();
 
 const lang = (Astro.currentLocale === "en" ? "en" : "de") as "de" | "en";
 const breadcrumbItems = [
@@ -310,25 +311,38 @@ const breadcrumbItems = [
           </summary>
 
           <div class="tech-helper__body px-6 sm:px-8 pb-6 sm:pb-8">
+            <p class="text-gray-400 text-sm mb-5 leading-relaxed" data-i18n="download.pkg.intro">{t(lang, "download.pkg.intro")}</p>
             <div id="pkg-copy-status" class="sr-only" role="status" aria-live="polite"></div>
-            {livePkgManagers.map((ch) => (
-              <div class="rounded-xl border border-white/10 bg-black/30 p-4 font-mono text-xs sm:text-sm text-gray-200 overflow-x-auto mb-3 last:mb-0" data-testid={`pkg-${ch.id}`}>
-                <div class="flex items-center justify-between mb-1">
-                  <div class="text-gray-500">{ch.comment[lang]}</div>
-                  <button
-                    class="pkg-copy-btn text-xs text-gray-400 hover:text-gray-200 transition-colors px-2 py-0.5 rounded border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] font-sans inline-flex items-center gap-1.5"
-                    data-copy-text={ch.commands.join('\n')}
-                    data-copy-feedback={t(lang, "download.pkg.copied")}
-                    aria-label={t(lang, "download.pkg.copyBtn")}
-                    data-testid={`pkg-copy-${ch.id}`}
-                  >
-                    <svg class="pkg-copy-btn__icon pkg-copy-btn__icon--idle" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                    <svg class="pkg-copy-btn__icon pkg-copy-btn__icon--success" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
-                    <span class="pkg-copy-btn__label">{t(lang, "download.pkg.copyBtn")}</span>
-                  </button>
-                </div>
-                {ch.commands.map((cmd) => (
-                  <div>{cmd}</div>
+            {pkgManagerGroups.map((group) => (
+              <div class="mb-6 last:mb-0">
+                <h4 class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3" data-i18n={`download.pkg.platform.${group.platform}`}>{t(lang, `download.pkg.platform.${group.platform}`)}</h4>
+                {group.channels.map((ch) => (
+                  <div class="mb-4 last:mb-0" data-testid={`pkg-${ch.id}`}>
+                    <div class="flex items-center gap-2 mb-2">
+                      <svg class="w-4 h-4 text-gray-300 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={PKG_MANAGER_ICONS[ch.id]}/></svg>
+                      <span class="text-sm font-medium text-white">{ch.name}</span>
+                      <span class="text-xs text-gray-500" data-i18n={`download.pkg.platform.${group.platform}`}>{t(lang, `download.pkg.platform.${group.platform}`)}</span>
+                    </div>
+                    <div class="rounded-xl border border-white/10 bg-black/30 p-4 font-mono text-xs sm:text-sm text-gray-200 overflow-x-auto">
+                      <div class="flex items-center justify-between mb-1">
+                        <div class="text-gray-500">{ch.comment[lang]}</div>
+                        <button
+                          class="pkg-copy-btn text-xs text-gray-400 hover:text-gray-200 transition-colors px-2 py-0.5 rounded border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] font-sans inline-flex items-center gap-1.5"
+                          data-copy-text={ch.commands.join('\n')}
+                          data-copy-feedback={t(lang, "download.pkg.copied")}
+                          aria-label={t(lang, "download.pkg.copyBtn")}
+                          data-testid={`pkg-copy-${ch.id}`}
+                        >
+                          <svg class="pkg-copy-btn__icon pkg-copy-btn__icon--idle" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                          <svg class="pkg-copy-btn__icon pkg-copy-btn__icon--success" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                          <span class="pkg-copy-btn__label">{t(lang, "download.pkg.copyBtn")}</span>
+                        </button>
+                      </div>
+                      {ch.commands.map((cmd) => (
+                        <div>{cmd}</div>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             ))}

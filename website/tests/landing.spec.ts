@@ -1,4 +1,11 @@
 import { expect, test } from '@playwright/test';
+import { getLivePkgManagersGroupedByPlatform } from '../src/data/platforms.ts';
+
+const PLATFORM_LABEL: Record<string, string> = {
+  windows: 'Windows',
+  macos: 'macOS',
+  linux: 'Linux',
+};
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
@@ -119,6 +126,84 @@ test('package manager copy success icon skips its entrance animation under prefe
     .locator('.pkg-copy-btn__icon--success')
     .evaluate((el) => getComputedStyle(el).animationName);
   expect(animationName).toBe('none');
+});
+
+test('package managers render grouped by platform with brand icon, name and platform label (DE)', async ({
+  page,
+}) => {
+  await page.goto('/download/');
+
+  const section = page.getByTestId('pkg-managers');
+  await section.locator('summary').click();
+
+  // Short intro explains, in one sentence, what the command does.
+  await expect(section).toContainText('installiert WhisPaste');
+
+  const groups = getLivePkgManagersGroupedByPlatform();
+  expect(groups.length).toBeGreaterThan(0);
+
+  // Platform group headers render in the fixed Windows → macOS → Linux order
+  // supplied by the data-model grouping function (no manual template sort).
+  const headerTexts = await section.locator('h4').allTextContents();
+  const platformHeaders = headerTexts
+    .map((h) => h.trim())
+    .filter((h) => Object.values(PLATFORM_LABEL).includes(h));
+  expect(platformHeaders).toEqual(groups.map((g) => PLATFORM_LABEL[g.platform]));
+
+  // Every live channel shows its brand icon + brand name + platform label,
+  // and keeps its per-channel test anchor.
+  for (const group of groups) {
+    for (const ch of group.channels) {
+      const card = section.getByTestId(`pkg-${ch.id}`);
+      await expect(card).toBeVisible();
+      await expect(card.locator('svg').first()).toBeVisible();
+      await expect(card).toContainText(ch.name);
+      await expect(card).toContainText(PLATFORM_LABEL[group.platform]!);
+      // Copy button (issue 02) is preserved inside each channel card.
+      await expect(card.getByTestId(`pkg-copy-${ch.id}`)).toBeVisible();
+    }
+  }
+});
+
+test('package managers render branded + grouped identically on the EN page', async ({
+  page,
+}) => {
+  await page.goto('/en/download/');
+
+  const section = page.getByTestId('pkg-managers');
+  await section.locator('summary').click();
+
+  await expect(section).toContainText('installs WhisPaste');
+
+  const groups = getLivePkgManagersGroupedByPlatform();
+  for (const group of groups) {
+    for (const ch of group.channels) {
+      const card = section.getByTestId(`pkg-${ch.id}`);
+      await expect(card).toContainText(ch.name);
+      await expect(card).toContainText(PLATFORM_LABEL[group.platform]!);
+    }
+  }
+});
+
+test('package manager section stays scannable at 390px mobile width', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/download/');
+
+  const section = page.getByTestId('pkg-managers');
+  await section.locator('summary').click();
+
+  const groups = getLivePkgManagersGroupedByPlatform();
+  const firstChannel = groups[0]!.channels[0]!;
+  const card = section.getByTestId(`pkg-${firstChannel.id}`);
+  await expect(card).toBeVisible();
+  await expect(card).toContainText(firstChannel.name);
+
+  // The channel card must not overflow the mobile viewport horizontally.
+  const box = await card.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box!.width).toBeLessThanOrEqual(390);
 });
 
 test('hero recording mockup renders the final overlay on a canvas (no privacy badge)', async ({ page }) => {
