@@ -289,3 +289,14 @@ test('hero recording mockup renders the final overlay on a canvas (no privacy ba
   });
   expect(drawn).toBe(true);
 });
+
+test('nav download button keeps its icon after i18n text is applied on load', async ({ page }) => {
+  await page.goto('/');
+
+  // Regression: applyLang() used to run el.textContent = ... directly on the
+  // <a data-i18n="nav.download"> anchor, wiping the icon <svg> child once the
+  // page's inline script ran after SSR paint (the icon "blinked and vanished").
+  const navDownloadBtn = page.locator('.nav-download-btn').first();
+  await expect(navDownloadBtn.locator('svg')).toBeVisible();
+  await expect(navDownloadBtn).toContainText('Download');
+});
