@@ -139,7 +139,11 @@ grep -qiE 'deterministic|byte-identical|same seed|same EdDSA|identical' <<<"$PRO
 
 # ---------------------------------------------------------------------------
 # T7 (AC-3): idempotency — existence guard + delete-then-recreate + draft
-#            publish, mirroring the beta-latest pointer fix (Issue 08 / T13 in
+#            publish, for retrying the SAME promote dispatch under the SAME
+#            stable version tag (a one-off, operator-triggered retry — not a
+#            rolling pointer reused release-over-release, which is why this
+#            differs from the appcast beta pointer that had to move off
+#            Release objects entirely, see Issue 08 v2 / T13 in
 #            release_yml_tag_dispatch_test.sh). GitHub's immutable-release
 #            feature blocks asset uploads to an already-published release, so
 #            a re-promote deletes the existing stable release object (tag

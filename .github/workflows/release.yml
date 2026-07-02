@@ -1001,8 +1001,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # PRD §5.2: --channel selects the feed asset filename. Beta tags emit
-          # appcast-beta.xml (consumed via the beta-latest pointer, §5.3); stable
-          # tags emit appcast.xml (consumed via releases/latest). Feed CONTENT is
+          # appcast-beta.xml (consumed via the beta-appcast-pointer branch,
+          # §5.3); stable tags emit appcast.xml (consumed via releases/latest).
+          # Feed CONTENT is
           # identical across channels (both EdDSA enclosures); only the name
           # differs (Issue 03).
           if [[ "${GITHUB_REF_NAME}" == *-beta.* ]]; then
@@ -1016,50 +1017,46 @@ jobs:
             "artifacts" \
             "https://github.com/whispaste/whispaste/releases/tag/${GITHUB_REF_NAME#v}"
 
-      # Issue 08 fix: maintain a REAL, reused GitHub Release object tagged
-      # `beta-latest` carrying the current appcast-beta.xml as an asset — this
-      # is what actually serves releases/download/beta-latest/appcast-beta.xml.
-      # GitHub's `releases/download/<tag>/<file>` route resolves via a GitHub
-      # Release OBJECT's `tag_name` DB field, not by resolving the git ref, so
-      # a plain moving git tag would never by itself serve that URL anyway.
+      # Issue 08 fix, v2: a GitHub Release OBJECT can never serve as the
+      # rolling `beta-latest` pointer — GitHub's immutable-releases feature
+      # (GA since 2025-10) permanently burns a tag_name the moment any release
+      # (even a prerelease) is published under it: neither `--clobber`
+      # re-uploads nor delete-then-recreate work, and disabling the repo
+      # setting afterwards does NOT un-burn an already-used name (confirmed:
+      # https://docs.github.com/en/code-security/concepts/supply-chain-security/immutable-releases).
+      # The previous attempt (delete-then-recreate `beta-latest`) hit exactly
+      # this wall in practice (HTTP 422 "tag_name was used by an immutable
+      # release") once GitHub actually enforced it — it is not something a
+      # workflow retry can work around.
       #
-      # No separate tag-move step: an earlier version force-moved the
-      # `beta-latest` git tag before this step, but once a tag exists on this
-      # repo it becomes a protected ref ("Cannot update this protected ref" —
-      # the same GitHub ruleset family as the immutable-release restriction
-      # below) and a force-push fails on every cycle after the first. The
-      # underlying tag is created ONCE, automatically, by the first `gh
-      # release create` below (--target anchors it to the correct commit);
-      # subsequent cycles reuse that (now-stale-pointing, but functionally
-      # irrelevant — see above) tag name and only replace the Release object.
-      #
-      # Idempotent across beta cycles via delete-then-recreate rather than
-      # upload --clobber: GitHub's immutable-release feature blocks asset
-      # uploads to an already-published release, so re-publishing a NEW asset
-      # onto the existing (published) beta-latest release fails outright —
-      # only creating a release WITH the file attached works reliably. `gh
-      # release delete` without `--cleanup-tag` removes only the Release
-      # object, never the underlying git tag, so this is safe. Only
-      # appcast-beta.xml lives here — the actual installers/DMG/Setup.exe stay
-      # on the versioned beta release (e.g. v1.2.44-beta.1); the appcast's
-      # enclosure URLs already point there and are unchanged by this fix.
-      - name: Publish/update beta-latest pointer release (Issue 08 fix)
+      # Fix: stop using a Release object for the pointer. Force-push the
+      # current appcast-beta.xml to a dedicated, single-purpose branch
+      # instead — branches carry none of the tag/release immutability
+      # restrictions, so a force-push is safe and idempotent forever. The
+      # app fetches it from raw.githubusercontent.com (see
+      # `_betaAppcastFeedUrl` in lib/services/auto_updater_service.dart) —
+      # not a release download URL, so nothing there needs a Release object
+      # to exist at all. Only appcast-beta.xml lives on this branch — the
+      # actual installers/DMG/Setup.exe stay on the versioned beta release
+      # (e.g. v1.2.44-beta.1); the appcast's enclosure URLs already point
+      # there and are unaffected by this fix.
+      - name: Publish beta-appcast pointer via git branch (Issue 08 fix v2)
         if: contains(github.ref_name, '-beta.')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          REPO="${{ github.repository }}"
-          if gh release view beta-latest --repo "$REPO" >/dev/null 2>&1; then
-            gh release delete beta-latest --yes --repo "$REPO"
-            echo "Deleted existing beta-latest release (tag preserved) for a clean recreate."
-          fi
-          gh release create beta-latest artifacts/appcast-beta.xml \
-            --repo "$REPO" --prerelease \
-            --target "${{ github.sha }}" \
-            --title "Beta (rolling pointer — nicht als Version verwenden)" \
-            --notes "Diese Release-Zeile ist nur ein technischer Zeiger auf den aktuellen Beta-Appcast. Lade Installer immer über die versionierte Beta-Release-Seite herunter, nicht hier."
-          echo "beta-latest release ready with current appcast-beta.xml"
+          POINTER_DIR="$(mktemp -d)"
+          cp artifacts/appcast-beta.xml "$POINTER_DIR/appcast-beta.xml"
+          cd "$POINTER_DIR"
+          git init -q -b beta-appcast-pointer
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add appcast-beta.xml
+          git commit -q -m "beta appcast pointer: ${GITHUB_REF_NAME}"
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+          git push -q --force origin beta-appcast-pointer
+          echo "beta-appcast-pointer branch updated with current appcast-beta.xml"
 
       - name: Gate — verify published appcast is fetchable & every enclosure signed
         env:
@@ -1069,9 +1066,8 @@ jobs:
           sleep 5  # let the release-asset CDN settle after upload
           if [[ "${GITHUB_REF_NAME}" == *-beta.* ]]; then
             # Beta feed: fetch the just-uploaded asset via its version tag (the
-            # beta-latest URL resolution is the Issue 07 live proof; the version-
-            # tag URL is reliable right after upload and exercises the same
-            # signed bytes the app will consume).
+            # version-tag URL is reliable right after upload and exercises the
+            # same signed bytes the app will consume).
             FEED="https://github.com/whispaste/whispaste/releases/download/${GITHUB_REF_NAME}/appcast-beta.xml"
           else
             # Stable feed: releases/latest resolves to this non-prerelease
@@ -1088,6 +1084,26 @@ jobs:
             exit 1
           }
           echo "OK — signed appcast live at $FEED"
+
+          if [[ "${GITHUB_REF_NAME}" == *-beta.* ]]; then
+            # Also verify the actual rolling pointer real installs poll (Issue
+            # 08 fix v2) — a raw.githubusercontent.com URL on the dedicated
+            # beta-appcast-pointer branch, not a release download URL.
+            POINTER="https://raw.githubusercontent.com/${{ github.repository }}/beta-appcast-pointer/appcast-beta.xml"
+            echo "Fetching $POINTER"
+            curl -fsSL -o /tmp/pointer-appcast.xml "$POINTER"
+            PENC=$(grep -c '<enclosure' /tmp/pointer-appcast.xml || true)
+            PSIG=$(grep -c 'sparkle:edSignature=' /tmp/pointer-appcast.xml || true)
+            [[ "$PENC" -ge 1 && "$PSIG" -eq "$PENC" ]] || {
+              echo "ERROR: beta-appcast-pointer branch is unsigned, empty, or stale." >&2
+              exit 1
+            }
+            grep -qF "${GITHUB_REF_NAME#v}" /tmp/pointer-appcast.xml || {
+              echo "ERROR: beta-appcast-pointer does not reference this release's version — force-push may have failed." >&2
+              exit 1
+            }
+            echo "OK — signed appcast live at $POINTER"
+          fi
 
   # ── Publish the release (draft → published) ────────────────────────────────
   # create-release deliberately creates the tag release as a draft (immutable-

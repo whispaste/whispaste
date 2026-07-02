@@ -37,11 +37,15 @@ final _log = AppLogger('AutoUpdater');
 const String _stableAppcastFeedUrl =
     '$kGitHubRepoUrl/releases/latest/download/appcast.xml';
 
-/// The beta appcast feed — served from the moving tag `beta-latest`, which the
-/// CI re-points at the current beta release (PRD §5.3). Beta releases are
-/// GitHub *prereleases*, so they never displace the stable `latest` feed.
+/// The beta appcast feed — served from a dedicated `beta-appcast-pointer` git
+/// branch that CI force-pushes on every beta release (PRD §5.3, Issue 08 fix
+/// v2). Deliberately NOT a `releases/download/...` URL: GitHub's
+/// immutable-releases feature (GA 2025-10) permanently locks a release's
+/// tag_name once published, which made the previous "reused beta-latest
+/// Release object" pointer permanently unusable — a branch carries no such
+/// restriction, so raw.githubusercontent.com can serve it indefinitely.
 const String _betaAppcastFeedUrl =
-    '$kGitHubRepoUrl/releases/download/beta-latest/appcast-beta.xml';
+    'https://raw.githubusercontent.com/whispaste/whispaste/beta-appcast-pointer/appcast-beta.xml';
 
 /// Resolves the appcast feed URL for [channel] at runtime (PRD §5.3):
 /// - [UpdateChannel.stable] → [_stableAppcastFeedUrl]

@@ -41,19 +41,22 @@ void main() {
       expect(url, endsWith('/releases/latest/download/appcast.xml'));
     });
 
-    test('beta → GitHub releases/download/beta-latest/appcast-beta.xml', () {
+    test('beta → raw.githubusercontent.com beta-appcast-pointer branch', () {
       expect(
         appcastFeedUrl(UpdateChannel.beta),
-        endsWith('/releases/download/beta-latest/appcast-beta.xml'),
+        endsWith(
+          '/beta-appcast-pointer/appcast-beta.xml',
+        ),
+      );
+      expect(
+        appcastFeedUrl(UpdateChannel.beta),
+        startsWith('https://raw.githubusercontent.com/whispaste/'),
       );
     });
 
-    test('both URLs share the whispaste GitHub repo root (single-source)', () {
+    test('both URLs target the whispaste/whispaste repo (single-source)', () {
       for (final channel in UpdateChannel.values) {
-        expect(
-          appcastFeedUrl(channel),
-          startsWith('https://github.com/whispaste/'),
-        );
+        expect(appcastFeedUrl(channel), contains('whispaste/whispaste'));
       }
     });
 
@@ -120,7 +123,7 @@ void main() {
         installSeams(sparklePlatform: true);
         await initAutoUpdater(DeployChannel.installer, UpdateChannel.beta);
         expect(feedUrl, appcastFeedUrl(UpdateChannel.beta));
-        expect(feedUrl, contains('beta-latest'));
+        expect(feedUrl, contains('beta-appcast-pointer'));
         expect(feedUrl, contains('appcast-beta.xml'));
         expect(feedUrl, isNot(contains('latest/download')));
         expect(checkCalled, isTrue);
@@ -171,7 +174,7 @@ void main() {
       installSeams(sparklePlatform: true);
       await presentSparkleUpdate(UpdateChannel.beta);
       expect(feedUrl, appcastFeedUrl(UpdateChannel.beta));
-      expect(feedUrl, contains('beta-latest'));
+      expect(feedUrl, contains('beta-appcast-pointer'));
     });
 
     test(

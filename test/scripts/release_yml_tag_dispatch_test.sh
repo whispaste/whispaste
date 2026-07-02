@@ -9,8 +9,8 @@
 #
 #   (1) STRUCTURE — the workflow contains the required routing constructs
 #       (beta-gated MSIX skip, --channel routing, channel-conditional
-#       prerelease/make_latest, the beta-latest moving-tag step, the docs-attest
-#       gate, stable-only manifest-bump). Verified by grep on the YAML.
+#       prerelease/make_latest, the beta-appcast-pointer branch push, the
+#       docs-attest gate, stable-only manifest-bump). Verified by grep on the YAML.
 #   (2) LOGIC — given sample tags (v1.2.44-beta.1 / v1.2.44), the SAME
 #       tag-matching primitives the workflow uses (contains '-beta.' / no '-')
 #       yield the per-job decisions required by the acceptance criteria.
@@ -20,8 +20,9 @@
 #   AC    Stable-Tag → Release + Stable-Feed + MSIX + Store-Trigger → T4/T3 + T11
 #   AC    releases/latest (Stable in, Beta out)              → T5 + T12
 #   AC    docs-attest-Gate im Release-Pfad                   → T7
-#   NEU   beta-latest ist ein echtes, idempotentes GitHub-Release
-#         (nicht nur ein bewegter Git-Tag) — Issue 08 Fix              → T13
+#   NEU   Beta-Appcast-Zeiger ist ein force-gepushter Git-Branch, kein
+#         GitHub-Release-Objekt (immutable-releases burnt den tag_name
+#         sonst dauerhaft) — Issue 08 Fix v2                          → T13
 #   NEU   Release wird als Draft erzeugt + erst NACH publish-appcast
 #         veröffentlicht (GitHub immutable-release Fix)                → T14
 #
@@ -118,24 +119,24 @@ c2=$?
 check "create-release binds prerelease + make_latest to channel step" "$?"
 
 # ---------------------------------------------------------------------------
-# T6: STRUCTURE — beta-latest pointer release exists, is beta-gated, and
-#     anchors its (only ever auto-created once) underlying tag via --target.
-#     No separate force-move step: `beta-latest` becomes a protected ref after
-#     first creation on this repo (same ruleset family as the immutable-
-#     release restriction), so `git push --force` on it fails on every cycle
-#     after the first — removed rather than left permanently broken.
+# T6: STRUCTURE — beta-appcast-pointer branch push exists, is beta-gated, and
+#     is NOT a GitHub Release object. Issue 08 fix v2: a Release-object pointer
+#     (`beta-latest`, tried first) hits GitHub's immutable-releases feature —
+#     a tag_name is permanently burned the moment ANY release (even deleted
+#     and recreated) is published under it, so delete-then-recreate cannot
+#     work either. A force-pushed branch carries no such restriction.
 # ---------------------------------------------------------------------------
-echo "== T6: beta-latest pointer release, no force-move (§5.3) =="
-grep -qF 'beta-latest' "$WF"
+echo "== T6: beta-appcast-pointer branch push, no Release object (§5.3) =="
+grep -qF 'beta-appcast-pointer' "$WF"
 b1=$?
 grep -qE 'if: contains\(github\.ref_name, .-beta\.' "$WF"
 b2=$?
-grep -qE -- '--target "\$\{\{ github\.sha \}\}"' "$WF"
+grep -qE -- 'git push -q --force origin beta-appcast-pointer' "$WF"
 b3=$?
-! grep -qF 'git push origin refs/tags/beta-latest --force' "$WF"
+! grep -qE 'gh release (create|delete) beta-latest' "$WF"
 b4=$?
 [[ $b1 -eq 0 && $b2 -eq 0 && $b3 -eq 0 && $b4 -eq 0 ]]
-check "beta-latest pointer release beta-gated, anchored via --target, no protected-ref force-move" "$?"
+check "beta-appcast-pointer branch push beta-gated, no Release-object pointer" "$?"
 
 # ---------------------------------------------------------------------------
 # T7: STRUCTURE — docs-attest gate in the release path (PRD §13)
@@ -222,7 +223,7 @@ route_tag() {
     echo "make_latest=false"
     echo "in_releases_latest=false"  # prerelease → excluded from releases/latest
     echo "appcast_asset=appcast-beta.xml"
-    echo "beta_latest_moved=true"
+    echo "beta_appcast_pointer_updated=true"
     echo "manifest_bump=false"       # stable-only channel
   elif is_stable "$tag"; then
     echo "channel=stable"
@@ -232,7 +233,7 @@ route_tag() {
     echo "make_latest=true"
     echo "in_releases_latest=true"   # non-prerelease + make_latest → latest
     echo "appcast_asset=appcast.xml"
-    echo "beta_latest_moved=false"
+    echo "beta_appcast_pointer_updated=false"
     echo "manifest_bump=true"
   else
     echo "channel=unknown"
@@ -249,7 +250,7 @@ is_beta "$BTAG";                                  check "beta tag recognised as 
 [[ "$(dec "$BTAG" channel)" == "beta" ]];         check "beta → channel=beta (appcast-beta.xml)" "$?"
 [[ "$(dec "$BTAG" prerelease)" == "true" && "$(dec "$BTAG" make_latest)" == "false" ]]; \
   check "beta → GitHub Prerelease (not latest)" "$?"
-[[ "$(dec "$BTAG" beta_latest_moved)" == "true" ]]; check "beta → beta-latest pointer release updated (§5.3)" "$?"
+[[ "$(dec "$BTAG" beta_appcast_pointer_updated)" == "true" ]]; check "beta → beta-appcast-pointer branch updated (§5.3)" "$?"
 
 echo "== T11: logic — v1.2.44 routes to stable =="
 STAG="v1.2.44"
@@ -269,79 +270,53 @@ echo "== T12: logic — releases/latest resolution (Q1/§5.3) =="
   check "Beta does NOT appear in releases/latest (prerelease)" "$?"
 
 # ---------------------------------------------------------------------------
-# T13: STRUCTURE + IDEMPOTENCY — beta-latest is a real, reused GitHub Release
-#      (Issue 08 fix), not merely a moved git tag. Delete-then-recreate rather
-#      than upload --clobber: GitHub's immutable-release feature blocks asset
-#      uploads to an already-published release, so a repeat beta cycle must
-#      delete the existing pointer release object (tag preserved) before
-#      recreating it with the fresh appcast-beta.xml attached at creation.
+# T13: STRUCTURE + IDEMPOTENCY — beta-appcast-pointer is a force-pushed git
+#      branch (Issue 08 fix v2), not a reused GitHub Release object. A Release
+#      object was tried first (delete-then-recreate under the `beta-latest`
+#      tag_name) but GitHub's immutable-releases feature (GA 2025-10)
+#      permanently burns a tag_name the moment ANY release is published under
+#      it — deleting and recreating cannot work around that. A branch carries
+#      no such restriction, so a plain `--force` push is idempotent forever.
 # ---------------------------------------------------------------------------
-echo "== T13: beta-latest real GitHub Release, idempotent (Issue 08 fix) =="
+echo "== T13: beta-appcast-pointer git branch, idempotent (Issue 08 fix v2) =="
 
-# The old wrong assumption (tag move alone serves the download URL) must no
-# longer be perpetuated — the workflow comment must explain the actual
-# resolution mechanism (Release object's tag_name, not the git ref).
-grep -qi 'tag_name' "$WF"
-check "comment explains GitHub resolves releases/download/<tag> via a Release's tag_name (not the git ref)" "$?"
+# The workflow comment must explain WHY a Release object was abandoned
+# (immutable-releases permanently burning the tag_name), not just what
+# replaced it — otherwise a future maintainer could plausibly reintroduce it.
+grep -qi 'immutable-releases' "$WF"
+check "comment explains GitHub's immutable-releases permanently burns a tag_name (why Release-object pointer was abandoned)" "$?"
 
-# Existence guard before create — same primitive as `gh release view` (T7 of
-# promote_flow_test.sh), applied to the beta-latest pointer release.
-grep -qE 'gh release view beta-latest' <<<"$PUBLISH_APPCAST_TEXT"
-check "idempotency: existence check (gh release view beta-latest) before create" "$?"
+# No trace of the old Release-object mechanism should remain.
+! grep -qE 'gh release (view|delete|create) beta-latest' <<<"$PUBLISH_APPCAST_TEXT"
+check "no gh release view/delete/create beta-latest remains (old immutable-release-incompatible mechanism fully removed)" "$?"
 
-# Delete path present (subsequent beta cycles) — removes the existing
-# (published, therefore asset-upload-immutable) pointer release object before
-# recreating it, never a --cleanup-tag flag (the underlying git tag stays).
-grep -qE 'gh release delete beta-latest' <<<"$PUBLISH_APPCAST_TEXT"; c1=$?
-grep -qiE -- '--yes' <<<"$PUBLISH_APPCAST_TEXT"; c2=$?
-! grep -qiE -- '--cleanup-tag' <<<"$PUBLISH_APPCAST_TEXT"; c3=$?
-[[ $c1 -eq 0 && $c2 -eq 0 && $c3 -eq 0 ]]
-check "gh release delete beta-latest --yes on repeat cycles, tag never cleaned up" "$?"
-
-# Create path present and unconditional (always reached — safe because a
-# pre-existing pointer release was just deleted above).
-grep -qE 'gh release create beta-latest' <<<"$PUBLISH_APPCAST_TEXT"
-check "gh release create beta-latest path present" "$?"
+# The new mechanism: isolated fresh git repo, commit, force-push to the
+# dedicated branch. Isolated (mktemp -d + git init) so it never touches the
+# actual release.yml checkout or its history.
+grep -qE 'git init -q -b beta-appcast-pointer' <<<"$PUBLISH_APPCAST_TEXT"; d1=$?
+grep -qE 'git push -q --force origin beta-appcast-pointer' <<<"$PUBLISH_APPCAST_TEXT"; d2=$?
+[[ $d1 -eq 0 && $d2 -eq 0 ]]
+check "beta-appcast-pointer: isolated git repo, force-pushed to dedicated branch" "$?"
 
 # The correct asset (appcast-beta.xml) is what gets published on the pointer
-# release — not the installers (those stay on the versioned release).
+# branch — not the installers (those stay on the versioned release).
 grep -qE 'appcast-beta\.xml' <<<"$PUBLISH_APPCAST_TEXT"
-check "beta-latest pointer release carries appcast-beta.xml" "$?"
+check "beta-appcast-pointer branch carries appcast-beta.xml" "$?"
 
-# Stays a prerelease so it never displaces releases/latest (regression guard
-# against the stable Q1/§5.3 path).
-grep -qiE -- '--prerelease' <<<"$PUBLISH_APPCAST_TEXT"
-check "beta-latest release created as --prerelease (never in releases/latest)" "$?"
-
-# The pointer-release step is beta-gated (the tag-move step it used to share
+# The pointer-branch step is beta-gated (the tag-move step it used to share
 # this guard with was removed — see T6).
 grep -c "if: contains(github.ref_name, '-beta.')" "$WF" | grep -qE '^[1-9][0-9]*$'
-check "beta-latest pointer-release step is beta-gated" "$?"
+check "beta-appcast-pointer step is beta-gated" "$?"
 
-# --- T13b: simulated second beta cycle — no duplicate-create structurally ---
-# `gh release create beta-latest` must run UNCONDITIONALLY after the delete
-# guard (not else-branched) — otherwise a second beta tag would either skip
-# recreating the pointer (stale asset) or hit "release already exists".
-echo "== T13b: simulated second beta cycle stays idempotent =="
-python3 - "$WF" <<'PY' >/dev/null 2>&1; check "gh release create beta-latest runs unconditionally after the delete-if-exists guard, not skipped on repeat cycles" "$?"
-import sys, re, yaml
-wf = yaml.safe_load(open(sys.argv[1]))
-job = wf.get("jobs", {}).get("publish-appcast", {})
-run = ""
-for s in job.get("steps", []):
-    if "beta-latest" in str(s.get("name", "")) and "view" in str(s.get("run", "")):
-        run = str(s.get("run", ""))
-        break
-# Must be: `if gh release view beta-latest; then ... delete ... fi` followed
-# by an UNCONDITIONAL `gh release create beta-latest` outside that if-block
-# (i.e. after its closing `fi`, not inside an else) — so every beta cycle,
-# first or repeat, ends up with a freshly created pointer release.
-ok = bool(re.search(
-    r'if\s+gh release view beta-latest.*?gh release delete beta-latest.*?\bfi\b.*?gh release create beta-latest',
-    run, re.S,
-))
-sys.exit(0 if ok else 1)
-PY
+# --- T13b: idempotency is structural, not conditional ------------------------
+# Unlike the abandoned delete-then-recreate dance, a force-push needs no
+# existence guard at all — every beta cycle, first or repeat, runs the exact
+# same unconditional git init/commit/push. Assert there is no `gh release
+# view`-style existence check guarding this step (a regression back to that
+# pattern would reintroduce the immutable-release trap).
+echo "== T13b: force-push idempotency needs no existence guard =="
+! grep -qE 'gh release view beta' <<<"$PUBLISH_APPCAST_TEXT"
+check "no existence-check guard around the pointer push (force-push is unconditionally idempotent)" "$?"
 
 # ---------------------------------------------------------------------------
 # T14: STRUCTURE — the release is created as a draft and only published after
