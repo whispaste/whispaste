@@ -250,7 +250,7 @@ echo "Wrote $APPCAST"
 # the feed itself). In CI the token is always present.
 
 if [[ -n "${GITHUB_TOKEN:-}" ]]; then
-  echo "Uploading $APPCAST_NAME to release $TAG…"
+  echo "Uploading $APPCAST_NAME to release ${TAG}…"
   gh release upload "$TAG" "$APPCAST" --clobber
   echo "OK — signed appcast published for $TAG."
 else
