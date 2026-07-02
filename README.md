@@ -25,6 +25,13 @@
   <a href="#development"><b>🏗️ Build</b></a>
 </p>
 
+<p align="center">
+  <img src="resources/screenshots/history-overview-dark.png" alt="WhisPaste — History view, dark theme" width="720">
+</p>
+<p align="center">
+  <img src="resources/screenshots/history-detail-light.png" alt="WhisPaste — History detail view, light theme" width="720">
+</p>
+
 ---
 
 ## How It Works
