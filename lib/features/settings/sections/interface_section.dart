@@ -8,7 +8,6 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/logging/app_logger.dart';
-import '../../../services/deploy_channel_service.dart';
 import '../../../services/telemetry_service.dart';
 import '../../../widgets/language_selector.dart';
 import '../../../widgets/section.dart';
@@ -23,7 +22,6 @@ class InterfaceSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = L10n.of(context);
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
-    final channel = ref.watch(deployChannelProvider);
 
     return WpSection(
       title: l10n.settingsInterface,
@@ -143,28 +141,6 @@ class InterfaceSection extends ConsumerWidget {
                   .updateSettings((s) => s.copyWith(closeToTray: v)),
             ),
           ),
-          if (channel != DeployChannel.store)
-            SettingRow(
-              icon: LucideIcons.refreshCw,
-              label: l10n.settingsCheckUpdates,
-              subtitle: l10n.settingsCheckUpdatesSubtitle,
-              semanticToggledValue: settings.checkUpdates,
-              trailing: settingsToggle(
-                value: settings.checkUpdates,
-                onChanged: (v) {
-                  ref
-                      .read(settingsProvider.notifier)
-                      .updateSettings((s) => s.copyWith(checkUpdates: v));
-                  try {
-                    ref
-                        .read(telemetryProvider)
-                        .trackSettingChange('check_updates');
-                  } catch (e) {
-                    _log.debug('telemetry failed: $e');
-                  }
-                },
-              ),
-            ),
         ],
       ),
     );

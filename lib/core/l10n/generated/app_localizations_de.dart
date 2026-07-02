@@ -2056,6 +2056,19 @@ class L10nDe extends L10n {
       'Beim Start automatisch nach neuen Versionen suchen';
 
   @override
+  String get settingsUpdates => 'Updates';
+
+  @override
+  String get settingsUpdatesSubtitle => 'Release-Kanal und Update-Prüfung';
+
+  @override
+  String get settingsBetaUpdates => 'Beta-Updates';
+
+  @override
+  String get settingsBetaUpdatesSubtitle =>
+      'Vorab-Versionen erhalten, die weniger getestet sind.';
+
+  @override
   String get onboardingGetStarted => 'Weiter';
 
   @override

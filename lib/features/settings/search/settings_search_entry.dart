@@ -52,7 +52,7 @@ class SettingsSearchEntry {
 // Table
 // ---------------------------------------------------------------------------
 
-/// Static search table covering all 12 settings sections.
+/// Static search table covering all settings sections.
 ///
 /// Keywords deliberately include both DE and EN synonyms so the matcher works
 /// regardless of the app language the user has selected.
@@ -238,6 +238,22 @@ const List<SettingsSearchEntry> kSettingsSearchTable = [
       'reset', 'defaults', 'error reporting', 'updates', 'tray',
       'system tray', 'auto-paste delay', 'blocklist', 'text replacements',
       'max duration', 'factory reset', 'close to tray',
+    ],
+  ),
+  SettingsSearchEntry(
+    id: 'updates',
+    sectionKey: 'updates',
+    titleDe: 'Updates',
+    titleEn: 'Updates',
+    subtitleDe: 'Release-Kanal und Update-Prüfung',
+    subtitleEn: 'Release channel and update checks',
+    keywords: [
+      // DE
+      'Update', 'Beta', 'Kanal', 'Release-Kanal', 'Vorabversion', 'prüfen',
+      'automatisch', 'neue Version', 'Stable', 'Version',
+      // EN
+      'update', 'beta', 'channel', 'release channel', 'pre-release', 'check',
+      'automatic', 'new version', 'stable', 'version',
     ],
   ),
   SettingsSearchEntry(

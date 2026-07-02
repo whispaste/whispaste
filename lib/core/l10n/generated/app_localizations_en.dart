@@ -2039,6 +2039,19 @@ class L10nEn extends L10n {
       'Automatically check for new versions on startup';
 
   @override
+  String get settingsUpdates => 'Updates';
+
+  @override
+  String get settingsUpdatesSubtitle => 'Release channel and update checks';
+
+  @override
+  String get settingsBetaUpdates => 'Beta Updates';
+
+  @override
+  String get settingsBetaUpdatesSubtitle =>
+      'Get pre-release versions that are less tested.';
+
+  @override
   String get onboardingGetStarted => 'Continue';
 
   @override

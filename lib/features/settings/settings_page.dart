@@ -21,6 +21,7 @@ import 'sections/privacy_section.dart';
 import 'sections/recording_sections.dart';
 import 'sections/review_support_section.dart';
 import 'sections/stt_section.dart';
+import 'sections/updates_section.dart';
 import 'settings_widgets.dart';
 import 'widgets/settings_search_field.dart';
 
@@ -55,6 +56,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     'recordingSafety': GlobalKey(),
     'history': GlobalKey(),
     'advanced': GlobalKey(),
+    'updates': GlobalKey(),
     'reviewSupport': GlobalKey(),
     'privacy': GlobalKey(),
   };
@@ -223,6 +225,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         () => sectionWithHighlight(
           'advanced',
           AdvancedSection(key: _sectionKeys['advanced']),
+        ),
+      ),
+      (
+        'updates',
+        () => sectionWithHighlight(
+          'updates',
+          UpdatesSection(key: _sectionKeys['updates']),
         ),
       ),
       (

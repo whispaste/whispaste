@@ -3687,6 +3687,30 @@ abstract class L10n {
   /// **'Automatically check for new versions on startup'**
   String get settingsCheckUpdatesSubtitle;
 
+  /// No description provided for @settingsUpdates.
+  ///
+  /// In en, this message translates to:
+  /// **'Updates'**
+  String get settingsUpdates;
+
+  /// No description provided for @settingsUpdatesSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Release channel and update checks'**
+  String get settingsUpdatesSubtitle;
+
+  /// No description provided for @settingsBetaUpdates.
+  ///
+  /// In en, this message translates to:
+  /// **'Beta Updates'**
+  String get settingsBetaUpdates;
+
+  /// No description provided for @settingsBetaUpdatesSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Get pre-release versions that are less tested.'**
+  String get settingsBetaUpdatesSubtitle;
+
   /// No description provided for @onboardingGetStarted.
   ///
   /// In en, this message translates to:

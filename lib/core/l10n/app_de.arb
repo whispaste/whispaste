@@ -673,6 +673,10 @@
   "settingsAutoPasteBlocklistPlaceholder": "z. B. com.apple.Terminal, com.1password",
   "settingsCheckUpdates": "Auf Updates prüfen",
   "settingsCheckUpdatesSubtitle": "Beim Start automatisch nach neuen Versionen suchen",
+  "settingsUpdates": "Updates",
+  "settingsUpdatesSubtitle": "Release-Kanal und Update-Prüfung",
+  "settingsBetaUpdates": "Beta-Updates",
+  "settingsBetaUpdatesSubtitle": "Vorab-Versionen erhalten, die weniger getestet sind.",
 
   "onboardingGetStarted": "Weiter",
   "onboardingSkip": "Diesen Schritt überspringen",
