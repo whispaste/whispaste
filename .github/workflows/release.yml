@@ -1058,52 +1058,37 @@ jobs:
           git push -q --force origin beta-appcast-pointer
           echo "beta-appcast-pointer branch updated with current appcast-beta.xml"
 
-      - name: Gate — verify published appcast is fetchable & every enclosure signed
+      # Only the beta-appcast-pointer branch is checked here — it is a plain
+      # git ref served via raw.githubusercontent.com, live immediately after
+      # the force-push above, independent of the tag release's draft/publish
+      # state. The tag release's OWN download URL
+      # (releases/download/<tag>/<file> or releases/latest/download/...) is
+      # NOT publicly fetchable yet at this point in the pipeline — create-
+      # release deliberately leaves it a draft until finalize-release runs
+      # (see that job) — so verifying it here would 404 by construction, not
+      # because anything is actually broken. That check moved to
+      # finalize-release, right after the release is published.
+      - name: Gate — verify beta-appcast-pointer branch is fetchable & signed
+        if: contains(github.ref_name, '-beta.')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          sleep 5  # let the release-asset CDN settle after upload
-          if [[ "${GITHUB_REF_NAME}" == *-beta.* ]]; then
-            # Beta feed: fetch the just-uploaded asset via its version tag (the
-            # version-tag URL is reliable right after upload and exercises the
-            # same signed bytes the app will consume).
-            FEED="https://github.com/whispaste/whispaste/releases/download/${GITHUB_REF_NAME}/appcast-beta.xml"
-          else
-            # Stable feed: releases/latest resolves to this non-prerelease
-            # (make_latest=true in create-release).
-            FEED="https://github.com/whispaste/whispaste/releases/latest/download/appcast.xml"
-          fi
-          echo "Fetching $FEED"
-          curl -fsSL -o /tmp/published-appcast.xml "$FEED"
-          ENC=$(grep -c '<enclosure' /tmp/published-appcast.xml || true)
-          SIG=$(grep -c 'sparkle:edSignature=' /tmp/published-appcast.xml || true)
-          echo "Published enclosures: ${SIG}/${ENC} signed"
-          [[ "$ENC" -ge 1 && "$SIG" -eq "$ENC" ]] || {
-            echo "ERROR: published appcast is unsigned or empty — self-update would be rejected by Sparkle." >&2
+          sleep 5  # let raw.githubusercontent.com's CDN settle after push
+          POINTER="https://raw.githubusercontent.com/${{ github.repository }}/beta-appcast-pointer/appcast-beta.xml"
+          echo "Fetching $POINTER"
+          curl -fsSL -o /tmp/pointer-appcast.xml "$POINTER"
+          PENC=$(grep -c '<enclosure' /tmp/pointer-appcast.xml || true)
+          PSIG=$(grep -c 'sparkle:edSignature=' /tmp/pointer-appcast.xml || true)
+          [[ "$PENC" -ge 1 && "$PSIG" -eq "$PENC" ]] || {
+            echo "ERROR: beta-appcast-pointer branch is unsigned, empty, or stale." >&2
             exit 1
           }
-          echo "OK — signed appcast live at $FEED"
-
-          if [[ "${GITHUB_REF_NAME}" == *-beta.* ]]; then
-            # Also verify the actual rolling pointer real installs poll (Issue
-            # 08 fix v2) — a raw.githubusercontent.com URL on the dedicated
-            # beta-appcast-pointer branch, not a release download URL.
-            POINTER="https://raw.githubusercontent.com/${{ github.repository }}/beta-appcast-pointer/appcast-beta.xml"
-            echo "Fetching $POINTER"
-            curl -fsSL -o /tmp/pointer-appcast.xml "$POINTER"
-            PENC=$(grep -c '<enclosure' /tmp/pointer-appcast.xml || true)
-            PSIG=$(grep -c 'sparkle:edSignature=' /tmp/pointer-appcast.xml || true)
-            [[ "$PENC" -ge 1 && "$PSIG" -eq "$PENC" ]] || {
-              echo "ERROR: beta-appcast-pointer branch is unsigned, empty, or stale." >&2
-              exit 1
-            }
-            grep -qF "${GITHUB_REF_NAME#v}" /tmp/pointer-appcast.xml || {
-              echo "ERROR: beta-appcast-pointer does not reference this release's version — force-push may have failed." >&2
-              exit 1
-            }
-            echo "OK — signed appcast live at $POINTER"
-          fi
+          grep -qF "${GITHUB_REF_NAME#v}" /tmp/pointer-appcast.xml || {
+            echo "ERROR: beta-appcast-pointer does not reference this release's version — force-push may have failed." >&2
+            exit 1
+          }
+          echo "OK — signed appcast live at $POINTER"
 
   # ── Publish the release (draft → published) ────────────────────────────────
   # create-release deliberately creates the tag release as a draft (immutable-
@@ -1130,6 +1115,36 @@ jobs:
           set -euo pipefail
           gh release edit "${{ github.ref_name }}" --draft=false --repo "${{ github.repository }}"
           echo "Published ${{ github.ref_name }}"
+
+      # Only meaningful once the release above is actually published — the
+      # releases/download/<tag>/<file> and releases/latest/download/... URLs
+      # 404 on a draft release, which is why this moved out of publish-appcast
+      # (see the comment on its remaining beta-appcast-pointer-only gate).
+      - name: Gate — verify published appcast is fetchable & every enclosure signed
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          sleep 5  # let the release-asset CDN settle after publish
+          if [[ "${GITHUB_REF_NAME}" == *-beta.* ]]; then
+            # Beta feed: fetch the just-uploaded asset via its version tag —
+            # exercises the same signed bytes the app will consume.
+            FEED="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/appcast-beta.xml"
+          else
+            # Stable feed: releases/latest resolves to this non-prerelease
+            # (make_latest=true in create-release).
+            FEED="https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/appcast.xml"
+          fi
+          echo "Fetching $FEED"
+          curl -fsSL -o /tmp/published-appcast.xml "$FEED"
+          ENC=$(grep -c '<enclosure' /tmp/published-appcast.xml || true)
+          SIG=$(grep -c 'sparkle:edSignature=' /tmp/published-appcast.xml || true)
+          echo "Published enclosures: ${SIG}/${ENC} signed"
+          [[ "$ENC" -ge 1 && "$SIG" -eq "$ENC" ]] || {
+            echo "ERROR: published appcast is unsigned or empty — self-update would be rejected by Sparkle." >&2
+            exit 1
+          }
+          echo "OK — signed appcast live at $FEED"
 
   # ── Manifest-Auto-Bump ────────────────────────────────────────────────────────
   # Updates version + SHA256 in all three packaging manifests as part of the release.

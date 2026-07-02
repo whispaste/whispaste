@@ -362,6 +362,32 @@ needs = wf.get("jobs", {}).get("manifest-bump", {}).get("needs", [])
 sys.exit(0 if "finalize-release" in needs else 1)
 PY
 
+# ---------------------------------------------------------------------------
+# T15: STRUCTURE — the release-download-URL appcast gate runs AFTER publish,
+#      not inside publish-appcast. releases/download/<tag>/<file> (and
+#      releases/latest/download/...) 404 on a still-draft release, so
+#      verifying them before finalize-release publishes would fail by
+#      construction on every run, not just when something is actually broken.
+# ---------------------------------------------------------------------------
+echo "== T15: release-download appcast gate runs after publish =="
+
+python3 - "$WF" <<'PY' >/dev/null 2>&1; check "publish-appcast no longer fetches releases/download or releases/latest/download URLs" "$?"
+import sys, yaml
+wf = yaml.safe_load(open(sys.argv[1]))
+job = wf.get("jobs", {}).get("publish-appcast", {})
+run = "\n".join(str(s.get("run", "")) for s in job.get("steps", []))
+sys.exit(0 if ("releases/download/" not in run and "releases/latest/download" not in run) else 1)
+PY
+
+python3 - "$WF" <<'PY' >/dev/null 2>&1; check "finalize-release fetches + verifies the published appcast (releases/download or releases/latest/download)" "$?"
+import sys, yaml
+wf = yaml.safe_load(open(sys.argv[1]))
+job = wf.get("jobs", {}).get("finalize-release", {})
+run = "\n".join(str(s.get("run", "")) for s in job.get("steps", []))
+ok = "releases/download/" in run and "releases/latest/download" in run and "sparkle:edSignature=" in run
+sys.exit(0 if ok else 1)
+PY
+
 echo
 echo "================================================================"
 echo "  $PASS passed, $FAIL failed"
