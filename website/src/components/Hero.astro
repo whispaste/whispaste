@@ -52,7 +52,7 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
       </div>
 
       <h1
-        class="hero-title text-5xl sm:text-7xl lg:text-[8.5rem] tracking-tight text-white leading-[0.98]"
+        class="hero-title text-5xl sm:text-7xl lg:text-[8.5rem] tracking-tight text-ink leading-[0.98]"
       >
         <span data-i18n="hero.title1">{t(lang, "hero.title1")}</span><br />
         <span class="hero-gradient" data-i18n="hero.title2"
@@ -77,32 +77,37 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
     <div data-platform-btn="macos"><AppleButton size="lg" /></div>
   </div>
 
-  <p class="text-xs text-gray-500 flex items-center gap-1">
+  <p class="text-xs text-ink-subtle flex items-center gap-1">
     <svg class="w-3 h-3 text-pink-400/60" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
     <span data-i18n="hero.store.hint">{t(lang, "hero.store.hint")}</span>
   </p>
 
   <!-- Privacy hook (Nordstern differentiator): honest, non-absolute claim —
        mirrors the app's own "aboutPrivacyFirstDesc" wording (on-device by
-       default, cloud only if the user opts in). No dark pattern. -->
-  <p class="inline-flex items-center gap-1.5 text-xs sm:text-sm text-ink-muted">
-    <svg class="w-3.5 h-3.5 shrink-0 text-brand-cyan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"></path><path d="m9 12 2 2 4-4"></path></svg>
+       default, cloud only if the user opts in). No dark pattern. Now the
+       single supporting statement under the CTAs (the former "Privacy-first"
+       trust chip is folded into this line — one message, one place). -->
+  <p class="mt-1 inline-flex items-start sm:items-center justify-center gap-2 text-sm sm:text-base text-ink-muted max-w-xl mx-auto">
+    <svg class="w-4 h-4 mt-0.5 sm:mt-0 shrink-0 text-brand-cyan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"></path><path d="m9 12 2 2 4-4"></path></svg>
     <span data-i18n="hero.privacy.line">{t(lang, "hero.privacy.line")}</span>
   </p>
 </div>
 
-    <!-- Plattform-Badge-Reihe (Issue 09): macOS · Windows · Ubuntu Linux only —
-         no mobile. The OS detected by the existing data-os head-script (see
-         Layout.astro) is highlighted via CSS attribute selectors only, so
-         there is no reflow and it degrades gracefully (unknown OS → all three
-         shown equally, see global.css `[data-os=...]` convention). -->
-    <div class="platform-row mt-3 sm:mt-4 flex flex-col items-center gap-2 animate-fade-in-delay">
-      <p class="text-xs sm:text-sm text-gray-500" data-i18n="hero.platforms.claim">
+    <!-- Plattform-Kommunikation (Issue 09): macOS · Windows · Ubuntu Linux —
+         drei gleichrangige Desktops, kein Mobile. Now the ONLY pill row in the
+         hero (the former trust-chip row was redundant with the hero.desc copy
+         and is gone), so the badges own the pill shape. The OS detected by the
+         existing data-os head-script (see Layout.astro) is highlighted via CSS
+         attribute selectors only, so there is no reflow and it degrades
+         gracefully (unknown OS → all three shown equally, see global.css
+         `[data-os=...]` convention). -->
+    <div class="platform-row mt-7 sm:mt-9 flex flex-col items-center gap-2.5 animate-fade-in-delay">
+      <p class="text-[11px] sm:text-xs font-medium uppercase tracking-[0.14em] text-ink-subtle" data-i18n="hero.platforms.claim">
         {t(lang, "hero.platforms.claim")}
       </p>
       <div class="flex flex-wrap items-center justify-center gap-2 sm:gap-2.5">
         <span
-          class="platform-badge inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-brand-card/60 px-3 py-1.5 sm:px-3.5 sm:py-1.5 text-xs sm:text-sm text-gray-200 backdrop-blur-sm"
+          class="platform-badge inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-brand-card/60 px-3 py-1.5 sm:px-3.5 sm:py-1.5 text-xs sm:text-sm text-ink-muted backdrop-blur-sm"
           data-platform-badge="macos"
         >
           <span class="platform-badge__icon inline-flex w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" aria-hidden="true" set:html={appleIconRaw} />
@@ -110,7 +115,7 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
           <span class="platform-badge__current">(<span data-i18n="hero.platforms.current">{t(lang, "hero.platforms.current")}</span>)</span>
         </span>
         <span
-          class="platform-badge inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-brand-card/60 px-3 py-1.5 sm:px-3.5 sm:py-1.5 text-xs sm:text-sm text-gray-200 backdrop-blur-sm"
+          class="platform-badge inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-brand-card/60 px-3 py-1.5 sm:px-3.5 sm:py-1.5 text-xs sm:text-sm text-ink-muted backdrop-blur-sm"
           data-platform-badge="windows"
         >
           <span class="platform-badge__icon inline-flex w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" aria-hidden="true" set:html={windowsIconRaw} />
@@ -118,7 +123,7 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
           <span class="platform-badge__current">(<span data-i18n="hero.platforms.current">{t(lang, "hero.platforms.current")}</span>)</span>
         </span>
         <span
-          class="platform-badge inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-brand-card/60 px-3 py-1.5 sm:px-3.5 sm:py-1.5 text-xs sm:text-sm text-gray-200 backdrop-blur-sm"
+          class="platform-badge inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-brand-card/60 px-3 py-1.5 sm:px-3.5 sm:py-1.5 text-xs sm:text-sm text-ink-muted backdrop-blur-sm"
           data-platform-badge="linux"
         >
           <span class="platform-badge__icon inline-flex w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" aria-hidden="true" set:html={ubuntuIconRaw} />
@@ -128,39 +133,23 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
       </div>
     </div>
 
-    <p class="mt-2 text-xs text-gray-600 animate-fade-in-delay" data-i18n="hero.reviewNudge">
-      {t(lang, "hero.reviewNudge")}
-    </p>
-
-    <div
-      class="mt-4 sm:mt-6 flex flex-wrap items-center justify-center gap-2 sm:gap-3 animate-fade-in-delay"
+    <!-- GitHub stars — hidden until fetched (index.astro script fills
+         #github-stars-count and clears display:none). Quiet text link instead
+         of another pill so social proof doesn't compete with the platform
+         badges; the amber star is a deliberate semantic signal (convention),
+         not a brand accent. -->
+    <a
+      id="github-stars-badge"
+      href="https://github.com/whispaste/whispaste"
+      target="_blank"
+      rel="noopener"
+      class="mt-4 inline-flex items-center gap-1.5 text-xs sm:text-sm text-ink-muted hover:text-ink transition-colors animate-fade-in-delay"
+      style="display:none"
+      aria-label="Star WhisPaste on GitHub"
     >
-      <div class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-brand-card/60 px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm text-gray-200 backdrop-blur-sm">
-        <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-brand-cyan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
-        <span data-i18n="hero.trust.anywhere">{t(lang, "hero.trust.anywhere")}</span>
-      </div>
-      <div class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-brand-card/60 px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm text-gray-200 backdrop-blur-sm">
-        <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-brand-cyan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"></path><path d="m9 12 2 2 4-4"></path></svg>
-        <span data-i18n="hero.trust.private">{t(lang, "hero.trust.private")}</span>
-      </div>
-      <div class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-brand-card/60 px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm text-gray-200 backdrop-blur-sm">
-        <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-brand-cyan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 1v22"></path><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
-        <span data-i18n="hero.trust.nosub">{t(lang, "hero.trust.nosub")}</span>
-      </div>
-      <!-- GitHub stars — hidden until fetched -->
-      <a
-        id="github-stars-badge"
-        href="https://github.com/whispaste/whispaste"
-        target="_blank"
-        rel="noopener"
-        class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-brand-card/60 px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm text-gray-200 backdrop-blur-sm hover:border-white/20 transition-colors"
-        style="display:none"
-        aria-label="Star WhisPaste on GitHub"
-      >
-        <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-        <span id="github-stars-count"></span>
-      </a>
-    </div>
+      <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+      <span id="github-stars-count"></span>
+    </a>
 
     <!-- Carousel -->
     <HeroCarousel />
