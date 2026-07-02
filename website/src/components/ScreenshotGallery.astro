@@ -64,7 +64,7 @@ const screens: Array<{
         >
           <img
             class="gallery-image"
-            src={`/screenshots/${lang}/${screen.theme}/${screen.id}.png`}
+            src={`/screenshots/${lang}/${screen.theme}/${screen.id}.webp`}
             data-gallery-id={screen.id}
             data-gallery-theme={screen.theme}
             alt={screen.defaultLabel}
@@ -279,7 +279,7 @@ const screens: Array<{
 
     function buildSrc(id: string, lang: string, theme: string): string {
       const prefix = galleryPlatform === 'macos' ? 'mac/' : '';
-      return `/screenshots/${prefix}${lang}/${theme}/${id}.png`;
+      return `/screenshots/${prefix}${lang}/${theme}/${id}.webp`;
     }
 
     function syncPlatformToggles() {

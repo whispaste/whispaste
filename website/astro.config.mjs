@@ -59,5 +59,12 @@ export default defineConfig({
   ],
   vite: {
     plugins: [tailwindcss()],
+    // WhisPaste ist eine Desktop-App für aktuelle macOS/Windows/Linux —
+    // die Marketing-Site braucht keine Alt-Browser-Kompatibilität. Modernes
+    // Build-Target vermeidet unnötiges Down-Leveling (z. B. Array.from-
+    // Transpilierung), das Lighthouse als "legacy JavaScript" flaggt.
+    build: {
+      target: 'es2022',
+    },
   },
 });

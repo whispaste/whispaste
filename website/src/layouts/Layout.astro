@@ -90,8 +90,11 @@ const ogLocaleAlternate = lang === "de" ? "en_US" : "de_DE";
     <link rel="preload" href="/fonts/hanken-grotesk-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/bricolage-grotesque-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/fraunces-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="icon" type="image/png" href="/app-icon.png" />
-    <link rel="apple-touch-icon" href="/app-icon.png" />
+    {/* Kleine, dedizierte Varianten statt des vollen 1024px-App-Icons (das nur
+        noch als Organization-Schema-`logo`-Referenz dient) — Browser laden
+        rel=icon/apple-touch-icon bei jedem Erstbesuch. */}
+    <link rel="icon" type="image/png" href="/app-icon-32.png" />
+    <link rel="apple-touch-icon" href="/app-icon-180.png" />
     <link rel="sitemap" href="/sitemap-index.xml" />
     <link rel="canonical" href={canonicalURL.href} />
     {/*

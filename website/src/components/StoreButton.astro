@@ -28,9 +28,6 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
     className,
   ]}
   data-testid="store-button"
-  aria-label={isLarge
-    ? 'Get WhisPaste from Microsoft Store (opens in new tab)'
-    : 'Get WhisPaste on Microsoft Store (opens in new tab)'}
 >
   <!-- Windows logo -->
   <svg class="wp-store-btn__icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -47,6 +44,7 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
       <span data-i18n="store.btn.single">{t(lang, "store.btn.single")}</span>
     </span>
   )}
+  <span class="sr-only" data-i18n="common.opensNewTab">{t(lang, "common.opensNewTab")}</span>
 </a>
 
 <style>

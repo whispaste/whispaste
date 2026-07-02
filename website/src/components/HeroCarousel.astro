@@ -184,35 +184,49 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
         </div>
       </div>
     </div>
-    <!-- Dot indicators -->
-    <div class="flex justify-center gap-2 pt-4" role="tablist" aria-label="Carousel slides" data-i18n-aria="carousel.tablistAria">
+    <!-- Dot indicators — plain button group (not a full ARIA tabs widget, so
+         no role=tab/tabpanel pairing is required). Each button is a ≥24×24px
+         hit target (WCAG 2.5.8) wrapping the small visible dot, so the tap
+         area stays comfortable without growing the dot itself. -->
+    <div class="flex justify-center gap-2 pt-4" role="group" aria-label="Carousel slides" data-i18n-aria="carousel.tablistAria">
       <button
-        class="carousel-dot active w-2 h-2 rounded-full bg-brand-cyan transition-all"
+        class="carousel-dot-hit group"
         data-slide="0"
-        role="tab"
-        aria-selected="true"
+        aria-current="true"
         aria-label="Slide 1: Press hotkey"
         data-i18n-aria="carousel.slide1Aria"
-        style="width:16px;"></button>
+      ><span class="carousel-dot active w-2 h-2 rounded-full bg-brand-cyan transition-all" style="width:16px;"></span></button>
       <button
-        class="carousel-dot w-2 h-2 rounded-full bg-white/20 hover:bg-white/40 transition-all"
+        class="carousel-dot-hit group"
         data-slide="1"
-        role="tab"
-        aria-selected="false"
         aria-label="Slide 2: Speak now"
-        data-i18n-aria="carousel.slide2Aria"></button>
+        data-i18n-aria="carousel.slide2Aria"
+      ><span class="carousel-dot w-2 h-2 rounded-full bg-white/20 group-hover:bg-white/40 transition-all"></span></button>
       <button
-        class="carousel-dot w-2 h-2 rounded-full bg-white/20 hover:bg-white/40 transition-all"
+        class="carousel-dot-hit group"
         data-slide="2"
-        role="tab"
-        aria-selected="false"
         aria-label="Slide 3: Auto-pasted"
-        data-i18n-aria="carousel.slide3Aria"></button>
+        data-i18n-aria="carousel.slide3Aria"
+      ><span class="carousel-dot w-2 h-2 rounded-full bg-white/20 group-hover:bg-white/40 transition-all"></span></button>
     </div>
   </div>
 </div>
 
 <style>
+  /* Dot hit-box — 24×24px minimum tap target (WCAG 2.5.8) around the small
+     visible dot rendered by the nested .carousel-dot span. */
+  .carousel-dot-hit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    min-height: 24px;
+    padding: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+
   /* Carousel keys group */
   .carousel-keys-group {
     display: flex;

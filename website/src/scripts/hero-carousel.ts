@@ -15,7 +15,7 @@ import {
 } from "./overlay-mockup";
 
 const track = document.getElementById("carousel-track");
-const dots = document.querySelectorAll(".carousel-dot");
+const dotButtons = document.querySelectorAll<HTMLButtonElement>(".carousel-dot-hit");
 let currentSlide = 0;
 const totalSlides = 3;
 const SLIDE_DURATIONS = [5000, 5000, 8000];
@@ -127,17 +127,19 @@ function stopOverlay() {
 function goToSlide(n: number) {
   currentSlide = n;
   if (track) track.style.transform = `translateX(-${n * 100}%)`;
-  dots.forEach((dot, i) => {
+  dotButtons.forEach((btn, i) => {
+    const dot = btn.querySelector<HTMLElement>(".carousel-dot");
+    if (!dot) return;
     if (i === n) {
       dot.classList.remove("bg-white/20");
       dot.classList.add("bg-brand-cyan");
-      (dot as HTMLElement).style.width = "16px";
-      dot.setAttribute("aria-selected", "true");
+      dot.style.width = "16px";
+      btn.setAttribute("aria-current", "true");
     } else {
       dot.classList.add("bg-white/20");
       dot.classList.remove("bg-brand-cyan");
-      (dot as HTMLElement).style.width = "8px";
-      dot.setAttribute("aria-selected", "false");
+      dot.style.width = "8px";
+      btn.removeAttribute("aria-current");
     }
   });
   if (n === 1) {
@@ -167,10 +169,10 @@ function stopCarousel() {
   clearTimeout(carouselTimer);
 }
 
-dots.forEach((dot) => {
-  dot.addEventListener("click", () => {
+dotButtons.forEach((btn) => {
+  btn.addEventListener("click", () => {
     stopCarousel();
-    goToSlide(parseInt((dot as HTMLElement).dataset.slide!));
+    goToSlide(parseInt(btn.dataset.slide!));
     scheduleNext();
   });
 });
