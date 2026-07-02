@@ -76,3 +76,10 @@ linuxdeploy \
   --output appimage
 
 echo "Built $OUTPUT"
+
+# Stable-name alias (mirrors WhisPaste-Setup.exe / WhisPaste-macos-arm64.dmg):
+# the website links a version-less URL under releases/latest/download/, which
+# only resolves if the asset name doesn't change every release.
+STABLE_OUTPUT="$OUT_DIR/WhisPaste-linux-x64.AppImage"
+cp "$OUTPUT" "$STABLE_OUTPUT"
+echo "Copied stable-name alias to $STABLE_OUTPUT"

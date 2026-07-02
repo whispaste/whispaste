@@ -119,13 +119,21 @@ export const DIAGNOSE_WINDOWS_URL = `${GITHUB_RELEASE_BASE}/WhisPaste-Diagnose.e
 /** Standalone diagnostics tool for macOS. */
 export const DIAGNOSE_MACOS_URL = `${GITHUB_RELEASE_BASE}/WhisPaste-Diagnose-macOS.dmg`;
 
+/** Direct GitHub download for the Linux AppImage (x86_64, self-contained). */
+export const LINUX_APPIMAGE_URL = `${GITHUB_RELEASE_BASE}/WhisPaste-linux-x64.AppImage`;
+
+/** Direct GitHub download for the Linux .deb package (Debian/Ubuntu, x86_64). */
+export const LINUX_DEB_URL = `${GITHUB_RELEASE_BASE}/WhisPaste-linux-x64.deb`;
+
 /**
  * Static per-platform metadata.
  *
  * `windows`: Microsoft Store is the primary distribution channel.
  * `macos`: GitHub DMG (arm64). No Apple App Store listing exists.
- * `linux`: GitHub source / planned; no binary artefact yet — treated as the
- *   same GitHub releases page until a Linux artefact ships.
+ * `linux`: GitHub AppImage (x86_64, self-contained, no install step). A .deb
+ *   is also published (`LINUX_DEB_URL`) for users who prefer a system package;
+ *   building from source remains available as a secondary option on the
+ *   download page.
  */
 export const STORES: Record<Exclude<Os, 'unknown'>, PlatformOffer> = {
   windows: {
@@ -152,11 +160,12 @@ export const STORES: Record<Exclude<Os, 'unknown'>, PlatformOffer> = {
     hasStoreListing: false,
   },
   linux: {
-    downloadUrl: 'https://github.com/whispaste/whispaste/releases/latest',
-    arch: [],
+    downloadUrl: LINUX_APPIMAGE_URL,
+    arch: ['x64'],
     archLabel: '',
     storeProductId: '',
-    reviewUrl: '',
+    // No Linux app store listing exists. Same GitHub-star review action as macOS.
+    reviewUrl: GITHUB_REPO_URL,
     hasStoreListing: false,
   },
 };

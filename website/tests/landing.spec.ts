@@ -60,6 +60,27 @@ test('download page has Store and GitHub sections', async ({ page }) => {
   await expect(page.getByTestId('github-windows-button')).toBeVisible();
 });
 
+test('Linux section offers a direct AppImage/.deb download, with build-from-source as a collapsed secondary option', async ({
+  page,
+}) => {
+  await page.goto('/download/');
+
+  // Direct downloads are visible without any interaction — no build required.
+  const appimageBtn = page.getByTestId('linux-appimage-button');
+  await expect(appimageBtn).toBeVisible();
+  await expect(appimageBtn).toHaveAttribute('href', /WhisPaste-linux-x64\.AppImage$/);
+  const debBtn = page.getByTestId('linux-deb-button');
+  await expect(debBtn).toBeVisible();
+  await expect(debBtn).toHaveAttribute('href', /WhisPaste-linux-x64\.deb$/);
+
+  // Build-from-source is demoted to a collapsed secondary option.
+  const sourceBuild = page.getByTestId('linux-source-build');
+  const githubBtn = page.getByTestId('linux-github-button');
+  await expect(githubBtn).toBeHidden();
+  await sourceBuild.locator('> summary').click();
+  await expect(githubBtn).toBeVisible();
+});
+
 test('package manager copy button copies the command and shows success feedback (DE)', async ({
   page,
   context,

@@ -11,6 +11,8 @@ import {
   WINDOWS_SETUP_URL,
   DIAGNOSE_WINDOWS_URL,
   DIAGNOSE_MACOS_URL,
+  LINUX_APPIMAGE_URL,
+  LINUX_DEB_URL,
   GITHUB_REPO_URL,
   getLivePkgManagersGroupedByPlatform,
 } from "../data/platforms.ts";
@@ -165,7 +167,7 @@ const breadcrumbItems = [
           </details>
         </div>
 
-        <!-- Section 3: Linux — Build from Source -->
+        <!-- Section 3: Linux — direct download (AppImage / .deb) -->
         <div class="download-card rounded-2xl border p-6 sm:p-8 mb-6 relative" data-platform-card="linux">
           <div class="absolute -top-3 left-6">
             <span class="items-center gap-1 px-3 py-1 rounded-full recommended-badge ring-1 ring-brand-cyan/30 text-brand-cyan text-xs font-semibold">
@@ -184,47 +186,84 @@ const breadcrumbItems = [
             </div>
           </div>
 
-          <p class="text-gray-400 text-sm mb-5 leading-relaxed" data-i18n="download.linux.build.intro">{t(lang, "download.linux.build.intro")}</p>
-
-          <div class="space-y-3 mb-5">
-            <div class="flex gap-3">
-              <div class="shrink-0 w-6 h-6 rounded-full bg-brand-cyan/10 border border-brand-cyan/20 flex items-center justify-center text-brand-cyan font-semibold text-xs">1</div>
-              <div>
-                <h4 class="font-medium text-white text-sm" data-i18n="download.linux.build.step1.title">{t(lang, "download.linux.build.step1.title")}</h4>
-                <p class="text-gray-400 text-xs mt-0.5 leading-relaxed" data-i18n="download.linux.build.step1.desc">{t(lang, "download.linux.build.step1.desc")}</p>
-              </div>
-            </div>
-            <div class="flex gap-3">
-              <div class="shrink-0 w-6 h-6 rounded-full bg-brand-cyan/10 border border-brand-cyan/20 flex items-center justify-center text-brand-cyan font-semibold text-xs">2</div>
-              <div>
-                <h4 class="font-medium text-white text-sm" data-i18n="download.linux.build.step2.title">{t(lang, "download.linux.build.step2.title")}</h4>
-                <p class="text-gray-400 text-xs mt-0.5 leading-relaxed" data-i18n="download.linux.build.step2.desc">{t(lang, "download.linux.build.step2.desc")}</p>
-              </div>
-            </div>
-            <div class="flex gap-3">
-              <div class="shrink-0 w-6 h-6 rounded-full bg-brand-cyan/10 border border-brand-cyan/20 flex items-center justify-center text-brand-cyan font-semibold text-xs">3</div>
-              <div>
-                <h4 class="font-medium text-white text-sm" data-i18n="download.linux.build.step3.title">{t(lang, "download.linux.build.step3.title")}</h4>
-                <p class="text-gray-400 text-xs mt-0.5 leading-relaxed" data-i18n="download.linux.build.step3.desc">{t(lang, "download.linux.build.step3.desc")}</p>
-              </div>
-            </div>
-          </div>
-
-          <div class="flex justify-center">
+          <div class="flex flex-col items-center gap-3 mb-2">
             <a
-              href={GITHUB_REPO_URL}
+              href={LINUX_APPIMAGE_URL}
               class="dl-btn"
-              target="_blank"
-              rel="noopener noreferrer"
-              data-testid="linux-github-button"
+              data-testid="linux-appimage-button"
             >
-              <svg class="dl-btn__icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+              <svg class="dl-btn__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
               <span class="dl-btn__text">
-                <span class="dl-btn__platform" data-i18n="download.linux.build.repo">{t(lang, "download.linux.build.repo")}</span>
+                <span class="dl-btn__label" data-i18n="download.linux.appimage.btnHint">{t(lang, "download.linux.appimage.btnHint")}</span>
+                <span class="dl-btn__platform">AppImage (x86_64)</span>
               </span>
             </a>
+            <p class="text-gray-500 text-xs text-center max-w-sm" data-i18n="download.linux.appimage.hint">{t(lang, "download.linux.appimage.hint")}</p>
+            <a
+              href={LINUX_DEB_URL}
+              class="text-gray-400 hover:text-white text-xs underline transition-colors"
+              data-testid="linux-deb-button"
+              data-i18n="download.linux.deb.button"
+            >{t(lang, "download.linux.deb.button")}</a>
           </div>
         </div>
+
+        <!-- Secondary: build from source, collapsed by default -->
+        <details class="download-card tech-helper group rounded-2xl border border-white/[0.06] bg-white/[0.02] mb-6" data-testid="linux-source-build">
+          <summary class="tech-helper__summary flex items-start gap-3 p-6 sm:p-8 cursor-pointer select-none">
+            <div class="shrink-0 w-10 h-10 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center">
+              <svg class="w-5 h-5 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+            </div>
+            <div class="flex-1">
+              <h3 class="text-xl font-semibold text-white" data-i18n="download.linux.source.title">{t(lang, "download.linux.source.title")}</h3>
+              <p class="text-gray-400 text-sm mt-1" data-i18n="download.linux.source.desc">{t(lang, "download.linux.source.desc")}</p>
+            </div>
+            <svg class="tech-helper__chevron w-5 h-5 text-gray-500 shrink-0 mt-1 transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+          </summary>
+
+          <div class="tech-helper__body px-6 sm:px-8 pb-6 sm:pb-8">
+            <p class="text-gray-400 text-sm mb-5 leading-relaxed" data-i18n="download.linux.build.intro">{t(lang, "download.linux.build.intro")}</p>
+
+            <div class="space-y-3 mb-5">
+              <div class="flex gap-3">
+                <div class="shrink-0 w-6 h-6 rounded-full bg-brand-cyan/10 border border-brand-cyan/20 flex items-center justify-center text-brand-cyan font-semibold text-xs">1</div>
+                <div>
+                  <h4 class="font-medium text-white text-sm" data-i18n="download.linux.build.step1.title">{t(lang, "download.linux.build.step1.title")}</h4>
+                  <p class="text-gray-400 text-xs mt-0.5 leading-relaxed" data-i18n="download.linux.build.step1.desc">{t(lang, "download.linux.build.step1.desc")}</p>
+                </div>
+              </div>
+              <div class="flex gap-3">
+                <div class="shrink-0 w-6 h-6 rounded-full bg-brand-cyan/10 border border-brand-cyan/20 flex items-center justify-center text-brand-cyan font-semibold text-xs">2</div>
+                <div>
+                  <h4 class="font-medium text-white text-sm" data-i18n="download.linux.build.step2.title">{t(lang, "download.linux.build.step2.title")}</h4>
+                  <p class="text-gray-400 text-xs mt-0.5 leading-relaxed" data-i18n="download.linux.build.step2.desc">{t(lang, "download.linux.build.step2.desc")}</p>
+                </div>
+              </div>
+              <div class="flex gap-3">
+                <div class="shrink-0 w-6 h-6 rounded-full bg-brand-cyan/10 border border-brand-cyan/20 flex items-center justify-center text-brand-cyan font-semibold text-xs">3</div>
+                <div>
+                  <h4 class="font-medium text-white text-sm" data-i18n="download.linux.build.step3.title">{t(lang, "download.linux.build.step3.title")}</h4>
+                  <p class="text-gray-400 text-xs mt-0.5 leading-relaxed" data-i18n="download.linux.build.step3.desc">{t(lang, "download.linux.build.step3.desc")}</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex justify-center">
+              <a
+                href={GITHUB_REPO_URL}
+                class="dl-btn"
+                target="_blank"
+                rel="noopener noreferrer"
+                data-testid="linux-github-button"
+              >
+                <svg class="dl-btn__icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                <span class="dl-btn__text">
+                  <span class="dl-btn__platform" data-i18n="download.linux.build.repo">{t(lang, "download.linux.build.repo")}</span>
+                </span>
+              </a>
+            </div>
+          </div>
+        </details>
 
         <!-- Section 4: Free from GitHub (Windows) — the free path, always visible -->
         <div class="download-card rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 sm:p-8 mb-6" data-platform-card="windows-free">

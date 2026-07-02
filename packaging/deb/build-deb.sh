@@ -75,3 +75,10 @@ dpkg-deb --root-owner-group --build "$STAGE" "$OUT_DIR/$DEB_NAME"
 
 echo "Built $OUT_DIR/$DEB_NAME"
 dpkg-deb --info "$OUT_DIR/$DEB_NAME"
+
+# Stable-name alias (mirrors WhisPaste-Setup.exe / WhisPaste-macos-arm64.dmg):
+# the website links a version-less URL under releases/latest/download/, which
+# only resolves if the asset name doesn't change every release.
+STABLE_DEB_NAME="WhisPaste-linux-x64.deb"
+cp "$OUT_DIR/$DEB_NAME" "$OUT_DIR/$STABLE_DEB_NAME"
+echo "Copied stable-name alias to $OUT_DIR/$STABLE_DEB_NAME"
