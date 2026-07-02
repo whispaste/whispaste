@@ -67,7 +67,7 @@ test('package manager copy button copies the command and shows success feedback 
   await page.goto('/download/');
 
   // Package managers section is collapsed by default — open it first.
-  await page.getByTestId('pkg-managers').locator('summary').click();
+  await page.getByTestId('pkg-managers').locator('> summary').click();
 
   const copyBtn = page.getByTestId('pkg-copy-scoop');
   await expect(copyBtn).toBeVisible();
@@ -97,7 +97,7 @@ test('package manager copy button works identically on the EN download page', as
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await page.goto('/en/download/');
 
-  await page.getByTestId('pkg-managers').locator('summary').click();
+  await page.getByTestId('pkg-managers').locator('> summary').click();
 
   const copyBtn = page.getByTestId('pkg-copy-scoop');
   await copyBtn.click();
@@ -117,7 +117,7 @@ test('package manager copy success icon skips its entrance animation under prefe
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/download/');
 
-  await page.getByTestId('pkg-managers').locator('summary').click();
+  await page.getByTestId('pkg-managers').locator('> summary').click();
   const copyBtn = page.getByTestId('pkg-copy-scoop');
   await copyBtn.click();
 
@@ -134,7 +134,7 @@ test('package managers render grouped by platform with brand icon, name and plat
   await page.goto('/download/');
 
   const section = page.getByTestId('pkg-managers');
-  await section.locator('summary').click();
+  await section.locator('> summary').click();
 
   // Short intro explains, in one sentence, what the command does.
   await expect(section).toContainText('installiert WhisPaste');
@@ -171,7 +171,7 @@ test('package managers render branded + grouped identically on the EN page', asy
   await page.goto('/en/download/');
 
   const section = page.getByTestId('pkg-managers');
-  await section.locator('summary').click();
+  await section.locator('> summary').click();
 
   await expect(section).toContainText('installs WhisPaste');
 
@@ -185,6 +185,61 @@ test('package managers render branded + grouped identically on the EN page', asy
   }
 });
 
+test('package manager "never used this before?" help is collapsed by default and opens to reveal the manager\'s official setup link (DE)', async ({
+  page,
+}) => {
+  await page.goto('/download/');
+
+  const section = page.getByTestId('pkg-managers');
+  await section.locator('> summary').click();
+
+  const groups = getLivePkgManagersGroupedByPlatform();
+  for (const group of groups) {
+    for (const ch of group.channels) {
+      const card = section.getByTestId(`pkg-${ch.id}`);
+      const help = card.getByTestId(`pkg-neverused-${ch.id}`);
+      const link = card.getByTestId(`pkg-neverused-link-${ch.id}`);
+
+      // Collapsed by default — link not yet visible/interactable.
+      await expect(help).not.toHaveJSProperty('open', true);
+      await expect(link).not.toBeVisible();
+
+      // Opens on click, revealing a link to this channel's own setup guide.
+      await help.locator('summary').click();
+      await expect(help).toHaveJSProperty('open', true);
+      await expect(link).toBeVisible();
+      await expect(link).toHaveAttribute('href', ch.managerInstallUrl);
+
+      // Closes again on a second click of the summary.
+      await help.locator('summary').click();
+      await expect(help).not.toHaveJSProperty('open', true);
+    }
+  }
+});
+
+test('package manager "never used this before?" help works identically on the EN download page', async ({
+  page,
+}) => {
+  await page.goto('/en/download/');
+
+  const section = page.getByTestId('pkg-managers');
+  await section.locator('> summary').click();
+
+  const groups = getLivePkgManagersGroupedByPlatform();
+  for (const group of groups) {
+    for (const ch of group.channels) {
+      const card = section.getByTestId(`pkg-${ch.id}`);
+      const help = card.getByTestId(`pkg-neverused-${ch.id}`);
+      const link = card.getByTestId(`pkg-neverused-link-${ch.id}`);
+
+      await expect(help).not.toHaveJSProperty('open', true);
+      await help.locator('summary').click();
+      await expect(link).toBeVisible();
+      await expect(link).toHaveAttribute('href', ch.managerInstallUrl);
+    }
+  }
+});
+
 test('package manager section stays scannable at 390px mobile width', async ({
   page,
 }) => {
@@ -192,7 +247,7 @@ test('package manager section stays scannable at 390px mobile width', async ({
   await page.goto('/download/');
 
   const section = page.getByTestId('pkg-managers');
-  await section.locator('summary').click();
+  await section.locator('> summary').click();
 
   const groups = getLivePkgManagersGroupedByPlatform();
   const firstChannel = groups[0]!.channels[0]!;

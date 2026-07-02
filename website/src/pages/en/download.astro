@@ -342,6 +342,22 @@ const breadcrumbItems = [
                         <div>{cmd}</div>
                       ))}
                     </div>
+                    <details class="mt-2" data-testid={`pkg-neverused-${ch.id}`}>
+                      <summary class="text-xs text-gray-500 hover:text-gray-400 transition-colors cursor-pointer select-none">
+                        <span data-i18n="download.pkg.neverUsed.summary">{t(lang, "download.pkg.neverUsed.summary")}</span>
+                      </summary>
+                      <p class="text-xs text-gray-500 mt-1.5 ml-4 leading-relaxed">
+                        <span data-i18n="download.pkg.neverUsed.body">{t(lang, "download.pkg.neverUsed.body")}</span>
+                        {" "}
+                        <a
+                          href={ch.managerInstallUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class="text-brand-cyan hover:underline"
+                          data-testid={`pkg-neverused-link-${ch.id}`}
+                        ><span data-i18n="download.pkg.neverUsed.linkText">{t(lang, "download.pkg.neverUsed.linkText")}</span></a>
+                      </p>
+                    </details>
                   </div>
                 ))}
               </div>
