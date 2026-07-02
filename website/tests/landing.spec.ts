@@ -52,6 +52,75 @@ test('download page has Store and GitHub sections', async ({ page }) => {
   await expect(page.getByTestId('github-windows-button')).toBeVisible();
 });
 
+test('package manager copy button copies the command and shows success feedback (DE)', async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.goto('/download/');
+
+  // Package managers section is collapsed by default — open it first.
+  await page.getByTestId('pkg-managers').locator('summary').click();
+
+  const copyBtn = page.getByTestId('pkg-copy-scoop');
+  await expect(copyBtn).toBeVisible();
+  await copyBtn.click();
+
+  // Clipboard actually received the scoop install commands.
+  const clipboardText = await page.evaluate(() => navigator.clipboard.readText());
+  expect(clipboardText).toContain('scoop install whispaste');
+
+  // Visual success signal: the button flips into its "copied" state.
+  await expect(copyBtn).toHaveClass(/is-copied/);
+  await expect(copyBtn.locator('.pkg-copy-btn__label')).toHaveText('Kopiert!');
+
+  // Screen readers get an explicit announcement via a live region.
+  const status = page.locator('#pkg-copy-status');
+  await expect(status).toHaveText('Kopiert!');
+
+  // Feedback reverts back to the idle label after the timeout.
+  await expect(copyBtn.locator('.pkg-copy-btn__label')).toHaveText('Kopieren', { timeout: 4000 });
+  await expect(copyBtn).not.toHaveClass(/is-copied/);
+});
+
+test('package manager copy button works identically on the EN download page', async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.goto('/en/download/');
+
+  await page.getByTestId('pkg-managers').locator('summary').click();
+
+  const copyBtn = page.getByTestId('pkg-copy-scoop');
+  await copyBtn.click();
+
+  const clipboardText = await page.evaluate(() => navigator.clipboard.readText());
+  expect(clipboardText).toContain('scoop install whispaste');
+  await expect(copyBtn).toHaveClass(/is-copied/);
+  await expect(copyBtn.locator('.pkg-copy-btn__label')).toHaveText('Copied!');
+  await expect(page.locator('#pkg-copy-status')).toHaveText('Copied!');
+});
+
+test('package manager copy success icon skips its entrance animation under prefers-reduced-motion', async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/download/');
+
+  await page.getByTestId('pkg-managers').locator('summary').click();
+  const copyBtn = page.getByTestId('pkg-copy-scoop');
+  await copyBtn.click();
+
+  await expect(copyBtn).toHaveClass(/is-copied/);
+  const animationName = await copyBtn
+    .locator('.pkg-copy-btn__icon--success')
+    .evaluate((el) => getComputedStyle(el).animationName);
+  expect(animationName).toBe('none');
+});
+
 test('hero recording mockup renders the final overlay on a canvas (no privacy badge)', async ({ page }) => {
   await page.goto('/');
   await page.locator('.carousel-dot').nth(1).click();

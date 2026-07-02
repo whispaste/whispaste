@@ -310,16 +310,22 @@ const breadcrumbItems = [
           </summary>
 
           <div class="tech-helper__body px-6 sm:px-8 pb-6 sm:pb-8">
+            <div id="pkg-copy-status" class="sr-only" role="status" aria-live="polite"></div>
             {livePkgManagers.map((ch) => (
               <div class="rounded-xl border border-white/10 bg-black/30 p-4 font-mono text-xs sm:text-sm text-gray-200 overflow-x-auto mb-3 last:mb-0" data-testid={`pkg-${ch.id}`}>
                 <div class="flex items-center justify-between mb-1">
                   <div class="text-gray-500">{ch.comment[lang]}</div>
                   <button
-                    class="text-xs text-gray-400 hover:text-gray-200 transition-colors px-2 py-0.5 rounded border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] font-sans"
+                    class="pkg-copy-btn text-xs text-gray-400 hover:text-gray-200 transition-colors px-2 py-0.5 rounded border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] font-sans inline-flex items-center gap-1.5"
                     data-copy-text={ch.commands.join('\n')}
                     data-copy-feedback={t(lang, "download.pkg.copied")}
                     aria-label={t(lang, "download.pkg.copyBtn")}
-                  >{t(lang, "download.pkg.copyBtn")}</button>
+                    data-testid={`pkg-copy-${ch.id}`}
+                  >
+                    <svg class="pkg-copy-btn__icon pkg-copy-btn__icon--idle" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    <svg class="pkg-copy-btn__icon pkg-copy-btn__icon--success" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span class="pkg-copy-btn__label">{t(lang, "download.pkg.copyBtn")}</span>
+                  </button>
                 </div>
                 {ch.commands.map((cmd) => (
                   <div>{cmd}</div>
@@ -445,14 +451,23 @@ const breadcrumbItems = [
     updateThemeIcon();
 
     // Copy-to-clipboard for package manager command blocks.
+    const pkgCopyStatus = document.getElementById('pkg-copy-status');
     document.querySelectorAll<HTMLButtonElement>('[data-copy-text]').forEach((btn) => {
+      const label = btn.querySelector<HTMLElement>('.pkg-copy-btn__label');
+      const idleLabel = label?.textContent ?? '';
+      let resetTimer: ReturnType<typeof setTimeout> | undefined;
       btn.addEventListener('click', () => {
         const text = btn.dataset.copyText ?? '';
         const feedback = btn.dataset.copyFeedback ?? 'Copied!';
         navigator.clipboard.writeText(text).then(() => {
-          const orig = btn.textContent ?? '';
-          btn.textContent = feedback;
-          setTimeout(() => { btn.textContent = orig; }, 2000);
+          btn.classList.add('is-copied');
+          if (label) label.textContent = feedback;
+          if (pkgCopyStatus) pkgCopyStatus.textContent = feedback;
+          clearTimeout(resetTimer);
+          resetTimer = setTimeout(() => {
+            btn.classList.remove('is-copied');
+            if (label) label.textContent = idleLabel;
+          }, 2000);
         }).catch(() => { /* clipboard permission denied — silent fail */ });
       });
     });
@@ -598,5 +613,28 @@ const breadcrumbItems = [
   }
   @media (prefers-reduced-motion: reduce) {
     .tech-helper__chevron { transition: none; }
+  }
+
+  /* Copy-to-clipboard success feedback (issue 02): icon swap instead of a
+   * bare text replacement, with a short entrance pop for the checkmark. */
+  .pkg-copy-btn__icon--success {
+    display: none;
+    color: #34d399;
+  }
+  .pkg-copy-btn.is-copied .pkg-copy-btn__icon--idle {
+    display: none;
+  }
+  .pkg-copy-btn.is-copied .pkg-copy-btn__icon--success {
+    display: inline-flex;
+    animation: pkg-copy-pop 0.25s ease;
+  }
+  @keyframes pkg-copy-pop {
+    from { opacity: 0; transform: scale(0.6); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pkg-copy-btn.is-copied .pkg-copy-btn__icon--success {
+      animation: none;
+    }
   }
 </style>
