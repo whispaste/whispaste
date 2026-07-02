@@ -107,7 +107,7 @@ absolute_antivocab_terms() {
 check_version_sync() {
   [ -f "$PUBSPEC" ] || { note "pubspec.yaml fehlt"; return; }
   local ver
-  ver="$(sed -nE 's/^version:[[:space:]]*([0-9]+\.[0-9]+\.[0-9]+)(\+[0-9]+)?[[:space:]]*$/\1/p' "$PUBSPEC" | head -1)"
+  ver="$(sed -nE 's/^version:[[:space:]]*([0-9]+\.[0-9]+\.[0-9]+)(-[0-9A-Za-z.]+)?(\+[0-9]+)?[[:space:]]*$/\1/p' "$PUBSPEC" | head -1)"
   [ -z "$ver" ] && { note "pubspec.yaml: keine semver version gefunden"; return; }
 
   if [ -f "$CHANGELOG" ]; then
@@ -123,10 +123,13 @@ check_version_sync() {
 # msix_version: X.Y.Z.0 muss deterministisch aus pubspec `version: X.Y.Z+B`
 # abgeleitet sein. Formel: nimm den semver-Teil (X.Y.Z), hänge .0 an.
 # Korrekte Ableitung: pubspec version 1.2.37+1 → msix_version 1.2.37.0.
+# Ein optionales Pre-Release-Suffix (-beta.N, PRD §8) wird für die Ableitung
+# ignoriert — msix_version bleibt 4-teilig ohne Suffix (Beta baut ohnehin
+# kein MSIX, Issue 04/AC-5).
 check_msix_version_sync() {
   [ -f "$PUBSPEC" ] || { note "pubspec.yaml fehlt (msix-sync)"; return; }
   local semver derived actual
-  semver="$(sed -nE 's/^version:[[:space:]]*([0-9]+\.[0-9]+\.[0-9]+)(\+[0-9]+)?[[:space:]]*$/\1/p' "$PUBSPEC" | head -1)"
+  semver="$(sed -nE 's/^version:[[:space:]]*([0-9]+\.[0-9]+\.[0-9]+)(-[0-9A-Za-z.]+)?(\+[0-9]+)?[[:space:]]*$/\1/p' "$PUBSPEC" | head -1)"
   [ -z "$semver" ] && { note "pubspec.yaml: keine semver version gefunden (msix-sync)"; return; }
   derived="${semver}.0"
   actual="$(sed -nE 's/^[[:space:]]*msix_version:[[:space:]]*([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)[[:space:]]*$/\1/p' "$PUBSPEC" | head -1)"
