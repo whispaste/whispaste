@@ -1016,28 +1016,23 @@ jobs:
             "artifacts" \
             "https://github.com/whispaste/whispaste/releases/tag/${GITHUB_REF_NAME#v}"
 
-      # PRD §5.3 (beta only): force-move the lightweight `beta-latest` git tag
-      # onto the current beta release commit. This is a convenience pointer for
-      # tooling (e.g. `git describe`) — it does NOT by itself serve the beta
-      # feed download URL. GitHub's `releases/download/<tag>/<file>` route
-      # resolves via a GitHub Release OBJECT's `tag_name` DB field, not by
-      # resolving the git ref, so moving only this raw tag would leave
-      # releases/download/beta-latest/appcast-beta.xml 404ing (Issue 08). The
-      # actual pointer Release is published/updated in the step below.
-      - name: Move beta-latest tag to this beta release
-        if: contains(github.ref_name, '-beta.')
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          git tag -f beta-latest "${{ github.sha }}"
-          git push origin refs/tags/beta-latest --force
-          echo "Moved beta-latest → ${{ github.sha }} (${{ github.ref_name }})"
-
       # Issue 08 fix: maintain a REAL, reused GitHub Release object tagged
       # `beta-latest` carrying the current appcast-beta.xml as an asset — this
-      # is what actually serves
-      # releases/download/beta-latest/appcast-beta.xml (see comment above).
+      # is what actually serves releases/download/beta-latest/appcast-beta.xml.
+      # GitHub's `releases/download/<tag>/<file>` route resolves via a GitHub
+      # Release OBJECT's `tag_name` DB field, not by resolving the git ref, so
+      # a plain moving git tag would never by itself serve that URL anyway.
+      #
+      # No separate tag-move step: an earlier version force-moved the
+      # `beta-latest` git tag before this step, but once a tag exists on this
+      # repo it becomes a protected ref ("Cannot update this protected ref" —
+      # the same GitHub ruleset family as the immutable-release restriction
+      # below) and a force-push fails on every cycle after the first. The
+      # underlying tag is created ONCE, automatically, by the first `gh
+      # release create` below (--target anchors it to the correct commit);
+      # subsequent cycles reuse that (now-stale-pointing, but functionally
+      # irrelevant — see above) tag name and only replace the Release object.
+      #
       # Idempotent across beta cycles via delete-then-recreate rather than
       # upload --clobber: GitHub's immutable-release feature blocks asset
       # uploads to an already-published release, so re-publishing a NEW asset
@@ -1061,6 +1056,7 @@ jobs:
           fi
           gh release create beta-latest artifacts/appcast-beta.xml \
             --repo "$REPO" --prerelease \
+            --target "${{ github.sha }}" \
             --title "Beta (rolling pointer — nicht als Version verwenden)" \
             --notes "Diese Release-Zeile ist nur ein technischer Zeiger auf den aktuellen Beta-Appcast. Lade Installer immer über die versionierte Beta-Release-Seite herunter, nicht hier."
           echo "beta-latest release ready with current appcast-beta.xml"

@@ -118,17 +118,24 @@ c2=$?
 check "create-release binds prerelease + make_latest to channel step" "$?"
 
 # ---------------------------------------------------------------------------
-# T6: STRUCTURE — beta-latest moving-tag step exists and is beta-gated (§5.3)
+# T6: STRUCTURE — beta-latest pointer release exists, is beta-gated, and
+#     anchors its (only ever auto-created once) underlying tag via --target.
+#     No separate force-move step: `beta-latest` becomes a protected ref after
+#     first creation on this repo (same ruleset family as the immutable-
+#     release restriction), so `git push --force` on it fails on every cycle
+#     after the first — removed rather than left permanently broken.
 # ---------------------------------------------------------------------------
-echo "== T6: beta-latest moving-tag step (§5.3) =="
+echo "== T6: beta-latest pointer release, no force-move (§5.3) =="
 grep -qF 'beta-latest' "$WF"
 b1=$?
 grep -qE 'if: contains\(github\.ref_name, .-beta\.' "$WF"
 b2=$?
-grep -qF 'git push origin refs/tags/beta-latest --force' "$WF"
+grep -qE -- '--target "\$\{\{ github\.sha \}\}"' "$WF"
 b3=$?
-[[ $b1 -eq 0 && $b2 -eq 0 && $b3 -eq 0 ]]
-check "beta-latest tag-move step present + beta-gated + force-pushed" "$?"
+! grep -qF 'git push origin refs/tags/beta-latest --force' "$WF"
+b4=$?
+[[ $b1 -eq 0 && $b2 -eq 0 && $b3 -eq 0 && $b4 -eq 0 ]]
+check "beta-latest pointer release beta-gated, anchored via --target, no protected-ref force-move" "$?"
 
 # ---------------------------------------------------------------------------
 # T7: STRUCTURE — docs-attest gate in the release path (PRD §13)
@@ -242,7 +249,7 @@ is_beta "$BTAG";                                  check "beta tag recognised as 
 [[ "$(dec "$BTAG" channel)" == "beta" ]];         check "beta → channel=beta (appcast-beta.xml)" "$?"
 [[ "$(dec "$BTAG" prerelease)" == "true" && "$(dec "$BTAG" make_latest)" == "false" ]]; \
   check "beta → GitHub Prerelease (not latest)" "$?"
-[[ "$(dec "$BTAG" beta_latest_moved)" == "true" ]]; check "beta → beta-latest moved (§5.3)" "$?"
+[[ "$(dec "$BTAG" beta_latest_moved)" == "true" ]]; check "beta → beta-latest pointer release updated (§5.3)" "$?"
 
 echo "== T11: logic — v1.2.44 routes to stable =="
 STAG="v1.2.44"
@@ -306,9 +313,10 @@ check "beta-latest pointer release carries appcast-beta.xml" "$?"
 grep -qiE -- '--prerelease' <<<"$PUBLISH_APPCAST_TEXT"
 check "beta-latest release created as --prerelease (never in releases/latest)" "$?"
 
-# Both beta-gated steps (tag-move + pointer-release) share the same tag guard.
-grep -c "if: contains(github.ref_name, '-beta.')" "$WF" | grep -qE '^[2-9][0-9]*$'
-check "both beta-latest steps (tag-move + pointer-release) are beta-gated" "$?"
+# The pointer-release step is beta-gated (the tag-move step it used to share
+# this guard with was removed — see T6).
+grep -c "if: contains(github.ref_name, '-beta.')" "$WF" | grep -qE '^[1-9][0-9]*$'
+check "beta-latest pointer-release step is beta-gated" "$?"
 
 # --- T13b: simulated second beta cycle — no duplicate-create structurally ---
 # `gh release create beta-latest` must run UNCONDITIONALLY after the delete
