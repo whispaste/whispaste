@@ -421,6 +421,36 @@ html.light .illo-halo > img {
   pointer-events: none;
 }
 
+/* Nav Download CTA — platform-adaptive label + icon (same FOUC-free data-os
+ * approach as the platform buttons above). The button holds four labelled
+ * variants; CSS reveals exactly one. Default (unknown/no data-os): the generic
+ * "Download" variant shows — crawlers/bots/privacy tools get the neutral label.
+ * A detected OS swaps to its "Für macOS/Windows/Ubuntu" variant instead. Only
+ * one variant is ever `display`ed, so the hidden ones are out of the a11y tree
+ * (no invisible tab stops, no duplicate accessible name). */
+.nav-dl-variant {
+  display: none;
+}
+[data-dl-variant="generic"] {
+  display: inline-flex;
+}
+[data-os="macos"] [data-dl-variant="generic"],
+[data-os="windows"] [data-dl-variant="generic"],
+[data-os="linux"] [data-dl-variant="generic"] {
+  display: none;
+}
+[data-os="macos"] [data-dl-variant="macos"],
+[data-os="windows"] [data-dl-variant="windows"],
+[data-os="linux"] [data-dl-variant="linux"] {
+  display: inline-flex;
+}
+/* Raw-embedded brand glyphs fill their sized wrapper and inherit currentColor. */
+.nav-dl-icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
 /* Theme-aware wordmark */
 .nav-logo-light { display: none; }
 html.light .nav-logo-dark { display: none !important; }

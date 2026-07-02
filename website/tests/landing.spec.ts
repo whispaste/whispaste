@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { getLivePkgManagersGroupedByPlatform } from '../src/data/platforms.ts';
 
 const PLATFORM_LABEL: Record<string, string> = {
@@ -296,7 +297,70 @@ test('nav download button keeps its icon after i18n text is applied on load', as
   // Regression: applyLang() used to run el.textContent = ... directly on the
   // <a data-i18n="nav.download"> anchor, wiping the icon <svg> child once the
   // page's inline script ran after SSR paint (the icon "blinked and vanished").
+  // The button now holds one platform-labelled variant per OS; data-i18n sits
+  // on the inner text <span>s only, so applyLang never touches the icon. Assert
+  // the single visible variant keeps its icon after i18n text is applied.
   const navDownloadBtn = page.locator('.nav-download-btn').first();
-  await expect(navDownloadBtn.locator('svg')).toBeVisible();
+  await expect(navDownloadBtn.locator('[data-dl-variant]:visible svg')).toBeVisible();
   await expect(navDownloadBtn).toContainText('Download');
+});
+
+// The nav Download CTA mirrors the hero: the OS detected before first paint
+// (data-os on <html>) swaps the button to a platform-labelled variant via CSS,
+// with the generic "Download" as the unknown-OS fallback. We drive data-os
+// directly (the CSS reacts instantly) instead of spoofing the UA, so the test
+// asserts the pure attribute → visible-variant contract for both navs and langs.
+const NAV_DL_LABELS = {
+  de: { macos: 'Für macOS', windows: 'Für Windows', linux: 'Für Ubuntu' },
+  en: { macos: 'For macOS', windows: 'For Windows', linux: 'For Ubuntu' },
+} as const;
+
+async function assertNavDownloadAdaptsToOs(
+  page: Page,
+  btn: Locator,
+  labels: { macos: string; windows: string; linux: string },
+) {
+  for (const os of ['macos', 'windows', 'linux'] as const) {
+    await page.evaluate((o) => {
+      document.documentElement.dataset.os = o;
+    }, os);
+    const variant = btn.locator(`[data-dl-variant="${os}"]`);
+    await expect(variant).toBeVisible();
+    await expect(variant).toContainText(labels[os]); // localized platform label
+    await expect(variant).toContainText('Download'); // sr-only prefix for a11y
+    await expect(variant.locator('svg')).toBeVisible(); // brand glyph, not wiped
+    await expect(btn.locator('[data-dl-variant="generic"]')).toBeHidden();
+  }
+  // Unknown / missing OS → generic "Download" fallback (current behaviour).
+  await page.evaluate(() => {
+    delete document.documentElement.dataset.os;
+  });
+  const generic = btn.locator('[data-dl-variant="generic"]');
+  await expect(generic).toBeVisible();
+  await expect(generic).toContainText('Download');
+  await expect(btn.locator('[data-dl-variant="macos"]')).toBeHidden();
+}
+
+test('desktop nav download button adapts label + icon to detected OS (DE)', async ({ page }) => {
+  await page.goto('/');
+  await assertNavDownloadAdaptsToOs(page, page.locator('.nav-download-btn').first(), NAV_DL_LABELS.de);
+});
+
+test('desktop nav download button adapts label + icon to detected OS (EN)', async ({ page }) => {
+  await page.goto('/en/');
+  await assertNavDownloadAdaptsToOs(page, page.locator('.nav-download-btn').first(), NAV_DL_LABELS.en);
+});
+
+test('mobile nav download button adapts label + icon to detected OS (DE)', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await page.locator('#mobileMenuBtn').click();
+  await assertNavDownloadAdaptsToOs(page, page.locator('#mobileMenu .nav-download-btn'), NAV_DL_LABELS.de);
+});
+
+test('mobile nav download button adapts label + icon to detected OS (EN)', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/en/');
+  await page.locator('#mobileMenuBtn').click();
+  await assertNavDownloadAdaptsToOs(page, page.locator('#mobileMenu .nav-download-btn'), NAV_DL_LABELS.en);
 });

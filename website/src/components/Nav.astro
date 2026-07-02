@@ -1,5 +1,12 @@
 ---
 import { t } from '../scripts/i18n.ts';
+// Inline-tintable OS glyphs for the platform-adaptive Download CTA. Raw-imported
+// so `fill="currentColor"` inherits the button's text color — an <img>-embedded
+// SVG cannot do this. Same source/provenance as the hero badges
+// (see website/public/os-icons/ATTRIBUTION.txt).
+import appleIconRaw from '../../public/os-icons/apple.svg?raw';
+import windowsIconRaw from '../../public/os-icons/windows.svg?raw';
+import ubuntuIconRaw from '../../public/os-icons/ubuntu.svg?raw';
 
 interface Props {
   variant?: "landing" | "subpage";
@@ -89,8 +96,31 @@ const backHref = lang === 'de' ? '/' : '/en/';
         </a>
         <span class="nav-divider" aria-hidden="true"></span>
         <a href={downloadHref} class="nav-download-btn inline-flex items-center gap-1.5 px-4 py-1.5 text-brand-darker text-sm font-semibold rounded-lg hover:scale-[1.02] active:scale-[0.98] transition-all">
-          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-          <span data-i18n="nav.download">{t(lang, "nav.download")}</span>
+          {/* Platform-adaptive label + icon. The detected OS (data-os on <html>,
+              set before first paint in Layout.astro) picks the visible variant via
+              CSS attribute selectors — no JS DOM manipulation, no flicker. Unknown
+              OS falls back to the generic "Download" variant. Each variant's TEXT
+              lives in its own <span data-i18n>, kept separate from the icon so
+              applyLang()'s textContent writes never wipe the icon. */}
+          <span class="nav-dl-variant items-center gap-1.5" data-dl-variant="generic">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+            <span data-i18n="nav.download">{t(lang, "nav.download")}</span>
+          </span>
+          <span class="nav-dl-variant items-center gap-1.5" data-dl-variant="macos">
+            <span class="nav-dl-icon inline-flex w-4 h-4 shrink-0" aria-hidden="true" set:html={appleIconRaw} />
+            <span class="sr-only" data-i18n="nav.download">{t(lang, "nav.download")}</span>
+            <span data-i18n="nav.download.macos">{t(lang, "nav.download.macos")}</span>
+          </span>
+          <span class="nav-dl-variant items-center gap-1.5" data-dl-variant="windows">
+            <span class="nav-dl-icon inline-flex w-4 h-4 shrink-0" aria-hidden="true" set:html={windowsIconRaw} />
+            <span class="sr-only" data-i18n="nav.download">{t(lang, "nav.download")}</span>
+            <span data-i18n="nav.download.windows">{t(lang, "nav.download.windows")}</span>
+          </span>
+          <span class="nav-dl-variant items-center gap-1.5" data-dl-variant="linux">
+            <span class="nav-dl-icon inline-flex w-4 h-4 shrink-0" aria-hidden="true" set:html={ubuntuIconRaw} />
+            <span class="sr-only" data-i18n="nav.download">{t(lang, "nav.download")}</span>
+            <span data-i18n="nav.download.linux">{t(lang, "nav.download.linux")}</span>
+          </span>
         </a>
       </div>
     )}
@@ -147,8 +177,26 @@ const backHref = lang === 'de' ? '/' : '/en/';
           </a>
         </div>
         <a href={downloadHref} class="nav-download-btn mobile-nav-link flex items-center justify-center gap-2 mt-1 mb-1 px-6 py-3 text-brand-darker font-semibold rounded-xl transition-all active:scale-[0.98]">
-          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-          <span data-i18n="nav.download">{t(lang, "nav.download")}</span>
+          {/* Platform-adaptive label + icon — mirrors the desktop CTA above. */}
+          <span class="nav-dl-variant items-center justify-center gap-2" data-dl-variant="generic">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+            <span data-i18n="nav.download">{t(lang, "nav.download")}</span>
+          </span>
+          <span class="nav-dl-variant items-center justify-center gap-2" data-dl-variant="macos">
+            <span class="nav-dl-icon inline-flex w-4 h-4 shrink-0" aria-hidden="true" set:html={appleIconRaw} />
+            <span class="sr-only" data-i18n="nav.download">{t(lang, "nav.download")}</span>
+            <span data-i18n="nav.download.macos">{t(lang, "nav.download.macos")}</span>
+          </span>
+          <span class="nav-dl-variant items-center justify-center gap-2" data-dl-variant="windows">
+            <span class="nav-dl-icon inline-flex w-4 h-4 shrink-0" aria-hidden="true" set:html={windowsIconRaw} />
+            <span class="sr-only" data-i18n="nav.download">{t(lang, "nav.download")}</span>
+            <span data-i18n="nav.download.windows">{t(lang, "nav.download.windows")}</span>
+          </span>
+          <span class="nav-dl-variant items-center justify-center gap-2" data-dl-variant="linux">
+            <span class="nav-dl-icon inline-flex w-4 h-4 shrink-0" aria-hidden="true" set:html={ubuntuIconRaw} />
+            <span class="sr-only" data-i18n="nav.download">{t(lang, "nav.download")}</span>
+            <span data-i18n="nav.download.linux">{t(lang, "nav.download.linux")}</span>
+          </span>
         </a>
       </div>
     </div>
