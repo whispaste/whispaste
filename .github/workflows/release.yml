@@ -919,7 +919,12 @@ jobs:
         with:
           name: WhisPaste v${{ steps.notes.outputs.version }}
           body_path: release-body.md
-          draft: false
+          # GitHub's immutable-release feature blocks asset uploads to an
+          # already-published release, and publish-appcast (below) still
+          # needs to attach the signed appcast after this step runs — so the
+          # release is created as a draft and only flipped to published by
+          # the finalize-release job once every upload has landed.
+          draft: true
           # Q1/§5.3: Stable → non-prerelease + make_latest=true so
           # releases/latest resolves to it. Beta → prerelease + make_latest=false
           # so it never displaces the stable feed (Beta never reaches
@@ -1033,13 +1038,16 @@ jobs:
       # `beta-latest` carrying the current appcast-beta.xml as an asset — this
       # is what actually serves
       # releases/download/beta-latest/appcast-beta.xml (see comment above).
-      # Idempotent, analogous to the promote job's existence-guard pattern
-      # (Issue 05): `gh release view` checks whether the pointer release
-      # already exists; `--clobber` on upload republishes the asset without
-      # erroring on repeat beta cycles. Only appcast-beta.xml lives here — the
-      # actual installers/DMG/Setup.exe stay on the versioned beta release
-      # (e.g. v1.2.44-beta.1); the appcast's enclosure URLs already point
-      # there and are unchanged by this fix.
+      # Idempotent across beta cycles via delete-then-recreate rather than
+      # upload --clobber: GitHub's immutable-release feature blocks asset
+      # uploads to an already-published release, so re-publishing a NEW asset
+      # onto the existing (published) beta-latest release fails outright —
+      # only creating a release WITH the file attached works reliably. `gh
+      # release delete` without `--cleanup-tag` removes only the Release
+      # object, never the underlying git tag, so this is safe. Only
+      # appcast-beta.xml lives here — the actual installers/DMG/Setup.exe stay
+      # on the versioned beta release (e.g. v1.2.44-beta.1); the appcast's
+      # enclosure URLs already point there and are unchanged by this fix.
       - name: Publish/update beta-latest pointer release (Issue 08 fix)
         if: contains(github.ref_name, '-beta.')
         env:
@@ -1048,15 +1056,14 @@ jobs:
           set -euo pipefail
           REPO="${{ github.repository }}"
           if gh release view beta-latest --repo "$REPO" >/dev/null 2>&1; then
-            gh release upload beta-latest artifacts/appcast-beta.xml --clobber --repo "$REPO"
-            echo "Updated existing beta-latest release with current appcast-beta.xml"
-          else
-            gh release create beta-latest artifacts/appcast-beta.xml \
-              --repo "$REPO" --prerelease \
-              --title "Beta (rolling pointer — nicht als Version verwenden)" \
-              --notes "Diese Release-Zeile ist nur ein technischer Zeiger auf den aktuellen Beta-Appcast. Lade Installer immer über die versionierte Beta-Release-Seite herunter, nicht hier."
-            echo "Created beta-latest release with appcast-beta.xml"
+            gh release delete beta-latest --yes --repo "$REPO"
+            echo "Deleted existing beta-latest release (tag preserved) for a clean recreate."
           fi
+          gh release create beta-latest artifacts/appcast-beta.xml \
+            --repo "$REPO" --prerelease \
+            --title "Beta (rolling pointer — nicht als Version verwenden)" \
+            --notes "Diese Release-Zeile ist nur ein technischer Zeiger auf den aktuellen Beta-Appcast. Lade Installer immer über die versionierte Beta-Release-Seite herunter, nicht hier."
+          echo "beta-latest release ready with current appcast-beta.xml"
 
       - name: Gate — verify published appcast is fetchable & every enclosure signed
         env:
@@ -1086,6 +1093,32 @@ jobs:
           }
           echo "OK — signed appcast live at $FEED"
 
+  # ── Publish the release (draft → published) ────────────────────────────────
+  # create-release deliberately creates the tag release as a draft (immutable-
+  # release restrictions block asset uploads after publish) and publish-appcast
+  # attaches the signed appcast to that same draft. Only once BOTH have
+  # finished uploading does the release flip to published — the single point
+  # where releases/download/<tag>/<file> starts resolving for real users.
+  finalize-release:
+    name: Publish GitHub Release (draft → published)
+    needs: [create-release, publish-appcast]
+    if: |
+      !cancelled() &&
+      startsWith(github.ref, 'refs/tags/v') &&
+      needs.create-release.result == 'success' &&
+      needs.publish-appcast.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release edit "${{ github.ref_name }}" --draft=false --repo "${{ github.repository }}"
+          echo "Published ${{ github.ref_name }}"
+
   # ── Manifest-Auto-Bump ────────────────────────────────────────────────────────
   # Updates version + SHA256 in all three packaging manifests as part of the release.
   # Each channel step is fault-tolerant: a failed channel emits ::warning:: and
@@ -1095,7 +1128,10 @@ jobs:
   # below provides in-workflow dependency tracking (AC5 wiring).
   manifest-bump:
     name: Bump packaging manifests (Scoop · winget · Homebrew)
-    needs: [create-release]
+    # Needs finalize-release (not just create-release): the SHA256 steps below
+    # curl the installer straight from its releases/download/<tag>/<file> URL,
+    # which only resolves once the release is published (see finalize-release).
+    needs: [create-release, finalize-release]
     # PRD §5.1: Scoop/winget/Homebrew are STABLE direct-download channels. A
     # beta must never bump them (it would offer an `-beta.N` version to stable
     # channel users). Stable-only here; validate-packaging inherits the skip via
@@ -1104,7 +1140,7 @@ jobs:
       !cancelled() &&
       startsWith(github.ref, 'refs/tags/v') &&
       !contains(github.ref_name, '-') &&
-      needs.create-release.result == 'success'
+      needs.finalize-release.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -1340,38 +1376,38 @@ jobs:
           fi
           echo "Source beta release found: ${{ steps.vars.outputs.beta-tag }}"
 
-      - name: Idempotency guard — does the stable release already exist?
-        id: exists
+      - name: Idempotency guard — delete existing stable release if present
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
-          # AC-3: detect an existing stable release BEFORE creating one. If it
-          # exists, the promote becomes a re-publish (upload --clobber) instead
-          # of a duplicate — the same stable version can be re-promoted safely.
+          # AC-3: GitHub's immutable-release feature blocks asset uploads to
+          # an already-published release, so a re-promote of the same stable
+          # version must delete the existing release object (the underlying
+          # git tag is left untouched) before recreating it fresh below,
+          # rather than re-publishing assets onto it via upload --clobber.
           if gh release view "${{ steps.vars.outputs.stable-tag }}" --repo "${{ github.repository }}" >/dev/null 2>&1; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-            echo "Stable release ${{ steps.vars.outputs.stable-tag }} already exists — re-publishing assets (idempotent)."
+            gh release delete "${{ steps.vars.outputs.stable-tag }}" --yes --repo "${{ github.repository }}"
+            echo "Deleted existing stable release ${{ steps.vars.outputs.stable-tag }} (tag preserved) for a clean re-promote."
           else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
             echo "Stable release ${{ steps.vars.outputs.stable-tag }} absent — will create it."
           fi
 
-      - name: Create stable release (non-prerelease) if absent
-        if: steps.exists.outputs.exists != 'true'
+      - name: Create stable release (draft)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
-          # Non-prerelease + --make-latest so releases/latest resolves to this
-          # stable release (Q1/§5.3) and the stable feed URL anchors here.
+          # Draft: the artifact + appcast uploads below must land before the
+          # release is published (see "Publish stable release" at the end of
+          # this job) — same immutable-release constraint as create-release.
           gh release create "${{ steps.vars.outputs.stable-tag }}" \
             --repo "${{ github.repository }}" \
+            --draft \
             --title "WhisPaste v${{ steps.vars.outputs.stable-version }}" \
-            --notes "Stable release ${{ steps.vars.outputs.stable-version }} — promoted from ${{ steps.vars.outputs.beta-tag }} (same build, same EdDSA signature; PRD §7.2)." \
-            --make-latest
+            --notes "Stable release ${{ steps.vars.outputs.stable-version }} — promoted from ${{ steps.vars.outputs.beta-tag }} (same build, same EdDSA signature; PRD §7.2)."
 
       - name: Copy beta artifacts verbatim (no rebuild)
         env:
@@ -1430,6 +1466,20 @@ jobs:
             "${{ steps.vars.outputs.stable-tag }}" \
             "promote-artifacts" \
             "https://github.com/${{ github.repository }}/releases/tag/${{ steps.vars.outputs.stable-version }}"
+
+      - name: Publish stable release (draft → published, mark latest)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Q1/§5.3: --latest so releases/latest resolves to this stable
+          # release once published — mirrors the tag-push path's make_latest
+          # (finalize-release job), applied here after every upload above has
+          # landed on the still-draft release.
+          gh release edit "${{ steps.vars.outputs.stable-tag }}" \
+            --repo "${{ github.repository }}" \
+            --draft=false --latest
 
       - name: Verify promoted stable feed is live + fully signed
         env:

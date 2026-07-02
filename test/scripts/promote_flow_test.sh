@@ -111,8 +111,8 @@ grep -qE 'gh release download' <<<"$PROMOTE_TEXT"; \
   check "downloads beta artifacts (gh release download)" "$?"
 grep -qiE 'gh release (create|upload)' <<<"$PROMOTE_TEXT"; \
   check "creates + uploads the stable release" "$?"
-grep -qiE -- '--make-latest' <<<"$PROMOTE_TEXT"; \
-  check "stable release is make_latest (releases/latest → stable, §5.3)" "$?"
+grep -qiE -- '--latest\b' <<<"$PROMOTE_TEXT"; \
+  check "stable release is marked --latest (releases/latest → stable, §5.3)" "$?"
 # The beta feed is dropped so the stable feed is generated fresh for X.Y.Z.
 grep -qiE 'rm -f .*appcast-beta\.xml' <<<"$PROMOTE_TEXT"; \
   check "beta appcast dropped (stable feed derived fresh)" "$?"
@@ -138,19 +138,36 @@ grep -qiE 'deterministic|byte-identical|same seed|same EdDSA|identical' <<<"$PRO
   check "AC-2: signature-preservation rationale present" "$?"
 
 # ---------------------------------------------------------------------------
-# T7 (AC-3): idempotency — existence guard + conditional create + --clobber upload
+# T7 (AC-3): idempotency — existence guard + delete-then-recreate + draft
+#            publish, mirroring the beta-latest pointer fix (Issue 08 / T13 in
+#            release_yml_tag_dispatch_test.sh). GitHub's immutable-release
+#            feature blocks asset uploads to an already-published release, so
+#            a re-promote deletes the existing stable release object (tag
+#            preserved) before recreating it as a draft, uploads artifacts +
+#            appcast while still draft, then publishes.
 # ---------------------------------------------------------------------------
 echo "== T7: idempotency guard (AC-3) =="
 grep -qE 'gh release view' <<<"$PROMOTE_TEXT"; \
   check "idempotency: existence check (gh release view) before create" "$?"
-# The create step must be conditional on the stable release being absent.
-grep -qE "steps.exists.outputs.exists != 'true'" <<<"$PROMOTE_TEXT"; \
-  check "idempotency: create guarded on absence (exists != 'true')" "$?"
-# Upload uses --clobber → overwrite, never a duplicate asset.
+# Delete-if-exists guard (tag preserved — no --cleanup-tag) replaces the old
+# create-guarded-on-absence pattern.
+grep -qE 'gh release delete' <<<"$PROMOTE_TEXT"; c1=$?
+grep -qiE -- '--yes' <<<"$PROMOTE_TEXT"; c2=$?
+! grep -qiE -- '--cleanup-tag' <<<"$PROMOTE_TEXT"; c3=$?
+[[ $c1 -eq 0 && $c2 -eq 0 && $c3 -eq 0 ]]; \
+  check "AC-3: gh release delete --yes on re-promote, tag never cleaned up" "$?"
+# The release is created as a draft (immutable-release-safe) and only
+# published — draft=false — once artifacts + appcast are attached.
+grep -qiE -- '--draft\b' <<<"$PROMOTE_TEXT"; c1=$?
+grep -qiE -- '--draft=false' <<<"$PROMOTE_TEXT"; c2=$?
+[[ $c1 -eq 0 && $c2 -eq 0 ]]; \
+  check "AC-3: stable release created as draft, published (--draft=false) only after uploads" "$?"
+# Upload still uses --clobber within a single run (defence-in-depth for any
+# accidental duplicate attach in the SAME promote attempt).
 grep -qE 'gh release upload' <<<"$PROMOTE_TEXT"; c1=$?
 grep -qiE -- '--clobber' <<<"$PROMOTE_TEXT"; c2=$?
 [[ $c1 -eq 0 && $c2 -eq 0 ]]; \
-  check "AC-3: upload uses --clobber (no duplicate asset on re-promote)" "$?"
+  check "AC-3: upload uses --clobber (no duplicate asset within one promote run)" "$?"
 
 # ---------------------------------------------------------------------------
 # T8 (AC-1 + AC-4): Store-Submission path wired (generic operator instruction)

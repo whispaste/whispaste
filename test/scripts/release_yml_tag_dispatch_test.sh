@@ -22,6 +22,8 @@
 #   AC    docs-attest-Gate im Release-Pfad                   → T7
 #   NEU   beta-latest ist ein echtes, idempotentes GitHub-Release
 #         (nicht nur ein bewegter Git-Tag) — Issue 08 Fix              → T13
+#   NEU   Release wird als Draft erzeugt + erst NACH publish-appcast
+#         veröffentlicht (GitHub immutable-release Fix)                → T14
 #
 # Run: bash test/scripts/release_yml_tag_dispatch_test.sh
 
@@ -261,10 +263,11 @@ echo "== T12: logic — releases/latest resolution (Q1/§5.3) =="
 
 # ---------------------------------------------------------------------------
 # T13: STRUCTURE + IDEMPOTENCY — beta-latest is a real, reused GitHub Release
-#      (Issue 08 fix), not merely a moved git tag. Mirrors promote_flow_test.sh
-#      T7's idempotency-guard pattern (existence check → conditional
-#      create/upload, --clobber on upload, --prerelease so it never surfaces
-#      via releases/latest).
+#      (Issue 08 fix), not merely a moved git tag. Delete-then-recreate rather
+#      than upload --clobber: GitHub's immutable-release feature blocks asset
+#      uploads to an already-published release, so a repeat beta cycle must
+#      delete the existing pointer release object (tag preserved) before
+#      recreating it with the fresh appcast-beta.xml attached at creation.
 # ---------------------------------------------------------------------------
 echo "== T13: beta-latest real GitHub Release, idempotent (Issue 08 fix) =="
 
@@ -279,19 +282,22 @@ check "comment explains GitHub resolves releases/download/<tag> via a Release's 
 grep -qE 'gh release view beta-latest' <<<"$PUBLISH_APPCAST_TEXT"
 check "idempotency: existence check (gh release view beta-latest) before create" "$?"
 
-# Create path present (first beta cycle) and gated on the pointer being absent.
+# Delete path present (subsequent beta cycles) — removes the existing
+# (published, therefore asset-upload-immutable) pointer release object before
+# recreating it, never a --cleanup-tag flag (the underlying git tag stays).
+grep -qE 'gh release delete beta-latest' <<<"$PUBLISH_APPCAST_TEXT"; c1=$?
+grep -qiE -- '--yes' <<<"$PUBLISH_APPCAST_TEXT"; c2=$?
+! grep -qiE -- '--cleanup-tag' <<<"$PUBLISH_APPCAST_TEXT"; c3=$?
+[[ $c1 -eq 0 && $c2 -eq 0 && $c3 -eq 0 ]]
+check "gh release delete beta-latest --yes on repeat cycles, tag never cleaned up" "$?"
+
+# Create path present and unconditional (always reached — safe because a
+# pre-existing pointer release was just deleted above).
 grep -qE 'gh release create beta-latest' <<<"$PUBLISH_APPCAST_TEXT"
 check "gh release create beta-latest path present" "$?"
 
-# Upload path present (subsequent beta cycles) using --clobber → overwrite,
-# never a duplicate asset error on a simulated second beta cycle.
-grep -qE 'gh release upload beta-latest' <<<"$PUBLISH_APPCAST_TEXT"; c1=$?
-grep -qiE -- '--clobber' <<<"$PUBLISH_APPCAST_TEXT"; c2=$?
-[[ $c1 -eq 0 && $c2 -eq 0 ]]
-check "gh release upload beta-latest uses --clobber (no duplicate asset on repeat beta cycle)" "$?"
-
-# The correct asset (appcast-beta.xml) is what gets published/updated on the
-# pointer release — not the installers (those stay on the versioned release).
+# The correct asset (appcast-beta.xml) is what gets published on the pointer
+# release — not the installers (those stay on the versioned release).
 grep -qE 'appcast-beta\.xml' <<<"$PUBLISH_APPCAST_TEXT"
 check "beta-latest pointer release carries appcast-beta.xml" "$?"
 
@@ -305,11 +311,11 @@ grep -c "if: contains(github.ref_name, '-beta.')" "$WF" | grep -qE '^[2-9][0-9]*
 check "both beta-latest steps (tag-move + pointer-release) are beta-gated" "$?"
 
 # --- T13b: simulated second beta cycle — no duplicate-create structurally ---
-# The create step must live in the branch where `gh release view` FAILED
-# (i.e. inside an if/else, not unconditionally run every cycle) — otherwise a
-# second beta tag would hit "release already exists" from `gh release create`.
+# `gh release create beta-latest` must run UNCONDITIONALLY after the delete
+# guard (not else-branched) — otherwise a second beta tag would either skip
+# recreating the pointer (stale asset) or hit "release already exists".
 echo "== T13b: simulated second beta cycle stays idempotent =="
-python3 - "$WF" <<'PY' >/dev/null 2>&1; check "gh release create beta-latest is only reached when 'gh release view' failed (if/else), not on every cycle" "$?"
+python3 - "$WF" <<'PY' >/dev/null 2>&1; check "gh release create beta-latest runs unconditionally after the delete-if-exists guard, not skipped on repeat cycles" "$?"
 import sys, re, yaml
 wf = yaml.safe_load(open(sys.argv[1]))
 job = wf.get("jobs", {}).get("publish-appcast", {})
@@ -318,12 +324,59 @@ for s in job.get("steps", []):
     if "beta-latest" in str(s.get("name", "")) and "view" in str(s.get("run", "")):
         run = str(s.get("run", ""))
         break
-# Must be an if/else around `gh release view beta-latest`, with `create` only
-# in the else-branch and `upload` only in the if-branch (mutually exclusive on
-# a single run — no path executes both, so a repeat beta cycle never hits a
-# duplicate-create error).
-ok = bool(re.search(r'if\s+gh release view beta-latest.*\n.*gh release upload beta-latest.*\n.*else\n.*gh release create beta-latest', run, re.S))
+# Must be: `if gh release view beta-latest; then ... delete ... fi` followed
+# by an UNCONDITIONAL `gh release create beta-latest` outside that if-block
+# (i.e. after its closing `fi`, not inside an else) — so every beta cycle,
+# first or repeat, ends up with a freshly created pointer release.
+ok = bool(re.search(
+    r'if\s+gh release view beta-latest.*?gh release delete beta-latest.*?\bfi\b.*?gh release create beta-latest',
+    run, re.S,
+))
 sys.exit(0 if ok else 1)
+PY
+
+# ---------------------------------------------------------------------------
+# T14: STRUCTURE — the release is created as a draft and only published after
+#      publish-appcast has finished uploading (GitHub immutable-release fix:
+#      asset uploads to an already-published release are rejected outright,
+#      so create-release's own multi-file upload AND publish-appcast's
+#      appcast upload must both land while the release is still a draft).
+# ---------------------------------------------------------------------------
+echo "== T14: draft-then-publish release (immutable-release fix) =="
+
+grep -qE '^\s*draft:\s*true\s*$' "$WF"
+check "create-release creates the release as a draft" "$?"
+
+! grep -qE '^\s*draft:\s*false\s*$' "$WF"
+check "no step still hardcodes draft: false (would race publish-appcast's upload)" "$?"
+
+grep -qE '^\s*finalize-release:\s*$' "$WF"
+check "finalize-release job exists" "$?"
+
+python3 - "$WF" <<'PY' >/dev/null 2>&1; check "finalize-release needs both create-release and publish-appcast" "$?"
+import sys, yaml
+wf = yaml.safe_load(open(sys.argv[1]))
+needs = wf.get("jobs", {}).get("finalize-release", {}).get("needs", [])
+sys.exit(0 if set(needs) == {"create-release", "publish-appcast"} else 1)
+PY
+
+python3 - "$WF" <<'PY' >/dev/null 2>&1; check "finalize-release runs 'gh release edit ... --draft=false' to publish" "$?"
+import sys, re, yaml
+wf = yaml.safe_load(open(sys.argv[1]))
+job = wf.get("jobs", {}).get("finalize-release", {})
+run = "\n".join(str(s.get("run", "")) for s in job.get("steps", []))
+ok = bool(re.search(r'gh release edit .*--draft=false', run))
+sys.exit(0 if ok else 1)
+PY
+
+# manifest-bump downloads assets straight from the release's download URL,
+# which only resolves once published — it must wait for finalize-release,
+# not just create-release (which now only produces a draft).
+python3 - "$WF" <<'PY' >/dev/null 2>&1; check "manifest-bump needs finalize-release (waits for the release to be published)" "$?"
+import sys, yaml
+wf = yaml.safe_load(open(sys.argv[1]))
+needs = wf.get("jobs", {}).get("manifest-bump", {}).get("needs", [])
+sys.exit(0 if "finalize-release" in needs else 1)
 PY
 
 echo
