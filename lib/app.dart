@@ -168,11 +168,17 @@ class _AppShellState extends ConsumerState<_AppShell>
 
     // Observe app lifecycle (background/suspend) so session-aggregated
     // telemetry is flushed even when the window-close path is skipped
-    // (closeToTray is the default). A periodic safety-net timer caps the
-    // loss at one interval should the process be killed mid-session.
+    // (closeToTray is the default) — this is the flush point that actually
+    // fires for most sessions, since hide-to-tray triggers `hidden`/`paused`.
+    // The periodic timer below is ONLY a crash safety-net for the process
+    // being killed without any lifecycle callback at all (OS force-quit,
+    // power loss) — it must stay coarse. A short interval defeats the whole
+    // point of session-level aggregation: live Matomo data showed an active
+    // session producing a request every one-to-few minutes instead of one
+    // batch, because every 60 s bucket got flushed as its own mini-batch.
     WidgetsBinding.instance.addObserver(this);
     _telemetryFlushTimer = Timer.periodic(
-      const Duration(seconds: 60),
+      const Duration(minutes: 15),
       (_) => unawaited(
         _drainAndFlushTelemetry(timeout: const Duration(seconds: 3)),
       ),

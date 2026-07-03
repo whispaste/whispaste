@@ -1,7 +1,24 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:whispaste/services/deploy_channel_service.dart';
+import 'package:whispaste/services/telemetry_service.dart';
 import 'package:whispaste/services/update_service.dart';
+
+/// Unconfigured (endpointUrl empty → `_isConfigured` false) — every call is
+/// a safe no-op with no network client actually invoked. Overriding
+/// [telemetryProvider] with this keeps tests that don't care about
+/// telemetry from incidentally building the full production provider chain
+/// (settings → history database) just because a native mirror now calls
+/// `_trackCheckOutcome`.
+final _unconfiguredTelemetry = TelemetryService(
+  client: http.Client(),
+  endpointUrl: '',
+  siteId: 0,
+  consentGranted: false,
+  dntActive: false,
+);
 
 void main() {
   group('UpdateNotifier.parseSemver', () {
@@ -141,7 +158,11 @@ void main() {
     test('markErrorNative after markUpToDateNative is ignored — Sparkle '
         'fires a trailing didAbortWithError even for a completely normal '
         '"no update found" cycle', () {
-      final container = ProviderContainer();
+      final container = ProviderContainer(
+        overrides: [
+          telemetryProvider.overrideWithValue(_unconfiguredTelemetry),
+        ],
+      );
       addTearDown(container.dispose);
       final notifier = container.read(updateProvider.notifier);
 
@@ -155,7 +176,11 @@ void main() {
 
     test('markErrorNative after markAvailableNative is ignored — a real find '
         'must survive a trailing abort signal', () {
-      final container = ProviderContainer();
+      final container = ProviderContainer(
+        overrides: [
+          telemetryProvider.overrideWithValue(_unconfiguredTelemetry),
+        ],
+      );
       addTearDown(container.dispose);
       final notifier = container.read(updateProvider.notifier);
 
@@ -170,7 +195,11 @@ void main() {
     test('markErrorNative with no prior decisive event still surfaces a '
         'genuine failure (e.g. network unreachable before any appcast '
         'could be parsed)', () {
-      final container = ProviderContainer();
+      final container = ProviderContainer(
+        overrides: [
+          telemetryProvider.overrideWithValue(_unconfiguredTelemetry),
+        ],
+      );
       addTearDown(container.dispose);
       final notifier = container.read(updateProvider.notifier);
 
@@ -184,7 +213,11 @@ void main() {
 
     test('markReadyToInstallNative transitions to readyToInstall and keeps '
         'the previously-known version', () {
-      final container = ProviderContainer();
+      final container = ProviderContainer(
+        overrides: [
+          telemetryProvider.overrideWithValue(_unconfiguredTelemetry),
+        ],
+      );
       addTearDown(container.dispose);
       final notifier = container.read(updateProvider.notifier);
 
@@ -194,6 +227,103 @@ void main() {
       final state = container.read(updateProvider);
       expect(state.phase, UpdatePhase.readyToInstall);
       expect(state.latestVersion, '1.2.44-beta.9');
+    });
+  });
+
+  group('UpdateNotifier update-check telemetry (sparse, categorical — no '
+      'version strings, no error text)', () {
+    ProviderContainer makeContainer(List<String> bodies) {
+      final client = MockClient((req) async {
+        bodies.add(req.body);
+        return http.Response('', 200);
+      });
+      final telemetry = TelemetryService(
+        client: client,
+        endpointUrl: 'https://example.matomo.cloud',
+        siteId: 1,
+        consentGranted: true,
+        dntActive: false,
+      );
+      final container = ProviderContainer(
+        overrides: [telemetryProvider.overrideWithValue(telemetry)],
+      );
+      addTearDown(container.dispose);
+      return container;
+    }
+
+    test('markAvailableNative sends update/check/available', () async {
+      final bodies = <String>[];
+      final container = makeContainer(bodies);
+      container
+          .read(updateProvider.notifier)
+          .markAvailableNative(version: '1.2.44-beta.9');
+      await container.read(telemetryProvider).flush();
+
+      expect(bodies, hasLength(1));
+      final params = Uri.splitQueryString(bodies.single);
+      expect(params['e_c'], 'update');
+      expect(params['e_a'], 'check');
+      expect(params['e_n'], 'available');
+    });
+
+    test('markUpToDateNative sends update/check/up_to_date', () async {
+      final bodies = <String>[];
+      final container = makeContainer(bodies);
+      container.read(updateProvider.notifier).markUpToDateNative();
+      await container.read(telemetryProvider).flush();
+
+      expect(bodies, hasLength(1));
+      expect(Uri.splitQueryString(bodies.single)['e_n'], 'up_to_date');
+    });
+
+    test(
+      'markReadyToInstallNative sends update/check/ready_to_install',
+      () async {
+        final bodies = <String>[];
+        final container = makeContainer(bodies);
+        container.read(updateProvider.notifier).markReadyToInstallNative();
+        await container.read(telemetryProvider).flush();
+
+        expect(bodies, hasLength(1));
+        expect(Uri.splitQueryString(bodies.single)['e_n'], 'ready_to_install');
+      },
+    );
+
+    test('a genuine markErrorNative (no prior decisive event) sends '
+        'update/check/error', () async {
+      final bodies = <String>[];
+      final container = makeContainer(bodies);
+      final notifier = container.read(updateProvider.notifier);
+      notifier.markCheckingNative();
+      notifier.markErrorNative('offline');
+      await container.read(telemetryProvider).flush();
+
+      expect(bodies, hasLength(1));
+      expect(Uri.splitQueryString(bodies.single)['e_n'], 'error');
+    });
+
+    test('a GUARDED markErrorNative (trailing abort after a decisive result) '
+        'sends nothing — it never touched state', () async {
+      final bodies = <String>[];
+      final container = makeContainer(bodies);
+      final notifier = container.read(updateProvider.notifier);
+      notifier.markUpToDateNative();
+      notifier.markErrorNative('benign trailing abort');
+      await container.read(telemetryProvider).flush();
+
+      // Exactly one event: the up_to_date from markUpToDateNative. The
+      // guarded error must not add a second.
+      expect(bodies, hasLength(1));
+      expect(Uri.splitQueryString(bodies.single)['e_n'], 'up_to_date');
+    });
+
+    test('markCheckingNative sends nothing — not a terminal outcome', () async {
+      final bodies = <String>[];
+      final container = makeContainer(bodies);
+      container.read(updateProvider.notifier).markCheckingNative();
+      await container.read(telemetryProvider).flush();
+
+      expect(bodies, isEmpty);
     });
   });
 

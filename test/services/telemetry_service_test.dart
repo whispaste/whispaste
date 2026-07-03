@@ -318,6 +318,24 @@ void main() {
       expect(params['e_n'], 'stt_provider');
     });
 
+    test('beta_updates is whitelisted — it was previously missing, so the '
+        'Beta-Updates toggle in Settings silently sent nothing', () async {
+      expect(kTrackableSettingKeys, contains('beta_updates'));
+
+      final bodies = <String>[];
+      final client = MockClient((req) async {
+        bodies.add(req.body);
+        return http.Response('', 200);
+      });
+      final service = _makeService(client: client);
+      service.trackSettingChange('beta_updates');
+      await service.flush();
+
+      expect(bodies, hasLength(1));
+      final params = Uri.splitQueryString(bodies.single);
+      expect(params['e_n'], 'beta_updates');
+    });
+
     test(
       'event payloads can never carry transcript text, audio, or history',
       () async {

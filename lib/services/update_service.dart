@@ -19,6 +19,7 @@ import '../core/recording/recording_state.dart';
 import '../core/semver.dart' as semver;
 import 'deploy_channel_service.dart';
 import 'http_model_fetcher.dart' show buildDioWithSentry;
+import 'telemetry_service.dart';
 import 'update/mac_update_installer.dart';
 import 'update_channel_service.dart';
 
@@ -317,6 +318,33 @@ class UpdateNotifier extends Notifier<UpdateState> {
       // Sentry capture.
       _log.warning('Update check failed: $e\n$st');
       state = UpdateState(phase: UpdatePhase.error, errorMessage: e.toString());
+    } finally {
+      _trackCheckOutcome();
+    }
+  }
+
+  /// Reports the terminal outcome of an update check — a single, sparse,
+  /// categorical event (no version strings, no error text) that lets Matomo
+  /// answer "does the update mechanism actually work in the wild" without
+  /// needing manual dogfooding every time. Covers both mechanisms: this
+  /// `finally` block runs after every [checkForUpdate] (GitHub-API path),
+  /// and each native mirror below calls it directly after a real state
+  /// transition (never from `markErrorNative`'s guarded/ignored branch).
+  void _trackCheckOutcome() {
+    final outcome = switch (state.phase) {
+      UpdatePhase.available => 'available',
+      UpdatePhase.upToDate => 'up_to_date',
+      UpdatePhase.error => 'error',
+      UpdatePhase.readyToInstall => 'ready_to_install',
+      _ => null,
+    };
+    if (outcome == null) return;
+    try {
+      ref
+          .read(telemetryProvider)
+          .trackEvent(category: 'update', action: 'check', name: outcome);
+    } catch (e) {
+      _log.debug('telemetry failed: $e');
     }
   }
 
@@ -345,6 +373,7 @@ class UpdateNotifier extends Notifier<UpdateState> {
       latestVersion: version,
       releaseNotesUrl: releaseNotesUrl,
     );
+    _trackCheckOutcome();
   }
 
   /// Mirrors a native "no update available" event.
@@ -353,6 +382,7 @@ class UpdateNotifier extends Notifier<UpdateState> {
       phase: UpdatePhase.upToDate,
       latestVersion: latestVersion ?? state.latestVersion,
     );
+    _trackCheckOutcome();
   }
 
   /// Mirrors a native "update downloaded" / "will install on quit" event —
@@ -366,6 +396,7 @@ class UpdateNotifier extends Notifier<UpdateState> {
       phase: UpdatePhase.readyToInstall,
       latestVersion: state.latestVersion,
     );
+    _trackCheckOutcome();
   }
 
   /// Mirrors a native updater error event.
@@ -391,6 +422,7 @@ class UpdateNotifier extends Notifier<UpdateState> {
     }
     _log.warning('Native updater error: $message');
     state = UpdateState(phase: UpdatePhase.error, errorMessage: message);
+    _trackCheckOutcome();
   }
 
   /// Launch the downloaded installer and exit the app.

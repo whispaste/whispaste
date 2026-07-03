@@ -47,6 +47,7 @@ const Set<String> kTrackableSettingKeys = {
   'language',
   'auto_paste',
   'check_updates',
+  'beta_updates',
   'share_usage_stats',
   'error_reporting',
   'hotkey_mode',
