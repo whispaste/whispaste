@@ -80,6 +80,49 @@ void main() {
         );
       },
     );
+
+    testWidgets(
+      'on a Sparkle platform, tapping while readyToInstall ALSO opens the '
+      'native dialog — NOT the Linux/portable installUpdate() flow, which '
+      'expects a local downloaded-file path the native path never sets',
+      (tester) async {
+        platformSupportsSparkle = () => true;
+        var foregroundCheckCalled = false;
+        checkForUpdatesFn = ({inBackground}) async {
+          foregroundCheckCalled = true;
+        };
+
+        await tester.pumpWidget(
+          makeTestable(
+            const AboutPage(),
+            locale: const Locale('en'),
+            overrides: [
+              deployChannelProvider.overrideWith(
+                (ref) => DeployChannel.installer,
+              ),
+            ],
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(AboutPage)),
+        );
+        container.read(updateProvider.notifier).markReadyToInstallNative();
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text(l10n.updateInstall));
+        await tester.pump();
+
+        expect(
+          foregroundCheckCalled,
+          isTrue,
+          reason:
+              'presentSparkleUpdate must run for readyToInstall on a '
+              'Sparkle platform too',
+        );
+      },
+    );
   });
 
   group('AboutPage review & support', () {

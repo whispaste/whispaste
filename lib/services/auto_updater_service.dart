@@ -182,12 +182,14 @@ class _SparkleUpdaterListener with UpdaterListener {
     required this.onChecking,
     required this.onAvailable,
     required this.onUpToDate,
+    required this.onReadyToInstall,
     required this.onError,
   });
 
   final void Function() onChecking;
   final void Function(String version, String? releaseNotesUrl) onAvailable;
   final void Function() onUpToDate;
+  final void Function() onReadyToInstall;
   final void Function(String message) onError;
 
   @override
@@ -205,14 +207,12 @@ class _SparkleUpdaterListener with UpdaterListener {
   void onUpdaterUpdateNotAvailable(UpdaterError? error) => onUpToDate();
 
   @override
-  void onUpdaterUpdateDownloaded(AppcastItem? appcastItem) {
-    // Sparkle/WinSparkle take over the download + install prompt natively
-    // from here; [UpdateState] has no downloading/readyToInstall
-    // representation for the native path, so there is nothing to mirror.
-  }
+  void onUpdaterUpdateDownloaded(AppcastItem? appcastItem) =>
+      onReadyToInstall();
 
   @override
-  void onUpdaterBeforeQuitForUpdate(AppcastItem? appcastItem) {}
+  void onUpdaterBeforeQuitForUpdate(AppcastItem? appcastItem) =>
+      onReadyToInstall();
 
   @override
   void onUpdaterError(UpdaterError? error) =>
@@ -220,15 +220,26 @@ class _SparkleUpdaterListener with UpdaterListener {
 }
 
 /// Registers a listener that mirrors native Sparkle/WinSparkle events via
-/// [onChecking]/[onAvailable]/[onUpToDate]/[onError]. No-op on platforms
-/// without a Sparkle/WinSparkle backend. Call once, before [initAutoUpdater],
-/// from `main.dart` — the caller wires the callbacks to the shared
-/// `UpdateNotifier` mutators (`markCheckingNative` et al. in
-/// `update_service.dart`) so every UI surface shares one source of truth.
+/// [onChecking]/[onAvailable]/[onUpToDate]/[onReadyToInstall]/[onError].
+/// No-op on platforms without a Sparkle/WinSparkle backend. Call once,
+/// before [initAutoUpdater], from `main.dart` — the caller wires the
+/// callbacks to the shared `UpdateNotifier` mutators (`markCheckingNative`
+/// et al. in `update_service.dart`) so every UI surface shares one source of
+/// truth.
+///
+/// [onReadyToInstall] fires once the update has finished downloading —
+/// Sparkle/WinSparkle then either wait for the app to quit (installing
+/// automatically) or, if the user reopens the check, present their own
+/// "ready to install" UI directly. There is no download-progress signal
+/// exposed by the native plugin, so this is the only intermediate state
+/// available; before this was wired, the UI stayed frozen on "available"
+/// while a download silently completed in the background, with no way to
+/// tell what was actually happening.
 void registerSparkleListener({
   required void Function() onChecking,
   required void Function(String version, String? releaseNotesUrl) onAvailable,
   required void Function() onUpToDate,
+  required void Function() onReadyToInstall,
   required void Function(String message) onError,
 }) {
   if (!platformSupportsSparkle()) return;
@@ -237,6 +248,7 @@ void registerSparkleListener({
       onChecking: onChecking,
       onAvailable: onAvailable,
       onUpToDate: onUpToDate,
+      onReadyToInstall: onReadyToInstall,
       onError: onError,
     ),
   );

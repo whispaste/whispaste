@@ -194,6 +194,7 @@ void main() {
     String? availableVersion;
     String? availableNotesUrl;
     var upToDateCalled = false;
+    var readyToInstallCalled = false;
     String? errorMessage;
     UpdaterListener? captured;
 
@@ -202,6 +203,7 @@ void main() {
       availableVersion = null;
       availableNotesUrl = null;
       upToDateCalled = false;
+      readyToInstallCalled = false;
       errorMessage = null;
       captured = null;
     }
@@ -217,6 +219,7 @@ void main() {
           availableNotesUrl = releaseNotesUrl;
         },
         onUpToDate: () => upToDateCalled = true,
+        onReadyToInstall: () => readyToInstallCalled = true,
         onError: (message) => errorMessage = message,
       );
     }
@@ -284,6 +287,25 @@ void main() {
       register(sparklePlatform: true);
       captured!.onUpdaterError(null);
       expect(errorMessage, isNotEmpty);
+    });
+
+    test('onUpdaterUpdateDownloaded → onReadyToInstall fires (the download '
+        'finished; there is no progress signal, so this is the only '
+        'intermediate state exposed by the native path)', () {
+      register(sparklePlatform: true);
+      captured!.onUpdaterUpdateDownloaded(
+        const AppcastItem(displayVersionString: '1.2.44-beta.9'),
+      );
+      expect(readyToInstallCalled, isTrue);
+    });
+
+    test('onUpdaterBeforeQuitForUpdate → onReadyToInstall fires (Sparkle is '
+        'about to auto-install on quit)', () {
+      register(sparklePlatform: true);
+      captured!.onUpdaterBeforeQuitForUpdate(
+        const AppcastItem(displayVersionString: '1.2.44-beta.9'),
+      );
+      expect(readyToInstallCalled, isTrue);
     });
   });
 }

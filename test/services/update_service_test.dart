@@ -181,6 +181,20 @@ void main() {
       expect(state.phase, UpdatePhase.error);
       expect(state.errorMessage, 'offline');
     });
+
+    test('markReadyToInstallNative transitions to readyToInstall and keeps '
+        'the previously-known version', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(updateProvider.notifier);
+
+      notifier.markAvailableNative(version: '1.2.44-beta.9');
+      notifier.markReadyToInstallNative();
+
+      final state = container.read(updateProvider);
+      expect(state.phase, UpdatePhase.readyToInstall);
+      expect(state.latestVersion, '1.2.44-beta.9');
+    });
   });
 
   group('DeployChannel', () {

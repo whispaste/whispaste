@@ -27,44 +27,39 @@ import 'update_service.dart';
 /// action for the current [updateState], routed identically regardless of
 /// which UI surface triggered it.
 ///
-/// - [UpdatePhase.available]: Sparkle platforms open the native dialog;
-///   Linux/portable open the release notes URL.
-/// - [UpdatePhase.readyToInstall]: installs the already-downloaded update
-///   (Linux/portable installer flow only — Sparkle platforms swap in-place
-///   before ever reaching this phase).
-/// - Anything else (idle/checking/upToDate/error): triggers a fresh check —
-///   the native Sparkle foreground check on Sparkle platforms (so beta
-///   releases are actually found), or the GitHub-API check elsewhere.
+/// On Sparkle/WinSparkle platforms, EVERY phase routes through the native
+/// dialog (`presentSparkleUpdate`) — Sparkle owns the whole check → download
+/// → install flow and presents its own UI for whatever state it's actually
+/// in (found an update, ready to install, up to date). Dart has no separate
+/// "install now" trigger for that path, and calling the Linux/portable
+/// `installUpdate()` there would be wrong (it expects a local downloaded
+/// file path that the native path never exposes to Dart).
+///
+/// Linux/portable (the GitHub-API mechanism) drives its own explicit
+/// download + local-file install flow: [UpdatePhase.available] opens the
+/// release notes URL, [UpdatePhase.readyToInstall] launches the downloaded
+/// installer, anything else triggers a fresh check.
 void triggerUpdateAction({
   required WidgetRef ref,
   required UpdateState updateState,
   required DeployChannel channel,
 }) {
-  final notifier = ref.read(updateProvider.notifier);
-
-  if (updateState.phase == UpdatePhase.available) {
-    if (shouldUseAutoUpdater(channel)) {
-      presentSparkleUpdate(
-        ref.read(updateChannelProvider).value ?? UpdateChannel.stable,
-      );
-    } else {
-      final url = updateState.releaseNotesUrl;
-      if (url != null) launchUrl(Uri.parse(url));
-    }
-    return;
-  }
-
-  if (updateState.phase == UpdatePhase.readyToInstall) {
-    notifier.installUpdate();
-    return;
-  }
-
   if (shouldUseAutoUpdater(channel)) {
     presentSparkleUpdate(
       ref.read(updateChannelProvider).value ?? UpdateChannel.stable,
     );
-  } else {
-    notifier.checkForUpdate();
+    return;
+  }
+
+  final notifier = ref.read(updateProvider.notifier);
+  switch (updateState.phase) {
+    case UpdatePhase.available:
+      final url = updateState.releaseNotesUrl;
+      if (url != null) launchUrl(Uri.parse(url));
+    case UpdatePhase.readyToInstall:
+      notifier.installUpdate();
+    default:
+      notifier.checkForUpdate();
   }
 }
 

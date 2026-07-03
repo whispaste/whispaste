@@ -355,6 +355,19 @@ class UpdateNotifier extends Notifier<UpdateState> {
     );
   }
 
+  /// Mirrors a native "update downloaded" / "will install on quit" event —
+  /// Sparkle/WinSparkle finished downloading and will install automatically
+  /// on the next app quit (or immediately, if the user reopens the native
+  /// dialog). There is no download-progress signal on the native path, so
+  /// this is the only intermediate state available between "available" and
+  /// the update actually landing on relaunch.
+  void markReadyToInstallNative() {
+    state = UpdateState(
+      phase: UpdatePhase.readyToInstall,
+      latestVersion: state.latestVersion,
+    );
+  }
+
   /// Mirrors a native updater error event.
   ///
   /// Sparkle's `didAbortWithError` (surfaced here via the `onError`

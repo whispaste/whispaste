@@ -303,6 +303,7 @@ void _scheduleStartupSideEffects(
               releaseNotesUrl: releaseNotesUrl,
             ),
         onUpToDate: updateNotifier.markUpToDateNative,
+        onReadyToInstall: updateNotifier.markReadyToInstallNative,
         onError: updateNotifier.markErrorNative,
       );
       // The automatic (scheduled + startup-silent) check stays gated by the
