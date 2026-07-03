@@ -1,3 +1,4 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/services/deploy_channel_service.dart';
 import 'package:whispaste/services/update_service.dart';
@@ -132,6 +133,53 @@ void main() {
       expect(updated.phase, UpdatePhase.downloading);
       expect(updated.latestVersion, '2.0.0');
       expect(updated.downloadUrl, 'https://example.com/setup.exe');
+    });
+  });
+
+  group('UpdateNotifier native-event mirrors (PRD Bug: Sparkle abort '
+      'conflates "no update" with "error")', () {
+    test('markErrorNative after markUpToDateNative is ignored — Sparkle '
+        'fires a trailing didAbortWithError even for a completely normal '
+        '"no update found" cycle', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(updateProvider.notifier);
+
+      notifier.markUpToDateNative(latestVersion: '1.2.44-beta.7');
+      notifier.markErrorNative('SUNoUpdateError (benign)');
+
+      final state = container.read(updateProvider);
+      expect(state.phase, UpdatePhase.upToDate);
+      expect(state.latestVersion, '1.2.44-beta.7');
+    });
+
+    test('markErrorNative after markAvailableNative is ignored — a real find '
+        'must survive a trailing abort signal', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(updateProvider.notifier);
+
+      notifier.markAvailableNative(version: '1.2.44-beta.8');
+      notifier.markErrorNative('trailing abort');
+
+      final state = container.read(updateProvider);
+      expect(state.phase, UpdatePhase.available);
+      expect(state.latestVersion, '1.2.44-beta.8');
+    });
+
+    test('markErrorNative with no prior decisive event still surfaces a '
+        'genuine failure (e.g. network unreachable before any appcast '
+        'could be parsed)', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(updateProvider.notifier);
+
+      notifier.markCheckingNative();
+      notifier.markErrorNative('offline');
+
+      final state = container.read(updateProvider);
+      expect(state.phase, UpdatePhase.error);
+      expect(state.errorMessage, 'offline');
     });
   });
 

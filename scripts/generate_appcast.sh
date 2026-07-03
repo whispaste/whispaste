@@ -153,10 +153,22 @@ sign_enclosure() {
   printf '%s %s' "$sig" "$length"
 }
 
-# Sparkle compares <sparkle:version> against the installed app's CFBundleVersion.
-# Both are the dotted version string (CFBundleVersion=$(FLUTTER_BUILD_NAME) in
-# Info.plist), so e.g. "1.2.44" > "1.2.40" offers the update and
-# "1.2.44" == "1.2.44" does NOT (no update loop).
+# Sparkle/WinSparkle compare <sparkle:version> against the installed
+# binary's own comparison version — CFBundleVersion on macOS (=
+# $(FLUTTER_BUILD_NAME) in Info.plist), FileVersion on Windows (NSIS
+# PRODUCT_VERSION_NUMERIC). Both are Flutter/CI-sanitized DOTTED-NUMERIC
+# strings: a pre-release pubspec version like "1.2.44-beta.7" becomes
+# "1.2.44.7" there (verified empirically via `flutter build macos
+# --config-only` -> FLUTTER_BUILD_NAME=1.2.44.7 — Apple's Info.plist
+# version keys reject a dash+letters suffix). Using the RAW tag string
+# ("1.2.44-beta.7") here made Sparkle compare two differently-shaped
+# version strings for the exact same release — beta-to-beta updates were
+# undetectable as a result. sparkle:shortVersionString stays the raw,
+# human-readable string (display only, never compared).
+SPARKLE_VERSION_COMPARE="$VERSION"
+if [[ "$VERSION" == *-beta.* ]]; then
+  SPARKLE_VERSION_COMPARE="${VERSION%%-beta.*}.${VERSION##*-beta.}"
+fi
 PUBDATE="$(date -u '+%a, %d %b %Y %H:%M:%S +0000')"
 # --channel selects the output filename (and thus the release asset name).
 # Feed content is identical across channels; only the filename differs.
@@ -189,7 +201,7 @@ read -r MAC_SIG MAC_LEN <<<"$sig_line"
 MACOS_ITEM="    <item>
       <title>Version ${VERSION}</title>
       <pubDate>${PUBDATE}</pubDate>
-      <sparkle:version>${VERSION}</sparkle:version>
+      <sparkle:version>${SPARKLE_VERSION_COMPARE}</sparkle:version>
       <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
       <enclosure url=\"${ENC_BASE}/${DMG_NAME}\" sparkle:edSignature=\"${MAC_SIG}\" length=\"${MAC_LEN}\" type=\"application/octet-stream\" sparkle:os=\"macos\"/>
@@ -210,7 +222,7 @@ if [[ -f "$SETUP" ]]; then
   WINDOWS_ITEM="    <item>
       <title>Version ${VERSION}</title>
       <pubDate>${PUBDATE}</pubDate>
-      <sparkle:version>${VERSION}</sparkle:version>
+      <sparkle:version>${SPARKLE_VERSION_COMPARE}</sparkle:version>
       <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
       <enclosure url=\"${ENC_BASE}/${SETUP_NAME}\" sparkle:edSignature=\"${WIN_SIG}\" length=\"${WIN_LEN}\" type=\"application/octet-stream\" sparkle:os=\"windows\"/>
     </item>"

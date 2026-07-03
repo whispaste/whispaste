@@ -116,15 +116,27 @@ jobs:
         run: |
           # Use tag version when on a tag push; fall back to pubspec.yaml on branch push
           $refName = "${{ github.ref_name }}"
-          if ($refName -match '^\d+\.\d+\.\d+') {
+          if ($refName -match '^v?\d+\.\d+\.\d+') {
             $version = $refName.TrimStart('v')
           } else {
             $raw = (Get-Content pubspec.yaml | Select-String '^\s*version:').ToString()
             $version = ($raw -replace '^\s*version:\s*', '' -replace '\+.*', '').Trim()
           }
-          # X.X.X.0 format for Windows file properties (strip prerelease suffix)
+          # X.X.X.N format for Windows file properties (VIFileVersion, read by
+          # WinSparkle as the "installed version" for its update comparison —
+          # see auto_updater_windows: it never calls win_sparkle_set_app_details,
+          # so it falls back to the EXE's own VERSIONINFO resource). The 4th
+          # component must carry the actual beta counter, not a hardcoded 0 —
+          # otherwise every beta build reports the identical "X.X.X.0" and
+          # WinSparkle can never tell beta.7 from beta.8. Mirrors the same
+          # scheme Flutter's own tooling already applies to CFBundleVersion on
+          # macOS (see generate_appcast.sh's SPARKLE_VERSION_COMPARE).
           $parts = $version -split '[.\-]'
-          $numeric = "$($parts[0]).$($parts[1]).$($parts[2]).0"
+          if ($parts.Length -ge 5) {
+            $numeric = "$($parts[0]).$($parts[1]).$($parts[2]).$($parts[4])"
+          } else {
+            $numeric = "$($parts[0]).$($parts[1]).$($parts[2]).0"
+          }
 
           & "C:\Program Files (x86)\NSIS\makensis.exe" `
             /DPRODUCT_VERSION=$version `

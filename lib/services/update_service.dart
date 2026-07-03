@@ -356,7 +356,26 @@ class UpdateNotifier extends Notifier<UpdateState> {
   }
 
   /// Mirrors a native updater error event.
+  ///
+  /// Sparkle's `didAbortWithError` (surfaced here via the `onError`
+  /// callback) fires at the end of EVERY check cycle that doesn't install
+  /// an update — including the entirely normal "no update found" outcome,
+  /// which also fires the more specific `updaterDidNotFindUpdate` callback
+  /// (mirrored via [markUpToDateNative]) moments before it. Verified live:
+  /// a foreground check that correctly showed Sparkle's native "You're up
+  /// to date!" dialog still emitted this event right after, downgrading the
+  /// state back to `error`. A decisive positive result already recorded for
+  /// this cycle must not be overwritten by this generic trailing signal —
+  /// only a bare abort with no prior decisive event (state still
+  /// `checking`/`idle`) is a genuine failure.
   void markErrorNative(String message) {
+    if (state.phase == UpdatePhase.available ||
+        state.phase == UpdatePhase.upToDate) {
+      _log.debug(
+        'Native updater abort ignored (cycle already resolved): $message',
+      );
+      return;
+    }
     _log.warning('Native updater error: $message');
     state = UpdateState(phase: UpdatePhase.error, errorMessage: message);
   }
