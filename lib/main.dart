@@ -273,22 +273,27 @@ void _scheduleStartupSideEffects(
     unawaited(db.purgeTrash(days: settings.historyAutoTrashDays));
   }
 
-  // Check for updates on startup if enabled and not running from Store.
+  // Not running from Store — Store builds have no self-updater at all.
   final channel = container.read(deployChannelProvider);
-  if (settings.checkUpdates && channel != DeployChannel.store) {
+  if (channel != DeployChannel.store) {
     if (Platform.isLinux) {
-      // Linux — no Sparkle/WinSparkle; keep the GitHub API check.
-      Future<void>.delayed(const Duration(seconds: 3), () {
-        container.read(updateProvider.notifier).checkForUpdate();
-      });
+      // Linux — no Sparkle/WinSparkle; keep the GitHub API check. Gated by
+      // the toggle since it's the only mechanism Linux has.
+      if (settings.checkUpdates) {
+        Future<void>.delayed(const Duration(seconds: 3), () {
+          container.read(updateProvider.notifier).checkForUpdate();
+        });
+      }
     } else {
-      // macOS / Windows non-store — initialize Sparkle/WinSparkle which
-      // handles periodic checks natively. Register a listener FIRST so the
-      // native "update available"/"up to date"/error events are mirrored
-      // into `updateProvider` — otherwise the status bar chip, About page,
-      // and Settings never learn what the native background check found
-      // (PRD Bug 1). Load the persisted update channel first so the correct
-      // feed (stable/beta appcast) is requested from the very first check.
+      // macOS / Windows non-store. Register the listener UNCONDITIONALLY
+      // (not gated by `settings.checkUpdates`) so the native "update
+      // available"/"up to date"/error events are mirrored into
+      // `updateProvider` — otherwise the status bar chip, About page, and
+      // Settings never learn what a native check found (PRD Bug 1). This
+      // must cover manual checks too: `presentSparkleUpdate` (triggered from
+      // About/Settings/status bar) sets its own feed URL and runs
+      // regardless of this toggle, so a user who disabled the automatic
+      // startup check must still see the result of a manual one.
       final updateNotifier = container.read(updateProvider.notifier);
       registerSparkleListener(
         onChecking: updateNotifier.markCheckingNative,
@@ -300,11 +305,16 @@ void _scheduleStartupSideEffects(
         onUpToDate: updateNotifier.markUpToDateNative,
         onError: updateNotifier.markErrorNative,
       );
-      unawaited(
-        container
-            .read(updateChannelProvider.future)
-            .then((updateChannel) => initAutoUpdater(channel, updateChannel)),
-      );
+      // The automatic (scheduled + startup-silent) check stays gated by the
+      // toggle. Load the persisted update channel first so the correct feed
+      // (stable/beta appcast) is requested from the very first check.
+      if (settings.checkUpdates) {
+        unawaited(
+          container
+              .read(updateChannelProvider.future)
+              .then((updateChannel) => initAutoUpdater(channel, updateChannel)),
+        );
+      }
     }
   }
 
