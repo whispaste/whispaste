@@ -10,7 +10,7 @@
   :root {
     --bg-dark: #0f1219;
     --bg-accent: #111827;
-    --accent: #38D9F0;
+    --accent: #3CCBE6;
     --accent-secondary: #0891B2;
     --text-primary: #f0f4f8;
     --text-muted: rgba(240, 244, 248, 0.72);
@@ -22,10 +22,10 @@
     height: 630px;
     overflow: hidden;
     font-family: 'Inter', system-ui, sans-serif;
-    background:
-      radial-gradient(circle at 16% 20%, rgba(56, 217, 240, 0.14), transparent 34%),
-      radial-gradient(circle at 84% 72%, rgba(8, 145, 178, 0.12), transparent 32%),
-      linear-gradient(135deg, var(--bg-accent) 0%, #151c2e 40%, var(--bg-dark) 100%);
+    background-color: var(--bg-dark);
+    background-image: var(--og-bg-image, none);
+    background-size: cover;
+    background-position: center;
     color: var(--text-primary);
   }
 
@@ -123,11 +123,9 @@
 
   .card {
     position: absolute;
-    width: 380px;
-    border-radius: 12px;
+    border-radius: 14px;
     overflow: hidden;
-    border: 1px solid var(--line);
-    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.14);
   }
 
   .card img {
@@ -137,15 +135,18 @@
   }
 
   .card-1 {
-    transform: translate(-112px, 72px) rotate(-7deg);
+    width: 430px;
+    z-index: 2;
+    box-shadow: 0 34px 64px rgba(0, 0, 0, 0.45);
+    transform: translate(18px, 58px) rotate(-2deg);
   }
 
   .card-2 {
-    transform: translate(12px, -8px) rotate(-1.5deg);
-  }
-
-  .card-3 {
-    transform: translate(140px, 92px) rotate(7deg);
+    width: 340px;
+    z-index: 1;
+    opacity: 0.9;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    transform: translate(72px, -108px) rotate(2.5deg);
   }
 </style>
 </head>
@@ -164,9 +165,8 @@
     </div>
 
     <div class="deck">
-      <div class="card card-1"><img id="card-1" src="" alt="WhisPaste screenshot 1"></div>
       <div class="card card-2"><img id="card-2" src="" alt="WhisPaste screenshot 2"></div>
-      <div class="card card-3"><img id="card-3" src="" alt="WhisPaste screenshot 3"></div>
+      <div class="card card-1"><img id="card-1" src="" alt="WhisPaste screenshot 1"></div>
     </div>
   </div>
 </body>

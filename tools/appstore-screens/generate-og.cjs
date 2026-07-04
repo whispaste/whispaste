@@ -7,17 +7,19 @@ const { ROOT, ASSET_PATHS, GOLDENS } = require('./config');
 const TEMPLATE_PATH = path.join(__dirname, 'og-template.html');
 const OUTPUT_DIR = path.join(__dirname, 'output', 'og');
 const WEBSITE_PUBLIC = path.join(ROOT, 'website', 'public');
+const BACKGROUND_PATH = path.join(__dirname, 'assets', 'og-background.jpg');
 
+// Two-card deck (front = workspace overview, back = voice shortcuts) sourced
+// from the flat `ui/<lang>/` PNG goldens — the `<lang>/dark|light/*.webp`
+// tree is website-only (image-optimized) and has no PNG counterpart.
 const FEATURE_FILES = {
   en: [
-    'en/dark/01_workspace_overview.png',
-    'en/light/02_workspace_detail.png',
-    'en/dark/03_voice_shortcuts.png',
+    'ui/en/01_workspace_overview.png',
+    'ui/en/03_voice_shortcuts.png',
   ],
   de: [
-    'de/dark/01_workspace_overview.png',
-    'de/light/02_workspace_detail.png',
-    'de/dark/03_voice_shortcuts.png',
+    'ui/de/01_workspace_overview.png',
+    'ui/de/03_voice_shortcuts.png',
   ],
 };
 
@@ -27,7 +29,7 @@ const OG_CONTENT = {
     headline: 'Speak once.\n<em>Use it anywhere.</em>',
     subtitle:
       'WhisPaste turns short dictation into ready-to-paste text with a desktop workflow that stays private and organized.',
-    badges: ['100% Offline', 'Open Source', 'Windows · macOS'],
+    badges: ['100% Offline', 'Open Source', 'macOS · Windows · Linux'],
     trustNote: 'Private by default. Cloud only when you choose it.',
   },
   de: {
@@ -35,7 +37,7 @@ const OG_CONTENT = {
     headline: 'Einmal sprechen.\n<em>Überall nutzen.</em>',
     subtitle:
       'WhisPaste macht aus kurzen Diktaten direkt nutzbaren Text — mit einem Desktop-Workflow, der privat und aufgeräumt bleibt.',
-    badges: ['100% Offline', 'Open Source', 'Windows · macOS'],
+    badges: ['100% Offline', 'Open Source', 'macOS · Windows · Linux'],
     trustNote: 'Standardmäßig privat. Cloud nur, wenn du sie auswählst.',
   },
 };
@@ -48,7 +50,10 @@ function ensureDir(dir) {
 
 function toDataUri(filePath) {
   const buffer = fs.readFileSync(filePath);
-  return `data:image/png;base64,${buffer.toString('base64')}`;
+  const mime = filePath.endsWith('.jpg') || filePath.endsWith('.jpeg')
+    ? 'image/jpeg'
+    : 'image/png';
+  return `data:${mime};base64,${buffer.toString('base64')}`;
 }
 
 function resolveScreenshot(lang, relPath) {
@@ -78,7 +83,9 @@ async function generateOgImage(lang) {
     );
 
     await page.evaluate(
-      ({ logo, content: injected, cards }) => {
+      ({ logo, content: injected, cards, background }) => {
+        document.documentElement.style.setProperty('--og-bg-image', `url(${background})`);
+
         const logoNode = document.getElementById('logo');
         if (logoNode) logoNode.src = logo;
 
@@ -106,7 +113,7 @@ async function generateOgImage(lang) {
           if (img) img.src = card;
         });
       },
-      { logo: toDataUri(ASSET_PATHS.logo), content, cards },
+      { logo: toDataUri(ASSET_PATHS.logo), content, cards, background: toDataUri(BACKGROUND_PATH) },
     );
 
     await page.waitForFunction(

@@ -65,8 +65,9 @@ VIAddVersionKey /LANG=0 "ProductVersion" "${PRODUCT_VERSION}"
 ; Brand colors — safe subset (avoid dark bg on pages with native controls)
 ; Install progress log: cyan-on-navy matches our color system
 !define MUI_INSTFILESPAGE_COLORS "38D9F0 131826"
-; License text field: dark navy background
-!define MUI_LICENSEPAGE_BGCOLOR 131826
+; License text field: MUI2 has no matching text-color override for this
+; control, so a dark background here would render the (unstyled, black)
+; license text unreadable. Leave it at the system default (white bg).
 
 ; Branded welcome page text
 !define MUI_WELCOMEPAGE_TITLE "$(WELCOME_TITLE)"
