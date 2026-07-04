@@ -4707,6 +4707,12 @@ abstract class L10n {
   /// **'Word'**
   String get exportFormatWord;
 
+  /// No description provided for @cpuFallbackToast.
+  ///
+  /// In en, this message translates to:
+  /// **'Transcription is taking a little longer than usual right now — it\'s still working.'**
+  String get cpuFallbackToast;
+
   /// No description provided for @recoveryExhaustedToast.
   ///
   /// In en, this message translates to:

@@ -26,6 +26,7 @@ import '../services/paste/paster.dart';
 import '../services/recording_orchestrator.dart';
 import '../services/sound_feedback_service.dart';
 import '../services/stt/recovery_toast_notifier.dart';
+import '../services/stt/stt_bundle.dart';
 import '../services/tray_service.dart';
 import 'oom_recovery_dialog.dart';
 import 'toast.dart';
@@ -402,6 +403,13 @@ class _RecordingBehaviorState extends ConsumerState<RecordingBehaviorWidget> {
       );
     });
 
+    // ── CPU-fallback status (issue #01: surface the silent auto-degrade) ──
+    ref.listen<SttStatus>(localSttBundleProvider, (prev, next) {
+      if (shouldShowCpuFallbackToast(prev, next)) {
+        showCpuFallbackToast(context: context, l10n: l10n);
+      }
+    });
+
     return widget.child;
   }
 
@@ -529,6 +537,40 @@ void showRecoveryToast({
         duration: const Duration(seconds: 5),
       );
   }
+}
+
+// ---------------------------------------------------------------------------
+// CPU-fallback status toast — issue #01. `SttStatus.cpuFallbackActive`
+// already exists (set by the GPU-crash recovery path in
+// `stt_server_state_notifier.dart`) but had no UI consumer. Extracted the
+// same way as [showRecoveryToast] above so the transition-gating logic and
+// the toast rendering can each be tested without mounting the full
+// `RecordingBehaviorWidget` + `ref.listen` wiring.
+// ---------------------------------------------------------------------------
+
+/// Pure gate: decides whether a [SttStatus] transition should surface the
+/// CPU-fallback toast. Only the `false → true` edge (or an initial `null`
+/// previous status that is already active) fires — repeated emissions
+/// while the fallback stays active (`true → true`) must NOT re-trigger a
+/// duplicate toast, and returning to GPU (`true → false`) has no toast of
+/// its own (the original toast simply auto-dismisses on its own timer).
+bool shouldShowCpuFallbackToast(SttStatus? prev, SttStatus next) {
+  final wasActive = prev?.cpuFallbackActive ?? false;
+  return !wasActive && next.cpuFallbackActive;
+}
+
+/// Renders the plain-language, dismissable info toast for the CPU-fallback
+/// status. No action button: switching the GPU-acceleration setting cannot
+/// undo a fallback that already happened for the current server process, so
+/// no button is offered — a passive toast (like [RecoveryToastKind.abiInfo]
+/// above) is all this needs.
+void showCpuFallbackToast({required BuildContext context, required L10n l10n}) {
+  WpToast.show(
+    context,
+    message: l10n.cpuFallbackToast,
+    type: WpToastType.info,
+    duration: const Duration(seconds: 5),
+  );
 }
 
 /// Microsoft's stable short-link to the latest x64 VC++ Redistributable.

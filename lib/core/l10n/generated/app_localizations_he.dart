@@ -2577,6 +2577,10 @@ class L10nHe extends L10n {
   String get exportFormatWord => 'Word';
 
   @override
+  String get cpuFallbackToast =>
+      'Transcription is taking a little longer than usual right now — it\'s still working.';
+
+  @override
   String get recoveryExhaustedToast =>
       'Voice service cannot start. Please restart the app or reload the voice model.';
 

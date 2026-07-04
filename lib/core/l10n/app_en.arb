@@ -1014,6 +1014,7 @@
   "exportFormatJson": "JSON",
   "exportFormatWord": "Word",
 
+  "cpuFallbackToast": "Transcription is taking a little longer than usual right now — it's still working.",
   "recoveryExhaustedToast": "Voice service cannot start. Please restart the app or reload the voice model.",
   "recoveryExhaustedAction": "Open settings",
   "recoveryVcRuntimeToast": "Voice service cannot start: a Windows component is missing (Microsoft Visual C++). Please install the Visual C++ Redistributable (x64) and restart WhisPaste.",

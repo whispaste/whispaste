@@ -2648,6 +2648,10 @@ class L10nDe extends L10n {
   String get exportFormatWord => 'Word';
 
   @override
+  String get cpuFallbackToast =>
+      'Transkription dauert gerade etwas länger als sonst — läuft aber weiter.';
+
+  @override
   String get recoveryExhaustedToast =>
       'Sprachdienst kann nicht starten. Bitte App neu starten oder Sprachmodell neu laden.';
 
