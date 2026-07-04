@@ -24,11 +24,15 @@ import 'package:whispaste/features/recording/clipping_state.dart';
 import 'package:whispaste/services/audio_service.dart';
 import 'package:whispaste/services/desktop_paste/desktop_paste_controller.dart';
 import 'package:whispaste/services/model_download_service.dart';
+import 'package:whispaste/services/paste/paste_failure_notifier.dart';
+import 'package:whispaste/services/paste/paster.dart';
 import 'package:whispaste/services/path_service.dart'
     show sttDirOverride, sttDir, sttModelPath, whisperServerPath;
 import 'package:whispaste/services/recording_orchestrator.dart';
 import 'package:whispaste/services/stt/stt_bundle.dart';
+import 'package:whispaste/services/system_attention_service.dart';
 import 'package:whispaste/services/telemetry_service.dart';
+import 'package:whispaste/services/tray_service.dart';
 
 // ---------------------------------------------------------------------------
 // Fakes
@@ -183,6 +187,17 @@ class FakeDesktopPasteController extends DesktopPasteController {
   final captureResults = <bool>[];
   bool disposed = false;
 
+  /// Test seam for issue 02 (paste-failure/blocklist regression): lets a test
+  /// force a specific native outcome (e.g. [NativePasteStatus.permissionMissing])
+  /// beyond the plain success/[NativePasteStatus.postFailed] toggle above.
+  /// Takes priority over [pasteResult] when set.
+  NativePasteStatus? pasteStatusOverride;
+
+  /// Test seam for issue 02: the bundle ID [DesktopPaster.paste] sees when it
+  /// checks the auto-paste blocklist. `null` (the default) mirrors
+  /// "bundle ID lookup unsupported/unknown" and skips the blocklist check.
+  String? targetBundleIdToReturn;
+
   @override
   Future<bool> capturePasteTarget() async {
     captureCalls += 1;
@@ -196,6 +211,9 @@ class FakeDesktopPasteController extends DesktopPasteController {
   Future<NativePasteResult> pasteClipboard({required Duration delay}) async {
     pasteCalls += 1;
     lastDelay = delay;
+    if (pasteStatusOverride != null) {
+      return NativePasteResult(status: pasteStatusOverride!);
+    }
     return pasteResult
         ? const NativePasteResult(status: NativePasteStatus.success)
         : const NativePasteResult(status: NativePasteStatus.postFailed);
@@ -216,7 +234,7 @@ class FakeDesktopPasteController extends DesktopPasteController {
       const TestPasteOutcomeUnsupported();
 
   @override
-  Future<String?> getTargetBundleId() async => null;
+  Future<String?> getTargetBundleId() async => targetBundleIdToReturn;
 
   @override
   Future<void> dispose() async {
@@ -235,6 +253,58 @@ class FakeModelDownloadNotifier extends ModelDownloadNotifier {
       downloadedModels: _downloadedModels,
       serverReady: true,
     );
+  }
+}
+
+/// Fake tray service for issue 02 (paste-failure/blocklist regression) —
+/// records "Action Needed" calls without touching the real `tray_manager`
+/// platform channel (which isn't available in the test host process).
+class FakeTrayActionService extends TrayService {
+  final setActionNeededCalls = <String>[];
+  int clearActionNeededCalls = 0;
+
+  @override
+  void build() {
+    // No-op: skip the real _init() (tray_manager platform channel).
+  }
+
+  @override
+  void setActionNeeded({
+    required String label,
+    required String tooltip,
+    String? menuItemKey,
+  }) {
+    setActionNeededCalls.add(label);
+  }
+
+  @override
+  void clearActionNeeded() {
+    clearActionNeededCalls++;
+  }
+}
+
+/// Fake system-attention service for issue 02 — records calls without
+/// touching `local_notifier` / macOS dock-bounce platform channels.
+class FakeSystemAttentionService extends SystemAttentionService {
+  FakeSystemAttentionService(super.ref);
+
+  int requestAttentionCalls = 0;
+  int clearAttentionCalls = 0;
+  AttentionKind? lastKind;
+
+  @override
+  Future<void> requestAttention({
+    required AttentionKind kind,
+    required String title,
+    required String body,
+  }) async {
+    requestAttentionCalls++;
+    lastKind = kind;
+  }
+
+  @override
+  Future<void> clearAttention() async {
+    clearAttentionCalls++;
   }
 }
 
@@ -2001,6 +2071,172 @@ void main() {
         // to the internal Stopwatch, not the hotkey-based latency.
         expect(combined, contains('e_n=b1'));
         expect(combined, isNot(contains('e_n=b3')));
+      },
+    );
+  });
+
+  // =========================================================================
+  // Paste-failure / blocklist regression (issue
+  // 02-paste-fehler-blocklist-regression). Locks in the existing external
+  // behaviour: a real paste failure is reported via
+  // [pasteFailureNotifierProvider] and surfaced via tray + system-attention,
+  // while an app on the auto-paste blocklist produces neither — the
+  // blocklist check in DesktopPaster returns PasteOutcome.blocked *before*
+  // _pasteTranscript's switch ever reaches _reportPasteFailure.
+  // =========================================================================
+
+  group('Paste failure / blocklist regression (issue 02)', () {
+    late FakeTrayActionService fakeTray;
+    late FakeSystemAttentionService fakeAttention;
+
+    ProviderContainer buildPasteContainer(AppSettings settings) {
+      return ProviderContainer(
+        overrides: [
+          historyDatabaseProvider.overrideWith((ref) {
+            ref.onDispose(db.close);
+            return db;
+          }),
+          audioServiceProvider.overrideWith(() => fakeAudio),
+          localSttBundleProvider.overrideWith(() => fakeStt),
+          settingsProvider.overrideWith(() => FakeSettingsNotifier(settings)),
+          secureKeyStoreProvider.overrideWith((ref) => FakeSecureKeyStore()),
+          desktopPasteControllerProvider.overrideWith(
+            (ref) => fakeDesktopPaste,
+          ),
+          modelDownloadProvider.overrideWith(
+            () => FakeModelDownloadNotifier({
+              'whisper-small',
+              'whisper-medium',
+              'whisper-large-v3-turbo',
+            }),
+          ),
+          trayServiceProvider.overrideWith(() => fakeTray),
+          systemAttentionServiceProvider.overrideWith((ref) {
+            fakeAttention = FakeSystemAttentionService(ref);
+            return fakeAttention;
+          }),
+        ],
+      );
+    }
+
+    setUp(() {
+      fakeTray = FakeTrayActionService();
+    });
+
+    test('AC1 — a real paste failure (OS denies event injection, e.g. macOS '
+        'Accessibility / Windows UIPI) reports a failure event with the '
+        'matching outcome', () async {
+      fakeDesktopPaste.pasteStatusOverride =
+          NativePasteStatus.permissionMissing;
+
+      container.dispose();
+      container = buildPasteContainer(
+        const AppSettings(
+          stt: SttSettings(model: 'whisper-small', language: 'English'),
+          afterTranscriptionSection: AfterTranscriptionSettings(
+            afterTranscription: 'paste',
+          ),
+          onboarding: OnboardingSettings(onboardingCompleted: true),
+        ),
+      );
+      await container.read(settingsProvider.future);
+      // Force eager creation so `fakeAttention` points at *this* container's
+      // instance even on the blocklist path, where the orchestrator itself
+      // never reads systemAttentionServiceProvider (otherwise a stale
+      // instance from a previous test's container would linger).
+      container.read(systemAttentionServiceProvider);
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'Real paste failure test';
+
+      await orch.stopRecording();
+
+      final failure = container.read(pasteFailureNotifierProvider);
+      expect(
+        failure,
+        isNotNull,
+        reason: 'A real (non-blocklist) paste failure must be reported',
+      );
+      expect(failure!.outcome, PasteOutcome.permissionMissing);
+    });
+
+    test('AC2 — an app on the auto-paste blocklist produces no failure event '
+        '(and never even attempts the native paste)', () async {
+      fakeDesktopPaste.targetBundleIdToReturn = 'com.blocked.app';
+
+      container.dispose();
+      container = buildPasteContainer(
+        const AppSettings(
+          stt: SttSettings(model: 'whisper-small', language: 'English'),
+          afterTranscriptionSection: AfterTranscriptionSettings(
+            afterTranscription: 'paste',
+          ),
+          onboarding: OnboardingSettings(onboardingCompleted: true),
+          behavior: BehaviorSettings(autoPasteBlocklist: 'com.blocked.app'),
+        ),
+      );
+      await container.read(settingsProvider.future);
+      // Force eager creation so `fakeAttention` points at *this* container's
+      // instance even on the blocklist path, where the orchestrator itself
+      // never reads systemAttentionServiceProvider (otherwise a stale
+      // instance from a previous test's container would linger).
+      container.read(systemAttentionServiceProvider);
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'Blocklisted app test';
+
+      await orch.stopRecording();
+
+      expect(
+        container.read(pasteFailureNotifierProvider),
+        isNull,
+        reason: 'Blocklisted apps must not raise a paste-failure event',
+      );
+      expect(
+        fakeDesktopPaste.pasteCalls,
+        0,
+        reason:
+            'The blocklist check short-circuits before the native paste '
+            'is ever attempted',
+      );
+      expect(fakeTray.setActionNeededCalls, isEmpty);
+      expect(fakeAttention.requestAttentionCalls, 0);
+    });
+
+    test(
+      'AC3 — a real paste failure stays discoverable via the tray '
+      '"Action Needed" surface and the system-attention layer, both of '
+      'which fire unconditionally (no main-window-visibility check) so the '
+      'reminder survives even after a transient toast has already closed',
+      () async {
+        fakeDesktopPaste.pasteStatusOverride =
+            NativePasteStatus.permissionMissing;
+
+        container.dispose();
+        container = buildPasteContainer(
+          const AppSettings(
+            stt: SttSettings(model: 'whisper-small', language: 'English'),
+            afterTranscriptionSection: AfterTranscriptionSettings(
+              afterTranscription: 'paste',
+            ),
+            onboarding: OnboardingSettings(onboardingCompleted: true),
+          ),
+        );
+        await container.read(settingsProvider.future);
+
+        final orch = await startRecordingPhase();
+        fakeStt.transcriptToReturn = 'Tray surfacing test';
+
+        await orch.stopRecording();
+        await Future<void>.delayed(Duration.zero);
+
+        expect(
+          fakeTray.setActionNeededCalls,
+          hasLength(1),
+          reason: 'Tray must show an Action-Needed entry for the failure',
+        );
+        expect(fakeAttention.requestAttentionCalls, 1);
+        expect(fakeAttention.lastKind, AttentionKind.pasteBlockedPermission);
       },
     );
   });
