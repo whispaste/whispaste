@@ -1530,6 +1530,15 @@ class RecordingOrchestrator extends Notifier<void> {
   }) {
     ref.read(pasteFailureNotifierProvider.notifier).report(outcome);
 
+    // Dezenter Fehlerton — hörbar auch, wenn der Nutzer beim Diktieren nicht
+    // auf den Bildschirm schaut. Respektiert Sound-Volume + errorSound-Setting
+    // (siehe SoundFeedbackService.playError).
+    try {
+      ref.read(soundFeedbackProvider.notifier).playError();
+    } catch (e) {
+      _log.warning('Error sound failed: $e');
+    }
+
     // Fire out-of-app surfaces (dock-bounce + native notification + tray
     // badge) so the user sees the failure even when the main window is
     // hidden — the common case for WhisPaste.

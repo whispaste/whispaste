@@ -47,7 +47,7 @@ class SoundFeedbackService extends Notifier<void> {
   Future<void> playDurationWarning() =>
       _play('warning.wav', _settings.durationWarningSound);
 
-  Future<void> playError() => _play('error.wav', true);
+  Future<void> playError() => _play('error.wav', _settings.sound.errorSound);
 
   /// Play a preview of the start sound at the given [volume] (0–100).
   /// Used by the settings UI to preview volume changes.

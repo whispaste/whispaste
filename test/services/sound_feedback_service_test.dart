@@ -14,7 +14,7 @@
 /// 4. **No-throw contract** — all public play methods complete without throwing,
 ///    even when the native engine is unavailable.
 /// 5. **Enabled / disabled wiring** — verify each play method checks the
-///    correct settings flag and that `playError` always fires.
+///    correct settings flag, including `playError` → `errorSound`.
 /// 6. **Edge cases** — rapid concurrent calls, dispose without init, etc.
 library;
 
@@ -134,6 +134,10 @@ void main() {
       expect(defaults.soundVolume, 80.0);
     });
 
+    test('errorSound defaults to true', () {
+      expect(defaults.sound.errorSound, isTrue);
+    });
+
     test('AppSettings.defaults matches const constructor', () {
       expect(AppSettings.defaults.recordStartSound, defaults.recordStartSound);
       expect(AppSettings.defaults.recordStopSound, defaults.recordStopSound);
@@ -142,6 +146,7 @@ void main() {
         defaults.transcriptionCompleteSound,
       );
       expect(AppSettings.defaults.soundVolume, defaults.soundVolume);
+      expect(AppSettings.defaults.sound.errorSound, defaults.sound.errorSound);
     });
 
     test('copyWith can toggle each sound flag independently', () {
@@ -157,6 +162,12 @@ void main() {
       final noComplete = defaults.copyWith(transcriptionCompleteSound: false);
       expect(noComplete.transcriptionCompleteSound, isFalse);
       expect(noComplete.recordStartSound, isTrue);
+
+      final noError = defaults.copyWithSections(
+        sound: defaults.sound.copyWith(errorSound: false),
+      );
+      expect(noError.sound.errorSound, isFalse);
+      expect(noError.recordStartSound, isTrue);
     });
 
     test('copyWith can change soundVolume', () {
@@ -330,23 +341,37 @@ void main() {
       },
     );
 
-    test('playError always fires (hardcoded enabled=true)', () async {
-      // Disable every per-event toggle — error should still work.
+    test('playError is wired to errorSound setting', () async {
+      // Disabled via errorSound — early return, no engine interaction.
       final container = buildContainer(
-        settings: const AppSettings(
-          sound: SoundSettings(
-            recordStartSound: false,
-            recordStopSound: false,
-            transcriptionCompleteSound: false,
-          ),
-        ),
+        settings: const AppSettings(sound: SoundSettings(errorSound: false)),
       );
       addTearDown(container.dispose);
       await container.read(settingsProvider.future);
 
-      // playError passes `true` as the enabled flag, bypassing settings.
       await container.read(soundFeedbackProvider.notifier).playError();
     });
+
+    test(
+      'playError still fires when other per-event toggles are disabled',
+      () async {
+        // errorSound is independent of the other event toggles.
+        final container = buildContainer(
+          settings: const AppSettings(
+            sound: SoundSettings(
+              recordStartSound: false,
+              recordStopSound: false,
+              transcriptionCompleteSound: false,
+            ),
+          ),
+        );
+        addTearDown(container.dispose);
+        await container.read(settingsProvider.future);
+
+        // errorSound defaults to true, so playError still attempts the engine.
+        await container.read(soundFeedbackProvider.notifier).playError();
+      },
+    );
 
     test(
       'all event toggles disabled → only playError attempts engine',

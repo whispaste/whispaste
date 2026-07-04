@@ -370,6 +370,7 @@ class SoundSettings {
     this.recordStopSound = true,
     this.transcriptionCompleteSound = true,
     this.durationWarningSound = true,
+    this.errorSound = true,
     this.soundVolume = 80.0,
   });
 
@@ -377,6 +378,7 @@ class SoundSettings {
   final bool recordStopSound;
   final bool transcriptionCompleteSound;
   final bool durationWarningSound;
+  final bool errorSound;
   final double soundVolume;
 
   static const SoundSettings defaults = SoundSettings();
@@ -402,6 +404,7 @@ class SoundSettings {
       'duration_warning_sound',
       defaults.durationWarningSound,
     ),
+    errorSound: _readBool(v, 'error_sound', defaults.errorSound),
     soundVolume: _readDouble(v, 'sound_volume', defaults.soundVolume),
   );
 
@@ -410,6 +413,7 @@ class SoundSettings {
     'record_stop_sound': '$recordStopSound',
     'transcription_complete_sound': '$transcriptionCompleteSound',
     'duration_warning_sound': '$durationWarningSound',
+    'error_sound': '$errorSound',
     'sound_volume': '$soundVolume',
   };
 
@@ -418,6 +422,7 @@ class SoundSettings {
     bool? recordStopSound,
     bool? transcriptionCompleteSound,
     bool? durationWarningSound,
+    bool? errorSound,
     double? soundVolume,
   }) => SoundSettings(
     recordStartSound: recordStartSound ?? this.recordStartSound,
@@ -425,6 +430,7 @@ class SoundSettings {
     transcriptionCompleteSound:
         transcriptionCompleteSound ?? this.transcriptionCompleteSound,
     durationWarningSound: durationWarningSound ?? this.durationWarningSound,
+    errorSound: errorSound ?? this.errorSound,
     soundVolume: soundVolume ?? this.soundVolume,
   );
 
@@ -436,6 +442,7 @@ class SoundSettings {
           recordStopSound == other.recordStopSound &&
           transcriptionCompleteSound == other.transcriptionCompleteSound &&
           durationWarningSound == other.durationWarningSound &&
+          errorSound == other.errorSound &&
           soundVolume == other.soundVolume;
 
   @override
@@ -444,6 +451,7 @@ class SoundSettings {
     recordStopSound,
     transcriptionCompleteSound,
     durationWarningSound,
+    errorSound,
     soundVolume,
   );
 }

@@ -29,6 +29,7 @@ import 'package:whispaste/services/paste/paster.dart';
 import 'package:whispaste/services/path_service.dart'
     show sttDirOverride, sttDir, sttModelPath, whisperServerPath;
 import 'package:whispaste/services/recording_orchestrator.dart';
+import 'package:whispaste/services/sound_feedback_service.dart';
 import 'package:whispaste/services/stt/stt_bundle.dart';
 import 'package:whispaste/services/system_attention_service.dart';
 import 'package:whispaste/services/telemetry_service.dart';
@@ -305,6 +306,22 @@ class FakeSystemAttentionService extends SystemAttentionService {
   @override
   Future<void> clearAttention() async {
     clearAttentionCalls++;
+  }
+}
+
+/// Fake sound feedback service for issue 09 — records `playError()` calls
+/// without touching the real SoLoud engine.
+class FakeSoundFeedbackService extends SoundFeedbackService {
+  int playErrorCalls = 0;
+
+  @override
+  void build() {
+    // No-op: skip the real engine lazy-init bookkeeping.
+  }
+
+  @override
+  Future<void> playError() async {
+    playErrorCalls++;
   }
 }
 
@@ -2088,6 +2105,7 @@ void main() {
   group('Paste failure / blocklist regression (issue 02)', () {
     late FakeTrayActionService fakeTray;
     late FakeSystemAttentionService fakeAttention;
+    late FakeSoundFeedbackService fakeSoundFeedback;
 
     ProviderContainer buildPasteContainer(AppSettings settings) {
       return ProviderContainer(
@@ -2114,6 +2132,10 @@ void main() {
           systemAttentionServiceProvider.overrideWith((ref) {
             fakeAttention = FakeSystemAttentionService(ref);
             return fakeAttention;
+          }),
+          soundFeedbackProvider.overrideWith(() {
+            fakeSoundFeedback = FakeSoundFeedbackService();
+            return fakeSoundFeedback;
           }),
         ],
       );
@@ -2237,6 +2259,78 @@ void main() {
         );
         expect(fakeAttention.requestAttentionCalls, 1);
         expect(fakeAttention.lastKind, AttentionKind.pasteBlockedPermission);
+      },
+    );
+
+    // =========================================================================
+    // Error-sound wiring (issue 09-fehlerton-verdrahten). Keys off the same
+    // "real failure vs. blocklist" distinction locked in by issue 02 above:
+    // the error sound must play for a genuine paste failure but must stay
+    // silent for a deliberately blocklisted app.
+    // =========================================================================
+
+    test('issue 09 — a real paste failure plays the error sound', () async {
+      fakeDesktopPaste.pasteStatusOverride =
+          NativePasteStatus.permissionMissing;
+
+      container.dispose();
+      container = buildPasteContainer(
+        const AppSettings(
+          stt: SttSettings(model: 'whisper-small', language: 'English'),
+          afterTranscriptionSection: AfterTranscriptionSettings(
+            afterTranscription: 'paste',
+          ),
+          onboarding: OnboardingSettings(onboardingCompleted: true),
+        ),
+      );
+      await container.read(settingsProvider.future);
+      // Force eager creation so `fakeSoundFeedback` points at *this*
+      // container's instance (mirrors the fakeAttention pattern above).
+      container.read(soundFeedbackProvider);
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'Error sound real-failure test';
+
+      await orch.stopRecording();
+
+      expect(
+        fakeSoundFeedback.playErrorCalls,
+        1,
+        reason: 'A real paste failure must trigger the error sound',
+      );
+    });
+
+    test(
+      'issue 09 — a blocklisted app does not play the error sound',
+      () async {
+        fakeDesktopPaste.targetBundleIdToReturn = 'com.blocked.app';
+
+        container.dispose();
+        container = buildPasteContainer(
+          const AppSettings(
+            stt: SttSettings(model: 'whisper-small', language: 'English'),
+            afterTranscriptionSection: AfterTranscriptionSettings(
+              afterTranscription: 'paste',
+            ),
+            onboarding: OnboardingSettings(onboardingCompleted: true),
+            behavior: BehaviorSettings(autoPasteBlocklist: 'com.blocked.app'),
+          ),
+        );
+        await container.read(settingsProvider.future);
+        // Force eager creation so `fakeSoundFeedback` points at *this*
+        // container's instance (mirrors the fakeAttention pattern above).
+        container.read(soundFeedbackProvider);
+
+        final orch = await startRecordingPhase();
+        fakeStt.transcriptToReturn = 'Error sound blocklist test';
+
+        await orch.stopRecording();
+
+        expect(
+          fakeSoundFeedback.playErrorCalls,
+          0,
+          reason: 'Blocklisted apps must stay silent — no error sound',
+        );
       },
     );
   });
