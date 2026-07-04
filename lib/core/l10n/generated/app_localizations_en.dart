@@ -744,6 +744,52 @@ class L10nEn extends L10n {
       'Factory reset incomplete. Please restart the app.';
 
   @override
+  String get settingsPortabilityLabel => 'Export / Import Settings';
+
+  @override
+  String get settingsPortabilitySubtitle =>
+      'Move custom vocabulary, voice shortcuts, and hotkey settings between devices — no account needed.';
+
+  @override
+  String get settingsPortabilityExportAction => 'Export';
+
+  @override
+  String get settingsPortabilityImportAction => 'Import';
+
+  @override
+  String settingsPortabilityExportSuccess(String path) {
+    return 'Settings exported to $path';
+  }
+
+  @override
+  String settingsPortabilityExportError(String reason) {
+    return 'Export failed: $reason';
+  }
+
+  @override
+  String get settingsPortabilityImportConfirmTitle => 'Import Settings?';
+
+  @override
+  String settingsPortabilityImportConfirmMessage(String path) {
+    return 'This replaces your current custom vocabulary, voice shortcuts, and hotkey configuration with the contents of $path.';
+  }
+
+  @override
+  String settingsPortabilityImportSuccess(String path) {
+    return 'Settings imported from $path';
+  }
+
+  @override
+  String settingsPortabilityImportNotFound(String path) {
+    return 'No export file found at $path. Export settings first, or copy an export file there.';
+  }
+
+  @override
+  String settingsPortabilityImportError(String reason) {
+    return 'Import failed: $reason';
+  }
+
+  @override
   String get groqRemovedToast =>
       'Groq STT was removed — provider reset to On-Device.';
 

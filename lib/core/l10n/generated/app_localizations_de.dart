@@ -751,6 +751,54 @@ class L10nDe extends L10n {
       'Werks-Reset unvollständig. App neu starten?';
 
   @override
+  String get settingsPortabilityLabel =>
+      'Einstellungen exportieren/importieren';
+
+  @override
+  String get settingsPortabilitySubtitle =>
+      'Eigenes Vokabular, Sprachkürzel und Hotkey-Einstellungen zwischen Geräten übertragen — ohne Konto.';
+
+  @override
+  String get settingsPortabilityExportAction => 'Exportieren';
+
+  @override
+  String get settingsPortabilityImportAction => 'Importieren';
+
+  @override
+  String settingsPortabilityExportSuccess(String path) {
+    return 'Einstellungen exportiert nach $path';
+  }
+
+  @override
+  String settingsPortabilityExportError(String reason) {
+    return 'Export fehlgeschlagen: $reason';
+  }
+
+  @override
+  String get settingsPortabilityImportConfirmTitle =>
+      'Einstellungen importieren?';
+
+  @override
+  String settingsPortabilityImportConfirmMessage(String path) {
+    return 'Dies ersetzt dein aktuelles Vokabular, deine Sprachkürzel und deine Hotkey-Konfiguration durch den Inhalt von $path.';
+  }
+
+  @override
+  String settingsPortabilityImportSuccess(String path) {
+    return 'Einstellungen importiert aus $path';
+  }
+
+  @override
+  String settingsPortabilityImportNotFound(String path) {
+    return 'Keine Exportdatei unter $path gefunden. Zuerst Einstellungen exportieren oder eine Exportdatei dorthin kopieren.';
+  }
+
+  @override
+  String settingsPortabilityImportError(String reason) {
+    return 'Import fehlgeschlagen: $reason';
+  }
+
+  @override
   String get groqRemovedToast =>
       'Groq STT wurde entfernt — Provider auf On-Device zurückgesetzt.';
 

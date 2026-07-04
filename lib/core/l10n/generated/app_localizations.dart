@@ -1413,6 +1413,72 @@ abstract class L10n {
   /// **'Factory reset incomplete. Please restart the app.'**
   String get settingsFactoryResetFailedMessage;
 
+  /// No description provided for @settingsPortabilityLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Export / Import Settings'**
+  String get settingsPortabilityLabel;
+
+  /// No description provided for @settingsPortabilitySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Move custom vocabulary, voice shortcuts, and hotkey settings between devices — no account needed.'**
+  String get settingsPortabilitySubtitle;
+
+  /// No description provided for @settingsPortabilityExportAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Export'**
+  String get settingsPortabilityExportAction;
+
+  /// No description provided for @settingsPortabilityImportAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Import'**
+  String get settingsPortabilityImportAction;
+
+  /// No description provided for @settingsPortabilityExportSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings exported to {path}'**
+  String settingsPortabilityExportSuccess(String path);
+
+  /// No description provided for @settingsPortabilityExportError.
+  ///
+  /// In en, this message translates to:
+  /// **'Export failed: {reason}'**
+  String settingsPortabilityExportError(String reason);
+
+  /// No description provided for @settingsPortabilityImportConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Import Settings?'**
+  String get settingsPortabilityImportConfirmTitle;
+
+  /// No description provided for @settingsPortabilityImportConfirmMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'This replaces your current custom vocabulary, voice shortcuts, and hotkey configuration with the contents of {path}.'**
+  String settingsPortabilityImportConfirmMessage(String path);
+
+  /// No description provided for @settingsPortabilityImportSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings imported from {path}'**
+  String settingsPortabilityImportSuccess(String path);
+
+  /// No description provided for @settingsPortabilityImportNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No export file found at {path}. Export settings first, or copy an export file there.'**
+  String settingsPortabilityImportNotFound(String path);
+
+  /// No description provided for @settingsPortabilityImportError.
+  ///
+  /// In en, this message translates to:
+  /// **'Import failed: {reason}'**
+  String settingsPortabilityImportError(String reason);
+
   /// No description provided for @groqRemovedToast.
   ///
   /// In en, this message translates to:

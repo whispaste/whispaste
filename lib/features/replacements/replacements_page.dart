@@ -101,6 +101,27 @@ class ReplacementsNotifier extends AsyncNotifier<List<Replacement>> {
     state = AsyncData((await db.readAllReplacements()).map(_fromDb).toList());
   }
 
+  /// Replaces the entire set of replacements with [items] — used by settings
+  /// import (Cluster 5 portability) so the imported file becomes the exact
+  /// new contents rather than being merged with existing entries.
+  Future<void> replaceAll(List<Replacement> items) async {
+    final db = ref.read(historyDatabaseProvider);
+    await db.deleteAllReplacements();
+    final now = DateTime.now();
+    for (var i = 0; i < items.length; i++) {
+      final item = items[i];
+      await db.upsertReplacement(
+        TextReplacementsCompanion(
+          id: Value('${now.millisecondsSinceEpoch}_$i'),
+          trigger: Value(item.trigger),
+          replacement: Value(item.replacement),
+          createdAt: Value(now),
+        ),
+      );
+    }
+    state = AsyncData((await db.readAllReplacements()).map(_fromDb).toList());
+  }
+
   static Replacement _fromDb(TextReplacement row) => Replacement(
     id: row.id,
     trigger: row.trigger,

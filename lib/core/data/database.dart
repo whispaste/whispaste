@@ -1485,6 +1485,10 @@ class HistoryDatabase extends _$HistoryDatabase {
   Future<void> deleteReplacement(String id) =>
       (delete(textReplacements)..where((t) => t.id.equals(id))).go();
 
+  /// Deletes all text replacements. Used by settings import (Cluster 5
+  /// portability) to restore an exported set as the exact new contents.
+  Future<void> deleteAllReplacements() => delete(textReplacements).go();
+
   // ---------------------------------------------------------------------------
   // Notes
   // ---------------------------------------------------------------------------

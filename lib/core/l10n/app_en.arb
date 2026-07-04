@@ -255,6 +255,47 @@
   "settingsFactoryResetPhaseResettingSecureStore": "Clearing credentials…",
   "settingsFactoryResetPhaseResettingSettings": "Restoring default settings…",
   "settingsFactoryResetFailedMessage": "Factory reset incomplete. Please restart the app.",
+  "settingsPortabilityLabel": "Export / Import Settings",
+  "settingsPortabilitySubtitle": "Move custom vocabulary, voice shortcuts, and hotkey settings between devices — no account needed.",
+  "settingsPortabilityExportAction": "Export",
+  "settingsPortabilityImportAction": "Import",
+  "settingsPortabilityExportSuccess": "Settings exported to {path}",
+  "@settingsPortabilityExportSuccess": {
+    "placeholders": {
+      "path": { "type": "String" }
+    }
+  },
+  "settingsPortabilityExportError": "Export failed: {reason}",
+  "@settingsPortabilityExportError": {
+    "placeholders": {
+      "reason": { "type": "String" }
+    }
+  },
+  "settingsPortabilityImportConfirmTitle": "Import Settings?",
+  "settingsPortabilityImportConfirmMessage": "This replaces your current custom vocabulary, voice shortcuts, and hotkey configuration with the contents of {path}.",
+  "@settingsPortabilityImportConfirmMessage": {
+    "placeholders": {
+      "path": { "type": "String" }
+    }
+  },
+  "settingsPortabilityImportSuccess": "Settings imported from {path}",
+  "@settingsPortabilityImportSuccess": {
+    "placeholders": {
+      "path": { "type": "String" }
+    }
+  },
+  "settingsPortabilityImportNotFound": "No export file found at {path}. Export settings first, or copy an export file there.",
+  "@settingsPortabilityImportNotFound": {
+    "placeholders": {
+      "path": { "type": "String" }
+    }
+  },
+  "settingsPortabilityImportError": "Import failed: {reason}",
+  "@settingsPortabilityImportError": {
+    "placeholders": {
+      "reason": { "type": "String" }
+    }
+  },
   "groqRemovedToast": "Groq STT was removed — provider reset to On-Device.",
   "migrationComplete": "{count, plural, one{1 dictation migrated from WhisPaste 1.x} other{{count} dictations migrated from WhisPaste 1.x}}",
   "@migrationComplete": {
