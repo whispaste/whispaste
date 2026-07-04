@@ -124,3 +124,20 @@ class EntryTags extends Table {
   @override
   Set<Column> get primaryKey => {entryId, tagId};
 }
+
+/// Per-recording end-to-end hotkey→text latency — local-only performance KPI.
+///
+/// A different privacy domain than the outgoing (bucketed) telemetry latency
+/// counter in `recording_orchestrator.dart` (`_latencyBucketSeconds`) /
+/// `telemetry_service.dart`: rows here are never read by anything that
+/// leaves the device. See
+/// `.scratch/experience-perf-polish/issues/07-latenz-kpi-erfassung.md`.
+@DataClassName('HotkeyLatencyEntry')
+class HotkeyLatencyEntries extends Table {
+  TextColumn get id => text()();
+  DateTimeColumn get recordedAt => dateTime()();
+  IntColumn get latencyMs => integer()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}

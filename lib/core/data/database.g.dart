@@ -3322,6 +3322,274 @@ class EntryTagsCompanion extends UpdateCompanion<EntryTag> {
   }
 }
 
+class $HotkeyLatencyEntriesTable extends HotkeyLatencyEntries
+    with TableInfo<$HotkeyLatencyEntriesTable, HotkeyLatencyEntry> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $HotkeyLatencyEntriesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _recordedAtMeta = const VerificationMeta(
+    'recordedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> recordedAt = GeneratedColumn<DateTime>(
+    'recorded_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _latencyMsMeta = const VerificationMeta(
+    'latencyMs',
+  );
+  @override
+  late final GeneratedColumn<int> latencyMs = GeneratedColumn<int>(
+    'latency_ms',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, recordedAt, latencyMs];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'hotkey_latency_entries';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<HotkeyLatencyEntry> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('recorded_at')) {
+      context.handle(
+        _recordedAtMeta,
+        recordedAt.isAcceptableOrUnknown(data['recorded_at']!, _recordedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_recordedAtMeta);
+    }
+    if (data.containsKey('latency_ms')) {
+      context.handle(
+        _latencyMsMeta,
+        latencyMs.isAcceptableOrUnknown(data['latency_ms']!, _latencyMsMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_latencyMsMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  HotkeyLatencyEntry map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return HotkeyLatencyEntry(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      recordedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}recorded_at'],
+      )!,
+      latencyMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}latency_ms'],
+      )!,
+    );
+  }
+
+  @override
+  $HotkeyLatencyEntriesTable createAlias(String alias) {
+    return $HotkeyLatencyEntriesTable(attachedDatabase, alias);
+  }
+}
+
+class HotkeyLatencyEntry extends DataClass
+    implements Insertable<HotkeyLatencyEntry> {
+  final String id;
+  final DateTime recordedAt;
+  final int latencyMs;
+  const HotkeyLatencyEntry({
+    required this.id,
+    required this.recordedAt,
+    required this.latencyMs,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['recorded_at'] = Variable<DateTime>(recordedAt);
+    map['latency_ms'] = Variable<int>(latencyMs);
+    return map;
+  }
+
+  HotkeyLatencyEntriesCompanion toCompanion(bool nullToAbsent) {
+    return HotkeyLatencyEntriesCompanion(
+      id: Value(id),
+      recordedAt: Value(recordedAt),
+      latencyMs: Value(latencyMs),
+    );
+  }
+
+  factory HotkeyLatencyEntry.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return HotkeyLatencyEntry(
+      id: serializer.fromJson<String>(json['id']),
+      recordedAt: serializer.fromJson<DateTime>(json['recordedAt']),
+      latencyMs: serializer.fromJson<int>(json['latencyMs']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'recordedAt': serializer.toJson<DateTime>(recordedAt),
+      'latencyMs': serializer.toJson<int>(latencyMs),
+    };
+  }
+
+  HotkeyLatencyEntry copyWith({
+    String? id,
+    DateTime? recordedAt,
+    int? latencyMs,
+  }) => HotkeyLatencyEntry(
+    id: id ?? this.id,
+    recordedAt: recordedAt ?? this.recordedAt,
+    latencyMs: latencyMs ?? this.latencyMs,
+  );
+  HotkeyLatencyEntry copyWithCompanion(HotkeyLatencyEntriesCompanion data) {
+    return HotkeyLatencyEntry(
+      id: data.id.present ? data.id.value : this.id,
+      recordedAt: data.recordedAt.present
+          ? data.recordedAt.value
+          : this.recordedAt,
+      latencyMs: data.latencyMs.present ? data.latencyMs.value : this.latencyMs,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('HotkeyLatencyEntry(')
+          ..write('id: $id, ')
+          ..write('recordedAt: $recordedAt, ')
+          ..write('latencyMs: $latencyMs')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, recordedAt, latencyMs);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is HotkeyLatencyEntry &&
+          other.id == this.id &&
+          other.recordedAt == this.recordedAt &&
+          other.latencyMs == this.latencyMs);
+}
+
+class HotkeyLatencyEntriesCompanion
+    extends UpdateCompanion<HotkeyLatencyEntry> {
+  final Value<String> id;
+  final Value<DateTime> recordedAt;
+  final Value<int> latencyMs;
+  final Value<int> rowid;
+  const HotkeyLatencyEntriesCompanion({
+    this.id = const Value.absent(),
+    this.recordedAt = const Value.absent(),
+    this.latencyMs = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  HotkeyLatencyEntriesCompanion.insert({
+    required String id,
+    required DateTime recordedAt,
+    required int latencyMs,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       recordedAt = Value(recordedAt),
+       latencyMs = Value(latencyMs);
+  static Insertable<HotkeyLatencyEntry> custom({
+    Expression<String>? id,
+    Expression<DateTime>? recordedAt,
+    Expression<int>? latencyMs,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (recordedAt != null) 'recorded_at': recordedAt,
+      if (latencyMs != null) 'latency_ms': latencyMs,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  HotkeyLatencyEntriesCompanion copyWith({
+    Value<String>? id,
+    Value<DateTime>? recordedAt,
+    Value<int>? latencyMs,
+    Value<int>? rowid,
+  }) {
+    return HotkeyLatencyEntriesCompanion(
+      id: id ?? this.id,
+      recordedAt: recordedAt ?? this.recordedAt,
+      latencyMs: latencyMs ?? this.latencyMs,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (recordedAt.present) {
+      map['recorded_at'] = Variable<DateTime>(recordedAt.value);
+    }
+    if (latencyMs.present) {
+      map['latency_ms'] = Variable<int>(latencyMs.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('HotkeyLatencyEntriesCompanion(')
+          ..write('id: $id, ')
+          ..write('recordedAt: $recordedAt, ')
+          ..write('latencyMs: $latencyMs, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$HistoryDatabase extends GeneratedDatabase {
   _$HistoryDatabase(QueryExecutor e) : super(e);
   $HistoryDatabaseManager get managers => $HistoryDatabaseManager(this);
@@ -3336,6 +3604,8 @@ abstract class _$HistoryDatabase extends GeneratedDatabase {
   );
   late final $TagsTable tags = $TagsTable(this);
   late final $EntryTagsTable entryTags = $EntryTagsTable(this);
+  late final $HotkeyLatencyEntriesTable hotkeyLatencyEntries =
+      $HotkeyLatencyEntriesTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3348,6 +3618,7 @@ abstract class _$HistoryDatabase extends GeneratedDatabase {
     textReplacements,
     tags,
     entryTags,
+    hotkeyLatencyEntries,
   ];
 }
 
@@ -3406,10 +3677,7 @@ final class $$HistoryEntriesTableReferences
   static MultiTypedResultKey<$EntryNotesTable, List<EntryNote>>
   _entryNotesRefsTable(_$HistoryDatabase db) => MultiTypedResultKey.fromTable(
     db.entryNotes,
-    aliasName: $_aliasNameGenerator(
-      db.historyEntries.id,
-      db.entryNotes.entryId,
-    ),
+    aliasName: 'history_entries__id__entry_notes__entry_id',
   );
 
   $$EntryNotesTableProcessedTableManager get entryNotesRefs {
@@ -3428,10 +3696,7 @@ final class $$HistoryEntriesTableReferences
   _entryAttachmentsRefsTable(_$HistoryDatabase db) =>
       MultiTypedResultKey.fromTable(
         db.entryAttachments,
-        aliasName: $_aliasNameGenerator(
-          db.historyEntries.id,
-          db.entryAttachments.entryId,
-        ),
+        aliasName: 'history_entries__id__entry_attachments__entry_id',
       );
 
   $$EntryAttachmentsTableProcessedTableManager get entryAttachmentsRefs {
@@ -3451,7 +3716,7 @@ final class $$HistoryEntriesTableReferences
   static MultiTypedResultKey<$EntryTagsTable, List<EntryTag>>
   _entryTagsRefsTable(_$HistoryDatabase db) => MultiTypedResultKey.fromTable(
     db.entryTags,
-    aliasName: $_aliasNameGenerator(db.historyEntries.id, db.entryTags.entryId),
+    aliasName: 'history_entries__id__entry_tags__entry_id',
   );
 
   $$EntryTagsTableProcessedTableManager get entryTagsRefs {
@@ -4490,10 +4755,9 @@ final class $$EntryNotesTableReferences
     extends BaseReferences<_$HistoryDatabase, $EntryNotesTable, EntryNote> {
   $$EntryNotesTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
-  static $HistoryEntriesTable _entryIdTable(_$HistoryDatabase db) =>
-      db.historyEntries.createAlias(
-        $_aliasNameGenerator(db.entryNotes.entryId, db.historyEntries.id),
-      );
+  static $HistoryEntriesTable _entryIdTable(_$HistoryDatabase db) => db
+      .historyEntries
+      .createAlias('entry_notes__entry_id__history_entries__id');
 
   $$HistoryEntriesTableProcessedTableManager get entryId {
     final $_column = $_itemColumn<String>('entry_id')!;
@@ -4822,10 +5086,9 @@ final class $$EntryAttachmentsTableReferences
     super.$_typedResult,
   );
 
-  static $HistoryEntriesTable _entryIdTable(_$HistoryDatabase db) =>
-      db.historyEntries.createAlias(
-        $_aliasNameGenerator(db.entryAttachments.entryId, db.historyEntries.id),
-      );
+  static $HistoryEntriesTable _entryIdTable(_$HistoryDatabase db) => db
+      .historyEntries
+      .createAlias('entry_attachments__entry_id__history_entries__id');
 
   $$HistoryEntriesTableProcessedTableManager get entryId {
     final $_column = $_itemColumn<String>('entry_id')!;
@@ -5371,7 +5634,7 @@ final class $$TagsTableReferences
   static MultiTypedResultKey<$EntryTagsTable, List<EntryTag>>
   _entryTagsRefsTable(_$HistoryDatabase db) => MultiTypedResultKey.fromTable(
     db.entryTags,
-    aliasName: $_aliasNameGenerator(db.tags.id, db.entryTags.tagId),
+    aliasName: 'tags__id__entry_tags__tag_id',
   );
 
   $$EntryTagsTableProcessedTableManager get entryTagsRefs {
@@ -5619,10 +5882,9 @@ final class $$EntryTagsTableReferences
     extends BaseReferences<_$HistoryDatabase, $EntryTagsTable, EntryTag> {
   $$EntryTagsTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
-  static $HistoryEntriesTable _entryIdTable(_$HistoryDatabase db) =>
-      db.historyEntries.createAlias(
-        $_aliasNameGenerator(db.entryTags.entryId, db.historyEntries.id),
-      );
+  static $HistoryEntriesTable _entryIdTable(_$HistoryDatabase db) => db
+      .historyEntries
+      .createAlias('entry_tags__entry_id__history_entries__id');
 
   $$HistoryEntriesTableProcessedTableManager get entryId {
     final $_column = $_itemColumn<String>('entry_id')!;
@@ -5639,7 +5901,7 @@ final class $$EntryTagsTableReferences
   }
 
   static $TagsTable _tagIdTable(_$HistoryDatabase db) =>
-      db.tags.createAlias($_aliasNameGenerator(db.entryTags.tagId, db.tags.id));
+      db.tags.createAlias('entry_tags__tag_id__tags__id');
 
   $$TagsTableProcessedTableManager get tagId {
     final $_column = $_itemColumn<String>('tag_id')!;
@@ -5950,6 +6212,186 @@ typedef $$EntryTagsTableProcessedTableManager =
       EntryTag,
       PrefetchHooks Function({bool entryId, bool tagId})
     >;
+typedef $$HotkeyLatencyEntriesTableCreateCompanionBuilder =
+    HotkeyLatencyEntriesCompanion Function({
+      required String id,
+      required DateTime recordedAt,
+      required int latencyMs,
+      Value<int> rowid,
+    });
+typedef $$HotkeyLatencyEntriesTableUpdateCompanionBuilder =
+    HotkeyLatencyEntriesCompanion Function({
+      Value<String> id,
+      Value<DateTime> recordedAt,
+      Value<int> latencyMs,
+      Value<int> rowid,
+    });
+
+class $$HotkeyLatencyEntriesTableFilterComposer
+    extends Composer<_$HistoryDatabase, $HotkeyLatencyEntriesTable> {
+  $$HotkeyLatencyEntriesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get recordedAt => $composableBuilder(
+    column: $table.recordedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get latencyMs => $composableBuilder(
+    column: $table.latencyMs,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$HotkeyLatencyEntriesTableOrderingComposer
+    extends Composer<_$HistoryDatabase, $HotkeyLatencyEntriesTable> {
+  $$HotkeyLatencyEntriesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get recordedAt => $composableBuilder(
+    column: $table.recordedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get latencyMs => $composableBuilder(
+    column: $table.latencyMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$HotkeyLatencyEntriesTableAnnotationComposer
+    extends Composer<_$HistoryDatabase, $HotkeyLatencyEntriesTable> {
+  $$HotkeyLatencyEntriesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get recordedAt => $composableBuilder(
+    column: $table.recordedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get latencyMs =>
+      $composableBuilder(column: $table.latencyMs, builder: (column) => column);
+}
+
+class $$HotkeyLatencyEntriesTableTableManager
+    extends
+        RootTableManager<
+          _$HistoryDatabase,
+          $HotkeyLatencyEntriesTable,
+          HotkeyLatencyEntry,
+          $$HotkeyLatencyEntriesTableFilterComposer,
+          $$HotkeyLatencyEntriesTableOrderingComposer,
+          $$HotkeyLatencyEntriesTableAnnotationComposer,
+          $$HotkeyLatencyEntriesTableCreateCompanionBuilder,
+          $$HotkeyLatencyEntriesTableUpdateCompanionBuilder,
+          (
+            HotkeyLatencyEntry,
+            BaseReferences<
+              _$HistoryDatabase,
+              $HotkeyLatencyEntriesTable,
+              HotkeyLatencyEntry
+            >,
+          ),
+          HotkeyLatencyEntry,
+          PrefetchHooks Function()
+        > {
+  $$HotkeyLatencyEntriesTableTableManager(
+    _$HistoryDatabase db,
+    $HotkeyLatencyEntriesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$HotkeyLatencyEntriesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$HotkeyLatencyEntriesTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$HotkeyLatencyEntriesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<DateTime> recordedAt = const Value.absent(),
+                Value<int> latencyMs = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => HotkeyLatencyEntriesCompanion(
+                id: id,
+                recordedAt: recordedAt,
+                latencyMs: latencyMs,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required DateTime recordedAt,
+                required int latencyMs,
+                Value<int> rowid = const Value.absent(),
+              }) => HotkeyLatencyEntriesCompanion.insert(
+                id: id,
+                recordedAt: recordedAt,
+                latencyMs: latencyMs,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$HotkeyLatencyEntriesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$HistoryDatabase,
+      $HotkeyLatencyEntriesTable,
+      HotkeyLatencyEntry,
+      $$HotkeyLatencyEntriesTableFilterComposer,
+      $$HotkeyLatencyEntriesTableOrderingComposer,
+      $$HotkeyLatencyEntriesTableAnnotationComposer,
+      $$HotkeyLatencyEntriesTableCreateCompanionBuilder,
+      $$HotkeyLatencyEntriesTableUpdateCompanionBuilder,
+      (
+        HotkeyLatencyEntry,
+        BaseReferences<
+          _$HistoryDatabase,
+          $HotkeyLatencyEntriesTable,
+          HotkeyLatencyEntry
+        >,
+      ),
+      HotkeyLatencyEntry,
+      PrefetchHooks Function()
+    >;
 
 class $HistoryDatabaseManager {
   final _$HistoryDatabase _db;
@@ -5967,4 +6409,6 @@ class $HistoryDatabaseManager {
   $$TagsTableTableManager get tags => $$TagsTableTableManager(_db, _db.tags);
   $$EntryTagsTableTableManager get entryTags =>
       $$EntryTagsTableTableManager(_db, _db.entryTags);
+  $$HotkeyLatencyEntriesTableTableManager get hotkeyLatencyEntries =>
+      $$HotkeyLatencyEntriesTableTableManager(_db, _db.hotkeyLatencyEntries);
 }

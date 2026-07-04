@@ -15,8 +15,10 @@ import 'package:http/http.dart' as http;
 import '../core/config/settings_enums.dart';
 import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
+import '../core/logging/perf_instrumentation.dart';
 import '../core/recording/recording_state.dart';
 import '../core/data/analytics_provider.dart';
+import '../core/data/database.dart';
 import '../features/recording/clipping_state.dart';
 import 'audio_service.dart';
 import 'model_download_service.dart';
@@ -73,6 +75,17 @@ class RecordingOrchestrator extends Notifier<void> {
   /// Prevents concurrent `stopRecording()` calls from launching multiple
   /// transcription pipelines (e.g. hotkey-stop + auto-stop firing together).
   bool _stopInFlight = false;
+
+  /// Pending hotkey-press t₀ for the hotkey→text end-to-end latency KPI
+  /// (issue 07-latenz-kpi-erfassung — local-only, never sent as telemetry).
+  ///
+  /// Captured (peeked, not consumed) in [startRecording] from
+  /// [PerfMarkers.pendingHotkeyPressedAt] and persisted once transcription
+  /// finishes successfully in [_finalizeTranscription]. A stale value left
+  /// over from an aborted start attempt is harmless: the next
+  /// [startRecording] call always overwrites it before any session that
+  /// could read it exists.
+  DateTime? _hotkeyPressedAtForLatencyKpi;
 
   /// Handles OOM retry policy and model-fallback decisions.
   ///
@@ -170,6 +183,13 @@ class RecordingOrchestrator extends Notifier<void> {
 
   /// Starts the recording pipeline.
   Future<void> startRecording() async {
+    // Capture the pending hotkey-press t₀ (if any) for the hotkey→text
+    // latency KPI. Peeked (not consumed) synchronously, before any `await`
+    // below, so it reflects the key-down that triggered THIS call — the
+    // existing hotkey→overlay latency pairing (PerfMarkers.markOverlayShown,
+    // reset separately) is unaffected.
+    _hotkeyPressedAtForLatencyKpi = PerfMarkers.instance.pendingHotkeyPressedAt;
+
     // Concurrency guard: prevent double-start from hotkey spam or rapid taps.
     if (_startInFlight) {
       _log.debug('startRecording ignored — already in flight');
@@ -804,6 +824,12 @@ class RecordingOrchestrator extends Notifier<void> {
 
     _logAfterTranscriptionResult(sid, clipResult);
 
+    // Text is now in the field (clipboard/paste action above has completed)
+    // — this is the "fertig eingefügter Text" moment for the hotkey→text
+    // end-to-end latency KPI. Local-only persistence; never touches the
+    // outgoing (bucketed) telemetry aggregator.
+    await _persistHotkeyLatencyIfPending(sid);
+
     // Transition state: transcribing/processing → done.
     // Uses RecordingIntent.complete (transcribing→done) which the
     // state machine maps to completeTranscription on the notifier.
@@ -1222,6 +1248,32 @@ class RecordingOrchestrator extends Notifier<void> {
     _guardSub = null;
     _amplitudeSub?.cancel();
     _amplitudeSub = null;
+  }
+
+  /// Persists the hotkey→text end-to-end latency for this session, if a
+  /// hotkey press t₀ was captured at [startRecording].
+  ///
+  /// Consumes [_hotkeyPressedAtForLatencyKpi] (resets to null) so a stray
+  /// re-entry cannot double-record the same sample. No-op when no press was
+  /// captured (e.g. recording was started from the UI, not the hotkey).
+  /// Best-effort — a DB failure here must not fail the pipeline, which has
+  /// already delivered the text to the user.
+  Future<void> _persistHotkeyLatencyIfPending(String sid) async {
+    final hotkeyAt = _hotkeyPressedAtForLatencyKpi;
+    _hotkeyPressedAtForLatencyKpi = null;
+    if (hotkeyAt == null) return;
+
+    final now = DateTime.now();
+    final latencyMs = now.difference(hotkeyAt).inMilliseconds;
+    if (latencyMs < 0) return; // clock-skew guard
+
+    try {
+      await ref
+          .read(historyDatabaseProvider)
+          .recordHotkeyLatency(recordedAt: now, latencyMs: latencyMs);
+    } on Exception catch (e) {
+      _log.warning('[$sid] Failed to persist hotkey→text latency: $e');
+    }
   }
 
   // ── Safety guard event routing ────────────────────────────────────────────

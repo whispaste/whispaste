@@ -218,6 +218,20 @@ class PerfMarkers {
     );
   }
 
+  // ── Hotkey → text (end-to-end latency KPI) ─────────────────────────────
+
+  /// Returns the currently pending hotkey-press timestamp (t₀) without
+  /// consuming it.
+  ///
+  /// Unlike [markOverlayShown] (which resets the marker after computing the
+  /// hotkey→overlay latency), this is a non-destructive peek. It lets
+  /// `RecordingOrchestrator.startRecording` capture the same t₀ for the
+  /// hotkey→text end-to-end latency KPI (local-only, see
+  /// `.scratch/experience-perf-polish/issues/07-latenz-kpi-erfassung.md`)
+  /// without interfering with the hotkey→overlay pairing above — both
+  /// latencies are derived independently from the same key-down event.
+  DateTime? get pendingHotkeyPressedAt => _hotkeyPressedAt;
+
   // ── Test helpers ─────────────────────────────────────────────────────────
 
   /// Returns the currently-pending hotkey timestamp, or null if none.

@@ -17,13 +17,15 @@ import 'package:whispaste/core/config/settings_enums.dart';
 import 'package:whispaste/core/config/secure_key_store.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
+import 'package:whispaste/core/logging/perf_instrumentation.dart';
 import 'package:whispaste/core/recording/recording_state.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/features/recording/clipping_state.dart';
 import 'package:whispaste/services/audio_service.dart';
 import 'package:whispaste/services/desktop_paste/desktop_paste_controller.dart';
 import 'package:whispaste/services/model_download_service.dart';
-import 'package:whispaste/services/path_service.dart' show sttDirOverride;
+import 'package:whispaste/services/path_service.dart'
+    show sttDirOverride, sttDir, sttModelPath, whisperServerPath;
 import 'package:whispaste/services/recording_orchestrator.dart';
 import 'package:whispaste/services/stt/stt_bundle.dart';
 import 'package:whispaste/services/telemetry_service.dart';
@@ -256,6 +258,22 @@ File createFakeWav(String name) {
   file.parent.createSync(recursive: true);
   file.writeAsBytesSync(bytes);
   return file;
+}
+
+/// Creates placeholder whisper-server binary + model files so the real
+/// on-device preflight check in [RecordingOrchestrator.startRecording]
+/// passes. Content is irrelevant — [localSttBundleProvider] is overridden
+/// with [FakeSttService], so nothing ever executes or reads these files;
+/// preflight only checks that they exist. Requires [sttDirOverride] to
+/// already point at the test scratch directory.
+void ensureFakeLocalSttFilesExist({String modelId = 'whisper-small'}) {
+  Directory(sttDir()).createSync(recursive: true);
+  final serverFile = File(whisperServerPath());
+  if (!serverFile.existsSync()) serverFile.writeAsStringSync('fake-binary');
+  final modelPath = sttModelPath(modelId);
+  if (modelPath != null && !File(modelPath).existsSync()) {
+    File(modelPath).writeAsStringSync('fake-model');
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1779,6 +1797,210 @@ void main() {
             reason: 'History content field leaked into telemetry payload',
           );
         }
+      },
+    );
+  });
+
+  // =========================================================================
+  // Hotkey→text end-to-end latency KPI (issue 07-latenz-kpi-erfassung).
+  //
+  // Local-only performance signal: hotkey-press t₀ (PerfMarkers, already
+  // stamped by HotkeyService) → text delivered (after-transcription action
+  // completes). The real `startRecording()` must run (the hotkey t₀ capture
+  // lives inside it — the `startRecordingPhase()` helper used elsewhere
+  // bypasses the orchestrator's start path entirely), so these tests place
+  // placeholder whisper-server/model files in the scratch STT dir to satisfy
+  // the on-device preflight check.
+  // =========================================================================
+
+  group('Hotkey→text latency KPI', () {
+    setUp(() {
+      PerfMarkers.instance.reset();
+      ensureFakeLocalSttFilesExist();
+    });
+    tearDown(() => PerfMarkers.instance.reset());
+
+    test('persists a latency sample measured from the hotkey press, not from '
+        'some later pipeline moment', () async {
+      final orch = container.read(recordingOrchestratorProvider.notifier);
+      await Future<void>.delayed(Duration.zero);
+
+      PerfMarkers.instance.markHotkeyPressed();
+      // A deliberate gap between the hotkey press and the recording
+      // actually starting (preflight etc.) — the persisted latency must
+      // be at least this large, proving it is anchored to the hotkey
+      // press and not to, say, `stopRecording()`'s own start time.
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+
+      await orch.startRecording();
+      expect(container.read(recordingProvider).phase, RecordingPhase.recording);
+
+      fakeStt.transcriptToReturn = 'Latency KPI test';
+      await orch.stopRecording();
+      expect(container.read(recordingProvider).phase, RecordingPhase.done);
+
+      final rows = await db
+          .customSelect('SELECT * FROM hotkey_latency_entries')
+          .get();
+      expect(rows, hasLength(1));
+      final latencyMs = rows.first.data['latency_ms'] as int;
+      expect(latencyMs, greaterThanOrEqualTo(60));
+    });
+
+    test('does not persist a sample when no hotkey press preceded the start '
+        '(e.g. a UI-button-triggered recording)', () async {
+      final orch = container.read(recordingOrchestratorProvider.notifier);
+      await Future<void>.delayed(Duration.zero);
+
+      // No PerfMarkers.markHotkeyPressed() call.
+      await orch.startRecording();
+      expect(container.read(recordingProvider).phase, RecordingPhase.recording);
+
+      fakeStt.transcriptToReturn = 'No hotkey press';
+      await orch.stopRecording();
+
+      final rows = await db
+          .customSelect('SELECT * FROM hotkey_latency_entries')
+          .get();
+      expect(rows, isEmpty);
+    });
+
+    test('aggregation query averages persisted latency samples', () async {
+      await db.recordHotkeyLatency(recordedAt: DateTime.now(), latencyMs: 100);
+      await db.recordHotkeyLatency(recordedAt: DateTime.now(), latencyMs: 300);
+
+      final avg = await db.analyticsAverageHotkeyLatencyMs();
+      expect(avg, 200.0);
+    });
+
+    test('aggregation query returns null when no samples exist', () async {
+      final avg = await db.analyticsAverageHotkeyLatencyMs();
+      expect(avg, isNull);
+    });
+  });
+
+  // =========================================================================
+  // Privacy boundary: the fine-grained hotkey→text latency is a DIFFERENT
+  // privacy domain than the outgoing (bucketed) telemetry latency counter
+  // (`_latencyBucketSeconds` in recording_orchestrator.dart). It must never
+  // leak into the outgoing telemetry, and must not even influence which
+  // coarse bucket the existing pipeline-elapsed counter falls into.
+  // =========================================================================
+
+  group('Privacy boundary — hotkey latency stays local-only', () {
+    setUp(() {
+      PerfMarkers.instance.reset();
+      ensureFakeLocalSttFilesExist();
+    });
+    tearDown(() => PerfMarkers.instance.reset());
+
+    test(
+      'a large hotkey→text latency is stored locally but never appears in '
+      'outgoing telemetry, and does not shift the pipeline-elapsed bucket',
+      () async {
+        final capturedBodies = <String>[];
+        final fakeHttpClient = MockClient((req) async {
+          capturedBodies.add(req.body);
+          return http.Response('', 200);
+        });
+        final fakeTelemetry = TelemetryService(
+          client: fakeHttpClient,
+          endpointUrl: 'https://test.matomo.example',
+          siteId: 1,
+          consentGranted: true,
+          dntActive: false,
+        );
+
+        container.dispose();
+        container = ProviderContainer(
+          overrides: [
+            historyDatabaseProvider.overrideWith((ref) {
+              ref.onDispose(db.close);
+              return db;
+            }),
+            audioServiceProvider.overrideWith(() => fakeAudio),
+            localSttBundleProvider.overrideWith(() => fakeStt),
+            settingsProvider.overrideWith(
+              () => FakeSettingsNotifier(
+                const AppSettings(
+                  stt: SttSettings(model: 'whisper-small', language: 'English'),
+                  afterTranscriptionSection: AfterTranscriptionSettings(
+                    afterTranscription: 'nothing',
+                  ),
+                  onboarding: OnboardingSettings(onboardingCompleted: true),
+                ),
+              ),
+            ),
+            secureKeyStoreProvider.overrideWith((ref) => FakeSecureKeyStore()),
+            desktopPasteControllerProvider.overrideWith(
+              (ref) => fakeDesktopPaste,
+            ),
+            modelDownloadProvider.overrideWith(
+              () => FakeModelDownloadNotifier({
+                'whisper-small',
+                'whisper-medium',
+                'whisper-large-v3-turbo',
+              }),
+            ),
+            telemetryProvider.overrideWith((ref) => fakeTelemetry),
+          ],
+        );
+        await container.read(settingsProvider.future);
+
+        final orch = container.read(recordingOrchestratorProvider.notifier);
+        await Future<void>.delayed(Duration.zero);
+
+        PerfMarkers.instance.markHotkeyPressed();
+        // 2.1s gap — comfortably lands the hotkey→text latency in a HIGHER
+        // second-bucket (b3, per `_latencyBucketSeconds`) than the fast,
+        // all-fake pipeline's own elapsed time (b1). If the fine-grained
+        // hotkey latency ever leaked into the outgoing telemetry bucket,
+        // this test would see 'e_n=b3' (or higher) instead of 'e_n=b1'.
+        await Future<void>.delayed(const Duration(milliseconds: 2100));
+
+        await orch.startRecording();
+        expect(
+          container.read(recordingProvider).phase,
+          RecordingPhase.recording,
+        );
+
+        fakeStt.transcriptToReturn = 'privacy boundary test';
+        await orch.stopRecording();
+        expect(container.read(recordingProvider).phase, RecordingPhase.done);
+
+        // Sanity: the local-only sample really is large (proves the KPI
+        // path itself measured the artificial gap correctly).
+        final rows = await db
+            .customSelect('SELECT * FROM hotkey_latency_entries')
+            .get();
+        expect(rows, hasLength(1));
+        expect(
+          rows.first.data['latency_ms'] as int,
+          greaterThanOrEqualTo(2100),
+        );
+
+        await Future<void>.delayed(Duration.zero);
+        container
+            .read(telemetrySessionAggregatorProvider)
+            .drainTo(fakeTelemetry);
+        await fakeTelemetry.flush();
+
+        expect(capturedBodies, isNotEmpty);
+        final combined = capturedBodies.join('\n');
+
+        // The exact fine-grained latency value must never appear verbatim.
+        for (final row in rows) {
+          expect(
+            combined,
+            isNot(contains('${row.data['latency_ms']}')),
+            reason: 'Fine-grained hotkey latency leaked into telemetry',
+          );
+        }
+
+        // The pipeline-elapsed telemetry bucket stays fast (b1) — anchored
+        // to the internal Stopwatch, not the hotkey-based latency.
+        expect(combined, contains('e_n=b1'));
+        expect(combined, isNot(contains('e_n=b3')));
       },
     );
   });

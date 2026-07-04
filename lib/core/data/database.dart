@@ -35,6 +35,7 @@ final _log = AppLogger('HistoryDatabase');
     TextReplacements,
     Tags,
     EntryTags,
+    HotkeyLatencyEntries,
   ],
 )
 class HistoryDatabase extends _$HistoryDatabase {
@@ -79,7 +80,7 @@ class HistoryDatabase extends _$HistoryDatabase {
   }
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -107,6 +108,9 @@ class HistoryDatabase extends _$HistoryDatabase {
       }
       if (from < 10) {
         await _runV10Migration();
+      }
+      if (from < 11) {
+        await m.createTable(hotkeyLatencyEntries);
       }
     },
     beforeOpen: (details) async {
@@ -1732,6 +1736,43 @@ class HistoryDatabase extends _$HistoryDatabase {
       row.read(cols[3]) ?? 0,
       row.read(cols[4]) ?? 0,
     ];
+  }
+
+  // ---------------------------------------------------------------------------
+  // Hotkey→text latency — local-only performance KPI (issue 07)
+  // ---------------------------------------------------------------------------
+
+  /// Persists one end-to-end hotkey→text latency sample.
+  ///
+  /// Local-only: this table is never read by the outgoing telemetry path
+  /// (`_latencyBucketSeconds` in `recording_orchestrator.dart` remains the
+  /// sole, intentionally coarse latency signal that leaves the device).
+  Future<void> recordHotkeyLatency({
+    required DateTime recordedAt,
+    required int latencyMs,
+  }) {
+    return _writeCoordinator.write<void>(
+      () => into(hotkeyLatencyEntries).insert(
+        HotkeyLatencyEntriesCompanion.insert(
+          id: _uuid(),
+          recordedAt: recordedAt,
+          latencyMs: latencyMs,
+        ),
+      ),
+    );
+  }
+
+  /// Average hotkey→text latency in milliseconds across recorded samples.
+  ///
+  /// Returns `null` when no samples exist yet.
+  Future<double?> analyticsAverageHotkeyLatencyMs({DateTime? since}) async {
+    final avg = hotkeyLatencyEntries.latencyMs.avg();
+    final q = selectOnly(hotkeyLatencyEntries)..addColumns([avg]);
+    if (since != null) {
+      q.where(hotkeyLatencyEntries.recordedAt.isBiggerOrEqualValue(since));
+    }
+    final row = await q.getSingle();
+    return row.read(avg);
   }
 }
 
