@@ -145,6 +145,39 @@ void main() {
     });
 
     // -----------------------------------------------------------------------
+    // Auto-tier recommendation actually feeds the selected-tier state used by
+    // the download action — not just the badge (issue
+    // 05-auto-quality-tier-verifikation). `_startDownload` reads
+    // `_selectedTier`, which has its own `?? QualityTier.balanced` fallback
+    // distinct from the wider `_selectedTier ?? _recommendedTier ?? balanced`
+    // chain used purely for rendering. Tapping the download CTA without any
+    // manual selection is the only way to observe that the recommendation
+    // was actually stored in `_selectedTier` (via `_selectedTier ??= rec;`)
+    // rather than merely displayed through the render-time fallback.
+    // -----------------------------------------------------------------------
+
+    testWidgets(
+      'low-VRAM hardware: download CTA downloads the recommended Compact '
+      'model without any manual tier selection',
+      (tester) async {
+        final notifier = await _pumpStep(
+          tester,
+          gpu: const hw.GpuInfo(vendor: hw.GpuVendor.none, name: 'CPU only'),
+        );
+
+        await tester.tap(
+          find.textContaining(l10n.qualityTierDownloadAndContinue),
+        );
+        await tester.pumpAndSettle();
+
+        expect(notifier.downloadModelCalls, [
+          bestModelForTier(QualityTier.compact).id,
+        ]);
+        expect(notifier.downloadModelCalls.single, 'whisper-small');
+      },
+    );
+
+    // -----------------------------------------------------------------------
     // GPU CPU fallback notice (issue 02-tech-gpu-detection-resilience)
     // -----------------------------------------------------------------------
 
