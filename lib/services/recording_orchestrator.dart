@@ -96,6 +96,15 @@ class RecordingOrchestrator extends Notifier<void> {
   /// Exposed for diagnostics/logging only.
   int get oomAttemptCount => _oomHandler.attemptCount;
 
+  /// Sandbox transcript sink for onboarding's "test recording" step
+  /// (`TestRecordingStep`). When set, [_handleAfterTranscription] delivers
+  /// the finished transcript to this callback instead of the real
+  /// clipboard/paste path — the guided test must never write to the system
+  /// clipboard or paste into whatever window happens to have focus behind
+  /// the onboarding overlay. `null` (the default) for every other caller, so
+  /// production behaviour outside onboarding is completely unaffected.
+  void Function(String text)? sandboxTranscriptSink;
+
   @override
   void build() {
     ref.onDispose(_cancelAmplitude);
@@ -785,29 +794,36 @@ class RecordingOrchestrator extends Notifier<void> {
     timing.replaceMs = replaceSw.elapsedMilliseconds;
 
     // ── Step 4: Save to history (5 s budget) ─────────────────────
-    final saveSw = Stopwatch()..start();
-    final saveResult = await runner.run<String?>(
-      'save_history',
-      () async => _saveToHistory(
-        finalText,
-        Duration(milliseconds: audioDurMs),
-        settings,
-        (timing.transcribeMs ?? 0) ~/ 1000,
-      ),
-      timeout: const Duration(seconds: 5),
-    );
-    saveSw.stop();
-    timing.saveMs = saveSw.elapsedMilliseconds;
+    // Onboarding's test-recording step redirects the transcript to a local
+    // sandbox field only (see sandboxTranscriptSink docs on
+    // _handleAfterTranscription below) — it must never be written to the
+    // user's real History, so the whole save step is skipped while the sink
+    // is set.
+    if (sandboxTranscriptSink == null) {
+      final saveSw = Stopwatch()..start();
+      final saveResult = await runner.run<String?>(
+        'save_history',
+        () async => _saveToHistory(
+          finalText,
+          Duration(milliseconds: audioDurMs),
+          settings,
+          (timing.transcribeMs ?? 0) ~/ 1000,
+        ),
+        timeout: const Duration(seconds: 5),
+      );
+      saveSw.stop();
+      timing.saveMs = saveSw.elapsedMilliseconds;
 
-    // Save failures are non-fatal (best-effort) — log and continue.
-    if (saveResult case Ok(:final value)) {
-      if (value != null && value != finalText) {
-        finalText = value;
+      // Save failures are non-fatal (best-effort) — log and continue.
+      if (saveResult case Ok(:final value)) {
+        if (value != null && value != finalText) {
+          finalText = value;
+        }
+      } else if (saveResult case StepTimeout()) {
+        _log.warning('[$sid] Save to history timed out after 5s');
+      } else if (saveResult case FailedWith(:final error)) {
+        _log.error('[$sid] Save to history failed: $error');
       }
-    } else if (saveResult case StepTimeout()) {
-      _log.warning('[$sid] Save to history timed out after 5s');
-    } else if (saveResult case FailedWith(:final error)) {
-      _log.error('[$sid] Save to history failed: $error');
     }
 
     // ── Step 5: After-transcription action (10 s budget) ──────────
@@ -1419,6 +1435,15 @@ class RecordingOrchestrator extends Notifier<void> {
     String transcript,
     AppSettings settings,
   ) async {
+    // Onboarding's test-recording step redirects the transcript to a local
+    // sandbox field instead of the real clipboard/paste path. See
+    // [sandboxTranscriptSink].
+    final sink = sandboxTranscriptSink;
+    if (sink != null) {
+      sink(transcript);
+      return;
+    }
+
     // In the sandboxed Mac App Store build, simulated paste is unavailable, so
     // paste actions are downgraded to clipboard-only (user pastes with ⌘V).
     final action = resolveAfterTranscriptionAction(

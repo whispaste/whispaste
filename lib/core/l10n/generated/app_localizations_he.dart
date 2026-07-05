@@ -2176,6 +2176,35 @@ class L10nHe extends L10n {
       'האצת GPU מיטבית אינה זמינה — האפליקציה תשתמש במעבד';
 
   @override
+  String get onboardingTestRecordingTitle => 'Give it a try';
+
+  @override
+  String get onboardingTestRecordingSubtitle =>
+      'Press your hotkey and say a sentence — the text appears below in the test field.';
+
+  @override
+  String get onboardingTestRecordingHotkeyLabel => 'Your hotkey';
+
+  @override
+  String get onboardingTestRecordingPlaceholder =>
+      'Your spoken text will appear here …';
+
+  @override
+  String get onboardingTestRecordingInProgress =>
+      'Recording — just start talking. Press again to stop.';
+
+  @override
+  String get onboardingTestRecordingDoneMessage =>
+      'That\'s it! This is exactly how it works in every app.';
+
+  @override
+  String get onboardingTestRecordingReassurance =>
+      'Just a test — the text stays in this field.';
+
+  @override
+  String get onboardingTestRecordingSkip => 'Skip test';
+
+  @override
   String get onboardingReadyTitle => 'הכל מוכן!';
 
   @override

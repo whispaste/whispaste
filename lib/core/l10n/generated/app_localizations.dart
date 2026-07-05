@@ -3993,6 +3993,54 @@ abstract class L10n {
   /// **'Optimised GPU acceleration unavailable — app will use the CPU'**
   String get onboardingModelGpuCpuFallback;
 
+  /// No description provided for @onboardingTestRecordingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Give it a try'**
+  String get onboardingTestRecordingTitle;
+
+  /// No description provided for @onboardingTestRecordingSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Press your hotkey and say a sentence — the text appears below in the test field.'**
+  String get onboardingTestRecordingSubtitle;
+
+  /// No description provided for @onboardingTestRecordingHotkeyLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Your hotkey'**
+  String get onboardingTestRecordingHotkeyLabel;
+
+  /// No description provided for @onboardingTestRecordingPlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Your spoken text will appear here …'**
+  String get onboardingTestRecordingPlaceholder;
+
+  /// No description provided for @onboardingTestRecordingInProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Recording — just start talking. Press again to stop.'**
+  String get onboardingTestRecordingInProgress;
+
+  /// No description provided for @onboardingTestRecordingDoneMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'That\'s it! This is exactly how it works in every app.'**
+  String get onboardingTestRecordingDoneMessage;
+
+  /// No description provided for @onboardingTestRecordingReassurance.
+  ///
+  /// In en, this message translates to:
+  /// **'Just a test — the text stays in this field.'**
+  String get onboardingTestRecordingReassurance;
+
+  /// No description provided for @onboardingTestRecordingSkip.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip test'**
+  String get onboardingTestRecordingSkip;
+
   /// No description provided for @onboardingReadyTitle.
   ///
   /// In en, this message translates to:

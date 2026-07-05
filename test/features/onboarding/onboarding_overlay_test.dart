@@ -85,14 +85,14 @@ void main() {
   });
 
   group('OnboardingOverlay step sequence', () {
-    testWidgets('on Linux: renders 5-step flow, AutoPasteStep never appears, '
-        'counter and dots reflect 5 total', (tester) async {
+    testWidgets('on Linux: renders 6-step flow, AutoPasteStep never appears, '
+        'counter and dots reflect 6 total', (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.linux;
       try {
         await _pumpOverlay(tester);
 
-        // Counter reflects the Linux 5-step total on the initial Welcome step.
-        expect(find.text(l10n.onboardingStepOf(1, 5)), findsOneWidget);
+        // Counter reflects the Linux 6-step total on the initial Welcome step.
+        expect(find.text(l10n.onboardingStepOf(1, 6)), findsOneWidget);
         // AutoPasteStep is never instantiated in the Linux flow.
         expect(find.byType(AutoPasteStep), findsNothing);
       } finally {
@@ -101,21 +101,21 @@ void main() {
       }
     });
 
-    testWidgets('on macOS: renders 6-step flow with AutoPasteStep included; '
-        'counter reflects 6 total', (tester) async {
+    testWidgets('on macOS: renders 7-step flow with AutoPasteStep included; '
+        'counter reflects 7 total', (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
       try {
         await _pumpOverlay(tester);
 
-        // Counter reflects the macOS 6-step total on the initial Welcome step.
-        expect(find.text(l10n.onboardingStepOf(1, 6)), findsOneWidget);
+        // Counter reflects the macOS 7-step total on the initial Welcome step.
+        expect(find.text(l10n.onboardingStepOf(1, 7)), findsOneWidget);
       } finally {
         debugDefaultTargetPlatformOverride = null;
       }
     });
 
-    testWidgets('on Windows: renders 5-step flow, AutoPasteStep never appears, '
-        'counter and dots reflect 5 total', (tester) async {
+    testWidgets('on Windows: renders 6-step flow, AutoPasteStep never appears, '
+        'counter and dots reflect 6 total', (tester) async {
       // Windows drops AutoPasteStep entirely: no permission is required in
       // the 99 % case and the diagnostic test-paste sub-step was misread as
       // "press a hotkey" during real onboarding sessions, so the flow now
@@ -125,7 +125,7 @@ void main() {
       try {
         await _pumpOverlay(tester);
 
-        expect(find.text(l10n.onboardingStepOf(1, 5)), findsOneWidget);
+        expect(find.text(l10n.onboardingStepOf(1, 6)), findsOneWidget);
         expect(find.byType(AutoPasteStep), findsNothing);
       } finally {
         debugDefaultTargetPlatformOverride = null;

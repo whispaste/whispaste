@@ -1568,6 +1568,51 @@ void main() {
     });
   });
 
+  group(
+    'Sandbox transcript sink (onboarding test-recording, issue 04 rework)',
+    () {
+      test(
+        'sink receives transcript; history-save and clipboard/paste are both '
+        'skipped even when clipboard_and_paste is configured',
+        () async {
+          container.dispose();
+          db = HistoryDatabase.forTesting(NativeDatabase.memory());
+          wavFile = createFakeWav(
+            'test_audio_sandbox_${DateTime.now().millisecondsSinceEpoch}.wav',
+          );
+          fakeAudio = FakeAudioService()
+            ..wavPathToReturn = wavFile.absolute.path;
+          fakeStt = FakeSttService()..transcriptToReturn = 'Sandbox text';
+          clipboardText = 'Untouched clipboard';
+
+          container = buildContainer(
+            const AppSettings(
+              stt: SttSettings(model: 'whisper-small', language: 'English'),
+              afterTranscriptionSection: AfterTranscriptionSettings(
+                afterTranscription: 'clipboard_and_paste',
+              ),
+              onboarding: OnboardingSettings(onboardingCompleted: true),
+            ),
+          );
+          await container.read(settingsProvider.future);
+
+          final orch = await startRecordingPhase();
+
+          String? sunk;
+          orch.sandboxTranscriptSink = (text) => sunk = text;
+
+          await orch.stopRecording();
+
+          expect(container.read(recordingProvider).phase, RecordingPhase.done);
+          expect(sunk, 'Sandbox text');
+          expect(await db.allEntries(), isEmpty);
+          expect(fakeDesktopPaste.pasteCalls, 0);
+          expect(clipboardText, 'Untouched clipboard');
+        },
+      );
+    },
+  );
+
   // =========================================================================
   // WAV file edge cases
   // =========================================================================

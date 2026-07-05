@@ -42,8 +42,8 @@ void main() {
         expect(steps, contains(OnboardingStepId.microphone));
       });
 
-      test('returns 6 steps in total', () {
-        expect(steps, hasLength(6));
+      test('returns 7 steps in total', () {
+        expect(steps, hasLength(7));
       });
 
       test('autoPaste step appears after microphone and before model', () {
@@ -80,8 +80,8 @@ void main() {
         expect(steps, contains(OnboardingStepId.microphone));
       });
 
-      test('returns 5 steps in total', () {
-        expect(steps, hasLength(5));
+      test('returns 6 steps in total', () {
+        expect(steps, hasLength(6));
       });
     });
 
@@ -92,7 +92,7 @@ void main() {
           autoPasteSupported: true,
         );
         expect(steps, isNot(contains(OnboardingStepId.autoPaste)));
-        expect(steps, hasLength(5));
+        expect(steps, hasLength(6));
       });
 
       test('Linux: omits autoPaste regardless of autoPasteSupported', () {
@@ -101,7 +101,7 @@ void main() {
           autoPasteSupported: true,
         );
         expect(steps, isNot(contains(OnboardingStepId.autoPaste)));
-        expect(steps, hasLength(5));
+        expect(steps, hasLength(6));
       });
     });
 
@@ -150,6 +150,31 @@ void main() {
             steps.indexOf(OnboardingStepId.microphone),
             lessThan(steps.indexOf(OnboardingStepId.model)),
           );
+        }
+      }
+    });
+
+    test('testRecording always sits immediately between model and ready '
+        '(issue 04 — the skip link and "Weiter" both rely on this to reach '
+        'ready via a single onNext call)', () {
+      for (final platform in [
+        TargetPlatform.macOS,
+        TargetPlatform.windows,
+        TargetPlatform.linux,
+      ]) {
+        for (final autoPasteSupported in [true, false]) {
+          final steps = buildOnboardingStepIds(
+            platform: platform,
+            autoPasteSupported: autoPasteSupported,
+          );
+          final modelIndex = steps.indexOf(OnboardingStepId.model);
+          final testRecordingIndex = steps.indexOf(
+            OnboardingStepId.testRecording,
+          );
+          final readyIndex = steps.indexOf(OnboardingStepId.ready);
+
+          expect(testRecordingIndex, modelIndex + 1);
+          expect(readyIndex, testRecordingIndex + 1);
         }
       }
     });

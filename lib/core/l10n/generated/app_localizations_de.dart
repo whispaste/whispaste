@@ -2241,6 +2241,35 @@ class L10nDe extends L10n {
       'Optimierte GPU-Beschleunigung nicht verfügbar — App nutzt CPU';
 
   @override
+  String get onboardingTestRecordingTitle => 'Probier es gleich aus';
+
+  @override
+  String get onboardingTestRecordingSubtitle =>
+      'Drück deinen Hotkey und sprich einen Satz — der Text erscheint unten im Testfeld.';
+
+  @override
+  String get onboardingTestRecordingHotkeyLabel => 'Dein Hotkey';
+
+  @override
+  String get onboardingTestRecordingPlaceholder =>
+      'Hier erscheint gleich dein gesprochener Text …';
+
+  @override
+  String get onboardingTestRecordingInProgress =>
+      'Aufnahme läuft — sprich einfach los. Erneut drücken stoppt.';
+
+  @override
+  String get onboardingTestRecordingDoneMessage =>
+      'Klappt! Genau so funktioniert es in jeder App.';
+
+  @override
+  String get onboardingTestRecordingReassurance =>
+      'Nur ein Test — der Text bleibt in diesem Feld.';
+
+  @override
+  String get onboardingTestRecordingSkip => 'Test überspringen';
+
+  @override
   String get onboardingReadyTitle => 'Alles bereit!';
 
   @override
