@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -634,6 +636,42 @@ void main() {
       await TelemetrySessionAggregator().drainAndFlush(service);
 
       expect(hits, 0);
+    });
+  });
+
+  // ── Orphaned-request safety (FLUTTER_WHISPASTE-B2) ────────────────────────
+  //
+  // A network/DNS failure (e.g. the self-hosted Matomo host being
+  // unreachable) must never surface as an app-level error — neither via
+  // flush() nor, critically, when the TelemetryService instance is discarded
+  // (telemetryProvider rebuild) before flush() ever runs.
+
+  group('TelemetryService orphaned-request safety (FLUTTER_WHISPASTE-B2)', () {
+    test('flush() does not throw when the underlying request fails', () async {
+      final client = MockClient((_) async {
+        throw const SocketException('Failed host lookup');
+      });
+      final service = _makeService(client: client);
+
+      service.trackPageView('/test');
+
+      // Must complete cleanly despite the client throwing.
+      await service.flush();
+    });
+
+    test('a request that is never flushed does not surface as an unhandled '
+        'async error', () async {
+      final client = MockClient((_) async {
+        throw const SocketException('Failed host lookup');
+      });
+      final service = _makeService(client: client);
+
+      // Simulates a telemetryProvider rebuild discarding this instance
+      // before flush() ever runs. Without the fix, the orphaned future
+      // would surface as an uncaught async error in this test's zone.
+      service.trackPageView('/test');
+
+      await Future<void>.delayed(Duration.zero);
     });
   });
 }

@@ -80,7 +80,7 @@ class HistoryDatabase extends _$HistoryDatabase {
   }
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -111,6 +111,9 @@ class HistoryDatabase extends _$HistoryDatabase {
       }
       if (from < 11) {
         await m.createTable(hotkeyLatencyEntries);
+      }
+      if (from < 12) {
+        await _backfillNullableHistoryColumns();
       }
     },
     beforeOpen: (details) async {
@@ -574,6 +577,57 @@ class HistoryDatabase extends _$HistoryDatabase {
       debugPrint('[Migration] _migrateGroqSttProvider failed: $e');
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // Legacy-NULL backfill migration — v12
+  // ---------------------------------------------------------------------------
+
+  /// Backfills legacy NULL values in [HistoryEntries] columns that Drift
+  /// declares non-nullable but that pre-Drift (Go-era) or early-migration
+  /// rows may still contain as NULL — causing a null-check crash in the
+  /// generated `$HistoryEntriesTable.map` reader, which reads every
+  /// non-nullable column with `!` (see FLUTTER_WHISPASTE-B1). Unlike
+  /// `title_edited` (added with an explicit `NOT NULL DEFAULT 0` in
+  /// [_reconcileGoSchema]), these columns never had their NULL-ness closed
+  /// off for rows that predate that column's introduction.
+  ///
+  /// Defaults mirror the `.withDefault(Constant(...))` values declared in
+  /// `tables.dart` exactly, so a backfilled row is indistinguishable from one
+  /// that always had its default. Idempotent — the `WHERE` clause only
+  /// touches rows that still have a NULL.
+  Future<void> _backfillNullableHistoryColumns() async {
+    try {
+      await customStatement('''
+        UPDATE history_entries SET
+          content = COALESCE(content, ''),
+          title = COALESCE(title, ''),
+          duration_sec = COALESCE(duration_sec, 0.0),
+          processing_duration_sec = COALESCE(processing_duration_sec, 0.0),
+          language = COALESCE(language, ''),
+          language_hint = COALESCE(language_hint, ''),
+          tags = COALESCE(tags, '[]'),
+          pinned = COALESCE(pinned, 0),
+          source = COALESCE(source, 'dictation'),
+          model = COALESCE(model, ''),
+          is_local = COALESCE(is_local, 0),
+          cost_usd = COALESCE(cost_usd, 0.0),
+          archived = COALESCE(archived, 0)
+        WHERE content IS NULL OR title IS NULL OR duration_sec IS NULL
+           OR processing_duration_sec IS NULL OR language IS NULL
+           OR language_hint IS NULL OR tags IS NULL OR pinned IS NULL
+           OR source IS NULL OR model IS NULL OR is_local IS NULL
+           OR cost_usd IS NULL OR archived IS NULL
+      ''');
+    } catch (e) {
+      debugPrint('[Migration] _backfillNullableHistoryColumns failed: $e');
+    }
+  }
+
+  /// Exposed for testing — runs the v12 backfill directly against the
+  /// already-open database.
+  @visibleForTesting
+  Future<void> backfillNullableHistoryColumnsForTesting() =>
+      _backfillNullableHistoryColumns();
 
   // ---------------------------------------------------------------------------
 

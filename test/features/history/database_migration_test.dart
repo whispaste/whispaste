@@ -388,6 +388,122 @@ void main() {
       await db.close();
     });
   });
+
+  group('Legacy-NULL backfill migration (v12, FLUTTER_WHISPASTE-B1)', () {
+    test(
+      'backfills legacy NULL values in history_entries with schema defaults',
+      () async {
+        final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+        await db.customSelect('SELECT 1').get();
+
+        // Recreate history_entries without NOT NULL, mimicking a legacy row
+        // that slipped through before these columns' NULL-ness was closed
+        // off (the exact shape that crashed $HistoryEntriesTable.map with a
+        // null-check error).
+        await db.customStatement('DROP TABLE history_entries');
+        await db.customStatement('''
+          CREATE TABLE history_entries (
+            id TEXT NOT NULL PRIMARY KEY,
+            content TEXT,
+            title TEXT,
+            timestamp INTEGER NOT NULL,
+            duration_sec REAL,
+            processing_duration_sec REAL,
+            language TEXT,
+            language_hint TEXT,
+            tags TEXT,
+            pinned INTEGER,
+            source TEXT,
+            model TEXT,
+            is_local INTEGER,
+            cost_usd REAL,
+            archived INTEGER,
+            title_edited INTEGER NOT NULL DEFAULT 0,
+            deleted_at INTEGER
+          )
+        ''');
+
+        await db.customStatement('''
+          INSERT INTO history_entries (id, timestamp)
+          VALUES ('legacy-1', 1767225600000)
+        ''');
+
+        await db.backfillNullableHistoryColumnsForTesting();
+
+        final row = await db
+            .customSelect("SELECT * FROM history_entries WHERE id = 'legacy-1'")
+            .getSingle();
+
+        expect(row.data['content'], '');
+        expect(row.data['title'], '');
+        expect(row.data['duration_sec'], 0.0);
+        expect(row.data['processing_duration_sec'], 0.0);
+        expect(row.data['language'], '');
+        expect(row.data['language_hint'], '');
+        expect(row.data['tags'], '[]');
+        expect(row.data['pinned'], 0);
+        expect(row.data['source'], 'dictation');
+        expect(row.data['model'], '');
+        expect(row.data['is_local'], 0);
+        expect(row.data['cost_usd'], 0.0);
+        expect(row.data['archived'], 0);
+
+        await db.close();
+      },
+    );
+
+    test(
+      'is idempotent — second run does not alter already-backfilled rows',
+      () async {
+        final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+        await db.customSelect('SELECT 1').get();
+
+        await db.customStatement('DROP TABLE history_entries');
+        await db.customStatement('''
+        CREATE TABLE history_entries (
+          id TEXT NOT NULL PRIMARY KEY,
+          content TEXT,
+          title TEXT,
+          timestamp INTEGER NOT NULL,
+          duration_sec REAL,
+          processing_duration_sec REAL,
+          language TEXT,
+          language_hint TEXT,
+          tags TEXT,
+          pinned INTEGER,
+          source TEXT,
+          model TEXT,
+          is_local INTEGER,
+          cost_usd REAL,
+          archived INTEGER,
+          title_edited INTEGER NOT NULL DEFAULT 0,
+          deleted_at INTEGER
+        )
+      ''');
+
+        // A row that already has real, non-default values must survive
+        // untouched — the backfill only targets genuine NULLs.
+        await db.customStatement('''
+        INSERT INTO history_entries
+          (id, content, title, timestamp, source, pinned)
+        VALUES
+          ('real-1', 'hello world', 'My title', 1767225600000, 'dictation', 1)
+      ''');
+
+        await db.backfillNullableHistoryColumnsForTesting();
+        await db.backfillNullableHistoryColumnsForTesting();
+
+        final row = await db
+            .customSelect("SELECT * FROM history_entries WHERE id = 'real-1'")
+            .getSingle();
+        expect(row.data['content'], 'hello world');
+        expect(row.data['title'], 'My title');
+        expect(row.data['pinned'], 1);
+
+        await db.close();
+      },
+    );
+  });
 }
 
 /// Mock query executor user for manual schema creation

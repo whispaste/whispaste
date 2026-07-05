@@ -33,8 +33,11 @@ import 'package:http/http.dart' as http;
 import '../core/app_info.dart' as app_info;
 import '../core/config/settings_provider.dart';
 import '../core/l10n/locale_provider.dart';
+import '../core/logging/app_logger.dart';
 import 'deploy_channel_service.dart';
 import 'update_channel_service.dart';
+
+final _log = AppLogger('TelemetryService');
 
 /// Settings keys that may be reported when a setting changes. Only the KEY
 /// (never the value) is sent, and only keys on this static whitelist — an
@@ -91,7 +94,7 @@ final class TelemetryService {
   /// Per-app-start visitor ID sent as Matomo `_id`; never persisted.
   final String _sessionVisitorId;
 
-  final List<Future<http.Response>> _pending = [];
+  final List<Future<void>> _pending = [];
 
   bool get _isConfigured => endpointUrl.isNotEmpty && siteId > 0;
 
@@ -101,7 +104,7 @@ final class TelemetryService {
   void trackPageView(String path) {
     if (!_shouldDispatch) return;
     _pending.add(
-      _send({'url': 'app://whispaste$path', 'action_name': 'pageView'}),
+      _sendSafely({'url': 'app://whispaste$path', 'action_name': 'pageView'}),
     );
   }
 
@@ -124,7 +127,7 @@ final class TelemetryService {
       'e_n': ?name,
       'e_v': ?value?.toString(),
     };
-    _pending.add(_send(body));
+    _pending.add(_sendSafely(body));
   }
 
   /// Records that a setting changed — only the key, only if whitelisted.
@@ -137,6 +140,19 @@ final class TelemetryService {
     if (_pending.isNotEmpty) {
       await Future.wait(_pending, eagerError: false);
       _pending.clear();
+    }
+  }
+
+  /// Wraps [_send] so a request that outlives [flush] (e.g. this instance is
+  /// discarded by a [telemetryProvider] rebuild before flush ever runs) can
+  /// never surface as an unhandled async error — telemetry must not crash the
+  /// app (see FLUTTER_WHISPASTE-B2: an orphaned request's DNS failure was
+  /// reported to Sentry as fatal because it was never awaited by anything).
+  Future<void> _sendSafely(Map<String, String> body) async {
+    try {
+      await _send(body);
+    } catch (e) {
+      _log.debug('telemetry request failed (non-fatal): $e');
     }
   }
 
