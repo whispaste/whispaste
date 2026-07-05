@@ -30,6 +30,8 @@
 	<string>NSApplication</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>WhisPaste needs microphone access for speech-to-text dictation.</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>WhisPaste may use this to paste your dictated text into other apps when the primary method is unavailable.</string>
 	<!-- Sparkle self-update (PRD Säule E). EdDSA public key matches the private
 	     key that signs appcast.xml in CI (secret SPARKLE_SIGNING_KEY). The feed
 	     URL below is the stable default for the first launch check; the Dart
