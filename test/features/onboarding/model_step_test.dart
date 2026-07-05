@@ -301,6 +301,33 @@ void main() {
       },
     );
 
+    // -------------------------------------------------------------------------
+    // Recommended badge consistency with the Settings badge (issue
+    // 06-empfohlen-badge-settings) — both surfaces share the same
+    // `qualityTierRecommended` l10n key, so this is a regression guard
+    // against the two drifting apart.
+    // -------------------------------------------------------------------------
+
+    testWidgets(
+      'recommended badge uses the plain-language German copy shared with '
+      'the Settings badge',
+      (tester) async {
+        await _pumpStep(
+          tester,
+          gpu: const hw.GpuInfo(
+            vendor: hw.GpuVendor.apple,
+            name: 'Apple M2',
+            vramMB: 8192,
+          ),
+          locale: const Locale('de'),
+        );
+
+        final lDe = await L10n.delegate.load(const Locale('de'));
+        expect(lDe.qualityTierRecommended, 'Empfohlen für deinen Rechner');
+        expect(find.text(lDe.qualityTierRecommended), findsOneWidget);
+      },
+    );
+
     testWidgets(
       'after selecting Compact via alternatives, CTA downloads whisper-small',
       (tester) async {

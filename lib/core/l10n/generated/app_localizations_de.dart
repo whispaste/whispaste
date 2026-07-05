@@ -1510,7 +1510,7 @@ class L10nDe extends L10n {
       'Höchste Genauigkeit für längere Diktate und komplexe Inhalte. Benötigt eine leistungsfähige Grafikkarte.';
 
   @override
-  String get qualityTierRecommended => 'Empfohlen für dein Gerät';
+  String get qualityTierRecommended => 'Empfohlen für deinen Rechner';
 
   @override
   String qualityTierDownloadSize(String size) {

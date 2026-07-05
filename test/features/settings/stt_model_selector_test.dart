@@ -306,6 +306,79 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    // -------------------------------------------------------------------------
+    // Recommended badge — plain-language copy + placement (issue
+    // 06-empfohlen-badge-settings)
+    // -------------------------------------------------------------------------
+
+    testWidgets(
+      'recommended badge uses plain-language German copy without hardware '
+      'jargon',
+      (tester) async {
+        final deL10n = await L10n.delegate.load(const Locale('de'));
+
+        expect(deL10n.qualityTierRecommended, 'Empfohlen für deinen Rechner');
+        expect(
+          deL10n.qualityTierRecommended.toUpperCase(),
+          isNot(contains('VRAM')),
+        );
+        expect(
+          deL10n.qualityTierRecommended.toUpperCase(),
+          isNot(contains('GPU')),
+        );
+      },
+    );
+
+    testWidgets(
+      'recommended badge renders only on the tier recommendTier() picks for '
+      'this hardware',
+      (tester) async {
+        // NVIDIA GPU with 1000MB VRAM → recommendTier() picks Compact
+        // (below the 2150MB Balanced threshold in the nvidia branch).
+        const gpu = hw.GpuInfo(
+          vendor: hw.GpuVendor.nvidia,
+          name: 'Test GPU',
+          vramMB: 1000,
+        );
+
+        await tester.pumpWidget(_makeTestable(gpu: gpu));
+        await tester.pumpAndSettle();
+
+        // Badge renders exactly once across all three tier cards.
+        expect(find.text(l10n.qualityTierRecommended), findsOneWidget);
+
+        // It sits on the Compact tier card, not Balanced or Premium.
+        final compactRow = find
+            .ancestor(
+              of: find.text(l10n.qualityTierCompactLabel),
+              matching: find.byType(Row),
+            )
+            .first;
+        expect(
+          find.descendant(
+            of: compactRow,
+            matching: find.text(l10n.qualityTierRecommended),
+          ),
+          findsOneWidget,
+          reason: 'badge must sit on the Compact tier card for this GPU',
+        );
+
+        final balancedRow = find
+            .ancestor(
+              of: find.text(l10n.qualityTierBalancedLabel),
+              matching: find.byType(Row),
+            )
+            .first;
+        expect(
+          find.descendant(
+            of: balancedRow,
+            matching: find.text(l10n.qualityTierRecommended),
+          ),
+          findsNothing,
+        );
+      },
+    );
+
     testWidgets('shows error banner when download is in error state', (
       tester,
     ) async {

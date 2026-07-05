@@ -482,7 +482,7 @@
   "qualityTierBalancedDesc": "Zuverlässig und genau für alltägliches Diktieren. Funktioniert auf den meisten Geräten.",
   "qualityTierPremiumLabel": "Beste Qualität",
   "qualityTierPremiumDesc": "Höchste Genauigkeit für längere Diktate und komplexe Inhalte. Benötigt eine leistungsfähige Grafikkarte.",
-  "qualityTierRecommended": "Empfohlen für dein Gerät",
+  "qualityTierRecommended": "Empfohlen für deinen Rechner",
   "qualityTierDownloadSize": "{size} Download",
   "@qualityTierDownloadSize": { "placeholders": { "size": { "type": "String" } } },
   "qualityTierDownloadAndContinue": "Herunterladen & Weiter",
