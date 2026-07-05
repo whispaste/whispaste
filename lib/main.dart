@@ -76,9 +76,14 @@ Future<void> main(List<String> args) async {
   // fl_dart_project_set_dart_entrypoint_arguments. We branch here so the
   // second engine never runs the full app bootstrap.
   //
-  // macOS and Windows never pass args to main() — the named-entrypoint
-  // pragma functions (floatingOverlayMain / floatingButtonMain) above are
-  // what those platforms boot. So these branches are effectively Linux-only.
+  // macOS never passes args to main() — the named-entrypoint pragma
+  // functions (floatingOverlayMain / floatingButtonMain) above are what
+  // that platform boots for the secondary engines instead. Windows DOES
+  // forward the real process argv to main() (see
+  // windows/runner/main.cpp:22-25, GetCommandLineArguments() feeding
+  // set_dart_entrypoint_arguments()) — it just never passes these two
+  // floating-overlay/-button flags, so these branches are effectively
+  // Linux-only in practice.
   if (args.contains('--floating-overlay')) {
     // runFloatingOverlayEngine() calls ensureInitialized() and runApp()
     // internally; no zone guards needed here (we're still in the root zone).
@@ -212,6 +217,31 @@ Future<void> _runApp(List<String> args) async {
   });
 }
 
+/// Pure decision for whether the desktop window should stay hidden at
+/// startup, extracted from [_initDesktopWindow] so it is unit-testable
+/// without touching `window_manager` or any other native API.
+///
+/// The window is hidden only when the launch was triggered by autostart —
+/// either the `--autostart` CLI argument (Windows/Linux today), or a
+/// definite macOS Login-Item start reported via [macosLoginItemSignal] — AND
+/// both the "launch at startup" and "start minimized" settings are enabled.
+///
+/// [macosLoginItemSignal] is `true`/`false` once the native macOS Login-Item
+/// detection (Block A, Slice 03 — not yet implemented) reports a definite
+/// answer, and `null` when that signal isn't available yet (every call site
+/// today, on every platform). `null` is treated like `false`: it never makes
+/// the window hide on its own, which preserves today's behaviour until
+/// Slice 03 wires up a real value.
+bool shouldMinimize({
+  required List<String> args,
+  required AppSettings settings,
+  bool? macosLoginItemSignal,
+}) {
+  final isAutostart =
+      args.contains('--autostart') || macosLoginItemSignal == true;
+  return isAutostart && settings.startMinimized && settings.launchAtStartup;
+}
+
 /// Initialises the desktop window manager and applies persisted geometry.
 ///
 /// Runs only on Windows, Linux, and macOS — the caller is responsible for the
@@ -239,11 +269,9 @@ Future<void> _initDesktopWindow(AppSettings settings, List<String> args) async {
 
     // Start minimized only when launched via autostart (system boot),
     // not when the user explicitly opens the app from Dock/Taskbar.
-    final isAutostart = args.contains('--autostart');
-    final shouldMinimize =
-        isAutostart && settings.startMinimized && settings.launchAtStartup;
+    final hide = shouldMinimize(args: args, settings: settings);
 
-    if (!shouldMinimize) {
+    if (!hide) {
       await windowManager.show();
       await windowManager.focus();
     } else {
