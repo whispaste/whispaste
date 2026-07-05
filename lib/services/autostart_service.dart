@@ -1,16 +1,49 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:launch_at_startup/launch_at_startup.dart';
 
 import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
 
+/// Abstraction over the `launch_at_startup` plugin's static API so
+/// [AutostartService] can be tested against a deterministic fake instead of
+/// real OS-level registration (Windows registry, macOS login items, Linux
+/// autostart entries).
+abstract class AutostartBackend {
+  Future<bool> isEnabled();
+  Future<void> enable();
+  Future<void> disable();
+}
+
+/// Production backend — delegates to the real `launch_at_startup` plugin.
+class _LaunchAtStartupBackend implements AutostartBackend {
+  const _LaunchAtStartupBackend();
+
+  @override
+  Future<bool> isEnabled() => launchAtStartup.isEnabled();
+
+  @override
+  Future<void> enable() => launchAtStartup.enable();
+
+  @override
+  Future<void> disable() => launchAtStartup.disable();
+}
+
 /// Manages the "launch at startup" registration using the system registry
 /// (Windows), login items (macOS), or autostart entries (Linux).
 class AutostartService extends Notifier<bool> {
   static bool _setupDone = false;
   static final _log = AppLogger('AutostartService');
+
+  /// Injectable backend seam. Production uses the real plugin; tests
+  /// override this getter in a subclass (mirroring the subclass-override
+  /// fake convention used elsewhere, e.g. `_FakeAutostartService` in
+  /// `test/widgets/service_bootstrap_test.dart`) to simulate success/failure
+  /// deterministically.
+  @visibleForTesting
+  AutostartBackend get backend => const _LaunchAtStartupBackend();
 
   @override
   bool build() {
@@ -34,22 +67,31 @@ class AutostartService extends Notifier<bool> {
   }
 
   /// Sync the autostart state with the persisted setting.
+  ///
+  /// On success, [state] is set to the real, now-confirmed registration
+  /// outcome and [autostartSyncFailureProvider] is cleared. On failure the
+  /// registration error is exposed via [autostartSyncFailureProvider]
+  /// instead of only being logged, and [state] is left untouched — it must
+  /// never optimistically report "enabled" for a registration that did not
+  /// actually happen.
   Future<void> _syncWithSettings() async {
     final settings = ref.read(settingsProvider).value;
     if (settings == null) return;
 
     try {
-      final isEnabled = await launchAtStartup.isEnabled();
-      if (settings.launchAtStartup && !isEnabled) {
-        await launchAtStartup.enable();
+      final isEnabled = await backend.isEnabled();
+      if (settings.interface_.launchAtStartup && !isEnabled) {
+        await backend.enable();
         _log.info('Autostart enabled');
-      } else if (!settings.launchAtStartup && isEnabled) {
-        await launchAtStartup.disable();
+      } else if (!settings.interface_.launchAtStartup && isEnabled) {
+        await backend.disable();
         _log.info('Autostart disabled');
       }
-      state = settings.launchAtStartup;
+      state = settings.interface_.launchAtStartup;
+      ref.read(autostartSyncFailureProvider.notifier).report(null);
     } catch (e) {
       _log.warning('Autostart sync failed: $e');
+      ref.read(autostartSyncFailureProvider.notifier).report(e);
     }
   }
 }
@@ -57,3 +99,22 @@ class AutostartService extends Notifier<bool> {
 final autostartServiceProvider = NotifierProvider<AutostartService, bool>(
   AutostartService.new,
 );
+
+/// Holds the last error from an `AutostartService` OS-registration attempt,
+/// or `null` when the most recent sync succeeded (or none has run yet).
+/// Exposed separately from the `bool` autostart state so a failure is
+/// observable from outside without changing the shape/consumers of the
+/// existing enabled/disabled state.
+class AutostartSyncFailureNotifier extends Notifier<Object?> {
+  @override
+  Object? build() => null;
+
+  /// Records the outcome of the latest sync attempt: `null` on success, the
+  /// thrown error on failure.
+  void report(Object? error) => state = error;
+}
+
+final autostartSyncFailureProvider =
+    NotifierProvider<AutostartSyncFailureNotifier, Object?>(
+      AutostartSyncFailureNotifier.new,
+    );
