@@ -126,17 +126,26 @@ jobs:
           # WinSparkle as the "installed version" for its update comparison —
           # see auto_updater_windows: it never calls win_sparkle_set_app_details,
           # so it falls back to the EXE's own VERSIONINFO resource). The 4th
-          # component must carry the actual beta counter, not a hardcoded 0 —
-          # otherwise every beta build reports the identical "X.X.X.0" and
-          # WinSparkle can never tell beta.7 from beta.8. Mirrors the same
-          # scheme Flutter's own tooling already applies to CFBundleVersion on
-          # macOS (see generate_appcast.sh's SPARKLE_VERSION_COMPARE).
-          $parts = $version -split '[.\-]'
-          if ($parts.Length -ge 5) {
-            $numeric = "$($parts[0]).$($parts[1]).$($parts[2]).$($parts[4])"
-          } else {
-            $numeric = "$($parts[0]).$($parts[1]).$($parts[2]).0"
+          # component MUST be the pubspec BUILD NUMBER (the "+N" suffix in
+          # pubspec.yaml's version field), NOT the "-beta.B" pre-release
+          # counter — those are two independent counters that can diverge
+          # (e.g. beta.9+10). Flutter's own tooling already derives
+          # FLUTTER_VERSION_BUILD this exact way for the actually-running
+          # whispaste.exe (packages/flutter_tools/lib/src/cmake.dart's
+          # _tryDetermineBuildVersion, embedded via windows/runner/Runner.rc's
+          # FILEVERSION) — this must match it, or the installer advertises a
+          # different numeric version than the binary it installs. That
+          # mismatch is exactly why WinSparkle's "check for updates" re-offered
+          # the just-installed build (mirrors generate_appcast.sh's
+          # SPARKLE_VERSION_COMPARE, which uses the same derivation).
+          $pubspecRaw = (Get-Content pubspec.yaml | Select-String '^\s*version:').ToString()
+          $pubspecVersion = ($pubspecRaw -replace '^\s*version:\s*', '').Trim()
+          $buildNumber = '0'
+          if ($pubspecVersion -match '\+(\d+)$') {
+            $buildNumber = $Matches[1]
           }
+          $parts = $version -split '[.\-]'
+          $numeric = "$($parts[0]).$($parts[1]).$($parts[2]).$buildNumber"
 
           & "C:\Program Files (x86)\NSIS\makensis.exe" `
             /DPRODUCT_VERSION=$version `

@@ -103,6 +103,12 @@ SPARKLE_VERSION="${SPARKLE_VERSION:-2.9.3}"
 GITHUB_REPO_SLUG="${GITHUB_REPOSITORY:-whispaste/whispaste}"
 VERSION="${TAG#v}"  # strip leading 'v'
 
+# pubspec.yaml is the single source of truth for the build number (the "+N"
+# suffix) — the git tag never carries it. PUBSPEC_FILE is overridable so
+# tests can point at a fixture without mutating the real repo pubspec.yaml.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PUBSPEC_FILE="${PUBSPEC_FILE:-$SCRIPT_DIR/../pubspec.yaml}"
+
 # --- 0. Preconditions -------------------------------------------------------
 
 if [[ -z "${SPARKLE_SIGNING_KEY:-}" ]]; then
@@ -154,21 +160,73 @@ sign_enclosure() {
 }
 
 # Sparkle/WinSparkle compare <sparkle:version> against the installed
-# binary's own comparison version — CFBundleVersion on macOS (=
-# $(FLUTTER_BUILD_NAME) in Info.plist), FileVersion on Windows (NSIS
-# PRODUCT_VERSION_NUMERIC). Both are Flutter/CI-sanitized DOTTED-NUMERIC
-# strings: a pre-release pubspec version like "1.2.44-beta.7" becomes
-# "1.2.44.7" there (verified empirically via `flutter build macos
-# --config-only` -> FLUTTER_BUILD_NAME=1.2.44.7 — Apple's Info.plist
-# version keys reject a dash+letters suffix). Using the RAW tag string
-# ("1.2.44-beta.7") here made Sparkle compare two differently-shaped
-# version strings for the exact same release — beta-to-beta updates were
-# undetectable as a result. sparkle:shortVersionString stays the raw,
-# human-readable string (display only, never compared).
-SPARKLE_VERSION_COMPARE="$VERSION"
-if [[ "$VERSION" == *-beta.* ]]; then
-  SPARKLE_VERSION_COMPARE="${VERSION%%-beta.*}.${VERSION##*-beta.}"
+# binary's own comparison version — but macOS and Windows embed that
+# comparison version via TWO DIFFERENT Flutter-tooling derivations, so this
+# appcast needs two INDEPENDENT <sparkle:version> values, one per <item>:
+#
+#   - macOS CFBundleVersion = $(FLUTTER_BUILD_NAME) in Info.plist, which
+#     Flutter derives from the pubspec version's PRE-"+N" part (the
+#     "-beta.B" pre-release counter included) via
+#     validatedBuildNameForPlatform() in build_info.dart: strip everything
+#     but digits/dots, split on '.', drop empty segments, pad to >=3
+#     segments with '0'. E.g. "1.2.44-beta.9" -> "1.2.44.9"; a stable
+#     "1.2.44" stays a 3-component "1.2.44" (no padding needed).
+#   - Windows FileVersion = NSIS PRODUCT_VERSION_NUMERIC / Flutter's
+#     FLUTTER_VERSION_BUILD (cmake.dart's _tryDetermineBuildVersion): the
+#     core X.Y.Z plus the pubspec BUILD NUMBER (the "+N" suffix) — NOT the
+#     "-beta.B" pre-release counter. Mirrors release.yml's
+#     PRODUCT_VERSION_NUMERIC, which uses this same derivation.
+#
+# These two counters (semver build-metadata "+N" vs. pre-release identifier
+# "-beta.B") are independent and can diverge for the same release (e.g.
+# beta.9+10) — conflating them into one shared value previously broke
+# whichever platform didn't match: using the beta counter for both made
+# Windows' FileVersion diverge from FLUTTER_VERSION_BUILD (WinSparkle
+# re-offered the just-installed build); using the build number for both
+# would instead make the appcast's macOS <sparkle:version> diverge from the
+# real CFBundleVersion the shipped .app actually carries.
+# sparkle:shortVersionString stays the raw, human-readable tag string
+# (display only, never compared) for both platforms.
+BUILD_NUMBER="0"
+PUBSPEC_BUILD_NAME=""
+if [[ -f "$PUBSPEC_FILE" ]]; then
+  pubspec_raw="$(grep -m1 '^[[:space:]]*version:' "$PUBSPEC_FILE" || true)"
+  pubspec_version="${pubspec_raw#*version:}"
+  pubspec_version="$(printf '%s' "$pubspec_version" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+  if [[ "$pubspec_version" =~ \+([0-9]+)$ ]]; then
+    BUILD_NUMBER="${BASH_REMATCH[1]}"
+  fi
+  PUBSPEC_BUILD_NAME="${pubspec_version%%+*}"
 fi
+# Fallback when pubspec.yaml is unreadable: mirror the tag-derived VERSION
+# (pre-"+N" by construction, since git tags never carry it) so the macOS
+# item stays well-defined even without a pubspec.
+if [[ -z "$PUBSPEC_BUILD_NAME" ]]; then
+  PUBSPEC_BUILD_NAME="$VERSION"
+fi
+
+# flutter_build_name_numeric <raw> — mirrors build_info.dart's
+# validatedBuildNameForPlatform() for iOS/macOS: strip non-digit/non-dot
+# chars, split on '.', drop empty segments, pad to >=3 segments with '0'.
+flutter_build_name_numeric() {
+  local raw="$1" stripped seg
+  stripped="$(printf '%s' "$raw" | tr -cd '0-9.')"
+  local -a raw_segs segs
+  IFS='.' read -ra raw_segs <<< "$stripped"
+  segs=()
+  for seg in "${raw_segs[@]}"; do
+    [[ -n "$seg" ]] && segs+=("$seg")
+  done
+  while [[ ${#segs[@]} -lt 3 ]]; do
+    segs+=("0")
+  done
+  local IFS='.'
+  echo "${segs[*]}"
+}
+
+CORE_VERSION="${VERSION%%-*}"  # strip any -beta.B pre-release suffix, keep X.Y.Z
+MACOS_VERSION_COMPARE="$(flutter_build_name_numeric "$PUBSPEC_BUILD_NAME")"
+WINDOWS_VERSION_COMPARE="${CORE_VERSION}.${BUILD_NUMBER}"
 PUBDATE="$(date -u '+%a, %d %b %Y %H:%M:%S +0000')"
 # --channel selects the output filename (and thus the release asset name).
 # Feed content is identical across channels; only the filename differs.
@@ -201,7 +259,7 @@ read -r MAC_SIG MAC_LEN <<<"$sig_line"
 MACOS_ITEM="    <item>
       <title>Version ${VERSION}</title>
       <pubDate>${PUBDATE}</pubDate>
-      <sparkle:version>${SPARKLE_VERSION_COMPARE}</sparkle:version>
+      <sparkle:version>${MACOS_VERSION_COMPARE}</sparkle:version>
       <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
       <enclosure url=\"${ENC_BASE}/${DMG_NAME}\" sparkle:edSignature=\"${MAC_SIG}\" length=\"${MAC_LEN}\" type=\"application/octet-stream\" sparkle:os=\"macos\"/>
@@ -222,7 +280,7 @@ if [[ -f "$SETUP" ]]; then
   WINDOWS_ITEM="    <item>
       <title>Version ${VERSION}</title>
       <pubDate>${PUBDATE}</pubDate>
-      <sparkle:version>${SPARKLE_VERSION_COMPARE}</sparkle:version>
+      <sparkle:version>${WINDOWS_VERSION_COMPARE}</sparkle:version>
       <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
       <enclosure url=\"${ENC_BASE}/${SETUP_NAME}\" sparkle:edSignature=\"${WIN_SIG}\" length=\"${WIN_LEN}\" type=\"application/octet-stream\" sparkle:os=\"windows\"/>
     </item>"
