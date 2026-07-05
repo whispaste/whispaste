@@ -18,6 +18,7 @@ import 'package:whispaste/core/app_urls.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/navigation/page_state.dart';
 import 'package:whispaste/services/deploy_channel_service.dart';
+import 'package:whispaste/services/prompt_timing.dart';
 import 'package:whispaste/services/review_prompt_service.dart';
 import 'package:whispaste/widgets/review_prompt_dialog.dart';
 
@@ -66,8 +67,8 @@ class _FakeReviewPromptNotifier extends ReviewPromptNotifier {
 
 const _launcherChannel = MethodChannel('plugins.flutter.io/url_launcher');
 
-/// Pumps [ReviewPromptWatcher] and advances time past the 1-second delay so
-/// the dialog is fully visible and animated in.
+/// Pumps [ReviewPromptWatcher] and advances time past [kPostRecordingPromptDelay]
+/// so the dialog is fully visible and animated in.
 Future<_FakeReviewPromptNotifier> _showDialog(
   WidgetTester tester,
   DeployChannel channel, {
@@ -87,8 +88,8 @@ Future<_FakeReviewPromptNotifier> _showDialog(
   await tester.pump(); // initial build, ref.listen registered
 
   notifier.triggerShow();
-  await tester.pump(); // state change propagated, 1-second timer started
-  await tester.pump(const Duration(seconds: 1)); // timer fires → _showDialog()
+  await tester.pump(); // state change propagated, delay timer started
+  await tester.pump(kPostRecordingPromptDelay); // timer fires → _showDialog()
   await tester.pumpAndSettle(); // showGeneralDialog + 300 ms animation
 
   return notifier;

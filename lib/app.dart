@@ -44,6 +44,7 @@ import 'services/deploy_channel_service.dart';
 import 'widgets/toast.dart';
 import 'widgets/review_prompt_dialog.dart';
 import 'widgets/store_thank_you_dialog.dart';
+import 'widgets/support_prompt_dialog.dart';
 
 // activePageProvider and settingsScrollTargetProvider are defined in
 // lib/core/navigation/page_state.dart (imported above).
@@ -365,203 +366,209 @@ class _AppShellState extends ConsumerState<_AppShell>
     );
 
     return ReviewPromptWatcher(
-      child: StoreThankYouWatcher(
-        child: ServiceBootstrapWidget(
-          child: RecordingBehaviorWidget(
-            child: Scaffold(
-              backgroundColor: Colors.transparent,
-              body: Stack(
-                children: [
-                  // Frame background — gradient for premium unified feel
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: isDark
-                          ? WpColorsDark.frameGradient
-                          : WpColorsLight.frameGradient,
+      child: SupportPromptWatcher(
+        child: StoreThankYouWatcher(
+          child: ServiceBootstrapWidget(
+            child: RecordingBehaviorWidget(
+              child: Scaffold(
+                backgroundColor: Colors.transparent,
+                body: Stack(
+                  children: [
+                    // Frame background — gradient for premium unified feel
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: isDark
+                            ? WpColorsDark.frameGradient
+                            : WpColorsLight.frameGradient,
+                      ),
+                      child: const SizedBox.expand(),
                     ),
-                    child: const SizedBox.expand(),
-                  ),
-                  // Subtle topographic watermark pattern (both themes)
-                  Positioned.fill(child: WpFrameWatermark(isDark: isDark)),
-                  // Main layout
-                  Column(
-                    children: [
-                      const WpTitleBar(actions: [_ThemeToggle()]),
-                      Expanded(
-                        child: Row(
-                          children: [
-                            WpSidebar(
-                              items: navItems,
-                              activeId: activePage,
-                              onItemTap: (id) {
-                                ref
-                                    .read(activePageProvider.notifier)
-                                    .setPage(id);
-                              },
-                              bottomItems: [
-                                // loam-ignore: a11y-interactive-semantics – semantics provided in WpSidebarSettingsButton.build
-                                WpSidebarSettingsButton(
-                                  isActive: activePage == 'settings',
-                                  onTap: () => ref
+                    // Subtle topographic watermark pattern (both themes)
+                    Positioned.fill(child: WpFrameWatermark(isDark: isDark)),
+                    // Main layout
+                    Column(
+                      children: [
+                        const WpTitleBar(actions: [_ThemeToggle()]),
+                        Expanded(
+                          child: Row(
+                            children: [
+                              WpSidebar(
+                                items: navItems,
+                                activeId: activePage,
+                                onItemTap: (id) {
+                                  ref
                                       .read(activePageProvider.notifier)
-                                      .setPage('settings'),
-                                ),
-                              ],
-                            ),
-                            // Content area — rounded panel with warm gradient
-                            Expanded(
-                              child: Container(
-                                decoration: contentDecoration,
-                                clipBehavior: Clip.antiAlias,
-                                child: Column(
-                                  children: [
-                                    // Recording indicator — thin pulsing bar
-                                    WpRecordingIndicatorBar(
-                                      phase: recordingPhase,
-                                    ),
-                                    // Page header with smooth title transition
-                                    AnimatedSwitcher(
-                                      duration: WpMotion.durationFor(
-                                        context,
-                                        WpMotion.fast,
+                                      .setPage(id);
+                                },
+                                bottomItems: [
+                                  // loam-ignore: a11y-interactive-semantics – semantics provided in WpSidebarSettingsButton.build
+                                  WpSidebarSettingsButton(
+                                    isActive: activePage == 'settings',
+                                    onTap: () => ref
+                                        .read(activePageProvider.notifier)
+                                        .setPage('settings'),
+                                  ),
+                                ],
+                              ),
+                              // Content area — rounded panel with warm gradient
+                              Expanded(
+                                child: Container(
+                                  decoration: contentDecoration,
+                                  clipBehavior: Clip.antiAlias,
+                                  child: Column(
+                                    children: [
+                                      // Recording indicator — thin pulsing bar
+                                      WpRecordingIndicatorBar(
+                                        phase: recordingPhase,
                                       ),
-                                      child: _PageHeader(
-                                        key: ValueKey('header-$activePage'),
-                                        title: wpPageTitle(
-                                          activePage,
-                                          navItems,
-                                          l10n,
-                                        ),
-                                      ),
-                                    ),
-                                    // Content with page transition animation
-                                    Expanded(
-                                      child: AnimatedSwitcher(
+                                      // Page header with smooth title transition
+                                      AnimatedSwitcher(
                                         duration: WpMotion.durationFor(
                                           context,
-                                          WpMotion.normal,
+                                          WpMotion.fast,
                                         ),
-                                        switchInCurve: WpMotion.defaultCurve,
-                                        switchOutCurve: WpMotion.defaultCurve,
-                                        transitionBuilder: (child, animation) {
-                                          return FadeTransition(
-                                            opacity: animation,
-                                            child: SlideTransition(
-                                              position: Tween<Offset>(
-                                                begin: const Offset(0.0, 0.015),
-                                                end: Offset.zero,
-                                              ).animate(animation),
-                                              child: child,
-                                            ),
-                                          );
-                                        },
-                                        child: KeyedSubtree(
-                                          key: ValueKey(activePage),
-                                          child:
-                                              wpPageWidgets[activePage] ??
-                                              const SizedBox.shrink(),
+                                        child: _PageHeader(
+                                          key: ValueKey('header-$activePage'),
+                                          title: wpPageTitle(
+                                            activePage,
+                                            navItems,
+                                            l10n,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      // Status bar — sits on the frame, full width
-                      WpStatusBar(
-                        sttModeLabel: statusBarModel.sttModeLabel,
-                        sttState: sttStatus.serverState,
-                        sttStartingSince: sttStatus.startingSince,
-                        recordingPhase: recordingPhase,
-                        afterActionLabel: afterTranscriptionStatusLabel(
-                          settings.afterTranscriptionAction,
-                          l10n,
-                        ),
-                        afterAction: settings.afterTranscriptionAction,
-                        hotkeyLabel: formatHotkeyShortcut(
-                          settings.hotkeyModifiers,
-                          settings.hotkeyKey,
-                          l10n: l10n,
-                          displayOverride: settings.hotkey.hotkeyKeyDisplay,
-                        ),
-                        hotkeyEnabled: settings.hotkeyEnabled,
-                        updateVersion:
-                            updateState.phase == UpdatePhase.available
-                            ? updateState.latestVersion
-                            : null,
-                        updateReadyToInstall:
-                            updateState.phase == UpdatePhase.readyToInstall,
-                        showAutoPasteOffHint: shouldShowAutoPasteOffHint(
-                          afterAction: settings.afterTranscriptionAction,
-                          onboardingCompleted:
-                              settings.onboarding.onboardingCompleted,
-                          autoPasteOffHintDismissed:
-                              settings.onboarding.autoPasteOffHintDismissed,
-                        ),
-                        onAutoPasteOffHintTap: () {
-                          ref
-                              .read(settingsScrollTargetProvider.notifier)
-                              .set('afterTranscription');
-                          ref
-                              .read(activePageProvider.notifier)
-                              .setPage('settings');
-                        },
-                        onAutoPasteOffHintDismiss: () {
-                          ref
-                              .read(settingsProvider.notifier)
-                              .updateSettings(
-                                (s) => s.copyWithSections(
-                                  onboarding: s.onboarding.copyWith(
-                                    autoPasteOffHintDismissed: true,
+                                      // Content with page transition animation
+                                      Expanded(
+                                        child: AnimatedSwitcher(
+                                          duration: WpMotion.durationFor(
+                                            context,
+                                            WpMotion.normal,
+                                          ),
+                                          switchInCurve: WpMotion.defaultCurve,
+                                          switchOutCurve: WpMotion.defaultCurve,
+                                          transitionBuilder:
+                                              (child, animation) {
+                                                return FadeTransition(
+                                                  opacity: animation,
+                                                  child: SlideTransition(
+                                                    position: Tween<Offset>(
+                                                      begin: const Offset(
+                                                        0.0,
+                                                        0.015,
+                                                      ),
+                                                      end: Offset.zero,
+                                                    ).animate(animation),
+                                                    child: child,
+                                                  ),
+                                                );
+                                              },
+                                          child: KeyedSubtree(
+                                            key: ValueKey(activePage),
+                                            child:
+                                                wpPageWidgets[activePage] ??
+                                                const SizedBox.shrink(),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              );
-                        },
-                        onHotkeyTap: () {
-                          ref
-                              .read(settingsScrollTargetProvider.notifier)
-                              .set('hotkey');
-                          ref
-                              .read(activePageProvider.notifier)
-                              .setPage('settings');
-                        },
-                        onSttTap: () {
-                          ref
-                              .read(settingsScrollTargetProvider.notifier)
-                              .set('stt');
-                          ref
-                              .read(activePageProvider.notifier)
-                              .setPage('settings');
-                        },
-                        onAfterActionChanged: (action) {
-                          ref
-                              .read(settingsProvider.notifier)
-                              .updateSettings(
-                                (s) => s.copyWith(
-                                  afterTranscription: action.value,
-                                ),
-                              );
-                        },
-                        onUpdateTap: () => triggerUpdateAction(
-                          ref: ref,
-                          updateState: updateState,
-                          channel: deployChannel,
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  // Onboarding overlay — shown on first launch
-                  if (!settings.onboardingCompleted)
-                    const Positioned.fill(child: OnboardingOverlay()),
-                ],
-              ),
-            ), // Scaffold
-          ), // RecordingBehaviorWidget
-        ), // ServiceBootstrapWidget
-      ), // StoreThankYouWatcher
+                        // Status bar — sits on the frame, full width
+                        WpStatusBar(
+                          sttModeLabel: statusBarModel.sttModeLabel,
+                          sttState: sttStatus.serverState,
+                          sttStartingSince: sttStatus.startingSince,
+                          recordingPhase: recordingPhase,
+                          afterActionLabel: afterTranscriptionStatusLabel(
+                            settings.afterTranscriptionAction,
+                            l10n,
+                          ),
+                          afterAction: settings.afterTranscriptionAction,
+                          hotkeyLabel: formatHotkeyShortcut(
+                            settings.hotkeyModifiers,
+                            settings.hotkeyKey,
+                            l10n: l10n,
+                            displayOverride: settings.hotkey.hotkeyKeyDisplay,
+                          ),
+                          hotkeyEnabled: settings.hotkeyEnabled,
+                          updateVersion:
+                              updateState.phase == UpdatePhase.available
+                              ? updateState.latestVersion
+                              : null,
+                          updateReadyToInstall:
+                              updateState.phase == UpdatePhase.readyToInstall,
+                          showAutoPasteOffHint: shouldShowAutoPasteOffHint(
+                            afterAction: settings.afterTranscriptionAction,
+                            onboardingCompleted:
+                                settings.onboarding.onboardingCompleted,
+                            autoPasteOffHintDismissed:
+                                settings.onboarding.autoPasteOffHintDismissed,
+                          ),
+                          onAutoPasteOffHintTap: () {
+                            ref
+                                .read(settingsScrollTargetProvider.notifier)
+                                .set('afterTranscription');
+                            ref
+                                .read(activePageProvider.notifier)
+                                .setPage('settings');
+                          },
+                          onAutoPasteOffHintDismiss: () {
+                            ref
+                                .read(settingsProvider.notifier)
+                                .updateSettings(
+                                  (s) => s.copyWithSections(
+                                    onboarding: s.onboarding.copyWith(
+                                      autoPasteOffHintDismissed: true,
+                                    ),
+                                  ),
+                                );
+                          },
+                          onHotkeyTap: () {
+                            ref
+                                .read(settingsScrollTargetProvider.notifier)
+                                .set('hotkey');
+                            ref
+                                .read(activePageProvider.notifier)
+                                .setPage('settings');
+                          },
+                          onSttTap: () {
+                            ref
+                                .read(settingsScrollTargetProvider.notifier)
+                                .set('stt');
+                            ref
+                                .read(activePageProvider.notifier)
+                                .setPage('settings');
+                          },
+                          onAfterActionChanged: (action) {
+                            ref
+                                .read(settingsProvider.notifier)
+                                .updateSettings(
+                                  (s) => s.copyWith(
+                                    afterTranscription: action.value,
+                                  ),
+                                );
+                          },
+                          onUpdateTap: () => triggerUpdateAction(
+                            ref: ref,
+                            updateState: updateState,
+                            channel: deployChannel,
+                          ),
+                        ),
+                      ],
+                    ),
+                    // Onboarding overlay — shown on first launch
+                    if (!settings.onboardingCompleted)
+                      const Positioned.fill(child: OnboardingOverlay()),
+                  ],
+                ),
+              ), // Scaffold
+            ), // RecordingBehaviorWidget
+          ), // ServiceBootstrapWidget
+        ), // StoreThankYouWatcher
+      ), // SupportPromptWatcher
     ); // ReviewPromptWatcher
   }
 }

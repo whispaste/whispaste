@@ -29,6 +29,7 @@ import 'recording/recording_state_machine.dart';
 import 'recording/safety_guard.dart';
 import 'review_prompt_service.dart';
 import 'sound_feedback_service.dart';
+import 'support_prompt_service.dart';
 import 'telemetry_service.dart';
 import 'paste/paste_failure_notifier.dart';
 import 'paste/paste_policy.dart';
@@ -851,7 +852,12 @@ class RecordingOrchestrator extends Notifier<void> {
     // state machine maps to completeTranscription on the notifier.
     _stateMachine.transition(RecordingIntent.complete, transcript: finalText);
     ref.read(localSttBundleProvider.notifier).notifyTranscriptionCompleted();
+    // Two independent fire-and-forget checks, mirroring the existing
+    // single-call pattern — the support prompt's coordination check reads
+    // (never mutates) the review prompt's in-session/persisted state, so it
+    // does not need to be awaited after the review check specifically.
     unawaited(ref.read(reviewPromptProvider.notifier).checkAndMaybePrompt());
+    unawaited(ref.read(supportPromptProvider.notifier).checkAndMaybePrompt());
     _oomHandler.reset();
     timing.outcome = 'ok';
 

@@ -17,6 +17,7 @@ import '../core/navigation/page_state.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import '../services/deploy_channel_service.dart';
+import '../services/prompt_timing.dart';
 import '../services/review_prompt_service.dart';
 
 /// Override for testing. When non-null, [ReviewPromptWatcher] uses this value
@@ -32,7 +33,8 @@ bool? platformIsWindowsOverride;
 /// when [ReviewPromptState.shouldShowPrompt] becomes `true`.
 ///
 /// Place this widget anywhere in the widget tree — it renders no visible UI
-/// of its own and uses a 1-second delay to avoid interrupting the user mid-task.
+/// of its own and waits [kPostRecordingPromptDelay] to avoid interrupting the
+/// user right at their recording's completion moment.
 class ReviewPromptWatcher extends ConsumerStatefulWidget {
   const ReviewPromptWatcher({super.key, required this.child});
 
@@ -58,7 +60,7 @@ class _ReviewPromptWatcherState extends ConsumerState<ReviewPromptWatcher> {
   void _maybeShow(ReviewPromptState state, BuildContext context) {
     if (!state.shouldShowPrompt || _dialogShowing) return;
     _dialogShowing = true;
-    _delay = Timer(const Duration(seconds: 1), () {
+    _delay = Timer(kPostRecordingPromptDelay, () {
       if (!mounted) {
         _dialogShowing = false;
         return;
