@@ -166,7 +166,9 @@ void main() {
       expect(controller.captureCalls, 1);
     });
 
-    test('returns failed when pasteClipboard returns unknown error', () async {
+    test('returns failed for the generic postFailed bucket '
+        '(post_failed / send_input_failed — NOT the UIPI foreground_blocked '
+        'case, which has its own outcome, see below)', () async {
       final controller = _FakeController()
         ..pasteResult = const NativePasteResult(
           status: NativePasteStatus.postFailed,
@@ -180,6 +182,26 @@ void main() {
 
       expect(outcome, PasteOutcome.failed);
     });
+
+    test(
+      'returns elevationBlocked when native reports foreground_blocked '
+      '(Windows UIPI: target window runs elevated, WhisPaste does not)',
+      () async {
+        final controller = _FakeController()
+          ..pasteResult = const NativePasteResult(
+            status: NativePasteStatus.foregroundBlocked,
+            detail: 'SetForegroundWindow refused — UIPI or stale window handle',
+          );
+        final paster = DesktopPaster(controller);
+
+        final outcome = await paster.paste(
+          'hello',
+          const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
+        );
+
+        expect(outcome, PasteOutcome.elevationBlocked);
+      },
+    );
 
     test(
       'returns permissionMissing when native reports no accessibility',

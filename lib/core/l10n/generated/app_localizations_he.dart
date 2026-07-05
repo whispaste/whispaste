@@ -469,6 +469,10 @@ class L10nHe extends L10n {
       'ההדבקה האוטומטית דולגה — לא זוהה חלון יעד. מקד את האפליקציה היעד לפני התחלת ההקלטה.';
 
   @override
+  String get pasteFailureElevationBlocked =>
+      'Auto-Paste blocked — the target app is running with administrator rights. Restart WhisPaste as an administrator to paste into that app.';
+
+  @override
   String get pasteFailureGeneric =>
       'ההדבקה האוטומטית נכשלה. הטקסט נמצא בלוח — הדבק ידנית עם ⌘V / Ctrl+V.';
 

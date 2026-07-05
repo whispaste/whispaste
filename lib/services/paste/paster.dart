@@ -29,6 +29,13 @@ enum PasteOutcome {
   /// dropped. The user must grant the permission in system settings.
   permissionMissing,
 
+  /// Windows-only: the target window belongs to a process running with
+  /// higher privileges (elevated/administrator) than WhisPaste, so the OS
+  /// refused `SetForegroundWindow`/`SendInput` (UIPI — User Interface
+  /// Privilege Isolation). There is no permission to grant from inside the
+  /// app; WhisPaste itself needs to run elevated to paste into that window.
+  elevationBlocked,
+
   /// Paste was attempted but the native bridge reported failure for a
   /// reason that doesn't map to a more specific outcome above.
   failed,

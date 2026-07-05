@@ -478,6 +478,10 @@ class L10nDe extends L10n {
       'Auto-Einfügen übersprungen — keine Ziel-App erkannt. Fokussiere zuerst die Ziel-App, dann starte die Aufnahme.';
 
   @override
+  String get pasteFailureElevationBlocked =>
+      'Auto-Einfügen blockiert — die Ziel-App läuft mit Administratorrechten. Starte WhisPaste ebenfalls als Administrator, um dort einzufügen.';
+
+  @override
   String get pasteFailureGeneric =>
       'Auto-Einfügen fehlgeschlagen. Der Text ist in der Zwischenablage — füge ihn manuell mit ⌘V / Strg+V ein.';
 

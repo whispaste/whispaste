@@ -13,6 +13,12 @@ enum NativePasteStatus {
   success,
   noTarget,
   permissionMissing,
+
+  /// Windows-only: `SetForegroundWindow` was refused because the target
+  /// window belongs to a process running with higher privileges than
+  /// WhisPaste (UIPI). Distinct from [postFailed] because the fix is
+  /// specific — restart WhisPaste elevated — not "just retry".
+  foregroundBlocked,
   postFailed,
   unknown;
 
@@ -21,9 +27,8 @@ enum NativePasteStatus {
     'no_target' => NativePasteStatus.noTarget,
     'no_accessibility' ||
     'permission_missing' => NativePasteStatus.permissionMissing,
-    'post_failed' ||
-    'send_input_failed' ||
-    'foreground_blocked' => NativePasteStatus.postFailed,
+    'foreground_blocked' => NativePasteStatus.foregroundBlocked,
+    'post_failed' || 'send_input_failed' => NativePasteStatus.postFailed,
     _ => NativePasteStatus.unknown,
   };
 }

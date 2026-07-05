@@ -2227,6 +2227,42 @@ void main() {
       expect(failure!.outcome, PasteOutcome.permissionMissing);
     });
 
+    test('issue 11 — a native foreground_blocked (Windows UIPI: target window '
+        'runs elevated, WhisPaste does not) reports a distinct elevationBlocked '
+        'outcome, not the generic failed bucket, and surfaces via its own '
+        'AttentionKind', () async {
+      fakeDesktopPaste.pasteStatusOverride =
+          NativePasteStatus.foregroundBlocked;
+
+      container.dispose();
+      container = buildPasteContainer(
+        const AppSettings(
+          stt: SttSettings(model: 'whisper-small', language: 'English'),
+          afterTranscriptionSection: AfterTranscriptionSettings(
+            afterTranscription: 'paste',
+          ),
+          onboarding: OnboardingSettings(onboardingCompleted: true),
+        ),
+      );
+      await container.read(settingsProvider.future);
+      container.read(systemAttentionServiceProvider);
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'UIPI paste failure test';
+
+      await orch.stopRecording();
+      await Future<void>.delayed(Duration.zero);
+
+      final failure = container.read(pasteFailureNotifierProvider);
+      expect(
+        failure,
+        isNotNull,
+        reason: 'A foreground_blocked (UIPI) paste failure must be reported',
+      );
+      expect(failure!.outcome, PasteOutcome.elevationBlocked);
+      expect(fakeAttention.lastKind, AttentionKind.pasteBlockedElevation);
+    });
+
     test('AC2 — an app on the auto-paste blocklist produces no failure event '
         '(and never even attempts the native paste)', () async {
       fakeDesktopPaste.targetBundleIdToReturn = 'com.blocked.app';

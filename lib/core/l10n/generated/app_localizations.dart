@@ -957,6 +957,12 @@ abstract class L10n {
   /// **'Auto-Paste skipped — no target window was captured. Focus the destination app before triggering a recording.'**
   String get pasteFailureNoTarget;
 
+  /// No description provided for @pasteFailureElevationBlocked.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-Paste blocked — the target app is running with administrator rights. Restart WhisPaste as an administrator to paste into that app.'**
+  String get pasteFailureElevationBlocked;
+
   /// No description provided for @pasteFailureGeneric.
   ///
   /// In en, this message translates to:

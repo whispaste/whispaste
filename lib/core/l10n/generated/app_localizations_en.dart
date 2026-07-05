@@ -476,6 +476,10 @@ class L10nEn extends L10n {
       'Auto-Paste skipped — no target window was captured. Focus the destination app before triggering a recording.';
 
   @override
+  String get pasteFailureElevationBlocked =>
+      'Auto-Paste blocked — the target app is running with administrator rights. Restart WhisPaste as an administrator to paste into that app.';
+
+  @override
   String get pasteFailureGeneric =>
       'Auto-Paste failed. The transcript is on the clipboard — paste it manually with ⌘V / Ctrl+V.';
 

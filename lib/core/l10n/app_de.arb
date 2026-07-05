@@ -155,6 +155,7 @@
   "settingsAfterTranscriptionNothing": "Nichts tun",
   "pasteFailurePermissionMissing": "Auto-Einfügen vom System blockiert. WhisPaste braucht die Bedienungshilfen-Berechtigung, um in andere Apps einzufügen.",
   "pasteFailureNoTarget": "Auto-Einfügen übersprungen — keine Ziel-App erkannt. Fokussiere zuerst die Ziel-App, dann starte die Aufnahme.",
+  "pasteFailureElevationBlocked": "Auto-Einfügen blockiert — die Ziel-App läuft mit Administratorrechten. Starte WhisPaste ebenfalls als Administrator, um dort einzufügen.",
   "pasteFailureGeneric": "Auto-Einfügen fehlgeschlagen. Der Text ist in der Zwischenablage — füge ihn manuell mit ⌘V / Strg+V ein.",
   "pasteFailureOpenSettings": "Einstellungen öffnen",
   "pasteCapabilityCheckTitle": "Einen Moment…",

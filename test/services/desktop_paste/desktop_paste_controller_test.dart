@@ -163,4 +163,21 @@ void main() {
       expect((outcome as TestPasteOutcomeFailure).reason, 'uipi_blocked');
     });
   });
+
+  group('WindowsDesktopPasteController.pasteClipboard', () {
+    test('parses the native foreground_blocked (UIPI) status distinctly '
+        'from the generic post_failed/send_input_failed bucket', () async {
+      setHandler(
+        (call) async => {
+          'status': 'foreground_blocked',
+          'detail':
+              'SetForegroundWindow refused — UIPI or stale window '
+              'handle',
+        },
+      );
+      final controller = WindowsDesktopPasteController();
+      final result = await controller.pasteClipboard(delay: Duration.zero);
+      expect(result.status, NativePasteStatus.foregroundBlocked);
+    });
+  });
 }

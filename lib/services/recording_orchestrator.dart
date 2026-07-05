@@ -1532,6 +1532,21 @@ class RecordingOrchestrator extends Notifier<void> {
           trayLabel: 'Auto-Einfügen blockiert — Berechtigung erteilen',
         );
         return false;
+      case PasteOutcome.elevationBlocked:
+        _log.warning(
+          'Paste failed: target window runs elevated, WhisPaste does not '
+          '(Windows UIPI). Restart WhisPaste as an administrator to paste '
+          'into that window.',
+        );
+        _reportPasteFailure(
+          outcome: PasteOutcome.elevationBlocked,
+          kind: AttentionKind.pasteBlockedElevation,
+          title: 'WhisPaste: Auto-Einfügen blockiert',
+          body:
+              'Die Ziel-App läuft mit Administratorrechten. Starte WhisPaste ebenfalls als Administrator, um dort einzufügen.',
+          trayLabel: 'Auto-Einfügen blockiert — Administrator nötig',
+        );
+        return false;
       case PasteOutcome.failed:
         _log.warning('Paste failed: native bridge reported an unknown error');
         _reportPasteFailure(

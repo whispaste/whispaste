@@ -35,6 +35,11 @@ enum AttentionKind {
   pasteBlockedPermission,
   pasteBlockedNoTarget,
   pasteFailedUnknown,
+
+  /// Windows-only: the target window runs elevated (UIPI blocked the
+  /// simulated paste) — restarting WhisPaste elevated is the fix, distinct
+  /// from the generic [pasteFailedUnknown] bucket.
+  pasteBlockedElevation,
 }
 
 class SystemAttentionService {

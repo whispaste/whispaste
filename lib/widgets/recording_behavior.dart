@@ -431,33 +431,11 @@ class _RecordingBehaviorState extends ConsumerState<RecordingBehaviorWidget> {
     L10n l10n,
     PasteOutcome outcome,
   ) {
-    String message;
-    String? actionLabel;
-    VoidCallback? onAction;
-
-    switch (outcome) {
-      case PasteOutcome.permissionMissing:
-        message = l10n.pasteFailurePermissionMissing;
-        if (Platform.isMacOS) {
-          actionLabel = l10n.pasteFailureOpenSettings;
-          onAction = _openAccessibilitySettings;
-        }
-      case PasteOutcome.noTarget:
-        message = l10n.pasteFailureNoTarget;
-      case PasteOutcome.failed:
-      case PasteOutcome.platformUnavailable:
-      case PasteOutcome.blocked:
-      case PasteOutcome.success:
-        message = l10n.pasteFailureGeneric;
-    }
-
-    WpToast.show(
-      context,
-      message: message,
-      type: WpToastType.warning,
-      duration: const Duration(seconds: 6),
-      actionLabel: actionLabel,
-      onAction: onAction,
+    showPasteFailureToast(
+      context: context,
+      l10n: l10n,
+      outcome: outcome,
+      openAccessibilitySettings: _openAccessibilitySettings,
     );
   }
 
@@ -472,6 +450,66 @@ class _RecordingBehaviorState extends ConsumerState<RecordingBehaviorWidget> {
       _log.warning('Could not open Accessibility settings', e);
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Paste-failure toast — extracted the same way as [showRecoveryToast] /
+// [showCpuFallbackToast] below, so widget tests can exercise the message
+// selection directly without bootstrapping the full RecordingBehaviorWidget.
+// ---------------------------------------------------------------------------
+
+/// Renders the actionable toast for a [PasteOutcome] failure.
+///
+/// - [PasteOutcome.permissionMissing] → macOS only gets an "Open Settings"
+///   action (Accessibility deep-link); no button on other platforms since
+///   there's nothing to grant from inside the app.
+/// - [PasteOutcome.elevationBlocked] → Windows-only UIPI case: the target
+///   window runs elevated and WhisPaste doesn't. No action button — there
+///   is no clean way to relaunch WhisPaste elevated from the running
+///   process without significant new infrastructure (out of scope here), so
+///   a clear, distinct informational message is the correct, honest outcome.
+/// - [PasteOutcome.noTarget] → distinct message, no action.
+/// - Everything else (`failed`, `platformUnavailable`, `blocked`, `success`)
+///   falls back to the generic message.
+///
+/// [openAccessibilitySettings] is injected so widget tests can substitute a
+/// spy, mirroring [showRecoveryToast]'s [showRecoveryToast.openSettings].
+void showPasteFailureToast({
+  required BuildContext context,
+  required L10n l10n,
+  required PasteOutcome outcome,
+  VoidCallback? openAccessibilitySettings,
+}) {
+  String message;
+  String? actionLabel;
+  VoidCallback? onAction;
+
+  switch (outcome) {
+    case PasteOutcome.permissionMissing:
+      message = l10n.pasteFailurePermissionMissing;
+      if (Platform.isMacOS) {
+        actionLabel = l10n.pasteFailureOpenSettings;
+        onAction = openAccessibilitySettings;
+      }
+    case PasteOutcome.elevationBlocked:
+      message = l10n.pasteFailureElevationBlocked;
+    case PasteOutcome.noTarget:
+      message = l10n.pasteFailureNoTarget;
+    case PasteOutcome.failed:
+    case PasteOutcome.platformUnavailable:
+    case PasteOutcome.blocked:
+    case PasteOutcome.success:
+      message = l10n.pasteFailureGeneric;
+  }
+
+  WpToast.show(
+    context,
+    message: message,
+    type: WpToastType.warning,
+    duration: const Duration(seconds: 6),
+    actionLabel: actionLabel,
+    onAction: onAction,
+  );
 }
 
 // ---------------------------------------------------------------------------

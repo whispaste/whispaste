@@ -131,6 +131,7 @@ class DesktopPaster implements Paster {
       return switch (pasteResult.status) {
         NativePasteStatus.noTarget => PasteOutcome.noTarget,
         NativePasteStatus.permissionMissing => PasteOutcome.permissionMissing,
+        NativePasteStatus.foregroundBlocked => PasteOutcome.elevationBlocked,
         _ => PasteOutcome.failed,
       };
     }
