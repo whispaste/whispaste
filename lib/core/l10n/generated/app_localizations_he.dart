@@ -935,6 +935,9 @@ class L10nHe extends L10n {
   String get analyticsTimeSaved => 'זמן שנחסך';
 
   @override
+  String get analyticsAvgLatency => 'Avg. Speed';
+
+  @override
   String get analyticsRecordingActivity => 'פעילות הקלטה';
 
   @override

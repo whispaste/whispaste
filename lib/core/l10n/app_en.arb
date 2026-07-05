@@ -362,6 +362,7 @@
   "analyticsTotalDuration": "Total Duration",
   "analyticsWordsDictated": "Words Dictated",
   "analyticsTimeSaved": "Time Saved",
+  "analyticsAvgLatency": "Avg. Speed",
   "analyticsRecordingActivity": "Recording Activity",
   "analyticsLast7Days": "Last 7 days",
   "analyticsModelUsage": "Model Usage",

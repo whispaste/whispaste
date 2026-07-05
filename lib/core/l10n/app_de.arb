@@ -303,6 +303,7 @@
   "analyticsTotalDuration": "Gesamtdauer",
   "analyticsWordsDictated": "Diktierte Wörter",
   "analyticsTimeSaved": "Zeitersparnis",
+  "analyticsAvgLatency": "Ø Geschwindigkeit",
   "analyticsRecordingActivity": "Aufnahmeaktivität",
   "analyticsLast7Days": "Letzte 7 Tage",
   "analyticsModelUsage": "Modellnutzung",

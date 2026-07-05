@@ -91,6 +91,56 @@ void main() {
       expect(find.text(l10n.analyticsTimeSaved), findsOneWidget);
     });
 
+    testWidgets(
+      'shows the average hotkey-to-text latency in seconds when data exists',
+      (tester) async {
+        const dataWithLatency = AnalyticsData(
+          totalRecordings: 42,
+          totalDurationMinutes: 120,
+          totalWords: 5000,
+          timeSavedMinutes: 80,
+          weeklyActivity: [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0],
+          modelUsage: <AnalyticsModelUsage>[],
+          durationBuckets: [5, 3, 2, 1, 0],
+          localSavingsUsd: 2.50,
+          cloudCostUsd: 0.75,
+          averageHotkeyLatencyMs: 1830,
+        );
+
+        await tester.pumpWidget(
+          makeTestable(
+            const AnalyticsPage(),
+            overrides: _dataOverrides(dataWithLatency),
+            locale: const Locale('en'),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text(l10n.analyticsAvgLatency), findsOneWidget);
+        expect(find.text('1.8s'), findsOneWidget);
+      },
+    );
+
+    testWidgets('gracefully omits the latency stat when no samples exist yet', (
+      tester,
+    ) async {
+      // _mockData has no averageHotkeyLatencyMs set — defaults to null,
+      // simulating recordings that exist but predate the latency KPI
+      // (or a period with no successful pipeline completions yet).
+      await tester.pumpWidget(
+        makeTestable(
+          const AnalyticsPage(),
+          overrides: _dataOverrides(_mockData),
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text(l10n.analyticsAvgLatency), findsNothing);
+      expect(find.textContaining('NaN'), findsNothing);
+    });
+
     testWidgets('renders activity and insights sections', (tester) async {
       await tester.pumpWidget(
         makeTestable(

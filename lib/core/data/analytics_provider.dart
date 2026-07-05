@@ -24,6 +24,7 @@ class AnalyticsData {
     required this.durationBuckets,
     required this.localSavingsUsd,
     required this.cloudCostUsd,
+    this.averageHotkeyLatencyMs,
   });
 
   static const empty = AnalyticsData(
@@ -56,6 +57,10 @@ class AnalyticsData {
 
   final double localSavingsUsd;
   final double cloudCostUsd;
+
+  /// Average end-to-end hotkey→text latency in milliseconds, local-only
+  /// (see issue 07). `null` when no samples have been recorded yet.
+  final double? averageHotkeyLatencyMs;
 
   bool get isEmpty => totalRecordings == 0;
 }
@@ -98,6 +103,7 @@ final analyticsProvider = FutureProvider<AnalyticsData>((ref) async {
     db.analyticsModelUsage(since: since), // 5
     db.analyticsWeeklyActivity(), // 6 — always last 7 days
     db.analyticsDurationBuckets(since: since), // 7
+    db.analyticsAverageHotkeyLatencyMs(since: since), // 8
   ]);
 
   final totalRecordings = results[0] as int;
@@ -108,6 +114,7 @@ final analyticsProvider = FutureProvider<AnalyticsData>((ref) async {
   final modelUsage = results[5] as List<AnalyticsModelUsage>;
   final weeklyActivity = results[6] as List<double>;
   final durationBuckets = results[7] as List<int>;
+  final averageHotkeyLatencyMs = results[8] as double?;
 
   final totalMinutes = (totalDurationSec / 60).round();
   // Estimate: dictation is ~3× faster than typing → saved 2/3 of the time.
@@ -123,6 +130,7 @@ final analyticsProvider = FutureProvider<AnalyticsData>((ref) async {
     durationBuckets: durationBuckets,
     localSavingsUsd: localSavings,
     cloudCostUsd: cloudCost,
+    averageHotkeyLatencyMs: averageHotkeyLatencyMs,
   );
 });
 

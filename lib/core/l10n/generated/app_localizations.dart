@@ -1761,6 +1761,12 @@ abstract class L10n {
   /// **'Time Saved'**
   String get analyticsTimeSaved;
 
+  /// No description provided for @analyticsAvgLatency.
+  ///
+  /// In en, this message translates to:
+  /// **'Avg. Speed'**
+  String get analyticsAvgLatency;
+
   /// No description provided for @analyticsRecordingActivity.
   ///
   /// In en, this message translates to:

@@ -272,6 +272,13 @@ String _durationFormat(L10n l10n, int totalMinutes) {
   return l10n.analyticsDurationHoursMinutes(h, m);
 }
 
+/// Formats a hotkey→text latency in whole milliseconds as a plain-language
+/// seconds value (e.g. "1.8s") — never raw milliseconds.
+String _latencySecondsFormat(String localeName, int latencyMs) {
+  final seconds = latencyMs / 1000;
+  return '${NumberFormat('0.0', localeName).format(seconds)}s';
+}
+
 List<String> _activityDayLabels(L10n l10n) => [
   l10n.analyticsDayMon,
   l10n.analyticsDayTue,
@@ -393,6 +400,14 @@ class _HeroStatsRow extends StatelessWidget {
             formatter: formatDuration,
             label: l10n.analyticsTimeSaved,
           ),
+          if (data.averageHotkeyLatencyMs != null)
+            _HeroPill(
+              isDark: isDark,
+              icon: LucideIcons.gauge,
+              rawValue: data.averageHotkeyLatencyMs!.round(),
+              formatter: (ms) => _latencySecondsFormat(localeName, ms),
+              label: l10n.analyticsAvgLatency,
+            ),
         ];
 
         if (narrow) {
