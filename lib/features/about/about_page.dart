@@ -146,13 +146,13 @@ class AboutPage extends ConsumerWidget {
                   _SupportButton(
                     icon: LucideIcons.heart,
                     label: l10n.aboutGitHubSponsors,
-                    url: 'https://github.com/sponsors/silvio-l',
+                    url: kGitHubSponsorsUrl,
                     isDark: isDark,
                   ),
                   _SupportButton(
                     icon: FontAwesomeIcons.mugHot.data,
                     label: l10n.aboutKofi,
-                    url: 'https://ko-fi.com/silviol',
+                    url: kKofiUrl,
                     isDark: isDark,
                   ),
                   _SupportButton(

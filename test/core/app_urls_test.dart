@@ -2,9 +2,12 @@
 ///
 /// Pins the single source of truth for WhisPaste's public GitHub and Microsoft
 /// Store destinations. Every review / CTA surface must read these values from
-/// [kGitHubRepoUrl] / [kWindowsStoreReviewUrl]; the exact strings are asserted
-/// here so an accidental edit in the constant surfaces as a test failure.
+/// [kGitHubRepoUrl] / [kWindowsStoreReviewUrl] / [kGitHubSponsorsUrl] /
+/// [kKofiUrl]; the exact strings are asserted here so an accidental edit in
+/// the constant surfaces as a test failure.
 library;
+
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/app_urls.dart';
@@ -26,5 +29,54 @@ void main() {
         startsWith('ms-windows-store://review/?ProductId='),
       );
     });
+
+    test('kGitHubSponsorsUrl is the maintainer GitHub Sponsors page', () {
+      expect(kGitHubSponsorsUrl, 'https://github.com/sponsors/silvio-l');
+    });
+
+    test('kKofiUrl is the maintainer Ko-fi support page', () {
+      expect(kKofiUrl, 'https://ko-fi.com/silviol');
+    });
+  });
+
+  group('app_urls consumer consistency', () {
+    // Verification test (grep-based): no source file outside app_urls.dart
+    // may hardcode the sponsors/Ko-fi URL literals — every consumer must
+    // reference the named constants instead, so a single edit here
+    // propagates everywhere.
+    const sponsorsLiteral = "'https://github.com/sponsors/silvio-l'";
+    const kofiLiteral = "'https://ko-fi.com/silviol'";
+
+    Iterable<File> dartFilesUnder(String dirPath) {
+      final dir = Directory(dirPath);
+      if (!dir.existsSync()) return const [];
+      return dir
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.dart'));
+    }
+
+    test(
+      'no lib/ file other than app_urls.dart hardcodes the sponsors/Ko-fi URL',
+      () {
+        final offenders = <String>[];
+        for (final file in dartFilesUnder('lib')) {
+          if (file.path.endsWith('core/app_urls.dart')) continue;
+          final content = file.readAsStringSync();
+          if (content.contains(sponsorsLiteral) ||
+              content.contains(kofiLiteral)) {
+            offenders.add(file.path);
+          }
+        }
+        expect(
+          offenders,
+          isEmpty,
+          reason:
+              'These files hardcode the sponsors/Ko-fi URL instead of '
+              'referencing kGitHubSponsorsUrl/kKofiUrl from app_urls.dart: '
+              '$offenders',
+        );
+      },
+    );
   });
 }

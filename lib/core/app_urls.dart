@@ -31,3 +31,11 @@ String privacyPolicyUrl(String languageCode) => languageCode == 'de'
 /// entry and must not be edited without a store-listing change.
 const String kWindowsStoreReviewUrl =
     'ms-windows-store://review/?ProductId=9p22jvkrq2v0';
+
+/// GitHub Sponsors page for the maintainer. Used by the About page's support
+/// section.
+const String kGitHubSponsorsUrl = 'https://github.com/sponsors/silvio-l';
+
+/// Ko-fi support page for the maintainer. Used by the About page's support
+/// section.
+const String kKofiUrl = 'https://ko-fi.com/silviol';
