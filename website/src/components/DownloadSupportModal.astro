@@ -16,7 +16,7 @@ const macosReviewUrl = STORES.macos.reviewUrl;
 >
   <div class="dlm-card">
     <!-- Close button (autofocus for immediate keyboard escape) -->
-    <button class="dlm-close" id="dlm-close" autofocus aria-label="Close">
+    <button class="dlm-close" id="dlm-close" data-testid="modal-dismiss-close" autofocus aria-label="Close">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </button>
 
@@ -30,14 +30,14 @@ const macosReviewUrl = STORES.macos.reviewUrl;
     <!-- Action list -->
     <ul class="dlm-actions">
       <li>
-        <a href="https://github.com/whispaste/whispaste" target="_blank" rel="noopener" class="dlm-action-link">
+        <a href="https://github.com/whispaste/whispaste" target="_blank" rel="noopener" class="dlm-action-link" id="dlm-star-github" data-testid="modal-star-github">
           <svg class="dlm-action-icon" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
           <span data-i18n="downloadModal.starGitHub">{t(lang, "downloadModal.starGitHub")}</span>
           <svg class="dlm-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
         </a>
       </li>
       <li data-platform-btn="windows">
-        <a href={msReviewUrl} target="_blank" rel="noopener" class="dlm-action-link">
+        <a href={msReviewUrl} target="_blank" rel="noopener" class="dlm-action-link" id="dlm-star-windows" data-testid="modal-star-windows">
           <svg class="dlm-action-icon" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
           <span data-i18n="downloadModal.rateMsStore">{t(lang, "downloadModal.rateMsStore")}</span>
           <svg class="dlm-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
@@ -45,7 +45,7 @@ const macosReviewUrl = STORES.macos.reviewUrl;
       </li>
       <!-- GitHub star for macOS (no Apple App Store listing exists) -->
       <li data-platform-btn="macos">
-        <a href={macosReviewUrl} target="_blank" rel="noopener" class="dlm-action-link">
+        <a href={macosReviewUrl} target="_blank" rel="noopener" class="dlm-action-link" id="dlm-star-macos" data-testid="modal-star-macos">
           <svg class="dlm-action-icon" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
           <span data-i18n="downloadModal.rateAppStore">{t(lang, "downloadModal.rateAppStore")}</span>
           <svg class="dlm-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
@@ -55,11 +55,11 @@ const macosReviewUrl = STORES.macos.reviewUrl;
 
     <!-- Muted sponsor row -->
     <p class="dlm-sponsor">
-      <a href="https://github.com/sponsors/silvio-l" target="_blank" rel="noopener" class="dlm-sponsor-link" data-i18n="downloadModal.support">{t(lang, "downloadModal.support")}</a>
+      <a href="https://github.com/sponsors/silvio-l" target="_blank" rel="noopener" class="dlm-sponsor-link" id="dlm-support" data-testid="modal-support" data-i18n="downloadModal.support">{t(lang, "downloadModal.support")}</a>
     </p>
 
     <!-- Dismiss -->
-    <button class="dlm-later" id="dlm-later" data-i18n="downloadModal.maybeLater">{t(lang, "downloadModal.maybeLater")}</button>
+    <button class="dlm-later" id="dlm-later" data-testid="modal-dismiss-later" data-i18n="downloadModal.maybeLater">{t(lang, "downloadModal.maybeLater")}</button>
   </div>
 </dialog>
 
@@ -246,8 +246,29 @@ const macosReviewUrl = STORES.macos.reviewUrl;
       modal.close();
     }
 
-    document.getElementById('dlm-close')?.addEventListener('click', close);
-    document.getElementById('dlm-later')?.addEventListener('click', close);
+    // Interaction-scoped Matomo events (cookiefree, guard: _paq nur wenn geladen).
+    // Named nach der Interaktion selbst (Stern/Support/Dismiss), NICHT nach CTA-
+    // Layout/Variante — so bleiben die Event-Namen stabil, auch wenn eine spätere
+    // CTA-Umgewichtung (Slice 12) Position/Aussehen dieser Buttons ändert.
+    function track(action: string, name?: string) {
+      const paq = (window as unknown as { _paq?: { push: (args: unknown[]) => void } })._paq;
+      if (!paq) return;
+      paq.push(name === undefined ? ['trackEvent', 'Engagement', action] : ['trackEvent', 'Engagement', action, name]);
+    }
+
+    document.getElementById('dlm-star-github')?.addEventListener('click', () => track('Support-Modal Sternklick', 'github'));
+    document.getElementById('dlm-star-windows')?.addEventListener('click', () => track('Support-Modal Sternklick', 'windows'));
+    document.getElementById('dlm-star-macos')?.addEventListener('click', () => track('Support-Modal Sternklick', 'macos'));
+    document.getElementById('dlm-support')?.addEventListener('click', () => track('Support-Modal Support-Klick'));
+
+    document.getElementById('dlm-close')?.addEventListener('click', () => {
+      track('Support-Modal Dismiss', 'close');
+      close();
+    });
+    document.getElementById('dlm-later')?.addEventListener('click', () => {
+      track('Support-Modal Dismiss', 'later');
+      close();
+    });
 
     // Close on backdrop click (native dialog doesn't do this by default)
     modal.addEventListener('click', (e) => {
