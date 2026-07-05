@@ -9,6 +9,7 @@ import '../../../core/data/database.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../widgets/wp_discoverability_hint.dart';
 import '../data/providers.dart';
 import '../data/recent_searches.dart';
 import 'history_filter_chip.dart';
@@ -633,6 +634,13 @@ class _HistorySearchFilterBarState
             ),
             onChanged: (_) {}, // handled by controller listener
           ),
+
+          if (rawQuery.isEmpty)
+            WpDiscoverabilityHint(
+              hintId: 'search_operators',
+              text: l10n.historySearchOperatorsHint,
+              isDark: widget.isDark,
+            ),
 
           // ── Inline autocomplete suggestions ─────────────────────────────
           AnimatedSize(

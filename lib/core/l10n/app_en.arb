@@ -64,6 +64,10 @@
   "historyReadingTimeUnder1": "< 1 min read",
   "historyEditing": "Editing",
   "historySearchTranscriptions": "Search transcriptions…",
+  "historySearchOperatorsHint": "Tip: type #tag or lang:xx to filter as you search.",
+  "@historySearchOperatorsHint": {
+    "description": "One-time discoverability hint below the search field, teaching the #tag and lang:xx operators parsed by parseSearchQuery."
+  },
   "historyNoResults": "No results",
   "historyNoResultsHint": "No transcriptions match \"{query}\".\nTry a different search term.",
   "@historyNoResultsHint": {
@@ -676,6 +680,10 @@
   },
   "historyNotes": "Notes",
   "historyNotePlaceholder": "Write a note…",
+  "historyVoiceNoteHint": "Tip: say “tag: name” or “correct: text” while recording.",
+  "@historyVoiceNoteHint": {
+    "description": "One-time discoverability hint next to the note input, teaching the voice-note prefixes parsed by parseVoiceAction."
+  },
   "historyNoteAdded": "Note added",
   "historyNoteDeleted": "Note deleted",
   "historyCopiedAsMarkdown": "Copied as Markdown",
@@ -889,6 +897,7 @@
   "trayQuit": "Quit",
   "settingsComingSoon": "Coming Soon",
   "undo": "Undo",
+  "hintDismiss": "Dismiss hint",
 
   "voiceNoteButton": "Voice note",
   "voiceNoteRecording": "Recording voice note…",

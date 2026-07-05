@@ -387,6 +387,12 @@ abstract class L10n {
   /// **'Search transcriptions…'**
   String get historySearchTranscriptions;
 
+  /// One-time discoverability hint below the search field, teaching the #tag and lang:xx operators parsed by parseSearchQuery.
+  ///
+  /// In en, this message translates to:
+  /// **'Tip: type #tag or lang:xx to filter as you search.'**
+  String get historySearchOperatorsHint;
+
   /// No description provided for @historyNoResults.
   ///
   /// In en, this message translates to:
@@ -3255,6 +3261,12 @@ abstract class L10n {
   /// **'Write a note…'**
   String get historyNotePlaceholder;
 
+  /// One-time discoverability hint next to the note input, teaching the voice-note prefixes parsed by parseVoiceAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Tip: say “tag: name” or “correct: text” while recording.'**
+  String get historyVoiceNoteHint;
+
   /// No description provided for @historyNoteAdded.
   ///
   /// In en, this message translates to:
@@ -4268,6 +4280,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Undo'**
   String get undo;
+
+  /// No description provided for @hintDismiss.
+  ///
+  /// In en, this message translates to:
+  /// **'Dismiss hint'**
+  String get hintDismiss;
 
   /// No description provided for @voiceNoteButton.
   ///

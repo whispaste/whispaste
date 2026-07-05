@@ -160,6 +160,10 @@ class L10nHe extends L10n {
   String get historySearchTranscriptions => 'חפש בתמלולים…';
 
   @override
+  String get historySearchOperatorsHint =>
+      'Tip: type #tag or lang:xx to filter as you search.';
+
+  @override
   String get historyNoResults => 'אין תוצאות';
 
   @override
@@ -1740,6 +1744,10 @@ class L10nHe extends L10n {
   String get historyNotePlaceholder => 'כתוב הערה…';
 
   @override
+  String get historyVoiceNoteHint =>
+      'Tip: say “tag: name” or “correct: text” while recording.';
+
+  @override
   String get historyNoteAdded => 'הערה נוספה';
 
   @override
@@ -2322,6 +2330,9 @@ class L10nHe extends L10n {
 
   @override
   String get undo => 'בטל';
+
+  @override
+  String get hintDismiss => 'Dismiss hint';
 
   @override
   String get voiceNoteButton => 'הערת קול';

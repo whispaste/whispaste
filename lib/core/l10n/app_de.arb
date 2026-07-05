@@ -59,6 +59,7 @@
   "historyReadingTimeUnder1": "< 1 Min. Lesezeit",
   "historyEditing": "Bearbeiten",
   "historySearchTranscriptions": "Transkriptionen suchen…",
+  "historySearchOperatorsHint": "Tipp: Tippe #tag oder lang:xx zum Filtern.",
   "historyNoResults": "Keine Ergebnisse",
   "historyNoResultsHint": "Keine Transkriptionen stimmen mit \"{query}\" überein.\nVersuche einen anderen Suchbegriff.",
   "historyClearSearch": "Suche zurücksetzen",
@@ -586,6 +587,7 @@
   "historyEditNote": "Notiz bearbeiten",
   "historyNotes": "Notizen",
   "historyNotePlaceholder": "Notiz schreiben…",
+  "historyVoiceNoteHint": "Tipp: Sag „tag: Name“ oder „korrektur: Text“ bei der Aufnahme.",
   "historyNoteAdded": "Notiz hinzugefügt",
   "historyNoteDeleted": "Notiz gelöscht",
   "historyCopiedAsMarkdown": "Als Markdown kopiert",
@@ -787,6 +789,7 @@
   "trayQuit": "Beenden",
   "settingsComingSoon": "Demnächst",
   "undo": "Rückgängig",
+  "hintDismiss": "Hinweis schließen",
 
   "voiceNoteButton": "Sprachnotiz",
   "voiceNoteRecording": "Sprachnotiz wird aufgenommen…",

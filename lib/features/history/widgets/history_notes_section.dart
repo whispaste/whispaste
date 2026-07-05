@@ -12,6 +12,7 @@ import '../data/providers.dart';
 import '../data/history_detail_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../widgets/toast.dart';
+import '../../../widgets/wp_discoverability_hint.dart';
 import 'voice_note_button.dart';
 
 // ---------------------------------------------------------------------------
@@ -273,6 +274,11 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
                     const SizedBox(width: WpSpacing.xxs),
                   ],
                 ),
+              ),
+              WpDiscoverabilityHint(
+                hintId: 'voice_note_prefixes',
+                text: l10n.historyVoiceNoteHint,
+                isDark: widget.isDark,
               ),
             ],
             // Existing notes

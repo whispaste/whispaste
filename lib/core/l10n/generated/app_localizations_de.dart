@@ -160,6 +160,10 @@ class L10nDe extends L10n {
   String get historySearchTranscriptions => 'Transkriptionen suchen…';
 
   @override
+  String get historySearchOperatorsHint =>
+      'Tipp: Tippe #tag oder lang:xx zum Filtern.';
+
+  @override
   String get historyNoResults => 'Keine Ergebnisse';
 
   @override
@@ -1801,6 +1805,10 @@ class L10nDe extends L10n {
   String get historyNotePlaceholder => 'Notiz schreiben…';
 
   @override
+  String get historyVoiceNoteHint =>
+      'Tipp: Sag „tag: Name“ oder „korrektur: Text“ bei der Aufnahme.';
+
+  @override
   String get historyNoteAdded => 'Notiz hinzugefügt';
 
   @override
@@ -2390,6 +2398,9 @@ class L10nDe extends L10n {
 
   @override
   String get undo => 'Rückgängig';
+
+  @override
+  String get hintDismiss => 'Hinweis schließen';
 
   @override
   String get voiceNoteButton => 'Sprachnotiz';
