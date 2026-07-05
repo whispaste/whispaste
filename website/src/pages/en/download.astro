@@ -41,11 +41,21 @@ const breadcrumbItems = [
           <p class="text-gray-400 text-lg" data-i18n="download.subtitle">{t(lang, "download.subtitle")}</p>
         </div>
 
+        <!-- Why two ways — moved ahead of the card decision (issue 13) so
+             visitors understand the Store-vs-free choice BEFORE they have to
+             make it, not as an afterthought below all the CTAs. Still calm/
+             informational: no CTA, no repeated buttons. -->
+        <div class="download-card rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 sm:p-8 mb-6" data-testid="why-two-ways">
+          <h3 class="font-semibold text-white mb-3" data-i18n="download.whyTwoWays.title">{t(lang, "download.whyTwoWays.title")}</h3>
+          <p class="text-gray-400 text-sm leading-relaxed" data-i18n="download.whyTwoWays.body1">{t(lang, "download.whyTwoWays.body1")}</p>
+          <p class="text-gray-400 text-sm leading-relaxed mt-3" data-i18n="download.whyTwoWays.body2">{t(lang, "download.whyTwoWays.body2")}</p>
+        </div>
+
         <!-- OS-adaptive primary CTA group: order is reassigned per data-os
              below the fold, no DOM reflow (data-os is set before first paint
              by the inline head script in Layout.astro). Unknown OS keeps the
              natural source order — no forced Store CTA. -->
-        <div class="download-primary-group">
+        <div class="download-primary-group" data-testid="download-primary-group">
 
         <!-- Section 1: Microsoft Store (recommended for Windows) -->
         <div class="download-card rounded-2xl border p-6 sm:p-8 mb-6 relative" data-platform-card="windows">
@@ -494,16 +504,6 @@ const breadcrumbItems = [
               <span data-i18n="download.trust.notelemetry">{t(lang, "download.trust.notelemetry")}</span>
             </div>
           </div>
-        </div>
-
-        <!-- Why two ways — calm, informational section further down the page
-             (issue 14). Not part of the decision moment above the fold: no
-             CTA, no repeated buttons, just the fairness/identity context for
-             visitors who are curious enough to keep reading. -->
-        <div class="download-card rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 sm:p-8 mt-6">
-          <h3 class="font-semibold text-white mb-3" data-i18n="download.whyTwoWays.title">{t(lang, "download.whyTwoWays.title")}</h3>
-          <p class="text-gray-400 text-sm leading-relaxed" data-i18n="download.whyTwoWays.body1">{t(lang, "download.whyTwoWays.body1")}</p>
-          <p class="text-gray-400 text-sm leading-relaxed mt-3" data-i18n="download.whyTwoWays.body2">{t(lang, "download.whyTwoWays.body2")}</p>
         </div>
 
       </div>

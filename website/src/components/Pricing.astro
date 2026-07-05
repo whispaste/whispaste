@@ -67,7 +67,11 @@ const features = [
             <div data-platform-btn="windows"><StoreButton /></div>
             <div data-platform-btn="macos"><AppleButton /></div>
           </div>
-          <p class="text-ink-subtle text-xs" data-i18n="hero.store.hint">{t(lang, "hero.store.hint")}</p>
+          <!-- Store-Hint nur unter der Windows-Store-CTA (siehe Hero.astro) —
+               gleicher data-os/data-platform-btn-Mechanismus. -->
+          <div data-platform-btn="windows">
+            <p class="text-ink-subtle text-xs" data-testid="pricing-store-hint" data-i18n="hero.store.hint">{t(lang, "hero.store.hint")}</p>
+          </div>
         </div>
       </div>
     </div>
