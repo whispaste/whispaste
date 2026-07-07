@@ -254,5 +254,106 @@ void main() {
     test('behavior.autoPasteDelay default is 200 ms', () {
       expect(AppSettings.defaults.behavior.autoPasteDelay, 200);
     });
+
+    // ── Mac App Store gating ─────────────────────────────────────────────────
+    // When auto-paste isn't supported (Mac App Store build), the paste-based
+    // options must be shown but disabled — not silently hidden, not silently
+    // selectable. See docs/store-release.md.
+
+    testWidgets(
+      'paste/clipboardAndPaste items are disabled when autoPasteSupported is false',
+      (tester) async {
+        final notifier = _FakeSettingsNotifier(
+          _settingsWithAction(AfterTranscriptionAction.clipboard),
+        );
+        await tester.pumpWidget(
+          makeTestable(
+            const SingleChildScrollView(
+              child: AfterTranscriptionSection(autoPasteSupported: false),
+            ),
+            overrides: [settingsProvider.overrideWith(() => notifier)],
+            locale: const Locale('en'),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byType(DropdownButton<String>).first);
+        await tester.pumpAndSettle();
+
+        final pasteItem = tester.widget<DropdownMenuItem<String>>(
+          find.ancestor(
+            of: find.text(l10n.settingsAfterTranscriptionPaste).last,
+            matching: find.byType(DropdownMenuItem<String>),
+          ),
+        );
+        final bothItem = tester.widget<DropdownMenuItem<String>>(
+          find.ancestor(
+            of: find.text(l10n.settingsAfterTranscriptionBoth).last,
+            matching: find.byType(DropdownMenuItem<String>),
+          ),
+        );
+
+        expect(pasteItem.enabled, isFalse);
+        expect(bothItem.enabled, isFalse);
+      },
+    );
+
+    testWidgets('tapping a disabled paste option does not change the setting', (
+      tester,
+    ) async {
+      final notifier = _FakeSettingsNotifier(
+        _settingsWithAction(AfterTranscriptionAction.clipboard),
+      );
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(
+            child: AfterTranscriptionSection(autoPasteSupported: false),
+          ),
+          overrides: [settingsProvider.overrideWith(() => notifier)],
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(DropdownButton<String>).first);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text(l10n.settingsAfterTranscriptionPaste).last);
+      await tester.pumpAndSettle();
+
+      expect(
+        notifier.state.value!.afterTranscriptionSection.afterTranscription,
+        AfterTranscriptionAction.clipboard.value,
+      );
+    });
+
+    testWidgets(
+      'paste/clipboardAndPaste items stay enabled when autoPasteSupported is true',
+      (tester) async {
+        final notifier = _FakeSettingsNotifier(
+          _settingsWithAction(AfterTranscriptionAction.clipboard),
+        );
+        await tester.pumpWidget(
+          makeTestable(
+            const SingleChildScrollView(child: AfterTranscriptionSection()),
+            overrides: [settingsProvider.overrideWith(() => notifier)],
+            locale: const Locale('en'),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byType(DropdownButton<String>).first);
+        await tester.pumpAndSettle();
+
+        final pasteItem = tester.widget<DropdownMenuItem<String>>(
+          find.ancestor(
+            of: find.text(l10n.settingsAfterTranscriptionPaste).last,
+            matching: find.byType(DropdownMenuItem<String>),
+          ),
+        );
+
+        expect(pasteItem.enabled, isTrue);
+      },
+    );
   });
 }

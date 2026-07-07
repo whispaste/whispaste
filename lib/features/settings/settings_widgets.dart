@@ -190,12 +190,18 @@ class HotkeyDisplay extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 /// Themed dropdown for settings.
+///
+/// [disabledItems] marks item values that are shown but not selectable (e.g.
+/// a feature unavailable in the current build/platform); [disabledTooltip]
+/// explains why when hovered.
 Widget settingsDropdown({
   required BuildContext context,
   required String value,
   required List<String> items,
   List<String>? labels,
   required ValueChanged<String?> onChanged,
+  Set<String>? disabledItems,
+  String? disabledTooltip,
 }) {
   final isDark = Theme.of(context).brightness == Brightness.dark;
   return Container(
@@ -213,16 +219,22 @@ Widget settingsDropdown({
     child: DropdownButtonHideUnderline(
       child: DropdownButton<String>(
         value: value,
-        items: items
-            .asMap()
-            .entries
-            .map(
-              (e) => DropdownMenuItem(
-                value: e.value,
-                child: Text(labels != null ? labels[e.key] : e.value),
-              ),
-            )
-            .toList(),
+        items: items.asMap().entries.map((e) {
+          final isDisabled = disabledItems?.contains(e.value) ?? false;
+          final label = Text(labels != null ? labels[e.key] : e.value);
+          return DropdownMenuItem(
+            value: e.value,
+            enabled: !isDisabled,
+            child: !isDisabled
+                ? label
+                : Opacity(
+                    opacity: 0.4,
+                    child: disabledTooltip != null
+                        ? Tooltip(message: disabledTooltip, child: label)
+                        : label,
+                  ),
+          );
+        }).toList(),
         onChanged: onChanged,
         isDense: true,
         style: TextStyle(

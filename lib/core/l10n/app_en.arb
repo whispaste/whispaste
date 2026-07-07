@@ -172,6 +172,7 @@
   "settingsAfterTranscriptionPaste": "Auto-Paste at Cursor",
   "settingsAfterTranscriptionBoth": "Copy & Auto-Paste",
   "settingsAfterTranscriptionNothing": "Do Nothing",
+  "settingsAfterTranscriptionMasDisabledHint": "Not available in the Mac App Store edition (App Sandbox) — text goes to the clipboard instead.",
   "pasteFailurePermissionMissing": "Auto-Paste was blocked by the OS. WhisPaste needs the Accessibility permission to paste into other apps.",
   "pasteFailureNoTarget": "Auto-Paste skipped — no target window was captured. Focus the destination app before triggering a recording.",
   "pasteFailureElevationBlocked": "Auto-Paste blocked — the target app is running with administrator rights. Restart WhisPaste as an administrator to paste into that app.",

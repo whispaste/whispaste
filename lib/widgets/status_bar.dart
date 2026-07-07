@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../core/config/build_config.dart';
 import '../core/config/settings_enums.dart' show AfterTranscriptionAction;
 import '../core/l10n/generated/app_localizations.dart';
 import '../core/recording/recording_state.dart'
@@ -572,6 +573,12 @@ class _AfterActionChip extends StatelessWidget {
     AfterTranscriptionAction.nothing => l10n.statusBarAfterNothing,
   };
 
+  /// Whether [action] needs simulated-keystroke auto-paste, unavailable in
+  /// the Mac App Store build ([kAutoPasteSupported]).
+  bool _requiresAutoPaste(AfterTranscriptionAction action) =>
+      action == AfterTranscriptionAction.paste ||
+      action == AfterTranscriptionAction.clipboardAndPaste;
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -587,29 +594,28 @@ class _AfterActionChip extends StatelessWidget {
         for (final action in AfterTranscriptionAction.values)
           PopupMenuItem<AfterTranscriptionAction>(
             value: action,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  _iconFor(action),
-                  size: WpIconSize.sm,
-                  color: action == current
-                      ? cs.primary
-                      : cs.onSurface.withValues(alpha: 0.6),
-                ),
-                const SizedBox(width: WpSpacing.sm),
-                Text(
-                  _labelFor(action),
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: action == current
-                        ? FontWeight.w600
-                        : FontWeight.normal,
-                    color: action == current ? cs.primary : cs.onSurface,
+            enabled: kAutoPasteSupported || !_requiresAutoPaste(action),
+            child: _requiresAutoPaste(action) && !kAutoPasteSupported
+                ? Tooltip(
+                    message: l10n.settingsAfterTranscriptionMasDisabledHint,
+                    child: Opacity(
+                      opacity: 0.4,
+                      child: _AfterActionRow(
+                        action: action,
+                        current: current,
+                        cs: cs,
+                        label: _labelFor(action),
+                        icon: _iconFor(action),
+                      ),
+                    ),
+                  )
+                : _AfterActionRow(
+                    action: action,
+                    current: current,
+                    cs: cs,
+                    label: _labelFor(action),
+                    icon: _iconFor(action),
                   ),
-                ),
-              ],
-            ),
           ),
       ],
       child: Container(
@@ -634,6 +640,49 @@ class _AfterActionChip extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Icon + label row shared by enabled and disabled [_AfterActionChip] popup
+/// menu items, so the disabled (Mac App Store) rendering only differs by the
+/// [Tooltip]/[Opacity] wrapper around it.
+class _AfterActionRow extends StatelessWidget {
+  const _AfterActionRow({
+    required this.action,
+    required this.current,
+    required this.cs,
+    required this.label,
+    required this.icon,
+  });
+
+  final AfterTranscriptionAction action;
+  final AfterTranscriptionAction current;
+  final ColorScheme cs;
+  final String label;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final isCurrent = action == current;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          icon,
+          size: WpIconSize.sm,
+          color: isCurrent ? cs.primary : cs.onSurface.withValues(alpha: 0.6),
+        ),
+        const SizedBox(width: WpSpacing.sm),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: isCurrent ? FontWeight.w600 : FontWeight.normal,
+            color: isCurrent ? cs.primary : cs.onSurface,
+          ),
+        ),
+      ],
     );
   }
 }

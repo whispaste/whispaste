@@ -153,6 +153,7 @@
   "settingsAfterTranscriptionPaste": "Automatisch einfügen",
   "settingsAfterTranscriptionBoth": "Kopieren & einfügen",
   "settingsAfterTranscriptionNothing": "Nichts tun",
+  "settingsAfterTranscriptionMasDisabledHint": "In der Mac-App-Store-Version nicht verfügbar (App Sandbox) — Text geht stattdessen in die Zwischenablage.",
   "pasteFailurePermissionMissing": "Auto-Einfügen vom System blockiert. WhisPaste braucht die Bedienungshilfen-Berechtigung, um in andere Apps einzufügen.",
   "pasteFailureNoTarget": "Auto-Einfügen übersprungen — keine Ziel-App erkannt. Fokussiere zuerst die Ziel-App, dann starte die Aufnahme.",
   "pasteFailureElevationBlocked": "Auto-Einfügen blockiert — die Ziel-App läuft mit Administratorrechten. Starte WhisPaste ebenfalls als Administrator, um dort einzufügen.",

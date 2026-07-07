@@ -470,6 +470,10 @@ class L10nDe extends L10n {
   String get settingsAfterTranscriptionNothing => 'Nichts tun';
 
   @override
+  String get settingsAfterTranscriptionMasDisabledHint =>
+      'In der Mac-App-Store-Version nicht verfügbar (App Sandbox) — Text geht stattdessen in die Zwischenablage.';
+
+  @override
   String get pasteFailurePermissionMissing =>
       'Auto-Einfügen vom System blockiert. WhisPaste braucht die Bedienungshilfen-Berechtigung, um in andere Apps einzufügen.';
 

@@ -165,6 +165,7 @@
   "settingsAfterTranscriptionPaste": "הדבק אוטומטי במקום הסמן",
   "settingsAfterTranscriptionBoth": "העתק + הדבק אוטומטי",
   "settingsAfterTranscriptionNothing": "לא לעשות כלום",
+  "settingsAfterTranscriptionMasDisabledHint": "לא זמין בגרסת ה-Mac App Store (App Sandbox) — הטקסט מועתק ללוח במקום זאת.",
   "pasteFailurePermissionMissing": "ההדבקה האוטומטית נחסמה על־ידי המערכת. WhisPaste זקוקה להרשאת נגישות כדי להדביק באפליקציות אחרות.",
   "pasteFailureNoTarget": "ההדבקה האוטומטית דולגה — לא זוהה חלון יעד. מקד את האפליקציה היעד לפני התחלת ההקלטה.",
   "pasteFailureGeneric": "ההדבקה האוטומטית נכשלה. הטקסט נמצא בלוח — הדבק ידנית עם ⌘V / Ctrl+V.",

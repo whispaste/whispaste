@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/config/build_config.dart';
 import '../../../core/config/settings_enums.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
@@ -198,7 +199,13 @@ class SoundFeedbackSection extends ConsumerWidget {
 // ---------------------------------------------------------------------------
 
 class AfterTranscriptionSection extends ConsumerWidget {
-  const AfterTranscriptionSection({super.key});
+  const AfterTranscriptionSection({
+    super.key,
+    this.autoPasteSupported = kAutoPasteSupported,
+  });
+
+  /// Overridable for tests; defaults to the real build-time flag ([kAutoPasteSupported]).
+  final bool autoPasteSupported;
 
   static final _log = AppLogger('AfterTranscriptionSection');
 
@@ -228,6 +235,15 @@ class AfterTranscriptionSection extends ConsumerWidget {
                 l10n.settingsAfterTranscriptionBoth,
                 l10n.settingsAfterTranscriptionNothing,
               ],
+              disabledItems: autoPasteSupported
+                  ? null
+                  : {
+                      AfterTranscriptionAction.paste.value,
+                      AfterTranscriptionAction.clipboardAndPaste.value,
+                    },
+              disabledTooltip: autoPasteSupported
+                  ? null
+                  : l10n.settingsAfterTranscriptionMasDisabledHint,
               onChanged: (v) {
                 if (v == null) return;
                 ref

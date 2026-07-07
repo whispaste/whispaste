@@ -461,6 +461,10 @@ class L10nHe extends L10n {
   String get settingsAfterTranscriptionNothing => 'לא לעשות כלום';
 
   @override
+  String get settingsAfterTranscriptionMasDisabledHint =>
+      'לא זמין בגרסת ה-Mac App Store (App Sandbox) — הטקסט מועתק ללוח במקום זאת.';
+
+  @override
   String get pasteFailurePermissionMissing =>
       'ההדבקה האוטומטית נחסמה על־ידי המערכת. WhisPaste זקוקה להרשאת נגישות כדי להדביק באפליקציות אחרות.';
 
