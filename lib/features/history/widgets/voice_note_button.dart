@@ -51,6 +51,16 @@ class VoiceNoteButton extends ConsumerStatefulWidget {
   final String entryId;
   final bool isDark;
 
+  /// Stuck-guard budgets on the two STT calls in [_stopAndTranscribe]. Mutable
+  /// + [visibleForTesting] so tests can shrink them (mirrors
+  /// `SttServerStateNotifier.stuckGuardTimeout`); production keeps these
+  /// defaults.
+  @visibleForTesting
+  static Duration ensureRunningTimeout = const Duration(seconds: 30);
+
+  @visibleForTesting
+  static Duration transcribeTimeout = const Duration(seconds: 45);
+
   @override
   ConsumerState<VoiceNoteButton> createState() => _VoiceNoteButtonState();
 }
@@ -152,7 +162,7 @@ class _VoiceNoteButtonState extends ConsumerState<VoiceNoteButton> {
 
       // Ensure STT is ready.
       final stt = ref.read(localSttBundleProvider.notifier);
-      await stt.ensureRunning().timeout(const Duration(seconds: 30));
+      await stt.ensureRunning().timeout(VoiceNoteButton.ensureRunningTimeout);
 
       final sttStatus = ref.read(localSttBundleProvider);
       if (!sttStatus.isReady) {
@@ -163,7 +173,7 @@ class _VoiceNoteButtonState extends ConsumerState<VoiceNoteButton> {
       // Transcribe.
       final transcript = await stt
           .transcribeBytes(wavBytes)
-          .timeout(const Duration(seconds: 45));
+          .timeout(VoiceNoteButton.transcribeTimeout);
 
       if (transcript.trim().isEmpty) {
         _showSnackBar(l10n.voiceNoteEmpty, isError: true);

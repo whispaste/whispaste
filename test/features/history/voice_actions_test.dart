@@ -2,12 +2,17 @@
 /// and integration flow tests (record → transcribe → dispatch).
 library;
 
+import 'dart:async';
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/recording/recording_state.dart';
@@ -16,6 +21,9 @@ import 'package:whispaste/core/theme/theme.dart';
 import 'package:whispaste/features/history/widgets/voice_note_button.dart';
 import 'package:whispaste/features/history/data/history_detail_provider.dart';
 import 'package:whispaste/services/audio_service.dart';
+import 'package:whispaste/services/hardware_info_service.dart' as hw;
+import 'package:whispaste/services/model_download_service.dart';
+import 'package:whispaste/services/path_service.dart' as paths;
 import 'package:whispaste/services/stt/stt_bundle.dart';
 import 'package:whispaste/services/voice_action_service.dart';
 
@@ -83,9 +91,147 @@ class _FakeSttService extends SttServerStateNotifier {
   Future<void> prewarm() async {}
 }
 
+/// Fake [WhisperEngine] — drives the real [SttServerStateNotifier] (no
+/// notifier override) so the voice-note pipeline is verified against the
+/// actual FFI engine seam (Issue 06), not a stand-in notifier.
+///
+/// `hangOnLoad`/`hangOnTranscribe` never complete, letting
+/// [VoiceNoteButton]'s own 30 s/45 s `.timeout()` guards fire — used to
+/// anchor the stuck-guard regression coverage.
+class _FakeWhisperEngine implements WhisperEngine {
+  _FakeWhisperEngine({
+    this.transcriptToReturn = 'tag as engine-verified',
+    this.hangOnLoad = false,
+    this.hangOnTranscribe = false,
+  });
+
+  final String transcriptToReturn;
+  final bool hangOnLoad;
+  final bool hangOnTranscribe;
+
+  bool _loaded = false;
+  int loadCallCount = 0;
+  int transcribeCallCount = 0;
+
+  @override
+  WhisperEngineStatus get status =>
+      WhisperEngineStatus(isLoaded: _loaded, backend: WhisperBackend.cpu);
+
+  @override
+  Future<void> load({required String modelPath}) async {
+    loadCallCount++;
+    if (hangOnLoad) {
+      await Completer<void>().future; // never completes
+    }
+    _loaded = true;
+  }
+
+  @override
+  Future<String> transcribe(List<int> wavBytes, {String? language}) async {
+    transcribeCallCount++;
+    // SttServerStateNotifier._warmupInference() fires an untimed transcribe()
+    // call as part of ensureRunning() (call #1) before the real
+    // transcribeBytes() call (call #2+). Hanging only from the 2nd call
+    // onward isolates the transcribeBytes() stuck-guard in tests without
+    // also blocking ensureRunning() on the warmup.
+    if (hangOnTranscribe && transcribeCallCount > 1) {
+      await Completer<void>().future; // never completes
+    }
+    return transcriptToReturn;
+  }
+
+  @override
+  Future<void> unload() async {
+    _loaded = false;
+  }
+}
+
+class _FakeSettingsNotifier extends SettingsNotifier {
+  _FakeSettingsNotifier(this._settings);
+  final AppSettings _settings;
+
+  @override
+  Future<AppSettings> build() async => _settings;
+
+  @override
+  Future<void> updateSettings(AppSettings Function(AppSettings) updater) async {
+    state = AsyncData(updater(state.value ?? _settings));
+  }
+}
+
+class _FakeModelDownloadNotifier extends ModelDownloadNotifier {
+  @override
+  ModelDownloadState build() => const ModelDownloadState(downloadedModels: {});
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/// Writes a minimum-size (>10 MiB) fake GGML model file so the real
+/// [SttServerStateNotifier]'s corrupt-model guard does not short-circuit
+/// [WhisperEngine.load] before the fake engine is ever reached. Mirrors
+/// `test/services/stt/stt_server_state_notifier_test.dart`'s helper.
+Future<Directory> _createFakeSttDir({String modelId = 'whisper-small'}) async {
+  final dir = await Directory.systemTemp.createTemp('voice_note_engine_test_');
+  final modelFilename =
+      findSttModel(modelId)?.filename ?? 'ggml-small-q5_1.bin';
+  await File(
+    '${dir.path}/$modelFilename',
+  ).writeAsBytes(Uint8List(11 * 1024 * 1024));
+  paths.sttDirOverride = dir.path;
+  return dir;
+}
+
+/// Wraps a [VoiceNoteButton] with the real [localSttBundleProvider]
+/// (`SttServerStateNotifier`) driven by a fake [WhisperEngine] injected via
+/// [whisperEngineProvider] — the actual FFI engine seam, as opposed to
+/// [_makeTestableButton]'s [_FakeSttService] notifier stand-in.
+Widget _makeTestableButtonViaEngine({
+  required String entryId,
+  required HistoryDatabase db,
+  required _FakeAudioService fakeAudio,
+  required WhisperEngine engine,
+}) {
+  final theme = wpDarkTheme();
+  return ProviderScope(
+    overrides: [
+      historyDatabaseProvider.overrideWith((ref) {
+        ref.onDispose(db.close);
+        return db;
+      }),
+      audioServiceProvider.overrideWith(() => fakeAudio),
+      whisperEngineProvider.overrideWithValue(engine),
+      settingsProvider.overrideWith(
+        () => _FakeSettingsNotifier(
+          AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
+        ),
+      ),
+      modelDownloadProvider.overrideWith(() => _FakeModelDownloadNotifier()),
+      hw.gpuInfoProvider.overrideWith(
+        (_) async =>
+            const hw.GpuInfo(vendor: hw.GpuVendor.none, name: 'Test CPU'),
+      ),
+    ],
+    child: MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: theme,
+      locale: const Locale('en'),
+      localizationsDelegates: L10n.localizationsDelegates,
+      supportedLocales: L10n.supportedLocales,
+      home: Scaffold(
+        body: Center(
+          child: Consumer(
+            builder: (context, ref, _) {
+              ref.watch(historyDetailProvider(entryId));
+              return VoiceNoteButton(entryId: entryId, isDark: true);
+            },
+          ),
+        ),
+      ),
+    ),
+  );
+}
 
 /// Wraps a [VoiceNoteButton] in a testable widget tree with all required
 /// providers, localization, and theme.
@@ -495,6 +641,221 @@ void main() {
 
       expect(find.byIcon(LucideIcons.mic), findsOneWidget);
     });
+  });
+
+  // =========================================================================
+  // 2b. VoiceNoteButton via the real FFI engine seam (Issue 06)
+  //
+  // Complements the group above: those tests fake the whole
+  // SttServerStateNotifier (_FakeSttService), bypassing the engine seam
+  // entirely. These tests drive the real notifier with a fake WhisperEngine
+  // injected via whisperEngineProvider — anchoring that the voice-note
+  // pipeline transcribes through the FFI engine, not a subprocess.
+  // =========================================================================
+
+  group('VoiceNoteButton — via FFI engine seam (Issue 06)', () {
+    late HistoryDatabase db;
+    late _FakeAudioService fakeAudio;
+    late Directory sttDir;
+    late Directory wavDir;
+    late String wavPath;
+    const entryId = 'voice-btn-engine-1';
+
+    setUp(() async {
+      db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      await db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: entryId,
+          timestamp: DateTime(2025, 7, 1, 12, 0),
+          content: const Value('Original transcript'),
+          title: const Value('Test Entry'),
+          model: const Value('whisper-small'),
+          isLocal: const Value(true),
+          durationSec: const Value(5.0),
+        ),
+      );
+
+      sttDir = await _createFakeSttDir();
+
+      // A real, valid WAV file — VoiceNoteButton reads it off disk and its
+      // pipeline pre-flight-rejects payloads without a RIFF/WAVE header, so
+      // the fake audio path must point at an actual well-formed WAV.
+      // Reuses SttBenchmark's own WAV generator rather than hand-rolling one.
+      wavDir = await Directory.systemTemp.createTemp('voice_note_wav_test_');
+      wavPath = '${wavDir.path}/note.wav';
+      await File(wavPath).writeAsBytes(SttBenchmark.generateBenchmarkWav());
+
+      fakeAudio = _FakeAudioService()..wavPathToReturn = wavPath;
+    });
+
+    tearDown(() async {
+      paths.sttDirOverride = null;
+      await db.close();
+      await sttDir.delete(recursive: true);
+      await wavDir.delete(recursive: true);
+    });
+
+    // _stopAndTranscribe() reads the WAV off real disk (dart:io File) — a
+    // genuine async gap that flutter_test's FakeAsync zone cannot resolve via
+    // pump() alone, so this taps inside tester.runAsync() to let real I/O
+    // (and the shrunk real-time .timeout() below) actually complete. Because
+    // the tap is dispatched from inside runAsync(), the whole downstream
+    // async chain it kicks off — including the WpToast success/error
+    // animation triggered at the end — stays zone-sticky to that real Zone
+    // for its entire lifetime (Dart async functions keep the Zone captured
+    // at their first invocation). So pipelineWait must cover the full toast
+    // lifecycle (~2 s auto-dismiss + ~300 ms reverse) too — settling the
+    // Ticker for good inside the real Zone — otherwise a leftover Ticker
+    // ticks against flutter_test's FakeAsync clock on a *later* test's frame
+    // and crashes with a negative-elapsed-time assertion.
+    Future<void> recordStopAndDrain(
+      WidgetTester tester, {
+      required Duration pipelineWait,
+    }) async {
+      await tester.tap(find.byType(InkWell));
+      await tester.pump();
+      expect(find.byIcon(LucideIcons.square), findsOneWidget);
+
+      final totalRealWait = pipelineWait + const Duration(milliseconds: 2600);
+      await tester.runAsync(() async {
+        await tester.tap(find.byType(InkWell));
+        await Future<void>.delayed(totalRealWait);
+      });
+      await tester.pump(totalRealWait);
+      await tester.pump();
+    }
+
+    testWidgets('transcribes via localSttBundleProvider + FakeWhisperEngine — '
+        'tag action applied, no subprocess in path (AC1, AC2)', (tester) async {
+      final engine = _FakeWhisperEngine(
+        transcriptToReturn: 'tag as engine-verified',
+      );
+
+      await tester.pumpWidget(
+        _makeTestableButtonViaEngine(
+          entryId: entryId,
+          db: db,
+          fakeAudio: fakeAudio,
+          engine: engine,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await recordStopAndDrain(
+        tester,
+        pipelineWait: const Duration(milliseconds: 300),
+      );
+
+      // The FFI engine seam was actually exercised. Exact call counts
+      // aren't asserted — ensureRunning() also fires an internal warmup
+      // inference (and possibly a debounced re-warm), so only "at least
+      // once" is a robust, non-flaky signal that the engine (not a
+      // subprocess) handled the pipeline.
+      expect(
+        engine.loadCallCount,
+        greaterThanOrEqualTo(1),
+        reason: 'ensureRunning() must load via the engine, not a subprocess',
+      );
+      expect(
+        engine.transcribeCallCount,
+        greaterThanOrEqualTo(1),
+        reason: 'transcribeBytes() must transcribe via the engine',
+      );
+
+      // The recognized tag action was applied (AC2).
+      final tags = await db.tagsForEntry(entryId);
+      expect(tags, hasLength(1));
+      expect(tags.first.name, 'engine-verified');
+
+      // Back to idle.
+      expect(find.byIcon(LucideIcons.mic), findsOneWidget);
+      expect(find.byIcon(LucideIcons.loader), findsNothing);
+    });
+
+    testWidgets(
+      'ensureRunning() stuck beyond its timeout ends in a clean idle error '
+      'state, not a hang (AC3)',
+      (tester) async {
+        final originalTimeout = VoiceNoteButton.ensureRunningTimeout;
+        VoiceNoteButton.ensureRunningTimeout = const Duration(
+          milliseconds: 100,
+        );
+        addTearDown(
+          () => VoiceNoteButton.ensureRunningTimeout = originalTimeout,
+        );
+
+        final engine = _FakeWhisperEngine(hangOnLoad: true);
+
+        await tester.pumpWidget(
+          _makeTestableButtonViaEngine(
+            entryId: entryId,
+            db: db,
+            fakeAudio: fakeAudio,
+            engine: engine,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await recordStopAndDrain(
+          tester,
+          pipelineWait: const Duration(milliseconds: 400),
+        );
+
+        expect(find.byIcon(LucideIcons.mic), findsOneWidget);
+        expect(find.byIcon(LucideIcons.loader), findsNothing);
+        expect(
+          engine.loadCallCount,
+          greaterThanOrEqualTo(1),
+          reason:
+              'ensureRunning() must have attempted to load via the '
+              'engine before timing out',
+        );
+      },
+    );
+
+    testWidgets(
+      'transcribeBytes() stuck beyond its timeout ends in a clean idle error '
+      'state, not a hang (AC3)',
+      (tester) async {
+        final originalTimeout = VoiceNoteButton.transcribeTimeout;
+        VoiceNoteButton.transcribeTimeout = const Duration(milliseconds: 100);
+        addTearDown(() => VoiceNoteButton.transcribeTimeout = originalTimeout);
+
+        final engine = _FakeWhisperEngine(hangOnTranscribe: true);
+
+        await tester.pumpWidget(
+          _makeTestableButtonViaEngine(
+            entryId: entryId,
+            db: db,
+            fakeAudio: fakeAudio,
+            engine: engine,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await recordStopAndDrain(
+          tester,
+          pipelineWait: const Duration(milliseconds: 400),
+        );
+
+        expect(find.byIcon(LucideIcons.mic), findsOneWidget);
+        expect(find.byIcon(LucideIcons.loader), findsNothing);
+        expect(
+          engine.loadCallCount,
+          greaterThanOrEqualTo(1),
+          reason:
+              'ensureRunning() must have succeeded before transcribe '
+              'was attempted',
+        );
+        expect(
+          engine.transcribeCallCount,
+          greaterThanOrEqualTo(1),
+          reason:
+              'transcribeBytes() must have attempted to transcribe via '
+              'the engine before timing out',
+        );
+      },
+    );
   });
 
   // =========================================================================
