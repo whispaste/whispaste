@@ -41,6 +41,8 @@ ignore:
   - "tool/**"                 # dev-only helpers (e.g. the reference-WAV generator)
   - "**/tool/**"
   - "**/*.g.dart"             # generated code
+  - "lib/services/stt/whisper/whisper_bindings.dart"     # ffigen-generated (no .g.dart naming)
+  - "**/services/stt/whisper/whisper_bindings.dart"
   - "generated/**"            # generated output (l10n, etc.)
   - "**/generated/**"
 

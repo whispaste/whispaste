@@ -18,6 +18,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa_onnx;
 
 import '../../core/logging/app_logger.dart';
+import '../audio/pcm_wav_codec.dart';
 import '../stt/stt_benchmark.dart';
 import 'parakeet_model_registry.dart';
 
@@ -392,17 +393,8 @@ final parakeetEngineProvider =
 
 /// Decodes WhisPaste's canonical 44-byte-header, 16 kHz mono, 16-bit PCM WAV
 /// bytes (see `wav_file_writer.dart`) into normalized `[-1, 1]` float samples
-/// for `sherpa_onnx`'s `OfflineStream.acceptWaveform`.
-Float32List _pcm16WavBytesToFloat32(List<int> wavBytes) {
-  const headerSize = 44;
-  if (wavBytes.length <= headerSize) return Float32List(0);
-
-  final bytes = wavBytes is Uint8List ? wavBytes : Uint8List.fromList(wavBytes);
-  final byteData = ByteData.sublistView(bytes, headerSize);
-  final sampleCount = byteData.lengthInBytes ~/ 2;
-  final samples = Float32List(sampleCount);
-  for (var i = 0; i < sampleCount; i++) {
-    samples[i] = byteData.getInt16(i * 2, Endian.little) / 32768.0;
-  }
-  return samples;
-}
+/// for `sherpa_onnx`'s `OfflineStream.acceptWaveform`. Delegates to the shared
+/// codec so there is a single WAV-decode implementation across on-device
+/// engines (whisper + Parakeet).
+Float32List _pcm16WavBytesToFloat32(List<int> wavBytes) =>
+    pcm16WavBytesToFloat32(wavBytes);

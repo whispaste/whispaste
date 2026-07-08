@@ -1,0 +1,141 @@
+/// Contract tests for the [WhisperEngine] seam: the handwritten
+/// [_FakeWhisperEngine] must satisfy the same contract the real FFI engine
+/// does, and [whisperEngineProvider] must be overrideable for injection.
+///
+/// Mirrors the repo's fake convention (`_FakeProcessRunner` /
+/// `FakeSttService`) — a configurable, handwritten fake, no Mockito.
+library;
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/services/stt/whisper/whisper_engine.dart';
+import 'package:whispaste/services/stt/whisper/whisper_ffi_engine.dart';
+
+// ---------------------------------------------------------------------------
+// Fake
+// ---------------------------------------------------------------------------
+
+class _FakeWhisperEngine implements WhisperEngine {
+  _FakeWhisperEngine({
+    this.transcript = 'fake transcript',
+    this.throwOnTranscribe,
+    this.transcribeDelay,
+    this.backend = WhisperBackend.cpu,
+  });
+
+  /// Text returned by [transcribe] on success.
+  String transcript;
+
+  /// If set, [transcribe] throws this instead of returning [transcript].
+  Object? throwOnTranscribe;
+
+  /// If set, [transcribe] waits this long before completing (simulated work).
+  Duration? transcribeDelay;
+
+  final WhisperBackend backend;
+
+  bool _loaded = false;
+  String? _lastLanguage;
+  int transcribeCallCount = 0;
+
+  String? get lastLanguage => _lastLanguage;
+
+  @override
+  WhisperEngineStatus get status =>
+      WhisperEngineStatus(isLoaded: _loaded, backend: backend);
+
+  @override
+  Future<void> load({required String modelPath}) async {
+    _loaded = true;
+  }
+
+  @override
+  Future<String> transcribe(List<int> wavBytes, {String? language}) async {
+    transcribeCallCount++;
+    _lastLanguage = language;
+    if (transcribeDelay != null) {
+      await Future<void>.delayed(transcribeDelay!);
+    }
+    final err = throwOnTranscribe;
+    if (err != null) throw err;
+    return transcript;
+  }
+
+  @override
+  Future<void> unload() async {
+    _loaded = false;
+  }
+}
+
+void main() {
+  group('_FakeWhisperEngine contract', () {
+    test('returns configured transcript and records language', () async {
+      final engine = _FakeWhisperEngine(transcript: 'hallo welt');
+
+      await engine.load(modelPath: '/fake/model.bin');
+      final text = await engine.transcribe(const [0, 1, 2], language: 'de');
+
+      expect(text, 'hallo welt');
+      expect(engine.lastLanguage, 'de');
+      expect(engine.transcribeCallCount, 1);
+    });
+
+    test('surfaces the configured error on failure', () async {
+      final engine = _FakeWhisperEngine(throwOnTranscribe: StateError('boom'));
+
+      await engine.load(modelPath: '/fake/model.bin');
+
+      expect(
+        () => engine.transcribe(const [0, 1, 2]),
+        throwsA(isA<StateError>()),
+      );
+    });
+
+    test('simulates a transcription delay', () async {
+      final engine = _FakeWhisperEngine(
+        transcribeDelay: const Duration(milliseconds: 120),
+      );
+      await engine.load(modelPath: '/fake/model.bin');
+
+      final sw = Stopwatch()..start();
+      await engine.transcribe(const [0, 1, 2]);
+      sw.stop();
+
+      expect(sw.elapsedMilliseconds, greaterThanOrEqualTo(100));
+    });
+
+    test('reports load state and backend via status', () async {
+      final engine = _FakeWhisperEngine(backend: WhisperBackend.metal);
+      expect(engine.status.isLoaded, isFalse);
+
+      await engine.load(modelPath: '/fake/model.bin');
+      expect(engine.status.isLoaded, isTrue);
+      expect(engine.status.backend, WhisperBackend.metal);
+
+      await engine.unload();
+      expect(engine.status.isLoaded, isFalse);
+    });
+  });
+
+  group('whisperEngineProvider', () {
+    test('defaults to a real WhisperFfiEngine', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      expect(container.read(whisperEngineProvider), isA<WhisperFfiEngine>());
+    });
+
+    test('is overrideable with a fake', () async {
+      final fake = _FakeWhisperEngine(transcript: 'injected');
+      final container = ProviderContainer(
+        overrides: [whisperEngineProvider.overrideWithValue(fake)],
+      );
+      addTearDown(container.dispose);
+
+      final engine = container.read(whisperEngineProvider);
+      await engine.load(modelPath: '/fake/model.bin');
+
+      expect(await engine.transcribe(const [0, 1, 2]), 'injected');
+    });
+  });
+}
