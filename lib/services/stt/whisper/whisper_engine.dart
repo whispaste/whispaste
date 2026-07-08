@@ -13,10 +13,28 @@ library;
 
 /// Which compute backend the loaded library is using.
 ///
-/// Only [cpu] is reported in this slice; real Metal/CUDA/Vulkan selection is a
-/// hook for Issue 04. Kept as an enum so that later work can surface the actual
-/// backend without changing the interface.
+/// Selected from hardware detection (`gpuInfoProvider`) via
+/// [whisperBackendFromName]. The actual acceleration is provided by the bundled
+/// `libwhisper` variant (Issue 11); this enum records which backend was chosen.
 enum WhisperBackend { cpu, metal, cuda, vulkan }
+
+/// Maps a [GpuInfo.optimalBackend] value (`'cuda'`/`'metal'`/`'vulkan'`/`'cpu'`)
+/// to the engine's [WhisperBackend].
+///
+/// Any unknown or absent value falls back to [WhisperBackend.cpu] — the safe
+/// default when no compatible GPU is detected.
+WhisperBackend whisperBackendFromName(String? optimalBackend) {
+  switch (optimalBackend) {
+    case 'cuda':
+      return WhisperBackend.cuda;
+    case 'metal':
+      return WhisperBackend.metal;
+    case 'vulkan':
+      return WhisperBackend.vulkan;
+    default:
+      return WhisperBackend.cpu;
+  }
+}
 
 /// Readiness/backend snapshot for a [WhisperEngine].
 class WhisperEngineStatus {

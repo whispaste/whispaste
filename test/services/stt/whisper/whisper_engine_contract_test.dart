@@ -8,6 +8,7 @@ library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/services/hardware_info_service.dart';
 import 'package:whispaste/services/stt/whisper/whisper_engine.dart';
 import 'package:whispaste/services/stt/whisper/whisper_ffi_engine.dart';
 
@@ -136,6 +137,59 @@ void main() {
       await engine.load(modelPath: '/fake/model.bin');
 
       expect(await engine.transcribe(const [0, 1, 2]), 'injected');
+    });
+  });
+
+  group('whisperEngineProvider backend selection from gpuInfoProvider', () {
+    Future<WhisperBackend> backendForGpu(GpuInfo gpu) async {
+      final container = ProviderContainer(
+        overrides: [gpuInfoProvider.overrideWith((_) async => gpu)],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(gpuInfoProvider.future);
+      return container.read(whisperEngineProvider).status.backend;
+    }
+
+    test('NVIDIA GPU with CUDA → CUDA backend', () async {
+      final backend = await backendForGpu(
+        const GpuInfo(
+          vendor: GpuVendor.nvidia,
+          name: 'NVIDIA RTX 4090',
+          vramMB: 24576,
+          cudaAvailable: true,
+          vulkanAvailable: true,
+        ),
+      );
+      expect(backend, WhisperBackend.cuda);
+    });
+
+    test('Apple GPU → Metal backend', () async {
+      final backend = await backendForGpu(
+        const GpuInfo(vendor: GpuVendor.apple, name: 'Apple M2 Pro'),
+      );
+      expect(backend, WhisperBackend.metal);
+    });
+
+    test('AMD GPU → Vulkan backend', () async {
+      final backend = await backendForGpu(
+        const GpuInfo(vendor: GpuVendor.amd, name: 'AMD Radeon RX 7900 XTX'),
+      );
+      expect(backend, WhisperBackend.vulkan);
+    });
+
+    test('Intel GPU → Vulkan backend', () async {
+      final backend = await backendForGpu(
+        const GpuInfo(vendor: GpuVendor.intel, name: 'Intel Arc A770'),
+      );
+      expect(backend, WhisperBackend.vulkan);
+    });
+
+    test('no/incompatible GPU → CPU backend', () async {
+      final backend = await backendForGpu(
+        const GpuInfo(vendor: GpuVendor.none, name: 'No GPU detected'),
+      );
+      expect(backend, WhisperBackend.cpu);
     });
   });
 }

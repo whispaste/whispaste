@@ -15,6 +15,7 @@ import 'package:ffi/ffi.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../audio/pcm_wav_codec.dart';
+import '../../hardware_info_service.dart';
 import 'whisper_bindings.dart';
 import 'whisper_engine.dart';
 
@@ -151,9 +152,11 @@ class WhisperFfiEngine implements WhisperEngine {
 
 /// Overrideable [WhisperEngine] for the on-device whisper path.
 ///
-/// Defaults to the real [WhisperFfiEngine]; tests override it with a fake.
-/// Not yet consumed by production code — [SttServerStateNotifier] keeps using
-/// the subprocess path until Issue 03.
-final whisperEngineProvider = Provider<WhisperEngine>(
-  (_) => WhisperFfiEngine(),
-);
+/// Defaults to the real [WhisperFfiEngine], configured with the compute backend
+/// derived from hardware detection ([gpuInfoProvider]): NVIDIA→CUDA, Apple→Metal,
+/// AMD/Intel→Vulkan, and CPU whenever no compatible GPU is detected (or while
+/// detection is still in flight). Tests override it with a fake.
+final whisperEngineProvider = Provider<WhisperEngine>((ref) {
+  final gpu = ref.watch(gpuInfoProvider).value;
+  return WhisperFfiEngine(backend: whisperBackendFromName(gpu?.optimalBackend));
+});
