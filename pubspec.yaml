@@ -101,6 +101,7 @@ dependencies:
   # Generic Google-maintained package — NOT Firebase / NOT GCP.
   file: ^7.0.0
   auto_updater: ^1.0.0
+  sherpa_onnx: ^1.13.4
 
 dev_dependencies:
   flutter_test:

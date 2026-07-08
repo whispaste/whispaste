@@ -289,6 +289,7 @@ class AppSettings {
 
   SttProviderType get sttProviderType =>
       SttProviderType.fromValue(stt.provider);
+  OnDeviceEngine get onDeviceEngine => OnDeviceEngine.fromValue(stt.engine);
   CloudSttProvider get cloudSttProviderType =>
       CloudSttProvider.fromValue(cloudProvider.cloudSttProvider);
   AfterTranscriptionAction get afterTranscriptionAction =>
@@ -496,6 +497,7 @@ class AppSettings {
     String? sttLanguage,
     int? sttIdleTimeoutMinutes,
     String? customVocabulary,
+    String? sttEngine,
     bool? recordStartSound,
     bool? recordStopSound,
     bool? transcriptionCompleteSound,
@@ -563,6 +565,7 @@ class AppSettings {
         language: sttLanguage,
         idleTimeoutMinutes: sttIdleTimeoutMinutes,
         customVocabulary: customVocabulary,
+        engine: sttEngine,
       ),
       sound: sound.copyWith(
         recordStartSound: recordStartSound,

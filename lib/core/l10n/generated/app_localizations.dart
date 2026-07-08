@@ -4923,6 +4923,72 @@ abstract class L10n {
   /// **'CPU only'**
   String get settingsGpuAccelerationDisabled;
 
+  /// No description provided for @settingsSttEngine.
+  ///
+  /// In en, this message translates to:
+  /// **'Engine'**
+  String get settingsSttEngine;
+
+  /// No description provided for @settingsSttEngineSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Whisper covers 99 languages and every GPU backend; Parakeet is much faster on CPU-only hardware but covers ~25 languages and has no GPU backend yet'**
+  String get settingsSttEngineSubtitle;
+
+  /// No description provided for @settingsSttEngineWhisper.
+  ///
+  /// In en, this message translates to:
+  /// **'Whisper'**
+  String get settingsSttEngineWhisper;
+
+  /// No description provided for @settingsSttEngineParakeet.
+  ///
+  /// In en, this message translates to:
+  /// **'Parakeet (fastest, ~25 languages)'**
+  String get settingsSttEngineParakeet;
+
+  /// No description provided for @parakeetModelTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Parakeet TDT model'**
+  String get parakeetModelTitle;
+
+  /// No description provided for @parakeetModelSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'One-time download (~630 MB), then runs fully offline'**
+  String get parakeetModelSubtitle;
+
+  /// No description provided for @parakeetModelDownload.
+  ///
+  /// In en, this message translates to:
+  /// **'Download'**
+  String get parakeetModelDownload;
+
+  /// No description provided for @parakeetModelDownloading.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading…'**
+  String get parakeetModelDownloading;
+
+  /// No description provided for @parakeetModelInstalled.
+  ///
+  /// In en, this message translates to:
+  /// **'Installed'**
+  String get parakeetModelInstalled;
+
+  /// No description provided for @parakeetModelDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get parakeetModelDelete;
+
+  /// No description provided for @parakeetModelCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get parakeetModelCancel;
+
   /// No description provided for @settingsSearchHint.
   ///
   /// In en, this message translates to:

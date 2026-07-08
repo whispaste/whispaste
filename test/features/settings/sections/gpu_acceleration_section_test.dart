@@ -139,6 +139,10 @@ void main() {
         );
         expect(gpuDropdownFinder, findsOneWidget);
 
+        // The engine selector row (added for the Parakeet on-device engine)
+        // pushes the GPU dropdown further down the scroll view than the
+        // fixed test viewport shows — scroll it into view before tapping.
+        await tester.ensureVisible(gpuDropdownFinder);
         await tester.tap(gpuDropdownFinder);
         await tester.pumpAndSettle();
 
@@ -172,6 +176,10 @@ void main() {
                   false),
         );
 
+        // The engine selector row (added for the Parakeet on-device engine)
+        // pushes the GPU dropdown further down the scroll view than the
+        // fixed test viewport shows — scroll it into view before tapping.
+        await tester.ensureVisible(gpuDropdownFinder);
         await tester.tap(gpuDropdownFinder);
         await tester.pumpAndSettle();
         await tester.tap(

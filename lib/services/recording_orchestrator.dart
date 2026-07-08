@@ -37,7 +37,10 @@ import 'paste/paster.dart';
 import 'system_attention_service.dart';
 import 'tray_service.dart';
 import 'recording_store.dart';
-import 'stt/stt_bundle.dart';
+import 'stt/inference_client_rejected.dart';
+import 'stt/on_device_engine_lifecycle.dart';
+import 'stt_engine_lifecycle_provider.dart';
+import 'stt_parakeet/parakeet_model_registry.dart' as parakeet;
 import 'transcription/transcriber.dart';
 
 // ---------------------------------------------------------------------------
@@ -261,16 +264,18 @@ class RecordingOrchestrator extends Notifier<void> {
       // end via the aggregated pipeline-outcome counter (see
       // _trackPipelineOutcome), keeping Matomo volume off the hot path.
 
-      // Notify STT service that a recording is active (pauses idle timer).
-      final sttNot = ref.read(localSttBundleProvider.notifier);
-      sttNot.notifyRecordingStarted();
+      // Notify the active on-device engine that a recording is active
+      // (pauses its idle timer, if any).
+      final engineLifecycle = ref.read(onDeviceEngineLifecycleProvider);
+      engineLifecycle.notifyRecordingStarted();
 
-      // Kick off STT server in parallel — files already confirmed by preflight.
-      // Fires before the two async calls below to maximise warm-up lead time.
-      // Cloud providers transcribe over HTTP and need no local server.
+      // Kick off the on-device engine in parallel — files already confirmed
+      // by preflight. Fires before the two async calls below to maximise
+      // warm-up lead time. Cloud providers transcribe over HTTP and need no
+      // local engine.
       final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
       if (settings.sttProviderType.isLocal) {
-        unawaited(sttNot.ensureRunning());
+        unawaited(engineLifecycle.ensureRunning());
       }
 
       await ref.read(pasterProvider)?.prime();
@@ -282,7 +287,7 @@ class RecordingOrchestrator extends Notifier<void> {
       // Verify recording actually started.
       final audioStatus = ref.read(audioServiceProvider);
       if (audioStatus.captureState == AudioCaptureState.error) {
-        sttNot.notifyRecordingStopped();
+        engineLifecycle.notifyRecordingStopped();
         _stateMachine.transition(
           RecordingIntent.fail,
           errorMessage: audioStatus.errorMessage ?? 'recording_failed',
@@ -322,7 +327,7 @@ class RecordingOrchestrator extends Notifier<void> {
             );
       }
     } on Exception catch (e) {
-      ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
+      ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
       _stateMachine.transition(RecordingIntent.fail, errorMessage: '$e');
     } finally {
       _startInFlight = false;
@@ -399,7 +404,7 @@ class RecordingOrchestrator extends Notifier<void> {
         return;
       }
       _stateMachine.transition(RecordingIntent.fail, errorMessage: '$e');
-      ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
+      ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
       _log.error('[$sid] Pipeline error: $e');
     } finally {
       pipelineSw.stop();
@@ -495,8 +500,9 @@ class RecordingOrchestrator extends Notifier<void> {
 
         if (bytes.isEmpty) {
           // Distinguish between file-never-appeared and empty-file.
-          // STT prepare has not run yet, so we do not read localSttBundleProvider
-          // here — wav_file_not_created is the correct error in both sub-cases.
+          // STT prepare has not run yet, so we do not read the engine
+          // lifecycle status here — wav_file_not_created is the correct
+          // error in both sub-cases.
           if (!await File(path).exists()) {
             _stateMachine.transition(
               RecordingIntent.fail,
@@ -580,12 +586,13 @@ class RecordingOrchestrator extends Notifier<void> {
     );
   }
 
-  /// Runs Step 2: STT prepare and verifies the local server is ready.
+  /// Runs Step 2: STT prepare and verifies the local engine is ready.
   ///
-  /// Returns the [SttStatus] snapshot when prepare succeeded and the server
-  /// is ready to accept requests. Returns `null` (with [timing.outcome] set
-  /// and error-phase transition performed) when the step should abort.
-  Future<SttStatus?> _runSttPrepareStep(
+  /// Returns the [EngineLifecycleStatus] snapshot when prepare succeeded and
+  /// the engine is ready to accept requests. Returns `null` (with
+  /// [timing.outcome] set and error-phase transition performed) when the
+  /// step should abort.
+  Future<EngineLifecycleStatus?> _runSttPrepareStep(
     PipelineStepRunner runner,
     String sid,
     Transcriber transcriber,
@@ -608,7 +615,7 @@ class RecordingOrchestrator extends Notifier<void> {
           errorMessage: 'stt_start_timeout',
         );
         _log.warning('[$sid] STT server start timed out after 120s');
-        ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
+        ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
         return null;
       case FailedWith(:final error) when error is TranscriberException:
         timing.outcome = 'stt_start_error';
@@ -617,27 +624,29 @@ class RecordingOrchestrator extends Notifier<void> {
           errorMessage: _transcriberErrorCode(error),
         );
         _log.warning('[$sid] STT prepare failed: ${error.message}');
-        ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
+        ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
         return null;
       case FailedWith(:final error):
         timing.outcome = 'stt_start_error';
         _stateMachine.transition(RecordingIntent.fail, errorMessage: '$error');
         _log.warning('[$sid] STT prepare failed: $error');
-        ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
+        ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
         return null;
       case Ok():
         // prepare succeeded — fall through.
         break;
     }
 
-    // Read localSttBundleProvider exactly once — after prepare() ran so
+    // Read the engine lifecycle status exactly once — after prepare() ran so
     // ensureRunning() has had a chance to set the error state (e.g. OOM).
     // All downstream branches (after-prepare check, SocketException path)
     // use this single local variable.
     final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
-    final sttBundle = ref.read(localSttBundleProvider);
+    final sttBundle = ref.read(onDeviceEngineLifecycleProvider).status;
 
-    // Verify local server is ready before transcribing (on-device only).
+    // Verify the local engine is ready before transcribing (on-device only).
+    // stt_cuda_oom is whisper/CUDA-specific — Parakeet's CPU ONNX Runtime
+    // never emits it, so this branch simply never fires for that engine.
     if (!sttBundle.isReady && settings.sttProviderType.isLocal) {
       if (sttBundle.errorMessage == 'stt_cuda_oom') {
         timing.outcome = 'stt_cuda_oom';
@@ -662,7 +671,7 @@ class RecordingOrchestrator extends Notifier<void> {
   Future<bool> _handleTranscribeResult({
     required StepResult<String> result,
     required String sid,
-    required SttStatus sttBundle,
+    required EngineLifecycleStatus sttBundle,
     required int audioDurMs,
     required int timeoutSec,
     required AppSettings settings,
@@ -677,7 +686,7 @@ class RecordingOrchestrator extends Notifier<void> {
           errorMessage: 'transcription_timeout',
         );
         _log.error('[$sid] Transcription timed out after ${timeoutSec}s');
-        ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
+        ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
         return false;
       case FailedWith(:final error)
           when error is SocketException || error is http.ClientException:
@@ -697,7 +706,7 @@ class RecordingOrchestrator extends Notifier<void> {
           '[$sid] STT server connection lost during inference'
           '${error is http.ClientException ? " (ClientException)" : ""}',
         );
-        ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
+        ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
         return false;
       case FailedWith(:final error) when error is InferenceClientRejected:
         // Pre-flight reject — validator already emitted a Sentry
@@ -712,7 +721,7 @@ class RecordingOrchestrator extends Notifier<void> {
         _log.warning(
           '[$sid] Inference rejected pre-flight: ${error.userMessageKey}',
         );
-        ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
+        ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
         return false;
       case FailedWith(:final error) when error is TranscriberException:
         timing.outcome = 'transcribe_error';
@@ -728,7 +737,7 @@ class RecordingOrchestrator extends Notifier<void> {
         // transcribeBytes` for non-200 responses. See CHANGELOG.md
         // — Unreleased.
         _log.warning('[$sid] Transcription failed: ${error.message}');
-        ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
+        ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
         return false;
       case FailedWith(:final error):
         timing.outcome = 'transcribe_error';
@@ -738,7 +747,7 @@ class RecordingOrchestrator extends Notifier<void> {
           return false;
         }
         _stateMachine.transition(RecordingIntent.fail, errorMessage: '$error');
-        ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
+        ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
         // Downgraded to `_log.warning` — see the parallel comment a
         // few lines up. The notifier-side `captureError` is the
         // single source of truth for inference Sentry events.
@@ -851,7 +860,7 @@ class RecordingOrchestrator extends Notifier<void> {
     // Uses RecordingIntent.complete (transcribing→done) which the
     // state machine maps to completeTranscription on the notifier.
     _stateMachine.transition(RecordingIntent.complete, transcript: finalText);
-    ref.read(localSttBundleProvider.notifier).notifyTranscriptionCompleted();
+    ref.read(onDeviceEngineLifecycleProvider).notifyTranscriptionCompleted();
     // Two independent fire-and-forget checks, mirroring the existing
     // single-call pattern — the support prompt's coordination check reads
     // (never mutates) the review prompt's in-session/persisted state, so it
@@ -994,7 +1003,7 @@ class RecordingOrchestrator extends Notifier<void> {
           ),
         );
     ref.read(oomRecoveryPendingProvider.notifier).clear();
-    ref.read(localSttBundleProvider.notifier).stop();
+    ref.read(onDeviceEngineLifecycleProvider).stop();
     return true;
   }
 
@@ -1016,7 +1025,7 @@ class RecordingOrchestrator extends Notifier<void> {
     }
     _oomHandler.reset();
     ref.read(oomRecoveryPendingProvider.notifier).clear();
-    ref.read(localSttBundleProvider.notifier).stop();
+    ref.read(onDeviceEngineLifecycleProvider).stop();
     return provider;
   }
 
@@ -1091,7 +1100,7 @@ class RecordingOrchestrator extends Notifier<void> {
     // The oomRetry intent (error→recording) is intentionally NOT used here
     // because the user must explicitly choose a fallback model first.
     _stateMachine.transition(RecordingIntent.reset);
-    ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
+    ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
 
     _log.warning(
       '[$sid] CUDA OOM detected for model=$currentModelId '
@@ -1196,6 +1205,15 @@ class RecordingOrchestrator extends Notifier<void> {
       } on FileSystemException catch (e) {
         _log.warning('Failed to create STT dir: $e');
       }
+    }
+
+    if (settings.onDeviceEngine == OnDeviceEngine.parakeet) {
+      if (!parakeet.parakeetModelFilesExistSync()) {
+        _log.warning('Preflight FAIL: parakeet model bundle not found');
+        return 'stt_model_not_found';
+      }
+      _log.info('Preflight OK: parakeet model bundle present');
+      return null;
     }
 
     // Check whisper-server binary.
@@ -1347,14 +1365,14 @@ class RecordingOrchestrator extends Notifier<void> {
       _cancelAmplitude();
       final audioNotifier = ref.read(audioServiceProvider.notifier);
       await audioNotifier.stopRecording();
-      ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
+      ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
       _stateMachine.transition(
         RecordingIntent.fail,
         errorMessage: 'recording_guard_failed',
       );
     } on Exception catch (e) {
       _log.warning('Error during dead-mic cleanup: $e');
-      ref.read(localSttBundleProvider.notifier).notifyRecordingStopped();
+      ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
       _stateMachine.transition(
         RecordingIntent.fail,
         errorMessage: 'recording_guard_failed',
@@ -1407,13 +1425,19 @@ class RecordingOrchestrator extends Notifier<void> {
       final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
       if (!settings.sttProviderType.isLocal) return;
 
+      if (settings.onDeviceEngine == OnDeviceEngine.parakeet) {
+        if (!parakeet.parakeetModelFilesExistSync()) return;
+        await ref.read(onDeviceEngineLifecycleProvider).prewarm();
+        return;
+      }
+
       // Only pre-warm when runtime + model are already downloaded.
       final serverPath = whisperServerPath();
       final modelPath = sttModelPath(settings.effectiveModelId);
       if (!await File(serverPath).exists()) return;
       if (modelPath == null || !await File(modelPath).exists()) return;
 
-      await ref.read(localSttBundleProvider.notifier).prewarm();
+      await ref.read(onDeviceEngineLifecycleProvider).prewarm();
     } on Exception catch (e) {
       _log.warning('STT pre-warm failed (non-fatal): $e');
     }
@@ -1624,7 +1648,7 @@ class RecordingOrchestrator extends Notifier<void> {
 ///
 /// The orchestrator is a `void` notifier — it has no state of its own.
 /// All observable state lives in [recordingProvider], [audioServiceProvider],
-/// and [localSttBundleProvider].
+/// and the active [OnDeviceEngineLifecycle] adapter.
 final recordingOrchestratorProvider =
     NotifierProvider<RecordingOrchestrator, void>(RecordingOrchestrator.new);
 

@@ -56,6 +56,33 @@ enum CloudSttProvider {
 }
 
 // ---------------------------------------------------------------------------
+// On-Device Engine (sub-selection when SttProviderType is onDevice)
+// ---------------------------------------------------------------------------
+
+/// On-device speech-to-text engine backend.
+///
+/// [whisper] runs the bundled whisper.cpp `whisper-server` subprocess
+/// (broadest language/hardware coverage — 99 languages, CUDA/Vulkan/Metal/CPU).
+/// [parakeet] runs NVIDIA Parakeet TDT via `sherpa_onnx` in-process
+/// (lowest latency on CPU-only/weak hardware — ~25 languages, no GPU backend
+/// yet). See `.scratch/whisper-ffi-engine/PRD.md` for the FluidVoice-inspired
+/// rationale.
+enum OnDeviceEngine {
+  whisper('whisper'),
+  parakeet('parakeet');
+
+  const OnDeviceEngine(this.value);
+  final String value;
+
+  static OnDeviceEngine fromValue(String? v) {
+    for (final e in values) {
+      if (e.value == v) return e;
+    }
+    return whisper;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // After Transcription Action
 // ---------------------------------------------------------------------------
 

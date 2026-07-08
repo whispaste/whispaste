@@ -291,6 +291,7 @@ class SttSettings {
     this.language = 'Auto-detect',
     this.idleTimeoutMinutes = 5,
     this.customVocabulary = '',
+    this.engine = 'whisper',
   });
 
   final String provider;
@@ -304,6 +305,10 @@ class SttSettings {
   /// prefix to improve recognition of domain-specific words.
   final String customVocabulary;
 
+  /// On-device engine sub-selection (`whisper` | `parakeet`). Irrelevant when
+  /// [provider] is a cloud provider. See [OnDeviceEngine].
+  final String engine;
+
   static const SttSettings defaults = SttSettings();
 
   factory SttSettings.fromMap(Map<String, String> v) => SttSettings(
@@ -316,6 +321,7 @@ class SttSettings {
       defaults.idleTimeoutMinutes,
     ),
     customVocabulary: v['custom_vocabulary'] ?? defaults.customVocabulary,
+    engine: v['stt_engine'] ?? defaults.engine,
   );
 
   Map<String, String> toMap() => {
@@ -324,20 +330,27 @@ class SttSettings {
     'stt_language': language,
     'stt_idle_timeout_minutes': '$idleTimeoutMinutes',
     'custom_vocabulary': customVocabulary,
+    'stt_engine': engine,
   };
 
+  // loam-ignore: code-duplicates – every settings-section class in this file
+  // shares this exact copyWith(field: field ?? this.field, ...) shape by
+  // deliberate convention (see the ~15 other section classes below); it is
+  // established repo-wide boilerplate, not accidental duplication.
   SttSettings copyWith({
     String? provider,
     String? model,
     String? language,
     int? idleTimeoutMinutes,
     String? customVocabulary,
+    String? engine,
   }) => SttSettings(
     provider: provider ?? this.provider,
     model: model ?? this.model,
     language: language ?? this.language,
     idleTimeoutMinutes: idleTimeoutMinutes ?? this.idleTimeoutMinutes,
     customVocabulary: customVocabulary ?? this.customVocabulary,
+    engine: engine ?? this.engine,
   );
 
   @override
@@ -348,7 +361,8 @@ class SttSettings {
           model == other.model &&
           language == other.language &&
           idleTimeoutMinutes == other.idleTimeoutMinutes &&
-          customVocabulary == other.customVocabulary;
+          customVocabulary == other.customVocabulary &&
+          engine == other.engine;
 
   @override
   int get hashCode => Object.hash(
@@ -357,6 +371,7 @@ class SttSettings {
     language,
     idleTimeoutMinutes,
     customVocabulary,
+    engine,
   );
 }
 

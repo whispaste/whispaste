@@ -2754,6 +2754,41 @@ class L10nEn extends L10n {
   String get settingsGpuAccelerationDisabled => 'CPU only';
 
   @override
+  String get settingsSttEngine => 'Engine';
+
+  @override
+  String get settingsSttEngineSubtitle =>
+      'Whisper covers 99 languages and every GPU backend; Parakeet is much faster on CPU-only hardware but covers ~25 languages and has no GPU backend yet';
+
+  @override
+  String get settingsSttEngineWhisper => 'Whisper';
+
+  @override
+  String get settingsSttEngineParakeet => 'Parakeet (fastest, ~25 languages)';
+
+  @override
+  String get parakeetModelTitle => 'Parakeet TDT model';
+
+  @override
+  String get parakeetModelSubtitle =>
+      'One-time download (~630 MB), then runs fully offline';
+
+  @override
+  String get parakeetModelDownload => 'Download';
+
+  @override
+  String get parakeetModelDownloading => 'Downloading…';
+
+  @override
+  String get parakeetModelInstalled => 'Installed';
+
+  @override
+  String get parakeetModelDelete => 'Delete';
+
+  @override
+  String get parakeetModelCancel => 'Cancel';
+
+  @override
   String get settingsSearchHint => 'Search settings…';
 
   @override

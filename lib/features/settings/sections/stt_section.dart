@@ -20,6 +20,8 @@ import '../../../core/logging/app_logger.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../services/stt/stt_bundle.dart';
+import '../../../services/stt_parakeet/parakeet_download_service.dart';
+import '../../../services/stt_parakeet/parakeet_model_registry.dart';
 import '../../../services/telemetry_service.dart';
 import '../../../widgets/model_download_card.dart';
 import '../../../widgets/section.dart';
@@ -55,6 +57,7 @@ class _SpeechRecognitionSectionState
     final l10n = L10n.of(context);
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
     final isLocal = settings.sttProviderType.isLocal;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // Recognition-language names localised to the active UI language via CLDR
     // data; falls back to the catalog's English name for any Whisper-specific
@@ -106,35 +109,85 @@ class _SpeechRecognitionSectionState
             ),
           ),
 
-          // ----- Local mode: tier cards + model management ------------------
+          // ----- Local mode: engine selector + tier cards / model management --
           if (isLocal) ...[
             const SizedBox(height: WpSpacing.xs),
-            const SttModelManager(),
-            const SizedBox(height: WpSpacing.xs),
-            // Re-run benchmark button
-            _BenchmarkButton(l10n: l10n, ref: ref),
-            // GPU acceleration — local mode only (irrelevant for cloud providers)
+            // On-device engine selector (Whisper / Parakeet). See
+            // `.scratch/whisper-ffi-engine/PRD.md` — Parakeet chapter.
             SettingRow(
-              icon: LucideIcons.zap,
-              label: l10n.settingsGpuAcceleration,
+              icon: LucideIcons.gauge,
+              label: l10n.settingsSttEngine,
               trailing: settingsDropdown(
                 context: context,
-                value: settings.behavior.gpuAcceleration,
-                items: GpuAcceleration.values.map((e) => e.value).toList(),
+                value: settings.onDeviceEngine.value,
+                items: OnDeviceEngine.values.map((e) => e.value).toList(),
                 labels: [
-                  l10n.settingsGpuAccelerationAuto,
-                  l10n.settingsGpuAccelerationEnabled,
-                  l10n.settingsGpuAccelerationDisabled,
+                  l10n.settingsSttEngineWhisper,
+                  l10n.settingsSttEngineParakeet,
                 ],
-                onChanged: (v) => ref
-                    .read(settingsProvider.notifier)
-                    .updateSettings(
-                      (s) => s.copyWithSections(
-                        behavior: s.behavior.copyWith(gpuAcceleration: v!),
-                      ),
-                    ),
+                onChanged: (v) {
+                  ref
+                      .read(settingsProvider.notifier)
+                      .updateSettings((s) => s.copyWith(sttEngine: v!));
+                  try {
+                    ref
+                        .read(telemetryProvider)
+                        .trackSettingChange('stt_engine');
+                  } catch (e) {
+                    _log.debug('telemetry failed: $e');
+                  }
+                },
               ),
             ),
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: WpSpacing.sm,
+                vertical: WpSpacing.xs,
+              ),
+              child: Text(
+                l10n.settingsSttEngineSubtitle,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark
+                      ? WpColorsDark.textMuted
+                      : WpColorsLight.textMuted,
+                ),
+              ),
+            ),
+            const SizedBox(height: WpSpacing.xs),
+            if (settings.onDeviceEngine == OnDeviceEngine.parakeet)
+              _ParakeetModelRow(l10n: l10n)
+            else
+              const SttModelManager(),
+            const SizedBox(height: WpSpacing.xs),
+            // Re-run benchmark button — whisper only (Parakeet has no tiers
+            // to benchmark yet, see plan risk #1 in the PRD chapter above).
+            if (settings.onDeviceEngine == OnDeviceEngine.whisper)
+              _BenchmarkButton(l10n: l10n, ref: ref),
+            // GPU acceleration — whisper only. Parakeet has no GPU backend
+            // yet (see plan risk #1), so this setting would have no effect.
+            if (settings.onDeviceEngine == OnDeviceEngine.whisper)
+              SettingRow(
+                icon: LucideIcons.zap,
+                label: l10n.settingsGpuAcceleration,
+                trailing: settingsDropdown(
+                  context: context,
+                  value: settings.behavior.gpuAcceleration,
+                  items: GpuAcceleration.values.map((e) => e.value).toList(),
+                  labels: [
+                    l10n.settingsGpuAccelerationAuto,
+                    l10n.settingsGpuAccelerationEnabled,
+                    l10n.settingsGpuAccelerationDisabled,
+                  ],
+                  onChanged: (v) => ref
+                      .read(settingsProvider.notifier)
+                      .updateSettings(
+                        (s) => s.copyWithSections(
+                          behavior: s.behavior.copyWith(gpuAcceleration: v!),
+                        ),
+                      ),
+                ),
+              ),
             const Divider(height: 24),
           ],
 
@@ -285,6 +338,90 @@ class _BenchmarkButton extends ConsumerWidget {
               },
               tooltip: l10n.qualityTierBenchmarkReRun,
             ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Parakeet model row — single-bundle download (no tiers, unlike whisper).
+// ---------------------------------------------------------------------------
+
+class _ParakeetModelRow extends ConsumerWidget {
+  const _ParakeetModelRow({required this.l10n});
+
+  final L10n l10n;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final dl = ref.watch(parakeetDownloadProvider);
+    final sizeLabel = '${(parakeetModelTotalBytes / (1024 * 1024)).round()} MB';
+
+    Widget trailing;
+    if (dl.installed && !dl.isBusy) {
+      trailing = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(l10n.parakeetModelInstalled),
+          IconButton(
+            icon: const Icon(LucideIcons.trash2, size: 16),
+            tooltip: l10n.parakeetModelDelete,
+            onPressed: () =>
+                ref.read(parakeetDownloadProvider.notifier).deleteBundle(),
+          ),
+        ],
+      );
+    } else if (dl.isBusy) {
+      trailing = SizedBox(
+        width: 180,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('${l10n.parakeetModelDownloading} ${dl.progressPercent}%'),
+                IconButton(
+                  icon: const Icon(LucideIcons.x, size: 14),
+                  tooltip: l10n.parakeetModelCancel,
+                  onPressed: () => ref
+                      .read(parakeetDownloadProvider.notifier)
+                      .cancelDownload(),
+                ),
+              ],
+            ),
+            LinearProgressIndicator(value: dl.progressPercent / 100),
+          ],
+        ),
+      );
+    } else {
+      trailing = Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (dl.phase == ParakeetDownloadPhase.error &&
+              dl.errorMessage != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(
+                dl.errorMessage!,
+                style: const TextStyle(fontSize: 11, color: Colors.redAccent),
+              ),
+            ),
+          TextButton.icon(
+            icon: const Icon(LucideIcons.download, size: 16),
+            label: Text(l10n.parakeetModelDownload),
+            onPressed: () =>
+                ref.read(parakeetDownloadProvider.notifier).downloadBundle(),
+          ),
+        ],
+      );
+    }
+
+    return SettingRow(
+      icon: LucideIcons.cpu,
+      label: '${l10n.parakeetModelTitle} ($sizeLabel)',
+      trailing: trailing,
     );
   }
 }

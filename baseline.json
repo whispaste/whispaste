@@ -3,10 +3,17 @@
   "rulesetVersion": "ruleset@382b63c5",
   "findings": [
     {
+      "fingerprint": "9c62ed9d31ce590c",
+      "ruleId": "code-duplicates",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 347,
+      "message": "2 occurrences of duplicated block (53 tokens): lib/core/config/settings_sections.dart:347, lib/core/config/settings_sections.dart:442"
+    },
+    {
       "fingerprint": "b3b74f09fe901a02",
       "ruleId": "slop-empty-catch",
       "filePath": "lib/main.dart",
-      "line": 315,
+      "line": 375,
       "message": "Empty or comment-only `catch` body silently swallows exceptions — add error handling, rethrow, or a logging call."
     }
   ]
