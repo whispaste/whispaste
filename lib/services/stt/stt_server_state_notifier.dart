@@ -9,6 +9,7 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sentry_flutter/sentry_flutter.dart'
     show Breadcrumb, Sentry, SentryLevel;
@@ -28,6 +29,7 @@ import 'stt_benchmark.dart' show SttBenchmark;
 import 'wav_header_repair.dart';
 import 'whisper/whisper_engine.dart';
 import 'whisper/whisper_ffi_engine.dart';
+import 'whisper/whisper_resilience_policy.dart';
 
 // Re-export for external consumers.
 export '../../core/recording/recording_state.dart' show SttServerState;
@@ -165,6 +167,21 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
   /// result is validated but not forwarded — see the `decisions:` note in
   /// this issue's Evidence block.
   static const int _promptCharLimit = 1024;
+
+  /// Stuck-Guard budget: a single in-flight [WhisperEngine.transcribe] that
+  /// never returns is abandoned after this timeout with a clean error instead
+  /// of hanging the app (CONTEXT.md §3.3). Mutable + [visibleForTesting] so
+  /// resilience tests can shrink it to milliseconds; production keeps the 5 min
+  /// budget the subprocess-era pipeline used.
+  @visibleForTesting
+  static Duration stuckGuardTimeout = const Duration(minutes: 5);
+
+  /// Upper bound on automatic retries of a transient transcription failure
+  /// before the error is surfaced (CONTEXT.md §3.3 — "bis zu 3 Wiederholungen").
+  static const int _maxTranscribeRetries = 3;
+
+  /// Pure decision policy for FFI-era transcription failures (CPU-fallback).
+  static const _resiliencePolicy = WhisperResiliencePolicy();
 
   String? _activeModel;
   Timer? _idleTimer;
@@ -407,12 +424,20 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
 
     final String rawText;
     try {
-      rawText = await _engine!.transcribe(payload, language: lang);
+      rawText = await _transcribeResilient(
+        payload,
+        lang,
+        wavBytes.length,
+        audioDurationMs,
+      );
     } catch (e) {
       stopwatch.stop();
-      // Issue 05 owns FFI-specific error classification + Sentry capture
-      // (the "stt_inference_capture_test.dart-Äquivalent" its own AC text
-      // names) — this slice just surfaces the failure to the caller.
+      // The resilience wrapper already classified the failure and (for
+      // surfaced failures) captured it to Sentry with the right fingerprint.
+      // This warning is deliberately below the AppLogger auto-escalation
+      // threshold so it does not add a second capture (see the dedup test).
+      // The wrapped string preserves any `stt_cuda_oom` token so the
+      // orchestrator's OOM-recovery path keeps firing unchanged.
       _log.warning('STT inference failed: $e');
       throw Exception('STT inference failed: $e');
     }
@@ -474,6 +499,139 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       if (promptValue != null && promptValue.isNotEmpty) promptValue,
     ].join(' ');
     return combined.isEmpty ? null : combined;
+  }
+
+  /// Runs [WhisperEngine.transcribe] behind the FFI resilience chain
+  /// (CONTEXT.md §3.3), reacting to the engine's distinguishable
+  /// [WhisperFailureKind] signals:
+  ///
+  /// - **Stuck-Guard** — the call is raced against [stuckGuardTimeout]; a hang
+  ///   ends as a clean [WhisperFailureKind.timeout] error, never a deadlock.
+  /// - **CPU-Fallback** — a [WhisperFailureKind.gpuCrash] degrades to CPU once
+  ///   (`cpuFallbackActive` set) and retries.
+  /// - **Retry** — a [WhisperFailureKind.transient] failure is retried up to
+  ///   [_maxTranscribeRetries] times before being surfaced.
+  /// - **OOM** — a [WhisperFailureKind.oom] is not retried here; it is captured
+  ///   and rethrown carrying the `stt_cuda_oom` token so the orchestrator's
+  ///   `OomRecoveryHandler` (smaller model / cloud) recovers it.
+  ///
+  /// Surfaced (unrecovered) failures are captured to Sentry with a stable
+  /// fingerprint before the exception propagates.
+  Future<String> _transcribeResilient(
+    List<int> payload,
+    String lang,
+    int wavSizeBytes,
+    int audioDurationMs,
+  ) async {
+    var transientAttempts = 0;
+    var cpuFallbackTried = false;
+
+    while (true) {
+      try {
+        return await _engine!
+            .transcribe(payload, language: lang)
+            .timeout(stuckGuardTimeout);
+      } on TimeoutException {
+        const failure = WhisperEngineException(
+          WhisperFailureKind.timeout,
+          'pipeline_timeout: transcription exceeded the stuck-guard budget',
+        );
+        _captureInferenceFailure(
+          failure,
+          sttExitOther,
+          lang,
+          wavSizeBytes,
+          audioDurationMs,
+        );
+        throw failure;
+      } on WhisperEngineException catch (e) {
+        switch (e.kind) {
+          case WhisperFailureKind.gpuCrash:
+            if (!cpuFallbackTried &&
+                _resiliencePolicy.shouldRetryOnCpu(e.kind)) {
+              cpuFallbackTried = true;
+              if (ref.mounted) {
+                state = state.copyWith(cpuFallbackActive: true);
+              }
+              _log.warning(
+                'GPU crash during inference — degrading to CPU and retrying',
+              );
+              continue;
+            }
+            _captureInferenceFailure(
+              e,
+              sttExitGpuFatal,
+              lang,
+              wavSizeBytes,
+              audioDurationMs,
+            );
+            rethrow;
+          case WhisperFailureKind.oom:
+            _captureInferenceFailure(
+              e,
+              sttCudaOom,
+              lang,
+              wavSizeBytes,
+              audioDurationMs,
+            );
+            rethrow;
+          case WhisperFailureKind.transient:
+            transientAttempts++;
+            if (transientAttempts <= _maxTranscribeRetries) {
+              _log.warning(
+                'Transient STT failure '
+                '(attempt $transientAttempts/$_maxTranscribeRetries) — retrying',
+              );
+              continue;
+            }
+            _captureInferenceFailure(
+              e,
+              sttExitOther,
+              lang,
+              wavSizeBytes,
+              audioDurationMs,
+            );
+            rethrow;
+          case WhisperFailureKind.timeout:
+          case WhisperFailureKind.other:
+            _captureInferenceFailure(
+              e,
+              sttExitOther,
+              lang,
+              wavSizeBytes,
+              audioDurationMs,
+            );
+            rethrow;
+        }
+      }
+    }
+  }
+
+  /// Captures an unrecovered inference failure to Sentry under [fingerprint]
+  /// (from the central inventory), mirroring the pre-cutover HTTP-status
+  /// capture path so surfaced FFI errors stay actionable.
+  void _captureInferenceFailure(
+    WhisperEngineException failure,
+    String fingerprint,
+    String lang,
+    int wavSizeBytes,
+    int audioDurationMs,
+  ) {
+    CrashReporter.instance?.captureError(
+      message: 'STT inference failed: ${failure.message}',
+      error: failure,
+      severity: 'error',
+      type: 'stt_inference_failed',
+      fingerprint: [fingerprint],
+      extras: {
+        'failure_kind': failure.kind.name,
+        'model_id': state.modelId,
+        'language': lang,
+        'wav_size_bytes': wavSizeBytes,
+        'audio_duration_ms': audioDurationMs,
+        'platform': Platform.operatingSystem,
+      },
+    );
   }
 
   /// Repairs zeroed WAV size fields in-memory (FLUTTER_WHISPASTE-7X) and

@@ -1,0 +1,429 @@
+/// Resilience tests for [SttServerStateNotifier] against distinguishable FFI
+/// failure signals (CONTEXT.md §3.3): CPU-fallback on GPU crash, OOM-recovery
+/// trigger, stuck-guard timeout, and transient retry.
+///
+/// The subprocess-era chain keyed on process exit codes; the in-process engine
+/// signals a typed [WhisperEngineException] instead. These tests drive each
+/// failure class through the public [SttServerStateNotifier.transcribeBytes]
+/// surface via a fake engine, asserting only on public state
+/// ([SttStatus]/[SttServerState]) and Sentry-capture behaviour.
+///
+/// The Sentry-capture assertions are the `stt_inference_capture_test.dart`
+/// equivalent for FFI errors (AC6): surfaced failures capture exactly once,
+/// recovered ones capture never.
+library;
+
+import 'dart:async';
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
+
+import 'package:whispaste/core/config/settings_provider.dart';
+import 'package:whispaste/core/logging/crash_reporter.dart';
+import 'package:whispaste/services/hardware_info_service.dart' as hw;
+import 'package:whispaste/services/model_download_service.dart';
+import 'package:whispaste/services/path_service.dart' as paths;
+import 'package:whispaste/services/stt/stt_bundle.dart';
+
+// ---------------------------------------------------------------------------
+// Sentry spy
+// ---------------------------------------------------------------------------
+
+final _capturedEvents = <SentryEvent>[];
+
+SentryEvent? _spyBeforeSend(SentryEvent event, Hint hint) {
+  _capturedEvents.add(event);
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Failure-simulating fake engine
+// ---------------------------------------------------------------------------
+
+/// A [WhisperEngine] fake that starts benign (so the notifier's startup warmup
+/// + benchmark succeed) and can be *armed* after the notifier is ready to
+/// simulate one failure class. [armedCallCount] counts only transcribe calls
+/// made after the most recent `arm*` call — i.e. the real inference calls under
+/// test, not warmup/benchmark.
+class _FakeWhisperEngine implements WhisperEngine {
+  String transcript = 'hallo welt';
+  bool _loaded = false;
+
+  WhisperFailureKind? _armedKind;
+  int _remainingFailures = 0;
+  bool _hang = false;
+  int armedCallCount = 0;
+
+  void _resetArm() {
+    armedCallCount = 0;
+    _armedKind = null;
+    _remainingFailures = 0;
+    _hang = false;
+  }
+
+  /// Fail the first [count] inference calls with [kind], then succeed.
+  void armFailures(WhisperFailureKind kind, int count) {
+    _resetArm();
+    _armedKind = kind;
+    _remainingFailures = count;
+  }
+
+  /// Fail every inference call with [kind] (used for OOM / exhausted-transient).
+  void armAlways(WhisperFailureKind kind) {
+    _resetArm();
+    _armedKind = kind;
+    _remainingFailures = 1 << 30;
+  }
+
+  /// Hang forever on the next inference call (stuck-guard).
+  void armHang() {
+    _resetArm();
+    _hang = true;
+  }
+
+  @override
+  WhisperEngineStatus get status =>
+      WhisperEngineStatus(isLoaded: _loaded, backend: WhisperBackend.cpu);
+
+  @override
+  Future<void> load({required String modelPath}) async {
+    _loaded = true;
+  }
+
+  @override
+  Future<String> transcribe(List<int> wavBytes, {String? language}) async {
+    if (_hang) {
+      armedCallCount++;
+      return Completer<String>().future; // never completes
+    }
+    if (_armedKind != null && _remainingFailures > 0) {
+      armedCallCount++;
+      _remainingFailures--;
+      throw WhisperEngineException(_armedKind!, _messageFor(_armedKind!));
+    }
+    if (_armedKind != null) armedCallCount++;
+    return transcript;
+  }
+
+  @override
+  Future<void> unload() async {
+    _loaded = false;
+  }
+
+  static String _messageFor(WhisperFailureKind kind) => switch (kind) {
+    // The OOM message carries the token the orchestrator's OOM-recovery path
+    // keys on — the whole point of "recovery greift, kein harter Abbruch".
+    WhisperFailureKind.oom => 'stt_cuda_oom: simulated GPU out-of-memory',
+    WhisperFailureKind.gpuCrash => 'simulated GPU backend crash',
+    WhisperFailureKind.transient => 'simulated transient inference failure',
+    WhisperFailureKind.timeout => 'simulated timeout',
+    WhisperFailureKind.other => 'simulated other failure',
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Provider fakes
+// ---------------------------------------------------------------------------
+
+class _FakeSettingsNotifier extends SettingsNotifier {
+  _FakeSettingsNotifier(this._settings);
+  final AppSettings _settings;
+
+  @override
+  Future<AppSettings> build() async => _settings;
+
+  @override
+  Future<void> updateSettings(AppSettings Function(AppSettings) updater) async {
+    state = AsyncData(updater(state.value ?? _settings));
+  }
+}
+
+class _FakeModelDownloadNotifier extends ModelDownloadNotifier {
+  @override
+  ModelDownloadState build() => const ModelDownloadState(downloadedModels: {});
+
+  @override
+  Future<void> downloadModel(String modelId) async {
+    state = ModelDownloadState(downloadedModels: {modelId});
+  }
+}
+
+ProviderContainer _makeContainer(WhisperEngine engine) {
+  return ProviderContainer(
+    overrides: [
+      whisperEngineProvider.overrideWithValue(engine),
+      settingsProvider.overrideWith(
+        () => _FakeSettingsNotifier(
+          AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
+        ),
+      ),
+      modelDownloadProvider.overrideWith(() => _FakeModelDownloadNotifier()),
+      hw.gpuInfoProvider.overrideWith(
+        (_) async => const hw.GpuInfo(vendor: hw.GpuVendor.none, name: 'CPU'),
+      ),
+    ],
+  );
+}
+
+Future<Directory> _createFakeSttDir() async {
+  final dir = await Directory.systemTemp.createTemp('stt_resilience_');
+  final modelFilename =
+      findSttModel('whisper-small')?.filename ?? 'ggml-small-q5_1.bin';
+  await File(
+    '${dir.path}/$modelFilename',
+  ).writeAsBytes(Uint8List(11 * 1024 * 1024));
+  paths.sttDirOverride = dir.path;
+  return dir;
+}
+
+Uint8List _validWav({int dataBytes = 16000}) {
+  final buf = Uint8List(44 + dataBytes);
+  buf[0] = 0x52; // R
+  buf[1] = 0x49; // I
+  buf[2] = 0x46; // F
+  buf[3] = 0x46; // F
+  buf[8] = 0x57; // W
+  buf[9] = 0x41; // A
+  buf[10] = 0x56; // V
+  buf[11] = 0x45; // E
+  return buf;
+}
+
+Future<SttServerStateNotifier> _bringReady(ProviderContainer container) async {
+  await container.read(settingsProvider.future);
+  final notifier = container.read(localSttBundleProvider.notifier);
+  await notifier.ensureRunning();
+  expect(
+    container.read(localSttBundleProvider).serverState,
+    SttServerState.ready,
+  );
+  return notifier;
+}
+
+// ---------------------------------------------------------------------------
+// Main
+// ---------------------------------------------------------------------------
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  late Directory tempDir;
+  late Duration savedTimeout;
+
+  setUpAll(() async {
+    await SentryFlutter.init((options) {
+      options.dsn = 'https://abc123@sentry.example.invalid/0';
+      options.environment = 'test';
+      options.beforeSend = _spyBeforeSend;
+    });
+    CrashReporter.init();
+    CrashReporter.instance!.consentGranted = true;
+  });
+
+  tearDownAll(() async {
+    await CrashReporter.instance?.dispose();
+  });
+
+  setUp(() async {
+    tempDir = await _createFakeSttDir();
+    savedTimeout = SttServerStateNotifier.stuckGuardTimeout;
+    // Shrink the stuck-guard so the hang test finishes in milliseconds.
+    SttServerStateNotifier.stuckGuardTimeout = const Duration(
+      milliseconds: 200,
+    );
+    _capturedEvents.clear();
+  });
+
+  tearDown(() async {
+    SttServerStateNotifier.stuckGuardTimeout = savedTimeout;
+    paths.sttDirOverride = null;
+    await tempDir.delete(recursive: true);
+  });
+
+  // ── AC2: GPU crash → CPU fallback ────────────────────────────────────────
+  group('CPU-fallback on GPU crash', () {
+    test('a GPU crash degrades to CPU, sets cpuFallbackActive, and the '
+        'retry succeeds', () async {
+      final engine = _FakeWhisperEngine();
+      final container = _makeContainer(engine);
+      addTearDown(container.dispose);
+
+      final notifier = await _bringReady(container);
+      engine.armFailures(WhisperFailureKind.gpuCrash, 1);
+      _capturedEvents.clear();
+
+      final text = await notifier.transcribeBytes(
+        _validWav(),
+        language: 'auto',
+      );
+
+      expect(text, 'hallo welt', reason: 'the CPU retry must succeed');
+      expect(
+        container.read(localSttBundleProvider).cpuFallbackActive,
+        isTrue,
+        reason: 'cpuFallbackActive must be set after a GPU crash',
+      );
+      expect(
+        container.read(localSttBundleProvider).serverState,
+        SttServerState.ready,
+      );
+      expect(
+        engine.armedCallCount,
+        2,
+        reason: 'one crashing attempt + one successful CPU retry',
+      );
+
+      await CrashReporter.instance!.flush();
+      expect(
+        _capturedEvents,
+        isEmpty,
+        reason: 'a successfully recovered GPU crash is not a surfaced error',
+      );
+    });
+  });
+
+  // ── AC3: GPU OOM → recovery trigger, no hard abort ───────────────────────
+  group('OOM-recovery trigger', () {
+    test('a GPU OOM surfaces the stt_cuda_oom recovery token without a CPU '
+        'fallback or wasteful retry', () async {
+      final engine = _FakeWhisperEngine();
+      final container = _makeContainer(engine);
+      addTearDown(container.dispose);
+
+      final notifier = await _bringReady(container);
+      engine.armAlways(WhisperFailureKind.oom);
+      _capturedEvents.clear();
+
+      Object? caught;
+      try {
+        await notifier.transcribeBytes(_validWav(), language: 'auto');
+      } catch (e) {
+        caught = e;
+      }
+
+      expect(caught, isNotNull, reason: 'OOM must surface, not be swallowed');
+      expect(
+        '$caught',
+        contains('stt_cuda_oom'),
+        reason: "the orchestrator's OomRecoveryHandler keys on this token",
+      );
+      expect(
+        container.read(localSttBundleProvider).cpuFallbackActive,
+        isFalse,
+        reason: 'OOM recovers via smaller-model/cloud, not a CPU retry',
+      );
+      expect(
+        engine.armedCallCount,
+        1,
+        reason: 'OOM is not retried in the notifier — it hands off immediately',
+      );
+
+      await CrashReporter.instance!.flush();
+      expect(
+        _capturedEvents,
+        hasLength(1),
+        reason: 'the OOM is captured once under its own fingerprint',
+      );
+    });
+  });
+
+  // ── AC4: hanging transcription → stuck-guard, no deadlock ────────────────
+  group('Stuck-guard timeout', () {
+    test('a transcription that never returns ends in a clean bounded error, '
+        'not a deadlock', () async {
+      final engine = _FakeWhisperEngine();
+      final container = _makeContainer(engine);
+      addTearDown(container.dispose);
+
+      final notifier = await _bringReady(container);
+      engine.armHang();
+      _capturedEvents.clear();
+
+      final sw = Stopwatch()..start();
+      await expectLater(
+        notifier.transcribeBytes(_validWav(), language: 'auto'),
+        throwsA(anything),
+      );
+      sw.stop();
+
+      expect(
+        sw.elapsed,
+        lessThan(const Duration(seconds: 5)),
+        reason: 'the stuck-guard must bound the hang — no deadlock',
+      );
+
+      await CrashReporter.instance!.flush();
+      expect(
+        _capturedEvents,
+        hasLength(1),
+        reason: 'the stuck transcription is captured once',
+      );
+    });
+  });
+
+  // ── AC5: transient failure → retry ───────────────────────────────────────
+  group('Transient retry', () {
+    test('a transient failure that clears within the retry budget maps to '
+        'a successful transcription (state stays ready)', () async {
+      final engine = _FakeWhisperEngine();
+      final container = _makeContainer(engine);
+      addTearDown(container.dispose);
+
+      final notifier = await _bringReady(container);
+      engine.armFailures(WhisperFailureKind.transient, 2);
+      _capturedEvents.clear();
+
+      final text = await notifier.transcribeBytes(
+        _validWav(),
+        language: 'auto',
+      );
+
+      expect(text, 'hallo welt');
+      expect(
+        container.read(localSttBundleProvider).serverState,
+        SttServerState.ready,
+        reason: 'success after retry maps to ready',
+      );
+      expect(
+        engine.armedCallCount,
+        3,
+        reason: 'two transient failures + one success',
+      );
+
+      await CrashReporter.instance!.flush();
+      expect(_capturedEvents, isEmpty);
+    });
+
+    test('a transient failure that never clears aborts after 3 retries and '
+        'is captured once', () async {
+      final engine = _FakeWhisperEngine();
+      final container = _makeContainer(engine);
+      addTearDown(container.dispose);
+
+      final notifier = await _bringReady(container);
+      engine.armAlways(WhisperFailureKind.transient);
+      _capturedEvents.clear();
+
+      await expectLater(
+        notifier.transcribeBytes(_validWav(), language: 'auto'),
+        throwsA(anything),
+      );
+
+      expect(
+        engine.armedCallCount,
+        4,
+        reason: 'one initial attempt + three retries, then abort',
+      );
+
+      await CrashReporter.instance!.flush();
+      expect(
+        _capturedEvents,
+        hasLength(1),
+        reason: 'the exhausted-retry failure is captured once',
+      );
+    });
+  });
+}

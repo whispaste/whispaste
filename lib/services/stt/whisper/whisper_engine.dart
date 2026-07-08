@@ -11,6 +11,48 @@
 /// internally (`pcm_wav_codec.dart`), so callers never touch PCM.
 library;
 
+/// Distinguishable failure class an in-process [WhisperEngine] can signal to
+/// the notifier at transcription time.
+///
+/// Replaces the subprocess-era exit-code taxonomy ([`SttExitKind`]) for the
+/// FFI engine: with no child process there is no exit code, so the engine
+/// raises a typed [WhisperEngineException] carrying one of these kinds instead.
+/// The notifier's resilience wrapper reacts differently per kind (CPU-fallback,
+/// OOM-recovery trigger, stuck-guard, retry).
+///
+/// - [gpuCrash]  A GPU backend (Metal/CUDA/Vulkan) fault the app can recover
+///               from by degrading to CPU. NB: only a *catchable* fault — a
+///               genuine native segfault has no subprocess isolation and is
+///               validated on real hardware later (Issues 12–14), not here.
+/// - [oom]       GPU out-of-memory. Soft-recoverable via the orchestrator's
+///               `OomRecoveryHandler` (smaller model / cloud), not a CPU retry.
+/// - [timeout]   The transcription hung past the stuck-guard budget.
+/// - [transient] A one-off, retryable failure (generic `whisper_full` non-zero
+///               return, transient allocation hiccup).
+/// - [other]     Anything else — surfaced, not retried.
+enum WhisperFailureKind { gpuCrash, oom, timeout, transient, other }
+
+/// A distinguishable, catchable failure raised by a [WhisperEngine] during
+/// [WhisperEngine.transcribe].
+///
+/// Carries a [kind] so the notifier can pick the right resilience path without
+/// parsing message strings. Implements [Exception] (not [Error]) so it flows
+/// through the transcription error path rather than being treated as a
+/// programming fault.
+class WhisperEngineException implements Exception {
+  const WhisperEngineException(this.kind, this.message);
+
+  /// The distinguishable failure class.
+  final WhisperFailureKind kind;
+
+  /// Human-readable detail. For [WhisperFailureKind.oom] the message contains
+  /// the `stt_cuda_oom` token the orchestrator's OOM-recovery path keys on.
+  final String message;
+
+  @override
+  String toString() => 'WhisperEngineException(${kind.name}): $message';
+}
+
 /// Which compute backend the loaded library is using.
 ///
 /// Selected from hardware detection (`gpuInfoProvider`) via

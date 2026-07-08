@@ -118,7 +118,16 @@ class WhisperFfiEngine implements WhisperEngine {
 
       final rc = bindings.whisper_full(ctx, params, samplesPtr, samples.length);
       if (rc != 0) {
-        throw StateError('whisper_full failed with code $rc');
+        // whisper.cpp reports decode failures as a generic non-zero return
+        // without a taxonomy that separates OOM / GPU-fault / transient. Map
+        // it to a retryable [WhisperFailureKind.transient] so the notifier's
+        // resilience wrapper gets a chance before surfacing. Finer native
+        // classification (reading GGML backend error signals for a real OOM
+        // vs. GPU abort) is deferred to the hardware-acceptance issues.
+        throw WhisperEngineException(
+          WhisperFailureKind.transient,
+          'whisper_full failed with code $rc',
+        );
       }
 
       final buffer = StringBuffer();
