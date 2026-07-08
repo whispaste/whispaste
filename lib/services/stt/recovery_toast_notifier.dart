@@ -49,6 +49,7 @@ class RecoveryToastNotifier extends Notifier<RecoveryToastEvent?> {
   @override
   RecoveryToastEvent? build() => null;
 
+  // loam-ignore: unused-public-exports – orphaned by the Issue 03 engine cutover, stays for Issue 05's FFI-error resilience rewiring
   void report(RecoveryToastKind kind) {
     state = RecoveryToastEvent(kind: kind);
   }

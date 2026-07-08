@@ -19,6 +19,8 @@ export 'stt_health_probe.dart';
 export 'stt_idle_timer.dart';
 export 'stt_providers.dart';
 export 'stt_server_state_notifier.dart';
+export 'whisper/whisper_engine.dart';
+export 'whisper/whisper_ffi_engine.dart';
 
 /// Provider that wraps [SttServerStateNotifier] — the composed entry-point
 /// for the new modular STT subsystem.

@@ -24,6 +24,7 @@ final _log = AppLogger('SubprocessGuard');
 // ---------------------------------------------------------------------------
 
 /// Writes a PID file for [processName] so the next app launch can detect it.
+// loam-ignore: unused-public-exports – orphaned by the Issue 03 engine cutover, stays for Issue 08's subprocess-runtime-stack teardown
 void writePid(String processName, int pid) {
   try {
     final file = File(_pidPath(processName));
@@ -34,6 +35,7 @@ void writePid(String processName, int pid) {
 }
 
 /// Removes the PID file for [processName] (called on graceful stop).
+// loam-ignore: unused-public-exports – orphaned by the Issue 03 engine cutover, stays for Issue 08's subprocess-runtime-stack teardown
 void deletePid(String processName) {
   try {
     final file = File(_pidPath(processName));

@@ -1,34 +1,32 @@
-/// Wiring tests for STT inference Sentry-capture + validator-reject paths.
+/// Wiring tests for STT inference validator-reject + transport-independent
+/// post-processing paths.
 ///
-/// Issue 04 (wartung-2026-05): verify that
-///
-///  - a 4xx/5xx HTTP response from `whisper-server` results in **exactly one**
-///    `CrashReporter.captureError` call (the explicit, fingerprinted capture
-///    inside `SttServerStateNotifier.transcribeBytes`) — no second capture
-///    from the orchestrator's `_log.error` auto-escalation, which the
-///    parallel logger-downgrade removed;
-///  - the fingerprint and extras emitted into Sentry follow the
-///    [`InferenceErrorClassifier`](../../../lib/services/stt/inference_error_classifier.dart)
-///    contract (one bucket per status-code class, six request-context
-///    fields + `response_body`);
-///  - a 5xx response does **not** trigger `ServerBinaryRecovery` — a 5xx
-///    is a server-side error mid-flight, not a process-exit crash, so the
-///    recovery orchestrator stays untouched;
+/// Covers:
 ///  - a `InferenceRequestValidator` reject emits a Sentry breadcrumb in
 ///    category `stt` with the documented data fields **but never** escalates
 ///    to a captureError, and throws [InferenceClientRejected] with the
-///    validator's stable `userMessageKey`.
+///    validator's stable `userMessageKey`;
+///  - the `language` value reaches [WhisperEngine.transcribe] as-is;
+///  - zeroed WAV header size fields are repaired before the engine call;
+///  - the AppLogger `_log.warning`-does-not-auto-escalate contract;
+///  - non-speech marker stripping on the returned transcript.
+///
+/// Scope note (Issue 03, Nachtrag 2): the pre-cutover version of this file
+/// also had "HTTP failure capture" (413/415/500/503 status-code → Sentry
+/// fingerprint mapping) and "connection-lost capture" (SocketException/
+/// ClientException mid-inference) groups. Both asserted on HTTP-transport
+/// specifics — [WhisperEngine.transcribe] throws Dart exceptions, not HTTP
+/// responses, so there is no direct equivalent. Retired here (not adapted);
+/// Issue 05's own AC text already plans a
+/// "stt_inference_capture_test.dart-Äquivalent" for FFI-error capture, so
+/// this gap is expected to close there, not in Issue 03.
 library;
 
-import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:http/http.dart' as http;
-import 'package:http/testing.dart';
 import 'package:logging/logging.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
@@ -38,7 +36,6 @@ import 'package:whispaste/core/logging/crash_reporter.dart';
 import 'package:whispaste/services/hardware_info_service.dart' as hw;
 import 'package:whispaste/services/model_download_service.dart';
 import 'package:whispaste/services/path_service.dart' as paths;
-import 'package:whispaste/services/process_runner.dart';
 import 'package:whispaste/services/stt/stt_bundle.dart';
 
 // ---------------------------------------------------------------------------
@@ -64,53 +61,37 @@ Breadcrumb? _spyBeforeBreadcrumb(Breadcrumb? breadcrumb, Hint? hint) {
 // Test doubles
 // ---------------------------------------------------------------------------
 
-class _FakeProcess implements Process {
-  final _stdoutCtrl = StreamController<List<int>>();
-  final _stderrCtrl = StreamController<List<int>>();
-  final _exitCompleter = Completer<int>();
+class _FakeWhisperEngine implements WhisperEngine {
+  _FakeWhisperEngine({this.transcript = 'ok'});
+
+  /// Text returned by [transcribe] on success.
+  String transcript;
+
+  bool _loaded = false;
+  List<int>? lastWavBytes;
+  String? lastLanguage;
+  bool sawTranscribeCall = false;
 
   @override
-  Stream<List<int>> get stdout => _stdoutCtrl.stream;
-  @override
-  Stream<List<int>> get stderr => _stderrCtrl.stream;
-  @override
-  Future<int> get exitCode => _exitCompleter.future;
-  @override
-  int get pid => 99997;
+  WhisperEngineStatus get status =>
+      WhisperEngineStatus(isLoaded: _loaded, backend: WhisperBackend.cpu);
 
   @override
-  bool kill([ProcessSignal signal = ProcessSignal.sigterm]) {
-    if (!_exitCompleter.isCompleted) _exitCompleter.complete(0);
-    return true;
+  Future<void> load({required String modelPath}) async {
+    _loaded = true;
   }
 
   @override
-  IOSink get stdin => throw UnimplementedError();
-
-  void emitStderr(String line) => _stderrCtrl.add('$line\n'.codeUnits);
-
-  void exit(int code) {
-    if (!_exitCompleter.isCompleted) _exitCompleter.complete(code);
+  Future<String> transcribe(List<int> wavBytes, {String? language}) async {
+    sawTranscribeCall = true;
+    lastWavBytes = wavBytes;
+    lastLanguage = language;
+    return transcript;
   }
-
-  Future<void> dispose() async {
-    await _stdoutCtrl.close();
-    await _stderrCtrl.close();
-  }
-}
-
-class _FakeProcessRunner extends ProcessRunner {
-  final _FakeProcess process;
-
-  _FakeProcessRunner(this.process);
 
   @override
-  Future<Process> start(
-    String executable,
-    List<String> arguments, {
-    String? workingDirectory,
-  }) async {
-    return process;
+  Future<void> unload() async {
+    _loaded = false;
   }
 }
 
@@ -138,42 +119,17 @@ class _FakeModelDownloadNotifier extends ModelDownloadNotifier {
   }
 }
 
-/// Recording recovery double — must record zero calls in the 5xx regression
-/// test (HTTP-level errors on `/inference` never hand off to recovery, which
-/// is owned by the proc-exit path).
-class _RecordingRecovery implements ServerBinaryRecovery {
-  int recoverCalls = 0;
-
-  @override
-  Future<RecoveryResult> recover({
-    required RecoveryReason reason,
-    required hw.GpuInfo gpu,
-    required String sttDirPath,
-    required String? activeModelId,
-  }) async {
-    recoverCalls += 1;
-    return const RecoveryRetried('cpu');
-  }
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) =>
-      throw UnimplementedError('${invocation.memberName}');
-}
-
 // ---------------------------------------------------------------------------
 // Container + WAV helpers
 // ---------------------------------------------------------------------------
 
 ProviderContainer _makeContainer({
-  required ProcessRunner runner,
-  required http.Client httpClient,
+  required WhisperEngine engine,
   AppSettings? settings,
-  ServerBinaryRecovery? recoveryOverride,
 }) {
   return ProviderContainer(
     overrides: [
-      processRunnerProvider.overrideWithValue(runner),
-      sttHttpClientProvider.overrideWithValue(httpClient),
+      whisperEngineProvider.overrideWithValue(engine),
       settingsProvider.overrideWith(
         () => _FakeSettingsNotifier(
           settings ?? AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
@@ -184,25 +140,12 @@ ProviderContainer _makeContainer({
         (_) async =>
             const hw.GpuInfo(vendor: hw.GpuVendor.none, name: 'Test CPU'),
       ),
-      sttStartupHeartbeatConfigProvider.overrideWithValue(
-        const SttStartupHeartbeatConfig(
-          window: Duration(milliseconds: 50),
-          maxMissedWindows: 3,
-        ),
-      ),
-      if (recoveryOverride != null)
-        serverBinaryRecoveryProvider.overrideWithValue(recoveryOverride),
     ],
   );
 }
 
 Future<Directory> _createFakeSttDir({String modelId = 'whisper-small'}) async {
   final dir = await Directory.systemTemp.createTemp('stt_inference_capture_');
-
-  final serverName = Platform.isWindows
-      ? 'whisper-server.exe'
-      : 'whisper-server';
-  await File('${dir.path}/$serverName').writeAsBytes([0x7f, 0x45, 0x4c, 0x46]);
 
   final modelFilename =
       findSttModel(modelId)?.filename ?? 'ggml-small-q5_1.bin';
@@ -246,22 +189,13 @@ Uint8List _canonicalWav({required int dataBytes, required bool patchSizes}) {
   return buf;
 }
 
-/// Locates the embedded WAV inside a multipart body via its RIFF magic and
-/// reads the little-endian u32 at [fieldOffset] relative to the WAV start.
-int _wavFieldInMultipart(Uint8List body, int fieldOffset) {
-  for (var i = 0; i + 4 <= body.length; i++) {
-    if (body[i] == 0x52 &&
-        body[i + 1] == 0x49 &&
-        body[i + 2] == 0x46 &&
-        body[i + 3] == 0x46) {
-      final o = i + fieldOffset;
-      return body[o] |
-          (body[o + 1] << 8) |
-          (body[o + 2] << 16) |
-          (body[o + 3] << 24);
-    }
-  }
-  fail('no RIFF magic found in multipart body');
+/// Reads the little-endian u32 at [offset] in [wav] — used to assert the
+/// RIFF/data size fields the engine actually received.
+int _wavField(Uint8List wav, int offset) {
+  return wav[offset] |
+      (wav[offset + 1] << 8) |
+      (wav[offset + 2] << 16) |
+      (wav[offset + 3] << 24);
 }
 
 /// A minimal valid WAV header (RIFF/WAVE magic + 16 kHz mono 16-bit) so the
@@ -280,15 +214,9 @@ Uint8List _validWav({int dataBytes = 16000}) {
   return buf;
 }
 
-/// Drives the notifier from `stopped` → `ready` using a custom HTTP client
-/// that lets the test override behavior on the `/inference` endpoint. The
-/// `/health` path is always answered with `200 ok`.
-Future<void> _bringNotifierReady(
-  ProviderContainer container,
-  _FakeProcess fakeProcess,
-) async {
+/// Drives the notifier from `stopped` → `ready` against [engine].
+Future<void> _bringNotifierReady(ProviderContainer container) async {
   await container.read(settingsProvider.future);
-  fakeProcess.emitStderr('[whisper] model loaded');
   await container.read(localSttBundleProvider.notifier).ensureRunning();
   expect(
     container.read(localSttBundleProvider).serverState,
@@ -323,323 +251,6 @@ void main() {
     await CrashReporter.instance?.dispose();
   });
 
-  // ── HTTP-failure path: status code → fingerprint mapping + capture count ──
-
-  group('SttServerStateNotifier.transcribeBytes — HTTP failure capture', () {
-    late Directory tempDir;
-
-    setUp(() async {
-      tempDir = await _createFakeSttDir();
-    });
-
-    tearDown(() async {
-      paths.sttDirOverride = null;
-      await tempDir.delete(recursive: true);
-    });
-
-    Future<void> runFailureCase({
-      required int statusCode,
-      required String responseBody,
-      required String expectedFingerprint,
-    }) async {
-      final fakeProcess = _FakeProcess();
-      final runner = _FakeProcessRunner(fakeProcess);
-      final recovery = _RecordingRecovery();
-
-      final client = MockClient((req) async {
-        if (req.url.path == '/health') return http.Response('ok', 200);
-        if (req.url.path == '/inference') {
-          return http.Response(responseBody, statusCode);
-        }
-        return http.Response('not found', 404);
-      });
-
-      final container = _makeContainer(
-        runner: runner,
-        httpClient: client,
-        recoveryOverride: recovery,
-      );
-      addTearDown(() {
-        container.dispose();
-        fakeProcess.exit(0);
-      });
-
-      await _bringNotifierReady(container, fakeProcess);
-
-      // Drain any breadcrumbs emitted by the startup path (warmup inference
-      // adds plenty); the rest of the test only cares about post-call signal.
-      _capturedEvents.clear();
-      _capturedBreadcrumbs.clear();
-
-      final notifier = container.read(localSttBundleProvider.notifier);
-
-      await expectLater(
-        () => notifier.transcribeBytes(_validWav(), language: 'auto'),
-        throwsA(isA<HttpException>()),
-      );
-
-      // Drain the fire-and-forget Sentry pipeline deterministically. A fixed
-      // delay was flaky on the Windows runner where the SDK's beforeSend hop
-      // takes >50ms — late events leaked into the next test's spy list.
-      await CrashReporter.instance!.flush();
-
-      expect(
-        _capturedEvents,
-        hasLength(1),
-        reason:
-            'A status=$statusCode response must capture exactly one Sentry '
-            'event; observed: '
-            '${_capturedEvents.map((e) => e.message?.formatted ?? e.throwable).toList()}',
-      );
-
-      final ev = _capturedEvents.single;
-      expect(
-        ev.fingerprint,
-        [expectedFingerprint],
-        reason: 'fingerprint must come from crash_fingerprints.dart',
-      );
-      expect(
-        ev.tags?['error_type'],
-        'stt_inference_failed',
-        reason: 'tag identifies the call site for Sentry routing',
-      );
-
-      // Six request-context extras + the redacted response body — assert
-      // their presence rather than their values (the classifier's own unit
-      // tests pin the value semantics).
-      final extrasCtx = ev.contexts['extras'] as Map?;
-      expect(extrasCtx, isNotNull, reason: 'extras context must be set');
-      expect(
-        extrasCtx!.keys,
-        containsAll([
-          'wav_size_bytes',
-          'audio_duration_ms',
-          'language',
-          'model_id',
-          'prompt_length',
-          'vocab_length',
-          'response_body',
-        ]),
-        reason: 'six request-context extras + response_body must be present',
-      );
-
-      expect(
-        recovery.recoverCalls,
-        0,
-        reason:
-            'HTTP-level inference errors (any status) must NOT trigger '
-            'ServerBinaryRecovery — that path is owned by proc-exit crashes',
-      );
-    }
-
-    test(
-      '400 → inferenceBadRequest, capture-count == 1, no recovery',
-      () async {
-        await runFailureCase(
-          statusCode: 400,
-          responseBody: 'bad request',
-          expectedFingerprint: inferenceBadRequest,
-        );
-      },
-    );
-
-    test('413 → inferencePayloadTooLarge, capture-count == 1', () async {
-      await runFailureCase(
-        statusCode: 413,
-        responseBody: 'payload too large',
-        expectedFingerprint: inferencePayloadTooLarge,
-      );
-    });
-
-    test('415 → inferenceUnsupportedMedia, capture-count == 1', () async {
-      await runFailureCase(
-        statusCode: 415,
-        responseBody: 'unsupported media',
-        expectedFingerprint: inferenceUnsupportedMedia,
-      );
-    });
-
-    test('500 → inferenceServerError, capture-count == 1', () async {
-      await runFailureCase(
-        statusCode: 500,
-        responseBody: 'internal server error',
-        expectedFingerprint: inferenceServerError,
-      );
-    });
-
-    test('503 → inferenceServerError, capture-count == 1', () async {
-      await runFailureCase(
-        statusCode: 503,
-        responseBody: 'service unavailable',
-        expectedFingerprint: inferenceServerError,
-      );
-    });
-
-    test(
-      '418 (unknown 4xx) → inferenceUnknownStatus, capture-count == 1',
-      () async {
-        await runFailureCase(
-          statusCode: 418,
-          responseBody: "i'm a teapot",
-          expectedFingerprint: inferenceUnknownStatus,
-        );
-      },
-    );
-
-    test('5xx does NOT trigger ServerBinaryRecovery', () async {
-      // Explicit regression test — separate from the per-status loop so the
-      // observable property (`recoverCalls == 0` across the 5xx band) gets
-      // its own named assertion in the test report.
-      final fakeProcess = _FakeProcess();
-      final runner = _FakeProcessRunner(fakeProcess);
-      final recovery = _RecordingRecovery();
-
-      final client = MockClient((req) async {
-        if (req.url.path == '/health') return http.Response('ok', 200);
-        if (req.url.path == '/inference') {
-          return http.Response('boom', 503);
-        }
-        return http.Response('not found', 404);
-      });
-
-      final container = _makeContainer(
-        runner: runner,
-        httpClient: client,
-        recoveryOverride: recovery,
-      );
-      addTearDown(() {
-        container.dispose();
-        fakeProcess.exit(0);
-      });
-
-      await _bringNotifierReady(container, fakeProcess);
-      final notifier = container.read(localSttBundleProvider.notifier);
-
-      await expectLater(
-        () => notifier.transcribeBytes(_validWav(), language: 'auto'),
-        throwsA(isA<HttpException>()),
-      );
-      await CrashReporter.instance!.flush();
-
-      expect(recovery.recoverCalls, 0);
-    });
-  });
-
-  // ── Hardware-audit (2026-05): inference-time socket disconnect ──────────
-
-  group('SttServerStateNotifier.transcribeBytes — connection-lost capture', () {
-    late Directory tempDir;
-
-    setUp(() async {
-      tempDir = await _createFakeSttDir();
-    });
-
-    tearDown(() async {
-      paths.sttDirOverride = null;
-      await tempDir.delete(recursive: true);
-    });
-
-    Future<void> runConnectionLossCase({
-      required Object thrown,
-      required String expectedExceptionType,
-    }) async {
-      final fakeProcess = _FakeProcess();
-      final runner = _FakeProcessRunner(fakeProcess);
-
-      var inferenceCallCount = 0;
-      final client = MockClient((req) async {
-        if (req.url.path == '/health') return http.Response('ok', 200);
-        if (req.url.path == '/inference') {
-          inferenceCallCount += 1;
-          // First call is the GPU warmup during cold-start — let it
-          // succeed. Real inference call (second) throws to simulate
-          // the whisper-server crashing mid-response.
-          if (inferenceCallCount == 1) {
-            return http.Response('{"text":""}', 200);
-          }
-          throw thrown;
-        }
-        return http.Response('not found', 404);
-      });
-
-      final container = _makeContainer(runner: runner, httpClient: client);
-      addTearDown(() {
-        container.dispose();
-        fakeProcess.exit(0);
-      });
-
-      await _bringNotifierReady(container, fakeProcess);
-      _capturedEvents.clear();
-      _capturedBreadcrumbs.clear();
-
-      final notifier = container.read(localSttBundleProvider.notifier);
-
-      await expectLater(
-        () => notifier.transcribeBytes(_validWav(), language: 'auto'),
-        throwsA(isA<Exception>()),
-      );
-
-      await CrashReporter.instance!.flush();
-
-      expect(
-        _capturedEvents,
-        hasLength(1),
-        reason:
-            'A mid-inference $expectedExceptionType must capture exactly '
-            'one Sentry event under the sttInferenceConnectionLost bucket '
-            '(no double via AppLogger auto-escalation).',
-      );
-
-      final ev = _capturedEvents.single;
-      expect(ev.fingerprint, [
-        sttInferenceConnectionLost,
-      ], reason: 'fingerprint must be sttInferenceConnectionLost');
-      expect(ev.tags?['error_type'], 'stt_inference_connection_lost');
-
-      final extrasCtx = ev.contexts['extras'] as Map?;
-      expect(extrasCtx, isNotNull);
-      expect(
-        extrasCtx!.keys,
-        containsAll([
-          'exception_type',
-          'exception_message',
-          'model_id',
-          'port',
-          'wav_bytes',
-          'audio_duration_ms',
-          'language',
-          'gpu_mode',
-          'cpu_fallback_active',
-          'platform',
-        ]),
-        reason:
-            'hardware-context extras must accompany the capture so the '
-            'crash report is actionable without further user contact',
-      );
-      expect(extrasCtx['exception_type'], expectedExceptionType);
-    }
-
-    test(
-      'SocketException mid-inference → sttInferenceConnectionLost',
-      () async {
-        await runConnectionLossCase(
-          thrown: const SocketException('connection reset by peer'),
-          expectedExceptionType: 'SocketException',
-        );
-      },
-    );
-
-    test(
-      'ClientException mid-inference → sttInferenceConnectionLost',
-      () async {
-        await runConnectionLossCase(
-          thrown: http.ClientException('connection closed'),
-          expectedExceptionType: 'ClientException',
-        );
-      },
-    );
-  });
-
   // ── Pre-flight reject path ──────────────────────────────────────────────
 
   group('SttServerStateNotifier.transcribeBytes — validator reject', () {
@@ -656,26 +267,16 @@ void main() {
 
     test('empty WAV → 0 captures, 1 breadcrumb in category `stt`, '
         'throws InferenceClientRejected with stt.reject.empty', () async {
-      final fakeProcess = _FakeProcess();
-      final runner = _FakeProcessRunner(fakeProcess);
+      final engine = _FakeWhisperEngine(transcript: 'unreachable');
+      final container = _makeContainer(engine: engine);
+      addTearDown(container.dispose);
 
-      // /inference response is irrelevant — the validator short-circuits
-      // before the request leaves the process. Wire a 200 success so any
-      // accidental POST-through is visible (text=='unreachable').
-      final client = MockClient((req) async {
-        if (req.url.path == '/health') return http.Response('ok', 200);
-        return http.Response('{"text":"unreachable"}', 200);
-      });
-
-      final container = _makeContainer(runner: runner, httpClient: client);
-      addTearDown(() {
-        container.dispose();
-        fakeProcess.exit(0);
-      });
-
-      await _bringNotifierReady(container, fakeProcess);
+      await _bringNotifierReady(container);
       _capturedEvents.clear();
       _capturedBreadcrumbs.clear();
+      // The startup warmup already called transcribe() once (on a silent
+      // WAV) — reset the flag so it only reflects this test's own call.
+      engine.sawTranscribeCall = false;
 
       final notifier = container.read(localSttBundleProvider.notifier);
 
@@ -687,6 +288,11 @@ void main() {
       }
       expect(caught, isNotNull, reason: 'must throw InferenceClientRejected');
       expect(caught!.userMessageKey, 'stt.reject.empty');
+      expect(
+        engine.sawTranscribeCall,
+        isFalse,
+        reason: 'the validator must short-circuit before the engine call',
+      );
 
       await CrashReporter.instance!.flush();
 
@@ -715,7 +321,7 @@ void main() {
     });
   });
 
-  // ── Language field on the wire (store-review regression, June 2026) ─────
+  // ── Language field reaches the engine (store-review regression, June 2026) ──
 
   group('SttServerStateNotifier.transcribeBytes — language field', () {
     late Directory tempDir;
@@ -729,43 +335,27 @@ void main() {
       await tempDir.delete(recursive: true);
     });
 
-    /// Runs one inference with [language] and returns the value of the
-    /// `language` multipart field whisper-server would have received
-    /// (null = field absent from the request).
+    /// Runs one inference with [language] and returns the value the engine
+    /// actually received (null = never reached the engine).
     Future<String?> capturedLanguageField(String language) async {
-      final fakeProcess = _FakeProcess();
-      final runner = _FakeProcessRunner(fakeProcess);
+      final engine = _FakeWhisperEngine(transcript: 'ok');
+      final container = _makeContainer(engine: engine);
+      addTearDown(container.dispose);
 
-      String? captured;
-      var sawInference = false;
-      final client = MockClient((req) async {
-        if (req.url.path == '/health') return http.Response('ok', 200);
-        if (req.url.path == '/inference') {
-          sawInference = true;
-          captured = RegExp(
-            r'name="language"\r\n\r\n([^\r]*)',
-          ).firstMatch(req.body)?.group(1);
-          return http.Response('{"text":"ok"}', 200);
-        }
-        return http.Response('not found', 404);
-      });
-
-      final container = _makeContainer(runner: runner, httpClient: client);
-      addTearDown(() {
-        container.dispose();
-        fakeProcess.exit(0);
-      });
-
-      await _bringNotifierReady(container, fakeProcess);
+      await _bringNotifierReady(container);
       final notifier = container.read(localSttBundleProvider.notifier);
       await notifier.transcribeBytes(_validWav(), language: language);
 
-      expect(sawInference, isTrue, reason: 'request must reach /inference');
-      return captured;
+      expect(
+        engine.sawTranscribeCall,
+        isTrue,
+        reason: 'request must reach the engine',
+      );
+      return engine.lastLanguage;
     }
 
-    test('auto is sent explicitly — an omitted field falls back to '
-        "whisper-server's startup default (en), not auto-detection", () async {
+    test('auto is sent explicitly — an omitted value would fall back to '
+        "the engine's own default instead of auto-detection", () async {
       expect(await capturedLanguageField('auto'), 'auto');
     });
 
@@ -788,8 +378,6 @@ void main() {
     });
   });
 
-  // ── Orchestrator dedup — the AppLogger auto-escalation MUST stay quiet ──
-
   // ── WAV-header repair: unpatched recordings still transcribe ─────────────
 
   group('SttServerStateNotifier.transcribeBytes — WAV header repair', () {
@@ -804,54 +392,39 @@ void main() {
       await tempDir.delete(recursive: true);
     });
 
-    Future<(String text, Uint8List sentBody)> runWithWav(Uint8List wav) async {
-      final fakeProcess = _FakeProcess();
-      final runner = _FakeProcessRunner(fakeProcess);
+    Future<(String text, Uint8List sentWav)> runWithWav(Uint8List wav) async {
+      final engine = _FakeWhisperEngine(transcript: 'hallo welt');
+      final container = _makeContainer(engine: engine);
+      addTearDown(container.dispose);
 
-      Uint8List? sentBody;
-      final client = MockClient((req) async {
-        if (req.url.path == '/health') return http.Response('ok', 200);
-        if (req.url.path == '/inference') {
-          sentBody = req.bodyBytes;
-          return http.Response('{"text":"hallo welt"}', 200);
-        }
-        return http.Response('not found', 404);
-      });
-
-      final container = _makeContainer(runner: runner, httpClient: client);
-      addTearDown(() {
-        container.dispose();
-        fakeProcess.exit(0);
-      });
-
-      await _bringNotifierReady(container, fakeProcess);
+      await _bringNotifierReady(container);
       _capturedEvents.clear();
       _capturedBreadcrumbs.clear();
 
       final text = await container
           .read(localSttBundleProvider.notifier)
           .transcribeBytes(wav, language: 'auto');
-      return (text, sentBody!);
+      return (text, Uint8List.fromList(engine.lastWavBytes!));
     }
 
     test('recording with zeroed RIFF/data size fields is repaired before the '
-        'POST and still transcribes (FLUTTER_WHISPASTE-7X)', () async {
+        'engine call and still transcribes (FLUTTER_WHISPASTE-7X)', () async {
       // The unpatched-header shape: WavFileWriter.close() never patched the
-      // size fields. whisper-server rejects exactly this container with
-      // HTTP 400 "Invalid request" — the dictation must not be lost.
+      // size fields. The engine's WAV decoder rejects exactly this
+      // container — the dictation must not be lost.
       const dataBytes = 1000;
       final broken = _canonicalWav(dataBytes: dataBytes, patchSizes: false);
 
-      final (text, sentBody) = await runWithWav(broken);
+      final (text, sentWav) = await runWithWav(broken);
 
       expect(text, 'hallo welt');
       expect(
-        _wavFieldInMultipart(sentBody, 4),
+        _wavField(sentWav, 4),
         36 + dataBytes,
         reason: 'RIFF size field must be repaired in the shipped payload',
       );
       expect(
-        _wavFieldInMultipart(sentBody, 40),
+        _wavField(sentWav, 40),
         dataBytes,
         reason: 'data size field must be repaired in the shipped payload',
       );
@@ -875,23 +448,11 @@ void main() {
       const dataBytes = 1000;
       final ok = _canonicalWav(dataBytes: dataBytes, patchSizes: true);
 
-      final (text, sentBody) = await runWithWav(ok);
+      final (text, sentWav) = await runWithWav(ok);
 
       expect(text, 'hallo welt');
-      // Locate the WAV inside the multipart body and compare it verbatim.
-      final start = () {
-        for (var i = 0; i + 4 <= sentBody.length; i++) {
-          if (sentBody[i] == 0x52 &&
-              sentBody[i + 1] == 0x49 &&
-              sentBody[i + 2] == 0x46 &&
-              sentBody[i + 3] == 0x46) {
-            return i;
-          }
-        }
-        fail('no RIFF magic in body');
-      }();
       expect(
-        sentBody.sublist(start, start + ok.length),
+        sentWav,
         ok,
         reason: 'a well-formed WAV must pass through unmodified',
       );
@@ -949,7 +510,7 @@ void main() {
     });
   });
 
-  // ── Non-speech marker stripping on the 200 path ──
+  // ── Non-speech marker stripping on the success path ──
   //
   // whisper emits bracketed sound tags ([Musik], [BLANK_AUDIO], …) on
   // silence/noise. These must never reach the transcript that gets pasted
@@ -966,29 +527,12 @@ void main() {
       await tempDir.delete(recursive: true);
     });
 
-    Future<String> transcribeWithText(String serverText) async {
-      final fakeProcess = _FakeProcess();
-      final runner = _FakeProcessRunner(fakeProcess);
+    Future<String> transcribeWithText(String engineText) async {
+      final engine = _FakeWhisperEngine(transcript: engineText);
+      final container = _makeContainer(engine: engine);
+      addTearDown(container.dispose);
 
-      final client = MockClient((req) async {
-        if (req.url.path == '/health') return http.Response('ok', 200);
-        if (req.url.path == '/inference') {
-          return http.Response(
-            jsonEncode({'text': serverText}),
-            200,
-            headers: {'content-type': 'application/json'},
-          );
-        }
-        return http.Response('not found', 404);
-      });
-
-      final container = _makeContainer(runner: runner, httpClient: client);
-      addTearDown(() {
-        container.dispose();
-        fakeProcess.exit(0);
-      });
-
-      await _bringNotifierReady(container, fakeProcess);
+      await _bringNotifierReady(container);
       final notifier = container.read(localSttBundleProvider.notifier);
       return notifier.transcribeBytes(_validWav(), language: 'auto');
     }

@@ -648,6 +648,7 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
   /// Called by stt_service when a DLL-not-found crash is detected (wrong
   /// GPU binary variant). After this, `serverReady` is false and the
   /// self-heal logic will auto-download the correct binary.
+  // loam-ignore: unused-public-exports – orphaned by the Issue 03 engine cutover, stays for Issue 07's binary-acquisition-stack teardown
   Future<void> invalidateServerBinary() async {
     try {
       await hw.deleteServerBinary(sttDir());

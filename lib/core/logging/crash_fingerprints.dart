@@ -63,6 +63,7 @@ const String sttModelCorrupted = 'stt-model-corrupted';
 /// not see the virtualised `%APPDATA%\Roaming` path), NOT an ABI mismatch.
 /// Distinct bucket so these stop polluting [sttModelAbiMismatch] and the
 /// launch-context hypothesis can be confirmed from the field.
+// loam-ignore: unused-public-exports – orphaned by the Issue 03 engine cutover, stays for Issue 07/08's subprocess-era teardown
 const String sttModelFileUnreadable = 'stt-model-file-unreadable';
 
 /// Final `SqliteException(5) database is locked` after the
