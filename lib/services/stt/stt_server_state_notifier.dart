@@ -35,12 +35,6 @@ import 'whisper/whisper_resilience_policy.dart';
 export '../../core/recording/recording_state.dart' show SttServerState;
 export 'stt_exit_classifier.dart' show SttExitKind, classifySttExitCode;
 export 'stt_gpu_fallback_policy.dart' show SttGpuFallbackPolicy;
-export 'stt_providers.dart'
-    show
-        SttStartupHeartbeatConfig,
-        processRunnerProvider,
-        sttHttpClientProvider,
-        sttStartupHeartbeatConfigProvider;
 
 // ---------------------------------------------------------------------------
 // SttStatus (local copy so stt_bundle.dart can re-export without coupling
@@ -136,8 +130,9 @@ bool isSttModelFileTooSmall(
 /// The engine seam replaced the former `whisper-server` subprocess + HTTP
 /// transport (Issue 03). The subprocess-era GPU-DLL-gate and CUDA-OOM/exit-code
 /// classification had no equivalent against an in-process engine and were
-/// removed; their production files stay in the repo for Issue 08 to retire.
-/// The `ServerBinaryRecovery` machinery (and the whole server-binary
+/// removed, along with the rest of the subprocess-runtime stack (`ProcessRunner`,
+/// `LocalSttServer`, `SttHealthProbe`, `SttWarmLivenessPolicy`, `SubprocessGuard`)
+/// in Issue 08. The `ServerBinaryRecovery` machinery (and the whole server-binary
 /// download/manifest stack) was retired in Issue 07. Real backend selection
 /// (Metal/CUDA/Vulkan) is Issue 04; OOM/retry resilience against FFI error
 /// codes is Issue 05.

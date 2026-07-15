@@ -31,7 +31,6 @@ import 'services/deploy_channel_service.dart';
 import 'services/hardware_info_service.dart' as hw;
 import 'services/path_service.dart';
 import 'services/single_instance_service.dart';
-import 'services/subprocess_guard.dart' as guard;
 import 'services/telemetry_service.dart';
 import 'services/tmp_reaper.dart';
 import 'services/update_channel_service.dart';
@@ -185,9 +184,6 @@ Future<void> _runApp(List<String> args) async {
       return;
     }
   }
-
-  // Kill orphaned whisper-server / llama-server from crashed sessions.
-  unawaited(guard.cleanupOrphans());
 
   // Reap orphaned .tmp fragments from aborted model/server downloads
   // (fire-and-forget). At app-start no download is active, so the

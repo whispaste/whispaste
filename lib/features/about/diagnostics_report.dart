@@ -3,8 +3,7 @@
 /// This file is the app-layer adapter. The formatter ([formatDiagnosticsReport])
 /// and its data types live in `package:whispaste_diagnostics`. This file
 /// re-exports those symbols and adds the app-side gather orchestration:
-/// live Riverpod/app state (sttServerState, sttErrorMessage) and the
-/// model-load probe (which spawns a subprocess and stays app-side).
+/// live Riverpod/app state (sttServerState, sttErrorMessage).
 library;
 
 import 'dart:io';
@@ -16,7 +15,6 @@ import '../../core/app_info.dart';
 import '../../core/logging/app_logger.dart';
 import '../../services/hardware_info_service.dart' as hw;
 import '../../services/path_service.dart' as paths;
-import 'model_load_probe.dart';
 
 // ---------------------------------------------------------------------------
 // Re-exports — keep all existing callers unchanged
@@ -43,7 +41,6 @@ Future<String> gatherDiagnosticsReport({
   int logTailLines = 40,
   String? sttServerState,
   String? sttErrorMessage,
-  bool runModelProbe = true,
 }) async {
   final sttDirPath = paths.sttDir();
 
@@ -69,23 +66,6 @@ Future<String> gatherDiagnosticsReport({
       ? hw.vcRuntimeDllsPresent(sttDirPath)
       : null;
 
-  // ModelLoadProbeResult is now from the core (re-exported through
-  // model_load_probe.dart), so no type conversion is needed.
-  ModelLoadProbeResult? probe;
-  if (runModelProbe) {
-    try {
-      probe = await runModelLoadProbe(
-        serverPath: serverPath,
-        modelPath: core.findInstalledModelPath(sttDirPath),
-      );
-    } on Object catch (e) {
-      probe = ModelLoadProbeResult(
-        ran: false,
-        skipReason: 'Ladetest fehlgeschlagen: $e',
-      );
-    }
-  }
-
   return core.formatDiagnosticsReport(
     version: appVersion,
     variant: core.installVariantLabel(),
@@ -99,7 +79,6 @@ Future<String> gatherDiagnosticsReport({
     sttServerState: sttServerState,
     sttErrorMessage: sttErrorMessage,
     sttFiles: sttFiles,
-    modelLoadProbe: probe,
     vcRuntimePresent: vcPresent,
     gpu: gpu,
     logTail: _readAppLogTail(logTailLines),

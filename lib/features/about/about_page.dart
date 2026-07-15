@@ -941,11 +941,6 @@ class _CopyDiagnosticsButtonState
       report = await gatherDiagnosticsReport(
         sttServerState: stt.serverState.name,
         sttErrorMessage: stt.errorMessage,
-        // Only run the real model-load probe when the server is not already
-        // up: if it's ready we know the model loads, and a second launch would
-        // load the model twice (RAM spike). The probe matters in the failure
-        // case, which is exactly when the server is not ready.
-        runModelProbe: stt.serverState != SttServerState.ready,
       );
     } on Object catch (e) {
       // Never leave the user empty-handed — fall back to the minimal block.

@@ -9,14 +9,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'stt_server_state_notifier.dart';
 
 export 'inference_client_rejected.dart';
-export 'local_stt_server.dart';
 export 'local_transcriber.dart';
 export 'stt_benchmark.dart';
 export 'stt_exit_classifier.dart';
 export 'stt_gpu_fallback_policy.dart';
-export 'stt_health_probe.dart';
 export 'stt_idle_timer.dart';
-export 'stt_providers.dart';
 export 'stt_server_state_notifier.dart';
 export 'whisper/whisper_engine.dart';
 export 'whisper/whisper_ffi_engine.dart';
