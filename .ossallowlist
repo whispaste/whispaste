@@ -98,6 +98,9 @@ scripts/build-store-trailer.sh
 scripts/store-screenshots.py
 scripts/capture-store-screenshots.py
 scripts/generate-whisper-server-manifest.sh
+scripts/build-libwhisper-macos.sh
+scripts/build-libwhisper-linux.sh
+scripts/bundle-libwhisper-windows.ps1
 scripts/generate_appcast.sh
 scripts/install-hooks.sh
 scripts/macos-selfsign.sh

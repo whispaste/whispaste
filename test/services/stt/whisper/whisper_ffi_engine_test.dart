@@ -87,6 +87,38 @@ void main() {
     skip: available ? null : 'local libwhisper.dylib + tiny model absent',
   );
 
+  // Bundled-library path resolution (Issue 11). Host-independent for the
+  // active platform (macOS on this runner): asserts the resolver points at the
+  // embedded `libwhisper` next to the executable, not a bare loader-search name.
+  group('whisperLibraryPathFor', () {
+    test('resolves the bundled library relative to the executable', () {
+      final resolved = whisperLibraryPathFor(
+        p.join('/Apps', 'WhisPaste.app', 'Contents', 'MacOS', 'whispaste'),
+      );
+      expect(p.isAbsolute(resolved), isTrue);
+      if (Platform.isMacOS) {
+        expect(
+          resolved,
+          p.join(
+            '/Apps',
+            'WhisPaste.app',
+            'Contents',
+            'Frameworks',
+            'libwhisper.dylib',
+          ),
+        );
+      } else if (Platform.isWindows) {
+        expect(resolved, endsWith('whisper.dll'));
+      } else {
+        expect(resolved, endsWith(p.join('lib', 'libwhisper.so')));
+      }
+    });
+
+    test('defaultWhisperLibraryPath is absolute', () {
+      expect(p.isAbsolute(defaultWhisperLibraryPath()), isTrue);
+    });
+  });
+
   // Host-independent error path (no dylib/model required): a missing model
   // surfaces via status.errorMessage without loading.
   test('surfaces a missing-model error via status.errorMessage', () async {

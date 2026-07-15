@@ -13,19 +13,39 @@ import 'dart:io';
 
 import 'package:ffi/ffi.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
 
 import '../../audio/pcm_wav_codec.dart';
 import '../../hardware_info_service.dart';
 import 'whisper_bindings.dart';
 import 'whisper_engine.dart';
 
-/// The conventional bundled library file name per platform. Issue 11 (bundling
-/// + signing) resolves this to an absolute in-bundle path; until then
-/// [DynamicLibrary.open] relies on the OS loader search path.
-String defaultWhisperLibraryName() {
-  if (Platform.isMacOS) return 'libwhisper.dylib';
-  if (Platform.isWindows) return 'whisper.dll';
-  return 'libwhisper.so';
+/// Absolute path to the `libwhisper` shared library bundled next to the running
+/// app, per platform. `libwhisper` (plus its `ggml*` backends) is embedded and
+/// signed into each platform bundle at build time (ADR-01, Option C) — never
+/// downloaded at runtime (Apple Guideline 2.5.2) — and resolved here relative to
+/// [Platform.resolvedExecutable] so the OS loader finds the co-located backends
+/// via each dylib's `@loader_path`/`$ORIGIN` rpath.
+String defaultWhisperLibraryPath() =>
+    whisperLibraryPathFor(Platform.resolvedExecutable);
+
+/// Pure resolver behind [defaultWhisperLibraryPath], split out for unit tests
+/// (the runtime path depends on [Platform.resolvedExecutable], which a test
+/// cannot set). Given the app [executablePath], returns the bundled library
+/// path for the current OS:
+/// - macOS: `<App>.app/Contents/MacOS/<exe>` → `../Frameworks/libwhisper.dylib`
+///   (embedded via the "[WP] Embed & Sign libwhisper" Xcode phase).
+/// - Windows: `whisper.dll` next to `whispaste.exe` (Flutter bundle root).
+/// - Linux: `lib/libwhisper.so` next to the executable (Flutter bundle layout).
+String whisperLibraryPathFor(String executablePath) {
+  final execDir = p.dirname(executablePath);
+  if (Platform.isMacOS) {
+    return p.normalize(p.join(execDir, '..', 'Frameworks', 'libwhisper.dylib'));
+  }
+  if (Platform.isWindows) {
+    return p.join(execDir, 'whisper.dll');
+  }
+  return p.join(execDir, 'lib', 'libwhisper.so');
 }
 
 /// Loads `libwhisper` in-process and transcribes 16 kHz mono WAV bytes.
@@ -35,7 +55,7 @@ String defaultWhisperLibraryName() {
 /// offload is deferred to Issue 03.
 class WhisperFfiEngine implements WhisperEngine {
   WhisperFfiEngine({String? libraryPath, WhisperBackend? backend})
-    : _libraryPath = libraryPath ?? defaultWhisperLibraryName(),
+    : _libraryPath = libraryPath ?? defaultWhisperLibraryPath(),
       _backend = backend ?? WhisperBackend.cpu;
 
   final String _libraryPath;

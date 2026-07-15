@@ -93,6 +93,9 @@ CONTEXT.md
 # Internal dev tools (local only)
 cmd/
 scripts/*
+!scripts/build-libwhisper-macos.sh
+!scripts/build-libwhisper-linux.sh
+!scripts/bundle-libwhisper-windows.ps1
 !scripts/git-hooks/
 !scripts/generate-release-notes.mjs
 !scripts/generate-release-notes.ps1

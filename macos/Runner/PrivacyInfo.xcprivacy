@@ -13,6 +13,23 @@
 
   The reason codes below are the conservative defaults for a Flutter desktop app;
   verify against the plugins actually compiled in before the first submission.
+
+  libwhisper (whisper.cpp v1.8.4, Metal+CPU) — verified 2026-07-15 for Issue 11:
+  it is the first natively-embedded third-party library in the binary, so its
+  Required Reason API surface was audited against .build/deps/whisper.cpp/v1.8.4
+  (the sources actually compiled on macOS: ggml.c, ggml-cpu/ggml-cpu.cpp,
+  ggml-metal/ggml-metal-device.m; the virtgpu/openvino/hexagon/sycl/kleidiai/arm
+  backends are NOT compiled here). Findings:
+    - clock_gettime(CLOCK_MONOTONIC) — ggml.c:538,544 (perf timing). Covered by
+      the already-declared SystemBootTime (35F9.1).
+    - sysctlbyname("machdep.cpu.brand_string") — ggml-cpu.cpp:293-295, and Metal
+      device props (hasUnifiedMemory, recommendedMaxWorkingSetSize) — these are
+      NOT Required Reason APIs (hardware capability, not privacy-restricted).
+    - Model loading uses plain fopen/fread — no mmap, no stat/st_mtime, no
+      statvfs, no NSUserDefaults. So libwhisper adds NO new Required Reason API
+      category; the FileTimestamp/DiskSpace/UserDefaults codes below remain
+      justified only by the app's own first-party usage, not by libwhisper.
+  => No reason code added or removed on account of libwhisper.
 -->
 <plist version="1.0">
 <dict>
