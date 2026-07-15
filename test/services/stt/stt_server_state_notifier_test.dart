@@ -35,6 +35,10 @@ class _FakeWhisperEngine implements WhisperEngine {
   String? lastModelPath;
   int loadCallCount = 0;
 
+  /// If set, [transcribe] waits this long before completing — simulates
+  /// slower/faster hardware for benchmark-driven tier-selection tests.
+  Duration? transcribeDelay;
+
   @override
   WhisperEngineStatus get status =>
       WhisperEngineStatus(isLoaded: _loaded, backend: WhisperBackend.cpu);
@@ -48,6 +52,10 @@ class _FakeWhisperEngine implements WhisperEngine {
 
   @override
   Future<String> transcribe(List<int> wavBytes, {String? language}) async {
+    final delay = transcribeDelay;
+    if (delay != null) {
+      await Future<void>.delayed(delay);
+    }
     return 'fake transcript';
   }
 
@@ -121,6 +129,34 @@ Future<Directory> _createFakeSttDir({String modelId = 'whisper-small'}) async {
 
   paths.sttDirOverride = dir.path;
   return dir;
+}
+
+/// Writes a second fake model file for [modelId] into an existing
+/// [dir] created by [_createFakeSttDir] — used by tests that switch the
+/// active model between two quality tiers.
+Future<void> _addFakeModelFile(Directory dir, String modelId) async {
+  final modelFilename = findSttModel(modelId)?.filename ?? '$modelId.bin';
+  await File(
+    '${dir.path}/$modelFilename',
+  ).writeAsBytes(Uint8List(11 * 1024 * 1024));
+}
+
+/// Polls [settingsProvider] until a benchmark RTF has been stored for
+/// [tier], or fails after [timeout]. The notifier fires `_runBenchmark`
+/// un-awaited (fire-and-forget after `_start` returns), so tests must wait
+/// for the background `engine.transcribe()` + settings write to land.
+Future<void> _waitForBenchmarkStored(
+  ProviderContainer container,
+  QualityTier tier, {
+  Duration timeout = const Duration(seconds: 5),
+}) async {
+  final deadline = DateTime.now().add(timeout);
+  while (DateTime.now().isBefore(deadline)) {
+    final rtfMap = container.read(settingsProvider).value?.tierBenchmarkRtf;
+    if (rtfMap != null && rtfMap.containsKey(tier)) return;
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+  }
+  fail('Benchmark result for $tier was not stored within $timeout');
 }
 
 // ---------------------------------------------------------------------------
@@ -325,5 +361,93 @@ void main() {
         );
       },
     );
+  });
+
+  // ---------------------------------------------------------------------------
+  // Benchmark via engine seam — Issue 15 (AC1, AC3)
+  // ---------------------------------------------------------------------------
+
+  group('SttServerStateNotifier — benchmark via engine seam', () {
+    late Directory tempDir;
+
+    setUp(() async {
+      tempDir = await _createFakeSttDir();
+    });
+
+    tearDown(() async {
+      paths.sttDirOverride = null;
+      await tempDir.delete(recursive: true);
+    });
+
+    test('benchmark measures engine.transcribe and stores RTF for the active '
+        "model's tier (AC1)", () async {
+      final engine = _FakeWhisperEngine()
+        ..transcribeDelay = const Duration(milliseconds: 60);
+      final container = _makeContainer(engine: engine);
+      addTearDown(container.dispose);
+
+      await container.read(settingsProvider.future);
+      await container.read(localSttBundleProvider.notifier).ensureRunning();
+
+      await _waitForBenchmarkStored(container, QualityTier.compact);
+
+      final settings = container.read(settingsProvider).value!;
+      final rtf = settings.tierBenchmarkRtf![QualityTier.compact]!;
+      expect(rtf, greaterThanOrEqualTo(0.0));
+      expect(
+        rtf,
+        lessThan(0.8),
+        reason: 'a 60ms transcribe over a 3s clip must read as fast',
+      );
+      expect(settings.benchmarkHardwareId, 'cpu');
+      expect(settings.benchmarkTimestamp, isNotNull);
+    });
+
+    test('tier auto-selection reflects variable simulated engine runtimes: a '
+        'slow compact tier is skipped in favor of a faster balanced tier '
+        '(AC3)', () async {
+      await _addFakeModelFile(tempDir, 'whisper-medium');
+
+      final engine = _FakeWhisperEngine()
+        ..transcribeDelay = const Duration(milliseconds: 2450);
+      final container = _makeContainer(engine: engine);
+      addTearDown(container.dispose);
+
+      await container.read(settingsProvider.future);
+      final notifier = container.read(localSttBundleProvider.notifier);
+
+      // Slow compact-tier model — simulates weak/old hardware.
+      await notifier.ensureRunning();
+      await _waitForBenchmarkStored(container, QualityTier.compact);
+
+      // Switch the active model to the balanced tier with a fast
+      // simulated runtime — simulates capable hardware.
+      await container
+          .read(settingsProvider.notifier)
+          .updateSettings((s) => s.copyWith(sttModel: 'whisper-medium'));
+      engine.transcribeDelay = const Duration(milliseconds: 100);
+      await notifier.ensureRunning();
+      await _waitForBenchmarkStored(container, QualityTier.balanced);
+
+      final rtfMap = container.read(settingsProvider).value!.tierBenchmarkRtf!;
+      expect(
+        rtfMap[QualityTier.compact],
+        greaterThanOrEqualTo(0.8),
+        reason: 'a 2.45s transcribe over a 3s clip must read as slow',
+      );
+      expect(
+        rtfMap[QualityTier.balanced],
+        lessThan(0.8),
+        reason: 'a 100ms transcribe over a 3s clip must read as fast',
+      );
+
+      expect(
+        recommendTierFromBenchmark(rtfMap),
+        QualityTier.balanced,
+        reason:
+            'the slower compact tier must be skipped for the faster '
+            'balanced tier the simulated hardware actually delivers',
+      );
+    });
   });
 }

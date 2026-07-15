@@ -1,62 +1,17 @@
-/// Benchmark helper: measures whisper-server RTF with a silent WAV.
+/// Benchmark helper: generates the silent WAV used to measure a whisper
+/// engine's real-time factor (RTF = processing_time_ms / audio_duration_ms).
+///
+/// The actual timing (`Stopwatch` around `WhisperEngine.transcribe`) happens
+/// at the call site against the in-process engine seam — see
+/// `SttServerStateNotifier._runBenchmark`. This class only owns the shared
+/// benchmark input, also reused by the Parakeet engine so both engines'
+/// RTF numbers are measured against the same audio.
 library;
 
-import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:http/http.dart' as http;
-
-/// Sends a 3-second silent WAV to the whisper-server and measures the
-/// real-time factor (RTF = processing_time_ms / audio_duration_ms).
-///
-/// Returns the RTF as a [double], or `null` on failure (network error,
-/// server not ready, etc.). Failures are intentionally non-fatal.
 class SttBenchmark {
   const SttBenchmark();
-
-  /// Runs the benchmark against `http://<host>:<port>/inference`.
-  ///
-  /// An optional [client] can be injected for testing; when omitted a
-  /// short-lived [http.Client] is created and closed after the request.
-  Future<double?> run(
-    String host,
-    int port,
-    String modelId, {
-    http.Client? client,
-  }) async {
-    final owned = client == null;
-    final c = client ?? http.Client();
-    try {
-      final benchmarkWav = generateBenchmarkWav();
-      final uri = Uri.parse('http://$host:$port/inference');
-      final request = http.MultipartRequest('POST', uri)
-        ..files.add(
-          http.MultipartFile.fromBytes(
-            'file',
-            benchmarkWav,
-            filename: 'benchmark.wav',
-          ),
-        )
-        ..fields['response_format'] = 'json'
-        ..fields['temperature'] = '0.0';
-
-      final sw = Stopwatch()..start();
-      final streamed = await c
-          .send(request)
-          .timeout(const Duration(seconds: 30));
-      await streamed.stream.drain<void>();
-      sw.stop();
-
-      // Benchmark audio is 3 seconds.
-      const audioDurationMs = 3000;
-      final rtf = sw.elapsedMilliseconds / audioDurationMs;
-      return rtf;
-    } on Exception {
-      return null;
-    } finally {
-      if (owned) c.close();
-    }
-  }
 
   /// Generates a 3-second silent WAV (16 kHz, mono, 16-bit PCM).
   static Uint8List generateBenchmarkWav() {
