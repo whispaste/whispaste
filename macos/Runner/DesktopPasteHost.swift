@@ -42,8 +42,19 @@ class DesktopPasteHost {
       let prompt = (call.arguments as? [String: Any])?["prompt"] as? Bool ?? false
       result(checkCapability(prompt: prompt))
 
+#if MAS_BUILD
+    // Mac App Store build: the TCC self-heal handler is excluded entirely —
+    // its only implementation, runTccReset(), shells out to /usr/bin/tccutil
+    // via Process(), which is not permitted in the sandbox and would leave a
+    // Process/tccutil symbol in the binary for Apple's static scan
+    // (Guideline 2.5.2). The Dart-side caller (MacOSDesktopPasteController)
+    // is never instantiated in MAS builds (see kAutoPasteSupported in
+    // lib/core/config/build_config.dart), so this is defense-in-depth: an
+    // unrecognised "repairTccEntries" call falls through to `default` below.
+#else
     case "repairTccEntries":
       result(repairTccEntries())
+#endif
 
     case "diagnosticPaste":
       let demoText = (call.arguments as? [String: Any])?["demoText"] as? String ?? ""
@@ -166,6 +177,12 @@ class DesktopPasteHost {
     }
   }
 
+#if MAS_BUILD
+  // Mac App Store build: repairTccEntries()/runTccReset() are compiled out
+  // entirely so the shipped binary contains no Process/tccutil symbols,
+  // which Apple statically scans for (Guideline 2.5.2). The dispatch case
+  // above is excluded to match — see the `handle` switch.
+#else
   /// Wipes stale TCC entries for both permission channels Auto-Paste uses.
   ///
   /// On macOS, TCC binds permissions to a code requirement that includes
@@ -219,6 +236,7 @@ class DesktopPasteHost {
       .filter { $0.contains("Successfully reset") }
       .count
   }
+#endif
 
   /// Attempts a Cmd+V paste via AppleScript's `System Events.keystroke`.
   ///
