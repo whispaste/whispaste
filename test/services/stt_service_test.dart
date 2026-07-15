@@ -34,8 +34,11 @@ class _FakeWhisperEngine implements WhisperEngine {
   }
 
   @override
-  Future<String> transcribe(List<int> wavBytes, {String? language}) async =>
-      'fake transcript';
+  Future<String> transcribe(
+    List<int> wavBytes, {
+    String? language,
+    String? prompt,
+  }) async => 'fake transcript';
 
   @override
   Future<void> unload() async {

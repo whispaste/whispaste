@@ -369,10 +369,6 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
 
     final settings = ref.read(settingsProvider).value;
     final vocab = settings?.customVocabulary.trim() ?? '';
-    // Resolved for pre-flight validation only — [WhisperEngine.transcribe]
-    // has no prompt/vocab parameter yet (Issue 02 seam), so the value is
-    // validated but not forwarded to the engine. See this issue's
-    // `decisions:` note.
     final effectivePrompt = _resolveEffectivePrompt(vocab);
 
     // ── Pre-flight validation ─────────────────────────────────────────────
@@ -423,6 +419,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       rawText = await _transcribeResilient(
         payload,
         lang,
+        effectivePrompt,
         wavBytes.length,
         audioDurationMs,
       );
@@ -516,6 +513,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
   Future<String> _transcribeResilient(
     List<int> payload,
     String lang,
+    String? prompt,
     int wavSizeBytes,
     int audioDurationMs,
   ) async {
@@ -525,7 +523,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     while (true) {
       try {
         return await _engine!
-            .transcribe(payload, language: lang)
+            .transcribe(payload, language: lang, prompt: prompt)
             .timeout(stuckGuardTimeout);
       } on TimeoutException {
         const failure = WhisperEngineException(

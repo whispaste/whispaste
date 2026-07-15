@@ -109,8 +109,14 @@ abstract class WhisperEngine {
   /// and returns the joined transcript.
   ///
   /// [language] is a whisper language code (e.g. `'en'`, `'de'`); `null` lets
-  /// whisper auto-detect. Throws a [StateError] if called before [load].
-  Future<String> transcribe(List<int> wavBytes, {String? language});
+  /// whisper auto-detect. [prompt] biases decoding towards custom vocabulary
+  /// / rolling context (whisper's `initial_prompt`); `null` or empty means no
+  /// bias. Throws a [StateError] if called before [load].
+  Future<String> transcribe(
+    List<int> wavBytes, {
+    String? language,
+    String? prompt,
+  });
 
   /// Frees the native context and model. Safe to call when not loaded.
   Future<void> unload();

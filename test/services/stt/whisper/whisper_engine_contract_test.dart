@@ -37,9 +37,14 @@ class _FakeWhisperEngine implements WhisperEngine {
 
   bool _loaded = false;
   String? _lastLanguage;
+  String? _lastPrompt;
   int transcribeCallCount = 0;
 
   String? get lastLanguage => _lastLanguage;
+
+  /// The `prompt` passed to the most recent [transcribe] call, or `null` if
+  /// none was given.
+  String? get lastPrompt => _lastPrompt;
 
   @override
   WhisperEngineStatus get status =>
@@ -51,9 +56,14 @@ class _FakeWhisperEngine implements WhisperEngine {
   }
 
   @override
-  Future<String> transcribe(List<int> wavBytes, {String? language}) async {
+  Future<String> transcribe(
+    List<int> wavBytes, {
+    String? language,
+    String? prompt,
+  }) async {
     transcribeCallCount++;
     _lastLanguage = language;
+    _lastPrompt = prompt;
     if (transcribeDelay != null) {
       await Future<void>.delayed(transcribeDelay!);
     }
@@ -79,6 +89,21 @@ void main() {
       expect(text, 'hallo welt');
       expect(engine.lastLanguage, 'de');
       expect(engine.transcribeCallCount, 1);
+    });
+
+    test('records the prompt passed to transcribe (Issue 22)', () async {
+      final engine = _FakeWhisperEngine(transcript: 'hallo welt');
+
+      await engine.load(modelPath: '/fake/model.bin');
+      expect(engine.lastPrompt, isNull);
+
+      await engine.transcribe(
+        const [0, 1, 2],
+        language: 'de',
+        prompt: 'Fachbegriff, Eigenname',
+      );
+
+      expect(engine.lastPrompt, 'Fachbegriff, Eigenname');
     });
 
     test('surfaces the configured error on failure', () async {

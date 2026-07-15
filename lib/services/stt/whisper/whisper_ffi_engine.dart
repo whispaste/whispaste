@@ -110,7 +110,11 @@ class WhisperFfiEngine implements WhisperEngine {
   }
 
   @override
-  Future<String> transcribe(List<int> wavBytes, {String? language}) async {
+  Future<String> transcribe(
+    List<int> wavBytes, {
+    String? language,
+    String? prompt,
+  }) async {
     final bindings = _bindings;
     final ctx = _ctx;
     if (bindings == null || ctx == null) {
@@ -123,6 +127,11 @@ class WhisperFfiEngine implements WhisperEngine {
     final samplesPtr = malloc<ffi.Float>(samples.length);
     samplesPtr.asTypedList(samples.length).setAll(0, samples);
     final languageC = (language ?? 'auto').toNativeUtf8();
+    // Only allocate a native prompt buffer when there is something to bias
+    // decoding with — the FFI struct defaults `initial_prompt` to a null
+    // pointer, which whisper.cpp already treats as "no prompt".
+    final hasPrompt = prompt != null && prompt.isNotEmpty;
+    final promptC = hasPrompt ? prompt.toNativeUtf8() : null;
     try {
       final params = bindings.whisper_full_default_params(
         WhisperSamplingStrategy.WHISPER_SAMPLING_GREEDY,
@@ -135,6 +144,9 @@ class WhisperFfiEngine implements WhisperEngine {
       params.translate = false;
       params.language = languageC.cast<ffi.Char>();
       params.n_threads = _threadCount();
+      if (promptC != null) {
+        params.initial_prompt = promptC.cast<ffi.Char>();
+      }
 
       final rc = bindings.whisper_full(ctx, params, samplesPtr, samples.length);
       if (rc != 0) {
@@ -160,6 +172,7 @@ class WhisperFfiEngine implements WhisperEngine {
     } finally {
       malloc.free(samplesPtr);
       malloc.free(languageC);
+      if (promptC != null) malloc.free(promptC);
     }
   }
 

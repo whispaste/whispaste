@@ -57,6 +57,10 @@ class _FakeWhisperEngine implements WhisperEngine {
   bool _hang = false;
   int armedCallCount = 0;
 
+  /// The `prompt` passed to the most recent [transcribe] call (Issue 22
+  /// regression: custom-vocabulary/prompt biasing must reach the engine).
+  String? lastPrompt;
+
   void _resetArm() {
     armedCallCount = 0;
     _armedKind = null;
@@ -94,7 +98,12 @@ class _FakeWhisperEngine implements WhisperEngine {
   }
 
   @override
-  Future<String> transcribe(List<int> wavBytes, {String? language}) async {
+  Future<String> transcribe(
+    List<int> wavBytes, {
+    String? language,
+    String? prompt,
+  }) async {
+    lastPrompt = prompt;
     if (_hang) {
       armedCallCount++;
       return Completer<String>().future; // never completes
@@ -151,13 +160,16 @@ class _FakeModelDownloadNotifier extends ModelDownloadNotifier {
   }
 }
 
-ProviderContainer _makeContainer(WhisperEngine engine) {
+ProviderContainer _makeContainer(
+  WhisperEngine engine, {
+  AppSettings? settings,
+}) {
   return ProviderContainer(
     overrides: [
       whisperEngineProvider.overrideWithValue(engine),
       settingsProvider.overrideWith(
         () => _FakeSettingsNotifier(
-          AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
+          settings ?? AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
         ),
       ),
       modelDownloadProvider.overrideWith(() => _FakeModelDownloadNotifier()),
@@ -425,5 +437,50 @@ void main() {
         reason: 'the exhausted-retry failure is captured once',
       );
     });
+  });
+
+  // ── Issue 22: custom-vocabulary/prompt biasing must reach the engine ────
+  group('Custom-vocabulary prompt forwarding', () {
+    test('the resolved custom-vocabulary prompt is forwarded to '
+        'WhisperEngine.transcribe, not just validated', () async {
+      final engine = _FakeWhisperEngine();
+      final container = _makeContainer(
+        engine,
+        settings: AppSettings.defaults.copyWith(
+          sttModel: 'whisper-small',
+          customVocabulary: 'Fachbegriff, Eigenname',
+        ),
+      );
+      addTearDown(container.dispose);
+
+      final notifier = await _bringReady(container);
+      _capturedEvents.clear();
+
+      await notifier.transcribeBytes(_validWav(), language: 'auto');
+
+      expect(
+        engine.lastPrompt,
+        contains('Fachbegriff, Eigenname'),
+        reason:
+            'the notifier resolves the custom-vocabulary prompt but must '
+            'also hand it to the engine, not just the pre-flight validator',
+      );
+    });
+
+    test(
+      'no custom vocabulary configured → the engine receives no prompt',
+      () async {
+        final engine = _FakeWhisperEngine();
+        final container = _makeContainer(engine);
+        addTearDown(container.dispose);
+
+        final notifier = await _bringReady(container);
+        _capturedEvents.clear();
+
+        await notifier.transcribeBytes(_validWav(), language: 'auto');
+
+        expect(engine.lastPrompt, isNull);
+      },
+    );
   });
 }

@@ -51,7 +51,11 @@ class _FakeWhisperEngine implements WhisperEngine {
   }
 
   @override
-  Future<String> transcribe(List<int> wavBytes, {String? language}) async {
+  Future<String> transcribe(
+    List<int> wavBytes, {
+    String? language,
+    String? prompt,
+  }) async {
     final delay = transcribeDelay;
     if (delay != null) {
       await Future<void>.delayed(delay);
