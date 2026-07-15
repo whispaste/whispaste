@@ -41,6 +41,18 @@ Future<String> gatherDiagnosticsReport({
   int logTailLines = 40,
   String? sttServerState,
   String? sttErrorMessage,
+
+  /// The compute backend the engine actually loaded (Issue 04). Supplied by
+  /// the caller (`about_page.dart`, which reads `whisperEngineProvider`) —
+  /// never re-derived from the retired server-binary marker.
+  String? backend,
+
+  /// The model currently loaded in the engine (`SttStatus.modelId`).
+  String? loadedModel,
+
+  /// Whether the engine degraded to CPU after a GPU crash this session
+  /// (`SttStatus.cpuFallbackActive`, Issue 05's resilience chain).
+  bool? cpuFallbackActive,
 }) async {
   final sttDirPath = paths.sttDir();
 
@@ -53,13 +65,6 @@ Future<String> gatherDiagnosticsReport({
 
   final serverPath = paths.whisperServerPath();
   final serverExists = File(serverPath).existsSync();
-
-  String? backend;
-  try {
-    backend = hw.readServerBinaryInfo(sttDirPath)?['backend'] as String?;
-  } on Object {
-    backend = null;
-  }
 
   final sttFiles = hw.listServerDirFiles(sttDirPath);
   final vcPresent = Platform.isWindows
@@ -75,7 +80,9 @@ Future<String> gatherDiagnosticsReport({
     executablePath: Platform.resolvedExecutable,
     serverPath: serverPath,
     serverExists: serverExists,
-    serverBackend: backend,
+    backend: backend,
+    loadedModel: loadedModel,
+    cpuFallbackActive: cpuFallbackActive,
     sttServerState: sttServerState,
     sttErrorMessage: sttErrorMessage,
     sttFiles: sttFiles,

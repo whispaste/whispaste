@@ -29,7 +29,7 @@ void main() {
         executablePath: r'C:\Program Files\WindowsApps\...\whispaste.exe',
         serverPath: r'C:\...\models\stt\whisper-server.exe',
         serverExists: true,
-        serverBackend: 'cpu',
+        backend: 'cpu',
         sttServerState: 'error',
         sttErrorMessage: 'Sprachdienst kann das Sprachmodell nicht öffnen.',
         sttFiles: const ['whisper-server.exe', 'ggml.dll'],
@@ -82,7 +82,7 @@ void main() {
           executablePath: '/Applications/WhisPaste.app/...',
           serverPath: '/Users/x/Library/.../whisper-server',
           serverExists: false,
-          serverBackend: null,
+          backend: null,
           sttFiles: const <String>[],
           vcRuntimePresent: null,
           gpu: null,
@@ -97,6 +97,79 @@ void main() {
         expect(report, isNot(contains('VC++-Runtime')));
         expect(report, contains('Sprachdienst-Dateien: (keine)'));
         expect(report, isNot(contains('Logzeilen')));
+      },
+    );
+  });
+
+  group('formatDiagnosticsReport — engine state (Issue 09)', () {
+    test('renders loadedModel and cpuFallbackActive when supplied', () {
+      final report = formatDiagnosticsReport(
+        version: '1.3.0',
+        variant: 'macos',
+        osVersion: 'macos 26.5',
+        dartVersion: 'Dart 3.12.1',
+        locale: 'de-DE',
+        executablePath: '/Applications/WhisPaste.app/...',
+        serverPath: '/Users/x/Library/.../whisper-server',
+        serverExists: false,
+        backend: 'metal',
+        sttServerState: 'ready',
+        loadedModel: 'ggml-medium.bin',
+        cpuFallbackActive: true,
+        sttFiles: const <String>[],
+        gpu: null,
+        logTail: const <String>[],
+      );
+
+      expect(report, contains('backend: metal'));
+      expect(report, contains('Modell: ggml-medium.bin'));
+      expect(report, contains('CPU-Fallback aktiv: ja'));
+    });
+
+    test('omits loadedModel/cpuFallbackActive lines when null', () {
+      final report = formatDiagnosticsReport(
+        version: '1.3.0',
+        variant: 'macos',
+        osVersion: 'macos 26.5',
+        dartVersion: 'Dart 3.12.1',
+        locale: 'de-DE',
+        executablePath: '/Applications/WhisPaste.app/...',
+        serverPath: '/Users/x/Library/.../whisper-server',
+        serverExists: false,
+        sttFiles: const <String>[],
+        gpu: null,
+        logTail: const <String>[],
+      );
+
+      expect(report, isNot(contains('Modell:')));
+      expect(report, isNot(contains('CPU-Fallback aktiv:')));
+    });
+
+    test(
+      'standalone case (sttServerState == null) still renders backend '
+      'from GPU-detection input, no Status/Modell/CPU-Fallback lines',
+      () {
+        final report = formatDiagnosticsReport(
+          version: '1.3.0',
+          variant: 'macos',
+          osVersion: 'macos 26.5',
+          dartVersion: 'Dart 3.12.1',
+          locale: 'de-DE',
+          executablePath: '/Applications/WhisPaste.app/...',
+          serverPath: '/Users/x/Library/.../whisper-server',
+          serverExists: false,
+          backend: 'cpu',
+          sttFiles: const <String>[],
+          settingsUnavailable: true,
+          gpu: null,
+          logTail: const <String>[],
+        );
+
+        expect(report, contains('backend: cpu'));
+        expect(report, isNot(contains('Status:')));
+        expect(report, isNot(contains('Modell:')));
+        expect(report, isNot(contains('CPU-Fallback aktiv:')));
+        expect(report, contains('Standalone'));
       },
     );
   });

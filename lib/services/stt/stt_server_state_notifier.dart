@@ -55,6 +55,13 @@ class SttStatus {
   });
 
   final SttServerState serverState;
+
+  /// Legacy HTTP-era field, permanently `0` since the Issue 03 cutover to the
+  /// in-process [WhisperEngine] — there is no localhost port to bind. Kept
+  /// (rather than removed) so the existing test fixtures that construct
+  /// `SttStatus(..., port: 9999)` keep compiling unchanged; no production
+  /// code reads it besides [toString] and [endpoint] (also unused — see
+  /// issue 09's `endpoint`/`port` decision).
   final int port;
   final String modelId;
   final String? errorMessage;
@@ -73,6 +80,10 @@ class SttStatus {
 
   bool get isReady => serverState == SttServerState.ready;
 
+  /// Legacy HTTP-era getter — dead since Issue 03's cutover to the in-process
+  /// [WhisperEngine] (no server, no port, nothing listens on this URL). Has
+  /// zero production callers; kept as a documented no-op rather than removed
+  /// (issue 09's `endpoint`/`port` decision) to avoid an unrelated ripple.
   String get endpoint => 'http://127.0.0.1:$port';
 
   SttStatus copyWith({

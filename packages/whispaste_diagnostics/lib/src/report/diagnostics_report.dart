@@ -101,9 +101,23 @@ String formatDiagnosticsReport({
   required String executablePath,
   required String serverPath,
   required bool serverExists,
-  String? serverBackend,
+
+  /// The compute backend the engine actually selected/loaded
+  /// (Metal/CUDA/Vulkan/CPU — Issue 04's [WhisperEngine] status, or the
+  /// pure GPU-detection input the standalone CLI derives it from). Sourced
+  /// from live engine state, never from the retired server-binary marker.
+  String? backend,
   String? sttServerState,
   String? sttErrorMessage,
+
+  /// The model currently loaded in the engine (`SttStatus.modelId`). `null`
+  /// in the standalone CLI, which has no live engine to ask.
+  String? loadedModel,
+
+  /// Whether the engine degraded to CPU after a GPU crash this session
+  /// (`SttStatus.cpuFallbackActive`, Issue 05's resilience chain). `null`
+  /// when unknown (standalone CLI).
+  bool? cpuFallbackActive,
   required List<String> sttFiles,
   bool? vcRuntimePresent,
   ModelLoadProbeResult? modelLoadProbe,
@@ -173,7 +187,7 @@ String formatDiagnosticsReport({
     ..writeln('Sprachdienst: $serverPath')
     ..writeln(
       '  vorhanden: ${serverExists ? "ja" : "nein"}'
-      '${serverBackend != null ? "  backend: $serverBackend" : ""}',
+      '${backend != null ? "  backend: $backend" : ""}',
     );
 
   if (sttServerState != null) {
@@ -181,6 +195,12 @@ String formatDiagnosticsReport({
   }
   if (sttErrorMessage != null && sttErrorMessage.isNotEmpty) {
     b.writeln('  letzter Fehler: $sttErrorMessage');
+  }
+  if (loadedModel != null && loadedModel.isNotEmpty) {
+    b.writeln('  Modell: $loadedModel');
+  }
+  if (cpuFallbackActive != null) {
+    b.writeln('  CPU-Fallback aktiv: ${cpuFallbackActive ? "ja" : "nein"}');
   }
 
   if (vcRuntimePresent != null) {
@@ -417,12 +437,13 @@ Future<String> gatherDiagnosticsReport({
       : whisperServerPath();
   final serverExists = File(serverPath).existsSync();
 
-  String? backend;
-  try {
-    backend = readServerBinaryInfo(sttDirPath)?['backend'] as String?;
-  } on Object {
-    backend = null;
-  }
+  // The standalone CLI has no live WhisperEngine (Issue 04's selection lives
+  // in the Flutter app layer) to ask which backend it chose, so this falls
+  // back to the same GPU-detection input that selection is a pure function
+  // of (`optimalBackend` — 'cuda'/'metal'/'vulkan'/'cpu'). The In-App-
+  // Diagnostik overrides this with the engine's real, live-loaded backend
+  // (see `lib/features/about/about_page.dart`).
+  final backend = gpu?.optimalBackend;
 
   final sttFiles = listServerDirFiles(sttDirPath);
   final vcPresent = Platform.isWindows
@@ -533,7 +554,7 @@ Future<String> gatherDiagnosticsReport({
     executablePath: Platform.resolvedExecutable,
     serverPath: serverPath,
     serverExists: serverExists,
-    serverBackend: backend,
+    backend: backend,
     sttServerState: sttServerState,
     sttErrorMessage: sttErrorMessage,
     sttFiles: sttFiles,

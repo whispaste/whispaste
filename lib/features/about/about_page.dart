@@ -935,12 +935,16 @@ class _CopyDiagnosticsButtonState
     setState(() => _busy = true);
 
     final stt = ref.read(localSttBundleProvider);
+    final engineBackend = ref.read(whisperEngineProvider).status.backend.name;
 
     String report;
     try {
       report = await gatherDiagnosticsReport(
         sttServerState: stt.serverState.name,
         sttErrorMessage: stt.errorMessage,
+        backend: engineBackend,
+        loadedModel: stt.modelId.isEmpty ? null : stt.modelId,
+        cpuFallbackActive: stt.cpuFallbackActive,
       );
     } on Object catch (e) {
       // Never leave the user empty-handed — fall back to the minimal block.
