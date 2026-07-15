@@ -20,6 +20,25 @@ permissions:
   contents: read
 
 jobs:
+  format:
+    name: Format check (dart format)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Get dependencies
+        working-directory: packages/whispaste_diagnostics
+        run: dart pub get
+
+      - name: dart format --set-exit-if-changed
+        working-directory: packages/whispaste_diagnostics
+        run: dart format --output=none --set-exit-if-changed .
+
   smoke-windows:
     name: Smoke — Windows (dart compile exe)
     runs-on: windows-latest

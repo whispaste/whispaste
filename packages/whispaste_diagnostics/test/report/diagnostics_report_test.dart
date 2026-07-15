@@ -145,33 +145,30 @@ void main() {
       expect(report, isNot(contains('CPU-Fallback aktiv:')));
     });
 
-    test(
-      'standalone case (sttServerState == null) still renders backend '
-      'from GPU-detection input, no Status/Modell/CPU-Fallback lines',
-      () {
-        final report = formatDiagnosticsReport(
-          version: '1.3.0',
-          variant: 'macos',
-          osVersion: 'macos 26.5',
-          dartVersion: 'Dart 3.12.1',
-          locale: 'de-DE',
-          executablePath: '/Applications/WhisPaste.app/...',
-          serverPath: '/Users/x/Library/.../whisper-server',
-          serverExists: false,
-          backend: 'cpu',
-          sttFiles: const <String>[],
-          settingsUnavailable: true,
-          gpu: null,
-          logTail: const <String>[],
-        );
+    test('standalone case (sttServerState == null) still renders backend '
+        'from GPU-detection input, no Status/Modell/CPU-Fallback lines', () {
+      final report = formatDiagnosticsReport(
+        version: '1.3.0',
+        variant: 'macos',
+        osVersion: 'macos 26.5',
+        dartVersion: 'Dart 3.12.1',
+        locale: 'de-DE',
+        executablePath: '/Applications/WhisPaste.app/...',
+        serverPath: '/Users/x/Library/.../whisper-server',
+        serverExists: false,
+        backend: 'cpu',
+        sttFiles: const <String>[],
+        settingsUnavailable: true,
+        gpu: null,
+        logTail: const <String>[],
+      );
 
-        expect(report, contains('backend: cpu'));
-        expect(report, isNot(contains('Status:')));
-        expect(report, isNot(contains('Modell:')));
-        expect(report, isNot(contains('CPU-Fallback aktiv:')));
-        expect(report, contains('Standalone'));
-      },
-    );
+      expect(report, contains('backend: cpu'));
+      expect(report, isNot(contains('Status:')));
+      expect(report, isNot(contains('Modell:')));
+      expect(report, isNot(contains('CPU-Fallback aktiv:')));
+      expect(report, contains('Standalone'));
+    });
   });
 
   group('ModelLoadProbeResult.exitCodeHex', () {
