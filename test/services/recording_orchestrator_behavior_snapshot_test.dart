@@ -185,7 +185,6 @@ class _FakeModelDownloadNotifier extends ModelDownloadNotifier {
         'whisper-medium',
         'whisper-large-v3-turbo',
       },
-      serverReady: true,
     );
   }
 }

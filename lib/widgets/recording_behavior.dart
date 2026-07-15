@@ -38,8 +38,6 @@ import 'toast.dart';
 /// Maps error codes from the recording orchestrator to localized messages.
 String localizeRecordingError(L10n l10n, String errorCode) {
   switch (errorCode) {
-    case 'stt_server_not_found':
-      return l10n.errorSttServerNotFound;
     case 'onboarding_not_completed':
       return l10n.errorOnboardingNotCompleted;
     case 'stt_model_not_found':
@@ -98,7 +96,6 @@ String localizeRecordingError(L10n l10n, String errorCode) {
 
 /// Maps info codes from the recording pipeline to localized messages.
 String localizeRecordingInfo(L10n l10n, String infoCode) => switch (infoCode) {
-  'info_engine_auto_download' => l10n.infoEngineAutoDownload,
   'info_engine_downloading' => l10n.infoEngineDownloading,
   'info_model_missing' => l10n.infoModelMissing,
   'info_stt_cuda_oom_model' => l10n.infoSttCudaOomFallbackModel,
@@ -346,8 +343,7 @@ class _RecordingBehaviorState extends ConsumerState<RecordingBehaviorWidget> {
     // Recovery hints that tell the user to "download in Settings" must
     // carry the last logical step — a one-tap jump to the STT settings
     // section — instead of leaving them to hunt for it.
-    final bool needsSettingsAction =
-        next == 'info_model_missing' || next == 'info_engine_auto_download';
+    final bool needsSettingsAction = next == 'info_model_missing';
     WpToast.show(
       context,
       message: localizeRecordingInfo(l10n, next),

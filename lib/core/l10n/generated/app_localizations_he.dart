@@ -1578,9 +1578,6 @@ class L10nHe extends L10n {
   String get infoEngineDownloading => 'מנוע הדיבור בהכנה. המתן רגע.';
 
   @override
-  String get infoEngineAutoDownload => 'מנוע חסר – מוריד אוטומטית…';
-
-  @override
   String get infoModelMissing => 'הורד קודם מודל דיבור בהגדרות.';
 
   @override
@@ -1636,9 +1633,6 @@ class L10nHe extends L10n {
   @override
   String get infoSttCudaOomFallbackCpu =>
       'ה-GPU נגמר לו הזיכרון. עברתי למצב CPU.';
-
-  @override
-  String get errorSttServerNotFound => 'מנוע דיבור לא נמצא. הורד מודל בהגדרות.';
 
   @override
   String get errorSttServerConnectionLost =>

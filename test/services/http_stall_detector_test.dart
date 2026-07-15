@@ -1,5 +1,4 @@
-/// Unit tests for the [HttpStallDetector] surface in
-/// [HttpModelFetcher] and [WhisperServerDownloader].
+/// Unit tests for the [HttpStallDetector] surface in [HttpModelFetcher].
 ///
 /// Covers:
 ///   1. Stall-detection — a stream that goes silent for ≥ stallThreshold is
@@ -7,8 +6,6 @@
 ///   2. No-stall — a stream that always pushes a chunk within the threshold
 ///      runs to completion.
 ///   3. `describeDioError` returns the exact PRD-specified German strings.
-///   4. The outer retry loop in [WhisperServerDownloader.download] retries
-///      on `cancel + 'stalled'` but rethrows on a user-initiated `cancel`.
 ///
 /// Implementation note: instead of waiting 30 real seconds in tests, the
 /// fetcher exposes a `stallThreshold` (and check interval) parameter via
@@ -25,8 +22,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
 import 'package:whispaste/services/http_model_fetcher.dart';
-import 'package:whispaste/services/whisper_server_downloader.dart';
-import 'package:whispaste/services/whisper_server_manifest.dart';
 
 // ---------------------------------------------------------------------------
 // Fake HTTP adapter — feeds the Dio pipeline a controllable byte stream.
@@ -252,131 +247,4 @@ void main() {
       expect(describeDioError(e), 'HTTP 404: unbekannter Fehler');
     });
   });
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // AC4 — WhisperServerDownloader.download retry-loop classification
-  // ─────────────────────────────────────────────────────────────────────────
-
-  group('WhisperServerDownloader retry-loop cancel classification', () {
-    test(
-      'cancel with message "stalled" is retriable — the outer loop tries '
-      'the next attempt / repo and eventually throws a normal Exception',
-      () async {
-        // Fetcher always throws a stalled-cancel — the manifest-driven
-        // downloader retries internally, then throws a normal Exception
-        // (NOT rethrow the DioException as user-cancel).
-        final downloader = WhisperServerDownloader(
-          fetcher: _AlwaysStalledFetcher(),
-          manifestLoader: _fakeManifestLoader(),
-        );
-
-        await expectLater(
-          () => downloader.download(destDir: tempDir.path, gpuMode: 'auto'),
-          throwsA(allOf(isA<Exception>(), isNot(isA<DioException>()))),
-        );
-      },
-    );
-
-    test(
-      'cancel WITHOUT "stalled" message (= user cancel) rethrows immediately',
-      () async {
-        final downloader = WhisperServerDownloader(
-          fetcher: _UserCancelFetcher(),
-          manifestLoader: _fakeManifestLoader(),
-        );
-
-        await expectLater(
-          () => downloader.download(destDir: tempDir.path, gpuMode: 'auto'),
-          throwsA(
-            isA<DioException>()
-                .having((e) => e.type, 'type', DioExceptionType.cancel)
-                .having((e) => e.message, 'message', isNot('stalled')),
-          ),
-        );
-      },
-    );
-  });
-}
-
-// ---------------------------------------------------------------------------
-// Helpers — fake manifest loader producing one binary per host platform/
-// arch so the downloader's selector finds a match irrespective of the
-// CI runner's actual GPU.
-// ---------------------------------------------------------------------------
-
-WhisperServerManifestLoader _fakeManifestLoader() {
-  const manifest = '''
-{
-  "schema_version": 1,
-  "whisper_server_tag": "whisper-server-test",
-  "whisper_cpp_release": "test",
-  "generated_at": "2026-01-01T00:00:00Z",
-  "binaries": [
-    {"platform":"macos","arch":"arm64","backend":"metal","url":"http://example.com/metal.zip","size_bytes":1000,"source":"whispaste"},
-    {"platform":"macos","arch":"arm64","backend":"cpu","url":"http://example.com/cpu-mac.zip","size_bytes":1000,"source":"whispaste"},
-    {"platform":"windows","arch":"x64","backend":"vulkan","url":"http://example.com/vulkan.zip","size_bytes":1000,"source":"whispaste"},
-    {"platform":"windows","arch":"x64","backend":"cuda12","url":"http://example.com/cuda.zip","size_bytes":1000,"source":"upstream"},
-    {"platform":"windows","arch":"x64","backend":"cpu","url":"http://example.com/cpu-win.zip","size_bytes":1000,"source":"upstream"},
-    {"platform":"linux","arch":"x64","backend":"cpu","url":"http://example.com/cpu-linux.zip","size_bytes":1000,"source":"upstream"}
-  ]
-}
-''';
-  // Force every remote attempt to short-circuit so the loader falls back
-  // to the bundled JSON without waiting on real network timeouts.
-  final offlineDio = Dio()
-    ..interceptors.add(
-      InterceptorsWrapper(
-        onRequest: (options, handler) {
-          handler.reject(
-            DioException(
-              requestOptions: options,
-              type: DioExceptionType.connectionError,
-              error: 'offline test',
-            ),
-          );
-        },
-      ),
-    );
-  return WhisperServerManifestLoader(
-    dio: offlineDio,
-    bundleReader: () async => manifest,
-  );
-}
-
-class _AlwaysStalledFetcher extends HttpModelFetcher {
-  @override
-  Future<void> fetch({
-    required String url,
-    required String destPath,
-    required int expectedSize,
-    void Function(FetchProgress)? onProgress,
-  }) async {
-    throw DioException(
-      requestOptions: RequestOptions(path: url),
-      type: DioExceptionType.cancel,
-      message: 'stalled',
-    );
-  }
-
-  @override
-  void cancel([String reason = 'cancelled']) {}
-}
-
-class _UserCancelFetcher extends HttpModelFetcher {
-  @override
-  Future<void> fetch({
-    required String url,
-    required String destPath,
-    required int expectedSize,
-    void Function(FetchProgress)? onProgress,
-  }) async {
-    throw DioException(
-      requestOptions: RequestOptions(path: url),
-      type: DioExceptionType.cancel,
-      message: 'cancelled',
-    );
-  }
-
-  @override
-  void cancel([String reason = 'cancelled']) {}
 }

@@ -1,8 +1,7 @@
 /// Behavior-snapshot tests for [ModelDownloadNotifier].
 ///
 /// These tests freeze the observable state-transition semantics of the
-/// download service. They are designed to survive the extraction refactor
-/// (issue 07) unchanged — only import paths may change, never test logic.
+/// download service.
 ///
 /// The seam is [ModelDownloadNotifier.fetcherOverride]: a fake
 /// [HttpModelFetcher] is injected so no real network calls are made.
@@ -129,19 +128,6 @@ class _FakeFetcher extends HttpModelFetcher {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/// Platform-correct whisper-server binary filename. The notifier's Phase-1
-/// skip check uses [whisperServerPath], which appends `.exe` on Windows — so
-/// tests must create the matching file or Phase 1 will try to download a real
-/// whisper-server.zip from GitHub before reaching the model-download path.
-String _serverBinaryName() =>
-    Platform.isWindows ? 'whisper-server.exe' : 'whisper-server';
-
-/// Pre-creates the whisper-server binary stub so Phase 1 (engine self-heal)
-/// is skipped and the test only exercises the model-download seam.
-Future<void> _stubServerBinary(Directory dir) async {
-  await File(p.join(dir.path, _serverBinaryName())).writeAsBytes([0]);
-}
-
 /// Creates a [ProviderContainer] whose [ModelDownloadNotifier] uses [fetcher].
 ///
 /// The container overrides [modelDownloadProvider] so that the notifier's
@@ -216,9 +202,6 @@ void main() {
       final container = _makeContainer(fetcher: fetcher);
       addTearDown(container.dispose);
 
-      // Also create a fake whisper-server binary so Phase 1 is skipped.
-      await _stubServerBinary(tempDir);
-
       final notifier = container.read(modelDownloadProvider.notifier);
 
       final sub = container.listen(
@@ -281,9 +264,6 @@ void main() {
         final destPath = p.join(tempDir.path, model.filename);
         await File(destPath).writeAsBytes([0]);
 
-        // Also create server binary.
-        await _stubServerBinary(tempDir);
-
         // No-op fetcher.
         final fetcher = _FakeFetcher(behaviour: _FetchBehaviour.succeed);
         final container = _makeContainer(fetcher: fetcher);
@@ -308,9 +288,6 @@ void main() {
     test('transitions to error phase on DioException', () async {
       const modelId = 'whisper-small';
 
-      // Pre-create server binary so Phase 1 is skipped.
-      await _stubServerBinary(tempDir);
-
       final fetcher = _FakeFetcher(behaviour: _FetchBehaviour.networkError);
       final container = _makeContainer(fetcher: fetcher);
       addTearDown(container.dispose);
@@ -326,8 +303,6 @@ void main() {
 
     test('error message reflects the DioException message', () async {
       const modelId = 'whisper-small';
-
-      await _stubServerBinary(tempDir);
 
       final fetcher = _FakeFetcher(behaviour: _FetchBehaviour.networkError);
       final container = _makeContainer(fetcher: fetcher);
@@ -356,8 +331,6 @@ void main() {
       // Create partial .tmp file to simulate interrupted download.
       await File(tmpPath).writeAsBytes(List.filled(1000, 0xAA));
 
-      await _stubServerBinary(tempDir);
-
       final fakeBytes = List<int>.generate(512, (i) => i & 0xFF);
       final fetcher = _FakeFetcher(
         behaviour: _FetchBehaviour.resumeSucceed,
@@ -381,7 +354,6 @@ void main() {
       final tmpPath = '$destPath.tmp';
 
       await File(tmpPath).writeAsBytes(List.filled(500, 0xBB));
-      await _stubServerBinary(tempDir);
 
       final fetcher = _FakeFetcher(
         behaviour: _FetchBehaviour.resumeSucceed,
@@ -418,8 +390,6 @@ void main() {
     test('cancellation mid-download transitions to idle state', () async {
       const modelId = 'whisper-small';
 
-      await _stubServerBinary(tempDir);
-
       // Cancelled fetcher simulates DioExceptionType.cancel.
       final fetcher = _FakeFetcher(behaviour: _FetchBehaviour.cancelled);
       final container = _makeContainer(fetcher: fetcher);
@@ -445,8 +415,6 @@ void main() {
     test('transitions to error when downloaded file has wrong hash', () async {
       const modelId = 'whisper-small';
 
-      await _stubServerBinary(tempDir);
-
       // Fetcher writes garbage bytes (hash will not match registry).
       final fetcher = _FakeFetcher(behaviour: _FetchBehaviour.writeBadContent);
       final container = _makeContainer(fetcher: fetcher);
@@ -464,8 +432,6 @@ void main() {
       const modelId = 'whisper-small';
       final model = findSttModel(modelId)!;
       final destPath = p.join(tempDir.path, model.filename);
-
-      await _stubServerBinary(tempDir);
 
       final fetcher = _FakeFetcher(behaviour: _FetchBehaviour.writeBadContent);
       final container = _makeContainer(fetcher: fetcher);
@@ -507,8 +473,6 @@ void main() {
   group('AC7: Busy guard', () {
     test('fetcher called exactly once per downloadModel invocation', () async {
       const modelId = 'whisper-small';
-
-      await _stubServerBinary(tempDir);
 
       final countingFetcher = _CountingFakeFetcher(
         behaviour: _FetchBehaviour.networkError,

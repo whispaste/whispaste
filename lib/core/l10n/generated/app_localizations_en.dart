@@ -1602,10 +1602,6 @@ class L10nEn extends L10n {
       'Speech service is being prepared. Please wait a moment.';
 
   @override
-  String get infoEngineAutoDownload =>
-      'Speech service missing — downloading automatically…';
-
-  @override
   String get infoModelMissing =>
       'Please download a speech model in Settings first.';
 
@@ -1666,10 +1662,6 @@ class L10nEn extends L10n {
   @override
   String get infoSttCudaOomFallbackCpu =>
       'Your GPU ran out of memory. Switched to CPU mode for reliability.';
-
-  @override
-  String get errorSttServerNotFound =>
-      'Speech service not found. Please download a speech model in Settings.';
 
   @override
   String get errorSttServerConnectionLost =>

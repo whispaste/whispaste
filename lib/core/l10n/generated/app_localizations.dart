@@ -2967,12 +2967,6 @@ abstract class L10n {
   /// **'Speech service is being prepared. Please wait a moment.'**
   String get infoEngineDownloading;
 
-  /// No description provided for @infoEngineAutoDownload.
-  ///
-  /// In en, this message translates to:
-  /// **'Speech service missing — downloading automatically…'**
-  String get infoEngineAutoDownload;
-
   /// No description provided for @infoModelMissing.
   ///
   /// In en, this message translates to:
@@ -3068,12 +3062,6 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Your GPU ran out of memory. Switched to CPU mode for reliability.'**
   String get infoSttCudaOomFallbackCpu;
-
-  /// No description provided for @errorSttServerNotFound.
-  ///
-  /// In en, this message translates to:
-  /// **'Speech service not found. Please download a speech model in Settings.'**
-  String get errorSttServerNotFound;
 
   /// No description provided for @errorSttServerConnectionLost.
   ///

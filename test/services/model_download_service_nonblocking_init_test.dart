@@ -76,7 +76,6 @@ void main() {
 
         // AC1: initial state is empty/idle (scan not yet complete).
         expect(state.downloadedModels, isEmpty);
-        expect(state.serverReady, isFalse);
         expect(state.phase, DownloadPhase.idle);
 
         // AC3: after yielding, the deferred scan runs and calls the hook.
@@ -90,22 +89,13 @@ void main() {
     );
 
     test('state reflects scanned result after async scan completes', () async {
-      // Pre-create a model file and the server binary so the scan finds the
-      // model and serverReady=true. Avoids triggering the self-heal microtask
-      // (which would try to load the Flutter bundle and requires widget binding).
+      // Pre-create a model file so the scan finds it as downloaded.
       final modelFile = File(p.join(tempDir.path, sttModels.first.filename));
       await modelFile.writeAsBytes([0]);
-      final serverFile = File(
-        p.join(
-          tempDir.path,
-          Platform.isWindows ? 'whisper-server.exe' : 'whisper-server',
-        ),
-      );
-      await serverFile.writeAsBytes([0]);
 
-      // The scan checks: sttModels.length model files + 1 server binary.
-      // Complete only after ALL checks are done so state = scanned has run.
-      final totalExpected = sttModels.length + 1;
+      // The scan checks sttModels.length model files. Complete only after
+      // ALL checks are done so state = scanned has run.
+      final totalExpected = sttModels.length;
       var hookCallCount = 0;
       final allDone = Completer<void>();
 
@@ -135,19 +125,8 @@ void main() {
     });
 
     test(
-      'downloadModel awaits initial scan before checking serverReady',
+      'downloadModel awaits initial scan before checking downloadedModels',
       () async {
-        // Pre-create a fake whisper-server binary so serverReady is true after
-        // scanning. downloadModel should skip Phase-1 (engine download) only if
-        // it correctly waits for the scan to set serverReady.
-        final serverFile = File(
-          p.join(
-            tempDir.path,
-            Platform.isWindows ? 'whisper-server.exe' : 'whisper-server',
-          ),
-        );
-        await serverFile.writeAsBytes([0]);
-
         // Track how many times the hook is called before downloadModel starts.
         var hookCallsBeforeDownload = -1;
         var totalHookCalls = 0;
@@ -168,15 +147,13 @@ void main() {
         // Start the provider (schedules scan microtask).
         final notifier = container.read(modelDownloadProvider.notifier);
 
-        // downloadModel must wait for the scan before checking serverReady.
+        // downloadModel must wait for the scan before proceeding.
         // Record how many hook calls happened before downloadModel continues.
         hookCallsBeforeDownload = totalHookCalls; // 0 at this point
 
-        // We expect downloadModel to either find serverReady=true (after scan)
-        // or at least not try to download the server (state.serverReady=true).
-        // Since we can't call a real download here, we just verify the scan
-        // ran before isBusy/serverReady checks by asserting hookCalls > 0
-        // after downloadModel returns with the "unknown model" error path.
+        // We verify the scan ran before downloadModel's checks by asserting
+        // hookCalls > 0 after downloadModel returns with the "unknown model"
+        // error path.
         try {
           await notifier.downloadModel('nonexistent-model-id');
         } catch (_) {

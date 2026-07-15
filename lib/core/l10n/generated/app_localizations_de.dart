@@ -1619,10 +1619,6 @@ class L10nDe extends L10n {
       'Sprachdienst wird vorbereitet. Bitte warte einen Moment.';
 
   @override
-  String get infoEngineAutoDownload =>
-      'Sprachdienst fehlt — wird automatisch heruntergeladen…';
-
-  @override
   String get infoModelMissing =>
       'Bitte lade zuerst ein Sprachmodell in den Einstellungen herunter.';
 
@@ -1682,10 +1678,6 @@ class L10nDe extends L10n {
   @override
   String get infoSttCudaOomFallbackCpu =>
       'Deiner GPU ist der Speicher ausgegangen. Für mehr Zuverlässigkeit wurde auf CPU-Modus umgestellt.';
-
-  @override
-  String get errorSttServerNotFound =>
-      'Sprachdienst nicht gefunden. Bitte lade ein Sprachmodell in den Einstellungen herunter.';
 
   @override
   String get errorSttServerConnectionLost =>

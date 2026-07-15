@@ -520,7 +520,6 @@
   "settingsAdvancedModelManagement": "Erweiterte Modell-Einstellungen",
 
   "infoEngineDownloading": "Sprachdienst wird vorbereitet. Bitte warte einen Moment.",
-  "infoEngineAutoDownload": "Sprachdienst fehlt — wird automatisch heruntergeladen…",
   "infoModelMissing": "Bitte lade zuerst ein Sprachmodell in den Einstellungen herunter.",
   "oomRecoveryTitle": "Aufnahme fehlgeschlagen — GPU-Speicherproblem",
   "oomRecoveryMessage": "Deiner GPU ist nicht mehr genügend Speicher verfügbar. Wie möchtest du fortfahren?",
@@ -553,7 +552,6 @@
   "infoSttCudaOomFallbackModel": "Qualität reduziert — deiner GPU ist der Speicher ausgegangen. Es wurde auf ein kleineres Modell umgestellt.",
   "infoSttCudaOomFallbackCpu": "Deiner GPU ist der Speicher ausgegangen. Für mehr Zuverlässigkeit wurde auf CPU-Modus umgestellt.",
 
-  "errorSttServerNotFound": "Sprachdienst nicht gefunden. Bitte lade ein Sprachmodell in den Einstellungen herunter.",
   "errorSttServerConnectionLost": "Sprachdienst wurde unerwartet beendet. Bitte versuche es erneut.",
   "errorSttCudaOom": "Deiner GPU ist der Speicher ausgegangen. Die Qualität wurde reduziert, damit der nächste Versuch funktionieren sollte.",
   "errorCloudAuth": "API-Schlüssel fehlt oder ist ungültig. Prüfe ihn unter Einstellungen → Spracherkennung.",

@@ -27,7 +27,7 @@ import 'package:whispaste/services/model_download_service.dart';
 import 'package:whispaste/services/paste/paste_failure_notifier.dart';
 import 'package:whispaste/services/paste/paster.dart';
 import 'package:whispaste/services/path_service.dart'
-    show sttDirOverride, sttDir, sttModelPath, whisperServerPath;
+    show sttDirOverride, sttDir, sttModelPath;
 import 'package:whispaste/services/recording_orchestrator.dart';
 import 'package:whispaste/services/sound_feedback_service.dart';
 import 'package:whispaste/services/stt/stt_bundle.dart';
@@ -250,10 +250,7 @@ class FakeModelDownloadNotifier extends ModelDownloadNotifier {
 
   @override
   ModelDownloadState build() {
-    return ModelDownloadState(
-      downloadedModels: _downloadedModels,
-      serverReady: true,
-    );
+    return ModelDownloadState(downloadedModels: _downloadedModels);
   }
 }
 
@@ -347,16 +344,14 @@ File createFakeWav(String name) {
   return file;
 }
 
-/// Creates placeholder whisper-server binary + model files so the real
-/// on-device preflight check in [RecordingOrchestrator.startRecording]
-/// passes. Content is irrelevant — [localSttBundleProvider] is overridden
-/// with [FakeSttService], so nothing ever executes or reads these files;
-/// preflight only checks that they exist. Requires [sttDirOverride] to
+/// Creates a placeholder model file so the real on-device preflight check
+/// in [RecordingOrchestrator.startRecording] passes. Content is
+/// irrelevant — [localSttBundleProvider] is overridden with
+/// [FakeSttService], so nothing ever executes or reads this file;
+/// preflight only checks that it exists. Requires [sttDirOverride] to
 /// already point at the test scratch directory.
 void ensureFakeLocalSttFilesExist({String modelId = 'whisper-small'}) {
   Directory(sttDir()).createSync(recursive: true);
-  final serverFile = File(whisperServerPath());
-  if (!serverFile.existsSync()) serverFile.writeAsStringSync('fake-binary');
   final modelPath = sttModelPath(modelId);
   if (modelPath != null && !File(modelPath).existsSync()) {
     File(modelPath).writeAsStringSync('fake-model');
@@ -877,8 +872,8 @@ void main() {
   // =========================================================================
 
   group('Preflight failure', () {
-    test('missing STT binary is soft-handled (stays idle)', () async {
-      // Soft-preflight catches stt_server_not_found and shows an info
+    test('missing STT model is soft-handled (stays idle)', () async {
+      // Soft-preflight catches stt_model_not_found and shows an info
       // notification instead of entering the error phase.
       container.read(recordingOrchestratorProvider);
       await Future<void>.delayed(Duration.zero);
@@ -892,7 +887,7 @@ void main() {
       expect(state.errorMessage, isNull);
     });
 
-    test('toggleRecording from idle with missing binary stays idle', () async {
+    test('toggleRecording from idle with missing model stays idle', () async {
       container.read(recordingOrchestratorProvider);
       await Future<void>.delayed(Duration.zero);
 

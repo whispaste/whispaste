@@ -150,7 +150,6 @@ flutter:
     - assets/icons/logo-dark.svg
     - assets/icons/logo-light.svg
     - assets/flags/
-    - assets/whisper-server-manifest.json
 
   fonts:
     - family: Inter

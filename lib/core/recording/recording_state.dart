@@ -272,14 +272,8 @@ final recordingSessionIdProvider = Provider<String?>((ref) {
 
 /// Pre-conditions for starting a recording.
 enum RecordingReadiness {
-  /// Everything is set — server binary + model present.
+  /// Everything is set — model present.
   ready,
-
-  /// Server binary missing, not currently downloading.
-  serverMissing,
-
-  /// Server binary is being auto-downloaded.
-  serverDownloading,
 
   /// Selected model file is missing.
   modelMissing,
@@ -294,11 +288,6 @@ final recordingReadinessProvider = Provider<RecordingReadiness>((ref) {
   // and let the orchestrator's hard preflight catch those cases.
   if (settings == null || !settings.onboardingCompleted) {
     return RecordingReadiness.ready;
-  }
-
-  if (!dl.serverReady) {
-    if (dl.isBusy) return RecordingReadiness.serverDownloading;
-    return RecordingReadiness.serverMissing;
   }
 
   final modelId = settings.effectiveModelId;

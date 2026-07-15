@@ -783,7 +783,7 @@ class _MockSettingsNotifier extends SettingsNotifier {
 
 class _MockModelDownloadNotifier extends ModelDownloadNotifier {
   @override
-  ModelDownloadState build() => const ModelDownloadState(serverReady: true);
+  ModelDownloadState build() => const ModelDownloadState();
 }
 
 class _MockSttServiceNotifier extends SttServerStateNotifier {

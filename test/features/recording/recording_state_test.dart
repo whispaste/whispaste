@@ -1,6 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/core/config/settings_provider.dart';
+import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/recording/recording_state.dart';
+import 'package:whispaste/services/model_download_service.dart';
 
 // ---------------------------------------------------------------------------
 // Helper: create a ProviderContainer for pure-logic tests (no widget needed).
@@ -9,6 +12,30 @@ ProviderContainer makeContainer() {
   final container = ProviderContainer();
   addTearDown(container.dispose);
   return container;
+}
+
+// ---------------------------------------------------------------------------
+// Fakes for recordingReadinessProvider tests — settings + model-download
+// state without touching disk or the real notifiers' side effects.
+// ---------------------------------------------------------------------------
+
+class _FakeSettingsNotifier extends SettingsNotifier {
+  _FakeSettingsNotifier(this._settings);
+
+  final AppSettings _settings;
+
+  @override
+  Future<AppSettings> build() async => _settings;
+}
+
+class _FakeModelDownloadNotifier extends ModelDownloadNotifier {
+  _FakeModelDownloadNotifier(this._downloadedModels);
+
+  final Set<String> _downloadedModels;
+
+  @override
+  ModelDownloadState build() =>
+      ModelDownloadState(downloadedModels: _downloadedModels);
 }
 
 void main() {
@@ -345,6 +372,71 @@ void main() {
 
       c.read(recordingProvider.notifier).startRecording();
       expect(c.read(recordingPhaseProvider), RecordingPhase.recording);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // recordingReadinessProvider — post server-binary-stack teardown (Issue 07)
+  // the only pre-conditions left are onboarding + the selected model file.
+  // -------------------------------------------------------------------------
+  group('recordingReadinessProvider', () {
+    test('RecordingReadiness only exposes ready and modelMissing — '
+        'the server-binary states were retired', () {
+      expect(RecordingReadiness.values, [
+        RecordingReadiness.ready,
+        RecordingReadiness.modelMissing,
+      ]);
+    });
+
+    test(
+      'reports ready once onboarding is done and the model is downloaded',
+      () async {
+        final c = ProviderContainer(
+          overrides: [
+            settingsProvider.overrideWith(
+              () => _FakeSettingsNotifier(
+                const AppSettings(
+                  onboarding: OnboardingSettings(onboardingCompleted: true),
+                  stt: SttSettings(model: 'whisper-medium'),
+                ),
+              ),
+            ),
+            modelDownloadProvider.overrideWith(
+              () => _FakeModelDownloadNotifier({'whisper-medium'}),
+            ),
+          ],
+        );
+        addTearDown(c.dispose);
+        await c.read(settingsProvider.future);
+
+        expect(c.read(recordingReadinessProvider), RecordingReadiness.ready);
+      },
+    );
+
+    test('reports modelMissing when the effective model is not downloaded — '
+        'no server-binary check is consulted anymore', () async {
+      final c = ProviderContainer(
+        overrides: [
+          settingsProvider.overrideWith(
+            () => _FakeSettingsNotifier(
+              const AppSettings(
+                onboarding: OnboardingSettings(onboardingCompleted: true),
+                stt: SttSettings(model: 'whisper-medium'),
+              ),
+            ),
+          ),
+          modelDownloadProvider.overrideWith(
+            () => _FakeModelDownloadNotifier(const {}),
+          ),
+        ],
+      );
+      addTearDown(c.dispose);
+      await c.read(settingsProvider.future);
+
+      expect(
+        c.read(recordingReadinessProvider),
+        RecordingReadiness.modelMissing,
+      );
     });
   });
 

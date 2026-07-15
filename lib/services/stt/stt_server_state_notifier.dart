@@ -33,23 +33,12 @@ import 'whisper/whisper_resilience_policy.dart';
 
 // Re-export for external consumers.
 export '../../core/recording/recording_state.dart' show SttServerState;
-export 'server_binary_recovery.dart'
-    show
-        RecoveryExhausted,
-        RecoveryExhaustedKind,
-        RecoveryFellBackToCpu,
-        RecoveryReason,
-        RecoveryResult,
-        RecoveryRetried,
-        ServerBinaryRecovery,
-        nextVariant;
 export 'stt_exit_classifier.dart' show SttExitKind, classifySttExitCode;
 export 'stt_gpu_fallback_policy.dart' show SttGpuFallbackPolicy;
 export 'stt_providers.dart'
     show
         SttStartupHeartbeatConfig,
         processRunnerProvider,
-        serverBinaryRecoveryProvider,
         sttHttpClientProvider,
         sttStartupHeartbeatConfigProvider;
 
@@ -145,10 +134,11 @@ bool isSttModelFileTooSmall(
 /// [localSttBundleProvider] since issue 15.
 ///
 /// The engine seam replaced the former `whisper-server` subprocess + HTTP
-/// transport (Issue 03). The subprocess-era GPU-DLL-gate, CUDA-OOM/exit-code
-/// classification and `ServerBinaryRecovery` machinery had no equivalent
-/// against an in-process engine and were removed; their production files
-/// stay in the repo for Issue 07/08 to retire. Real backend selection
+/// transport (Issue 03). The subprocess-era GPU-DLL-gate and CUDA-OOM/exit-code
+/// classification had no equivalent against an in-process engine and were
+/// removed; their production files stay in the repo for Issue 08 to retire.
+/// The `ServerBinaryRecovery` machinery (and the whole server-binary
+/// download/manifest stack) was retired in Issue 07. Real backend selection
 /// (Metal/CUDA/Vulkan) is Issue 04; OOM/retry resilience against FFI error
 /// codes is Issue 05.
 class SttServerStateNotifier extends Notifier<SttStatus> {

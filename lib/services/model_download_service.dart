@@ -1,6 +1,5 @@
-/// Model download service — manages downloading STT models and the
-/// whisper-server binary from HuggingFace and GitHub with progress,
-/// SHA256 verification, and resume support.
+/// Model download service — manages downloading STT models from
+/// HuggingFace with progress, SHA256 verification, and resume support.
 library;
 
 import 'dart:async';
@@ -24,8 +23,6 @@ import 'hardware_info_service.dart' as hw;
 import 'http_model_fetcher.dart';
 import 'path_service.dart';
 import 'tmp_reaper.dart';
-import 'whisper_server_downloader.dart';
-import 'whisper_server_manifest.dart';
 
 final _log = AppLogger('Download');
 
@@ -275,7 +272,6 @@ class ModelDownloadState {
     this.statusLabel,
     this.errorMessage,
     this.downloadedModels = const {},
-    this.serverReady = false,
   });
 
   /// Currently downloading model ID (null when idle).
@@ -302,9 +298,6 @@ class ModelDownloadState {
   /// Set of STT model IDs whose files exist on disk.
   final Set<String> downloadedModels;
 
-  /// Whether whisper-server binary is present.
-  final bool serverReady;
-
   bool get isDownloading => phase == DownloadPhase.downloading;
   bool get isError => phase == DownloadPhase.error;
   bool get isBusy =>
@@ -324,7 +317,6 @@ class ModelDownloadState {
     String? statusLabel,
     String? errorMessage,
     Set<String>? downloadedModels,
-    bool? serverReady,
   }) {
     return ModelDownloadState(
       activeModelId: activeModelId ?? this.activeModelId,
@@ -338,7 +330,6 @@ class ModelDownloadState {
       statusLabel: statusLabel ?? this.statusLabel,
       errorMessage: errorMessage,
       downloadedModels: downloadedModels ?? this.downloadedModels,
-      serverReady: serverReady ?? this.serverReady,
     );
   }
 }
@@ -376,15 +367,9 @@ Future<ModelDownloadState> _scanExistingModelsAsync(
       }
     }
   }
-  final serverExists = await fileExists(whisperServerPath());
 
-  _log.info(
-    'Scan: ${downloaded.length} STT models, server=${serverExists ? "ready" : "missing"}',
-  );
-  return ModelDownloadState(
-    downloadedModels: downloaded,
-    serverReady: serverExists,
-  );
+  _log.info('Scan: ${downloaded.length} STT models');
+  return ModelDownloadState(downloadedModels: downloaded);
 }
 
 // ---------------------------------------------------------------------------
@@ -396,26 +381,15 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
   @visibleForTesting
   HttpModelFetcher? fetcherOverride;
 
-  /// Injected manifest loader — override in tests to feed a fixture
-  /// manifest into the downloader without touching the network.
-  @visibleForTesting
-  WhisperServerManifestLoader? manifestLoaderOverride;
-
   /// Injected verifier — override in tests to avoid real file I/O.
   @visibleForTesting
   FileVerificationService? verifierOverride;
-
-  /// Injected server downloader — override in tests.
-  @visibleForTesting
-  WhisperServerDownloader? serverDownloaderOverride;
 
   /// Injected file-exists checker — override in tests to avoid real FS I/O
   /// and to verify the non-blocking scan contract. When non-null, replaces
   /// `File(path).exists()` in the async disk scan.
   @visibleForTesting
   Future<bool> Function(String path)? existsHookOverride;
-
-  bool _autoDownloadAttempted = false;
 
   /// Resolves to the injected checker or the real `File.exists` implementation.
   Future<bool> Function(String path) get _checker =>
@@ -424,23 +398,15 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
   /// Guards post-disposal state writes from the deferred scan microtask.
   bool _mounted = false;
 
-  /// Completes when the initial async disk scan has finished (or been skipped).
-  /// [downloadModel] awaits this before checking [ModelDownloadState.serverReady]
-  /// so that Phase-1 (engine) decisions are based on the scanned state, not
-  /// the empty initial state.
+  /// Completes when the initial async disk scan has finished (or been
+  /// skipped). [downloadModel] awaits this so its decisions are based on the
+  /// scanned state, not the empty initial state.
   Completer<void>? _initialScanCompleter;
 
   HttpModelFetcher get _fetcher => fetcherOverride ?? HttpModelFetcher();
 
   FileVerificationService get _verifier =>
       verifierOverride ?? const FileVerificationService();
-
-  WhisperServerDownloader get _serverDownloader =>
-      serverDownloaderOverride ??
-      WhisperServerDownloader(
-        fetcher: _fetcher,
-        manifestLoader: manifestLoaderOverride,
-      );
 
   @override
   ModelDownloadState build() {
@@ -467,16 +433,6 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
         final scanned = await _scanExistingModelsAsync(checker);
         if (_mounted) {
           state = scanned;
-
-          // Self-heal: if models exist but server is missing, auto-download.
-          if (!scanned.serverReady &&
-              scanned.downloadedModels.isNotEmpty &&
-              !_autoDownloadAttempted) {
-            _autoDownloadAttempted = true;
-            Future.microtask(() {
-              if (_mounted) ensureServerBinary();
-            });
-          }
         }
       } catch (e, st) {
         _log.warning('Initial disk scan failed', e, st);
@@ -495,11 +451,10 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
   // Public API
   // -----------------------------------------------------------------------
 
-  /// Downloads an STT model file. If whisper-server is missing, downloads
-  /// that first. Orchestrates: Engine → Fetch → Verify → Activate.
+  /// Downloads an STT model file. Orchestrates: Fetch → Verify → Activate.
   Future<void> downloadModel(String modelId) async {
-    // Ensure the initial disk scan has completed so serverReady reflects the
-    // on-disk state before we decide whether Phase-1 (engine download) is needed.
+    // Ensure the initial disk scan has completed so downloadedModels reflects
+    // the on-disk state before we decide whether a re-download is needed.
     await _initialScanCompleter?.future;
     if (!_mounted) return;
     if (state.isBusy) return;
@@ -516,13 +471,7 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
     try {
       _ensureDir(sttDir());
 
-      // Phase 1: Engine — ensure whisper-server binary exists.
-      if (!state.serverReady) {
-        _setEnginePhase(activeModelId: modelId);
-        await _downloadServerBinary();
-      }
-
-      // Phase 2: Fetch — download model file.
+      // Phase 1: Fetch — download model file.
       _log.info('Downloading model: ${model.id} (${model.sizeLabel})');
       _setModelFetchPhase(model, activeModelId: modelId);
 
@@ -554,7 +503,7 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
         ),
       );
 
-      // Phase 3: Verify — SHA256 check.
+      // Phase 2: Verify — SHA256 check.
       state = state.copyWith(
         phase: DownloadPhase.verifying,
         progressPercent: 99,
@@ -570,7 +519,7 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
         return;
       }
 
-      // Phase 4: Activate — persist model selection.
+      // Phase 3: Activate — persist model selection.
       await _markModelDone(model.id);
     } on DioException catch (e) {
       _handleDioError(e, logFn: _log.error);
@@ -588,38 +537,6 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
       activeModelId: null,
       progressPercent: 0,
     );
-  }
-
-  /// Ensures the whisper-server binary exists, downloading it if missing.
-  ///
-  /// Called automatically when the preflight check finds the server missing
-  /// but at least one model is downloaded. Also safe to call manually.
-  /// No-op if the server is already ready or a download is in progress.
-  Future<void> ensureServerBinary() async {
-    if (state.serverReady || state.isBusy) return;
-
-    _log.info('Auto-downloading whisper-server (self-heal)');
-
-    try {
-      _ensureDir(sttDir());
-      _setEnginePhase();
-      await _downloadServerBinary();
-      state = state.copyWith(phase: DownloadPhase.idle, progressPercent: 0);
-      _log.info('Self-heal complete: whisper-server ready');
-    } on DioException catch (e) {
-      if (e.type == DioExceptionType.cancel) {
-        state = state.copyWith(phase: DownloadPhase.idle);
-      } else {
-        final msg = e.response?.statusCode == 403
-            ? 'GitHub API rate limit reached.'
-            : 'Download failed: ${e.message}';
-        _log.warning('Self-heal failed: $msg');
-        state = state.copyWith(phase: DownloadPhase.idle, errorMessage: msg);
-      }
-    } on Exception catch (e) {
-      _log.warning('Self-heal failed: $e');
-      state = state.copyWith(phase: DownloadPhase.idle, errorMessage: '$e');
-    }
   }
 
   /// Deletes a downloaded model file.
@@ -643,23 +560,6 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
     state = scanned;
   }
 
-  /// Marks the server binary as incompatible and deletes it.
-  ///
-  /// Called by stt_service when a DLL-not-found crash is detected (wrong
-  /// GPU binary variant). After this, `serverReady` is false and the
-  /// self-heal logic will auto-download the correct binary.
-  // loam-ignore: unused-public-exports – orphaned by the Issue 03 engine cutover, stays for Issue 07's binary-acquisition-stack teardown
-  Future<void> invalidateServerBinary() async {
-    try {
-      await hw.deleteServerBinary(sttDir());
-    } catch (e) {
-      _log.warning('Failed to delete server binary: $e');
-    }
-    state = state.copyWith(serverReady: false);
-    // Trigger self-heal for the correct GPU variant.
-    Future.microtask(() => ensureServerBinary());
-  }
-
   // -----------------------------------------------------------------------
   // Private — state helpers
   // -----------------------------------------------------------------------
@@ -671,19 +571,6 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
       dir.createSync(recursive: true);
       _log.info('Created STT directory: $dirPath');
     }
-  }
-
-  /// Transitions to the engine-downloading phase.
-  void _setEnginePhase({String? activeModelId}) {
-    state = state.copyWith(
-      activeModelId: activeModelId,
-      phase: DownloadPhase.downloading,
-      progressPercent: 0,
-      downloadStartedAt: DateTime.now(),
-      statusLabel: 'engine',
-      speedBytesPerSec: 0,
-      errorMessage: null,
-    );
   }
 
   /// Transitions to the model-fetch phase.
@@ -722,7 +609,6 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
       activeModelId: modelId,
       progressPercent: 100,
       downloadedModels: {...state.downloadedModels, modelId},
-      serverReady: true,
     );
 
     // Auto-activate the downloaded model so the STT service uses it.
@@ -738,30 +624,6 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
     // file by HttpModelFetcher. Reap any OTHER orphaned .tmp fragments that
     // may still linger (fire-and-forget).
     unawaited(sweepOrphanedTmpFiles(directory: sttDir()));
-  }
-
-  // -----------------------------------------------------------------------
-  // Private — server binary orchestration
-  // -----------------------------------------------------------------------
-
-  /// Downloads the whisper-server binary via [WhisperServerDownloader],
-  /// forwarding progress/phase updates to [state].
-  Future<void> _downloadServerBinary() async {
-    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
-    await _serverDownloader.download(
-      destDir: sttDir(),
-      gpuMode: settings.gpuAcceleration,
-      onProgress: (prog) => state = state.copyWith(
-        progressPercent: prog.progressPercent,
-        bytesDownloaded: prog.bytesReceived,
-        totalBytes: prog.totalBytes,
-        speedBytesPerSec: prog.speedBytesPerSec,
-        etaSeconds: prog.etaSeconds,
-      ),
-      onExtracting: () =>
-          state = state.copyWith(phase: DownloadPhase.extracting),
-    );
-    state = state.copyWith(serverReady: true);
   }
 }
 

@@ -1044,21 +1044,6 @@ class RecordingOrchestrator extends Notifier<void> {
   /// error that should use the normal error flow.
   bool _handleSoftPreflight(String errorCode) {
     switch (errorCode) {
-      case 'stt_server_not_found':
-        final dl = ref.read(modelDownloadProvider);
-        if (dl.downloadedModels.isNotEmpty) {
-          // Server missing but models exist → auto-download.
-          ref.read(modelDownloadProvider.notifier).ensureServerBinary();
-          ref
-              .read(recordingInfoProvider.notifier)
-              .show('info_engine_auto_download');
-        } else {
-          // No models at all → user needs to go to settings.
-          ref.read(recordingInfoProvider.notifier).show('info_model_missing');
-        }
-        _log.info('Soft preflight: $errorCode handled gracefully');
-        return true;
-
       case 'stt_model_not_found':
       case 'stt_model_unknown':
         ref.read(recordingInfoProvider.notifier).show('info_model_missing');
@@ -1216,13 +1201,6 @@ class RecordingOrchestrator extends Notifier<void> {
       return null;
     }
 
-    // Check whisper-server binary.
-    final serverPath = whisperServerPath();
-    if (!await File(serverPath).exists()) {
-      _log.warning('Preflight FAIL: whisper-server not found at $serverPath');
-      return 'stt_server_not_found';
-    }
-
     // Check model file.
     final modelId = settings.effectiveModelId;
     final modelPath = sttModelPath(modelId);
@@ -1234,7 +1212,7 @@ class RecordingOrchestrator extends Notifier<void> {
       return 'stt_model_not_found';
     }
 
-    _log.info('Preflight OK: server=$serverPath model=$modelPath');
+    _log.info('Preflight OK: model=$modelPath');
     return null;
   }
 
@@ -1431,10 +1409,8 @@ class RecordingOrchestrator extends Notifier<void> {
         return;
       }
 
-      // Only pre-warm when runtime + model are already downloaded.
-      final serverPath = whisperServerPath();
+      // Only pre-warm when the model is already downloaded.
       final modelPath = sttModelPath(settings.effectiveModelId);
-      if (!await File(serverPath).exists()) return;
       if (modelPath == null || !await File(modelPath).exists()) return;
 
       await ref.read(onDeviceEngineLifecycleProvider).prewarm();
