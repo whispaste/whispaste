@@ -35,6 +35,7 @@ import 'core/recording/recording_state.dart';
 import 'core/data/database.dart';
 import 'core/logging/app_logger.dart';
 import 'core/logging/crash_reporter.dart';
+import 'services/paste/paste_policy.dart';
 import 'services/stt/stt_bundle.dart';
 import 'services/telemetry_service.dart';
 import 'services/tray_service.dart';
@@ -343,6 +344,9 @@ class _AppShellState extends ConsumerState<_AppShell>
     final activePage = ref.watch(activePageProvider);
     final recordingPhase = ref.watch(recordingPhaseProvider);
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
+    final resolvedAfterAction = resolveAfterTranscriptionAction(
+      settings.afterTranscriptionAction,
+    );
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
@@ -483,10 +487,10 @@ class _AppShellState extends ConsumerState<_AppShell>
                           sttStartingSince: sttStatus.startingSince,
                           recordingPhase: recordingPhase,
                           afterActionLabel: afterTranscriptionStatusLabel(
-                            settings.afterTranscriptionAction,
+                            resolvedAfterAction,
                             l10n,
                           ),
-                          afterAction: settings.afterTranscriptionAction,
+                          afterAction: resolvedAfterAction,
                           hotkeyLabel: formatHotkeyShortcut(
                             settings.hotkeyModifiers,
                             settings.hotkeyKey,
@@ -501,7 +505,7 @@ class _AppShellState extends ConsumerState<_AppShell>
                           updateReadyToInstall:
                               updateState.phase == UpdatePhase.readyToInstall,
                           showAutoPasteOffHint: shouldShowAutoPasteOffHint(
-                            afterAction: settings.afterTranscriptionAction,
+                            afterAction: resolvedAfterAction,
                             onboardingCompleted:
                                 settings.onboarding.onboardingCompleted,
                             autoPasteOffHintDismissed:

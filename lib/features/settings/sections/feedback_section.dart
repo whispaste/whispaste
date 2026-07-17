@@ -12,6 +12,7 @@ import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../services/hotkey_service.dart';
+import '../../../services/paste/paste_policy.dart';
 import '../../../services/sound_feedback_service.dart';
 import '../../../services/telemetry_service.dart';
 import '../../../widgets/hotkey_recorder.dart';
@@ -209,10 +210,42 @@ class AfterTranscriptionSection extends ConsumerWidget {
 
   static final _log = AppLogger('AfterTranscriptionSection');
 
+  static String _labelFor(AfterTranscriptionAction action, L10n l10n) =>
+      switch (action) {
+        AfterTranscriptionAction.clipboard =>
+          l10n.settingsAfterTranscriptionClipboard,
+        AfterTranscriptionAction.paste => l10n.settingsAfterTranscriptionPaste,
+        AfterTranscriptionAction.clipboardAndPaste =>
+          l10n.settingsAfterTranscriptionBoth,
+        AfterTranscriptionAction.nothing =>
+          l10n.settingsAfterTranscriptionNothing,
+      };
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = L10n.of(context);
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
+
+    // Auto-paste-requiring actions don't exist as a selectable option at all
+    // when the build can't perform them (MAS sandbox) — greying them out
+    // with a tooltip would look like a bug to users who don't know they're
+    // running a store build. The current value is routed through the same
+    // resolver the recording pipeline uses, so a stale/synced "paste"
+    // preference displays (and behaves) as "clipboard" instead of pointing
+    // at an option that no longer exists in the list.
+    final visibleActions = autoPasteSupported
+        ? AfterTranscriptionAction.values
+        : AfterTranscriptionAction.values
+              .where(
+                (a) =>
+                    a != AfterTranscriptionAction.paste &&
+                    a != AfterTranscriptionAction.clipboardAndPaste,
+              )
+              .toList();
+    final resolvedAction = resolveAfterTranscriptionAction(
+      settings.afterTranscriptionAction,
+      autoPasteSupported: autoPasteSupported,
+    );
 
     return WpSection(
       title: l10n.settingsAfterTranscription,
@@ -225,25 +258,11 @@ class AfterTranscriptionSection extends ConsumerWidget {
             label: l10n.settingsAfterTranscriptionActionLabel,
             trailing: settingsDropdown(
               context: context,
-              value: settings.afterTranscription,
-              items: AfterTranscriptionAction.values
-                  .map((e) => e.value)
+              value: resolvedAction.value,
+              items: visibleActions.map((e) => e.value).toList(),
+              labels: visibleActions
+                  .map((e) => _labelFor(e, l10n))
                   .toList(),
-              labels: [
-                l10n.settingsAfterTranscriptionClipboard,
-                l10n.settingsAfterTranscriptionPaste,
-                l10n.settingsAfterTranscriptionBoth,
-                l10n.settingsAfterTranscriptionNothing,
-              ],
-              disabledItems: autoPasteSupported
-                  ? null
-                  : {
-                      AfterTranscriptionAction.paste.value,
-                      AfterTranscriptionAction.clipboardAndPaste.value,
-                    },
-              disabledTooltip: autoPasteSupported
-                  ? null
-                  : l10n.settingsAfterTranscriptionMasDisabledHint,
               onChanged: (v) {
                 if (v == null) return;
                 ref
@@ -257,10 +276,8 @@ class AfterTranscriptionSection extends ConsumerWidget {
               },
             ),
           ),
-          if (settings.afterTranscriptionAction ==
-                  AfterTranscriptionAction.paste ||
-              settings.afterTranscriptionAction ==
-                  AfterTranscriptionAction.clipboardAndPaste)
+          if (resolvedAction == AfterTranscriptionAction.paste ||
+              resolvedAction == AfterTranscriptionAction.clipboardAndPaste)
             const Padding(
               padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
               child: PasteCapabilityIndicator(),

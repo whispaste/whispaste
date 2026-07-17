@@ -468,10 +468,6 @@ class L10nEn extends L10n {
   String get settingsAfterTranscriptionNothing => 'Do Nothing';
 
   @override
-  String get settingsAfterTranscriptionMasDisabledHint =>
-      'Not available in the Mac App Store edition (App Sandbox) — text goes to the clipboard instead.';
-
-  @override
   String get pasteFailurePermissionMissing =>
       'Auto-Paste was blocked by the OS. WhisPaste needs the Accessibility permission to paste into other apps.';
 

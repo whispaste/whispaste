@@ -945,12 +945,6 @@ abstract class L10n {
   /// **'Do Nothing'**
   String get settingsAfterTranscriptionNothing;
 
-  /// No description provided for @settingsAfterTranscriptionMasDisabledHint.
-  ///
-  /// In en, this message translates to:
-  /// **'Not available in the Mac App Store edition (App Sandbox) — text goes to the clipboard instead.'**
-  String get settingsAfterTranscriptionMasDisabledHint;
-
   /// No description provided for @pasteFailurePermissionMissing.
   ///
   /// In en, this message translates to:

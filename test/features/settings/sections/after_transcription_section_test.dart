@@ -257,11 +257,12 @@ void main() {
 
     // ── Mac App Store gating ─────────────────────────────────────────────────
     // When auto-paste isn't supported (Mac App Store build), the paste-based
-    // options must be shown but disabled — not silently hidden, not silently
-    // selectable. See docs/store-release.md.
+    // options don't exist as choices at all — greying them out with a
+    // tooltip would look like a bug to users who don't know they're running
+    // a store build. See docs/store-release.md.
 
     testWidgets(
-      'paste/clipboardAndPaste items are disabled when autoPasteSupported is false',
+      'paste/clipboardAndPaste options are absent when autoPasteSupported is false',
       (tester) async {
         final notifier = _FakeSettingsNotifier(
           _settingsWithAction(AfterTranscriptionAction.clipboard),
@@ -280,55 +281,47 @@ void main() {
         await tester.tap(find.byType(DropdownButton<String>).first);
         await tester.pumpAndSettle();
 
-        final pasteItem = tester.widget<DropdownMenuItem<String>>(
-          find.ancestor(
-            of: find.text(l10n.settingsAfterTranscriptionPaste).last,
-            matching: find.byType(DropdownMenuItem<String>),
-          ),
+        expect(find.text(l10n.settingsAfterTranscriptionPaste), findsNothing);
+        expect(find.text(l10n.settingsAfterTranscriptionBoth), findsNothing);
+        expect(
+          find.text(l10n.settingsAfterTranscriptionClipboard),
+          findsWidgets,
         );
-        final bothItem = tester.widget<DropdownMenuItem<String>>(
-          find.ancestor(
-            of: find.text(l10n.settingsAfterTranscriptionBoth).last,
-            matching: find.byType(DropdownMenuItem<String>),
-          ),
-        );
-
-        expect(pasteItem.enabled, isFalse);
-        expect(bothItem.enabled, isFalse);
+        expect(find.text(l10n.settingsAfterTranscriptionNothing), findsWidgets);
       },
     );
 
-    testWidgets('tapping a disabled paste option does not change the setting', (
-      tester,
-    ) async {
-      final notifier = _FakeSettingsNotifier(
-        _settingsWithAction(AfterTranscriptionAction.clipboard),
-      );
-      await tester.pumpWidget(
-        makeTestable(
-          const SingleChildScrollView(
-            child: AfterTranscriptionSection(autoPasteSupported: false),
+    testWidgets(
+      'a persisted paste preference displays as clipboard when autoPasteSupported is false',
+      (tester) async {
+        // Simulates a setting carried over from a non-MAS install (or a
+        // pre-fix default) — the runtime already downgrades this to
+        // clipboard behavior (paste_policy.dart); the dropdown must show
+        // the same resolved value rather than pointing at an option that
+        // isn't in the list.
+        final notifier = _FakeSettingsNotifier(
+          _settingsWithAction(AfterTranscriptionAction.paste),
+        );
+        await tester.pumpWidget(
+          makeTestable(
+            const SingleChildScrollView(
+              child: AfterTranscriptionSection(autoPasteSupported: false),
+            ),
+            overrides: [settingsProvider.overrideWith(() => notifier)],
+            locale: const Locale('en'),
           ),
-          overrides: [settingsProvider.overrideWith(() => notifier)],
-          locale: const Locale('en'),
-        ),
-      );
-      await tester.pumpAndSettle();
+        );
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.byType(DropdownButton<String>).first);
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text(l10n.settingsAfterTranscriptionPaste).last);
-      await tester.pumpAndSettle();
-
-      expect(
-        notifier.state.value!.afterTranscriptionSection.afterTranscription,
-        AfterTranscriptionAction.clipboard.value,
-      );
-    });
+        final dropdown = tester.widget<DropdownButton<String>>(
+          find.byType(DropdownButton<String>).first,
+        );
+        expect(dropdown.value, AfterTranscriptionAction.clipboard.value);
+      },
+    );
 
     testWidgets(
-      'paste/clipboardAndPaste items stay enabled when autoPasteSupported is true',
+      'paste/clipboardAndPaste options are present when autoPasteSupported is true',
       (tester) async {
         final notifier = _FakeSettingsNotifier(
           _settingsWithAction(AfterTranscriptionAction.clipboard),

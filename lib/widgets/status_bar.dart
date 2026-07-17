@@ -27,7 +27,13 @@ bool shouldShowAutoPasteOffHint({
   required AfterTranscriptionAction afterAction,
   required bool onboardingCompleted,
   required bool autoPasteOffHintDismissed,
+  bool autoPasteSupported = kAutoPasteSupported,
 }) {
+  // Auto-Paste isn't a toggleable choice in MAS builds — it's not offered at
+  // all (see AfterTranscriptionSection/_AfterActionChip). A "disabled" hint
+  // would tell users they turned off something that was never available to
+  // turn on.
+  if (!autoPasteSupported) return false;
   if (!onboardingCompleted) return false;
   if (autoPasteOffHintDismissed) return false;
   // Auto-Paste is considered ON when the action injects keystrokes — i.e.
@@ -591,32 +597,21 @@ class _AfterActionChip extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: WpRadius.borderSm),
       color: isDark ? WpColorsDark.surfaceElevated : WpColorsLight.surface,
       itemBuilder: (_) => [
+        // Auto-paste-requiring actions aren't offered at all when the build
+        // can't perform them (MAS sandbox) — see the matching comment on
+        // AfterTranscriptionSection in feedback_section.dart.
         for (final action in AfterTranscriptionAction.values)
-          PopupMenuItem<AfterTranscriptionAction>(
-            value: action,
-            enabled: kAutoPasteSupported || !_requiresAutoPaste(action),
-            child: _requiresAutoPaste(action) && !kAutoPasteSupported
-                ? Tooltip(
-                    message: l10n.settingsAfterTranscriptionMasDisabledHint,
-                    child: Opacity(
-                      opacity: 0.4,
-                      child: _AfterActionRow(
-                        action: action,
-                        current: current,
-                        cs: cs,
-                        label: _labelFor(action),
-                        icon: _iconFor(action),
-                      ),
-                    ),
-                  )
-                : _AfterActionRow(
-                    action: action,
-                    current: current,
-                    cs: cs,
-                    label: _labelFor(action),
-                    icon: _iconFor(action),
-                  ),
-          ),
+          if (kAutoPasteSupported || !_requiresAutoPaste(action))
+            PopupMenuItem<AfterTranscriptionAction>(
+              value: action,
+              child: _AfterActionRow(
+                action: action,
+                current: current,
+                cs: cs,
+                label: _labelFor(action),
+                icon: _iconFor(action),
+              ),
+            ),
       ],
       child: Container(
         padding: const EdgeInsets.symmetric(
