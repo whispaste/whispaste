@@ -329,7 +329,7 @@ const LLMS_TXT_SECTIONS = Object.freeze([
  */
 const LLMS_TXT_TITLE = "WhisPaste";
 const LLMS_TXT_DESCRIPTION =
-  "WhisPaste is an MIT-licensed voice-input tool for Windows, macOS, and Linux that transcribes speech locally via whisper.cpp and inserts the transcript at the cursor position of the active application. It is a desktop-only app; iOS and Android are not planned.";
+  "WhisPaste is an MIT-licensed voice-input tool for Windows, macOS, and Linux that transcribes speech locally and inserts the transcript at the cursor position of the active application. Two on-device engines are available: whisper.cpp (99 languages, GPU-accelerated) and Parakeet via sherpa-onnx (~25 languages, CPU-only but several times faster than whisper.cpp on the same hardware). It is a desktop-only app; iOS and Android are not planned.";
 
 /**
  * Liefert die default-Section-Liste, die `main()` für den Production-Build

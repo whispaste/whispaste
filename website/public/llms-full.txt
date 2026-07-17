@@ -55,7 +55,7 @@ Im Code: `RecordingPhase.recording`. In der UI: Statusbalken zeigt „Aufnahme l
 
 **Transkription** (DE) / **Transcription** (EN)
 
-Die Phase, in der die aufgezeichnete WAV-Datei durch eine STT-Engine in Text gewandelt wird. Lokal via whisper.cpp, cloud via OpenAI/Deepgram/Groq.
+Die Phase, in der die aufgezeichnete WAV-Datei durch eine STT-Engine in Text gewandelt wird. Lokal via whisper.cpp oder Parakeet (siehe §4.2), cloud via OpenAI/Deepgram/Groq.
 
 Im Code: `RecordingPhase.transcribing`, Sub-System unter `lib/services/stt/`.
 
@@ -211,7 +211,7 @@ Vier Begriffsebenen — bewusst getrennt halten, da im Alltag oft synonym verwen
 
 | Provider | UI-Label | Beschreibung |
 |---|---|---|
-| `onDevice` | „On Device" | lokal via whisper.cpp-Subprozess, kein Netzverkehr |
+| `onDevice` | „On Device" | lokal, kein Netzverkehr — zwei wählbare Engines, siehe §4.2 |
 | `openAI` | „OpenAI" | Cloud — OpenAI Audio API |
 | `deepgram` | „Deepgram" | Cloud — Deepgram API |
 
@@ -221,8 +221,8 @@ Vier Begriffsebenen — bewusst getrennt halten, da im Alltag oft synonym verwen
 
 `onDevice` bietet zwei wählbare Engines (`OnDeviceEngine` enum), beide **in-process**
 per `dart:ffi` eingebunden — kein Subprozess, kein HTTP-Transport (das frühere
-whisper.cpp-HTTP-Server-Subprozess-Modell wurde im Zuge der whisper-ffi-engine-Migration
-2026 vollständig abgelöst):
+whisper.cpp-HTTP-Server-Subprozess-Modell wurde in der whisper-ffi-engine-Migration
+2026 vollständig abgelöst, siehe `.scratch/whisper-ffi-engine/` Issues 03/08):
 
 | Provider | Engine |
 |---|---|
@@ -244,8 +244,7 @@ Wichtig: **Modell** ≠ **Engine** ≠ **Provider**. Beispiel: Provider `openAI`
 
 ### 4.4 Backend — wie die Engine rechnet (nur lokal relevant)
 
-Für `onDevice` mit Whisper gibt es drei Compute-Backends, automatisch erkannt via
-`hardware_info_service.dart`:
+Für `onDevice` mit Whisper gibt es drei Compute-Backends, automatisch erkannt via `hardware_info_service.dart`:
 
 | Backend | Verfügbar wenn |
 |---|---|
@@ -254,8 +253,8 @@ Für `onDevice` mit Whisper gibt es drei Compute-Backends, automatisch erkannt v
 | CPU | immer als Fallback |
 
 `SttStatus.cpuFallbackActive` markiert, dass nach GPU-Crash auf CPU degradiert wurde.
-Für Parakeet gibt es (Stand 2026) **noch kein GPU-Backend** — läuft ausschließlich auf CPU,
-ist dort aber bereits deutlich schneller als Whisper auf jedem Backend.
+Für Parakeet gibt es (Stand 2026) **noch kein GPU-Backend** — läuft ausschließlich auf
+CPU, ist dort aber bereits deutlich schneller als Whisper auf jedem Backend.
 
 ### 4.5 Engine-Lebenszyklus (`SttServerState`)
 
