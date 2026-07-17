@@ -34,6 +34,11 @@ mixin FloatingOverlayControllerMixin
         final action = args?['action'] as String?;
         if (action != null) return OverlayContextMenuAction(action);
         return null;
+      case 'onRenderEngineDiagnostic':
+        final args = call.arguments as Map?;
+        final message = (args?['message'] as String?) ?? 'unknown';
+        final isError = (args?['isError'] as bool?) ?? false;
+        return OverlayRenderEngineDiagnostic(message, isError: isError);
       default:
         return null;
     }

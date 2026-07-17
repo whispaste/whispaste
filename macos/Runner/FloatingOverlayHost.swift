@@ -43,6 +43,16 @@ class FloatingOverlayHost {
   private var latestSnapshotArgs: [String: Any]?
   private var latestBars: [String: Any]?
 
+  // Boot-race hardening: if `ready` never arrives (observed in the wild —
+  // reproduced 2026-07-17, root cause not fully pinned down, but a fresh
+  // engine instance reliably recovers it), a timeout tears down the stuck
+  // engine and boots a fresh one rather than leaving the panel permanently
+  // blank for the rest of the app session.
+  private static let renderReadyTimeout: TimeInterval = 3.0
+  private static let maxRenderReadyRetries = 2
+  private var renderReadyTimeoutTimer: Timer?
+  private var renderReadyRetryCount = 0
+
   init(messenger: FlutterBinaryMessenger) {
     channel = FlutterMethodChannel(
       name: "com.whispaste.floating_overlay",
@@ -187,7 +197,28 @@ class FloatingOverlayHost {
 
   private func ensurePanel() {
     let size = contentSize()
+
+    let p = FloatingOverlayPanel(width: size.width, height: size.height)
+    panel = p
+    bootRenderEngine()
+    NSLog("[overlay] ensurePanel: panel created, content \(size.width)x\(size.height)")
+
+    // Apply pending position if one was set before the panel existed.
+    if let pos = pendingPosition {
+      p.setFrameOrigin(pos)
+      pendingPosition = nil
+    }
+  }
+
+  /// Creates a fresh render-engine instance and hosts it in the existing
+  /// panel. Split out from `ensurePanel()` so a stuck boot (see
+  /// `renderReadyTimeoutTimer`) can retry with a brand-new `FlutterEngine`
+  /// without tearing down/recreating the native panel itself (position,
+  /// size, and screen-observer wiring all stay put).
+  private func bootRenderEngine() {
+    guard let p = panel else { return }
     renderReady = false
+    renderReadyTimeoutTimer?.invalidate()
 
     // Boot the dedicated overlay engine and host its view in the panel.
     // macOS `runWithEntrypoint:` resolves the name only against the ROOT
@@ -196,7 +227,15 @@ class FloatingOverlayHost {
     // variant on macOS FlutterEngine.
     let engine = FlutterEngine(name: "floating_overlay", project: nil)
     let didRun = engine.run(withEntrypoint: "floatingOverlayMain")
-    NSLog("[overlay] ensurePanel: engine.run(floatingOverlayMain) -> \(didRun)")
+    NSLog("[overlay] bootRenderEngine: engine.run(floatingOverlayMain) -> \(didRun)")
+
+    guard didRun else {
+      // Engine failed to start outright — no point waiting out the full
+      // timeout window before retrying.
+      renderEngine = engine
+      handleRenderReadyTimeout()
+      return
+    }
 
     let vc = FlutterViewController(engine: engine, nibName: nil, bundle: nil)
     // REAL surface transparency: must be set so the engine composites onto a
@@ -211,7 +250,6 @@ class FloatingOverlayHost {
       self?.handleRenderCall(call, result: result)
     }
 
-    let p = FloatingOverlayPanel(width: size.width, height: size.height)
     // ⚠️ DO NOT replace `contentViewController` with a manual container/subview
     // setup (e.g. to slip an NSVisualEffectView behind the Flutter surface for
     // "frosted glass"). Hosting the FlutterViewController's view as a plain
@@ -227,18 +265,41 @@ class FloatingOverlayHost {
     // (OverlayPainter, identical on macOS/Windows/Linux), so no native blur is
     // wired here. The panel stays a clear shell. See ADR 0002.
     p.contentViewController = vc
-    p.setContentSize(size)
+    p.setContentSize(contentSize())
 
-    panel = p
     renderEngine = engine
     renderViewController = vc
     renderChannel = renderCh
-    NSLog("[overlay] ensurePanel: panel created, content \(size.width)x\(size.height)")
 
-    // Apply pending position if one was set before the panel existed.
-    if let pos = pendingPosition {
-      p.setFrameOrigin(pos)
-      pendingPosition = nil
+    // Boot-race hardening: if `ready` doesn't arrive in time, tear this
+    // engine down and try a fresh one (bounded retries) instead of leaving
+    // the panel silently blank for the rest of the session.
+    let timer = Timer.scheduledTimer(withTimeInterval: Self.renderReadyTimeout, repeats: false) { [weak self] _ in
+      self?.handleRenderReadyTimeout()
+    }
+    renderReadyTimeoutTimer = timer
+  }
+
+  private func handleRenderReadyTimeout() {
+    guard !renderReady else { return }
+
+    if renderReadyRetryCount < Self.maxRenderReadyRetries {
+      renderReadyRetryCount += 1
+      let message =
+        "render engine did not signal ready within \(Self.renderReadyTimeout)s — retrying (attempt \(renderReadyRetryCount)/\(Self.maxRenderReadyRetries))"
+      NSLog("[overlay] \(message)")
+      channel.invokeMethod("onRenderEngineDiagnostic", arguments: ["message": message, "isError": false])
+      renderEngine?.shutDownEngine()
+      bootRenderEngine()
+    } else {
+      let message =
+        "render engine never signaled ready after \(Self.maxRenderReadyRetries) retries — overlay content will stay blank until the app restarts"
+      NSLog("[overlay] \(message)")
+      channel.invokeMethod("onRenderEngineDiagnostic", arguments: ["message": message, "isError": true])
+      // Don't keep a permanently-stuck engine's thread/GPU resources alive
+      // for the rest of the session — it will never become useful.
+      renderEngine?.shutDownEngine()
+      renderEngine = nil
     }
   }
 
@@ -261,6 +322,9 @@ class FloatingOverlayHost {
       // The render engine's Dart handler is live — flush the cached state so
       // the first visible frame is never lost to the boot race.
       NSLog("[overlay] render engine ready — flushing cached state")
+      renderReadyTimeoutTimer?.invalidate()
+      renderReadyTimeoutTimer = nil
+      renderReadyRetryCount = 0
       renderReady = true
       if let bars = latestBars {
         renderChannel?.invokeMethod("setWaveformBars", arguments: bars)
@@ -328,6 +392,9 @@ class FloatingOverlayHost {
       NotificationCenter.default.removeObserver(obs)
       screenObserver = nil
     }
+    renderReadyTimeoutTimer?.invalidate()
+    renderReadyTimeoutTimer = nil
+    renderReadyRetryCount = 0
     renderChannel?.setMethodCallHandler(nil)
     panel?.close()
     panel = nil

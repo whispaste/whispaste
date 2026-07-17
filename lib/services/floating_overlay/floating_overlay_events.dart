@@ -31,3 +31,15 @@ class OverlayContextMenuAction extends FloatingOverlayEvent {
   const OverlayContextMenuAction(this.action);
   final String action;
 }
+
+/// The native shell reported a diagnostic about the dedicated render-engine
+/// boot handshake (macOS: `FloatingOverlayHost.swift`'s `renderReady` race —
+/// the render engine boots asynchronously and the shell waits for a "ready"
+/// callback before relaying any content; this surfaces a slow/failed
+/// handshake in the persistent app log instead of only native NSLog/stderr,
+/// which isn't reachable from the sandboxed test tooling used to diagnose it).
+class OverlayRenderEngineDiagnostic extends FloatingOverlayEvent {
+  const OverlayRenderEngineDiagnostic(this.message, {required this.isError});
+  final String message;
+  final bool isError;
+}

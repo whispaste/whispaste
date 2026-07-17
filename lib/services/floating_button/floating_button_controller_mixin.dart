@@ -31,6 +31,11 @@ mixin FloatingButtonControllerMixin
           return FloatingButtonDragEnded(x, y);
         }
         return null;
+      case 'onRenderEngineDiagnostic':
+        final args = call.arguments as Map?;
+        final message = (args?['message'] as String?) ?? 'unknown';
+        final isError = (args?['isError'] as bool?) ?? false;
+        return FloatingButtonRenderEngineDiagnostic(message, isError: isError);
       default:
         return null;
     }

@@ -25,3 +25,13 @@ class FloatingButtonDragEnded extends FloatingButtonEvent {
   final double x;
   final double y;
 }
+
+/// The native shell reported a diagnostic about the dedicated render-engine
+/// boot handshake — see [FloatingButtonHost.swift]'s `renderReady` race (the
+/// same boot-race class as `OverlayRenderEngineDiagnostic` for the recording
+/// overlay).
+class FloatingButtonRenderEngineDiagnostic extends FloatingButtonEvent {
+  const FloatingButtonRenderEngineDiagnostic(this.message, {required this.isError});
+  final String message;
+  final bool isError;
+}

@@ -178,6 +178,16 @@ class FloatingButtonService
       case FloatingButtonDragEnded(x: final x, y: final y):
         _log.debug('Floating button dragged to ($x, $y)');
         _savePosition(x, y);
+
+      case FloatingButtonRenderEngineDiagnostic(
+        message: final message,
+        isError: final isError,
+      ):
+        if (isError) {
+          _log.error('Render engine: $message');
+        } else {
+          _log.warning('Render engine: $message');
+        }
     }
   }
 

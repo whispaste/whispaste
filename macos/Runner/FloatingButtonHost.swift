@@ -42,6 +42,15 @@ class FloatingButtonHost {
   private var latestState: String?
   private var latestDiameter: Double = 56
 
+  // Boot-race hardening: if `ready` never arrives (same class of race as
+  // FloatingOverlayHost's — see its comment), a timeout tears down the stuck
+  // engine and boots a fresh one rather than leaving the button permanently
+  // blank for the rest of the app session.
+  private static let renderReadyTimeout: TimeInterval = 3.0
+  private static let maxRenderReadyRetries = 2
+  private var renderReadyTimeoutTimer: Timer?
+  private var renderReadyRetryCount = 0
+
   init(messenger: FlutterBinaryMessenger) {
     channel = FlutterMethodChannel(
       name: "com.whispaste.floating_button",
@@ -197,8 +206,20 @@ class FloatingButtonHost {
 
   private func ensurePanel(totalSize: Double) {
     guard panel == nil else { return }
+    let p = FloatingButtonPanel(size: CGFloat(totalSize))
+    panel = p
+    bootRenderEngine(totalSize: totalSize)
+    NSLog("[button] ensurePanel: panel created \(totalSize)x\(totalSize)")
+  }
 
+  /// Creates a fresh render-engine instance and hosts it in the existing
+  /// panel. Split out from `ensurePanel()` so a stuck boot (see
+  /// `renderReadyTimeoutTimer`) can retry with a brand-new `FlutterEngine`
+  /// without recreating the native panel itself.
+  private func bootRenderEngine(totalSize: Double) {
+    guard let p = panel else { return }
     renderReady = false
+    renderReadyTimeoutTimer?.invalidate()
 
     // Boot the dedicated button engine and host its view in the panel.
     // macOS `runWithEntrypoint:` resolves the name only against the ROOT
@@ -207,7 +228,15 @@ class FloatingButtonHost {
     // on macOS FlutterEngine.
     let engine = FlutterEngine(name: "floating_button", project: nil)
     let didRun = engine.run(withEntrypoint: "floatingButtonMain")
-    NSLog("[button] ensurePanel: engine.run(floatingButtonMain) -> \(didRun)")
+    NSLog("[button] bootRenderEngine: engine.run(floatingButtonMain) -> \(didRun)")
+
+    guard didRun else {
+      // Engine failed to start outright — no point waiting out the full
+      // timeout window before retrying.
+      renderEngine = engine
+      handleRenderReadyTimeout(totalSize: totalSize)
+      return
+    }
 
     let vc = FlutterViewController(engine: engine, nibName: nil, bundle: nil)
     // REAL surface transparency: must be set so the engine composites onto a
@@ -222,15 +251,43 @@ class FloatingButtonHost {
       self?.handleRenderCall(call, result: result)
     }
 
-    let p = FloatingButtonPanel(size: CGFloat(totalSize))
     p.contentViewController = vc
     p.setContentSize(NSSize(width: totalSize, height: totalSize))
 
-    panel = p
     renderEngine = engine
     renderViewController = vc
     renderChannel = renderCh
-    NSLog("[button] ensurePanel: panel created \(totalSize)x\(totalSize)")
+
+    // Boot-race hardening: if `ready` doesn't arrive in time, tear this
+    // engine down and try a fresh one (bounded retries) instead of leaving
+    // the button silently blank for the rest of the session.
+    let timer = Timer.scheduledTimer(withTimeInterval: Self.renderReadyTimeout, repeats: false) { [weak self] _ in
+      self?.handleRenderReadyTimeout(totalSize: totalSize)
+    }
+    renderReadyTimeoutTimer = timer
+  }
+
+  private func handleRenderReadyTimeout(totalSize: Double) {
+    guard !renderReady else { return }
+
+    if renderReadyRetryCount < Self.maxRenderReadyRetries {
+      renderReadyRetryCount += 1
+      let message =
+        "render engine did not signal ready within \(Self.renderReadyTimeout)s — retrying (attempt \(renderReadyRetryCount)/\(Self.maxRenderReadyRetries))"
+      NSLog("[button] \(message)")
+      channel.invokeMethod("onRenderEngineDiagnostic", arguments: ["message": message, "isError": false])
+      renderEngine?.shutDownEngine()
+      bootRenderEngine(totalSize: totalSize)
+    } else {
+      let message =
+        "render engine never signaled ready after \(Self.maxRenderReadyRetries) retries — button content will stay blank until the app restarts"
+      NSLog("[button] \(message)")
+      channel.invokeMethod("onRenderEngineDiagnostic", arguments: ["message": message, "isError": true])
+      // Don't keep a permanently-stuck engine's thread/GPU resources alive
+      // for the rest of the session — it will never become useful.
+      renderEngine?.shutDownEngine()
+      renderEngine = nil
+    }
   }
 
   private func show(x: Double, y: Double, size: Double) {
@@ -269,6 +326,9 @@ class FloatingButtonHost {
       // The render engine's Dart handler is live — flush the cached state so
       // the first visible frame is never lost to the boot race.
       NSLog("[button] render engine ready — flushing cached state")
+      renderReadyTimeoutTimer?.invalidate()
+      renderReadyTimeoutTimer = nil
+      renderReadyRetryCount = 0
       renderReady = true
       if let state = latestState {
         renderChannel?.invokeMethod("setState", arguments: ["state": state])
@@ -341,6 +401,9 @@ class FloatingButtonHost {
       NotificationCenter.default.removeObserver(obs)
       screenObserver = nil
     }
+    renderReadyTimeoutTimer?.invalidate()
+    renderReadyTimeoutTimer = nil
+    renderReadyRetryCount = 0
     renderChannel?.setMethodCallHandler(nil)
     panel?.close()
     panel = nil
