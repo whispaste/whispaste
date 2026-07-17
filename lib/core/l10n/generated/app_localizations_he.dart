@@ -1171,6 +1171,13 @@ class L10nHe extends L10n {
       'זיהוי דיבור מקומי וענן – מהיר, מדויק, רב-לשוני.';
 
   @override
+  String get aboutParakeet => 'NVIDIA Parakeet & sherpa-onnx';
+
+  @override
+  String get aboutParakeetDesc =>
+      'Local speech recognition tuned for speed on plain CPU hardware (~25 languages).';
+
+  @override
   String get aboutPrivacyFirst => 'פרטיות קודמת לכול';
 
   @override

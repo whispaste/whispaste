@@ -219,17 +219,24 @@ Vier Begriffsebenen — bewusst getrennt halten, da im Alltag oft synonym verwen
 
 ### 4.2 Engine — was die Transkription technisch ausführt
 
+`onDevice` bietet zwei wählbare Engines (`OnDeviceEngine` enum), beide **in-process**
+per `dart:ffi` eingebunden — kein Subprozess, kein HTTP-Transport (das frühere
+whisper.cpp-HTTP-Server-Subprozess-Modell wurde im Zuge der whisper-ffi-engine-Migration
+2026 vollständig abgelöst):
+
 | Provider | Engine |
 |---|---|
-| onDevice | **whisper.cpp** (compiled C++ binary, läuft als lokaler HTTP-Server-Subprozess) |
+| onDevice → Whisper | **whisper.cpp** (in-process via `dart:ffi` gegen `libwhisper`), 99 Sprachen, GPU-beschleunigt |
+| onDevice → Parakeet | **NVIDIA Parakeet-TDT** via `sherpa-onnx` (in-process ONNX Runtime), ~25 europäische Sprachen, CPU-only, mehrfach schneller als whisper.cpp auf identischer Hardware (gemessen: RTF 0,10–0,13x gegenüber 0,43–1,16x) |
 | openAI | OpenAI Audio API (Cloud-Service) |
 | deepgram | Deepgram Streaming/Batch API (Cloud-Service) |
 
 ### 4.3 Modell — welches ML-Modell die Engine verwendet
 
-Konkrete Datei (`onDevice`) oder Provider-seitiges Modell-ID-String (Cloud).
+Konkrete Datei(en) (`onDevice`) oder Provider-seitiges Modell-ID-String (Cloud).
 
-| onDevice | tiny, base, small, medium, large-v3 (als `ggml-*.bin` im lokalen Cache) |
+| onDevice (Whisper) | tiny, base, small, medium, large-v3 (als `ggml-*.bin` im lokalen Cache) |
+| onDevice (Parakeet) | `parakeet-tdt-0.6b-v3` — vier Dateien (encoder/decoder/joiner-ONNX + tokens.txt, ~640 MB, einmaliger Download) |
 | openAI | `whisper-1` (vom Provider fest vorgegeben) |
 | deepgram | `nova-3`, `nova-2`, etc. (vom Nutzer wählbar) |
 
@@ -237,7 +244,8 @@ Wichtig: **Modell** ≠ **Engine** ≠ **Provider**. Beispiel: Provider `openAI`
 
 ### 4.4 Backend — wie die Engine rechnet (nur lokal relevant)
 
-Für `onDevice` mit whisper.cpp gibt es drei Compute-Backends, automatisch erkannt via `hardware_info_service.dart`:
+Für `onDevice` mit Whisper gibt es drei Compute-Backends, automatisch erkannt via
+`hardware_info_service.dart`:
 
 | Backend | Verfügbar wenn |
 |---|---|
@@ -246,10 +254,17 @@ Für `onDevice` mit whisper.cpp gibt es drei Compute-Backends, automatisch erkan
 | CPU | immer als Fallback |
 
 `SttStatus.cpuFallbackActive` markiert, dass nach GPU-Crash auf CPU degradiert wurde.
+Für Parakeet gibt es (Stand 2026) **noch kein GPU-Backend** — läuft ausschließlich auf CPU,
+ist dort aber bereits deutlich schneller als Whisper auf jedem Backend.
 
-### 4.5 Server — der lokale whisper.cpp-Subprozess
+### 4.5 Engine-Lebenszyklus (`SttServerState`)
 
-Der **STT-Server** ist der laufende whisper.cpp-Subprozess im HTTP-Server-Modus. Lebenszyklus: `SttServerState` enum mit `stopped, starting, ready, error`. Wird vom Orchestrator on-demand gestartet und nach einem Idle-Timer wieder beendet.
+Der Name `SttServerState` ist ein historisches Namensrelikt aus der Subprozess-Ära
+(vor der FFI-Migration) und bezeichnet heute den Lebenszyklus der in-process
+Whisper-Engine: enum `stopped, starting, ready, error`. Wird vom Orchestrator
+on-demand initialisiert und nach einem Idle-Timer wieder freigegeben. Parakeet hat
+einen eigenen, separaten Lebenszyklus (`ParakeetEngineNotifier`/`ParakeetEngineState`)
+mit demselben Zustandsmodell, aber ohne Idle-Timer (bleibt für die App-Session warm).
 
 Nicht zu verwechseln mit:
 - **Supabase-Server** (PostgREST-Backend für Feedback) — anderer Kontext, immer als „Supabase" benannt

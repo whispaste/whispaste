@@ -2178,7 +2178,7 @@ abstract class L10n {
   /// No description provided for @aboutFlutterGoDesc.
   ///
   /// In en, this message translates to:
-  /// **'Cross-platform UI with Flutter. Local speech recognition via whisper.cpp.'**
+  /// **'Cross-platform UI with Flutter. Local speech recognition via whisper.cpp and Parakeet.'**
   String get aboutFlutterGoDesc;
 
   /// No description provided for @aboutWhisper.
@@ -2190,8 +2190,20 @@ abstract class L10n {
   /// No description provided for @aboutWhisperDesc.
   ///
   /// In en, this message translates to:
-  /// **'Local and cloud speech recognition — fast, accurate, multilingual.'**
+  /// **'Local and cloud speech recognition — fast, accurate, multilingual (99 languages).'**
   String get aboutWhisperDesc;
+
+  /// No description provided for @aboutParakeet.
+  ///
+  /// In en, this message translates to:
+  /// **'NVIDIA Parakeet & sherpa-onnx'**
+  String get aboutParakeet;
+
+  /// No description provided for @aboutParakeetDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Local speech recognition tuned for speed on plain CPU hardware (~25 languages).'**
+  String get aboutParakeetDesc;
 
   /// No description provided for @aboutPrivacyFirst.
   ///

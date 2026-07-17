@@ -186,6 +186,12 @@ class AboutPage extends ConsumerWidget {
                 isDark: isDark,
               ),
               _BuiltWithRow(
+                icon: LucideIcons.gauge,
+                title: l10n.aboutParakeet,
+                description: l10n.aboutParakeetDesc,
+                isDark: isDark,
+              ),
+              _BuiltWithRow(
                 icon: LucideIcons.shield,
                 title: l10n.aboutPrivacyFirst,
                 description: l10n.aboutPrivacyFirstDesc,

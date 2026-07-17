@@ -1174,14 +1174,21 @@ class L10nEn extends L10n {
 
   @override
   String get aboutFlutterGoDesc =>
-      'Cross-platform UI with Flutter. Local speech recognition via whisper.cpp.';
+      'Cross-platform UI with Flutter. Local speech recognition via whisper.cpp and Parakeet.';
 
   @override
   String get aboutWhisper => 'whisper.cpp & OpenAI Whisper';
 
   @override
   String get aboutWhisperDesc =>
-      'Local and cloud speech recognition — fast, accurate, multilingual.';
+      'Local and cloud speech recognition — fast, accurate, multilingual (99 languages).';
+
+  @override
+  String get aboutParakeet => 'NVIDIA Parakeet & sherpa-onnx';
+
+  @override
+  String get aboutParakeetDesc =>
+      'Local speech recognition tuned for speed on plain CPU hardware (~25 languages).';
 
   @override
   String get aboutPrivacyFirst => 'Privacy-first';

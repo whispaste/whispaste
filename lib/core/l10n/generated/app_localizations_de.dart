@@ -1185,14 +1185,21 @@ class L10nDe extends L10n {
 
   @override
   String get aboutFlutterGoDesc =>
-      'Plattformübergreifende UI mit Flutter. Lokale Spracherkennung über whisper.cpp.';
+      'Plattformübergreifende UI mit Flutter. Lokale Spracherkennung über whisper.cpp und Parakeet.';
 
   @override
   String get aboutWhisper => 'whisper.cpp & OpenAI Whisper';
 
   @override
   String get aboutWhisperDesc =>
-      'Lokale und Cloud-Spracherkennung — schnell, genau, mehrsprachig.';
+      'Lokale und Cloud-Spracherkennung — schnell, genau, mehrsprachig (99 Sprachen).';
+
+  @override
+  String get aboutParakeet => 'NVIDIA Parakeet & sherpa-onnx';
+
+  @override
+  String get aboutParakeetDesc =>
+      'Lokale Spracherkennung, optimiert für Geschwindigkeit auf reiner CPU-Hardware (~25 Sprachen).';
 
   @override
   String get aboutPrivacyFirst => 'Privatsphäre zuerst';
