@@ -71,7 +71,13 @@ const List<ParakeetModelFile> parakeetModelFiles = [
   ParakeetModelFile(
     filename: 'tokens.txt',
     url: '$_repoBase/tokens.txt',
-    sizeBytes: 308,
+    // 308 was the Content-Length of HuggingFace's 307-redirect response body,
+    // not the resolved file — a stale HEAD-without-follow-redirects reading.
+    // Verified against the actual resolved file: `curl -sI -L $_repoBase/tokens.txt`
+    // → 9384 (2026-07-17, real download on SilviosPC hit this size-mismatch
+    // and deleted+retried indefinitely; the other three registry sizes were
+    // already verified against the resolved target and are correct).
+    sizeBytes: 9384,
   ),
 ];
 
