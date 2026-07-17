@@ -2742,7 +2742,7 @@ class L10nHe extends L10n {
 
   @override
   String get parakeetModelSubtitle =>
-      'One-time download (~630 MB), then runs fully offline';
+      'One-time download (~640 MB), then runs fully offline';
 
   @override
   String get parakeetModelDownload => 'Download';

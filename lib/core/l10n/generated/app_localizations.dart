@@ -4992,7 +4992,7 @@ abstract class L10n {
   /// No description provided for @parakeetModelSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'One-time download (~630 MB), then runs fully offline'**
+  /// **'One-time download (~640 MB), then runs fully offline'**
   String get parakeetModelSubtitle;
 
   /// No description provided for @parakeetModelDownload.

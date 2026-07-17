@@ -6,11 +6,17 @@
 /// standalone registry (not merged into that file) so the whisper-specific
 /// single-file download path stays untouched.
 ///
-/// Source: `csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8` on
+/// Source: `csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8` on
 /// HuggingFace — the community-maintained ONNX export of NVIDIA's
-/// `parakeet-tdt-0.6b-v2` used by the sherpa-onnx project's own Dart/Flutter
+/// `parakeet-tdt-0.6b-v3` used by the sherpa-onnx project's own Dart/Flutter
 /// examples (see `dart-api-examples/non-streaming-asr/bin/nemo-transducer.dart`
 /// in `k2-fsa/sherpa-onnx`).
+///
+/// v3, not v2: v2 is English-only (HuggingFace model card: "Language: en").
+/// v3 is NVIDIA's multilingual follow-up (25 European languages, incl.
+/// German) — the only version consistent with the app's engine-selection
+/// copy ("~25 languages"), which described v3 while v2 was actually wired up
+/// until 2026-07-17.
 ///
 /// Integrity note: whisper's `sttModels` registry pins a SHA-256 per file
 /// because HuggingFace's classic git-lfs backend exposes a plain SHA-256 OID.
@@ -48,36 +54,37 @@ class ParakeetModelFile {
 }
 
 const String _repoBase =
-    'https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8/resolve/main';
+    'https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/resolve/main';
 
-/// The four files that make up the Parakeet TDT 0.6B v2 (int8) bundle.
-/// Sizes verified via HTTP HEAD against the HuggingFace repo.
+/// The four files that make up the Parakeet TDT 0.6B v3 (int8) bundle.
+/// Sizes verified against the resolved target (`curl -sI -L`, following
+/// HuggingFace's redirect — see the tokens.txt comment below for why that
+/// distinction matters) on 2026-07-17.
 const List<ParakeetModelFile> parakeetModelFiles = [
   ParakeetModelFile(
     filename: 'encoder.int8.onnx',
     url: '$_repoBase/encoder.int8.onnx',
-    sizeBytes: 652184296,
+    sizeBytes: 652184281,
   ),
   ParakeetModelFile(
     filename: 'decoder.int8.onnx',
     url: '$_repoBase/decoder.int8.onnx',
-    sizeBytes: 7257753,
+    sizeBytes: 11845275,
   ),
   ParakeetModelFile(
     filename: 'joiner.int8.onnx',
     url: '$_repoBase/joiner.int8.onnx',
-    sizeBytes: 1739080,
+    sizeBytes: 6355277,
   ),
   ParakeetModelFile(
     filename: 'tokens.txt',
     url: '$_repoBase/tokens.txt',
-    // 308 was the Content-Length of HuggingFace's 307-redirect response body,
-    // not the resolved file — a stale HEAD-without-follow-redirects reading.
-    // Verified against the actual resolved file: `curl -sI -L $_repoBase/tokens.txt`
-    // → 9384 (2026-07-17, real download on SilviosPC hit this size-mismatch
-    // and deleted+retried indefinitely; the other three registry sizes were
-    // already verified against the resolved target and are correct).
-    sizeBytes: 9384,
+    // HuggingFace's resolve/main URL 307-redirects to the real file; the
+    // redirect response itself carries a small Content-Length (308 for the
+    // v2 repo) that is NOT the file's size — must follow the redirect
+    // (`curl -sI -L`) to measure the real target. Got this wrong once
+    // already for the v2 registry (fixed in commit aa8fd511).
+    sizeBytes: 93939,
   ),
 ];
 
@@ -88,7 +95,7 @@ int get parakeetModelTotalBytes =>
 /// Directory the Parakeet bundle is stored in — a subdirectory of the shared
 /// STT directory so it never collides with whisper's flat `ggml-*.bin` +
 /// `whisper-server` layout.
-String parakeetModelDir() => p.join(sttDir(), 'parakeet-tdt-0.6b-v2');
+String parakeetModelDir() => p.join(sttDir(), 'parakeet-tdt-0.6b-v3');
 
 /// Full path to a bundle file by name.
 String parakeetModelFilePath(String filename) =>

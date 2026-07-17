@@ -941,7 +941,7 @@
   "settingsSttEngineWhisper": "Whisper",
   "settingsSttEngineParakeet": "Parakeet (am schnellsten, ~25 Sprachen)",
   "parakeetModelTitle": "Parakeet-TDT-Modell",
-  "parakeetModelSubtitle": "Einmaliger Download (~630 MB), läuft danach vollständig offline",
+  "parakeetModelSubtitle": "Einmaliger Download (~640 MB), läuft danach vollständig offline",
   "parakeetModelDownload": "Herunterladen",
   "parakeetModelDownloading": "Wird heruntergeladen …",
   "parakeetModelInstalled": "Installiert",
