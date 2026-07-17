@@ -226,6 +226,24 @@ class _SpeechRecognitionSectionState
 
           // Custom vocabulary
           _CustomVocabularyField(initialValue: settings.customVocabulary),
+
+          // Punctuation priming
+          SettingRow(
+            icon: LucideIcons.pilcrow,
+            label: l10n.settingsPunctuationPriming,
+            subtitle: l10n.settingsPunctuationPrimingSubtitle,
+            semanticToggledValue: settings.stt.punctuationPriming,
+            trailing: Switch(
+              value: settings.stt.punctuationPriming,
+              onChanged: (v) => ref
+                  .read(settingsProvider.notifier)
+                  .updateSettings(
+                    (s) => s.copyWithSections(
+                      stt: s.stt.copyWith(punctuationPriming: v),
+                    ),
+                  ),
+            ),
+          ),
         ],
       ),
     );

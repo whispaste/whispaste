@@ -64,7 +64,10 @@ Future<void> _fillAndSubmit(WidgetTester tester) async {
   await tester.pumpAndSettle();
   await tester.tap(find.text('🤩'));
   await tester.pumpAndSettle();
-  await tester.enterText(find.byType(TextField), 'Test feedback');
+  await tester.enterText(
+    find.byKey(const Key('feedbackCommentField')),
+    'Test feedback',
+  );
   await tester.pumpAndSettle();
 
   final submitFinder = find.widgetWithText(ElevatedButton, l10n.feedbackSubmit);
@@ -108,6 +111,19 @@ void main() {
       final hash = computeFeedbackDeviceIdHash('fallback_device');
       expect(hash.length, 12);
       expect(hash, matches(RegExp(r'^[0-9a-f]{12}$')));
+    });
+  });
+
+  group('isValidFeedbackContactEmail', () {
+    test('accepts a plausible address', () {
+      expect(isValidFeedbackContactEmail('user@example.com'), isTrue);
+    });
+
+    test('rejects missing @, missing domain dot, and whitespace', () {
+      expect(isValidFeedbackContactEmail('not-an-email'), isFalse);
+      expect(isValidFeedbackContactEmail('user@example'), isFalse);
+      expect(isValidFeedbackContactEmail('user @example.com'), isFalse);
+      expect(isValidFeedbackContactEmail(''), isFalse);
     });
   });
 
@@ -176,13 +192,122 @@ void main() {
         await tester.pumpAndSettle();
 
         // Enter a comment so feedback_text is non-empty.
-        await tester.enterText(find.byType(TextField), 'Great app!');
+        await tester.enterText(
+          find.byKey(const Key('feedbackCommentField')),
+          'Great app!',
+        );
         await tester.pumpAndSettle();
 
         final button = tester.widget<ElevatedButton>(
           find.widgetWithText(ElevatedButton, l10n.feedbackSubmit),
         );
         expect(button.onPressed, isNotNull);
+      },
+    );
+
+    // ── AC: optional contact email ─────────────────────────────────────────
+
+    Future<void> fillRequiredInputs(WidgetTester tester) async {
+      await tester.tap(find.text(l10n.feedbackCategoryGeneral));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('🤩'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('feedbackCommentField')),
+        'Great app!',
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('submit stays enabled when the email field is left empty', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        makeTestable(
+          FeedbackPage(submissionService: _sentService()),
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await fillRequiredInputs(tester);
+
+      final button = tester.widget<ElevatedButton>(
+        find.widgetWithText(ElevatedButton, l10n.feedbackSubmit),
+      );
+      expect(button.onPressed, isNotNull);
+    });
+
+    testWidgets('an invalid email disables submit and shows an inline error', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        makeTestable(
+          FeedbackPage(submissionService: _sentService()),
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await fillRequiredInputs(tester);
+
+      await tester.enterText(
+        find.byKey(const Key('feedbackEmailField')),
+        'not-an-email',
+      );
+      await tester.pumpAndSettle();
+
+      final button = tester.widget<ElevatedButton>(
+        find.widgetWithText(ElevatedButton, l10n.feedbackSubmit),
+      );
+      expect(button.onPressed, isNull);
+      expect(find.text(l10n.feedbackContactEmailInvalid), findsOneWidget);
+    });
+
+    testWidgets('a valid email keeps submit enabled, no inline error', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        makeTestable(
+          FeedbackPage(submissionService: _sentService()),
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await fillRequiredInputs(tester);
+
+      await tester.enterText(
+        find.byKey(const Key('feedbackEmailField')),
+        'user@example.com',
+      );
+      await tester.pumpAndSettle();
+
+      final button = tester.widget<ElevatedButton>(
+        find.widgetWithText(ElevatedButton, l10n.feedbackSubmit),
+      );
+      expect(button.onPressed, isNotNull);
+      expect(find.text(l10n.feedbackContactEmailInvalid), findsNothing);
+    });
+
+    testWidgets(
+      'the reply-language picker only appears once an email is entered',
+      (tester) async {
+        await tester.pumpWidget(
+          makeTestable(
+            FeedbackPage(submissionService: _sentService()),
+            locale: const Locale('en'),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await fillRequiredInputs(tester);
+
+        expect(find.text(l10n.feedbackContactLanguageLabel), findsNothing);
+
+        await tester.enterText(
+          find.byKey(const Key('feedbackEmailField')),
+          'user@example.com',
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text(l10n.feedbackContactLanguageLabel), findsOneWidget);
       },
     );
 

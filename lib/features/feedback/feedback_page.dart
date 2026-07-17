@@ -14,6 +14,7 @@ import '../../core/logging/app_logger.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../services/feedback_submission_service.dart';
+import '../../widgets/language_selector.dart';
 import '../../widgets/page_shell.dart';
 
 /// Supabase URL — injected at build time via `--dart-define`.
@@ -51,6 +52,15 @@ String computeFeedbackDeviceIdHash(String hostname) {
 
 const _kLastFeedbackKey = 'feedback_last_submitted_ms';
 const _kClientRateLimitHours = 24;
+
+/// Mirrors the server-side CHECK constraint on `user_feedback.contact_email`
+/// (`supabase/migrations/20260717_add_feedback_contact_email.sql`) — a
+/// deliberately loose format check, not full RFC validation. Client-side
+/// only blocks obvious typos; the server is the source of truth.
+final _emailFormat = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+
+@visibleForTesting
+bool isValidFeedbackContactEmail(String value) => _emailFormat.hasMatch(value);
 
 /// Returns true if the user has submitted feedback within the last 24 hours.
 /// Prevents unnecessary network calls before the server-side check.
@@ -96,6 +106,8 @@ class _FeedbackPageState extends State<FeedbackPage> {
   int _rating = 0;
   String _category = '';
   final _commentController = TextEditingController();
+  final _emailController = TextEditingController();
+  String? _contactLocale;
   bool _submitted = false;
   bool _submitting = false;
   String? _error;
@@ -117,11 +129,16 @@ class _FeedbackPageState extends State<FeedbackPage> {
   @override
   void dispose() {
     _commentController.dispose();
+    _emailController.dispose();
     super.dispose();
   }
 
   bool get _canSubmit =>
-      _rating > 0 && _category.isNotEmpty && _commentController.text.isNotEmpty;
+      _rating > 0 &&
+      _category.isNotEmpty &&
+      _commentController.text.isNotEmpty &&
+      (_emailController.text.trim().isEmpty ||
+          isValidFeedbackContactEmail(_emailController.text.trim()));
 
   @override
   Widget build(BuildContext context) {
@@ -247,6 +264,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                       ),
                     ),
                     child: TextField(
+                      key: const Key('feedbackCommentField'),
                       controller: _commentController,
                       maxLines: 5,
                       maxLength: 1000,
@@ -263,6 +281,20 @@ class _FeedbackPageState extends State<FeedbackPage> {
                         contentPadding: const EdgeInsets.all(WpSpacing.md),
                       ),
                     ),
+                  ),
+
+                  const SizedBox(height: WpSpacing.xxl),
+
+                  // Optional contact email + preferred reply language
+                  _ContactEmailSection(
+                    emailController: _emailController,
+                    contactLocale: _contactLocale,
+                    // The email text lives on the parent's controller and
+                    // feeds _canSubmit + the submit payload, so a change
+                    // must re-run the parent's build, not just the child's.
+                    onEmailChanged: () => setState(() {}),
+                    onContactLocaleChanged: (code) =>
+                        setState(() => _contactLocale = code),
                   ),
 
                   const SizedBox(height: WpSpacing.xxl),
@@ -313,28 +345,30 @@ class _FeedbackPageState extends State<FeedbackPage> {
                   const SizedBox(height: WpSpacing.lg),
 
                   // Privacy note
-                  Center(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          LucideIcons.lock,
-                          size: WpIconSize.xs,
-                          color: isDark
-                              ? WpColorsDark.textMuted
-                              : WpColorsLight.textMuted,
-                        ),
-                        const SizedBox(width: WpSpacing.xxs),
-                        Text(
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        LucideIcons.lock,
+                        size: WpIconSize.xs,
+                        color: isDark
+                            ? WpColorsDark.textMuted
+                            : WpColorsLight.textMuted,
+                      ),
+                      const SizedBox(width: WpSpacing.xxs),
+                      Flexible(
+                        child: Text(
                           l10n.feedbackPrivacyNote,
+                          textAlign: TextAlign.center,
                           style: ts.bodySmall?.copyWith(
                             color: isDark
                                 ? WpColorsDark.textMuted
                                 : WpColorsLight.textMuted,
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
 
                   const SizedBox(height: WpSpacing.xxxl),
@@ -381,6 +415,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
         return;
       }
 
+      final email = _emailController.text.trim();
       final payload = FeedbackPayload(
         rating: _rating,
         feedbackText: _commentController.text.trim(),
@@ -388,6 +423,8 @@ class _FeedbackPageState extends State<FeedbackPage> {
         appVersion: appVersion,
         deviceIdHash: _deriveDeviceId(),
         locale: locale,
+        contactEmail: email.isEmpty ? null : email,
+        contactLocale: email.isEmpty ? null : (_contactLocale ?? locale),
       );
 
       final result = await _service.submit(payload);
@@ -438,6 +475,8 @@ class _FeedbackPageState extends State<FeedbackPage> {
       _rating = 0;
       _category = '';
       _commentController.clear();
+      _emailController.clear();
+      _contactLocale = null;
     });
   }
 
@@ -447,6 +486,108 @@ class _FeedbackPageState extends State<FeedbackPage> {
     } on Exception {
       return computeFeedbackDeviceIdHash('fallback_device');
     }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Optional contact email + preferred reply language — extracted out of
+// _FeedbackPageState.build to keep its cyclomatic complexity down.
+// ---------------------------------------------------------------------------
+
+class _ContactEmailSection extends StatelessWidget {
+  const _ContactEmailSection({
+    required this.emailController,
+    required this.contactLocale,
+    required this.onEmailChanged,
+    required this.onContactLocaleChanged,
+  });
+
+  final TextEditingController emailController;
+  final String? contactLocale;
+  final VoidCallback onEmailChanged;
+  final ValueChanged<String> onContactLocaleChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final ts = Theme.of(context).textTheme;
+    final l10n = L10n.of(context);
+    final email = emailController.text.trim();
+    final showInvalidEmail =
+        email.isNotEmpty && !isValidFeedbackContactEmail(email);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(l10n.feedbackContactEmailLabel, style: ts.titleSmall),
+        const SizedBox(height: WpSpacing.xs),
+        Text(
+          l10n.feedbackContactEmailExplanation,
+          style: ts.bodySmall?.copyWith(
+            color: isDark
+                ? WpColorsDark.textSecondary
+                : WpColorsLight.textSecondary,
+          ),
+        ),
+        const SizedBox(height: WpSpacing.sm),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: isDark
+                ? WpColorsDark.warmSurfaceGradient
+                : WpColorsLight.warmSurfaceGradient,
+            borderRadius: WpRadius.borderMd,
+            border: Border.all(
+              color: isDark
+                  ? WpColorsDark.borderDefault
+                  : WpColorsLight.borderDefault,
+            ),
+          ),
+          child: TextField(
+            key: const Key('feedbackEmailField'),
+            controller: emailController,
+            keyboardType: TextInputType.emailAddress,
+            autocorrect: false,
+            onChanged: (_) => onEmailChanged(),
+            decoration: InputDecoration(
+              hintText: l10n.feedbackContactEmailPlaceholder,
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.all(WpSpacing.md),
+            ),
+          ),
+        ),
+        if (showInvalidEmail) ...[
+          const SizedBox(height: WpSpacing.xs),
+          Text(
+            l10n.feedbackContactEmailInvalid,
+            style: ts.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.error,
+            ),
+          ),
+        ],
+
+        // Preferred reply language — only relevant once there is a way to
+        // reply, so it only appears once an email is given.
+        if (email.isNotEmpty) ...[
+          const SizedBox(height: WpSpacing.lg),
+          Text(l10n.feedbackContactLanguageLabel, style: ts.titleSmall),
+          const SizedBox(height: WpSpacing.xs),
+          Text(
+            l10n.feedbackContactLanguageHint,
+            style: ts.bodySmall?.copyWith(
+              color: isDark
+                  ? WpColorsDark.textSecondary
+                  : WpColorsLight.textSecondary,
+            ),
+          ),
+          const SizedBox(height: WpSpacing.sm),
+          LanguageSelector(
+            currentLocale:
+                contactLocale ?? Localizations.localeOf(context).languageCode,
+            onChanged: onContactLocaleChanged,
+          ),
+        ],
+      ],
+    );
   }
 }
 

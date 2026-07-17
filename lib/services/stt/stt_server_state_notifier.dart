@@ -14,6 +14,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sentry_flutter/sentry_flutter.dart'
     show Breadcrumb, Sentry, SentryLevel;
 
+import '../../core/config/punctuation_priming_prompts.dart';
 import '../../core/config/settings_provider.dart';
 import '../../core/config/whisper_languages.dart';
 import '../../core/logging/app_logger.dart';
@@ -369,7 +370,11 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
 
     final settings = ref.read(settingsProvider).value;
     final vocab = settings?.customVocabulary.trim() ?? '';
-    final effectivePrompt = _resolveEffectivePrompt(vocab);
+    final effectivePrompt = _resolveEffectivePrompt(
+      vocab,
+      lang: lang,
+      punctuationPriming: settings?.stt.punctuationPriming ?? true,
+    );
 
     // ── Pre-flight validation ─────────────────────────────────────────────
     // Reject obvious-garbage requests before they reach the engine. Sentry
@@ -476,7 +481,17 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
   /// Builds the effective prompt from the custom vocabulary setting and the
   /// rolling context window, updating [_lastPrompt]/[_lastPromptTime] on
   /// expiry.  Extracted from [transcribeBytes] to lower its cyclomatic count.
-  String? _resolveEffectivePrompt(String vocab) {
+  ///
+  /// When neither [vocab] nor the rolling context yields anything and
+  /// [punctuationPriming] is enabled, falls back to a short punctuated
+  /// example prompt for [lang] (see `punctuation_priming_prompts.dart`) so
+  /// greedy decoding is biased towards punctuated output. Never overrides a
+  /// real vocab/context prompt — style-mimicry priming only fills the gap.
+  String? _resolveEffectivePrompt(
+    String vocab, {
+    required String lang,
+    required bool punctuationPriming,
+  }) {
     String? promptValue;
     if (_lastPrompt != null &&
         _lastPrompt!.isNotEmpty &&
@@ -491,7 +506,9 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       if (vocab.isNotEmpty) vocab,
       if (promptValue != null && promptValue.isNotEmpty) promptValue,
     ].join(' ');
-    return combined.isEmpty ? null : combined;
+    if (combined.isNotEmpty) return combined;
+    if (!punctuationPriming) return null;
+    return resolvePunctuationPrimingPrompt(lang);
   }
 
   /// Runs [WhisperEngine.transcribe] behind the FFI resilience chain

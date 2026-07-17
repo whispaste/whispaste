@@ -680,6 +680,13 @@ class L10nEn extends L10n {
       'e.g. WhisPaste, Kubernetes, Dr. Mueller';
 
   @override
+  String get settingsPunctuationPriming => 'Punctuation priming';
+
+  @override
+  String get settingsPunctuationPrimingSubtitle =>
+      'Nudges Whisper towards punctuated output when no custom vocabulary is set. No effect on speed.';
+
+  @override
   String get settingsAppLanguage => 'App Language';
 
   @override
@@ -1285,10 +1292,32 @@ class L10nEn extends L10n {
   String get feedbackPlaceholderGeneral => 'Share your thoughts…';
 
   @override
+  String get feedbackContactEmailLabel => 'Email (optional)';
+
+  @override
+  String get feedbackContactEmailExplanation =>
+      'Only if you\'d like a reply. We\'ll use it solely to follow up on this message — never for marketing, and it\'s deleted after 90 days.';
+
+  @override
+  String get feedbackContactEmailPlaceholder => 'you@example.com';
+
+  @override
+  String get feedbackContactEmailInvalid =>
+      'Please enter a valid email address, or leave it empty.';
+
+  @override
+  String get feedbackContactLanguageLabel => 'Reply in';
+
+  @override
+  String get feedbackContactLanguageHint =>
+      'Which language should we use if we get back to you?';
+
+  @override
   String get feedbackSubmit => 'Send Feedback';
 
   @override
-  String get feedbackPrivacyNote => 'Your feedback is anonymous and encrypted.';
+  String get feedbackPrivacyNote =>
+      'Anonymous by default — only identifiable if you add your email above.';
 
   @override
   String get feedbackThankYou => 'Thank you!';

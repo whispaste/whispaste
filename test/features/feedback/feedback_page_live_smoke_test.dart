@@ -72,7 +72,7 @@ void main() {
       await tester.tap(find.text('🤩'));
       await tester.pumpAndSettle();
       await tester.enterText(
-        find.byType(TextField),
+        find.byKey(const Key('feedbackCommentField')),
         'E2E-TEST live-smoke (automated) — bitte ignorieren, wird gelöscht',
       );
       await tester.pumpAndSettle();

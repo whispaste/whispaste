@@ -292,6 +292,7 @@ class SttSettings {
     this.idleTimeoutMinutes = 5,
     this.customVocabulary = '',
     this.engine = 'whisper',
+    this.punctuationPriming = true,
   });
 
   final String provider;
@@ -309,6 +310,17 @@ class SttSettings {
   /// [provider] is a cloud provider. See [OnDeviceEngine].
   final String engine;
 
+  /// Whether a short, punctuated example prompt is used to bias Whisper
+  /// towards punctuated output when neither [customVocabulary] nor a rolling
+  /// context prompt is available (see `resolvePunctuationPrimingPrompt` in
+  /// `punctuation_priming_prompts.dart`). Whisper's prompt mechanism works
+  /// through style mimicry, so this never overrides [customVocabulary] —
+  /// it only fills the gap when there is nothing else to prime with.
+  /// Default on because it costs no extra latency (same greedy decoding,
+  /// just a short prefix) — opt-out exists for users who want raw,
+  /// unprimed model output (e.g. verbatim technical dictation).
+  final bool punctuationPriming;
+
   static const SttSettings defaults = SttSettings();
 
   factory SttSettings.fromMap(Map<String, String> v) => SttSettings(
@@ -322,6 +334,11 @@ class SttSettings {
     ),
     customVocabulary: v['custom_vocabulary'] ?? defaults.customVocabulary,
     engine: v['stt_engine'] ?? defaults.engine,
+    punctuationPriming: _readBool(
+      v,
+      'stt_punctuation_priming',
+      defaults.punctuationPriming,
+    ),
   );
 
   Map<String, String> toMap() => {
@@ -331,6 +348,7 @@ class SttSettings {
     'stt_idle_timeout_minutes': '$idleTimeoutMinutes',
     'custom_vocabulary': customVocabulary,
     'stt_engine': engine,
+    'stt_punctuation_priming': '$punctuationPriming',
   };
 
   // loam-ignore: code-duplicates – every settings-section class in this file
@@ -344,6 +362,7 @@ class SttSettings {
     int? idleTimeoutMinutes,
     String? customVocabulary,
     String? engine,
+    bool? punctuationPriming,
   }) => SttSettings(
     provider: provider ?? this.provider,
     model: model ?? this.model,
@@ -351,6 +370,7 @@ class SttSettings {
     idleTimeoutMinutes: idleTimeoutMinutes ?? this.idleTimeoutMinutes,
     customVocabulary: customVocabulary ?? this.customVocabulary,
     engine: engine ?? this.engine,
+    punctuationPriming: punctuationPriming ?? this.punctuationPriming,
   );
 
   @override
@@ -362,7 +382,8 @@ class SttSettings {
           language == other.language &&
           idleTimeoutMinutes == other.idleTimeoutMinutes &&
           customVocabulary == other.customVocabulary &&
-          engine == other.engine;
+          engine == other.engine &&
+          punctuationPriming == other.punctuationPriming;
 
   @override
   int get hashCode => Object.hash(
@@ -372,6 +393,7 @@ class SttSettings {
     idleTimeoutMinutes,
     customVocabulary,
     engine,
+    punctuationPriming,
   );
 }
 

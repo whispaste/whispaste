@@ -467,8 +467,23 @@ void main() {
       );
     });
 
+    test('no custom vocabulary configured and language is auto-detect → the '
+        'engine receives no prompt (no language to prime with yet)', () async {
+      final engine = _FakeWhisperEngine();
+      final container = _makeContainer(engine);
+      addTearDown(container.dispose);
+
+      final notifier = await _bringReady(container);
+      _capturedEvents.clear();
+
+      await notifier.transcribeBytes(_validWav(), language: 'auto');
+
+      expect(engine.lastPrompt, isNull);
+    });
+
     test(
-      'no custom vocabulary configured → the engine receives no prompt',
+      'no custom vocabulary, known language, punctuation priming on '
+      '(default) → the engine receives the default punctuation prompt',
       () async {
         final engine = _FakeWhisperEngine();
         final container = _makeContainer(engine);
@@ -477,10 +492,53 @@ void main() {
         final notifier = await _bringReady(container);
         _capturedEvents.clear();
 
-        await notifier.transcribeBytes(_validWav(), language: 'auto');
+        await notifier.transcribeBytes(_validWav(), language: 'en');
 
-        expect(engine.lastPrompt, isNull);
+        expect(engine.lastPrompt, isNotNull);
+        expect(engine.lastPrompt, isNot(isEmpty));
       },
     );
+
+    test('no custom vocabulary, known language, punctuation priming disabled '
+        'via settings → the engine receives no prompt', () async {
+      final engine = _FakeWhisperEngine();
+      final container = _makeContainer(
+        engine,
+        settings: AppSettings.defaults.copyWithSections(
+          stt: AppSettings.defaults.stt.copyWith(
+            model: 'whisper-small',
+            punctuationPriming: false,
+          ),
+        ),
+      );
+      addTearDown(container.dispose);
+
+      final notifier = await _bringReady(container);
+      _capturedEvents.clear();
+
+      await notifier.transcribeBytes(_validWav(), language: 'en');
+
+      expect(engine.lastPrompt, isNull);
+    });
+
+    test('custom vocabulary set → punctuation priming never overrides it, even '
+        'for a known language', () async {
+      final engine = _FakeWhisperEngine();
+      final container = _makeContainer(
+        engine,
+        settings: AppSettings.defaults.copyWith(
+          sttModel: 'whisper-small',
+          customVocabulary: 'Fachbegriff, Eigenname',
+        ),
+      );
+      addTearDown(container.dispose);
+
+      final notifier = await _bringReady(container);
+      _capturedEvents.clear();
+
+      await notifier.transcribeBytes(_validWav(), language: 'en');
+
+      expect(engine.lastPrompt, equals('Fachbegriff, Eigenname'));
+    });
   });
 }

@@ -13,6 +13,7 @@
 ///   7. [FeedbackNetworkError] — SocketException
 library;
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -316,6 +317,89 @@ void main() {
       );
       expect(capturedRequest!.headers['apikey'], 'pk_test');
       expect(capturedRequest!.headers['Prefer'], 'return=minimal');
+    });
+
+    test(
+      'omits contact_email/contact_locale from the JSON body when not set',
+      () async {
+        http.Request? capturedRequest;
+        final client = MockClient((request) async {
+          capturedRequest = request;
+          return http.Response('', 201);
+        });
+        final service = _makeService(client: client);
+
+        await service.submit(_testPayload());
+
+        final body = jsonDecode(capturedRequest!.body) as Map<String, Object?>;
+        expect(body.containsKey('contact_email'), isFalse);
+        expect(body.containsKey('contact_locale'), isFalse);
+      },
+    );
+
+    test(
+      'includes contact_email/contact_locale in the JSON body when set',
+      () async {
+        http.Request? capturedRequest;
+        final client = MockClient((request) async {
+          capturedRequest = request;
+          return http.Response('', 201);
+        });
+        final service = _makeService(client: client);
+
+        await service.submit(
+          const FeedbackPayload(
+            rating: 5,
+            feedbackText: 'Great app!',
+            category: 'general',
+            appVersion: '1.0.0',
+            deviceIdHash: 'abc123def456',
+            locale: 'en',
+            contactEmail: 'user@example.com',
+            contactLocale: 'de',
+          ),
+        );
+
+        final body = jsonDecode(capturedRequest!.body) as Map<String, Object?>;
+        expect(body['contact_email'], 'user@example.com');
+        expect(body['contact_locale'], 'de');
+      },
+    );
+  });
+
+  group('FeedbackPayload.toJson', () {
+    test(
+      'base fields are always present, contact fields absent by default',
+      () {
+        final json = _testPayload().toJson();
+
+        expect(json['rating'], 5);
+        expect(json['feedback_text'], 'Great app!');
+        expect(json['category'], 'general');
+        expect(json['app_version'], '1.0.0');
+        expect(json['device_id_hash'], 'abc123def456');
+        expect(json['locale'], 'en');
+        expect(json.containsKey('contact_email'), isFalse);
+        expect(json.containsKey('contact_locale'), isFalse);
+      },
+    );
+
+    test('includes contact fields only when provided', () {
+      const payload = FeedbackPayload(
+        rating: 5,
+        feedbackText: 'Great app!',
+        category: 'general',
+        appVersion: '1.0.0',
+        deviceIdHash: 'abc123def456',
+        locale: 'en',
+        contactEmail: 'user@example.com',
+        contactLocale: 'fr',
+      );
+
+      final json = payload.toJson();
+
+      expect(json['contact_email'], 'user@example.com');
+      expect(json['contact_locale'], 'fr');
     });
   });
 }

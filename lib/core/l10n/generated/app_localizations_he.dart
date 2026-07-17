@@ -669,6 +669,13 @@ class L10nHe extends L10n {
       'לדוגמה: WhisPaste, Kubernetes, ד\"ר כהן';
 
   @override
+  String get settingsPunctuationPriming => 'פריימינג פיסוק';
+
+  @override
+  String get settingsPunctuationPrimingSubtitle =>
+      'מטה את Whisper לכיוון פלט מפוסק כאשר לא הוגדר אוצר מילים מותאם אישית. אין השפעה על המהירות.';
+
+  @override
   String get settingsAppLanguage => 'שפת האפליקציה';
 
   @override
@@ -1268,10 +1275,31 @@ class L10nHe extends L10n {
   String get feedbackPlaceholderGeneral => 'שתף את מחשבותיך…';
 
   @override
+  String get feedbackContactEmailLabel => 'אימייל (אופציונלי)';
+
+  @override
+  String get feedbackContactEmailExplanation =>
+      'רק אם תרצה שנחזור אליך. נשתמש בו אך ורק כדי להגיב למשוב הזה — לעולם לא לשיווק, והוא יימחק לאחר 90 יום.';
+
+  @override
+  String get feedbackContactEmailPlaceholder => 'you@example.com';
+
+  @override
+  String get feedbackContactEmailInvalid =>
+      'נא להזין כתובת אימייל תקינה, או להשאיר ריק.';
+
+  @override
+  String get feedbackContactLanguageLabel => 'שפת המענה';
+
+  @override
+  String get feedbackContactLanguageHint => 'באיזו שפה נוכל לחזור אליך?';
+
+  @override
   String get feedbackSubmit => 'שלח משוב';
 
   @override
-  String get feedbackPrivacyNote => 'המשוב אנונימי ומוצפן.';
+  String get feedbackPrivacyNote =>
+      'אנונימי כברירת מחדל — ניתן לזיהוי רק אם תוסיף את האימייל שלך למעלה.';
 
   @override
   String get feedbackThankYou => 'תודה!';

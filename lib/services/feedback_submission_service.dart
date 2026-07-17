@@ -46,6 +46,8 @@ final class FeedbackPayload {
     required this.appVersion,
     required this.deviceIdHash,
     required this.locale,
+    this.contactEmail,
+    this.contactLocale,
   });
 
   final int rating;
@@ -55,6 +57,16 @@ final class FeedbackPayload {
   final String deviceIdHash;
   final String locale;
 
+  /// Optional, user-volunteered — only used to follow up on this specific
+  /// feedback. `null` when the user left the field empty; never sent as an
+  /// empty string (the server CHECK constraint requires either NULL or a
+  /// valid-looking address).
+  final String? contactEmail;
+
+  /// Optional language the user prefers to be contacted in (e.g. `'de'`),
+  /// distinct from [locale] (the app UI language at submit time).
+  final String? contactLocale;
+
   Map<String, Object?> toJson() => {
     'rating': rating,
     'feedback_text': feedbackText,
@@ -62,6 +74,8 @@ final class FeedbackPayload {
     'app_version': appVersion,
     'device_id_hash': deviceIdHash,
     'locale': locale,
+    if (contactEmail != null) 'contact_email': contactEmail,
+    if (contactLocale != null) 'contact_locale': contactLocale,
   };
 }
 

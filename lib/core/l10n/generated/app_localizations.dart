@@ -1293,6 +1293,18 @@ abstract class L10n {
   /// **'e.g. WhisPaste, Kubernetes, Dr. Mueller'**
   String get settingsCustomVocabularyPlaceholder;
 
+  /// No description provided for @settingsPunctuationPriming.
+  ///
+  /// In en, this message translates to:
+  /// **'Punctuation priming'**
+  String get settingsPunctuationPriming;
+
+  /// No description provided for @settingsPunctuationPrimingSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Nudges Whisper towards punctuated output when no custom vocabulary is set. No effect on speed.'**
+  String get settingsPunctuationPrimingSubtitle;
+
   /// No description provided for @settingsAppLanguage.
   ///
   /// In en, this message translates to:
@@ -2379,6 +2391,42 @@ abstract class L10n {
   /// **'Share your thoughts…'**
   String get feedbackPlaceholderGeneral;
 
+  /// No description provided for @feedbackContactEmailLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Email (optional)'**
+  String get feedbackContactEmailLabel;
+
+  /// No description provided for @feedbackContactEmailExplanation.
+  ///
+  /// In en, this message translates to:
+  /// **'Only if you\'d like a reply. We\'ll use it solely to follow up on this message — never for marketing, and it\'s deleted after 90 days.'**
+  String get feedbackContactEmailExplanation;
+
+  /// No description provided for @feedbackContactEmailPlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'you@example.com'**
+  String get feedbackContactEmailPlaceholder;
+
+  /// No description provided for @feedbackContactEmailInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter a valid email address, or leave it empty.'**
+  String get feedbackContactEmailInvalid;
+
+  /// No description provided for @feedbackContactLanguageLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Reply in'**
+  String get feedbackContactLanguageLabel;
+
+  /// No description provided for @feedbackContactLanguageHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Which language should we use if we get back to you?'**
+  String get feedbackContactLanguageHint;
+
   /// No description provided for @feedbackSubmit.
   ///
   /// In en, this message translates to:
@@ -2388,7 +2436,7 @@ abstract class L10n {
   /// No description provided for @feedbackPrivacyNote.
   ///
   /// In en, this message translates to:
-  /// **'Your feedback is anonymous and encrypted.'**
+  /// **'Anonymous by default — only identifiable if you add your email above.'**
   String get feedbackPrivacyNote;
 
   /// No description provided for @feedbackThankYou.
