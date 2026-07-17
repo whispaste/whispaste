@@ -4,6 +4,7 @@ const coreFeatures = [
   { key: 'autopaste', icon: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg>`, title: "Auto-Paste", desc: "Final text lands at your cursor automatically, with clipboard sync included." },
   { key: 'snippets', icon: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3L21 7L17 11"/><path d="M21 7H3"/><path d="M7 21L3 17L7 13"/><path d="M3 17H21"/></svg>`, title: "Voice Snippets", desc: "Turn short trigger phrases into links, signatures, templates, and reusable replies." },
   { key: 'privacy', icon: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>`, title: "Privacy First", desc: "Stay local with built-in speech recognition or choose cloud on purpose. Audio and text stay on your device — anonymous usage stats can be switched off." },
+  { key: 'engines', icon: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="12" r="6"/><circle cx="15" cy="12" r="6"/></svg>`, title: "Two local AI engines", desc: "Choose Whisper for 99-language accuracy with GPU acceleration, or Parakeet for blazing-fast, CPU-only transcription — both run fully offline, right on your device." },
 ];
 
 const powerFeatures = [
@@ -27,7 +28,7 @@ const powerFeatures = [
       <p class="text-xs font-semibold tracking-[0.2em] uppercase text-ink-muted" data-i18n="features.core">Start here</p>
       <div class="h-px flex-1 bg-white/8"></div>
     </div>
-    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
       {coreFeatures.map(({ key, icon, title, desc }) => (
         <div class="feature-card feature-card-primary group p-6 rounded-2xl border border-white/[0.06] hover:border-brand-cyan/30 transition-all duration-300 scroll-reveal">
           <div class="w-10 h-10 rounded-xl bg-brand-cyan/10 text-brand-cyan flex items-center justify-center mb-4 group-hover:scale-110 group-hover:bg-brand-cyan/15 transition-all duration-300" set:html={icon} />
