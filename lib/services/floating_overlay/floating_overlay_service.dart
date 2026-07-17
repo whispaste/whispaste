@@ -508,7 +508,10 @@ class FloatingOverlayService
       case OverlayContextMenuAction(action: final action):
         _onContextMenuAction(action);
 
-      case OverlayRenderEngineDiagnostic(message: final message, isError: final isError):
+      case OverlayRenderEngineDiagnostic(
+        message: final message,
+        isError: final isError,
+      ):
         if (isError) {
           _log.error('Render engine: $message');
         } else {

@@ -260,9 +260,7 @@ class AfterTranscriptionSection extends ConsumerWidget {
               context: context,
               value: resolvedAction.value,
               items: visibleActions.map((e) => e.value).toList(),
-              labels: visibleActions
-                  .map((e) => _labelFor(e, l10n))
-                  .toList(),
+              labels: visibleActions.map((e) => _labelFor(e, l10n)).toList(),
               onChanged: (v) {
                 if (v == null) return;
                 ref

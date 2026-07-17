@@ -31,7 +31,10 @@ class FloatingButtonDragEnded extends FloatingButtonEvent {
 /// same boot-race class as `OverlayRenderEngineDiagnostic` for the recording
 /// overlay).
 class FloatingButtonRenderEngineDiagnostic extends FloatingButtonEvent {
-  const FloatingButtonRenderEngineDiagnostic(this.message, {required this.isError});
+  const FloatingButtonRenderEngineDiagnostic(
+    this.message, {
+    required this.isError,
+  });
   final String message;
   final bool isError;
 }
