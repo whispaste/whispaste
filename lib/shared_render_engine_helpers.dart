@@ -29,6 +29,18 @@ import 'core/l10n/persisted_l10n.dart';
 /// depending on either concrete type.
 abstract interface class RenderChannel {
   void notifyReady();
+
+  /// Reports an uncaught Dart error from this render engine back to the
+  /// native shell, best-effort (fire-and-forget, no native receiver required).
+  ///
+  /// Investigation note (`.scratch/floating-overlay-render-gap/issues/01`):
+  /// before this existed, an exception thrown while rebuilding the render
+  /// engine's widget tree (e.g. reacting to a relayed snapshot) had NO
+  /// visibility anywhere — not in `NSLog`/`log show`, not in the app's
+  /// persistent log — because it never crosses back to the main engine that
+  /// owns `AppLogger`. Wiring it through [FlutterError.onError] turns a
+  /// silently-frozen overlay into a diagnosable log entry.
+  void reportError(String message);
   void dispose();
 }
 
@@ -65,7 +77,21 @@ abstract class RenderEngineState<
     super.initState();
     channel = createChannel();
     channel.notifyReady();
+    _installErrorReporting();
     _resolveSemanticsLabel();
+  }
+
+  /// Routes uncaught Flutter errors in this render engine back to the native
+  /// shell (via [RenderChannel.reportError]) in addition to the default
+  /// console dump — see [RenderChannel.reportError] for why this matters.
+  ///
+  /// Installed once per engine instance; a fresh engine (e.g. after the
+  /// native host's boot-race retry) reinstalls it via a new [initState].
+  void _installErrorReporting() {
+    FlutterError.onError = (FlutterErrorDetails details) {
+      FlutterError.presentError(details);
+      channel.reportError(details.exceptionAsString());
+    };
   }
 
   Future<void> _resolveSemanticsLabel() async {

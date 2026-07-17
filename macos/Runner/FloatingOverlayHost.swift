@@ -357,6 +357,18 @@ class FloatingOverlayHost {
       showContextMenu()
       result(nil)
 
+    case "reportError":
+      // Uncaught Dart error inside the render engine (see
+      // `shared_render_engine_helpers.dart`'s `RenderChannel.reportError`
+      // doc comment for why this matters) — relay it through the existing
+      // diagnostic pipeline into the main engine's persistent AppLogger,
+      // exactly like the boot-race timeout below.
+      if let args = call.arguments as? [String: Any], let message = args["message"] as? String {
+        NSLog("[overlay] render engine reported an error: \(message)")
+        channel.invokeMethod("onRenderEngineDiagnostic", arguments: ["message": message, "isError": true])
+      }
+      result(nil)
+
     default:
       result(FlutterMethodNotImplemented)
     }

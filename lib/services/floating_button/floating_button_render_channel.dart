@@ -104,6 +104,15 @@ class FloatingButtonRenderChannel implements RenderChannel {
     _channel.invokeMethod('ready');
   }
 
+  /// Reports an uncaught Dart error in this engine back to the native shell
+  /// (see [RenderChannel.reportError]). Fire-and-forget: platforms without a
+  /// `reportError` handler simply ignore the call.
+  @override
+  void reportError(String message) {
+    _log.error('[button-engine-ERROR] $message');
+    _channel.invokeMethod('reportError', {'message': message});
+  }
+
   /// Detaches the handler. The engine outlives individual app widgets, so this
   /// is mainly for tests and hot-restart hygiene.
   @override

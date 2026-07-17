@@ -140,5 +140,29 @@ void main() {
         expect(calls, ['clicked', 'startDrag', 'showContextMenu', 'ready']);
       },
     );
+
+    test('reportError invokes the host with the error message', () async {
+      final calls = <MethodCall>[];
+      const probe = MethodChannel(name);
+      binaryMessenger.setMockMethodCallHandler(probe, (call) async {
+        calls.add(call);
+        return null;
+      });
+      addTearDown(() => binaryMessenger.setMockMethodCallHandler(probe, null));
+
+      final channel = FloatingButtonRenderChannel(
+        name: name,
+        onState: (_) {},
+        onDiameter: (_) {},
+      );
+      addTearDown(channel.dispose);
+
+      channel.reportError('boom');
+      await Future<void>.delayed(Duration.zero);
+
+      expect(calls, hasLength(1));
+      expect(calls.single.method, 'reportError');
+      expect(calls.single.arguments, {'message': 'boom'});
+    });
   });
 }
