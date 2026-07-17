@@ -33,8 +33,11 @@ class ParakeetTranscriber implements Transcriber {
 
   @override
   Future<String> transcribe(List<int> wavBytes, {String? language}) async {
-    // Parakeet TDT (this repo/model) is English-only — [language] is accepted
-    // for interface parity with the other adapters but has no effect.
+    // Parakeet TDT v3 auto-detects among its ~25 supported languages; the
+    // sherpa_onnx OfflineRecognizer binding used here has no per-request
+    // language override. [language] is accepted for interface parity with
+    // the other adapters but has no effect — see the language-selector row
+    // in stt_section.dart, hidden for this engine for the same reason.
     try {
       return await _notifier.transcribeWavBytes(wavBytes);
     } on StateError catch (e) {

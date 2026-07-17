@@ -203,26 +203,32 @@ class _SpeechRecognitionSectionState
             ),
           ],
 
-          // Language selector (shared) — Auto-detect plus the full
-          // 99-language Whisper catalog. Values are short codes ('auto',
-          // 'en', 'ru', …); `sttLanguageCode` normalizes legacy persisted
-          // display values ('German') so they keep selecting correctly.
-          SettingRow(
-            icon: LucideIcons.languages,
-            label: l10n.settingsRecognitionLanguage,
-            trailing: settingsDropdown(
-              context: context,
-              value: settings.sttLanguageCode,
-              items: ['auto', ...sttLanguages.map((e) => e.key)],
-              labels: [
-                l10n.settingsLanguageAutoDetect,
-                ...sttLanguages.map((e) => e.value),
-              ],
-              onChanged: (v) => ref
-                  .read(settingsProvider.notifier)
-                  .updateSettings((s) => s.copyWith(sttLanguage: v!)),
+          // Language selector — Whisper only. Values are short codes
+          // ('auto', 'en', 'ru', …); `sttLanguageCode` normalizes legacy
+          // persisted display values ('German') so they keep selecting
+          // correctly. Hidden entirely for Parakeet: the sherpa_onnx
+          // NeMo-transducer binding used here has no per-request language
+          // override — it always auto-detects among its supported
+          // languages — so a picker would look functional but silently do
+          // nothing, the same "looks available but isn't" trap as the
+          // GPU-acceleration row above.
+          if (!isLocal || settings.onDeviceEngine == OnDeviceEngine.whisper)
+            SettingRow(
+              icon: LucideIcons.languages,
+              label: l10n.settingsRecognitionLanguage,
+              trailing: settingsDropdown(
+                context: context,
+                value: settings.sttLanguageCode,
+                items: ['auto', ...sttLanguages.map((e) => e.key)],
+                labels: [
+                  l10n.settingsLanguageAutoDetect,
+                  ...sttLanguages.map((e) => e.value),
+                ],
+                onChanged: (v) => ref
+                    .read(settingsProvider.notifier)
+                    .updateSettings((s) => s.copyWith(sttLanguage: v!)),
+              ),
             ),
-          ),
 
           // Custom vocabulary
           _CustomVocabularyField(initialValue: settings.customVocabulary),

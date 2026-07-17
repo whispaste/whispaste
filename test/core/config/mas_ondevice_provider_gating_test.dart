@@ -11,9 +11,11 @@ import 'package:whispaste/core/config/settings_sections.dart';
 /// `.scratch/whisper-ffi-engine/`), the onDevice provider no longer shells
 /// out to a subprocess/HTTP server, so nothing about it is
 /// sandbox-unclean anymore. `kIsMasBuild` (`lib/core/config/build_config.dart`)
-/// exists solely to gate simulated-keystroke Auto-Paste — it must never grow
-/// a branch that excludes or defaults away from the onDevice STT provider.
-/// These tests fail loudly if that changes.
+/// legitimately gates two unrelated concerns — simulated-keystroke Auto-Paste
+/// and deploy-channel/self-updater detection (`deploy_channel_service.dart`,
+/// since a MAS build is definitionally store-distributed) — but it must
+/// never grow a branch that excludes or defaults away from the onDevice STT
+/// provider. These tests fail loudly if that changes.
 void main() {
   group('MAS build gating — onDevice STT provider', () {
     test('onDevice is the default persisted provider', () {
@@ -42,15 +44,17 @@ void main() {
 
     test('no source file outside the Auto-Paste allowlist references the '
         'MAS build flag (kIsMasBuild/MAS_BUILD/WHISPASTE_MAS)', () {
-      // These files legitimately branch on the MAS flag — exclusively for
+      // These files legitimately branch on the MAS flag — for
       // simulated-keystroke Auto-Paste (App Review Guideline 2.4.5 /
-      // App Sandbox), never for STT provider selection.
+      // App Sandbox) or deploy-channel/self-updater detection — never for
+      // STT provider selection.
       const allowedFiles = <String>{
         'lib/core/config/build_config.dart',
         'lib/features/settings/sections/feedback_section.dart',
         'lib/features/onboarding/onboarding_overlay.dart',
         'lib/services/paste/paste_policy.dart',
         'lib/services/desktop_paste/desktop_paste_controller.dart',
+        'lib/services/deploy_channel_service.dart',
         'lib/widgets/status_bar.dart',
       };
 

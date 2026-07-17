@@ -1,9 +1,13 @@
 /// Deploy channel detection — determines how WhisPaste was installed.
 ///
 /// Three channels exist:
-/// - **store**: Installed from MS Store (MSIX package identity detected)
-/// - **installer**: Installed via NSIS Setup.exe (registry marker present)
-/// - **portable**: Running from extracted ZIP or dev environment (fallback)
+/// - **store**: Installed from an OS store — MS Store on Windows (MSIX
+///   package identity detected) or the Mac App Store on macOS (MAS build,
+///   see [kIsMasBuild])
+/// - **installer**: Installed via NSIS Setup.exe (registry marker present,
+///   Windows only)
+/// - **portable**: Running from extracted ZIP, a direct-download macOS
+///   build, or a dev environment (fallback)
 ///
 /// The channel determines update behavior:
 /// - Store → updates managed by the Store, no in-app check needed
@@ -18,6 +22,7 @@ import 'package:ffi/ffi.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/config/build_config.dart';
 import '../core/logging/app_logger.dart';
 
 final _log = AppLogger('DeployChannel');
@@ -46,9 +51,26 @@ DeployChannel? deployChannelOverride;
 /// 2. Registry marker `HKCU\Software\WhisPaste\InstallSource` → [DeployChannel.installer]
 /// 3. Fallback → [DeployChannel.portable]
 ///
-/// On non-Windows platforms, always returns [DeployChannel.portable] for now.
+/// macOS: [kIsMasBuild] is a compile-time constant that is `true` only for
+/// binaries built against the Xcode "MAS" configuration (App Sandbox +
+/// `AppStore.entitlements`) — the same build variant this repo ships to the
+/// Mac App Store, so it doubles as a reliable store-channel signal without
+/// needing a runtime App Store receipt check. Non-MAS macOS builds (direct
+/// DMG download) → [DeployChannel.portable] (no separate "installer"
+/// concept on macOS today).
+///
+/// On Linux (and any other platform), always returns [DeployChannel.portable]
+/// for now.
 DeployChannel detectDeployChannel() {
   if (deployChannelOverride != null) return deployChannelOverride!;
+  if (Platform.isMacOS) {
+    if (kIsMasBuild) {
+      _log.info('Deploy channel: store (MAS build)');
+      return DeployChannel.store;
+    }
+    _log.info('Deploy channel: portable (non-MAS macOS build)');
+    return DeployChannel.portable;
+  }
   if (!Platform.isWindows) return DeployChannel.portable;
 
   // 1. Check for MSIX package identity via GetCurrentPackageFullName.
