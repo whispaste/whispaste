@@ -862,6 +862,12 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
+				// Flutter's xcode_backend.dart derives the build mode from
+				// FLUTTER_BUILD_MODE (falling back to CONFIGURATION) and requires
+				// the value to contain "debug"/"profile"/"release" — a bare "MAS"
+				// configuration name fails that check. This pins it explicitly so
+				// `xcodebuild -configuration MAS` resolves to a release Flutter build.
+				FLUTTER_BUILD_MODE = release;
 				INFOPLIST_FILE = Runner/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -892,6 +898,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
+				// See the matching comment on the Runner target's MAS config: the
+				// "Flutter Assemble" aggregate target runs xcode_backend.dart too,
+				// which needs FLUTTER_BUILD_MODE pinned since "MAS" doesn't contain
+				// debug/profile/release.
+				FLUTTER_BUILD_MODE = release;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = MAS;
