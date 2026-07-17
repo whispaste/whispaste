@@ -1232,7 +1232,7 @@ class RecordingOrchestrator extends Notifier<void> {
         RecordingInput(
           transcript: transcript,
           audioDuration: audioDuration,
-          modelId: settings.effectiveModelId,
+          modelId: settings.transcriptionModelId,
           isLocal: settings.sttProviderType.isLocal,
           languageCode: settings.sttLanguageCode,
           applyTextReplacements: settings.textReplacementsEnabled,

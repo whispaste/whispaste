@@ -171,6 +171,45 @@ void main() {
     });
   });
 
+  group('formatDiagnosticsReport — engine field', () {
+    test('renders the Engine line when supplied', () {
+      final report = formatDiagnosticsReport(
+        version: '1.3.0',
+        variant: 'macos',
+        osVersion: 'macos 26.5',
+        dartVersion: 'Dart 3.12.1',
+        locale: 'de-DE',
+        executablePath: '/Applications/WhisPaste.app/...',
+        engine: 'parakeet',
+        serverPath: '/Users/x/Library/.../whisper-server',
+        serverExists: false,
+        sttFiles: const <String>[],
+        gpu: null,
+        logTail: const <String>[],
+      );
+
+      expect(report, contains('Engine: parakeet'));
+    });
+
+    test('omits the Engine line when null', () {
+      final report = formatDiagnosticsReport(
+        version: '1.3.0',
+        variant: 'macos',
+        osVersion: 'macos 26.5',
+        dartVersion: 'Dart 3.12.1',
+        locale: 'de-DE',
+        executablePath: '/Applications/WhisPaste.app/...',
+        serverPath: '/Users/x/Library/.../whisper-server',
+        serverExists: false,
+        sttFiles: const <String>[],
+        gpu: null,
+        logTail: const <String>[],
+      );
+
+      expect(report, isNot(contains('Engine:')));
+    });
+  });
+
   group('ModelLoadProbeResult.exitCodeHex', () {
     test('STATUS_DLL_NOT_FOUND maps to 0xC0000135', () {
       // 3221225781 is the signed int representation of 0xC0000135

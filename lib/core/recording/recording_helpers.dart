@@ -3,6 +3,8 @@ library;
 
 import '../l10n/generated/app_localizations.dart';
 import '../../services/model_download_service.dart';
+import '../../services/stt_parakeet/parakeet_model_registry.dart'
+    show parakeetModelId;
 
 /// Context-aware done message based on the afterAction setting.
 ///
@@ -21,8 +23,11 @@ String doneMessageFor(String? afterAction, L10n l10n) {
 /// showing the quality tier as primary and the Whisper model in parentheses.
 ///
 /// Example: "Ausgewogen (Whisper Medium)" for "whisper-medium".
+/// Parakeet has no quality tiers — it maps directly to its display title.
 /// Falls back to [modelId] when no matching tier or model is found.
 String displayNameForModel(String modelId, L10n l10n) {
+  if (modelId == parakeetModelId) return l10n.parakeetModelTitle;
+
   final tier = tierForModel(modelId);
   if (tier == null) return modelId;
 

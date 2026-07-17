@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../core/config/settings_enums.dart' show OnDeviceEngine;
 import '../../core/config/settings_labels.dart';
 import '../../core/config/settings_provider.dart';
 import '../../core/app_info.dart';
@@ -16,6 +17,9 @@ import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../services/deploy_channel_service.dart';
 import '../../services/stt/stt_bundle.dart';
+import '../../services/stt_parakeet/parakeet_engine_notifier.dart';
+import '../../services/stt_parakeet/parakeet_model_registry.dart'
+    show parakeetModelId;
 import '../../services/update_actions.dart';
 import '../../services/update_service.dart';
 import '../../widgets/brand_wordmark.dart';
@@ -940,18 +944,36 @@ class _CopyDiagnosticsButtonState
     if (_busy) return;
     setState(() => _busy = true);
 
-    final stt = ref.read(localSttBundleProvider);
-    final engineBackend = ref.read(whisperEngineProvider).status.backend.name;
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+    final isParakeet = settings.onDeviceEngine == OnDeviceEngine.parakeet;
 
     String report;
     try {
-      report = await gatherDiagnosticsReport(
-        sttServerState: stt.serverState.name,
-        sttErrorMessage: stt.errorMessage,
-        backend: engineBackend,
-        loadedModel: stt.modelId.isEmpty ? null : stt.modelId,
-        cpuFallbackActive: stt.cpuFallbackActive,
-      );
+      if (isParakeet) {
+        final parakeet = ref.read(parakeetEngineProvider);
+        report = await gatherDiagnosticsReport(
+          engine: OnDeviceEngine.parakeet.value,
+          sttServerState: parakeet.state.name,
+          sttErrorMessage: parakeet.errorMessage,
+          backend: 'cpu',
+          loadedModel: parakeetModelId,
+        );
+      } else {
+        final stt = ref.read(localSttBundleProvider);
+        final engineBackend = ref
+            .read(whisperEngineProvider)
+            .status
+            .backend
+            .name;
+        report = await gatherDiagnosticsReport(
+          engine: OnDeviceEngine.whisper.value,
+          sttServerState: stt.serverState.name,
+          sttErrorMessage: stt.errorMessage,
+          backend: engineBackend,
+          loadedModel: stt.modelId.isEmpty ? null : stt.modelId,
+          cpuFallbackActive: stt.cpuFallbackActive,
+        );
+      }
     } on Object catch (e) {
       // Never leave the user empty-handed — fall back to the minimal block.
       report =

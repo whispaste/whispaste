@@ -377,4 +377,47 @@ void main() {
       expect(settings.effectiveOverlayMode, OverlayMode.floating);
     });
   });
+
+  group('transcriptionModelId', () {
+    test('on-device + whisper engine returns effectiveModelId', () {
+      const s = AppSettings(
+        stt: SttSettings(
+          provider: 'On Device',
+          engine: 'whisper',
+          model: 'whisper-small',
+        ),
+      );
+      expect(s.transcriptionModelId, 'whisper-small');
+      expect(s.transcriptionModelId, s.effectiveModelId);
+    });
+
+    test('on-device + parakeet engine returns the parakeet model ID', () {
+      const s = AppSettings(
+        stt: SttSettings(
+          provider: 'On Device',
+          engine: 'parakeet',
+          model: 'whisper-small',
+        ),
+      );
+      expect(s.transcriptionModelId, 'parakeet-tdt-0.6b-v3');
+      expect(
+        s.transcriptionModelId,
+        isNot(s.effectiveModelId),
+        reason:
+            'effectiveModelId must stay whisper-only — it also resolves '
+            'whisper model paths (preflight/reload/benchmark)',
+      );
+    });
+
+    test('cloud provider ignores engine and returns effectiveModelId', () {
+      const s = AppSettings(
+        stt: SttSettings(
+          provider: 'OpenAI',
+          engine: 'parakeet', // irrelevant when provider isn't onDevice
+          model: 'whisper-medium',
+        ),
+      );
+      expect(s.transcriptionModelId, 'whisper-medium');
+    });
+  });
 }

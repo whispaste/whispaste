@@ -39,6 +39,10 @@ export 'package:whispaste_diagnostics/whispaste_diagnostics.dart'
 /// throwing, so the button always produces *something* useful to paste.
 Future<String> gatherDiagnosticsReport({
   int logTailLines = 40,
+
+  /// The active on-device STT engine (`whisper` or `parakeet`). Supplied by
+  /// the caller (`about_page.dart`, which reads `settings.onDeviceEngine`).
+  String? engine,
   String? sttServerState,
   String? sttErrorMessage,
 
@@ -78,6 +82,7 @@ Future<String> gatherDiagnosticsReport({
     dartVersion: Platform.version,
     locale: Platform.localeName,
     executablePath: Platform.resolvedExecutable,
+    engine: engine,
     serverPath: serverPath,
     serverExists: serverExists,
     backend: backend,

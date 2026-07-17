@@ -35,8 +35,11 @@ import 'core/recording/recording_state.dart';
 import 'core/data/database.dart';
 import 'core/logging/app_logger.dart';
 import 'core/logging/crash_reporter.dart';
+import 'core/config/settings_enums.dart' show OnDeviceEngine;
 import 'services/paste/paste_policy.dart';
 import 'services/stt/stt_bundle.dart';
+import 'services/stt_parakeet/parakeet_engine_notifier.dart'
+    show ParakeetEngineState, parakeetEngineProvider;
 import 'services/telemetry_service.dart';
 import 'services/tray_service.dart';
 import 'services/update_service.dart';
@@ -116,6 +119,17 @@ String wpPageTitle(String pageId, List<WpNavItem> navItems, L10n l10n) {
   if (pageId == 'settings') return l10n.navSettings;
   return '';
 }
+
+/// Maps Parakeet's engine-lifecycle state onto the status bar's generic
+/// [SttServerState] — both enums share the same four states by name, so this
+/// is a presentation-only translation (the status bar doesn't know Parakeet
+/// exists).
+SttServerState _sttServerStateFor(ParakeetEngineState state) => switch (state) {
+  ParakeetEngineState.stopped => SttServerState.stopped,
+  ParakeetEngineState.starting => SttServerState.starting,
+  ParakeetEngineState.ready => SttServerState.ready,
+  ParakeetEngineState.error => SttServerState.error,
+};
 
 /// Map page IDs to their widgets.
 const wpPageWidgets = <String, Widget>{
@@ -352,6 +366,13 @@ class _AppShellState extends ConsumerState<_AppShell>
     final l10n = L10n.of(context);
     final navItems = wpNavItems(l10n);
     final sttStatus = ref.watch(localSttBundleProvider);
+    final isParakeetEngine = settings.onDeviceEngine == OnDeviceEngine.parakeet;
+    final parakeetStatus = isParakeetEngine
+        ? ref.watch(parakeetEngineProvider)
+        : null;
+    final statusBarSttState = parakeetStatus != null
+        ? _sttServerStateFor(parakeetStatus.state)
+        : sttStatus.serverState;
     final statusBarModel = buildStatusBarModel(settings: settings, l10n: l10n);
     final updateState = ref.watch(updateProvider);
     final deployChannel = ref.watch(deployChannelProvider);
@@ -483,8 +504,13 @@ class _AppShellState extends ConsumerState<_AppShell>
                         // Status bar — sits on the frame, full width
                         WpStatusBar(
                           sttModeLabel: statusBarModel.sttModeLabel,
-                          sttState: sttStatus.serverState,
-                          sttStartingSince: sttStatus.startingSince,
+                          sttState: statusBarSttState,
+                          // Parakeet has no starting-since timestamp (no
+                          // "warming up" phase to time) — the status bar
+                          // simply shows no elapsed-time hint for it.
+                          sttStartingSince: parakeetStatus != null
+                              ? null
+                              : sttStatus.startingSince,
                           recordingPhase: recordingPhase,
                           afterActionLabel: afterTranscriptionStatusLabel(
                             resolvedAfterAction,

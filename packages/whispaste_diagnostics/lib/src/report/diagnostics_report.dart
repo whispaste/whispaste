@@ -99,6 +99,13 @@ String formatDiagnosticsReport({
   required String dartVersion,
   required String locale,
   required String executablePath,
+
+  /// The active on-device STT engine (`whisper` or `parakeet`), or `null`
+  /// for the standalone CLI (no live settings to ask) / a cloud provider.
+  /// Parakeet has no server binary — [serverPath]/[serverExists] describe
+  /// the (retired) Whisper subprocess and stay irrelevant when this is
+  /// `parakeet`.
+  String? engine,
   required String serverPath,
   required bool serverExists,
 
@@ -139,6 +146,10 @@ String formatDiagnosticsReport({
     ..writeln('Dart: $dartVersion')
     ..writeln('Locale: $locale')
     ..writeln('Programm: $executablePath');
+
+  if (engine != null) {
+    b.writeln('Engine: $engine');
+  }
 
   if (installRoots != null && installRoots.isNotEmpty) {
     b.writeln('Installations-Roots (${installRoots.length}):');

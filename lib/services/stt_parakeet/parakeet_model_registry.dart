@@ -92,10 +92,17 @@ const List<ParakeetModelFile> parakeetModelFiles = [
 int get parakeetModelTotalBytes =>
     parakeetModelFiles.fold(0, (sum, f) => sum + f.sizeBytes);
 
+/// The (only) Parakeet model's identity — used both as the on-disk bundle
+/// directory name and as the persisted `model` value for history/analytics
+/// entries transcribed with the Parakeet engine (see
+/// `AppSettings.transcriptionModelId`). Parakeet has no quality tiers, unlike
+/// the three whisper IDs in [sttModels].
+const String parakeetModelId = 'parakeet-tdt-0.6b-v3';
+
 /// Directory the Parakeet bundle is stored in — a subdirectory of the shared
 /// STT directory so it never collides with whisper's flat `ggml-*.bin` +
 /// `whisper-server` layout.
-String parakeetModelDir() => p.join(sttDir(), 'parakeet-tdt-0.6b-v3');
+String parakeetModelDir() => p.join(sttDir(), parakeetModelId);
 
 /// Full path to a bundle file by name.
 String parakeetModelFilePath(String filename) =>

@@ -26,6 +26,8 @@ import 'package:path/path.dart' as p;
 import '../data/database.dart';
 import '../logging/app_logger.dart';
 import '../../services/path_service.dart';
+import '../../services/stt_parakeet/parakeet_model_registry.dart'
+    show parakeetModelId;
 import 'quality_tier.dart' show QualityTier;
 import 'secure_key_store.dart';
 import 'settings_enums.dart';
@@ -308,8 +310,27 @@ class AppSettings {
       FloatingOverlaySize.fromValue(overlay.overlaySize);
 
   /// Resolved model ID — falls back to `whisper-medium` if empty.
+  ///
+  /// **Whisper-only.** This also resolves Whisper model *paths* (preflight,
+  /// reload-on-change, benchmark warmup) — it is NOT repurposed for Parakeet.
+  /// Use [transcriptionModelId] to get the identity that should be persisted
+  /// for a completed transcription (history/analytics), which differs when
+  /// the active on-device engine is Parakeet.
   String get effectiveModelId =>
       stt.model.isEmpty ? 'whisper-medium' : stt.model;
+
+  /// The model identity to persist for a completed transcription
+  /// (`RecordingInput.modelId` → `history_entries`/`daily_stats.model`).
+  ///
+  /// Parakeet has no Whisper model ID of its own — without this, Parakeet
+  /// transcriptions would be recorded under whatever Whisper model ID
+  /// happens to be selected (or the `whisper-medium` fallback), silently
+  /// misattributing them in the analytics dashboard's model-usage panel.
+  String get transcriptionModelId =>
+      sttProviderType == SttProviderType.onDevice &&
+          onDeviceEngine == OnDeviceEngine.parakeet
+      ? parakeetModelId
+      : effectiveModelId;
 
   /// STT language code for the whisper server (e.g. `en`, `ru`, `auto`).
   ///
