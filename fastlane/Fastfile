@@ -22,6 +22,21 @@ ASC_KEY_ID    = "REDACTED-ASC-KEY-ID"
 ASC_ISSUER_ID = "REDACTED-ASC-ISSUER-ID"
 ASC_KEY_PATH  = File.expand_path("~/.appstoreconnect/private_keys/AuthKey_REDACTED-ASC-KEY-ID.p8")
 
+# Absolute path to the repo root (the directory CONTAINING `fastlane/`).
+#
+# Two fastlane path conventions collide in this file and must not be mixed as
+# bare relative strings: `sh()` subprocesses run relative to `fastlane/`
+# itself, while native actions (`build_mac_app`/gym, etc.) resolve their own
+# relative path options against the directory the `fastlane` command was
+# invoked FROM — which is not necessarily `fastlane/`'s parent either (it can
+# differ depending on how the process was launched). A `"../macos/..."` value
+# written for one convention silently resolves one directory level too far
+# under the other, and the error only shows up as a missing-file failure deep
+# into the lane. Using this absolute constant everywhere removes the
+# ambiguity entirely — verified against `whispaste@cd8720d8`'s
+# `mac devid_release` run, which failed with exactly this symptom.
+PROJECT_ROOT = File.expand_path("..", __dir__)
+
 def load_asc_api_key
   app_store_connect_api_key(
     key_id:        ASC_KEY_ID,
@@ -46,15 +61,26 @@ platform :mac do
     load_asc_api_key
     precheck   # metadata hygiene against App Review Guidelines (no binary check)
 
-    sh("cd .. && flutter build macos --release --dart-define=WHISPASTE_MAS=true")
+    # This first build only populates Flutter's ephemeral DART_DEFINES state
+    # (kIsMasBuild) for the "Flutter Assemble" step that build_mac_app's own
+    # xcodebuild invocation runs internally — its own .app output (built
+    # against the "Release" Xcode configuration) is NOT the MAS artifact and
+    # is discarded. The real MAS build happens below via `configuration:
+    # "MAS"`, the project's separate Xcode configuration carrying
+    # `-D MAS_BUILD` (the Swift compile-time guard) and AppStore.entitlements
+    # (the sandbox). Passing `--dart-define=WHISPASTE_MAS=true` alone, or
+    # building against the "Release" configuration, does NOT make the binary
+    # sandbox-clean — confirmed by a real symbol scan (CGEventPost/
+    # CGEventCreateKeyboardEvent/tccutil present) before this fix.
+    Dir.chdir(PROJECT_ROOT) { sh("flutter build macos --release --dart-define=WHISPASTE_MAS=true") }
 
     build_mac_app(
-      workspace:        "../macos/Runner.xcworkspace",
+      workspace:        File.join(PROJECT_ROOT, "macos/Runner.xcworkspace"),
       scheme:           "Runner",                # must be marked "Shared" in Xcode
-      configuration:    "Release",
+      configuration:    "MAS",
       export_method:    "app-store",             # produces a signed .pkg
       export_team_id:   "REDACTED-APPLE-TEAM-ID",
-      output_directory: "../build/fastlane",
+      output_directory: File.join(PROJECT_ROOT, "build/fastlane"),
       output_name:      "WhisPaste"
     )
 
@@ -82,19 +108,19 @@ platform :mac do
 
     api_key = load_asc_api_key
 
-    sh("cd .. && flutter build macos --release")
+    Dir.chdir(PROJECT_ROOT) { sh("flutter build macos --release") }
 
     build_mac_app(
-      workspace:        "../macos/Runner.xcworkspace",
+      workspace:        File.join(PROJECT_ROOT, "macos/Runner.xcworkspace"),
       scheme:           "Runner",
       configuration:    "Release",
       export_method:    "developer-id",
       export_team_id:   "REDACTED-APPLE-TEAM-ID",
-      output_directory: "../build/fastlane",
+      output_directory: File.join(PROJECT_ROOT, "build/fastlane"),
       output_name:      "WhisPaste"
     )
 
-    app_path = lane_context[SharedValues::APP_PATH] || "../build/fastlane/WhisPaste.app"
+    app_path = lane_context[SharedValues::APP_PATH] || File.join(PROJECT_ROOT, "build/fastlane/WhisPaste.app")
 
     unless ENV["SKIP_NOTARIZATION"] == "1"
       # notarize submits via notarytool, waits for Apple's response, and
@@ -107,7 +133,7 @@ platform :mac do
     end
 
     # Wrap the notarized+stapled .app in a DMG for the website/Homebrew artifact.
-    dmg_path = "../build/fastlane/WhisPaste.dmg"
+    dmg_path = File.join(PROJECT_ROOT, "build/fastlane/WhisPaste.dmg")
     sh(
       "create-dmg",
       "--volname",       "WhisPaste",
