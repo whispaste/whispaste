@@ -230,26 +230,31 @@ class _SpeechRecognitionSectionState
               ),
             ),
 
-          // Custom vocabulary
-          _CustomVocabularyField(initialValue: settings.customVocabulary),
-
-          // Punctuation priming
-          SettingRow(
-            icon: LucideIcons.pilcrow,
-            label: l10n.settingsPunctuationPriming,
-            subtitle: l10n.settingsPunctuationPrimingSubtitle,
-            semanticToggledValue: settings.stt.punctuationPriming,
-            trailing: Switch(
-              value: settings.stt.punctuationPriming,
-              onChanged: (v) => ref
-                  .read(settingsProvider.notifier)
-                  .updateSettings(
-                    (s) => s.copyWithSections(
-                      stt: s.stt.copyWith(punctuationPriming: v),
+          // Custom vocabulary + punctuation priming — local Whisper only.
+          // Both feed whisper.cpp's initial-prompt mechanism
+          // (stt_server_state_notifier.dart); neither the Parakeet engine
+          // nor the cloud providers (OpenAI/Deepgram) read either setting,
+          // so showing them there would be the same "looks available but
+          // isn't" trap as the language picker above.
+          if (isLocal && settings.onDeviceEngine == OnDeviceEngine.whisper) ...[
+            _CustomVocabularyField(initialValue: settings.customVocabulary),
+            SettingRow(
+              icon: LucideIcons.pilcrow,
+              label: l10n.settingsPunctuationPriming,
+              subtitle: l10n.settingsPunctuationPrimingSubtitle,
+              semanticToggledValue: settings.stt.punctuationPriming,
+              trailing: Switch(
+                value: settings.stt.punctuationPriming,
+                onChanged: (v) => ref
+                    .read(settingsProvider.notifier)
+                    .updateSettings(
+                      (s) => s.copyWithSections(
+                        stt: s.stt.copyWith(punctuationPriming: v),
+                      ),
                     ),
-                  ),
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );

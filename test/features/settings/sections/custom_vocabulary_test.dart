@@ -1,10 +1,12 @@
 /// Tests for the custom vocabulary field inside [SpeechRecognitionSection].
 ///
 /// _CustomVocabularyField is private; the smallest public surface that
-/// contains it is SpeechRecognitionSection.  We drive it through that
-/// widget using a cloud-mode settings override so we avoid the local-only
-/// SttModelManager / BenchmarkButton sections (which need additional
-/// provider stubs not relevant here).
+/// contains it is SpeechRecognitionSection. The field only renders for the
+/// local Whisper engine (it feeds whisper.cpp's initial-prompt mechanism —
+/// neither Parakeet nor the cloud providers read it, see
+/// stt_server_state_notifier.dart), so tests must drive local/on-device mode
+/// with the default (Whisper) engine, stubbing the local-only providers
+/// SttModelManager and the benchmark button depend on.
 ///
 /// Covers: initial value renders, placeholder text, hint text,
 /// text input writes customVocabulary through settingsProvider (debounced).
@@ -18,11 +20,13 @@ import 'package:whispaste/core/config/settings_enums.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/settings/sections/stt_section.dart';
+import 'package:whispaste/services/model_download_service.dart';
+import 'package:whispaste/services/stt/stt_bundle.dart';
 
 import '../../../fixtures/test_helpers.dart';
 
 // ---------------------------------------------------------------------------
-// Fake settings notifier — captures updateSettings without DB
+// Fake notifiers — mirrors gpu_acceleration_section_test.dart's setup
 // ---------------------------------------------------------------------------
 
 class _FakeSettingsNotifier extends SettingsNotifier {
@@ -40,21 +44,42 @@ class _FakeSettingsNotifier extends SettingsNotifier {
   }
 }
 
+class _FakeSttNotifier extends SttServerStateNotifier {
+  @override
+  SttStatus build() => const SttStatus(serverState: SttServerState.stopped);
+}
+
+class _FakeDownloadNotifier extends ModelDownloadNotifier {
+  @override
+  ModelDownloadState build() => const ModelDownloadState();
+}
+
 late L10n l10n;
 
-// Helper: SpeechRecognitionSection needs to scroll in the test scaffold.
-Widget _scrollable(Widget child) => SingleChildScrollView(child: child);
+// Helper: SpeechRecognitionSection needs to scroll in the test scaffold, plus
+// the local-mode provider stubs the on-device path depends on.
+Widget _pump(_FakeSettingsNotifier notifier) => makeTestable(
+  const SingleChildScrollView(child: SpeechRecognitionSection()),
+  overrides: [
+    settingsProvider.overrideWith(() => notifier),
+    localSttBundleProvider.overrideWith(() => _FakeSttNotifier()),
+    modelDownloadProvider.overrideWith(() => _FakeDownloadNotifier()),
+  ],
+  locale: const Locale('en'),
+);
 
 void main() {
   setUpAll(() async {
+    TestWidgetsFlutterBinding.ensureInitialized();
     l10n = await L10n.delegate.load(const Locale('en'));
   });
 
   group('_CustomVocabularyField (via SpeechRecognitionSection)', () {
-    // Use OpenAI provider to skip local-only SttModelManager + BenchmarkButton.
-    AppSettings cloudSettings({String vocabulary = ''}) {
+    // On-device provider, default (Whisper) engine — the only combination
+    // that actually renders the field.
+    AppSettings localWhisperSettings({String vocabulary = ''}) {
       return AppSettings.defaults.copyWith(
-        sttProvider: SttProviderType.openAI.value,
+        sttProvider: SttProviderType.onDevice.value,
         customVocabulary: vocabulary,
       );
     }
@@ -66,14 +91,8 @@ void main() {
     testWidgets('shows custom vocabulary section label and hint', (
       tester,
     ) async {
-      final notifier = _FakeSettingsNotifier(cloudSettings());
-      await tester.pumpWidget(
-        makeTestable(
-          _scrollable(const SpeechRecognitionSection()),
-          overrides: [settingsProvider.overrideWith(() => notifier)],
-          locale: const Locale('en'),
-        ),
-      );
+      final notifier = _FakeSettingsNotifier(localWhisperSettings());
+      await tester.pumpWidget(_pump(notifier));
       await tester.pumpAndSettle();
 
       expect(find.text(l10n.settingsCustomVocabulary), findsOneWidget);
@@ -85,14 +104,8 @@ void main() {
     // -------------------------------------------------------------------------
 
     testWidgets('shows placeholder when vocabulary is empty', (tester) async {
-      final notifier = _FakeSettingsNotifier(cloudSettings());
-      await tester.pumpWidget(
-        makeTestable(
-          _scrollable(const SpeechRecognitionSection()),
-          overrides: [settingsProvider.overrideWith(() => notifier)],
-          locale: const Locale('en'),
-        ),
-      );
+      final notifier = _FakeSettingsNotifier(localWhisperSettings());
+      await tester.pumpWidget(_pump(notifier));
       await tester.pumpAndSettle();
 
       // Placeholder text is visible when the vocabulary field is empty
@@ -111,15 +124,9 @@ void main() {
     ) async {
       const preloaded = 'whisper Kotlin Flutter';
       final notifier = _FakeSettingsNotifier(
-        cloudSettings(vocabulary: preloaded),
+        localWhisperSettings(vocabulary: preloaded),
       );
-      await tester.pumpWidget(
-        makeTestable(
-          _scrollable(const SpeechRecognitionSection()),
-          overrides: [settingsProvider.overrideWith(() => notifier)],
-          locale: const Locale('en'),
-        ),
-      );
+      await tester.pumpWidget(_pump(notifier));
       await tester.pumpAndSettle();
 
       // The multi-line vocabulary TextField should show the pre-loaded text
@@ -133,14 +140,8 @@ void main() {
     testWidgets(
       'entering text updates customVocabulary in settingsProvider after debounce',
       (tester) async {
-        final notifier = _FakeSettingsNotifier(cloudSettings());
-        await tester.pumpWidget(
-          makeTestable(
-            _scrollable(const SpeechRecognitionSection()),
-            overrides: [settingsProvider.overrideWith(() => notifier)],
-            locale: const Locale('en'),
-          ),
-        );
+        final notifier = _FakeSettingsNotifier(localWhisperSettings());
+        await tester.pumpWidget(_pump(notifier));
         await tester.pumpAndSettle();
 
         // The custom vocabulary field is a multi-line TextField.
@@ -149,9 +150,9 @@ void main() {
         expect(bookIcon, findsOneWidget);
 
         // Find the TextField that follows the bookType icon by looking for
-        // a TextField in the same subtree region (last TextField in the section).
-        // The section contains: provider dropdown, API-key field, language
-        // dropdown, and the vocabulary field — vocabulary is the last one.
+        // a TextField in the same subtree region (last TextField in the
+        // section). The section contains the provider/engine dropdowns and
+        // the vocabulary field — vocabulary is the last one.
         final vocabField = find.byType(TextField).last;
         await tester.tap(vocabField);
         await tester.enterText(vocabField, 'Riverpod Drift Flutter');
