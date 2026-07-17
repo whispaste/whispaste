@@ -87,4 +87,16 @@ void main() {
 
     expect(channel.disposeCalled, isTrue);
   });
+
+  testWidgets(
+    'dispose restores the default error handler — a stale closure must '
+    'never call reportError on an already-disposed channel',
+    (tester) async {
+      final channel = _FakeRenderChannel();
+      await tester.pumpWidget(_TestRenderWidget(channel: channel));
+      await tester.pumpWidget(const SizedBox.shrink());
+
+      expect(FlutterError.onError, same(FlutterError.presentError));
+    },
+  );
 }

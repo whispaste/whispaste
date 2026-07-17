@@ -87,6 +87,13 @@ abstract class RenderEngineState<
   ///
   /// Installed once per engine instance; a fresh engine (e.g. after the
   /// native host's boot-race retry) reinstalls it via a new [initState].
+  ///
+  /// Restored to the framework default in [dispose] — mainly relevant for
+  /// tests and hot-restart (a real render engine's root widget lives for the
+  /// isolate's lifetime and is never disposed while the engine keeps
+  /// running), but cheap and correct hygiene regardless: it stops a stale
+  /// closure from ever calling [RenderChannel.reportError] on an already-
+  /// disposed [channel].
   void _installErrorReporting() {
     FlutterError.onError = (FlutterErrorDetails details) {
       FlutterError.presentError(details);
@@ -101,6 +108,7 @@ abstract class RenderEngineState<
 
   @override
   void dispose() {
+    FlutterError.onError = FlutterError.presentError;
     channel.dispose();
     super.dispose();
   }
