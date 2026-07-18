@@ -118,11 +118,6 @@ class FloatingOverlayService
   RecordingPhase _lastPhase = RecordingPhase.idle;
   L10n? _l10n;
 
-  /// The on-device STT engine as of the last [_syncSettings] call, or `null`
-  /// before the first sync. Used to detect an engine *change* (not just any
-  /// settings save) so [_resetRenderEngine] only fires on the actual trigger.
-  OnDeviceEngine? _lastOnDeviceEngine;
-
   // ── FloatingPlatformServiceBase contract ──────────────────────────────────
 
   @override
@@ -179,34 +174,11 @@ class FloatingOverlayService
 
     _l10n = _resolveL10n();
     _sendContextMenuItems();
-    _resetRenderEngineOnEngineChange(c, s.onDeviceEngine);
 
     final phase = ref.read(recordingPhaseProvider);
     if (phase != RecordingPhase.idle) {
       _sendSnapshot(s, phase);
     }
-  }
-
-  /// Reboots the render engine when the on-device STT engine setting
-  /// changes — see [FloatingOverlayController.resetRenderEngine] for why.
-  /// A no-op on the very first sync (nothing has "changed" yet) and on any
-  /// settings save that doesn't touch this field.
-  void _resetRenderEngineOnEngineChange(
-    FloatingOverlayController c,
-    OnDeviceEngine engine,
-  ) {
-    final last = _lastOnDeviceEngine;
-    _lastOnDeviceEngine = engine;
-    if (last == null || last == engine) return;
-
-    _log.info(
-      'On-device engine changed ($last → $engine) — resetting overlay '
-      'render engine (defensive mitigation, see '
-      '.scratch/floating-overlay-render-gap)',
-    );
-    c.resetRenderEngine().catchError((e, st) {
-      _log.debug('resetRenderEngine not supported on this platform', e);
-    });
   }
 
   // ── Phase transitions ─────────────────────────────────────────────────────

@@ -142,20 +142,6 @@ class FloatingOverlayHost {
       }
       result(nil)
 
-    case "resetRenderEngine":
-      // Defensive mitigation for a known, not-yet-root-caused issue (see
-      // .scratch/floating-overlay-render-gap/issues/01-...): the render
-      // engine has been observed to stop rendering, correlated with an
-      // on-device STT engine switch. The Dart side calls this on that
-      // change. Reuses the exact same reboot path as the boot-race retry —
-      // same panel, fresh FlutterEngine — only if a panel already exists;
-      // nothing to reset before the overlay has ever been shown.
-      if panel != nil {
-        NSLog("[overlay] resetRenderEngine requested — rebooting render engine")
-        bootRenderEngine()
-      }
-      result(nil)
-
     case "destroy":
       teardown()
       result(nil)
