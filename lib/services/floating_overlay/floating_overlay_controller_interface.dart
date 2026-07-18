@@ -121,6 +121,18 @@ abstract class FloatingOverlayController {
   /// Set the context menu items for compact right-click.
   Future<void> setContextMenuItems(List<({String id, String label})> items);
 
+  /// Tears down and reboots the dedicated overlay render engine in place
+  /// (same native panel, fresh `FlutterEngine` — see `bootRenderEngine()` in
+  /// `FloatingOverlayHost.swift`, reused from the boot-race retry path).
+  ///
+  /// Defensive mitigation for `.scratch/floating-overlay-render-gap/issues/
+  /// 01-overlay-goes-blank-mid-session.md`: the overlay has been observed to
+  /// stop rendering (root cause not fully pinned down) correlated with an
+  /// on-device STT engine switch. [FloatingOverlayService] calls this when
+  /// it detects that change. May be a no-op on platforms that have not
+  /// implemented the native handler yet.
+  Future<void> resetRenderEngine();
+
   /// Stream of events from the native overlay window.
   Stream<FloatingOverlayEvent> get events;
 

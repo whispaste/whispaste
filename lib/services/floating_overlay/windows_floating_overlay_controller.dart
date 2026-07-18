@@ -37,4 +37,7 @@ class WindowsFloatingOverlayController
             .map((item) => {'id': item.id, 'label': item.label})
             .toList(),
       });
+
+  @override
+  Future<void> resetRenderEngine() => invokeMethod('resetRenderEngine', null);
 }

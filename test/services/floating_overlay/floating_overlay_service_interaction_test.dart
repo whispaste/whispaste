@@ -32,6 +32,7 @@ class _FakeController implements FloatingOverlayController {
   FloatingOverlaySnapshot? lastSnapshot;
   ({double x, double y, OverlayAnchorMode anchor})? lastPosition;
   int positionCalls = 0;
+  int resetRenderEngineCalls = 0;
   bool disposed = false;
 
   void emit(FloatingOverlayEvent event) {
@@ -59,6 +60,11 @@ class _FakeController implements FloatingOverlayController {
   Future<void> setContextMenuItems(
     List<({String id, String label})> items,
   ) async {}
+
+  @override
+  Future<void> resetRenderEngine() async {
+    resetRenderEngineCalls++;
+  }
 
   @override
   Future<void> dispose() async {
@@ -246,4 +252,77 @@ void main() {
       });
     });
   });
+
+  group(
+    'FloatingOverlayService — render-engine reset on STT engine change '
+    '(floating-overlay-render-gap mitigation)',
+    () {
+      test('does not reset on the initial settings sync', () {
+        FakeAsync().run((async) {
+          final h = _build(async);
+          try {
+            expect(h.fake.resetRenderEngineCalls, 0);
+          } finally {
+            h.dispose();
+          }
+        });
+      });
+
+      test('resets when the on-device engine actually changes', () {
+        FakeAsync().run((async) {
+          final h = _build(async);
+          try {
+            h.container
+                .read(settingsProvider.notifier)
+                .updateSettings((s) => s.copyWith(sttEngine: 'parakeet'));
+            async.elapse(const Duration(milliseconds: 5));
+            async.flushMicrotasks();
+
+            expect(h.fake.resetRenderEngineCalls, 1);
+          } finally {
+            h.dispose();
+          }
+        });
+      });
+
+      test('does not reset on an unrelated settings change', () {
+        FakeAsync().run((async) {
+          final h = _build(async);
+          try {
+            h.container
+                .read(settingsProvider.notifier)
+                .updateSettings((s) => s.copyWith(hotkeyEnabled: false));
+            async.elapse(const Duration(milliseconds: 5));
+            async.flushMicrotasks();
+
+            expect(h.fake.resetRenderEngineCalls, 0);
+          } finally {
+            h.dispose();
+          }
+        });
+      });
+
+      test('does not reset when re-saving the same engine value', () {
+        FakeAsync().run((async) {
+          final h = _build(async);
+          try {
+            h.container
+                .read(settingsProvider.notifier)
+                .updateSettings((s) => s.copyWith(sttEngine: 'whisper'));
+            async.elapse(const Duration(milliseconds: 5));
+            async.flushMicrotasks();
+
+            expect(
+              h.fake.resetRenderEngineCalls,
+              0,
+              reason: 'whisper is already the default — re-saving it is not '
+                  'a change',
+            );
+          } finally {
+            h.dispose();
+          }
+        });
+      });
+    },
+  );
 }

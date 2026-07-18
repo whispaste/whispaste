@@ -85,6 +85,9 @@ class _RecordingController implements FloatingOverlayController {
   ) async {
     contextMenuCalls++;
   }
+
+  @override
+  Future<void> resetRenderEngine() async {}
 }
 
 // ── Testable service subclass ─────────────────────────────────────────────────

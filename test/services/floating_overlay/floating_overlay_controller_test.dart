@@ -455,6 +455,12 @@ class MockFloatingOverlayController extends FloatingOverlayController {
   }
 
   @override
+  Future<void> resetRenderEngine() async {
+    if (isDisposed) return;
+    calls.add('resetRenderEngine');
+  }
+
+  @override
   Future<void> dispose() async {
     if (isDisposed) return;
     isDisposed = true;
