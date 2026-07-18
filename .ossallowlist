@@ -20,6 +20,7 @@ l10n.yaml
 baseline.json
 loam.yaml
 Gemfile
+Gemfile.lock
 .metadata
 
 # Config-Vorlagen (keine Secrets)

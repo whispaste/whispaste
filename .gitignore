@@ -55,6 +55,10 @@ website/.astro/
 # Supabase
 supabase/.temp/
 
+# Fastlane (auto-generated on every run — Gemfile.lock itself IS tracked)
+fastlane/report.xml
+fastlane/README.md
+
 # ┌─────────────────────────────────────────────────────────────────────┐
 # │  PROTECTED PATHS — DO NOT MODIFY THIS SECTION                      │
 # │  These entries protect internal files from being pushed to GitHub.  │
