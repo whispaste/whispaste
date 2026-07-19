@@ -204,11 +204,14 @@ class UpdateNotifier extends Notifier<UpdateState> {
 
   /// Check GitHub Releases for a newer version.
   ///
-  /// No-op if already busy, or if the deploy channel is [DeployChannel.store].
+  /// No-op if already busy, or if the deploy channel is externally managed
+  /// (store, Homebrew Cask, Scoop — see [isExternallyManaged]).
   Future<void> checkForUpdate() async {
     final channel = ref.read(deployChannelProvider);
-    if (channel == DeployChannel.store) {
-      _log.info('Store channel — skipping update check');
+    if (isExternallyManaged(channel)) {
+      _log.info(
+        'Externally-managed channel ($channel) — skipping update check',
+      );
       state = const UpdateState(phase: UpdatePhase.upToDate);
       return;
     }

@@ -297,9 +297,10 @@ void _scheduleStartupSideEffects(
     unawaited(db.purgeTrash(days: settings.historyAutoTrashDays));
   }
 
-  // Not running from Store — Store builds have no self-updater at all.
+  // Not externally managed — store and package-manager (Homebrew Cask,
+  // Scoop) builds have no self-updater at all, see isExternallyManaged.
   final channel = container.read(deployChannelProvider);
-  if (channel != DeployChannel.store) {
+  if (!isExternallyManaged(channel)) {
     if (Platform.isLinux) {
       // Linux — no Sparkle/WinSparkle; keep the GitHub API check. Gated by
       // the toggle since it's the only mechanism Linux has.

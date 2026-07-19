@@ -260,15 +260,16 @@ bool telemetryDntActive() {
 }
 
 /// The Matomo Dimension 6 ("Update Channel") value for a request — categorical
-/// only (`stable`/`beta`/`n/a`), never content. Store builds have no Sparkle
-/// feed, so their update channel is reported as `n/a`; direct builds report the
-/// persisted [UpdateChannel.name]. Extracted as a top-level pure function so
-/// the categorical-discipline is unit-testable in isolation (PRD §12 Q3).
+/// only (`stable`/`beta`/`n/a`), never content. Store and package-managed
+/// builds (Homebrew Cask, Scoop — see [isExternallyManaged]) have no Sparkle
+/// feed, so their update channel is reported as `n/a`; direct builds report
+/// the persisted [UpdateChannel.name]. Extracted as a top-level pure function
+/// so the categorical-discipline is unit-testable in isolation (PRD §12 Q3).
 String updateChannelDimension({
   required DeployChannel deployChannel,
   required UpdateChannel updateChannel,
 }) {
-  if (deployChannel == DeployChannel.store) return 'n/a';
+  if (isExternallyManaged(deployChannel)) return 'n/a';
   return updateChannel.name;
 }
 

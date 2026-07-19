@@ -187,6 +187,26 @@ void main() {
       expect(find.text(l10n.settingsCheckUpdates), findsNothing);
     });
 
+    testWidgets(
+      'AC-4b: section is hidden on the packageManaged deploy channel',
+      (tester) async {
+        await tester.pumpWidget(
+          makeTestable(
+            const SingleChildScrollView(child: UpdatesSection()),
+            overrides: [
+              deployChannelProvider.overrideWith(
+                (ref) => DeployChannel.packageManaged,
+              ),
+            ],
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text(l10n.settingsBetaUpdates), findsNothing);
+        expect(find.text(l10n.settingsCheckUpdates), findsNothing);
+      },
+    );
+
     testWidgets('renders both controls on a non-store channel', (tester) async {
       await tester.pumpWidget(
         makeTestable(

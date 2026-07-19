@@ -1,16 +1,20 @@
 /// Deploy channel detection — determines how WhisPaste was installed.
 ///
-/// Three channels exist:
+/// Four channels exist:
 /// - **store**: Installed from an OS store — MS Store on Windows (MSIX
 ///   package identity detected) or the Mac App Store on macOS (MAS build,
 ///   see [kIsMasBuild])
+/// - **packageManaged**: Installed via a third-party package manager that
+///   owns its own upgrade flow — Homebrew Cask (macOS), Scoop (Windows),
+///   Snap or Flatpak (Linux). See [isExternallyManaged].
 /// - **installer**: Installed via NSIS Setup.exe (registry marker present,
 ///   Windows only)
-/// - **portable**: Running from extracted ZIP, a direct-download macOS
-///   build, or a dev environment (fallback)
+/// - **portable**: Running from extracted ZIP/AppImage, a direct-download
+///   macOS build, a `.deb` install, or a dev environment (fallback)
 ///
 /// The channel determines update behavior:
-/// - Store → updates managed by the Store, no in-app check needed
+/// - Store / package-managed → updates owned by the store/package manager,
+///   the in-app self-updater must stay silent (see [isExternallyManaged])
 /// - Installer → check GitHub Releases, download & launch new Setup.exe
 /// - Portable → check GitHub Releases, show notification with download link
 library;
@@ -32,12 +36,26 @@ enum DeployChannel {
   /// Installed from Microsoft Store or other OS store (MSIX/AppX package).
   store,
 
+  /// Installed via a third-party package manager that owns its own upgrade
+  /// flow: Homebrew Cask (macOS), Scoop (Windows), Snap or Flatpak (Linux).
+  packageManaged,
+
   /// Installed via NSIS installer (WhisPaste-Setup.exe from GitHub).
   installer,
 
-  /// Running from extracted ZIP, dev build, or unknown source.
+  /// Running from extracted ZIP/AppImage, a direct-download macOS build, a
+  /// `.deb` install, or a dev environment (fallback).
   portable,
 }
+
+/// Whether [channel] is managed by an external updater — an OS store or a
+/// system package manager. The in-app self-updater (Sparkle/WinSparkle, the
+/// GitHub-Releases check) must stay off for these: running it anyway would
+/// fight the manager that already owns upgrades for this install (e.g.
+/// Sparkle overwriting a Homebrew-managed `.app`, or a GitHub-check nagging
+/// a Snap/Flatpak user whose store already auto-updates them).
+bool isExternallyManaged(DeployChannel channel) =>
+    channel == DeployChannel.store || channel == DeployChannel.packageManaged;
 
 /// Override for testing. When non-null, [detectDeployChannel] returns this
 /// instead of probing the OS.
@@ -48,19 +66,23 @@ DeployChannel? deployChannelOverride;
 ///
 /// Detection order (Windows):
 /// 1. MSIX package identity → [DeployChannel.store]
-/// 2. Registry marker `HKCU\Software\WhisPaste\InstallSource` → [DeployChannel.installer]
-/// 3. Fallback → [DeployChannel.portable]
+/// 2. Scoop install path (`…\scoop\apps\whispaste\…`) → [DeployChannel.packageManaged]
+/// 3. Registry marker `HKCU\Software\WhisPaste\InstallSource` → [DeployChannel.installer]
+/// 4. Fallback → [DeployChannel.portable]
 ///
 /// macOS: [kIsMasBuild] is a compile-time constant that is `true` only for
 /// binaries built against the Xcode "MAS" configuration (App Sandbox +
 /// `AppStore.entitlements`) — the same build variant this repo ships to the
 /// Mac App Store, so it doubles as a reliable store-channel signal without
-/// needing a runtime App Store receipt check. Non-MAS macOS builds (direct
-/// DMG download) → [DeployChannel.portable] (no separate "installer"
-/// concept on macOS today).
+/// needing a runtime App Store receipt check. Non-MAS macOS builds check for
+/// a Homebrew Caskroom entry (`_hasHomebrewCaskEntry`) next, then fall back
+/// to [DeployChannel.portable] (direct DMG download).
 ///
-/// On Linux (and any other platform), always returns [DeployChannel.portable]
-/// for now.
+/// Linux: [_detectLinuxChannel] recognizes Snap and Flatpak (both
+/// package-managed) via their well-known runtime environment markers, and
+/// AppImage via `$APPIMAGE` (stays [DeployChannel.portable] — no repo
+/// auto-updates it). Everything else (`.deb`, tarball, dev run) also falls
+/// back to [DeployChannel.portable].
 DeployChannel detectDeployChannel() {
   if (deployChannelOverride != null) return deployChannelOverride!;
   if (Platform.isMacOS) {
@@ -68,8 +90,17 @@ DeployChannel detectDeployChannel() {
       _log.info('Deploy channel: store (MAS build)');
       return DeployChannel.store;
     }
+    if (_hasHomebrewCaskEntry()) {
+      _log.info('Deploy channel: packageManaged (Homebrew Caskroom entry)');
+      return DeployChannel.packageManaged;
+    }
     _log.info('Deploy channel: portable (non-MAS macOS build)');
     return DeployChannel.portable;
+  }
+  if (Platform.isLinux) {
+    final linuxChannel = _detectLinuxChannel();
+    _log.info('Deploy channel: $linuxChannel (Linux)');
+    return linuxChannel;
   }
   if (!Platform.isWindows) return DeployChannel.portable;
 
@@ -79,15 +110,99 @@ DeployChannel detectDeployChannel() {
     return DeployChannel.store;
   }
 
-  // 2. Check for NSIS installer registry marker.
+  // 2. Check for a Scoop install path.
+  if (isScoopExecutablePath(Platform.resolvedExecutable)) {
+    _log.info('Deploy channel: packageManaged (Scoop install path)');
+    return DeployChannel.packageManaged;
+  }
+
+  // 3. Check for NSIS installer registry marker.
   if (_hasInstallerRegistryMarker()) {
     _log.info('Deploy channel: installer (registry marker found)');
     return DeployChannel.installer;
   }
 
-  // 3. Fallback.
-  _log.info('Deploy channel: portable (no store or installer marker)');
+  // 4. Fallback.
+  _log.info(
+    'Deploy channel: portable (no store/package-manager/installer marker)',
+  );
   return DeployChannel.portable;
+}
+
+// ---------------------------------------------------------------------------
+// Linux: Snap / Flatpak / AppImage detection
+// ---------------------------------------------------------------------------
+
+/// Pure decision: which [DeployChannel] does this Linux runtime environment
+/// indicate? Injectable [env] + [flatpakInfoExists] so this is unit-testable
+/// without a real Linux runtime.
+///
+/// - Snap sets `SNAP`/`SNAP_NAME` for every running snap.
+/// - Flatpak sandboxes expose `/.flatpak-info`; `FLATPAK_ID` is also commonly
+///   set by the Flatpak runtime.
+/// - AppImage sets `APPIMAGE` to the mounted image path. No repository
+///   tracks/auto-updates it, so it stays [DeployChannel.portable] like a
+///   plain extracted tarball — recognized explicitly so future
+///   diagnostics/telemetry can tell it apart, without changing update
+///   behavior today.
+@visibleForTesting
+DeployChannel linuxChannelFromEnv(
+  Map<String, String> env, {
+  required bool flatpakInfoExists,
+}) {
+  if (env.containsKey('SNAP') || env.containsKey('SNAP_NAME')) {
+    return DeployChannel.packageManaged;
+  }
+  if (flatpakInfoExists || env.containsKey('FLATPAK_ID')) {
+    return DeployChannel.packageManaged;
+  }
+  if (env.containsKey('APPIMAGE')) return DeployChannel.portable;
+  return DeployChannel.portable;
+}
+
+DeployChannel _detectLinuxChannel() => linuxChannelFromEnv(
+  Platform.environment,
+  flatpakInfoExists: File('/.flatpak-info').existsSync(),
+);
+
+// ---------------------------------------------------------------------------
+// macOS: Homebrew Cask detection
+// ---------------------------------------------------------------------------
+
+/// Best-effort Homebrew Cask detection. `brew install --cask` moves the
+/// `.app` bundle straight into `/Applications` — unlike CLI binaries,
+/// Homebrew does not symlink app bundles, so the installed app is on-disk
+/// indistinguishable by path from a manual DMG install. The Caskroom
+/// directory it leaves behind is the cheapest reliable signal without
+/// shelling out to `brew` itself (slow, and not guaranteed on PATH for a
+/// GUI-launched app).
+@visibleForTesting
+bool hasHomebrewCaskEntry({
+  bool Function(String path) dirExists = _defaultDirExists,
+}) {
+  const prefixes = ['/opt/homebrew', '/usr/local'];
+  for (final prefix in prefixes) {
+    if (dirExists('$prefix/Caskroom/whispaste')) return true;
+  }
+  return false;
+}
+
+bool _defaultDirExists(String path) => Directory(path).existsSync();
+
+bool _hasHomebrewCaskEntry() => hasHomebrewCaskEntry();
+
+// ---------------------------------------------------------------------------
+// Windows: Scoop detection
+// ---------------------------------------------------------------------------
+
+/// Pure decision: does [exePath] point at a Scoop-managed install? Scoop
+/// installs apps under `…\scoop\apps\whispaste\<version-or-current>\…`
+/// (per-user) or `…\scoop\apps\whispaste\…` under the global Scoop root —
+/// both share the `\apps\whispaste\` path segment this checks for.
+@visibleForTesting
+bool isScoopExecutablePath(String exePath) {
+  final normalized = exePath.replaceAll('/', r'\').toLowerCase();
+  return normalized.contains(r'\scoop\apps\whispaste\');
 }
 
 // ---------------------------------------------------------------------------

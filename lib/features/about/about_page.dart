@@ -103,7 +103,7 @@ class AboutPage extends ConsumerWidget {
                 url: '$kGitHubRepoUrl/issues',
                 isDark: isDark,
               ),
-              if (channel != DeployChannel.store)
+              if (!isExternallyManaged(channel))
                 // loam-ignore: a11y-interactive-semantics – semantics provided in _UpdateCheckAction.build
                 _UpdateCheckAction(
                   updateState: updateState,

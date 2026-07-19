@@ -74,6 +74,14 @@ void main() {
       expect(shouldUseAutoUpdater(DeployChannel.store), isFalse);
     });
 
+    test(
+      'packageManaged channel is never eligible either, even on a Sparkle platform',
+      () {
+        installSeams(sparklePlatform: true);
+        expect(shouldUseAutoUpdater(DeployChannel.packageManaged), isFalse);
+      },
+    );
+
     test('installer/portable are eligible on a Sparkle platform', () {
       installSeams(sparklePlatform: true);
       expect(shouldUseAutoUpdater(DeployChannel.installer), isTrue);
@@ -83,6 +91,7 @@ void main() {
     test('no channel is eligible on a non-Sparkle platform (Linux)', () {
       installSeams(sparklePlatform: false);
       expect(shouldUseAutoUpdater(DeployChannel.store), isFalse);
+      expect(shouldUseAutoUpdater(DeployChannel.packageManaged), isFalse);
       expect(shouldUseAutoUpdater(DeployChannel.installer), isFalse);
       expect(shouldUseAutoUpdater(DeployChannel.portable), isFalse);
     });
@@ -96,6 +105,17 @@ void main() {
       expect(interval, isNull);
       expect(checkCalled, isFalse);
     });
+
+    test(
+      'packageManaged channel → no-op (feed URL never set, no check)',
+      () async {
+        installSeams(sparklePlatform: true);
+        await initAutoUpdater(DeployChannel.packageManaged, UpdateChannel.beta);
+        expect(feedUrl, isNull);
+        expect(interval, isNull);
+        expect(checkCalled, isFalse);
+      },
+    );
 
     test('non-Sparkle platform → no-op for any non-store channel', () async {
       installSeams(sparklePlatform: false);

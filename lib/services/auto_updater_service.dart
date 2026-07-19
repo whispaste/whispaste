@@ -6,6 +6,8 @@
 ///   self-updater runs at all:
 ///   - **store** (MSIX): no-op — the Microsoft Store auto-updates; a parallel
 ///     check would be redundant and a policy grey zone (10.2.2).
+///   - **packageManaged** (Homebrew Cask / Scoop): no-op for the same reason
+///     — the package manager owns upgrades; see [isExternallyManaged].
 ///   - **installer / portable** on Windows & macOS: run Sparkle/WinSparkle.
 ///   - **Linux**: no Sparkle/WinSparkle backend — the GitHub-API
 ///     [UpdateNotifier] (`update_service.dart`) keeps handling Linux.
@@ -109,10 +111,11 @@ void Function(UpdaterListener listener) addUpdaterListenerFn =
 
 /// Whether [channel] uses the Sparkle/WinSparkle self-updater on this platform.
 ///
-/// `false` for the store channel (Store auto-updates) and for platforms without
-/// a Sparkle/WinSparkle backend (Linux, mobile).
+/// `false` for externally-managed channels (store, Homebrew Cask, Scoop —
+/// see [isExternallyManaged]) and for platforms without a Sparkle/WinSparkle
+/// backend (Linux, mobile).
 bool shouldUseAutoUpdater(DeployChannel channel) {
-  if (channel == DeployChannel.store) return false;
+  if (isExternallyManaged(channel)) return false;
   if (!platformSupportsSparkle()) return false;
   return true;
 }

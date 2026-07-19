@@ -5,6 +5,8 @@
 /// Store builds have no self-updater and no release channel at all (PRD §6.3:
 /// stores are stable-only), so the whole section hides for
 /// [DeployChannel.store] — AC „Store-Build blendet den Toggle sinnvoll aus".
+/// The same applies to package-manager-managed installs (Homebrew Cask,
+/// Scoop) — see [isExternallyManaged].
 library;
 
 import 'dart:async' show unawaited;
@@ -40,9 +42,9 @@ class UpdatesSection extends ConsumerWidget {
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
     final channel = ref.watch(deployChannelProvider);
 
-    // Store builds: no self-updater, no release channel → hide the section
-    // entirely rather than rendering an empty shell.
-    if (channel == DeployChannel.store) return const SizedBox.shrink();
+    // Store / package-managed builds: no self-updater, no release channel →
+    // hide the section entirely rather than rendering an empty shell.
+    if (isExternallyManaged(channel)) return const SizedBox.shrink();
 
     final updateChannel =
         ref.watch(updateChannelProvider).value ?? UpdateChannel.stable;

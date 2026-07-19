@@ -29,56 +29,68 @@ TelemetryService _makeService({
 }
 
 void main() {
-  group(
-    'updateChannelDimension — Dimension 6 discipline (categorical only)',
-    () {
-      test('store deploy channel → n/a (no Sparkle feed in store builds)', () {
+  group('updateChannelDimension — Dimension 6 discipline (categorical only)', () {
+    test('store deploy channel → n/a (no Sparkle feed in store builds)', () {
+      for (final update in UpdateChannel.values) {
+        expect(
+          updateChannelDimension(
+            deployChannel: DeployChannel.store,
+            updateChannel: update,
+          ),
+          'n/a',
+        );
+      }
+    });
+
+    test(
+      'packageManaged deploy channel → n/a (no Sparkle feed for Homebrew/Scoop)',
+      () {
         for (final update in UpdateChannel.values) {
           expect(
             updateChannelDimension(
-              deployChannel: DeployChannel.store,
+              deployChannel: DeployChannel.packageManaged,
               updateChannel: update,
             ),
             'n/a',
           );
         }
-      });
+      },
+    );
 
-      test('installer + stable → stable', () {
-        expect(
-          updateChannelDimension(
-            deployChannel: DeployChannel.installer,
-            updateChannel: UpdateChannel.stable,
-          ),
-          'stable',
-        );
-      });
+    test('installer + stable → stable', () {
+      expect(
+        updateChannelDimension(
+          deployChannel: DeployChannel.installer,
+          updateChannel: UpdateChannel.stable,
+        ),
+        'stable',
+      );
+    });
 
-      test('portable + beta → beta', () {
-        expect(
-          updateChannelDimension(
-            deployChannel: DeployChannel.portable,
-            updateChannel: UpdateChannel.beta,
-          ),
-          'beta',
-        );
-      });
+    test('portable + beta → beta', () {
+      expect(
+        updateChannelDimension(
+          deployChannel: DeployChannel.portable,
+          updateChannel: UpdateChannel.beta,
+        ),
+        'beta',
+      );
+    });
 
-      test('never emits free-form content — only the categorical tokens '
-          'stable/beta/n/a', () {
-        const allowed = {'stable', 'beta', 'n/a'};
-        for (final deploy in DeployChannel.values) {
-          for (final update in UpdateChannel.values) {
-            final value = updateChannelDimension(
-              deployChannel: deploy,
-              updateChannel: update,
-            );
-            expect(allowed, contains(value), reason: 'emitted: $value');
-          }
+    test('never emits free-form content — only the categorical tokens '
+        'stable/beta/n/a', () {
+      const allowed = {'stable', 'beta', 'n/a'};
+      for (final deploy in DeployChannel.values) {
+        for (final update in UpdateChannel.values) {
+          final value = updateChannelDimension(
+            deployChannel: deploy,
+            updateChannel: update,
+          );
+          expect(allowed, contains(value), reason: 'emitted: $value');
         }
-      });
-    },
-  );
+      }
+    });
+  });
 
   group('TelemetryService', () {
     test('does not send HTTP request when consentGranted is false', () async {
