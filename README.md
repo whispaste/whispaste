@@ -50,13 +50,13 @@ Works in emails, chat apps, code editors, browsers, terminals — anywhere you w
 
 **Core** — Global hotkey · Push-to-talk & toggle · Auto-paste into any app · Recording overlay with waveform · Floating record button
 
-**Transcription** — Offline by default: local Whisper models via [whisper.cpp](https://github.com/ggml-org/whisper.cpp), no API key required · Optional cloud providers (OpenAI, Deepgram) when you want them · [99 languages](https://github.com/openai/whisper/blob/main/whisper/tokenizer.py)
+**Transcription** — Offline by default, two local engines to choose from: [Whisper](https://github.com/ggml-org/whisper.cpp) ([99 languages](https://github.com/openai/whisper/blob/main/whisper/tokenizer.py), GPU-accelerated) or NVIDIA Parakeet (~25 languages, CPU-only, several times faster) — no API key required · Optional cloud providers (OpenAI, Deepgram) when you want them
 
 **Productivity** — Voice Snippets (spoken triggers → text expansion) · Audio feedback sounds
 
 **History** — Tags · Full-text search · Pin, archive, merge, edit · Analytics dashboard · Export (TXT, MD, CSV, JSON, DOCX)
 
-**System** — Auto-update with SHA256 verification · Light/dark/system theme · EN/DE interface · Autostart · System tray
+**System** — Auto-update with Ed25519-signed releases (Sparkle/WinSparkle) · Light/dark/system theme · EN/DE interface · Autostart · System tray
 
 ## Development
 
