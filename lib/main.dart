@@ -29,6 +29,7 @@ import 'services/bundle_id_migration_adapters.dart';
 import 'services/bundle_id_migration_service.dart';
 import 'services/deploy_channel_service.dart';
 import 'services/hardware_info_service.dart' as hw;
+import 'services/legacy_residue_cleanup.dart';
 import 'services/path_service.dart';
 import 'services/single_instance_service.dart';
 import 'services/telemetry_service.dart';
@@ -189,6 +190,14 @@ Future<void> _runApp(List<String> args) async {
   // (fire-and-forget). At app-start no download is active, so the
   // active-downloads set is empty — any aged .tmp is safe to delete.
   unawaited(sweepOrphanedTmpFiles(directory: sttDir()));
+
+  // Remove pre-FFI whisper-server residue left behind by an upgrade across
+  // the whisper-ffi-engine migration (fire-and-forget, runs at most once per
+  // app version — see legacy_residue_cleanup.dart). appVersion is already
+  // resolved by initAppInfo() above.
+  unawaited(
+    sweepLegacyResidueIfNeeded(directory: sttDir(), currentVersion: appVersion),
+  );
 
   // Pre-cache GPU detection and validate the whisper-server binary matches
   // the current hardware. If the GPU changed since the binary was
