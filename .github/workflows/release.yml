@@ -95,25 +95,41 @@ jobs:
       # with it. -DGGML_OPENMP=OFF avoids an extra VCOMP140.DLL dependency
       # nothing else bundles. See scripts/bundle-libwhisper-windows.ps1 header
       # for the full writeup.
-      - name: Setup Vulkan SDK
-        uses: humbletim/setup-vulkan-sdk@v1.2.1
+      # humbletim/setup-vulkan-sdk (a slim from-source component builder,
+      # avoiding the ~250MB full official installer) was tried first and hit
+      # three successive dead ends live in CI: Glslang needing SPIRV-Tools,
+      # the "Visual Studio 17 2022" CMake generator failing its own vswhere
+      # detection, and finally "Shaderc" — the component that builds glslc.exe,
+      # which ggml-vulkan's CMakeLists hard-requires via
+      # find_package(Vulkan REQUIRED COMPONENTS glslc) — not being buildable
+      # through that action at all ("unknown component: Shaderc", confirmed
+      # live in CI, v1.2.50 Windows job). Switched to installing the official
+      # LunarG SDK directly: prebuilt binaries (glslc.exe included), no
+      # from-source component builds, no generator-detection surface at all.
+      - name: Cache Vulkan SDK
+        id: vulkan_sdk_cache
+        uses: actions/cache@v4
         with:
-          vulkan-query-version: 1.4.328.1
-          # Glslang's own CMakeLists builds with ENABLE_OPT=1 by default, which
-          # requires SPIRV-Tools to be present as a sibling component — without
-          # it, configure fails ("ENABLE_OPT set but SPIR-V tools not found").
-          # Confirmed live in CI (v1.2.47 Windows job): adding SPIRV-Tools here
-          # is what actually fixes it, not a Glslang-side flag.
-          # Shaderc is what actually builds glslc.exe — ggml-vulkan's own
-          # CMakeLists calls find_package(Vulkan REQUIRED COMPONENTS glslc),
-          # which fails ("Could NOT find Vulkan (missing: glslc)") without it,
-          # even though Glslang (the library) is already present. Same root
-          # cause as the Linux build needing the glslang-tools/glslc apt
-          # package (v1.2.46 fix) — glslc is a distinct component from the
-          # Glslang library on every platform. Confirmed live in CI (v1.2.49
-          # Windows job).
-          vulkan-components: Vulkan-Headers, Vulkan-Loader, Glslang, SPIRV-Tools, Shaderc
-          vulkan-use-cache: true
+          path: C:\VulkanSDK\1.4.328.1
+          key: vulkan-sdk-windows-1.4.328.1
+
+      - name: Setup Vulkan SDK
+        if: steps.vulkan_sdk_cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $VulkanVersion = "1.4.328.1"
+          $InstallerUrl = "https://sdk.lunarg.com/sdk/download/$VulkanVersion/windows/vulkansdk-windows-X64-$VulkanVersion.exe"
+          $InstallerPath = "$env:RUNNER_TEMP\vulkan-sdk.exe"
+          Invoke-WebRequest -Uri $InstallerUrl -OutFile $InstallerPath
+          & $InstallerPath --root "C:\VulkanSDK\$VulkanVersion" --accept-licenses --default-answer --confirm-command install
+          if ($LASTEXITCODE -ne 0) { throw "Vulkan SDK installer exited with code $LASTEXITCODE" }
+
+      - name: Add Vulkan SDK to PATH/env
+        shell: pwsh
+        run: |
+          echo "VULKAN_SDK=C:\VulkanSDK\1.4.328.1" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          echo "C:\VulkanSDK\1.4.328.1\Bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
 
       - name: Cache libwhisper build (Windows)
         id: libwhisper_cache
