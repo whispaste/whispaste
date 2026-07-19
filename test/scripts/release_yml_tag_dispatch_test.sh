@@ -162,15 +162,20 @@ PY
 check "manifest-bump gated !contains(github.ref_name, '-')" "$?"
 
 # ---------------------------------------------------------------------------
-# T9: STRUCTURE — no CI Store-Submission EXECUTION (Store runs locally)
-#     AC-5's "keine Store-Submission" holds because submission is NOT EXECUTED
-#     in CI: the local wp-submit-store.ps1 / wp-release-windows.sh scripts
-#     (under the gitignored .scratch/windows-release-pipeline/) are run by the
-#     operator on the box. The promote job (Issue 05) DOCUMENTS that operator
-#     step in a notice/echo (AC-4 wiring) — that reference is expected and is
-#     excluded here. Every OTHER job must stay free of any store-script reference.
+# T9: STRUCTURE — no leftover reference to the retired local-box Store scripts
+#     This guard originally enforced AC-5 by asserting Store submission was
+#     NOT EXECUTED in CI at all — it ran via the local wp-submit-store.ps1 /
+#     wp-release-windows.sh scripts (under the gitignored
+#     .scratch/windows-release-pipeline/, run by the operator on the box).
+#     That local-box pipeline was retired (v1.2.45): CI now DOES submit to the
+#     Store via the submit-ms-store job, but through Microsoft's own supported
+#     msstore CLI/microsoft-store-apppublisher action, not those ad-hoc
+#     scripts — so this regex-specific guard still holds and keeps doing its
+#     real job: catching a regression that reintroduces a reference to the
+#     retired scripts (or the Hard-Internas leak fixed in 6c9bf4d0) anywhere
+#     outside the promote job's echo-only mention.
 # ---------------------------------------------------------------------------
-echo "== T9: Store-Submission is local (no CI execution; promote job only documents it) =="
+echo "== T9: no reference to the retired local-box Store scripts remains (AC-5 lineage) =="
 python3 - "$WF" <<'PY' >/dev/null 2>&1; check "no tag-dispatch job references store scripts (AC-5 holds)" "$?"
 import sys, yaml, re
 wf = yaml.safe_load(open(sys.argv[1]))
