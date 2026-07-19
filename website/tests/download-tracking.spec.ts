@@ -86,13 +86,12 @@ const MODAL_OUTBOUND_TESTIDS = ['modal-star-github', 'modal-star-windows', 'moda
 // of which should hit the network in a fast, deterministic CI run"), but this
 // group's beforeEach never actually installed it — it only closed the popup
 // AFTER target="_blank" had already fired a real network request to GitHub/
-// the Store review pages. That real request (flaky/slow on CI's network,
-// unlike a local run) was the actual root cause of "TypeError: received is
-// not iterable": the outbound navigation's timing interfered with reading
-// window._paq back on the original page before the assertion ran. Blocking
-// the browser's default action outright (like the sibling test group already
-// does) removes the race entirely instead of just papering over it with
-// popup-closing cleanup.
+// the Store review pages. Blocking the browser's default action outright
+// (like the sibling test group already does) is good hygiene regardless —
+// no real outbound network calls, no stray popups — but it did NOT fully
+// explain the "TypeError: received is not iterable" CI failures (2 of the 5
+// failing tests, modal-dismiss-close/-later, don't even touch these
+// testids). See blockRealMatomoScript below for the actual root cause.
 async function preventOutboundNavigation(page: Page, testIds: string[]) {
   await page.addInitScript((ids: string[]) => {
     document.addEventListener(
@@ -110,8 +109,24 @@ async function preventOutboundNavigation(page: Page, testIds: string[]) {
   }, testIds);
 }
 
+// Layout.astro injects the real Matomo bootstrap script unconditionally
+// under `import.meta.env.PROD` — true for the `astro preview` build CI runs
+// tests against (playwright.config.ts), false for the `astro dev` server
+// used locally. That's why this whole file passed every local run but kept
+// failing only in CI: once the real matomo.js finishes loading, it replaces
+// window._paq (our seeded plain array) with its own Tracker object, and
+// whichever test's paqCalls() read happened to lose that race got a
+// non-array back — "TypeError: received is not iterable" — regardless of
+// which testid the test clicked (matches the 2 dismiss-only failures that
+// preventOutboundNavigation, above, could never have fixed). Aborting the
+// request keeps window._paq the plain array these tests seed and assert on.
+async function blockRealMatomoScript(page: Page) {
+  await page.route('https://matomo.silvio-und-maik.de/**', (route) => route.abort());
+}
+
 test.describe('download support modal — interaction-scoped Matomo events', () => {
   test.beforeEach(async ({ page }) => {
+    await blockRealMatomoScript(page);
     await seedPaq(page);
     await preventOutboundNavigation(page, MODAL_OUTBOUND_TESTIDS);
 
