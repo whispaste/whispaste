@@ -95,7 +95,7 @@ export const i18n: Record<string, Record<string, string>> = {
     'howitworks.step3.label': 'Step 3',
     'howitworks.step3.title': 'Paste, expand, or polish',
     'howitworks.step3.desc': 'Text appears at the cursor — ready to use, edit, or expand with voice shortcuts.',
-    'howitworks.step1.alt': 'Illustration of a keyboard key with a sound wave, symbolizing the hotkey that starts dictation',
+    'howitworks.step1.alt': 'Illustration of a keyboard key with a sound wave, symbolizing the hotkey that starts a recording',
     'howitworks.step2.alt': 'Illustration of a microphone with a sound wave, symbolizing speaking naturally',
     'howitworks.step3.alt': 'Illustration of a text field with a cursor and a checkmark, symbolizing the finished text',
     'screenshots.label': 'Screenshots',
