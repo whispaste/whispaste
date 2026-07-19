@@ -328,11 +328,15 @@ EOF
 fi
 
 # OSV-Scanner (vuln check; sparsam: nur wenn installiert)
+# Gemfile.lock ergänzt (2026-07-19): fehlte hier, sodass 3 high + 1 moderate
+# CVE (faraday/jwt/json) erst per GitHubs Remote-Dependabot-Scan NACH dem
+# Push auffielen statt lokal blockiert zu werden.
 if command -v osv-scanner >/dev/null 2>&1; then
   echo ""; echo "OSV vulnerability scan..."
   OSV_ARGS=""
   [ -f "$ROOT/pubspec.lock" ]              && OSV_ARGS="$OSV_ARGS --lockfile=$ROOT/pubspec.lock"
   [ -f "$ROOT/website/package-lock.json" ] && OSV_ARGS="$OSV_ARGS --lockfile=$ROOT/website/package-lock.json"
+  [ -f "$ROOT/Gemfile.lock" ]              && OSV_ARGS="$OSV_ARGS --lockfile=$ROOT/Gemfile.lock"
   if [ -n "$OSV_ARGS" ]; then
     if ! osv-scanner scan $OSV_ARGS 2>&1; then
       cat >&2 <<EOF

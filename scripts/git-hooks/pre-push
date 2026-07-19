@@ -269,16 +269,21 @@ else
 fi
 
 # ── L8: OSV-Scanner — dependency vulnerability check ─────────────────
-# Scans pubspec.lock (Dart/Flutter) and website/package-lock.json (npm)
-# against the OSV database — same source as Dependabot.
+# Scans pubspec.lock (Dart/Flutter), website/package-lock.json (npm), and
+# Gemfile.lock (Ruby/Fastlane) against the OSV database — same source as
+# Dependabot, but local and blocking instead of a post-push GitHub-only
+# notification (gap found + fixed 2026-07-19: Gemfile.lock was tracked but
+# never scanned here, so 3 high + 1 moderate CVEs in faraday/jwt/json only
+# surfaced via GitHub's remote Dependabot scan after the push already landed).
 # Skipped if osv-scanner is not installed (non-blocking for new machines).
 
 if command -v osv-scanner >/dev/null 2>&1; then
   echo ""
-  echo "◆ OSV vulnerability scan (pub + npm)..."
+  echo "◆ OSV vulnerability scan (pub + npm + gem)..."
   OSV_ARGS=""
   [ -f pubspec.lock ]                  && OSV_ARGS="$OSV_ARGS --lockfile pubspec.lock"
   [ -f website/package-lock.json ]     && OSV_ARGS="$OSV_ARGS --lockfile website/package-lock.json"
+  [ -f Gemfile.lock ]                  && OSV_ARGS="$OSV_ARGS --lockfile Gemfile.lock"
 
   if [ -n "$OSV_ARGS" ]; then
     if ! osv-scanner scan $OSV_ARGS 2>&1; then
