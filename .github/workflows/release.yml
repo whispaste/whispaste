@@ -104,7 +104,15 @@ jobs:
           # it, configure fails ("ENABLE_OPT set but SPIR-V tools not found").
           # Confirmed live in CI (v1.2.47 Windows job): adding SPIRV-Tools here
           # is what actually fixes it, not a Glslang-side flag.
-          vulkan-components: Vulkan-Headers, Vulkan-Loader, Glslang, SPIRV-Tools
+          # Shaderc is what actually builds glslc.exe — ggml-vulkan's own
+          # CMakeLists calls find_package(Vulkan REQUIRED COMPONENTS glslc),
+          # which fails ("Could NOT find Vulkan (missing: glslc)") without it,
+          # even though Glslang (the library) is already present. Same root
+          # cause as the Linux build needing the glslang-tools/glslc apt
+          # package (v1.2.46 fix) — glslc is a distinct component from the
+          # Glslang library on every platform. Confirmed live in CI (v1.2.49
+          # Windows job).
+          vulkan-components: Vulkan-Headers, Vulkan-Loader, Glslang, SPIRV-Tools, Shaderc
           vulkan-use-cache: true
 
       - name: Cache libwhisper build (Windows)
