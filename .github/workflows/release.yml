@@ -99,7 +99,12 @@ jobs:
         uses: humbletim/setup-vulkan-sdk@v1.2.1
         with:
           vulkan-query-version: 1.4.328.1
-          vulkan-components: Vulkan-Headers, Vulkan-Loader, Glslang
+          # Glslang's own CMakeLists builds with ENABLE_OPT=1 by default, which
+          # requires SPIRV-Tools to be present as a sibling component — without
+          # it, configure fails ("ENABLE_OPT set but SPIR-V tools not found").
+          # Confirmed live in CI (v1.2.47 Windows job): adding SPIRV-Tools here
+          # is what actually fixes it, not a Glslang-side flag.
+          vulkan-components: Vulkan-Headers, Vulkan-Loader, Glslang, SPIRV-Tools
           vulkan-use-cache: true
 
       - name: Cache libwhisper build (Windows)
@@ -1274,7 +1279,16 @@ jobs:
   publish-appcast:
     name: Publish signed Sparkle appcast
     needs: [create-release]
-    if: ${{ !cancelled() && startsWith(github.ref, 'refs/tags/v') }}
+    # needs.create-release.result == 'success' (not just !cancelled()) is
+    # required — create-release itself skips whenever any platform build
+    # failed, and !cancelled() alone still evaluates true for a *skipped*
+    # dependency, so this job used to run anyway and fail hard trying to
+    # download a macos-release artifact that was never uploaded. Confirmed
+    # live in the v1.2.47 run (build-macos failed → create-release skipped →
+    # publish-appcast still ran → "Artifact not found: macos-release").
+    if: |
+      needs.create-release.result == 'success' &&
+      startsWith(github.ref, 'refs/tags/v')
     runs-on: macos-latest
     permissions:
       contents: write
