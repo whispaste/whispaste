@@ -9,8 +9,8 @@
 #   -> Datei dort als Casks/whispaste.rb ablegen, dann:
 #      brew install --cask whispaste/tap/whispaste
 cask "whispaste" do
-  version "1.2.37"
-  sha256 "fb7c4678095f73667b4bedfb5b9132437377571e31c1780b2e1682aec11eee71"
+  version "1.2.51"
+  sha256 "dbb764a9256a30d8b8bb0b12ba397fba64a5c0e67bb406eba0347f76520d1cc2"
 
   url "https://github.com/whispaste/whispaste/releases/download/v#{version}/WhisPaste-#{version}-macos-arm64.zip",
       verified: "github.com/whispaste/whispaste/"
