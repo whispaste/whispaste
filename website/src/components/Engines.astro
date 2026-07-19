@@ -1,0 +1,168 @@
+---
+/**
+ * `Engines.astro` — the "which local engine?" gegenüberstellung that the
+ * site was missing: WhisPaste ships two on-device STT engines (Whisper via
+ * whisper.cpp, Parakeet via sherpa-onnx — see `CONTEXT.md` §4.2), but before
+ * this section that fact only lived in one FAQ answer and a Languages
+ * sentence. This section makes the trade-off (language breadth + GPU vs.
+ * CPU speed) visually explicit on the homepage, then hands off to `/engines/`
+ * for the full comparison.
+ *
+ * Card styling is copied from `Features.astro`'s `.feature-card` glass
+ * recipe (Features.astro itself is unused/dead code — its markup is never
+ * imported — so its scoped styles aren't available here; reusing the exact
+ * class name keeps the light-mode remap in `global.css` `.feature-card`
+ * working for free).
+ */
+import { t, localePath } from '../scripts/i18n.ts';
+
+const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
+---
+
+<!-- Engines Section -->
+<section id="engines" class="py-24 sm:py-32 relative scroll-mt-20">
+  <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(14,116,144,0.05)_0%,_transparent_70%)]"></div>
+  <div class="relative max-w-4xl mx-auto px-6">
+    <div class="text-center mb-14 scroll-reveal">
+      <p class="text-brand-cyan text-sm font-semibold tracking-wider uppercase mb-3" data-i18n="engines.label">{t(lang, "engines.label")}</p>
+      <h2 class="section-title">{t(lang, "engines.title")}</h2>
+      <p class="mt-4 text-ink-muted text-lg max-w-2xl mx-auto" data-i18n="engines.desc">{t(lang, "engines.desc")}</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
+      <!-- Whisper -->
+      <div class="feature-card group p-6 sm:p-7 rounded-2xl border border-white/[0.06] scroll-reveal">
+        <div class="flex items-start justify-between gap-3 mb-1">
+          <h3 class="text-white text-xl font-bold" data-i18n="engines.whisper.name">{t(lang, "engines.whisper.name")}</h3>
+          <span class="inline-flex items-center rounded-full bg-brand-cyan/10 text-brand-cyan text-[11px] font-semibold px-2.5 py-1 whitespace-nowrap" data-i18n="engines.whisper.tagline">{t(lang, "engines.whisper.tagline")}</span>
+        </div>
+        <p class="text-ink-subtle text-xs font-medium mb-5" data-i18n="engines.whisper.tech">{t(lang, "engines.whisper.tech")}</p>
+        <dl class="engine-stats">
+          <div class="engine-stat">
+            <dt data-i18n="engines.whisper.stat.languages.label">{t(lang, "engines.whisper.stat.languages.label")}</dt>
+            <dd data-i18n="engines.whisper.stat.languages.value">{t(lang, "engines.whisper.stat.languages.value")}</dd>
+          </div>
+          <div class="engine-stat">
+            <dt data-i18n="engines.whisper.stat.hardware.label">{t(lang, "engines.whisper.stat.hardware.label")}</dt>
+            <dd data-i18n="engines.whisper.stat.hardware.value">{t(lang, "engines.whisper.stat.hardware.value")}</dd>
+          </div>
+          <div class="engine-stat">
+            <dt data-i18n="engines.whisper.stat.bestfor.label">{t(lang, "engines.whisper.stat.bestfor.label")}</dt>
+            <dd data-i18n="engines.whisper.stat.bestfor.value">{t(lang, "engines.whisper.stat.bestfor.value")}</dd>
+          </div>
+        </dl>
+        <p class="text-ink-muted text-sm leading-relaxed" data-i18n="engines.whisper.desc">{t(lang, "engines.whisper.desc")}</p>
+      </div>
+
+      <!-- Parakeet -->
+      <div class="feature-card group p-6 sm:p-7 rounded-2xl border border-white/[0.06] scroll-reveal">
+        <div class="flex items-start justify-between gap-3 mb-1">
+          <h3 class="text-white text-xl font-bold" data-i18n="engines.parakeet.name">{t(lang, "engines.parakeet.name")}</h3>
+          <span class="inline-flex items-center rounded-full bg-brand-cyan/10 text-brand-cyan text-[11px] font-semibold px-2.5 py-1 whitespace-nowrap" data-i18n="engines.parakeet.tagline">{t(lang, "engines.parakeet.tagline")}</span>
+        </div>
+        <p class="text-ink-subtle text-xs font-medium mb-5" data-i18n="engines.parakeet.tech">{t(lang, "engines.parakeet.tech")}</p>
+        <dl class="engine-stats">
+          <div class="engine-stat">
+            <dt data-i18n="engines.parakeet.stat.languages.label">{t(lang, "engines.parakeet.stat.languages.label")}</dt>
+            <dd data-i18n="engines.parakeet.stat.languages.value">{t(lang, "engines.parakeet.stat.languages.value")}</dd>
+          </div>
+          <div class="engine-stat">
+            <dt data-i18n="engines.parakeet.stat.hardware.label">{t(lang, "engines.parakeet.stat.hardware.label")}</dt>
+            <dd data-i18n="engines.parakeet.stat.hardware.value">{t(lang, "engines.parakeet.stat.hardware.value")}</dd>
+          </div>
+          <div class="engine-stat">
+            <dt data-i18n="engines.parakeet.stat.speed.label">{t(lang, "engines.parakeet.stat.speed.label")}</dt>
+            <dd data-i18n="engines.parakeet.stat.speed.value">{t(lang, "engines.parakeet.stat.speed.value")}</dd>
+          </div>
+        </dl>
+        <p class="text-ink-muted text-sm leading-relaxed" data-i18n="engines.parakeet.desc">{t(lang, "engines.parakeet.desc")}</p>
+      </div>
+    </div>
+
+    <p class="mt-8 text-center text-ink-subtle text-sm max-w-xl mx-auto" data-i18n="engines.footnote">{t(lang, "engines.footnote")}</p>
+
+    <div class="mt-5 text-center">
+      <a
+        href={localePath(lang, "engines")}
+        data-testid="engines-cta-link"
+        class="group/cta inline-flex items-center gap-1.5 text-sm font-semibold text-brand-cyan hover:text-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-cyan rounded-sm"
+      >
+        <span data-i18n="engines.cta">{t(lang, "engines.cta")}</span>
+        <svg class="w-4 h-4 transition-transform group-hover/cta:translate-x-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M5 12h14" />
+          <path d="m12 5 7 7-7 7" />
+        </svg>
+      </a>
+    </div>
+  </div>
+</section>
+
+<style>
+  /* Glassmorphism engine cards — same recipe as Features.astro's
+     (unused) `.feature-card`, reused here under the same class name so the
+     `html.light .feature-card` remap in global.css applies automatically. */
+  .feature-card {
+    position: relative;
+    background: linear-gradient(135deg, rgba(29, 37, 56, 0.5) 0%, rgba(23, 29, 44, 0.3) 100%);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    will-change: transform;
+  }
+  .feature-card:hover {
+    background: linear-gradient(135deg, rgba(29, 37, 56, 0.7) 0%, rgba(56, 217, 240, 0.03) 100%);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    transform: translateY(-3px);
+  }
+  .feature-card::after {
+    content: "";
+    position: absolute;
+    inset-inline: 1.25rem;
+    top: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(56, 217, 240, 0.55), transparent);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+  }
+  .feature-card:hover::after {
+    opacity: 1;
+  }
+  :global(.light) .feature-card:hover {
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .feature-card:hover {
+      transform: none;
+    }
+  }
+
+  /* Spec-sheet stat rows inside each card. */
+  .engine-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+    margin: 1rem 0 1.25rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+  }
+  .engine-stat {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+  .engine-stat dt {
+    font-size: 0.8125rem;
+    color: var(--color-ink-subtle);
+  }
+  .engine-stat dd {
+    margin: 0;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--color-ink);
+    text-align: right;
+  }
+  :global(html.light) .engine-stats {
+    border-top-color: rgba(15, 23, 42, 0.08);
+  }
+</style>

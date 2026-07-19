@@ -1,0 +1,111 @@
+---
+/**
+ * `/en/engines/` — English mirror of the Whisper-vs-Parakeet comparison
+ * page. The slug is intentionally identical to the DE variant (`engines`)
+ * because the term is used identically in the tech context and does not
+ * lend itself to localisation (same reasoning as `whisper-desktop`).
+ */
+import LandingPageLayout from "../../layouts/LandingPageLayout.astro";
+import FAQPageSchema from "../../components/schema/FAQPageSchema.astro";
+import { t, localePath } from "../../scripts/i18n.ts";
+
+const lang = "en" as const;
+
+const breadcrumbs = [
+  { name: t(lang, "breadcrumb.home"), item: localePath(lang, "") },
+  { name: t(lang, "explainer.engines.breadcrumb"), item: localePath(lang, "engines") },
+];
+
+const seo = {
+  title: t(lang, "explainer.engines.seoTitle"),
+  description: t(lang, "explainer.engines.seoDescription"),
+};
+
+const hero = {
+  heading: t(lang, "explainer.engines.heroHeading"),
+  lead: t(lang, "explainer.engines.heroLead"),
+};
+
+const cta = {
+  label: t(lang, "explainer.engines.cta.label"),
+  href: localePath(lang, "download"),
+};
+
+const faqQuestions = [
+  {
+    question: t(lang, "explainer.engines.faq.speed.q"),
+    answer: t(lang, "explainer.engines.faq.speed.a"),
+  },
+  {
+    question: t(lang, "explainer.engines.faq.languages.q"),
+    answer: t(lang, "explainer.engines.faq.languages.a"),
+  },
+  {
+    question: t(lang, "explainer.engines.faq.switch.q"),
+    answer: t(lang, "explainer.engines.faq.switch.a"),
+  },
+];
+
+const alternateSlugs = { de: "engines", en: "engines" };
+
+const relatedPages = [
+  { label: t(lang, "explainer.whisperDesktop.breadcrumb"), href: localePath(lang, "whisper-desktop") },
+  { label: t(lang, "explainer.offlineStt.breadcrumb"), href: localePath(lang, "offline-speech-to-text") },
+  { label: t(lang, "explainer.privacy.breadcrumb"), href: localePath(lang, "privacy-speech-recognition") },
+  { label: t(lang, "comparison.osDictation.breadcrumb"), href: localePath(lang, "comparison/whispaste-vs-system-speech-to-text") },
+];
+---
+
+<LandingPageLayout
+  lang={lang}
+  seo={seo}
+  breadcrumbs={breadcrumbs}
+  hero={hero}
+  cta={cta}
+  alternateSlugs={alternateSlugs}
+  relatedPages={relatedPages}
+>
+  <section>
+    <h2>{t(lang, "explainer.engines.section.whisper.heading")}</h2>
+    <p>{t(lang, "explainer.engines.section.whisper.body")}</p>
+  </section>
+
+  <section>
+    <h2>{t(lang, "explainer.engines.section.parakeet.heading")}</h2>
+    <p>{t(lang, "explainer.engines.section.parakeet.body")}</p>
+  </section>
+
+  <section>
+    <h2>{t(lang, "explainer.engines.section.choosing.heading")}</h2>
+    <p>{t(lang, "explainer.engines.section.choosing.body")}</p>
+    <dl class="faq-list">
+      {faqQuestions.map((entry) => (
+        <div class="faq-item">
+          <dt>{entry.question}</dt>
+          <dd>{entry.answer}</dd>
+        </div>
+      ))}
+    </dl>
+  </section>
+
+  <FAQPageSchema locale={lang} questions={faqQuestions} />
+</LandingPageLayout>
+
+<style>
+  .faq-list {
+    margin-top: 1rem;
+  }
+  .faq-item + .faq-item {
+    margin-top: 1rem;
+  }
+  .faq-list dt {
+    color: #e5e7eb;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+  }
+  .faq-list dd {
+    color: #9ca3af;
+    line-height: 1.6;
+    margin: 0;
+  }
+</style>
