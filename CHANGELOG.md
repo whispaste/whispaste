@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.2.48
+## 1.2.49
 
 ### New Features
 
