@@ -84,6 +84,63 @@ jobs:
             --dart-define=WHISPASTE_MATOMO_SITE_ID="${{ secrets.WHISPASTE_MATOMO_SITE_ID }}" `
             --dart-define=APP_VERSION="$version"
 
+      # ── Bundle libwhisper (on-device FFI engine) ─────────────────────────────
+      # Same root cause as macOS/Linux (found + fixed during v1.2.45 release
+      # prep): the Xcode/CMake side only had scripts, nothing in CI called them.
+      # -DGGML_BACKEND_DL=ON is required on Windows specifically — without it,
+      # ggml.dll hard-imports ggml-vulkan.dll (-> vulkan-1.dll), so a machine
+      # with no Vulkan-capable GPU driver at all would fail to load ANY
+      # on-device Whisper, even pure CPU. Verified live on a real Windows box:
+      # removing ggml-vulkan.dll breaks the load without this flag, loads fine
+      # with it. -DGGML_OPENMP=OFF avoids an extra VCOMP140.DLL dependency
+      # nothing else bundles. See scripts/bundle-libwhisper-windows.ps1 header
+      # for the full writeup.
+      - name: Setup Vulkan SDK
+        uses: humbletim/setup-vulkan-sdk@v1.2.1
+        with:
+          vulkan-query-version: 1.4.328.1
+          vulkan-components: Vulkan-Headers, Vulkan-Loader, Glslang
+          vulkan-use-cache: true
+
+      - name: Cache libwhisper build (Windows)
+        id: libwhisper_cache
+        uses: actions/cache@v4
+        with:
+          path: .build/libwhisper/windows
+          key: libwhisper-windows-v1.8.4-9386f23-${{ hashFiles('scripts/bundle-libwhisper-windows.ps1') }}
+
+      - name: Clone pinned whisper.cpp source
+        if: steps.libwhisper_cache.outputs.cache-hit != 'true'
+        run: git clone --depth 1 --branch v1.8.4 https://github.com/ggml-org/whisper.cpp .build/deps/whisper.cpp/v1.8.4
+
+      - name: Build libwhisper (Windows)
+        if: steps.libwhisper_cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          cmake -S .build/deps/whisper.cpp/v1.8.4 -B .build/libwhisper/windows-build `
+            -G "Visual Studio 17 2022" -A x64 `
+            -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON `
+            -DGGML_VULKAN=ON -DGGML_NATIVE=OFF -DGGML_OPENMP=OFF -DGGML_BACKEND_DL=ON `
+            -DWHISPER_BUILD_EXAMPLES=OFF -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_SERVER=OFF
+          cmake --build .build/libwhisper/windows-build --config Release -j
+          New-Item -ItemType Directory -Force -Path .build/libwhisper/windows | Out-Null
+          Copy-Item .build/libwhisper/windows-build/bin/Release/*.dll .build/libwhisper/windows/ -Force
+
+      - name: Stage libwhisper next to whispaste.exe
+        shell: pwsh
+        run: |
+          pwsh scripts/bundle-libwhisper-windows.ps1 -Source .build/libwhisper/windows
+
+      - name: Verify libwhisper is embedded
+        shell: pwsh
+        run: |
+          $dll = "build\windows\x64\runner\Release\whisper.dll"
+          if (-not (Test-Path $dll)) {
+            Write-Host "::error::whisper.dll missing from $dll — on-device Whisper would be broken in this build."
+            exit 1
+          }
+          Write-Host "whisper.dll present: $((Get-Item $dll).Length) bytes"
+
       # Upload native PDB/DLL debug symbols so Sentry can symbolicate
       # native crash frames. Skipped silently when the secret is unset
       # (e.g. on forks). Symbol upload does NOT count against Sentry's
@@ -573,6 +630,28 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
+      # ── Bundle libwhisper (on-device FFI engine) ─────────────────────────────
+      # Without this, whisper_ffi_engine.dart's DynamicLibrary.open() has nothing
+      # to load and on-device Whisper transcription is broken in the shipped app
+      # (found + fixed during v1.2.45 release prep — the Xcode embed phase existed
+      # but nothing ever built the source dylibs it embeds). Cached on the pinned
+      # whisper.cpp commit so a release retry doesn't rebuild from scratch.
+      - name: Cache libwhisper build (macOS)
+        id: libwhisper_cache
+        uses: actions/cache@v4
+        with:
+          path: .build/libwhisper/macos
+          key: libwhisper-macos-v1.8.4-9386f23-${{ hashFiles('scripts/build-libwhisper-macos.sh') }}
+
+      - name: Clone pinned whisper.cpp source
+        if: steps.libwhisper_cache.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --branch v1.8.4 https://github.com/ggml-org/whisper.cpp .build/deps/whisper.cpp/v1.8.4
+
+      - name: Build + stage libwhisper (macOS)
+        if: steps.libwhisper_cache.outputs.cache-hit != 'true'
+        run: bash scripts/build-libwhisper-macos.sh
+
       - name: Build macOS release
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -602,6 +681,20 @@ jobs:
             "--dart-define=WHISPASTE_MATOMO_URL=$MATOMO_URL" \
             "--dart-define=WHISPASTE_MATOMO_SITE_ID=$MATOMO_SITE_ID" \
             "--dart-define=APP_VERSION=$VERSION"
+
+      # Hard-fail if libwhisper didn't make it into the bundle — the Xcode embed
+      # phase warns-and-skips on a missing source (so local dev builds without
+      # libwhisper still compile), which is exactly how a broken bundling step
+      # shipped silently before. A release build must never do that quietly.
+      - name: Verify libwhisper is embedded
+        run: |
+          APP_PATH="build/macos/Build/Products/Release/whispaste.app"
+          FW="$APP_PATH/Contents/Frameworks/libwhisper.dylib"
+          if [[ ! -f "$FW" ]]; then
+            echo "::error::libwhisper.dylib missing from $FW — on-device Whisper would be broken in this build."
+            exit 1
+          fi
+          echo "libwhisper.dylib present: $(ls -la "$FW")"
 
       # Upload .dSYM debug symbols for native crash symbolication.
       # See the Windows job for rationale and Free-Tier accounting.
@@ -809,7 +902,8 @@ jobs:
             libayatana-appindicator3-dev libasound2-dev \
             libcurl4-openssl-dev zlib1g-dev \
             libflac-dev libogg-dev libopus-dev libvorbis-dev \
-            default-jdk
+            default-jdk \
+            g++ patchelf libvulkan-dev glslang-tools
 
       # jni-Plugin: JAVA_HOME muss gesetzt sein (§3.1)
       - name: Set JAVA_HOME
@@ -856,6 +950,48 @@ jobs:
             "--dart-define=WHISPASTE_MATOMO_URL=$MATOMO_URL" \
             "--dart-define=WHISPASTE_MATOMO_SITE_ID=$MATOMO_SITE_ID" \
             "--dart-define=APP_VERSION=$VERSION"
+
+      # ── Bundle libwhisper (on-device FFI engine) ─────────────────────────────
+      # Same root cause as macOS/Windows (found + fixed during v1.2.45 release
+      # prep): the bundling script existed but nothing in CI called it.
+      # -DGGML_BACKEND_DL=ON: same hardware-inclusivity reasoning as Windows —
+      # without it ggml.so hard-links libggml-vulkan.so (-> libvulkan.so.1), so
+      # a machine with no Vulkan driver at all would fail to load on-device
+      # Whisper entirely. Verified live via WSL2 Ubuntu: removing
+      # libggml-vulkan.so breaks the load without this flag, loads fine with
+      # it. Unlike Windows, no DynamicLibrary-search-path code fix is needed
+      # here — the $ORIGIN rpath baked into each .so by build-libwhisper-linux.sh
+      # already covers transitive dependency resolution correctly (verified via
+      # ldd; this is a structural ELF-rpath vs. Windows-PE-search-order
+      # difference, not a Linux-specific bug).
+      - name: Cache libwhisper build (Linux)
+        id: libwhisper_cache
+        uses: actions/cache@v4
+        with:
+          path: .build/libwhisper/linux
+          key: libwhisper-linux-v1.8.4-9386f23-${{ hashFiles('scripts/build-libwhisper-linux.sh') }}
+
+      - name: Clone pinned whisper.cpp source
+        if: steps.libwhisper_cache.outputs.cache-hit != 'true'
+        run: git clone --depth 1 --branch v1.8.4 https://github.com/ggml-org/whisper.cpp .build/deps/whisper.cpp/v1.8.4
+
+      - name: Build + stage libwhisper (Linux)
+        if: steps.libwhisper_cache.outputs.cache-hit != 'true'
+        run: bash scripts/build-libwhisper-linux.sh
+
+      - name: Copy libwhisper into the Flutter bundle
+        run: |
+          mkdir -p build/linux/x64/release/bundle/lib
+          cp .build/libwhisper/linux/*.so* build/linux/x64/release/bundle/lib/
+
+      - name: Verify libwhisper is embedded
+        run: |
+          SO="build/linux/x64/release/bundle/lib/libwhisper.so"
+          if [[ ! -f "$SO" ]]; then
+            echo "::error::libwhisper.so missing from $SO — on-device Whisper would be broken in this build."
+            exit 1
+          fi
+          echo "libwhisper.so present: $(ls -la "$SO")"
 
       # §3.1: crashpad_handler braucht chmod +x (kann nach dem Flutter-Build fehlen)
       - name: Ensure crashpad_handler is executable

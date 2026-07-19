@@ -5,9 +5,22 @@
 # Mirrors scripts/build-libwhisper-macos.sh: same pinned source, same flat +
 # relocatable staging, but with `$ORIGIN` rpath (the ELF equivalent of macOS
 # `@loader_path`) so the co-located `libggml*` backends resolve inside the
-# Flutter Linux bundle's lib/ directory. Real verification happens on a Linux
-# host in Issue 14 (Abnahme Ubuntu); this script is the configured build/bundle
-# step, NOT verified on the macOS dev host.
+# Flutter Linux bundle's lib/ directory.
+#
+# Verified live via WSL2 Ubuntu during v1.2.45 release prep: `ldd` on the
+# staged libwhisper.so resolves libggml.so.0/libggml-base.so.0 correctly via
+# the $ORIGIN rpath with no extra runtime setup (unlike Windows — its PE
+# format has no rpath equivalent, which is why whisper_ffi_engine.dart needs
+# a SetDllDirectoryW call there but not here).
+#
+# -DGGML_BACKEND_DL=ON matters for the same reason as on Windows: without it,
+# ggml.so has a hard ELF NEEDED entry on libggml-vulkan.so (which itself needs
+# libvulkan.so.1) — a machine with no Vulkan-capable driver at all would fail
+# to load ggml.so (and therefore libwhisper.so) even for pure CPU
+# transcription. Verified: removing libggml-vulkan.so after a build WITHOUT
+# this flag breaks the load; the same removal with the flag set still loads
+# fine (the Vulkan backend is now discovered + dlopen'd at runtime by ggml's
+# own registry, which silently skips a missing/broken backend).
 #
 # Usage:  scripts/build-libwhisper-linux.sh [--bundle <flutter-bundle-dir>]
 # Output: .build/libwhisper/linux/{libwhisper.so,libggml*.so,SHA256SUMS}
@@ -53,6 +66,7 @@ cmake -S "$WHISPER_SRC" -B "$BUILD_DIR" \
   -DBUILD_SHARED_LIBS=ON \
   -DGGML_VULKAN=ON \
   -DGGML_NATIVE=OFF \
+  -DGGML_BACKEND_DL=ON \
   -DWHISPER_BUILD_EXAMPLES=OFF \
   -DWHISPER_BUILD_TESTS=OFF \
   -DWHISPER_BUILD_SERVER=OFF

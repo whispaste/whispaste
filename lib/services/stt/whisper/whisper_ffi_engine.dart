@@ -48,6 +48,35 @@ String whisperLibraryPathFor(String executablePath) {
   return p.join(execDir, 'lib', 'libwhisper.so');
 }
 
+/// Windows only: makes the OS loader search [libraryPath]'s own directory
+/// when resolving `whisper.dll`'s transitive dependencies (the bundled
+/// `ggml*.dll` backends).
+///
+/// Verified during v1.2.45 release prep: a bare `DynamicLibrary.open()` on
+/// the bundled `whisper.dll` fails with Win32 error 126 ("The specified
+/// module could not be found") even with every `ggml*.dll` sitting right
+/// next to it — the default search order only covers the directory of the
+/// original EXE for a DEPENDENCY's own dependencies, not the directory of
+/// each intermediate DLL in the chain. `SetDllDirectoryW` adds that
+/// directory to the search path used for those transitive lookups.
+/// macOS/Linux don't need this — their `@loader_path`/`$ORIGIN` rpaths,
+/// embedded into the dylibs/.so at build time, already cover it.
+void _ensureWindowsDllSearchPath(String libraryPath) {
+  if (!Platform.isWindows) return;
+  final kernel32 = ffi.DynamicLibrary.open('kernel32.dll');
+  final setDllDirectoryW = kernel32
+      .lookupFunction<
+        ffi.Int32 Function(ffi.Pointer<Utf16>),
+        int Function(ffi.Pointer<Utf16>)
+      >('SetDllDirectoryW');
+  final dirPointer = p.dirname(libraryPath).toNativeUtf16();
+  try {
+    setDllDirectoryW(dirPointer);
+  } finally {
+    malloc.free(dirPointer);
+  }
+}
+
 /// Loads `libwhisper` in-process and transcribes 16 kHz mono WAV bytes.
 ///
 /// [transcribe] runs synchronously on the calling isolate — acceptable here
@@ -82,6 +111,7 @@ class WhisperFfiEngine implements WhisperEngine {
     }
 
     try {
+      _ensureWindowsDllSearchPath(_libraryPath);
       final dylib = ffi.DynamicLibrary.open(_libraryPath);
       final bindings = WhisperBindings.fromLookup(dylib.lookup);
       final cparams = bindings.whisper_context_default_params();
