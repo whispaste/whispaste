@@ -118,18 +118,34 @@ jobs:
         if: steps.libwhisper_cache.outputs.cache-hit != 'true'
         run: git clone --depth 1 --branch v1.8.4 https://github.com/ggml-org/whisper.cpp .build/deps/whisper.cpp/v1.8.4
 
+      # ilammy/msvc-dev-cmd puts cl.exe/link.exe on PATH (equivalent to a
+      # Developer Command Prompt) so the Ninja generator below can find the
+      # MSVC toolchain directly. Required because the "Visual Studio 17 2022"
+      # IDE generator's own vswhere-based instance-detection failed outright
+      # in this job ("could not find any instance of Visual Studio") even
+      # though the same runner clearly has VS (flutter build windows, just
+      # above, succeeds via its own Ninja-based CMake build). Confirmed live
+      # in CI (v1.2.48 Windows job) — switching to the same Ninja+cl.exe
+      # combination flutter itself already relies on sidesteps the whole
+      # vswhere/generator-detection failure class instead of chasing it.
+      - name: Activate MSVC dev environment (x64)
+        if: steps.libwhisper_cache.outputs.cache-hit != 'true'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
       - name: Build libwhisper (Windows)
         if: steps.libwhisper_cache.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
           cmake -S .build/deps/whisper.cpp/v1.8.4 -B .build/libwhisper/windows-build `
-            -G "Visual Studio 17 2022" -A x64 `
+            -G Ninja `
             -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON `
             -DGGML_VULKAN=ON -DGGML_NATIVE=OFF -DGGML_OPENMP=OFF -DGGML_BACKEND_DL=ON `
             -DWHISPER_BUILD_EXAMPLES=OFF -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_SERVER=OFF
           cmake --build .build/libwhisper/windows-build --config Release -j
           New-Item -ItemType Directory -Force -Path .build/libwhisper/windows | Out-Null
-          Copy-Item .build/libwhisper/windows-build/bin/Release/*.dll .build/libwhisper/windows/ -Force
+          Copy-Item .build/libwhisper/windows-build/bin/*.dll .build/libwhisper/windows/ -Force
 
       - name: Stage libwhisper next to whispaste.exe
         shell: pwsh
@@ -799,9 +815,17 @@ jobs:
             --entitlements macos/Runner/Release.entitlements \
             "$APP_PATH"
 
+          # notarytool only accepts a .zip/.pkg/.dmg, never a raw .app bundle
+          # directly ("Error: whispaste.app must be a zip archive (.zip), flat
+          # installer package (.pkg), or UDIF disk image (.dmg)" — confirmed
+          # live in CI, v1.2.48). -c -k --keepParent preserves the bundle
+          # structure/symlinks notarization needs to inspect.
+          NOTARIZE_ZIP="$RUNNER_TEMP/whispaste-notarize.zip"
+          ditto -c -k --keepParent "$APP_PATH" "$NOTARIZE_ZIP"
+
           # Submit to Apple for notarization and wait.
           # Key-ID REDACTED-ASC-KEY-ID, Team REDACTED-APPLE-TEAM-ID (same shared ASC API key as Fastlane).
-          xcrun notarytool submit "$APP_PATH" \
+          xcrun notarytool submit "$NOTARIZE_ZIP" \
             --key "$HOME/.appstoreconnect/private_keys/AuthKey_REDACTED-ASC-KEY-ID.p8" \
             --key-id "REDACTED-ASC-KEY-ID" \
             --issuer "REDACTED-ASC-ISSUER-ID" \
@@ -809,7 +833,8 @@ jobs:
             --wait \
             --verbose
 
-          # Staple the notarization ticket to the bundle.
+          # Staple the notarization ticket to the original .app (not the zip
+          # submitted above — the ticket staples onto the actual bundle).
           xcrun stapler staple "$APP_PATH"
 
           # Post-build smoke: verify ticket and Gatekeeper acceptance.
