@@ -1,14 +1,29 @@
 # Changelog
 
-## 1.2.44
+## 1.2.45
 
 ### New Features
 
+- **Parakeet: ein zweiter, deutlich schnellerer lokaler Spracherkennungs-Motor.** Neben Whisper steht jetzt NVIDIA Parakeet als wählbarer On-Device-Motor zur Verfügung — auf CPU-only-Hardware um ein Vielfaches schneller als Whisper, mit Unterstützung für rund 25 Sprachen (inkl. Deutsch). Ein spürbarer Gewinn gerade auf älterer oder schwächerer Hardware.
+- **Die lokale Whisper-Engine läuft jetzt direkt in der App statt als separater Hintergrund-Server.** Kein herunterzuladendes Server-Programm mehr, schnellerer Start, und ein eigener Wiederherstellungspfad mit automatischem Wiederholungsversuch bei GPU-Abstürzen oder Speicherproblemen.
+- **Die GPU-Beschleunigung wird jetzt anhand der echten Hardware erkannt** und automatisch das passende Backend gewählt (NVIDIA → CUDA, Apple → Metal, AMD/Intel → Vulkan, sonst CPU).
 - **Automatische Updates.** WhisPaste hält sich ab jetzt von selbst aktuell: signierte, kryptografisch geprüfte Updates auf macOS (Sparkle) und Windows (WinSparkle, Ed25519) — kein manueller Download mehr. Wer die App einmal installiert hat, bekommt künftige Versionen automatisch zugestellt.
+- **Die Hotkey-zu-Text-Latenz ist jetzt live im Analyse-Dashboard sichtbar** — rein lokal erfasst, ohne jede Übertragung, als greifbarer Beleg dafür, wie schnell der Text tatsächlich ankommt.
+- **Einstellungen lassen sich jetzt als Datei exportieren und importieren** (eigenes Vokabular, Textbausteine, Tastenkürzel) — praktisch für mehrere Geräte, ganz ohne Cloud oder Konto.
+- **Ein neuer, jederzeit überspringbarer Testaufnahme-Schritt im Ersteinrichtungs-Assistenten** lässt neue Nutzer Hotkey → Aufnahme → Text einmal live ausprobieren, bevor es losgeht.
+- **Satzzeichen werden jetzt standardmäßig zuverlässiger gesetzt**, ohne Geschwindigkeitsverlust — bei Bedarf in den Einstellungen abschaltbar.
+- **Ein dezenter Hinweis zeigt jetzt die Notiz- und Such-Syntax** (z. B. `tag:`, `korrektur:`, `#tag`) direkt in Verlauf und Sprachnotizen.
+- **Ein Fehlerton ist jetzt korrekt verdrahtet und hörbar**, wenn das Einfügen fehlschlägt — abschaltbar in den Einstellungen.
+- **Das Feedback-Formular akzeptiert jetzt optional eine Kontakt-E-Mail**, falls eine Rückfrage gewünscht ist — nie vorausgefüllt, immer freiwillig.
 
 ### Bug Fixes
 
 - **Absturzberichte richtig zugeordnet.** Native Stack-Traces landen nun in der korrekten Sentry-Release (`whispaste@…`), sodass Abstürze zuverlässig entschlüsselt und dem richtigen Build zugeordnet werden.
+- **Ein Wechsel auf CPU-Verarbeitung wird jetzt klar angezeigt** statt still im Hintergrund zu passieren.
+- **Ein durch Rechte-Eskalation blockiertes Einfügen unter Windows wird jetzt klar erklärt** statt mit einer generischen Fehlermeldung.
+- **Autostart zeigt nicht mehr fälschlich „aktiviert" an**, wenn die Registrierung beim Betriebssystem tatsächlich fehlgeschlagen ist.
+- **Das Overlay bleibt beim Wechsel der Spracherkennungs-Engine zuverlässig stabil** — ein robusteres Handshake-Verfahren mit Wiederholungsversuch verhindert hängende Zustände.
+- **Eigenes Vokabular wird jetzt zuverlässig an die lokale Whisper-Engine übergeben.**
 
 ## 1.2.43
 
