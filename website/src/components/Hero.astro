@@ -2,7 +2,7 @@
 import HeroCarousel from './HeroCarousel.astro';
 import StoreButton from './StoreButton.astro';
 import AppleButton from './AppleButton.astro';
-import { t } from '../scripts/i18n.ts';
+import { t, localePath } from '../scripts/i18n.ts';
 // Inline-tintable OS glyphs for the platform-badge row (Issue 09). Raw-imported
 // so `fill="currentColor"` inherits the pill's `color` — an <img>-embedded SVG
 // cannot do this. See website/public/os-icons/ATTRIBUTION.txt for provenance.
@@ -106,36 +106,50 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
          existing data-os head-script (see Layout.astro) is highlighted via CSS
          attribute selectors only, so there is no reflow and it degrades
          gracefully (unknown OS → all three shown equally, see global.css
-         `[data-os=...]` convention). -->
+         `[data-os=...]` convention).
+
+         Task #10: badges are links to the matching download-page anchor
+         (`#macos`/`#windows`/`#linux`, added in download.astro), not just
+         informational pills. `platform-badge` class + `data-platform-badge`
+         are kept exactly as-is so the highlight CSS above keeps matching. -->
     <div class="platform-row mt-7 sm:mt-9 flex flex-col items-center gap-2.5 animate-fade-in-delay">
       <p class="text-[11px] sm:text-xs font-medium uppercase tracking-[0.14em] text-ink-subtle" data-i18n="hero.platforms.claim">
         {t(lang, "hero.platforms.claim")}
       </p>
       <div class="flex flex-wrap items-center justify-center gap-2 sm:gap-2.5">
-        <span
-          class="platform-badge inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-brand-card/60 px-3 py-1.5 sm:px-3.5 sm:py-1.5 text-xs sm:text-sm text-ink-muted backdrop-blur-sm"
+        <a
+          href={`${localePath(lang, "download")}#macos`}
+          data-testid="hero-platform-badge-macos"
+          aria-label={`${t(lang, "hero.platforms.macos")} — ${t(lang, "nav.download")}`}
+          class="platform-badge inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-brand-card/60 px-3 py-1.5 sm:px-3.5 sm:py-1.5 text-xs sm:text-sm text-ink-muted backdrop-blur-sm hover:border-brand-cyan/30 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-cyan"
           data-platform-badge="macos"
         >
           <span class="platform-badge__icon inline-flex w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" aria-hidden="true" set:html={appleIconRaw} />
           <span data-i18n="hero.platforms.macos">{t(lang, "hero.platforms.macos")}</span>
           <span class="platform-badge__current">(<span data-i18n="hero.platforms.current">{t(lang, "hero.platforms.current")}</span>)</span>
-        </span>
-        <span
-          class="platform-badge inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-brand-card/60 px-3 py-1.5 sm:px-3.5 sm:py-1.5 text-xs sm:text-sm text-ink-muted backdrop-blur-sm"
+        </a>
+        <a
+          href={`${localePath(lang, "download")}#windows`}
+          data-testid="hero-platform-badge-windows"
+          aria-label={`${t(lang, "hero.platforms.windows")} — ${t(lang, "nav.download")}`}
+          class="platform-badge inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-brand-card/60 px-3 py-1.5 sm:px-3.5 sm:py-1.5 text-xs sm:text-sm text-ink-muted backdrop-blur-sm hover:border-brand-cyan/30 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-cyan"
           data-platform-badge="windows"
         >
           <span class="platform-badge__icon inline-flex w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" aria-hidden="true" set:html={windowsIconRaw} />
           <span data-i18n="hero.platforms.windows">{t(lang, "hero.platforms.windows")}</span>
           <span class="platform-badge__current">(<span data-i18n="hero.platforms.current">{t(lang, "hero.platforms.current")}</span>)</span>
-        </span>
-        <span
-          class="platform-badge inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-brand-card/60 px-3 py-1.5 sm:px-3.5 sm:py-1.5 text-xs sm:text-sm text-ink-muted backdrop-blur-sm"
+        </a>
+        <a
+          href={`${localePath(lang, "download")}#linux`}
+          data-testid="hero-platform-badge-linux"
+          aria-label={`${t(lang, "hero.platforms.linux")} — ${t(lang, "nav.download")}`}
+          class="platform-badge inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-brand-card/60 px-3 py-1.5 sm:px-3.5 sm:py-1.5 text-xs sm:text-sm text-ink-muted backdrop-blur-sm hover:border-brand-cyan/30 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-cyan"
           data-platform-badge="linux"
         >
           <span class="platform-badge__icon inline-flex w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" aria-hidden="true" set:html={ubuntuIconRaw} />
           <span data-i18n="hero.platforms.linux">{t(lang, "hero.platforms.linux")}</span>
           <span class="platform-badge__current">(<span data-i18n="hero.platforms.current">{t(lang, "hero.platforms.current")}</span>)</span>
-        </span>
+        </a>
       </div>
     </div>
 
