@@ -80,14 +80,40 @@ test.describe('download page — download:triggered dispatch', () => {
   }
 });
 
+const MODAL_OUTBOUND_TESTIDS = ['modal-star-github', 'modal-star-windows', 'modal-star-macos', 'modal-support'];
+
+// Same intent as preventDownloadNavigation above (module docstring: "neither
+// of which should hit the network in a fast, deterministic CI run"), but this
+// group's beforeEach never actually installed it — it only closed the popup
+// AFTER target="_blank" had already fired a real network request to GitHub/
+// the Store review pages. That real request (flaky/slow on CI's network,
+// unlike a local run) was the actual root cause of "TypeError: received is
+// not iterable": the outbound navigation's timing interfered with reading
+// window._paq back on the original page before the assertion ran. Blocking
+// the browser's default action outright (like the sibling test group already
+// does) removes the race entirely instead of just papering over it with
+// popup-closing cleanup.
+async function preventOutboundNavigation(page: Page, testIds: string[]) {
+  await page.addInitScript((ids: string[]) => {
+    document.addEventListener(
+      'click',
+      (e) => {
+        const target = e.target as HTMLElement | null;
+        const link = target?.closest('a[data-testid]');
+        const testId = link?.getAttribute('data-testid') ?? '';
+        if (link && ids.includes(testId)) {
+          e.preventDefault();
+        }
+      },
+      true,
+    );
+  }, testIds);
+}
+
 test.describe('download support modal — interaction-scoped Matomo events', () => {
-  test.beforeEach(async ({ page, context }) => {
+  test.beforeEach(async ({ page }) => {
     await seedPaq(page);
-    // The modal's star/support links open in a new tab (target="_blank");
-    // close any tab that pops up so it can't leak into later assertions.
-    context.on('page', (popup) => {
-      popup.close().catch(() => {});
-    });
+    await preventOutboundNavigation(page, MODAL_OUTBOUND_TESTIDS);
 
     await page.goto('/download/');
     await page.evaluate(() => {

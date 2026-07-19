@@ -903,7 +903,7 @@ jobs:
             libcurl4-openssl-dev zlib1g-dev \
             libflac-dev libogg-dev libopus-dev libvorbis-dev \
             default-jdk \
-            g++ patchelf libvulkan-dev glslang-tools
+            g++ patchelf libvulkan-dev glslang-tools glslc
 
       # jni-Plugin: JAVA_HOME muss gesetzt sein (§3.1)
       - name: Set JAVA_HOME

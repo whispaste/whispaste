@@ -61,7 +61,13 @@ void main() {
       () {
         final offenders = <String>[];
         for (final file in dartFilesUnder('lib')) {
-          if (file.path.endsWith('core/app_urls.dart')) continue;
+          // Directory.listSync() returns backslash-separated paths on
+          // Windows, so a forward-slash-only endsWith check never matches
+          // there — the file wrongly flagged itself as a violator of its own
+          // rule on Windows CI. Normalize before comparing.
+          if (file.path.replaceAll('\\', '/').endsWith('core/app_urls.dart')) {
+            continue;
+          }
           final content = file.readAsStringSync();
           if (content.contains(sponsorsLiteral) ||
               content.contains(kofiLiteral)) {

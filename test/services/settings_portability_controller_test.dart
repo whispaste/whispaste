@@ -10,12 +10,26 @@ import 'dart:io';
 import 'package:file/memory.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/replacements/replacements_page.dart';
 import 'package:whispaste/services/settings_portability_controller.dart';
 import 'package:whispaste/services/settings_portability_service.dart';
 import 'package:whispaste/widgets/toast.dart';
+
+// SettingsPortabilityController.resolvePath() joins the injected directory
+// with the export filename via the platform-default `package:path` (correct
+// for real production paths from path_provider). The fixture's fake
+// directories must therefore be genuine platform-native absolute paths, and
+// the MemoryFileSystem must be told to use the matching style — a hardcoded
+// POSIX literal like '/downloads' silently broke every test in this file on
+// Windows CI (FileSystemException: No such file or directory, path =
+// 'downloads') because MemoryFileSystem.test() defaults to posix regardless
+// of host OS, while the real `p.join` used by the controller runs in
+// Windows-native style there.
+final _downloadsPath = Platform.isWindows ? r'C:\downloads' : '/downloads';
+final _documentsPath = Platform.isWindows ? r'C:\documents' : '/documents';
 
 // ─── Fakes ────────────────────────────────────────────────────────────────
 
@@ -94,7 +108,11 @@ void main() {
   late MemoryFileSystem fs;
 
   setUp(() {
-    fs = MemoryFileSystem.test();
+    fs = MemoryFileSystem.test(
+      style: Platform.isWindows
+          ? FileSystemStyle.windows
+          : FileSystemStyle.posix,
+    );
   });
 
   // ───────────────────────────────────────────────────────────────────────
@@ -108,7 +126,7 @@ void main() {
     final sut = _controller(
       fs: fs,
       toaster: toaster,
-      downloads: Directory('/downloads'),
+      downloads: Directory(_downloadsPath),
     );
 
     await _withContext(tester, (ctx) async {
@@ -116,7 +134,7 @@ void main() {
     });
 
     final written = await fs
-        .file('/downloads/$settingsExportFileName')
+        .file(p.join(_downloadsPath, settingsExportFileName))
         .readAsString();
     expect(written, contains('WhisPaste'));
     expect(written, contains('mfg'));
@@ -126,7 +144,7 @@ void main() {
     expect(
       toaster.calls.single.message,
       l10n.settingsPortabilityExportSuccess(
-        '/downloads/$settingsExportFileName',
+        p.join(_downloadsPath, settingsExportFileName),
       ),
     );
   });
@@ -139,7 +157,7 @@ void main() {
       fs: fs,
       toaster: toaster,
       downloads: null,
-      documents: Directory('/documents'),
+      documents: Directory(_documentsPath),
     );
 
     await _withContext(tester, (ctx) async {
@@ -147,7 +165,7 @@ void main() {
     });
 
     expect(
-      await fs.file('/documents/$settingsExportFileName').exists(),
+      await fs.file(p.join(_documentsPath, settingsExportFileName)).exists(),
       isTrue,
     );
   });
@@ -157,7 +175,7 @@ void main() {
     final sut = _controller(
       fs: fs,
       toaster: toaster,
-      downloads: Directory('/downloads'),
+      downloads: Directory(_downloadsPath),
       gather: () async => throw Exception('db unavailable'),
     );
 
@@ -185,15 +203,15 @@ void main() {
     final sut = _controller(
       fs: fs,
       toaster: toaster,
-      downloads: Directory('/downloads'),
+      downloads: Directory(_downloadsPath),
       apply: (bundle) async => applied = bundle,
     );
 
     // Pre-populate the export file (as if a previous export or a copied
     // file from another device placed it there).
-    await fs.directory('/downloads').create(recursive: true);
+    await fs.directory(_downloadsPath).create(recursive: true);
     await fs
-        .file('/downloads/$settingsExportFileName')
+        .file(p.join(_downloadsPath, settingsExportFileName))
         .writeAsString(
           const SettingsPortabilityService().encode(_sampleBundle),
         );
@@ -211,7 +229,7 @@ void main() {
     expect(
       toaster.calls.single.message,
       l10n.settingsPortabilityImportSuccess(
-        '/downloads/$settingsExportFileName',
+        p.join(_downloadsPath, settingsExportFileName),
       ),
     );
   });
@@ -224,7 +242,7 @@ void main() {
     final sut = _controller(
       fs: fs,
       toaster: toaster,
-      downloads: Directory('/downloads'),
+      downloads: Directory(_downloadsPath),
       apply: (_) async => applyCalled = true,
     );
 
@@ -238,7 +256,7 @@ void main() {
     expect(
       toaster.calls.single.message,
       l10n.settingsPortabilityImportNotFound(
-        '/downloads/$settingsExportFileName',
+        p.join(_downloadsPath, settingsExportFileName),
       ),
     );
   });
@@ -251,13 +269,13 @@ void main() {
     final sut = _controller(
       fs: fs,
       toaster: toaster,
-      downloads: Directory('/downloads'),
+      downloads: Directory(_downloadsPath),
       apply: (_) async => applyCalled = true,
     );
 
-    await fs.directory('/downloads').create(recursive: true);
+    await fs.directory(_downloadsPath).create(recursive: true);
     await fs
-        .file('/downloads/$settingsExportFileName')
+        .file(p.join(_downloadsPath, settingsExportFileName))
         .writeAsString('not json');
 
     await _withContext(tester, (ctx) async {
