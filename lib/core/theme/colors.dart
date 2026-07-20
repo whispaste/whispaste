@@ -46,10 +46,8 @@ abstract final class WpColorsDark {
 
   /// Instance-safe tint tokens: translucent fills/borders whose alpha lives in
   /// the *value*, used inside components that get reused as nested instances.
-  /// Figma drops paint-opacity overrides across instance nesting but keeps
-  /// variable-bound values, so these named tokens (mirrored as Figma colour
-  /// variables) survive reuse and keep code↔Figma in sync. Prefer them over
-  /// inline `colour.withValues(...)` for component fills/borders.
+  /// Prefer them over inline `colour.withValues(...)` for component
+  /// fills/borders.
   static const Color accentChipFill = Color(0x1A3CCBE6); // accent @ 10%
   static const Color accentChipFillHover = Color(0x2E3CCBE6); // accent @ 18%
   static const Color accentMiniTagFill = Color(0x1F3CCBE6); // accent @ 12%

@@ -272,24 +272,22 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
 
 /// WhisPaste type scale — all roles mapped to SF-grade tracking + line-height.
 ///
-/// Figma mirror (Code = SSoT): each role corresponds to a `Type/*` text style
-/// in the Figma file with identical size / weight / tracking / line-height.
-/// Inter is the bundled app font (OFL 4.001) and the Figma proxy font.
-/// It renders identically on Windows, macOS and Linux.
+/// Design tokens, Code = SSOT. Inter is the bundled app font (OFL 4.001);
+/// it renders identically on Windows, macOS and Linux.
 ///
-/// | Role           | Size | Weight | LS    | LH  | Figma Type/…  |
-/// |----------------|------|--------|-------|-----|---------------|
-/// | headlineLarge  | 22   | 700    | -0.60 | 1.2 | headlineLarge |
-/// | headlineMedium | 16   | 600    | -0.35 | 1.3 | headlineMedium|
-/// | titleLarge     | 17   | 600    | -0.20 | 1.3 | titleLarge    |
-/// | titleMedium    | 14   | 600    | -0.20 | —   | titleMedium   |
-/// | titleSmall     | 13   | 600    | -0.10 | 1.4 | titleSmall    |
-/// | bodyLarge      | 13   | 400    |  0    | 1.5 | bodyLarge     |
-/// | bodyMedium     | 13   | 400    |  0    | 1.5 | bodyMedium    |
-/// | bodySmall      | 12   | 400    |  0    | 1.4 | bodySmall     |
-/// | labelLarge     | 16   | 700    | -0.30 | —   | button        |
-/// | labelMedium    | 13   | 500    |  0    | 1.4 | label         |
-/// | labelSmall     | 11   | 500    | +0.20 | —   | labelSmall    |
+/// | Role           | Size | Weight | LS    | LH  |
+/// |----------------|------|--------|-------|-----|
+/// | headlineLarge  | 22   | 700    | -0.60 | 1.2 |
+/// | headlineMedium | 16   | 600    | -0.35 | 1.3 |
+/// | titleLarge     | 17   | 600    | -0.20 | 1.3 |
+/// | titleMedium    | 14   | 600    | -0.20 | —   |
+/// | titleSmall     | 13   | 600    | -0.10 | 1.4 |
+/// | bodyLarge      | 13   | 400    |  0    | 1.5 |
+/// | bodyMedium     | 13   | 400    |  0    | 1.5 |
+/// | bodySmall      | 12   | 400    |  0    | 1.4 |
+/// | labelLarge     | 16   | 700    | -0.30 | —   |
+/// | labelMedium    | 13   | 500    |  0    | 1.4 |
+/// | labelSmall     | 11   | 500    | +0.20 | —   |
 TextTheme _textTheme(ColorScheme cs) {
   return TextTheme(
     // Display → Page titles (22px / 700)

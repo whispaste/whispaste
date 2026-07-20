@@ -90,8 +90,7 @@ abstract final class WpShadows {
 // Always prefer [durationFor] over raw Duration constants to respect the
 // system "Reduce Motion" accessibility flag.
 //
-// ## Figma Motion Variable Mirror (doc-only; Figma has no animation-curve scope)
-// Keep in sync with the Figma "Motion" variable collection:
+// ## Motion scale reference (doc-only)
 //   fast            → 120 ms
 //   normal          → 200 ms
 //   smooth          → 300 ms

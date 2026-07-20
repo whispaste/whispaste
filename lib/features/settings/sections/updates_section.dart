@@ -153,7 +153,7 @@ class UpdatesSection extends ConsumerWidget {
 /// composition of the existing warning-badge visual pattern already
 /// established in `insufficient_ram_screen.dart` (warning-tinted surface,
 /// icon, text), token-bound throughout. No new component, no new visual
-/// language — see Issue 06 Figma-reuse judgment.
+/// language.
 class _StableRevertHintNotice extends StatelessWidget {
   const _StableRevertHintNotice({
     required this.stableVersion,
