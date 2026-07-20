@@ -172,14 +172,16 @@ class WhisperFfiEngine implements WhisperEngine {
   /// `ggml_backend_dev_backend_reg`, which is where the crash this fixes
   /// symbolicated via WinDbg) — but some bundles statically link ggml into
   /// the main whisper library instead, so [dylib] itself is tried first.
-  static void _ensureBackendsLoaded(ffi.DynamicLibrary dylib, String libraryPath) {
+  static void _ensureBackendsLoaded(
+    ffi.DynamicLibrary dylib,
+    String libraryPath,
+  ) {
     if (_backendsLoaded) return;
     void Function()? loadAll;
     try {
-      loadAll = dylib
-          .lookupFunction<ffi.Void Function(), void Function()>(
-            'ggml_backend_load_all',
-          );
+      loadAll = dylib.lookupFunction<ffi.Void Function(), void Function()>(
+        'ggml_backend_load_all',
+      );
     } on ArgumentError {
       final ggmlName = Platform.isWindows
           ? 'ggml.dll'
