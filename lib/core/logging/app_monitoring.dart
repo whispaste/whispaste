@@ -8,6 +8,8 @@
 /// PII sanitization, consent gate, and breadcrumb context via [CrashReporter].
 library;
 
+import 'dart:io' show Platform;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -66,6 +68,24 @@ class AppMonitoring {
         options.dist = currentArchTag();
         options.sendDefaultPii = false;
         options.attachScreenshot = false;
+        // FLUTTER_WHISPASTE-BB: sentry-native 0.14.2's own Windows crashpad
+        // layer fatally crashes (STATUS_FATAL_APP_EXIT, fault address inside
+        // sentry.dll) when asked to capture/report a SEVERE-level event during
+        // early startup — e.g. the auto-escalated "Failed to load STT model"
+        // error from stt_server_state_notifier.dart. That is what actually
+        // killed the whole process on every launch in 1.2.51, not the STT/FFI
+        // engine itself. Confirmed via local minidump analysis (faulting
+        // module + offset identical across two independent machines) and a
+        // live repro on the Windows test box: 100% crash with native crash
+        // handling on, 0% (3/3 survived, including a real STT load failure)
+        // with it off. Dart-level FlutterError/PlatformDispatcher/Riverpod
+        // capture is unaffected — only the native crashpad layer is disabled.
+        // Windows-only: no evidence this affects macOS/Linux, so their native
+        // crash visibility stays on. Revert once upstream sentry-native ships
+        // a fix and it's been verified not to regress.
+        if (Platform.isWindows) {
+          options.enableNativeCrashHandling = false;
+        }
         // Attach the widget tree (structure only — no text content) to error
         // events. Privacy-safe and very helpful for UI bugs.
         // ignore: experimental_member_use
