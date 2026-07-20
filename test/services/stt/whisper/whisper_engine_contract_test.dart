@@ -10,7 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/services/hardware_info_service.dart';
 import 'package:whispaste/services/stt/whisper/whisper_engine.dart';
-import 'package:whispaste/services/stt/whisper/whisper_ffi_engine.dart';
+import 'package:whispaste/services/stt/whisper/whisper_isolate_engine.dart';
 
 // ---------------------------------------------------------------------------
 // Fake
@@ -144,11 +144,14 @@ void main() {
   });
 
   group('whisperEngineProvider', () {
-    test('defaults to a real WhisperFfiEngine', () {
+    test('defaults to a WhisperIsolateEngine wrapping the real FFI engine', () {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
-      expect(container.read(whisperEngineProvider), isA<WhisperFfiEngine>());
+      expect(
+        container.read(whisperEngineProvider),
+        isA<WhisperIsolateEngine>(),
+      );
     });
 
     test('is overrideable with a fake', () async {

@@ -3,20 +3,35 @@
 /// durchstich (`whisper_bindings.dart`, ffigen-generated).
 ///
 /// Threading note (from whisper.h): `whisper_full` is NOT thread-safe for the
-/// same context and blocks while decoding. This slice runs it on the calling
-/// isolate (as the durchstich did) — moving the heavy call into a worker
-/// isolate belongs to the notifier wiring (Issue 03), see the class doc.
+/// same context and blocks while decoding. Production code never talks to
+/// this class directly — [whisperEngineProvider] (`whisper_isolate_engine.dart`)
+/// runs it inside a dedicated worker isolate to keep the UI thread free.
+///
+/// FLUTTER_WHISPASTE-BB root cause (confirmed via WinDbg against a real crash
+/// on Windows): the bundled libwhisper is built with `-DGGML_BACKEND_DL=ON`
+/// (dynamic backend loading, needed for hardware-inclusivity — see
+/// `scripts/bundle-libwhisper-windows.ps1`). With that flag, ggml registers
+/// *zero* backends — not even CPU — until the host application explicitly
+/// calls `ggml_backend_load_all()`; whisper.cpp itself never calls it. This
+/// engine never called it either, so `whisper_init_from_file_with_params`
+/// always ran against an empty backend registry. whisper.cpp's own CPU-extra
+/// lookup (`ggml_backend_dev_by_type(GGML_BACKEND_DEVICE_TYPE_CPU)` at
+/// whisper.cpp:1388) then returns null, and the very next line
+/// (`ggml_backend_dev_backend_reg(cpu_dev)`, :1389) has no null check —
+/// unlike every other call site of that function — so `GGML_ASSERT(device)`
+/// fires and calls `abort()`, which Windows reports as a fail-fast exception
+/// (misleadingly decoded as "stack buffer overrun", 0xC0000409 — nothing to
+/// do with actual stack size). [_ensureBackendsLoaded] fixes this at the
+/// source instead of working around the crash.
 library;
 
 import 'dart:ffi' as ffi;
 import 'dart:io';
 
 import 'package:ffi/ffi.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
 import '../../audio/pcm_wav_codec.dart';
-import '../../hardware_info_service.dart';
 import 'whisper_bindings.dart';
 import 'whisper_engine.dart';
 
@@ -113,8 +128,10 @@ class WhisperFfiEngine implements WhisperEngine {
     try {
       _ensureWindowsDllSearchPath(_libraryPath);
       final dylib = ffi.DynamicLibrary.open(_libraryPath);
+      _ensureBackendsLoaded(dylib, _libraryPath);
       final bindings = WhisperBindings.fromLookup(dylib.lookup);
       final cparams = bindings.whisper_context_default_params();
+      cparams.use_gpu = _backend != WhisperBackend.cpu;
       final pathC = modelPath.toNativeUtf8();
       try {
         final ctx = bindings.whisper_init_from_file_with_params(
@@ -137,6 +154,45 @@ class WhisperFfiEngine implements WhisperEngine {
       _errorMessage = 'whisper_library_load_failed';
       throw StateError('whisper_library_load_failed: $e');
     }
+  }
+
+  static bool _backendsLoaded = false;
+
+  /// Calls ggml's `ggml_backend_load_all()` exactly once per process — see
+  /// the file doc comment for why this is required at all with
+  /// `-DGGML_BACKEND_DL=ON`. Safe/idempotent to skip on repeat [load] calls;
+  /// ggml's own registry dedupes by backend name regardless, this guard just
+  /// avoids the redundant directory scan.
+  ///
+  /// Usually exported by a separate `ggml` shared library next to
+  /// [libraryPath] (confirmed via `dumpbin /exports` against the real
+  /// production DLLs on Windows: `ggml.dll` exports the full registry API —
+  /// `ggml_backend_load_all`, `ggml_backend_dev_by_type`, etc. — while
+  /// `ggml-base.dll` only exports lower-level per-device accessors like
+  /// `ggml_backend_dev_backend_reg`, which is where the crash this fixes
+  /// symbolicated via WinDbg) — but some bundles statically link ggml into
+  /// the main whisper library instead, so [dylib] itself is tried first.
+  static void _ensureBackendsLoaded(ffi.DynamicLibrary dylib, String libraryPath) {
+    if (_backendsLoaded) return;
+    void Function()? loadAll;
+    try {
+      loadAll = dylib
+          .lookupFunction<ffi.Void Function(), void Function()>(
+            'ggml_backend_load_all',
+          );
+    } on ArgumentError {
+      final ggmlName = Platform.isWindows
+          ? 'ggml.dll'
+          : (Platform.isMacOS ? 'libggml.dylib' : 'libggml.so');
+      final ggmlPath = p.join(p.dirname(libraryPath), ggmlName);
+      if (!File(ggmlPath).existsSync()) return;
+      final ggml = ffi.DynamicLibrary.open(ggmlPath);
+      loadAll = ggml.lookupFunction<ffi.Void Function(), void Function()>(
+        'ggml_backend_load_all',
+      );
+    }
+    loadAll();
+    _backendsLoaded = true;
   }
 
   @override
@@ -221,14 +277,3 @@ class WhisperFfiEngine implements WhisperEngine {
     return (cores - 1).clamp(2, 8);
   }
 }
-
-/// Overrideable [WhisperEngine] for the on-device whisper path.
-///
-/// Defaults to the real [WhisperFfiEngine], configured with the compute backend
-/// derived from hardware detection ([gpuInfoProvider]): NVIDIA→CUDA, Apple→Metal,
-/// AMD/Intel→Vulkan, and CPU whenever no compatible GPU is detected (or while
-/// detection is still in flight). Tests override it with a fake.
-final whisperEngineProvider = Provider<WhisperEngine>((ref) {
-  final gpu = ref.watch(gpuInfoProvider).value;
-  return WhisperFfiEngine(backend: whisperBackendFromName(gpu?.optimalBackend));
-});

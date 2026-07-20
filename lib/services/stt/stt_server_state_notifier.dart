@@ -29,7 +29,7 @@ import 'inference_request_validator.dart';
 import 'stt_benchmark.dart' show SttBenchmark;
 import 'wav_header_repair.dart';
 import 'whisper/whisper_engine.dart';
-import 'whisper/whisper_ffi_engine.dart';
+import 'whisper/whisper_isolate_engine.dart';
 import 'whisper/whisper_resilience_policy.dart';
 
 // Re-export for external consumers.
