@@ -348,3 +348,16 @@ final whisperEngineProvider = Provider<WhisperEngine>((ref) {
   ref.onDispose(engine.shutdown);
   return engine;
 });
+
+/// Always-CPU [WhisperEngine], used by [SttServerStateNotifier] as a one-shot
+/// load-time fallback when [whisperEngineProvider]'s (GPU-backed) engine's
+/// model load hangs past its internal timeout (FLUTTER_WHISPASTE-80: a
+/// GPU/driver cold-start — e.g. first-ever shader compile — that never
+/// completes, distinct from a normal, merely slow load). Never selected by
+/// hardware detection, so retrying against this engine cannot hit the same
+/// class of GPU-init hang.
+final whisperCpuFallbackEngineProvider = Provider<WhisperEngine>((ref) {
+  final engine = WhisperIsolateEngine(backend: WhisperBackend.cpu);
+  ref.onDispose(engine.shutdown);
+  return engine;
+});

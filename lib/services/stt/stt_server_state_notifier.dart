@@ -970,8 +970,32 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     try {
       await _engine!.load(modelPath: modelPath);
     } catch (e) {
-      _fail('Failed to load STT model: $e');
-      return;
+      // FLUTTER_WHISPASTE-80: a GPU/driver cold-start (e.g. first-ever
+      // shader compile) can hang past the engine's internal load timeout
+      // and fail the whole session even though CPU would have worked fine.
+      // Mirrors the existing GPU-crash-during-transcribe CPU fallback
+      // (_transcribeResilient) — degrade once, don't just surface the raw
+      // timeout to the user.
+      if (_engine!.status.backend == WhisperBackend.cpu) {
+        _fail('Failed to load STT model: $e');
+        return;
+      }
+      _log.warning(
+        'STT model load failed on ${_engine!.status.backend.name} backend '
+        '($e) — retrying once on CPU',
+      );
+      final cpuEngine = ref.read(whisperCpuFallbackEngineProvider);
+      try {
+        await cpuEngine.load(modelPath: modelPath);
+      } catch (cpuError) {
+        _fail('Failed to load STT model: $cpuError');
+        return;
+      }
+      unawaited(_engine!.unload());
+      _engine = cpuEngine;
+      if (ref.mounted) {
+        state = state.copyWith(cpuFallbackActive: true);
+      }
     }
     if (!ref.mounted) return;
 
@@ -981,7 +1005,16 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     await _warmupInference();
     unawaited(_runBenchmark(modelId));
 
-    _transition(SttStatus(serverState: SttServerState.ready, modelId: modelId));
+    _transition(
+      SttStatus(
+        serverState: SttServerState.ready,
+        modelId: modelId,
+        // Preserve a load-time CPU fallback (FLUTTER_WHISPASTE-80) — this
+        // constructs a fresh SttStatus rather than copyWith-ing the current
+        // one, so cpuFallbackActive would otherwise silently reset to false.
+        cpuFallbackActive: state.cpuFallbackActive,
+      ),
+    );
   }
 
   /// Strips whisper.cpp non-speech annotations from the transcript.

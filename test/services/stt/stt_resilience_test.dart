@@ -133,6 +133,48 @@ class _FakeWhisperEngine implements WhisperEngine {
   };
 }
 
+/// A [WhisperEngine] fake with a fixed, non-swappable [backend] whose [load]
+/// can be armed to fail — used to exercise the FLUTTER_WHISPASTE-80 load-time
+/// CPU-fallback path (a GPU/driver cold-start that hangs past the engine's
+/// internal load timeout), distinct from [_FakeWhisperEngine]'s
+/// transcribe-time failure simulation.
+class _LoadFailingEngine implements WhisperEngine {
+  _LoadFailingEngine({required this.backend, this.failLoad = false});
+
+  final WhisperBackend backend;
+  bool failLoad;
+  bool _loaded = false;
+  String? lastLoadedModelPath;
+
+  @override
+  WhisperEngineStatus get status =>
+      WhisperEngineStatus(isLoaded: _loaded, backend: backend);
+
+  @override
+  Future<void> load({required String modelPath}) async {
+    if (failLoad) {
+      throw StateError(
+        'whisper_isolate_load_failed: TimeoutException after '
+        '0:01:00.000000: Future not completed',
+      );
+    }
+    lastLoadedModelPath = modelPath;
+    _loaded = true;
+  }
+
+  @override
+  Future<String> transcribe(
+    List<int> wavBytes, {
+    String? language,
+    String? prompt,
+  }) async => 'ok';
+
+  @override
+  Future<void> unload() async {
+    _loaded = false;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Provider fakes
 // ---------------------------------------------------------------------------
@@ -539,6 +581,93 @@ void main() {
       await notifier.transcribeBytes(_validWav(), language: 'en');
 
       expect(engine.lastPrompt, equals('Fachbegriff, Eigenname'));
+    });
+  });
+
+  // ── FLUTTER_WHISPASTE-80: CPU-fallback on model-load failure/hang ────────
+  group('CPU-fallback on model-load failure (FLUTTER_WHISPASTE-80)', () {
+    test(
+      'a hung/failed GPU-backend load degrades once to CPU and reaches ready',
+      () async {
+        final gpuEngine = _LoadFailingEngine(
+          backend: WhisperBackend.vulkan,
+          failLoad: true,
+        );
+        final cpuEngine = _LoadFailingEngine(backend: WhisperBackend.cpu);
+        final container = ProviderContainer(
+          overrides: [
+            whisperEngineProvider.overrideWithValue(gpuEngine),
+            whisperCpuFallbackEngineProvider.overrideWithValue(cpuEngine),
+            settingsProvider.overrideWith(
+              () => _FakeSettingsNotifier(
+                AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
+              ),
+            ),
+            modelDownloadProvider.overrideWith(
+              () => _FakeModelDownloadNotifier(),
+            ),
+            hw.gpuInfoProvider.overrideWith(
+              (_) async =>
+                  const hw.GpuInfo(vendor: hw.GpuVendor.none, name: 'CPU'),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        await container.read(settingsProvider.future);
+        final notifier = container.read(localSttBundleProvider.notifier);
+        await notifier.ensureRunning();
+
+        expect(
+          container.read(localSttBundleProvider).serverState,
+          SttServerState.ready,
+        );
+        expect(
+          container.read(localSttBundleProvider).cpuFallbackActive,
+          isTrue,
+          reason: 'cpuFallbackActive must be set after the load-time fallback',
+        );
+        expect(cpuEngine.lastLoadedModelPath, isNotNull);
+      },
+    );
+
+    test('a load failure on an already-CPU engine fails immediately — no '
+        'fallback loop, no fallback engine touched', () async {
+      final cpuEngine = _LoadFailingEngine(
+        backend: WhisperBackend.cpu,
+        failLoad: true,
+      );
+      final unusedFallback = _LoadFailingEngine(backend: WhisperBackend.cpu);
+      final container = ProviderContainer(
+        overrides: [
+          whisperEngineProvider.overrideWithValue(cpuEngine),
+          whisperCpuFallbackEngineProvider.overrideWithValue(unusedFallback),
+          settingsProvider.overrideWith(
+            () => _FakeSettingsNotifier(
+              AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
+            ),
+          ),
+          modelDownloadProvider.overrideWith(
+            () => _FakeModelDownloadNotifier(),
+          ),
+          hw.gpuInfoProvider.overrideWith(
+            (_) async =>
+                const hw.GpuInfo(vendor: hw.GpuVendor.none, name: 'CPU'),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(settingsProvider.future);
+      final notifier = container.read(localSttBundleProvider.notifier);
+      await notifier.ensureRunning();
+
+      expect(
+        container.read(localSttBundleProvider).serverState,
+        SttServerState.error,
+      );
+      expect(container.read(localSttBundleProvider).cpuFallbackActive, isFalse);
+      expect(unusedFallback.lastLoadedModelPath, isNull);
     });
   });
 }
