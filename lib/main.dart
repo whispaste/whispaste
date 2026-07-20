@@ -199,12 +199,25 @@ Future<void> _runApp(List<String> args) async {
     sweepLegacyResidueIfNeeded(directory: sttDir(), currentVersion: appVersion),
   );
 
-  // Pre-cache GPU detection and validate the whisper-server binary matches
-  // the current hardware. If the GPU changed since the binary was
-  // downloaded (e.g., eGPU plugged in, driver update, hardware swap),
-  // the incompatible binary is auto-deleted so the next download fetches
-  // the correct variant.
+  // Validate the whisper-server binary matches the current hardware. If the
+  // GPU changed since the binary was downloaded (e.g., eGPU plugged in,
+  // driver update, hardware swap), the incompatible binary is auto-deleted
+  // so the next download fetches the correct variant. Fire-and-forget: this
+  // is unrelated to backend selection below, just legacy-binary cleanup.
   unawaited(hw.validateAndCleanIncompatibleBinary(sttDir()));
+
+  // Await GPU detection BEFORE runApp(). whisperEngineProvider (the
+  // in-process whisper.cpp engine) reads gpuInfoProvider's cached *.value*
+  // synchronously at construction time — RecordingOrchestrator's startup
+  // pre-warm realizes that provider via a Future.microtask almost
+  // immediately after runApp(), which reliably wins the race against
+  // gpuInfoProvider's own (genuinely async, up to kWindowsGpuProbeTimeout on
+  // Windows) hardware probe. Without this await, the STT engine silently
+  // and permanently locks in WhisperBackend.cpu for the whole session,
+  // regardless of available/forced GPU acceleration (never re-evaluated
+  // afterwards). detectGpu() never throws — worst case this adds a few
+  // seconds to cold start on a slow probe, never hangs.
+  await container.read(hw.gpuInfoProvider.future);
 
   _scheduleStartupSideEffects(container, settings);
 

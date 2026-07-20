@@ -8,9 +8,23 @@ library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/services/hardware_info_service.dart';
 import 'package:whispaste/services/stt/whisper/whisper_engine.dart';
 import 'package:whispaste/services/stt/whisper/whisper_isolate_engine.dart';
+
+/// Mirrors the repo's `_FakeSettingsNotifier` convention (see
+/// `stt_server_state_notifier_test.dart`) — avoids constructing the real
+/// drift [HistoryDatabase] that [settingsProvider] otherwise pulls in, which
+/// is unrelated to what these tests check and just adds noise/multiple-DB
+/// warnings across the many isolated [ProviderContainer]s below.
+class _FakeSettingsNotifier extends SettingsNotifier {
+  _FakeSettingsNotifier(this._settings);
+  final AppSettings _settings;
+
+  @override
+  Future<AppSettings> build() async => _settings;
+}
 
 // ---------------------------------------------------------------------------
 // Fake
@@ -169,13 +183,24 @@ void main() {
   });
 
   group('whisperEngineProvider backend selection from gpuInfoProvider', () {
-    Future<WhisperBackend> backendForGpu(GpuInfo gpu) async {
+    Future<WhisperBackend> backendForGpu(
+      GpuInfo gpu, {
+      String gpuAcceleration = 'auto',
+    }) async {
       final container = ProviderContainer(
-        overrides: [gpuInfoProvider.overrideWith((_) async => gpu)],
+        overrides: [
+          gpuInfoProvider.overrideWith((_) async => gpu),
+          settingsProvider.overrideWith(
+            () => _FakeSettingsNotifier(
+              AppSettings.defaults.copyWith(gpuAcceleration: gpuAcceleration),
+            ),
+          ),
+        ],
       );
       addTearDown(container.dispose);
 
       await container.read(gpuInfoProvider.future);
+      await container.read(settingsProvider.future);
       return container.read(whisperEngineProvider).status.backend;
     }
 
@@ -219,5 +244,27 @@ void main() {
       );
       expect(backend, WhisperBackend.cpu);
     });
+
+    test(
+      'gpuAcceleration=disabled ("Nur CPU") forces CPU even with a GPU present',
+      () async {
+        final backend = await backendForGpu(
+          const GpuInfo(vendor: GpuVendor.nvidia, name: 'NVIDIA RTX 4090'),
+          gpuAcceleration: 'disabled',
+        );
+        expect(backend, WhisperBackend.cpu);
+      },
+    );
+
+    test(
+      'gpuAcceleration=enabled ("GPU erzwingen") still uses the detected GPU backend',
+      () async {
+        final backend = await backendForGpu(
+          const GpuInfo(vendor: GpuVendor.amd, name: 'AMD Radeon RX 7900 XTX'),
+          gpuAcceleration: 'enabled',
+        );
+        expect(backend, WhisperBackend.vulkan);
+      },
+    );
   });
 }

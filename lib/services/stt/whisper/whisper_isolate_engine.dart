@@ -15,6 +15,8 @@ import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/config/settings_enums.dart' show GpuAcceleration;
+import '../../../core/config/settings_provider.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../hardware_info_service.dart';
 import 'whisper_engine.dart';
@@ -327,11 +329,21 @@ class WhisperIsolateEngine implements WhisperEngine {
 /// comment) wrapping the real [WhisperFfiEngine], configured with the compute
 /// backend derived from hardware detection ([gpuInfoProvider]): NVIDIA→CUDA,
 /// Apple→Metal, AMD/Intel→Vulkan, and CPU whenever no compatible GPU is
-/// detected (or while detection is still in flight). Tests override it with
-/// a fake.
+/// detected (or while detection is still in flight — callers are expected to
+/// await `gpuInfoProvider.future` once at startup, see `main.dart`, so this
+/// provider is not read before detection has settled in practice). The
+/// user's "Grafikbeschleunigung" setting (`settings.behavior.gpuAcceleration`)
+/// overrides this: `disabled` ("Nur CPU") always forces [WhisperBackend.cpu],
+/// `auto`/`enabled` use the detected backend. Tests override it with a fake.
 final whisperEngineProvider = Provider<WhisperEngine>((ref) {
-  final gpu = ref.watch(gpuInfoProvider).value;
-  final backend = whisperBackendFromName(gpu?.optimalBackend);
+  final gpuPreference = ref.watch(
+    settingsProvider.select((s) => s.value?.behavior.gpuAcceleration),
+  );
+  final backend = gpuPreference == GpuAcceleration.disabled.value
+      ? WhisperBackend.cpu
+      : whisperBackendFromName(
+          ref.watch(gpuInfoProvider).value?.optimalBackend,
+        );
   final engine = WhisperIsolateEngine(backend: backend);
   ref.onDispose(engine.shutdown);
   return engine;
