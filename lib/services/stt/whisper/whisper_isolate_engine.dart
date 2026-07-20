@@ -19,6 +19,7 @@ import '../../../core/config/settings_enums.dart' show GpuAcceleration;
 import '../../../core/config/settings_provider.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../hardware_info_service.dart';
+import '../isolate_shutdown_helper.dart';
 import 'whisper_engine.dart';
 import 'whisper_ffi_engine.dart';
 
@@ -79,6 +80,12 @@ class _TranscribeResult {
 
 class _UnloadRequest {
   const _UnloadRequest();
+}
+
+/// Acknowledges an [_UnloadRequest] once the native context is actually
+/// freed — see [WhisperIsolateEngine.unload] for why this matters.
+class _UnloadAck {
+  const _UnloadAck();
 }
 
 class _ShutdownRequest {
@@ -145,11 +152,18 @@ void _whisperIsolateMain(SendPort mainSendPort) {
 
       case _UnloadRequest():
         await engine?.unload();
+        mainSendPort.send(const _UnloadAck());
 
       case _ShutdownRequest():
         await engine?.unload();
         workerPort.close();
-        Isolate.exit();
+        // Isolate.exit's finalMessage is delivered atomically as the isolate
+        // terminates — the only way to guarantee the main isolate is told
+        // the native context is freed before this isolate (and the thread
+        // whisper_full/whisper_init ran on) disappears. A plain
+        // mainSendPort.send() here would race the exit with no such
+        // guarantee (FLUTTER_WHISPASTE-BC).
+        Isolate.exit(mainSendPort, const _UnloadAck());
     }
   }
 
@@ -186,6 +200,7 @@ class WhisperIsolateEngine implements WhisperEngine {
   SendPort? _workerPort;
   StreamSubscription<dynamic>? _sub;
   Completer<_LoadResult>? _loadCompleter;
+  Completer<void>? _unloadCompleter;
   final Map<int, Completer<_TranscribeResult>> _pending = {};
   int _nextRequestId = 0;
 
@@ -286,28 +301,71 @@ class WhisperIsolateEngine implements WhisperEngine {
 
   @override
   Future<void> unload() async {
-    if (_isolate == null) return;
+    if (_isolate == null || _workerPort == null) {
+      _isLoaded = false;
+      return;
+    }
+    // Waits for the worker's _UnloadAck (native whisper_free() actually
+    // ran) instead of firing-and-forgetting — otherwise a caller that
+    // proceeds immediately (e.g. app quit → windowManager.destroy()) can
+    // race the isolate's own native cleanup: if the process starts tearing
+    // down Metal/GGML before whisper_free() ran, ggml_metal_rsets_free's
+    // "resources still allocated" assertion aborts the whole app
+    // (FLUTTER_WHISPASTE-BC, reproduced live on macOS at quit time).
+    final completer = Completer<void>();
+    _unloadCompleter = completer;
     try {
-      _workerPort?.send(const _UnloadRequest());
+      _workerPort!.send(const _UnloadRequest());
     } catch (e) {
       _log.warning('Failed to signal worker unload: $e');
+      _isLoaded = false;
+      return;
     }
+    await awaitGracefulShutdown(
+      completer: completer,
+      timeout: const Duration(seconds: 10),
+      log: _log,
+      timeoutMessage:
+          'Worker unload did not acknowledge within 10s — proceeding anyway',
+      onTimeout: () {},
+    );
     _isLoaded = false;
   }
 
   /// Fully tears down the worker isolate. Not part of the [WhisperEngine]
   /// contract — called from provider disposal, mirroring
   /// [ParakeetEngineNotifier]'s `stop()`/`_shutdownSync()`.
-  void shutdown() {
-    if (_isolate == null) return;
+  ///
+  /// Waits (bounded) for the worker to free its native context and exit
+  /// gracefully — the same FLUTTER_WHISPASTE-BC race [unload] guards
+  /// against, but for full isolate teardown: an unconditional
+  /// `Isolate.kill(priority: immediate)` right after signalling shutdown
+  /// (the previous behaviour) could preempt the worker before
+  /// `whisper_free()` ever ran, since killing a Dart isolate does not free
+  /// native memory/GPU resources that isolate's FFI calls allocated. Only
+  /// falls back to a hard kill if the worker doesn't exit in time.
+  Future<void> shutdown() async {
+    final isolate = _isolate;
+    if (isolate == null) return;
+
+    final completer = Completer<void>();
+    _unloadCompleter = completer;
     try {
       _workerPort?.send(const _ShutdownRequest());
     } catch (e) {
       _log.warning('Failed to signal worker shutdown: $e');
     }
+    await awaitGracefulShutdown(
+      completer: completer,
+      timeout: const Duration(seconds: 10),
+      log: _log,
+      timeoutMessage:
+          'Worker shutdown did not complete within 10s — force-killing '
+          '(native resources may leak)',
+      onTimeout: () => isolate.kill(priority: Isolate.immediate),
+    );
     _sub?.cancel();
     _sub = null;
-    _isolate?.kill(priority: Isolate.immediate);
     _isolate = null;
     _workerPort = null;
     _isLoaded = false;
@@ -319,6 +377,8 @@ class WhisperIsolateEngine implements WhisperEngine {
         _loadCompleter?.complete(r);
       case final _TranscribeResult r:
         _pending.remove(r.requestId)?.complete(r);
+      case _UnloadAck():
+        _unloadCompleter?.complete();
     }
   }
 }

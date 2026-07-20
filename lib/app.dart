@@ -38,6 +38,7 @@ import 'core/logging/crash_reporter.dart';
 import 'core/config/settings_enums.dart' show OnDeviceEngine;
 import 'services/paste/paste_policy.dart';
 import 'services/stt/stt_bundle.dart';
+import 'services/stt_engine_lifecycle_provider.dart';
 import 'services/stt_parakeet/parakeet_engine_notifier.dart'
     show ParakeetEngineState, parakeetEngineProvider;
 import 'services/telemetry_service.dart';
@@ -329,13 +330,22 @@ class _AppShellState extends ConsumerState<_AppShell>
       return;
     }
 
-    // User opted for "close = quit": kill subprocesses then destroy.
+    // User opted for "close = quit": stop the active on-device engine and
+    // WAIT for it before destroying the window. FLUTTER_WHISPASTE-BC: a
+    // fire-and-forget stop() raced windowManager.destroy() — if the process
+    // started tearing down native GPU/ORT resources before the engine had
+    // actually freed them, ggml's Metal-residency-set teardown assert (or
+    // an analogous native check) aborted the whole app. Routed through
+    // onDeviceEngineLifecycleProvider (not localSttBundleProvider directly)
+    // so this also stops Parakeet when it's the active engine — previously
+    // only whisper was ever stopped here.
     try {
-      ref.read(localSttBundleProvider.notifier).stop();
+      await ref
+          .read(onDeviceEngineLifecycleProvider)
+          .stop()
+          .timeout(const Duration(seconds: 10));
     } catch (e) {
-      _log.debug(
-        'STT subprocess stop failed during window close (non-fatal): $e',
-      );
+      _log.debug('STT engine stop failed during window close (non-fatal): $e');
     }
 
     try {

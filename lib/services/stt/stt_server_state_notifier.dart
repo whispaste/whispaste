@@ -460,18 +460,30 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     return text;
   }
 
-  void stop() {
+  /// Stops the engine. Returns a [Future] that completes once the native
+  /// context is actually freed — callers that need the app to stay alive
+  /// until then (app quit, see `app.dart`'s `onWindowClose`) must await it;
+  /// existing fire-and-forget callers (model switch, provider change) can
+  /// keep calling `stop()` without awaiting (FLUTTER_WHISPASTE-BC: the
+  /// native free racing an imminent process exit is what crashes, not what
+  /// this method itself does).
+  Future<void> stop() async {
     _idleTimer?.cancel();
     _idleTimer = null;
     _modelChangeDebounce?.cancel();
     _modelChangeDebounce = null;
-    unawaited(_engine?.unload() ?? Future<void>.value());
     _activeModel = null;
     _lastPrompt = null;
     _lastPromptTime = null;
     _idleExtended = false;
     _isRecordingActive = false;
+    // Transition to stopped immediately (synchronously, before the first
+    // await below) — UI responsiveness for the common case (model switch)
+    // must not wait on native cleanup. The returned Future still resolves
+    // only once the engine confirms it, for callers that need that
+    // guarantee (app quit, see `app.dart`'s `onWindowClose`).
     _transition(const SttStatus());
+    await (_engine?.unload() ?? Future<void>.value());
   }
 
   // ---------------------------------------------------------------------------

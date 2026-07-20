@@ -19,6 +19,7 @@ import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa_onnx;
 
 import '../../core/logging/app_logger.dart';
 import '../audio/pcm_wav_codec.dart';
+import '../stt/isolate_shutdown_helper.dart';
 import '../stt/stt_benchmark.dart';
 import 'parakeet_model_registry.dart';
 
@@ -70,6 +71,13 @@ class _TranscribeResult {
 
 class _ShutdownRequest {
   const _ShutdownRequest();
+}
+
+/// Acknowledges an [_ShutdownRequest] once the native recognizer is actually
+/// freed — see [ParakeetEngineNotifier.stop] for why this matters
+/// (FLUTTER_WHISPASTE-BC-class native-teardown-vs-process-exit race).
+class _ShutdownAck {
+  const _ShutdownAck();
 }
 
 /// Isolate entry point. Must be a top-level/static function (Dart isolate
@@ -145,7 +153,13 @@ void _parakeetIsolateMain(SendPort mainSendPort) {
       case _ShutdownRequest():
         recognizer?.free();
         workerPort.close();
-        Isolate.exit();
+        // Isolate.exit's finalMessage is delivered atomically as the
+        // isolate terminates — the only way to guarantee the main isolate
+        // learns the native recognizer is freed before this isolate (and
+        // the thread the ONNX Runtime calls ran on) disappears. A plain
+        // mainSendPort.send() here would race the exit with no such
+        // guarantee.
+        Isolate.exit(mainSendPort, const _ShutdownAck());
     }
   });
 }
@@ -190,12 +204,13 @@ class ParakeetEngineNotifier extends Notifier<ParakeetStatus> {
   SendPort? _workerPort;
   StreamSubscription<dynamic>? _sub;
   Completer<_InitResult>? _initCompleter;
+  Completer<void>? _shutdownCompleter;
   final Map<int, Completer<_TranscribeResult>> _pending = {};
   int _nextRequestId = 0;
 
   @override
   ParakeetStatus build() {
-    ref.onDispose(_shutdownSync);
+    ref.onDispose(_shutdown);
     return const ParakeetStatus();
   }
 
@@ -345,15 +360,16 @@ class ParakeetEngineNotifier extends Notifier<ParakeetStatus> {
     return result.text ?? '';
   }
 
-  /// Stops the worker isolate.
-  void stop() {
-    if (_isolate == null) return;
-    try {
-      _workerPort?.send(const _ShutdownRequest());
-    } catch (e) {
-      _log.warning('Failed to signal worker shutdown: $e');
-    }
-    _shutdownSync();
+  /// Stops the worker isolate. Waits (bounded) for the worker to free its
+  /// native recognizer and exit gracefully before falling back to a hard
+  /// kill — an unconditional `Isolate.kill(priority: immediate)` right after
+  /// signalling shutdown (the previous behaviour) could preempt the worker
+  /// before its native ONNX Runtime resources were ever freed, since killing
+  /// a Dart isolate does not free native memory that isolate's FFI calls
+  /// allocated (same class of bug as FLUTTER_WHISPASTE-BC on the whisper
+  /// engine — reproduced there via ggml_metal_rsets_free's teardown assert).
+  Future<void> stop() async {
+    await _shutdown();
     state = const ParakeetStatus();
   }
 
@@ -363,13 +379,33 @@ class ParakeetEngineNotifier extends Notifier<ParakeetStatus> {
         _initCompleter?.complete(r);
       case final _TranscribeResult r:
         _pending.remove(r.requestId)?.complete(r);
+      case _ShutdownAck():
+        _shutdownCompleter?.complete();
     }
   }
 
-  void _shutdownSync() {
+  Future<void> _shutdown() async {
+    final isolate = _isolate;
+    if (isolate == null) return;
+
+    final completer = Completer<void>();
+    _shutdownCompleter = completer;
+    try {
+      _workerPort?.send(const _ShutdownRequest());
+    } catch (e) {
+      _log.warning('Failed to signal worker shutdown: $e');
+    }
+    await awaitGracefulShutdown(
+      completer: completer,
+      timeout: const Duration(seconds: 10),
+      log: _log,
+      timeoutMessage:
+          'Worker shutdown did not complete within 10s — force-killing '
+          '(native resources may leak)',
+      onTimeout: () => isolate.kill(priority: Isolate.immediate),
+    );
     _sub?.cancel();
     _sub = null;
-    _isolate?.kill(priority: Isolate.immediate);
     _isolate = null;
     _workerPort = null;
   }

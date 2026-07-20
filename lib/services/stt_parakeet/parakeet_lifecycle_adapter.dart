@@ -32,7 +32,7 @@ class ParakeetEngineLifecycleAdapter implements OnDeviceEngineLifecycle {
   Future<void> prewarm() => _notifier.prewarm();
 
   @override
-  void stop() => _notifier.stop();
+  Future<void> stop() => _notifier.stop();
 
   // Parakeet has no idle-shutdown timer yet (Phase 1 scope, see
   // parakeet_transcriber.dart) — the worker isolate stays warm regardless of

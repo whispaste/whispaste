@@ -39,8 +39,11 @@ abstract class OnDeviceEngineLifecycle {
   /// the cold-start penalty. Failures are non-fatal.
   Future<void> prewarm();
 
-  /// Stops the backend (e.g. after switching provider/model).
-  void stop();
+  /// Stops the backend (e.g. after switching provider/model). Returns a
+  /// [Future] that completes once native resources are actually freed —
+  /// callers that need the process to stay alive until then (app quit) must
+  /// await it; fire-and-forget callers can ignore the returned Future.
+  Future<void> stop();
 
   /// Signals a recording session started (pauses idle-shutdown timers).
   void notifyRecordingStarted();
@@ -80,7 +83,7 @@ class WhisperEngineLifecycleAdapter implements OnDeviceEngineLifecycle {
   Future<void> prewarm() => _notifier.prewarm();
 
   @override
-  void stop() => _notifier.stop();
+  Future<void> stop() => _notifier.stop();
 
   @override
   void notifyRecordingStarted() => _notifier.notifyRecordingStarted();

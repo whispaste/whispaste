@@ -20,8 +20,15 @@
       "fingerprint": "b3b74f09fe901a02",
       "ruleId": "slop-empty-catch",
       "filePath": "lib/main.dart",
-      "line": 371,
+      "line": 394,
       "message": "Empty or comment-only `catch` body silently swallows exceptions — add error handling, rethrow, or a logging call."
+    },
+    {
+      "fingerprint": "e47165672a9f71de",
+      "ruleId": "code-duplicates",
+      "filePath": "lib/services/stt/whisper/whisper_isolate_engine.dart",
+      "line": 374,
+      "message": "2 occurrences of duplicated block (50 tokens): lib/services/stt/whisper/whisper_isolate_engine.dart:374, lib/services/stt_parakeet/parakeet_engine_notifier.dart:376"
     }
   ]
 }

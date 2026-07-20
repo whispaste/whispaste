@@ -14,6 +14,7 @@
 /// Issue 05 (resilience).
 library;
 
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -38,6 +39,12 @@ class _FakeWhisperEngine implements WhisperEngine {
   /// If set, [transcribe] waits this long before completing — simulates
   /// slower/faster hardware for benchmark-driven tier-selection tests.
   Duration? transcribeDelay;
+
+  /// If set, [unload] waits on this completer instead of resolving
+  /// immediately — lets a test prove a caller actually awaits [unload]
+  /// rather than firing-and-forgetting it (FLUTTER_WHISPASTE-BC).
+  Completer<void>? unloadGate;
+  bool unloadCalled = false;
 
   @override
   WhisperEngineStatus get status =>
@@ -65,6 +72,9 @@ class _FakeWhisperEngine implements WhisperEngine {
 
   @override
   Future<void> unload() async {
+    unloadCalled = true;
+    final gate = unloadGate;
+    if (gate != null) await gate.future;
     _loaded = false;
   }
 }
@@ -216,11 +226,53 @@ void main() {
         SttServerState.ready,
       );
 
-      notifier.stop();
+      await notifier.stop();
       expect(
         container.read(localSttBundleProvider).serverState,
         SttServerState.stopped,
       );
+    });
+
+    test('stop() transitions state to stopped synchronously (before awaiting '
+        'engine.unload()), but its own returned Future only completes once '
+        'unload() actually finishes (FLUTTER_WHISPASTE-BC)', () async {
+      final engine = _FakeWhisperEngine();
+      final container = _makeContainer(engine: engine);
+      addTearDown(container.dispose);
+
+      await container.read(settingsProvider.future);
+      final notifier = container.read(localSttBundleProvider.notifier);
+      await notifier.ensureRunning();
+
+      final gate = Completer<void>();
+      engine.unloadGate = gate;
+
+      var stopCompleted = false;
+      final stopFuture = notifier.stop().then((_) => stopCompleted = true);
+
+      // UI responsiveness: the state flips to stopped immediately, without
+      // waiting for the engine to actually free its native resources.
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        container.read(localSttBundleProvider).serverState,
+        SttServerState.stopped,
+        reason: 'state must transition before unload() resolves',
+      );
+      expect(engine.unloadCalled, isTrue);
+      expect(
+        stopCompleted,
+        isFalse,
+        reason:
+            "stop()'s own Future must not complete until unload() does — "
+            'otherwise a caller like app.dart\'s onWindowClose (app quit) '
+            'proceeds to destroy the window/process while native GPU '
+            'resources are still allocated, aborting the process '
+            '(ggml_metal_rsets_free\'s teardown assertion).',
+      );
+
+      gate.complete();
+      await stopFuture;
+      expect(stopCompleted, isTrue);
     });
   });
 
