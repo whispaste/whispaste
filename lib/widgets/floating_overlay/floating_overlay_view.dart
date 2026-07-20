@@ -87,6 +87,13 @@ class FloatingOverlayView extends StatefulWidget {
   static OverlayDesignTheme themeFor(bool isDark) =>
       isDark ? OverlayDesignTheme.dark : OverlayDesignTheme.light;
 
+  /// The text actually painted for [snapshot] in its current (non-recording)
+  /// state — mirrors [painterFor]'s `statusText` selection so pill-width
+  /// sizing ([OverlayDesignSpec.pillWidthForText]) never drifts from what
+  /// gets drawn.
+  static String statusTextFor(FloatingOverlaySnapshot snapshot) =>
+      snapshot.doneMessage ?? snapshot.errorMessage ?? snapshot.label;
+
   /// Builds the spec-sourced [OverlayPainter] for [snapshot].
   ///
   /// The whole painter configuration is derived from [OverlayDesignSpec] here —
@@ -115,8 +122,7 @@ class FloatingOverlayView extends StatefulWidget {
           ? waveformBars
           : const [],
       timerText: snapshot.elapsed,
-      statusText:
-          snapshot.doneMessage ?? snapshot.errorMessage ?? snapshot.label,
+      statusText: statusTextFor(snapshot),
       progress: snapshot.progress,
       dotPulse: dotPulse,
       paintFill: paintFill,
@@ -225,9 +231,11 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
     final initialSizeSpec = OverlayDesignSpec.size(
       compact: widget.snapshot.compact,
     );
-    final initialWidth = OverlayDesignSpec.pillWidthFor(
+    final initialWidth = OverlayDesignSpec.pillWidthForText(
       initialDesignState,
       initialSizeSpec,
+      OverlayDesignSpec.layout(compact: widget.snapshot.compact),
+      FloatingOverlayView.statusTextFor(widget.snapshot),
     );
     _pillFromWidth = initialWidth;
     _pillToWidth = initialWidth;
@@ -267,7 +275,12 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
       final designState = FloatingOverlayView.designStateFor(
         widget.snapshot.state,
       );
-      final targetWidth = OverlayDesignSpec.pillWidthFor(designState, sizeSpec);
+      final targetWidth = OverlayDesignSpec.pillWidthForText(
+        designState,
+        sizeSpec,
+        OverlayDesignSpec.layout(compact: widget.snapshot.compact),
+        FloatingOverlayView.statusTextFor(widget.snapshot),
+      );
       _pillFromWidth = targetWidth;
       _pillToWidth = targetWidth;
       _pillWidth.stop();
@@ -362,9 +375,11 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
   /// the live waveform is not clipped.
   void _snapPillToCurrentState() {
     final sizeSpec = OverlayDesignSpec.size(compact: widget.snapshot.compact);
-    final width = OverlayDesignSpec.pillWidthFor(
+    final width = OverlayDesignSpec.pillWidthForText(
       FloatingOverlayView.designStateFor(widget.snapshot.state),
       sizeSpec,
+      OverlayDesignSpec.layout(compact: widget.snapshot.compact),
+      FloatingOverlayView.statusTextFor(widget.snapshot),
     );
     _pillFromWidth = width;
     _pillToWidth = width;
@@ -379,7 +394,12 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
   /// the target width is applied instantly (no spring).
   void _startPillSpring(OverlayDesignState newState) {
     final sizeSpec = OverlayDesignSpec.size(compact: widget.snapshot.compact);
-    final targetWidth = OverlayDesignSpec.pillWidthFor(newState, sizeSpec);
+    final targetWidth = OverlayDesignSpec.pillWidthForText(
+      newState,
+      sizeSpec,
+      OverlayDesignSpec.layout(compact: widget.snapshot.compact),
+      FloatingOverlayView.statusTextFor(widget.snapshot),
+    );
     final currentWidth = _currentPillWidth;
 
     if (_reducedMotion) {

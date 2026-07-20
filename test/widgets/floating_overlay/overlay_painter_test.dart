@@ -206,6 +206,60 @@ void main() {
       );
     });
 
+    test('pillWidthForText — short text stays at the ratio width', () {
+      const spec = OverlaySizeSpec.normal;
+      final layout = OverlayDesignSpec.layout(compact: false);
+      // 'OK' comfortably fits the ~200 px done pill — no growth needed.
+      expect(
+        OverlayDesignSpec.pillWidthForText(
+          OverlayDesignState.done,
+          spec,
+          layout,
+          'OK',
+        ),
+        closeTo(
+          OverlayDesignSpec.pillWidthFor(OverlayDesignState.done, spec),
+          0.5,
+        ),
+      );
+    });
+
+    test('pillWidthForText — long text grows the pill beyond the ratio width '
+        '(overlay-text-truncated bug)', () {
+      const spec = OverlaySizeSpec.normal;
+      final layout = OverlayDesignSpec.layout(compact: false);
+      const longMessage = 'Transkription hat keinen Text ergeben';
+      final width = OverlayDesignSpec.pillWidthForText(
+        OverlayDesignState.done,
+        spec,
+        layout,
+        longMessage,
+      );
+      expect(
+        width,
+        greaterThan(
+          OverlayDesignSpec.pillWidthFor(OverlayDesignState.done, spec),
+        ),
+        reason: 'a long done message must grow the pill, not just clip it',
+      );
+    });
+
+    test('pillWidthForText — clamps at sizeSpec.width so it never exceeds the '
+        'native window', () {
+      const spec = OverlaySizeSpec.normal;
+      final layout = OverlayDesignSpec.layout(compact: false);
+      const pathologicallyLongMessage =
+          'This status message is deliberately far longer than any pill '
+          'could ever reasonably display in one line without wrapping';
+      final width = OverlayDesignSpec.pillWidthForText(
+        OverlayDesignState.done,
+        spec,
+        layout,
+        pathologicallyLongMessage,
+      );
+      expect(width, spec.width);
+    });
+
     test(
       'pillSpring is the Gentle preset (mass=1, stiffness=170, damping=26)',
       () {

@@ -958,6 +958,52 @@ abstract final class OverlayDesignSpec {
     OverlaySizeSpec sizeSpec,
   ) => sizeSpec.width * pillWidthRatio(state);
 
+  /// [pillWidthFor], grown just enough to fit [text] without an ellipsis —
+  /// e.g. a long done/error status message that does not fit the narrow
+  /// `done`/`error`/`transcribing` ratio widths (issue: overlay text
+  /// truncated even though the native window has room, both on Windows and
+  /// macOS). Clamped to [sizeSpec.width] (the `recording`-state/full width,
+  /// which is also what [windowSize] sizes the native host window to) so the
+  /// pill never exceeds the space the native shell actually reserves —
+  /// pathologically long text still falls back to [OverlayPainter]'s
+  /// ellipsis at that point.
+  static double pillWidthForText(
+    OverlayDesignState state,
+    OverlaySizeSpec sizeSpec,
+    OverlayLayoutSpec layout,
+    String text,
+  ) {
+    final baseWidth = pillWidthFor(state, sizeSpec);
+    if (text.isEmpty) return baseWidth;
+    // Mirrors OverlayPainter._drawContent's textLeft/maxTextWidth geometry:
+    // textLeft sits at padH + dotInset + timerGap from the pill's left edge,
+    // and padH is reserved again on the right — solved for the pill width
+    // that gives the measured text exactly enough room.
+    final measuredTextWidth = _measureTextWidth(text, layout.timerFontSize);
+    final requiredWidth =
+        measuredTextWidth + 2 * layout.padH + layout.dotInset + layout.timerGap;
+    return requiredWidth.clamp(baseWidth, sizeSpec.width);
+  }
+
+  /// Natural (untruncated) single-line width of [text] at [fontSize], using
+  /// the same style [OverlayPainter._drawText] paints status/done/error text
+  /// with (weight + tabular figures both affect layout width).
+  static double _measureTextWidth(String text, double fontSize) {
+    final tp = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          fontSize: fontSize,
+          fontWeight: primaryFontWeight,
+          fontFeatures: const [FontFeature.tabularFigures()],
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout();
+    return tp.width;
+  }
+
   // -- Floating button -------------------------------------------------------
 
   /// V2 floating-button appearance.

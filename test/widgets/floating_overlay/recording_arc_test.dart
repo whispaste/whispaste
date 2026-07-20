@@ -894,13 +894,18 @@ void main() {
     testWidgets('re-show after done restores the full recording width so the '
         'waveform is not clipped away', (tester) async {
       final sizeSpec = OverlayDesignSpec.size(compact: false);
+      final layout = OverlayDesignSpec.layout(compact: false);
       final recW = OverlayDesignSpec.pillWidthFor(
         OverlayDesignState.recording,
         sizeSpec,
       );
-      final doneW = OverlayDesignSpec.pillWidthFor(
+      // pillWidthForText, not the raw ratio: the done pill grows just enough
+      // to fit 'Eingefügt!' without an ellipsis (see OverlayDesignSpec doc).
+      final doneW = OverlayDesignSpec.pillWidthForText(
         OverlayDesignState.done,
         sizeSpec,
+        layout,
+        'Eingefügt!',
       );
       expect(
         doneW,
