@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.52
+
+### Bug Fixes
+
+- **Ein Absturz beim App-Start unter Windows ist behoben.** Betraf lokale Transkription über die neue In-App-Whisper-Engine und äußerte sich als sofortiger Absturz — die Ursache war ein fehlender interner Initialisierungsschritt, nicht das System oder die Hardware.
+- **Die GPU-Beschleunigung für die lokale Transkription wird jetzt zuverlässig genutzt.** Sie konnte zuvor dauerhaft auf CPU zurückfallen, selbst wenn eine passende GPU vorhanden war oder „GPU erzwingen" eingestellt war — mit spürbar langsameren Transkriptionen als Folge.
+- **Längere Status-Texte im schwebenden Overlay werden nicht mehr abgeschnitten.** Die Anzeige passt ihre Breite jetzt der tatsächlichen Textlänge an, statt lange Meldungen mit „…" zu kappen.
+
 ## 1.2.51
 
 ### New Features
