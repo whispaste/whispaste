@@ -93,7 +93,7 @@ void _whisperIsolateMain(SendPort mainSendPort) {
 
   WhisperFfiEngine? engine;
 
-  workerPort.listen((dynamic message) async {
+  Future<void> handleMessage(dynamic message) async {
     switch (message) {
       case final _LoadRequest req:
         try {
@@ -116,7 +116,7 @@ void _whisperIsolateMain(SendPort mainSendPort) {
               error: 'whisper_engine_not_loaded',
             ),
           );
-          break;
+          return;
         }
         try {
           final text = await e.transcribe(
@@ -149,6 +149,18 @@ void _whisperIsolateMain(SendPort mainSendPort) {
         workerPort.close();
         Isolate.exit();
     }
+  }
+
+  // whisper_full/whisper_init are NOT thread-safe for the same context (see
+  // WhisperFfiEngine's own doc comment), so messages must be handled strictly
+  // one at a time. `ReceivePort.listen` does not await an async callback
+  // before dispatching the next queued message — without this chain, a
+  // `_ShutdownRequest` arriving while a `_TranscribeRequest` is still
+  // in-flight could tear the isolate down mid-call (`Isolate.exit()`),
+  // leaving the caller's completer on the main isolate unresolved forever.
+  var processing = Future<void>.value();
+  workerPort.listen((dynamic message) {
+    processing = processing.then((_) => handleMessage(message));
   });
 }
 
