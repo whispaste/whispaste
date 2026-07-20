@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.53
+
+### Bug Fixes
+
+- **Ein seltener Absturz beim Beenden der App unter macOS ist behoben.** Die lokale Spracherkennung gab ihre GPU-Ressourcen nicht immer rechtzeitig frei, bevor die App vollständig geschlossen wurde.
+- **Ein hängendes Modell-Laden führt jetzt zuverlässig zu einem automatischen Wechsel auf CPU** statt die Sitzung mit einer unklaren Zeitüberschreitung abzubrechen — betraf seltene Fälle, in denen die GPU-Initialisierung ungewöhnlich lange brauchte.
+
 ## 1.2.52
 
 ### Bug Fixes
