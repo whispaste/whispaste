@@ -253,14 +253,25 @@ class _SpeechRecognitionSectionState
             ),
           ),
 
-          // Custom vocabulary + punctuation priming — local Whisper only.
-          // Both feed whisper.cpp's initial-prompt mechanism
-          // (stt_server_state_notifier.dart); neither the Parakeet engine
-          // nor the cloud providers (OpenAI/Deepgram) read either setting,
-          // so showing them there would be the same "looks available but
-          // isn't" trap as the language picker above.
-          if (isLocal && settings.onDeviceEngine == OnDeviceEngine.whisper) ...[
+          // Custom vocabulary — local Whisper (initial-prompt, see
+          // stt_server_state_notifier.dart) OR OpenAI cloud (the equivalent
+          // `prompt` field on /v1/audio/transcriptions, see
+          // openai_transcriber.dart). Deepgram has no free-text prompt
+          // mechanism (it uses per-term `keywords` boosting instead — a
+          // different feature, not built yet) and Parakeet's transducer
+          // architecture has no prompt-conditioning at all, so both stay
+          // excluded — showing the field there would be the same "looks
+          // available but isn't" trap as the language picker above.
+          if (isLocal && settings.onDeviceEngine == OnDeviceEngine.whisper ||
+              settings.sttProviderType == SttProviderType.openAI)
             _CustomVocabularyField(initialValue: settings.customVocabulary),
+
+          // Punctuation priming — local Whisper only (a prompt nudge fed
+          // into whisper.cpp's initial-prompt mechanism; no equivalent
+          // exists for the cloud providers or Parakeet). For a toggle that
+          // reliably removes punctuation regardless of engine/provider, see
+          // "Strip punctuation" above.
+          if (isLocal && settings.onDeviceEngine == OnDeviceEngine.whisper)
             SettingRow(
               icon: LucideIcons.pilcrow,
               label: l10n.settingsPunctuationPriming,
@@ -277,7 +288,6 @@ class _SpeechRecognitionSectionState
                     ),
               ),
             ),
-          ],
         ],
       ),
     );

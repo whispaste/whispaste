@@ -7,8 +7,17 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'package:whispaste/core/config/secure_key_store.dart';
+import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/services/transcription/openai_transcriber.dart';
 import 'package:whispaste/services/transcription/transcriber.dart';
+
+class _FakeSettingsNotifier extends SettingsNotifier {
+  _FakeSettingsNotifier(this._settings);
+  final AppSettings _settings;
+
+  @override
+  Future<AppSettings> build() async => _settings;
+}
 
 /// Helper provider that exposes a test-configured [OpenAiTranscriber].
 ///
@@ -36,10 +45,16 @@ class _FakeSecureKeyStore implements SecureKeyStore {
   Future<Map<String, String>> readAllApiKeys() async => Map.of(_store);
 }
 
-ProviderContainer _makeContainer(Map<String, String> keys) {
+ProviderContainer _makeContainer(
+  Map<String, String> keys, {
+  AppSettings? settings,
+}) {
   return ProviderContainer(
     overrides: [
       secureKeyStoreProvider.overrideWithValue(_FakeSecureKeyStore(keys)),
+      settingsProvider.overrideWith(
+        () => _FakeSettingsNotifier(settings ?? AppSettings.defaults),
+      ),
     ],
   );
 }
@@ -150,6 +165,54 @@ void main() {
           ),
         ),
       );
+    });
+
+    test('sends customVocabulary as the prompt field', () async {
+      String? capturedPrompt;
+      final client = MockClient.streaming((request, bodyStream) async {
+        final multipart = request as http.MultipartRequest;
+        capturedPrompt = multipart.fields['prompt'];
+        final body = jsonEncode({'text': 'ok'});
+        return http.StreamedResponse(Stream.value(utf8.encode(body)), 200);
+      });
+      final settings = AppSettings.defaults.copyWithSections(
+        stt: AppSettings.defaults.stt.copyWith(
+          customVocabulary: 'WhisPaste, Kubernetes',
+        ),
+      );
+      final container = _makeContainer({
+        'wp_openai_api_key': 'sk-test',
+      }, settings: settings);
+      addTearDown(container.dispose);
+      // AsyncNotifier.build() resolves on a microtask even for a trivially
+      // synchronous fake — await the initial future so settingsProvider is
+      // AsyncData before transcribe() reads it, otherwise .value is still
+      // null (AsyncLoading) and the prompt field is silently skipped.
+      await container.read(settingsProvider.future);
+
+      final transcriber = container.read(_testTranscriberProvider(client));
+      await transcriber.prepare();
+      await transcriber.transcribe(_silentWav());
+
+      expect(capturedPrompt, 'WhisPaste, Kubernetes');
+    });
+
+    test('omits the prompt field when customVocabulary is empty', () async {
+      var sawPromptField = false;
+      final client = MockClient.streaming((request, bodyStream) async {
+        final multipart = request as http.MultipartRequest;
+        sawPromptField = multipart.fields.containsKey('prompt');
+        final body = jsonEncode({'text': 'ok'});
+        return http.StreamedResponse(Stream.value(utf8.encode(body)), 200);
+      });
+      final container = _makeContainer({'wp_openai_api_key': 'sk-test'});
+      addTearDown(container.dispose);
+
+      final transcriber = container.read(_testTranscriberProvider(client));
+      await transcriber.prepare();
+      await transcriber.transcribe(_silentWav());
+
+      expect(sawPromptField, isFalse);
     });
   });
 }

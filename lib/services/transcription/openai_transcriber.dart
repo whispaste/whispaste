@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
 import '../../core/config/secure_key_store.dart';
+import '../../core/config/settings_provider.dart';
 import 'transcriber_interface.dart';
 
 /// Calls OpenAI Whisper API (`/v1/audio/transcriptions`).
@@ -57,6 +58,22 @@ class OpenAiTranscriber implements Transcriber {
 
     if (language != null && language.isNotEmpty && language != 'auto') {
       request.fields['language'] = language;
+    }
+
+    // Custom Vocabulary (settings_sections.dart::SttSettings.customVocabulary)
+    // — same field the on-device Whisper path feeds into whisper.cpp's
+    // initial_prompt (stt_server_state_notifier.dart). OpenAI's
+    // /v1/audio/transcriptions accepts an equivalent free-text `prompt`
+    // field for whisper-1 (and gpt-4o(-mini)-transcribe): it biases the
+    // model's style/vocabulary rather than acting as a strict prefix, but
+    // is functionally the same lever users configure once in Settings.
+    final vocabulary = ref
+        .read(settingsProvider)
+        .value
+        ?.customVocabulary
+        .trim();
+    if (vocabulary != null && vocabulary.isNotEmpty) {
+      request.fields['prompt'] = vocabulary;
     }
 
     final http.StreamedResponse streamed;
