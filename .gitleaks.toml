@@ -18,9 +18,9 @@ title = "WhisPaste gitleaks config"
 
 [[rules]]
   id = "email-address-in-non-doc-file"
-  description = "Email address outside README/LICENSE/CHANGELOG/store listings — likely an account identifier that leaked into config/code"
+  description = "Email address in a config/script/CI file — likely an account identifier that leaked from a credentials file (Fastlane, workflows). Scoped to config-shaped languages only: .dart is excluded because the app deliberately embeds a maintainer contact email for diagnostic-report delivery (packages/whispaste_diagnostics, whispaste_gpu_probe) — that's product design, not a leak, and would otherwise drown real findings in false positives from test fixtures/generated l10n."
   regex = '''[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'''
-  path = '''\.(rb|sh|ps1|py|mjs|yml|yaml|dart)$'''
+  path = '''\.(rb|sh|ps1|py|mjs|yml|yaml)$'''
 
 [allowlist]
   description = "Allowlist for false positives"
