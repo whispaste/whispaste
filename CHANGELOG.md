@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.55
+
+### Bug Fixes
+
+- **Die Interpunktions-Einstellungen sind jetzt übersichtlicher gruppiert** und das Label „Interpunktions-Priming" trägt jetzt einen klareren deutschen Namen („Satzzeichen anregen").
+
 ## 1.2.54
 
 ### New Features
