@@ -42,7 +42,7 @@
 
 import { readFileSync, writeFileSync } from 'fs';
 import { resolve, join } from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { dirname } from 'path';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
@@ -233,6 +233,13 @@ function main() {
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// pathToFileURL() (not a manual `file://${argv[1]}` concat) is required for
+// this "am I the entry module" check to work on Windows — argv[1] there is a
+// backslash path with no scheme (`D:\a\whispaste\...`), which never equals
+// import.meta.url's `file:///D:/a/whispaste/...` form. The msstore-CLI job
+// runs on windows-latest, where the naive concat silently never calls main()
+// — no error, no output, exit 0 — and the failure only surfaces one step
+// later when the never-written output file is missing (2026-07-21 incident).
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main();
 }

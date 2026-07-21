@@ -666,6 +666,13 @@ jobs:
         id: publish_draft
         if: steps.store_check.outputs.skip != 'true'
         shell: pwsh
+        # PowerShell does NOT stop a multi-line `run:` script when an external
+        # command (msstore, node — as opposed to a PowerShell cmdlet) exits
+        # non-zero; it just moves on to the next line. Every external-command
+        # call below is followed by an explicit $LASTEXITCODE check so a real
+        # failure surfaces HERE, at the step that actually broke, instead of
+        # silently continuing and confusing a downstream step (2026-07-21
+        # incident: this exact gap let a broken Node script look "successful").
         run: |
           $msix = Get-ChildItem -Path msix -Filter *.msix -Recurse | Select-Object -First 1
           if (-not $msix) {
@@ -675,6 +682,7 @@ jobs:
           }
           echo "msix_found=true" >> $env:GITHUB_OUTPUT
           msstore publish $msix.FullName -id ${{ secrets.MS_STORE_APP_ID }} --noCommit
+          if ($LASTEXITCODE -ne 0) { Write-Host "::error::msstore publish failed (exit $LASTEXITCODE)"; exit $LASTEXITCODE }
           Write-Host "::notice::Uploaded $($msix.Name) as a draft submission (not yet committed)."
 
       # Fetches the draft submission `publish --noCommit` just created, then
@@ -689,6 +697,8 @@ jobs:
         run: |
           msstore submission get ${{ secrets.MS_STORE_APP_ID }} | Out-File -Encoding utf8 submission-raw.txt
           node scripts/apply-store-metadata.mjs --in submission-raw.txt --out submission-merged.json
+          if ($LASTEXITCODE -ne 0) { Write-Host "::error::apply-store-metadata.mjs failed (exit $LASTEXITCODE)"; exit $LASTEXITCODE }
+          if (-not (Test-Path submission-merged.json)) { Write-Host "::error::apply-store-metadata.mjs reported success but submission-merged.json was not written"; exit 1 }
           Write-Host "::notice::Merged price + listing metadata into the draft submission."
 
       - name: Update submission metadata
@@ -697,6 +707,7 @@ jobs:
         run: |
           $merged = Get-Content -Raw submission-merged.json
           msstore submission updateMetadata ${{ secrets.MS_STORE_APP_ID }} $merged
+          if ($LASTEXITCODE -ne 0) { Write-Host "::error::msstore submission updateMetadata failed (exit $LASTEXITCODE)"; exit $LASTEXITCODE }
 
       # Only now does the submission (package + price + listing text, all
       # applied above) actually go to Microsoft for certification.
@@ -705,6 +716,7 @@ jobs:
         shell: pwsh
         run: |
           msstore submission publish ${{ secrets.MS_STORE_APP_ID }}
+          if ($LASTEXITCODE -ne 0) { Write-Host "::error::msstore submission publish failed (exit $LASTEXITCODE)"; exit $LASTEXITCODE }
           Write-Host "::notice::Submitted to Microsoft Store product ${{ secrets.MS_STORE_APP_ID }} (package + price + listing text) — check Partner Center for certification status."
 
   build-macos:
