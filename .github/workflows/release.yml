@@ -813,18 +813,21 @@ jobs:
       # ── Developer-ID Signing + Notarization ──────────────────────────────────
       # Reactivated (v1.2.45): the stable self-signed identity (70e3eb4d) was a
       # workaround for not having a paid Apple Developer Program at the time — an
-      # active program (Team REDACTED-APPLE-TEAM-ID, ASC API key already used by the local
-      # Fastlane lanes) now exists, and Developer-ID is Apple's own supported path
-      # for a stable, identity-based designated requirement, so it supersedes the
+      # active program (same Team/ASC API key already used by the local Fastlane
+      # lanes) now exists, and Developer-ID is Apple's own supported path for a
+      # stable, identity-based designated requirement, so it supersedes the
       # self-signed workaround outright: the macOS Accessibility (TCC) permission
       # still persists across updates (same reasoning as 70e3eb4d), AND the app is
       # notarized — no more "unidentified developer" Gatekeeper warning on a fresh
       # download, and the Homebrew cask path (which requires notarization) unlocks.
       #
-      # Requires three secrets (set via scripts/setup-gh-secrets.sh):
+      # Requires six secrets (set via scripts/setup-gh-secrets.sh):
       #   MACOS_DEVELOPER_ID_CERT_BASE64 — base64-encoded .p12 certificate
       #   MACOS_DEVELOPER_ID_CERT_PASSWORD — .p12 export password
-      #   ASC_API_KEY_BASE64 — base64-encoded AuthKey_REDACTED-ASC-KEY-ID.p8
+      #   ASC_API_KEY_BASE64 — base64-encoded AuthKey_<ASC_KEY_ID>.p8
+      #   ASC_KEY_ID — App Store Connect API Key ID
+      #   ASC_ISSUER_ID — App Store Connect API Issuer ID
+      #   APPLE_TEAM_ID — Apple Developer Team ID
       #
       # If any of these secrets are absent the step is skipped with a clear
       # message and the job continues — unsigned DMG is still uploaded as
@@ -834,7 +837,10 @@ jobs:
         run: |
           if [[ -z "${{ secrets.MACOS_DEVELOPER_ID_CERT_BASE64 }}" || \
                 -z "${{ secrets.MACOS_DEVELOPER_ID_CERT_PASSWORD }}" || \
-                -z "${{ secrets.ASC_API_KEY_BASE64 }}" ]]; then
+                -z "${{ secrets.ASC_API_KEY_BASE64 }}" || \
+                -z "${{ secrets.ASC_KEY_ID }}" || \
+                -z "${{ secrets.ASC_ISSUER_ID }}" || \
+                -z "${{ secrets.APPLE_TEAM_ID }}" ]]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
             echo "::warning::Signing secrets not set — skipping Developer-ID notarization. DMG will be unsigned and the Accessibility permission will NOT persist across updates."
           else
@@ -874,15 +880,20 @@ jobs:
         if: steps.signing_check.outputs.skip != 'true'
         env:
           ASC_API_KEY_BASE64: ${{ secrets.ASC_API_KEY_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
         run: |
           # notarytool looks for the key at the standard Fastlane path.
           KEY_DIR="$HOME/.appstoreconnect/private_keys"
           mkdir -p "$KEY_DIR"
-          echo "$ASC_API_KEY_BASE64" | base64 --decode -o "$KEY_DIR/AuthKey_REDACTED-ASC-KEY-ID.p8"
-          chmod 600 "$KEY_DIR/AuthKey_REDACTED-ASC-KEY-ID.p8"
+          echo "$ASC_API_KEY_BASE64" | base64 --decode -o "$KEY_DIR/AuthKey_$ASC_KEY_ID.p8"
+          chmod 600 "$KEY_DIR/AuthKey_$ASC_KEY_ID.p8"
 
       - name: Sign, notarize and staple .app
         if: steps.signing_check.outputs.skip != 'true'
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           APP_PATH="build/macos/Build/Products/Release/whispaste.app"
 
@@ -900,13 +911,12 @@ jobs:
           NOTARIZE_ZIP="$RUNNER_TEMP/whispaste-notarize.zip"
           ditto -c -k --keepParent "$APP_PATH" "$NOTARIZE_ZIP"
 
-          # Submit to Apple for notarization and wait.
-          # Key-ID REDACTED-ASC-KEY-ID, Team REDACTED-APPLE-TEAM-ID (same shared ASC API key as Fastlane).
+          # Submit to Apple for notarization and wait (same shared ASC API key as Fastlane).
           xcrun notarytool submit "$NOTARIZE_ZIP" \
-            --key "$HOME/.appstoreconnect/private_keys/AuthKey_REDACTED-ASC-KEY-ID.p8" \
-            --key-id "REDACTED-ASC-KEY-ID" \
-            --issuer "REDACTED-ASC-ISSUER-ID" \
-            --team-id "REDACTED-APPLE-TEAM-ID" \
+            --key "$HOME/.appstoreconnect/private_keys/AuthKey_$ASC_KEY_ID.p8" \
+            --key-id "$ASC_KEY_ID" \
+            --issuer "$ASC_ISSUER_ID" \
+            --team-id "$APPLE_TEAM_ID" \
             --wait \
             --verbose
 
