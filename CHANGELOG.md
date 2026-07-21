@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.57
+
+### Bug Fixes
+
+- **Kleiner Fehler im Download-Support-Fenster der Webseite behoben:** Auf macOS erschien der „Auf GitHub einen Stern geben"-Eintrag versehentlich doppelt.
+
+### Maintenance
+
+- **Microsoft-Store-Veröffentlichungs-Workflow abgesichert.** Ein plattformspezifischer Fehler verhinderte, dass Preis und Store-Texte bei der automatisierten Einreichung zuverlässig übernommen wurden — behoben und gehärtet.
+
 ## 1.2.56
 
 ### Maintenance
