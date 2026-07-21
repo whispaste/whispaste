@@ -32,7 +32,7 @@ test('repairMsstoreJson throws a clear error when no JSON object is found', () =
   assert.throws(() => repairMsstoreJson('no braces here'), /No JSON object found/);
 });
 
-test('mergeManagedMetadata overwrites Pricing but preserves other Pricing fields', () => {
+test('mergeManagedMetadata leaves Pricing completely untouched (Pricing V2 account, API can\'t write it)', () => {
   const submission = {
     Pricing: { TrialPeriod: 'NoFreeTrial', PriceId: 'Free', IsAdvancedPricingModel: true },
     Listings: {
@@ -42,7 +42,6 @@ test('mergeManagedMetadata overwrites Pricing but preserves other Pricing fields
     ApplicationPackages: ['unrelated'],
   };
   const managed = {
-    pricing: { PriceId: 'Tier3', IsAdvancedPricingModel: false },
     listings: {
       'en-us': { Title: 'New', Description: 'desc', Features: ['f1'], Keywords: ['k1'], ReleaseNotes: 'rn' },
       de: { Title: 'Neu', Description: 'beschr', Features: ['f1de'], Keywords: ['k1de'], ReleaseNotes: 'rnde' },
@@ -51,9 +50,11 @@ test('mergeManagedMetadata overwrites Pricing but preserves other Pricing fields
 
   const merged = mergeManagedMetadata(submission, managed);
 
-  assert.equal(merged.Pricing.PriceId, 'Tier3');
-  assert.equal(merged.Pricing.IsAdvancedPricingModel, false);
-  assert.equal(merged.Pricing.TrialPeriod, 'NoFreeTrial', 'unmanaged Pricing fields survive');
+  assert.deepEqual(
+    merged.Pricing,
+    { TrialPeriod: 'NoFreeTrial', PriceId: 'Free', IsAdvancedPricingModel: true },
+    'Pricing survives byte-for-byte — this script must never attempt to write it',
+  );
 
   assert.equal(merged.Listings['en-us'].BaseListing.Title, 'New');
   assert.equal(merged.Listings['en-us'].BaseListing.Description, 'desc');
@@ -69,7 +70,6 @@ test('mergeManagedMetadata does not mutate the input submission object', () => {
     Listings: { 'en-us': { BaseListing: { Title: 'Old' } }, de: { BaseListing: { Title: 'Alt' } } },
   };
   const managed = {
-    pricing: { PriceId: 'Tier3', IsAdvancedPricingModel: false },
     listings: {
       'en-us': { Title: 'New', Description: '', Features: [], Keywords: [], ReleaseNotes: '' },
       de: { Title: 'Neu', Description: '', Features: [], Keywords: [], ReleaseNotes: '' },
@@ -85,7 +85,6 @@ test('mergeManagedMetadata does not mutate the input submission object', () => {
 test('mergeManagedMetadata throws if the submission is missing a managed locale', () => {
   const submission = { Pricing: {}, Listings: { 'en-us': { BaseListing: {} } } };
   const managed = {
-    pricing: { PriceId: 'Tier3', IsAdvancedPricingModel: false },
     listings: {
       'en-us': { Title: 'x', Description: '', Features: [], Keywords: [], ReleaseNotes: '' },
       de: { Title: 'x', Description: '', Features: [], Keywords: [], ReleaseNotes: '' },

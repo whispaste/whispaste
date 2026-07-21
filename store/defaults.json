@@ -8,9 +8,5 @@
     "VoiceTitle": "WhisPaste",
     "DevStudio": "Silvio Lindstedt"
   },
-  "pricing": {
-    "priceId": "Tier3",
-    "isAdvancedPricingModel": false,
-    "_comment": "Tier3 = 0.99 base-currency increments starting at Tier2=0.99, so Tier3=1.99 — verified live 2026-07-21 by writing+reading back against the real WhisPaste submission. Full tier table: Partner Center > Pricing and availability > 'view table'. See ~/.claude/infrastructure/microsoft-partner-center.md §8 for the full research trail."
-  }
+  "_pricing_note": "Price is set once, manually, in Partner Center > Pricing and availability — NOT here. WhisPaste's account is on Pricing V2 (Advanced Pricing Model); Microsoft's Submission API docs say outright it can't be used to write pricing for Pricing V2 accounts (every commit attempt with a Pricing.PriceId here failed with 'Price Tier is not supported', 2026-07-21). scripts/apply-store-metadata.mjs deliberately leaves Pricing untouched. See ~/.claude/infrastructure/microsoft-partner-center.md §8/§9 for the full research trail."
 }

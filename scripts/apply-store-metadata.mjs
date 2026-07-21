@@ -25,8 +25,10 @@
  *      actual `{...}` body — stripped here too.
  *
  * MANAGED FIELDS (everything else in the submission passes through as-is)
- *   Pricing.PriceId / Pricing.IsAdvancedPricingModel  ← store/defaults.json "pricing"
  *   Listings.<locale>.BaseListing.Title               ← store/defaults.json "default.Title"
+ *   (NOT Pricing — WhisPaste's account is on Pricing V2 / Advanced Pricing
+ *   Model, for which Microsoft's own docs say the Submission API can't be
+ *   used to write pricing at all; see the comment on mergeManagedMetadata.)
  *   Listings.<locale>.BaseListing.Description          ← store/<folder>/description.txt
  *   Listings.<locale>.BaseListing.Features              ← store/<folder>/features.txt (one per line)
  *   Listings.<locale>.BaseListing.Keywords              ← store/<folder>/search-terms.txt (one per line)
@@ -115,10 +117,6 @@ function readList(path) {
  */
 export function loadManagedMetadata(storeDir) {
   const defaults = JSON.parse(readFileSync(join(storeDir, 'defaults.json'), 'utf8'));
-  const pricing = defaults.pricing;
-  if (!pricing || !pricing.priceId) {
-    throw new Error('store/defaults.json is missing a "pricing.priceId" value.');
-  }
   const title = defaults.default?.Title;
   if (!title) {
     throw new Error('store/defaults.json is missing "default.Title".');
@@ -139,13 +137,7 @@ export function loadManagedMetadata(storeDir) {
     };
   }
 
-  return {
-    pricing: {
-      PriceId: pricing.priceId,
-      IsAdvancedPricingModel: pricing.isAdvancedPricingModel ?? false,
-    },
-    listings,
-  };
+  return { listings };
 }
 
 // ── Step 3: merge managed fields into the fetched submission, leave the rest untouched ──
@@ -153,11 +145,20 @@ export function loadManagedMetadata(storeDir) {
 export function mergeManagedMetadata(submission, managed) {
   const merged = structuredClone(submission);
 
-  merged.Pricing = {
-    ...merged.Pricing,
-    PriceId: managed.pricing.PriceId,
-    IsAdvancedPricingModel: managed.pricing.IsAdvancedPricingModel,
-  };
+  // Pricing is deliberately NOT touched here. Microsoft's own docs are
+  // explicit: "You can't use this API with apps or add-ons that are on
+  // Pricing Version 2" (Create and manage submissions, learn.microsoft.com)
+  // — WhisPaste's account is on Pricing V2 ("Advanced Pricing Model"),
+  // where `isAdvancedPricingModel` is read-only and every attempt to write
+  // Pricing.PriceId fails submission commit with "Price Tier is not
+  // supported", regardless of which tier string is sent. There is no
+  // documented alternative schema and no public Tier1012–Tier1424→price
+  // mapping (2026-07-21 incident: every real commit attempt failed on this
+  // exact field until it was removed from the managed set). Price is set
+  // once, manually, in Partner Center → Pricing and availability — the only
+  // Microsoft-sanctioned path for a Pricing V2 account — and this script
+  // now leaves whatever value is already there untouched, same as every
+  // other field it doesn't manage.
 
   for (const [locale, fields] of Object.entries(managed.listings)) {
     if (!merged.Listings[locale]) {
@@ -215,8 +216,7 @@ function main() {
   const merged = mergeManagedMetadata(submission, managed);
 
   process.stderr.write(
-    `Merged: PriceId=${merged.Pricing.PriceId} (IsAdvancedPricingModel=${merged.Pricing.IsAdvancedPricingModel}), ` +
-      `locales=[${Object.keys(managed.listings).join(', ')}]\n`,
+    `Merged: locales=[${Object.keys(managed.listings).join(', ')}] (Pricing left untouched — Pricing V2 account)\n`,
   );
 
   if (args.check) {
