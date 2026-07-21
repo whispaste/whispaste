@@ -2,9 +2,19 @@
 ///
 /// Tests for model download functionality including:
 /// - Download failure handling (network errors, invalid URLs)
-/// - GitHub API endpoint validation
 /// - Model registry correctness
 /// - State management during downloads
+///
+/// Live-network smoke tests against the real GitHub Releases API used to
+/// live here ("GitHub API Endpoints" group) — removed 2026-07-21. They
+/// asserted on GitHub's actual API response (status code, release count,
+/// asset names) instead of anything in this codebase, so they failed
+/// whenever GitHub rate-limited the CI runner's shared IP, had a network
+/// hiccup, or — as happened during a release-tag cleanup — the repo
+/// briefly had zero releases. That's recurring CI flakiness unrelated to
+/// app correctness; real coverage of ModelDownloadService lives in
+/// model_download_service_behavior_snapshot_test.dart and
+/// model_download_service_nonblocking_init_test.dart, both mocked.
 library;
 
 import 'package:dio/dio.dart';
@@ -13,129 +23,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/services/hardware_info_service.dart';
 import 'package:whispaste/services/model_download_service.dart';
 
-// ---------------------------------------------------------------------------
-// GitHub API URL Validation Tests
-// ---------------------------------------------------------------------------
-
 void main() {
-  group('GitHub API Endpoints', () {
-    test('WhisPaste releases API returns valid JSON', () async {
-      // This test verifies the WhisPaste releases endpoint is accessible
-      // and returns valid JSON data. The service uses this to find
-      // whisper-server binaries.
-      final dio = Dio(
-        BaseOptions(
-          connectTimeout: const Duration(seconds: 10),
-          receiveTimeout: const Duration(seconds: 10),
-          headers: {
-            'Accept': 'application/vnd.github.v3+json',
-            'User-Agent': 'WhisPaste-Test/1.0',
-          },
-        ),
-      );
-
-      const apiUrl =
-          'https://api.github.com/repos/whispaste/whispaste/releases';
-
-      try {
-        final response = await dio.get<List<dynamic>>(apiUrl);
-
-        // Should return 200 OK
-        expect(response.statusCode, 200);
-
-        // Should return a list of releases
-        expect(response.data, isNotNull);
-        expect(response.data, isA<List<dynamic>>());
-
-        // Should have at least one release
-        expect(response.data!.length, greaterThan(0));
-
-        // Each release should have required fields
-        final firstRelease = response.data!.first as Map<String, dynamic>;
-        expect(firstRelease['tag_name'], isNotNull);
-        expect(firstRelease['assets'], isA<List<dynamic>>());
-
-        // Verify we can find whisper-server releases
-        final whisperServerReleases = response.data!.where(
-          (r) => (r as Map<String, dynamic>)['tag_name'].toString().startsWith(
-            'whisper-server-',
-          ),
-        );
-        // Note: May be empty in some cases, but the API should still work
-        expect(whisperServerReleases, isA<Iterable>());
-      } on DioException catch (e) {
-        // Handle rate limiting gracefully - the endpoint is valid even if rate limited
-        if (e.response?.statusCode == 403) {
-          expect(e.response?.statusCode, 403);
-          markTestSkipped(
-            'GitHub API rate limited - endpoint is valid but temporarily blocked',
-          );
-        } else {
-          rethrow;
-        }
-      }
-
-      dio.close();
-    });
-
-    test('Whisper.cpp releases API returns valid JSON', () async {
-      // This test verifies the upstream whisper.cpp releases endpoint
-      // is accessible and returns valid JSON data.
-      final dio = Dio(
-        BaseOptions(
-          connectTimeout: const Duration(seconds: 10),
-          receiveTimeout: const Duration(seconds: 10),
-          headers: {
-            'Accept': 'application/vnd.github.v3+json',
-            'User-Agent': 'WhisPaste-Test/1.0',
-          },
-        ),
-      );
-
-      const apiUrl =
-          'https://api.github.com/repos/ggml-org/whisper.cpp/releases/latest';
-
-      try {
-        final response = await dio.get<Map<String, dynamic>>(apiUrl);
-
-        // Should return 200 OK
-        expect(response.statusCode, 200);
-
-        // Should return a release object
-        expect(response.data, isNotNull);
-        expect(response.data, isA<Map<String, dynamic>>());
-
-        // Should have required fields
-        expect(response.data!['tag_name'], isNotNull);
-        expect(response.data!['assets'], isA<List<dynamic>>());
-
-        // Should have assets (binaries)
-        final assets = response.data!['assets'] as List<dynamic>;
-        expect(assets.length, greaterThan(0));
-
-        // Verify Windows binaries are available
-        final windowsAssets = assets.where(
-          (a) =>
-              (a as Map<String, dynamic>)['name'].toString().contains('win') ||
-              a['name'].toString().contains('Win'),
-        );
-        expect(windowsAssets, isNotEmpty);
-      } on DioException catch (e) {
-        // Handle rate limiting gracefully
-        if (e.response?.statusCode == 403) {
-          expect(e.response?.statusCode, 403);
-          markTestSkipped(
-            'GitHub API rate limited - endpoint is valid but temporarily blocked',
-          );
-        } else {
-          rethrow;
-        }
-      }
-
-      dio.close();
-    });
-  });
-
   group('Model Registry', () {
     test('STT models are properly defined', () {
       // Verify all STT models have required fields
