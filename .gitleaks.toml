@@ -27,6 +27,14 @@ title = "WhisPaste gitleaks config"
 
   regexTarget = "match"
   commits = ["3e202004ec33e483964ff040548f75961594b046"]
+  # 2026-07-21 incident cleanup: historical fastlane/Appfile+Fastfile blobs were
+  # scrubbed by replacing the leaked literal values with obvious REDACTED-*
+  # placeholders (see git history rewrite, commit 09aeac13's follow-ups). Our
+  # own hardcoded-fastlane-credential rule matches the *shape* of a hardcoded
+  # literal regardless of its value, so it now flags its own placeholder text.
+  # That's a false positive by design — exempt it explicitly rather than
+  # weakening the rule's real detection.
+  regexes = ['''REDACTED-[A-Z-]+''']
 
   [[allowlist.rules]]
     description = "Test API key in Dart test files"
