@@ -1378,6 +1378,20 @@ jobs:
             "artifacts" \
             "https://github.com/whispaste/whispaste/releases/tag/${GITHUB_REF_NAME#v}"
 
+      # A stable release must also refresh the beta-channel fallback so
+      # Beta-channel users never sit behind stable just because no new beta
+      # build has shipped in a while (see scripts/publish_beta_fallback.sh).
+      # continue-on-error: this is a nice-to-have, must never block the
+      # actual stable release from completing.
+      - name: Refresh beta-channel fallback with this stable release
+        if: ${{ !contains(github.ref_name, '-beta.') }}
+        continue-on-error: true
+        env:
+          SPARKLE_SIGNING_KEY: ${{ secrets.SPARKLE_SIGNING_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          bash scripts/publish_beta_fallback.sh "${GITHUB_REF_NAME}" "artifacts"
+
       # Issue 08 fix, v2: a GitHub Release OBJECT can never serve as the
       # rolling `beta-latest` pointer — GitHub's immutable-releases feature
       # (GA since 2025-10) permanently burns a tag_name the moment any release
@@ -1860,6 +1874,19 @@ jobs:
             "${{ steps.vars.outputs.stable-tag }}" \
             "promote-artifacts" \
             "https://github.com/${{ github.repository }}/releases/tag/${{ steps.vars.outputs.stable-version }}"
+
+      # Same fallback as the regular tag-push path (publish-appcast job) —
+      # a promoted stable build must also refresh beta-appcast-pointer so
+      # Beta-channel users never sit behind it. continue-on-error: nice-to-
+      # have, must never block the promotion itself.
+      - name: Refresh beta-channel fallback with this stable release
+        continue-on-error: true
+        env:
+          SPARKLE_SIGNING_KEY: ${{ secrets.SPARKLE_SIGNING_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          bash scripts/publish_beta_fallback.sh "${{ steps.vars.outputs.stable-tag }}" "promote-artifacts"
 
       - name: Publish stable release (draft → published, mark latest)
         env:
