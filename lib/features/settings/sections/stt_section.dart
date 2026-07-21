@@ -230,6 +230,12 @@ class _SpeechRecognitionSectionState
               ),
             ),
 
+          // Both punctuation-related toggles are grouped directly together
+          // (Strip Punctuation, then Punctuation Priming right below it) so
+          // they read as a pair, even though Punctuation Priming is
+          // local-Whisper-only and Custom Vocabulary (below both) has a
+          // different, wider visibility condition.
+
           // Strip punctuation — engine/provider-independent. Unlike
           // punctuationPriming below (a Whisper-only prompt nudge), this is
           // a deterministic post-processing step applied to the final
@@ -253,24 +259,11 @@ class _SpeechRecognitionSectionState
             ),
           ),
 
-          // Custom vocabulary — local Whisper (initial-prompt, see
-          // stt_server_state_notifier.dart) OR OpenAI cloud (the equivalent
-          // `prompt` field on /v1/audio/transcriptions, see
-          // openai_transcriber.dart). Deepgram has no free-text prompt
-          // mechanism (it uses per-term `keywords` boosting instead — a
-          // different feature, not built yet) and Parakeet's transducer
-          // architecture has no prompt-conditioning at all, so both stay
-          // excluded — showing the field there would be the same "looks
-          // available but isn't" trap as the language picker above.
-          if (isLocal && settings.onDeviceEngine == OnDeviceEngine.whisper ||
-              settings.sttProviderType == SttProviderType.openAI)
-            _CustomVocabularyField(initialValue: settings.customVocabulary),
-
           // Punctuation priming — local Whisper only (a prompt nudge fed
           // into whisper.cpp's initial-prompt mechanism; no equivalent
           // exists for the cloud providers or Parakeet). For a toggle that
           // reliably removes punctuation regardless of engine/provider, see
-          // "Strip punctuation" above.
+          // "Strip punctuation" directly above.
           if (isLocal && settings.onDeviceEngine == OnDeviceEngine.whisper)
             SettingRow(
               icon: LucideIcons.pilcrow,
@@ -288,6 +281,19 @@ class _SpeechRecognitionSectionState
                     ),
               ),
             ),
+
+          // Custom vocabulary — local Whisper (initial-prompt, see
+          // stt_server_state_notifier.dart) OR OpenAI cloud (the equivalent
+          // `prompt` field on /v1/audio/transcriptions, see
+          // openai_transcriber.dart). Deepgram has no free-text prompt
+          // mechanism (it uses per-term `keywords` boosting instead — a
+          // different feature, not built yet) and Parakeet's transducer
+          // architecture has no prompt-conditioning at all, so both stay
+          // excluded — showing the field there would be the same "looks
+          // available but isn't" trap as the language picker above.
+          if (isLocal && settings.onDeviceEngine == OnDeviceEngine.whisper ||
+              settings.sttProviderType == SttProviderType.openAI)
+            _CustomVocabularyField(initialValue: settings.customVocabulary),
         ],
       ),
     );

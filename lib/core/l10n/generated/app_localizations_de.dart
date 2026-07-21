@@ -681,11 +681,11 @@ class L10nDe extends L10n {
       'z.B. WhisPaste, Kubernetes, Dr. Müller';
 
   @override
-  String get settingsPunctuationPriming => 'Interpunktions-Priming';
+  String get settingsPunctuationPriming => 'Satzzeichen anregen';
 
   @override
   String get settingsPunctuationPrimingSubtitle =>
-      'Bringt Whisper dazu, eher Interpunktion zu setzen, wenn kein Custom Vocabulary hinterlegt ist. Hat keinen Einfluss auf die Geschwindigkeit.';
+      'Bringt Whisper dazu, eher Satzzeichen zu setzen, wenn kein benutzerdefiniertes Vokabular hinterlegt ist. Hat keinen Einfluss auf die Geschwindigkeit.';
 
   @override
   String get settingsStripPunctuation => 'Satzzeichen entfernen';
