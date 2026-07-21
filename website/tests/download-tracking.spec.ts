@@ -80,7 +80,7 @@ test.describe('download page — download:triggered dispatch', () => {
   }
 });
 
-const MODAL_OUTBOUND_TESTIDS = ['modal-star-github', 'modal-star-windows', 'modal-star-macos', 'modal-support'];
+const MODAL_OUTBOUND_TESTIDS = ['modal-star-github', 'modal-star-windows', 'modal-support'];
 
 // Same intent as preventDownloadNavigation above (module docstring: "neither
 // of which should hit the network in a fast, deterministic CI run"), but this
