@@ -1299,6 +1299,18 @@ abstract class L10n {
   /// **'Nudges Whisper towards punctuated output when no custom vocabulary is set. No effect on speed.'**
   String get settingsPunctuationPrimingSubtitle;
 
+  /// No description provided for @settingsStripPunctuation.
+  ///
+  /// In en, this message translates to:
+  /// **'Strip punctuation'**
+  String get settingsStripPunctuation;
+
+  /// No description provided for @settingsStripPunctuationSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Removes periods, commas, and other sentence punctuation from every transcript before it\'s saved or pasted — works the same way for every engine and provider, not just Whisper.'**
+  String get settingsStripPunctuationSubtitle;
+
   /// No description provided for @settingsAppLanguage.
   ///
   /// In en, this message translates to:

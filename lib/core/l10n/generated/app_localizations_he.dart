@@ -672,6 +672,13 @@ class L10nHe extends L10n {
       'מטה את Whisper לכיוון פלט מפוסק כאשר לא הוגדר אוצר מילים מותאם אישית. אין השפעה על המהירות.';
 
   @override
+  String get settingsStripPunctuation => 'הסרת סימני פיסוק';
+
+  @override
+  String get settingsStripPunctuationSubtitle =>
+      'מסירה נקודות, פסיקים וסימני פיסוק נוספים מכל תמלול לפני השמירה או ההדבקה — פועלת באותו אופן בכל מנוע וספק, לא רק ב-Whisper.';
+
+  @override
   String get settingsAppLanguage => 'שפת האפליקציה';
 
   @override

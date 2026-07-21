@@ -688,6 +688,13 @@ class L10nDe extends L10n {
       'Bringt Whisper dazu, eher Interpunktion zu setzen, wenn kein Custom Vocabulary hinterlegt ist. Hat keinen Einfluss auf die Geschwindigkeit.';
 
   @override
+  String get settingsStripPunctuation => 'Satzzeichen entfernen';
+
+  @override
+  String get settingsStripPunctuationSubtitle =>
+      'Entfernt Punkte, Kommas und andere Satzzeichen aus jedem Transkript, bevor es gespeichert oder eingefügt wird — funktioniert bei jeder Engine und jedem Anbieter gleich, nicht nur bei Whisper.';
+
+  @override
   String get settingsAppLanguage => 'App-Sprache';
 
   @override

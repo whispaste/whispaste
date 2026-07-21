@@ -35,6 +35,7 @@ import 'paste/paste_failure_notifier.dart';
 import 'paste/paste_policy.dart';
 import 'paste/paster.dart';
 import 'system_attention_service.dart';
+import 'text_transforms.dart';
 import 'tray_service.dart';
 import 'recording_store.dart';
 import 'stt/inference_client_rejected.dart';
@@ -834,6 +835,16 @@ class RecordingOrchestrator extends Notifier<void> {
       } else if (saveResult case FailedWith(:final error)) {
         _log.error('[$sid] Save to history failed: $error');
       }
+    }
+
+    // ── Punctuation strip (always applied after text replacements) ──
+    // Deterministic, engine-independent — runs regardless of which STT
+    // engine/provider produced finalText. Placed after the history-save
+    // block (and its text-replacement pass) so a user's own explicit voice
+    // shortcut for punctuation (e.g. a "period" → "." trigger) survives;
+    // only the STT engine's own auto-inserted punctuation is removed.
+    if (settings.stt.stripPunctuation) {
+      finalText = stripPunctuation(finalText);
     }
 
     // ── Step 5: After-transcription action (10 s budget) ──────────

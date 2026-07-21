@@ -236,6 +236,8 @@
   "settingsCustomVocabularyPlaceholder": "e.g. WhisPaste, Kubernetes, Dr. Mueller",
   "settingsPunctuationPriming": "Punctuation priming",
   "settingsPunctuationPrimingSubtitle": "Nudges Whisper towards punctuated output when no custom vocabulary is set. No effect on speed.",
+  "settingsStripPunctuation": "Strip punctuation",
+  "settingsStripPunctuationSubtitle": "Removes periods, commas, and other sentence punctuation from every transcript before it's saved or pasted — works the same way for every engine and provider, not just Whisper.",
   "settingsAppLanguage": "App Language",
   "settingsSttModels": "Speech Recognition Models",
   "settingsOpenAiApiKey": "OpenAI API Key",

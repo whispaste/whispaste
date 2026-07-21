@@ -230,6 +230,29 @@ class _SpeechRecognitionSectionState
               ),
             ),
 
+          // Strip punctuation — engine/provider-independent. Unlike
+          // punctuationPriming below (a Whisper-only prompt nudge), this is
+          // a deterministic post-processing step applied to the final
+          // transcript in RecordingOrchestrator regardless of which STT
+          // engine or provider produced it, so it works identically for
+          // on-device Whisper, Parakeet, and every cloud provider.
+          SettingRow(
+            icon: LucideIcons.eraser,
+            label: l10n.settingsStripPunctuation,
+            subtitle: l10n.settingsStripPunctuationSubtitle,
+            semanticToggledValue: settings.stt.stripPunctuation,
+            trailing: Switch(
+              value: settings.stt.stripPunctuation,
+              onChanged: (v) => ref
+                  .read(settingsProvider.notifier)
+                  .updateSettings(
+                    (s) => s.copyWithSections(
+                      stt: s.stt.copyWith(stripPunctuation: v),
+                    ),
+                  ),
+            ),
+          ),
+
           // Custom vocabulary + punctuation priming — local Whisper only.
           // Both feed whisper.cpp's initial-prompt mechanism
           // (stt_server_state_notifier.dart); neither the Parakeet engine

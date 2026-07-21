@@ -683,6 +683,13 @@ class L10nEn extends L10n {
       'Nudges Whisper towards punctuated output when no custom vocabulary is set. No effect on speed.';
 
   @override
+  String get settingsStripPunctuation => 'Strip punctuation';
+
+  @override
+  String get settingsStripPunctuationSubtitle =>
+      'Removes periods, commas, and other sentence punctuation from every transcript before it\'s saved or pasted — works the same way for every engine and provider, not just Whisper.';
+
+  @override
   String get settingsAppLanguage => 'App Language';
 
   @override

@@ -293,6 +293,7 @@ class SttSettings {
     this.customVocabulary = '',
     this.engine = 'whisper',
     this.punctuationPriming = true,
+    this.stripPunctuation = false,
   });
 
   final String provider;
@@ -321,6 +322,20 @@ class SttSettings {
   /// unprimed model output (e.g. verbatim technical dictation).
   final bool punctuationPriming;
 
+  /// Whether sentence-level punctuation (periods, commas, question/
+  /// exclamation marks, colons, semicolons, and the em/en dash + ellipsis
+  /// some STT engines insert as clause connectors) is deterministically
+  /// stripped from the final transcript before it is saved/pasted — see
+  /// `stripPunctuation` in `text_transforms.dart`.
+  ///
+  /// Unlike [punctuationPriming] (a Whisper-only prompt nudge that cannot
+  /// reliably suppress punctuation the model adds on its own), this is a
+  /// plain text post-processing step applied uniformly after transcription
+  /// regardless of engine or provider — on-device Whisper, Parakeet, and
+  /// every cloud provider all go through the same code path
+  /// (`RecordingOrchestrator`), so the toggle behaves identically everywhere.
+  final bool stripPunctuation;
+
   static const SttSettings defaults = SttSettings();
 
   factory SttSettings.fromMap(Map<String, String> v) => SttSettings(
@@ -339,6 +354,11 @@ class SttSettings {
       'stt_punctuation_priming',
       defaults.punctuationPriming,
     ),
+    stripPunctuation: _readBool(
+      v,
+      'stt_strip_punctuation',
+      defaults.stripPunctuation,
+    ),
   );
 
   Map<String, String> toMap() => {
@@ -349,6 +369,7 @@ class SttSettings {
     'custom_vocabulary': customVocabulary,
     'stt_engine': engine,
     'stt_punctuation_priming': '$punctuationPriming',
+    'stt_strip_punctuation': '$stripPunctuation',
   };
 
   // loam-ignore: code-duplicates – every settings-section class in this file
@@ -363,6 +384,7 @@ class SttSettings {
     String? customVocabulary,
     String? engine,
     bool? punctuationPriming,
+    bool? stripPunctuation,
   }) => SttSettings(
     provider: provider ?? this.provider,
     model: model ?? this.model,
@@ -371,6 +393,7 @@ class SttSettings {
     customVocabulary: customVocabulary ?? this.customVocabulary,
     engine: engine ?? this.engine,
     punctuationPriming: punctuationPriming ?? this.punctuationPriming,
+    stripPunctuation: stripPunctuation ?? this.stripPunctuation,
   );
 
   @override
@@ -383,7 +406,8 @@ class SttSettings {
           idleTimeoutMinutes == other.idleTimeoutMinutes &&
           customVocabulary == other.customVocabulary &&
           engine == other.engine &&
-          punctuationPriming == other.punctuationPriming;
+          punctuationPriming == other.punctuationPriming &&
+          stripPunctuation == other.stripPunctuation;
 
   @override
   int get hashCode => Object.hash(
@@ -394,6 +418,7 @@ class SttSettings {
     customVocabulary,
     engine,
     punctuationPriming,
+    stripPunctuation,
   );
 }
 
