@@ -4,9 +4,13 @@
 #   - mas_release    → Mac App Store (sandboxed, NO auto-paste)
 #   - devid_release  → Developer-ID notarized .app/.dmg (full auto-paste)
 #
-# Authentication reuses the shared App Store Connect API key (Team REDACTED-APPLE-TEAM-ID),
-# exactly like REDACTED-OTHER-PROJECT:
-#   ~/.appstoreconnect/private_keys/AuthKey_REDACTED-ASC-KEY-ID.p8
+# Authentication reuses an existing shared App Store Connect API key already
+# provisioned for another of the maintainer's projects — values loaded from
+# a local, never-committed credentials file (load_credentials.rb below), not
+# hardcoded here. This repo is public; account-identifying values (Apple ID,
+# Team ID, API key IDs) must never be committed — see
+# ~/.claude/infrastructure/microsoft-partner-center.md for the convention
+# this project follows for every external credential.
 #
 # ── PREREQUISITES (see docs/store-release.md) ─────────────────────────────────
 #   1. Bundle-ID migrated to de.whispaste.app.
@@ -17,10 +21,16 @@
 #          (sandbox=false) + Hardened Runtime ON.
 #   3. Certificates present in keychain (Mac App Distribution + Mac Installer
 #      Distribution for MAS; Developer ID Application + Installer for direct).
+#   4. ~/.config/whispaste-ios-credentials/fastlane.env populated (see
+#      load_credentials.rb) — FASTLANE_APPLE_ID, FASTLANE_TEAM_ID, ASC_KEY_ID,
+#      ASC_ISSUER_ID.
 
-ASC_KEY_ID    = "REDACTED-ASC-KEY-ID"
-ASC_ISSUER_ID = "REDACTED-ASC-ISSUER-ID"
-ASC_KEY_PATH  = File.expand_path("~/.appstoreconnect/private_keys/AuthKey_REDACTED-ASC-KEY-ID.p8")
+require_relative 'load_credentials'
+
+ASC_KEY_ID    = ENV.fetch("ASC_KEY_ID")
+ASC_ISSUER_ID = ENV.fetch("ASC_ISSUER_ID")
+ASC_KEY_PATH  = File.expand_path(ENV.fetch("ASC_KEY_PATH", "~/.appstoreconnect/private_keys/AuthKey_#{ASC_KEY_ID}.p8"))
+FASTLANE_TEAM_ID = ENV.fetch("FASTLANE_TEAM_ID")
 
 # Absolute path to the repo root (the directory CONTAINING `fastlane/`).
 #
@@ -53,7 +63,7 @@ platform :mac do
   desc "Verify App Store Connect API access"
   lane :validate do
     load_asc_api_key
-    UI.success("App Store Connect API key OK (Team #{ENV['FASTLANE_TEAM_ID'] || 'REDACTED-APPLE-TEAM-ID'})")
+    UI.success("App Store Connect API key OK (Team #{FASTLANE_TEAM_ID})")
   end
 
   desc "Build + upload the Mac App Store build (sandboxed, no auto-paste)"
@@ -79,7 +89,7 @@ platform :mac do
       scheme:           "Runner",                # must be marked "Shared" in Xcode
       configuration:    "MAS",
       export_method:    "app-store",             # produces a signed .pkg
-      export_team_id:   "REDACTED-APPLE-TEAM-ID",
+      export_team_id:   FASTLANE_TEAM_ID,
       output_directory: File.join(PROJECT_ROOT, "build/fastlane"),
       output_name:      "WhisPaste"
     )
@@ -100,7 +110,7 @@ platform :mac do
     #
     # Prerequisites (see docs/store-release.md):
     #   - Developer ID Application certificate in keychain
-    #   - ASC API key at ASC_KEY_PATH (~/.appstoreconnect/private_keys/AuthKey_REDACTED-ASC-KEY-ID.p8)
+    #   - ASC API key at ASC_KEY_PATH (see load_credentials.rb / fastlane.env)
     #   - create-dmg installed: brew install create-dmg
     #
     # Skip path: set SKIP_NOTARIZATION=1 to build+sign without notarizing/stapling
@@ -115,7 +125,7 @@ platform :mac do
       scheme:           "Runner",
       configuration:    "Release",
       export_method:    "developer-id",
-      export_team_id:   "REDACTED-APPLE-TEAM-ID",
+      export_team_id:   FASTLANE_TEAM_ID,
       output_directory: File.join(PROJECT_ROOT, "build/fastlane"),
       output_name:      "WhisPaste"
     )

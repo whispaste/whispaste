@@ -327,6 +327,29 @@ EOF
   echo "  Semgrep: clean"
 fi
 
+# gitleaks (voller Verlauf, nicht nur die Push-Range) — fängt auch
+# --no-verify-Commits ab, die den Commit-Gate umgangen haben. Community-
+# gepflegtes, breiteres Regelwerk als die Handvoll fest verdrahteter Muster
+# in Schritt 3 oben. Sparsam: nur wenn installiert, nie deswegen blockieren.
+if command -v gitleaks >/dev/null 2>&1; then
+  echo ""; echo "gitleaks full-history scan..."
+  if ! gitleaks git --no-banner --redact "$ROOT" 2>&1; then
+    cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  PUSH BLOCKIERT: gitleaks fand ein mögliches Secret          ║
+║  (voller Verlauf — auch --no-verify-Commits werden erfasst) ║
+╚══════════════════════════════════════════════════════════════╝
+
+Falscher Alarm? .gitleaks.toml um eine gezielte Ausnahme ergänzen.
+EOF
+    exit 1
+  fi
+  echo "  gitleaks: clean"
+else
+  echo "⚠ gitleaks nicht installiert — Secret-Scan übersprungen. Empfohlen: brew install gitleaks" >&2
+fi
+
 # OSV-Scanner (vuln check; sparsam: nur wenn installiert)
 # Gemfile.lock ergänzt (2026-07-19): fehlte hier, sodass 3 high + 1 moderate
 # CVE (faraday/jwt/json) erst per GitHubs Remote-Dependabot-Scan NACH dem

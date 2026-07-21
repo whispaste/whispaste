@@ -3,6 +3,25 @@
 
 title = "WhisPaste gitleaks config"
 
+# Custom rules (2026-07-21 incident): gitleaks' default ruleset targets
+# secret-SHAPED strings (sk-…, ghp_…, high-entropy blobs). It does NOT catch
+# account-identifying values that don't look random — an email address, a
+# 10-char Apple Team ID, an App Store Connect Key/Issuer ID. Exactly this
+# class of value sat in fastlane/Appfile + Fastfile, publicly, for 40+ days
+# (verified: a full-history gitleaks scan with only the default ruleset
+# found nothing). These rules close that specific gap.
+[[rules]]
+  id = "hardcoded-fastlane-credential"
+  description = "Fastlane apple_id/team_id/itc_team_id/export_team_id/API key with a literal value instead of ENV.fetch(...)"
+  regex = '''(apple_id|team_id|itc_team_id|export_team_id|ASC_KEY_ID|ASC_ISSUER_ID)\s*[:(]\s*["'][^"']+["']'''
+  path = '''(^|/)fastlane/.*\.rb$|(^|/)(Fastfile|Appfile)$'''
+
+[[rules]]
+  id = "email-address-in-non-doc-file"
+  description = "Email address outside README/LICENSE/CHANGELOG/store listings — likely an account identifier that leaked into config/code"
+  regex = '''[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'''
+  path = '''\.(rb|sh|ps1|py|mjs|yml|yaml|dart)$'''
+
 [allowlist]
   description = "Allowlist for false positives"
 

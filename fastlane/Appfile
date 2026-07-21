@@ -1,12 +1,19 @@
 # Apple distribution config for WhisPaste (macOS).
 #
-# Reuses the same Apple Developer account / Team as REDACTED-OTHER-PROJECT (Team REDACTED-APPLE-TEAM-ID)
-# and the same App Store Connect API key, so no new key needs to be generated.
+# Reuses an existing Apple Developer account/Team and App Store Connect API
+# key already provisioned for another project of the maintainer's, so no new
+# key needs to be generated. Values are loaded from a local, never-committed
+# credentials file — see load_local_credentials in Fastfile for the loader
+# and ~/.claude/infrastructure/microsoft-partner-center.md-style convention
+# this project follows for every external credential (never hardcode an
+# identifier that ties back to a real account into a public repo).
 #
 # ⚠️ app_identifier is the REGISTERED App ID (de.whispaste.app). The macOS Xcode
 # project must be migrated from com.whispaste.whispaste to this id first
 # (see docs/store-release.md → "Bundle-ID-Migration").
+require_relative 'load_credentials'
+
 app_identifier("de.whispaste.app")
-apple_id("REDACTED-EMAIL")
-team_id("REDACTED-APPLE-TEAM-ID")
-itc_team_id("REDACTED-APPLE-TEAM-ID")
+apple_id(ENV.fetch("FASTLANE_APPLE_ID"))
+team_id(ENV.fetch("FASTLANE_TEAM_ID"))
+itc_team_id(ENV.fetch("FASTLANE_TEAM_ID"))

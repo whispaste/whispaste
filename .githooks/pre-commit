@@ -173,6 +173,34 @@ EOF
   fi
 done
 
+# ── 3b. gitleaks (breiteres, community-gepflegtes Regelwerk — ergänzt die
+#        obige Handvoll fest verdrahteter Muster; deckt u. a. generische API-
+#        Key-Formen, private Keys, Cloud-Provider-Tokens ab, die #3 nicht
+#        kennt). Nur gestagte Änderungen (schnell). Fehlt gitleaks lokal, nur
+#        warnen — nie deswegen den Commit verweigern (siehe CLAUDE.md
+#        Code-Qualität-Policy: "warnen, nicht blockieren, Nachinstallation
+#        vorschlagen"). ─────────────────────────────────────────────────
+if command -v gitleaks >/dev/null 2>&1; then
+  if ! gitleaks git --staged --no-banner --redact "$ROOT" >/tmp/gitleaks-precommit-$$.log 2>&1; then
+    cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  BLOCKIERT: gitleaks fand ein mögliches Secret (gestaged)   ║
+╚══════════════════════════════════════════════════════════════╝
+
+$(cat /tmp/gitleaks-precommit-$$.log)
+
+Secrets NIE committen. Weg damit, dann erneut versuchen.
+Falscher Alarm? .gitleaks.toml (bereits im Repo) um eine gezielte Ausnahme ergänzen.
+EOF
+    rm -f /tmp/gitleaks-precommit-$$.log
+    exit 1
+  fi
+  rm -f /tmp/gitleaks-precommit-$$.log
+else
+  echo "⚠ gitleaks nicht installiert — Secret-Scan übersprungen. Empfohlen: brew install gitleaks" >&2
+fi
+
 # ── 4. Flutter analyze (nur wenn Dart/Flutter-Dateien gestaged sind) ──
 DART_STAGED=$(echo "$STAGED_FILES" | grep -E '\.dart$|^pubspec\.yaml$' || true)
 if [ -n "$DART_STAGED" ]; then
