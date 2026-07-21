@@ -252,6 +252,7 @@
   "settingsPortabilityImportNotFound": "Keine Exportdatei unter {path} gefunden. Zuerst Einstellungen exportieren oder eine Exportdatei dorthin kopieren.",
   "settingsPortabilityImportError": "Import fehlgeschlagen: {reason}",
   "groqRemovedToast": "Groq STT wurde entfernt — Provider auf On-Device zurückgesetzt.",
+  "tccResetAfterUpdateToast": "macOS hat deine Auto-Paste-Berechtigung beim Update zurückgesetzt.",
   "migrationComplete": "{count, plural, one{1 Diktat von WhisPaste 1.x migriert} other{{count} Diktate von WhisPaste 1.x migriert}}",
   "@migrationComplete": {
     "placeholders": {

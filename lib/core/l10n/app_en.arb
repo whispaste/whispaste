@@ -304,6 +304,7 @@
     }
   },
   "groqRemovedToast": "Groq STT was removed — provider reset to On-Device.",
+  "tccResetAfterUpdateToast": "macOS reset your Auto-Paste permission during the update.",
   "migrationComplete": "{count, plural, one{1 dictation migrated from WhisPaste 1.x} other{{count} dictations migrated from WhisPaste 1.x}}",
   "@migrationComplete": {
     "placeholders": {

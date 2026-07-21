@@ -1509,6 +1509,12 @@ abstract class L10n {
   /// **'Groq STT was removed — provider reset to On-Device.'**
   String get groqRemovedToast;
 
+  /// No description provided for @tccResetAfterUpdateToast.
+  ///
+  /// In en, this message translates to:
+  /// **'macOS reset your Auto-Paste permission during the update.'**
+  String get tccResetAfterUpdateToast;
+
   /// No description provided for @migrationComplete.
   ///
   /// In en, this message translates to:

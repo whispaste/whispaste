@@ -797,6 +797,10 @@ class L10nHe extends L10n {
   String get groqRemovedToast => 'Groq STT הוסר — ספק אופס למקומי.';
 
   @override
+  String get tccResetAfterUpdateToast =>
+      'macOS איפסה את הרשאת ההדבקה האוטומטית במהלך העדכון.';
+
+  @override
   String migrationComplete(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,

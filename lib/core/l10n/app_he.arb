@@ -808,6 +808,7 @@
   "traySettings": "הגדרות",
   "trayQuit": "צא",
   "groqRemovedToast": "Groq STT הוסר — ספק אופס למקומי.",
+  "tccResetAfterUpdateToast": "macOS איפסה את הרשאת ההדבקה האוטומטית במהלך העדכון.",
   "settingsComingSoon": "בקרוב",
   "undo": "בטל",
   "voiceNoteButton": "הערת קול",

@@ -818,6 +818,10 @@ class L10nDe extends L10n {
       'Groq STT wurde entfernt — Provider auf On-Device zurückgesetzt.';
 
   @override
+  String get tccResetAfterUpdateToast =>
+      'macOS hat deine Auto-Paste-Berechtigung beim Update zurückgesetzt.';
+
+  @override
   String migrationComplete(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,

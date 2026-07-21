@@ -6,6 +6,8 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:flutter_localized_locales/flutter_localized_locales.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'core/app_info.dart';
 import 'core/config/settings_labels.dart';
 import 'core/config/settings_provider.dart';
 import 'core/navigation/page_state.dart';
@@ -36,7 +38,9 @@ import 'core/data/database.dart';
 import 'core/logging/app_logger.dart';
 import 'core/logging/crash_reporter.dart';
 import 'core/config/settings_enums.dart' show OnDeviceEngine;
+import 'services/paste/paste_capability_notifier.dart';
 import 'services/paste/paste_policy.dart';
+import 'services/paste/tcc_reset_notice.dart';
 import 'services/stt/stt_bundle.dart';
 import 'services/stt_engine_lifecycle_provider.dart';
 import 'services/stt_parakeet/parakeet_engine_notifier.dart'
@@ -241,7 +245,58 @@ class _AppShellState extends ConsumerState<_AppShell>
           duration: const Duration(seconds: 8),
         );
       }
+
+      unawaited(_maybeShowTccResetNotice());
     });
+  }
+
+  /// Proactive, one-time-per-version nudge when macOS reset the Auto-Paste
+  /// (Accessibility) permission as a side effect of an app update — see
+  /// tcc_reset_notice.dart. Previously the only way to discover a reset
+  /// permission was to stumble into Settings → After Transcription; this
+  /// surfaces it right after the update that caused it, with a one-tap fix.
+  Future<void> _maybeShowTccResetNotice() async {
+    if (!Platform.isMacOS) return;
+    final capNotifier = ref.read(pasteCapabilityNotifierProvider.notifier);
+    await capNotifier.check();
+    if (!mounted) return;
+    final capability = ref.read(pasteCapabilityNotifierProvider).capability;
+    final onboardingCompleted =
+        ref.read(settingsProvider).value?.onboardingCompleted ?? false;
+    final shouldShow = await maybeMarkTccResetNoticeVersion(
+      currentVersion: appVersion,
+      onboardingCompleted: onboardingCompleted,
+      isMacOS: true,
+      capabilityStatus: capability?.status,
+    );
+    if (!shouldShow || !mounted) return;
+    final l10n = L10n.of(context);
+    WpToast.show(
+      context,
+      message: l10n.tccResetAfterUpdateToast,
+      type: WpToastType.warning,
+      duration: const Duration(seconds: 12),
+      // loam-ignore: a11y-interactive-semantics – WpToastAction is a data class; the TextButton in _ToastCard.build uses its child Text as the accessible label
+      action: WpToastAction(
+        label: l10n.pasteCapabilityGrantButton,
+        onPressed: () => unawaited(_grantAccessibilityFromNotice(capNotifier)),
+      ),
+    );
+  }
+
+  Future<void> _grantAccessibilityFromNotice(
+    PasteCapabilityNotifier capNotifier,
+  ) async {
+    await capNotifier.check(prompt: true);
+    final uri = Uri.parse(
+      'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility',
+    );
+    try {
+      await launchUrl(uri);
+    } on Exception catch (e) {
+      _log.warning('Could not open Accessibility settings', e);
+    }
+    capNotifier.startPolling();
   }
 
   @override
