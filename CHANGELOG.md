@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.2.54
+
+### New Features
+
+- **Eigenes Vokabular jetzt auch mit OpenAI-Cloud-Transkription nutzbar.** Bisher wirkte das in den Einstellungen hinterlegte Vokabular (Namen, Fachbegriffe) nur bei der lokalen Whisper-Engine — jetzt wird es auch an OpenAIs Cloud-Transkription übergeben.
+- **Neuer Schalter „Satzzeichen entfernen"** entfernt Punkte, Kommas und andere Satzzeichen zuverlässig aus jedem Transkript — anders als das bestehende „Interpunktions-Priming" funktioniert das bei jeder Engine und jedem Cloud-Anbieter gleich, nicht nur bei lokalem Whisper. Zahlen, Dezimalwerte und Versionsnummern bleiben dabei unangetastet.
+- **Ein Hinweis erscheint jetzt automatisch**, wenn macOS die Auto-Paste-Berechtigung im Rahmen eines Updates zurückgesetzt hat — mit einem Klick direkt zur Freigabe, statt die Ursache erst in den Einstellungen suchen zu müssen.
+
+### Bug Fixes
+
+- **Der Beta-Kanal bleibt nicht mehr hinter Stable zurück.** Wenn länger kein neuer Beta-Build erschien, zeigte die App fälschlich „aktuell", obwohl längst neuere Stable-Versionen verfügbar waren.
+
 ## 1.2.53
 
 ### Bug Fixes
