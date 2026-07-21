@@ -621,6 +621,18 @@ jobs:
           MS_STORE_SELLER_ID: ${{ secrets.MS_STORE_SELLER_ID }}
           MS_STORE_APP_ID: ${{ secrets.MS_STORE_APP_ID }}
 
+      # Needed from here on for scripts/apply-store-metadata.mjs + store/ — this
+      # job previously only consumed the msix-release artifact, no repo checkout.
+      - name: Checkout
+        if: steps.store_check.outputs.skip != 'true'
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        if: steps.store_check.outputs.skip != 'true'
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
       - name: Download MSIX artifact
         if: steps.store_check.outputs.skip != 'true'
         uses: actions/download-artifact@v6
@@ -642,17 +654,58 @@ jobs:
             --clientId ${{ secrets.MS_STORE_CLIENT_ID }} `
             --clientSecret ${{ secrets.MS_STORE_CLIENT_SECRET }}
 
-      - name: Publish MSIX to Microsoft Store
+      # --noCommit: uploads the package into a draft submission WITHOUT sending
+      # it to certification yet. Price + listing metadata (below) are applied
+      # to this SAME draft before anything is committed, so package and
+      # metadata reach certification together as one atomic submission —
+      # avoiding any race against an already-in-flight review (see
+      # ~/.claude/infrastructure/microsoft-partner-center.md §8.4 for why this
+      # matters: a metadata update issued *after* a submission already entered
+      # Certification is unverified territory and was deliberately avoided).
+      - name: Publish MSIX to Microsoft Store (draft, not yet committed)
+        id: publish_draft
         if: steps.store_check.outputs.skip != 'true'
         shell: pwsh
         run: |
           $msix = Get-ChildItem -Path msix -Filter *.msix -Recurse | Select-Object -First 1
           if (-not $msix) {
             Write-Host "::warning::No .msix file found in the msix-release artifact — skipping Store submission."
+            echo "msix_found=false" >> $env:GITHUB_OUTPUT
             exit 0
           }
-          msstore publish $msix.FullName -id ${{ secrets.MS_STORE_APP_ID }}
-          Write-Host "::notice::Submitted $($msix.Name) to Microsoft Store product ${{ secrets.MS_STORE_APP_ID }} — check Partner Center for certification status."
+          echo "msix_found=true" >> $env:GITHUB_OUTPUT
+          msstore publish $msix.FullName -id ${{ secrets.MS_STORE_APP_ID }} --noCommit
+          Write-Host "::notice::Uploaded $($msix.Name) as a draft submission (not yet committed)."
+
+      # Fetches the draft submission `publish --noCommit` just created, then
+      # overlays our centrally-managed price + listing text (store/) on top —
+      # everything else (Images, ApplicationPackages, hardware reqs, …) passes
+      # through untouched. See scripts/apply-store-metadata.mjs header for the
+      # full rationale, including why the CLI's raw JSON output needs repair
+      # before it parses at all.
+      - name: Apply Store metadata (price + listing text)
+        if: steps.store_check.outputs.skip != 'true' && steps.publish_draft.outputs.msix_found == 'true'
+        shell: pwsh
+        run: |
+          msstore submission get ${{ secrets.MS_STORE_APP_ID }} | Out-File -Encoding utf8 submission-raw.txt
+          node scripts/apply-store-metadata.mjs --in submission-raw.txt --out submission-merged.json
+          Write-Host "::notice::Merged price + listing metadata into the draft submission."
+
+      - name: Update submission metadata
+        if: steps.store_check.outputs.skip != 'true' && steps.publish_draft.outputs.msix_found == 'true'
+        shell: pwsh
+        run: |
+          $merged = Get-Content -Raw submission-merged.json
+          msstore submission updateMetadata ${{ secrets.MS_STORE_APP_ID }} $merged
+
+      # Only now does the submission (package + price + listing text, all
+      # applied above) actually go to Microsoft for certification.
+      - name: Commit Store submission
+        if: steps.store_check.outputs.skip != 'true' && steps.publish_draft.outputs.msix_found == 'true'
+        shell: pwsh
+        run: |
+          msstore submission publish ${{ secrets.MS_STORE_APP_ID }}
+          Write-Host "::notice::Submitted to Microsoft Store product ${{ secrets.MS_STORE_APP_ID }} (package + price + listing text) — check Partner Center for certification status."
 
   build-macos:
     name: Build macOS
