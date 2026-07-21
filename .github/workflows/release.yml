@@ -709,15 +709,22 @@ jobs:
           msstore submission updateMetadata ${{ secrets.MS_STORE_APP_ID }} $merged
           if ($LASTEXITCODE -ne 0) { Write-Host "::error::msstore submission updateMetadata failed (exit $LASTEXITCODE)"; exit $LASTEXITCODE }
 
-      # Only now does the submission (package + price + listing text, all
-      # applied above) actually go to Microsoft for certification.
-      - name: Commit Store submission
+      # Deliberately NOT auto-committed (2026-07-21 incident). WhisPaste's
+      # account is on Pricing V2 — Microsoft's own docs say the Submission
+      # API can't be used to write Pricing for Pricing V2 accounts at all,
+      # and empirically every submission this API creates resets Pricing to
+      # Free/classical regardless of what was last live. Auto-committing
+      # here would certify a €0 listing. Package + listing text (title,
+      # description, features, keywords, release notes) ARE fully applied
+      # above and ready — a human finishes this from Partner Center: verify
+      # the price under "Pricing and availability" (Microsoft's UI is the
+      # only path that carries Pricing V2 forward correctly), then click
+      # "Submit to the Store". See ~/.claude/infrastructure/
+      # microsoft-partner-center.md §8/§9 for the full research trail.
+      - name: Store submission ready — manual certification required
         if: steps.store_check.outputs.skip != 'true' && steps.publish_draft.outputs.msix_found == 'true'
-        shell: pwsh
         run: |
-          msstore submission publish ${{ secrets.MS_STORE_APP_ID }}
-          if ($LASTEXITCODE -ne 0) { Write-Host "::error::msstore submission publish failed (exit $LASTEXITCODE)"; exit $LASTEXITCODE }
-          Write-Host "::notice::Submitted to Microsoft Store product ${{ secrets.MS_STORE_APP_ID }} (package + price + listing text) — check Partner Center for certification status."
+          echo "::notice::Draft submission for ${{ secrets.MS_STORE_APP_ID }} is ready (package + listing text applied) but NOT auto-committed — Pricing V2 accounts need the price verified/set in Partner Center before submitting. Go to Partner Center, check Pricing and availability, then click 'Submit to the Store'."
 
   build-macos:
     name: Build macOS
