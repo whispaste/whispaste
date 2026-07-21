@@ -41,16 +41,42 @@ void main() {
       expect(stripPunctuation('A well-known fact.'), 'A well-known fact');
     });
 
-    test(
-      'known limitation: a decimal point is stripped like a sentence period',
-      () {
-        // This is plain sentence-punctuation removal, not number-aware — a
-        // decimal point reads the same as a sentence period to the regex.
-        // Acceptable trade-off for a simple, predictable toggle; see
-        // text_transforms.dart doc comment.
-        expect(stripPunctuation('Pi is 3.14'), 'Pi is 314');
-      },
-    );
+    test('preserves a decimal point between digits', () {
+      expect(stripPunctuation('Pi is 3.14'), 'Pi is 3.14');
+    });
+
+    test('preserves a comma decimal separator between digits', () {
+      expect(stripPunctuation('Pi is 3,14'), 'Pi is 3,14');
+    });
+
+    test('preserves a thousands separator between digits', () {
+      expect(
+        stripPunctuation('The budget is 1,000 dollars'),
+        'The budget is 1,000 dollars',
+      );
+    });
+
+    test('preserves every period in a version number', () {
+      expect(
+        stripPunctuation('Running version 1.2.53'),
+        'Running version 1.2.53',
+      );
+    });
+
+    test('preserves a price with a decimal cents value', () {
+      expect(stripPunctuation(r'It costs $19.99'), r'It costs $19.99');
+    });
+
+    test('still strips a sentence-ending period right after a number', () {
+      expect(stripPunctuation('The answer is 42.'), 'The answer is 42');
+    });
+
+    test('still strips a comma right after a number mid-sentence', () {
+      expect(
+        stripPunctuation('I have 5, maybe 6 apples.'),
+        'I have 5 maybe 6 apples',
+      );
+    });
 
     test('empty input stays empty', () {
       expect(stripPunctuation(''), '');

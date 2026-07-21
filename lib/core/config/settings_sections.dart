@@ -326,7 +326,9 @@ class SttSettings {
   /// exclamation marks, colons, semicolons, and the em/en dash + ellipsis
   /// some STT engines insert as clause connectors) is deterministically
   /// stripped from the final transcript before it is saved/pasted — see
-  /// `stripPunctuation` in `text_transforms.dart`.
+  /// `stripPunctuation` in `text_transforms.dart`. A period/comma inside a
+  /// number (decimal point, thousands separator, version number, price) is
+  /// never removed, regardless of this setting.
   ///
   /// Unlike [punctuationPriming] (a Whisper-only prompt nudge that cannot
   /// reliably suppress punctuation the model adds on its own), this is a
