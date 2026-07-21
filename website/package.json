@@ -22,7 +22,7 @@
     "@sentry/astro": "^10.54.0",
     "@tailwindcss/vite": "^4.2.1",
     "astro": "6.4.6",
-    "dompurify": "^3.4.9",
+    "dompurify": "^3.4.12",
     "tailwindcss": "^4.2.1",
     "web-vitals": "^5.3.0"
   },
@@ -44,6 +44,7 @@
     "devalue": "^5.8.1",
     "vite": "7.3.5",
     "esbuild": "^0.28.1",
-    "@opentelemetry/core": "^2.8.0"
+    "@opentelemetry/core": "^2.8.0",
+    "svgo": "^4.0.2"
   }
 }
