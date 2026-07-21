@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.56
+
+### Maintenance
+
+- **Release-Housekeeping.** v1.2.54 und v1.2.55 wurden durch dieses Release ersetzt (identischer Funktionsumfang) — reine Infrastruktur-Bereinigung ohne Auswirkung auf die App selbst.
+
 ## 1.2.55
 
 ### Bug Fixes
