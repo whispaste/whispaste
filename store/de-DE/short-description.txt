@@ -1,1 +1,1 @@
-Sprache-zu-Text direkt am Cursor, in jeder App. Hotkey drücken, sprechen, fertig. Whisper-KI transkribiert lokal auf deinem Rechner – Cloud optional. Mit Verlauf, Tags und Export.
+Sprache-zu-Text direkt am Cursor, in jeder App. Hotkey drücken, sprechen, fertig. Läuft komplett offline und lokal – kein Abo, kein Zeitlimit, kein Konto. Cloud optional. Verlauf, Tags und Export inklusive. Quelloffen (MIT).

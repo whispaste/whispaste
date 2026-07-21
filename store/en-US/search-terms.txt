@@ -1,7 +1,7 @@
-speech to text
 voice to text
-transcription app
-whisper transcription
+transcription
+transcribe audio
 dictation
+talk to text
+whisper AI
 audio transcription
-voice typing

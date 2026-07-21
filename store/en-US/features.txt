@@ -1,6 +1,9 @@
 Press a hotkey, speak, text appears at your cursor — works in any Windows app
-Three on-device Whisper AI models (Small, Medium, Large v3 Turbo) — your audio never leaves your computer
+Two on-device AI engines: Whisper (up to 99 languages) and Parakeet (extra-fast, CPU-only) — your audio never leaves your computer
 Cloud transcription via OpenAI or Deepgram — direct to provider, no WhisPaste server
+No subscription, no time limits — pay once, not recurring
+Fully offline — no internet or account required
+Open source (MIT license) — built transparently on GitHub
 Push-to-talk or toggle recording with a fully customizable global hotkey
 Floating Button — always-on-top, draggable recording button above other apps
 Transcription history with full-text search, tags, pin, and archive
