@@ -6,7 +6,7 @@ Funktioniert überall: Outlook, Teams, VS Code, Chrome, Slack und jede andere An
 Drei Whisper-Modelle (Small, Medium und Large v3 Turbo) sowie die extra schnelle Parakeet-Engine transkribieren deine Sprache vollständig lokal — dein Audio verlässt deinen Rechner nicht. Bis zu 99 Sprachen mit Whisper. Cloud-Anbieter (OpenAI, Deepgram) stehen optional bereit; das Audio geht dabei direkt an den Anbieter, nicht über WhisPaste-Server. Kein Konto nötig.
 
 💶 EINMALIG STATT ABO
-Kein Abo, kein Zeitlimit, keine wiederkehrenden Kosten. WhisPaste ist quelloffen (MIT-Lizenz) und wird transparent auf GitHub entwickelt.
+Kein Abo, kein Zeitlimit, keine wiederkehrenden Kosten. WhisPaste ist quelloffen (MIT-Lizenz) und wird transparent auf GitHub entwickelt — mit deinem Kauf unterstützt du direkt die Weiterentwicklung.
 
 📋 VERLAUF & EXPORT
 Jede Aufnahme wird automatisch gespeichert. Durchsuchen, anheften, archivieren und als TXT, Markdown, JSON, CSV oder Word exportieren.

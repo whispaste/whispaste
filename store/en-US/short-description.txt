@@ -1,1 +1,1 @@
-Speech-to-text right at your cursor, in any app. Press a hotkey, speak, done. Fully offline and on-device — no subscription, no time limits, no account required. Cloud optional. History, tags, and export included. Open source (MIT).
+Speech-to-text right at your cursor, in any app. Press a hotkey, speak, done. Fully offline and on-device — no subscription, no time limits, no account required. Cloud optional. History, tags, and export included. Open source (MIT) — your purchase supports development.
