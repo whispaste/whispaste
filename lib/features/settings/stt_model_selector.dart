@@ -390,7 +390,7 @@ class _TierRowState extends State<_TierRow> {
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(LucideIcons.circleCheck, size: 14, color: success),
+            Icon(LucideIcons.circleCheck, size: WpIconSize.xs, color: success),
             const SizedBox(width: 4),
             Text(
               widget.l10n.modelReady,
@@ -499,7 +499,11 @@ class _TierRowInfo extends StatelessWidget {
                 bestModel.label,
                 bestModel.sizeLabel,
               ),
-              child: Icon(LucideIcons.info, size: 14, color: textMuted),
+              child: Icon(
+                LucideIcons.info,
+                size: WpIconSize.xs,
+                color: textMuted,
+              ),
             ),
             if (isRecommended) ...[
               const SizedBox(width: WpSpacing.xs),
@@ -638,7 +642,11 @@ class _StatusIcon extends StatelessWidget {
       );
     }
 
-    return Icon(icon, size: 20, color: isDownloaded ? success : muted);
+    return Icon(
+      icon,
+      size: WpIconSize.md,
+      color: isDownloaded ? success : muted,
+    );
   }
 }
 
@@ -847,7 +855,11 @@ class _ErrorBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(LucideIcons.triangleAlert, size: 14, color: errorColor),
+          Icon(
+            LucideIcons.triangleAlert,
+            size: WpIconSize.xs,
+            color: errorColor,
+          ),
           const SizedBox(width: WpSpacing.xs),
           Expanded(
             child: Text(

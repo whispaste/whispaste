@@ -331,7 +331,11 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                 children: [
                   Row(
                     children: [
-                      Icon(LucideIcons.keyboard, size: 18, color: accentCol),
+                      Icon(
+                        LucideIcons.keyboard,
+                        size: WpIconSize.sm,
+                        color: accentCol,
+                      ),
                       const SizedBox(width: WpSpacing.sm),
                       Text(
                         l10n.historyShortcutHelp,
@@ -664,6 +668,10 @@ class _DetailPanelHeader extends StatelessWidget {
               icon: historyAvatarIcon(entry),
               isPinned: entry.pinned,
               isDark: isDark,
+              // Off-scale on purpose (explicit default): mid-sized between
+              // the card (32) and the list row (42) — the header shares the
+              // row with title/metadata/actions, unlike the list row.
+              size: 36,
             ),
             const SizedBox(width: WpSpacing.sm),
             Expanded(
@@ -838,7 +846,11 @@ class _DetailOverflowMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
     return PopupMenuButton<String>(
-      icon: Icon(LucideIcons.ellipsisVertical, size: 18, color: textSecondary),
+      icon: Icon(
+        LucideIcons.ellipsisVertical,
+        size: WpIconSize.md,
+        color: textSecondary,
+      ),
       tooltip: '',
       padding: EdgeInsets.zero,
       constraints: const BoxConstraints(minWidth: 32, minHeight: 32),

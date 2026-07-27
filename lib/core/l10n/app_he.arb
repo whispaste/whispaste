@@ -902,6 +902,7 @@
   "reviewPromptGateNo": "לא ממש",
 
   "reviewSupportEntry": "דרגו ותמוכו ב-WhisPaste",
+  "reviewSupportLabel": "הדירוג שלך",
   "reviewSupportSubtitle": "הדירוג שלך עוזר לאחרים לגלות את WhisPaste ותומך בפרויקט.",
   "reviewSupportAction": "דרגו",
   "insufficientRamTitle": "אין מספיק זיכרון",

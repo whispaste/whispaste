@@ -325,6 +325,10 @@ class L10nDe extends L10n {
   String get settingsAutostartMinimized => 'Minimiert';
 
   @override
+  String get settingsAutostartSyncFailed =>
+      'Autostart konnte nicht beim Betriebssystem registriert werden. Möglicherweise fehlen Berechtigungen oder deine Betriebssystemversion wird nicht unterstützt.';
+
+  @override
   String get settingsShowNotifications => 'Benachrichtigungen anzeigen';
 
   @override
@@ -712,6 +716,10 @@ class L10nDe extends L10n {
 
   @override
   String get settingsAdvanced => 'Erweitert';
+
+  @override
+  String get settingsAdvancedSubtitle =>
+      'Zurücksetzen, Fehlerberichte, Updates und Systemverhalten';
 
   @override
   String get settingsResetToDefaults => 'Auf Standardwerte zurücksetzen';
@@ -2676,6 +2684,9 @@ class L10nDe extends L10n {
 
   @override
   String get reviewSupportEntry => 'WhisPaste bewerten & unterstützen';
+
+  @override
+  String get reviewSupportLabel => 'Deine Bewertung';
 
   @override
   String get reviewSupportSubtitle =>

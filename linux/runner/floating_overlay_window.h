@@ -61,6 +61,12 @@ class FloatingOverlayWindow {
 
   bool IsCreated() const { return window_ != nullptr; }
 
+  // Whether the shell is currently shown. Queries GTK directly rather than
+  // tracking a separate bool, so it always reflects Show()/Hide() state.
+  bool IsVisible() const {
+    return window_ != nullptr && gtk_widget_get_visible(window_);
+  }
+
   // Returns the underlying GtkWidget* so the host can call GDK APIs (e.g.
   // gdk_window_begin_move_drag for interactive window moves). May be nullptr
   // before Create() or after Destroy().

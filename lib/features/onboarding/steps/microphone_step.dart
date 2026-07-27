@@ -566,7 +566,10 @@ class _MicrophoneStepState extends State<MicrophoneStep> {
           key: const ValueKey('ready'),
           tween: Tween(begin: 0.0, end: 1.0),
           duration: WpMotion.durationFor(context, WpMotion.smooth),
-          curve: WpMotion.spring,
+          // Curves.easeOutCubic directly (not WpMotion.spring): that token is
+          // documented as exclusive to the overlay recording-arc; this just
+          // wants the same no-overshoot ease shape for the "ready" checkmark.
+          curve: Curves.easeOutCubic,
           builder: (_, value, child) => Transform.scale(
             scale: 0.5 + (value * 0.5),
             child: Opacity(opacity: value.clamp(0.0, 1.0), child: child),

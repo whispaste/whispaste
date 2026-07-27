@@ -323,6 +323,10 @@ class L10nHe extends L10n {
   String get settingsAutostartMinimized => 'ממוזער';
 
   @override
+  String get settingsAutostartSyncFailed =>
+      'Autostart couldn\'t be registered with the operating system. This may be a permissions issue or your OS version isn\'t supported.';
+
+  @override
   String get settingsShowNotifications => 'הצג התראות';
 
   @override
@@ -695,6 +699,10 @@ class L10nHe extends L10n {
 
   @override
   String get settingsAdvanced => 'מתקדם';
+
+  @override
+  String get settingsAdvancedSubtitle =>
+      'Reset, error reporting, updates, and system behavior';
 
   @override
   String get settingsResetToDefaults => 'אפס להגדרות ברירת מחדל';
@@ -2606,6 +2614,9 @@ class L10nHe extends L10n {
 
   @override
   String get reviewSupportEntry => 'דרגו ותמוכו ב-WhisPaste';
+
+  @override
+  String get reviewSupportLabel => 'הדירוג שלך';
 
   @override
   String get reviewSupportSubtitle =>

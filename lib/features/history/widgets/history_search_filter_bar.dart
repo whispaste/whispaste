@@ -10,6 +10,7 @@ import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../widgets/wp_discoverability_hint.dart';
+import '../../../widgets/wp_focus_ring.dart';
 import '../data/providers.dart';
 import '../data/recent_searches.dart';
 import 'history_filter_chip.dart';
@@ -427,20 +428,20 @@ class _HistorySearchFilterBarState
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            Semantics(
-              label: L10n.of(context).historyRemoveRecentSearch,
-              button: true,
-              child: GestureDetector(
-                onTap: () {
-                  ref.read(recentSearchesProvider.notifier).removeSearch(query);
-                  setState(() {
-                    _recentSearches = _recentSearches
-                        .where((s) => s != query)
-                        .toList();
-                  });
-                },
-                child: Icon(LucideIcons.x, size: 12, color: textMuted),
-              ),
+            // loam-ignore: a11y-interactive-semantics – semantics provided in _DismissIconState.build
+            _DismissIcon(
+              icon: LucideIcons.x,
+              size: 12,
+              color: textMuted,
+              semanticLabel: L10n.of(context).historyRemoveRecentSearch,
+              onTap: () {
+                ref.read(recentSearchesProvider.notifier).removeSearch(query);
+                setState(() {
+                  _recentSearches = _recentSearches
+                      .where((s) => s != query)
+                      .toList();
+                });
+              },
             ),
           ],
         ),
@@ -647,10 +648,7 @@ class _HistorySearchFilterBarState
 
           // ── Inline autocomplete suggestions ─────────────────────────────
           AnimatedSize(
-            duration: WpMotion.durationFor(
-              context,
-              const Duration(milliseconds: 120),
-            ),
+            duration: WpMotion.durationFor(context, WpMotion.fast),
             curve: Curves.easeOut,
             alignment: Alignment.topCenter,
             child: _hasSuggestions
@@ -863,6 +861,65 @@ class _HistorySearchFilterBarState
 // Active command chip (removable)
 // ---------------------------------------------------------------------------
 
+/// Small focusable "x" dismiss control shared by recent-search rows and
+/// active-filter command chips — keyboard focus + hover feedback, matching
+/// the [WpFocusRing]/[InkWell] pattern every other dismiss/tag control in
+/// this feature already uses (e.g. `_EntryTagChip`, `HistoryFilterChip`).
+class _DismissIcon extends StatefulWidget {
+  const _DismissIcon({
+    required this.icon,
+    required this.size,
+    required this.color,
+    required this.semanticLabel,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final double size;
+  final Color color;
+  final String semanticLabel;
+  final VoidCallback onTap;
+
+  @override
+  State<_DismissIcon> createState() => _DismissIconState();
+}
+
+class _DismissIconState extends State<_DismissIcon> {
+  final _focusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: widget.semanticLabel,
+      button: true,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: WpFocusRing(
+          focusNode: _focusNode,
+          radius: WpRadius.sm,
+          child: InkWell(
+            onTap: widget.onTap,
+            focusNode: _focusNode,
+            borderRadius: WpRadius.borderSm,
+            // WpFocusRing owns all focus visuals — suppress InkWell's own.
+            focusColor: Colors.transparent,
+            hoverColor: Colors.transparent,
+            splashColor: Colors.transparent,
+            highlightColor: Colors.transparent,
+            child: Icon(widget.icon, size: widget.size, color: widget.color),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _CommandChip extends StatelessWidget {
   const _CommandChip({
     required this.label,
@@ -907,13 +964,13 @@ class _CommandChip extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 3),
-          Semantics(
-            label: L10n.of(context).historyRemoveFilter,
-            button: true,
-            child: GestureDetector(
-              onTap: onRemove,
-              child: Icon(LucideIcons.x, size: 11, color: accent),
-            ),
+          // loam-ignore: a11y-interactive-semantics – semantics provided in _DismissIconState.build
+          _DismissIcon(
+            icon: LucideIcons.x,
+            size: 11,
+            color: accent,
+            semanticLabel: L10n.of(context).historyRemoveFilter,
+            onTap: onRemove,
           ),
         ],
       ),
@@ -1115,7 +1172,7 @@ class HistoryMultiSelectBar extends StatelessWidget {
           // Cancel
           TextButton.icon(
             onPressed: onCancelSelection,
-            icon: Icon(LucideIcons.x, size: 14, color: textPrimary),
+            icon: Icon(LucideIcons.x, size: WpIconSize.sm, color: textPrimary),
             label: Text(
               l10n.actionCancel,
               style: TextStyle(fontSize: WpTypography.body, color: textPrimary),
@@ -1192,7 +1249,10 @@ class _HistoryMultiSelectActionState extends State<HistoryMultiSelectAction> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(widget.icon, size: 14, color: color),
+                    // WpIconSize.sm (not .md): matches HistoryRowAction and
+                    // HistoryPopupMenuRow's fixed 16 for the same action set —
+                    // .md would overwhelm this pill's 12px label.
+                    Icon(widget.icon, size: WpIconSize.sm, color: color),
                     const SizedBox(width: 4),
                     Text(
                       widget.label,

@@ -556,8 +556,16 @@ std::pair<double, double> FloatingOverlayHost::ResolveAnchorPosition() const {
     return {anchor_x_, anchor_y_};
   }
 
-  // topCenter / bottomCenter — compute from the monitor the main window is on.
-  HMONITOR mon = MonitorFromWindow(owner_, MONITOR_DEFAULTTOPRIMARY);
+  // topCenter / bottomCenter — anchor to the primary monitor. (0,0) is always
+  // on the primary monitor by definition (Win32 virtual-screen convention),
+  // so MonitorFromPoint with that origin is the standard idiom for "give me
+  // the primary monitor". This matches macOS (NSScreen.screens.first, ADR
+  // 0002) and Linux (gdk_display_get_primary_monitor) — previously this used
+  // MonitorFromWindow(owner_, ...) (the app's own window's monitor), which
+  // disagreed with both other platforms whenever the main window sat on a
+  // secondary display.
+  POINT primary_origin = {0, 0};
+  HMONITOR mon = MonitorFromPoint(primary_origin, MONITOR_DEFAULTTOPRIMARY);
   MONITORINFO mi = {};
   mi.cbSize = sizeof(mi);
   if (!GetMonitorInfoW(mon, &mi)) {

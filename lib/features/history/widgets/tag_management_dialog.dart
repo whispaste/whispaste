@@ -361,7 +361,10 @@ class _TagRowState extends State<_TagRow> {
                 onPressed: widget.onDelete,
                 tooltip: l10n.actionDelete,
                 padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                constraints: const BoxConstraints(
+                  minWidth: WpLayout.minTouchTarget,
+                  minHeight: WpLayout.minTouchTarget,
+                ),
               ),
             ),
           ],

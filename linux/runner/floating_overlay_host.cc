@@ -4,6 +4,46 @@
 
 #include <algorithm>
 #include <cstring>
+#include <limits>
+
+namespace {
+
+// Geometrically nearest monitor to (x, y) by distance to its rect. Mirrors
+// macOS `nearestScreen`/`distance` and Windows `NearestMonitorToPoint`.
+GdkMonitor* NearestMonitorToPoint(GdkDisplay* display, int x, int y) {
+  GdkMonitor* best = nullptr;
+  double best_dist_sq = std::numeric_limits<double>::max();
+  int n = gdk_display_get_n_monitors(display);
+  for (int i = 0; i < n; ++i) {
+    GdkMonitor* monitor = gdk_display_get_monitor(display, i);
+    if (!monitor) continue;
+    GdkRectangle geo;
+    gdk_monitor_get_geometry(monitor, &geo);
+    const int dx = std::max({geo.x - x, 0, x - (geo.x + geo.width)});
+    const int dy = std::max({geo.y - y, 0, y - (geo.y + geo.height)});
+    const double dist_sq =
+        static_cast<double>(dx) * dx + static_cast<double>(dy) * dy;
+    if (best == nullptr || dist_sq < best_dist_sq) {
+      best_dist_sq = dist_sq;
+      best = monitor;
+    }
+  }
+  return best;
+}
+
+// Primary monitor, falling back to the nearest monitor to (x, y) if no
+// primary is reported. `gdk_display_get_primary_monitor` can return NULL on
+// Wayland compositors that don't designate one — a known trap documented in
+// ADR 0002 ("gdk_display_get_primary_monitor = NULL -> 1920er-Default ->
+// off-screen"); this closes that gap instead of falling through to raw,
+// unclamped coordinates.
+GdkMonitor* PrimaryOrNearestMonitor(GdkDisplay* display, int x, int y) {
+  GdkMonitor* primary = gdk_display_get_primary_monitor(display);
+  if (primary) return primary;
+  return NearestMonitorToPoint(display, x, y);
+}
+
+}  // namespace
 
 // ── Construction / destruction ───────────────────────────────────────────────
 
@@ -15,9 +55,34 @@ FloatingOverlayHost::FloatingOverlayHost(FlBinaryMessenger* main_messenger) {
                                     FL_METHOD_CODEC(codec));
   fl_method_channel_set_method_call_handler(channel_, OnMethodCall, this,
                                              nullptr);
+
+  // Monitor connect/disconnect — repositions a visible overlay so it stays
+  // on-screen, mirroring macOS `observeScreenChanges`/Windows
+  // `WM_DISPLAYCHANGE`. GdkMonitor::monitor-added/-removed are the GTK 3.22+
+  // equivalent (GdkScreen::monitors-changed is the pre-3.22, now-deprecated
+  // signal).
+  GdkDisplay* display = gdk_display_get_default();
+  if (display) {
+    monitor_added_handler_id_ = g_signal_connect(
+        display, "monitor-added", G_CALLBACK(OnMonitorChanged), this);
+    monitor_removed_handler_id_ = g_signal_connect(
+        display, "monitor-removed", G_CALLBACK(OnMonitorChanged), this);
+  }
 }
 
 FloatingOverlayHost::~FloatingOverlayHost() {
+  GdkDisplay* display = gdk_display_get_default();
+  if (display) {
+    if (monitor_added_handler_id_) {
+      g_signal_handler_disconnect(display, monitor_added_handler_id_);
+      monitor_added_handler_id_ = 0;
+    }
+    if (monitor_removed_handler_id_) {
+      g_signal_handler_disconnect(display, monitor_removed_handler_id_);
+      monitor_removed_handler_id_ = 0;
+    }
+  }
+
   // Tear down channels before the window so channel callbacks can't fire
   // with a dangling window pointer after the GtkWindow is destroyed.
   if (render_channel_) {
@@ -391,6 +456,35 @@ void FloatingOverlayHost::OnWindowMoved(int x, int y, void* user_data) {
   self->InvokeMainChannel("onDragEnded", args);
 }
 
+// ── Monitor hotplug ────────────────────────────────────────────────────────────
+
+// static
+void FloatingOverlayHost::OnMonitorChanged(GdkDisplay* /*display*/,
+                                            GdkMonitor* /*monitor*/,
+                                            gpointer user_data) {
+  static_cast<FloatingOverlayHost*>(user_data)->RevalidateOnScreen();
+}
+
+void FloatingOverlayHost::RevalidateOnScreen() {
+  if (!overlay_window_ || !overlay_window_->IsVisible()) return;
+  auto [rx, ry] = ResolvePosition(pending_x_, pending_y_, pending_anchor_mode_);
+  if (rx == pending_x_ && ry == pending_y_) return;
+
+  pending_x_ = rx;
+  pending_y_ = ry;
+  suppress_next_configure_ = true;
+  overlay_window_->MoveTo(rx, ry);
+
+  // Inform Dart so it can persist the updated position (mirrors macOS
+  // validateOnScreen / Windows's display-change callback).
+  g_autoptr(FlValue) args = fl_value_new_map();
+  fl_value_set_string_take(args, "x", fl_value_new_float(static_cast<double>(rx)));
+  fl_value_set_string_take(args, "y", fl_value_new_float(static_cast<double>(ry)));
+  fl_value_set_string_take(args, "anchorMode",
+                            fl_value_new_string(pending_anchor_mode_.c_str()));
+  InvokeMainChannel("onDragEnded", args);
+}
+
 // ── Position resolution ───────────────────────────────────────────────────────
 
 std::pair<int, int> FloatingOverlayHost::ResolvePosition(
@@ -398,11 +492,16 @@ std::pair<int, int> FloatingOverlayHost::ResolvePosition(
   constexpr int kMargin = 16;
 
   if (anchor_mode == "topCenter" || anchor_mode == "bottomCenter") {
-    // Use the primary monitor's work area (excludes taskbar / panels).
+    // Anchor to the primary monitor's work area (excludes taskbar / panels),
+    // falling back to the nearest monitor if none is reported. Matches
+    // macOS (NSScreen.screens.first, ADR 0002) and the now-aligned Windows
+    // ResolveAnchorPosition, so a fresh top/bottom-center overlay lands on
+    // the same monitor choice across all three platforms.
     GdkDisplay* display = gdk_display_get_default();
     if (!display) return {static_cast<int>(x), static_cast<int>(y)};
 
-    GdkMonitor* monitor = gdk_display_get_primary_monitor(display);
+    GdkMonitor* monitor = PrimaryOrNearestMonitor(
+        display, static_cast<int>(x), static_cast<int>(y));
     if (!monitor) return {static_cast<int>(x), static_cast<int>(y)};
 
     GdkRectangle work_area;
@@ -433,7 +532,15 @@ std::pair<int, int> FloatingOverlayHost::ClampToWorkArea(double x, double y) {
 
   GdkMonitor* monitor = gdk_display_get_monitor_at_point(
       display, static_cast<int>(x), static_cast<int>(y));
-  if (!monitor) monitor = gdk_display_get_primary_monitor(display);
+  if (!monitor) {
+    // The stored point no longer lands on any connected display (e.g. that
+    // monitor was unplugged) — fall back to the nearest monitor by distance
+    // rather than jumping to "primary", mirroring macOS
+    // `clampToVisibleScreen`/`nearestScreen` and the now-aligned Windows
+    // `ValidatePosition`.
+    monitor = NearestMonitorToPoint(display, static_cast<int>(x),
+                                     static_cast<int>(y));
+  }
   if (!monitor) return {static_cast<int>(x), static_cast<int>(y)};
 
   GdkRectangle work_area;

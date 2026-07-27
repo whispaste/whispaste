@@ -162,7 +162,7 @@ class HotkeyDisplay extends StatelessWidget {
               color: isDark
                   ? WpColorsDark.surfaceVariant
                   : WpColorsLight.surfaceVariant,
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: WpRadius.borderSm,
               border: Border.all(
                 color: isDark
                     ? WpColorsDark.borderSubtle
@@ -453,6 +453,18 @@ Widget settingsSectionDivider(BuildContext context) {
     child: Divider(
       color: isDark ? WpColorsDark.borderSubtle : WpColorsLight.borderSubtle,
     ),
+  );
+}
+
+/// Thin divider between conditional sub-groups *within* one settings
+/// section (e.g. local- vs. cloud-mode STT fields, or an overlay section's
+/// conditionally-shown size/preview rows) — a tighter, lower-profile sibling
+/// of [settingsSectionDivider], which separates whole top-level sections.
+Widget settingsInlineDivider(BuildContext context) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  return Divider(
+    height: 1,
+    color: isDark ? WpColorsDark.borderSubtle : WpColorsLight.borderSubtle,
   );
 }
 

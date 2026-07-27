@@ -127,6 +127,7 @@
   "settingsAutostartNever": "Never",
   "settingsAutostartNormal": "Normal",
   "settingsAutostartMinimized": "Minimized",
+  "settingsAutostartSyncFailed": "Autostart couldn't be registered with the operating system. This may be a permissions issue or your OS version isn't supported.",
   "settingsShowNotifications": "Show Notifications",
   "settingsAudio": "Audio",
   "settingsAudioSubtitle": "Microphone and recording",
@@ -247,6 +248,7 @@
     "description": "Tooltip for the show/hide button on API key input fields."
   },
   "settingsAdvanced": "Advanced",
+  "settingsAdvancedSubtitle": "Reset, error reporting, updates, and system behavior",
   "settingsResetToDefaults": "Reset to Defaults",
   "settingsResetTitle": "Reset Settings",
   "settingsResetMessage": "All settings will be restored to defaults. API keys will be removed. This cannot be undone.",
@@ -1006,6 +1008,7 @@
   "reviewPromptGateNo": "Not really",
 
   "reviewSupportEntry": "Rate & support WhisPaste",
+  "reviewSupportLabel": "Your rating",
   "reviewSupportSubtitle": "Your rating helps others discover WhisPaste and supports the project.",
   "reviewSupportAction": "Rate",
 

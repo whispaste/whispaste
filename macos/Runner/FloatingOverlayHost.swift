@@ -424,12 +424,20 @@ class FloatingOverlayHost {
 
   /// Compute the frame origin for the overlay based on anchor mode.
   ///
-  /// Mirrors the Windows `RecalcPosition()` logic:
+  /// Mirrors the Windows `ResolveAnchorPosition()` / Linux `ResolvePosition()`
+  /// logic:
   /// - topCenter: centered horizontally, 16pt from top of visible frame
   /// - bottomCenter: centered horizontally, 16pt from bottom of visible frame
   /// - topLeft: use raw x/y as frame origin
   private func resolvePosition(x: Double, y: Double, anchorMode: String) -> NSPoint {
-    guard let screen = NSScreen.main else {
+    // Anchor to the primary display, not `NSScreen.main` (the screen holding
+    // the *key window of the frontmost app*, which drifts to whatever the
+    // user is focused on and isn't necessarily WhisPaste's own window or
+    // display). `.screens.first` is always the primary display — this is the
+    // documented ADR 0002 multi-monitor rule ("NSScreen.screens.first
+    // (Primärdisplay), nicht NSScreen.main") and matches Windows/Linux, which
+    // both anchor topCenter/bottomCenter to the primary monitor.
+    guard let screen = NSScreen.screens.first else {
       return NSPoint(x: x, y: y)
     }
 

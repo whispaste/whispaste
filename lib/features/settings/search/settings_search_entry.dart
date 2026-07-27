@@ -257,6 +257,24 @@ const List<SettingsSearchEntry> kSettingsSearchTable = [
     ],
   ),
   SettingsSearchEntry(
+    id: 'reviewSupport',
+    sectionKey: 'reviewSupport',
+    titleDe: 'WhisPaste bewerten & unterstützen',
+    titleEn: 'Rate & support WhisPaste',
+    subtitleDe:
+        'Deine Bewertung hilft anderen, WhisPaste zu finden, und '
+        'unterstützt das Projekt.',
+    subtitleEn:
+        'Your rating helps others discover WhisPaste and supports '
+        'the project.',
+    keywords: [
+      // DE
+      'Bewertung', 'bewerten', 'Sterne', 'Store', 'unterstützen',
+      // EN
+      'rate', 'rating', 'review', 'stars', 'store', 'support',
+    ],
+  ),
+  SettingsSearchEntry(
     id: 'privacy',
     sectionKey: 'privacy',
     titleDe: 'Datenschutz',

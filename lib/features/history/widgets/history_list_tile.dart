@@ -206,6 +206,10 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
                   icon: _avatarIcon,
                   isPinned: widget.entry.pinned,
                   isDark: isDark,
+                  // Off-scale on purpose: largest of the three avatar
+                  // contexts — the primary list row has no competing header
+                  // chrome, so the avatar carries more of the row's visual
+                  // weight than the card (32) or detail header (36 default).
                   size: 42,
                 ),
                 const SizedBox(width: WpSpacing.sm),

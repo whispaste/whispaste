@@ -92,6 +92,16 @@ class FloatingOverlayHost {
   int pending_x_ = 0;
   int pending_y_ = 0;
 
+  // ── Monitor hotplug ───────────────────────────────────────────────────────
+  // Mirrors macOS observeScreenChanges (NSApplication.didChangeScreenParametersNotification)
+  // and Windows WM_DISPLAYCHANGE: repositions a visible overlay so it stays
+  // on-screen when a monitor is connected or disconnected.
+  gulong monitor_added_handler_id_ = 0;
+  gulong monitor_removed_handler_id_ = 0;
+  static void OnMonitorChanged(GdkDisplay* display, GdkMonitor* monitor,
+                                gpointer user_data);
+  void RevalidateOnScreen();
+
   // ── Anchor → screen coordinate resolution ────────────────────────────────
   //
   // Mirrors FloatingOverlayHost.swift resolvePosition():

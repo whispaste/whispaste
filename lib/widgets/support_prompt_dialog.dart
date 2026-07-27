@@ -233,7 +233,7 @@ class _SupportPromptDialog extends StatelessWidget {
                       color: isDark
                           ? WpColorsDark.textSecondary
                           : WpColorsLight.textSecondary,
-                      fontSize: 12,
+                      fontSize: WpTypography.small,
                     ),
                   ),
                 ),

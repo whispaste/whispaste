@@ -146,6 +146,11 @@ class HistoryEntryCard extends StatefulWidget {
 class _HistoryEntryCardState extends State<HistoryEntryCard> {
   bool _isHovered = false;
 
+  /// Fixed card height — sized to fit avatar/title row, a 3-line preview,
+  /// and the metadata row without per-entry content changing the grid's
+  /// row height (see `cardWidth` above for the analogous width rule).
+  static const double _cardHeight = 180;
+
   // Memoized once per `entry` change, not recomputed on every hover
   // setState — see the identical fix in history_list_tile.dart for why.
   late int _wordCount = _computeWordCount(widget.entry);
@@ -209,7 +214,7 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
               _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
             ),
             curve: WpMotion.defaultCurve,
-            height: 180,
+            height: _cardHeight,
             padding: const EdgeInsets.all(WpSpacing.md),
             decoration: BoxDecoration(
               color: surfaceElevated,
@@ -228,6 +233,11 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
                       icon: _avatarIcon,
                       isPinned: widget.entry.pinned,
                       isDark: isDark,
+                      // Off-scale on purpose: smallest of the three avatar
+                      // contexts — the card's title row is tight and shares
+                      // space with hover actions (see history_list_tile.dart's
+                      // 42 for the roomier list row, history_detail_panel.dart's
+                      // 36 default for the header).
                       size: 32,
                     ),
                     const SizedBox(width: WpSpacing.xs),

@@ -675,6 +675,12 @@ abstract class L10n {
   /// **'Minimized'**
   String get settingsAutostartMinimized;
 
+  /// No description provided for @settingsAutostartSyncFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Autostart couldn\'t be registered with the operating system. This may be a permissions issue or your OS version isn\'t supported.'**
+  String get settingsAutostartSyncFailed;
+
   /// No description provided for @settingsShowNotifications.
   ///
   /// In en, this message translates to:
@@ -1346,6 +1352,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Advanced'**
   String get settingsAdvanced;
+
+  /// No description provided for @settingsAdvancedSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset, error reporting, updates, and system behavior'**
+  String get settingsAdvancedSubtitle;
 
   /// No description provided for @settingsResetToDefaults.
   ///
@@ -4760,6 +4772,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Rate & support WhisPaste'**
   String get reviewSupportEntry;
+
+  /// No description provided for @reviewSupportLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Your rating'**
+  String get reviewSupportLabel;
 
   /// No description provided for @reviewSupportSubtitle.
   ///

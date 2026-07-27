@@ -92,10 +92,7 @@ class _HistorySplitViewState extends State<HistorySplitView>
   @override
   void initState() {
     super.initState();
-    _anim = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 250),
-    );
+    _anim = AnimationController(vsync: this, duration: WpMotion.smooth);
     _detailWidth = CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic);
     if (widget.selectedEntry != null) {
       _displayedEntry = widget.selectedEntry;
@@ -106,10 +103,7 @@ class _HistorySplitViewState extends State<HistorySplitView>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _anim.duration = WpMotion.durationFor(
-      context,
-      const Duration(milliseconds: 250),
-    );
+    _anim.duration = WpMotion.durationFor(context, WpMotion.smooth);
   }
 
   @override

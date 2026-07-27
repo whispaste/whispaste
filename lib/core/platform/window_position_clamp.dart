@@ -4,10 +4,11 @@
 /// unplugged, resolution changes, or the app is opened on a different
 /// machine's settings backup — with nothing to clamp it, the main window or
 /// the floating button/overlay can start entirely off any currently
-/// connected display. This mirrors [OverlayPositioning.clampToScreen]'s
-/// single-screen math but picks the *right* display out of however many are
-/// currently connected, so callers stay independent of `screen_retriever`'s
-/// types (easy to unit test, no plugin channel involved).
+/// connected display. This does single-screen clamp math similar to the
+/// native overlay shells' own clamp functions, but picks the *right* display
+/// out of however many are currently connected, so callers stay independent
+/// of `screen_retriever`'s types (easy to unit test, no plugin channel
+/// involved).
 library;
 
 import 'package:flutter/widgets.dart';

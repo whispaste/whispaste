@@ -325,6 +325,10 @@ class L10nEn extends L10n {
   String get settingsAutostartMinimized => 'Minimized';
 
   @override
+  String get settingsAutostartSyncFailed =>
+      'Autostart couldn\'t be registered with the operating system. This may be a permissions issue or your OS version isn\'t supported.';
+
+  @override
   String get settingsShowNotifications => 'Show Notifications';
 
   @override
@@ -706,6 +710,10 @@ class L10nEn extends L10n {
 
   @override
   String get settingsAdvanced => 'Advanced';
+
+  @override
+  String get settingsAdvancedSubtitle =>
+      'Reset, error reporting, updates, and system behavior';
 
   @override
   String get settingsResetToDefaults => 'Reset to Defaults';
@@ -2654,6 +2662,9 @@ class L10nEn extends L10n {
 
   @override
   String get reviewSupportEntry => 'Rate & support WhisPaste';
+
+  @override
+  String get reviewSupportLabel => 'Your rating';
 
   @override
   String get reviewSupportSubtitle =>

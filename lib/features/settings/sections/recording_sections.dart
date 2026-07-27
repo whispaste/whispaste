@@ -134,7 +134,11 @@ class _ClippingBanner extends ConsumerWidget {
         ),
         child: Row(
           children: [
-            Icon(LucideIcons.alertTriangle, size: 16, color: warnColor),
+            Icon(
+              LucideIcons.alertTriangle,
+              size: WpIconSize.sm,
+              color: warnColor,
+            ),
             const SizedBox(width: WpSpacing.xs),
             Expanded(
               child: Text(
@@ -147,7 +151,7 @@ class _ClippingBanner extends ConsumerWidget {
             ),
             const SizedBox(width: WpSpacing.xs),
             IconButton(
-              icon: Icon(LucideIcons.x, size: 16, color: warnColor),
+              icon: Icon(LucideIcons.x, size: WpIconSize.sm, color: warnColor),
               tooltip: l10n.settingsClippingDismiss,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(

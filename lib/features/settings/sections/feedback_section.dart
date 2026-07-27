@@ -42,7 +42,7 @@ class KeyboardShortcutSection extends ConsumerWidget {
             icon: LucideIcons.toggleRight,
             label: l10n.settingsHotkeyEnabled,
             semanticToggledValue: settings.hotkeyEnabled,
-            trailing: Switch(
+            trailing: settingsToggle(
               value: settings.hotkeyEnabled,
               onChanged: (v) => ref
                   .read(settingsProvider.notifier)

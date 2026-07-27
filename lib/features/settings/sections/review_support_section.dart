@@ -28,10 +28,11 @@ class ReviewSupportSection extends ConsumerWidget {
     final l10n = L10n.of(context);
     return WpSection(
       title: l10n.reviewSupportEntry,
+      subtitle: l10n.reviewSupportSubtitle,
       padding: EdgeInsets.zero,
       child: SettingRow(
         icon: LucideIcons.star,
-        label: l10n.reviewSupportSubtitle,
+        label: l10n.reviewSupportLabel,
         trailing: OutlinedButton(
           onPressed: _launchReviewSupport,
           child: Text(l10n.reviewSupportAction),

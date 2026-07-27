@@ -188,7 +188,7 @@ class _SpeechRecognitionSectionState
                       ),
                 ),
               ),
-            const Divider(height: 24),
+            settingsInlineDivider(context),
           ],
 
           // ----- Cloud mode: inline API key + sub-provider ------------------
@@ -247,7 +247,7 @@ class _SpeechRecognitionSectionState
             label: l10n.settingsStripPunctuation,
             subtitle: l10n.settingsStripPunctuationSubtitle,
             semanticToggledValue: settings.stt.stripPunctuation,
-            trailing: Switch(
+            trailing: settingsToggle(
               value: settings.stt.stripPunctuation,
               onChanged: (v) => ref
                   .read(settingsProvider.notifier)
@@ -270,7 +270,7 @@ class _SpeechRecognitionSectionState
               label: l10n.settingsPunctuationPriming,
               subtitle: l10n.settingsPunctuationPrimingSubtitle,
               semanticToggledValue: settings.stt.punctuationPriming,
-              trailing: Switch(
+              trailing: settingsToggle(
                 value: settings.stt.punctuationPriming,
                 onChanged: (v) => ref
                     .read(settingsProvider.notifier)
@@ -395,7 +395,7 @@ class _BenchmarkButton extends ConsumerWidget {
               child: CircularProgressIndicator(strokeWidth: 2),
             )
           : IconButton(
-              icon: const Icon(LucideIcons.refreshCw, size: 16),
+              icon: const Icon(LucideIcons.refreshCw, size: WpIconSize.sm),
               onPressed: () {
                 ref.read(localSttBundleProvider.notifier).runBenchmark();
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -433,7 +433,7 @@ class _ParakeetModelRow extends ConsumerWidget {
         children: [
           Text(l10n.parakeetModelInstalled),
           IconButton(
-            icon: const Icon(LucideIcons.trash2, size: 16),
+            icon: const Icon(LucideIcons.trash2, size: WpIconSize.sm),
             tooltip: l10n.parakeetModelDelete,
             onPressed: () =>
                 ref.read(parakeetDownloadProvider.notifier).deleteBundle(),
@@ -452,7 +452,7 @@ class _ParakeetModelRow extends ConsumerWidget {
               children: [
                 Text('${l10n.parakeetModelDownloading} ${dl.progressPercent}%'),
                 IconButton(
-                  icon: const Icon(LucideIcons.x, size: 14),
+                  icon: const Icon(LucideIcons.x, size: WpIconSize.xs),
                   tooltip: l10n.parakeetModelCancel,
                   onPressed: () => ref
                       .read(parakeetDownloadProvider.notifier)
@@ -482,7 +482,7 @@ class _ParakeetModelRow extends ConsumerWidget {
               ),
             ),
           TextButton.icon(
-            icon: const Icon(LucideIcons.download, size: 16),
+            icon: const Icon(LucideIcons.download, size: WpIconSize.sm),
             label: Text(l10n.parakeetModelDownload),
             onPressed: () =>
                 ref.read(parakeetDownloadProvider.notifier).downloadBundle(),

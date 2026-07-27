@@ -58,6 +58,7 @@ class AdvancedSection extends ConsumerWidget {
 
     return WpSection(
       title: l10n.settingsAdvanced,
+      subtitle: l10n.settingsAdvancedSubtitle,
       padding: EdgeInsets.zero,
       child: Column(
         children: [

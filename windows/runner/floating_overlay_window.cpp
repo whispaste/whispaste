@@ -25,15 +25,51 @@
 
 #include "floating_overlay_window.h"
 
-#include <windowsx.h>  // GET_X_LPARAM, GET_Y_LPARAM (kept for future use)
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 #pragma comment(lib, "dwmapi.lib")
 
 namespace {
 
 constexpr const wchar_t kClassName[] = L"WHISPASTE_FLOATING_OVL_V2";
+
+// ── Nearest-monitor lookup (clamp fallback) ─────────────────────────────
+// Mirrors macOS `nearestScreen`/`distance` and Linux `NearestMonitorToPoint`:
+// when a stored point no longer lands directly on any connected monitor
+// (e.g. it was unplugged), pick the geometrically nearest one by distance to
+// its rect, rather than jumping to whichever monitor Windows calls "primary".
+
+struct NearestMonitorContext {
+  POINT point{0, 0};
+  HMONITOR best = nullptr;
+  double best_dist_sq = (std::numeric_limits<double>::max)();
+};
+
+BOOL CALLBACK NearestMonitorEnumProc(HMONITOR hmon, HDC /*hdc*/, LPRECT rect,
+                                     LPARAM lparam) {
+  auto* ctx = reinterpret_cast<NearestMonitorContext*>(lparam);
+  const LONG dx = std::max<LONG>(
+      {rect->left - ctx->point.x, 0L, ctx->point.x - rect->right});
+  const LONG dy = std::max<LONG>(
+      {rect->top - ctx->point.y, 0L, ctx->point.y - rect->bottom});
+  const double dist_sq =
+      static_cast<double>(dx) * dx + static_cast<double>(dy) * dy;
+  if (dist_sq < ctx->best_dist_sq) {
+    ctx->best_dist_sq = dist_sq;
+    ctx->best = hmon;
+  }
+  return TRUE;
+}
+
+HMONITOR NearestMonitorToPoint(POINT pt) {
+  NearestMonitorContext ctx;
+  ctx.point = pt;
+  EnumDisplayMonitors(nullptr, nullptr, NearestMonitorEnumProc,
+                      reinterpret_cast<LPARAM>(&ctx));
+  return ctx.best;
+}
 
 }  // namespace
 
@@ -361,8 +397,16 @@ void FloatingOverlayWindow::ValidatePosition() {
   // that later gets unplugged snaps back on-screen instead of staying void,
   // even while the overlay is already visible. Also called directly from
   // Show() as a defensive re-check before the shell becomes visible.
+  //
+  // Prefer the monitor the point directly falls on; if it falls on none
+  // (its monitor was unplugged), fall back to the geometrically nearest
+  // monitor by distance — not whichever one Windows calls "primary" — so
+  // this matches macOS `clampToVisibleScreen`/`nearestScreen` and Linux
+  // `ClampToWorkArea`.
   POINT pt = {ToPhysical(logical_x_), ToPhysical(logical_y_)};
-  HMONITOR mon = MonitorFromPoint(pt, MONITOR_DEFAULTTOPRIMARY);
+  HMONITOR mon = MonitorFromPoint(pt, MONITOR_DEFAULTTONULL);
+  if (!mon) mon = NearestMonitorToPoint(pt);
+  if (!mon) return;
   MONITORINFO mi = {};
   mi.cbSize = sizeof(mi);
   if (!GetMonitorInfoW(mon, &mi)) return;
