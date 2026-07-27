@@ -48,30 +48,37 @@ const faqKeys = [
   <main id="main-content">
     {/*
       Section-Ton-Rhythmus (band-System aus src/styles/global.css) — bewusst
-      alternierend, damit keine zwei Sektionen mit gleichem Ton aneinanderstoßen:
+      alternierend, damit keine zwei Sektionen mit gleichem Ton aneinanderstoßen.
+      HowItWorks → AppPasteDemo stehen bewusst direkt hintereinander: beide
+      erklären denselben Hotkey→Sprechen→Text-Mechanismus (Kurzform → konkretes
+      Storyboard) und bilden EINE Erklärstrecke; WorkflowSelector und
+      MarketingMoment folgen danach als klar eigenständige Blöcke
+      (WorkflowSelector vor MarketingMoment, damit kein raised↔raised-Stoß
+      mit SpeedComparison entsteht):
         Hero              deep (implizit, kein .band — deckt sich mit der <html>-Fläche)
         HowItWorks        raised   (band-raised, in HowItWorks.astro)
-        MarketingMoment   deep     (band-deep, in MarketingMoment.astro — bricht bewusst
-                                     das doppelte 3-Spalten-Grid HowItWorks↔WorkflowSelector)
-        WorkflowSelector  raised   (band-raised, in WorkflowSelector.astro)
         AppPasteDemo      spotlight (band-spotlight, in AppPasteDemo.astro)
+        WorkflowSelector  raised   (band-raised, in WorkflowSelector.astro)
+        MarketingMoment   deep     (band-deep, in MarketingMoment.astro)
         SpeedComparison   raised   (band-raised, in SpeedComparison.astro)
         AppScreenshots    deep     (band-deep, in AppScreenshots.astro)
         Privacy           spotlight (band-spotlight, in Privacy.astro)
         Pricing           raised   (band-raised, in Pricing.astro)
         Languages         deep     (band-deep, in Languages.astro)
         FAQ               raised   (band-raised, in FAQ.astro)
+        Testimonials      spotlight (band-spotlight, in Testimonials.astro —
+                                     vor Support, damit Social Proof VOR der
+                                     Unterstützungs-Bitte steht)
         Support           deep (implizit, kein .band)
-        Testimonials      spotlight (band-spotlight, in Testimonials.astro)
         Footer            eigenständiges Chrome außerhalb von <main>, kein Band
       Jede band-Klasse wird an genau einer Stelle (der jeweiligen Sektions-
       Komponente) gesetzt — hier nur dokumentiert, nicht dupliziert gesetzt.
     */}
     <Hero />
     <HowItWorks />
-    <MarketingMoment />
-    <WorkflowSelector />
     <AppPasteDemo />
+    <WorkflowSelector />
+    <MarketingMoment />
     <SpeedComparison />
     <Engines />
     <AppScreenshots />
@@ -79,8 +86,8 @@ const faqKeys = [
     <Pricing />
     <Languages />
     <FAQ />
-    <Support />
     <Testimonials />
+    <Support />
   </main>
   <Footer variant="landing" />
   <DownloadSupportModal />

@@ -43,11 +43,15 @@ const faqKeys = [
 >
   <Nav variant="landing" />
   <main id="main-content">
+    {/* Section order mirrors `pages/index.astro` (band rhythm + rationale
+        documented there): HowItWorks → AppPasteDemo as one explanation arc,
+        WorkflowSelector/MarketingMoment as standalone blocks after it,
+        Testimonials (social proof) before the Support ask. */}
     <Hero />
     <HowItWorks />
+    <AppPasteDemo />
     <WorkflowSelector />
     <MarketingMoment />
-    <AppPasteDemo />
     <SpeedComparison />
     <Engines />
     <AppScreenshots />
@@ -55,8 +59,8 @@ const faqKeys = [
     <Pricing />
     <Languages />
     <FAQ />
-    <Support />
     <Testimonials />
+    <Support />
   </main>
   <Footer variant="landing" />
   <DownloadSupportModal />

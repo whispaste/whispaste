@@ -1,0 +1,225 @@
+---
+// LinuxButton.astro — Brand-consistent Linux AppImage download button.
+// Mirrors StoreButton/AppleButton layout/sizing for visual parity in the Hero
+// row, so all three desktop platforms get an equal-rank primary CTA
+// (PRODUCT.md: "Plattform-Parität zuerst").
+// URL sourced exclusively from the central platform config.
+import { t } from '../scripts/i18n.ts';
+import { LINUX_APPIMAGE_URL } from '../data/platforms.ts';
+// Raw-imported so `fill="currentColor"` inherits the button's text color — an
+// <img>-embedded SVG cannot do this. Same source/provenance as the hero badges
+// (see website/public/os-icons/ATTRIBUTION.txt).
+import ubuntuIconRaw from '../../public/os-icons/ubuntu.svg?raw';
+
+interface Props {
+  size?: 'default' | 'lg';
+  class?: string;
+}
+
+const APPIMAGE_URL = LINUX_APPIMAGE_URL;
+
+const { size = 'default', class: className = '' } = Astro.props;
+const isLarge = size === 'lg';
+
+const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
+---
+
+<a
+  href={APPIMAGE_URL}
+  onclick="document.dispatchEvent(new CustomEvent('download:triggered', { bubbles: true }));"
+  class:list={[
+    'wp-linux-btn',
+    { 'wp-linux-btn--lg': isLarge },
+    className,
+  ]}
+  data-testid="linux-button"
+>
+  <!-- Ubuntu logo (tintable, currentColor) -->
+  <span class="wp-linux-btn__icon" aria-hidden="true" set:html={ubuntuIconRaw} />
+
+  {isLarge ? (
+    <span class="wp-linux-btn__text">
+      <span class="wp-linux-btn__label" data-i18n="hero.download.linux.hint">{t(lang, "hero.download.linux.hint")}</span>
+      <span class="wp-linux-btn__platform-row">
+        <span class="wp-linux-btn__platform" data-i18n="hero.download.linux.platform">{t(lang, "hero.download.linux.platform")}</span>
+        <span class="wp-linux-btn__format" data-i18n="platform.linux.formatLabel">{t(lang, "platform.linux.formatLabel")}</span>
+      </span>
+    </span>
+  ) : (
+    <span class="wp-linux-btn__text">
+      <span data-i18n="hero.download.linux">{t(lang, "hero.download.linux")}</span>
+      <span class="wp-linux-btn__format" data-i18n="platform.linux.formatLabel">{t(lang, "platform.linux.formatLabel")}</span>
+    </span>
+  )}
+</a>
+
+<style>
+  .wp-linux-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.625rem 1.5rem;
+    min-height: 44px;
+    border-radius: 14px;
+    border: 1px solid rgba(56, 217, 240, 0.2);
+    background: linear-gradient(135deg, rgba(29, 37, 56, 0.8) 0%, rgba(23, 29, 44, 0.6) 100%);
+    color: #fff;
+    text-decoration: none;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    cursor: pointer;
+  }
+
+  .wp-linux-btn:hover {
+    transform: translateY(-1px);
+    border-color: rgba(56, 217, 240, 0.4);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.15);
+  }
+
+  .wp-linux-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  }
+
+  .wp-linux-btn:focus-visible {
+    outline: 2px solid #38D9F0;
+    outline-offset: 2px;
+  }
+
+  /* Large variant — same quiet brand-cyan glow treatment as StoreButton's and
+     AppleButton's `--lg`, so the three primary Hero CTAs read as one family. */
+  .wp-linux-btn--lg {
+    padding: 0.75rem 2rem;
+    min-height: 52px;
+    gap: 0.875rem;
+    border-color: rgba(56, 217, 240, 0.32);
+    box-shadow: 0 4px 20px -6px rgba(56, 217, 240, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  .wp-linux-btn--lg:hover {
+    transform: translateY(-2px);
+    border-color: rgba(56, 217, 240, 0.55);
+    box-shadow: 0 10px 28px -6px rgba(56, 217, 240, 0.5), 0 2px 8px rgba(0, 0, 0, 0.25);
+  }
+
+  .wp-linux-btn__icon {
+    display: inline-flex;
+    width: 1.25rem;
+    height: 1.25rem;
+    flex-shrink: 0;
+    color: #ffffff;
+  }
+  .wp-linux-btn__icon :global(svg) {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .wp-linux-btn--lg .wp-linux-btn__icon {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  .wp-linux-btn__text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+  }
+
+  /* Default: single line */
+  .wp-linux-btn:not(.wp-linux-btn--lg) .wp-linux-btn__text {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9375rem;
+    font-weight: 600;
+  }
+
+  /* Large: two lines */
+  .wp-linux-btn--lg .wp-linux-btn__label {
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.6);
+    letter-spacing: 0.01em;
+  }
+
+  .wp-linux-btn__platform-row {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.5rem;
+  }
+
+  .wp-linux-btn--lg .wp-linux-btn__platform {
+    font-size: 1.0625rem;
+    font-weight: 700;
+    color: #fff;
+  }
+
+  /* Format badge (AppImage) — subtle, clearly separate from the platform name;
+     mirrors AppleButton's arch badge. */
+  .wp-linux-btn__format {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+    padding: 0.15rem 0.4rem;
+    border-radius: 6px;
+    color: rgba(255, 255, 255, 0.75);
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .wp-linux-btn {
+      transition: none;
+    }
+    .wp-linux-btn:hover {
+      transform: none;
+    }
+  }
+
+  /* Light theme */
+  :global(.light) .wp-linux-btn,
+  :root.light .wp-linux-btn {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.8) 100%);
+    border-color: rgba(8, 145, 178, 0.25);
+    color: #0c1425;
+  }
+
+  :global(.light) .wp-linux-btn:hover,
+  :root.light .wp-linux-btn:hover {
+    border-color: rgba(8, 145, 178, 0.45);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.06);
+  }
+
+  :global(.light) .wp-linux-btn--lg,
+  :root.light .wp-linux-btn--lg {
+    box-shadow: 0 4px 18px -6px rgba(8, 145, 178, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  }
+
+  :global(.light) .wp-linux-btn--lg:hover,
+  :root.light .wp-linux-btn--lg:hover {
+    box-shadow: 0 10px 24px -6px rgba(8, 145, 178, 0.38), 0 2px 8px rgba(15, 23, 42, 0.08);
+  }
+
+  :global(.light) .wp-linux-btn__icon,
+  :root.light .wp-linux-btn__icon {
+    color: #0891b2;
+  }
+
+  :global(.light) .wp-linux-btn--lg .wp-linux-btn__label,
+  :root.light .wp-linux-btn--lg .wp-linux-btn__label {
+    color: rgba(12, 20, 37, 0.5);
+  }
+
+  :global(.light) .wp-linux-btn--lg .wp-linux-btn__platform,
+  :root.light .wp-linux-btn--lg .wp-linux-btn__platform {
+    color: #0c1425;
+  }
+
+  :global(.light) .wp-linux-btn__format,
+  :root.light .wp-linux-btn__format {
+    color: rgba(12, 20, 37, 0.6);
+    background: rgba(8, 145, 178, 0.08);
+    border-color: rgba(8, 145, 178, 0.2);
+  }
+</style>

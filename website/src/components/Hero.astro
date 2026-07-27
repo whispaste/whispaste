@@ -2,6 +2,7 @@
 import HeroCarousel from './HeroCarousel.astro';
 import StoreButton from './StoreButton.astro';
 import AppleButton from './AppleButton.astro';
+import LinuxButton from './LinuxButton.astro';
 import { t, localePath } from '../scripts/i18n.ts';
 // Inline-tintable OS glyphs for the platform-badge row (Issue 09). Raw-imported
 // so `fill="currentColor"` inherits the pill's `color` — an <img>-embedded SVG
@@ -71,10 +72,15 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
 <div
   class="mt-6 sm:mt-8 flex flex-col items-center gap-4 animate-fade-in-delay"
 >
-  <!-- Primary row: Microsoft Store (Windows) + macOS side by side -->
+  <!-- Primary row: all three desktop platforms as equal-rank CTAs
+       (Plattform-Parität, PRODUCT.md). The existing data-os/data-platform-btn
+       mechanism (global.css) reduces this to the visitor's own platform once
+       detected; unknown OS (bots, crawlers, privacy tools) sees all three
+       equally weighted. -->
   <div class="flex flex-wrap items-stretch justify-center gap-3">
     <div data-platform-btn="windows"><StoreButton size="lg" /></div>
     <div data-platform-btn="macos"><AppleButton size="lg" /></div>
+    <div data-platform-btn="linux"><LinuxButton size="lg" /></div>
   </div>
 
   <!-- Store-Hint gilt nur für den Microsoft-Store-Weg (Windows) — auf macOS/

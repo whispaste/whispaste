@@ -222,11 +222,15 @@ const appCloudIcons = [
 
 <style>
   /* Component-scoped accent palette — muted, brand-adjacent hues so the "any
-     app" glyphs read as varied without going neon. Calm over garish. */
+     app" glyphs read as varied without going neon. Calm over garish.
+     --apd-mail/--apd-code feed the avatar gradient and are deepened variants
+     of the original pastels so the white avatar initial stays WCAG-AA-safe
+     (4.78:1 / 5.04:1 at the stops, 4.99:1 at the midpoint — the pastel
+     originals #6BA5E7/#B49BF5 only reached ~2.3:1 against white). */
   #app-paste-demo {
-    --apd-mail: #6BA5E7;
+    --apd-mail: #3b6fba;
     --apd-chat: #55C79A;
-    --apd-code: #B49BF5;
+    --apd-code: #7c5cd9;
   }
 
   /* =========================================================================
@@ -409,6 +413,7 @@ const appCloudIcons = [
     font-size: 0.7rem;
     font-weight: 700;
     color: #fff;
+    /* AA-safe purple→blue — see the palette block above for the contrast math. */
     background: linear-gradient(135deg, var(--apd-code), var(--apd-mail));
   }
   .apd-bubble {
