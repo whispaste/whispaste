@@ -120,7 +120,7 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
         <a
           href={`${localePath(lang, "download")}#macos`}
           data-testid="hero-platform-badge-macos"
-          aria-label={`${t(lang, "hero.platforms.macos")} — ${t(lang, "nav.download")}`}
+          aria-label={`${t(lang, "hero.platforms.macos")}: ${t(lang, "nav.download")}`}
           class="platform-badge inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-brand-card/60 px-3 py-1.5 sm:px-3.5 sm:py-1.5 text-xs sm:text-sm text-ink-muted backdrop-blur-sm hover:border-brand-cyan/30 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-cyan"
           data-platform-badge="macos"
         >
@@ -131,7 +131,7 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
         <a
           href={`${localePath(lang, "download")}#windows`}
           data-testid="hero-platform-badge-windows"
-          aria-label={`${t(lang, "hero.platforms.windows")} — ${t(lang, "nav.download")}`}
+          aria-label={`${t(lang, "hero.platforms.windows")}: ${t(lang, "nav.download")}`}
           class="platform-badge inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-brand-card/60 px-3 py-1.5 sm:px-3.5 sm:py-1.5 text-xs sm:text-sm text-ink-muted backdrop-blur-sm hover:border-brand-cyan/30 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-cyan"
           data-platform-badge="windows"
         >
@@ -142,7 +142,7 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
         <a
           href={`${localePath(lang, "download")}#linux`}
           data-testid="hero-platform-badge-linux"
-          aria-label={`${t(lang, "hero.platforms.linux")} — ${t(lang, "nav.download")}`}
+          aria-label={`${t(lang, "hero.platforms.linux")}: ${t(lang, "nav.download")}`}
           class="platform-badge inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-brand-card/60 px-3 py-1.5 sm:px-3.5 sm:py-1.5 text-xs sm:text-sm text-ink-muted backdrop-blur-sm hover:border-brand-cyan/30 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-cyan"
           data-platform-badge="linux"
         >

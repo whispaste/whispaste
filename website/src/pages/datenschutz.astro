@@ -33,9 +33,13 @@ const breadcrumbItems = [
         <div class="prose prose-invert max-w-none space-y-6 text-gray-300 leading-relaxed">
           <!-- DE content (server-rendered, the only locale on this URL) -->
           <div id="content-de" class="space-y-6">
+            <p>
+              <strong class="text-white">Stand:</strong> Juli 2026<br>
+              WhisPaste ist eine Desktop-Anwendung für Windows, macOS und Linux, die Sprache in Text umwandelt. Diese Erklärung beschreibt, welche Daten die App verarbeitet, wo sie gespeichert werden und was, falls überhaupt, übertragen wird.
+            </p>
+
             <section>
               <h2 class="text-2xl font-semibold text-white mb-3">1. Datenschutz auf einen Blick</h2>
-              <h3 class="text-lg font-medium text-white mb-2">Allgemeine Hinweise</h3>
               <p>
                 Die folgenden Hinweise geben einen einfachen Überblick darüber, was mit deinen personenbezogenen Daten passiert, wenn du diese Website besuchst. Personenbezogene Daten sind alle Daten, mit denen du persönlich identifiziert werden kannst.
               </p>
@@ -73,7 +77,7 @@ const breadcrumbItems = [
             <section>
               <h2 class="text-2xl font-semibold text-white mb-3">4. Cookiefreie Webanalyse (Matomo)</h2>
               <p>
-                Diese Website nutzt die <strong class="text-white">cookiefreie</strong> Webanalyse-Software <strong class="text-white">Matomo</strong> (Erkennungsadresse: matomo.silvio-und-maik.de), um aggregierte, anonyme Statistiken über die Nutzung zu erstellen. Es werden keine Cookies gesetzt und keine Informationen auf deinem Endgerät gespeichert oder ausgelesen; weil das Tracking cookiefrei und IP-anonymisiert erfolgt, ist nach § 25 TDDDG keine Einwilligung und damit kein Cookie-Banner erforderlich. Erfasst werden u.&nbsp;a. die anonymisierte IP-Adresse, Browser- und Gerätetyp, Bildschirmauflösung, Sprache, Herkunftsregion, der Referrer und die besuchten Unterseiten sowie anonyme technische Leistungswerte (Core Web Vitals: Ladezeit, Layout-Stabilität, Reaktionszeit). Es findet <strong class="text-white">keine Profilbildung</strong>, kein geräteübergreifendes Tracking und keine Weitergabe an Dritte statt; die Daten lassen sich nicht mit Einzelpersonen verknüpfen. Externe Schriftarten oder CDN-Dienste werden nicht eingebunden; alle übrigen Ressourcen werden lokal von GitHub Pages ausgeliefert. Rechtsgrundlage: Art.&nbsp;6 Abs.&nbsp;1 lit.&nbsp;f DSGVO (berechtigtes Interesse an der bedarfsgerechten Weiterentwicklung). Du kannst dieser Verarbeitung jederzeit widersprechen (Art. 21 DSGVO) — aktiviere dazu die Opt-out-Option im folgenden Feld.
+                Diese Website nutzt die <strong class="text-white">cookiefreie</strong> Webanalyse-Software <strong class="text-white">Matomo</strong> (Erkennungsadresse: matomo.silvio-und-maik.de), um aggregierte, anonyme Statistiken über die Nutzung zu erstellen. Es werden keine Cookies gesetzt und keine Informationen auf deinem Endgerät gespeichert oder ausgelesen; weil das Tracking cookiefrei und IP-anonymisiert erfolgt, verlangt § 25 TDDDG weder eine Einwilligung noch einen Cookie-Banner. Erfasst werden u.&nbsp;a. die anonymisierte IP-Adresse, Browser- und Gerätetyp, Bildschirmauflösung, Sprache, Herkunftsregion, der Referrer und die besuchten Unterseiten sowie anonyme technische Leistungswerte (Core Web Vitals: Ladezeit, Layout-Stabilität, Reaktionszeit). Es findet <strong class="text-white">keine Profilbildung</strong>, kein geräteübergreifendes Tracking und keine Weitergabe an Dritte statt; die Daten lassen sich nicht mit Einzelpersonen verknüpfen. Externe Schriftarten oder CDN-Dienste werden nicht eingebunden; alle übrigen Ressourcen werden lokal von GitHub Pages ausgeliefert. Rechtsgrundlage: Art.&nbsp;6 Abs.&nbsp;1 lit.&nbsp;f DSGVO (berechtigtes Interesse an der bedarfsgerechten Weiterentwicklung). Du kannst dieser Verarbeitung jederzeit widersprechen (Art. 21 DSGVO). Aktiviere dazu die Opt-out-Option im folgenden Feld.
               </p>
               <p>
                 Der einzige lokale Speichermechanismus ist <code class="text-brand-cyan">localStorage</code>, der ausschließlich deine Sprach- und Theme-Präferenz auf deinem Gerät speichert. Diese Daten werden nicht an Server übermittelt.
@@ -97,16 +101,102 @@ const breadcrumbItems = [
             </section>
 
             <section>
-              <h2 class="text-2xl font-semibold text-white mb-3">6. Die WhisPaste-Anwendung</h2>
+              <h2 class="text-2xl font-semibold text-white mb-3">6. Kernprinzip</h2>
               <p>
-                Die Desktop-Anwendung WhisPaste sendet Audiodaten direkt an die <strong class="text-white">OpenAI Whisper API</strong> zur Transkription. Dabei werden die Daten ausschließlich zwischen deinem Gerät und OpenAI übertragen. WhisPaste selbst speichert, überträgt oder verarbeitet keine Audiodaten auf eigenen Servern.
+                WhisPaste ist auf <strong class="text-white">Privatsphäre zuerst</strong> ausgelegt. Deine <strong class="text-white">Audiodaten und dein transkribierter Text verlassen dein Gerät nicht</strong>, außer du wählst ausdrücklich einen Cloud-Anbieter für die Transkription. Die App erhebt standardmäßig <strong class="text-white">anonyme, aggregierte Nutzungsstatistiken</strong> und optionale Absturzberichte zur Weiterentwicklung; diese sind cookiefrei, tragen keinen Konto- oder Geräte-Identifikator, enthalten niemals dein Audio, deinen Text oder Verlauf und lassen sich jederzeit abschalten (siehe Abschnitt&nbsp;15).
               </p>
+            </section>
+
+            <section>
+              <h2 class="text-2xl font-semibold text-white mb-3">7. Audioaufnahme &amp; Transkription</h2>
               <p>
-                Für die Datenverarbeitung durch OpenAI gilt die <a href="https://openai.com/policies/privacy-policy" target="_blank" rel="noopener" class="text-brand-cyan hover:underline">OpenAI Privacy Policy</a>. Dein API-Schlüssel wird ausschließlich lokal in der Konfigurationsdatei auf deinem Gerät gespeichert.
+                WhisPaste nimmt Audio über dein Mikrofon auf, wenn du die Aufnahme startest (per Tastenkürzel oder Schaltfläche). Je nach Einstellung wird die Aufnahme auf einem von zwei Wegen verarbeitet:
               </p>
-              <h3 class="text-lg font-medium text-white mb-2 mt-4">Anonyme Nutzungsstatistik &amp; Absturzberichte</h3>
+              <ul class="list-disc list-inside space-y-2 ml-4">
+                <li>
+                  <strong class="text-white">Lokale/Offline-Transkription:</strong> Das Audio wird vollständig auf deinem Gerät verarbeitet, mit einem lokalen KI-Modell: Whisper (über whisper.cpp) oder Parakeet (über sherpa-onnx), je nach Einstellung. Es verlässt kein Audio deinen Rechner.
+                </li>
+                <li>
+                  <strong class="text-white">Cloud-Transkription (OpenAI oder Deepgram):</strong> Das Audio wird zur Transkription an die Server des gewählten Anbieters gesendet. Dafür benötigst du einen eigenen API-Schlüssel des jeweiligen Anbieters. Die Übertragung erfolgt direkt von deinem Gerät zum Anbieter; WhisPaste leitet die Aufnahme über keinen eigenen Server weiter, speichert oder verarbeitet sie dort auch nicht.
+                </li>
+              </ul>
+              <p class="mt-3">
+                Bei Nutzung der Cloud-Anbieter gelten deren Datenverarbeitungsbedingungen: <a href="https://openai.com/policies/privacy-policy" target="_blank" rel="noopener" class="text-brand-cyan hover:underline">OpenAI Privacy Policy</a> bzw. <a href="https://deepgram.com/privacy-policy" target="_blank" rel="noopener" class="text-brand-cyan hover:underline">Deepgram Privacy Policy</a>.
+              </p>
+            </section>
+
+            <section>
+              <h2 class="text-2xl font-semibold text-white mb-3">8. Transkript-Verlauf</h2>
               <p>
-                Zur bedarfsgerechten Weiterentwicklung erhebt die Desktop-App standardmäßig <strong class="text-white">anonyme, aggregierte Nutzungsstatistiken</strong> über einen Matomo-Server sowie optionale Absturzberichte (Sentry). Beide Datenströme sind cookiefrei und ohne Konto-, Nutzer- oder Geräte-Identifikator; die IP-Adresse wird serverseitig vollständig anonymisiert, und eine aktive Do-Not-Track-Einstellung des Betriebssystems wird respektiert.
+                Transkribierter Text wird lokal auf deinem Gerät in einer SQLite-Datenbank gespeichert (<code class="text-brand-cyan">%APPDATA%\WhisPaste\</code> unter Windows, <code class="text-brand-cyan">~/Library/Application Support/WhisPaste</code> unter macOS, <code class="text-brand-cyan">~/.config/whispaste</code> unter Linux). Diese Daten verlassen dein Gerät nicht. Du kannst deinen Transkript-Verlauf jederzeit in der App ansehen, durchsuchen, exportieren und löschen.
+              </p>
+            </section>
+
+            <section>
+              <h2 class="text-2xl font-semibold text-white mb-3">9. Speicherung der API-Schlüssel</h2>
+              <p>
+                API-Schlüssel für Cloud-Anbieter (OpenAI, Deepgram) werden <strong class="text-white">nicht</strong> im Klartext in einer Konfigurationsdatei gespeichert, sondern über den sicheren Zugangsdaten-Speicher deines Betriebssystems: den Windows-Anmeldeinformations-Manager, den macOS-Schlüsselbund oder libsecret unter Linux. Ein Schlüssel wird <strong class="text-white">ausschließlich</strong> direkt an die API-Schnittstelle des jeweiligen Anbieters übertragen, wenn du eine Transkriptionsanfrage stellst. WhisPaste sendet deinen API-Schlüssel an keinen anderen Dienst oder Server.
+              </p>
+            </section>
+
+            <section>
+              <h2 class="text-2xl font-semibold text-white mb-3">10. Konfiguration &amp; lokale Speicherung</h2>
+              <p>
+                Alle übrigen App-Einstellungen (Sprache, Tastenkürzel, Design, Modell-Präferenzen usw.) werden lokal im selben Anwendungsordner gespeichert wie der Transkript-Verlauf (siehe Abschnitt&nbsp;8). Keine Konfigurationsdaten werden an externe Server übermittelt.
+              </p>
+            </section>
+
+            <section>
+              <h2 class="text-2xl font-semibold text-white mb-3">11. KI-Modell-Downloads</h2>
+              <p>
+                Für die lokale/Offline-Transkription lädt WhisPaste KI-Modelle von <strong class="text-white">Hugging Face</strong> herunter: Sowohl die Whisper- als auch die Parakeet-Modelle stammen von dort, aus jeweils eigenen Repositories. Beim Download wird eine Standard-HTTPS-Anfrage an die Hugging-Face-Server gestellt. Es werden keine personenbezogenen Daten oder Identifikatoren übermittelt, nur die Modelldatei-URL wird angefragt. Heruntergeladene Modelle werden lokal auf deinem Gerät gespeichert.
+              </p>
+            </section>
+
+            <section>
+              <h2 class="text-2xl font-semibold text-white mb-3">12. Automatische Updates</h2>
+              <p>
+                Der Update-Mechanismus hängt vom Installationsweg ab:
+              </p>
+              <ul class="list-disc list-inside space-y-1 ml-4">
+                <li>Bei Installation über den <strong class="text-white">Microsoft Store, Mac App Store</strong> oder einen <strong class="text-white">Paketmanager</strong> (Homebrew Cask, Scoop, Snap, Flatpak) übernimmt der jeweilige Store bzw. Paketmanager die Update-Prüfung; die App selbst führt keine eigene Update-Prüfung durch.</li>
+                <li>Beim <strong class="text-white">Windows- oder macOS-Installer</strong> sowie der portablen Variante prüft die App über signierte Appcast-Feeds, die von GitHub bezogen werden, ob eine neue Version verfügbar ist.</li>
+                <li>Unter <strong class="text-white">Linux</strong> (AppImage/.deb) erfolgt die Prüfung direkt über die GitHub-Releases-API.</li>
+              </ul>
+              <p class="mt-3">
+                Diese Anfragen enthalten keine personenbezogenen Daten; sie fragen lediglich die neueste Release-Version ab. Es werden keine Nutzer-Identifikatoren, Geräteinformationen oder Nutzungsdaten übermittelt.
+              </p>
+            </section>
+
+            <section>
+              <h2 class="text-2xl font-semibold text-white mb-3">13. Weitergabe an Dritte</h2>
+              <p>
+                WhisPaste gibt deine Inhalte <strong class="text-white">nicht an Dritte weiter</strong>. Audio wird nur dann an einen Cloud-Anbieter gesendet, wenn du das ausdrücklich wählst (OpenAI oder Deepgram), direkt von deinem Gerät und zu den Bedingungen dieses Anbieters. Anonyme Nutzungsstatistiken laufen über einen von uns selbst betriebenen Matomo-Server (kein Dritter). Optionale Absturzberichte werden von Sentry als Auftragsverarbeiter verarbeitet. Beide lassen sich abschalten, siehe Abschnitt&nbsp;15.
+              </p>
+            </section>
+
+            <section>
+              <h2 class="text-2xl font-semibold text-white mb-3">14. Netzwerkverbindungen</h2>
+              <p>
+                WhisPaste stellt ausschließlich für folgende Zwecke Netzwerkverbindungen her:
+              </p>
+              <ul class="list-disc list-inside space-y-1 ml-4">
+                <li>OpenAI- bzw. Deepgram-API — bei aktivierter Cloud-Transkription (von dir ausgelöst)</li>
+                <li>Hugging Face — beim Herunterladen lokaler KI-Modelle (von dir ausgelöst)</li>
+                <li>GitHub — für automatische Update-Prüfungen (Releases-API bzw. Appcast)</li>
+                <li>Matomo — anonyme, abschaltbare Nutzungsstatistik (siehe Abschnitt 15)</li>
+                <li>Sentry — optionale Absturzberichte (abschaltbar)</li>
+                <li>Supabase — nur beim Absenden des freiwilligen Feedback-Formulars (siehe Abschnitt 16)</li>
+              </ul>
+              <p class="mt-3">
+                Alle Netzwerkverbindungen sind <strong class="text-white">HTTPS-verschlüsselt</strong>. Außer der Update-Prüfung und der in Abschnitt 15 beschriebenen anonymen Telemetrie findet keine Hintergrund-Netzwerkaktivität statt.
+              </p>
+            </section>
+
+            <section>
+              <h2 class="text-2xl font-semibold text-white mb-3">15. Anonyme Nutzungsstatistik &amp; Absturzberichte</h2>
+              <p>
+                Zur bedarfsgerechten Weiterentwicklung erhebt die App standardmäßig <strong class="text-white">anonyme, aggregierte Nutzungsstatistiken</strong> über einen Matomo-Server sowie optionale Absturzberichte (Sentry). Beide Datenströme sind cookiefrei und ohne Konto-, Nutzer- oder Geräte-Identifikator. Bei Matomo wird die IP-Adresse serverseitig vollständig anonymisiert, und eine aktive Do-Not-Track-Einstellung des Betriebssystems wird respektiert.
               </p>
               <p>
                 <strong class="text-white">Niemals</strong> übertragen werden: dein Audio, transkribierter Text, Verlauf, Textbausteine, Tags, Notizen, API-Schlüssel, konkrete Tastenkürzel, Dateipfade, Cursor-Position oder die Ziel-Anwendung. Erhoben werden ausschließlich aggregierte Ereigniszähler und Kategorien (App-Version, Plattform, gewählter Anbieter, Installationskanal, Sprache). Rechtsgrundlage: Art.&nbsp;6 Abs.&nbsp;1 lit.&nbsp;f DSGVO (berechtigtes Interesse). Du kannst beide Datenströme jederzeit getrennt unter <strong class="text-white">Einstellungen → Datenschutz</strong> abschalten (Widerspruch nach Art. 21 DSGVO).
@@ -114,7 +204,35 @@ const breadcrumbItems = [
             </section>
 
             <section>
-              <h2 class="text-2xl font-semibold text-white mb-3">7. Deine Rechte</h2>
+              <h2 class="text-2xl font-semibold text-white mb-3">16. Feedback-Formular</h2>
+              <p>
+                WhisPaste bietet ein optionales, freiwilliges Feedback-Formular in der App. Beim Absenden werden deine Bewertung, dein Feedback-Text, die gewählte Kategorie, die App-Version, ein gehashter, nicht direkt identifizierender Geräte-Identifikator sowie die App-Sprache an eine von uns betriebene Supabase-Datenbank übertragen. Nur wenn du es freiwillig ausfüllst, werden zusätzlich eine Kontakt-E-Mail-Adresse und eine bevorzugte Kontaktsprache mitgeschickt, um dir auf dein Feedback antworten zu können. Rechtsgrundlage: Art. 6 Abs. 1 lit. a DSGVO (Einwilligung durch aktives Absenden des Formulars). Ohne Absenden des Formulars werden keine dieser Daten übertragen.
+              </p>
+            </section>
+
+            <section>
+              <h2 class="text-2xl font-semibold text-white mb-3">17. Kinder</h2>
+              <p>
+                WhisPaste erhebt wissentlich keine Daten von Kindern. Da die App keine personenbezogenen Daten verlangt und kein Benutzerkonto erfordert, ergeben sich keine altersspezifischen Datenschutzfragen.
+              </p>
+            </section>
+
+            <section>
+              <h2 class="text-2xl font-semibold text-white mb-3">18. Änderungen dieser Erklärung</h2>
+              <p>
+                Diese Datenschutzerklärung kann aktualisiert werden, um Änderungen an der Anwendung widerzuspiegeln. Wesentliche Änderungen werden in den Release Notes der App auf GitHub vermerkt.
+              </p>
+            </section>
+
+            <section>
+              <h2 class="text-2xl font-semibold text-white mb-3">19. Kontakt</h2>
+              <p>
+                Für Fragen zum Datenschutz wende dich bitte an die im <a href="/impressum/" class="text-brand-cyan hover:underline">Impressum</a> genannten Kontaktdaten.
+              </p>
+            </section>
+
+            <section>
+              <h2 class="text-2xl font-semibold text-white mb-3">20. Deine Rechte</h2>
               <p>
                 Du hast jederzeit das Recht auf:
               </p>
@@ -127,7 +245,7 @@ const breadcrumbItems = [
                 <li>Widerspruch gegen die Verarbeitung (Art. 21 DSGVO)</li>
               </ul>
               <p class="mt-3">
-                Da diese Website keine personenbezogenen Daten über die technisch erforderlichen Serverlogs von GitHub hinaus erhebt, liegen bei WhisPaste selbst keine zu löschenden Daten vor. Für Anfragen bezüglich der GitHub-Serverlogs wende dich bitte an <a href="https://support.github.com/" target="_blank" rel="noopener" class="text-brand-cyan hover:underline">GitHub Support</a>.
+                Da diese Website keine personenbezogenen Daten über die technisch erforderlichen Serverlogs von GitHub hinaus erhebt, liegen bei WhisPaste selbst keine zu löschenden Daten vor, sofern du kein Feedback-Formular abgesendet hast (siehe Abschnitt 16). Für Anfragen bezüglich der GitHub-Serverlogs wende dich bitte an <a href="https://support.github.com/" target="_blank" rel="noopener" class="text-brand-cyan hover:underline">GitHub Support</a>.
               </p>
               <p>
                 Außerdem hast du das Recht, dich bei einer Datenschutz-Aufsichtsbehörde zu beschweren (Art. 77 DSGVO).
@@ -135,7 +253,7 @@ const breadcrumbItems = [
             </section>
 
             <section>
-              <h2 class="text-2xl font-semibold text-white mb-3">8. SSL/TLS-Verschlüsselung</h2>
+              <h2 class="text-2xl font-semibold text-white mb-3">21. SSL/TLS-Verschlüsselung</h2>
               <p>
                 Diese Website nutzt aus Sicherheitsgründen eine SSL- bzw. TLS-Verschlüsselung (HTTPS). Eine verschlüsselte Verbindung erkennst du daran, dass die Adresszeile des Browsers von „http://" auf „https://" wechselt.
               </p>

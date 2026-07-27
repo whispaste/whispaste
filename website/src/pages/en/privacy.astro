@@ -28,8 +28,8 @@ const breadcrumbItems = [
 
         <div class="prose prose-invert max-w-none space-y-6 text-gray-300 leading-relaxed">
           <p>
-            <strong class="text-white">Effective date:</strong> July 2025<br>
-            WhisPaste is a desktop application for Windows that transcribes speech to text. This policy explains what data the application processes, where it is stored, and what — if anything — is transmitted.
+            <strong class="text-white">Effective date:</strong> July 2026<br>
+            WhisPaste is a desktop application for Windows, macOS, and Linux that transcribes speech to text. This policy explains what data the application processes, where it is stored, and what, if anything, is transmitted.
           </p>
 
           <!-- Website sections (1–5) -->
@@ -73,7 +73,7 @@ const breadcrumbItems = [
           <section>
             <h2 class="text-2xl font-semibold text-white mb-3">4. Cookiefree Web Analytics (Matomo)</h2>
             <p>
-              This website uses the <strong class="text-white">cookiefree</strong> web analytics software <strong class="text-white">Matomo</strong> (endpoint: matomo.silvio-und-maik.de) to produce aggregated, anonymous usage statistics. No cookies are set and no information is stored on or read from your device; because tracking is cookieless and IP-anonymised, no consent — and therefore no cookie banner — is required under § 25 TDDDG. Recorded are, among others, the anonymised IP address, browser and device type, screen resolution, language, region of origin, the referrer and the subpages visited, plus anonymous technical performance metrics (Core Web Vitals: loading time, layout stability, response time). There is <strong class="text-white">no profiling</strong>, no cross-device tracking and no sharing with third parties; the data cannot be linked to individuals. No external fonts or CDN services are loaded; all other resources are served locally from GitHub Pages. Legal basis: Art.&nbsp;6(1)(f) GDPR (legitimate interest in needs-driven improvement). You may object to this processing at any time (Art. 21 GDPR) — tick the opt-out option in the field below.
+              This website uses the <strong class="text-white">cookiefree</strong> web analytics software <strong class="text-white">Matomo</strong> (endpoint: matomo.silvio-und-maik.de) to produce aggregated, anonymous usage statistics. No cookies are set and no information is stored on or read from your device; because tracking is cookieless and IP-anonymised, § 25 TDDDG requires neither consent nor a cookie banner. Recorded are, among others, the anonymised IP address, browser and device type, screen resolution, language, region of origin, the referrer and the subpages visited, plus anonymous technical performance metrics (Core Web Vitals: loading time, layout stability, response time). There is <strong class="text-white">no profiling</strong>, no cross-device tracking and no sharing with third parties; the data cannot be linked to individuals. No external fonts or CDN services are loaded; all other resources are served locally from GitHub Pages. Legal basis: Art.&nbsp;6(1)(f) GDPR (legitimate interest in needs-driven improvement). You may object to this processing at any time (Art. 21 GDPR). Tick the opt-out option in the field below.
             </p>
             <p>
               The only local storage mechanism is <code class="text-brand-cyan">localStorage</code>, which stores your language and theme preference on your device only. This data is never sent to any server.
@@ -96,12 +96,12 @@ const breadcrumbItems = [
             </p>
           </section>
 
-          <!-- Application sections (6–18) -->
+          <!-- Application sections (6–21) -->
 
           <section>
             <h2 class="text-2xl font-semibold text-white mb-3">6. Core Principle</h2>
             <p>
-              WhisPaste is designed with <strong class="text-white">privacy first</strong>. Your <strong class="text-white">content — audio and transcribed text — never leaves your device</strong> unless you explicitly choose a cloud transcription service. The app does collect <strong class="text-white">anonymous, aggregated usage statistics</strong> and optional crash reports to guide development; these are cookieless, carry no account or device identifier, never contain your audio, text, or history, and can be switched off at any time (see section&nbsp;15).
+              WhisPaste is designed with <strong class="text-white">privacy first</strong>. Your <strong class="text-white">audio and transcribed text never leave your device</strong> unless you explicitly choose a cloud transcription service. The app does collect <strong class="text-white">anonymous, aggregated usage statistics</strong> and optional crash reports to guide development; these are cookieless, carry no account or device identifier, never contain your audio, text, or history, and can be switched off at any time (see section&nbsp;15).
             </p>
           </section>
 
@@ -112,56 +112,64 @@ const breadcrumbItems = [
             </p>
             <ul class="list-disc list-inside space-y-2 ml-4">
               <li>
-                <strong class="text-white">Local / Offline transcription:</strong> Audio is processed entirely on your device using a local AI model — Whisper (via whisper.cpp) or Parakeet (via sherpa-onnx), depending on your settings. No audio data leaves your computer.
+                <strong class="text-white">Local / Offline transcription:</strong> Audio is processed entirely on your device using a local AI model: Whisper (via whisper.cpp) or Parakeet (via sherpa-onnx), depending on your settings. No audio data leaves your computer.
               </li>
               <li>
-                <strong class="text-white">Cloud transcription (OpenAI Whisper API):</strong> Audio is sent to OpenAI's servers for transcription. This requires you to provide your own OpenAI API key. The audio is transmitted directly from your device to OpenAI — WhisPaste does not route, store, or process audio on any intermediary server.
+                <strong class="text-white">Cloud transcription (OpenAI or Deepgram):</strong> Audio is sent to the servers of whichever provider you choose. This requires you to provide your own API key for that provider. The audio is transmitted directly from your device to the provider; WhisPaste does not route, store, or process it on any intermediary server of ours.
               </li>
             </ul>
             <p class="mt-3">
-              When using the OpenAI API, OpenAI's data processing terms apply. Please review the <a href="https://openai.com/policies/privacy-policy" target="_blank" rel="noopener" class="text-brand-cyan hover:underline">OpenAI Privacy Policy</a> for details on how they handle audio data.
+              When using a cloud provider, that provider's data processing terms apply: <a href="https://openai.com/policies/privacy-policy" target="_blank" rel="noopener" class="text-brand-cyan hover:underline">OpenAI Privacy Policy</a> or <a href="https://deepgram.com/privacy-policy" target="_blank" rel="noopener" class="text-brand-cyan hover:underline">Deepgram Privacy Policy</a>.
             </p>
           </section>
 
           <section>
             <h2 class="text-2xl font-semibold text-white mb-3">8. Transcription History</h2>
             <p>
-              Transcribed text is stored locally on your device in an SQLite database located in <code class="text-brand-cyan">%APPDATA%\WhisPaste\</code>. This data never leaves your device. You can view, search, export, and delete your transcription history at any time through the application.
+              Transcribed text is stored locally on your device in an SQLite database (<code class="text-brand-cyan">%APPDATA%\WhisPaste\</code> on Windows, <code class="text-brand-cyan">~/Library/Application Support/WhisPaste</code> on macOS, <code class="text-brand-cyan">~/.config/whispaste</code> on Linux). This data never leaves your device. You can view, search, export, and delete your transcription history at any time through the application.
             </p>
           </section>
 
           <section>
             <h2 class="text-2xl font-semibold text-white mb-3">9. API Key Storage</h2>
             <p>
-              Your OpenAI API key is stored locally in the configuration file at <code class="text-brand-cyan">%APPDATA%\WhisPaste\config.json</code>. The key is <strong class="text-white">never transmitted anywhere</strong> except directly to OpenAI's API endpoint when performing a transcription request. WhisPaste does not send your API key to any other service or server.
+              API keys for cloud providers (OpenAI, Deepgram) are <strong class="text-white">not</strong> stored in plain text in a configuration file. They are kept in your operating system's secure credential store: Windows Credential Manager, the macOS Keychain, or libsecret on Linux. A key is transmitted <strong class="text-white">only</strong> directly to that provider's API endpoint when you perform a transcription request. WhisPaste does not send your API key to any other service or server.
             </p>
           </section>
 
           <section>
             <h2 class="text-2xl font-semibold text-white mb-3">10. Configuration &amp; Local Storage</h2>
             <p>
-              All application settings (language, hotkey, theme, model preferences, etc.) are stored locally in <code class="text-brand-cyan">%APPDATA%\WhisPaste\config.json</code>. No configuration data is transmitted to external servers.
+              All other application settings (language, hotkey, theme, model preferences, etc.) are stored locally in the same application folder as your transcription history (see section&nbsp;8). No configuration data is transmitted to external servers.
             </p>
           </section>
 
           <section>
             <h2 class="text-2xl font-semibold text-white mb-3">11. AI Model Downloads</h2>
             <p>
-              For local/offline transcription, WhisPaste can download AI models from <strong class="text-white">HuggingFace</strong>. During a model download, a standard HTTPS request is made to HuggingFace's servers. No personal data or identifiers are sent — only the model file URL is requested. Downloaded models are stored locally on your device.
+              For local/offline transcription, WhisPaste downloads AI models from <strong class="text-white">Hugging Face</strong>: both the Whisper and the Parakeet models come from separate repositories there. During a model download, a standard HTTPS request is made to Hugging Face's servers. No personal data or identifiers are sent; only the model file URL is requested. Downloaded models are stored locally on your device.
             </p>
           </section>
 
           <section>
             <h2 class="text-2xl font-semibold text-white mb-3">12. Auto-Update</h2>
             <p>
-              WhisPaste checks for updates by querying the <strong class="text-white">GitHub Releases API</strong>. This request contains no personal data — it simply fetches the latest release version information. No user identifiers, device information, or usage data are transmitted. Auto-update is disabled automatically when running as an MSIX Store package.
+              The update mechanism depends on how you installed WhisPaste:
+            </p>
+            <ul class="list-disc list-inside space-y-1 ml-4">
+              <li>Installed via the <strong class="text-white">Microsoft Store, Mac App Store</strong>, or a <strong class="text-white">package manager</strong> (Homebrew Cask, Scoop, Snap, Flatpak): that store or package manager handles update checks; the app itself performs no separate check.</li>
+              <li>Installed via the <strong class="text-white">Windows or macOS installer</strong>, or the portable build: the app checks for a new version through signed appcast feeds fetched from GitHub.</li>
+              <li>On <strong class="text-white">Linux</strong> (AppImage/.deb): the check queries the GitHub Releases API directly.</li>
+            </ul>
+            <p class="mt-3">
+              These requests contain no personal data; they simply fetch the latest release version information. No user identifiers, device information, or usage data are transmitted.
             </p>
           </section>
 
           <section>
             <h2 class="text-2xl font-semibold text-white mb-3">13. Third-Party Data Sharing</h2>
             <p>
-              WhisPaste does <strong class="text-white">not share your content with third parties</strong>. Audio is sent to a cloud provider only when you explicitly choose one (e.g. the OpenAI Whisper API), directly from your device under that provider's terms. Anonymous usage statistics go to a Matomo server operated by us (not a third party). Optional crash reports are processed by Sentry as a data processor. Both can be switched off — see section&nbsp;15.
+              WhisPaste does <strong class="text-white">not share your content with third parties</strong>. Audio is sent to a cloud provider only when you explicitly choose one (OpenAI or Deepgram), directly from your device under that provider's terms. Anonymous usage statistics go to a Matomo server operated by us (not a third party). Optional crash reports are processed by Sentry as a data processor. Both can be switched off (see section&nbsp;15).
             </p>
           </section>
 
@@ -171,11 +179,12 @@ const breadcrumbItems = [
               WhisPaste only makes network connections for the following purposes:
             </p>
             <ul class="list-disc list-inside space-y-1 ml-4">
-              <li>OpenAI Whisper API — when cloud transcription is enabled (user-initiated)</li>
-              <li>HuggingFace — when downloading offline AI models (user-initiated)</li>
-              <li>GitHub Releases / appcast — for automatic update checks</li>
+              <li>OpenAI / Deepgram API — when cloud transcription is enabled (user-initiated)</li>
+              <li>Hugging Face — when downloading offline AI models (user-initiated)</li>
+              <li>GitHub — for automatic update checks (Releases API or appcast)</li>
               <li>Matomo — anonymous, opt-out usage statistics (see section 15)</li>
               <li>Sentry — optional crash reports (opt-out)</li>
+              <li>Supabase — only when you submit the optional feedback form (see section 16)</li>
             </ul>
             <p class="mt-3">
               All network connections use <strong class="text-white">HTTPS</strong> encryption. Aside from the update check and the anonymous telemetry described in section 15, no background network activity occurs.
@@ -185,7 +194,7 @@ const breadcrumbItems = [
           <section>
             <h2 class="text-2xl font-semibold text-white mb-3">15. Anonymous Usage Statistics &amp; Crash Reports</h2>
             <p>
-              To guide development, WhisPaste collects <strong class="text-white">anonymous, aggregated usage statistics</strong> by default via a Matomo server, plus optional crash reports (Sentry). Both are cookieless and carry no account, user, or device identifier; the IP address is fully anonymised server-side, and an active operating-system Do-Not-Track setting is honoured.
+              To guide development, WhisPaste collects <strong class="text-white">anonymous, aggregated usage statistics</strong> by default via a Matomo server, plus optional crash reports (Sentry). Both are cookieless and carry no account, user, or device identifier. For Matomo, the IP address is fully anonymised server-side, and an active operating-system Do-Not-Track setting is honoured.
             </p>
             <p>
               <strong class="text-white">Never</strong> transmitted: your audio, transcribed text, history, snippets, tags, notes, API keys, concrete hotkeys, file paths, cursor position, or the target application. Only aggregated event counters and categories are collected (app version, platform, selected provider, install channel, language). Legal basis: Art. 6(1)(f) GDPR (legitimate interest). You can switch off each stream independently at any time under <strong class="text-white">Settings → Privacy</strong>.
@@ -193,30 +202,37 @@ const breadcrumbItems = [
           </section>
 
           <section>
-            <h2 class="text-2xl font-semibold text-white mb-3">16. Children's Privacy</h2>
+            <h2 class="text-2xl font-semibold text-white mb-3">16. Feedback Form</h2>
+            <p>
+              WhisPaste includes an optional, voluntary feedback form in the app. Submitting it sends your rating, feedback text, chosen category, app version, a hashed, non-identifying device identifier, and the app's UI language to a Supabase database that we operate. Only if you choose to fill them in, a contact email address and a preferred contact language are also sent, so we can reply to your feedback. Legal basis: Art. 6(1)(a) GDPR (consent, given by actively submitting the form). None of this data is transmitted unless you submit the form.
+            </p>
+          </section>
+
+          <section>
+            <h2 class="text-2xl font-semibold text-white mb-3">17. Children's Privacy</h2>
             <p>
               WhisPaste does not knowingly collect data from children. Since the application does not collect any personal data or require account creation, there are no age-related data concerns.
             </p>
           </section>
 
           <section>
-            <h2 class="text-2xl font-semibold text-white mb-3">17. Changes to This Policy</h2>
+            <h2 class="text-2xl font-semibold text-white mb-3">18. Changes to This Policy</h2>
             <p>
               This privacy policy may be updated to reflect changes in the application. Significant changes will be noted in the application's release notes on GitHub.
             </p>
           </section>
 
           <section>
-            <h2 class="text-2xl font-semibold text-white mb-3">18. Contact</h2>
+            <h2 class="text-2xl font-semibold text-white mb-3">19. Contact</h2>
             <p>
               For privacy-related questions or concerns, please refer to the <a href="/en/impressum/" class="text-brand-cyan hover:underline">Legal Notice (Impressum)</a> page for contact information.
             </p>
           </section>
 
-          <!-- Closing sections (19–20) -->
+          <!-- Closing sections (20–21) -->
 
           <section>
-            <h2 class="text-2xl font-semibold text-white mb-3">19. Your Rights</h2>
+            <h2 class="text-2xl font-semibold text-white mb-3">20. Your Rights</h2>
             <p>
               You have the right at any time to:
             </p>
@@ -229,7 +245,7 @@ const breadcrumbItems = [
               <li>Object to processing (Art. 21 GDPR)</li>
             </ul>
             <p class="mt-3">
-              Since this website does not collect any personal data beyond the technically required server logs by GitHub, there is no data held by WhisPaste itself to delete. For requests regarding GitHub server logs, please contact <a href="https://support.github.com/" target="_blank" rel="noopener" class="text-brand-cyan hover:underline">GitHub Support</a>.
+              Since this website does not collect any personal data beyond the technically required server logs by GitHub, there is no data held by WhisPaste itself to delete, unless you have submitted the feedback form (see section 16). For requests regarding GitHub server logs, please contact <a href="https://support.github.com/" target="_blank" rel="noopener" class="text-brand-cyan hover:underline">GitHub Support</a>.
             </p>
             <p>
               You also have the right to lodge a complaint with a data protection supervisory authority (Art. 77 GDPR).
@@ -237,7 +253,7 @@ const breadcrumbItems = [
           </section>
 
           <section>
-            <h2 class="text-2xl font-semibold text-white mb-3">20. SSL/TLS Encryption</h2>
+            <h2 class="text-2xl font-semibold text-white mb-3">21. SSL/TLS Encryption</h2>
             <p>
               This website uses SSL/TLS encryption (HTTPS) for security reasons. An encrypted connection is indicated by the address bar changing from "http://" to "https://".
             </p>
