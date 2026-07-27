@@ -83,7 +83,6 @@ supabase/
 
 # Public-Release-Skripte (einzeln aufgelistet — scripts/* ist gitignored
 # und nur diese Ausnahmen sind öffentlich erlaubt)
-scripts/git-hooks/
 scripts/GITHUB-SECRETS-SETUP.md
 scripts/docs-attest.sh
 scripts/docs-drift.sh
