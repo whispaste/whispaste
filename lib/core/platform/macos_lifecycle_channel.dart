@@ -7,7 +7,9 @@ library;
 import 'dart:io';
 
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../services/graceful_shutdown.dart';
 import '../logging/app_logger.dart';
 
 final _log = AppLogger('MacOSLifecycleChannel');
@@ -95,5 +97,21 @@ class MacOSLifecycleChannel {
       // still has the option to quit WhisPaste manually.
       _log.warning('App restart via platform channel failed', e);
     }
+  }
+
+  /// Handles `prepareForTermination`, invoked by `AppDelegate.swift`'s
+  /// `applicationShouldTerminate` override (macOS Cmd+Q / Dock "Quit")
+  /// before it lets the native `NSApplication` actually terminate. Without
+  /// this, native quit bypasses the Dart-level `onWindowClose` handler
+  /// entirely and can abort the process mid-teardown (see
+  /// `graceful_shutdown.dart`).
+  static void registerTerminationHandler(ProviderContainer container) {
+    if (!Platform.isMacOS) return;
+    _channel.setMethodCallHandler((call) async {
+      if (call.method == 'prepareForTermination') {
+        await runGracefulEngineShutdown(container);
+      }
+      return null;
+    });
   }
 }

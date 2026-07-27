@@ -8,6 +8,7 @@ class AppDelegate: FlutterAppDelegate {
   private var floatingButtonHost: FloatingButtonHost?
   private var floatingOverlayHost: FloatingOverlayHost?
   private var audioRoutingHost: AudioRoutingHost?
+  private var bundleIdMigrationHost: BundleIdMigrationHost?
   private var lifecycleChannel: FlutterMethodChannel?
 
   override func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -28,6 +29,34 @@ class AppDelegate: FlutterAppDelegate {
     return true
   }
 
+  private var didReplyToTerminate = false
+
+  /// Native Cmd+Q / Dock "Quit" call `NSApplication.terminate()` directly,
+  /// bypassing the Dart-level `onWindowClose` handler entirely — without
+  /// this override, the process could start tearing down while the
+  /// on-device STT engine still holds native GPU/Metal resources, and
+  /// ggml's Metal-residency-set teardown assert aborts the whole app.
+  /// `.terminateLater` holds the quit until Dart's graceful shutdown
+  /// (`prepareForTermination`, see `MacOSLifecycleChannel`) replies — with a
+  /// safety-net timeout so a stuck round-trip can't hang termination
+  /// forever (Dart-side internal timeouts already bound it to ~14s).
+  override func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+    guard let channel = lifecycleChannel else { return .terminateNow }
+    didReplyToTerminate = false
+    let replyOnce = { [weak self] () -> Void in
+      guard let self, !self.didReplyToTerminate else { return }
+      self.didReplyToTerminate = true
+      sender.reply(toApplicationShouldTerminate: true)
+    }
+    channel.invokeMethod("prepareForTermination", arguments: nil) { _ in
+      replyOnce()
+    }
+    DispatchQueue.main.asyncAfter(deadline: .now() + 16) {
+      replyOnce()
+    }
+    return .terminateLater
+  }
+
   override func applicationDidFinishLaunching(_ notification: Notification) {
     guard let window = mainFlutterWindow,
           let controller = window.contentViewController as? FlutterViewController else {
@@ -41,6 +70,7 @@ class AppDelegate: FlutterAppDelegate {
     floatingButtonHost = FloatingButtonHost(messenger: messenger)
     floatingOverlayHost = FloatingOverlayHost(messenger: messenger)
     audioRoutingHost = AudioRoutingHost(messenger: messenger)
+    bundleIdMigrationHost = BundleIdMigrationHost(messenger: messenger)
 
     // Lifecycle channel: activation policy toggle for close-to-tray.
     lifecycleChannel = FlutterMethodChannel(
