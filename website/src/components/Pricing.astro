@@ -1,6 +1,7 @@
 ---
 import StoreButton from './StoreButton.astro';
 import AppleButton from './AppleButton.astro';
+import LinuxButton from './LinuxButton.astro';
 import { t } from '../scripts/i18n.ts';
 
 const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
@@ -66,6 +67,7 @@ const features = [
           <div class="flex flex-wrap items-stretch justify-center gap-3">
             <div data-platform-btn="windows"><StoreButton /></div>
             <div data-platform-btn="macos"><AppleButton /></div>
+            <div data-platform-btn="linux"><LinuxButton /></div>
           </div>
           <!-- Store-Hint nur unter der Windows-Store-CTA (siehe Hero.astro) —
                gleicher data-os/data-platform-btn-Mechanismus. -->
