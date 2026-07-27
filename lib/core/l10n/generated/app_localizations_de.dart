@@ -52,7 +52,7 @@ class L10nDe extends L10n {
 
   @override
   String get historyEmptyHint =>
-      'Drücke den Aufnahmeknopf oder nutze den Hotkey, um mit dem Diktieren zu beginnen.';
+      'Drücke den Aufnahmeknopf oder nutze den Hotkey, um die Aufnahme zu starten.';
 
   @override
   String get historySearch => 'Suchen…';
@@ -203,7 +203,7 @@ class L10nDe extends L10n {
 
   @override
   String get historyNoRecordingsHint =>
-      'Drücke den Aufnahmeknopf oder nutze den Hotkey, um mit dem Diktieren zu beginnen.\nDeine Transkriptionen erscheinen hier.';
+      'Drücke den Aufnahmeknopf oder nutze den Hotkey, um die Aufnahme zu starten.\nDeine Transkriptionen erscheinen hier.';
 
   @override
   String get historyNoPinned => 'Noch keine Favoriten';
@@ -341,7 +341,7 @@ class L10nDe extends L10n {
 
   @override
   String get settingsClippingBanner =>
-      'Letzte Aufnahme hatte Übersteuerung — Gain reduzieren?';
+      'Letzte Aufnahme hatte Übersteuerung. Gain reduzieren?';
 
   @override
   String get settingsClippingDismiss => 'Verstanden';
@@ -475,15 +475,15 @@ class L10nDe extends L10n {
 
   @override
   String get pasteFailureNoTarget =>
-      'Auto-Einfügen übersprungen — keine Ziel-App erkannt. Fokussiere zuerst die Ziel-App, dann starte die Aufnahme.';
+      'Auto-Einfügen übersprungen, keine Ziel-App erkannt. Fokussiere zuerst die Ziel-App, dann starte die Aufnahme.';
 
   @override
   String get pasteFailureElevationBlocked =>
-      'Auto-Einfügen blockiert — die Ziel-App läuft mit Administratorrechten. Starte WhisPaste ebenfalls als Administrator, um dort einzufügen.';
+      'Auto-Einfügen blockiert: Die Ziel-App läuft mit Administratorrechten. Starte WhisPaste ebenfalls als Administrator, um dort einzufügen.';
 
   @override
   String get pasteFailureGeneric =>
-      'Auto-Einfügen fehlgeschlagen. Der Text ist in der Zwischenablage — füge ihn manuell mit ⌘V / Strg+V ein.';
+      'Auto-Einfügen fehlgeschlagen. Der Text ist in der Zwischenablage, füge ihn manuell mit ⌘V / Strg+V ein.';
 
   @override
   String get pasteFailureOpenSettings => 'Einstellungen öffnen';
@@ -533,7 +533,7 @@ class L10nDe extends L10n {
           '$count veraltete Einträge entfernt. Bitte einmal Paste auslösen, um die neuen Prompts zu sehen.',
       one:
           '1 veralteter Eintrag entfernt. Bitte einmal Paste auslösen, um den neuen Prompt zu sehen.',
-      zero: 'Keine veralteten Einträge gefunden — bitte einmal Paste auslösen.',
+      zero: 'Keine veralteten Einträge gefunden. Bitte einmal Paste auslösen.',
     );
     return '$_temp0';
   }
@@ -552,7 +552,7 @@ class L10nDe extends L10n {
 
   @override
   String get onboardingPasteSubtitle =>
-      'macOS fragt dich gleich, ob WhisPaste das darf. Sag Ja — fertig.';
+      'macOS fragt dich gleich, ob WhisPaste das darf. Sag Ja, fertig.';
 
   @override
   String get onboardingPasteGrantCta => 'Jetzt freigeben';
@@ -561,11 +561,11 @@ class L10nDe extends L10n {
   String get onboardingPasteVerifyCta => 'Prüfen';
 
   @override
-  String get onboardingPasteSkip => 'Erstmal nur kopieren — ohne Auto-Einfügen';
+  String get onboardingPasteSkip => 'Erstmal nur kopieren, ohne Auto-Einfügen';
 
   @override
   String get onboardingPasteWhyMac =>
-      'Ohne Freigabe wird dein Text in die Zwischenablage kopiert — du musst dann selbst mit ⌘V einfügen.';
+      'Ohne Freigabe wird dein Text in die Zwischenablage kopiert. Du musst dann selbst mit ⌘V einfügen.';
 
   @override
   String get onboardingPasteWhyWin =>
@@ -573,7 +573,7 @@ class L10nDe extends L10n {
 
   @override
   String get onboardingPasteWhyWinUipi =>
-      'In bestimmten Apps mit UIPI/UAC-Schutz wird Auto-Paste nicht funktionieren — der Text liegt dann in der Zwischenablage und du fügst mit Ctrl+V ein.';
+      'In bestimmten Apps mit UIPI/UAC-Schutz wird Auto-Paste nicht funktionieren. Der Text liegt dann in der Zwischenablage und du fügst mit Ctrl+V ein.';
 
   @override
   String get onboardingPasteWaitingForGrantTitle =>
@@ -589,14 +589,14 @@ class L10nDe extends L10n {
 
   @override
   String get onboardingPasteTccMismatchBody =>
-      'Das passiert manchmal nach App-Updates. Ein Neustart reicht — dann sieht macOS WhisPaste wieder sauber.';
+      'Das passiert manchmal nach App-Updates. Ein Neustart reicht. Dann sieht macOS WhisPaste wieder sauber.';
 
   @override
   String get onboardingPasteTestTitle => 'Probier Auto-Paste aus';
 
   @override
   String get onboardingPasteTestSubtitle =>
-      'Drück den Button — der Demo-Text sollte gleich im Feld unten erscheinen.';
+      'Drück den Button. Der Demo-Text sollte gleich im Feld unten erscheinen.';
 
   @override
   String get onboardingPasteDemoText => 'WhisPaste tippt für dich.';
@@ -614,7 +614,7 @@ class L10nDe extends L10n {
 
   @override
   String get onboardingPasteTestFailure =>
-      'Test fehlgeschlagen. Vielleicht hilft ein App-Neustart — oder fahre ohne Test fort.';
+      'Test fehlgeschlagen. Vielleicht hilft ein App-Neustart, oder fahre ohne Test fort.';
 
   @override
   String get onboardingPasteTestSkip => 'Ohne Test fortfahren';
@@ -624,14 +624,14 @@ class L10nDe extends L10n {
 
   @override
   String get settingsOverlayFloatingButtonSubtitle =>
-      'Lege fest, wie der Aufnahmezustand beim Diktieren angezeigt wird';
+      'Lege fest, wie der Aufnahmezustand beim Aufnehmen angezeigt wird';
 
   @override
   String get settingsShowOverlay => 'Anzeige des Aufnahme-Status';
 
   @override
   String get settingsShowOverlaySubtitle =>
-      'Wähle, wo du während des Diktierens Live-Feedback zur Aufnahme siehst';
+      'Wähle, wo du beim Aufnehmen Live-Feedback zur Aufnahme siehst';
 
   @override
   String get settingsOverlayModeFloating =>
@@ -674,7 +674,7 @@ class L10nDe extends L10n {
 
   @override
   String get settingsCustomVocabularyHint =>
-      'Namen, Fachbegriffe — verbessert die Erkennungsgenauigkeit';
+      'Namen, Fachbegriffe: verbessert die Erkennungsgenauigkeit';
 
   @override
   String get settingsCustomVocabularyPlaceholder =>
@@ -692,7 +692,7 @@ class L10nDe extends L10n {
 
   @override
   String get settingsStripPunctuationSubtitle =>
-      'Entfernt Punkte, Kommas und andere Satzzeichen aus jedem Transkript, bevor es gespeichert oder eingefügt wird — funktioniert bei jeder Engine und jedem Anbieter gleich, nicht nur bei Whisper.';
+      'Entfernt Punkte, Kommas und andere Satzzeichen aus jedem Transkript, bevor es gespeichert oder eingefügt wird. Funktioniert bei jeder Engine und jedem Anbieter gleich, nicht nur bei Whisper.';
 
   @override
   String get settingsAppLanguage => 'App-Sprache';
@@ -737,7 +737,7 @@ class L10nDe extends L10n {
 
   @override
   String get settingsFactoryResetMessage =>
-      'Damit werden ALLE Daten unwiderruflich gelöscht: Diktatverlauf, Tags, Sprachkürzel, heruntergeladene Modelle, Protokolle und Einstellungen. Die App wird in den Ausgangszustand zurückversetzt.\n\nDies kann nicht rückgängig gemacht werden.';
+      'Damit werden ALLE Daten unwiderruflich gelöscht: Aufnahmeverlauf, Tags, Sprachkürzel, heruntergeladene Modelle, Protokolle und Einstellungen. Die App wird in den Ausgangszustand zurückversetzt.\n\nDies kann nicht rückgängig gemacht werden.';
 
   @override
   String get settingsFactoryResetConfirm => 'Alles löschen';
@@ -778,7 +778,7 @@ class L10nDe extends L10n {
 
   @override
   String get settingsPortabilitySubtitle =>
-      'Eigenes Vokabular, Sprachkürzel und Hotkey-Einstellungen zwischen Geräten übertragen — ohne Konto.';
+      'Eigenes Vokabular, Sprachkürzel und Hotkey-Einstellungen zwischen Geräten übertragen, ohne Konto.';
 
   @override
   String get settingsPortabilityExportAction => 'Exportieren';
@@ -822,7 +822,7 @@ class L10nDe extends L10n {
 
   @override
   String get groqRemovedToast =>
-      'Groq STT wurde entfernt — Provider auf On-Device zurückgesetzt.';
+      'Groq STT wurde entfernt. Provider auf On-Device zurückgesetzt.';
 
   @override
   String get tccResetAfterUpdateToast =>
@@ -833,8 +833,8 @@ class L10nDe extends L10n {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count Diktate von WhisPaste 1.x migriert',
-      one: '1 Diktat von WhisPaste 1.x migriert',
+      other: '$count Aufnahmen von WhisPaste 1.x migriert',
+      one: '1 Aufnahme von WhisPaste 1.x migriert',
     );
     return '$_temp0';
   }
@@ -886,10 +886,10 @@ class L10nDe extends L10n {
 
   @override
   String get recordingGuardFailed =>
-      'Kein Audio erkannt — bitte versuche es erneut. Manchmal braucht das Mikrofon einen Moment.';
+      'Kein Audio erkannt. Bitte versuche es erneut. Manchmal braucht das Mikrofon einen Moment.';
 
   @override
-  String get recordingAutoStopped => 'Aufnahme gestoppt — Stille erkannt.';
+  String get recordingAutoStopped => 'Aufnahme gestoppt: Stille erkannt.';
 
   @override
   String get actionCopy => 'Kopieren';
@@ -941,11 +941,11 @@ class L10nDe extends L10n {
 
   @override
   String get feedbackHint =>
-      'Sag uns, was du denkst — wir lesen jede Nachricht.';
+      'Sag uns, was du denkst. Wir lesen jede Nachricht.';
 
   @override
   String get analyticsPreviewBanner =>
-      'Vorschau — zeigt Beispieldaten. Echte Statistiken erscheinen, sobald du aufnimmst.';
+      'Vorschau: zeigt Beispieldaten. Echte Statistiken erscheinen, sobald du aufnimmst.';
 
   @override
   String get analyticsEmptyTitle => 'Noch keine Aufnahmen';
@@ -959,7 +959,7 @@ class L10nDe extends L10n {
 
   @override
   String get analyticsOverviewSubtitle =>
-      'Deine Diktierstatistiken auf einen Blick';
+      'Deine Aufnahmestatistiken auf einen Blick';
 
   @override
   String get analyticsActivity => 'Aktivität';
@@ -974,7 +974,7 @@ class L10nDe extends L10n {
   String get analyticsTotalDuration => 'Gesamtdauer';
 
   @override
-  String get analyticsWordsDictated => 'Diktierte Wörter';
+  String get analyticsWordsDictated => 'Transkribierte Wörter';
 
   @override
   String get analyticsTimeSaved => 'Zeitersparnis';
@@ -1065,13 +1065,13 @@ class L10nDe extends L10n {
   String get analyticsDurationLt15s => '< 15s';
 
   @override
-  String get analyticsDuration15To30s => '15–30s';
+  String get analyticsDuration15To30s => '15-30s';
 
   @override
-  String get analyticsDuration30To60s => '30–60s';
+  String get analyticsDuration30To60s => '30-60s';
 
   @override
-  String get analyticsDuration1To3m => '1–3m';
+  String get analyticsDuration1To3m => '1-3m';
 
   @override
   String get analyticsDurationGt3m => '> 3m';
@@ -1097,7 +1097,7 @@ class L10nDe extends L10n {
 
   @override
   String get replacementsEmptyHint =>
-      'Füge Shortcuts hinzu, um Wörter beim Diktieren automatisch zu ersetzen.\nBeispiel: \"mfg\" → \"mit freundlichen Grüßen\"';
+      'Füge Shortcuts hinzu, um Wörter beim Aufnehmen automatisch zu ersetzen.\nBeispiel: \"mfg\" → \"mit freundlichen Grüßen\"';
 
   @override
   String get replacementsNoMatches => 'Keine Treffer';
@@ -1119,7 +1119,7 @@ class L10nDe extends L10n {
 
   @override
   String get replacementsEnableBannerHint =>
-      'Aktiviere sie, damit Auslöser-Phrasen bei der Diktat-Aufnahme automatisch ersetzt werden.';
+      'Aktiviere sie, damit Auslöser-Phrasen bei der Aufnahme automatisch ersetzt werden.';
 
   @override
   String get replacementsEnableAction => 'Aktivieren';
@@ -1138,7 +1138,7 @@ class L10nDe extends L10n {
 
   @override
   String get replacementsDialogHint =>
-      'Der Auslöser wird beim Diktieren automatisch ersetzt.';
+      'Der Auslöser wird beim Aufnehmen automatisch ersetzt.';
 
   @override
   String get replacementsTriggerLabel => 'Auslöser';
@@ -1203,7 +1203,7 @@ class L10nDe extends L10n {
 
   @override
   String get aboutWhisperDesc =>
-      'Lokale und Cloud-Spracherkennung — schnell, genau, mehrsprachig (99 Sprachen).';
+      'Lokale und Cloud-Spracherkennung: schnell, genau, mehrsprachig (99 Sprachen).';
 
   @override
   String get aboutParakeet => 'NVIDIA Parakeet & sherpa-onnx';
@@ -1217,14 +1217,14 @@ class L10nDe extends L10n {
 
   @override
   String get aboutPrivacyFirstDesc =>
-      'Standardmäßig lokale Spracherkennung — deine Stimme verlässt dein Gerät nie, es sei denn, du wählst einen Cloud-Anbieter.';
+      'Standardmäßig lokale Spracherkennung: deine Stimme verlässt dein Gerät nie, es sei denn, du wählst einen Cloud-Anbieter.';
 
   @override
   String get aboutPrivacy => 'Datenschutz & Daten';
 
   @override
   String get aboutPrivacyLocal =>
-      'Alle Transkriptionen und der Verlauf werden lokal auf deinem Gerät gespeichert — niemals auf externen Servern.';
+      'Alle Transkriptionen und der Verlauf werden lokal auf deinem Gerät gespeichert, niemals auf externen Servern.';
 
   @override
   String get aboutPrivacyCloud =>
@@ -1279,7 +1279,7 @@ class L10nDe extends L10n {
 
   @override
   String get feedbackSubtitle =>
-      'Hilf uns, WhisPaste zu verbessern — jede Stimme zählt.';
+      'Hilf uns, WhisPaste zu verbessern. Jede Stimme zählt.';
 
   @override
   String get feedbackCategoryLabel => 'Worum geht es?';
@@ -1321,7 +1321,7 @@ class L10nDe extends L10n {
 
   @override
   String get feedbackContactEmailExplanation =>
-      'Nur falls du eine Antwort möchtest. Wir nutzen sie ausschließlich, um zu dieser Meldung zurückzumelden — niemals für Werbung, und sie wird nach 90 Tagen gelöscht.';
+      'Nur falls du eine Antwort möchtest. Wir nutzen sie ausschließlich, um zu dieser Meldung zurückzumelden, niemals für Werbung, und sie wird nach 90 Tagen gelöscht.';
 
   @override
   String get feedbackContactEmailPlaceholder => 'du@beispiel.de';
@@ -1342,7 +1342,7 @@ class L10nDe extends L10n {
 
   @override
   String get feedbackPrivacyNote =>
-      'Standardmäßig anonym — nur identifizierbar, wenn du oben deine E-Mail angibst.';
+      'Standardmäßig anonym, nur identifizierbar, wenn du oben deine E-Mail angibst.';
 
   @override
   String get feedbackThankYou => 'Danke!';
@@ -1435,11 +1435,11 @@ class L10nDe extends L10n {
 
   @override
   String get statusBarHotkeyTooltip =>
-      'Globaler Hotkey — klicken zum Konfigurieren';
+      'Globaler Hotkey: klicken zum Konfigurieren';
 
   @override
   String get statusBarAutoPasteOffHint =>
-      'Auto-Paste deaktiviert — in Settings aktivierbar';
+      'Auto-Paste deaktiviert, in Settings aktivierbar';
 
   @override
   String get statusBarAutoPasteOffHintTooltip =>
@@ -1557,14 +1557,14 @@ class L10nDe extends L10n {
 
   @override
   String get qualityTierBalancedDesc =>
-      'Zuverlässig und genau für alltägliches Diktieren. Funktioniert auf den meisten Geräten.';
+      'Zuverlässig und genau für alltägliche Aufnahmen. Funktioniert auf den meisten Geräten.';
 
   @override
   String get qualityTierPremiumLabel => 'Beste Qualität';
 
   @override
   String get qualityTierPremiumDesc =>
-      'Höchste Genauigkeit für längere Diktate und komplexe Inhalte. Benötigt eine leistungsfähige Grafikkarte.';
+      'Höchste Genauigkeit für längere Aufnahmen und komplexe Inhalte. Benötigt eine leistungsfähige Grafikkarte.';
 
   @override
   String get qualityTierRecommended => 'Empfohlen für deinen Rechner';
@@ -1585,12 +1585,12 @@ class L10nDe extends L10n {
 
   @override
   String qualityTierInfoSlow(String ratio) {
-    return 'Beste Qualität — dauert ~${ratio}x länger';
+    return 'Beste Qualität, dauert ~${ratio}x länger';
   }
 
   @override
   String qualityTierInfoSlowerThanCompact(String ratio) {
-    return 'Beste Qualität — dauert ~${ratio}x länger als Small';
+    return 'Beste Qualität, dauert ~${ratio}x länger als Small';
   }
 
   @override
@@ -1665,8 +1665,7 @@ class L10nDe extends L10n {
       'Bitte lade zuerst ein Sprachmodell in den Einstellungen herunter.';
 
   @override
-  String get oomRecoveryTitle =>
-      'Aufnahme fehlgeschlagen — GPU-Speicherproblem';
+  String get oomRecoveryTitle => 'Aufnahme fehlgeschlagen: GPU-Speicherproblem';
 
   @override
   String get oomRecoveryMessage =>
@@ -1715,7 +1714,7 @@ class L10nDe extends L10n {
 
   @override
   String get infoSttCudaOomFallbackModel =>
-      'Qualität reduziert — deiner GPU ist der Speicher ausgegangen. Es wurde auf ein kleineres Modell umgestellt.';
+      'Qualität reduziert: deiner GPU ist der Speicher ausgegangen. Es wurde auf ein kleineres Modell umgestellt.';
 
   @override
   String get infoSttCudaOomFallbackCpu =>
@@ -1751,15 +1750,15 @@ class L10nDe extends L10n {
 
   @override
   String get errorRecordingFailed =>
-      'Aufnahme konnte nicht gestartet werden — bitte versuche es erneut';
+      'Aufnahme konnte nicht gestartet werden, bitte versuche es erneut';
 
   @override
   String get errorNoAudioRecorded =>
-      'Keine Audiodaten aufgenommen — bitte versuche es erneut';
+      'Keine Audiodaten aufgenommen, bitte versuche es erneut';
 
   @override
   String get errorTranscriptionEmpty =>
-      'Transkription hat keinen Text ergeben — bitte erneut versuchen';
+      'Transkription hat keinen Text ergeben, bitte erneut versuchen';
 
   @override
   String get errorSttServerFailed =>
@@ -1771,7 +1770,7 @@ class L10nDe extends L10n {
 
   @override
   String get errorSttModelCorruptedRedownloading =>
-      'Das Sprachmodell scheint beschädigt zu sein — eine neue Kopie wird automatisch heruntergeladen.';
+      'Das Sprachmodell scheint beschädigt zu sein. Eine neue Kopie wird automatisch heruntergeladen.';
 
   @override
   String get errorSttDllMissing =>
@@ -2092,7 +2091,7 @@ class L10nDe extends L10n {
 
   @override
   String get settingsHotkeyRecorderModifierHint =>
-      'Jede Modifier-Kombination ist möglich — z. B. Alt+Leertaste, Ctrl+Alt+V oder Ctrl+Alt+Shift+R';
+      'Jede Modifier-Kombination ist möglich: z. B. Alt+Leertaste, Ctrl+Alt+V oder Ctrl+Alt+Shift+R';
 
   @override
   String get settingsHotkeyRecorderCancel => 'Abbrechen';
@@ -2105,7 +2104,7 @@ class L10nDe extends L10n {
 
   @override
   String get settingsHotkeyRecorderInvalidKey =>
-      'Diese Taste lässt sich nicht als Hotkey speichern. Probier einen Buchstaben, eine Ziffer, eine F-Taste (F1–F12) oder eine Pfeiltaste.';
+      'Diese Taste lässt sich nicht als Hotkey speichern. Probier einen Buchstaben, eine Ziffer, eine F-Taste (F1-F12) oder eine Pfeiltaste.';
 
   @override
   String get settingsMaxRecordDuration => 'Maximale Aufnahmedauer';
@@ -2174,7 +2173,7 @@ class L10nDe extends L10n {
 
   @override
   String get settingsStableRevertHintMessage =>
-      'Automatisches Zurückkehren zu Stable ist hier nicht möglich – du hast bereits eine neuere Beta-Version installiert.';
+      'Automatisches Zurückkehren zu Stable ist hier nicht möglich. Du hast bereits eine neuere Beta-Version installiert.';
 
   @override
   String settingsStableRevertHintLink(String stableVersion) {
@@ -2198,14 +2197,14 @@ class L10nDe extends L10n {
 
   @override
   String get onboardingPrivacyHint =>
-      'WhisPaste sendet anonyme Nutzungsstatistik an einen Server in der EU — DSGVO-konform und ohne deine Aufnahmen, Texte oder persönlichen Daten. Jederzeit in Einstellungen → Datenschutz änderbar.';
+      'WhisPaste sendet anonyme Nutzungsstatistik an einen Server in der EU, DSGVO-konform und ohne deine Aufnahmen, Texte oder persönlichen Daten. Jederzeit in Einstellungen → Datenschutz änderbar.';
 
   @override
   String get onboardingPrivacyToggle => 'Anonyme Nutzungsstatistik teilen';
 
   @override
   String get onboardingPrivacyToggleHint =>
-      'Standardmäßig aktiv — jederzeit abschaltbar';
+      'Standardmäßig aktiv, jederzeit abschaltbar';
 
   @override
   String onboardingStepOf(int current, int total) {
@@ -2226,10 +2225,10 @@ class L10nDe extends L10n {
 
   @override
   String get onboardingMicSubtitle =>
-      'Wir brauchen Mikrofonzugriff zum Diktieren. Dein Audio bleibt auf deinem Gerät.';
+      'Wir brauchen Mikrofonzugriff für Aufnahmen. Dein Audio bleibt auf deinem Gerät.';
 
   @override
-  String get onboardingMicPermissionGranted => 'Perfekt — Mikrofon ist bereit!';
+  String get onboardingMicPermissionGranted => 'Perfekt, Mikrofon ist bereit!';
 
   @override
   String get onboardingMicPermissionDenied => 'Mikrofonzugriff verweigert';
@@ -2242,11 +2241,11 @@ class L10nDe extends L10n {
   String get onboardingMicRequestAccess => 'Zugriff gewähren';
 
   @override
-  String get onboardingMicTestRecording => 'Sag etwas — wir prüfen den Pegel';
+  String get onboardingMicTestRecording => 'Sag etwas, wir prüfen den Pegel';
 
   @override
   String get onboardingMicTestDone =>
-      'Klingt super — dein Mikrofon funktioniert einwandfrei!';
+      'Klingt super, dein Mikrofon funktioniert einwandfrei!';
 
   @override
   String get onboardingMicSilent =>
@@ -2270,7 +2269,7 @@ class L10nDe extends L10n {
 
   @override
   String get onboardingModelSubtitle =>
-      'Lade das Sprachmodell herunter, um offline zu diktieren — deine Stimme verlässt nie dein Gerät.';
+      'Lade das Sprachmodell herunter, um offline aufzunehmen. Deine Stimme verlässt nie dein Gerät.';
 
   @override
   String get onboardingModelRecommended => 'Empfohlen für dein Gerät';
@@ -2281,7 +2280,7 @@ class L10nDe extends L10n {
 
   @override
   String get onboardingModelUseCloud =>
-      'Überspringen — ich nutze lieber einen Cloud-Dienst';
+      'Überspringen, ich nutze lieber einen Cloud-Dienst';
 
   @override
   String get onboardingModelDownloading => 'Wird heruntergeladen…';
@@ -2291,14 +2290,14 @@ class L10nDe extends L10n {
 
   @override
   String get onboardingModelGpuCpuFallback =>
-      'Optimierte GPU-Beschleunigung nicht verfügbar — App nutzt CPU';
+      'Optimierte GPU-Beschleunigung nicht verfügbar, App nutzt CPU';
 
   @override
   String get onboardingTestRecordingTitle => 'Probier es gleich aus';
 
   @override
   String get onboardingTestRecordingSubtitle =>
-      'Drück deinen Hotkey und sprich einen Satz — der Text erscheint unten im Testfeld.';
+      'Drück deinen Hotkey und sprich einen Satz. Der Text erscheint unten im Testfeld.';
 
   @override
   String get onboardingTestRecordingHotkeyLabel => 'Dein Hotkey';
@@ -2309,7 +2308,7 @@ class L10nDe extends L10n {
 
   @override
   String get onboardingTestRecordingInProgress =>
-      'Aufnahme läuft — sprich einfach los. Erneut drücken stoppt.';
+      'Aufnahme läuft, sprich einfach los. Erneut drücken stoppt.';
 
   @override
   String get onboardingTestRecordingDoneMessage =>
@@ -2317,7 +2316,7 @@ class L10nDe extends L10n {
 
   @override
   String get onboardingTestRecordingReassurance =>
-      'Nur ein Test — der Text bleibt in diesem Feld.';
+      'Nur ein Test, der Text bleibt in diesem Feld.';
 
   @override
   String get onboardingTestRecordingSkip => 'Test überspringen';
@@ -2342,7 +2341,7 @@ class L10nDe extends L10n {
 
   @override
   String get onboardingReadyStep3CopyOnly =>
-      'Text liegt in der Zwischenablage — drück ⌘V / Strg+V zum Einfügen';
+      'Text liegt in der Zwischenablage, drück ⌘V / Strg+V zum Einfügen';
 
   @override
   String get onboardingReadyChangeHotkey => 'Tastenkürzel ändern';
@@ -2484,7 +2483,7 @@ class L10nDe extends L10n {
   }
 
   @override
-  String get updateReadyToInstall => 'Update bereit — zum Installieren klicken';
+  String get updateReadyToInstall => 'Update bereit, zum Installieren klicken';
 
   @override
   String get updateUpToDate => 'Du verwendest die neueste Version';
@@ -2506,7 +2505,7 @@ class L10nDe extends L10n {
 
   @override
   String get updateRateLimited =>
-      'Zu viele Anfragen — versuche es später erneut';
+      'Zu viele Anfragen, versuche es später erneut';
 
   @override
   String updateStatusBarChip(String version) {
@@ -2656,7 +2655,7 @@ class L10nDe extends L10n {
 
   @override
   String get reviewPromptGateBody =>
-      'Nur eine kurze Frage an uns — das ist keine Store-Bewertung.';
+      'Nur eine kurze Frage an uns, das ist keine Store-Bewertung.';
 
   @override
   String get reviewPromptGateYes => 'Ja, gefällt mir';
@@ -2703,11 +2702,11 @@ class L10nDe extends L10n {
 
   @override
   String get hotkeyRegistrationFailed =>
-      'Hotkey-Registrierung fehlgeschlagen – bitte Tastenkombination in den Einstellungen neu belegen.';
+      'Hotkey-Registrierung fehlgeschlagen, bitte Tastenkombination in den Einstellungen neu belegen.';
 
   @override
   String get hotkeyRegistrationFailedDefaultActive =>
-      'Hotkey-Registrierung fehlgeschlagen – Strg+Umschalt+Leertaste wird als Fallback verwendet. Bitte in den Einstellungen neu belegen.';
+      'Hotkey-Registrierung fehlgeschlagen, Strg+Umschalt+Leertaste wird als Fallback verwendet. Bitte in den Einstellungen neu belegen.';
 
   @override
   String hotkeyConflictWarning(String platform, String note) {
@@ -2734,7 +2733,7 @@ class L10nDe extends L10n {
 
   @override
   String get cpuFallbackToast =>
-      'Transkription dauert gerade etwas länger als sonst — läuft aber weiter.';
+      'Transkription dauert gerade etwas länger als sonst, läuft aber weiter.';
 
   @override
   String get recoveryExhaustedToast =>
@@ -2751,7 +2750,7 @@ class L10nDe extends L10n {
   String get recoveryVcRuntimeAction => 'Installieren';
 
   @override
-  String get modelAbiInfoToast => 'Lade Sprachmodell neu — bitte warten.';
+  String get modelAbiInfoToast => 'Lade Sprachmodell neu, bitte warten.';
 
   @override
   String get serverDownloadFailedToast =>
@@ -2762,11 +2761,11 @@ class L10nDe extends L10n {
 
   @override
   String get serverDownloadStalledToast =>
-      'Download steht — Verbindung wird neu aufgebaut.';
+      'Download steht: Verbindung wird neu aufgebaut.';
 
   @override
   String get historyWriteFailedToast =>
-      'Eintrag konnte nicht gespeichert werden — bitte Speicherplatz prüfen.';
+      'Eintrag konnte nicht gespeichert werden, bitte Speicherplatz prüfen.';
 
   @override
   String get historyWriteFailedAction => 'Diagnose kopieren';
@@ -2780,19 +2779,19 @@ class L10nDe extends L10n {
 
   @override
   String get errorSttRejectEmpty =>
-      'Keine Audiodaten zum Transkribieren — bitte Aufnahme wiederholen.';
+      'Keine Audiodaten zum Transkribieren, bitte Aufnahme wiederholen.';
 
   @override
   String get errorSttRejectInvalidWav =>
-      'Audiodatei ist beschädigt — bitte Aufnahme wiederholen.';
+      'Audiodatei ist beschädigt, bitte Aufnahme wiederholen.';
 
   @override
   String get errorSttRejectUnsupportedLanguage =>
-      'Diese Sprache wird vom lokalen Sprachmodell nicht unterstützt — bitte Sprache in den Einstellungen prüfen.';
+      'Diese Sprache wird vom lokalen Sprachmodell nicht unterstützt, bitte Sprache in den Einstellungen prüfen.';
 
   @override
   String get errorSttRejectPromptTooLong =>
-      'Eigenes Vokabular ist zu lang — bitte in den Einstellungen kürzen.';
+      'Eigenes Vokabular ist zu lang, bitte in den Einstellungen kürzen.';
 
   @override
   String get settingsGpuAcceleration => 'Grafikbeschleunigung';
@@ -2883,7 +2882,7 @@ class L10nDe extends L10n {
 
   @override
   String get settingsShareUsageStatsSubtitle =>
-      'Cookiefrei und ohne Identifikatoren — hilf uns zu verstehen, wie WhisPaste genutzt wird';
+      'Cookiefrei und ohne Identifikatoren, hilf uns zu verstehen, wie WhisPaste genutzt wird';
 
   @override
   String get storeThankYouTitle => 'Danke für deine Unterstützung!';

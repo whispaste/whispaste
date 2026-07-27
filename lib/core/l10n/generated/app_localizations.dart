@@ -186,7 +186,7 @@ abstract class L10n {
   /// No description provided for @historyEmptyHint.
   ///
   /// In en, this message translates to:
-  /// **'Press the record button or use the hotkey to start dictating.'**
+  /// **'Press the record button or use the hotkey to start recording.'**
   String get historyEmptyHint;
 
   /// No description provided for @historySearch.
@@ -462,7 +462,7 @@ abstract class L10n {
   /// No description provided for @historyNoRecordingsHint.
   ///
   /// In en, this message translates to:
-  /// **'Press the record button or use the hotkey to start dictating.\nYour transcriptions will appear here.'**
+  /// **'Press the record button or use the hotkey to start recording.\nYour transcriptions will appear here.'**
   String get historyNoRecordingsHint;
 
   /// No description provided for @historyNoPinned.
@@ -708,7 +708,7 @@ abstract class L10n {
   /// No description provided for @settingsClippingBanner.
   ///
   /// In en, this message translates to:
-  /// **'Last recording had clipping — reduce gain?'**
+  /// **'Last recording had clipping. Reduce gain?'**
   String get settingsClippingBanner;
 
   /// No description provided for @settingsClippingDismiss.
@@ -954,19 +954,19 @@ abstract class L10n {
   /// No description provided for @pasteFailureNoTarget.
   ///
   /// In en, this message translates to:
-  /// **'Auto-Paste skipped — no target window was captured. Focus the destination app before triggering a recording.'**
+  /// **'Auto-Paste skipped, no target window was captured. Focus the destination app before triggering a recording.'**
   String get pasteFailureNoTarget;
 
   /// No description provided for @pasteFailureElevationBlocked.
   ///
   /// In en, this message translates to:
-  /// **'Auto-Paste blocked — the target app is running with administrator rights. Restart WhisPaste as an administrator to paste into that app.'**
+  /// **'Auto-Paste blocked: the target app is running with administrator rights. Restart WhisPaste as an administrator to paste into that app.'**
   String get pasteFailureElevationBlocked;
 
   /// No description provided for @pasteFailureGeneric.
   ///
   /// In en, this message translates to:
-  /// **'Auto-Paste failed. The transcript is on the clipboard — paste it manually with ⌘V / Ctrl+V.'**
+  /// **'Auto-Paste failed. The transcript is on the clipboard, paste it manually with ⌘V / Ctrl+V.'**
   String get pasteFailureGeneric;
 
   /// No description provided for @pasteFailureOpenSettings.
@@ -1026,7 +1026,7 @@ abstract class L10n {
   /// No description provided for @pasteCapabilityRepairHint.
   ///
   /// In en, this message translates to:
-  /// **'Sometimes macOS remembers an old entry and forgets the new approval. Reset the entry — macOS will then ask you cleanly again.'**
+  /// **'Sometimes macOS remembers an old entry and forgets the new approval. Reset the entry. macOS will then ask you cleanly again.'**
   String get pasteCapabilityRepairHint;
 
   /// No description provided for @pasteCapabilityRepairButton.
@@ -1044,7 +1044,7 @@ abstract class L10n {
   /// No description provided for @pasteCapabilityRepairDone.
   ///
   /// In en, this message translates to:
-  /// **'{count, plural, =0{No stale entries found — try paste once.}=1{Cleared 1 stale entry. Try paste once to see a fresh prompt.}other{Cleared {count} stale entries. Try paste once to see fresh prompts.}}'**
+  /// **'{count, plural, =0{No stale entries found. Try paste once.}=1{Cleared 1 stale entry. Try paste once to see a fresh prompt.}other{Cleared {count} stale entries. Try paste once to see fresh prompts.}}'**
   String pasteCapabilityRepairDone(int count);
 
   /// No description provided for @pasteCapabilityRepairNothingToClear.
@@ -1068,7 +1068,7 @@ abstract class L10n {
   /// No description provided for @onboardingPasteSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'macOS will ask you in a moment whether WhisPaste may do this. Say yes — done.'**
+  /// **'macOS will ask you in a moment whether WhisPaste may do this. Say yes, done.'**
   String get onboardingPasteSubtitle;
 
   /// No description provided for @onboardingPasteGrantCta.
@@ -1086,13 +1086,13 @@ abstract class L10n {
   /// No description provided for @onboardingPasteSkip.
   ///
   /// In en, this message translates to:
-  /// **'Just copy for now — no auto-insert'**
+  /// **'Just copy for now, no auto-insert'**
   String get onboardingPasteSkip;
 
   /// No description provided for @onboardingPasteWhyMac.
   ///
   /// In en, this message translates to:
-  /// **'Without permission, your text is copied to the clipboard — you\'ll then paste manually with ⌘V.'**
+  /// **'Without permission, your text is copied to the clipboard. You\'ll then paste manually with ⌘V.'**
   String get onboardingPasteWhyMac;
 
   /// No description provided for @onboardingPasteWhyWin.
@@ -1104,7 +1104,7 @@ abstract class L10n {
   /// No description provided for @onboardingPasteWhyWinUipi.
   ///
   /// In en, this message translates to:
-  /// **'In certain apps with UIPI/UAC protection, Auto-Paste won\'t work — the text will sit in the clipboard and you\'ll need to paste it with Ctrl+V yourself.'**
+  /// **'In certain apps with UIPI/UAC protection, Auto-Paste won\'t work. The text will sit in the clipboard and you\'ll need to paste it with Ctrl+V yourself.'**
   String get onboardingPasteWhyWinUipi;
 
   /// No description provided for @onboardingPasteWaitingForGrantTitle.
@@ -1128,7 +1128,7 @@ abstract class L10n {
   /// No description provided for @onboardingPasteTccMismatchBody.
   ///
   /// In en, this message translates to:
-  /// **'Happens sometimes after app updates. A restart fixes it — macOS will then see WhisPaste cleanly.'**
+  /// **'Happens sometimes after app updates. A restart fixes it. macOS will then see WhisPaste cleanly.'**
   String get onboardingPasteTccMismatchBody;
 
   /// No description provided for @onboardingPasteTestTitle.
@@ -1140,7 +1140,7 @@ abstract class L10n {
   /// No description provided for @onboardingPasteTestSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Click the button — the demo text should appear in the field below.'**
+  /// **'Click the button. The demo text should appear in the field below.'**
   String get onboardingPasteTestSubtitle;
 
   /// No description provided for @onboardingPasteDemoText.
@@ -1170,7 +1170,7 @@ abstract class L10n {
   /// No description provided for @onboardingPasteTestFailure.
   ///
   /// In en, this message translates to:
-  /// **'Test failed. Try restarting the app — or continue without testing.'**
+  /// **'Test failed. Try restarting the app, or continue without testing.'**
   String get onboardingPasteTestFailure;
 
   /// No description provided for @onboardingPasteTestSkip.
@@ -1188,7 +1188,7 @@ abstract class L10n {
   /// No description provided for @settingsOverlayFloatingButtonSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Control how recording status appears while you dictate'**
+  /// **'Control how recording status appears while you record'**
   String get settingsOverlayFloatingButtonSubtitle;
 
   /// No description provided for @settingsShowOverlay.
@@ -1200,7 +1200,7 @@ abstract class L10n {
   /// No description provided for @settingsShowOverlaySubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Choose where live recording feedback appears while you dictate'**
+  /// **'Choose where live recording feedback appears while you record'**
   String get settingsShowOverlaySubtitle;
 
   /// No description provided for @settingsOverlayModeFloating.
@@ -1278,7 +1278,7 @@ abstract class L10n {
   /// No description provided for @settingsCustomVocabularyHint.
   ///
   /// In en, this message translates to:
-  /// **'Names, technical terms — improves recognition accuracy'**
+  /// **'Names, technical terms: improves recognition accuracy'**
   String get settingsCustomVocabularyHint;
 
   /// No description provided for @settingsCustomVocabularyPlaceholder.
@@ -1308,7 +1308,7 @@ abstract class L10n {
   /// No description provided for @settingsStripPunctuationSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Removes periods, commas, and other sentence punctuation from every transcript before it\'s saved or pasted — works the same way for every engine and provider, not just Whisper.'**
+  /// **'Removes periods, commas, and other sentence punctuation from every transcript before it\'s saved or pasted. Works the same way for every engine and provider, not just Whisper.'**
   String get settingsStripPunctuationSubtitle;
 
   /// No description provided for @settingsAppLanguage.
@@ -1392,7 +1392,7 @@ abstract class L10n {
   /// No description provided for @settingsFactoryResetMessage.
   ///
   /// In en, this message translates to:
-  /// **'This will permanently delete ALL data: dictation history, tags, voice shortcuts, downloaded models, logs, and settings. The app will return to its initial state.\n\nThis cannot be undone.'**
+  /// **'This will permanently delete ALL data: recording history, tags, voice shortcuts, downloaded models, logs, and settings. The app will return to its initial state.\n\nThis cannot be undone.'**
   String get settingsFactoryResetMessage;
 
   /// No description provided for @settingsFactoryResetConfirm.
@@ -1458,7 +1458,7 @@ abstract class L10n {
   /// No description provided for @settingsPortabilitySubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Move custom vocabulary, voice shortcuts, and hotkey settings between devices — no account needed.'**
+  /// **'Move custom vocabulary, voice shortcuts, and hotkey settings between devices, no account needed.'**
   String get settingsPortabilitySubtitle;
 
   /// No description provided for @settingsPortabilityExportAction.
@@ -1518,7 +1518,7 @@ abstract class L10n {
   /// No description provided for @groqRemovedToast.
   ///
   /// In en, this message translates to:
-  /// **'Groq STT was removed — provider reset to On-Device.'**
+  /// **'Groq STT was removed. Provider reset to On-Device.'**
   String get groqRemovedToast;
 
   /// No description provided for @tccResetAfterUpdateToast.
@@ -1530,7 +1530,7 @@ abstract class L10n {
   /// No description provided for @migrationComplete.
   ///
   /// In en, this message translates to:
-  /// **'{count, plural, one{1 dictation migrated from WhisPaste 1.x} other{{count} dictations migrated from WhisPaste 1.x}}'**
+  /// **'{count, plural, one{1 recording migrated from WhisPaste 1.x} other{{count} recordings migrated from WhisPaste 1.x}}'**
   String migrationComplete(int count);
 
   /// No description provided for @settingsOff.
@@ -1626,13 +1626,13 @@ abstract class L10n {
   /// No description provided for @recordingGuardFailed.
   ///
   /// In en, this message translates to:
-  /// **'No audio detected — please try again. Sometimes the microphone needs a moment to warm up.'**
+  /// **'No audio detected. Please try again. Sometimes the microphone needs a moment to warm up.'**
   String get recordingGuardFailed;
 
   /// No description provided for @recordingAutoStopped.
   ///
   /// In en, this message translates to:
-  /// **'Recording stopped — silence detected.'**
+  /// **'Recording stopped: silence detected.'**
   String get recordingAutoStopped;
 
   /// No description provided for @actionCopy.
@@ -1728,13 +1728,13 @@ abstract class L10n {
   /// No description provided for @feedbackHint.
   ///
   /// In en, this message translates to:
-  /// **'Tell us what you think — we read every message.'**
+  /// **'Tell us what you think. We read every message.'**
   String get feedbackHint;
 
   /// No description provided for @analyticsPreviewBanner.
   ///
   /// In en, this message translates to:
-  /// **'Preview — showing sample data. Real analytics will appear once you start recording.'**
+  /// **'Preview: showing sample data. Real analytics will appear once you start recording.'**
   String get analyticsPreviewBanner;
 
   /// No description provided for @analyticsEmptyTitle.
@@ -1746,7 +1746,7 @@ abstract class L10n {
   /// No description provided for @analyticsEmptySubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Start dictating to see your analytics here.'**
+  /// **'Start recording to see your analytics here.'**
   String get analyticsEmptySubtitle;
 
   /// No description provided for @analyticsOverview.
@@ -1758,7 +1758,7 @@ abstract class L10n {
   /// No description provided for @analyticsOverviewSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Your dictation stats at a glance'**
+  /// **'Your recording stats at a glance'**
   String get analyticsOverviewSubtitle;
 
   /// No description provided for @analyticsActivity.
@@ -1788,7 +1788,7 @@ abstract class L10n {
   /// No description provided for @analyticsWordsDictated.
   ///
   /// In en, this message translates to:
-  /// **'Words Dictated'**
+  /// **'Words Transcribed'**
   String get analyticsWordsDictated;
 
   /// No description provided for @analyticsTimeSaved.
@@ -1956,19 +1956,19 @@ abstract class L10n {
   /// No description provided for @analyticsDuration15To30s.
   ///
   /// In en, this message translates to:
-  /// **'15–30s'**
+  /// **'15-30s'**
   String get analyticsDuration15To30s;
 
   /// No description provided for @analyticsDuration30To60s.
   ///
   /// In en, this message translates to:
-  /// **'30–60s'**
+  /// **'30-60s'**
   String get analyticsDuration30To60s;
 
   /// No description provided for @analyticsDuration1To3m.
   ///
   /// In en, this message translates to:
-  /// **'1–3m'**
+  /// **'1-3m'**
   String get analyticsDuration1To3m;
 
   /// No description provided for @analyticsDurationGt3m.
@@ -2010,7 +2010,7 @@ abstract class L10n {
   /// No description provided for @replacementsEmptyHint.
   ///
   /// In en, this message translates to:
-  /// **'Add shortcuts to auto-replace words during dictation.\nExample: \"btw\" → \"by the way\"'**
+  /// **'Add shortcuts to auto-replace words while recording.\nExample: \"btw\" → \"by the way\"'**
   String get replacementsEmptyHint;
 
   /// No description provided for @replacementsNoMatches.
@@ -2052,7 +2052,7 @@ abstract class L10n {
   /// No description provided for @replacementsEnableBannerHint.
   ///
   /// In en, this message translates to:
-  /// **'Enable them so trigger phrases are replaced automatically during dictation.'**
+  /// **'Enable them so trigger phrases are replaced automatically while recording.'**
   String get replacementsEnableBannerHint;
 
   /// No description provided for @replacementsEnableAction.
@@ -2088,7 +2088,7 @@ abstract class L10n {
   /// No description provided for @replacementsDialogHint.
   ///
   /// In en, this message translates to:
-  /// **'The trigger phrase will be replaced automatically during dictation.'**
+  /// **'The trigger phrase will be replaced automatically while recording.'**
   String get replacementsDialogHint;
 
   /// No description provided for @replacementsTriggerLabel.
@@ -2208,7 +2208,7 @@ abstract class L10n {
   /// No description provided for @aboutWhisperDesc.
   ///
   /// In en, this message translates to:
-  /// **'Local and cloud speech recognition — fast, accurate, multilingual (99 languages).'**
+  /// **'Local and cloud speech recognition: fast, accurate, multilingual (99 languages).'**
   String get aboutWhisperDesc;
 
   /// No description provided for @aboutParakeet.
@@ -2232,7 +2232,7 @@ abstract class L10n {
   /// No description provided for @aboutPrivacyFirstDesc.
   ///
   /// In en, this message translates to:
-  /// **'Local speech recognition by default — your voice never leaves your device unless you choose a cloud provider.'**
+  /// **'Local speech recognition by default: your voice never leaves your device unless you choose a cloud provider.'**
   String get aboutPrivacyFirstDesc;
 
   /// No description provided for @aboutPrivacy.
@@ -2244,7 +2244,7 @@ abstract class L10n {
   /// No description provided for @aboutPrivacyLocal.
   ///
   /// In en, this message translates to:
-  /// **'All transcriptions and history are stored locally on your device — never on external servers.'**
+  /// **'All transcriptions and history are stored locally on your device, never on external servers.'**
   String get aboutPrivacyLocal;
 
   /// No description provided for @aboutPrivacyCloud.
@@ -2346,7 +2346,7 @@ abstract class L10n {
   /// No description provided for @feedbackSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Help us improve WhisPaste — every voice matters.'**
+  /// **'Help us improve WhisPaste. Every voice matters.'**
   String get feedbackSubtitle;
 
   /// No description provided for @feedbackCategoryLabel.
@@ -2424,7 +2424,7 @@ abstract class L10n {
   /// No description provided for @feedbackContactEmailExplanation.
   ///
   /// In en, this message translates to:
-  /// **'Only if you\'d like a reply. We\'ll use it solely to follow up on this message — never for marketing, and it\'s deleted after 90 days.'**
+  /// **'Only if you\'d like a reply. We\'ll use it solely to follow up on this message, never for marketing, and it\'s deleted after 90 days.'**
   String get feedbackContactEmailExplanation;
 
   /// No description provided for @feedbackContactEmailPlaceholder.
@@ -2460,7 +2460,7 @@ abstract class L10n {
   /// No description provided for @feedbackPrivacyNote.
   ///
   /// In en, this message translates to:
-  /// **'Anonymous by default — only identifiable if you add your email above.'**
+  /// **'Anonymous by default, only identifiable if you add your email above.'**
   String get feedbackPrivacyNote;
 
   /// No description provided for @feedbackThankYou.
@@ -2634,13 +2634,13 @@ abstract class L10n {
   /// No description provided for @statusBarHotkeyTooltip.
   ///
   /// In en, this message translates to:
-  /// **'Global hotkey — click to configure'**
+  /// **'Global hotkey: click to configure'**
   String get statusBarHotkeyTooltip;
 
   /// No description provided for @statusBarAutoPasteOffHint.
   ///
   /// In en, this message translates to:
-  /// **'Auto-Paste off — enable in Settings'**
+  /// **'Auto-Paste off, enable in Settings'**
   String get statusBarAutoPasteOffHint;
 
   /// No description provided for @statusBarAutoPasteOffHintTooltip.
@@ -2868,7 +2868,7 @@ abstract class L10n {
   /// No description provided for @qualityTierBalancedDesc.
   ///
   /// In en, this message translates to:
-  /// **'Accurate and reliable for everyday dictation. Works on most devices.'**
+  /// **'Accurate and reliable for everyday recording. Works on most devices.'**
   String get qualityTierBalancedDesc;
 
   /// No description provided for @qualityTierPremiumLabel.
@@ -2880,7 +2880,7 @@ abstract class L10n {
   /// No description provided for @qualityTierPremiumDesc.
   ///
   /// In en, this message translates to:
-  /// **'Top accuracy for longer dictation and complex content. Needs a capable GPU.'**
+  /// **'Top accuracy for longer recordings and complex content. Needs a capable GPU.'**
   String get qualityTierPremiumDesc;
 
   /// No description provided for @qualityTierRecommended.
@@ -2916,13 +2916,13 @@ abstract class L10n {
   /// No description provided for @qualityTierInfoSlow.
   ///
   /// In en, this message translates to:
-  /// **'Best quality — takes ~{ratio}x longer to process'**
+  /// **'Best quality, takes ~{ratio}x longer to process'**
   String qualityTierInfoSlow(String ratio);
 
   /// No description provided for @qualityTierInfoSlowerThanCompact.
   ///
   /// In en, this message translates to:
-  /// **'Best quality — ~{ratio}x slower than Small'**
+  /// **'Best quality, ~{ratio}x slower than Small'**
   String qualityTierInfoSlowerThanCompact(String ratio);
 
   /// No description provided for @qualityTierInfoModerate.
@@ -3048,7 +3048,7 @@ abstract class L10n {
   /// No description provided for @oomRecoveryTitle.
   ///
   /// In en, this message translates to:
-  /// **'Recording failed — GPU memory issue'**
+  /// **'Recording failed: GPU memory issue'**
   String get oomRecoveryTitle;
 
   /// No description provided for @oomRecoveryMessage.
@@ -3126,7 +3126,7 @@ abstract class L10n {
   /// No description provided for @infoSttCudaOomFallbackModel.
   ///
   /// In en, this message translates to:
-  /// **'Quality reduced — your GPU ran out of memory. Switched to a lighter model.'**
+  /// **'Quality reduced: your GPU ran out of memory. Switched to a lighter model.'**
   String get infoSttCudaOomFallbackModel;
 
   /// No description provided for @infoSttCudaOomFallbackCpu.
@@ -3180,19 +3180,19 @@ abstract class L10n {
   /// No description provided for @errorRecordingFailed.
   ///
   /// In en, this message translates to:
-  /// **'Could not start recording — please try again'**
+  /// **'Could not start recording, please try again'**
   String get errorRecordingFailed;
 
   /// No description provided for @errorNoAudioRecorded.
   ///
   /// In en, this message translates to:
-  /// **'No audio recorded — please try again'**
+  /// **'No audio recorded, please try again'**
   String get errorNoAudioRecorded;
 
   /// No description provided for @errorTranscriptionEmpty.
   ///
   /// In en, this message translates to:
-  /// **'Transcription returned empty text — please try again'**
+  /// **'Transcription returned empty text, please try again'**
   String get errorTranscriptionEmpty;
 
   /// No description provided for @errorSttServerFailed.
@@ -3210,7 +3210,7 @@ abstract class L10n {
   /// No description provided for @errorSttModelCorruptedRedownloading.
   ///
   /// In en, this message translates to:
-  /// **'Speech model appears corrupted — downloading a fresh copy automatically.'**
+  /// **'Speech model appears corrupted. Downloading a fresh copy automatically.'**
   String get errorSttModelCorruptedRedownloading;
 
   /// No description provided for @errorSttDllMissing.
@@ -3732,7 +3732,7 @@ abstract class L10n {
   /// No description provided for @settingsHotkeyRecorderModifierHint.
   ///
   /// In en, this message translates to:
-  /// **'Any modifier combination works — e.g. Alt+Space, Ctrl+Alt+V, or Ctrl+Alt+Shift+R'**
+  /// **'Any modifier combination works: e.g. Alt+Space, Ctrl+Alt+V, or Ctrl+Alt+Shift+R'**
   String get settingsHotkeyRecorderModifierHint;
 
   /// No description provided for @settingsHotkeyRecorderCancel.
@@ -3756,7 +3756,7 @@ abstract class L10n {
   /// No description provided for @settingsHotkeyRecorderInvalidKey.
   ///
   /// In en, this message translates to:
-  /// **'This key can\'t be used as a hotkey. Try a letter, digit, function key (F1–F12), or an arrow key.'**
+  /// **'This key can\'t be used as a hotkey. Try a letter, digit, function key (F1-F12), or an arrow key.'**
   String get settingsHotkeyRecorderInvalidKey;
 
   /// No description provided for @settingsMaxRecordDuration.
@@ -3876,7 +3876,7 @@ abstract class L10n {
   /// No description provided for @settingsStableRevertHintMessage.
   ///
   /// In en, this message translates to:
-  /// **'Switching back to Stable automatically isn\'t possible here — you already have a newer beta version installed.'**
+  /// **'Switching back to Stable automatically isn\'t possible here. You already have a newer beta version installed.'**
   String get settingsStableRevertHintMessage;
 
   /// No description provided for @settingsStableRevertHintLink.
@@ -3918,7 +3918,7 @@ abstract class L10n {
   /// No description provided for @onboardingPrivacyHint.
   ///
   /// In en, this message translates to:
-  /// **'WhisPaste sends anonymous usage statistics to an EU server — GDPR-compliant and without your recordings, text, or personal data. Change it anytime in Settings → Privacy.'**
+  /// **'WhisPaste sends anonymous usage statistics to an EU server, GDPR-compliant and without your recordings, text, or personal data. Change it anytime in Settings → Privacy.'**
   String get onboardingPrivacyHint;
 
   /// No description provided for @onboardingPrivacyToggle.
@@ -3930,7 +3930,7 @@ abstract class L10n {
   /// No description provided for @onboardingPrivacyToggleHint.
   ///
   /// In en, this message translates to:
-  /// **'On by default — switch off anytime'**
+  /// **'On by default, switch off anytime'**
   String get onboardingPrivacyToggleHint;
 
   /// No description provided for @onboardingStepOf.
@@ -3966,13 +3966,13 @@ abstract class L10n {
   /// No description provided for @onboardingMicSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'We need mic access so you can dictate. Your audio stays on your device.'**
+  /// **'We need mic access to record. Your audio stays on your device.'**
   String get onboardingMicSubtitle;
 
   /// No description provided for @onboardingMicPermissionGranted.
   ///
   /// In en, this message translates to:
-  /// **'You\'re all set — microphone ready!'**
+  /// **'You\'re all set, microphone ready!'**
   String get onboardingMicPermissionGranted;
 
   /// No description provided for @onboardingMicPermissionDenied.
@@ -3996,13 +3996,13 @@ abstract class L10n {
   /// No description provided for @onboardingMicTestRecording.
   ///
   /// In en, this message translates to:
-  /// **'Say something — we\'re checking the level'**
+  /// **'Say something, we\'re checking the level'**
   String get onboardingMicTestRecording;
 
   /// No description provided for @onboardingMicTestDone.
   ///
   /// In en, this message translates to:
-  /// **'Sounds great — your mic is working perfectly!'**
+  /// **'Sounds great, your mic is working perfectly!'**
   String get onboardingMicTestDone;
 
   /// No description provided for @onboardingMicSilent.
@@ -4044,7 +4044,7 @@ abstract class L10n {
   /// No description provided for @onboardingModelSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Download the speech model to dictate offline — your voice never leaves your device.'**
+  /// **'Download the speech model to record offline. Your voice never leaves your device.'**
   String get onboardingModelSubtitle;
 
   /// No description provided for @onboardingModelRecommended.
@@ -4062,7 +4062,7 @@ abstract class L10n {
   /// No description provided for @onboardingModelUseCloud.
   ///
   /// In en, this message translates to:
-  /// **'Skip — I\'ll use a cloud service instead'**
+  /// **'Skip, I\'ll use a cloud service instead'**
   String get onboardingModelUseCloud;
 
   /// No description provided for @onboardingModelDownloading.
@@ -4080,7 +4080,7 @@ abstract class L10n {
   /// No description provided for @onboardingModelGpuCpuFallback.
   ///
   /// In en, this message translates to:
-  /// **'Optimised GPU acceleration unavailable — app will use the CPU'**
+  /// **'Optimised GPU acceleration unavailable, app will use the CPU'**
   String get onboardingModelGpuCpuFallback;
 
   /// No description provided for @onboardingTestRecordingTitle.
@@ -4092,7 +4092,7 @@ abstract class L10n {
   /// No description provided for @onboardingTestRecordingSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Press your hotkey and say a sentence — the text appears below in the test field.'**
+  /// **'Press your hotkey and say a sentence. The text appears below in the test field.'**
   String get onboardingTestRecordingSubtitle;
 
   /// No description provided for @onboardingTestRecordingHotkeyLabel.
@@ -4110,7 +4110,7 @@ abstract class L10n {
   /// No description provided for @onboardingTestRecordingInProgress.
   ///
   /// In en, this message translates to:
-  /// **'Recording — just start talking. Press again to stop.'**
+  /// **'Recording: just start talking. Press again to stop.'**
   String get onboardingTestRecordingInProgress;
 
   /// No description provided for @onboardingTestRecordingDoneMessage.
@@ -4122,7 +4122,7 @@ abstract class L10n {
   /// No description provided for @onboardingTestRecordingReassurance.
   ///
   /// In en, this message translates to:
-  /// **'Just a test — the text stays in this field.'**
+  /// **'Just a test, the text stays in this field.'**
   String get onboardingTestRecordingReassurance;
 
   /// No description provided for @onboardingTestRecordingSkip.
@@ -4164,7 +4164,7 @@ abstract class L10n {
   /// No description provided for @onboardingReadyStep3CopyOnly.
   ///
   /// In en, this message translates to:
-  /// **'Text is in your clipboard — press ⌘V / Ctrl+V to paste'**
+  /// **'Text is in your clipboard, press ⌘V / Ctrl+V to paste'**
   String get onboardingReadyStep3CopyOnly;
 
   /// No description provided for @onboardingReadyChangeHotkey.
@@ -4428,7 +4428,7 @@ abstract class L10n {
   /// No description provided for @updateReadyToInstall.
   ///
   /// In en, this message translates to:
-  /// **'Update ready — click to install'**
+  /// **'Update ready, click to install'**
   String get updateReadyToInstall;
 
   /// No description provided for @updateUpToDate.
@@ -4470,7 +4470,7 @@ abstract class L10n {
   /// No description provided for @updateRateLimited.
   ///
   /// In en, this message translates to:
-  /// **'Too many requests — try again later'**
+  /// **'Too many requests, try again later'**
   String get updateRateLimited;
 
   /// No description provided for @updateStatusBarChip.
@@ -4722,7 +4722,7 @@ abstract class L10n {
   /// No description provided for @reviewPromptGateBody.
   ///
   /// In en, this message translates to:
-  /// **'Just a quick question for us — this isn\'t a store rating.'**
+  /// **'Just a quick question for us, this isn\'t a store rating.'**
   String get reviewPromptGateBody;
 
   /// No description provided for @reviewPromptGateYes.
@@ -4800,13 +4800,13 @@ abstract class L10n {
   /// No description provided for @hotkeyRegistrationFailed.
   ///
   /// In en, this message translates to:
-  /// **'Hotkey registration failed — please re-bind your shortcut in Settings.'**
+  /// **'Hotkey registration failed, please re-bind your shortcut in Settings.'**
   String get hotkeyRegistrationFailed;
 
   /// No description provided for @hotkeyRegistrationFailedDefaultActive.
   ///
   /// In en, this message translates to:
-  /// **'Hotkey registration failed — using Ctrl+Shift+Space as fallback. Please re-bind in Settings.'**
+  /// **'Hotkey registration failed, using Ctrl+Shift+Space as fallback. Please re-bind in Settings.'**
   String get hotkeyRegistrationFailedDefaultActive;
 
   /// No description provided for @hotkeyConflictWarning.
@@ -4854,7 +4854,7 @@ abstract class L10n {
   /// No description provided for @cpuFallbackToast.
   ///
   /// In en, this message translates to:
-  /// **'Transcription is taking a little longer than usual right now — it\'s still working.'**
+  /// **'Transcription is taking a little longer than usual right now, it\'s still working.'**
   String get cpuFallbackToast;
 
   /// No description provided for @recoveryExhaustedToast.
@@ -4884,7 +4884,7 @@ abstract class L10n {
   /// No description provided for @modelAbiInfoToast.
   ///
   /// In en, this message translates to:
-  /// **'Reloading voice model — please wait.'**
+  /// **'Reloading voice model, please wait.'**
   String get modelAbiInfoToast;
 
   /// No description provided for @serverDownloadFailedToast.
@@ -4902,13 +4902,13 @@ abstract class L10n {
   /// No description provided for @serverDownloadStalledToast.
   ///
   /// In en, this message translates to:
-  /// **'Download stalled — reconnecting.'**
+  /// **'Download stalled: reconnecting.'**
   String get serverDownloadStalledToast;
 
   /// No description provided for @historyWriteFailedToast.
   ///
   /// In en, this message translates to:
-  /// **'Entry could not be saved — please check available storage.'**
+  /// **'Entry could not be saved, please check available storage.'**
   String get historyWriteFailedToast;
 
   /// No description provided for @historyWriteFailedAction.
@@ -4932,25 +4932,25 @@ abstract class L10n {
   /// No description provided for @errorSttRejectEmpty.
   ///
   /// In en, this message translates to:
-  /// **'No audio to transcribe — please record again.'**
+  /// **'No audio to transcribe, please record again.'**
   String get errorSttRejectEmpty;
 
   /// No description provided for @errorSttRejectInvalidWav.
   ///
   /// In en, this message translates to:
-  /// **'Audio file is corrupted — please record again.'**
+  /// **'Audio file is corrupted, please record again.'**
   String get errorSttRejectInvalidWav;
 
   /// No description provided for @errorSttRejectUnsupportedLanguage.
   ///
   /// In en, this message translates to:
-  /// **'This language is not supported by the local speech model — please review the language in Settings.'**
+  /// **'This language is not supported by the local speech model, please review the language in Settings.'**
   String get errorSttRejectUnsupportedLanguage;
 
   /// No description provided for @errorSttRejectPromptTooLong.
   ///
   /// In en, this message translates to:
-  /// **'Custom vocabulary is too long — please shorten it in Settings.'**
+  /// **'Custom vocabulary is too long, please shorten it in Settings.'**
   String get errorSttRejectPromptTooLong;
 
   /// No description provided for @settingsGpuAcceleration.
@@ -5100,7 +5100,7 @@ abstract class L10n {
   /// No description provided for @settingsShareUsageStatsSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Sent cookieless and without any identifiers — help us understand how WhisPaste is used'**
+  /// **'Sent cookieless and without any identifiers, help us understand how WhisPaste is used'**
   String get settingsShareUsageStatsSubtitle;
 
   /// No description provided for @storeThankYouTitle.

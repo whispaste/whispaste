@@ -339,7 +339,7 @@ class L10nHe extends L10n {
 
   @override
   String get settingsClippingBanner =>
-      'בהקלטה האחרונה הייתה רוויה — להפחית את העוצמה?';
+      'בהקלטה האחרונה הייתה רוויה. להפחית את העוצמה?';
 
   @override
   String get settingsClippingDismiss => 'הבנתי';
@@ -466,15 +466,15 @@ class L10nHe extends L10n {
 
   @override
   String get pasteFailureNoTarget =>
-      'ההדבקה האוטומטית דולגה — לא זוהה חלון יעד. מקד את האפליקציה היעד לפני התחלת ההקלטה.';
+      'ההדבקה האוטומטית דולגה, לא זוהה חלון יעד. מקד את האפליקציה היעד לפני התחלת ההקלטה.';
 
   @override
   String get pasteFailureElevationBlocked =>
-      'Auto-Paste blocked — the target app is running with administrator rights. Restart WhisPaste as an administrator to paste into that app.';
+      'Auto-Paste blocked: the target app is running with administrator rights. Restart WhisPaste as an administrator to paste into that app.';
 
   @override
   String get pasteFailureGeneric =>
-      'ההדבקה האוטומטית נכשלה. הטקסט נמצא בלוח — הדבק ידנית עם ⌘V / Ctrl+V.';
+      'ההדבקה האוטומטית נכשלה. הטקסט נמצא בלוח, הדבק ידנית עם ⌘V / Ctrl+V.';
 
   @override
   String get pasteFailureOpenSettings => 'פתח הגדרות';
@@ -507,7 +507,7 @@ class L10nHe extends L10n {
 
   @override
   String get pasteCapabilityRepairHint =>
-      'לפעמים macOS זוכר רשומה ישנה ושוכח את האישור החדש. אפס את הרשומה — macOS ישאל אותך מחדש בצורה נקייה.';
+      'לפעמים macOS זוכר רשומה ישנה ושוכח את האישור החדש. אפס את הרשומה. macOS ישאל אותך מחדש בצורה נקייה.';
 
   @override
   String get pasteCapabilityRepairButton => 'אפס רשומה';
@@ -522,7 +522,7 @@ class L10nHe extends L10n {
       locale: localeName,
       other: 'נוקו $count רשומות ישנות. נסה הדבקה כדי לראות בקשות חדשות.',
       one: 'נוקתה רשומה ישנה אחת. נסה הדבקה כדי לראות בקשה חדשה.',
-      zero: 'לא נמצאו רשומות ישנות — נסה הדבקה.',
+      zero: 'לא נמצאו רשומות ישנות. נסה הדבקה.',
     );
     return '$_temp0';
   }
@@ -540,7 +540,7 @@ class L10nHe extends L10n {
 
   @override
   String get onboardingPasteSubtitle =>
-      'macOS ישאל אותך בעוד רגע אם WhisPaste מורשה. אמור כן — וזהו.';
+      'macOS ישאל אותך בעוד רגע אם WhisPaste מורשה. אמור כן, וזהו.';
 
   @override
   String get onboardingPasteGrantCta => 'אשר עכשיו';
@@ -549,11 +549,11 @@ class L10nHe extends L10n {
   String get onboardingPasteVerifyCta => 'בדוק';
 
   @override
-  String get onboardingPasteSkip => 'רק להעתיק לעת עתה — בלי הדבקה אוטומטית';
+  String get onboardingPasteSkip => 'רק להעתיק לעת עתה, בלי הדבקה אוטומטית';
 
   @override
   String get onboardingPasteWhyMac =>
-      'בלי אישור, הטקסט יועתק ללוח — תצטרך להדביק ידנית עם ⌘V.';
+      'בלי אישור, הטקסט יועתק ללוח. תצטרך להדביק ידנית עם ⌘V.';
 
   @override
   String get onboardingPasteWhyWin =>
@@ -561,7 +561,7 @@ class L10nHe extends L10n {
 
   @override
   String get onboardingPasteWhyWinUipi =>
-      'באפליקציות מסוימות עם הגנת UIPI/UAC, ההדבקה האוטומטית לא תעבוד — הטקסט יישאר בלוח, ויהיה עליך להדביקו עם Ctrl+V באופן ידני.';
+      'באפליקציות מסוימות עם הגנת UIPI/UAC, ההדבקה האוטומטית לא תעבוד. הטקסט יישאר בלוח, ויהיה עליך להדביקו עם Ctrl+V באופן ידני.';
 
   @override
   String get onboardingPasteWaitingForGrantTitle =>
@@ -576,14 +576,14 @@ class L10nHe extends L10n {
 
   @override
   String get onboardingPasteTccMismatchBody =>
-      'קורה לפעמים אחרי עדכוני אפליקציה. הפעלה מחדש פותרת — אז macOS יראה את WhisPaste נקי.';
+      'קורה לפעמים אחרי עדכוני אפליקציה. הפעלה מחדש פותרת. אז macOS יראה את WhisPaste נקי.';
 
   @override
   String get onboardingPasteTestTitle => 'נסה הדבקה אוטומטית';
 
   @override
   String get onboardingPasteTestSubtitle =>
-      'הקש על הכפתור — טקסט ההדגמה אמור להופיע בשדה למטה.';
+      'הקש על הכפתור. טקסט ההדגמה אמור להופיע בשדה למטה.';
 
   @override
   String get onboardingPasteDemoText => 'WhisPaste מקליד בשבילך.';
@@ -601,7 +601,7 @@ class L10nHe extends L10n {
 
   @override
   String get onboardingPasteTestFailure =>
-      'הבדיקה נכשלה. נסה להפעיל מחדש את האפליקציה — או המשך ללא בדיקה.';
+      'הבדיקה נכשלה. נסה להפעיל מחדש את האפליקציה, או המשך ללא בדיקה.';
 
   @override
   String get onboardingPasteTestSkip => 'המשך ללא בדיקה';
@@ -658,7 +658,7 @@ class L10nHe extends L10n {
   String get settingsCustomVocabulary => 'אוצר מילים מותאם';
 
   @override
-  String get settingsCustomVocabularyHint => 'שמות, מונחים טכניים – משפר דיוק';
+  String get settingsCustomVocabularyHint => 'שמות, מונחים טכניים: משפר דיוק';
 
   @override
   String get settingsCustomVocabularyPlaceholder =>
@@ -676,7 +676,7 @@ class L10nHe extends L10n {
 
   @override
   String get settingsStripPunctuationSubtitle =>
-      'מסירה נקודות, פסיקים וסימני פיסוק נוספים מכל תמלול לפני השמירה או ההדבקה — פועלת באותו אופן בכל מנוע וספק, לא רק ב-Whisper.';
+      'מסירה נקודות, פסיקים וסימני פיסוק נוספים מכל תמלול לפני השמירה או ההדבקה. פועלת באותו אופן בכל מנוע וספק, לא רק ב-Whisper.';
 
   @override
   String get settingsAppLanguage => 'שפת האפליקציה';
@@ -759,7 +759,7 @@ class L10nHe extends L10n {
 
   @override
   String get settingsPortabilitySubtitle =>
-      'Move custom vocabulary, voice shortcuts, and hotkey settings between devices — no account needed.';
+      'Move custom vocabulary, voice shortcuts, and hotkey settings between devices, no account needed.';
 
   @override
   String get settingsPortabilityExportAction => 'Export';
@@ -801,7 +801,7 @@ class L10nHe extends L10n {
   }
 
   @override
-  String get groqRemovedToast => 'Groq STT הוסר — ספק אופס למקומי.';
+  String get groqRemovedToast => 'Groq STT הוסר. ספק אופס למקומי.';
 
   @override
   String get tccResetAfterUpdateToast =>
@@ -865,10 +865,10 @@ class L10nHe extends L10n {
 
   @override
   String get recordingGuardFailed =>
-      'לא זוהה אודיו – נסה שוב. לפעמים המיקרופון צריך רגע להתחמם.';
+      'לא זוהה אודיו. נסה שוב. לפעמים המיקרופון צריך רגע להתחמם.';
 
   @override
-  String get recordingAutoStopped => 'ההקלטה נעצרה – זוהה שקט.';
+  String get recordingAutoStopped => 'ההקלטה נעצרה: זוהה שקט.';
 
   @override
   String get actionCopy => 'העתק';
@@ -919,24 +919,24 @@ class L10nHe extends L10n {
   String get feedbackTitle => 'שלח משוב';
 
   @override
-  String get feedbackHint => 'ספר לנו מה דעתך – אנחנו קוראים כל הודעה.';
+  String get feedbackHint => 'ספר לנו מה דעתך. אנחנו קוראים כל הודעה.';
 
   @override
   String get analyticsPreviewBanner =>
-      'תצוגה מקדימה – נתונים לדוגמה. ניתוח אמיתי יופיע אחרי שתתחיל להקליט.';
+      'תצוגה מקדימה: נתונים לדוגמה. ניתוח אמיתי יופיע אחרי שתתחיל להקליט.';
 
   @override
   String get analyticsEmptyTitle => 'עדיין אין הקלטות';
 
   @override
   String get analyticsEmptySubtitle =>
-      'התחל להכתיב כדי לראות כאן ניתוח נתונים.';
+      'התחל להקליט כדי לראות כאן ניתוח נתונים.';
 
   @override
   String get analyticsOverview => 'סקירה';
 
   @override
-  String get analyticsOverviewSubtitle => 'סטטיסטיקות ההכתבה שלך במבט חטוף';
+  String get analyticsOverviewSubtitle => 'סטטיסטיקות ההקלטה שלך במבט חטוף';
 
   @override
   String get analyticsActivity => 'פעילות';
@@ -951,7 +951,7 @@ class L10nHe extends L10n {
   String get analyticsTotalDuration => 'סה\"כ זמן';
 
   @override
-  String get analyticsWordsDictated => 'מילים שהוכתבו';
+  String get analyticsWordsDictated => 'מילים שתומללו';
 
   @override
   String get analyticsTimeSaved => 'זמן שנחסך';
@@ -1042,13 +1042,13 @@ class L10nHe extends L10n {
   String get analyticsDurationLt15s => 'פחות מ-15 שניות';
 
   @override
-  String get analyticsDuration15To30s => '15–30 שניות';
+  String get analyticsDuration15To30s => '15-30 שניות';
 
   @override
-  String get analyticsDuration30To60s => '30–60 שניות';
+  String get analyticsDuration30To60s => '30-60 שניות';
 
   @override
-  String get analyticsDuration1To3m => '1–3 דקות';
+  String get analyticsDuration1To3m => '1-3 דקות';
 
   @override
   String get analyticsDurationGt3m => 'יותר מ-3 דקות';
@@ -1074,7 +1074,7 @@ class L10nHe extends L10n {
 
   @override
   String get replacementsEmptyHint =>
-      'הוסף קיצורים כדי להחליף אוטומטית מילים בזמן הכתבה.\nדוגמה: \"btw\" → \"אגב\"';
+      'הוסף קיצורים כדי להחליף אוטומטית מילים בזמן הקלטה.\nדוגמה: \"btw\" → \"אגב\"';
 
   @override
   String get replacementsNoMatches => 'אין התאמות';
@@ -1114,7 +1114,7 @@ class L10nHe extends L10n {
   String get replacementsNewShortcut => 'קיצור חדש';
 
   @override
-  String get replacementsDialogHint => 'הביטוי יוחלף אוטומטית בזמן הכתבה.';
+  String get replacementsDialogHint => 'הביטוי יוחלף אוטומטית בזמן הקלטה.';
 
   @override
   String get replacementsTriggerLabel => 'ביטוי מפעיל';
@@ -1153,7 +1153,7 @@ class L10nHe extends L10n {
 
   @override
   String get aboutSupportDescription =>
-      'WhisPaste חינמי וקוד פתוח תחת רישיון MIT. אם הוא מועיל לך – שקול לתמוך בפיתוח!';
+      'WhisPaste חינמי וקוד פתוח תחת רישיון MIT. אם הוא מועיל לך, שקול לתמוך בפיתוח!';
 
   @override
   String get aboutGitHubSponsors => 'GitHub Sponsors';
@@ -1179,7 +1179,7 @@ class L10nHe extends L10n {
 
   @override
   String get aboutWhisperDesc =>
-      'זיהוי דיבור מקומי וענן – מהיר, מדויק, רב-לשוני.';
+      'זיהוי דיבור מקומי וענן: מהיר, מדויק, רב-לשוני.';
 
   @override
   String get aboutParakeet => 'NVIDIA Parakeet & sherpa-onnx';
@@ -1193,14 +1193,14 @@ class L10nHe extends L10n {
 
   @override
   String get aboutPrivacyFirstDesc =>
-      'ברירת מחדל – AI מקומי. הקול שלך לא עוזב את המחשב אלא אם תבחר שירות ענן.';
+      'ברירת מחדל: AI מקומי. הקול שלך לא עוזב את המחשב אלא אם תבחר שירות ענן.';
 
   @override
   String get aboutPrivacy => 'פרטיות ונתונים';
 
   @override
   String get aboutPrivacyLocal =>
-      'כל התמלולים וההיסטוריה נשמרים מקומית – לעולם לא על שרתים חיצוניים.';
+      'כל התמלולים וההיסטוריה נשמרים מקומית, לעולם לא על שרתים חיצוניים.';
 
   @override
   String get aboutPrivacyCloud =>
@@ -1253,7 +1253,7 @@ class L10nHe extends L10n {
   String get aboutOpenSource => 'קוד פתוח תחת רישיון MIT';
 
   @override
-  String get feedbackSubtitle => 'עזור לנו לשפר את WhisPaste – כל קול חשוב.';
+  String get feedbackSubtitle => 'עזור לנו לשפר את WhisPaste. כל קול חשוב.';
 
   @override
   String get feedbackCategoryLabel => 'על מה זה?';
@@ -1293,7 +1293,7 @@ class L10nHe extends L10n {
 
   @override
   String get feedbackContactEmailExplanation =>
-      'רק אם תרצה שנחזור אליך. נשתמש בו אך ורק כדי להגיב למשוב הזה — לעולם לא לשיווק, והוא יימחק לאחר 90 יום.';
+      'רק אם תרצה שנחזור אליך. נשתמש בו אך ורק כדי להגיב למשוב הזה, לעולם לא לשיווק, והוא יימחק לאחר 90 יום.';
 
   @override
   String get feedbackContactEmailPlaceholder => 'you@example.com';
@@ -1313,7 +1313,7 @@ class L10nHe extends L10n {
 
   @override
   String get feedbackPrivacyNote =>
-      'אנונימי כברירת מחדל — ניתן לזיהוי רק אם תוסיף את האימייל שלך למעלה.';
+      'אנונימי כברירת מחדל, ניתן לזיהוי רק אם תוסיף את האימייל שלך למעלה.';
 
   @override
   String get feedbackThankYou => 'תודה!';
@@ -1402,11 +1402,11 @@ class L10nHe extends L10n {
   String get statusBarDone => 'הסתיים';
 
   @override
-  String get statusBarHotkeyTooltip => 'קיצור גלובלי – לחץ להגדרה';
+  String get statusBarHotkeyTooltip => 'קיצור גלובלי: לחץ להגדרה';
 
   @override
   String get statusBarAutoPasteOffHint =>
-      'הדבקה אוטומטית כבויה — ניתן להפעיל בהגדרות';
+      'הדבקה אוטומטית כבויה, ניתן להפעיל בהגדרות';
 
   @override
   String get statusBarAutoPasteOffHintTooltip =>
@@ -1523,13 +1523,13 @@ class L10nHe extends L10n {
   String get qualityTierBalancedLabel => 'מאוזן';
 
   @override
-  String get qualityTierBalancedDesc => 'מדויק ואמין להכתבה יומיומית.';
+  String get qualityTierBalancedDesc => 'מדויק ואמין להקלטה יומיומית.';
 
   @override
   String get qualityTierPremiumLabel => 'איכות מיטבית';
 
   @override
-  String get qualityTierPremiumDesc => 'דיוק גבוה להכתבות ארוכות ותוכן מורכב.';
+  String get qualityTierPremiumDesc => 'דיוק גבוה להקלטות ארוכות ותוכן מורכב.';
 
   @override
   String get qualityTierRecommended => 'מומלץ למכשיר שלך';
@@ -1550,12 +1550,12 @@ class L10nHe extends L10n {
 
   @override
   String qualityTierInfoSlow(String ratio) {
-    return 'איכות מיטבית — לוקח פי $ratio יותר זמן';
+    return 'איכות מיטבית, לוקח פי $ratio יותר זמן';
   }
 
   @override
   String qualityTierInfoSlowerThanCompact(String ratio) {
-    return 'איכות מיטבית — איטי פי $ratio מ-Small';
+    return 'איכות מיטבית, איטי פי $ratio מ-Small';
   }
 
   @override
@@ -1623,7 +1623,7 @@ class L10nHe extends L10n {
   String get infoModelMissing => 'הורד קודם מודל דיבור בהגדרות.';
 
   @override
-  String get oomRecoveryTitle => 'ההקלטה נכשלה – בעיית זיכרון GPU';
+  String get oomRecoveryTitle => 'ההקלטה נכשלה: בעיית זיכרון GPU';
 
   @override
   String get oomRecoveryMessage => 'ה-GPU נגמר לו הזיכרון. בחר כיצד להמשיך:';
@@ -1670,7 +1670,7 @@ class L10nHe extends L10n {
 
   @override
   String get infoSttCudaOomFallbackModel =>
-      'איכות הופחתה – ה-GPU נגמר לו הזיכרון. עברתי למודל קל יותר.';
+      'איכות הופחתה: ה-GPU נגמר לו הזיכרון. עברתי למודל קל יותר.';
 
   @override
   String get infoSttCudaOomFallbackCpu =>
@@ -1702,13 +1702,13 @@ class L10nHe extends L10n {
       'מודל דיבור לא ידוע. בחר מודל תקין בהגדרות.';
 
   @override
-  String get errorRecordingFailed => 'לא הצלחתי להתחיל הקלטה – נסה שוב';
+  String get errorRecordingFailed => 'לא הצלחתי להתחיל הקלטה, נסה שוב';
 
   @override
-  String get errorNoAudioRecorded => 'לא הוקלט אודיו – נסה שוב';
+  String get errorNoAudioRecorded => 'לא הוקלט אודיו, נסה שוב';
 
   @override
-  String get errorTranscriptionEmpty => 'התמלול חזר ריק – נסה שוב';
+  String get errorTranscriptionEmpty => 'התמלול חזר ריק, נסה שוב';
 
   @override
   String get errorSttServerFailed => 'מנוע הדיבור לא הצליח להתחיל';
@@ -1719,7 +1719,7 @@ class L10nHe extends L10n {
 
   @override
   String get errorSttModelCorruptedRedownloading =>
-      'מודל הדיבור נראה פגום — מוריד עותק חדש אוטומטית.';
+      'מודל הדיבור נראה פגום. מוריד עותק חדש אוטומטית.';
 
   @override
   String get errorSttDllMissing => 'רכיב מערכת נדרש חסר. מנסה מחדש עם מצב CPU.';
@@ -2033,7 +2033,7 @@ class L10nHe extends L10n {
 
   @override
   String get settingsHotkeyRecorderModifierHint =>
-      'כל שילוב מקשי Modifier אפשרי — למשל Alt+Space, Ctrl+Alt+V, או Ctrl+Alt+Shift+R';
+      'כל שילוב מקשי Modifier אפשרי: למשל Alt+Space, Ctrl+Alt+V, או Ctrl+Alt+Shift+R';
 
   @override
   String get settingsHotkeyRecorderCancel => 'בטל';
@@ -2046,7 +2046,7 @@ class L10nHe extends L10n {
 
   @override
   String get settingsHotkeyRecorderInvalidKey =>
-      'לא ניתן לשמור מקש זה כקיצור דרך. נסה אות, ספרה, מקש פונקציה (F1–F12) או מקש חץ.';
+      'לא ניתן לשמור מקש זה כקיצור דרך. נסה אות, ספרה, מקש פונקציה (F1-F12) או מקש חץ.';
 
   @override
   String get settingsMaxRecordDuration => 'משך הקלטה מקסימלי';
@@ -2113,7 +2113,7 @@ class L10nHe extends L10n {
 
   @override
   String get settingsStableRevertHintMessage =>
-      'לא ניתן לחזור אוטומטית לגרסה היציבה — כבר מותקנת אצלך גרסת בטא חדשה יותר.';
+      'לא ניתן לחזור אוטומטית לגרסה היציבה. כבר מותקנת אצלך גרסת בטא חדשה יותר.';
 
   @override
   String settingsStableRevertHintLink(String stableVersion) {
@@ -2137,14 +2137,14 @@ class L10nHe extends L10n {
 
   @override
   String get onboardingPrivacyHint =>
-      'WhisPaste שולח נתוני שימוש אנונימיים לשרת באיחוד האירופי — בהתאם ל-GDPR וללא ההקלטות, הטקסט או הנתונים האישיים שלך. ניתן לשנות בכל עת בהגדרות ← פרטיות.';
+      'WhisPaste שולח נתוני שימוש אנונימיים לשרת באיחוד האירופי, בהתאם ל-GDPR וללא ההקלטות, הטקסט או הנתונים האישיים שלך. ניתן לשנות בכל עת בהגדרות ← פרטיות.';
 
   @override
   String get onboardingPrivacyToggle => 'שיתוף נתוני שימוש אנונימיים';
 
   @override
   String get onboardingPrivacyToggleHint =>
-      'פעיל כברירת מחדל — ניתן לכבות בכל עת';
+      'פעיל כברירת מחדל, ניתן לכבות בכל עת';
 
   @override
   String onboardingStepOf(int current, int total) {
@@ -2165,10 +2165,10 @@ class L10nHe extends L10n {
 
   @override
   String get onboardingMicSubtitle =>
-      'אנחנו צריכים גישה למיקרופון כדי שתוכל להכתיב. האודיו נשאר במכשיר שלך.';
+      'אנחנו צריכים גישה למיקרופון כדי להקליט. האודיו נשאר במכשיר שלך.';
 
   @override
-  String get onboardingMicPermissionGranted => 'הכל מוכן – המיקרופון פעיל!';
+  String get onboardingMicPermissionGranted => 'הכל מוכן, המיקרופון פעיל!';
 
   @override
   String get onboardingMicPermissionDenied => 'גישת מיקרופון נדחתה';
@@ -2180,11 +2180,11 @@ class L10nHe extends L10n {
   String get onboardingMicRequestAccess => 'אפשר גישה';
 
   @override
-  String get onboardingMicTestRecording => 'אמור משהו — אנחנו בודקים את הרמה';
+  String get onboardingMicTestRecording => 'אמור משהו, אנחנו בודקים את הרמה';
 
   @override
   String get onboardingMicTestDone =>
-      'נשמע מצוין – המיקרופון עובד בצורה מושלמת!';
+      'נשמע מצוין, המיקרופון עובד בצורה מושלמת!';
 
   @override
   String get onboardingMicSilent =>
@@ -2208,7 +2208,7 @@ class L10nHe extends L10n {
 
   @override
   String get onboardingModelSubtitle =>
-      'הורד את מנוע הדיבור כדי להכתיב offline – הקול שלך לא עוזב את המכשיר.';
+      'הורד את מנוע הדיבור כדי להקליט offline. הקול שלך לא עוזב את המכשיר.';
 
   @override
   String get onboardingModelRecommended => 'מומלץ למכשיר שלך';
@@ -2218,7 +2218,7 @@ class L10nHe extends L10n {
       'תוכל לשנות את האיכות מאוחר יותר בהגדרות';
 
   @override
-  String get onboardingModelUseCloud => 'דלג – אשתמש בשירות ענן';
+  String get onboardingModelUseCloud => 'דלג, אשתמש בשירות ענן';
 
   @override
   String get onboardingModelDownloading => 'מוריד…';
@@ -2228,14 +2228,14 @@ class L10nHe extends L10n {
 
   @override
   String get onboardingModelGpuCpuFallback =>
-      'האצת GPU מיטבית אינה זמינה — האפליקציה תשתמש במעבד';
+      'האצת GPU מיטבית אינה זמינה, האפליקציה תשתמש במעבד';
 
   @override
   String get onboardingTestRecordingTitle => 'Give it a try';
 
   @override
   String get onboardingTestRecordingSubtitle =>
-      'Press your hotkey and say a sentence — the text appears below in the test field.';
+      'Press your hotkey and say a sentence. The text appears below in the test field.';
 
   @override
   String get onboardingTestRecordingHotkeyLabel => 'Your hotkey';
@@ -2246,7 +2246,7 @@ class L10nHe extends L10n {
 
   @override
   String get onboardingTestRecordingInProgress =>
-      'Recording — just start talking. Press again to stop.';
+      'Recording: just start talking. Press again to stop.';
 
   @override
   String get onboardingTestRecordingDoneMessage =>
@@ -2254,7 +2254,7 @@ class L10nHe extends L10n {
 
   @override
   String get onboardingTestRecordingReassurance =>
-      'Just a test — the text stays in this field.';
+      'Just a test, the text stays in this field.';
 
   @override
   String get onboardingTestRecordingSkip => 'Skip test';
@@ -2277,7 +2277,7 @@ class L10nHe extends L10n {
 
   @override
   String get onboardingReadyStep3CopyOnly =>
-      'הטקסט בלוח — לחץ ⌘V / Ctrl+V כדי להדביק';
+      'הטקסט בלוח, לחץ ⌘V / Ctrl+V כדי להדביק';
 
   @override
   String get onboardingReadyChangeHotkey => 'שנה קיצור';
@@ -2418,7 +2418,7 @@ class L10nHe extends L10n {
   }
 
   @override
-  String get updateReadyToInstall => 'עדכון מוכן – לחץ להתקנה';
+  String get updateReadyToInstall => 'עדכון מוכן, לחץ להתקנה';
 
   @override
   String get updateUpToDate => 'יש לך את הגרסה העדכנית ביותר';
@@ -2439,7 +2439,7 @@ class L10nHe extends L10n {
   String get updateError => 'בדיקת עדכון נכשלה';
 
   @override
-  String get updateRateLimited => 'יותר מדי בקשות – נסה שוב מאוחר יותר';
+  String get updateRateLimited => 'יותר מדי בקשות, נסה שוב מאוחר יותר';
 
   @override
   String updateStatusBarChip(String version) {
@@ -2586,8 +2586,7 @@ class L10nHe extends L10n {
   String get reviewPromptRateStore => '★ דרג בחנות';
 
   @override
-  String get reviewPromptGateBody =>
-      'רק שאלה קצרה אלינו — זו אינה דירוג בחנות.';
+  String get reviewPromptGateBody => 'רק שאלה קצרה אלינו, זו אינה דירוג בחנות.';
 
   @override
   String get reviewPromptGateYes => 'כן, אני אוהב את זה';
@@ -2634,11 +2633,11 @@ class L10nHe extends L10n {
 
   @override
   String get hotkeyRegistrationFailed =>
-      'רישום קיצור הדרך נכשל — הגדר מחדש את הקיצור בהגדרות.';
+      'רישום קיצור הדרך נכשל, הגדר מחדש את הקיצור בהגדרות.';
 
   @override
   String get hotkeyRegistrationFailedDefaultActive =>
-      'רישום קיצור הדרך נכשל — Ctrl+Shift+Space משמש כברירת מחדל. הגדר מחדש בהגדרות.';
+      'רישום קיצור הדרך נכשל, Ctrl+Shift+Space משמש כברירת מחדל. הגדר מחדש בהגדרות.';
 
   @override
   String hotkeyConflictWarning(String platform, String note) {
@@ -2665,7 +2664,7 @@ class L10nHe extends L10n {
 
   @override
   String get cpuFallbackToast =>
-      'Transcription is taking a little longer than usual right now — it\'s still working.';
+      'Transcription is taking a little longer than usual right now, it\'s still working.';
 
   @override
   String get recoveryExhaustedToast =>
@@ -2682,7 +2681,7 @@ class L10nHe extends L10n {
   String get recoveryVcRuntimeAction => 'Install';
 
   @override
-  String get modelAbiInfoToast => 'Reloading voice model — please wait.';
+  String get modelAbiInfoToast => 'Reloading voice model, please wait.';
 
   @override
   String get serverDownloadFailedToast =>
@@ -2692,11 +2691,11 @@ class L10nHe extends L10n {
   String get serverDownloadFailedAction => 'Try again';
 
   @override
-  String get serverDownloadStalledToast => 'Download stalled — reconnecting.';
+  String get serverDownloadStalledToast => 'Download stalled: reconnecting.';
 
   @override
   String get historyWriteFailedToast =>
-      'Entry could not be saved — please check available storage.';
+      'Entry could not be saved, please check available storage.';
 
   @override
   String get historyWriteFailedAction => 'Copy diagnostics';
@@ -2709,18 +2708,18 @@ class L10nHe extends L10n {
   String get factoryResetFailedAction => 'Quit app';
 
   @override
-  String get errorSttRejectEmpty => 'אין אודיו לתמלול — נסה להקליט שוב.';
+  String get errorSttRejectEmpty => 'אין אודיו לתמלול, נסה להקליט שוב.';
 
   @override
-  String get errorSttRejectInvalidWav => 'קובץ האודיו פגום — נסה להקליט שוב.';
+  String get errorSttRejectInvalidWav => 'קובץ האודיו פגום, נסה להקליט שוב.';
 
   @override
   String get errorSttRejectUnsupportedLanguage =>
-      'השפה אינה נתמכת על ידי מנוע הדיבור המקומי — בדוק את השפה בהגדרות.';
+      'השפה אינה נתמכת על ידי מנוע הדיבור המקומי, בדוק את השפה בהגדרות.';
 
   @override
   String get errorSttRejectPromptTooLong =>
-      'אוצר המילים המותאם ארוך מדי — קצר אותו בהגדרות.';
+      'אוצר המילים המותאם ארוך מדי, קצר אותו בהגדרות.';
 
   @override
   String get settingsGpuAcceleration => 'האצת גרפיקה';
@@ -2807,7 +2806,7 @@ class L10nHe extends L10n {
 
   @override
   String get settingsShareUsageStatsSubtitle =>
-      'Sent cookieless and without any identifiers — help us understand how WhisPaste is used';
+      'Sent cookieless and without any identifiers, help us understand how WhisPaste is used';
 
   @override
   String get storeThankYouTitle => 'תודה על תמיכתך!';
