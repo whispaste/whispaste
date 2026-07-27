@@ -116,7 +116,14 @@ class CrashReporter {
   // -------------------------------------------------------------------------
 
   /// Initializes the crash reporter. Call AFTER [SentryFlutter.init].
-  static CrashReporter init() {
+  ///
+  /// [deployChannel] tags native crashes with the distribution channel
+  /// (store/installer/packageManaged/portable) — e.g. some Windows
+  /// flutter_windows.dll teardown crashes are known upstream to be specific
+  /// to the MSIX/Store AppContainer sandbox (flutter/flutter #183313), which
+  /// this tag lets us confirm or rule out. Passed in rather than detected
+  /// here to keep this core/logging module free of a services/ dependency.
+  static CrashReporter init({String? deployChannel}) {
     final cr = CrashReporter._();
     cr._deviceId = _deriveDeviceId();
 
@@ -125,6 +132,9 @@ class CrashReporter {
       scope.setTag('app_version', appVersion);
       scope.setTag('os', Platform.operatingSystem);
       scope.setTag('arch', currentArchTag());
+      if (deployChannel != null) {
+        scope.setTag('deploy_channel', deployChannel);
+      }
       scope.setContexts('device_info', {
         'device_id': cr._deviceId,
         'dart_version': Platform.version.split(' ').first,

@@ -13,6 +13,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
+import '../../services/deploy_channel_service.dart';
 import '../app_info.dart';
 import 'app_logger.dart';
 import 'crash_fingerprints.dart';
@@ -93,7 +94,7 @@ class AppMonitoring {
       },
       appRunner: () async {
         // 3. Initialize crash reporter (configures Sentry scope context).
-        CrashReporter.init();
+        CrashReporter.init(deployChannel: detectDeployChannel().name);
         _log.info('Sentry crash reporting initialized');
 
         // 4. Install cascade guard around Sentry's FlutterError.onError.
