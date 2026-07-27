@@ -373,6 +373,10 @@ class ParakeetEngineNotifier extends Notifier<ParakeetStatus> {
     state = const ParakeetStatus();
   }
 
+  // Structurally similar to WhisperIsolateEngine._handleWorkerMessage, but
+  // switches over a distinct sealed message hierarchy for an independent
+  // isolate worker; a shared dispatcher would couple the two STT engines.
+  // loam-ignore: code-duplicates – see comment above
   void _handleWorkerMessage(dynamic message) {
     switch (message) {
       case final _InitResult r:

@@ -391,8 +391,8 @@ void _installTelemetrySignalHandlers(ProviderContainer container) {
           .read(telemetrySessionAggregatorProvider)
           .drainAndFlush(telemetry)
           .timeout(const Duration(seconds: 2), onTimeout: () {});
-    } catch (_) {
-      // Best-effort — never block exit.
+    } catch (e) {
+      _log.warning('Telemetry drain on exit failed (best-effort): $e');
     }
     exit(0);
   }

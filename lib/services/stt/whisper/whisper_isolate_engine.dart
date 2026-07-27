@@ -371,6 +371,10 @@ class WhisperIsolateEngine implements WhisperEngine {
     _isLoaded = false;
   }
 
+  // Structurally similar to ParakeetEngineNotifier._handleWorkerMessage, but
+  // switches over a distinct sealed message hierarchy for an independent
+  // isolate worker; a shared dispatcher would couple the two STT engines.
+  // loam-ignore: code-duplicates – see comment above
   void _handleWorkerMessage(dynamic message) {
     switch (message) {
       case final _LoadResult r:
