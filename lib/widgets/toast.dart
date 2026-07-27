@@ -260,7 +260,11 @@ class _ToastCard extends StatelessWidget {
         : WpColorsLight.borderDefault;
 
     return Semantics(
-      liveRegion: true,
+      // Not a liveRegion: WpToast.show() already calls sendAnnouncement()
+      // explicitly once, precisely when the toast is inserted — combining
+      // that with liveRegion risks a double announcement (liveRegion fires
+      // its own announcement on semantics-tree changes). The label here is
+      // for a screen-reader user who navigates directly to the toast.
       label: message,
       container: true,
       child: Material(

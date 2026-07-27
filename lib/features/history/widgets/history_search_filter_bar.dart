@@ -644,7 +644,10 @@ class _HistorySearchFilterBarState
 
           // ── Inline autocomplete suggestions ─────────────────────────────
           AnimatedSize(
-            duration: const Duration(milliseconds: 120),
+            duration: WpMotion.durationFor(
+              context,
+              const Duration(milliseconds: 120),
+            ),
             curve: Curves.easeOut,
             alignment: Alignment.topCenter,
             child: _hasSuggestions

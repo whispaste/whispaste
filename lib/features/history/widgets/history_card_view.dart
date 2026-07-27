@@ -146,10 +146,24 @@ class HistoryEntryCard extends StatefulWidget {
 class _HistoryEntryCardState extends State<HistoryEntryCard> {
   bool _isHovered = false;
 
-  int get _wordCount {
-    final t = widget.entry.content.trim();
+  // Memoized once per `entry` change, not recomputed on every hover
+  // setState — see the identical fix in history_list_tile.dart for why.
+  late int _wordCount = _computeWordCount(widget.entry);
+  late IconData _avatarIcon = historyAvatarIcon(widget.entry);
+
+  static int _computeWordCount(HistoryEntry entry) {
+    final t = entry.content.trim();
     if (t.isEmpty) return 0;
     return t.split(RegExp(r'\s+')).length;
+  }
+
+  @override
+  void didUpdateWidget(HistoryEntryCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.entry != widget.entry) {
+      _wordCount = _computeWordCount(widget.entry);
+      _avatarIcon = historyAvatarIcon(widget.entry);
+    }
   }
 
   @override
@@ -211,7 +225,7 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
                   children: [
                     HistoryEntryAvatar(
                       color: avatarCol,
-                      icon: historyAvatarIcon(widget.entry),
+                      icon: _avatarIcon,
                       isPinned: widget.entry.pinned,
                       isDark: isDark,
                       size: 32,

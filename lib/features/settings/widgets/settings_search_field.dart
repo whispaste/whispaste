@@ -267,7 +267,10 @@ class _SettingsSearchFieldState extends ConsumerState<SettingsSearchField> {
 
         // ── Suggestion dropdown ──────────────────────────────────────────
         AnimatedSize(
-          duration: const Duration(milliseconds: 120),
+          duration: WpMotion.durationFor(
+            context,
+            const Duration(milliseconds: 120),
+          ),
           curve: Curves.easeOut,
           alignment: Alignment.topCenter,
           child: _showDropdown && matches.isNotEmpty

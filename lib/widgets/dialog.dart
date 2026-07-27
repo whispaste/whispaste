@@ -31,7 +31,7 @@ Future<T?> showWpDialog<T>({
     barrierDismissible: true,
     barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
     barrierColor: Colors.transparent, // painted by the transition builder
-    transitionDuration: WpMotion.smooth,
+    transitionDuration: WpMotion.durationFor(context, WpMotion.smooth),
     pageBuilder: (_, a2, a3) => const SizedBox.shrink(),
     transitionBuilder: (ctx, animation, secondaryAnimation, child) {
       return _WpDialogBarrier(
@@ -65,7 +65,7 @@ Future<bool> showWpConfirmDialog({
     barrierDismissible: true,
     barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
     barrierColor: Colors.transparent,
-    transitionDuration: WpMotion.smooth,
+    transitionDuration: WpMotion.durationFor(context, WpMotion.smooth),
     pageBuilder: (_, a2, a3) => const SizedBox.shrink(),
     transitionBuilder: (ctx, animation, secondaryAnimation, child) {
       return _WpDialogBarrier(
@@ -99,7 +99,7 @@ Future<T?> showWpFormDialog<T>({
     barrierDismissible: true,
     barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
     barrierColor: Colors.transparent,
-    transitionDuration: WpMotion.smooth,
+    transitionDuration: WpMotion.durationFor(context, WpMotion.smooth),
     pageBuilder: (_, a2, a3) => const SizedBox.shrink(),
     transitionBuilder: (ctx, animation, secondaryAnimation, child) {
       return _WpDialogBarrier(

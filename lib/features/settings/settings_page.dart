@@ -85,10 +85,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     ref.read(settingsScrollTargetProvider.notifier).set(null);
 
     final key = _sectionKeys[target];
-    if (key?.currentContext != null) {
+    final targetContext = key?.currentContext;
+    if (targetContext != null) {
       Scrollable.ensureVisible(
-        key!.currentContext!,
-        duration: const Duration(milliseconds: 300),
+        targetContext,
+        duration: WpMotion.durationFor(
+          targetContext,
+          const Duration(milliseconds: 300),
+        ),
         curve: Curves.easeInOut,
         alignment: 0.0,
       );
@@ -134,7 +138,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       final isHighlighted = highlightTarget == sectionKey;
       final accentColor = isDark ? WpColorsDark.accent : WpColorsLight.accent;
       return AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+        duration: WpMotion.durationFor(
+          context,
+          const Duration(milliseconds: 200),
+        ),
         decoration: isHighlighted
             ? BoxDecoration(
                 borderRadius: WpRadius.borderMd,

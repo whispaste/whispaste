@@ -75,7 +75,7 @@ class _ReviewPromptWatcherState extends ConsumerState<ReviewPromptWatcher> {
       barrierDismissible: true,
       barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
       barrierColor: Colors.transparent,
-      transitionDuration: WpMotion.smooth,
+      transitionDuration: WpMotion.durationFor(context, WpMotion.smooth),
       pageBuilder: (_, p1, p2) => const SizedBox.shrink(),
       transitionBuilder: (ctx, animation, p1, p2) {
         final opacity = CurvedAnimation(

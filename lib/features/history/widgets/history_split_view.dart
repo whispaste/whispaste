@@ -376,7 +376,10 @@ class _SplitViewDivider extends StatelessWidget {
           color: Colors.transparent,
           child: Center(
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
+              duration: WpMotion.durationFor(
+                context,
+                const Duration(milliseconds: 150),
+              ),
               width: isDragging ? 3.0 : visualWidth,
               decoration: BoxDecoration(
                 color: isDragging

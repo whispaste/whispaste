@@ -86,6 +86,11 @@ class _WpWaveformState extends State<WpWaveform>
     _reduceMotion = MediaQuery.of(context).disableAnimations;
     if (widget.isActive && !_reduceMotion && !_controller.isAnimating) {
       _controller.repeat();
+    } else if (_reduceMotion && _controller.isAnimating) {
+      // The user can flip the OS reduced-motion setting while a recording
+      // is already animating — stop the ticker immediately rather than
+      // waiting for the next isActive change.
+      _controller.stop();
     }
   }
 

@@ -35,7 +35,7 @@ Future<ExportFormat?> showExportFormatPicker(BuildContext context) {
     barrierDismissible: true,
     barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
     barrierColor: Colors.transparent, // painted by the transition builder
-    transitionDuration: WpMotion.smooth,
+    transitionDuration: WpMotion.durationFor(context, WpMotion.smooth),
     pageBuilder: (_, _, _) => const SizedBox.shrink(),
     transitionBuilder: (ctx, animation, secondaryAnimation, child) {
       return _PickerBarrier(
