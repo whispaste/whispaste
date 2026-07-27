@@ -199,7 +199,7 @@ class DesktopPasteHost {
   /// Returns `{ax: <int>, ae: <int>, error: <string?>}` with the count
   /// of removed entries per service (or -1 on failure).
   private func repairTccEntries() -> [String: Any] {
-    let bundleId = Bundle.main.bundleIdentifier ?? "com.whispaste.whispaste"
+    let bundleId = Bundle.main.bundleIdentifier ?? "de.whispaste.app"
     var result: [String: Any] = [:]
     result["ax"] = runTccReset(service: "Accessibility", bundleId: bundleId)
     result["ae"] = runTccReset(service: "AppleEvents", bundleId: bundleId)

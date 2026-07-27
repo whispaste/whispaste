@@ -8,10 +8,15 @@
 # this project follows for every external credential (never hardcode an
 # identifier that ties back to a real account into a public repo).
 #
-# ⚠️ app_identifier is the REGISTERED App ID (de.whispaste.app). The macOS Xcode
-# project must be migrated from com.whispaste.whispaste to this id first
+# app_identifier is the REGISTERED App ID (de.whispaste.app). The macOS Xcode
+# project's PRODUCT_BUNDLE_IDENTIFIER was migrated to match as of v1.2.58
 # (see docs/store-release.md → "Bundle-ID-Migration").
-require_relative 'load_credentials'
+# NOTE: Appfile is loaded by fastlane's CredentialsManager via a bare
+# `eval(content)` (no filename argument), so `require_relative` can't infer
+# its base path here (unlike in Fastfile, which fastlane loads with a real
+# filename). The eval runs inside a `Dir.chdir` into this directory, so a
+# plain `require` relative to the current working directory works instead.
+require File.join(Dir.pwd, 'load_credentials')
 
 app_identifier("de.whispaste.app")
 apple_id(ENV.fetch("FASTLANE_APPLE_ID"))

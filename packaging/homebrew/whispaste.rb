@@ -28,9 +28,15 @@ cask "whispaste" do
 
   app "whispaste.app"
 
-  # Hinweis: Bundle-ID derzeit com.whispaste.whispaste. Nach Migration auf
-  # de.whispaste.app diese Pfade anpassen.
+  # Bundle-ID seit v1.2.58 de.whispaste.app (zuvor com.whispaste.whispaste).
+  # Alte Pfade bleiben gelistet, da die App-seitige Migration bestehende
+  # Nutzerdaten kopiert statt verschiebt — sie können also unter der alten
+  # Identität liegen bleiben, bis ein Zap sie entfernt.
   zap trash: [
+    "~/Library/Application Support/de.whispaste.app",
+    "~/Library/Caches/de.whispaste.app",
+    "~/Library/Preferences/de.whispaste.app.plist",
+    "~/Library/HTTPStorages/de.whispaste.app",
     "~/Library/Application Support/com.whispaste.whispaste",
     "~/Library/Caches/com.whispaste.whispaste",
     "~/Library/Preferences/com.whispaste.whispaste.plist",
