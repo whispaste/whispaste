@@ -155,7 +155,6 @@ abstract final class WpLayout {
 
   /// Responsive breakpoints (mobile-first).
   static const double breakpointMobile = 600;
-  static const double breakpointTablet = 900;
 }
 
 // ---------------------------------------------------------------------------

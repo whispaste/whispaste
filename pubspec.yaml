@@ -26,17 +26,12 @@ dependencies:
 
   # Desktop window management
   window_manager: ^0.5.1
-  screen_retriever: ^0.2.1
-  flutter_acrylic: ^1.1.0
 
   # System tray (desktop)
   tray_manager: ^0.5.3
 
   # Global hotkeys (desktop)
   hotkey_manager: ^0.2.0
-
-  # Clipboard
-  super_clipboard: ^0.9.1
 
   # Audio recording
   record: ^7.0.0
@@ -67,7 +62,6 @@ dependencies:
   intl: ^0.20.2
   # CLDR-localised language display names (STT recognition-language dropdown).
   flutter_localized_locales: ^2.0.5
-  collection: ^1.19.1
   crypto: ^3.0.6
   # Reads the build-time version from Info.plist / Windows resource block /
   # AndroidManifest — Flutter populates these from pubspec.yaml. Used by
@@ -81,11 +75,9 @@ dependencies:
   # the dock-bounce / taskbar-flash + tray-badge attention layers that work
   # reliably even when notification permission is denied.
   local_notifier: ^0.1.6
-  equatable: ^2.0.7
   flutter_secure_storage: ^10.3.1
   flutter_svg: ^2.1.0
   lucide_icons_flutter: ^3.1.12
-  flutter_lucide_animated: ^0.0.4
   font_awesome_flutter: ^11.0.0
 
   # Export (DOCX ZIP generation)
