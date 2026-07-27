@@ -142,10 +142,11 @@ class ParakeetDownloadNotifier extends Notifier<ParakeetDownloadState> {
           state = state.copyWith(phase: ParakeetDownloadPhase.idle);
           return;
         }
-        _log.error('Download failed for ${file.filename}: ${e.message}');
+        final description = _describeDioError(e);
+        _log.error('Download failed for ${file.filename}: $description');
         state = state.copyWith(
           phase: ParakeetDownloadPhase.error,
-          errorMessage: 'Download failed: ${e.message}',
+          errorMessage: 'Download failed: $description',
         );
         return;
       }
@@ -211,3 +212,12 @@ final parakeetDownloadProvider =
     NotifierProvider<ParakeetDownloadNotifier, ParakeetDownloadState>(
       ParakeetDownloadNotifier.new,
     );
+
+/// Describes a [DioException] for display/logging. `e.message` is `null`
+/// for many real failures (e.g. connection errors wrapping a lower-level
+/// `SocketException`) — surfacing that as the literal string "null"
+/// (FLUTTER_WHISPASTE-80) told users and Sentry nothing about what actually
+/// failed. Falls back to the wrapped cause, then the exception type, so
+/// there is always *some* diagnostic detail.
+String _describeDioError(DioException e) =>
+    e.message ?? e.error?.toString() ?? 'network error (${e.type.name})';

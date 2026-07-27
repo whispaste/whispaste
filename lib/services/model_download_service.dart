@@ -597,11 +597,20 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
     } else {
       final msg = e.response?.statusCode == 403
           ? 'GitHub API rate limit reached. Please wait a few minutes.'
-          : 'Download failed: ${e.message}';
+          : 'Download failed: ${_describeDioError(e)}';
       logFn(msg);
       state = state.copyWith(phase: DownloadPhase.error, errorMessage: msg);
     }
   }
+
+  /// Describes a [DioException] for display/logging. `e.message` is `null`
+  /// for many real failures (e.g. connection errors wrapping a lower-level
+  /// `SocketException`) — surfacing that as the literal string "null"
+  /// (FLUTTER_WHISPASTE-80, 147 occurrences/19 users) told users and Sentry
+  /// nothing about what actually failed. Falls back to the wrapped cause,
+  /// then the exception type, so there is always *some* diagnostic detail.
+  String _describeDioError(DioException e) =>
+      e.message ?? e.error?.toString() ?? 'network error (${e.type.name})';
 
   Future<void> _markModelDone(String modelId) async {
     state = state.copyWith(
