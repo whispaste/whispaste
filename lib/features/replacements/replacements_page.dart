@@ -403,7 +403,6 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
         ? WpColorsDark.textPrimary
         : WpColorsLight.textPrimary;
     final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
     final l10n = L10n.of(context);
 
     return Center(
@@ -520,13 +519,14 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
                   const SizedBox(width: WpSpacing.sm),
                   ElevatedButton(
                     onPressed: _isValid ? _submit : null,
+                    // No manual text color here — ElevatedButtonThemeData
+                    // already sets foregroundColor: colorScheme.onPrimary,
+                    // which is contrast-safe against the button's
+                    // colorScheme.primary background. Overriding it to
+                    // `accent` (the same color as that background) made the
+                    // enabled button's label unreadable.
                     child: Text(
                       _isEditing ? l10n.actionSave : l10n.replacementsAdd,
-                      style: TextStyle(
-                        color: _isValid ? accent : textMuted,
-                        fontSize: WpTypography.body,
-                        fontWeight: FontWeight.w600,
-                      ),
                     ),
                   ),
                 ],

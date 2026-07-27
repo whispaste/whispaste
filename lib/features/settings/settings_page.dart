@@ -303,15 +303,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       child: Focus(
         autofocus: true,
         skipTraversal: true,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            // Settings rows are label + Expanded control — on an ultrawide
-            // window they stretch into an unreadably long line, unlike
-            // feedback's form fields. Only kicks in once the window has real
-            // slack beyond the app's own minimum width (800, see main.dart).
-            final maxWidth = constraints.maxWidth > 900
-                ? 800.0
-                : double.infinity;
+        child: Builder(
+          builder: (context) {
+            // Fills the window width like every other page (The Fill-By-
+            // Default Rule) — no cap-width, so Settings stays consistent
+            // with History/Analytics/etc. even on very wide windows.
             return Column(
               children: [
                 // ── Sticky search field (stays visible while scrolling) ───
@@ -324,12 +320,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     WpSpacing.xl,
                     0,
                   ),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(maxWidth: maxWidth),
-                      child: SettingsSearchField(focusNode: _searchFocusNode),
-                    ),
-                  ),
+                  child: SettingsSearchField(focusNode: _searchFocusNode),
                 ),
 
                 // ── Scrollable settings content ───────────────────────────
@@ -341,12 +332,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                       WpSpacing.xl,
                       WpSpacing.xl,
                     ),
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(maxWidth: maxWidth),
-                        child: scrollContent,
-                      ),
-                    ),
+                    child: scrollContent,
                   ),
                 ),
               ],

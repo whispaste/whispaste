@@ -9,6 +9,7 @@ class AppDelegate: FlutterAppDelegate {
   private var floatingOverlayHost: FloatingOverlayHost?
   private var audioRoutingHost: AudioRoutingHost?
   private var bundleIdMigrationHost: BundleIdMigrationHost?
+  private var autostartHost: AutostartHost?
   private var lifecycleChannel: FlutterMethodChannel?
 
   override func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -71,6 +72,7 @@ class AppDelegate: FlutterAppDelegate {
     floatingOverlayHost = FloatingOverlayHost(messenger: messenger)
     audioRoutingHost = AudioRoutingHost(messenger: messenger)
     bundleIdMigrationHost = BundleIdMigrationHost(messenger: messenger)
+    autostartHost = AutostartHost(messenger: messenger)
 
     // Lifecycle channel: activation policy toggle for close-to-tray.
     lifecycleChannel = FlutterMethodChannel(
