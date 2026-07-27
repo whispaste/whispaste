@@ -104,6 +104,15 @@ class _HistorySplitViewState extends State<HistorySplitView>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _anim.duration = WpMotion.durationFor(
+      context,
+      const Duration(milliseconds: 250),
+    );
+  }
+
+  @override
   void didUpdateWidget(covariant HistorySplitView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.selectedEntry != null && oldWidget.selectedEntry == null) {
@@ -174,7 +183,7 @@ class _HistorySplitViewState extends State<HistorySplitView>
         );
     }
     return AnimatedSwitcher(
-      duration: WpMotion.normal,
+      duration: WpMotion.durationFor(context, WpMotion.normal),
       switchInCurve: Curves.easeOut,
       switchOutCurve: Curves.easeIn,
       child: body,
@@ -290,7 +299,10 @@ class _HistorySplitViewState extends State<HistorySplitView>
                           child: Opacity(
                             opacity: detailFraction.clamp(0.0, 1.0),
                             child: AnimatedSwitcher(
-                              duration: WpMotion.fast,
+                              duration: WpMotion.durationFor(
+                                context,
+                                WpMotion.fast,
+                              ),
                               switchInCurve: Curves.easeOut,
                               switchOutCurve: Curves.easeIn,
                               transitionBuilder: (child, animation) {

@@ -115,6 +115,12 @@ class _NullControllerService extends FloatingButtonService {
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 void main() {
+  // FloatingButtonService now registers a ScreenListener (screen_retriever)
+  // for multi-monitor re-clamping, which opens an EventChannel and therefore
+  // needs the test binding initialized even though no real platform channel
+  // handler is mocked — the test messenger no-ops unhandled channel calls.
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('FloatingButtonService — controller lifecycle', () {
     test('controller is created when provider is first read', () async {
       final (:container, :fake) = _makeContainer();

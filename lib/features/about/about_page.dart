@@ -430,7 +430,10 @@ class _QuickActionState extends State<_QuickAction> {
             }
           },
           child: AnimatedContainer(
-            duration: _hovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+            duration: WpMotion.durationFor(
+              context,
+              _hovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+            ),
             padding: const EdgeInsets.symmetric(
               horizontal: WpSpacing.md,
               vertical: WpSpacing.xs,
@@ -510,7 +513,10 @@ class _UpdateCheckActionState extends State<_UpdateCheckAction> {
         child: GestureDetector(
           onTap: widget.updateState.isBusy ? null : widget.onTap,
           child: AnimatedContainer(
-            duration: _hovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+            duration: WpMotion.durationFor(
+              context,
+              _hovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+            ),
             padding: const EdgeInsets.symmetric(
               horizontal: WpSpacing.md,
               vertical: WpSpacing.xs,
@@ -614,7 +620,10 @@ class _SupportButtonState extends State<_SupportButton> {
             }
           },
           child: AnimatedContainer(
-            duration: _hovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+            duration: WpMotion.durationFor(
+              context,
+              _hovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+            ),
             padding: const EdgeInsets.symmetric(
               horizontal: WpSpacing.md,
               vertical: WpSpacing.sm,
@@ -865,7 +874,10 @@ class _LinkRowState extends State<_LinkRow> {
         child: GestureDetector(
           onTap: _launch,
           child: AnimatedContainer(
-            duration: _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+            duration: WpMotion.durationFor(
+              context,
+              _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+            ),
             curve: WpMotion.defaultCurve,
             padding: const EdgeInsets.symmetric(
               horizontal: WpSpacing.sm,

@@ -19,7 +19,9 @@ import 'core/logging/app_logger.dart';
 import 'core/logging/app_monitoring.dart';
 import 'core/logging/crash_reporter.dart';
 import 'core/logging/perf_instrumentation.dart';
+import 'core/platform/display_bounds.dart';
 import 'core/platform/macos_lifecycle_channel.dart';
+import 'core/platform/window_position_clamp.dart';
 import 'core/theme/theme.dart';
 import 'floating_button_render_entrypoint.dart';
 import 'floating_overlay_render_entrypoint.dart';
@@ -284,9 +286,16 @@ Future<void> _initDesktopWindow(AppSettings settings, List<String> args) async {
   );
   await windowManager.waitUntilReadyToShow(windowOptions, () async {
     if (hasPosition) {
-      await windowManager.setPosition(
-        Offset(settings.windowX, settings.windowY),
+      // A position saved before a monitor was unplugged (or from a settings
+      // backup restored on different hardware) must never start the window
+      // off every currently connected display.
+      final displays = await currentDisplayBounds();
+      final clamped = WindowPositionClamp.clamp(
+        position: Offset(settings.windowX, settings.windowY),
+        size: Size(settings.windowWidth, settings.windowHeight),
+        displays: displays,
       );
+      await windowManager.setPosition(clamped);
     }
     if (settings.windowMaximized) {
       await windowManager.maximize();

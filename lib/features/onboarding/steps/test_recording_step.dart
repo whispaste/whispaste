@@ -268,7 +268,7 @@ class _SandboxField extends StatelessWidget {
     final borderColor = isRecording ? accent : borderDefault;
 
     return AnimatedContainer(
-      duration: WpMotion.fast,
+      duration: WpMotion.durationFor(context, WpMotion.fast),
       width: double.infinity,
       padding: const EdgeInsets.symmetric(
         horizontal: WpSpacing.md,

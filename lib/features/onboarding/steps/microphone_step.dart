@@ -304,7 +304,7 @@ class _MicrophoneStepState extends State<MicrophoneStep> {
         const SizedBox(height: WpSpacing.xxl),
 
         AnimatedSwitcher(
-          duration: WpMotion.smooth,
+          duration: WpMotion.durationFor(context, WpMotion.smooth),
           switchInCurve: WpMotion.smooth_,
           switchOutCurve: WpMotion.smooth_,
           child: _buildStatusArea(
@@ -337,7 +337,7 @@ class _MicrophoneStepState extends State<MicrophoneStep> {
         const SizedBox(height: WpSpacing.lg),
 
         AnimatedSwitcher(
-          duration: WpMotion.smooth,
+          duration: WpMotion.durationFor(context, WpMotion.smooth),
           child: _buildAction(
             l10n: l10n,
             accentGradient: accentGradient,
@@ -556,8 +556,8 @@ class _MicrophoneStepState extends State<MicrophoneStep> {
         return TweenAnimationBuilder<double>(
           key: const ValueKey('ready'),
           tween: Tween(begin: 0.0, end: 1.0),
-          duration: WpMotion.smooth,
-          curve: Curves.elasticOut,
+          duration: WpMotion.durationFor(context, WpMotion.smooth),
+          curve: WpMotion.spring,
           builder: (_, value, child) => Transform.scale(
             scale: 0.5 + (value * 0.5),
             child: Opacity(opacity: value.clamp(0.0, 1.0), child: child),

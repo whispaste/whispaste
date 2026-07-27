@@ -284,7 +284,7 @@ class _QuitButtonState extends State<_QuitButton> {
         child: GestureDetector(
           onTap: () => exit(1),
           child: AnimatedContainer(
-            duration: WpMotion.fast,
+            duration: WpMotion.durationFor(context, WpMotion.fast),
             decoration: BoxDecoration(
               color: _hovered
                   ? WpColorsDark.errorRedHover
@@ -350,7 +350,7 @@ class _LearnMoreLinkState extends State<_LearnMoreLink> {
         child: GestureDetector(
           onTap: () => unawaited(_open()),
           child: AnimatedDefaultTextStyle(
-            duration: WpMotion.fast,
+            duration: WpMotion.durationFor(context, WpMotion.fast),
             style: TextStyle(
               fontSize: 13,
               color: _hovered

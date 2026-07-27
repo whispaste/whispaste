@@ -9,6 +9,7 @@ library;
 
 import 'dart:async';
 
+import 'package:flutter/semantics.dart';
 import 'package:flutter/widgets.dart';
 
 import 'core/l10n/generated/app_localizations.dart';
@@ -60,6 +61,32 @@ abstract class RenderEngineState<
   /// The channel managed by this engine. Initialised in [initState].
   late final C channel;
 
+  /// The resolved localisation, once [_resolveSemanticsLabel] completes.
+  ///
+  /// Null until then (no [Localizations] ancestor exists in a secondary
+  /// engine, so subclasses that need more than [semanticsLabel] — e.g. a
+  /// per-state screen-reader announcement — read this instead of hardcoding
+  /// English).
+  @protected
+  L10n? get l10n => _l10n;
+  L10n? _l10n;
+
+  /// Posts a screen-reader announcement for this engine's surface.
+  ///
+  /// Both the floating button and the floating overlay are the app's only
+  /// feedback for the core recording workflow that lives outside the main
+  /// window; without an explicit announcement a screen-reader user gets no
+  /// signal at all when recording starts, finishes transcribing, or errors.
+  @protected
+  void announce(String message) {
+    if (!mounted || message.isEmpty) return;
+    SemanticsService.sendAnnouncement(
+      View.of(context),
+      message,
+      TextDirection.ltr,
+    );
+  }
+
   /// Creates the concrete channel. Called by [initState].
   ///
   /// Subclasses return the platform-specific channel with all callbacks wired.
@@ -102,8 +129,9 @@ abstract class RenderEngineState<
   }
 
   Future<void> _resolveSemanticsLabel() async {
-    final l10n = await resolvePersistedL10n();
-    if (mounted) setState(() => semanticsLabel = labelOf(l10n));
+    final resolved = await resolvePersistedL10n();
+    _l10n = resolved;
+    if (mounted) setState(() => semanticsLabel = labelOf(resolved));
   }
 
   @override

@@ -3,6 +3,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/l10n/generated/app_localizations.dart';
+import '../../../core/theme/colors.dart';
 import 'package:whispaste/core/data/database.dart';
 import '../data/providers.dart' show DateGroup;
 
@@ -37,17 +38,7 @@ String formatHistoryDuration(double durationSec) {
 
 /// Derives a warm avatar color from the entry's first tag or title.
 Color historyAvatarColor(HistoryEntry entry, bool isDark) {
-  // Palette of warm, distinguishable hues (not harsh, not glow)
-  const palette = [
-    Color(0xFF22D3EE), // cyan (default)
-    Color(0xFF8B5CF6), // violet
-    Color(0xFFF59E0B), // amber
-    Color(0xFF10B981), // emerald
-    Color(0xFFF472B6), // pink
-    Color(0xFF3B82F6), // blue
-    Color(0xFFEF4444), // red
-    Color(0xFF14B8A6), // teal
-  ];
+  const palette = WpSharedColors.avatarPalette;
   // Hash from title for consistent color per entry
   final hash = entry.title.isNotEmpty
       ? entry.title.codeUnits.fold<int>(0, (a, b) => a + b)
@@ -168,13 +159,13 @@ class HistoryEntryAvatar extends StatelessWidget {
           ),
           // Favorite badge — star icon in top-right corner
           if (isPinned)
-            Positioned(
+            const Positioned(
               right: 0,
               top: 0,
               child: FaIcon(
                 FontAwesomeIcons.solidStar,
                 size: 11,
-                color: Colors.amber.shade600,
+                color: WpSharedColors.pinnedAccent,
               ),
             ),
         ],

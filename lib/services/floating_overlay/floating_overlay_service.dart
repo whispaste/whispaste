@@ -9,6 +9,8 @@ import '../../core/config/settings_provider.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/logging/app_logger.dart';
 import '../../core/logging/perf_instrumentation.dart';
+import '../../core/platform/display_bounds.dart';
+import '../../core/platform/window_position_clamp.dart';
 import '../../core/recording/recording_state.dart';
 import '../../core/recording/recording_helpers.dart';
 import '../floating_platform_service_base.dart';
@@ -16,6 +18,7 @@ import '../floating_theme_brightness.dart';
 import '../recording_orchestrator.dart';
 import 'floating_overlay_controller.dart';
 import 'floating_overlay_events.dart';
+import 'overlay_positioning.dart';
 import 'waveform_pipeline.dart';
 import '../../widgets/recording_behavior.dart' show localizeRecordingError;
 
@@ -449,11 +452,17 @@ class FloatingOverlayService
       if (pos == OverlayStartPosition.lastPosition &&
           s.floatingOverlayX >= 0 &&
           s.floatingOverlayY >= 0) {
-        await c.setPosition(
-          s.floatingOverlayX,
-          s.floatingOverlayY,
-          OverlayAnchorMode.topLeft,
+        // A "topLeft" (dragged) position is used verbatim by every native
+        // shell — clamp it here, once, so a monitor unplugged since the
+        // position was saved can never start the overlay off-screen on any
+        // platform.
+        final displays = await currentDisplayBounds();
+        final clamped = WindowPositionClamp.clamp(
+          position: Offset(s.floatingOverlayX, s.floatingOverlayY),
+          size: OverlayPositioning.overlaySize(compact: false),
+          displays: displays,
         );
+        await c.setPosition(clamped.dx, clamped.dy, OverlayAnchorMode.topLeft);
       } else {
         final anchor = pos == OverlayStartPosition.bottomCenter
             ? OverlayAnchorMode.bottomCenter

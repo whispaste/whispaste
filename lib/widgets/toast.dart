@@ -3,6 +3,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../core/logging/app_logger.dart';
@@ -81,6 +82,15 @@ class WpToast {
         _log.info('TOAST: $message');
     }
 
+    // Screen readers get no visual cue that a toast appeared, so announce it
+    // explicitly — the toast card itself is only a visual overlay, not a
+    // focusable widget a screen reader would land on.
+    SemanticsService.sendAnnouncement(
+      View.of(context),
+      message,
+      Directionality.of(context),
+    );
+
     final overlay = Overlay.of(context);
     late final OverlayEntry entry;
     late final AnimationController controller;
@@ -119,8 +129,14 @@ class WpToast {
 
     controller = AnimationController(
       vsync: overlay,
-      duration: const Duration(milliseconds: 300),
-      reverseDuration: const Duration(milliseconds: 200),
+      duration: WpMotion.durationFor(
+        context,
+        const Duration(milliseconds: 300),
+      ),
+      reverseDuration: WpMotion.durationFor(
+        context,
+        const Duration(milliseconds: 200),
+      ),
     );
 
     entry = OverlayEntry(
@@ -243,103 +259,108 @@ class _ToastCard extends StatelessWidget {
         ? WpColorsDark.borderDefault
         : WpColorsLight.borderDefault;
 
-    return Material(
-      color: Colors.transparent,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 400, minWidth: 200),
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: WpSpacing.md,
-            vertical: WpSpacing.sm + 2,
-          ),
-          decoration: BoxDecoration(
-            color: surfaceBg,
-            borderRadius: BorderRadius.circular(WpRadius.md),
-            border: Border.all(color: borderColor),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.12),
-                blurRadius: 16,
-                offset: const Offset(0, 4),
-              ),
-              BoxShadow(
-                color: color.withValues(alpha: 0.08),
-                blurRadius: 24,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Accent line
-              Container(
-                width: 3,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(2),
+    return Semantics(
+      liveRegion: true,
+      label: message,
+      container: true,
+      child: Material(
+        color: Colors.transparent,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 400, minWidth: 200),
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: WpSpacing.md,
+              vertical: WpSpacing.sm + 2,
+            ),
+            decoration: BoxDecoration(
+              color: surfaceBg,
+              borderRadius: BorderRadius.circular(WpRadius.md),
+              border: Border.all(color: borderColor),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.12),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
                 ),
-              ),
-              const SizedBox(width: WpSpacing.sm),
-              // Icon
-              Icon(icon, size: 18, color: color),
-              const SizedBox(width: WpSpacing.sm),
-              // Message
-              Flexible(
-                child: Text(
-                  message,
-                  // labelMedium = Type/label role (13 / 500). Compact line-height
-                  // (1.3 vs theme's 1.4) preserved for the tight toast card layout.
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: textPrimary,
-                    height: 1.3,
-                  ),
-                  maxLines: 4,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              // Action button (optional)
-              if (actionLabel != null && onAction != null) ...[
-                const SizedBox(width: WpSpacing.sm),
-                TextButton(
-                  onPressed: () {
-                    onAction!();
-                    onDismiss();
-                  },
-                  style: TextButton.styleFrom(
-                    foregroundColor: color,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: WpSpacing.sm,
-                      vertical: WpSpacing.xs,
-                    ),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    textStyle: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  child: Text(actionLabel!),
+                BoxShadow(
+                  color: color.withValues(alpha: 0.08),
+                  blurRadius: 24,
+                  offset: const Offset(0, 2),
                 ),
               ],
-              const SizedBox(width: WpSpacing.xs),
-              // Close button
-              InkWell(
-                onTap: onDismiss,
-                borderRadius: BorderRadius.circular(WpRadius.full),
-                child: Padding(
-                  padding: const EdgeInsets.all(4),
-                  child: Icon(
-                    LucideIcons.x,
-                    size: 14,
-                    color: isDark
-                        ? WpColorsDark.textMuted
-                        : WpColorsLight.textMuted,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Accent line
+                Container(
+                  width: 3,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(width: WpSpacing.sm),
+                // Icon
+                Icon(icon, size: 18, color: color),
+                const SizedBox(width: WpSpacing.sm),
+                // Message
+                Flexible(
+                  child: Text(
+                    message,
+                    // labelMedium = Type/label role (13 / 500). Compact line-height
+                    // (1.3 vs theme's 1.4) preserved for the tight toast card layout.
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: textPrimary,
+                      height: 1.3,
+                    ),
+                    maxLines: 4,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                // Action button (optional)
+                if (actionLabel != null && onAction != null) ...[
+                  const SizedBox(width: WpSpacing.sm),
+                  TextButton(
+                    onPressed: () {
+                      onAction!();
+                      onDismiss();
+                    },
+                    style: TextButton.styleFrom(
+                      foregroundColor: color,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: WpSpacing.sm,
+                        vertical: WpSpacing.xs,
+                      ),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      textStyle: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    child: Text(actionLabel!),
+                  ),
+                ],
+                const SizedBox(width: WpSpacing.xs),
+                // Close button
+                InkWell(
+                  onTap: onDismiss,
+                  borderRadius: BorderRadius.circular(WpRadius.full),
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(
+                      LucideIcons.x,
+                      size: 14,
+                      color: isDark
+                          ? WpColorsDark.textMuted
+                          : WpColorsLight.textMuted,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

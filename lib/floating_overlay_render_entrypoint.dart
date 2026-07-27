@@ -73,12 +73,22 @@ class _OverlayRenderAppState
   @override
   OverlayRenderChannel createChannel() => OverlayRenderChannel(
     name: _renderChannelName,
-    onSnapshot: (s) => setState(() => _snapshot = s),
+    onSnapshot: _onSnapshot,
     onWaveformBars: (b) => setState(() => _bars = b),
   );
 
   @override
   String labelOf(L10n l10n) => l10n.a11yRecordingOverlay;
+
+  void _onSnapshot(FloatingOverlaySnapshot s) {
+    final previous = _snapshot;
+    setState(() => _snapshot = s);
+    // The main engine pre-localises [FloatingOverlaySnapshot.label] for the
+    // active locale, so it's announced verbatim — only on an actual state
+    // change while the overlay is visible, never on every relayed snapshot
+    // (waveform updates land ~30/s and share the same state).
+    if (s.visible && s.state != previous.state) announce(s.label);
+  }
 
   @override
   Widget build(BuildContext context) => buildRenderEngineRoot(

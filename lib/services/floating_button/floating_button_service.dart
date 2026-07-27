@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:screen_retriever/screen_retriever.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../../core/navigation/page_state.dart' show activePageProvider;
@@ -12,7 +13,9 @@ import '../../core/theme/overlay_design_spec.dart' show FloatingButtonSpec;
 import '../../core/data/history_providers.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/logging/app_logger.dart';
+import '../../core/platform/display_bounds.dart';
 import '../../core/platform/macos_lifecycle_channel.dart';
+import '../../core/platform/window_position_clamp.dart';
 import '../../core/recording/recording_state.dart';
 import '../floating_platform_service_base.dart';
 import '../floating_theme_brightness.dart';
@@ -47,7 +50,8 @@ class FloatingButtonService
         FloatingPlatformServiceBase<
           FloatingButtonController,
           FloatingButtonEvent
-        > {
+        >
+    with ScreenListener {
   Timer? _autoResetTimer;
 
   /// Cached history entries for context menu (last 5).
@@ -94,6 +98,38 @@ class FloatingButtonService
 
     // Clean up the auto-reset timer on dispose.
     ref.onDispose(() => _autoResetTimer?.cancel());
+
+    // Re-clamp the button position on monitor connect/disconnect/resolution
+    // change — the button (unlike the transient overlay) stays visible for
+    // the whole session, so it needs live protection, not just a clamp at
+    // the next settings sync.
+    ScreenRetriever.instance.addListener(this);
+    ref.onDispose(() => ScreenRetriever.instance.removeListener(this));
+  }
+
+  @override
+  void onScreenEvent(String eventName) => unawaited(_reclampButtonPosition());
+
+  Future<void> _reclampButtonPosition() async {
+    final c = controller;
+    if (c == null) return;
+    try {
+      final current = await c.getPosition();
+      if (current == null) return;
+      const size = FloatingButtonSpec.buttonDiameter;
+      final displays = await currentDisplayBounds();
+      final clamped = WindowPositionClamp.clamp(
+        position: Offset(current.x, current.y),
+        size: const Size(size, size),
+        displays: displays,
+      );
+      if (clamped.dx != current.x || clamped.dy != current.y) {
+        await c.setPosition(clamped.dx, clamped.dy);
+        await _savePosition(clamped.dx, clamped.dy);
+      }
+    } catch (e, st) {
+      _log.error('Failed to re-clamp floating button position', e, st);
+    }
   }
 
   @override
@@ -107,9 +143,22 @@ class FloatingButtonService
 
     try {
       if (s.showFloatingButton) {
-        final size = FloatingButtonSpec.buttonDiameter.toInt();
-        final x = s.floatingButtonX;
-        final y = s.floatingButtonY;
+        const diameter = FloatingButtonSpec.buttonDiameter;
+        final size = diameter.toInt();
+        // A position saved before its monitor was unplugged (or restored
+        // from a settings backup made on different hardware) must never show
+        // the button off every currently connected display.
+        final displays = await currentDisplayBounds();
+        final clampedPosition = WindowPositionClamp.clamp(
+          position: Offset(s.floatingButtonX, s.floatingButtonY),
+          size: const Size(diameter, diameter),
+          displays: displays,
+        );
+        final x = clampedPosition.dx;
+        final y = clampedPosition.dy;
+        if (x != s.floatingButtonX || y != s.floatingButtonY) {
+          unawaited(_savePosition(x, y));
+        }
 
         await c.show(x: x, y: y, size: size);
         await c.setSize(size);

@@ -281,7 +281,7 @@ class _TierRowState extends State<_TierRow> {
         onTap: isSelectable ? widget.onSelect : null,
         behavior: HitTestBehavior.opaque,
         child: AnimatedContainer(
-          duration: WpMotion.hoverIn,
+          duration: WpMotion.durationFor(context, WpMotion.hoverIn),
           curve: WpMotion.defaultCurve,
           margin: const EdgeInsets.symmetric(vertical: 1),
           padding: const EdgeInsets.symmetric(

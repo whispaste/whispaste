@@ -13,6 +13,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../core/l10n/generated/app_localizations.dart';
 import '../core/theme/colors.dart';
@@ -74,11 +75,11 @@ String _extensionFor(ExportFormat format) => switch (format) {
 };
 
 IconData _iconFor(ExportFormat format) => switch (format) {
-  ExportFormat.txt => Icons.description_outlined,
-  ExportFormat.md => Icons.notes_outlined,
-  ExportFormat.csv => Icons.table_chart_outlined,
-  ExportFormat.json => Icons.data_object_outlined,
-  ExportFormat.docx => Icons.article_outlined,
+  ExportFormat.txt => LucideIcons.file,
+  ExportFormat.md => LucideIcons.fileText,
+  ExportFormat.csv => LucideIcons.fileSpreadsheet,
+  ExportFormat.json => LucideIcons.fileJson,
+  ExportFormat.docx => LucideIcons.fileType,
 };
 
 // ---------------------------------------------------------------------------
@@ -115,13 +116,7 @@ class _PickerBarrier extends StatelessWidget {
               child: useBlur
                   ? BackdropFilter(
                       filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                      child: ColoredBox(
-                        color:
-                            (isDark
-                                    ? const Color(0xFF000000)
-                                    : const Color(0xFFFFFFFF))
-                                .withValues(alpha: isDark ? 0.45 : 0.35),
-                      ),
+                      child: ColoredBox(color: wpDialogBarrierColor(isDark)),
                     )
                   : ColoredBox(color: barrierColor),
             ),
@@ -317,7 +312,7 @@ class _FormatOption extends StatelessWidget {
             borderRadius: WpRadius.borderMd,
             onTap: onTap,
             child: AnimatedContainer(
-              duration: WpMotion.hoverOut,
+              duration: WpMotion.durationFor(context, WpMotion.hoverOut),
               padding: const EdgeInsets.symmetric(
                 horizontal: WpSpacing.md,
                 vertical: WpSpacing.sm,

@@ -245,7 +245,7 @@ class _ToolbarButtonState extends State<_ToolbarButton> {
           child: GestureDetector(
             onTap: widget.onTap,
             child: AnimatedContainer(
-              duration: WpMotion.hoverOut,
+              duration: WpMotion.durationFor(context, WpMotion.hoverOut),
               padding: const EdgeInsets.all(WpSpacing.xs),
               decoration: BoxDecoration(
                 color: _hovered

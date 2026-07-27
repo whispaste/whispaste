@@ -54,6 +54,7 @@ class HistoryCompactView extends StatelessWidget {
         final entry = item.entry!;
         // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryCompactRowState.build
         return HistoryCompactRow(
+          key: ValueKey(entry.id),
           entry: entry,
           isDark: isDark,
           isSelected: multiSelectMode
@@ -130,6 +131,8 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
     return Semantics(
       label: semanticLabel,
       button: true,
+      selected: widget.isSelected,
+      focused: widget.isFocused,
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         onEnter: (_) => setState(() => _isHovered = true),
@@ -137,7 +140,10 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
         child: GestureDetector(
           onTap: widget.onTap,
           child: AnimatedContainer(
-            duration: _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+            duration: WpMotion.durationFor(
+              context,
+              _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+            ),
             curve: WpMotion.defaultCurve,
             margin: const EdgeInsets.symmetric(horizontal: WpSpacing.xs),
             padding: const EdgeInsets.symmetric(
@@ -176,12 +182,12 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
                   ),
                 // Favorite indicator
                 if (widget.entry.pinned)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 6),
+                  const Padding(
+                    padding: EdgeInsets.only(right: 6),
                     child: FaIcon(
                       FontAwesomeIcons.solidStar,
                       size: 10,
-                      color: Colors.amber.shade600,
+                      color: WpSharedColors.pinnedAccent,
                     ),
                   ),
                 // Title

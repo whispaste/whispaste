@@ -314,7 +314,7 @@ class _TagRowState extends State<_TagRow> {
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: AnimatedContainer(
-        duration: WpMotion.hoverOut,
+        duration: WpMotion.durationFor(context, WpMotion.hoverOut),
         color: _hovered
             ? (widget.isDark
                   ? WpColorsDark.accentRowHover
@@ -343,7 +343,7 @@ class _TagRowState extends State<_TagRow> {
             const SizedBox(width: WpSpacing.xs),
             AnimatedOpacity(
               opacity: _hovered ? 1.0 : 0.0,
-              duration: WpMotion.hoverOut,
+              duration: WpMotion.durationFor(context, WpMotion.hoverOut),
               child: IconButton(
                 icon: Icon(
                   LucideIcons.trash2,

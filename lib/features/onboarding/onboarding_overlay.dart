@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, visibleForTesting;
 import 'package:flutter/material.dart';
@@ -247,10 +249,19 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
             child: GestureDetector(
               onTap: () {},
               onPanStart: (_) => windowManager.startDragging(),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                child: ColoredBox(color: Colors.black.withValues(alpha: 0.6)),
-              ),
+              // On Windows frameless windows, BackdropFilter + ImageFilter.blur
+              // is broken (see _WpDialogBarrier in dialog.dart) — fall back to
+              // a solid scrim instead of a visibly broken first-run overlay.
+              child: Platform.isWindows
+                  ? const ColoredBox(
+                      color: Color(0xE6000000), // black @ 90%
+                    )
+                  : BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                      child: ColoredBox(
+                        color: Colors.black.withValues(alpha: 0.6),
+                      ),
+                    ),
             ),
           ),
 
@@ -333,7 +344,10 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
                         ),
                         padding: const EdgeInsets.all(WpSpacing.xxl),
                         child: AnimatedSwitcher(
-                          duration: WpMotion.smooth,
+                          duration: WpMotion.durationFor(
+                            context,
+                            WpMotion.smooth,
+                          ),
                           switchInCurve: WpMotion.smooth_,
                           switchOutCurve: WpMotion.smooth_,
                           transitionBuilder: (child, animation) {
@@ -409,7 +423,7 @@ class _StepperDots extends StatelessWidget {
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: WpSpacing.xxs),
           child: AnimatedContainer(
-            duration: WpMotion.fast,
+            duration: WpMotion.durationFor(context, WpMotion.fast),
             curve: WpMotion.defaultCurve,
             width: isActive ? 24 : 8,
             height: 8,

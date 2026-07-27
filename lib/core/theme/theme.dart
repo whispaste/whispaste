@@ -124,6 +124,47 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
       ),
     ),
 
+    // Filled buttons — Material 3 defaults to a fully-rounded `StadiumBorder`
+    // for this variant with no override; every dialog's primary CTA uses
+    // FilledButton, so without this the pill shape broke from the rest of
+    // the system's WpRadius.sm corners.
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(
+        backgroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onPrimary,
+        padding: const EdgeInsets.symmetric(
+          horizontal: WpSpacing.xl,
+          vertical: WpSpacing.sm,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: WpRadius.borderSm),
+        textStyle: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          letterSpacing: -0.1,
+          fontFamily: 'Inter',
+        ),
+      ),
+    ),
+
+    // Outlined buttons — same StadiumBorder gap as FilledButton above.
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: colorScheme.primary,
+        side: BorderSide(color: colorScheme.outlineVariant),
+        padding: const EdgeInsets.symmetric(
+          horizontal: WpSpacing.xl,
+          vertical: WpSpacing.sm,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: WpRadius.borderSm),
+        textStyle: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          letterSpacing: -0.1,
+          fontFamily: 'Inter',
+        ),
+      ),
+    ),
+
     // Text buttons
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(

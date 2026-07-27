@@ -469,6 +469,7 @@ class _HeroPillState extends State<_HeroPill>
   late final AnimationController _counter;
   late final CurvedAnimation _curve;
   bool _hovered = false;
+  bool _started = false;
 
   @override
   void initState() {
@@ -478,7 +479,21 @@ class _HeroPillState extends State<_HeroPill>
       duration: const Duration(milliseconds: 1200),
     );
     _curve = CurvedAnimation(parent: _counter, curve: Curves.easeOutCubic);
-    _counter.forward();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // `forward()` bakes in `duration` at call time, so the reduced-motion
+    // duration must be set before the first (only) forward() call, not after.
+    _counter.duration = WpMotion.durationFor(
+      context,
+      const Duration(milliseconds: 1200),
+    );
+    if (!_started) {
+      _started = true;
+      _counter.forward();
+    }
   }
 
   @override
@@ -503,7 +518,10 @@ class _HeroPillState extends State<_HeroPill>
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: AnimatedContainer(
-        duration: _hovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+        duration: WpMotion.durationFor(
+          context,
+          _hovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+        ),
         padding: const EdgeInsets.symmetric(
           horizontal: WpSpacing.md,
           vertical: WpSpacing.sm,
@@ -582,6 +600,7 @@ class _ActivityChartPanelState extends State<_ActivityChartPanel>
     with SingleTickerProviderStateMixin {
   late final AnimationController _anim;
   late final CurvedAnimation _curve;
+  bool _started = false;
 
   @override
   void initState() {
@@ -591,7 +610,21 @@ class _ActivityChartPanelState extends State<_ActivityChartPanel>
       duration: const Duration(milliseconds: 800),
     );
     _curve = CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic);
-    _anim.forward();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // `forward()` bakes in `duration` at call time, so the reduced-motion
+    // duration must be set before the first (only) forward() call, not after.
+    _anim.duration = WpMotion.durationFor(
+      context,
+      const Duration(milliseconds: 800),
+    );
+    if (!_started) {
+      _started = true;
+      _anim.forward();
+    }
   }
 
   @override
@@ -630,9 +663,11 @@ class _ActivityChartPanelState extends State<_ActivityChartPanel>
                 values: widget.values,
                 labels: _activityDayLabels(l10n),
                 barColor: isDark ? WpColorsDark.accent : WpColorsLight.accent,
-                barColorEnd: isDark
-                    ? const Color(0xFF0891B2)
-                    : const Color(0xFF06B6D4),
+                // Same accent token, faded — was a hand-picked hex pair that
+                // had drifted from the real accent (#3CCBE6 / #06678A).
+                barColorEnd:
+                    (isDark ? WpColorsDark.accent : WpColorsLight.accent)
+                        .withValues(alpha: 0.65),
                 gridColor: isDark
                     ? WpColorsDark.borderSubtle
                     : WpColorsLight.borderSubtle,
@@ -1115,7 +1150,7 @@ class _PeriodAndResetRowState extends ConsumerState<_PeriodAndResetRow> {
                     .read(analyticsPeriodProvider.notifier)
                     .setPeriod(AnalyticsPeriod.values[i]),
                 child: AnimatedContainer(
-                  duration: WpMotion.normal,
+                  duration: WpMotion.durationFor(context, WpMotion.normal),
                   padding: const EdgeInsets.symmetric(
                     horizontal: WpSpacing.sm,
                     vertical: WpSpacing.xxs + 2,

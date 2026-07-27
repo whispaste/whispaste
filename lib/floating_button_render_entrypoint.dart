@@ -67,12 +67,36 @@ class _ButtonRenderAppState
   @override
   FloatingButtonRenderChannel createChannel() => FloatingButtonRenderChannel(
     name: _renderChannelName,
-    onState: (s) => setState(() => _state = s),
+    onState: _onState,
     onDiameter: (d) => setState(() => _diameter = d),
   );
 
   @override
   String labelOf(L10n l10n) => l10n.a11yRecordingButton;
+
+  void _onState(FloatingButtonVisualState s) {
+    final previous = _state;
+    setState(() => _state = s);
+    if (s == previous) return;
+    final message = _announcementFor(s);
+    if (message != null) announce(message);
+  }
+
+  /// Screen-reader text for a recording-workflow state transition, or null
+  /// for states that don't warrant an announcement (idle/disabled are the
+  /// button's resting states, not events).
+  String? _announcementFor(FloatingButtonVisualState s) {
+    final l10n = this.l10n;
+    if (l10n == null) return null;
+    return switch (s) {
+      FloatingButtonVisualState.recording => l10n.statusBarRecording,
+      FloatingButtonVisualState.transcribing => l10n.statusBarTranscribing,
+      FloatingButtonVisualState.done => l10n.statusBarDone,
+      FloatingButtonVisualState.error => l10n.sttStatusError,
+      FloatingButtonVisualState.idle => null,
+      FloatingButtonVisualState.disabled => null,
+    };
+  }
 
   @override
   Widget build(BuildContext context) => buildRenderEngineRoot(

@@ -1,8 +1,8 @@
 /// WhisPaste color palette — dark & light theme color definitions.
 ///
-/// Premium palette: deep rich surfaces with cyan accent. Subtle glass hints
-/// and warm gradients for emotional gaming-launcher feel. No harsh glow —
-/// premium depth through frosted layers, soft gradients, and crisp borders.
+/// Calm, quiet palette: deep rich surfaces with a single cyan accent. Subtle
+/// glass hints and warm gradients, no harsh glow — depth through frosted
+/// layers, soft gradients, and crisp borders.
 library;
 
 import 'dart:ui';
@@ -142,20 +142,22 @@ abstract final class WpColorsLight {
   static const Color textSecondary = Color(0xFF44556E);
   static const Color textMuted = Color(0xFF5B697E);
 
-  /// Deep teal accent — analogous to Dark's #3CCBE6 but darkened for WCAG AA on light
-  static const Color accent = Color(0xFF0887A8);
-  static const Color accentSubtle = Color(0x1C0887A8); // accent @ 11%
+  /// Deep teal accent — analogous to Dark's #3CCBE6, darkened for WCAG AA on
+  /// light (≥5.4:1 against both `surface` and `background`; the previous
+  /// #0887A8 only reached ≈3.6-3.8:1, under the 4.5:1 AA floor for normal text).
+  static const Color accent = Color(0xFF06678A);
+  static const Color accentSubtle = Color(0x1C06678A); // accent @ 11%
 
   /// Instance-safe tint tokens — see [WpColorsDark.accentChipFill] for rationale.
-  static const Color accentChipFill = Color(0x1A0887A8); // accent @ 10%
-  static const Color accentChipFillHover = Color(0x2E0887A8); // accent @ 18%
-  static const Color accentMiniTagFill = Color(0x1F0887A8); // accent @ 12%
-  static const Color accentBorder30 = Color(0x4D0887A8); // accent @ 30%
-  static const Color accentButtonFill = Color(0x140887A8); // accent @ 8%
-  static const Color accentActiveFill = Color(0x1F0887A8); // accent @ 12%
-  static const Color accentBadgeFill = Color(0x260887A8); // accent @ 15%
-  static const Color accentBorder20 = Color(0x330887A8); // accent @ 20%
-  static const Color accentRowHover = Color(0x0F0887A8); // accent @ 6%
+  static const Color accentChipFill = Color(0x1A06678A); // accent @ 10%
+  static const Color accentChipFillHover = Color(0x2E06678A); // accent @ 18%
+  static const Color accentMiniTagFill = Color(0x1F06678A); // accent @ 12%
+  static const Color accentBorder30 = Color(0x4D06678A); // accent @ 30%
+  static const Color accentButtonFill = Color(0x1406678A); // accent @ 8%
+  static const Color accentActiveFill = Color(0x1F06678A); // accent @ 12%
+  static const Color accentBadgeFill = Color(0x2606678A); // accent @ 15%
+  static const Color accentBorder20 = Color(0x3306678A); // accent @ 20%
+  static const Color accentRowHover = Color(0x0F06678A); // accent @ 6%
   static const Color surfaceChipFill = Color(0x80F2F6FC); // surface @ 50%
   static const Color surfaceMutedFill = Color(0x145B697E); // textMuted @ 8%
 
@@ -190,7 +192,7 @@ abstract final class WpColorsLight {
   static const LinearGradient accentWarmGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF0887A8), Color(0xFF0E7490), Color(0xFF155E75)],
+    colors: [Color(0xFF06678A), Color(0xFF0E7490), Color(0xFF155E75)],
   );
 
   /// Glass tint — soft white overlay for light frosted panels
@@ -206,6 +208,38 @@ abstract final class WpColorsLight {
 // ---------------------------------------------------------------------------
 // Reusable glass decoration builder
 // ---------------------------------------------------------------------------
+
+/// Theme-independent accents used identically in light and dark — a sanctioned
+/// exception to the per-theme token split above, for colors chosen for
+/// user-facing variety/recognition rather than surface hierarchy.
+abstract final class WpSharedColors {
+  /// Warm, distinguishable hues for hashing an identity to a color (history
+  /// entry avatars, by title/id). Order matters — index 0 is the default.
+  static const List<Color> avatarPalette = [
+    Color(0xFF22D3EE), // cyan (default)
+    Color(0xFF8B5CF6), // violet
+    Color(0xFFF59E0B), // amber
+    Color(0xFF10B981), // emerald
+    Color(0xFFF472B6), // pink
+    Color(0xFF3B82F6), // blue
+    Color(0xFFEF4444), // red
+    Color(0xFF14B8A6), // teal
+  ];
+
+  /// Pinned/favorited-item accent (star icon, toggle). Amber reads as
+  /// "favorite" cross-platform regardless of theme, like a star rating.
+  static const Color pinnedAccent = Color(0xFFFFB300); // Colors.amber.shade600
+}
+
+/// The translucent scrim behind a [BackdropFilter]-blurred dialog barrier.
+///
+/// Needs true black/white rather than a themed surface token — the blur
+/// already carries the surface tint, this only needs to darken/lighten what
+/// shows through it. Was duplicated verbatim across five dialog widgets.
+Color wpDialogBarrierColor(bool isDark) {
+  return (isDark ? const Color(0xFF000000) : const Color(0xFFFFFFFF))
+      .withValues(alpha: isDark ? 0.45 : 0.35);
+}
 
 /// Creates a frosted-glass [BoxDecoration] suitable for cards and panels.
 ///

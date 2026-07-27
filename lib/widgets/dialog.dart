@@ -140,13 +140,7 @@ class _WpDialogBarrier extends StatelessWidget {
             child: useBlur
                 ? BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                    child: ColoredBox(
-                      color:
-                          (isDark
-                                  ? const Color(0xFF000000)
-                                  : const Color(0xFFFFFFFF))
-                              .withValues(alpha: isDark ? 0.45 : 0.35),
-                    ),
+                    child: ColoredBox(color: wpDialogBarrierColor(isDark)),
                   )
                 : ColoredBox(color: barrierColor),
           ),

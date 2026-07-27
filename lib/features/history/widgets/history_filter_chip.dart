@@ -67,7 +67,10 @@ class _HistoryFilterChipState extends State<HistoryFilterChip> {
           onTap: widget.onTap,
           behavior: HitTestBehavior.opaque,
           child: AnimatedContainer(
-            duration: _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+            duration: WpMotion.durationFor(
+              context,
+              _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+            ),
             curve: WpMotion.defaultCurve,
             padding: const EdgeInsets.symmetric(
               horizontal: WpSpacing.sm,

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../core/config/build_config.dart';
@@ -295,6 +296,15 @@ class _SttChipState extends State<_SttChip> {
         old.startingSince != widget.startingSince) {
       _syncTicker();
     }
+    if (old.recordingPhase != widget.recordingPhase ||
+        old.state != widget.state) {
+      final (_, stateLabel, _) = _resolveDisplay();
+      SemanticsService.sendAnnouncement(
+        View.of(context),
+        '${widget.modeLabel} — $stateLabel',
+        Directionality.of(context),
+      );
+    }
   }
 
   @override
@@ -379,7 +389,8 @@ class _SttChipState extends State<_SttChip> {
         : inkWell;
 
     return Semantics(
-      label: widget.l10n.statusBarSttTooltip,
+      label:
+          '${widget.l10n.statusBarSttTooltip}: ${widget.modeLabel} — $stateLabel',
       button: true,
       child: Tooltip(message: widget.l10n.statusBarSttTooltip, child: body),
     );

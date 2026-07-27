@@ -199,7 +199,7 @@ class _SegmentedSelector extends StatelessWidget {
           child: Stack(
             children: [
               AnimatedPositioned(
-                duration: WpMotion.normal,
+                duration: WpMotion.durationFor(context, WpMotion.normal),
                 curve: Curves.easeOutCubic,
                 left: activeIndex >= 0 ? activeIndex * itemWidth + 4 : 4,
                 top: 4,
@@ -261,7 +261,7 @@ class _SegmentButtonState extends State<_SegmentButton> {
           focusColor: widget.textSecondary.withValues(alpha: 0.15),
           onHover: (hovering) => setState(() => _hovered = hovering),
           child: AnimatedContainer(
-            duration: WpMotion.fast,
+            duration: WpMotion.durationFor(context, WpMotion.fast),
             curve: WpMotion.defaultCurve,
             color: !isActive && _hovered
                 ? widget.textSecondary.withValues(alpha: 0.08)
@@ -296,7 +296,7 @@ class _SegmentButtonState extends State<_SegmentButton> {
                         const SizedBox(width: WpSpacing.xs),
                       ],
                       AnimatedDefaultTextStyle(
-                        duration: WpMotion.fast,
+                        duration: WpMotion.durationFor(context, WpMotion.fast),
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,

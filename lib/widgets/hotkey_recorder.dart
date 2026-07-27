@@ -290,6 +290,17 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
   void _handleKeyEvent(KeyEvent event) {
     final key = event.logicalKey;
 
+    // Escape closes the dialog instead of being treated as an (invalid)
+    // recordable key — without this, a keyboard-only user has no way out of
+    // the recorder besides clicking Cancel with the mouse. Only relevant in
+    // modal mode: embedded mode has no route to pop and no Cancel button.
+    if (event is KeyDownEvent &&
+        key == LogicalKeyboardKey.escape &&
+        widget.onSubmit == null) {
+      Navigator.of(context).pop();
+      return;
+    }
+
     if (event is KeyDownEvent || event is KeyRepeatEvent) {
       if (_modifierKeys.contains(key)) {
         _heldModifiers.add(key);
@@ -460,187 +471,187 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
         _storageKey.isNotEmpty &&
         (_modifiersStorage.isNotEmpty || _isSingleKey);
 
+    final card = Material(
+      color: Colors.transparent,
+      child: AnimatedContainer(
+        duration: WpMotion.durationFor(context, WpMotion.smooth),
+        curve: WpMotion.defaultCurve,
+        width: 420,
+        padding: const EdgeInsets.all(WpSpacing.xl),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: WpRadius.borderLg,
+          border: Border.all(color: border),
+          boxShadow: WpShadows.elevated,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Header ──────────────────────────────────────
+            Row(
+              children: [
+                Icon(LucideIcons.keyboard, size: WpIconSize.md, color: accent),
+                const SizedBox(width: WpSpacing.sm),
+                Expanded(
+                  child: Text(
+                    l10n.settingsHotkeyRecorderTitle,
+                    style: TextStyle(
+                      color: textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: WpSpacing.xs),
+            Text(
+              l10n.settingsHotkeyRecorderHint,
+              style: TextStyle(color: textMuted, fontSize: 12),
+            ),
+            const SizedBox(height: WpSpacing.xl),
+
+            // ── Key cap display ─────────────────────────────
+            Center(
+              child: AnimatedSwitcher(
+                duration: WpMotion.durationFor(context, WpMotion.fast),
+                switchInCurve: WpMotion.defaultCurve,
+                switchOutCurve: WpMotion.defaultCurve,
+                child: _KeyComboDisplay(
+                  key: ValueKey('$modifierLabels-$_keyLabel'),
+                  modifiers: modifierLabels,
+                  keyLabel: _keyLabel,
+                  isDark: isDark,
+                ),
+              ),
+            ),
+            const SizedBox(height: WpSpacing.md),
+
+            // ── Modifier hint ───────────────────────────────
+            Center(
+              child: Text(
+                l10n.settingsHotkeyRecorderModifierHint,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: textMuted, fontSize: 11),
+              ),
+            ),
+            const SizedBox(height: WpSpacing.xs),
+
+            // ── Invalid-key hint (non-blocking; auto-hides) ─────
+            if (_showInvalidKeyHint)
+              Padding(
+                padding: const EdgeInsets.only(bottom: WpSpacing.xs),
+                child: Center(
+                  child: Text(
+                    l10n.settingsHotkeyRecorderInvalidKey,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: isDark
+                          ? WpColorsDark.warning
+                          : WpColorsLight.warning,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+              ),
+            const SizedBox(height: WpSpacing.xs),
+
+            // ── Conflict warning ─────────────────────────────
+            if (_conflict != null)
+              _ConflictWarning(
+                conflict: _conflict!,
+                isDark: isDark,
+                l10n: l10n,
+              ),
+            if (_conflict != null) const SizedBox(height: WpSpacing.md),
+
+            // ── Action buttons ──────────────────────────────
+            // Wrap (not Row) so long translations (e.g. DE
+            // "Speichern"/"Abbrechen"/"Zurücksetzen") flow to a second
+            // line instead of overflowing the 420 px dialog and pushing
+            // the Save button off-screen.
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: WpSpacing.sm,
+              runSpacing: WpSpacing.xs,
+              children: [
+                // Clear
+                TextButton.icon(
+                  onPressed: _clear,
+                  icon: Icon(
+                    LucideIcons.eraser,
+                    size: WpIconSize.sm,
+                    color: textMuted,
+                  ),
+                  label: Text(
+                    l10n.settingsHotkeyRecorderClear,
+                    style: TextStyle(color: textMuted, fontSize: 13),
+                  ),
+                ),
+                // Cancel + Save grouped so they stay together when wrapping.
+                Wrap(
+                  spacing: WpSpacing.sm,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    // Cancel only makes sense in modal mode — when the
+                    // recorder is embedded inline (no enclosing route to
+                    // pop), there is nothing to dismiss, so the button is
+                    // hidden to avoid a dead control.
+                    if (widget.onSubmit == null)
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: Text(
+                          l10n.settingsHotkeyRecorderCancel,
+                          style: TextStyle(color: textMuted, fontSize: 13),
+                        ),
+                      ),
+                    // Save — accent background + white foreground gives
+                    // WCAG-AA contrast in both light and dark themes;
+                    // the previous accent-text-on-default-elevated bg
+                    // failed contrast checks for the disabled label too.
+                    ElevatedButton(
+                      onPressed: hasCombo ? _save : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: accent,
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor: isDark
+                            ? WpColorsDark.surfaceVariant
+                            : WpColorsLight.surfaceVariant,
+                        disabledForegroundColor: textMuted,
+                      ),
+                      child: Text(
+                        l10n.settingsHotkeyRecorderSave,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+
     return Center(
       child: KeyboardListener(
         focusNode: _focusNode,
         autofocus: true,
         onKeyEvent: _handleKeyEvent,
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: Material(
-            color: Colors.transparent,
-            child: AnimatedContainer(
-              duration: WpMotion.smooth,
-              curve: WpMotion.defaultCurve,
-              width: 420,
-              padding: const EdgeInsets.all(WpSpacing.xl),
-              decoration: BoxDecoration(
-                color: bg,
-                borderRadius: WpRadius.borderLg,
-                border: Border.all(color: border),
-                boxShadow: WpShadows.elevated,
+        // On Windows frameless windows, BackdropFilter + ImageFilter.blur is
+        // broken (see _WpDialogBarrier in dialog.dart) — render the card
+        // without the blur backdrop there instead of a visibly broken dialog.
+        child: Platform.isWindows
+            ? card
+            : BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                child: card,
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // ── Header ──────────────────────────────────────
-                  Row(
-                    children: [
-                      Icon(
-                        LucideIcons.keyboard,
-                        size: WpIconSize.md,
-                        color: accent,
-                      ),
-                      const SizedBox(width: WpSpacing.sm),
-                      Expanded(
-                        child: Text(
-                          l10n.settingsHotkeyRecorderTitle,
-                          style: TextStyle(
-                            color: textPrimary,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: WpSpacing.xs),
-                  Text(
-                    l10n.settingsHotkeyRecorderHint,
-                    style: TextStyle(color: textMuted, fontSize: 12),
-                  ),
-                  const SizedBox(height: WpSpacing.xl),
-
-                  // ── Key cap display ─────────────────────────────
-                  Center(
-                    child: AnimatedSwitcher(
-                      duration: WpMotion.fast,
-                      switchInCurve: WpMotion.defaultCurve,
-                      switchOutCurve: WpMotion.defaultCurve,
-                      child: _KeyComboDisplay(
-                        key: ValueKey('$modifierLabels-$_keyLabel'),
-                        modifiers: modifierLabels,
-                        keyLabel: _keyLabel,
-                        isDark: isDark,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: WpSpacing.md),
-
-                  // ── Modifier hint ───────────────────────────────
-                  Center(
-                    child: Text(
-                      l10n.settingsHotkeyRecorderModifierHint,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: textMuted, fontSize: 11),
-                    ),
-                  ),
-                  const SizedBox(height: WpSpacing.xs),
-
-                  // ── Invalid-key hint (non-blocking; auto-hides) ─────
-                  if (_showInvalidKeyHint)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: WpSpacing.xs),
-                      child: Center(
-                        child: Text(
-                          l10n.settingsHotkeyRecorderInvalidKey,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: isDark
-                                ? WpColorsDark.warning
-                                : WpColorsLight.warning,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ),
-                    ),
-                  const SizedBox(height: WpSpacing.xs),
-
-                  // ── Conflict warning ─────────────────────────────
-                  if (_conflict != null)
-                    _ConflictWarning(
-                      conflict: _conflict!,
-                      isDark: isDark,
-                      l10n: l10n,
-                    ),
-                  if (_conflict != null) const SizedBox(height: WpSpacing.md),
-
-                  // ── Action buttons ──────────────────────────────
-                  // Wrap (not Row) so long translations (e.g. DE
-                  // "Speichern"/"Abbrechen"/"Zurücksetzen") flow to a second
-                  // line instead of overflowing the 420 px dialog and pushing
-                  // the Save button off-screen.
-                  Wrap(
-                    alignment: WrapAlignment.spaceBetween,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: WpSpacing.sm,
-                    runSpacing: WpSpacing.xs,
-                    children: [
-                      // Clear
-                      TextButton.icon(
-                        onPressed: _clear,
-                        icon: Icon(
-                          LucideIcons.eraser,
-                          size: WpIconSize.sm,
-                          color: textMuted,
-                        ),
-                        label: Text(
-                          l10n.settingsHotkeyRecorderClear,
-                          style: TextStyle(color: textMuted, fontSize: 13),
-                        ),
-                      ),
-                      // Cancel + Save grouped so they stay together when wrapping.
-                      Wrap(
-                        spacing: WpSpacing.sm,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          // Cancel only makes sense in modal mode — when the
-                          // recorder is embedded inline (no enclosing route to
-                          // pop), there is nothing to dismiss, so the button is
-                          // hidden to avoid a dead control.
-                          if (widget.onSubmit == null)
-                            TextButton(
-                              onPressed: () => Navigator.of(context).pop(),
-                              child: Text(
-                                l10n.settingsHotkeyRecorderCancel,
-                                style: TextStyle(
-                                  color: textMuted,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ),
-                          // Save — accent background + white foreground gives
-                          // WCAG-AA contrast in both light and dark themes;
-                          // the previous accent-text-on-default-elevated bg
-                          // failed contrast checks for the disabled label too.
-                          ElevatedButton(
-                            onPressed: hasCombo ? _save : null,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: accent,
-                              foregroundColor: Colors.white,
-                              disabledBackgroundColor: isDark
-                                  ? WpColorsDark.surfaceVariant
-                                  : WpColorsLight.surfaceVariant,
-                              disabledForegroundColor: textMuted,
-                            ),
-                            child: Text(
-                              l10n.settingsHotkeyRecorderSave,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }
@@ -731,7 +742,7 @@ class _KeyCap extends StatelessWidget {
     final accentColor = isDark ? WpColorsDark.accent : WpColorsLight.accent;
 
     return AnimatedContainer(
-      duration: WpMotion.fast,
+      duration: WpMotion.durationFor(context, WpMotion.fast),
       curve: WpMotion.defaultCurve,
       padding: const EdgeInsets.symmetric(
         horizontal: WpSpacing.sm,

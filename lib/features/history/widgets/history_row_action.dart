@@ -77,7 +77,7 @@ class _HistoryRowActionState extends State<HistoryRowAction> {
                 vertical: widget.dense ? 0 : WpSpacing.xxs,
               ),
               child: AnimatedContainer(
-                duration: WpMotion.fast,
+                duration: WpMotion.durationFor(context, WpMotion.fast),
                 padding: EdgeInsets.all(widget.dense ? 6 : 10),
                 decoration: BoxDecoration(
                   color: _isHovered

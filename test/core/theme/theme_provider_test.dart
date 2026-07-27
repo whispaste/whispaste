@@ -68,46 +68,6 @@ void main() {
     });
   });
 
-  group('isDarkModeProvider', () {
-    late HistoryDatabase db;
-    late ProviderContainer container;
-
-    setUp(() async {
-      db = HistoryDatabase.forTesting(NativeDatabase.memory());
-      container = ProviderContainer(
-        overrides: [
-          historyDatabaseProvider.overrideWith((ref) {
-            ref.onDispose(db.close);
-            return db;
-          }),
-        ],
-      );
-      await container.read(settingsProvider.future);
-    });
-
-    tearDown(() {
-      container.dispose();
-    });
-
-    test('returns true for dark mode', () {
-      expect(container.read(isDarkModeProvider), true);
-    });
-
-    test('returns false for light mode', () async {
-      await container
-          .read(settingsProvider.notifier)
-          .updateSettings((s) => s.copyWith(themeMode: ThemeMode.light));
-      expect(container.read(isDarkModeProvider), false);
-    });
-
-    test('returns true for system mode (defaults to dark)', () async {
-      await container
-          .read(settingsProvider.notifier)
-          .updateSettings((s) => s.copyWith(themeMode: ThemeMode.system));
-      expect(container.read(isDarkModeProvider), true);
-    });
-  });
-
   group('bootstrapAppContainer', () {
     testWidgets('uses persisted light theme on the first frame', (
       tester,

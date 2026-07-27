@@ -112,13 +112,7 @@ class _StoreThankYouWatcherState extends ConsumerState<StoreThankYouWatcher> {
           child: Stack(
             children: [
               Positioned.fill(
-                child: ColoredBox(
-                  color:
-                      (isDark
-                              ? const Color(0xFF000000)
-                              : const Color(0xFFFFFFFF))
-                          .withValues(alpha: isDark ? 0.45 : 0.35),
-                ),
+                child: ColoredBox(color: wpDialogBarrierColor(isDark)),
               ),
               _StoreThankYouDialog(
                 animation: animation,

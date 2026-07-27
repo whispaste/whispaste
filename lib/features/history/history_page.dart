@@ -274,8 +274,12 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       // KeyEventResult.ignored when a text field has focus, allowing
       // DefaultTextEditingShortcuts to handle them for text editing.
       bindings: <ShortcutActivator, VoidCallback>{
-        // Ctrl+A: Select all visible items
-        const SingleActivator(LogicalKeyboardKey.keyA, control: true): () {
+        // Ctrl+A / Cmd+A: Select all visible items
+        SingleActivator(
+          LogicalKeyboardKey.keyA,
+          control: !Platform.isMacOS,
+          meta: Platform.isMacOS,
+        ): () {
           if (isTextFieldFocused()) return;
           setState(() {
             _multiSelectMode = true;
@@ -284,10 +288,11 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
               ..addAll(flat.map((e) => e.id));
           });
         },
-        // Ctrl+Shift+A: Deselect all
-        const SingleActivator(
+        // Ctrl+Shift+A / Cmd+Shift+A: Deselect all
+        SingleActivator(
           LogicalKeyboardKey.keyA,
-          control: true,
+          control: !Platform.isMacOS,
+          meta: Platform.isMacOS,
           shift: true,
         ): () {
           if (isTextFieldFocused()) return;
@@ -296,8 +301,12 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
             _multiSelectMode = false;
           });
         },
-        // Ctrl+C: Copy focused/selected entry text (suppressed when editing)
-        const SingleActivator(LogicalKeyboardKey.keyC, control: true): () {
+        // Ctrl+C / Cmd+C: Copy focused/selected entry text (suppressed when editing)
+        SingleActivator(
+          LogicalKeyboardKey.keyC,
+          control: !Platform.isMacOS,
+          meta: Platform.isMacOS,
+        ): () {
           if (isTextFieldFocused()) return;
           if (_multiSelectMode && _selectedIds.isNotEmpty) {
             _copySelectedEntries(flat);
@@ -306,15 +315,23 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
             if (entry != null) _copyEntry(entry);
           }
         },
-        // Ctrl+M: Merge selected entries
+        // Ctrl+M on every platform, including macOS: Merge selected entries.
+        // Deliberately NOT meta-on-macOS like the siblings above — Cmd+M is
+        // the system "Minimize Window" shortcut (see MainMenu.xib), so
+        // binding it here would either never fire or fight the OS. The
+        // literal Control key has no such conflict on macOS.
         const SingleActivator(LogicalKeyboardKey.keyM, control: true): () {
           if (isTextFieldFocused()) return;
           if (_multiSelectMode && _selectedIds.length >= 2) {
             _mergeSelected();
           }
         },
-        // Ctrl+Enter: open detail panel for focused entry
-        const SingleActivator(LogicalKeyboardKey.enter, control: true): () {
+        // Ctrl+Enter / Cmd+Enter: open detail panel for focused entry
+        SingleActivator(
+          LogicalKeyboardKey.enter,
+          control: !Platform.isMacOS,
+          meta: Platform.isMacOS,
+        ): () {
           if (isTextFieldFocused()) return;
           final entry = _focusedEntry(flat);
           if (entry != null) {

@@ -28,52 +28,6 @@ void main() {
     });
   });
 
-  group('WpAdaptiveGrid', () {
-    testWidgets('renders single column when narrow', (tester) async {
-      await tester.pumpWidget(
-        makeTestable(
-          const SizedBox(
-            width: 300,
-            height: 400,
-            child: WpAdaptiveGrid(
-              narrowBreak: 400,
-              children: [Text('A'), Text('B'), Text('C')],
-            ),
-          ),
-        ),
-      );
-
-      // All items rendered
-      expect(find.text('A'), findsOneWidget);
-      expect(find.text('B'), findsOneWidget);
-      expect(find.text('C'), findsOneWidget);
-    });
-
-    testWidgets('renders multiple columns when wide', (tester) async {
-      await tester.pumpWidget(
-        makeTestable(
-          const SizedBox(
-            width: 800,
-            height: 400,
-            child: WpAdaptiveGrid(
-              narrowBreak: 400,
-              wideBreak: 700,
-              maxColumns: 3,
-              children: [Text('A'), Text('B'), Text('C')],
-            ),
-          ),
-        ),
-      );
-
-      // All three items rendered in a row
-      expect(find.text('A'), findsOneWidget);
-      expect(find.text('B'), findsOneWidget);
-      expect(find.text('C'), findsOneWidget);
-      // Should have a Row widget for multi-column layout
-      expect(find.byType(Row), findsWidgets);
-    });
-  });
-
   group('WpTwoPanel', () {
     testWidgets('shows side-by-side when wide', (tester) async {
       await tester.pumpWidget(

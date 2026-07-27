@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -404,18 +406,30 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
         const SingleActivator(LogicalKeyboardKey.f2): () {
           if (!isTextFieldFocused()) _startTitleEdit();
         },
-        const SingleActivator(LogicalKeyboardKey.keyE, control: true): () {
+        SingleActivator(
+          LogicalKeyboardKey.keyE,
+          control: !Platform.isMacOS,
+          meta: Platform.isMacOS,
+        ): () {
           if (isTextFieldFocused()) return;
           _toggleEdit();
         },
-        const SingleActivator(LogicalKeyboardKey.keyS, control: true): () {
+        SingleActivator(
+          LogicalKeyboardKey.keyS,
+          control: !Platform.isMacOS,
+          meta: Platform.isMacOS,
+        ): () {
           if (_isEditingTitle) {
             _saveTitle();
           } else if (_isEditingTranscript) {
             _saveTranscript();
           }
         },
-        const SingleActivator(LogicalKeyboardKey.enter, control: true): () {
+        SingleActivator(
+          LogicalKeyboardKey.enter,
+          control: !Platform.isMacOS,
+          meta: Platform.isMacOS,
+        ): () {
           if (_isEditingTitle) {
             _saveTitle();
           } else if (_isEditingTranscript) {
@@ -423,21 +437,34 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
           }
         },
         // Suppress full-entry copy when a text field is focused so native
-        // text selection copy (Ctrl+C) works normally inside the editor.
-        const SingleActivator(LogicalKeyboardKey.keyC, control: true): () {
+        // text selection copy (Ctrl+C / Cmd+C) works normally inside the editor.
+        SingleActivator(
+          LogicalKeyboardKey.keyC,
+          control: !Platform.isMacOS,
+          meta: Platform.isMacOS,
+        ): () {
           if (_isEditingTranscript || _isEditingTitle) return;
           onCopy();
         },
         // Markdown formatting shortcuts (active only in edit mode)
-        const SingleActivator(LogicalKeyboardKey.keyB, control: true): () {
+        SingleActivator(
+          LogicalKeyboardKey.keyB,
+          control: !Platform.isMacOS,
+          meta: Platform.isMacOS,
+        ): () {
           if (_isEditingTranscript) _wrapBold();
         },
-        const SingleActivator(LogicalKeyboardKey.keyI, control: true): () {
+        SingleActivator(
+          LogicalKeyboardKey.keyI,
+          control: !Platform.isMacOS,
+          meta: Platform.isMacOS,
+        ): () {
           if (_isEditingTranscript) _wrapItalic();
         },
-        const SingleActivator(
+        SingleActivator(
           LogicalKeyboardKey.keyL,
-          control: true,
+          control: !Platform.isMacOS,
+          meta: Platform.isMacOS,
           shift: true,
         ): () {
           if (_isEditingTranscript) _toggleBullet();
@@ -741,7 +768,7 @@ class _DetailPanelHeader extends StatelessWidget {
               HistoryDetailAction(
                 faIcon: entry.pinned ? FontAwesomeIcons.solidStar : null,
                 icon: entry.pinned ? null : LucideIcons.star,
-                activeColor: entry.pinned ? Colors.amber.shade600 : null,
+                activeColor: entry.pinned ? WpSharedColors.pinnedAccent : null,
                 tooltip:
                     '${entry.pinned ? l10n.historyUnpin : l10n.historyPinToTop} (F)',
                 isDark: isDark,
@@ -1156,7 +1183,7 @@ class _TranscriptEditBar extends StatelessWidget {
               borderRadius: const BorderRadius.all(Radius.circular(999)),
               onTap: onToggleEdit,
               child: AnimatedContainer(
-                duration: WpMotion.fast,
+                duration: WpMotion.durationFor(context, WpMotion.fast),
                 padding: const EdgeInsets.symmetric(
                   horizontal: WpSpacing.sm,
                   vertical: 6,
@@ -1301,7 +1328,10 @@ class _HistoryDetailActionState extends State<HistoryDetailAction> {
             onTap: widget.onTap,
             behavior: HitTestBehavior.opaque,
             child: AnimatedContainer(
-              duration: _isHovered ? Duration.zero : WpMotion.hoverOut,
+              duration: WpMotion.durationFor(
+                context,
+                _isHovered ? Duration.zero : WpMotion.hoverOut,
+              ),
               padding: const EdgeInsets.all(WpSpacing.sm),
               decoration: BoxDecoration(
                 color: _isHovered

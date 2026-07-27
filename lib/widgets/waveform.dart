@@ -59,6 +59,12 @@ class _WpWaveformState extends State<WpWaveform>
   late final List<double> _phaseB;
   late final List<double> _phaseC;
 
+  /// Reduced-motion is purely decorative here (per-bar phase jitter, not a
+  /// state-change cue — the bar heights already track [widget.audioLevel]
+  /// on their own), so with it enabled the ticker just never runs: bars
+  /// still respond to audio level, only the organic wobble is suppressed.
+  bool _reduceMotion = false;
+
   @override
   void initState() {
     super.initState();
@@ -72,13 +78,21 @@ class _WpWaveformState extends State<WpWaveform>
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     );
-    if (widget.isActive) _controller.repeat();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _reduceMotion = MediaQuery.of(context).disableAnimations;
+    if (widget.isActive && !_reduceMotion && !_controller.isAnimating) {
+      _controller.repeat();
+    }
   }
 
   @override
   void didUpdateWidget(WpWaveform oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.isActive && !_controller.isAnimating) {
+    if (widget.isActive && !_reduceMotion && !_controller.isAnimating) {
       _controller.repeat();
     } else if (!widget.isActive && _controller.isAnimating) {
       _controller.stop();

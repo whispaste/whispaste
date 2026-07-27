@@ -83,6 +83,7 @@ class HistoryCardView extends StatelessWidget {
                 children: [
                   for (final entry in item.entries!)
                     SizedBox(
+                      key: ValueKey(entry.id),
                       width: cardWidth,
                       // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryEntryCardState.build
                       child: HistoryEntryCard(
@@ -180,6 +181,8 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
     return Semantics(
       label: semanticLabel,
       button: true,
+      selected: widget.isSelected,
+      focused: widget.isFocused,
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         onEnter: (_) => setState(() => _isHovered = true),
@@ -187,7 +190,10 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
         child: GestureDetector(
           onTap: widget.onTap,
           child: AnimatedContainer(
-            duration: _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+            duration: WpMotion.durationFor(
+              context,
+              _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+            ),
             curve: WpMotion.defaultCurve,
             height: 180,
             padding: const EdgeInsets.all(WpSpacing.md),
@@ -245,7 +251,7 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
                                 : null,
                             icon: widget.entry.pinned ? null : LucideIcons.star,
                             activeColor: widget.entry.pinned
-                                ? Colors.amber.shade600
+                                ? WpSharedColors.pinnedAccent
                                 : null,
                             tooltip: widget.entry.pinned
                                 ? l10n.historyUnpin

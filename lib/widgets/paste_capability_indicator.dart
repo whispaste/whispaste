@@ -15,6 +15,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../core/l10n/generated/app_localizations.dart';
 import '../core/logging/app_logger.dart';
+import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import '../services/paste/paste_capability_notifier.dart';
 import '../services/paste/paster.dart';
@@ -91,10 +92,11 @@ class _PasteCapabilityIndicatorState
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final capState = ref.watch(pasteCapabilityNotifierProvider);
     final cap = capState.capability;
 
-    final (icon, color, label) = _resolveStatus(cap, l10n);
+    final (icon, color, label) = _resolveStatus(cap, l10n, isDark);
     final notifier = ref.read(pasteCapabilityNotifierProvider.notifier);
 
     final missing =
@@ -233,28 +235,32 @@ class _PasteCapabilityIndicatorState
     );
   }
 
-  (IconData, Color, String) _resolveStatus(PasteCapability? cap, L10n l10n) {
+  (IconData, Color, String) _resolveStatus(
+    PasteCapability? cap,
+    L10n l10n,
+    bool isDark,
+  ) {
     if (cap == null) {
       return (
         LucideIcons.loaderCircle,
-        const Color(0xFF38D9F0),
+        isDark ? WpColorsDark.accent : WpColorsLight.accent,
         l10n.pasteCapabilityCheckTitle,
       );
     }
     return switch (cap.status) {
       PasteCapabilityStatus.ready => (
         LucideIcons.circleCheck,
-        const Color(0xFF16A34A),
+        isDark ? WpColorsDark.success : WpColorsLight.success,
         l10n.pasteCapabilityReady,
       ),
       PasteCapabilityStatus.permissionMissing => (
         LucideIcons.shieldAlert,
-        const Color(0xFFEF4444),
+        isDark ? WpColorsDark.error : WpColorsLight.error,
         l10n.pasteCapabilityPermissionMissing,
       ),
       PasteCapabilityStatus.unsupported => (
         LucideIcons.info,
-        const Color(0xFF6B7280),
+        isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
         l10n.pasteCapabilityUnsupported,
       ),
     };

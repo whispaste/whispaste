@@ -53,6 +53,41 @@ class HistoryEntryRow extends StatefulWidget {
 class _HistoryEntryRowState extends State<HistoryEntryRow> {
   bool _isHovered = false;
 
+  // Memoized once per `entry` change (initState + didUpdateWidget), not
+  // recomputed on every build — hover toggles this row's own `setState` on
+  // every mouse enter/exit without a new `entry`, and re-running the JSON
+  // decode + regex split + keyword scan below on each of those was
+  // measurable overhead while scrolling/hovering a long history list.
+  late int _wordCount = _computeWordCount(widget.entry);
+  late List<String> _entryTags = _computeEntryTags(widget.entry);
+  late IconData _avatarIcon = historyAvatarIcon(widget.entry);
+
+  static int _computeWordCount(HistoryEntry entry) {
+    final t = entry.content.trim();
+    if (t.isEmpty) return 0;
+    return t.split(RegExp(r'\s+')).length;
+  }
+
+  static List<String> _computeEntryTags(HistoryEntry entry) {
+    final raw = entry.tags.trim();
+    if (raw == '[]' || raw.isEmpty) return const [];
+    try {
+      return List<String>.from(jsonDecode(raw) as List);
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  @override
+  void didUpdateWidget(HistoryEntryRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.entry != widget.entry) {
+      _wordCount = _computeWordCount(widget.entry);
+      _entryTags = _computeEntryTags(widget.entry);
+      _avatarIcon = historyAvatarIcon(widget.entry);
+    }
+  }
+
   String get _timeLabel {
     final t = widget.entry.timestamp;
     return '${t.hour.toString().padLeft(2, '0')}:'
@@ -65,22 +100,6 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
     final mins = secs ~/ 60;
     final rem = secs % 60;
     return rem > 0 ? '${mins}m ${rem}s' : '${mins}m';
-  }
-
-  int get _wordCount {
-    final t = widget.entry.content.trim();
-    if (t.isEmpty) return 0;
-    return t.split(RegExp(r'\s+')).length;
-  }
-
-  List<String> get _entryTags {
-    final raw = widget.entry.tags.trim();
-    if (raw == '[]' || raw.isEmpty) return const [];
-    try {
-      return List<String>.from(jsonDecode(raw) as List);
-    } catch (_) {
-      return const [];
-    }
   }
 
   @override
@@ -113,6 +132,12 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
     return Semantics(
       label: semanticLabel,
       button: true,
+      selected: widget.isSelected,
+      // The list owns keyboard focus as a single node and tracks the
+      // "current" row by index (see HistoryPage's arrow-key navigation) —
+      // exposing that here lets a screen reader announce which row is
+      // virtually focused instead of only showing a visual border.
+      focused: widget.isFocused,
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         onEnter: (_) => setState(() => _isHovered = true),
@@ -120,7 +145,10 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
         child: GestureDetector(
           onTap: widget.onTap,
           child: AnimatedContainer(
-            duration: _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+            duration: WpMotion.durationFor(
+              context,
+              _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+            ),
             curve: WpMotion.defaultCurve,
             margin: const EdgeInsets.symmetric(
               horizontal: WpSpacing.xs,
@@ -170,7 +198,7 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
                 // Avatar — colored circle with content-type icon
                 HistoryEntryAvatar(
                   color: avatarCol,
-                  icon: historyAvatarIcon(widget.entry),
+                  icon: _avatarIcon,
                   isPinned: widget.entry.pinned,
                   isDark: isDark,
                   size: 42,
@@ -287,7 +315,9 @@ class _EntryRowContent extends StatelessWidget {
                     HistoryRowAction(
                       faIcon: entry.pinned ? FontAwesomeIcons.solidStar : null,
                       icon: entry.pinned ? null : LucideIcons.star,
-                      activeColor: entry.pinned ? Colors.amber.shade600 : null,
+                      activeColor: entry.pinned
+                          ? WpSharedColors.pinnedAccent
+                          : null,
                       tooltip: entry.pinned
                           ? l10n.historyUnpin
                           : l10n.historyPinToTop,

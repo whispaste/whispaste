@@ -378,7 +378,10 @@ class _NoteItemState extends State<_NoteItem> {
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: AnimatedContainer(
-        duration: _hovered ? Duration.zero : WpMotion.hoverOut,
+        duration: WpMotion.durationFor(
+          context,
+          _hovered ? Duration.zero : WpMotion.hoverOut,
+        ),
         padding: const EdgeInsets.symmetric(
           horizontal: WpSpacing.sm,
           vertical: WpSpacing.sm,
@@ -479,7 +482,10 @@ class _NoteItemState extends State<_NoteItem> {
                   // Actions always visible — opacity increases on hover
                   AnimatedOpacity(
                     opacity: _hovered ? 1.0 : 0.35,
-                    duration: _hovered ? Duration.zero : WpMotion.hoverOut,
+                    duration: WpMotion.durationFor(
+                      context,
+                      _hovered ? Duration.zero : WpMotion.hoverOut,
+                    ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [

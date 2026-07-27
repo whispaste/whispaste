@@ -63,7 +63,7 @@ class _SettingRowState extends State<SettingRow> {
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: WpLayout.minTouchTarget),
           child: AnimatedContainer(
-            duration: WpMotion.hoverIn,
+            duration: WpMotion.durationFor(context, WpMotion.hoverIn),
             curve: WpMotion.defaultCurve,
             padding: const EdgeInsets.symmetric(
               horizontal: WpSpacing.sm,

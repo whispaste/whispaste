@@ -296,32 +296,53 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       child: Focus(
         autofocus: true,
         skipTraversal: true,
-        child: Column(
-          children: [
-            // ── Sticky search field (stays visible while scrolling) ───────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                WpSpacing.xl,
-                WpSpacing.sm,
-                WpSpacing.xl,
-                0,
-              ),
-              child: SettingsSearchField(focusNode: _searchFocusNode),
-            ),
-
-            // ── Scrollable settings content ───────────────────────────────────
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(
-                  WpSpacing.xl,
-                  WpSpacing.sm,
-                  WpSpacing.xl,
-                  WpSpacing.xl,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            // Settings rows are label + Expanded control — on an ultrawide
+            // window they stretch into an unreadably long line, unlike
+            // feedback's form fields. Only kicks in once the window has real
+            // slack beyond the app's own minimum width (800, see main.dart).
+            final maxWidth = constraints.maxWidth > 900
+                ? 800.0
+                : double.infinity;
+            return Column(
+              children: [
+                // ── Sticky search field (stays visible while scrolling) ───
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    WpSpacing.xl,
+                    WpSpacing.sm,
+                    WpSpacing.xl,
+                    0,
+                  ),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: maxWidth),
+                      child: SettingsSearchField(focusNode: _searchFocusNode),
+                    ),
+                  ),
                 ),
-                child: scrollContent,
-              ),
-            ),
-          ],
+
+                // ── Scrollable settings content ───────────────────────────
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(
+                      WpSpacing.xl,
+                      WpSpacing.sm,
+                      WpSpacing.xl,
+                      WpSpacing.xl,
+                    ),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: maxWidth),
+                        child: scrollContent,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );

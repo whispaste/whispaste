@@ -203,6 +203,8 @@ class _CollapsibleSectionState extends State<_CollapsibleSection>
     _isExpanded = widget.initiallyExpanded;
     _controller = AnimationController(
       vsync: this,
+      // Placeholder — didChangeDependencies immediately below overwrites this
+      // with the reduced-motion-aware value before context is safe to read.
       duration: WpMotion.smooth,
       value: _isExpanded ? 1.0 : 0.0,
     );

@@ -26,6 +26,10 @@ dependencies:
 
   # Desktop window management
   window_manager: ^0.5.1
+  # Multi-monitor bounds (already bundled transitively via window_manager;
+  # declared directly so the main window and floating button/overlay can
+  # clamp a persisted position to a display that's actually still connected).
+  screen_retriever: ^0.2.2
 
   # System tray (desktop)
   tray_manager: ^0.5.3

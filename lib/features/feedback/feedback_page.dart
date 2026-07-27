@@ -315,7 +315,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                   SizedBox(
                     width: double.infinity,
                     child: AnimatedOpacity(
-                      duration: WpMotion.fast,
+                      duration: WpMotion.durationFor(context, WpMotion.fast),
                       opacity: _canSubmit && !_submitting ? 1.0 : 0.5,
                       child: ElevatedButton.icon(
                         onPressed: _canSubmit && !_submitting ? _submit : null,
@@ -792,7 +792,10 @@ class _CategoryChipState extends State<_CategoryChip> {
         child: GestureDetector(
           onTap: () => widget.onTap(widget.value),
           child: AnimatedContainer(
-            duration: _hovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+            duration: WpMotion.durationFor(
+              context,
+              _hovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+            ),
             curve: WpMotion.defaultCurve,
             padding: const EdgeInsets.symmetric(
               horizontal: WpSpacing.md,
@@ -869,7 +872,7 @@ class _EmojiRatingRow extends StatelessWidget {
             child: MouseRegion(
               cursor: SystemMouseCursors.click,
               child: AnimatedContainer(
-                duration: WpMotion.fast,
+                duration: WpMotion.durationFor(context, WpMotion.fast),
                 margin: EdgeInsets.only(right: i < 4 ? WpSpacing.xs : 0),
                 padding: const EdgeInsets.symmetric(vertical: WpSpacing.sm),
                 decoration: BoxDecoration(

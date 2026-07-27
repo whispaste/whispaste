@@ -436,7 +436,7 @@ class _ModelStepAlternatives extends StatelessWidget {
                     const SizedBox(width: 4),
                     AnimatedRotation(
                       turns: showAlternatives ? 0.5 : 0,
-                      duration: WpMotion.fast,
+                      duration: WpMotion.durationFor(context, WpMotion.fast),
                       child: Icon(
                         LucideIcons.chevronDown,
                         size: 14,
@@ -449,7 +449,7 @@ class _ModelStepAlternatives extends StatelessWidget {
             ),
           ),
         AnimatedSize(
-          duration: WpMotion.smooth,
+          duration: WpMotion.durationFor(context, WpMotion.smooth),
           curve: WpMotion.defaultCurve,
           child: showAlternatives && !isDownloading && !isDone
               ? Padding(
@@ -640,7 +640,7 @@ class _TierCardState extends State<_TierCard> {
         child: GestureDetector(
           onTap: isTappable ? widget.onTap : null,
           child: AnimatedContainer(
-            duration: WpMotion.fast,
+            duration: WpMotion.durationFor(context, WpMotion.fast),
             curve: WpMotion.defaultCurve,
             padding: const EdgeInsets.all(WpSpacing.md),
             decoration: BoxDecoration(

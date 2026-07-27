@@ -871,7 +871,7 @@ class _CommandChip extends StatelessWidget {
         color: isDark
             ? WpColorsDark.accentActiveFill
             : WpColorsLight.accentActiveFill,
-        borderRadius: BorderRadius.circular(100),
+        borderRadius: WpRadius.borderFull,
         border: Border.all(
           color: isDark
               ? WpColorsDark.accentBorder30

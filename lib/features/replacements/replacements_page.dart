@@ -253,7 +253,7 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
               // Content — dimmed when disabled so users can still see their shortcuts
               Expanded(
                 child: AnimatedOpacity(
-                  duration: WpMotion.normal,
+                  duration: WpMotion.durationFor(context, WpMotion.normal),
                   opacity: enabled ? 1.0 : 0.5,
                   child: all.isEmpty
                       ? WpEmptyState(
@@ -405,7 +405,7 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
       child: Material(
         color: Colors.transparent,
         child: AnimatedContainer(
-          duration: WpMotion.fast,
+          duration: WpMotion.durationFor(context, WpMotion.fast),
           width: 400,
           padding: const EdgeInsets.all(WpSpacing.xl),
           decoration: BoxDecoration(
@@ -559,7 +559,10 @@ class _ReplacementTileState extends State<_ReplacementTile> {
         child: GestureDetector(
           onTap: widget.onTap,
           child: AnimatedContainer(
-            duration: _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+            duration: WpMotion.durationFor(
+              context,
+              _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+            ),
             curve: WpMotion.defaultCurve,
             padding: const EdgeInsets.symmetric(
               horizontal: WpSpacing.md,
