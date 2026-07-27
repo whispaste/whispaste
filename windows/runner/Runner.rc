@@ -62,14 +62,25 @@ IDI_APP_ICON            ICON                    "resources\\app_icon.ico"
 
 #if defined(FLUTTER_VERSION_MAJOR) && defined(FLUTTER_VERSION_MINOR) && defined(FLUTTER_VERSION_PATCH) && defined(FLUTTER_VERSION_BUILD)
 #define VERSION_AS_NUMBER FLUTTER_VERSION_MAJOR,FLUTTER_VERSION_MINOR,FLUTTER_VERSION_PATCH,FLUTTER_VERSION_BUILD
+// Stringify the SAME dot-separated numeric components used for
+// VERSION_AS_NUMBER, instead of aliasing the raw pubspec semver string
+// (FLUTTER_VERSION, e.g. "1.2.57+23"). WinSparkle's default version
+// comparator reads this StringFileInfo "ProductVersion"/"FileVersion" value
+// (win_sparkle_set_app_build_version() is never called by auto_updater's
+// Windows plugin) and compares it byte-for-byte-ish against the appcast's
+// <sparkle:version> — which scripts/generate_appcast.sh always emits as
+// "X.Y.Z.BUILD" (dots only, see WINDOWS_VERSION_COMPARE). A "+" where the
+// appcast has "." at the same token position made WinSparkle's tokenizer
+// treat the two as different — and, in this exact case, wrongly rank the
+// just-installed "1.2.57+23" as OLDER than the appcast's "1.2.57.23" for
+// the identical release, nagging users to "update" to what they already
+// have. Matching formats exactly removes the ambiguity.
+#define WP_STR2(s) #s
+#define WP_STR(s) WP_STR2(s)
+#define VERSION_AS_STRING WP_STR(FLUTTER_VERSION_MAJOR) "." WP_STR(FLUTTER_VERSION_MINOR) "." WP_STR(FLUTTER_VERSION_PATCH) "." WP_STR(FLUTTER_VERSION_BUILD)
 #else
 #define VERSION_AS_NUMBER 1,0,0,0
-#endif
-
-#if defined(FLUTTER_VERSION)
-#define VERSION_AS_STRING FLUTTER_VERSION
-#else
-#define VERSION_AS_STRING "1.0.0"
+#define VERSION_AS_STRING "1.0.0.0"
 #endif
 
 VS_VERSION_INFO VERSIONINFO
