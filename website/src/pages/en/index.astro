@@ -2,7 +2,6 @@
 import Layout from "../../layouts/Layout.astro";
 import Nav from "../../components/Nav.astro";
 import Hero from "../../components/Hero.astro";
-import HowItWorks from "../../components/HowItWorks.astro";
 import WorkflowSelector from "../../components/WorkflowSelector.astro";
 import MarketingMoment from "../../components/MarketingMoment.astro";
 import AppPasteDemo from "../../components/AppPasteDemo.astro";
@@ -44,11 +43,10 @@ const faqKeys = [
   <Nav variant="landing" />
   <main id="main-content">
     {/* Section order mirrors `pages/index.astro` (band rhythm + rationale
-        documented there): HowItWorks → AppPasteDemo as one explanation arc,
-        WorkflowSelector/MarketingMoment as standalone blocks after it,
-        Testimonials (social proof) before the Support ask. */}
+        documented there): AppPasteDemo is the single explanation arc for the
+        hotkey→speak→text mechanic, WorkflowSelector/MarketingMoment follow as
+        standalone blocks, Testimonials (social proof) before the Support ask. */}
     <Hero />
-    <HowItWorks />
     <AppPasteDemo />
     <WorkflowSelector />
     <MarketingMoment />

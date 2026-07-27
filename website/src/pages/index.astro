@@ -2,7 +2,6 @@
 import Layout from "../layouts/Layout.astro";
 import Nav from "../components/Nav.astro";
 import Hero from "../components/Hero.astro";
-import HowItWorks from "../components/HowItWorks.astro";
 import WorkflowSelector from "../components/WorkflowSelector.astro";
 import MarketingMoment from "../components/MarketingMoment.astro";
 import AppPasteDemo from "../components/AppPasteDemo.astro";
@@ -49,18 +48,19 @@ const faqKeys = [
     {/*
       Section-Ton-Rhythmus (band-System aus src/styles/global.css) — bewusst
       alternierend, damit keine zwei Sektionen mit gleichem Ton aneinanderstoßen.
-      HowItWorks → AppPasteDemo stehen bewusst direkt hintereinander: beide
-      erklären denselben Hotkey→Sprechen→Text-Mechanismus (Kurzform → konkretes
-      Storyboard) und bilden EINE Erklärstrecke; WorkflowSelector und
-      MarketingMoment folgen danach als klar eigenständige Blöcke
-      (WorkflowSelector vor MarketingMoment, damit kein raised↔raised-Stoß
-      mit SpeedComparison entsteht):
+      AppPasteDemo ist die EINE Erklärstrecke für den Hotkey→Sprechen→Text-
+      Mechanismus (das frühere HowItWorks erzählte denselben Ablauf ein zweites
+      Mal und wurde entfernt; das Storyboard mit dem echten Overlay-Rendering
+      ist der stärkere Beweis); WorkflowSelector und MarketingMoment folgen
+      danach als klar eigenständige Blöcke (WorkflowSelector vor
+      MarketingMoment, damit kein raised↔raised-Stoß mit SpeedComparison
+      entsteht):
         Hero              deep (implizit, kein .band — deckt sich mit der <html>-Fläche)
-        HowItWorks        raised   (band-raised, in HowItWorks.astro)
         AppPasteDemo      spotlight (band-spotlight, in AppPasteDemo.astro)
         WorkflowSelector  raised   (band-raised, in WorkflowSelector.astro)
         MarketingMoment   deep     (band-deep, in MarketingMoment.astro)
         SpeedComparison   raised   (band-raised, in SpeedComparison.astro)
+        Engines           spotlight (band-spotlight, in Engines.astro)
         AppScreenshots    deep     (band-deep, in AppScreenshots.astro)
         Privacy           spotlight (band-spotlight, in Privacy.astro)
         Pricing           raised   (band-raised, in Pricing.astro)
@@ -75,7 +75,6 @@ const faqKeys = [
       Komponente) gesetzt — hier nur dokumentiert, nicht dupliziert gesetzt.
     */}
     <Hero />
-    <HowItWorks />
     <AppPasteDemo />
     <WorkflowSelector />
     <MarketingMoment />

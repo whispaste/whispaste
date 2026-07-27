@@ -133,15 +133,17 @@ test.describe('WorkflowSelector', () => {
     }
   });
 
-  test('section is placed after how-it-works in DOM', async ({ page }) => {
+  test('section is placed after the app-paste-demo explanation in DOM', async ({ page }) => {
     await page.goto('/');
 
-    // Verify DOM order: #how-it-works appears before #workflow-selector
+    // Verify DOM order: #app-paste-demo (the single mechanic explanation —
+    // the former #how-it-works section was removed) appears before
+    // #workflow-selector.
     const order = await page.evaluate(() => {
-      const howitworks = document.querySelector('#how-it-works');
+      const demo = document.querySelector('#app-paste-demo');
       const selector = document.querySelector('#workflow-selector');
-      if (!howitworks || !selector) return null;
-      const pos = howitworks.compareDocumentPosition(selector);
+      if (!demo || !selector) return null;
+      const pos = demo.compareDocumentPosition(selector);
       // DOCUMENT_POSITION_FOLLOWING = 4
       return (pos & 4) === 4;
     });

@@ -184,8 +184,8 @@ html.light .text-gradient-brand {
   background: var(--color-brand-darker);
 }
 /* raised = a half-step-elevated surface with a faint cyan-tinted top lift and
-   a hairline divider, so the band edge is legible. How it works, Languages,
-   Pricing. */
+   a hairline divider, so the band edge is legible. WorkflowSelector,
+   SpeedComparison, Pricing, FAQ. */
 .band-raised {
   background: linear-gradient(
     180deg,
@@ -202,8 +202,8 @@ html.light .band-raised {
   box-shadow: inset 0 1px 0 color-mix(in srgb, white 70%, transparent);
 }
 /* spotlight = the brand glow. A soft cyan aura from the top edge, reserved for
-   the emotional / core-message sections (Privacy, Testimonials). This is where
-   the cyan accent earns its keep. */
+   the emotional / core-message sections (AppPasteDemo, Engines, Privacy,
+   Testimonials). This is where the cyan accent earns its keep. */
 .band-spotlight {
   background: var(--color-brand-darker);
   border-top: 1px solid color-mix(in srgb, var(--color-brand-cyan) 12%, transparent);
@@ -419,6 +419,18 @@ html.light .illo-halo > img {
 [data-os="linux"] [data-platform-btn="macos"] {
   display: none;
   pointer-events: none;
+}
+
+/* Store-hint gate — stricter than the default-visible platform rule above.
+ * The hint copy refers ONLY to the Microsoft-Store flow (Windows), so it may
+ * appear only when Windows is POSITIVELY detected. In the unknown-OS fallback
+ * (no data-os: all three platform CTAs visible) it stays hidden — under three
+ * equal-rank buttons a Store-only hint would read as applying to all of them. */
+[data-requires-os] {
+  display: none;
+}
+[data-os="windows"] [data-requires-os="windows"] {
+  display: block;
 }
 
 /* Nav Download CTA — platform-adaptive label + icon (same FOUC-free data-os

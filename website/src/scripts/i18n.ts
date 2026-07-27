@@ -60,15 +60,13 @@ export const i18n: Record<string, Record<string, string>> = {
     'nav.toggleThemeTitle': 'Toggle theme',
     'nav.githubAria': 'WhisPaste on GitHub',
     'nav.sponsorAria': 'Support WhisPaste',
-    'howitworks.label': 'Three steps',
+    // howitworks.* — the visible HowItWorks section was removed (AppPasteDemo
+    // is the single on-page explanation of the mechanic); the remaining keys
+    // survive solely as the HowTo JSON-LD source (schema/builders.ts).
     'howitworks.title': 'From thought to text: three steps, that\u2019s it.',
     'howitworks.desc': 'No browser tab. No copy-paste ritual. Just speak and keep moving.',
     // Section titles split into lead / accent / tail so the accent word can
-    // carry the cyan brand gradient (.text-gradient-brand). The full strings
-    // also live in the *.title keys (kept for the HowTo schema name).
-    'howitworks.titleLead': 'From thought to ',
-    'howitworks.titleAccent': 'text',
-    'howitworks.titleTail': ': three steps, that’s it.',
+    // carry the cyan brand gradient (.text-gradient-brand).
     'screenshots.titleLead': 'Where your voice becomes ',
     'screenshots.titleAccent': 'text',
     'screenshots.titleTail': '',
@@ -87,18 +85,12 @@ export const i18n: Record<string, Record<string, string>> = {
     'testimonials.titleLead': 'What our ',
     'testimonials.titleAccent': 'users',
     'testimonials.titleTail': ' say',
-    'howitworks.step1.label': 'Step 1',
     'howitworks.step1.title': 'Press Hotkey',
     'howitworks.step1.desc': 'Start from email, chat, docs, code, or anywhere your cursor already is.',
-    'howitworks.step2.label': 'Step 2',
     'howitworks.step2.title': 'Speak naturally',
     'howitworks.step2.desc': 'WhisPaste converts your speech to text: on your device or through a cloud provider you choose.',
-    'howitworks.step3.label': 'Step 3',
     'howitworks.step3.title': 'Paste, expand, or polish',
     'howitworks.step3.desc': 'Text appears at the cursor, ready to use, edit, or expand with voice shortcuts.',
-    'howitworks.step1.alt': 'Illustration of a keyboard key with a sound wave, symbolizing the hotkey that starts a recording',
-    'howitworks.step2.alt': 'Illustration of a microphone with a sound wave, symbolizing speaking naturally',
-    'howitworks.step3.alt': 'Illustration of a text field with a cursor and a checkmark, symbolizing the finished text',
     'screenshots.label': 'Screenshots',
     'screenshots.title': 'Where your voice becomes text',
     'screenshots.desc': 'Speak, organize, refine. Here\u2019s how it looks in practice.',
@@ -604,7 +596,7 @@ export const i18n: Record<string, Record<string, string>> = {
     'appdemo.scene.reply': 'Yes, 3 pm works for me.',
     'appdemo.scene.inserted': 'inserted at cursor',
     'appdemo.sameEverywhere': 'The same in every app',
-    // WorkflowSelector (Phase C, Issue 05) — Zielgruppen-Einstieg nach HowItWorks
+    // WorkflowSelector (Phase C, Issue 05) — Zielgruppen-Einstieg nach AppPasteDemo
     'workflowSelector.label': 'For your workflow',
     'workflowSelector.titleLead': 'Voice input for your ',
     'workflowSelector.titleAccent': 'writing flow',
@@ -620,7 +612,7 @@ export const i18n: Record<string, Record<string, string>> = {
     'workflowSelector.everyday.ariaLabel': 'WhisPaste for everyday writing, learn more',
     'marketing.moment.titleLead': 'Say what you’re ',
     'marketing.moment.titleAccent': 'thinking.',
-    'marketing.moment.sub': 'Press the hotkey, speak, and your text appears right where the cursor blinks. In any app, no typing.',
+    'marketing.moment.sub': 'The thought is there, and a breath later it’s text on your screen. Your hands stay where they are, and you don’t lose the thread.',
     'marketing.moment.alt': 'Illustration: a person at a laptop, a speech bubble showing a sound waveform and another with flowing text.',
     'speed.label': 'SPEED',
     'speed.titleLead': 'Speaking is ',
@@ -711,15 +703,13 @@ export const i18n: Record<string, Record<string, string>> = {
     'nav.toggleThemeTitle': 'Designmodus wechseln',
     'nav.githubAria': 'WhisPaste auf GitHub',
     'nav.sponsorAria': 'WhisPaste unterstützen',
-    'howitworks.label': 'Drei Schritte',
+    // howitworks.* — die sichtbare HowItWorks-Sektion wurde entfernt
+    // (AppPasteDemo ist die einzige On-Page-Erklärung der Mechanik); die
+    // verbliebenen Keys speisen nur noch das HowTo-JSON-LD (schema/builders.ts).
     'howitworks.title': 'Von der Idee zum Text: drei Schritte, mehr nicht.',
     'howitworks.desc': 'Kein Browser-Tab. Kein Copy-Paste-Ritual. Einfach sprechen und weitermachen.',
     // Section-Titel in lead / accent / tail gesplittet — das Akzentwort trägt
-    // den Cyan-Marken-Verlauf (.text-gradient-brand). Die vollen Strings leben
-    // weiterhin in den *.title-Keys (für den HowTo-Schema-Namen).
-    'howitworks.titleLead': 'Von der Idee zum ',
-    'howitworks.titleAccent': 'Text',
-    'howitworks.titleTail': ': drei Schritte, mehr nicht.',
+    // den Cyan-Marken-Verlauf (.text-gradient-brand).
     'screenshots.titleLead': 'Wo deine Stimme zu ',
     'screenshots.titleAccent': 'Text',
     'screenshots.titleTail': ' wird',
@@ -738,18 +728,12 @@ export const i18n: Record<string, Record<string, string>> = {
     'testimonials.titleLead': 'Was unsere ',
     'testimonials.titleAccent': 'Nutzer',
     'testimonials.titleTail': ' sagen',
-    'howitworks.step1.label': 'Schritt 1',
     'howitworks.step1.title': 'Tastenkürzel drücken',
     'howitworks.step1.desc': 'Starte aus Mail, Chat, Dokumenten, Code oder überall dort, wo dein Cursor schon ist.',
-    'howitworks.step2.label': 'Schritt 2',
     'howitworks.step2.title': 'Natürlich sprechen',
     'howitworks.step2.desc': 'WhisPaste wandelt deine Sprache in Text um: auf deinem Rechner oder über einen Cloud-Anbieter deiner Wahl.',
-    'howitworks.step3.label': 'Schritt 3',
     'howitworks.step3.title': 'Einfügen, anpassen oder verfeinern',
     'howitworks.step3.desc': 'Der Text erscheint am Cursor, direkt einsatzbereit, zum Bearbeiten oder Erweitern mit Sprach-Shortcuts.',
-    'howitworks.step1.alt': 'Illustration einer Taste mit Soundwelle, Symbol für das Tastenkürzel, das die Diktier-Aufnahme startet',
-    'howitworks.step2.alt': 'Illustration eines Mikrofons mit Soundwelle, Symbol für natürliches Sprechen',
-    'howitworks.step3.alt': 'Illustration eines Textfelds mit Cursor und Haken, Symbol für den fertigen Text',
     'screenshots.label': 'Screenshots',
     'screenshots.title': 'Wo deine Stimme zu Text wird',
     'screenshots.desc': 'Sprechen, sortieren, verfeinern. So sieht das in der Praxis aus.',
@@ -1256,7 +1240,7 @@ export const i18n: Record<string, Record<string, string>> = {
     'appdemo.scene.reply': 'Ja, 15 Uhr passt gut.',
     'appdemo.scene.inserted': 'am Cursor eingefügt',
     'appdemo.sameEverywhere': 'Dasselbe in jeder App',
-    // WorkflowSelector (Phase C, Issue 05) — Zielgruppen-Einstieg nach HowItWorks
+    // WorkflowSelector (Phase C, Issue 05) — Zielgruppen-Einstieg nach AppPasteDemo
     'workflowSelector.label': 'Für deinen Workflow',
     'workflowSelector.titleLead': 'Spracheingabe für deinen ',
     'workflowSelector.titleAccent': 'Schreibfluss',
@@ -1272,7 +1256,7 @@ export const i18n: Record<string, Record<string, string>> = {
     'workflowSelector.everyday.ariaLabel': 'WhisPaste für Vielschreiber, mehr erfahren',
     'marketing.moment.titleLead': 'Sprich, was du ',
     'marketing.moment.titleAccent': 'denkst.',
-    'marketing.moment.sub': 'Drück das Tastenkürzel, sprich, und dein Text steht da, wo der Cursor blinkt. In jeder App, ohne Tippen.',
+    'marketing.moment.sub': 'Der Gedanke ist da, und einen Atemzug später steht er als Text auf dem Bildschirm. Die Hände bleiben liegen, der Faden reißt nicht.',
     'marketing.moment.alt': 'Illustration: eine Person am Laptop, eine Sprechblase mit Sound-Wellenform und eine weitere mit fließendem Text.',
     'speed.label': 'TEMPO',
     'speed.titleLead': 'Sprechen ist ',
