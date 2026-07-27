@@ -118,7 +118,9 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
     color: var(--color-brand-cyan);
   }
   .speed-row__unit {
-    font-family: system-ui, sans-serif;
+    /* Body grotesk (token), deliberately NOT the display font of the number —
+       the unit steps back while the figure carries the display voice. */
+    font-family: var(--font-sans);
     font-size: 0.875rem;
     font-weight: 600;
     letter-spacing: 0.04em;
