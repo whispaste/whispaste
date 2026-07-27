@@ -1166,7 +1166,7 @@ class L10nEn extends L10n {
 
   @override
   String get aboutSupportDescription =>
-      'WhisPaste is free and open source under the MIT license. If you find it useful, please consider supporting its development!';
+      'WhisPaste is free and open source under the MIT license. Sponsoring covers real recurring fixed costs (the Apple Developer Program, Microsoft Partner Center, and hosting/domain) that keep it available on every platform.';
 
   @override
   String get aboutGitHubSponsors => 'GitHub Sponsors';
@@ -1176,6 +1176,16 @@ class L10nEn extends L10n {
 
   @override
   String get aboutStarOnGitHub => 'Star on GitHub';
+
+  @override
+  String get aboutSponsorsTitle => 'Sponsors';
+
+  @override
+  String get supportPromptRecurringTitle => 'Make it monthly?';
+
+  @override
+  String get supportPromptRecurringDescription =>
+      'Thank you for supporting WhisPaste before. If you\'d like, you could turn that into a small monthly sponsoring that keeps covering our recurring fixed costs.';
 
   @override
   String get aboutBuiltWith => 'Built with';

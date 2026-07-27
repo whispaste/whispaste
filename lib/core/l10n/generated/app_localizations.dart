@@ -2160,7 +2160,7 @@ abstract class L10n {
   /// No description provided for @aboutSupportDescription.
   ///
   /// In en, this message translates to:
-  /// **'WhisPaste is free and open source under the MIT license. If you find it useful, please consider supporting its development!'**
+  /// **'WhisPaste is free and open source under the MIT license. Sponsoring covers real recurring fixed costs (the Apple Developer Program, Microsoft Partner Center, and hosting/domain) that keep it available on every platform.'**
   String get aboutSupportDescription;
 
   /// No description provided for @aboutGitHubSponsors.
@@ -2180,6 +2180,24 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Star on GitHub'**
   String get aboutStarOnGitHub;
+
+  /// No description provided for @aboutSponsorsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sponsors'**
+  String get aboutSponsorsTitle;
+
+  /// No description provided for @supportPromptRecurringTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Make it monthly?'**
+  String get supportPromptRecurringTitle;
+
+  /// No description provided for @supportPromptRecurringDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Thank you for supporting WhisPaste before. If you\'d like, you could turn that into a small monthly sponsoring that keeps covering our recurring fixed costs.'**
+  String get supportPromptRecurringDescription;
 
   /// No description provided for @aboutBuiltWith.
   ///

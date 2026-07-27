@@ -12,6 +12,7 @@ import '../../core/config/settings_provider.dart';
 import '../../core/app_info.dart';
 import '../../core/app_urls.dart';
 import '../../core/l10n/generated/app_localizations.dart';
+import '../../core/sponsors.dart';
 import '../../core/l10n/locale_provider.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
@@ -170,6 +171,27 @@ class AboutPage extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: WpSpacing.lg),
+
+          // ── Sponsors (opt-in recognition, hidden while the list is empty
+          // — see SPONSORS.md) ──
+          if (kSponsors.isNotEmpty) ...[
+            _AboutCard(
+              isDark: isDark,
+              children: [
+                _SectionHeader(title: l10n.aboutSponsorsTitle, isDark: isDark),
+                const SizedBox(height: WpSpacing.sm),
+                Wrap(
+                  spacing: WpSpacing.sm,
+                  runSpacing: WpSpacing.sm,
+                  children: [
+                    for (final sponsor in kSponsors)
+                      _SponsorChip(sponsor: sponsor, isDark: isDark),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: WpSpacing.lg),
+          ],
 
           // ── Built with ──
           _AboutCard(
@@ -651,6 +673,59 @@ class _SupportButtonState extends State<_SupportButton> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ─── Sponsor chip ────────────────────────────────────────────────────────────
+
+/// Displays a single opt-in sponsor entry (see `SPONSORS.md`). Tappable only
+/// when [Sponsor.url] is set.
+class _SponsorChip extends StatelessWidget {
+  const _SponsorChip({required this.sponsor, required this.isDark});
+
+  final Sponsor sponsor;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final borderColor = isDark
+        ? WpColorsDark.borderSubtle
+        : WpColorsLight.borderSubtle;
+    final textColor = isDark
+        ? WpColorsDark.textPrimary
+        : WpColorsLight.textPrimary;
+
+    final chip = Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: WpSpacing.md,
+        vertical: WpSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        border: Border.all(color: borderColor),
+        borderRadius: WpRadius.borderSm,
+      ),
+      child: Text(
+        sponsor.name,
+        style: TextStyle(fontSize: WpTypography.body, color: textColor),
+      ),
+    );
+
+    final url = sponsor.url;
+    if (url == null) return chip;
+
+    return Semantics(
+      button: true,
+      label: sponsor.name,
+      child: GestureDetector(
+        onTap: () async {
+          final uri = Uri.parse(url);
+          if (await canLaunchUrl(uri)) {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+          }
+        },
+        child: MouseRegion(cursor: SystemMouseCursors.click, child: chip),
       ),
     );
   }

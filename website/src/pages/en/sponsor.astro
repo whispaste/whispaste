@@ -81,25 +81,27 @@ const breadcrumbItems = [
 
         </div>
 
-        <!-- What your support covers -->
-        <div class="sponsor-card rounded-2xl border border-white/[0.06] p-6 sm:p-8">
-          <h3 class="font-semibold text-white mb-5" data-i18n="sponsor.whathelps.title">{t(lang, "sponsor.whathelps.title")}</h3>
-          <div class="grid sm:grid-cols-2 gap-4">
-            <div class="flex items-start gap-3">
-              <svg class="w-5 h-5 text-brand-cyan shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-              <span class="text-gray-400 text-sm" data-i18n="sponsor.whathelps.dev">{t(lang, "sponsor.whathelps.dev")}</span>
+        <!-- Where sponsoring goes: real cost categories, no total amount -->
+        <div class="sponsor-card rounded-2xl border border-white/[0.06] p-6 sm:p-8" data-testid="sponsor-cost-table">
+          <h3 class="font-semibold text-white mb-5" data-i18n="sponsor.costs.title">{t(lang, "sponsor.costs.title")}</h3>
+          <div class="divide-y divide-white/[0.06]">
+            <div class="flex items-start justify-between gap-4 py-3 first:pt-0 last:pb-0">
+              <div>
+                <p class="text-gray-200 text-sm font-medium" data-i18n="sponsor.costs.apple.title">{t(lang, "sponsor.costs.apple.title")}</p>
+                <p class="text-gray-500 text-xs mt-0.5" data-i18n="sponsor.costs.apple.desc">{t(lang, "sponsor.costs.apple.desc")}</p>
+              </div>
             </div>
-            <div class="flex items-start gap-3">
-              <svg class="w-5 h-5 text-brand-cyan shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-              <span class="text-gray-400 text-sm" data-i18n="sponsor.whathelps.infra">{t(lang, "sponsor.whathelps.infra")}</span>
+            <div class="flex items-start justify-between gap-4 py-3 first:pt-0 last:pb-0">
+              <div>
+                <p class="text-gray-200 text-sm font-medium" data-i18n="sponsor.costs.microsoft.title">{t(lang, "sponsor.costs.microsoft.title")}</p>
+                <p class="text-gray-500 text-xs mt-0.5" data-i18n="sponsor.costs.microsoft.desc">{t(lang, "sponsor.costs.microsoft.desc")}</p>
+              </div>
             </div>
-            <div class="flex items-start gap-3">
-              <svg class="w-5 h-5 text-brand-cyan shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-              <span class="text-gray-400 text-sm" data-i18n="sponsor.whathelps.free">{t(lang, "sponsor.whathelps.free")}</span>
-            </div>
-            <div class="flex items-start gap-3">
-              <svg class="w-5 h-5 text-brand-cyan shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-              <span class="text-gray-400 text-sm" data-i18n="sponsor.whathelps.indie">{t(lang, "sponsor.whathelps.indie")}</span>
+            <div class="flex items-start justify-between gap-4 py-3 first:pt-0 last:pb-0">
+              <div>
+                <p class="text-gray-200 text-sm font-medium" data-i18n="sponsor.costs.hosting.title">{t(lang, "sponsor.costs.hosting.title")}</p>
+                <p class="text-gray-500 text-xs mt-0.5" data-i18n="sponsor.costs.hosting.desc">{t(lang, "sponsor.costs.hosting.desc")}</p>
+              </div>
             </div>
           </div>
         </div>

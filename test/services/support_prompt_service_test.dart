@@ -8,11 +8,15 @@
 ///   AC3  Coordination: never fires while the review prompt is pending, or
 ///        was shown/snoozed recently — mutual exclusion in timing, not
 ///        shared counter state.
-///   AC4  Dismissal ([markResolved]) is a permanent, hard cap.
+///   AC4  Explicit dismiss is a 90-day snooze, not a permanent flag.
+///   AC5  A link click starts a 9-month quiet period, after which a one-time
+///        recurring follow-up appears.
+///   AC6  A hard impression cap of 3 is enforced regardless of resolution
+///        path.
 ///
 /// No widgets — [ProviderContainer] + in-memory drift DB + SharedPreferences
 /// mock only. Tests drive the public interface (checkAndMaybePrompt /
-/// markResolved) and observe [SupportPromptState.shouldShowPrompt].
+/// dismiss / markLinkOpened) and observe [SupportPromptState].
 library;
 
 import 'package:drift/native.dart';
@@ -59,14 +63,19 @@ Future<({ProviderContainer container, HistoryDatabase db})> _bootstrap({
   return (container: container, db: db);
 }
 
-/// Drives the notifier and returns the resulting [shouldShowPrompt] flag.
-Future<bool> _shouldShow(ProviderContainer container) async {
+/// Drives the notifier and returns the resulting [SupportPromptState].
+Future<SupportPromptState> _check(ProviderContainer container) async {
   await container.read(supportPromptProvider.notifier).checkAndMaybePrompt();
-  return container.read(supportPromptProvider).shouldShowPrompt;
+  return container.read(supportPromptProvider);
 }
 
-/// SharedPreferences key for this service's own permanent-dismissal flag.
-const _permanentlyDismissedKey = 'support_prompt_permanently_dismissed';
+/// SharedPreferences keys owned by this service — used here only to seed
+/// scenarios directly instead of driving through many check/resolve cycles.
+const _impressionCountKey = 'support_prompt_impression_count';
+const _snoozeKey = 'support_prompt_snooze_ms';
+const _postLinkKey = 'support_prompt_post_link_ms';
+const _linkClickedKey = 'support_prompt_link_clicked';
+const _followUpShownKey = 'support_prompt_followup_shown';
 
 /// SharedPreferences keys owned by the review prompt service — used here
 /// only to seed cross-session coordination scenarios (read-only from the
@@ -90,7 +99,7 @@ void main() {
       final harness = await _bootstrap(prefs: const {}, activeEntries: 39);
       addTearDown(harness.container.dispose);
 
-      expect(await _shouldShow(harness.container), isFalse);
+      expect((await _check(harness.container)).shouldShowPrompt, isFalse);
     });
 
     test('prompts once active entries reach the threshold (40, materially '
@@ -98,7 +107,9 @@ void main() {
       final harness = await _bootstrap(prefs: const {}, activeEntries: 40);
       addTearDown(harness.container.dispose);
 
-      expect(await _shouldShow(harness.container), isTrue);
+      final state = await _check(harness.container);
+      expect(state.shouldShowPrompt, isTrue);
+      expect(state.kind, SupportPromptKind.initial);
     });
 
     test('still prompts at the review-prompt threshold of 12 recordings once '
@@ -111,7 +122,7 @@ void main() {
       );
       addTearDown(harness.container.dispose);
 
-      expect(await _shouldShow(harness.container), isTrue);
+      expect((await _check(harness.container)).shouldShowPrompt, isTrue);
     });
   });
 
@@ -131,7 +142,7 @@ void main() {
       );
       addTearDown(harness.container.dispose);
 
-      expect(await _shouldShow(harness.container), isFalse);
+      expect((await _check(harness.container)).shouldShowPrompt, isFalse);
     });
 
     test('does not fire if the review prompt was snoozed within the '
@@ -145,7 +156,7 @@ void main() {
       );
       addTearDown(harness.container.dispose);
 
-      expect(await _shouldShow(harness.container), isFalse);
+      expect((await _check(harness.container)).shouldShowPrompt, isFalse);
     });
 
     test('fires once the review prompt\'s last-shown timestamp is well '
@@ -159,54 +170,227 @@ void main() {
       );
       addTearDown(harness.container.dispose);
 
-      expect(await _shouldShow(harness.container), isTrue);
+      expect((await _check(harness.container)).shouldShowPrompt, isTrue);
     });
   });
 
   // ---------------------------------------------------------------------------
-  // AC4 — permanent dismissal (hard frequency cap)
+  // AC4 — explicit dismiss is a 90-day snooze, not a permanent flag
   // ---------------------------------------------------------------------------
 
-  group('permanent dismissal', () {
-    test('markResolved sets a permanent dismissal that blocks all future '
-        'prompts, even far beyond any cooldown window', () async {
+  group('dismiss snooze', () {
+    test('dismiss() does not block future prompts forever, unlike the old '
+        'permanent-flag behavior', () async {
       final harness = await _bootstrap(prefs: const {}, activeEntries: 40);
       addTearDown(harness.container.dispose);
       final notifier = harness.container.read(supportPromptProvider.notifier);
 
-      expect(await _shouldShow(harness.container), isTrue);
-      await notifier.markResolved();
+      expect((await _check(harness.container)).shouldShowPrompt, isTrue);
+      await notifier.dismiss();
 
-      expect(await _shouldShow(harness.container), isFalse);
+      // Still within the 90-day snooze — stays quiet.
+      expect((await _check(harness.container)).shouldShowPrompt, isFalse);
     });
 
-    test('markResolved persists across a fresh container (survives '
-        'app restart)', () async {
+    test('prompts again once the 90-day snooze has elapsed', () async {
+      final justOverNinetyDays = DateTime.now()
+          .subtract(const Duration(days: 91))
+          .millisecondsSinceEpoch;
+      final harness = await _bootstrap(
+        prefs: {_snoozeKey: justOverNinetyDays},
+        activeEntries: 40,
+      );
+      addTearDown(harness.container.dispose);
+
+      final state = await _check(harness.container);
+      expect(state.shouldShowPrompt, isTrue);
+      expect(state.kind, SupportPromptKind.initial);
+    });
+
+    test('stays quiet within the 90-day snooze window', () async {
+      final justUnderNinetyDays = DateTime.now()
+          .subtract(const Duration(days: 89))
+          .millisecondsSinceEpoch;
+      final harness = await _bootstrap(
+        prefs: {_snoozeKey: justUnderNinetyDays},
+        activeEntries: 40,
+      );
+      addTearDown(harness.container.dispose);
+
+      expect((await _check(harness.container)).shouldShowPrompt, isFalse);
+    });
+
+    test('dismiss() increments the impression counter', () async {
       final harness = await _bootstrap(prefs: const {}, activeEntries: 40);
       addTearDown(harness.container.dispose);
       final notifier = harness.container.read(supportPromptProvider.notifier);
-      await notifier.markResolved();
+      await _check(harness.container);
+      await notifier.dismiss();
 
-      final restarted = ProviderContainer(
-        overrides: [
-          historyDatabaseProvider.overrideWith((ref) {
-            ref.onDispose(harness.db.close);
-            return harness.db;
-          }),
-          deployChannelProvider.overrideWithValue(DeployChannel.portable),
-        ],
-      );
-      addTearDown(restarted.dispose);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getInt(_impressionCountKey), 1);
+    });
+  });
 
-      expect(await _shouldShow(restarted), isFalse);
+  // ---------------------------------------------------------------------------
+  // AC5 — link click quiet period + one-time recurring follow-up
+  // ---------------------------------------------------------------------------
+
+  group('post-link quiet period and recurring follow-up', () {
+    test('markLinkOpened() starts a 9-month quiet period, staying silent '
+        'right after the click', () async {
+      final harness = await _bootstrap(prefs: const {}, activeEntries: 40);
+      addTearDown(harness.container.dispose);
+      final notifier = harness.container.read(supportPromptProvider.notifier);
+
+      expect((await _check(harness.container)).shouldShowPrompt, isTrue);
+      await notifier.markLinkOpened();
+
+      expect((await _check(harness.container)).shouldShowPrompt, isFalse);
     });
 
-    test('the permanent-dismissal key is scoped to this service and does '
-        'not collide with the review prompt\'s own dismissal key', () {
-      expect(
-        _permanentlyDismissedKey,
-        isNot('review_prompt_permanently_dismissed'),
+    test('shows the recurring follow-up once the 9-month quiet period has '
+        'elapsed', () async {
+      final justOverNineMonths = DateTime.now()
+          .subtract(const Duration(days: 271))
+          .millisecondsSinceEpoch;
+      final harness = await _bootstrap(
+        prefs: {_linkClickedKey: true, _postLinkKey: justOverNineMonths},
+        activeEntries: 40,
       );
+      addTearDown(harness.container.dispose);
+
+      final state = await _check(harness.container);
+      expect(state.shouldShowPrompt, isTrue);
+      expect(state.kind, SupportPromptKind.recurringFollowUp);
+    });
+
+    test('stays quiet within the 9-month post-link window', () async {
+      final justUnderNineMonths = DateTime.now()
+          .subtract(const Duration(days: 269))
+          .millisecondsSinceEpoch;
+      final harness = await _bootstrap(
+        prefs: {_linkClickedKey: true, _postLinkKey: justUnderNineMonths},
+        activeEntries: 40,
+      );
+      addTearDown(harness.container.dispose);
+
+      expect((await _check(harness.container)).shouldShowPrompt, isFalse);
+    });
+
+    test('never shows the recurring follow-up again once it has already '
+        'been shown', () async {
+      final harness = await _bootstrap(
+        prefs: {
+          _linkClickedKey: true,
+          _postLinkKey: DateTime.now()
+              .subtract(const Duration(days: 300))
+              .millisecondsSinceEpoch,
+          _followUpShownKey: true,
+        },
+        activeEntries: 40,
+      );
+      addTearDown(harness.container.dispose);
+
+      expect((await _check(harness.container)).shouldShowPrompt, isFalse);
+    });
+
+    test('resolving the recurring follow-up (dismiss or link) marks it '
+        'shown so it never appears again', () async {
+      final harness = await _bootstrap(
+        prefs: {
+          _linkClickedKey: true,
+          _postLinkKey: DateTime.now()
+              .subtract(const Duration(days: 300))
+              .millisecondsSinceEpoch,
+        },
+        activeEntries: 40,
+      );
+      addTearDown(harness.container.dispose);
+      final notifier = harness.container.read(supportPromptProvider.notifier);
+
+      final state = await _check(harness.container);
+      expect(state.kind, SupportPromptKind.recurringFollowUp);
+      await notifier.dismiss();
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool(_followUpShownKey), isTrue);
+      expect((await _check(harness.container)).shouldShowPrompt, isFalse);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // AC6 — hard impression cap, independent of resolution path
+  // ---------------------------------------------------------------------------
+
+  group('impression cap', () {
+    test('stops showing once 3 impressions have been recorded, regardless '
+        'of resolution path', () async {
+      final harness = await _bootstrap(
+        prefs: {_impressionCountKey: 3},
+        activeEntries: 40,
+      );
+      addTearDown(harness.container.dispose);
+
+      expect((await _check(harness.container)).shouldShowPrompt, isFalse);
+    });
+
+    test('a fresh dismiss/link-click cycle up to the cap ends in silence, '
+        'even with no active snooze or quiet period', () async {
+      final harness = await _bootstrap(prefs: const {}, activeEntries: 40);
+      addTearDown(harness.container.dispose);
+      final notifier = harness.container.read(supportPromptProvider.notifier);
+
+      // Impression 1: dismiss.
+      expect((await _check(harness.container)).shouldShowPrompt, isTrue);
+      await notifier.dismiss();
+
+      // Clear the snooze so eligibility depends only on the cap, not timing.
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_snoozeKey);
+
+      // Impression 2: dismiss again.
+      expect((await _check(harness.container)).shouldShowPrompt, isTrue);
+      await notifier.dismiss();
+      await prefs.remove(_snoozeKey);
+
+      // Impression 3: dismiss again — reaches the cap.
+      expect((await _check(harness.container)).shouldShowPrompt, isTrue);
+      await notifier.dismiss();
+      await prefs.remove(_snoozeKey);
+
+      // Cap reached — stays silent forever after, even with no snooze active.
+      expect((await _check(harness.container)).shouldShowPrompt, isFalse);
+      expect(prefs.getInt(_impressionCountKey), 3);
+    });
+
+    test(
+      'cap persists across a fresh container (survives app restart)',
+      () async {
+        final harness = await _bootstrap(
+          prefs: {_impressionCountKey: 3},
+          activeEntries: 40,
+        );
+        addTearDown(harness.container.dispose);
+
+        final restarted = ProviderContainer(
+          overrides: [
+            historyDatabaseProvider.overrideWith((ref) {
+              ref.onDispose(harness.db.close);
+              return harness.db;
+            }),
+            deployChannelProvider.overrideWithValue(DeployChannel.portable),
+          ],
+        );
+        addTearDown(restarted.dispose);
+
+        expect((await _check(restarted)).shouldShowPrompt, isFalse);
+      },
+    );
+
+    test('the impression-count key is scoped to this service and does not '
+        'collide with the review prompt\'s own shown-count key', () {
+      expect(_impressionCountKey, isNot(_reviewShownCountKey));
     });
   });
 }

@@ -3,11 +3,11 @@
 /// (own provider, own watcher, own dismissal semantics).
 ///
 /// Reuses the About page's existing support copy (`aboutSupportTitle` /
-/// `aboutSupportDescription` / `aboutGitHubSponsors` / `aboutKofi`) so the
-/// message stays consistent with the always-on support section, and reuses
-/// `reviewPromptNever` for the dismiss action — its "never ask again" wording
-/// applies generically and this prompt is dismissed permanently, matching
-/// that semantic exactly.
+/// `aboutSupportDescription` / `aboutGitHubSponsors` / `aboutKofi`) for the
+/// initial ask, and its own distinct copy for the one-time recurring
+/// follow-up (`supportPromptRecurringTitle` / `supportPromptRecurringDescription`).
+/// Reuses `reviewPromptNever` for the dismiss action — dismissing here starts
+/// a snooze rather than a permanent block; see `support_prompt_service.dart`.
 library;
 
 import 'dart:async';
@@ -61,11 +61,11 @@ class _SupportPromptWatcherState extends ConsumerState<SupportPromptWatcher> {
         _dialogShowing = false;
         return;
       }
-      _showDialog(context);
+      _showDialog(context, state.kind);
     });
   }
 
-  Future<void> _showDialog(BuildContext context) async {
+  Future<void> _showDialog(BuildContext context, SupportPromptKind kind) async {
     await showGeneralDialog<void>(
       context: context,
       barrierDismissible: true,
@@ -89,6 +89,7 @@ class _SupportPromptWatcherState extends ConsumerState<SupportPromptWatcher> {
               ),
               _SupportPromptDialog(
                 animation: animation,
+                kind: kind,
                 onResult: (action) async {
                   Navigator.of(ctx).pop();
                   _dialogShowing = false;
@@ -105,14 +106,15 @@ class _SupportPromptWatcherState extends ConsumerState<SupportPromptWatcher> {
 
   Future<void> _handleAction(_SupportAction action) async {
     final notifier = ref.read(supportPromptProvider.notifier);
-    await notifier.markResolved();
     switch (action) {
       case _SupportAction.gitHubSponsors:
+        await notifier.markLinkOpened();
         await _launchUrl(kGitHubSponsorsUrl);
       case _SupportAction.kofi:
+        await notifier.markLinkOpened();
         await _launchUrl(kKofiUrl);
       case _SupportAction.dismiss:
-        break;
+        await notifier.dismiss();
     }
   }
 
@@ -143,9 +145,14 @@ enum _SupportAction { gitHubSponsors, kofi, dismiss }
 // ---------------------------------------------------------------------------
 
 class _SupportPromptDialog extends StatelessWidget {
-  const _SupportPromptDialog({required this.animation, required this.onResult});
+  const _SupportPromptDialog({
+    required this.animation,
+    required this.kind,
+    required this.onResult,
+  });
 
   final Animation<double> animation;
+  final SupportPromptKind kind;
   final void Function(_SupportAction) onResult;
 
   @override
@@ -158,6 +165,13 @@ class _SupportPromptDialog extends StatelessWidget {
     final l10n = L10n.of(context);
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final isRecurringFollowUp = kind == SupportPromptKind.recurringFollowUp;
+    final title = isRecurringFollowUp
+        ? l10n.supportPromptRecurringTitle
+        : l10n.aboutSupportTitle;
+    final description = isRecurringFollowUp
+        ? l10n.supportPromptRecurringDescription
+        : l10n.aboutSupportDescription;
 
     return Center(
       child: SlideTransition(
@@ -185,13 +199,13 @@ class _SupportPromptDialog extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  l10n.aboutSupportTitle,
+                  title,
                   style: theme.textTheme.titleLarge,
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: WpSpacing.sm),
                 Text(
-                  l10n.aboutSupportDescription,
+                  description,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: isDark
                         ? WpColorsDark.textSecondary

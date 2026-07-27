@@ -1,15 +1,20 @@
 /// Widget tests for [SupportPromptWatcher] — verifies the dialog renders the
-/// reused support copy/buttons and resolves permanently on any action.
+/// reused support copy/buttons and resolves via the correct notifier method
+/// per action.
 ///
 /// Mirrors `test/widgets/review_prompt_dialog_test.dart`'s structure.
 ///
 /// Covers:
 ///  AC1  Dialog shows the support title/body/CTAs after the shared post-
 ///       recording delay elapses.
-///  AC2  GitHub Sponsors button launches [kGitHubSponsorsUrl].
-///  AC3  Ko-fi button launches [kKofiUrl].
+///  AC2  GitHub Sponsors button launches [kGitHubSponsorsUrl] and calls
+///       `markLinkOpened`.
+///  AC3  Ko-fi button launches [kKofiUrl] and calls `markLinkOpened`.
 ///  AC4  Dismiss ("never ask again") resolves the prompt without launching
-///       any URL, and marks it resolved (permanent).
+///       any URL, and calls `dismiss` (not `markLinkOpened`).
+///  AC5  When [SupportPromptState.kind] is `recurringFollowUp`, the dialog
+///       shows the distinct recurring-follow-up copy instead of the initial
+///       ask's copy.
 library;
 
 import 'package:flutter/material.dart';
@@ -30,20 +35,28 @@ import '../fixtures/test_helpers.dart';
 /// Stub that lets tests drive [shouldShowPrompt] without touching
 /// SharedPreferences or the history database.
 class _FakeSupportPromptNotifier extends SupportPromptNotifier {
-  bool markResolvedCalled = false;
+  bool dismissCalled = false;
+  bool markLinkOpenedCalled = false;
 
   @override
   SupportPromptState build() =>
       const SupportPromptState(shouldShowPrompt: false);
 
-  /// Flips [shouldShowPrompt] to `true` so [SupportPromptWatcher]'s listener
-  /// fires and starts the shared post-recording delay.
-  void triggerShow() =>
-      state = const SupportPromptState(shouldShowPrompt: true);
+  /// Flips [shouldShowPrompt] to `true` (with the given [kind]) so
+  /// [SupportPromptWatcher]'s listener fires and starts the shared
+  /// post-recording delay.
+  void triggerShow({SupportPromptKind kind = SupportPromptKind.initial}) =>
+      state = SupportPromptState(shouldShowPrompt: true, kind: kind);
 
   @override
-  Future<void> markResolved() async {
-    markResolvedCalled = true;
+  Future<void> dismiss() async {
+    dismissCalled = true;
+    state = state.copyWith(shouldShowPrompt: false);
+  }
+
+  @override
+  Future<void> markLinkOpened() async {
+    markLinkOpenedCalled = true;
     state = state.copyWith(shouldShowPrompt: false);
   }
 }
@@ -59,6 +72,7 @@ const _launcherChannel = MethodChannel('plugins.flutter.io/url_launcher');
 Future<_FakeSupportPromptNotifier> _showDialog(
   WidgetTester tester, {
   required L10n l10n,
+  SupportPromptKind kind = SupportPromptKind.initial,
 }) async {
   final notifier = _FakeSupportPromptNotifier();
 
@@ -71,7 +85,7 @@ Future<_FakeSupportPromptNotifier> _showDialog(
   );
   await tester.pump(); // initial build, ref.listen registered
 
-  notifier.triggerShow();
+  notifier.triggerShow(kind: kind);
   await tester.pump(); // state change propagated, delay timer started
   await tester.pump(kPostRecordingPromptDelay); // timer fires → _showDialog()
   await tester.pumpAndSettle(); // showGeneralDialog + 300 ms animation
@@ -108,8 +122,8 @@ void main() {
     expect(find.text(l10n.reviewPromptNever), findsOneWidget);
   });
 
-  testWidgets('GitHub Sponsors button launches kGitHubSponsorsUrl and '
-      'resolves permanently (AC2)', (tester) async {
+  testWidgets('GitHub Sponsors button launches kGitHubSponsorsUrl and calls '
+      'markLinkOpened, not dismiss (AC2)', (tester) async {
     String? capturedUrl;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(_launcherChannel, (call) async {
@@ -125,11 +139,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(capturedUrl, kGitHubSponsorsUrl);
-    expect(notifier.markResolvedCalled, isTrue);
+    expect(notifier.markLinkOpenedCalled, isTrue);
+    expect(notifier.dismissCalled, isFalse);
   });
 
-  testWidgets('Ko-fi button launches kKofiUrl and resolves permanently '
-      '(AC3)', (tester) async {
+  testWidgets('Ko-fi button launches kKofiUrl and calls markLinkOpened, not '
+      'dismiss (AC3)', (tester) async {
     String? capturedUrl;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(_launcherChannel, (call) async {
@@ -145,11 +160,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(capturedUrl, kKofiUrl);
-    expect(notifier.markResolvedCalled, isTrue);
+    expect(notifier.markLinkOpenedCalled, isTrue);
+    expect(notifier.dismissCalled, isFalse);
   });
 
-  testWidgets('dismiss ("never ask again") resolves permanently without '
-      'launching any URL (AC4)', (tester) async {
+  testWidgets('dismiss ("never ask again") calls dismiss (not '
+      'markLinkOpened) without launching any URL (AC4)', (tester) async {
     String? capturedUrl;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(_launcherChannel, (call) async {
@@ -165,7 +181,22 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(capturedUrl, isNull);
-    expect(notifier.markResolvedCalled, isTrue);
+    expect(notifier.dismissCalled, isTrue);
+    expect(notifier.markLinkOpenedCalled, isFalse);
     expect(notifier.state.shouldShowPrompt, isFalse);
+  });
+
+  testWidgets('shows the distinct recurring follow-up copy when kind is '
+      'recurringFollowUp (AC5)', (tester) async {
+    await _showDialog(
+      tester,
+      l10n: l10n,
+      kind: SupportPromptKind.recurringFollowUp,
+    );
+
+    expect(find.text(l10n.supportPromptRecurringTitle), findsOneWidget);
+    expect(find.text(l10n.supportPromptRecurringDescription), findsOneWidget);
+    expect(find.text(l10n.aboutSupportTitle), findsNothing);
+    expect(find.text(l10n.aboutSupportDescription), findsNothing);
   });
 }
