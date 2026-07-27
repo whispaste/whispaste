@@ -818,6 +818,8 @@ class _PrivacyPoint extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
+            // Off-scale on purpose: optical nudge aligning the check icon with
+            // the first text line's cap height (body 13px at 1.5 line height).
             padding: const EdgeInsets.only(top: 3),
             child: Icon(
               LucideIcons.check,
@@ -876,7 +878,7 @@ class _ShortcutRow extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(
               horizontal: WpSpacing.xs,
-              vertical: 3,
+              vertical: WpSpacing.xxs,
             ),
             decoration: BoxDecoration(
               color: isDark

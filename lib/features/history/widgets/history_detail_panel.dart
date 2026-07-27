@@ -283,6 +283,8 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
             child: Row(
               children: [
                 Container(
+                  // Off-scale on purpose: key-cap chip hugs its caption text;
+                  // xxs would double the height of this deliberately tight cap.
                   padding: const EdgeInsets.symmetric(
                     horizontal: WpSpacing.xs,
                     vertical: 2,
@@ -1137,7 +1139,7 @@ class _TranscriptEditBar extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: WpSpacing.sm,
-                      vertical: 3,
+                      vertical: WpSpacing.xxs,
                     ),
                     decoration: BoxDecoration(
                       color: isEditing
@@ -1198,6 +1200,8 @@ class _TranscriptEditBar extends StatelessWidget {
               onTap: onToggleEdit,
               child: AnimatedContainer(
                 duration: WpMotion.durationFor(context, WpMotion.fast),
+                // Off-scale on purpose: 12x6 pill proportion shared with the
+                // history filter chips; xs would visibly inflate the control.
                 padding: const EdgeInsets.symmetric(
                   horizontal: WpSpacing.sm,
                   vertical: 6,

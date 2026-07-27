@@ -89,6 +89,8 @@ class _SettingRowState extends State<SettingRow> {
                       Text(widget.label, style: tt.bodyLarge),
                       if (widget.subtitle != null)
                         Padding(
+                          // 2px title-subtitle gap: tighter than WpSpacing.xxs
+                          // so the pair reads as one unit.
                           padding: const EdgeInsets.only(top: 2),
                           child: Text(widget.subtitle!, style: subtitleStyle),
                         ),
@@ -372,6 +374,8 @@ Widget settingsApiKeyField({
                 isDense: true,
                 contentPadding: EdgeInsets.only(
                   left: WpSpacing.sm,
+                  // Clears the visibility toggle overlaid via Positioned below
+                  // so text never runs underneath the icon.
                   right: 40,
                   top: WpSpacing.xs,
                   bottom: WpSpacing.xs,

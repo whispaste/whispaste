@@ -115,6 +115,7 @@ class _ClippingBanner extends ConsumerWidget {
     final warnColor = isDark ? WpColorsDark.warning : WpColorsLight.warning;
 
     return Padding(
+      // Zero top: the banner sits flush beneath the gain slider it annotates.
       padding: const EdgeInsets.fromLTRB(
         WpSpacing.sm,
         0,

@@ -72,6 +72,8 @@ class _HistoryFilterChipState extends State<HistoryFilterChip> {
         _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
       ),
       curve: WpMotion.defaultCurve,
+      // Off-scale on purpose: 12x6 pill proportion shared with the detail
+      // panel's edit pill; xs would visibly inflate the chip.
       padding: const EdgeInsets.symmetric(
         horizontal: WpSpacing.sm,
         vertical: 6,

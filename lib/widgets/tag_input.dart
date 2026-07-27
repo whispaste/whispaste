@@ -464,6 +464,8 @@ class _TagChipState extends State<_TagChip> {
                 onTap: widget.onRemove,
                 behavior: HitTestBehavior.opaque,
                 child: Padding(
+                  // 2px pad enlarges the remove icon's tap area without
+                  // inflating the compact chip height.
                   padding: const EdgeInsets.all(2),
                   child: AnimatedOpacity(
                     opacity: _isHovered ? 0.9 : 0.35,

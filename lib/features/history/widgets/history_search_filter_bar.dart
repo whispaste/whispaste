@@ -393,7 +393,7 @@ class _HistorySearchFilterBarState
         WpSpacing.md,
         WpSpacing.xxs,
         WpSpacing.md,
-        2,
+        WpSpacing.xxs,
       ),
       child: Text(
         title,
@@ -655,6 +655,8 @@ class _HistorySearchFilterBarState
             alignment: Alignment.topCenter,
             child: _hasSuggestions
                 ? Container(
+                    // Off-scale on purpose: hairline gap so the suggestion
+                    // panel reads as attached to the search field, not floating.
                     margin: const EdgeInsets.only(top: 2),
                     decoration: BoxDecoration(
                       color: surface,
@@ -822,6 +824,8 @@ class _HistorySearchFilterBarState
                   borderRadius: WpRadius.borderSm,
                   onTap: widget.onToggleMultiSelect,
                   child: Padding(
+                    // Off-scale on purpose: matches the dense icon-button
+                    // padding in HistoryRowAction so toolbar icons stay uniform.
                     padding: const EdgeInsets.all(6),
                     child: Icon(
                       widget.multiSelectMode
@@ -874,6 +878,8 @@ class _CommandChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
     return Container(
+      // Vertical 2 stays off-scale on purpose: the active-filter pill hugs its
+      // small text; xxs would visibly inflate it.
       padding: const EdgeInsets.symmetric(
         horizontal: WpSpacing.xs + 2,
         vertical: 2,
@@ -1228,6 +1234,8 @@ class HistoryViewModeToggle extends StatelessWidget {
         ? WpColorsDark.surfaceVariant
         : WpColorsLight.surfaceVariant;
     return Container(
+      // Off-scale on purpose: classic 2px segmented-control inset between the
+      // track and its segments; xxs would make the track look chunky.
       padding: const EdgeInsets.all(2),
       decoration: BoxDecoration(
         color: bgColor,
@@ -1432,6 +1440,8 @@ class _HelpRow extends StatelessWidget {
         if (example.isNotEmpty) ...[
           const SizedBox(width: WpSpacing.xs),
           Container(
+            // Vertical 1 stays off-scale on purpose: the example mini-chip hugs
+            // its caption text; xxs would double the chip height.
             padding: const EdgeInsets.symmetric(
               horizontal: WpSpacing.xxs,
               vertical: 1,

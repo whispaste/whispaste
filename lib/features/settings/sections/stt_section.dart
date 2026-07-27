@@ -581,6 +581,8 @@ class _CustomVocabularyFieldState
                       style: Theme.of(context).textTheme.bodyLarge,
                     ),
                     Padding(
+                      // 2px title-subtitle gap: tighter than WpSpacing.xxs so
+                      // the pair reads as one unit.
                       padding: const EdgeInsets.only(top: 2),
                       child: Text(
                         l10n.settingsCustomVocabularyHint,

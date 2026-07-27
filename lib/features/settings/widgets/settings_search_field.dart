@@ -275,7 +275,7 @@ class _SettingsSearchFieldState extends ConsumerState<SettingsSearchField> {
           alignment: Alignment.topCenter,
           child: _showDropdown && matches.isNotEmpty
               ? Container(
-                  margin: const EdgeInsets.only(top: 2),
+                  margin: const EdgeInsets.only(top: WpSpacing.xxs),
                   decoration: BoxDecoration(
                     color: surface,
                     borderRadius: WpRadius.borderSm,

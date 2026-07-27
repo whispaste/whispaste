@@ -686,6 +686,8 @@ class _TierCardState extends State<_TierCard> {
                           if (widget.isRecommended) ...[
                             const SizedBox(width: WpSpacing.xs),
                             Container(
+                              // Sub-scale pill padding: keeps the micro-type
+                              // badge hugging its text.
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 6,
                                 vertical: 2,

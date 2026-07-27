@@ -98,9 +98,19 @@ class _ButtonRenderAppState
     };
   }
 
+  /// The static role label plus the current state's announcement text (reuses
+  /// [_announcementFor]), so a screen-reader user who explores this element
+  /// on demand — not just one listening for the [announce] fired on state
+  /// change — also hears the current state instead of only a generic
+  /// "recording button".
+  String get _composedSemanticsLabel {
+    final stateText = _announcementFor(_state);
+    return stateText == null ? semanticsLabel : '$semanticsLabel, $stateText';
+  }
+
   @override
   Widget build(BuildContext context) => buildRenderEngineRoot(
-    semanticsLabel: semanticsLabel,
+    semanticsLabel: _composedSemanticsLabel,
     onTap: channel.clicked,
     onPanStart: channel.startDrag,
     onSecondaryOrLongPress: channel.showContextMenu,

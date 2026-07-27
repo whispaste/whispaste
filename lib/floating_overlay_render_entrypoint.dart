@@ -90,12 +90,23 @@ class _OverlayRenderAppState
     if (s.visible && s.state != previous.state) announce(s.label);
   }
 
+  /// The static role label plus the currently-painted status text (mirrors
+  /// [FloatingOverlayView.statusTextFor]), so a screen-reader user who
+  /// explores this element on demand — not just one listening for the
+  /// [announce] fired on state change — also hears the current state
+  /// instead of only a generic "recording overlay".
+  String get _composedSemanticsLabel {
+    if (!_snapshot.visible) return semanticsLabel;
+    final statusText = FloatingOverlayView.statusTextFor(_snapshot);
+    return statusText.isEmpty ? semanticsLabel : '$semanticsLabel, $statusText';
+  }
+
   @override
   Widget build(BuildContext context) => buildRenderEngineRoot(
     // While hidden the snapshot still renders an (empty) box; the native
     // shell is what orders the panel out, so we simply paint nothing
     // meaningful until the next visible snapshot arrives.
-    semanticsLabel: semanticsLabel,
+    semanticsLabel: _composedSemanticsLabel,
     onTap: channel.bodyClicked,
     onPanStart: channel.startDrag,
     onSecondaryOrLongPress: channel.showContextMenu,

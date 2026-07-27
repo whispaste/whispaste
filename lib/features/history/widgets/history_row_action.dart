@@ -96,6 +96,9 @@ class _HistoryRowActionState extends State<HistoryRowAction> {
                 highlightColor: Colors.transparent,
                 child: AnimatedContainer(
                   duration: WpMotion.durationFor(context, WpMotion.fast),
+                  // Off-scale on purpose: icon-button padding tuned so the
+                  // dense/regular variants land on their intended hit sizes;
+                  // snapping to xxs/xs/sm would resize every row action.
                   padding: EdgeInsets.all(widget.dense ? 6 : 10),
                   decoration: BoxDecoration(
                     color: _isHovered

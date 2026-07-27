@@ -126,6 +126,8 @@ class _SectionHeader extends StatelessWidget {
                   Text(title, style: headerStyle),
                   if (subtitle != null)
                     Padding(
+                      // 2px title-subtitle gap: tighter than WpSpacing.xxs so
+                      // the pair reads as one unit.
                       padding: const EdgeInsets.only(top: 2),
                       child: Text(
                         subtitle!,

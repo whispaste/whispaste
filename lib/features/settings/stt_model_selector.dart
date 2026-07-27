@@ -283,6 +283,7 @@ class _TierRowState extends State<_TierRow> {
         child: AnimatedContainer(
           duration: WpMotion.durationFor(context, WpMotion.hoverIn),
           curve: WpMotion.defaultCurve,
+          // 1px margin keeps adjacent rows' selection borders from touching.
           margin: const EdgeInsets.symmetric(vertical: 1),
           padding: const EdgeInsets.symmetric(
             horizontal: WpSpacing.sm,
@@ -503,6 +504,8 @@ class _TierRowInfo extends StatelessWidget {
             if (isRecommended) ...[
               const SizedBox(width: WpSpacing.xs),
               Container(
+                // Sub-scale pill padding: keeps the micro-type badge hugging
+                // its text.
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                 decoration: BoxDecoration(
                   color: accent.withValues(alpha: 0.12),
@@ -520,6 +523,8 @@ class _TierRowInfo extends StatelessWidget {
             ],
             const SizedBox(width: WpSpacing.sm),
             Container(
+              // Sub-scale pill padding: keeps the micro-type badge hugging
+              // its text.
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
               decoration: BoxDecoration(
                 color: isDownloaded

@@ -106,10 +106,7 @@ class _PasteCapabilityIndicatorState
         _busy || capState.pollingPhase == PollingPhase.awaitingGrant;
 
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: WpSpacing.sm,
-        vertical: 10,
-      ),
+      padding: const EdgeInsets.all(WpSpacing.sm),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(WpRadius.md),

@@ -896,6 +896,8 @@ class _WaveformBarsState extends State<_WaveformBars> {
       children: [
         for (var i = 0; i < _barCount; i++)
           Padding(
+            // 1.5px per side = 3px gap matching the 3px bar width — pixel-tuned
+            // waveform density, deliberately below the spacing scale.
             padding: const EdgeInsets.symmetric(horizontal: 1.5),
             child: AnimatedContainer(
               duration: WpMotion.durationFor(context, _animateDuration),

@@ -162,6 +162,9 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
                 // Multi-select checkbox
                 if (widget.multiSelectMode)
                   Padding(
+                    // Off-scale on purpose: compact-view leading-icon gap sits
+                    // between xxs (too tight next to the checkbox) and xs (too
+                    // loose for this row density).
                     padding: const EdgeInsets.only(right: 6),
                     child: SizedBox(
                       width: 18,
@@ -183,6 +186,8 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
                 // Favorite indicator
                 if (widget.entry.pinned)
                   const Padding(
+                    // Off-scale on purpose: same compact leading-icon gap as
+                    // the checkbox above, keeping star and checkbox aligned.
                     padding: EdgeInsets.only(right: 6),
                     child: FaIcon(
                       FontAwesomeIcons.solidStar,

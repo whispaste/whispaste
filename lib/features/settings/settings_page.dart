@@ -316,6 +316,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               children: [
                 // ── Sticky search field (stays visible while scrolling) ───
                 Padding(
+                  // Zero bottom: the scroll view below carries its own
+                  // WpSpacing.sm top padding.
                   padding: const EdgeInsets.fromLTRB(
                     WpSpacing.xl,
                     WpSpacing.sm,

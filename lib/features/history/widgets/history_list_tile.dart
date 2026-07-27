@@ -151,6 +151,8 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
               _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
             ),
             curve: WpMotion.defaultCurve,
+            // Off-scale on purpose: hairline gap between tiles so adjacent
+            // selection/focus borders never touch; xxs would read as a list gap.
             margin: const EdgeInsets.symmetric(
               horizontal: WpSpacing.xs,
               vertical: 1,
@@ -175,6 +177,8 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
                 // Multi-select checkbox
                 if (widget.multiSelectMode)
                   Padding(
+                    // Off-scale on purpose: top nudge centers the 24px checkbox
+                    // on the tile's first text line (optical alignment).
                     padding: const EdgeInsets.only(
                       right: WpSpacing.xs,
                       top: 10,
@@ -470,6 +474,7 @@ class _EntryTagChips extends StatelessWidget {
       runSpacing: 2,
       children: [
         for (final tag in tags.take(3))
+          // loam-ignore: a11y-interactive-semantics – semantics provided in _EntryTagChipState.build
           _EntryTagChip(
             tag: tag,
             isDark: isDark,
@@ -515,7 +520,12 @@ class _EntryTagChipState extends State<_EntryTagChip> {
   @override
   Widget build(BuildContext context) {
     final chip = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      // Vertical 1 stays off-scale on purpose: the mini tag hugs its micro
+      // text; xxs would double the chip height.
+      padding: const EdgeInsets.symmetric(
+        horizontal: WpSpacing.xxs,
+        vertical: 1,
+      ),
       decoration: BoxDecoration(
         color: widget.isDark
             ? WpColorsDark.accentMiniTagFill
