@@ -1,18 +1,18 @@
-Speech-to-text for your desktop: WhisPaste turns your voice into text and pastes it where your cursor is — in any app. Press a hotkey, speak, done. No copy-paste, no app switching.
+Speech-to-text for your desktop: WhisPaste turns your voice into text and pastes it right where your cursor is, in any app. Press a hotkey, speak, done. No copy-paste, no app switching.
 
 Works everywhere: Outlook, Teams, VS Code, Chrome, Slack, or any other window.
 
 🔒 YOUR AUDIO STAYS LOCAL
-Three Whisper models (Small, Medium, and Large v3 Turbo) plus the extra-fast, CPU-only Parakeet engine transcribe your speech entirely on your machine — your audio never leaves your device. Up to 99 languages with Whisper. Cloud options (OpenAI, Deepgram) are available but always opt-in, and audio goes directly to the provider, never through WhisPaste servers. No account required.
+Three Whisper models (Small, Medium, and Large v3 Turbo) plus the extra-fast, CPU-only Parakeet engine transcribe your speech entirely on your machine. Your audio never leaves your device. Up to 99 languages with Whisper. Cloud options (OpenAI, Deepgram) are available but always opt-in, and audio goes directly to the provider, never through WhisPaste servers. No account required.
 
 💶 ONE-TIME, NOT A SUBSCRIPTION
-No subscription, no time limits, no recurring costs. WhisPaste is open source (MIT license) and built transparently on GitHub — your purchase directly supports its ongoing development.
+No subscription, no time limits, no recurring costs. WhisPaste is open source (MIT license) and built transparently on GitHub. Your purchase directly supports its ongoing development.
 
 📋 HISTORY & EXPORT
 Every recording is saved automatically. Search, tag, pin, archive, and export to TXT, Markdown, JSON, CSV, or Word.
 
 ⌨️ VOICE SHORTCUTS
-Say a short trigger — WhisPaste expands it into the full text before pasting. Perfect for signatures, greetings, and frequently typed phrases.
+Say a short trigger: WhisPaste expands it into the full text before pasting. Perfect for signatures, greetings, and frequently typed phrases.
 
 🎛️ BUILT FOR DAILY WORK
 Push-to-talk or toggle · Floating Button above your desktop · System tray integration · Auto-start with Windows · English, German, and Hebrew UI
