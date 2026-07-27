@@ -8,11 +8,10 @@
  * CPU speed) visually explicit on the homepage, then hands off to `/engines/`
  * for the full comparison.
  *
- * Card styling is copied from `Features.astro`'s `.feature-card` glass
- * recipe (Features.astro itself is unused/dead code — its markup is never
- * imported — so its scoped styles aren't available here; reusing the exact
- * class name keeps the light-mode remap in `global.css` `.feature-card`
- * working for free).
+ * Card styling reuses the `.feature-card` glass recipe from the removed
+ * `Features.astro` (dead code, deleted); keeping the exact class name means
+ * the light-mode remap in `global.css` `.feature-card` still applies here
+ * for free.
  */
 import { t, localePath } from '../scripts/i18n.ts';
 
