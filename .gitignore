@@ -71,6 +71,7 @@ fastlane/README.md
 
 # Internal files — blanket ignore (NEVER track contents)
 .internal/
+.impeccable/
 docs/
 
 # AI agent / skill config (local only)

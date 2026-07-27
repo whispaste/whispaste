@@ -48,8 +48,6 @@ assets/
 resources/
 
 # Plattform-Projekte
-android/
-ios/
 macos/
 linux/
 windows/
@@ -91,15 +89,12 @@ scripts/docs-attest.sh
 scripts/docs-drift.sh
 scripts/extract-cumulative-changelog.mjs
 scripts/generate-release-notes.mjs
-scripts/generate-release-notes.ps1
 scripts/generate-screenshots.py
 scripts/generate-store-icons.py
 scripts/generate-store-listing.mjs
 scripts/apply-store-metadata.mjs
 scripts/apply-store-metadata.test.mjs
 scripts/build-store-trailer.sh
-scripts/store-screenshots.py
-scripts/capture-store-screenshots.py
 scripts/generate-whisper-server-manifest.sh
 scripts/build-libwhisper-macos.sh
 scripts/build-libwhisper-linux.sh
@@ -113,8 +108,6 @@ scripts/probe-packaging-validate.sh
 scripts/setup-gh-secrets.sh
 scripts/setup-gh-secrets.ps1
 scripts/setup-gh-secrets.py
-scripts/security-scan.ps1
-scripts/cppcheck.ps1
 
 # Tooling (Build-/Store-Helfer; deploy-spezifische Skripte wie win-smoke/
 # sind über .gitignore ausgeschlossen und dürfen NIE in die Allowlist)
