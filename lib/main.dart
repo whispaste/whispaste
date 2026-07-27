@@ -148,6 +148,13 @@ Future<void> _runApp(List<String> args) async {
   final settings =
       container.read(settingsProvider).value ?? AppSettings.defaults;
 
+  // Native Cmd+Q / Dock "Quit" bypasses the Dart-level window-close handler
+  // entirely — wire up the graceful-shutdown bridge so it doesn't also
+  // bypass the STT-engine-stop-before-exit fix (see graceful_shutdown.dart).
+  if (Platform.isMacOS) {
+    MacOSLifecycleChannel.registerTerminationHandler(container);
+  }
+
   // Sync crash reporting consent BEFORE any other work that could throw.
   // Closes the GDPR window where bootstrap errors could reach Sentry
   // without user consent (default is true until this runs).
@@ -445,39 +452,20 @@ final _log = AppLogger('Main');
 /// on all desktop platforms — it simply finds no old data and returns.
 Future<void> _runBundleIdMigration() async {
   try {
-    // On macOS, flutter_secure_storage uses the bundle ID as the Keychain
-    // service name.  Both the old and new stores use the *current* bundle ID
-    // from the running binary.  For the migration window (first launch after
-    // the ID change) we can't reach the old Keychain entries through the
-    // standard API without native code.
-    //
-    // Practical decision: use the same FlutterSecureStorage instance for both
-    // old and new.  This means the "old secure store" and "new secure store"
-    // point to the same Keychain domain on the first launch with the new
-    // bundle ID, so the read() for old keys will find them if they were
-    // already copied by a previous run, and the no-overwrite guard will
-    // protect against double-writes.  The actual cross-bundle-ID Keychain
-    // transfer requires native entitlement configuration (Keychain sharing
-    // groups) and is therefore out of scope for the pure Dart layer —
-    // the pure function and its seam are the load-bearing deliverable.
-    //
-    // For SharedPreferences the same constraint applies: the platform plugin
-    // only exposes the running app's NSUserDefaults suite.  The old plist
-    // file at ~/Library/Preferences/com.whispaste.whispaste.plist is not
-    // readable from within the new binary without a native bridge.
-    //
-    // The pure migration function handles both cases gracefully: absent old
-    // data → no-op, marker set → won't re-run.
+    // Old-identity reads go through BundleIdMigrationHost.swift (macOS-only
+    // native bridge): NSUserDefaults(suiteName: kOldBundleId) for prefs, and
+    // a raw SecItemCopyMatching query for Keychain items, matching the exact
+    // service/account scheme flutter_secure_storage_darwin writes with. Both
+    // are best-effort — a failed native read surfaces as `null`, which
+    // runBundleIdMigration already treats as "no old data" (no-op).
     const secureStorage = FlutterSecureStorage();
     final prefs = await SharedPreferences.getInstance();
 
     const newSecure = SecureStorageAdapter(secureStorage);
     final newPrefsAdapter = SharedPreferencesAdapter(prefs);
 
-    // Old adapters point to the same stores on the current platform.
-    // A future native plugin can replace these with bundle-ID-scoped adapters.
-    const oldSecure = newSecure;
-    final oldPrefsAdapter = newPrefsAdapter;
+    const oldSecure = OldKeychainAdapter();
+    const oldPrefsAdapter = OldPreferencesAdapter();
 
     await runBundleIdMigration(
       oldSecureStore: oldSecure,
