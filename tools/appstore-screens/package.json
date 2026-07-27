@@ -14,6 +14,6 @@
   },
   "dependencies": {
     "playwright": "^1.52.0",
-    "sharp": "^0.33.0"
+    "sharp": "^0.35.3"
   }
 }
