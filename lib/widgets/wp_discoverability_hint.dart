@@ -103,7 +103,10 @@ class _WpDiscoverabilityHintState extends State<WpDiscoverabilityHint> {
           Expanded(
             child: Text(
               widget.text,
-              style: TextStyle(fontSize: 11, color: textMuted),
+              style: TextStyle(
+                fontSize: WpTypography.caption,
+                color: textMuted,
+              ),
             ),
           ),
           const SizedBox(width: WpSpacing.xxs),

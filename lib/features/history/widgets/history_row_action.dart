@@ -3,6 +3,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../widgets/wp_focus_ring.dart';
 
 // ---------------------------------------------------------------------------
 // Row action button (hover-only, used in entry rows)
@@ -41,6 +42,13 @@ class HistoryRowAction extends StatefulWidget {
 
 class _HistoryRowActionState extends State<HistoryRowAction> {
   bool _isHovered = false;
+  final FocusNode _focusNode = FocusNode(debugLabel: 'HistoryRowAction');
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -69,29 +77,40 @@ class _HistoryRowActionState extends State<HistoryRowAction> {
           cursor: SystemMouseCursors.click,
           onEnter: (_) => setState(() => _isHovered = true),
           onExit: (_) => setState(() => _isHovered = false),
-          child: GestureDetector(
-            onTap: widget.onTap,
-            child: Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: widget.dense ? 0 : WpSpacing.xxs,
-                vertical: widget.dense ? 0 : WpSpacing.xxs,
-              ),
-              child: AnimatedContainer(
-                duration: WpMotion.durationFor(context, WpMotion.fast),
-                padding: EdgeInsets.all(widget.dense ? 6 : 10),
-                decoration: BoxDecoration(
-                  color: _isHovered
-                      ? (widget.isDark
-                            ? WpColorsDark.active
-                            : WpColorsLight.active)
-                      : (widget.isDark
-                            ? WpColorsDark.hoverTransparent
-                            : WpColorsLight.hoverTransparent),
-                  borderRadius: WpRadius.borderSm,
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: widget.dense ? 0 : WpSpacing.xxs,
+              vertical: widget.dense ? 0 : WpSpacing.xxs,
+            ),
+            child: WpFocusRing(
+              focusNode: _focusNode,
+              radius: WpRadius.sm,
+              child: InkWell(
+                onTap: widget.onTap,
+                focusNode: _focusNode,
+                borderRadius: WpRadius.borderSm,
+                // WpFocusRing owns all focus visuals — suppress InkWell's own.
+                focusColor: Colors.transparent,
+                hoverColor: Colors.transparent,
+                splashColor: Colors.transparent,
+                highlightColor: Colors.transparent,
+                child: AnimatedContainer(
+                  duration: WpMotion.durationFor(context, WpMotion.fast),
+                  padding: EdgeInsets.all(widget.dense ? 6 : 10),
+                  decoration: BoxDecoration(
+                    color: _isHovered
+                        ? (widget.isDark
+                              ? WpColorsDark.active
+                              : WpColorsLight.active)
+                        : (widget.isDark
+                              ? WpColorsDark.hoverTransparent
+                              : WpColorsLight.hoverTransparent),
+                    borderRadius: WpRadius.borderSm,
+                  ),
+                  child: widget.faIcon != null
+                      ? FaIcon(widget.faIcon!, size: 16, color: iconColor)
+                      : Icon(widget.icon!, size: 16, color: iconColor),
                 ),
-                child: widget.faIcon != null
-                    ? FaIcon(widget.faIcon!, size: 16, color: iconColor)
-                    : Icon(widget.icon!, size: 16, color: iconColor),
               ),
             ),
           ),

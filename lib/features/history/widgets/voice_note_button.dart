@@ -9,6 +9,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -78,6 +79,26 @@ class _VoiceNoteButtonState extends ConsumerState<VoiceNoteButton> {
 
   bool get _isBusy => _phase != _VoiceNotePhase.idle;
 
+  String _labelFor(_VoiceNotePhase phase) {
+    final l10n = L10n.of(context);
+    return switch (phase) {
+      _VoiceNotePhase.idle => l10n.voiceNoteButton,
+      _VoiceNotePhase.recording => l10n.voiceNoteRecording,
+      _VoiceNotePhase.transcribing => l10n.voiceNoteTranscribing,
+    };
+  }
+
+  /// Updates [_phase] and announces the new phase to screen readers — mirrors
+  /// the recording-state announcement in [WpStatusBar]'s `_SttChip`.
+  void _setPhase(_VoiceNotePhase phase) {
+    setState(() => _phase = phase);
+    SemanticsService.sendAnnouncement(
+      View.of(context),
+      _labelFor(phase),
+      Directionality.of(context),
+    );
+  }
+
   // ── Recording pipeline ──────────────────────────────────────────────────
 
   Future<void> _startVoiceNote() async {
@@ -99,7 +120,7 @@ class _VoiceNoteButtonState extends ConsumerState<VoiceNoteButton> {
       return;
     }
 
-    setState(() => _phase = _VoiceNotePhase.recording);
+    _setPhase(_VoiceNotePhase.recording);
 
     try {
       final audio = ref.read(audioServiceProvider.notifier);
@@ -128,7 +149,7 @@ class _VoiceNoteButtonState extends ConsumerState<VoiceNoteButton> {
     // Capture context dependencies before async gap.
     final l10n = L10n.of(context);
 
-    setState(() => _phase = _VoiceNotePhase.transcribing);
+    _setPhase(_VoiceNotePhase.transcribing);
 
     String? wavPath;
     try {
@@ -236,7 +257,7 @@ class _VoiceNoteButtonState extends ConsumerState<VoiceNoteButton> {
 
   void _reset() {
     if (mounted) {
-      setState(() => _phase = _VoiceNotePhase.idle);
+      _setPhase(_VoiceNotePhase.idle);
     }
   }
 
@@ -288,23 +309,27 @@ class _VoiceNoteButtonState extends ConsumerState<VoiceNoteButton> {
         color = _textMuted;
     }
 
-    return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        onTap: _phase == _VoiceNotePhase.transcribing ? null : _onTap,
-        borderRadius: WpRadius.borderSm,
-        child: Padding(
-          padding: const EdgeInsets.all(WpSpacing.xxs),
-          child: _phase == _VoiceNotePhase.transcribing
-              ? SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: color,
-                  ),
-                )
-              : Icon(icon, size: 16, color: color),
+    return Semantics(
+      label: tooltip,
+      button: true,
+      child: Tooltip(
+        message: tooltip,
+        child: InkWell(
+          onTap: _phase == _VoiceNotePhase.transcribing ? null : _onTap,
+          borderRadius: WpRadius.borderSm,
+          child: Padding(
+            padding: const EdgeInsets.all(WpSpacing.xxs),
+            child: _phase == _VoiceNotePhase.transcribing
+                ? SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: color,
+                    ),
+                  )
+                : Icon(icon, size: 16, color: color),
+          ),
         ),
       ),
     );

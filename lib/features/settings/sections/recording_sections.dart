@@ -66,7 +66,7 @@ class AudioSection extends ConsumerWidget {
               trailing: Text(
                 l10n.settingsMicSystemDefault,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: WpTypography.body,
                   color: Theme.of(context).colorScheme.secondary,
                 ),
               ),
@@ -138,7 +138,10 @@ class _ClippingBanner extends ConsumerWidget {
             Expanded(
               child: Text(
                 l10n.settingsClippingBanner,
-                style: TextStyle(fontSize: 12, color: warnColor),
+                style: TextStyle(
+                  fontSize: WpTypography.small,
+                  color: warnColor,
+                ),
               ),
             ),
             const SizedBox(width: WpSpacing.xs),
@@ -146,8 +149,10 @@ class _ClippingBanner extends ConsumerWidget {
               icon: Icon(LucideIcons.x, size: 16, color: warnColor),
               tooltip: l10n.settingsClippingDismiss,
               padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-              splashRadius: 14,
+              constraints: const BoxConstraints(
+                minWidth: WpLayout.minTouchTarget,
+                minHeight: WpLayout.minTouchTarget,
+              ),
               onPressed: () =>
                   ref.read(clippingStateProvider.notifier).dismiss(),
             ),

@@ -56,9 +56,8 @@ class PrivacyStep extends ConsumerWidget {
           l10n.onboardingPrivacyTitle,
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 28,
-            height: 1.12,
-            fontWeight: FontWeight.w800,
+            fontSize: WpTypography.headline,
+            fontWeight: FontWeight.bold,
             color: textPrimary,
           ),
         ),
@@ -67,7 +66,11 @@ class PrivacyStep extends ConsumerWidget {
         Text(
           l10n.onboardingPrivacyHint,
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 15, color: textSecondary, height: 1.5),
+          style: TextStyle(
+            fontSize: WpTypography.subheading,
+            color: textSecondary,
+            height: 1.4,
+          ),
         ),
         const SizedBox(height: WpSpacing.xxl),
 

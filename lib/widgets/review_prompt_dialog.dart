@@ -4,7 +4,6 @@
 /// For portable/installer builds: shows links to GitHub star and Store review.
 library;
 
-import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
@@ -17,8 +16,8 @@ import '../core/navigation/page_state.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import '../services/deploy_channel_service.dart';
-import '../services/prompt_timing.dart';
 import '../services/review_prompt_service.dart';
+import 'animated_prompt_dialog.dart';
 
 /// Override for testing. When non-null, [ReviewPromptWatcher] uses this value
 /// instead of [Platform.isWindows].
@@ -33,8 +32,8 @@ bool? platformIsWindowsOverride;
 /// when [ReviewPromptState.shouldShowPrompt] becomes `true`.
 ///
 /// Place this widget anywhere in the widget tree — it renders no visible UI
-/// of its own and waits [kPostRecordingPromptDelay] to avoid interrupting the
-/// user right at their recording's completion moment.
+/// of its own and waits (see [PostRecordingPromptDelay]) to avoid
+/// interrupting the user right at their recording's completion moment.
 class ReviewPromptWatcher extends ConsumerStatefulWidget {
   const ReviewPromptWatcher({super.key, required this.child});
 
@@ -45,68 +44,32 @@ class ReviewPromptWatcher extends ConsumerStatefulWidget {
       _ReviewPromptWatcherState();
 }
 
-class _ReviewPromptWatcherState extends ConsumerState<ReviewPromptWatcher> {
-  Timer? _delay;
-  bool _dialogShowing = false;
-
+class _ReviewPromptWatcherState extends ConsumerState<ReviewPromptWatcher>
+    with PostRecordingPromptDelay<ReviewPromptWatcher> {
   bool get _isWindows => platformIsWindowsOverride ?? Platform.isWindows;
 
-  @override
-  void dispose() {
-    _delay?.cancel();
-    super.dispose();
-  }
-
   void _maybeShow(ReviewPromptState state, BuildContext context) {
-    if (!state.shouldShowPrompt || _dialogShowing) return;
-    _dialogShowing = true;
-    _delay = Timer(kPostRecordingPromptDelay, () {
-      if (!mounted) {
-        _dialogShowing = false;
-        return;
-      }
-      _showDialog(context, state.channel);
-    });
+    maybeShowAfterDelay(
+      state.shouldShowPrompt,
+      () => _showDialog(context, state.channel),
+    );
   }
 
   Future<void> _showDialog(BuildContext context, DeployChannel channel) async {
-    await showGeneralDialog<void>(
+    await showAnimatedPromptDialog<void>(
       context: context,
-      barrierDismissible: true,
-      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
-      barrierColor: Colors.transparent,
-      transitionDuration: WpMotion.durationFor(context, WpMotion.smooth),
-      pageBuilder: (_, p1, p2) => const SizedBox.shrink(),
-      transitionBuilder: (ctx, animation, p1, p2) {
-        final opacity = CurvedAnimation(
-          parent: animation,
-          curve: Curves.easeOut,
-        );
-        final isDark = Theme.of(ctx).brightness == Brightness.dark;
-
-        return FadeTransition(
-          opacity: opacity,
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: ColoredBox(color: wpDialogBarrierColor(isDark)),
-              ),
-              _ReviewPromptDialog(
-                channel: channel,
-                isWindows: _isWindows,
-                animation: animation,
-                onResult: (action) async {
-                  Navigator.of(ctx).pop();
-                  _dialogShowing = false;
-                  await _handleAction(action);
-                },
-              ),
-            ],
-          ),
-        );
-      },
+      contentBuilder: (ctx, animation) => _ReviewPromptDialog(
+        channel: channel,
+        isWindows: _isWindows,
+        animation: animation,
+        onResult: (action) async {
+          Navigator.of(ctx).pop();
+          markPromptDialogClosed();
+          await _handleAction(action);
+        },
+      ),
     );
-    _dialogShowing = false;
+    markPromptDialogClosed();
   }
 
   Future<void> _handleAction(_ReviewAction action) async {
@@ -263,7 +226,7 @@ class _ReviewPromptDialogState extends State<_ReviewPromptDialog> {
                             color: isDark
                                 ? WpColorsDark.textSecondary
                                 : WpColorsLight.textSecondary,
-                            fontSize: 12,
+                            fontSize: WpTypography.small,
                           ),
                         ),
                       ),

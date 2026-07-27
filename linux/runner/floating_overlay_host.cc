@@ -2,6 +2,7 @@
 
 #include <gdk/gdk.h>
 
+#include <algorithm>
 #include <cstring>
 
 // ── Construction / destruction ───────────────────────────────────────────────
@@ -421,8 +422,31 @@ std::pair<int, int> FloatingOverlayHost::ResolvePosition(
     }
   }
 
-  // "topLeft" (and any unknown mode) — use raw coordinates.
-  return {static_cast<int>(x), static_cast<int>(y)};
+  // "topLeft" (and any unknown mode) — raw coordinates, clamped to keep the
+  // pill on-screen (see ClampToWorkArea).
+  return ClampToWorkArea(x, y);
+}
+
+std::pair<int, int> FloatingOverlayHost::ClampToWorkArea(double x, double y) {
+  GdkDisplay* display = gdk_display_get_default();
+  if (!display) return {static_cast<int>(x), static_cast<int>(y)};
+
+  GdkMonitor* monitor = gdk_display_get_monitor_at_point(
+      display, static_cast<int>(x), static_cast<int>(y));
+  if (!monitor) monitor = gdk_display_get_primary_monitor(display);
+  if (!monitor) return {static_cast<int>(x), static_cast<int>(y)};
+
+  GdkRectangle work_area;
+  gdk_monitor_get_workarea(monitor, &work_area);
+
+  int w = is_compact_ ? kOverlayCompactW : kOverlayNormalW;
+  int h = is_compact_ ? kOverlayCompactH : kOverlayNormalH;
+
+  int max_x = std::max(work_area.x, work_area.x + work_area.width - w);
+  int max_y = std::max(work_area.y, work_area.y + work_area.height - h);
+  int cx = std::clamp(static_cast<int>(x), work_area.x, max_x);
+  int cy = std::clamp(static_cast<int>(y), work_area.y, max_y);
+  return {cx, cy};
 }
 
 // ── Channel invocation helpers ────────────────────────────────────────────────

@@ -294,7 +294,7 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                   child: Text(
                     key,
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: WpTypography.caption,
                       fontWeight: FontWeight.w600,
                       fontFamily: 'monospace',
                       color: accentCol,
@@ -305,7 +305,10 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                 Expanded(
                   child: Text(
                     description,
-                    style: TextStyle(fontSize: 13, color: textCol),
+                    style: TextStyle(
+                      fontSize: WpTypography.body,
+                      color: textCol,
+                    ),
                   ),
                 ),
               ],
@@ -331,7 +334,7 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                       Text(
                         l10n.historyShortcutHelp,
                         style: TextStyle(
-                          fontSize: 16,
+                          fontSize: WpTypography.heading,
                           fontWeight: FontWeight.w600,
                           color: textCol,
                         ),
@@ -342,7 +345,7 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                   Text(
                     l10n.historyShortcutGeneral,
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: WpTypography.caption,
                       fontWeight: FontWeight.w600,
                       color: mutedCol,
                       letterSpacing: 0.5,
@@ -354,7 +357,7 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                   Text(
                     l10n.historyShortcutEditing,
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: WpTypography.caption,
                       fontWeight: FontWeight.w600,
                       color: mutedCol,
                       letterSpacing: 0.5,
@@ -670,7 +673,7 @@ class _DetailPanelHeader extends StatelessWidget {
                       controller: titleController,
                       focusNode: titleFocusNode,
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: WpTypography.heading,
                         fontWeight: FontWeight.w700,
                         color: textPrimary,
                       ),
@@ -679,7 +682,7 @@ class _DetailPanelHeader extends StatelessWidget {
                         isDense: true,
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: WpSpacing.xs,
-                          vertical: 4,
+                          vertical: WpSpacing.xxs,
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: WpRadius.borderSm,
@@ -717,7 +720,7 @@ class _DetailPanelHeader extends StatelessWidget {
                                       ? entry.title
                                       : l10n.historyUntitled,
                                   style: TextStyle(
-                                    fontSize: 16,
+                                    fontSize: WpTypography.heading,
                                     fontWeight: FontWeight.w700,
                                     color: textPrimary,
                                   ),
@@ -734,7 +737,10 @@ class _DetailPanelHeader extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     timestamp,
-                    style: TextStyle(fontSize: 12, color: textMuted),
+                    style: TextStyle(
+                      fontSize: WpTypography.small,
+                      color: textMuted,
+                    ),
                   ),
                 ],
               ),
@@ -999,91 +1005,96 @@ class _DetailTranscriptZone extends StatelessWidget {
         : WpColorsLight.textPrimary;
     final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (isEditing) ...[
-          WpMarkdownToolbar(
-            controller: transcriptController,
-            isDark: isDark,
-            focusNode: editorFocusNode,
+    // Cap prose measure at ~85 chars/line for the 16px body (Fill-By-Default
+    // Rule: only the transcript degrades on ultrawide, so only it gets capped).
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 720),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (isEditing) ...[
+            WpMarkdownToolbar(
+              controller: transcriptController,
+              isDark: isDark,
+              focusNode: editorFocusNode,
+            ),
+            const SizedBox(height: WpSpacing.xs),
+          ],
+          Row(
+            children: [
+              Expanded(
+                child: isEditing
+                    ? Semantics(
+                        label: l10n.historyEditTranscript,
+                        textField: true,
+                        child: TextField(
+                          controller: transcriptController,
+                          focusNode: editorFocusNode,
+                          maxLines: null,
+                          autofocus: true,
+                          style: TextStyle(
+                            fontSize: WpTypography.heading,
+                            fontFamily: 'monospace',
+                            color: textPrimary,
+                            height: 1.65,
+                          ),
+                          decoration: InputDecoration(
+                            border: OutlineInputBorder(
+                              borderRadius: WpRadius.borderSm,
+                              borderSide: BorderSide(
+                                color: isDark
+                                    ? WpColorsDark.borderSubtle
+                                    : WpColorsLight.borderSubtle,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: WpRadius.borderSm,
+                              borderSide: BorderSide(color: accent, width: 1.5),
+                            ),
+                            contentPadding: const EdgeInsets.all(WpSpacing.sm),
+                          ),
+                          onSubmitted: (_) => onSaveTranscript(),
+                        ),
+                      )
+                    : Tooltip(
+                        message: l10n.historyEditTranscript,
+                        waitDuration: const Duration(milliseconds: 600),
+                        child: GestureDetector(
+                          onTap: isTrashView ? null : onToggleEdit,
+                          behavior: HitTestBehavior.translucent,
+                          child: MouseRegion(
+                            cursor: isTrashView
+                                ? SystemMouseCursors.basic
+                                : SystemMouseCursors.click,
+                            child: HighlightedText(
+                              text: entry.content.isEmpty
+                                  ? '\u200B'
+                                  : entry.content,
+                              style: TextStyle(
+                                fontSize: WpTypography.heading,
+                                color: textPrimary,
+                                height: 1.65,
+                              ),
+                              isDark: isDark,
+                            ),
+                          ),
+                        ),
+                      ),
+              ),
+            ],
           ),
-          const SizedBox(height: WpSpacing.xs),
-        ],
-        Row(
-          children: [
-            Expanded(
-              child: isEditing
-                  ? Semantics(
-                      label: l10n.historyEditTranscript,
-                      textField: true,
-                      child: TextField(
-                        controller: transcriptController,
-                        focusNode: editorFocusNode,
-                        maxLines: null,
-                        autofocus: true,
-                        style: TextStyle(
-                          fontSize: 15.5,
-                          fontFamily: 'monospace',
-                          color: textPrimary,
-                          height: 1.65,
-                        ),
-                        decoration: InputDecoration(
-                          border: OutlineInputBorder(
-                            borderRadius: WpRadius.borderSm,
-                            borderSide: BorderSide(
-                              color: isDark
-                                  ? WpColorsDark.borderSubtle
-                                  : WpColorsLight.borderSubtle,
-                            ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: WpRadius.borderSm,
-                            borderSide: BorderSide(color: accent, width: 1.5),
-                          ),
-                          contentPadding: const EdgeInsets.all(WpSpacing.sm),
-                        ),
-                        onSubmitted: (_) => onSaveTranscript(),
-                      ),
-                    )
-                  : Tooltip(
-                      message: l10n.historyEditTranscript,
-                      waitDuration: const Duration(milliseconds: 600),
-                      child: GestureDetector(
-                        onTap: isTrashView ? null : onToggleEdit,
-                        behavior: HitTestBehavior.translucent,
-                        child: MouseRegion(
-                          cursor: isTrashView
-                              ? SystemMouseCursors.basic
-                              : SystemMouseCursors.click,
-                          child: HighlightedText(
-                            text: entry.content.isEmpty
-                                ? '\u200B'
-                                : entry.content,
-                            style: TextStyle(
-                              fontSize: 15.5,
-                              color: textPrimary,
-                              height: 1.65,
-                            ),
-                            isDark: isDark,
-                          ),
-                        ),
-                      ),
-                    ),
+          if (!isTrashView) ...[
+            const SizedBox(height: WpSpacing.xs),
+            _TranscriptEditBar(
+              entry: entry,
+              isDark: isDark,
+              isEditing: isEditing,
+              wordCountLabel: wordCountLabel,
+              onToggleEdit: onToggleEdit,
             ),
           ],
-        ),
-        if (!isTrashView) ...[
-          const SizedBox(height: WpSpacing.xs),
-          _TranscriptEditBar(
-            entry: entry,
-            isDark: isDark,
-            isEditing: isEditing,
-            wordCountLabel: wordCountLabel,
-            onToggleEdit: onToggleEdit,
-          ),
         ],
-      ],
+      ),
     );
   }
 }
@@ -1139,7 +1150,7 @@ class _TranscriptEditBar extends StatelessWidget {
                           ? l10n.historyEditing
                           : l10n.historyEditTranscript,
                       style: TextStyle(
-                        fontSize: 10,
+                        fontSize: WpTypography.micro,
                         fontWeight: isEditing
                             ? FontWeight.w600
                             : FontWeight.normal,
@@ -1161,7 +1172,10 @@ class _TranscriptEditBar extends StatelessWidget {
                     constraints: const BoxConstraints(maxWidth: 120),
                     child: Text(
                       wordCountLabel,
-                      style: TextStyle(fontSize: 11, color: textMuted),
+                      style: TextStyle(
+                        fontSize: WpTypography.caption,
+                        color: textMuted,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -1211,7 +1225,7 @@ class _TranscriptEditBar extends StatelessWidget {
                             ? l10n.historySaveTranscript
                             : l10n.historyEditTranscript,
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: WpTypography.small,
                           fontWeight: FontWeight.w500,
                           color: isEditing ? accent : textMuted,
                         ),
@@ -1258,7 +1272,10 @@ class HistoryPopupMenuRow extends StatelessWidget {
       children: [
         Icon(icon, size: 16, color: color),
         const SizedBox(width: WpSpacing.sm),
-        Text(label, style: TextStyle(fontSize: 13, color: color)),
+        Text(
+          label,
+          style: TextStyle(fontSize: WpTypography.body, color: color),
+        ),
       ],
     );
   }
@@ -1384,12 +1401,18 @@ class HistoryDetailMetaRow extends StatelessWidget {
         : WpColorsLight.textPrimary;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: WpSpacing.xxs),
       child: Row(
         children: [
           Icon(icon, size: 14, color: textSecondary),
           const SizedBox(width: WpSpacing.sm),
-          Text(label, style: TextStyle(fontSize: 12, color: textSecondary)),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: WpTypography.small,
+              color: textSecondary,
+            ),
+          ),
           const SizedBox(width: WpSpacing.sm),
           Expanded(
             child: Text(
@@ -1398,7 +1421,7 @@ class HistoryDetailMetaRow extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: WpTypography.small,
                 color: textPrimary,
                 fontWeight: FontWeight.w500,
               ),
@@ -1431,7 +1454,10 @@ class _MetaChip extends StatelessWidget {
       children: [
         Icon(icon, size: 12, color: fg),
         const SizedBox(width: WpSpacing.xxs),
-        Text(label, style: TextStyle(fontSize: 11, color: fg)),
+        Text(
+          label,
+          style: TextStyle(fontSize: WpTypography.caption, color: fg),
+        ),
       ],
     );
   }
@@ -1545,29 +1571,29 @@ class _TagSectionState extends ConsumerState<_TagSection> {
               Text(
                 l10n.historyTags,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: WpTypography.body,
                   fontWeight: FontWeight.w600,
                   color: textSecondary,
                   letterSpacing: 0.3,
                 ),
               ),
               const SizedBox(width: WpSpacing.xxs),
-              SizedBox(
-                width: 22,
-                height: 22,
-                child: IconButton(
-                  icon: Icon(LucideIcons.settings, size: 12, color: textMuted),
-                  onPressed: () async {
-                    final db = ref.read(historyDatabaseProvider);
-                    final modified = await showTagManagementDialog(
-                      context: context,
-                      db: db,
-                      isDark: widget.isDark,
-                    );
-                    if (modified) _loadSuggestions();
-                  },
-                  tooltip: l10n.historyManageTags,
-                  padding: EdgeInsets.zero,
+              IconButton(
+                icon: Icon(LucideIcons.settings, size: 12, color: textMuted),
+                onPressed: () async {
+                  final db = ref.read(historyDatabaseProvider);
+                  final modified = await showTagManagementDialog(
+                    context: context,
+                    db: db,
+                    isDark: widget.isDark,
+                  );
+                  if (modified) _loadSuggestions();
+                },
+                tooltip: l10n.historyManageTags,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(
+                  minWidth: WpLayout.minTouchTarget,
+                  minHeight: WpLayout.minTouchTarget,
                 ),
               ),
             ],

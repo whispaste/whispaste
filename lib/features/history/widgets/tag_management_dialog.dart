@@ -172,7 +172,7 @@ class _TagManagementContentState extends State<_TagManagementContent> {
                           child: Text(
                             l10n.tagManageTitle,
                             style: TextStyle(
-                              fontSize: 16,
+                              fontSize: WpTypography.heading,
                               fontWeight: FontWeight.w600,
                               color: textPrimary,
                             ),
@@ -215,7 +215,10 @@ class _TagManagementContentState extends State<_TagManagementContent> {
                       child: Center(
                         child: Text(
                           l10n.tagManageEmpty,
-                          style: TextStyle(color: textMuted, fontSize: 14),
+                          style: TextStyle(
+                            color: textMuted,
+                            fontSize: WpTypography.subheading,
+                          ),
                         ),
                       ),
                     )
@@ -259,7 +262,7 @@ class _TagManagementContentState extends State<_TagManagementContent> {
                             color: widget.isDark
                                 ? WpColorsDark.error
                                 : WpColorsLight.error,
-                            fontSize: 13,
+                            fontSize: WpTypography.body,
                           ),
                         ),
                       ),
@@ -331,14 +334,17 @@ class _TagRowState extends State<_TagRow> {
             Expanded(
               child: Text(
                 widget.tag.name,
-                style: TextStyle(fontSize: 14, color: textPrimary),
+                style: TextStyle(
+                  fontSize: WpTypography.subheading,
+                  color: textPrimary,
+                ),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
             const SizedBox(width: WpSpacing.sm),
             Text(
               l10n.tagUsageCount(widget.count),
-              style: TextStyle(fontSize: 12, color: textMuted),
+              style: TextStyle(fontSize: WpTypography.small, color: textMuted),
             ),
             const SizedBox(width: WpSpacing.xs),
             AnimatedOpacity(

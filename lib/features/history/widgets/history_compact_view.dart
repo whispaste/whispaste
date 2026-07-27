@@ -148,7 +148,7 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
             margin: const EdgeInsets.symmetric(horizontal: WpSpacing.xs),
             padding: const EdgeInsets.symmetric(
               horizontal: WpSpacing.sm,
-              vertical: 4,
+              vertical: WpSpacing.xxs,
             ),
             decoration: BoxDecoration(
               color: bg,
@@ -200,7 +200,7 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
                     overflow: TextOverflow.ellipsis,
                     isDark: isDark,
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: WpTypography.body,
                       fontWeight: FontWeight.w500,
                       color: textPrimary,
                     ),
@@ -210,7 +210,10 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
                 // Duration
                 Text(
                   formatHistoryDuration(widget.entry.durationSec),
-                  style: TextStyle(fontSize: 11, color: textMuted),
+                  style: TextStyle(
+                    fontSize: WpTypography.caption,
+                    color: textMuted,
+                  ),
                 ),
                 // Language
                 if (widget.entry.language.isNotEmpty) ...[
@@ -218,7 +221,7 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
                   Text(
                     widget.entry.language.toUpperCase(),
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: WpTypography.caption,
                       color: textMuted,
                       fontWeight: FontWeight.w500,
                     ),
@@ -228,7 +231,10 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
                 // Time
                 Text(
                   formatHistoryTime(widget.entry.timestamp),
-                  style: TextStyle(fontSize: 11, color: textMuted),
+                  style: TextStyle(
+                    fontSize: WpTypography.caption,
+                    color: textMuted,
+                  ),
                 ),
               ],
             ),

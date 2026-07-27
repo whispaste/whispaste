@@ -101,6 +101,13 @@ class FloatingOverlayHost {
   std::pair<int, int> ResolvePosition(double x, double y,
                                        const std::string& anchor_mode);
 
+  // Clamps a raw "topLeft" point so the pill stays fully within the work
+  // area of the monitor it falls on (or the primary monitor, if the stored
+  // point no longer lands on any connected display — e.g. after that monitor
+  // was unplugged). Mirrors macOS `clampToVisibleScreen` / Windows
+  // `FloatingOverlayWindow::ValidatePosition()`.
+  std::pair<int, int> ClampToWorkArea(double x, double y);
+
   // ── Helpers ───────────────────────────────────────────────────────────────
   // Fire-and-forget invoke on the main engine channel.
   void InvokeMainChannel(const char* method, FlValue* args);

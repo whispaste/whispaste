@@ -354,10 +354,10 @@ class WpTagInputState extends State<WpTagInput> {
         focusNode: _focusNode,
         autofocus: true,
         textInputAction: TextInputAction.done,
-        style: TextStyle(fontSize: 13, color: textPrimary),
+        style: TextStyle(fontSize: WpTypography.body, color: textPrimary),
         decoration: InputDecoration(
           hintText: widget.searchHintText,
-          hintStyle: TextStyle(fontSize: 12, color: textMuted),
+          hintStyle: TextStyle(fontSize: WpTypography.small, color: textMuted),
           isDense: true,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: WpSpacing.sm,
@@ -367,7 +367,7 @@ class WpTagInputState extends State<WpTagInput> {
               ? GestureDetector(
                   onTap: () => _submit(_controller.text),
                   child: Padding(
-                    padding: const EdgeInsets.only(right: 4),
+                    padding: const EdgeInsets.only(right: WpSpacing.xxs),
                     child: Icon(
                       LucideIcons.cornerDownLeft,
                       size: 14,
@@ -451,7 +451,7 @@ class _TagChipState extends State<_TagChip> {
             Text(
               widget.tag.name,
               style: TextStyle(
-                fontSize: 13,
+                fontSize: WpTypography.body,
                 color: accent,
                 fontWeight: FontWeight.w500,
               ),
@@ -524,7 +524,7 @@ class _OverflowChip extends StatelessWidget {
           child: Text(
             '+$count',
             style: TextStyle(
-              fontSize: 12,
+              fontSize: WpTypography.small,
               color: textMuted,
               fontWeight: FontWeight.w500,
             ),
@@ -595,7 +595,10 @@ class _AddTagTriggerState extends State<_AddTagTrigger> {
                   const SizedBox(width: WpSpacing.xxs),
                   Text(
                     widget.label!,
-                    style: TextStyle(fontSize: 12, color: textMuted),
+                    style: TextStyle(
+                      fontSize: WpTypography.small,
+                      color: textMuted,
+                    ),
                   ),
                 ],
               ],
@@ -671,14 +674,17 @@ class _SuggestionTileState extends State<_SuggestionTile> {
                 Expanded(
                   child: Text(
                     widget.tag.name,
-                    style: TextStyle(fontSize: 13, color: textPrimary),
+                    style: TextStyle(
+                      fontSize: WpTypography.body,
+                      color: textPrimary,
+                    ),
                   ),
                 ),
                 if (widget.count != null && widget.count! > 0)
                   Text(
                     '${widget.count}',
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: WpTypography.small,
                       color: textPrimary.withValues(alpha: 0.4),
                     ),
                   ),
@@ -752,7 +758,7 @@ class _CreateTagTileState extends State<_CreateTagTile> {
                   child: Text(
                     widget.label,
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: WpTypography.body,
                       color: textPrimary,
                       fontWeight: FontWeight.w500,
                     ),

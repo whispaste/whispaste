@@ -683,7 +683,7 @@ class _AfterActionRow extends StatelessWidget {
         Text(
           label,
           style: TextStyle(
-            fontSize: 13,
+            fontSize: WpTypography.body,
             fontWeight: isCurrent ? FontWeight.w600 : FontWeight.normal,
             color: isCurrent ? cs.primary : cs.onSurface,
           ),

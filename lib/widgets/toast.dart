@@ -340,7 +340,7 @@ class _ToastCard extends StatelessWidget {
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       textStyle: const TextStyle(
-                        fontSize: 12,
+                        fontSize: WpTypography.small,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -353,7 +353,7 @@ class _ToastCard extends StatelessWidget {
                   onTap: onDismiss,
                   borderRadius: BorderRadius.circular(WpRadius.full),
                   child: Padding(
-                    padding: const EdgeInsets.all(4),
+                    padding: const EdgeInsets.all(WpSpacing.xxs),
                     child: Icon(
                       LucideIcons.x,
                       size: 14,

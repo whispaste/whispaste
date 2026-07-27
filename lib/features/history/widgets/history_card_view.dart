@@ -240,7 +240,7 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
                         overflow: TextOverflow.ellipsis,
                         isDark: isDark,
                         style: TextStyle(
-                          fontSize: 15,
+                          fontSize: WpTypography.subheading,
                           fontWeight: FontWeight.w700,
                           color: textPrimary,
                         ),
@@ -294,7 +294,7 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
                     overflow: TextOverflow.ellipsis,
                     isDark: isDark,
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: WpTypography.body,
                       color: textSecondary,
                       height: 1.4,
                     ),
@@ -312,26 +312,35 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
                     const SizedBox(width: 3),
                     Text(
                       formatHistoryDuration(widget.entry.durationSec),
-                      style: TextStyle(fontSize: 10, color: textMuted),
+                      style: TextStyle(
+                        fontSize: WpTypography.micro,
+                        color: textMuted,
+                      ),
                     ),
                     if (_wordCount > 0) ...[
                       const SizedBox(width: WpSpacing.xs),
                       Text(
                         '· ~$_wordCount w',
-                        style: TextStyle(fontSize: 10, color: textMuted),
+                        style: TextStyle(
+                          fontSize: WpTypography.micro,
+                          color: textMuted,
+                        ),
                       ),
                     ],
                     if (widget.entry.language.isNotEmpty) ...[
                       const SizedBox(width: WpSpacing.xs),
                       Text(
                         '·',
-                        style: TextStyle(fontSize: 10, color: textMuted),
+                        style: TextStyle(
+                          fontSize: WpTypography.micro,
+                          color: textMuted,
+                        ),
                       ),
                       const SizedBox(width: WpSpacing.xs),
                       Text(
                         widget.entry.language.toUpperCase(),
                         style: TextStyle(
-                          fontSize: 10,
+                          fontSize: WpTypography.micro,
                           color: textMuted,
                           fontWeight: FontWeight.w500,
                         ),

@@ -174,3 +174,27 @@ abstract final class WpIconSize {
   static const double xl = 32;
   static const double xxl = 48;
 }
+
+// ---------------------------------------------------------------------------
+// Typography scale (px) — mirrors the roles `theme.dart`'s TextTheme already
+// defines (headlineLarge 22, headlineMedium/labelLarge 16, titleLarge 17,
+// titleMedium 14, titleSmall/bodyLarge/bodyMedium/labelMedium 13, bodySmall
+// 12, labelSmall 11) plus `micro`, a smaller metadata/caption size already in
+// consistent use across history, settings and analytics UI.
+//
+// Prefer `Theme.of(context).textTheme.<role>` for themed text. Reach for
+// these named constants only where a bespoke `TextStyle` genuinely needs a
+// literal size (e.g. it overrides color/weight/height so heavily that a
+// `textTheme` base with `copyWith` isn't a faithful fit) — so the value stays
+// traceable to the scale instead of a bare magic number.
+// ---------------------------------------------------------------------------
+abstract final class WpTypography {
+  static const double micro = 10;
+  static const double caption = 11;
+  static const double small = 12;
+  static const double body = 13;
+  static const double subheading = 14;
+  static const double heading = 16;
+  static const double title = 17;
+  static const double headline = 22;
+}

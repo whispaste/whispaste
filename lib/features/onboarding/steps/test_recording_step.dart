@@ -104,7 +104,7 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
           l10n.onboardingTestRecordingTitle,
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 22,
+            fontSize: WpTypography.headline,
             fontWeight: FontWeight.bold,
             color: textPrimary,
           ),
@@ -113,14 +113,18 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
         Text(
           l10n.onboardingTestRecordingSubtitle,
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 14, color: textSecondary, height: 1.4),
+          style: TextStyle(
+            fontSize: WpTypography.subheading,
+            color: textSecondary,
+            height: 1.4,
+          ),
         ),
         const SizedBox(height: WpSpacing.xl),
 
         // Current hotkey — reuses the shared HotkeyDisplay chip renderer.
         Text(
           l10n.onboardingTestRecordingHotkeyLabel,
-          style: TextStyle(fontSize: 12, color: textMuted),
+          style: TextStyle(fontSize: WpTypography.small, color: textMuted),
         ),
         const SizedBox(height: WpSpacing.sm),
         HotkeyDisplay(
@@ -151,7 +155,7 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
               Text(
                 l10n.onboardingTestRecordingDoneMessage,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: WpTypography.body,
                   fontWeight: FontWeight.w600,
                   color: success,
                 ),
@@ -164,7 +168,7 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
         Text(
           l10n.onboardingTestRecordingReassurance,
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 12, color: textMuted),
+          style: TextStyle(fontSize: WpTypography.small, color: textMuted),
         ),
 
         // Skip link — hidden once the test already succeeded, since there is
@@ -189,7 +193,7 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
                     l10n.onboardingTestRecordingSkip,
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: WpTypography.small,
                       color: accent,
                       decoration: TextDecoration.underline,
                       decorationColor: accent,
@@ -294,7 +298,10 @@ class _SandboxField extends StatelessWidget {
                 Expanded(
                   child: Text(
                     l10n.onboardingTestRecordingInProgress,
-                    style: TextStyle(fontSize: 13, color: textPrimary),
+                    style: TextStyle(
+                      fontSize: WpTypography.body,
+                      color: textPrimary,
+                    ),
                   ),
                 ),
               ],
@@ -302,7 +309,7 @@ class _SandboxField extends StatelessWidget {
           : Text(
               isDone ? sandboxText! : l10n.onboardingTestRecordingPlaceholder,
               style: TextStyle(
-                fontSize: 13,
+                fontSize: WpTypography.body,
                 color: isDone ? textPrimary : textMuted,
               ),
             ),

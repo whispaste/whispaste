@@ -92,7 +92,7 @@ class ReadyStep extends ConsumerWidget {
           l10n.onboardingReadyTitle,
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 22,
+            fontSize: WpTypography.headline,
             fontWeight: FontWeight.bold,
             color: textPrimary,
           ),
@@ -103,7 +103,10 @@ class ReadyStep extends ConsumerWidget {
         Text(
           l10n.onboardingReadySubtitle,
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 14, color: textSecondary),
+          style: TextStyle(
+            fontSize: WpTypography.subheading,
+            color: textSecondary,
+          ),
         ),
         const SizedBox(height: WpSpacing.xxl),
 
@@ -145,7 +148,7 @@ class ReadyStep extends ConsumerWidget {
         ] else ...[
           Text(
             l10n.onboardingReadyCurrentHotkey,
-            style: TextStyle(fontSize: 12, color: textMuted),
+            style: TextStyle(fontSize: WpTypography.small, color: textMuted),
           ),
           const SizedBox(height: WpSpacing.sm),
           Semantics(
@@ -188,7 +191,7 @@ class ReadyStep extends ConsumerWidget {
                 child: Text(
                   l10n.onboardingReadyChangeHotkey,
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: WpTypography.body,
                     color: accent,
                     fontWeight: FontWeight.w600,
                   ),
@@ -232,7 +235,10 @@ class ReadyStep extends ConsumerWidget {
               onPressed: onBack,
               child: Text(
                 l10n.onboardingBack,
-                style: TextStyle(color: textMuted, fontSize: 14),
+                style: TextStyle(
+                  color: textMuted,
+                  fontSize: WpTypography.subheading,
+                ),
               ),
             ),
             const Spacer(),
@@ -290,7 +296,7 @@ class _HotkeyKeyCaps extends StatelessWidget {
             child: Text(
               '+',
               style: TextStyle(
-                fontSize: 14,
+                fontSize: WpTypography.subheading,
                 fontWeight: FontWeight.w600,
                 color: textMuted,
               ),
@@ -316,7 +322,7 @@ class _HotkeyKeyCaps extends StatelessWidget {
             child: Text(
               '+',
               style: TextStyle(
-                fontSize: 14,
+                fontSize: WpTypography.subheading,
                 fontWeight: FontWeight.w600,
                 color: textMuted,
               ),
@@ -372,7 +378,7 @@ class _KeyCapPill extends StatelessWidget {
       child: Text(
         label,
         style: TextStyle(
-          fontSize: 13,
+          fontSize: WpTypography.body,
           fontWeight: FontWeight.w700,
           color: textColor,
           letterSpacing: 0.3,
@@ -414,7 +420,10 @@ class _InstructionRow extends StatelessWidget {
           Expanded(
             child: Text(
               '$number $text',
-              style: TextStyle(fontSize: 14, color: textColor),
+              style: TextStyle(
+                fontSize: WpTypography.subheading,
+                color: textColor,
+              ),
             ),
           ),
         ],
@@ -477,7 +486,7 @@ class _HotkeyConflictWarnBox extends StatelessWidget {
                 Text(
                   title,
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: WpTypography.body,
                     fontWeight: FontWeight.w700,
                     color: dangerColor,
                   ),
@@ -486,7 +495,7 @@ class _HotkeyConflictWarnBox extends StatelessWidget {
                 Text(
                   body,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: WpTypography.small,
                     color: textPrimary,
                     height: 1.4,
                   ),

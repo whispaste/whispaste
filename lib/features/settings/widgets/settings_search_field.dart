@@ -321,7 +321,7 @@ class _SettingsSearchFieldState extends ConsumerState<SettingsSearchField> {
                                       ).languageCode,
                                     ),
                                     style: TextStyle(
-                                      fontSize: 13,
+                                      fontSize: WpTypography.body,
                                       fontWeight: FontWeight.w500,
                                       color: isDark
                                           ? WpColorsDark.textPrimary

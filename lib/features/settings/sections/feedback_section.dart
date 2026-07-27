@@ -51,7 +51,7 @@ class KeyboardShortcutSection extends ConsumerWidget {
           ),
           AnimatedOpacity(
             opacity: settings.hotkeyEnabled ? 1.0 : 0.4,
-            duration: const Duration(milliseconds: 200),
+            duration: WpMotion.durationFor(context, WpMotion.normal),
             child: IgnorePointer(
               ignoring: !settings.hotkeyEnabled,
               child: SettingRow(
@@ -277,7 +277,12 @@ class AfterTranscriptionSection extends ConsumerWidget {
           if (resolvedAction == AfterTranscriptionAction.paste ||
               resolvedAction == AfterTranscriptionAction.clipboardAndPaste)
             const Padding(
-              padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
+              padding: EdgeInsets.fromLTRB(
+                WpSpacing.md,
+                WpSpacing.sm,
+                WpSpacing.md,
+                WpSpacing.xs,
+              ),
               child: PasteCapabilityIndicator(),
             ),
         ],

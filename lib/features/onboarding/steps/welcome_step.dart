@@ -67,9 +67,8 @@ class WelcomeStep extends ConsumerWidget {
           l10n.onboardingWelcome,
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 28,
-            height: 1.12,
-            fontWeight: FontWeight.w800,
+            fontSize: WpTypography.headline,
+            fontWeight: FontWeight.bold,
             color: textPrimary,
           ),
         ),
@@ -79,7 +78,11 @@ class WelcomeStep extends ConsumerWidget {
         Text(
           l10n.onboardingWelcomeHint,
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 15, color: textSecondary, height: 1.5),
+          style: TextStyle(
+            fontSize: WpTypography.subheading,
+            color: textSecondary,
+            height: 1.4,
+          ),
         ),
         const SizedBox(height: WpSpacing.xxl),
 
@@ -298,7 +301,7 @@ class _SegmentButtonState extends State<_SegmentButton> {
                       AnimatedDefaultTextStyle(
                         duration: WpMotion.durationFor(context, WpMotion.fast),
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: WpTypography.subheading,
                           fontWeight: FontWeight.w700,
                           color: isActive ? Colors.white : widget.textSecondary,
                         ),

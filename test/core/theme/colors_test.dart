@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/theme/colors.dart';
+import 'package:whispaste/core/theme/tokens.dart';
 
 void main() {
   group('WpColorsDark', () {
@@ -154,9 +155,9 @@ void main() {
       expect(decoration.borderRadius, br);
     });
 
-    test('default borderRadius is 10', () {
+    test('default borderRadius is WpRadius.md', () {
       final decoration = wpGlassDecoration(isDark: true);
-      expect(decoration.borderRadius, BorderRadius.circular(10));
+      expect(decoration.borderRadius, WpRadius.borderMd);
     });
   });
 }

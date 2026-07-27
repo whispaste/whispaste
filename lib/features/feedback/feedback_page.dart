@@ -823,7 +823,7 @@ class _CategoryChipState extends State<_CategoryChip> {
                   widget.label,
                   style: TextStyle(
                     color: fg,
-                    fontSize: 13,
+                    fontSize: WpTypography.body,
                     fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
                   ),
                 ),
@@ -904,7 +904,7 @@ class _EmojiRatingRow extends StatelessWidget {
                     Text(
                       labels[i],
                       style: TextStyle(
-                        fontSize: 10,
+                        fontSize: WpTypography.micro,
                         fontWeight: isSelected
                             ? FontWeight.w600
                             : FontWeight.w400,

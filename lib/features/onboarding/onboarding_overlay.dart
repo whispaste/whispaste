@@ -382,7 +382,7 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
                       Text(
                         l10n.onboardingStepOf(safeCurrent + 1, totalSteps),
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: WpTypography.small,
                           color: isDark
                               ? WpColorsDark.textMuted
                               : WpColorsLight.textMuted,

@@ -289,7 +289,7 @@ class _MicrophoneStepState extends State<MicrophoneStep> {
           l10n.onboardingMicTitle,
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 22,
+            fontSize: WpTypography.headline,
             fontWeight: FontWeight.bold,
             color: textPrimary,
           ),
@@ -299,7 +299,10 @@ class _MicrophoneStepState extends State<MicrophoneStep> {
         Text(
           l10n.onboardingMicSubtitle,
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 14, color: textSecondary),
+          style: TextStyle(
+            fontSize: WpTypography.subheading,
+            color: textSecondary,
+          ),
         ),
         const SizedBox(height: WpSpacing.xxl),
 
@@ -405,7 +408,10 @@ class _MicrophoneStepState extends State<MicrophoneStep> {
               Text(
                 l10n.onboardingMicDeniedInstructions,
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, color: textSecondary),
+                style: TextStyle(
+                  fontSize: WpTypography.body,
+                  color: textSecondary,
+                ),
               ),
               const SizedBox(height: WpSpacing.sm),
             ],
@@ -463,7 +469,7 @@ class _MicrophoneStepState extends State<MicrophoneStep> {
             Text(
               l10n.onboardingMicPermissionPending,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: WpTypography.subheading,
                 fontWeight: FontWeight.w600,
                 color: textMuted,
               ),
@@ -485,7 +491,7 @@ class _MicrophoneStepState extends State<MicrophoneStep> {
             Text(
               l10n.onboardingMicPermissionPending,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: WpTypography.subheading,
                 fontWeight: FontWeight.w600,
                 color: accent,
               ),
@@ -503,7 +509,7 @@ class _MicrophoneStepState extends State<MicrophoneStep> {
             Text(
               l10n.onboardingMicPermissionDenied,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: WpTypography.subheading,
                 fontWeight: FontWeight.w600,
                 color: errorColor,
               ),
@@ -546,7 +552,10 @@ class _MicrophoneStepState extends State<MicrophoneStep> {
               Text(
                 l10n.onboardingMicSilent,
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, color: textSecondary),
+                style: TextStyle(
+                  fontSize: WpTypography.body,
+                  color: textSecondary,
+                ),
               ),
             ],
           ),
@@ -582,7 +591,7 @@ class _MicrophoneStepState extends State<MicrophoneStep> {
               Text(
                 l10n.onboardingMicPermissionGranted,
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: WpTypography.subheading,
                   fontWeight: FontWeight.w600,
                   color: successColor,
                 ),
@@ -590,7 +599,10 @@ class _MicrophoneStepState extends State<MicrophoneStep> {
               const SizedBox(height: WpSpacing.xxs),
               Text(
                 l10n.onboardingMicTestDone,
-                style: TextStyle(fontSize: 12, color: textSecondary),
+                style: TextStyle(
+                  fontSize: WpTypography.small,
+                  color: textSecondary,
+                ),
               ),
             ],
           ),
@@ -692,7 +704,7 @@ class _DevicePicker extends StatelessWidget {
                 label,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: WpTypography.body,
                   fontWeight: FontWeight.w500,
                   color: textPrimary,
                 ),
@@ -741,7 +753,7 @@ class _DeviceEntry extends StatelessWidget {
             label,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 13,
+              fontSize: WpTypography.body,
               color: selected ? accent : textPrimary,
               fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
             ),
@@ -800,7 +812,10 @@ class _LiveCaptureCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: WpSpacing.sm),
-          Text(label, style: TextStyle(fontSize: 13, color: accent)),
+          Text(
+            label,
+            style: TextStyle(fontSize: WpTypography.body, color: accent),
+          ),
         ],
       ),
     );
@@ -883,7 +898,7 @@ class _WaveformBarsState extends State<_WaveformBars> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 1.5),
             child: AnimatedContainer(
-              duration: _animateDuration,
+              duration: WpMotion.durationFor(context, _animateDuration),
               curve: Curves.easeOut,
               width: 3,
               height: math.max(2.0, 40 * _history[i].clamp(0.05, 1.0)),

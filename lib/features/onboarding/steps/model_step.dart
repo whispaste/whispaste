@@ -102,7 +102,7 @@ class _ModelStepState extends ConsumerState<ModelStep> {
           l10n.onboardingModelTitle,
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 22,
+            fontSize: WpTypography.headline,
             fontWeight: FontWeight.bold,
             color: textPrimary,
           ),
@@ -111,7 +111,11 @@ class _ModelStepState extends ConsumerState<ModelStep> {
         Text(
           l10n.onboardingModelSubtitle,
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 14, color: textSecondary, height: 1.4),
+          style: TextStyle(
+            fontSize: WpTypography.subheading,
+            color: textSecondary,
+            height: 1.4,
+          ),
         ),
         const SizedBox(height: WpSpacing.xl),
 
@@ -204,7 +208,7 @@ class _ModelStepState extends ConsumerState<ModelStep> {
         Text(
           l10n.onboardingModelChangeLater,
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 12, color: textMuted),
+          style: TextStyle(fontSize: WpTypography.small, color: textMuted),
         ),
         const SizedBox(height: WpSpacing.xxs),
 
@@ -303,7 +307,7 @@ class _ModelStepDownloadStatus extends StatelessWidget {
           Text(
             l10n.modelReady,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: WpTypography.subheading,
               fontWeight: FontWeight.w600,
               color: success,
             ),
@@ -368,7 +372,10 @@ class _TierPerformanceWarning extends StatelessWidget {
             Expanded(
               child: Text(
                 infoMessage,
-                style: TextStyle(fontSize: 12, color: infoColor),
+                style: TextStyle(
+                  fontSize: WpTypography.small,
+                  color: infoColor,
+                ),
               ),
             ),
           ],
@@ -431,7 +438,10 @@ class _ModelStepAlternatives extends StatelessWidget {
                   children: [
                     Text(
                       l10n.qualityTierChooseDifferent,
-                      style: TextStyle(fontSize: 13, color: accent),
+                      style: TextStyle(
+                        fontSize: WpTypography.body,
+                        color: accent,
+                      ),
                     ),
                     const SizedBox(width: 4),
                     AnimatedRotation(
@@ -520,7 +530,7 @@ class _ModelStepCloudOption extends StatelessWidget {
               label,
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: WpTypography.small,
                 color: accent,
                 decoration: TextDecoration.underline,
                 decorationColor: accent,
@@ -668,7 +678,7 @@ class _TierCardState extends State<_TierCard> {
                           Text(
                             _tierLabel(widget.l10n),
                             style: TextStyle(
-                              fontSize: 15,
+                              fontSize: WpTypography.subheading,
                               fontWeight: FontWeight.w600,
                               color: textColor,
                             ),
@@ -687,7 +697,7 @@ class _TierCardState extends State<_TierCard> {
                               child: Text(
                                 widget.l10n.qualityTierRecommended,
                                 style: TextStyle(
-                                  fontSize: 10,
+                                  fontSize: WpTypography.micro,
                                   fontWeight: FontWeight.w600,
                                   color: accent,
                                 ),
@@ -700,7 +710,7 @@ class _TierCardState extends State<_TierCard> {
                       Text(
                         _tierDesc(widget.l10n),
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: WpTypography.small,
                           color: subtitleColor,
                           height: 1.3,
                         ),
@@ -715,7 +725,7 @@ class _TierCardState extends State<_TierCard> {
                               child: Text(
                                 infoMessage,
                                 style: TextStyle(
-                                  fontSize: 11,
+                                  fontSize: WpTypography.caption,
                                   color: infoColor,
                                 ),
                               ),
@@ -730,7 +740,7 @@ class _TierCardState extends State<_TierCard> {
                 Text(
                   tierSizeLabel(widget.tier),
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: WpTypography.small,
                     fontWeight: FontWeight.w500,
                     color: subtitleColor,
                   ),
@@ -788,7 +798,10 @@ class _DownloadProgress extends StatelessWidget {
           ),
         ),
         const SizedBox(height: WpSpacing.xs),
-        Text(label, style: TextStyle(fontSize: 12, color: textSecondary)),
+        Text(
+          label,
+          style: TextStyle(fontSize: WpTypography.small, color: textSecondary),
+        ),
       ],
     );
   }
@@ -835,7 +848,10 @@ class _DownloadError extends StatelessWidget {
               Expanded(
                 child: Text(
                   message ?? l10n.modelDownloadFailed,
-                  style: TextStyle(fontSize: 12, color: errorColor),
+                  style: TextStyle(
+                    fontSize: WpTypography.small,
+                    color: errorColor,
+                  ),
                 ),
               ),
             ],
@@ -849,7 +865,10 @@ class _DownloadError extends StatelessWidget {
             icon: Icon(LucideIcons.refreshCw, size: 14, color: textSecondary),
             label: Text(
               l10n.overlayRetry,
-              style: TextStyle(fontSize: 13, color: textSecondary),
+              style: TextStyle(
+                fontSize: WpTypography.body,
+                color: textSecondary,
+              ),
             ),
             style: OutlinedButton.styleFrom(
               side: BorderSide(
@@ -907,7 +926,7 @@ class _GpuCpuFallbackNotice extends StatelessWidget {
           Expanded(
             child: Text(
               message,
-              style: TextStyle(fontSize: 12, color: infoColor),
+              style: TextStyle(fontSize: WpTypography.small, color: infoColor),
             ),
           ),
         ],

@@ -322,7 +322,7 @@ class _PanelHeader extends StatelessWidget {
                 title,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: WpTypography.body,
                   fontWeight: FontWeight.w600,
                   color: isDark
                       ? WpColorsDark.textPrimary
@@ -573,7 +573,10 @@ class _HeroPillState extends State<_HeroPill>
             // Label
             Text(
               widget.label,
-              style: TextStyle(fontSize: 11, color: textSecondary),
+              style: TextStyle(
+                fontSize: WpTypography.caption,
+                color: textSecondary,
+              ),
             ),
           ],
         ),
@@ -649,7 +652,7 @@ class _ActivityChartPanelState extends State<_ActivityChartPanel>
           isDark: isDark,
           trailing: Text(
             l10n.analyticsLast7Days,
-            style: TextStyle(fontSize: 11, color: textMuted),
+            style: TextStyle(fontSize: WpTypography.caption, color: textMuted),
           ),
         ),
         const SizedBox(height: WpSpacing.md),
@@ -761,7 +764,7 @@ class _BarChartPainter extends CustomPainter {
         text: TextSpan(
           text: labels[i],
           style: TextStyle(
-            fontSize: 10,
+            fontSize: WpTypography.micro,
             color: labelColor,
             fontFamily: labelFontFamily,
           ),
@@ -815,7 +818,7 @@ class _ModelUsagePanel extends StatelessWidget {
           Text(
             '—',
             style: TextStyle(
-              fontSize: 12,
+              fontSize: WpTypography.small,
               color: isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
             ),
           )
@@ -853,14 +856,17 @@ class _ModelUsageBar extends StatelessWidget {
               Expanded(
                 child: Text(
                   model.name,
-                  style: TextStyle(fontSize: 12, color: textPrimary),
+                  style: TextStyle(
+                    fontSize: WpTypography.small,
+                    color: textPrimary,
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               Text(
                 '${(model.fraction * 100).round()}%',
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: WpTypography.small,
                   fontWeight: FontWeight.w700,
                   color: accent,
                 ),
@@ -868,7 +874,10 @@ class _ModelUsageBar extends StatelessWidget {
               const SizedBox(width: WpSpacing.xs),
               Text(
                 '(${model.count})',
-                style: TextStyle(fontSize: 11, color: textMuted),
+                style: TextStyle(
+                  fontSize: WpTypography.caption,
+                  color: textMuted,
+                ),
               ),
             ],
           ),
@@ -955,7 +964,10 @@ class _DurationBar extends StatelessWidget {
             width: 52,
             child: Text(
               bucket.label,
-              style: TextStyle(fontSize: 11, color: textPrimary),
+              style: TextStyle(
+                fontSize: WpTypography.caption,
+                color: textPrimary,
+              ),
             ),
           ),
           const SizedBox(width: WpSpacing.xs),
@@ -986,7 +998,10 @@ class _DurationBar extends StatelessWidget {
             width: 32,
             child: Text(
               '${bucket.count}',
-              style: TextStyle(fontSize: 11, color: textMuted),
+              style: TextStyle(
+                fontSize: WpTypography.caption,
+                color: textMuted,
+              ),
               textAlign: TextAlign.end,
             ),
           ),
@@ -1085,13 +1100,13 @@ class _CostRow extends StatelessWidget {
         Expanded(
           child: Text(
             title,
-            style: TextStyle(fontSize: 12, color: textPrimary),
+            style: TextStyle(fontSize: WpTypography.small, color: textPrimary),
           ),
         ),
         Text(
           value,
           style: TextStyle(
-            fontSize: 13,
+            fontSize: WpTypography.body,
             fontWeight: FontWeight.w700,
             color: valueColor,
           ),
@@ -1165,7 +1180,7 @@ class _PeriodAndResetRowState extends ConsumerState<_PeriodAndResetRow> {
                   child: Text(
                     periods[i],
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: WpTypography.small,
                       fontWeight: selected
                           ? FontWeight.w600
                           : FontWeight.normal,
@@ -1193,7 +1208,7 @@ class _PeriodAndResetRowState extends ConsumerState<_PeriodAndResetRow> {
               horizontal: WpSpacing.sm,
               vertical: WpSpacing.xs,
             ),
-            textStyle: const TextStyle(fontSize: 12),
+            textStyle: const TextStyle(fontSize: WpTypography.small),
             shape: RoundedRectangleBorder(borderRadius: WpRadius.borderMd),
           ),
         ),

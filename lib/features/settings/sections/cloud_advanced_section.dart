@@ -315,6 +315,7 @@ class _AutoPasteBlocklistFieldState extends State<_AutoPasteBlocklistField> {
         controller: _controller,
         hintText: l10n.settingsAutoPasteBlocklistPlaceholder,
         onChanged: _onChanged,
+        semanticLabel: l10n.settingsAutoPasteBlocklist,
       ),
     );
   }

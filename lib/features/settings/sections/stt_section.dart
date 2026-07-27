@@ -147,7 +147,7 @@ class _SpeechRecognitionSectionState
               child: Text(
                 l10n.settingsSttEngineSubtitle,
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: WpTypography.small,
                   color: isDark
                       ? WpColorsDark.textMuted
                       : WpColorsLight.textMuted,
@@ -362,6 +362,7 @@ class _CloudSttInlineKey extends StatelessWidget {
         obscure: !showKey,
         onToggle: onToggleVisibility,
         onChanged: onChanged,
+        semanticLabel: label,
       ),
     );
   }
@@ -423,6 +424,7 @@ class _ParakeetModelRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final dl = ref.watch(parakeetDownloadProvider);
     final sizeLabel = '${(parakeetModelTotalBytes / (1024 * 1024)).round()} MB';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     Widget trailing;
     if (dl.installed && !dl.isBusy) {
@@ -470,10 +472,13 @@ class _ParakeetModelRow extends ConsumerWidget {
           if (dl.phase == ParakeetDownloadPhase.error &&
               dl.errorMessage != null)
             Padding(
-              padding: const EdgeInsets.only(bottom: 4),
+              padding: const EdgeInsets.only(bottom: WpSpacing.xxs),
               child: Text(
                 dl.errorMessage!,
-                style: const TextStyle(fontSize: 11, color: Colors.redAccent),
+                style: TextStyle(
+                  fontSize: WpTypography.caption,
+                  color: isDark ? WpColorsDark.error : WpColorsLight.error,
+                ),
               ),
             ),
           TextButton.icon(
@@ -580,7 +585,7 @@ class _CustomVocabularyFieldState
                       child: Text(
                         l10n.settingsCustomVocabularyHint,
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: WpTypography.small,
                           color: isDark
                               ? WpColorsDark.textMuted
                               : WpColorsLight.textMuted,
@@ -593,23 +598,27 @@ class _CustomVocabularyFieldState
             ],
           ),
           const SizedBox(height: WpSpacing.sm),
-          TextField(
-            controller: _ctrl,
-            minLines: 2,
-            maxLines: 5,
-            onChanged: _save,
-            style: TextStyle(
-              fontSize: 13,
-              color: isDark
-                  ? WpColorsDark.textPrimary
-                  : WpColorsLight.textPrimary,
-            ),
-            decoration: InputDecoration(
-              hintText: l10n.settingsCustomVocabularyPlaceholder,
-              isDense: true,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: WpSpacing.sm,
-                vertical: WpSpacing.sm,
+          Semantics(
+            label: l10n.settingsCustomVocabulary,
+            textField: true,
+            child: TextField(
+              controller: _ctrl,
+              minLines: 2,
+              maxLines: 5,
+              onChanged: _save,
+              style: TextStyle(
+                fontSize: WpTypography.body,
+                color: isDark
+                    ? WpColorsDark.textPrimary
+                    : WpColorsLight.textPrimary,
+              ),
+              decoration: InputDecoration(
+                hintText: l10n.settingsCustomVocabularyPlaceholder,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: WpSpacing.sm,
+                  vertical: WpSpacing.sm,
+                ),
               ),
             ),
           ),

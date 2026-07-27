@@ -7,6 +7,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../widgets/wp_focus_ring.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'highlighted_text.dart';
 import 'history_helpers.dart';
@@ -292,7 +293,7 @@ class _EntryRowContent extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   isDark: isDark,
                   style: TextStyle(
-                    fontSize: 14.5,
+                    fontSize: WpTypography.subheading,
                     fontWeight: FontWeight.w600,
                     color: textPrimary,
                   ),
@@ -339,7 +340,10 @@ class _EntryRowContent extends StatelessWidget {
               else
                 Text(
                   timeLabel,
-                  style: TextStyle(fontSize: 11, color: textMuted),
+                  style: TextStyle(
+                    fontSize: WpTypography.caption,
+                    color: textMuted,
+                  ),
                 ),
             ],
           ),
@@ -351,7 +355,11 @@ class _EntryRowContent extends StatelessWidget {
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
           isDark: isDark,
-          style: TextStyle(fontSize: 14, color: textSecondary, height: 1.35),
+          style: TextStyle(
+            fontSize: WpTypography.subheading,
+            color: textSecondary,
+            height: 1.35,
+          ),
         ),
         const SizedBox(height: 4),
         // Row 3: Subtle inline metadata (duration + language)
@@ -397,7 +405,7 @@ class _EntryMetaRow extends StatelessWidget {
         Flexible(
           child: Text(
             durationLabel,
-            style: TextStyle(fontSize: 10, color: textMuted),
+            style: TextStyle(fontSize: WpTypography.micro, color: textMuted),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -406,18 +414,21 @@ class _EntryMetaRow extends StatelessWidget {
           const SizedBox(width: WpSpacing.xs),
           Text(
             '· ~$wordCount w',
-            style: TextStyle(fontSize: 10, color: textMuted),
+            style: TextStyle(fontSize: WpTypography.micro, color: textMuted),
           ),
         ],
         if (language.isNotEmpty) ...[
           const SizedBox(width: WpSpacing.xs),
-          Text('·', style: TextStyle(fontSize: 10, color: textMuted)),
+          Text(
+            '·',
+            style: TextStyle(fontSize: WpTypography.micro, color: textMuted),
+          ),
           const SizedBox(width: WpSpacing.xs),
           Flexible(
             child: Text(
               language.toUpperCase(),
               style: TextStyle(
-                fontSize: 10,
+                fontSize: WpTypography.micro,
                 color: textMuted,
                 fontWeight: FontWeight.w500,
               ),
@@ -427,7 +438,10 @@ class _EntryMetaRow extends StatelessWidget {
         ],
         if (!isLocal) ...[
           const SizedBox(width: WpSpacing.xs),
-          Text('·', style: TextStyle(fontSize: 10, color: textMuted)),
+          Text(
+            '·',
+            style: TextStyle(fontSize: WpTypography.micro, color: textMuted),
+          ),
           const SizedBox(width: WpSpacing.xs),
           Icon(LucideIcons.cloud, size: WpIconSize.xs, color: textMuted),
         ],
@@ -456,38 +470,91 @@ class _EntryTagChips extends StatelessWidget {
       runSpacing: 2,
       children: [
         for (final tag in tags.take(3))
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => onTagTap?.call(tag),
-            child: MouseRegion(
-              cursor: onTagTap != null
-                  ? SystemMouseCursors.click
-                  : MouseCursor.defer,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? WpColorsDark.accentMiniTagFill
-                      : WpColorsLight.accentMiniTagFill,
-                  borderRadius: WpRadius.borderSm,
-                ),
-                child: Text(
-                  '#$tag',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: accent.withValues(alpha: 0.9),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ),
+          _EntryTagChip(
+            tag: tag,
+            isDark: isDark,
+            accent: accent,
+            onTap: onTagTap == null ? null : () => onTagTap!.call(tag),
           ),
         if (tags.length > 3)
           Text(
             '+${tags.length - 3}',
-            style: TextStyle(fontSize: 10, color: textMuted),
+            style: TextStyle(fontSize: WpTypography.micro, color: textMuted),
           ),
       ],
+    );
+  }
+}
+
+class _EntryTagChip extends StatefulWidget {
+  const _EntryTagChip({
+    required this.tag,
+    required this.isDark,
+    required this.accent,
+    required this.onTap,
+  });
+
+  final String tag;
+  final bool isDark;
+  final Color accent;
+  final VoidCallback? onTap;
+
+  @override
+  State<_EntryTagChip> createState() => _EntryTagChipState();
+}
+
+class _EntryTagChipState extends State<_EntryTagChip> {
+  final FocusNode _focusNode = FocusNode(debugLabel: 'EntryTagChip');
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final chip = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      decoration: BoxDecoration(
+        color: widget.isDark
+            ? WpColorsDark.accentMiniTagFill
+            : WpColorsLight.accentMiniTagFill,
+        borderRadius: WpRadius.borderSm,
+      ),
+      child: Text(
+        '#${widget.tag}',
+        style: TextStyle(
+          fontSize: WpTypography.micro,
+          color: widget.accent.withValues(alpha: 0.9),
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+
+    if (widget.onTap == null) return chip;
+
+    return Semantics(
+      button: true,
+      label: '#${widget.tag}',
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: WpFocusRing(
+          focusNode: _focusNode,
+          radius: WpRadius.sm,
+          child: InkWell(
+            onTap: widget.onTap,
+            focusNode: _focusNode,
+            borderRadius: WpRadius.borderSm,
+            // WpFocusRing owns all focus visuals — suppress InkWell's own.
+            focusColor: Colors.transparent,
+            hoverColor: Colors.transparent,
+            splashColor: Colors.transparent,
+            highlightColor: Colors.transparent,
+            child: chip,
+          ),
+        ),
+      ),
     );
   }
 }

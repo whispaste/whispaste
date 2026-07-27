@@ -450,8 +450,42 @@ class FloatingOverlayHost {
       let py = visibleFrame.origin.y + margin
       return NSPoint(x: px, y: py)
 
-    default: // "topLeft" — raw coordinates
-      return NSPoint(x: x, y: y)
+    default: // "topLeft" — raw coordinates, clamped to stay on-screen
+      return clampToVisibleScreen(x: x, y: y, size: size)
     }
+  }
+
+  /// Clamps a topLeft-anchored origin so the panel stays fully within some
+  /// connected screen's visible frame — mirrors the Windows
+  /// `FloatingOverlayWindow::ValidatePosition()` clamp. Picks the screen whose
+  /// frame contains the point, falling back to the nearest screen by distance
+  /// (e.g. after the monitor the overlay was dragged to gets unplugged and
+  /// the stored point is no longer on any connected display). Closes the gap
+  /// where `validateOnScreen()` recalculated topCenter/bottomCenter overlays
+  /// on a screen-parameters change but left a dragged (topLeft) overlay's raw
+  /// coordinates untouched.
+  private func clampToVisibleScreen(x: Double, y: Double, size: NSSize) -> NSPoint {
+    let point = NSPoint(x: x, y: y)
+    guard let target = NSScreen.screens.first(where: { $0.frame.contains(point) })
+      ?? nearestScreen(to: point) else {
+      return point
+    }
+
+    let visible = target.visibleFrame
+    let maxX = max(visible.minX, visible.maxX - size.width)
+    let maxY = max(visible.minY, visible.maxY - size.height)
+    let clampedX = min(max(x, visible.minX), maxX)
+    let clampedY = min(max(y, visible.minY), maxY)
+    return NSPoint(x: clampedX, y: clampedY)
+  }
+
+  private func nearestScreen(to point: NSPoint) -> NSScreen? {
+    NSScreen.screens.min { distance(point, $0.frame) < distance(point, $1.frame) }
+  }
+
+  private func distance(_ point: NSPoint, _ rect: NSRect) -> CGFloat {
+    let dx = max(rect.minX - point.x, 0, point.x - rect.maxX)
+    let dy = max(rect.minY - point.y, 0, point.y - rect.maxY)
+    return (dx * dx + dy * dy).squareRoot()
   }
 }

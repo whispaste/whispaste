@@ -204,6 +204,7 @@ void FloatingOverlayWindow::SetSize(int logical_w, int logical_h) {
 void FloatingOverlayWindow::SetPosition(double lx, double ly) {
   logical_x_ = lx;
   logical_y_ = ly;
+  ValidatePosition();
   if (hwnd_) ApplyWindowPosition();
 }
 
@@ -354,7 +355,12 @@ void FloatingOverlayWindow::ApplyChildSize() {
 
 void FloatingOverlayWindow::ValidatePosition() {
   // Clamp top-left so the overlay remains within the nearest monitor's work
-  // area. Used on Show() and after WM_DISPLAYCHANGE (via host re-anchor).
+  // area. Called from SetPosition() — which covers every position update:
+  // initial show, drag persistence, resize re-anchor, and the host's
+  // WM_DISPLAYCHANGE re-anchor — so a "topLeft" overlay dragged to a monitor
+  // that later gets unplugged snaps back on-screen instead of staying void,
+  // even while the overlay is already visible. Also called directly from
+  // Show() as a defensive re-check before the shell becomes visible.
   POINT pt = {ToPhysical(logical_x_), ToPhysical(logical_y_)};
   HMONITOR mon = MonitorFromPoint(pt, MONITOR_DEFAULTTOPRIMARY);
   MONITORINFO mi = {};

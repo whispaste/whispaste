@@ -369,7 +369,7 @@ class _MacOsBody extends StatelessWidget {
           l10n.onboardingPasteTitle,
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 22,
+            fontSize: WpTypography.headline,
             fontWeight: FontWeight.bold,
             color: textPrimary,
           ),
@@ -378,7 +378,11 @@ class _MacOsBody extends StatelessWidget {
         Text(
           l10n.onboardingPasteSubtitle,
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 14, color: textSecondary, height: 1.4),
+          style: TextStyle(
+            fontSize: WpTypography.subheading,
+            color: textSecondary,
+            height: 1.4,
+          ),
         ),
         const SizedBox(height: WpSpacing.xl),
 
@@ -480,14 +484,21 @@ class _MacOsBody extends StatelessWidget {
           Text(
             l10n.onboardingPasteWhyMac,
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12, color: textMuted, height: 1.4),
+            style: TextStyle(
+              fontSize: WpTypography.small,
+              color: textMuted,
+              height: 1.4,
+            ),
           ),
           const SizedBox(height: WpSpacing.sm),
           TextButton(
             onPressed: onSkip,
             child: Text(
               l10n.onboardingPasteSkip,
-              style: TextStyle(color: textSecondary, fontSize: 13),
+              style: TextStyle(
+                color: textSecondary,
+                fontSize: WpTypography.body,
+              ),
             ),
           ),
         ];
@@ -505,7 +516,10 @@ class _MacOsBody extends StatelessWidget {
             onPressed: onSkip,
             child: Text(
               l10n.onboardingPasteSkip,
-              style: TextStyle(color: textSecondary, fontSize: 13),
+              style: TextStyle(
+                color: textSecondary,
+                fontSize: WpTypography.body,
+              ),
             ),
           ),
         ];
@@ -548,7 +562,10 @@ class _MacOsBody extends StatelessWidget {
             onPressed: onSkip,
             child: Text(
               l10n.onboardingPasteSkip,
-              style: TextStyle(color: textSecondary, fontSize: 13),
+              style: TextStyle(
+                color: textSecondary,
+                fontSize: WpTypography.body,
+              ),
             ),
           ),
         ];
@@ -629,7 +646,7 @@ class _WindowsBody extends StatelessWidget {
           l10n.onboardingPasteTitle,
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 22,
+            fontSize: WpTypography.headline,
             fontWeight: FontWeight.bold,
             color: textPrimary,
           ),
@@ -638,7 +655,11 @@ class _WindowsBody extends StatelessWidget {
         Text(
           l10n.onboardingPasteSubtitle,
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 14, color: textSecondary, height: 1.4),
+          style: TextStyle(
+            fontSize: WpTypography.subheading,
+            color: textSecondary,
+            height: 1.4,
+          ),
         ),
         const SizedBox(height: WpSpacing.xl),
 
@@ -659,7 +680,10 @@ class _WindowsBody extends StatelessWidget {
             onPressed: onSkip,
             child: Text(
               l10n.onboardingPasteSkip,
-              style: TextStyle(color: textSecondary, fontSize: 13),
+              style: TextStyle(
+                color: textSecondary,
+                fontSize: WpTypography.body,
+              ),
             ),
           ),
         ] else ...[
@@ -674,7 +698,11 @@ class _WindowsBody extends StatelessWidget {
           Text(
             l10n.onboardingPasteWhyWin,
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12, color: textMuted, height: 1.4),
+            style: TextStyle(
+              fontSize: WpTypography.small,
+              color: textMuted,
+              height: 1.4,
+            ),
           ),
         ],
 
@@ -756,7 +784,7 @@ class _WindowsVerifyCard extends StatelessWidget {
             child: Text(
               label,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: WpTypography.subheading,
                 fontWeight: FontWeight.w600,
                 color: textPrimary,
               ),
@@ -812,7 +840,11 @@ class _WindowsWarnCard extends StatelessWidget {
           Expanded(
             child: Text(
               message,
-              style: TextStyle(fontSize: 13, color: textSecondary, height: 1.4),
+              style: TextStyle(
+                fontSize: WpTypography.body,
+                color: textSecondary,
+                height: 1.4,
+              ),
             ),
           ),
         ],
@@ -871,7 +903,7 @@ class _PermissionStatusCard extends StatelessWidget {
             child: Text(
               label,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: WpTypography.subheading,
                 fontWeight: FontWeight.w600,
                 color: textPrimary,
               ),
@@ -972,7 +1004,7 @@ class _PollingHintCard extends StatelessWidget {
                 Text(
                   l10n.onboardingPasteWaitingForGrantTitle,
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: WpTypography.subheading,
                     fontWeight: FontWeight.w600,
                     color: textPrimary,
                   ),
@@ -981,7 +1013,7 @@ class _PollingHintCard extends StatelessWidget {
                 Text(
                   l10n.onboardingPasteWaitingForGrantHint,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: WpTypography.small,
                     color: textSecondary,
                     height: 1.4,
                   ),
@@ -1057,7 +1089,7 @@ class _TccMismatchBanner extends StatelessWidget {
                     Text(
                       l10n.onboardingPasteTccMismatchTitle,
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: WpTypography.subheading,
                         fontWeight: FontWeight.w600,
                         color: textPrimary,
                       ),
@@ -1066,7 +1098,7 @@ class _TccMismatchBanner extends StatelessWidget {
                     Text(
                       l10n.onboardingPasteTccMismatchBody,
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: WpTypography.small,
                         color: textSecondary,
                         height: 1.4,
                       ),
@@ -1142,7 +1174,7 @@ class _RepairResultBanner extends StatelessWidget {
               child: Text(
                 message,
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: WpTypography.small,
                   color: textSecondary,
                   height: 1.4,
                 ),

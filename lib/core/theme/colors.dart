@@ -5,8 +5,11 @@
 /// layers, soft gradients, and crisp borders.
 library;
 
+import 'dart:io' show Platform;
 import 'dart:ui';
 import 'package:flutter/material.dart';
+
+import 'tokens.dart';
 
 // ---------------------------------------------------------------------------
 // Dark Theme Colors (Primary) — rich saturated navy tones, warm & unified
@@ -70,6 +73,9 @@ abstract final class WpColorsDark {
   /// Solid red shades for destructive action buttons (e.g. quit CTA).
   static const Color errorRed = Color(0xFFDC2626);
   static const Color errorRedHover = Color(0xFFB91C1C);
+
+  /// Watermark line color — ~3% white for subtle topographic depth.
+  static const Color watermark = Color(0x08FFFFFF);
 
   /// Visible gradient for premium card/container backgrounds
   static const LinearGradient surfaceGradient = LinearGradient(
@@ -252,7 +258,7 @@ BoxDecoration wpGlassDecoration({
 }) {
   return BoxDecoration(
     color: isDark ? WpColorsDark.glassTint : WpColorsLight.glassTint,
-    borderRadius: borderRadius ?? BorderRadius.circular(10),
+    borderRadius: borderRadius ?? WpRadius.borderMd,
     border: Border.all(
       color: (isDark ? WpColorsDark.glassBorder : WpColorsLight.glassBorder)
           .withValues(alpha: borderOpacity * (isDark ? 0.094 : 0.251)),
@@ -281,18 +287,34 @@ class WpGlassPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final br = borderRadius ?? BorderRadius.circular(10);
+    final br = borderRadius ?? WpRadius.borderMd;
+
+    // On Windows frameless windows, BackdropFilter + ImageFilter.blur is
+    // broken, so fall back to a solid opaque panel fill.
+    final bool useBlur = !Platform.isWindows;
+
+    final decoration = useBlur
+        ? wpGlassDecoration(isDark: isDark, borderRadius: br)
+        : wpGlassDecoration(isDark: isDark, borderRadius: br).copyWith(
+            color: isDark
+                ? WpColorsDark.surfaceElevated
+                : WpColorsLight.surfaceElevated,
+          );
+
+    final content = Container(
+      decoration: decoration,
+      padding: padding,
+      child: child,
+    );
 
     return ClipRRect(
       borderRadius: br,
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
-        child: Container(
-          decoration: wpGlassDecoration(isDark: isDark, borderRadius: br),
-          padding: padding,
-          child: child,
-        ),
-      ),
+      child: useBlur
+          ? BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
+              child: content,
+            )
+          : content,
     );
   }
 }

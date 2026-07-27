@@ -89,7 +89,7 @@ class LanguageSelector extends StatelessWidget {
             color: textSecondary,
           ),
           style: TextStyle(
-            fontSize: 14,
+            fontSize: WpTypography.subheading,
             fontWeight: FontWeight.w600,
             color: textPrimary,
           ),
@@ -101,7 +101,7 @@ class LanguageSelector extends StatelessWidget {
                   child: Text(
                     localeNativeName(locale),
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: WpTypography.subheading,
                       fontWeight: FontWeight.w700,
                       color: textPrimary,
                     ),
@@ -182,7 +182,7 @@ class _LanguageItem extends StatelessWidget {
             child: Text(
               label,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: WpTypography.subheading,
                 fontWeight: isActive ? FontWeight.w700 : FontWeight.w600,
                 color: textPrimary,
               ),

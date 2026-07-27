@@ -139,11 +139,11 @@ class HotkeyDisplay extends StatelessWidget {
         for (int i = 0; i < parts.length; i++) ...[
           if (i > 0)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
+              padding: const EdgeInsets.symmetric(horizontal: WpSpacing.xxs),
               child: Text(
                 '+',
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: WpTypography.body,
                   fontWeight: FontWeight.w500,
                   color: isDark
                       ? WpColorsDark.textMuted
@@ -170,7 +170,7 @@ class HotkeyDisplay extends StatelessWidget {
             child: Text(
               parts[i],
               style: TextStyle(
-                fontSize: 13,
+                fontSize: WpTypography.body,
                 fontWeight: FontWeight.w600,
                 fontFeatures: const [FontFeature.tabularFigures()],
                 color: isDark
@@ -238,7 +238,7 @@ Widget settingsDropdown({
         onChanged: onChanged,
         isDense: true,
         style: TextStyle(
-          fontSize: 13,
+          fontSize: WpTypography.body,
           color: isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary,
         ),
         dropdownColor: isDark
@@ -305,7 +305,7 @@ Widget settingsSlider({
           valueLabel,
           textAlign: TextAlign.right,
           style: TextStyle(
-            fontSize: 13,
+            fontSize: WpTypography.body,
             fontWeight: FontWeight.w500,
             color: isDark
                 ? WpColorsDark.textSecondary
@@ -327,73 +327,114 @@ Widget settingsToggle({
 }
 
 /// Password / API key field with visibility toggle.
+///
+/// [semanticLabel] names the field's purpose for screen readers (e.g. "OpenAI
+/// API Key") — the visible [SettingRow] label sits beside the field, not
+/// inside its own Semantics node, so without this the field announces only
+/// as an unlabeled text field.
 Widget settingsApiKeyField({
   required BuildContext context,
   required TextEditingController controller,
   required bool obscure,
   required VoidCallback onToggle,
   ValueChanged<String>? onChanged,
+  String? semanticLabel,
 }) {
   final isDark = Theme.of(context).brightness == Brightness.dark;
+  // The visibility toggle needs a 48px touch target (WpLayout.minTouchTarget),
+  // but the visible field stays a compact 34px line. A suffixIcon inside the
+  // TextField would be clipped to the field height, so the button is overlaid
+  // via Stack: the wrapper is 48px tall, the field centered at 34px, and the
+  // button's tap/focus area extends invisibly above and below the field edge.
   return SizedBox(
     width: 280,
-    height: 34,
-    child: TextField(
-      controller: controller,
-      obscureText: obscure,
-      onChanged: onChanged,
-      style: TextStyle(
-        fontSize: 13,
-        color: isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary,
-      ),
-      decoration: InputDecoration(
-        hintText: 'sk-...',
-        isDense: true,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: WpSpacing.sm,
-          vertical: WpSpacing.xs,
-        ),
-        suffixIcon: IconButton(
-          icon: Icon(
-            obscure ? LucideIcons.eye : LucideIcons.eyeOff,
-            size: WpIconSize.sm,
-            color: isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
+    height: WpLayout.minTouchTarget,
+    child: Stack(
+      alignment: Alignment.center,
+      children: [
+        Semantics(
+          label: semanticLabel,
+          textField: true,
+          child: SizedBox(
+            height: 34,
+            child: TextField(
+              controller: controller,
+              obscureText: obscure,
+              onChanged: onChanged,
+              style: TextStyle(
+                fontSize: WpTypography.body,
+                color: isDark
+                    ? WpColorsDark.textPrimary
+                    : WpColorsLight.textPrimary,
+              ),
+              decoration: const InputDecoration(
+                hintText: 'sk-...',
+                isDense: true,
+                contentPadding: EdgeInsets.only(
+                  left: WpSpacing.sm,
+                  right: 40,
+                  top: WpSpacing.xs,
+                  bottom: WpSpacing.xs,
+                ),
+              ),
+            ),
           ),
-          onPressed: onToggle,
-          tooltip: L10n.of(context).settingsToggleApiKeyVisibility,
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
         ),
-      ),
+        Positioned(
+          right: 0,
+          child: IconButton(
+            icon: Icon(
+              obscure ? LucideIcons.eye : LucideIcons.eyeOff,
+              size: WpIconSize.sm,
+              color: isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
+            ),
+            onPressed: onToggle,
+            tooltip: L10n.of(context).settingsToggleApiKeyVisibility,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(
+              minWidth: WpLayout.minTouchTarget,
+              minHeight: WpLayout.minTouchTarget,
+            ),
+          ),
+        ),
+      ],
     ),
   );
 }
 
 /// Text input field for settings.
+///
+/// [semanticLabel] names the field's purpose for screen readers — see
+/// [settingsApiKeyField] for why this is needed alongside a [SettingRow].
 Widget settingsTextField({
   required BuildContext context,
   required TextEditingController controller,
   String? hintText,
   int maxLines = 1,
   ValueChanged<String>? onChanged,
+  String? semanticLabel,
 }) {
   final isDark = Theme.of(context).brightness == Brightness.dark;
   return SizedBox(
     width: maxLines > 1 ? double.infinity : 240,
-    child: TextField(
-      controller: controller,
-      maxLines: maxLines,
-      onChanged: onChanged,
-      style: TextStyle(
-        fontSize: 13,
-        color: isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary,
-      ),
-      decoration: InputDecoration(
-        hintText: hintText,
-        isDense: true,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: WpSpacing.sm,
-          vertical: WpSpacing.xs,
+    child: Semantics(
+      label: semanticLabel,
+      textField: true,
+      child: TextField(
+        controller: controller,
+        maxLines: maxLines,
+        onChanged: onChanged,
+        style: TextStyle(
+          fontSize: WpTypography.body,
+          color: isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary,
+        ),
+        decoration: InputDecoration(
+          hintText: hintText,
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: WpSpacing.sm,
+            vertical: WpSpacing.xs,
+          ),
         ),
       ),
     ),

@@ -169,7 +169,7 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
                           ? l10n.historyAddNote
                           : '${l10n.historyNotes} (${noteList.length})',
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: WpTypography.body,
                         fontWeight: FontWeight.w600,
                         color: textSecondary,
                         letterSpacing: 0.3,
@@ -235,7 +235,10 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
                           maxLines: 3,
                           minLines: 1,
                           textInputAction: TextInputAction.newline,
-                          style: TextStyle(fontSize: 13, color: textPrimary),
+                          style: TextStyle(
+                            fontSize: WpTypography.body,
+                            color: textPrimary,
+                          ),
                           decoration: InputDecoration(
                             hintText: l10n.historyNotePlaceholder,
                             hintStyle: TextStyle(color: textMuted),
@@ -256,7 +259,7 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
                       ),
                       onPressed: _addNote,
                       padding: const EdgeInsets.all(WpSpacing.xs),
-                      tooltip: 'Save',
+                      tooltip: l10n.actionSave,
                     ),
                     IconButton(
                       icon: Icon(
@@ -269,7 +272,7 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
                         setState(() => _isAdding = false);
                       },
                       padding: const EdgeInsets.all(WpSpacing.xs),
-                      tooltip: 'Cancel',
+                      tooltip: l10n.actionCancel,
                     ),
                     const SizedBox(width: WpSpacing.xxs),
                   ],
@@ -419,7 +422,7 @@ class _NoteItemState extends State<_NoteItem> {
                           minLines: 1,
                           textInputAction: TextInputAction.newline,
                           style: TextStyle(
-                            fontSize: 13,
+                            fontSize: WpTypography.body,
                             color: widget.textPrimary,
                           ),
                           decoration: const InputDecoration(
@@ -440,7 +443,7 @@ class _NoteItemState extends State<_NoteItem> {
                     ),
                     onPressed: widget.onSave,
                     padding: const EdgeInsets.all(WpSpacing.xxs),
-                    tooltip: 'Save',
+                    tooltip: L10n.of(context).actionSave,
                   ),
                   IconButton(
                     icon: Icon(
@@ -450,7 +453,7 @@ class _NoteItemState extends State<_NoteItem> {
                     ),
                     onPressed: widget.onCancel,
                     padding: const EdgeInsets.all(WpSpacing.xxs),
-                    tooltip: 'Cancel',
+                    tooltip: L10n.of(context).actionCancel,
                   ),
                 ],
               )
@@ -464,7 +467,7 @@ class _NoteItemState extends State<_NoteItem> {
                         Text(
                           widget.note.content,
                           style: TextStyle(
-                            fontSize: 13,
+                            fontSize: WpTypography.body,
                             color: widget.textPrimary,
                           ),
                         ),
@@ -472,7 +475,7 @@ class _NoteItemState extends State<_NoteItem> {
                         Text(
                           _formatNoteTimestamp(widget.note),
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: WpTypography.small,
                             color: widget.textMuted,
                           ),
                         ),

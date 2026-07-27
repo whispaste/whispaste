@@ -37,9 +37,8 @@ class WpTopoPainter extends CustomPainter {
     final paint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.5
-      ..color = isDark
-          ? const Color(0x08FFFFFF) // ~3% white on dark
-          : WpColorsLight.watermark; // ~4% black on light
+      // ~3% white on dark, ~4% black on light
+      ..color = isDark ? WpColorsDark.watermark : WpColorsLight.watermark;
 
     // Origin offset to bottom-right so arcs peek from the corner
     final cx = size.width * 0.85;

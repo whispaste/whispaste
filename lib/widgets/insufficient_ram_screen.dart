@@ -69,10 +69,10 @@ class _ErrorCard extends StatelessWidget {
           l10n.insufficientRamTitle,
           textAlign: TextAlign.center,
           style: const TextStyle(
-            fontSize: 26,
-            fontWeight: FontWeight.w800,
+            fontSize: WpTypography.headline,
+            fontWeight: FontWeight.bold,
             color: WpColorsDark.textPrimary,
-            height: 1.15,
+            height: 1.2,
           ),
         ),
         const SizedBox(height: WpSpacing.md),
@@ -88,7 +88,7 @@ class _ErrorCard extends StatelessWidget {
           l10n.insufficientRamBody(detectedGb, hw.kMinRamMB ~/ 1024),
           textAlign: TextAlign.center,
           style: const TextStyle(
-            fontSize: 14,
+            fontSize: WpTypography.subheading,
             color: WpColorsDark.textSecondary,
             height: 1.55,
           ),
@@ -158,7 +158,7 @@ class _WarningBadge extends StatelessWidget {
           Text(
             label,
             style: const TextStyle(
-              fontSize: 12,
+              fontSize: WpTypography.small,
               fontWeight: FontWeight.w600,
               color: WpColorsDark.warningOrange,
               letterSpacing: 0.5,
@@ -241,7 +241,7 @@ class _RamChip extends StatelessWidget {
         Text(
           label,
           style: const TextStyle(
-            fontSize: 11,
+            fontSize: WpTypography.caption,
             color: WpColorsDark.textSecondary,
             fontWeight: FontWeight.w500,
           ),
@@ -250,7 +250,7 @@ class _RamChip extends StatelessWidget {
         Text(
           value,
           style: TextStyle(
-            fontSize: 18,
+            fontSize: WpTypography.title,
             fontWeight: FontWeight.w700,
             color: valueColor,
           ),
@@ -301,7 +301,7 @@ class _QuitButtonState extends State<_QuitButton> {
                 Text(
                   widget.label,
                   style: const TextStyle(
-                    fontSize: 15,
+                    fontSize: WpTypography.heading,
                     fontWeight: FontWeight.w700,
                     color: Colors.white,
                   ),
@@ -352,7 +352,7 @@ class _LearnMoreLinkState extends State<_LearnMoreLink> {
           child: AnimatedDefaultTextStyle(
             duration: WpMotion.durationFor(context, WpMotion.fast),
             style: TextStyle(
-              fontSize: 13,
+              fontSize: WpTypography.body,
               color: _hovered
                   ? WpColorsDark.textPrimary
                   : WpColorsDark.textSecondary,

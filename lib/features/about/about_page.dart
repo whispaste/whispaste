@@ -132,7 +132,7 @@ class AboutPage extends ConsumerWidget {
                   color: isDark
                       ? WpColorsDark.textSecondary
                       : WpColorsLight.textSecondary,
-                  fontSize: 13,
+                  fontSize: WpTypography.body,
                   height: 1.5,
                 ),
               ),
@@ -288,7 +288,7 @@ class AboutPage extends ConsumerWidget {
                   color: isDark
                       ? WpColorsDark.textSecondary
                       : WpColorsLight.textSecondary,
-                  fontSize: 13,
+                  fontSize: WpTypography.body,
                 ),
               ),
               const SizedBox(height: WpSpacing.sm),
@@ -319,7 +319,7 @@ class AboutPage extends ConsumerWidget {
                 color: isDark
                     ? WpColorsDark.textMuted
                     : WpColorsLight.textMuted,
-                fontSize: 11,
+                fontSize: WpTypography.caption,
               ),
             ),
           ),
@@ -460,7 +460,7 @@ class _QuickActionState extends State<_QuickAction> {
                 Text(
                   widget.label,
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: WpTypography.body,
                     fontWeight: FontWeight.w500,
                     color: widget.isDark
                         ? WpColorsDark.textPrimary
@@ -555,7 +555,7 @@ class _UpdateCheckActionState extends State<_UpdateCheckAction> {
                 Text(
                   label,
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: WpTypography.body,
                     fontWeight: FontWeight.w500,
                     color: widget.isDark
                         ? WpColorsDark.textPrimary
@@ -642,7 +642,7 @@ class _SupportButtonState extends State<_SupportButton> {
                 Text(
                   widget.label,
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: WpTypography.body,
                     fontWeight: FontWeight.w600,
                     color: accentColor,
                   ),
@@ -701,7 +701,7 @@ class _BuiltWithRow extends StatelessWidget {
                 Text(
                   title,
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: WpTypography.subheading,
                     fontWeight: FontWeight.w600,
                     color: isDark
                         ? WpColorsDark.textPrimary
@@ -715,7 +715,7 @@ class _BuiltWithRow extends StatelessWidget {
                     color: isDark
                         ? WpColorsDark.textSecondary
                         : WpColorsLight.textSecondary,
-                    fontSize: 13,
+                    fontSize: WpTypography.body,
                     height: 1.4,
                   ),
                 ),
@@ -758,7 +758,7 @@ class _PrivacyPoint extends StatelessWidget {
                 color: isDark
                     ? WpColorsDark.textSecondary
                     : WpColorsLight.textSecondary,
-                fontSize: 13,
+                fontSize: WpTypography.body,
                 height: 1.5,
               ),
             ),
@@ -794,7 +794,7 @@ class _ShortcutRow extends StatelessWidget {
                 color: isDark
                     ? WpColorsDark.textSecondary
                     : WpColorsLight.textSecondary,
-                fontSize: 14,
+                fontSize: WpTypography.subheading,
               ),
             ),
           ),
@@ -820,7 +820,7 @@ class _ShortcutRow extends StatelessWidget {
                 color: isDark
                     ? WpColorsDark.textPrimary
                     : WpColorsLight.textPrimary,
-                fontSize: 12,
+                fontSize: WpTypography.small,
                 fontWeight: FontWeight.w500,
                 fontFamily: 'monospace',
               ),
@@ -915,7 +915,7 @@ class _LinkRowState extends State<_LinkRow> {
                       color: widget.isDark
                           ? WpColorsDark.textMuted
                           : WpColorsLight.textMuted,
-                      fontSize: 12,
+                      fontSize: WpTypography.small,
                     ),
                   ),
                 ),
@@ -1057,7 +1057,7 @@ class _CopyDiagnosticsButtonState
                 Text(
                   _copied ? l10n.aboutCopied : l10n.aboutCopyDebugInfo,
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: WpTypography.body,
                     fontWeight: FontWeight.w500,
                     color: _copied
                         ? (widget.isDark

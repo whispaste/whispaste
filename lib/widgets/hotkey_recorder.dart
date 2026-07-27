@@ -10,6 +10,7 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -374,6 +375,18 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
       _conflict = findConflict(serializedMods, storageLabel);
       _showInvalidKeyHint = false;
     });
+    // Screen-reader users can't see the key-cap display update — announce the
+    // newly recorded combo so they know what was captured.
+    SemanticsService.sendAnnouncement(
+      View.of(context),
+      formatHotkeyShortcut(
+        serializedMods,
+        storageLabel,
+        l10n: L10n.of(context),
+        displayOverride: displayLabel != storageLabel ? displayLabel : null,
+      ),
+      Directionality.of(context),
+    );
     // Windows: a key captured under a Ctrl/AltGr modifier arrives as its
     // US-canonical form — resolve the real layout label (Ö/Ä/Ü) for the cap.
     unawaited(_resolveLayoutLabel(canonical, storageLabel));
@@ -498,7 +511,7 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
                     l10n.settingsHotkeyRecorderTitle,
                     style: TextStyle(
                       color: textPrimary,
-                      fontSize: 16,
+                      fontSize: WpTypography.heading,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -508,7 +521,7 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
             const SizedBox(height: WpSpacing.xs),
             Text(
               l10n.settingsHotkeyRecorderHint,
-              style: TextStyle(color: textMuted, fontSize: 12),
+              style: TextStyle(color: textMuted, fontSize: WpTypography.small),
             ),
             const SizedBox(height: WpSpacing.xl),
 
@@ -533,7 +546,10 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
               child: Text(
                 l10n.settingsHotkeyRecorderModifierHint,
                 textAlign: TextAlign.center,
-                style: TextStyle(color: textMuted, fontSize: 11),
+                style: TextStyle(
+                  color: textMuted,
+                  fontSize: WpTypography.caption,
+                ),
               ),
             ),
             const SizedBox(height: WpSpacing.xs),
@@ -550,7 +566,7 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
                       color: isDark
                           ? WpColorsDark.warning
                           : WpColorsLight.warning,
-                      fontSize: 11,
+                      fontSize: WpTypography.caption,
                     ),
                   ),
                 ),
@@ -587,7 +603,10 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
                   ),
                   label: Text(
                     l10n.settingsHotkeyRecorderClear,
-                    style: TextStyle(color: textMuted, fontSize: 13),
+                    style: TextStyle(
+                      color: textMuted,
+                      fontSize: WpTypography.body,
+                    ),
                   ),
                 ),
                 // Cancel + Save grouped so they stay together when wrapping.
@@ -604,7 +623,10 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
                         onPressed: () => Navigator.of(context).pop(),
                         child: Text(
                           l10n.settingsHotkeyRecorderCancel,
-                          style: TextStyle(color: textMuted, fontSize: 13),
+                          style: TextStyle(
+                            color: textMuted,
+                            fontSize: WpTypography.body,
+                          ),
                         ),
                       ),
                     // Save — accent background + white foreground gives
@@ -624,7 +646,7 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
                       child: Text(
                         l10n.settingsHotkeyRecorderSave,
                         style: const TextStyle(
-                          fontSize: 13,
+                          fontSize: WpTypography.body,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -683,7 +705,10 @@ class _KeyComboDisplay extends StatelessWidget {
       return Container(
         height: 48,
         alignment: Alignment.center,
-        child: Text('—', style: TextStyle(color: textMuted, fontSize: 18)),
+        child: Text(
+          '—',
+          style: TextStyle(color: textMuted, fontSize: WpTypography.title),
+        ),
       );
     }
 
@@ -761,7 +786,7 @@ class _KeyCap extends StatelessWidget {
       child: Text(
         label,
         style: TextStyle(
-          fontSize: 13,
+          fontSize: WpTypography.body,
           fontWeight: FontWeight.w700,
           color: isPrimary ? accentColor : textColor,
           letterSpacing: 0.3,
@@ -787,7 +812,7 @@ class _PlusSeparator extends StatelessWidget {
       child: Text(
         '+',
         style: TextStyle(
-          fontSize: 14,
+          fontSize: WpTypography.subheading,
           fontWeight: FontWeight.w600,
           color: isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
         ),
@@ -855,7 +880,11 @@ class _ConflictWarning extends StatelessWidget {
                 _platformName(),
                 conflict.note.isNotEmpty ? conflict.note : conflict.key,
               ),
-              style: TextStyle(color: warningColor, fontSize: 11, height: 1.4),
+              style: TextStyle(
+                color: warningColor,
+                fontSize: WpTypography.caption,
+                height: 1.4,
+              ),
             ),
           ),
         ],

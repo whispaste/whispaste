@@ -398,7 +398,7 @@ class _HistorySearchFilterBarState
       child: Text(
         title,
         style: TextStyle(
-          fontSize: 11,
+          fontSize: WpTypography.caption,
           fontWeight: FontWeight.w600,
           color: textMuted,
           letterSpacing: 0.3,
@@ -422,7 +422,7 @@ class _HistorySearchFilterBarState
             Expanded(
               child: Text(
                 query,
-                style: TextStyle(fontSize: 13, color: textMuted),
+                style: TextStyle(fontSize: WpTypography.body, color: textMuted),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -460,7 +460,10 @@ class _HistorySearchFilterBarState
           children: [
             Icon(LucideIcons.tag, size: 13, color: textMuted),
             const SizedBox(width: WpSpacing.xs),
-            Text('#$tag', style: TextStyle(fontSize: 13, color: textMuted)),
+            Text(
+              '#$tag',
+              style: TextStyle(fontSize: WpTypography.body, color: textMuted),
+            ),
           ],
         ),
       ),
@@ -501,7 +504,7 @@ class _HistorySearchFilterBarState
             Text(
               label,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: WpTypography.small,
                 color: accent,
                 fontWeight: FontWeight.w500,
               ),
@@ -516,7 +519,7 @@ class _HistorySearchFilterBarState
 
   Widget _buildSimpleSuggestionList(Color accent, Color textMuted) {
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: WpSpacing.xxs),
       shrinkWrap: true,
       itemCount: _suggestions.length,
       itemBuilder: (ctx, i) {
@@ -547,7 +550,7 @@ class _HistorySearchFilterBarState
                 Text(
                   _suggestionType == _SuggestionType.lang ? 'lang:$s' : '#$s',
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: WpTypography.body,
                     color: selected ? accent : textMuted,
                     fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
                   ),
@@ -690,7 +693,9 @@ class _HistorySearchFilterBarState
             children: [
               Expanded(
                 child: SizedBox(
-                  height: 36,
+                  // Full-height tap/focus surface per chip (visual pill stays
+                  // compact — see HistoryFilterChip).
+                  height: WpLayout.minTouchTarget,
                   child: ListView(
                     scrollDirection: Axis.horizontal,
                     children: [
@@ -764,7 +769,10 @@ class _HistorySearchFilterBarState
                   padding: const EdgeInsets.only(left: WpSpacing.sm),
                   child: Text(
                     l10n.historyResultCount(widget.resultCount),
-                    style: TextStyle(fontSize: 12, color: textMuted),
+                    style: TextStyle(
+                      fontSize: WpTypography.small,
+                      color: textMuted,
+                    ),
                   ),
                 ),
               const SizedBox(width: WpSpacing.xs),
@@ -778,7 +786,7 @@ class _HistorySearchFilterBarState
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: WpSpacing.sm,
-                        vertical: 4,
+                        vertical: WpSpacing.xxs,
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -794,7 +802,7 @@ class _HistorySearchFilterBarState
                           Text(
                             l10n.historyEmptyTrash,
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: WpTypography.small,
                               color: widget.isDark
                                   ? WpColorsDark.error
                                   : WpColorsLight.error,
@@ -887,7 +895,7 @@ class _CommandChip extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: WpTypography.small,
               fontWeight: FontWeight.w600,
               color: accent,
             ),
@@ -989,7 +997,7 @@ class HistoryMultiSelectBar extends StatelessWidget {
                 l10n.historyItemsSelected(selectedCount),
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: WpTypography.body,
                   fontWeight: FontWeight.w600,
                   color: accent,
                 ),
@@ -1005,14 +1013,14 @@ class HistoryMultiSelectBar extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: WpSpacing.xs,
-                  vertical: 4,
+                  vertical: WpSpacing.xxs,
                 ),
                 child: Text(
                   totalCount != null && selectedCount >= totalCount!
                       ? l10n.historyDeselectAll
                       : l10n.historySelectAll,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: WpTypography.small,
                     color: accent,
                     fontWeight: FontWeight.w500,
                   ),
@@ -1104,7 +1112,7 @@ class HistoryMultiSelectBar extends StatelessWidget {
             icon: Icon(LucideIcons.x, size: 14, color: textPrimary),
             label: Text(
               l10n.actionCancel,
-              style: TextStyle(fontSize: 13, color: textPrimary),
+              style: TextStyle(fontSize: WpTypography.body, color: textPrimary),
             ),
           ),
         ],
@@ -1182,7 +1190,10 @@ class _HistoryMultiSelectActionState extends State<HistoryMultiSelectAction> {
                     const SizedBox(width: 4),
                     Text(
                       widget.label,
-                      style: TextStyle(fontSize: 12, color: color),
+                      style: TextStyle(
+                        fontSize: WpTypography.small,
+                        color: color,
+                      ),
                     ),
                   ],
                 ),
@@ -1322,7 +1333,10 @@ class _SearchHelpButton extends StatelessWidget {
     return IconButton(
       icon: Icon(LucideIcons.info, size: 15, color: textMuted),
       padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+      constraints: const BoxConstraints(
+        minWidth: WpLayout.minTouchTarget,
+        minHeight: WpLayout.minTouchTarget,
+      ),
       tooltip: l10n.historySearchHelpTitle,
       onPressed: () {
         final renderBox = context.findRenderObject() as RenderBox?;
@@ -1350,7 +1364,7 @@ class _SearchHelpButton extends StatelessWidget {
                   Text(
                     l10n.historySearchHelpTitle,
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: WpTypography.body,
                       fontWeight: FontWeight.w600,
                       color: textPrimary,
                     ),
@@ -1410,12 +1424,18 @@ class _HelpRow extends StatelessWidget {
         Icon(icon, size: 12, color: textMuted),
         const SizedBox(width: WpSpacing.xs),
         Flexible(
-          child: Text(text, style: TextStyle(fontSize: 12, color: textMuted)),
+          child: Text(
+            text,
+            style: TextStyle(fontSize: WpTypography.small, color: textMuted),
+          ),
         ),
         if (example.isNotEmpty) ...[
           const SizedBox(width: WpSpacing.xs),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+            padding: const EdgeInsets.symmetric(
+              horizontal: WpSpacing.xxs,
+              vertical: 1,
+            ),
             decoration: BoxDecoration(
               color: isDark
                   ? WpColorsDark.accentChipFill
@@ -1425,7 +1445,7 @@ class _HelpRow extends StatelessWidget {
             child: Text(
               example,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: WpTypography.caption,
                 fontWeight: FontWeight.w500,
                 color: accent,
               ),
@@ -1502,7 +1522,7 @@ class _SortDropdown extends StatelessWidget {
               Text(
                 labels[order] ?? '',
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: WpTypography.body,
                   color: isSelected ? accent : null,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 ),

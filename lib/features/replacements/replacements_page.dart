@@ -179,7 +179,12 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
       padding: EdgeInsets.zero,
       child: asyncAll.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
+        error: (e, _) => WpEmptyState(
+          icon: LucideIcons.triangleAlert,
+          title: l10n.errorGeneric,
+          actionLabel: l10n.actionRetry,
+          onAction: () => ref.invalidate(replacementsProvider),
+        ),
         data: (all) {
           final visible = _filtered(all);
           final settings = ref.watch(settingsProvider).value;
@@ -425,14 +430,17 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
                     : l10n.replacementsNewShortcut,
                 style: TextStyle(
                   color: textPrimary,
-                  fontSize: 16,
+                  fontSize: WpTypography.heading,
                   fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: WpSpacing.xs),
               Text(
                 l10n.replacementsDialogHint,
-                style: TextStyle(color: textMuted, fontSize: 12),
+                style: TextStyle(
+                  color: textMuted,
+                  fontSize: WpTypography.small,
+                ),
               ),
               const SizedBox(height: WpSpacing.lg),
 
@@ -441,7 +449,7 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
                 l10n.replacementsTriggerLabel,
                 style: TextStyle(
                   color: textPrimary,
-                  fontSize: 12,
+                  fontSize: WpTypography.small,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -449,7 +457,10 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
               TextField(
                 controller: _triggerCtrl,
                 autofocus: true,
-                style: TextStyle(color: textPrimary, fontSize: 13),
+                style: TextStyle(
+                  color: textPrimary,
+                  fontSize: WpTypography.body,
+                ),
                 decoration: InputDecoration(
                   hintText: l10n.replacementsTriggerHint,
                   isDense: true,
@@ -468,14 +479,17 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
                 l10n.replacementsReplacementLabel,
                 style: TextStyle(
                   color: textPrimary,
-                  fontSize: 12,
+                  fontSize: WpTypography.small,
                   fontWeight: FontWeight.w500,
                 ),
               ),
               const SizedBox(height: WpSpacing.xxs),
               TextField(
                 controller: _replacementCtrl,
-                style: TextStyle(color: textPrimary, fontSize: 13),
+                style: TextStyle(
+                  color: textPrimary,
+                  fontSize: WpTypography.body,
+                ),
                 decoration: InputDecoration(
                   hintText: l10n.replacementsReplacementHint,
                   isDense: true,
@@ -497,7 +511,10 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
                     onPressed: () => Navigator.of(context).pop(),
                     child: Text(
                       l10n.actionCancel,
-                      style: TextStyle(color: textMuted, fontSize: 13),
+                      style: TextStyle(
+                        color: textMuted,
+                        fontSize: WpTypography.body,
+                      ),
                     ),
                   ),
                   const SizedBox(width: WpSpacing.sm),
@@ -507,7 +524,7 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
                       _isEditing ? l10n.actionSave : l10n.replacementsAdd,
                       style: TextStyle(
                         color: _isValid ? accent : textMuted,
-                        fontSize: 13,
+                        fontSize: WpTypography.body,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -603,7 +620,7 @@ class _ReplacementTileState extends State<_ReplacementTile> {
                         ? WpColorsDark.textPrimary
                         : WpColorsLight.textPrimary,
                     fontWeight: FontWeight.w600,
-                    fontSize: 13,
+                    fontSize: WpTypography.body,
                   ),
                 ),
                 const SizedBox(width: WpSpacing.sm),
@@ -623,7 +640,7 @@ class _ReplacementTileState extends State<_ReplacementTile> {
                       color: widget.isDark
                           ? WpColorsDark.textSecondary
                           : WpColorsLight.textSecondary,
-                      fontSize: 13,
+                      fontSize: WpTypography.body,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),

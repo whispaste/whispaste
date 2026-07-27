@@ -394,7 +394,7 @@ class _TierRowState extends State<_TierRow> {
             Text(
               widget.l10n.modelReady,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: WpTypography.caption,
                 fontWeight: FontWeight.w500,
                 color: success,
               ),
@@ -486,7 +486,7 @@ class _TierRowInfo extends StatelessWidget {
                 label,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: WpTypography.body,
                   fontWeight: FontWeight.w600,
                   color: textPrimary,
                 ),
@@ -511,7 +511,7 @@ class _TierRowInfo extends StatelessWidget {
                 child: Text(
                   l10n.qualityTierRecommended,
                   style: TextStyle(
-                    fontSize: 10,
+                    fontSize: WpTypography.micro,
                     fontWeight: FontWeight.w600,
                     color: accent,
                   ),
@@ -530,7 +530,7 @@ class _TierRowInfo extends StatelessWidget {
               child: Text(
                 tierSizeLabel(tier),
                 style: TextStyle(
-                  fontSize: 10,
+                  fontSize: WpTypography.micro,
                   fontWeight: FontWeight.w500,
                   color: isDownloaded ? success : textMuted,
                 ),
@@ -539,7 +539,13 @@ class _TierRowInfo extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 2),
-        Text(desc, style: TextStyle(fontSize: 11, color: textSecondary)),
+        Text(
+          desc,
+          style: TextStyle(
+            fontSize: WpTypography.caption,
+            color: textSecondary,
+          ),
+        ),
         if (isBenchmarking) ...[
           const SizedBox(height: 3),
           Row(
@@ -556,7 +562,10 @@ class _TierRowInfo extends StatelessWidget {
               Expanded(
                 child: Text(
                   l10n.qualityTierInfoBenchmarking,
-                  style: TextStyle(fontSize: 10, color: infoColor),
+                  style: TextStyle(
+                    fontSize: WpTypography.micro,
+                    color: infoColor,
+                  ),
                 ),
               ),
             ],
@@ -574,7 +583,10 @@ class _TierRowInfo extends StatelessWidget {
               Expanded(
                 child: Text(
                   infoMessage!,
-                  style: TextStyle(fontSize: 10, color: infoColor),
+                  style: TextStyle(
+                    fontSize: WpTypography.micro,
+                    color: infoColor,
+                  ),
                 ),
               ),
             ],
@@ -671,7 +683,7 @@ class _DownloadProgressInfo extends StatelessWidget {
         Text(
           _statusText(),
           style: TextStyle(
-            fontSize: 11,
+            fontSize: WpTypography.caption,
             color: isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
           ),
           maxLines: 1,
@@ -786,7 +798,7 @@ class _ActionChip extends StatelessWidget {
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: WpTypography.caption,
                   fontWeight: FontWeight.w600,
                   color: color,
                 ),
@@ -835,7 +847,7 @@ class _ErrorBanner extends StatelessWidget {
           Expanded(
             child: Text(
               message,
-              style: TextStyle(fontSize: 12, color: errorColor),
+              style: TextStyle(fontSize: WpTypography.small, color: errorColor),
             ),
           ),
           if (onRetry != null) ...[
@@ -849,7 +861,7 @@ class _ErrorBanner extends StatelessWidget {
                   vertical: WpSpacing.xxs,
                 ),
                 textStyle: const TextStyle(
-                  fontSize: 12,
+                  fontSize: WpTypography.small,
                   fontWeight: FontWeight.w600,
                 ),
               ),

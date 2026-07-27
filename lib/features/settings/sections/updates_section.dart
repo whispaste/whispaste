@@ -235,7 +235,10 @@ class _StableRevertHintNotice extends StatelessWidget {
             tooltip: l10n.actionDismiss,
             onPressed: onDismiss,
             padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            constraints: const BoxConstraints(
+              minWidth: WpLayout.minTouchTarget,
+              minHeight: WpLayout.minTouchTarget,
+            ),
           ),
         ],
       ),

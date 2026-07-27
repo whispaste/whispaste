@@ -39,7 +39,7 @@ class HistoryDateHeader extends StatelessWidget {
             child: Text(
               label,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: WpTypography.caption,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.5,
                 color: color,
@@ -79,7 +79,7 @@ class HistoryCompactDateHeader extends StatelessWidget {
       child: Text(
         label.toUpperCase(),
         style: TextStyle(
-          fontSize: 10,
+          fontSize: WpTypography.micro,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.8,
           color: isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
