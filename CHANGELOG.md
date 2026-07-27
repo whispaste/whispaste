@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.2.58
+
+### New Features
+
+- **Der Unterstützungs-Hinweis ist jetzt fairer getaktet und ehrlicher formuliert.** Statt eines einzigen Dauer-Ausblendens merkt sich WhisPaste jetzt gestaffelt, wann zuletzt nachgefragt wurde (90 Tage nach bewusstem Wegklicken, 9 Monate nach einem Klick auf den Unterstützen-Link), und zeigt insgesamt höchstens drei Mal einen Hinweis. Der Text nennt jetzt offen, wofür die Kosten anfallen (Apple Developer Program, Microsoft Partner Center, Hosting) — ohne konkrete Summen zu nennen.
+
+### Bug Fixes
+
+- **Windows meldete fälschlich eine neue Version, obwohl bereits die aktuelle installiert war.** Ein Formatierungsunterschied zwischen der App-eigenen Versionsnummer und der Update-Prüfung ließ WhisPaste wiederholt zum erneuten Installieren derselben Version auffordern.
+- **Fehlgeschlagene Modell-Downloads zeigten nur „null" statt einer echten Fehlermeldung** — betraf sowohl Whisper- als auch Parakeet-Downloads. Die Meldung nennt jetzt die tatsächliche Ursache.
+- **Ein seltener Absturz beim Beenden über Cmd+Q oder das Dock unter macOS ist behoben.** Betroffen war nur dieser eine Beendigungsweg — über das Tray-Menü funktionierte das Herunterfahren bereits sauber.
+- **„Bei Anmeldung starten" funktionierte unter macOS gar nicht**, obwohl sich der Schalter aktivieren ließ — jetzt sauber über das native macOS-Autostart-System umgesetzt.
+- **Der „Hinzufügen"-Button bei eigenen Ersetzungsregeln hatte unleserlichen Text** (helles Türkis auf türkisem Grund).
+- **Die Einstellungen-Seite füllte nicht mehr die volle Fensterbreite** wie alle anderen Seiten der App — behoben.
+- **Zahlreiche kleinere Barrierefreiheits- und Bedienbarkeits-Verbesserungen**: bessere Screenreader-Ankündigungen bei Aufnahme-Status und Verlaufseinträgen, mehr Elemente per Tastatur erreichbar, größere Tipp-Flächen bei kleinen Icon-Buttons, konsequentere Beachtung der Einstellung „Bewegung reduzieren", und die schwebende Overlay-/Button-Anzeige bleibt jetzt auch nach dem Ab- oder Umstecken eines Monitors innerhalb des sichtbaren Bildschirmbereichs.
+
+### Maintenance
+
+- **macOS-App-Kennung intern umgestellt** (Voraussetzung für die geplante Einreichung im Mac App Store). Bestehende Einstellungen und API-Keys werden beim ersten Start automatisch und ohne Nutzeraktion in die neue Kennung übernommen.
+
 ## 1.2.57
 
 ### Bug Fixes
