@@ -8,7 +8,7 @@ PackageName: WhisPaste
 PackageUrl: https://whispaste.de/
 License: MIT
 LicenseUrl: https://github.com/whispaste/whispaste/blob/main/LICENSE
-ShortDescription: Cross-platform voice input: hotkey, speak, paste anywhere.
+ShortDescription: "Cross-platform voice input: hotkey, speak, paste anywhere."
 Moniker: whispaste
 Tags:
   - dictation
