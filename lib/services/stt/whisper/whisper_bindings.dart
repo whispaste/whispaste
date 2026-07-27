@@ -172,7 +172,46 @@ class WhisperBindings {
       .asFunction<
         ffi.Pointer<ffi.Char> Function(ffi.Pointer<whisper_context>, int)
       >();
+
+  /// Hand-added (not from the original ffigen pass): redirects whisper.cpp/
+  /// ggml's internal log output away from the stderr default. See
+  /// `ggml_log_set`'s doc comment in ggml.h: "If this is not called, or NULL
+  /// is supplied, everything is output on stderr." — fatal in a Windows GUI
+  /// process with no attached console (FLUTTER_WHISPASTE-BB).
+  void whisper_log_set(
+    ffi.Pointer<ffi.NativeFunction<GgmlLogCallbackNative>> log_callback,
+    ffi.Pointer<ffi.Void> user_data,
+  ) {
+    _whisper_log_set(log_callback, user_data);
+  }
+
+  late final _whisper_log_setPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Pointer<ffi.NativeFunction<GgmlLogCallbackNative>>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('whisper_log_set');
+  late final _whisper_log_set = _whisper_log_setPtr
+      .asFunction<
+        void Function(
+          ffi.Pointer<ffi.NativeFunction<GgmlLogCallbackNative>>,
+          ffi.Pointer<ffi.Void>,
+        )
+      >();
 }
+
+/// `typedef void (*ggml_log_callback)(enum ggml_log_level level, const char
+/// * text, void * user_data);` — native signature for [WhisperBindings.
+/// whisper_log_set]'s callback parameter.
+typedef GgmlLogCallbackNative =
+    ffi.Void Function(
+      ffi.Int32 level,
+      ffi.Pointer<ffi.Char> text,
+      ffi.Pointer<ffi.Void> user_data,
+    );
 
 /// C interface
 final class whisper_context extends ffi.Opaque {}

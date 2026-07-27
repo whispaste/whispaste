@@ -31,9 +31,12 @@ import 'dart:io';
 import 'package:ffi/ffi.dart';
 import 'package:path/path.dart' as p;
 
+import '../../../core/logging/app_logger.dart';
 import '../../audio/pcm_wav_codec.dart';
 import 'whisper_bindings.dart';
 import 'whisper_engine.dart';
+
+final _log = AppLogger('WhisperFfi');
 
 /// Absolute path to the `libwhisper` shared library bundled next to the running
 /// app, per platform. `libwhisper` (plus its `ggml*` backends) is embedded and
@@ -130,6 +133,7 @@ class WhisperFfiEngine implements WhisperEngine {
       final dylib = ffi.DynamicLibrary.open(_libraryPath);
       _ensureBackendsLoaded(dylib, _libraryPath);
       final bindings = WhisperBindings.fromLookup(dylib.lookup);
+      _ensureLogCallbackRegistered(bindings);
       final cparams = bindings.whisper_context_default_params();
       cparams.use_gpu = _backend != WhisperBackend.cpu;
       final pathC = modelPath.toNativeUtf8();
@@ -153,6 +157,54 @@ class WhisperFfiEngine implements WhisperEngine {
     } catch (e) {
       _errorMessage = 'whisper_library_load_failed';
       throw StateError('whisper_library_load_failed: $e');
+    }
+  }
+
+  static bool _logCallbackRegistered = false;
+
+  // Never read — this reference exists solely to keep the NativeCallable
+  // (and the native function pointer ggml now holds via whisper_log_set)
+  // alive for the process lifetime. Letting it go out of scope would let
+  // the GC close the callable and invalidate that pointer while ggml still
+  // has it registered.
+  // ignore: unused_field
+  static ffi.NativeCallable<GgmlLogCallbackNative>? _logCallable;
+
+  /// Redirects ggml/whisper.cpp's internal logging away from its stderr
+  /// default (see `whisper_log_set`'s doc comment in ggml.h: "If this is
+  /// not called, or NULL is supplied, everything is output on stderr") — a
+  /// console-less Windows GUI/MSIX process has no guaranteed-valid stderr
+  /// handle for that default path (FLUTTER_WHISPASTE-BB).
+  ///
+  /// Deliberately does NOT read the native `text` pointer: ggml formats each
+  /// log line into a buffer that is stack-local (or freed immediately after
+  /// the synchronous call) in `ggml_log_internal_v` — safe to read only
+  /// within that synchronous call, which `NativeCallable.listener` cannot
+  /// guarantee (it defers running the Dart callback body onto the isolate's
+  /// event loop, by which point the native buffer may already be gone).
+  /// `.listener` is required over `.isolateLocal` because ggml can log from
+  /// worker threads never registered with the Dart isolate. Only the `level`
+  /// (a plain int, always safe to read) is forwarded.
+  static void _ensureLogCallbackRegistered(WhisperBindings bindings) {
+    if (_logCallbackRegistered) return;
+    _logCallbackRegistered = true;
+    final callable = ffi.NativeCallable<GgmlLogCallbackNative>.listener(
+      _onGgmlLog,
+    );
+    _logCallable = callable;
+    bindings.whisper_log_set(callable.nativeFunction, ffi.nullptr);
+  }
+
+  static void _onGgmlLog(
+    int level,
+    ffi.Pointer<ffi.Char> text,
+    ffi.Pointer<ffi.Void> userData,
+  ) {
+    // level: 0=none 1=debug 2=info 3=warn 4=error 5=cont (ggml_log_level).
+    if (level >= 4) {
+      _log.warning('native ggml/whisper log (level=$level)');
+    } else {
+      _log.debug('native ggml/whisper log (level=$level)');
     }
   }
 
