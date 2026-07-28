@@ -195,7 +195,12 @@ foreach ($prop in $sub.listings.PSObject.Properties) {
 $sub.listings = $normalizedListings
 
 foreach ($locale in $LOCALE_MAP.Values) {
-  if ($null -eq $sub.listings.$locale) {
+  # Same Set-StrictMode pitfall as the pendingApplicationSubmission fix above:
+  # a PSCustomObject built via Add-Member throws "property cannot be found"
+  # for a genuinely absent property instead of returning $null — verified
+  # live 2026-07-28 (WhisPaste v1.2.60 real submission): the cloned draft had
+  # no 'de-de' listing yet at all, not just an empty one.
+  if (-not ($sub.listings.PSObject.Properties.Match($locale).Count -gt 0)) {
     Write-Warning "   Locale '$locale' not in cloned submission — creating entry."
     $sub.listings | Add-Member -NotePropertyName $locale `
       -NotePropertyValue ([PSCustomObject]@{ baseListing = [PSCustomObject]@{} }) -Force
@@ -272,8 +277,14 @@ while ((Get-Date) -lt $deadline) {
   Write-Host "   Status: $cs"
 
   if ($cs -in $failed) {
-    $errors = ($status.statusDetails.errors |
-      ForEach-Object { "  • $($_.code): $($_.details)" }) -join "`n"
+    # Same Set-StrictMode hazard as above — statusDetails/errors may be
+    # genuinely absent on some failure shapes; guard proactively rather than
+    # let a reporting crash mask the real failure underneath it.
+    $errorList = if ($status.PSObject.Properties.Match('statusDetails').Count -gt 0 -and
+                     $status.statusDetails.PSObject.Properties.Match('errors').Count -gt 0) {
+      $status.statusDetails.errors
+    } else { @() }
+    $errors = ($errorList | ForEach-Object { "  • $($_.code): $($_.details)" }) -join "`n"
     Write-Summary "### Microsoft Store submission: ❌ FAILED ($cs)"
     Write-Summary ""
     Write-Summary "Submission ``$subId`` was rejected by Partner Center:"
