@@ -268,6 +268,7 @@
 			buildConfigurationList = 33CC10FB2044A3C60003C045 /* Build configuration list for PBXNativeTarget "Runner" */;
 			buildPhases = (
 				519F586741910051FC326956 /* [CP] Check Pods Manifest.lock */,
+				AA2002010000000000000001 /* [WP] Guard MAS plugin registrant */,
 				33CC10E92044A3C60003C045 /* Sources */,
 				33CC10EA2044A3C60003C045 /* Frameworks */,
 				33CC10EB2044A3C60003C045 /* Resources */,
@@ -373,6 +374,22 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"${SRCROOT}/embed_libwhisper.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		AA2002010000000000000001 /* [WP] Guard MAS plugin registrant */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "[WP] Guard MAS plugin registrant";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${SRCROOT}/guard_mas_plugin_registrant.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
 		D7FEBF1B71704F4EB00AEF0A /* [WP] Strip MAS-incompatible frameworks */ = {
