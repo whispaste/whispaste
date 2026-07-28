@@ -195,4 +195,13 @@ tools/**/report.txt
 
 # Python-Bytecode-Cache (tools/appstore/set-mac-price.py)
 __pycache__/
+
+# Impeccable design-system docs for the Flutter app surface (internal
+# design-process artifacts, not application source — parallels the already-
+# protected website/design-system/ entry above; live at lib/ specifically
+# because Impeccable's context resolver requires PRODUCT.md/DESIGN.md to sit
+# in an actual ancestor directory of the files it's asked to design, so they
+# can't move into .scratch/ the way the website's docs did).
+/lib/DESIGN.md
+/lib/PRODUCT.md
 *.pyc

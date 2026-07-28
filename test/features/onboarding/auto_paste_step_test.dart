@@ -768,8 +768,8 @@ void main() {
 
         await _pumpStep(tester, paste: paste);
 
-        // Title is rendered.
-        expect(find.text(l10n.onboardingPasteTccMismatchTitle), findsOneWidget);
+        // Title is rendered (shared restart banner, accent-styled).
+        expect(find.text(l10n.pasteCapabilityRestartTitle), findsOneWidget);
       },
     );
 
@@ -819,7 +819,7 @@ void main() {
         await _pumpStep(tester, paste: paste);
 
         expect(
-          find.text(l10n.onboardingPasteTccMismatchTitle),
+          find.text(l10n.pasteCapabilityRestartTitle),
           findsNothing,
           reason:
               'TCC-mismatch banner must stay hidden when '

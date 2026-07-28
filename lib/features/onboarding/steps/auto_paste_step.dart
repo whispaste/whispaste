@@ -47,6 +47,7 @@ import '../../../core/theme/tokens.dart';
 import '../../../services/desktop_paste/desktop_paste_controller.dart';
 import '../../../services/paste/paste_capability_notifier.dart';
 import '../../../services/paste/paster.dart';
+import '../../../widgets/paste_capability_restart_banner.dart';
 import '../../../widgets/wp_accent_button.dart';
 
 class AutoPasteStep extends ConsumerStatefulWidget {
@@ -356,7 +357,6 @@ class _MacOsBody extends StatelessWidget {
         : WpColorsLight.accentWarmGradient;
     final successColor = isDark ? WpColorsDark.success : WpColorsLight.success;
     final errorColor = isDark ? WpColorsDark.error : WpColorsLight.error;
-    final warningColor = isDark ? WpColorsDark.warning : WpColorsLight.warning;
 
     final phase = _phase;
     final isReady = phase == _AutoPastePhase.granted;
@@ -397,7 +397,6 @@ class _MacOsBody extends StatelessWidget {
           accentGradient: accentGradient,
           successColor: successColor,
           errorColor: errorColor,
-          warningColor: warningColor,
         ),
 
         const SizedBox(height: WpSpacing.lg),
@@ -438,7 +437,6 @@ class _MacOsBody extends StatelessWidget {
     required LinearGradient accentGradient,
     required Color successColor,
     required Color errorColor,
-    required Color warningColor,
   }) {
     switch (phase) {
       case _AutoPastePhase.checking:
@@ -526,13 +524,7 @@ class _MacOsBody extends StatelessWidget {
 
       case _AutoPastePhase.troubleshoot:
         return [
-          _TccMismatchBanner(
-            isDark: isDark,
-            textPrimary: textPrimary,
-            textSecondary: textSecondary,
-            warningColor: warningColor,
-            l10n: l10n,
-          ),
+          const PasteCapabilityRestartBanner(),
           const SizedBox(height: WpSpacing.sm),
           // Secondary fallback: reset the entry instead of restarting.
           // Surfaces the existing repair flow without giving it equal weight.
@@ -1019,102 +1011,6 @@ class _PollingHintCard extends StatelessWidget {
                   ),
                 ),
               ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Recovery banner for the ad-hoc-signed-Sequoia "permission granted but
-/// `AXIsProcessTrusted()` still returns false" symptom. Surfaced only when
-/// [PasteCapabilityNotifier.suspectedTccMismatch] is `true` — i.e. the
-/// polling loop timed out after a failed grant attempt while the capability
-/// is still reported as `permissionMissing`.
-///
-/// Warning palette (not error) because the situation is recoverable: the
-/// banner guides the user through two concrete recovery steps — pressing
-/// Repair below to clear stale TCC entries, or quitting and restarting
-/// WhisPaste so macOS picks up the current app signature. Surface/border
-/// styling matches the other cards in the step so the layout reads as a
-/// unit; only the icon colour distinguishes the warning role.
-class _TccMismatchBanner extends StatelessWidget {
-  const _TccMismatchBanner({
-    required this.isDark,
-    required this.textPrimary,
-    required this.textSecondary,
-    required this.warningColor,
-    required this.l10n,
-  });
-
-  final bool isDark;
-  final Color textPrimary;
-  final Color textSecondary;
-  final Color warningColor;
-  final L10n l10n;
-
-  @override
-  Widget build(BuildContext context) {
-    final surface =
-        (isDark ? WpColorsDark.surfaceVariant : WpColorsLight.surfaceVariant)
-            .withValues(alpha: 0.5);
-    final border = isDark
-        ? WpColorsDark.borderSubtle
-        : WpColorsLight.borderSubtle;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: WpSpacing.md,
-        vertical: WpSpacing.md,
-      ),
-      decoration: BoxDecoration(
-        color: surface,
-        borderRadius: WpRadius.borderMd,
-        border: Border.all(color: border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(LucideIcons.triangleAlert, size: 20, color: warningColor),
-              const SizedBox(width: WpSpacing.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.onboardingPasteTccMismatchTitle,
-                      style: TextStyle(
-                        fontSize: WpTypography.subheading,
-                        fontWeight: FontWeight.w600,
-                        color: textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: WpSpacing.xs),
-                    Text(
-                      l10n.onboardingPasteTccMismatchBody,
-                      style: TextStyle(
-                        fontSize: WpTypography.small,
-                        color: textSecondary,
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: WpSpacing.sm),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: MacOSLifecycleChannel.restart,
-              icon: const Icon(LucideIcons.rotateCw, size: 14),
-              label: Text(l10n.pasteCapabilityRestartButton),
             ),
           ),
         ],

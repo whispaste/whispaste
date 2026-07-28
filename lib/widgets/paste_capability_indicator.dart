@@ -20,6 +20,7 @@ import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import '../services/paste/paste_capability_notifier.dart';
 import '../services/paste/paster.dart';
+import 'paste_capability_restart_banner.dart';
 
 class PasteCapabilityIndicator extends ConsumerStatefulWidget {
   const PasteCapabilityIndicator({super.key});
@@ -96,8 +97,6 @@ class _PasteCapabilityIndicatorState
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final capState = ref.watch(pasteCapabilityNotifierProvider);
     final cap = capState.capability;
-
-    final (icon, color, label) = _resolveStatus(cap, l10n, isDark);
     final notifier = ref.read(pasteCapabilityNotifierProvider.notifier);
 
     final missing =
@@ -106,51 +105,105 @@ class _PasteCapabilityIndicatorState
     final waiting =
         _busy || capState.pollingPhase == PollingPhase.awaitingGrant;
 
+    // Restart-first: the grant demonstrably happened but this running process
+    // can't see it yet (stale in-process TCC view — macOS only re-evaluates
+    // on a fresh launch). Showing the regular "not yet allowed" card here
+    // would gaslight the user into granting again, so the prominent restart
+    // banner replaces the status card entirely; the collapsed troubleshoot
+    // section stays reachable for the rare repair/test edge cases.
+    if (missing && notifier.suspectedTccMismatch) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const PasteCapabilityRestartBanner(),
+          const SizedBox(height: WpSpacing.xxs),
+          _buildTroubleshoot(context, l10n, notifier),
+        ],
+      );
+    }
+
+    final status = _resolveStatus(cap, l10n, isDark);
+
+    // Neutral card + tinted icon badge: status is carried by the badge and
+    // the copy, not by flooding the whole surface with a status colour —
+    // matches the onboarding cards and the quiet macOS-Settings register.
+    final surface =
+        (isDark ? WpColorsDark.surfaceVariant : WpColorsLight.surfaceVariant)
+            .withValues(alpha: 0.5);
+    final border = isDark
+        ? WpColorsDark.borderSubtle
+        : WpColorsLight.borderSubtle;
+    final textSecondary = isDark
+        ? WpColorsDark.textSecondary
+        : WpColorsLight.textSecondary;
+
     return Container(
-      padding: const EdgeInsets.all(WpSpacing.sm),
+      width: double.infinity,
+      padding: const EdgeInsets.all(WpSpacing.md),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(WpRadius.md),
-        border: Border.all(color: color.withValues(alpha: 0.25)),
+        color: surface,
+        borderRadius: WpRadius.borderMd,
+        border: Border.all(color: border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, size: 18, color: color),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  label,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: status.color.withValues(alpha: 0.12),
+                  borderRadius: WpRadius.borderSm,
+                ),
+                child: Center(
+                  child: Icon(
+                    status.icon,
+                    size: WpIconSize.sm,
+                    color: status.color,
+                  ),
                 ),
               ),
-              if (waiting)
+              const SizedBox(width: WpSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      status.title,
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    if (status.subtitle != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        status.subtitle!,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: textSecondary,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (waiting) ...[
+                const SizedBox(width: WpSpacing.sm),
                 const SizedBox(
                   width: 16,
                   height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 ),
+              ],
             ],
           ),
-          // One clear path when the permission is missing: explain why, offer a
-          // single primary action, and tuck self-help away. (With stable
-          // code-signing the grant now survives updates, so the old multi-button
-          // repair cluster is no longer the default surface.)
+          // One clear path when the permission is missing: explain why (the
+          // subtitle above), offer a single primary action, and tuck self-help
+          // away. (With stable code-signing the grant now survives updates, so
+          // the old multi-button repair cluster is no longer the default
+          // surface.)
           if (missing) ...[
-            const SizedBox(height: 8),
-            Text(
-              l10n.pasteCapabilityWhyMac,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(
-                  context,
-                ).colorScheme.onSurfaceVariant.withValues(alpha: 0.85),
-              ),
-            ),
-            const SizedBox(height: 12),
+            const SizedBox(height: WpSpacing.sm),
             Align(
               alignment: Alignment.centerLeft,
               child: FilledButton.icon(
@@ -251,33 +304,42 @@ class _PasteCapabilityIndicatorState
     );
   }
 
-  (IconData, Color, String) _resolveStatus(
+  /// Icon, badge colour, title and optional supporting line per status.
+  ///
+  /// `permissionMissing` uses the warning palette (not error): on first
+  /// contact nothing is broken yet — the state is an invitation to grant,
+  /// and red stays reserved for actual paste failures.
+  ({IconData icon, Color color, String title, String? subtitle}) _resolveStatus(
     PasteCapability? cap,
     L10n l10n,
     bool isDark,
   ) {
     if (cap == null) {
       return (
-        LucideIcons.loaderCircle,
-        isDark ? WpColorsDark.accent : WpColorsLight.accent,
-        l10n.pasteCapabilityCheckTitle,
+        icon: LucideIcons.loaderCircle,
+        color: isDark ? WpColorsDark.accent : WpColorsLight.accent,
+        title: l10n.pasteCapabilityCheckTitle,
+        subtitle: null,
       );
     }
     return switch (cap.status) {
       PasteCapabilityStatus.ready => (
-        LucideIcons.circleCheck,
-        isDark ? WpColorsDark.success : WpColorsLight.success,
-        l10n.pasteCapabilityReady,
+        icon: LucideIcons.circleCheck,
+        color: isDark ? WpColorsDark.success : WpColorsLight.success,
+        title: l10n.pasteCapabilityReady,
+        subtitle: l10n.pasteCapabilityReadySubtitle,
       ),
       PasteCapabilityStatus.permissionMissing => (
-        LucideIcons.shieldAlert,
-        isDark ? WpColorsDark.error : WpColorsLight.error,
-        l10n.pasteCapabilityPermissionMissing,
+        icon: LucideIcons.shieldAlert,
+        color: isDark ? WpColorsDark.warning : WpColorsLight.warning,
+        title: l10n.pasteCapabilityPermissionMissing,
+        subtitle: Platform.isMacOS ? l10n.pasteCapabilityWhyMac : null,
       ),
       PasteCapabilityStatus.unsupported => (
-        LucideIcons.info,
-        isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
-        l10n.pasteCapabilityUnsupported,
+        icon: LucideIcons.info,
+        color: isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
+        title: l10n.pasteCapabilityUnsupported,
+        subtitle: null,
       ),
     };
   }
