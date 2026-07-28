@@ -130,7 +130,6 @@ void main() {
       expect(c.dotSize, closeTo(scaled(n.dotSize), 1e-9));
       expect(c.closeButtonSize, closeTo(scaled(n.closeButtonSize), 1e-9));
       expect(c.stopButtonSize, closeTo(scaled(n.stopButtonSize), 1e-9));
-      expect(c.spinnerSize, closeTo(scaled(n.spinnerSize), 1e-9));
       expect(c.statusIconSize, closeTo(scaled(n.statusIconSize), 1e-9));
       expect(c.waveformMaxHeight, closeTo(scaled(n.waveformMaxHeight), 1e-9));
       expect(c.waveformBarWidth, closeTo(scaled(n.waveformBarWidth), 1e-9));
@@ -144,7 +143,6 @@ void main() {
       );
       expect(c.timerFontSize, closeTo(scaled(n.timerFontSize), 1e-9));
       expect(c.primaryFontSize, closeTo(scaled(n.primaryFontSize), 1e-9));
-      expect(c.secondaryFontSize, closeTo(scaled(n.secondaryFontSize), 1e-9));
     });
 
     test('compactScale maps the key macOS reference values', () {

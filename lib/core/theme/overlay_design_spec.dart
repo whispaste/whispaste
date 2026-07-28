@@ -155,7 +155,6 @@ class OverlaySizeSpec {
     required this.dotSize,
     required this.closeButtonSize,
     required this.stopButtonSize,
-    required this.spinnerSize,
     required this.statusIconSize,
     required this.waveformMaxHeight,
     required this.waveformBarWidth,
@@ -166,7 +165,6 @@ class OverlaySizeSpec {
     required this.bottomProgressHeight,
     required this.timerFontSize,
     required this.primaryFontSize,
-    required this.secondaryFontSize,
   });
 
   // -- Box anchors (per-size, not scaled) ------------------------------------
@@ -194,9 +192,6 @@ class OverlaySizeSpec {
 
   /// Stop button diameter (recording only).
   final double stopButtonSize;
-
-  /// Transcribing spinner diameter.
-  final double spinnerSize;
 
   /// Done/error status icon size.
   final double statusIconSize;
@@ -228,9 +223,6 @@ class OverlaySizeSpec {
   /// Primary label/done/error text font size.
   final double primaryFontSize;
 
-  /// Secondary (elapsed during transcribing) text font size.
-  final double secondaryFontSize;
-
   /// Capsule corner radius — the approved spike pill is a full capsule
   /// (`height / 2` → 32 normal, 20 compact), not the legacy [cornerRadius].
   double get capsuleRadius => height / 2;
@@ -245,7 +237,6 @@ class OverlaySizeSpec {
     dotSize: 8,
     closeButtonSize: 36,
     stopButtonSize: 36,
-    spinnerSize: 16,
     statusIconSize: 16,
     waveformMaxHeight: 24,
     waveformBarWidth: 2.5,
@@ -256,7 +247,6 @@ class OverlaySizeSpec {
     bottomProgressHeight: 4,
     timerFontSize: 15,
     primaryFontSize: 13,
-    secondaryFontSize: 12,
   );
 
   /// The compact spec: box anchors are explicit (220×40 r20, padH 16); every
@@ -287,7 +277,6 @@ class OverlaySizeSpec {
       dotSize: dotSize * s,
       closeButtonSize: closeButtonSize * s,
       stopButtonSize: stopButtonSize * s,
-      spinnerSize: spinnerSize * s,
       statusIconSize: statusIconSize * s,
       waveformMaxHeight: waveformMaxHeight * s,
       waveformBarWidth: waveformBarWidth * s,
@@ -298,7 +287,6 @@ class OverlaySizeSpec {
       bottomProgressHeight: bottomProgressHeight * s,
       timerFontSize: timerFontSize * s,
       primaryFontSize: primaryFontSize * s,
-      secondaryFontSize: secondaryFontSize * s,
     );
   }
 }
