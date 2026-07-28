@@ -23,10 +23,12 @@ const TEMPLATE_PATH = path.resolve(__dirname, 'hero-device-template.html');
 const BG_PHOTO = path.resolve(__dirname, 'assets', 'generated', 'hero-device-v2.png');
 
 // Pill anchor (top-left) in photo source pixels: hovers off the screen's
-// upper-right bezel, detached from the display. The pill itself is built
-// natively in CSS in the template (frosted glass per OverlayDesignSpec),
-// rendered in its compact size (220x40).
+// upper-right bezel, detached from the display. The pill image itself is
+// the real captured OverlayPainter output (compact size, 236x60) — see the
+// comment on .overlay-pill-img in hero-device-template.html for why this
+// replaced an earlier hand-rebuilt CSS version.
 const PILL_POS = [828, 112];
+const PILL_ASSET = path.resolve(__dirname, 'assets', 'overlay-recording-dark-compact.png');
 const BG_W = 1344;
 const BG_H = 768;
 
@@ -83,6 +85,7 @@ async function render(page, lang, storeId, hero) {
       bgData: toDataUri(BG_PHOTO),
       shotData: toDataUri(goldenFor(lang, storeId)),
       pillPos: PILL_POS,
+      pillData: toDataUri(PILL_ASSET),
       copy: {
         headline: hero.headline,
         subtitle: hero.subtitle,

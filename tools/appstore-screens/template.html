@@ -290,127 +290,25 @@
     background: linear-gradient(180deg, #101420 0%, #101420 24%, rgba(16, 20, 32, 0) 36%);
   }
 
-  /* ---- Floating overlay pill: the recording widget rebuilt natively in
-     CSS (compact size) from OverlayDesignSpec, ported from the reusable
-     component in hero-device-template.html. Native CSS instead of the
-     raster golden capture so the frosted-glass chrome is real: backdrop
-     blur + translucent fill over the app window behind it. Straddles the
-     window's top edge so it reads as hovering above the app. ---- */
+  /* ---- Floating overlay pill: the REAL captured OverlayPainter output
+     (assets/overlay-recording-dark-compact.png), not a hand-rebuilt CSS
+     approximation — two prior CSS recreations (this file's own former
+     .float-pill, and hero-device-template.html's .overlay-pill) both
+     drifted from the actual app rendering. The golden test captures the
+     painter on a transparent canvas, so the PNG already carries the real
+     per-pixel alpha for the translucent glass fill — a plain <img> with
+     normal alpha compositing reproduces the exact real translucency.
+     Straddles the window's top edge so it reads as hovering above the app. */
 
-  .float-pill {
+  .float-pill-img {
     position: absolute;
     z-index: 3;
-    width: calc(232px * var(--k));
-    height: calc(52px * var(--k));
-    border-radius: calc(26px * var(--k));
-    top: calc(-24px * var(--k));
+    width: calc(236px * var(--k));
+    height: calc(60px * var(--k));
+    top: calc(-26px * var(--k));
     right: calc(var(--screen-w) * 0.055);
     transform: rotate(-4deg);
-    background: linear-gradient(135deg, rgba(247, 250, 253, 0.66) 0%, rgba(230, 238, 245, 0.66) 100%);
-    -webkit-backdrop-filter: blur(16px);
-    backdrop-filter: blur(16px);
-    border: 1px solid rgba(8, 135, 168, 0.2);
-    box-shadow:
-      0 calc(8px * var(--k)) calc(24px * var(--k)) rgba(0, 0, 0, 0.35),
-      0 calc(2px * var(--k)) calc(6px * var(--k)) rgba(0, 0, 0, 0.18);
-  }
-
-  .fp-sheen {
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0.08) 55%, rgba(220, 38, 38, 0.1) 100%);
-    pointer-events: none;
-  }
-
-  .fp-content {
-    position: relative;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    gap: calc(9px * var(--k));
-    padding: 0 calc(16px * var(--k));
-  }
-
-  .fp-close {
-    width: calc(10px * var(--k));
-    height: calc(10px * var(--k));
-    flex-shrink: 0;
-  }
-
-  .fp-dot {
-    width: calc(8px * var(--k));
-    height: calc(8px * var(--k));
-    border-radius: 50%;
-    background: #FF5252;
-    flex-shrink: 0;
-  }
-
-  .fp-timer {
-    font-size: calc(12.5px * var(--k));
-    font-weight: 600;
-    color: #14202E;
-    letter-spacing: 0.02em;
-    font-variant-numeric: tabular-nums;
-    flex-shrink: 0;
-  }
-
-  .fp-wave {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: calc(2.5px * var(--k));
-    height: 100%;
-  }
-
-  .fp-wave i {
-    display: block;
-    width: calc(2.5px * var(--k));
-    border-radius: calc(1.5px * var(--k));
-    background: #0887A8;
-  }
-
-  .fp-wave i:nth-child(3n+2) { background: #7FC8DB; }
-  .fp-wave i:nth-child(1) { height: calc(7px * var(--k)); }
-  .fp-wave i:nth-child(2) { height: calc(12px * var(--k)); }
-  .fp-wave i:nth-child(3) { height: calc(17px * var(--k)); }
-  .fp-wave i:nth-child(4) { height: calc(10px * var(--k)); }
-  .fp-wave i:nth-child(5) { height: calc(20px * var(--k)); }
-  .fp-wave i:nth-child(6) { height: calc(14px * var(--k)); }
-  .fp-wave i:nth-child(7) { height: calc(22px * var(--k)); }
-  .fp-wave i:nth-child(8) { height: calc(16px * var(--k)); }
-  .fp-wave i:nth-child(9) { height: calc(11px * var(--k)); }
-  .fp-wave i:nth-child(10) { height: calc(15px * var(--k)); }
-  .fp-wave i:nth-child(11) { height: calc(8px * var(--k)); }
-
-  .fp-stop {
-    width: calc(12px * var(--k));
-    height: calc(12px * var(--k));
-    border-radius: calc(3px * var(--k));
-    background: #14202E;
-    flex-shrink: 0;
-  }
-
-  .fp-progress {
-    position: absolute;
-    left: calc(16px * var(--k));
-    bottom: calc(6px * var(--k));
-    width: 42%;
-    height: calc(2px * var(--k));
-    border-radius: calc(1px * var(--k));
-    background: #0887A8;
-  }
-
-  .fp-progress::after {
-    content: '';
-    position: absolute;
-    right: calc(-2px * var(--k));
-    top: calc(-1.5px * var(--k));
-    width: calc(5px * var(--k));
-    height: calc(5px * var(--k));
-    border-radius: 50%;
-    background: #0887A8;
+    filter: drop-shadow(0 calc(6px * var(--k)) calc(18px * var(--k)) rgba(0, 0, 0, 0.35));
   }
 
   .window-frame img {
@@ -528,19 +426,7 @@
       <div class="window-frame">
         <img id="ss-1" src="" alt="Workspace overview">
       </div>
-      <div class="float-pill" role="img" aria-label="Recording overlay pill">
-        <div class="fp-sheen"></div>
-        <div class="fp-content">
-          <svg class="fp-close" viewBox="0 0 12 12" fill="none">
-            <path d="M2.2 2.2 L9.8 9.8 M9.8 2.2 L2.2 9.8" stroke="#14202E" stroke-width="1.6" stroke-linecap="round"/>
-          </svg>
-          <span class="fp-dot"></span>
-          <span class="fp-timer">0:07</span>
-          <span class="fp-wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
-          <span class="fp-stop"></span>
-        </div>
-        <div class="fp-progress"></div>
-      </div>
+      <img id="float-pill-img" class="float-pill-img" src="" alt="" />
     </div>
   </div>
 

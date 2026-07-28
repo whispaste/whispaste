@@ -29,6 +29,11 @@ const {
 const TEMPLATE_PATH = path.resolve(__dirname, 'template.html');
 const NUM_SCREENS = SCREENS.length;
 
+// Real captured OverlayPainter output (see .float-pill-img in template.html
+// for why this replaced a hand-rebuilt CSS pill), used on the
+// workspace-overview screen only.
+const FLOAT_PILL_ASSET = path.resolve(__dirname, 'assets', 'overlay-recording-dark-compact.png');
+
 function ensureDir(dir) {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
@@ -130,9 +135,15 @@ async function renderPanorama(lang, storeId) {
     }
 
     const logoData = toDataUri(ASSET_PATHS.logo);
+    const floatPillData = fs.existsSync(FLOAT_PILL_ASSET) ? toDataUri(FLOAT_PILL_ASSET) : null;
 
     await page.evaluate(
       ({ screens, locale, imageData, logo, floatData }) => {
+        const floatPill = document.getElementById('float-pill-img');
+        if (floatPill && floatData) {
+          floatPill.src = floatData;
+        }
+
         screens.forEach((screen, index) => {
           const screenNode = document.getElementById(`screen-${index}`);
           const headline = document.getElementById(`hl-${index}`);
@@ -186,7 +197,7 @@ async function renderPanorama(lang, storeId) {
           }
         });
       },
-      { screens: SCREENS, locale: lang, imageData: imageMap, logo: logoData },
+      { screens: SCREENS, locale: lang, imageData: imageMap, logo: logoData, floatData: floatPillData },
     );
 
     await page.waitForFunction(

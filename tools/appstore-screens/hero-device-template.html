@@ -82,176 +82,31 @@
     filter: brightness(1.42) saturate(1.05);
   }
 
-  /* Recording-overlay pill rebuilt natively in CSS from OverlayDesignSpec
-     (lib/core/theme/overlay_design_spec.dart) so the frosted-glass chrome is
-     real: backdrop blur + translucent fill, which the raster golden capture
-     cannot show. Positioned in photo source coordinates so it tracks the
-     laptop across both store aspect ratios. Spec anchors: 330×64 capsule,
-     radius h/2, fill #F7FAFD→#E6EEF5 @0.66, sheen white 0.40 with 0.10
-     recording tint, border #0887A8 @0.20, dual soft shadow. */
-  .overlay-pill {
+  /* Recording-overlay pill: the REAL captured OverlayPainter output (see
+     assets/overlay-recording-dark-compact.png), not a hand-rebuilt
+     approximation. Two prior CSS recreations (this file's previous
+     backdrop-filter version, and template.html's .float-pill) both drifted
+     from the actual app rendering — colors, proportions, glass behavior.
+     The golden test captures the painter on a transparent canvas, so the
+     PNG already carries the real per-pixel alpha for the translucent glass
+     fill (~0.66 opacity core, verified: sampled alpha ~195-210/255 in the
+     fill, not 255) — a plain <img> with normal alpha compositing reproduces
+     the exact real translucency, which no hand-tuned backdrop-filter value
+     can guarantee. Compact size (236×60), matching the real app's
+     OverlayLayoutSpec.compact. */
+  .overlay-pill-img {
     position: absolute;
-    width: 300px;
-    height: 58px;
-    border-radius: 29px;
+    filter: drop-shadow(0 3px 9px rgba(0, 0, 0, 0.35));
     transform: rotate(-3deg);
-    background: linear-gradient(135deg, rgba(247, 250, 253, 0.66) 0%, rgba(230, 238, 245, 0.66) 100%);
-    -webkit-backdrop-filter: blur(20px);
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(8, 135, 168, 0.20);
-    box-shadow: 0 3px 9px rgba(0, 0, 0, 0.20), 0 1px 2px rgba(0, 0, 0, 0.12);
   }
 
-  /* Compact size per OverlayDesignSpec: hand-set anchors 220x40, radius 20,
-     padH 16; every content metric is 2/3 of the normal-size values. */
-  .overlay-pill.compact {
-    width: 220px;
-    height: 40px;
-    border-radius: 20px;
-  }
-
-  .overlay-pill.compact .pill-content {
-    gap: 7px;
-    padding: 0 16px;
-  }
-
-  .overlay-pill.compact .pill-close {
-    width: 7px;
-    height: 7px;
-  }
-
-  .overlay-pill.compact .pill-close path {
-    stroke-width: 1.4;
-  }
-
-  .overlay-pill.compact .pill-dot {
-    width: 6px;
-    height: 6px;
-  }
-
-  .overlay-pill.compact .pill-timer {
-    font-size: 9.5px;
-  }
-
-  .overlay-pill.compact .pill-wave {
-    gap: 1.7px;
-  }
-
-  .overlay-pill.compact .pill-wave i {
-    width: 1.7px;
-    border-radius: 1px;
-  }
-
-  .overlay-pill.compact .pill-stop {
-    width: 9px;
-    height: 9px;
-    border-radius: 2.3px;
-  }
-
-  .overlay-pill.compact .pill-progress {
-    left: 16px;
-    bottom: 4.5px;
-    height: 1.5px;
-  }
-
-  .overlay-pill.compact .pill-progress::after {
-    right: -1.5px;
-    top: -1px;
-    width: 3.5px;
-    height: 3.5px;
-  }
-
-  /* Soft ambient light in the photo behind the pill so the backdrop blur has
-     bright material to reveal (the glass otherwise sits over near-black). */
+  /* Soft ambient light in the photo behind the pill so the glass has bright
+     material behind it to show through (it otherwise sits over near-black). */
   .pill-glow {
     position: absolute;
     width: 340px;
     height: 150px;
     background: radial-gradient(ellipse closest-side, rgba(160, 215, 240, 0.17) 0%, rgba(160, 215, 240, 0.06) 48%, transparent 74%);
-  }
-
-  .pill-sheen {
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.46) 0%, rgba(255, 255, 255, 0.10) 55%, rgba(220, 38, 38, 0.10) 100%);
-    pointer-events: none;
-  }
-
-  .pill-content {
-    position: relative;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    gap: 11px;
-    padding: 0 19px;
-  }
-
-  .pill-close {
-    width: 11px;
-    height: 11px;
-    flex-shrink: 0;
-  }
-
-  .pill-dot {
-    width: 9px;
-    height: 9px;
-    border-radius: 50%;
-    background: #FF5252;
-    flex-shrink: 0;
-  }
-
-  .pill-timer {
-    font-size: 14px;
-    font-weight: 600;
-    color: #14202E;
-    letter-spacing: 0.02em;
-    font-variant-numeric: tabular-nums;
-    flex-shrink: 0;
-  }
-
-  .pill-wave {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 2.5px;
-    height: 100%;
-  }
-
-  .pill-wave i {
-    display: block;
-    width: 2.5px;
-    border-radius: 1.5px;
-  }
-
-  .pill-stop {
-    width: 13px;
-    height: 13px;
-    border-radius: 3.5px;
-    background: #14202E;
-    flex-shrink: 0;
-  }
-
-  .pill-progress {
-    position: absolute;
-    left: 19px;
-    bottom: 7px;
-    width: 44%;
-    height: 2px;
-    border-radius: 1px;
-    background: #0887A8;
-  }
-
-  .pill-progress::after {
-    content: '';
-    position: absolute;
-    right: -2px;
-    top: -1.5px;
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background: #0887A8;
   }
 
   .text-layer {
@@ -327,19 +182,7 @@
       </div>
     </div>
     <div class="pill-glow" id="pill-glow"></div>
-    <div id="overlay-pill" class="overlay-pill compact">
-      <div class="pill-sheen"></div>
-      <div class="pill-content">
-        <svg class="pill-close" viewBox="0 0 12 12" fill="none">
-          <path d="M2.2 2.2 L9.8 9.8 M9.8 2.2 L2.2 9.8" stroke="#14202E" stroke-width="1.6" stroke-linecap="round"/>
-        </svg>
-        <span class="pill-dot"></span>
-        <span class="pill-timer">0:07</span>
-        <div class="pill-wave" id="pill-wave"></div>
-        <span class="pill-stop"></span>
-      </div>
-      <div class="pill-progress"></div>
-    </div>
+    <img id="overlay-pill" class="overlay-pill-img" src="" alt="" />
   </div>
   <div class="contrast-scrim"></div>
   <div class="text-layer">
@@ -388,26 +231,9 @@
     return `matrix3d(${a},${d},0,${g},${bb},${e},0,${hh},0,0,1,0,${c},${f},0,1)`;
   }
 
-  // Deterministic waveform bars inside the CSS pill (fixed heights so store
-  // screenshots stay reproducible). Content is opaque per OverlayDesignSpec;
-  // only the pill chrome is translucent.
-  (function () {
-    const heights = [8, 14, 10, 20, 26, 16, 30, 22, 34, 25, 31, 18, 27, 33, 21, 28, 15, 23, 11, 17, 9];
-    const wave = document.getElementById('pill-wave');
-    if (!wave) return;
-    const pill = document.getElementById('overlay-pill');
-    const scale = pill && pill.classList.contains('compact') ? 2 / 3 : 1;
-    heights.forEach(function (h, i) {
-      const bar = document.createElement('i');
-      bar.style.height = (h * scale).toFixed(1) + 'px';
-      bar.style.background = i % 3 === 1 ? '#7FC8DB' : '#0887A8';
-      wave.appendChild(bar);
-    });
-  })();
-
   // Called by the renderer with all per-locale/per-store data.
   window.setupHero = function setupHero(params) {
-    const { W, H, imgW, imgH, quad, focusX, bgData, shotData, pillPos, copy, locale } = params;
+    const { W, H, imgW, imgH, quad, focusX, bgData, shotData, pillPos, pillData, copy, locale } = params;
 
     document.documentElement.style.setProperty('--screen-w', `${W}px`);
     document.documentElement.style.setProperty('--screen-h', `${H}px`);
@@ -442,11 +268,14 @@
 
     const pill = document.getElementById('overlay-pill');
     const glow = document.getElementById('pill-glow');
-    if (pillPos) {
+    if (pillPos && pillData) {
+      pill.src = pillData;
+      // Real asset is 236x60 (compact) — hardcoded rather than read from
+      // offsetWidth/Height, which can race the image decode.
+      const pillW = 236;
+      const pillH = 60;
       pill.style.left = `${pillPos[0]}px`;
       pill.style.top = `${pillPos[1]}px`;
-      const pillW = pill.offsetWidth;
-      const pillH = pill.offsetHeight;
       glow.style.left = `${pillPos[0] + pillW / 2 - 170}px`;
       glow.style.top = `${pillPos[1] + pillH / 2 - 75}px`;
     } else {
