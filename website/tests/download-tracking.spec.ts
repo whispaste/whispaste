@@ -65,6 +65,18 @@ async function seedPaq(page: Page) {
 
 test.describe('download page — download:triggered dispatch', () => {
   test.beforeEach(async ({ page }) => {
+    // Same real-network hazard as blockRealMatomoScript below (see its
+    // comment): `astro preview`/PROD — what CI and the pre-push hook test
+    // against, unlike the local `astro dev` server — loads the real
+    // matomo.js unconditionally. Layout.astro's own `download:triggered`
+    // listener (Layout.astro:190) pushes to `window._paq`, and matomo.js
+    // loading mid-test can perturb timing/global state regardless of
+    // which button was clicked — this group just never blocked it, so it
+    // kept intermittently losing that race (root-caused 2026-07-28 via a
+    // recurring, non-random "linux-deb-button" failure that never
+    // reproduced against the dev server, only against the hook's
+    // build+preview run).
+    await blockRealMatomoScript(page);
     await preventDownloadNavigation(page, DOWNLOAD_TESTIDS);
     await page.goto('/download/');
   });

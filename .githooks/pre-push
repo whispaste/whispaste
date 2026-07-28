@@ -378,7 +378,18 @@ fi
 if [ -f "$ROOT/website/package.json" ] && command -v npm >/dev/null 2>&1 \
    && [ -d "$ROOT/website/node_modules" ]; then
   echo ""; echo "Website CI check..."
-  if ! (cd "$ROOT/website" && npm run build && npx playwright install chromium webkit && npm run test:ci) 2>&1; then
+  # CI=true here (not just for the "official" GitHub Actions run) matters for
+  # two reasons: playwright.config.ts's webServer only serves the just-built
+  # dist/ via `npm run preview` when CI is set — without it, this hook
+  # silently reused whatever long-lived `astro dev` server happened to
+  # already be running on 4321 (reuseExistingServer: !process.env.CI),
+  # meaning it was NEVER actually exercising the same preview/PROD path real
+  # CI does. That gap let a real bug through undetected locally (the
+  # download-tracking spec's first describe block never blocked the real
+  # matomo.js load that only happens in PROD — see its own comment). CI=true
+  # also activates the config's one-retry safety net for genuine
+  # environment-load flakes, same as the real workflow gets.
+  if ! (cd "$ROOT/website" && npm run build && npx playwright install chromium webkit && CI=true npm run test:ci) 2>&1; then
     cat >&2 <<EOF
 
 ╔══════════════════════════════════════════════════════════════╗
