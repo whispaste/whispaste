@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.61
+
+### Maintenance
+
+- **Das macOS-App-Icon war nicht auf Apples vorgeschriebene Proportionen zugeschnitten** (zu wenig Rand um das Motiv) — jetzt korrekt an die Vorgabe angepasst.
+- **Ein zweiter PowerShell-Fehler im überarbeiteten Microsoft-Store-Upload aus 1.2.60 ist behoben** (betraf nur den internen Freigabeprozess, keine Funktionsänderung an der App).
+
 ## 1.2.60
 
 ### Maintenance
