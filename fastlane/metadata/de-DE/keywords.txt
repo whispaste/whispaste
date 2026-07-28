@@ -1,1 +1,1 @@
-Transkription,Spracherkennung,Whisper,Notizen,Produktivität,Hotkey,Audio,Sprachnotizen,Lokal
+Transkription,Spracherkennung,Whisper,Sprachnotizen,Hotkey,Lokal,Diktat,Diktiergerät,Meeting

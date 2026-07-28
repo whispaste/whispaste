@@ -1,4 +1,4 @@
-Sprache-zu-Text für deinen Mac: WhisPaste verwandelt deine Stimme in Text. Hotkey drücken, sprechen, und dein Text landet in Sekunden in der Zwischenablage — bereit zum Einfügen mit ⌘V in jede App: Mail, Notizen, Slack, VS Code oder überall sonst, wo du tippst.
+Sprache-zu-Text für deinen Mac: WhisPaste verwandelt deine Stimme in Text und schreibt ihn direkt an die Cursor-Position, in jeder App: Mail, Notizen, Slack, VS Code oder überall sonst, wo du tippst. Hotkey drücken, sprechen, fertig.
 
 DEINE AUFNAHMEN BLEIBEN BEI DIR
 Drei Whisper-Modelle (Small, Medium und Large v3 Turbo) sowie die extra schnelle Parakeet-Engine transkribieren deine Sprache vollständig auf deinem Mac. Dein Audio verlässt deinen Rechner nicht. Bis zu 99 Sprachen mit Whisper. Cloud-Anbieter (OpenAI, Deepgram) stehen optional bereit; das Audio geht dabei direkt an den Anbieter, nicht über WhisPaste-Server. Kein Konto nötig.
@@ -10,7 +10,7 @@ VERLAUF & EXPORT
 Jede Aufnahme wird automatisch gespeichert. Durchsuchen, taggen, anheften, archivieren und als TXT, Markdown, JSON, CSV oder Word exportieren.
 
 TEXTBAUSTEINE PER STIMME
-Definiere ein kurzes Stichwort: WhisPaste ersetzt es vor dem Kopieren durch den vollständigen Text. Ideal für Signaturen, Anredeformeln und häufig benötigte Formulierungen.
+Definiere ein kurzes Stichwort: WhisPaste ersetzt es vor dem Einfügen durch den vollständigen Text. Ideal für Signaturen, Anredeformeln und häufig benötigte Formulierungen.
 
 FÜR DEINEN ARBEITSALLTAG
 Push-to-talk oder Toggle · Floating Button über allen Fenstern · Menüleisten-Integration · Start bei der Anmeldung · Hell, Dunkel und Systemdesign · Deutsch, Englisch und Hebräisch

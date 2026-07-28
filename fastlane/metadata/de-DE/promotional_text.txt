@@ -1,1 +1,1 @@
-Sprache-zu-Text für deinen Mac. Hotkey drücken, sprechen, Text landet in der Zwischenablage, bereit zum Einfügen. Vollständig offline, kein Abo.
+Hotkey drücken, sprechen, Text erscheint direkt am Cursor, in jeder App. Vollständig offline, ohne Abo, quelloffen.
