@@ -84,12 +84,17 @@ abstract final class WpColorsDark {
     colors: [Color(0xFF1C2640), Color(0xFF141A29)],
   );
 
-  /// Warm surface gradient — subtle diagonal wash with blue-indigo tint
+  /// Dual-tone temperature wash — cool navy top-left, neutral anchor,
+  /// rose-coral-tinted warm navy bottom-right. Opaque tonal steps (no alpha
+  /// glow): luminance stays flat across the gradient, only the hue drifts,
+  /// so the content panel reads as chromatic *temperature*, not as light.
+  /// The warm pole is a split-complement to `accent` (~190°), deliberately
+  /// distinct from every avatar hue so it never reads as a second signal.
   static const LinearGradient warmSurfaceGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF1A243C), Color(0xFF141A29), Color(0xFF182236)],
-    stops: [0.0, 0.55, 1.0],
+    colors: [Color(0xFF17203A), Color(0xFF141A29), Color(0xFF1E1A28)],
+    stops: [0.0, 0.5, 1.0],
   );
 
   /// Frame gradient — nearly flat, matching background for unified look
@@ -178,11 +183,15 @@ abstract final class WpColorsLight {
     colors: [Color(0xFFF5F9FD), Color(0xFFEDF3FA)],
   );
 
-  /// Content gradient — cool pearl to tinted pearl, brand-aligned shift
+  /// Dual-tone temperature wash — cool pearl top-left, neutral anchor, faint
+  /// apricot-warm pearl bottom-right. Deliberately more restrained than
+  /// Dark's version: warmth on the cool pearl base turns "dirty" fast, so
+  /// the drift here is shallow (see [WpColorsDark.warmSurfaceGradient] for
+  /// the full rationale — opaque tonal steps, no alpha glow).
   static const LinearGradient warmSurfaceGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFF4F8FC), Color(0xFFEFF4FA), Color(0xFFE9EFF8)],
+    colors: [Color(0xFFF2F7FC), Color(0xFFEFF3F9), Color(0xFFEFEAE6)],
     stops: [0.0, 0.5, 1.0],
   );
 

@@ -20,10 +20,10 @@ class HistoryDateHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-    final lineColor = isDark
-        ? WpColorsDark.borderSubtle
-        : WpColorsLight.borderSubtle;
 
+    // Ruhiger als der frühere Doppellinien-Trenner: ein linksbündiges
+    // Text-Label, wie HistoryCompactDateHeader es bereits macht — weniger
+    // dekorativ, moderner.
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         WpSpacing.xl,
@@ -31,23 +31,14 @@ class HistoryDateHeader extends StatelessWidget {
         WpSpacing.xl,
         WpSpacing.xs,
       ),
-      child: Row(
-        children: [
-          Expanded(child: Container(height: 1, color: lineColor)),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: WpSpacing.sm),
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: WpTypography.caption,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.5,
-                color: color,
-              ),
-            ),
-          ),
-          Expanded(child: Container(height: 1, color: lineColor)),
-        ],
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: WpTypography.caption,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.5,
+          color: color,
+        ),
       ),
     );
   }

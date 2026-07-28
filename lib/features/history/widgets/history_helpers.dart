@@ -4,6 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
+import '../../../core/theme/tokens.dart';
 import 'package:whispaste/core/data/database.dart';
 import '../data/providers.dart' show DateGroup;
 
@@ -114,6 +115,12 @@ IconData historyAvatarIcon(HistoryEntry entry) {
 }
 
 /// Entry avatar — colored circle with icon (Discord/WhatsApp identity).
+///
+/// "Belichtete Scheibe": a lightness-shifted top-to-bottom fill gradient
+/// (same hue, +12% L top stop) plus a 1px hue-tinted edge border and a soft
+/// `WpShadows.subtle` lift — glow-free materiality on top of the flat fill
+/// this used to be. Only lightness/alpha vary per-hue (shift ≤ 8°), so all 8
+/// palette colors stay instantly distinguishable and scannable.
 class HistoryEntryAvatar extends StatelessWidget {
   const HistoryEntryAvatar({
     super.key,
@@ -133,6 +140,13 @@ class HistoryEntryAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final iconSize = (size * 0.44).roundToDouble();
+    final hsl = HSLColor.fromColor(color);
+    final topStop = hsl
+        .withLightness((hsl.lightness + 0.12).clamp(0.0, 1.0))
+        .toColor();
+    final iconColor = hsl
+        .withLightness((hsl.lightness + 0.08).clamp(0.0, 1.0))
+        .toColor();
     return SizedBox(
       width: size + 6,
       height: size + 6,
@@ -147,13 +161,25 @@ class HistoryEntryAvatar extends StatelessWidget {
               width: size,
               height: size,
               decoration: BoxDecoration(
-                color: color.withValues(alpha: isDark ? 0.15 : 0.12),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    topStop.withValues(alpha: isDark ? 0.22 : 0.16),
+                    color.withValues(alpha: isDark ? 0.12 : 0.10),
+                  ],
+                ),
                 shape: BoxShape.circle,
+                border: Border.all(
+                  color: color.withValues(alpha: 0.25),
+                  width: 1,
+                ),
+                boxShadow: WpShadows.subtle,
               ),
               child: Icon(
                 icon,
                 size: iconSize,
-                color: color.withValues(alpha: isDark ? 0.9 : 0.8),
+                color: iconColor.withValues(alpha: 0.95),
               ),
             ),
           ),
@@ -169,6 +195,47 @@ class HistoryEntryAvatar extends StatelessWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// Small tonal status chip for the entry meta row (e.g. the language/engine
+/// badge). Deliberately quieter than the accent-tinted tag chips — a muted
+/// neutral surface fill, not brand color — so it reads as "status" while
+/// duration/word-count stay plain metadata text.
+class HistoryStatusChip extends StatelessWidget {
+  const HistoryStatusChip({
+    super.key,
+    required this.label,
+    required this.isDark,
+  });
+
+  final String label;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final fill = isDark
+        ? WpColorsDark.surfaceMutedFill
+        : WpColorsLight.surfaceMutedFill;
+    final text = isDark
+        ? WpColorsDark.textSecondary
+        : WpColorsLight.textSecondary;
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: WpSpacing.xxs,
+        vertical: 1,
+      ),
+      decoration: BoxDecoration(color: fill, borderRadius: WpRadius.borderSm),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: WpTypography.micro,
+          color: text,
+          fontWeight: FontWeight.w500,
+        ),
+        overflow: TextOverflow.ellipsis,
       ),
     );
   }

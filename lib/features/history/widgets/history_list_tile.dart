@@ -163,12 +163,18 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
             ),
             decoration: BoxDecoration(
               color: bg,
-              borderRadius: WpRadius.borderMd,
+              borderRadius: WpRadius.borderLg,
               // Use uniform border for selected state (compatible with borderRadius)
               border: widget.isSelected
                   ? Border.all(color: accent, width: 2)
                   : widget.isFocused
                   ? Border.all(color: accent.withValues(alpha: 0.5), width: 1.5)
+                  : null,
+              // Weiche Ambient-Elevation nur bei Interaktion — die ruhende
+              // Zeile bleibt flach (Dichte/Perf), Hover/Select/Focus bekommen
+              // einen glow-freien Materiallift zusätzlich zum Border.
+              boxShadow: (widget.isSelected || widget.isFocused || _isHovered)
+                  ? WpShadows.subtle
                   : null,
             ),
             child: Row(
@@ -301,7 +307,10 @@ class _EntryRowContent extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   isDark: isDark,
                   style: TextStyle(
-                    fontSize: WpTypography.subheading,
+                    // Off-scale on purpose: one step above `subheading` (14)
+                    // — the preview line below stays at 14, so the title now
+                    // carries real size contrast instead of only weight/color.
+                    fontSize: WpTypography.heading,
                     fontWeight: FontWeight.w600,
                     color: textPrimary,
                   ),
@@ -406,14 +415,23 @@ class _EntryMetaRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final textSecondary = isDark
+        ? WpColorsDark.textSecondary
+        : WpColorsLight.textSecondary;
     return Row(
       children: [
         Icon(LucideIcons.clock, size: WpIconSize.xs, color: textMuted),
         const SizedBox(width: 3),
         Flexible(
+          // Off-scale on purpose: only the primary metric (duration) steps up
+          // from `micro`/`textMuted` to `caption`/`textSecondary` — word count
+          // and language stay at micro so the row doesn't get louder overall.
           child: Text(
             durationLabel,
-            style: TextStyle(fontSize: WpTypography.micro, color: textMuted),
+            style: TextStyle(
+              fontSize: WpTypography.caption,
+              color: textSecondary,
+            ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -427,22 +445,7 @@ class _EntryMetaRow extends StatelessWidget {
         ],
         if (language.isNotEmpty) ...[
           const SizedBox(width: WpSpacing.xs),
-          Text(
-            '·',
-            style: TextStyle(fontSize: WpTypography.micro, color: textMuted),
-          ),
-          const SizedBox(width: WpSpacing.xs),
-          Flexible(
-            child: Text(
-              language.toUpperCase(),
-              style: TextStyle(
-                fontSize: WpTypography.micro,
-                color: textMuted,
-                fontWeight: FontWeight.w500,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
+          HistoryStatusChip(label: language.toUpperCase(), isDark: isDark),
         ],
         if (!isLocal) ...[
           const SizedBox(width: WpSpacing.xs),

@@ -218,9 +218,14 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
             padding: const EdgeInsets.all(WpSpacing.md),
             decoration: BoxDecoration(
               color: surfaceElevated,
-              borderRadius: WpRadius.borderMd,
+              borderRadius: WpRadius.borderLg,
               border: Border.all(color: borderColor),
-              boxShadow: _isHovered ? WpShadows.subtle : null,
+              // Weiche Ambient-Elevation: die Kachel trägt immer einen
+              // dezenten Materiallift (subtle), Hover/Select/Focus vertiefen
+              // ihn (card) — glow-frei, siehe WpShadows.
+              boxShadow: (widget.isSelected || widget.isFocused || _isHovered)
+                  ? WpShadows.card
+                  : WpShadows.subtle,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -339,21 +344,9 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
                     ],
                     if (widget.entry.language.isNotEmpty) ...[
                       const SizedBox(width: WpSpacing.xs),
-                      Text(
-                        '·',
-                        style: TextStyle(
-                          fontSize: WpTypography.micro,
-                          color: textMuted,
-                        ),
-                      ),
-                      const SizedBox(width: WpSpacing.xs),
-                      Text(
-                        widget.entry.language.toUpperCase(),
-                        style: TextStyle(
-                          fontSize: WpTypography.micro,
-                          color: textMuted,
-                          fontWeight: FontWeight.w500,
-                        ),
+                      HistoryStatusChip(
+                        label: widget.entry.language.toUpperCase(),
+                        isDark: isDark,
                       ),
                     ],
                     const Spacer(),

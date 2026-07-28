@@ -600,43 +600,67 @@ class _HistorySearchFilterBarState
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // ── Search field ────────────────────────────────────────────────
-          TextField(
-            controller: widget.controller,
-            focusNode: widget.searchFocusNode,
-            decoration: InputDecoration(
-              hintText: l10n.historySearchTranscriptions,
-              prefixIcon: Icon(
-                LucideIcons.search,
-                size: WpIconSize.sm,
-                color: textMuted,
-              ),
-              suffixIcon: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (rawQuery.isNotEmpty)
-                    IconButton(
-                      icon: Icon(
-                        LucideIcons.x,
-                        size: WpIconSize.sm,
-                        color: textMuted,
-                      ),
-                      tooltip: l10n.historyClearSearch,
-                      onPressed: () {
-                        widget.controller.clear();
-                        _clearSuggestions();
-                      },
-                    ),
-                  _SearchHelpButton(isDark: widget.isDark),
-                ],
-              ),
-              isDense: true,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: WpSpacing.md,
-                vertical: WpSpacing.xs + 2,
-              ),
+          // ── Search field ─────────────────────────────────────────────────
+          // Weiche, tiefliegende Kapsel statt umrandetes Formularfeld: der
+          // Materiallift (WpShadows.subtle) trägt die Tiefe, kein Hairline-
+          // Border im Ruhezustand — Focus behält die Accent-Border (Ein-
+          // Signal bleibt). Radius lokal auf borderMd angehoben (statt des
+          // globalen inputDecorationTheme-Werts), um andere Formulare nicht
+          // mitzuziehen.
+          DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: WpRadius.borderMd,
+              boxShadow: WpShadows.subtle,
             ),
-            onChanged: (_) {}, // handled by controller listener
+            child: TextField(
+              controller: widget.controller,
+              focusNode: widget.searchFocusNode,
+              decoration: InputDecoration(
+                hintText: l10n.historySearchTranscriptions,
+                prefixIcon: Icon(
+                  LucideIcons.search,
+                  size: WpIconSize.sm,
+                  color: textMuted,
+                ),
+                suffixIcon: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (rawQuery.isNotEmpty)
+                      IconButton(
+                        icon: Icon(
+                          LucideIcons.x,
+                          size: WpIconSize.sm,
+                          color: textMuted,
+                        ),
+                        tooltip: l10n.historyClearSearch,
+                        onPressed: () {
+                          widget.controller.clear();
+                          _clearSuggestions();
+                        },
+                      ),
+                    _SearchHelpButton(isDark: widget.isDark),
+                  ],
+                ),
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: WpSpacing.md,
+                  vertical: WpSpacing.xs + 2,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: WpRadius.borderMd,
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: WpRadius.borderMd,
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: WpRadius.borderMd,
+                  borderSide: BorderSide(color: accent, width: 1.5),
+                ),
+              ),
+              onChanged: (_) {}, // handled by controller listener
+            ),
           ),
 
           if (rawQuery.isEmpty)

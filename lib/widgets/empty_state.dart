@@ -4,7 +4,8 @@ import '../core/theme/tokens.dart';
 
 /// Empty state — centered visual with icon, title, hint, and optional CTA.
 ///
-/// Premium: warm gradient icon circle, glass border hint, refined spacing.
+/// Premium: accent-tinted icon circle (a single quiet signal point, glow-
+/// free), glass border hint, refined spacing, confident title size.
 class WpEmptyState extends StatelessWidget {
   const WpEmptyState({
     super.key,
@@ -23,7 +24,6 @@ class WpEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Center(
@@ -32,27 +32,31 @@ class WpEmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Icon circle — warm gradient fill with glass border
+            // Icon circle — one quiet accent signal point, no glow
             Container(
               width: 72,
               height: 72,
               decoration: BoxDecoration(
-                gradient: isDark
-                    ? WpColorsDark.warmSurfaceGradient
-                    : WpColorsLight.warmSurfaceGradient,
+                color: isDark
+                    ? WpColorsDark.accentChipFill
+                    : WpColorsLight.accentChipFill,
                 shape: BoxShape.circle,
                 border: Border.all(
                   color: isDark
-                      ? WpColorsDark.glassBorder
-                      : WpColorsLight.borderSubtle,
+                      ? WpColorsDark.accentBorder20
+                      : WpColorsLight.accentBorder20,
                 ),
               ),
-              child: Icon(icon, size: WpIconSize.xl, color: cs.secondary),
+              child: Icon(
+                icon,
+                size: WpIconSize.xl,
+                color: isDark ? WpColorsDark.accent : WpColorsLight.accent,
+              ),
             ),
             const SizedBox(height: WpSpacing.xl),
             Text(
               title,
-              style: Theme.of(context).textTheme.titleMedium,
+              style: Theme.of(context).textTheme.titleLarge,
               textAlign: TextAlign.center,
             ),
             if (hint != null) ...[
