@@ -136,7 +136,14 @@ Write-Host "   Authenticated."
 Write-Host ":: Fetching app data for $AppId..."
 $app = Invoke-Api -Uri "$BASE_URL/applications/$AppId" -Headers $authHeaders
 
-if ($app.pendingApplicationSubmission) {
+# Set-StrictMode -Version Latest (above) turns a merely-absent property into
+# a hard error ("cannot be found on this object") instead of returning $null
+# — and the DevCenter API omits `pendingApplicationSubmission` entirely from
+# the JSON body when there's no pending submission, rather than sending it as
+# null. Verified live 2026-07-28 (WhisPaste, freshly committed app state):
+# `$app.pendingApplicationSubmission` alone crashed the very first real run
+# of this revived script. Check property existence before touching it.
+if ($app.PSObject.Properties.Match('pendingApplicationSubmission').Count -gt 0 -and $app.pendingApplicationSubmission) {
   $pendingId = $app.pendingApplicationSubmission.id
   Write-Host "   Deleting pending submission $pendingId..."
   Invoke-Api -Uri "$BASE_URL/applications/$AppId/submissions/$pendingId" `

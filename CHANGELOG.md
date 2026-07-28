@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.60
+
+### Maintenance
+
+- **Der macOS-Build war seit dem letzten Release durchgehend defekt** (betraf CI, den regulären Download-Build und die Store-Einreichung gleichermaßen) — ein Build-Skript fehlte das Ausführungsrecht. Behoben; alle drei Wege bauen wieder sauber.
+- **Der überarbeitete Microsoft-Store-Upload aus 1.2.59 schlug bei seinem ersten echten Lauf fehl** (ein PowerShell-Kompatibilitätsfehler bei frisch committeten Store-Einträgen ohne offene Einreichung). Behoben.
+
 ## 1.2.59
 
 ### Maintenance
