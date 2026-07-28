@@ -5001,6 +5001,12 @@ abstract class L10n {
   /// **'Reloading voice model, please wait.'**
   String get modelAbiInfoToast;
 
+  /// No description provided for @recoveryGpuDisabledToast.
+  ///
+  /// In en, this message translates to:
+  /// **'WhisPaste is now running without GPU acceleration due to a problem on the last launch. Dictation still works as usual.'**
+  String get recoveryGpuDisabledToast;
+
   /// No description provided for @serverDownloadFailedToast.
   ///
   /// In en, this message translates to:

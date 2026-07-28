@@ -90,6 +90,26 @@ void main() {
       final nextLaunch = GpuLoadCrashGuard(dataDir: tempDir.path);
       expect(nextLaunch.crashedLastAttempt, isTrue);
     });
+
+    test('consumePendingUserNotice is false with nothing marked', () {
+      final guard = GpuLoadCrashGuard(dataDir: tempDir.path);
+      expect(guard.consumePendingUserNotice(), isFalse);
+    });
+
+    test('markPendingUserNotice then consumePendingUserNotice returns true '
+        'exactly once — a later call must not re-show the same toast', () {
+      final guard = GpuLoadCrashGuard(dataDir: tempDir.path)
+        ..markPendingUserNotice();
+
+      expect(guard.consumePendingUserNotice(), isTrue);
+      expect(
+        guard.consumePendingUserNotice(),
+        isFalse,
+        reason:
+            'one-shot: a second consume (e.g. on a later relaunch or '
+            'rebuild) must not fire the toast again for the same event',
+      );
+    });
   });
 
   group('recoverFromGpuLoadCrash', () {
@@ -128,6 +148,11 @@ void main() {
       expect(
         container.read(settingsProvider).value!.behavior.gpuAcceleration,
         'auto',
+      );
+      expect(
+        GpuLoadCrashGuard(dataDir: tempDir.path).consumePendingUserNotice(),
+        isFalse,
+        reason: 'nothing happened, so the user must not see a toast',
       );
     });
 
@@ -170,6 +195,15 @@ void main() {
             'the marker must be cleared once recovery has run, so a '
             'clean future GPU attempt is not misdiagnosed as another crash',
       );
+      expect(
+        guard.consumePendingUserNotice(),
+        isTrue,
+        reason:
+            'the UI owes the user a one-time toast explaining the automatic '
+            'CPU-only switch, with a way to re-enable GPU themselves — '
+            'silently flipping the setting with no explanation is not '
+            'acceptable UX for this audience',
+      );
     });
 
     test(
@@ -207,6 +241,13 @@ void main() {
               'otherwise every future launch keeps retrying recovery instead '
               'of just attempting GPU again (self-limiting is the correct '
               'fallback for an unrelated I/O failure)',
+        );
+        expect(
+          guard.consumePendingUserNotice(),
+          isFalse,
+          reason:
+              'GPU was NOT actually disabled (the persistence write failed), '
+              'so telling the user "we switched you to CPU" would be false',
         );
       },
     );

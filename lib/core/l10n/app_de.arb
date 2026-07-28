@@ -941,6 +941,7 @@
   "recoveryVcRuntimeToast": "Sprachdienst kann nicht starten: eine Windows-Komponente fehlt (Microsoft Visual C++). Bitte installiere das Visual C++ Redistributable (x64) und starte WhisPaste neu.",
   "recoveryVcRuntimeAction": "Installieren",
   "modelAbiInfoToast": "Lade Sprachmodell neu, bitte warten.",
+  "recoveryGpuDisabledToast": "WhisPaste läuft jetzt ohne Grafikkarten-Beschleunigung, weil es beim letzten Start ein Problem gab. Diktieren funktioniert unverändert.",
   "serverDownloadFailedToast": "Sprachdienst konnte nicht heruntergeladen werden. Internetverbindung prüfen?",
   "serverDownloadFailedAction": "Erneut versuchen",
   "serverDownloadStalledToast": "Download steht: Verbindung wird neu aufgebaut.",

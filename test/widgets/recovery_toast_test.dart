@@ -166,6 +166,46 @@ void main() {
       await tester.pumpAndSettle(const Duration(seconds: 6));
     });
 
+    testWidgets(
+      'gpuLoadCrashDisabled: renders warning toast + "Einstellungen öffnen" '
+      'action that requests the stt settings section on tap',
+      (tester) async {
+        final navTargets = <String>[];
+
+        await tester.pumpWidget(
+          makeTestable(
+            _RecoveryHarness(
+              kind: RecoveryToastKind.gpuLoadCrashDisabled,
+              openSettings: navTargets.add,
+            ),
+            locale: const Locale('de'),
+          ),
+        );
+
+        await tester.tap(find.text('fire-recovery-toast'));
+        await tester.pumpAndSettle();
+
+        expect(find.text(lDe.recoveryGpuDisabledToast), findsOneWidget);
+        expect(find.text(lDe.recoveryExhaustedAction), findsOneWidget);
+        expect(navTargets, isEmpty);
+
+        await tester.tap(find.text(lDe.recoveryExhaustedAction));
+        await tester.pumpAndSettle();
+
+        expect(
+          navTargets,
+          ['stt'],
+          reason:
+              'Action callback must request the STT settings section, where '
+              'the GPU-Beschleunigung row lives, so the user can re-enable '
+              'GPU acceleration themselves.',
+        );
+
+        // Drain the toast's 8s auto-dismiss timer.
+        await tester.pumpAndSettle(const Duration(seconds: 9));
+      },
+    );
+
     testWidgets('exhausted (en locale): English copy matches the ARB entry', (
       tester,
     ) async {

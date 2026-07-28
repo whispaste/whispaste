@@ -35,6 +35,13 @@ enum RecoveryToastKind {
   /// ABI mismatch caught — silent re-download in flight. Surface the
   /// passive info toast.
   abiInfo,
+
+  /// The crash-loop breaker (`gpu_load_crash_guard.dart`) detected that the
+  /// previous session died mid GPU model-load and permanently switched STT
+  /// to CPU-only before this session's `runApp()`. Surface an informational
+  /// toast with an "Einstellungen öffnen" action so the user can re-enable
+  /// GPU acceleration themselves once they see fit.
+  gpuLoadCrashDisabled,
 }
 
 /// One recovery event emitted by `_attemptRecovery`.

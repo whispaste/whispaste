@@ -2753,6 +2753,10 @@ class L10nHe extends L10n {
   String get modelAbiInfoToast => 'Reloading voice model, please wait.';
 
   @override
+  String get recoveryGpuDisabledToast =>
+      'WhisPaste is now running without GPU acceleration due to a problem on the last launch. Dictation still works as usual.';
+
+  @override
   String get serverDownloadFailedToast =>
       'Voice service could not be downloaded. Check your internet connection?';
 

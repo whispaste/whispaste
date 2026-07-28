@@ -2824,6 +2824,10 @@ class L10nDe extends L10n {
   String get modelAbiInfoToast => 'Lade Sprachmodell neu, bitte warten.';
 
   @override
+  String get recoveryGpuDisabledToast =>
+      'WhisPaste läuft jetzt ohne Grafikkarten-Beschleunigung, weil es beim letzten Start ein Problem gab. Diktieren funktioniert unverändert.';
+
+  @override
   String get serverDownloadFailedToast =>
       'Sprachdienst konnte nicht heruntergeladen werden. Internetverbindung prüfen?';
 

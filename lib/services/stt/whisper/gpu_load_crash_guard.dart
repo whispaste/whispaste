@@ -24,7 +24,15 @@
 /// present at the next launch, the previous attempt never returned, so
 /// [crashedLastAttempt] is true and [recoverFromGpuLoadCrash] permanently
 /// switches the persisted GPU-acceleration setting to CPU-only before
-/// `runApp()`.
+/// `runApp()`. It also arms a one-time UI notice ([markPendingUserNotice] /
+/// [consumePendingUserNotice]) so the user is told what happened and can
+/// re-enable GPU acceleration themselves — see
+/// `RecoveryToastKind.gpuLoadCrashDisabled` in `recording_behavior.dart`.
+/// One hard crash is enough to disable, deliberately: a false positive
+/// (e.g. the user killing the process mid-load, a forced OS-update reboot)
+/// is cheap and self-correcting via that same toast's action button,
+/// whereas the common case here — genuinely incompatible hardware — should
+/// not have to crash twice before recovering.
 library;
 
 import 'dart:developer' as dev;
@@ -49,8 +57,10 @@ class GpuLoadCrashGuard {
   final String _dataDir;
 
   static const _markerFileName = '.gpu_load_attempt';
+  static const _noticeFileName = '.gpu_load_crash_notice_pending';
 
   File get _markerFile => File(p.join(_dataDir, _markerFileName));
+  File get _noticeFile => File(p.join(_dataDir, _noticeFileName));
 
   /// True if a previous session marked a GPU load attempt and never cleared
   /// it — i.e. the process died before the load call returned.
@@ -82,6 +92,40 @@ class GpuLoadCrashGuard {
         'Failed to clear GPU-load crash marker: $e',
         name: 'GpuLoadCrashGuard',
       );
+    }
+  }
+
+  /// Call once [recoverFromGpuLoadCrash] has actually persisted the
+  /// CPU-only override — records that the UI owes the user a one-time
+  /// "we switched you to CPU" toast (see [consumePendingUserNotice]).
+  void markPendingUserNotice() {
+    try {
+      _noticeFile.parent.createSync(recursive: true);
+      _noticeFile.writeAsStringSync('');
+    } catch (e) {
+      dev.log(
+        'Failed to write GPU-disabled notice marker: $e',
+        name: 'GpuLoadCrashGuard',
+      );
+    }
+  }
+
+  /// One-shot read: true exactly once per recorded event — deletes the
+  /// marker on the way out, so a later rebuild/relaunch never re-shows the
+  /// same toast. Intended to be called from a post-frame callback once the
+  /// UI's `ref.listen` on `recoveryToastNotifierProvider` is already
+  /// attached (see `recording_behavior.dart`'s `initState`).
+  bool consumePendingUserNotice() {
+    try {
+      if (!_noticeFile.existsSync()) return false;
+      _noticeFile.deleteSync();
+      return true;
+    } catch (e) {
+      dev.log(
+        'Failed to consume GPU-disabled notice marker: $e',
+        name: 'GpuLoadCrashGuard',
+      );
+      return false;
     }
   }
 }
@@ -127,6 +171,11 @@ Future<void> recoverFromGpuLoadCrash(ProviderContainer container) async {
             ),
           ),
         );
+    // Only promise the user a notice once the override has actually stuck —
+    // on the catch path below, GPU stays enabled and will simply be
+    // attempted again, so telling the user "we switched you to CPU" would
+    // be false.
+    guard.markPendingUserNotice();
   } catch (e, st) {
     CrashReporter.instance?.captureError(
       message:

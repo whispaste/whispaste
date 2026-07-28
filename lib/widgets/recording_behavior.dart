@@ -133,6 +133,23 @@ class _RecordingBehaviorState extends ConsumerState<RecordingBehaviorWidget> {
     _watchdogTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       _checkStuckDone();
     });
+
+    // GPU auto-disabled after a hard load crash (crash-loop breaker, see
+    // gpu_load_crash_guard.dart) — surfaced once via the same recovery-toast
+    // bridge used for exhausted/vcRuntimeMissing/abiInfo above. Post-frame
+    // so the `ref.listen` registered in build() below is already attached
+    // before `.report()` changes the notifier's state: `ref.listen` only
+    // reacts to changes AFTER registration, not a value already set during
+    // `recoverFromGpuLoadCrash` (which runs pre-`runApp()`, before any
+    // listener exists).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (ref.read(gpuLoadCrashGuardProvider).consumePendingUserNotice()) {
+        ref
+            .read(recoveryToastNotifierProvider.notifier)
+            .report(RecoveryToastKind.gpuLoadCrashDisabled);
+      }
+    });
   }
 
   @override
@@ -522,6 +539,9 @@ void showPasteFailureToast({
 /// - [RecoveryToastKind.abiInfo] → passive info toast (no action) — the
 ///   silent re-download is already in flight inside
 ///   `SttServerStateNotifier`.
+/// - [RecoveryToastKind.gpuLoadCrashDisabled] → warning toast + "Einstellungen
+///   öffnen" action targeting `'stt'` (the GPU-Beschleunigung row in
+///   `stt_section.dart`) — see `gpu_load_crash_guard.dart`.
 ///
 /// [openSettings] is injected so widget tests can substitute a spy and
 /// assert that tapping the action fires the navigation request without
@@ -569,6 +589,18 @@ void showRecoveryToast({
         message: l10n.modelAbiInfoToast,
         type: WpToastType.info,
         duration: const Duration(seconds: 5),
+      );
+    case RecoveryToastKind.gpuLoadCrashDisabled:
+      WpToast.show(
+        context,
+        message: l10n.recoveryGpuDisabledToast,
+        type: WpToastType.warning,
+        duration: const Duration(seconds: 8),
+        // loam-ignore: a11y-interactive-semantics – WpToastAction is a data class; label is the button text
+        action: WpToastAction(
+          label: l10n.recoveryExhaustedAction,
+          onPressed: () => openSettings('stt'),
+        ),
       );
   }
 }
