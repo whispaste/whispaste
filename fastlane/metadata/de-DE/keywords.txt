@@ -1,0 +1,1 @@
+Diktat,Sprache zu Text,Transkription,Spracherkennung,Whisper,Notizen,Produktivität

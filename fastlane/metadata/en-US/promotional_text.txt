@@ -1,0 +1,1 @@
+Speech-to-text for your Mac. Press a hotkey, speak, and your words land on the clipboard, ready to paste anywhere. Fully offline, no subscription.

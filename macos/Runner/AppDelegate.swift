@@ -132,8 +132,16 @@ class AppDelegate: FlutterAppDelegate {
       // `tccutil reset` has wiped stale entries, macOS only re-evaluates the
       // app's trust state for a *fresh* process, so the only reliable way
       // to get the OS to recognise the granted permission is to relaunch
-      // WhisPaste itself.
+      // WhisPaste itself. Irrelevant for MAS builds (no Auto-Paste, no TCC
+      // repair flow there — see DesktopPasteHost.swift's #if MAS_BUILD
+      // guards on repairTccEntries) — this Dart call path is unreachable in
+      // that build, but the underlying Process()-spawn is compiled out here
+      // too anyway, for the same "no subprocess-execution symbols in the
+      // sandboxed binary" reasoning as tccutil.
       result(nil)
+      #if MAS_BUILD
+      NSApp.terminate(nil)
+      #else
       let bundlePath = Bundle.main.bundlePath
       // Spawn a detached helper that waits for us to exit, then re-opens
       // the .app bundle. Using `/usr/bin/open -n <bundlePath>` from a
@@ -158,6 +166,7 @@ class AppDelegate: FlutterAppDelegate {
       DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(150)) {
         NSApp.terminate(nil)
       }
+      #endif
 
     default:
       result(FlutterMethodNotImplemented)

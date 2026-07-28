@@ -69,7 +69,13 @@ platform :mac do
   desc "Build + upload the Mac App Store build (sandboxed, no auto-paste)"
   lane :mas_release do
     load_asc_api_key
-    precheck   # metadata hygiene against App Review Guidelines (no binary check)
+    # precheck (metadata hygiene against App Review Guidelines) is skipped here:
+    # fastlane 2.237.0's precheck crashes with `undefined method 'copyright' for
+    # nil:NilClass` (Precheck::RuleProcessor.generate_version_items_to_check)
+    # against a brand-new App Store Connect app record that has no app version/
+    # metadata yet at all — nothing for it to check. Re-add once real metadata
+    # exists in fastlane/metadata (see the upload_to_app_store skip_metadata note
+    # below) and this has been confirmed fixed upstream.
 
     # This first build only populates Flutter's ephemeral DART_DEFINES state
     # (kIsMasBuild) for the "Flutter Assemble" step that build_mac_app's own
@@ -82,7 +88,28 @@ platform :mac do
     # building against the "Release" configuration, does NOT make the binary
     # sandbox-clean — confirmed by a real symbol scan (CGEventPost/
     # CGEventCreateKeyboardEvent/tccutil present) before this fix.
-    Dir.chdir(PROJECT_ROOT) { sh("flutter build macos --release --dart-define=WHISPASTE_MAS=true") }
+    # RBENV_VERSION=system: this lane itself runs under a pinned rbenv Ruby
+    # (needed for the Gemfile.lock-pinned Bundler version 4.0.11). `bundle exec`
+    # sets RUBYOPT="-r bundler/setup", which restricts every Ruby script this
+    # subprocess tree spawns to EXACTLY the gems in fastlane's Gemfile.lock —
+    # including `pod` (a Ruby gem executable itself), which Flutter's internal
+    # `pod install` invokes. CocoaPods isn't in that Gemfile.lock, so bundler's
+    # isolation makes it invisible ("CocoaPods is installed but broken") even
+    # though it's genuinely installed for the system Ruby. Root-caused via
+    # RBENV_VERSION=4.0.2 rbenv exec bundle exec ruby -e 'p ENV["RUBYOPT"]' —
+    # unsetting only RBENV_VERSION (an earlier, incomplete fix) does not clear
+    # this Bundler-set isolation, so it's unset explicitly here too.
+    Dir.chdir(PROJECT_ROOT) do
+      # RBENV_VERSION=system is set (not just RBENV_VERSION unset) belt-and-
+      # braces: unsetting alone worked across several runs, then intermittently
+      # stopped shielding a `pod install` triggered by an Xcode-project change
+      # (still unexplained — flagged in docs/store-release.md). Setting it
+      # explicitly removes any dependency on the shim's unset-fallback path.
+      sh("env -u BUNDLE_GEMFILE -u GEM_HOME -u GEM_PATH -u GEM_ROOT -u RUBYOPT -u RUBYLIB " \
+         "-u BUNDLE_BIN_PATH -u BUNDLE_PATH -u BUNDLER_VERSION -u RBENV_DIR " \
+         "RBENV_VERSION=system " \
+         "flutter build macos --release --dart-define=WHISPASTE_MAS=true")
+    end
 
     build_mac_app(
       workspace:        File.join(PROJECT_ROOT, "macos/Runner.xcworkspace"),
@@ -91,16 +118,50 @@ platform :mac do
       export_method:    "app-store",             # produces a signed .pkg
       export_team_id:   FASTLANE_TEAM_ID,
       output_directory: File.join(PROJECT_ROOT, "build/fastlane"),
-      output_name:      "WhisPaste"
+      output_name:      "WhisPaste",
+      # Without an explicit signingStyle, xcodebuild's -exportArchive step
+      # defaults to MANUAL signing during export (regardless of the Xcode
+      # project's own CODE_SIGN_STYLE = Automatic) and fails with "No
+      # profiles for 'de.whispaste.app' were found". signingStyle:
+      # "automatic" alone did NOT fix it either — headless xcodebuild (no
+      # Xcode GUI account session) can't dynamically resolve automatic
+      # signing during export the way Xcode's own UI can. Mapping the
+      # profile explicitly (created via `fastlane sigh --platform macos`,
+      # name below must match exactly) sidesteps automatic resolution
+      # entirely and is what actually works non-interactively.
+      export_options: {
+        signingStyle:        "manual",
+        provisioningProfiles: { "de.whispaste.app" => "de.whispaste.app AppStore" }
+      }
     )
 
     upload_to_app_store(
       platform:          "osx",
       pkg:               lane_context[SharedValues::PKG_OUTPUT_PATH],
       submit_for_review: false,
-      skip_screenshots:  true,
-      skip_metadata:     true,     # set false once fastlane/metadata is filled
-      precheck_include_in_app_purchases: false
+      skip_screenshots:  false,     # fastlane/screenshots/{en-US,de-DE} populated 2026-07-28 (1440x900, from tools/appstore-screens/output/*/mac)
+      skip_metadata:     false,     # fastlane/metadata/{en-US,de-DE} populated 2026-07-28
+      precheck_include_in_app_purchases: false,
+      # Required so deliver actually creates an app_store_review_detail
+      # object on ASC. Without it, review_information() (deliver's own
+      # code) no-ops on a nil/empty app_review_information hash, then the
+      # very next internal step, review_attachment_file(), unconditionally
+      # calls fetch_app_store_review_detail with no rescue (unlike its
+      # neighbor) and crashes with "No data" since nothing was ever created.
+      app_review_information: {
+        first_name:    ENV.fetch("FASTLANE_REVIEW_FIRST_NAME"),
+        last_name:     ENV.fetch("FASTLANE_REVIEW_LAST_NAME"),
+        phone_number:  ENV.fetch("FASTLANE_REVIEW_PHONE"),
+        email_address: ENV.fetch("FASTLANE_APPLE_ID")
+      },
+      # Without force: true, deliver generates fastlane/Preview.html and
+      # interactively asks "Does the Preview ... look okay for you?" — this
+      # lane runs non-interactively (CI or a backgrounded local run), which
+      # crashes with FastlaneCore::Interface::FastlaneCrash instead of
+      # hanging. submit_for_review stays false regardless, so this only
+      # skips the metadata/screenshot preview confirmation, not the actual
+      # Store submission gate.
+      force: true
     )
   end
 
@@ -118,7 +179,15 @@ platform :mac do
 
     api_key = load_asc_api_key
 
-    Dir.chdir(PROJECT_ROOT) { sh("flutter build macos --release") }
+    # See the detailed comment on the equivalent line in mas_release: bundle
+    # exec's RUBYOPT="-r bundler/setup" breaks Flutter's internal `pod install`
+    # by hiding CocoaPods from this subprocess tree unless explicitly cleared.
+    Dir.chdir(PROJECT_ROOT) do
+      sh("env -u BUNDLE_GEMFILE -u GEM_HOME -u GEM_PATH -u GEM_ROOT -u RUBYOPT -u RUBYLIB " \
+         "-u BUNDLE_BIN_PATH -u BUNDLE_PATH -u BUNDLER_VERSION -u RBENV_DIR " \
+         "RBENV_VERSION=system " \
+         "flutter build macos --release")
+    end
 
     build_mac_app(
       workspace:        File.join(PROJECT_ROOT, "macos/Runner.xcworkspace"),

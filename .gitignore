@@ -58,6 +58,13 @@ supabase/.temp/
 # Fastlane (auto-generated on every run — Gemfile.lock itself IS tracked)
 fastlane/report.xml
 fastlane/README.md
+fastlane/Preview.html
+# cert/sigh artifacts: public certs + CSRs (not private keys, those stay in
+# the keychain) and provisioning profiles — regenerable via
+# `fastlane cert`/`fastlane sigh`, not repo content.
+fastlane/*.cer
+fastlane/*.certSigningRequest
+fastlane/*.provisionprofile
 
 # ┌─────────────────────────────────────────────────────────────────────┐
 # │  PROTECTED PATHS — DO NOT MODIFY THIS SECTION                      │
