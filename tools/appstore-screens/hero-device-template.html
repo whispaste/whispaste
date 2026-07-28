@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --screen-w: 1920px;
+    --screen-h: 1080px;
+    --accent: #38D9F0;
+    --text-primary: #f0f4f8;
+    --text-muted: rgba(240, 244, 248, 0.62);
+  }
+
+  body {
+    width: var(--screen-w);
+    height: var(--screen-h);
+    overflow: hidden;
+    font-family: 'Inter', system-ui, sans-serif;
+    background: #0d1017;
+  }
+
+  .stage {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  /* Photo background + composited screen share one cover transform (JS). */
+  .photo-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform-origin: 0 0;
+  }
+
+  .photo-layer > img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: block;
+  }
+
+  .laptop-screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform-origin: 0 0;
+  }
+
+  /* Lit desktop filling the whole glass so the display reads as "on" and
+     the app window sits anchored on it instead of floating on dead glass. */
+  .laptop-screen .screen-desktop {
+    position: absolute;
+    inset: 1px;
+    border-radius: 10px;
+    background:
+      radial-gradient(ellipse 96% 58% at 50% 36%, rgba(56, 217, 240, 0.11) 0%, transparent 66%),
+      linear-gradient(160deg, #0d1522 0%, #111c2e 48%, #0b111c 100%);
+  }
+
+  .laptop-screen .app-shot {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 97%;
+    border-radius: 5px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    box-shadow: 0 12px 34px rgba(0, 0, 0, 0.55);
+    line-height: 0;
+  }
+
+  .laptop-screen .app-shot img {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  /* Recording-overlay pill rebuilt natively in CSS from OverlayDesignSpec
+     (lib/core/theme/overlay_design_spec.dart) so the frosted-glass chrome is
+     real: backdrop blur + translucent fill, which the raster golden capture
+     cannot show. Positioned in photo source coordinates so it tracks the
+     laptop across both store aspect ratios. Spec anchors: 330×64 capsule,
+     radius h/2, fill #F7FAFD→#E6EEF5 @0.66, sheen white 0.40 with 0.10
+     recording tint, border #0887A8 @0.20, dual soft shadow. */
+  .overlay-pill {
+    position: absolute;
+    width: 300px;
+    height: 58px;
+    border-radius: 29px;
+    transform: rotate(-3deg);
+    background: linear-gradient(135deg, rgba(247, 250, 253, 0.66) 0%, rgba(230, 238, 245, 0.66) 100%);
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(8, 135, 168, 0.20);
+    box-shadow: 0 3px 9px rgba(0, 0, 0, 0.20), 0 1px 2px rgba(0, 0, 0, 0.12);
+  }
+
+  .pill-sheen {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.40) 0%, rgba(255, 255, 255, 0.08) 55%, rgba(220, 38, 38, 0.10) 100%);
+    pointer-events: none;
+  }
+
+  .pill-content {
+    position: relative;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 0 19px;
+  }
+
+  .pill-close {
+    width: 11px;
+    height: 11px;
+    flex-shrink: 0;
+  }
+
+  .pill-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #FF5252;
+    flex-shrink: 0;
+  }
+
+  .pill-timer {
+    font-size: 14px;
+    font-weight: 600;
+    color: #14202E;
+    letter-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+  }
+
+  .pill-wave {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2.5px;
+    height: 100%;
+  }
+
+  .pill-wave i {
+    display: block;
+    width: 2.5px;
+    border-radius: 1.5px;
+  }
+
+  .pill-stop {
+    width: 13px;
+    height: 13px;
+    border-radius: 3.5px;
+    background: #14202E;
+    flex-shrink: 0;
+  }
+
+  .pill-progress {
+    position: absolute;
+    left: 19px;
+    bottom: 7px;
+    width: 44%;
+    height: 2px;
+    border-radius: 1px;
+    background: #0887A8;
+  }
+
+  .pill-progress::after {
+    content: '';
+    position: absolute;
+    right: -2px;
+    top: -1.5px;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #0887A8;
+  }
+
+  .text-layer {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding-left: 7%;
+    z-index: 3;
+  }
+
+  .device-headline {
+    font-size: 78px;
+    font-weight: 900;
+    line-height: 1.04;
+    letter-spacing: -0.04em;
+    color: var(--text-primary);
+    white-space: pre-line;
+    max-width: 62%;
+    margin-bottom: 26px;
+    text-shadow: 0 4px 28px rgba(13, 16, 23, 0.85);
+  }
+
+  .device-headline em {
+    font-style: normal;
+    color: var(--accent);
+  }
+
+  .device-subtitle {
+    font-size: 22px;
+    line-height: 1.55;
+    color: var(--text-muted);
+    max-width: 480px;
+    margin-bottom: 40px;
+    text-shadow: 0 2px 18px rgba(13, 16, 23, 0.85);
+  }
+
+  .device-badges {
+    display: flex;
+    gap: 14px;
+  }
+
+  .device-badge {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(240, 244, 248, 0.72);
+    padding: 11px 22px;
+    border: 1px solid rgba(56, 217, 240, 0.26);
+    border-radius: 999px;
+    background: rgba(13, 16, 23, 0.35);
+  }
+
+  /* Soft darkening behind the text so type stays crisp over the photo. */
+  .contrast-scrim {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    background: linear-gradient(90deg, rgba(13, 16, 23, 0.62) 0%, rgba(13, 16, 23, 0.30) 38%, transparent 58%);
+  }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="photo-layer" id="photo-layer">
+    <img id="bg-photo" src="" alt="">
+    <div class="laptop-screen" id="laptop-screen">
+      <div class="screen-desktop"></div>
+      <div class="app-shot">
+        <img id="app-shot-img" src="" alt="">
+      </div>
+    </div>
+    <div id="overlay-pill" class="overlay-pill">
+      <div class="pill-sheen"></div>
+      <div class="pill-content">
+        <svg class="pill-close" viewBox="0 0 12 12" fill="none">
+          <path d="M2.2 2.2 L9.8 9.8 M9.8 2.2 L2.2 9.8" stroke="#14202E" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
+        <span class="pill-dot"></span>
+        <span class="pill-timer">0:07</span>
+        <div class="pill-wave" id="pill-wave"></div>
+        <span class="pill-stop"></span>
+      </div>
+      <div class="pill-progress"></div>
+    </div>
+  </div>
+  <div class="contrast-scrim"></div>
+  <div class="text-layer">
+    <div id="device-hl" class="device-headline"></div>
+    <div id="device-sub" class="device-subtitle"></div>
+    <div id="device-badges" class="device-badges"></div>
+  </div>
+</div>
+
+<script>
+  // Solves the homography mapping the virtual screen rect onto the photo's
+  // laptop-screen quad and returns it as a CSS matrix3d.
+  function matrix3dForQuad(w, h, quad) {
+    const src = [[0, 0], [w, 0], [w, h], [0, h]];
+    const A = [];
+    const b = [];
+    for (let i = 0; i < 4; i += 1) {
+      const [x, y] = src[i];
+      const [X, Y] = quad[i];
+      A.push([x, y, 1, 0, 0, 0, -X * x, -X * y]);
+      b.push(X);
+      A.push([0, 0, 0, x, y, 1, -Y * x, -Y * y]);
+      b.push(Y);
+    }
+    // Gaussian elimination with partial pivoting.
+    for (let col = 0; col < 8; col += 1) {
+      let pivot = col;
+      for (let row = col + 1; row < 8; row += 1) {
+        if (Math.abs(A[row][col]) > Math.abs(A[pivot][col])) pivot = row;
+      }
+      [A[col], A[pivot]] = [A[pivot], A[col]];
+      [b[col], b[pivot]] = [b[pivot], b[col]];
+      for (let row = col + 1; row < 8; row += 1) {
+        const f = A[row][col] / A[col][col];
+        for (let k = col; k < 8; k += 1) A[row][k] -= f * A[col][k];
+        b[row] -= f * b[col];
+      }
+    }
+    const s = new Array(8);
+    for (let row = 7; row >= 0; row -= 1) {
+      let sum = b[row];
+      for (let k = row + 1; k < 8; k += 1) sum -= A[row][k] * s[k];
+      s[row] = sum / A[row][row];
+    }
+    const [a, bb, c, d, e, f, g, hh] = s;
+    return `matrix3d(${a},${d},0,${g},${bb},${e},0,${hh},0,0,1,0,${c},${f},0,1)`;
+  }
+
+  // Deterministic waveform bars inside the CSS pill (fixed heights so store
+  // screenshots stay reproducible). Content is opaque per OverlayDesignSpec;
+  // only the pill chrome is translucent.
+  (function () {
+    const heights = [8, 14, 10, 20, 26, 16, 30, 22, 34, 25, 31, 18, 27, 33, 21, 28, 15, 23, 11, 17, 9];
+    const wave = document.getElementById('pill-wave');
+    if (!wave) return;
+    heights.forEach(function (h, i) {
+      const bar = document.createElement('i');
+      bar.style.height = h + 'px';
+      bar.style.background = i % 3 === 1 ? '#7FC8DB' : '#0887A8';
+      wave.appendChild(bar);
+    });
+  })();
+
+  // Called by the renderer with all per-locale/per-store data.
+  window.setupHero = function setupHero(params) {
+    const { W, H, imgW, imgH, quad, focusX, bgData, shotData, pillPos, copy, locale } = params;
+
+    document.documentElement.style.setProperty('--screen-w', `${W}px`);
+    document.documentElement.style.setProperty('--screen-h', `${H}px`);
+
+    // Cover-fit the photo, keeping `focusX` (0..1 in source space) favored
+    // when the viewport is narrower than the scaled photo.
+    const scale = Math.max(W / imgW, H / imgH);
+    const scaledW = imgW * scale;
+    const scaledH = imgH * scale;
+    let offX = -(focusX * scaledW - W * focusX);
+    offX = Math.min(0, Math.max(W - scaledW, offX));
+    const offY = Math.min(0, (H - scaledH) / 2);
+
+    const layer = document.getElementById('photo-layer');
+    layer.style.transform = `translate(${offX}px, ${offY}px) scale(${scale})`;
+
+    const photo = document.getElementById('bg-photo');
+    photo.width = imgW;
+    photo.height = imgH;
+    photo.src = bgData;
+
+    const screenW = 320;
+    const screenH = 400;
+    const screen = document.getElementById('laptop-screen');
+    screen.style.width = `${screenW}px`;
+    screen.style.height = `${screenH}px`;
+    screen.style.transform = matrix3dForQuad(screenW, screenH, quad);
+
+    document.getElementById('app-shot-img').src = shotData;
+
+    const pill = document.getElementById('overlay-pill');
+    if (pillPos) {
+      pill.style.left = `${pillPos[0]}px`;
+      pill.style.top = `${pillPos[1]}px`;
+    } else {
+      pill.remove();
+    }
+
+    document.getElementById('device-hl').innerHTML = copy.headline[locale].replace(/\n/g, '<br>');
+    document.getElementById('device-sub').textContent = copy.subtitle[locale];
+
+    const badges = document.getElementById('device-badges');
+    badges.innerHTML = '';
+    copy.badges[locale].forEach((text) => {
+      const el = document.createElement('div');
+      el.className = 'device-badge';
+      el.textContent = text;
+      badges.appendChild(el);
+    });
+  };
+</script>
+</body>
+</html>
