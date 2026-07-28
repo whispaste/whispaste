@@ -247,8 +247,9 @@ dort einfügt, wo der Cursor steht — egal in welcher App.
   enthalten **niemals** Audio, Text, Verlauf, Tags oder Notizen.
 - **Sicheres Pasten auch in geschützte Felder** (Banken, Passwortfelder werden
   bewusst geblockt; alles andere paste-kompatibel).
-- **Geräusch-arme UI** — keine grellen Effekte, kein Glow, ruhige Animationen,
-  Light/Dark/System-Theme, EN/DE.
+- **Geräusch-arme, aber warme UI** — kein Glow, kein zweiter Marken-Akzent neben
+  Cyan/Teal, ruhige Animationen; tonale Wärme und weiche Materialität sind
+  erwünscht, nicht bloße Kargheit. Light/Dark/System-Theme, EN/DE.
 - **Cross-Platform-Parität** für Windows, macOS und Linux; Mobile ist nicht
   geplant.
 
