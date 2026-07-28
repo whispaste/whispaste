@@ -33,21 +33,20 @@ const BG_H = 768;
 // Laptop screen quad in source-photo pixels: TL, TR, BR, BL.
 //
 // Measured programmatically, not eyeballed: scanned the raw pixel data for
-// the bezel's bright cyan-ish rim-light along each edge (many points per
-// edge, away from the hand), least-squares-fit a line to each edge, and
-// intersected top/left and top/right for TL/TR. The bottom edge is mostly
-// occluded by the hand and too low-contrast against the dark keyboard deck
-// to trace directly, so BL/BR come from the (cross-validated) parallel-sides
-// assumption: the fitted left-edge line predicted x=660.4 at the one clean
-// bottom-left sample point (660, 384) found before the hand — a ~0.5px
-// match, confirming the line fit — and BR = TR + (BL - TL), i.e. the same
-// side vector applied to the right edge (a real rectangle's opposite sides
-// are equal-length and parallel; the independently-fit right-edge slope
-// agreed with this within ~2px, cross-validating the whole quad). The
-// previous hand-picked corners put BL/BR roughly 120-135px too low, onto
-// the keyboard deck instead of the glass — see 660-value discrepancy vs.
-// the prior (689, 519).
-const SCREEN_QUAD = [[602, 172], [963, 147], [1022, 358], [660, 384]];
+// the bezel's bright cyan-ish rim-light along each edge, least-squares-fit a
+// line to each edge, and intersected top/left and top/right for TL/TR.
+// TL/TR/BR confirmed correct on inspection; BL needed a second pass — the
+// first attempt's "bottom edge" sample (660, 384) turned out to be a false
+// match well short of the real bottom-left corner (visually confirmed
+// against a contrast-boosted crop: the true corner, where the glass meets
+// the hinge/chassis, sits around (700-710, 525-530), not (660, 384)).
+// Re-traced the actual screen-to-chassis brightness transition along the
+// bottom edge directly (21 clean points from x=715 to x=1015, well clear of
+// the hand, slope -0.229) and intersected that with a left-edge re-fit
+// using points in the same y-range as the corner (rather than extrapolating
+// from points 150+ px away) — gives BL = (702, 528), consistent with the
+// visual estimate from the enhanced crop. TL/TR/BR left untouched.
+const SCREEN_QUAD = [[602, 172], [963, 147], [1022, 358], [702, 528]];
 
 // Horizontal focus point (0..1) when cover-cropping the photo.
 const FOCUS_X = 0.62;
