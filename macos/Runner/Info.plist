@@ -43,5 +43,14 @@
 	<string>Ek8FS/co3CPMeZt7ss9XMDkga7jIG6RWNWbefZhtRck=</string>
 	<key>SUFeedURL</key>
 	<string>https://github.com/whispaste/whispaste/releases/latest/download/appcast.xml</string>
+	<!-- Export compliance: WhisPaste only ever talks HTTPS/TLS via the OS-provided
+	     networking stack (Sentry, Supabase, OpenAI, Deepgram, Sparkle appcast,
+	     GitHub) — no proprietary or custom cryptography. That's exempt encryption,
+	     so this is `false` ("does NOT use non-exempt encryption"). Without this
+	     key, every single upload shows as "Missing Compliance" in App Store
+	     Connect and needs a manual per-build answer; with it, Xcode/ASC can
+	     auto-determine compliance from the binary. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>
