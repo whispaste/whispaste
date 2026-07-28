@@ -61,12 +61,12 @@ const SCREENS = [
     },
     category: { en: 'WORKSPACE', de: 'WORKSPACE' },
     headline: {
-      en: 'Keep every dictation\nclose at hand',
-      de: 'Halte jedes Diktat\ngriffbereit',
+      en: 'Keep every recording\nclose at hand',
+      de: 'Halte jede Aufnahme\ngriffbereit',
     },
     subtitle: {
       en: 'Search, tag, favorite, and archive what you said when the day gets busy.',
-      de: 'Suche, tagge, favorisiere und archiviere deine Diktate, wenn der Tag voller wird.',
+      de: 'Suche, tagge, favorisiere und archiviere deine Aufnahmen, wenn der Tag voller wird.',
     },
     theme: 'dark',
   },
@@ -82,8 +82,8 @@ const SCREENS = [
       de: 'Öffne einen Gedanken\nund bring ihn zu Ende',
     },
     subtitle: {
-      en: 'Review one dictation, clean it up, and keep the final text ready to paste.',
-      de: 'Prüfe ein Diktat, bring es in Form und halte den finalen Text direkt einsatzbereit.',
+      en: 'Review one recording, clean it up, and keep the final text ready to paste.',
+      de: 'Prüfe eine Aufnahme, bring sie in Form und halte den finalen Text direkt einsatzbereit.',
     },
     theme: 'light',
   },
@@ -99,8 +99,8 @@ const SCREENS = [
       de: 'Nutze die Phrasen\nwieder, die du täglich brauchst',
     },
     subtitle: {
-      en: 'Say a trigger phrase and insert the full text automatically while dictating.',
-      de: 'Sag eine Auslösephrase und füge den ganzen Text beim Diktieren automatisch ein.',
+      en: 'Say a trigger phrase and WhisPaste inserts the full text automatically.',
+      de: 'Sag eine Auslösephrase, WhisPaste fügt den ganzen Text automatisch ein.',
     },
     theme: 'dark',
   },
