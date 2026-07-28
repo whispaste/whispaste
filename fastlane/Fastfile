@@ -202,7 +202,14 @@ platform :mac do
          "flutter build macos --release")
     end
 
-    build_mac_app(
+    # build_mac_app (gym/build_app) only populates lane_context's shared
+    # values for a .ipa or .pkg output (see build_app.rb's extname check) —
+    # for a plain .app export (developer-id method), NEITHER branch matches,
+    # so no SharedValues key is ever set. `SharedValues::APP_PATH` referenced
+    # here previously doesn't exist at all in fastlane 2.237.0 (verified via
+    # `uninitialized constant` NameError on a real run) — the action's own
+    # return value is the only source of the exported .app path.
+    app_path = build_mac_app(
       workspace:        File.join(PROJECT_ROOT, "macos/Runner.xcworkspace"),
       scheme:           "Runner",
       configuration:    "Release",
@@ -211,8 +218,7 @@ platform :mac do
       output_directory: File.join(PROJECT_ROOT, "build/fastlane"),
       output_name:      "WhisPaste"
     )
-
-    app_path = lane_context[SharedValues::APP_PATH] || File.join(PROJECT_ROOT, "build/fastlane/WhisPaste.app")
+    app_path ||= File.join(PROJECT_ROOT, "build/fastlane/WhisPaste.app")
 
     unless ENV["SKIP_NOTARIZATION"] == "1"
       # notarize submits via notarytool, waits for Apple's response, and
