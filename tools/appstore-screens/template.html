@@ -22,6 +22,9 @@
     --category-color: #38D9F0;
     --window-radius: 16px;
     --window-shadow: 0 34px 84px rgba(0, 0, 0, 0.42);
+    /* Width scale factor: product-screen sizes are designed at 1440px and
+       multiply by --k so 1920×1080 renders proportionally, not shrunken. */
+    --k: 1.3333;
   }
 
   body {
@@ -58,90 +61,251 @@
   }
 
   .screen.bg-light {
+    /* Kept a step darker than the app UI's light surfaces so the window
+       edge separates instead of melting into the canvas. */
     background:
-      radial-gradient(ellipse 760px 540px at 84% 22%, rgba(56, 217, 240, 0.12) 0%, transparent 58%),
-      radial-gradient(ellipse 560px 420px at 16% 82%, rgba(8, 145, 178, 0.08) 0%, transparent 52%),
-      linear-gradient(135deg, #f7f8fc 0%, #eef1f8 52%, #f7f8fc 100%);
+      radial-gradient(ellipse 760px 540px at 84% 22%, rgba(56, 217, 240, 0.14) 0%, transparent 58%),
+      radial-gradient(ellipse 560px 420px at 16% 82%, rgba(8, 145, 178, 0.1) 0%, transparent 52%),
+      linear-gradient(135deg, #eceff6 0%, #e2e7f0 52%, #eceff6 100%);
   }
 
-  .text-side {
-    flex: 0 0 31%;
-    max-width: 470px;
+  /* ---- Product screens: top text band + staged window with bottom bleed ----
+     Composition cycles center → left → right → left → center across the set.
+     The window always bleeds off the bottom edge, which also absorbs the
+     16:10 (Mac) vs 16:9 (Microsoft) aspect difference gracefully. */
+
+  .screen.product {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: 0;
+  }
+
+  .band {
+    position: relative;
+    z-index: 2;
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    z-index: 2;
+    padding: calc(var(--screen-h) * 0.082) calc(92px * var(--k)) 0;
   }
 
-  .text-side .category {
-    font-size: 13px;
+  .comp-center .band { align-items: center; text-align: center; }
+  .comp-left .band { align-items: flex-start; text-align: left; }
+  .comp-right .band { align-items: flex-end; text-align: right; }
+
+  .eyebrow {
+    display: flex;
+    align-items: center;
+    gap: calc(13px * var(--k));
+    margin-bottom: calc(26px * var(--k));
+  }
+
+  .eyebrow-wave {
+    display: flex;
+    align-items: center;
+    gap: calc(3px * var(--k));
+  }
+
+  .eyebrow-wave i {
+    display: block;
+    width: calc(3px * var(--k));
+    border-radius: 2px;
+    background: var(--accent);
+  }
+
+  .eyebrow-wave i:nth-child(1) { height: calc(7px * var(--k)); opacity: 0.45; }
+  .eyebrow-wave i:nth-child(2) { height: calc(13px * var(--k)); opacity: 0.65; }
+  .eyebrow-wave i:nth-child(3) { height: calc(19px * var(--k)); opacity: 1; }
+  .eyebrow-wave i:nth-child(4) { height: calc(11px * var(--k)); opacity: 0.65; }
+  .eyebrow-wave i:nth-child(5) { height: calc(6px * var(--k)); opacity: 0.45; }
+
+  .idx {
+    font-size: calc(14px * var(--k));
     font-weight: 800;
-    letter-spacing: 0.28em;
-    text-transform: uppercase;
-    color: var(--category-color);
-    margin-bottom: 18px;
+    letter-spacing: 0.16em;
+    color: var(--accent);
   }
 
-  .text-side .headline {
-    font-size: 50px;
-    font-weight: 900;
-    line-height: 1.04;
-    letter-spacing: -0.04em;
+  .eyebrow-rule {
+    width: calc(30px * var(--k));
+    height: 1px;
+    background: rgba(240, 244, 248, 0.26);
+  }
+
+  .cat {
+    font-size: calc(13px * var(--k));
+    font-weight: 800;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: rgba(240, 244, 248, 0.66);
+  }
+
+  .bg-light .eyebrow-wave i { background: var(--accent-secondary); }
+  .bg-light .idx { color: var(--accent-secondary); }
+  .bg-light .eyebrow-rule { background: rgba(17, 24, 39, 0.24); }
+  .bg-light .cat { color: rgba(17, 24, 39, 0.58); }
+
+  .product .headline {
+    font-size: calc(57px * var(--k));
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.035em;
     color: var(--text-primary);
-    margin-bottom: 18px;
+    margin-bottom: calc(20px * var(--k));
     white-space: pre-line;
   }
 
-  .text-side .headline em {
+  .comp-center .headline { font-size: calc(64px * var(--k)); }
+
+  .product .headline em {
     font-style: normal;
     color: var(--accent);
   }
 
-  .text-side .subtitle {
-    font-size: 17px;
-    line-height: 1.56;
+  .bg-light .headline { color: var(--text-primary-light); }
+  .bg-light .headline em { color: var(--accent-secondary); }
+
+  .product .subtitle {
+    font-size: calc(19px * var(--k));
+    line-height: 1.55;
     color: var(--text-muted);
-    max-width: 430px;
+    max-width: calc(620px * var(--k));
+    text-wrap: balance;
   }
 
-  .screen.bg-light .text-side .headline {
-    color: var(--text-primary-light);
-  }
+  .comp-center .subtitle { max-width: calc(720px * var(--k)); }
+  .bg-light .subtitle { color: var(--text-muted-light); }
 
-  .screen.bg-light .text-side .subtitle {
-    color: var(--text-muted-light);
-  }
-
-  .screenshot-side {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
+  .stage {
+    position: relative;
     z-index: 1;
+    flex: 1;
+    margin-top: calc(var(--screen-h) * 0.055);
   }
 
-  .window-frame {
-    width: 100%;
-    max-width: 1150px;
-    border-radius: var(--window-radius);
+  .product .window-frame {
+    position: absolute;
+    top: 0;
+    /* Per-screen window scale, injected as --ws from config.js */
+    width: calc(var(--screen-w) * var(--ws, 0.78));
+    border-radius: calc(18px * var(--k)) calc(18px * var(--k)) 0 0;
     overflow: hidden;
-    box-shadow: var(--window-shadow);
     background: #1a1f2e;
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.08),
+      0 calc(30px * var(--k)) calc(70px * var(--k)) rgba(0, 0, 0, 0.45),
+      0 calc(70px * var(--k)) calc(160px * var(--k)) rgba(0, 0, 0, 0.35);
   }
 
-  .screen.bg-light .window-frame {
+  .bg-light .window-frame {
     background: #f5f7fa;
-    border-color: rgba(17, 24, 39, 0.08);
-    box-shadow: 0 28px 70px rgba(15, 23, 42, 0.16);
+    box-shadow:
+      0 0 0 1px rgba(17, 24, 39, 0.16),
+      0 calc(30px * var(--k)) calc(70px * var(--k)) rgba(15, 23, 42, 0.26),
+      0 calc(70px * var(--k)) calc(160px * var(--k)) rgba(15, 23, 42, 0.16);
   }
 
-  .window-content {
-    width: 100%;
-    line-height: 0;
+  .comp-center .window-frame {
+    left: 50%;
+    transform: translateX(-50%);
   }
 
-  .window-content img {
+  .comp-left .window-frame { right: calc(36px * var(--k)); }
+
+  .comp-right .window-frame { left: calc(36px * var(--k)); }
+
+  /* ---- comp-overlap-left: window slides in tall from the right and passes
+     behind the vertically centered text, which sits on a canvas-colored
+     scrim fading out to the right. ---- */
+
+  .comp-overlap-left .band {
+    position: absolute;
+    left: calc(92px * var(--k));
+    top: 50%;
+    transform: translateY(-50%);
+    padding: 0;
+    max-width: calc(565px * var(--k));
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .comp-overlap-left .stage {
+    position: absolute;
+    inset: 0;
+    margin-top: 0;
+  }
+
+  .comp-overlap-left .window-frame {
+    right: calc(28px * var(--k));
+    top: calc(var(--screen-h) * 0.14);
+  }
+
+  .comp-overlap-left .headline { font-size: calc(52px * var(--k)); }
+
+  .comp-overlap-left::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  /* Fade ends at the golden's list/detail pane border (~44% canvas width)
+     so the detail pane stays fully crisp — only the list pane ghosts out. */
+  .comp-overlap-left.bg-light::after {
+    background: linear-gradient(90deg, #e9edf5 0%, #e9edf5 30%, rgba(233, 237, 245, 0) 44.5%);
+  }
+
+  .comp-overlap-left.bg-dark::after {
+    background: linear-gradient(90deg, #101420 0%, #101420 30%, rgba(16, 20, 32, 0) 44.5%);
+  }
+
+  /* ---- comp-low-wide: near full-width window rising behind the top-left
+     text band, seam hidden by a vertical canvas-colored scrim. ---- */
+
+  .comp-low-wide .band {
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .comp-low-wide .stage { margin-top: calc(var(--screen-h) * -0.015); }
+
+  .comp-low-wide .window-frame { right: calc(24px * var(--k)); }
+
+  .comp-low-wide .headline { font-size: calc(52px * var(--k)); }
+
+  .comp-low-wide::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  .comp-low-wide.bg-light::after {
+    background: linear-gradient(180deg, #e9edf5 0%, #e9edf5 24%, rgba(233, 237, 245, 0) 36%);
+  }
+
+  .comp-low-wide.bg-dark::after {
+    background: linear-gradient(180deg, #101420 0%, #101420 24%, rgba(16, 20, 32, 0) 36%);
+  }
+
+  /* ---- Floating overlay pill: real captured recording widget, placed
+     loose in the composition above the app window. ---- */
+
+  .float-pill {
+    display: none;
+    position: absolute;
+    z-index: 3;
+    width: calc(324px * var(--k));
+    /* Straddles the window's top edge so it reads as hovering above the app. */
+    top: calc(-34px * var(--k));
+    right: calc(var(--screen-w) * 0.055);
+    transform: rotate(-5deg);
+    filter: drop-shadow(0 calc(16px * var(--k)) calc(36px * var(--k)) rgba(0, 0, 0, 0.5));
+  }
+
+  .window-frame img {
     width: 100%;
     height: auto;
     display: block;
@@ -241,77 +405,93 @@
     <div id="badges-0" class="hero-badges"></div>
   </div>
 
-  <div id="screen-1" class="screen bg-dark">
-    <div class="text-side">
-      <div id="cat-1" class="category"></div>
+  <div id="screen-1" class="screen product bg-dark comp-center">
+    <div class="band">
+      <div class="eyebrow">
+        <span class="eyebrow-wave"><i></i><i></i><i></i><i></i><i></i></span>
+        <span class="idx">01</span>
+        <span class="eyebrow-rule"></span>
+        <span id="cat-1" class="cat"></span>
+      </div>
       <div id="hl-1" class="headline"></div>
       <div id="sub-1" class="subtitle"></div>
     </div>
-    <div class="screenshot-side">
+    <div class="stage">
       <div class="window-frame">
-        <div class="window-content">
-          <img id="ss-1" src="" alt="Workspace overview">
-        </div>
+        <img id="ss-1" src="" alt="Workspace overview">
       </div>
+      <img id="float-1" class="float-pill" src="" alt="Recording overlay pill">
     </div>
   </div>
 
-  <div id="screen-2" class="screen bg-light">
-    <div class="text-side">
-      <div id="cat-2" class="category"></div>
+  <div id="screen-2" class="screen product bg-light comp-left">
+    <div class="band">
+      <div class="eyebrow">
+        <span class="eyebrow-wave"><i></i><i></i><i></i><i></i><i></i></span>
+        <span class="idx">02</span>
+        <span class="eyebrow-rule"></span>
+        <span id="cat-2" class="cat"></span>
+      </div>
       <div id="hl-2" class="headline"></div>
       <div id="sub-2" class="subtitle"></div>
     </div>
-    <div class="screenshot-side">
+    <div class="stage">
       <div class="window-frame">
-        <div class="window-content">
-          <img id="ss-2" src="" alt="Workspace detail">
-        </div>
+        <img id="ss-2" src="" alt="Workspace detail">
       </div>
     </div>
   </div>
 
-  <div id="screen-3" class="screen bg-dark">
-    <div class="text-side">
-      <div id="cat-3" class="category"></div>
+  <div id="screen-3" class="screen product bg-dark comp-right">
+    <div class="band">
+      <div class="eyebrow">
+        <span class="eyebrow-wave"><i></i><i></i><i></i><i></i><i></i></span>
+        <span class="idx">03</span>
+        <span class="eyebrow-rule"></span>
+        <span id="cat-3" class="cat"></span>
+      </div>
       <div id="hl-3" class="headline"></div>
       <div id="sub-3" class="subtitle"></div>
     </div>
-    <div class="screenshot-side">
+    <div class="stage">
       <div class="window-frame">
-        <div class="window-content">
-          <img id="ss-3" src="" alt="Voice shortcuts">
-        </div>
+        <img id="ss-3" src="" alt="Voice shortcuts">
       </div>
     </div>
   </div>
 
-  <div id="screen-4" class="screen bg-light">
-    <div class="text-side">
-      <div id="cat-4" class="category"></div>
+  <div id="screen-4" class="screen product bg-light comp-left">
+    <div class="band">
+      <div class="eyebrow">
+        <span class="eyebrow-wave"><i></i><i></i><i></i><i></i><i></i></span>
+        <span class="idx">04</span>
+        <span class="eyebrow-rule"></span>
+        <span id="cat-4" class="cat"></span>
+      </div>
       <div id="hl-4" class="headline"></div>
       <div id="sub-4" class="subtitle"></div>
     </div>
-    <div class="screenshot-side">
+    <div class="stage">
       <div class="window-frame">
-        <div class="window-content">
-          <img id="ss-4" src="" alt="Hotkey settings">
-        </div>
+        <img id="ss-4" src="" alt="Hotkey settings">
       </div>
     </div>
   </div>
 
-  <div id="screen-5" class="screen bg-dark">
-    <div class="text-side">
-      <div id="cat-5" class="category"></div>
+  <div id="screen-5" class="screen product bg-dark comp-center">
+    <div class="band">
+      <div class="eyebrow">
+        <span class="eyebrow-wave"><i></i><i></i><i></i><i></i><i></i></span>
+        <span class="idx">05</span>
+        <span class="eyebrow-rule"></span>
+        <span id="cat-5" class="cat"></span>
+      </div>
       <div id="hl-5" class="headline"></div>
       <div id="sub-5" class="subtitle"></div>
     </div>
-    <div class="screenshot-side">
+    <div class="stage">
       <div class="window-frame">
-        <div class="window-content">
-          <img id="ss-5" src="" alt="Time saved">
-        </div>
+        <img id="ss-5" src="" alt="Time saved">
       </div>
     </div>
   </div>

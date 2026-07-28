@@ -78,6 +78,11 @@ const SCREENS = [
       en: 'en/dark/01_workspace_overview.png',
       de: 'de/dark/01_workspace_overview.png',
     },
+    composition: 'center',
+    windowScale: 0.78,
+    // Real captured floating-overlay widget (recording state), placed loose
+    // above the window. Language-neutral: waveform/icons only, no text.
+    floatAsset: 'overlay-recording-dark.png',
     category: { en: 'WORKSPACE', de: 'WORKSPACE' },
     headline: {
       en: 'Keep every recording\nclose at hand',
@@ -95,6 +100,8 @@ const SCREENS = [
       en: 'en/light/02_workspace_detail.png',
       de: 'de/light/02_workspace_detail.png',
     },
+    composition: 'overlap-left',
+    windowScale: 0.86,
     category: { en: 'DETAIL', de: 'DETAIL' },
     headline: {
       en: 'Open one thought\nand finish it',
@@ -112,10 +119,12 @@ const SCREENS = [
       en: 'en/dark/03_voice_shortcuts.png',
       de: 'de/dark/03_voice_shortcuts.png',
     },
+    composition: 'right',
+    windowScale: 0.78,
     category: { en: 'VOICE SHORTCUTS', de: 'SPRACH-SHORTCUTS' },
     headline: {
       en: 'Reuse the phrases\nyou type every day',
-      de: 'Nutze die Phrasen\nwieder, die du täglich brauchst',
+      de: 'Nutze die Phrasen wieder,\ndie du täglich brauchst',
     },
     subtitle: {
       en: 'Say a trigger phrase and WhisPaste inserts the full text automatically.',
@@ -129,6 +138,8 @@ const SCREENS = [
       en: 'en/light/04_settings.png',
       de: 'de/light/04_settings.png',
     },
+    composition: 'low-wide',
+    windowScale: 0.92,
     category: { en: 'SETUP', de: 'EINRICHTUNG' },
     headline: {
       en: 'Choose a shortcut\nthat fits your flow',
@@ -146,6 +157,8 @@ const SCREENS = [
       en: 'en/dark/05_analytics.png',
       de: 'de/dark/05_analytics.png',
     },
+    composition: 'center',
+    windowScale: 0.86,
     category: { en: 'INSIGHTS', de: 'EINBLICKE' },
     headline: {
       en: 'See how much time\nvoice gives back',

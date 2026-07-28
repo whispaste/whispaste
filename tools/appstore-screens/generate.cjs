@@ -90,8 +90,15 @@ function verifySourceImages() {
 }
 
 /**
- * Renders a full-width panorama (all screens side-by-side) at the store's
- * native resolution and injects the store's CSS variables so layout is exact.
+ * Renders every screen at the store's native resolution and injects the
+ * store's CSS variables so layout is exact.
+ *
+ * Rendered at deviceScaleFactor 2, then downscaled with Lanczos in
+ * `sliceForStore` — Chromium's fast image resampling makes thin light-theme
+ * text look hazy at 1x, while 2x + Lanczos keeps golden UI and HTML type
+ * crisp. The viewport shows one screen at a time (translateX on the
+ * panorama) because a full 2x panorama would exceed Chromium's max surface
+ * width (16384px).
  */
 async function renderPanorama(lang, storeId) {
   const store = STORE_SIZES[storeId];
@@ -100,8 +107,8 @@ async function renderPanorama(lang, storeId) {
 
   try {
     const page = await browser.newPage({
-      viewport: { width: W * NUM_SCREENS, height: H },
-      deviceScaleFactor: 1,
+      viewport: { width: W, height: H },
+      deviceScaleFactor: 2,
     });
 
     await page.setContent(fs.readFileSync(TEMPLATE_PATH, 'utf-8'), {
@@ -111,21 +118,25 @@ async function renderPanorama(lang, storeId) {
     // Inject store-specific CSS variables so the template layout matches the
     // target resolution exactly (template.html has fallback defaults).
     await page.addStyleTag({
-      content: `:root { --screen-w: ${W}px; --screen-h: ${H}px; }`,
+      content: `:root { --screen-w: ${W}px; --screen-h: ${H}px; --k: ${(W / 1440).toFixed(4)}; }`,
     });
 
     const imageMap = {};
+    const floatMap = {};
     for (const screen of SCREENS) {
       if (!screen.screenshot) {
         continue;
       }
       imageMap[screen.id] = toDataUri(screenshotPathFor(screen, lang, storeId));
+      if (screen.floatAsset) {
+        floatMap[screen.id] = toDataUri(path.join(__dirname, 'assets', screen.floatAsset));
+      }
     }
 
     const logoData = toDataUri(ASSET_PATHS.logo);
 
     await page.evaluate(
-      ({ screens, locale, imageData, logo }) => {
+      ({ screens, locale, imageData, logo, floatData }) => {
         screens.forEach((screen, index) => {
           const screenNode = document.getElementById(`screen-${index}`);
           const headline = document.getElementById(`hl-${index}`);
@@ -163,7 +174,11 @@ async function renderPanorama(lang, storeId) {
           const screenshot = document.getElementById(`ss-${index}`);
 
           if (screenNode) {
-            screenNode.className = `screen ${screen.theme === 'light' ? 'bg-light' : 'bg-dark'}`;
+            const theme = screen.theme === 'light' ? 'bg-light' : 'bg-dark';
+            screenNode.className = `screen product ${theme} comp-${screen.composition || 'center'}`;
+            if (screen.windowScale) {
+              screenNode.style.setProperty('--ws', String(screen.windowScale));
+            }
           }
 
           if (category) {
@@ -173,9 +188,15 @@ async function renderPanorama(lang, storeId) {
           if (screenshot) {
             screenshot.src = imageData[screen.id];
           }
+
+          const float = document.getElementById(`float-${index}`);
+          if (float && floatData[screen.id]) {
+            float.src = floatData[screen.id];
+            float.style.display = 'block';
+          }
         });
       },
-      { screens: SCREENS, locale: lang, imageData: imageMap, logo: logoData },
+      { screens: SCREENS, locale: lang, imageData: imageMap, logo: logoData, floatData: floatMap },
     );
 
     await page.waitForFunction(
@@ -190,26 +211,30 @@ async function renderPanorama(lang, storeId) {
 
     const panoramaDir = path.join(OUTPUT, 'panorama');
     ensureDir(panoramaDir);
-    const panoramaPath = path.join(panoramaDir, `panorama-${storeId}-${lang}.png`);
 
-    await page.screenshot({ path: panoramaPath, type: 'png' });
-    console.log(
-      `  📸 Panorama [${storeId}/${lang}]: ${W * NUM_SCREENS}×${H}`,
-    );
+    const slicePaths = [];
+    for (let index = 0; index < NUM_SCREENS; index += 1) {
+      await page.evaluate((offset) => {
+        document.querySelector('.panorama').style.transform = `translateX(-${offset}px)`;
+      }, index * W);
+      await page.waitForTimeout(60);
 
-    return panoramaPath;
+      const slicePath = path.join(panoramaDir, `slice-${storeId}-${lang}-${index}@2x.png`);
+      await page.screenshot({ path: slicePath, type: 'png' });
+      slicePaths.push(slicePath);
+    }
+
+    console.log(`  📸 Rendered ${NUM_SCREENS} screens [${storeId}/${lang}] at ${W * 2}×${H * 2}`);
+    return slicePaths;
   } finally {
     await browser.close();
   }
 }
 
 /**
- * Slices the panorama into individual per-screen images.
- *
- * Since each panorama is already rendered at the store's native resolution,
- * no resize is needed — each slice is exactly `W × H`.
+ * Downscales the 2x per-screen renders to store resolution with Lanczos.
  */
-async function sliceForStore(panoramaPath, lang, storeId) {
+async function sliceForStore(slicePaths, lang, storeId) {
   const store = STORE_SIZES[storeId];
   const { width: W, height: H } = store;
   const outputDir = path.join(OUTPUT, lang, storeId);
@@ -220,8 +245,8 @@ async function sliceForStore(panoramaPath, lang, storeId) {
     const number = String(index + 1).padStart(2, '0');
     const outputPath = path.join(outputDir, `${number}_${SCREENS[index].id}.png`);
 
-    await sharp(panoramaPath)
-      .extract({ left: index * W, top: 0, width: W, height: H })
+    await sharp(slicePaths[index])
+      .resize(W, H, { kernel: 'lanczos3' })
       .png()
       .toFile(outputPath);
 
@@ -260,8 +285,8 @@ function copyStoreScreensToWebsite(lang, files) {
 }
 
 async function generateForStore(storeId, lang, copyWebsite) {
-  const panoramaPath = await renderPanorama(lang, storeId);
-  const files = await sliceForStore(panoramaPath, lang, storeId);
+  const slicePaths = await renderPanorama(lang, storeId);
+  const files = await sliceForStore(slicePaths, lang, storeId);
 
   // Copy only the primary store's screenshots to the website.
   if (copyWebsite && storeId === ENABLED_STORES[0]) {
