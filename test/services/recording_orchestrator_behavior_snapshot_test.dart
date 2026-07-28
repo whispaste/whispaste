@@ -145,6 +145,7 @@ class _FakeSecureKeyStore extends SecureKeyStore {
 
 class _FakeDesktopPasteController extends DesktopPasteController {
   bool pasteThrows = false;
+  bool typeThrows = false;
 
   @override
   Future<bool> capturePasteTarget() async => true;
@@ -152,6 +153,15 @@ class _FakeDesktopPasteController extends DesktopPasteController {
   @override
   Future<NativePasteResult> pasteClipboard({required Duration delay}) async {
     if (pasteThrows) throw Exception('paste failed');
+    return const NativePasteResult(status: NativePasteStatus.success);
+  }
+
+  @override
+  Future<NativePasteResult> typeText(
+    String text, {
+    required Duration delay,
+  }) async {
+    if (typeThrows) throw Exception('type failed');
     return const NativePasteResult(status: NativePasteStatus.success);
   }
 

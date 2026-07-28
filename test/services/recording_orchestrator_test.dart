@@ -182,8 +182,12 @@ class FakeSecureKeyStore extends SecureKeyStore {
 class FakeDesktopPasteController extends DesktopPasteController {
   int captureCalls = 0;
   int pasteCalls = 0;
+  int typeCalls = 0;
   Duration? lastDelay;
+  Duration? lastTypeDelay;
+  String? lastTypedText;
   bool pasteResult = true;
+  bool typeResult = true;
   bool captureResult = true;
   final captureResults = <bool>[];
   bool disposed = false;
@@ -193,6 +197,10 @@ class FakeDesktopPasteController extends DesktopPasteController {
   /// beyond the plain success/[NativePasteStatus.postFailed] toggle above.
   /// Takes priority over [pasteResult] when set.
   NativePasteStatus? pasteStatusOverride;
+
+  /// Same idea as [pasteStatusOverride], for [typeText]. Takes priority over
+  /// [typeResult] when set.
+  NativePasteStatus? typeStatusOverride;
 
   /// Test seam for issue 02: the bundle ID [DesktopPaster.paste] sees when it
   /// checks the auto-paste blocklist. `null` (the default) mirrors
@@ -216,6 +224,22 @@ class FakeDesktopPasteController extends DesktopPasteController {
       return NativePasteResult(status: pasteStatusOverride!);
     }
     return pasteResult
+        ? const NativePasteResult(status: NativePasteStatus.success)
+        : const NativePasteResult(status: NativePasteStatus.postFailed);
+  }
+
+  @override
+  Future<NativePasteResult> typeText(
+    String text, {
+    required Duration delay,
+  }) async {
+    typeCalls += 1;
+    lastTypeDelay = delay;
+    lastTypedText = text;
+    if (typeStatusOverride != null) {
+      return NativePasteResult(status: typeStatusOverride!);
+    }
+    return typeResult
         ? const NativePasteResult(status: NativePasteStatus.success)
         : const NativePasteResult(status: NativePasteStatus.postFailed);
   }
@@ -1560,6 +1584,73 @@ void main() {
       expect(fakeDesktopPaste.pasteCalls, 1);
       expect(fakeDesktopPaste.lastDelay, const Duration(milliseconds: 125));
       expect(clipboardText, 'Copy and paste');
+    });
+
+    test('type calls typeText, not pasteClipboard, and leaves the '
+        'original clipboard untouched', () async {
+      container.dispose();
+      db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      wavFile = createFakeWav(
+        'test_audio_type_${DateTime.now().millisecondsSinceEpoch}.wav',
+      );
+      fakeAudio = FakeAudioService()..wavPathToReturn = wavFile.absolute.path;
+      fakeStt = FakeSttService()..transcriptToReturn = 'Type only';
+      clipboardText = 'Original clipboard';
+
+      container = buildContainer(
+        const AppSettings(
+          stt: SttSettings(model: 'whisper-small', language: 'English'),
+          afterTranscriptionSection: AfterTranscriptionSettings(
+            afterTranscription: 'type',
+          ),
+          behavior: BehaviorSettings(autoPasteDelay: 175),
+          onboarding: OnboardingSettings(onboardingCompleted: true),
+        ),
+      );
+      await container.read(settingsProvider.future);
+
+      final orch = await startRecordingPhase();
+      await orch.stopRecording();
+
+      expect(container.read(recordingProvider).phase, RecordingPhase.done);
+      expect(fakeDesktopPaste.typeCalls, 1);
+      expect(fakeDesktopPaste.pasteCalls, 0);
+      expect(fakeDesktopPaste.lastTypeDelay, const Duration(milliseconds: 175));
+      expect(fakeDesktopPaste.lastTypedText, 'Type only');
+      expect(clipboardText, 'Original clipboard');
+    });
+
+    test('clipboard_and_type copies AND types, in that order', () async {
+      container.dispose();
+      db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      wavFile = createFakeWav(
+        'test_audio_clip_and_type_${DateTime.now().millisecondsSinceEpoch}.wav',
+      );
+      fakeAudio = FakeAudioService()..wavPathToReturn = wavFile.absolute.path;
+      fakeStt = FakeSttService()..transcriptToReturn = 'Copy and type';
+      clipboardText = 'Original clipboard';
+
+      container = buildContainer(
+        const AppSettings(
+          stt: SttSettings(model: 'whisper-small', language: 'English'),
+          afterTranscriptionSection: AfterTranscriptionSettings(
+            afterTranscription: 'clipboard_and_type',
+          ),
+          onboarding: OnboardingSettings(onboardingCompleted: true),
+        ),
+      );
+      await container.read(settingsProvider.future);
+
+      final orch = await startRecordingPhase();
+      await orch.stopRecording();
+
+      expect(container.read(recordingProvider).phase, RecordingPhase.done);
+      expect(fakeDesktopPaste.typeCalls, 1);
+      expect(fakeDesktopPaste.pasteCalls, 0);
+      expect(fakeDesktopPaste.lastTypedText, 'Copy and type');
+      // typeText never touches the clipboard, so the explicit copy step's
+      // write is the final, undisturbed clipboard content.
+      expect(clipboardText, 'Copy and type');
     });
   });
 

@@ -49,6 +49,24 @@ abstract class ChannelDesktopPasteController extends DesktopPasteController {
   }
 
   @override
+  Future<NativePasteResult> typeText(
+    String text, {
+    required Duration delay,
+  }) async {
+    if (disposed) {
+      return const NativePasteResult(status: NativePasteStatus.unknown);
+    }
+    final raw = await channel.invokeMethod<Object?>('typeText', {
+      'text': text,
+      'delayMs': delay.inMilliseconds,
+    });
+    if (raw is Map) {
+      return NativePasteResult.fromMap(raw.cast<Object?, Object?>());
+    }
+    return NativePasteResult.fromLegacyBool(raw as bool?);
+  }
+
+  @override
   Future<NativeCapabilityResult> checkCapability({
     bool promptIfMissing = false,
   }) async {

@@ -152,6 +152,7 @@ class _FakeModelDownloadNotifier extends ModelDownloadNotifier {
 class _FakeDesktopPasteController extends DesktopPasteController {
   int captureCalls = 0;
   int pasteCalls = 0;
+  int typeCalls = 0;
 
   @override
   Future<bool> capturePasteTarget() async {
@@ -162,6 +163,15 @@ class _FakeDesktopPasteController extends DesktopPasteController {
   @override
   Future<NativePasteResult> pasteClipboard({required Duration delay}) async {
     pasteCalls++;
+    return const NativePasteResult(status: NativePasteStatus.success);
+  }
+
+  @override
+  Future<NativePasteResult> typeText(
+    String text, {
+    required Duration delay,
+  }) async {
+    typeCalls++;
     return const NativePasteResult(status: NativePasteStatus.success);
   }
 

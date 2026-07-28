@@ -100,6 +100,12 @@ abstract class Paster {
   /// Handles clipboard save/restore, delay timing, and blocklist check.
   Future<PasteOutcome> paste(String text, PasteOptions options);
 
+  /// Types [text] directly into the previously captured window via
+  /// synthetic Unicode keystrokes — no clipboard involved at all.
+  ///
+  /// Handles delay timing and the same blocklist check as [paste].
+  Future<PasteOutcome> typeText(String text, PasteOptions options);
+
   /// Probes whether Auto-Paste would work right now — without pasting.
   ///
   /// When [promptIfMissing] is `true`, surfaces the OS's native permission

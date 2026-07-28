@@ -38,6 +38,15 @@ class DesktopPasteHost {
       }
       pasteClipboard(delayMs: delayMs, result: result)
 
+    case "typeText":
+      guard let args = call.arguments as? [String: Any],
+            let text = args["text"] as? String,
+            let delayMs = args["delayMs"] as? Int else {
+        result(["status": "post_failed", "detail": "missing text/delayMs argument"])
+        return
+      }
+      typeText(text: text, delayMs: delayMs, result: result)
+
     case "checkCapability":
       let prompt = (call.arguments as? [String: Any])?["prompt"] as? Bool ?? false
       result(checkCapability(prompt: prompt))
@@ -47,10 +56,16 @@ class DesktopPasteHost {
     // its only implementation, runTccReset(), shells out to /usr/bin/tccutil
     // via Process(), which is not permitted in the sandbox and would leave a
     // Process/tccutil symbol in the binary for Apple's static scan
-    // (Guideline 2.5.2). The Dart-side caller (MacOSDesktopPasteController)
-    // is never instantiated in MAS builds (see kAutoPasteSupported in
-    // lib/core/config/build_config.dart), so this is defense-in-depth: an
-    // unrecognised "repairTccEntries" call falls through to `default` below.
+    // (Guideline 2.5.2). Unlike auto-paste/type itself, kAutoPasteSupported
+    // being true does NOT bring this handler back — the Dart-side caller
+    // (MacOSDesktopPasteController.repairTccEntries()) IS reachable in MAS
+    // builds now, but an unrecognised "repairTccEntries" call here falls
+    // through to `default` below, which Flutter surfaces to Dart as a
+    // MissingPluginException; the Dart side already catches that and
+    // returns TccRepairResult.unsupported() (see channel_desktop_paste_
+    // controller.dart). No repair tool exists for MAS because the ad-hoc-
+    // signature TCC-hash-instability problem it fixes doesn't apply to a
+    // properly Apple-signed App Store binary.
 #else
     case "repairTccEntries":
       result(repairTccEntries())
@@ -93,19 +108,43 @@ class DesktopPasteHost {
     return true
   }
 
+  /// Whether this build's synthetic-keystroke channel is currently
+  /// permitted by the OS.
+  ///
+  /// Developer-ID builds keep the existing, proven Accessibility-gated
+  /// channel (see the `#else` branch's doc below). Mac App Store builds use
+  /// a *different* TCC service — `PostEvent` — because the sandbox blocks
+  /// the Accessibility API outright but allows `CGEvent.post` under this
+  /// separate, narrower grant (confirmed by Apple DTS and empirically
+  /// verified for WhisPaste; see the Phase 0 proof in the direct-typing
+  /// plan). `AXIsProcessTrusted()` would always read `false` in a sandboxed
+  /// process regardless of the PostEvent grant, so it is the wrong check
+  /// here — using it was the "App Sandbox blocks this" misconception this
+  /// build variant used to encode.
+  private func canPostSyntheticEvents() -> Bool {
+#if MAS_BUILD
+    return CGPreflightPostEventAccess()
+#else
+    return AXIsProcessTrusted()
+#endif
+  }
+
   /// Re-activates the captured target app and sends Cmd+V.
   ///
   /// Returns a structured `{status: String, detail: String?}` so Dart can
   /// distinguish silent failure modes (no target / post failed / blocked)
   /// and surface the right guidance to the user.
   ///
-  /// **No `AXIsProcessTrusted()` pre-check.** That call returns `false` on
-  /// ad-hoc-signed apps even when the user has toggled the Accessibility
-  /// permission on, because TCC binds permissions to a code requirement
-  /// (which includes the content hash) — every rebuild produces a new
-  /// hash so the visible toggle no longer applies to the running binary.
-  /// Both CGEvent and AppleScript channels are attempted unconditionally;
-  /// if neither lands, the AX state is included in the detail for triage.
+  /// **No pre-check gating the attempt itself.** On the Developer-ID build,
+  /// `AXIsProcessTrusted()` returns `false` on ad-hoc-signed apps even when
+  /// the user has toggled the Accessibility permission on, because TCC
+  /// binds permissions to a code requirement (which includes the content
+  /// hash) — every rebuild produces a new hash so the visible toggle no
+  /// longer applies to the running binary. Both CGEvent and AppleScript
+  /// channels are attempted unconditionally there; if neither lands, the AX
+  /// state is included in the detail for triage. The Mac App Store build
+  /// has only the CGEvent/PostEvent channel — no AppleScript fallback (the
+  /// AppleEvents/Automation TCC service isn't usable from the sandbox).
   private func pasteClipboard(delayMs: Int, result: @escaping FlutterResult) {
     guard let app = targetApp else {
       os_log("pasteClipboard: no target app — refusing", log: Self.logger, type: .error)
@@ -113,8 +152,8 @@ class DesktopPasteHost {
       return
     }
 
-    let trusted = AXIsProcessTrusted()
-    os_log("pasteClipboard: AXIsProcessTrusted=%{public}@ (informational — not gating)",
+    let trusted = canPostSyntheticEvents()
+    os_log("pasteClipboard: canPostSyntheticEvents=%{public}@ (informational — not gating)",
            log: Self.logger, type: .info, String(trusted))
 
     // Clamp delay to a reasonable range (0–5 seconds).
@@ -134,21 +173,29 @@ class DesktopPasteHost {
     let bundle = app.bundleIdentifier ?? "<unknown>"
     let deadline: DispatchTime = .now() + .milliseconds(clampedDelay)
     DispatchQueue.main.asyncAfter(deadline: deadline) {
-      // Channel A: CGEvent — needs Accessibility permission. The post()
-      // call is void and CG never reports delivery failure, so the only
-      // signal we have for "the OS dropped it silently" is AX state.
+      // Channel A: CGEvent — needs the permission canPostSyntheticEvents()
+      // checks. The post() call is void and CG never reports delivery
+      // failure, so the only signal we have for "the OS dropped it
+      // silently" is that permission state.
       let cgOk = self.sendCmdV()
-      // CGEvent only actually lands when Accessibility is granted (otherwise
-      // the event is silently dropped). This is also the gate for the fallback.
+      // CGEvent only actually lands when the permission is granted
+      // (otherwise the event is silently dropped). This is also the gate
+      // for the fallback below.
       let cgLanded = cgOk && trusted
 
+#if MAS_BUILD
+      // No AppleEvents/Automation channel in the sandbox — PostEvent/CGEvent
+      // is the only channel available, matching the Phase 0 proof.
+      let appleScriptResult = "unsupported"
+#else
       // Channel B: AppleScript fallback — uses the AppleEvents (Automation) TCC
       // service, an independent permission channel. Run it ONLY when CGEvent
       // could not have landed; running both when both permissions are granted
       // pastes the clipboard twice (double-paste bug).
       let appleScriptResult = cgLanded ? "skipped" : self.sendCmdVViaAppleScript()
+#endif
 
-      let detail = "ax=\(trusted) cg=\(cgOk) as=\(appleScriptResult) target=\(bundle)"
+      let detail = "trusted=\(trusted) cg=\(cgOk) as=\(appleScriptResult) target=\(bundle)"
       os_log("pasteClipboard: %{public}@", log: Self.logger, type: .info, detail)
 
       // AppleScript "ok" is trustworthy because System Events propagates a
@@ -160,6 +207,16 @@ class DesktopPasteHost {
         return
       }
 
+#if MAS_BUILD
+      if !trusted {
+        result([
+          "status": "no_accessibility",
+          "detail": detail,
+          "hint": "postevent_denied",
+        ])
+        return
+      }
+#else
       // Neither channel could land the keystroke. Map to the most
       // actionable failure code so the UI shows targeted guidance.
       if appleScriptResult == "permission_missing" && !trusted {
@@ -173,7 +230,50 @@ class DesktopPasteHost {
         ])
         return
       }
+#endif
       result(["status": "post_failed", "detail": detail])
+    }
+  }
+
+  /// Re-activates the captured target app and types [text] via synthetic
+  /// Unicode keyboard events — no clipboard involved at all.
+  ///
+  /// Mirrors [pasteClipboard]'s target-capture/activate/delay structure and
+  /// `{status, detail}` result shape, posting the transcript directly
+  /// instead of a paste shortcut. Available on the Mac App Store build too
+  /// — see [canPostSyntheticEvents].
+  private func typeText(text: String, delayMs: Int, result: @escaping FlutterResult) {
+    guard let app = targetApp else {
+      os_log("typeText: no target app — refusing", log: Self.logger, type: .error)
+      result(["status": "no_target", "detail": "no target captured at type time"])
+      return
+    }
+
+    let trusted = canPostSyntheticEvents()
+    os_log("typeText: canPostSyntheticEvents=%{public}@",
+           log: Self.logger, type: .info, String(trusted))
+
+    let clampedDelay = max(0, min(delayMs, 5000))
+
+    if #available(macOS 14.0, *) {
+      app.activate(options: [])
+    } else {
+      app.activate(options: [.activateIgnoringOtherApps])
+    }
+
+    let bundle = app.bundleIdentifier ?? "<unknown>"
+    let deadline: DispatchTime = .now() + .milliseconds(clampedDelay)
+    DispatchQueue.main.asyncAfter(deadline: deadline) {
+      guard trusted else {
+        let detail = "trusted=false target=\(bundle)"
+        os_log("typeText: %{public}@", log: Self.logger, type: .info, detail)
+        result(["status": "no_accessibility", "detail": detail])
+        return
+      }
+      let posted = self.postUnicodeString(text)
+      let detail = "trusted=true posted=\(posted) target=\(bundle) chars=\(text.count)"
+      os_log("typeText: %{public}@", log: Self.logger, type: .info, detail)
+      result(["status": posted ? "success" : "post_failed", "detail": detail])
     }
   }
 
@@ -251,7 +351,9 @@ class DesktopPasteHost {
 #if MAS_BUILD
     // Mac App Store build: AppleEvents/Automation keystroke injection is not
     // permitted; compiled out so the shipped binary contains no NSAppleScript
-    // "keystroke" payload. Never reached (auto-paste disabled on Dart side).
+    // "keystroke" payload. Never reached in practice — pasteClipboard()
+    // doesn't call this under MAS_BUILD at all (see its own #if branch);
+    // kept only as defense-in-depth against a careless future call site.
     return "unsupported"
 #else
     let source = """
@@ -274,21 +376,33 @@ class DesktopPasteHost {
 #endif
   }
 
-  /// Probes whether Auto-Paste would work right now — without pasting.
+  /// Probes whether Auto-Paste/Auto-Type would work right now — without
+  /// actually posting anything.
   ///
-  /// When [prompt] is `true`, calls `AXIsProcessTrustedWithOptions` with
-  /// the prompt flag set. macOS shows its own permission dialog once per
-  /// process per session, opening System Settings → Privacy & Security →
-  /// Accessibility for the user. Subsequent prompts within the same
-  /// process are silently ignored by the OS — this is intentional.
+  /// When [prompt] is `true` on the Developer-ID build, calls
+  /// `AXIsProcessTrustedWithOptions` with the prompt flag set. macOS shows
+  /// its own permission dialog once per process per session, opening
+  /// System Settings → Privacy & Security → Accessibility for the user.
+  /// Subsequent prompts within the same process are silently ignored by
+  /// the OS — this is intentional. On the Mac App Store build, [prompt]
+  /// instead calls `CGRequestPostEventAccess()` — the sandbox-compatible
+  /// permission channel [canPostSyntheticEvents] checks.
   private func checkCapability(prompt: Bool) -> [String: Any] {
     let trusted: Bool
+#if MAS_BUILD
+    if prompt {
+      trusted = CGRequestPostEventAccess()
+    } else {
+      trusted = CGPreflightPostEventAccess()
+    }
+#else
     if prompt {
       let options: NSDictionary = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
       trusted = AXIsProcessTrustedWithOptions(options as CFDictionary)
     } else {
       trusted = AXIsProcessTrusted()
     }
+#endif
     os_log("checkCapability: trusted=%{public}@ prompt=%{public}@",
            log: Self.logger, type: .info,
            String(trusted), String(prompt))
@@ -300,7 +414,7 @@ class DesktopPasteHost {
     // optimistically report true — the worst case is the OS silently
     // ignoring a duplicate prompt request.
     return ["status": "permission_missing", "canPrompt": true,
-            "detail": "AXIsProcessTrusted=false"]
+            "detail": "canPostSyntheticEvents=false"]
   }
 
   /// Onboarding "prove Auto-Paste works" probe.
@@ -310,11 +424,12 @@ class DesktopPasteHost {
   /// then restores the previous clipboard contents — even on the failure
   /// path. Returns one of:
   ///
-  ///   - `{status: "success"}` — `AXIsProcessTrusted()` is true and there
+  ///   - `{status: "success"}` — [canPostSyntheticEvents] is true and there
   ///     is a non-WhisPaste frontmost application that received the event.
   ///   - `{status: "no_frontmost"}` — no reachable frontmost window.
-  ///   - `{status: "failure", detail: "not_trusted"}` — Accessibility
-  ///     permission is missing; the keystroke was silently dropped.
+  ///   - `{status: "failure", detail: "not_trusted"}` — the permission
+  ///     [canPostSyntheticEvents] checks is missing; the keystroke was
+  ///     silently dropped.
   ///   - `{status: "failure", detail: "<reason>"}` — any other failure.
   ///
   /// All exits go through the same `restoreClipboard` defer so the user's
@@ -349,9 +464,9 @@ class DesktopPasteHost {
     pasteboard.clearContents()
     pasteboard.setString(demoText, forType: .string)
 
-    let trusted = AXIsProcessTrusted()
+    let trusted = canPostSyntheticEvents()
     if !trusted {
-      os_log("diagnosticPaste: AXIsProcessTrusted=false — keystroke would be silently dropped",
+      os_log("diagnosticPaste: canPostSyntheticEvents=false — keystroke would be silently dropped",
              log: Self.logger, type: .info)
       restore()
       result(["status": "failure", "detail": "not_trusted"])
@@ -408,15 +523,13 @@ class DesktopPasteHost {
 
   /// Posts Cmd+V via CGEvent to the frontmost application. Returns true
   /// when both events were successfully created and posted.
+  ///
+  /// Available on the Mac App Store build too: CGEvent posting is gated by
+  /// the sandbox-compatible PostEvent TCC service, not by the Accessibility
+  /// API the sandbox actually blocks — see [canPostSyntheticEvents] and
+  /// `build_config.dart`'s `kAutoPasteSupported` doc for the full reasoning
+  /// (and the Phase 0 proof this reasoning is based on).
   private func sendCmdV() -> Bool {
-#if MAS_BUILD
-    // Mac App Store build: synthesizing keystrokes into other apps is not
-    // permitted (App Sandbox + App Review Guideline 2.4.5). Compiled out so the
-    // shipped binary contains no CGEvent keystroke-posting symbols, which Apple
-    // statically scans for. Auto-paste is disabled on the Dart side too
-    // (see lib/core/config/build_config.dart), so this is never reached.
-    return false
-#else
     let vKeyCode: CGKeyCode = 0x09 // 'v' key
 
     guard let keyDown = CGEvent(keyboardEventSource: nil, virtualKey: vKeyCode, keyDown: true),
@@ -430,6 +543,55 @@ class DesktopPasteHost {
     keyDown.post(tap: .cghidEventTap)
     keyUp.post(tap: .cghidEventTap)
     return true
-#endif
+  }
+
+  /// Posts [text] as synthetic Unicode keydown/keyup event pairs via
+  /// `CGEventKeyboardSetUnicodeString` — layout-independent, so umlauts,
+  /// emoji, and other non-ASCII characters survive intact regardless of
+  /// the active keyboard layout. Returns `true` when every chunk's events
+  /// were successfully created and posted.
+  ///
+  /// Chunked into fixed-size UTF-16 windows: `CGEventKeyboardSetUnicodeString`
+  /// has an undocumented, small per-event capacity for its Unicode payload —
+  /// a long string posted in a single call is silently truncated by the OS.
+  /// 20 UTF-16 units is the limit independently reported across CGEvent-based
+  /// typing implementations (Qt, isamert.net) for this exact API; chunking to
+  /// it avoids truncation. The `virtualKey` value is a placeholder —
+  /// receiving apps read the attached Unicode payload, not the physical key
+  /// code.
+  ///
+  /// Chunk boundaries never split a UTF-16 surrogate pair (e.g. most emoji
+  /// are two UTF-16 units): if the unit right before a boundary is a high
+  /// surrogate, the boundary shifts one unit later so the low surrogate
+  /// stays in the same chunk — otherwise the emoji would be torn across two
+  /// separate CGEvents and likely render as a replacement character.
+  private func postUnicodeString(_ text: String) -> Bool {
+    let utf16 = Array(text.utf16)
+    guard !utf16.isEmpty else { return true }
+
+    let chunkSize = 20
+    var index = 0
+    while index < utf16.count {
+      var end = min(index + chunkSize, utf16.count)
+      if end < utf16.count, (0xD800...0xDBFF).contains(utf16[end - 1]) {
+        end += 1
+      }
+      let chunk = Array(utf16[index..<end])
+
+      guard let keyDown = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: true),
+            let keyUp = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: false) else {
+        return false
+      }
+      chunk.withUnsafeBufferPointer { buffer in
+        guard let base = buffer.baseAddress else { return }
+        keyDown.keyboardSetUnicodeString(stringLength: buffer.count, unicodeString: base)
+        keyUp.keyboardSetUnicodeString(stringLength: buffer.count, unicodeString: base)
+      }
+      keyDown.post(tap: .cghidEventTap)
+      keyUp.post(tap: .cghidEventTap)
+
+      index = end
+    }
+    return true
   }
 }

@@ -69,14 +69,17 @@ class ReadyStep extends ConsumerWidget {
     // mount; only a confirmed `conflict` disables Start.
     final startEnabled = status != HotkeyRegistrationStatus.conflict;
 
-    // Auto-Paste is active when `afterTranscription` is set to `paste` or
-    // `clipboard_and_paste` — both inject the transcript at the cursor. The
+    // Auto-Paste is active when `afterTranscription` injects the transcript
+    // at the cursor itself — `paste`/`clipboard_and_paste` (⌘V shortcut) and
+    // `type`/`clipboard_and_type` (synthetic Unicode keystrokes) all do. The
     // other two states (`clipboard`, `nothing`) leave the user to paste with
     // ⌘V / Ctrl+V themselves, so step 3 must spell that out.
     final autoPasteAfterTranscription =
         switch (settings.afterTranscriptionAction) {
           AfterTranscriptionAction.paste ||
-          AfterTranscriptionAction.clipboardAndPaste => true,
+          AfterTranscriptionAction.clipboardAndPaste ||
+          AfterTranscriptionAction.type ||
+          AfterTranscriptionAction.clipboardAndType => true,
           AfterTranscriptionAction.clipboard ||
           AfterTranscriptionAction.nothing => false,
         };

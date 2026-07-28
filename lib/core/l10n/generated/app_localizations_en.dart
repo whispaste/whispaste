@@ -469,6 +469,12 @@ class L10nEn extends L10n {
   String get settingsAfterTranscriptionBoth => 'Copy & Auto-Paste';
 
   @override
+  String get settingsAfterTranscriptionType => 'Type at Cursor';
+
+  @override
+  String get settingsAfterTranscriptionCopyAndType => 'Copy & Type';
+
+  @override
   String get settingsAfterTranscriptionNothing => 'Do Nothing';
 
   @override
@@ -1412,6 +1418,12 @@ class L10nEn extends L10n {
 
   @override
   String get statusBarAfterBoth => 'After: Copy & Paste';
+
+  @override
+  String get statusBarAfterType => 'After: Type';
+
+  @override
+  String get statusBarAfterCopyAndType => 'After: Copy & Type';
 
   @override
   String get statusBarAfterNothing => 'After: Manual';

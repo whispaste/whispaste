@@ -462,6 +462,12 @@ class L10nHe extends L10n {
   String get settingsAfterTranscriptionBoth => 'העתק + הדבק אוטומטי';
 
   @override
+  String get settingsAfterTranscriptionType => 'הקלדה אוטומטית במקום הסמן';
+
+  @override
+  String get settingsAfterTranscriptionCopyAndType => 'העתק + הקלדה אוטומטית';
+
+  @override
   String get settingsAfterTranscriptionNothing => 'לא לעשות כלום';
 
   @override
@@ -1391,6 +1397,12 @@ class L10nHe extends L10n {
 
   @override
   String get statusBarAfterBoth => 'אחרי: העתק + הדבק';
+
+  @override
+  String get statusBarAfterType => 'אחרי: הקלדה';
+
+  @override
+  String get statusBarAfterCopyAndType => 'אחרי: העתק + הקלדה';
 
   @override
   String get statusBarAfterNothing => 'אחרי: ידני';

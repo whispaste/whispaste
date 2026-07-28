@@ -180,4 +180,81 @@ void main() {
       expect(result.status, NativePasteStatus.foregroundBlocked);
     });
   });
+
+  group('MacOSDesktopPasteController.typeText', () {
+    test('forwards text and delayMs to the channel call', () async {
+      final calls = <MethodCall>[];
+      setHandler((call) async {
+        if (call.method == 'typeText') {
+          return {'status': 'success'};
+        }
+        return null;
+      }, recordedCalls: calls);
+
+      final controller = MacOSDesktopPasteController();
+      final result = await controller.typeText(
+        'Hören grüßen café 😀',
+        delay: const Duration(milliseconds: 150),
+      );
+
+      expect(calls.single.method, 'typeText');
+      final args = calls.single.arguments as Map;
+      expect(args['text'], 'Hören grüßen café 😀');
+      expect(args['delayMs'], 150);
+      expect(result.status, NativePasteStatus.success);
+    });
+
+    test('parses no_accessibility (PostEvent denied) response', () async {
+      setHandler(
+        (call) async => {
+          'status': 'no_accessibility',
+          'detail': 'trusted=false',
+          'hint': 'postevent_denied',
+        },
+      );
+      final controller = MacOSDesktopPasteController();
+      final result = await controller.typeText('demo', delay: Duration.zero);
+      expect(result.status, NativePasteStatus.permissionMissing);
+    });
+
+    test(
+      'MissingPluginException maps to unknown status via legacy-bool path',
+      () async {
+        setHandler((call) async {
+          throw MissingPluginException('no impl');
+        });
+        final controller = MacOSDesktopPasteController();
+        // Unlike diagnosticPaste, typeText does not catch MissingPluginException
+        // itself — DesktopPaster.typeText is the layer that maps it to
+        // PasteOutcome.platformUnavailable, so it propagates here.
+        await expectLater(
+          controller.typeText('demo', delay: Duration.zero),
+          throwsA(isA<MissingPluginException>()),
+        );
+      },
+    );
+  });
+
+  group('WindowsDesktopPasteController.typeText', () {
+    test('forwards text and delayMs, parses success', () async {
+      final calls = <MethodCall>[];
+      setHandler((call) async {
+        if (call.method == 'typeText') {
+          return {'status': 'success'};
+        }
+        return null;
+      }, recordedCalls: calls);
+
+      final controller = WindowsDesktopPasteController();
+      final result = await controller.typeText(
+        'hello',
+        delay: const Duration(milliseconds: 50),
+      );
+
+      expect(calls.single.method, 'typeText');
+      expect((calls.single.arguments as Map)['text'], 'hello');
+      expect((calls.single.arguments as Map)['delayMs'], 50);
+      expect(result.status, NativePasteStatus.success);
+    });
+  });
 }

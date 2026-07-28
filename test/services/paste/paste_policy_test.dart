@@ -36,6 +36,26 @@ void main() {
         );
       });
 
+      test('downgrades type to clipboard', () {
+        expect(
+          resolveAfterTranscriptionAction(
+            AfterTranscriptionAction.type,
+            autoPasteSupported: false,
+          ),
+          AfterTranscriptionAction.clipboard,
+        );
+      });
+
+      test('downgrades clipboardAndType to clipboard', () {
+        expect(
+          resolveAfterTranscriptionAction(
+            AfterTranscriptionAction.clipboardAndType,
+            autoPasteSupported: false,
+          ),
+          AfterTranscriptionAction.clipboard,
+        );
+      });
+
       test('leaves clipboard untouched', () {
         expect(
           resolveAfterTranscriptionAction(

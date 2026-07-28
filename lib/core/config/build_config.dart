@@ -2,14 +2,20 @@
 ///
 /// WhisPaste ships two macOS variants from a single codebase:
 ///
-/// - **Developer-ID** (direct download / Homebrew): full auto-paste — the app
-///   synthesizes ⌘V into the frontmost app after transcription.
-/// - **Mac App Store** (sandboxed): auto-paste is compiled out. Synthesizing
-///   keystrokes into other apps violates App Review Guideline 2.4.5 and is
-///   blocked by the App Sandbox. Apple additionally scans the binary for the
-///   relevant symbols, so the native CGEvent/AppleScript paste code is excluded
-///   from the binary via the `MAS_BUILD` Swift active-compilation-condition
-///   (see `macos/Runner/DesktopPasteHost.swift`).
+/// - **Developer-ID** (direct download / Homebrew): not sandboxed. Posts
+///   synthetic ⌘V / Unicode-type keystrokes via CGEvent, with an AppleScript
+///   `System Events` fallback and a `tccutil`-based TCC self-heal tool.
+/// - **Mac App Store** (sandboxed): posts the SAME synthetic ⌘V / Unicode-type
+///   keystrokes via CGEvent — the sandbox-compatible `PostEvent` TCC service
+///   (`CGRequestPostEventAccess`/`CGEventKeyboardSetUnicodeString`) allows
+///   this from inside App Sandbox (confirmed by Apple DTS and empirically
+///   verified for WhisPaste — see the Phase 0 proof in the direct-typing
+///   plan). What's excluded from the MAS binary is narrower: the
+///   AppleScript-`keystroke` fallback and the `tccutil`/`Process`-based
+///   repair tool, neither of which the sandbox permits, and both of which
+///   Apple's static binary scan flags (Guideline 2.5.2) — see the
+///   `MAS_BUILD` Swift active-compilation-condition in
+///   `macos/Runner/DesktopPasteHost.swift`.
 ///
 /// The Mac App Store build is produced with:
 /// ```sh
@@ -26,7 +32,15 @@ const bool kIsMasBuild = bool.fromEnvironment(
   defaultValue: false,
 );
 
-/// Whether simulated-keystroke auto-paste (⌘V / Ctrl+V) is available.
+/// Whether simulated-keystroke auto-paste/type (⌘V / Ctrl+V / Unicode typing)
+/// is available.
 ///
-/// Always `false` in Mac App Store builds; `true` everywhere else.
-const bool kAutoPasteSupported = !kIsMasBuild;
+/// `true` on every current build, MAS included — see the class doc above.
+/// Kept as an explicit constant (rather than inlined `true`) because it is
+/// the deliberate App Review Guideline 2.4.5 kill switch: if a MAS
+/// submission is ever rejected specifically over the keystroke-injection
+/// feature, flipping this back to `!kIsMasBuild` (or `false`) cleanly
+/// downgrades every build to the clipboard-only behaviour that shipped
+/// before this feature existed — see [resolveAfterTranscriptionAction] in
+/// `lib/services/paste/paste_policy.dart`.
+const bool kAutoPasteSupported = true;

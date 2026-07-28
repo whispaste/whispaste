@@ -945,6 +945,18 @@ abstract class L10n {
   /// **'Copy & Auto-Paste'**
   String get settingsAfterTranscriptionBoth;
 
+  /// No description provided for @settingsAfterTranscriptionType.
+  ///
+  /// In en, this message translates to:
+  /// **'Type at Cursor'**
+  String get settingsAfterTranscriptionType;
+
+  /// No description provided for @settingsAfterTranscriptionCopyAndType.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy & Type'**
+  String get settingsAfterTranscriptionCopyAndType;
+
   /// No description provided for @settingsAfterTranscriptionNothing.
   ///
   /// In en, this message translates to:
@@ -2606,6 +2618,18 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'After: Copy & Paste'**
   String get statusBarAfterBoth;
+
+  /// No description provided for @statusBarAfterType.
+  ///
+  /// In en, this message translates to:
+  /// **'After: Type'**
+  String get statusBarAfterType;
+
+  /// No description provided for @statusBarAfterCopyAndType.
+  ///
+  /// In en, this message translates to:
+  /// **'After: Copy & Type'**
+  String get statusBarAfterCopyAndType;
 
   /// No description provided for @statusBarAfterNothing.
   ///

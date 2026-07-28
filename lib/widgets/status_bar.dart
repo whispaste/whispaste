@@ -6,6 +6,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../core/config/build_config.dart';
 import '../core/config/settings_enums.dart' show AfterTranscriptionAction;
+import '../core/config/settings_labels.dart' show afterTranscriptionStatusLabel;
 import '../core/l10n/generated/app_localizations.dart';
 import '../core/recording/recording_state.dart'
     show RecordingPhase, SttServerState;
@@ -38,11 +39,14 @@ bool shouldShowAutoPasteOffHint({
   if (!onboardingCompleted) return false;
   if (autoPasteOffHintDismissed) return false;
   // Auto-Paste is considered ON when the action injects keystrokes — i.e.
-  // `paste` or `clipboardAndPaste`. Anything else (`clipboard` only,
-  // `nothing`) counts as Auto-Paste off.
+  // `paste`/`clipboardAndPaste` (⌘V shortcut) or `type`/`clipboardAndType`
+  // (synthetic Unicode typing). Anything else (`clipboard` only, `nothing`)
+  // counts as Auto-Paste off.
   switch (afterAction) {
     case AfterTranscriptionAction.paste:
     case AfterTranscriptionAction.clipboardAndPaste:
+    case AfterTranscriptionAction.type:
+    case AfterTranscriptionAction.clipboardAndType:
       return false;
     case AfterTranscriptionAction.clipboard:
     case AfterTranscriptionAction.nothing:
@@ -580,21 +584,22 @@ class _AfterActionChip extends StatelessWidget {
     AfterTranscriptionAction.clipboard => LucideIcons.clipboard,
     AfterTranscriptionAction.paste => LucideIcons.clipboardPaste,
     AfterTranscriptionAction.clipboardAndPaste => LucideIcons.clipboardCheck,
+    AfterTranscriptionAction.type => LucideIcons.keyboard,
+    AfterTranscriptionAction.clipboardAndType => LucideIcons.keyboard,
     AfterTranscriptionAction.nothing => LucideIcons.clipboardX,
   };
 
-  String _labelFor(AfterTranscriptionAction action) => switch (action) {
-    AfterTranscriptionAction.clipboard => l10n.statusBarAfterCopy,
-    AfterTranscriptionAction.paste => l10n.statusBarAfterPaste,
-    AfterTranscriptionAction.clipboardAndPaste => l10n.statusBarAfterBoth,
-    AfterTranscriptionAction.nothing => l10n.statusBarAfterNothing,
-  };
+  String _labelFor(AfterTranscriptionAction action) =>
+      afterTranscriptionStatusLabel(action, l10n);
 
-  /// Whether [action] needs simulated-keystroke auto-paste, unavailable in
-  /// the Mac App Store build ([kAutoPasteSupported]).
+  /// Whether [action] needs simulated-keystroke auto-paste/type, unavailable
+  /// when [kAutoPasteSupported] is `false` (the 2.4.5 kill switch — see its
+  /// doc in build_config.dart).
   bool _requiresAutoPaste(AfterTranscriptionAction action) =>
       action == AfterTranscriptionAction.paste ||
-      action == AfterTranscriptionAction.clipboardAndPaste;
+      action == AfterTranscriptionAction.clipboardAndPaste ||
+      action == AfterTranscriptionAction.type ||
+      action == AfterTranscriptionAction.clipboardAndType;
 
   @override
   Widget build(BuildContext context) {

@@ -55,6 +55,10 @@ class _FakePaster implements Paster {
   @override
   Future<PasteOutcome> paste(String text, PasteOptions options) async =>
       PasteOutcome.platformUnavailable;
+
+  @override
+  Future<PasteOutcome> typeText(String text, PasteOptions options) async =>
+      PasteOutcome.platformUnavailable;
 }
 
 class _FakeRepairController implements DesktopPasteController {
@@ -97,6 +101,11 @@ class _FakeRepairController implements DesktopPasteController {
   @override
   Future<NativePasteResult> pasteClipboard({required Duration delay}) async =>
       const NativePasteResult(status: NativePasteStatus.unknown);
+  @override
+  Future<NativePasteResult> typeText(
+    String text, {
+    required Duration delay,
+  }) async => const NativePasteResult(status: NativePasteStatus.unknown);
   @override
   Future<void> dispose() async {}
 }

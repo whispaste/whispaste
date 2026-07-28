@@ -167,6 +167,13 @@ abstract class DesktopPasteController {
   /// failure modes (no target, permission missing, OS post failed).
   Future<NativePasteResult> pasteClipboard({required Duration delay});
 
+  /// Restores the captured target and types [text] directly via synthetic
+  /// Unicode keystrokes — no clipboard involved at all.
+  ///
+  /// Returns the same [NativePasteResult] shape as [pasteClipboard] so
+  /// callers can distinguish the same silent failure modes.
+  Future<NativePasteResult> typeText(String text, {required Duration delay});
+
   /// Probes whether the OS would allow Auto-Paste right now — without
   /// actually pasting. When [promptIfMissing] is `true`, triggers the
   /// OS-native permission dialog if applicable (macOS Accessibility).

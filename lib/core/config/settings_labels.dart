@@ -132,15 +132,53 @@ String formatHotkeyShortcut(
   ).join(separator);
 }
 
-/// Returns a short, localized label for the post-transcription action.
-String afterTranscriptionStatusLabel(
+/// Both label flavors for [action] in one pass — the status bar's compact
+/// "After: X" form and the Settings dropdown's full descriptive form — so
+/// the two only need a single switch between them (see
+/// [afterTranscriptionStatusLabel] / [afterTranscriptionSettingsLabel]).
+({String status, String settings}) _afterTranscriptionLabels(
   AfterTranscriptionAction action,
   L10n l10n,
 ) {
   return switch (action) {
-    AfterTranscriptionAction.clipboard => l10n.statusBarAfterCopy,
-    AfterTranscriptionAction.paste => l10n.statusBarAfterPaste,
-    AfterTranscriptionAction.clipboardAndPaste => l10n.statusBarAfterBoth,
-    AfterTranscriptionAction.nothing => l10n.statusBarAfterNothing,
+    AfterTranscriptionAction.clipboard => (
+      status: l10n.statusBarAfterCopy,
+      settings: l10n.settingsAfterTranscriptionClipboard,
+    ),
+    AfterTranscriptionAction.paste => (
+      status: l10n.statusBarAfterPaste,
+      settings: l10n.settingsAfterTranscriptionPaste,
+    ),
+    AfterTranscriptionAction.clipboardAndPaste => (
+      status: l10n.statusBarAfterBoth,
+      settings: l10n.settingsAfterTranscriptionBoth,
+    ),
+    AfterTranscriptionAction.type => (
+      status: l10n.statusBarAfterType,
+      settings: l10n.settingsAfterTranscriptionType,
+    ),
+    AfterTranscriptionAction.clipboardAndType => (
+      status: l10n.statusBarAfterCopyAndType,
+      settings: l10n.settingsAfterTranscriptionCopyAndType,
+    ),
+    AfterTranscriptionAction.nothing => (
+      status: l10n.statusBarAfterNothing,
+      settings: l10n.settingsAfterTranscriptionNothing,
+    ),
   };
 }
+
+/// Returns a short, localized label for the post-transcription action — the
+/// compact "After: X" form used in the status bar chip and its menu items.
+String afterTranscriptionStatusLabel(
+  AfterTranscriptionAction action,
+  L10n l10n,
+) => _afterTranscriptionLabels(action, l10n).status;
+
+/// Returns the full, localized label for the post-transcription action — the
+/// descriptive form used in the Settings dropdown (e.g. "Auto-Paste at
+/// Cursor" rather than the status bar's short "After: Paste").
+String afterTranscriptionSettingsLabel(
+  AfterTranscriptionAction action,
+  L10n l10n,
+) => _afterTranscriptionLabels(action, l10n).settings;

@@ -7,8 +7,14 @@ import 'package:whispaste/services/paste/paster.dart';
 class _FakeController implements DesktopPasteController {
   int captureCalls = 0;
   int pasteCalls = 0;
+  int typeCalls = 0;
   Duration? lastDelay;
+  Duration? lastTypeDelay;
+  String? lastTypedText;
   NativePasteResult pasteResult = const NativePasteResult(
+    status: NativePasteStatus.success,
+  );
+  NativePasteResult typeResult = const NativePasteResult(
     status: NativePasteStatus.success,
   );
   NativeCapabilityResult capabilityResult = const NativeCapabilityResult(
@@ -30,6 +36,17 @@ class _FakeController implements DesktopPasteController {
     pasteCalls++;
     lastDelay = delay;
     return pasteResult;
+  }
+
+  @override
+  Future<NativePasteResult> typeText(
+    String text, {
+    required Duration delay,
+  }) async {
+    typeCalls++;
+    lastTypeDelay = delay;
+    lastTypedText = text;
+    return typeResult;
   }
 
   @override
@@ -249,6 +266,117 @@ void main() {
 
       expect(cap.status, PasteCapabilityStatus.permissionMissing);
       expect(cap.canPrompt, isTrue);
+    });
+  });
+
+  group('DesktopPaster.typeText', () {
+    test(
+      'returns success and calls typeText once, not pasteClipboard',
+      () async {
+        final controller = _FakeController();
+        final paster = DesktopPaster(controller);
+
+        final outcome = await paster.typeText(
+          'hello',
+          const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
+        );
+
+        expect(outcome, PasteOutcome.success);
+        expect(controller.typeCalls, 1);
+        expect(controller.pasteCalls, 0);
+      },
+    );
+
+    test('forwards the text and delay unchanged', () async {
+      final controller = _FakeController();
+      final paster = DesktopPaster(controller);
+
+      await paster.typeText(
+        'hello world',
+        const PasteOptions(autoPasteDelayMs: 300, blocklist: ''),
+      );
+
+      expect(controller.lastTypedText, 'hello world');
+      expect(controller.lastTypeDelay, const Duration(milliseconds: 300));
+    });
+
+    test('does not touch the clipboard', () async {
+      final controller = _FakeController();
+      final paster = DesktopPaster(controller);
+      clipboardContent = 'untouched';
+
+      await paster.typeText(
+        'hello',
+        const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
+      );
+
+      expect(clipboardContent, 'untouched');
+    });
+
+    test('returns blocked when bundle ID matches blocklist', () async {
+      final controller = _FakeController()
+        ..bundleIdToReturn = 'com.example.app';
+      final paster = DesktopPaster(controller);
+
+      final outcome = await paster.typeText(
+        'hello',
+        const PasteOptions(
+          autoPasteDelayMs: 0,
+          blocklist: 'com.example.app, other.app',
+        ),
+      );
+
+      expect(outcome, PasteOutcome.blocked);
+      expect(controller.typeCalls, 0);
+    });
+
+    test('returns noTarget when native reports no captured target', () async {
+      final controller = _FakeController()
+        ..typeResult = const NativePasteResult(
+          status: NativePasteStatus.noTarget,
+        );
+      final paster = DesktopPaster(controller);
+
+      final outcome = await paster.typeText(
+        'hello',
+        const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
+      );
+
+      expect(outcome, PasteOutcome.noTarget);
+    });
+
+    test(
+      'returns permissionMissing when native reports permission missing',
+      () async {
+        final controller = _FakeController()
+          ..typeResult = const NativePasteResult(
+            status: NativePasteStatus.permissionMissing,
+            detail: 'trusted=false',
+          );
+        final paster = DesktopPaster(controller);
+
+        final outcome = await paster.typeText(
+          'hello',
+          const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
+        );
+
+        expect(outcome, PasteOutcome.permissionMissing);
+      },
+    );
+
+    test('returns failed for the generic postFailed bucket', () async {
+      final controller = _FakeController()
+        ..typeResult = const NativePasteResult(
+          status: NativePasteStatus.postFailed,
+        );
+      final paster = DesktopPaster(controller);
+
+      final outcome = await paster.typeText(
+        'hello',
+        const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
+      );
+
+      expect(outcome, PasteOutcome.failed);
     });
   });
 }

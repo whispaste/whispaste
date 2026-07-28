@@ -1489,10 +1489,72 @@ class RecordingOrchestrator extends Notifier<void> {
             .read(telemetrySessionAggregatorProvider)
             .count(category: 'insertion', action: 'auto_paste');
         return;
+      case AfterTranscriptionAction.type:
+        await _typeTranscript(transcript, settings);
+        ref
+            .read(telemetrySessionAggregatorProvider)
+            .count(category: 'insertion', action: 'auto_type');
+        return;
+      case AfterTranscriptionAction.clipboardAndType:
+        // Clipboard write first, then type — see clipboardAndPaste above for
+        // why this ordering is what makes the net clipboard content end up
+        // holding the transcript (typeText never touches the clipboard, so
+        // there's no save/restore round-trip to reason about here).
+        await _copyTranscriptToClipboard(transcript);
+        await _typeTranscript(transcript, settings);
+        ref
+            .read(telemetrySessionAggregatorProvider)
+            .count(category: 'insertion', action: 'auto_type');
+        return;
     }
   }
 
-  Future<bool> _pasteTranscript(String transcript, AppSettings settings) async {
+  Future<bool> _pasteTranscript(String transcript, AppSettings settings) =>
+      _captureAndInsert(
+        transcript,
+        settings,
+        insert: (paster, text, options) => paster.paste(text, options),
+        logVerb: 'Paste',
+        actionNoun: 'Auto-Einfügen',
+        elevatedLogSuffix: 'paste into that window.',
+        elevatedBodySuffix: 'einzufügen.',
+        failedBodySentence: 'Das System hat den Einfüge-Vorgang abgelehnt.',
+      );
+
+  /// Same capture/insert/outcome-handling shape as [_pasteTranscript], but
+  /// calls [Paster.typeText] — synthetic Unicode keystrokes, no clipboard
+  /// involved — instead of [Paster.paste].
+  Future<bool> _typeTranscript(String transcript, AppSettings settings) =>
+      _captureAndInsert(
+        transcript,
+        settings,
+        insert: (paster, text, options) => paster.typeText(text, options),
+        logVerb: 'Type',
+        actionNoun: 'Auto-Tippen',
+        elevatedLogSuffix: 'type into that window.',
+        elevatedBodySuffix: 'zu tippen.',
+        failedBodySentence: 'Das System hat den Tipp-Vorgang abgelehnt.',
+      );
+
+  /// Shared core behind [_pasteTranscript]/[_typeTranscript]: prime the
+  /// paste target, run [insert] (the only thing that differs between the
+  /// two — which [Paster] method gets called), then hand the outcome to
+  /// [_handleInsertionOutcome] with the verb-flavored copy for this action.
+  Future<bool> _captureAndInsert(
+    String transcript,
+    AppSettings settings, {
+    required Future<PasteOutcome> Function(
+      Paster paster,
+      String text,
+      PasteOptions options,
+    )
+    insert,
+    required String logVerb,
+    required String actionNoun,
+    required String elevatedLogSuffix,
+    required String elevatedBodySuffix,
+    required String failedBodySentence,
+  }) async {
     final paster = ref.read(pasterProvider);
     if (paster == null) return false;
 
@@ -1500,7 +1562,8 @@ class RecordingOrchestrator extends Notifier<void> {
     // is the first recording, or recording was started externally).
     await paster.prime();
 
-    final outcome = await paster.paste(
+    final outcome = await insert(
+      paster,
       transcript,
       PasteOptions(
         autoPasteDelayMs: settings.autoPasteDelay,
@@ -1508,71 +1571,100 @@ class RecordingOrchestrator extends Notifier<void> {
       ),
     );
 
+    return _handleInsertionOutcome(
+      outcome,
+      transcript,
+      logVerb: logVerb,
+      actionNoun: actionNoun,
+      elevatedLogSuffix: elevatedLogSuffix,
+      elevatedBodySuffix: elevatedBodySuffix,
+      failedBodySentence: failedBodySentence,
+    );
+  }
+
+  /// Shared outcome/attention-report handling for [_pasteTranscript] and
+  /// [_typeTranscript] — identical branching between the two, differing
+  /// only in the user-facing verb baked into a handful of the messages.
+  bool _handleInsertionOutcome(
+    PasteOutcome outcome,
+    String transcript, {
+    required String logVerb,
+    required String actionNoun,
+    required String elevatedLogSuffix,
+    required String elevatedBodySuffix,
+    required String failedBodySentence,
+  }) {
     switch (outcome) {
       case PasteOutcome.success:
-        _log.info('Pasted transcript (${transcript.length} chars)');
+        _log.info('${logVerb}d transcript (${transcript.length} chars)');
         _clearPasteAttention();
         return true;
       case PasteOutcome.blocked:
-        _log.info('Auto-paste blocked for current app (in blocklist)');
+        _log.info(
+          'Auto-${logVerb.toLowerCase()} blocked for current app (in blocklist)',
+        );
         return false;
       case PasteOutcome.platformUnavailable:
-        _log.warning('Desktop paste not available on this platform');
+        _log.warning(
+          'Desktop ${logVerb.toLowerCase()} not available on this platform',
+        );
         return false;
       case PasteOutcome.noTarget:
         _log.warning(
-          'Paste failed: no target window — WhisPaste was likely '
+          '$logVerb failed: no target window — WhisPaste was likely '
           'frontmost when recording started. Focus the destination app '
           'first, then trigger recording.',
         );
         _reportPasteFailure(
           outcome: PasteOutcome.noTarget,
           kind: AttentionKind.pasteBlockedNoTarget,
-          title: 'WhisPaste: Auto-Einfügen übersprungen',
+          title: 'WhisPaste: $actionNoun übersprungen',
           body:
               'Keine Ziel-App erkannt. Fokussiere zuerst die Ziel-App, dann starte die Aufnahme. Der Text liegt in der Zwischenablage.',
-          trayLabel: 'Auto-Einfügen: Ziel-App fehlte',
+          trayLabel: '$actionNoun: Ziel-App fehlte',
         );
         return false;
       case PasteOutcome.permissionMissing:
         _log.warning(
-          'Paste failed: OS denied event injection. On macOS, grant '
+          '$logVerb failed: OS denied event injection. On macOS, grant '
           'Accessibility permission in System Settings → Privacy & '
           'Security → Accessibility.',
         );
         _reportPasteFailure(
           outcome: PasteOutcome.permissionMissing,
           kind: AttentionKind.pasteBlockedPermission,
-          title: 'WhisPaste: Auto-Einfügen blockiert',
+          title: 'WhisPaste: $actionNoun blockiert',
           body:
               'Bedienungshilfen-Berechtigung fehlt. Klicke hier oder das Tray-Icon, um sie in den Systemeinstellungen zu erteilen.',
-          trayLabel: 'Auto-Einfügen blockiert — Berechtigung erteilen',
+          trayLabel: '$actionNoun blockiert — Berechtigung erteilen',
         );
         return false;
       case PasteOutcome.elevationBlocked:
         _log.warning(
-          'Paste failed: target window runs elevated, WhisPaste does not '
-          '(Windows UIPI). Restart WhisPaste as an administrator to paste '
-          'into that window.',
+          '$logVerb failed: target window runs elevated, WhisPaste does not '
+          '(Windows UIPI). Restart WhisPaste as an administrator to '
+          '$elevatedLogSuffix',
         );
         _reportPasteFailure(
           outcome: PasteOutcome.elevationBlocked,
           kind: AttentionKind.pasteBlockedElevation,
-          title: 'WhisPaste: Auto-Einfügen blockiert',
+          title: 'WhisPaste: $actionNoun blockiert',
           body:
-              'Die Ziel-App läuft mit Administratorrechten. Starte WhisPaste ebenfalls als Administrator, um dort einzufügen.',
-          trayLabel: 'Auto-Einfügen blockiert — Administrator nötig',
+              'Die Ziel-App läuft mit Administratorrechten. Starte WhisPaste ebenfalls als Administrator, um dort $elevatedBodySuffix',
+          trayLabel: '$actionNoun blockiert — Administrator nötig',
         );
         return false;
       case PasteOutcome.failed:
-        _log.warning('Paste failed: native bridge reported an unknown error');
+        _log.warning(
+          '$logVerb failed: native bridge reported an unknown error',
+        );
         _reportPasteFailure(
           outcome: PasteOutcome.failed,
           kind: AttentionKind.pasteFailedUnknown,
-          title: 'WhisPaste: Auto-Einfügen fehlgeschlagen',
+          title: 'WhisPaste: $actionNoun fehlgeschlagen',
           body:
-              'Das System hat den Einfüge-Vorgang abgelehnt. Der Text liegt in der Zwischenablage — füge ihn manuell mit ⌘V / Strg+V ein.',
-          trayLabel: 'Auto-Einfügen fehlgeschlagen',
+              '$failedBodySentence Der Text liegt in der Zwischenablage — füge ihn manuell mit ⌘V / Strg+V ein.',
+          trayLabel: '$actionNoun fehlgeschlagen',
         );
         return false;
     }

@@ -7,6 +7,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/config/build_config.dart';
 import '../../../core/config/settings_enums.dart';
+import '../../../core/config/settings_labels.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/logging/app_logger.dart';
@@ -211,15 +212,7 @@ class AfterTranscriptionSection extends ConsumerWidget {
   static final _log = AppLogger('AfterTranscriptionSection');
 
   static String _labelFor(AfterTranscriptionAction action, L10n l10n) =>
-      switch (action) {
-        AfterTranscriptionAction.clipboard =>
-          l10n.settingsAfterTranscriptionClipboard,
-        AfterTranscriptionAction.paste => l10n.settingsAfterTranscriptionPaste,
-        AfterTranscriptionAction.clipboardAndPaste =>
-          l10n.settingsAfterTranscriptionBoth,
-        AfterTranscriptionAction.nothing =>
-          l10n.settingsAfterTranscriptionNothing,
-      };
+      afterTranscriptionSettingsLabel(action, l10n);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -239,7 +232,9 @@ class AfterTranscriptionSection extends ConsumerWidget {
               .where(
                 (a) =>
                     a != AfterTranscriptionAction.paste &&
-                    a != AfterTranscriptionAction.clipboardAndPaste,
+                    a != AfterTranscriptionAction.clipboardAndPaste &&
+                    a != AfterTranscriptionAction.type &&
+                    a != AfterTranscriptionAction.clipboardAndType,
               )
               .toList();
     final resolvedAction = resolveAfterTranscriptionAction(
@@ -275,7 +270,9 @@ class AfterTranscriptionSection extends ConsumerWidget {
             ),
           ),
           if (resolvedAction == AfterTranscriptionAction.paste ||
-              resolvedAction == AfterTranscriptionAction.clipboardAndPaste)
+              resolvedAction == AfterTranscriptionAction.clipboardAndPaste ||
+              resolvedAction == AfterTranscriptionAction.type ||
+              resolvedAction == AfterTranscriptionAction.clipboardAndType)
             const Padding(
               padding: EdgeInsets.fromLTRB(
                 WpSpacing.md,

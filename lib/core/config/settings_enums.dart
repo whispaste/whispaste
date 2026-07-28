@@ -91,6 +91,16 @@ enum AfterTranscriptionAction {
   clipboard('clipboard'),
   paste('paste'),
   clipboardAndPaste('clipboard_and_paste'),
+
+  /// Types the transcript directly into the focused field via synthetic
+  /// Unicode keystrokes — no clipboard involved at all.
+  type('type'),
+
+  /// Copies to the clipboard AND types the transcript, as two actions run
+  /// in sequence (copy first, then type) — analogous to
+  /// [clipboardAndPaste], but with [type] instead of [paste] as the second
+  /// step.
+  clipboardAndType('clipboard_and_type'),
   nothing('nothing');
 
   const AfterTranscriptionAction(this.value);
