@@ -1,7 +1,9 @@
 /// WhisPaste design tokens — Single Source of Truth for all visual styling.
 ///
-/// Premium design: clean depth via layered surfaces, crisp shadows, and
-/// subtle gradients. No glow effects — restraint IS premium.
+/// Premium design: clean depth via layered surfaces, crisp shadows, tonal
+/// gradients, and warm materiality. Restraint means no glow and a single
+/// brand accent (cyan/teal) — not bare/flat; warm, soft-shadowed depth is
+/// equally premium.
 library;
 
 import 'package:flutter/material.dart';

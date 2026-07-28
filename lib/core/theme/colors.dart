@@ -1,8 +1,10 @@
 /// WhisPaste color palette — dark & light theme color definitions.
 ///
-/// Calm, quiet palette: deep rich surfaces with a single cyan accent. Subtle
-/// glass hints and warm gradients, no harsh glow — depth through frosted
-/// layers, soft gradients, and crisp borders.
+/// Calm, quiet palette with warm materiality: deep rich surfaces with a
+/// single cyan accent, opaque dual-tone gradients for chromatic depth (see
+/// `warmSurfaceGradient`), soft glass hints and crisp borders. No harsh
+/// glow anywhere — depth comes from layered surfaces, tonal temperature
+/// shifts, and soft shadows, never from alpha-blended light.
 library;
 
 import 'dart:io' show Platform;

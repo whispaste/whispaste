@@ -1,7 +1,8 @@
 /// WhisPaste ThemeData builder — constructs Material 3 themes from design tokens.
 ///
-/// Premium aesthetic: clean surfaces, crisp typography, refined spacing.
-/// No glow effects — depth via layered surfaces and clean shadows.
+/// Premium aesthetic: clean surfaces, crisp typography, refined spacing,
+/// warm tonal gradients. No glow effects — depth via layered surfaces,
+/// clean soft shadows, and chromatic temperature, not alpha-blended light.
 library;
 
 import 'package:flutter/material.dart';
