@@ -565,9 +565,29 @@ class DesktopPasteHost {
   /// surrogate, the boundary shifts one unit later so the low surrogate
   /// stays in the same chunk — otherwise the emoji would be torn across two
   /// separate CGEvents and likely render as a replacement character.
+  ///
+  /// Pacing: `CGEventPost` only *queues* an event into the HID event system —
+  /// it does not wait for the receiving app to actually consume it. Posting
+  /// keyDown/keyUp pairs back-to-back with zero gap, and returning
+  /// immediately after the final one, is a well-documented way to lose
+  /// events (confirmed against real dictations: the trailing character was
+  /// dropped noticeably often, matching the same class of bug reported for
+  /// Hammerspoon's `hs.eventtap.keyStrokes` and other CGEvent-based typers —
+  /// see Apple Developer Forums thread 13459). Two mitigations: a small gap
+  /// between every keyDown/keyUp pair and between chunks, and a longer
+  /// flush delay after the *last* chunk specifically, so the final event is
+  /// actually drained by the target app's input pipeline before this
+  /// function returns and the Flutter-side completion handler (which may
+  /// trigger clipboard restore / UI updates that compete for the run loop)
+  /// runs. `usleep` is safe here — this always runs on a background-queue
+  /// dispatch (see `typeText`'s `asyncAfter` caller), never the visible UI
+  /// thread's animation loop.
   private func postUnicodeString(_ text: String) -> Bool {
     let utf16 = Array(text.utf16)
     guard !utf16.isEmpty else { return true }
+
+    let interEventDelayUs: useconds_t = 1_000 // 1ms
+    let finalFlushDelayUs: useconds_t = 20_000 // 20ms
 
     let chunkSize = 20
     var index = 0
@@ -577,6 +597,7 @@ class DesktopPasteHost {
         end += 1
       }
       let chunk = Array(utf16[index..<end])
+      let isLastChunk = end >= utf16.count
 
       guard let keyDown = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: true),
             let keyUp = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: false) else {
@@ -588,7 +609,9 @@ class DesktopPasteHost {
         keyUp.keyboardSetUnicodeString(stringLength: buffer.count, unicodeString: base)
       }
       keyDown.post(tap: .cghidEventTap)
+      usleep(interEventDelayUs)
       keyUp.post(tap: .cghidEventTap)
+      usleep(isLastChunk ? finalFlushDelayUs : interEventDelayUs)
 
       index = end
     }
