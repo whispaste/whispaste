@@ -22,17 +22,22 @@
 /// see `stt_server_state_notifier.dart`'s `_start()`) — or once the GPU path
 /// has been abandoned for a catchable failure. If the marker is still
 /// present at the next launch, the previous attempt never returned, so
-/// [crashedLastAttempt] is true and [recoverFromGpuLoadCrash] permanently
-/// switches the persisted GPU-acceleration setting to CPU-only before
-/// `runApp()`. It also arms a one-time UI notice ([markPendingUserNotice] /
-/// [consumePendingUserNotice]) so the user is told what happened and can
-/// re-enable GPU acceleration themselves — see
-/// `RecoveryToastKind.gpuLoadCrashDisabled` in `recording_behavior.dart`.
-/// One hard crash is enough to disable, deliberately: a false positive
-/// (e.g. the user killing the process mid-load, a forced OS-update reboot)
-/// is cheap and self-correcting via that same toast's action button,
-/// whereas the common case here — genuinely incompatible hardware — should
-/// not have to crash twice before recovering.
+/// [crashedLastAttempt] is true and [recoverFromGpuLoadCrash] records one
+/// more entry in the *consecutive*-crash streak ([recordCrash]). Only once
+/// that streak reaches [kGpuCrashStrikeThreshold] does recovery permanently
+/// switch the persisted GPU-acceleration setting to CPU-only — a single
+/// crash instead retries GPU silently on the very next launch, so a false
+/// positive (the user killing the process mid-load, a forced OS-update
+/// reboot) doesn't cost the user their GPU over one unlucky launch. The
+/// streak resets to zero the moment a GPU-backed load is confirmed to
+/// survive both the load and the warmup inference ([resetCrashStreak]) —
+/// see `stt_server_state_notifier.dart`'s `_start()`.
+///
+/// Once the threshold is reached, [recoverFromGpuLoadCrash] also arms a
+/// one-time UI notice ([markPendingUserNotice] / [consumePendingUserNotice])
+/// so the user is told what happened and can re-enable GPU acceleration
+/// themselves — see `RecoveryToastKind.gpuLoadCrashDisabled` in
+/// `recording_behavior.dart`.
 library;
 
 import 'dart:developer' as dev;
@@ -58,9 +63,11 @@ class GpuLoadCrashGuard {
 
   static const _markerFileName = '.gpu_load_attempt';
   static const _noticeFileName = '.gpu_load_crash_notice_pending';
+  static const _strikesFileName = '.gpu_load_crash_strikes';
 
   File get _markerFile => File(p.join(_dataDir, _markerFileName));
   File get _noticeFile => File(p.join(_dataDir, _noticeFileName));
+  File get _strikesFile => File(p.join(_dataDir, _strikesFileName));
 
   /// True if a previous session marked a GPU load attempt and never cleared
   /// it — i.e. the process died before the load call returned.
@@ -128,7 +135,61 @@ class GpuLoadCrashGuard {
       return false;
     }
   }
+
+  /// Number of consecutive GPU-load crashes recorded so far — 0 if none, or
+  /// after the streak was last reset by a confirmed successful GPU load.
+  int get consecutiveCrashes {
+    try {
+      if (!_strikesFile.existsSync()) return 0;
+      return int.tryParse(_strikesFile.readAsStringSync().trim()) ?? 0;
+    } catch (e) {
+      dev.log(
+        'Failed to read GPU-load crash streak: $e',
+        name: 'GpuLoadCrashGuard',
+      );
+      return 0;
+    }
+  }
+
+  /// Records one more consecutive GPU-load crash and returns the new count.
+  /// Called by [recoverFromGpuLoadCrash] once per detected crash.
+  int recordCrash() {
+    final next = consecutiveCrashes + 1;
+    try {
+      _strikesFile.parent.createSync(recursive: true);
+      _strikesFile.writeAsStringSync('$next');
+    } catch (e) {
+      dev.log(
+        'Failed to write GPU-load crash streak: $e',
+        name: 'GpuLoadCrashGuard',
+      );
+    }
+    return next;
+  }
+
+  /// Resets the crash streak to zero — call once a GPU-backed load has been
+  /// confirmed to survive both the load and the warmup inference, since the
+  /// GPU turned out fine after all.
+  void resetCrashStreak() {
+    try {
+      if (_strikesFile.existsSync()) _strikesFile.deleteSync();
+    } catch (e) {
+      dev.log(
+        'Failed to reset GPU-load crash streak: $e',
+        name: 'GpuLoadCrashGuard',
+      );
+    }
+  }
 }
+
+/// Consecutive GPU-load crashes required before [recoverFromGpuLoadCrash]
+/// permanently disables GPU acceleration. Deliberately >1: a single crash
+/// is cheap to retry silently on the next launch and absorbs a false
+/// positive (Task-Manager kill mid-load, a forced OS-update reboot) without
+/// costing the user their GPU over one unlucky launch; genuinely
+/// incompatible hardware still recovers within [kGpuCrashStrikeThreshold]
+/// launches.
+const int kGpuCrashStrikeThreshold = 2;
 
 final gpuLoadCrashGuardProvider = Provider<GpuLoadCrashGuard>(
   (ref) => GpuLoadCrashGuard(),
@@ -153,9 +214,29 @@ Future<void> recoverFromGpuLoadCrash(ProviderContainer container) async {
   final guard = container.read(gpuLoadCrashGuardProvider);
   if (!guard.crashedLastAttempt) return;
 
+  // Always clear the in-flight marker: reaching this point already proves
+  // last session's crash has been accounted for (via recordCrash below),
+  // independent of whether the streak has hit the threshold yet.
+  final strikes = guard.recordCrash();
+  guard.clearAttempt();
+
+  if (strikes < kGpuCrashStrikeThreshold) {
+    // Below threshold: retry GPU silently on this very launch. No settings
+    // change, no user-facing notice — a single crash must not cost the
+    // user their GPU over what may well be an unrelated fluke.
+    CrashReporter.instance?.captureError(
+      message:
+          'STT GPU model load crashed ($strikes/$kGpuCrashStrikeThreshold) '
+          '— retrying GPU once more before switching to CPU-only',
+      severity: 'warning',
+      fingerprint: const [sttGpuLoadCrashRecovered],
+    );
+    return;
+  }
+
   CrashReporter.instance?.captureError(
     message:
-        'STT GPU model load crashed the previous session — '
+        'STT GPU model load crashed $strikes times in a row — '
         'forcing CPU-only STT for all future launches',
     severity: 'warning',
     fingerprint: const [sttGpuLoadCrashRecovered],
@@ -171,11 +252,13 @@ Future<void> recoverFromGpuLoadCrash(ProviderContainer container) async {
             ),
           ),
         );
-    // Only promise the user a notice once the override has actually stuck —
-    // on the catch path below, GPU stays enabled and will simply be
-    // attempted again, so telling the user "we switched you to CPU" would
-    // be false.
+    // Only promise the user a notice — and only reset the streak — once the
+    // override has actually stuck. On the catch path below, GPU stays
+    // enabled and the streak is left at/above threshold on purpose, so the
+    // very next crash retries this same escalation instead of demanding a
+    // fresh two-strike run.
     guard.markPendingUserNotice();
+    guard.resetCrashStreak();
   } catch (e, st) {
     CrashReporter.instance?.captureError(
       message:
@@ -186,11 +269,5 @@ Future<void> recoverFromGpuLoadCrash(ProviderContainer container) async {
       error: e,
       stackTrace: st,
     );
-  } finally {
-    // Always clear, even on a persistence failure above: leaving the marker
-    // set would misreport an unrelated future crash as "already recovered
-    // from", and the settings write failing here has nothing to do with
-    // whether the next GPU load attempt itself will crash.
-    guard.clearAttempt();
   }
 }

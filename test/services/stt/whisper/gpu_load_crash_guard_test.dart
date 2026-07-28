@@ -4,9 +4,11 @@
 /// during model load — no catchable Dart exception) cannot be reproduced in
 /// a test: a real crash would kill the test runner itself. What IS testable
 /// without touching native code is the crash-loop-breaker mechanism: does
-/// the marker file correctly record "load attempted, never confirmed", and
-/// does the startup recovery correctly force CPU-only when it finds one left
-/// over from a session that never cleared it.
+/// the marker file correctly record "load attempted, never confirmed", does
+/// the consecutive-crash streak correctly gate the two-strike threshold
+/// ([kGpuCrashStrikeThreshold]), and does the startup recovery correctly
+/// force CPU-only (and arm the user notice) only once that threshold is
+/// reached — never on a single crash.
 library;
 
 import 'dart:io';
@@ -110,6 +112,32 @@ void main() {
             'rebuild) must not fire the toast again for the same event',
       );
     });
+
+    test('consecutiveCrashes is 0 with nothing recorded', () {
+      final guard = GpuLoadCrashGuard(dataDir: tempDir.path);
+      expect(guard.consecutiveCrashes, 0);
+    });
+
+    test('recordCrash increments across calls and persists the count', () {
+      final guard = GpuLoadCrashGuard(dataDir: tempDir.path);
+      expect(guard.recordCrash(), 1);
+      expect(guard.recordCrash(), 2);
+      expect(guard.consecutiveCrashes, 2);
+    });
+
+    test('resetCrashStreak clears the streak so a later crash starts '
+        'counting from 1 again — a confirmed successful GPU load must wipe '
+        'out any prior crash history, not just pause it', () {
+      final guard = GpuLoadCrashGuard(dataDir: tempDir.path);
+      guard.recordCrash();
+      guard.recordCrash();
+      expect(guard.consecutiveCrashes, 2);
+
+      guard.resetCrashStreak();
+
+      expect(guard.consecutiveCrashes, 0);
+      expect(guard.recordCrash(), 1);
+    });
   });
 
   group('recoverFromGpuLoadCrash', () {
@@ -156,8 +184,9 @@ void main() {
       );
     });
 
-    test('a leftover marker from a crashed previous session permanently '
-        'forces gpuAcceleration to "disabled" and clears the marker', () async {
+    test('a single crash stays below the two-strike threshold — GPU is '
+        'retried silently on this very launch, no settings change, no user '
+        'notice, but the streak is recorded for next time', () async {
       final guard = GpuLoadCrashGuard(dataDir: tempDir.path)..markAttempt();
       final container = ProviderContainer(
         overrides: [
@@ -176,17 +205,68 @@ void main() {
       addTearDown(container.dispose);
       await container.read(settingsProvider.future);
 
-      expect(guard.crashedLastAttempt, isTrue);
+      await recoverFromGpuLoadCrash(container);
 
+      expect(
+        container.read(settingsProvider).value!.behavior.gpuAcceleration,
+        'auto',
+        reason:
+            'one crash must not cost the user their GPU — it may well be '
+            'an unrelated fluke (Task-Manager kill, forced reboot)',
+      );
+      expect(
+        guard.crashedLastAttempt,
+        isFalse,
+        reason: 'the in-flight marker is always cleared once accounted for',
+      );
+      expect(guard.consumePendingUserNotice(), isFalse);
+      expect(
+        guard.consecutiveCrashes,
+        1,
+        reason: 'the streak must be recorded so a second crash escalates',
+      );
+    });
+
+    test('a second consecutive crash reaches the two-strike threshold — '
+        'GPU acceleration is permanently disabled and the user notice is '
+        'armed', () async {
+      final guard = GpuLoadCrashGuard(dataDir: tempDir.path);
+      final container = ProviderContainer(
+        overrides: [
+          gpuLoadCrashGuardProvider.overrideWithValue(guard),
+          settingsProvider.overrideWith(
+            () => _FakeSettingsNotifier(
+              AppSettings.defaults.copyWithSections(
+                behavior: AppSettings.defaults.behavior.copyWith(
+                  gpuAcceleration: 'auto',
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      await container.read(settingsProvider.future);
+
+      // First launch: crashes, below threshold, retried silently.
+      guard.markAttempt();
+      await recoverFromGpuLoadCrash(container);
+      expect(
+        container.read(settingsProvider).value!.behavior.gpuAcceleration,
+        'auto',
+      );
+
+      // Second launch: crashes again — threshold reached.
+      guard.markAttempt();
       await recoverFromGpuLoadCrash(container);
 
       expect(
         container.read(settingsProvider).value!.behavior.gpuAcceleration,
         'disabled',
         reason:
-            'a crash detected from the previous session must permanently '
-            'switch to CPU-only, not just for one session — the user must '
-            'never need to reach the settings screen to escape the loop',
+            'two consecutive crashes must permanently switch to CPU-only — '
+            'the user must never need to reach the settings screen '
+            'themselves to escape the loop',
       );
       expect(
         guard.crashedLastAttempt,
@@ -206,50 +286,60 @@ void main() {
       );
     });
 
-    test(
-      'a persistence failure while writing the CPU-only override never '
-      'throws out of recoverFromGpuLoadCrash — main.dart awaits this '
-      'unguarded before runApp(), so a throw here would replace the GPU '
-      'crash loop with a silent, windowless dead-boot loop, and still '
-      'clears the marker so a one-off failure is not permanently stuck',
-      () async {
-        final guard = GpuLoadCrashGuard(dataDir: tempDir.path)..markAttempt();
-        final container = ProviderContainer(
-          overrides: [
-            gpuLoadCrashGuardProvider.overrideWithValue(guard),
-            settingsProvider.overrideWith(
-              () => _ThrowingSettingsNotifier(
-                AppSettings.defaults.copyWithSections(
-                  behavior: AppSettings.defaults.behavior.copyWith(
-                    gpuAcceleration: 'auto',
-                  ),
+    test('a persistence failure while writing the CPU-only override never '
+        'throws out of recoverFromGpuLoadCrash — main.dart awaits this '
+        'unguarded before runApp(), so a throw here would replace the GPU '
+        'crash loop with a silent, windowless dead-boot loop, and leaves the '
+        'streak at/above threshold so the very next crash retries the same '
+        'escalation instead of demanding a fresh two-strike run', () async {
+      final guard = GpuLoadCrashGuard(dataDir: tempDir.path);
+      // Seed the streak at one crash below threshold (pure file I/O, no
+      // settings involved yet), then mark the in-flight attempt for the
+      // crash that pushes it over the threshold.
+      guard.recordCrash();
+      guard.markAttempt();
+      final container = ProviderContainer(
+        overrides: [
+          gpuLoadCrashGuardProvider.overrideWithValue(guard),
+          settingsProvider.overrideWith(
+            () => _ThrowingSettingsNotifier(
+              AppSettings.defaults.copyWithSections(
+                behavior: AppSettings.defaults.behavior.copyWith(
+                  gpuAcceleration: 'auto',
                 ),
               ),
             ),
-          ],
-        );
-        addTearDown(container.dispose);
-        await container.read(settingsProvider.future);
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      await container.read(settingsProvider.future);
 
-        await expectLater(recoverFromGpuLoadCrash(container), completes);
+      await expectLater(recoverFromGpuLoadCrash(container), completes);
 
-        expect(
-          guard.crashedLastAttempt,
-          isFalse,
-          reason:
-              'even on a persistence failure, the marker must be cleared — '
-              'otherwise every future launch keeps retrying recovery instead '
-              'of just attempting GPU again (self-limiting is the correct '
-              'fallback for an unrelated I/O failure)',
-        );
-        expect(
-          guard.consumePendingUserNotice(),
-          isFalse,
-          reason:
-              'GPU was NOT actually disabled (the persistence write failed), '
-              'so telling the user "we switched you to CPU" would be false',
-        );
-      },
-    );
+      expect(
+        guard.crashedLastAttempt,
+        isFalse,
+        reason:
+            'even on a persistence failure, the in-flight marker must be '
+            'cleared — otherwise every future launch keeps retrying '
+            'recovery instead of just attempting GPU again',
+      );
+      expect(
+        guard.consumePendingUserNotice(),
+        isFalse,
+        reason:
+            'GPU was NOT actually disabled (the persistence write failed), '
+            'so telling the user "we switched you to CPU" would be false',
+      );
+      expect(
+        guard.consecutiveCrashes,
+        greaterThanOrEqualTo(kGpuCrashStrikeThreshold),
+        reason:
+            'the streak must NOT reset on a persistence failure, so the '
+            'next crash retries this same escalation rather than '
+            'requiring two fresh strikes',
+      );
+    });
   });
 }

@@ -1041,9 +1041,12 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     // Reaching here proves the process survived the first GPU compute
     // dispatch, not just the weight load — see the crash-loop-breaker
     // comment above. Only fires if the catch branch above didn't already
-    // clear it (GPU abandoned for CPU before we got this far).
+    // clear it (GPU abandoned for CPU before we got this far). Also resets
+    // the consecutive-crash streak: the GPU just proved itself, so any
+    // prior crash(es) toward the two-strike threshold no longer apply.
     if (gpuAttemptPending) {
       crashGuard.clearAttempt();
+      crashGuard.resetCrashStreak();
       gpuAttemptPending = false;
     }
     unawaited(_runBenchmark(modelId));
