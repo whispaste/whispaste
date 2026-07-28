@@ -4,7 +4,6 @@
 
 #include <chrono>
 #include <thread>
-#include <vector>
 
 using flutter::EncodableMap;
 using flutter::EncodableValue;
@@ -243,10 +242,20 @@ EncodableValue DesktopPasteHost::PasteClipboard(int delay_ms) {
   return MakeResultMap("success", "");
 }
 
-// Types `text` directly into the target window via synthetic Unicode
-// keyboard events — no clipboard involved at all. Mirrors PasteClipboard's
-// target-capture/foreground/delay shape but posts the transcript instead of
-// a paste shortcut.
+// Types `text` into the target window. Windows has no reliable
+// layout-independent "post this string directly" primitive: synthetic
+// KEYEVENTF_UNICODE bursts corrupt input in Modern Notepad's TSF-backed
+// text control — verified on real hardware, stretches of the transcript
+// come back as a single repeated/wrong character (even a single
+// autocomplete-prone word like "Smiley?" reliably corrupts) even though
+// SendInput itself reports full delivery. Other apps (Chromium-based
+// inputs, classic Win32 edit controls) were unaffected, but Notepad is far
+// too common a dictation target to risk it, and no chunk size/pacing tried
+// eliminated the corruption. Routes through the same clipboard+paste
+// mechanism as PasteClipboard instead — proven clean in the same
+// testing — backing up and restoring the caller's prior clipboard content
+// around it so `type` still doesn't clobber it, matching the no-clobber
+// behavior of the macOS direct-typing path.
 EncodableValue DesktopPasteHost::TypeText(const std::string& text,
                                           int delay_ms) {
   if (!target_window_ || !::IsWindow(target_window_)) {
@@ -265,11 +274,19 @@ EncodableValue DesktopPasteHost::TypeText(const std::string& text,
 
   std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
+  const ClipboardBackup backup = BackupClipboard(owner_);
   const std::wstring wide = Utf8ToWide(text);
-  if (!SendUnicodeString(wide)) {
+  if (!WriteClipboardText(owner_, wide)) {
+    RestoreClipboard(owner_, backup);
+    return MakeResultMap("clipboard_write_failed", "");
+  }
+  if (!SendPasteShortcut()) {
+    RestoreClipboard(owner_, backup);
     return MakeResultMap("send_input_failed",
                          "SendInput did not inject all key events");
   }
+  std::this_thread::sleep_for(std::chrono::milliseconds(80));
+  RestoreClipboard(owner_, backup);
   return MakeResultMap("success", "");
 }
 
@@ -385,36 +402,3 @@ bool DesktopPasteHost::SendPasteShortcut() const {
   return ::SendInput(4, inputs, sizeof(INPUT)) == 4;
 }
 
-// Posts `text` as synthetic Unicode keydown/keyup event pairs via
-// SendInput's KEYEVENTF_UNICODE mode — one INPUT pair per UTF-16 code unit.
-// Unlike a VK-code-based key event, KEYEVENTF_UNICODE carries the character
-// value directly in wScan and is layout-independent, so umlauts/emoji/etc.
-// survive intact regardless of the active keyboard layout. Surrogate pairs
-// (most emoji) are sent as two separate, ordinary code-unit events — Windows
-// pairs them back together on the receiving end, the same as any other
-// Unicode-aware text input; no chunking or pair-straddling concern here
-// (unlike macOS's CGEventKeyboardSetUnicodeString, which has an undocumented
-// small per-event capacity — SendInput has no equivalent limit).
-bool DesktopPasteHost::SendUnicodeString(const std::wstring& text) const {
-  if (text.empty()) return true;
-
-  std::vector<INPUT> inputs;
-  inputs.reserve(text.size() * 2);
-  for (wchar_t code_unit : text) {
-    INPUT down = {};
-    down.type = INPUT_KEYBOARD;
-    down.ki.wScan = code_unit;
-    down.ki.dwFlags = KEYEVENTF_UNICODE;
-    inputs.push_back(down);
-
-    INPUT up = {};
-    up.type = INPUT_KEYBOARD;
-    up.ki.wScan = code_unit;
-    up.ki.dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP;
-    inputs.push_back(up);
-  }
-
-  const UINT sent =
-      ::SendInput(static_cast<UINT>(inputs.size()), inputs.data(), sizeof(INPUT));
-  return sent == inputs.size();
-}

@@ -32,7 +32,6 @@ class DesktopPasteHost {
   flutter::EncodableValue DiagnosticPaste(const std::string& demo_text);
   bool BringTargetToForeground() const;
   bool SendPasteShortcut() const;
-  bool SendUnicodeString(const std::wstring& text) const;
 
   flutter::FlutterEngine* engine_;
   HWND owner_;
