@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.59
+
+### Maintenance
+
+- **Store-Veröffentlichungs-Automatisierung überarbeitet** (betrifft nur den Bereitstellungsprozess, keine Funktionsänderung an der App selbst): Der Microsoft-Store-Paket-Upload läuft wieder automatisiert, und der Mac-App-Store-Kaufpreis wird jetzt direkt über die App-Store-Connect-API gesetzt statt manuell.
+
 ## 1.2.58
 
 ### New Features
