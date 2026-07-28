@@ -122,15 +122,11 @@ async function renderPanorama(lang, storeId) {
     });
 
     const imageMap = {};
-    const floatMap = {};
     for (const screen of SCREENS) {
       if (!screen.screenshot) {
         continue;
       }
       imageMap[screen.id] = toDataUri(screenshotPathFor(screen, lang, storeId));
-      if (screen.floatAsset) {
-        floatMap[screen.id] = toDataUri(path.join(__dirname, 'assets', screen.floatAsset));
-      }
     }
 
     const logoData = toDataUri(ASSET_PATHS.logo);
@@ -188,15 +184,9 @@ async function renderPanorama(lang, storeId) {
           if (screenshot) {
             screenshot.src = imageData[screen.id];
           }
-
-          const float = document.getElementById(`float-${index}`);
-          if (float && floatData[screen.id]) {
-            float.src = floatData[screen.id];
-            float.style.display = 'block';
-          }
         });
       },
-      { screens: SCREENS, locale: lang, imageData: imageMap, logo: logoData, floatData: floatMap },
+      { screens: SCREENS, locale: lang, imageData: imageMap, logo: logoData },
     );
 
     await page.waitForFunction(

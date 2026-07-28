@@ -80,9 +80,6 @@ const SCREENS = [
     },
     composition: 'center',
     windowScale: 0.78,
-    // Real captured floating-overlay widget (recording state), placed loose
-    // above the window. Language-neutral: waveform/icons only, no text.
-    floatAsset: 'overlay-recording-dark.png',
     category: { en: 'WORKSPACE', de: 'WORKSPACE' },
     headline: {
       en: 'Keep every recording\nclose at hand',
