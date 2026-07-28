@@ -18,17 +18,20 @@ const fs = require('fs');
 const { STORE_SIZES, SCREENS, GOLDENS, OUTPUT } = require('./config');
 
 const TEMPLATE_PATH = path.resolve(__dirname, 'hero-device-template.html');
-const BG_PHOTO = path.resolve(__dirname, 'assets', 'generated', 'hero-device-v1.png');
+// v2 photo: realistically proportioned widescreen 16:10 panel, so the golden
+// can fill the whole glass through the homography with correct perspective.
+const BG_PHOTO = path.resolve(__dirname, 'assets', 'generated', 'hero-device-v2.png');
 
 // Pill anchor (top-left) in photo source pixels: hovers off the screen's
-// upper-right corner, detached from the display. The pill itself is built
-// natively in CSS in the template (frosted glass per OverlayDesignSpec).
-const PILL_POS = [818, 138];
+// upper-right bezel, detached from the display. The pill itself is built
+// natively in CSS in the template (frosted glass per OverlayDesignSpec),
+// rendered in its compact size (220x40).
+const PILL_POS = [828, 112];
 const BG_W = 1344;
 const BG_H = 768;
 
 // Laptop screen quad in source-photo pixels: TL, TR, BR, BL.
-const SCREEN_QUAD = [[635, 183], [953, 197], [964, 553], [694, 579]];
+const SCREEN_QUAD = [[620, 183], [965, 153], [1036, 472], [689, 519]];
 
 // Horizontal focus point (0..1) when cover-cropping the photo.
 const FOCUS_X = 0.62;
