@@ -211,15 +211,20 @@ void main() {
       },
     );
 
-    test(
-      'painted-shadow tokens match the spike (α0.20, blur 7, offset 0,3)',
-      () {
-        expect(OverlayDesignSpec.shadowOpacity, 0.20);
-        expect(OverlayDesignSpec.shadowBlur, 7.0);
-        expect(OverlayDesignSpec.shadowOffset, const Offset(0, 3));
-        expect(OverlayDesignSpec.shadowPadding, 8.0);
-      },
-    );
+    test('painted-shadow tokens: spike offset/padding, softened blur '
+        '(glass polish pass) plus a tight contact-shadow layer', () {
+      expect(OverlayDesignSpec.shadowOpacity, 0.20);
+      // Softened from the spike's 7.0 — mirrors the large-blur half of
+      // WpShadows.card's two-layer ambient-depth language.
+      expect(OverlayDesignSpec.shadowBlur, 9.0);
+      expect(OverlayDesignSpec.shadowOffset, const Offset(0, 3));
+      expect(OverlayDesignSpec.shadowPadding, 8.0);
+      // Contact-shadow layer — the small-blur half of the same two-layer
+      // shadow language, grounding the capsule against the desktop.
+      expect(OverlayDesignSpec.contactShadowOpacity, 0.12);
+      expect(OverlayDesignSpec.contactShadowBlur, 2.0);
+      expect(OverlayDesignSpec.contactShadowOffset, const Offset(0, 1));
+    });
 
     test('windowSize = pill box + shadow padding on every side', () {
       expect(OverlayDesignSpec.windowSize(compact: false), const Size(346, 80));

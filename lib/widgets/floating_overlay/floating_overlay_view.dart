@@ -109,6 +109,7 @@ class FloatingOverlayView extends StatefulWidget {
     bool paintFill = true,
     bool paintContent = true,
     double? pillWidth,
+    double iconRevealFraction = 1.0,
   }) {
     final theme = themeFor(snapshot.isDark);
     final designState = designStateFor(snapshot.state);
@@ -128,6 +129,7 @@ class FloatingOverlayView extends StatefulWidget {
       paintFill: paintFill,
       paintContent: paintContent,
       pillWidth: pillWidth,
+      iconRevealFraction: iconRevealFraction,
     );
   }
 
@@ -519,7 +521,10 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
                       ),
                     ),
                   ),
-                  // Layer 3: incoming state content fading in.
+                  // Layer 3: incoming state content fading in. Also drives
+                  // the done-checkmark draw-on / error-icon settle-in off the
+                  // same fraction, so the icon finishes forming exactly as
+                  // the crossfade reaches full opacity.
                   Opacity(
                     opacity: ct,
                     child: CustomPaint(
@@ -531,6 +536,7 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
                         paintFill: false,
                         paintContent: true,
                         pillWidth: animatedPillWidth,
+                        iconRevealFraction: ct,
                       ),
                     ),
                   ),

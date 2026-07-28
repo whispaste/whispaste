@@ -508,6 +508,7 @@ class OverlayMotion {
   const OverlayMotion({
     required this.dotPulsePeriod,
     required this.dotPulseMinAlpha,
+    required this.dotPulseMinScale,
   });
 
   /// Recording dot pulse period.
@@ -515,6 +516,12 @@ class OverlayMotion {
 
   /// Minimum alpha the recording dot dips to at the bottom of its pulse.
   final double dotPulseMinAlpha;
+
+  /// Minimum scale the recording dot dips to at the bottom of its pulse
+  /// (task #polish-cross-platform-glass). Paired with [dotPulseMinAlpha] so
+  /// the pulse reads as a soft breathing motion rather than a flat opacity
+  /// flicker — still calm, no size overshoot past 1.0.
+  final double dotPulseMinScale;
 }
 
 /// Shared interaction constants for both overlay and button.
@@ -699,6 +706,14 @@ abstract final class OverlayDesignSpec {
   /// giving the faux-glass capsule its "frosted" feel without any OS blur.
   static const double glassSheenOpacity = 0.40;
 
+  /// Alpha of the state-coloured undertone blended into the *bottom* of the
+  /// glass sheen (cross-platform glass polish pass). Reads as tinted glass
+  /// picking up ambient colour from what it is showing — bounded strictly
+  /// inside the capsule shape, no blur, no glow — the calm-UI-safe way to
+  /// make recording/transcribing/done/error read apart at a glance without
+  /// touching [glassSheenOpacity]'s neutral white highlight.
+  static const double sheenStateTintOpacity = 0.10;
+
   /// Recommended slider floor for the opacity setting — below this white text
   /// over a worst-case white background drops under WCAG AA (ADR 0002).
   static const double minRecommendedOpacity = 0.65;
@@ -712,11 +727,28 @@ abstract final class OverlayDesignSpec {
   /// Painted-shadow opacity at full master opacity (spike `0.20`).
   static const double shadowOpacity = 0.20;
 
-  /// Painted-shadow Gaussian blur sigma (spike `MaskFilter.blur(normal, 7)`).
-  static const double shadowBlur = 7.0;
+  /// Painted-shadow Gaussian blur sigma. Softened from the spike's `7.0`
+  /// (cross-platform glass polish pass) so the capsule reads as hovering
+  /// rather than sitting flush — mirrors the large-blur half of
+  /// [WpShadows.card]'s two-layer ambient-depth language.
+  static const double shadowBlur = 9.0;
 
   /// Painted-shadow offset (spike `(0, 3)`, i.e. cast downward).
   static const Offset shadowOffset = Offset(0, 3);
+
+  /// Second, tight contact-shadow layer painted beneath [shadowBlur]/
+  /// [shadowOpacity] (cross-platform glass polish pass) — the small-blur half
+  /// of the same two-layer shadow language [WpShadows.card] already uses
+  /// elsewhere in the app, so the overlay's depth matches the rest of the
+  /// product instead of standing alone on a single soft shadow.
+  static const double contactShadowOpacity = 0.12;
+
+  /// Contact-shadow blur sigma — tight, grounds the capsule against the
+  /// desktop directly beneath it.
+  static const double contactShadowBlur = 2.0;
+
+  /// Contact-shadow offset.
+  static const Offset contactShadowOffset = Offset(0, 1);
 
   /// Padding reserved on every side of the pill inside the native window so the
   /// painted shadow is not clipped (spike: a 64 px pill in an 80 px window →
@@ -753,6 +785,11 @@ abstract final class OverlayDesignSpec {
   /// Trailing-stop opacity of the timeline accent gradient (spike `0.25`).
   static const double timelineEndOpacity = 0.25;
 
+  /// Radius of the small bright leading dot drawn at the current progress
+  /// position on the timeline (cross-platform glass polish pass) — pinpoints
+  /// "you are here" more precisely than the fading line end alone.
+  static const double timelineLeadDotRadius = 2.2;
+
   // -- Waveform line rendering (thin accent lines) ---------------------------
 
   /// Number of trailing (most-recent) bars drawn in the bright active accent;
@@ -788,6 +825,30 @@ abstract final class OverlayDesignSpec {
 
   /// Secondary/elapsed weight (regular).
   static const FontWeight secondaryFontWeight = FontWeight.w400;
+
+  // -- Status-icon reveal (cross-platform glass polish pass) -----------------
+
+  /// Initial scale of the error status icon's fade-in-and-settle entrance —
+  /// the same calm, no-overshoot register as [OverlayArcMotion.appearScale],
+  /// applied to a single icon instead of the whole capsule. Driven by the
+  /// existing state-transition crossfade fraction; adds no new controller.
+  static const double errorIconRevealScaleStart = 0.85;
+
+  // -- Per-state chrome tinting (cross-platform glass polish pass) -----------
+
+  /// Border colour for [state]: the existing hairline capsule border re-hued
+  /// to that state's [stateGradients] leading colour, at the same alpha the
+  /// spike's fixed accent border already used. Lets recording (red),
+  /// transcribing (amber), done (green) and error (red) read apart from the
+  /// capsule edge alone — no blur, no glow, just re-tinting a stroke that was
+  /// already there.
+  static Color borderColorFor(
+    OverlayDesignState state,
+    OverlayThemeColors colors,
+  ) {
+    final tint = stateGradients[state]!.stops.first;
+    return tint.withValues(alpha: colors.capsuleBorder.a);
+  }
 
   // -- Theme colours ---------------------------------------------------------
 
@@ -877,6 +938,8 @@ abstract final class OverlayDesignSpec {
     dotPulsePeriod: Duration(milliseconds: 900),
     // Approved spike pulse range is 0.6 .. 1.0 (`0.6 + 0.4 × …`).
     dotPulseMinAlpha: 0.6,
+    // Subtler than the alpha range — a soft breathing scale, not a resize.
+    dotPulseMinScale: 0.88,
   );
 
   /// Signature recording-arc motion parameters (Phase-0, issue 09).

@@ -47,6 +47,7 @@ class OverlayPainter extends CustomPainter {
     this.paintFill = true,
     this.paintContent = true,
     this.pillWidth,
+    this.iconRevealFraction = 1.0,
   });
 
   /// The visual state being rendered.
@@ -99,6 +100,13 @@ class OverlayPainter extends CustomPainter {
   /// Height and corner radius are unaffected.
   final double? pillWidth;
 
+  /// Reveal fraction (`[0, 1]`) for the done/error status icon, driven by the
+  /// host widget's state-transition crossfade so the icon draws on as the
+  /// new state fades in instead of appearing instantly fully formed. Defaults
+  /// to `1.0` (fully drawn) for every steady-state paint — the settings
+  /// preview and the outgoing crossfade layer never pass anything else.
+  final double iconRevealFraction;
+
   bool get _isRecording => state == OverlayDesignState.recording;
 
   @override
@@ -138,6 +146,21 @@ class OverlayPainter extends CustomPainter {
   // ── Chrome ────────────────────────────────────────────────────────────────────
 
   void _drawShadow(Canvas canvas, RRect rrect) {
+    // Two-layer ambient depth (mirrors WpShadows.card elsewhere in the app):
+    // a soft, wide-blur layer that reads as the capsule hovering, plus a
+    // tight contact shadow that grounds it against the desktop directly
+    // beneath it.
+    canvas.drawRRect(
+      rrect.shift(OverlayDesignSpec.contactShadowOffset),
+      Paint()
+        ..color = OverlayDesignSpec.shadowColor.withValues(
+          alpha: OverlayDesignSpec.contactShadowOpacity,
+        )
+        ..maskFilter = const MaskFilter.blur(
+          BlurStyle.normal,
+          OverlayDesignSpec.contactShadowBlur,
+        ),
+    );
     canvas.drawRRect(
       rrect.shift(OverlayDesignSpec.shadowOffset),
       Paint()
@@ -170,8 +193,14 @@ class OverlayPainter extends CustomPainter {
   /// Faux-glass sheen (task #38): a top-down white highlight plus a bright inner
   /// rim that reads as a glass edge, giving the translucent capsule its frosted
   /// feel without any OS blur. Cross-platform — drawn identically everywhere.
+  ///
+  /// A faint state-coloured undertone is blended into the lower stop (glass
+  /// polish pass): the glass reads as picking up a hint of the current state's
+  /// colour rather than staying neutral white-to-clear in every state — still
+  /// bounded strictly inside the capsule shape, no blur, no glow.
   void _drawGlassSheen(Canvas canvas, RRect rrect, Rect pill) {
     const sheen = OverlayDesignSpec.glassSheenOpacity;
+    final stateTint = OverlayDesignSpec.stateGradients[state]!.stops.first;
     canvas.drawRRect(
       rrect,
       Paint()
@@ -181,8 +210,11 @@ class OverlayPainter extends CustomPainter {
           colors: [
             const Color(0xFFFFFFFF).withValues(alpha: sheen),
             const Color(0x00FFFFFF),
+            stateTint.withValues(
+              alpha: OverlayDesignSpec.sheenStateTintOpacity,
+            ),
           ],
-          stops: const [0.0, 0.55],
+          stops: const [0.0, 0.55, 1.0],
         ).createShader(pill),
     );
     // Bright glass rim over the tinted border (drawn here so the border still
@@ -196,15 +228,19 @@ class OverlayPainter extends CustomPainter {
     );
   }
 
+  /// Hairline capsule border, re-hued to the current state's leading accent
+  /// colour (glass polish pass) — the same stroke the spike always drew, just
+  /// no longer a single fixed accent tint for every state. Lets recording
+  /// (red), transcribing (amber), done (green) and error (red) read apart
+  /// from the capsule edge alone.
   void _drawBorder(Canvas canvas, RRect rrect) {
+    final borderColor = OverlayDesignSpec.borderColorFor(state, colors);
     canvas.drawRRect(
       rrect,
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.0
-        ..color = colors.capsuleBorder.withValues(
-          alpha: colors.capsuleBorder.a,
-        ),
+        ..color = borderColor,
     );
   }
 
@@ -224,9 +260,9 @@ class OverlayPainter extends CustomPainter {
       case OverlayDesignState.transcribing:
         _drawDot(canvas, leadCenter);
       case OverlayDesignState.done:
-        _drawCheckIcon(canvas, leadCenter, colors.success);
+        _drawCheckIcon(canvas, leadCenter, colors.success, iconRevealFraction);
       case OverlayDesignState.error:
-        _drawErrorIcon(canvas, leadCenter, colors.error);
+        _drawErrorIcon(canvas, leadCenter, colors.error, iconRevealFraction);
     }
 
     // Active text colour. The approved spike has `accentTimer = false`: the
@@ -290,11 +326,13 @@ class OverlayPainter extends CustomPainter {
   }
 
   void _drawDot(Canvas canvas, Offset center) {
-    final min = OverlayDesignSpec.motion.dotPulseMinAlpha;
-    final alpha = min + (1.0 - min) * dotPulse;
+    final minAlpha = OverlayDesignSpec.motion.dotPulseMinAlpha;
+    final minScale = OverlayDesignSpec.motion.dotPulseMinScale;
+    final alpha = minAlpha + (1.0 - minAlpha) * dotPulse;
+    final scale = minScale + (1.0 - minScale) * dotPulse;
     canvas.drawCircle(
       center,
-      layout.dotRadius,
+      layout.dotRadius * scale,
       Paint()..color = colors.accent.withValues(alpha: alpha),
     );
   }
@@ -369,9 +407,20 @@ class OverlayPainter extends CustomPainter {
           ],
         ).createShader(Rect.fromLTWH(lineL, lineY - 1, lineR - lineL, 2)),
     );
+    // Small bright lead dot pinpointing the exact current position, sharper
+    // feedback than the fading line end alone (glass polish pass).
+    canvas.drawCircle(
+      Offset(end, lineY),
+      OverlayDesignSpec.timelineLeadDotRadius,
+      Paint()..color = colors.accent,
+    );
   }
 
-  void _drawCheckIcon(Canvas canvas, Offset center, Color tint) {
+  /// Draws the done checkmark, revealing it stroke-first as [reveal] runs
+  /// 0→1 (glass polish pass) so it draws on as the done state fades in
+  /// instead of appearing instantly fully formed. `reveal = 1.0` (every
+  /// steady-state paint) draws the complete glyph exactly as before.
+  void _drawCheckIcon(Canvas canvas, Offset center, Color tint, double reveal) {
     final r = sizeSpec.statusIconSize / 2;
     final paint = Paint()
       ..style = PaintingStyle.stroke
@@ -383,33 +432,63 @@ class OverlayPainter extends CustomPainter {
       ..moveTo(center.dx - r * 0.55, center.dy)
       ..lineTo(center.dx - r * 0.1, center.dy + r * 0.45)
       ..lineTo(center.dx + r * 0.6, center.dy - r * 0.5);
-    canvas.drawPath(path, paint);
+    if (reveal >= 1.0) {
+      canvas.drawPath(path, paint);
+      return;
+    }
+    final metrics = path.computeMetrics().toList();
+    final totalLength = metrics.fold<double>(0, (sum, m) => sum + m.length);
+    var remaining = totalLength * reveal.clamp(0.0, 1.0);
+    for (final metric in metrics) {
+      if (remaining <= 0) break;
+      final take = math.min(remaining, metric.length);
+      canvas.drawPath(metric.extractPath(0, take), paint);
+      remaining -= take;
+    }
   }
 
-  void _drawErrorIcon(Canvas canvas, Offset center, Color tint) {
+  /// Draws the error icon as a calm fade-and-settle: scale runs
+  /// [OverlayDesignSpec.errorIconRevealScaleStart] → 1.0 as [reveal] runs 0→1
+  /// (glass polish pass), the same no-overshoot register the capsule's own
+  /// appear spring uses, applied to a single icon instead. `reveal = 1.0`
+  /// (every steady-state paint) draws the complete glyph at full scale,
+  /// exactly as before.
+  void _drawErrorIcon(Canvas canvas, Offset center, Color tint, double reveal) {
     final r = sizeSpec.statusIconSize / 2;
     final stroke = math.max(1.5, sizeSpec.statusIconSize * 0.12);
+    final clamped = reveal.clamp(0.0, 1.0);
+    const scaleStart = OverlayDesignSpec.errorIconRevealScaleStart;
+    final scale = scaleStart + (1.0 - scaleStart) * clamped;
+    final alpha = tint.a * clamped;
+
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    canvas.scale(scale);
+    canvas.translate(-center.dx, -center.dy);
+
+    final scaledTint = tint.withValues(alpha: alpha);
     canvas.drawCircle(
       center,
       r,
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = stroke
-        ..color = tint,
+        ..color = scaledTint,
     );
     canvas.drawLine(
       Offset(center.dx, center.dy - r * 0.45),
       Offset(center.dx, center.dy + r * 0.12),
       Paint()
-        ..color = tint
+        ..color = scaledTint
         ..strokeWidth = stroke
         ..strokeCap = StrokeCap.round,
     );
     canvas.drawCircle(
       Offset(center.dx, center.dy + r * 0.5),
       math.max(0.8, sizeSpec.statusIconSize * 0.06),
-      Paint()..color = tint,
+      Paint()..color = scaledTint,
     );
+    canvas.restore();
   }
 
   /// Draws single-line [text] left-anchored at [leftCenter] and returns the
@@ -457,6 +536,7 @@ class OverlayPainter extends CustomPainter {
         old.paintFill != paintFill ||
         old.paintContent != paintContent ||
         old.pillWidth != pillWidth ||
+        old.iconRevealFraction != iconRevealFraction ||
         !identical(old.waveformBars, waveformBars);
   }
 }
