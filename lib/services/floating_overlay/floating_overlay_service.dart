@@ -243,10 +243,19 @@ class FloatingOverlayService
       case RecordingPhase.recording:
         _generation++;
         _autoHideTimer?.cancel();
-        if (prev == RecordingPhase.idle) {
-          await _setStartPosition(settings);
-        }
+        // Content first, position second (not the other way around): a fast
+        // second recording can preempt a still-lingering "done" overlay
+        // (see the RecordingPhase.idle case's early return above) — if
+        // _setStartPosition's platform-channel round trip were awaited
+        // first, the stale "done" snapshot stays on screen for however long
+        // that takes, and a same-cycle stopRecording() before it resolves
+        // can even let a later transcribing/done snapshot land first,
+        // freezing the overlay on stale content. Position doesn't need to
+        // precede content — nothing downstream depends on that order.
         _sendSnapshot(settings, next);
+        if (prev == RecordingPhase.idle) {
+          unawaited(_setStartPosition(settings));
+        }
         // t₁ for hotkey→overlay latency: snapshot sent, native side can now
         // show the overlay. Counterpart: PerfMarkers.markHotkeyPressed() in
         // HotkeyService. HUMAN GATE (issue 16): read the log during dogfooding.
