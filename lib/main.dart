@@ -34,6 +34,7 @@ import 'services/hardware_info_service.dart' as hw;
 import 'services/legacy_residue_cleanup.dart';
 import 'services/path_service.dart';
 import 'services/single_instance_service.dart';
+import 'services/stt/whisper/gpu_load_crash_guard.dart';
 import 'services/telemetry_service.dart';
 import 'services/tmp_reaper.dart';
 import 'services/update_channel_service.dart';
@@ -161,6 +162,16 @@ Future<void> _runApp(List<String> args) async {
   // Closes the GDPR window where bootstrap errors could reach Sentry
   // without user consent (default is true until this runs).
   CrashReporter.instance?.consentGranted = settings.errorReporting;
+
+  // Crash-loop breaker: if the previous session died mid GPU model-load (a
+  // native crash with no catchable Dart exception, see
+  // gpu_load_crash_guard.dart), permanently force CPU-only STT before
+  // whisperEngineProvider's first build — otherwise the same crash repeats
+  // on every relaunch and the user never gets far enough into the UI to
+  // disable GPU acceleration themselves. Must complete before runApp() for
+  // the same settingsProvider-cache-race reason the GPU probe below is
+  // awaited before runApp().
+  await recoverFromGpuLoadCrash(container);
 
   // Wire up the GPU-detection-failure → Sentry telemetry callback.
   // Must run after CrashReporter.init() (done inside AppMonitoring.bootstrap).

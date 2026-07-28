@@ -1,0 +1,214 @@
+/// Unit tests for [GpuLoadCrashGuard] and [recoverFromGpuLoadCrash].
+///
+/// The bug this guards against (native segfault in whisper.dll/ggml-vulkan
+/// during model load — no catchable Dart exception) cannot be reproduced in
+/// a test: a real crash would kill the test runner itself. What IS testable
+/// without touching native code is the crash-loop-breaker mechanism: does
+/// the marker file correctly record "load attempted, never confirmed", and
+/// does the startup recovery correctly force CPU-only when it finds one left
+/// over from a session that never cleared it.
+library;
+
+import 'dart:io';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import 'package:whispaste/core/config/settings_provider.dart';
+import 'package:whispaste/services/stt/whisper/gpu_load_crash_guard.dart';
+
+class _FakeSettingsNotifier extends SettingsNotifier {
+  _FakeSettingsNotifier(this._settings);
+  final AppSettings _settings;
+
+  @override
+  Future<AppSettings> build() async => _settings;
+
+  @override
+  Future<void> updateSettings(AppSettings Function(AppSettings) updater) async {
+    state = AsyncData(updater(state.value ?? _settings));
+  }
+}
+
+/// Simulates a persistence failure (locked secure storage, disk full, DB
+/// locked) in the exact call `recoverFromGpuLoadCrash` makes — used to prove
+/// that failure can never propagate out and block `runApp()`.
+class _ThrowingSettingsNotifier extends SettingsNotifier {
+  _ThrowingSettingsNotifier(this._settings);
+  final AppSettings _settings;
+
+  @override
+  Future<AppSettings> build() async => _settings;
+
+  @override
+  Future<void> updateSettings(AppSettings Function(AppSettings) updater) async {
+    throw StateError('simulated settings-persistence failure');
+  }
+}
+
+void main() {
+  group('GpuLoadCrashGuard', () {
+    late Directory tempDir;
+
+    setUp(() async {
+      tempDir = await Directory.systemTemp.createTemp('gpu_load_crash_guard_');
+    });
+
+    tearDown(() async {
+      await tempDir.delete(recursive: true);
+    });
+
+    test('crashedLastAttempt is false with no marker file', () {
+      final guard = GpuLoadCrashGuard(dataDir: tempDir.path);
+      expect(guard.crashedLastAttempt, isFalse);
+    });
+
+    test('markAttempt creates the marker so crashedLastAttempt is true', () {
+      final guard = GpuLoadCrashGuard(dataDir: tempDir.path);
+      guard.markAttempt();
+      expect(guard.crashedLastAttempt, isTrue);
+    });
+
+    test('clearAttempt removes the marker so crashedLastAttempt is false '
+        'again', () {
+      final guard = GpuLoadCrashGuard(dataDir: tempDir.path);
+      guard.markAttempt();
+      guard.clearAttempt();
+      expect(guard.crashedLastAttempt, isFalse);
+    });
+
+    test('clearAttempt is a no-op (does not throw) when no marker exists', () {
+      final guard = GpuLoadCrashGuard(dataDir: tempDir.path);
+      expect(guard.clearAttempt, returnsNormally);
+    });
+
+    test('a fresh GpuLoadCrashGuard instance sees a marker left behind by an '
+        'earlier instance pointed at the same directory — this is exactly '
+        'the "next process launch" scenario after a hard crash', () {
+      GpuLoadCrashGuard(dataDir: tempDir.path).markAttempt();
+
+      final nextLaunch = GpuLoadCrashGuard(dataDir: tempDir.path);
+      expect(nextLaunch.crashedLastAttempt, isTrue);
+    });
+  });
+
+  group('recoverFromGpuLoadCrash', () {
+    late Directory tempDir;
+
+    setUp(() async {
+      tempDir = await Directory.systemTemp.createTemp('gpu_load_crash_guard_');
+    });
+
+    tearDown(() async {
+      await tempDir.delete(recursive: true);
+    });
+
+    test('no marker present → settings are left untouched', () async {
+      final container = ProviderContainer(
+        overrides: [
+          gpuLoadCrashGuardProvider.overrideWithValue(
+            GpuLoadCrashGuard(dataDir: tempDir.path),
+          ),
+          settingsProvider.overrideWith(
+            () => _FakeSettingsNotifier(
+              AppSettings.defaults.copyWithSections(
+                behavior: AppSettings.defaults.behavior.copyWith(
+                  gpuAcceleration: 'auto',
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      await container.read(settingsProvider.future);
+
+      await recoverFromGpuLoadCrash(container);
+
+      expect(
+        container.read(settingsProvider).value!.behavior.gpuAcceleration,
+        'auto',
+      );
+    });
+
+    test('a leftover marker from a crashed previous session permanently '
+        'forces gpuAcceleration to "disabled" and clears the marker', () async {
+      final guard = GpuLoadCrashGuard(dataDir: tempDir.path)..markAttempt();
+      final container = ProviderContainer(
+        overrides: [
+          gpuLoadCrashGuardProvider.overrideWithValue(guard),
+          settingsProvider.overrideWith(
+            () => _FakeSettingsNotifier(
+              AppSettings.defaults.copyWithSections(
+                behavior: AppSettings.defaults.behavior.copyWith(
+                  gpuAcceleration: 'auto',
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      await container.read(settingsProvider.future);
+
+      expect(guard.crashedLastAttempt, isTrue);
+
+      await recoverFromGpuLoadCrash(container);
+
+      expect(
+        container.read(settingsProvider).value!.behavior.gpuAcceleration,
+        'disabled',
+        reason:
+            'a crash detected from the previous session must permanently '
+            'switch to CPU-only, not just for one session — the user must '
+            'never need to reach the settings screen to escape the loop',
+      );
+      expect(
+        guard.crashedLastAttempt,
+        isFalse,
+        reason:
+            'the marker must be cleared once recovery has run, so a '
+            'clean future GPU attempt is not misdiagnosed as another crash',
+      );
+    });
+
+    test(
+      'a persistence failure while writing the CPU-only override never '
+      'throws out of recoverFromGpuLoadCrash — main.dart awaits this '
+      'unguarded before runApp(), so a throw here would replace the GPU '
+      'crash loop with a silent, windowless dead-boot loop, and still '
+      'clears the marker so a one-off failure is not permanently stuck',
+      () async {
+        final guard = GpuLoadCrashGuard(dataDir: tempDir.path)..markAttempt();
+        final container = ProviderContainer(
+          overrides: [
+            gpuLoadCrashGuardProvider.overrideWithValue(guard),
+            settingsProvider.overrideWith(
+              () => _ThrowingSettingsNotifier(
+                AppSettings.defaults.copyWithSections(
+                  behavior: AppSettings.defaults.behavior.copyWith(
+                    gpuAcceleration: 'auto',
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+        await container.read(settingsProvider.future);
+
+        await expectLater(recoverFromGpuLoadCrash(container), completes);
+
+        expect(
+          guard.crashedLastAttempt,
+          isFalse,
+          reason:
+              'even on a persistence failure, the marker must be cleared — '
+              'otherwise every future launch keeps retrying recovery instead '
+              'of just attempting GPU again (self-limiting is the correct '
+              'fallback for an unrelated I/O failure)',
+        );
+      },
+    );
+  });
+}

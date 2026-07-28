@@ -28,6 +28,7 @@ import 'inference_client_rejected.dart';
 import 'inference_request_validator.dart';
 import 'stt_benchmark.dart' show SttBenchmark;
 import 'wav_header_repair.dart';
+import 'whisper/gpu_load_crash_guard.dart';
 import 'whisper/whisper_engine.dart';
 import 'whisper/whisper_isolate_engine.dart';
 import 'whisper/whisper_resilience_policy.dart';
@@ -979,9 +980,31 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
 
     _log.info('Loading STT model: $modelId ($modelPath)');
 
+    // Crash-loop breaker (see gpu_load_crash_guard.dart): a genuine native
+    // fault has no catchable Dart exception and kills the whole process
+    // before any code below ever runs. Mark intent to disk right before the
+    // GPU-backed load, and keep it marked through the warmup inference below:
+    // on old/weak GPUs the first *compute dispatch* (not the weight load
+    // itself) is the more likely crash point, so clearing right after
+    // `load()` would let that exact crash repeat the loop undetected. Only
+    // clear once the process has provably survived both load AND the first
+    // inference, or once the GPU path has been abandoned for CPU.
+    final crashGuard = ref.read(gpuLoadCrashGuardProvider);
+    final attemptingGpu = _engine!.status.backend != WhisperBackend.cpu;
+    if (attemptingGpu) crashGuard.markAttempt();
+    // Tracks whether the marker set above still needs clearing — a plain
+    // bool rather than re-deriving from `attemptingGpu` at each call site,
+    // so the catch branch's clear (GPU abandoned for CPU) and the
+    // post-warmup clear (GPU path survived) can't both fire for one load.
+    var gpuAttemptPending = attemptingGpu;
+
     try {
       await _engine!.load(modelPath: modelPath);
     } catch (e) {
+      if (gpuAttemptPending) {
+        crashGuard.clearAttempt();
+        gpuAttemptPending = false;
+      }
       // FLUTTER_WHISPASTE-80: a GPU/driver cold-start (e.g. first-ever
       // shader compile) can hang past the engine's internal load timeout
       // and fail the whole session even though CPU would have worked fine.
@@ -1015,6 +1038,14 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     _resetIdleTimer();
 
     await _warmupInference();
+    // Reaching here proves the process survived the first GPU compute
+    // dispatch, not just the weight load — see the crash-loop-breaker
+    // comment above. Only fires if the catch branch above didn't already
+    // clear it (GPU abandoned for CPU before we got this far).
+    if (gpuAttemptPending) {
+      crashGuard.clearAttempt();
+      gpuAttemptPending = false;
+    }
     unawaited(_runBenchmark(modelId));
 
     _transition(

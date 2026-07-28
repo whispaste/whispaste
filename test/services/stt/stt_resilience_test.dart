@@ -146,6 +146,12 @@ class _LoadFailingEngine implements WhisperEngine {
   bool _loaded = false;
   String? lastLoadedModelPath;
 
+  /// Optional call-order trace, appended to by [load]/[transcribe] when set
+  /// — used to prove the crash-loop guard clears strictly *after* the
+  /// warmup inference, not right after `load()` returns (gpu_load_crash_guard
+  /// coverage test).
+  List<String>? trace;
+
   @override
   WhisperEngineStatus get status =>
       WhisperEngineStatus(isLoaded: _loaded, backend: backend);
@@ -158,6 +164,7 @@ class _LoadFailingEngine implements WhisperEngine {
         '0:01:00.000000: Future not completed',
       );
     }
+    trace?.add('load');
     lastLoadedModelPath = modelPath;
     _loaded = true;
   }
@@ -167,7 +174,10 @@ class _LoadFailingEngine implements WhisperEngine {
     List<int> wavBytes, {
     String? language,
     String? prompt,
-  }) async => 'ok';
+  }) async {
+    trace?.add('transcribe');
+    return 'ok';
+  }
 
   @override
   Future<void> unload() async {
@@ -670,4 +680,205 @@ void main() {
       expect(unusedFallback.lastLoadedModelPath, isNull);
     });
   });
+
+  group('GPU-load crash-loop breaker (gpu_load_crash_guard.dart)', () {
+    late Directory guardDir;
+
+    setUp(() async {
+      guardDir = await Directory.systemTemp.createTemp('gpu_crash_guard_');
+    });
+
+    tearDown(() async {
+      await guardDir.delete(recursive: true);
+    });
+
+    test('a successful GPU-backend load marks the guard before the native '
+        'call and clears it right after — proving _start() is actually '
+        'wired to the guard, not just coincidentally leaving no marker '
+        'behind', () async {
+      final guard = _SpyGpuLoadCrashGuard(dataDir: guardDir.path);
+      final gpuEngine = _LoadFailingEngine(backend: WhisperBackend.vulkan);
+      final container = ProviderContainer(
+        overrides: [
+          whisperEngineProvider.overrideWithValue(gpuEngine),
+          gpuLoadCrashGuardProvider.overrideWithValue(guard),
+          settingsProvider.overrideWith(
+            () => _FakeSettingsNotifier(
+              AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
+            ),
+          ),
+          modelDownloadProvider.overrideWith(
+            () => _FakeModelDownloadNotifier(),
+          ),
+          hw.gpuInfoProvider.overrideWith(
+            (_) async =>
+                const hw.GpuInfo(vendor: hw.GpuVendor.none, name: 'CPU'),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(settingsProvider.future);
+      final notifier = container.read(localSttBundleProvider.notifier);
+      await notifier.ensureRunning();
+
+      expect(
+        container.read(localSttBundleProvider).serverState,
+        SttServerState.ready,
+      );
+      expect(guard.markCalls, 1);
+      expect(guard.clearCalls, 1);
+      expect(guard.crashedLastAttempt, isFalse);
+    });
+
+    test('a caught GPU load failure that recovers onto CPU still marks then '
+        'clears the guard — the process survived, so this must not look '
+        'like a crash on the next launch', () async {
+      final guard = _SpyGpuLoadCrashGuard(dataDir: guardDir.path);
+      final gpuEngine = _LoadFailingEngine(
+        backend: WhisperBackend.vulkan,
+        failLoad: true,
+      );
+      final cpuEngine = _LoadFailingEngine(backend: WhisperBackend.cpu);
+      final container = ProviderContainer(
+        overrides: [
+          whisperEngineProvider.overrideWithValue(gpuEngine),
+          whisperCpuFallbackEngineProvider.overrideWithValue(cpuEngine),
+          gpuLoadCrashGuardProvider.overrideWithValue(guard),
+          settingsProvider.overrideWith(
+            () => _FakeSettingsNotifier(
+              AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
+            ),
+          ),
+          modelDownloadProvider.overrideWith(
+            () => _FakeModelDownloadNotifier(),
+          ),
+          hw.gpuInfoProvider.overrideWith(
+            (_) async =>
+                const hw.GpuInfo(vendor: hw.GpuVendor.none, name: 'CPU'),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(settingsProvider.future);
+      final notifier = container.read(localSttBundleProvider.notifier);
+      await notifier.ensureRunning();
+
+      expect(
+        container.read(localSttBundleProvider).serverState,
+        SttServerState.ready,
+      );
+      expect(guard.markCalls, 1);
+      expect(guard.clearCalls, 1);
+      expect(guard.crashedLastAttempt, isFalse);
+    });
+
+    test('a CPU-only engine never touches the guard at all — the marker is '
+        'reserved for GPU-backed attempts', () async {
+      final guard = _SpyGpuLoadCrashGuard(dataDir: guardDir.path);
+      final cpuEngine = _LoadFailingEngine(backend: WhisperBackend.cpu);
+      final container = ProviderContainer(
+        overrides: [
+          whisperEngineProvider.overrideWithValue(cpuEngine),
+          gpuLoadCrashGuardProvider.overrideWithValue(guard),
+          settingsProvider.overrideWith(
+            () => _FakeSettingsNotifier(
+              AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
+            ),
+          ),
+          modelDownloadProvider.overrideWith(
+            () => _FakeModelDownloadNotifier(),
+          ),
+          hw.gpuInfoProvider.overrideWith(
+            (_) async =>
+                const hw.GpuInfo(vendor: hw.GpuVendor.none, name: 'CPU'),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(settingsProvider.future);
+      final notifier = container.read(localSttBundleProvider.notifier);
+      await notifier.ensureRunning();
+
+      expect(guard.markCalls, 0);
+      expect(guard.clearCalls, 0);
+    });
+
+    test('the marker clears strictly AFTER the warmup inference, not right '
+        'after load() — on old/weak GPUs the first compute dispatch, not '
+        'the weight load, is the more likely native crash point, so '
+        'clearing too early would let that exact crash repeat the loop '
+        'undetected', () async {
+      final trace = <String>[];
+      final guard = _SpyGpuLoadCrashGuard(dataDir: guardDir.path, trace: trace);
+      final gpuEngine = _LoadFailingEngine(backend: WhisperBackend.vulkan)
+        ..trace = trace;
+      final container = ProviderContainer(
+        overrides: [
+          whisperEngineProvider.overrideWithValue(gpuEngine),
+          gpuLoadCrashGuardProvider.overrideWithValue(guard),
+          settingsProvider.overrideWith(
+            () => _FakeSettingsNotifier(
+              AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
+            ),
+          ),
+          modelDownloadProvider.overrideWith(
+            () => _FakeModelDownloadNotifier(),
+          ),
+          hw.gpuInfoProvider.overrideWith(
+            (_) async =>
+                const hw.GpuInfo(vendor: hw.GpuVendor.none, name: 'CPU'),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(settingsProvider.future);
+      final notifier = container.read(localSttBundleProvider.notifier);
+      await notifier.ensureRunning();
+
+      // Only the first 4 entries are asserted: _runBenchmark's own transcribe
+      // call is unawaited (fire-and-forget) and may append a trailing
+      // 'transcribe' after 'clear' depending on scheduling — that's expected
+      // and irrelevant to what this test checks.
+      expect(
+        trace.take(4),
+        ['mark', 'load', 'transcribe', 'clear'],
+        reason:
+            '"clear" must come after "transcribe" (the warmup inference) — '
+            'if it moved back to right after "load", a crash during warmup '
+            'on real hardware would go undetected by the next launch',
+      );
+    });
+  });
+}
+
+/// Counts real [GpuLoadCrashGuard] calls so tests can assert `_start()` is
+/// actually wired to the guard (mark-before-load, clear-after-return),
+/// rather than only asserting on the marker file's final state — which
+/// would pass even if the wiring were deleted entirely.
+class _SpyGpuLoadCrashGuard extends GpuLoadCrashGuard {
+  _SpyGpuLoadCrashGuard({required super.dataDir, this.trace});
+
+  int markCalls = 0;
+  int clearCalls = 0;
+
+  /// Optional shared call-order trace — see [_LoadFailingEngine.trace].
+  final List<String>? trace;
+
+  @override
+  void markAttempt() {
+    markCalls++;
+    trace?.add('mark');
+    super.markAttempt();
+  }
+
+  @override
+  void clearAttempt() {
+    clearCalls++;
+    trace?.add('clear');
+    super.clearAttempt();
+  }
 }

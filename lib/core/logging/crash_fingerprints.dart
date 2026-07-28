@@ -206,6 +206,14 @@ const String sttStartupDeadline = 'stt-startup-deadline';
 /// corporate AV or group policy.
 const String gpuDetectionFailed = 'gpu-detection-failed';
 
+/// [GpuLoadCrashGuard] detected that the previous session died mid GPU
+/// model-load (a native segfault with no catchable Dart exception — see
+/// `gpu_load_crash_guard.dart`) and this launch permanently switched
+/// `behavior.gpuAcceleration` to `disabled` to break the crash loop.
+/// Captured as a warning, not an error: this is the recovery succeeding,
+/// not a new failure.
+const String sttGpuLoadCrashRecovered = 'stt-gpu-load-crash-recovered';
+
 // ---------------------------------------------------------------------------
 // Full iterable for tooling (e.g. „verify no inline fingerprint string in
 // the codebase appears outside this file"). Order is irrelevant — Sentry
@@ -246,4 +254,5 @@ const List<String> allCrashFingerprints = <String>[
   sttInferenceConnectionLost,
   sttStartupDeadline,
   gpuDetectionFailed,
+  sttGpuLoadCrashRecovered,
 ];

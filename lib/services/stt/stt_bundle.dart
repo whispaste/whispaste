@@ -15,6 +15,7 @@ export 'stt_exit_classifier.dart';
 export 'stt_gpu_fallback_policy.dart';
 export 'stt_idle_timer.dart';
 export 'stt_server_state_notifier.dart';
+export 'whisper/gpu_load_crash_guard.dart';
 export 'whisper/whisper_engine.dart';
 export 'whisper/whisper_ffi_engine.dart';
 export 'whisper/whisper_isolate_engine.dart';
