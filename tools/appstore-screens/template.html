@@ -300,15 +300,26 @@
      normal alpha compositing reproduces the exact real translucency.
      Straddles the window's top edge so it reads as hovering above the app. */
 
+  /* Integration model: a native always-on-top window is axis-aligned
+     (0deg — a tilt reads as a pasted sticker and costs sharpness through
+     rotation resampling) and hovers OVER the app: most of the pill overlaps
+     the window so its shadow falls visibly onto the window surface (the
+     canvas is near-black, where any shadow would vanish), while the top
+     breaks the window edge. `image-rendering: pixelated` keeps the 236px
+     source crisp through the 2x render pass: at deviceScaleFactor 2 the
+     upscale is exact pixel duplication, which the Lanczos downscale then
+     reconstructs, instead of a blurring bilinear round-trip. */
   .float-pill-img {
     position: absolute;
     z-index: 3;
     width: calc(236px * var(--k));
     height: calc(60px * var(--k));
-    top: calc(-26px * var(--k));
+    top: calc(-22px * var(--k));
     right: calc(var(--screen-w) * 0.055);
-    transform: rotate(-4deg);
-    filter: drop-shadow(0 calc(6px * var(--k)) calc(18px * var(--k)) rgba(0, 0, 0, 0.35));
+    image-rendering: pixelated;
+    filter:
+      drop-shadow(0 calc(10px * var(--k)) calc(26px * var(--k)) rgba(0, 0, 0, 0.5))
+      drop-shadow(0 calc(3px * var(--k)) calc(7px * var(--k)) rgba(0, 0, 0, 0.3));
   }
 
   .window-frame img {

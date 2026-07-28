@@ -94,19 +94,16 @@
      the exact real translucency, which no hand-tuned backdrop-filter value
      can guarantee. Compact size (236×60), matching the real app's
      OverlayLayoutSpec.compact. */
+  /* Integration model: a native always-on-top window is axis-aligned to the
+     viewer (0deg, no sticker tilt) and hovers OVER content. The pill overlaps
+     the lit display so its baked per-pixel alpha shows real UI through the
+     glass, its shadow falls visibly onto the screen content (depth anchor),
+     and its right end breaks the device silhouette (reads as a separate
+     window). Shadow direction follows the scene key light (upper left). */
   .overlay-pill-img {
     position: absolute;
-    filter: drop-shadow(0 3px 9px rgba(0, 0, 0, 0.35));
-    transform: rotate(-3deg);
-  }
-
-  /* Soft ambient light in the photo behind the pill so the glass has bright
-     material behind it to show through (it otherwise sits over near-black). */
-  .pill-glow {
-    position: absolute;
-    width: 340px;
-    height: 150px;
-    background: radial-gradient(ellipse closest-side, rgba(160, 215, 240, 0.17) 0%, rgba(160, 215, 240, 0.06) 48%, transparent 74%);
+    width: 210px;
+    filter: drop-shadow(9px 16px 20px rgba(0, 0, 0, 0.45)) drop-shadow(3px 5px 6px rgba(0, 0, 0, 0.22));
   }
 
   .text-layer {
@@ -181,7 +178,6 @@
         <img id="app-shot-img" src="" alt="">
       </div>
     </div>
-    <div class="pill-glow" id="pill-glow"></div>
     <img id="overlay-pill" class="overlay-pill-img" src="" alt="" />
   </div>
   <div class="contrast-scrim"></div>
@@ -267,20 +263,12 @@
     document.getElementById('app-shot-img').src = shotData;
 
     const pill = document.getElementById('overlay-pill');
-    const glow = document.getElementById('pill-glow');
     if (pillPos && pillData) {
       pill.src = pillData;
-      // Real asset is 236x60 (compact) — hardcoded rather than read from
-      // offsetWidth/Height, which can race the image decode.
-      const pillW = 236;
-      const pillH = 60;
       pill.style.left = `${pillPos[0]}px`;
       pill.style.top = `${pillPos[1]}px`;
-      glow.style.left = `${pillPos[0] + pillW / 2 - 170}px`;
-      glow.style.top = `${pillPos[1] + pillH / 2 - 75}px`;
     } else {
       pill.remove();
-      glow.remove();
     }
 
     document.getElementById('device-hl').innerHTML = copy.headline[locale].replace(/\n/g, '<br>');

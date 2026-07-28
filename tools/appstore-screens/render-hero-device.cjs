@@ -27,7 +27,10 @@ const BG_PHOTO = path.resolve(__dirname, 'assets', 'generated', 'hero-device-v2.
 // the real captured OverlayPainter output (compact size, 236x60) — see the
 // comment on .overlay-pill-img in hero-device-template.html for why this
 // replaced an earlier hand-rebuilt CSS version.
-const PILL_POS = [828, 112];
+// Anchored so ~2/3 of the pill overlaps the lit display's upper-right region
+// (real glass translucency + visible shadow on content) while the right end
+// breaks past the bezel into the air.
+const PILL_POS = [800, 183];
 const PILL_ASSET = path.resolve(__dirname, 'assets', 'overlay-recording-dark-compact.png');
 const BG_W = 1344;
 const BG_H = 768;
