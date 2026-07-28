@@ -102,6 +102,10 @@ class PrivacyStep extends ConsumerWidget {
                   onChanged: (v) => _setUsageStatsConsent(ref, v),
                 ),
               ),
+              // Thin divider between the two consents — they are separate
+              // decisions (analytics vs. crash reports) and must read as two
+              // rows, not one long row with two switches.
+              settingsInlineDivider(context),
               SettingRow(
                 key: kPrivacyStepCrashToggleKey,
                 icon: LucideIcons.shieldCheck,

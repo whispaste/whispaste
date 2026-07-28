@@ -2351,6 +2351,14 @@ class L10nHe extends L10n {
       'נראה שהקיצור שלך תפוס על ידי אפליקציה אחרת. הקלט שילוב חדש למטה כדי להמשיך.';
 
   @override
+  String get onboardingTriggerModeHoldHint =>
+      'החזק את הקיצור ודבר, שחרר כדי לסיים';
+
+  @override
+  String get onboardingTriggerModeToggleHint =>
+      'לחץ פעם אחת כדי להתחיל, לחץ שוב כדי לסיים';
+
+  @override
   String get onboardingStartUsing => 'בוא נתחיל';
 
   @override

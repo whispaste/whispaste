@@ -135,7 +135,70 @@ class TriggerStep extends ConsumerWidget {
           const SizedBox(height: WpSpacing.lg),
         ],
 
-        // Hotkey + push-to-talk settings card.
+        // Hotkey hero card — the step's focal element. The hotkey is what the
+        // user will press dozens of times a day, so it gets a centered,
+        // generously-spaced presentation instead of a settings row.
+        Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: surfaceVariant,
+            borderRadius: WpRadius.borderLg,
+            border: Border.all(color: borderColor),
+          ),
+          padding: const EdgeInsets.symmetric(
+            horizontal: WpSpacing.md,
+            vertical: WpSpacing.lg,
+          ),
+          child: Column(
+            children: [
+              Text(
+                l10n.onboardingTriggerCurrentHotkey,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: WpTypography.small,
+                  fontWeight: FontWeight.w600,
+                  color: textSecondary,
+                ),
+              ),
+              const SizedBox(height: WpSpacing.md),
+              HotkeyDisplay(
+                hotkeyKey: hotkeyKey,
+                hotkeyModifiers: hotkeyModifiers,
+                hotkeyKeyDisplay: hotkeyDisplay,
+              ),
+              const SizedBox(height: WpSpacing.md),
+              OutlinedButton(
+                key: kTriggerStepChangeHotkeyKey,
+                onPressed: () async {
+                  final result = await HotkeyRecorderDialog.show(
+                    context,
+                    initialKey: hotkeyKey,
+                    initialDisplayKey: hotkeyDisplay,
+                    initialModifiers: hotkeyModifiers,
+                  );
+                  if (result != null && context.mounted) {
+                    await ref
+                        .read(settingsProvider.notifier)
+                        .updateSettings(
+                          (s) => s.copyWith(
+                            hotkeyKey: result.key,
+                            hotkeyKeyDisplay: result.displayKey,
+                            hotkeyModifiers: result.modifiers,
+                          ),
+                        );
+                  }
+                },
+                child: Text(l10n.settingsChangeHotkey),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: WpSpacing.md),
+
+        // Mode card — hold vs. toggle. The switch stays the single control;
+        // the row's subtitle re-words itself to describe the currently
+        // selected behavior, so flipping the switch gives immediate,
+        // plain-language feedback on what the hotkey will now do.
         Container(
           decoration: BoxDecoration(
             color: surfaceVariant,
@@ -143,52 +206,10 @@ class TriggerStep extends ConsumerWidget {
             border: Border.all(color: borderColor),
           ),
           padding: const EdgeInsets.symmetric(horizontal: WpSpacing.sm),
-          child: Column(
-            children: [
-              SettingRow(
-                icon: LucideIcons.keyboard,
-                label: l10n.onboardingTriggerCurrentHotkey,
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    HotkeyDisplay(
-                      hotkeyKey: hotkeyKey,
-                      hotkeyModifiers: hotkeyModifiers,
-                      hotkeyKeyDisplay: hotkeyDisplay,
-                    ),
-                    const SizedBox(width: WpSpacing.sm),
-                    OutlinedButton(
-                      key: kTriggerStepChangeHotkeyKey,
-                      onPressed: () async {
-                        final result = await HotkeyRecorderDialog.show(
-                          context,
-                          initialKey: hotkeyKey,
-                          initialDisplayKey: hotkeyDisplay,
-                          initialModifiers: hotkeyModifiers,
-                        );
-                        if (result != null && context.mounted) {
-                          await ref
-                              .read(settingsProvider.notifier)
-                              .updateSettings(
-                                (s) => s.copyWith(
-                                  hotkeyKey: result.key,
-                                  hotkeyKeyDisplay: result.displayKey,
-                                  hotkeyModifiers: result.modifiers,
-                                ),
-                              );
-                        }
-                      },
-                      child: Text(l10n.settingsChangeHotkey),
-                    ),
-                  ],
-                ),
-              ),
-              _PushToTalkRow(
-                settings: settings,
-                supportsKeyUp: supportsKeyUp,
-                l10n: l10n,
-              ),
-            ],
+          child: _PushToTalkRow(
+            settings: settings,
+            supportsKeyUp: supportsKeyUp,
+            l10n: l10n,
           ),
         ),
         const SizedBox(height: WpSpacing.xxl),
@@ -258,9 +279,16 @@ class _PushToTalkRow extends ConsumerWidget {
           : null, // null disables the switch
     );
 
+    // Subtitle mirrors the live value: it always describes what pressing the
+    // hotkey will do *right now*, so the toggle's effect is never abstract.
+    final modeHint = settings.pushToTalk && supportsKeyUp
+        ? l10n.onboardingTriggerModeHoldHint
+        : l10n.onboardingTriggerModeToggleHint;
+
     return SettingRow(
       icon: LucideIcons.hand,
       label: l10n.settingsHoldToRecord,
+      subtitle: modeHint,
       semanticToggledValue: supportsKeyUp ? settings.pushToTalk : null,
       trailing: supportsKeyUp
           ? toggle

@@ -146,7 +146,10 @@ class ReadyStep extends ConsumerWidget {
           accent: accent,
           textColor: textPrimary,
         ),
-        const SizedBox(height: WpSpacing.xxl),
+        // xl (not xxl) before the autostart card: it groups the optional
+        // toggle with the quickstart block above it and keeps the card
+        // subordinate to the Start CTA — the step's real focal point.
+        const SizedBox(height: WpSpacing.xl),
 
         // Autostart toggle — a simpler yes/no than Settings → Interface's
         // never/normal/minimized dropdown; picking "yes" here always means

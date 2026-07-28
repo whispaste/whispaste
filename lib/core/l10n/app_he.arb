@@ -792,6 +792,8 @@
   "onboardingTriggerCurrentHotkey": "קיצור נוכחי",
   "onboardingTriggerHotkeyConflictTitle": "הקיצור כבר בשימוש",
   "onboardingTriggerHotkeyConflictBody": "נראה שהקיצור שלך תפוס על ידי אפליקציה אחרת. הקלט שילוב חדש למטה כדי להמשיך.",
+  "onboardingTriggerModeHoldHint": "החזק את הקיצור ודבר, שחרר כדי לסיים",
+  "onboardingTriggerModeToggleHint": "לחץ פעם אחת כדי להתחיל, לחץ שוב כדי לסיים",
   "onboardingStartUsing": "בוא נתחיל",
   "overlayRecording": "מקליט",
   "overlayTranscribing": "מתמלל…",

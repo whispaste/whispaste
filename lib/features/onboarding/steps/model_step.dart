@@ -255,34 +255,52 @@ class _ModelStepState extends ConsumerState<ModelStep> {
             ),
           )
         else ...[
-          // loam-ignore: a11y-interactive-semantics – semantics provided in _EngineCardState.build
-          _EngineCard(
-            key: kModelStepEngineParakeetCardKey,
-            icon: LucideIcons.zap,
-            label: l10n.onboardingModelEngineParakeetLabel,
-            description: l10n.onboardingModelEngineParakeetDesc,
-            sizeLabel: parakeetModelSizeLabel,
-            isRecommended: _recommendation?.engine == OnDeviceEngine.parakeet,
-            isSelected: _selectedEngine == OnDeviceEngine.parakeet,
-            isDisabled: !_parakeetEligible,
-            disabledReason: l10n.onboardingModelEngineUnsupportedLanguage,
-            isDark: isDark,
-            onTap: () => _selectEngine(OnDeviceEngine.parakeet),
-          ),
-          const SizedBox(height: WpSpacing.sm),
-          // loam-ignore: a11y-interactive-semantics – semantics provided in _EngineCardState.build
-          _EngineCard(
-            key: kModelStepEngineWhisperCardKey,
-            icon: LucideIcons.globe,
-            label: l10n.onboardingModelEngineWhisperLabel,
-            description: l10n.onboardingModelEngineWhisperDesc,
-            sizeLabel: whisperModel.sizeLabel,
-            isRecommended: _recommendation?.engine == OnDeviceEngine.whisper,
-            isSelected: _selectedEngine == OnDeviceEngine.whisper,
-            isDisabled: false,
-            disabledReason: null,
-            isDark: isDark,
-            onTap: () => _selectEngine(OnDeviceEngine.whisper),
+          // Two engines side by side — a deliberate 50/50 layout so the
+          // choice reads as two equal alternatives, not a ranked list.
+          // IntrinsicHeight + stretch keeps both cards the same height even
+          // when one description wraps to more lines than the other.
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  // loam-ignore: a11y-interactive-semantics – semantics provided in _EngineCardState.build
+                  child: _EngineCard(
+                    key: kModelStepEngineParakeetCardKey,
+                    icon: LucideIcons.zap,
+                    label: l10n.onboardingModelEngineParakeetLabel,
+                    description: l10n.onboardingModelEngineParakeetDesc,
+                    sizeLabel: parakeetModelSizeLabel,
+                    isRecommended:
+                        _recommendation?.engine == OnDeviceEngine.parakeet,
+                    isSelected: _selectedEngine == OnDeviceEngine.parakeet,
+                    isDisabled: !_parakeetEligible,
+                    disabledReason:
+                        l10n.onboardingModelEngineUnsupportedLanguage,
+                    isDark: isDark,
+                    onTap: () => _selectEngine(OnDeviceEngine.parakeet),
+                  ),
+                ),
+                const SizedBox(width: WpSpacing.md),
+                Expanded(
+                  // loam-ignore: a11y-interactive-semantics – semantics provided in _EngineCardState.build
+                  child: _EngineCard(
+                    key: kModelStepEngineWhisperCardKey,
+                    icon: LucideIcons.globe,
+                    label: l10n.onboardingModelEngineWhisperLabel,
+                    description: l10n.onboardingModelEngineWhisperDesc,
+                    sizeLabel: whisperModel.sizeLabel,
+                    isRecommended:
+                        _recommendation?.engine == OnDeviceEngine.whisper,
+                    isSelected: _selectedEngine == OnDeviceEngine.whisper,
+                    isDisabled: false,
+                    disabledReason: null,
+                    isDark: isDark,
+                    onTap: () => _selectEngine(OnDeviceEngine.whisper),
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: WpSpacing.md),
 
@@ -586,90 +604,98 @@ class _EngineCardState extends State<_EngineCard> {
                 ),
                 borderRadius: WpRadius.borderMd,
               ),
-              child: Row(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(widget.icon, size: 22, color: accent),
-                  const SizedBox(width: WpSpacing.md),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Text(
-                              widget.label,
-                              style: TextStyle(
-                                fontSize: WpTypography.subheading,
-                                fontWeight: FontWeight.w600,
-                                color: textPrimary,
-                              ),
-                            ),
-                            if (widget.isRecommended && !widget.isDisabled) ...[
-                              const SizedBox(width: WpSpacing.xs),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: accent.withValues(alpha: 0.15),
-                                  borderRadius: WpRadius.borderFull,
-                                ),
-                                child: Text(
-                                  L10n.of(context).onboardingModelRecommended,
-                                  style: TextStyle(
-                                    fontSize: WpTypography.micro,
-                                    fontWeight: FontWeight.w600,
-                                    color: accent,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
+                  // Engine icon left; a quiet check fades in on the right when
+                  // this card is the current selection — the accent border
+                  // alone can blur together with the "recommended" badge when
+                  // both cards sit side by side.
+                  Row(
+                    children: [
+                      Icon(widget.icon, size: 22, color: accent),
+                      const Spacer(),
+                      AnimatedOpacity(
+                        opacity: widget.isSelected ? 1.0 : 0.0,
+                        duration: WpMotion.durationFor(context, WpMotion.fast),
+                        curve: WpMotion.defaultCurve,
+                        child: Icon(
+                          LucideIcons.circleCheck,
+                          size: WpIconSize.sm,
+                          color: accent,
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          widget.description,
-                          style: TextStyle(
-                            fontSize: WpTypography.small,
-                            color: textSecondary,
-                            height: 1.3,
-                          ),
-                        ),
-                        if (widget.isDisabled &&
-                            widget.disabledReason != null) ...[
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              Icon(
-                                LucideIcons.info,
-                                size: 12,
-                                color: textMuted,
-                              ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  widget.disabledReason!,
-                                  style: TextStyle(
-                                    fontSize: WpTypography.caption,
-                                    color: textMuted,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: WpSpacing.sm),
+                  Text(
+                    widget.label,
+                    style: TextStyle(
+                      fontSize: WpTypography.subheading,
+                      fontWeight: FontWeight.w600,
+                      color: textPrimary,
                     ),
                   ),
-                  const SizedBox(width: WpSpacing.sm),
+                  if (widget.isRecommended && !widget.isDisabled) ...[
+                    const SizedBox(height: WpSpacing.xs),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: WpSpacing.xs,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: accent.withValues(alpha: 0.15),
+                        borderRadius: WpRadius.borderFull,
+                      ),
+                      child: Text(
+                        L10n.of(context).onboardingModelRecommended,
+                        style: TextStyle(
+                          fontSize: WpTypography.caption,
+                          fontWeight: FontWeight.w600,
+                          color: accent,
+                        ),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: WpSpacing.xs),
+                  Text(
+                    widget.description,
+                    style: TextStyle(
+                      fontSize: WpTypography.small,
+                      color: textSecondary,
+                      height: 1.4,
+                    ),
+                  ),
+                  if (widget.isDisabled && widget.disabledReason != null) ...[
+                    const SizedBox(height: WpSpacing.xs),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(LucideIcons.info, size: 12, color: textMuted),
+                        const SizedBox(width: WpSpacing.xxs),
+                        Expanded(
+                          child: Text(
+                            widget.disabledReason!,
+                            style: TextStyle(
+                              fontSize: WpTypography.caption,
+                              color: textMuted,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  // Pin the size label to the bottom edge so both cards'
+                  // download sizes align and compare at a glance, regardless
+                  // of how many lines each description wraps to.
+                  const SizedBox(height: WpSpacing.sm),
+                  const Spacer(),
                   Text(
                     widget.sizeLabel,
                     style: TextStyle(
                       fontSize: WpTypography.small,
                       fontWeight: FontWeight.w500,
-                      color: textSecondary,
+                      color: textMuted,
                     ),
                   ),
                 ],

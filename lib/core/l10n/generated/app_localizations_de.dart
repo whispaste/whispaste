@@ -2418,6 +2418,14 @@ class L10nDe extends L10n {
       'Dein Tastenkürzel scheint von einer anderen App belegt zu sein. Nimm unten eine neue Kombination auf, um fortzufahren.';
 
   @override
+  String get onboardingTriggerModeHoldHint =>
+      'Tastenkürzel gedrückt halten und sprechen, Loslassen beendet die Aufnahme';
+
+  @override
+  String get onboardingTriggerModeToggleHint =>
+      'Einmal drücken startet, erneutes Drücken beendet die Aufnahme';
+
+  @override
   String get onboardingStartUsing => 'Los geht\'s';
 
   @override

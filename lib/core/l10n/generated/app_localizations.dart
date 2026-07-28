@@ -4287,6 +4287,18 @@ abstract class L10n {
   /// **'Your hotkey seems to be in use by another app. Record a new combination below to continue.'**
   String get onboardingTriggerHotkeyConflictBody;
 
+  /// No description provided for @onboardingTriggerModeHoldHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Hold the hotkey and speak, release to finish'**
+  String get onboardingTriggerModeHoldHint;
+
+  /// No description provided for @onboardingTriggerModeToggleHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Press once to start, press again to finish'**
+  String get onboardingTriggerModeToggleHint;
+
   /// No description provided for @onboardingStartUsing.
   ///
   /// In en, this message translates to:

@@ -2397,6 +2397,14 @@ class L10nEn extends L10n {
       'Your hotkey seems to be in use by another app. Record a new combination below to continue.';
 
   @override
+  String get onboardingTriggerModeHoldHint =>
+      'Hold the hotkey and speak, release to finish';
+
+  @override
+  String get onboardingTriggerModeToggleHint =>
+      'Press once to start, press again to finish';
+
+  @override
   String get onboardingStartUsing => 'Let\'s go';
 
   @override
