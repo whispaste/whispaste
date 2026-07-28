@@ -1,0 +1,36 @@
+WhisPaste is a voice-input utility: press a global hotkey, speak, and the
+transcribed text is inserted at the current cursor position in whatever app
+is focused (Mail, Notes, a browser, an IDE, etc.). All speech-to-text
+processing runs on-device by default (Whisper/Parakeet); cloud providers are
+opt-in and never touch our servers.
+
+TEXT INSERTION AND THE ACCESSIBILITY PERMISSION
+To insert text at the cursor, WhisPaste posts synthetic keyboard events via
+the PostEvent API (CGEvent/CGEventKeyboardSetUnicodeString), gated by
+macOS's PostEvent TCC permission (surfaced to the user as "Accessibility").
+This is the same system-level channel other App Store voice-input and
+automation utilities use for the same purpose. WhisPaste does not use the
+Accessibility (AXUIElement) API to read or observe the contents of other
+apps — it only posts the keystrokes for the text it just transcribed. The
+app never reads, records, or transmits what is on screen or in other apps.
+
+Granting this permission is entirely optional: without it, WhisPaste falls
+back to copying the transcribed text to the system clipboard so the user can
+paste manually with Cmd+V. Permission can be granted, denied, or revoked at
+any time in System Settings > Privacy & Security > Accessibility, and the
+app explains this trade-off in its own onboarding before ever prompting for
+the permission.
+
+HOW TO TEST
+1. Launch WhisPaste and complete onboarding (grants Microphone; the
+   Accessibility prompt is optional and can be skipped).
+2. Open any text field (e.g. TextEdit, Notes, or the browser's address bar).
+3. Press the configured hotkey (default shown in onboarding / Settings >
+   Hotkey), speak a short sentence, then release/press again per the chosen
+   push-to-talk or toggle mode.
+4. The transcribed text appears at the cursor within a couple of seconds
+   once transcription finishes. With Accessibility not granted, the same
+   text is instead placed on the clipboard for a manual Cmd+V paste.
+
+No account, sign-in, or demo credentials are required — the app works fully
+offline out of the box.

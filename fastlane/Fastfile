@@ -184,11 +184,19 @@ platform :mac do
       # very next internal step, review_attachment_file(), unconditionally
       # calls fetch_app_store_review_detail with no rescue (unlike its
       # neighbor) and crashes with "No data" since nothing was ever created.
+      # `notes:` is read explicitly here (not left to deliver's own
+      # metadata-folder auto-merge) for the same reason the rest of this
+      # hash is explicit: this whole block exists because deliver's
+      # merge-from-nil-hash path already crashed once (see comment above).
+      # fastlane/metadata/review_information/notes.txt explains the
+      # PostEvent/Accessibility permission (Guideline 2.4.5) to the
+      # reviewer — see docs/store-release.md for the full rationale.
       app_review_information: {
         first_name:    ENV.fetch("FASTLANE_REVIEW_FIRST_NAME"),
         last_name:     ENV.fetch("FASTLANE_REVIEW_LAST_NAME"),
         phone_number:  ENV.fetch("FASTLANE_REVIEW_PHONE"),
-        email_address: ENV.fetch("FASTLANE_APPLE_ID")
+        email_address: ENV.fetch("FASTLANE_APPLE_ID"),
+        notes:         File.read(File.join(PROJECT_ROOT, "fastlane/metadata/review_information/notes.txt"))
       },
       # Without force: true, deliver generates fastlane/Preview.html and
       # interactively asks "Does the Preview ... look okay for you?" — this
