@@ -15,6 +15,7 @@ library;
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:golden_screenshot/golden_screenshot.dart';
 
 import 'package:whispaste/core/theme/overlay_design_spec.dart';
 import 'package:whispaste/services/floating_overlay/floating_overlay_controller_interface.dart';
@@ -85,6 +86,12 @@ Widget _buildStaticFrame({
 // ── Tests ───────────────────────────────────────────────────────────────────
 
 void main() {
+  // Loaded once for the whole suite rather than per-test: `tester.loadAssets`
+  // inside the first test case raced with its own `pump()` often enough to
+  // leave that one test (whichever ran first) still on the Ahem fallback —
+  // `setUpAll` guarantees the font is registered before any test pumps.
+  setUpAll(() => loadAppFonts(onlyLoadTheseFonts: {'Inter'}));
+
   group('OverlayPainter parität-goldens (4 states × 2 themes × 2 sizes)', () {
     for (final state in OverlayVisualState.values) {
       for (final isDark in [true, false]) {

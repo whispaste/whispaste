@@ -506,6 +506,7 @@ class OverlayPainter extends CustomPainter {
       text: TextSpan(
         text: text,
         style: TextStyle(
+          fontFamily: 'Inter',
           fontSize: fontSize,
           fontWeight: OverlayDesignSpec.primaryFontWeight,
           color: color,
