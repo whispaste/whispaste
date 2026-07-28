@@ -50,6 +50,17 @@ abstract final class WpShadows {
     BoxShadow(color: Color(0x1F000000), blurRadius: 8, offset: Offset(0, 2)),
   ];
 
+  /// Same geometry as [subtle], alpha 0. Lets an AnimatedContainer fade the
+  /// *alpha* channel when a shadow toggles off, instead of retargeting
+  /// `subtle -> null`: `BoxShadow.lerpList` handles a null target by scaling
+  /// blur/offset toward zero at *fixed* alpha, which concentrates the ink
+  /// into a smaller, harder-edged patch for one frame before it's fully
+  /// gone — a visible flash rather than a fade (most noticeable in light
+  /// theme, where this shadow has real contrast against pearl surfaces).
+  static const List<BoxShadow> subtleTransparent = [
+    BoxShadow(color: Color(0x00000000), blurRadius: 8, offset: Offset(0, 2)),
+  ];
+
   static const List<BoxShadow> card = [
     BoxShadow(color: Color(0x33000000), blurRadius: 14, offset: Offset(0, 4)),
     BoxShadow(color: Color(0x14000000), blurRadius: 2, offset: Offset(0, 1)),

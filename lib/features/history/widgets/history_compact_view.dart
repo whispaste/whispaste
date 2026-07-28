@@ -153,9 +153,13 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
             decoration: BoxDecoration(
               color: bg,
               borderRadius: WpRadius.borderSm,
+              // Always present (never null) so AnimatedContainer fades the
+              // border's alpha instead of its width — see the matching fix
+              // + doc comment in history_list_tile.dart for why a null
+              // target reads as a one-frame flash instead of a fade.
               border: widget.isFocused
                   ? Border.all(color: accent.withValues(alpha: 0.5), width: 1.5)
-                  : null,
+                  : Border.all(color: accent.withValues(alpha: 0), width: 1.5),
             ),
             child: Row(
               children: [

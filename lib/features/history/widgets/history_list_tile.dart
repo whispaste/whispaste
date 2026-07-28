@@ -164,18 +164,24 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
             decoration: BoxDecoration(
               color: bg,
               borderRadius: WpRadius.borderLg,
-              // Use uniform border for selected state (compatible with borderRadius)
+              // Always present (never null) so AnimatedContainer fades the
+              // border's *alpha*, not its width — Border.lerp(a, null, t)
+              // scales width toward zero at fixed color/alpha, which reads
+              // as a flash rather than a fade for one frame (same class of
+              // bug as the boxShadow fix below).
               border: widget.isSelected
                   ? Border.all(color: accent, width: 2)
                   : widget.isFocused
                   ? Border.all(color: accent.withValues(alpha: 0.5), width: 1.5)
-                  : null,
+                  : Border.all(color: accent.withValues(alpha: 0), width: 1.5),
               // Weiche Ambient-Elevation nur bei Interaktion — die ruhende
               // Zeile bleibt flach (Dichte/Perf), Hover/Select/Focus bekommen
               // einen glow-freien Materiallift zusätzlich zum Border.
+              // subtleTransparent (not null) for the same reason as border
+              // above — see its doc comment for the exact flash mechanism.
               boxShadow: (widget.isSelected || widget.isFocused || _isHovered)
                   ? WpShadows.subtle
-                  : null,
+                  : WpShadows.subtleTransparent,
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
