@@ -10,7 +10,7 @@
   :root {
     --screen-w: 1920px;
     --screen-h: 1080px;
-    --num-screens: 5;
+    --num-screens: 6;
     --accent: #38D9F0;
     --accent-secondary: #0891B2;
     --bg-dark: #0f1219;
@@ -146,26 +146,102 @@
     height: auto;
     display: block;
   }
+
+  /* ---- Hero / poster screen (no app window) ---- */
+
+  .screen.hero {
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    gap: 0;
+    padding: 56px 96px;
+    background:
+      radial-gradient(ellipse 900px 620px at 50% 30%, rgba(56, 217, 240, 0.07) 0%, transparent 60%),
+      radial-gradient(ellipse 700px 480px at 12% 94%, rgba(8, 145, 178, 0.05) 0%, transparent 55%),
+      radial-gradient(ellipse 700px 480px at 88% 94%, rgba(8, 145, 178, 0.05) 0%, transparent 55%),
+      linear-gradient(180deg, #0d1017 0%, #111827 55%, #0f1219 100%);
+  }
+
+  .hero-icon-row {
+    display: flex;
+    align-items: center;
+    gap: 42px;
+    margin-bottom: 46px;
+  }
+
+  .hero-wave {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+
+  .hero-wave-bar {
+    width: 5px;
+    border-radius: 3px;
+  }
+
+  .hero-icon {
+    width: 172px;
+    height: 172px;
+    filter: drop-shadow(0 22px 48px rgba(0, 0, 0, 0.5));
+  }
+
+  .hero-headline {
+    font-size: 74px;
+    font-weight: 900;
+    line-height: 1.06;
+    letter-spacing: -0.04em;
+    color: var(--text-primary);
+    margin-bottom: 26px;
+    white-space: pre-line;
+  }
+
+  .hero-headline em {
+    font-style: normal;
+    color: var(--accent);
+  }
+
+  .hero-subtitle {
+    font-size: 22px;
+    line-height: 1.55;
+    color: var(--text-muted);
+    max-width: 940px;
+    margin-bottom: 42px;
+  }
+
+  .hero-badges {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+  }
+
+  .hero-badge {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(240, 244, 248, 0.72);
+    padding: 11px 22px;
+    border: 1px solid rgba(56, 217, 240, 0.26);
+    border-radius: 999px;
+  }
 </style>
 </head>
 <body>
 <div class="panorama">
-  <div id="screen-0" class="screen bg-dark">
-    <div class="text-side">
-      <div id="cat-0" class="category"></div>
-      <div id="hl-0" class="headline"></div>
-      <div id="sub-0" class="subtitle"></div>
+  <div id="screen-0" class="screen hero">
+    <div class="hero-icon-row">
+      <div class="hero-wave" id="hero-wave-left"></div>
+      <img id="hero-icon" class="hero-icon" src="" alt="WhisPaste app icon">
+      <div class="hero-wave" id="hero-wave-right"></div>
     </div>
-    <div class="screenshot-side">
-      <div class="window-frame">
-        <div class="window-content">
-          <img id="ss-0" src="" alt="Workspace overview">
-        </div>
-      </div>
-    </div>
+    <div id="hl-0" class="hero-headline"></div>
+    <div id="sub-0" class="hero-subtitle"></div>
+    <div id="badges-0" class="hero-badges"></div>
   </div>
 
-  <div id="screen-1" class="screen bg-light">
+  <div id="screen-1" class="screen bg-dark">
     <div class="text-side">
       <div id="cat-1" class="category"></div>
       <div id="hl-1" class="headline"></div>
@@ -174,13 +250,13 @@
     <div class="screenshot-side">
       <div class="window-frame">
         <div class="window-content">
-          <img id="ss-1" src="" alt="Workspace detail">
+          <img id="ss-1" src="" alt="Workspace overview">
         </div>
       </div>
     </div>
   </div>
 
-  <div id="screen-2" class="screen bg-dark">
+  <div id="screen-2" class="screen bg-light">
     <div class="text-side">
       <div id="cat-2" class="category"></div>
       <div id="hl-2" class="headline"></div>
@@ -189,13 +265,13 @@
     <div class="screenshot-side">
       <div class="window-frame">
         <div class="window-content">
-          <img id="ss-2" src="" alt="Voice shortcuts">
+          <img id="ss-2" src="" alt="Workspace detail">
         </div>
       </div>
     </div>
   </div>
 
-  <div id="screen-3" class="screen bg-light">
+  <div id="screen-3" class="screen bg-dark">
     <div class="text-side">
       <div id="cat-3" class="category"></div>
       <div id="hl-3" class="headline"></div>
@@ -204,13 +280,13 @@
     <div class="screenshot-side">
       <div class="window-frame">
         <div class="window-content">
-          <img id="ss-3" src="" alt="Hotkey settings">
+          <img id="ss-3" src="" alt="Voice shortcuts">
         </div>
       </div>
     </div>
   </div>
 
-  <div id="screen-4" class="screen bg-dark">
+  <div id="screen-4" class="screen bg-light">
     <div class="text-side">
       <div id="cat-4" class="category"></div>
       <div id="hl-4" class="headline"></div>
@@ -219,11 +295,51 @@
     <div class="screenshot-side">
       <div class="window-frame">
         <div class="window-content">
-          <img id="ss-4" src="" alt="Time saved">
+          <img id="ss-4" src="" alt="Hotkey settings">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="screen-5" class="screen bg-dark">
+    <div class="text-side">
+      <div id="cat-5" class="category"></div>
+      <div id="hl-5" class="headline"></div>
+      <div id="sub-5" class="subtitle"></div>
+    </div>
+    <div class="screenshot-side">
+      <div class="window-frame">
+        <div class="window-content">
+          <img id="ss-5" src="" alt="Time saved">
         </div>
       </div>
     </div>
   </div>
 </div>
+
+<script>
+  // Deterministic waveform flanking the app icon (fixed heights, no randomness
+  // so store screenshots stay reproducible). Bars fade out away from the icon.
+  (function () {
+    const heights = [10, 20, 14, 28, 18, 38, 24, 50, 34, 58, 44, 66];
+    const left = document.getElementById('hero-wave-left');
+    const right = document.getElementById('hero-wave-right');
+    if (!left || !right) return;
+    heights.forEach(function (h, i) {
+      const alpha = (0.1 + (i / (heights.length - 1)) * 0.32).toFixed(2);
+      [left, right].forEach(function (container) {
+        const bar = document.createElement('div');
+        bar.className = 'hero-wave-bar';
+        bar.style.height = h + 'px';
+        bar.style.background = 'rgba(56, 217, 240, ' + alpha + ')';
+        if (container === right) {
+          container.insertBefore(bar, container.firstChild);
+        } else {
+          container.appendChild(bar);
+        }
+      });
+    });
+  })();
+</script>
 </body>
 </html>

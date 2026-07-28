@@ -18,6 +18,7 @@ const {
   ENABLED_STORES,
   FUTURE_STORES,
   SCREENS,
+  ASSET_PATHS,
   OUTPUT,
   GOLDENS,
   WEBSITE_SCREENSHOTS_ROOT,
@@ -73,6 +74,10 @@ function verifySourceImages() {
   for (const storeId of ENABLED_STORES) {
     for (const lang of ['en', 'de']) {
       for (const screen of SCREENS) {
+        // Hero screens are pure HTML/CSS and have no golden screenshot.
+        if (!screen.screenshot) {
+          continue;
+        }
         const filePath = screenshotPathFor(screen, lang, storeId);
         if (!fs.existsSync(filePath)) {
           throw new Error(
@@ -111,16 +116,50 @@ async function renderPanorama(lang, storeId) {
 
     const imageMap = {};
     for (const screen of SCREENS) {
+      if (!screen.screenshot) {
+        continue;
+      }
       imageMap[screen.id] = toDataUri(screenshotPathFor(screen, lang, storeId));
     }
 
+    const logoData = toDataUri(ASSET_PATHS.logo);
+
     await page.evaluate(
-      ({ screens, locale, imageData }) => {
+      ({ screens, locale, imageData, logo }) => {
         screens.forEach((screen, index) => {
           const screenNode = document.getElementById(`screen-${index}`);
-          const category = document.getElementById(`cat-${index}`);
           const headline = document.getElementById(`hl-${index}`);
           const subtitle = document.getElementById(`sub-${index}`);
+
+          if (headline) {
+            headline.innerHTML = screen.headline[locale].replace(/\n/g, '<br>');
+          }
+
+          if (subtitle) {
+            subtitle.textContent = screen.subtitle[locale];
+          }
+
+          if (screen.type === 'hero') {
+            const icon = document.getElementById('hero-icon');
+            if (icon) {
+              icon.src = logo;
+            }
+
+            const badges = document.getElementById(`badges-${index}`);
+            if (badges && screen.badges) {
+              badges.innerHTML = '';
+              screen.badges[locale].forEach((text) => {
+                const badge = document.createElement('div');
+                badge.className = 'hero-badge';
+                badge.textContent = text;
+                badges.appendChild(badge);
+              });
+            }
+
+            return;
+          }
+
+          const category = document.getElementById(`cat-${index}`);
           const screenshot = document.getElementById(`ss-${index}`);
 
           if (screenNode) {
@@ -131,20 +170,12 @@ async function renderPanorama(lang, storeId) {
             category.textContent = screen.category[locale];
           }
 
-          if (headline) {
-            headline.innerHTML = screen.headline[locale].replace(/\n/g, '<br>');
-          }
-
-          if (subtitle) {
-            subtitle.textContent = screen.subtitle[locale];
-          }
-
           if (screenshot) {
             screenshot.src = imageData[screen.id];
           }
         });
       },
-      { screens: SCREENS, locale: lang, imageData: imageMap },
+      { screens: SCREENS, locale: lang, imageData: imageMap, logo: logoData },
     );
 
     await page.waitForFunction(
@@ -207,13 +238,14 @@ function copyUiScreensToWebsite(lang) {
 
   // Use the first enabled store (microsoft = Windows) for the website UI shots.
   const primaryStore = ENABLED_STORES[0];
-  for (const screen of SCREENS) {
+  const uiScreens = SCREENS.filter((screen) => screen.screenshot);
+  for (const screen of uiScreens) {
     const sourcePath = screenshotPathFor(screen, lang, primaryStore);
     const fileName = path.basename(sourcePath);
     fs.copyFileSync(sourcePath, path.join(langDir, fileName));
   }
 
-  console.log(`📋 Copied ${SCREENS.length} raw UI screenshots → website/public/screenshots/ui/${lang}/`);
+  console.log(`📋 Copied ${uiScreens.length} raw UI screenshots → website/public/screenshots/ui/${lang}/`);
 }
 
 function copyStoreScreensToWebsite(lang, files) {

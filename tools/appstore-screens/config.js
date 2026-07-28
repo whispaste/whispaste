@@ -54,6 +54,25 @@ const FUTURE_STORES = ['iphone_6_9', 'play_phone'];
 
 const SCREENS = [
   {
+    // Poster/hero screen: brand statement + app icon, no app window.
+    // Rendered via the dedicated `.screen.hero` layout in template.html.
+    id: 'hero',
+    type: 'hero',
+    headline: {
+      en: 'Speak, and WhisPaste\ntypes into <em>any app</em>',
+      de: 'Sprich, und WhisPaste\nschreibt in <em>jede App</em>',
+    },
+    subtitle: {
+      en: 'Press your hotkey, talk, and the finished text lands right at your cursor.',
+      de: 'Drück dein Kürzel, sprich, und der fertige Text landet direkt an deinem Cursor.',
+    },
+    badges: {
+      en: ['100% offline', 'One-time purchase', 'Open source'],
+      de: ['100 % offline', 'Einmalkauf', 'Open Source'],
+    },
+    theme: 'dark',
+  },
+  {
     id: 'workspace-overview',
     screenshot: {
       en: 'en/dark/01_workspace_overview.png',
