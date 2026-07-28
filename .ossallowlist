@@ -108,9 +108,11 @@ scripts/probe-packaging-validate.sh
 scripts/setup-gh-secrets.sh
 scripts/setup-gh-secrets.ps1
 scripts/setup-gh-secrets.py
+scripts/submit-ms-store.ps1
 
 # Tooling (Build-/Store-Helfer; deploy-spezifische Skripte wie win-smoke/
 # sind über .gitignore ausgeschlossen und dürfen NIE in die Allowlist)
+tools/appstore/
 tools/appstore-screens/
 tools/store-icons/
 

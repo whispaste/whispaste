@@ -192,3 +192,7 @@ tools/**/report.txt
 
 # Lokaler Public-Docs-Attest-Stempel (scripts/docs-attest.sh) — maschinen-/clone-lokal
 .docs-attest
+
+# Python-Bytecode-Cache (tools/appstore/set-mac-price.py)
+__pycache__/
+*.pyc

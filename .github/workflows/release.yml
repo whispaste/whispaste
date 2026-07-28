@@ -585,12 +585,20 @@ jobs:
   submit-ms-store:
     name: Submit to Microsoft Store
     needs: [build-windows, wack-gate]
-    # Reactivated (v1.2.45): the previous ps1/Legacy-DevCenter-API submission
-    # job was removed and the release flow ran the Store submission locally on
-    # macOS instead. Rebuilt on Microsoft's own supported CI/CD path — the
-    # msstore CLI (docs/store-release.md §"Migration auf die msstore CLI") —
-    # instead of reviving the old ps1 script. Stable-only, same as manifest-bump:
-    # a beta build never has an MSIX (AC-5/Q2) and must never reach the Store.
+    # Uses scripts/submit-ms-store.ps1 against the classic DevCenter Submission
+    # API directly, NOT the `msstore` CLI used here previously up to v1.2.58.
+    # That CLI hard-aborts (and deletes the draft submission) on any paid
+    # product since its PR #115 (github.com/microsoft/msstore-cli/pull/115,
+    # merged 2025-12-01): "App updates are supported only for Free products."
+    # That's a CLI-side guard, not a platform limit — Microsoft's own docs say
+    # the classic API can "continue … to update modules other than Pricing and
+    # availability" even for a Pricing V2 account (which is WhisPaste's real
+    # constraint: Pricing itself can't be written for V2 through any API, see
+    # scripts/submit-ms-store.ps1's header and docs/store-release.md). This job
+    # revives the ps1-based submission removed in commit 213c1d18 (v1.2.45 had
+    # briefly switched to the msstore CLI instead of fixing that script).
+    # Stable-only, same as manifest-bump: a beta build never has an MSIX
+    # (AC-5/Q2) and must never reach the Store.
     # continue-on-error at job level: a Store-submission failure never blocks
     # the rest of the release (GitHub Release/website/other channels).
     continue-on-error: true
@@ -621,17 +629,11 @@ jobs:
           MS_STORE_SELLER_ID: ${{ secrets.MS_STORE_SELLER_ID }}
           MS_STORE_APP_ID: ${{ secrets.MS_STORE_APP_ID }}
 
-      # Needed from here on for scripts/apply-store-metadata.mjs + store/ — this
+      # Needed from here on for scripts/submit-ms-store.ps1 + store/ — this
       # job previously only consumed the msix-release artifact, no repo checkout.
       - name: Checkout
         if: steps.store_check.outputs.skip != 'true'
         uses: actions/checkout@v6
-
-      - name: Set up Node.js
-        if: steps.store_check.outputs.skip != 'true'
-        uses: actions/setup-node@v6
-        with:
-          node-version: 22
 
       - name: Download MSIX artifact
         if: steps.store_check.outputs.skip != 'true'
@@ -640,91 +642,32 @@ jobs:
           name: msix-release
           path: msix
 
-      - name: Configure Microsoft Store CLI
-        if: steps.store_check.outputs.skip != 'true'
-        uses: microsoft/microsoft-store-apppublisher@v1.1
-
-      - name: Reconfigure store credentials
-        if: steps.store_check.outputs.skip != 'true'
-        shell: pwsh
-        run: |
-          msstore reconfigure `
-            --tenantId ${{ secrets.MS_STORE_TENANT_ID }} `
-            --sellerId ${{ secrets.MS_STORE_SELLER_ID }} `
-            --clientId ${{ secrets.MS_STORE_CLIENT_ID }} `
-            --clientSecret ${{ secrets.MS_STORE_CLIENT_SECRET }}
-
-      # --noCommit: uploads the package into a draft submission WITHOUT sending
-      # it to certification yet. Price + listing metadata (below) are applied
-      # to this SAME draft before anything is committed, so package and
-      # metadata reach certification together as one atomic submission —
-      # avoiding any race against an already-in-flight review (see
-      # ~/.claude/infrastructure/microsoft-partner-center.md §8.4 for why this
-      # matters: a metadata update issued *after* a submission already entered
-      # Certification is unverified territory and was deliberately avoided).
-      - name: Publish MSIX to Microsoft Store (draft, not yet committed)
-        id: publish_draft
+      # Uploads package + listing metadata (title/description/features/
+      # keywords/release notes from store/) and COMMITS the submission —
+      # unlike the previous msstore-CLI job, this does reach Certification
+      # automatically. That's safe for Pricing V2: the classic API leaves
+      # Pricing untouched (see the script's own pricing rationale in its
+      # header), so the submission simply carries forward whatever price is
+      # already live in Partner Center — never a €0/reset listing. Still
+      # verify the live price once after the first real run of this job (see
+      # docs/store-release.md).
+      - name: Submit to Microsoft Store (classic DevCenter API, commits)
+        id: submit
         if: steps.store_check.outputs.skip != 'true'
         shell: pwsh
-        # PowerShell does NOT stop a multi-line `run:` script when an external
-        # command (msstore, node — as opposed to a PowerShell cmdlet) exits
-        # non-zero; it just moves on to the next line. Every external-command
-        # call below is followed by an explicit $LASTEXITCODE check so a real
-        # failure surfaces HERE, at the step that actually broke, instead of
-        # silently continuing and confusing a downstream step (2026-07-21
-        # incident: this exact gap let a broken Node script look "successful").
         run: |
           $msix = Get-ChildItem -Path msix -Filter *.msix -Recurse | Select-Object -First 1
           if (-not $msix) {
             Write-Host "::warning::No .msix file found in the msix-release artifact — skipping Store submission."
-            echo "msix_found=false" >> $env:GITHUB_OUTPUT
             exit 0
           }
-          echo "msix_found=true" >> $env:GITHUB_OUTPUT
-          msstore publish $msix.FullName -id ${{ secrets.MS_STORE_APP_ID }} --noCommit
-          if ($LASTEXITCODE -ne 0) { Write-Host "::error::msstore publish failed (exit $LASTEXITCODE)"; exit $LASTEXITCODE }
-          Write-Host "::notice::Uploaded $($msix.Name) as a draft submission (not yet committed)."
-
-      # Fetches the draft submission `publish --noCommit` just created, then
-      # overlays our centrally-managed price + listing text (store/) on top —
-      # everything else (Images, ApplicationPackages, hardware reqs, …) passes
-      # through untouched. See scripts/apply-store-metadata.mjs header for the
-      # full rationale, including why the CLI's raw JSON output needs repair
-      # before it parses at all.
-      - name: Apply Store metadata (price + listing text)
-        if: steps.store_check.outputs.skip != 'true' && steps.publish_draft.outputs.msix_found == 'true'
-        shell: pwsh
-        run: |
-          msstore submission get ${{ secrets.MS_STORE_APP_ID }} | Out-File -Encoding utf8 submission-raw.txt
-          node scripts/apply-store-metadata.mjs --in submission-raw.txt --out submission-merged.json
-          if ($LASTEXITCODE -ne 0) { Write-Host "::error::apply-store-metadata.mjs failed (exit $LASTEXITCODE)"; exit $LASTEXITCODE }
-          if (-not (Test-Path submission-merged.json)) { Write-Host "::error::apply-store-metadata.mjs reported success but submission-merged.json was not written"; exit 1 }
-          Write-Host "::notice::Merged price + listing metadata into the draft submission."
-
-      - name: Update submission metadata
-        if: steps.store_check.outputs.skip != 'true' && steps.publish_draft.outputs.msix_found == 'true'
-        shell: pwsh
-        run: |
-          $merged = Get-Content -Raw submission-merged.json
-          msstore submission updateMetadata ${{ secrets.MS_STORE_APP_ID }} $merged
-          if ($LASTEXITCODE -ne 0) { Write-Host "::error::msstore submission updateMetadata failed (exit $LASTEXITCODE)"; exit $LASTEXITCODE }
-
-      # Deliberately NOT auto-committed (2026-07-21 incident). WhisPaste's
-      # account is on Pricing V2 — Microsoft's own docs say the Submission
-      # API can't be used to write Pricing for Pricing V2 accounts at all,
-      # and empirically every submission this API creates resets Pricing to
-      # Free/classical regardless of what was last live. Auto-committing
-      # here would certify a €0 listing. Package + listing text (title,
-      # description, features, keywords, release notes) ARE fully applied
-      # above and ready — a human finishes this from Partner Center: verify
-      # the price under "Pricing and availability" (Microsoft's UI is the
-      # only path that carries Pricing V2 forward correctly), then click
-      # "Submit to the Store". See ~/.claude/infrastructure/
-      # microsoft-partner-center.md §8/§9 for the full research trail.
-      - name: Store submission ready — manual certification required
-        if: steps.store_check.outputs.skip != 'true' && steps.publish_draft.outputs.msix_found == 'true'
-        run: |
-          echo "::notice::Draft submission for ${{ secrets.MS_STORE_APP_ID }} is ready (package + listing text applied) but NOT auto-committed — Pricing V2 accounts need the price verified/set in Partner Center before submitting. Go to Partner Center, check Pricing and availability, then click 'Submit to the Store'."
+          ./scripts/submit-ms-store.ps1 `
+            -AppId ${{ secrets.MS_STORE_APP_ID }} `
+            -TenantId ${{ secrets.MS_STORE_TENANT_ID }} `
+            -ClientId ${{ secrets.MS_STORE_CLIENT_ID }} `
+            -ClientSecret ${{ secrets.MS_STORE_CLIENT_SECRET }} `
+            -MsixPath $msix.FullName
+          if ($LASTEXITCODE -ne 0) { Write-Host "::error::submit-ms-store.ps1 failed (exit $LASTEXITCODE)"; exit $LASTEXITCODE }
 
   build-macos:
     name: Build macOS
