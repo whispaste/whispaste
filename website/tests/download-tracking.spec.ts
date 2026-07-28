@@ -72,10 +72,20 @@ test.describe('download page — download:triggered dispatch', () => {
   for (const testId of DOWNLOAD_TESTIDS) {
     test(`"${testId}" dispatches download:triggered`, async ({ page }) => {
       await page.getByTestId(testId).first().click();
-      const count = await page.evaluate(
-        () => (window as unknown as { __downloadTriggeredCount: number }).__downloadTriggeredCount,
-      );
-      expect(count).toBe(1);
+      // A bare one-shot `page.evaluate()` right after `.click()` is a known
+      // flake source: click() resolving doesn't strictly guarantee the
+      // element's synchronous onclick (and its CustomEvent dispatch) has
+      // already run by the time the next CDP round-trip reads window state
+      // — under scheduling pressure the JS can lag the click by a tick.
+      // expect.poll() retries the read instead of trusting a single sample,
+      // without weakening what's actually asserted (still exactly 1).
+      await expect
+        .poll(() =>
+          page.evaluate(
+            () => (window as unknown as { __downloadTriggeredCount: number }).__downloadTriggeredCount,
+          ),
+        )
+        .toBe(1);
     });
   }
 });
