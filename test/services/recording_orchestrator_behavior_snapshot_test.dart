@@ -162,7 +162,12 @@ class _FakeDesktopPasteController extends DesktopPasteController {
     required Duration delay,
   }) async {
     if (typeThrows) throw Exception('type failed');
-    return const NativePasteResult(status: NativePasteStatus.success);
+    // Non-success by default (unlike pasteClipboard above): paste() tries
+    // typing first on macOS/Windows (this suite's test host is macOS), and
+    // these tests exercise the classic clipboard+paste-shortcut path via
+    // pasteClipboard — a default-success typeText would short-circuit
+    // paste() before it ever gets there.
+    return const NativePasteResult(status: NativePasteStatus.postFailed);
   }
 
   @override

@@ -38,15 +38,14 @@ bool shouldShowAutoPasteOffHint({
   if (!autoPasteSupported) return false;
   if (!onboardingCompleted) return false;
   if (autoPasteOffHintDismissed) return false;
-  // Auto-Paste is considered ON when the action injects keystrokes — i.e.
-  // `paste`/`clipboardAndPaste` (⌘V shortcut) or `type`/`clipboardAndType`
-  // (synthetic Unicode typing). Anything else (`clipboard` only, `nothing`)
-  // counts as Auto-Paste off.
+  // Auto-Paste is considered ON when the action injects the transcript at
+  // the cursor — `paste`/`clipboardAndPaste` (the visible "paste" action;
+  // the native mechanism underneath may be a ⌘V shortcut or synthetic
+  // Unicode typing, an implementation detail — see DesktopPaster.paste).
+  // Anything else (`clipboard` only, `nothing`) counts as Auto-Paste off.
   switch (afterAction) {
     case AfterTranscriptionAction.paste:
     case AfterTranscriptionAction.clipboardAndPaste:
-    case AfterTranscriptionAction.type:
-    case AfterTranscriptionAction.clipboardAndType:
       return false;
     case AfterTranscriptionAction.clipboard:
     case AfterTranscriptionAction.nothing:
@@ -584,22 +583,18 @@ class _AfterActionChip extends StatelessWidget {
     AfterTranscriptionAction.clipboard => LucideIcons.clipboard,
     AfterTranscriptionAction.paste => LucideIcons.clipboardPaste,
     AfterTranscriptionAction.clipboardAndPaste => LucideIcons.clipboardCheck,
-    AfterTranscriptionAction.type => LucideIcons.keyboard,
-    AfterTranscriptionAction.clipboardAndType => LucideIcons.keyboard,
     AfterTranscriptionAction.nothing => LucideIcons.clipboardX,
   };
 
   String _labelFor(AfterTranscriptionAction action) =>
       afterTranscriptionStatusLabel(action, l10n);
 
-  /// Whether [action] needs simulated-keystroke auto-paste/type, unavailable
+  /// Whether [action] needs simulated-keystroke auto-paste, unavailable
   /// when [kAutoPasteSupported] is `false` (the 2.4.5 kill switch — see its
   /// doc in build_config.dart).
   bool _requiresAutoPaste(AfterTranscriptionAction action) =>
       action == AfterTranscriptionAction.paste ||
-      action == AfterTranscriptionAction.clipboardAndPaste ||
-      action == AfterTranscriptionAction.type ||
-      action == AfterTranscriptionAction.clipboardAndType;
+      action == AfterTranscriptionAction.clipboardAndPaste;
 
   @override
   Widget build(BuildContext context) {

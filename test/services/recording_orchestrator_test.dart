@@ -187,7 +187,15 @@ class FakeDesktopPasteController extends DesktopPasteController {
   Duration? lastTypeDelay;
   String? lastTypedText;
   bool pasteResult = true;
-  bool typeResult = true;
+
+  /// Defaults to `false` (NOT `true`, unlike [pasteResult]): `paste()` tries
+  /// typing first on macOS/Windows (see `DesktopPaster.paste`), and this
+  /// suite's test host IS macOS — if this defaulted to succeeding, every
+  /// existing paste-flow test below would silently short-circuit through
+  /// the typing branch and never reach the classic clipboard+paste-shortcut
+  /// path it's actually exercising. Tests that specifically want the typing
+  /// branch to succeed set this explicitly.
+  bool typeResult = false;
   bool captureResult = true;
   final captureResults = <bool>[];
   bool disposed = false;
@@ -1586,22 +1594,23 @@ void main() {
       expect(clipboardText, 'Copy and paste');
     });
 
-    test('type calls typeText, not pasteClipboard, and leaves the '
-        'original clipboard untouched', () async {
+    test('paste prefers typing over the classic paste shortcut when '
+        'typing succeeds (this test host is macOS)', () async {
       container.dispose();
       db = HistoryDatabase.forTesting(NativeDatabase.memory());
       wavFile = createFakeWav(
-        'test_audio_type_${DateTime.now().millisecondsSinceEpoch}.wav',
+        'test_audio_type_pref_${DateTime.now().millisecondsSinceEpoch}.wav',
       );
       fakeAudio = FakeAudioService()..wavPathToReturn = wavFile.absolute.path;
-      fakeStt = FakeSttService()..transcriptToReturn = 'Type only';
+      fakeStt = FakeSttService()..transcriptToReturn = 'Type preferred';
       clipboardText = 'Original clipboard';
+      fakeDesktopPaste.typeResult = true;
 
       container = buildContainer(
         const AppSettings(
           stt: SttSettings(model: 'whisper-small', language: 'English'),
           afterTranscriptionSection: AfterTranscriptionSettings(
-            afterTranscription: 'type',
+            afterTranscription: 'paste',
           ),
           behavior: BehaviorSettings(autoPasteDelay: 175),
           onboarding: OnboardingSettings(onboardingCompleted: true),
@@ -1615,26 +1624,29 @@ void main() {
       expect(container.read(recordingProvider).phase, RecordingPhase.done);
       expect(fakeDesktopPaste.typeCalls, 1);
       expect(fakeDesktopPaste.pasteCalls, 0);
-      expect(fakeDesktopPaste.lastTypeDelay, const Duration(milliseconds: 175));
-      expect(fakeDesktopPaste.lastTypedText, 'Type only');
+      expect(fakeDesktopPaste.lastTypedText, 'Type preferred');
+      // typeText never touches the clipboard.
       expect(clipboardText, 'Original clipboard');
     });
 
-    test('clipboard_and_type copies AND types, in that order', () async {
+    test('an old persisted "type" value still dispatches through the '
+        'paste path (fromValue back-compat mapping)', () async {
       container.dispose();
       db = HistoryDatabase.forTesting(NativeDatabase.memory());
       wavFile = createFakeWav(
-        'test_audio_clip_and_type_${DateTime.now().millisecondsSinceEpoch}.wav',
+        'test_audio_type_backcompat_${DateTime.now().millisecondsSinceEpoch}.wav',
       );
       fakeAudio = FakeAudioService()..wavPathToReturn = wavFile.absolute.path;
-      fakeStt = FakeSttService()..transcriptToReturn = 'Copy and type';
-      clipboardText = 'Original clipboard';
+      fakeStt = FakeSttService()..transcriptToReturn = 'Back-compat';
+      fakeDesktopPaste.typeResult = true;
 
       container = buildContainer(
         const AppSettings(
           stt: SttSettings(model: 'whisper-small', language: 'English'),
           afterTranscriptionSection: AfterTranscriptionSettings(
-            afterTranscription: 'clipboard_and_type',
+            // Old, no-longer-selectable persisted value — see
+            // AfterTranscriptionAction.fromValue.
+            afterTranscription: 'type',
           ),
           onboarding: OnboardingSettings(onboardingCompleted: true),
         ),
@@ -1646,11 +1658,6 @@ void main() {
 
       expect(container.read(recordingProvider).phase, RecordingPhase.done);
       expect(fakeDesktopPaste.typeCalls, 1);
-      expect(fakeDesktopPaste.pasteCalls, 0);
-      expect(fakeDesktopPaste.lastTypedText, 'Copy and type');
-      // typeText never touches the clipboard, so the explicit copy step's
-      // write is the final, undisturbed clipboard content.
-      expect(clipboardText, 'Copy and type');
     });
   });
 

@@ -167,6 +167,13 @@ void DesktopPasteHost::HandleMethodCall(
     return;
   }
 
+  if (method == "typeText") {
+    const std::string text = map ? GetString(*map, "text") : "";
+    const int delay_ms = map ? GetInt(*map, "delayMs", 0) : 0;
+    result->Success(TypeText(text, delay_ms));
+    return;
+  }
+
   if (method == "diagnosticPaste") {
     const std::string demo_text = map ? GetString(*map, "demoText") : "";
     result->Success(DiagnosticPaste(demo_text));
@@ -232,6 +239,36 @@ EncodableValue DesktopPasteHost::PasteClipboard(int delay_ms) {
   if (!SendPasteShortcut()) {
     return MakeResultMap("send_input_failed",
                          "SendInput did not inject all 4 key events");
+  }
+  return MakeResultMap("success", "");
+}
+
+// Types `text` directly into the target window via synthetic Unicode
+// keyboard events — no clipboard involved at all. Mirrors PasteClipboard's
+// target-capture/foreground/delay shape but posts the transcript instead of
+// a paste shortcut.
+EncodableValue DesktopPasteHost::TypeText(const std::string& text,
+                                          int delay_ms) {
+  if (!target_window_ || !::IsWindow(target_window_)) {
+    return MakeResultMap("no_target", "no captured target window at type time");
+  }
+
+  if (delay_ms > 0) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(delay_ms));
+  }
+
+  if (!BringTargetToForeground()) {
+    return MakeResultMap(
+        "foreground_blocked",
+        "SetForegroundWindow refused — UIPI or stale window handle");
+  }
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+  const std::wstring wide = Utf8ToWide(text);
+  if (!SendUnicodeString(wide)) {
+    return MakeResultMap("send_input_failed",
+                         "SendInput did not inject all key events");
   }
   return MakeResultMap("success", "");
 }
@@ -346,4 +383,38 @@ bool DesktopPasteHost::SendPasteShortcut() const {
   inputs[3].ki.dwFlags = KEYEVENTF_KEYUP;
 
   return ::SendInput(4, inputs, sizeof(INPUT)) == 4;
+}
+
+// Posts `text` as synthetic Unicode keydown/keyup event pairs via
+// SendInput's KEYEVENTF_UNICODE mode — one INPUT pair per UTF-16 code unit.
+// Unlike a VK-code-based key event, KEYEVENTF_UNICODE carries the character
+// value directly in wScan and is layout-independent, so umlauts/emoji/etc.
+// survive intact regardless of the active keyboard layout. Surrogate pairs
+// (most emoji) are sent as two separate, ordinary code-unit events — Windows
+// pairs them back together on the receiving end, the same as any other
+// Unicode-aware text input; no chunking or pair-straddling concern here
+// (unlike macOS's CGEventKeyboardSetUnicodeString, which has an undocumented
+// small per-event capacity — SendInput has no equivalent limit).
+bool DesktopPasteHost::SendUnicodeString(const std::wstring& text) const {
+  if (text.empty()) return true;
+
+  std::vector<INPUT> inputs;
+  inputs.reserve(text.size() * 2);
+  for (wchar_t code_unit : text) {
+    INPUT down = {};
+    down.type = INPUT_KEYBOARD;
+    down.ki.wScan = code_unit;
+    down.ki.dwFlags = KEYEVENTF_UNICODE;
+    inputs.push_back(down);
+
+    INPUT up = {};
+    up.type = INPUT_KEYBOARD;
+    up.ki.wScan = code_unit;
+    up.ki.dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP;
+    inputs.push_back(up);
+  }
+
+  const UINT sent =
+      ::SendInput(static_cast<UINT>(inputs.size()), inputs.data(), sizeof(INPUT));
+  return sent == inputs.size();
 }

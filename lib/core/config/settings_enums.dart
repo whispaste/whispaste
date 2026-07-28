@@ -87,20 +87,19 @@ enum OnDeviceEngine {
 // ---------------------------------------------------------------------------
 
 /// What happens after successful transcription.
+///
+/// [paste] and [clipboardAndPaste] insert the transcript at the cursor —
+/// the underlying native mechanism (synthetic Unicode typing vs. a ⌘V
+/// keystroke) is an implementation detail the user never sees; see
+/// [DesktopPaster.paste]. `type`/`clipboard_and_type` existed briefly as
+/// separate user-facing actions but were folded back into paste/
+/// clipboardAndPaste — [fromValue] still accepts their old persisted string
+/// values and maps them to the equivalent paste-flavored action so no
+/// migration is needed for anyone who saved a setting during that window.
 enum AfterTranscriptionAction {
   clipboard('clipboard'),
   paste('paste'),
   clipboardAndPaste('clipboard_and_paste'),
-
-  /// Types the transcript directly into the focused field via synthetic
-  /// Unicode keystrokes — no clipboard involved at all.
-  type('type'),
-
-  /// Copies to the clipboard AND types the transcript, as two actions run
-  /// in sequence (copy first, then type) — analogous to
-  /// [clipboardAndPaste], but with [type] instead of [paste] as the second
-  /// step.
-  clipboardAndType('clipboard_and_type'),
   nothing('nothing');
 
   const AfterTranscriptionAction(this.value);
@@ -110,6 +109,9 @@ enum AfterTranscriptionAction {
     for (final e in values) {
       if (e.value == v) return e;
     }
+    // Back-compat for the short-lived 'type'/'clipboard_and_type' values.
+    if (v == 'type') return paste;
+    if (v == 'clipboard_and_type') return clipboardAndPaste;
     return clipboard;
   }
 }

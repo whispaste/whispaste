@@ -172,7 +172,9 @@ class _FakeDesktopPasteController extends DesktopPasteController {
     required Duration delay,
   }) async {
     typeCalls++;
-    return const NativePasteResult(status: NativePasteStatus.success);
+    // Non-success by default (unlike pasteClipboard above) — see the
+    // matching comment in recording_orchestrator_behavior_snapshot_test.dart.
+    return const NativePasteResult(status: NativePasteStatus.postFailed);
   }
 
   @override

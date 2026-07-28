@@ -471,12 +471,6 @@ class L10nDe extends L10n {
   String get settingsAfterTranscriptionBoth => 'Kopieren & einfügen';
 
   @override
-  String get settingsAfterTranscriptionType => 'Automatisch tippen';
-
-  @override
-  String get settingsAfterTranscriptionCopyAndType => 'Kopieren & tippen';
-
-  @override
   String get settingsAfterTranscriptionNothing => 'Nichts tun';
 
   @override
@@ -1430,12 +1424,6 @@ class L10nDe extends L10n {
 
   @override
   String get statusBarAfterBoth => 'Danach: Kopieren & Einfügen';
-
-  @override
-  String get statusBarAfterType => 'Danach: Tippen';
-
-  @override
-  String get statusBarAfterCopyAndType => 'Danach: Kopieren & Tippen';
 
   @override
   String get statusBarAfterNothing => 'Danach: Manuell';

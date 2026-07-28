@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/services.dart';
@@ -13,7 +14,15 @@ final _log = AppLogger('DesktopPaster');
 ///
 /// Implements the full paste lifecycle:
 /// - Blocklist check via bundle ID
-/// - Clipboard save → set transcript → native paste → wait → clipboard restore
+/// - On macOS and Windows, tries direct Unicode typing first (see
+///   [typeText]) — more broadly compatible and clipboard-free — falling
+///   back to the classic clipboard save → set transcript → native paste →
+///   wait → clipboard restore sequence if typing doesn't land. Linux stays
+///   on the classic sequence until it has a native typeText handler too.
+///
+/// The choice of native mechanism is an implementation detail: from the
+/// user's perspective there is one "paste" action, regardless of which of
+/// the two channels actually delivered the text.
 class DesktopPaster implements Paster {
   const DesktopPaster(this._controller);
 
@@ -100,6 +109,21 @@ class DesktopPaster implements Paster {
     final blocked = await _checkBlocklist(options.blocklist);
     if (blocked != null) return blocked;
 
+    // Prefer direct Unicode typing on macOS/Windows: more broadly compatible
+    // (lands even in apps that don't respond to a paste shortcut) and skips
+    // the clipboard save/restore round-trip entirely. Falls through to the
+    // classic clipboard+paste-shortcut sequence below if typing doesn't land
+    // — e.g. an app that only accepts the literal paste shortcut. Linux
+    // stays on the classic sequence until it has a native typeText handler.
+    if (Platform.isMacOS || Platform.isWindows) {
+      final typeOutcome = await _typeTextCore(text, options);
+      if (typeOutcome == PasteOutcome.success) return typeOutcome;
+      _log.info(
+        'Direct typing did not land ($typeOutcome) — falling back to '
+        'clipboard + paste shortcut',
+      );
+    }
+
     // 2. Save current clipboard contents so we can restore after paste.
     String? previousClipboard;
     try {
@@ -173,9 +197,15 @@ class DesktopPaster implements Paster {
     // 1. Blocklist check — same policy as paste().
     final blocked = await _checkBlocklist(options.blocklist);
     if (blocked != null) return blocked;
+    return _typeTextCore(text, options);
+  }
 
-    // 2. Trigger native Unicode-type call directly. No clipboard involved,
-    // so there is nothing to save/restore.
+  /// The actual native Unicode-type call, without a blocklist check — reused
+  /// by both [typeText] (which does its own check first) and [paste]'s
+  /// macOS-preferred-mechanism attempt (which already checked the blocklist
+  /// before calling this, so re-checking would be a redundant native round
+  /// trip). No clipboard involved, so there is nothing to save/restore.
+  Future<PasteOutcome> _typeTextCore(String text, PasteOptions options) async {
     final delayMs = options.autoPasteDelayMs.clamp(0, 30000);
     NativePasteResult typeResult = const NativePasteResult(
       status: NativePasteStatus.unknown,

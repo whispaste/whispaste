@@ -232,9 +232,7 @@ class AfterTranscriptionSection extends ConsumerWidget {
               .where(
                 (a) =>
                     a != AfterTranscriptionAction.paste &&
-                    a != AfterTranscriptionAction.clipboardAndPaste &&
-                    a != AfterTranscriptionAction.type &&
-                    a != AfterTranscriptionAction.clipboardAndType,
+                    a != AfterTranscriptionAction.clipboardAndPaste,
               )
               .toList();
     final resolvedAction = resolveAfterTranscriptionAction(
@@ -270,9 +268,7 @@ class AfterTranscriptionSection extends ConsumerWidget {
             ),
           ),
           if (resolvedAction == AfterTranscriptionAction.paste ||
-              resolvedAction == AfterTranscriptionAction.clipboardAndPaste ||
-              resolvedAction == AfterTranscriptionAction.type ||
-              resolvedAction == AfterTranscriptionAction.clipboardAndType)
+              resolvedAction == AfterTranscriptionAction.clipboardAndPaste)
             const Padding(
               padding: EdgeInsets.fromLTRB(
                 WpSpacing.md,

@@ -153,14 +153,6 @@ String formatHotkeyShortcut(
       status: l10n.statusBarAfterBoth,
       settings: l10n.settingsAfterTranscriptionBoth,
     ),
-    AfterTranscriptionAction.type => (
-      status: l10n.statusBarAfterType,
-      settings: l10n.settingsAfterTranscriptionType,
-    ),
-    AfterTranscriptionAction.clipboardAndType => (
-      status: l10n.statusBarAfterCopyAndType,
-      settings: l10n.settingsAfterTranscriptionCopyAndType,
-    ),
     AfterTranscriptionAction.nothing => (
       status: l10n.statusBarAfterNothing,
       settings: l10n.settingsAfterTranscriptionNothing,

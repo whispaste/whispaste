@@ -14,8 +14,17 @@ class _FakeController implements DesktopPasteController {
   NativePasteResult pasteResult = const NativePasteResult(
     status: NativePasteStatus.success,
   );
+
+  /// Defaults to non-success (NOT [NativePasteStatus.success], unlike
+  /// [pasteResult]): `paste()` tries typing first on macOS/Windows (see
+  /// `DesktopPaster.paste`), and the test host this suite runs on IS macOS
+  /// — if this defaulted to success, every existing `.paste()` test below
+  /// would silently short-circuit through the typing branch and never
+  /// reach the classic clipboard+paste-shortcut path it's actually
+  /// exercising. Tests that specifically want the typing branch to succeed
+  /// set this explicitly.
   NativePasteResult typeResult = const NativePasteResult(
-    status: NativePasteStatus.success,
+    status: NativePasteStatus.unknown,
   );
   NativeCapabilityResult capabilityResult = const NativeCapabilityResult(
     status: NativeCapabilityStatus.ready,
@@ -273,7 +282,10 @@ void main() {
     test(
       'returns success and calls typeText once, not pasteClipboard',
       () async {
-        final controller = _FakeController();
+        final controller = _FakeController()
+          ..typeResult = const NativePasteResult(
+            status: NativePasteStatus.success,
+          );
         final paster = DesktopPaster(controller);
 
         final outcome = await paster.typeText(
@@ -377,6 +389,65 @@ void main() {
       );
 
       expect(outcome, PasteOutcome.failed);
+    });
+  });
+
+  group('DesktopPaster.paste prefers typing on macOS/Windows, this test '
+      'host is macOS so Platform.isMacOS is true', () {
+    test('typing succeeds: paste() returns success without touching '
+        'pasteClipboard or the clipboard', () async {
+      final controller = _FakeController()
+        ..typeResult = const NativePasteResult(
+          status: NativePasteStatus.success,
+        );
+      final paster = DesktopPaster(controller);
+      clipboardContent = 'untouched';
+
+      final outcome = await paster.paste(
+        'hello',
+        const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
+      );
+
+      expect(outcome, PasteOutcome.success);
+      expect(controller.typeCalls, 1);
+      expect(controller.pasteCalls, 0);
+      expect(clipboardContent, 'untouched');
+    });
+
+    test('typing fails: paste() falls back to the classic '
+        'clipboard+paste-shortcut sequence', () async {
+      final controller = _FakeController()
+        ..typeResult = const NativePasteResult(
+          status: NativePasteStatus.postFailed,
+        )
+        ..pasteResult = const NativePasteResult(
+          status: NativePasteStatus.success,
+        );
+      final paster = DesktopPaster(controller);
+
+      final outcome = await paster.paste(
+        'hello',
+        const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
+      );
+
+      expect(outcome, PasteOutcome.success);
+      expect(controller.typeCalls, 1);
+      expect(controller.pasteCalls, 1);
+    });
+
+    test('the blocklist check runs once, before either mechanism is '
+        'attempted', () async {
+      final controller = _FakeController()..bundleIdToReturn = 'blocked.app';
+      final paster = DesktopPaster(controller);
+
+      final outcome = await paster.paste(
+        'hello',
+        const PasteOptions(autoPasteDelayMs: 0, blocklist: 'blocked.app'),
+      );
+
+      expect(outcome, PasteOutcome.blocked);
+      expect(controller.typeCalls, 0);
+      expect(controller.pasteCalls, 0);
     });
   });
 }

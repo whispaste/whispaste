@@ -4,9 +4,9 @@ import '../../core/config/settings_enums.dart';
 /// Resolves the effective "after transcription" action for the current build.
 ///
 /// In builds where synthetic-keystroke injection is unavailable — see
-/// [kAutoPasteSupported] — any action that would post a paste shortcut or
-/// type Unicode text is downgraded to [AfterTranscriptionAction.clipboard]
-/// so the transcript still lands on the clipboard and the user can paste it
+/// [kAutoPasteSupported] — any action that would insert the transcript at
+/// the cursor is downgraded to [AfterTranscriptionAction.clipboard] so the
+/// transcript still lands on the clipboard and the user can paste it
 /// manually with ⌘V. On every other platform/build the user's choice is
 /// honoured unchanged.
 ///
@@ -25,9 +25,7 @@ AfterTranscriptionAction resolveAfterTranscriptionAction(
   if (autoPasteSupported) return action;
   return switch (action) {
     AfterTranscriptionAction.paste ||
-    AfterTranscriptionAction.clipboardAndPaste ||
-    AfterTranscriptionAction.type ||
-    AfterTranscriptionAction.clipboardAndType =>
+    AfterTranscriptionAction.clipboardAndPaste =>
       AfterTranscriptionAction.clipboard,
     AfterTranscriptionAction.clipboard ||
     AfterTranscriptionAction.nothing => action,

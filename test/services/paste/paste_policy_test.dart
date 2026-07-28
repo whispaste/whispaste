@@ -36,26 +36,6 @@ void main() {
         );
       });
 
-      test('downgrades type to clipboard', () {
-        expect(
-          resolveAfterTranscriptionAction(
-            AfterTranscriptionAction.type,
-            autoPasteSupported: false,
-          ),
-          AfterTranscriptionAction.clipboard,
-        );
-      });
-
-      test('downgrades clipboardAndType to clipboard', () {
-        expect(
-          resolveAfterTranscriptionAction(
-            AfterTranscriptionAction.clipboardAndType,
-            autoPasteSupported: false,
-          ),
-          AfterTranscriptionAction.clipboard,
-        );
-      });
-
       test('leaves clipboard untouched', () {
         expect(
           resolveAfterTranscriptionAction(
@@ -75,6 +55,27 @@ void main() {
           AfterTranscriptionAction.nothing,
         );
       });
+    });
+  });
+
+  group('AfterTranscriptionAction.fromValue back-compat', () {
+    // 'type'/'clipboard_and_type' existed briefly as separate user-facing
+    // actions (direct Unicode typing) before being folded back into
+    // paste/clipboardAndPaste as an internal mechanism choice — see
+    // DesktopPaster.paste. Anyone who saved a setting during that window
+    // must still resolve to the equivalent paste-flavored action.
+    test('"type" maps to paste', () {
+      expect(
+        AfterTranscriptionAction.fromValue('type'),
+        AfterTranscriptionAction.paste,
+      );
+    });
+
+    test('"clipboard_and_type" maps to clipboardAndPaste', () {
+      expect(
+        AfterTranscriptionAction.fromValue('clipboard_and_type'),
+        AfterTranscriptionAction.clipboardAndPaste,
+      );
     });
   });
 }
