@@ -143,8 +143,9 @@ Vier Ebenen, bewusst getrennt (im Alltag oft synonym verwendet):
 | Provider | UI-Label | Beschreibung |
 |---|---|---|
 | `onDevice` | „On Device" | lokal, kein Netzverkehr — zwei Engines, §4.2 |
-| `openAI` | „OpenAI" | Cloud — OpenAI Audio API |
-| `deepgram` | „Deepgram" | Cloud — Deepgram API |
+| `openAI` | „OpenAI" | Cloud (BYOK) — OpenAI Audio API, eigener Key |
+| `deepgram` | „Deepgram" | Cloud (BYOK) — Deepgram API, eigener Key |
+| `managed` | „WhisPaste Cloud" | Cloud (Managed-Tarif, §8) — kein eigener Key, WhisPaste-Backend ruft OpenAI stellvertretend auf |
 
 Code nutzt **`onDevice`**, nie „local".
 
@@ -166,6 +167,7 @@ Code nutzt **`onDevice`**, nie „local".
 | onDevice (Parakeet) | `parakeet-tdt-0.6b-v3` — encoder/decoder/joiner-ONNX + tokens.txt, ~640 MB |
 | openAI | `whisper-1` (fest) |
 | deepgram | `nova-3`, `nova-2` etc. (wählbar) |
+| managed | `whisper-1` (fest — bewusst nicht `gpt-4o-mini-transcribe`, siehe ADR-0005) |
 
 **Modell ≠ Engine ≠ Provider** (Bsp.: Provider `openAI`, Engine „OpenAI Audio API", Modell `whisper-1`).
 
