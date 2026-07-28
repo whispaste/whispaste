@@ -1,1 +1,1 @@
-WhisPaste
+WhisPaste: Speech to Text

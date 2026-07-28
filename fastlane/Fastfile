@@ -66,6 +66,19 @@ platform :mac do
     UI.success("App Store Connect API key OK (Team #{FASTLANE_TEAM_ID})")
   end
 
+  desc "Push fastlane/metadata (name/subtitle/keywords/description/…) without rebuilding or re-uploading the binary"
+  lane :mac_metadata_only do
+    load_asc_api_key
+    upload_to_app_store(
+      platform:                 "osx",
+      skip_binary_upload:       true,
+      skip_screenshots:         true,
+      skip_app_version_update:  true,
+      precheck_include_in_app_purchases: false,
+      force: true
+    )
+  end
+
   desc "Build + upload the Mac App Store build (sandboxed, no auto-paste)"
   lane :mas_release do
     load_asc_api_key

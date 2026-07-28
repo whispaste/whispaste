@@ -1,1 +1,1 @@
-Diktat,Sprache zu Text,Transkription,Spracherkennung,Whisper,Notizen,Produktivität
+Transkription,Spracherkennung,Whisper,Notizen,Produktivität,Hotkey,Audio,Sprachnotizen,Lokal
