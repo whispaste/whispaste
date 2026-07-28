@@ -115,12 +115,35 @@ platform :mac do
     Dir.chdir(PROJECT_ROOT) do
       # RBENV_VERSION=system is set (not just RBENV_VERSION unset) belt-and-
       # braces: unsetting alone worked across several runs, then intermittently
-      # stopped shielding a `pod install` triggered by an Xcode-project change
-      # (still unexplained — flagged in docs/store-release.md). Setting it
-      # explicitly removes any dependency on the shim's unset-fallback path.
+      # stopped shielding a `pod install` triggered by an Xcode-project change.
+      # Root-caused (was "still unexplained" in docs/store-release.md): this
+      # whole lane runs under `RBENV_VERSION=4.0.2 rbenv exec bundle exec
+      # fastlane ...` — `rbenv exec` doesn't just export RBENV_VERSION, it
+      # also PREPENDS that version's own bin dirs
+      # (~/.rbenv/versions/4.0.2/{bin,lib/ruby/gems/4.0.0/bin}) directly onto
+      # PATH, ahead of ~/.rbenv/shims. Setting RBENV_VERSION=system for this
+      # child process doesn't undo that PATH damage — shims are never
+      # consulted at all, so `which pod` still resolves to
+      # ~/.rbenv/versions/4.0.2/bin/pod (a Bundler-wrapped stub requiring
+      # `cocoapods` in fastlane's Gemfile.lock, which it deliberately isn't)
+      # instead of falling through to the real Homebrew-installed pod.
+      # Root-caused via `RBENV_VERSION=4.0.2 rbenv exec bundle exec ruby -e
+      # 'puts ENV["PATH"]'`. Explicitly prepending the known-good locations
+      # fixes it deterministically, no more flakiness.
+      #
+      # BUNDLER_SETUP (distinct from RUBYOPT!) is a second, independent leak:
+      # RubyGems' own bootstrap (rubygems.rb) does
+      # `require ENV["BUNDLER_SETUP"] if ENV["BUNDLER_SETUP"] && !defined?(Bundler)`
+      # unconditionally, regardless of RUBYOPT — `bundle exec` sets this var
+      # too, and unsetting only RUBYOPT/GEM_HOME/etc. still leaves the real
+      # Homebrew `pod` binary auto-requiring the *outer* fastlane Gemfile's
+      # bundler/setup and failing with "Could not find fastlane-2.237.0 ...
+      # in locally installed gems". Must be unset explicitly alongside
+      # RUBYOPT, not implied by it.
       sh("env -u BUNDLE_GEMFILE -u GEM_HOME -u GEM_PATH -u GEM_ROOT -u RUBYOPT -u RUBYLIB " \
-         "-u BUNDLE_BIN_PATH -u BUNDLE_PATH -u BUNDLER_VERSION -u RBENV_DIR " \
+         "-u BUNDLE_BIN_PATH -u BUNDLE_PATH -u BUNDLER_VERSION -u BUNDLER_SETUP -u RBENV_DIR " \
          "RBENV_VERSION=system " \
+         "PATH=\"/opt/homebrew/bin:/opt/homebrew/sbin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH\" " \
          "flutter build macos --release --dart-define=WHISPASTE_MAS=true")
     end
 
@@ -194,11 +217,15 @@ platform :mac do
 
     # See the detailed comment on the equivalent line in mas_release: bundle
     # exec's RUBYOPT="-r bundler/setup" breaks Flutter's internal `pod install`
-    # by hiding CocoaPods from this subprocess tree unless explicitly cleared.
+    # by hiding CocoaPods from this subprocess tree unless explicitly cleared,
+    # and `rbenv exec`'s own PATH prepending (not just RBENV_VERSION) means
+    # unsetting/resetting RBENV_VERSION alone isn't enough either — the PATH
+    # override below is required too.
     Dir.chdir(PROJECT_ROOT) do
       sh("env -u BUNDLE_GEMFILE -u GEM_HOME -u GEM_PATH -u GEM_ROOT -u RUBYOPT -u RUBYLIB " \
-         "-u BUNDLE_BIN_PATH -u BUNDLE_PATH -u BUNDLER_VERSION -u RBENV_DIR " \
+         "-u BUNDLE_BIN_PATH -u BUNDLE_PATH -u BUNDLER_VERSION -u BUNDLER_SETUP -u RBENV_DIR " \
          "RBENV_VERSION=system " \
+         "PATH=\"/opt/homebrew/bin:/opt/homebrew/sbin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH\" " \
          "flutter build macos --release")
     end
 
