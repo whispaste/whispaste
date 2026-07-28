@@ -1,15 +1,16 @@
-/// Widget tests for [ReadyStep] (onboarding step 4).
+/// Widget tests for [ReadyStep].
 ///
 /// Covers:
 /// 1. The step-3 wording, which reacts to the user's Auto-Paste decision.
-/// 2. The hotkey-registration-status branches (success / conflict / unknown)
-///    introduced by issue 08 — including the conflict warn-box, embedded
-///    inline recorder, disabled Start CTA, and the conflict → success
-///    transition.
+/// 2. The residual hotkey-conflict gate on the Start CTA — full hotkey
+///    configuration (summary, rebind, conflict resolution) now lives in
+///    `TriggerStep`; ReadyStep only keeps a safety net for a conflict the
+///    user skipped past there.
+/// 3. The Autostart toggle persisting `launchAtStartup`.
 library;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' show AsyncData;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:whispaste/core/config/settings_provider.dart';
@@ -21,7 +22,6 @@ import 'package:whispaste/services/hotkey_service.dart'
         HotkeyRegistrationStatus,
         HotkeyRegistrationStatusController,
         hotkeyRegistrationStatusProvider;
-import 'package:whispaste/widgets/hotkey_recorder.dart';
 import 'package:whispaste/widgets/wp_accent_button.dart';
 
 import '../../fixtures/test_helpers.dart';
@@ -235,157 +235,66 @@ void main() {
     });
   });
 
-  // ── Hotkey registration status branches (issue 08) ───────────────────────
+  // ── Residual hotkey-conflict gate (moved from full config in issue 08) ───
   //
-  // Default hotkey can collide with another app (e.g. Chrome's bookmark bar).
-  // ReadyStep must surface that BEFORE the user clicks Start.
+  // TriggerStep now owns hotkey summary/rebind/conflict-resolution UI.
+  // ReadyStep keeps only a safety net: if a confirmed conflict is still
+  // active (e.g. skipped past in TriggerStep), Start stays disabled rather
+  // than sending the user into a non-functional hotkey.
 
-  group('ReadyStep — hotkey registration status branches', () {
-    testWidgets(
-      'success: KeyCaps + change-link visible, Start CTA active, no warn-box',
-      (tester) async {
-        final settings = _FakeSettingsNotifier();
-        await _pumpStep(
-          tester,
-          settings: settings,
-          hotkeyStatus: HotkeyRegistrationStatus.success,
-        );
+  group('ReadyStep — residual hotkey-conflict gate on Start', () {
+    testWidgets('success: Start CTA active, no conflict notice', (
+      tester,
+    ) async {
+      final settings = _FakeSettingsNotifier();
+      await _pumpStep(
+        tester,
+        settings: settings,
+        hotkeyStatus: HotkeyRegistrationStatus.success,
+      );
 
-        // Warn-box must NOT be present.
-        expect(
-          find.byKey(kReadyStepConflictWarnBoxKey),
-          findsNothing,
-          reason: 'success branch must not show the conflict warn-box',
-        );
-        // Inline recorder must NOT be present.
-        expect(
-          find.byKey(kReadyStepInlineRecorderKey),
-          findsNothing,
-          reason: 'success branch must not embed the inline recorder',
-        );
-        // Change-link visible (classic success path).
-        expect(find.text(l10n.onboardingReadyChangeHotkey), findsOneWidget);
+      expect(
+        find.text(l10n.onboardingTriggerHotkeyConflictTitle),
+        findsNothing,
+        reason: 'success branch must not show the residual conflict notice',
+      );
+      final button = tester.widget<WpAccentButton>(
+        find.byKey(kReadyStepStartButtonKey),
+      );
+      expect(
+        button.onPressed,
+        isNotNull,
+        reason: 'success status must keep Start enabled',
+      );
+    });
 
-        // Start CTA active (onPressed != null).
-        final button = tester.widget<WpAccentButton>(
-          find.byKey(kReadyStepStartButtonKey),
-        );
-        expect(
-          button.onPressed,
-          isNotNull,
-          reason: 'success status must keep Start enabled',
-        );
-      },
-    );
+    testWidgets('conflict: Start CTA disabled, conflict notice visible', (
+      tester,
+    ) async {
+      final settings = _FakeSettingsNotifier();
+      await _pumpStep(
+        tester,
+        settings: settings,
+        hotkeyStatus: HotkeyRegistrationStatus.conflict,
+      );
 
-    testWidgets(
-      'conflict: warn-box + inline recorder visible, Start CTA disabled',
-      (tester) async {
-        final settings = _FakeSettingsNotifier();
-        await _pumpStep(
-          tester,
-          settings: settings,
-          hotkeyStatus: HotkeyRegistrationStatus.conflict,
-        );
-
-        // Warn-box visible.
-        expect(
-          find.byKey(kReadyStepConflictWarnBoxKey),
-          findsOneWidget,
-          reason: 'conflict must show the red warn-box',
-        );
-        // Warn-box copy visible (sanity-check the localised strings reach
-        // the widget).
-        expect(
-          find.text(l10n.onboardingReadyHotkeyConflictTitle),
-          findsOneWidget,
-        );
-        // Inline recorder embedded directly (NOT as a modal dialog).
-        expect(
-          find.byKey(kReadyStepInlineRecorderKey),
-          findsOneWidget,
-          reason: 'conflict must embed the inline HotkeyRecorderDialog',
-        );
-        expect(
-          find.byType(HotkeyRecorderDialog),
-          findsOneWidget,
-          reason: 'the embedded widget is the real HotkeyRecorderDialog',
-        );
-        // Change-link must be GONE — the recorder is right there.
-        expect(
-          find.text(l10n.onboardingReadyChangeHotkey),
-          findsNothing,
-          reason:
-              'change-link is redundant when the recorder is already on screen',
-        );
-
-        // Start CTA disabled (onPressed == null).
-        final button = tester.widget<WpAccentButton>(
-          find.byKey(kReadyStepStartButtonKey),
-        );
-        expect(
-          button.onPressed,
-          isNull,
-          reason: 'conflict status must block Start until the user rebinds',
-        );
-      },
-    );
+      expect(
+        find.text(l10n.onboardingTriggerHotkeyConflictTitle),
+        findsOneWidget,
+        reason: 'conflict must surface a short heads-up next to Start',
+      );
+      final button = tester.widget<WpAccentButton>(
+        find.byKey(kReadyStepStartButtonKey),
+      );
+      expect(
+        button.onPressed,
+        isNull,
+        reason: 'conflict status must block Start until the user rebinds',
+      );
+    });
 
     testWidgets(
-      'transition conflict → success: warn-box gone, Start CTA active',
-      (tester) async {
-        // Seed with conflict, then flip the provider to success — the widget
-        // must rebuild and reach the success branch with Start re-enabled.
-        final settings = _FakeSettingsNotifier();
-        await _pumpStep(
-          tester,
-          settings: settings,
-          hotkeyStatus: HotkeyRegistrationStatus.conflict,
-        );
-
-        // Sanity-check the starting state.
-        expect(find.byKey(kReadyStepConflictWarnBoxKey), findsOneWidget);
-        final disabledButton = tester.widget<WpAccentButton>(
-          find.byKey(kReadyStepStartButtonKey),
-        );
-        expect(disabledButton.onPressed, isNull);
-
-        // Flip the registration status — mirrors what the real service does
-        // after a successful re-registration via `updateHotkey`. Read the
-        // notifier from the live element tree so we hit the same provider
-        // container the widget is watching.
-        final element = tester.element(find.byKey(kReadyStepStartButtonKey));
-        final container = ProviderScope.containerOf(element);
-        container
-            .read(hotkeyRegistrationStatusProvider.notifier)
-            .set(HotkeyRegistrationStatus.success);
-        await tester.pumpAndSettle();
-
-        // Warn-box and inline recorder gone.
-        expect(
-          find.byKey(kReadyStepConflictWarnBoxKey),
-          findsNothing,
-          reason: 'warn-box must disappear once registration succeeds',
-        );
-        expect(
-          find.byKey(kReadyStepInlineRecorderKey),
-          findsNothing,
-          reason: 'inline recorder must unmount on success',
-        );
-        // Start CTA active again.
-        final enabledButton = tester.widget<WpAccentButton>(
-          find.byKey(kReadyStepStartButtonKey),
-        );
-        expect(
-          enabledButton.onPressed,
-          isNotNull,
-          reason: 'Start CTA must re-enable after the conflict clears',
-        );
-      },
-    );
-
-    testWidgets(
-      'unknown: neutral state — classic hotkey display, Start CTA active',
+      'unknown: neutral state — no conflict notice, Start CTA active',
       (tester) async {
         // `unknown` is the very-first transitional state before the
         // background registration completes. We don't want to block the
@@ -397,9 +306,10 @@ void main() {
           hotkeyStatus: HotkeyRegistrationStatus.unknown,
         );
 
-        expect(find.byKey(kReadyStepConflictWarnBoxKey), findsNothing);
-        expect(find.byKey(kReadyStepInlineRecorderKey), findsNothing);
-
+        expect(
+          find.text(l10n.onboardingTriggerHotkeyConflictTitle),
+          findsNothing,
+        );
         final button = tester.widget<WpAccentButton>(
           find.byKey(kReadyStepStartButtonKey),
         );
@@ -410,5 +320,53 @@ void main() {
         );
       },
     );
+  });
+
+  // ── Autostart toggle ──────────────────────────────────────────────────────
+
+  group('ReadyStep — Autostart toggle', () {
+    testWidgets(
+      'off by default; tapping the toggle persists launchAtStartup = true',
+      (tester) async {
+        final settings = _FakeSettingsNotifier();
+        await _pumpStep(tester, settings: settings);
+
+        expect(settings.state.value!.launchAtStartup, isFalse);
+
+        final toggle = find.descendant(
+          of: find.byKey(kReadyStepAutostartToggleKey),
+          matching: find.byType(Switch),
+        );
+        expect(toggle, findsOneWidget);
+        expect(tester.widget<Switch>(toggle).value, isFalse);
+
+        await tester.tap(toggle);
+        await tester.pumpAndSettle();
+
+        expect(
+          settings.state.value!.launchAtStartup,
+          isTrue,
+          reason: 'Tapping the toggle must persist launchAtStartup = true',
+        );
+      },
+    );
+
+    testWidgets('tapping again toggles it back off', (tester) async {
+      final settings = _FakeSettingsNotifier(
+        const AppSettings(interface_: InterfaceSettings(launchAtStartup: true)),
+      );
+      await _pumpStep(tester, settings: settings);
+
+      final toggle = find.descendant(
+        of: find.byKey(kReadyStepAutostartToggleKey),
+        matching: find.byType(Switch),
+      );
+      expect(tester.widget<Switch>(toggle).value, isTrue);
+
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+
+      expect(settings.state.value!.launchAtStartup, isFalse);
+    });
   });
 }

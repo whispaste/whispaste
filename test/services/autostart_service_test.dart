@@ -74,6 +74,28 @@ class _SeamedAutostartService extends AutostartService {
   AutostartBackend get backend => _backend;
 }
 
+/// Mutable settings fake — unlike [_FakeSettingsNotifier] above (fixed at
+/// construction), this one supports `updateSettings` so a test can flip
+/// `launchAtStartup` *after* [AutostartService.build] has already run, to
+/// exercise the `ref.listen` re-sync path.
+class _MutableFakeSettingsNotifier extends SettingsNotifier {
+  _MutableFakeSettingsNotifier({required bool launchAtStartup})
+    : _settings = AppSettings(
+        interface_: InterfaceSettings(launchAtStartup: launchAtStartup),
+      );
+
+  AppSettings _settings;
+
+  @override
+  Future<AppSettings> build() async => _settings;
+
+  @override
+  Future<void> updateSettings(AppSettings Function(AppSettings) updater) async {
+    _settings = updater(state.value ?? _settings);
+    state = AsyncData(_settings);
+  }
+}
+
 void main() {
   test(
     'backend enable() failure: exposed state stays disabled, not optimistic',
@@ -142,5 +164,131 @@ void main() {
     expect(fakeBackend.enableCalls, 1);
     expect(container.read(autostartServiceProvider), isTrue);
     expect(container.read(autostartSyncFailureProvider), isNull);
+  });
+
+  // ── ref.listen re-sync (toggling after the initial build) ────────────────
+  //
+  // `build()` only ran `_syncWithSettings()` once. Toggling `launchAtStartup`
+  // later (e.g. from the onboarding Ready step) used to persist the flag
+  // without ever registering with the OS until the app's next start. The
+  // `ref.listen` added to `build()` closes that gap.
+
+  test(
+    'toggling launchAtStartup on after the initial build re-syncs immediately',
+    () async {
+      final fakeBackend = _FakeAutostartBackend(
+        initiallyEnabled: false,
+        shouldFail: false,
+      );
+      final settings = _MutableFakeSettingsNotifier(launchAtStartup: false);
+      final container = ProviderContainer(
+        overrides: [
+          settingsProvider.overrideWith(() => settings),
+          autostartServiceProvider.overrideWith(
+            () => _SeamedAutostartService(fakeBackend),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(settingsProvider.future);
+      container.read(autostartServiceProvider);
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      // Sanity check: already-matching state on the initial build does not
+      // call the backend.
+      expect(fakeBackend.enableCalls, 0);
+      expect(container.read(autostartServiceProvider), isFalse);
+
+      // Flip the setting — mirrors a user turning the onboarding/Settings
+      // toggle on mid-session.
+      await container
+          .read(settingsProvider.notifier)
+          .updateSettings((s) => s.copyWith(launchAtStartup: true));
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        fakeBackend.enableCalls,
+        1,
+        reason:
+            'the OS registration must happen in the same session the '
+            'toggle was flipped, not on the next app start',
+      );
+      expect(container.read(autostartServiceProvider), isTrue);
+    },
+  );
+
+  test(
+    'toggling launchAtStartup off after the initial build re-syncs immediately',
+    () async {
+      final fakeBackend = _FakeAutostartBackend(
+        initiallyEnabled: true,
+        shouldFail: false,
+      );
+      final settings = _MutableFakeSettingsNotifier(launchAtStartup: true);
+      final container = ProviderContainer(
+        overrides: [
+          settingsProvider.overrideWith(() => settings),
+          autostartServiceProvider.overrideWith(
+            () => _SeamedAutostartService(fakeBackend),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(settingsProvider.future);
+      container.read(autostartServiceProvider);
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(fakeBackend.disableCalls, 0);
+      expect(container.read(autostartServiceProvider), isTrue);
+
+      await container
+          .read(settingsProvider.notifier)
+          .updateSettings((s) => s.copyWith(launchAtStartup: false));
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(fakeBackend.disableCalls, 1);
+      expect(container.read(autostartServiceProvider), isFalse);
+    },
+  );
+
+  test('a settings change unrelated to launchAtStartup does not re-trigger the '
+      'backend', () async {
+    final fakeBackend = _FakeAutostartBackend(
+      initiallyEnabled: false,
+      shouldFail: false,
+    );
+    final settings = _MutableFakeSettingsNotifier(launchAtStartup: false);
+    final container = ProviderContainer(
+      overrides: [
+        settingsProvider.overrideWith(() => settings),
+        autostartServiceProvider.overrideWith(
+          () => _SeamedAutostartService(fakeBackend),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await container.read(settingsProvider.future);
+    container.read(autostartServiceProvider);
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+
+    await container
+        .read(settingsProvider.notifier)
+        .updateSettings((s) => s.copyWith(showNotifications: false));
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(
+      fakeBackend.enableCalls + fakeBackend.disableCalls,
+      0,
+      reason: 'only launchAtStartup changes should trigger a re-sync',
+    );
   });
 }

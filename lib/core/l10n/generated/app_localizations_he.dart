@@ -490,6 +490,9 @@ class L10nHe extends L10n {
   String get pasteCapabilityReady => 'הכל מוכן';
 
   @override
+  String get pasteCapabilityReadySubtitle => 'ההכתבה שלך נוחתת ישר בסמן.';
+
+  @override
   String get pasteCapabilityPermissionMissing => 'עוד לא אושר';
 
   @override
@@ -518,6 +521,14 @@ class L10nHe extends L10n {
 
   @override
   String get pasteCapabilityRestartButton => 'הפעל מחדש את WhisPaste';
+
+  @override
+  String get pasteCapabilityRestartTitle =>
+      'ההרשאה ניתנה — נותרה רק הפעלה מחדש';
+
+  @override
+  String get pasteCapabilityRestartBody =>
+      'macOS מחיל את ההרשאה החדשה רק על אפליקציה שהופעלה מחדש. לחיצה אחת — WhisPaste ייסגר ויחזור מיד.';
 
   @override
   String pasteCapabilityRepairDone(int count) {
@@ -574,13 +585,6 @@ class L10nHe extends L10n {
   @override
   String get onboardingPasteWaitingForGrantHint =>
       'הגדרות המערכת פתוחות. מצא את WhisPaste ברשימה והפעל אותו.\n\nלא ברשימה? גרור את סמל האפליקציה פנימה או לחץ על „+\".';
-
-  @override
-  String get onboardingPasteTccMismatchTitle => 'macOS לא קלט את הסימון';
-
-  @override
-  String get onboardingPasteTccMismatchBody =>
-      'קורה לפעמים אחרי עדכוני אפליקציה. הפעלה מחדש פותרת. אז macOS יראה את WhisPaste נקי.';
 
   @override
   String get onboardingPasteTestTitle => 'נסה הדבקה אוטומטית';
@@ -2165,6 +2169,13 @@ class L10nHe extends L10n {
       'פעיל כברירת מחדל, ניתן לכבות בכל עת';
 
   @override
+  String get onboardingPrivacyCrashToggle => 'שליחת דיווחי קריסה אנונימיים';
+
+  @override
+  String get onboardingPrivacyCrashToggleHint =>
+      'עוזר לתקן באגים, פעיל כברירת מחדל, ניתן לכבות בכל עת';
+
+  @override
   String onboardingStepOf(int current, int total) {
     return 'שלב $current מתוך $total';
   }
@@ -2249,6 +2260,24 @@ class L10nHe extends L10n {
       'האצת GPU מיטבית אינה זמינה, האפליקציה תשתמש במעבד';
 
   @override
+  String get onboardingModelEngineParakeetLabel => 'מהיר ואירופי';
+
+  @override
+  String get onboardingModelEngineParakeetDesc =>
+      'הדרך המהירה ביותר להכתיב בכ-25 שפות אירופיות, כולל גרמנית. הורדה קטנה, פועל היטב בכל חומרה.';
+
+  @override
+  String get onboardingModelEngineWhisperLabel => 'כל 99 השפות';
+
+  @override
+  String get onboardingModelEngineWhisperDesc =>
+      'הכיסוי הרחב ביותר של שפות, בתוספת אוצר מילים מותאם אישית וכיוונון פיסוק לשמות, ראשי תיבות ומונחים מקצועיים.';
+
+  @override
+  String get onboardingModelEngineUnsupportedLanguage =>
+      'עדיין לא תומך בשפה שבחרת';
+
+  @override
   String get onboardingTestRecordingTitle => 'Give it a try';
 
   @override
@@ -2298,16 +2327,27 @@ class L10nHe extends L10n {
       'הטקסט בלוח, לחץ ⌘V / Ctrl+V כדי להדביק';
 
   @override
-  String get onboardingReadyChangeHotkey => 'שנה קיצור';
+  String get onboardingReadyAutostartToggle => 'הפעלת WhisPaste בהתחברות';
 
   @override
-  String get onboardingReadyCurrentHotkey => 'קיצור נוכחי';
+  String get onboardingReadyAutostartToggleHint =>
+      'כבוי כברירת מחדל, ניתן להפעיל בכל עת בהגדרות';
 
   @override
-  String get onboardingReadyHotkeyConflictTitle => 'הקיצור כבר בשימוש';
+  String get onboardingTriggerTitle => 'איך תרצה להתחיל הקלטה?';
 
   @override
-  String get onboardingReadyHotkeyConflictBody =>
+  String get onboardingTriggerSubtitle =>
+      'הגדר את מקש הקיצור ובחר כיצד הוא מתחיל הקלטה.';
+
+  @override
+  String get onboardingTriggerCurrentHotkey => 'קיצור נוכחי';
+
+  @override
+  String get onboardingTriggerHotkeyConflictTitle => 'הקיצור כבר בשימוש';
+
+  @override
+  String get onboardingTriggerHotkeyConflictBody =>
       'נראה שהקיצור שלך תפוס על ידי אפליקציה אחרת. הקלט שילוב חדש למטה כדי להמשיך.';
 
   @override

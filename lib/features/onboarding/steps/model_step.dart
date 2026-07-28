@@ -2,11 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/config/settings_enums.dart';
+import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../services/engine_recommendation.dart';
 import '../../../services/hardware_info_service.dart' as hw;
 import '../../../services/model_download_service.dart';
+import '../../../services/stt_parakeet/parakeet_download_service.dart';
+import '../../../services/stt_parakeet/parakeet_model_registry.dart';
 import '../../../widgets/tier_performance_presentation.dart';
 import '../../../widgets/wp_accent_button.dart';
 
@@ -16,11 +21,21 @@ import '../../../widgets/wp_accent_button.dart';
 const kModelStepGpuCpuFallbackKey = Key('modelStepGpuCpuFallbackNotice');
 @visibleForTesting
 const kModelStepNextButtonKey = Key('modelStepNextButton');
+@visibleForTesting
+const kModelStepEngineParakeetCardKey = Key('modelStepEngineParakeetCard');
+@visibleForTesting
+const kModelStepEngineWhisperCardKey = Key('modelStepEngineWhisperCard');
 
-/// Onboarding Step 3 — Quality tier selection & download.
+/// Onboarding step — on-device speech recognition setup.
 ///
-/// Shows a hardware-recommended tier with one-click download, plus an
-/// expandable section to choose a different quality level.
+/// A two-way choice presented in plain language, no engine/tier/model
+/// jargon: "Fast & European" (the Parakeet engine) vs. "All 99 Languages"
+/// (the Whisper engine). The app auto-recommends one card via
+/// [recommendEngine], driven by the dictation language (defaulted from the
+/// Welcome step's UI locale) and, for the Whisper branch only, hardware —
+/// Parakeet is faster than Whisper on every machine, so hardware never rules
+/// it out; only the dictation language can. The user can override the
+/// recommendation by tapping the other card.
 class ModelStep extends ConsumerStatefulWidget {
   const ModelStep({super.key, required this.onNext, required this.onBack});
 
@@ -32,11 +47,20 @@ class ModelStep extends ConsumerStatefulWidget {
 }
 
 class _ModelStepState extends ConsumerState<ModelStep> {
-  QualityTier? _selectedTier;
-  QualityTier? _recommendedTier;
-  bool _showAlternatives = false;
-  bool _gpuDetected = false;
+  OnDeviceEngine? _selectedEngine;
+  EngineRecommendation? _recommendation;
+
+  /// The Whisper tier for this hardware, computed independently of which
+  /// engine ends up recommended/selected.
+  ///
+  /// [EngineRecommendation.tier] is `null` whenever Parakeet is recommended
+  /// (Parakeet has no tiers) — but the user can still override the
+  /// recommendation and pick Whisper by hand. Without this separate field,
+  /// that override would fall back to the `QualityTier.balanced` default
+  /// instead of the tier this machine actually warrants.
+  QualityTier? _whisperTier;
   hw.GpuInfo? _gpu;
+  bool _hwDetected = false;
 
   @override
   void initState() {
@@ -47,26 +71,82 @@ class _ModelStepState extends ConsumerState<ModelStep> {
   Future<void> _detectHardware() async {
     final gpu = await ref.read(hw.gpuInfoProvider.future);
     if (!mounted) return;
-    final rec = recommendTier(gpu.vramMB ?? 0, vendor: gpu.vendor);
+    // Await the future rather than a one-shot `.value` read — this step can
+    // be the very first place in the widget tree to touch `settingsProvider`
+    // (isolated widget tests do this; in the shipped app it's always warm by
+    // the time onboarding shows). A one-shot read would silently see
+    // `AsyncLoading` (`.value == null`) and fall back to a wrong locale.
+    final settings = await ref.read(settingsProvider.future);
+    if (!mounted) return;
+    final locale = settings.locale;
+    final rec = recommendEngine(
+      dictationLanguageCode: locale,
+      vendor: gpu.vendor,
+      vramMB: gpu.vramMB ?? 0,
+    );
     setState(() {
       _gpu = gpu;
-      _recommendedTier = rec;
-      _selectedTier ??= rec;
-      _gpuDetected = true;
+      _recommendation = rec;
+      _whisperTier =
+          rec.tier ?? recommendTier(gpu.vramMB ?? 0, vendor: gpu.vendor);
+      _selectedEngine ??= rec.engine;
+      _hwDetected = true;
     });
   }
 
+  /// Whether Parakeet is eligible for the detected dictation language.
+  ///
+  /// [recommendEngine] only ever recommends Whisper for a language reason —
+  /// hardware never overrides Parakeet once the language qualifies — so a
+  /// Whisper recommendation is equivalent to "Parakeet can't do this
+  /// language". `false` before hardware detection completes (card starts
+  /// disabled, matching the loading state).
+  bool get _parakeetEligible =>
+      _recommendation?.engine == OnDeviceEngine.parakeet;
+
+  void _selectEngine(OnDeviceEngine engine) {
+    if (engine == OnDeviceEngine.parakeet && !_parakeetEligible) return;
+    setState(() => _selectedEngine = engine);
+  }
+
   void _startDownload() {
-    final tier = _selectedTier ?? QualityTier.balanced;
-    final model = bestModelForTier(tier);
-    ref.read(modelDownloadProvider.notifier).downloadModel(model.id);
+    switch (_selectedEngine) {
+      case OnDeviceEngine.whisper:
+        final tier = _whisperTier ?? QualityTier.balanced;
+        final model = bestModelForTier(tier);
+        ref.read(modelDownloadProvider.notifier).downloadModel(model.id);
+      case OnDeviceEngine.parakeet:
+        ref.read(parakeetDownloadProvider.notifier).downloadBundle();
+      case null:
+        break;
+    }
+  }
+
+  /// Persists the chosen engine (+ Whisper's resolved model) and advances.
+  /// Only called once [_isDone] — see [build] — so this always writes a
+  /// model that is actually on disk.
+  void _confirmAndAdvance() {
+    final engine = _selectedEngine;
+    if (engine == null) return;
+    ref
+        .read(settingsProvider.notifier)
+        .updateSettings(
+          (s) => s.copyWith(
+            sttEngine: engine.value,
+            sttModel: engine == OnDeviceEngine.whisper
+                ? bestModelForTier(_whisperTier ?? QualityTier.balanced).id
+                : null, // leave the persisted whisper model untouched
+          ),
+        );
+    widget.onNext();
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
-    final dlState = ref.watch(modelDownloadProvider);
+    final whisperDl = ref.watch(modelDownloadProvider);
+    final parakeetDl = ref.watch(parakeetDownloadProvider);
 
     final textPrimary = isDark
         ? WpColorsDark.textPrimary
@@ -79,20 +159,49 @@ class _ModelStepState extends ConsumerState<ModelStep> {
     final accentGradient = isDark
         ? WpColorsDark.accentWarmGradient
         : WpColorsLight.accentWarmGradient;
-    final selectedTier =
-        _selectedTier ?? _recommendedTier ?? QualityTier.balanced;
-    final selectedPerformance = _gpu != null
-        ? tierPerformance(selectedTier, _gpu!)
-        : TierPerformance.unmeasured;
 
+    final tier = _whisperTier ?? QualityTier.balanced;
+    final whisperModel = bestModelForTier(tier);
+
+    // Per-engine download status, normalized to whisper's `DownloadPhase` so
+    // both engines can share `_ModelStepDownloadStatus` (see the mapping
+    // function at the bottom of this file — Parakeet's phase enum is
+    // deliberately shaped like whisper's, minus `extracting`).
+    final selectedPhase = switch (_selectedEngine) {
+      OnDeviceEngine.whisper => whisperDl.phase,
+      OnDeviceEngine.parakeet => _parakeetPhaseAsDownloadPhase(
+        parakeetDl.phase,
+      ),
+      null => DownloadPhase.idle,
+    };
     final isDownloading =
-        dlState.phase == DownloadPhase.downloading ||
-        dlState.phase == DownloadPhase.extracting ||
-        dlState.phase == DownloadPhase.verifying;
-    final isDone =
-        dlState.phase == DownloadPhase.done ||
-        dlState.downloadedModels.isNotEmpty;
-    final isError = dlState.phase == DownloadPhase.error;
+        selectedPhase == DownloadPhase.downloading ||
+        selectedPhase == DownloadPhase.extracting ||
+        selectedPhase == DownloadPhase.verifying;
+    final isError = selectedPhase == DownloadPhase.error;
+    final isDone = switch (_selectedEngine) {
+      OnDeviceEngine.whisper =>
+        whisperDl.phase == DownloadPhase.done ||
+            whisperDl.downloadedModels.contains(whisperModel.id),
+      OnDeviceEngine.parakeet =>
+        parakeetDl.phase == ParakeetDownloadPhase.done || parakeetDl.installed,
+      null => false,
+    };
+    final errorMessage = switch (_selectedEngine) {
+      OnDeviceEngine.whisper => whisperDl.errorMessage,
+      OnDeviceEngine.parakeet => parakeetDl.errorMessage,
+      null => null,
+    };
+    final progressPercent = switch (_selectedEngine) {
+      OnDeviceEngine.whisper => whisperDl.progressPercent,
+      OnDeviceEngine.parakeet => parakeetDl.progressPercent,
+      null => 0,
+    };
+    final selectedSizeLabel = switch (_selectedEngine) {
+      OnDeviceEngine.whisper => whisperModel.sizeLabel,
+      OnDeviceEngine.parakeet => parakeetModelSizeLabel,
+      null => '',
+    };
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -124,8 +233,9 @@ class _ModelStepState extends ConsumerState<ModelStep> {
         // Renders only when hardware detection returned `GpuVendor.none`,
         // either because no GPU is present or because both Windows probes
         // (wmic + PowerShell) failed/timed out. The user keeps access to
-        // every tier and the cloud option below; the message just sets the
-        // expectation that CPU inference will be slower.
+        // both engines and the cloud option below; the message just sets the
+        // expectation that CPU inference will be slower on the Whisper path
+        // (Parakeet is always CPU-only, so it is unaffected).
         if (_gpu?.vendor == hw.GpuVendor.none) ...[
           _GpuCpuFallbackNotice(
             key: kModelStepGpuCpuFallbackKey,
@@ -135,8 +245,7 @@ class _ModelStepState extends ConsumerState<ModelStep> {
           const SizedBox(height: WpSpacing.md),
         ],
 
-        // Tier cards
-        if (!_gpuDetected)
+        if (!_hwDetected)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: WpSpacing.xl),
             child: SizedBox(
@@ -146,61 +255,50 @@ class _ModelStepState extends ConsumerState<ModelStep> {
             ),
           )
         else ...[
-          // Recommended tier card (always visible)
-          // loam-ignore: a11y-interactive-semantics – semantics provided in _TierCardState.build
-          _TierCard(
-            tier: selectedTier,
-            isRecommended:
-                _selectedTier == _recommendedTier || _selectedTier == null,
-            isSelected: true,
-            performance: selectedPerformance,
-            gpu: _gpu,
+          // loam-ignore: a11y-interactive-semantics – semantics provided in _EngineCardState.build
+          _EngineCard(
+            key: kModelStepEngineParakeetCardKey,
+            icon: LucideIcons.zap,
+            label: l10n.onboardingModelEngineParakeetLabel,
+            description: l10n.onboardingModelEngineParakeetDesc,
+            sizeLabel: parakeetModelSizeLabel,
+            isRecommended: _recommendation?.engine == OnDeviceEngine.parakeet,
+            isSelected: _selectedEngine == OnDeviceEngine.parakeet,
+            isDisabled: !_parakeetEligible,
+            disabledReason: l10n.onboardingModelEngineUnsupportedLanguage,
             isDark: isDark,
-            l10n: l10n,
-            onTap: null,
+            onTap: () => _selectEngine(OnDeviceEngine.parakeet),
           ),
-
-          // Download progress, error, success, or download button
+          const SizedBox(height: WpSpacing.sm),
+          // loam-ignore: a11y-interactive-semantics – semantics provided in _EngineCardState.build
+          _EngineCard(
+            key: kModelStepEngineWhisperCardKey,
+            icon: LucideIcons.globe,
+            label: l10n.onboardingModelEngineWhisperLabel,
+            description: l10n.onboardingModelEngineWhisperDesc,
+            sizeLabel: whisperModel.sizeLabel,
+            isRecommended: _recommendation?.engine == OnDeviceEngine.whisper,
+            isSelected: _selectedEngine == OnDeviceEngine.whisper,
+            isDisabled: false,
+            disabledReason: null,
+            isDark: isDark,
+            onTap: () => _selectEngine(OnDeviceEngine.whisper),
+          ),
           const SizedBox(height: WpSpacing.md),
+
           _ModelStepDownloadStatus(
-            dlState: dlState,
+            phase: selectedPhase,
+            progressPercent: progressPercent,
+            errorMessage: errorMessage,
             isDownloading: isDownloading,
             isError: isError,
             isDone: isDone,
             isDark: isDark,
             accent: accent,
             accentGradient: accentGradient,
-            selectedTier: selectedTier,
+            sizeLabel: selectedSizeLabel,
             l10n: l10n,
             onStartDownload: _startDownload,
-          ),
-
-          // Hardware warning
-          if (_gpu != null)
-            _TierPerformanceWarning(
-              tier: selectedTier,
-              performance: selectedPerformance,
-              isDark: isDark,
-              l10n: l10n,
-            ),
-
-          // Choose different tier + alternative tier cards
-          _ModelStepAlternatives(
-            isDownloading: isDownloading,
-            isDone: isDone,
-            showAlternatives: _showAlternatives,
-            selectedTier: _selectedTier,
-            recommendedTier: _recommendedTier,
-            gpu: _gpu,
-            isDark: isDark,
-            accent: accent,
-            l10n: l10n,
-            onToggleAlternatives: () =>
-                setState(() => _showAlternatives = !_showAlternatives),
-            onSelectTier: (tier) => setState(() {
-              _selectedTier = tier;
-              _showAlternatives = false;
-            }),
           ),
         ],
 
@@ -212,7 +310,8 @@ class _ModelStepState extends ConsumerState<ModelStep> {
         ),
         const SizedBox(height: WpSpacing.xxs),
 
-        // Cloud option
+        // Cloud option — bypasses persistence entirely (no on-device engine
+        // is written for a BYOK/cloud user).
         // loam-ignore: a11y-interactive-semantics – semantics provided in _ModelStepCloudOption.build
         _ModelStepCloudOption(
           accent: accent,
@@ -239,7 +338,7 @@ class _ModelStepState extends ConsumerState<ModelStep> {
                 key: kModelStepNextButtonKey,
                 label: l10n.onboardingNext,
                 gradient: accentGradient,
-                onPressed: isDone ? widget.onNext : null,
+                onPressed: isDone ? _confirmAndAdvance : null,
               ),
             ),
           ],
@@ -249,32 +348,50 @@ class _ModelStepState extends ConsumerState<ModelStep> {
   }
 }
 
+/// Maps Parakeet's download-phase enum onto whisper's `DownloadPhase` so
+/// `_ModelStepDownloadStatus` can render either engine's progress uniformly.
+/// The two enums are deliberately shaped alike (see
+/// `parakeet_download_service.dart`'s doc comment); Parakeet just has no
+/// `extracting` phase (single-archive extraction is a whisper-only step).
+DownloadPhase _parakeetPhaseAsDownloadPhase(ParakeetDownloadPhase phase) =>
+    switch (phase) {
+      ParakeetDownloadPhase.idle => DownloadPhase.idle,
+      ParakeetDownloadPhase.downloading => DownloadPhase.downloading,
+      ParakeetDownloadPhase.verifying => DownloadPhase.verifying,
+      ParakeetDownloadPhase.done => DownloadPhase.done,
+      ParakeetDownloadPhase.error => DownloadPhase.error,
+    };
+
 // ---------------------------------------------------------------------------
 // Download status — progress / error / success / download button
 // ---------------------------------------------------------------------------
 
 class _ModelStepDownloadStatus extends StatelessWidget {
   const _ModelStepDownloadStatus({
-    required this.dlState,
+    required this.phase,
+    required this.progressPercent,
+    required this.errorMessage,
     required this.isDownloading,
     required this.isError,
     required this.isDone,
     required this.isDark,
     required this.accent,
     required this.accentGradient,
-    required this.selectedTier,
+    required this.sizeLabel,
     required this.l10n,
     required this.onStartDownload,
   });
 
-  final ModelDownloadState dlState;
+  final DownloadPhase phase;
+  final int progressPercent;
+  final String? errorMessage;
   final bool isDownloading;
   final bool isError;
   final bool isDone;
   final bool isDark;
   final Color accent;
   final LinearGradient accentGradient;
-  final QualityTier selectedTier;
+  final String sizeLabel;
   final L10n l10n;
   final VoidCallback onStartDownload;
 
@@ -282,8 +399,8 @@ class _ModelStepDownloadStatus extends StatelessWidget {
   Widget build(BuildContext context) {
     if (isDownloading) {
       return _DownloadProgress(
-        phase: dlState.phase,
-        progress: dlState.progressPercent / 100.0,
+        phase: phase,
+        progress: progressPercent / 100.0,
         isDark: isDark,
         accent: accent,
         l10n: l10n,
@@ -291,7 +408,7 @@ class _ModelStepDownloadStatus extends StatelessWidget {
     }
     if (isError) {
       return _DownloadError(
-        message: dlState.errorMessage,
+        message: errorMessage,
         isDark: isDark,
         l10n: l10n,
         onRetry: onStartDownload,
@@ -319,179 +436,10 @@ class _ModelStepDownloadStatus extends StatelessWidget {
       width: double.infinity,
       // loam-ignore: a11y-interactive-semantics – semantics provided in WpAccentButton.build
       child: WpAccentButton(
-        label:
-            '${l10n.qualityTierDownloadAndContinue} (${tierSizeLabel(selectedTier)})',
+        label: '${l10n.qualityTierDownloadAndContinue} ($sizeLabel)',
         gradient: accentGradient,
         onPressed: onStartDownload,
       ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Tier performance warning — shown below selected tier when GPU data is present
-// ---------------------------------------------------------------------------
-
-class _TierPerformanceWarning extends StatelessWidget {
-  const _TierPerformanceWarning({
-    required this.tier,
-    required this.performance,
-    required this.isDark,
-    required this.l10n,
-  });
-
-  final QualityTier tier;
-  final TierPerformance performance;
-  final bool isDark;
-  final L10n l10n;
-
-  @override
-  Widget build(BuildContext context) {
-    final infoMessage = _tierPerformanceMessage(
-      l10n: l10n,
-      tier: tier,
-      performance: performance,
-    );
-    if (infoMessage == null) return const SizedBox.shrink();
-    final infoColor = TierPerformancePresentation.color(isDark: isDark);
-    final infoIcon = TierPerformancePresentation.icon(performance);
-    return Padding(
-      padding: const EdgeInsets.only(top: WpSpacing.sm),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(WpSpacing.sm),
-        decoration: BoxDecoration(
-          color: infoColor.withValues(alpha: 0.08),
-          borderRadius: WpRadius.borderMd,
-          border: Border.all(color: infoColor.withValues(alpha: 0.2)),
-        ),
-        child: Row(
-          children: [
-            Icon(infoIcon, size: 14, color: infoColor),
-            const SizedBox(width: WpSpacing.sm),
-            Expanded(
-              child: Text(
-                infoMessage,
-                style: TextStyle(
-                  fontSize: WpTypography.small,
-                  color: infoColor,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Alternatives section — toggle + expandable list of alternative tier cards
-// ---------------------------------------------------------------------------
-
-class _ModelStepAlternatives extends StatelessWidget {
-  const _ModelStepAlternatives({
-    required this.isDownloading,
-    required this.isDone,
-    required this.showAlternatives,
-    required this.selectedTier,
-    required this.recommendedTier,
-    required this.gpu,
-    required this.isDark,
-    required this.accent,
-    required this.l10n,
-    required this.onToggleAlternatives,
-    required this.onSelectTier,
-  });
-
-  final bool isDownloading;
-  final bool isDone;
-  final bool showAlternatives;
-  final QualityTier? selectedTier;
-  final QualityTier? recommendedTier;
-  final hw.GpuInfo? gpu;
-  final bool isDark;
-  final Color accent;
-  final L10n l10n;
-  final VoidCallback onToggleAlternatives;
-  final void Function(QualityTier tier) onSelectTier;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const SizedBox(height: WpSpacing.md),
-        if (!isDownloading && !isDone)
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: onToggleAlternatives,
-              borderRadius: WpRadius.borderSm,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: WpSpacing.sm,
-                  vertical: WpSpacing.xs,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      l10n.qualityTierChooseDifferent,
-                      style: TextStyle(
-                        fontSize: WpTypography.body,
-                        color: accent,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    AnimatedRotation(
-                      turns: showAlternatives ? 0.5 : 0,
-                      duration: WpMotion.durationFor(context, WpMotion.fast),
-                      child: Icon(
-                        LucideIcons.chevronDown,
-                        size: 14,
-                        color: accent,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        AnimatedSize(
-          duration: WpMotion.durationFor(context, WpMotion.smooth),
-          curve: WpMotion.defaultCurve,
-          child: showAlternatives && !isDownloading && !isDone
-              ? Padding(
-                  padding: const EdgeInsets.only(top: WpSpacing.sm),
-                  child: Column(
-                    children: [
-                      for (final tier in QualityTier.values)
-                        if (tier != selectedTier)
-                          Padding(
-                            padding: const EdgeInsets.only(
-                              bottom: WpSpacing.xs,
-                            ),
-                            // loam-ignore: a11y-interactive-semantics – semantics provided in _TierCardState.build
-                            child: _TierCard(
-                              tier: tier,
-                              isRecommended: tier == recommendedTier,
-                              isSelected: false,
-                              performance: gpu != null
-                                  ? tierPerformance(tier, gpu!)
-                                  : TierPerformance.unmeasured,
-                              gpu: gpu,
-                              isDark: isDark,
-                              l10n: l10n,
-                              onTap: () => onSelectTier(tier),
-                            ),
-                          ),
-                    ],
-                  ),
-                )
-              : const SizedBox.shrink(),
-        ),
-      ],
     );
   }
 }
@@ -543,84 +491,52 @@ class _ModelStepCloudOption extends StatelessWidget {
   }
 }
 
-String? _tierPerformanceMessage({
-  required L10n l10n,
-  required QualityTier tier,
-  required TierPerformance performance,
-}) => TierPerformancePresentation.message(
-  l10n: l10n,
-  tier: tier,
-  performance: performance,
-);
-
-Color _tierInfoColor({required bool isDark}) {
-  return TierPerformancePresentation.color(isDark: isDark);
-}
-
 // ---------------------------------------------------------------------------
-// Tier Card — shows tier name, description, size, recommended badge
+// Engine card — shows engine name, description, size, recommended badge,
+// selected/disabled state. Two of these (Parakeet, Whisper) form the whole
+// choice — no tier cards, no "choose a different level" expander.
 // ---------------------------------------------------------------------------
 
-class _TierCard extends StatefulWidget {
-  const _TierCard({
-    required this.tier,
+class _EngineCard extends StatefulWidget {
+  const _EngineCard({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.description,
+    required this.sizeLabel,
     required this.isRecommended,
     required this.isSelected,
-    required this.performance,
-    required this.gpu,
+    required this.isDisabled,
+    required this.disabledReason,
     required this.isDark,
-    required this.l10n,
     required this.onTap,
   });
 
-  final QualityTier tier;
+  final IconData icon;
+  final String label;
+  final String description;
+  final String sizeLabel;
   final bool isRecommended;
   final bool isSelected;
-  final TierPerformance performance;
-  final hw.GpuInfo? gpu;
+  final bool isDisabled;
+  final String? disabledReason;
   final bool isDark;
-  final L10n l10n;
-  final VoidCallback? onTap;
+  final VoidCallback onTap;
 
   @override
-  State<_TierCard> createState() => _TierCardState();
+  State<_EngineCard> createState() => _EngineCardState();
 }
 
-class _TierCardState extends State<_TierCard> {
+class _EngineCardState extends State<_EngineCard> {
   bool _hovered = false;
-
-  String _tierLabel(L10n l10n) => switch (widget.tier) {
-    QualityTier.compact => l10n.qualityTierCompactLabel,
-    QualityTier.balanced => l10n.qualityTierBalancedLabel,
-    QualityTier.premium => l10n.qualityTierPremiumLabel,
-  };
-
-  String _tierDesc(L10n l10n) => switch (widget.tier) {
-    QualityTier.compact => l10n.qualityTierCompactDesc,
-    QualityTier.balanced => l10n.qualityTierBalancedDesc,
-    QualityTier.premium => l10n.qualityTierPremiumDesc,
-  };
-
-  IconData get _tierIcon => switch (widget.tier) {
-    QualityTier.compact => LucideIcons.zap,
-    QualityTier.balanced => LucideIcons.scale,
-    QualityTier.premium => LucideIcons.crown,
-  };
 
   @override
   Widget build(BuildContext context) {
     final accent = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final infoMessage = _tierPerformanceMessage(
-      l10n: widget.l10n,
-      tier: widget.tier,
-      performance: widget.performance,
-    );
-    final infoColor = _tierInfoColor(isDark: widget.isDark);
-    final infoIcon = TierPerformancePresentation.icon(widget.performance);
-    final bool isTappable = widget.onTap != null;
+    final isTappable = !widget.isDisabled;
     final borderColor = widget.isSelected
         ? accent
-        : _hovered
+        : (_hovered && isTappable)
         ? accent.withValues(alpha: 0.4)
         : widget.isDark
         ? WpColorsDark.borderSubtle
@@ -634,13 +550,16 @@ class _TierCardState extends State<_TierCard> {
     final textSecondary = widget.isDark
         ? WpColorsDark.textSecondary
         : WpColorsLight.textSecondary;
-    final textColor = textPrimary;
-    final subtitleColor = textSecondary;
-    final iconColor = accent;
+    final textMuted = widget.isDark
+        ? WpColorsDark.textMuted
+        : WpColorsLight.textMuted;
+    final opacity = widget.isDisabled ? 0.5 : 1.0;
 
     return Semantics(
       button: isTappable,
-      label: isTappable ? _tierLabel(widget.l10n) : null,
+      label: widget.label,
+      enabled: isTappable,
+      selected: widget.isSelected,
       child: MouseRegion(
         onEnter: (_) => setState(() => _hovered = true),
         onExit: (_) => setState(() => _hovered = false),
@@ -649,105 +568,112 @@ class _TierCardState extends State<_TierCard> {
             : SystemMouseCursors.basic,
         child: GestureDetector(
           onTap: isTappable ? widget.onTap : null,
-          child: AnimatedContainer(
-            duration: WpMotion.durationFor(context, WpMotion.fast),
-            curve: WpMotion.defaultCurve,
-            padding: const EdgeInsets.all(WpSpacing.md),
-            decoration: BoxDecoration(
-              color: widget.isSelected
-                  ? accent.withValues(alpha: 0.08)
-                  : _hovered
-                  ? accent.withValues(alpha: 0.05)
-                  : surface.withValues(alpha: 0.5),
-              border: Border.all(
-                color: borderColor,
-                width: widget.isSelected ? 1.5 : 1,
+          child: Opacity(
+            opacity: opacity,
+            child: AnimatedContainer(
+              duration: WpMotion.durationFor(context, WpMotion.fast),
+              curve: WpMotion.defaultCurve,
+              padding: const EdgeInsets.all(WpSpacing.md),
+              decoration: BoxDecoration(
+                color: widget.isSelected
+                    ? accent.withValues(alpha: 0.08)
+                    : (_hovered && isTappable)
+                    ? accent.withValues(alpha: 0.05)
+                    : surface.withValues(alpha: 0.5),
+                border: Border.all(
+                  color: borderColor,
+                  width: widget.isSelected ? 1.5 : 1,
+                ),
+                borderRadius: WpRadius.borderMd,
               ),
-              borderRadius: WpRadius.borderMd,
-            ),
-            child: Row(
-              children: [
-                Icon(_tierIcon, size: 22, color: iconColor),
-                const SizedBox(width: WpSpacing.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            _tierLabel(widget.l10n),
-                            style: TextStyle(
-                              fontSize: WpTypography.subheading,
-                              fontWeight: FontWeight.w600,
-                              color: textColor,
-                            ),
-                          ),
-                          if (widget.isRecommended) ...[
-                            const SizedBox(width: WpSpacing.xs),
-                            Container(
-                              // Sub-scale pill padding: keeps the micro-type
-                              // badge hugging its text.
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: accent.withValues(alpha: 0.15),
-                                borderRadius: WpRadius.borderFull,
-                              ),
-                              child: Text(
-                                widget.l10n.qualityTierRecommended,
-                                style: TextStyle(
-                                  fontSize: WpTypography.micro,
-                                  fontWeight: FontWeight.w600,
-                                  color: accent,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        _tierDesc(widget.l10n),
-                        style: TextStyle(
-                          fontSize: WpTypography.small,
-                          color: subtitleColor,
-                          height: 1.3,
-                        ),
-                      ),
-                      if (infoMessage != null) ...[
-                        const SizedBox(height: 4),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(widget.icon, size: 22, color: accent),
+                  const SizedBox(width: WpSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Row(
                           children: [
-                            Icon(infoIcon, size: 12, color: infoColor),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                infoMessage,
-                                style: TextStyle(
-                                  fontSize: WpTypography.caption,
-                                  color: infoColor,
-                                ),
+                            Text(
+                              widget.label,
+                              style: TextStyle(
+                                fontSize: WpTypography.subheading,
+                                fontWeight: FontWeight.w600,
+                                color: textPrimary,
                               ),
                             ),
+                            if (widget.isRecommended && !widget.isDisabled) ...[
+                              const SizedBox(width: WpSpacing.xs),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: accent.withValues(alpha: 0.15),
+                                  borderRadius: WpRadius.borderFull,
+                                ),
+                                child: Text(
+                                  L10n.of(context).onboardingModelRecommended,
+                                  style: TextStyle(
+                                    fontSize: WpTypography.micro,
+                                    fontWeight: FontWeight.w600,
+                                    color: accent,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
+                        const SizedBox(height: 2),
+                        Text(
+                          widget.description,
+                          style: TextStyle(
+                            fontSize: WpTypography.small,
+                            color: textSecondary,
+                            height: 1.3,
+                          ),
+                        ),
+                        if (widget.isDisabled &&
+                            widget.disabledReason != null) ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Icon(
+                                LucideIcons.info,
+                                size: 12,
+                                color: textMuted,
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  widget.disabledReason!,
+                                  style: TextStyle(
+                                    fontSize: WpTypography.caption,
+                                    color: textMuted,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: WpSpacing.sm),
-                Text(
-                  tierSizeLabel(widget.tier),
-                  style: TextStyle(
-                    fontSize: WpTypography.small,
-                    fontWeight: FontWeight.w500,
-                    color: subtitleColor,
+                  const SizedBox(width: WpSpacing.sm),
+                  Text(
+                    widget.sizeLabel,
+                    style: TextStyle(
+                      fontSize: WpTypography.small,
+                      fontWeight: FontWeight.w500,
+                      color: textSecondary,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -896,10 +822,9 @@ class _DownloadError extends StatelessWidget {
 /// banner shown when `GpuVendor.none` is detected (either no GPU is present
 /// or both Windows probes failed/timed out).
 ///
-/// Purely informational: the user keeps full access to every quality tier
-/// and the cloud option. Tier-internal performance hints
-/// ([_tierPerformanceMessage]) cover „this tier will be slow on this
-/// hardware" separately.
+/// Purely informational: the user keeps full access to both engines and the
+/// cloud option. It only concerns the Whisper branch's compute backend —
+/// Parakeet is always CPU-only, so this doesn't change its speed.
 class _GpuCpuFallbackNotice extends StatelessWidget {
   const _GpuCpuFallbackNotice({
     super.key,

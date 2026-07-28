@@ -20,6 +20,7 @@ import 'steps/welcome_step.dart';
 import 'steps/privacy_step.dart';
 import 'steps/microphone_step.dart';
 import 'steps/model_step.dart';
+import 'steps/trigger_step.dart';
 import 'steps/test_recording_step.dart';
 import 'steps/ready_step.dart';
 
@@ -30,12 +31,17 @@ import 'steps/ready_step.dart';
 /// - [autoPaste] is included only on macOS Developer-ID builds where
 ///   [kAutoPasteSupported] is `true` (the user must grant Accessibility/TCC).
 /// - MAS builds and non-macOS platforms omit [autoPaste] entirely.
+///
+/// [trigger] always sits directly between [model] and [testRecording] so the
+/// guided test recording exercises the hotkey/mode the user just configured,
+/// not a stale default.
 enum OnboardingStepId {
   welcome,
   privacy,
   microphone,
   autoPaste,
   model,
+  trigger,
   testRecording,
   ready,
 }
@@ -63,6 +69,7 @@ List<OnboardingStepId> buildOnboardingStepIds({
     OnboardingStepId.microphone,
     if (isMacOs && autoPasteSupported) OnboardingStepId.autoPaste,
     OnboardingStepId.model,
+    OnboardingStepId.trigger,
     OnboardingStepId.testRecording,
     OnboardingStepId.ready,
   ];
@@ -70,11 +77,11 @@ List<OnboardingStepId> buildOnboardingStepIds({
 
 /// Full-screen onboarding overlay with frosted glass backdrop.
 ///
-/// Sits on top of the main app shell in a [Stack]. Shows 6–7 steps with
+/// Sits on top of the main app shell in a [Stack]. Shows 7–8 steps with
 /// animated transitions, stepper dots, and a skip button. Step count is
 /// platform- and build-variant-dependent (see [buildOnboardingStepIds]):
-/// macOS Developer-ID renders 7 steps; macOS MAS, Windows, and Linux
-/// render 6 (Auto-Paste step omitted). On completion (or skip) persists
+/// macOS Developer-ID renders 8 steps; macOS MAS, Windows, and Linux
+/// render 7 (Auto-Paste step omitted). On completion (or skip) persists
 /// [AppSettings.onboardingCompleted] = true.
 class OnboardingOverlay extends ConsumerStatefulWidget {
   const OnboardingOverlay({super.key});
@@ -208,12 +215,16 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
       OnboardingStepId.microphone => MicrophoneStep(
         onNext: _goNext,
         onBack: _goBack,
+        onMicrophoneSelected: (label) => ref
+            .read(settingsProvider.notifier)
+            .updateSettings((s) => s.copyWith(microphone: label)),
       ),
       OnboardingStepId.autoPaste => AutoPasteStep(
         onNext: _goNext,
         onBack: _goBack,
       ),
       OnboardingStepId.model => ModelStep(onNext: _goNext, onBack: _goBack),
+      OnboardingStepId.trigger => TriggerStep(onNext: _goNext, onBack: _goBack),
       OnboardingStepId.testRecording => TestRecordingStep(
         onNext: _goNext,
         onBack: _goBack,

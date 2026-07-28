@@ -92,6 +92,52 @@ const List<ParakeetModelFile> parakeetModelFiles = [
 int get parakeetModelTotalBytes =>
     parakeetModelFiles.fold(0, (sum, f) => sum + f.sizeBytes);
 
+/// Human-readable total bundle size (e.g. `"631 MB"`), formatted with the
+/// same 1024-based rule as `SttModelInfo.sizeLabel` in
+/// `model_download_service.dart` so whisper and Parakeet size labels never
+/// look inconsistent side by side.
+String get parakeetModelSizeLabel {
+  final bytes = parakeetModelTotalBytes;
+  if (bytes >= 1024 * 1024 * 1024) {
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+  }
+  return '${(bytes / (1024 * 1024)).round()} MB';
+}
+
+/// ISO 639-1 codes for the 25 European languages `parakeet-tdt-0.6b-v3`
+/// supports, per the NVIDIA model card (huggingface.co/nvidia/parakeet-tdt-0.6b-v3,
+/// verified 2026-07-28). Used by [recommendEngine] (`engine_recommendation.dart`)
+/// to decide whether Parakeet is even eligible for a given dictation language —
+/// Parakeet is faster than Whisper on every machine, so language (not
+/// hardware) is the only thing that can rule it out.
+const Set<String> parakeetSupportedLanguages = {
+  'bg', // Bulgarian
+  'hr', // Croatian
+  'cs', // Czech
+  'da', // Danish
+  'nl', // Dutch
+  'en', // English
+  'et', // Estonian
+  'fi', // Finnish
+  'fr', // French
+  'de', // German
+  'el', // Greek
+  'hu', // Hungarian
+  'it', // Italian
+  'lv', // Latvian
+  'lt', // Lithuanian
+  'mt', // Maltese
+  'pl', // Polish
+  'pt', // Portuguese
+  'ro', // Romanian
+  'sk', // Slovak
+  'sl', // Slovenian
+  'es', // Spanish
+  'sv', // Swedish
+  'ru', // Russian
+  'uk', // Ukrainian
+};
+
 /// The (only) Parakeet model's identity — used both as the on-disk bundle
 /// directory name and as the persisted `model` value for history/analytics
 /// entries transcribed with the Parakeet engine (see

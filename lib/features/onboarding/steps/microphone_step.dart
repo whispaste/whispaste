@@ -50,12 +50,22 @@ class MicrophoneStep extends StatefulWidget {
     super.key,
     required this.onNext,
     required this.onBack,
+    this.onMicrophoneSelected,
     this.probeFactory,
     AudioRoutingService? routing,
   }) : _injectedRouting = routing;
 
   final VoidCallback onNext;
   final VoidCallback onBack;
+
+  /// Called with the persisted-form device label (matching
+  /// `AppSettings.microphone`'s `'Default'` sentinel / `InputDevice.label`
+  /// convention — see `audio_service.dart`'s `_resolveInputDevice`) whenever
+  /// the user picks a different input device. `null` in production is not a
+  /// valid state — the orchestrator always wires this to persist the
+  /// selection to settings; only tests that don't care about persistence
+  /// omit it.
+  final ValueChanged<String>? onMicrophoneSelected;
 
   /// Test seam: lets widget tests inject a fake probe without touching the
   /// real audio plugin. `null` in production → real probe.
@@ -152,6 +162,11 @@ class _MicrophoneStepState extends State<MicrophoneStep> {
     if (_devicesEqual(device, _selectedDevice)) return;
     if (!mounted) return;
     setState(() => _selectedDevice = device);
+    // Persist immediately — mirrors `_resolveInputDevice`'s `'Default'`
+    // sentinel for "use whatever the system default is" so the choice made
+    // here (and verified live below) survives past this step instead of
+    // silently reverting to the default mic on next launch.
+    widget.onMicrophoneSelected?.call(device?.label ?? 'Default');
 
     // Only re-run capture automatically once we already have permission.
     // In idle / requesting / denied the selection is remembered and
@@ -626,6 +641,19 @@ bool _devicesEqual(InputDevice? a, InputDevice? b) {
 // Device picker — dropdown anchored under the status area
 // =============================================================================
 
+/// Stand-in for "System Default" inside the popup menu.
+///
+/// [PopupMenuButton] cannot distinguish a genuinely picked `null` value from
+/// "menu dismissed without a choice" — its internal `showMenu(...).then`
+/// treats any `null` result as a cancel and calls `onCanceled` instead of
+/// `onSelected` (see `popup_menu.dart`). A `PopupMenuItem<InputDevice?>`
+/// with `value: null` would therefore silently no-op when tapped: the item
+/// renders and highlights correctly, but selecting it back to the system
+/// default never fires a callback. This non-null placeholder stands in for
+/// that choice inside the popup and is translated back to `null` in
+/// [_DevicePicker]'s `onSelected` wiring.
+const _systemDefaultDevice = InputDevice(id: '__system_default__', label: '');
+
 class _DevicePicker extends StatelessWidget {
   const _DevicePicker({
     required this.devices,
@@ -658,14 +686,15 @@ class _DevicePicker extends StatelessWidget {
         ? accent
         : (isDark ? WpColorsDark.borderDefault : WpColorsLight.borderDefault);
 
-    return PopupMenuButton<InputDevice?>(
+    return PopupMenuButton<InputDevice>(
       tooltip: l10n.onboardingMicDeviceLabel,
-      onSelected: onSelected,
+      onSelected: (device) =>
+          onSelected(device == _systemDefaultDevice ? null : device),
       position: PopupMenuPosition.under,
       color: isDark ? WpColorsDark.surface : WpColorsLight.surface,
-      itemBuilder: (context) => <PopupMenuEntry<InputDevice?>>[
-        PopupMenuItem<InputDevice?>(
-          value: null,
+      itemBuilder: (context) => <PopupMenuEntry<InputDevice>>[
+        PopupMenuItem<InputDevice>(
+          value: _systemDefaultDevice,
           child: _DeviceEntry(
             label: l10n.onboardingMicDeviceSystemDefault,
             selected: selected == null,
@@ -676,7 +705,7 @@ class _DevicePicker extends StatelessWidget {
         ),
         const PopupMenuDivider(),
         for (final device in devices)
-          PopupMenuItem<InputDevice?>(
+          PopupMenuItem<InputDevice>(
             value: device,
             child: _DeviceEntry(
               label: device.label,

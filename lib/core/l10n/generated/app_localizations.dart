@@ -993,6 +993,12 @@ abstract class L10n {
   /// **'All set'**
   String get pasteCapabilityReady;
 
+  /// No description provided for @pasteCapabilityReadySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your dictation lands right at the cursor.'**
+  String get pasteCapabilityReadySubtitle;
+
   /// No description provided for @pasteCapabilityPermissionMissing.
   ///
   /// In en, this message translates to:
@@ -1046,6 +1052,18 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Restart WhisPaste'**
   String get pasteCapabilityRestartButton;
+
+  /// No description provided for @pasteCapabilityRestartTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Permission granted — one restart to go'**
+  String get pasteCapabilityRestartTitle;
+
+  /// No description provided for @pasteCapabilityRestartBody.
+  ///
+  /// In en, this message translates to:
+  /// **'macOS applies the new permission only to a freshly started app. One click — WhisPaste quits and comes right back.'**
+  String get pasteCapabilityRestartBody;
 
   /// No description provided for @pasteCapabilityRepairDone.
   ///
@@ -1124,18 +1142,6 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'System Settings is open. Find WhisPaste in the list and switch it on.\n\nNot in the list? Drag the app icon in or click „+\".'**
   String get onboardingPasteWaitingForGrantHint;
-
-  /// No description provided for @onboardingPasteTccMismatchTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'macOS didn\'t pick up the tick'**
-  String get onboardingPasteTccMismatchTitle;
-
-  /// No description provided for @onboardingPasteTccMismatchBody.
-  ///
-  /// In en, this message translates to:
-  /// **'Happens sometimes after app updates. A restart fixes it. macOS will then see WhisPaste cleanly.'**
-  String get onboardingPasteTccMismatchBody;
 
   /// No description provided for @onboardingPasteTestTitle.
   ///
@@ -3963,6 +3969,18 @@ abstract class L10n {
   /// **'On by default, switch off anytime'**
   String get onboardingPrivacyToggleHint;
 
+  /// No description provided for @onboardingPrivacyCrashToggle.
+  ///
+  /// In en, this message translates to:
+  /// **'Send anonymous crash reports'**
+  String get onboardingPrivacyCrashToggle;
+
+  /// No description provided for @onboardingPrivacyCrashToggleHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Helps fix bugs, on by default, switch off anytime'**
+  String get onboardingPrivacyCrashToggleHint;
+
   /// No description provided for @onboardingStepOf.
   ///
   /// In en, this message translates to:
@@ -4113,6 +4131,36 @@ abstract class L10n {
   /// **'Optimised GPU acceleration unavailable, app will use the CPU'**
   String get onboardingModelGpuCpuFallback;
 
+  /// No description provided for @onboardingModelEngineParakeetLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Fast & European'**
+  String get onboardingModelEngineParakeetLabel;
+
+  /// No description provided for @onboardingModelEngineParakeetDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'The quickest way to dictate in about 25 European languages, including German. Small download, works well on any hardware.'**
+  String get onboardingModelEngineParakeetDesc;
+
+  /// No description provided for @onboardingModelEngineWhisperLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'All 99 Languages'**
+  String get onboardingModelEngineWhisperLabel;
+
+  /// No description provided for @onboardingModelEngineWhisperDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Broadest language coverage, plus custom vocabulary and punctuation tuning for names, acronyms, and jargon.'**
+  String get onboardingModelEngineWhisperDesc;
+
+  /// No description provided for @onboardingModelEngineUnsupportedLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'Doesn\'t support your selected language yet'**
+  String get onboardingModelEngineUnsupportedLanguage;
+
   /// No description provided for @onboardingTestRecordingTitle.
   ///
   /// In en, this message translates to:
@@ -4197,29 +4245,47 @@ abstract class L10n {
   /// **'Text is in your clipboard, press ⌘V / Ctrl+V to paste'**
   String get onboardingReadyStep3CopyOnly;
 
-  /// No description provided for @onboardingReadyChangeHotkey.
+  /// No description provided for @onboardingReadyAutostartToggle.
   ///
   /// In en, this message translates to:
-  /// **'Change Hotkey'**
-  String get onboardingReadyChangeHotkey;
+  /// **'Launch WhisPaste at login'**
+  String get onboardingReadyAutostartToggle;
 
-  /// No description provided for @onboardingReadyCurrentHotkey.
+  /// No description provided for @onboardingReadyAutostartToggleHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Off by default, turn on anytime in Settings'**
+  String get onboardingReadyAutostartToggleHint;
+
+  /// No description provided for @onboardingTriggerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'How do you want to start recording?'**
+  String get onboardingTriggerTitle;
+
+  /// No description provided for @onboardingTriggerSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Set your hotkey and choose how it starts a recording.'**
+  String get onboardingTriggerSubtitle;
+
+  /// No description provided for @onboardingTriggerCurrentHotkey.
   ///
   /// In en, this message translates to:
   /// **'Current hotkey'**
-  String get onboardingReadyCurrentHotkey;
+  String get onboardingTriggerCurrentHotkey;
 
-  /// No description provided for @onboardingReadyHotkeyConflictTitle.
+  /// No description provided for @onboardingTriggerHotkeyConflictTitle.
   ///
   /// In en, this message translates to:
   /// **'Hotkey already in use'**
-  String get onboardingReadyHotkeyConflictTitle;
+  String get onboardingTriggerHotkeyConflictTitle;
 
-  /// No description provided for @onboardingReadyHotkeyConflictBody.
+  /// No description provided for @onboardingTriggerHotkeyConflictBody.
   ///
   /// In en, this message translates to:
   /// **'Your hotkey seems to be in use by another app. Record a new combination below to continue.'**
-  String get onboardingReadyHotkeyConflictBody;
+  String get onboardingTriggerHotkeyConflictBody;
 
   /// No description provided for @onboardingStartUsing.
   ///

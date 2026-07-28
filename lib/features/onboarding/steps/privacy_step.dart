@@ -11,14 +11,20 @@ import '../../../services/telemetry_service.dart';
 import '../../../widgets/wp_accent_button.dart';
 import '../../settings/settings_widgets.dart';
 
+/// Widget key exposed for testing.
+@visibleForTesting
+const kPrivacyStepCrashToggleKey = Key('privacyStepCrashReportingToggle');
+
 /// Onboarding Step 2 — informed telemetry opt-out.
 ///
 /// Tells the user, up front, that WhisPaste sends anonymous, GDPR-compliant
-/// usage statistics to an EU server — and gives them the toggle right here.
-/// Consent stays **on by default** (informed opt-out, [AppSettings] default
-/// `shareUsageStats = true`); the user can switch it off without leaving the
-/// flow. Wording and the toggle mirror Settings → Privacy so the two never
-/// drift. Continuing is always allowed regardless of the toggle state.
+/// usage statistics to an EU server, and separately, that it can send
+/// anonymous crash reports — and gives them both toggles right here. Both
+/// stay **on by default** (informed opt-out; [AppSettings] defaults
+/// `shareUsageStats = true` and `errorReporting = true`); the user can switch
+/// either off without leaving the flow. Wording and toggles mirror
+/// Settings → Privacy ([PrivacySection]) so the two never drift. Continuing
+/// is always allowed regardless of either toggle's state.
 class PrivacyStep extends ConsumerWidget {
   const PrivacyStep({super.key, required this.onNext, required this.onBack});
 
@@ -74,7 +80,9 @@ class PrivacyStep extends ConsumerWidget {
         ),
         const SizedBox(height: WpSpacing.xxl),
 
-        // Opt-out toggle — same SettingRow + switch as Settings → Privacy.
+        // Opt-out toggles — same SettingRow + switch as Settings → Privacy.
+        // Two separate consents (analytics vs. crash reports), each its own
+        // toggle, each on by default.
         Container(
           decoration: BoxDecoration(
             color: surfaceVariant,
@@ -82,15 +90,30 @@ class PrivacyStep extends ConsumerWidget {
             border: Border.all(color: borderColor),
           ),
           padding: const EdgeInsets.symmetric(horizontal: WpSpacing.sm),
-          child: SettingRow(
-            icon: LucideIcons.barChart3,
-            label: l10n.onboardingPrivacyToggle,
-            subtitle: l10n.onboardingPrivacyToggleHint,
-            semanticToggledValue: settings.privacy.shareUsageStats,
-            trailing: settingsToggle(
-              value: settings.privacy.shareUsageStats,
-              onChanged: (v) => _setConsent(ref, v),
-            ),
+          child: Column(
+            children: [
+              SettingRow(
+                icon: LucideIcons.barChart3,
+                label: l10n.onboardingPrivacyToggle,
+                subtitle: l10n.onboardingPrivacyToggleHint,
+                semanticToggledValue: settings.privacy.shareUsageStats,
+                trailing: settingsToggle(
+                  value: settings.privacy.shareUsageStats,
+                  onChanged: (v) => _setUsageStatsConsent(ref, v),
+                ),
+              ),
+              SettingRow(
+                key: kPrivacyStepCrashToggleKey,
+                icon: LucideIcons.shieldCheck,
+                label: l10n.onboardingPrivacyCrashToggle,
+                subtitle: l10n.onboardingPrivacyCrashToggleHint,
+                semanticToggledValue: settings.errorReporting,
+                trailing: settingsToggle(
+                  value: settings.errorReporting,
+                  onChanged: (v) => _setErrorReportingConsent(ref, v),
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: WpSpacing.xxl),
@@ -125,7 +148,7 @@ class PrivacyStep extends ConsumerWidget {
   /// cleared (otherwise the telemetry gate drops it); when granting, persist
   /// first so the provider reflects the new consent before the event fires.
   /// Mirrors [PrivacySection] exactly so the two paths never diverge.
-  void _setConsent(WidgetRef ref, bool value) {
+  void _setUsageStatsConsent(WidgetRef ref, bool value) {
     if (!value) {
       try {
         ref.read(telemetryProvider).trackSettingChange('share_usage_stats');
@@ -142,6 +165,21 @@ class PrivacyStep extends ConsumerWidget {
       } catch (e) {
         _log.debug('telemetry failed: $e');
       }
+    }
+  }
+
+  /// Persists crash-reporting consent. Unlike usage stats, this toggle does
+  /// not gate the telemetry channel that reports it, so there is no
+  /// before/after ordering concern — mirrors [PrivacySection]'s
+  /// `errorReporting` handler exactly.
+  void _setErrorReportingConsent(WidgetRef ref, bool value) {
+    ref
+        .read(settingsProvider.notifier)
+        .updateSettings((s) => s.copyWith(errorReporting: value));
+    try {
+      ref.read(telemetryProvider).trackSettingChange('error_reporting');
+    } catch (e) {
+      _log.debug('telemetry failed: $e');
     }
   }
 }

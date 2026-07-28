@@ -42,8 +42,8 @@ void main() {
         expect(steps, contains(OnboardingStepId.microphone));
       });
 
-      test('returns 7 steps in total', () {
-        expect(steps, hasLength(7));
+      test('returns 8 steps in total', () {
+        expect(steps, hasLength(8));
       });
 
       test('autoPaste step appears after microphone and before model', () {
@@ -80,8 +80,8 @@ void main() {
         expect(steps, contains(OnboardingStepId.microphone));
       });
 
-      test('returns 6 steps in total', () {
-        expect(steps, hasLength(6));
+      test('returns 7 steps in total', () {
+        expect(steps, hasLength(7));
       });
     });
 
@@ -92,7 +92,7 @@ void main() {
           autoPasteSupported: true,
         );
         expect(steps, isNot(contains(OnboardingStepId.autoPaste)));
-        expect(steps, hasLength(6));
+        expect(steps, hasLength(7));
       });
 
       test('Linux: omits autoPaste regardless of autoPasteSupported', () {
@@ -101,7 +101,7 @@ void main() {
           autoPasteSupported: true,
         );
         expect(steps, isNot(contains(OnboardingStepId.autoPaste)));
-        expect(steps, hasLength(6));
+        expect(steps, hasLength(7));
       });
     });
 
@@ -154,9 +154,11 @@ void main() {
       }
     });
 
-    test('testRecording always sits immediately between model and ready '
-        '(issue 04 — the skip link and "Weiter" both rely on this to reach '
-        'ready via a single onNext call)', () {
+    test('trigger always sits immediately between model and testRecording, '
+        'which sits immediately before ready (the guided test recording must '
+        'exercise the hotkey/mode just configured in trigger, not a stale '
+        'default; the skip link and "Weiter" both rely on this contiguous run '
+        'to reach ready via a single onNext call)', () {
       for (final platform in [
         TargetPlatform.macOS,
         TargetPlatform.windows,
@@ -168,12 +170,14 @@ void main() {
             autoPasteSupported: autoPasteSupported,
           );
           final modelIndex = steps.indexOf(OnboardingStepId.model);
+          final triggerIndex = steps.indexOf(OnboardingStepId.trigger);
           final testRecordingIndex = steps.indexOf(
             OnboardingStepId.testRecording,
           );
           final readyIndex = steps.indexOf(OnboardingStepId.ready);
 
-          expect(testRecordingIndex, modelIndex + 1);
+          expect(triggerIndex, modelIndex + 1);
+          expect(testRecordingIndex, triggerIndex + 1);
           expect(readyIndex, testRecordingIndex + 1);
         }
       }

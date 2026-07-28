@@ -1,12 +1,13 @@
 /// Widget tests for [OnboardingOverlay] step-sequence behaviour.
 ///
 /// Focus is on the platform-dependent flow assembly: only macOS renders
-/// six steps (Welcome → Privacy → Microphone → AutoPaste → Model → Ready);
-/// Windows and Linux render five (AutoPasteStep is omitted on both — Windows
-/// because no permission is needed in the 99 % case and the diagnostic
-/// test-paste step was confusing real users; Linux because the underlying
-/// capability is not supported). The stepper dots and "Step X of Y"
-/// counter must both reflect the active list length.
+/// eight steps (Welcome → Privacy → Microphone → AutoPaste → Model →
+/// Trigger → TestRecording → Ready); Windows and Linux render seven
+/// (AutoPasteStep is omitted on both — Windows because no permission is
+/// needed in the 99 % case and the diagnostic test-paste step was confusing
+/// real users; Linux because the underlying capability is not supported).
+/// The stepper dots and "Step X of Y" counter must both reflect the active
+/// list length.
 ///
 /// We only assert on the first frame here: the initial step is always
 /// [WelcomeStep], so we can verify total counts without driving the user
@@ -85,14 +86,14 @@ void main() {
   });
 
   group('OnboardingOverlay step sequence', () {
-    testWidgets('on Linux: renders 6-step flow, AutoPasteStep never appears, '
-        'counter and dots reflect 6 total', (tester) async {
+    testWidgets('on Linux: renders 7-step flow, AutoPasteStep never appears, '
+        'counter and dots reflect 7 total', (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.linux;
       try {
         await _pumpOverlay(tester);
 
-        // Counter reflects the Linux 6-step total on the initial Welcome step.
-        expect(find.text(l10n.onboardingStepOf(1, 6)), findsOneWidget);
+        // Counter reflects the Linux 7-step total on the initial Welcome step.
+        expect(find.text(l10n.onboardingStepOf(1, 7)), findsOneWidget);
         // AutoPasteStep is never instantiated in the Linux flow.
         expect(find.byType(AutoPasteStep), findsNothing);
       } finally {
@@ -101,21 +102,21 @@ void main() {
       }
     });
 
-    testWidgets('on macOS: renders 7-step flow with AutoPasteStep included; '
-        'counter reflects 7 total', (tester) async {
+    testWidgets('on macOS: renders 8-step flow with AutoPasteStep included; '
+        'counter reflects 8 total', (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
       try {
         await _pumpOverlay(tester);
 
-        // Counter reflects the macOS 7-step total on the initial Welcome step.
-        expect(find.text(l10n.onboardingStepOf(1, 7)), findsOneWidget);
+        // Counter reflects the macOS 8-step total on the initial Welcome step.
+        expect(find.text(l10n.onboardingStepOf(1, 8)), findsOneWidget);
       } finally {
         debugDefaultTargetPlatformOverride = null;
       }
     });
 
-    testWidgets('on Windows: renders 6-step flow, AutoPasteStep never appears, '
-        'counter and dots reflect 6 total', (tester) async {
+    testWidgets('on Windows: renders 7-step flow, AutoPasteStep never appears, '
+        'counter and dots reflect 7 total', (tester) async {
       // Windows drops AutoPasteStep entirely: no permission is required in
       // the 99 % case and the diagnostic test-paste sub-step was misread as
       // "press a hotkey" during real onboarding sessions, so the flow now
@@ -125,7 +126,7 @@ void main() {
       try {
         await _pumpOverlay(tester);
 
-        expect(find.text(l10n.onboardingStepOf(1, 6)), findsOneWidget);
+        expect(find.text(l10n.onboardingStepOf(1, 7)), findsOneWidget);
         expect(find.byType(AutoPasteStep), findsNothing);
       } finally {
         debugDefaultTargetPlatformOverride = null;
@@ -144,7 +145,7 @@ void main() {
       'header Skip button on a non-final step renders the disambiguated '
       '"Skip this step" label',
       (tester) async {
-        // Force macOS so the full 6-step flow is rendered — guarantees the
+        // Force macOS so the full 8-step flow is rendered — guarantees the
         // initial Welcome step is not the final step, so the Skip button is
         // visible.
         debugDefaultTargetPlatformOverride = TargetPlatform.macOS;

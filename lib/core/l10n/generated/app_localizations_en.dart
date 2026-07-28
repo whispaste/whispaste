@@ -497,6 +497,10 @@ class L10nEn extends L10n {
   String get pasteCapabilityReady => 'All set';
 
   @override
+  String get pasteCapabilityReadySubtitle =>
+      'Your dictation lands right at the cursor.';
+
+  @override
   String get pasteCapabilityPermissionMissing => 'Not yet allowed';
 
   @override
@@ -525,6 +529,14 @@ class L10nEn extends L10n {
 
   @override
   String get pasteCapabilityRestartButton => 'Restart WhisPaste';
+
+  @override
+  String get pasteCapabilityRestartTitle =>
+      'Permission granted — one restart to go';
+
+  @override
+  String get pasteCapabilityRestartBody =>
+      'macOS applies the new permission only to a freshly started app. One click — WhisPaste quits and comes right back.';
 
   @override
   String pasteCapabilityRepairDone(int count) {
@@ -582,14 +594,6 @@ class L10nEn extends L10n {
   @override
   String get onboardingPasteWaitingForGrantHint =>
       'System Settings is open. Find WhisPaste in the list and switch it on.\n\nNot in the list? Drag the app icon in or click „+\".';
-
-  @override
-  String get onboardingPasteTccMismatchTitle =>
-      'macOS didn\'t pick up the tick';
-
-  @override
-  String get onboardingPasteTccMismatchBody =>
-      'Happens sometimes after app updates. A restart fixes it. macOS will then see WhisPaste cleanly.';
 
   @override
   String get onboardingPasteTestTitle => 'Try Auto-Paste';
@@ -2207,6 +2211,13 @@ class L10nEn extends L10n {
   String get onboardingPrivacyToggleHint => 'On by default, switch off anytime';
 
   @override
+  String get onboardingPrivacyCrashToggle => 'Send anonymous crash reports';
+
+  @override
+  String get onboardingPrivacyCrashToggleHint =>
+      'Helps fix bugs, on by default, switch off anytime';
+
+  @override
   String onboardingStepOf(int current, int total) {
     return 'Step $current of $total';
   }
@@ -2295,6 +2306,24 @@ class L10nEn extends L10n {
       'Optimised GPU acceleration unavailable, app will use the CPU';
 
   @override
+  String get onboardingModelEngineParakeetLabel => 'Fast & European';
+
+  @override
+  String get onboardingModelEngineParakeetDesc =>
+      'The quickest way to dictate in about 25 European languages, including German. Small download, works well on any hardware.';
+
+  @override
+  String get onboardingModelEngineWhisperLabel => 'All 99 Languages';
+
+  @override
+  String get onboardingModelEngineWhisperDesc =>
+      'Broadest language coverage, plus custom vocabulary and punctuation tuning for names, acronyms, and jargon.';
+
+  @override
+  String get onboardingModelEngineUnsupportedLanguage =>
+      'Doesn\'t support your selected language yet';
+
+  @override
   String get onboardingTestRecordingTitle => 'Give it a try';
 
   @override
@@ -2344,16 +2373,27 @@ class L10nEn extends L10n {
       'Text is in your clipboard, press ⌘V / Ctrl+V to paste';
 
   @override
-  String get onboardingReadyChangeHotkey => 'Change Hotkey';
+  String get onboardingReadyAutostartToggle => 'Launch WhisPaste at login';
 
   @override
-  String get onboardingReadyCurrentHotkey => 'Current hotkey';
+  String get onboardingReadyAutostartToggleHint =>
+      'Off by default, turn on anytime in Settings';
 
   @override
-  String get onboardingReadyHotkeyConflictTitle => 'Hotkey already in use';
+  String get onboardingTriggerTitle => 'How do you want to start recording?';
 
   @override
-  String get onboardingReadyHotkeyConflictBody =>
+  String get onboardingTriggerSubtitle =>
+      'Set your hotkey and choose how it starts a recording.';
+
+  @override
+  String get onboardingTriggerCurrentHotkey => 'Current hotkey';
+
+  @override
+  String get onboardingTriggerHotkeyConflictTitle => 'Hotkey already in use';
+
+  @override
+  String get onboardingTriggerHotkeyConflictBody =>
       'Your hotkey seems to be in use by another app. Record a new combination below to continue.';
 
   @override

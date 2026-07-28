@@ -120,6 +120,7 @@ Future<_FakeProbe> _pumpStep(
   List<InputDevice> devices = const <InputDevice>[],
   AudioRoutingService? routing,
   Locale locale = const Locale('en'),
+  ValueChanged<String>? onMicrophoneSelected,
 }) async {
   final probe = _FakeProbe(outcomes: outcomes, devices: devices);
   await tester.pumpWidget(
@@ -129,6 +130,7 @@ Future<_FakeProbe> _pumpStep(
         onBack: _noop,
         probeFactory: () => probe,
         routing: routing ?? _FakeRouting(),
+        onMicrophoneSelected: onMicrophoneSelected,
       ),
       size: const Size(1280, 980),
       locale: locale,
@@ -381,6 +383,127 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(routing.setCalls.last, 'system-default-uid');
+      },
+    );
+  });
+
+  // ── Persisting the device selection (bug fix) ────────────────────────────
+  //
+  // The picker used to test the selected device without ever persisting it
+  // — a user who fixed a wrong default mic here would see it silently
+  // reverted to `'Default'` on the next launch.
+
+  group('MicrophoneStep — persisting the device selection', () {
+    testWidgets(
+      'selecting a device calls onMicrophoneSelected with its label',
+      (tester) async {
+        final selections = <String>[];
+        final routing = _FakeRouting(isSupportedOverride: false);
+        await _pumpStep(
+          tester,
+          outcomes: const [
+            MicProbeOutcome.silence,
+            MicProbeOutcome.speechDetected,
+          ],
+          devices: const [
+            InputDevice(id: 'a', label: 'Built-in'),
+            InputDevice(id: 'b', label: 'USB Headset'),
+          ],
+          routing: routing,
+          onMicrophoneSelected: selections.add,
+        );
+
+        await tester.tap(find.text(l10n.onboardingMicRequestAccess));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text(l10n.onboardingMicDeviceSystemDefault));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('USB Headset').last);
+        await tester.pumpAndSettle();
+
+        expect(
+          selections,
+          ['USB Headset'],
+          reason:
+              'The persisted label must match InputDevice.label exactly — '
+              'this is what audio_service._resolveInputDevice() matches '
+              'against when starting a real recording.',
+        );
+      },
+    );
+
+    testWidgets(
+      'selecting the System Default entry persists the "Default" sentinel',
+      (tester) async {
+        // Non-macOS routing path (isSupportedOverride: false) deliberately —
+        // the macOS path additionally waits for CoreAudio to confirm the
+        // default-input switch (`_waitForDefaultInputSwitch`), which mixes
+        // real `DateTime.now()` deadlines with fake-async timers and isn't
+        // reliably drained by `pumpAndSettle`. That wait behavior already has
+        // its own coverage; this test only needs to prove the callback
+        // receives the `'Default'` sentinel, which doesn't depend on it.
+        final selections = <String>[];
+        final routing = _FakeRouting(isSupportedOverride: false);
+        final probe = await _pumpStep(
+          tester,
+          outcomes: const [
+            MicProbeOutcome.silence,
+            MicProbeOutcome.speechDetected,
+            MicProbeOutcome.speechDetected,
+          ],
+          devices: const [
+            InputDevice(id: 'built-in', label: 'Built-in'),
+            InputDevice(id: 'usb', label: 'USB Headset'),
+          ],
+          routing: routing,
+          onMicrophoneSelected: selections.add,
+        );
+
+        await tester.tap(find.text(l10n.onboardingMicRequestAccess));
+        await tester.pumpAndSettle();
+
+        // Switch away from Default, then back — the second selection must
+        // persist the 'Default' sentinel, not the device's own label.
+        await tester.tap(find.text(l10n.onboardingMicDeviceSystemDefault));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('USB Headset').last);
+        await tester.pumpAndSettle();
+        expect(probe.startCalls, hasLength(2));
+
+        await tester.tap(find.text('USB Headset'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(l10n.onboardingMicDeviceSystemDefault).last);
+        await tester.pumpAndSettle();
+        expect(probe.startCalls, hasLength(3));
+
+        expect(selections, ['USB Headset', 'Default']);
+      },
+    );
+
+    testWidgets(
+      'onMicrophoneSelected is optional — omitting it does not crash',
+      (tester) async {
+        await _pumpStep(
+          tester,
+          outcomes: const [
+            MicProbeOutcome.silence,
+            MicProbeOutcome.speechDetected,
+          ],
+          devices: const [
+            InputDevice(id: 'a', label: 'Built-in'),
+            InputDevice(id: 'b', label: 'USB Headset'),
+          ],
+          routing: _FakeRouting(isSupportedOverride: false),
+        );
+
+        await tester.tap(find.text(l10n.onboardingMicRequestAccess));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(l10n.onboardingMicDeviceSystemDefault));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('USB Headset').last);
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
       },
     );
   });

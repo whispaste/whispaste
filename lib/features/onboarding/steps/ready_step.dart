@@ -3,25 +3,31 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/config/settings_enums.dart';
-import '../../../core/config/settings_labels.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../services/hotkey_service.dart';
-import '../../../widgets/hotkey_recorder.dart';
 import '../../../widgets/wp_accent_button.dart';
+import '../../settings/settings_widgets.dart';
 
 /// Widget keys exposed for testing. Kept in one place so tests and production
 /// code agree on the contract.
 @visibleForTesting
-const kReadyStepConflictWarnBoxKey = Key('readyStepHotkeyConflictWarnBox');
-@visibleForTesting
-const kReadyStepInlineRecorderKey = Key('readyStepInlineHotkeyRecorder');
+const kReadyStepAutostartToggleKey = Key('readyStepAutostartToggle');
 @visibleForTesting
 const kReadyStepStartButtonKey = Key('readyStepStartButton');
 
-/// Onboarding Step 4 — Ready screen with hotkey summary and quick-start guide.
+/// Onboarding's final step — quick-start guide, an autostart toggle, and the
+/// Start CTA.
+///
+/// Hotkey configuration (summary, rebind, conflict resolution) used to live
+/// here; it moved to `TriggerStep`, which now runs earlier in the flow, right
+/// before the guided test recording. This step no longer configures
+/// anything hotkey-related — it keeps only a residual safety gate: if the
+/// hotkey is a confirmed conflict (e.g. the user skipped past `TriggerStep`'s
+/// warning), Start stays disabled rather than sending the user into a
+/// non-functional hotkey.
 class ReadyStep extends ConsumerWidget {
   const ReadyStep({super.key, required this.onComplete, required this.onBack});
 
@@ -46,27 +52,18 @@ class ReadyStep extends ConsumerWidget {
     final accentGradient = isDark
         ? WpColorsDark.accentWarmGradient
         : WpColorsLight.accentWarmGradient;
-
-    final hotkeyKey = settings.hotkeyKey;
-    final hotkeyDisplay = settings.hotkey.hotkeyKeyDisplay;
-    final hotkeyModifiers = settings.hotkeyModifiers;
-    final modifierLabels = hotkeyModifierLabels(hotkeyModifiers, l10n: l10n);
-    final keyCapLabel = hotkeyDisplay.trim().isNotEmpty
-        ? (hotkeyDisplay.length == 1
-              ? hotkeyDisplay.toUpperCase()
-              : hotkeyDisplay)
-        : hotkeyKey;
-    final formattedHotkey = formatHotkeyShortcut(
-      hotkeyModifiers,
-      hotkeyKey,
-      l10n: l10n,
-      displayOverride: hotkeyDisplay,
-    );
+    final surfaceVariant =
+        (isDark ? WpColorsDark.surfaceVariant : WpColorsLight.surfaceVariant)
+            .withValues(alpha: 0.55);
+    final borderColor = isDark
+        ? WpColorsDark.borderSubtle
+        : WpColorsLight.borderSubtle;
 
     // Start CTA is gated on a healthy hotkey registration. `unknown` keeps
     // the button enabled — the registration runs in the background and the
     // user shouldn't be blocked by a transient race during the very first
-    // mount; only a confirmed `conflict` disables Start.
+    // mount; only a confirmed `conflict` disables Start. This is a residual
+    // safety net for a conflict the user skipped past in `TriggerStep`.
     final startEnabled = status != HotkeyRegistrationStatus.conflict;
 
     // Auto-Paste is active when `afterTranscription` is set to `paste` or
@@ -110,96 +107,19 @@ class ReadyStep extends ConsumerWidget {
         ),
         const SizedBox(height: WpSpacing.xxl),
 
-        // Hotkey display — branches on the registration status so a confirmed
-        // conflict surfaces a warning + inline rebind UI BEFORE the user can
-        // click Start.
-        if (status == HotkeyRegistrationStatus.conflict) ...[
-          _HotkeyConflictWarnBox(
-            key: kReadyStepConflictWarnBoxKey,
-            title: l10n.onboardingReadyHotkeyConflictTitle,
-            body: l10n.onboardingReadyHotkeyConflictBody,
-            isDark: isDark,
+        // Residual conflict notice — TriggerStep is the place to fix this;
+        // here it's just a short heads-up next to the (disabled) Start CTA.
+        if (!startEnabled) ...[
+          Text(
+            l10n.onboardingTriggerHotkeyConflictTitle,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: WpTypography.small,
+              fontWeight: FontWeight.w600,
+              color: isDark ? WpColorsDark.error : WpColorsLight.error,
+            ),
           ),
           const SizedBox(height: WpSpacing.md),
-          // Inline recorder: same widget as the Settings modal, but with an
-          // `onSubmit` callback so it stays mounted and the parent owns the
-          // result. Persisting the new combo triggers `hotkey_service`'s
-          // settings listener, which calls `updateHotkey` and flips the
-          // status back to `success` (or `conflict` again if the new combo
-          // also fails — at which point the user can rebind once more).
-          HotkeyRecorderDialog(
-            key: kReadyStepInlineRecorderKey,
-            initialKey: hotkeyKey,
-            initialDisplayKey: hotkeyDisplay,
-            initialModifiers: hotkeyModifiers,
-            onSubmit: (result) async {
-              await ref
-                  .read(settingsProvider.notifier)
-                  .updateSettings(
-                    (s) => s.copyWith(
-                      hotkeyKey: result.key,
-                      hotkeyKeyDisplay: result.displayKey,
-                      hotkeyModifiers: result.modifiers,
-                    ),
-                  );
-            },
-          ),
-          const SizedBox(height: WpSpacing.xl),
-        ] else ...[
-          Text(
-            l10n.onboardingReadyCurrentHotkey,
-            style: TextStyle(fontSize: WpTypography.small, color: textMuted),
-          ),
-          const SizedBox(height: WpSpacing.sm),
-          Semantics(
-            label: '${l10n.onboardingReadyCurrentHotkey}: $formattedHotkey',
-            child: _HotkeyKeyCaps(
-              modifiers: modifierLabels,
-              keyLabel: keyCapLabel,
-              isDark: isDark,
-            ),
-          ),
-          const SizedBox(height: WpSpacing.sm),
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () async {
-                final result = await HotkeyRecorderDialog.show(
-                  context,
-                  initialKey: hotkeyKey,
-                  initialDisplayKey: hotkeyDisplay,
-                  initialModifiers: hotkeyModifiers,
-                );
-                if (result != null && context.mounted) {
-                  await ref
-                      .read(settingsProvider.notifier)
-                      .updateSettings(
-                        (s) => s.copyWith(
-                          hotkeyKey: result.key,
-                          hotkeyKeyDisplay: result.displayKey,
-                          hotkeyModifiers: result.modifiers,
-                        ),
-                      );
-                }
-              },
-              borderRadius: WpRadius.borderSm,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: WpSpacing.sm,
-                  vertical: WpSpacing.xs,
-                ),
-                child: Text(
-                  l10n.onboardingReadyChangeHotkey,
-                  style: TextStyle(
-                    fontSize: WpTypography.body,
-                    color: accent,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: WpSpacing.xl),
         ],
 
         // Quick start instructions
@@ -225,6 +145,33 @@ class ReadyStep extends ConsumerWidget {
           icon: LucideIcons.clipboard,
           accent: accent,
           textColor: textPrimary,
+        ),
+        const SizedBox(height: WpSpacing.xxl),
+
+        // Autostart toggle — a simpler yes/no than Settings → Interface's
+        // never/normal/minimized dropdown; picking "yes" here always means
+        // normal (not minimized) startup. `startMinimized` keeps its default
+        // (`false`); the full dropdown remains available later in Settings.
+        Container(
+          decoration: BoxDecoration(
+            color: surfaceVariant,
+            borderRadius: WpRadius.borderLg,
+            border: Border.all(color: borderColor),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: WpSpacing.sm),
+          child: SettingRow(
+            key: kReadyStepAutostartToggleKey,
+            icon: LucideIcons.power,
+            label: l10n.onboardingReadyAutostartToggle,
+            subtitle: l10n.onboardingReadyAutostartToggleHint,
+            semanticToggledValue: settings.launchAtStartup,
+            trailing: settingsToggle(
+              value: settings.launchAtStartup,
+              onChanged: (v) => ref
+                  .read(settingsProvider.notifier)
+                  .updateSettings((s) => s.copyWith(launchAtStartup: v)),
+            ),
+          ),
         ),
         const SizedBox(height: WpSpacing.xxl),
 
@@ -255,136 +202,6 @@ class ReadyStep extends ConsumerWidget {
           ],
         ),
       ],
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Hotkey key caps row — modifier pills + "+" separators + primary key
-// ---------------------------------------------------------------------------
-
-class _HotkeyKeyCaps extends StatelessWidget {
-  const _HotkeyKeyCaps({
-    required this.modifiers,
-    required this.keyLabel,
-    required this.isDark,
-  });
-
-  final List<String> modifiers;
-  final String keyLabel;
-  final bool isDark;
-
-  @override
-  Widget build(BuildContext context) {
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-    final surfaceVariant = isDark
-        ? WpColorsDark.surfaceVariant
-        : WpColorsLight.surfaceVariant;
-    final borderColor = isDark
-        ? WpColorsDark.borderSubtle
-        : WpColorsLight.borderSubtle;
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
-
-    final caps = <Widget>[];
-    for (var i = 0; i < modifiers.length; i++) {
-      if (i > 0) {
-        caps.add(
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: WpSpacing.xxs),
-            child: Text(
-              '+',
-              style: TextStyle(
-                fontSize: WpTypography.subheading,
-                fontWeight: FontWeight.w600,
-                color: textMuted,
-              ),
-            ),
-          ),
-        );
-      }
-      caps.add(
-        _KeyCapPill(
-          label: modifiers[i],
-          bgColor: surfaceVariant,
-          borderColor: borderColor,
-          textColor: textPrimary,
-        ),
-      );
-    }
-
-    if (keyLabel.isNotEmpty) {
-      if (caps.isNotEmpty) {
-        caps.add(
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: WpSpacing.xxs),
-            child: Text(
-              '+',
-              style: TextStyle(
-                fontSize: WpTypography.subheading,
-                fontWeight: FontWeight.w600,
-                color: textMuted,
-              ),
-            ),
-          ),
-        );
-      }
-      caps.add(
-        _KeyCapPill(
-          label: keyLabel,
-          bgColor: surfaceVariant,
-          borderColor: borderColor,
-          textColor: textPrimary,
-        ),
-      );
-    }
-
-    return Wrap(
-      alignment: WrapAlignment.center,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: WpSpacing.xxs,
-      runSpacing: WpSpacing.xs,
-      children: caps,
-    );
-  }
-}
-
-class _KeyCapPill extends StatelessWidget {
-  const _KeyCapPill({
-    required this.label,
-    required this.bgColor,
-    required this.borderColor,
-    required this.textColor,
-  });
-
-  final String label;
-  final Color bgColor;
-  final Color borderColor;
-  final Color textColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: WpSpacing.sm,
-        vertical: WpSpacing.xxs + 2,
-      ),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(WpRadius.sm),
-        border: Border.all(color: borderColor),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: WpTypography.body,
-          fontWeight: FontWeight.w700,
-          color: textColor,
-          letterSpacing: 0.3,
-          fontFeatures: const [FontFeature.tabularFigures()],
-        ),
-      ),
     );
   }
 }
@@ -424,83 +241,6 @@ class _InstructionRow extends StatelessWidget {
                 fontSize: WpTypography.subheading,
                 color: textColor,
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Hotkey conflict warn-box — red banner shown in the `conflict` branch.
-// ---------------------------------------------------------------------------
-
-class _HotkeyConflictWarnBox extends StatelessWidget {
-  const _HotkeyConflictWarnBox({
-    super.key,
-    required this.title,
-    required this.body,
-    required this.isDark,
-  });
-
-  final String title;
-  final String body;
-  final bool isDark;
-
-  @override
-  Widget build(BuildContext context) {
-    // Use the theme's danger/error semantic so the box clearly reads as a
-    // blocker — matches the rest of WhisPaste's destructive surfaces.
-    final dangerColor = isDark ? WpColorsDark.error : WpColorsLight.error;
-    final bgColor = dangerColor.withValues(alpha: isDark ? 0.12 : 0.10);
-    final borderColor = dangerColor.withValues(alpha: isDark ? 0.40 : 0.32);
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: WpSpacing.md,
-        vertical: WpSpacing.sm,
-      ),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(WpRadius.sm),
-        border: Border.all(color: borderColor),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            LucideIcons.triangleAlert,
-            size: WpIconSize.md,
-            color: dangerColor,
-          ),
-          const SizedBox(width: WpSpacing.sm),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: WpTypography.body,
-                    fontWeight: FontWeight.w700,
-                    color: dangerColor,
-                  ),
-                ),
-                const SizedBox(height: WpSpacing.xxs),
-                Text(
-                  body,
-                  style: TextStyle(
-                    fontSize: WpTypography.small,
-                    color: textPrimary,
-                    height: 1.4,
-                  ),
-                ),
-              ],
             ),
           ),
         ],

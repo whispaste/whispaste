@@ -499,6 +499,10 @@ class L10nDe extends L10n {
   String get pasteCapabilityReady => 'Alles bereit';
 
   @override
+  String get pasteCapabilityReadySubtitle =>
+      'Dein Diktat landet direkt an deinem Cursor.';
+
+  @override
   String get pasteCapabilityPermissionMissing => 'Noch nicht freigegeben';
 
   @override
@@ -527,6 +531,14 @@ class L10nDe extends L10n {
 
   @override
   String get pasteCapabilityRestartButton => 'WhisPaste neu starten';
+
+  @override
+  String get pasteCapabilityRestartTitle =>
+      'Berechtigung erteilt — einmal neu starten';
+
+  @override
+  String get pasteCapabilityRestartBody =>
+      'macOS übernimmt die neue Berechtigung erst nach einem frischen Start. Ein Klick — WhisPaste beendet sich und kommt sofort zurück.';
 
   @override
   String pasteCapabilityRepairDone(int count) {
@@ -586,14 +598,6 @@ class L10nDe extends L10n {
   @override
   String get onboardingPasteWaitingForGrantHint =>
       'Die Systemeinstellungen sind offen. Such WhisPaste in der Liste und schalt es ein.\n\nNicht in der Liste? Zieh das App-Symbol einfach rein oder klick auf „+\".';
-
-  @override
-  String get onboardingPasteTccMismatchTitle =>
-      'macOS hat das Häkchen nicht erkannt';
-
-  @override
-  String get onboardingPasteTccMismatchBody =>
-      'Das passiert manchmal nach App-Updates. Ein Neustart reicht. Dann sieht macOS WhisPaste wieder sauber.';
 
   @override
   String get onboardingPasteTestTitle => 'Probier Auto-Paste aus';
@@ -2226,6 +2230,13 @@ class L10nDe extends L10n {
       'Standardmäßig aktiv, jederzeit abschaltbar';
 
   @override
+  String get onboardingPrivacyCrashToggle => 'Anonyme Absturzberichte senden';
+
+  @override
+  String get onboardingPrivacyCrashToggleHint =>
+      'Hilft beim Beheben von Fehlern, standardmäßig aktiv, jederzeit abschaltbar';
+
+  @override
   String onboardingStepOf(int current, int total) {
     return 'Schritt $current von $total';
   }
@@ -2312,6 +2323,24 @@ class L10nDe extends L10n {
       'Optimierte GPU-Beschleunigung nicht verfügbar, App nutzt CPU';
 
   @override
+  String get onboardingModelEngineParakeetLabel => 'Schnell & europäisch';
+
+  @override
+  String get onboardingModelEngineParakeetDesc =>
+      'Der schnellste Weg zum Diktieren in rund 25 europäischen Sprachen, inklusive Deutsch. Kleiner Download, läuft gut auf jeder Hardware.';
+
+  @override
+  String get onboardingModelEngineWhisperLabel => 'Alle 99 Sprachen';
+
+  @override
+  String get onboardingModelEngineWhisperDesc =>
+      'Breiteste Sprachabdeckung, plus eigenes Vokabular und Interpunktions-Tuning für Namen, Akronyme und Fachbegriffe.';
+
+  @override
+  String get onboardingModelEngineUnsupportedLanguage =>
+      'Unterstützt deine gewählte Sprache noch nicht';
+
+  @override
   String get onboardingTestRecordingTitle => 'Probier es gleich aus';
 
   @override
@@ -2363,17 +2392,29 @@ class L10nDe extends L10n {
       'Text liegt in der Zwischenablage, drück ⌘V / Strg+V zum Einfügen';
 
   @override
-  String get onboardingReadyChangeHotkey => 'Tastenkürzel ändern';
+  String get onboardingReadyAutostartToggle =>
+      'WhisPaste beim Anmelden starten';
 
   @override
-  String get onboardingReadyCurrentHotkey => 'Aktuelles Tastenkürzel';
+  String get onboardingReadyAutostartToggleHint =>
+      'Standardmäßig aus, jederzeit in den Einstellungen aktivierbar';
 
   @override
-  String get onboardingReadyHotkeyConflictTitle =>
+  String get onboardingTriggerTitle => 'Wie möchtest du die Aufnahme starten?';
+
+  @override
+  String get onboardingTriggerSubtitle =>
+      'Lege deinen Hotkey fest und wähle, wie er eine Aufnahme startet.';
+
+  @override
+  String get onboardingTriggerCurrentHotkey => 'Aktuelles Tastenkürzel';
+
+  @override
+  String get onboardingTriggerHotkeyConflictTitle =>
       'Tastenkürzel bereits belegt';
 
   @override
-  String get onboardingReadyHotkeyConflictBody =>
+  String get onboardingTriggerHotkeyConflictBody =>
       'Dein Tastenkürzel scheint von einer anderen App belegt zu sein. Nimm unten eine neue Kombination auf, um fortzufahren.';
 
   @override

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -48,6 +49,19 @@ class AutostartService extends Notifier<bool> {
   @override
   bool build() {
     _ensureSetup();
+    // Re-sync whenever `launchAtStartup` changes after the initial `build()`
+    // — without this, toggling the setting (e.g. from the onboarding Ready
+    // step or Settings → Interface) only persists the flag; the OS-level
+    // registration would not happen until the next time this provider's
+    // `build()` re-runs (i.e. the next app start), leaving the toggle
+    // silently inert for the whole current session.
+    ref.listen(settingsProvider, (previous, next) {
+      final prevValue = previous?.value?.interface_.launchAtStartup;
+      final nextValue = next.value?.interface_.launchAtStartup;
+      if (nextValue != null && nextValue != prevValue) {
+        unawaited(_syncWithSettings());
+      }
+    });
     _syncWithSettings();
     return false;
   }

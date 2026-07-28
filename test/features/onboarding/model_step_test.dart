@@ -1,25 +1,48 @@
-/// Widget tests for [ModelStep] (onboarding step 3).
+/// Widget tests for [ModelStep].
 ///
-/// Verify that the 3-tier UI renders correctly with the current registry,
-/// that hardware recommendations map to the right tier, and that tapping the
-/// download CTA triggers a download of the tier representative (the only
-/// model installable per [bestModelForTier]).
+/// Verifies the two-way engine choice: card selection, the
+/// language-and-hardware-driven recommendation (via [recommendEngine]),
+/// per-engine download wiring, engine-scoped completion, and that only Next
+/// (not the cloud escape link) persists `sttEngine`/`sttModel`.
 library;
 
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/core/config/settings_provider.dart';
+import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/theme/theme.dart';
 import 'package:whispaste/features/onboarding/steps/model_step.dart';
 import 'package:whispaste/services/hardware_info_service.dart' as hw;
 import 'package:whispaste/services/model_download_service.dart';
+import 'package:whispaste/services/stt_parakeet/parakeet_download_service.dart';
 import 'package:whispaste/widgets/wp_accent_button.dart';
 
-class _RecordingDownloadNotifier extends ModelDownloadNotifier {
-  _RecordingDownloadNotifier(this._initial);
+// ---------------------------------------------------------------------------
+// Fakes
+// ---------------------------------------------------------------------------
+
+class _FakeSettingsNotifier extends SettingsNotifier {
+  _FakeSettingsNotifier([AppSettings? settings])
+    : _settings = settings ?? AppSettings.defaults;
+
+  AppSettings _settings;
+
+  @override
+  Future<AppSettings> build() async => _settings;
+
+  @override
+  Future<void> updateSettings(AppSettings Function(AppSettings) updater) async {
+    _settings = updater(state.value ?? _settings);
+    state = AsyncData(_settings);
+  }
+}
+
+class _RecordingWhisperDownloadNotifier extends ModelDownloadNotifier {
+  _RecordingWhisperDownloadNotifier(this._initial);
 
   final ModelDownloadState _initial;
   final List<String> downloadModelCalls = [];
@@ -38,20 +61,47 @@ class _RecordingDownloadNotifier extends ModelDownloadNotifier {
   }
 }
 
+class _RecordingParakeetDownloadNotifier extends ParakeetDownloadNotifier {
+  _RecordingParakeetDownloadNotifier(this._initial);
+
+  final ParakeetDownloadState _initial;
+  int downloadBundleCalls = 0;
+
+  @override
+  ParakeetDownloadState build() => _initial;
+
+  @override
+  Future<void> downloadBundle() async {
+    downloadBundleCalls++;
+    state = state.copyWith(phase: ParakeetDownloadPhase.downloading);
+  }
+}
+
 void _noop() {}
 
-/// Resolved English copy used for label lookups inside the suite. The
-/// majority of `ModelStep` tests run in English; the explicit German tests
-/// load their own L10n snapshot inline.
 late L10n l10n;
 
-Future<_RecordingDownloadNotifier> _pumpStep(
+typedef _Recorders = ({
+  _FakeSettingsNotifier settings,
+  _RecordingWhisperDownloadNotifier whisper,
+  _RecordingParakeetDownloadNotifier parakeet,
+});
+
+Future<_Recorders> _pumpStep(
   WidgetTester tester, {
   required hw.GpuInfo gpu,
-  ModelDownloadState initial = const ModelDownloadState(),
-  Locale locale = const Locale('en'),
+  String dictationLocale = 'en',
+  ModelDownloadState whisperInitial = const ModelDownloadState(),
+  ParakeetDownloadState parakeetInitial = const ParakeetDownloadState(),
+  Locale displayLocale = const Locale('en'),
+  VoidCallback onNext = _noop,
 }) async {
-  late _RecordingDownloadNotifier captured;
+  late _RecordingWhisperDownloadNotifier whisper;
+  late _RecordingParakeetDownloadNotifier parakeet;
+  final settings = _FakeSettingsNotifier(
+    AppSettings(interface_: InterfaceSettings(locale: dictationLocale)),
+  );
+
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -61,22 +111,27 @@ Future<_RecordingDownloadNotifier> _pumpStep(
           return db;
         }),
         hw.gpuInfoProvider.overrideWith((_) async => gpu),
+        settingsProvider.overrideWith(() => settings),
         modelDownloadProvider.overrideWith(() {
-          captured = _RecordingDownloadNotifier(initial);
-          return captured;
+          whisper = _RecordingWhisperDownloadNotifier(whisperInitial);
+          return whisper;
+        }),
+        parakeetDownloadProvider.overrideWith(() {
+          parakeet = _RecordingParakeetDownloadNotifier(parakeetInitial);
+          return parakeet;
         }),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: wpDarkTheme(),
-        locale: locale,
+        locale: displayLocale,
         localizationsDelegates: L10n.localizationsDelegates,
         supportedLocales: L10n.supportedLocales,
-        home: const MediaQuery(
-          data: MediaQueryData(size: Size(1280, 1600)),
+        home: MediaQuery(
+          data: const MediaQueryData(size: Size(1280, 1600)),
           child: Scaffold(
             body: SingleChildScrollView(
-              child: ModelStep(onNext: _noop, onBack: _noop),
+              child: ModelStep(onNext: onNext, onBack: _noop),
             ),
           ),
         ),
@@ -84,8 +139,15 @@ Future<_RecordingDownloadNotifier> _pumpStep(
     ),
   );
   await tester.pumpAndSettle();
-  return captured;
+  return (settings: settings, whisper: whisper, parakeet: parakeet);
 }
+
+const _appleM2 = hw.GpuInfo(
+  vendor: hw.GpuVendor.apple,
+  name: 'Apple M2',
+  vramMB: 8192,
+);
+const _cpuOnly = hw.GpuInfo(vendor: hw.GpuVendor.none, name: 'CPU only');
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -94,265 +156,267 @@ void main() {
     l10n = await L10n.delegate.load(const Locale('en'));
   });
 
-  group('ModelStep', () {
-    testWidgets('renders all three tier cards once GPU is detected', (
+  group('ModelStep — rendering', () {
+    testWidgets('renders both engine cards once hardware is detected', (
       tester,
     ) async {
-      await _pumpStep(
-        tester,
-        gpu: const hw.GpuInfo(
-          vendor: hw.GpuVendor.apple,
-          name: 'Apple M2',
-          vramMB: 8192,
-        ),
-      );
+      await _pumpStep(tester, gpu: _appleM2);
 
       expect(tester.takeException(), isNull);
-      // Selected tier card + expanded alternatives reveal all 3 tier labels.
-      await tester.tap(find.text(l10n.qualityTierChooseDifferent));
-      await tester.pumpAndSettle();
-
-      expect(find.text(l10n.qualityTierCompactLabel), findsWidgets);
-      expect(find.text(l10n.qualityTierBalancedLabel), findsWidgets);
-      expect(find.text(l10n.qualityTierPremiumLabel), findsWidgets);
+      expect(find.byKey(kModelStepEngineParakeetCardKey), findsOneWidget);
+      expect(find.byKey(kModelStepEngineWhisperCardKey), findsOneWidget);
     });
 
-    testWidgets('Apple GPU with ≥4 GB unified memory recommends Premium', (
+    testWidgets('GpuVendor.none renders the CPU-fallback notice', (
       tester,
     ) async {
       await _pumpStep(
         tester,
-        gpu: const hw.GpuInfo(
-          vendor: hw.GpuVendor.apple,
-          name: 'Apple M2',
-          vramMB: 8192,
+        gpu: _cpuOnly,
+        // 'he' forces the Whisper recommendation so `whisperInitial` below
+        // is actually the engine `isDone` checks — 'en' (the default) would
+        // recommend Parakeet regardless of GPU (language decides, not
+        // hardware), leaving the Whisper download state irrelevant.
+        dictationLocale: 'he',
+        whisperInitial: const ModelDownloadState(
+          downloadedModels: {'whisper-small'},
+          phase: DownloadPhase.done,
         ),
       );
 
-      // The recommended tier should be Premium → its label is shown as the
-      // pre-selected card. Tier-label uniqueness on a fresh render proves the
-      // selection.
-      expect(find.text(l10n.qualityTierPremiumLabel), findsOneWidget);
-    });
-
-    testWidgets('CPU-only fallback recommends Compact tier', (tester) async {
-      await _pumpStep(
-        tester,
-        gpu: const hw.GpuInfo(vendor: hw.GpuVendor.none, name: 'CPU only'),
+      expect(find.byKey(kModelStepGpuCpuFallbackKey), findsOneWidget);
+      final nextButton = find.byKey(kModelStepNextButtonKey);
+      expect(nextButton, findsOneWidget);
+      expect(
+        tester.widget<WpAccentButton>(nextButton).onPressed,
+        isNotNull,
+        reason:
+            'Next must be enabled once a model is ready, regardless of GPU '
+            'detection outcome.',
       );
-
-      expect(find.text(l10n.qualityTierCompactLabel), findsOneWidget);
     });
-
-    // -----------------------------------------------------------------------
-    // Auto-tier recommendation actually feeds the selected-tier state used by
-    // the download action — not just the badge (issue
-    // 05-auto-quality-tier-verifikation). `_startDownload` reads
-    // `_selectedTier`, which has its own `?? QualityTier.balanced` fallback
-    // distinct from the wider `_selectedTier ?? _recommendedTier ?? balanced`
-    // chain used purely for rendering. Tapping the download CTA without any
-    // manual selection is the only way to observe that the recommendation
-    // was actually stored in `_selectedTier` (via `_selectedTier ??= rec;`)
-    // rather than merely displayed through the render-time fallback.
-    // -----------------------------------------------------------------------
-
-    testWidgets(
-      'low-VRAM hardware: download CTA downloads the recommended Compact '
-      'model without any manual tier selection',
-      (tester) async {
-        final notifier = await _pumpStep(
-          tester,
-          gpu: const hw.GpuInfo(vendor: hw.GpuVendor.none, name: 'CPU only'),
-        );
-
-        await tester.tap(
-          find.textContaining(l10n.qualityTierDownloadAndContinue),
-        );
-        await tester.pumpAndSettle();
-
-        expect(notifier.downloadModelCalls, [
-          bestModelForTier(QualityTier.compact).id,
-        ]);
-        expect(notifier.downloadModelCalls.single, 'whisper-small');
-      },
-    );
-
-    // -----------------------------------------------------------------------
-    // GPU CPU fallback notice (issue 02-tech-gpu-detection-resilience)
-    // -----------------------------------------------------------------------
-
-    testWidgets(
-      'GpuVendor.none renders the German CPU-fallback notice and keeps the '
-      'Next button enabled once a model is downloaded',
-      (tester) async {
-        await _pumpStep(
-          tester,
-          gpu: const hw.GpuInfo(
-            vendor: hw.GpuVendor.none,
-            name: 'Detection failed — using CPU',
-          ),
-          // Pre-flag a downloaded model so the Next button is enabled and we
-          // can verify GPU detection failure does NOT block onboarding.
-          initial: const ModelDownloadState(
-            downloadedModels: {'whisper-small'},
-            phase: DownloadPhase.done,
-          ),
-          locale: const Locale('de'),
-        );
-
-        // The fallback notice is mounted via its widget key.
-        expect(find.byKey(kModelStepGpuCpuFallbackKey), findsOneWidget);
-        // Exact PRD-conformant German string — vocabulary check covers this
-        // in CI. Resolving the German L10n snapshot inline keeps the test
-        // robust against ARB rewording.
-        final lDe = await L10n.delegate.load(const Locale('de'));
-        expect(find.text(lDe.onboardingModelGpuCpuFallback), findsOneWidget);
-
-        // Next button is rendered and enabled — GpuVendor.none must NOT be
-        // interpreted as „system not compatible".
-        final nextButton = find.byKey(kModelStepNextButtonKey);
-        expect(nextButton, findsOneWidget);
-        final widget = tester.widget<WpAccentButton>(nextButton);
-        expect(
-          widget.onPressed,
-          isNotNull,
-          reason:
-              'Next button must be enabled when a model is ready, '
-              'regardless of GPU detection outcome.',
-        );
-      },
-    );
 
     testWidgets('GpuVendor.apple does NOT render the CPU-fallback notice', (
       tester,
     ) async {
-      await _pumpStep(
-        tester,
-        gpu: const hw.GpuInfo(
-          vendor: hw.GpuVendor.apple,
-          name: 'Apple M2',
-          vramMB: 8192,
-        ),
-        locale: const Locale('de'),
-      );
+      await _pumpStep(tester, gpu: _appleM2);
 
       expect(find.byKey(kModelStepGpuCpuFallbackKey), findsNothing);
     });
+  });
 
+  group('ModelStep — recommendation', () {
     testWidgets(
-      'tapping the download CTA triggers exactly the tier representative',
+      'European dictation language (de) recommends Parakeet, Next enabled '
+      'once its download is done',
       (tester) async {
-        final notifier = await _pumpStep(
+        final rec = await _pumpStep(
           tester,
-          gpu: const hw.GpuInfo(
-            vendor: hw.GpuVendor.apple,
-            name: 'Apple M2',
-            vramMB: 8192,
+          gpu: _cpuOnly,
+          dictationLocale: 'de',
+          parakeetInitial: const ParakeetDownloadState(
+            installed: true,
+            phase: ParakeetDownloadPhase.done,
           ),
         );
 
-        // Premium is recommended for 8GB Apple. The CTA contains the tier size.
+        final nextButton = find.byKey(kModelStepNextButtonKey);
+        expect(
+          tester.widget<WpAccentButton>(nextButton).onPressed,
+          isNotNull,
+          reason:
+              'Parakeet is recommended (and preselected) for German — Next '
+              'must reflect the already-installed bundle immediately, no '
+              'tap needed.',
+        );
+        expect(rec.whisper.downloadModelCalls, isEmpty);
+      },
+    );
+
+    testWidgets(
+      'Non-European dictation language (he) recommends Whisper; Parakeet '
+      'card is disabled, shows the unsupported-language note, and tapping '
+      'it is a no-op',
+      (tester) async {
+        final rec = await _pumpStep(
+          tester,
+          gpu: _appleM2,
+          dictationLocale: 'he',
+        );
+
+        expect(
+          find.text(l10n.onboardingModelEngineUnsupportedLanguage),
+          findsOneWidget,
+        );
+
+        // Tapping the disabled Parakeet card must not select it — the CTA
+        // stays wired to Whisper. Downloading confirms which engine is
+        // actually selected.
+        await tester.tap(find.byKey(kModelStepEngineParakeetCardKey));
+        await tester.pumpAndSettle();
         await tester.tap(
           find.textContaining(l10n.qualityTierDownloadAndContinue),
         );
         await tester.pumpAndSettle();
 
-        expect(notifier.downloadModelCalls, [
+        expect(
+          rec.parakeet.downloadBundleCalls,
+          0,
+          reason:
+              'Tapping a disabled card must be a no-op — CTA stays on '
+              'Whisper',
+        );
+        expect(rec.whisper.downloadModelCalls, isNotEmpty);
+      },
+    );
+  });
+
+  group('ModelStep — Whisper download path', () {
+    testWidgets(
+      'selecting Whisper and tapping download calls modelDownloadProvider '
+      'with the hardware-recommended tier model',
+      (tester) async {
+        // 'he' forces the Whisper recommendation regardless of GPU, keeping
+        // this test independent from the recommendation test above.
+        final rec = await _pumpStep(
+          tester,
+          gpu: _appleM2,
+          dictationLocale: 'he',
+        );
+
+        await tester.tap(
+          find.textContaining(l10n.qualityTierDownloadAndContinue),
+        );
+        await tester.pumpAndSettle();
+
+        expect(rec.whisper.downloadModelCalls, [
           bestModelForTier(QualityTier.premium).id,
         ]);
-        expect(
-          notifier.downloadModelCalls.single,
-          'whisper-large-v3-turbo',
-          reason:
-              'Premium tier downloads exactly the registry representative — '
-              'no legacy IDs leak through.',
-        );
+        expect(rec.parakeet.downloadBundleCalls, 0);
       },
     );
+  });
 
+  group('ModelStep — Parakeet download path', () {
     testWidgets(
-      'after selecting Balanced via alternatives, CTA downloads whisper-medium',
+      'selecting Parakeet (recommended for German) and tapping download '
+      'calls parakeetDownloadProvider.downloadBundle',
       (tester) async {
-        final notifier = await _pumpStep(
+        final rec = await _pumpStep(
           tester,
-          gpu: const hw.GpuInfo(
-            vendor: hw.GpuVendor.apple,
-            name: 'Apple M2',
-            vramMB: 8192,
-          ),
+          gpu: _cpuOnly,
+          dictationLocale: 'de',
         );
 
-        // Open alternative tiers (collapsed by default), pick Balanced.
-        await tester.tap(find.text(l10n.qualityTierChooseDifferent));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text(l10n.qualityTierBalancedLabel).last);
-        await tester.pumpAndSettle();
-
-        // Tap CTA — now points at Balanced tier.
         await tester.tap(
           find.textContaining(l10n.qualityTierDownloadAndContinue),
         );
         await tester.pumpAndSettle();
 
-        expect(notifier.downloadModelCalls, [
-          bestModelForTier(QualityTier.balanced).id,
-        ]);
-        expect(notifier.downloadModelCalls.single, 'whisper-medium');
-      },
-    );
-
-    // -------------------------------------------------------------------------
-    // Recommended badge consistency with the Settings badge (issue
-    // 06-empfohlen-badge-settings) — both surfaces share the same
-    // `qualityTierRecommended` l10n key, so this is a regression guard
-    // against the two drifting apart.
-    // -------------------------------------------------------------------------
-
-    testWidgets(
-      'recommended badge uses the plain-language German copy shared with '
-      'the Settings badge',
-      (tester) async {
-        await _pumpStep(
-          tester,
-          gpu: const hw.GpuInfo(
-            vendor: hw.GpuVendor.apple,
-            name: 'Apple M2',
-            vramMB: 8192,
-          ),
-          locale: const Locale('de'),
-        );
-
-        final lDe = await L10n.delegate.load(const Locale('de'));
-        expect(lDe.qualityTierRecommended, 'Empfohlen für deinen Rechner');
-        expect(find.text(lDe.qualityTierRecommended), findsOneWidget);
+        expect(rec.parakeet.downloadBundleCalls, 1);
+        expect(rec.whisper.downloadModelCalls, isEmpty);
       },
     );
 
     testWidgets(
-      'after selecting Compact via alternatives, CTA downloads whisper-small',
+      'switching from the recommended Parakeet to Whisper downloads Whisper '
+      'instead',
       (tester) async {
-        final notifier = await _pumpStep(
+        final rec = await _pumpStep(
           tester,
-          gpu: const hw.GpuInfo(
-            vendor: hw.GpuVendor.apple,
-            name: 'Apple M2',
-            vramMB: 8192,
-          ),
+          gpu: _appleM2,
+          dictationLocale: 'de',
         );
 
-        await tester.tap(find.text(l10n.qualityTierChooseDifferent));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text(l10n.qualityTierCompactLabel).last);
+        await tester.tap(find.byKey(kModelStepEngineWhisperCardKey));
         await tester.pumpAndSettle();
         await tester.tap(
           find.textContaining(l10n.qualityTierDownloadAndContinue),
         );
         await tester.pumpAndSettle();
 
-        expect(notifier.downloadModelCalls, [
-          bestModelForTier(QualityTier.compact).id,
+        expect(rec.parakeet.downloadBundleCalls, 0);
+        expect(rec.whisper.downloadModelCalls, [
+          bestModelForTier(QualityTier.premium).id,
         ]);
-        expect(notifier.downloadModelCalls.single, 'whisper-small');
+      },
+    );
+  });
+
+  group('ModelStep — persistence on Next', () {
+    testWidgets('Next persists sttEngine=parakeet, leaves sttModel untouched', (
+      tester,
+    ) async {
+      var nextCalls = 0;
+      final rec = await _pumpStep(
+        tester,
+        gpu: _cpuOnly,
+        dictationLocale: 'de',
+        parakeetInitial: const ParakeetDownloadState(
+          installed: true,
+          phase: ParakeetDownloadPhase.done,
+        ),
+        onNext: () => nextCalls++,
+      );
+      final originalModel = rec.settings.state.value!.sttModel;
+
+      await tester.tap(find.byKey(kModelStepNextButtonKey));
+      await tester.pumpAndSettle();
+
+      expect(rec.settings.state.value!.stt.engine, 'parakeet');
+      expect(
+        rec.settings.state.value!.sttModel,
+        originalModel,
+        reason: 'Parakeet selection must not touch the whisper model id',
+      );
+      expect(nextCalls, 1);
+    });
+
+    testWidgets('Next persists sttEngine=whisper and the resolved tier model', (
+      tester,
+    ) async {
+      var nextCalls = 0;
+      final rec = await _pumpStep(
+        tester,
+        gpu: _appleM2,
+        dictationLocale: 'he',
+        whisperInitial: const ModelDownloadState(
+          downloadedModels: {'whisper-large-v3-turbo'},
+          phase: DownloadPhase.done,
+        ),
+        onNext: () => nextCalls++,
+      );
+
+      await tester.tap(find.byKey(kModelStepNextButtonKey));
+      await tester.pumpAndSettle();
+
+      expect(rec.settings.state.value!.stt.engine, 'whisper');
+      expect(
+        rec.settings.state.value!.sttModel,
+        bestModelForTier(QualityTier.premium).id,
+      );
+      expect(nextCalls, 1);
+    });
+
+    testWidgets(
+      'the cloud escape link calls onNext without writing sttEngine',
+      (tester) async {
+        var nextCalls = 0;
+        final rec = await _pumpStep(
+          tester,
+          gpu: _appleM2,
+          dictationLocale: 'de',
+          onNext: () => nextCalls++,
+        );
+        final originalEngine = rec.settings.state.value!.stt.engine;
+
+        await tester.tap(find.text(l10n.onboardingModelUseCloud));
+        await tester.pumpAndSettle();
+
+        expect(nextCalls, 1);
+        expect(rec.settings.state.value!.stt.engine, originalEngine);
+        expect(rec.whisper.downloadModelCalls, isEmpty);
+        expect(rec.parakeet.downloadBundleCalls, 0);
       },
     );
   });
