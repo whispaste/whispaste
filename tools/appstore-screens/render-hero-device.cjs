@@ -46,7 +46,7 @@ const BG_H = 768;
 // using points in the same y-range as the corner (rather than extrapolating
 // from points 150+ px away) — gives BL = (702, 528), consistent with the
 // visual estimate from the enhanced crop. TL/TR/BR left untouched.
-const SCREEN_QUAD = [[602, 172], [963, 147], [1022, 358], [702, 528]];
+const SCREEN_QUAD = [[634, 194], [954, 166], [1029, 431], [717, 497]];
 
 // Horizontal focus point (0..1) when cover-cropping the photo.
 const FOCUS_X = 0.62;
