@@ -80,10 +80,17 @@ class MacOSLifecycleChannel {
     }
   }
 
-  /// Programmatic relaunch of the application bundle. Used by the Auto-Paste
-  /// onboarding step when the user has hit the ad-hoc-signed TCC-cache
-  /// mismatch on macOS — after `tccutil reset` cleared stale entries,
-  /// macOS only re-evaluates the app's trust on a fresh process.
+  /// Programmatic relaunch of the application bundle. Used when the paste/
+  /// type capability is stuck reporting "missing" after the user has
+  /// actually granted it — macOS only re-evaluates certain trust state on a
+  /// fresh process, never mid-run:
+  ///   - Developer-ID: after `tccutil reset` cleared stale ad-hoc-signature
+  ///     TCC entries.
+  ///   - Mac App Store: `CGPreflightPostEventAccess()` doesn't refresh
+  ///     within an already-running process after a fresh grant via System
+  ///     Settings, even though the OS's actual event delivery already
+  ///     respects it — matches macOS's own "quit and relaunch?" UX for this
+  ///     exact permission toggle.
   ///
   /// The call returns successfully a few hundred milliseconds before the
   /// app actually quits; callers should treat it as fire-and-forget and

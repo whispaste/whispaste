@@ -15,6 +15,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../core/l10n/generated/app_localizations.dart';
 import '../core/logging/app_logger.dart';
+import '../core/platform/macos_lifecycle_channel.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import '../services/paste/paste_capability_notifier.dart';
@@ -228,6 +229,21 @@ class _PasteCapabilityIndicatorState
                 icon: const Icon(LucideIcons.wrench, size: 14),
                 label: Text(l10n.pasteCapabilityRepairButton),
               ),
+              // Covers the case this indicator otherwise can't recover
+              // from on its own: the permission was actually granted (in
+              // System Settings, possibly without ever using the "Grant"
+              // button above) but this still-running process's own
+              // in-process check of that grant is stale — macOS doesn't
+              // re-evaluate it without a fresh process. Always offered
+              // here rather than only after the polling-timeout heuristic
+              // fires, since that heuristic only engages if the user went
+              // through the Grant button first.
+              if (Platform.isMacOS)
+                TextButton.icon(
+                  onPressed: _busy ? null : MacOSLifecycleChannel.restart,
+                  icon: const Icon(LucideIcons.rotateCw, size: 14),
+                  label: Text(l10n.pasteCapabilityRestartButton),
+                ),
             ],
           ),
         ],

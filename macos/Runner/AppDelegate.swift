@@ -127,20 +127,33 @@ class AppDelegate: FlutterAppDelegate {
       result(nil)
 
     case "restart":
-      // Programmatic relaunch — used by the Auto-Paste onboarding step when
-      // the user hits the ad-hoc-signed TCC-cache mismatch on macOS. After
-      // `tccutil reset` has wiped stale entries, macOS only re-evaluates the
-      // app's trust state for a *fresh* process, so the only reliable way
-      // to get the OS to recognise the granted permission is to relaunch
-      // WhisPaste itself. Irrelevant for MAS builds (no Auto-Paste, no TCC
-      // repair flow there — see DesktopPasteHost.swift's #if MAS_BUILD
-      // guards on repairTccEntries) — this Dart call path is unreachable in
-      // that build, but the underlying Process()-spawn is compiled out here
-      // too anyway, for the same "no subprocess-execution symbols in the
-      // sandboxed binary" reasoning as tccutil.
+      // Programmatic relaunch. Two independent reasons a fresh process is
+      // the only reliable fix, both because macOS only re-evaluates certain
+      // trust/permission state at process start, never mid-run:
+      //  - Developer-ID: after `tccutil reset` wipes stale ad-hoc-signature
+      //    TCC entries, the app needs a fresh process to bind to the new
+      //    entry.
+      //  - Mac App Store: `CGPreflightPostEventAccess()` (gating direct-
+      //    typing/paste — see build_config.dart's kAutoPasteSupported) does
+      //    not refresh within an already-running process after the user
+      //    grants the permission via System Settings, even though the OS's
+      //    actual event delivery already respects the live grant. This
+      //    matches macOS's own UX for this exact permission toggle, which
+      //    offers to quit-and-relaunch the app for you.
       result(nil)
       #if MAS_BUILD
-      NSApp.terminate(nil)
+      // No Process()-spawn here (2.5.2 static-scan avoidance, same
+      // reasoning as tccutil in DesktopPasteHost.swift) — NSWorkspace can
+      // launch a fresh instance of ourselves without any subprocess
+      // symbols, which is sandbox-legal.
+      let configuration = NSWorkspace.OpenConfiguration()
+      configuration.createsNewApplicationInstance = true
+      NSWorkspace.shared.openApplication(
+        at: Bundle.main.bundleURL, configuration: configuration
+      ) { _, _ in }
+      DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(150)) {
+        NSApp.terminate(nil)
+      }
       #else
       let bundlePath = Bundle.main.bundlePath
       // Spawn a detached helper that waits for us to exit, then re-opens
