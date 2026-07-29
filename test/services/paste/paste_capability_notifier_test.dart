@@ -6,6 +6,7 @@
 library;
 
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -622,32 +623,38 @@ void main() {
         );
       });
 
-      test('second requestGrant call this process DOES open Settings '
-          '(macOS stays silent on repeat prompts)', () async {
-        final paster = _FakePaster();
-        final container = _container(paster: paster);
-        addTearDown(container.dispose);
-        final notifier = container.read(
-          pasteCapabilityNotifierProvider.notifier,
-        );
+      // requestGrant only deep-links to Settings on macOS (see its doc);
+      // this assertion is only meaningful on a macOS test host.
+      test(
+        'second requestGrant call this process DOES open Settings '
+        '(macOS stays silent on repeat prompts)',
+        skip: !Platform.isMacOS,
+        () async {
+          final paster = _FakePaster();
+          final container = _container(paster: paster);
+          addTearDown(container.dispose);
+          final notifier = container.read(
+            pasteCapabilityNotifierProvider.notifier,
+          );
 
-        await notifier.requestGrant(
-          pollInterval: const Duration(milliseconds: 10),
-          pollTimeout: const Duration(milliseconds: 10),
-        );
-        await notifier.requestGrant(
-          pollInterval: const Duration(milliseconds: 10),
-          pollTimeout: const Duration(milliseconds: 10),
-        );
+          await notifier.requestGrant(
+            pollInterval: const Duration(milliseconds: 10),
+            pollTimeout: const Duration(milliseconds: 10),
+          );
+          await notifier.requestGrant(
+            pollInterval: const Duration(milliseconds: 10),
+            pollTimeout: const Duration(milliseconds: 10),
+          );
 
-        expect(
-          fakeLauncher.launchedUrls,
-          hasLength(1),
-          reason:
-              'macOS shows no alert on the second prompt this process, so '
-              'the deep-link is the only remaining path to Settings',
-        );
-      });
+          expect(
+            fakeLauncher.launchedUrls,
+            hasLength(1),
+            reason:
+                'macOS shows no alert on the second prompt this process, so '
+                'the deep-link is the only remaining path to Settings',
+          );
+        },
+      );
     },
   );
 
@@ -1072,7 +1079,11 @@ void main() {
         );
         final prefs = await SharedPreferences.getInstance();
         expect(prefs.getBool(kAutoPasteRestartMarkerKey), isTrue);
-        expect(calls, contains('restart'));
+        // MacOSLifecycleChannel.restart() is a no-op off macOS — the native
+        // relaunch call is only meaningful on a macOS test host.
+        if (Platform.isMacOS) {
+          expect(calls, contains('restart'));
+        }
       },
     );
 
