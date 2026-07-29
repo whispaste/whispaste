@@ -2,17 +2,13 @@
 //
 // Scene 2 renders the WhisPaste recording overlay on a <canvas> via the shared
 // `overlay-mockup` renderer, which mirrors the in-app `OverlayPainter` 1:1 (same
-// SSOT tokens + math). Canvas — not CSS chrome — guarantees Safari/WebKit and
-// Chrome/Chromium draw the pill identically (browser parity, issue 10).
+// SSOT tokens + math, incl. the liquid-glass drift/wobble and the full
+// recording arc — see `overlay-demo.ts`). Canvas — not CSS chrome — guarantees
+// Safari/WebKit and Chrome/Chromium draw the pill identically (browser
+// parity, issue 10 / ADR 0002).
 
-import {
-  OVERLAY_GEOMETRY,
-  OVERLAY_WAVEFORM_MOTION,
-  FROZEN_BARS,
-  WaveformHistory,
-  drawOverlayPill,
-  type OverlayTheme,
-} from "./overlay-mockup";
+import { OverlayDemo, type OverlayDemoLang } from "./overlay-demo";
+import type { OverlayTheme } from "./overlay-mockup";
 
 const track = document.getElementById("carousel-track");
 const dotButtons = document.querySelectorAll<HTMLButtonElement>(".carousel-dot-hit");
@@ -29,17 +25,6 @@ const reducedMotion = window.matchMedia(
 const canvas = document.getElementById(
   "overlay-canvas",
 ) as HTMLCanvasElement | null;
-const ctx = canvas?.getContext("2d") ?? null;
-const history = new WaveformHistory();
-let overlayInterval: ReturnType<typeof setInterval>;
-
-const OVERLAY_FRAME_MS = 1000 / 30; // 30 fps redraw (OverlayMotion.frameRateFps)
-const OVERLAY_TICK_EVERY = Math.max(
-  1,
-  Math.round(OVERLAY_WAVEFORM_MOTION.tickMs / OVERLAY_FRAME_MS),
-);
-const OVERLAY_DOT_PERIOD_MS = 900; // OverlayMotion.dotPulsePeriod
-const OVERLAY_DEMO_MAX_SECONDS = 12; // mockup pace so the timeline visibly fills
 
 function currentTheme(): OverlayTheme {
   return document.documentElement.classList.contains("light")
@@ -47,79 +32,27 @@ function currentTheme(): OverlayTheme {
     : "dark";
 }
 
-function sizeCanvas() {
-  if (!canvas || !ctx) return;
-  const dpr = Math.min(window.devicePixelRatio || 1, 3);
-  const cssW = OVERLAY_GEOMETRY.width + OVERLAY_GEOMETRY.shadowPad * 2;
-  const cssH = OVERLAY_GEOMETRY.height + OVERLAY_GEOMETRY.shadowPad * 2;
-  canvas.width = Math.round(cssW * dpr);
-  canvas.height = Math.round(cssH * dpr);
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+function currentLang(): OverlayDemoLang {
+  const lang = (window as unknown as { currentLang?: string }).currentLang;
+  return lang === "de" ? "de" : "en";
 }
 
-function drawOverlay(
-  bars: readonly number[],
-  timerText: string,
-  progress: number,
-  dotPulse: number,
-) {
-  if (!ctx) return;
-  drawOverlayPill(ctx, {
-    theme: currentTheme(),
-    bars,
-    timerText,
-    progress,
-    dotPulse,
-  });
-}
-
-function formatTimer(seconds: number) {
-  return Math.floor(seconds / 60) + ":" + String(seconds % 60).padStart(2, "0");
-}
-
-// Deterministic resting/reduced-motion frame: the spike-verified snapshot.
-function drawFrozenOverlay() {
-  drawOverlay(FROZEN_BARS, "0:07", 0.6, 1);
-}
-
-// Speech-like envelope with periodic pauses, so the release smoothing visibly
-// decays the waveform toward flat during a pause (silence → nearly flat).
-function syntheticLevel(tick: number) {
-  const t = tick * 0.32;
-  if (Math.sin(t * 0.45) < -0.5) return 0; // pause
-  const phrase = 0.5 + 0.5 * Math.sin(t);
-  const accent = 0.28 * Math.max(0, Math.sin(t * 2.7 + 0.6));
-  return Math.min(1, 0.2 + 0.65 * phrase * phrase + accent);
-}
+const overlayDemo = canvas
+  ? new OverlayDemo({
+      canvas,
+      reducedMotion,
+      getTheme: currentTheme,
+      getLang: currentLang,
+    })
+  : null;
 
 function startOverlay() {
-  clearInterval(overlayInterval);
-  if (!ctx) return;
-  if (reducedMotion) {
-    drawFrozenOverlay();
-    return;
-  }
-  history.reset();
-  let elapsedMs = 0;
-  let ticks = 0;
-  overlayInterval = setInterval(() => {
-    elapsedMs += OVERLAY_FRAME_MS;
-    ticks += 1;
-    if (ticks % OVERLAY_TICK_EVERY === 0) {
-      history.tick(syntheticLevel(ticks));
-    }
-    const seconds = Math.floor(elapsedMs / 1000);
-    const progress =
-      Math.min(elapsedMs / (OVERLAY_DEMO_MAX_SECONDS * 1000), 1) * 0.78;
-    const dotPulse =
-      0.5 + 0.5 * Math.sin((elapsedMs / OVERLAY_DOT_PERIOD_MS) * Math.PI * 2);
-    drawOverlay(history.values(), formatTimer(seconds), progress, dotPulse);
-  }, OVERLAY_FRAME_MS);
+  overlayDemo?.start();
 }
 
 function stopOverlay() {
-  clearInterval(overlayInterval);
-  drawFrozenOverlay();
+  overlayDemo?.stop();
+  overlayDemo?.drawFrozen();
 }
 
 // ── Carousel ────────────────────────────────────────────────────────────────
@@ -178,11 +111,12 @@ dotButtons.forEach((btn) => {
 });
 
 // Redraw the resting/reduced frame on theme toggle so the mockup follows the
-// site theme even when it is not animating.
-if (canvas) {
-  sizeCanvas();
+// site theme even when it is not animating (the running demo reads the theme
+// live every frame).
+if (overlayDemo) {
+  overlayDemo.resize();
   const themeObserver = new MutationObserver(() => {
-    if (currentSlide !== 1 || reducedMotion) drawFrozenOverlay();
+    if (!overlayDemo.running) overlayDemo.drawFrozen();
   });
   themeObserver.observe(document.documentElement, {
     attributes: true,
