@@ -17,6 +17,7 @@ import '../core/config/settings_enums.dart';
 import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
 import '../core/logging/perf_instrumentation.dart';
+import '../core/platform/macos_lifecycle_channel.dart';
 import '../core/recording/recording_state.dart';
 import '../core/data/analytics_provider.dart';
 import '../core/data/database.dart';
@@ -32,6 +33,7 @@ import 'review_prompt_service.dart';
 import 'sound_feedback_service.dart';
 import 'support_prompt_service.dart';
 import 'telemetry_service.dart';
+import 'paste/paste_capability_notifier.dart';
 import 'paste/paste_failure_notifier.dart';
 import 'paste/paste_policy.dart';
 import 'paste/paster.dart';
@@ -1545,13 +1547,31 @@ class RecordingOrchestrator extends Notifier<void> {
           'Accessibility permission in System Settings → Privacy & '
           'Security → Accessibility.',
         );
+        // Two distinct causes look identical from the paste outcome alone,
+        // so branch on suspectedTccMismatch before choosing the click
+        // target: a genuinely-missing grant needs the Settings pane, but a
+        // grant that was just demonstrably requested and still reads as
+        // missing (hadFailedGrantAttempt + timedOut) is the known stale
+        // in-process-TCC-view case — Settings would show the toggle already
+        // on, which reads as "nothing to do here" and just re-confuses the
+        // user. That case needs a restart, not another trip to Settings.
+        final capNotifier = ref.read(pasteCapabilityNotifierProvider.notifier);
+        final staleGrant = capNotifier.suspectedTccMismatch;
         _reportPasteFailure(
           outcome: PasteOutcome.permissionMissing,
           kind: AttentionKind.pasteBlockedPermission,
-          title: 'WhisPaste: Auto-Einfügen blockiert',
-          body:
-              'Bedienungshilfen-Berechtigung fehlt. Klicke hier oder das Tray-Icon, um sie in den Systemeinstellungen zu erteilen.',
-          trayLabel: 'Auto-Einfügen blockiert — Berechtigung erteilen',
+          title: staleGrant
+              ? 'WhisPaste: Neustart nötig'
+              : 'WhisPaste: Auto-Einfügen blockiert',
+          body: staleGrant
+              ? 'Die Berechtigung wurde erteilt, aber WhisPaste läuft noch mit dem alten Stand. Klicke hier, um WhisPaste neu zu starten.'
+              : 'Bedienungshilfen-Berechtigung fehlt. Klicke hier oder das Tray-Icon, um sie in den Systemeinstellungen zu erteilen.',
+          trayLabel: staleGrant
+              ? 'Auto-Einfügen blockiert — Neustart nötig'
+              : 'Auto-Einfügen blockiert — Berechtigung erteilen',
+          onClick: staleGrant
+              ? MacOSLifecycleChannel.restart
+              : _openAccessibilitySettings,
         );
         return false;
       case PasteOutcome.elevationBlocked:
@@ -1589,6 +1609,7 @@ class RecordingOrchestrator extends Notifier<void> {
     required String title,
     required String body,
     required String trayLabel,
+    void Function()? onClick,
   }) {
     ref.read(pasteFailureNotifierProvider.notifier).report(outcome);
 
@@ -1603,11 +1624,9 @@ class RecordingOrchestrator extends Notifier<void> {
 
     // Fire out-of-app surfaces (dock-bounce + native notification + tray
     // badge) so the user sees the failure even when the main window is
-    // hidden — the common case for WhisPaste. permissionMissing gets a
-    // click-through straight to the Accessibility pane: the notification
-    // body already promises "click here to grant it in System Settings"
-    // (see the title/body strings above), so the click needs to actually
-    // do that instead of being a dead click.
+    // hidden — the common case for WhisPaste. Callers that promise a click
+    // target in their title/body pass [onClick] so the click actually does
+    // that instead of just foregrounding the app.
     unawaited(
       ref
           .read(systemAttentionServiceProvider)
@@ -1615,9 +1634,7 @@ class RecordingOrchestrator extends Notifier<void> {
             kind: kind,
             title: title,
             body: body,
-            onClick: outcome == PasteOutcome.permissionMissing
-                ? _openAccessibilitySettings
-                : null,
+            onClick: onClick,
           ),
     );
     try {

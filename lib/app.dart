@@ -287,12 +287,13 @@ class _AppShellState extends ConsumerState<_AppShell>
   Future<void> _grantAccessibilityFromNotice(
     PasteCapabilityNotifier capNotifier,
   ) async {
-    // requestGrant() is the single shared entry point every other caller
-    // (onboarding, settings indicator, After-Transcription dropdown) already
-    // goes through — it also wipes stale TCC entries first, which matters
-    // here specifically: this notice only fires when a signature change was
-    // just detected (see shouldShowTccResetNotice), the exact scenario a
-    // stale grant needs repairing, not just re-requesting.
+    // This notice only fires when a signature change was just detected (see
+    // shouldShowTccResetNotice) — the entry is bound to the old code-signing
+    // hash, so unlike the general requestGrant() flow (which assumes a
+    // possibly-still-good grant and tries a non-destructive restart before
+    // ever wiping anything), repair() here is the correct first step, not an
+    // escalation: a plain re-request would just re-hit the same stale entry.
+    await capNotifier.repair();
     await capNotifier.requestGrant();
   }
 
