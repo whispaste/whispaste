@@ -1,7 +1,7 @@
 name: whispaste
 description: "Cross-platform dictation — hotkey, speak, paste anywhere."
 publish_to: 'none'
-version: 1.2.61+27
+version: 1.2.61+28
 
 environment:
   sdk: ^3.12.0

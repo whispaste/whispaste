@@ -177,6 +177,12 @@ platform :mac do
       submit_for_review: false,
       skip_screenshots:  false,     # fastlane/screenshots/{en-US,de-DE} populated 2026-07-28 (1440x900, from tools/appstore-screens/output/*/mac)
       skip_metadata:     false,     # fastlane/metadata/{en-US,de-DE} populated 2026-07-28
+      # Without this, deliver only ADDS local screenshots to whatever is
+      # already live on ASC instead of replacing them — root cause of the
+      # duplicate/stale screenshots found in App Store Connect on 2026-07-29.
+      # fastlane/screenshots/{en-US,de-DE} is the full, current 6-shot set
+      # per locale, so a full clear-and-replace is always correct here.
+      overwrite_screenshots: true,
       precheck_include_in_app_purchases: false,
       # Required so deliver actually creates an app_store_review_detail
       # object on ASC. Without it, review_information() (deliver's own
