@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.65
+
+### Bug Fixes
+
+- **Ein unterbrochener Modell-Download konnte dauerhaft mit einem HTTP-416-Fehler hängen bleiben**, statt es erneut zu versuchen: War das bereits heruntergeladene Teilstück durch einen früheren Abbruch genauso groß oder größer als die aktuelle Datei auf dem Server, verweigerte der Server jeden weiteren Fortsetzungsversuch. WhisPaste verwirft das alte Teilstück jetzt automatisch und startet den Download einmalig neu von vorn.
+
+### Maintenance
+
+- Interne Build-/Store-Tooling-Korrekturen: der macOS-Build lief zeitweise in einen Berechtigungsfehler beim Einbetten der lokalen Whisper-Engine, und die deutschsprachigen Microsoft-Store-Screenshots landeten in einem falschen, nie angezeigten Store-Eintrag statt im echten deutschen Listing.
+
 ## 1.2.64
 
 ### New Features
