@@ -9,8 +9,15 @@ Pipeline:
   1. Clean all output directories
   2. flutter test --update-goldens  →  generates golden PNGs
   3. Copy goldens → website/public/screenshots/{locale}/{theme}/{name}.png
-  4. node tools/appstore-screens/generate.cjs  →  store composites (MS + Mac)
-  5. node tools/appstore-screens/generate-og.cjs  →  OG images
+  4. node tools/appstore-screens/render-hero-device.cjs  →  approved photographic
+     hero (laptop + hand, real app UI) — a hard dependency of step 5, MUST run
+     first: generate.cjs overrides its own plain logo/badge hero slide with
+     this render and fails loudly if it's missing (fixed 2026-07-29 after this
+     step's absence let the plain card silently ship to both stores as
+     screenshot #1)
+  5. node tools/appstore-screens/generate.cjs  →  store composites (MS + Mac)
+  6. node tools/appstore-screens/generate-og.cjs  →  OG images (reuses the
+     same hero-device render from step 4)
 
 Usage:
     python scripts/generate-screenshots.py              # full pipeline
@@ -278,6 +285,8 @@ def main() -> None:
 
     if not args.no_composites:
         node = find_node()
+        if not step_node(node, "render-hero-device.cjs", "Rendering approved device-photo hero"):
+            sys.exit(1)
         if not step_node(node, "generate.cjs", "Generating store composites (MS Store + Mac App Store)"):
             sys.exit(1)
         if not step_node(node, "generate-og.cjs", "Generating OG images"):

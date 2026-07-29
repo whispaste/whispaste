@@ -34,6 +34,13 @@ const NUM_SCREENS = SCREENS.length;
 // workspace-overview screen only.
 const FLOAT_PILL_ASSET = path.resolve(__dirname, 'assets', 'overlay-recording-dark-compact.png');
 
+// The approved hero screenshot is the photographic laptop+hand composite
+// rendered by render-hero-device.cjs (see overrideHeroWithDevicePhoto below),
+// NOT the plain logo/badge card this file's own template.html renders for
+// `screen.type === 'hero'`. That CSS card exists only as the underlying
+// panorama slot/fallback layout; the override below is what actually ships.
+const HERO_DEVICE_DIR = path.join(OUTPUT, 'hero-device');
+
 function ensureDir(dir) {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
@@ -255,7 +262,38 @@ async function sliceForStore(slicePaths, lang, storeId) {
     storeFiles.push(outputPath);
   }
 
+  overrideHeroWithDevicePhoto(storeFiles, lang, storeId);
+
   return storeFiles;
+}
+
+/**
+ * Replaces the plain logo/badge hero card (rendered above like any other
+ * panorama slide) with the approved photographic device composite — laptop +
+ * hand, real app UI on screen — produced by render-hero-device.cjs. Fails
+ * loud rather than silently shipping the wrong hero: this exact gap (the
+ * card went to App Store Connect as screenshot #1 instead of the approved
+ * device photo) went live undetected on 2026-07-29 because nothing wired
+ * the two scripts together or verified the override happened.
+ */
+function overrideHeroWithDevicePhoto(storeFiles, lang, storeId) {
+  const heroIndex = SCREENS.findIndex((screen) => screen.type === 'hero');
+  if (heroIndex === -1) {
+    return;
+  }
+
+  const devicePhotoPath = path.join(HERO_DEVICE_DIR, lang, storeId, '01_hero-device.png');
+  if (!fs.existsSync(devicePhotoPath)) {
+    throw new Error(
+      `Missing approved hero-device render for lang="${lang}" store="${storeId}":\n  ${devicePhotoPath}\n` +
+        'Run `node render-hero-device.cjs --lang=all` BEFORE generate.cjs (scripts/generate-screenshots.py ' +
+        'does this automatically) — the device-photo hero is a hard dependency of the store screenshot ' +
+        "pipeline, not an optional extra. Never ship the plain logo/badge card in its place.",
+    );
+  }
+
+  fs.copyFileSync(devicePhotoPath, storeFiles[heroIndex]);
+  console.log(`  🔁 [${storeId}] ${path.basename(storeFiles[heroIndex])} overridden with approved device-photo hero`);
 }
 
 function copyUiScreensToWebsite(lang) {

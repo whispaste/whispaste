@@ -122,6 +122,22 @@ platform :mac do
     )
   end
 
+  desc "Push fastlane/screenshots/{en-US,de-DE} only — no rebuild, no binary/metadata upload. Safety net for fixing a wrong/stale screenshot (e.g. hero) without a full mas_release"
+  lane :mac_screenshots_only do
+    load_asc_api_key
+    upload_to_app_store(
+      platform:                 "osx",
+      skip_binary_upload:       true,
+      skip_metadata:            true,
+      skip_screenshots:         false,
+      skip_app_version_update:  true,
+      overwrite_screenshots:    true, # replace, don't just append — see mas_release's own comment on this flag
+      run_precheck_before_submit: false,
+      precheck_include_in_app_purchases: false,
+      force: true
+    )
+  end
+
   desc "Build + upload the Mac App Store build (sandboxed, no auto-paste)"
   lane :mas_release do
     load_asc_api_key

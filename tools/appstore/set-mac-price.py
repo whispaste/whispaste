@@ -120,15 +120,40 @@ def find_price_point(token, target_price):
 
 
 def show_current_schedule(token):
-    # No `include` here: Apple's API returns a confusing 404 ("no resource of
-    # type 'null'") for `?include=manualPrices,baseTerritory` on this
-    # endpoint — verified 2026-07-28 against the live WhisPaste app. A plain
-    # GET already returns the relationship links, which is enough to see
-    # whether a schedule/prices exist; follow `related` links manually for
-    # the actual price values.
+    # `?include=manualPrices,baseTerritory` on /v1/apps/{id}/appPriceSchedule
+    # itself 404s ("no resource of type 'null'") — verified 2026-07-28. The
+    # working path (verified 2026-07-29): the schedule's `manualPrices`
+    # relationship has its own `related` sub-resource endpoint
+    # (/v1/appPriceSchedules/{scheduleId}/manualPrices), and THAT endpoint
+    # accepts `?include=appPricePoint` — the included appPricePoints entry
+    # carries the actual `customerPrice`/`proceeds` attributes. The
+    # appPricePoint's own id (a base64 blob) canNOT be looked up directly via
+    # /v1/appPricePoints/{id} or /v2/appPricePoints/{id} (both 404) — it only
+    # resolves through this include.
     status, resp = call(token, "GET", f"/v1/apps/{APP_ID}/appPriceSchedule")
     print(f"HTTP {status}", file=sys.stderr)
     print(json.dumps(resp, indent=2, ensure_ascii=False))
+    if status != 200:
+        return
+
+    schedule_id = resp["data"]["id"]
+    status, prices_resp = call(
+        token, "GET", f"/v1/appPriceSchedules/{schedule_id}/manualPrices?include=appPricePoint"
+    )
+    if status != 200:
+        print(f"\nCould not resolve manual prices: HTTP {status}", file=sys.stderr)
+        return
+    points = {p["id"]: p["attributes"] for p in prices_resp.get("included", [])}
+    print("\nManual prices:", file=sys.stderr)
+    for price in prices_resp.get("data", []):
+        point_id = price["relationships"]["appPricePoint"]["data"]["id"]
+        attrs = points.get(point_id, {})
+        print(
+            f"  {attrs.get('customerPrice', '?')} EUR "
+            f"(proceeds {attrs.get('proceeds', '?')} EUR, "
+            f"startDate={price['attributes'].get('startDate')})",
+            file=sys.stderr,
+        )
 
 
 def set_price(token, target_price, dry_run):
