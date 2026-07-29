@@ -9,8 +9,23 @@
 ///
 /// Run/build via the normal Flutter macOS toolchain, e.g.:
 ///   flutter run -t lib/main_smart_mode_debug.dart -d macos
-/// or, for the actual sandbox validation, via the `mas-local-test-install`
-/// skill against this target.
+///
+/// MANDATORY for any MAS-scheme validation build: override the bundle
+/// identifier so this throwaway build is NEVER registered under the
+/// production `de.whispaste.app` identity. Building/running it under the
+/// real bundle ID pollutes Launch Services' CFBundleIdentifier ->
+/// path resolution (`lsregister`) with a second, throwaway candidate — the
+/// real, currently-running production app can then have its own
+/// relaunch/focus/activation calls resolve to the wrong (test) bundle
+/// instead of `/Applications/WhisPaste.app` (confirmed via `mdfind
+/// "kMDItemCFBundleIdentifier == 'de.whispaste.app'"` after one test build
+/// — 5 candidates, ambiguity real, not hypothetical). Always build with:
+///   xcodebuild -workspace macos/Runner.xcworkspace -scheme "Runner (MAS)" \
+///     -configuration MAS build \
+///     PRODUCT_BUNDLE_IDENTIFIER=de.whispaste.smartmode.debug
+/// and delete the resulting throwaway `.app` (or at minimum re-run
+/// `lsregister -f /Applications/WhisPaste.app` afterward) once done — never
+/// leave a same-bundle-ID test copy sitting registered.
 library;
 
 import 'package:flutter/material.dart';
