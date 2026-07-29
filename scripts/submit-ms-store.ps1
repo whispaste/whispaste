@@ -87,11 +87,17 @@ Set-StrictMode -Version Latest
 
 $BASE_URL = 'https://manage.devcenter.microsoft.com/v1.0/my'
 
-# store/ folder name → classic Submission API locale key (lowercase, both
-# parts — "en-US" → "en-us", "de-DE" → "de-de". NOT the same mapping as
-# scripts/apply-store-metadata.mjs, which maps "de-DE" → "de" for the
-# msstore-CLI's own, differently-cased locale keys.)
-$LOCALE_MAP = @{ 'en-US' = 'en-us'; 'de-DE' = 'de-de' }
+# store/ folder name → classic Submission API locale key. Corrected
+# 2026-07-30: the previous mapping ('de-DE' → 'de-de') was wrong — verified
+# live against WhisPaste's real submission that the actual, pre-existing
+# German listing key is 'de' (same as scripts/apply-store-metadata.mjs
+# already mapped it), not 'de-de'. The wrong key meant every image-bearing
+# run since 2026-07-29 created and updated a brand-new, never-served 'de-de'
+# listing (Partner Center logged "Locale 'de-de' not in cloned submission —
+# creating entry." on the very first such run — the real 'de' listing simply
+# has no 'de-de' sibling, ever) while the actual live German Store listing
+# (locale key 'de') kept showing whatever screenshots predated this script.
+$LOCALE_MAP = @{ 'en-US' = 'en-us'; 'de-DE' = 'de' }
 
 # store/ folder name → tools/appstore-screens output lang folder ('en'/'de').
 $SCREENSHOT_LANG_MAP = @{ 'en-US' = 'en'; 'de-DE' = 'de' }
