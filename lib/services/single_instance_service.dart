@@ -38,6 +38,20 @@ class SingleInstanceService {
     }
   }
 
+  /// Releases the instance lock without exiting — used right before a
+  /// deliberate self-relaunch (see `MacOSLifecycleChannel.restart`). Without
+  /// this, the freshly-spawned replacement process starts while this process
+  /// still holds the port, loses `ensureSingleInstance()`, and exits itself
+  /// as a "second instance" — the old process then also quits on schedule,
+  /// so the app closes entirely instead of restarting. Safe to call even if
+  /// the lock was never acquired (e.g. this is already a secondary instance).
+  static Future<void> release() async {
+    if (_server == null) return;
+    await _server!.close();
+    _server = null;
+    _log.info('Single instance lock released (relaunch in progress)');
+  }
+
   /// Handle incoming connections from secondary instances.
   static void _handleConnection(Socket socket) {
     socket.listen((data) {

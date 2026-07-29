@@ -44,6 +44,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/logging/app_logger.dart';
 import '../../core/platform/macos_lifecycle_channel.dart';
 import '../desktop_paste/desktop_paste_controller.dart';
+import '../single_instance_service.dart';
 import 'paster.dart';
 
 /// Deep-link target for macOS' Accessibility settings pane.
@@ -382,9 +383,21 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
   }
 
   /// Records that a grant-driven restart is being invoked: sets the in-memory
-  /// flag and persists [kAutoPasteRestartMarkerKey] so the fresh process can
-  /// detect an ineffective restart. Called by the app-level modal trigger
-  /// right before it asks the native side to relaunch.
+  /// flag, persists [kAutoPasteRestartMarkerKey] so the fresh process can
+  /// detect an ineffective restart, and releases the single-instance lock.
+  /// Called by the app-level modal trigger right before it asks the native
+  /// side to relaunch.
+  ///
+  /// The lock release matters: [MacOSLifecycleChannel.restart] and the native
+  /// restart-required alert's confirm both spawn a genuinely new process
+  /// while this one is still alive (it only terminates ~150ms later, or after
+  /// the user confirms an alert). If this process still held
+  /// [SingleInstanceService]'s port, the fresh process would find it taken,
+  /// conclude it's a duplicate launch, and exit itself — the old process then
+  /// quits on schedule too, so the app closes entirely instead of restarting
+  /// (observed live: the native "restart now" alert fired, but the app just
+  /// disappeared with no replacement window/Dock entry). Awaited here so the
+  /// port is guaranteed free before the caller hands off to the native side.
   Future<void> markRestartAttempted() async {
     if (!state.restartAttempted) {
       state = state.copyWith(restartAttempted: true);
@@ -398,6 +411,9 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
       await prefs.setBool(kAutoPasteRestartMarkerKey, true);
     } catch (e) {
       _log.debug('restart marker persist failed (non-fatal): $e');
+    }
+    if (Platform.isMacOS) {
+      await SingleInstanceService.release();
     }
   }
 
