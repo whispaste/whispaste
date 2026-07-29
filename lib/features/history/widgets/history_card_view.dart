@@ -194,7 +194,9 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
         : (isDark ? WpColorsDark.borderSubtle : WpColorsLight.borderSubtle);
     return (
       accent: accent,
-      textPrimary: isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary,
+      textPrimary: isDark
+          ? WpColorsDark.textPrimary
+          : WpColorsLight.textPrimary,
       textSecondary: isDark
           ? WpColorsDark.textSecondary
           : WpColorsLight.textSecondary,
