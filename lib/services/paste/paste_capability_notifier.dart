@@ -175,6 +175,18 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
   /// on the user's next live test.
   bool _firstProbeDone = false;
 
+  /// `true` once [requestGrant] has fired `check(prompt: true)` at least once
+  /// this process. macOS shows its own PostEvent/Accessibility alert at most
+  /// once per process — a second [requestGrant] call gets no dialog at all,
+  /// so the Settings deep-link becomes the only way there (see [requestGrant]
+  /// doc). On the *first* call, though, the OS's own alert is expected, and
+  /// firing our deep-link right alongside it raced the two windows: System
+  /// Settings opened on top of the still-visible native alert (live user
+  /// report), forcing the user to drag it aside to reach the dialog that
+  /// actually creates the grant entry. Deliberately in-memory only — a fresh
+  /// process gets a fresh native alert, so this must reset with it.
+  bool _osPromptFiredThisProcess = false;
+
   @override
   PasteCapabilityState build() {
     ref.onDispose(() {
@@ -300,10 +312,14 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
   }
 
   /// Runs the "request Auto-Paste permission" sequence: fires the
-  /// OS-prompted check, arms the awaiting-grant poller, then deep-links to
-  /// the Accessibility settings pane so the user sees the toggle row even if
-  /// macOS suppressed its own dialog (e.g. a prior prompt already fired once
-  /// this process).
+  /// OS-prompted check, arms the awaiting-grant poller, then — only if macOS
+  /// already suppressed its own dialog this process (a prior prompt already
+  /// fired) — deep-links to the Accessibility settings pane so the user still
+  /// sees the toggle row. On the first call this process, the deep-link is
+  /// skipped: macOS's own alert is expected there, and opening Settings
+  /// alongside it raced the two windows, with Settings landing on top of the
+  /// still-visible native alert (live user report — see
+  /// [_osPromptFiredThisProcess]).
   ///
   /// The single call every UI entry point shares — onboarding's Auto-Paste
   /// step, the Settings capability indicator, and the After-Transcription
@@ -337,6 +353,8 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
       sentToOsGrantFlow: true,
       pollingPhase: PollingPhase.awaitingGrant,
     );
+    final skipDeepLink = !_osPromptFiredThisProcess;
+    _osPromptFiredThisProcess = true;
     await check(prompt: true);
     // Arm the poll timers (the phase is already `awaitingGrant`). Done BEFORE
     // awaiting the settings launch — we want the poller running the moment the
@@ -344,7 +362,7 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
     // resolves (which can stall on slow Settings launches and in test
     // environments where the channel isn't wired).
     startPolling(interval: pollInterval, timeout: pollTimeout);
-    if (!Platform.isMacOS) return;
+    if (!Platform.isMacOS || skipDeepLink) return;
     try {
       await launchUrl(Uri.parse(_accessibilitySettingsUri));
     } on Exception catch (e) {
@@ -370,8 +388,14 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
     // does nothing, and a restart still reads missing — the exact dead-end
     // reported. Requesting first guarantees macOS registers the correct
     // toggle. (`requestGrant` already does this; this brings the lightweight
-    // notification path in line with it.)
+    // notification path in line with it.) Skip the deep-link on this
+    // process's first prompt, exactly like [requestGrant]: macOS's own
+    // alert is expected there, and racing our Settings window against it
+    // is what caused the live-reported window-stacking bug.
+    final skipDeepLink = !_osPromptFiredThisProcess;
+    _osPromptFiredThisProcess = true;
     await check(prompt: true);
+    if (skipDeepLink) return;
     try {
       await launchUrl(Uri.parse(_accessibilitySettingsUri));
     } on Exception catch (e) {

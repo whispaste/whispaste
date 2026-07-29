@@ -1133,6 +1133,7 @@ class OnboardingSettings {
   const OnboardingSettings({
     this.onboardingCompleted = false,
     this.autoPasteOffHintDismissed = false,
+    this.onboardingCurrentStep = 0,
   });
 
   final bool onboardingCompleted;
@@ -1142,6 +1143,12 @@ class OnboardingSettings {
   /// the chip is hidden permanently — even while Auto-Paste remains off.
   /// Re-enabling Auto-Paste in Settings makes the chip irrelevant regardless.
   final bool autoPasteOffHintDismissed;
+
+  /// Index into the platform's onboarding step sequence the user last
+  /// reached. Persisted so a required app restart mid-onboarding (e.g. after
+  /// granting the Auto-Paste permission) resumes where the user left off
+  /// instead of restarting the whole flow from step 0.
+  final int onboardingCurrentStep;
 
   static const OnboardingSettings defaults = OnboardingSettings();
 
@@ -1157,20 +1164,28 @@ class OnboardingSettings {
           'auto_paste_off_hint_dismissed',
           defaults.autoPasteOffHintDismissed,
         ),
+        onboardingCurrentStep: _readInt(
+          v,
+          'onboarding_current_step',
+          defaults.onboardingCurrentStep,
+        ),
       );
 
   Map<String, String> toMap() => {
     'onboarding_completed': '$onboardingCompleted',
     'auto_paste_off_hint_dismissed': '$autoPasteOffHintDismissed',
+    'onboarding_current_step': '$onboardingCurrentStep',
   };
 
   OnboardingSettings copyWith({
     bool? onboardingCompleted,
     bool? autoPasteOffHintDismissed,
+    int? onboardingCurrentStep,
   }) => OnboardingSettings(
     onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
     autoPasteOffHintDismissed:
         autoPasteOffHintDismissed ?? this.autoPasteOffHintDismissed,
+    onboardingCurrentStep: onboardingCurrentStep ?? this.onboardingCurrentStep,
   );
 
   @override
@@ -1178,11 +1193,15 @@ class OnboardingSettings {
       identical(this, other) ||
       other is OnboardingSettings &&
           onboardingCompleted == other.onboardingCompleted &&
-          autoPasteOffHintDismissed == other.autoPasteOffHintDismissed;
+          autoPasteOffHintDismissed == other.autoPasteOffHintDismissed &&
+          onboardingCurrentStep == other.onboardingCurrentStep;
 
   @override
-  int get hashCode =>
-      Object.hash(onboardingCompleted, autoPasteOffHintDismissed);
+  int get hashCode => Object.hash(
+    onboardingCompleted,
+    autoPasteOffHintDismissed,
+    onboardingCurrentStep,
+  );
 }
 
 // ===========================================================================

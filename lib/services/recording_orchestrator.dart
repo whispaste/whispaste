@@ -1186,8 +1186,11 @@ class RecordingOrchestrator extends Notifier<void> {
   Future<String?> _runPreflight() async {
     final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
 
-    // Block recording while onboarding is active.
-    if (!settings.onboardingCompleted) {
+    // Block recording while onboarding is active — except for onboarding's
+    // own test-recording step, which sets [sandboxTranscriptSink] and relies
+    // on this exact preflight/start path to let the user try the hotkey
+    // before onboardingCompleted is set.
+    if (!settings.onboardingCompleted && sandboxTranscriptSink == null) {
       _log.warning('Preflight FAIL: onboarding not completed');
       return 'onboarding_not_completed';
     }

@@ -52,10 +52,20 @@ echo "libwhisper embed complete (${#dylibs[@]} dylibs)."
 
 # Bundle the Silero-VAD model alongside libwhisper (see
 # assets/models/vad/NOTICE.md) — a fixed, tiny (<1MB) data file, not a
-# dylib, so it isn't in $STAGE_DIR/*.dylib above and doesn't need signing.
+# dylib, so it isn't in $STAGE_DIR/*.dylib above. It still needs a signature:
+# the outer app's whole-bundle CodeSign step scans every item under
+# Frameworks/ as a nested code object, and fails the build ("code object is
+# not signed at all") on an unsigned one — `codesign` happily signs a flat
+# non-Mach-O file (Format=generic), so sign it exactly like the dylibs above.
 VAD_MODEL_SRC="${SRCROOT}/../assets/models/vad/ggml-silero-v5.1.2.bin"
 if [[ -f "$VAD_MODEL_SRC" ]]; then
-  ditto "$VAD_MODEL_SRC" "$DEST_DIR/ggml-silero-v5.1.2.bin"
+  VAD_MODEL_DEST="$DEST_DIR/ggml-silero-v5.1.2.bin"
+  ditto "$VAD_MODEL_SRC" "$VAD_MODEL_DEST"
+  if [[ "${CODE_SIGNING_REQUIRED:-}" != "NO" && -n "${EXPANDED_CODE_SIGN_IDENTITY:-}" ]]; then
+    codesign --force --sign "${EXPANDED_CODE_SIGN_IDENTITY}" \
+      ${OTHER_CODE_SIGN_FLAGS:-} \
+      --timestamp=none "$VAD_MODEL_DEST"
+  fi
   echo "Embedded ggml-silero-v5.1.2.bin (VAD model) → Frameworks/"
 else
   echo "warning: VAD model not found ($VAD_MODEL_SRC) — VAD stays unavailable at runtime."

@@ -10,7 +10,10 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher_platform_interface/link.dart';
+import 'package:url_launcher_platform_interface/url_launcher_platform_interface.dart';
 
 import 'package:whispaste/services/desktop_paste/desktop_paste_controller.dart';
 import 'package:whispaste/services/paste/paste_capability_notifier.dart';
@@ -110,6 +113,26 @@ class _FakeRepairController implements DesktopPasteController {
   }) async => const NativePasteResult(status: NativePasteStatus.unknown);
   @override
   Future<void> dispose() async {}
+}
+
+/// Records every URL [requestGrant]/[openAccessibilitySettings] hand off to
+/// the OS, so tests can assert whether the Settings deep-link fired without
+/// touching a real platform channel.
+class _FakeUrlLauncher extends UrlLauncherPlatform
+    with MockPlatformInterfaceMixin {
+  final List<String> launchedUrls = <String>[];
+
+  @override
+  LinkDelegate? get linkDelegate => null;
+
+  @override
+  Future<bool> canLaunch(String url) async => true;
+
+  @override
+  Future<bool> launchUrl(String url, LaunchOptions options) async {
+    launchedUrls.add(url);
+    return true;
+  }
 }
 
 ProviderContainer _container({
@@ -552,6 +575,81 @@ void main() {
       },
     );
   });
+
+  group(
+    'PasteCapabilityNotifier — requestGrant Settings deep-link vs native alert',
+    () {
+      // Regression for the live-reported window-stacking bug: macOS shows its
+      // own PostEvent/Accessibility alert at most once per process. Firing our
+      // Settings deep-link unconditionally right alongside that first alert
+      // raced the two windows — System Settings landed on top of the
+      // still-visible native alert, hiding the one control that actually
+      // creates the grant entry. The deep-link is still required from the
+      // SECOND call onward, where macOS is known to stay silent.
+      late UrlLauncherPlatform original;
+      late _FakeUrlLauncher fakeLauncher;
+
+      setUp(() {
+        original = UrlLauncherPlatform.instance;
+        fakeLauncher = _FakeUrlLauncher();
+        UrlLauncherPlatform.instance = fakeLauncher;
+      });
+
+      tearDown(() {
+        UrlLauncherPlatform.instance = original;
+      });
+
+      test('first requestGrant call this process does not open Settings '
+          '(the native alert is expected instead)', () async {
+        final paster = _FakePaster();
+        final container = _container(paster: paster);
+        addTearDown(container.dispose);
+        final notifier = container.read(
+          pasteCapabilityNotifierProvider.notifier,
+        );
+
+        await notifier.requestGrant(
+          pollInterval: const Duration(milliseconds: 10),
+          pollTimeout: const Duration(milliseconds: 10),
+        );
+
+        expect(
+          fakeLauncher.launchedUrls,
+          isEmpty,
+          reason:
+              'the first call this process must leave Settings-opening to '
+              "the OS's own alert, not race it with our own window",
+        );
+      });
+
+      test('second requestGrant call this process DOES open Settings '
+          '(macOS stays silent on repeat prompts)', () async {
+        final paster = _FakePaster();
+        final container = _container(paster: paster);
+        addTearDown(container.dispose);
+        final notifier = container.read(
+          pasteCapabilityNotifierProvider.notifier,
+        );
+
+        await notifier.requestGrant(
+          pollInterval: const Duration(milliseconds: 10),
+          pollTimeout: const Duration(milliseconds: 10),
+        );
+        await notifier.requestGrant(
+          pollInterval: const Duration(milliseconds: 10),
+          pollTimeout: const Duration(milliseconds: 10),
+        );
+
+        expect(
+          fakeLauncher.launchedUrls,
+          hasLength(1),
+          reason:
+              'macOS shows no alert on the second prompt this process, so '
+              'the deep-link is the only remaining path to Settings',
+        );
+      });
+    },
+  );
 
   group('PasteCapabilityNotifier — recheckOnForeground', () {
     test('no-op when already ready (skips the probe)', () async {

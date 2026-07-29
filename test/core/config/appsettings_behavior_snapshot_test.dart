@@ -1078,6 +1078,34 @@ void main() {
         expect(restored.onboarding.autoPasteOffHintDismissed, isFalse);
       },
     );
+
+    test('onboardingCurrentStep storage key is present', () {
+      final map = AppSettings.defaults.toStorageMap();
+      expect(map.containsKey('onboarding_current_step'), isTrue);
+    });
+
+    test('onboardingCurrentStep defaults to 0', () {
+      expect(AppSettings.defaults.onboarding.onboardingCurrentStep, 0);
+    });
+
+    test('onboardingCurrentStep survives roundtrip', () {
+      final s = AppSettings.defaults.copyWithSections(
+        onboarding: AppSettings.defaults.onboarding.copyWith(
+          onboardingCurrentStep: 3,
+        ),
+      );
+      expect(_roundtrip(s).onboarding.onboardingCurrentStep, 3);
+    });
+
+    test('onboardingCurrentStep missing key (legacy storage) reads as 0', () {
+      // Simulate a storage map produced by an older app version that did
+      // not yet write the new key — the additive migration must default to
+      // 0 (resume from the start) instead of throwing.
+      final map = AppSettings.defaults.toStorageMap()
+        ..remove('onboarding_current_step');
+      final restored = AppSettings.fromStorageMap(map);
+      expect(restored.onboarding.onboardingCurrentStep, 0);
+    });
   });
 
   // ---- Section 16: Benchmark ----------------------------------------------

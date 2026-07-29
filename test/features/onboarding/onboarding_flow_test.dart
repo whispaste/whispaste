@@ -149,8 +149,11 @@ Future<void> _withoutOverflowErrors(Future<void> Function() action) async {
 /// WICHTIG: `debugDefaultTargetPlatformOverride` muss vom Aufrufer in einem
 /// `try/finally`-Block gesetzt und zurückgesetzt werden — analog zum Muster
 /// in `onboarding_overlay_test.dart`.
-Future<_FakeSettingsNotifier> _pumpOverlay(WidgetTester tester) async {
-  final settings = _FakeSettingsNotifier();
+Future<_FakeSettingsNotifier> _pumpOverlay(
+  WidgetTester tester, {
+  AppSettings? initialSettings,
+}) async {
+  final settings = _FakeSettingsNotifier(initialSettings);
 
   await tester.pumpWidget(
     makeTestable(
@@ -457,5 +460,48 @@ void main() {
         }
       },
     );
+
+    testWidgets('Jeder Schritt-Wechsel persistiert onboardingCurrentStep', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      try {
+        final settings = await _pumpOverlay(tester);
+        expect(settings.state.value!.onboarding.onboardingCurrentStep, 0);
+
+        await tester.tap(find.text(l10n.onboardingGetStarted));
+        await tester.pumpAndSettle();
+        expect(settings.state.value!.onboarding.onboardingCurrentStep, 1);
+
+        await tester.tap(find.text(l10n.onboardingNext));
+        await tester.pumpAndSettle();
+        expect(settings.state.value!.onboarding.onboardingCurrentStep, 2);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
+    testWidgets('Ein simulierter Neustart mit persistiertem Schritt setzt das '
+        'Onboarding dort fort statt bei Welcome neu zu beginnen (Regression: '
+        'Auto-Paste-Grant erfordert einen Neustart, der onboardingCompleted '
+        'noch nicht auf true gesetzt hat)', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      try {
+        await _pumpOverlay(
+          tester,
+          initialSettings: AppSettings.defaults.copyWithSections(
+            onboarding: AppSettings.defaults.onboarding.copyWith(
+              onboardingCurrentStep: 2,
+            ),
+          ),
+        );
+
+        expect(find.byType(MicrophoneStep), findsOneWidget);
+        expect(find.text(l10n.onboardingStepOf(3, 7)), findsOneWidget);
+        expect(find.byType(WelcomeStep), findsNothing);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
   });
 }

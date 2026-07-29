@@ -96,6 +96,11 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
   int _currentStep = 0;
   int _previousStep = 0;
 
+  /// Guards [_hydrateStepFromSettings] so it only ever jumps the step once —
+  /// further settings changes (e.g. the user picking a microphone) must not
+  /// re-trigger a step jump.
+  bool _stepHydrated = false;
+
   /// Cached notifier reference so [dispose] can stop polling without
   /// touching `ref` — Riverpod forbids `ref` access after deactivation.
   /// The overlay owns the provider scope, so sudden window-close (X tapped,
@@ -107,8 +112,58 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
   @override
   void initState() {
     super.initState();
-    // Funnel entry: the first step is reached without a _goNext call.
-    _trackStep('step', _onboardingSteps().first);
+    // Resume where the user left off — most relevantly after a required app
+    // restart mid-onboarding (e.g. granting the Auto-Paste permission).
+    // Without this, onboardingCompleted is still false post-restart and the
+    // overlay would otherwise always rebuild at step 0, forcing the user
+    // back through every prior step. `fireImmediately` covers the common
+    // case where settings already finished loading by the time this overlay
+    // mounts; the listener itself covers the case where they're still
+    // in-flight (settingsProvider starts as AsyncLoading with no value yet).
+    ref.listenManual(
+      settingsProvider,
+      (_, next) => _hydrateStepFromSettings(next.value),
+      fireImmediately: true,
+    );
+    if (!_stepHydrated) {
+      // Settings weren't loaded synchronously — track the tentative first
+      // step; _hydrateStepFromSettings corrects both the step and this
+      // telemetry once settings resolve.
+      _trackStep('step', _onboardingSteps().first);
+    }
+  }
+
+  void _hydrateStepFromSettings(AppSettings? loaded) {
+    if (_stepHydrated || loaded == null) return;
+    _stepHydrated = true;
+    final steps = _onboardingSteps();
+    final saved = loaded.onboarding.onboardingCurrentStep.clamp(
+      0,
+      steps.length - 1,
+    );
+    if (saved == _currentStep) return;
+    if (mounted) {
+      setState(() {
+        _previousStep = saved;
+        _currentStep = saved;
+      });
+    } else {
+      _previousStep = saved;
+      _currentStep = saved;
+    }
+    _trackStep('step', steps[saved]);
+  }
+
+  /// Persists [step] as the current onboarding position so a mid-flow app
+  /// restart resumes here instead of restarting the whole flow.
+  void _persistCurrentStep(int step) {
+    ref
+        .read(settingsProvider.notifier)
+        .updateSettings(
+          (s) => s.copyWithSections(
+            onboarding: s.onboarding.copyWith(onboardingCurrentStep: step),
+          ),
+        );
   }
 
   @override
@@ -170,6 +225,7 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
         _previousStep = _currentStep;
         _currentStep++;
       });
+      _persistCurrentStep(_currentStep);
       _trackStep('step', steps[_currentStep]);
     }
   }
@@ -180,6 +236,7 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
         _previousStep = _currentStep;
         _currentStep--;
       });
+      _persistCurrentStep(_currentStep);
     }
   }
 
@@ -201,7 +258,14 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
     _trackStep('complete', OnboardingStepId.ready);
     await ref
         .read(settingsProvider.notifier)
-        .updateSettings((s) => s.copyWith(onboardingCompleted: true));
+        .updateSettings(
+          (s) => s.copyWithSections(
+            onboarding: s.onboarding.copyWith(
+              onboardingCompleted: true,
+              onboardingCurrentStep: 0,
+            ),
+          ),
+        );
   }
 
   // ---------------------------------------------------------------------------

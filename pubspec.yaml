@@ -102,6 +102,8 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  plugin_platform_interface: ^2.0.0
+  url_launcher_platform_interface: ^2.3.0
   integration_test:
     sdk: flutter
   flutter_lints: ^6.0.0

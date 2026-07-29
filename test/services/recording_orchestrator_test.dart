@@ -1744,6 +1744,56 @@ void main() {
           expect(clipboardText, 'Untouched clipboard');
         },
       );
+
+      test('onboarding_not_completed preflight guard blocks a normal recording '
+          'attempt when no sandbox sink is wired up', () async {
+        container.dispose();
+        ensureFakeLocalSttFilesExist();
+        container = buildContainer(
+          const AppSettings(
+            stt: SttSettings(model: 'whisper-small', language: 'English'),
+            onboarding: OnboardingSettings(onboardingCompleted: false),
+          ),
+        );
+        await container.read(settingsProvider.future);
+        final orch = container.read(recordingOrchestratorProvider.notifier);
+        await Future<void>.delayed(Duration.zero);
+
+        await orch.startRecording();
+
+        final state = container.read(recordingProvider);
+        expect(state.phase, RecordingPhase.error);
+        expect(state.errorMessage, 'onboarding_not_completed');
+      });
+
+      test('onboarding_not_completed preflight guard is bypassed while the '
+          'sandbox sink is wired up, so the onboarding test-recording step '
+          'can exercise the real hotkey before onboarding finishes (bug fix: '
+          'the step used to tell the user to try the hotkey and then block '
+          'that exact attempt with "please finish setup first")', () async {
+        container.dispose();
+        ensureFakeLocalSttFilesExist();
+        container = buildContainer(
+          const AppSettings(
+            stt: SttSettings(model: 'whisper-small', language: 'English'),
+            onboarding: OnboardingSettings(onboardingCompleted: false),
+          ),
+        );
+        await container.read(settingsProvider.future);
+        final orch = container.read(recordingOrchestratorProvider.notifier);
+        await Future<void>.delayed(Duration.zero);
+
+        // Mirrors TestRecordingStep.initState wiring the sink before the
+        // user can press the hotkey.
+        orch.sandboxTranscriptSink = (_) {};
+
+        await orch.startRecording();
+
+        expect(
+          container.read(recordingProvider).phase,
+          RecordingPhase.recording,
+        );
+      });
     },
   );
 
