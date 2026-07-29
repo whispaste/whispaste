@@ -182,6 +182,11 @@
   "pasteCapabilityRestartButton": "הפעל מחדש את WhisPaste",
   "pasteCapabilityRestartTitle": "כמעט שם — הפעל מחדש את WhisPaste",
   "pasteCapabilityRestartBody": "אם הפעלת את ההרשאה, macOS מחיל אותה רק על אפליקציה שהופעלה מחדש. לחיצה אחת — WhisPaste ייסגר ויחזור מיד.",
+  "pasteRestartAlertTitle": "הפעל מחדש את WhisPaste עכשיו",
+  "pasteRestartAlertBody": "הרשאת ההדבקה האוטומטית הוגדרה, אך macOS מחיל אותה רק לאחר הפעלה מחדש. WhisPaste ייסגר ויחזור מיד.",
+  "pasteRestartAlertConfirm": "הפעל מחדש עכשיו",
+  "pasteCapabilityRestartIneffectiveTitle": "ההפעלה מחדש לא החילה את ההרשאה",
+  "pasteCapabilityRestartIneffectiveSubtitle": "פתח שוב את ההרשאה ובדוק תחת הגדרות המערכת → פרטיות ואבטחה → נגישות ש-WhisPaste מופעל שם באמת. הפעל מחדש את המתג, ואז WhisPaste יופעל מחדש פעם נוספת.",
   "pasteCapabilityRepairDone": "{count, plural, =0{לא נמצאו רשומות ישנות. נסה הדבקה.}=1{נוקתה רשומה ישנה אחת. נסה הדבקה כדי לראות בקשה חדשה.}other{נוקו {count} רשומות ישנות. נסה הדבקה כדי לראות בקשות חדשות.}}",
   "@pasteCapabilityRepairDone": {
     "placeholders": {

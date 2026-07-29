@@ -32,6 +32,12 @@ class AppDelegate: FlutterAppDelegate {
 
   private var didReplyToTerminate = false
 
+  /// Idempotency latch for the native "restart required" alert. Prevents a
+  /// re-emitted `showRestartRequiredAlert` (the app-level state machine can
+  /// re-derive `needsRestart` on every probe / window focus) from stacking a
+  /// second modal on top of the one the user is already looking at.
+  private var restartAlertShowing = false
+
   /// Native Cmd+Q / Dock "Quit" call `NSApplication.terminate()` directly,
   /// bypassing the Dart-level `onWindowClose` handler entirely — without
   /// this override, the process could start tearing down while the
@@ -127,62 +133,147 @@ class AppDelegate: FlutterAppDelegate {
       result(nil)
 
     case "restart":
-      // Programmatic relaunch. Two independent reasons a fresh process is
-      // the only reliable fix, both because macOS only re-evaluates certain
-      // trust/permission state at process start, never mid-run:
-      //  - Developer-ID: after `tccutil reset` wipes stale ad-hoc-signature
-      //    TCC entries, the app needs a fresh process to bind to the new
-      //    entry.
-      //  - Mac App Store: `CGPreflightPostEventAccess()` (gating direct-
-      //    typing/paste — see build_config.dart's kAutoPasteSupported) does
-      //    not refresh within an already-running process after the user
-      //    grants the permission via System Settings, even though the OS's
-      //    actual event delivery already respects the live grant. This
-      //    matches macOS's own UX for this exact permission toggle, which
-      //    offers to quit-and-relaunch the app for you.
       result(nil)
-      #if MAS_BUILD
-      // No Process()-spawn here (2.5.2 static-scan avoidance, same
-      // reasoning as tccutil in DesktopPasteHost.swift) — NSWorkspace can
-      // launch a fresh instance of ourselves without any subprocess
-      // symbols, which is sandbox-legal.
-      let configuration = NSWorkspace.OpenConfiguration()
-      configuration.createsNewApplicationInstance = true
-      NSWorkspace.shared.openApplication(
-        at: Bundle.main.bundleURL, configuration: configuration
-      ) { _, _ in }
-      DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(150)) {
-        NSApp.terminate(nil)
-      }
-      #else
-      let bundlePath = Bundle.main.bundlePath
-      // Spawn a detached helper that waits for us to exit, then re-opens
-      // the .app bundle. Using `/usr/bin/open -n <bundlePath>` from a
-      // detached subshell ensures the relaunched process is not parented
-      // to this one and inherits no Accessibility trust from the original.
-      let pid = ProcessInfo.processInfo.processIdentifier
-      let script = """
-        while kill -0 \(pid) 2>/dev/null; do sleep 0.1; done
-        /usr/bin/open -n "\(bundlePath)"
-        """
-      let task = Process()
-      task.executableURL = URL(fileURLWithPath: "/bin/sh")
-      task.arguments = ["-c", script]
-      do {
-        try task.run()
-      } catch {
-        // If we can't spawn the helper there's no clean fallback — bail
-        // without terminating so the user can manually relaunch.
-        return
-      }
-      // Give Dart a moment to flush its method-channel reply, then quit.
-      DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(150)) {
-        NSApp.terminate(nil)
-      }
-      #endif
+      performRelaunch()
+
+    case "showRestartRequiredAlert":
+      // Native, always-on-top "you must restart" modal. Unlike the in-app
+      // Flutter banner, this surfaces even when WhisPaste is a hidden tray
+      // (`.accessory`) app with no visible window — the common case, since
+      // WhisPaste runs in the background and the user rarely has the window
+      // open. Confirming it restarts immediately and directly (single
+      // action, no navigate-away step). Localized strings are passed in from
+      // Dart so all copy stays in the ARB files.
+      let args = call.arguments as? [String: Any]
+      result(nil)
+      presentRestartRequiredAlert(
+        title: args?["title"] as? String ?? "Restart WhisPaste",
+        body: args?["body"] as? String ?? "",
+        confirmLabel: args?["confirmLabel"] as? String ?? "Restart now"
+      )
 
     default:
       result(FlutterMethodNotImplemented)
     }
+  }
+
+  /// Shows the app-level, always-on-top restart modal and — on confirmation —
+  /// relaunches immediately. Safe to call repeatedly: the `restartAlertShowing`
+  /// latch coalesces re-triggers into the single already-visible modal.
+  private func presentRestartRequiredAlert(
+    title: String, body: String, confirmLabel: String
+  ) {
+    // Marshal onto the main thread — method-channel handlers already run
+    // there, but this keeps the invariant explicit for the AppKit calls.
+    DispatchQueue.main.async {
+      guard !self.restartAlertShowing else { return }
+      self.restartAlertShowing = true
+
+      // Force the app visible/frontmost first: a background `.accessory`
+      // app's modal is otherwise buried behind whatever the user is looking
+      // at. Switching to `.regular` gives the alert a Dock presence and an
+      // activation context; `activate(ignoringOtherApps:)` pulls it to the
+      // front across app boundaries.
+      NSApp.setActivationPolicy(.regular)
+      NSApp.activate(ignoringOtherApps: true)
+
+      let alert = NSAlert()
+      alert.alertStyle = .warning
+      alert.messageText = title
+      alert.informativeText = body
+      alert.addButton(withTitle: confirmLabel)
+
+      // Realize the alert's window so its level can be raised above normal
+      // windows — belt-and-suspenders for the tray-app case where the alert
+      // must sit on top of every other application, not just our own.
+      alert.layout()
+      alert.window.level = .floating
+      alert.window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+
+      // Single-button alert: runModal returns on the only button. There is
+      // no "cancel" — per the product requirement the user does not get to
+      // opt out of the restart once they acknowledge the modal.
+      alert.runModal()
+      self.restartAlertShowing = false
+      self.performRelaunch()
+    }
+  }
+
+  /// Programmatic relaunch. Two independent reasons a fresh process is the
+  /// only reliable fix, both because macOS only re-evaluates certain trust/
+  /// permission state at process start, never mid-run:
+  ///  - Developer-ID: after `tccutil reset` wipes stale ad-hoc-signature TCC
+  ///    entries, the app needs a fresh process to bind to the new entry.
+  ///  - Mac App Store: `CGPreflightPostEventAccess()` (gating direct-typing/
+  ///    paste — see build_config.dart's kAutoPasteSupported) does not refresh
+  ///    within an already-running process after the user grants the
+  ///    permission via System Settings, even though the OS's actual event
+  ///    delivery already respects the live grant. This matches macOS's own UX
+  ///    for this exact permission toggle, which offers to quit-and-relaunch
+  ///    the app for you.
+  private func performRelaunch() {
+    #if MAS_BUILD
+    // No Process()-spawn here (2.5.2 static-scan avoidance, same reasoning as
+    // tccutil in DesktopPasteHost.swift) — NSWorkspace can launch a fresh
+    // instance of ourselves without any subprocess symbols, which is
+    // sandbox-legal. `createsNewApplicationInstance` is honored for launching
+    // a second instance of self, but the sandbox CAN refuse it (macOS 12+
+    // has been observed denying sandboxed self-launches). We must NOT swallow
+    // that error: if the relaunch never starts, terminating anyway would just
+    // quit WhisPaste and strand the user with no running app and no fix.
+    let configuration = NSWorkspace.OpenConfiguration()
+    configuration.createsNewApplicationInstance = true
+    NSWorkspace.shared.openApplication(
+      at: Bundle.main.bundleURL, configuration: configuration
+    ) { [weak self] runningApp, error in
+      if let error = error {
+        NSLog(
+          "WhisPaste relaunch: openApplication failed — not terminating "
+            + "(app stays usable): \(error.localizedDescription)"
+        )
+        self?.lifecycleChannel?.invokeMethod(
+          "relaunchFailed",
+          arguments: ["error": error.localizedDescription]
+        )
+        return
+      }
+      NSLog(
+        "WhisPaste relaunch: new instance launched (pid "
+          + "\(runningApp?.processIdentifier ?? -1)); terminating old process."
+      )
+      DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(150)) {
+        NSApp.terminate(nil)
+      }
+    }
+    #else
+    let bundlePath = Bundle.main.bundlePath
+    // Spawn a detached helper that waits for us to exit, then re-opens the
+    // .app bundle. Using `/usr/bin/open -n <bundlePath>` from a detached
+    // subshell ensures the relaunched process is not parented to this one and
+    // inherits no Accessibility trust from the original.
+    let pid = ProcessInfo.processInfo.processIdentifier
+    let script = """
+      while kill -0 \(pid) 2>/dev/null; do sleep 0.1; done
+      /usr/bin/open -n "\(bundlePath)"
+      """
+    let task = Process()
+    task.executableURL = URL(fileURLWithPath: "/bin/sh")
+    task.arguments = ["-c", script]
+    do {
+      try task.run()
+    } catch {
+      // If we can't spawn the helper there's no clean fallback — bail without
+      // terminating so the user can manually relaunch.
+      NSLog("WhisPaste relaunch: helper spawn failed: \(error.localizedDescription)")
+      lifecycleChannel?.invokeMethod(
+        "relaunchFailed", arguments: ["error": error.localizedDescription]
+      )
+      return
+    }
+    // Give Dart a moment to flush its method-channel reply, then quit.
+    DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(150)) {
+      NSApp.terminate(nil)
+    }
+    #endif
   }
 }

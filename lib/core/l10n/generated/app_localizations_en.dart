@@ -538,6 +538,24 @@ class L10nEn extends L10n {
       'If you enabled the permission, macOS only applies it to a freshly started app. One click — WhisPaste quits and comes right back.';
 
   @override
+  String get pasteRestartAlertTitle => 'Restart WhisPaste now';
+
+  @override
+  String get pasteRestartAlertBody =>
+      'The Auto-Paste permission is set, but macOS only applies it after a restart. WhisPaste will quit and come right back.';
+
+  @override
+  String get pasteRestartAlertConfirm => 'Restart now';
+
+  @override
+  String get pasteCapabilityRestartIneffectiveTitle =>
+      'The restart didn\'t apply the permission';
+
+  @override
+  String get pasteCapabilityRestartIneffectiveSubtitle =>
+      'Open the permission again and check under System Settings → Privacy & Security → Accessibility that WhisPaste is really switched on. Re-enable the toggle, then WhisPaste restarts once more.';
+
+  @override
   String pasteCapabilityRepairDone(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,

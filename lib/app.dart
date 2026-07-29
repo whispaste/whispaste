@@ -162,6 +162,17 @@ class _AppShellState extends ConsumerState<_AppShell>
   Timer? _telemetryFlushTimer;
   bool _isMaximized = false;
 
+  /// Watches the shared capability state so the native "must restart" modal
+  /// fires the instant [PasteCapabilityNotifier.needsRestart] becomes true —
+  /// even with the window hidden (tray-only), because the widget tree stays
+  /// mounted in the background. Closed in [dispose].
+  ProviderSubscription<PasteCapabilityState>? _restartWatchSub;
+
+  /// One-shot latch per restart episode: keeps a re-derived `needsRestart`
+  /// (probes re-run on focus / poll) from re-invoking the modal while one is
+  /// already up. Reset when the state leaves the restart-needed condition.
+  bool _restartModalActive = false;
+
   /// Best-effort flush of session-aggregated telemetry. Drains the hot-path
   /// counters into the sender and awaits pending HTTP requests. No-op without
   /// consent/config, and never throws — telemetry must not break the app.
@@ -248,7 +259,50 @@ class _AppShellState extends ConsumerState<_AppShell>
       }
 
       unawaited(_maybeShowTccResetNotice());
+      _setupAutoPasteRestartWatch();
     });
+  }
+
+  /// Subscribes to the capability notifier and drives the native forced-restart
+  /// modal off [PasteCapabilityNotifier.needsRestart]. Deliberately app-level
+  /// (not inside a settings widget) so it works when WhisPaste is backgrounded
+  /// with no window open — the whole point of the modal. Suppressed until
+  /// onboarding is complete: the onboarding Auto-Paste step surfaces its own
+  /// inline restart banner, and a competing OS modal there would be redundant.
+  void _setupAutoPasteRestartWatch() {
+    if (!Platform.isMacOS || !kAutoPasteSupported) return;
+    _restartWatchSub = ref.listenManual(pasteCapabilityNotifierProvider, (
+      _,
+      _,
+    ) {
+      final notifier = ref.read(pasteCapabilityNotifierProvider.notifier);
+      final needsRestart = notifier.needsRestart;
+      if (!needsRestart) {
+        _restartModalActive = false;
+        return;
+      }
+      if (_restartModalActive) return;
+      final onboardingCompleted =
+          ref.read(settingsProvider).value?.onboardingCompleted ?? false;
+      if (!onboardingCompleted) return;
+      _restartModalActive = true;
+      unawaited(_showForcedRestartModal(notifier));
+    });
+  }
+
+  Future<void> _showForcedRestartModal(PasteCapabilityNotifier notifier) async {
+    if (!mounted) return;
+    final l10n = L10n.of(context);
+    // Persist the marker BEFORE handing off to the native modal: the alert is
+    // single-action (no cancel — the user cannot opt out) and always ends in a
+    // relaunch, so recording the attempt here lets the fresh process detect an
+    // ineffective restart even if it is killed mid-relaunch.
+    await notifier.markRestartAttempted();
+    await MacOSLifecycleChannel.showRestartRequiredAlert(
+      title: l10n.pasteRestartAlertTitle,
+      body: l10n.pasteRestartAlertBody,
+      confirmLabel: l10n.pasteRestartAlertConfirm,
+    );
   }
 
   /// Proactive, one-time-per-version nudge when macOS reset the Auto-Paste
@@ -259,6 +313,11 @@ class _AppShellState extends ConsumerState<_AppShell>
   Future<void> _maybeShowTccResetNotice() async {
     if (!Platform.isMacOS) return;
     final capNotifier = ref.read(pasteCapabilityNotifierProvider.notifier);
+    // Hydrate the cross-process restart marker BEFORE the first probe so the
+    // cold-start `capability.probed` breadcrumb carries it — that single trace
+    // is what tells "the grant never persisted" apart from "the restart never
+    // produced a fresh process" on the next live test.
+    await capNotifier.hydrateRestartMarker();
     await capNotifier.check();
     if (!mounted) return;
     final capability = ref.read(pasteCapabilityNotifierProvider).capability;
@@ -306,6 +365,7 @@ class _AppShellState extends ConsumerState<_AppShell>
     _telemetryFlushTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _windowSaveTimer?.cancel();
+    _restartWatchSub?.close();
     super.dispose();
   }
 

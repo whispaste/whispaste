@@ -38,6 +38,7 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/logging/app_logger.dart';
@@ -52,6 +53,18 @@ const String _accessibilitySettingsUri =
 /// Kept here (and re-used from the step widget) so all polling-lifecycle and
 /// step-lifecycle breadcrumbs land under the same Sentry filter.
 const String onboardingAutoPasteBreadcrumbCategory = 'onboarding.autopaste';
+
+/// SharedPreferences key: sticky, **cross-process** marker set the moment a
+/// grant-driven restart is invoked and cleared as soon as a probe reports
+/// `ready`. Deliberately persisted (unlike [PasteCapabilityState
+/// .sentToOsGrantFlow], which is in-memory) because its whole job is to
+/// survive the relaunch and let the fresh process notice "I already
+/// grant-and-restarted once, and the permission is STILL missing" — the
+/// signal that a plain restart did not take (see
+/// [PasteCapabilityNotifier.restartWasIneffective]). A false positive is
+/// harmless: it only changes copy from "grant" to "grant-again + check
+/// Settings", and it self-clears the instant the capability turns ready.
+const String kAutoPasteRestartMarkerKey = 'auto_paste_restart_attempted';
 
 /// Explicit lifecycle phase of the capability polling loop.
 ///
@@ -101,6 +114,7 @@ class PasteCapabilityState {
     this.capability,
     this.sentToOsGrantFlow = false,
     this.pollingPhase = PollingPhase.idle,
+    this.restartAttempted = false,
   });
 
   /// Latest probe result. `null` means "no probe has resolved yet".
@@ -116,15 +130,25 @@ class PasteCapabilityState {
   /// Where the capability polling loop currently is. See [PollingPhase].
   final PollingPhase pollingPhase;
 
+  /// Hydrated from [kAutoPasteRestartMarkerKey] at startup and set whenever a
+  /// grant-driven restart is invoked. Unlike [sentToOsGrantFlow] this
+  /// **survives the relaunch** — it is what lets the fresh process tell "the
+  /// restart didn't take" (still `permissionMissing` on a cold start after we
+  /// already restarted once) apart from an ordinary first-contact missing
+  /// state. See [PasteCapabilityNotifier.restartWasIneffective].
+  final bool restartAttempted;
+
   PasteCapabilityState copyWith({
     PasteCapability? capability,
     bool? sentToOsGrantFlow,
     PollingPhase? pollingPhase,
+    bool? restartAttempted,
   }) {
     return PasteCapabilityState(
       capability: capability ?? this.capability,
       sentToOsGrantFlow: sentToOsGrantFlow ?? this.sentToOsGrantFlow,
       pollingPhase: pollingPhase ?? this.pollingPhase,
+      restartAttempted: restartAttempted ?? this.restartAttempted,
     );
   }
 }
@@ -141,6 +165,13 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
   Timer? _pollTimeout;
   bool _checkInFlight = false;
   Stopwatch? _pollStopwatch;
+
+  /// `false` until the first probe of this process resolves — lets [check]
+  /// tag the cold-start probe breadcrumb, the one that (together with the
+  /// hydrated [PasteCapabilityState.restartAttempted]) discriminates "the
+  /// grant never persisted" from "the restart never produced a fresh process"
+  /// on the user's next live test.
+  bool _firstProbeDone = false;
 
   @override
   PasteCapabilityState build() {
@@ -193,6 +224,22 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
   /// permission the user had already granted.
   bool get needsRestart => requiredAction == PastePermissionAction.restart;
 
+  /// `true` on a fresh process that still reads `permissionMissing` **after**
+  /// a grant-driven restart already happened ([PasteCapabilityState
+  /// .restartAttempted] hydrated from disk) and WhisPaste has not re-entered
+  /// the grant flow this process ([sentToOsGrantFlow] is `false`, i.e. the
+  /// [requiredAction] would otherwise resolve to [PastePermissionAction.grant]).
+  ///
+  /// This is the honest "the restart did not take" signal. Surfaces are
+  /// expected to keep the same primary action ([requestGrant], which re-fires
+  /// `CGRequestPostEventAccess` so the correct System-Settings toggle is
+  /// guaranteed to exist) but swap the copy from a first-contact "grant"
+  /// framing to "the last restart didn't apply the permission — re-check it in
+  /// System Settings", so the user is never shown the naive "Erlauben" card
+  /// again right after they restarted (the exact confusion reported).
+  bool get restartWasIneffective =>
+      state.restartAttempted && requiredAction == PastePermissionAction.grant;
+
   /// Runs one capability probe through the [Paster].
   ///
   /// Calls that overlap are coalesced — a second [check] entered while the
@@ -218,7 +265,33 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
         'capability check: prompt=$prompt status=${result.status.name} '
         'canPrompt=${result.canPrompt} detail=${result.detail}',
       );
+      final wasColdStart = !_firstProbeDone;
+      _firstProbeDone = true;
+      // The single most diagnostic breadcrumb: it records the probe result
+      // AND whether this is the first probe of the process AND whether a
+      // grant-driven restart already happened. On the next live test this
+      // trace tells "the grant never persisted" (cold_start + restart_marker
+      // true + still missing) apart from "the restart mechanism itself
+      // failed" (marker true but no fresh-process cold probe at all) — the
+      // A-vs-B split the previous fix could not resolve.
+      _emitBreadcrumb(
+        'capability.probed',
+        data: {
+          'status': result.status.name,
+          'prompt': prompt,
+          'cold_start': wasColdStart,
+          'restart_marker': state.restartAttempted,
+          'sent_to_os_grant_flow': state.sentToOsGrantFlow,
+        },
+      );
       state = state.copyWith(capability: result);
+      // The capability is live again — clear the persisted restart marker so
+      // the honest "restart didn't take" copy never lingers after a genuine
+      // recovery, and a future missing state starts clean.
+      if (result.status == PasteCapabilityStatus.ready &&
+          state.restartAttempted) {
+        await _clearRestartMarker();
+      }
     } finally {
       _checkInFlight = false;
     }
@@ -272,10 +345,70 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
   Future<void> openAccessibilitySettings() async {
     _markSentToOsGrantFlow();
     if (!Platform.isMacOS) return;
+    // Fire the OS permission request (on the MAS build this is
+    // `CGRequestPostEventAccess()`) BEFORE the deep-link. PostEvent is a
+    // *separate* TCC privilege from general Accessibility (Apple DTS, forum
+    // 727984) — a bare deep-link that never calls the request API can leave
+    // the user in System Settings with no actionable WhisPaste row for the
+    // PostEvent grant (or only a stale one), so they "toggle something", it
+    // does nothing, and a restart still reads missing — the exact dead-end
+    // reported. Requesting first guarantees macOS registers the correct
+    // toggle. (`requestGrant` already does this; this brings the lightweight
+    // notification path in line with it.)
+    await check(prompt: true);
     try {
       await launchUrl(Uri.parse(_accessibilitySettingsUri));
     } on Exception catch (e) {
       _log.warning('Could not open Accessibility settings: $e');
+    }
+  }
+
+  /// Hydrates [PasteCapabilityState.restartAttempted] from the persisted
+  /// [kAutoPasteRestartMarkerKey]. Call once at startup, BEFORE the first
+  /// [check], so the cold-start probe breadcrumb and
+  /// [restartWasIneffective] see the cross-process marker. Fire-and-forget
+  /// safe: a broken prefs read never blocks the capability surface.
+  Future<void> hydrateRestartMarker() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final marked = prefs.getBool(kAutoPasteRestartMarkerKey) ?? false;
+      if (marked && !state.restartAttempted) {
+        state = state.copyWith(restartAttempted: true);
+      }
+    } catch (e) {
+      _log.debug('restart marker hydrate failed (non-fatal): $e');
+    }
+  }
+
+  /// Records that a grant-driven restart is being invoked: sets the in-memory
+  /// flag and persists [kAutoPasteRestartMarkerKey] so the fresh process can
+  /// detect an ineffective restart. Called by the app-level modal trigger
+  /// right before it asks the native side to relaunch.
+  Future<void> markRestartAttempted() async {
+    if (!state.restartAttempted) {
+      state = state.copyWith(restartAttempted: true);
+    }
+    _emitBreadcrumb(
+      'restart.invoked',
+      data: {'sent_to_os_grant_flow': state.sentToOsGrantFlow},
+    );
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(kAutoPasteRestartMarkerKey, true);
+    } catch (e) {
+      _log.debug('restart marker persist failed (non-fatal): $e');
+    }
+  }
+
+  Future<void> _clearRestartMarker() async {
+    if (state.restartAttempted) {
+      state = state.copyWith(restartAttempted: false);
+    }
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(kAutoPasteRestartMarkerKey);
+    } catch (e) {
+      _log.debug('restart marker clear failed (non-fatal): $e');
     }
   }
 

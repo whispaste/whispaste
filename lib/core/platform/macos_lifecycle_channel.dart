@@ -8,6 +8,7 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 
 import '../../services/graceful_shutdown.dart';
 import '../logging/app_logger.dart';
@@ -106,6 +107,32 @@ class MacOSLifecycleChannel {
     }
   }
 
+  /// Presents the native, always-on-top "you must restart WhisPaste" modal
+  /// (`NSAlert`) — visible even when WhisPaste is a hidden tray-only app, and
+  /// confirming it relaunches immediately and directly on the native side.
+  ///
+  /// All copy is passed in (from the ARB files) so the Swift layer holds no
+  /// localized strings. Fire-and-forget: the native side owns the modal loop
+  /// and the relaunch; this future completes as soon as the call is dispatched,
+  /// not when the user acts. Idempotent — a re-trigger while the modal is up is
+  /// coalesced natively into the single visible alert.
+  static Future<void> showRestartRequiredAlert({
+    required String title,
+    required String body,
+    required String confirmLabel,
+  }) async {
+    if (!Platform.isMacOS) return;
+    try {
+      await _channel.invokeMethod('showRestartRequiredAlert', {
+        'title': title,
+        'body': body,
+        'confirmLabel': confirmLabel,
+      });
+    } on PlatformException catch (e) {
+      _log.warning('showRestartRequiredAlert failed', e);
+    }
+  }
+
   /// Handles `prepareForTermination`, invoked by `AppDelegate.swift`'s
   /// `applicationShouldTerminate` override (macOS Cmd+Q / Dock "Quit")
   /// before it lets the native `NSApplication` actually terminate. Without
@@ -117,6 +144,21 @@ class MacOSLifecycleChannel {
     _channel.setMethodCallHandler((call) async {
       if (call.method == 'prepareForTermination') {
         await runGracefulEngineShutdown(container);
+      } else if (call.method == 'relaunchFailed') {
+        // Native relaunch could not start (e.g. the sandbox refused the
+        // self-launch) and deliberately did NOT terminate, so the app is
+        // still usable. Surface it as a breadcrumb so the failure is visible
+        // in the next Sentry trace instead of vanishing silently.
+        final error = (call.arguments as Map?)?['error']?.toString();
+        _log.warning('Native relaunch failed (app kept running): $error');
+        Sentry.addBreadcrumb(
+          Breadcrumb(
+            message: 'lifecycle.relaunch_failed',
+            category: 'app.lifecycle',
+            level: SentryLevel.warning,
+            data: {'error': error ?? 'unknown'},
+          ),
+        );
       }
       return null;
     });

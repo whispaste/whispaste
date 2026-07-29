@@ -1065,6 +1065,36 @@ abstract class L10n {
   /// **'If you enabled the permission, macOS only applies it to a freshly started app. One click — WhisPaste quits and comes right back.'**
   String get pasteCapabilityRestartBody;
 
+  /// No description provided for @pasteRestartAlertTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Restart WhisPaste now'**
+  String get pasteRestartAlertTitle;
+
+  /// No description provided for @pasteRestartAlertBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The Auto-Paste permission is set, but macOS only applies it after a restart. WhisPaste will quit and come right back.'**
+  String get pasteRestartAlertBody;
+
+  /// No description provided for @pasteRestartAlertConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Restart now'**
+  String get pasteRestartAlertConfirm;
+
+  /// No description provided for @pasteCapabilityRestartIneffectiveTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'The restart didn\'t apply the permission'**
+  String get pasteCapabilityRestartIneffectiveTitle;
+
+  /// No description provided for @pasteCapabilityRestartIneffectiveSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Open the permission again and check under System Settings → Privacy & Security → Accessibility that WhisPaste is really switched on. Re-enable the toggle, then WhisPaste restarts once more.'**
+  String get pasteCapabilityRestartIneffectiveSubtitle;
+
   /// No description provided for @pasteCapabilityRepairDone.
   ///
   /// In en, this message translates to:

@@ -530,6 +530,24 @@ class L10nHe extends L10n {
       'אם הפעלת את ההרשאה, macOS מחיל אותה רק על אפליקציה שהופעלה מחדש. לחיצה אחת — WhisPaste ייסגר ויחזור מיד.';
 
   @override
+  String get pasteRestartAlertTitle => 'הפעל מחדש את WhisPaste עכשיו';
+
+  @override
+  String get pasteRestartAlertBody =>
+      'הרשאת ההדבקה האוטומטית הוגדרה, אך macOS מחיל אותה רק לאחר הפעלה מחדש. WhisPaste ייסגר ויחזור מיד.';
+
+  @override
+  String get pasteRestartAlertConfirm => 'הפעל מחדש עכשיו';
+
+  @override
+  String get pasteCapabilityRestartIneffectiveTitle =>
+      'ההפעלה מחדש לא החילה את ההרשאה';
+
+  @override
+  String get pasteCapabilityRestartIneffectiveSubtitle =>
+      'פתח שוב את ההרשאה ובדוק תחת הגדרות המערכת → פרטיות ואבטחה → נגישות ש-WhisPaste מופעל שם באמת. הפעל מחדש את המתג, ואז WhisPaste יופעל מחדש פעם נוספת.';
+
+  @override
   String pasteCapabilityRepairDone(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,

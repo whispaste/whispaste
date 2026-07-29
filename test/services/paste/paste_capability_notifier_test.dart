@@ -9,6 +9,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:whispaste/services/desktop_paste/desktop_paste_controller.dart';
 import 'package:whispaste/services/paste/paste_capability_notifier.dart';
@@ -782,5 +783,111 @@ void main() {
         expect(result.isSupported, isFalse);
       },
     );
+  });
+
+  group('PasteCapabilityNotifier — restart marker / restartWasIneffective', () {
+    setUp(() => SharedPreferences.setMockInitialValues({}));
+
+    test('hydrateRestartMarker loads the persisted flag into state', () async {
+      SharedPreferences.setMockInitialValues({
+        kAutoPasteRestartMarkerKey: true,
+      });
+      final container = _container(paster: _FakePaster());
+      addTearDown(container.dispose);
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+
+      await notifier.hydrateRestartMarker();
+
+      expect(
+        container.read(pasteCapabilityNotifierProvider).restartAttempted,
+        isTrue,
+      );
+    });
+
+    test(
+      'cold-start missing probe after a restart resolves to '
+      'restartWasIneffective (grant action, honest copy) — not a naive restart',
+      () async {
+        SharedPreferences.setMockInitialValues({
+          kAutoPasteRestartMarkerKey: true,
+        });
+        final paster = _FakePaster(
+          initial: const PasteCapability(
+            status: PasteCapabilityStatus.permissionMissing,
+            canPrompt: true,
+          ),
+        );
+        final container = _container(paster: paster);
+        addTearDown(container.dispose);
+        final notifier = container.read(
+          pasteCapabilityNotifierProvider.notifier,
+        );
+
+        await notifier.hydrateRestartMarker();
+        await notifier.check();
+
+        // Fresh process: sentToOsGrantFlow is false, so the plain resolver
+        // yields grant — but the persisted marker upgrades the *copy* to the
+        // honest "restart didn't take" surface.
+        expect(notifier.requiredAction, PastePermissionAction.grant);
+        expect(notifier.restartWasIneffective, isTrue);
+      },
+    );
+
+    test('a ready probe clears the persisted restart marker', () async {
+      SharedPreferences.setMockInitialValues({
+        kAutoPasteRestartMarkerKey: true,
+      });
+      final paster = _FakePaster(
+        initial: const PasteCapability(status: PasteCapabilityStatus.ready),
+      );
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+
+      await notifier.hydrateRestartMarker();
+      await notifier.check();
+
+      expect(
+        container.read(pasteCapabilityNotifierProvider).restartAttempted,
+        isFalse,
+      );
+      expect(notifier.restartWasIneffective, isFalse);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool(kAutoPasteRestartMarkerKey), isNull);
+    });
+
+    test('markRestartAttempted sets state and persists the marker', () async {
+      final container = _container(paster: _FakePaster());
+      addTearDown(container.dispose);
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+
+      await notifier.markRestartAttempted();
+
+      expect(
+        container.read(pasteCapabilityNotifierProvider).restartAttempted,
+        isTrue,
+      );
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool(kAutoPasteRestartMarkerKey), isTrue);
+    });
+
+    test('restartWasIneffective is false without a marker even when '
+        'permission is missing (ordinary first-contact state)', () async {
+      final paster = _FakePaster(
+        initial: const PasteCapability(
+          status: PasteCapabilityStatus.permissionMissing,
+          canPrompt: true,
+        ),
+      );
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+
+      await notifier.check();
+
+      expect(notifier.requiredAction, PastePermissionAction.grant);
+      expect(notifier.restartWasIneffective, isFalse);
+    });
   });
 }

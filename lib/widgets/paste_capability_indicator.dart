@@ -106,7 +106,12 @@ class _PasteCapabilityIndicatorState
       );
     }
 
-    final status = _resolveStatus(cap, l10n, isDark);
+    final status = _resolveStatus(
+      cap,
+      l10n,
+      isDark,
+      restartIneffective: notifier.restartWasIneffective,
+    );
 
     // Neutral card + tinted icon badge: status is carried by the badge and
     // the copy, not by flooding the whole surface with a status colour —
@@ -292,8 +297,9 @@ class _PasteCapabilityIndicatorState
   ({IconData icon, Color color, String title, String? subtitle}) _resolveStatus(
     PasteCapability? cap,
     L10n l10n,
-    bool isDark,
-  ) {
+    bool isDark, {
+    bool restartIneffective = false,
+  }) {
     if (cap == null) {
       return (
         icon: LucideIcons.loaderCircle,
@@ -312,8 +318,16 @@ class _PasteCapabilityIndicatorState
       PasteCapabilityStatus.permissionMissing => (
         icon: LucideIcons.shieldAlert,
         color: isDark ? WpColorsDark.warning : WpColorsLight.warning,
-        title: l10n.pasteCapabilityPermissionMissing,
-        subtitle: Platform.isMacOS ? l10n.pasteCapabilityWhyMac : null,
+        // After a grant-driven restart that still reads missing, drop the
+        // first-contact "not yet allowed / why" copy (which reads as "you
+        // never did anything" and re-confuses) for an honest "the restart
+        // didn't apply it — re-check in System Settings" message.
+        title: restartIneffective
+            ? l10n.pasteCapabilityRestartIneffectiveTitle
+            : l10n.pasteCapabilityPermissionMissing,
+        subtitle: restartIneffective
+            ? l10n.pasteCapabilityRestartIneffectiveSubtitle
+            : (Platform.isMacOS ? l10n.pasteCapabilityWhyMac : null),
       ),
       PasteCapabilityStatus.unsupported => (
         icon: LucideIcons.info,

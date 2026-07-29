@@ -541,6 +541,24 @@ class L10nDe extends L10n {
       'Wenn du die Berechtigung aktiviert hast, übernimmt macOS sie erst nach einem Neustart. Ein Klick — WhisPaste beendet sich und kommt sofort zurück.';
 
   @override
+  String get pasteRestartAlertTitle => 'WhisPaste jetzt neu starten';
+
+  @override
+  String get pasteRestartAlertBody =>
+      'Die Auto-Einfügen-Berechtigung ist gesetzt, greift aber erst nach einem Neustart. WhisPaste beendet sich und kommt sofort zurück.';
+
+  @override
+  String get pasteRestartAlertConfirm => 'Jetzt neu starten';
+
+  @override
+  String get pasteCapabilityRestartIneffectiveTitle =>
+      'Neustart hat die Berechtigung nicht übernommen';
+
+  @override
+  String get pasteCapabilityRestartIneffectiveSubtitle =>
+      'Öffne die Berechtigung erneut und prüfe in Systemeinstellungen → Datenschutz & Sicherheit → Bedienungshilfen, ob WhisPaste dort wirklich aktiviert ist. Aktiviere den Schalter neu, dann startet WhisPaste noch einmal.';
+
+  @override
   String pasteCapabilityRepairDone(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,

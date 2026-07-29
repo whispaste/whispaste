@@ -173,6 +173,11 @@
   "pasteCapabilityRestartButton": "WhisPaste neu starten",
   "pasteCapabilityRestartTitle": "Fast fertig — WhisPaste neu starten",
   "pasteCapabilityRestartBody": "Wenn du die Berechtigung aktiviert hast, übernimmt macOS sie erst nach einem Neustart. Ein Klick — WhisPaste beendet sich und kommt sofort zurück.",
+  "pasteRestartAlertTitle": "WhisPaste jetzt neu starten",
+  "pasteRestartAlertBody": "Die Auto-Einfügen-Berechtigung ist gesetzt, greift aber erst nach einem Neustart. WhisPaste beendet sich und kommt sofort zurück.",
+  "pasteRestartAlertConfirm": "Jetzt neu starten",
+  "pasteCapabilityRestartIneffectiveTitle": "Neustart hat die Berechtigung nicht übernommen",
+  "pasteCapabilityRestartIneffectiveSubtitle": "Öffne die Berechtigung erneut und prüfe in Systemeinstellungen → Datenschutz & Sicherheit → Bedienungshilfen, ob WhisPaste dort wirklich aktiviert ist. Aktiviere den Schalter neu, dann startet WhisPaste noch einmal.",
   "pasteCapabilityRepairDone": "{count, plural, =0{Keine veralteten Einträge gefunden. Bitte einmal Paste auslösen.}=1{1 veralteter Eintrag entfernt. Bitte einmal Paste auslösen, um den neuen Prompt zu sehen.}other{{count} veraltete Einträge entfernt. Bitte einmal Paste auslösen, um die neuen Prompts zu sehen.}}",
   "@pasteCapabilityRepairDone": {
     "placeholders": {

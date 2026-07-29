@@ -192,6 +192,11 @@
   "pasteCapabilityRestartButton": "Restart WhisPaste",
   "pasteCapabilityRestartTitle": "Almost there — restart WhisPaste",
   "pasteCapabilityRestartBody": "If you enabled the permission, macOS only applies it to a freshly started app. One click — WhisPaste quits and comes right back.",
+  "pasteRestartAlertTitle": "Restart WhisPaste now",
+  "pasteRestartAlertBody": "The Auto-Paste permission is set, but macOS only applies it after a restart. WhisPaste will quit and come right back.",
+  "pasteRestartAlertConfirm": "Restart now",
+  "pasteCapabilityRestartIneffectiveTitle": "The restart didn't apply the permission",
+  "pasteCapabilityRestartIneffectiveSubtitle": "Open the permission again and check under System Settings → Privacy & Security → Accessibility that WhisPaste is really switched on. Re-enable the toggle, then WhisPaste restarts once more.",
   "pasteCapabilityRepairDone": "{count, plural, =0{No stale entries found. Try paste once.}=1{Cleared 1 stale entry. Try paste once to see a fresh prompt.}other{Cleared {count} stale entries. Try paste once to see fresh prompts.}}",
   "@pasteCapabilityRepairDone": {
     "placeholders": {
