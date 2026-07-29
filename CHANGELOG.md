@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.62
+
+### Maintenance
+
+- **Im Mac App Store waren teilweise doppelte Screenshots hinterlegt** (ein fehlendes Upload-Flag ließ alte Bilder stehen statt sie zu ersetzen) — jetzt werden Screenshots bei jeder Aktualisierung sauber ersetzt.
+- Interne Vorbereitung für das nächste Microsoft-Store-Update (keine Funktionsänderung an der App).
+
 ## 1.2.61
 
 ### Maintenance
