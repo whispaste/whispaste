@@ -83,6 +83,51 @@ void main() {
           throwsA(isA<StateError>()),
         );
       });
+
+      // Wires the real, committed VAD model (assets/models/vad/, see
+      // NOTICE.md — unlike the gitignored durchstich dylib/model, this file
+      // ships in every checkout) through the actual [WhisperFfiEngine]
+      // production code path. Regression coverage for the "Vielen Dank"
+      // trailing-hallucination investigation: proves `vadEnabled` doesn't
+      // crash or corrupt real speech end-to-end, not just via the manual
+      // debug harness. Deeper behavioural validation (silence/noise tails
+      // dropped, genuine trailing content preserved) was done empirically
+      // against the production large-v3-turbo model — see the commit
+      // history for `vad_debug_harness_test.dart` and this file's VAD
+      // wiring in `whisper_ffi_engine.dart`; the tiny durchstich model here
+      // is only asserted for mechanical correctness, not hallucination
+      // behaviour (too small/undertrained to reproduce that reliably).
+      test(
+        'transcribes correctly with VAD enabled',
+        () async {
+          final vadModelPath = p.join(
+            _repoRoot() ?? Directory.current.path,
+            'assets',
+            'models',
+            'vad',
+            'ggml-silero-v5.1.2.bin',
+          );
+          if (!File(vadModelPath).existsSync()) {
+            markTestSkipped('VAD model asset not found at $vadModelPath');
+            return;
+          }
+
+          final engine = WhisperFfiEngine(libraryPath: dylibPath);
+          await engine.load(modelPath: modelPath!, vadModelPath: vadModelPath);
+          addTearDown(engine.unload);
+
+          final wavBytes = File(speechWavPath!).readAsBytesSync();
+          final text = (await engine.transcribe(
+            wavBytes,
+            language: 'en',
+            vadEnabled: true,
+          )).toLowerCase();
+
+          expect(text, contains('hello'));
+          expect(text, contains('world'));
+        },
+        timeout: const Timeout(Duration(minutes: 2)),
+      );
     },
     skip: available ? null : 'local libwhisper.dylib + tiny model absent',
   );
@@ -117,6 +162,68 @@ void main() {
     test('defaultWhisperLibraryPath is absolute', () {
       expect(p.isAbsolute(defaultWhisperLibraryPath()), isTrue);
     });
+  });
+
+  // Bundled VAD-model path resolution (2026-07-29 "Vielen Dank" follow-up):
+  // asserts the resolver points at the model co-located with `libwhisper`
+  // itself, not some separate/downloaded location.
+  group('whisperVadModelPathFor', () {
+    test('resolves next to the bundled library', () {
+      final exe = p.join(
+        '/Apps',
+        'WhisPaste.app',
+        'Contents',
+        'MacOS',
+        'whispaste',
+      );
+      final resolved = whisperVadModelPathFor(exe);
+      expect(p.isAbsolute(resolved), isTrue);
+      expect(
+        p.dirname(resolved),
+        p.dirname(whisperLibraryPathFor(exe)),
+        reason: 'VAD model must live in the same dir as libwhisper',
+      );
+      expect(p.basename(resolved), 'ggml-silero-v5.1.2.bin');
+    });
+
+    test('defaultWhisperVadModelPath is absolute', () {
+      expect(p.isAbsolute(defaultWhisperVadModelPath()), isTrue);
+    });
+  });
+
+  // Guards against the vendored VAD model asset silently disappearing —
+  // always runs (no gitignored artifacts needed), since it's a committed
+  // repo file (see assets/models/vad/NOTICE.md).
+  test('vendored VAD model asset exists in the repo', () {
+    final repoRoot = _repoRoot();
+    // Falls back to walking up from cwd for a `assets/` dir when the
+    // durchstich marker (used by `_repoRoot()` above) isn't present, e.g. on
+    // CI checkouts that never ran the local FFI durchstich setup.
+    var dir = repoRoot != null ? Directory(repoRoot) : Directory.current;
+    if (repoRoot == null) {
+      for (var i = 0; i < 8; i++) {
+        if (Directory(
+          p.join(dir.path, 'assets', 'models', 'vad'),
+        ).existsSync()) {
+          break;
+        }
+        final parent = dir.parent;
+        if (parent.path == dir.path) break;
+        dir = parent;
+      }
+    }
+    final assetPath = p.join(
+      dir.path,
+      'assets',
+      'models',
+      'vad',
+      'ggml-silero-v5.1.2.bin',
+    );
+    expect(
+      File(assetPath).existsSync(),
+      isTrue,
+      reason: 'missing $assetPath — see assets/models/vad/NOTICE.md',
+    );
   });
 
   // Host-independent error path (no dylib/model required): a missing model

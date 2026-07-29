@@ -762,6 +762,13 @@ class L10nDe extends L10n {
       'Bringt Whisper dazu, eher Satzzeichen zu setzen, wenn kein benutzerdefiniertes Vokabular hinterlegt ist. Hat keinen Einfluss auf die Geschwindigkeit.';
 
   @override
+  String get settingsVadEnabled => 'Stille am Ende entfernen';
+
+  @override
+  String get settingsVadEnabledSubtitle =>
+      'Entfernt lange Stille bzw. Rauschen am Ende einer Aufnahme, bevor Whisper sie decodiert – so kann dort kein erfundener Schlusssatz entstehen (z. B. halluziniertes „Vielen Dank\"). Kaum spürbarer Zeitaufwand, ausschaltbar, falls du lieber Whispers unbearbeitete Ausgabe möchtest.';
+
+  @override
   String get settingsStripPunctuation => 'Satzzeichen entfernen';
 
   @override

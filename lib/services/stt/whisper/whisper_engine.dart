@@ -103,7 +103,12 @@ abstract class WhisperEngine {
 
   /// Loads the GGML model at [modelPath] (opening the native library on first
   /// use). Throws on failure.
-  Future<void> load({required String modelPath});
+  ///
+  /// [vadModelPath], if given and it exists on disk, resolves the bundled
+  /// Silero-VAD ggml model — see [transcribe]'s `vadEnabled`. A missing or
+  /// omitted path is not an error: VAD simply stays unavailable this
+  /// session (`vadEnabled` becomes a no-op) rather than failing [load].
+  Future<void> load({required String modelPath, String? vadModelPath});
 
   /// Transcribes WhisPaste's canonical 16 kHz mono 16-bit PCM WAV [wavBytes]
   /// and returns the joined transcript.
@@ -111,11 +116,17 @@ abstract class WhisperEngine {
   /// [language] is a whisper language code (e.g. `'en'`, `'de'`); `null` lets
   /// whisper auto-detect. [prompt] biases decoding towards custom vocabulary
   /// / rolling context (whisper's `initial_prompt`); `null` or empty means no
-  /// bias. Throws a [StateError] if called before [load].
+  /// bias. [vadEnabled] (`SttSettings.vadEnabled`, user-toggleable) runs
+  /// whisper.cpp's built-in VAD pre-pass so long silence/noise tails never
+  /// reach the decoder — the mitigation for Whisper's documented
+  /// trailing-silence hallucination class (e.g. fabricated "Vielen Dank."
+  /// closings). No-op if [load] did not resolve a VAD model. Throws a
+  /// [StateError] if called before [load].
   Future<String> transcribe(
     List<int> wavBytes, {
     String? language,
     String? prompt,
+    bool vadEnabled = false,
   });
 
   /// Frees the native context and model. Safe to call when not loaded.

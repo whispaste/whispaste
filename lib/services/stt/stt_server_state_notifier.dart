@@ -30,6 +30,7 @@ import 'stt_benchmark.dart' show SttBenchmark;
 import 'wav_header_repair.dart';
 import 'whisper/gpu_load_crash_guard.dart';
 import 'whisper/whisper_engine.dart';
+import 'whisper/whisper_ffi_engine.dart' show defaultWhisperVadModelPath;
 import 'whisper/whisper_isolate_engine.dart';
 import 'whisper/whisper_resilience_policy.dart';
 
@@ -428,6 +429,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
         effectivePrompt,
         wavBytes.length,
         audioDurationMs,
+        settings?.stt.vadEnabled ?? true,
       );
     } catch (e) {
       stopwatch.stop();
@@ -556,6 +558,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     String? prompt,
     int wavSizeBytes,
     int audioDurationMs,
+    bool vadEnabled,
   ) async {
     var transientAttempts = 0;
     var cpuFallbackTried = false;
@@ -563,7 +566,12 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     while (true) {
       try {
         return await _engine!
-            .transcribe(payload, language: lang, prompt: prompt)
+            .transcribe(
+              payload,
+              language: lang,
+              prompt: prompt,
+              vadEnabled: vadEnabled,
+            )
             .timeout(stuckGuardTimeout);
       } on TimeoutException {
         const failure = WhisperEngineException(
@@ -1009,7 +1017,10 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     var gpuAttemptPending = attemptingGpu;
 
     try {
-      await _engine!.load(modelPath: modelPath);
+      await _engine!.load(
+        modelPath: modelPath,
+        vadModelPath: defaultWhisperVadModelPath(),
+      );
     } catch (e) {
       if (gpuAttemptPending) {
         crashGuard.clearAttempt();
@@ -1031,7 +1042,10 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       );
       final cpuEngine = ref.read(whisperCpuFallbackEngineProvider);
       try {
-        await cpuEngine.load(modelPath: modelPath);
+        await cpuEngine.load(
+          modelPath: modelPath,
+          vadModelPath: defaultWhisperVadModelPath(),
+        );
       } catch (cpuError) {
         _fail('Failed to load STT model: $cpuError');
         return;

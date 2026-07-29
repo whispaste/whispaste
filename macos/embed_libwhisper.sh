@@ -49,3 +49,14 @@ for src in "${dylibs[@]}"; do
 done
 
 echo "libwhisper embed complete (${#dylibs[@]} dylibs)."
+
+# Bundle the Silero-VAD model alongside libwhisper (see
+# assets/models/vad/NOTICE.md) — a fixed, tiny (<1MB) data file, not a
+# dylib, so it isn't in $STAGE_DIR/*.dylib above and doesn't need signing.
+VAD_MODEL_SRC="${SRCROOT}/../assets/models/vad/ggml-silero-v5.1.2.bin"
+if [[ -f "$VAD_MODEL_SRC" ]]; then
+  ditto "$VAD_MODEL_SRC" "$DEST_DIR/ggml-silero-v5.1.2.bin"
+  echo "Embedded ggml-silero-v5.1.2.bin (VAD model) → Frameworks/"
+else
+  echo "warning: VAD model not found ($VAD_MODEL_SRC) — VAD stays unavailable at runtime."
+fi

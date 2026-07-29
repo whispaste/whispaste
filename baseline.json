@@ -1,5 +1,20 @@
 {
   "schemaVersion": 1,
   "rulesetVersion": "ruleset@382b63c5",
-  "findings": []
+  "findings": [
+    {
+      "fingerprint": "d09bf3f2aefa45b2",
+      "ruleId": "code-duplicates",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 407,
+      "message": "2 occurrences of duplicated block (77 tokens): lib/core/config/settings_sections.dart:407, lib/core/config/settings_sections.dart:1088"
+    },
+    {
+      "fingerprint": "24ddc842b1e58694",
+      "ruleId": "code-duplicates",
+      "filePath": "lib/core/config/settings_sections.dart",
+      "line": 423,
+      "message": "2 occurrences of duplicated block (66 tokens): lib/core/config/settings_sections.dart:423, lib/core/config/settings_sections.dart:1101"
+    }
+  ]
 }

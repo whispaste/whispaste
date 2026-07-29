@@ -68,8 +68,7 @@ final class WhisperVadContext extends ffi.Opaque {}
 
 final class WhisperVadSegments extends ffi.Opaque {}
 
-typedef _VadDefaultContextParamsNative =
-    WhisperVadContextParams Function();
+typedef _VadDefaultContextParamsNative = WhisperVadContextParams Function();
 typedef _VadDefaultParamsNative = WhisperVadParams Function();
 typedef _VadInitNative =
     ffi.Pointer<WhisperVadContext> Function(
@@ -106,8 +105,7 @@ typedef _VadFreeNative = ffi.Void Function(ffi.Pointer<WhisperVadContext>);
 typedef _VadFreeDart = void Function(ffi.Pointer<WhisperVadContext>);
 typedef _VadFreeSegmentsNative =
     ffi.Void Function(ffi.Pointer<WhisperVadSegments>);
-typedef _VadFreeSegmentsDart =
-    void Function(ffi.Pointer<WhisperVadSegments>);
+typedef _VadFreeSegmentsDart = void Function(ffi.Pointer<WhisperVadSegments>);
 
 const _wavPath = String.fromEnvironment('WAV');
 const _vadModelPath = String.fromEnvironment('VAD_MODEL');
@@ -210,7 +208,9 @@ void main() {
         // ~486 against a ~4.8s clip only makes sense as centiseconds.
         final t0 = vadSegmentT0(segments, i) * 10;
         final t1 = vadSegmentT1(segments, i) * 10;
-        print('  segment[$i] ${t0.toStringAsFixed(0)}ms-${t1.toStringAsFixed(0)}ms');
+        print(
+          '  segment[$i] ${t0.toStringAsFixed(0)}ms-${t1.toStringAsFixed(0)}ms',
+        );
       }
       if (n > 0) {
         final lastEnd = vadSegmentT1(segments, n - 1) * 10;

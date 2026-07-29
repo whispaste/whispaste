@@ -744,6 +744,13 @@ class L10nHe extends L10n {
       'מטה את Whisper לכיוון פלט מפוסק כאשר לא הוגדר אוצר מילים מותאם אישית. אין השפעה על המהירות.';
 
   @override
+  String get settingsVadEnabled => 'חיתוך שתיקה בסוף ההקלטה';
+
+  @override
+  String get settingsVadEnabledSubtitle =>
+      'מסיר שתיקה או רעש ארוכים מסוף ההקלטה לפני שWhisper מפענח אותה, כדי שלא יומצא שם משפט סיום (למשל תופעות הזיה כמו \"תודה שצפיתם\"). עלות זניחה, ניתן לכבות אם עדיפה הפלט הגולמי של Whisper.';
+
+  @override
   String get settingsStripPunctuation => 'הסרת סימני פיסוק';
 
   @override

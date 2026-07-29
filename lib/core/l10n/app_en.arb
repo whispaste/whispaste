@@ -257,6 +257,8 @@
   "settingsCustomVocabularyPlaceholder": "e.g. WhisPaste, Kubernetes, Dr. Mueller",
   "settingsPunctuationPriming": "Punctuation priming",
   "settingsPunctuationPrimingSubtitle": "Nudges Whisper towards punctuated output when no custom vocabulary is set. No effect on speed.",
+  "settingsVadEnabled": "Trim trailing silence",
+  "settingsVadEnabledSubtitle": "Removes long silence/noise at the end of a recording before Whisper decodes it, so it can't fabricate a closing sentence there (e.g. \"Thanks for watching\"-style hallucinations). Negligible cost, off if you'd rather keep Whisper's raw output.",
   "settingsStripPunctuation": "Strip punctuation",
   "settingsStripPunctuationSubtitle": "Removes periods, commas, and other sentence punctuation from every transcript before it's saved or pasted. Works the same way for every engine and provider, not just Whisper.",
   "settingsAppLanguage": "App Language",

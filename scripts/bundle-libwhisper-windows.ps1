@@ -90,3 +90,15 @@ foreach ($dll in $dlls) {
   Write-Host "Staged $($dll.Name) -> $ReleaseDir"
 }
 Write-Host "libwhisper Windows bundling complete ($($dlls.Count) DLLs)."
+
+# Bundle the Silero-VAD model alongside whisper.dll (see
+# assets/models/vad/NOTICE.md) — a fixed, tiny (<1MB) data file, vendored in
+# the repo rather than built per-platform like the DLLs above.
+$repoRoot = Split-Path -Parent $PSScriptRoot
+$vadModel = Join-Path $repoRoot "assets\models\vad\ggml-silero-v5.1.2.bin"
+if (Test-Path $vadModel) {
+  Copy-Item $vadModel -Destination $ReleaseDir -Force
+  Write-Host "Staged ggml-silero-v5.1.2.bin (VAD model) -> $ReleaseDir"
+} else {
+  Write-Warning "VAD model not found ($vadModel) - VAD stays unavailable at runtime."
+}

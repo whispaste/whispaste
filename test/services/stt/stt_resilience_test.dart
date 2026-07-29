@@ -93,7 +93,7 @@ class _FakeWhisperEngine implements WhisperEngine {
       WhisperEngineStatus(isLoaded: _loaded, backend: WhisperBackend.cpu);
 
   @override
-  Future<void> load({required String modelPath}) async {
+  Future<void> load({required String modelPath, String? vadModelPath}) async {
     _loaded = true;
   }
 
@@ -102,6 +102,7 @@ class _FakeWhisperEngine implements WhisperEngine {
     List<int> wavBytes, {
     String? language,
     String? prompt,
+    bool vadEnabled = false,
   }) async {
     lastPrompt = prompt;
     if (_hang) {
@@ -157,7 +158,7 @@ class _LoadFailingEngine implements WhisperEngine {
       WhisperEngineStatus(isLoaded: _loaded, backend: backend);
 
   @override
-  Future<void> load({required String modelPath}) async {
+  Future<void> load({required String modelPath, String? vadModelPath}) async {
     if (failLoad) {
       throw StateError(
         'whisper_isolate_load_failed: TimeoutException after '
@@ -174,6 +175,7 @@ class _LoadFailingEngine implements WhisperEngine {
     List<int> wavBytes, {
     String? language,
     String? prompt,
+    bool vadEnabled = false,
   }) async {
     trace?.add('transcribe');
     return 'ok';

@@ -238,6 +238,8 @@
   "settingsCustomVocabularyPlaceholder": "z.B. WhisPaste, Kubernetes, Dr. Müller",
   "settingsPunctuationPriming": "Satzzeichen anregen",
   "settingsPunctuationPrimingSubtitle": "Bringt Whisper dazu, eher Satzzeichen zu setzen, wenn kein benutzerdefiniertes Vokabular hinterlegt ist. Hat keinen Einfluss auf die Geschwindigkeit.",
+  "settingsVadEnabled": "Stille am Ende entfernen",
+  "settingsVadEnabledSubtitle": "Entfernt lange Stille bzw. Rauschen am Ende einer Aufnahme, bevor Whisper sie decodiert – so kann dort kein erfundener Schlusssatz entstehen (z. B. halluziniertes „Vielen Dank\"). Kaum spürbarer Zeitaufwand, ausschaltbar, falls du lieber Whispers unbearbeitete Ausgabe möchtest.",
   "settingsStripPunctuation": "Satzzeichen entfernen",
   "settingsStripPunctuationSubtitle": "Entfernt Punkte, Kommas und andere Satzzeichen aus jedem Transkript, bevor es gespeichert oder eingefügt wird. Funktioniert bei jeder Engine und jedem Anbieter gleich, nicht nur bei Whisper.",
   "settingsAppLanguage": "App-Sprache",

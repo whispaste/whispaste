@@ -37,9 +37,14 @@ class _EngineConfig {
 }
 
 class _LoadRequest {
-  const _LoadRequest({required this.config, required this.modelPath});
+  const _LoadRequest({
+    required this.config,
+    required this.modelPath,
+    this.vadModelPath,
+  });
   final _EngineConfig config;
   final String modelPath;
+  final String? vadModelPath;
 }
 
 class _LoadResult {
@@ -54,11 +59,13 @@ class _TranscribeRequest {
     required this.wavBytes,
     this.language,
     this.prompt,
+    this.vadEnabled = false,
   });
   final int requestId;
   final Uint8List wavBytes;
   final String? language;
   final String? prompt;
+  final bool vadEnabled;
 }
 
 class _TranscribeResult {
@@ -110,7 +117,10 @@ void _whisperIsolateMain(SendPort mainSendPort) {
             libraryPath: req.config.libraryPath,
             backend: req.config.backend,
           );
-          await engine!.load(modelPath: req.modelPath);
+          await engine!.load(
+            modelPath: req.modelPath,
+            vadModelPath: req.vadModelPath,
+          );
           mainSendPort.send(const _LoadResult(ok: true));
         } catch (e) {
           mainSendPort.send(_LoadResult(ok: false, error: '$e'));
@@ -132,6 +142,7 @@ void _whisperIsolateMain(SendPort mainSendPort) {
             req.wavBytes,
             language: req.language,
             prompt: req.prompt,
+            vadEnabled: req.vadEnabled,
           );
           mainSendPort.send(
             _TranscribeResult(requestId: req.requestId, text: text),
@@ -215,7 +226,7 @@ class WhisperIsolateEngine implements WhisperEngine {
   );
 
   @override
-  Future<void> load({required String modelPath}) async {
+  Future<void> load({required String modelPath, String? vadModelPath}) async {
     if (_isLoaded) return;
 
     if (_isolate == null) {
@@ -251,7 +262,13 @@ class WhisperIsolateEngine implements WhisperEngine {
     }
 
     _loadCompleter = Completer<_LoadResult>();
-    _workerPort!.send(_LoadRequest(config: _config, modelPath: modelPath));
+    _workerPort!.send(
+      _LoadRequest(
+        config: _config,
+        modelPath: modelPath,
+        vadModelPath: vadModelPath,
+      ),
+    );
     final result = await _loadCompleter!.future.timeout(
       const Duration(seconds: 60),
     );
@@ -268,6 +285,7 @@ class WhisperIsolateEngine implements WhisperEngine {
     List<int> wavBytes, {
     String? language,
     String? prompt,
+    bool vadEnabled = false,
   }) async {
     if (!_isLoaded || _workerPort == null) {
       throw StateError('whisper_engine_not_loaded');
@@ -284,6 +302,7 @@ class WhisperIsolateEngine implements WhisperEngine {
             : Uint8List.fromList(wavBytes),
         language: language,
         prompt: prompt,
+        vadEnabled: vadEnabled,
       ),
     );
 

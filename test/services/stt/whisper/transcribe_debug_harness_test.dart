@@ -76,6 +76,7 @@ const _modelPathOverride = String.fromEnvironment('MODEL');
 const _libraryPathOverride = String.fromEnvironment('LIBRARY');
 const _language = String.fromEnvironment('LANGUAGE', defaultValue: 'en');
 const _prompt = String.fromEnvironment('PROMPT');
+const _vadModelPath = String.fromEnvironment('VAD_MODEL');
 
 void main() {
   final root = _repoRoot();
@@ -124,7 +125,10 @@ void main() {
           : 0;
 
       final engine = WhisperFfiEngine(libraryPath: libraryPath);
-      await engine.load(modelPath: modelPath!);
+      await engine.load(
+        modelPath: modelPath!,
+        vadModelPath: _vadModelPath.isEmpty ? null : _vadModelPath,
+      );
       addTearDown(engine.unload);
 
       final sw = Stopwatch()..start();
@@ -133,6 +137,7 @@ void main() {
         language: _language,
         prompt: _prompt.isEmpty ? null : _prompt,
         includeTimestamps: true,
+        vadEnabled: _vadModelPath.isNotEmpty,
       );
       sw.stop();
 

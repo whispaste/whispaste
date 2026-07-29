@@ -755,6 +755,13 @@ class L10nEn extends L10n {
       'Nudges Whisper towards punctuated output when no custom vocabulary is set. No effect on speed.';
 
   @override
+  String get settingsVadEnabled => 'Trim trailing silence';
+
+  @override
+  String get settingsVadEnabledSubtitle =>
+      'Removes long silence/noise at the end of a recording before Whisper decodes it, so it can\'t fabricate a closing sentence there (e.g. \"Thanks for watching\"-style hallucinations). Negligible cost, off if you\'d rather keep Whisper\'s raw output.';
+
+  @override
   String get settingsStripPunctuation => 'Strip punctuation';
 
   @override

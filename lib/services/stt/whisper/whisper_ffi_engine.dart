@@ -66,6 +66,25 @@ String whisperLibraryPathFor(String executablePath) {
   return p.join(execDir, 'lib', 'libwhisper.so');
 }
 
+/// Absolute path to the bundled Silero-VAD ggml model (see
+/// `assets/models/vad/NOTICE.md`), resolved the same way and bundled
+/// alongside `libwhisper` itself at build time (`macos/embed_libwhisper.sh`,
+/// `scripts/bundle-libwhisper-windows.ps1`,
+/// `scripts/build-libwhisper-linux.sh`) — not downloaded at runtime, since
+/// unlike the multi-gigabyte STT models it is a single fixed <1MB file. May
+/// not exist on a checkout that hasn't run the platform bundling step yet;
+/// callers (see [WhisperFfiEngine.load]) treat a missing file as "VAD
+/// unavailable this session", never an error.
+String defaultWhisperVadModelPath() =>
+    whisperVadModelPathFor(Platform.resolvedExecutable);
+
+/// Pure resolver behind [defaultWhisperVadModelPath], split out for unit
+/// tests for the same reason as [whisperLibraryPathFor].
+String whisperVadModelPathFor(String executablePath) {
+  final libraryDir = p.dirname(whisperLibraryPathFor(executablePath));
+  return p.join(libraryDir, 'ggml-silero-v5.1.2.bin');
+}
+
 /// Windows only: makes the OS loader search [libraryPath]'s own directory
 /// when resolving `whisper.dll`'s transitive dependencies (the bundled
 /// `ggml*.dll` backends).
@@ -152,6 +171,12 @@ class WhisperFfiEngine implements WhisperEngine {
   ffi.Pointer<whisper_context>? _ctx;
   String? _errorMessage;
 
+  /// Resolved path to the bundled Silero-VAD ggml model, set by [load].
+  /// `null` means VAD is unavailable this session (path not resolved / not
+  /// bundled on this platform yet) — [transcribe]'s `vadEnabled` is then a
+  /// no-op regardless of its value, never an error.
+  String? _vadModelPath;
+
   /// Raw lookups for `whisper_full_get_segment_t0/t1` — not covered by the
   /// ffigen-generated [WhisperBindings] (`whisper_bindings.dart`, do-not-edit).
   /// Resolved once in [load]; `null` if the symbol is missing from an older
@@ -181,13 +206,19 @@ class WhisperFfiEngine implements WhisperEngine {
   );
 
   @override
-  Future<void> load({required String modelPath}) async {
+  Future<void> load({required String modelPath, String? vadModelPath}) async {
     if (_ctx != null) return;
 
     if (!File(modelPath).existsSync()) {
       _errorMessage = 'whisper_model_not_found';
       throw StateError('whisper_model_not_found: $modelPath');
     }
+    // Deliberately not an error if missing — VAD is an opt-in quality
+    // improvement (see [transcribe]'s `vadEnabled`), not a hard dependency;
+    // a missing/not-yet-bundled VAD model degrades to today's behaviour.
+    _vadModelPath = (vadModelPath != null && File(vadModelPath).existsSync())
+        ? vadModelPath
+        : null;
 
     try {
       _ensureWindowsDllSearchPath(_libraryPath);
@@ -408,7 +439,9 @@ class WhisperFfiEngine implements WhisperEngine {
             noSpeechProb: noSpeechProb,
           ),
         );
-        _log.debug('segment[$i/$n] textLen=${text.length} noSpeechProb=$noSpeechProb');
+        _log.debug(
+          'segment[$i/$n] textLen=${text.length} noSpeechProb=$noSpeechProb',
+        );
       }
     }
     _lastSegments = segments;
@@ -420,6 +453,7 @@ class WhisperFfiEngine implements WhisperEngine {
     String? language,
     String? prompt,
     bool includeTimestamps = false,
+    bool vadEnabled = false,
   }) async {
     final bindings = _bindings;
     final ctx = _ctx;
@@ -438,6 +472,9 @@ class WhisperFfiEngine implements WhisperEngine {
     // pointer, which whisper.cpp already treats as "no prompt".
     final hasPrompt = prompt != null && prompt.isNotEmpty;
     final promptC = hasPrompt ? prompt.toNativeUtf8() : null;
+    final vadModelPath = _vadModelPath;
+    final useVad = vadEnabled && vadModelPath != null;
+    final vadModelPathC = useVad ? vadModelPath.toNativeUtf8() : null;
     try {
       final params = bindings.whisper_full_default_params(
         WhisperSamplingStrategy.WHISPER_SAMPLING_GREEDY,
@@ -510,6 +547,37 @@ class WhisperFfiEngine implements WhisperEngine {
       params.suppress_nst = true;
       params.temperature_inc = 0.0;
 
+      // ── VAD-gated hallucination hardening (2026-07-29 follow-up) ───────
+      // whisper.cpp's own internal `no_speech_prob`/`no_speech_thold` gate
+      // (already active by default, see `_logSegments`' doc comment) is
+      // provably insufficient on its own: it did not catch the "Vielen
+      // Dank" trailing-hallucination reports this was built to address,
+      // because a hallucinated closing phrase is exactly the case where
+      // the model is confidently wrong — no_speech_prob stays low. Community
+      // consensus (openai/whisper discussion #679; ggml-org/whisper.cpp
+      // issue #1724) is that only an independent, acoustic VAD signal
+      // reliably tells trailing silence apart from real speech.
+      //
+      // `params.vad`/`vad_model_path`/`vad_params` (all already present on
+      // [WhisperBindings]' generated struct — nothing hand-rolled) delegate
+      // to whisper.cpp's own built-in Silero-VAD integration: it re-segments
+      // the input to only the detected-speech regions (joined with a fixed
+      // ~100ms gap) before decoding, so a long silence/noise tail is never
+      // seen by the decoder at all. `vad_params` is left at whichever
+      // defaults `whisper_full_default_params` already filled in above
+      // (threshold 0.5, 100ms min-silence, 30ms speech padding) — validated
+      // empirically against synthetic fixtures (silence/noise tails
+      // correctly dropped; a genuinely spoken trailing "Vielen Dank."
+      // correctly kept as real speech; a two-sentence clip with a real
+      // ~1.2s mid-utterance pause fully preserved) before wiring this in.
+      // `[useVad]` degrades silently to today's behaviour when no VAD model
+      // is bundled/resolved for this platform yet (see [_vadModelPath]) or
+      // the caller opts out via [vadEnabled] (`SttSettings.vadEnabled`).
+      if (useVad) {
+        params.vad = true;
+        params.vad_model_path = vadModelPathC!.cast<ffi.Char>();
+      }
+
       final rc = bindings.whisper_full(ctx, params, samplesPtr, samples.length);
       if (rc != 0) {
         // whisper.cpp reports decode failures as a generic non-zero return
@@ -537,6 +605,7 @@ class WhisperFfiEngine implements WhisperEngine {
       malloc.free(samplesPtr);
       malloc.free(languageC);
       if (promptC != null) malloc.free(promptC);
+      if (vadModelPathC != null) malloc.free(vadModelPathC);
     }
   }
 

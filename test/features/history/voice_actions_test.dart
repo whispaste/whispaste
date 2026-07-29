@@ -118,7 +118,7 @@ class _FakeWhisperEngine implements WhisperEngine {
       WhisperEngineStatus(isLoaded: _loaded, backend: WhisperBackend.cpu);
 
   @override
-  Future<void> load({required String modelPath}) async {
+  Future<void> load({required String modelPath, String? vadModelPath}) async {
     loadCallCount++;
     if (hangOnLoad) {
       await Completer<void>().future; // never completes
@@ -131,6 +131,7 @@ class _FakeWhisperEngine implements WhisperEngine {
     List<int> wavBytes, {
     String? language,
     String? prompt,
+    bool vadEnabled = false,
   }) async {
     transcribeCallCount++;
     // SttServerStateNotifier._warmupInference() fires an untimed transcribe()

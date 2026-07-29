@@ -35,7 +35,7 @@ class _FakeWhisperEngine implements WhisperEngine {
       WhisperEngineStatus(isLoaded: _loaded, backend: WhisperBackend.cpu);
 
   @override
-  Future<void> load({required String modelPath}) async {
+  Future<void> load({required String modelPath, String? vadModelPath}) async {
     _loaded = true;
   }
 
@@ -44,6 +44,7 @@ class _FakeWhisperEngine implements WhisperEngine {
     List<int> wavBytes, {
     String? language,
     String? prompt,
+    bool vadEnabled = false,
   }) async => '';
 
   @override

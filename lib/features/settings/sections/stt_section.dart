@@ -282,6 +282,31 @@ class _SpeechRecognitionSectionState
               ),
             ),
 
+          // VAD trailing-silence trim — local Whisper only (whisper.cpp's
+          // built-in Voice Activity Detection pre-pass; no equivalent for
+          // cloud providers or Parakeet). Mitigates Whisper's documented
+          // trailing-silence hallucination class (fabricated closing
+          // sentences, e.g. "Vielen Dank" — see the 2026-07-29
+          // investigation). Default on; no-op if the platform build hasn't
+          // bundled the VAD model yet (assets/models/vad/NOTICE.md).
+          if (isLocal && settings.onDeviceEngine == OnDeviceEngine.whisper)
+            SettingRow(
+              icon: LucideIcons.scissors,
+              label: l10n.settingsVadEnabled,
+              subtitle: l10n.settingsVadEnabledSubtitle,
+              semanticToggledValue: settings.stt.vadEnabled,
+              trailing: settingsToggle(
+                value: settings.stt.vadEnabled,
+                onChanged: (v) => ref
+                    .read(settingsProvider.notifier)
+                    .updateSettings(
+                      (s) => s.copyWithSections(
+                        stt: s.stt.copyWith(vadEnabled: v),
+                      ),
+                    ),
+              ),
+            ),
+
           // Custom vocabulary — local Whisper (initial-prompt, see
           // stt_server_state_notifier.dart) OR OpenAI cloud (the equivalent
           // `prompt` field on /v1/audio/transcriptions, see

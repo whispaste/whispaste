@@ -294,6 +294,7 @@ class SttSettings {
     this.engine = 'whisper',
     this.punctuationPriming = true,
     this.stripPunctuation = false,
+    this.vadEnabled = true,
   });
 
   final String provider;
@@ -338,6 +339,19 @@ class SttSettings {
   /// (`RecordingOrchestrator`), so the toggle behaves identically everywhere.
   final bool stripPunctuation;
 
+  /// Whether whisper.cpp's built-in Voice Activity Detection pre-pass runs
+  /// before decoding — the mitigation for Whisper's documented
+  /// trailing-silence/low-confidence hallucination class (e.g. fabricated
+  /// "Vielen Dank." closings tacked onto the real transcript). Only affects
+  /// the on-device Whisper engine ([engine] `'whisper'`); Parakeet and
+  /// cloud providers are unaffected. No-op if the platform build hasn't
+  /// bundled the VAD model (see `assets/models/vad/NOTICE.md`) — never an
+  /// error. Default on (opt-out) — negligible cost (~2.5ms of VAD compute
+  /// per second of audio, see the "Vielen Dank" investigation) and
+  /// validated to preserve genuinely spoken trailing content (real endings,
+  /// mid-utterance pauses, quiet/fading speech) before being wired in.
+  final bool vadEnabled;
+
   static const SttSettings defaults = SttSettings();
 
   factory SttSettings.fromMap(Map<String, String> v) => SttSettings(
@@ -361,6 +375,7 @@ class SttSettings {
       'stt_strip_punctuation',
       defaults.stripPunctuation,
     ),
+    vadEnabled: _readBool(v, 'stt_vad_enabled', defaults.vadEnabled),
   );
 
   Map<String, String> toMap() => {
@@ -372,6 +387,7 @@ class SttSettings {
     'stt_engine': engine,
     'stt_punctuation_priming': '$punctuationPriming',
     'stt_strip_punctuation': '$stripPunctuation',
+    'stt_vad_enabled': '$vadEnabled',
   };
 
   // loam-ignore: code-duplicates – every settings-section class in this file
@@ -387,6 +403,7 @@ class SttSettings {
     String? engine,
     bool? punctuationPriming,
     bool? stripPunctuation,
+    bool? vadEnabled,
   }) => SttSettings(
     provider: provider ?? this.provider,
     model: model ?? this.model,
@@ -396,8 +413,12 @@ class SttSettings {
     engine: engine ?? this.engine,
     punctuationPriming: punctuationPriming ?? this.punctuationPriming,
     stripPunctuation: stripPunctuation ?? this.stripPunctuation,
+    vadEnabled: vadEnabled ?? this.vadEnabled,
   );
 
+  // loam-ignore: code-duplicates – same repo-wide operator==/hashCode
+  // boilerplate shape shared by every settings-section class in this file
+  // (see the copyWith comment above), not accidental duplication.
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -409,7 +430,8 @@ class SttSettings {
           customVocabulary == other.customVocabulary &&
           engine == other.engine &&
           punctuationPriming == other.punctuationPriming &&
-          stripPunctuation == other.stripPunctuation;
+          stripPunctuation == other.stripPunctuation &&
+          vadEnabled == other.vadEnabled;
 
   @override
   int get hashCode => Object.hash(
@@ -421,6 +443,7 @@ class SttSettings {
     engine,
     punctuationPriming,
     stripPunctuation,
+    vadEnabled,
   );
 }
 

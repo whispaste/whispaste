@@ -106,6 +106,17 @@ if [[ -n "$BUNDLE_DIR" ]]; then
   echo "Copying staged libraries into Flutter bundle: $dest"
   mkdir -p "$dest"
   cp "$STAGE_DIR"/*.so* "$dest/"
+
+  # Bundle the Silero-VAD model alongside libwhisper.so (see
+  # assets/models/vad/NOTICE.md) — a fixed, tiny (<1MB) data file, vendored
+  # in the repo rather than built per-platform like the .so files above.
+  vad_model="$REPO_ROOT/assets/models/vad/ggml-silero-v5.1.2.bin"
+  if [[ -f "$vad_model" ]]; then
+    cp "$vad_model" "$dest/"
+    echo "Staged ggml-silero-v5.1.2.bin (VAD model) -> $dest"
+  else
+    echo "warning: VAD model not found ($vad_model) — VAD stays unavailable at runtime."
+  fi
 fi
 
 echo "=== done ==="

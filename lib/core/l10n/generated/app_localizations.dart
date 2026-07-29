@@ -1425,6 +1425,18 @@ abstract class L10n {
   /// **'Nudges Whisper towards punctuated output when no custom vocabulary is set. No effect on speed.'**
   String get settingsPunctuationPrimingSubtitle;
 
+  /// No description provided for @settingsVadEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Trim trailing silence'**
+  String get settingsVadEnabled;
+
+  /// No description provided for @settingsVadEnabledSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Removes long silence/noise at the end of a recording before Whisper decodes it, so it can\'t fabricate a closing sentence there (e.g. \"Thanks for watching\"-style hallucinations). Negligible cost, off if you\'d rather keep Whisper\'s raw output.'**
+  String get settingsVadEnabledSubtitle;
+
   /// No description provided for @settingsStripPunctuation.
   ///
   /// In en, this message translates to:
