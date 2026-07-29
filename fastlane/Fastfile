@@ -75,9 +75,19 @@ def attach_latest_build_to_editable_version(bundle_id:, platform:)
   version = app.get_edit_app_store_version(platform: platform)
   UI.user_error!("App Store Connect: no editable App Store version found for #{bundle_id} (#{platform})") unless version
 
-  UI.message("Waiting for the latest #{platform} build to finish Apple's processing (this can take several minutes)...")
+  UI.message("Waiting for build #{version.version_string} (#{platform}) to finish Apple's processing (this can take several minutes)...")
+  # app_version MUST be passed explicitly, scoped to the editable version we
+  # just resolved above. Without it, select_latest:true has no version to
+  # filter on (see FastlaneCore::BuildWatcher::matching_build) and falls back
+  # to Spaceship::ConnectAPI::Build.all with no version filter at all — its
+  # "first" result is whatever the API's default listing order happens to
+  # return, which is NOT guaranteed to be the build we just uploaded and can
+  # silently be a stale build left over from a completely different marketing
+  # version. Confirmed live 2026-07-29: this exact call, unscoped, attached
+  # build 1.2.61 (2) to the 1.2.63 editable version.
   build = FastlaneCore::BuildWatcher.wait_for_build_processing_to_be_complete(
     app_id:                          app.id,
+    app_version:                     version.version_string,
     platform:                        platform,
     poll_interval:                   15,
     return_when_build_appears:       false,
@@ -115,13 +125,14 @@ platform :mac do
   desc "Build + upload the Mac App Store build (sandboxed, no auto-paste)"
   lane :mas_release do
     load_asc_api_key
-    # precheck (metadata hygiene against App Review Guidelines) is skipped here:
-    # fastlane 2.237.0's precheck crashes with `undefined method 'copyright' for
-    # nil:NilClass` (Precheck::RuleProcessor.generate_version_items_to_check)
-    # against a brand-new App Store Connect app record that has no app version/
-    # metadata yet at all — nothing for it to check. Re-add once real metadata
-    # exists in fastlane/metadata (see the upload_to_app_store skip_metadata note
-    # below) and this has been confirmed fixed upstream.
+    # precheck (metadata hygiene against App Review Guidelines) is disabled
+    # below via run_precheck_before_submit: false: fastlane 2.237.0's precheck
+    # crashes with `undefined method 'copyright' for nil:NilClass`
+    # (Precheck::RuleProcessor.generate_version_items_to_check). deliver runs
+    # it by default on every upload_to_app_store call regardless of
+    # submit_for_review, so without the explicit flag it still fires (and
+    # fails, non-fatally) even though this lane never submits for review.
+    # Re-add once confirmed fixed upstream.
 
     # This first build only populates Flutter's ephemeral DART_DEFINES state
     # (kIsMasBuild) for the "Flutter Assemble" step that build_mac_app's own
@@ -216,6 +227,14 @@ platform :mac do
       # fastlane/screenshots/{en-US,de-DE} is the full, current 6-shot set
       # per locale, so a full clear-and-replace is always correct here.
       overwrite_screenshots: true,
+      # deliver runs precheck before every upload_to_app_store call by
+      # default, REGARDLESS of submit_for_review — confirmed live 2026-07-29:
+      # it ran, crashed with the same "undefined method 'copyright'" issue
+      # documented below, and (non-fatally) logged the failure instead of
+      # aborting. The comment above this lane claiming precheck "is skipped
+      # here" was only true for the metadata-only lane; this flag is what
+      # actually skips it for mas_release.
+      run_precheck_before_submit: false,
       precheck_include_in_app_purchases: false,
       # Required so deliver actually creates an app_store_review_detail
       # object on ASC. Without it, review_information() (deliver's own
@@ -262,6 +281,15 @@ platform :mac do
     # explicitly attaches the build — same building blocks fastlane's own
     # submit_for_review uses internally (FastlaneCore::BuildWatcher +
     # AppStoreVersion#select_build), just without the submission side effects.
+    attach_latest_build_to_editable_version(
+      bundle_id: "de.whispaste.app",
+      platform:  "MAC_OS"
+    )
+  end
+
+  desc "Re-run just the build-attach step against the current editable MAS version — safety net if it needs re-running without a full mas_release (re-upload + re-screenshot)"
+  lane :mas_fix_build_attachment do
+    load_asc_api_key
     attach_latest_build_to_editable_version(
       bundle_id: "de.whispaste.app",
       platform:  "MAC_OS"
