@@ -534,11 +534,11 @@ class L10nDe extends L10n {
 
   @override
   String get pasteCapabilityRestartTitle =>
-      'Berechtigung erteilt — einmal neu starten';
+      'Fast fertig — WhisPaste neu starten';
 
   @override
   String get pasteCapabilityRestartBody =>
-      'macOS übernimmt die neue Berechtigung erst nach einem frischen Start. Ein Klick — WhisPaste beendet sich und kommt sofort zurück.';
+      'Wenn du die Berechtigung aktiviert hast, übernimmt macOS sie erst nach einem Neustart. Ein Klick — WhisPaste beendet sich und kommt sofort zurück.';
 
   @override
   String pasteCapabilityRepairDone(int count) {

@@ -531,12 +531,11 @@ class L10nEn extends L10n {
   String get pasteCapabilityRestartButton => 'Restart WhisPaste';
 
   @override
-  String get pasteCapabilityRestartTitle =>
-      'Permission granted — one restart to go';
+  String get pasteCapabilityRestartTitle => 'Almost there — restart WhisPaste';
 
   @override
   String get pasteCapabilityRestartBody =>
-      'macOS applies the new permission only to a freshly started app. One click — WhisPaste quits and comes right back.';
+      'If you enabled the permission, macOS only applies it to a freshly started app. One click — WhisPaste quits and comes right back.';
 
   @override
   String pasteCapabilityRepairDone(int count) {

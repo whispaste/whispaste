@@ -1056,13 +1056,13 @@ abstract class L10n {
   /// No description provided for @pasteCapabilityRestartTitle.
   ///
   /// In en, this message translates to:
-  /// **'Permission granted — one restart to go'**
+  /// **'Almost there — restart WhisPaste'**
   String get pasteCapabilityRestartTitle;
 
   /// No description provided for @pasteCapabilityRestartBody.
   ///
   /// In en, this message translates to:
-  /// **'macOS applies the new permission only to a freshly started app. One click — WhisPaste quits and comes right back.'**
+  /// **'If you enabled the permission, macOS only applies it to a freshly started app. One click — WhisPaste quits and comes right back.'**
   String get pasteCapabilityRestartBody;
 
   /// No description provided for @pasteCapabilityRepairDone.

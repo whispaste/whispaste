@@ -9,10 +9,28 @@
 /// State shape ([PasteCapabilityState]):
 ///   - [PasteCapabilityState.capability] is the last result of a probe,
 ///     or `null` before the first probe runs.
-///   - [PasteCapabilityState.hadFailedGrantAttempt] flips to `true` the
-///     first time a `check(prompt: true)` resolves with
-///     [PasteCapabilityStatus.permissionMissing]. Drives lazy reveal of the
-///     macOS TCC repair button.
+///   - [PasteCapabilityState.sentToOsGrantFlow] flips to `true` the moment
+///     WhisPaste hands the user off to the OS grant flow in *this* process
+///     (via [requestGrant] or [openAccessibilitySettings]) — from any
+///     surface (onboarding, settings indicator, failed-paste notification).
+///     It is the single signal that separates the two macOS
+///     `permissionMissing` recoveries (see [PastePermissionAction]).
+///
+/// Why the grant-vs-restart split exists (Apple DTS, forum thread 727984):
+/// on the sandboxed Mac App Store build the permission is the CoreGraphics
+/// `PostEvent` TCC service, probed with `CGPreflightPostEventAccess()`. That
+/// value is **cached at process start and never refreshes mid-run** — after
+/// the user flips the switch in System Settings the running process keeps
+/// reading `false` until it relaunches ("that's why, when you change these
+/// values in System Settings, it offers to quit and relaunch the app").
+/// So once we've sent the user to grant and the probe is still missing, the
+/// correct recovery is a **restart**, not another trip to Settings. The
+/// non-sandboxed Developer-ID build probes `AXIsProcessTrusted()`, which
+/// *does* usually flip live under polling (matching Rectangle/Ice) — there
+/// the poll resolves to `ready` before the restart affordance is ever shown.
+/// Keeping [sentToOsGrantFlow] in memory (never persisted) is deliberate: a
+/// fresh process re-reads the real on-disk TCC state, so the flag resetting
+/// on relaunch is exactly right.
 library;
 
 import 'dart:async';
@@ -54,37 +72,58 @@ const String onboardingAutoPasteBreadcrumbCategory = 'onboarding.autopaste';
 ///     drive the TCC-mismatch banner off this).
 enum PollingPhase { idle, awaitingGrant, succeeded, timedOut }
 
+/// The single recovery action a UI surface should offer for the current
+/// capability state. Every entry point (onboarding, settings indicator,
+/// failed-paste notification) resolves the *same* value from the *same*
+/// state, so no two surfaces can ever disagree on grant-vs-restart.
+enum PastePermissionAction {
+  /// Nothing to do — capability is [PasteCapabilityStatus.ready] or
+  /// [PasteCapabilityStatus.unsupported], the probe hasn't resolved yet, or
+  /// a grant poll is still in flight (the "tick the box" hint owns the
+  /// screen; showing a competing button there would violate the one-action
+  /// rule).
+  none,
+
+  /// Permission is missing and WhisPaste has not yet handed the user to the
+  /// OS grant flow this process — offer the "Erlauben" button.
+  grant,
+
+  /// Permission is missing *after* WhisPaste already handed the user to the
+  /// OS grant flow — the running process can't pick up a fresh grant, so
+  /// offer the "Neu starten" button. See [PasteCapabilityState] doc for the
+  /// Apple-DTS rationale.
+  restart,
+}
+
 /// Immutable snapshot of the capability surface.
 class PasteCapabilityState {
   const PasteCapabilityState({
     this.capability,
-    this.hadFailedGrantAttempt = false,
+    this.sentToOsGrantFlow = false,
     this.pollingPhase = PollingPhase.idle,
   });
 
   /// Latest probe result. `null` means "no probe has resolved yet".
   final PasteCapability? capability;
 
-  /// Sticky flag: `true` once a prompted check has come back as
-  /// [PasteCapabilityStatus.permissionMissing]. Never resets — a successful
-  /// follow-up grant still leaves the bit set, which is what the UI wants:
-  /// the user has demonstrably hit the ad-hoc-signed edge case at least
-  /// once and the repair button should stay reachable for the rest of the
-  /// session.
-  final bool hadFailedGrantAttempt;
+  /// Sticky (per-process) flag: `true` once WhisPaste has handed the user
+  /// off to the OS grant flow — via [PasteCapabilityNotifier.requestGrant]
+  /// or [PasteCapabilityNotifier.openAccessibilitySettings] — from any
+  /// surface. Deliberately in-memory only: a relaunch clears it so the
+  /// fresh process re-derives grant-vs-restart from a truthful probe.
+  final bool sentToOsGrantFlow;
 
   /// Where the capability polling loop currently is. See [PollingPhase].
   final PollingPhase pollingPhase;
 
   PasteCapabilityState copyWith({
     PasteCapability? capability,
-    bool? hadFailedGrantAttempt,
+    bool? sentToOsGrantFlow,
     PollingPhase? pollingPhase,
   }) {
     return PasteCapabilityState(
       capability: capability ?? this.capability,
-      hadFailedGrantAttempt:
-          hadFailedGrantAttempt ?? this.hadFailedGrantAttempt,
+      sentToOsGrantFlow: sentToOsGrantFlow ?? this.sentToOsGrantFlow,
       pollingPhase: pollingPhase ?? this.pollingPhase,
     );
   }
@@ -122,34 +161,45 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
   /// this boolean while new code switches on the explicit phase.
   bool get isPolling => state.pollingPhase == PollingPhase.awaitingGrant;
 
-  /// Heuristic: did the polling loop just time out in a way that matches the
-  /// ad-hoc-signed-Sequoia "TCC cache is stale" signature?
+  /// The single recovery action every UI surface must offer for the current
+  /// state. Pure function of [PasteCapabilityState]; see
+  /// [PastePermissionAction] for what each value means and the Apple-DTS
+  /// rationale for the grant-vs-restart split.
   ///
-  /// Pure function of [PasteCapabilityState] — no fields of its own. `true`
-  /// exactly when all three of:
-  ///   - [PasteCapabilityState.hadFailedGrantAttempt] is `true` (the user
-  ///     has demonstrably tried to grant via the OS dialog at least once),
-  ///   - the latest capability probe still reports
-  ///     [PasteCapabilityStatus.permissionMissing],
-  ///   - the polling loop ended in [PollingPhase.timedOut] (not
-  ///     `succeeded`, not still `awaitingGrant`).
-  /// Any single falsification collapses the conjunction back to `false`.
-  ///
-  /// Drives the `_TccMismatchBanner` reveal in the onboarding Auto-Paste
-  /// step and replaces the placeholder `false` in the `polling.timeout`
-  /// Sentry breadcrumb's `suspected_tcc_mismatch` data field.
-  bool get suspectedTccMismatch =>
-      state.hadFailedGrantAttempt &&
-      state.capability?.status == PasteCapabilityStatus.permissionMissing &&
-      state.pollingPhase == PollingPhase.timedOut;
+  ///   - not `permissionMissing` (ready / unsupported / unprobed) → [none].
+  ///   - `permissionMissing` while a grant poll is still armed
+  ///     ([PollingPhase.awaitingGrant]) → [none] (the "tick the box" hint
+  ///     owns the screen).
+  ///   - `permissionMissing`, poll not armed, user already sent to the OS
+  ///     grant flow this process → [restart].
+  ///   - `permissionMissing`, poll not armed, not yet sent → [grant].
+  PastePermissionAction get requiredAction {
+    if (state.capability?.status != PasteCapabilityStatus.permissionMissing) {
+      return PastePermissionAction.none;
+    }
+    if (state.pollingPhase == PollingPhase.awaitingGrant) {
+      return PastePermissionAction.none;
+    }
+    return state.sentToOsGrantFlow
+        ? PastePermissionAction.restart
+        : PastePermissionAction.grant;
+  }
+
+  /// Convenience: the current [requiredAction] is [PastePermissionAction.restart].
+  /// The single flag every surface keys its restart affordance off — the
+  /// former `suspectedTccMismatch` heuristic, minus the fragile
+  /// timeout-only trigger that collapsed to `false` the moment polling was
+  /// stopped (navigating away, re-mounting) and re-showed "Erlauben" for a
+  /// permission the user had already granted.
+  bool get needsRestart => requiredAction == PastePermissionAction.restart;
 
   /// Runs one capability probe through the [Paster].
   ///
-  /// When [prompt] is `true` and the result is
-  /// [PasteCapabilityStatus.permissionMissing], flips
-  /// [PasteCapabilityState.hadFailedGrantAttempt] to `true`. Calls that
-  /// overlap are coalesced — a second [check] entered while the first is
-  /// still in flight returns immediately without firing a duplicate probe.
+  /// Calls that overlap are coalesced — a second [check] entered while the
+  /// first is still in flight returns immediately without firing a
+  /// duplicate probe. Never mutates [PasteCapabilityState.sentToOsGrantFlow]:
+  /// that bit is owned by the grant-handoff entry points ([requestGrant] /
+  /// [openAccessibilitySettings]), not by probing.
   Future<void> check({bool prompt = false}) async {
     if (_checkInFlight) return;
     _checkInFlight = true;
@@ -168,14 +218,7 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
         'capability check: prompt=$prompt status=${result.status.name} '
         'canPrompt=${result.canPrompt} detail=${result.detail}',
       );
-
-      final flippedFailedGrant =
-          prompt && result.status == PasteCapabilityStatus.permissionMissing;
-      state = state.copyWith(
-        capability: result,
-        hadFailedGrantAttempt:
-            state.hadFailedGrantAttempt || flippedFailedGrant,
-      );
+      state = state.copyWith(capability: result);
     } finally {
       _checkInFlight = false;
     }
@@ -197,13 +240,15 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
   /// grant that already exists but is stale in *this process's* view — a
   /// symptom [restart], not [repair], fixes. Wiping a working grant on every
   /// call would force a needless re-grant for that case. Escalate to
-  /// [repair] only once [suspectedTccMismatch] is `true` *and* a restart
-  /// alone didn't clear it (the manual "repair" affordance in onboarding's
-  /// troubleshoot section).
+  /// [repair] only from the collapsed troubleshoot escape once a restart
+  /// alone didn't clear it.
   Future<void> requestGrant({
     Duration pollInterval = const Duration(seconds: 1),
     Duration pollTimeout = const Duration(seconds: 30),
   }) async {
+    // Mark the handoff up front: from here on, a still-missing probe means
+    // "restart", not "grant again" (see [requiredAction]).
+    _markSentToOsGrantFlow();
     await check(prompt: true);
     // Arm polling BEFORE awaiting the settings launch — we want the poller
     // running the moment the user flips the toggle in System Settings, not
@@ -216,6 +261,47 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
     } on Exception catch (e) {
       _log.warning('Could not open Accessibility settings: $e');
     }
+  }
+
+  /// Opens the macOS Accessibility settings pane and records the grant
+  /// handoff — the entry point for surfaces that only need to send the user
+  /// to Settings without arming the full [requestGrant] poll (e.g. the
+  /// failed-paste OS notification's click action). Setting the handoff bit
+  /// here is what makes the *next* surface the user sees resolve to
+  /// [PastePermissionAction.restart] instead of showing "Erlauben" again.
+  Future<void> openAccessibilitySettings() async {
+    _markSentToOsGrantFlow();
+    if (!Platform.isMacOS) return;
+    try {
+      await launchUrl(Uri.parse(_accessibilitySettingsUri));
+    } on Exception catch (e) {
+      _log.warning('Could not open Accessibility settings: $e');
+    }
+  }
+
+  /// Re-probe when WhisPaste regains focus — the user has just come back
+  /// from System Settings, so this is the moment to resolve the grant.
+  ///
+  /// On the Developer-ID build `AXIsProcessTrusted()` flips live, so the
+  /// probe promotes the state straight to `ready`. On the Mac App Store
+  /// build `CGPreflightPostEventAccess()` stays cached-`false` (see class
+  /// doc) — there this call's job is to stop the now-pointless grant poll so
+  /// [requiredAction] surfaces the [PastePermissionAction.restart] affordance
+  /// immediately, instead of stranding the user on the "tick the box"
+  /// spinner until the poll times out.
+  Future<void> recheckOnForeground() async {
+    if (state.capability?.status == PasteCapabilityStatus.ready) return;
+    await check();
+    if (state.sentToOsGrantFlow &&
+        state.capability?.status == PasteCapabilityStatus.permissionMissing) {
+      // Leaves awaitingGrant → idle, so requiredAction resolves to restart.
+      _disposePolling();
+    }
+  }
+
+  void _markSentToOsGrantFlow() {
+    if (state.sentToOsGrantFlow) return;
+    state = state.copyWith(sentToOsGrantFlow: true);
   }
 
   /// Repeatedly runs [check] (without prompting) until the capability turns
@@ -344,24 +430,22 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
     // breadcrumbs. `cancelled` is an internal signal we don't ship to Sentry.
     if (wasActive && reason != _PollEnd.cancelled) {
       final elapsedMs = _pollStopwatch?.elapsedMilliseconds ?? 0;
-      // Evaluate the TCC-mismatch heuristic AFTER pollingPhase has been
-      // promoted to `timedOut` so the getter sees the same world the UI
-      // will see one frame later. On the success branch the heuristic is
-      // structurally false (status != permissionMissing) — no extra cost.
-      final mismatch = suspectedTccMismatch;
+      // Evaluate the recovery action AFTER pollingPhase has been promoted so
+      // the getter sees the same world the UI will see one frame later. On
+      // the success branch this is structurally `none` (status != missing).
+      final restartNeeded = needsRestart;
       _emitBreadcrumb(
         reason == _PollEnd.success ? 'polling.success' : 'polling.timeout',
         data: reason == _PollEnd.timeout
-            ? {'elapsed_ms': elapsedMs, 'suspected_tcc_mismatch': mismatch}
+            ? {'elapsed_ms': elapsedMs, 'needs_restart': restartNeeded}
             : {'elapsed_ms': elapsedMs},
       );
-      // Mirror-event: when the timeout coincides with the ad-hoc-signed
-      // TCC-cache symptom, emit a dedicated breadcrumb so Sentry funnels
-      // can slice on the suspected cause directly without re-deriving the
-      // conjunction from the generic timeout payload.
-      if (reason == _PollEnd.timeout && mismatch) {
+      // Mirror-event: when the timeout lands on the "already granted, needs a
+      // relaunch" state, emit a dedicated breadcrumb so Sentry funnels can
+      // slice on it directly without re-deriving it from the generic payload.
+      if (reason == _PollEnd.timeout && restartNeeded) {
         _emitBreadcrumb(
-          'polling.timeout_with_mismatch',
+          'polling.timeout_needs_restart',
           data: {'elapsed_ms': elapsedMs},
         );
       }

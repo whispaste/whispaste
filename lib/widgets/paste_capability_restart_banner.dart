@@ -4,8 +4,8 @@
 /// a freshly granted Accessibility permission (`AXIsProcessTrusted()` /
 /// `CGPreflightPostEventAccess()` stay stale until relaunch — macOS itself
 /// offers a "Quit & Relaunch" flow for this permission type). Shown whenever
-/// [PasteCapabilityNotifier.suspectedTccMismatch] fires: in the settings
-/// capability indicator and in the onboarding Auto-Paste step.
+/// [PasteCapabilityNotifier.needsRestart] fires: in the settings capability
+/// indicator and in the onboarding Auto-Paste step.
 ///
 /// Deliberately styled in the accent palette, NOT the error/warning palette:
 /// the user already did everything right — this is the last step of a

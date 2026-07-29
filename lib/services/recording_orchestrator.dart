@@ -11,7 +11,6 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
-import 'package:url_launcher/url_launcher.dart';
 
 import '../core/config/settings_enums.dart';
 import '../core/config/settings_provider.dart';
@@ -1548,15 +1547,19 @@ class RecordingOrchestrator extends Notifier<void> {
           'Security → Accessibility.',
         );
         // Two distinct causes look identical from the paste outcome alone,
-        // so branch on suspectedTccMismatch before choosing the click
-        // target: a genuinely-missing grant needs the Settings pane, but a
-        // grant that was just demonstrably requested and still reads as
-        // missing (hadFailedGrantAttempt + timedOut) is the known stale
-        // in-process-TCC-view case — Settings would show the toggle already
-        // on, which reads as "nothing to do here" and just re-confuses the
-        // user. That case needs a restart, not another trip to Settings.
+        // so branch on the shared [PasteCapabilityNotifier.needsRestart]
+        // signal — the same one the settings indicator and onboarding use —
+        // before choosing the click target. A genuinely-missing grant needs
+        // the Settings pane; a grant WhisPaste already handed the user off to
+        // that still reads as missing is the known stale in-process view
+        // (Settings would show the toggle already on, which reads as "nothing
+        // to do here" and just re-confuses the user). That case needs a
+        // restart, not another trip to Settings. Routing the grant click
+        // through the notifier's `openAccessibilitySettings` records the
+        // handoff, so the *next* failure/surface correctly resolves to
+        // restart instead of sending the user to Settings a second time.
         final capNotifier = ref.read(pasteCapabilityNotifierProvider.notifier);
-        final staleGrant = capNotifier.suspectedTccMismatch;
+        final staleGrant = capNotifier.needsRestart;
         _reportPasteFailure(
           outcome: PasteOutcome.permissionMissing,
           kind: AttentionKind.pasteBlockedPermission,
@@ -1571,7 +1574,7 @@ class RecordingOrchestrator extends Notifier<void> {
               : 'Auto-Einfügen blockiert — Berechtigung erteilen',
           onClick: staleGrant
               ? MacOSLifecycleChannel.restart
-              : _openAccessibilitySettings,
+              : capNotifier.openAccessibilitySettings,
         );
         return false;
       case PasteOutcome.elevationBlocked:
@@ -1647,18 +1650,6 @@ class RecordingOrchestrator extends Notifier<void> {
           );
     } on Exception catch (e) {
       _log.warning('Tray action-needed update failed', e);
-    }
-  }
-
-  Future<void> _openAccessibilitySettings() async {
-    if (!Platform.isMacOS) return;
-    final uri = Uri.parse(
-      'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility',
-    );
-    try {
-      await launchUrl(uri);
-    } on Exception catch (e) {
-      _log.warning('Could not open Accessibility settings', e);
     }
   }
 

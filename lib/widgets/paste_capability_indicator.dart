@@ -95,7 +95,7 @@ class _PasteCapabilityIndicatorState
     // would gaslight the user into granting again, so the prominent restart
     // banner replaces the status card entirely; the collapsed troubleshoot
     // section stays reachable for the rare repair/test edge cases.
-    if (missing && notifier.suspectedTccMismatch) {
+    if (missing && notifier.needsRestart) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

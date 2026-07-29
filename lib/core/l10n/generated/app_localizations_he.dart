@@ -523,12 +523,11 @@ class L10nHe extends L10n {
   String get pasteCapabilityRestartButton => 'הפעל מחדש את WhisPaste';
 
   @override
-  String get pasteCapabilityRestartTitle =>
-      'ההרשאה ניתנה — נותרה רק הפעלה מחדש';
+  String get pasteCapabilityRestartTitle => 'כמעט שם — הפעל מחדש את WhisPaste';
 
   @override
   String get pasteCapabilityRestartBody =>
-      'macOS מחיל את ההרשאה החדשה רק על אפליקציה שהופעלה מחדש. לחיצה אחת — WhisPaste ייסגר ויחזור מיד.';
+      'אם הפעלת את ההרשאה, macOS מחיל אותה רק על אפליקציה שהופעלה מחדש. לחיצה אחת — WhisPaste ייסגר ויחזור מיד.';
 
   @override
   String pasteCapabilityRepairDone(int count) {

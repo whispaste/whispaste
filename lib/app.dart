@@ -38,6 +38,7 @@ import 'core/data/database.dart';
 import 'core/logging/app_logger.dart';
 import 'core/logging/crash_reporter.dart';
 import 'core/config/settings_enums.dart' show OnDeviceEngine;
+import 'core/config/build_config.dart' show kAutoPasteSupported;
 import 'services/paste/paste_capability_notifier.dart';
 import 'services/paste/paste_policy.dart';
 import 'services/paste/tcc_reset_notice.dart';
@@ -389,6 +390,24 @@ class _AppShellState extends ConsumerState<_AppShell>
     await runGracefulEngineShutdown(ProviderScope.containerOf(context));
 
     await windowManager.destroy();
+  }
+
+  @override
+  void onWindowFocus() {
+    // The user has just returned to WhisPaste — the common case being "came
+    // back from System Settings after (maybe) flipping the Accessibility
+    // switch". Re-probe the Auto-Paste capability so the grant resolves the
+    // moment they return, rather than only on the next recording or a poll
+    // timeout. Proactively surfacing the correct grant-vs-restart action here
+    // is what keeps every entry point in lock-step. macOS-only: it's the sole
+    // platform with a TCC gate on keystroke injection.
+    if (Platform.isMacOS && kAutoPasteSupported) {
+      unawaited(
+        ref
+            .read(pasteCapabilityNotifierProvider.notifier)
+            .recheckOnForeground(),
+      );
+    }
   }
 
   @override

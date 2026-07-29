@@ -151,52 +151,49 @@ void main() {
       },
     );
 
-    test(
-      'check(prompt: true) with permissionMissing result sets hadFailedGrantAttempt = true',
-      () async {
-        final paster = _FakePaster(
-          initial: const PasteCapability(
-            status: PasteCapabilityStatus.permissionMissing,
-            canPrompt: true,
-          ),
-        );
-        final container = _container(paster: paster);
-        addTearDown(container.dispose);
+    test('check(prompt: true) with permissionMissing does NOT set '
+        'sentToOsGrantFlow — probing never owns the handoff bit', () async {
+      final paster = _FakePaster(
+        initial: const PasteCapability(
+          status: PasteCapabilityStatus.permissionMissing,
+          canPrompt: true,
+        ),
+      );
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
 
-        final notifier = container.read(
-          pasteCapabilityNotifierProvider.notifier,
-        );
-        await notifier.check(prompt: true);
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+      await notifier.check(prompt: true);
 
-        expect(paster.calls, [true]);
-        final state = container.read(pasteCapabilityNotifierProvider);
-        expect(
-          state.capability?.status,
-          PasteCapabilityStatus.permissionMissing,
-        );
-        expect(state.hadFailedGrantAttempt, isTrue);
-      },
-    );
+      expect(paster.calls, [true]);
+      final state = container.read(pasteCapabilityNotifierProvider);
+      expect(state.capability?.status, PasteCapabilityStatus.permissionMissing);
+      expect(
+        state.sentToOsGrantFlow,
+        isFalse,
+        reason:
+            'Only requestGrant/openAccessibilitySettings own the handoff '
+            'bit — a bare probe must not flip it.',
+      );
+    });
 
-    test(
-      'check(prompt: true) with ready result leaves hadFailedGrantAttempt = false',
-      () async {
-        final paster = _FakePaster(
-          initial: const PasteCapability(status: PasteCapabilityStatus.ready),
-        );
-        final container = _container(paster: paster);
-        addTearDown(container.dispose);
+    test('openAccessibilitySettings sets sentToOsGrantFlow so the next '
+        'missing probe resolves to restart', () async {
+      final paster = _FakePaster(
+        initial: const PasteCapability(
+          status: PasteCapabilityStatus.permissionMissing,
+          canPrompt: true,
+        ),
+      );
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
 
-        final notifier = container.read(
-          pasteCapabilityNotifierProvider.notifier,
-        );
-        await notifier.check(prompt: true);
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+      await notifier.openAccessibilitySettings();
 
-        final state = container.read(pasteCapabilityNotifierProvider);
-        expect(state.capability?.status, PasteCapabilityStatus.ready);
-        expect(state.hadFailedGrantAttempt, isFalse);
-      },
-    );
+      final state = container.read(pasteCapabilityNotifierProvider);
+      expect(state.sentToOsGrantFlow, isTrue);
+    });
 
     test(
       'check without paster surface yields unsupported capability',
@@ -343,181 +340,231 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
-  // suspectedTccMismatch — truth table.
+  // requiredAction / needsRestart — the single recovery-action resolver every
+  // UI surface shares. Pure function of three state fields:
+  //   - capability?.status
+  //   - pollingPhase == awaitingGrant (a live poll owns the screen)
+  //   - sentToOsGrantFlow (has WhisPaste handed the user to the OS grant flow?)
   //
-  // The getter is a pure function of three state fields:
-  //   - hadFailedGrantAttempt (sticky)
-  //   - capability?.status == permissionMissing
-  //   - pollingPhase == timedOut
-  // It is `true` exactly when all three are simultaneously true, and `false`
-  // otherwise. The tests below cover the all-true case plus each single-field
-  // falsification so the conjunction is exercised end-to-end.
+  // Missing + not-polling collapses to grant (never sent) or restart (sent).
+  // Crucially, unlike the former timeout-only heuristic, `idle` after a
+  // handoff still resolves to restart — stopping polling no longer silently
+  // downgrades a granted-but-stale permission back to "Erlauben".
   // ---------------------------------------------------------------------------
-  group('PasteCapabilityNotifier — suspectedTccMismatch', () {
-    // Lightweight harness: build a notifier and force-mutate state through
-    // the public surface. We can't write to `state` directly from a test, so
-    // we use the timeout machinery + `check()` to drive the relevant fields
-    // — same path the real macOS flow takes.
-    Future<PasteCapabilityNotifier> driveTo({
-      required ProviderContainer container,
-      required _FakePaster paster,
-      required bool hadFailedGrantAttempt,
-      required PasteCapabilityStatus capabilityStatus,
-      required PollingPhase pollingPhase,
-    }) async {
+  group('PasteCapabilityNotifier — requiredAction / needsRestart', () {
+    /// Probe the notifier once with [status] (un-prompted) so `state.capability`
+    /// is populated the same way the real flow does.
+    Future<PasteCapabilityNotifier> probed(
+      ProviderContainer container,
+      _FakePaster paster,
+      PasteCapabilityStatus status,
+    ) async {
       final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
-      // Drive `hadFailedGrantAttempt` via a prompted check that comes back
-      // as permissionMissing — that's the only public way to flip it.
-      if (hadFailedGrantAttempt) {
-        paster.nextResult = const PasteCapability(
-          status: PasteCapabilityStatus.permissionMissing,
-          canPrompt: true,
-        );
-        await notifier.check(prompt: true);
-      }
-      // Then drive the capability to the desired terminal status.
-      paster.nextResult = PasteCapability(status: capabilityStatus);
+      paster.nextResult = PasteCapability(status: status);
       await notifier.check();
-      // Finally drive `pollingPhase` via the timer machinery. We use a
-      // short timeout to reach `timedOut` quickly when needed, and skip
-      // polling entirely for the `idle` case.
-      switch (pollingPhase) {
-        case PollingPhase.idle:
-          // Already idle — nothing to do.
-          break;
-        case PollingPhase.awaitingGrant:
-          notifier.startPolling(
-            interval: const Duration(seconds: 10),
-            timeout: const Duration(seconds: 10),
-          );
-          break;
-        case PollingPhase.succeeded:
-          // Setting the next result to `ready` makes the first tick
-          // self-stop with `succeeded`.
-          paster.nextResult = const PasteCapability(
-            status: PasteCapabilityStatus.ready,
-          );
-          notifier.startPolling(
-            interval: const Duration(milliseconds: 10),
-            timeout: const Duration(seconds: 5),
-          );
-          await Future<void>.delayed(const Duration(milliseconds: 60));
-          // Restore the desired terminal capability after self-stop, since
-          // the `succeeded` self-stop will have overwritten it.
-          paster.nextResult = PasteCapability(status: capabilityStatus);
-          await notifier.check();
-          break;
-        case PollingPhase.timedOut:
-          notifier.startPolling(
-            interval: const Duration(seconds: 5),
-            timeout: const Duration(milliseconds: 20),
-          );
-          await Future<void>.delayed(const Duration(milliseconds: 80));
-          // Restore the desired terminal capability after the timeout self-
-          // stop has overwritten it via the last poll tick (if any).
-          paster.nextResult = PasteCapability(status: capabilityStatus);
-          await notifier.check();
-          break;
-      }
       return notifier;
     }
 
-    test('all three conditions true → suspectedTccMismatch is true', () async {
+    test('ready → none', () async {
       final paster = _FakePaster();
       final container = _container(paster: paster);
       addTearDown(container.dispose);
 
-      final notifier = await driveTo(
-        container: container,
-        paster: paster,
-        hadFailedGrantAttempt: true,
-        capabilityStatus: PasteCapabilityStatus.permissionMissing,
-        pollingPhase: PollingPhase.timedOut,
+      final notifier = await probed(
+        container,
+        paster,
+        PasteCapabilityStatus.ready,
       );
-
-      expect(notifier.suspectedTccMismatch, isTrue);
+      expect(notifier.requiredAction, PastePermissionAction.none);
+      expect(notifier.needsRestart, isFalse);
     });
 
-    test(
-      'hadFailedGrantAttempt == false → suspectedTccMismatch is false',
-      () async {
-        final paster = _FakePaster();
-        final container = _container(paster: paster);
-        addTearDown(container.dispose);
-
-        final notifier = await driveTo(
-          container: container,
-          paster: paster,
-          hadFailedGrantAttempt: false,
-          capabilityStatus: PasteCapabilityStatus.permissionMissing,
-          pollingPhase: PollingPhase.timedOut,
-        );
-
-        expect(notifier.suspectedTccMismatch, isFalse);
-      },
-    );
-
-    test(
-      'capability status != permissionMissing → suspectedTccMismatch is false',
-      () async {
-        final paster = _FakePaster();
-        final container = _container(paster: paster);
-        addTearDown(container.dispose);
-
-        final notifier = await driveTo(
-          container: container,
-          paster: paster,
-          hadFailedGrantAttempt: true,
-          // Even `ready` (the happy path) must not light up the banner.
-          capabilityStatus: PasteCapabilityStatus.ready,
-          pollingPhase: PollingPhase.timedOut,
-        );
-
-        expect(notifier.suspectedTccMismatch, isFalse);
-      },
-    );
-
-    test('pollingPhase != timedOut → suspectedTccMismatch is false', () async {
+    test('unsupported → none', () async {
       final paster = _FakePaster();
       final container = _container(paster: paster);
       addTearDown(container.dispose);
 
-      final notifier = await driveTo(
-        container: container,
-        paster: paster,
-        hadFailedGrantAttempt: true,
-        capabilityStatus: PasteCapabilityStatus.permissionMissing,
-        pollingPhase: PollingPhase.awaitingGrant,
+      final notifier = await probed(
+        container,
+        paster,
+        PasteCapabilityStatus.unsupported,
       );
-
-      expect(notifier.suspectedTccMismatch, isFalse);
-      notifier.stopPolling();
+      expect(notifier.requiredAction, PastePermissionAction.none);
     });
 
-    test('pollingPhase == succeeded with the other two true → '
-        'suspectedTccMismatch is false', () async {
-      final paster = _FakePaster();
-      final container = _container(paster: paster);
-      addTearDown(container.dispose);
-
-      final notifier = await driveTo(
-        container: container,
-        paster: paster,
-        hadFailedGrantAttempt: true,
-        capabilityStatus: PasteCapabilityStatus.permissionMissing,
-        pollingPhase: PollingPhase.succeeded,
-      );
-
-      expect(notifier.suspectedTccMismatch, isFalse);
-    });
-
-    test('initial state → suspectedTccMismatch is false', () async {
+    test('initial (unprobed) state → none', () async {
       final paster = _FakePaster();
       final container = _container(paster: paster);
       addTearDown(container.dispose);
 
       final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
-      expect(notifier.suspectedTccMismatch, isFalse);
+      expect(notifier.requiredAction, PastePermissionAction.none);
+      expect(notifier.needsRestart, isFalse);
+    });
+
+    test('missing + not sent + idle → grant', () async {
+      final paster = _FakePaster();
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+
+      final notifier = await probed(
+        container,
+        paster,
+        PasteCapabilityStatus.permissionMissing,
+      );
+      expect(notifier.requiredAction, PastePermissionAction.grant);
+      expect(notifier.needsRestart, isFalse);
+    });
+
+    test(
+      'missing + sent + idle → restart (no poll timeout required)',
+      () async {
+        final paster = _FakePaster();
+        final container = _container(paster: paster);
+        addTearDown(container.dispose);
+
+        final notifier = await probed(
+          container,
+          paster,
+          PasteCapabilityStatus.permissionMissing,
+        );
+        // Hand the user to the OS grant flow (sets sentToOsGrantFlow); no poll.
+        await notifier.openAccessibilitySettings();
+
+        expect(notifier.requiredAction, PastePermissionAction.restart);
+        expect(notifier.needsRestart, isTrue);
+      },
+    );
+
+    test('missing + sent + awaitingGrant → none (waiting hint owns the '
+        'screen)', () async {
+      final paster = _FakePaster(
+        initial: const PasteCapability(
+          status: PasteCapabilityStatus.permissionMissing,
+          canPrompt: true,
+        ),
+      );
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+      await notifier.check(); // populate capability = missing
+      await notifier.openAccessibilitySettings();
+      notifier.startPolling(
+        interval: const Duration(seconds: 10),
+        timeout: const Duration(seconds: 10),
+      );
+
+      expect(notifier.requiredAction, PastePermissionAction.none);
+      expect(notifier.needsRestart, isFalse);
+      notifier.stopPolling();
+    });
+
+    test('missing + sent + timedOut → restart', () async {
+      final paster = _FakePaster(
+        initial: const PasteCapability(
+          status: PasteCapabilityStatus.permissionMissing,
+          canPrompt: true,
+        ),
+      );
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+      await notifier.check(); // populate capability = missing
+      await notifier.openAccessibilitySettings();
+      notifier.startPolling(
+        interval: const Duration(seconds: 5),
+        timeout: const Duration(milliseconds: 20),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+
+      expect(notifier.needsRestart, isTrue);
+    });
+  });
+
+  group('PasteCapabilityNotifier — recheckOnForeground', () {
+    test('no-op when already ready (skips the probe)', () async {
+      final paster = _FakePaster(
+        initial: const PasteCapability(status: PasteCapabilityStatus.ready),
+      );
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+      await notifier.check(); // populate `ready`
+      paster.calls.clear();
+
+      await notifier.recheckOnForeground();
+
+      expect(
+        paster.calls,
+        isEmpty,
+        reason: 'A ready capability needs no foreground re-probe',
+      );
+    });
+
+    test('AX live-flip: a fresh probe that reads ready promotes state and '
+        'clears the restart affordance', () async {
+      final paster = _FakePaster(
+        initial: const PasteCapability(
+          status: PasteCapabilityStatus.permissionMissing,
+          canPrompt: true,
+        ),
+      );
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+      await notifier.openAccessibilitySettings();
+      notifier.startPolling(
+        interval: const Duration(seconds: 10),
+        timeout: const Duration(seconds: 10),
+      );
+
+      // User returns from System Settings having actually granted it.
+      paster.nextResult = const PasteCapability(
+        status: PasteCapabilityStatus.ready,
+      );
+      await notifier.recheckOnForeground();
+
+      expect(
+        container.read(pasteCapabilityNotifierProvider).capability?.status,
+        PasteCapabilityStatus.ready,
+      );
+      expect(notifier.needsRestart, isFalse);
+    });
+
+    test('MAS stale: foreground return with a still-missing probe stops the '
+        'doomed poll so restart surfaces immediately', () async {
+      final paster = _FakePaster(
+        initial: const PasteCapability(
+          status: PasteCapabilityStatus.permissionMissing,
+          canPrompt: true,
+        ),
+      );
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+      await notifier.openAccessibilitySettings();
+      notifier.startPolling(
+        interval: const Duration(seconds: 30),
+        timeout: const Duration(seconds: 30),
+      );
+      expect(notifier.isPolling, isTrue);
+      // While polling, requiredAction is none (waiting hint).
+      expect(notifier.requiredAction, PastePermissionAction.none);
+
+      // User returns from Settings; on MAS the probe is still cached-missing.
+      await notifier.recheckOnForeground();
+
+      expect(
+        notifier.isPolling,
+        isFalse,
+        reason: 'The pointless poll must be stopped on foreground return',
+      );
+      expect(notifier.needsRestart, isTrue);
     });
   });
 

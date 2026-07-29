@@ -180,8 +180,8 @@
   "pasteCapabilityRepairHint": "לפעמים macOS זוכר רשומה ישנה ושוכח את האישור החדש. אפס את הרשומה. macOS ישאל אותך מחדש בצורה נקייה.",
   "pasteCapabilityRepairButton": "אפס רשומה",
   "pasteCapabilityRestartButton": "הפעל מחדש את WhisPaste",
-  "pasteCapabilityRestartTitle": "ההרשאה ניתנה — נותרה רק הפעלה מחדש",
-  "pasteCapabilityRestartBody": "macOS מחיל את ההרשאה החדשה רק על אפליקציה שהופעלה מחדש. לחיצה אחת — WhisPaste ייסגר ויחזור מיד.",
+  "pasteCapabilityRestartTitle": "כמעט שם — הפעל מחדש את WhisPaste",
+  "pasteCapabilityRestartBody": "אם הפעלת את ההרשאה, macOS מחיל אותה רק על אפליקציה שהופעלה מחדש. לחיצה אחת — WhisPaste ייסגר ויחזור מיד.",
   "pasteCapabilityRepairDone": "{count, plural, =0{לא נמצאו רשומות ישנות. נסה הדבקה.}=1{נוקתה רשומה ישנה אחת. נסה הדבקה כדי לראות בקשה חדשה.}other{נוקו {count} רשומות ישנות. נסה הדבקה כדי לראות בקשות חדשות.}}",
   "@pasteCapabilityRepairDone": {
     "placeholders": {

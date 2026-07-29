@@ -166,14 +166,14 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
   }
 
   Future<void> _onSkipPressed() async {
-    // Capture the failed-grant bit BEFORE persisting the skip so the
+    // Capture the grant-handoff bit BEFORE persisting the skip so the
     // breadcrumb describes the state the user actually skipped from.
-    final hadFailedGrantAttempt = ref
+    final sentToOsGrantFlow = ref
         .read(pasteCapabilityNotifierProvider)
-        .hadFailedGrantAttempt;
+        .sentToOsGrantFlow;
     _emitBreadcrumb(
       'skipped',
-      data: {'had_failed_grant_attempt': hadFailedGrantAttempt},
+      data: {'sent_to_os_grant_flow': sentToOsGrantFlow},
     );
     // Skip explicitly disables Auto-Paste rather than silently leaving the
     // user in a half-state. "clipboard" is the codebase's encoding for
@@ -231,7 +231,7 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
     final state = ref.watch(pasteCapabilityNotifierProvider);
     final notifier = ref.read(pasteCapabilityNotifierProvider.notifier);
     _cachedNotifier = notifier;
-    final showTccMismatchBanner = notifier.suspectedTccMismatch;
+    final showTccMismatchBanner = notifier.needsRestart;
     // Sticky-latch the `restart_hint.surfaced` breadcrumb so it fires exactly
     // once per step mount the first time the banner becomes visible — repeat
     // rebuilds while the banner is up must not spam Sentry. The latch is an
@@ -281,11 +281,11 @@ class _MacOsBody extends StatelessWidget {
   final bool grantInFlight;
   final TccRepairResult? lastRepairResult;
 
-  /// True when the parent has decided the TCC-mismatch banner should be
-  /// visible (driven by [PasteCapabilityNotifier.suspectedTccMismatch]).
-  /// Threaded as a flag rather than recomputed inline so the parent owns
-  /// the single source of truth and can co-locate the sticky-latch
-  /// breadcrumb emission with the render decision.
+  /// True when the parent has decided the restart banner should be visible
+  /// (driven by [PasteCapabilityNotifier.needsRestart]). Threaded as a flag
+  /// rather than recomputed inline so the parent owns the single source of
+  /// truth and can co-locate the sticky-latch breadcrumb emission with the
+  /// render decision.
   final bool showTccMismatchBanner;
 
   final Future<void> Function() onGrant;

@@ -55,9 +55,10 @@ class _FakePasteCapabilityNotifier extends PasteCapabilityNotifier {
   final PasteCapabilityState _initial;
   final PasteCapabilityState _afterCheck;
   // Optional alternative state to apply when a prompted check runs — lets a
-  // test simulate the "user grants in OS dialog, capability flips to
-  // permissionMissing anyway (ad-hoc-signed bug)" sequence without coupling
-  // to the production notifier's internal hadFailedGrantAttempt accounting.
+  // test simulate the "user grants in System Settings, capability still reads
+  // missing (MAS process-cache / stale entry)" sequence, seeding the
+  // sentToOsGrantFlow + pollingPhase fields the real requiredAction resolver
+  // reads.
   final PasteCapabilityState? _afterPromptCheck;
   // Result returned from repair(). Tests that don't care about repair leave
   // this null and the call is treated as unsupported.
@@ -333,8 +334,9 @@ void main() {
           find.text(l10n.pasteCapabilityRepairButton),
           findsNothing,
           reason:
-              'Repair button is lazy — it must only appear after a prompted '
-              'grant attempt has failed (hadFailedGrantAttempt == true).',
+              'Repair button is lazy — it only appears in the troubleshoot '
+              '(restart) phase, i.e. once the user has been handed off to the '
+              'OS grant flow (sentToOsGrantFlow == true).',
         );
       },
     );
@@ -351,19 +353,18 @@ void main() {
             ),
           ),
           // After the user clicks Grant, the simulated prompted check ends in
-          // the full TCC-mismatch state: permissionMissing + failed-grant
-          // latch + a timed-out polling loop. That conjunction is what flips
-          // the macOS body into the troubleshoot phase where Reset entry is
-          // rendered. In production the timedOut value is set by the polling
-          // timer; here we seed it directly so the widget contract assertion
-          // ("Reset entry appears once troubleshoot conditions hold") can be
-          // observed without waiting on a real timer.
+          // the restart state: permissionMissing + sentToOsGrantFlow + a
+          // timed-out poll. needsRestart is what flips the macOS body into the
+          // troubleshoot phase where Reset entry is rendered. In production the
+          // timedOut value is set by the polling timer; here we seed it
+          // directly so the widget contract assertion ("Reset entry appears
+          // once the restart phase holds") is observable without a real timer.
           afterPromptCheck: const PasteCapabilityState(
             capability: PasteCapability(
               status: PasteCapabilityStatus.permissionMissing,
               canPrompt: true,
             ),
-            hadFailedGrantAttempt: true,
+            sentToOsGrantFlow: true,
             pollingPhase: PollingPhase.timedOut,
           ),
         );
@@ -396,7 +397,7 @@ void main() {
           ),
           // All three TCC-mismatch conditions seeded so the macOS body lands
           // in the troubleshoot phase where Reset entry is rendered.
-          hadFailedGrantAttempt: true,
+          sentToOsGrantFlow: true,
           pollingPhase: PollingPhase.timedOut,
         ),
         repairResult: const TccRepairResult(
@@ -408,9 +409,9 @@ void main() {
       await _pumpStep(tester, paste: paste);
 
       // Reset entry is immediately visible because the seeded state satisfies
-      // suspectedTccMismatch. Use sequential pump() to flush the setState
-      // frames without blocking on the polling spinner that the follow-on
-      // grant flow activates.
+      // needsRestart. Use sequential pump() to flush the setState frames
+      // without blocking on the polling spinner that the follow-on grant flow
+      // activates.
       await tester.tap(find.text(l10n.pasteCapabilityRepairButton));
       await tester.pump();
       await tester.pump();
@@ -428,7 +429,7 @@ void main() {
           ),
           // Troubleshoot-phase seed so the Reset entry button is reachable
           // from the first frame.
-          hadFailedGrantAttempt: true,
+          sentToOsGrantFlow: true,
           pollingPhase: PollingPhase.timedOut,
         ),
         repairResult: const TccRepairResult(
@@ -479,7 +480,7 @@ void main() {
               canPrompt: true,
             ),
             // Troubleshoot-phase seed so Reset entry is rendered.
-            hadFailedGrantAttempt: true,
+            sentToOsGrantFlow: true,
             pollingPhase: PollingPhase.timedOut,
           ),
           repairResult: const TccRepairResult(
@@ -638,7 +639,7 @@ void main() {
               canPrompt: true,
             ),
             // Troubleshoot-phase seed so Reset entry is rendered.
-            hadFailedGrantAttempt: true,
+            sentToOsGrantFlow: true,
             pollingPhase: PollingPhase.timedOut,
           ),
           // Supported result (error == null) but both counters at 0 — the
@@ -745,42 +746,63 @@ void main() {
       },
     );
 
-    // -- TCC-mismatch banner ------------------------------------------------
+    // -- Restart banner -----------------------------------------------------
     //
-    // The banner light-up is gated by `notifier.suspectedTccMismatch`, which
-    // is the conjunction of three state fields. The fake notifier inherits
-    // that getter (no override), so seeding the three fields on `initial` is
-    // enough to drive the banner without re-implementing the conjunction.
+    // The banner light-up is gated by `notifier.needsRestart` — i.e.
+    // `requiredAction == restart`: permissionMissing, no live poll in flight,
+    // and the user already handed off to the OS grant flow. The fake notifier
+    // inherits that getter (no override), so seeding the fields on `initial`
+    // is enough to drive the banner without re-implementing the resolver.
+    testWidgets('restart banner is visible when needsRestart == true '
+        '(missing + sent + poll not awaiting)', (tester) async {
+      final paste = _FakePasteCapabilityNotifier(
+        initial: const PasteCapabilityState(
+          capability: PasteCapability(
+            status: PasteCapabilityStatus.permissionMissing,
+            canPrompt: true,
+          ),
+          sentToOsGrantFlow: true,
+          pollingPhase: PollingPhase.timedOut,
+        ),
+      );
+
+      await _pumpStep(tester, paste: paste);
+
+      // Title is rendered (shared restart banner, accent-styled).
+      expect(find.text(l10n.pasteCapabilityRestartTitle), findsOneWidget);
+    });
+
     testWidgets(
-      'TCC-mismatch banner is visible when suspectedTccMismatch == true '
-      '(all three conditions satisfied)',
+      'restart banner is visible when missing + sent + idle — stopping the '
+      'poll must NOT downgrade a granted-but-stale permission back to Grant',
       (tester) async {
+        // This is the regression the old timeout-only heuristic caused: once
+        // polling stopped (navigate away / re-mount), pollingPhase collapsed
+        // to idle and the banner vanished, re-showing "Erlauben" for a
+        // permission the user had already granted. needsRestart must survive.
         final paste = _FakePasteCapabilityNotifier(
           initial: const PasteCapabilityState(
             capability: PasteCapability(
               status: PasteCapabilityStatus.permissionMissing,
               canPrompt: true,
             ),
-            hadFailedGrantAttempt: true,
-            pollingPhase: PollingPhase.timedOut,
+            sentToOsGrantFlow: true,
+            pollingPhase: PollingPhase.idle,
           ),
         );
 
         await _pumpStep(tester, paste: paste);
 
-        // Title is rendered (shared restart banner, accent-styled).
         expect(find.text(l10n.pasteCapabilityRestartTitle), findsOneWidget);
       },
     );
 
-    testWidgets('TCC-mismatch banner is hidden for every state where '
-        'suspectedTccMismatch is false', (tester) async {
-      // Each entry falsifies a different conjunct so the banner must stay
-      // hidden. The all-true case is covered by the test above.
+    testWidgets('restart banner is hidden for every state where '
+        'needsRestart is false', (tester) async {
       final hiddenCases = <PasteCapabilityState>[
-        // Default — nothing set.
+        // Default — nothing set (no capability yet).
         const PasteCapabilityState(),
-        // hadFailedGrantAttempt == false (other two true).
+        // Never sent to the grant flow → the action is Grant, not restart.
         const PasteCapabilityState(
           capability: PasteCapability(
             status: PasteCapabilityStatus.permissionMissing,
@@ -788,29 +810,20 @@ void main() {
           ),
           pollingPhase: PollingPhase.timedOut,
         ),
-        // capability.status != permissionMissing (other two true).
+        // Capability is ready → nothing to do.
         const PasteCapabilityState(
           capability: PasteCapability(status: PasteCapabilityStatus.ready),
-          hadFailedGrantAttempt: true,
+          sentToOsGrantFlow: true,
           pollingPhase: PollingPhase.timedOut,
         ),
-        // pollingPhase != timedOut — try awaitingGrant and idle as the two
-        // representative non-terminal/terminal alternatives.
+        // A live poll is still in flight → the waiting hint owns the screen.
         const PasteCapabilityState(
           capability: PasteCapability(
             status: PasteCapabilityStatus.permissionMissing,
             canPrompt: true,
           ),
-          hadFailedGrantAttempt: true,
+          sentToOsGrantFlow: true,
           pollingPhase: PollingPhase.awaitingGrant,
-        ),
-        const PasteCapabilityState(
-          capability: PasteCapability(
-            status: PasteCapabilityStatus.permissionMissing,
-            canPrompt: true,
-          ),
-          hadFailedGrantAttempt: true,
-          pollingPhase: PollingPhase.idle,
         ),
       ];
 
@@ -822,8 +835,8 @@ void main() {
           find.text(l10n.pasteCapabilityRestartTitle),
           findsNothing,
           reason:
-              'TCC-mismatch banner must stay hidden when '
-              'suspectedTccMismatch is false (seed: $seed)',
+              'Restart banner must stay hidden when needsRestart is false '
+              '(seed: $seed)',
         );
 
         // Tear down between iterations so the next pump starts clean.

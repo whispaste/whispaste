@@ -24,6 +24,7 @@ import 'package:whispaste/features/recording/clipping_state.dart';
 import 'package:whispaste/services/audio_service.dart';
 import 'package:whispaste/services/desktop_paste/desktop_paste_controller.dart';
 import 'package:whispaste/services/model_download_service.dart';
+import 'package:whispaste/services/paste/paste_capability_notifier.dart';
 import 'package:whispaste/services/paste/paste_failure_notifier.dart';
 import 'package:whispaste/services/paste/paster.dart';
 import 'package:whispaste/services/path_service.dart'
@@ -321,6 +322,9 @@ class FakeSystemAttentionService extends SystemAttentionService {
   int requestAttentionCalls = 0;
   int clearAttentionCalls = 0;
   AttentionKind? lastKind;
+  String? lastTitle;
+  String? lastBody;
+  void Function()? lastOnClick;
 
   @override
   Future<void> requestAttention({
@@ -331,12 +335,29 @@ class FakeSystemAttentionService extends SystemAttentionService {
   }) async {
     requestAttentionCalls++;
     lastKind = kind;
+    lastTitle = title;
+    lastBody = body;
+    lastOnClick = onClick;
   }
 
   @override
   Future<void> clearAttention() async {
     clearAttentionCalls++;
   }
+}
+
+/// Seeds a fixed [PasteCapabilityState] so a test can pin
+/// [PasteCapabilityNotifier.needsRestart] without driving the polling
+/// machinery. Inherits the real `requiredAction` / `needsRestart` /
+/// `openAccessibilitySettings` so the routing under test exercises production
+/// logic, not a re-implementation.
+class _SeededPasteCapabilityNotifier extends PasteCapabilityNotifier {
+  _SeededPasteCapabilityNotifier(this._seed);
+
+  final PasteCapabilityState _seed;
+
+  @override
+  PasteCapabilityState build() => _seed;
 }
 
 /// Fake sound feedback service for issue 09 — records `playError()` calls
@@ -2265,7 +2286,10 @@ void main() {
     late FakeSystemAttentionService fakeAttention;
     late FakeSoundFeedbackService fakeSoundFeedback;
 
-    ProviderContainer buildPasteContainer(AppSettings settings) {
+    ProviderContainer buildPasteContainer(
+      AppSettings settings, {
+      PasteCapabilityNotifier Function()? capabilityNotifier,
+    }) {
       return ProviderContainer(
         overrides: [
           historyDatabaseProvider.overrideWith((ref) {
@@ -2295,6 +2319,8 @@ void main() {
             fakeSoundFeedback = FakeSoundFeedbackService();
             return fakeSoundFeedback;
           }),
+          if (capabilityNotifier != null)
+            pasteCapabilityNotifierProvider.overrideWith(capabilityNotifier),
         ],
       );
     }
@@ -2453,6 +2479,119 @@ void main() {
         );
         expect(fakeAttention.requestAttentionCalls, 1);
         expect(fakeAttention.lastKind, AttentionKind.pasteBlockedPermission);
+      },
+    );
+
+    // =========================================================================
+    // Notification routing (grant-vs-restart) must track the SAME shared
+    // PasteCapabilityNotifier.needsRestart signal every other surface uses, so
+    // the failed-paste notification never drifts to "open Settings" when the
+    // real fix is a restart (a recurring bug this replaces). The click target
+    // for the grant case routes through openAccessibilitySettings, which
+    // records the handoff so the *next* failure resolves to restart.
+    // =========================================================================
+
+    test(
+      'permissionMissing notification routes to Settings (grant) when '
+      'needsRestart is false, and clicking it records the grant handoff',
+      () async {
+        fakeDesktopPaste.pasteStatusOverride =
+            NativePasteStatus.permissionMissing;
+
+        // Fresh notifier: permission missing, user never handed off → grant.
+        final notifier = _SeededPasteCapabilityNotifier(
+          const PasteCapabilityState(
+            capability: PasteCapability(
+              status: PasteCapabilityStatus.permissionMissing,
+              canPrompt: true,
+            ),
+          ),
+        );
+
+        container.dispose();
+        container = buildPasteContainer(
+          const AppSettings(
+            stt: SttSettings(model: 'whisper-small', language: 'English'),
+            afterTranscriptionSection: AfterTranscriptionSettings(
+              afterTranscription: 'paste',
+            ),
+            onboarding: OnboardingSettings(onboardingCompleted: true),
+          ),
+          capabilityNotifier: () => notifier,
+        );
+        await container.read(settingsProvider.future);
+        container.read(systemAttentionServiceProvider);
+
+        final orch = await startRecordingPhase();
+        fakeStt.transcriptToReturn = 'grant routing test';
+        await orch.stopRecording();
+        await Future<void>.delayed(Duration.zero);
+
+        expect(fakeAttention.lastTitle, 'WhisPaste: Auto-Einfügen blockiert');
+
+        // Baseline: the handoff bit is not yet set.
+        expect(
+          container.read(pasteCapabilityNotifierProvider).sentToOsGrantFlow,
+          isFalse,
+        );
+        // Clicking the notification opens Settings AND records the handoff, so
+        // the next surface the user hits resolves to restart, not Settings.
+        fakeAttention.lastOnClick?.call();
+        expect(
+          container.read(pasteCapabilityNotifierProvider).sentToOsGrantFlow,
+          isTrue,
+          reason:
+              'The grant-notification click must route through '
+              'openAccessibilitySettings, which records the handoff.',
+        );
+      },
+    );
+
+    test(
+      'permissionMissing notification routes to restart when needsRestart '
+      'is true (already handed off, permission still reads missing)',
+      () async {
+        fakeDesktopPaste.pasteStatusOverride =
+            NativePasteStatus.permissionMissing;
+
+        // Already handed off + still missing + poll not awaiting → restart.
+        final notifier = _SeededPasteCapabilityNotifier(
+          const PasteCapabilityState(
+            capability: PasteCapability(
+              status: PasteCapabilityStatus.permissionMissing,
+              canPrompt: true,
+            ),
+            sentToOsGrantFlow: true,
+            pollingPhase: PollingPhase.timedOut,
+          ),
+        );
+
+        container.dispose();
+        container = buildPasteContainer(
+          const AppSettings(
+            stt: SttSettings(model: 'whisper-small', language: 'English'),
+            afterTranscriptionSection: AfterTranscriptionSettings(
+              afterTranscription: 'paste',
+            ),
+            onboarding: OnboardingSettings(onboardingCompleted: true),
+          ),
+          capabilityNotifier: () => notifier,
+        );
+        await container.read(settingsProvider.future);
+        container.read(systemAttentionServiceProvider);
+
+        final orch = await startRecordingPhase();
+        fakeStt.transcriptToReturn = 'restart routing test';
+        await orch.stopRecording();
+        await Future<void>.delayed(Duration.zero);
+
+        expect(
+          fakeAttention.lastTitle,
+          'WhisPaste: Neustart nötig',
+          reason:
+              'When needsRestart is true the notification must point at a '
+              'restart, not another trip to Settings.',
+        );
       },
     );
 

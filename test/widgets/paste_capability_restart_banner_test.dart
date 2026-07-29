@@ -4,12 +4,13 @@
 /// Covers the three external behaviours that matter:
 ///   1. The banner renders its copy and fires the injected restart callback.
 ///   2. The indicator surfaces the banner (and hides the grant CTA) exactly
-///      when [PasteCapabilityNotifier.suspectedTccMismatch] is `true`.
+///      when [PasteCapabilityNotifier.needsRestart] is `true`.
 ///   3. The indicator keeps the regular grant flow (no banner) for the
 ///      plain first-contact `permissionMissing` state.
 ///
-/// The notifier is faked so no platform probes run; the mismatch conjunction
-/// itself is unit-tested in `test/services/paste/paste_capability_notifier_test.dart`.
+/// The notifier is faked so no platform probes run; the requiredAction
+/// resolver itself is unit-tested in
+/// `test/services/paste/paste_capability_notifier_test.dart`.
 library;
 
 import 'dart:io';
@@ -42,7 +43,7 @@ const _mismatchState = PasteCapabilityState(
     status: PasteCapabilityStatus.permissionMissing,
     canPrompt: true,
   ),
-  hadFailedGrantAttempt: true,
+  sentToOsGrantFlow: true,
   pollingPhase: PollingPhase.timedOut,
 );
 
@@ -89,7 +90,7 @@ void main() {
     // The indicator's macOS-only branches key off the real host platform;
     // these integration cases are only meaningful on a macOS test host.
     testWidgets(
-      'suspectedTccMismatch surfaces the banner and hides the grant CTA',
+      'needsRestart surfaces the banner and hides the grant CTA',
       skip: !Platform.isMacOS,
       (tester) async {
         await tester.pumpWidget(
