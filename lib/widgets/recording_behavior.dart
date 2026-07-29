@@ -269,15 +269,12 @@ class _RecordingBehaviorState extends ConsumerState<RecordingBehaviorWidget> {
     } catch (e) {
       _log.warning('Error sound playback failed (non-fatal)', e);
     }
-    WpToast.show(
-      context,
-      message: localizeRecordingError(l10n, next.errorMessage!),
-      type: WpToastType.error,
-      duration: const Duration(seconds: 5),
-      actionLabel: l10n.actionDismiss,
-      onAction: () {
-        ref.read(recordingOrchestratorProvider.notifier).reset();
-      },
+    showRecordingErrorToast(
+      context: context,
+      l10n: l10n,
+      errorCode: next.errorMessage!,
+      onDismiss: () => ref.read(recordingOrchestratorProvider.notifier).reset(),
+      openMicrophoneSettings: _openMicrophoneSettings,
     );
     // Auto-reset after toast display so FAB returns to idle.
     Future.delayed(const Duration(seconds: 5), () {
@@ -463,6 +460,59 @@ class _RecordingBehaviorState extends ConsumerState<RecordingBehaviorWidget> {
       _log.warning('Could not open Accessibility settings', e);
     }
   }
+
+  Future<void> _openMicrophoneSettings() async {
+    if (!Platform.isMacOS) return;
+    final uri = Uri.parse(
+      'x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone',
+    );
+    try {
+      await launchUrl(uri);
+    } on Exception catch (e) {
+      _log.warning('Could not open Microphone settings', e);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Recording-error toast — extracted the same way as [showPasteFailureToast]
+// below so widget tests can exercise the mic-permission-denied action wiring
+// directly without bootstrapping the full RecordingBehaviorWidget.
+// ---------------------------------------------------------------------------
+
+/// Renders the actionable toast for a recording-pipeline error.
+///
+/// `mic_permission_denied` on macOS gets an "Open Settings" action
+/// (Microphone privacy pane deep-link) instead of the generic dismiss.
+/// Once macOS has denied mic access once, `AVCaptureDevice.requestAccess`
+/// (called by `record`'s `hasPermission()`) will never show the system
+/// dialog again — the user has to grant it manually in System Settings, so
+/// the toast needs to route them there directly instead of leaving them
+/// stuck on a dead-end "microphone access needed" message with nothing
+/// actionable to do about it. Every other error code keeps the plain
+/// dismiss action.
+///
+/// [openMicrophoneSettings] is injected so widget tests can substitute a
+/// spy, mirroring [showPasteFailureToast]'s `openAccessibilitySettings`.
+void showRecordingErrorToast({
+  required BuildContext context,
+  required L10n l10n,
+  required String errorCode,
+  required VoidCallback onDismiss,
+  VoidCallback? openMicrophoneSettings,
+}) {
+  final offerSettings =
+      errorCode == 'mic_permission_denied' && Platform.isMacOS;
+  WpToast.show(
+    context,
+    message: localizeRecordingError(l10n, errorCode),
+    type: WpToastType.error,
+    duration: const Duration(seconds: 5),
+    actionLabel: offerSettings
+        ? l10n.pasteFailureOpenSettings
+        : l10n.actionDismiss,
+    onAction: offerSettings ? (openMicrophoneSettings ?? onDismiss) : onDismiss,
+  );
 }
 
 // ---------------------------------------------------------------------------

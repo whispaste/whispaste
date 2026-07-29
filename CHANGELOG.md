@@ -2,6 +2,11 @@
 
 ## 1.2.62
 
+### Bug Fixes
+
+- **Wurde der Mikrofonzugriff einmal abgelehnt, blieb die App auf einer Sackgasse stehen** ("Mikrofonzugriff wird benötigt", ohne einen Weg, ihn zu erteilen) — macOS zeigt den Systemdialog nach einer Ablehnung nie wieder von selbst. Die Meldung führt jetzt direkt zu den Systemeinstellungen.
+- **Auf macOS bekam jeder neue Build für dieselbe Version dieselbe interne Build-Nummer** (ein Tippfehler in der Info.plist-Konfiguration) — dadurch konnte App Store Connect neue Builds nicht zuverlässig vom vorherigen unterscheiden. Jeder Build bekommt jetzt wieder seine eigene, korrekt fortlaufende Nummer.
+
 ### Maintenance
 
 - **Im Mac App Store waren teilweise doppelte Screenshots hinterlegt** (ein fehlendes Upload-Flag ließ alte Bilder stehen statt sie zu ersetzen) — jetzt werden Screenshots bei jeder Aktualisierung sauber ersetzt.
