@@ -8,6 +8,8 @@
 /// probes when the section renders in paste mode.
 library;
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' show AsyncData;
 import 'package:flutter_test/flutter_test.dart';
@@ -272,7 +274,13 @@ void main() {
     // the user to notice and tap the indicator's own "Grant" button below.
 
     testWidgets(
-      'selecting Auto-Paste requests the permission grant when not yet ready',
+      'selecting Auto-Paste requests the permission grant when not yet '
+      'ready (macOS only — see AfterTranscriptionSection.build\'s '
+      'Platform.isMacOS gate: Windows\' checkCapability always reports '
+      '"ready"/canPrompt:false, see windows/runner/desktop_paste_host.cpp, '
+      'so it can never actually be in this permissionMissing/canPrompt '
+      'state in production, and Linux has no native paste controller at '
+      'all, see desktop_paste_controller.dart)',
       (tester) async {
         final settings = _FakeSettingsNotifier(
           _settingsWithAction(AfterTranscriptionAction.clipboard),
@@ -300,7 +308,17 @@ void main() {
         await tester.tap(find.text(l10n.settingsAfterTranscriptionPaste).last);
         await tester.pumpAndSettle();
 
-        expect(capability.requestGrantCalls, 1);
+        // The auto-trigger is deliberately macOS-only: it exists to open
+        // macOS' Accessibility settings pane and poll for a TCC grant.
+        // Windows' native checkCapability handler always reports "ready"
+        // with canPrompt:false (it has no equivalent permission to grant —
+        // see windows/runner/desktop_paste_host.cpp), so this
+        // permissionMissing/canPrompt:true state the test forces via the
+        // fake can never occur for real on Windows, and Linux has no
+        // native desktop-paste controller wired up at all (see
+        // desktopPasteControllerProvider), so requestGrant firing there
+        // would just arm a 30s polling loop that can never succeed.
+        expect(capability.requestGrantCalls, Platform.isMacOS ? 1 : 0);
       },
     );
 
