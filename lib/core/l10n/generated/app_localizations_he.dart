@@ -2525,6 +2525,9 @@ class L10nHe extends L10n {
   String get settingsOverlaySizeCompact => 'קומפקטי';
 
   @override
+  String get settingsOverlaySizeMini => 'מיני';
+
+  @override
   String get overlayRetry => 'נסה שוב';
 
   @override
@@ -2538,6 +2541,9 @@ class L10nHe extends L10n {
 
   @override
   String get overlayContextSwitchCompact => 'עבור לקומפקטי';
+
+  @override
+  String get overlayContextSwitchMini => 'עבור למיני';
 
   @override
   String get overlayContextHide => 'הסתר שכבה';

@@ -171,27 +171,52 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
     }
   }
 
+  /// Theme-resolved palette for the card chrome — pulled out of [build] so
+  /// its branching doesn't count against that method's own complexity.
+  ///
+  /// Light-theme accent strokes are slightly reduced (history polish pass):
+  /// the light accent #06678A is itself dark, so equal alphas read heavier
+  /// on the pearl surfaces than on dark navy. Mirrors the list tile.
+  ({
+    Color accent,
+    Color textPrimary,
+    Color textSecondary,
+    Color textMuted,
+    Color surfaceElevated,
+    Color borderColor,
+  })
+  _resolveColors(bool isDark) {
+    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    final borderColor = widget.isSelected
+        ? accent.withValues(alpha: isDark ? 0.5 : 0.45)
+        : widget.isFocused
+        ? accent.withValues(alpha: isDark ? 0.4 : 0.35)
+        : (isDark ? WpColorsDark.borderSubtle : WpColorsLight.borderSubtle);
+    return (
+      accent: accent,
+      textPrimary: isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary,
+      textSecondary: isDark
+          ? WpColorsDark.textSecondary
+          : WpColorsLight.textSecondary,
+      textMuted: isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
+      surfaceElevated: isDark
+          ? WpColorsDark.surfaceElevated
+          : WpColorsLight.surfaceElevated,
+      borderColor: borderColor,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = widget.isDark;
     final l10n = L10n.of(context);
     final avatarCol = historyAvatarColor(widget.entry, isDark);
-    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
-    final textSecondary = isDark
-        ? WpColorsDark.textSecondary
-        : WpColorsLight.textSecondary;
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-    final surfaceElevated = isDark
-        ? WpColorsDark.surfaceElevated
-        : WpColorsLight.surfaceElevated;
-    final borderColor = widget.isSelected
-        ? accent.withValues(alpha: 0.5)
-        : widget.isFocused
-        ? accent.withValues(alpha: 0.4)
-        : (isDark ? WpColorsDark.borderSubtle : WpColorsLight.borderSubtle);
+    final colors = _resolveColors(isDark);
+    final textPrimary = colors.textPrimary;
+    final textSecondary = colors.textSecondary;
+    final textMuted = colors.textMuted;
+    final surfaceElevated = colors.surfaceElevated;
+    final borderColor = colors.borderColor;
 
     final semanticLabel = widget.entry.title.isNotEmpty
         ? widget.entry.title
@@ -222,10 +247,14 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
               border: Border.all(color: borderColor),
               // Weiche Ambient-Elevation: die Kachel trägt immer einen
               // dezenten Materiallift (subtle), Hover/Select/Focus vertiefen
-              // ihn (card) — glow-frei, siehe WpShadows.
+              // ihn (card) — glow-frei, siehe WpShadows. Theme-resolved:
+              // im Light-Theme mit halbierter Schwarz-Alpha, damit der Lift
+              // auf den Pearl-Flächen kein dunkler Halo wird (die volle
+              // card-Stärke lag bei ≈ 1.6:1 gegen die Surface — deutlich
+              // sichtbare Dunkelzone um jede gehoverte Kachel).
               boxShadow: (widget.isSelected || widget.isFocused || _isHovered)
-                  ? WpShadows.card
-                  : WpShadows.subtle,
+                  ? WpShadows.cardFor(isDark)
+                  : WpShadows.subtleFor(isDark),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

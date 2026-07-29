@@ -28,14 +28,12 @@
 library;
 
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/config/settings_enums.dart';
 import '../../../core/config/settings_provider.dart';
@@ -111,18 +109,6 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
     super.dispose();
   }
 
-  Future<void> _openAccessibilitySettings() async {
-    if (!Platform.isMacOS) return;
-    final uri = Uri.parse(
-      'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility',
-    );
-    try {
-      await launchUrl(uri);
-    } on Exception catch (e) {
-      _log.warning('Could not open Accessibility settings', e);
-    }
-  }
-
   Future<void> _onGrantPressed() async {
     if (_grantInFlight) return;
     _emitBreadcrumb('grant.requested');
@@ -130,19 +116,7 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
     _emitBreadcrumb('grant.busy_state_armed');
     try {
       final notifier = ref.read(pasteCapabilityNotifierProvider.notifier);
-      // First fire the prompted check so macOS gets a chance to surface its
-      // own one-shot dialog. Then deep-link to the Accessibility pane so the
-      // user sees the toggle row even if the OS dialog was suppressed.
-      await notifier.check(prompt: true);
-      // Arm polling BEFORE awaiting the settings launch — we want the poller
-      // running the moment the user flips the toggle in System Settings, not
-      // after the deep-link future resolves (which can stall on slow Settings
-      // launches and in test environments where the channel isn't wired).
-      notifier.startPolling(
-        interval: const Duration(seconds: 1),
-        timeout: const Duration(seconds: 30),
-      );
-      await _openAccessibilitySettings();
+      await notifier.requestGrant();
     } finally {
       if (mounted) {
         setState(() => _grantInFlight = false);
@@ -241,10 +215,10 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
   Widget build(BuildContext context) {
     // Branch on `defaultTargetPlatform` (not `Platform.isMacOS`) so widget
     // tests can simulate the Windows surface from a macOS / Linux test host
-    // via `debugDefaultTargetPlatformOverride`. The macOS-only inner calls
-    // (`_openAccessibilitySettings`) still guard with `Platform.isMacOS`,
-    // which is fine: those code paths only fire from user-driven taps the
-    // Windows branch never exposes.
+    // via `debugDefaultTargetPlatformOverride`. The macOS-only inner call
+    // (`PasteCapabilityNotifier.requestGrant`) still guards with
+    // `Platform.isMacOS`, which is fine: those code paths only fire from
+    // user-driven taps the Windows branch never exposes.
     final isWindows = defaultTargetPlatform == TargetPlatform.windows;
     if (isWindows) {
       return _WindowsBody(

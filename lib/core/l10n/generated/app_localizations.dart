@@ -4611,6 +4611,12 @@ abstract class L10n {
   /// **'Compact'**
   String get settingsOverlaySizeCompact;
 
+  /// No description provided for @settingsOverlaySizeMini.
+  ///
+  /// In en, this message translates to:
+  /// **'Mini'**
+  String get settingsOverlaySizeMini;
+
   /// No description provided for @overlayRetry.
   ///
   /// In en, this message translates to:
@@ -4640,6 +4646,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Switch to Compact'**
   String get overlayContextSwitchCompact;
+
+  /// No description provided for @overlayContextSwitchMini.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch to Mini'**
+  String get overlayContextSwitchMini;
 
   /// No description provided for @overlayContextHide.
   ///

@@ -2594,6 +2594,9 @@ class L10nDe extends L10n {
   String get settingsOverlaySizeCompact => 'Kompakt';
 
   @override
+  String get settingsOverlaySizeMini => 'Mini';
+
+  @override
   String get overlayRetry => 'Erneut versuchen';
 
   @override
@@ -2607,6 +2610,9 @@ class L10nDe extends L10n {
 
   @override
   String get overlayContextSwitchCompact => 'Zu Kompakt wechseln';
+
+  @override
+  String get overlayContextSwitchMini => 'Zu Mini wechseln';
 
   @override
   String get overlayContextHide => 'Overlay ausblenden';

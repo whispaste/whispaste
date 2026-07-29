@@ -11,10 +11,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../core/l10n/generated/app_localizations.dart';
-import '../core/logging/app_logger.dart';
 import '../core/platform/macos_lifecycle_channel.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
@@ -32,8 +30,6 @@ class PasteCapabilityIndicator extends ConsumerStatefulWidget {
 
 class _PasteCapabilityIndicatorState
     extends ConsumerState<PasteCapabilityIndicator> {
-  static final _log = AppLogger('PasteCapability');
-
   bool _busy = false;
   bool _showTroubleshoot = false;
 
@@ -53,18 +49,6 @@ class _PasteCapabilityIndicatorState
       await action();
     } finally {
       if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _openAccessibilitySettings() async {
-    if (!Platform.isMacOS) return;
-    final uri = Uri.parse(
-      'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility',
-    );
-    try {
-      await launchUrl(uri);
-    } on Exception catch (e) {
-      _log.warning('Could not open Accessibility settings', e);
     }
   }
 
@@ -211,11 +195,7 @@ class _PasteCapabilityIndicatorState
                 // flips to "ready" on its own once the user ticks the box.
                 onPressed: _busy
                     ? null
-                    : () => _run(() async {
-                        await notifier.check(prompt: true);
-                        await _openAccessibilitySettings();
-                        notifier.startPolling();
-                      }),
+                    : () => _run(() => notifier.requestGrant()),
                 icon: const Icon(LucideIcons.shield, size: 14),
                 label: Text(l10n.pasteCapabilityGrantButton),
               ),

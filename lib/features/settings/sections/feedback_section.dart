@@ -1,6 +1,9 @@
 /// Keyboard Shortcut & Sound Feedback settings sections.
 library;
 
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -13,7 +16,9 @@ import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../services/hotkey_service.dart';
+import '../../../services/paste/paste_capability_notifier.dart';
 import '../../../services/paste/paste_policy.dart';
+import '../../../services/paste/paster.dart';
 import '../../../services/sound_feedback_service.dart';
 import '../../../services/telemetry_service.dart';
 import '../../../widgets/hotkey_recorder.dart';
@@ -256,6 +261,9 @@ class AfterTranscriptionSection extends ConsumerWidget {
               labels: visibleActions.map((e) => _labelFor(e, l10n)).toList(),
               onChanged: (v) {
                 if (v == null) return;
+                final newAction = AfterTranscriptionAction.values.firstWhere(
+                  (a) => a.value == v,
+                );
                 ref
                     .read(settingsProvider.notifier)
                     .updateSettings((s) => s.copyWith(afterTranscription: v));
@@ -263,6 +271,27 @@ class AfterTranscriptionSection extends ConsumerWidget {
                   ref.read(telemetryProvider).trackSettingChange('auto_paste');
                 } catch (e) {
                   _log.debug('telemetry failed: $e');
+                }
+                // The user just switched TO an Auto-Paste-requiring option —
+                // request the OS permission right now instead of leaving them
+                // to notice and tap the indicator's own "Grant" button below.
+                // Skipped when already ready so re-selecting the same option
+                // doesn't re-trigger the deep-link to System Settings.
+                final requiresPaste =
+                    newAction == AfterTranscriptionAction.paste ||
+                    newAction == AfterTranscriptionAction.clipboardAndPaste;
+                final alreadyReady =
+                    ref
+                        .read(pasteCapabilityNotifierProvider)
+                        .capability
+                        ?.status ==
+                    PasteCapabilityStatus.ready;
+                if (requiresPaste && Platform.isMacOS && !alreadyReady) {
+                  unawaited(
+                    ref
+                        .read(pasteCapabilityNotifierProvider.notifier)
+                        .requestGrant(),
+                  );
                 }
               },
             ),

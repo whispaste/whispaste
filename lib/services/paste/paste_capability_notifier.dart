@@ -20,10 +20,15 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/logging/app_logger.dart';
 import '../desktop_paste/desktop_paste_controller.dart';
 import 'paster.dart';
+
+/// Deep-link target for macOS' Accessibility settings pane.
+const String _accessibilitySettingsUri =
+    'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility';
 
 /// Sentry breadcrumb category shared by every onboarding Auto-Paste event.
 /// Kept here (and re-used from the step widget) so all polling-lifecycle and
@@ -173,6 +178,34 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
       );
     } finally {
       _checkInFlight = false;
+    }
+  }
+
+  /// Runs the full "request Auto-Paste permission" sequence: fires the
+  /// OS-prompted check, arms the awaiting-grant poller, then deep-links to
+  /// the Accessibility settings pane so the user sees the toggle row even
+  /// if macOS suppressed its own dialog (e.g. a prior prompt already fired
+  /// once this process).
+  ///
+  /// The single call every UI entry point shares — onboarding's Auto-Paste
+  /// step, the Settings capability indicator, and the After-Transcription
+  /// dropdown's activation trigger — so the sequence can't drift between
+  /// them.
+  Future<void> requestGrant({
+    Duration pollInterval = const Duration(seconds: 1),
+    Duration pollTimeout = const Duration(seconds: 30),
+  }) async {
+    await check(prompt: true);
+    // Arm polling BEFORE awaiting the settings launch — we want the poller
+    // running the moment the user flips the toggle in System Settings, not
+    // after the deep-link future resolves (which can stall on slow Settings
+    // launches and in test environments where the channel isn't wired).
+    startPolling(interval: pollInterval, timeout: pollTimeout);
+    if (!Platform.isMacOS) return;
+    try {
+      await launchUrl(Uri.parse(_accessibilitySettingsUri));
+    } on Exception catch (e) {
+      _log.warning('Could not open Accessibility settings: $e');
     }
   }
 

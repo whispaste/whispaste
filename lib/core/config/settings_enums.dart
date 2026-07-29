@@ -4,6 +4,8 @@
 /// SQLite (`toStorageMap` / `fromStorageMap`) without breaking existing data.
 library;
 
+import '../theme/overlay_design_spec.dart' show OverlaySizeVariant;
+
 // ---------------------------------------------------------------------------
 // STT Provider
 // ---------------------------------------------------------------------------
@@ -171,7 +173,11 @@ enum OverlayStartPosition {
 /// Display size for the floating overlay window.
 enum FloatingOverlaySize {
   normal('normal'),
-  compact('compact');
+  compact('compact'),
+
+  /// Waveform-first micro overlay — extra translucent, minimal content
+  /// (see `OverlaySizeSpec.mini` in the overlay design spec).
+  mini('mini');
 
   const FloatingOverlaySize(this.value);
   final String value;
@@ -182,6 +188,17 @@ enum FloatingOverlaySize {
     }
     return normal;
   }
+}
+
+/// Maps the persisted settings enum onto the design-spec size variant the
+/// renderer and native shells consume.
+extension FloatingOverlaySizeVariantX on FloatingOverlaySize {
+  /// The design-spec variant for this settings value.
+  OverlaySizeVariant get variant => switch (this) {
+    FloatingOverlaySize.normal => OverlaySizeVariant.normal,
+    FloatingOverlaySize.compact => OverlaySizeVariant.compact,
+    FloatingOverlaySize.mini => OverlaySizeVariant.mini,
+  };
 }
 
 // ---------------------------------------------------------------------------
