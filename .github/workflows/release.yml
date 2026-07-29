@@ -663,6 +663,16 @@ jobs:
         working-directory: tools/appstore-screens
         run: npx playwright install --with-deps chromium
 
+      # Hard dependency of generate.cjs (fixed 2026-07-29): the approved
+      # hero screenshot is this photographic device composite (laptop +
+      # hand, real app UI), not the plain logo/badge card generate.cjs's own
+      # template renders — generate.cjs overrides screenshot #1 with this
+      # render's output and fails loudly if it's missing. MUST run first.
+      - name: Render approved device-photo hero
+        if: steps.store_check.outputs.skip != 'true'
+        working-directory: tools/appstore-screens
+        run: node render-hero-device.cjs --lang=all
+
       - name: Generate Microsoft Store screenshots
         if: steps.store_check.outputs.skip != 'true'
         working-directory: tools/appstore-screens
