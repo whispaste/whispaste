@@ -296,8 +296,16 @@ foreach ($locale in $LOCALE_MAP.Values) {
   # and merged with our fresh Screenshot set, instead of being wiped out by
   # a blind array replace.
   if ($m.images.Count -gt 0) {
+    # Same Set-StrictMode pitfall as the locale-creation branch above: a
+    # freshly-created baseListing (brand-new locale, no cloned images at
+    # all) has no 'images' property yet, and reading it throws instead of
+    # returning $null — verified live 2026-07-29 (real submission, de-de
+    # created fresh for the first time since the images feature shipped).
+    $existingImages = if ($bl.PSObject.Properties.Match('images').Count -gt 0) {
+      $bl.images
+    } else { @() }
     $existingNonScreenshots = @(
-      $bl.images | Where-Object { $_.imageType -ne 'Screenshot' }
+      $existingImages | Where-Object { $_.imageType -ne 'Screenshot' }
     )
     $newScreenshots = @(
       $m.images | ForEach-Object {
@@ -316,11 +324,42 @@ foreach ($locale in $LOCALE_MAP.Values) {
   # is never touched anywhere in this script — see the header comment.
 }
 
+# The clone-from-last-published submission (above) echoes back a legacy
+# `pricing.priceId` value ("Base") for Pricing V2 / Advanced Pricing Model
+# accounts (WhisPaste's) that the API itself then rejects on PUT with
+# "'Base' is not a valid PriceId for base price" — even though this script
+# never sets or intends to change pricing. Omitting the whole `pricing`
+# property is NOT an option either — it's a required field, PUT then fails
+# with "Pricing data was not provided in the request". Verified live
+# 2026-07-29 (real submission, throwaway PUT/DELETE round-trip): setting
+# just `priceId` to explicit JSON null — keeping trialPeriod/
+# marketSpecificPricings/sales/isAdvancedPricingModel exactly as cloned —
+# is the one shape the API accepts. Leaves the live price untouched (same
+# guarantee as before, just the correct wire shape for a V2 account).
+if ($sub.PSObject.Properties.Match('pricing').Count -gt 0 -and
+    $sub.pricing.PSObject.Properties.Match('priceId').Count -gt 0) {
+  $sub.pricing.priceId = $null
+}
+
 # ── Replace application packages ──────────────────────────────────────────────
+# The API rejects a PUT that just swaps in a new package array — existing
+# package entries must still be present, marked `PendingDelete` if being
+# replaced (error verified live 2026-07-29: "Please keep all file entries
+# for existing packages. If you wish to remove a package, mark it as
+# PendingDelete. The following packages are missing in your update: <id>").
+# Cloned packages already have `Uploaded`/`PendingDelete`/etc. status — only
+# ones not already PendingDelete need flipping; a re-run against a
+# submission this script itself already marked would otherwise double up.
 
 $msixName = Split-Path $MsixPath -Leaf
 Write-Host ":: Registering package: $msixName"
-$sub.applicationPackages = @(
+$existingPackages = @(
+  $sub.applicationPackages | ForEach-Object {
+    if ($_.fileStatus -ne 'PendingDelete') { $_.fileStatus = 'PendingDelete' }
+    $_
+  }
+)
+$sub.applicationPackages = @($existingPackages) + @(
   [PSCustomObject]@{
     fileName              = $msixName
     fileStatus            = 'PendingUpload'
