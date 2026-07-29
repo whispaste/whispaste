@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.63
+
+### Bug Fixes
+
+- **Ein Absturz-Loop konnte auftreten, wenn WhisPaste einmal unter der alten Bundle-ID installiert war**: Die einmalige Datenübernahme auf die neue App-Kennung schrieb Zähler/Zeitstempel intern als Text statt als Zahl, was beim nächsten Prüfen des Bewertungs- bzw. Unterstützungs-Hinweises zu einem harten Absturz führte. Betroffene Installationen heilen sich beim nächsten Start automatisch, ohne erneute Datenübernahme.
+- **Die Auto-Einfügen-Berechtigung musste auf macOS teils zweimal erteilt werden, und ein Klick auf die Systembenachrichtigung führte nicht direkt zur passenden Einstellung.** Beides ist jetzt zuverlässiger: WhisPaste erkennt, wenn eine bereits erteilte Berechtigung nur einen Neustart braucht, um wirksam zu werden, und bietet dafür sowohl in der Benachrichtigung als auch im Hinweistext direkt den Neustart an, statt unnötig erneut nach der Berechtigung zu fragen.
+
 ## 1.2.62
 
 ### Bug Fixes
