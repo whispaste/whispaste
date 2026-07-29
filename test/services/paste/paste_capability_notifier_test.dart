@@ -485,6 +485,74 @@ void main() {
     });
   });
 
+  group('PasteCapabilityNotifier — requestGrant spurious-restart race', () {
+    // Regression for the "app auto-restarts / double-instances the instant the
+    // user grants" bug. The app-level restart watch (app.dart's
+    // _setupAutoPasteRestartWatch) reads `needsRestart` on EVERY notification
+    // from this notifier and, when it sees `true`, fires the forced-restart
+    // modal — which releases the single-instance lock and relaunches. So
+    // requestGrant must never let an observer see a transient
+    // `needsRestart == true`: between marking the OS-grant handoff
+    // (sentToOsGrantFlow) and arming the poll (awaitingGrant) there was a window
+    // where requiredAction resolved to `restart`, so every grant kicked off an
+    // unwanted relaunch before polling could ever detect the real grant.
+    test(
+      'never surfaces needsRestart==true to a listener during the handoff',
+      () async {
+        final paster = _FakePaster(
+          initial: const PasteCapability(
+            status: PasteCapabilityStatus.permissionMissing,
+            canPrompt: true,
+          ),
+        );
+        final container = _container(paster: paster);
+        addTearDown(container.dispose);
+        final notifier = container.read(
+          pasteCapabilityNotifierProvider.notifier,
+        );
+
+        // Seed capability = missing exactly like the cold-start probe does.
+        await notifier.check();
+
+        // Gate the prompt round-trip so the pre-poll state is guaranteed to be
+        // observed by the listener while requestGrant is suspended mid-flight —
+        // the exact yield the real CGRequestPostEventAccess round-trip introduces.
+        final gate = Completer<void>();
+        paster.gate = gate;
+
+        final observed = <bool>[];
+        final sub = container.listen(pasteCapabilityNotifierProvider, (_, _) {
+          observed.add(notifier.needsRestart);
+        });
+
+        final future = notifier.requestGrant(
+          pollInterval: const Duration(milliseconds: 10),
+          pollTimeout: const Duration(seconds: 30),
+        );
+        // Flush microtasks so any notification scheduled from the pre-await state
+        // mutations is delivered while the prompt check is still gated.
+        await pumpEventQueue();
+        gate.complete();
+        await future;
+        // Stop observing before teardown cancels the live poll: stopping the poll
+        // while still missing+sent legitimately resolves to `restart` (the
+        // timeout/foreground path, covered separately) — that is the intended
+        // post-handoff behavior, not the race this test guards.
+        sub.close();
+
+        expect(
+          observed,
+          everyElement(isFalse),
+          reason:
+              'A transient needsRestart==true during requestGrant makes the '
+              'app-level restart watch fire a forced relaunch before polling can '
+              'detect the granted permission — the endless-restart / '
+              'double-instance bug.',
+        );
+      },
+    );
+  });
+
   group('PasteCapabilityNotifier — recheckOnForeground', () {
     test('no-op when already ready (skips the probe)', () async {
       final paster = _FakePaster(

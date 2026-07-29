@@ -321,14 +321,28 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
     Duration pollInterval = const Duration(seconds: 1),
     Duration pollTimeout = const Duration(seconds: 30),
   }) async {
-    // Mark the handoff up front: from here on, a still-missing probe means
-    // "restart", not "grant again" (see [requiredAction]).
-    _markSentToOsGrantFlow();
+    // Enter the awaiting-grant phase AND mark the OS-grant handoff atomically,
+    // in a single synchronous state write BEFORE the first await. This closes
+    // the race that produced the endless-restart / double-instance symptom:
+    // between marking [sentToOsGrantFlow] and arming the poll there used to be
+    // a window where the state was {permissionMissing + sentToOsGrantFlow +
+    // !awaitingGrant}, which [requiredAction] resolves to `restart`. The
+    // app-level restart watch reads [needsRestart] on every notification, so it
+    // saw that transient `true` and fired the forced-restart modal — releasing
+    // the single-instance lock and relaunching — before polling could ever
+    // detect the real grant. Setting `awaitingGrant` up front keeps
+    // [needsRestart] `false` for the whole handoff; a still-missing probe only
+    // means "restart" once the poll below has actually ended.
+    state = state.copyWith(
+      sentToOsGrantFlow: true,
+      pollingPhase: PollingPhase.awaitingGrant,
+    );
     await check(prompt: true);
-    // Arm polling BEFORE awaiting the settings launch — we want the poller
-    // running the moment the user flips the toggle in System Settings, not
-    // after the deep-link future resolves (which can stall on slow Settings
-    // launches and in test environments where the channel isn't wired).
+    // Arm the poll timers (the phase is already `awaitingGrant`). Done BEFORE
+    // awaiting the settings launch — we want the poller running the moment the
+    // user flips the toggle in System Settings, not after the deep-link future
+    // resolves (which can stall on slow Settings launches and in test
+    // environments where the channel isn't wired).
     startPolling(interval: pollInterval, timeout: pollTimeout);
     if (!Platform.isMacOS) return;
     try {
@@ -480,7 +494,16 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
     Duration interval = const Duration(seconds: 1),
     Duration timeout = const Duration(seconds: 30),
   }) {
-    _disposePolling();
+    // Cancel any in-flight poll timers WITHOUT routing through _disposePolling:
+    // that promotes pollingPhase to `idle` first, and an observer (the
+    // app-level restart watch) waking on that blip while the capability is
+    // still `permissionMissing` + `sentToOsGrantFlow` reads it as
+    // [needsRestart] and fires a spurious forced relaunch. Going straight to
+    // `awaitingGrant` below keeps the phase monotonic across the grant handoff.
+    _pollTimer?.cancel();
+    _pollTimer = null;
+    _pollTimeout?.cancel();
+    _pollTimeout = null;
     _pollStopwatch = Stopwatch()..start();
     _emitBreadcrumb(
       'polling.started',
