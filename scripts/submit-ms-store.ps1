@@ -63,6 +63,13 @@
   <lang>/microsoft/*.png per locale, <lang> being 'en'/'de'). Default:
   'tools/appstore-screens/output'. Pass '' (empty string) to skip image
   upload entirely and only update text metadata + package, as before.
+.PARAMETER SkipCommit
+  Uploads the package/metadata/screenshots and leaves the submission as an
+  editable DRAFT in Partner Center — skips the final /commit call (and the
+  poll-for-certification loop after it), so nothing is actually sent to
+  Microsoft for review. For out-of-band prep runs where a human commits the
+  submission themselves in Partner Center. The tag-triggered release.yml job
+  does NOT pass this — a real release still auto-submits as designed.
 #>
 param(
   [Parameter(Mandatory)] [string] $AppId,
@@ -71,7 +78,8 @@ param(
   [Parameter(Mandatory)] [string] $ClientSecret,
   [Parameter(Mandatory)] [string] $MsixPath,
   [string] $StoreDir = 'store',
-  [string] $ScreenshotsDir = 'tools/appstore-screens/output'
+  [string] $ScreenshotsDir = 'tools/appstore-screens/output',
+  [switch] $SkipCommit
 )
 
 $ErrorActionPreference = 'Stop'
@@ -368,6 +376,16 @@ Invoke-WebRequest -Uri $uploadUrl -Method Put -InFile $zipPath `
 Write-Host "   Uploaded."
 
 # ── Commit ────────────────────────────────────────────────────────────────────
+
+if ($SkipCommit) {
+  Write-Host ""
+  Write-Host "Skipping commit (-SkipCommit) — submission left as an editable draft."
+  Write-Host "Review and submit yourself: https://partner.microsoft.com/en-us/dashboard/apps/$AppId/submissions/$subId"
+  Write-Summary "### Microsoft Store submission: 📝 draft prepared (not committed)"
+  Write-Summary ""
+  Write-Summary "Submission ``$subId`` has the updated package/metadata/screenshots staged but was NOT committed. [Review and submit in Partner Center](https://partner.microsoft.com/en-us/dashboard/apps/$AppId/submissions/$subId) when ready."
+  exit 0
+}
 
 Write-Host ":: Committing submission..."
 Invoke-Api -Uri "$BASE_URL/applications/$AppId/submissions/$subId/commit" `
