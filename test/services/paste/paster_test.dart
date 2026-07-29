@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -392,10 +394,15 @@ void main() {
     });
   });
 
-  group('DesktopPaster.paste prefers typing on macOS/Windows, this test '
-      'host is macOS so Platform.isMacOS is true', () {
+  group('DesktopPaster.paste prefers typing on macOS/Windows; Linux has no '
+      'native typeText handler yet and stays on the classic '
+      'clipboard+paste-shortcut path (see DesktopPaster.paste doc comment) '
+      '— assertions below branch on the actual host platform this suite '
+      'runs on rather than assuming macOS', () {
     test('typing succeeds: paste() returns success without touching '
-        'pasteClipboard or the clipboard', () async {
+        'pasteClipboard or the clipboard (macOS/Windows) — on Linux the '
+        'typing branch is skipped entirely and the classic path runs '
+        'instead', () async {
       final controller = _FakeController()
         ..typeResult = const NativePasteResult(
           status: NativePasteStatus.success,
@@ -409,13 +416,23 @@ void main() {
       );
 
       expect(outcome, PasteOutcome.success);
-      expect(controller.typeCalls, 1);
-      expect(controller.pasteCalls, 0);
-      expect(clipboardContent, 'untouched');
+      if (Platform.isMacOS || Platform.isWindows) {
+        expect(controller.typeCalls, 1);
+        expect(controller.pasteCalls, 0);
+        expect(clipboardContent, 'untouched');
+      } else {
+        // Linux: DesktopPaster.paste's platform gate skips the typing
+        // attempt outright, so the classic clipboard+paste-shortcut
+        // sequence is the only thing that runs.
+        expect(controller.typeCalls, 0);
+        expect(controller.pasteCalls, 1);
+      }
     });
 
     test('typing fails: paste() falls back to the classic '
-        'clipboard+paste-shortcut sequence', () async {
+        'clipboard+paste-shortcut sequence (macOS/Windows) — on Linux the '
+        'classic sequence runs directly, without ever attempting typing '
+        'first', () async {
       final controller = _FakeController()
         ..typeResult = const NativePasteResult(
           status: NativePasteStatus.postFailed,
@@ -431,8 +448,14 @@ void main() {
       );
 
       expect(outcome, PasteOutcome.success);
-      expect(controller.typeCalls, 1);
       expect(controller.pasteCalls, 1);
+      // On macOS/Windows this pasteCalls==1 comes from the fallback after a
+      // failed type attempt; on Linux it comes from the classic path being
+      // the only path taken. typeCalls is what distinguishes the two.
+      expect(
+        controller.typeCalls,
+        Platform.isMacOS || Platform.isWindows ? 1 : 0,
+      );
     });
 
     test('the blocklist check runs once, before either mechanism is '

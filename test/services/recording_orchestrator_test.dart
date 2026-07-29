@@ -1594,8 +1594,11 @@ void main() {
       expect(clipboardText, 'Copy and paste');
     });
 
-    test('paste prefers typing over the classic paste shortcut when '
-        'typing succeeds (this test host is macOS)', () async {
+    test('paste prefers typing over the classic paste shortcut when typing '
+        'succeeds on macOS/Windows — Linux has no native typeText handler '
+        'yet (see DesktopPaster.paste doc comment) and stays on the '
+        'classic clipboard+paste-shortcut path, so assertions below branch '
+        'on the actual host platform', () async {
       container.dispose();
       db = HistoryDatabase.forTesting(NativeDatabase.memory());
       wavFile = createFakeWav(
@@ -1622,15 +1625,24 @@ void main() {
       await orch.stopRecording();
 
       expect(container.read(recordingProvider).phase, RecordingPhase.done);
-      expect(fakeDesktopPaste.typeCalls, 1);
-      expect(fakeDesktopPaste.pasteCalls, 0);
-      expect(fakeDesktopPaste.lastTypedText, 'Type preferred');
-      // typeText never touches the clipboard.
-      expect(clipboardText, 'Original clipboard');
+      if (Platform.isMacOS || Platform.isWindows) {
+        expect(fakeDesktopPaste.typeCalls, 1);
+        expect(fakeDesktopPaste.pasteCalls, 0);
+        expect(fakeDesktopPaste.lastTypedText, 'Type preferred');
+        // typeText never touches the clipboard.
+        expect(clipboardText, 'Original clipboard');
+      } else {
+        // Linux: the typing branch is skipped outright, so the classic
+        // clipboard+paste-shortcut sequence runs instead.
+        expect(fakeDesktopPaste.typeCalls, 0);
+        expect(fakeDesktopPaste.pasteCalls, 1);
+      }
     });
 
     test('an old persisted "type" value still dispatches through the '
-        'paste path (fromValue back-compat mapping)', () async {
+        'paste path (fromValue back-compat mapping) — routes through '
+        'typing on macOS/Windows, through the classic clipboard+paste path '
+        'on Linux', () async {
       container.dispose();
       db = HistoryDatabase.forTesting(NativeDatabase.memory());
       wavFile = createFakeWav(
@@ -1657,7 +1669,14 @@ void main() {
       await orch.stopRecording();
 
       expect(container.read(recordingProvider).phase, RecordingPhase.done);
-      expect(fakeDesktopPaste.typeCalls, 1);
+      if (Platform.isMacOS || Platform.isWindows) {
+        expect(fakeDesktopPaste.typeCalls, 1);
+      } else {
+        // Linux: no native typeText handler, so the back-compat 'paste'
+        // mapping still resolves — just via the classic path.
+        expect(fakeDesktopPaste.typeCalls, 0);
+        expect(fakeDesktopPaste.pasteCalls, 1);
+      }
     });
   });
 
