@@ -150,27 +150,31 @@ class AppDelegate: FlutterAppDelegate {
         title: args?["title"] as? String ?? "Restart WhisPaste",
         body: args?["body"] as? String ?? "",
         confirmLabel: args?["confirmLabel"] as? String ?? "Restart now"
-      ) { [weak self] in
+      ) { [weak self] _ in
         self?.performRelaunch()
       }
 
     case "showPermissionGrantAlert":
       // Generic always-on-top permission dialog for the startup gate. The
-      // native side owns nothing but the modal: on confirm it calls back
-      // into Dart with the alert id, and the registered Dart callback
-      // performs the actual action (deep-link, grant flow, …). Keeps every
+      // native side owns nothing but the modal: on dismissal it calls back
+      // into Dart with the alert id + the user's confirm/decline choice,
+      // and the registered Dart callback performs the actual action
+      // (deep-link, grant flow, or nothing on decline). Keeps every
       // recovery decision in one place (Dart) instead of splitting logic
-      // across the channel boundary.
+      // across the channel boundary. Always carries a decline button — a
+      // permission surface the user cannot dismiss is an HIG violation.
       let permissionArgs = call.arguments as? [String: Any]
       let alertId = permissionArgs?["id"] as? String ?? ""
       result(nil)
       presentAlwaysOnTopAlert(
         title: permissionArgs?["title"] as? String ?? "",
         body: permissionArgs?["body"] as? String ?? "",
-        confirmLabel: permissionArgs?["confirmLabel"] as? String ?? "OK"
-      ) { [weak self] in
+        confirmLabel: permissionArgs?["confirmLabel"] as? String ?? "OK",
+        cancelLabel: permissionArgs?["cancelLabel"] as? String
+      ) { [weak self] confirmed in
         self?.lifecycleChannel?.invokeMethod(
-          "permissionAlertConfirmed", arguments: ["id": alertId]
+          "permissionAlertConfirmed",
+          arguments: ["id": alertId, "confirmed": confirmed]
         )
       }
 
@@ -186,7 +190,7 @@ class AppDelegate: FlutterAppDelegate {
         title: manualArgs?["title"] as? String ?? "Check System Settings",
         body: manualArgs?["body"] as? String ?? "",
         confirmLabel: manualArgs?["confirmLabel"] as? String ?? "Open System Settings"
-      ) {
+      ) { _ in
         if let url = URL(
           string:
             "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
@@ -200,15 +204,20 @@ class AppDelegate: FlutterAppDelegate {
     }
   }
 
-  /// Shows an app-level, always-on-top single-action alert and runs [onConfirm]
-  /// when the user acknowledges it. Safe to call repeatedly: the
+  /// Shows an app-level, always-on-top alert and reports the user's choice
+  /// via [onDismiss] (`true` = confirm button). Safe to call repeatedly: the
   /// `restartAlertShowing` latch coalesces re-triggers into the single
   /// already-visible modal, so a re-derived "restart needed" can't stack a
-  /// second copy. Used for both the forced-restart modal (onConfirm relaunches)
-  /// and the manual-grant loop-exit alert (onConfirm opens System Settings).
+  /// second copy.
+  ///
+  /// [cancelLabel] is optional: the forced-restart and manual-grant alerts
+  /// stay deliberately single-action (they repair a state the user already
+  /// opted into), while the permission-grant dialogs always pass a decline
+  /// button — a permission surface the user cannot dismiss violates the HIG.
   private func presentAlwaysOnTopAlert(
     title: String, body: String, confirmLabel: String,
-    onConfirm: @escaping () -> Void
+    cancelLabel: String? = nil,
+    onDismiss: @escaping (Bool) -> Void
   ) {
     // Marshal onto the main thread — method-channel handlers already run
     // there, but this keeps the invariant explicit for the AppKit calls.
@@ -229,6 +238,9 @@ class AppDelegate: FlutterAppDelegate {
       alert.messageText = title
       alert.informativeText = body
       alert.addButton(withTitle: confirmLabel)
+      if let cancelLabel {
+        alert.addButton(withTitle: cancelLabel)
+      }
 
       // Realize the alert's window so its level can be raised above normal
       // windows — belt-and-suspenders for the tray-app case where the alert
@@ -237,12 +249,9 @@ class AppDelegate: FlutterAppDelegate {
       alert.window.level = .floating
       alert.window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
-      // Single-button alert: runModal returns on the only button. There is
-      // no "cancel" — per the product requirement the user does not get to
-      // dismiss it into nothing; the single action is the whole point.
-      alert.runModal()
+      let response = alert.runModal()
       self.restartAlertShowing = false
-      onConfirm()
+      onDismiss(response == .alertFirstButtonReturn)
     }
   }
 

@@ -146,41 +146,46 @@ class MacOSLifecycleChannel {
     confirmLabel: confirmLabel,
   );
 
-  /// Callbacks keyed by alert id, invoked when the native side reports the
-  /// user confirmed a [showPermissionGrantAlert] dialog (via the inbound
-  /// `permissionAlertConfirmed` channel call — see
-  /// [registerTerminationHandler]'s dispatch).
-  static final Map<String, void Function()> _permissionAlertCallbacks = {};
+  /// Callbacks keyed by alert id, invoked (with the user's confirm/decline
+  /// choice) when the native side reports a [showPermissionGrantAlert]
+  /// dialog was dismissed — via the inbound `permissionAlertConfirmed`
+  /// channel call, see [registerTerminationHandler]'s dispatch.
+  static final Map<String, void Function(bool confirmed)>
+  _permissionAlertCallbacks = {};
 
   /// Presents a native, always-on-top permission dialog (same
-  /// tray-app-proof `NSAlert` treatment as [showRestartRequiredAlert]) and
-  /// runs [onConfirm] on the Dart side once the user acknowledges it.
+  /// tray-app-proof `NSAlert` treatment as [showRestartRequiredAlert]) with
+  /// a confirm button and a decline button ([cancelLabel]) — per Apple's
+  /// HIG a permission surface must always be declinable. Runs [onDismiss]
+  /// on the Dart side with the user's choice.
   ///
-  /// Unlike the fixed-behavior restart/manual-grant alerts, confirming this
+  /// Unlike the fixed-behavior restart/manual-grant alerts, dismissing this
   /// one performs no native action — the native side calls back with [id]
-  /// and the registered [onConfirm] decides what happens (open a settings
-  /// pane, start a grant flow, …). Requires
+  /// and the registered [onDismiss] decides what happens (open a settings
+  /// pane, start a grant flow, or nothing on decline). Requires
   /// [registerTerminationHandler] to have been called (it owns the single
   /// inbound method-call handler).
   ///
-  /// Returns `true` when the alert was dispatched (so [onConfirm] can be
+  /// Returns `true` when the alert was dispatched (so [onDismiss] can be
   /// expected to fire eventually) and `false` when the channel call failed —
-  /// callers waiting on [onConfirm] must not block forever in that case.
+  /// callers waiting on [onDismiss] must not block forever in that case.
   static Future<bool> showPermissionGrantAlert({
     required String id,
     required String title,
     required String body,
     required String confirmLabel,
-    required void Function() onConfirm,
+    required String cancelLabel,
+    required void Function(bool confirmed) onDismiss,
   }) async {
     if (!Platform.isMacOS) return false;
-    _permissionAlertCallbacks[id] = onConfirm;
+    _permissionAlertCallbacks[id] = onDismiss;
     try {
       await _channel.invokeMethod('showPermissionGrantAlert', {
         'id': id,
         'title': title,
         'body': body,
         'confirmLabel': confirmLabel,
+        'cancelLabel': cancelLabel,
       });
       return true;
     } on PlatformException catch (e) {
@@ -242,9 +247,11 @@ class MacOSLifecycleChannel {
         // genuine second launch attempt would wrongly succeed as primary.
         await SingleInstanceService.ensureSingleInstance();
       } else if (call.method == 'permissionAlertConfirmed') {
-        final id = (call.arguments as Map?)?['id']?.toString();
+        final args = call.arguments as Map?;
+        final id = args?['id']?.toString();
+        final confirmed = args?['confirmed'] == true;
         final callback = _permissionAlertCallbacks.remove(id);
-        callback?.call();
+        callback?.call(confirmed);
       }
       return null;
     });

@@ -558,6 +558,9 @@ class L10nEn extends L10n {
   String get pasteManualGrantAlertConfirm => 'Open System Settings';
 
   @override
+  String get permissionAlertLaterButton => 'Not now';
+
+  @override
   String get micGateAlertTitle => 'Microphone access is missing';
 
   @override

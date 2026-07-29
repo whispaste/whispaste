@@ -1101,6 +1101,12 @@ abstract class L10n {
   /// **'Open System Settings'**
   String get pasteManualGrantAlertConfirm;
 
+  /// No description provided for @permissionAlertLaterButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Not now'**
+  String get permissionAlertLaterButton;
+
   /// No description provided for @micGateAlertTitle.
   ///
   /// In en, this message translates to:

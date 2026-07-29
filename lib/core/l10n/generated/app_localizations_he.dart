@@ -550,6 +550,9 @@ class L10nHe extends L10n {
   String get pasteManualGrantAlertConfirm => 'פתח את הגדרות המערכת';
 
   @override
+  String get permissionAlertLaterButton => 'לא עכשיו';
+
+  @override
   String get micGateAlertTitle => 'חסרה גישה למיקרופון';
 
   @override

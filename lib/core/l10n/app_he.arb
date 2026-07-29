@@ -188,6 +188,7 @@
   "pasteManualGrantAlertTitle": "ההפעלה מחדש לא עזרה",
   "pasteManualGrantAlertBody": "WhisPaste כבר הופעל מחדש, אך הרשאת ההדבקה האוטומטית עדיין אינה נכנסת לתוקף. בדוק תחת הגדרות המערכת → פרטיות ואבטחה → נגישות אם WhisPaste מופעל שם, והפעל מחדש את המתג במידת הצורך.",
   "pasteManualGrantAlertConfirm": "פתח את הגדרות המערכת",
+  "permissionAlertLaterButton": "לא עכשיו",
   "micGateAlertTitle": "חסרה גישה למיקרופון",
   "micGateAlertBody": "WhisPaste לא יכול להקליט ללא גישה למיקרופון. אשר כדי לפתוח את הגדרות המערכת → פרטיות ואבטחה → מיקרופון — הפעל שם את המתג עבור WhisPaste. WhisPaste מזהה את האישור שלך אוטומטית.",
   "micGateAlertBodyGeneric": "WhisPaste לא יכול להקליט ללא גישה למיקרופון. אנא אפשר ל-WhisPaste גישה למיקרופון בהגדרות הפרטיות של המערכת — WhisPaste מזהה את האישור שלך אוטומטית.",

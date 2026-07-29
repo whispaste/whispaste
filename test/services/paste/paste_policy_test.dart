@@ -78,4 +78,90 @@ void main() {
       );
     });
   });
+
+  group('afterTranscriptionActionPastes', () {
+    // The shared "does this user even use Auto-Paste" predicate. Every
+    // proactive Auto-Paste surface (startup gate, restart watch, TCC-reset
+    // notice) keys off it — a clipboard-only user (the factory default!)
+    // must never trigger any Auto-Paste permission UI.
+    test('paste-flavored actions paste', () {
+      expect(
+        afterTranscriptionActionPastes(AfterTranscriptionAction.paste),
+        isTrue,
+      );
+      expect(
+        afterTranscriptionActionPastes(
+          AfterTranscriptionAction.clipboardAndPaste,
+        ),
+        isTrue,
+      );
+    });
+
+    test('clipboard-only and nothing never paste', () {
+      expect(
+        afterTranscriptionActionPastes(AfterTranscriptionAction.clipboard),
+        isFalse,
+      );
+      expect(
+        afterTranscriptionActionPastes(AfterTranscriptionAction.nothing),
+        isFalse,
+      );
+    });
+
+    test('kill-switch build downgrades paste actions to not-pasting', () {
+      expect(
+        afterTranscriptionActionPastes(
+          AfterTranscriptionAction.paste,
+          autoPasteSupported: false,
+        ),
+        isFalse,
+      );
+    });
+  });
+
+  group('shouldShowAutoPasteRestartSurface', () {
+    // Regression for the live-reported bug: the app-level restart watch
+    // showed Auto-Paste modals to a clipboard-only user because it only
+    // guarded on platform + onboarding, never on "does this user paste".
+    test('requires ALL of needsRestart, onboarding done, and pasting', () {
+      expect(
+        shouldShowAutoPasteRestartSurface(
+          needsRestart: true,
+          onboardingCompleted: true,
+          userPastes: true,
+        ),
+        isTrue,
+      );
+    });
+
+    test('clipboard-only user never sees the restart surface', () {
+      expect(
+        shouldShowAutoPasteRestartSurface(
+          needsRestart: true,
+          onboardingCompleted: true,
+          userPastes: false,
+        ),
+        isFalse,
+      );
+    });
+
+    test('suppressed during onboarding and without restart need', () {
+      expect(
+        shouldShowAutoPasteRestartSurface(
+          needsRestart: true,
+          onboardingCompleted: false,
+          userPastes: true,
+        ),
+        isFalse,
+      );
+      expect(
+        shouldShowAutoPasteRestartSurface(
+          needsRestart: false,
+          onboardingCompleted: true,
+          userPastes: true,
+        ),
+        isFalse,
+      );
+    });
+  });
 }

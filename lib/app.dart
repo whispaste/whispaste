@@ -39,8 +39,7 @@ import 'core/recording/recording_state.dart';
 import 'core/data/database.dart';
 import 'core/logging/app_logger.dart';
 import 'core/logging/crash_reporter.dart';
-import 'core/config/settings_enums.dart'
-    show AfterTranscriptionAction, OnDeviceEngine;
+import 'core/config/settings_enums.dart' show OnDeviceEngine;
 import 'core/config/build_config.dart' show kAutoPasteSupported;
 import 'features/onboarding/mic_probe.dart'
     show MicProbeOutcome, OnboardingMicProbe;
@@ -302,7 +301,17 @@ class _AppShellState extends ConsumerState<_AppShell>
       if (_restartModalActive) return;
       final onboardingCompleted =
           ref.read(settingsProvider).value?.onboardingCompleted ?? false;
-      if (!onboardingCompleted) return;
+      // Single shared guard set (see shouldShowAutoPasteRestartSurface):
+      // clipboard-only users must never see any Auto-Paste modal — the
+      // permission is meaningless for them, no matter what stale state
+      // (restart marker, capability probes) is lying around.
+      if (!shouldShowAutoPasteRestartSurface(
+        needsRestart: needsRestart,
+        onboardingCompleted: onboardingCompleted,
+        userPastes: _userPastesAfterTranscription(),
+      )) {
+        return;
+      }
       _restartModalActive = true;
       // Second-attempt awareness: if a grant-driven restart ALREADY happened
       // (the cross-process marker is set) and we're back in "restart needed",
@@ -366,6 +375,10 @@ class _AppShellState extends ConsumerState<_AppShell>
     await capNotifier.hydrateRestartMarker();
     await capNotifier.check();
     if (!mounted) return;
+    // The probe above stays (it settles the capability state the startup
+    // gate reads), but the notice itself is an Auto-Paste surface — never
+    // show it to users whose after-transcription action doesn't paste.
+    if (!_userPastesAfterTranscription()) return;
     final capability = ref.read(pasteCapabilityNotifierProvider).capability;
     final onboardingCompleted =
         ref.read(settingsProvider).value?.onboardingCompleted ?? false;
@@ -462,41 +475,49 @@ class _AppShellState extends ConsumerState<_AppShell>
     }
   }
 
-  Future<void> _showMicGateGrantAlert() async {
-    if (!mounted) return;
+  /// Returns whether the user confirmed the guided fix. A decline (or a
+  /// failed native dispatch) aborts the recovery — Settings opening "out of
+  /// nowhere" without a confirmed dialog is exactly the kind of surprise
+  /// this flow must not produce.
+  Future<bool> _showMicGateGrantAlert() async {
+    if (!mounted) return false;
     final l10n = L10n.of(context);
     if (Platform.isMacOS) {
-      final confirmed = Completer<void>();
+      final choice = Completer<bool>();
       final dispatched = await MacOSLifecycleChannel.showPermissionGrantAlert(
         id: 'mic_gate',
         title: l10n.micGateAlertTitle,
         body: l10n.micGateAlertBody,
         confirmLabel: l10n.micGateAlertConfirm,
-        onConfirm: confirmed.complete,
+        cancelLabel: l10n.permissionAlertLaterButton,
+        onDismiss: choice.complete,
       );
-      // A failed dispatch must not hang the gate — fall through and open
-      // the settings pane anyway; the poll picks up a manual fix.
-      if (dispatched) await confirmed.future;
-      return;
+      if (!dispatched) return false;
+      return choice.future;
     }
     // Windows/Linux: no native always-on-top channel — surface the window
     // and use an in-app dialog instead.
     await windowManager.show();
     await windowManager.focus();
-    if (!mounted) return;
-    await showDialog<void>(
+    if (!mounted) return false;
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(l10n.micGateAlertTitle),
         content: Text(l10n.micGateAlertBodyGeneric),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(l10n.permissionAlertLaterButton),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
             child: Text(l10n.micGateAlertConfirm),
           ),
         ],
       ),
     );
+    return confirmed ?? false;
   }
 
   Future<void> _openMicPrivacySettings() async {
@@ -529,18 +550,23 @@ class _AppShellState extends ConsumerState<_AppShell>
     );
   }
 
+  /// Whether the current user's resolved after-transcription action
+  /// actually injects keystrokes. The one predicate all three proactive
+  /// Auto-Paste surfaces (startup gate, restart watch, TCC-reset notice)
+  /// share — see [afterTranscriptionActionPastes]. Unloaded settings count
+  /// as "doesn't paste": the factory default is clipboard-only, and a
+  /// permission dialog must never fire on a guess.
+  bool _userPastesAfterTranscription() {
+    final settings = ref.read(settingsProvider).value;
+    if (settings == null) return false;
+    return afterTranscriptionActionPastes(settings.afterTranscriptionAction);
+  }
+
   /// Collapses settings + capability state into the gate's Auto-Paste view.
   /// Users whose after-transcription action never pastes (clipboard-only /
   /// nothing) are deliberately not nagged about a permission they don't use.
   Future<AutoPasteGateStatus> _readAutoPasteGateStatus() async {
-    final settings = ref.read(settingsProvider).value;
-    final action = resolveAfterTranscriptionAction(
-      settings?.afterTranscriptionAction ?? AfterTranscriptionAction.paste,
-    );
-    final pastes =
-        action == AfterTranscriptionAction.paste ||
-        action == AfterTranscriptionAction.clipboardAndPaste;
-    if (!pastes) return AutoPasteGateStatus.notNeeded;
+    if (!_userPastesAfterTranscription()) return AutoPasteGateStatus.notNeeded;
 
     final notifier = ref.read(pasteCapabilityNotifierProvider.notifier);
     var capability = ref.read(pasteCapabilityNotifierProvider).capability;
@@ -559,18 +585,22 @@ class _AppShellState extends ConsumerState<_AppShell>
         : AutoPasteGateStatus.missing;
   }
 
-  Future<void> _showAutoPasteGateGrantAlert() async {
-    if (!mounted) return;
+  /// Returns whether the user confirmed; decline or dispatch failure abort
+  /// the grant flow (no Settings pane, no polling, no restart chain).
+  Future<bool> _showAutoPasteGateGrantAlert() async {
+    if (!mounted) return false;
     final l10n = L10n.of(context);
-    final confirmed = Completer<void>();
+    final choice = Completer<bool>();
     final dispatched = await MacOSLifecycleChannel.showPermissionGrantAlert(
       id: 'autopaste_gate',
       title: l10n.autoPasteGateAlertTitle,
       body: l10n.autoPasteGateAlertBody,
       confirmLabel: l10n.autoPasteGateAlertConfirm,
-      onConfirm: confirmed.complete,
+      cancelLabel: l10n.permissionAlertLaterButton,
+      onDismiss: choice.complete,
     );
-    if (dispatched) await confirmed.future;
+    if (!dispatched) return false;
+    return choice.future;
   }
 
   @override

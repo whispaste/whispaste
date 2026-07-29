@@ -71,6 +71,11 @@ enum MicGateOutcome {
   /// ever seeing the grant. Nothing more this session; the gate re-runs on
   /// the next start.
   unresolved,
+
+  /// The user declined the guided recovery ("Not now") — nothing was
+  /// opened, nothing polls. Per Apple's HIG every permission surface must
+  /// be declinable; the gate simply re-offers on the next start.
+  declined,
 }
 
 /// How the Auto-Paste leg of the gate ended.
@@ -88,6 +93,11 @@ enum AutoPasteGateOutcome {
   /// missing — the honest manual-grant loop-exit alert was shown instead of
   /// forcing another restart cycle.
   manualAlertShown,
+
+  /// The user declined the guided grant alert ("Not now") — no Settings
+  /// pane, no grant flow. Re-offered on the next start while Auto-Paste
+  /// stays enabled.
+  declined,
 }
 
 /// Combined result, mainly for tests and breadcrumbs.
@@ -136,8 +146,11 @@ class MicGateHooks {
   /// start — no surprise orange-dot mic indicator at every launch).
   final Future<bool> Function() verifyCapture;
 
-  /// Presents the "microphone access missing" dialog; resolves on confirm.
-  final Future<void> Function() showGrantAlert;
+  /// Presents the "microphone access missing" dialog. Resolves `true` when
+  /// the user confirms the guided fix, `false` when they decline ("Not
+  /// now") — declining must abort the whole recovery (no Settings pane, no
+  /// polling).
+  final Future<bool> Function() showGrantAlert;
 
   /// Deep-links to the OS microphone privacy pane.
   final Future<void> Function() openSettings;
@@ -160,9 +173,10 @@ class AutoPasteGateHooks {
   /// resolving.
   final Future<AutoPasteGateStatus> Function() readStatus;
 
-  /// Presents the "one switch missing for auto-insert" dialog; resolves on
-  /// confirm.
-  final Future<void> Function() showGrantAlert;
+  /// Presents the "one switch missing for auto-insert" dialog. Resolves
+  /// `true` on confirm, `false` on decline ("Not now") — declining must
+  /// abort the grant flow entirely.
+  final Future<bool> Function() showGrantAlert;
 
   /// Hands off to `PasteCapabilityNotifier.requestGrant()` — fires the OS
   /// request (registers the correct Settings toggle), opens the exact pane,
@@ -220,7 +234,10 @@ class StartupPermissionGate {
 
       // Denied. The OS will never show its own dialog again — guide the
       // user to the one toggle only they can flip, then detect it for them.
-      await mic.showGrantAlert();
+      // Declinable per HIG; a decline ends the leg with no side effects.
+      if (!await mic.showGrantAlert()) {
+        return MicGateOutcome.declined;
+      }
       await mic.openSettings();
 
       final granted = await _pollForMicGrant();
@@ -262,7 +279,9 @@ class StartupPermissionGate {
           await hooks.showManualGrantAlert();
           return AutoPasteGateOutcome.manualAlertShown;
         case AutoPasteGateStatus.missing:
-          await hooks.showGrantAlert();
+          if (!await hooks.showGrantAlert()) {
+            return AutoPasteGateOutcome.declined;
+          }
           await hooks.startGrantFlow();
           return AutoPasteGateOutcome.grantFlowStarted;
       }

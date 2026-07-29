@@ -31,3 +31,41 @@ AfterTranscriptionAction resolveAfterTranscriptionAction(
     AfterTranscriptionAction.nothing => action,
   };
 }
+
+/// The single "does this user even use Auto-Paste" predicate.
+///
+/// Every *proactive* Auto-Paste permission surface — the startup gate, the
+/// app-level restart watch, and the TCC-reset notice — must consult this
+/// before showing any UI. A user whose resolved after-transcription action
+/// never injects keystrokes (clipboard-only / nothing, which is also the
+/// factory default) has no use for the permission, and per Apple's HIG a
+/// permission may only be requested "when people are using features that
+/// clearly need" it. Centralized here so the check cannot drift apart
+/// between surfaces again.
+bool afterTranscriptionActionPastes(
+  AfterTranscriptionAction action, {
+  bool autoPasteSupported = kAutoPasteSupported,
+}) {
+  return switch (resolveAfterTranscriptionAction(
+    action,
+    autoPasteSupported: autoPasteSupported,
+  )) {
+    AfterTranscriptionAction.paste ||
+    AfterTranscriptionAction.clipboardAndPaste => true,
+    AfterTranscriptionAction.clipboard ||
+    AfterTranscriptionAction.nothing => false,
+  };
+}
+
+/// Pure decision for the app-level Auto-Paste restart watch: whether the
+/// forced-restart / manual-grant modal may fire for the current state.
+/// Extracted from the widget listener so the guard set is unit-testable —
+/// the missing [userPastes] condition here is exactly the bug that showed
+/// Auto-Paste dialogs to clipboard-only users.
+bool shouldShowAutoPasteRestartSurface({
+  required bool needsRestart,
+  required bool onboardingCompleted,
+  required bool userPastes,
+}) {
+  return needsRestart && onboardingCompleted && userPastes;
+}

@@ -198,6 +198,7 @@
   "pasteManualGrantAlertTitle": "The restart didn't help",
   "pasteManualGrantAlertBody": "WhisPaste already restarted, but the Auto-Paste permission still isn't taking effect. Please check under System Settings → Privacy & Security → Accessibility whether WhisPaste is switched on there, and re-enable the toggle if needed.",
   "pasteManualGrantAlertConfirm": "Open System Settings",
+  "permissionAlertLaterButton": "Not now",
   "micGateAlertTitle": "Microphone access is missing",
   "micGateAlertBody": "WhisPaste can't record without microphone access. Confirm to open System Settings → Privacy & Security → Microphone — enable the switch for WhisPaste there. WhisPaste detects your approval automatically.",
   "micGateAlertBodyGeneric": "WhisPaste can't record without microphone access. Please allow microphone access for WhisPaste in your system's privacy settings — WhisPaste detects your approval automatically.",

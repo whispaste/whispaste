@@ -13,6 +13,8 @@ class _GateHarness {
   List<bool> promptedReads = [false];
   bool captureWorks = true;
   bool micGrantAlertThrows = false;
+  bool micGrantAlertConfirmed = true;
+  bool autoPasteGrantAlertConfirmed = true;
 
   AutoPasteGateStatus autoPasteStatus = AutoPasteGateStatus.notNeeded;
 
@@ -40,6 +42,7 @@ class _GateHarness {
     showGrantAlert: () async {
       calls.add('mic.grantAlert');
       if (micGrantAlertThrows) throw StateError('channel down');
+      return micGrantAlertConfirmed;
     },
     openSettings: () async => calls.add('mic.openSettings'),
     showRestartAlert: () async => calls.add('mic.restartAlert'),
@@ -50,7 +53,10 @@ class _GateHarness {
       calls.add('ap.readStatus');
       return autoPasteStatus;
     },
-    showGrantAlert: () async => calls.add('ap.grantAlert'),
+    showGrantAlert: () async {
+      calls.add('ap.grantAlert');
+      return autoPasteGrantAlertConfirmed;
+    },
     startGrantFlow: () async => calls.add('ap.startGrantFlow'),
     showManualGrantAlert: () async => calls.add('ap.manualAlert'),
   );
@@ -137,6 +143,22 @@ void main() {
       expect(h.calls, isNot(contains('mic.restartAlert')));
     });
 
+    test(
+      'declining the guided fix ends the leg with zero side effects',
+      () async {
+        final h = _GateHarness()
+          ..statusReads = [false]
+          ..promptedReads = [false]
+          ..micGrantAlertConfirmed = false;
+        final result = await h.gate(withAutoPaste: false).run();
+
+        expect(result.mic, MicGateOutcome.declined);
+        expect(h.calls, isNot(contains('mic.openSettings')));
+        expect(h.calls, isNot(contains('mic.verifyCapture')));
+        expect(h.calls, isNot(contains('mic.restartAlert')));
+      },
+    );
+
     test('a throwing hook degrades to unresolved, never rethrows', () async {
       final h = _GateHarness()
         ..statusReads = [false]
@@ -192,6 +214,17 @@ void main() {
 
       expect(result.autoPaste, AutoPasteGateOutcome.manualAlertShown);
       expect(h.calls, contains('ap.manualAlert'));
+      expect(h.calls, isNot(contains('ap.startGrantFlow')));
+    });
+
+    test('declining the grant alert never starts the grant flow', () async {
+      final h = _GateHarness()
+        ..statusReads = [true]
+        ..autoPasteStatus = AutoPasteGateStatus.missing
+        ..autoPasteGrantAlertConfirmed = false;
+      final result = await h.gate().run();
+
+      expect(result.autoPaste, AutoPasteGateOutcome.declined);
       expect(h.calls, isNot(contains('ap.startGrantFlow')));
     });
 

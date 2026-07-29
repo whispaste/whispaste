@@ -179,6 +179,7 @@
   "pasteManualGrantAlertTitle": "Neustart hat nicht geholfen",
   "pasteManualGrantAlertBody": "WhisPaste wurde bereits neu gestartet, aber die Auto-Einfügen-Berechtigung greift immer noch nicht. Bitte prüfe in den Systemeinstellungen unter Datenschutz & Sicherheit → Bedienungshilfen, ob WhisPaste dort aktiviert ist, und aktiviere den Schalter bei Bedarf neu.",
   "pasteManualGrantAlertConfirm": "Systemeinstellungen öffnen",
+  "permissionAlertLaterButton": "Später",
   "micGateAlertTitle": "Mikrofonzugriff fehlt",
   "micGateAlertBody": "Ohne Mikrofonzugriff kann WhisPaste nichts aufnehmen. Bestätige, um Systemeinstellungen → Datenschutz & Sicherheit → Mikrofon zu öffnen — aktiviere dort den Schalter für WhisPaste. Deine Freigabe erkennt WhisPaste automatisch.",
   "micGateAlertBodyGeneric": "Ohne Mikrofonzugriff kann WhisPaste nichts aufnehmen. Bitte erlaube WhisPaste den Mikrofonzugriff in den Datenschutz-Einstellungen deines Systems — deine Freigabe erkennt WhisPaste automatisch.",

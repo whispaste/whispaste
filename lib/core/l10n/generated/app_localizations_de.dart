@@ -561,6 +561,9 @@ class L10nDe extends L10n {
   String get pasteManualGrantAlertConfirm => 'Systemeinstellungen öffnen';
 
   @override
+  String get permissionAlertLaterButton => 'Später';
+
+  @override
   String get micGateAlertTitle => 'Mikrofonzugriff fehlt';
 
   @override
