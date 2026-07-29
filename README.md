@@ -7,7 +7,8 @@
 <p align="center">
   <strong>Press. Speak. Done.</strong><br>
   Stop typing — speak, and your words land at the cursor in any app.<br>
-  Offline by default · Windows · macOS · Linux · MIT-licensed.
+  A free, open-source <a href="https://github.com/ggml-org/whisper.cpp">Whisper</a> desktop app — 100% local speech-to-text, no cloud, no subscription.<br>
+  Windows · macOS · Linux · MIT-licensed.
 </p>
 
 <p align="center">
@@ -99,7 +100,7 @@ flutter build macos   --release --no-tree-shake-icons \
 
 ## Privacy
 
-- **Local mode** — audio never leaves your device
+- **Local mode** (offline speech recognition) — audio never leaves your device
 - **Cloud mode** — audio goes directly to your selected provider, not through WhisPaste servers
 - **No account required** — usage analytics are anonymous, self-hosted, and opt-out; optional crash reporting can be turned off
 - **Open source** — audit every line
