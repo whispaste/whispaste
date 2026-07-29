@@ -1163,6 +1163,32 @@ class HistoryDatabase extends _$HistoryDatabase {
     );
   }
 
+  /// Debug-only: links a retained dictation WAV to its history [entryId] as
+  /// an [EntryAttachment], so a diagnosis session can later pull the exact
+  /// audio Whisper received for a given transcript. Gated by
+  /// `kRetainDebugAudio` at the call site — this method itself does not
+  /// check the flag.
+  Future<void> insertDebugAudioAttachment({
+    required String entryId,
+    required String filePath,
+    required int sizeBytes,
+  }) {
+    final id = '${DateTime.now().millisecondsSinceEpoch}-debug-audio';
+    return _writeCoordinator.write<void>(
+      () => into(entryAttachments).insertOnConflictUpdate(
+        EntryAttachmentsCompanion.insert(
+          id: id,
+          entryId: entryId,
+          filename: p.basename(filePath),
+          filepath: filePath,
+          mimeType: const Value('audio/wav'),
+          sizeBytes: Value(sizeBytes),
+          createdAt: DateTime.now(),
+        ),
+      ),
+    );
+  }
+
   /// Duplicate an entry with a new ID and "(copy)" title suffix.
   Future<HistoryEntry?> duplicateEntry(String entryId) {
     return _writeCoordinator.write<HistoryEntry?>(() async {

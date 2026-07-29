@@ -95,6 +95,33 @@ void _ensureWindowsDllSearchPath(String libraryPath) {
   }
 }
 
+/// One segment whisper.cpp emitted for a [WhisperFfiEngine.transcribe] call.
+///
+/// [startMs]/[endMs] are `null` unless that call passed
+/// `includeTimestamps: true` — see [WhisperFfiEngine.transcribe]'s doc
+/// comment for why they're otherwise meaningless sentinels rather than real
+/// timestamps — or if the bundled `libwhisper` predates the
+/// `whisper_full_get_segment_t0/t1` symbols (see
+/// [WhisperFfiEngine._resolveSegmentTimestampLookups]).
+class WhisperSegment {
+  const WhisperSegment({
+    required this.index,
+    required this.startMs,
+    required this.endMs,
+    required this.text,
+  });
+
+  final int index;
+  final int? startMs;
+  final int? endMs;
+  final String text;
+
+  @override
+  String toString() => startMs != null
+      ? 'WhisperSegment[$index] ${startMs}ms-${endMs}ms: $text'
+      : 'WhisperSegment[$index]: $text';
+}
+
 /// Loads `libwhisper` in-process and transcribes 16 kHz mono WAV bytes.
 ///
 /// [transcribe] runs synchronously on the calling isolate — acceptable here
@@ -111,6 +138,23 @@ class WhisperFfiEngine implements WhisperEngine {
   WhisperBindings? _bindings;
   ffi.Pointer<whisper_context>? _ctx;
   String? _errorMessage;
+
+  /// Raw lookups for `whisper_full_get_segment_t0/t1` — not covered by the
+  /// ffigen-generated [WhisperBindings] (`whisper_bindings.dart`, do-not-edit).
+  /// Resolved once in [load]; `null` if the symbol is missing from an older
+  /// bundled `libwhisper` build, in which case [_logSegments] degrades to
+  /// segment count + text length only. Diagnostic-only — see [_logSegments].
+  int Function(ffi.Pointer<whisper_context>, int)? _segmentT0;
+  int Function(ffi.Pointer<whisper_context>, int)? _segmentT1;
+
+  /// Per-segment breakdown of the most recent [transcribe] call. Populated
+  /// by [_logSegments]; empty before the first call or if the last call
+  /// failed before segment assembly. Exposed (read-only) so diagnostic
+  /// tooling — see `test/services/stt/whisper/transcribe_debug_harness_test.dart`
+  /// — can inspect segment boundaries/text directly without depending on
+  /// [AppLogger] being initialized. Not used by any production call site.
+  List<WhisperSegment> get lastSegments => List.unmodifiable(_lastSegments);
+  List<WhisperSegment> _lastSegments = const [];
 
   @override
   WhisperEngineStatus get status => WhisperEngineStatus(
@@ -134,6 +178,7 @@ class WhisperFfiEngine implements WhisperEngine {
       _ensureBackendsLoaded(dylib, _libraryPath);
       final bindings = WhisperBindings.fromLookup(dylib.lookup);
       _ensureLogCallbackRegistered(bindings);
+      _resolveSegmentTimestampLookups(dylib);
       final cparams = bindings.whisper_context_default_params();
       cparams.use_gpu = _backend != WhisperBackend.cpu;
       final pathC = modelPath.toNativeUtf8();
@@ -249,11 +294,91 @@ class WhisperFfiEngine implements WhisperEngine {
     _backendsLoaded = true;
   }
 
+  /// Best-effort lookup of `whisper_full_get_segment_t0/t1`, used only by
+  /// [_logSegments] to diagnose dropped-sentence reports (see that method's
+  /// doc comment). Never throws — an older bundled `libwhisper` missing
+  /// these symbols just means segment logging falls back to count + text
+  /// length, which is still a useful signal on its own.
+  void _resolveSegmentTimestampLookups(ffi.DynamicLibrary dylib) {
+    try {
+      _segmentT0 = dylib
+          .lookupFunction<
+            ffi.Int64 Function(ffi.Pointer<whisper_context>, ffi.Int32),
+            int Function(ffi.Pointer<whisper_context>, int)
+          >('whisper_full_get_segment_t0');
+      _segmentT1 = dylib
+          .lookupFunction<
+            ffi.Int64 Function(ffi.Pointer<whisper_context>, ffi.Int32),
+            int Function(ffi.Pointer<whisper_context>, int)
+          >('whisper_full_get_segment_t1');
+    } on ArgumentError {
+      _segmentT0 = null;
+      _segmentT1 = null;
+    }
+  }
+
+  /// Logs each segment whisper.cpp produced for the current [transcribe]
+  /// call, at debug level.
+  ///
+  /// Added to diagnose intermittent "transcription swallowed a sentence"
+  /// reports: the app sends the *whole* recording to a single `whisper_full`
+  /// call (no app-level chunking, see `CONTEXT.md` §4.2) and simply
+  /// concatenates every segment's text — so a dropped sentence must show up
+  /// here as either a missing segment (a timestamp gap vs. the next
+  /// segment's t0) or as fewer segments than the audio's duration would
+  /// suggest. Debug-level: invisible in release-build logs (see
+  /// `app_logger.dart`'s `kReleaseMode` level gate) so this never adds
+  /// per-segment noise to a normal user's log file; visible during a
+  /// diagnosis session run in debug mode.
+  ///
+  /// [includeTimestamps] must mirror the same-named [transcribe] parameter:
+  /// `whisper_full_get_segment_t0/t1` only return real values when whisper
+  /// was actually asked to compute them (`params.no_timestamps = false`).
+  /// With the production default (`no_timestamps = true`), both getters
+  /// return a fixed sentinel pair instead of failing or returning zero —
+  /// confirmed empirically (2026-07-29) by comparing two completely
+  /// different audio clips and getting byte-identical "timestamps" back —
+  /// so timestamps are only recorded/logged when [includeTimestamps] is
+  /// `true`; otherwise segments carry `null` start/end rather than that
+  /// misleading sentinel.
+  void _logSegments(
+    WhisperBindings bindings,
+    ffi.Pointer<whisper_context> ctx, {
+    required bool includeTimestamps,
+  }) {
+    final n = bindings.whisper_full_n_segments(ctx);
+    final t0 = includeTimestamps ? _segmentT0 : null;
+    final t1 = includeTimestamps ? _segmentT1 : null;
+    final segments = <WhisperSegment>[];
+    for (var i = 0; i < n; i++) {
+      final textPtr = bindings.whisper_full_get_segment_text(ctx, i);
+      final text = textPtr.cast<Utf8>().toDartString();
+      if (t0 != null && t1 != null) {
+        // whisper.cpp reports t0/t1 in centiseconds (10 ms units).
+        final startMs = t0(ctx, i) * 10;
+        final endMs = t1(ctx, i) * 10;
+        segments.add(
+          WhisperSegment(index: i, startMs: startMs, endMs: endMs, text: text),
+        );
+        _log.debug(
+          'segment[$i/$n] ${startMs}ms-${endMs}ms textLen=${text.length}',
+        );
+      } else {
+        segments.add(
+          WhisperSegment(index: i, startMs: null, endMs: null, text: text),
+        );
+        _log.debug('segment[$i/$n] textLen=${text.length}');
+      }
+    }
+    _lastSegments = segments;
+  }
+
   @override
   Future<String> transcribe(
     List<int> wavBytes, {
     String? language,
     String? prompt,
+    bool includeTimestamps = false,
   }) async {
     final bindings = _bindings;
     final ctx = _ctx;
@@ -280,13 +405,69 @@ class WhisperFfiEngine implements WhisperEngine {
       params.print_realtime = false;
       params.print_timestamps = false;
       params.print_special = false;
-      params.no_timestamps = true;
+      // [includeTimestamps] defaults to `false` (`no_timestamps = true`,
+      // unchanged production behaviour) because computing real per-segment
+      // t0/t1 costs extra decode time the app doesn't need for plain text
+      // output. Confirmed empirically (2026-07-29, diagnosis session): with
+      // `no_timestamps = true`, `whisper_full_get_segment_t0/t1` do NOT
+      // return real timestamps — they return a fixed sentinel pair (t1 ==
+      // `WHISPER_CHUNK_SIZE` exactly, in whisper_bindings.dart) identical
+      // across totally different audio, so [WhisperSegment.startMs]/[endMs]
+      // are only meaningful when this flag is `true`. Only the diagnosis
+      // harness (`transcribe_debug_harness_test.dart`) passes `true`; no
+      // production call site does, so this is a pure opt-in addition.
+      params.no_timestamps = !includeTimestamps;
       params.translate = false;
       params.language = languageC.cast<ffi.Char>();
       params.n_threads = _threadCount();
       if (promptC != null) {
         params.initial_prompt = promptC.cast<ffi.Char>();
       }
+
+      // ── Quality/hallucination hardening (2026-07-29 diagnosis) ─────────
+      // Investigated real dictations for "swallowed sentence" reports:
+      // history.db shows the app is mostly transcribing cleanly, but a
+      // small recurring artifact appears — a short, ungrammatical fragment
+      // tacked on right after the real content already reads complete
+      // (e.g. "...tatsächlich dauert. funktionieren."). That shape matches
+      // whisper.cpp's documented "hallucination on trailing silence/noise"
+      // failure class (see ggml-org/whisper.cpp issues #1724, #1026;
+      // discussion #2286) rather than app-level chunking (there is none —
+      // the whole recording goes through one `whisper_full` call).
+      //
+      // Two settings the app never touched, left at whisper.cpp's
+      // built-in defaults, both cross-referenced against the actual
+      // decode source (`.build/deps/whisper.cpp/v1.8.4/src/whisper.cpp`)
+      // before changing:
+      //
+      // 1. `suppress_nst` (default `false`) — suppresses a fixed table of
+      //    symbol/bracket/music-note tokens during decoding (not real
+      //    words). OpenAI's reference Python implementation suppresses
+      //    these by default; whisper.cpp does not unless asked. Zero risk
+      //    to real speech — enabling it.
+      //
+      // 2. `temperature_inc` (default `0.2`) — when a decode pass fails
+      //    whisper's own confidence gates (`entropy_thold`/`logprob_thold`),
+      //    whisper.cpp retries at increasing temperature (more randomness)
+      //    up to 1.0. This escalation is whisper.cpp's own documented
+      //    hallucination lever: low-confidence audio (e.g. trailing
+      //    breath/room tone after real speech ends) is exactly what fails
+      //    those gates, and a higher-temperature retry is more likely to
+      //    produce a fluent-sounding but fabricated word than the initial
+      //    greedy pass — the "--no-fallback" mitigation documented in
+      //    whisper.cpp discussion #1087. Setting `temperature_inc = 0.0`
+      //    disables the escalation entirely (confirmed in source: the
+      //    fallback loop at whisper.cpp:6845 only runs `if
+      //    (params.temperature_inc > 0.0f)`), so every clip gets exactly
+      //    one deterministic greedy pass at `temperature = 0.0`.
+      //    Trade-off: genuinely ambiguous *real* speech (heavy accent,
+      //    overlapping noise) loses the extra attempts that might have
+      //    decoded it better — accepted here because greedy-only was
+      //    already the app's default behaviour for the pass that succeeds
+      //    99%+ of the time, and the fallback ladder existing at all is
+      //    the more likely source of confident-sounding fabricated text.
+      params.suppress_nst = true;
+      params.temperature_inc = 0.0;
 
       final rc = bindings.whisper_full(ctx, params, samplesPtr, samples.length);
       if (rc != 0) {
@@ -301,6 +482,8 @@ class WhisperFfiEngine implements WhisperEngine {
           'whisper_full failed with code $rc',
         );
       }
+
+      _logSegments(bindings, ctx, includeTimestamps: includeTimestamps);
 
       final buffer = StringBuffer();
       final segments = bindings.whisper_full_n_segments(ctx);

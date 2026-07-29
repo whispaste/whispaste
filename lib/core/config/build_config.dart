@@ -44,3 +44,23 @@ const bool kIsMasBuild = bool.fromEnvironment(
 /// before this feature existed — see [resolveAfterTranscriptionAction] in
 /// `lib/services/paste/paste_policy.dart`.
 const bool kAutoPasteSupported = true;
+
+/// Debug-only: when `true`, the dictation WAV is kept on disk after
+/// transcription (instead of being deleted immediately, see
+/// `RecordingOrchestrator.stopRecording`'s cleanup step) and linked to its
+/// history entry as an [EntryAttachment].
+///
+/// This exists to diagnose intermittent "transcription dropped a sentence"
+/// reports: without a retained copy of the exact audio Whisper received,
+/// a one-off drop cannot be replayed through the offline test harness to
+/// tell capture-side (mic/noise-suppression) issues apart from
+/// inference-side (model/prompt/decoding) ones. Defaults to `false` so
+/// normal builds never accumulate extra audio on disk. Enable for a
+/// diagnosis session with:
+/// ```sh
+/// flutter build macos --release --dart-define=WHISPASTE_RETAIN_DEBUG_AUDIO=true
+/// ```
+const bool kRetainDebugAudio = bool.fromEnvironment(
+  'WHISPASTE_RETAIN_DEBUG_AUDIO',
+  defaultValue: false,
+);

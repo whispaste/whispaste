@@ -12,6 +12,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
+import '../core/config/build_config.dart';
 import '../core/config/settings_enums.dart';
 import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
@@ -413,9 +414,17 @@ class RecordingOrchestrator extends Notifier<void> {
       _logPipelineSummary(sid, pipelineSw, timing);
       _trackPipelineOutcome(timing, pipelineSw.elapsedMilliseconds);
 
-      // Always clean up the temp WAV file.
+      // Always clean up the temp WAV file — unless a diagnosis session has
+      // opted into keeping it (see [kRetainDebugAudio]'s doc comment for
+      // why: an intermittent transcription drop can only be replayed
+      // through the offline harness if the exact audio Whisper received
+      // survives past this cleanup step).
       if (wavPath != null) {
-        await ref.read(audioServiceProvider.notifier).cleanupFile(wavPath);
+        if (kRetainDebugAudio) {
+          _log.info('[$sid] kRetainDebugAudio active — kept WAV at $wavPath');
+        } else {
+          await ref.read(audioServiceProvider.notifier).cleanupFile(wavPath);
+        }
       }
 
       // Release the re-entry guard only after cleanup completes, so a
@@ -579,6 +588,7 @@ class RecordingOrchestrator extends Notifier<void> {
     return _handleTranscribeResult(
       result: transcribeResult,
       sid: sid,
+      wavPath: wavPath,
       sttBundle: sttBundle,
       audioDurMs: audioDurMs,
       timeoutSec: timeoutSec,
@@ -673,6 +683,7 @@ class RecordingOrchestrator extends Notifier<void> {
   Future<bool> _handleTranscribeResult({
     required StepResult<String> result,
     required String sid,
+    required String wavPath,
     required EngineLifecycleStatus sttBundle,
     required int audioDurMs,
     required int timeoutSec,
@@ -759,6 +770,7 @@ class RecordingOrchestrator extends Notifier<void> {
         return _finalizeTranscription(
           sid: sid,
           transcript: value,
+          wavPath: wavPath,
           audioDurMs: audioDurMs,
           settings: settings,
           runner: runner,
@@ -775,6 +787,7 @@ class RecordingOrchestrator extends Notifier<void> {
   Future<bool> _finalizeTranscription({
     required String sid,
     required String transcript,
+    required String wavPath,
     required int audioDurMs,
     required AppSettings settings,
     required PipelineStepRunner runner,
@@ -820,6 +833,7 @@ class RecordingOrchestrator extends Notifier<void> {
           Duration(milliseconds: audioDurMs),
           settings,
           (timing.transcribeMs ?? 0) ~/ 1000,
+          wavPath,
         ),
         timeout: const Duration(seconds: 5),
       );
@@ -1233,6 +1247,7 @@ class RecordingOrchestrator extends Notifier<void> {
     Duration audioDuration,
     AppSettings settings,
     int processingDurationSec,
+    String wavPath,
   ) async {
     try {
       final store = ref.read(recordingStoreProvider);
@@ -1263,6 +1278,14 @@ class RecordingOrchestrator extends Notifier<void> {
         );
       }
 
+      // Debug-only: link the retained WAV to this entry so a diagnosis
+      // session can pull the exact audio Whisper received for this
+      // transcript. Best-effort — a failure here must not fail the save
+      // that already succeeded above.
+      if (kRetainDebugAudio) {
+        await _linkDebugAudioAttachment(saved.entryId, wavPath);
+      }
+
       // Refresh analytics dashboard so counters update immediately.
       ref.invalidate(analyticsProvider);
 
@@ -1270,6 +1293,28 @@ class RecordingOrchestrator extends Notifier<void> {
     } on Exception catch (e) {
       _log.error('Failed to save to history: $e');
       return null;
+    }
+  }
+
+  /// Debug-only helper for [_saveToHistory]: records [wavPath]'s size and
+  /// links it to [entryId] via [HistoryDatabase.insertDebugAudioAttachment].
+  /// Swallows its own errors — a missing/unreadable WAV must not fail the
+  /// already-successful history save.
+  Future<void> _linkDebugAudioAttachment(String entryId, String wavPath) async {
+    try {
+      final file = File(wavPath);
+      if (!await file.exists()) return;
+      final sizeBytes = await file.length();
+      await ref
+          .read(historyDatabaseProvider)
+          .insertDebugAudioAttachment(
+            entryId: entryId,
+            filePath: wavPath,
+            sizeBytes: sizeBytes,
+          );
+      _log.info('kRetainDebugAudio: linked $wavPath to entry $entryId');
+    } on Exception catch (e) {
+      _log.warning('kRetainDebugAudio: failed to link WAV attachment: $e');
     }
   }
 

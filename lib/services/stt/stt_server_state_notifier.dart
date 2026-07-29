@@ -442,9 +442,19 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     }
 
     stopwatch.stop();
+    // charsPerSec is the fastest drop signal for diagnosing "transcription
+    // swallowed part of the audio": a healthy dictation lands around
+    // 10-20 chars/sec (German/English speech), so a value far below that
+    // for a longer clip flags a likely dropped segment worth pulling from
+    // history.db and cross-checking against the retained WAV
+    // (kRetainDebugAudio, see build_config.dart).
+    final charsPerSec = audioDurationMs > 0
+        ? (rawText.length / (audioDurationMs / 1000)).toStringAsFixed(1)
+        : 'n/a';
     _log.info(
       'STT inference response: duration=${stopwatch.elapsedMilliseconds}ms '
-      'textLen=${rawText.length}',
+      'textLen=${rawText.length} audioDurationMs=$audioDurationMs '
+      'charsPerSec=$charsPerSec',
     );
 
     var text = rawText.trim();
