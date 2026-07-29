@@ -11,6 +11,7 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
 
 import '../core/config/settings_enums.dart';
 import '../core/config/settings_provider.dart';
@@ -1461,8 +1462,12 @@ class RecordingOrchestrator extends Notifier<void> {
       return;
     }
 
-    // In the sandboxed Mac App Store build, simulated paste is unavailable, so
-    // paste actions are downgraded to clipboard-only (user pastes with ⌘V).
+    // resolveAfterTranscriptionAction downgrades paste/type actions to
+    // clipboard-only ONLY if kAutoPasteSupported is false — currently true
+    // unconditionally, MAS included (see build_config.dart): the sandboxed
+    // Mac App Store build types via the sandbox-compatible PostEvent TCC
+    // service instead of the Accessibility API, so simulated text-insertion
+    // works there too, not just on the Developer-ID build.
     final action = resolveAfterTranscriptionAction(
       settings.afterTranscriptionAction,
     );
@@ -1598,11 +1603,22 @@ class RecordingOrchestrator extends Notifier<void> {
 
     // Fire out-of-app surfaces (dock-bounce + native notification + tray
     // badge) so the user sees the failure even when the main window is
-    // hidden — the common case for WhisPaste.
+    // hidden — the common case for WhisPaste. permissionMissing gets a
+    // click-through straight to the Accessibility pane: the notification
+    // body already promises "click here to grant it in System Settings"
+    // (see the title/body strings above), so the click needs to actually
+    // do that instead of being a dead click.
     unawaited(
       ref
           .read(systemAttentionServiceProvider)
-          .requestAttention(kind: kind, title: title, body: body),
+          .requestAttention(
+            kind: kind,
+            title: title,
+            body: body,
+            onClick: outcome == PasteOutcome.permissionMissing
+                ? _openAccessibilitySettings
+                : null,
+          ),
     );
     try {
       ref
@@ -1614,6 +1630,18 @@ class RecordingOrchestrator extends Notifier<void> {
           );
     } on Exception catch (e) {
       _log.warning('Tray action-needed update failed', e);
+    }
+  }
+
+  Future<void> _openAccessibilitySettings() async {
+    if (!Platform.isMacOS) return;
+    final uri = Uri.parse(
+      'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility',
+    );
+    try {
+      await launchUrl(uri);
+    } on Exception catch (e) {
+      _log.warning('Could not open Accessibility settings', e);
     }
   }
 

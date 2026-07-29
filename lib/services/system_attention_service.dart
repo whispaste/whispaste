@@ -81,6 +81,7 @@ class SystemAttentionService {
     required AttentionKind kind,
     required String title,
     required String body,
+    void Function()? onClick,
   }) async {
     final now = DateTime.now();
     final last = _lastFired[kind];
@@ -91,7 +92,7 @@ class SystemAttentionService {
     _lastFired[kind] = now;
 
     await _ensureInit();
-    await _fireNotification(title: title, body: body);
+    await _fireNotification(title: title, body: body, onClick: onClick);
     await _fireDockOrTaskbar();
   }
 
@@ -117,6 +118,7 @@ class SystemAttentionService {
   Future<void> _fireNotification({
     required String title,
     required String body,
+    void Function()? onClick,
   }) async {
     // Respect the user's "show notifications" preference. Dock-bounce /
     // taskbar-flash stay active in either case — those are the fallback
@@ -127,7 +129,8 @@ class SystemAttentionService {
       return;
     }
     try {
-      final notif = LocalNotification(title: title, body: body);
+      final notif = LocalNotification(title: title, body: body)
+        ..onClick = onClick;
       await notif.show();
     } on Exception catch (e) {
       // Best-effort — ad-hoc-signed apps may silently fail here, which

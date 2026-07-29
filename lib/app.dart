@@ -7,7 +7,6 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:flutter_localized_locales/flutter_localized_locales.dart';
 import 'package:window_manager/window_manager.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'core/app_info.dart';
 import 'core/config/settings_labels.dart';
 import 'core/config/settings_provider.dart';
@@ -288,16 +287,13 @@ class _AppShellState extends ConsumerState<_AppShell>
   Future<void> _grantAccessibilityFromNotice(
     PasteCapabilityNotifier capNotifier,
   ) async {
-    await capNotifier.check(prompt: true);
-    final uri = Uri.parse(
-      'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility',
-    );
-    try {
-      await launchUrl(uri);
-    } on Exception catch (e) {
-      _log.warning('Could not open Accessibility settings', e);
-    }
-    capNotifier.startPolling();
+    // requestGrant() is the single shared entry point every other caller
+    // (onboarding, settings indicator, After-Transcription dropdown) already
+    // goes through — it also wipes stale TCC entries first, which matters
+    // here specifically: this notice only fires when a signature change was
+    // just detected (see shouldShowTccResetNotice), the exact scenario a
+    // stale grant needs repairing, not just re-requesting.
+    await capNotifier.requestGrant();
   }
 
   @override

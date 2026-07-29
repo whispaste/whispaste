@@ -327,6 +327,7 @@ class FakeSystemAttentionService extends SystemAttentionService {
     required AttentionKind kind,
     required String title,
     required String body,
+    void Function()? onClick,
   }) async {
     requestAttentionCalls++;
     lastKind = kind;

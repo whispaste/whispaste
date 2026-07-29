@@ -109,14 +109,14 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
     super.dispose();
   }
 
-  Future<void> _onGrantPressed() async {
+  Future<void> _onGrantPressed({bool repairFirst = true}) async {
     if (_grantInFlight) return;
     _emitBreadcrumb('grant.requested');
     setState(() => _grantInFlight = true);
     _emitBreadcrumb('grant.busy_state_armed');
     try {
       final notifier = ref.read(pasteCapabilityNotifierProvider.notifier);
-      await notifier.requestGrant();
+      await notifier.requestGrant(repairFirst: repairFirst);
     } finally {
       if (mounted) {
         setState(() => _grantInFlight = false);
@@ -161,7 +161,9 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
     // The result still shows in the banner so they understand what just
     // happened ("Cleared N stale entries — now retrying permission").
     if (result.isSupported) {
-      await _onGrantPressed();
+      // Already just repaired above — skip the redundant second repair
+      // inside requestGrant().
+      await _onGrantPressed(repairFirst: false);
     }
   }
 

@@ -63,6 +63,7 @@ class _FakePasteCapabilityNotifier extends PasteCapabilityNotifier {
   Future<void> requestGrant({
     Duration pollInterval = const Duration(seconds: 1),
     Duration pollTimeout = const Duration(seconds: 30),
+    bool repairFirst = true,
   }) async {
     requestGrantCalls++;
   }

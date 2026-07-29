@@ -181,20 +181,34 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
     }
   }
 
-  /// Runs the full "request Auto-Paste permission" sequence: fires the
-  /// OS-prompted check, arms the awaiting-grant poller, then deep-links to
-  /// the Accessibility settings pane so the user sees the toggle row even
-  /// if macOS suppressed its own dialog (e.g. a prior prompt already fired
-  /// once this process).
+  /// Runs the full "request Auto-Paste permission" sequence: wipes stale TCC
+  /// entries, fires the OS-prompted check, arms the awaiting-grant poller,
+  /// then deep-links to the Accessibility settings pane so the user sees the
+  /// toggle row even if macOS suppressed its own dialog (e.g. a prior prompt
+  /// already fired once this process).
   ///
   /// The single call every UI entry point shares — onboarding's Auto-Paste
   /// step, the Settings capability indicator, and the After-Transcription
   /// dropdown's activation trigger — so the sequence can't drift between
   /// them.
+  ///
+  /// [repairFirst] wipes stale TCC entries (see [repair]'s doc comment)
+  /// before requesting — every caller above only invokes [requestGrant] when
+  /// the capability is NOT currently ready, so this never touches a working
+  /// grant; it's the fix for a signature change (ad-hoc dev rebuild, or the
+  /// ad-hoc → Developer-ID migration a real install goes through once)
+  /// leaving a grant that macOS still displays as toggled-on in Settings but
+  /// that `AXIsProcessTrusted()` no longer honors, forcing a manual
+  /// off-then-on Settings toggle otherwise. Defaults to `true`; pass `false`
+  /// when the caller just ran [repair] itself moments ago (onboarding's
+  /// repair-button chains straight into a grant attempt — repairing twice in
+  /// a row is redundant, not incorrect, but wastes a native round trip).
   Future<void> requestGrant({
     Duration pollInterval = const Duration(seconds: 1),
     Duration pollTimeout = const Duration(seconds: 30),
+    bool repairFirst = true,
   }) async {
+    if (repairFirst) await repair();
     await check(prompt: true);
     // Arm polling BEFORE awaiting the settings launch — we want the poller
     // running the moment the user flips the toggle in System Settings, not
