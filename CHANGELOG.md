@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.2.64
+
+### New Features
+
+- **WhisPaste prüft jetzt bei jedem Start proaktiv, ob Mikrofon- und Auto-Einfügen-Berechtigung noch vorhanden sind** — nicht mehr nur einmalig während der Ersteinrichtung. Fehlt eine, führt ein immer sichtbarer Dialog direkt zur richtigen Systemeinstellung, auch wenn WhisPaste gerade nur im Hintergrund läuft. Wer Auto-Einfügen nie nutzt (Zwischenablage-Modus), wird dabei nicht mehr gestört.
+- **Neuer Schalter „Stille am Ende entfernen"** nutzt die eingebaute Spracherkennung von whisper.cpp, um angehängte Stille/Rauschen vor der Transkription herauszuschneiden — reduziert erfundene Wortfetzen am Ende eines Transkripts zusätzlich zur bestehenden Absicherung. Standardmäßig an, abschaltbar, nur bei lokaler Whisper-Engine verfügbar.
+
+### Bug Fixes
+
+- **Die Auto-Einfügen-Berechtigung konnte in einer Neustart-Schleife hängen bleiben**, aus der es keinen sichtbaren Ausweg gab: Der Erteilen-Dialog und die Systemeinstellungen konnten sich gegenseitig überlagern, ein Neustart landete teils in einem leeren Zustand ganz ohne laufende App, und schlug die Berechtigung nach einem Neustart weiterhin fehl, zeigte WhisPaste erneut nur den ursprünglichen „Erlauben"-Hinweis statt ehrlich zu sagen, dass der Neustart nichts gebracht hat. Alle vier Punkte sind behoben, inklusive eines manuellen Ausstiegs aus der Schleife, falls die Berechtigung sich partout nicht automatisch einrichten lässt.
+- **Musste WhisPaste mitten in der Ersteinrichtung neu starten** (etwa um eine gerade erteilte Berechtigung wirksam werden zu lassen), **begann die Einrichtung danach wieder komplett von vorn** — jetzt wird an der zuletzt erreichten Stelle fortgesetzt.
+- **Vereinzelt angehängte, unpassende Wortfetzen direkt nach einem eigentlich schon vollständigen Transkript** sind seltener geworden — zwei bislang ungenutzte Stellschrauben der lokalen Whisper-Engine unterdrücken jetzt Fantasie-Ergänzungen bei leiser werdendem Audio am Ende einer Aufnahme.
+
+### Maintenance
+
+- Interne Build-/Store-Tooling-Korrekturen: das Silero-VAD-Modell wird jetzt korrekt mitsigniert (verhinderte sonst signierte Builds), der Auto-Update-Plugin bleibt zuverlässig aus Mac-App-Store-Builds ausgeschlossen, und die App-Store-Connect-Automatisierung ordnet neue Builds jetzt zuverlässig der richtigen Version zu.
+
 ## 1.2.63
 
 ### Bug Fixes
