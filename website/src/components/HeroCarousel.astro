@@ -123,11 +123,15 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
             </div>
             <!--
               Recording overlay, drawn on a canvas by the shared `overlay-mockup`
-              renderer (1:1 with the in-app OverlayPainter / SSOT design spec).
-              Canvas guarantees Safari/WebKit and Chrome/Chromium render the
-              capsule, shadow, gradient, waveform and progress timeline
-              identically. No privacy badge — that concept is anti-vocabulary
-              (PRD §D4, CONTEXT.md) and is absent from the final design.
+              renderer (1:1 with the in-app OverlayPainter / SSOT design spec:
+              liquid-glass capsule incl. Fresnel rim, drifting specular streak
+              and silhouette wobble) and driven through the real recording arc
+              (appear spring → recording → transcribing → done/error) by the
+              shared `overlay-demo` driver. Canvas guarantees Safari/WebKit and
+              Chrome/Chromium render the capsule, shadow, gradient, waveform
+              and progress timeline identically (ADR 0002). No privacy badge —
+              that concept is anti-vocabulary (PRD §D4, CONTEXT.md) and is
+              absent from the final design.
             -->
             <canvas
               id="overlay-canvas"
