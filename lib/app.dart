@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:record/record.dart' show AudioRecorder;
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:flutter_localized_locales/flutter_localized_locales.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:window_manager/window_manager.dart';
 import 'core/app_info.dart';
 import 'core/config/settings_labels.dart';
@@ -37,11 +39,17 @@ import 'core/recording/recording_state.dart';
 import 'core/data/database.dart';
 import 'core/logging/app_logger.dart';
 import 'core/logging/crash_reporter.dart';
-import 'core/config/settings_enums.dart' show OnDeviceEngine;
+import 'core/config/settings_enums.dart'
+    show AfterTranscriptionAction, OnDeviceEngine;
 import 'core/config/build_config.dart' show kAutoPasteSupported;
+import 'features/onboarding/mic_probe.dart'
+    show MicProbeOutcome, OnboardingMicProbe;
 import 'services/paste/paste_capability_notifier.dart';
 import 'services/paste/paste_policy.dart';
+import 'services/paste/paster.dart' show PasteCapabilityStatus;
 import 'services/paste/tcc_reset_notice.dart';
+import 'services/permissions/startup_permission_gate.dart';
+import 'services/single_instance_service.dart';
 import 'services/graceful_shutdown.dart';
 import 'services/stt/stt_bundle.dart';
 import 'services/stt_parakeet/parakeet_engine_notifier.dart'
@@ -258,9 +266,19 @@ class _AppShellState extends ConsumerState<_AppShell>
         );
       }
 
-      unawaited(_maybeShowTccResetNotice());
-      _setupAutoPasteRestartWatch();
+      unawaited(_runStartupPermissionFlows());
     });
+  }
+
+  /// Strictly ordered startup sequence for everything permission-shaped:
+  /// the TCC-reset notice hydrates the restart marker and runs the first
+  /// capability probe, the restart watch must be armed before any grant
+  /// flow can trigger a restart, and the proactive gate runs last so it
+  /// reads a settled capability state.
+  Future<void> _runStartupPermissionFlows() async {
+    await _maybeShowTccResetNotice();
+    _setupAutoPasteRestartWatch();
+    await _runStartupPermissionGate();
   }
 
   /// Subscribes to the capability notifier and drives the native forced-restart
@@ -383,6 +401,176 @@ class _AppShellState extends ConsumerState<_AppShell>
     // escalation: a plain re-request would just re-hit the same stale entry.
     await capNotifier.repair();
     await capNotifier.requestGrant();
+  }
+
+  /// Proactive permission gate: on EVERY start (after onboarding has been
+  /// completed once) both load-bearing permissions — microphone and
+  /// Auto-Paste — are probed, and a missing one immediately triggers a
+  /// native, always-on-top guided recovery instead of failing silently at
+  /// the first recording/paste. See `startup_permission_gate.dart` for the
+  /// full decision tree and the platform truths it encodes.
+  Future<void> _runStartupPermissionGate() async {
+    final onboardingCompleted =
+        ref.read(settingsProvider).value?.onboardingCompleted ?? false;
+    // First-run onboarding owns both permissions with its own richer UI —
+    // the gate only takes over from the second start on.
+    if (!onboardingCompleted) return;
+
+    final recorder = AudioRecorder();
+    try {
+      final gate = StartupPermissionGate(
+        mic: MicGateHooks(
+          checkPermission: ({required bool request}) =>
+              recorder.hasPermission(request: request),
+          verifyCapture: _verifyMicCapture,
+          showGrantAlert: _showMicGateGrantAlert,
+          openSettings: _openMicPrivacySettings,
+          showRestartAlert: _showMicGateRestartAlert,
+        ),
+        autoPaste: Platform.isMacOS && kAutoPasteSupported
+            ? AutoPasteGateHooks(
+                readStatus: _readAutoPasteGateStatus,
+                showGrantAlert: _showAutoPasteGateGrantAlert,
+                startGrantFlow: () => ref
+                    .read(pasteCapabilityNotifierProvider.notifier)
+                    .requestGrant(),
+                showManualGrantAlert: _showManualGrantAlert,
+              )
+            : null,
+      );
+      await gate.run();
+    } finally {
+      unawaited(recorder.dispose());
+    }
+  }
+
+  /// Post-recovery proof that capture actually works in THIS process: opens
+  /// a short real PCM stream. `silence` counts as success — the stream
+  /// opened, there just was no speech, which is expected for an unattended
+  /// probe. Only `permissionDenied`/`error` mean the running process still
+  /// can't record despite the on-disk grant.
+  Future<bool> _verifyMicCapture() async {
+    final probe = OnboardingMicProbe(
+      timeout: const Duration(milliseconds: 1500),
+    );
+    try {
+      final outcome = await probe.start();
+      return outcome == MicProbeOutcome.speechDetected ||
+          outcome == MicProbeOutcome.silence;
+    } finally {
+      await probe.dispose();
+    }
+  }
+
+  Future<void> _showMicGateGrantAlert() async {
+    if (!mounted) return;
+    final l10n = L10n.of(context);
+    if (Platform.isMacOS) {
+      final confirmed = Completer<void>();
+      final dispatched = await MacOSLifecycleChannel.showPermissionGrantAlert(
+        id: 'mic_gate',
+        title: l10n.micGateAlertTitle,
+        body: l10n.micGateAlertBody,
+        confirmLabel: l10n.micGateAlertConfirm,
+        onConfirm: confirmed.complete,
+      );
+      // A failed dispatch must not hang the gate — fall through and open
+      // the settings pane anyway; the poll picks up a manual fix.
+      if (dispatched) await confirmed.future;
+      return;
+    }
+    // Windows/Linux: no native always-on-top channel — surface the window
+    // and use an in-app dialog instead.
+    await windowManager.show();
+    await windowManager.focus();
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l10n.micGateAlertTitle),
+        content: Text(l10n.micGateAlertBodyGeneric),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(l10n.micGateAlertConfirm),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openMicPrivacySettings() async {
+    final uri = Platform.isMacOS
+        ? 'x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone'
+        : Platform.isWindows
+        ? 'ms-settings:privacy-microphone'
+        : null;
+    if (uri == null) return;
+    try {
+      await launchUrl(Uri.parse(uri));
+    } on Exception catch (e) {
+      _log.warning('Could not open microphone privacy settings: $e');
+    }
+  }
+
+  /// The mic pendant to [_showForcedRestartModal]: the grant is on disk but
+  /// this process demonstrably still can't capture, so relaunch. Releases
+  /// the single-instance lock FIRST — the fresh process must be able to
+  /// claim the port, exactly like the Auto-Paste restart path (see
+  /// [PasteCapabilityNotifier.markRestartAttempted]).
+  Future<void> _showMicGateRestartAlert() async {
+    if (!Platform.isMacOS || !mounted) return;
+    final l10n = L10n.of(context);
+    await SingleInstanceService.release();
+    await MacOSLifecycleChannel.showRestartRequiredAlert(
+      title: l10n.micGateRestartAlertTitle,
+      body: l10n.micGateRestartAlertBody,
+      confirmLabel: l10n.micGateRestartAlertConfirm,
+    );
+  }
+
+  /// Collapses settings + capability state into the gate's Auto-Paste view.
+  /// Users whose after-transcription action never pastes (clipboard-only /
+  /// nothing) are deliberately not nagged about a permission they don't use.
+  Future<AutoPasteGateStatus> _readAutoPasteGateStatus() async {
+    final settings = ref.read(settingsProvider).value;
+    final action = resolveAfterTranscriptionAction(
+      settings?.afterTranscriptionAction ?? AfterTranscriptionAction.paste,
+    );
+    final pastes =
+        action == AfterTranscriptionAction.paste ||
+        action == AfterTranscriptionAction.clipboardAndPaste;
+    if (!pastes) return AutoPasteGateStatus.notNeeded;
+
+    final notifier = ref.read(pasteCapabilityNotifierProvider.notifier);
+    var capability = ref.read(pasteCapabilityNotifierProvider).capability;
+    if (capability == null) {
+      // Normally _maybeShowTccResetNotice has already probed; this is the
+      // fallback for an early-failed probe.
+      await notifier.hydrateRestartMarker();
+      await notifier.check();
+      capability = ref.read(pasteCapabilityNotifierProvider).capability;
+    }
+    if (capability?.status != PasteCapabilityStatus.permissionMissing) {
+      return AutoPasteGateStatus.notNeeded;
+    }
+    return notifier.restartWasIneffective
+        ? AutoPasteGateStatus.missingAfterIneffectiveRestart
+        : AutoPasteGateStatus.missing;
+  }
+
+  Future<void> _showAutoPasteGateGrantAlert() async {
+    if (!mounted) return;
+    final l10n = L10n.of(context);
+    final confirmed = Completer<void>();
+    final dispatched = await MacOSLifecycleChannel.showPermissionGrantAlert(
+      id: 'autopaste_gate',
+      title: l10n.autoPasteGateAlertTitle,
+      body: l10n.autoPasteGateAlertBody,
+      confirmLabel: l10n.autoPasteGateAlertConfirm,
+      onConfirm: confirmed.complete,
+    );
+    if (dispatched) await confirmed.future;
   }
 
   @override

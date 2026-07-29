@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
 import '../../services/graceful_shutdown.dart';
+import '../../services/single_instance_service.dart';
 import '../logging/app_logger.dart';
 
 final _log = AppLogger('MacOSLifecycleChannel');
@@ -145,6 +146,50 @@ class MacOSLifecycleChannel {
     confirmLabel: confirmLabel,
   );
 
+  /// Callbacks keyed by alert id, invoked when the native side reports the
+  /// user confirmed a [showPermissionGrantAlert] dialog (via the inbound
+  /// `permissionAlertConfirmed` channel call — see
+  /// [registerTerminationHandler]'s dispatch).
+  static final Map<String, void Function()> _permissionAlertCallbacks = {};
+
+  /// Presents a native, always-on-top permission dialog (same
+  /// tray-app-proof `NSAlert` treatment as [showRestartRequiredAlert]) and
+  /// runs [onConfirm] on the Dart side once the user acknowledges it.
+  ///
+  /// Unlike the fixed-behavior restart/manual-grant alerts, confirming this
+  /// one performs no native action — the native side calls back with [id]
+  /// and the registered [onConfirm] decides what happens (open a settings
+  /// pane, start a grant flow, …). Requires
+  /// [registerTerminationHandler] to have been called (it owns the single
+  /// inbound method-call handler).
+  ///
+  /// Returns `true` when the alert was dispatched (so [onConfirm] can be
+  /// expected to fire eventually) and `false` when the channel call failed —
+  /// callers waiting on [onConfirm] must not block forever in that case.
+  static Future<bool> showPermissionGrantAlert({
+    required String id,
+    required String title,
+    required String body,
+    required String confirmLabel,
+    required void Function() onConfirm,
+  }) async {
+    if (!Platform.isMacOS) return false;
+    _permissionAlertCallbacks[id] = onConfirm;
+    try {
+      await _channel.invokeMethod('showPermissionGrantAlert', {
+        'id': id,
+        'title': title,
+        'body': body,
+        'confirmLabel': confirmLabel,
+      });
+      return true;
+    } on PlatformException catch (e) {
+      _permissionAlertCallbacks.remove(id);
+      _log.warning('showPermissionGrantAlert failed', e);
+      return false;
+    }
+  }
+
   /// Shared invoker for the two native always-on-top alert channel methods —
   /// identical marshalling, only the method name differs.
   static Future<void> _invokeAlert(
@@ -191,6 +236,15 @@ class MacOSLifecycleChannel {
             data: {'error': error ?? 'unknown'},
           ),
         );
+        // markRestartAttempted() already released the single-instance lock
+        // in anticipation of a fresh process taking over. Since that never
+        // happened, this process is staying alive — reclaim it, or a later
+        // genuine second launch attempt would wrongly succeed as primary.
+        await SingleInstanceService.ensureSingleInstance();
+      } else if (call.method == 'permissionAlertConfirmed') {
+        final id = (call.arguments as Map?)?['id']?.toString();
+        final callback = _permissionAlertCallbacks.remove(id);
+        callback?.call();
       }
       return null;
     });

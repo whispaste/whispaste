@@ -550,6 +550,40 @@ class L10nHe extends L10n {
   String get pasteManualGrantAlertConfirm => 'פתח את הגדרות המערכת';
 
   @override
+  String get micGateAlertTitle => 'חסרה גישה למיקרופון';
+
+  @override
+  String get micGateAlertBody =>
+      'WhisPaste לא יכול להקליט ללא גישה למיקרופון. אשר כדי לפתוח את הגדרות המערכת → פרטיות ואבטחה → מיקרופון — הפעל שם את המתג עבור WhisPaste. WhisPaste מזהה את האישור שלך אוטומטית.';
+
+  @override
+  String get micGateAlertBodyGeneric =>
+      'WhisPaste לא יכול להקליט ללא גישה למיקרופון. אנא אפשר ל-WhisPaste גישה למיקרופון בהגדרות הפרטיות של המערכת — WhisPaste מזהה את האישור שלך אוטומטית.';
+
+  @override
+  String get micGateAlertConfirm => 'פתח הגדרות';
+
+  @override
+  String get micGateRestartAlertTitle => 'הפעל מחדש את WhisPaste לסיום';
+
+  @override
+  String get micGateRestartAlertBody =>
+      'הגישה למיקרופון אושרה, אך מופע WhisPaste הפועל כעת עדיין לא יכול לקלוט אותה. WhisPaste ייסגר ויחזור מיד — הכל נשאר כפי שהוא.';
+
+  @override
+  String get micGateRestartAlertConfirm => 'הפעל מחדש עכשיו';
+
+  @override
+  String get autoPasteGateAlertTitle => 'חסר מתג אחד להדבקה אוטומטית';
+
+  @override
+  String get autoPasteGateAlertBody =>
+      'WhisPaste מוסיף את ההכתבה שלך ישירות במיקום הסמן. macOS דורש לשם כך מתג אחד שרק אתה יכול להפעיל: הגדרות המערכת → פרטיות ואבטחה → נגישות. אשר כדי לפתוח בדיוק את העמוד הזה — WhisPaste מזהה את האישור שלך אוטומטית ומפעיל את עצמו מחדש לאחר מכן במידת הצורך.';
+
+  @override
+  String get autoPasteGateAlertConfirm => 'פתח את הגדרות המערכת';
+
+  @override
   String get pasteCapabilityRestartIneffectiveTitle =>
       'ההפעלה מחדש לא החילה את ההרשאה';
 

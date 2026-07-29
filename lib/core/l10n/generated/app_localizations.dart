@@ -1101,6 +1101,66 @@ abstract class L10n {
   /// **'Open System Settings'**
   String get pasteManualGrantAlertConfirm;
 
+  /// No description provided for @micGateAlertTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Microphone access is missing'**
+  String get micGateAlertTitle;
+
+  /// No description provided for @micGateAlertBody.
+  ///
+  /// In en, this message translates to:
+  /// **'WhisPaste can\'t record without microphone access. Confirm to open System Settings → Privacy & Security → Microphone — enable the switch for WhisPaste there. WhisPaste detects your approval automatically.'**
+  String get micGateAlertBody;
+
+  /// No description provided for @micGateAlertBodyGeneric.
+  ///
+  /// In en, this message translates to:
+  /// **'WhisPaste can\'t record without microphone access. Please allow microphone access for WhisPaste in your system\'s privacy settings — WhisPaste detects your approval automatically.'**
+  String get micGateAlertBodyGeneric;
+
+  /// No description provided for @micGateAlertConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Settings'**
+  String get micGateAlertConfirm;
+
+  /// No description provided for @micGateRestartAlertTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Restart WhisPaste to finish'**
+  String get micGateRestartAlertTitle;
+
+  /// No description provided for @micGateRestartAlertBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Microphone access is granted, but this running WhisPaste instance can\'t pick it up yet. WhisPaste will quit and come right back — everything stays as it is.'**
+  String get micGateRestartAlertBody;
+
+  /// No description provided for @micGateRestartAlertConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Restart now'**
+  String get micGateRestartAlertConfirm;
+
+  /// No description provided for @autoPasteGateAlertTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'One switch is missing for auto-insert'**
+  String get autoPasteGateAlertTitle;
+
+  /// No description provided for @autoPasteGateAlertBody.
+  ///
+  /// In en, this message translates to:
+  /// **'WhisPaste inserts your dictation right at the cursor. macOS requires one switch for that which only you can flip: System Settings → Privacy & Security → Accessibility. Confirm to open exactly that page — WhisPaste detects your approval automatically and restarts itself afterwards if needed.'**
+  String get autoPasteGateAlertBody;
+
+  /// No description provided for @autoPasteGateAlertConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Open System Settings'**
+  String get autoPasteGateAlertConfirm;
+
   /// No description provided for @pasteCapabilityRestartIneffectiveTitle.
   ///
   /// In en, this message translates to:

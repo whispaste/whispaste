@@ -154,6 +154,26 @@ class AppDelegate: FlutterAppDelegate {
         self?.performRelaunch()
       }
 
+    case "showPermissionGrantAlert":
+      // Generic always-on-top permission dialog for the startup gate. The
+      // native side owns nothing but the modal: on confirm it calls back
+      // into Dart with the alert id, and the registered Dart callback
+      // performs the actual action (deep-link, grant flow, …). Keeps every
+      // recovery decision in one place (Dart) instead of splitting logic
+      // across the channel boundary.
+      let permissionArgs = call.arguments as? [String: Any]
+      let alertId = permissionArgs?["id"] as? String ?? ""
+      result(nil)
+      presentAlwaysOnTopAlert(
+        title: permissionArgs?["title"] as? String ?? "",
+        body: permissionArgs?["body"] as? String ?? "",
+        confirmLabel: permissionArgs?["confirmLabel"] as? String ?? "OK"
+      ) { [weak self] in
+        self?.lifecycleChannel?.invokeMethod(
+          "permissionAlertConfirmed", arguments: ["id": alertId]
+        )
+      }
+
     case "showManualGrantAlert":
       // Loop exit for the "restart already ran but permission still missing"
       // case: instead of relaunching yet again, confirming opens System

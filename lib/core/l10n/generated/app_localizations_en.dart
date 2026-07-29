@@ -558,6 +558,40 @@ class L10nEn extends L10n {
   String get pasteManualGrantAlertConfirm => 'Open System Settings';
 
   @override
+  String get micGateAlertTitle => 'Microphone access is missing';
+
+  @override
+  String get micGateAlertBody =>
+      'WhisPaste can\'t record without microphone access. Confirm to open System Settings → Privacy & Security → Microphone — enable the switch for WhisPaste there. WhisPaste detects your approval automatically.';
+
+  @override
+  String get micGateAlertBodyGeneric =>
+      'WhisPaste can\'t record without microphone access. Please allow microphone access for WhisPaste in your system\'s privacy settings — WhisPaste detects your approval automatically.';
+
+  @override
+  String get micGateAlertConfirm => 'Open Settings';
+
+  @override
+  String get micGateRestartAlertTitle => 'Restart WhisPaste to finish';
+
+  @override
+  String get micGateRestartAlertBody =>
+      'Microphone access is granted, but this running WhisPaste instance can\'t pick it up yet. WhisPaste will quit and come right back — everything stays as it is.';
+
+  @override
+  String get micGateRestartAlertConfirm => 'Restart now';
+
+  @override
+  String get autoPasteGateAlertTitle => 'One switch is missing for auto-insert';
+
+  @override
+  String get autoPasteGateAlertBody =>
+      'WhisPaste inserts your dictation right at the cursor. macOS requires one switch for that which only you can flip: System Settings → Privacy & Security → Accessibility. Confirm to open exactly that page — WhisPaste detects your approval automatically and restarts itself afterwards if needed.';
+
+  @override
+  String get autoPasteGateAlertConfirm => 'Open System Settings';
+
+  @override
   String get pasteCapabilityRestartIneffectiveTitle =>
       'The restart didn\'t apply the permission';
 

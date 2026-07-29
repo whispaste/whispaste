@@ -561,6 +561,41 @@ class L10nDe extends L10n {
   String get pasteManualGrantAlertConfirm => 'Systemeinstellungen öffnen';
 
   @override
+  String get micGateAlertTitle => 'Mikrofonzugriff fehlt';
+
+  @override
+  String get micGateAlertBody =>
+      'Ohne Mikrofonzugriff kann WhisPaste nichts aufnehmen. Bestätige, um Systemeinstellungen → Datenschutz & Sicherheit → Mikrofon zu öffnen — aktiviere dort den Schalter für WhisPaste. Deine Freigabe erkennt WhisPaste automatisch.';
+
+  @override
+  String get micGateAlertBodyGeneric =>
+      'Ohne Mikrofonzugriff kann WhisPaste nichts aufnehmen. Bitte erlaube WhisPaste den Mikrofonzugriff in den Datenschutz-Einstellungen deines Systems — deine Freigabe erkennt WhisPaste automatisch.';
+
+  @override
+  String get micGateAlertConfirm => 'Einstellungen öffnen';
+
+  @override
+  String get micGateRestartAlertTitle => 'Zum Abschluss WhisPaste neu starten';
+
+  @override
+  String get micGateRestartAlertBody =>
+      'Der Mikrofonzugriff ist erteilt, aber diese laufende WhisPaste-Instanz kann ihn noch nicht übernehmen. WhisPaste beendet sich und kommt sofort zurück — alles bleibt, wie es ist.';
+
+  @override
+  String get micGateRestartAlertConfirm => 'Jetzt neu starten';
+
+  @override
+  String get autoPasteGateAlertTitle =>
+      'Fürs automatische Einfügen fehlt ein Schalter';
+
+  @override
+  String get autoPasteGateAlertBody =>
+      'WhisPaste fügt dein Diktat direkt an der Schreibmarke ein. macOS verlangt dafür einen Schalter, den nur du umlegen kannst: Systemeinstellungen → Datenschutz & Sicherheit → Bedienungshilfen. Bestätige, um genau diese Seite zu öffnen — deine Freigabe erkennt WhisPaste automatisch und startet sich danach bei Bedarf selbst neu.';
+
+  @override
+  String get autoPasteGateAlertConfirm => 'Systemeinstellungen öffnen';
+
+  @override
   String get pasteCapabilityRestartIneffectiveTitle =>
       'Neustart hat die Berechtigung nicht übernommen';
 
