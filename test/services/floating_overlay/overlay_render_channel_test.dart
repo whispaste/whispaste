@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/core/theme/overlay_design_spec.dart';
 import 'package:whispaste/services/floating_overlay/floating_overlay_controller_interface.dart';
 import 'package:whispaste/services/floating_overlay/overlay_render_channel.dart';
 
@@ -34,7 +35,7 @@ void main() {
         visible: true,
         state: OverlayVisualState.transcribing,
         isDark: false,
-        compact: true,
+        size: OverlaySizeVariant.compact,
         label: 'Transcribing',
         elapsed: '0:03',
       );
@@ -43,7 +44,7 @@ void main() {
       expect(received, isNotNull);
       expect(received!.visible, isTrue);
       expect(received!.state, OverlayVisualState.transcribing);
-      expect(received!.compact, isTrue);
+      expect(received!.size, OverlaySizeVariant.compact);
       expect(received!.label, 'Transcribing');
       expect(received!.elapsed, '0:03');
     });
@@ -120,7 +121,6 @@ void main() {
       visible: true,
       state: OverlayVisualState.recording,
       isDark: true,
-      compact: false,
       label: '',
     );
 

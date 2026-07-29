@@ -185,16 +185,17 @@ abstract final class WpColorsLight {
     colors: [Color(0xFFF5F9FD), Color(0xFFEDF3FA)],
   );
 
-  /// Dual-tone temperature wash — cool pearl top-left, neutral anchor, faint
-  /// rose-tinted pearl bottom-right. Mirrors [WpColorsDark.warmSurfaceGradient]:
-  /// the warm pole lifts R and stays in the blue-violet family (B never drops
-  /// below R/G) so it reads as rose warmth, not a yellow cast — a beige pole
-  /// (B as channel minimum) turns "dirty" fast on the cool pearl base. Drift
-  /// stays shallow, luminance flat: opaque tonal steps, no alpha glow.
+  /// Dual-tone temperature wash — cool pearl top-left, neutral anchor,
+  /// near-neutral pearl bottom-right. Mirrors [WpColorsDark.warmSurfaceGradient]
+  /// in shape only: R/G/B stay within a few points of each other at every
+  /// stop, so the drift reads as a tonal-luminance shift, not a color cast —
+  /// neither a yellow/beige pole (B as channel minimum) nor a rose/magenta
+  /// pole (G as channel minimum) survives here. Drift stays shallow,
+  /// luminance flat: opaque tonal steps, no alpha glow.
   static const LinearGradient warmSurfaceGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFF2F7FC), Color(0xFFEFF3F9), Color(0xFFF5F0F7)],
+    colors: [Color(0xFFF2F7FC), Color(0xFFEFF3F9), Color(0xFFF1F1F5)],
     stops: [0.0, 0.5, 1.0],
   );
 

@@ -154,6 +154,11 @@ wack-report.xml
 !test/screenshots/
 test/screenshots/failures/
 
+# flutter_test golden-mismatch diff artifacts (isolatedDiff/maskedDiff/
+# masterImage/testImage quadruplets) — can land in a `failures/` dir under
+# ANY golden test's own directory, not just test/screenshots/ (see above).
+**/failures/
+
 # Store screenshot tool output (generated, not tracked)
 tools/appstore-screens/output/
 # Store icon generator output (generated, not tracked)

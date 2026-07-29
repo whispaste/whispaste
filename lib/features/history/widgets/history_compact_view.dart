@@ -157,8 +157,14 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
               // border's alpha instead of its width — see the matching fix
               // + doc comment in history_list_tile.dart for why a null
               // target reads as a one-frame flash instead of a fade.
+              // Light-theme focus ink reduced to 0.45 (matches the list
+              // tile's focused stroke) — the dark light-accent #06678A at
+              // 0.5 read heavier here than the same alpha does on dark.
               border: widget.isFocused
-                  ? Border.all(color: accent.withValues(alpha: 0.5), width: 1.5)
+                  ? Border.all(
+                      color: accent.withValues(alpha: isDark ? 0.5 : 0.45),
+                      width: 1.5,
+                    )
                   : Border.all(color: accent.withValues(alpha: 0), width: 1.5),
             ),
             child: Row(

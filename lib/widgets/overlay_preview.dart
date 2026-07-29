@@ -7,7 +7,8 @@
 ///
 /// Public widget:
 /// - [OverlayRealPreview] — renders the real [FloatingOverlayView] at the
-///   currently selected size (Normal/Compact), reactive to settings changes.
+///   currently selected size (Normal/Compact/Mini), reactive to settings
+///   changes.
 library;
 
 import 'package:flutter/material.dart';
@@ -21,7 +22,8 @@ import 'floating_overlay/floating_overlay_view.dart';
 // Public — Real Floating Overlay preview
 // ---------------------------------------------------------------------------
 
-/// Real preview of the Floating Overlay, rendered at [size] (Normal/Compact).
+/// Real preview of the Floating Overlay, rendered at [size]
+/// (Normal/Compact/Mini).
 ///
 /// Feeds [FloatingOverlayView] with a deterministic static snapshot — no live
 /// audio. The inner [FloatingOverlayView] carries
@@ -41,12 +43,11 @@ class OverlayRealPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final compact = size == FloatingOverlaySize.compact;
     final snapshot = FloatingOverlaySnapshot(
       visible: true,
       state: OverlayVisualState.recording,
       isDark: isDark,
-      compact: compact,
+      size: size.variant,
       label: 'Recording',
       elapsed: '0:05',
     );

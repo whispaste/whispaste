@@ -103,6 +103,7 @@ class OverlaySection extends ConsumerWidget {
                 labels: [
                   l10n.settingsOverlaySizeNormal,
                   l10n.settingsOverlaySizeCompact,
+                  l10n.settingsOverlaySizeMini,
                 ],
                 onChanged: (v) {
                   if (v == null) return;

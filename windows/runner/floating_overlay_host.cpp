@@ -43,12 +43,28 @@ namespace {
 constexpr char kChannelName[] = "com.whispaste.floating_overlay";
 constexpr char kRenderChannelName[] = "com.whispaste.floating_overlay_render";
 
-// ── Window-size spec (mirrors OverlayDesignSpec.windowSize in Dart) ──────
+// ── Window-size spec (mirrors OverlayDesignSpec.windowSizeFor in Dart) ───
 // pill + 8 px shadow padding each side
 constexpr int kNormalW = 346;
 constexpr int kNormalH = 80;
 constexpr int kCompactW = 236;
 constexpr int kCompactH = 56;
+constexpr int kMiniW = 166;
+constexpr int kMiniH = 50;
+
+// Logical shell size for a size class ("normal" | "compact" | "mini",
+// mirrors the Dart OverlaySizeVariant serialised as snapshot["size"]).
+int OverlayLogicalW(const std::string& size_class) {
+  if (size_class == "compact") return kCompactW;
+  if (size_class == "mini") return kMiniW;
+  return kNormalW;
+}
+
+int OverlayLogicalH(const std::string& size_class) {
+  if (size_class == "compact") return kCompactH;
+  if (size_class == "mini") return kMiniH;
+  return kNormalH;
+}
 
 // Anchor margin from the screen edge (logical pixels, mirrors macOS 16 pt).
 constexpr double kAnchorMargin = 16.0;
@@ -158,14 +174,14 @@ void FloatingOverlayHost::RefreshTopmost() {
 // Lazy engine + shell creation
 // ══════════════════════════════════════════════════════════════════════
 
-bool FloatingOverlayHost::EnsureEngineAndShell(bool compact) {
+bool FloatingOverlayHost::EnsureEngineAndShell(const std::string& size_class) {
   if (render_controller_) return true;  // already booted
 
   render_ready_ = false;
-  is_compact_ = compact;
+  size_class_ = size_class;
 
-  int logical_w = compact ? kCompactW : kNormalW;
-  int logical_h = compact ? kCompactH : kNormalH;
+  int logical_w = OverlayLogicalW(size_class);
+  int logical_h = OverlayLogicalH(size_class);
 
   // ── Boot the render engine ──────────────────────────────────────────
   // DartProject("data") resolves relative to the executable (standard for
@@ -266,21 +282,30 @@ void FloatingOverlayHost::HandleMethodCall(
   // Mirrors macOS handleUpdateSnapshot.
   if (method == "updateSnapshot") {
     bool visible = map ? GetBool(*map, "visible", false) : false;
-    bool compact = map ? GetBool(*map, "compact", false) : false;
-    bool size_changed = (compact != is_compact_);
+    // "size" is the canonical key; fall back to the legacy "compact" bool for
+    // payloads from an older main engine.
+    std::string size_class = "normal";
+    if (map) {
+      size_class = GetString(*map, "size", "");
+      if (size_class.empty()) {
+        size_class = GetBool(*map, "compact", false) ? "compact" : "normal";
+      }
+    }
+    bool size_changed = (size_class != size_class_);
 
-    // Update compact state BEFORE EnsureEngineAndShell so the first creation
-    // sizes the shell correctly (mirrors macOS: set isCompact before ensurePanel).
-    is_compact_ = compact;
+    // Update size state BEFORE EnsureEngineAndShell so the first creation
+    // sizes the shell correctly (mirrors macOS: set sizeClass before
+    // ensurePanel).
+    size_class_ = size_class;
 
     if (visible && !render_controller_) {
-      if (!EnsureEngineAndShell(compact)) {
+      if (!EnsureEngineAndShell(size_class)) {
         result->Error("CREATE_FAILED",
                       "Failed to create render engine / shell window");
         return;
       }
     } else if (size_changed && window_) {
-      ResizeShell(compact);
+      ResizeShell(size_class);
     }
 
     // Cache for boot-race handshake (flushed in HandleRenderCall("ready")).
@@ -535,11 +560,10 @@ void FloatingOverlayHost::ShowNativeContextMenu() {
 // Shell resize + re-anchor
 // ══════════════════════════════════════════════════════════════════════
 
-void FloatingOverlayHost::ResizeShell(bool compact) {
+void FloatingOverlayHost::ResizeShell(const std::string& size_class) {
   if (!window_) return;
-  is_compact_ = compact;
-  window_->SetSize(compact ? kCompactW : kNormalW,
-                   compact ? kCompactH : kNormalH);
+  size_class_ = size_class;
+  window_->SetSize(OverlayLogicalW(size_class), OverlayLogicalH(size_class));
   // Re-anchor: topCenter/bottomCenter overlays must stay centred after the
   // width changes; topLeft overlays keep their raw corner position.
   auto [lx, ly] = ResolveAnchorPosition();
@@ -588,10 +612,8 @@ std::pair<double, double> FloatingOverlayHost::ResolveAnchorPosition() const {
   double wa_right  = wa.right  / dpi_scale;
   double wa_w      = wa_right  - wa_left;
 
-  double overlay_w = is_compact_ ? static_cast<double>(kCompactW)
-                                 : static_cast<double>(kNormalW);
-  double overlay_h = is_compact_ ? static_cast<double>(kCompactH)
-                                 : static_cast<double>(kNormalH);
+  double overlay_w = static_cast<double>(OverlayLogicalW(size_class_));
+  double overlay_h = static_cast<double>(OverlayLogicalH(size_class_));
 
   // Horizontal: centred within the work area (both topCenter + bottomCenter).
   double lx = wa_left + (wa_w - overlay_w) / 2.0;

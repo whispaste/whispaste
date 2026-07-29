@@ -26,7 +26,7 @@ FloatingOverlaySnapshot _snap(
   OverlayVisualState state, {
   bool visible = true,
   bool isDark = false,
-  bool compact = false,
+  OverlaySizeVariant size = OverlaySizeVariant.normal,
   String elapsed = '',
   String? doneMessage,
   String? errorMessage,
@@ -36,7 +36,7 @@ FloatingOverlaySnapshot _snap(
     visible: visible,
     state: state,
     isDark: isDark,
-    compact: compact,
+    size: size,
     label: switch (state) {
       OverlayVisualState.recording => 'Recording',
       OverlayVisualState.transcribing => 'Transcribing…',
@@ -64,8 +64,8 @@ void main() {
 
   group('AC1 — full recording arc: painter config per state/size', () {
     for (final state in OverlayVisualState.values) {
-      for (final compact in [false, true]) {
-        final tag = '${state.name} · ${compact ? "compact" : "normal"}';
+      for (final size in OverlaySizeVariant.values) {
+        final tag = '${state.name} · ${size.name}';
 
         testWidgets('$tag — builds without error', (tester) async {
           final bars = List<double>.generate(
@@ -77,7 +77,7 @@ void main() {
               FloatingOverlayView(
                 snapshot: _snap(
                   state,
-                  compact: compact,
+                  size: size,
                   elapsed: state == OverlayVisualState.recording ? '0:07' : '',
                   progress: state == OverlayVisualState.recording ? 0.2 : 0.0,
                   doneMessage: state == OverlayVisualState.done

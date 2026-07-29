@@ -169,18 +169,40 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
               // scales width toward zero at fixed color/alpha, which reads
               // as a flash rather than a fade for one frame (same class of
               // bug as the boxShadow fix below).
+              //
+              // Light-theme ink is deliberately reduced (history polish pass,
+              // 2026-07-28): the light accent #06678A is itself dark
+              // (rel. luminance ≈ 0.11), so the former 2 px @ 0.7 stroke was
+              // the darkest ink in the whole list (≈ 3.4:1 vs the 0.92-lum
+              // surface) and read as "much too dark". 1.5 px @ 0.6 keeps the
+              // selection stroke at ≈ 2.9:1 (≈ 3:1, still clearly visible on
+              // top of the tinted fill + lifted shadow) with ~45 % less ink.
+              // Dark theme keeps the approved full-strength values.
               border: widget.isSelected
-                  ? Border.all(color: accent, width: 2)
+                  ? (isDark
+                        ? Border.all(
+                            color: accent.withValues(alpha: 0.7),
+                            width: 2,
+                          )
+                        : Border.all(
+                            color: accent.withValues(alpha: 0.6),
+                            width: 1.5,
+                          ))
                   : widget.isFocused
-                  ? Border.all(color: accent.withValues(alpha: 0.5), width: 1.5)
+                  ? Border.all(
+                      color: accent.withValues(alpha: isDark ? 0.5 : 0.45),
+                      width: 1.5,
+                    )
                   : Border.all(color: accent.withValues(alpha: 0), width: 1.5),
               // Weiche Ambient-Elevation nur bei Interaktion — die ruhende
               // Zeile bleibt flach (Dichte/Perf), Hover/Select/Focus bekommen
               // einen glow-freien Materiallift zusätzlich zum Border.
               // subtleTransparent (not null) for the same reason as border
               // above — see its doc comment for the exact flash mechanism.
+              // Theme-resolved strength: halved black alpha on light so the
+              // lift never reads as a dark halo (see WpShadows.subtleLight).
               boxShadow: (widget.isSelected || widget.isFocused || _isHovered)
-                  ? WpShadows.subtle
+                  ? WpShadows.subtleFor(isDark)
                   : WpShadows.subtleTransparent,
             ),
             child: Row(

@@ -138,7 +138,7 @@ class _Gallery extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const _Heading('Overlay — 4 states × 2 themes × 2 sizes'),
+            const _Heading('Overlay — 4 states × 2 themes × 3 sizes'),
             const SizedBox(height: 8),
             for (final state in OverlayVisualState.values)
               Padding(
@@ -148,12 +148,8 @@ class _Gallery extends StatelessWidget {
                   children: [
                     _RowLabel(state.name),
                     for (final isDark in const [true, false])
-                      for (final compact in const [false, true])
-                        _OverlayTile(
-                          state: state,
-                          isDark: isDark,
-                          compact: compact,
-                        ),
+                      for (final size in OverlaySizeVariant.values)
+                        _OverlayTile(state: state, isDark: isDark, size: size),
                   ],
                 ),
               ),
@@ -211,16 +207,16 @@ class _OverlayTile extends StatelessWidget {
   const _OverlayTile({
     required this.state,
     required this.isDark,
-    required this.compact,
+    required this.size,
   });
 
   final OverlayVisualState state;
   final bool isDark;
-  final bool compact;
+  final OverlaySizeVariant size;
 
   @override
   Widget build(BuildContext context) {
-    final window = OverlayDesignSpec.windowSize(compact: compact);
+    final window = OverlayDesignSpec.windowSizeFor(size);
     final bars = List<double>.generate(
       OverlayDesignSpec.waveform.barCount,
       (i) => (i % 7) / 7.0,
@@ -229,7 +225,7 @@ class _OverlayTile extends StatelessWidget {
       visible: true,
       state: state,
       isDark: isDark,
-      compact: compact,
+      size: size,
       label: switch (state) {
         OverlayVisualState.recording => 'Recording',
         OverlayVisualState.transcribing => 'Transcribing…',
@@ -261,7 +257,7 @@ class _OverlayTile extends StatelessWidget {
           ),
           const SizedBox(height: 3),
           Text(
-            '${isDark ? 'dark' : 'light'} · ${compact ? 'compact' : 'normal'}',
+            '${isDark ? 'dark' : 'light'} · ${size.name}',
             style: const TextStyle(color: Colors.white70, fontSize: 10),
           ),
         ],

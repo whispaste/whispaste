@@ -65,7 +65,6 @@ class _OverlayRenderAppState
     visible: false,
     state: OverlayVisualState.recording,
     isDark: true,
-    compact: false,
     label: '',
   );
   List<double> _bars = const [];

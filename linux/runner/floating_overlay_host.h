@@ -86,7 +86,9 @@ class FloatingOverlayHost {
   static void OnWindowMoved(int x, int y, void* user_data);
 
   // ── Compact / position cache ──────────────────────────────────────────────
-  bool is_compact_ = false;
+  // Size class: "normal" | "compact" | "mini" (mirrors the Dart
+  // OverlaySizeVariant serialised as snapshot["size"]).
+  std::string size_class_ = "normal";
   // Pending position applied when the window is first created.
   bool has_pending_position_ = false;
   int pending_x_ = 0;

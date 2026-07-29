@@ -126,29 +126,38 @@ void FloatingOverlayHost::HandleMethodCall(FlMethodCall* method_call) {
 
   if (strcmp(method, "updateSnapshot") == 0) {
     // ── updateSnapshot ────────────────────────────────────────────────────
-    // args: { visible, compact, state, isDark, label, … }
+    // args: { visible, size, state, isDark, label, … }
     bool visible = false;
-    bool compact = false;
+    // "size" is the canonical key ("normal" | "compact" | "mini"); fall back
+    // to the legacy "compact" bool for payloads from an older main engine.
+    std::string size_class = "normal";
     if (args && fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
       FlValue* visible_val = fl_value_lookup_string(args, "visible");
       if (visible_val && fl_value_get_type(visible_val) == FL_VALUE_TYPE_BOOL) {
         visible = fl_value_get_bool(visible_val);
       }
-      FlValue* compact_val = fl_value_lookup_string(args, "compact");
-      if (compact_val && fl_value_get_type(compact_val) == FL_VALUE_TYPE_BOOL) {
-        compact = fl_value_get_bool(compact_val);
+      FlValue* size_val = fl_value_lookup_string(args, "size");
+      if (size_val && fl_value_get_type(size_val) == FL_VALUE_TYPE_STRING) {
+        size_class = fl_value_get_string(size_val);
+      } else {
+        FlValue* compact_val = fl_value_lookup_string(args, "compact");
+        if (compact_val &&
+            fl_value_get_type(compact_val) == FL_VALUE_TYPE_BOOL &&
+            fl_value_get_bool(compact_val)) {
+          size_class = "compact";
+        }
       }
     }
 
-    bool size_changed = (compact != is_compact_);
-    is_compact_ = compact;
+    bool size_changed = (size_class != size_class_);
+    size_class_ = size_class;
 
     if (visible && overlay_window_ == nullptr) {
       // Lazy-create the overlay shell on first visible updateSnapshot.
       EnsureOverlayWindow();
     } else if (size_changed && overlay_window_ != nullptr) {
-      // Resize the existing shell when the compact flag flips.
-      overlay_window_->SetCompact(is_compact_);
+      // Resize the existing shell when the size class changes.
+      overlay_window_->SetSizeClass(size_class_);
       // Re-anchor after resize (matching macOS resizePanelToContent).
       if (overlay_window_->IsCreated()) {
         auto [rx, ry] =
@@ -274,7 +283,7 @@ void FloatingOverlayHost::EnsureOverlayWindow() {
   render_ready_ = false;
   overlay_window_ = new FloatingOverlayWindow();
   overlay_window_->SetOnMoved(OnWindowMoved, this);
-  overlay_window_->SetCompact(is_compact_);
+  overlay_window_->SetSizeClass(size_class_);
   overlay_window_->Create();
 
   // Apply pending position before the window is shown.
@@ -507,8 +516,8 @@ std::pair<int, int> FloatingOverlayHost::ResolvePosition(
     GdkRectangle work_area;
     gdk_monitor_get_workarea(monitor, &work_area);
 
-    int w = is_compact_ ? kOverlayCompactW : kOverlayNormalW;
-    int h = is_compact_ ? kOverlayCompactH : kOverlayNormalH;
+    int w = OverlayLogicalW(size_class_);
+    int h = OverlayLogicalH(size_class_);
 
     if (anchor_mode == "topCenter") {
       int px = work_area.x + (work_area.width - w) / 2;
@@ -546,8 +555,8 @@ std::pair<int, int> FloatingOverlayHost::ClampToWorkArea(double x, double y) {
   GdkRectangle work_area;
   gdk_monitor_get_workarea(monitor, &work_area);
 
-  int w = is_compact_ ? kOverlayCompactW : kOverlayNormalW;
-  int h = is_compact_ ? kOverlayCompactH : kOverlayNormalH;
+  int w = OverlayLogicalW(size_class_);
+  int h = OverlayLogicalH(size_class_);
 
   int max_x = std::max(work_area.x, work_area.x + work_area.width - w);
   int max_y = std::max(work_area.y, work_area.y + work_area.height - h);

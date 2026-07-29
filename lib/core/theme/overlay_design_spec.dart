@@ -16,6 +16,10 @@
 /// - **Compact = scaled, not reduced.** The waveform bar count is identical for
 ///   both sizes (no 8-vs-30 split); compact content metrics are derived from
 ///   the normal spec by [OverlayDesignSpec.compactScale].
+/// - **Mini = reduced by design.** The third size ([OverlaySizeSpec.mini]) is
+///   the sanctioned exception: a waveform-first micro capsule with explicit
+///   hand-tuned anchors, extra-translucent chrome and minimal content. The
+///   waveform bar count stays identical across ALL sizes.
 /// - **Calm UI** — no glows, no harsh effects; soft/slow timings.
 /// - **Accessibility:** the opacity setting affects ONLY the pill fill
 ///   ([OverlayDesignSpec.fillOpacityFactor] × opacity); text, icons and the
@@ -32,6 +36,32 @@ import 'package:flutter/widgets.dart';
 /// Mirrors `OverlayVisualState` (recording/transcribing/done/error). There is
 /// deliberately no `processing` state and no privacy badge.
 enum OverlayDesignState { recording, transcribing, done, error }
+
+/// The three overlay size variants.
+///
+/// - [normal]: the full pill (timer, waveform, close/stop, status text).
+/// - [compact]: the same content scaled down ("scaled, not reduced").
+/// - [mini]: the waveform-first variant — a small, extra-translucent capsule
+///   whose content is deliberately REDUCED to (almost) only the waveform.
+///   Status identity stays readable through the crisp content glyphs (pulsing
+///   dot, live waveform, done/error status icons); timer text, close glyph
+///   and stop square are omitted by design ([OverlaySizeSpec.minimalContent]).
+enum OverlaySizeVariant {
+  /// Full-size pill.
+  normal,
+
+  /// Scaled-down pill with identical content.
+  compact,
+
+  /// Waveform-first micro pill (extra translucent, minimal content).
+  mini;
+
+  /// Resolves a persisted/serialised name; unknown or null → [normal].
+  static OverlaySizeVariant fromName(String? name) => values.firstWhere(
+    (v) => v.name == name,
+    orElse: () => OverlaySizeVariant.normal,
+  );
+}
 
 /// Theme variants the spec provides a complete colour set for.
 enum OverlayDesignTheme { dark, light }
@@ -70,7 +100,9 @@ class OverlayThemeColors {
   /// Accent-tinted hairline capsule border (light `#330887A8`).
   final Color capsuleBorder;
 
-  /// Primary text (timer, done/error message).
+  /// Content ink — since the universal-legibility scheme (2026-07-29) no
+  /// longer the glyph FILL but the dark OUTLINE around the white glyphs
+  /// ([OverlayDesignSpec.contentGlyphFill]).
   final Color text;
 
   /// Cyan accent — spinner, waveform active bars, unlimited-progress line.
@@ -139,12 +171,14 @@ class WaveformSpec {
   final double releaseTimeConstantMs;
 }
 
-/// All geometry and typography for one overlay size (normal or compact).
+/// All geometry and typography for one overlay size (normal, compact or mini).
 ///
 /// `width`/`height`/`cornerRadius`/`padH` are deliberate per-size **anchors**.
 /// All other (content) metrics of the compact variant are **derived** from the
 /// normal variant by [OverlayDesignSpec.compactScale] — see
-/// [OverlaySizeSpec.compact].
+/// [OverlaySizeSpec.compact]. The mini variant is the sanctioned exception to
+/// "scaled, not reduced": its content is REDUCED by design (waveform-first),
+/// so its metrics are explicit hand-tuned anchors — see [OverlaySizeSpec.mini].
 @immutable
 class OverlaySizeSpec {
   const OverlaySizeSpec({
@@ -165,6 +199,10 @@ class OverlaySizeSpec {
     required this.bottomProgressHeight,
     required this.timerFontSize,
     required this.primaryFontSize,
+    this.minimalContent = false,
+    this.timelineInsetBottom = OverlayDesignSpec.timelineInsetBottom,
+    this.timelineStrokeWidth = OverlayDesignSpec.timelineStrokeWidth,
+    this.timelineLeadDotRadius = OverlayDesignSpec.timelineLeadDotRadius,
   });
 
   // -- Box anchors (per-size, not scaled) ------------------------------------
@@ -223,8 +261,35 @@ class OverlaySizeSpec {
   /// Primary label/done/error text font size.
   final double primaryFontSize;
 
+  // -- Per-size derived chrome metrics (impeccable layout pass) --------------
+  //
+  // Glass material (fill alpha, sheen alpha) and the waveform alpha ladder
+  // are deliberately NOT per-size any more: all three sizes share ONE glass
+  // and ONE ladder ([OverlayDesignSpec.fillOpacityFactor] /
+  // [OverlayDesignSpec.glassSheenOpacity] / the waveform*Opacity constants),
+  // so the sizes read as one material — only geometry and content density
+  // vary. The timeline metrics below scale per size because the shared
+  // absolute values collided with the waveform inside the 28 px mini pill
+  // (6 px inset = 21 % of mini's height vs. 9 % of normal's).
+
+  /// Whether this size renders the reduced, waveform-first content set
+  /// (mini): no close glyph, no timer/status text, no stop square; the
+  /// waveform is the dominant element and done/error collapse to a centred
+  /// status icon. State identity stays on the content glyphs (dot/icons).
+  final bool minimalContent;
+
+  /// Bottom inset of the progress timeline for this size.
+  final double timelineInsetBottom;
+
+  /// Stroke width of the progress timeline for this size.
+  final double timelineStrokeWidth;
+
+  /// Radius of the timeline's bright lead dot for this size.
+  final double timelineLeadDotRadius;
+
   /// Capsule corner radius — the approved spike pill is a full capsule
-  /// (`height / 2` → 32 normal, 20 compact), not the legacy [cornerRadius].
+  /// (`height / 2` → 32 normal, 20 compact, 17 mini), not the legacy
+  /// [cornerRadius].
   double get capsuleRadius => height / 2;
 
   /// The full normal-size spec — the canonical base all compact values scale
@@ -252,22 +317,71 @@ class OverlaySizeSpec {
   /// The compact spec: box anchors are explicit (220×40 r20, padH 16); every
   /// content metric is [OverlayDesignSpec.compactScale] × the normal value, so
   /// compact is a true scaling of normal rather than a separate hand-tuned set.
+  /// Timeline metrics overridden (quality-parity pass, 2026-07-29): with the
+  /// shared 6 px inset the 2.2 px lead dot (top edge y 31.8) touched the
+  /// 24 px waveform zone (bars end y 32). Inset 5 / dot 1.8 → line at 35,
+  /// dot 33.2..36.8, clear of the bars.
   static final OverlaySizeSpec compact = normal._scaledContent(
     OverlayDesignSpec.compactScale,
     width: 220,
     height: 40,
     cornerRadius: 20,
     padH: 16,
+    timelineInsetBottom: 5.0,
+    timelineLeadDotRadius: 1.8,
+  );
+
+  /// The mini spec — the waveform-first third size (Wispr-Flow-inspired, in
+  /// WhisPaste's own design language: teal accent waveform, capsule chrome,
+  /// fixed accent hairline border).
+  ///
+  /// Deliberately NOT derived via a scale factor: mini reduces content (no
+  /// timer, no close glyph, no stop square), so a pure scaling of the normal
+  /// metrics has nothing meaningful to scale. Every value here is an explicit
+  /// hand-tuned anchor. Glass material and waveform alphas are the SHARED
+  /// ones — one design language across all three sizes (impeccable pass).
+  ///
+  /// Geometry sanity (mirrored-bars pass, 2026-07-29): pill raised 28 → 34
+  /// so the mirrored bars can show real amplitude (Maintainer: "in der
+  /// Nano-Darstellung … ein bisschen höher"). Waveform 18 px centred in
+  /// 34 px → bars span y 8..26; timeline at `34 − 4 = 30` with a 1.6 px lead
+  /// dot (28.4..31.6) → 2.4 px clearance.
+  static const OverlaySizeSpec mini = OverlaySizeSpec(
+    width: 150,
+    height: 34,
+    cornerRadius: 17,
+    padH: 12,
+    dotSize: 5,
+    closeButtonSize: 18,
+    stopButtonSize: 18,
+    statusIconSize: 14,
+    waveformMaxHeight: 18,
+    waveformBarWidth: 2.0,
+    waveformBarGap: 1.5,
+    dotTextGap: 6,
+    timerWaveformGap: 8,
+    pillGap: 8,
+    bottomProgressHeight: 2,
+    timerFontSize: 10,
+    primaryFontSize: 9,
+    minimalContent: true,
+    timelineInsetBottom: 4.0,
+    timelineStrokeWidth: 1.5,
+    timelineLeadDotRadius: 1.6,
   );
 
   /// Returns a copy with all content metrics scaled by [s] and the box anchors
-  /// overridden by the given values.
+  /// overridden by the given values. [timelineInsetBottom] /
+  /// [timelineLeadDotRadius] may be overridden where the shared absolute
+  /// timeline metrics would collide with the waveform zone (see compact).
   OverlaySizeSpec _scaledContent(
     double s, {
     required double width,
     required double height,
     required double cornerRadius,
     required double padH,
+    double? timelineInsetBottom,
+    double? timelineLeadDotRadius,
   }) {
     return OverlaySizeSpec(
       width: width,
@@ -287,6 +401,10 @@ class OverlaySizeSpec {
       bottomProgressHeight: bottomProgressHeight * s,
       timerFontSize: timerFontSize * s,
       primaryFontSize: primaryFontSize * s,
+      timelineInsetBottom:
+          timelineInsetBottom ?? OverlayDesignSpec.timelineInsetBottom,
+      timelineLeadDotRadius:
+          timelineLeadDotRadius ?? OverlayDesignSpec.timelineLeadDotRadius,
     );
   }
 }
@@ -346,8 +464,8 @@ class OverlayLayoutSpec {
   /// Stop-square side length (recording only).
   final double stopSize;
 
-  /// Minimum waveform line stroke width (the line is the thicker of this and
-  /// `barWidth × waveformLineStrokeFactor`).
+  /// Minimum visual waveform bar width (the filled bar is the wider of this
+  /// and `slot × waveformBarFillFactor`).
   final double lineStrokeMin;
 
   /// Normal-size layout (spike values, `_drawPill` non-compact branch).
@@ -367,6 +485,9 @@ class OverlayLayoutSpec {
   );
 
   /// Compact-size layout (spike values, `_drawPill` compact branch).
+  /// Wave gaps trimmed 12/10 → 10/8 (quality-parity pass, 2026-07-29): +4 px
+  /// waveform width in the tightest size, so compact bars keep pace with
+  /// normal/mini.
   static const OverlayLayoutSpec compact = OverlayLayoutSpec(
     padH: 16,
     closeArm: 3.5,
@@ -376,9 +497,27 @@ class OverlayLayoutSpec {
     dotRadius: 3.5,
     timerGap: 12,
     timerFontSize: 12,
-    waveStartGap: 12,
-    waveEndGap: 10,
+    waveStartGap: 10,
+    waveEndGap: 8,
     stopSize: 10,
+    lineStrokeMin: 1.5,
+  );
+
+  /// Mini-size layout. The mini painter branch renders only dot + waveform
+  /// (+ centred status icon for done/error), so the close/stop/timer values
+  /// here are conservative fallbacks that are never drawn in practice.
+  static const OverlayLayoutSpec mini = OverlayLayoutSpec(
+    padH: 12,
+    closeArm: 3.0,
+    closeStroke: 1.2,
+    closeOffset: 0,
+    dotInset: 4,
+    dotRadius: 2.5,
+    timerGap: 8,
+    timerFontSize: 10,
+    waveStartGap: 8,
+    waveEndGap: 0,
+    stopSize: 8,
     lineStrokeMin: 1.5,
   );
 }
@@ -453,7 +592,15 @@ class OverlayArcMotion {
     required this.appearScale,
     required this.stateTransitionDuration,
     required this.stateTransitionCurve,
+    this.statusRevealDuration = const Duration(milliseconds: 280),
   });
+
+  /// Duration of the crossfade INTO the done/error end states (impeccable
+  /// pass). The generic 150 ms crossfade left the done check — the emotional
+  /// pay-off of the whole product — half-formed; 280 ms gives the stroke-
+  /// first draw-on room to land while staying inside the calm soft-cap.
+  /// Recording/transcribing transitions keep [stateTransitionDuration].
+  final Duration statusRevealDuration;
 
   /// Duration of the capsule spring-in (appear).
   ///
@@ -675,36 +822,233 @@ abstract final class OverlayDesignSpec {
   /// 15 pt timer to the compact 10 pt.
   static const double compactScale = 2 / 3;
 
-  /// Base alpha of the capsule's tint gradient fill. Lowered from the original
-  /// near-opaque spike value (`0.92`) to `0.66` for the chosen **faux-glass**
-  /// look (task #38): the capsule now reads as translucent glass — the desktop
-  /// shows through and the [glassSheenOpacity] highlight reads as a glass edge.
-  /// Cross-platform (pure Dart in [OverlayPainter], identical on macOS/Windows/
-  /// Linux); no OS-level blur is used. Stays above [minRecommendedOpacity] so
-  /// content contrast holds over a worst-case background.
+  /// Base alpha of the capsule's tint gradient fill.
+  ///
+  /// **Dock-glass decision (Maintainer, 2026-07-29):** lowered from `0.66` to
+  /// `0.35` so the capsule reads as "im Grunde bloß ein Glaskörper drumrum" —
+  /// like the macOS Dock. The researched no-blur glass recipe (Liquid-Glass /
+  /// glassmorphism analyses): without a compositor blur the FILL cannot carry
+  /// the glass identity — it only tints; the identity moves to the highlight
+  /// layer (Fresnel rim light, inner edge band, specular top streak — see the
+  /// glass constants below). Cross-platform (pure Dart in [OverlayPainter],
+  /// identical on macOS/Windows/Linux); no OS-level blur is used.
+  ///
+  /// Trade-off, explicitly sanctioned: below the old text-safety product
+  /// (`0.66 × opacity`), worst-case timer/status-text contrast now depends on
+  /// the desktop behind the capsule. The content layer itself stays fully
+  /// opaque, and the waveform/icons carry their own ≥3:1 guarantees.
   ///
   /// The opacity setting scales ONLY the translucent pill chrome (fill gradient,
   /// painted shadow, border) by `fillOpacityFactor × opacity`; the content layer
   /// (text, icons, dot, waveform, stop, timeline) always stays fully opaque
   /// (accessibility, ADR 0002).
-  static const double fillOpacityFactor = 0.66;
+  /// (0.35 → 0.22 → 0.14 across the Dock-glass rounds, 2026-07-29 —
+  /// together with the shadow knock-out under the capsule, see
+  /// [OverlayPainter], the pill now reads as a bare glass body. The content
+  /// no longer depends on the fill at all: every dark-ink glyph became a
+  /// white glyph with a dark outline — see [contentGlyphFill].)
+  static const double fillOpacityFactor = 0.14;
 
   /// Alpha of the white glass sheen painted over the capsule fill (task #38):
-  /// a top-down highlight plus a bright inner rim that reads as a glass edge,
-  /// giving the faux-glass capsule its "frosted" feel without any OS blur.
-  static const double glassSheenOpacity = 0.40;
+  /// a top-down highlight that reads as light on curved glass. Lowered with
+  /// the Dock-glass fill (0.40 → 0.28): over the much clearer capsule a
+  /// strong white wash reads as milk, not glass.
+  static const double glassSheenOpacity = 0.15;
 
-  /// Alpha of the state-coloured undertone blended into the *bottom* of the
-  /// glass sheen (cross-platform glass polish pass). Reads as tinted glass
-  /// picking up ambient colour from what it is showing — bounded strictly
-  /// inside the capsule shape, no blur, no glow — the calm-UI-safe way to
-  /// make recording/transcribing/done/error read apart at a glance without
-  /// touching [glassSheenOpacity]'s neutral white highlight.
-  static const double sheenStateTintOpacity = 0.10;
+  /// Fraction of [glassSheenOpacity] used for the faint counter-sheen rising
+  /// from the capsule's bottom edge (glass polish pass, macOS-Dock mood
+  /// reference): light catching the lower glass rim. Neutral white like
+  /// every sheen — never state-tinted (ADR 0002).
+  static const double glassBottomSheenFactor = 0.25;
 
-  /// Recommended slider floor for the opacity setting — below this white text
-  /// over a worst-case white background drops under WCAG AA (ADR 0002).
+  // -- Dock-glass refinement (impeccable layout pass, 2026-07-28) ------------
+  //
+  // The sheen now behaves like light on CURVED glass instead of a flat
+  // vertical wash: the top highlight tapers away from the rounded end caps,
+  // the bright rim is lit from above (fading toward the bottom), and a
+  // hair-thin dark inner shade above the bottom counter-sheen gives the
+  // glass physical thickness. All neutral white/black — no state colour in
+  // the chrome, no OS blur, identical on every platform.
+
+  /// Horizontal inset of the top-sheen gradient rect, as a fraction of the
+  /// capsule radius — pulls the highlight off the rounded end caps so it
+  /// reads as light on a curved surface, not a full-width band.
+  static const double glassSheenCapInsetFactor = 0.35;
+
+  /// Colour stops of the top-down sheen (bright → soft → clear).
+  static const List<double> glassSheenStops = [0.0, 0.32, 0.55];
+
+  /// Colour stops of the bottom counter-sheen (clear → faint white).
+  static const List<double> glassBottomSheenStops = [0.78, 1.0];
+
+  /// Alpha of the hair-thin neutral dark inner shade painted just above the
+  /// bottom counter-sheen — the "mass" of the glass slab.
+  static const double glassInnerShadeOpacity = 0.04;
+
+  /// Colour stops of the inner bottom shade (clear → faint black).
+  static const List<double> glassInnerShadeStops = [0.85, 1.0];
+
+  // Fresnel edge treatment (Dock-glass research pass, 2026-07-29): glass
+  // reflects most at grazing angles, so a believable no-blur glass body is
+  // carried by its EDGES — a bright 1 px rim lit from above, a soft wider
+  // inner band just inside it (the refracting "thickness" of the slab), and
+  // one crisp specular streak along the top edge (the Dock's signature
+  // reflection). All neutral white, all static — no shimmer, no state tint.
+
+  /// Alpha of the 1 px outer rim at the TOP edge (absolute, no longer tied
+  /// to the sheen — the rim now carries the glass identity).
+  static const double glassRimTopOpacity = 0.55;
+
+  /// Alpha of the 1 px outer rim at the BOTTOM edge.
+  static const double glassRimBottomOpacity = 0.10;
+
+  /// Stroke width of the soft inner Fresnel band just inside the rim.
+  static const double glassInnerRimWidth = 2.5;
+
+  /// Inset of the inner Fresnel band from the capsule edge.
+  static const double glassInnerRimInset = 1.25;
+
+  /// Peak alpha of the inner Fresnel band (fades to clear toward the bottom).
+  static const double glassInnerRimOpacity = 0.10;
+
+  // Specular streak — debugged 2026-07-30 after two invisible rounds.
+  // Pixel measurement of rendered frames found TWO structural causes, not a
+  // value problem: (1) over light desktops the alpha chain saturated (streak
+  // row 250 vs. surroundings 250 — white on near-white, Δ0); (2) over dark
+  // desktops the 1.2 px streak sat 1 px under the static bright rim and
+  // perceptually fused with it (its drift read as nothing). Fixes: the
+  // streak moved AWAY from the edge, got wider, and carries a soft dark
+  // under-halo that guarantees local contrast on light backgrounds.
+
+  /// Alpha of the crisp specular streak.
+  static const double glassSpecularOpacity = 0.5;
+
+  /// Stroke width of the specular streak (1.2 → 2.6: one hairline row could
+  /// never read as a distinct reflection).
+  static const double glassSpecularStrokeWidth = 2.6;
+
+  /// Length of the specular streak as a fraction of the pill width.
+  static const double glassSpecularWidthFactor = 0.55;
+
+  /// Distance of the specular streak below the top edge (2.5 → 5.5: clear
+  /// of the static rim, so its drift is distinguishable from the edge).
+  static const double glassSpecularInsetTop = 5.5;
+
+  /// Alpha of the soft dark under-halo beneath the streak — the local
+  /// contrast floor that keeps the white streak visible over light desktops
+  /// (measured: without it the streak is Δ0 on white).
+  static const double glassSpecularHaloOpacity = 0.16;
+
+  /// Blur sigma of the under-halo.
+  static const double glassSpecularHaloBlurSigma = 2.0;
+
+  /// Stroke width of the under-halo (wider than the streak).
+  static const double glassSpecularHaloStrokeWidth = 5.0;
+
+  /// Vertical offset of the under-halo below the streak.
+  static const double glassSpecularHaloOffsetY = 1.5;
+
+  // -- Liquid-glass drift (Maintainer-Wunsch 2026-07-29, research pass) ------
+  //
+  // The glass material itself moves — barely. Researched guidance (Liquid-
+  // Glass web implementations, premium-shimmer practice): specular highlights
+  // may DRIFT a few pixels, slowly ("specular highlight amplitude ≤ 6 px";
+  // "a few-pixel highlight drift feels premium"), while a repeating bright
+  // SWEEP reads as a loading shimmer — which ADR 0002 forbids. So: the
+  // specular streak drifts sinusoidally ±[liquidSpecularDriftPx], the top
+  // sheen follows at half parallax (layer-depth cue), and the rim light
+  // breathes ±[liquidRimBreatheFactor]. Everything is phase-locked to one
+  // slow [liquidDriftPeriod] cycle and neutral-white only. Phase 0 renders
+  // EXACTLY the static frame — reduced-motion and the goldens live there.
+  static const Duration liquidDriftPeriod = Duration(seconds: 8);
+
+  /// Peak horizontal drift of the specular streak. Raised 6 → 12 px after
+  /// live feedback ("überhaupt nicht sichtbar") — still an anchored
+  /// highlight oscillating around its resting spot over a slow 8 s cycle,
+  /// NOT a band traversing the surface (that would be the forbidden
+  /// shimmer sweep; the boundary stays).
+  static const double liquidSpecularDriftPx = 12.0;
+
+  /// Fraction of the specular drift applied to the top sheen — the two
+  /// light layers move at different speeds (micro-parallax = depth).
+  static const double liquidSheenParallaxFactor = 0.5;
+
+  /// Peak relative length-breathing of the specular streak (raised with the
+  /// visibility pass).
+  static const double liquidSpecularBreatheFactor = 0.18;
+
+  /// Peak relative alpha-breathing of the specular streak — the drifting
+  /// light also visibly brightens/dims across the cycle (0.35 base alpha
+  /// swings ±25 %, still far from any flash).
+  static const double liquidSpecularBrightBreatheFactor = 0.25;
+
+  /// Peak relative alpha-breathing of the rim's top light (raised with the
+  /// visibility pass).
+  static const double liquidRimBreatheFactor = 0.15;
+
+  // -- Liquid-glass silhouette wobble (Maintainer-Interview 2026-07-30) ------
+  //
+  // The capsule OUTLINE itself deforms — the "flüssiges Gummibärchen im
+  // Windhauch": a continuous, barely-perceptible base undulation plus a
+  // slightly stronger deformation on loud speech (audio level — explicitly
+  // requested in the interview). Construction: the capsule perimeter is
+  // sampled into [liquidWobbleSamples] equidistant points, each displaced
+  // along its outward normal by two counter-travelling low-spatial-frequency
+  // waves (2 and 3 periods around the perimeter; 1 and 2 time-cycles per
+  // [liquidDriftPeriod] loop, so the motion is seamless at the wrap), then
+  // closed with Catmull-Rom smoothing — organic bulges, never jitter.
+  //
+  // Calibration (round 2, "eingeschlossenes Wasser"): base ±1.2 px; the
+  // audio share adds up to ±2.4 px at full level AND runs as its OWN wave
+  // shape — a faster, finer ripple (5 perimeter periods, 6 time-cycles per
+  // loop) so the voice reaction reads as a distinct component, not just
+  // "more wind". Total ≤ 3.6 px, comfortably inside the 8 px
+  // [shadowPadding] so the native window never clips. Reduced-motion and
+  // the settings preview render the perfectly rigid capsule (amplitude 0).
+
+  /// Base ("Windhauch") wobble amplitude in logical pixels.
+  static const double liquidWobbleBaseAmplitudePx = 1.2;
+
+  /// Additional ripple amplitude at full audio level (own, finer waveform —
+  /// see [OverlayPainter]).
+  static const double liquidWobbleAudioAmplitudePx = 2.4;
+
+  /// Number of perimeter sample points (Catmull-Rom smoothed).
+  static const int liquidWobbleSamples = 28;
+
+  /// Recommended slider floor for the opacity setting (ADR 0002). Guidance
+  /// for the USER opacity slider only — it scales the whole chrome by
+  /// `fillOpacityFactor × opacity`. Since the Dock-glass decision
+  /// (2026-07-29) the base [fillOpacityFactor] itself sits below the old
+  /// text-safety product by explicit maintainer choice; this floor keeps the
+  /// slider from thinning the glass body further into invisibility.
   static const double minRecommendedOpacity = 0.65;
+
+  // -- Universal-legibility glyph scheme (final: soft shadow, 2026-07-30) ----
+  //
+  // The overlay floats over ARBITRARY desktop content, and the painter has
+  // no backdrop sampling and no OS blur — so no single ink colour can work
+  // on both light and dark desktops. All neutral glyphs (timer/status text,
+  // close ✕, stop square) render WHITE over a soft blurred dark drop shadow
+  // (subtitle technique; Maintainer-Entscheid nach dem Varianten-Vergleich —
+  // softShadow schlug gradientScrim und hairlineOutline). The dot, waveform
+  // and done/error icons keep their semantic mid-tone colours (mid-tones
+  // hold ≥3:1 against both white and black extremes and need no shadow).
+
+  /// Fill colour of all neutral content glyphs (text, close ✕, stop square).
+  static const Color contentGlyphFill = Color(0xFFFFFFFF);
+
+  /// Shadow ink beneath the white glyphs.
+  static const Color glyphShadowColor = Color(0xFF14202E);
+
+  /// Shadow alpha.
+  static const double glyphShadowOpacity = 0.85;
+
+  /// Gaussian blur sigma of the glyph shadow (soft, no hard ring).
+  static const double glyphShadowBlurSigma = 1.75;
+
+  /// Offset of the glyph shadow (slightly downward, like cast light).
+  static const Offset glyphShadowOffset = Offset(0, 0.75);
 
   // -- Capsule chrome (painted shadow + capsule shape) -----------------------
 
@@ -744,13 +1088,34 @@ abstract final class OverlayDesignSpec {
   static const double shadowPadding = 8.0;
 
   /// Resolves the hand-tuned per-size layout (spike `_drawPill`).
-  static OverlayLayoutSpec layout({required bool compact}) =>
-      compact ? OverlayLayoutSpec.compact : OverlayLayoutSpec.normal;
+  ///
+  /// Legacy two-size convenience — new code paths that can carry a full
+  /// [OverlaySizeVariant] use [layoutFor].
+  static OverlayLayoutSpec layout({required bool compact}) => layoutFor(
+    compact ? OverlaySizeVariant.compact : OverlaySizeVariant.normal,
+  );
+
+  /// Resolves the hand-tuned layout for [variant].
+  static OverlayLayoutSpec layoutFor(OverlaySizeVariant variant) =>
+      switch (variant) {
+        OverlaySizeVariant.normal => OverlayLayoutSpec.normal,
+        OverlaySizeVariant.compact => OverlayLayoutSpec.compact,
+        OverlaySizeVariant.mini => OverlayLayoutSpec.mini,
+      };
 
   /// Full native-window size for one pill = pill box + [shadowPadding] on every
   /// side. The pill itself is painted at `Offset(shadowPadding, shadowPadding)`.
-  static Size windowSize({required bool compact}) {
-    final s = size(compact: compact);
+  ///
+  /// Legacy two-size convenience — see [windowSizeFor].
+  static Size windowSize({required bool compact}) => windowSizeFor(
+    compact ? OverlaySizeVariant.compact : OverlaySizeVariant.normal,
+  );
+
+  /// Full native-window size for [variant] = pill box + [shadowPadding] on
+  /// every side. Normal `346 × 80`, compact `236 × 56`, mini `166 × 50` —
+  /// the native shells must mirror these exactly.
+  static Size windowSizeFor(OverlaySizeVariant variant) {
+    final s = sizeFor(variant);
     return Size(s.width + 2 * shadowPadding, s.height + 2 * shadowPadding);
   }
 
@@ -784,20 +1149,59 @@ abstract final class OverlayDesignSpec {
   /// the rest are drawn muted (spike `i > len − 5`).
   static const int waveformActiveCount = 5;
 
-  /// Accent alpha for the active trailing bars (spike `0.95`).
-  static const double waveformActiveOpacity = 0.95;
+  // Mirrored-bar waveform (Maintainer decision, 2026-07-29): the bars are
+  // FULLY OPAQUE filled capsules, mirrored around the centre axis
+  // (Spotify/Voice-Memos register, in WhisPaste's own accent language) —
+  // no alpha wash, no glow (explicitly rejected: "macht das nur
+  // schwammiger"), hard crisp edges. Identity lives in the "energy axis":
+  // every bar carries a vertical in-bar gradient that is brightest at the
+  // centre line and shades toward the tips, so quiet bars still show a
+  // bright core and loud bars grow dark-tipped amplitude. The recency
+  // "playhead" (trailing bars) is encoded through a wider bar plus a hotter
+  // core — never through washing the history out.
 
-  /// Accent alpha for the muted leading bars while recording (spike `0.5`).
-  static const double waveformMutedLineOpacity = 0.50;
+  /// Alpha of the recording bars — fully opaque, maximum contrast
+  /// (accent `#0887A8` over worst-case white ≈ 4.2:1).
+  static const double waveformActiveOpacity = 1.0;
 
-  /// Accent alpha for the flat waveform shown outside recording (spike `0.3`).
-  static const double waveformInactiveStateOpacity = 0.30;
+  /// Alpha of the leading (history) bars while recording — also fully
+  /// opaque; active vs. muted reads through width + core brightness.
+  static const double waveformMutedLineOpacity = 1.0;
+
+  /// Alpha of the flat waveform shown outside recording (decorative rest
+  /// state, deliberately quieter than the live bars).
+  static const double waveformInactiveStateOpacity = 0.5;
+
+  /// Visual bar width as a fraction of the per-bar slot (the remainder is
+  /// the gap) — chunky enough to read as a bar, open enough to stay a
+  /// rhythm, never a solid block.
+  static const double waveformBarFillFactor = 0.62;
+
+  /// Slot fraction for the trailing active bars — the playhead is wider.
+  static const double waveformActiveBarFillFactor = 0.74;
+
+  /// Perceptual display gamma applied to the normalised level before it maps
+  /// to bar height (`height ∝ level^gamma`). Speech spends most of its time
+  /// at low normalised levels; the sub-linear curve lifts quiet syllables so
+  /// the waveform dances instead of idling near the floor, while loud peaks
+  /// still cap at the same maximum. Display-only — the pipeline's smoothing
+  /// state stays untouched.
+  static const double waveformLevelGamma = 0.65;
+
+  /// White fraction mixed into the accent at the CENTRE of the bar gradient
+  /// for the muted (history) bars — the "energy axis" core.
+  static const double waveformCoreMutedLightFraction = 0.10;
+
+  /// White fraction at the centre for the active trailing bars — the hotter
+  /// playhead core.
+  static const double waveformCoreActiveLightFraction = 0.35;
+
+  /// Black fraction mixed into the accent at BOTH bar tips — mirrored
+  /// shading that grounds the bars and adds contrast at the extremes.
+  static const double waveformTipShadeFraction = 0.15;
 
   /// Fraction of the pill height the loudest bar may reach (spike `0.6`).
   static const double waveformHeightFactor = 0.60;
-
-  /// Line stroke width as a fraction of the per-bar column width (spike `0.5`).
-  static const double waveformLineStrokeFactor = 0.5;
 
   /// Flat rest level used for the faint waveform outside recording (spike
   /// `0.06`).
@@ -822,21 +1226,17 @@ abstract final class OverlayDesignSpec {
   /// existing state-transition crossfade fraction; adds no new controller.
   static const double errorIconRevealScaleStart = 0.85;
 
-  // -- Per-state chrome tinting (cross-platform glass polish pass) -----------
-
-  /// Border colour for [state]: the existing hairline capsule border re-hued
-  /// to that state's [stateGradients] leading colour, at the same alpha the
-  /// spike's fixed accent border already used. Lets recording (red),
-  /// transcribing (amber), done (green) and error (red) read apart from the
-  /// capsule edge alone — no blur, no glow, just re-tinting a stroke that was
-  /// already there.
-  static Color borderColorFor(
-    OverlayDesignState state,
-    OverlayThemeColors colors,
-  ) {
-    final tint = stateGradients[state]!.stops.first;
-    return tint.withValues(alpha: colors.capsuleBorder.a);
-  }
+  // -- Chrome neutrality (maintainer decision, 2026-07-28) -------------------
+  //
+  // The capsule CHROME (fill, sheen, border, shadow) is strictly state-
+  // neutral: fill/sheen are the fixed tint gradient + white sheen, the border
+  // is always the fixed accent hairline [OverlayThemeColors.capsuleBorder],
+  // and the shadow is always neutral black. A per-state border re-hue
+  // (formerly `borderColorFor`) was removed after live feedback: over a small
+  // translucent capsule the red recording stroke read as a diffuse pink
+  // "glow" — exactly the effect ADR 0002 forbids. State identity lives ONLY
+  // in crisp content glyphs: the pulsing dot, the live waveform, the done
+  // check (green) and the error icon/text (red).
 
   // -- Theme colours ---------------------------------------------------------
 
@@ -915,9 +1315,22 @@ abstract final class OverlayDesignSpec {
   /// Compact (small) pill spec — content derived from [normalSize].
   static final OverlaySizeSpec compactSize = OverlaySizeSpec.compact;
 
-  /// Resolves the size spec for the compact flag (matches the snapshot).
+  /// Mini (waveform-first) pill spec — explicit anchors, minimal content.
+  static const OverlaySizeSpec miniSize = OverlaySizeSpec.mini;
+
+  /// Resolves the size spec for the compact flag.
+  ///
+  /// Legacy two-size convenience — see [sizeFor].
   static OverlaySizeSpec size({required bool compact}) =>
       compact ? compactSize : normalSize;
+
+  /// Resolves the size spec for [variant].
+  static OverlaySizeSpec sizeFor(OverlaySizeVariant variant) =>
+      switch (variant) {
+        OverlaySizeVariant.normal => normalSize,
+        OverlaySizeVariant.compact => compactSize,
+        OverlaySizeVariant.mini => miniSize,
+      };
 
   // -- Motion ----------------------------------------------------------------
 
@@ -1000,14 +1413,31 @@ abstract final class OverlayDesignSpec {
     OverlayDesignState.error => 0.758,
   };
 
+  /// Width ratio for a [OverlaySizeSpec.minimalContent] (mini) pill.
+  ///
+  /// While the waveform runs (recording/transcribing) mini keeps its full
+  /// width. For the done/error end states the capsule shrinks around the
+  /// single centred status icon (impeccable pass) — a 150 px capsule holding
+  /// one 14 px glyph read as an empty shell, and the width-morph spring is
+  /// the overlay's most elegant motion; mini now shares it.
+  static double miniPillWidthRatio(OverlayDesignState state) => switch (state) {
+    OverlayDesignState.recording => 1.0,
+    OverlayDesignState.transcribing => 1.0,
+    OverlayDesignState.done => 0.42,
+    OverlayDesignState.error => 0.42,
+  };
+
   /// Target pill width in logical pixels for [state] at the given [sizeSpec].
   ///
-  /// Convenience wrapper: `sizeSpec.width × pillWidthRatio(state)`.
-  /// Callers pass this directly as `pillWidth` to [OverlayPainter].
+  /// Convenience wrapper: `sizeSpec.width × pillWidthRatio(state)` (mini:
+  /// [miniPillWidthRatio]). Callers pass this directly as `pillWidth` to
+  /// [OverlayPainter].
   static double pillWidthFor(
     OverlayDesignState state,
     OverlaySizeSpec sizeSpec,
-  ) => sizeSpec.width * pillWidthRatio(state);
+  ) => sizeSpec.minimalContent
+      ? sizeSpec.width * miniPillWidthRatio(state)
+      : sizeSpec.width * pillWidthRatio(state);
 
   /// [pillWidthFor], grown just enough to fit [text] without an ellipsis —
   /// e.g. a long done/error status message that does not fit the narrow
@@ -1025,6 +1455,8 @@ abstract final class OverlayDesignSpec {
     String text,
   ) {
     final baseWidth = pillWidthFor(state, sizeSpec);
+    // Mini renders no status text — nothing to grow for.
+    if (sizeSpec.minimalContent) return baseWidth;
     if (text.isEmpty) return baseWidth;
     // Mirrors OverlayPainter._drawContent's textLeft/maxTextWidth geometry:
     // textLeft sits at padH + dotInset + timerGap from the pill's left edge,

@@ -13,6 +13,7 @@ import '../../core/platform/display_bounds.dart';
 import '../../core/platform/window_position_clamp.dart';
 import '../../core/recording/recording_state.dart';
 import '../../core/recording/recording_helpers.dart';
+import '../../core/theme/overlay_design_spec.dart' show OverlaySizeVariant;
 import '../floating_platform_service_base.dart';
 import '../floating_theme_brightness.dart';
 import '../recording_orchestrator.dart';
@@ -357,7 +358,7 @@ class FloatingOverlayService
 
     final l10n = _l10n ?? _resolveL10n();
     final isDark = _computeIsDark(s);
-    final compact = s.overlaySizeType == FloatingOverlaySize.compact;
+    final sizeVariant = s.overlaySizeType.variant;
     final elapsed = ref.read(recordingElapsedProvider);
     final recording = ref.read(recordingProvider);
     final isLocal = s.sttProviderType.isLocal;
@@ -372,7 +373,7 @@ class FloatingOverlayService
       visible: true,
       state: _mapPhase(phase),
       isDark: isDark,
-      compact: compact,
+      size: sizeVariant,
       label: _labelFor(phase, l10n),
       elapsed: phase == RecordingPhase.recording ? _formatElapsed(elapsed) : '',
       hint: _hintFor(phase, s, l10n),
@@ -388,7 +389,7 @@ class FloatingOverlayService
     );
 
     _log.debug(
-      'Overlay show: phase=${phase.name} compact=$compact '
+      'Overlay show: phase=${phase.name} size=${sizeVariant.name} '
       'isDark=$isDark visible=true',
     );
     c.updateSnapshot(snapshot).catchError((e, st) {
@@ -401,22 +402,21 @@ class FloatingOverlayService
     if (c == null) return;
     _autoHideTimer?.cancel();
 
-    // Preserve the configured size on hide. Forcing `compact: false` here made
-    // the native shell needlessly resize to normal on every hide (and could
-    // flash the wrong size on the next show); keep the real setting so the
-    // panel size never flips. Falls back to compact=false only if settings are
-    // unavailable.
+    // Preserve the configured size on hide. Forcing the normal size here made
+    // the native shell needlessly resize on every hide (and could flash the
+    // wrong size on the next show); keep the real setting so the panel size
+    // never flips. Falls back to normal only if settings are unavailable.
     final s = ref.read(settingsProvider).value;
-    final compact = s?.overlaySizeType == FloatingOverlaySize.compact;
+    final sizeVariant = s?.overlaySizeType.variant ?? OverlaySizeVariant.normal;
     final hidden = FloatingOverlaySnapshot(
       visible: false,
       state: OverlayVisualState.recording,
       isDark: true,
-      compact: compact,
+      size: sizeVariant,
       label: '',
     );
 
-    _log.debug('Overlay hide (compact=$compact)');
+    _log.debug('Overlay hide (size=${sizeVariant.name})');
     // A `visible:false` snapshot orders the native shell off-screen
     // (macOS `orderOut`, Windows `SW_HIDE`, Linux `gtk_widget_hide`), so the
     // hidden window no longer intercepts mouse events.
@@ -496,6 +496,7 @@ class FloatingOverlayService
           (id: 'cancel', label: l10n.overlayContextCancel),
           (id: 'switch_normal', label: l10n.overlayContextSwitchNormal),
           (id: 'switch_compact', label: l10n.overlayContextSwitchCompact),
+          (id: 'switch_mini', label: l10n.overlayContextSwitchMini),
           (id: 'hide', label: l10n.overlayContextHide),
         ])
         .catchError((e, st) {
@@ -573,6 +574,14 @@ class FloatingOverlayService
             .read(settingsProvider.notifier)
             .updateSettings(
               (s) => s.copyWith(overlaySize: FloatingOverlaySize.compact.value),
+            );
+
+      case 'switch_mini':
+        _log.debug('Context menu: switch to mini');
+        ref
+            .read(settingsProvider.notifier)
+            .updateSettings(
+              (s) => s.copyWith(overlaySize: FloatingOverlaySize.mini.value),
             );
 
       case 'hide':

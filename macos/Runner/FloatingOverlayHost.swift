@@ -31,7 +31,9 @@ class FloatingOverlayHost {
 
   private var pendingPosition: NSPoint?
   private var pendingAnchorMode: String = "topCenter"
-  private var isCompact: Bool = false
+  // Overlay size class: "normal" | "compact" | "mini" (mirrors the Dart
+  // OverlaySizeVariant serialised as snapshot["size"]).
+  private var sizeClass: String = "normal"
   private var contextMenuItems: [(id: String, label: String)] = []
   private var screenObserver: NSObjectProtocol?
 
@@ -52,6 +54,68 @@ class FloatingOverlayHost {
   private static let maxRenderReadyRetries = 2
   private var renderReadyTimeoutTimer: Timer?
   private var renderReadyRetryCount = 0
+
+  // Runtime-stall hardening: the boot-race timer above only covers the
+  // initial engine boot. But ANY later panel operation that touches AppKit
+  // geometry/visibility (`setContentSize` in `resizePanelToContent()`,
+  // `orderFront` when re-showing a hidden panel) synchronously waits on this
+  // process's single OS main thread for Flutter's FlutterResizeSynchronizer
+  // to commit a frame at the new size/visibility — the render engine's own
+  // "merged UI and platform thread" model runs Dart UI work on that same
+  // thread. Under raster-thread load (e.g. the waveform repainting at ~10Hz
+  // during recording) that wait can outrun the synchronizer's own deadline;
+  // observed in the wild as a native `Resize timed out` console line
+  // immediately followed by the main engine's own `UiThreadWatchdog` jank
+  // warning (both engines share the one OS main thread). When that happens
+  // the CAMetalLayer can be left without a committed frame — the panel goes
+  // silently blank even though `updateSnapshot`/`setWaveformBars` keep
+  // flowing normally, because recording/transcription live entirely in the
+  // main engine and never notice. There is no native callback for that
+  // outcome, so `runPanelOperation` detects it symptomatically (the call
+  // itself took abnormally long) and `recoverStuckPanel()` rebuilds the shell
+  // — blackbox to the user, mirrors `bootRenderEngine`'s retry machinery.
+  //
+  // CONFIRMED 2026-07-29 from a live signed-release log (two independent
+  // `resizePanelToContent` stalls, both immediately preceded by the bare
+  // (non-NSLog) `Resize timed out` line that only Flutter's own
+  // FlutterResizeSynchronizer emits): both stalls measured 1.00s–1.02s at
+  // THIS call site, matching the synchronizer's own ~1s internal deadline.
+  // So this is a bounded, self-returning synchronous stall, not an
+  // indefinite hang — `runPanelOperation` cannot observe elapsed time faster
+  // than the call itself returns, and a parallel `Timer`/`DispatchQueue`
+  // watchdog would not help either: Timers scheduled on the main run loop
+  // do not fire while that same thread is blocked inside a synchronous
+  // AppKit/Flutter call, so nothing can "interrupt" this wait from the
+  // outside. The only way to detect this stall faster is to make the
+  // underlying resize not block for ~1s in the first place (Flutter engine
+  // internals, out of scope for this file) — lowering
+  // `panelOperationStallThreshold` further would not speed up detection of
+  // *this* failure mode, only tighten the margin for a hypothetical
+  // differently-shaped stall.
+  //
+  // Deliberately NOT added: a periodic forced-resize "heartbeat" to catch a
+  // stuck CAMetalLayer between real operations. It was considered (see
+  // task notes) but rejected — probing via the same `setContentSize` path
+  // this comment describes would fire during the busiest raster window
+  // (recording, ~10Hz waveform repaint) and could itself trigger the exact
+  // ~1s stall it's meant to detect, on otherwise-healthy sessions. Each
+  // false trigger then pays the full `recoverStuckPanel()` cost (engine
+  // teardown + reboot), which is unverified to be cheap end-to-end — the
+  // `ready` log below only confirms the platform-channel handshake, not
+  // that a new frame has actually been composited on screen. Do not add
+  // this without first confirming, from a live run, how long the gap is
+  // between `recoverStuckPanel` completing and the next real
+  // `onSnapshot`/paint — see the diagnosis notes for 2026-07-29.
+  //
+  // What DID change 2026-07-29: `panelRecoveryCooldown` dropped from 5.0s to
+  // 1.5s. The prior 5s cooldown could itself block a second, genuinely
+  // needed recovery attempt shortly after a first one — exactly the shape
+  // of the "disappeared a second time" report that prompted this pass.
+  private static let panelOperationStallThreshold: TimeInterval = 0.5
+  private static let maxPanelRecoveryRetries = 3
+  private static let panelRecoveryCooldown: TimeInterval = 1.5
+  private var panelRecoveryRetryCount = 0
+  private var lastPanelRecoveryAt: Date?
 
   init(messenger: FlutterBinaryMessenger) {
     channel = FlutterMethodChannel(
@@ -155,18 +219,25 @@ class FloatingOverlayHost {
 
   private func handleUpdateSnapshot(_ args: [String: Any]) {
     let visible = args["visible"] as? Bool ?? false
-    let compact = args["compact"] as? Bool ?? false
-    let sizeChanged = compact != isCompact
+    // "size" is the canonical key; fall back to the legacy "compact" bool for
+    // payloads from an older main engine.
+    let size = args["size"] as? String
+      ?? ((args["compact"] as? Bool ?? false) ? "compact" : "normal")
+    let sizeChanged = size != sizeClass
     // Set the size class BEFORE lazy-creating the panel so the very first
-    // (possibly compact) snapshot sizes the shell correctly instead of
+    // (possibly compact/mini) snapshot sizes the shell correctly instead of
     // creating it at normal size and resizing a frame later.
-    isCompact = compact
+    sizeClass = size
 
     if visible && panel == nil {
       ensurePanel()
     } else if sizeChanged {
-      // Re-size + re-anchor the existing shell on a compact ↔ normal switch.
-      resizePanelToContent()
+      // Re-size + re-anchor the existing shell on a size-class switch. This
+      // synchronously touches AppKit/Flutter geometry — see
+      // `panelOperationStallThreshold` doc — so it goes through the watchdog.
+      runPanelOperation("resizePanelToContent") { [weak self] in
+        self?.resizePanelToContent()
+      }
     }
 
     // Cache + relay (relay no-ops until the engine is ready; flushed on ready).
@@ -175,24 +246,115 @@ class FloatingOverlayHost {
       renderChannel?.invokeMethod("updateSnapshot", arguments: args)
     }
 
-    // Show or hide the native shell.
+    // Show or hide the native shell. Re-showing a previously-hidden panel is
+    // the other synchronous, potentially-blocking AppKit/Flutter operation
+    // (see `panelOperationStallThreshold`), so it also goes through the
+    // watchdog. `orderOut` is not — hiding never waits on a fresh committed
+    // frame, so it isn't a wedge risk.
     if visible {
-      panel?.orderFront(nil)
+      runPanelOperation("orderFront") { [weak self] in
+        self?.panel?.orderFront(nil)
+      }
     } else {
       panel?.orderOut(nil)
     }
   }
 
+  /// Runs `op` — a synchronous panel geometry/visibility mutation that may
+  /// block the shared OS main thread on Flutter's resize synchronizer (see
+  /// `panelOperationStallThreshold` doc above) — and treats an abnormally
+  /// long call as a signal the shell may be wedged, triggering a silent
+  /// rebuild via `recoverStuckPanel()`.
+  ///
+  /// CONFIRMED 2026-07-29: this Swift-level call IS where the wall-clock
+  /// time goes. A live signed-release log captured two `resizePanelToContent`
+  /// calls each measuring 1.00s–1.02s right here, both immediately preceded
+  /// by the engine's own un-prefixed `Resize timed out` line. Every
+  /// invocation still logs its elapsed time unconditionally (not just on
+  /// threshold-breach) — keep it that way, it is the only signal that made
+  /// this diagnosis possible and the next live repro will need it again to
+  /// answer the still-open question of how long the gap is between this
+  /// function returning and the panel actually being visible again.
+  private func runPanelOperation(_ label: String, _ op: () -> Void) {
+    let start = CFAbsoluteTimeGetCurrent()
+    op()
+    let elapsed = CFAbsoluteTimeGetCurrent() - start
+    NSLog(
+      "[overlay] panel operation '\(label)' took \(String(format: "%.3f", elapsed))s, panel.isVisible=\(panel?.isVisible ?? false), frame=\(panel?.frame ?? .zero)"
+    )
+    guard elapsed > Self.panelOperationStallThreshold else { return }
+
+    let message =
+      "panel operation '\(label)' took \(String(format: "%.2f", elapsed))s (> \(Self.panelOperationStallThreshold)s) — rebuilding overlay shell as a precaution"
+    NSLog("[overlay] \(message)")
+    channel.invokeMethod("onRenderEngineDiagnostic", arguments: ["message": message, "isError": false])
+    recoverStuckPanel()
+  }
+
+  /// Blackbox recovery for a suspected-wedged shell: tears down the panel
+  /// AND the render engine and rebuilds both from scratch, then immediately
+  /// re-applies the last known position/visibility/snapshot/waveform state
+  /// (the existing `ready`-handler flush already does the snapshot/bars
+  /// replay — see `handleRenderCall`'s `"ready"` case). Recording/
+  /// transcription live entirely in the MAIN engine and never touch this
+  /// path, so they are unaffected. Bounded + cooldown-gated (mirrors
+  /// `handleRenderReadyTimeout`) so a genuinely overloaded machine can't
+  /// loop-rebuild forever.
+  private func recoverStuckPanel() {
+    let now = Date()
+    if let last = lastPanelRecoveryAt, now.timeIntervalSince(last) < Self.panelRecoveryCooldown {
+      NSLog("[overlay] recoverStuckPanel: skipped — still within cooldown window")
+      return
+    }
+    guard panelRecoveryRetryCount < Self.maxPanelRecoveryRetries else {
+      NSLog("[overlay] recoverStuckPanel: retry budget exhausted — leaving shell as-is")
+      return
+    }
+    panelRecoveryRetryCount += 1
+    lastPanelRecoveryAt = now
+
+    let wasVisible = panel?.isVisible ?? false
+    let origin = panel?.frame.origin
+    let size = contentSize()
+
+    renderReadyTimeoutTimer?.invalidate()
+    renderReadyTimeoutTimer = nil
+    renderChannel?.setMethodCallHandler(nil)
+    renderEngine?.shutDownEngine()
+    renderEngine = nil
+    renderViewController = nil
+    renderChannel = nil
+    renderReady = false
+    panel?.close()
+    panel = nil
+
+    let p = FloatingOverlayPanel(width: size.width, height: size.height)
+    panel = p
+    if let origin {
+      p.setFrameOrigin(origin)
+    }
+    bootRenderEngine()
+    if wasVisible {
+      p.orderFront(nil)
+    }
+    NSLog("[overlay] recoverStuckPanel: shell rebuilt (attempt \(panelRecoveryRetryCount)/\(Self.maxPanelRecoveryRetries))")
+  }
+
   // MARK: - Panel + render-engine creation
 
   /// Full native-window size = pill box + 8pt shadow padding per side.
-  /// Mirrors `OverlayDesignSpec.windowSize` (Dart). Normal `346 × 80`,
-  /// compact `236 × 56`. The shell MUST match this so the painted soft shadow
-  /// is not clipped.
+  /// Mirrors `OverlayDesignSpec.windowSizeFor` (Dart). Normal `346 × 80`,
+  /// compact `236 × 56`, mini `166 × 50`. The shell MUST match this so the
+  /// painted soft shadow is not clipped.
   private func contentSize() -> NSSize {
-    return isCompact
-      ? NSSize(width: 236, height: 56)
-      : NSSize(width: 346, height: 80)
+    switch sizeClass {
+    case "compact":
+      return NSSize(width: 236, height: 56)
+    case "mini":
+      return NSSize(width: 166, height: 50)
+    default:
+      return NSSize(width: 346, height: 80)
+    }
   }
 
   private func ensurePanel() {
@@ -325,6 +487,11 @@ class FloatingOverlayHost {
       renderReadyTimeoutTimer?.invalidate()
       renderReadyTimeoutTimer = nil
       renderReadyRetryCount = 0
+      // A clean ready-signal means the shell is healthy again — let future
+      // genuine stalls get the full retry budget rather than staying
+      // permanently exhausted after one bad patch of jank earlier in a long
+      // session.
+      panelRecoveryRetryCount = 0
       renderReady = true
       if let bars = latestBars {
         renderChannel?.invokeMethod("setWaveformBars", arguments: bars)

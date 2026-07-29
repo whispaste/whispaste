@@ -40,12 +40,15 @@
 /// is not clipped. The pill itself sits at
 /// `Offset(shadowPadding, shadowPadding)` inside that box. The native shells
 /// (phase 2, hardware-in-the-loop) must size their transparent window to this
-/// same total — normal `346 × 80`, compact `236 × 56` — and not to the bare
+/// same total — normal `346 × 80`, compact `236 × 56`, mini `166 × 50` — and
+/// not to the bare
 /// pill, or the shadow is cut off.
 ///
 /// All design values come from [OverlayDesignSpec]; this widget contributes no
 /// constants of its own and renders no privacy badge.
 library;
+
+import 'dart:math' as math;
 
 import 'package:flutter/physics.dart';
 import 'package:flutter/widgets.dart';
@@ -110,14 +113,17 @@ class FloatingOverlayView extends StatefulWidget {
     bool paintContent = true,
     double? pillWidth,
     double iconRevealFraction = 1.0,
+    double glassPhase = 0.0,
+    double liquidMotion = 0.0,
+    double liquidLevel = 0.0,
   }) {
     final theme = themeFor(snapshot.isDark);
     final designState = designStateFor(snapshot.state);
     return OverlayPainter(
       state: designState,
       theme: theme,
-      sizeSpec: OverlayDesignSpec.size(compact: snapshot.compact),
-      layout: OverlayDesignSpec.layout(compact: snapshot.compact),
+      sizeSpec: OverlayDesignSpec.sizeFor(snapshot.size),
+      layout: OverlayDesignSpec.layoutFor(snapshot.size),
       colors: OverlayDesignSpec.colors(theme),
       waveformBars: snapshot.state == OverlayVisualState.recording
           ? waveformBars
@@ -130,6 +136,9 @@ class FloatingOverlayView extends StatefulWidget {
       paintContent: paintContent,
       pillWidth: pillWidth,
       iconRevealFraction: iconRevealFraction,
+      glassPhase: glassPhase,
+      liquidMotion: liquidMotion,
+      liquidLevel: liquidLevel,
     );
   }
 
@@ -142,6 +151,14 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
   // -- Dot pulse (accent dot during recording / transcribing) ------------------
 
   late final AnimationController _dot;
+
+  // -- Liquid-glass drift (slow material light movement) -----------------------
+
+  /// Drives the liquid-glass phase: one slow 8 s loop that drifts the
+  /// specular streak (±6 px), parallax-shifts the sheen and breathes the
+  /// rim. Runs only while [FloatingOverlayView.animate] and not under
+  /// reduced motion; otherwise it rests at 0.0 — the exact static frame.
+  late final AnimationController _glass;
 
   // -- Appear spring (standby → recording spring-in) ---------------------------
 
@@ -210,6 +227,11 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
       value: 1.0,
     );
 
+    _glass = AnimationController(
+      vsync: this,
+      duration: OverlayDesignSpec.liquidDriftPeriod,
+    );
+
     _appear = AnimationController(
       vsync: this,
       duration: OverlayDesignSpec.arc.appearDuration,
@@ -230,13 +252,11 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
     final initialDesignState = FloatingOverlayView.designStateFor(
       widget.snapshot.state,
     );
-    final initialSizeSpec = OverlayDesignSpec.size(
-      compact: widget.snapshot.compact,
-    );
+    final initialSizeSpec = OverlayDesignSpec.sizeFor(widget.snapshot.size);
     final initialWidth = OverlayDesignSpec.pillWidthForText(
       initialDesignState,
       initialSizeSpec,
-      OverlayDesignSpec.layout(compact: widget.snapshot.compact),
+      OverlayDesignSpec.layoutFor(widget.snapshot.size),
       FloatingOverlayView.statusTextFor(widget.snapshot),
     );
     _pillFromWidth = initialWidth;
@@ -264,6 +284,9 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
       // Collapse all animations to their final values immediately.
       _dot.stop();
       _dot.value = 1.0;
+      // Liquid glass rests at phase 0 — the static baseline frame.
+      _glass.stop();
+      _glass.value = 0.0;
       _appear.stop();
       _appear.value = widget.snapshot.visible ? 1.0 : 0.0;
       // Snap any in-flight crossfade to its final state.
@@ -273,14 +296,14 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
       // _stateTransition notification and renders the normal single painter.
       _outgoing = null;
       // Snap pill width to the current state's target immediately.
-      final sizeSpec = OverlayDesignSpec.size(compact: widget.snapshot.compact);
+      final sizeSpec = OverlayDesignSpec.sizeFor(widget.snapshot.size);
       final designState = FloatingOverlayView.designStateFor(
         widget.snapshot.state,
       );
       final targetWidth = OverlayDesignSpec.pillWidthForText(
         designState,
         sizeSpec,
-        OverlayDesignSpec.layout(compact: widget.snapshot.compact),
+        OverlayDesignSpec.layoutFor(widget.snapshot.size),
         FloatingOverlayView.statusTextFor(widget.snapshot),
       );
       _pillFromWidth = targetWidth;
@@ -288,8 +311,10 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
       _pillWidth.stop();
       _pillWidth.value = 1.0;
     } else if (widget.animate) {
-      // Resume the dot pulse now that reduced-motion is off.
+      // Resume the dot pulse + liquid-glass drift now that reduced-motion
+      // is off.
       _dot.repeat(reverse: true);
+      _glass.repeat();
     }
   }
 
@@ -331,6 +356,24 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
       _snapPillToCurrentState();
     }
 
+    // Size-only change (e.g. the Settings size picker / OverlayRealPreview
+    // cycling normal ↔ compact ↔ mini while state/visible stay constant):
+    // re-target the pill width immediately. Without this, `build()` resizes
+    // the window/canvas to the new size right away (it reads
+    // `widget.snapshot.size` fresh every frame), but `_currentPillWidth`
+    // keeps the *previous* size's target — e.g. a 330px-wide pill painted
+    // into a 166px-wide mini window, or a 150px mini pill adrift inside a
+    // 346px normal window. Guarded to skip when state ALSO changed in the
+    // same update: the state-transition branch below already re-targets
+    // using `widget.snapshot.size` (which is always the current one), so it
+    // must own the spring in that case instead of being overridden by a snap.
+    if (widget.snapshot.size != oldWidget.snapshot.size &&
+        widget.snapshot.state == oldWidget.snapshot.state &&
+        widget.snapshot.visible &&
+        oldWidget.snapshot.visible) {
+      _snapPillToCurrentState();
+    }
+
     // State-transition crossfade + pill-width spring:
     // recording → transcribing → done/error.
     //
@@ -341,6 +384,16 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
         oldWidget.snapshot.visible) {
       // Crossfade: content-only opacity fade (skipped under reduced-motion).
       if (!_reducedMotion) {
+        // The transition INTO an end state (done/error) runs slightly longer
+        // than the generic crossfade so the stroke-first status-icon draw-on
+        // (driven off this controller's fraction) has room to land — the
+        // done check is the product's pay-off moment (impeccable pass).
+        final toEndState =
+            widget.snapshot.state == OverlayVisualState.done ||
+            widget.snapshot.state == OverlayVisualState.error;
+        _stateTransition.duration = toEndState
+            ? OverlayDesignSpec.arc.statusRevealDuration
+            : OverlayDesignSpec.arc.stateTransitionDuration;
         setState(() {
           _outgoing = oldWidget.snapshot;
         });
@@ -363,9 +416,12 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
     if (widget.animate != oldWidget.animate) {
       if (widget.animate && !_reducedMotion) {
         _dot.repeat(reverse: true);
+        _glass.repeat();
       } else {
         _dot.stop();
         _dot.value = 1.0;
+        _glass.stop();
+        _glass.value = 0.0;
       }
     }
   }
@@ -376,11 +432,11 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
   /// behind — this is what keeps the re-shown recording capsule full-width so
   /// the live waveform is not clipped.
   void _snapPillToCurrentState() {
-    final sizeSpec = OverlayDesignSpec.size(compact: widget.snapshot.compact);
+    final sizeSpec = OverlayDesignSpec.sizeFor(widget.snapshot.size);
     final width = OverlayDesignSpec.pillWidthForText(
       FloatingOverlayView.designStateFor(widget.snapshot.state),
       sizeSpec,
-      OverlayDesignSpec.layout(compact: widget.snapshot.compact),
+      OverlayDesignSpec.layoutFor(widget.snapshot.size),
       FloatingOverlayView.statusTextFor(widget.snapshot),
     );
     _pillFromWidth = width;
@@ -395,11 +451,11 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
   /// transitions continue smoothly without a visual snap. Under reduced-motion
   /// the target width is applied instantly (no spring).
   void _startPillSpring(OverlayDesignState newState) {
-    final sizeSpec = OverlayDesignSpec.size(compact: widget.snapshot.compact);
+    final sizeSpec = OverlayDesignSpec.sizeFor(widget.snapshot.size);
     final targetWidth = OverlayDesignSpec.pillWidthForText(
       newState,
       sizeSpec,
-      OverlayDesignSpec.layout(compact: widget.snapshot.compact),
+      OverlayDesignSpec.layoutFor(widget.snapshot.size),
       FloatingOverlayView.statusTextFor(widget.snapshot),
     );
     final currentWidth = _currentPillWidth;
@@ -446,17 +502,35 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
   @override
   void dispose() {
     _dot.dispose();
+    _glass.dispose();
     _appear.dispose();
     _stateTransition.dispose();
     _pillWidth.dispose();
     super.dispose();
   }
 
+  /// 1.0 while the liquid glass animates; 0.0 under reduced motion or in
+  /// the static preview — the painter then renders the rigid capsule.
+  double get _liquidMotion => (_reducedMotion || !widget.animate) ? 0.0 : 1.0;
+
+  /// Smoothed live audio level for the louder-speech wobble share: mean of
+  /// the most recent waveform bars (already attack/release-smoothed by the
+  /// pipeline), only while recording.
+  double get _liquidLevel {
+    if (widget.snapshot.state != OverlayVisualState.recording) return 0.0;
+    final bars = widget.waveformBars;
+    if (bars.isEmpty) return 0.0;
+    final n = math.min(4, bars.length);
+    var sum = 0.0;
+    for (var i = bars.length - n; i < bars.length; i++) {
+      sum += bars[i];
+    }
+    return (sum / n).clamp(0.0, 1.0);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final window = OverlayDesignSpec.windowSize(
-      compact: widget.snapshot.compact,
-    );
+    final window = OverlayDesignSpec.windowSizeFor(widget.snapshot.size);
     final appearScale = OverlayDesignSpec.arc.appearScale;
 
     return RepaintBoundary(
@@ -466,6 +540,7 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
         child: AnimatedBuilder(
           animation: Listenable.merge([
             _dot,
+            _glass,
             _appear,
             _stateTransition,
             _pillWidth,
@@ -504,6 +579,9 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
                       paintFill: true,
                       paintContent: false,
                       pillWidth: animatedPillWidth,
+                      glassPhase: _glass.value,
+                      liquidMotion: _liquidMotion,
+                      liquidLevel: _liquidLevel,
                     ),
                   ),
                   // Layer 2: outgoing state content fading out.
@@ -551,6 +629,9 @@ class _FloatingOverlayViewState extends State<FloatingOverlayView>
                   waveformBars: widget.waveformBars,
                   dotPulse: _dot.value,
                   pillWidth: animatedPillWidth,
+                  glassPhase: _glass.value,
+                  liquidMotion: _liquidMotion,
+                  liquidLevel: _liquidLevel,
                 ),
               );
             }

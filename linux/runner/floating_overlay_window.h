@@ -4,12 +4,30 @@
 #include <flutter_linux/flutter_linux.h>
 #include <gtk/gtk.h>
 
-// Window dimensions that mirror OverlayDesignSpec.windowSize in Dart.
-// Normal: 346×80 / Compact: 236×56  (same values as macOS/Windows).
+#include <string>
+
+// Window dimensions that mirror OverlayDesignSpec.windowSizeFor in Dart.
+// Normal: 346×80 / Compact: 236×56 / Mini: 166×50 (same as macOS/Windows).
 constexpr int kOverlayNormalW = 346;
 constexpr int kOverlayNormalH = 80;
 constexpr int kOverlayCompactW = 236;
 constexpr int kOverlayCompactH = 56;
+constexpr int kOverlayMiniW = 166;
+constexpr int kOverlayMiniH = 50;
+
+// Logical shell size for a size class ("normal" | "compact" | "mini",
+// mirrors the Dart OverlaySizeVariant serialised as snapshot["size"]).
+inline int OverlayLogicalW(const std::string& size_class) {
+  if (size_class == "compact") return kOverlayCompactW;
+  if (size_class == "mini") return kOverlayMiniW;
+  return kOverlayNormalW;
+}
+
+inline int OverlayLogicalH(const std::string& size_class) {
+  if (size_class == "compact") return kOverlayCompactH;
+  if (size_class == "mini") return kOverlayMiniH;
+  return kOverlayNormalH;
+}
 
 // Lifecycle-only decorationless GtkWindow that hosts the second Flutter engine
 // for the floating overlay (ADR 0002 phase 2, Linux).
@@ -43,8 +61,11 @@ class FloatingOverlayWindow {
   // present in flutter_linux >= 3.3. Older SDK builds may need a version guard.
   FlBinaryMessenger* GetRenderMessenger();
 
-  // Resize the shell between normal (346×80) and compact (236×56) mode.
-  void SetCompact(bool compact);
+  // Resize the shell to the given size class ("normal" | "compact" | "mini").
+  // May be called before Create(): the stored size is then applied when the
+  // window is created (previously a compact-at-first-show snapshot was
+  // silently dropped because the GtkWindow did not exist yet).
+  void SetSizeClass(const std::string& size_class);
 
   // Move the shell to absolute screen coordinates (X11 root, top-left origin).
   // gtk_window_move is reliable only when GDK_BACKEND=x11 is in effect.
@@ -83,6 +104,9 @@ class FloatingOverlayWindow {
  private:
   GtkWidget* window_ = nullptr;
   FlView* fl_view_ = nullptr;  // Non-owning; container holds the ref.
+
+  // Current size class; applied in Create() and on SetSizeClass().
+  std::string size_class_ = "normal";
 
   OnMovedCallback on_moved_cb_ = nullptr;
   void* on_moved_user_data_ = nullptr;

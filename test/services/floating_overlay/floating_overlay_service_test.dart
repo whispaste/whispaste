@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_enums.dart';
 import 'package:whispaste/core/recording/recording_state.dart';
+import 'package:whispaste/core/theme/overlay_design_spec.dart';
 import 'package:whispaste/services/floating_overlay/floating_overlay_controller.dart';
 
 void main() {
@@ -122,16 +123,24 @@ void main() {
 
   group('FloatingOverlaySize enum', () {
     test('has expected values', () {
-      expect(FloatingOverlaySize.values, hasLength(2));
+      expect(FloatingOverlaySize.values, hasLength(3));
       expect(FloatingOverlaySize.values.map((e) => e.name), [
         'normal',
         'compact',
+        'mini',
       ]);
     });
 
     test('value strings for persistence', () {
       expect(FloatingOverlaySize.normal.value, 'normal');
       expect(FloatingOverlaySize.compact.value, 'compact');
+      expect(FloatingOverlaySize.mini.value, 'mini');
+    });
+
+    test('maps onto the design-spec size variant', () {
+      expect(FloatingOverlaySize.normal.variant, OverlaySizeVariant.normal);
+      expect(FloatingOverlaySize.compact.variant, OverlaySizeVariant.compact);
+      expect(FloatingOverlaySize.mini.variant, OverlaySizeVariant.mini);
     });
 
     test('fromValue roundtrips correctly', () {
@@ -180,7 +189,6 @@ void main() {
         visible: true,
         state: OverlayVisualState.recording,
         isDark: true,
-        compact: false,
         label: 'Recording',
         elapsed: '0:12',
         hint: 'Press Ctrl+Shift+D to stop',
@@ -199,7 +207,6 @@ void main() {
         visible: true,
         state: OverlayVisualState.transcribing,
         isDark: true,
-        compact: false,
         label: 'Transcribing…',
         privacyMode: 'local',
       );
@@ -213,7 +220,6 @@ void main() {
         visible: true,
         state: OverlayVisualState.done,
         isDark: false,
-        compact: false,
         label: 'Done',
         doneMessage: 'Pasted!',
       );
@@ -226,7 +232,6 @@ void main() {
         visible: true,
         state: OverlayVisualState.error,
         isDark: true,
-        compact: false,
         label: 'Error',
         errorMessage: 'Network timeout',
       );
@@ -239,7 +244,6 @@ void main() {
         visible: false,
         state: OverlayVisualState.recording,
         isDark: true,
-        compact: false,
         label: '',
       );
 
@@ -247,27 +251,34 @@ void main() {
       // State doesn't matter when hidden — it's just a default value.
     });
 
-    test('compact mode changes only the compact flag', () {
+    test('size variant changes only the size field', () {
       const normal = FloatingOverlaySnapshot(
         visible: true,
         state: OverlayVisualState.recording,
         isDark: true,
-        compact: false,
         label: 'Recording',
       );
       const compact = FloatingOverlaySnapshot(
         visible: true,
         state: OverlayVisualState.recording,
         isDark: true,
-        compact: true,
+        size: OverlaySizeVariant.compact,
+        label: 'Recording',
+      );
+      const mini = FloatingOverlaySnapshot(
+        visible: true,
+        state: OverlayVisualState.recording,
+        isDark: true,
+        size: OverlaySizeVariant.mini,
         label: 'Recording',
       );
 
-      expect(normal.compact, false);
-      expect(compact.compact, true);
-      // Same state, same label — only compact differs.
+      expect(normal.size, OverlaySizeVariant.normal);
+      expect(compact.size, OverlaySizeVariant.compact);
+      expect(mini.size, OverlaySizeVariant.mini);
+      // Same state, same label — only the size differs.
       expect(normal.state, compact.state);
-      expect(normal.label, compact.label);
+      expect(normal.label, mini.label);
     });
 
     test('privacy mode can be local or cloud', () {
@@ -275,7 +286,6 @@ void main() {
         visible: true,
         state: OverlayVisualState.transcribing,
         isDark: true,
-        compact: false,
         label: 'Transcribing…',
         privacyMode: 'local',
       );
@@ -283,7 +293,6 @@ void main() {
         visible: true,
         state: OverlayVisualState.transcribing,
         isDark: true,
-        compact: false,
         label: 'Transcribing…',
         privacyMode: 'cloud',
       );
@@ -341,7 +350,13 @@ void main() {
     // Mirrors FloatingOverlayService._onContextMenuAction action strings.
 
     test('all expected context menu action IDs exist', () {
-      const actions = ['cancel', 'switch_normal', 'switch_compact', 'hide'];
+      const actions = [
+        'cancel',
+        'switch_normal',
+        'switch_compact',
+        'switch_mini',
+        'hide',
+      ];
       for (final action in actions) {
         expect(action, isNotEmpty);
       }
@@ -361,6 +376,14 @@ void main() {
           ? FloatingOverlaySize.compact
           : FloatingOverlaySize.normal;
       expect(size, FloatingOverlaySize.compact);
+    });
+
+    test('switch_mini maps to FloatingOverlaySize.mini', () {
+      const action = 'switch_mini';
+      const size = action == 'switch_mini'
+          ? FloatingOverlaySize.mini
+          : FloatingOverlaySize.normal;
+      expect(size, FloatingOverlaySize.mini);
     });
   });
 

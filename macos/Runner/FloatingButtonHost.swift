@@ -128,6 +128,9 @@ class FloatingButtonHost {
         return
       }
       latestState = stateName
+      // [DEBUG-a1] hypothesis 3: is a setState relay ever dropped because
+      // renderReady is false (boot-race / stuck-engine window)?
+      NSLog("[button][DEBUG-a1] setState(\(stateName)) renderReady=\(renderReady) renderChannel=\(renderChannel != nil)")
       if renderReady {
         renderChannel?.invokeMethod("setState", arguments: ["state": stateName])
       }

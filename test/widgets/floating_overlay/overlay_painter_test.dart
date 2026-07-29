@@ -21,13 +21,13 @@ import 'package:whispaste/widgets/floating_overlay/floating_overlay_view.dart';
 FloatingOverlaySnapshot _snap(
   OverlayVisualState state, {
   required bool isDark,
-  required bool compact,
+  OverlaySizeVariant size = OverlaySizeVariant.normal,
 }) {
   return FloatingOverlaySnapshot(
     visible: true,
     state: state,
     isDark: isDark,
-    compact: compact,
+    size: size,
     label: switch (state) {
       OverlayVisualState.recording => 'Press Ctrl+Shift+D to stop',
       OverlayVisualState.transcribing => 'Transcribing…',
@@ -60,12 +60,12 @@ void main() {
 
     test('colours, size and layout are taken from OverlayDesignSpec', () {
       for (final isDark in [true, false]) {
-        for (final compact in [true, false]) {
+        for (final size in OverlaySizeVariant.values) {
           final painter = FloatingOverlayView.painterFor(
             snapshot: _snap(
               OverlayVisualState.recording,
               isDark: isDark,
-              compact: compact,
+              size: size,
             ),
           );
           final theme = isDark
@@ -77,8 +77,8 @@ void main() {
             OverlayDesignSpec.colors(theme).capsuleFillStart,
           );
           expect(painter.colors.accent, OverlayDesignSpec.colors(theme).accent);
-          expect(painter.sizeSpec, OverlayDesignSpec.size(compact: compact));
-          expect(painter.layout, OverlayDesignSpec.layout(compact: compact));
+          expect(painter.sizeSpec, OverlayDesignSpec.sizeFor(size));
+          expect(painter.layout, OverlayDesignSpec.layoutFor(size));
         }
       }
     });
@@ -89,15 +89,11 @@ void main() {
         0.5,
       );
       final recording = FloatingOverlayView.painterFor(
-        snapshot: _snap(
-          OverlayVisualState.recording,
-          isDark: true,
-          compact: false,
-        ),
+        snapshot: _snap(OverlayVisualState.recording, isDark: true),
         waveformBars: bars,
       );
       final done = FloatingOverlayView.painterFor(
-        snapshot: _snap(OverlayVisualState.done, isDark: true, compact: false),
+        snapshot: _snap(OverlayVisualState.done, isDark: true),
         waveformBars: bars,
       );
       expect(recording.waveformBars, isNotEmpty);
@@ -277,7 +273,6 @@ void main() {
         visible: true,
         state: OverlayVisualState.recording,
         isDark: false,
-        compact: false,
         label: 'Recording',
         elapsed: '0:05',
         progress: 0.1,
@@ -317,7 +312,6 @@ void main() {
         visible: true,
         state: OverlayVisualState.transcribing,
         isDark: false,
-        compact: false,
         label: 'Transcribing…',
         elapsed: '',
         progress: 0.0,
@@ -334,7 +328,6 @@ void main() {
         visible: true,
         state: OverlayVisualState.recording,
         isDark: false,
-        compact: false,
         label: 'Recording',
         elapsed: '0:01',
         progress: 0.0,
@@ -344,14 +337,55 @@ void main() {
     });
   });
 
+  group('OverlayPainter — mini (waveform-first) wiring', () {
+    test('painterFor resolves the mini spec + layout from the snapshot', () {
+      final painter = FloatingOverlayView.painterFor(
+        snapshot: _snap(
+          OverlayVisualState.recording,
+          isDark: false,
+          size: OverlaySizeVariant.mini,
+        ),
+      );
+      expect(painter.sizeSpec, same(OverlayDesignSpec.miniSize));
+      expect(painter.layout, same(OverlayLayoutSpec.mini));
+      expect(painter.sizeSpec.minimalContent, isTrue);
+    });
+
+    test('mini pill: full width while the waveform runs, shrinks around '
+        'the glyph for done/error', () {
+      const m = OverlaySizeSpec.mini;
+      expect(
+        OverlayDesignSpec.pillWidthFor(OverlayDesignState.recording, m),
+        m.width,
+      );
+      expect(
+        OverlayDesignSpec.pillWidthFor(OverlayDesignState.transcribing, m),
+        m.width,
+      );
+      expect(
+        OverlayDesignSpec.pillWidthFor(OverlayDesignState.done, m),
+        closeTo(m.width * 0.42, 1e-9),
+      );
+      expect(
+        OverlayDesignSpec.pillWidthFor(OverlayDesignState.error, m),
+        closeTo(m.width * 0.42, 1e-9),
+      );
+    });
+
+    test('mini timeline metrics are the scaled per-size set', () {
+      const m = OverlaySizeSpec.mini;
+      expect(m.timelineInsetBottom, 4.0);
+      expect(m.timelineStrokeWidth, 1.5);
+      expect(m.timelineLeadDotRadius, 1.6);
+    });
+  });
+
   group('FloatingOverlayView — paints every state/theme/size (AC2)', () {
     for (final state in OverlayVisualState.values) {
       for (final isDark in [true, false]) {
-        for (final compact in [true, false]) {
+        for (final size in OverlaySizeVariant.values) {
           testWidgets('${state.name} · ${isDark ? 'dark' : 'light'} · '
-              '${compact ? 'compact' : 'normal'} builds & paints', (
-            tester,
-          ) async {
+              '${size.name} builds & paints', (tester) async {
             final bars = List<double>.generate(
               OverlayDesignSpec.waveform.barCount,
               (i) => (i % 7) / 7.0,
@@ -361,7 +395,7 @@ void main() {
                 textDirection: TextDirection.ltr,
                 child: Center(
                   child: FloatingOverlayView(
-                    snapshot: _snap(state, isDark: isDark, compact: compact),
+                    snapshot: _snap(state, isDark: isDark, size: size),
                     waveformBars: bars,
                   ),
                 ),

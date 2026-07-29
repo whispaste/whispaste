@@ -66,6 +66,34 @@ abstract final class WpShadows {
     BoxShadow(color: Color(0x14000000), blurRadius: 2, offset: Offset(0, 1)),
   ];
 
+  // -- Light-theme interaction shadows (history polish pass, 2026-07-28) -----
+  //
+  // Black-alpha shadows read much heavier over the pearl light surfaces than
+  // over the dark navy ones: composited on `WpColorsLight.surface` (#F2F6FC,
+  // rel. luminance 0.92) the dark-theme alphas produce a clearly visible dark
+  // haze — [subtle] (12 % black) ≈ 1.32:1 and [card]'s first layer (20 %
+  // black) ≈ 1.60:1 against the surface. The light variants halve the alpha,
+  // landing at ≈ 1.14:1 and ≈ 1.26:1 — still a perceptible material lift,
+  // no longer a dark halo. Same geometry, so Animated fades stay smooth.
+
+  /// [subtle] at light-theme strength (6 % instead of 12 % black).
+  static const List<BoxShadow> subtleLight = [
+    BoxShadow(color: Color(0x0F000000), blurRadius: 8, offset: Offset(0, 2)),
+  ];
+
+  /// [card] at light-theme strength (10 % / 4 % instead of 20 % / 8 %).
+  static const List<BoxShadow> cardLight = [
+    BoxShadow(color: Color(0x1A000000), blurRadius: 14, offset: Offset(0, 4)),
+    BoxShadow(color: Color(0x0A000000), blurRadius: 2, offset: Offset(0, 1)),
+  ];
+
+  /// Theme-resolved [subtle]: full strength on dark, halved on light.
+  static List<BoxShadow> subtleFor(bool isDark) =>
+      isDark ? subtle : subtleLight;
+
+  /// Theme-resolved [card]: full strength on dark, halved on light.
+  static List<BoxShadow> cardFor(bool isDark) => isDark ? card : cardLight;
+
   static const List<BoxShadow> elevated = [
     BoxShadow(color: Color(0x40000000), blurRadius: 28, offset: Offset(0, 10)),
     BoxShadow(color: Color(0x1A000000), blurRadius: 6, offset: Offset(0, 2)),

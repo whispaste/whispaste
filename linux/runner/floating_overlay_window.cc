@@ -33,10 +33,12 @@ void FloatingOverlayWindow::Create() {
   gtk_window_set_type_hint(GTK_WINDOW(window_),
                             GDK_WINDOW_TYPE_HINT_NOTIFICATION);
 
-  // Start at normal size; SetCompact() resizes later.
-  gtk_window_set_default_size(GTK_WINDOW(window_), kOverlayNormalW,
-                               kOverlayNormalH);
-  gtk_widget_set_size_request(window_, kOverlayNormalW, kOverlayNormalH);
+  // Start at the currently requested size class (SetSizeClass() may have
+  // been called before Create(); later calls resize the live window).
+  int w = OverlayLogicalW(size_class_);
+  int h = OverlayLogicalH(size_class_);
+  gtk_window_set_default_size(GTK_WINDOW(window_), w, h);
+  gtk_widget_set_size_request(window_, w, h);
 
   // ── RGBA / transparency ──────────────────────────────────────────────────
   // Paint onto a clear surface so the Flutter painter's transparent regions
@@ -104,10 +106,11 @@ FlBinaryMessenger* FloatingOverlayWindow::GetRenderMessenger() {
   return fl_engine_get_binary_messenger(engine);
 }
 
-void FloatingOverlayWindow::SetCompact(bool compact) {
-  if (!window_) return;
-  int w = compact ? kOverlayCompactW : kOverlayNormalW;
-  int h = compact ? kOverlayCompactH : kOverlayNormalH;
+void FloatingOverlayWindow::SetSizeClass(const std::string& size_class) {
+  size_class_ = size_class;
+  if (!window_) return;  // Applied in Create() via size_class_.
+  int w = OverlayLogicalW(size_class_);
+  int h = OverlayLogicalH(size_class_);
   gtk_window_resize(GTK_WINDOW(window_), w, h);
   gtk_widget_set_size_request(window_, w, h);
 }

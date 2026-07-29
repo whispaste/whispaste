@@ -290,7 +290,9 @@ void main() {
 
             // First cycle: reach "done", still within the auto-hide window.
             rec.startRecording();
-            async.elapse(const Duration(milliseconds: 1050)); // clears 1s positionDelay
+            async.elapse(
+              const Duration(milliseconds: 1050),
+            ); // clears 1s positionDelay
             rec.stopRecording();
             async.elapse(const Duration(milliseconds: 5));
             rec.completeTranscription('first recording');

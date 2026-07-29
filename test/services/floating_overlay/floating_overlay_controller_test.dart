@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/core/theme/overlay_design_spec.dart';
 import 'package:whispaste/services/floating_overlay/floating_overlay_controller.dart';
 import 'package:whispaste/services/floating_overlay/floating_overlay_events.dart';
 import 'package:whispaste/services/floating_overlay/macos_floating_overlay_controller.dart';
@@ -68,7 +69,6 @@ void main() {
         visible: true,
         state: OverlayVisualState.recording,
         isDark: true,
-        compact: false,
         label: 'Recording',
         elapsed: '0:05',
         hint: 'Press Ctrl+D to stop',
@@ -98,7 +98,7 @@ void main() {
         visible: true,
         state: OverlayVisualState.error,
         isDark: false,
-        compact: true,
+        size: OverlaySizeVariant.compact,
         label: 'Error',
         errorMessage: 'Connection failed',
       );
@@ -115,7 +115,6 @@ void main() {
         visible: true,
         state: OverlayVisualState.done,
         isDark: true,
-        compact: false,
         label: 'Done',
         doneMessage: 'Pasted!',
       );
@@ -133,7 +132,6 @@ void main() {
           visible: false,
           state: OverlayVisualState.recording,
           isDark: true,
-          compact: false,
           label: '',
         );
         final map = snap.toMap();
@@ -151,21 +149,21 @@ void main() {
       },
     );
 
-    test('toMap() includes all 12 keys', () {
+    test('toMap() includes all 13 keys', () {
       const snap = FloatingOverlaySnapshot(
         visible: false,
         state: OverlayVisualState.recording,
         isDark: true,
-        compact: false,
         label: '',
       );
 
       final map = snap.toMap();
-      expect(map.keys, hasLength(12));
+      expect(map.keys, hasLength(13));
       expect(map.keys.toSet(), {
         'visible',
         'state',
         'isDark',
+        'size',
         'compact',
         'label',
         'elapsed',
@@ -183,7 +181,6 @@ void main() {
         visible: true,
         state: OverlayVisualState.recording,
         isDark: true,
-        compact: false,
         label: 'Recording',
       );
 
@@ -201,7 +198,7 @@ void main() {
         visible: true,
         state: OverlayVisualState.done,
         isDark: false,
-        compact: true,
+        size: OverlaySizeVariant.compact,
         label: 'Done',
         elapsed: '0:07',
         hint: 'Press ⌘ to stop',
@@ -217,7 +214,7 @@ void main() {
       expect(restored.visible, original.visible);
       expect(restored.state, original.state);
       expect(restored.isDark, original.isDark);
-      expect(restored.compact, original.compact);
+      expect(restored.size, original.size);
       expect(restored.label, original.label);
       expect(restored.elapsed, original.elapsed);
       expect(restored.hint, original.hint);
@@ -228,13 +225,45 @@ void main() {
       expect(restored.progress, original.progress);
     });
 
+    test('toMap() serialises the size variant + legacy compact mirror', () {
+      const mini = FloatingOverlaySnapshot(
+        visible: true,
+        state: OverlayVisualState.recording,
+        isDark: true,
+        size: OverlaySizeVariant.mini,
+        label: 'Recording',
+      );
+      final map = mini.toMap();
+      expect(map['size'], 'mini');
+      // Legacy mirror: only the compact variant reports compact=true.
+      expect(map['compact'], false);
+    });
+
+    test('fromMap() falls back to the legacy compact bool without size', () {
+      final compact = FloatingOverlaySnapshot.fromMap({
+        'visible': true,
+        'state': 'recording',
+        'compact': true,
+        'label': '',
+      });
+      expect(compact.size, OverlaySizeVariant.compact);
+
+      final normal = FloatingOverlaySnapshot.fromMap({
+        'visible': true,
+        'state': 'recording',
+        'compact': false,
+        'label': '',
+      });
+      expect(normal.size, OverlaySizeVariant.normal);
+    });
+
     test('fromMap() falls back to safe defaults on a malformed payload', () {
       final snap = FloatingOverlaySnapshot.fromMap({'state': 'bogus-state'});
 
       expect(snap.visible, isFalse);
       expect(snap.state, OverlayVisualState.recording);
       expect(snap.isDark, isTrue);
-      expect(snap.compact, isFalse);
+      expect(snap.size, OverlaySizeVariant.normal);
       expect(snap.label, '');
       expect(snap.progress, 0.0);
     });
@@ -301,7 +330,6 @@ void main() {
         visible: true,
         state: OverlayVisualState.recording,
         isDark: true,
-        compact: false,
         label: 'Recording',
         elapsed: '0:12',
       );
@@ -356,7 +384,6 @@ void main() {
           visible: true,
           state: OverlayVisualState.done,
           isDark: true,
-          compact: false,
           label: 'Done',
         ),
       );

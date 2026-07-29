@@ -5,6 +5,7 @@
 /// and avoid a circular dependency with the factory layer.
 library;
 
+import '../../core/theme/overlay_design_spec.dart' show OverlaySizeVariant;
 import 'floating_overlay_events.dart';
 
 /// Visual state of the overlay (matches C++ OverlayVisualState).
@@ -22,8 +23,8 @@ class FloatingOverlaySnapshot {
     required this.visible,
     required this.state,
     required this.isDark,
-    required this.compact,
     required this.label,
+    this.size = OverlaySizeVariant.normal,
     this.elapsed = '',
     this.hint = '',
     this.transcript,
@@ -36,7 +37,11 @@ class FloatingOverlaySnapshot {
   final bool visible;
   final OverlayVisualState state;
   final bool isDark;
-  final bool compact;
+
+  /// The overlay size variant (normal / compact / mini). The native shells
+  /// size their window from the serialised `size` name.
+  final OverlaySizeVariant size;
+
   final String label;
   final String elapsed;
   final String hint;
@@ -52,7 +57,12 @@ class FloatingOverlaySnapshot {
     'visible': visible,
     'state': state.name,
     'isDark': isDark,
-    'compact': compact,
+    'size': size.name,
+    // Legacy mirror of the old two-size contract, kept so any consumer that
+    // still switches on the boolean (older shell binaries during a staged
+    // rollout) degrades to compact instead of breaking. `mini` reports
+    // compact=false; such a consumer falls back to the normal window.
+    'compact': size == OverlaySizeVariant.compact,
     'label': label,
     'elapsed': elapsed,
     'hint': hint,
@@ -77,11 +87,19 @@ class FloatingOverlaySnapshot {
       (s) => s.name == stateName,
       orElse: () => OverlayVisualState.recording,
     );
+    // `size` is the canonical key; a payload without it (older sender) falls
+    // back to the legacy `compact` boolean.
+    final sizeName = map['size'] as String?;
+    final size = sizeName != null
+        ? OverlaySizeVariant.fromName(sizeName)
+        : ((map['compact'] as bool? ?? false)
+              ? OverlaySizeVariant.compact
+              : OverlaySizeVariant.normal);
     return FloatingOverlaySnapshot(
       visible: map['visible'] as bool? ?? false,
       state: state,
       isDark: map['isDark'] as bool? ?? true,
-      compact: map['compact'] as bool? ?? false,
+      size: size,
       label: map['label'] as String? ?? '',
       elapsed: map['elapsed'] as String? ?? '',
       hint: map['hint'] as String? ?? '',

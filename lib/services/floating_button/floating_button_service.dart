@@ -186,22 +186,49 @@ class FloatingButtonService
     final c = controller;
     if (c == null) return;
 
+    _log.info('[DEBUG-a1] _syncPhase entering: phase=${phase.name}');
     try {
       await c.setState(_mapPhase(phase));
+      _log.info('[DEBUG-a1] _syncPhase relay OK: phase=${phase.name}');
 
       // Auto-reset done/error back to idle after a delay.
       _autoResetTimer?.cancel();
       if (phase == RecordingPhase.done) {
         _autoResetTimer = Timer(const Duration(seconds: 2), () {
-          controller?.setState(FloatingButtonVisualState.idle);
+          _log.info('[DEBUG-a1] auto-reset timer fired (done→idle)');
+          controller
+              ?.setState(FloatingButtonVisualState.idle)
+              .then((_) => _log.info('[DEBUG-a1] auto-reset setState(idle) OK'))
+              .catchError(
+                (Object e, StackTrace st) => _log.error(
+                  '[DEBUG-a1] auto-reset setState(idle) THREW',
+                  e,
+                  st,
+                ),
+              );
         });
       } else if (phase == RecordingPhase.error) {
         _autoResetTimer = Timer(const Duration(seconds: 3), () {
-          controller?.setState(FloatingButtonVisualState.idle);
+          _log.info('[DEBUG-a1] auto-reset timer fired (error→idle)');
+          controller
+              ?.setState(FloatingButtonVisualState.idle)
+              .then((_) => _log.info('[DEBUG-a1] auto-reset setState(idle) OK'))
+              .catchError(
+                (Object e, StackTrace st) => _log.error(
+                  '[DEBUG-a1] auto-reset setState(idle) THREW',
+                  e,
+                  st,
+                ),
+              );
         });
       }
     } catch (e, st) {
-      _log.error('Failed to sync recording phase', e, st);
+      _log.error(
+        '[DEBUG-a1] _syncPhase relay THREW for phase=${phase.name} — '
+        'auto-reset timer NOT scheduled',
+        e,
+        st,
+      );
     }
   }
 

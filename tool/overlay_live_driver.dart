@@ -44,7 +44,13 @@ const String _stateName = String.fromEnvironment(
   defaultValue: 'recording',
 );
 const String _themeName = String.fromEnvironment('THEME', defaultValue: 'dark');
+// SIZE=normal|compact|mini (legacy COMPACT=true maps to compact).
+const String _sizeName = String.fromEnvironment('SIZE', defaultValue: '');
 const bool _compact = bool.fromEnvironment('COMPACT', defaultValue: false);
+
+OverlaySizeVariant get _size => _sizeName.isNotEmpty
+    ? OverlaySizeVariant.fromName(_sizeName)
+    : (_compact ? OverlaySizeVariant.compact : OverlaySizeVariant.normal);
 
 OverlayVisualState get _state => OverlayVisualState.values.firstWhere(
   (s) => s.name == _stateName,
@@ -98,7 +104,7 @@ Future<void> main(List<String> args) async {
         visible: true,
         state: _state,
         isDark: isDark,
-        compact: _compact,
+        size: _size,
         label: switch (_state) {
           OverlayVisualState.recording => 'Recording',
           OverlayVisualState.transcribing => 'Transcribing…',

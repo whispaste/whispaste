@@ -14,7 +14,7 @@
 //
 // Public channel contract (com.whispaste.floating_overlay) — UNCHANGED:
 //   Inbound (Dart → host):
-//     updateSnapshot{visible,state,isDark,compact,label,elapsed,...}
+//     updateSnapshot{visible,state,isDark,size,label,elapsed,...}
 //     setWaveformBars{bars:List<double>}
 //     setPosition{x,y,anchorMode}
 //     setContextMenuItems{items:[{id,label}]}   ← BUG FIX: unwrap "items" key
@@ -92,10 +92,11 @@ class FloatingOverlayHost {
 
   // ── Engine / shell lifecycle ──────────────────────────────────────────
   // Called on first updateSnapshot with visible:true. Returns false on failure.
-  bool EnsureEngineAndShell(bool compact);
+  bool EnsureEngineAndShell(const std::string& size_class);
 
-  // Resize the shell (and re-anchor) on a compact ↔ normal switch.
-  void ResizeShell(bool compact);
+  // Resize the shell (and re-anchor) on a size-class switch
+  // ("normal" | "compact" | "mini").
+  void ResizeShell(const std::string& size_class);
 
   // Compute the logical top-left of the shell from the current anchor mode.
   // Returns {logical_x, logical_y} using the main window's monitor.
@@ -144,7 +145,9 @@ class FloatingOverlayHost {
   std::optional<flutter::EncodableValue> latest_bars_args_;
 
   // ── Overlay state ─────────────────────────────────────────────────────
-  bool is_compact_ = false;
+  // Size class: "normal" | "compact" | "mini" (mirrors the Dart
+  // OverlaySizeVariant serialised as snapshot["size"]).
+  std::string size_class_ = "normal";
 
   // Anchor mode: "topCenter" | "bottomCenter" | "topLeft".
   // "topLeft" = raw drag position; others = monitor-relative calculation.

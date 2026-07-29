@@ -4,7 +4,7 @@
 /// Plattformen denselben Painter-Output konsumieren, erzwingt ein Golden-Match
 /// mechanisch die Parität (ADR 0002 / Issue 06).
 ///
-/// Abdeckung: 4 States × 2 Themes × 2 Sizes = 16 Goldens.
+/// Abdeckung: 4 States × 2 Themes × 3 Sizes = 24 Goldens.
 ///
 /// Determinismus-Ankerpunkte:
 /// - [dotPulse] ist auf 1.0 fixiert (keine Animation).
@@ -26,13 +26,13 @@ import 'package:whispaste/widgets/floating_overlay/floating_overlay_view.dart';
 FloatingOverlaySnapshot _snap(
   OverlayVisualState state, {
   required bool isDark,
-  required bool compact,
+  required OverlaySizeVariant size,
 }) {
   return FloatingOverlaySnapshot(
     visible: true,
     state: state,
     isDark: isDark,
-    compact: compact,
+    size: size,
     label: switch (state) {
       OverlayVisualState.recording => 'Recording',
       OverlayVisualState.transcribing => 'Transcribing…',
@@ -57,7 +57,7 @@ Widget _buildStaticFrame({
   required FloatingOverlaySnapshot snapshot,
   required Key key,
 }) {
-  final windowSize = OverlayDesignSpec.windowSize(compact: snapshot.compact);
+  final windowSize = OverlayDesignSpec.windowSizeFor(snapshot.size);
   final bars = List<double>.generate(
     OverlayDesignSpec.waveform.barCount,
     // Deterministisches Muster: i % 7 / 7 → sichtbare Waveform im recording-State.
@@ -92,18 +92,18 @@ void main() {
   // `setUpAll` guarantees the font is registered before any test pumps.
   setUpAll(() => loadAppFonts(onlyLoadTheseFonts: {'Inter'}));
 
-  group('OverlayPainter parität-goldens (4 states × 2 themes × 2 sizes)', () {
+  group('OverlayPainter parität-goldens (4 states × 2 themes × 3 sizes)', () {
     for (final state in OverlayVisualState.values) {
       for (final isDark in [true, false]) {
-        for (final compact in [true, false]) {
+        for (final size in OverlaySizeVariant.values) {
           final stateName = state.name;
           final themeName = isDark ? 'dark' : 'light';
-          final sizeName = compact ? 'compact' : 'normal';
+          final sizeName = size.name;
           final goldenName = 'overlay_${stateName}_${themeName}_$sizeName';
           final testKey = ValueKey(goldenName);
 
           testWidgets('golden: $goldenName', (tester) async {
-            final snapshot = _snap(state, isDark: isDark, compact: compact);
+            final snapshot = _snap(state, isDark: isDark, size: size);
 
             await tester.pumpWidget(
               _buildStaticFrame(snapshot: snapshot, key: testKey),
