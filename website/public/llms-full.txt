@@ -165,11 +165,11 @@ Code nutzt **`onDevice`**, nie „local".
 | onDevice (Whisper) | tiny/base/small/medium/large-v3 (`ggml-*.bin`, lokaler Cache) |
 |---|---|
 | onDevice (Parakeet) | `parakeet-tdt-0.6b-v3` — encoder/decoder/joiner-ONNX + tokens.txt, ~640 MB |
-| openAI | `whisper-1` (fest) |
+| openAI | `gpt-transcribe` (fest, ADR-0005) |
 | deepgram | `nova-3`, `nova-2` etc. (wählbar) |
-| managed | `whisper-1` (fest — bewusst nicht `gpt-4o-mini-transcribe`, siehe ADR-0005) |
+| managed | `gpt-transcribe` (fest, ADR-0005) |
 
-**Modell ≠ Engine ≠ Provider** (Bsp.: Provider `openAI`, Engine „OpenAI Audio API", Modell `whisper-1`).
+**Modell ≠ Engine ≠ Provider** (Bsp.: Provider `openAI`, Engine „OpenAI Audio API", Modell `gpt-transcribe`).
 
 ### 4.4 Backend (nur lokal)
 
