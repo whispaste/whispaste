@@ -1,34 +1,5 @@
 {
   "schemaVersion": 1,
   "rulesetVersion": "ruleset@382b63c5",
-  "findings": [
-    {
-      "fingerprint": "ef7a082c3f4abd9c",
-      "ruleId": "code-duplicates",
-      "filePath": "lib/core/config/settings_sections.dart",
-      "line": 366,
-      "message": "2 occurrences of duplicated block (61 tokens): lib/core/config/settings_sections.dart:366, lib/core/config/settings_sections.dart:743"
-    },
-    {
-      "fingerprint": "fae210dba0edb7d6",
-      "ruleId": "code-duplicates",
-      "filePath": "lib/core/config/settings_sections.dart",
-      "line": 377,
-      "message": "2 occurrences of duplicated block (54 tokens): lib/core/config/settings_sections.dart:377, lib/core/recording/recording_state.dart:77"
-    },
-    {
-      "fingerprint": "b3b74f09fe901a02",
-      "ruleId": "slop-empty-catch",
-      "filePath": "lib/main.dart",
-      "line": 394,
-      "message": "Empty or comment-only `catch` body silently swallows exceptions — add error handling, rethrow, or a logging call."
-    },
-    {
-      "fingerprint": "e47165672a9f71de",
-      "ruleId": "code-duplicates",
-      "filePath": "lib/services/stt/whisper/whisper_isolate_engine.dart",
-      "line": 374,
-      "message": "2 occurrences of duplicated block (50 tokens): lib/services/stt/whisper/whisper_isolate_engine.dart:374, lib/services/stt_parakeet/parakeet_engine_notifier.dart:376"
-    }
-  ]
+  "findings": []
 }

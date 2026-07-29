@@ -108,6 +108,8 @@ scripts/*
 !scripts/build-libwhisper-macos.sh
 !scripts/build-libwhisper-linux.sh
 !scripts/bundle-libwhisper-windows.ps1
+!scripts/build-libllama-macos.sh
+!scripts/build-smartmode-shim-macos.sh
 !scripts/git-hooks/
 !scripts/generate-release-notes.mjs
 !scripts/generate-release-notes.ps1

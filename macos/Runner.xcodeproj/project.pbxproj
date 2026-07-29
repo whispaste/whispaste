@@ -276,6 +276,7 @@
 				3399D490228B24CF009A79C7 /* ShellScript */,
 				8F97BE17E79C7E54F9E0BFA5 /* [CP] Embed Pods Frameworks */,
 				AAB1C2D3E4F5060718293A4B /* [WP] Embed & Sign libwhisper */,
+				AAB1C2D3E4F5060718293A4C /* [WP] Embed & Sign libllama */,
 				D7FEBF1B71704F4EB00AEF0A /* [WP] Strip MAS-incompatible frameworks */,
 			);
 			buildRules = (
@@ -374,6 +375,22 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"${SRCROOT}/embed_libwhisper.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		AAB1C2D3E4F5060718293A4C /* [WP] Embed & Sign libllama */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "[WP] Embed & Sign libllama";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${SRCROOT}/embed_libllama.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
 		AA2002010000000000000001 /* [WP] Guard MAS plugin registrant */ = {

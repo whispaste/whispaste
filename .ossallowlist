@@ -99,6 +99,11 @@ scripts/generate-whisper-server-manifest.sh
 scripts/build-libwhisper-macos.sh
 scripts/build-libwhisper-linux.sh
 scripts/bundle-libwhisper-windows.ps1
+scripts/build-libllama-macos.sh
+scripts/build-smartmode-shim-macos.sh
+
+# Smart-Mode-v2 native shim (llama.cpp FFI wrapper, mirrors the libwhisper pattern)
+native/
 scripts/generate_appcast.sh
 scripts/publish_beta_fallback.sh
 scripts/install-hooks.sh
