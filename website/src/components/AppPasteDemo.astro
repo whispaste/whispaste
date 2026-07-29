@@ -332,14 +332,18 @@ const appCloudIcons = [
     border-radius: 14px;
     border: 1px solid var(--color-brand-border);
     background: var(--color-brand-card);
+    /* The inset top line is the overlay pill's lit rim, echoed on its direct
+       neighbours — same 1px vocabulary as the nav pill, no motion. */
     box-shadow:
       0 18px 44px rgba(0, 0, 0, 0.34),
-      0 0 0 1px rgba(56, 217, 240, 0.05);
+      0 0 0 1px rgba(56, 217, 240, 0.05),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
   }
   html.light .apd-card {
     box-shadow:
       0 12px 32px rgba(15, 23, 42, 0.10),
-      0 0 0 1px rgba(8, 145, 178, 0.05);
+      0 0 0 1px rgba(8, 145, 178, 0.05),
+      inset 0 1px 0 rgba(255, 255, 255, 0.55);
   }
 
   /* Sequential accent ring — a soft cyan highlight travels 1 → 2 → 3 across the
@@ -367,9 +371,13 @@ const appCloudIcons = [
     border-bottom: 1px solid color-mix(in srgb, var(--color-brand-border) 70%, transparent);
     border-radius: 14px 14px 0 0;
     background: color-mix(in srgb, var(--color-brand-dark) 55%, var(--color-brand-card));
+    /* The chrome paints over the card's top edge, so it carries the same
+       inset rim itself — otherwise steps 1/3 would lose the lit edge. */
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
   }
   html.light .apd-chrome {
     background: color-mix(in srgb, var(--color-brand-darker) 40%, var(--color-brand-card));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
   }
   .apd-appbadge {
     display: inline-flex;

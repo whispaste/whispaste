@@ -46,7 +46,10 @@ const breadcrumbItems = [
              make it, not as an afterthought below all the CTAs. Still calm/
              informational: no CTA, no repeated buttons. -->
         <div class="download-card rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 sm:p-8 mb-6" data-testid="why-two-ways">
-          <h3 class="font-semibold text-white mb-3" data-i18n="download.whyTwoWays.title">{t(lang, "download.whyTwoWays.title")}</h3>
+          {/* h2 (not h3): first section heading after the h1 — keeps the outline
+              gapless. font-sans/tracking-normal preserve the previous h3 look
+              (the base layer gives bare h2s the display face). */}
+          <h2 class="font-sans tracking-normal font-semibold text-white mb-3" data-i18n="download.whyTwoWays.title">{t(lang, "download.whyTwoWays.title")}</h2>
           <p class="text-gray-400 text-sm leading-relaxed" data-i18n="download.whyTwoWays.body1">{t(lang, "download.whyTwoWays.body1")}</p>
           <p class="text-gray-400 text-sm leading-relaxed mt-3" data-i18n="download.whyTwoWays.body2">{t(lang, "download.whyTwoWays.body2")}</p>
         </div>
@@ -99,8 +102,10 @@ const breadcrumbItems = [
           <!-- Store button -->
           <div class="flex flex-col items-center gap-3">
             <StoreButton size="lg" />
-            <p class="text-xs text-gray-500 flex items-center gap-1">
-              <svg class="w-3 h-3 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+            {/* text-ink-subtle statt text-gray-500: gray-500 verfehlt AA auf den
+                dunklen Karten (3.5:1); der Token ist die AA-sichere Caption-Stufe. */}
+            <p class="text-xs text-ink-subtle flex items-center gap-1">
+              <svg class="w-3 h-3 text-ink-subtle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
               <span data-i18n="download.store.hint">{t(lang, "download.store.hint")}</span>
             </p>
           </div>
@@ -128,7 +133,7 @@ const breadcrumbItems = [
             <AppleButton size="lg" />
           </div>
 
-          <p class="text-center text-xs text-gray-500 mb-4" data-i18n="download.macos.hint">{t(lang, "download.macos.hint")}</p>
+          <p class="text-center text-xs text-ink-subtle mb-4" data-i18n="download.macos.hint">{t(lang, "download.macos.hint")}</p>
 
           <!-- Gatekeeper guide — demoted to secondary/collapsible (issue 13):
                full Apple-style step-by-step stays available, just collapsed
@@ -170,8 +175,10 @@ const breadcrumbItems = [
 
               <!-- Why section -->
               <div class="mt-4 ml-8 pt-4 border-t border-amber-500/10">
-                <h4 class="font-medium text-white/70 text-xs uppercase tracking-wider mb-1" data-i18n="download.macos.gatekeeper.why.title">{t(lang, "download.macos.gatekeeper.why.title")}</h4>
-                <p class="text-gray-500 text-xs leading-relaxed" data-i18n="download.macos.gatekeeper.why.desc">{t(lang, "download.macos.gatekeeper.why.desc")}</p>
+                {/* text-ink-muted statt text-white/70: die Alpha-Klasse entgeht dem
+                    light-Override und wäre dort Weiß auf Weiß (1:1). */}
+                <h4 class="font-medium text-ink-muted text-xs uppercase tracking-wider mb-1" data-i18n="download.macos.gatekeeper.why.title">{t(lang, "download.macos.gatekeeper.why.title")}</h4>
+                <p class="text-ink-subtle text-xs leading-relaxed" data-i18n="download.macos.gatekeeper.why.desc">{t(lang, "download.macos.gatekeeper.why.desc")}</p>
               </div>
             </div>
           </details>
@@ -208,7 +215,7 @@ const breadcrumbItems = [
                 <span class="dl-btn__platform">AppImage (x86_64)</span>
               </span>
             </a>
-            <p class="text-gray-500 text-xs text-center max-w-sm" data-i18n="download.linux.appimage.hint">{t(lang, "download.linux.appimage.hint")}</p>
+            <p class="text-ink-subtle text-xs text-center max-w-sm" data-i18n="download.linux.appimage.hint">{t(lang, "download.linux.appimage.hint")}</p>
             <a
               href={LINUX_DEB_URL}
               class="text-gray-400 hover:text-white text-xs underline transition-colors"
@@ -364,7 +371,7 @@ const breadcrumbItems = [
             <div id="pkg-copy-status" class="sr-only" role="status" aria-live="polite"></div>
             {pkgManagerGroups.map((group) => (
               <div class="mb-6 last:mb-0">
-                <h4 class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3" data-i18n={`download.pkg.platform.${group.platform}`}>{t(lang, `download.pkg.platform.${group.platform}`)}</h4>
+                <h4 class="text-xs font-semibold uppercase tracking-wider text-ink-subtle mb-3" data-i18n={`download.pkg.platform.${group.platform}`}>{t(lang, `download.pkg.platform.${group.platform}`)}</h4>
                 {group.channels.map((ch) => (
                   <div class="mb-4 last:mb-0" data-testid={`pkg-${ch.id}`}>
                     <div class="flex items-center gap-2 mb-2">
@@ -374,7 +381,7 @@ const breadcrumbItems = [
                     </div>
                     <div class="rounded-xl border border-white/10 bg-black/30 p-4 font-mono text-xs sm:text-sm text-gray-200 overflow-x-auto">
                       <div class="flex items-center justify-between mb-1">
-                        <div class="text-gray-500">{ch.comment[lang]}</div>
+                        <div class="pkg-comment text-ink-subtle">{ch.comment[lang]}</div>
                         <button
                           class="pkg-copy-btn text-xs text-gray-400 hover:text-gray-200 transition-colors px-2 py-0.5 rounded border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] font-sans inline-flex items-center gap-1.5"
                           data-copy-text={ch.commands.join('\n')}
@@ -608,6 +615,12 @@ const breadcrumbItems = [
   :root.light .smartscreen-box {
     background: rgba(245, 158, 11, 0.06);
     border-color: rgba(245, 158, 11, 0.15);
+  }
+
+  /* Der Kommandoblock (bg-black/30) hellt im Light-Theme nur zu Grau auf —
+     ink-subtle käme dort auf 2.6:1, darum ein eigener dunkler Kommentar-Ton. */
+  :global(html.light) .pkg-comment {
+    color: #334155;
   }
 
   /* Generic download button — used for GitHub/Windows direct link */

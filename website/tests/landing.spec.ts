@@ -55,7 +55,9 @@ test('legal pages load without 404s', async ({ page }) => {
 test('download page has Store and GitHub sections', async ({ page }) => {
   await page.goto('/download/');
   await expect(page.locator('main h1').first()).toContainText('WhisPaste herunterladen');
-  await expect(page.locator('main h2').first()).toContainText('Microsoft Store');
+  // The Store section heading — not .first(): the "Warum es zwei Wege gibt"
+  // intro is now also an h2 (heading-outline fix, h1 → h2 without a gap).
+  await expect(page.locator('#windows h2').first()).toContainText('Microsoft Store');
   // GitHub free download section — Windows button has data-testid="github-windows-button"
   await expect(page.getByTestId('github-windows-button')).toBeVisible();
 });
