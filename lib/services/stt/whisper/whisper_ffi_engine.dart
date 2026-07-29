@@ -109,6 +109,7 @@ class WhisperSegment {
     required this.startMs,
     required this.endMs,
     required this.text,
+    required this.noSpeechProb,
   });
 
   final int index;
@@ -116,10 +117,22 @@ class WhisperSegment {
   final int? endMs;
   final String text;
 
+  /// whisper.cpp's own per-segment confidence that this segment contains no
+  /// real speech (`whisper_full_get_segment_no_speech_prob`), `0.0`–`1.0`.
+  /// Unlike t0/t1, this is populated on every [WhisperFfiEngine.transcribe]
+  /// call regardless of `includeTimestamps` — it isn't gated behind
+  /// `no_timestamps` in whisper.cpp. `null` only if the bundled `libwhisper`
+  /// predates the symbol.
+  final double? noSpeechProb;
+
   @override
-  String toString() => startMs != null
-      ? 'WhisperSegment[$index] ${startMs}ms-${endMs}ms: $text'
-      : 'WhisperSegment[$index]: $text';
+  String toString() {
+    final ts = startMs != null ? ' ${startMs}ms-${endMs}ms' : '';
+    final nsp = noSpeechProb != null
+        ? ' noSpeechProb=${noSpeechProb!.toStringAsFixed(3)}'
+        : '';
+    return 'WhisperSegment[$index]$ts$nsp: $text';
+  }
 }
 
 /// Loads `libwhisper` in-process and transcribes 16 kHz mono WAV bytes.
@@ -146,6 +159,10 @@ class WhisperFfiEngine implements WhisperEngine {
   /// segment count + text length only. Diagnostic-only — see [_logSegments].
   int Function(ffi.Pointer<whisper_context>, int)? _segmentT0;
   int Function(ffi.Pointer<whisper_context>, int)? _segmentT1;
+
+  /// Raw lookup for `whisper_full_get_segment_no_speech_prob` — same
+  /// not-in-[WhisperBindings] situation as [_segmentT0]/[_segmentT1].
+  double Function(ffi.Pointer<whisper_context>, int)? _segmentNoSpeechProb;
 
   /// Per-segment breakdown of the most recent [transcribe] call. Populated
   /// by [_logSegments]; empty before the first call or if the last call
@@ -315,6 +332,15 @@ class WhisperFfiEngine implements WhisperEngine {
       _segmentT0 = null;
       _segmentT1 = null;
     }
+    try {
+      _segmentNoSpeechProb = dylib
+          .lookupFunction<
+            ffi.Float Function(ffi.Pointer<whisper_context>, ffi.Int32),
+            double Function(ffi.Pointer<whisper_context>, int)
+          >('whisper_full_get_segment_no_speech_prob');
+    } on ArgumentError {
+      _segmentNoSpeechProb = null;
+    }
   }
 
   /// Logs each segment whisper.cpp produced for the current [transcribe]
@@ -349,25 +375,40 @@ class WhisperFfiEngine implements WhisperEngine {
     final n = bindings.whisper_full_n_segments(ctx);
     final t0 = includeTimestamps ? _segmentT0 : null;
     final t1 = includeTimestamps ? _segmentT1 : null;
+    final nsp = _segmentNoSpeechProb;
     final segments = <WhisperSegment>[];
     for (var i = 0; i < n; i++) {
       final textPtr = bindings.whisper_full_get_segment_text(ctx, i);
       final text = textPtr.cast<Utf8>().toDartString();
+      final noSpeechProb = nsp?.call(ctx, i);
       if (t0 != null && t1 != null) {
         // whisper.cpp reports t0/t1 in centiseconds (10 ms units).
         final startMs = t0(ctx, i) * 10;
         final endMs = t1(ctx, i) * 10;
         segments.add(
-          WhisperSegment(index: i, startMs: startMs, endMs: endMs, text: text),
+          WhisperSegment(
+            index: i,
+            startMs: startMs,
+            endMs: endMs,
+            text: text,
+            noSpeechProb: noSpeechProb,
+          ),
         );
         _log.debug(
-          'segment[$i/$n] ${startMs}ms-${endMs}ms textLen=${text.length}',
+          'segment[$i/$n] ${startMs}ms-${endMs}ms textLen=${text.length} '
+          'noSpeechProb=$noSpeechProb',
         );
       } else {
         segments.add(
-          WhisperSegment(index: i, startMs: null, endMs: null, text: text),
+          WhisperSegment(
+            index: i,
+            startMs: null,
+            endMs: null,
+            text: text,
+            noSpeechProb: noSpeechProb,
+          ),
         );
-        _log.debug('segment[$i/$n] textLen=${text.length}');
+        _log.debug('segment[$i/$n] textLen=${text.length} noSpeechProb=$noSpeechProb');
       }
     }
     _lastSegments = segments;
