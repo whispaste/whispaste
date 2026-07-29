@@ -271,6 +271,53 @@ void main() {
   });
 
   // ────────────────────────────────────────────────────────────────────────────
+  // 2b. Stale .tmp resume — server rejects the Range with 416
+  // ────────────────────────────────────────────────────────────────────────────
+
+  group('fetch — stale .tmp triggers 416 on resume', () {
+    test('drops the stale .tmp and restarts from byte 0', () async {
+      // Simulates FLUTTER_WHISPASTE-7Z: a leftover `.tmp` fragment is now
+      // >= the remote file's current size (asset changed, or the fragment
+      // was already complete but the rename never happened), so the
+      // resume's `Range: bytes=<n>-` is unsatisfiable and the server
+      // answers 416. Without recovery this repeats on every single retry
+      // forever — the fragment never shrinks on its own.
+      final destPath = p.join(tempDir.path, 'model.bin');
+      final tmpPath = '$destPath.tmp';
+      await File(tmpPath).writeAsBytes(Uint8List(500));
+
+      final fullBytes = Uint8List.fromList(List.generate(100, (i) => 0x42));
+      var callCount = 0;
+      final adapter = _FakeAdapter(
+        defaultHandler: (rec) async {
+          callCount++;
+          final hasRange = rec.options.headers['Range'] != null;
+          if (hasRange) {
+            throw DioException(
+              requestOptions: rec.options,
+              type: DioExceptionType.badResponse,
+              response: Response(requestOptions: rec.options, statusCode: 416),
+            );
+          }
+          return _bodyFor(fullBytes, contentLength: fullBytes.length);
+        },
+      );
+      final fetcher = HttpModelFetcher(dio: _dioWith(adapter));
+
+      await fetcher.fetch(
+        url: 'https://example.com/model.bin',
+        destPath: destPath,
+        expectedSize: 100,
+      );
+
+      final written = await File(destPath).readAsBytes();
+      expect(written, fullBytes);
+      expect(File(tmpPath).existsSync(), isFalse);
+      expect(callCount, 2); // 1 failed resume attempt + 1 fresh retry.
+    });
+  });
+
+  // ────────────────────────────────────────────────────────────────────────────
   // 3. Network error propagation
   // ────────────────────────────────────────────────────────────────────────────
 

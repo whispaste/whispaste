@@ -169,23 +169,18 @@ class HttpModelFetcher {
     void Function(FetchProgress)? onProgress,
   }) async {
     final tmpPath = '$destPath.tmp';
-    int startByte = 0;
     final tmpFile = File(tmpPath);
 
     // Resume partial download.
-    if (tmpFile.existsSync()) {
-      startByte = tmpFile.lengthSync();
-      _log.info('Resuming download from byte $startByte');
-    }
+    var startByte = tmpFile.existsSync() ? tmpFile.lengthSync() : 0;
+    if (startByte > 0) _log.info('Resuming download from byte $startByte');
 
-    final response = await _dio.get<ResponseBody>(
-      url,
-      cancelToken: _cancelToken,
-      options: Options(
-        responseType: ResponseType.stream,
-        headers: startByte > 0 ? {'Range': 'bytes=$startByte-'} : null,
-      ),
+    final (response, resolvedStartByte) = await _requestWithResumeRecovery(
+      url: url,
+      tmpFile: tmpFile,
+      startByte: startByte,
     );
+    startByte = resolvedStartByte;
 
     final totalBytes = _resolveTotal(response, startByte, expectedSize);
 
@@ -201,10 +196,10 @@ class HttpModelFetcher {
     int? currentEta;
 
     // Stall detector — fires `_cancelToken.cancel(httpStallCancelMessage)`
-    // when no bytes have arrived for ≥ [_stallThreshold]. The outer retry
-    // loop in WhisperServerDownloader recognises that message and treats
-    // the failure as retriable; a user-initiated cancel uses any other
-    // message and remains a hard abort.
+    // when no bytes have arrived for ≥ [_stallThreshold]. Callers can
+    // compare `DioException.message` against [httpStallCancelMessage] to
+    // distinguish this from a user-initiated cancel, which uses any other
+    // message.
     //
     // Note: Dio's `CancelToken.cancel(reason)` stores `reason` in
     // `DioException.error`, not `DioException.message`. To honour the
@@ -291,6 +286,47 @@ class HttpModelFetcher {
       await File(destPath).delete();
     }
     await tmpFile.rename(destPath);
+  }
+
+  /// Issues the resumed (or fresh) GET for the download body.
+  ///
+  /// A resumed request (`startByte > 0`) can be rejected with 416 (Range
+  /// Not Satisfiable) if the stale `.tmp` fragment is already >= the
+  /// remote file's current size — e.g. the fragment finished but the
+  /// atomic rename never ran, or the remote asset changed size underneath
+  /// it. That offset never shrinks on its own, so every retry would hit
+  /// the same 416 forever (FLUTTER_WHISPASTE-7Z: 50 occurrences over two
+  /// months on the same 2 devices). On 416, drops the fragment and retries
+  /// once as a fresh, non-resumed request.
+  ///
+  /// Returns the successful [Response] alongside the start byte actually
+  /// used (0 if a 416 recovery happened).
+  Future<(Response<ResponseBody>, int)> _requestWithResumeRecovery({
+    required String url,
+    required File tmpFile,
+    required int startByte,
+  }) async {
+    try {
+      final response = await _dio.get<ResponseBody>(
+        url,
+        cancelToken: _cancelToken,
+        options: Options(
+          responseType: ResponseType.stream,
+          headers: startByte > 0 ? {'Range': 'bytes=$startByte-'} : null,
+        ),
+      );
+      return (response, startByte);
+    } on DioException catch (e) {
+      if (startByte == 0 || e.response?.statusCode != 416) rethrow;
+      _log.warning('Stale .tmp rejected with 416 — restarting from byte 0');
+      await tmpFile.delete();
+      final response = await _dio.get<ResponseBody>(
+        url,
+        cancelToken: _cancelToken,
+        options: Options(responseType: ResponseType.stream),
+      );
+      return (response, 0);
+    }
   }
 
   int _resolveTotal(Response<ResponseBody> resp, int start, int expected) {
