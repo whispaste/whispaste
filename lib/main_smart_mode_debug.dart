@@ -5,34 +5,63 @@
 /// only to exercise [SmartModeFfiEngine] inside a real, signed, sandboxed
 /// `.app` bundle built via the "Runner (MAS)" scheme — the thing an
 /// unsandboxed CLI smoke test cannot prove (App Sandbox library-validation,
-/// container file-path resolution, entitlement gaps).
+/// container file-path resolution, entitlement gaps). Interactive on
+/// purpose (paste a real dictation, pick a preset, see the exact system
+/// prompt and real elapsed time) — the point is to let the maintainer feel
+/// the real Smart-Mode UX, not just prove a marker string round-trips.
 ///
-/// Run/build via the normal Flutter macOS toolchain, e.g.:
-///   flutter run -t lib/main_smart_mode_debug.dart -d macos
+/// MANDATORY every time — TWO things keep this side by side with the real,
+/// currently-installed WhisPaste without any confusion or interference:
+///   1. WHISPASTE_SMART_MODE_PROTOTYPE=1  — the opt-in that makes
+///      macos/embed_libllama.sh embed the llama.cpp dylibs. WITHOUT it the
+///      embed phase is a no-op, so the real app's normal builds never pick up
+///      this prototype's native code. This build NEEDS it (the FFI engine
+///      dlopens libsmartmode_shim), so it must be set here — and ONLY here.
+///   2. PRODUCT_BUNDLE_IDENTIFIER=de.whispaste.smartmode.debug — a distinct
+///      bundle ID.
 ///
-/// MANDATORY for any MAS-scheme validation build: override the bundle
-/// identifier so this throwaway build is NEVER registered under the
-/// production `de.whispaste.app` identity. Building/running it under the
-/// real bundle ID pollutes Launch Services' CFBundleIdentifier ->
-/// path resolution (`lsregister`) with a second, throwaway candidate — the
-/// real, currently-running production app can then have its own
-/// relaunch/focus/activation calls resolve to the wrong (test) bundle
-/// instead of `/Applications/WhisPaste.app` (confirmed via `mdfind
-/// "kMDItemCFBundleIdentifier == 'de.whispaste.app'"` after one test build
-/// — 5 candidates, ambiguity real, not hypothetical). Always build with:
-///   xcodebuild -workspace macos/Runner.xcworkspace -scheme "Runner (MAS)" \
+///   WHISPASTE_SMART_MODE_PROTOTYPE=1 xcodebuild \
+///     -workspace macos/Runner.xcworkspace -scheme "Runner (MAS)" \
 ///     -configuration MAS build \
 ///     PRODUCT_BUNDLE_IDENTIFIER=de.whispaste.smartmode.debug
-/// and delete the resulting throwaway `.app` (or at minimum re-run
-/// `lsregister -f /Applications/WhisPaste.app` afterward) once done — never
-/// leave a same-bundle-ID test copy sitting registered.
+///
+/// Skipping the bundle-ID override pollutes Launch Services' identifier ->
+/// path resolution for the REAL `de.whispaste.app` (confirmed: multiple
+/// candidate paths for one bundle ID after a single test build) — the real,
+/// running production app's own relaunch/focus calls can then resolve to this
+/// throwaway build instead of `/Applications/WhisPaste.app`.
+///
+/// Do NOT pass `PRODUCT_NAME=...` on the xcodebuild command line: it is global
+/// across the whole workspace and makes every Pod sub-target (Sentry,
+/// url_launcher_macos, record_macos, …) try to build itself under that name,
+/// breaking the build. The window title is already handled by window_manager
+/// below (so both windows look distinct), and if you also want a distinct Dock
+/// name, patch CFBundleName in the BUILT `.app` afterwards with PlistBuddy —
+/// never via PRODUCT_NAME. Delete the throwaway `.app` (or re-run
+/// `lsregister -f /Applications/WhisPaste.app`) once done.
 library;
 
 import 'package:flutter/material.dart';
+import 'package:window_manager/window_manager.dart';
 
 import 'services/smart_mode/smart_mode_ffi_engine.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // The window title bar text comes from window_manager's WindowOptions
+  // (see main.dart's _initDesktopWindow), NOT from Info.plist's
+  // CFBundleName/CFBundleDisplayName — patching those post-build left the
+  // title bar showing the OS-default fallback ("WhisPaste", same as the
+  // real app), making the two builds visually indistinguishable even with
+  // fully separate bundle IDs. Set it explicitly here.
+  await windowManager.ensureInitialized();
+  await windowManager.waitUntilReadyToShow(
+    const WindowOptions(title: 'WhisPaste SmartMode Debug'),
+    () async {
+      await windowManager.show();
+      await windowManager.focus();
+    },
+  );
   runApp(const _SmartModeDebugApp());
 }
 
@@ -42,21 +71,37 @@ class _SmartModeDebugApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const MaterialApp(
-      title: 'Smart-Mode-v2 Debug',
+      title: 'WhisPaste SmartMode Debug',
       home: _SmartModeDebugScreen(),
     );
   }
 }
 
-const _cleanupSystemPrompt =
-    'Bereinige diesen diktierten deutschen Text: entferne Füllwörter (äh, '
-    'ähm, also), korrigiere Interpunktion und Groß-/Kleinschreibung. Ändere '
-    'Inhalt und Wortwahl NICHT. Gib NUR den bereinigten Text aus, keine '
-    'Erklärung.';
+enum _Preset { cleanup, concise, translate }
 
-const _testInput =
-    'ich äh wollte nur fragen ob du mir bis Freitag noch die Zahlen '
-    'schicken kannst weil ähm ich die für das Kunden-Meeting brauche';
+// Identical wording to the already spike-tested presets
+// (.scratch/smart-mode-v2/run_batch_test.py) — same prompts, same config,
+// so trying it here is representative of the real feature, not a rewrite.
+const _systemPrompts = {
+  _Preset.cleanup:
+      'Bereinige diesen diktierten deutschen Text: entferne Füllwörter (äh, '
+      'ähm, also), korrigiere Interpunktion und Groß-/Kleinschreibung. Ändere '
+      'Inhalt und Wortwahl NICHT. Gib NUR den bereinigten Text aus, keine '
+      'Erklärung.',
+  _Preset.concise:
+      'Fasse diesen diktierten deutschen Text kürzer und prägnanter, ohne die '
+      'Kernaussage zu verändern. Gib NUR den gekürzten Text aus, keine '
+      'Erklärung.',
+  _Preset.translate:
+      'Übersetze diesen deutschen Text ins Englische. Gib NUR die '
+      'Übersetzung aus, keine Erklärung.',
+};
+
+const _presetLabels = {
+  _Preset.cleanup: 'Cleanup',
+  _Preset.concise: 'Concise',
+  _Preset.translate: 'Translate (DE→EN)',
+};
 
 class _SmartModeDebugScreen extends StatefulWidget {
   const _SmartModeDebugScreen();
@@ -66,49 +111,46 @@ class _SmartModeDebugScreen extends StatefulWidget {
 }
 
 class _SmartModeDebugScreenState extends State<_SmartModeDebugScreen> {
-  String _status = 'Bereit.';
+  final _inputController = TextEditingController();
+  _Preset _preset = _Preset.cleanup;
+  String _output = '';
+  int? _elapsedMs;
+  String? _error;
   bool _running = false;
 
   @override
-  void initState() {
-    super.initState();
-    // Auto-run once on launch — lets a headless direct-binary smoke test
-    // (no UI interaction possible) still exercise the full sandboxed path
-    // by grepping stdout for the SMART_MODE_TEST_RESULT marker below.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _runTest());
+  void dispose() {
+    _inputController.dispose();
+    super.dispose();
   }
 
-  Future<void> _runTest() async {
+  Future<void> _run() async {
+    final userText = _inputController.text.trim();
+    if (userText.isEmpty) return;
+
     setState(() {
       _running = true;
-      _status = 'Lade Modell + generiere … (kann einige Sekunden dauern)';
+      _error = null;
+      _output = '';
+      _elapsedMs = null;
     });
+
     final stopwatch = Stopwatch()..start();
     try {
       final engine = SmartModeFfiEngine();
       final result = await engine.run(
-        systemPrompt: _cleanupSystemPrompt,
-        userText: _testInput,
+        systemPrompt: _systemPrompts[_preset]!,
+        userText: userText,
       );
       setState(() {
-        _status =
-            'OK (${stopwatch.elapsedMilliseconds}ms)\n\n'
-            'IN:  $_testInput\n\n'
-            'OUT: $result';
+        _output = result;
+        _elapsedMs = stopwatch.elapsedMilliseconds;
       });
-      // Debug-only entrypoint with no UI access in a headless smoke test —
-      // stdout is the only channel to check the result.
-      // ignore: avoid_print
-      print(
-        'SMART_MODE_TEST_RESULT: OK ${stopwatch.elapsedMilliseconds}ms out=$result',
-      );
     } catch (e) {
       setState(() {
-        _status = 'FEHLER: $e';
+        _error = '$e';
+        _elapsedMs = stopwatch.elapsedMilliseconds;
       });
-      // Debug-only entrypoint, see rationale on the OK-path print above.
-      // ignore: avoid_print
-      print('SMART_MODE_TEST_RESULT: FAIL $e');
     } finally {
       setState(() {
         _running = false;
@@ -119,18 +161,82 @@ class _SmartModeDebugScreenState extends State<_SmartModeDebugScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Smart-Mode-v2 Sandbox-Prototyp')),
+      appBar: AppBar(
+        title: const Text('WhisPaste SmartMode — Sandbox-Prototyp'),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ElevatedButton(
-              onPressed: _running ? null : _runTest,
-              child: Text(_running ? 'Läuft …' : 'Cleanup-Test ausführen'),
+            const Text(
+              'Eigenes Diktat einfügen (z. B. aus der echten WhisPaste-App kopiert):',
+              style: TextStyle(fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 24),
-            Expanded(child: SingleChildScrollView(child: Text(_status))),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _inputController,
+              maxLines: 5,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                hintText: 'Diktierten Text hier einfügen …',
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                const Text('Preset: '),
+                const SizedBox(width: 8),
+                DropdownButton<_Preset>(
+                  value: _preset,
+                  items: _Preset.values
+                      .map(
+                        (p) => DropdownMenuItem(
+                          value: p,
+                          child: Text(_presetLabels[p]!),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: _running
+                      ? null
+                      : (p) => setState(() => _preset = p!),
+                ),
+                const SizedBox(width: 16),
+                ElevatedButton(
+                  onPressed: _running ? null : _run,
+                  child: Text(_running ? 'Läuft …' : 'Verarbeiten'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Tatsächlich verwendeter System-Prompt:',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.all(8),
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              child: Text(
+                _systemPrompts[_preset]!,
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (_elapsedMs != null)
+              Text(
+                'Dauer: ${_elapsedMs}ms',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: SingleChildScrollView(
+                child: Text(
+                  _error != null ? 'FEHLER: $_error' : _output,
+                  style: TextStyle(color: _error != null ? Colors.red : null),
+                ),
+              ),
+            ),
           ],
         ),
       ),

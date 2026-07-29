@@ -6,6 +6,11 @@
 # libllama" build phase (macos/Runner.xcodeproj) picks them up and copies them
 # into `Contents/Frameworks/`, signed with the app's identity.
 #
+# NOTE: that embed phase is OPT-IN — it only copies these dylibs when the build
+# sets WHISPASTE_SMART_MODE_PROTOTYPE=1 (see macos/embed_libllama.sh). Running
+# this build script alone never touches the real app; a normal WhisPaste build
+# ignores whatever this stages. Only the dedicated prototype build embeds it.
+#
 # Smart-Mode-v2 prototype (Gemma-4-E2B on-device text refinement), following
 # the exact same bundling pattern already proven in production for whisper.cpp
 # (see build-libwhisper-macos.sh) — no runtime code download, Apple Guideline

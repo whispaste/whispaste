@@ -8,11 +8,32 @@
 # rename), copying both sets into the same Frameworks/ directory is safe: no
 # install-name collides between libwhisper's and libllama's own ggml copies.
 #
+# ┌──────────────────────────────────────────────────────────────────────────┐
+# │ OPT-IN ONLY. This phase lives on the SHARED "Runner" target, so it runs   │
+# │ for EVERY build of the real app (Debug/Release/MAS, flutter/xcodebuild/   │
+# │ fastlane). Smart-Mode-v2 is an unshipped prototype — its dylibs must      │
+# │ NEVER land in the production app. Therefore this script is a hard no-op   │
+# │ unless the builder explicitly opts in with WHISPASTE_SMART_MODE_PROTOTYPE │
+# │ =1. A normal build touches nothing in Frameworks/ and does not grow the   │
+# │ bundle by a single byte. Only the dedicated prototype build sets the var: │
+# │                                                                            │
+# │   WHISPASTE_SMART_MODE_PROTOTYPE=1 xcodebuild \                            │
+# │     -workspace macos/Runner.xcworkspace -scheme "Runner (MAS)" \          │
+# │     -configuration MAS build \                                            │
+# │     PRODUCT_BUNDLE_IDENTIFIER=de.whispaste.smartmode.debug                │
+# └──────────────────────────────────────────────────────────────────────────┘
+#
 # Source dylibs are produced by scripts/build-libllama-macos.sh +
 # scripts/build-smartmode-shim-macos.sh (SHA-256 pinned, @loader_path-
 # relocatable). If they are absent the phase is a no-op with a warning, so a
 # checkout that has not built libllama still compiles.
 set -euo pipefail
+
+# --- Opt-in gate (see banner above). Default = no-op, protects the real app. --
+if [[ "${WHISPASTE_SMART_MODE_PROTOTYPE:-}" != "1" ]]; then
+  echo "note: [WP] Embed & Sign libllama skipped (Smart-Mode-v2 prototype not opted in; set WHISPASTE_SMART_MODE_PROTOTYPE=1 to embed). This is the normal, expected path for the real app."
+  exit 0
+fi
 
 STAGE_DIR="${SRCROOT}/../.build/libllama/macos"
 DEST_DIR="${BUILT_PRODUCTS_DIR}/${FRAMEWORKS_FOLDER_PATH}"
