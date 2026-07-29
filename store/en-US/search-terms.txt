@@ -1,7 +1,7 @@
 voice to text
 transcription
-transcribe audio
 dictation
-talk to text
 whisper AI
 audio transcription
+whisper desktop
+offline speech to text

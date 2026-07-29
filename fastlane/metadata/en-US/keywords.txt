@@ -1,1 +1,1 @@
-transcription,voice typing,whisper,voice notes,hotkey,local,dictation,talk to text,meeting
+transcription,voice typing,whisper,voice notes,hotkey,local,dictation,whisper desktop,offline

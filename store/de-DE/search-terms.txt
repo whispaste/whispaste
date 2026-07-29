@@ -1,7 +1,7 @@
 Spracherkennung
 Spracheingabe
-Diktiergerät
+Diktiersoftware
 Diktieren
 Transkription
-Sprache zu Text
-Audio Transkription
+Whisper Desktop
+Offline-Spracherkennung

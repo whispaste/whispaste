@@ -17,6 +17,7 @@ import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/settings/sections/feedback_section.dart';
 import 'package:whispaste/services/paste/paste_capability_notifier.dart';
+import 'package:whispaste/services/paste/paster.dart';
 
 import '../../../fixtures/test_helpers.dart';
 
@@ -39,12 +40,30 @@ class _FakeSettingsNotifier extends SettingsNotifier {
 }
 
 /// No-op paste capability notifier — prevents platform-channel calls in tests.
+///
+/// [requestGrant] is overridden (not left to fall through to the real
+/// base-class implementation) so tests can assert the auto-trigger fired
+/// without arming real timers or hitting the `url_launcher` channel.
 class _FakePasteCapabilityNotifier extends PasteCapabilityNotifier {
+  _FakePasteCapabilityNotifier({this.initialCapability});
+
+  final PasteCapability? initialCapability;
+  int requestGrantCalls = 0;
+
   @override
-  PasteCapabilityState build() => const PasteCapabilityState();
+  PasteCapabilityState build() =>
+      PasteCapabilityState(capability: initialCapability);
 
   @override
   Future<void> check({bool prompt = false}) async {}
+
+  @override
+  Future<void> requestGrant({
+    Duration pollInterval = const Duration(seconds: 1),
+    Duration pollTimeout = const Duration(seconds: 30),
+  }) async {
+    requestGrantCalls++;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -246,6 +265,76 @@ void main() {
         AfterTranscriptionAction.nothing.value,
       );
     });
+
+    // ── Activation-triggered permission request ─────────────────────────────
+    // Selecting a paste-requiring option must request the OS permission
+    // immediately (PasteCapabilityNotifier.requestGrant) instead of leaving
+    // the user to notice and tap the indicator's own "Grant" button below.
+
+    testWidgets(
+      'selecting Auto-Paste requests the permission grant when not yet ready',
+      (tester) async {
+        final settings = _FakeSettingsNotifier(
+          _settingsWithAction(AfterTranscriptionAction.clipboard),
+        );
+        final capability = _FakePasteCapabilityNotifier(
+          initialCapability: const PasteCapability(
+            status: PasteCapabilityStatus.permissionMissing,
+            canPrompt: true,
+          ),
+        );
+        await tester.pumpWidget(
+          makeTestable(
+            const SingleChildScrollView(child: AfterTranscriptionSection()),
+            overrides: [
+              settingsProvider.overrideWith(() => settings),
+              pasteCapabilityNotifierProvider.overrideWith(() => capability),
+            ],
+            locale: const Locale('en'),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byType(DropdownButton<String>).first);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(l10n.settingsAfterTranscriptionPaste).last);
+        await tester.pumpAndSettle();
+
+        expect(capability.requestGrantCalls, 1);
+      },
+    );
+
+    testWidgets(
+      'selecting Auto-Paste does not re-request the grant when already ready',
+      (tester) async {
+        final settings = _FakeSettingsNotifier(
+          _settingsWithAction(AfterTranscriptionAction.clipboard),
+        );
+        final capability = _FakePasteCapabilityNotifier(
+          initialCapability: const PasteCapability(
+            status: PasteCapabilityStatus.ready,
+          ),
+        );
+        await tester.pumpWidget(
+          makeTestable(
+            const SingleChildScrollView(child: AfterTranscriptionSection()),
+            overrides: [
+              settingsProvider.overrideWith(() => settings),
+              pasteCapabilityNotifierProvider.overrideWith(() => capability),
+            ],
+            locale: const Locale('en'),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byType(DropdownButton<String>).first);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(l10n.settingsAfterTranscriptionPaste).last);
+        await tester.pumpAndSettle();
+
+        expect(capability.requestGrantCalls, 0);
+      },
+    );
 
     // ── autoPasteDelay fixed at default ─────────────────────────────────────
     // Even though the slider is gone, the model field must still hold the
