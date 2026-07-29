@@ -1083,6 +1083,24 @@ abstract class L10n {
   /// **'Restart now'**
   String get pasteRestartAlertConfirm;
 
+  /// No description provided for @pasteManualGrantAlertTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'The restart didn\'t help'**
+  String get pasteManualGrantAlertTitle;
+
+  /// No description provided for @pasteManualGrantAlertBody.
+  ///
+  /// In en, this message translates to:
+  /// **'WhisPaste already restarted, but the Auto-Paste permission still isn\'t taking effect. Please check under System Settings → Privacy & Security → Accessibility whether WhisPaste is switched on there, and re-enable the toggle if needed.'**
+  String get pasteManualGrantAlertBody;
+
+  /// No description provided for @pasteManualGrantAlertConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Open System Settings'**
+  String get pasteManualGrantAlertConfirm;
+
   /// No description provided for @pasteCapabilityRestartIneffectiveTitle.
   ///
   /// In en, this message translates to:

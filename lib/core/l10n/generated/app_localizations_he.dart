@@ -540,6 +540,16 @@ class L10nHe extends L10n {
   String get pasteRestartAlertConfirm => 'הפעל מחדש עכשיו';
 
   @override
+  String get pasteManualGrantAlertTitle => 'ההפעלה מחדש לא עזרה';
+
+  @override
+  String get pasteManualGrantAlertBody =>
+      'WhisPaste כבר הופעל מחדש, אך הרשאת ההדבקה האוטומטית עדיין אינה נכנסת לתוקף. בדוק תחת הגדרות המערכת → פרטיות ואבטחה → נגישות אם WhisPaste מופעל שם, והפעל מחדש את המתג במידת הצורך.';
+
+  @override
+  String get pasteManualGrantAlertConfirm => 'פתח את הגדרות המערכת';
+
+  @override
   String get pasteCapabilityRestartIneffectiveTitle =>
       'ההפעלה מחדש לא החילה את ההרשאה';
 

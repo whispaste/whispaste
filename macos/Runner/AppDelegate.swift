@@ -146,22 +146,49 @@ class AppDelegate: FlutterAppDelegate {
       // Dart so all copy stays in the ARB files.
       let args = call.arguments as? [String: Any]
       result(nil)
-      presentRestartRequiredAlert(
+      presentAlwaysOnTopAlert(
         title: args?["title"] as? String ?? "Restart WhisPaste",
         body: args?["body"] as? String ?? "",
         confirmLabel: args?["confirmLabel"] as? String ?? "Restart now"
-      )
+      ) { [weak self] in
+        self?.performRelaunch()
+      }
+
+    case "showManualGrantAlert":
+      // Loop exit for the "restart already ran but permission still missing"
+      // case: instead of relaunching yet again, confirming opens System
+      // Settings → Privacy & Security → Accessibility so the user can verify
+      // or re-toggle WhisPaste. Opening a `x-apple.systempreferences:` URL is
+      // sandbox-legal (no subprocess, no private API).
+      let manualArgs = call.arguments as? [String: Any]
+      result(nil)
+      presentAlwaysOnTopAlert(
+        title: manualArgs?["title"] as? String ?? "Check System Settings",
+        body: manualArgs?["body"] as? String ?? "",
+        confirmLabel: manualArgs?["confirmLabel"] as? String ?? "Open System Settings"
+      ) {
+        if let url = URL(
+          string:
+            "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+        ) {
+          NSWorkspace.shared.open(url)
+        }
+      }
 
     default:
       result(FlutterMethodNotImplemented)
     }
   }
 
-  /// Shows the app-level, always-on-top restart modal and — on confirmation —
-  /// relaunches immediately. Safe to call repeatedly: the `restartAlertShowing`
-  /// latch coalesces re-triggers into the single already-visible modal.
-  private func presentRestartRequiredAlert(
-    title: String, body: String, confirmLabel: String
+  /// Shows an app-level, always-on-top single-action alert and runs [onConfirm]
+  /// when the user acknowledges it. Safe to call repeatedly: the
+  /// `restartAlertShowing` latch coalesces re-triggers into the single
+  /// already-visible modal, so a re-derived "restart needed" can't stack a
+  /// second copy. Used for both the forced-restart modal (onConfirm relaunches)
+  /// and the manual-grant loop-exit alert (onConfirm opens System Settings).
+  private func presentAlwaysOnTopAlert(
+    title: String, body: String, confirmLabel: String,
+    onConfirm: @escaping () -> Void
   ) {
     // Marshal onto the main thread — method-channel handlers already run
     // there, but this keeps the invariant explicit for the AppKit calls.
@@ -192,10 +219,10 @@ class AppDelegate: FlutterAppDelegate {
 
       // Single-button alert: runModal returns on the only button. There is
       // no "cancel" — per the product requirement the user does not get to
-      // opt out of the restart once they acknowledge the modal.
+      // dismiss it into nothing; the single action is the whole point.
       alert.runModal()
       self.restartAlertShowing = false
-      self.performRelaunch()
+      onConfirm()
     }
   }
 

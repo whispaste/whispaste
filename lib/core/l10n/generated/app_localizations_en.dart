@@ -548,6 +548,16 @@ class L10nEn extends L10n {
   String get pasteRestartAlertConfirm => 'Restart now';
 
   @override
+  String get pasteManualGrantAlertTitle => 'The restart didn\'t help';
+
+  @override
+  String get pasteManualGrantAlertBody =>
+      'WhisPaste already restarted, but the Auto-Paste permission still isn\'t taking effect. Please check under System Settings → Privacy & Security → Accessibility whether WhisPaste is switched on there, and re-enable the toggle if needed.';
+
+  @override
+  String get pasteManualGrantAlertConfirm => 'Open System Settings';
+
+  @override
   String get pasteCapabilityRestartIneffectiveTitle =>
       'The restart didn\'t apply the permission';
 

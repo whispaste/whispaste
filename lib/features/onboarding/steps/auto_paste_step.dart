@@ -39,7 +39,6 @@ import '../../../core/config/settings_enums.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/logging/app_logger.dart';
-import '../../../core/platform/macos_lifecycle_channel.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../services/desktop_paste/desktop_paste_controller.dart';
@@ -498,7 +497,9 @@ class _MacOsBody extends StatelessWidget {
 
       case _AutoPastePhase.troubleshoot:
         return [
-          const PasteCapabilityRestartBanner(),
+          PasteCapabilityRestartBanner(
+            onRestart: () => notifier.restartForGrant(),
+          ),
           const SizedBox(height: WpSpacing.sm),
           // Secondary fallback: reset the entry instead of restarting.
           // Surfaces the existing repair flow without giving it equal weight.
@@ -521,6 +522,7 @@ class _MacOsBody extends StatelessWidget {
               successColor: successColor,
               textSecondary: textSecondary,
               l10n: l10n,
+              onRestart: () => notifier.restartForGrant(),
             ),
           ],
           const SizedBox(height: WpSpacing.sm),
@@ -1000,6 +1002,7 @@ class _RepairResultBanner extends StatelessWidget {
     required this.successColor,
     required this.textSecondary,
     required this.l10n,
+    required this.onRestart,
   });
 
   final TccRepairResult result;
@@ -1007,6 +1010,11 @@ class _RepairResultBanner extends StatelessWidget {
   final Color successColor;
   final Color textSecondary;
   final L10n l10n;
+
+  /// Routed through [PasteCapabilityNotifier.restartForGrant] so the
+  /// cross-process restart marker is set before the relaunch — same as every
+  /// other grant-driven restart surface.
+  final VoidCallback onRestart;
 
   @override
   Widget build(BuildContext context) {
@@ -1059,7 +1067,7 @@ class _RepairResultBanner extends StatelessWidget {
         if (nothingCleared) ...[
           const SizedBox(height: WpSpacing.sm),
           OutlinedButton.icon(
-            onPressed: MacOSLifecycleChannel.restart,
+            onPressed: onRestart,
             icon: const Icon(LucideIcons.rotateCw, size: 14),
             label: Text(l10n.pasteCapabilityRestartButton),
           ),

@@ -13,7 +13,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../core/l10n/generated/app_localizations.dart';
-import '../core/platform/macos_lifecycle_channel.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import '../services/paste/paste_capability_notifier.dart';
@@ -99,7 +98,9 @@ class _PasteCapabilityIndicatorState
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const PasteCapabilityRestartBanner(),
+          PasteCapabilityRestartBanner(
+            onRestart: () => notifier.restartForGrant(),
+          ),
           const SizedBox(height: WpSpacing.xxs),
           _buildTroubleshoot(context, l10n, notifier),
         ],
@@ -278,7 +279,9 @@ class _PasteCapabilityIndicatorState
               // through the Grant button first.
               if (Platform.isMacOS)
                 TextButton.icon(
-                  onPressed: _busy ? null : MacOSLifecycleChannel.restart,
+                  onPressed: _busy
+                      ? null
+                      : () => _run(() => notifier.restartForGrant()),
                   icon: const Icon(LucideIcons.rotateCw, size: 14),
                   label: Text(l10n.pasteCapabilityRestartButton),
                 ),

@@ -551,6 +551,16 @@ class L10nDe extends L10n {
   String get pasteRestartAlertConfirm => 'Jetzt neu starten';
 
   @override
+  String get pasteManualGrantAlertTitle => 'Neustart hat nicht geholfen';
+
+  @override
+  String get pasteManualGrantAlertBody =>
+      'WhisPaste wurde bereits neu gestartet, aber die Auto-Einfügen-Berechtigung greift immer noch nicht. Bitte prüfe in den Systemeinstellungen unter Datenschutz & Sicherheit → Bedienungshilfen, ob WhisPaste dort aktiviert ist, und aktiviere den Schalter bei Bedarf neu.';
+
+  @override
+  String get pasteManualGrantAlertConfirm => 'Systemeinstellungen öffnen';
+
+  @override
   String get pasteCapabilityRestartIneffectiveTitle =>
       'Neustart hat die Berechtigung nicht übernommen';
 

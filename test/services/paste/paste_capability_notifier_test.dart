@@ -7,6 +7,7 @@ library;
 
 import 'dart:async';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -871,6 +872,43 @@ void main() {
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getBool(kAutoPasteRestartMarkerKey), isTrue);
     });
+
+    test(
+      'restartForGrant marks the persisted marker BEFORE relaunching so '
+      'every manual restart surface (not just the modal) is loop-aware',
+      () async {
+        const channel = MethodChannel('com.whispaste.app_lifecycle');
+        final calls = <String>[];
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, (call) async {
+              calls.add(call.method);
+              return null;
+            });
+        addTearDown(() {
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+              .setMockMethodCallHandler(channel, null);
+        });
+
+        final container = _container(paster: _FakePaster());
+        addTearDown(container.dispose);
+        final notifier = container.read(
+          pasteCapabilityNotifierProvider.notifier,
+        );
+
+        await notifier.restartForGrant();
+
+        expect(
+          container.read(pasteCapabilityNotifierProvider).restartAttempted,
+          isTrue,
+          reason:
+              'restartForGrant must set the marker so the fresh process can '
+              'detect an ineffective restart no matter which button was pressed.',
+        );
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getBool(kAutoPasteRestartMarkerKey), isTrue);
+        expect(calls, contains('restart'));
+      },
+    );
 
     test('restartWasIneffective is false without a marker even when '
         'permission is missing (ordinary first-contact state)', () async {

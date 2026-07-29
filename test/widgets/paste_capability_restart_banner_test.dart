@@ -54,6 +54,19 @@ const _plainMissingState = PasteCapabilityState(
   ),
 );
 
+/// Fresh process after a grant-driven restart that STILL reads missing: the
+/// persisted marker is hydrated (`restartAttempted: true`) but this process
+/// hasn't re-entered the grant flow (`sentToOsGrantFlow: false`), so the
+/// resolver yields `grant` while the marker upgrades the copy to the honest
+/// "restart didn't take" surface.
+const _restartIneffectiveState = PasteCapabilityState(
+  capability: PasteCapability(
+    status: PasteCapabilityStatus.permissionMissing,
+    canPrompt: true,
+  ),
+  restartAttempted: true,
+);
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -139,6 +152,38 @@ void main() {
           findsOneWidget,
         );
         expect(find.text(l10n.pasteCapabilityGrantButton), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'restartWasIneffective swaps the first-contact copy for the honest '
+      '"restart did not take" copy while keeping the grant action',
+      skip: !Platform.isMacOS,
+      (tester) async {
+        await tester.pumpWidget(
+          makeTestable(
+            const PasteCapabilityIndicator(),
+            locale: const Locale('en'),
+            overrides: [
+              pasteCapabilityNotifierProvider.overrideWith(
+                () => _FakePasteCapabilityNotifier(_restartIneffectiveState),
+              ),
+            ],
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Honest copy replaces the naive "not yet allowed" title the user
+        // kept looping back to right after restarting.
+        expect(
+          find.text(l10n.pasteCapabilityRestartIneffectiveTitle),
+          findsOneWidget,
+        );
+        expect(find.text(l10n.pasteCapabilityPermissionMissing), findsNothing);
+        // The primary action stays grant (re-fires CGRequestPostEventAccess),
+        // and this is NOT the sentToOsGrantFlow restart-banner surface.
+        expect(find.text(l10n.pasteCapabilityGrantButton), findsOneWidget);
+        expect(find.byType(PasteCapabilityRestartBanner), findsNothing);
       },
     );
   });

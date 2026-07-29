@@ -16,7 +16,6 @@ import '../core/config/settings_enums.dart';
 import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
 import '../core/logging/perf_instrumentation.dart';
-import '../core/platform/macos_lifecycle_channel.dart';
 import '../core/recording/recording_state.dart';
 import '../core/data/analytics_provider.dart';
 import '../core/data/database.dart';
@@ -1573,7 +1572,7 @@ class RecordingOrchestrator extends Notifier<void> {
               ? 'Auto-Einfügen blockiert — Neustart nötig'
               : 'Auto-Einfügen blockiert — Berechtigung erteilen',
           onClick: staleGrant
-              ? MacOSLifecycleChannel.restart
+              ? capNotifier.restartForGrant
               : capNotifier.openAccessibilitySettings,
         );
         return false;

@@ -42,6 +42,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/logging/app_logger.dart';
+import '../../core/platform/macos_lifecycle_channel.dart';
 import '../desktop_paste/desktop_paste_controller.dart';
 import 'paster.dart';
 
@@ -398,6 +399,21 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
     } catch (e) {
       _log.debug('restart marker persist failed (non-fatal): $e');
     }
+  }
+
+  /// The single entry point every grant-driven restart surface must use —
+  /// the settings restart banner, the troubleshoot restart button, the
+  /// failed-paste notification's stale-grant branch, and the onboarding
+  /// repair-then-restart fallback. Persists the cross-process marker
+  /// ([markRestartAttempted]) FIRST, then asks the platform to relaunch, so
+  /// the fresh process can tell an ineffective restart apart from a
+  /// first-contact missing state ([restartWasIneffective]) no matter which
+  /// button the user pressed. The auto-modal path is the one exception: it
+  /// marks then hands off to the native alert, which relaunches natively on
+  /// confirm (never round-tripping through [MacOSLifecycleChannel.restart]).
+  Future<void> restartForGrant() async {
+    await markRestartAttempted();
+    await MacOSLifecycleChannel.restart();
   }
 
   Future<void> _clearRestartMarker() async {

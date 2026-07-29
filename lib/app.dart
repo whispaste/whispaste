@@ -286,7 +286,19 @@ class _AppShellState extends ConsumerState<_AppShell>
           ref.read(settingsProvider).value?.onboardingCompleted ?? false;
       if (!onboardingCompleted) return;
       _restartModalActive = true;
-      unawaited(_showForcedRestartModal(notifier));
+      // Second-attempt awareness: if a grant-driven restart ALREADY happened
+      // (the cross-process marker is set) and we're back in "restart needed",
+      // a plain restart demonstrably isn't taking — auto-restarting again just
+      // loops the backgrounded user forever. Break out with an actionable
+      // manual alert (opens System Settings) instead of the forced restart.
+      final alreadyRestarted = ref
+          .read(pasteCapabilityNotifierProvider)
+          .restartAttempted;
+      if (alreadyRestarted) {
+        unawaited(_showManualGrantAlert());
+      } else {
+        unawaited(_showForcedRestartModal(notifier));
+      }
     });
   }
 
@@ -302,6 +314,22 @@ class _AppShellState extends ConsumerState<_AppShell>
       title: l10n.pasteRestartAlertTitle,
       body: l10n.pasteRestartAlertBody,
       confirmLabel: l10n.pasteRestartAlertConfirm,
+    );
+  }
+
+  /// The loop exit: a plain restart already ran and the permission is STILL
+  /// missing, so instead of forcing yet another relaunch this native alert
+  /// tells the user plainly and — on confirm — opens System Settings →
+  /// Accessibility so they can verify/re-toggle WhisPaste themselves. Surfaces
+  /// even when backgrounded, so the honest dead-end is never buried on a
+  /// settings page the user doesn't have open.
+  Future<void> _showManualGrantAlert() async {
+    if (!mounted) return;
+    final l10n = L10n.of(context);
+    await MacOSLifecycleChannel.showManualGrantAlert(
+      title: l10n.pasteManualGrantAlertTitle,
+      body: l10n.pasteManualGrantAlertBody,
+      confirmLabel: l10n.pasteManualGrantAlertConfirm,
     );
   }
 

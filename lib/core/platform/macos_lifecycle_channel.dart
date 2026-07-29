@@ -120,16 +120,48 @@ class MacOSLifecycleChannel {
     required String title,
     required String body,
     required String confirmLabel,
+  }) => _invokeAlert(
+    'showRestartRequiredAlert',
+    title: title,
+    body: body,
+    confirmLabel: confirmLabel,
+  );
+
+  /// Presents the native "the restart didn't apply the permission — check
+  /// System Settings" modal, shown when a grant-driven restart already ran and
+  /// the permission is still missing. Confirming opens System Settings →
+  /// Privacy & Security → Accessibility natively. This is the loop exit for the
+  /// backgrounded, tray-only user: unlike [showRestartRequiredAlert] it does
+  /// NOT relaunch, so a permission that genuinely won't persist can't force an
+  /// endless restart cycle. Same idempotency/always-on-top behavior.
+  static Future<void> showManualGrantAlert({
+    required String title,
+    required String body,
+    required String confirmLabel,
+  }) => _invokeAlert(
+    'showManualGrantAlert',
+    title: title,
+    body: body,
+    confirmLabel: confirmLabel,
+  );
+
+  /// Shared invoker for the two native always-on-top alert channel methods —
+  /// identical marshalling, only the method name differs.
+  static Future<void> _invokeAlert(
+    String method, {
+    required String title,
+    required String body,
+    required String confirmLabel,
   }) async {
     if (!Platform.isMacOS) return;
     try {
-      await _channel.invokeMethod('showRestartRequiredAlert', {
+      await _channel.invokeMethod(method, {
         'title': title,
         'body': body,
         'confirmLabel': confirmLabel,
       });
     } on PlatformException catch (e) {
-      _log.warning('showRestartRequiredAlert failed', e);
+      _log.warning('$method failed', e);
     }
   }
 
