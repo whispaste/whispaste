@@ -70,6 +70,8 @@ const relatedPages = [
   alternateSlugs={alternateSlugs}
   relatedPages={relatedPages}
 >
+  <p class="tldr">{t(lang, "explainer.privacy.tldr")}</p>
+
   <section>
     <h2>{t(lang, "explainer.privacy.section.offlineDefault.heading")}</h2>
     <p>{t(lang, "explainer.privacy.section.offlineDefault.body")}</p>
@@ -97,6 +99,11 @@ const relatedPages = [
 </LandingPageLayout>
 
 <style>
+  .tldr {
+    color: #e5e7eb;
+    font-size: 1.0625rem;
+    line-height: 1.65;
+  }
   .faq-list {
     margin-top: 1rem;
   }

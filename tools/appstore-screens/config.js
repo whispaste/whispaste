@@ -97,7 +97,7 @@ const SCREENS = [
       en: 'en/light/02_workspace_detail.png',
       de: 'de/light/02_workspace_detail.png',
     },
-    composition: 'overlap-left',
+    composition: 'left',
     windowScale: 0.86,
     category: { en: 'DETAIL', de: 'DETAIL' },
     headline: {
@@ -117,7 +117,7 @@ const SCREENS = [
       de: 'de/dark/03_voice_shortcuts.png',
     },
     composition: 'right',
-    windowScale: 0.78,
+    windowScale: 0.86,
     category: { en: 'VOICE SHORTCUTS', de: 'SPRACH-SHORTCUTS' },
     headline: {
       en: 'Reuse the phrases\nyou type every day',
@@ -135,8 +135,8 @@ const SCREENS = [
       en: 'en/light/04_settings.png',
       de: 'de/light/04_settings.png',
     },
-    composition: 'low-wide',
-    windowScale: 0.92,
+    composition: 'left',
+    windowScale: 0.9,
     category: { en: 'SETUP', de: 'EINRICHTUNG' },
     headline: {
       en: 'Choose a shortcut\nthat fits your flow',

@@ -642,6 +642,32 @@ jobs:
           name: msix-release
           path: msix
 
+      # Generates the Microsoft Store screenshot set (tools/appstore-screens/
+      # output/<lang>/microsoft/*.png) that submit-ms-store.ps1 uploads below.
+      # Reads from the Flutter-golden PNGs already committed under
+      # test/screenshots/goldens/ — no Flutter/Dart toolchain needed on this
+      # windows-latest runner, just Node + a Playwright-driven HTML renderer.
+      - name: Set up Node.js
+        if: steps.store_check.outputs.skip != 'true'
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Install screenshot generator dependencies
+        if: steps.store_check.outputs.skip != 'true'
+        working-directory: tools/appstore-screens
+        run: npm ci
+
+      - name: Install Playwright (Chromium only — generator uses no other engine)
+        if: steps.store_check.outputs.skip != 'true'
+        working-directory: tools/appstore-screens
+        run: npx playwright install --with-deps chromium
+
+      - name: Generate Microsoft Store screenshots
+        if: steps.store_check.outputs.skip != 'true'
+        working-directory: tools/appstore-screens
+        run: npm run generate:all
+
       # Uploads package + listing metadata (title/description/features/
       # keywords/release notes from store/) and COMMITS the submission —
       # unlike the previous msstore-CLI job, this does reach Certification

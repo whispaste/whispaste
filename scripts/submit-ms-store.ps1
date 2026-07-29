@@ -29,6 +29,23 @@
   Partner Center → Pricing and availability; a submission created by this
   script simply carries forward whatever price is already live.
 
+  IMAGES (added 2026-07-29): despite docs/store-release.md's older claim that
+  listing images aren't API-controllable, Microsoft's docs
+  (learn.microsoft.com/windows/uwp/monetize/create-and-manage-submissions-
+  using-windows-store-services, confirmed against
+  create-and-manage-submissions-for-flights) describe image upload through
+  the SAME mechanism as the package: image files go into the SAME ZIP
+  uploaded to the submission's `fileUploadUrl`, and each locale's
+  `baseListing.images[]` entry references its file by a path RELATIVE TO THE
+  ZIP ROOT (`fileName`), plus a `description` and an `imageType` (we use
+  `"Screenshot"` for every image — Microsoft doesn't have a dedicated "hero"
+  type; the numbered 01_hero.png simply becomes the first screenshot in
+  display order, matching how the Mac App Store listing already treats it).
+  Screenshots are read from `$ScreenshotsDir/<lang>/microsoft/*.png` (the
+  existing tools/appstore-screens generate.cjs output — run
+  `npm run generate:all` in tools/appstore-screens/ before this script if
+  that output is stale) and staged into the upload ZIP under `images/<locale>/`.
+
 .PARAMETER AppId
   Store App ID. WhisPaste: 9P22JVKRQ2V0
 .PARAMETER TenantId
@@ -41,6 +58,11 @@
   Local path to the .msix file to upload.
 .PARAMETER StoreDir
   Path to the store/ directory containing listing content. Default: 'store'.
+.PARAMETER ScreenshotsDir
+  Path to the generated Store-screenshot output directory (contains
+  <lang>/microsoft/*.png per locale, <lang> being 'en'/'de'). Default:
+  'tools/appstore-screens/output'. Pass '' (empty string) to skip image
+  upload entirely and only update text metadata + package, as before.
 #>
 param(
   [Parameter(Mandatory)] [string] $AppId,
@@ -48,7 +70,8 @@ param(
   [Parameter(Mandatory)] [string] $ClientId,
   [Parameter(Mandatory)] [string] $ClientSecret,
   [Parameter(Mandatory)] [string] $MsixPath,
-  [string] $StoreDir = 'store'
+  [string] $StoreDir = 'store',
+  [string] $ScreenshotsDir = 'tools/appstore-screens/output'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -61,6 +84,9 @@ $BASE_URL = 'https://manage.devcenter.microsoft.com/v1.0/my'
 # scripts/apply-store-metadata.mjs, which maps "de-DE" → "de" for the
 # msstore-CLI's own, differently-cased locale keys.)
 $LOCALE_MAP = @{ 'en-US' = 'en-us'; 'de-DE' = 'de-de' }
+
+# store/ folder name → tools/appstore-screens output lang folder ('en'/'de').
+$SCREENSHOT_LANG_MAP = @{ 'en-US' = 'en'; 'de-DE' = 'de' }
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -102,6 +128,33 @@ function Read-LineList {
       Where-Object { $_.Trim() -ne '' } |
       ForEach-Object { $_.Trim() }
   )
+}
+
+# Lists the generated Store screenshots for one locale, sorted by their
+# numeric prefix (01_hero.png, 02_workspace-overview.png, …). Returns an
+# array of hashtables: LocalPath (source file), ZipEntry (path inside the
+# upload ZIP, relative to its root), Description (human caption derived from
+# the filename's slug, since tools/appstore-screens doesn't emit one
+# separately). Returns an empty array (not an error) if the directory is
+# missing — the caller decides whether that's fatal.
+function Read-LocaleImages {
+  param([string] $ScreenshotsDir, [string] $LangFolder, [string] $Locale)
+
+  $dir = Join-Path $ScreenshotsDir (Join-Path $LangFolder 'microsoft')
+  if (-not (Test-Path $dir)) { return @() }
+
+  $files = Get-ChildItem -Path $dir -Filter '*.png' |
+    Sort-Object { [int]([regex]::Match($_.Name, '^\d+').Value) }
+
+  return @($files | ForEach-Object {
+    $slug = $_.BaseName -replace '^\d+_', '' -replace '-', ' '
+    $caption = (Get-Culture).TextInfo.ToTitleCase($slug)
+    @{
+      LocalPath   = $_.FullName
+      ZipEntry    = "images/$Locale/$($_.Name)"
+      Description = "WhisPaste — $caption"
+    }
+  })
 }
 
 # Appends a line to the GitHub Actions run summary when running in CI, so an
@@ -171,14 +224,23 @@ $managed = @{}
 foreach ($folder in $LOCALE_MAP.Keys) {
   $locale = $LOCALE_MAP[$folder]
   $dir    = Join-Path $StoreDir $folder
+  $images = @()
+  if ($ScreenshotsDir) {
+    $langFolder = $SCREENSHOT_LANG_MAP[$folder]
+    $images     = Read-LocaleImages -ScreenshotsDir $ScreenshotsDir -LangFolder $langFolder -Locale $locale
+  }
   $managed[$locale] = @{
     title        = $title
     description  = Read-StoreFile (Join-Path $dir 'description.txt')
     features     = Read-LineList  (Join-Path $dir 'features.txt')
     keywords     = Read-LineList  (Join-Path $dir 'search-terms.txt')
     releaseNotes = Read-StoreFile (Join-Path $dir 'release-notes.txt')
+    images       = $images
   }
-  Write-Host "   $locale`: $($managed[$locale].description.Length) chars description, $($managed[$locale].features.Count) features, $($managed[$locale].keywords.Count) keywords"
+  Write-Host "   $locale`: $($managed[$locale].description.Length) chars description, $($managed[$locale].features.Count) features, $($managed[$locale].keywords.Count) keywords, $($images.Count) screenshots"
+  if ($ScreenshotsDir -and $images.Count -eq 0) {
+    Write-Warning "   No screenshots found for $locale under $ScreenshotsDir/$($SCREENSHOT_LANG_MAP[$folder])/microsoft/ — existing Store images (if any) will be left untouched for this locale."
+  }
 }
 
 # ── Update listings ───────────────────────────────────────────────────────────
@@ -213,6 +275,35 @@ foreach ($locale in $LOCALE_MAP.Values) {
   if ($m.features.Count -gt 0) { $bl | Add-Member -NotePropertyName 'features'     -NotePropertyValue $m.features     -Force }
   if ($m.keywords.Count -gt 0) { $bl | Add-Member -NotePropertyName 'keywords'     -NotePropertyValue $m.keywords     -Force }
   if ($m.releaseNotes)         { $bl | Add-Member -NotePropertyName 'releaseNotes' -NotePropertyValue $m.releaseNotes -Force }
+  # Only touch images when we actually found fresh ones for this locale — an
+  # empty $m.images means "nothing generated", not "clear the listing's
+  # screenshots", so the cloned submission's existing images pass through
+  # untouched in that case (same fail-safe philosophy as the other fields,
+  # which only write when non-empty).
+  #
+  # `images` is shared by screenshots AND icons/logos/promotional art (see
+  # the Image resource docs — imageType also covers Icon/StoreLogo*/
+  # PromotionalArt*/Xbox*). We only manage Screenshot entries here, so any
+  # existing non-Screenshot images from the cloned submission are preserved
+  # and merged with our fresh Screenshot set, instead of being wiped out by
+  # a blind array replace.
+  if ($m.images.Count -gt 0) {
+    $existingNonScreenshots = @(
+      $bl.images | Where-Object { $_.imageType -ne 'Screenshot' }
+    )
+    $newScreenshots = @(
+      $m.images | ForEach-Object {
+        [PSCustomObject]@{
+          fileName    = $_.ZipEntry
+          fileStatus  = 'PendingUpload'
+          description = $_.Description
+          imageType   = 'Screenshot'
+        }
+      }
+    )
+    $bl | Add-Member -NotePropertyName 'images' `
+      -NotePropertyValue @($existingNonScreenshots + $newScreenshots) -Force
+  }
   # Pricing is NOT part of baseListing (it's a top-level submission field) and
   # is never touched anywhere in this script — see the header comment.
 }
@@ -239,11 +330,34 @@ Invoke-Api -Uri "$BASE_URL/applications/$AppId/submissions/$subId" `
 Write-Host "   Done."
 
 # ── Build upload ZIP and push to Azure Storage ────────────────────────────────
+# The ZIP must contain the .msix at its root AND every image referenced by a
+# baseListing.images[].fileName, at that exact relative path — both packages
+# and images travel in the same archive to the same fileUploadUrl. Stage
+# everything into a scratch folder first so Compress-Archive produces the
+# right internal layout (zipping $MsixPath alone, as before, would omit the
+# images entirely).
 
-Write-Host ":: Packaging MSIX for upload..."
+Write-Host ":: Packaging MSIX + screenshots for upload..."
+$stagingDir = Join-Path ([System.IO.Path]::GetTempPath()) "ms-store-$subId-staging"
+if (Test-Path $stagingDir) { Remove-Item $stagingDir -Recurse -Force }
+New-Item -ItemType Directory -Path $stagingDir | Out-Null
+Copy-Item -Path $MsixPath -Destination (Join-Path $stagingDir $msixName)
+
+$totalImages = 0
+foreach ($locale in $LOCALE_MAP.Values) {
+  foreach ($img in $managed[$locale].images) {
+    $destPath = Join-Path $stagingDir $img.ZipEntry
+    New-Item -ItemType Directory -Path (Split-Path $destPath) -Force | Out-Null
+    Copy-Item -Path $img.LocalPath -Destination $destPath
+    $totalImages++
+  }
+}
+Write-Host "   Staged $totalImages screenshot(s) across $($LOCALE_MAP.Values.Count) locale(s)."
+
 $zipPath = Join-Path ([System.IO.Path]::GetTempPath()) "ms-store-$subId.zip"
 if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
-Compress-Archive -Path $MsixPath -DestinationPath $zipPath -Force
+Compress-Archive -Path (Join-Path $stagingDir '*') -DestinationPath $zipPath -Force
+Remove-Item $stagingDir -Recurse -Force
 $zipMB = [math]::Round((Get-Item $zipPath).Length / 1MB, 1)
 Write-Host "   ZIP: $zipMB MB"
 

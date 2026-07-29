@@ -102,9 +102,7 @@ void main() {
             final bytes = await image.toByteData(
               format: ui.ImageByteFormat.png,
             );
-            final outFile = File(
-              'tools/appstore-screens/assets/$fileName',
-            );
+            final outFile = File('tools/appstore-screens/assets/$fileName');
             outFile.writeAsBytesSync(bytes!.buffer.asUint8List());
             // ignore: avoid_print
             print(

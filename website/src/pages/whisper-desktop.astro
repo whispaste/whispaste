@@ -19,6 +19,7 @@
  */
 import LandingPageLayout from "../layouts/LandingPageLayout.astro";
 import HowToSchema from "../components/schema/HowToSchema.astro";
+import FAQPageSchema from "../components/schema/FAQPageSchema.astro";
 import { t, localePath } from "../scripts/i18n.ts";
 
 const lang = "de" as const;
@@ -58,6 +59,25 @@ const howToSteps = [
   },
 ];
 
+const faqQuestions = [
+  {
+    question: t(lang, "explainer.whisperDesktop.faq.whatIs.q"),
+    answer: t(lang, "explainer.whisperDesktop.faq.whatIs.a"),
+  },
+  {
+    question: t(lang, "explainer.whisperDesktop.faq.howWorks.q"),
+    answer: t(lang, "explainer.whisperDesktop.faq.howWorks.a"),
+  },
+  {
+    question: t(lang, "explainer.whisperDesktop.faq.offline.q"),
+    answer: t(lang, "explainer.whisperDesktop.faq.offline.a"),
+  },
+  {
+    question: t(lang, "explainer.whisperDesktop.faq.oldGpu.q"),
+    answer: t(lang, "explainer.whisperDesktop.faq.oldGpu.a"),
+  },
+];
+
 const alternateSlugs = { de: "whisper-desktop", en: "whisper-desktop" };
 
 const relatedPages = [
@@ -78,29 +98,44 @@ const relatedPages = [
   relatedPages={relatedPages}
 >
   <section>
-    <h2>{t(lang, "explainer.whisperDesktop.section.setup.heading")}</h2>
+    <dl class="faq-list">
+      {faqQuestions.map((entry) => (
+        <div class="faq-item">
+          <dt>{entry.question}</dt>
+          <dd>{entry.answer}</dd>
+        </div>
+      ))}
+    </dl>
+  </section>
+
+  <FAQPageSchema locale={lang} questions={faqQuestions} />
+
+  <h2>{t(lang, "explainer.whisperDesktop.technicalDetails.heading")}</h2>
+
+  <section>
+    <h3>{t(lang, "explainer.whisperDesktop.section.setup.heading")}</h3>
     <p>{t(lang, "explainer.whisperDesktop.section.setup.body")}</p>
   </section>
 
   <section>
-    <h2>{t(lang, "explainer.whisperDesktop.section.performance.heading")}</h2>
+    <h3>{t(lang, "explainer.whisperDesktop.section.performance.heading")}</h3>
     <p>{t(lang, "explainer.whisperDesktop.section.performance.body")}</p>
   </section>
 
   <section>
-    <h2>{t(lang, "explainer.whisperDesktop.section.localVsCloud.heading")}</h2>
+    <h3>{t(lang, "explainer.whisperDesktop.section.localVsCloud.heading")}</h3>
     <p>{t(lang, "explainer.whisperDesktop.section.localVsCloud.body")}</p>
     <ol class="howto-steps">
       <li>
-        <h3>{t(lang, "explainer.whisperDesktop.howTo.step1.name")}</h3>
+        <h4>{t(lang, "explainer.whisperDesktop.howTo.step1.name")}</h4>
         <p>{t(lang, "explainer.whisperDesktop.howTo.step1.text")}</p>
       </li>
       <li>
-        <h3>{t(lang, "explainer.whisperDesktop.howTo.step2.name")}</h3>
+        <h4>{t(lang, "explainer.whisperDesktop.howTo.step2.name")}</h4>
         <p>{t(lang, "explainer.whisperDesktop.howTo.step2.text")}</p>
       </li>
       <li>
-        <h3>{t(lang, "explainer.whisperDesktop.howTo.step3.name")}</h3>
+        <h4>{t(lang, "explainer.whisperDesktop.howTo.step3.name")}</h4>
         <p>{t(lang, "explainer.whisperDesktop.howTo.step3.text")}</p>
       </li>
     </ol>
@@ -115,6 +150,22 @@ const relatedPages = [
 </LandingPageLayout>
 
 <style>
+  .faq-list {
+    margin-top: 1rem;
+  }
+  .faq-item + .faq-item {
+    margin-top: 1rem;
+  }
+  .faq-list dt {
+    color: #e5e7eb;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+  }
+  .faq-list dd {
+    color: #9ca3af;
+    line-height: 1.6;
+    margin: 0;
+  }
   .howto-steps {
     margin-top: 1rem;
     padding-left: 1.25rem;
@@ -124,7 +175,7 @@ const relatedPages = [
   .howto-steps li + li {
     margin-top: 0.75rem;
   }
-  .howto-steps h3 {
+  .howto-steps h4 {
     color: #e5e7eb;
     font-weight: 600;
     font-size: 1rem;

@@ -71,8 +71,11 @@
 
   /* ---- Product screens: top text band + staged window with bottom bleed ----
      Composition cycles center → left → right → left → center across the set.
-     The window always bleeds off the bottom edge, which also absorbs the
-     16:10 (Mac) vs 16:9 (Microsoft) aspect difference gracefully. */
+     All variants share the same vertical rhythm (band, fixed gap, window) so
+     text never overlaps the window; left/right only change text alignment
+     and nudge the window slightly toward the opposite side. The window
+     always bleeds off the bottom edge, which also absorbs the 16:10 (Mac)
+     vs 16:9 (Microsoft) aspect difference gracefully. */
 
   .screen.product {
     flex-direction: column;
@@ -210,84 +213,17 @@
     transform: translateX(-50%);
   }
 
-  .comp-left .window-frame { right: calc(36px * var(--k)); }
-
-  .comp-right .window-frame { left: calc(36px * var(--k)); }
-
-  /* ---- comp-overlap-left: window slides in tall from the right and passes
-     behind the vertically centered text, which sits on a canvas-colored
-     scrim fading out to the right. ---- */
-
-  .comp-overlap-left .band {
-    position: absolute;
-    left: calc(92px * var(--k));
-    top: 50%;
-    transform: translateY(-50%);
-    padding: 0;
-    max-width: calc(565px * var(--k));
-    align-items: flex-start;
-    text-align: left;
+  /* Left/right text: window stays near-centered but leans ~2% toward the
+     side opposite the text, echoing the alignment without opening a dead
+     column (a hard side-anchor at these scales leaves a hollow strip). */
+  .comp-left .window-frame {
+    left: 52%;
+    transform: translateX(-50%);
   }
 
-  .comp-overlap-left .stage {
-    position: absolute;
-    inset: 0;
-    margin-top: 0;
-  }
-
-  .comp-overlap-left .window-frame {
-    right: calc(28px * var(--k));
-    top: calc(var(--screen-h) * 0.14);
-  }
-
-  .comp-overlap-left .headline { font-size: calc(52px * var(--k)); }
-
-  .comp-overlap-left::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-    pointer-events: none;
-  }
-
-  /* Fade ends at the golden's list/detail pane border (~44% canvas width)
-     so the detail pane stays fully crisp — only the list pane ghosts out. */
-  .comp-overlap-left.bg-light::after {
-    background: linear-gradient(90deg, #e9edf5 0%, #e9edf5 30%, rgba(233, 237, 245, 0) 44.5%);
-  }
-
-  .comp-overlap-left.bg-dark::after {
-    background: linear-gradient(90deg, #101420 0%, #101420 30%, rgba(16, 20, 32, 0) 44.5%);
-  }
-
-  /* ---- comp-low-wide: near full-width window rising behind the top-left
-     text band, seam hidden by a vertical canvas-colored scrim. ---- */
-
-  .comp-low-wide .band {
-    align-items: flex-start;
-    text-align: left;
-  }
-
-  .comp-low-wide .stage { margin-top: calc(var(--screen-h) * -0.015); }
-
-  .comp-low-wide .window-frame { right: calc(24px * var(--k)); }
-
-  .comp-low-wide .headline { font-size: calc(52px * var(--k)); }
-
-  .comp-low-wide::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-    pointer-events: none;
-  }
-
-  .comp-low-wide.bg-light::after {
-    background: linear-gradient(180deg, #e9edf5 0%, #e9edf5 24%, rgba(233, 237, 245, 0) 36%);
-  }
-
-  .comp-low-wide.bg-dark::after {
-    background: linear-gradient(180deg, #101420 0%, #101420 24%, rgba(16, 20, 32, 0) 36%);
+  .comp-right .window-frame {
+    left: 48%;
+    transform: translateX(-50%);
   }
 
   /* ---- Floating overlay pill: the REAL captured OverlayPainter output
@@ -305,18 +241,20 @@
      rotation resampling) and hovers OVER the app: most of the pill overlaps
      the window so its shadow falls visibly onto the window surface (the
      canvas is near-black, where any shadow would vanish), while the top
-     breaks the window edge. `image-rendering: pixelated` keeps the 236px
-     source crisp through the 2x render pass: at deviceScaleFactor 2 the
-     upscale is exact pixel duplication, which the Lanczos downscale then
-     reconstructs, instead of a blurring bilinear round-trip. */
+     breaks the window edge. The source asset is now captured at 2x
+     (472×112 device px for the 236×56 logical liquid-glass window, see
+     test/screenshots/overlay_pill_asset_capture_test.dart), so at
+     deviceScaleFactor 2 the browser composites it ~1:1 in device pixels —
+     the former `image-rendering: pixelated` workaround for the 1x source
+     is gone. Height stays auto so the wobbled (liquid peak frame)
+     silhouette keeps its true aspect. */
   .float-pill-img {
     position: absolute;
     z-index: 3;
     width: calc(236px * var(--k));
-    height: calc(60px * var(--k));
+    height: auto;
     top: calc(-22px * var(--k));
     right: calc(var(--screen-w) * 0.055);
-    image-rendering: pixelated;
     filter:
       drop-shadow(0 calc(10px * var(--k)) calc(26px * var(--k)) rgba(0, 0, 0, 0.5))
       drop-shadow(0 calc(3px * var(--k)) calc(7px * var(--k)) rgba(0, 0, 0, 0.3));

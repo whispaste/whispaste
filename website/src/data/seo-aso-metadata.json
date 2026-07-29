@@ -1,0 +1,189 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-29",
+  "scope": {
+    "product": "WhisPaste",
+    "note": "WhisPaste ist eine reine Desktop-App (macOS/Windows/Linux, kein Mobile) — es existiert kein iOS/Android-Store-Eintrag. Korrektur (2026-07-29): Microsoft Store ist live (9P22JVKRQ2V0, 2,99€, Listing-Text-SSOT in website/../store/); Mac App Store ist NICHT 'nicht vorhanden' wie zuerst angenommen — ein vollständiger fastlane-mas_release-Pipeline-Durchlauf war am 2026-07-28 erstmals grün (App Store Connect App-ID 6795319409), Listing-Text-SSOT in fastlane/metadata/, aber submit_for_review ist noch false (App ist noch nicht live/eingereicht). Linux hat vorbereitete, noch nicht veröffentlichte Snap- (packaging/snap/) und Flatpak-Manifeste (packaging/flatpak/, PRD §8.3-Priorität: Flatpak → AppImage → .deb → Snap). Diese JSON dupliziert KEINE Store-Listing-Copy mehr — die lebt in den jeweiligen SSOT-Verzeichnissen; hier stehen nur GSC-Befunde und Content-Konzepte für die Website.",
+    "sources": [
+      "Google Search Console (sc-domain:whispaste.de), 90-Tage-Fenster 2026-04-30 bis 2026-07-28",
+      "Web-Recherche zu Konkurrenz-Sentiment (Reddit, Capterra, Microsoft Q&A, Hacker News, Produkt-Reviews) — nur EN-Primärquellen gefunden, DE-Keywords sind daraus abgeleitet/übersetzt, nicht direkt belegt",
+      "website/src/data/brand-glossary.ts (Terminologie-Guardrails)"
+    ]
+  },
+  "locales": ["de", "en"],
+  "gscFindings": {
+    "totals90d": { "clicks": 151, "impressions": 2503, "ctr": 0.0603, "avgPosition": 9.0 },
+    "topOpportunity": {
+      "query": "whisper desktop",
+      "impressions": 470,
+      "ctr": 0.0085,
+      "position": 9.5,
+      "page": "https://whispaste.de/en/whisper-desktop/",
+      "note": "Größtes Impressionsvolumen der ganzen Site. Kein Konkurrenzprodukt-Bezug im finalen Content — Nutzer-Feedback (2026-07-29): keine Vergleichs-/Alternative-Framing, Konkurrenz nicht namentlich nennen. Stattdessen: 'Whisper Desktop' als wörtliche Selbstbeschreibung (Whisper als Desktop-App) genutzt."
+    },
+    "weakPages": [
+      { "page": "https://whispaste.de/en/offline-speech-to-text/", "impressions": 119, "clicks": 0, "position": 14.6 },
+      { "page": "https://whispaste.de/en/privacy/", "impressions": 112, "clicks": 0, "position": 6.0 },
+      { "page": "https://whispaste.de/vergleich/diktiersoftware-alternativen/", "impressions": 9, "clicks": 0, "position": 37.8 }
+    ],
+    "deKeywordClusterLowVisibility": [
+      "offline spracherkennung",
+      "spracherkennung offline",
+      "spracherkennung ohne cloud",
+      "was ist offline spracherkennung"
+    ],
+    "healthyBaseline": {
+      "homepage": { "de": { "ctr": 0.2287, "position": 3.5 }, "en": { "ctr": 0.0914, "position": 3.4 } },
+      "brandQuery": { "query": "whispaste", "ctr": 0.4696, "position": 1.1 }
+    }
+  },
+  "web": {
+    "pages": {
+      "whisper-desktop": {
+        "path": { "de": "/whisper-desktop/", "en": "/en/whisper-desktop/" },
+        "i18nKeys": {
+          "seoTitle": "explainer.whisperDesktop.seoTitle",
+          "seoDescription": "explainer.whisperDesktop.seoDescription"
+        },
+        "seo": {
+          "en": {
+            "title": "The Whisper Desktop App — Free & 100% Local | WhisPaste",
+            "description": "WhisPaste turns OpenAI Whisper into a real desktop app: press a hotkey, speak, and the transcript lands at your cursor — free, open-source, 100% local."
+          },
+          "de": {
+            "title": "Whisper als Desktop-App — kostenlos & 100 % lokal | WhisPaste",
+            "description": "WhisPaste macht aus OpenAI Whisper eine echte Desktop-App: Hotkey drücken, sprechen, das Transkript landet am Cursor — kostenlos, quelloffen, 100 % lokal."
+          }
+        },
+        "faq": {
+          "en": [
+            {
+              "question": "What is a \"Whisper desktop app\"?",
+              "answer": "It's a desktop application that runs OpenAI's Whisper speech-recognition model directly on your computer — not in a browser tab, not in the cloud. WhisPaste is exactly that: whisper.cpp bundled into a native app for Windows, macOS and Linux."
+            },
+            {
+              "question": "How does WhisPaste turn Whisper into a desktop tool?",
+              "answer": "WhisPaste bundles whisper.cpp straight into the app, so there's no Python environment or separate model download to manage. Press a hotkey anywhere on your system, speak, and the transcript is pasted right at your cursor."
+            },
+            {
+              "question": "Does the Whisper desktop app work offline?",
+              "answer": "Yes. All transcription happens locally — no cloud connection, no account, and no internet required once the app and model are installed."
+            },
+            {
+              "question": "Does it run on older or non-NVIDIA GPUs?",
+              "answer": "Yes. WhisPaste uses CUDA on NVIDIA GPUs, Vulkan on AMD/Intel/older GPUs, and falls back to the CPU when no compatible GPU is available — so it runs on a wide range of hardware."
+            }
+          ],
+          "de": [
+            {
+              "question": "Was ist eine „Whisper-Desktop-App“?",
+              "answer": "Eine Desktop-Anwendung, die OpenAIs Whisper-Spracherkennungsmodell direkt auf dem eigenen Rechner ausführt — nicht im Browser, nicht in der Cloud. Genau das ist WhisPaste: whisper.cpp gebündelt in einer nativen App für Windows, macOS und Linux."
+            },
+            {
+              "question": "Wie macht WhisPaste aus Whisper ein Desktop-Tool?",
+              "answer": "WhisPaste bündelt whisper.cpp direkt in der App — keine Python-Umgebung, kein separater Modell-Download nötig. Hotkey drücken, sprechen, und das Transkript landet direkt an der Cursor-Position."
+            },
+            {
+              "question": "Funktioniert die Whisper-Desktop-App offline?",
+              "answer": "Ja. Die gesamte Transkription läuft lokal — keine Cloud-Verbindung, kein Konto, kein Internet nötig, sobald App und Modell installiert sind."
+            },
+            {
+              "question": "Läuft es auch auf älteren oder Nicht-NVIDIA-Grafikkarten?",
+              "answer": "Ja. WhisPaste nutzt CUDA auf NVIDIA-GPUs, Vulkan auf AMD/Intel/älteren GPUs und fällt auf die CPU zurück, wenn keine kompatible GPU verfügbar ist — läuft also auf breiter Hardware."
+            }
+          ]
+        },
+        "status": "implemented (2026-07-29) — i18n.ts + whisper-desktop.astro/en/whisper-desktop.astro umgebaut: Hero/Title/Description jargonfrei, FAQ-Block oben mit FAQPageSchema, bestehende technische Sections unter 'Technische Details' verschoben"
+      },
+      "offline-speech-to-text": {
+        "path": { "de": "/offline-speech-to-text/", "en": "/en/offline-speech-to-text/" },
+        "tldr": {
+          "en": "WhisPaste is a free, open-source offline speech-to-text tool for Windows, macOS and Linux. It runs Whisper models entirely on your own machine — your audio never leaves your computer, and no internet connection or account is required.",
+          "de": "WhisPaste ist ein kostenloses, quelloffenes Offline-Spracherkennungs-Tool für Windows, macOS und Linux. Es führt Whisper-Modelle vollständig auf dem eigenen Rechner aus — dein Audio verlässt nie den Computer, und du brauchst weder Internet noch Konto."
+        },
+        "faq": {
+          "en": [
+            { "question": "What is the best offline speech-to-text tool?", "answer": "For system-wide voice input, WhisPaste is a strong free option: it runs Whisper locally on Windows, macOS and Linux, works fully offline, and pastes the transcript at your cursor in any app. As it's open source, you can verify that nothing is sent to the cloud." },
+            { "question": "Can speech-to-text work without internet?", "answer": "Yes. Local tools like WhisPaste process your voice with an on-device Whisper model, so transcription works with no internet connection. Everything runs on your CPU or GPU; nothing is uploaded." },
+            { "question": "Is offline speech-to-text accurate?", "answer": "Modern offline Whisper models are accurate enough for everyday writing, email and notes, including punctuation. Larger models improve accuracy at the cost of speed, and WhisPaste lets you pick the model size that fits your hardware." }
+          ],
+          "de": [
+            { "question": "Was ist die beste Offline-Spracherkennung?", "answer": "Für systemweite Spracheingabe ist WhisPaste eine starke kostenlose Option: Es führt Whisper lokal auf Windows, macOS und Linux aus, arbeitet komplett offline und fügt das Transkript an der Cursor-Position in jeder App ein. Weil es quelloffen ist, kannst du überprüfen, dass nichts in die Cloud geht." },
+            { "question": "Funktioniert Spracherkennung ohne Internet?", "answer": "Ja. Lokale Tools wie WhisPaste verarbeiten deine Stimme mit einem Whisper-Modell direkt auf dem Gerät — die Transkription funktioniert ganz ohne Internetverbindung. Alles läuft auf CPU oder GPU; nichts wird hochgeladen." },
+            { "question": "Wie genau ist Offline-Spracherkennung?", "answer": "Moderne Offline-Whisper-Modelle sind genau genug für den Alltag — E-Mails, Notizen, Texte, inklusive Interpunktion. Größere Modelle erhöhen die Genauigkeit auf Kosten der Geschwindigkeit; in WhisPaste wählst du die Modellgröße passend zu deiner Hardware." }
+          ]
+        },
+        "status": "teilweise umgesetzt (2026-07-29): DE-Title/Hero/Lead in i18n.ts um 'Spracherkennung' ergänzt (Fix für Position-60-80-Cluster: Seite nutzte durchgängig 'Speech-to-Text', DE-Suchende tippen aber 'Spracherkennung'). Das TL;DR/FAQ hier ist ein Konzept, NICHT auf der Seite ergänzt — die Seite hat bereits eine eigene, andere FAQ (Modellgröße/Internet/Genauigkeit)."
+      },
+      "privacy": {
+        "path": { "de": "/privatsphaere-spracherkennung/", "en": "/en/privacy-speech-recognition/" },
+        "tldr": {
+          "en": "WhisPaste is built to keep your voice private. Transcription runs 100% locally on your own device using bundled Whisper models — no cloud, no account, and no telemetry by default. Because it's open source, anyone can verify these claims in the code.",
+          "de": "WhisPaste ist auf Privatsphäre ausgelegt. Die Transkription läuft zu 100 % lokal auf deinem Gerät mit mitgelieferten Whisper-Modellen — keine Cloud, kein Konto, standardmäßig keine Telemetrie. Weil es quelloffen ist, kann jeder diese Aussagen im Code überprüfen."
+        },
+        "faq": {
+          "en": [
+            { "question": "Is WhisPaste private?", "answer": "Yes. Your audio is transcribed on your own machine and never sent to any server. WhisPaste requires no account, works fully offline, and collects no telemetry by default — and as open-source software, the code is public for anyone to audit." },
+            { "question": "Does WhisPaste send my voice to the cloud?", "answer": "No. Unlike many cloud voice-input services, WhisPaste processes everything locally with on-device Whisper models. Your recordings and transcripts stay on your computer." },
+            { "question": "What's the most private speech-to-text option?", "answer": "A fully local, open-source tool is the most private choice, because your audio never leaves the device and the code can be independently verified. WhisPaste is designed exactly this way: local processing, no mandatory cloud, no telemetry by default." }
+          ],
+          "de": [
+            { "question": "Ist WhisPaste datenschutzfreundlich?", "answer": "Ja. Dein Audio wird auf dem eigenen Rechner transkribiert und nie an einen Server gesendet. WhisPaste braucht kein Konto, arbeitet komplett offline und erfasst standardmäßig keine Telemetrie — und als quelloffene Software ist der Code für alle einsehbar." },
+            { "question": "Sendet WhisPaste meine Stimme in die Cloud?", "answer": "Nein. Anders als viele Cloud-Dienste zur Spracheingabe verarbeitet WhisPaste alles lokal mit Whisper-Modellen auf dem Gerät. Deine Aufnahmen und Transkripte bleiben auf deinem Computer." },
+            { "question": "Welche Spracherkennung ist am datenschutzfreundlichsten?", "answer": "Ein vollständig lokales, quelloffenes Tool ist die datenschutzfreundlichste Wahl, weil das Audio das Gerät nie verlässt und der Code unabhängig überprüfbar ist. Genau so ist WhisPaste gebaut: lokale Verarbeitung, keine Cloud-Pflicht, standardmäßig keine Telemetrie." }
+          ]
+        },
+        "status": "teilweise umgesetzt (2026-07-29): TL;DR-Absatz in i18n.ts + beide .astro-Seiten eingefügt. Die 3 FAQ-Fragen hier wurden NICHT ergänzt (Redundanz vermieden — die Seite hat bereits eine eigene, thematisch überlappende FAQ: Audio-Verbleib/Account/Verlaufsspeicherung)."
+      }
+    },
+    "contentConcepts": [
+      {
+        "id": "gpu-compatibility-checker",
+        "title": { "en": "GPU/Hardware compatibility checker", "de": "GPU-/Hardware-Kompatibilitäts-Checker" },
+        "description": "Interaktives On-Page-Tool: Nutzer wählt GPU-Hersteller (NVIDIA/AMD/Intel/keine dedizierte) und Betriebssystem. Ausgabe: welches Backend WhisPaste nutzt (CUDA/Vulkan/CPU-Fallback), ob eine dedizierte GPU nötig ist, grobe Geschwindigkeitseinordnung.",
+        "benefit": "Nimmt die größte Vorab-Unsicherheit ('läuft das auf meiner alten Karte?') direkt auf der Seite weg, macht Hardware-Inklusivität erlebbar statt behauptet. Personalisiertes Ergebnis, das eine KI ohne die Nutzer-Hardware nicht liefern kann.",
+        "queryClusters": {
+          "en": ["does whisper work on my gpu", "whisper cuda support", "vulkan whisper", "works with old/older gpu", "whisper without dedicated gpu", "whisper amd/intel gpu"],
+          "de": ["läuft whisper auf meiner grafikkarte", "spracherkennung ohne dedizierte gpu"]
+        }
+      },
+      {
+        "id": "model-size-recommender",
+        "title": { "en": "Whisper model size recommender", "de": "Whisper-Modellgrößen-Empfehler" },
+        "description": "Nutzer gibt RAM/VRAM ein (oder Auto-Erkennung) und wählt Priorität (Geschwindigkeit vs. Genauigkeit). Ausgabe: empfohlene Whisper-Modellgröße (tiny/base/small/medium/large) mit Speicherbedarf, Tempo-Einordnung, GPU-oder-CPU-Hinweis.",
+        "benefit": "Adressiert die 'welches Modell soll ich nehmen?'-Unsicherheit mit einer personalisierten, konkreten Empfehlung. Verstärkt die Positionierung 'polierte, einfache App statt rohem whisper.cpp'.",
+        "queryClusters": {
+          "en": ["which whisper model should I use", "whisper model size comparison", "whisper tiny vs base vs small", "whisper ram/vram requirements", "best whisper model for low end pc"],
+          "de": ["welches whisper modell", "whisper modell größe vergleich", "whisper arbeitsspeicher bedarf"]
+        }
+      }
+    ]
+  },
+  "store": {
+    "note": "Diese JSON ist NICHT die Store-Listing-SSOT — jeder Store pflegt seinen eigenen versionierten Textbestand. Hier nur Pointer + Log der tatsächlich vorgenommenen, datengetriebenen Änderungen.",
+    "microsoftStore": {
+      "productId": "9P22JVKRQ2V0",
+      "status": "live, 2,99 €",
+      "ssot": "store/ (README: store/README.md) — Title/ShortDescription/Description/Features/SearchTerms/ReleaseNotes, versioniert, per store/README.md-Workflow (CSV-Import bzw. scripts/submit-ms-store.ps1) nach Partner Center übertragen. Preis NICHT hier steuerbar (Pricing V2 — API kann keine Preise schreiben, siehe docs/store-release.md).",
+      "changes2026-07-29": [
+        "store/en-US/search-terms.txt: 'transcribe audio' + 'talk to text' entfernt (redundant zu 'transcription'/'voice to text'), 'whisper desktop' + 'offline speech to text' ergänzt (größte GSC-Opportunity war komplett unabgedeckt)",
+        "store/de-DE/search-terms.txt: 'Diktiergerät' entfernt (falsche Kategorie — Hardware-Diktiergerät statt Software), 'Sprache zu Text' + 'Audio Transkription' entfernt (redundant), 'Diktiersoftware' + 'Whisper Desktop' + 'Offline-Spracherkennung' ergänzt",
+        "Title/ShortDescription bewusst NICHT angefasst — bereits ausgereift (Tags/Verlauf/Export/MIT-Lizenz/Preis-Hinweis), kein datengetriebener Änderungsbedarf identifiziert"
+      ]
+    },
+    "macAppStore": {
+      "productId": "6795319409 (de.whispaste.app)",
+      "status": "fastlane mas_release lief 2026-07-28 erstmals vollständig grün (Paket-Upload, Metadaten, Screenshots, Review-Kontaktinfo) — submit_for_review ist noch false, App ist NICHT live/eingereicht. Preis kann via tools/appstore/set-mac-price.py gesetzt werden (App Store Connect API, kein Pricing-V2-Limit wie MS Store).",
+      "ssot": "fastlane/metadata/ (name.txt, subtitle.txt, keywords.txt [Apple-Limit: 100 Zeichen, kommasepariert], promotional_text.txt, description.txt je Locale)",
+      "changes2026-07-29": [
+        "fastlane/metadata/en-US/keywords.txt: 'talk to text' + 'meeting' entfernt, 'whisper desktop' + 'offline' ergänzt (95/100 Zeichen)",
+        "fastlane/metadata/de-DE/keywords.txt: 'Diktiergerät' (falsche Kategorie) + 'Meeting' entfernt, 'Whisper Desktop' + 'Offline' ergänzt (94/100 Zeichen)",
+        "name/subtitle/promotional_text bewusst NICHT angefasst — noch offene manuelle Review-Schritte vor echter Einreichung (siehe docs/store-release.md 'Noch offen, rein manuell'), keine Eile bei Listing-Feintuning vor Submission"
+      ]
+    },
+    "linuxChannels": {
+      "status": "Snap (packaging/snap/) und Flatpak (packaging/flatpak/) sind vorbereitet, aber laut Runbook-Notizen noch nicht als live/veröffentlicht bestätigt. Priorität laut PRD §8.3: Flatpak → AppImage → .deb → Snap.",
+      "note": "Keine Änderungen vorgenommen — Listing-Text-Optimierung lohnt sich erst kurz vor tatsächlicher Veröffentlichung."
+    }
+  }
+}
