@@ -94,16 +94,62 @@
      the exact real translucency, which no hand-tuned backdrop-filter value
      can guarantee. Compact size (236×60), matching the real app's
      OverlayLayoutSpec.compact. */
-  /* Integration model: a native always-on-top window is axis-aligned to the
-     viewer (0deg, no sticker tilt) and hovers OVER content. The pill overlaps
-     the lit display so its baked per-pixel alpha shows real UI through the
-     glass, its shadow falls visibly onto the screen content (depth anchor),
-     and its right end breaks the device silhouette (reads as a separate
-     window). Shadow direction follows the scene key light (upper left). */
-  .overlay-pill-img {
+  /* Integration model (2026-07-29 rework): the pill is no longer composited
+     INTO the photo layer at photo scale — that made it a tiny sticker lying
+     on the chassis, a foreign object pretending to be part of the scene.
+     Professional product-hero grammar (Apple's floating product imagery with
+     one soft signature shadow, SaaS "chromeless" floating UI callouts)
+     instead treats the UI element as part of the graphic-design layer, like
+     the headline: deliberately sized relative to the composition, clearly
+     hovering ABOVE the photograph. Concretely:
+       - stage-space element (viewport px, width as a fraction of W) so the
+         size hierarchy headline > pill > badges holds in every format;
+       - anchored over the laptop's lit screen bottom edge, so its baked
+         per-pixel glass alpha shows real app UI through it and it reads as
+         "the recording overlay floating in front of the display" — which is
+         exactly what it does in the real app;
+       - a large, soft, downward float shadow (high blur, no tight contact
+         shadow) that separates it from the scene while anchoring its light
+         direction to the photo's top key light;
+       - a faint cyan halo behind it, echoing the bezel rim light, so the
+         scene's lighting appears to respond to the pill;
+       - a slight tilt so it reads as gliding, not pinned. */
+  /* Liquid-motion hint: the pill asset is captured at a liquid PEAK moment
+     (glassPhase 0.3, motion 1.0, level 0.8 — same params as
+     overlay_liquid_glass_golden_test.dart), so the silhouette is visibly
+     warped — that alone carries the motion story. The former blurred
+     "echo" copies were removed in the 2026-07-29 rework: at hero scale
+     they read as double-vision artifacts (detached record-dot ghost,
+     offset rim ring), not as captured motion. */
+  .overlay-pill-group {
     position: absolute;
-    width: 210px;
-    filter: drop-shadow(9px 16px 20px rgba(0, 0, 0, 0.45)) drop-shadow(3px 5px 6px rgba(0, 0, 0, 0.22));
+    z-index: 4; /* stage space, above scrim + text layer */
+    transform: translate(-50%, -50%) rotate(-2.4deg);
+  }
+
+  /* Scene-light halo: soft cyan ambience behind the glass, matching the
+     photo's bezel rim light — ties the pill's lighting into the scene. */
+  .overlay-pill-group .pill-halo {
+    position: absolute;
+    inset: -34% -14%;
+    z-index: 0;
+    border-radius: 50%;
+    background: radial-gradient(closest-side, rgba(56, 217, 240, 0.17) 0%, rgba(56, 217, 240, 0.07) 55%, transparent 78%);
+    filter: blur(10px);
+  }
+
+  .overlay-pill-group img {
+    display: block;
+    width: 100%;
+  }
+
+  .overlay-pill-group .pill-main {
+    position: relative;
+    z-index: 2;
+    /* Float shadow: one big, soft, downward ambient occlusion (no tight
+       contact shadow) — the element hovers clearly ABOVE the scene instead
+       of resting on it. Key light from above, like the photo. */
+    filter: drop-shadow(0 30px 46px rgba(4, 10, 18, 0.55)) drop-shadow(0 10px 20px rgba(4, 10, 18, 0.32));
   }
 
   .text-layer {
@@ -178,9 +224,12 @@
         <img id="app-shot-img" src="" alt="">
       </div>
     </div>
-    <img id="overlay-pill" class="overlay-pill-img" src="" alt="" />
   </div>
   <div class="contrast-scrim"></div>
+  <div id="overlay-pill" class="overlay-pill-group">
+    <div class="pill-halo"></div>
+    <img class="pill-main" src="" alt="">
+  </div>
   <div class="text-layer">
     <div id="device-hl" class="device-headline"></div>
     <div id="device-sub" class="device-subtitle"></div>
@@ -229,7 +278,7 @@
 
   // Called by the renderer with all per-locale/per-store data.
   window.setupHero = function setupHero(params) {
-    const { W, H, imgW, imgH, quad, focusX, bgData, shotData, pillPos, pillData, copy, locale } = params;
+    const { W, H, imgW, imgH, quad, focusX, bgData, shotData, pillAnchor, pillFrac, pillData, copy, locale } = params;
 
     document.documentElement.style.setProperty('--screen-w', `${W}px`);
     document.documentElement.style.setProperty('--screen-h', `${H}px`);
@@ -262,11 +311,19 @@
 
     document.getElementById('app-shot-img').src = shotData;
 
+    // Pill: stage-space element. Its CENTER is anchored to a photo-source
+    // point (mapped through the same cover transform as the background, so
+    // it stays glued to the same scene spot in every format), but its SIZE
+    // is a fraction of the viewport width — design-scale, not photo-scale,
+    // so the headline > pill > badges hierarchy holds across formats.
     const pill = document.getElementById('overlay-pill');
-    if (pillPos && pillData) {
-      pill.src = pillData;
-      pill.style.left = `${pillPos[0]}px`;
-      pill.style.top = `${pillPos[1]}px`;
+    if (pillAnchor && pillData) {
+      pill.querySelectorAll('img').forEach((img) => {
+        img.src = pillData;
+      });
+      pill.style.width = `${Math.round(W * pillFrac)}px`;
+      pill.style.left = `${pillAnchor[0] * scale + offX}px`;
+      pill.style.top = `${pillAnchor[1] * scale + offY}px`;
     } else {
       pill.remove();
     }

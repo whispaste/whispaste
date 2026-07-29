@@ -22,16 +22,18 @@ const TEMPLATE_PATH = path.resolve(__dirname, 'hero-device-template.html');
 // can fill the whole glass through the homography with correct perspective.
 const BG_PHOTO = path.resolve(__dirname, 'assets', 'generated', 'hero-device-v2.png');
 
-// Pill anchor (top-left) in photo source pixels: hovers off the screen's
-// upper-right bezel, detached from the display. The pill image itself is
-// the real captured OverlayPainter output (compact size, 236x60) — see the
-// comment on .overlay-pill-img in hero-device-template.html for why this
-// replaced an earlier hand-rebuilt CSS version.
-// Anchored so ~2/3 of the pill overlaps the lit display's upper-right region
-// (real glass translucency + visible shadow on content) while the right end
-// breaks past the bezel into the air.
-const PILL_POS = [800, 183];
-const PILL_ASSET = path.resolve(__dirname, 'assets', 'overlay-recording-dark-compact.png');
+// Pill anchor (CENTER) in photo source pixels + width as a fraction of the
+// output viewport. 2026-07-29 rework: the pill is no longer a photo-space
+// sticker on the trackpad — it is a stage-space "floating UI callout"
+// (see the integration-model comment in hero-device-template.html). The
+// anchor keeps its scene position consistent across formats (it hovers in
+// front of the laptop's lower screen edge, where the real overlay lives),
+// while PILL_FRAC sets its deliberate design-scale size per format.
+// The pill image itself is the real captured OverlayPainter output (full
+// OverlayLayoutSpec size for hero-scale sharpness, not the compact one).
+const PILL_ANCHOR = [860, 462];
+const PILL_FRAC = 0.3;
+const PILL_ASSET = path.resolve(__dirname, 'assets', 'overlay-recording-dark.png');
 const BG_W = 1344;
 const BG_H = 768;
 
@@ -87,7 +89,8 @@ async function render(page, lang, storeId, hero) {
       focusX: FOCUS_X,
       bgData: toDataUri(BG_PHOTO),
       shotData: toDataUri(goldenFor(lang, storeId)),
-      pillPos: PILL_POS,
+      pillAnchor: PILL_ANCHOR,
+      pillFrac: PILL_FRAC,
       pillData: toDataUri(PILL_ASSET),
       copy: {
         headline: hero.headline,

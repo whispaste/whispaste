@@ -67,8 +67,11 @@ const SCREENS = [
       de: 'Drück dein Kürzel, sprich, und der fertige Text landet direkt an deinem Cursor.',
     },
     badges: {
-      en: ['100% offline', 'One-time purchase', 'Open source'],
-      de: ['100 % offline', 'Einmalkauf', 'Open Source'],
+      // Price/procurement-neutral only (maintainer rule, 2026-07-29): this
+      // hero ships across distribution channels with DIFFERENT price models,
+      // so no purchase/free/price wording may ever appear in these badges.
+      en: ['100% offline', 'No account needed', 'Open source'],
+      de: ['100 % offline', 'Kein Konto nötig', 'Open Source'],
     },
     theme: 'dark',
   },
