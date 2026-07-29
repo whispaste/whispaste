@@ -57,6 +57,39 @@ def load_asc_api_key
   )
 end
 
+# Waits for the most recently uploaded build for `platform` to finish Apple's
+# processing, then attaches it to the app's current editable App Store
+# version — WITHOUT submitting anything for review. Reuses the same fastlane
+# internals `deliver`'s own `submit_for_review` step uses for build
+# selection (FastlaneCore::BuildWatcher + AppStoreVersion#select_build), so
+# this stays in sync with fastlane's own semantics instead of reimplementing
+# them. Requires an ASC API key already loaded (`load_asc_api_key`) and an
+# app on Pricing/App-Version workflow that has an editable version — raises
+# via UI.user_error! if either the app or an editable version can't be found.
+def attach_latest_build_to_editable_version(bundle_id:, platform:)
+  require 'fastlane_core/build_watcher'
+
+  app = Spaceship::ConnectAPI::App.find(bundle_id)
+  UI.user_error!("App Store Connect: no app found for bundle ID #{bundle_id}") unless app
+
+  version = app.get_edit_app_store_version(platform: platform)
+  UI.user_error!("App Store Connect: no editable App Store version found for #{bundle_id} (#{platform})") unless version
+
+  UI.message("Waiting for the latest #{platform} build to finish Apple's processing (this can take several minutes)...")
+  build = FastlaneCore::BuildWatcher.wait_for_build_processing_to_be_complete(
+    app_id:                          app.id,
+    platform:                        platform,
+    poll_interval:                   15,
+    return_when_build_appears:       false,
+    return_spaceship_testflight_build: false,
+    select_latest:                   true
+  )
+
+  UI.message("Attaching build #{build.app_version} (#{build.version}) to App Store Connect version #{version.version_string}...")
+  version.select_build(build_id: build.id)
+  UI.success("App Store Connect version #{version.version_string} now points at build #{build.app_version} (#{build.version}).")
+end
+
 default_platform(:mac)
 
 platform :mac do
@@ -212,6 +245,26 @@ platform :mac do
       # skips the metadata/screenshot preview confirmation, not the actual
       # Store submission gate.
       force: true
+    )
+
+    # upload_to_app_store's own build-selection logic only runs when
+    # submit_for_review: true (verified against fastlane 2.237.0 source,
+    # deliver/lib/deliver/runner.rb: `submit_for_review if
+    # options[:submit_for_review] && precheck_success` — select_build lives
+    # INSIDE submit_for_review.rb, gated behind that same flag). Since this
+    # lane deliberately never submits for review, the binary above uploads
+    # successfully but is never attached to the editable App Store version —
+    # confirmed live 2026-07-29 via the ConnectAPI: version 1.2.61 had the
+    # STALE 1.2.60 build attached even though 1.2.61 uploaded fine. Apple's
+    # own processing is async (minutes, not seconds) and outlives the
+    # upload_to_app_store call returning, so there's nothing to select yet
+    # at that point regardless. This step waits for processing to finish and
+    # explicitly attaches the build — same building blocks fastlane's own
+    # submit_for_review uses internally (FastlaneCore::BuildWatcher +
+    # AppStoreVersion#select_build), just without the submission side effects.
+    attach_latest_build_to_editable_version(
+      bundle_id: "de.whispaste.app",
+      platform:  "MAC_OS"
     )
   end
 
