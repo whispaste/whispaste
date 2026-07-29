@@ -393,4 +393,31 @@ void main() {
       expect(_impressionCountKey, isNot(_reviewShownCountKey));
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // Regression — bundle-ID-migrated String values (Sentry FLUTTER_WHISPASTE-BP)
+  // ---------------------------------------------------------------------------
+  //
+  // The cross-service coordination check reads the review prompt's own
+  // `review_prompt_last_shown` key, which `runBundleIdMigration` may have
+  // persisted as a String. Before the safe-read fix, this crashed with a
+  // fatal, uncaught TypeError on every check for a migrated user.
+  group('bundle-ID migration String coercion', () {
+    test('does not throw when the review prompt\'s last-shown timestamp was '
+        'migrated as a String', () async {
+      final recentMs = DateTime.now()
+          .subtract(const Duration(days: 1))
+          .millisecondsSinceEpoch;
+      final harness = await _bootstrap(
+        prefs: {_reviewLastShownKey: '$recentMs'},
+        activeEntries: 40,
+      );
+      addTearDown(harness.container.dispose);
+
+      // Recovers the real coordination window from the parsed String
+      // instead of crashing — the recent review-prompt show suppresses
+      // the support prompt this check, exactly as with a native int value.
+      expect((await _check(harness.container)).shouldShowPrompt, isFalse);
+    });
+  });
 }

@@ -14,6 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../core/app_info.dart' as app_info;
 import '../core/data/database.dart';
 import 'deploy_channel_service.dart';
+import 'shared_prefs_safe_read.dart';
 
 // ---------------------------------------------------------------------------
 // State
@@ -93,7 +94,9 @@ class ReviewPromptNotifier extends Notifier<ReviewPromptState> {
       final prefs = await SharedPreferences.getInstance();
 
       // "Never again" is permanent — no upgrade or cooldown re-activates it.
-      if (prefs.getBool(_keyPermanentlyDismissed) == true) return;
+      // Safe read: this key can be a bundle-ID-migrated String (see
+      // shared_prefs_safe_read.dart).
+      if (readBoolPrefSafe(prefs, _keyPermanentlyDismissed) == true) return;
 
       final db = ref.read(historyDatabaseProvider);
       final count = await db.countActive();
@@ -120,7 +123,10 @@ class ReviewPromptNotifier extends Notifier<ReviewPromptState> {
       // Same-version cooldowns (differential): a "not now" snooze buys more
       // quiet time than a completed review action.
       final now = DateTime.now();
-      final lastShownMs = prefs.getInt(_keyLastShownMs) ?? 0;
+      // Safe read: this key can be a bundle-ID-migrated String (see
+      // shared_prefs_safe_read.dart) — confirmed crashing in production as
+      // Sentry FLUTTER_WHISPASTE-BQ before this fix.
+      final lastShownMs = readIntPrefSafe(prefs, _keyLastShownMs) ?? 0;
       if (lastShownMs > 0 &&
           now
                   .difference(DateTime.fromMillisecondsSinceEpoch(lastShownMs))
@@ -152,7 +158,9 @@ class ReviewPromptNotifier extends Notifier<ReviewPromptState> {
   Future<void> markShown() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final count = (prefs.getInt(_keyShownCount) ?? 0) + 1;
+      // Safe read: this key can be a bundle-ID-migrated String (see
+      // shared_prefs_safe_read.dart).
+      final count = (readIntPrefSafe(prefs, _keyShownCount) ?? 0) + 1;
       await prefs.setInt(
         _keyLastShownMs,
         DateTime.now().millisecondsSinceEpoch,

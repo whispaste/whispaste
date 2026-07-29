@@ -224,4 +224,46 @@ void main() {
       },
     );
   });
+
+  // ---------------------------------------------------------------------------
+  // Regression — bundle-ID-migrated String values (Sentry FLUTTER_WHISPASTE-BQ)
+  // ---------------------------------------------------------------------------
+  //
+  // `runBundleIdMigration`'s SharedPreferencesAdapter persists every copied
+  // value as a String, including int/bool preferences like this key. Before
+  // the safe-read fix, `prefs.getInt(_lastShownKey)` threw a fatal, uncaught
+  // TypeError the moment a migrated user's cooldown check ran.
+  group('bundle-ID migration String coercion', () {
+    test(
+      'does not throw when the last-shown timestamp was migrated as a String',
+      () async {
+        final recentMs = DateTime.now()
+            .subtract(const Duration(days: 1))
+            .millisecondsSinceEpoch;
+        final harness = await _bootstrap(
+          prefs: {_lastShownKey: '$recentMs', _lastShownVersionKey: '1.0.0'},
+          activeEntries: 12,
+        );
+        addTearDown(harness.container.dispose);
+
+        // Recovers the real cooldown from the parsed String instead of
+        // crashing or silently defaulting to "never shown".
+        expect(
+          await _shouldShow(harness.container, appVersion: '1.0.0'),
+          isFalse,
+        );
+      },
+    );
+
+    test('does not throw when the permanently-dismissed flag was migrated as a '
+        'String', () async {
+      final harness = await _bootstrap(
+        prefs: const {'review_prompt_permanently_dismissed': 'true'},
+        activeEntries: 12,
+      );
+      addTearDown(harness.container.dispose);
+
+      expect(await _shouldShow(harness.container), isFalse);
+    });
+  });
 }

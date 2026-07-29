@@ -62,7 +62,13 @@ class SecureStorageAdapter implements KeyValueStore {
 /// All values are stored as strings via [prefs.getString] /
 /// [prefs.setString].  Numeric and boolean preference values that were
 /// originally stored as int/bool by the app (e.g. timestamps) have been
-/// cast to String by the old caller and are read back as String here.
+/// cast to String by the old caller and are read back as String here. Any
+/// call site that later reads one of [kPreferenceKeyNames] as int/bool
+/// (`getInt`/`getBool`) MUST go through `shared_prefs_safe_read.dart`'s
+/// `readIntPrefSafe`/`readBoolPrefSafe` instead of the raw getters, which
+/// throw `TypeError` on this exact mismatch — confirmed in production
+/// (Sentry FLUTTER_WHISPASTE-BP/-BQ, a fatal crash loop in
+/// `review_prompt_service.dart`/`support_prompt_service.dart`).
 ///
 /// [SharedPreferences] itself does not expose a scoped (per-bundle-ID)
 /// instance — reading the *old* identity's `NSUserDefaults` domain

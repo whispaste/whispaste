@@ -14,6 +14,7 @@ import '../../core/logging/app_logger.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../services/feedback_submission_service.dart';
+import '../../services/shared_prefs_safe_read.dart';
 import '../../widgets/language_selector.dart';
 import '../../widgets/page_shell.dart';
 
@@ -66,7 +67,9 @@ bool isValidFeedbackContactEmail(String value) => _emailFormat.hasMatch(value);
 /// Prevents unnecessary network calls before the server-side check.
 Future<bool> _isClientRateLimited() async {
   final prefs = await SharedPreferences.getInstance();
-  final lastMs = prefs.getInt(_kLastFeedbackKey);
+  // Safe read: this key can be a bundle-ID-migrated String (see
+  // shared_prefs_safe_read.dart).
+  final lastMs = readIntPrefSafe(prefs, _kLastFeedbackKey);
   if (lastMs == null) return false;
   final elapsed = DateTime.now().millisecondsSinceEpoch - lastMs;
   return elapsed < const Duration(hours: _kClientRateLimitHours).inMilliseconds;

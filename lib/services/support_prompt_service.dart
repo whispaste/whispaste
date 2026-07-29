@@ -25,6 +25,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/data/database.dart';
 import 'review_prompt_service.dart';
+import 'shared_prefs_safe_read.dart';
 
 // ---------------------------------------------------------------------------
 // State
@@ -171,7 +172,11 @@ class SupportPromptNotifier extends Notifier<SupportPromptState> {
       // Cross-session guard: skip if the review prompt was shown or snoozed
       // recently, so the two nudges stay spaced apart in time.
       final now = DateTime.now();
-      final reviewLastShownMs = prefs.getInt(_reviewKeyLastShownMs) ?? 0;
+      // Safe read: this key can be a bundle-ID-migrated String (see
+      // shared_prefs_safe_read.dart) — confirmed crashing in production as
+      // Sentry FLUTTER_WHISPASTE-BP before this fix.
+      final reviewLastShownMs =
+          readIntPrefSafe(prefs, _reviewKeyLastShownMs) ?? 0;
       if (reviewLastShownMs > 0 &&
           now
                   .difference(
