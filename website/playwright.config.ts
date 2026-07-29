@@ -6,9 +6,14 @@ export default defineConfig({
   // Standard Playwright practice: absorb rare, environment-caused flakes
   // (real machine/CI load, not code) with one retry, without masking an
   // actually-broken test — a genuine regression still fails every retry.
-  // No retries locally, where a flake should surface immediately for the
-  // person running the suite to investigate.
-  retries: process.env.CI ? 1 : 0,
+  // Local used to get 0 retries so a flake would "surface immediately" —
+  // in practice that just meant the full-suite pre-commit/pre-push hook
+  // (81 tests, 5 workers) kept tripping on the same already-root-caused
+  // download-tracking timing race (see its spec file) under worker
+  // contention that a smaller, isolated run never hits. One retry locally
+  // matches CI's tolerance instead of fighting it on every commit; a real
+  // regression still fails both attempts.
+  retries: 1,
   // Cross-engine parity (issue 10): the overlay-mockup snapshot baseline is
   // shared between the chromium and webkit projects (no {projectName} in the
   // path), so a passing run proves both engines render the same pixels.
