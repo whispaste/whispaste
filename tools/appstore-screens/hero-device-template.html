@@ -278,7 +278,7 @@
 
   // Called by the renderer with all per-locale/per-store data.
   window.setupHero = function setupHero(params) {
-    const { W, H, imgW, imgH, quad, focusX, bgData, shotData, pillAnchor, pillFrac, pillData, copy, locale } = params;
+    const { W, H, imgW, imgH, quad, focusX, bgData, shotData, pillAnchor, pillStage, pillFrac, pillData, copy, locale } = params;
 
     document.documentElement.style.setProperty('--screen-w', `${W}px`);
     document.documentElement.style.setProperty('--screen-h', `${H}px`);
@@ -311,19 +311,27 @@
 
     document.getElementById('app-shot-img').src = shotData;
 
-    // Pill: stage-space element. Its CENTER is anchored to a photo-source
-    // point (mapped through the same cover transform as the background, so
-    // it stays glued to the same scene spot in every format), but its SIZE
-    // is a fraction of the viewport width — design-scale, not photo-scale,
-    // so the headline > pill > badges hierarchy holds across formats.
+    // Pill: stage-space element. Its SIZE is a fraction of the viewport
+    // width — design-scale, not photo-scale, so the headline > pill > badges
+    // hierarchy holds across formats. Its CENTER comes from one of two
+    // anchor modes:
+    //   - pillStage [fx, fy]: fractions of the viewport — free composition
+    //     placement, independent of the photo (preferred);
+    //   - pillAnchor [x, y]: photo-source point mapped through the same
+    //     cover transform as the background, gluing it to a scene spot.
     const pill = document.getElementById('overlay-pill');
-    if (pillAnchor && pillData) {
+    if ((pillStage || pillAnchor) && pillData) {
       pill.querySelectorAll('img').forEach((img) => {
         img.src = pillData;
       });
       pill.style.width = `${Math.round(W * pillFrac)}px`;
-      pill.style.left = `${pillAnchor[0] * scale + offX}px`;
-      pill.style.top = `${pillAnchor[1] * scale + offY}px`;
+      if (pillStage) {
+        pill.style.left = `${Math.round(W * pillStage[0])}px`;
+        pill.style.top = `${Math.round(H * pillStage[1])}px`;
+      } else {
+        pill.style.left = `${pillAnchor[0] * scale + offX}px`;
+        pill.style.top = `${pillAnchor[1] * scale + offY}px`;
+      }
     } else {
       pill.remove();
     }

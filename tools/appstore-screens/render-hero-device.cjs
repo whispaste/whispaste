@@ -32,6 +32,18 @@ const BG_PHOTO = path.resolve(__dirname, 'assets', 'generated', 'hero-device-v2.
 // The pill image itself is the real captured OverlayPainter output (full
 // OverlayLayoutSpec size for hero-scale sharpness, not the compact one).
 const PILL_ANCHOR = [860, 462];
+// Stage-space anchor (fractions of the OUTPUT viewport, CENTER of the pill).
+// When set, it takes precedence over the photo-space PILL_ANCHOR: the pill is
+// no longer glued to a scene spot but positioned freely in the composition.
+// 2026-07-29 placement pass (maintainer asked for a lower-image position
+// instead of hovering over the keyboard/hand): tried exact bottom-center
+// [0.5, 0.84] first — clean, but the pill drifted into the dead dark
+// foreground left of the laptop and read as a third, unrelated focal point.
+// Final: [0.62, 0.86] — lower image area, horizontally aligned UNDER the
+// laptop, so proximity still groups the callout with the device ("this UI
+// belongs to that machine") while staying clear of the text column, the
+// app window, and the hand. Set to null for the old photo-space anchor.
+const PILL_STAGE = [0.62, 0.86];
 const PILL_FRAC = 0.3;
 const PILL_ASSET = path.resolve(__dirname, 'assets', 'overlay-recording-dark.png');
 const BG_W = 1344;
@@ -90,6 +102,7 @@ async function render(page, lang, storeId, hero) {
       bgData: toDataUri(BG_PHOTO),
       shotData: toDataUri(goldenFor(lang, storeId)),
       pillAnchor: PILL_ANCHOR,
+      pillStage: PILL_STAGE,
       pillFrac: PILL_FRAC,
       pillData: toDataUri(PILL_ASSET),
       copy: {
