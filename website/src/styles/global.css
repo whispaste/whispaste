@@ -373,6 +373,13 @@ html.light .band-raised {
   );
   filter: blur(30px);
   pointer-events: none;
+  /* Slow scale/opacity breathe on the overlay pill's 8s drift period — the
+     halo shares the glass material's calm pulse, never its shape wobble. */
+  animation: illo-halo-breathe 8s ease-in-out infinite;
+}
+@keyframes illo-halo-breathe {
+  0%, 100% { transform: scale(1); opacity: 0.85; }
+  50% { transform: scale(1.05); opacity: 1; }
 }
 .illo-halo > img {
   position: relative;
@@ -391,6 +398,7 @@ html.light .illo-halo > img {
 }
 @media (prefers-reduced-motion: reduce) {
   .illo-float { animation: none; }
+  .illo-halo::before { animation: none; }
 }
 
 /* Platform-adaptive download buttons (FOUC-free: data-os set by inline script).
@@ -690,4 +698,25 @@ html.light .sponsor-card:hover {
 .sponsor-card,
 .faq-item {
   border-radius: 14px;
+}
+
+/* Living hairline — the overlay pill's material breathes; its neighbours may
+   whisper the same idea. On hover the border opacity drifts on the pill's own
+   8s period. Opacity only: no wobble, no shape change. Light theme stays
+   static on purpose (its !important border overrides outrank animations). */
+@keyframes wp-border-breathe {
+  0%, 100% { border-color: rgba(255, 255, 255, 0.19); }
+  50% { border-color: rgba(255, 255, 255, 0.14); }
+}
+.feature-card:hover,
+.pricing-card:hover,
+.faq-item:hover {
+  animation: wp-border-breathe 8s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .feature-card:hover,
+  .pricing-card:hover,
+  .faq-item:hover {
+    animation: none;
+  }
 }
