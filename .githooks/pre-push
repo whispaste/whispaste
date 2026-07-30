@@ -389,7 +389,14 @@ if [ -f "$ROOT/website/package.json" ] && command -v npm >/dev/null 2>&1 \
   # matomo.js load that only happens in PROD — see its own comment). CI=true
   # also activates the config's one-retry safety net for genuine
   # environment-load flakes, same as the real workflow gets.
-  if ! (cd "$ROOT/website" && npm run build && npx playwright install chromium webkit && CI=true npm run test:ci) 2>&1; then
+  #
+  # PLAYWRIGHT_PORT: always ask the OS for a free port instead of hardcoding
+  # 4321 — a developer very plausibly has `astro dev` (or a previous run of
+  # this exact gate) already sitting on 4321, and this gate must never fail
+  # a push just because of that. GitHub Actions runners are always fresh, so
+  # the workflow itself keeps relying on playwright.config.ts's 4321 default.
+  website_ci_port="$(node "$ROOT/website/scripts/find-free-port.mjs")"
+  if ! (cd "$ROOT/website" && npm run build && npx playwright install chromium webkit && CI=true PLAYWRIGHT_PORT="$website_ci_port" npm run test:ci) 2>&1; then
     cat >&2 <<EOF
 
 ╔══════════════════════════════════════════════════════════════╗
