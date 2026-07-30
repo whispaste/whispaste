@@ -152,7 +152,22 @@ async function main() {
   console.log('✅ hero-device renders done');
 }
 
-main().catch((error) => {
-  console.error('💥 Fatal error:', error);
-  process.exit(1);
-});
+// Shared with render-hero-device-clean.cjs (website background variant), so
+// the photo, quad measurement, and golden lookup stay single-source.
+module.exports = {
+  TEMPLATE_PATH,
+  BG_PHOTO,
+  BG_W,
+  BG_H,
+  SCREEN_QUAD,
+  FOCUS_X,
+  toDataUri,
+  goldenFor,
+};
+
+if (require.main === module) {
+  main().catch((error) => {
+    console.error('💥 Fatal error:', error);
+    process.exit(1);
+  });
+}

@@ -1,6 +1,8 @@
 ---
+import { Picture } from "astro:assets";
 import Layout from "../layouts/Layout.astro";
 import Nav from "../components/Nav.astro";
+import heroDevice from "../assets/hero-device/hero-device-clean-de.png";
 import Footer from "../components/Footer.astro";
 import StoreButton from "../components/StoreButton.astro";
 import AppleButton from "../components/AppleButton.astro";
@@ -32,14 +34,42 @@ const breadcrumbItems = [
   <div class="min-h-screen flex flex-col">
     <Nav variant="subpage" />
 
-    <main id="main-content" class="flex-1 pt-24 pb-16 px-6">
-      <div class="max-w-3xl mx-auto">
+    <main id="main-content" class="relative flex-1 pt-24 pb-16 px-6">
+      <!-- Photo header band (dark theme only). The photo is a tonal surface,
+           not a framed image: it dissolves downward into the page background
+           (brand-darker) before the first card starts, so there is no hard
+           photo edge. Hidden entirely in the light theme — the moody dark
+           shot would break the light look; light keeps the previous plain
+           header. Fixed band height + eager loading: no layout shift, and the
+           band is above the fold. -->
+      <div class="download-hero-photo" aria-hidden="true">
+        <Picture
+          src={heroDevice}
+          formats={["avif", "webp"]}
+          fallbackFormat="jpg"
+          widths={[640, 960, 1440, 1920, 2688]}
+          sizes="100vw"
+          alt=""
+          loading="eager"
+          fetchpriority="high"
+          decoding="async"
+          class="download-hero-photo__img"
+        />
+        <div class="download-hero-photo__veil"></div>
+      </div>
 
-        <!-- Page header -->
-        <div class="text-center mb-12">
+      <!-- Page header — hero composition (dark): wider container, text
+           left-aligned from sm: over the photo's quiet left half, device
+           visible to the right. Light theme keeps the previous compact,
+           centered header (CSS resets padding/alignment/size). -->
+      <div class="relative max-w-5xl mx-auto">
+        <div class="download-header text-center mb-12">
           <h1 class="text-3xl sm:text-4xl font-bold text-white mb-3" data-i18n="download.title">{t(lang, "download.title")}</h1>
-          <p class="text-gray-400 text-lg" data-i18n="download.subtitle">{t(lang, "download.subtitle")}</p>
+          <p class="text-ink-muted text-lg" data-i18n="download.subtitle">{t(lang, "download.subtitle")}</p>
         </div>
+      </div>
+
+      <div class="relative max-w-3xl mx-auto">
 
         <!-- Why two ways — moved ahead of the card decision (issue 13) so
              visitors understand the Store-vs-free choice BEFORE they have to
@@ -556,6 +586,96 @@ const breadcrumbItems = [
 </Layout>
 
 <style>
+  /* Photo header band — full-bleed tonal surface behind the page header.
+   * Two-stage overlay: (1) flat darkening toward brand-darker that also
+   * neutralises the shot's green cast (plus a saturation pull on the img),
+   * (2) a downward gradient that resolves to 100% page background before the
+   * first card, so the photo dissolves into the band system instead of
+   * ending on a hard edge (No-Hard-Shadow rule: no frame, no crisp cut).
+   * Static — no parallax, no background-attachment. */
+  .download-hero-photo {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 28rem;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  @media (min-width: 640px) {
+    .download-hero-photo { height: 34rem; }
+  }
+  .download-hero-photo :global(.download-hero-photo__img) {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    /* 62% = horizontal focus axis of the approved render (laptop right of
+       centre); only bites on narrow viewports where the width crops. */
+    object-position: 62% 42%;
+    filter: saturate(0.75);
+  }
+  .download-hero-photo__veil {
+    position: absolute;
+    inset: 0;
+    /* Two directions: left→right protects the hero copy (which sits over the
+       photo's quiet left half from sm:), top→bottom dissolves the band into
+       the page surface before the first card. The photo keeps real presence
+       in the upper right, where the device lives. */
+    background:
+      linear-gradient(
+        90deg,
+        rgba(19, 24, 38, 0.5) 0%,
+        rgba(19, 24, 38, 0.2) 42%,
+        rgba(19, 24, 38, 0) 68%
+      ),
+      linear-gradient(
+        180deg,
+        rgba(19, 24, 38, 0.42) 0%,
+        rgba(19, 24, 38, 0.3) 38%,
+        rgba(19, 24, 38, 0.68) 60%,
+        #131826 80%
+      );
+  }
+  @media (max-width: 639px) {
+    /* Mobile centers the copy over the device crop — a stronger flat tint
+       keeps the white h1/subtitle comfortably above AA there. */
+    .download-hero-photo__veil {
+      background:
+        linear-gradient(
+          180deg,
+          rgba(19, 24, 38, 0.56) 0%,
+          rgba(19, 24, 38, 0.44) 38%,
+          rgba(19, 24, 38, 0.72) 60%,
+          #131826 82%
+        );
+    }
+  }
+  /* Dark theme only: the moody photo would break the light look. Light mode
+     keeps the previous plain header (no photo, no fallback swap). */
+  :global(html.light) .download-hero-photo {
+    display: none;
+  }
+  /* Hero headroom + composition — dark only. Light resets to the previous
+     compact centered header (no photo, no extra padding, original sizes). */
+  :global(html:not(.light)) .download-header {
+    padding-top: 4.5rem;
+  }
+  @media (min-width: 640px) {
+    :global(html:not(.light)) .download-header {
+      padding-top: 10rem;
+      text-align: left;
+    }
+    :global(html:not(.light)) .download-header h1 {
+      font-size: 3.25rem;
+      line-height: 1.05;
+    }
+    :global(html:not(.light)) .download-header p {
+      max-width: 34rem;
+    }
+  }
+
   .download-card {
     background: linear-gradient(135deg, rgba(29, 37, 56, 0.4) 0%, rgba(23, 29, 44, 0.2) 100%);
   }

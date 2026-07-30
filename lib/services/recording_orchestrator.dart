@@ -45,6 +45,7 @@ import 'stt/on_device_engine_lifecycle.dart';
 import 'stt_engine_lifecycle_provider.dart';
 import 'stt_parakeet/parakeet_model_registry.dart' as parakeet;
 import 'transcription/transcriber.dart';
+import '../core/utils/word_count.dart';
 
 // ---------------------------------------------------------------------------
 // Orchestrator
@@ -1254,9 +1255,7 @@ class RecordingOrchestrator extends Notifier<void> {
   ) async {
     try {
       final store = ref.read(recordingStoreProvider);
-      final wordCount = transcript.trim().isEmpty
-          ? 0
-          : transcript.trim().split(RegExp(r'\s+')).length;
+      final wordCount = computeWordCountFast(transcript);
 
       final saved = await store.save(
         RecordingInput(

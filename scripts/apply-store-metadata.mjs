@@ -123,7 +123,15 @@ export function loadManagedMetadata(storeDir) {
   }
 
   // store/ folder name → msstore submission locale key (lowercase, en-US → en-us).
-  const localeMap = { 'en-US': 'en-us', 'de-DE': 'de' };
+  // 'de-DE' -> 'de-de', NOT 'de' (corrected 2026-07-30, see submit-ms-store.ps1's
+  // $LOCALE_MAP comment for the full story): verified live against three
+  // independent sources - the published DevCenter submission, the public
+  // DisplayCatalog API for markets DE/AT/CH, and the public Store listing page -
+  // that 'de-de' is the locale actually served to every German-speaking market.
+  // The neutral 'de' key is an orphan nobody sees. This script and
+  // submit-ms-store.ps1 must write the SAME key; their prior disagreement
+  // ('de' here vs 'de-de' there) is what created the orphan in the first place.
+  const localeMap = { 'en-US': 'en-us', 'de-DE': 'de-de' };
 
   const listings = {};
   for (const [folder, submissionLocale] of Object.entries(localeMap)) {
