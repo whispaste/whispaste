@@ -87,17 +87,30 @@ Set-StrictMode -Version Latest
 
 $BASE_URL = 'https://manage.devcenter.microsoft.com/v1.0/my'
 
-# store/ folder name → classic Submission API locale key. Corrected
-# 2026-07-30: the previous mapping ('de-DE' → 'de-de') was wrong — verified
-# live against WhisPaste's real submission that the actual, pre-existing
-# German listing key is 'de' (same as scripts/apply-store-metadata.mjs
-# already mapped it), not 'de-de'. The wrong key meant every image-bearing
-# run since 2026-07-29 created and updated a brand-new, never-served 'de-de'
-# listing (Partner Center logged "Locale 'de-de' not in cloned submission —
-# creating entry." on the very first such run — the real 'de' listing simply
-# has no 'de-de' sibling, ever) while the actual live German Store listing
-# (locale key 'de') kept showing whatever screenshots predated this script.
-$LOCALE_MAP = @{ 'en-US' = 'en-us'; 'de-DE' = 'de' }
+# store/ folder name → classic Submission API locale key.
+#
+# CORRECTED AGAIN 2026-07-30 (this comment block was wrong for about 3 hours;
+# read this version, not any earlier one): 'de-DE' -> 'de-de', NOT 'de'.
+#
+# The 2026-07-30-early-morning "fix" below (now reverted) claimed 'de' was
+# the real, live German listing and 'de-de' a never-served phantom. That was
+# checked only against a *pending, not-yet-published* submission and only by
+# comparing image counts - not against what's actually served. A second,
+# independent check the same day - the PUBLISHED submission's listing text,
+# the public DisplayCatalog API for markets DE/AT/CH, and the public Store
+# page itself - all agree on the opposite: 'de-de' is what every
+# German-speaking market actually receives; 'de' is the orphan nobody sees.
+# ('de' got created in the first place because this script and
+# scripts/apply-store-metadata.mjs used to disagree on the locale key - one
+# wrote 'de', the other 'de-de'. They must always agree; whichever key that
+# is, make sure BOTH files use it.)
+#
+# tl;dr of the previous (wrong) comment, kept for the git-blame trail: it said
+# Partner Center logged "Locale 'de-de' not in cloned submission - creating
+# entry." on the 2026-07-29 run and concluded 'de-de' was therefore new/fake.
+# That log line is real, but the conclusion drawn from it was backwards - see
+# above for what actually determines which locale is live.
+$LOCALE_MAP = @{ 'en-US' = 'en-us'; 'de-DE' = 'de-de' }
 
 # store/ folder name → tools/appstore-screens output lang folder ('en'/'de').
 $SCREENSHOT_LANG_MAP = @{ 'en-US' = 'en'; 'de-DE' = 'de' }
