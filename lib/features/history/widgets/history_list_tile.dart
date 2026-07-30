@@ -12,6 +12,7 @@ import 'package:whispaste/core/data/database.dart';
 import 'highlighted_text.dart';
 import 'history_helpers.dart';
 import 'history_row_action.dart';
+import '../../../core/utils/word_count.dart';
 
 // ---------------------------------------------------------------------------
 // History entry row — WhatsApp/ChatGPT/Discord-inspired
@@ -64,9 +65,7 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
   late IconData _avatarIcon = historyAvatarIcon(widget.entry);
 
   static int _computeWordCount(HistoryEntry entry) {
-    final t = entry.content.trim();
-    if (t.isEmpty) return 0;
-    return t.split(RegExp(r'\s+')).length;
+    return computeWordCountFast(entry.content);
   }
 
   static List<String> _computeEntryTags(HistoryEntry entry) {

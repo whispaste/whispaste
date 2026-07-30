@@ -21,6 +21,7 @@ import '../../services/path_service.dart' as paths;
 import '../logging/app_logger.dart';
 import 'sqlite_write_coordinator.dart';
 import 'tables.dart';
+import '../utils/word_count.dart';
 
 part 'database.g.dart';
 
@@ -1672,9 +1673,7 @@ class HistoryDatabase extends _$HistoryDatabase {
     // Read ALL history entries (including deleted/archived) for backfill.
     final entries = await select(historyEntries).get();
     for (final e in entries) {
-      final words = e.content.trim().isEmpty
-          ? 0
-          : e.content.trim().split(RegExp(r'\s+')).length;
+      final words = computeWordCountFast(e.content);
       await recordDailyStat(
         timestamp: e.timestamp,
         model: e.model,
