@@ -283,6 +283,25 @@ foreach ($prop in $sub.listings.PSObject.Properties) {
 }
 $sub.listings = $normalizedListings
 
+# Prune any locale the cloned submission carries that we don't manage (e.g. the
+# 'de' orphan created 2026-07-30 when this script and apply-store-metadata.mjs
+# disagreed on the locale key — see the $LOCALE_MAP comment above). Omitting a
+# locale from `listings` on PUT is the documented way to remove it: Microsoft's
+# submission-status-code table lists `ListingOptOutWarning` — "The developer
+# removed a listing from a previous submission" — as an expected, non-fatal
+# warning, not an error (learn.microsoft.com/windows/uwp/monetize/
+# manage-app-submissions, confirmed 2026-07-30). Unlike applicationPackages,
+# listings do NOT need a PendingDelete-style status flag; simple omission works.
+# This keeps every future submission self-cleaning instead of relying on a
+# one-off manual fix.
+$managedLocales = @($LOCALE_MAP.Values)
+foreach ($prop in @($sub.listings.PSObject.Properties)) {
+  if ($managedLocales -notcontains $prop.Name) {
+    Write-Warning "   Pruning unmanaged locale listing '$($prop.Name)' (not in `$LOCALE_MAP)."
+    $sub.listings.PSObject.Properties.Remove($prop.Name)
+  }
+}
+
 foreach ($locale in $LOCALE_MAP.Values) {
   # Same Set-StrictMode pitfall as the pendingApplicationSubmission fix above:
   # a PSCustomObject built via Add-Member throws "property cannot be found"
