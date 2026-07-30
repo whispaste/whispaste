@@ -352,6 +352,7 @@ const backHref = lang === 'de' ? '/' : '/en/';
       linear-gradient(0deg, rgba(255, 255, 255, 0.6) 0%, rgba(15, 23, 42, 0.08) 14%, transparent 30%);
   }
   #mobileMenu {
+    position: relative;
     background: rgba(3, 14, 24, 0.85);
     backdrop-filter: blur(24px) saturate(150%);
     -webkit-backdrop-filter: blur(24px) saturate(150%);
@@ -359,6 +360,22 @@ const backHref = lang === 'de' ? '/' : '/en/';
   }
   :global(.light) #mobileMenu {
     background: rgba(255, 255, 255, 0.9);
+  }
+  /* Same rim as .nav-pill::before — the expanded mobile menu is the same
+     surface, just a taller shape. */
+  #mobileMenu::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.14) 0%, transparent 60%),
+      linear-gradient(0deg, rgba(255, 255, 255, 0.1) 0%, rgba(0, 0, 0, 0.12) 14%, transparent 30%);
+    pointer-events: none;
+  }
+  :global(.light) #mobileMenu::before {
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.7) 0%, transparent 60%),
+      linear-gradient(0deg, rgba(255, 255, 255, 0.6) 0%, rgba(15, 23, 42, 0.08) 14%, transparent 30%);
   }
   :global(.light) #mobileMenu a,
   :global(.light) #mobileMenu button {
