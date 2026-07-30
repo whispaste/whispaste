@@ -58,14 +58,22 @@ const breadcrumbItems = [
         <div class="download-hero-photo__veil"></div>
       </div>
 
-      <!-- Page header — hero composition (dark): wider container, text
-           left-aligned from sm: over the photo's quiet left half, device
-           visible to the right. Light theme keeps the previous compact,
-           centered header (CSS resets padding/alignment/size). -->
-      <div class="relative max-w-5xl mx-auto">
-        <div class="download-header text-center mb-12">
-          <h1 class="text-3xl sm:text-4xl font-bold text-white mb-3" data-i18n="download.title">{t(lang, "download.title")}</h1>
-          <p class="text-ink-muted text-lg" data-i18n="download.subtitle">{t(lang, "download.subtitle")}</p>
+      <!-- Page header — hero composition (dark): text left-aligned from sm:
+           over the photo's quiet left half, device visible to the right.
+           The content box is a geometry clone of the subpage nav pill
+           (outer px-4 gutter → max-w-4xl → inner px-5 sm:px-6), so the h1
+           sits on the nav wordmark's exact left flush line at every width;
+           -mx-6 first cancels <main>'s own px-6. Light theme keeps the
+           previous compact, centered header (CSS resets padding/alignment/
+           size; centered text makes the flush line moot there). -->
+      <div class="relative -mx-6 px-4">
+        {/* border-x border-transparent mirrors the pill's 1px hairline border,
+            so the flush line is pixel-exact, not off by the border width. */}
+        <div class="max-w-4xl mx-auto border-x border-transparent px-5 sm:px-6">
+          <div class="download-header text-center mb-12">
+            <h1 class="text-3xl sm:text-4xl font-bold text-white mb-3" data-i18n="download.title">{t(lang, "download.title")}</h1>
+            <p class="text-ink-muted text-lg" data-i18n="download.subtitle">{t(lang, "download.subtitle")}</p>
+          </div>
         </div>
       </div>
 
@@ -623,9 +631,9 @@ const breadcrumbItems = [
     background:
       linear-gradient(
         90deg,
-        rgba(19, 24, 38, 0.5) 0%,
-        rgba(19, 24, 38, 0.2) 42%,
-        rgba(19, 24, 38, 0) 68%
+        rgba(19, 24, 38, 0.55) 0%,
+        rgba(19, 24, 38, 0.32) 46%,
+        rgba(19, 24, 38, 0) 76%
       ),
       linear-gradient(
         180deg,
@@ -655,18 +663,24 @@ const breadcrumbItems = [
     display: none;
   }
   /* Hero headroom + composition — dark only. Light resets to the previous
-     compact centered header (no photo, no extra padding, original sizes). */
+     compact centered header (no photo, no extra padding, original sizes).
+     The h1 scales fluidly via clamp() instead of snapping to one fixed rem
+     size at sm: — a download subpage header peaks at 3rem (well under the
+     6rem display ceiling), so it leads the band without ballooning at
+     ultra-wide viewports or competing with the homepage hero. */
   :global(html:not(.light)) .download-header {
     padding-top: 4.5rem;
   }
   @media (min-width: 640px) {
     :global(html:not(.light)) .download-header {
-      padding-top: 10rem;
+      padding-top: 8.5rem;
       text-align: left;
     }
     :global(html:not(.light)) .download-header h1 {
-      font-size: 3.25rem;
-      line-height: 1.05;
+      font-size: clamp(2.25rem, 1.6rem + 1.3vw, 3rem);
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      text-wrap: balance;
     }
     :global(html:not(.light)) .download-header p {
       max-width: 34rem;
