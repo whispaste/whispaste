@@ -1,5 +1,13 @@
 import { defineConfig, devices } from '@playwright/test';
 
+// Defaults to 4321 (matches `astro dev`'s own default, and every developer's
+// muscle memory for this project). Override with PLAYWRIGHT_PORT when a
+// long-lived dev server might already own 4321 — the pre-push hook's website
+// CI gate does this so it always gets its own isolated preview server
+// instead of colliding with whatever a developer has running locally.
+const PORT = process.env.PLAYWRIGHT_PORT ?? '4321';
+const BASE_URL = `http://127.0.0.1:${PORT}`;
+
 export default defineConfig({
   testDir: './tests',
   fullyParallel: true,
@@ -19,15 +27,15 @@ export default defineConfig({
   // path), so a passing run proves both engines render the same pixels.
   snapshotPathTemplate: '{testDir}/__screenshots__/{testFilePath}/{arg}{ext}',
   use: {
-    baseURL: 'http://127.0.0.1:4321',
+    baseURL: BASE_URL,
     locale: 'en-US',
     trace: 'on-first-retry',
   },
   webServer: {
     command: process.env.CI
-      ? 'npm run preview -- --host 127.0.0.1 --port 4321'
-      : 'npm run dev -- --host 127.0.0.1 --port 4321',
-    url: 'http://127.0.0.1:4321',
+      ? `npm run preview -- --host 127.0.0.1 --port ${PORT}`
+      : `npm run dev -- --host 127.0.0.1 --port ${PORT}`,
+    url: BASE_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 120000,
   },
