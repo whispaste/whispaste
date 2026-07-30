@@ -336,17 +336,26 @@
       pill.remove();
     }
 
-    document.getElementById('device-hl').innerHTML = copy.headline[locale].replace(/\n/g, '<br>');
-    document.getElementById('device-sub').textContent = copy.subtitle[locale];
+    // Copy layer is optional: the clean website-background variant
+    // (render-hero-device-clean.cjs) passes copy=null and gets only the
+    // photo + composited screen — no text, and no contrast scrim either,
+    // since the scrim exists solely to keep type legible.
+    if (copy) {
+      document.getElementById('device-hl').innerHTML = copy.headline[locale].replace(/\n/g, '<br>');
+      document.getElementById('device-sub').textContent = copy.subtitle[locale];
 
-    const badges = document.getElementById('device-badges');
-    badges.innerHTML = '';
-    copy.badges[locale].forEach((text) => {
-      const el = document.createElement('div');
-      el.className = 'device-badge';
-      el.textContent = text;
-      badges.appendChild(el);
-    });
+      const badges = document.getElementById('device-badges');
+      badges.innerHTML = '';
+      copy.badges[locale].forEach((text) => {
+        const el = document.createElement('div');
+        el.className = 'device-badge';
+        el.textContent = text;
+        badges.appendChild(el);
+      });
+    } else {
+      document.querySelector('.text-layer').remove();
+      document.querySelector('.contrast-scrim').remove();
+    }
   };
 </script>
 </body>
