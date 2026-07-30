@@ -11,6 +11,28 @@
 import { t } from '../scripts/i18n.ts';
 
 const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
+
+// Balken-Muster der Wellenform-Textur — einmal definiert, zweimal gerendert
+// (nahtlose Marquee-Schleife braucht zwei identische Kacheln nebeneinander).
+const waveBars = `
+  <rect x="2"   y="9"  width="3" height="6"  rx="1.5"/>
+  <rect x="9"   y="6"  width="3" height="12" rx="1.5"/>
+  <rect x="16"  y="2"  width="3" height="20" rx="1.5"/>
+  <rect x="23"  y="7"  width="3" height="10" rx="1.5"/>
+  <rect x="30"  y="4"  width="3" height="16" rx="1.5"/>
+  <rect x="37"  y="9"  width="3" height="6"  rx="1.5"/>
+  <rect x="44"  y="5"  width="3" height="14" rx="1.5"/>
+  <rect x="51"  y="2"  width="3" height="20" rx="1.5"/>
+  <rect x="58"  y="8"  width="3" height="8"  rx="1.5"/>
+  <rect x="65"  y="4"  width="3" height="16" rx="1.5"/>
+  <rect x="72"  y="7"  width="3" height="10" rx="1.5"/>
+  <rect x="79"  y="3"  width="3" height="18" rx="1.5"/>
+  <rect x="86"  y="9"  width="3" height="6"  rx="1.5"/>
+  <rect x="93"  y="5"  width="3" height="14" rx="1.5"/>
+  <rect x="100" y="2"  width="3" height="20" rx="1.5"/>
+  <rect x="107" y="7"  width="3" height="10" rx="1.5"/>
+  <rect x="114" y="6"  width="3" height="12" rx="1.5"/>
+`;
 ---
 
 <section id="speed" class="band band-raised py-24 sm:py-32 relative scroll-mt-20 scroll-reveal">
@@ -45,27 +67,17 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
         </div>
         <div class="speed-track">
           <div class="speed-fill speed-fill--speaking" style="--target: 100%">
-            <svg class="speed-wave" viewBox="0 0 120 24" preserveAspectRatio="none" aria-hidden="true">
-              <g fill="currentColor">
-                <rect x="2"   y="9"  width="3" height="6"  rx="1.5"/>
-                <rect x="9"   y="6"  width="3" height="12" rx="1.5"/>
-                <rect x="16"  y="2"  width="3" height="20" rx="1.5"/>
-                <rect x="23"  y="7"  width="3" height="10" rx="1.5"/>
-                <rect x="30"  y="4"  width="3" height="16" rx="1.5"/>
-                <rect x="37"  y="9"  width="3" height="6"  rx="1.5"/>
-                <rect x="44"  y="5"  width="3" height="14" rx="1.5"/>
-                <rect x="51"  y="2"  width="3" height="20" rx="1.5"/>
-                <rect x="58"  y="8"  width="3" height="8"  rx="1.5"/>
-                <rect x="65"  y="4"  width="3" height="16" rx="1.5"/>
-                <rect x="72"  y="7"  width="3" height="10" rx="1.5"/>
-                <rect x="79"  y="3"  width="3" height="18" rx="1.5"/>
-                <rect x="86"  y="9"  width="3" height="6"  rx="1.5"/>
-                <rect x="93"  y="5"  width="3" height="14" rx="1.5"/>
-                <rect x="100" y="2"  width="3" height="20" rx="1.5"/>
-                <rect x="107" y="7"  width="3" height="10" rx="1.5"/>
-                <rect x="114" y="6"  width="3" height="12" rx="1.5"/>
-              </g>
-            </svg>
+            <!-- Zwei identische Kacheln in einer 200%-Spur: die Wellenform
+                 driftet als kontinuierlicher Strom nach links — Sprache fließt,
+                 Tippen steht (der Balken darüber bleibt bewusst statisch). -->
+            <div class="speed-wave-track" aria-hidden="true">
+              <svg class="speed-wave" viewBox="0 0 120 24" preserveAspectRatio="none">
+                <g fill="currentColor" set:html={waveBars} />
+              </svg>
+              <svg class="speed-wave" viewBox="0 0 120 24" preserveAspectRatio="none">
+                <g fill="currentColor" set:html={waveBars} />
+              </svg>
+            </div>
           </div>
         </div>
       </div>
@@ -139,9 +151,10 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
     height: 100%;
     width: var(--target);
     border-radius: 999px;
+    overflow: hidden;
     transform: scaleX(0);
     transform-origin: left center;
-    transition: transform 1s cubic-bezier(0.22, 1, 0.36, 1);
+    transition: transform 1s var(--ease-flow);
   }
   .speed-fill--typing {
     background: color-mix(in srgb, var(--color-ink-subtle) 55%, transparent);
@@ -157,20 +170,34 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
     transition-delay: 0.18s;
   }
 
-  /* Waveform texture inside the speaking bar — our own brand motif, faint. */
-  .speed-wave {
+  /* Waveform texture inside the speaking bar — our own brand motif, faint.
+     Die 200%-Spur mit zwei Kacheln loopt nahtlos nach links: der Strom läuft
+     nur, solange die Sektion sichtbar wurde (play-state-Gate unten). */
+  .speed-wave-track {
     position: absolute;
     inset: 0;
-    width: 100%;
+    display: flex;
+    width: 200%;
+    animation: speed-wave-flow 7s linear infinite paused;
+  }
+  .speed-wave {
+    width: 50%;
     height: 100%;
+    flex: none;
     color: #fff;
     opacity: 0.28;
     mix-blend-mode: soft-light;
+  }
+  @keyframes speed-wave-flow {
+    to { transform: translateX(-50%); }
   }
 
   /* Animate the fills in once the section reveals. */
   #speed.scroll-reveal.visible .speed-fill {
     transform: scaleX(1);
+  }
+  #speed.scroll-reveal.visible .speed-wave-track {
+    animation-play-state: running;
   }
 
   .speed-caption {
@@ -184,6 +211,9 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
     .speed-fill {
       transition: none;
       transform: scaleX(1);
+    }
+    .speed-wave-track {
+      animation: none;
     }
   }
 </style>

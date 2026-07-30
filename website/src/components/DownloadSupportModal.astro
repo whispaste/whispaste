@@ -82,7 +82,9 @@ const msReviewUrl = STORES.windows.reviewUrl;
     border-radius: 20px;
     padding: 2rem;
     text-align: center;
-    animation: dlm-slide-up 300ms ease-out;
+    /* Ankunft auf der Flow-Kurve (Token in global.css) — der Dialog gleitet
+       herein wie die Overlay-Pille, statt generisch zu easen. */
+    animation: dlm-slide-up 380ms var(--ease-flow);
   }
 
   @keyframes dlm-slide-up {

@@ -99,6 +99,17 @@
   --font-serif: "Fraunces Variable", ui-serif, Georgia, "Times New Roman", serif;
 }
 
+/* ---------------------------------------------------------------------------
+   Flow-Motion-Token — „Schreibfluss" als Bewegungsvokabular.
+   --ease-flow ist DIE Deceleration-Kurve der Site (bisher mehrfach hartkodiert
+   als cubic-bezier(0.22, 1, 0.36, 1) — der Charakter der Overlay-Pille:
+   selbstbewusst ankommen, weich auslaufen). Übergänge nutzen das Token statt
+   eigener Kurven, damit alle Bewegung aus einem Guss fließt.
+   --------------------------------------------------------------------------- */
+:root {
+  --ease-flow: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 @layer base {
   html {
     scroll-behavior: smooth;
@@ -219,6 +230,19 @@ html.light .band-raised {
     color-mix(in srgb, var(--color-brand-cyan) 16%, transparent) 0%,
     transparent 70%
   );
+  /* Die Aura atmet auf der 8s-Periode der Overlay-Pille (gleicher Takt wie
+     illo-halo-breathe und wp-border-breathe) — die Seite trägt denselben
+     ruhigen Puls wie das Glas-Material der App. Nur Opacity, kein Wobble. */
+  animation: wp-aura-breathe 8s ease-in-out infinite;
+}
+@keyframes wp-aura-breathe {
+  0%, 100% { opacity: 0.72; }
+  50% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .band-spotlight::before {
+    animation: none;
+  }
 }
 
 /* ===========================================================================

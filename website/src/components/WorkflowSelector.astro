@@ -84,7 +84,7 @@ const workflows = [
     -webkit-backdrop-filter: blur(12px);
     text-decoration: none;
     color: inherit;
-    transition: border-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+    transition: border-color 0.3s var(--ease-flow), transform 0.3s var(--ease-flow), box-shadow 0.3s var(--ease-flow);
     will-change: transform;
   }
 
@@ -118,7 +118,7 @@ const workflows = [
     height: 7.5rem;
     margin: 0 auto 1.25rem;
     flex-shrink: 0;
-    transition: transform 0.3s ease;
+    transition: transform 0.3s var(--ease-flow);
   }
 
   .workflow-card__illustration {

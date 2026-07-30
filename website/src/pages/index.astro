@@ -107,7 +107,9 @@ const faqKeys = [
     .scroll-reveal {
       opacity: 0;
       transform: translateY(24px);
-      transition: opacity 0.7s ease-out, transform 0.7s ease-out;
+      /* Flow-Kurve statt generischem ease-out — Sektionen kommen mit dem
+         gleichen weichen Auslauf an wie die Overlay-Pille (Token in global.css). */
+      transition: opacity 0.7s var(--ease-flow), transform 0.7s var(--ease-flow);
     }
     .scroll-reveal.visible {
       opacity: 1;
