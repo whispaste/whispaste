@@ -138,6 +138,11 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
   :global(.light) .feature-card:hover {
     box-shadow: 0 10px 30px rgba(15, 23, 42, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.6);
   }
+  /* Der bright-cyan Hover-Sheen (56,217,240) verschwindet auf Weiß —
+     Light bekommt dieselbe Lichtkante im tiefen Light-Akzent. */
+  :global(.light) .feature-card::after {
+    background: linear-gradient(90deg, transparent, rgba(10, 110, 148, 0.5), transparent);
+  }
   @media (prefers-reduced-motion: reduce) {
     .feature-card {
       transition: none;

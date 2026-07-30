@@ -325,14 +325,16 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
   :global(.light) .hero-wave.hero-sign {
     animation: hero-wave-intro-light 1.9s ease-out;
   }
+  /* Light-Watermark leicht angehoben (0.09/0.13 statt 0.07/0.10): auf den
+     kühleren Light-Flächen war die W-Wave kaum noch präsent. */
   @keyframes hero-wave-intro-light {
     0%   { opacity: 0; }
-    55%  { opacity: 0.16; }
-    100% { opacity: 0.07; }
+    55%  { opacity: 0.2; }
+    100% { opacity: 0.09; }
   }
   @keyframes wave-breathe-light {
-    0%, 100% { opacity: 0.07; }
-    50% { opacity: 0.10; }
+    0%, 100% { opacity: 0.09; }
+    50% { opacity: 0.13; }
   }
 
   /* Reduced motion for hero animations (incl. the gated signature burst) */
