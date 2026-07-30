@@ -273,17 +273,19 @@ const backHref = lang === 'de' ? '/' : '/en/';
     background-color: rgba(19, 24, 38, 0.28);
     backdrop-filter: blur(24px) saturate(150%);
     -webkit-backdrop-filter: blur(24px) saturate(150%);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.18);
     transition: background-color 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease,
       height 0.3s cubic-bezier(0.22, 1, 0.36, 1);
   }
-  /* Scrolled fill 0.45 statt 0.6: verkleinert den Transparenz-Abstand zur
-     near-clear Overlay-Pille (Materialverwandtschaft). Link-Kontrast bleibt
-     sicher, weil hinter der Nav nur die dunklen Site-Bänder liegen
-     (gray-400 #99A1AF auf dem Blend ≥ 7:1). */
+  /* Scrolled fill 0.35 statt 0.6 (erster Durchgang: 0.45, war unsichtbar
+     nah am Alt-Wert): verkleinert den Transparenz-Abstand zur near-clear
+     Overlay-Pille (Materialverwandtschaft). Link-Kontrast bleibt sicher,
+     weil hinter der Nav nur die dunklen Site-Bänder liegen — gray-400
+     #99A1AF auf dem 0.35-Blend über surface-base (#161B2A) 6.6:1, über
+     surface-card (#1A2032) 6.3:1, beides klar über AA 4.5:1. */
   #site-nav[data-scrolled="true"] .nav-pill {
-    background-color: rgba(19, 24, 38, 0.45);
-    box-shadow: 0 10px 36px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+    background-color: rgba(19, 24, 38, 0.35);
+    box-shadow: 0 10px 36px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.2);
     border-color: rgba(255, 255, 255, 0.12);
     height: 3rem;
   }
@@ -330,23 +332,24 @@ const backHref = lang === 'de' ? '/' : '/en/';
   }
 
   /* Two-sided Fresnel rim, clipped to the pill's radius: top highlight plus a
-     whisper of bottom counter-sheen over a hair of shade — the overlay pill's
-     edge idea (lit top, faint answering light below) translated into the
-     nav's quieter CSS vocabulary. Static, no drift. */
+     bottom counter-sheen over a hair of shade — the overlay pill's edge idea
+     (lit top, answering light below) translated into the nav's quieter CSS
+     vocabulary. Static, no drift. Alphas deliberately kräftig (erster
+     Durchgang bei 0.02/0.03 war rechnerisch da, aber unsichtbar). */
   #site-nav .nav-pill::before {
     content: '';
     position: absolute;
     inset: 0;
     border-radius: inherit;
     background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, transparent 60%),
-      linear-gradient(0deg, rgba(255, 255, 255, 0.02) 0%, rgba(0, 0, 0, 0.03) 12%, transparent 26%);
+      linear-gradient(180deg, rgba(255, 255, 255, 0.14) 0%, transparent 60%),
+      linear-gradient(0deg, rgba(255, 255, 255, 0.1) 0%, rgba(0, 0, 0, 0.12) 14%, transparent 30%);
     pointer-events: none;
   }
   :global(.light) #site-nav .nav-pill::before {
     background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, transparent 60%),
-      linear-gradient(0deg, rgba(255, 255, 255, 0.35) 0%, rgba(15, 23, 42, 0.03) 12%, transparent 26%);
+      linear-gradient(180deg, rgba(255, 255, 255, 0.7) 0%, transparent 60%),
+      linear-gradient(0deg, rgba(255, 255, 255, 0.6) 0%, rgba(15, 23, 42, 0.08) 14%, transparent 30%);
   }
   #mobileMenu {
     background: rgba(3, 14, 24, 0.85);

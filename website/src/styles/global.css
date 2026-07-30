@@ -374,12 +374,14 @@ html.light .band-raised {
   filter: blur(30px);
   pointer-events: none;
   /* Slow scale/opacity breathe on the overlay pill's 8s drift period — the
-     halo shares the glass material's calm pulse, never its shape wobble. */
+     halo shares the glass material's calm pulse, never its shape wobble.
+     Amplitude 1↔1.14 / 0.65↔1 (erster Durchgang 1↔1.05 / 0.85↔1 war unter
+     der Wahrnehmungsschwelle auf einer 30px-geblurten Fläche). */
   animation: illo-halo-breathe 8s ease-in-out infinite;
 }
 @keyframes illo-halo-breathe {
-  0%, 100% { transform: scale(1); opacity: 0.85; }
-  50% { transform: scale(1.05); opacity: 1; }
+  0%, 100% { transform: scale(1); opacity: 0.65; }
+  50% { transform: scale(1.14); opacity: 1; }
 }
 .illo-halo > img {
   position: relative;
@@ -700,23 +702,26 @@ html.light .sponsor-card:hover {
   border-radius: 14px;
 }
 
-/* Living hairline — the overlay pill's material breathes; its neighbours may
-   whisper the same idea. On hover the border opacity drifts on the pill's own
-   8s period. Opacity only: no wobble, no shape change. Light theme stays
-   static on purpose (its !important border overrides outrank animations). */
+/* Living hairline — the overlay pill's material breathes; its neighbours carry
+   the same idea. Idle animation (nicht mehr hover-gated: ein Besucher, der nur
+   schaut, soll es sehen) on the pill's own 8s period, band 0.16–0.3 — the
+   trough stays above the 0.12 resting border, the crest reaches past the 0.19
+   hover token, so the breathing reads at a glance. Opacity only: no wobble,
+   no shape change. Light theme stays static on purpose (its !important border
+   overrides outrank animations). Reduced motion: static 0.12 base border. */
 @keyframes wp-border-breathe {
-  0%, 100% { border-color: rgba(255, 255, 255, 0.19); }
-  50% { border-color: rgba(255, 255, 255, 0.14); }
+  0%, 100% { border-color: rgba(255, 255, 255, 0.16); }
+  50% { border-color: rgba(255, 255, 255, 0.3); }
 }
-.feature-card:hover,
-.pricing-card:hover,
-.faq-item:hover {
+.feature-card,
+.pricing-card,
+.faq-item {
   animation: wp-border-breathe 8s ease-in-out infinite;
 }
 @media (prefers-reduced-motion: reduce) {
-  .feature-card:hover,
-  .pricing-card:hover,
-  .faq-item:hover {
+  .feature-card,
+  .pricing-card,
+  .faq-item {
     animation: none;
   }
 }
