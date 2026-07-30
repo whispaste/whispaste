@@ -161,7 +161,10 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
   .teaser-pair::before {
     content: "";
     position: absolute;
-    inset: -10% -6% -14%;
+    /* Horizontal kein Bleed (0 statt -6%): der Glow lief bei breiten-
+       gedeckelten Viewports (768/1024px) über den Seitenrand und erzeugte
+       19-35px scrollWidth-Overflow — Verstoß gegen die No-H-Scroll-Regel. */
+    inset: -10% 0 -14%;
     z-index: -1;
     pointer-events: none;
     background: radial-gradient(

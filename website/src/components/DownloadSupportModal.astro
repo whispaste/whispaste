@@ -177,18 +177,20 @@ const msReviewUrl = STORES.windows.reviewUrl;
   .dlm-action-icon { width: 14px; height: 14px; flex-shrink: 0; color: #F59E0B; }
   .dlm-arrow { width: 14px; height: 14px; flex-shrink: 0; color: rgba(255,255,255,0.3); margin-left: auto; }
 
+  /* Sponsor-Zeile + "Vielleicht später": bewusst leise, aber AA-konform —
+     0.3-Alpha lag bei 2.69:1 auf #0e1521 (unter 4.5:1); 0.55 ergibt ~5.8:1. */
   .dlm-sponsor {
     margin: 0.75rem 0;
     font-size: 0.75rem;
-    color: rgba(255,255,255,0.3);
+    color: rgba(255,255,255,0.55);
   }
   .dlm-sponsor-link {
     color: inherit;
     text-decoration: underline;
     text-underline-offset: 3px;
-    text-decoration-color: rgba(255,255,255,0.15);
+    text-decoration-color: rgba(255,255,255,0.35);
   }
-  .dlm-sponsor-link:hover { color: rgba(255,255,255,0.55); }
+  .dlm-sponsor-link:hover { color: rgba(255,255,255,0.8); }
 
   .dlm-later {
     display: block;
@@ -197,11 +199,11 @@ const msReviewUrl = STORES.windows.reviewUrl;
     background: none;
     border: none;
     font-size: 0.8125rem;
-    color: rgba(255,255,255,0.3);
+    color: rgba(255,255,255,0.55);
     cursor: pointer;
     transition: color 0.15s;
   }
-  .dlm-later:hover { color: rgba(255,255,255,0.6); }
+  .dlm-later:hover { color: rgba(255,255,255,0.85); }
   .dlm-later:focus-visible { outline: 2px solid #38D9F0; outline-offset: 2px; }
 
   /* Light theme */
@@ -221,9 +223,10 @@ const msReviewUrl = STORES.windows.reviewUrl;
     border-color: rgba(0,0,0,0.15);
     color: #0c1425;
   }
-  :root.light .dlm-sponsor { color: rgba(12,20,37,0.3); }
-  :root.light .dlm-later { color: rgba(12,20,37,0.3); }
-  :root.light .dlm-later:hover { color: rgba(12,20,37,0.6); }
+  /* Light-Pendant: 0.3 lag bei 1.98:1 auf Weiß; 0.6 ergibt ~4.8:1 (AA). */
+  :root.light .dlm-sponsor { color: rgba(12,20,37,0.6); }
+  :root.light .dlm-later { color: rgba(12,20,37,0.6); }
+  :root.light .dlm-later:hover { color: rgba(12,20,37,0.85); }
   :root.light .dlm-close { background: rgba(0,0,0,0.04); color: rgba(12,20,37,0.4); }
   :root.light .dlm-close:hover { background: rgba(0,0,0,0.08); color: #0c1425; }
 </style>
