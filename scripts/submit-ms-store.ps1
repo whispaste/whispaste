@@ -26,8 +26,15 @@
   apply-store-metadata.mjs: WhisPaste's account is on Pricing V2, and every
   attempt to write Pricing.PriceId through either API failed at commit with
   "Price Tier is not supported". The price stays a one-time manual step in
-  Partner Center → Pricing and availability; a submission created by this
-  script simply carries forward whatever price is already live.
+  Partner Center → Pricing and availability.
+  CORRECTION (2026-07-30): an earlier version of this script believed a
+  committed submission "simply carries forward whatever price is already
+  live" as long as `priceId` was set to null. That is false and caused a
+  real live price reset to Free — see the comment above the (now removed)
+  pricing block near "Update listings" for the full finding. `pricing` is
+  now passed through 100% untouched, and a manual live-price check after
+  every commit is mandatory (docs/store-release.md, release-windows-store
+  skill Phase 4).
 
   IMAGES (added 2026-07-29): despite docs/store-release.md's older claim that
   listing images aren't API-controllable, Microsoft's docs
@@ -362,22 +369,35 @@ foreach ($locale in $LOCALE_MAP.Values) {
   # is never touched anywhere in this script — see the header comment.
 }
 
-# The clone-from-last-published submission (above) echoes back a legacy
-# `pricing.priceId` value ("Base") for Pricing V2 / Advanced Pricing Model
-# accounts (WhisPaste's) that the API itself then rejects on PUT with
-# "'Base' is not a valid PriceId for base price" — even though this script
-# never sets or intends to change pricing. Omitting the whole `pricing`
-# property is NOT an option either — it's a required field, PUT then fails
-# with "Pricing data was not provided in the request". Verified live
-# 2026-07-29 (real submission, throwaway PUT/DELETE round-trip): setting
-# just `priceId` to explicit JSON null — keeping trialPeriod/
-# marketSpecificPricings/sales/isAdvancedPricingModel exactly as cloned —
-# is the one shape the API accepts. Leaves the live price untouched (same
-# guarantee as before, just the correct wire shape for a V2 account).
-if ($sub.PSObject.Properties.Match('pricing').Count -gt 0 -and
-    $sub.pricing.PSObject.Properties.Match('priceId').Count -gt 0) {
-  $sub.pricing.priceId = $null
-}
+# CORRECTED 2026-07-30 (the block this replaces was wrong and cost a real,
+# live price reset — do not restore it):
+#
+# The previous version set `pricing.priceId = $null` on every submission,
+# believing that was the one PUT-safe shape that "leaves the live price
+# untouched" for a Pricing V2 / Advanced Pricing Model account. It does NOT.
+# `pricing.isAdvancedPricingModel` is genuinely read-only — verified live
+# 2026-07-30 by PUTting it explicitly to `$true` on a real draft submission:
+# the PUT was accepted (no error), but a fresh GET immediately after read it
+# back as `false` again. The API silently ignores any write to that flag. A
+# committed submission whose clone carries `isAdvancedPricingModel: false`
+# (which every fresh draft does, regardless of the account's real live
+# state) therefore has no way to be told "use the real Advanced Pricing
+# schedule" — writing ANY `priceId`, including `null`, on top of that is
+# what forced the account into the legacy single-global-price interpretation
+# and reset the live price to Free/$0 on the last real submission.
+#
+# There is no known API-safe value for this field on a Pricing V2 account.
+# Per Microsoft's own docs (learn.microsoft.com/windows/uwp/monetize/
+# manage-app-submissions): "You can't use this API with apps or add-ons that
+# are on Pricing Version 2." Take that literally — `pricing` is passed
+# through 100% untouched from the clone, nothing here reads or writes it.
+#
+# CONSEQUENCE — mandatory manual step after EVERY commit, no exceptions:
+# verify the live price via the public DisplayCatalog API (or Partner
+# Center's "Preise und Verfügbarkeit" directly) and re-apply it manually if
+# it shows Free/$0. See docs/store-release.md §"Microsoft-Store-
+# Automatisierung" and the release-windows-store skill's Phase 4 checklist —
+# both now carry this as a required post-release check, not an optional one.
 
 # ── Replace application packages ──────────────────────────────────────────────
 # The API rejects a PUT that just swaps in a new package array — existing
