@@ -22,6 +22,7 @@ import '../../../widgets/tag_input.dart';
 import '../../../widgets/markdown_toolbar.dart';
 import '../../../widgets/toast.dart';
 import 'tag_management_dialog.dart';
+import '../../../core/utils/word_count.dart';
 
 /// Signature of the export-entries seam used by [HistoryDetailPanel].
 ///
@@ -246,10 +247,7 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
     final source = _isEditingTranscript
         ? _transcriptController.text
         : entry.content;
-    final words = source
-        .split(RegExp(r'\s+'))
-        .where((w) => w.isNotEmpty)
-        .length;
+    final words = computeWordCountFast(source);
     final readMinutes = (words / 200).ceil(); // ~200 wpm average
     final wordStr = l10n.historyWordCount(words);
     final timeStr = readMinutes < 1

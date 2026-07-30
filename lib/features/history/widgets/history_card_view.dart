@@ -11,6 +11,7 @@ import 'highlighted_text.dart';
 import 'history_date_header.dart';
 import 'history_helpers.dart';
 import 'history_row_action.dart';
+import '../../../core/utils/word_count.dart';
 
 // ---------------------------------------------------------------------------
 // Card view — responsive grid of entry cards
@@ -157,9 +158,7 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
   late IconData _avatarIcon = historyAvatarIcon(widget.entry);
 
   static int _computeWordCount(HistoryEntry entry) {
-    final t = entry.content.trim();
-    if (t.isEmpty) return 0;
-    return t.split(RegExp(r'\s+')).length;
+    return computeWordCountFast(entry.content);
   }
 
   @override
