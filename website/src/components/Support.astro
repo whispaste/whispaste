@@ -1,19 +1,46 @@
 ---
+import { Picture } from 'astro:assets';
 import { t } from '../scripts/i18n.ts';
 import { STORES } from '../data/platforms.ts';
+import heroDeviceDe from '../assets/hero-device/hero-device-clean-de.png';
+import heroDeviceEn from '../assets/hero-device/hero-device-clean-en.png';
 
 const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
 const msReviewUrl = STORES.windows.reviewUrl;
 const macosReviewUrl = STORES.macos.reviewUrl;
+const heroDevice = lang === 'en' ? heroDeviceEn : heroDeviceDe;
 ---
 <!-- Support Section -->
 <section id="support" class="py-16 sm:py-20 relative scroll-mt-20">
+  <!-- Atmospheric photo layer (dark theme only, pure background). Low opacity,
+       dissolved top and bottom into the page tone so it joins the band system
+       seamlessly. The centre zone (illustration + glass card) is re-darkened
+       by the veil's radial so the photo only reads in the section's outer
+       margins — the illustration never sits directly on photography (material
+       conflict), it keeps its own calm tonal ground. -->
+  <div class="support-photo" aria-hidden="true">
+    <Picture
+      src={heroDevice}
+      formats={['avif', 'webp']}
+      fallbackFormat="jpg"
+      widths={[768, 1280, 1920]}
+      sizes="100vw"
+      alt=""
+      loading="lazy"
+      decoding="async"
+      class="support-photo__img"
+    />
+    <div class="support-photo__veil"></div>
+  </div>
   <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(14,116,144,0.05)_0%,_transparent_50%)]"></div>
   <div class="relative max-w-4xl mx-auto px-6 scroll-reveal">
-    <div class="grid items-center gap-8 md:gap-10 md:grid-cols-[0.6fr_1fr]">
+    <div class="grid items-center gap-8 md:gap-10 md:grid-cols-[1fr_0.6fr]">
       <!-- Floating cut-out support motif (heart + voice waveform + star) integrated
-           beside the card — no boxed tile, soft brand halo. -->
-      <div class="illo-halo illo-float mx-auto md:mx-0 w-40 sm:w-48 md:w-full max-w-[14rem]">
+           beside the card — no boxed tile, soft brand halo. On md+ it moves to
+           the RIGHT column (md:order-2): the photo's device sits right of
+           centre (~62% focus axis), so the opaque card covers the photo's
+           empty left half while heart + laptop share the photogenic right. -->
+      <div class="illo-halo illo-float mx-auto md:mx-0 md:order-2 w-40 sm:w-48 md:w-full max-w-[14rem]">
         <img
           src="/illustrations/support-love.webp"
           alt={lang === 'en'
@@ -26,7 +53,7 @@ const macosReviewUrl = STORES.macos.reviewUrl;
           class="block w-full h-auto"
         />
       </div>
-      <div class="p-8 sm:p-10 rounded-3xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm text-center">
+      <div class="md:order-1 p-8 sm:p-10 rounded-3xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm text-center">
       <h2 class="text-2xl sm:text-3xl font-bold text-ink" data-i18n="support.title">{t(lang, "support.title")}</h2>
       <p class="mt-4 text-ink-muted text-sm sm:text-base max-w-md mx-auto" data-i18n="support.desc">{t(lang, "support.desc")}</p>
       <div class="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
@@ -73,3 +100,56 @@ const macosReviewUrl = STORES.macos.reviewUrl;
     </div>
   </div>
 </section>
+
+<style>
+  /* Atmospheric photo background for the support section — dark theme only.
+   * Deliberately quieter than the download-page header band (~35% opacity):
+   * here the photo is atmosphere, not message. The veil dissolves it into
+   * the page tone (brand-darker) at the top and bottom edges (seamless with
+   * the testimonial band above and the footer below) and re-darkens the
+   * centre so the illustration + glass card keep an almost-solid tonal
+   * ground — the photo stays in the margins, never directly behind the
+   * illustration (two visual languages must not stack). Static, no parallax. */
+  .support-photo {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .support-photo :global(.support-photo__img) {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    /* 62% horizontal focus axis of the approved render (laptop right of
+       centre) — keeps the device visible when narrow viewports crop. */
+    object-position: 62% 42%;
+    opacity: 0.35;
+    filter: saturate(0.7);
+  }
+  .support-photo__veil {
+    position: absolute;
+    inset: 0;
+    /* Calm zone sits over the LEFT half, under the content card (the photo's
+       own quiet area); the right stays lighter so the device and the heart
+       motif share the visible photo side. */
+    background:
+      radial-gradient(
+        ellipse 58% 85% at 30% 52%,
+        rgba(19, 24, 38, 0.8) 0%,
+        rgba(19, 24, 38, 0.45) 55%,
+        rgba(19, 24, 38, 0) 100%
+      ),
+      linear-gradient(
+        180deg,
+        #131826 0%,
+        rgba(19, 24, 38, 0) 28%,
+        rgba(19, 24, 38, 0) 72%,
+        #131826 100%
+      );
+  }
+  :global(html.light) .support-photo {
+    display: none;
+  }
+</style>
