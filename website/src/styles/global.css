@@ -715,13 +715,19 @@ html.light .sponsor-card:hover {
 }
 .feature-card,
 .pricing-card,
-.faq-item {
+.faq-item,
+.download-card,
+.release-card,
+.sponsor-card {
   animation: wp-border-breathe 8s ease-in-out infinite;
 }
 @media (prefers-reduced-motion: reduce) {
   .feature-card,
   .pricing-card,
-  .faq-item {
+  .faq-item,
+  .download-card,
+  .release-card,
+  .sponsor-card {
     animation: none;
   }
 }
