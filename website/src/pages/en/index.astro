@@ -2,7 +2,7 @@
 import Layout from "../../layouts/Layout.astro";
 import Nav from "../../components/Nav.astro";
 import Hero from "../../components/Hero.astro";
-import WorkflowSelector from "../../components/WorkflowSelector.astro";
+import UseCaseCards from "../../components/UseCaseCards.astro";
 import MarketingMoment from "../../components/MarketingMoment.astro";
 import AppPasteDemo from "../../components/AppPasteDemo.astro";
 import SpeedComparison from "../../components/SpeedComparison.astro";
@@ -44,11 +44,11 @@ const faqKeys = [
   <main id="main-content">
     {/* Section order mirrors `pages/index.astro` (band rhythm + rationale
         documented there): AppPasteDemo is the single explanation arc for the
-        hotkey→speak→text mechanic, WorkflowSelector/MarketingMoment follow as
+        hotkey→speak→text mechanic, UseCaseCards/MarketingMoment follow as
         standalone blocks, Testimonials (social proof) before the Support ask. */}
     <Hero />
     <AppPasteDemo />
-    <WorkflowSelector />
+    <UseCaseCards />
     <MarketingMoment />
     <SpeedComparison />
     <Engines />

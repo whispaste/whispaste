@@ -1,28 +1,28 @@
 import { expect, test } from '@playwright/test';
 
-test.describe('WorkflowSelector', () => {
+test.describe('UseCaseCards', () => {
   test('section is present on DE landing page with 3 cards', async ({ page }) => {
     await page.goto('/');
-    const section = page.locator('#workflow-selector');
+    const section = page.locator('#use-cases');
     await section.scrollIntoViewIfNeeded();
     await expect(section).toBeVisible();
-    const cards = section.locator('a.workflow-card');
+    const cards = section.locator('a.use-case-card');
     await expect(cards).toHaveCount(3);
   });
 
   test('section is present on EN landing page with 3 cards', async ({ page }) => {
     await page.goto('/en/');
-    const section = page.locator('#workflow-selector');
+    const section = page.locator('#use-cases');
     await section.scrollIntoViewIfNeeded();
     await expect(section).toBeVisible();
-    const cards = section.locator('a.workflow-card');
+    const cards = section.locator('a.use-case-card');
     await expect(cards).toHaveCount(3);
   });
 
   test('DE cards link to /use-cases/... slugs (not /en/use-cases/)', async ({ page }) => {
     await page.goto('/');
-    const section = page.locator('#workflow-selector');
-    const cards = section.locator('a.workflow-card');
+    const section = page.locator('#use-cases');
+    const cards = section.locator('a.use-case-card');
 
     const hrefs = await cards.evaluateAll((els) =>
       els.map((el) => (el as HTMLAnchorElement).getAttribute('href') ?? ''),
@@ -41,8 +41,8 @@ test.describe('WorkflowSelector', () => {
 
   test('EN cards link to /en/use-cases/... slugs', async ({ page }) => {
     await page.goto('/en/');
-    const section = page.locator('#workflow-selector');
-    const cards = section.locator('a.workflow-card');
+    const section = page.locator('#use-cases');
+    const cards = section.locator('a.use-case-card');
 
     const hrefs = await cards.evaluateAll((els) =>
       els.map((el) => (el as HTMLAnchorElement).getAttribute('href') ?? ''),
@@ -60,8 +60,8 @@ test.describe('WorkflowSelector', () => {
 
   test('cards are natively keyboard-focusable (anchor elements with href)', async ({ page }) => {
     await page.goto('/');
-    const section = page.locator('#workflow-selector');
-    const cards = section.locator('a.workflow-card');
+    const section = page.locator('#use-cases');
+    const cards = section.locator('a.use-case-card');
 
     // All cards must be <a> elements with an href — natively in tab order
     const tagNames = await cards.evaluateAll((els) =>
@@ -81,10 +81,10 @@ test.describe('WorkflowSelector', () => {
 
   test('first card receives focus and shows a visible focus ring', async ({ page }) => {
     await page.goto('/');
-    const section = page.locator('#workflow-selector');
+    const section = page.locator('#use-cases');
     await section.scrollIntoViewIfNeeded();
 
-    const firstCard = section.locator('a.workflow-card').first();
+    const firstCard = section.locator('a.use-case-card').first();
 
     // Programmatic focus — in Chromium this activates :focus-visible
     await firstCard.focus();
@@ -102,10 +102,10 @@ test.describe('WorkflowSelector', () => {
 
   test('all three cards are focusable in DOM order via Tab', async ({ page }) => {
     await page.goto('/');
-    const section = page.locator('#workflow-selector');
+    const section = page.locator('#use-cases');
     await section.scrollIntoViewIfNeeded();
 
-    const cards = section.locator('a.workflow-card');
+    const cards = section.locator('a.use-case-card');
     const firstCard = cards.nth(0);
     const secondCard = cards.nth(1);
     const thirdCard = cards.nth(2);
@@ -123,7 +123,7 @@ test.describe('WorkflowSelector', () => {
 
   test('cards have aria-label attributes', async ({ page }) => {
     await page.goto('/');
-    const cards = page.locator('#workflow-selector a.workflow-card');
+    const cards = page.locator('#use-cases a.use-case-card');
 
     const ariaLabels = await cards.evaluateAll((els) =>
       els.map((el) => el.getAttribute('aria-label') ?? ''),
@@ -138,10 +138,10 @@ test.describe('WorkflowSelector', () => {
 
     // Verify DOM order: #app-paste-demo (the single mechanic explanation —
     // the former #how-it-works section was removed) appears before
-    // #workflow-selector.
+    // #use-cases.
     const order = await page.evaluate(() => {
       const demo = document.querySelector('#app-paste-demo');
-      const selector = document.querySelector('#workflow-selector');
+      const selector = document.querySelector('#use-cases');
       if (!demo || !selector) return null;
       const pos = demo.compareDocumentPosition(selector);
       // DOCUMENT_POSITION_FOLLOWING = 4

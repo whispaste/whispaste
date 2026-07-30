@@ -5,7 +5,7 @@
  * zugleich die Breadcrumb-Lücke: die Detailseiten verlinken ihren mittleren
  * Krümel auf `/use-cases/` — ohne diese Index-Seite lief der Link ins 404.
  *
- * Card-Texte werden aus den vorhandenen `workflowSelector.*`-Keys
+ * Card-Texte werden aus den vorhandenen `useCaseCards.*`-Keys
  * wiederverwendet (Single Source — kein Copy-Duplikat zur Startseiten-Sektion).
  */
 import LandingPageLayout from "../../layouts/LandingPageLayout.astro";
@@ -50,8 +50,8 @@ const cards = [
   <div class="uc-hub-grid">
     {cards.map(({ key, href }) => (
       <a href={href} class="uc-hub-card">
-        <h2>{t(lang, `workflowSelector.${key}.title`)}</h2>
-        <p>{t(lang, `workflowSelector.${key}.desc`)}</p>
+        <h2>{t(lang, `useCaseCards.${key}.title`)}</h2>
+        <p>{t(lang, `useCaseCards.${key}.desc`)}</p>
         <span class="uc-hub-arrow">{t(lang, "useCaseHub.cardCta")} →</span>
       </a>
     ))}

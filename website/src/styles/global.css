@@ -206,7 +206,7 @@ html.light .text-gradient-brand {
   background: var(--color-brand-darker);
 }
 /* raised = a half-step-elevated surface with a faint cyan-tinted top lift and
-   a hairline divider, so the band edge is legible. WorkflowSelector,
+   a hairline divider, so the band edge is legible. UseCaseCards,
    SpeedComparison, Pricing, FAQ. */
 .band-raised {
   background: linear-gradient(
