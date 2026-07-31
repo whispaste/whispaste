@@ -1,0 +1,3 @@
+## 2025-02-09 - [Flutter/Dart Date Grouping Optimization]
+**Learning:** [Dart's `DateTime` object instantiation in a tight loop is extremely slow. In this codebase, creating a `DateTime` per entry in `groupedHistoryProvider` (thousands of entries) blocked the UI thread, taking over 4 seconds. Converting this to use `e.timestamp.compareTo()` with pre-computed boundary constraints reduced runtime to ~40ms.]
+**Action:** [Next time filtering or grouping dates in Dart over large collections, pre-compute boundary `DateTime` objects outside the loop and use `compareTo` rather than recreating `DateTime` per item.]

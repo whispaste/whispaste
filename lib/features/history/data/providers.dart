@@ -200,12 +200,11 @@ final searchCountsProvider = FutureProvider<Map<HistoryFilter, int>?>((
 
   return {
     HistoryFilter.all: activeCount,
-    HistoryFilter.today: activeMatched.where((e) {
-      final d = DateTime(e.timestamp.year, e.timestamp.month, e.timestamp.day);
-      return d == today;
-    }).length,
+    HistoryFilter.today: activeMatched
+        .where((e) => e.timestamp.compareTo(today) >= 0)
+        .length,
     HistoryFilter.week: activeMatched
-        .where((e) => e.timestamp.isAfter(weekAgo))
+        .where((e) => e.timestamp.compareTo(weekAgo) >= 0)
         .length,
     HistoryFilter.pinned: activeMatched.where((e) => e.pinned).length,
     HistoryFilter.archived: archivedCount,
@@ -255,17 +254,12 @@ List<HistoryEntry> _applyFilter(
   final now = DateTime.now();
   switch (filter) {
     case HistoryFilter.today:
-      return entries
-          .where(
-            (e) =>
-                e.timestamp.year == now.year &&
-                e.timestamp.month == now.month &&
-                e.timestamp.day == now.day,
-          )
-          .toList();
+      final today = DateTime(now.year, now.month, now.day);
+      return entries.where((e) => e.timestamp.compareTo(today) >= 0).toList();
     case HistoryFilter.week:
-      final weekAgo = now.subtract(const Duration(days: 7));
-      return entries.where((e) => e.timestamp.isAfter(weekAgo)).toList();
+      final today = DateTime(now.year, now.month, now.day);
+      final weekAgo = today.subtract(const Duration(days: 7));
+      return entries.where((e) => e.timestamp.compareTo(weekAgo) >= 0).toList();
     case HistoryFilter.pinned:
       return entries.where((e) => e.pinned).toList();
     case HistoryFilter.all:
@@ -305,12 +299,12 @@ final groupedHistoryProvider = Provider<AsyncValue<List<DateGroup>>>((ref) {
     final olderEntries = <HistoryEntry>[];
 
     for (final e in entries) {
-      final d = DateTime(e.timestamp.year, e.timestamp.month, e.timestamp.day);
-      if (d == today) {
+      final t = e.timestamp;
+      if (t.compareTo(today) >= 0) {
         todayEntries.add(e);
-      } else if (d == yesterday) {
+      } else if (t.compareTo(yesterday) >= 0) {
         yesterdayEntries.add(e);
-      } else if (d.isAfter(weekAgo)) {
+      } else if (t.compareTo(weekAgo) >= 0) {
         weekEntries.add(e);
       } else {
         olderEntries.add(e);
