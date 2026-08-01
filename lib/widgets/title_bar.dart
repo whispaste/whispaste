@@ -52,6 +52,7 @@ class WpTitleBar extends StatelessWidget {
               isDark: isDark,
               semanticLabel: 'Minimize window',
             ),
+            // loam-ignore: a11y-interactive-semantics – semantics provided in _MaximizeButton.build
             _MaximizeButton(isDark: isDark),
             // loam-ignore: a11y-interactive-semantics – semantics provided in _WindowButton.build
             _WindowButton(
@@ -164,9 +165,12 @@ class _MaximizeButtonState extends State<_MaximizeButton> {
         ? WpColorsDark.textSecondary
         : WpColorsLight.textSecondary;
 
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _isHovered = true),
+    return Semantics(
+      label: _isMaximized ? 'Restore window' : 'Maximize window',
+      button: true,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: GestureDetector(
         onTap: () async {
@@ -198,7 +202,7 @@ class _MaximizeButtonState extends State<_MaximizeButton> {
           ),
         ),
       ),
-    );
+    ));
   }
 }
 
