@@ -2,9 +2,14 @@
 
 ## 1.2.66
 
+### Bug Fixes
+
+- **Der Maximieren-Knopf in der Titelleiste (Windows/Linux) hatte keine Beschriftung für Screenreader** — er kündigt jetzt je nach Fensterzustand „Fenster maximieren" oder „Fenster wiederherstellen" an, statt stumm zu bleiben.
+
 ### Maintenance
 
 - Interne Store-Compliance-Korrektur (Mac App Store): die Mehrfachinstanz-Erkennung lief bislang über einen lokalen Netzwerk-Socket, wofür Apple ein dafür nötiges Sandbox-Recht (`network.server`) beim App Review als unbegründet ablehnte. Sie läuft jetzt stattdessen über eine Datei-Sperre, ganz ohne Netzwerk. Zwei weitere, ungenutzte Sandbox-Rechte (`cs.allow-jit`, `files.user-selected.read-write`) wurden bei der Gelegenheit ebenfalls entfernt, und das Datenschutz-Manifest wurde um die bereits an anderer Stelle veröffentlichte Angabe zu optionalen Cloud-Spracherkennungs-Audiodaten ergänzt.
+- Spürbar flüssigere Verlaufsliste bei tausenden Einträgen (unnötige Objekt-Allokationen beim Datums-Gruppieren entfernt) und ein ruckelfreieres Aufnahme-Overlay (Wellenform rendert jetzt in einer eigenen Compositing-Ebene).
 
 ## 1.2.65
 
