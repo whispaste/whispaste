@@ -101,8 +101,27 @@ foreach ($locale in $managedLocales) {
 }
 
 # ── 3. Live price vs. Free/€0 ────────────────────────────────────────────────
+# Two independent, NEITHER fully authoritative, signals — checked via search
+# (2026-07-30) for a real read API for "Preise und Verfügbarkeit": Microsoft's
+# "Product Ingestion API" looked promising but only covers Azure Marketplace
+# offers (VMs/SaaS/etc.), not regular Windows Store consumer apps like this
+# one. No documented read-only API exists for Pricing V2's actual served
+# price. Partner Center's own "Preise und Verfügbarkeit" page remains the
+# only ground truth — a human must confirm it there before trusting either
+# signal below.
 Write-Host ""
-Write-Host ":: Check 3/3 — live price (public DisplayCatalog, may lag a real fix — not authoritative)"
+Write-Host ":: Check 3/3 — price signals (both are cross-checks, NEITHER is ground truth — verify in Partner Center 'Preise und Verfügbarkeit' directly)"
+try {
+  $priceIdSignal = $sub.pricing.priceId
+  if ($priceIdSignal -eq 'Free' -or [string]::IsNullOrEmpty($priceIdSignal)) {
+    $problems += "Classic Submission API's pricing.priceId reads '$priceIdSignal' on the last published submission — weak signal, but worth a manual check"
+    Write-Warning "   pricing.priceId (legacy, weak signal): '$priceIdSignal'"
+  } else {
+    Write-Host "   pricing.priceId (legacy, weak signal): '$priceIdSignal'"
+  }
+} catch {
+  Write-Host "   pricing.priceId: not readable ($($_.Exception.Message))"
+}
 foreach ($market in $Markets) {
   try {
     $cat = Invoke-RestMethod -Uri "https://displaycatalog.mp.microsoft.com/v7.0/products/$AppId`?market=$market&languages=en-us&MS-CV=1" -Method Get
