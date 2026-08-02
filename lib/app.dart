@@ -537,7 +537,7 @@ class _AppShellState extends ConsumerState<_AppShell>
   /// The mic pendant to [_showForcedRestartModal]: the grant is on disk but
   /// this process demonstrably still can't capture, so relaunch. Releases
   /// the single-instance lock FIRST — the fresh process must be able to
-  /// claim the port, exactly like the Auto-Paste restart path (see
+  /// claim it, exactly like the Auto-Paste restart path (see
   /// [PasteCapabilityNotifier.markRestartAttempted]).
   Future<void> _showMicGateRestartAlert() async {
     if (!Platform.isMacOS || !mounted) return;

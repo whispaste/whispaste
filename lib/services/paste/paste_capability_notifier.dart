@@ -430,12 +430,12 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
   /// restart-required alert's confirm both spawn a genuinely new process
   /// while this one is still alive (it only terminates ~150ms later, or after
   /// the user confirms an alert). If this process still held
-  /// [SingleInstanceService]'s port, the fresh process would find it taken,
+  /// [SingleInstanceService]'s lock, the fresh process would find it taken,
   /// conclude it's a duplicate launch, and exit itself — the old process then
   /// quits on schedule too, so the app closes entirely instead of restarting
   /// (observed live: the native "restart now" alert fired, but the app just
   /// disappeared with no replacement window/Dock entry). Awaited here so the
-  /// port is guaranteed free before the caller hands off to the native side.
+  /// lock is guaranteed released before the caller hands off to the native side.
   Future<void> markRestartAttempted() async {
     if (!state.restartAttempted) {
       state = state.copyWith(restartAttempted: true);
