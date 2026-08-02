@@ -53,6 +53,27 @@
         <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
       </array>
     </dict>
+    <dict>
+      <!-- Opt-in only: sent exclusively when the user configures their own
+           OpenAI or Deepgram API key under Settings → Cloud Providers
+           (OpenAiTranscriber/DeepgramTranscriber post the recorded WAV
+           bytes to api.openai.com / api.deepgram.com for transcription).
+           On-device Whisper/Parakeet transcription — the default — never
+           sends audio anywhere. Not linked to a WhisPaste user identity
+           (no account system); not used for tracking. Matches the App Store
+           Connect privacy nutrition label already published for this app
+           (see docs/store-release.md). -->
+      <key>NSPrivacyCollectedDataType</key>
+      <string>NSPrivacyCollectedDataTypeAudioData</string>
+      <key>NSPrivacyCollectedDataTypeLinked</key>
+      <false/>
+      <key>NSPrivacyCollectedDataTypeTracking</key>
+      <false/>
+      <key>NSPrivacyCollectedDataTypePurposes</key>
+      <array>
+        <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+      </array>
+    </dict>
   </array>
   <key>NSPrivacyAccessedAPITypes</key>
   <array>
