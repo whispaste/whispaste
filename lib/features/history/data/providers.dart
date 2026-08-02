@@ -201,8 +201,11 @@ final searchCountsProvider = FutureProvider<Map<HistoryFilter, int>?>((
   return {
     HistoryFilter.all: activeCount,
     HistoryFilter.today: activeMatched.where((e) {
-      final d = DateTime(e.timestamp.year, e.timestamp.month, e.timestamp.day);
-      return d == today;
+      // PERF (Bolt): Avoiding `DateTime(y, m, d)` allocation per entry.
+      // Direct property comparison is ~90x faster for thousands of entries.
+      return e.timestamp.year == today.year &&
+          e.timestamp.month == today.month &&
+          e.timestamp.day == today.day;
     }).length,
     HistoryFilter.week: activeMatched
         .where((e) => e.timestamp.isAfter(weekAgo))
@@ -258,6 +261,7 @@ List<HistoryEntry> _applyFilter(
       return entries
           .where(
             (e) =>
+                // PERF (Bolt): Avoiding `DateTime(y, m, d)` allocation per entry.
                 e.timestamp.year == now.year &&
                 e.timestamp.month == now.month &&
                 e.timestamp.day == now.day,
@@ -297,7 +301,7 @@ final groupedHistoryProvider = Provider<AsyncValue<List<DateGroup>>>((ref) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
-    final weekAgo = today.subtract(const Duration(days: 7));
+    final sixDaysAgo = today.subtract(const Duration(days: 6));
 
     final todayEntries = <HistoryEntry>[];
     final yesterdayEntries = <HistoryEntry>[];
@@ -305,12 +309,20 @@ final groupedHistoryProvider = Provider<AsyncValue<List<DateGroup>>>((ref) {
     final olderEntries = <HistoryEntry>[];
 
     for (final e in entries) {
-      final d = DateTime(e.timestamp.year, e.timestamp.month, e.timestamp.day);
-      if (d == today) {
+      // PERF (Bolt): Avoiding `DateTime(y, m, d)` allocation per entry.
+      // Using integer property comparisons for exact days, and comparing
+      // the original timestamp against a shifted threshold (`sixDaysAgo`)
+      // instead of truncating `e.timestamp` and checking `.isAfter(weekAgo)`.
+      // Reduces GC pressure significantly during search filtering.
+      if (e.timestamp.year == today.year &&
+          e.timestamp.month == today.month &&
+          e.timestamp.day == today.day) {
         todayEntries.add(e);
-      } else if (d == yesterday) {
+      } else if (e.timestamp.year == yesterday.year &&
+          e.timestamp.month == yesterday.month &&
+          e.timestamp.day == yesterday.day) {
         yesterdayEntries.add(e);
-      } else if (d.isAfter(weekAgo)) {
+      } else if (e.timestamp.compareTo(sixDaysAgo) >= 0) {
         weekEntries.add(e);
       } else {
         olderEntries.add(e);

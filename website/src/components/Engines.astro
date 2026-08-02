@@ -108,6 +108,13 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     will-change: transform;
+    /* Vorher sprang der Hover-Zustand ohne Übergang an (Lokaldefekt) —
+       jetzt fließt der Lift auf der gemeinsamen Flow-Kurve. */
+    transition:
+      transform 0.35s var(--ease-flow),
+      box-shadow 0.35s var(--ease-flow),
+      border-color 0.35s var(--ease-flow),
+      background 0.35s var(--ease-flow);
   }
   .feature-card:hover {
     background: linear-gradient(135deg, rgba(29, 37, 56, 0.7) 0%, rgba(56, 217, 240, 0.03) 100%);
@@ -131,7 +138,15 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
   :global(.light) .feature-card:hover {
     box-shadow: 0 10px 30px rgba(15, 23, 42, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.6);
   }
+  /* Der bright-cyan Hover-Sheen (56,217,240) verschwindet auf Weiß —
+     Light bekommt dieselbe Lichtkante im tiefen Light-Akzent. */
+  :global(.light) .feature-card::after {
+    background: linear-gradient(90deg, transparent, rgba(10, 110, 148, 0.5), transparent);
+  }
   @media (prefers-reduced-motion: reduce) {
+    .feature-card {
+      transition: none;
+    }
     .feature-card:hover {
       transform: none;
     }

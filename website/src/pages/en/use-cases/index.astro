@@ -2,7 +2,7 @@
 /**
  * `/en/use-cases/` — English mirror of the use-case hub. Bundles the use-case
  * detail pages and closes the breadcrumb gap (detail pages link their middle
- * crumb to `/en/use-cases/`). Card copy reuses the `workflowSelector.*` keys.
+ * crumb to `/en/use-cases/`). Card copy reuses the `useCaseCards.*` keys.
  */
 import LandingPageLayout from "../../../layouts/LandingPageLayout.astro";
 import { t, localePath } from "../../../scripts/i18n.ts";
@@ -46,8 +46,8 @@ const cards = [
   <div class="uc-hub-grid">
     {cards.map(({ key, href }) => (
       <a href={href} class="uc-hub-card">
-        <h2>{t(lang, `workflowSelector.${key}.title`)}</h2>
-        <p>{t(lang, `workflowSelector.${key}.desc`)}</p>
+        <h2>{t(lang, `useCaseCards.${key}.title`)}</h2>
+        <p>{t(lang, `useCaseCards.${key}.desc`)}</p>
         <span class="uc-hub-arrow">{t(lang, "useCaseHub.cardCta")} →</span>
       </a>
     ))}

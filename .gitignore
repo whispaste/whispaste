@@ -131,6 +131,7 @@ scripts/*
 !scripts/cppcheck.ps1
 !scripts/install-hooks.sh
 !scripts/submit-ms-store.ps1
+!scripts/verify-ms-store-listing.ps1
 !scripts/generate-whisper-server-manifest.sh
 !scripts/docs-attest.sh
 !scripts/docs-drift.sh

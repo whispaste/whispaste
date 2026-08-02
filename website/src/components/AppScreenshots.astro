@@ -161,7 +161,10 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
   .teaser-pair::before {
     content: "";
     position: absolute;
-    inset: -10% -6% -14%;
+    /* Horizontal kein Bleed (0 statt -6%): der Glow lief bei breiten-
+       gedeckelten Viewports (768/1024px) über den Seitenrand und erzeugte
+       19-35px scrollWidth-Overflow — Verstoß gegen die No-H-Scroll-Regel. */
+    inset: -10% 0 -14%;
     z-index: -1;
     pointer-events: none;
     background: radial-gradient(
@@ -211,8 +214,8 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
       0 28px 70px rgba(0, 0, 0, 0.45),
       0 0 0 1px rgba(56, 217, 240, 0.08);
     transition:
-      transform 0.4s cubic-bezier(0.22, 1, 0.36, 1),
-      box-shadow 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+      transform 0.4s var(--ease-flow),
+      box-shadow 0.4s var(--ease-flow);
   }
 
   .teaser-thumb-btn:hover .teaser-img,
@@ -252,7 +255,7 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
     flex-direction: column;
     align-items: center;
     width: 100%;
-    transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+    transition: transform 0.4s var(--ease-flow);
   }
   .mbp:hover,
   .mbp:focus-within {

@@ -15,6 +15,7 @@
 - **App:** macOS, Windows, Ubuntu Linux — drei gleichrangige Desktop-Plattformen (Linux-Ziel: Binär-Parität via AppImage). Kein iOS/Android.
 - **Website** (`website/`) ≠ App: muss voll mobil-responsive sein (ab 390px) — „Mobile nicht geplant" gilt nur für die App.
 - **Nordstern:** OSS-Marktführer für systemweites Desktop-Diktat (macOS/Windows/Linux). Jede Produkt-/Design-/Copy-Entscheidung zahlt darauf ein.
+- **Formsprache spiegelt Philosophie:** Die Liquid-Glass-Optik des Aufnahme-Overlays (weiche Silhouette, kontinuierliche Bewegung, keine harten Zustandswechsel) ist die bewusste visuelle Übersetzung des Kernprinzips „Schreibfluss schlägt Funktion" (`docs/zielgruppe.md`): Der Gedanke fließt ohne Bruch in den Text, und die Oberfläche zeigt diesen Fluss. Design- und Copy-Entscheidungen halten diese Klammer aus Optik und Produktphilosophie zusammen, statt sie unabhängig voneinander zu treffen.
 
 ### WhisPaste ist explizit nicht …
 
@@ -190,6 +191,10 @@ Nicht zu verwechseln mit: Supabase-Server (PostgREST, Feedback-Backend), WebSock
 > Wer wir sind und für wen wir bauen. Bei jeder Design-, UI- und Feature-Entscheidung
 > ist diese Datei der erste Bezugspunkt. Im Konflikt zwischen „mehr Funktion" und
 > „weniger Reibung im Schreibfluss" gewinnt immer der Schreibfluss.
+> Die Liquid-Glass-Optik des Aufnahme-Overlays ist die sichtbare Form dieses
+> Prinzips: weiche Übergänge und kontinuierliche Bewegung statt harter
+> Zustandswechsel — der Gedanke fließt ohne Bruch in den Text, und die
+> Oberfläche zeigt genau das.
 
 ## Zielgruppe
 
@@ -236,7 +241,9 @@ dort einfügt, wo der Cursor steht — egal in welcher App.
 - **Verlässlicher globaler Hotkey**, frei konfigurierbar, mit Konflikt­erkennung
   gegen System-Shortcuts — Push-to-talk oder Toggle.
 - **Sichtbares, unaufdringliches Feedback**: schlanker Aufnahme-Overlay mit
-  Live-Wellenform, Statusbar-Indikator, optionaler Floating-Button.
+  Live-Wellenform, Statusbar-Indikator, optionaler Floating-Button. Die fluide
+  Glas-Optik des Overlays ist kein Schmuck, sondern spiegelt den Schreibfluss
+  selbst: keine harten Zustandswechsel, keine abrupten Sprünge.
 - **Hohe Treffsicherheit auch bei Eigennamen, Akronymen und Fach­begriffen** —
   konfigurierbares Modell, Text-Replacements für wiederkehrende Korrekturen.
 - **Verlauf mit Suche** — was wurde wann gesagt, neu kopieren oder als TXT/MD/

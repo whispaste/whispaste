@@ -61,4 +61,30 @@ const faqs = [
   .faq-item summary::marker {
     content: '';
   }
+
+  /* Fließendes Öffnen — die Antwort gleitet auf statt zu springen (das
+     Flow-Prinzip als Interaktion: kein harter Zustandsschnitt). Progressive
+     Enhancement: Browser ohne details-content-Pseudo bzw. interpolate-size
+     öffnen wie bisher instantan — kein Regressionsrisiko. */
+  .faq-item {
+    interpolate-size: allow-keywords;
+  }
+  .faq-item::details-content {
+    opacity: 0;
+    block-size: 0;
+    overflow-y: clip;
+    transition:
+      content-visibility 0.42s allow-discrete,
+      opacity 0.42s var(--ease-flow),
+      block-size 0.42s var(--ease-flow);
+  }
+  .faq-item[open]::details-content {
+    opacity: 1;
+    block-size: auto;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .faq-item::details-content {
+      transition: none;
+    }
+  }
 </style>

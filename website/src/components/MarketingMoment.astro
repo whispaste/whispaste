@@ -61,8 +61,8 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
     border: 1px solid rgba(255, 255, 255, 0.08);
     box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(56, 217, 240, 0.08);
     transition:
-      transform 0.45s cubic-bezier(0.22, 1, 0.36, 1),
-      box-shadow 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+      transform 0.45s var(--ease-flow),
+      box-shadow 0.45s var(--ease-flow);
     will-change: transform;
   }
   /* Micro-delight: the illustration tile lifts and the brand-cyan halo

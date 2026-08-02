@@ -34,3 +34,25 @@ HOW TO TEST
 
 No account, sign-in, or demo credentials are required — the app works fully
 offline out of the box.
+
+RESUBMISSION NOTE (previous rejection: unjustified network.server entitlement)
+The previous submission (1.2.64) was rejected because it declared the
+com.apple.security.network.server sandbox entitlement with no matching
+functionality. That entitlement was a leftover from an earlier build
+architecture that ran on-device transcription through a local HTTP server
+subprocess; that subprocess was removed and replaced by an in-process engine
+some time ago, but the entitlement itself was never cleaned up. The only
+remaining code path that had used it was our single-instance-detection
+mechanism (preventing two copies of the app from running at once), which
+briefly bound a loopback TCP socket purely to detect whether another
+instance was already running.
+
+This build removes that entitlement: single-instance detection has been
+reimplemented using a local file lock instead of a network socket, so no
+network-server functionality is needed at all. We also found and removed
+two other entitlements that were present but unused — cs.allow-jit (a
+leftover from our debug build configuration) and
+files.user-selected.read-write (no file picker/save dialog exists in the
+app). The app now requests only app-sandbox, device.audio-input, and
+network.client — the minimum needed for microphone capture and outbound
+HTTPS calls to the optional cloud transcription providers described above.

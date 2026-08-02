@@ -79,15 +79,42 @@ function escapeHtml(s: string): string {
 
 <style>
   .testimonial-card {
+    position: relative;
     background: linear-gradient(135deg, rgba(29, 37, 56, 0.6) 0%, rgba(23, 29, 44, 0.3) 100%);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 1rem;
     padding: 1.5rem;
-    transition: border-color 0.2s, transform 0.2s;
+    transition: border-color 0.3s var(--ease-flow), transform 0.3s var(--ease-flow);
   }
   .testimonial-card:hover {
     border-color: rgba(56, 217, 240, 0.2);
     transform: translateY(-2px);
+  }
+  /* Lit-edge-Sheen auf Hover — dieselbe obere Lichtkante wie feature-card
+     und use-case-card, damit die Kartenfamilie eine gemeinsame Hover-Sprache
+     spricht (Glas fängt Licht, wenn man sich ihm nähert). */
+  .testimonial-card::after {
+    content: '';
+    position: absolute;
+    inset-inline: 1.25rem;
+    top: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(56, 217, 240, 0.55), transparent);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+  }
+  .testimonial-card:hover::after {
+    opacity: 1;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .testimonial-card,
+    .testimonial-card::after {
+      transition: none;
+    }
+    .testimonial-card:hover {
+      transform: none;
+    }
   }
   .testimonial-stars {
     color: #FBBF24;
@@ -107,7 +134,11 @@ function escapeHtml(s: string): string {
     border-color: rgba(0, 0, 0, 0.08);
   }
   :root.light .testimonial-card:hover {
-    border-color: rgba(8, 145, 178, 0.3);
+    border-color: rgba(10, 110, 148, 0.4);
+  }
+  /* Hover-Lichtkante in Light im tiefen Akzent statt unsichtbarem Bright-Cyan. */
+  :root.light .testimonial-card::after {
+    background: linear-gradient(90deg, transparent, rgba(10, 110, 148, 0.5), transparent);
   }
   :root.light .testimonial-text {
     color: rgba(0, 0, 0, 0.6);

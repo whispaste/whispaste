@@ -26,16 +26,16 @@ const workflows = [
 ] as const;
 ---
 
-<!-- WorkflowSelector Section — Zielgruppen-Einstieg nach "How it works" -->
-<section id="workflow-selector" class="band band-raised py-24 sm:py-32 relative scroll-mt-20">
+<!-- UseCaseCards Section — Zielgruppen-Einstieg nach "How it works" -->
+<section id="use-cases" class="band band-raised py-24 sm:py-32 relative scroll-mt-20">
   <div class="relative max-w-5xl mx-auto px-6">
     <div class="text-center mb-14 scroll-reveal">
       <p class="text-brand-cyan text-sm font-semibold tracking-wider uppercase mb-3"
-         data-i18n="workflowSelector.label">{t(lang, 'workflowSelector.label')}</p>
+         data-i18n="useCaseCards.label">{t(lang, 'useCaseCards.label')}</p>
       <h2 class="section-title">
-        <span data-i18n="workflowSelector.titleLead">{t(lang, 'workflowSelector.titleLead')}</span><!--
-        --><span class="text-gradient-brand" data-i18n="workflowSelector.titleAccent">{t(lang, 'workflowSelector.titleAccent')}</span><!--
-        --><span data-i18n="workflowSelector.titleTail">{t(lang, 'workflowSelector.titleTail')}</span>
+        <span data-i18n="useCaseCards.titleLead">{t(lang, 'useCaseCards.titleLead')}</span><!--
+        --><span class="text-gradient-brand" data-i18n="useCaseCards.titleAccent">{t(lang, 'useCaseCards.titleAccent')}</span><!--
+        --><span data-i18n="useCaseCards.titleTail">{t(lang, 'useCaseCards.titleTail')}</span>
       </h2>
     </div>
 
@@ -43,11 +43,11 @@ const workflows = [
       {workflows.map(({ key, href, illustration, illustrationAltKey }) => (
         <a
           href={href}
-          class="workflow-card stagger-item group"
-          aria-label={t(lang, `workflowSelector.${key}.ariaLabel`)}
-          data-i18n-aria={`workflowSelector.${key}.ariaLabel`}
+          class="use-case-card stagger-item group"
+          aria-label={t(lang, `useCaseCards.${key}.ariaLabel`)}
+          data-i18n-aria={`useCaseCards.${key}.ariaLabel`}
         >
-          <div class="workflow-card__icon illo-halo">
+          <div class="use-case-card__icon illo-halo">
             <img
               src={illustration}
               alt={t(lang, illustrationAltKey)}
@@ -55,14 +55,24 @@ const workflows = [
               height="1024"
               loading="lazy"
               decoding="async"
-              class="workflow-card__illustration"
+              class="use-case-card__illustration"
             />
           </div>
-          <h3 class="workflow-card__title"
-              data-i18n={`workflowSelector.${key}.title`}>{t(lang, `workflowSelector.${key}.title`)}</h3>
-          <p class="workflow-card__desc"
-             data-i18n={`workflowSelector.${key}.desc`}>{t(lang, `workflowSelector.${key}.desc`)}</p>
-          <span class="workflow-card__arrow" aria-hidden="true">→</span>
+          <h3 class="use-case-card__title"
+              data-i18n={`useCaseCards.${key}.title`}>{t(lang, `useCaseCards.${key}.title`)}</h3>
+          <p class="use-case-card__desc"
+             data-i18n={`useCaseCards.${key}.desc`}>{t(lang, `useCaseCards.${key}.desc`)}</p>
+          {/* Dauerhaft sichtbare Navigations-Affordance (statt des früheren
+              hover-only-Pfeils): gleiche CTA-Sprache wie der Engines-Link
+              ("Zum vollständigen Vergleich →"), damit die Karte auf einen
+              Blick als "führt zu einer Unterseite" lesbar ist. */}
+          <span class="use-case-card__cta">
+            <span data-i18n="useCaseCards.more">{t(lang, 'useCaseCards.more')}</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M5 12h14" />
+              <path d="m12 5 7 7-7 7" />
+            </svg>
+          </span>
         </a>
       ))}
     </div>
@@ -70,7 +80,7 @@ const workflows = [
 </section>
 
 <style>
-  .workflow-card {
+  .use-case-card {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -84,11 +94,11 @@ const workflows = [
     -webkit-backdrop-filter: blur(12px);
     text-decoration: none;
     color: inherit;
-    transition: border-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+    transition: border-color 0.3s var(--ease-flow), transform 0.3s var(--ease-flow), box-shadow 0.3s var(--ease-flow);
     will-change: transform;
   }
 
-  .workflow-card::after {
+  .use-case-card::after {
     content: "";
     position: absolute;
     inset-inline: 1.25rem;
@@ -100,17 +110,17 @@ const workflows = [
     pointer-events: none;
   }
 
-  .workflow-card:hover {
+  .use-case-card:hover {
     border-color: rgba(56, 217, 240, 0.3);
     transform: translateY(-4px);
     box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.05);
   }
 
-  .workflow-card:hover::after {
+  .use-case-card:hover::after {
     opacity: 1;
   }
 
-  .workflow-card__icon {
+  .use-case-card__icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -118,20 +128,20 @@ const workflows = [
     height: 7.5rem;
     margin: 0 auto 1.25rem;
     flex-shrink: 0;
-    transition: transform 0.3s ease;
+    transition: transform 0.3s var(--ease-flow);
   }
 
-  .workflow-card__illustration {
+  .use-case-card__illustration {
     width: 100%;
     height: 100%;
     object-fit: contain;
   }
 
-  .workflow-card:hover .workflow-card__icon {
+  .use-case-card:hover .use-case-card__icon {
     transform: scale(1.08);
   }
 
-  .workflow-card__title {
+  .use-case-card__title {
     font-size: 1.0625rem;
     font-weight: 600;
     color: var(--color-ink);
@@ -139,59 +149,72 @@ const workflows = [
     line-height: 1.3;
   }
 
-  .workflow-card__desc {
+  .use-case-card__desc {
     font-size: 0.9375rem;
     line-height: 1.65;
     color: var(--color-ink-muted);
     flex: 1;
   }
 
-  .workflow-card__arrow {
-    display: inline-block;
+  /* Ruhende, voll sichtbare CTA-Zeile — Label + Pfeil im etablierten
+     Link-CTA-Muster der Site (brand-cyan, semibold). Auf Karten-Hover
+     fließt nur der Pfeil auf der Flow-Kurve nach; das Label bleibt stehen. */
+  .use-case-card__cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
     margin-top: 1rem;
-    font-size: 1rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
     color: var(--color-brand-cyan);
-    opacity: 0.7;
-    transition: opacity 0.2s ease, transform 0.2s ease;
     align-self: center;
   }
+  .use-case-card__cta svg {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+    transition: transform 0.25s var(--ease-flow);
+  }
 
-  .workflow-card:hover .workflow-card__arrow {
-    opacity: 1;
+  .use-case-card:hover .use-case-card__cta svg {
     transform: translateX(4px);
   }
 
   /* Light theme */
-  :root.light .workflow-card {
+  :root.light .use-case-card {
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.85) 0%, rgba(248, 250, 252, 0.6) 100%);
     border-color: rgba(0, 0, 0, 0.08);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
   }
 
-  :root.light .workflow-card:hover {
-    border-color: rgba(8, 145, 178, 0.35);
+  :root.light .use-case-card:hover {
+    border-color: rgba(10, 110, 148, 0.45);
     box-shadow: 0 12px 32px rgba(15, 23, 42, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  }
+  /* Hover-Lichtkante in Light im tiefen Akzent statt unsichtbarem Bright-Cyan. */
+  :root.light .use-case-card::after {
+    background: linear-gradient(90deg, transparent, rgba(10, 110, 148, 0.5), transparent);
   }
 
   /* Reduced motion */
   @media (prefers-reduced-motion: reduce) {
-    .workflow-card,
-    .workflow-card::after,
-    .workflow-card__icon,
-    .workflow-card__arrow {
+    .use-case-card,
+    .use-case-card::after,
+    .use-case-card__icon,
+    .use-case-card__cta svg {
       transition: none;
     }
 
-    .workflow-card:hover {
+    .use-case-card:hover {
       transform: none;
       box-shadow: none;
     }
 
-    .workflow-card:hover .workflow-card__icon {
+    .use-case-card:hover .use-case-card__icon {
       transform: none;
     }
 
-    .workflow-card:hover .workflow-card__arrow {
+    .use-case-card:hover .use-case-card__cta svg {
       transform: none;
     }
   }

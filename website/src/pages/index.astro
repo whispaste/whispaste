@@ -2,7 +2,7 @@
 import Layout from "../layouts/Layout.astro";
 import Nav from "../components/Nav.astro";
 import Hero from "../components/Hero.astro";
-import WorkflowSelector from "../components/WorkflowSelector.astro";
+import UseCaseCards from "../components/UseCaseCards.astro";
 import MarketingMoment from "../components/MarketingMoment.astro";
 import AppPasteDemo from "../components/AppPasteDemo.astro";
 import SpeedComparison from "../components/SpeedComparison.astro";
@@ -51,13 +51,13 @@ const faqKeys = [
       AppPasteDemo ist die EINE Erklärstrecke für den Hotkey→Sprechen→Text-
       Mechanismus (das frühere HowItWorks erzählte denselben Ablauf ein zweites
       Mal und wurde entfernt; das Storyboard mit dem echten Overlay-Rendering
-      ist der stärkere Beweis); WorkflowSelector und MarketingMoment folgen
-      danach als klar eigenständige Blöcke (WorkflowSelector vor
+      ist der stärkere Beweis); UseCaseCards und MarketingMoment folgen
+      danach als klar eigenständige Blöcke (UseCaseCards vor
       MarketingMoment, damit kein raised↔raised-Stoß mit SpeedComparison
       entsteht):
         Hero              deep (implizit, kein .band — deckt sich mit der <html>-Fläche)
         AppPasteDemo      spotlight (band-spotlight, in AppPasteDemo.astro)
-        WorkflowSelector  raised   (band-raised, in WorkflowSelector.astro)
+        UseCaseCards  raised   (band-raised, in UseCaseCards.astro)
         MarketingMoment   deep     (band-deep, in MarketingMoment.astro)
         SpeedComparison   raised   (band-raised, in SpeedComparison.astro)
         Engines           spotlight (band-spotlight, in Engines.astro)
@@ -76,7 +76,7 @@ const faqKeys = [
     */}
     <Hero />
     <AppPasteDemo />
-    <WorkflowSelector />
+    <UseCaseCards />
     <MarketingMoment />
     <SpeedComparison />
     <Engines />
@@ -107,7 +107,9 @@ const faqKeys = [
     .scroll-reveal {
       opacity: 0;
       transform: translateY(24px);
-      transition: opacity 0.7s ease-out, transform 0.7s ease-out;
+      /* Flow-Kurve statt generischem ease-out — Sektionen kommen mit dem
+         gleichen weichen Auslauf an wie die Overlay-Pille (Token in global.css). */
+      transition: opacity 0.7s var(--ease-flow), transform 0.7s var(--ease-flow);
     }
     .scroll-reveal.visible {
       opacity: 1;
