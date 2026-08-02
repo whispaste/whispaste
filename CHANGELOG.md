@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.66
+
+### Maintenance
+
+- Interne Store-Compliance-Korrektur (Mac App Store): die Mehrfachinstanz-Erkennung lief bislang über einen lokalen Netzwerk-Socket, wofür Apple ein dafür nötiges Sandbox-Recht (`network.server`) beim App Review als unbegründet ablehnte. Sie läuft jetzt stattdessen über eine Datei-Sperre, ganz ohne Netzwerk. Zwei weitere, ungenutzte Sandbox-Rechte (`cs.allow-jit`, `files.user-selected.read-write`) wurden bei der Gelegenheit ebenfalls entfernt, und das Datenschutz-Manifest wurde um die bereits an anderer Stelle veröffentlichte Angabe zu optionalen Cloud-Spracherkennungs-Audiodaten ergänzt.
+
 ## 1.2.65
 
 ### Bug Fixes
