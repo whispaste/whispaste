@@ -64,9 +64,22 @@ class SingleInstanceService {
     }
 
     final lockFile = File(p.join(dir, _lockFileName));
-    // FileMode.append (never `write`): opening for write would truncate the
-    // file, which can itself fail against a locked byte range on Windows.
-    final raf = await lockFile.open(mode: FileMode.append);
+    late final RandomAccessFile raf;
+    try {
+      // FileMode.append (never `write`): opening for write would truncate
+      // the file, which can itself fail against a locked byte range on
+      // Windows.
+      raf = await lockFile.open(mode: FileMode.append);
+    } catch (e) {
+      // Separate from the lock() try/catch below on purpose: open() can
+      // throw the same FileSystemException class as a held lock (e.g.
+      // permission errors, a virtualized MSIX path), and conflating the two
+      // would misclassify "can't even open the file" as "secondary" — exit
+      // on every launch. Fail open here too, same reasoning as above.
+      _log.warning('Cannot open single-instance lock file, failing open: $e');
+      return true;
+    }
+
     final lockedAt = DateTime.now();
     try {
       // Non-blocking: throws FileSystemException immediately if another

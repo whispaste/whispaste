@@ -114,6 +114,18 @@ void main() {
     expect(result, isTrue);
   });
 
+  test('fails open when the lock file itself cannot be opened', () async {
+    // The lock directory creates fine, but the lock file path is itself a
+    // directory — File.open() fails while Directory.create() already
+    // succeeded, exercising the separate try/catch around open().
+    final dir = p.join(tmp.path, 'single_instance');
+    Directory(p.join(dir, 'instance.lock')).createSync(recursive: true);
+    SingleInstanceService.lockDirOverride = dir;
+
+    final result = await SingleInstanceService.ensureSingleInstance();
+    expect(result, isTrue);
+  });
+
   test(
     'a focus signal file fires the callback exactly once (debounced)',
     () async {
