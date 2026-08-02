@@ -52,6 +52,7 @@ class WpTitleBar extends StatelessWidget {
               isDark: isDark,
               semanticLabel: 'Minimize window',
             ),
+            // loam-ignore: a11y-interactive-semantics – semantics provided in _MaximizeButton.build
             _MaximizeButton(isDark: isDark),
             // loam-ignore: a11y-interactive-semantics – semantics provided in _WindowButton.build
             _WindowButton(
@@ -164,37 +165,41 @@ class _MaximizeButtonState extends State<_MaximizeButton> {
         ? WpColorsDark.textSecondary
         : WpColorsLight.textSecondary;
 
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: GestureDetector(
-        onTap: () async {
-          if (_isMaximized) {
-            await windowManager.unmaximize();
-          } else {
-            await windowManager.maximize();
-          }
-          if (mounted) setState(() => _isMaximized = !_isMaximized);
-        },
-        child: AnimatedContainer(
-          duration: WpMotion.durationFor(context, WpMotion.hoverIn),
-          curve: WpMotion.defaultCurve,
-          width: 40,
-          height: 32,
-          decoration: BoxDecoration(
-            color: _isHovered
-                ? hoverBg
-                : (widget.isDark
-                      ? WpColorsDark.hoverTransparent
-                      : WpColorsLight.hoverTransparent),
-            borderRadius: BorderRadius.circular(WpRadius.sm),
-          ),
-          alignment: Alignment.center,
-          child: Icon(
-            _isMaximized ? LucideIcons.minimize2 : LucideIcons.maximize2,
-            size: 14,
-            color: _isHovered ? hoverFg : mutedColor,
+    return Semantics(
+      label: _isMaximized ? 'Restore window' : 'Maximize window',
+      button: true,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: GestureDetector(
+          onTap: () async {
+            if (_isMaximized) {
+              await windowManager.unmaximize();
+            } else {
+              await windowManager.maximize();
+            }
+            if (mounted) setState(() => _isMaximized = !_isMaximized);
+          },
+          child: AnimatedContainer(
+            duration: WpMotion.durationFor(context, WpMotion.hoverIn),
+            curve: WpMotion.defaultCurve,
+            width: 40,
+            height: 32,
+            decoration: BoxDecoration(
+              color: _isHovered
+                  ? hoverBg
+                  : (widget.isDark
+                        ? WpColorsDark.hoverTransparent
+                        : WpColorsLight.hoverTransparent),
+              borderRadius: BorderRadius.circular(WpRadius.sm),
+            ),
+            alignment: Alignment.center,
+            child: Icon(
+              _isMaximized ? LucideIcons.minimize2 : LucideIcons.maximize2,
+              size: 14,
+              color: _isHovered ? hoverFg : mutedColor,
+            ),
           ),
         ),
       ),
