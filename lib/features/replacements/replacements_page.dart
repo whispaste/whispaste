@@ -368,7 +368,9 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
   @override
   void initState() {
     super.initState();
-    for (final trigger in widget.existing?.triggers ?? const ['']) {
+    final existingTriggers = widget.existing?.triggers ?? const [];
+    for (final trigger
+        in existingTriggers.isNotEmpty ? existingTriggers : const ['']) {
       _triggerCtrls.add(TextEditingController(text: trigger));
       _triggerFocusNodes.add(FocusNode());
     }

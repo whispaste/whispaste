@@ -72,6 +72,26 @@ void main() {
     expect(container.read(replacementsProvider).value, isEmpty);
   });
 
+  test(
+    'build() returns replacements in creation order regardless of trigger id',
+    () async {
+      // Regression: ordering the join purely by trigger id (without a
+      // parent-order tiebreak) sorts *all* rows by that column, which
+      // regroups replacements alphabetically by trigger name whenever the
+      // trigger name is embedded in the derived id (as in seed data's
+      // '<ts>_<trigger>_t0' ids) instead of preserving creation order.
+      final result = await container.read(replacementsProvider.future);
+
+      // Sample data is seeded in this exact order by
+      // ReplacementsNotifier._insertSampleData.
+      expect(result.map((r) => r.triggers.first).toList(), [
+        'mfg',
+        'lg',
+        'tel',
+      ]);
+    },
+  );
+
   test('build() does not reseed sample data for a replacement row with zero '
       'trigger rows (e.g. an incomplete migration backfill)', () async {
     // Bypass the app-level write path entirely, mirroring a row that

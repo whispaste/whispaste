@@ -1599,17 +1599,30 @@ class HistoryDatabase extends _$HistoryDatabase {
   }
 
   JoinedSelectStatement<HasResultSet, dynamic> _replacementsJoinQuery() {
-    // Ordered by trigger id (`${replacementId}_t$i`, assigned in insertion
-    // order by upsertReplacementWithTriggers) so a replacement's trigger
-    // list — and therefore `triggers.first`, the legacy-mirror source and
-    // the UI's chip order — is stable across reads instead of depending on
-    // unspecified SQL row order.
+    // Two ordering terms, parent then child — a single ORDER BY on the
+    // trigger id alone would sort the *whole* joined row stream by that
+    // column, which reshuffles which replacement's rows appear first
+    // (replacement id is not a prefix-free sort key: e.g. seeded rows'
+    // trigger ids are '<ts>_mfg_t0'/'<ts>_lg_t0'/'<ts>_tel_t0', so a
+    // trigger-only sort returns replacements alphabetically by trigger
+    // name instead of creation order). Ordering by the parent's rowid
+    // first (unique, strictly insertion-ordered, never ties) pins
+    // replacement order to creation order same as before this table
+    // existed; the trigger id is then the tiebreak *within* one
+    // replacement, giving stable trigger order — and therefore a stable
+    // `triggers.first` (the legacy-mirror source) and stable UI chip
+    // order — instead of depending on unspecified SQL row order.
     return select(textReplacements).join([
       leftOuterJoin(
         textReplacementTriggers,
         textReplacementTriggers.replacementId.equalsExp(textReplacements.id),
       ),
-    ])..orderBy([OrderingTerm(expression: textReplacementTriggers.id)]);
+    ])..orderBy([
+      OrderingTerm(
+        expression: const CustomExpression<int>('text_replacements.rowid'),
+      ),
+      OrderingTerm(expression: textReplacementTriggers.id),
+    ]);
   }
 
   /// Groups flat join rows (one row per trigger, or one null-trigger row for
