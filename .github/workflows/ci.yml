@@ -106,6 +106,7 @@ jobs:
   flutter-app-macos:
     name: Flutter App (macOS)
     runs-on: macos-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
 
