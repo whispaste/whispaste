@@ -2852,6 +2852,282 @@ class TextReplacementsCompanion extends UpdateCompanion<TextReplacement> {
   }
 }
 
+class $TextReplacementTriggersTable extends TextReplacementTriggers
+    with TableInfo<$TextReplacementTriggersTable, TextReplacementTrigger> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $TextReplacementTriggersTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _replacementIdMeta = const VerificationMeta(
+    'replacementId',
+  );
+  @override
+  late final GeneratedColumn<String> replacementId = GeneratedColumn<String>(
+    'replacement_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES text_replacements (id)',
+    ),
+  );
+  static const VerificationMeta _triggerMeta = const VerificationMeta(
+    'trigger',
+  );
+  @override
+  late final GeneratedColumn<String> trigger = GeneratedColumn<String>(
+    'trigger',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, replacementId, trigger];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'text_replacement_triggers';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<TextReplacementTrigger> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('replacement_id')) {
+      context.handle(
+        _replacementIdMeta,
+        replacementId.isAcceptableOrUnknown(
+          data['replacement_id']!,
+          _replacementIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_replacementIdMeta);
+    }
+    if (data.containsKey('trigger')) {
+      context.handle(
+        _triggerMeta,
+        trigger.isAcceptableOrUnknown(data['trigger']!, _triggerMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_triggerMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  TextReplacementTrigger map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return TextReplacementTrigger(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      replacementId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}replacement_id'],
+      )!,
+      trigger: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}trigger'],
+      )!,
+    );
+  }
+
+  @override
+  $TextReplacementTriggersTable createAlias(String alias) {
+    return $TextReplacementTriggersTable(attachedDatabase, alias);
+  }
+}
+
+class TextReplacementTrigger extends DataClass
+    implements Insertable<TextReplacementTrigger> {
+  final String id;
+  final String replacementId;
+  final String trigger;
+  const TextReplacementTrigger({
+    required this.id,
+    required this.replacementId,
+    required this.trigger,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['replacement_id'] = Variable<String>(replacementId);
+    map['trigger'] = Variable<String>(trigger);
+    return map;
+  }
+
+  TextReplacementTriggersCompanion toCompanion(bool nullToAbsent) {
+    return TextReplacementTriggersCompanion(
+      id: Value(id),
+      replacementId: Value(replacementId),
+      trigger: Value(trigger),
+    );
+  }
+
+  factory TextReplacementTrigger.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return TextReplacementTrigger(
+      id: serializer.fromJson<String>(json['id']),
+      replacementId: serializer.fromJson<String>(json['replacementId']),
+      trigger: serializer.fromJson<String>(json['trigger']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'replacementId': serializer.toJson<String>(replacementId),
+      'trigger': serializer.toJson<String>(trigger),
+    };
+  }
+
+  TextReplacementTrigger copyWith({
+    String? id,
+    String? replacementId,
+    String? trigger,
+  }) => TextReplacementTrigger(
+    id: id ?? this.id,
+    replacementId: replacementId ?? this.replacementId,
+    trigger: trigger ?? this.trigger,
+  );
+  TextReplacementTrigger copyWithCompanion(
+    TextReplacementTriggersCompanion data,
+  ) {
+    return TextReplacementTrigger(
+      id: data.id.present ? data.id.value : this.id,
+      replacementId: data.replacementId.present
+          ? data.replacementId.value
+          : this.replacementId,
+      trigger: data.trigger.present ? data.trigger.value : this.trigger,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TextReplacementTrigger(')
+          ..write('id: $id, ')
+          ..write('replacementId: $replacementId, ')
+          ..write('trigger: $trigger')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, replacementId, trigger);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is TextReplacementTrigger &&
+          other.id == this.id &&
+          other.replacementId == this.replacementId &&
+          other.trigger == this.trigger);
+}
+
+class TextReplacementTriggersCompanion
+    extends UpdateCompanion<TextReplacementTrigger> {
+  final Value<String> id;
+  final Value<String> replacementId;
+  final Value<String> trigger;
+  final Value<int> rowid;
+  const TextReplacementTriggersCompanion({
+    this.id = const Value.absent(),
+    this.replacementId = const Value.absent(),
+    this.trigger = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  TextReplacementTriggersCompanion.insert({
+    required String id,
+    required String replacementId,
+    required String trigger,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       replacementId = Value(replacementId),
+       trigger = Value(trigger);
+  static Insertable<TextReplacementTrigger> custom({
+    Expression<String>? id,
+    Expression<String>? replacementId,
+    Expression<String>? trigger,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (replacementId != null) 'replacement_id': replacementId,
+      if (trigger != null) 'trigger': trigger,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  TextReplacementTriggersCompanion copyWith({
+    Value<String>? id,
+    Value<String>? replacementId,
+    Value<String>? trigger,
+    Value<int>? rowid,
+  }) {
+    return TextReplacementTriggersCompanion(
+      id: id ?? this.id,
+      replacementId: replacementId ?? this.replacementId,
+      trigger: trigger ?? this.trigger,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (replacementId.present) {
+      map['replacement_id'] = Variable<String>(replacementId.value);
+    }
+    if (trigger.present) {
+      map['trigger'] = Variable<String>(trigger.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TextReplacementTriggersCompanion(')
+          ..write('id: $id, ')
+          ..write('replacementId: $replacementId, ')
+          ..write('trigger: $trigger, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $TagsTable extends Tags with TableInfo<$TagsTable, Tag> {
   @override
   final GeneratedDatabase attachedDatabase;
@@ -3602,6 +3878,8 @@ abstract class _$HistoryDatabase extends GeneratedDatabase {
   late final $TextReplacementsTable textReplacements = $TextReplacementsTable(
     this,
   );
+  late final $TextReplacementTriggersTable textReplacementTriggers =
+      $TextReplacementTriggersTable(this);
   late final $TagsTable tags = $TagsTable(this);
   late final $EntryTagsTable entryTags = $EntryTagsTable(this);
   late final $HotkeyLatencyEntriesTable hotkeyLatencyEntries =
@@ -3616,6 +3894,7 @@ abstract class _$HistoryDatabase extends GeneratedDatabase {
     entryNotes,
     entryAttachments,
     textReplacements,
+    textReplacementTriggers,
     tags,
     entryTags,
     hotkeyLatencyEntries,
@@ -5436,6 +5715,46 @@ typedef $$TextReplacementsTableUpdateCompanionBuilder =
       Value<int> rowid,
     });
 
+final class $$TextReplacementsTableReferences
+    extends
+        BaseReferences<
+          _$HistoryDatabase,
+          $TextReplacementsTable,
+          TextReplacement
+        > {
+  $$TextReplacementsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static MultiTypedResultKey<
+    $TextReplacementTriggersTable,
+    List<TextReplacementTrigger>
+  >
+  _textReplacementTriggersRefsTable(_$HistoryDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.textReplacementTriggers,
+        aliasName:
+            'text_replacements__id__text_replacement_triggers__replacement_id',
+      );
+
+  $$TextReplacementTriggersTableProcessedTableManager
+  get textReplacementTriggersRefs {
+    final manager = $$TextReplacementTriggersTableTableManager(
+      $_db,
+      $_db.textReplacementTriggers,
+    ).filter((f) => f.replacementId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _textReplacementTriggersRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
 class $$TextReplacementsTableFilterComposer
     extends Composer<_$HistoryDatabase, $TextReplacementsTable> {
   $$TextReplacementsTableFilterComposer({
@@ -5464,6 +5783,32 @@ class $$TextReplacementsTableFilterComposer
     column: $table.createdAt,
     builder: (column) => ColumnFilters(column),
   );
+
+  Expression<bool> textReplacementTriggersRefs(
+    Expression<bool> Function($$TextReplacementTriggersTableFilterComposer f) f,
+  ) {
+    final $$TextReplacementTriggersTableFilterComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.textReplacementTriggers,
+          getReferencedColumn: (t) => t.replacementId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$TextReplacementTriggersTableFilterComposer(
+                $db: $db,
+                $table: $db.textReplacementTriggers,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 }
 
 class $$TextReplacementsTableOrderingComposer
@@ -5518,6 +5863,33 @@ class $$TextReplacementsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  Expression<T> textReplacementTriggersRefs<T extends Object>(
+    Expression<T> Function($$TextReplacementTriggersTableAnnotationComposer a)
+    f,
+  ) {
+    final $$TextReplacementTriggersTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.textReplacementTriggers,
+          getReferencedColumn: (t) => t.replacementId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$TextReplacementTriggersTableAnnotationComposer(
+                $db: $db,
+                $table: $db.textReplacementTriggers,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 }
 
 class $$TextReplacementsTableTableManager
@@ -5531,16 +5903,9 @@ class $$TextReplacementsTableTableManager
           $$TextReplacementsTableAnnotationComposer,
           $$TextReplacementsTableCreateCompanionBuilder,
           $$TextReplacementsTableUpdateCompanionBuilder,
-          (
-            TextReplacement,
-            BaseReferences<
-              _$HistoryDatabase,
-              $TextReplacementsTable,
-              TextReplacement
-            >,
-          ),
+          (TextReplacement, $$TextReplacementsTableReferences),
           TextReplacement,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool textReplacementTriggersRefs})
         > {
   $$TextReplacementsTableTableManager(
     _$HistoryDatabase db,
@@ -5584,9 +5949,47 @@ class $$TextReplacementsTableTableManager
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$TextReplacementsTableReferences(db, table, e),
+                ),
+              )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback: ({textReplacementTriggersRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [
+                if (textReplacementTriggersRefs) db.textReplacementTriggers,
+              ],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (textReplacementTriggersRefs)
+                    await $_getPrefetchedData<
+                      TextReplacement,
+                      $TextReplacementsTable,
+                      TextReplacementTrigger
+                    >(
+                      currentTable: table,
+                      referencedTable: $$TextReplacementsTableReferences
+                          ._textReplacementTriggersRefsTable(db),
+                      managerFromTypedResult: (p0) =>
+                          $$TextReplacementsTableReferences(
+                            db,
+                            table,
+                            p0,
+                          ).textReplacementTriggersRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where(
+                            (e) => e.replacementId == item.id,
+                          ),
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
         ),
       );
 }
@@ -5601,16 +6004,312 @@ typedef $$TextReplacementsTableProcessedTableManager =
       $$TextReplacementsTableAnnotationComposer,
       $$TextReplacementsTableCreateCompanionBuilder,
       $$TextReplacementsTableUpdateCompanionBuilder,
-      (
-        TextReplacement,
+      (TextReplacement, $$TextReplacementsTableReferences),
+      TextReplacement,
+      PrefetchHooks Function({bool textReplacementTriggersRefs})
+    >;
+typedef $$TextReplacementTriggersTableCreateCompanionBuilder =
+    TextReplacementTriggersCompanion Function({
+      required String id,
+      required String replacementId,
+      required String trigger,
+      Value<int> rowid,
+    });
+typedef $$TextReplacementTriggersTableUpdateCompanionBuilder =
+    TextReplacementTriggersCompanion Function({
+      Value<String> id,
+      Value<String> replacementId,
+      Value<String> trigger,
+      Value<int> rowid,
+    });
+
+final class $$TextReplacementTriggersTableReferences
+    extends
         BaseReferences<
           _$HistoryDatabase,
-          $TextReplacementsTable,
-          TextReplacement
-        >,
-      ),
-      TextReplacement,
-      PrefetchHooks Function()
+          $TextReplacementTriggersTable,
+          TextReplacementTrigger
+        > {
+  $$TextReplacementTriggersTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $TextReplacementsTable _replacementIdTable(_$HistoryDatabase db) =>
+      db.textReplacements.createAlias(
+        'text_replacement_triggers__replacement_id__text_replacements__id',
+      );
+
+  $$TextReplacementsTableProcessedTableManager get replacementId {
+    final $_column = $_itemColumn<String>('replacement_id')!;
+
+    final manager = $$TextReplacementsTableTableManager(
+      $_db,
+      $_db.textReplacements,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_replacementIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$TextReplacementTriggersTableFilterComposer
+    extends Composer<_$HistoryDatabase, $TextReplacementTriggersTable> {
+  $$TextReplacementTriggersTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get trigger => $composableBuilder(
+    column: $table.trigger,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$TextReplacementsTableFilterComposer get replacementId {
+    final $$TextReplacementsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.replacementId,
+      referencedTable: $db.textReplacements,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TextReplacementsTableFilterComposer(
+            $db: $db,
+            $table: $db.textReplacements,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$TextReplacementTriggersTableOrderingComposer
+    extends Composer<_$HistoryDatabase, $TextReplacementTriggersTable> {
+  $$TextReplacementTriggersTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get trigger => $composableBuilder(
+    column: $table.trigger,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$TextReplacementsTableOrderingComposer get replacementId {
+    final $$TextReplacementsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.replacementId,
+      referencedTable: $db.textReplacements,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TextReplacementsTableOrderingComposer(
+            $db: $db,
+            $table: $db.textReplacements,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$TextReplacementTriggersTableAnnotationComposer
+    extends Composer<_$HistoryDatabase, $TextReplacementTriggersTable> {
+  $$TextReplacementTriggersTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get trigger =>
+      $composableBuilder(column: $table.trigger, builder: (column) => column);
+
+  $$TextReplacementsTableAnnotationComposer get replacementId {
+    final $$TextReplacementsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.replacementId,
+      referencedTable: $db.textReplacements,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TextReplacementsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.textReplacements,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$TextReplacementTriggersTableTableManager
+    extends
+        RootTableManager<
+          _$HistoryDatabase,
+          $TextReplacementTriggersTable,
+          TextReplacementTrigger,
+          $$TextReplacementTriggersTableFilterComposer,
+          $$TextReplacementTriggersTableOrderingComposer,
+          $$TextReplacementTriggersTableAnnotationComposer,
+          $$TextReplacementTriggersTableCreateCompanionBuilder,
+          $$TextReplacementTriggersTableUpdateCompanionBuilder,
+          (TextReplacementTrigger, $$TextReplacementTriggersTableReferences),
+          TextReplacementTrigger,
+          PrefetchHooks Function({bool replacementId})
+        > {
+  $$TextReplacementTriggersTableTableManager(
+    _$HistoryDatabase db,
+    $TextReplacementTriggersTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$TextReplacementTriggersTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$TextReplacementTriggersTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$TextReplacementTriggersTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> replacementId = const Value.absent(),
+                Value<String> trigger = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => TextReplacementTriggersCompanion(
+                id: id,
+                replacementId: replacementId,
+                trigger: trigger,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String replacementId,
+                required String trigger,
+                Value<int> rowid = const Value.absent(),
+              }) => TextReplacementTriggersCompanion.insert(
+                id: id,
+                replacementId: replacementId,
+                trigger: trigger,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$TextReplacementTriggersTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({replacementId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (replacementId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.replacementId,
+                                referencedTable:
+                                    $$TextReplacementTriggersTableReferences
+                                        ._replacementIdTable(db),
+                                referencedColumn:
+                                    $$TextReplacementTriggersTableReferences
+                                        ._replacementIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$TextReplacementTriggersTableProcessedTableManager =
+    ProcessedTableManager<
+      _$HistoryDatabase,
+      $TextReplacementTriggersTable,
+      TextReplacementTrigger,
+      $$TextReplacementTriggersTableFilterComposer,
+      $$TextReplacementTriggersTableOrderingComposer,
+      $$TextReplacementTriggersTableAnnotationComposer,
+      $$TextReplacementTriggersTableCreateCompanionBuilder,
+      $$TextReplacementTriggersTableUpdateCompanionBuilder,
+      (TextReplacementTrigger, $$TextReplacementTriggersTableReferences),
+      TextReplacementTrigger,
+      PrefetchHooks Function({bool replacementId})
     >;
 typedef $$TagsTableCreateCompanionBuilder =
     TagsCompanion Function({
@@ -6406,6 +7105,11 @@ class $HistoryDatabaseManager {
       $$EntryAttachmentsTableTableManager(_db, _db.entryAttachments);
   $$TextReplacementsTableTableManager get textReplacements =>
       $$TextReplacementsTableTableManager(_db, _db.textReplacements);
+  $$TextReplacementTriggersTableTableManager get textReplacementTriggers =>
+      $$TextReplacementTriggersTableTableManager(
+        _db,
+        _db.textReplacementTriggers,
+      );
   $$TagsTableTableManager get tags => $$TagsTableTableManager(_db, _db.tags);
   $$EntryTagsTableTableManager get entryTags =>
       $$EntryTagsTableTableManager(_db, _db.entryTags);

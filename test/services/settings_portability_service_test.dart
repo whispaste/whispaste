@@ -5,6 +5,8 @@
 /// real disk IO happens in tests.
 library;
 
+import 'dart:convert';
+
 import 'package:file/memory.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
@@ -31,10 +33,10 @@ void main() {
     replacements: [
       Replacement(
         id: 'a',
-        trigger: 'mfg',
+        triggers: ['mfg', 'mfg2'],
         replacement: 'Mit freundlichen Grüßen',
       ),
-      Replacement(id: 'b', trigger: 'lg', replacement: 'Liebe Grüße'),
+      Replacement(id: 'b', triggers: ['lg'], replacement: 'Liebe Grüße'),
     ],
   );
 
@@ -53,7 +55,9 @@ void main() {
       expect(written, contains('"hotkey"'));
       expect(written, contains('ctrl+alt'));
       expect(written, contains('"replacements"'));
+      expect(written, contains('"triggers"'));
       expect(written, contains('mfg'));
+      expect(written, contains('mfg2'));
       expect(written, contains('Mit freundlichen Grüßen'));
     },
   );
@@ -72,11 +76,19 @@ void main() {
       expect(restored.customVocabulary, sampleBundle.customVocabulary);
       expect(restored.hotkey, sampleBundle.hotkey);
       expect(
-        restored.replacements.map((r) => (r.trigger, r.replacement)).toList(),
-        sampleBundle.replacements
-            .map((r) => (r.trigger, r.replacement))
-            .toList(),
+        restored.replacements,
+        hasLength(sampleBundle.replacements.length),
       );
+      for (var i = 0; i < sampleBundle.replacements.length; i++) {
+        expect(
+          restored.replacements[i].triggers,
+          sampleBundle.replacements[i].triggers,
+        );
+        expect(
+          restored.replacements[i].replacement,
+          sampleBundle.replacements[i].replacement,
+        );
+      }
     },
   );
 
@@ -96,7 +108,11 @@ void main() {
           hotkeyModifiers: 'meta+shift',
         ),
         replacements: [
-          Replacement(id: 'x', trigger: 'tel', replacement: '+49 123 456789'),
+          Replacement(
+            id: 'x',
+            triggers: ['tel', 'telefon'],
+            replacement: '+49 123 456789',
+          ),
         ],
       );
 
@@ -105,9 +121,48 @@ void main() {
 
       expect(restored.customVocabulary, bundle.customVocabulary);
       expect(restored.hotkey, bundle.hotkey);
+      expect(restored.replacements, hasLength(bundle.replacements.length));
+      for (var i = 0; i < bundle.replacements.length; i++) {
+        expect(
+          restored.replacements[i].triggers,
+          bundle.replacements[i].triggers,
+        );
+        expect(
+          restored.replacements[i].replacement,
+          bundle.replacements[i].replacement,
+        );
+      }
+    },
+  );
+
+  // ---------------------------------------------------------------------------
+  // Backward compatibility: importing an old-format export (single "trigger"
+  // string per replacement, published before multi-trigger support).
+  // ---------------------------------------------------------------------------
+
+  test(
+    'importFromFile reads old-format single "trigger" exports without throwing',
+    () async {
+      await fs
+          .file('/legacy.json')
+          .writeAsString(
+            jsonEncode({
+              'format_version': 1,
+              'custom_vocabulary': 'Legacy',
+              'hotkey': const HotkeySettings().toMap(),
+              'replacements': [
+                {'trigger': 'mfg', 'replacement': 'Mit freundlichen Grüßen'},
+              ],
+            }),
+          );
+
+      final restored = await service.importFromFile('/legacy.json');
+
+      expect(restored.replacements, hasLength(1));
+      expect(restored.replacements.single.triggers, ['mfg']);
       expect(
-        restored.replacements.map((r) => (r.trigger, r.replacement)).toList(),
-        bundle.replacements.map((r) => (r.trigger, r.replacement)).toList(),
+        restored.replacements.single.replacement,
+        'Mit freundlichen Grüßen',
       );
     },
   );

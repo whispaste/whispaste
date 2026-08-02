@@ -93,12 +93,31 @@ class EntryAttachments extends Table {
 }
 
 /// Voice shortcuts — auto-replace trigger words during dictation.
+///
+/// `trigger` is kept as a legacy, schema-additive mirror of the first entry
+/// in [TextReplacementTriggers] for this row (written on every save, never
+/// read by app logic) — see [TextReplacementTriggers] for the source of
+/// truth on which trigger phrases fire this replacement.
 @DataClassName('TextReplacement')
 class TextReplacements extends Table {
   TextColumn get id => text()();
   TextColumn get trigger => text()();
   TextColumn get replacement => text()();
   DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Trigger phrases for a [TextReplacements] row — normalized N:1 so a single
+/// replacement can fire on multiple trigger phrases (schema v13). Every
+/// replacement has at least one row here; each is matched independently
+/// with the existing word-boundary regex (`DriftRecordingStore.save()`).
+@DataClassName('TextReplacementTrigger')
+class TextReplacementTriggers extends Table {
+  TextColumn get id => text()();
+  TextColumn get replacementId => text().references(TextReplacements, #id)();
+  TextColumn get trigger => text()();
 
   @override
   Set<Column> get primaryKey => {id};

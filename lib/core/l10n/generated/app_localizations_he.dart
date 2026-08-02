@@ -1197,13 +1197,20 @@ class L10nHe extends L10n {
   String get replacementsNewShortcut => 'קיצור חדש';
 
   @override
-  String get replacementsDialogHint => 'הביטוי יוחלף אוטומטית בזמן הקלטה.';
+  String get replacementsDialogHint =>
+      'כל אחד מהביטויים המפעילים יוחלף אוטומטית בזמן הקלטה.';
 
   @override
-  String get replacementsTriggerLabel => 'ביטוי מפעיל';
+  String get replacementsTriggerLabel => 'ביטויים מפעילים';
 
   @override
   String get replacementsTriggerHint => 'לדוגמה: btw';
+
+  @override
+  String get replacementsAddTrigger => 'הוסף ביטוי מפעיל';
+
+  @override
+  String get replacementsRemoveTrigger => 'הסר ביטוי מפעיל';
 
   @override
   String get replacementsReplacementLabel => 'טקסט להחלפה';

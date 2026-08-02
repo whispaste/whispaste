@@ -1210,13 +1210,19 @@ class L10nEn extends L10n {
 
   @override
   String get replacementsDialogHint =>
-      'The trigger phrase will be replaced automatically while recording.';
+      'Any of the trigger phrases will be replaced automatically while recording.';
 
   @override
-  String get replacementsTriggerLabel => 'Trigger phrase';
+  String get replacementsTriggerLabel => 'Trigger phrases';
 
   @override
   String get replacementsTriggerHint => 'e.g. btw';
+
+  @override
+  String get replacementsAddTrigger => 'Add trigger phrase';
+
+  @override
+  String get replacementsRemoveTrigger => 'Remove trigger phrase';
 
   @override
   String get replacementsReplacementLabel => 'Replacement text';

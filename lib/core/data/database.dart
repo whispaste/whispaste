@@ -27,6 +27,17 @@ part 'database.g.dart';
 
 final _log = AppLogger('HistoryDatabase');
 
+/// A [TextReplacement] joined with every trigger phrase that fires it.
+/// [triggers] is the single source of truth for matching — always non-empty
+/// for rows written through [HistoryDatabase.upsertReplacementWithTriggers];
+/// `row.trigger` is only a legacy mirror, see [TextReplacements].
+class ReplacementWithTriggers {
+  const ReplacementWithTriggers({required this.row, required this.triggers});
+
+  final TextReplacement row;
+  final List<String> triggers;
+}
+
 @DriftDatabase(
   tables: [
     HistoryEntries,
@@ -34,6 +45,7 @@ final _log = AppLogger('HistoryDatabase');
     EntryNotes,
     EntryAttachments,
     TextReplacements,
+    TextReplacementTriggers,
     Tags,
     EntryTags,
     HotkeyLatencyEntries,
@@ -81,7 +93,7 @@ class HistoryDatabase extends _$HistoryDatabase {
   }
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 13;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -115,6 +127,10 @@ class HistoryDatabase extends _$HistoryDatabase {
       }
       if (from < 12) {
         await _backfillNullableHistoryColumns();
+      }
+      if (from < 13) {
+        await m.createTable(textReplacementTriggers);
+        await _backfillReplacementTriggers();
       }
     },
     beforeOpen: (details) async {
@@ -629,6 +645,25 @@ class HistoryDatabase extends _$HistoryDatabase {
   @visibleForTesting
   Future<void> backfillNullableHistoryColumnsForTesting() =>
       _backfillNullableHistoryColumns();
+
+  /// v13 migration: seeds [TextReplacementTriggers] from every pre-existing
+  /// [TextReplacements] row's single `trigger` column, so replacements
+  /// created before multi-trigger support keep matching unchanged — no data
+  /// loss, no manual re-entry required. Idempotent: `id` is derived from the
+  /// replacement id, so re-running on an already-backfilled row is a no-op
+  /// insert conflict rather than a duplicate.
+  Future<void> _backfillReplacementTriggers() async {
+    await customStatement('''
+      INSERT OR IGNORE INTO text_replacement_triggers (id, replacement_id, trigger)
+      SELECT id || '_t0', id, trigger FROM text_replacements
+    ''');
+  }
+
+  /// Exposed for testing — runs the v13 backfill directly against the
+  /// already-open database.
+  @visibleForTesting
+  Future<void> backfillReplacementTriggersForTesting() =>
+      _backfillReplacementTriggers();
 
   // ---------------------------------------------------------------------------
 
@@ -1542,6 +1577,7 @@ class HistoryDatabase extends _$HistoryDatabase {
         await delete(tags).go();
         await delete(historyEntries).go();
         await delete(dailyStats).go();
+        await delete(textReplacementTriggers).go();
         await delete(textReplacements).go();
         await customStatement('DELETE FROM app_settings');
       });
@@ -1552,23 +1588,116 @@ class HistoryDatabase extends _$HistoryDatabase {
   // Text Replacements (voice shortcuts)
   // ---------------------------------------------------------------------------
 
-  Future<List<TextReplacement>> readAllReplacements() =>
-      select(textReplacements).get();
-
-  Stream<List<TextReplacement>> watchAllReplacements() {
-    if (_isClosed) return const Stream.empty();
-    return select(textReplacements).watch();
+  Future<List<ReplacementWithTriggers>> readAllReplacements() async {
+    final rows = await _replacementsJoinQuery().get();
+    return _groupReplacementRows(rows);
   }
 
-  Future<void> upsertReplacement(TextReplacementsCompanion entry) =>
-      into(textReplacements).insertOnConflictUpdate(entry);
+  Stream<List<ReplacementWithTriggers>> watchAllReplacements() {
+    if (_isClosed) return const Stream.empty();
+    return _replacementsJoinQuery().watch().map(_groupReplacementRows);
+  }
 
-  Future<void> deleteReplacement(String id) =>
-      (delete(textReplacements)..where((t) => t.id.equals(id))).go();
+  JoinedSelectStatement<HasResultSet, dynamic> _replacementsJoinQuery() {
+    // Ordered by trigger id (`${replacementId}_t$i`, assigned in insertion
+    // order by upsertReplacementWithTriggers) so a replacement's trigger
+    // list — and therefore `triggers.first`, the legacy-mirror source and
+    // the UI's chip order — is stable across reads instead of depending on
+    // unspecified SQL row order.
+    return select(textReplacements).join([
+      leftOuterJoin(
+        textReplacementTriggers,
+        textReplacementTriggers.replacementId.equalsExp(textReplacements.id),
+      ),
+    ])..orderBy([OrderingTerm(expression: textReplacementTriggers.id)]);
+  }
 
-  /// Deletes all text replacements. Used by settings import (Cluster 5
-  /// portability) to restore an exported set as the exact new contents.
-  Future<void> deleteAllReplacements() => delete(textReplacements).go();
+  /// Groups flat join rows (one row per trigger, or one null-trigger row for
+  /// a replacement with none) back into one [ReplacementWithTriggers] per
+  /// replacement, preserving every parent row via the left outer join even
+  /// when it has zero trigger rows — the notifier that seeds sample data on
+  /// an empty table relies on this to see every parent row regardless of
+  /// whether its triggers backfilled correctly.
+  List<ReplacementWithTriggers> _groupReplacementRows(List<TypedResult> rows) {
+    final order = <String>[];
+    final replacementById = <String, TextReplacement>{};
+    final triggersById = <String, List<String>>{};
+    for (final row in rows) {
+      final replacement = row.readTable(textReplacements);
+      if (!replacementById.containsKey(replacement.id)) {
+        order.add(replacement.id);
+        replacementById[replacement.id] = replacement;
+        triggersById[replacement.id] = [];
+      }
+      final trigger = row.readTableOrNull(textReplacementTriggers);
+      if (trigger != null) {
+        triggersById[replacement.id]!.add(trigger.trigger);
+      }
+    }
+    return [
+      for (final id in order)
+        ReplacementWithTriggers(
+          row: replacementById[id]!,
+          triggers: triggersById[id]!,
+        ),
+    ];
+  }
+
+  /// Upserts a replacement and its full set of trigger phrases in one
+  /// transaction. `triggers` is the complete list (not a delta) — existing
+  /// trigger rows for [id] are replaced. `triggers.first` is also mirrored
+  /// into the legacy `text_replacements.trigger` column (see
+  /// [TextReplacements] doc comment).
+  Future<void> upsertReplacementWithTriggers({
+    required String id,
+    required List<String> triggers,
+    required String replacement,
+    required DateTime createdAt,
+  }) async {
+    assert(triggers.isNotEmpty, 'a replacement needs at least one trigger');
+    await transaction(() async {
+      await into(textReplacements).insertOnConflictUpdate(
+        TextReplacementsCompanion(
+          id: Value(id),
+          trigger: Value(triggers.first),
+          replacement: Value(replacement),
+          createdAt: Value(createdAt),
+        ),
+      );
+      await (delete(
+        textReplacementTriggers,
+      )..where((t) => t.replacementId.equals(id))).go();
+      await batch((b) {
+        b.insertAll(textReplacementTriggers, [
+          for (var i = 0; i < triggers.length; i++)
+            TextReplacementTriggersCompanion.insert(
+              id: '${id}_t$i',
+              replacementId: id,
+              trigger: triggers[i],
+            ),
+        ]);
+      });
+    });
+  }
+
+  Future<void> deleteReplacement(String id) {
+    return transaction(() async {
+      await (delete(
+        textReplacementTriggers,
+      )..where((t) => t.replacementId.equals(id))).go();
+      await (delete(textReplacements)..where((t) => t.id.equals(id))).go();
+    });
+  }
+
+  /// Deletes all text replacements (and their triggers). Used by settings
+  /// import (Cluster 5 portability) to restore an exported set as the exact
+  /// new contents.
+  Future<void> deleteAllReplacements() {
+    return transaction(() async {
+      await delete(textReplacementTriggers).go();
+      await delete(textReplacements).go();
+    });
+  }
 
   // ---------------------------------------------------------------------------
   // Notes

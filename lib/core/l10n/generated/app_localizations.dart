@@ -2232,13 +2232,13 @@ abstract class L10n {
   /// No description provided for @replacementsDialogHint.
   ///
   /// In en, this message translates to:
-  /// **'The trigger phrase will be replaced automatically while recording.'**
+  /// **'Any of the trigger phrases will be replaced automatically while recording.'**
   String get replacementsDialogHint;
 
   /// No description provided for @replacementsTriggerLabel.
   ///
   /// In en, this message translates to:
-  /// **'Trigger phrase'**
+  /// **'Trigger phrases'**
   String get replacementsTriggerLabel;
 
   /// No description provided for @replacementsTriggerHint.
@@ -2246,6 +2246,18 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'e.g. btw'**
   String get replacementsTriggerHint;
+
+  /// No description provided for @replacementsAddTrigger.
+  ///
+  /// In en, this message translates to:
+  /// **'Add trigger phrase'**
+  String get replacementsAddTrigger;
+
+  /// No description provided for @replacementsRemoveTrigger.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove trigger phrase'**
+  String get replacementsRemoveTrigger;
 
   /// No description provided for @replacementsReplacementLabel.
   ///

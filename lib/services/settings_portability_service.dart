@@ -84,7 +84,7 @@ class SettingsPortabilityService {
       'hotkey': bundle.hotkey.toMap(),
       'replacements': [
         for (final r in bundle.replacements)
-          {'trigger': r.trigger, 'replacement': r.replacement},
+          {'triggers': r.triggers, 'replacement': r.replacement},
       ],
     });
   }
@@ -125,15 +125,32 @@ class SettingsPortabilityService {
       replacements: [
         for (final entry in replacementsRaw)
           if (entry is Map)
-            Replacement(
-              // IDs are DB-assigned on import (a fresh install may already
-              // have colliding IDs) — not part of the portable identity.
-              id: '',
-              trigger: '${entry['trigger'] ?? ''}',
-              replacement: '${entry['replacement'] ?? ''}',
-            ),
+            if (_decodeTriggers(entry) case final triggers
+                when triggers.isNotEmpty)
+              Replacement(
+                // IDs are DB-assigned on import (a fresh install may already
+                // have colliding IDs) — not part of the portable identity.
+                id: '',
+                triggers: triggers,
+                replacement: '${entry['replacement'] ?? ''}',
+              ),
       ],
     );
+  }
+
+  /// Reads a replacement entry's trigger phrases. Prefers the current
+  /// `"triggers"` list; falls back to the pre-multi-trigger `"trigger"`
+  /// string so an export produced by the currently-published version still
+  /// imports without exception. Empty strings are dropped either way — an
+  /// empty trigger would match everywhere once fed into the replacement
+  /// regex.
+  List<String> _decodeTriggers(Map entry) {
+    final triggersRaw = entry['triggers'];
+    if (triggersRaw is List) {
+      return triggersRaw.map((t) => '$t').where((t) => t.isNotEmpty).toList();
+    }
+    final legacyTrigger = '${entry['trigger'] ?? ''}';
+    return legacyTrigger.isEmpty ? const [] : [legacyTrigger];
   }
 
   /// Writes [bundle] as JSON to [path], overwriting any existing file.

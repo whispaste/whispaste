@@ -1223,13 +1223,19 @@ class L10nDe extends L10n {
 
   @override
   String get replacementsDialogHint =>
-      'Der Auslöser wird beim Aufnehmen automatisch ersetzt.';
+      'Jeder der Auslöser wird beim Aufnehmen automatisch ersetzt.';
 
   @override
   String get replacementsTriggerLabel => 'Auslöser';
 
   @override
   String get replacementsTriggerHint => 'z. B. mfg';
+
+  @override
+  String get replacementsAddTrigger => 'Auslöser hinzufügen';
+
+  @override
+  String get replacementsRemoveTrigger => 'Auslöser entfernen';
 
   @override
   String get replacementsReplacementLabel => 'Ersetzungstext';

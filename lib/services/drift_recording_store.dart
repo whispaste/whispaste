@@ -25,14 +25,22 @@ class DriftRecordingStore implements RecordingStore {
       try {
         final replacements = await _db.readAllReplacements();
         for (final r in replacements) {
-          final escaped = RegExp.escape(r.trigger);
+          if (r.triggers.isEmpty) continue;
+          // All of a replacement's triggers are matched in one alternation
+          // pass against the untouched transcript segment — matching them
+          // one at a time would let a later trigger match text just
+          // inserted by an earlier one (e.g. triggers "omw"/"way" both
+          // firing on replacement "on my way").
+          final sortedTriggers = [...r.triggers]
+            ..sort((a, b) => b.length.compareTo(a.length));
+          final alternation = sortedTriggers.map(RegExp.escape).join('|');
           final pattern = RegExp(
-            r'(?<=\s|^)' + escaped + r'(?=\s|$|[.,;:!?])',
+            r'(?<=\s|^)(?:' + alternation + r')(?=\s|$|[.,;:!?])',
             caseSensitive: false,
           );
           processedTranscript = processedTranscript.replaceAll(
             pattern,
-            r.replacement,
+            r.row.replacement,
           );
         }
       } on Exception {

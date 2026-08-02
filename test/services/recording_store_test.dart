@@ -48,13 +48,11 @@ void main() {
     test('applies text replacements when enabled', () async {
       final now = DateTime.now();
       final id = now.millisecondsSinceEpoch.toString();
-      await db.upsertReplacement(
-        TextReplacementsCompanion.insert(
-          id: id,
-          trigger: 'hello',
-          replacement: 'Hi there',
-          createdAt: now,
-        ),
+      await db.upsertReplacementWithTriggers(
+        id: id,
+        triggers: ['hello'],
+        replacement: 'Hi there',
+        createdAt: now,
       );
 
       final result = await store.save(
@@ -67,13 +65,11 @@ void main() {
     test('skips replacements when applyTextReplacements is false', () async {
       final now = DateTime.now();
       final id = now.millisecondsSinceEpoch.toString();
-      await db.upsertReplacement(
-        TextReplacementsCompanion.insert(
-          id: id,
-          trigger: 'hello',
-          replacement: 'Hi there',
-          createdAt: now,
-        ),
+      await db.upsertReplacementWithTriggers(
+        id: id,
+        triggers: ['hello'],
+        replacement: 'Hi there',
+        createdAt: now,
       );
 
       final result = await store.save(
@@ -82,6 +78,61 @@ void main() {
 
       expect(result.processedTranscript, 'hello world');
     });
+
+    test(
+      'each trigger of a multi-trigger replacement matches independently',
+      () async {
+        final now = DateTime.now();
+        await db.upsertReplacementWithTriggers(
+          id: now.millisecondsSinceEpoch.toString(),
+          triggers: ['brb', 'be right back'],
+          replacement: 'I will return shortly',
+          createdAt: now,
+        );
+
+        final resultShort = await store.save(
+          makeInput(transcript: 'brb everyone', applyReplacements: true),
+        );
+        expect(
+          resultShort.processedTranscript,
+          'I will return shortly everyone',
+        );
+
+        final resultLong = await store.save(
+          makeInput(
+            transcript: 'be right back everyone',
+            applyReplacements: true,
+          ),
+        );
+        expect(
+          resultLong.processedTranscript,
+          'I will return shortly everyone',
+        );
+      },
+    );
+
+    test(
+      'a trigger match is not re-matched by a second trigger of the same '
+      'replacement when the replacement text contains that second trigger',
+      () async {
+        // Regression: "omw" -> "on my way" must not then have "way" (a
+        // second trigger of the very same replacement) match the "way"
+        // just inserted by the first, cascading into "on my on my way".
+        final now = DateTime.now();
+        await db.upsertReplacementWithTriggers(
+          id: now.millisecondsSinceEpoch.toString(),
+          triggers: ['omw', 'way'],
+          replacement: 'on my way',
+          createdAt: now,
+        );
+
+        final result = await store.save(
+          makeInput(transcript: 'omw', applyReplacements: true),
+        );
+
+        expect(result.processedTranscript, 'on my way');
+      },
+    );
 
     test('records daily stat after save', () async {
       await store.save(makeInput(transcript: 'one two three'));

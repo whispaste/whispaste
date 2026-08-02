@@ -50,7 +50,9 @@ class _FakeToaster {
 const _sampleBundle = SettingsExportBundle(
   customVocabulary: 'WhisPaste',
   hotkey: HotkeySettings(),
-  replacements: [Replacement(id: 'a', trigger: 'mfg', replacement: 'MfG')],
+  replacements: [
+    Replacement(id: 'a', triggers: ['mfg'], replacement: 'MfG'),
+  ],
 );
 
 // ─── Harness ──────────────────────────────────────────────────────────────
@@ -222,7 +224,7 @@ void main() {
 
     expect(applied, isNotNull);
     expect(applied!.customVocabulary, 'WhisPaste');
-    expect(applied!.replacements.single.trigger, 'mfg');
+    expect(applied!.replacements.single.triggers, ['mfg']);
 
     expect(toaster.calls, hasLength(1));
     expect(toaster.calls.single.type, WpToastType.success);
