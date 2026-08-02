@@ -119,29 +119,33 @@ class _WpWaveformState extends State<WpWaveform>
         widget.inactiveColor ??
         (isDark ? WpColorsDark.surfaceVariant : WpColorsLight.surfaceVariant);
 
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, _) {
-        return CustomPaint(
-          size: Size(
-            widget.barCount * (widget.barWidth + widget.barSpacing) -
-                widget.barSpacing,
-            widget.height,
-          ),
-          painter: _WaveformPainter(
-            audioLevel: widget.isActive ? widget.audioLevel : 0.0,
-            barCount: widget.barCount,
-            barWidth: widget.barWidth,
-            barSpacing: widget.barSpacing,
-            activeColor: activeColor,
-            idleColor: idleColor,
-            phaseA: _phaseA,
-            phaseB: _phaseB,
-            phaseC: _phaseC,
-            tick: _controller.value,
-          ),
-        );
-      },
+    // ⚡ Bolt: Added RepaintBoundary to isolate continuous waveform repaints
+    // from invalidating the rest of the widget tree.
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, _) {
+          return CustomPaint(
+            size: Size(
+              widget.barCount * (widget.barWidth + widget.barSpacing) -
+                  widget.barSpacing,
+              widget.height,
+            ),
+            painter: _WaveformPainter(
+              audioLevel: widget.isActive ? widget.audioLevel : 0.0,
+              barCount: widget.barCount,
+              barWidth: widget.barWidth,
+              barSpacing: widget.barSpacing,
+              activeColor: activeColor,
+              idleColor: idleColor,
+              phaseA: _phaseA,
+              phaseB: _phaseB,
+              phaseC: _phaseC,
+              tick: _controller.value,
+            ),
+          );
+        },
+      ),
     );
   }
 }
