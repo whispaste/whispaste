@@ -62,6 +62,22 @@ void main() {
       expect(result.processedTranscript, 'Hi there world');
     });
 
+    test('matches a trigger regardless of transcript casing', () async {
+      final now = DateTime.now();
+      await db.upsertReplacementWithTriggers(
+        id: now.millisecondsSinceEpoch.toString(),
+        triggers: ['mfg'],
+        replacement: 'Mit freundlichen Grüßen',
+        createdAt: now,
+      );
+
+      final result = await store.save(
+        makeInput(transcript: 'MFG', applyReplacements: true),
+      );
+
+      expect(result.processedTranscript, 'Mit freundlichen Grüßen');
+    });
+
     test('skips replacements when applyTextReplacements is false', () async {
       final now = DateTime.now();
       final id = now.millisecondsSinceEpoch.toString();
