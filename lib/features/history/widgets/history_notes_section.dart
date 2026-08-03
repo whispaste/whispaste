@@ -492,27 +492,33 @@ class _NoteItemState extends State<_NoteItem> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        InkWell(
-                          onTap: widget.onStartEdit,
-                          borderRadius: WpRadius.borderSm,
-                          child: Padding(
-                            padding: const EdgeInsets.all(WpSpacing.xs),
-                            child: Icon(
-                              LucideIcons.pencil,
-                              size: WpIconSize.sm,
-                              color: widget.textMuted,
+                        Tooltip(
+                          message: L10n.of(context).actionEdit,
+                          child: InkWell(
+                            onTap: widget.onStartEdit,
+                            borderRadius: WpRadius.borderSm,
+                            child: Padding(
+                              padding: const EdgeInsets.all(WpSpacing.xs),
+                              child: Icon(
+                                LucideIcons.pencil,
+                                size: WpIconSize.sm,
+                                color: widget.textMuted,
+                              ),
                             ),
                           ),
                         ),
-                        InkWell(
-                          onTap: widget.onDelete,
-                          borderRadius: WpRadius.borderSm,
-                          child: Padding(
-                            padding: const EdgeInsets.all(WpSpacing.xs),
-                            child: Icon(
-                              LucideIcons.x,
-                              size: WpIconSize.sm,
-                              color: widget.textMuted,
+                        Tooltip(
+                          message: L10n.of(context).actionDelete,
+                          child: InkWell(
+                            onTap: widget.onDelete,
+                            borderRadius: WpRadius.borderSm,
+                            child: Padding(
+                              padding: const EdgeInsets.all(WpSpacing.xs),
+                              child: Icon(
+                                LucideIcons.x,
+                                size: WpIconSize.sm,
+                                color: widget.textMuted,
+                              ),
                             ),
                           ),
                         ),
