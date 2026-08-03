@@ -469,7 +469,7 @@ class L10nHe extends L10n {
 
   @override
   String get pasteFailurePermissionMissing =>
-      'ההדבקה האוטומטית נחסמה על־ידי המערכת. WhisPaste זקוקה להרשאת נגישות כדי להדביק באפליקציות אחרות.';
+      'ההדבקה האוטומטית נחסמה על־ידי המערכת. WhisPaste זקוקה להרשאה כדי להוסיף טקסט לאפליקציות אחרות — ב־macOS ההרשאה הזו נקראת „נגישות“.';
 
   @override
   String get pasteFailureNoTarget =>
@@ -506,11 +506,11 @@ class L10nHe extends L10n {
   String get pasteCapabilityTestButton => 'בדוק עכשיו';
 
   @override
-  String get pasteCapabilityGrantButton => 'הענק הרשאה';
+  String get pasteCapabilityGrantButton => 'המשך';
 
   @override
   String get pasteCapabilityWhyMac =>
-      'WhisPaste needs Accessibility permission to type text into the app you\'re working in.';
+      'WhisPaste needs permission to type text into the app you\'re working in — macOS calls this permission \'Accessibility\'.';
 
   @override
   String get pasteCapabilityTroubleshoot => 'Having trouble?';
@@ -625,7 +625,7 @@ class L10nHe extends L10n {
       'macOS ישאל אותך בעוד רגע אם WhisPaste מורשה. אמור כן, וזהו.';
 
   @override
-  String get onboardingPasteGrantCta => 'אשר עכשיו';
+  String get onboardingPasteGrantCta => 'המשך';
 
   @override
   String get onboardingPasteVerifyCta => 'בדוק';
@@ -2351,7 +2351,7 @@ class L10nHe extends L10n {
   String get onboardingMicPermissionPending => 'לחץ למטה כדי לאפשר גישה';
 
   @override
-  String get onboardingMicRequestAccess => 'אפשר גישה';
+  String get onboardingMicRequestAccess => 'המשך';
 
   @override
   String get onboardingMicTestRecording => 'אמור משהו, אנחנו בודקים את הרמה';

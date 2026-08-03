@@ -960,7 +960,7 @@ abstract class L10n {
   /// No description provided for @pasteFailurePermissionMissing.
   ///
   /// In en, this message translates to:
-  /// **'Auto-Paste was blocked by the OS. WhisPaste needs the Accessibility permission to paste into other apps.'**
+  /// **'Auto-Paste was blocked by the OS. WhisPaste needs permission to insert text into other apps — macOS calls this permission \'Accessibility\'.'**
   String get pasteFailurePermissionMissing;
 
   /// No description provided for @pasteFailureNoTarget.
@@ -1026,13 +1026,13 @@ abstract class L10n {
   /// No description provided for @pasteCapabilityGrantButton.
   ///
   /// In en, this message translates to:
-  /// **'Grant permission'**
+  /// **'Continue'**
   String get pasteCapabilityGrantButton;
 
   /// No description provided for @pasteCapabilityWhyMac.
   ///
   /// In en, this message translates to:
-  /// **'WhisPaste needs Accessibility permission to type text into the app you\'re working in.'**
+  /// **'WhisPaste needs permission to type text into the app you\'re working in — macOS calls this permission \'Accessibility\'.'**
   String get pasteCapabilityWhyMac;
 
   /// No description provided for @pasteCapabilityTroubleshoot.
@@ -1218,7 +1218,7 @@ abstract class L10n {
   /// No description provided for @onboardingPasteGrantCta.
   ///
   /// In en, this message translates to:
-  /// **'Allow now'**
+  /// **'Continue'**
   String get onboardingPasteGrantCta;
 
   /// No description provided for @onboardingPasteVerifyCta.
@@ -4302,7 +4302,7 @@ abstract class L10n {
   /// No description provided for @onboardingMicRequestAccess.
   ///
   /// In en, this message translates to:
-  /// **'Grant Access'**
+  /// **'Continue'**
   String get onboardingMicRequestAccess;
 
   /// No description provided for @onboardingMicTestRecording.

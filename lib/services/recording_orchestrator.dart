@@ -30,6 +30,7 @@ import 'recording/pipeline_step_runner.dart';
 import 'recording/recording_state_machine.dart';
 import 'recording/safety_guard.dart';
 import 'review_prompt_service.dart';
+import 'store_thank_you_service.dart';
 import 'snippet_picker/snippet_picker_dispatch.dart';
 import 'snippet_picker/snippet_picker_service.dart';
 import 'sound_feedback_service.dart';
@@ -910,6 +911,15 @@ class RecordingOrchestrator extends Notifier<void> {
     // does not need to be awaited after the review check specifically.
     unawaited(ref.read(reviewPromptProvider.notifier).checkAndMaybePrompt());
     unawaited(ref.read(supportPromptProvider.notifier).checkAndMaybePrompt());
+    // Re-evaluate after every real recording (not just at onboarding-complete
+    // time) so the engagement gate in shouldShowStoreThankYou — added after
+    // Apple's Guideline 5.6.3 rejection of v1.2.66 — actually gets to fire
+    // once the user crosses the threshold.
+    unawaited(
+      ref
+          .read(storeThankYouProvider.notifier)
+          .checkAndMaybeShow(onboardingCompleted: settings.onboardingCompleted),
+    );
     _oomHandler.reset();
     timing.outcome = 'ok';
 
@@ -1670,10 +1680,10 @@ class RecordingOrchestrator extends Notifier<void> {
               : 'WhisPaste: Auto-Einfügen blockiert',
           body: staleGrant
               ? 'Die Berechtigung wurde erteilt, aber WhisPaste läuft noch mit dem alten Stand. Klicke hier, um WhisPaste neu zu starten.'
-              : 'Bedienungshilfen-Berechtigung fehlt. Klicke hier oder das Tray-Icon, um sie in den Systemeinstellungen zu erteilen.',
+              : 'WhisPaste braucht die Berechtigung, Text in andere Apps einzufügen — macOS nennt sie „Bedienungshilfen“. Klicke hier oder das Tray-Icon, um die Systemeinstellungen zu öffnen.',
           trayLabel: staleGrant
               ? 'Auto-Einfügen blockiert — Neustart nötig'
-              : 'Auto-Einfügen blockiert — Berechtigung erteilen',
+              : 'Auto-Einfügen blockiert — Systemeinstellungen öffnen',
           onClick: staleGrant
               ? capNotifier.restartForGrant
               : capNotifier.openAccessibilitySettings,

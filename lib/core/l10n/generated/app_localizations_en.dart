@@ -476,7 +476,7 @@ class L10nEn extends L10n {
 
   @override
   String get pasteFailurePermissionMissing =>
-      'Auto-Paste was blocked by the OS. WhisPaste needs the Accessibility permission to paste into other apps.';
+      'Auto-Paste was blocked by the OS. WhisPaste needs permission to insert text into other apps — macOS calls this permission \'Accessibility\'.';
 
   @override
   String get pasteFailureNoTarget =>
@@ -514,11 +514,11 @@ class L10nEn extends L10n {
   String get pasteCapabilityTestButton => 'Test now';
 
   @override
-  String get pasteCapabilityGrantButton => 'Grant permission';
+  String get pasteCapabilityGrantButton => 'Continue';
 
   @override
   String get pasteCapabilityWhyMac =>
-      'WhisPaste needs Accessibility permission to type text into the app you\'re working in.';
+      'WhisPaste needs permission to type text into the app you\'re working in — macOS calls this permission \'Accessibility\'.';
 
   @override
   String get pasteCapabilityTroubleshoot => 'Having trouble?';
@@ -634,7 +634,7 @@ class L10nEn extends L10n {
       'macOS will ask you in a moment whether WhisPaste may do this. Say yes, done.';
 
   @override
-  String get onboardingPasteGrantCta => 'Allow now';
+  String get onboardingPasteGrantCta => 'Continue';
 
   @override
   String get onboardingPasteVerifyCta => 'Verify';
@@ -2394,7 +2394,7 @@ class L10nEn extends L10n {
       'Tap below to enable your microphone';
 
   @override
-  String get onboardingMicRequestAccess => 'Grant Access';
+  String get onboardingMicRequestAccess => 'Continue';
 
   @override
   String get onboardingMicTestRecording =>

@@ -18,7 +18,7 @@ import '../mic_probe.dart';
 // ---------------------------------------------------------------------------
 
 enum _MicPhase {
-  /// Initial — show "Grant access" button.
+  /// Initial — show "Continue" button.
   idle,
 
   /// OS permission dialog is in flight.
@@ -170,7 +170,7 @@ class _MicrophoneStepState extends State<MicrophoneStep> {
 
     // Only re-run capture automatically once we already have permission.
     // In idle / requesting / denied the selection is remembered and
-    // applied on the next Grant-tap or Retry — restarting the probe early
+    // applied on the next Continue-tap or Retry — restarting the probe early
     // would either no-op (no permission) or spam the TCC dialog.
     switch (_phase) {
       case _MicPhase.verifying:

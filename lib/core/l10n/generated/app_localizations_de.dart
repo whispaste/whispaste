@@ -478,7 +478,7 @@ class L10nDe extends L10n {
 
   @override
   String get pasteFailurePermissionMissing =>
-      'Auto-Einfügen vom System blockiert. WhisPaste braucht die Bedienungshilfen-Berechtigung, um in andere Apps einzufügen.';
+      'Auto-Einfügen vom System blockiert. WhisPaste braucht die Berechtigung, Text in andere Apps einzufügen — macOS nennt diese Berechtigung „Bedienungshilfen“.';
 
   @override
   String get pasteFailureNoTarget =>
@@ -516,11 +516,11 @@ class L10nDe extends L10n {
   String get pasteCapabilityTestButton => 'Jetzt testen';
 
   @override
-  String get pasteCapabilityGrantButton => 'Berechtigung erteilen';
+  String get pasteCapabilityGrantButton => 'Weiter';
 
   @override
   String get pasteCapabilityWhyMac =>
-      'WhisPaste braucht die Bedienungshilfen-Berechtigung, um Text in die App einzufügen, in der du gerade schreibst.';
+      'WhisPaste braucht die Berechtigung, Text in die App einzufügen, in der du gerade schreibst — macOS nennt diese Berechtigung „Bedienungshilfen“.';
 
   @override
   String get pasteCapabilityTroubleshoot => 'Probleme?';
@@ -640,7 +640,7 @@ class L10nDe extends L10n {
       'macOS fragt dich gleich, ob WhisPaste das darf. Sag Ja, fertig.';
 
   @override
-  String get onboardingPasteGrantCta => 'Jetzt freigeben';
+  String get onboardingPasteGrantCta => 'Weiter';
 
   @override
   String get onboardingPasteVerifyCta => 'Prüfen';
@@ -2414,7 +2414,7 @@ class L10nDe extends L10n {
       'Tippe unten, um dein Mikrofon zu aktivieren';
 
   @override
-  String get onboardingMicRequestAccess => 'Zugriff gewähren';
+  String get onboardingMicRequestAccess => 'Weiter';
 
   @override
   String get onboardingMicTestRecording => 'Sag etwas, wir prüfen den Pegel';

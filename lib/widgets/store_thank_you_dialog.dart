@@ -9,11 +9,14 @@
 ///   - The SharedPreferences flag is not yet set.
 ///   - Onboarding has been completed.
 ///
-/// CTA URLs: single-source constants [kWindowsStoreReviewUrl] and
-/// [kGitHubRepoUrl] — no hardcoded literals.
+/// CTA URLs: single-source constants [kWindowsStoreReviewUrl] (Windows only)
+/// and [kGitHubRepoUrl] — no hardcoded literals. On macOS/Linux no reliable
+/// store review deep-link exists, so only the GitHub star CTA is shown
+/// (mirrors the review prompt dialog's platform split).
 library;
 
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -25,6 +28,11 @@ import '../core/l10n/generated/app_localizations.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import '../services/store_thank_you_service.dart';
+
+/// Override for testing. When non-null, [StoreThankYouWatcher] uses this
+/// value instead of [Platform.isWindows].
+@visibleForTesting
+bool? storeThankYouPlatformIsWindowsOverride;
 
 // ---------------------------------------------------------------------------
 // Watcher (public entry point)
@@ -52,6 +60,9 @@ class StoreThankYouWatcher extends ConsumerStatefulWidget {
 class _StoreThankYouWatcherState extends ConsumerState<StoreThankYouWatcher> {
   Timer? _delay;
   bool _dialogShowing = false;
+
+  bool get _isWindows =>
+      storeThankYouPlatformIsWindowsOverride ?? Platform.isWindows;
 
   @override
   void initState() {
@@ -116,6 +127,7 @@ class _StoreThankYouWatcherState extends ConsumerState<StoreThankYouWatcher> {
               ),
               _StoreThankYouDialog(
                 animation: animation,
+                isWindows: _isWindows,
                 onDismiss: () async {
                   Navigator.of(ctx).pop();
                   await _markDone();
@@ -179,12 +191,14 @@ class _StoreThankYouWatcherState extends ConsumerState<StoreThankYouWatcher> {
 class _StoreThankYouDialog extends StatelessWidget {
   const _StoreThankYouDialog({
     required this.animation,
+    required this.isWindows,
     required this.onDismiss,
     required this.onRateStore,
     required this.onStarGitHub,
   });
 
   final Animation<double> animation;
+  final bool isWindows;
   final VoidCallback onDismiss;
   final VoidCallback onRateStore;
   final VoidCallback onStarGitHub;
@@ -241,16 +255,26 @@ class _StoreThankYouDialog extends StatelessWidget {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: WpSpacing.lg),
-                FilledButton(
-                  autofocus: true,
-                  onPressed: onRateStore,
-                  child: Text(l10n.storeThankYouCtaStore),
-                ),
-                const SizedBox(height: WpSpacing.xs),
-                OutlinedButton(
-                  onPressed: onStarGitHub,
-                  child: Text(l10n.storeThankYouCtaGitHub),
-                ),
+                // Windows: Store-review CTA + GitHub star. macOS/Linux: no
+                // reliable store review deep-link exists — only the GitHub
+                // star CTA (mirrors the review prompt dialog).
+                if (isWindows) ...[
+                  FilledButton(
+                    autofocus: true,
+                    onPressed: onRateStore,
+                    child: Text(l10n.storeThankYouCtaStore),
+                  ),
+                  const SizedBox(height: WpSpacing.xs),
+                  OutlinedButton(
+                    onPressed: onStarGitHub,
+                    child: Text(l10n.storeThankYouCtaGitHub),
+                  ),
+                ] else
+                  FilledButton(
+                    autofocus: true,
+                    onPressed: onStarGitHub,
+                    child: Text(l10n.storeThankYouCtaGitHub),
+                  ),
                 const SizedBox(height: WpSpacing.sm),
                 TextButton(
                   onPressed: onDismiss,

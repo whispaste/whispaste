@@ -56,3 +56,41 @@ files.user-selected.read-write (no file picker/save dialog exists in the
 app). The app now requests only app-sandbox, device.audio-input, and
 network.client — the minimum needed for microphone capture and outbound
 HTTPS calls to the optional cloud transcription providers described above.
+
+RESUBMISSION NOTE (rejection dated Aug 3, 2026 — submission
+05178297-1d6b-454d-9a7f-dfd1ab1a8e8e, four items addressed below)
+
+Guideline 5.1.1(iv) — Microphone permission wording
+The custom pre-permission screen's button was relabeled from "Grant
+Access" to "Continue" (and the equivalent Auto-Paste/Accessibility
+pre-permission buttons, not flagged this round but the same pattern, were
+relabeled the same way pre-emptively). No pre-permission screen tells the
+user how to respond to the native macOS permission dialog itself.
+
+Guideline 2.4.5 — Accessibility permission purpose
+No functional change from the explanation above, which was already part of
+the reviewed 1.2.66 submission — see the separate reply posted to this
+message in the App Store Connect Resolution Center for the same
+explanation addressed directly to the reviewer. In short: WhisPaste's
+MAS build never calls the Accessibility (AXUIElement) API; it only uses
+CGPreflightPostEventAccess/CGRequestPostEventAccess (the PostEvent TCC
+service), which macOS itself surfaces to the user as "Accessibility" in
+System Settings. We also softened the in-app copy that referred to this
+permission so it now describes it as "the permission macOS calls
+Accessibility" rather than implying WhisPaste itself uses Accessibility
+features.
+
+Guideline 5.6.3 — Rating request timing
+The one-time "thanks for your support" hint shown to Mac App Store users
+(with its own "Rate on the Store" / "Star on GitHub" choice, separate from
+the general review-prompt flow) no longer fires 2 seconds after onboarding
+completes. It now requires at least 12 completed real recordings first —
+the same usage bar the general review-prompt flow already used — so it can
+no longer appear on first launch or during onboarding.
+
+Guideline 5 — China / OpenAI references
+WhisPaste's optional cloud transcription add-on integrates with OpenAI's
+API. Rather than attempt to gate that functionality specifically for the
+China mainland storefront, we've deselected China mainland from this app's
+Availability settings in App Store Connect, so the app (and its OpenAI
+references) are not distributed there at all.
