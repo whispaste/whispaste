@@ -31,6 +31,7 @@ class NotesSplitView extends StatefulWidget {
     required this.onAddTag,
     required this.onRemoveTag,
     required this.onExport,
+    required this.onVoiceTranscript,
   });
 
   final List<Note> notes;
@@ -66,6 +67,10 @@ class NotesSplitView extends StatefulWidget {
 
   /// Export the note currently open in the editor.
   final VoidCallback onExport;
+
+  /// Raw transcript from the editor's voice-input button — passed through to
+  /// [NoteEditorPanel]; insertion happens in `_NotesPageState`.
+  final ValueChanged<String> onVoiceTranscript;
 
   @override
   State<NotesSplitView> createState() => _NotesSplitViewState();
@@ -170,6 +175,7 @@ class _NotesSplitViewState extends State<NotesSplitView>
       onAddTag: widget.onAddTag,
       onRemoveTag: widget.onRemoveTag,
       onExport: widget.onExport,
+      onVoiceTranscript: widget.onVoiceTranscript,
     );
   }
 

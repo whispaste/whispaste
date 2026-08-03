@@ -87,6 +87,7 @@ void main() {
             onAddTag: (_) {},
             onRemoveTag: (_) {},
             onExport: () {},
+            onVoiceTranscript: (_) {},
           ),
           locale: const Locale('en'),
         ),

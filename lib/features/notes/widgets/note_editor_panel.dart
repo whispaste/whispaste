@@ -10,6 +10,7 @@ import '../../../core/theme/tokens.dart';
 import '../../../widgets/tag_input.dart';
 import '../../../widgets/toast.dart';
 import '../data/note_title.dart';
+import 'note_voice_input_button.dart';
 
 // ---------------------------------------------------------------------------
 // Note editor panel — strongly reduced sibling of HistoryDetailPanel:
@@ -34,6 +35,7 @@ class NoteEditorPanel extends StatelessWidget {
     required this.onAddTag,
     required this.onRemoveTag,
     required this.onExport,
+    required this.onVoiceTranscript,
   });
 
   final Note note;
@@ -56,6 +58,11 @@ class NoteEditorPanel extends StatelessWidget {
   /// Export this note via the format picker (txt/md).
   final VoidCallback onExport;
 
+  /// Called with the raw transcript when the voice-input button finishes —
+  /// the panel does not insert it itself, that's `_NotesPageState`'s job
+  /// (cursor position lives in the shared controller/selection, not here).
+  final ValueChanged<String> onVoiceTranscript;
+
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
@@ -75,9 +82,8 @@ class NoteEditorPanel extends StatelessWidget {
       child: Column(
         children: [
           // ── Toolbar row ──
-          // Derived title + copy + export + favourite/trash (or
-          // restore/delete-forever for trashed notes) + close. Future actions
-          // dock here — voice input (Ticket 08).
+          // Derived title + copy + export + voice input + favourite/trash
+          // (or restore/delete-forever for trashed notes) + close.
           Padding(
             padding: const EdgeInsets.fromLTRB(
               WpSpacing.xl,
@@ -128,6 +134,10 @@ class NoteEditorPanel extends StatelessWidget {
                     size: WpIconSize.md,
                     color: textMuted,
                   ),
+                ),
+                NoteVoiceInputButton(
+                  isDark: isDark,
+                  onTranscript: onVoiceTranscript,
                 ),
                 if (isTrashed) ...[
                   // Trash view: restore + delete forever instead of the

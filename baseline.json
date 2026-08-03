@@ -45,32 +45,39 @@
       "message": "2 occurrences of duplicated block (105 tokens): lib/core/data/database.dart:1462, lib/core/data/database.dart:2034"
     },
     {
-      "fingerprint": "91d72e1632ef967c",
+      "fingerprint": "d7e190411920def0",
       "ruleId": "code-duplicates",
       "filePath": "lib/features/history/history_page.dart",
       "line": 918,
-      "message": "2 occurrences of duplicated block (97 tokens): lib/features/history/history_page.dart:918, lib/features/notes/notes_page.dart:452"
+      "message": "2 occurrences of duplicated block (97 tokens): lib/features/history/history_page.dart:918, lib/features/notes/notes_page.dart:470"
     },
     {
-      "fingerprint": "33f3a3fcf8e47c44",
+      "fingerprint": "293dafe28539cc6c",
       "ruleId": "code-duplicates",
       "filePath": "lib/features/history/widgets/history_split_view.dart",
       "line": 97,
-      "message": "2 occurrences of duplicated block (60 tokens): lib/features/history/widgets/history_split_view.dart:97, lib/features/notes/widgets/notes_split_view.dart:101"
+      "message": "2 occurrences of duplicated block (60 tokens): lib/features/history/widgets/history_split_view.dart:97, lib/features/notes/widgets/notes_split_view.dart:106"
     },
     {
-      "fingerprint": "d51814c159082dcf",
+      "fingerprint": "46b4240507459b09",
       "ruleId": "code-duplicates",
       "filePath": "lib/features/history/widgets/history_split_view.dart",
       "line": 116,
-      "message": "2 occurrences of duplicated block (100 tokens): lib/features/history/widgets/history_split_view.dart:116, lib/features/notes/widgets/notes_split_view.dart:120"
+      "message": "2 occurrences of duplicated block (100 tokens): lib/features/history/widgets/history_split_view.dart:116, lib/features/notes/widgets/notes_split_view.dart:125"
     },
     {
-      "fingerprint": "85a66e029f51878a",
+      "fingerprint": "306c6a4294ee466b",
       "ruleId": "code-duplicates",
       "filePath": "lib/features/history/widgets/history_split_view.dart",
       "line": 363,
-      "message": "2 occurrences of duplicated block (184 tokens): lib/features/history/widgets/history_split_view.dart:363, lib/features/notes/widgets/notes_split_view.dart:310"
+      "message": "2 occurrences of duplicated block (184 tokens): lib/features/history/widgets/history_split_view.dart:363, lib/features/notes/widgets/notes_split_view.dart:316"
+    },
+    {
+      "fingerprint": "f92e763f8d12ffa1",
+      "ruleId": "code-duplicates",
+      "filePath": "lib/features/history/widgets/voice_note_button.dart",
+      "line": 290,
+      "message": "2 occurrences of duplicated block (205 tokens): lib/features/history/widgets/voice_note_button.dart:290, lib/features/notes/widgets/note_voice_input_button.dart:262"
     },
     {
       "fingerprint": "7c1bb57095282165",

@@ -37,8 +37,8 @@ typedef NotesPageExportFn =
 /// minimal: flat note list on the left, always-editable plain-text editor on
 /// the right, plus an active/trash filter with favourite, trash, restore and
 /// delete-forever actions (Ticket 04), tag editing/display (Ticket 05),
-/// content/tag search with Ctrl/Cmd+F focus (Ticket 06) and txt/md export
-/// (Ticket 07). No voice input yet — that hooks in via Ticket 08.
+/// content/tag search with Ctrl/Cmd+F focus (Ticket 06), txt/md export
+/// (Ticket 07) and voice input at the cursor position (Ticket 08).
 class NotesPage extends ConsumerStatefulWidget {
   const NotesPage({super.key, this.exportFn = notes_exporter.exportNote});
 
@@ -228,6 +228,23 @@ class _NotesPageState extends ConsumerState<NotesPage> {
   Future<void> _removeTag(Note note, String tagId) =>
       _actions.removeTag(note.id, tagId);
 
+  /// Inserts [transcript] at the editor's current selection (replacing any
+  /// selected range) — a genuine content edit, so it goes through the normal
+  /// `_onEditorChanged` listener → autosave debounce, unlike `_setEditorText`
+  /// (which suppresses autosave via `_syncingEditor` for programmatic note
+  /// switches).
+  void _insertVoiceTranscript(String transcript) {
+    final text = _editorController.text;
+    final selection = _editorController.selection;
+    final start = selection.start >= 0 ? selection.start : text.length;
+    final end = selection.end >= 0 ? selection.end : text.length;
+    final newText = text.replaceRange(start, end, transcript);
+    _editorController.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: start + transcript.length),
+    );
+  }
+
   void _exportNote(Note note, List<Tag> tags) {
     // Fire-and-forget: the exporter surfaces success/error via WpToast.
     widget.exportFn(context, note, tags);
@@ -383,6 +400,7 @@ class _NotesPageState extends ConsumerState<NotesPage> {
                           _exportNote(currentNote, selectedNoteTags);
                         }
                       },
+                      onVoiceTranscript: _insertVoiceTranscript,
                     );
                   },
                   loading: () => _NotesSkeleton(isDark: isDark),
