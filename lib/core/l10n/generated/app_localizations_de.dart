@@ -15,6 +15,9 @@ class L10nDe extends L10n {
   String get navHistory => 'Verlauf';
 
   @override
+  String get navNotes => 'Notizen';
+
+  @override
   String get navSettings => 'Einstellungen';
 
   @override
@@ -3126,4 +3129,23 @@ class L10nDe extends L10n {
 
   @override
   String get storeThankYouDismiss => 'Schließen';
+
+  @override
+  String get notesNewNote => 'Neue Notiz';
+
+  @override
+  String get notesEmptyTitle => 'Noch keine Notizen';
+
+  @override
+  String get notesEmptyHint =>
+      'Leg eine Notiz an, um Text von überall zu sammeln.';
+
+  @override
+  String get notesUntitled => 'Notiz ohne Titel';
+
+  @override
+  String get notesEditorPlaceholder => 'Leg los…';
+
+  @override
+  String get notesListSemantics => 'Notizenliste';
 }

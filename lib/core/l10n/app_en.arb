@@ -2,6 +2,7 @@
   "@@locale": "en",
   "appName": "WhisPaste",
   "navHistory": "History",
+  "navNotes": "Notes",
   "navSettings": "Settings",
   "navReplacements": "Replacements",
   "navSnippets": "Snippets",
@@ -1172,5 +1173,12 @@
   "storeThankYouBody": "We're really glad you're here. If WhisPaste makes your day a little easier, a short review means a lot to us.",
   "storeThankYouCtaStore": "★ Rate on the Store",
   "storeThankYouCtaGitHub": "⭐ Star on GitHub",
-  "storeThankYouDismiss": "Close"
+  "storeThankYouDismiss": "Close",
+
+  "notesNewNote": "New note",
+  "notesEmptyTitle": "No notes yet",
+  "notesEmptyHint": "Create a note to start collecting text from anywhere.",
+  "notesUntitled": "Untitled note",
+  "notesEditorPlaceholder": "Start typing…",
+  "notesListSemantics": "Notes list"
 }

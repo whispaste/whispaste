@@ -2,6 +2,7 @@
   "@@locale": "de",
   "appName": "WhisPaste",
   "navHistory": "Verlauf",
+  "navNotes": "Notizen",
   "navSettings": "Einstellungen",
   "navReplacements": "Ersetzungen",
   "navSnippets": "Snippets",
@@ -1039,5 +1040,12 @@
   "storeThankYouBody": "Wir freuen uns sehr, dass du dabei bist. Wenn dir WhisPaste im Alltag hilft, würde uns eine kurze Bewertung sehr freuen.",
   "storeThankYouCtaStore": "★ Im Store bewerten",
   "storeThankYouCtaGitHub": "⭐ Stern auf GitHub",
-  "storeThankYouDismiss": "Schließen"
+  "storeThankYouDismiss": "Schließen",
+
+  "notesNewNote": "Neue Notiz",
+  "notesEmptyTitle": "Noch keine Notizen",
+  "notesEmptyHint": "Leg eine Notiz an, um Text von überall zu sammeln.",
+  "notesUntitled": "Notiz ohne Titel",
+  "notesEditorPlaceholder": "Leg los…",
+  "notesListSemantics": "Notizenliste"
 }

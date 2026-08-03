@@ -15,6 +15,9 @@ class L10nHe extends L10n {
   String get navHistory => 'היסטוריה';
 
   @override
+  String get navNotes => 'פתקים';
+
+  @override
   String get navSettings => 'הגדרות';
 
   @override
@@ -3047,4 +3050,22 @@ class L10nHe extends L10n {
 
   @override
   String get storeThankYouDismiss => 'סגור';
+
+  @override
+  String get notesNewNote => 'פתק חדש';
+
+  @override
+  String get notesEmptyTitle => 'עוד אין פתקים';
+
+  @override
+  String get notesEmptyHint => 'צור פתק כדי להתחיל לאסוף טקסט מכל מקום.';
+
+  @override
+  String get notesUntitled => 'פתק ללא כותרת';
+
+  @override
+  String get notesEditorPlaceholder => 'התחל להקליד…';
+
+  @override
+  String get notesListSemantics => 'רשימת פתקים';
 }

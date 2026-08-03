@@ -2,6 +2,7 @@
   "@@locale": "he",
   "appName": "WhisPaste",
   "navHistory": "היסטוריה",
+  "navNotes": "פתקים",
   "navSettings": "הגדרות",
   "navReplacements": "החלפות",
   "navSnippets": "קטעים",
@@ -1038,5 +1039,12 @@
   "storeThankYouBody": "אנחנו שמחים שאתה איתנו. אם WhisPaste עוזר לך בעבודה, דירוג קצר יעשה עבורנו הבדל גדול.",
   "storeThankYouCtaStore": "★ דרג בחנות",
   "storeThankYouCtaGitHub": "⭐ כוכב ב-GitHub",
-  "storeThankYouDismiss": "סגור"
+  "storeThankYouDismiss": "סגור",
+
+  "notesNewNote": "פתק חדש",
+  "notesEmptyTitle": "עוד אין פתקים",
+  "notesEmptyHint": "צור פתק כדי להתחיל לאסוף טקסט מכל מקום.",
+  "notesUntitled": "פתק ללא כותרת",
+  "notesEditorPlaceholder": "התחל להקליד…",
+  "notesListSemantics": "רשימת פתקים"
 }

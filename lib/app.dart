@@ -28,6 +28,7 @@ import 'widgets/title_bar.dart';
 import 'widgets/service_bootstrap.dart';
 import 'widgets/recording_behavior.dart';
 import 'features/history/history_page.dart';
+import 'features/notes/notes_page.dart';
 import 'features/settings/settings_page.dart';
 import 'features/replacements/replacements_page.dart';
 import 'features/snippets/snippets_page.dart';
@@ -109,11 +110,13 @@ class WhisPasteApp extends ConsumerWidget {
 /// [wpNavDividerAfterIds]):
 ///
 /// 1. **Recording-cycle tools** — History (the record of past recording
-///    cycles), then the trigger-phrase family: Replacements (transform
-///    text), Snippets (insert stored text).
+///    cycles), Notizen (freeform notes, independent of any recording), then
+///    the trigger-phrase family: Replacements (transform text), Snippets
+///    (insert stored text).
 /// 2. **Product/meta** — Analytics, Feedback, About (canonical last entry).
 List<WpNavItem> wpNavItems(L10n l10n) => [
   WpNavItem(id: 'history', icon: LucideIcons.clock3, label: l10n.navHistory),
+  WpNavItem(id: 'notes', icon: LucideIcons.stickyNote, label: l10n.navNotes),
   WpNavItem(
     id: 'replacements',
     icon: LucideIcons.replace,
@@ -166,6 +169,7 @@ SttServerState _sttServerStateFor(ParakeetEngineState state) => switch (state) {
 /// Map page IDs to their widgets.
 const wpPageWidgets = <String, Widget>{
   'history': HistoryPage(),
+  'notes': NotesPage(),
   'settings': SettingsPage(),
   'replacements': ReplacementsPage(),
   'snippets': SnippetsPage(),

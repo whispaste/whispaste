@@ -15,6 +15,9 @@ class L10nEn extends L10n {
   String get navHistory => 'History';
 
   @override
+  String get navNotes => 'Notes';
+
+  @override
   String get navSettings => 'Settings';
 
   @override
@@ -3097,4 +3100,23 @@ class L10nEn extends L10n {
 
   @override
   String get storeThankYouDismiss => 'Close';
+
+  @override
+  String get notesNewNote => 'New note';
+
+  @override
+  String get notesEmptyTitle => 'No notes yet';
+
+  @override
+  String get notesEmptyHint =>
+      'Create a note to start collecting text from anywhere.';
+
+  @override
+  String get notesUntitled => 'Untitled note';
+
+  @override
+  String get notesEditorPlaceholder => 'Start typing…';
+
+  @override
+  String get notesListSemantics => 'Notes list';
 }

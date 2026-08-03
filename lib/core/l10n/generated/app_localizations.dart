@@ -111,6 +111,12 @@ abstract class L10n {
   /// **'History'**
   String get navHistory;
 
+  /// No description provided for @navNotes.
+  ///
+  /// In en, this message translates to:
+  /// **'Notes'**
+  String get navNotes;
+
   /// No description provided for @navSettings.
   ///
   /// In en, this message translates to:
@@ -5528,6 +5534,42 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Close'**
   String get storeThankYouDismiss;
+
+  /// No description provided for @notesNewNote.
+  ///
+  /// In en, this message translates to:
+  /// **'New note'**
+  String get notesNewNote;
+
+  /// No description provided for @notesEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No notes yet'**
+  String get notesEmptyTitle;
+
+  /// No description provided for @notesEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a note to start collecting text from anywhere.'**
+  String get notesEmptyHint;
+
+  /// No description provided for @notesUntitled.
+  ///
+  /// In en, this message translates to:
+  /// **'Untitled note'**
+  String get notesUntitled;
+
+  /// No description provided for @notesEditorPlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Start typing…'**
+  String get notesEditorPlaceholder;
+
+  /// No description provided for @notesListSemantics.
+  ///
+  /// In en, this message translates to:
+  /// **'Notes list'**
+  String get notesListSemantics;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

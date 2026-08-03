@@ -1,0 +1,120 @@
+import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
+import '../../../core/data/database.dart';
+import '../../../core/l10n/generated/app_localizations.dart';
+import '../../../core/theme/colors.dart';
+import '../../../core/theme/tokens.dart';
+import '../data/note_title.dart';
+
+// ---------------------------------------------------------------------------
+// Note editor panel — strongly reduced sibling of HistoryDetailPanel:
+// a slim toolbar row, a hairline divider, and an always-editable multiline
+// text field. Controller + focus node are OWNED BY _NotesPageState and only
+// passed through here, so cursor/IME state survive panel rebuilds.
+// ---------------------------------------------------------------------------
+
+class NoteEditorPanel extends StatelessWidget {
+  const NoteEditorPanel({
+    super.key,
+    required this.note,
+    required this.isDark,
+    required this.controller,
+    required this.focusNode,
+    required this.onClose,
+  });
+
+  final Note note;
+  final bool isDark;
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    final textPrimary = isDark
+        ? WpColorsDark.textPrimary
+        : WpColorsLight.textPrimary;
+    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: isDark
+            ? WpColorsDark.surfaceGradient
+            : WpColorsLight.surfaceGradient,
+      ),
+      child: Column(
+        children: [
+          // ── Toolbar row ──
+          // Placeholder for now: derived title + close only. Future actions
+          // dock here — copy (Ticket 03), favourite/trash (Ticket 04),
+          // tags (Ticket 05), export (Ticket 07), voice input (Ticket 08).
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              WpSpacing.xl,
+              WpSpacing.sm,
+              WpSpacing.sm,
+              WpSpacing.sm,
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    deriveNoteTitle(note.content) ?? l10n.notesUntitled,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: WpTypography.title,
+                      fontWeight: FontWeight.w600,
+                      color: textPrimary,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: WpSpacing.xs),
+                IconButton(
+                  onPressed: onClose,
+                  tooltip: l10n.historyClose,
+                  icon: Icon(
+                    LucideIcons.x,
+                    size: WpIconSize.md,
+                    color: textMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // ── Divider ──
+          Container(
+            height: 1,
+            margin: const EdgeInsets.symmetric(horizontal: WpSpacing.xl),
+            color: isDark
+                ? WpColorsDark.borderSubtle
+                : WpColorsLight.borderSubtle,
+          ),
+          // ── Editor ──
+          Expanded(
+            child: TextField(
+              controller: controller,
+              focusNode: focusNode,
+              maxLines: null,
+              expands: true,
+              textAlignVertical: TextAlignVertical.top,
+              keyboardType: TextInputType.multiline,
+              style: TextStyle(
+                fontSize: WpTypography.subheading,
+                height: 1.6,
+                color: textPrimary,
+              ),
+              decoration: InputDecoration(
+                hintText: l10n.notesEditorPlaceholder,
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.all(WpSpacing.xl),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
