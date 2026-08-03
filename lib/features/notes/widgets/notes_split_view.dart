@@ -19,6 +19,7 @@ class NotesSplitView extends StatefulWidget {
     required this.isDark,
     required this.isTrashView,
     required this.selectedNote,
+    required this.focusedNoteId,
     required this.selectedNoteTags,
     required this.editorController,
     required this.editorFocusNode,
@@ -44,6 +45,10 @@ class NotesSplitView extends StatefulWidget {
   /// (favourite/trash vs. restore/delete-forever) in list tiles and editor.
   final bool isTrashView;
   final Note? selectedNote;
+
+  /// Keyboard-focused note id (the list's virtual cursor, owned by
+  /// `_NotesPageState`) — passed through to the list tiles for highlighting.
+  final String? focusedNoteId;
 
   /// Tags of the note currently open in the editor — resolved by the caller
   /// (noteTagsProvider), empty when no note is selected.
@@ -152,6 +157,7 @@ class _NotesSplitViewState extends State<NotesSplitView>
       isDark: widget.isDark,
       isTrashView: widget.isTrashView,
       selectedId: selectedId,
+      focusedId: widget.focusedNoteId,
       onNoteTap: widget.onNoteTap,
       onFavoriteToggle: widget.onFavoriteToggle,
       onRestore: widget.onRestore,

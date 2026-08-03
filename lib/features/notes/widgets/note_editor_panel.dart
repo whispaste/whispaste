@@ -106,33 +106,45 @@ class NoteEditorPanel extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: WpSpacing.xs),
-                IconButton(
-                  onPressed: () {
-                    // Deliberately no telemetry here: note contents are on
-                    // the telemetry negative list (CONTEXT.md) — unlike the
-                    // history copy action, this stays event-free.
-                    Clipboard.setData(ClipboardData(text: controller.text));
-                    WpToast.show(
-                      context,
-                      message: l10n.notesCopied,
-                      type: WpToastType.success,
-                      duration: const Duration(seconds: 2),
-                    );
-                  },
-                  tooltip: l10n.notesCopy,
-                  icon: Icon(
-                    LucideIcons.copy,
-                    size: WpIconSize.md,
-                    color: textMuted,
+                // Each toolbar IconButton is wrapped in Semantics(label:) —
+                // IconButton's tooltip: only yields a semantics HINT, not a
+                // NAME, so screen readers would otherwise announce an unnamed
+                // button (and bySemanticsLabel tests could not find it).
+                Semantics(
+                  label: l10n.notesCopy,
+                  button: true,
+                  child: IconButton(
+                    onPressed: () {
+                      // Deliberately no telemetry here: note contents are on
+                      // the telemetry negative list (CONTEXT.md) — unlike the
+                      // history copy action, this stays event-free.
+                      Clipboard.setData(ClipboardData(text: controller.text));
+                      WpToast.show(
+                        context,
+                        message: l10n.notesCopied,
+                        type: WpToastType.success,
+                        duration: const Duration(seconds: 2),
+                      );
+                    },
+                    tooltip: l10n.notesCopy,
+                    icon: Icon(
+                      LucideIcons.copy,
+                      size: WpIconSize.md,
+                      color: textMuted,
+                    ),
                   ),
                 ),
-                IconButton(
-                  onPressed: onExport,
-                  tooltip: l10n.notesExport,
-                  icon: Icon(
-                    LucideIcons.download,
-                    size: WpIconSize.md,
-                    color: textMuted,
+                Semantics(
+                  label: l10n.notesExport,
+                  button: true,
+                  child: IconButton(
+                    onPressed: onExport,
+                    tooltip: l10n.notesExport,
+                    icon: Icon(
+                      LucideIcons.download,
+                      size: WpIconSize.md,
+                      color: textMuted,
+                    ),
                   ),
                 ),
                 NoteVoiceInputButton(
@@ -143,62 +155,84 @@ class NoteEditorPanel extends StatelessWidget {
                   // Trash view: restore + delete forever instead of the
                   // favourite/move-to-trash pair (copy stays — it's harmless
                   // and occasionally useful for salvaging trashed text).
-                  IconButton(
-                    onPressed: onRestore,
-                    tooltip: l10n.notesRestore,
-                    icon: Icon(
-                      LucideIcons.undo2,
-                      size: WpIconSize.md,
-                      color: textMuted,
+                  Semantics(
+                    label: l10n.notesRestore,
+                    button: true,
+                    child: IconButton(
+                      onPressed: onRestore,
+                      tooltip: l10n.notesRestore,
+                      icon: Icon(
+                        LucideIcons.undo2,
+                        size: WpIconSize.md,
+                        color: textMuted,
+                      ),
                     ),
                   ),
-                  IconButton(
-                    onPressed: onDeleteForever,
-                    tooltip: l10n.notesDeleteForever,
-                    icon: Icon(
-                      LucideIcons.trash2,
-                      size: WpIconSize.md,
-                      color: errorColor,
+                  Semantics(
+                    label: l10n.notesDeleteForever,
+                    button: true,
+                    child: IconButton(
+                      onPressed: onDeleteForever,
+                      tooltip: l10n.notesDeleteForever,
+                      icon: Icon(
+                        LucideIcons.trash2,
+                        size: WpIconSize.md,
+                        color: errorColor,
+                      ),
                     ),
                   ),
                 ] else ...[
-                  IconButton(
-                    onPressed: onToggleFavorite,
-                    tooltip: note.pinned
+                  Semantics(
+                    label: note.pinned
                         ? l10n.notesUnfavorite
                         : l10n.notesFavorite,
-                    // Solid amber star when pinned, Lucide outline star
-                    // otherwise — same pinned/unpinned glyph pair as
-                    // history's detail-panel pin action.
-                    icon: note.pinned
-                        ? const FaIcon(
-                            FontAwesomeIcons.solidStar,
-                            size: WpIconSize.sm,
-                            color: WpSharedColors.pinnedAccent,
-                          )
-                        : Icon(
-                            LucideIcons.star,
-                            size: WpIconSize.md,
-                            color: textMuted,
-                          ),
+                    button: true,
+                    child: IconButton(
+                      onPressed: onToggleFavorite,
+                      tooltip: note.pinned
+                          ? l10n.notesUnfavorite
+                          : l10n.notesFavorite,
+                      // Solid amber star when pinned, Lucide outline star
+                      // otherwise — same pinned/unpinned glyph pair as
+                      // history's detail-panel pin action.
+                      icon: note.pinned
+                          ? const FaIcon(
+                              FontAwesomeIcons.solidStar,
+                              size: WpIconSize.sm,
+                              color: WpSharedColors.pinnedAccent,
+                            )
+                          : Icon(
+                              LucideIcons.star,
+                              size: WpIconSize.md,
+                              color: textMuted,
+                            ),
+                    ),
                   ),
-                  IconButton(
-                    onPressed: onMoveToTrash,
-                    tooltip: l10n.notesMoveToTrash,
-                    icon: Icon(
-                      LucideIcons.trash2,
-                      size: WpIconSize.md,
-                      color: textMuted,
+                  Semantics(
+                    label: l10n.notesMoveToTrash,
+                    button: true,
+                    child: IconButton(
+                      onPressed: onMoveToTrash,
+                      tooltip: l10n.notesMoveToTrash,
+                      icon: Icon(
+                        LucideIcons.trash2,
+                        size: WpIconSize.md,
+                        color: textMuted,
+                      ),
                     ),
                   ),
                 ],
-                IconButton(
-                  onPressed: onClose,
-                  tooltip: l10n.historyClose,
-                  icon: Icon(
-                    LucideIcons.x,
-                    size: WpIconSize.md,
-                    color: textMuted,
+                Semantics(
+                  label: l10n.historyClose,
+                  button: true,
+                  child: IconButton(
+                    onPressed: onClose,
+                    tooltip: l10n.historyClose,
+                    icon: Icon(
+                      LucideIcons.x,
+                      size: WpIconSize.md,
+                      color: textMuted,
+                    ),
                   ),
                 ),
               ],

@@ -23,6 +23,7 @@ class NotesListTile extends StatefulWidget {
     required this.isDark,
     required this.isTrashView,
     required this.isSelected,
+    required this.isFocused,
     required this.onTap,
     required this.onFavoriteToggle,
     required this.onRestore,
@@ -40,6 +41,10 @@ class NotesListTile extends StatefulWidget {
   /// restore/delete-forever actions.
   final bool isTrashView;
   final bool isSelected;
+
+  /// Whether this tile is the list's virtual keyboard cursor (arrow-key
+  /// navigation in NotesPage) — highlighted like a hover.
+  final bool isFocused;
   final VoidCallback onTap;
   final VoidCallback onFavoriteToggle;
   final VoidCallback onRestore;
@@ -115,22 +120,25 @@ class _NotesListTileState extends State<NotesListTile> {
         : DateFormat.yMMMd(locale).format(t);
   }
 
+  /// Tile background — mirrors HistoryEntryRow's hover/selection states.
+  Color _backgroundColor(bool isDark) {
+    if (widget.isSelected) {
+      return isDark ? WpColorsDark.accentSubtle : WpColorsLight.accentSubtle;
+    }
+    if (widget.isFocused || _isHovered) {
+      return isDark ? WpColorsDark.hover : WpColorsLight.hover;
+    }
+    return isDark
+        ? WpColorsDark.hoverTransparent
+        : WpColorsLight.hoverTransparent;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = widget.isDark;
     final l10n = L10n.of(context);
 
-    // Tile background — mirrors HistoryEntryRow's hover/selection states.
-    final Color bg;
-    if (widget.isSelected) {
-      bg = isDark ? WpColorsDark.accentSubtle : WpColorsLight.accentSubtle;
-    } else if (_isHovered) {
-      bg = isDark ? WpColorsDark.hover : WpColorsLight.hover;
-    } else {
-      bg = isDark
-          ? WpColorsDark.hoverTransparent
-          : WpColorsLight.hoverTransparent;
-    }
+    final bg = _backgroundColor(isDark);
 
     final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
     final textPrimary = isDark
@@ -147,6 +155,11 @@ class _NotesListTileState extends State<NotesListTile> {
       label: title,
       button: true,
       selected: widget.isSelected,
+      // The list owns keyboard focus as a single node and tracks the
+      // "current" tile by id (see NotesPage's arrow-key navigation) —
+      // exposing that here lets a screen reader announce which tile is
+      // virtually focused instead of only showing a visual highlight.
+      focused: widget.isFocused,
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         onEnter: (_) => setState(() => _isHovered = true),

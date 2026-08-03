@@ -18,6 +18,7 @@ class NotesListView extends StatelessWidget {
     required this.isDark,
     required this.isTrashView,
     required this.selectedId,
+    required this.focusedId,
     required this.onNoteTap,
     required this.onFavoriteToggle,
     required this.onRestore,
@@ -32,6 +33,9 @@ class NotesListView extends StatelessWidget {
   final bool isDark;
   final bool isTrashView;
   final String? selectedId;
+
+  /// Keyboard-focused note id (the list's virtual cursor).
+  final String? focusedId;
   final ValueChanged<Note> onNoteTap;
   final ValueChanged<Note> onFavoriteToggle;
   final ValueChanged<Note> onRestore;
@@ -57,6 +61,7 @@ class NotesListView extends StatelessWidget {
             isDark: isDark,
             isTrashView: isTrashView,
             isSelected: note.id == selectedId,
+            isFocused: note.id == focusedId,
             onTap: () => onNoteTap(note),
             onFavoriteToggle: () => onFavoriteToggle(note),
             onRestore: () => onRestore(note),

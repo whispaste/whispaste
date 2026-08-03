@@ -11,6 +11,7 @@ import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../services/notes/notes_exporter.dart' as notes_exporter;
+import '../history/widgets/history_helpers.dart' show isTextFieldFocused;
 import '../../widgets/dialog.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/page_shell.dart';
@@ -62,6 +63,7 @@ class _NotesPageState extends ConsumerState<NotesPage> {
   final FocusNode _editorFocusNode = FocusNode();
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
+  final FocusNode _listFocusNode = FocusNode();
 
   /// Captured once in [initState] so the autosave/dispose chain never touches
   /// `ref` after the widget is unmounted.
@@ -69,6 +71,9 @@ class _NotesPageState extends ConsumerState<NotesPage> {
   late final NoteAutosave _autosave;
 
   String? _selectedNoteId;
+
+  /// Keyboard-focused note ID (distinct from the selected/editor note).
+  String? _focusedNoteId;
 
   /// Guards the controller listener while the editor text is swapped
   /// programmatically on note switch — without it, the swap itself would
@@ -105,6 +110,7 @@ class _NotesPageState extends ConsumerState<NotesPage> {
     _editorFocusNode.dispose();
     _searchController.dispose();
     _searchFocusNode.dispose();
+    _listFocusNode.dispose();
     super.dispose();
   }
 
@@ -146,8 +152,96 @@ class _NotesPageState extends ConsumerState<NotesPage> {
     if (note.id == _selectedNoteId) return;
     await _leaveCurrentNote();
     if (!mounted) return;
-    setState(() => _selectedNoteId = note.id);
+    setState(() {
+      _selectedNoteId = note.id;
+      // Align the keyboard cursor with the click so arrow-key navigation
+      // continues seamlessly from the opened note.
+      _focusedNoteId = note.id;
+    });
     _setEditorText(note.content);
+  }
+
+  /// Moves the list's virtual keyboard cursor by [delta] within [notes].
+  void _moveFocus(int delta, List<Note> notes) {
+    if (notes.isEmpty) return;
+    final currentIdx = notes.indexWhere((n) => n.id == _focusedNoteId);
+    final int nextIdx;
+    if (currentIdx < 0) {
+      nextIdx = delta > 0 ? 0 : notes.length - 1;
+    } else {
+      nextIdx = (currentIdx + delta).clamp(0, notes.length - 1);
+    }
+    setState(() => _focusedNoteId = notes[nextIdx].id);
+  }
+
+  Note? _focusedNote(List<Note> notes) {
+    if (_focusedNoteId == null) return null;
+    final idx = notes.indexWhere((n) => n.id == _focusedNoteId);
+    return idx >= 0 ? notes[idx] : null;
+  }
+
+  /// Handles bare-key events on the list focus node (arrows, enter, delete,
+  /// backspace, F, escape). Returns [KeyEventResult.ignored] when a text
+  /// field has focus so [DefaultTextEditingShortcuts] can process the keys
+  /// normally — critical here because the note editor is a permanently
+  /// focused text field; without this guard Delete/Backspace/arrow keys
+  /// would eat text input instead of editing it.
+  KeyEventResult _handleListKeyEvent(
+    FocusNode node,
+    KeyEvent event,
+    List<Note> notes,
+    bool isTrash,
+  ) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    if (isTextFieldFocused()) return KeyEventResult.ignored;
+
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.arrowDown) {
+      _moveFocus(1, notes);
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.arrowUp) {
+      _moveFocus(-1, notes);
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.enter) {
+      final note = _focusedNote(notes);
+      if (note != null) _selectNote(note);
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.delete ||
+        key == LogicalKeyboardKey.backspace) {
+      final note = _focusedNote(notes);
+      if (note != null) {
+        if (isTrash) {
+          _deleteForever(note);
+        } else {
+          _moveToTrash(note);
+        }
+      }
+      return KeyEventResult.handled;
+    }
+    // F: toggle favourite on the focused note (active view only — trash
+    // view has no favourite star). Excludes Ctrl/Cmd+F: without this guard,
+    // the bare-key check below fires before the modifier combo can bubble up
+    // to the page-level CallbackShortcuts that focuses the search field.
+    final hasModifier =
+        HardwareKeyboard.instance.isControlPressed ||
+        HardwareKeyboard.instance.isMetaPressed;
+    if (key == LogicalKeyboardKey.keyF && !isTrash && !hasModifier) {
+      final note = _focusedNote(notes);
+      if (note != null) _toggleFavorite(note);
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.escape) {
+      if (_selectedNoteId != null) {
+        _closeEditor();
+      } else if (_focusedNoteId != null) {
+        setState(() => _focusedNoteId = null);
+      }
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
   }
 
   Future<void> _createNote() async {
@@ -305,12 +399,12 @@ class _NotesPageState extends ConsumerState<NotesPage> {
             _searchFocusNode.requestFocus();
           },
         },
-        // Focus wrapper: autofocus ensures a descendant of CallbackShortcuts
-        // has focus when the notes page loads so that the Ctrl+F / Cmd+F
-        // shortcut is reachable via key-event bubbling without stealing
-        // interactive focus (see settings_page.dart for the same pattern).
+        // Focus wrapper: the list focus node further down is the real initial
+        // focus target now (autofocus there); Ctrl/Cmd+F still bubbles up from
+        // it to this outer handler (same pattern as history_page.dart, whose
+        // outer wrapper is also autofocus: false and only binds Ctrl/Cmd+F).
         child: Focus(
-          autofocus: true,
+          autofocus: false,
           skipTraversal: true,
           child: Column(
             children: [
@@ -374,33 +468,83 @@ class _NotesPageState extends ConsumerState<NotesPage> {
                       selectedNote = idx >= 0 ? notes[idx] : null;
                     }
                     final currentNote = selectedNote;
-                    return NotesSplitView(
-                      notes: notes,
-                      tagsByNoteId: tagsByNoteId,
-                      isDark: isDark,
-                      isTrashView: isTrash,
-                      selectedNote: selectedNote,
-                      selectedNoteTags: selectedNoteTags,
-                      editorController: _editorController,
-                      editorFocusNode: _editorFocusNode,
-                      onNoteTap: _selectNote,
-                      onCloseEditor: _closeEditor,
-                      onFavoriteToggle: _toggleFavorite,
-                      onMoveToTrash: _moveToTrash,
-                      onRestore: _restoreNote,
-                      onDeleteForever: _deleteForever,
-                      onAddTag: (name) {
-                        if (currentNote != null) _addTag(currentNote, name);
+                    return CallbackShortcuts(
+                      // Only modifier-combo shortcuts live here. Bare keys
+                      // (arrows, enter, delete, backspace, escape, F) are
+                      // handled in Focus.onKeyEvent below so they can return
+                      // KeyEventResult.ignored when a text field has focus.
+                      bindings: <ShortcutActivator, VoidCallback>{
+                        // Ctrl+N / Cmd+N: create a new note.
+                        SingleActivator(
+                          LogicalKeyboardKey.keyN,
+                          control: !Platform.isMacOS,
+                          meta: Platform.isMacOS,
+                        ): () {
+                          if (isTextFieldFocused()) return;
+                          _createNote();
+                        },
+                        // Ctrl+C / Cmd+C: copy the open/focused note's content.
+                        SingleActivator(
+                          LogicalKeyboardKey.keyC,
+                          control: !Platform.isMacOS,
+                          meta: Platform.isMacOS,
+                        ): () {
+                          if (isTextFieldFocused()) return;
+                          final note = currentNote ?? _focusedNote(notes);
+                          if (note == null) return;
+                          Clipboard.setData(ClipboardData(text: note.content));
+                          WpToast.show(
+                            context,
+                            message: l10n.notesCopied,
+                            type: WpToastType.success,
+                            duration: const Duration(seconds: 2),
+                          );
+                        },
                       },
-                      onRemoveTag: (id) {
-                        if (currentNote != null) _removeTag(currentNote, id);
-                      },
-                      onExport: () {
-                        if (currentNote != null) {
-                          _exportNote(currentNote, selectedNoteTags);
-                        }
-                      },
-                      onVoiceTranscript: _insertVoiceTranscript,
+                      child: Focus(
+                        focusNode: _listFocusNode,
+                        autofocus: true,
+                        // Bare-key shortcuts are handled here via onKeyEvent
+                        // so that KeyEventResult.ignored can be returned when
+                        // a text field has focus. CallbackShortcuts always
+                        // consumes matched events, which would prevent
+                        // DefaultTextEditingShortcuts from processing
+                        // Backspace/Enter/etc. in the always-editable note
+                        // editor.
+                        onKeyEvent: (node, event) =>
+                            _handleListKeyEvent(node, event, notes, isTrash),
+                        child: NotesSplitView(
+                          notes: notes,
+                          tagsByNoteId: tagsByNoteId,
+                          isDark: isDark,
+                          isTrashView: isTrash,
+                          selectedNote: selectedNote,
+                          focusedNoteId: _focusedNoteId,
+                          selectedNoteTags: selectedNoteTags,
+                          editorController: _editorController,
+                          editorFocusNode: _editorFocusNode,
+                          onNoteTap: _selectNote,
+                          onCloseEditor: _closeEditor,
+                          onFavoriteToggle: _toggleFavorite,
+                          onMoveToTrash: _moveToTrash,
+                          onRestore: _restoreNote,
+                          onDeleteForever: _deleteForever,
+                          onAddTag: (name) {
+                            if (currentNote != null) _addTag(currentNote, name);
+                          },
+                          onRemoveTag: (id) {
+                            if (currentNote != null) {
+                              _removeTag(currentNote, id);
+                            }
+                          },
+                          onExport: () {
+                            if (currentNote != null) {
+                              _exportNote(currentNote, selectedNoteTags);
+                            }
+                          },
+                          onVoiceTranscript: _insertVoiceTranscript,
+                        ),
+                      ),
                     );
                   },
                   loading: () => _NotesSkeleton(isDark: isDark),
