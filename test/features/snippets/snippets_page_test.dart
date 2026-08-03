@@ -78,9 +78,10 @@ void main() {
       await tester.tap(find.byIcon(LucideIcons.plus));
       await tester.pumpAndSettle();
 
-      // TextFields in tree order: [0] page search, [1] title, [2] body
-      await tester.enterText(find.byType(TextField).at(1), 'Signature');
-      await tester.enterText(find.byType(TextField).at(2), 'Best,\nSilvio');
+      // TextFields in tree order: [0] picker trigger, [1] page search,
+      // [2] title, [3] body
+      await tester.enterText(find.byType(TextField).at(2), 'Signature');
+      await tester.enterText(find.byType(TextField).at(3), 'Best,\nSilvio');
       await tester.pumpAndSettle();
 
       await tester.tap(find.text(l10n.snippetsAdd).last);
@@ -109,8 +110,8 @@ void main() {
 
       await tester.tap(find.byIcon(LucideIcons.plus));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).at(1), 'Greeting');
-      await tester.enterText(find.byType(TextField).at(2), 'Hi there');
+      await tester.enterText(find.byType(TextField).at(2), 'Greeting');
+      await tester.enterText(find.byType(TextField).at(3), 'Hi there');
       await tester.pumpAndSettle();
       await tester.tap(find.text(l10n.snippetsAdd).last);
       await tester.pumpAndSettle();
@@ -134,8 +135,8 @@ void main() {
       ]) {
         await tester.tap(find.byIcon(LucideIcons.plus));
         await tester.pumpAndSettle();
-        await tester.enterText(find.byType(TextField).at(1), title);
-        await tester.enterText(find.byType(TextField).at(2), body);
+        await tester.enterText(find.byType(TextField).at(2), title);
+        await tester.enterText(find.byType(TextField).at(3), body);
         await tester.pumpAndSettle();
         await tester.tap(find.text(l10n.snippetsAdd).last);
         await tester.pumpAndSettle();
@@ -144,7 +145,7 @@ void main() {
       expect(find.text('Signature'), findsOneWidget);
       expect(find.text('Greeting'), findsOneWidget);
 
-      await tester.enterText(find.byType(TextField).first, 'Sign');
+      await tester.enterText(find.byType(TextField).at(1), 'Sign');
       await tester.pumpAndSettle();
 
       expect(find.text('Signature'), findsOneWidget);
@@ -161,13 +162,13 @@ void main() {
 
       await tester.tap(find.byIcon(LucideIcons.plus));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).at(1), 'Signature');
-      await tester.enterText(find.byType(TextField).at(2), 'Best, Silvio');
+      await tester.enterText(find.byType(TextField).at(2), 'Signature');
+      await tester.enterText(find.byType(TextField).at(3), 'Best, Silvio');
       await tester.pumpAndSettle();
       await tester.tap(find.text(l10n.snippetsAdd).last);
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextField).first, 'zzzznonexistent');
+      await tester.enterText(find.byType(TextField).at(1), 'zzzznonexistent');
       await tester.pumpAndSettle();
 
       expect(find.text(l10n.snippetsNoMatches), findsOneWidget);
@@ -183,8 +184,8 @@ void main() {
 
       await tester.tap(find.byIcon(LucideIcons.plus));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).at(1), 'Signature');
-      await tester.enterText(find.byType(TextField).at(2), 'Best, Silvio');
+      await tester.enterText(find.byType(TextField).at(2), 'Signature');
+      await tester.enterText(find.byType(TextField).at(3), 'Best, Silvio');
       await tester.pumpAndSettle();
       await tester.tap(find.text(l10n.snippetsAdd).last);
       await tester.pumpAndSettle();

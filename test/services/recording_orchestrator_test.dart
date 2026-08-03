@@ -13,6 +13,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:plugin_platform_interface/plugin_platform_interface.dart';
+import 'package:screen_retriever_platform_interface/screen_retriever_platform_interface.dart';
 import 'package:whispaste/core/config/settings_enums.dart';
 import 'package:whispaste/core/config/secure_key_store.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
@@ -31,6 +33,8 @@ import 'package:whispaste/services/paste/paster.dart';
 import 'package:whispaste/services/path_service.dart'
     show sttDirOverride, sttDir, sttModelPath;
 import 'package:whispaste/services/recording_orchestrator.dart';
+import 'package:whispaste/services/snippet_picker/snippet_picker_controller.dart';
+import 'package:whispaste/services/snippet_picker/snippet_picker_events.dart';
 import 'package:whispaste/services/sound_feedback_service.dart';
 import 'package:whispaste/services/stt/stt_bundle.dart';
 import 'package:whispaste/services/system_attention_service.dart';
@@ -277,6 +281,59 @@ class FakeDesktopPasteController extends DesktopPasteController {
   }
 }
 
+/// Fake Snippet-Picker controller (dictation-automations ticket 06) — records
+/// [show] calls and lets a test simulate the native panel firing an event
+/// (an item pick or a cancellation) independently of the `show` call itself,
+/// mirroring how the real native panel reports the user's pick asynchronously
+/// after the pipeline has already returned to idle.
+class FakeSnippetPickerController implements SnippetPickerController {
+  final showCalls = <({double x, double y, List<Map<String, String>> items})>[];
+  int hideCalls = 0;
+  bool disposed = false;
+
+  final _eventsController = StreamController<SnippetPickerEvent>.broadcast();
+
+  @override
+  Stream<SnippetPickerEvent> get events => _eventsController.stream;
+
+  @override
+  Future<void> show({
+    required double x,
+    required double y,
+    required List<Map<String, String>> items,
+  }) async {
+    showCalls.add((x: x, y: y, items: items));
+  }
+
+  @override
+  Future<void> hide() async {
+    hideCalls += 1;
+  }
+
+  /// Simulates the native panel reporting [event] — a test calls this after
+  /// [show] to drive the async insert path.
+  void fireEvent(SnippetPickerEvent event) => _eventsController.add(event);
+
+  @override
+  Future<void> dispose() async {
+    disposed = true;
+    await _eventsController.close();
+  }
+}
+
+/// Fake `screen_retriever` platform — the Snippet-Picker dispatch path
+/// (ticket 06) queries the real cursor position via
+/// `ScreenRetriever.instance.getCursorScreenPoint()`, which has no native
+/// handler in the test host process. Swapping the platform-interface
+/// instance (the plugin's own supported test seam, see
+/// `MockPlatformInterfaceMixin`) avoids a `MissingPluginException` without
+/// touching a raw `MethodChannel` mock.
+class _FakeScreenRetrieverPlatform extends ScreenRetrieverPlatform
+    with MockPlatformInterfaceMixin {
+  @override
+  Future<Offset> getCursorScreenPoint() async => const Offset(100, 100);
+}
+
 class FakeModelDownloadNotifier extends ModelDownloadNotifier {
   FakeModelDownloadNotifier(this._downloadedModels);
 
@@ -452,6 +509,8 @@ void main() {
   }
 
   setUp(() async {
+    ScreenRetrieverPlatform.instance = _FakeScreenRetrieverPlatform();
+
     // Isolate preflight checks from the real filesystem by pointing
     // sttDir at an empty scratch directory — no server binary exists here.
     sttDirOverride = _scratchDir.path;
@@ -824,6 +883,235 @@ void main() {
         expect(state.phase, RecordingPhase.done);
       },
     );
+  });
+
+  // =========================================================================
+  // Snippet-Picker dispatch (exact-match short-circuit, dictation-automations
+  // ticket 06)
+  // =========================================================================
+
+  group('Snippet-Picker dispatch (exact match)', () {
+    late FakeSnippetPickerController fakeSnippetPicker;
+
+    ProviderContainer buildSnippetPickerContainer(AppSettings settings) {
+      return ProviderContainer(
+        overrides: [
+          historyDatabaseProvider.overrideWith((ref) {
+            ref.onDispose(db.close);
+            return db;
+          }),
+          audioServiceProvider.overrideWith(() => fakeAudio),
+          localSttBundleProvider.overrideWith(() => fakeStt),
+          settingsProvider.overrideWith(() => FakeSettingsNotifier(settings)),
+          secureKeyStoreProvider.overrideWith((ref) => FakeSecureKeyStore()),
+          desktopPasteControllerProvider.overrideWith(
+            (ref) => fakeDesktopPaste,
+          ),
+          modelDownloadProvider.overrideWith(
+            () => FakeModelDownloadNotifier({
+              'whisper-small',
+              'whisper-medium',
+              'whisper-large-v3-turbo',
+            }),
+          ),
+          snippetPickerControllerProvider.overrideWithValue(fakeSnippetPicker),
+        ],
+      );
+    }
+
+    setUp(() {
+      fakeSnippetPicker = FakeSnippetPickerController();
+      container.dispose();
+      container = buildSnippetPickerContainer(
+        const AppSettings(
+          stt: SttSettings(model: 'whisper-small', language: 'English'),
+          afterTranscriptionSection: AfterTranscriptionSettings(
+            afterTranscription: 'paste',
+          ),
+          behavior: BehaviorSettings(snippetPickerTrigger: 'snippets'),
+          onboarding: OnboardingSettings(onboardingCompleted: true),
+        ),
+      );
+    });
+
+    test('an exact-match transcript opens the panel, skips history and '
+        'paste, and still returns to the done state — without capturing a '
+        'paste target', () async {
+      await container.read(settingsProvider.future);
+      await db.upsertSnippet(
+        id: 's1',
+        title: 'Greeting',
+        body: 'Hello there!',
+        createdAt: DateTime.now(),
+      );
+
+      fakeStt.transcriptToReturn = 'Snippets.';
+      final orch = await startRecordingPhase();
+
+      await orch.stopRecording();
+
+      expect(fakeSnippetPicker.showCalls, hasLength(1));
+      expect(await db.allEntries(), isEmpty);
+      expect(fakeDesktopPaste.pasteCalls, 0);
+      expect(fakeDesktopPaste.typeCalls, 0);
+      expect(fakeDesktopPaste.captureCalls, 0);
+
+      final state = container.read(recordingProvider);
+      expect(state.phase, RecordingPhase.done);
+    });
+
+    test('a selected snippet is typed into the still-captured target without '
+        'ever re-priming the paste target (ticket 06\'s core AC)', () async {
+      await container.read(settingsProvider.future);
+      await db.upsertSnippet(
+        id: 's1',
+        title: 'Greeting',
+        body: 'Hello there!',
+        createdAt: DateTime.now(),
+      );
+
+      fakeStt.transcriptToReturn = 'Snippets.';
+      final orch = await startRecordingPhase();
+      await orch.stopRecording();
+
+      // The insert happens asynchronously off the panel's event stream,
+      // fully decoupled from the pipeline run above — simulating the
+      // native panel reporting the click after the fact.
+      fakeSnippetPicker.fireEvent(const SnippetPickerItemSelected('s1'));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(fakeDesktopPaste.typeCalls, 1);
+      expect(fakeDesktopPaste.lastTypedText, 'Hello there!');
+      expect(fakeDesktopPaste.pasteCalls, 0);
+      expect(fakeDesktopPaste.captureCalls, 0);
+    });
+
+    test('a transcript that only contains the trigger word as a substring '
+        '(not an exact match) runs the normal pipeline instead', () async {
+      await container.read(settingsProvider.future);
+      await db.upsertSnippet(
+        id: 's1',
+        title: 'Greeting',
+        body: 'Hello there!',
+        createdAt: DateTime.now(),
+      );
+
+      fakeStt.transcriptToReturn = 'please open snippets for me';
+      final orch = await startRecordingPhase();
+
+      await orch.stopRecording();
+
+      expect(fakeSnippetPicker.showCalls, isEmpty);
+      final entries = await db.allEntries();
+      expect(entries, hasLength(1));
+    });
+
+    test('an exact match with zero snippets configured falls back to the '
+        'normal pipeline instead of losing the dictation', () async {
+      await container.read(settingsProvider.future);
+
+      fakeStt.transcriptToReturn = 'Snippets.';
+      final orch = await startRecordingPhase();
+
+      await orch.stopRecording();
+
+      expect(fakeSnippetPicker.showCalls, isEmpty);
+      final entries = await db.allEntries();
+      expect(entries, hasLength(1));
+    });
+
+    test('an empty trigger word (feature off, the default) never opens the '
+        'panel', () async {
+      container.dispose();
+      container = buildSnippetPickerContainer(
+        const AppSettings(
+          stt: SttSettings(model: 'whisper-small', language: 'English'),
+          afterTranscriptionSection: AfterTranscriptionSettings(
+            afterTranscription: 'paste',
+          ),
+          onboarding: OnboardingSettings(onboardingCompleted: true),
+        ),
+      );
+      await container.read(settingsProvider.future);
+      await db.upsertSnippet(
+        id: 's1',
+        title: 'Greeting',
+        body: 'Hello there!',
+        createdAt: DateTime.now(),
+      );
+
+      fakeStt.transcriptToReturn = 'snippets';
+      final orch = await startRecordingPhase();
+
+      await orch.stopRecording();
+
+      expect(fakeSnippetPicker.showCalls, isEmpty);
+      final entries = await db.allEntries();
+      expect(entries, hasLength(1));
+    });
+
+    test('an identical Automation trigger takes precedence over the '
+        'Snippet-Picker trigger', () async {
+      container.dispose();
+      container = ProviderContainer(
+        overrides: [
+          historyDatabaseProvider.overrideWith((ref) {
+            ref.onDispose(db.close);
+            return db;
+          }),
+          audioServiceProvider.overrideWith(() => fakeAudio),
+          localSttBundleProvider.overrideWith(() => fakeStt),
+          settingsProvider.overrideWith(
+            () => FakeSettingsNotifier(
+              const AppSettings(
+                stt: SttSettings(model: 'whisper-small', language: 'English'),
+                afterTranscriptionSection: AfterTranscriptionSettings(
+                  afterTranscription: 'paste',
+                ),
+                behavior: BehaviorSettings(snippetPickerTrigger: 'snippets'),
+                onboarding: OnboardingSettings(onboardingCompleted: true),
+              ),
+            ),
+          ),
+          secureKeyStoreProvider.overrideWith((ref) => FakeSecureKeyStore()),
+          desktopPasteControllerProvider.overrideWith(
+            (ref) => fakeDesktopPaste,
+          ),
+          modelDownloadProvider.overrideWith(
+            () => FakeModelDownloadNotifier({
+              'whisper-small',
+              'whisper-medium',
+              'whisper-large-v3-turbo',
+            }),
+          ),
+          snippetPickerControllerProvider.overrideWithValue(fakeSnippetPicker),
+          automationDispatchServiceProvider.overrideWithValue(
+            AutomationDispatchService(urlLauncher: (uri) async => true),
+          ),
+        ],
+      );
+      await container.read(settingsProvider.future);
+      await db.upsertAutomation(
+        id: 'a1',
+        trigger: 'snippets',
+        actionType: 'open_url',
+        payload: '{"url": "https://example.com"}',
+        createdAt: DateTime.now(),
+      );
+      await db.upsertSnippet(
+        id: 's1',
+        title: 'Greeting',
+        body: 'Hello there!',
+        createdAt: DateTime.now(),
+      );
+
+      fakeStt.transcriptToReturn = 'Snippets.';
+      final orch = await startRecordingPhase();
+
+      await orch.stopRecording();
+
+      expect(fakeSnippetPicker.showCalls, isEmpty);
+    });
   });
 
   // =========================================================================

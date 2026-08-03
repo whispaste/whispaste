@@ -1595,7 +1595,7 @@ class HistoryDatabase extends _$HistoryDatabase {
   }
 
   // ---------------------------------------------------------------------------
-  // Text Replacements (voice shortcuts)
+  // Text Replacements
   // ---------------------------------------------------------------------------
 
   Future<List<ReplacementWithTriggers>> readAllReplacements() async {

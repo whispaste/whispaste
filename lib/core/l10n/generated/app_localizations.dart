@@ -120,7 +120,7 @@ abstract class L10n {
   /// No description provided for @navReplacements.
   ///
   /// In en, this message translates to:
-  /// **'Voice Shortcuts'**
+  /// **'Replacements'**
   String get navReplacements;
 
   /// No description provided for @navAutomations.
@@ -168,7 +168,7 @@ abstract class L10n {
   /// No description provided for @pageReplacementsTitle.
   ///
   /// In en, this message translates to:
-  /// **'Voice Shortcuts'**
+  /// **'Replacements'**
   String get pageReplacementsTitle;
 
   /// No description provided for @pageAnalyticsTitle.
@@ -1548,7 +1548,7 @@ abstract class L10n {
   /// No description provided for @settingsFactoryResetMessage.
   ///
   /// In en, this message translates to:
-  /// **'This will permanently delete ALL data: recording history, tags, voice shortcuts, downloaded models, logs, and settings. The app will return to its initial state.\n\nThis cannot be undone.'**
+  /// **'This will permanently delete ALL data: recording history, tags, replacements, downloaded models, logs, and settings. The app will return to its initial state.\n\nThis cannot be undone.'**
   String get settingsFactoryResetMessage;
 
   /// No description provided for @settingsFactoryResetConfirm.
@@ -1650,7 +1650,7 @@ abstract class L10n {
   /// No description provided for @settingsPortabilityImportConfirmMessage.
   ///
   /// In en, this message translates to:
-  /// **'This replaces your current custom vocabulary, voice shortcuts, and hotkey configuration with the contents of {path}.'**
+  /// **'This replaces your current custom vocabulary, voice shortcuts, hotkey configuration, and snippets (if included in the file) with the contents of {path}.'**
   String settingsPortabilityImportConfirmMessage(String path);
 
   /// No description provided for @settingsPortabilityImportSuccess.
@@ -2148,7 +2148,7 @@ abstract class L10n {
   /// No description provided for @replacementsSearch.
   ///
   /// In en, this message translates to:
-  /// **'Search shortcuts…'**
+  /// **'Search replacements…'**
   String get replacementsSearch;
 
   /// No description provided for @replacementsAdd.
@@ -2160,13 +2160,13 @@ abstract class L10n {
   /// No description provided for @replacementsEmpty.
   ///
   /// In en, this message translates to:
-  /// **'No voice shortcuts yet'**
+  /// **'No replacements yet'**
   String get replacementsEmpty;
 
   /// No description provided for @replacementsEmptyHint.
   ///
   /// In en, this message translates to:
-  /// **'Add shortcuts to auto-replace words while recording.\nExample: \"btw\" → \"by the way\"'**
+  /// **'Add replacements to auto-replace words while recording.\nExample: \"btw\" → \"by the way\"'**
   String get replacementsEmptyHint;
 
   /// No description provided for @replacementsNoMatches.
@@ -2184,25 +2184,25 @@ abstract class L10n {
   /// No description provided for @replacementsToggleLabel.
   ///
   /// In en, this message translates to:
-  /// **'Enable shortcuts'**
+  /// **'Enable replacements'**
   String get replacementsToggleLabel;
 
   /// No description provided for @replacementsToggleEnabled.
   ///
   /// In en, this message translates to:
-  /// **'Voice shortcuts are active'**
+  /// **'Replacements are active'**
   String get replacementsToggleEnabled;
 
   /// No description provided for @replacementsToggleDisabled.
   ///
   /// In en, this message translates to:
-  /// **'Voice shortcuts are disabled'**
+  /// **'Replacements are disabled'**
   String get replacementsToggleDisabled;
 
   /// No description provided for @replacementsEnableBannerTitle.
   ///
   /// In en, this message translates to:
-  /// **'Voice shortcuts are turned off'**
+  /// **'Replacements are turned off'**
   String get replacementsEnableBannerTitle;
 
   /// No description provided for @replacementsEnableBannerHint.
@@ -2226,19 +2226,19 @@ abstract class L10n {
   /// No description provided for @replacementsAddShortcut.
   ///
   /// In en, this message translates to:
-  /// **'Add Shortcut'**
+  /// **'Add Replacement'**
   String get replacementsAddShortcut;
 
   /// No description provided for @replacementsEditShortcut.
   ///
   /// In en, this message translates to:
-  /// **'Edit Shortcut'**
+  /// **'Edit Replacement'**
   String get replacementsEditShortcut;
 
   /// No description provided for @replacementsNewShortcut.
   ///
   /// In en, this message translates to:
-  /// **'New Shortcut'**
+  /// **'New Replacement'**
   String get replacementsNewShortcut;
 
   /// No description provided for @replacementsDialogHint.
@@ -2286,13 +2286,13 @@ abstract class L10n {
   /// No description provided for @replacementsDeleteTitle.
   ///
   /// In en, this message translates to:
-  /// **'Delete Shortcut'**
+  /// **'Delete Replacement'**
   String get replacementsDeleteTitle;
 
   /// No description provided for @replacementsDeleteMessage.
   ///
   /// In en, this message translates to:
-  /// **'Remove the shortcut \"{trigger}\"? This cannot be undone.'**
+  /// **'Remove the replacement \"{trigger}\"? This cannot be undone.'**
   String replacementsDeleteMessage(String trigger);
 
   /// No description provided for @automationsSearch.
@@ -2480,6 +2480,36 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Remove the snippet \"{title}\"? This cannot be undone.'**
   String snippetsDeleteMessage(String title);
+
+  /// No description provided for @snippetsPickerTriggerLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Picker trigger word'**
+  String get snippetsPickerTriggerLabel;
+
+  /// No description provided for @snippetsPickerTriggerSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Speak only this word to open the snippet picker. Leave empty to turn the picker off.'**
+  String get snippetsPickerTriggerSubtitle;
+
+  /// No description provided for @snippetsPickerTriggerHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. snippet'**
+  String get snippetsPickerTriggerHint;
+
+  /// No description provided for @snippetsPickerSemanticsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Snippet picker'**
+  String get snippetsPickerSemanticsLabel;
+
+  /// No description provided for @snippetsPickerInsertAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Insert'**
+  String get snippetsPickerInsertAction;
 
   /// No description provided for @aboutTagline.
   ///

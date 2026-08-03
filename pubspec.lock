@@ -1020,7 +1020,7 @@ packages:
     source: hosted
     version: "0.2.2"
   screen_retriever_platform_interface:
-    dependency: transitive
+    dependency: "direct dev"
     description:
       name: screen_retriever_platform_interface
       sha256: "94a5535277510a63184ca178ce12a1449bc0b38618879aa1c18bf57369c5064a"

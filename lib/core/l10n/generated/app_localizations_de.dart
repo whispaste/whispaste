@@ -18,7 +18,7 @@ class L10nDe extends L10n {
   String get navSettings => 'Einstellungen';
 
   @override
-  String get navReplacements => 'Sprach-Shortcuts';
+  String get navReplacements => 'Ersetzungen';
 
   @override
   String get navAutomations => 'Automationen';
@@ -42,7 +42,7 @@ class L10nDe extends L10n {
   String get pageSettingsTitle => 'Einstellungen';
 
   @override
-  String get pageReplacementsTitle => 'Sprach-Shortcuts';
+  String get pageReplacementsTitle => 'Ersetzungen';
 
   @override
   String get pageAnalyticsTitle => 'Statistiken';
@@ -828,7 +828,7 @@ class L10nDe extends L10n {
 
   @override
   String get settingsFactoryResetMessage =>
-      'Damit werden ALLE Daten unwiderruflich gelöscht: Aufnahmeverlauf, Tags, Sprachkürzel, heruntergeladene Modelle, Protokolle und Einstellungen. Die App wird in den Ausgangszustand zurückversetzt.\n\nDies kann nicht rückgängig gemacht werden.';
+      'Damit werden ALLE Daten unwiderruflich gelöscht: Aufnahmeverlauf, Tags, Ersetzungen, heruntergeladene Modelle, Protokolle und Einstellungen. Die App wird in den Ausgangszustand zurückversetzt.\n\nDies kann nicht rückgängig gemacht werden.';
 
   @override
   String get settingsFactoryResetConfirm => 'Alles löschen';
@@ -893,7 +893,7 @@ class L10nDe extends L10n {
 
   @override
   String settingsPortabilityImportConfirmMessage(String path) {
-    return 'Dies ersetzt dein aktuelles Vokabular, deine Sprachkürzel und deine Hotkey-Konfiguration durch den Inhalt von $path.';
+    return 'Dies ersetzt dein aktuelles Vokabular, deine Sprachkürzel, deine Hotkey-Konfiguration und – falls in der Datei enthalten – deine Snippets durch den Inhalt von $path.';
   }
 
   @override
@@ -1178,17 +1178,17 @@ class L10nDe extends L10n {
   }
 
   @override
-  String get replacementsSearch => 'Shortcuts suchen…';
+  String get replacementsSearch => 'Ersetzungen suchen…';
 
   @override
   String get replacementsAdd => 'Hinzufügen';
 
   @override
-  String get replacementsEmpty => 'Noch keine Sprach-Shortcuts';
+  String get replacementsEmpty => 'Noch keine Ersetzungen';
 
   @override
   String get replacementsEmptyHint =>
-      'Füge Shortcuts hinzu, um Wörter beim Aufnehmen automatisch zu ersetzen.\nBeispiel: \"mfg\" → \"mit freundlichen Grüßen\"';
+      'Füge Ersetzungen hinzu, um Wörter beim Aufnehmen automatisch zu ersetzen.\nBeispiel: \"mfg\" → \"mit freundlichen Grüßen\"';
 
   @override
   String get replacementsNoMatches => 'Keine Treffer';
@@ -1197,16 +1197,16 @@ class L10nDe extends L10n {
   String get replacementsNoMatchesHint => 'Versuche einen anderen Suchbegriff.';
 
   @override
-  String get replacementsToggleLabel => 'Shortcuts aktivieren';
+  String get replacementsToggleLabel => 'Ersetzungen aktivieren';
 
   @override
-  String get replacementsToggleEnabled => 'Sprachkürzel sind aktiv';
+  String get replacementsToggleEnabled => 'Ersetzungen sind aktiv';
 
   @override
-  String get replacementsToggleDisabled => 'Sprachkürzel sind deaktiviert';
+  String get replacementsToggleDisabled => 'Ersetzungen sind deaktiviert';
 
   @override
-  String get replacementsEnableBannerTitle => 'Sprachkürzel sind deaktiviert';
+  String get replacementsEnableBannerTitle => 'Ersetzungen sind deaktiviert';
 
   @override
   String get replacementsEnableBannerHint =>
@@ -1219,13 +1219,13 @@ class L10nDe extends L10n {
   String get replacementsDisableAction => 'Deaktivieren';
 
   @override
-  String get replacementsAddShortcut => 'Shortcut hinzufügen';
+  String get replacementsAddShortcut => 'Ersetzung hinzufügen';
 
   @override
-  String get replacementsEditShortcut => 'Shortcut bearbeiten';
+  String get replacementsEditShortcut => 'Ersetzung bearbeiten';
 
   @override
-  String get replacementsNewShortcut => 'Neuer Shortcut';
+  String get replacementsNewShortcut => 'Neue Ersetzung';
 
   @override
   String get replacementsDialogHint =>
@@ -1250,11 +1250,11 @@ class L10nDe extends L10n {
   String get replacementsReplacementHint => 'z. B. mit freundlichen Grüßen';
 
   @override
-  String get replacementsDeleteTitle => 'Shortcut löschen';
+  String get replacementsDeleteTitle => 'Ersetzung löschen';
 
   @override
   String replacementsDeleteMessage(String trigger) {
-    return 'Shortcut \"$trigger\" entfernen? Dies kann nicht rückgängig gemacht werden.';
+    return 'Ersetzung \"$trigger\" entfernen? Dies kann nicht rückgängig gemacht werden.';
   }
 
   @override
@@ -1356,6 +1356,22 @@ class L10nDe extends L10n {
   String snippetsDeleteMessage(String title) {
     return 'Snippet \"$title\" entfernen? Dies kann nicht rückgängig gemacht werden.';
   }
+
+  @override
+  String get snippetsPickerTriggerLabel => 'Trigger-Wort für den Picker';
+
+  @override
+  String get snippetsPickerTriggerSubtitle =>
+      'Sprich nur dieses Wort, um den Snippet-Picker zu öffnen. Leer lassen, um den Picker auszuschalten.';
+
+  @override
+  String get snippetsPickerTriggerHint => 'z. B. Snippet';
+
+  @override
+  String get snippetsPickerSemanticsLabel => 'Snippet-Picker';
+
+  @override
+  String get snippetsPickerInsertAction => 'Einfügen';
 
   @override
   String get aboutTagline => 'Sprache zu Text, sofort.';

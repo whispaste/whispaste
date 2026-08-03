@@ -1,4 +1,4 @@
-/// Tests for [ReplacementsPage] (Voice Shortcuts).
+/// Tests for [ReplacementsPage].
 ///
 /// Covers: sample data on empty DB, Add dialog, dialog validation,
 /// Edit pre-fill, search filter, no-results state, enable/disable toggle,
@@ -58,8 +58,9 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // ReplacementsNotifier auto-inserts three sample shortcuts when DB is
-      // empty. Trigger phrases are rendered as chips (no surrounding quotes).
+      // ReplacementsNotifier auto-inserts three sample replacements when DB
+      // is empty. Trigger phrases are rendered as chips (no surrounding
+      // quotes).
       expect(find.text('mfg'), findsOneWidget);
       expect(find.text('lg'), findsOneWidget);
       expect(find.text('tel'), findsOneWidget);

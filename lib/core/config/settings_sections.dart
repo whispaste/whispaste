@@ -737,6 +737,7 @@ class BehaviorSettings {
     this.autoPasteDelay = 200,
     this.autoPasteBlocklist = '',
     this.textReplacementsEnabled = false,
+    this.snippetPickerTrigger = '',
   });
 
   final int maxRecordDuration;
@@ -750,6 +751,14 @@ class BehaviorSettings {
   final String autoPasteBlocklist;
 
   final bool textReplacementsEnabled;
+
+  /// The single global trigger word that opens the Snippet-Picker when a
+  /// transcript matches it exactly (dictation-automations ticket 06). Empty
+  /// string means the feature is off — matching uses the same
+  /// [normalizeForExactMatch]-style comparison as Automations, but this is
+  /// deliberately not an [Automations] row: the picker has exactly one
+  /// trigger, no payload, and its own UI on the Snippets page.
+  final String snippetPickerTrigger;
 
   static const BehaviorSettings defaults = BehaviorSettings();
 
@@ -770,6 +779,8 @@ class BehaviorSettings {
       'text_replacements_enabled',
       defaults.textReplacementsEnabled,
     ),
+    snippetPickerTrigger:
+        v['snippet_picker_trigger'] ?? defaults.snippetPickerTrigger,
   );
 
   Map<String, String> toMap() => {
@@ -780,6 +791,7 @@ class BehaviorSettings {
     'auto_paste_delay': '$autoPasteDelay',
     'auto_paste_blocklist': autoPasteBlocklist,
     'text_replacements_enabled': '$textReplacementsEnabled',
+    'snippet_picker_trigger': snippetPickerTrigger,
   };
 
   BehaviorSettings copyWith({
@@ -790,6 +802,7 @@ class BehaviorSettings {
     int? autoPasteDelay,
     String? autoPasteBlocklist,
     bool? textReplacementsEnabled,
+    String? snippetPickerTrigger,
   }) => BehaviorSettings(
     maxRecordDuration: maxRecordDuration ?? this.maxRecordDuration,
     closeToTray: closeToTray ?? this.closeToTray,
@@ -799,6 +812,7 @@ class BehaviorSettings {
     autoPasteBlocklist: autoPasteBlocklist ?? this.autoPasteBlocklist,
     textReplacementsEnabled:
         textReplacementsEnabled ?? this.textReplacementsEnabled,
+    snippetPickerTrigger: snippetPickerTrigger ?? this.snippetPickerTrigger,
   );
 
   @override
@@ -811,7 +825,8 @@ class BehaviorSettings {
         gpuAcceleration == other.gpuAcceleration &&
         autoPasteDelay == other.autoPasteDelay &&
         autoPasteBlocklist == other.autoPasteBlocklist &&
-        textReplacementsEnabled == other.textReplacementsEnabled;
+        textReplacementsEnabled == other.textReplacementsEnabled &&
+        snippetPickerTrigger == other.snippetPickerTrigger;
   }
 
   @override
@@ -823,6 +838,7 @@ class BehaviorSettings {
     autoPasteDelay,
     autoPasteBlocklist,
     textReplacementsEnabled,
+    snippetPickerTrigger,
   );
 }
 

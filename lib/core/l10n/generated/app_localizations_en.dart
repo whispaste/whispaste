@@ -18,7 +18,7 @@ class L10nEn extends L10n {
   String get navSettings => 'Settings';
 
   @override
-  String get navReplacements => 'Voice Shortcuts';
+  String get navReplacements => 'Replacements';
 
   @override
   String get navAutomations => 'Automations';
@@ -42,7 +42,7 @@ class L10nEn extends L10n {
   String get pageSettingsTitle => 'Settings';
 
   @override
-  String get pageReplacementsTitle => 'Voice Shortcuts';
+  String get pageReplacementsTitle => 'Replacements';
 
   @override
   String get pageAnalyticsTitle => 'Analytics';
@@ -820,7 +820,7 @@ class L10nEn extends L10n {
 
   @override
   String get settingsFactoryResetMessage =>
-      'This will permanently delete ALL data: recording history, tags, voice shortcuts, downloaded models, logs, and settings. The app will return to its initial state.\n\nThis cannot be undone.';
+      'This will permanently delete ALL data: recording history, tags, replacements, downloaded models, logs, and settings. The app will return to its initial state.\n\nThis cannot be undone.';
 
   @override
   String get settingsFactoryResetConfirm => 'Delete Everything';
@@ -882,7 +882,7 @@ class L10nEn extends L10n {
 
   @override
   String settingsPortabilityImportConfirmMessage(String path) {
-    return 'This replaces your current custom vocabulary, voice shortcuts, and hotkey configuration with the contents of $path.';
+    return 'This replaces your current custom vocabulary, voice shortcuts, hotkey configuration, and snippets (if included in the file) with the contents of $path.';
   }
 
   @override
@@ -1165,17 +1165,17 @@ class L10nEn extends L10n {
   }
 
   @override
-  String get replacementsSearch => 'Search shortcuts…';
+  String get replacementsSearch => 'Search replacements…';
 
   @override
   String get replacementsAdd => 'Add';
 
   @override
-  String get replacementsEmpty => 'No voice shortcuts yet';
+  String get replacementsEmpty => 'No replacements yet';
 
   @override
   String get replacementsEmptyHint =>
-      'Add shortcuts to auto-replace words while recording.\nExample: \"btw\" → \"by the way\"';
+      'Add replacements to auto-replace words while recording.\nExample: \"btw\" → \"by the way\"';
 
   @override
   String get replacementsNoMatches => 'No matches';
@@ -1184,16 +1184,16 @@ class L10nEn extends L10n {
   String get replacementsNoMatchesHint => 'Try a different search term.';
 
   @override
-  String get replacementsToggleLabel => 'Enable shortcuts';
+  String get replacementsToggleLabel => 'Enable replacements';
 
   @override
-  String get replacementsToggleEnabled => 'Voice shortcuts are active';
+  String get replacementsToggleEnabled => 'Replacements are active';
 
   @override
-  String get replacementsToggleDisabled => 'Voice shortcuts are disabled';
+  String get replacementsToggleDisabled => 'Replacements are disabled';
 
   @override
-  String get replacementsEnableBannerTitle => 'Voice shortcuts are turned off';
+  String get replacementsEnableBannerTitle => 'Replacements are turned off';
 
   @override
   String get replacementsEnableBannerHint =>
@@ -1206,13 +1206,13 @@ class L10nEn extends L10n {
   String get replacementsDisableAction => 'Disable';
 
   @override
-  String get replacementsAddShortcut => 'Add Shortcut';
+  String get replacementsAddShortcut => 'Add Replacement';
 
   @override
-  String get replacementsEditShortcut => 'Edit Shortcut';
+  String get replacementsEditShortcut => 'Edit Replacement';
 
   @override
-  String get replacementsNewShortcut => 'New Shortcut';
+  String get replacementsNewShortcut => 'New Replacement';
 
   @override
   String get replacementsDialogHint =>
@@ -1237,11 +1237,11 @@ class L10nEn extends L10n {
   String get replacementsReplacementHint => 'e.g. by the way';
 
   @override
-  String get replacementsDeleteTitle => 'Delete Shortcut';
+  String get replacementsDeleteTitle => 'Delete Replacement';
 
   @override
   String replacementsDeleteMessage(String trigger) {
-    return 'Remove the shortcut \"$trigger\"? This cannot be undone.';
+    return 'Remove the replacement \"$trigger\"? This cannot be undone.';
   }
 
   @override
@@ -1343,6 +1343,22 @@ class L10nEn extends L10n {
   String snippetsDeleteMessage(String title) {
     return 'Remove the snippet \"$title\"? This cannot be undone.';
   }
+
+  @override
+  String get snippetsPickerTriggerLabel => 'Picker trigger word';
+
+  @override
+  String get snippetsPickerTriggerSubtitle =>
+      'Speak only this word to open the snippet picker. Leave empty to turn the picker off.';
+
+  @override
+  String get snippetsPickerTriggerHint => 'e.g. snippet';
+
+  @override
+  String get snippetsPickerSemanticsLabel => 'Snippet picker';
+
+  @override
+  String get snippetsPickerInsertAction => 'Insert';
 
   @override
   String get aboutTagline => 'Voice to text, instantly.';

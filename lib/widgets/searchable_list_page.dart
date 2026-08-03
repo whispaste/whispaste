@@ -34,6 +34,7 @@ class WpSearchableListPage<T> extends StatefulWidget {
     required this.itemBuilder,
     this.toolbarTrailing = const [],
     this.contentWrapper,
+    this.header,
   });
 
   /// The feature's full item list, as exposed by its Riverpod provider.
@@ -78,6 +79,10 @@ class WpSearchableListPage<T> extends StatefulWidget {
   /// `AnimatedOpacity` while the feature is disabled).
   final Widget Function(BuildContext context, Widget child)? contentWrapper;
 
+  /// Optional widget above the toolbar, shown in every load state (e.g. the
+  /// Snippets page's picker-trigger field). Include your own outer padding.
+  final Widget? header;
+
   @override
   State<WpSearchableListPage<T>> createState() =>
       _WpSearchableListPageState<T>();
@@ -104,96 +109,105 @@ class _WpSearchableListPageState<T> extends State<WpSearchableListPage<T>> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
 
+    final body = widget.asyncAll.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => WpEmptyState(
+        icon: LucideIcons.triangleAlert,
+        title: l10n.errorGeneric,
+        actionLabel: l10n.actionRetry,
+        onAction: widget.onRetry,
+      ),
+      data: (all) {
+        final visible = _filtered(all);
+        final content = all.isEmpty
+            ? WpEmptyState(
+                icon: widget.emptyIcon,
+                title: widget.emptyTitle,
+                hint: widget.emptyHint,
+                actionLabel: widget.emptyActionLabel,
+                onAction: widget.onAdd,
+              )
+            : visible.isEmpty
+            ? WpEmptyState(
+                icon: LucideIcons.searchX,
+                title: widget.noMatchesTitle,
+                hint: widget.noMatchesHint,
+              )
+            : ListView.separated(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: WpSpacing.xl,
+                  vertical: WpSpacing.xs,
+                ),
+                itemCount: visible.length,
+                separatorBuilder: (_, _) =>
+                    const SizedBox(height: WpSpacing.xs),
+                itemBuilder: (context, index) =>
+                    widget.itemBuilder(context, visible[index], isDark),
+              );
+        return Column(
+          children: [
+            // Toolbar
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                WpSpacing.xl,
+                WpSpacing.sm,
+                WpSpacing.xl,
+                WpSpacing.sm,
+              ),
+              child: Row(
+                children: [
+                  // Search
+                  Expanded(
+                    child: TextField(
+                      controller: _searchController,
+                      decoration: InputDecoration(
+                        hintText: widget.searchHint,
+                        prefixIcon: Icon(
+                          LucideIcons.search,
+                          size: WpIconSize.sm,
+                          color: isDark
+                              ? WpColorsDark.textMuted
+                              : WpColorsLight.textMuted,
+                        ),
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: WpSpacing.md,
+                          vertical: WpSpacing.xs + 2,
+                        ),
+                      ),
+                      onChanged: (v) => setState(() => _searchQuery = v),
+                    ),
+                  ),
+                  const SizedBox(width: WpSpacing.sm),
+                  ...widget.toolbarTrailing,
+                  // Add button
+                  ElevatedButton.icon(
+                    onPressed: widget.onAdd,
+                    icon: const Icon(LucideIcons.plus, size: WpIconSize.sm),
+                    label: Text(widget.addLabel),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: widget.contentWrapper?.call(context, content) ?? content,
+            ),
+          ],
+        );
+      },
+    );
+
     return WpPageShell(
       scrollable: false,
       padding: EdgeInsets.zero,
-      child: widget.asyncAll.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => WpEmptyState(
-          icon: LucideIcons.triangleAlert,
-          title: l10n.errorGeneric,
-          actionLabel: l10n.actionRetry,
-          onAction: widget.onRetry,
-        ),
-        data: (all) {
-          final visible = _filtered(all);
-          final content = all.isEmpty
-              ? WpEmptyState(
-                  icon: widget.emptyIcon,
-                  title: widget.emptyTitle,
-                  hint: widget.emptyHint,
-                  actionLabel: widget.emptyActionLabel,
-                  onAction: widget.onAdd,
-                )
-              : visible.isEmpty
-              ? WpEmptyState(
-                  icon: LucideIcons.searchX,
-                  title: widget.noMatchesTitle,
-                  hint: widget.noMatchesHint,
-                )
-              : ListView.separated(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: WpSpacing.xl,
-                    vertical: WpSpacing.xs,
-                  ),
-                  itemCount: visible.length,
-                  separatorBuilder: (_, _) =>
-                      const SizedBox(height: WpSpacing.xs),
-                  itemBuilder: (context, index) =>
-                      widget.itemBuilder(context, visible[index], isDark),
-                );
-          return Column(
-            children: [
-              // Toolbar
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  WpSpacing.xl,
-                  WpSpacing.sm,
-                  WpSpacing.xl,
-                  WpSpacing.sm,
-                ),
-                child: Row(
-                  children: [
-                    // Search
-                    Expanded(
-                      child: TextField(
-                        controller: _searchController,
-                        decoration: InputDecoration(
-                          hintText: widget.searchHint,
-                          prefixIcon: Icon(
-                            LucideIcons.search,
-                            size: WpIconSize.sm,
-                            color: isDark
-                                ? WpColorsDark.textMuted
-                                : WpColorsLight.textMuted,
-                          ),
-                          isDense: true,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: WpSpacing.md,
-                            vertical: WpSpacing.xs + 2,
-                          ),
-                        ),
-                        onChanged: (v) => setState(() => _searchQuery = v),
-                      ),
-                    ),
-                    const SizedBox(width: WpSpacing.sm),
-                    ...widget.toolbarTrailing,
-                    // Add button
-                    ElevatedButton.icon(
-                      onPressed: widget.onAdd,
-                      icon: const Icon(LucideIcons.plus, size: WpIconSize.sm),
-                      label: Text(widget.addLabel),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: widget.contentWrapper?.call(context, content) ?? content,
-              ),
-            ],
-          );
-        },
-      ),
+      child: widget.header == null
+          ? body
+          : Column(
+              children: [
+                widget.header!,
+                Expanded(child: body),
+              ],
+            ),
     );
   }
 }

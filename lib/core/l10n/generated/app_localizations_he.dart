@@ -18,7 +18,7 @@ class L10nHe extends L10n {
   String get navSettings => 'הגדרות';
 
   @override
-  String get navReplacements => 'קיצורי קול';
+  String get navReplacements => 'החלפות';
 
   @override
   String get navAutomations => 'אוטומציות';
@@ -42,7 +42,7 @@ class L10nHe extends L10n {
   String get pageSettingsTitle => 'הגדרות';
 
   @override
-  String get pageReplacementsTitle => 'קיצורי קול';
+  String get pageReplacementsTitle => 'החלפות';
 
   @override
   String get pageAnalyticsTitle => 'ניתוח נתונים';
@@ -809,7 +809,7 @@ class L10nHe extends L10n {
 
   @override
   String get settingsFactoryResetMessage =>
-      'פעולה זו תמחק לצמיתות את כל הנתונים: היסטוריה, תגיות, קיצורים, מודלים, לוגים והגדרות. האפליקציה תחזור למצב ראשוני.\n\nאין דרך לבטל.';
+      'פעולה זו תמחק לצמיתות את כל הנתונים: היסטוריה, תגיות, החלפות, מודלים, לוגים והגדרות. האפליקציה תחזור למצב ראשוני.\n\nאין דרך לבטל.';
 
   @override
   String get settingsFactoryResetConfirm => 'מחק הכל';
@@ -871,7 +871,7 @@ class L10nHe extends L10n {
 
   @override
   String settingsPortabilityImportConfirmMessage(String path) {
-    return 'This replaces your current custom vocabulary, voice shortcuts, and hotkey configuration with the contents of $path.';
+    return 'This replaces your current custom vocabulary, voice shortcuts, hotkey configuration, and snippets (if included in the file) with the contents of $path.';
   }
 
   @override
@@ -1153,17 +1153,17 @@ class L10nHe extends L10n {
   }
 
   @override
-  String get replacementsSearch => 'חפש קיצורים…';
+  String get replacementsSearch => 'חפש החלפות…';
 
   @override
   String get replacementsAdd => 'הוסף';
 
   @override
-  String get replacementsEmpty => 'עדיין אין קיצורי קול';
+  String get replacementsEmpty => 'עדיין אין החלפות';
 
   @override
   String get replacementsEmptyHint =>
-      'הוסף קיצורים כדי להחליף אוטומטית מילים בזמן הקלטה.\nדוגמה: \"btw\" → \"אגב\"';
+      'הוסף החלפות כדי להחליף אוטומטית מילים בזמן הקלטה.\nדוגמה: \"btw\" → \"אגב\"';
 
   @override
   String get replacementsNoMatches => 'אין התאמות';
@@ -1172,16 +1172,16 @@ class L10nHe extends L10n {
   String get replacementsNoMatchesHint => 'נסה מונח חיפוש אחר.';
 
   @override
-  String get replacementsToggleLabel => 'הפעל קיצורים';
+  String get replacementsToggleLabel => 'הפעל החלפות';
 
   @override
-  String get replacementsToggleEnabled => 'קיצורי קול פעילים';
+  String get replacementsToggleEnabled => 'ההחלפות פעילות';
 
   @override
-  String get replacementsToggleDisabled => 'קיצורי קול כבויים';
+  String get replacementsToggleDisabled => 'ההחלפות כבויות';
 
   @override
-  String get replacementsEnableBannerTitle => 'קיצורי קול כבויים';
+  String get replacementsEnableBannerTitle => 'ההחלפות כבויות';
 
   @override
   String get replacementsEnableBannerHint =>
@@ -1194,13 +1194,13 @@ class L10nHe extends L10n {
   String get replacementsDisableAction => 'כבה';
 
   @override
-  String get replacementsAddShortcut => 'הוסף קיצור';
+  String get replacementsAddShortcut => 'הוסף החלפה';
 
   @override
-  String get replacementsEditShortcut => 'ערוך קיצור';
+  String get replacementsEditShortcut => 'ערוך החלפה';
 
   @override
-  String get replacementsNewShortcut => 'קיצור חדש';
+  String get replacementsNewShortcut => 'החלפה חדשה';
 
   @override
   String get replacementsDialogHint =>
@@ -1331,6 +1331,22 @@ class L10nHe extends L10n {
   String snippetsDeleteMessage(String title) {
     return 'להסיר את הקטע \"$title\"? אין דרך לבטל.';
   }
+
+  @override
+  String get snippetsPickerTriggerLabel => 'מילת הפעלה לבוחר הקטעים';
+
+  @override
+  String get snippetsPickerTriggerSubtitle =>
+      'אמור רק את המילה הזו כדי לפתוח את בוחר הקטעים. השאר ריק כדי לכבות את הבוחר.';
+
+  @override
+  String get snippetsPickerTriggerHint => 'לדוגמה: קטע';
+
+  @override
+  String get snippetsPickerSemanticsLabel => 'בוחר הקטעים';
+
+  @override
+  String get snippetsPickerInsertAction => 'הוסף';
 
   @override
   String get aboutTagline => 'מדיבור לטקסט, מיד.';

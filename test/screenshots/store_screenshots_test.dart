@@ -7,7 +7,7 @@
 /// Narrative flow:
 ///   01 workspace overview (dark/EN+DE)
 ///   02 workspace detail / open entry (light/EN+DE)
-///   03 voice shortcuts (dark/EN+DE)
+///   03 replacements (dark/EN+DE)
 ///   04 settings / hotkey section (light/EN+DE)
 ///   05 analytics (dark/EN+DE)
 @Tags(<String>['golden'])

@@ -6,8 +6,8 @@
 /// overflows or crashes.
 ///
 /// Locale: German — the longest translations across EN/DE/HE (e.g.
-/// "Sprach-Shortcuts" 16 chars vs EN "Voice Shortcuts" 15; "Einstellungen"
-/// 13 chars vs EN "Settings" 8), so it is the worst case for tooltip width.
+/// "Einstellungen" 13 chars vs EN "Settings" 8; "Automationen" 12 chars vs
+/// EN "Automations" 11), so it is the worst case for tooltip width.
 ///
 /// Scale: 1.5 — strictly harsher than the 1.3 baseline; Windows' system
 /// "Text size" slider commonly reaches 150%, so passing at 1.5 covers the
@@ -78,12 +78,15 @@ void main() {
       await tester.pumpAndSettle();
 
       final l10n = await L10n.delegate.load(const Locale('de'));
-      // navReplacements ("Sprach-Shortcuts") is the longest label in the
-      // longest locale — the worst case for a scaled tooltip.
-      await tester.longPress(find.byTooltip(l10n.navReplacements));
+      // navAutomations ("Automationen", 12 chars) is the longest of the 7
+      // regular nav items in the longest locale — the worst case for a
+      // scaled tooltip among sidebar entries (the pinned settings button,
+      // "Einstellungen" at 13 chars, is a separate widget already covered
+      // generically by the test above).
+      await tester.longPress(find.byTooltip(l10n.navAutomations));
       await tester.pump(const Duration(milliseconds: 500));
 
-      expect(find.text(l10n.navReplacements), findsOneWidget);
+      expect(find.text(l10n.navAutomations), findsOneWidget);
       expect(tester.takeException(), isNull);
 
       // Let the tooltip timer expire so no pending timers leak.

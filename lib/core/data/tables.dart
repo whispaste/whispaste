@@ -92,7 +92,7 @@ class EntryAttachments extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-/// Voice shortcuts — auto-replace trigger words during dictation.
+/// Replacements — auto-replace trigger words during dictation.
 ///
 /// `trigger` is kept as a legacy, schema-additive mirror of the first entry
 /// in [TextReplacementTriggers] for this row (written on every save, never
@@ -152,11 +152,15 @@ class EntryTags extends Table {
 /// [actionType]/[payload] runs instead of the normal insert/history pipeline.
 ///
 /// [actionType]/[payload] deliberately separate "what kind of action" from
-/// "the action's parameters" so further action types (shell command, script,
-/// snippet-picker — tickets 03/04/06) can be added without a schema change:
-/// [payload] is a free-form JSON blob whose shape is defined by [actionType]
-/// alone. The only action type today is `open_url`, whose payload is
-/// `{"url": "..."}`.
+/// "the action's parameters" so further action types (shell command, script
+/// — tickets 03/04) can be added without a schema change: [payload] is a
+/// free-form JSON blob whose shape is defined by [actionType] alone. The
+/// only action type today is `open_url`, whose payload is `{"url": "..."}`.
+///
+/// The Snippet-Picker (ticket 06) deliberately does *not* live here: it has
+/// exactly one global trigger, not N user-defined ones, so it's a plain
+/// string setting (`BehaviorSettings.snippetPickerTrigger`) with its own
+/// dispatch check, not another row in this table.
 @DataClassName('Automation')
 class Automations extends Table {
   TextColumn get id => text()();

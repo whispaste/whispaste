@@ -148,7 +148,7 @@ final replacementsProvider =
 // Page
 // ---------------------------------------------------------------------------
 
-/// Voice Shortcuts (Replacements) page — auto-replace words during dictation.
+/// Replacements page — auto-replace words during dictation.
 class ReplacementsPage extends ConsumerStatefulWidget {
   const ReplacementsPage({super.key});
 
