@@ -30,8 +30,26 @@ void main() {
       expect(normalizeForExactMatch('open timer?!'), 'open timer');
     });
 
-    test('leaves leading punctuation untouched (only trailing is dropped)', () {
-      expect(normalizeForExactMatch('...open timer'), '...open timer');
+    test('strips leading punctuation too, unlike a trailing-only strip', () {
+      expect(normalizeForExactMatch('...open timer'), 'open timer');
+    });
+
+    test('strips punctuation in the middle of the phrase, not just the '
+        'edges', () {
+      expect(normalizeForExactMatch('open, timer'), 'open timer');
+      expect(normalizeForExactMatch('open: timer.'), 'open timer');
+    });
+
+    test('treats a hyphen as a word separator, same as a space', () {
+      expect(normalizeForExactMatch('open-timer'), 'open timer');
+      expect(normalizeForExactMatch('open timer'), 'open timer');
+    });
+
+    test('a hyphenated trigger matches a plain-spaced transcript and vice '
+        'versa', () {
+      final service = AutomationDispatchService();
+      final automations = [_automation(trigger: 'open-timer')];
+      expect(service.findMatch(automations, 'Open Timer.')?.id, 'a1');
     });
   });
 
