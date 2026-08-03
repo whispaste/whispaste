@@ -86,6 +86,7 @@ class _NotesPageState extends ConsumerState<NotesPage> {
     _actions = ref.read(notesActionsProvider);
     _autosave = NoteAutosave(onSave: _actions.save);
     _editorController.addListener(_onEditorChanged);
+    _editorFocusNode.addListener(_onEditorFocusChanged);
     // One-time safety-net sweep: drop stale empty notes left behind by a
     // previous session (fire-and-forget; the stream provider picks it up).
     unawaited(_actions.purgeEmpty());
@@ -119,6 +120,15 @@ class _NotesPageState extends ConsumerState<NotesPage> {
     final id = _selectedNoteId;
     if (id == null) return;
     _autosave.schedule(id, _editorController.text);
+  }
+
+  /// Flushes on blur (window loses focus, user clicks elsewhere without
+  /// switching notes) — one of the four flush triggers documented on
+  /// [NoteAutosave.schedule].
+  void _onEditorFocusChanged() {
+    if (!_editorFocusNode.hasFocus) {
+      unawaited(_autosave.flush());
+    }
   }
 
   /// Replaces the editor text without triggering an autosave schedule.
@@ -339,13 +349,24 @@ class _NotesPageState extends ConsumerState<NotesPage> {
     );
   }
 
+  /// Exports the live editor text, not the (possibly stale, pre-debounce)
+  /// DB-streamed [note] — same "controller, not DB" rule as copy (Ticket 03).
   void _exportNote(Note note, List<Tag> tags) {
     // Fire-and-forget: the exporter surfaces success/error via WpToast.
-    widget.exportFn(context, note, tags);
+    widget.exportFn(
+      context,
+      note.copyWith(content: _editorController.text),
+      tags,
+    );
   }
 
   /// Only reachable from the trash view (list tile / editor toolbar there).
   Future<void> _deleteForever(Note note) async {
+    // Flush first, same as favourite/trash: any pending autosave write
+    // completes (or its timer is cancelled) before the row disappears,
+    // instead of racing the delete.
+    await _autosave.flush();
+    if (!mounted) return;
     final l10n = L10n.of(context);
     final confirmed = await showWpConfirmDialog(
       context: context,
@@ -385,6 +406,16 @@ class _NotesPageState extends ConsumerState<NotesPage> {
     final selectedNoteTags = _selectedNoteId != null
         ? (ref.watch(noteTagsProvider(_selectedNoteId!)).value ?? const <Tag>[])
         : const <Tag>[];
+    // Fallback list used by the shortcut/focus layer below, which now wraps
+    // ALL notesAsync states (not just the populated data branch) — empty
+    // during loading/error, harmless since _moveFocus/_focusedNote no-op on
+    // an empty list.
+    final notes = notesAsync.value ?? const <Note>[];
+    Note? currentNote;
+    if (_selectedNoteId != null) {
+      final idx = notes.indexWhere((n) => n.id == _selectedNoteId);
+      currentNote = idx >= 0 ? notes[idx] : null;
+    }
 
     return WpPageShell(
       scrollable: false,
@@ -427,138 +458,178 @@ class _NotesPageState extends ConsumerState<NotesPage> {
                 showResultCount: hasQuery,
               ),
               Expanded(
-                child: notesAsync.when(
-                  data: (notes) {
-                    if (notes.isEmpty) {
-                      if (hasQuery) {
-                        return WpEmptyState(
-                          icon: LucideIcons.searchX,
-                          title: l10n.notesNoResults,
-                          hint: l10n.notesNoResultsHint(query),
-                          actionLabel: l10n.notesClearSearch,
-                          onAction: () {
-                            _searchController.clear();
-                            ref.read(notesSearchProvider.notifier).set('');
-                            setState(() {});
-                          },
-                        );
-                      }
-                      // No action button in either empty state on purpose: the
-                      // header's "New note" button is always visible and already
-                      // offers the only sensible action — a second identically
-                      // labeled button would be redundant, and the trash empty
-                      // state has no action at all.
-                      return WpEmptyState(
-                        icon: isTrash
-                            ? LucideIcons.trash2
-                            : LucideIcons.stickyNote,
-                        title: isTrash
-                            ? l10n.notesTrashEmpty
-                            : l10n.notesEmptyTitle,
-                        hint: isTrash
-                            ? l10n.notesTrashEmptyHint
-                            : l10n.notesEmptyHint,
-                      );
-                    }
-                    Note? selectedNote;
-                    if (_selectedNoteId != null) {
-                      final idx = notes.indexWhere(
-                        (n) => n.id == _selectedNoteId,
-                      );
-                      selectedNote = idx >= 0 ? notes[idx] : null;
-                    }
-                    final currentNote = selectedNote;
-                    return CallbackShortcuts(
-                      // Only modifier-combo shortcuts live here. Bare keys
-                      // (arrows, enter, delete, backspace, escape, F) are
-                      // handled in Focus.onKeyEvent below so they can return
-                      // KeyEventResult.ignored when a text field has focus.
-                      bindings: <ShortcutActivator, VoidCallback>{
-                        // Ctrl+N / Cmd+N: create a new note.
-                        SingleActivator(
-                          LogicalKeyboardKey.keyN,
-                          control: !Platform.isMacOS,
-                          meta: Platform.isMacOS,
-                        ): () {
-                          if (isTextFieldFocused()) return;
-                          _createNote();
-                        },
-                        // Ctrl+C / Cmd+C: copy the open/focused note's content.
-                        SingleActivator(
-                          LogicalKeyboardKey.keyC,
-                          control: !Platform.isMacOS,
-                          meta: Platform.isMacOS,
-                        ): () {
-                          if (isTextFieldFocused()) return;
-                          final note = currentNote ?? _focusedNote(notes);
-                          if (note == null) return;
-                          Clipboard.setData(ClipboardData(text: note.content));
-                          WpToast.show(
-                            context,
-                            message: l10n.notesCopied,
-                            type: WpToastType.success,
-                            duration: const Duration(seconds: 2),
-                          );
-                        },
-                      },
-                      child: Focus(
-                        focusNode: _listFocusNode,
-                        autofocus: true,
-                        // Bare-key shortcuts are handled here via onKeyEvent
-                        // so that KeyEventResult.ignored can be returned when
-                        // a text field has focus. CallbackShortcuts always
-                        // consumes matched events, which would prevent
-                        // DefaultTextEditingShortcuts from processing
-                        // Backspace/Enter/etc. in the always-editable note
-                        // editor.
-                        onKeyEvent: (node, event) =>
-                            _handleListKeyEvent(node, event, notes, isTrash),
-                        child: NotesSplitView(
-                          notes: notes,
-                          tagsByNoteId: tagsByNoteId,
-                          isDark: isDark,
-                          isTrashView: isTrash,
-                          selectedNote: selectedNote,
-                          focusedNoteId: _focusedNoteId,
-                          selectedNoteTags: selectedNoteTags,
-                          editorController: _editorController,
-                          editorFocusNode: _editorFocusNode,
-                          onNoteTap: _selectNote,
-                          onCloseEditor: _closeEditor,
-                          onFavoriteToggle: _toggleFavorite,
-                          onMoveToTrash: _moveToTrash,
-                          onRestore: _restoreNote,
-                          onDeleteForever: _deleteForever,
-                          onAddTag: (name) {
-                            if (currentNote != null) _addTag(currentNote, name);
-                          },
-                          onRemoveTag: (id) {
-                            if (currentNote != null) {
-                              _removeTag(currentNote, id);
-                            }
-                          },
-                          onExport: () {
-                            if (currentNote != null) {
-                              _exportNote(currentNote, selectedNoteTags);
-                            }
-                          },
-                          onVoiceTranscript: _insertVoiceTranscript,
-                        ),
-                      ),
-                    );
-                  },
-                  loading: () => _NotesSkeleton(isDark: isDark),
-                  error: (e, _) => WpEmptyState(
-                    icon: LucideIcons.triangleAlert,
-                    title: l10n.errorGeneric,
-                    actionLabel: l10n.actionRetry,
-                    onAction: () => ref.invalidate(activeStreamProvider),
+                child: CallbackShortcuts(
+                  // Wraps ALL notesAsync states (data-with-notes, both empty
+                  // states, loading, error) — not just the populated data
+                  // branch. Ctrl/Cmd+N/+C used to live only inside the
+                  // non-empty data branch, which left them (and Ctrl/Cmd+F,
+                  // which depends on this Focus node holding focus for its
+                  // key event to bubble to the page-level handler above)
+                  // dead exactly when a first-time user or an empty search
+                  // result needed "create a note" most. Only modifier-combo
+                  // shortcuts live here; bare keys (arrows, enter, delete,
+                  // backspace, escape, F) are handled in Focus.onKeyEvent
+                  // below so they can return KeyEventResult.ignored when a
+                  // text field has focus.
+                  bindings: _buildListShortcuts(
+                    context,
+                    l10n,
+                    notes,
+                    currentNote,
+                  ),
+                  child: Focus(
+                    focusNode: _listFocusNode,
+                    autofocus: true,
+                    // Bare-key shortcuts are handled here via onKeyEvent
+                    // so that KeyEventResult.ignored can be returned when
+                    // a text field has focus. CallbackShortcuts always
+                    // consumes matched events, which would prevent
+                    // DefaultTextEditingShortcuts from processing
+                    // Backspace/Enter/etc. in the always-editable note
+                    // editor.
+                    onKeyEvent: (node, event) =>
+                        _handleListKeyEvent(node, event, notes, isTrash),
+                    child: _buildNotesContent(
+                      notesAsync: notesAsync,
+                      isTrash: isTrash,
+                      hasQuery: hasQuery,
+                      query: query,
+                      isDark: isDark,
+                      l10n: l10n,
+                      tagsByNoteId: tagsByNoteId,
+                      currentNote: currentNote,
+                      selectedNoteTags: selectedNoteTags,
+                      activeStreamProvider: activeStreamProvider,
+                    ),
                   ),
                 ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  /// Modifier-combo bindings for the list-level shortcut layer (Ctrl/Cmd+N,
+  /// Ctrl/Cmd+C). Split out of [build] to keep its cyclomatic complexity in
+  /// check — bare-key shortcuts live in [_handleListKeyEvent] instead.
+  Map<ShortcutActivator, VoidCallback> _buildListShortcuts(
+    BuildContext context,
+    L10n l10n,
+    List<Note> notes,
+    Note? currentNote,
+  ) {
+    return <ShortcutActivator, VoidCallback>{
+      // Ctrl+N / Cmd+N: create a new note.
+      SingleActivator(
+        LogicalKeyboardKey.keyN,
+        control: !Platform.isMacOS,
+        meta: Platform.isMacOS,
+      ): () {
+        if (isTextFieldFocused()) return;
+        _createNote();
+      },
+      // Ctrl+C / Cmd+C: copy the open/focused note's content.
+      SingleActivator(
+        LogicalKeyboardKey.keyC,
+        control: !Platform.isMacOS,
+        meta: Platform.isMacOS,
+      ): () {
+        if (isTextFieldFocused()) return;
+        final note = currentNote ?? _focusedNote(notes);
+        if (note == null) return;
+        Clipboard.setData(ClipboardData(text: note.content));
+        WpToast.show(
+          context,
+          message: l10n.notesCopied,
+          type: WpToastType.success,
+          duration: const Duration(seconds: 2),
+        );
+      },
+    };
+  }
+
+  /// Renders the notesAsync states (populated list, both empty states,
+  /// loading skeleton, error) — the [Focus]/[CallbackShortcuts] layer in
+  /// [build] wraps this unconditionally so shortcuts stay reachable in
+  /// every state, not just the populated one. Split out of [build] to keep
+  /// its cyclomatic complexity in check.
+  Widget _buildNotesContent({
+    required AsyncValue<List<Note>> notesAsync,
+    required bool isTrash,
+    required bool hasQuery,
+    required String query,
+    required bool isDark,
+    required L10n l10n,
+    required Map<String, List<Tag>> tagsByNoteId,
+    required Note? currentNote,
+    required List<Tag> selectedNoteTags,
+    required StreamProvider<List<Note>> activeStreamProvider,
+  }) {
+    return notesAsync.when(
+      data: (notes) {
+        if (notes.isEmpty) {
+          if (hasQuery) {
+            return WpEmptyState(
+              icon: LucideIcons.searchX,
+              title: l10n.notesNoResults,
+              hint: l10n.notesNoResultsHint(query),
+              actionLabel: l10n.notesClearSearch,
+              onAction: () {
+                _searchController.clear();
+                ref.read(notesSearchProvider.notifier).set('');
+                setState(() {});
+              },
+            );
+          }
+          // No action button in either empty state on purpose: the
+          // header's "New note" button is always visible and already
+          // offers the only sensible action — a second identically
+          // labeled button would be redundant, and the trash empty
+          // state has no action at all.
+          return WpEmptyState(
+            icon: isTrash ? LucideIcons.trash2 : LucideIcons.stickyNote,
+            title: isTrash ? l10n.notesTrashEmpty : l10n.notesEmptyTitle,
+            hint: isTrash ? l10n.notesTrashEmptyHint : l10n.notesEmptyHint,
+          );
+        }
+        return NotesSplitView(
+          notes: notes,
+          tagsByNoteId: tagsByNoteId,
+          isDark: isDark,
+          isTrashView: isTrash,
+          selectedNote: currentNote,
+          focusedNoteId: _focusedNoteId,
+          selectedNoteTags: selectedNoteTags,
+          editorController: _editorController,
+          editorFocusNode: _editorFocusNode,
+          onNoteTap: _selectNote,
+          onCloseEditor: _closeEditor,
+          onFavoriteToggle: _toggleFavorite,
+          onMoveToTrash: _moveToTrash,
+          onRestore: _restoreNote,
+          onDeleteForever: _deleteForever,
+          onAddTag: (name) {
+            if (currentNote != null) _addTag(currentNote, name);
+          },
+          onRemoveTag: (id) {
+            if (currentNote != null) _removeTag(currentNote, id);
+          },
+          onExport: () {
+            if (currentNote != null) {
+              _exportNote(currentNote, selectedNoteTags);
+            }
+          },
+          onVoiceTranscript: _insertVoiceTranscript,
+        );
+      },
+      loading: () => _NotesSkeleton(isDark: isDark),
+      error: (e, _) => WpEmptyState(
+        icon: LucideIcons.triangleAlert,
+        title: l10n.errorGeneric,
+        actionLabel: l10n.actionRetry,
+        onAction: () => ref.invalidate(activeStreamProvider),
       ),
     );
   }

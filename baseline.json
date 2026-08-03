@@ -17,46 +17,46 @@
       "message": "2 occurrences of duplicated block (66 tokens): lib/core/config/settings_sections.dart:423, lib/core/config/settings_sections.dart:1115"
     },
     {
-      "fingerprint": "7ccb57b004df927a",
+      "fingerprint": "0539436ee56ec734",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/data/database.dart",
       "line": 1021,
-      "message": "2 occurrences of duplicated block (56 tokens): lib/core/data/database.dart:1021, lib/core/data/database.dart:1951"
+      "message": "2 occurrences of duplicated block (56 tokens): lib/core/data/database.dart:1021, lib/core/data/database.dart:1950"
     },
     {
-      "fingerprint": "c6f408fda6fe1356",
+      "fingerprint": "d03c73a6bae5e659",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/data/database.dart",
       "line": 1030,
-      "message": "2 occurrences of duplicated block (53 tokens): lib/core/data/database.dart:1030, lib/core/data/database.dart:1960"
+      "message": "2 occurrences of duplicated block (53 tokens): lib/core/data/database.dart:1030, lib/core/data/database.dart:1959"
     },
     {
-      "fingerprint": "1217a13936f0fabf",
+      "fingerprint": "0d5096806540e8ef",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/data/database.dart",
-      "line": 1450,
-      "message": "2 occurrences of duplicated block (90 tokens): lib/core/data/database.dart:1450, lib/core/data/database.dart:2022"
+      "line": 1452,
+      "message": "2 occurrences of duplicated block (90 tokens): lib/core/data/database.dart:1452, lib/core/data/database.dart:2021"
     },
     {
-      "fingerprint": "ea6f868ad89a8f56",
+      "fingerprint": "4719c12c805e5375",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/data/database.dart",
-      "line": 1462,
-      "message": "2 occurrences of duplicated block (105 tokens): lib/core/data/database.dart:1462, lib/core/data/database.dart:2034"
+      "line": 1464,
+      "message": "2 occurrences of duplicated block (105 tokens): lib/core/data/database.dart:1464, lib/core/data/database.dart:2033"
     },
     {
-      "fingerprint": "19ca69cf0de32fa1",
+      "fingerprint": "3aa6196422a42f3c",
       "ruleId": "code-duplicates",
       "filePath": "lib/features/history/history_page.dart",
       "line": 126,
-      "message": "2 occurrences of duplicated block (91 tokens): lib/features/history/history_page.dart:126, lib/features/notes/notes_page.dart:165"
+      "message": "2 occurrences of duplicated block (91 tokens): lib/features/history/history_page.dart:126, lib/features/notes/notes_page.dart:175"
     },
     {
-      "fingerprint": "04841078b044e349",
+      "fingerprint": "69e92c519d93f870",
       "ruleId": "code-duplicates",
       "filePath": "lib/features/history/history_page.dart",
       "line": 918,
-      "message": "2 occurrences of duplicated block (97 tokens): lib/features/history/history_page.dart:918, lib/features/notes/notes_page.dart:614"
+      "message": "2 occurrences of duplicated block (97 tokens): lib/features/history/history_page.dart:918, lib/features/notes/notes_page.dart:685"
     },
     {
       "fingerprint": "ef11bb9e02ae2947",
@@ -90,14 +90,14 @@
       "fingerprint": "7c1bb57095282165",
       "ruleId": "a11y-interactive-semantics",
       "filePath": "lib/features/notes/widgets/notes_search_bar.dart",
-      "line": 112,
+      "line": 118,
       "message": "_NotesFilterChip with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
     },
     {
       "fingerprint": "6d609b760249d3bd",
       "ruleId": "a11y-interactive-semantics",
       "filePath": "lib/features/notes/widgets/notes_search_bar.dart",
-      "line": 122,
+      "line": 128,
       "message": "_NotesFilterChip with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
     },
     {

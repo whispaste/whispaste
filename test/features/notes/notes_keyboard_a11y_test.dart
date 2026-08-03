@@ -486,6 +486,46 @@ void main() {
       expect(actions.createCalled, isTrue);
     });
 
+    testWidgets('Ctrl/Cmd+N creates a new note from the empty state', (
+      tester,
+    ) async {
+      // Regression pin: the shortcut+focus layer used to live only inside
+      // the populated data branch, leaving Ctrl/Cmd+N (and Ctrl/Cmd+F,
+      // since nothing held focus for it to bubble up from) dead exactly
+      // when a first-time user needed "create a note" most.
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      final actions = _RecordingActions(db);
+      addTearDown(db.close);
+
+      await tester.pumpWidget(
+        makeTestable(
+          const NotesPage(),
+          overrides: [
+            notesProvider.overrideWith((ref) => Stream.value(const [])),
+            notesActionsProvider.overrideWith((ref) => actions),
+            ..._noTagOverrides,
+          ],
+          locale: const Locale('en'),
+        ),
+      );
+      await _settle(tester);
+
+      if (Platform.isMacOS) {
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.meta);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.keyN);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.keyN);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.meta);
+      } else {
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.control);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.keyN);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.keyN);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.control);
+      }
+      await _settle(tester);
+
+      expect(actions.createCalled, isTrue);
+    });
+
     testWidgets('Ctrl/Cmd+C copies the focused note\'s content', (
       tester,
     ) async {

@@ -1422,10 +1422,12 @@ class HistoryDatabase extends _$HistoryDatabase {
   }
 
   /// Deletes a tag and all its entry and note links.
-  Future<void> deleteTag(String tagId) async {
-    await (delete(entryTags)..where((et) => et.tagId.equals(tagId))).go();
-    await (delete(noteTags)..where((nt) => nt.tagId.equals(tagId))).go();
-    await (delete(tags)..where((t) => t.id.equals(tagId))).go();
+  Future<void> deleteTag(String tagId) {
+    return _writeCoordinator.write<void>(() async {
+      await (delete(entryTags)..where((et) => et.tagId.equals(tagId))).go();
+      await (delete(noteTags)..where((nt) => nt.tagId.equals(tagId))).go();
+      await (delete(tags)..where((t) => t.id.equals(tagId))).go();
+    });
   }
 
   /// Renames a tag (lowercased). Fails silently if new name already exists.
@@ -1472,33 +1474,30 @@ class HistoryDatabase extends _$HistoryDatabase {
     );
   }
 
-  /// Most-used tags by entry count.
+  /// Most-used tags by entry+note count.
   Future<List<Tag>> frequentTags({int limit = 10}) async {
-    final count = entryTags.tagId.count();
-    final query =
-        select(
-            tags,
-          ).join([innerJoin(entryTags, entryTags.tagId.equalsExp(tags.id))])
-          ..groupBy([tags.id, tags.name, tags.createdAt])
-          ..orderBy([OrderingTerm.desc(count)])
-          ..limit(limit);
-    final rows = await query.get();
-    return rows.map((r) => r.readTable(tags)).toList();
+    final withCount = await frequentTagsWithCount(limit: limit);
+    return withCount.map((r) => r.$1).toList();
   }
 
   /// Like [frequentTags] but also returns usage count per tag.
+  ///
+  /// Counts links from BOTH [entryTags] and [noteTags] — same fix as
+  /// [allTagsWithCount] (Ticket 05), applied here too: a tag used only on
+  /// notes must still be able to surface as "frequent". Unlike
+  /// [allTagsWithCount], unused tags (count 0) stay excluded, and [limit] is
+  /// applied AFTER merging both counts — capping either source query first
+  /// could drop a tag that ranks low on entries but high on notes.
   Future<List<(Tag, int)>> frequentTagsWithCount({int limit = 10}) async {
-    final count = entryTags.tagId.count();
-    final query =
-        select(
-            tags,
-          ).join([innerJoin(entryTags, entryTags.tagId.equalsExp(tags.id))])
-          ..addColumns([count])
-          ..groupBy([tags.id, tags.name, tags.createdAt])
-          ..orderBy([OrderingTerm.desc(count)])
-          ..limit(limit);
-    final rows = await query.get();
-    return rows.map((r) => (r.readTable(tags), r.read(count) ?? 0)).toList();
+    final counts = await _combinedTagUsageCounts();
+    final all = await allTags();
+    final used =
+        all
+            .where((t) => (counts[t.id] ?? 0) > 0)
+            .map((t) => (t, counts[t.id]!))
+            .toList()
+          ..sort((a, b) => b.$2.compareTo(a.$2));
+    return used.take(limit).toList();
   }
 
   /// All tags with their usage counts, alphabetically.

@@ -152,6 +152,59 @@ void main() {
     });
   });
 
+  group(
+    'frequentTags / frequentTagsWithCount — combined entry + note usage',
+    () {
+      test('a tag used only by a note is surfaced, not omitted', () async {
+        final note = await db.createNote();
+        final tag = await db.createTag('note-only');
+        await db.tagNote(note.id, tag.id);
+
+        final frequent = await db.frequentTags();
+        expect(frequent.map((t) => t.id), contains(tag.id));
+
+        final withCount = await db.frequentTagsWithCount();
+        final result = withCount.firstWhere((r) => r.$1.id == tag.id);
+        expect(result.$2, 1);
+      });
+
+      test('an unused tag is excluded (unlike allTagsWithCount)', () async {
+        final tag = await db.createTag('unused');
+        final frequent = await db.frequentTags();
+        expect(frequent.map((t) => t.id), isNot(contains(tag.id)));
+      });
+
+      test(
+        'limit is applied after merging both counts, not per source',
+        () async {
+          // t-notes: 3 links, all via notes. t-entries: 2 links, all via
+          // entries. A per-query-then-limit(1) implementation would keep only
+          // one of these depending on which junction table it queried first
+          // (or drop t-notes if entryTags is queried alone); limit(1) after
+          // merging must keep the actually-higher-count tag (t-notes, 3).
+          final n1 = await db.createNote();
+          final n2 = await db.createNote();
+          final n3 = await db.createNote();
+          final tNotes = await db.createTag('t-notes');
+          await db.tagNote(n1.id, tNotes.id);
+          await db.tagNote(n2.id, tNotes.id);
+          await db.tagNote(n3.id, tNotes.id);
+
+          await insertEntry('e1');
+          await insertEntry('e2');
+          final tEntries = await db.createTag('t-entries');
+          await db.tagEntry('e1', tEntries.id);
+          await db.tagEntry('e2', tEntries.id);
+
+          final top = await db.frequentTagsWithCount(limit: 1);
+          expect(top, hasLength(1));
+          expect(top.single.$1.id, tNotes.id);
+          expect(top.single.$2, 3);
+        },
+      );
+    },
+  );
+
   group('unusedTags / deleteUnusedTags — note-only tags are NOT unused', () {
     test('a tag attached only to a note is excluded from unusedTags', () async {
       final note = await db.createNote();

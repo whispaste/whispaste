@@ -68,18 +68,24 @@ class NotesSearchBar extends StatelessWidget {
                   size: WpIconSize.sm,
                   color: textMuted,
                 ),
+                // IconButton(tooltip:) alone only sets a Semantics HINT, not
+                // a label — same gap fixed for the editor toolbar (Ticket 09).
                 suffixIcon: searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: Icon(
-                          LucideIcons.x,
-                          size: WpIconSize.sm,
-                          color: textMuted,
+                    ? Semantics(
+                        label: l10n.notesClearSearch,
+                        button: true,
+                        child: IconButton(
+                          icon: Icon(
+                            LucideIcons.x,
+                            size: WpIconSize.sm,
+                            color: textMuted,
+                          ),
+                          tooltip: l10n.notesClearSearch,
+                          onPressed: () {
+                            searchController.clear();
+                            onSearchChanged();
+                          },
                         ),
-                        tooltip: l10n.notesClearSearch,
-                        onPressed: () {
-                          searchController.clear();
-                          onSearchChanged();
-                        },
                       )
                     : null,
                 isDense: true,

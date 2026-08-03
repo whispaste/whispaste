@@ -8,8 +8,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
+import 'package:whispaste/features/notes/data/providers.dart' show NotesFilter;
 import 'package:whispaste/features/notes/widgets/note_editor_panel.dart';
 import 'package:whispaste/features/notes/widgets/notes_list_tile.dart';
+import 'package:whispaste/features/notes/widgets/notes_search_bar.dart';
 
 import '../../fixtures/test_helpers.dart';
 
@@ -182,5 +184,29 @@ void main() {
         expect(find.bySemanticsLabel(l10n.notesDeleteForever), findsOneWidget);
       },
     );
+  });
+
+  group('NotesSearchBar — clear button semantics', () {
+    testWidgets('exposes its tooltip as a semantics label, not just a hint', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        makeTestable(
+          NotesSearchBar(
+            currentFilter: NotesFilter.active,
+            onFilterChanged: (_) {},
+            isDark: true,
+            searchController: TextEditingController(text: 'grocery'),
+            searchFocusNode: FocusNode(),
+            onSearchChanged: () {},
+            resultCount: 1,
+            showResultCount: true,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.bySemanticsLabel(l10n.notesClearSearch), findsOneWidget);
+    });
   });
 }
