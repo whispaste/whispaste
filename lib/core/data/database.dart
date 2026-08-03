@@ -1421,9 +1421,10 @@ class HistoryDatabase extends _$HistoryDatabase {
     return Tag(id: id, name: normalized, createdAt: now);
   }
 
-  /// Deletes a tag and all its entry links.
+  /// Deletes a tag and all its entry and note links.
   Future<void> deleteTag(String tagId) async {
     await (delete(entryTags)..where((et) => et.tagId.equals(tagId))).go();
+    await (delete(noteTags)..where((nt) => nt.tagId.equals(tagId))).go();
     await (delete(tags)..where((t) => t.id.equals(tagId))).go();
   }
 
@@ -1500,21 +1501,52 @@ class HistoryDatabase extends _$HistoryDatabase {
     return rows.map((r) => (r.readTable(tags), r.read(count) ?? 0)).toList();
   }
 
-  /// All tags with their usage counts (number of linked entries), alphabetically.
+  /// All tags with their usage counts, alphabetically.
+  ///
+  /// Counts links from BOTH [entryTags] and [noteTags] — a tag used only by a
+  /// note must not show as unused just because it has no history-entry link
+  /// (bug fixed for Ticket 05: `deleteUnusedTags()` silently deleted tags
+  /// that were only attached to a note). Summed via two separate grouped
+  /// queries rather than a single join across both junction tables, which
+  /// would multiply rows and produce wrong counts.
   ///
   /// Unlike [frequentTagsWithCount], this includes unused tags (count 0)
   /// and does not limit results.
   Future<List<(Tag, int)>> allTagsWithCount() async {
-    final count = entryTags.tagId.count();
-    final query =
-        select(
-            tags,
-          ).join([leftOuterJoin(entryTags, entryTags.tagId.equalsExp(tags.id))])
-          ..addColumns([count])
-          ..groupBy([tags.id, tags.name, tags.createdAt])
-          ..orderBy([OrderingTerm.asc(tags.name)]);
-    final rows = await query.get();
-    return rows.map((r) => (r.readTable(tags), r.read(count) ?? 0)).toList();
+    final counts = await _combinedTagUsageCounts();
+    final all = await allTags();
+    return all.map((t) => (t, counts[t.id] ?? 0)).toList();
+  }
+
+  /// Per-tag usage count, summed across [entryTags] and [noteTags] links.
+  Future<Map<String, int>> _combinedTagUsageCounts() async {
+    final counts = <String, int>{};
+
+    final entryCount = entryTags.tagId.count();
+    final entryRows =
+        await (selectOnly(entryTags)
+              ..addColumns([entryTags.tagId, entryCount])
+              ..groupBy([entryTags.tagId]))
+            .get();
+    for (final row in entryRows) {
+      final tagId = row.read(entryTags.tagId);
+      if (tagId == null) continue;
+      counts[tagId] = (counts[tagId] ?? 0) + (row.read(entryCount) ?? 0);
+    }
+
+    final noteCount = noteTags.tagId.count();
+    final noteRows =
+        await (selectOnly(noteTags)
+              ..addColumns([noteTags.tagId, noteCount])
+              ..groupBy([noteTags.tagId]))
+            .get();
+    for (final row in noteRows) {
+      final tagId = row.read(noteTags.tagId);
+      if (tagId == null) continue;
+      counts[tagId] = (counts[tagId] ?? 0) + (row.read(noteCount) ?? 0);
+    }
+
+    return counts;
   }
 
   /// Tags with zero linked entries.
