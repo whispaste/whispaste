@@ -10,6 +10,7 @@ import '../../core/data/database.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
+import '../../services/notes/notes_exporter.dart' as notes_exporter;
 import '../../widgets/dialog.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/page_shell.dart';
@@ -21,16 +22,33 @@ import 'data/providers.dart';
 import 'widgets/notes_search_bar.dart';
 import 'widgets/notes_split_view.dart';
 
+/// Signature of the export-note seam used by [NotesPage].
+///
+/// Defaults to the top-level [notes_exporter.exportNote]. Widget tests
+/// substitute a fake to assert that the editor-toolbar export button invokes
+/// the exporter with the selected note and its tags, without touching the
+/// filesystem or platform channels.
+typedef NotesPageExportFn =
+    Future<void> Function(BuildContext context, Note note, List<Tag> tags);
+
 /// Notes page — standalone sidebar area for free-form notes.
 ///
 /// Master-detail layout mirroring [HistoryPage]'s split view, but deliberately
 /// minimal: flat note list on the left, always-editable plain-text editor on
 /// the right, plus an active/trash filter with favourite, trash, restore and
-/// delete-forever actions (Ticket 04), tag editing/display (Ticket 05) and
-/// content/tag search with Ctrl/Cmd+F focus (Ticket 06).
-/// No export or voice input yet — those hook in via later tickets.
+/// delete-forever actions (Ticket 04), tag editing/display (Ticket 05),
+/// content/tag search with Ctrl/Cmd+F focus (Ticket 06) and txt/md export
+/// (Ticket 07). No voice input yet — that hooks in via Ticket 08.
 class NotesPage extends ConsumerStatefulWidget {
-  const NotesPage({super.key});
+  const NotesPage({super.key, this.exportFn = notes_exporter.exportNote});
+
+  /// Injection seam for the export flow.
+  ///
+  /// Defaults to the production [notes_exporter.exportNote]. Widget tests
+  /// substitute a fake to assert that the editor-toolbar export button
+  /// invokes the exporter with the open note and its tags without touching
+  /// the filesystem or platform channels.
+  final NotesPageExportFn exportFn;
 
   @override
   ConsumerState<NotesPage> createState() => _NotesPageState();
@@ -210,6 +228,11 @@ class _NotesPageState extends ConsumerState<NotesPage> {
   Future<void> _removeTag(Note note, String tagId) =>
       _actions.removeTag(note.id, tagId);
 
+  void _exportNote(Note note, List<Tag> tags) {
+    // Fire-and-forget: the exporter surfaces success/error via WpToast.
+    widget.exportFn(context, note, tags);
+  }
+
   /// Only reachable from the trash view (list tile / editor toolbar there).
   Future<void> _deleteForever(Note note) async {
     final l10n = L10n.of(context);
@@ -354,6 +377,11 @@ class _NotesPageState extends ConsumerState<NotesPage> {
                       },
                       onRemoveTag: (id) {
                         if (currentNote != null) _removeTag(currentNote, id);
+                      },
+                      onExport: () {
+                        if (currentNote != null) {
+                          _exportNote(currentNote, selectedNoteTags);
+                        }
                       },
                     );
                   },

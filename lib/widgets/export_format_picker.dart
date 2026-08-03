@@ -29,7 +29,12 @@ import '../features/history/data/export_service.dart';
 /// Resolves with the chosen [ExportFormat] when the user taps an option or
 /// confirms the highlighted option with Enter. Resolves with `null` if the
 /// user taps the barrier or presses Escape.
-Future<ExportFormat?> showExportFormatPicker(BuildContext context) {
+///
+/// [formats] narrows the offered options; defaults to all five formats.
+Future<ExportFormat?> showExportFormatPicker(
+  BuildContext context, {
+  List<ExportFormat> formats = _orderedFormats,
+}) {
   return showGeneralDialog<ExportFormat>(
     context: context,
     barrierDismissible: true,
@@ -40,7 +45,10 @@ Future<ExportFormat?> showExportFormatPicker(BuildContext context) {
     transitionBuilder: (ctx, animation, secondaryAnimation, child) {
       return _PickerBarrier(
         animation: animation,
-        child: _ExportFormatPickerDialog(animation: animation),
+        child: _ExportFormatPickerDialog(
+          animation: animation,
+          formats: formats,
+        ),
       );
     },
   );
@@ -133,9 +141,13 @@ class _PickerBarrier extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _ExportFormatPickerDialog extends StatefulWidget {
-  const _ExportFormatPickerDialog({required this.animation});
+  const _ExportFormatPickerDialog({
+    required this.animation,
+    required this.formats,
+  });
 
   final Animation<double> animation;
+  final List<ExportFormat> formats;
 
   @override
   State<_ExportFormatPickerDialog> createState() =>
@@ -172,7 +184,7 @@ class _ExportFormatPickerDialogState extends State<_ExportFormatPickerDialog> {
       setState(() {
         _highlightedIndex = (_highlightedIndex + 1).clamp(
           0,
-          _orderedFormats.length - 1,
+          widget.formats.length - 1,
         );
       });
       return KeyEventResult.handled;
@@ -181,14 +193,14 @@ class _ExportFormatPickerDialogState extends State<_ExportFormatPickerDialog> {
       setState(() {
         _highlightedIndex = (_highlightedIndex - 1).clamp(
           0,
-          _orderedFormats.length - 1,
+          widget.formats.length - 1,
         );
       });
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.enter ||
         key == LogicalKeyboardKey.numpadEnter) {
-      _select(_orderedFormats[_highlightedIndex]);
+      _select(widget.formats[_highlightedIndex]);
       return KeyEventResult.handled;
     }
     // Escape is handled by the route's barrier-dismiss logic, but we forward
@@ -245,15 +257,15 @@ class _ExportFormatPickerDialogState extends State<_ExportFormatPickerDialog> {
                     style: theme.textTheme.titleLarge,
                   ),
                   const SizedBox(height: WpSpacing.sm),
-                  for (var i = 0; i < _orderedFormats.length; i++)
+                  for (var i = 0; i < widget.formats.length; i++)
                     // loam-ignore: a11y-interactive-semantics – semantics provided in _FormatOption.build
                     _FormatOption(
-                      format: _orderedFormats[i],
-                      label: _labelFor(_orderedFormats[i], l10n),
-                      extension: _extensionFor(_orderedFormats[i]),
-                      icon: _iconFor(_orderedFormats[i]),
+                      format: widget.formats[i],
+                      label: _labelFor(widget.formats[i], l10n),
+                      extension: _extensionFor(widget.formats[i]),
+                      icon: _iconFor(widget.formats[i]),
                       highlighted: i == _highlightedIndex,
-                      onTap: () => _select(_orderedFormats[i]),
+                      onTap: () => _select(widget.formats[i]),
                       onHover: () {
                         if (_highlightedIndex != i) {
                           setState(() => _highlightedIndex = i);

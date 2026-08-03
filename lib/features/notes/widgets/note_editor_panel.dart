@@ -33,6 +33,7 @@ class NoteEditorPanel extends StatelessWidget {
     required this.onDeleteForever,
     required this.onAddTag,
     required this.onRemoveTag,
+    required this.onExport,
   });
 
   final Note note;
@@ -51,6 +52,9 @@ class NoteEditorPanel extends StatelessWidget {
   /// Add/remove a tag on this note (tagName / tagId).
   final ValueChanged<String> onAddTag;
   final ValueChanged<String> onRemoveTag;
+
+  /// Export this note via the format picker (txt/md).
+  final VoidCallback onExport;
 
   @override
   Widget build(BuildContext context) {
@@ -71,9 +75,9 @@ class NoteEditorPanel extends StatelessWidget {
       child: Column(
         children: [
           // ── Toolbar row ──
-          // Derived title + copy + favourite/trash (or restore/delete-forever
-          // for trashed notes) + close. Future actions dock here — export
-          // (Ticket 07), voice input (Ticket 08).
+          // Derived title + copy + export + favourite/trash (or
+          // restore/delete-forever for trashed notes) + close. Future actions
+          // dock here — voice input (Ticket 08).
           Padding(
             padding: const EdgeInsets.fromLTRB(
               WpSpacing.xl,
@@ -112,6 +116,15 @@ class NoteEditorPanel extends StatelessWidget {
                   tooltip: l10n.notesCopy,
                   icon: Icon(
                     LucideIcons.copy,
+                    size: WpIconSize.md,
+                    color: textMuted,
+                  ),
+                ),
+                IconButton(
+                  onPressed: onExport,
+                  tooltip: l10n.notesExport,
+                  icon: Icon(
+                    LucideIcons.download,
                     size: WpIconSize.md,
                     color: textMuted,
                   ),

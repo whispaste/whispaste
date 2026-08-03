@@ -78,7 +78,7 @@ void main() {
             controller: controller,
             focusNode: focusNode,
             onClose: () {},
-            // Ticket-04/05 toolbar actions — irrelevant for the clipboard
+            // Ticket-04/05/07 toolbar actions — irrelevant for the clipboard
             // behavior under test, so plain no-ops.
             onToggleFavorite: () {},
             onMoveToTrash: () {},
@@ -86,6 +86,7 @@ void main() {
             onDeleteForever: () {},
             onAddTag: (_) {},
             onRemoveTag: (_) {},
+            onExport: () {},
           ),
           locale: const Locale('en'),
         ),

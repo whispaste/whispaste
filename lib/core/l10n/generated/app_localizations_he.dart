@@ -3139,4 +3139,7 @@ class L10nHe extends L10n {
     );
     return '$_temp0';
   }
+
+  @override
+  String get notesExport => 'ייצא';
 }

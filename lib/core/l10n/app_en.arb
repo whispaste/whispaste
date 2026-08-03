@@ -1210,5 +1210,6 @@
     "placeholders": {
       "count": { "type": "int" }
     }
-  }
+  },
+  "notesExport": "Export"
 }

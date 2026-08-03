@@ -5690,6 +5690,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'{count, plural, =1{1 result} other{{count} results}}'**
   String notesResultCount(int count);
+
+  /// No description provided for @notesExport.
+  ///
+  /// In en, this message translates to:
+  /// **'Export'**
+  String get notesExport;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

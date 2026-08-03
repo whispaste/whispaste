@@ -1076,5 +1076,6 @@
     "placeholders": {
       "count": { "type": "int" }
     }
-  }
+  },
+  "notesExport": "ייצא"
 }

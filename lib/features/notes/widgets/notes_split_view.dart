@@ -30,6 +30,7 @@ class NotesSplitView extends StatefulWidget {
     required this.onDeleteForever,
     required this.onAddTag,
     required this.onRemoveTag,
+    required this.onExport,
   });
 
   final List<Note> notes;
@@ -62,6 +63,9 @@ class NotesSplitView extends StatefulWidget {
   /// (tagName / tagId).
   final ValueChanged<String> onAddTag;
   final ValueChanged<String> onRemoveTag;
+
+  /// Export the note currently open in the editor.
+  final VoidCallback onExport;
 
   @override
   State<NotesSplitView> createState() => _NotesSplitViewState();
@@ -165,6 +169,7 @@ class _NotesSplitViewState extends State<NotesSplitView>
       onDeleteForever: () => widget.onDeleteForever(note),
       onAddTag: widget.onAddTag,
       onRemoveTag: widget.onRemoveTag,
+      onExport: widget.onExport,
     );
   }
 

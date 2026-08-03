@@ -3219,4 +3219,7 @@ class L10nDe extends L10n {
     );
     return '$_temp0';
   }
+
+  @override
+  String get notesExport => 'Exportieren';
 }
