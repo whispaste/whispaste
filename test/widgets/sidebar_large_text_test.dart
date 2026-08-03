@@ -1,13 +1,13 @@
 /// Large-text resilience test for [WpSidebar] — the desktop analogue of an
 /// accessibility-text-size simulator check (no simctl on Flutter desktop).
 ///
-/// Renders the REAL production nav items (all 6, via [wpNavItems]) plus the
+/// Renders the REAL production nav items (all 7, via [wpNavItems]) plus the
 /// pinned settings button under an enlarged text scale and verifies nothing
 /// overflows or crashes.
 ///
 /// Locale: German — the pinned settings button's "Einstellungen" (13 chars)
 /// is the longest label across EN/DE/HE sidebar entries overall; among the
-/// 6 regular nav items in this locale, "Ersetzungen"/"Statistiken" (11
+/// 7 regular nav items in this locale, "Ersetzungen"/"Statistiken" (11
 /// chars each) are the longest, close behind EN's "Replacements" (12).
 /// Still a strong worst-case locale for tooltip width.
 ///
@@ -52,7 +52,7 @@ void main() {
   );
 
   group('WpSidebar large text (de, 1.5x)', () {
-    testWidgets('renders all 6 nav items + settings without overflow', (
+    testWidgets('renders all 7 nav items + settings without overflow', (
       tester,
     ) async {
       await tester.pumpWidget(buildScaledShell());
@@ -65,7 +65,7 @@ void main() {
         for (final item in wpNavItems(l10n)) item.label,
         l10n.navSettings,
       ];
-      expect(expectedTooltips, hasLength(7)); // 6 nav items + settings
+      expect(expectedTooltips, hasLength(8)); // 7 nav items + settings
       for (final label in expectedTooltips) {
         expect(
           find.byTooltip(label),
@@ -81,7 +81,7 @@ void main() {
 
       final l10n = await L10n.delegate.load(const Locale('de'));
       // navReplacements ("Ersetzungen", 11 chars) ties navAnalytics
-      // ("Statistiken", 11 chars) as the longest of the 6 regular nav items
+      // ("Statistiken", 11 chars) as the longest of the 7 regular nav items
       // in this locale — a strong case for a scaled tooltip among sidebar
       // entries (the pinned settings button, "Einstellungen" at 13 chars,
       // is a separate widget already covered generically by the test
