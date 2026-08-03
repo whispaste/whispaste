@@ -649,7 +649,7 @@ class _DetailPanelHeader extends StatelessWidget {
         : WpColorsLight.textSecondary;
     final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
     final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final avatarCol = historyAvatarColor(entry, isDark);
+    final avatarCol = historyAvatarColor(entry);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
