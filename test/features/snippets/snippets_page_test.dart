@@ -4,6 +4,7 @@
 /// filter, no-results state, hover → delete confirmation, telemetry category.
 library;
 
+import 'dart:io' show Platform;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -17,6 +18,12 @@ import 'package:whispaste/services/telemetry_service.dart';
 import '../../fixtures/test_helpers.dart';
 
 late L10n l10n;
+
+/// The page header renders a macOS-only picker-trigger [TextField] ahead of
+/// the search field (see `Platform.isMacOS` in `SnippetsPage`'s header) —
+/// shifts every subsequent `find.byType(TextField).at(N)` index by one on
+/// macOS relative to Windows/Linux.
+final _fieldOffset = Platform.isMacOS ? 1 : 0;
 
 void main() {
   setUpAll(() async {
@@ -78,10 +85,16 @@ void main() {
       await tester.tap(find.byIcon(LucideIcons.plus));
       await tester.pumpAndSettle();
 
-      // TextFields in tree order: [0] picker trigger, [1] page search,
-      // [2] title, [3] body
-      await tester.enterText(find.byType(TextField).at(2), 'Signature');
-      await tester.enterText(find.byType(TextField).at(3), 'Best,\nSilvio');
+      // TextFields in tree order: [0] picker trigger (macOS only), [_fieldOffset]
+      // page search, [_fieldOffset + 1] title, [_fieldOffset + 2] body
+      await tester.enterText(
+        find.byType(TextField).at(_fieldOffset + 1),
+        'Signature',
+      );
+      await tester.enterText(
+        find.byType(TextField).at(_fieldOffset + 2),
+        'Best,\nSilvio',
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.text(l10n.snippetsAdd).last);
@@ -109,8 +122,14 @@ void main() {
 
       await tester.tap(find.byIcon(LucideIcons.plus));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).at(2), 'Greeting');
-      await tester.enterText(find.byType(TextField).at(3), 'Hi there');
+      await tester.enterText(
+        find.byType(TextField).at(_fieldOffset + 1),
+        'Greeting',
+      );
+      await tester.enterText(
+        find.byType(TextField).at(_fieldOffset + 2),
+        'Hi there',
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.text(l10n.snippetsAdd).last);
       await tester.pumpAndSettle();
@@ -134,8 +153,14 @@ void main() {
       ]) {
         await tester.tap(find.byIcon(LucideIcons.plus));
         await tester.pumpAndSettle();
-        await tester.enterText(find.byType(TextField).at(2), title);
-        await tester.enterText(find.byType(TextField).at(3), body);
+        await tester.enterText(
+          find.byType(TextField).at(_fieldOffset + 1),
+          title,
+        );
+        await tester.enterText(
+          find.byType(TextField).at(_fieldOffset + 2),
+          body,
+        );
         await tester.pumpAndSettle();
         await tester.tap(find.text(l10n.snippetsAdd).last);
         await tester.pumpAndSettle();
@@ -144,7 +169,7 @@ void main() {
       expect(find.text('Signature'), findsOneWidget);
       expect(find.text('Greeting'), findsOneWidget);
 
-      await tester.enterText(find.byType(TextField).at(1), 'Sign');
+      await tester.enterText(find.byType(TextField).at(_fieldOffset), 'Sign');
       await tester.pumpAndSettle();
 
       expect(find.text('Signature'), findsOneWidget);
@@ -161,13 +186,22 @@ void main() {
 
       await tester.tap(find.byIcon(LucideIcons.plus));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).at(2), 'Signature');
-      await tester.enterText(find.byType(TextField).at(3), 'Best, Silvio');
+      await tester.enterText(
+        find.byType(TextField).at(_fieldOffset + 1),
+        'Signature',
+      );
+      await tester.enterText(
+        find.byType(TextField).at(_fieldOffset + 2),
+        'Best, Silvio',
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.text(l10n.snippetsAdd).last);
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextField).at(1), 'zzzznonexistent');
+      await tester.enterText(
+        find.byType(TextField).at(_fieldOffset),
+        'zzzznonexistent',
+      );
       await tester.pumpAndSettle();
 
       expect(find.text(l10n.snippetsNoMatches), findsOneWidget);
@@ -183,8 +217,14 @@ void main() {
 
       await tester.tap(find.byIcon(LucideIcons.plus));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).at(2), 'Signature');
-      await tester.enterText(find.byType(TextField).at(3), 'Best, Silvio');
+      await tester.enterText(
+        find.byType(TextField).at(_fieldOffset + 1),
+        'Signature',
+      );
+      await tester.enterText(
+        find.byType(TextField).at(_fieldOffset + 2),
+        'Best, Silvio',
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.text(l10n.snippetsAdd).last);
       await tester.pumpAndSettle();

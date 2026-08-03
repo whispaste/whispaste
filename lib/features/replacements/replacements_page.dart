@@ -71,14 +71,14 @@ class ReplacementsNotifier extends AsyncNotifier<List<Replacement>>
     }
   }
 
-  // Deliberately not further extracted: shares its "generate a millis-epoch id,
+  // Deliberately not further extracted: shares its "generate a uuid,
   // upsert, reload" shape with SnippetsNotifier.add. A shared
   // `createThenReload(persist)` helper was tried on ReloadableListNotifier:
   // it replaced this direct, linear code with a persist-callback closure for
   // no net line reduction — not worth the indirection for three lines.
   Future<void> add(List<String> triggers, String replacement) async {
     final db = ref.read(historyDatabaseProvider);
-    final id = DateTime.now().millisecondsSinceEpoch.toString();
+    final id = generateV4Uuid();
     await db.upsertReplacementWithTriggers(
       id: id,
       triggers: triggers,

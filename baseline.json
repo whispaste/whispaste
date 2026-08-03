@@ -101,11 +101,11 @@
       "message": "_NotesFilterChip with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
     },
     {
-      "fingerprint": "528ba2f89eaac53f",
+      "fingerprint": "815b55d0928323d2",
       "ruleId": "code-duplicates",
       "filePath": "lib/features/replacements/replacements_page.dart",
       "line": 79,
-      "message": "2 occurrences of duplicated block (60 tokens): lib/features/replacements/replacements_page.dart:79, lib/features/snippets/snippets_page.dart:56"
+      "message": "2 occurrences of duplicated block (52 tokens): lib/features/replacements/replacements_page.dart:79, lib/features/snippets/snippets_page.dart:56"
     },
     {
       "fingerprint": "ec24927693bae1ea",
