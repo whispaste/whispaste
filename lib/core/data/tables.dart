@@ -144,6 +144,31 @@ class EntryTags extends Table {
   Set<Column> get primaryKey => {entryId, tagId};
 }
 
+/// User-defined dictation automations (dictation-automations ticket 02).
+///
+/// If the *entire* transcription exactly matches [trigger] (after
+/// normalization — see `normalizeForExactMatch` in
+/// `automation_dispatch_service.dart`), the action described by
+/// [actionType]/[payload] runs instead of the normal insert/history pipeline.
+///
+/// [actionType]/[payload] deliberately separate "what kind of action" from
+/// "the action's parameters" so further action types (shell command, script,
+/// snippet-picker — tickets 03/04/06) can be added without a schema change:
+/// [payload] is a free-form JSON blob whose shape is defined by [actionType]
+/// alone. The only action type today is `open_url`, whose payload is
+/// `{"url": "..."}`.
+@DataClassName('Automation')
+class Automations extends Table {
+  TextColumn get id => text()();
+  TextColumn get trigger => text()();
+  TextColumn get actionType => text()();
+  TextColumn get payload => text()();
+  DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 /// Per-recording end-to-end hotkey→text latency — local-only performance KPI.
 ///
 /// A different privacy domain than the outgoing (bucketed) telemetry latency

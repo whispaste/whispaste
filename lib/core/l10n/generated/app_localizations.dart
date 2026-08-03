@@ -123,6 +123,12 @@ abstract class L10n {
   /// **'Voice Shortcuts'**
   String get navReplacements;
 
+  /// No description provided for @navAutomations.
+  ///
+  /// In en, this message translates to:
+  /// **'Automations'**
+  String get navAutomations;
+
   /// No description provided for @navAnalytics.
   ///
   /// In en, this message translates to:
@@ -2282,6 +2288,102 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Remove the shortcut \"{trigger}\"? This cannot be undone.'**
   String replacementsDeleteMessage(String trigger);
+
+  /// No description provided for @automationsSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Search automations…'**
+  String get automationsSearch;
+
+  /// No description provided for @automationsAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get automationsAdd;
+
+  /// No description provided for @automationsEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No automations yet'**
+  String get automationsEmpty;
+
+  /// No description provided for @automationsEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Add an automation to open a URL when your dictation exactly matches its trigger phrase.\nExample: \"open timer\" → a Shortcuts URL'**
+  String get automationsEmptyHint;
+
+  /// No description provided for @automationsNoMatches.
+  ///
+  /// In en, this message translates to:
+  /// **'No matches'**
+  String get automationsNoMatches;
+
+  /// No description provided for @automationsNoMatchesHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Try a different search term.'**
+  String get automationsNoMatchesHint;
+
+  /// No description provided for @automationsAddAutomation.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Automation'**
+  String get automationsAddAutomation;
+
+  /// No description provided for @automationsEditAutomation.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Automation'**
+  String get automationsEditAutomation;
+
+  /// No description provided for @automationsNewAutomation.
+  ///
+  /// In en, this message translates to:
+  /// **'New Automation'**
+  String get automationsNewAutomation;
+
+  /// No description provided for @automationsDialogHint.
+  ///
+  /// In en, this message translates to:
+  /// **'When your entire dictation exactly matches the trigger phrase, the URL opens instead of being inserted.'**
+  String get automationsDialogHint;
+
+  /// No description provided for @automationsTriggerLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Trigger phrase'**
+  String get automationsTriggerLabel;
+
+  /// No description provided for @automationsTriggerHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. open timer'**
+  String get automationsTriggerHint;
+
+  /// No description provided for @automationsUrlLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'URL'**
+  String get automationsUrlLabel;
+
+  /// No description provided for @automationsUrlHint.
+  ///
+  /// In en, this message translates to:
+  /// **'https:// or shortcuts://'**
+  String get automationsUrlHint;
+
+  /// No description provided for @automationsDeleteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Automation'**
+  String get automationsDeleteTitle;
+
+  /// No description provided for @automationsDeleteMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove the automation \"{trigger}\"? This cannot be undone.'**
+  String automationsDeleteMessage(String trigger);
 
   /// No description provided for @aboutTagline.
   ///

@@ -22,6 +22,7 @@ import 'package:whispaste/core/recording/recording_state.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/features/recording/clipping_state.dart';
 import 'package:whispaste/services/audio_service.dart';
+import 'package:whispaste/services/automation_dispatch_service.dart';
 import 'package:whispaste/services/desktop_paste/desktop_paste_controller.dart';
 import 'package:whispaste/services/model_download_service.dart';
 import 'package:whispaste/services/paste/paste_capability_notifier.dart';
@@ -662,6 +663,167 @@ void main() {
       expect(entries.first.title.length, lessThanOrEqualTo(62));
       expect(entries.first.title, endsWith('…'));
     });
+  });
+
+  // =========================================================================
+  // Automation dispatch (exact-match short-circuit, dictation-automations
+  // ticket 02)
+  // =========================================================================
+
+  group('Automation dispatch (exact match)', () {
+    late List<Uri> launchedUrls;
+
+    ProviderContainer buildAutomationContainer(
+      AppSettings settings, {
+      required Future<bool> Function(Uri) urlLauncher,
+    }) {
+      return ProviderContainer(
+        overrides: [
+          historyDatabaseProvider.overrideWith((ref) {
+            ref.onDispose(db.close);
+            return db;
+          }),
+          audioServiceProvider.overrideWith(() => fakeAudio),
+          localSttBundleProvider.overrideWith(() => fakeStt),
+          settingsProvider.overrideWith(() => FakeSettingsNotifier(settings)),
+          secureKeyStoreProvider.overrideWith((ref) => FakeSecureKeyStore()),
+          desktopPasteControllerProvider.overrideWith(
+            (ref) => fakeDesktopPaste,
+          ),
+          modelDownloadProvider.overrideWith(
+            () => FakeModelDownloadNotifier({
+              'whisper-small',
+              'whisper-medium',
+              'whisper-large-v3-turbo',
+            }),
+          ),
+          automationDispatchServiceProvider.overrideWithValue(
+            AutomationDispatchService(urlLauncher: urlLauncher),
+          ),
+        ],
+      );
+    }
+
+    setUp(() {
+      launchedUrls = [];
+      container.dispose();
+      container = buildAutomationContainer(
+        const AppSettings(
+          stt: SttSettings(model: 'whisper-small', language: 'English'),
+          afterTranscriptionSection: AfterTranscriptionSettings(
+            afterTranscription: 'paste',
+          ),
+          onboarding: OnboardingSettings(onboardingCompleted: true),
+        ),
+        urlLauncher: (uri) async {
+          launchedUrls.add(uri);
+          return true;
+        },
+      );
+    });
+
+    test('an exact-match transcript opens the URL, skips history and paste, '
+        'and still returns to the done state', () async {
+      await container.read(settingsProvider.future);
+      await db.upsertAutomation(
+        id: 'auto1',
+        trigger: 'open timer',
+        actionType: 'open_url',
+        payload: '{"url": "https://example.com/timer"}',
+        createdAt: DateTime.now(),
+      );
+
+      fakeStt.transcriptToReturn = 'Open Timer.';
+      final orch = await startRecordingPhase();
+
+      await orch.stopRecording();
+
+      expect(launchedUrls, [Uri.parse('https://example.com/timer')]);
+      expect(await db.allEntries(), isEmpty);
+      expect(fakeDesktopPaste.pasteCalls, 0);
+      expect(fakeDesktopPaste.typeCalls, 0);
+
+      final state = container.read(recordingProvider);
+      expect(state.phase, RecordingPhase.done);
+      expect(state.transcript, 'Open Timer.');
+    });
+
+    test('a transcript that only contains the trigger phrase as a substring '
+        '(not an exact match) runs the normal pipeline instead', () async {
+      await container.read(settingsProvider.future);
+      await db.upsertAutomation(
+        id: 'auto1',
+        trigger: 'open timer',
+        actionType: 'open_url',
+        payload: '{"url": "https://example.com/timer"}',
+        createdAt: DateTime.now(),
+      );
+
+      fakeStt.transcriptToReturn = 'please open timer for me';
+      final orch = await startRecordingPhase();
+
+      await orch.stopRecording();
+
+      expect(launchedUrls, isEmpty);
+      final entries = await db.allEntries();
+      expect(entries, hasLength(1));
+      expect(entries.first.content, 'please open timer for me');
+    });
+
+    test(
+      'with no automations defined, the normal pipeline runs unchanged',
+      () async {
+        await container.read(settingsProvider.future);
+
+        fakeStt.transcriptToReturn = 'Hello world';
+        final orch = await startRecordingPhase();
+
+        await orch.stopRecording();
+
+        expect(launchedUrls, isEmpty);
+        final entries = await db.allEntries();
+        expect(entries, hasLength(1));
+      },
+    );
+
+    test(
+      'a match whose action fails (e.g. the URL cannot be launched) falls '
+      'back to the normal pipeline instead of losing the dictation',
+      () async {
+        container.dispose();
+        container = buildAutomationContainer(
+          const AppSettings(
+            stt: SttSettings(model: 'whisper-small', language: 'English'),
+            afterTranscriptionSection: AfterTranscriptionSettings(
+              afterTranscription: 'paste',
+            ),
+            onboarding: OnboardingSettings(onboardingCompleted: true),
+          ),
+          // The launcher rejects every URL — simulates no registered
+          // handler / malformed Shortcuts URL.
+          urlLauncher: (uri) async => false,
+        );
+        await container.read(settingsProvider.future);
+        await db.upsertAutomation(
+          id: 'auto1',
+          trigger: 'open timer',
+          actionType: 'open_url',
+          payload: '{"url": "https://example.com/timer"}',
+          createdAt: DateTime.now(),
+        );
+
+        fakeStt.transcriptToReturn = 'Open Timer.';
+        final orch = await startRecordingPhase();
+
+        await orch.stopRecording();
+
+        final entries = await db.allEntries();
+        expect(entries, hasLength(1));
+        expect(entries.first.content, 'Open Timer.');
+        final state = container.read(recordingProvider);
+        expect(state.phase, RecordingPhase.done);
+      },
+    );
   });
 
   // =========================================================================

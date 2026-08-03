@@ -21,6 +21,9 @@ class L10nHe extends L10n {
   String get navReplacements => 'קיצורי קול';
 
   @override
+  String get navAutomations => 'אוטומציות';
+
+  @override
   String get navAnalytics => 'ניתוח נתונים';
 
   @override
@@ -1224,6 +1227,58 @@ class L10nHe extends L10n {
   @override
   String replacementsDeleteMessage(String trigger) {
     return 'להסיר את הקיצור \"$trigger\"? אין דרך לבטל.';
+  }
+
+  @override
+  String get automationsSearch => 'חפש אוטומציות…';
+
+  @override
+  String get automationsAdd => 'הוסף';
+
+  @override
+  String get automationsEmpty => 'עדיין אין אוטומציות';
+
+  @override
+  String get automationsEmptyHint =>
+      'הוסף אוטומציה כדי לפתוח כתובת URL כאשר ההכתבה שלך תואמת בדיוק לביטוי המפעיל.\nדוגמה: \"פתח טיימר\" → כתובת Shortcuts';
+
+  @override
+  String get automationsNoMatches => 'אין התאמות';
+
+  @override
+  String get automationsNoMatchesHint => 'נסה מונח חיפוש אחר.';
+
+  @override
+  String get automationsAddAutomation => 'הוסף אוטומציה';
+
+  @override
+  String get automationsEditAutomation => 'ערוך אוטומציה';
+
+  @override
+  String get automationsNewAutomation => 'אוטומציה חדשה';
+
+  @override
+  String get automationsDialogHint =>
+      'כאשר ההכתבה כולה תואמת בדיוק לביטוי המפעיל, כתובת ה-URL תיפתח במקום להיות מוכנסת.';
+
+  @override
+  String get automationsTriggerLabel => 'ביטוי מפעיל';
+
+  @override
+  String get automationsTriggerHint => 'לדוגמה: פתח טיימר';
+
+  @override
+  String get automationsUrlLabel => 'כתובת URL';
+
+  @override
+  String get automationsUrlHint => 'https:// או shortcuts://';
+
+  @override
+  String get automationsDeleteTitle => 'מחק אוטומציה';
+
+  @override
+  String automationsDeleteMessage(String trigger) {
+    return 'להסיר את האוטומציה \"$trigger\"? אין דרך לבטל.';
   }
 
   @override

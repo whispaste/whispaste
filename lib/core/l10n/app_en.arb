@@ -4,6 +4,7 @@
   "navHistory": "History",
   "navSettings": "Settings",
   "navReplacements": "Voice Shortcuts",
+  "navAutomations": "Automations",
   "navAnalytics": "Analytics",
   "navAbout": "About",
   "navFeedback": "Feedback",
@@ -477,6 +478,28 @@
   "replacementsDeleteTitle": "Delete Shortcut",
   "replacementsDeleteMessage": "Remove the shortcut \"{trigger}\"? This cannot be undone.",
   "@replacementsDeleteMessage": {
+    "placeholders": {
+      "trigger": { "type": "String" }
+    }
+  },
+
+  "automationsSearch": "Search automations…",
+  "automationsAdd": "Add",
+  "automationsEmpty": "No automations yet",
+  "automationsEmptyHint": "Add an automation to open a URL when your dictation exactly matches its trigger phrase.\nExample: \"open timer\" → a Shortcuts URL",
+  "automationsNoMatches": "No matches",
+  "automationsNoMatchesHint": "Try a different search term.",
+  "automationsAddAutomation": "Add Automation",
+  "automationsEditAutomation": "Edit Automation",
+  "automationsNewAutomation": "New Automation",
+  "automationsDialogHint": "When your entire dictation exactly matches the trigger phrase, the URL opens instead of being inserted.",
+  "automationsTriggerLabel": "Trigger phrase",
+  "automationsTriggerHint": "e.g. open timer",
+  "automationsUrlLabel": "URL",
+  "automationsUrlHint": "https:// or shortcuts://",
+  "automationsDeleteTitle": "Delete Automation",
+  "automationsDeleteMessage": "Remove the automation \"{trigger}\"? This cannot be undone.",
+  "@automationsDeleteMessage": {
     "placeholders": {
       "trigger": { "type": "String" }
     }

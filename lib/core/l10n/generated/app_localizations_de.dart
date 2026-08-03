@@ -21,6 +21,9 @@ class L10nDe extends L10n {
   String get navReplacements => 'Sprach-Shortcuts';
 
   @override
+  String get navAutomations => 'Automationen';
+
+  @override
   String get navAnalytics => 'Statistiken';
 
   @override
@@ -1249,6 +1252,58 @@ class L10nDe extends L10n {
   @override
   String replacementsDeleteMessage(String trigger) {
     return 'Shortcut \"$trigger\" entfernen? Dies kann nicht rückgängig gemacht werden.';
+  }
+
+  @override
+  String get automationsSearch => 'Automationen suchen…';
+
+  @override
+  String get automationsAdd => 'Hinzufügen';
+
+  @override
+  String get automationsEmpty => 'Noch keine Automationen';
+
+  @override
+  String get automationsEmptyHint =>
+      'Füge eine Automation hinzu, um eine URL zu öffnen, wenn deine Diktion genau dem Auslöser entspricht.\nBeispiel: \"Timer öffnen\" → eine Shortcuts-URL';
+
+  @override
+  String get automationsNoMatches => 'Keine Treffer';
+
+  @override
+  String get automationsNoMatchesHint => 'Versuche einen anderen Suchbegriff.';
+
+  @override
+  String get automationsAddAutomation => 'Automation hinzufügen';
+
+  @override
+  String get automationsEditAutomation => 'Automation bearbeiten';
+
+  @override
+  String get automationsNewAutomation => 'Neue Automation';
+
+  @override
+  String get automationsDialogHint =>
+      'Entspricht deine gesamte Diktion genau dem Auslöser, wird die URL geöffnet statt eingefügt.';
+
+  @override
+  String get automationsTriggerLabel => 'Auslöser';
+
+  @override
+  String get automationsTriggerHint => 'z. B. Timer öffnen';
+
+  @override
+  String get automationsUrlLabel => 'URL';
+
+  @override
+  String get automationsUrlHint => 'https:// oder shortcuts://';
+
+  @override
+  String get automationsDeleteTitle => 'Automation löschen';
+
+  @override
+  String automationsDeleteMessage(String trigger) {
+    return 'Automation \"$trigger\" entfernen? Dies kann nicht rückgängig gemacht werden.';
   }
 
   @override

@@ -4,6 +4,7 @@
   "navHistory": "היסטוריה",
   "navSettings": "הגדרות",
   "navReplacements": "קיצורי קול",
+  "navAutomations": "אוטומציות",
   "navAnalytics": "ניתוח נתונים",
   "navAbout": "אודות",
   "navFeedback": "משוב",
@@ -418,6 +419,29 @@
       "trigger": { "type": "String" }
     }
   },
+
+  "automationsSearch": "חפש אוטומציות…",
+  "automationsAdd": "הוסף",
+  "automationsEmpty": "עדיין אין אוטומציות",
+  "automationsEmptyHint": "הוסף אוטומציה כדי לפתוח כתובת URL כאשר ההכתבה שלך תואמת בדיוק לביטוי המפעיל.\nדוגמה: \"פתח טיימר\" → כתובת Shortcuts",
+  "automationsNoMatches": "אין התאמות",
+  "automationsNoMatchesHint": "נסה מונח חיפוש אחר.",
+  "automationsAddAutomation": "הוסף אוטומציה",
+  "automationsEditAutomation": "ערוך אוטומציה",
+  "automationsNewAutomation": "אוטומציה חדשה",
+  "automationsDialogHint": "כאשר ההכתבה כולה תואמת בדיוק לביטוי המפעיל, כתובת ה-URL תיפתח במקום להיות מוכנסת.",
+  "automationsTriggerLabel": "ביטוי מפעיל",
+  "automationsTriggerHint": "לדוגמה: פתח טיימר",
+  "automationsUrlLabel": "כתובת URL",
+  "automationsUrlHint": "https:// או shortcuts://",
+  "automationsDeleteTitle": "מחק אוטומציה",
+  "automationsDeleteMessage": "להסיר את האוטומציה \"{trigger}\"? אין דרך לבטל.",
+  "@automationsDeleteMessage": {
+    "placeholders": {
+      "trigger": { "type": "String" }
+    }
+  },
+
   "aboutTagline": "מדיבור לטקסט, מיד.",
   "aboutWhatsNew": "מה חדש",
   "aboutGitHub": "GitHub",

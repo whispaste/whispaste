@@ -30,6 +30,7 @@ import 'widgets/recording_behavior.dart';
 import 'features/history/history_page.dart';
 import 'features/settings/settings_page.dart';
 import 'features/replacements/replacements_page.dart';
+import 'features/automations/automations_page.dart';
 import 'features/analytics/analytics_page.dart';
 import 'features/about/about_page.dart';
 import 'features/feedback/feedback_page.dart';
@@ -111,6 +112,11 @@ List<WpNavItem> wpNavItems(L10n l10n) => [
     label: l10n.navReplacements,
   ),
   WpNavItem(
+    id: 'automations',
+    icon: LucideIcons.zap,
+    label: l10n.navAutomations,
+  ),
+  WpNavItem(
     id: 'analytics',
     icon: LucideIcons.chartNoAxesColumn,
     label: l10n.navAnalytics,
@@ -149,6 +155,7 @@ const wpPageWidgets = <String, Widget>{
   'history': HistoryPage(),
   'settings': SettingsPage(),
   'replacements': ReplacementsPage(),
+  'automations': AutomationsPage(),
   'analytics': AnalyticsPage(),
   'about': AboutPage(),
   'feedback': FeedbackPage(),

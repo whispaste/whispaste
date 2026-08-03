@@ -22,6 +22,7 @@ import '../core/data/analytics_provider.dart';
 import '../core/data/database.dart';
 import '../features/recording/clipping_state.dart';
 import 'audio_service.dart';
+import 'automation_dispatch_service.dart';
 import 'model_download_service.dart';
 import 'path_service.dart';
 import 'recording/oom_recovery_handler.dart';
@@ -819,63 +820,76 @@ class RecordingOrchestrator extends Notifier<void> {
     replaceSw.stop();
     timing.replaceMs = replaceSw.elapsedMilliseconds;
 
-    // ── Step 4: Save to history (5 s budget) ─────────────────────
-    // Onboarding's test-recording step redirects the transcript to a local
-    // sandbox field only (see sandboxTranscriptSink docs on
-    // _handleAfterTranscription below) — it must never be written to the
-    // user's real History, so the whole save step is skipped while the sink
-    // is set.
-    if (sandboxTranscriptSink == null) {
-      final saveSw = Stopwatch()..start();
-      final saveResult = await runner.run<String?>(
-        'save_history',
-        () async => _saveToHistory(
-          finalText,
-          Duration(milliseconds: audioDurMs),
-          settings,
-          (timing.transcribeMs ?? 0) ~/ 1000,
-          wavPath,
-        ),
-        timeout: const Duration(seconds: 5),
-      );
-      saveSw.stop();
-      timing.saveMs = saveSw.elapsedMilliseconds;
+    // ── Automation dispatch (exact-match short-circuit) ───────────
+    // A transcript that matches an automation's trigger phrase exactly
+    // (after normalization) AND whose action runs successfully (e.g. the
+    // URL opens) never reaches history/replacements or paste. A match whose
+    // action fails falls through to the normal pipeline below instead of
+    // silently discarding the user's dictation. Skipped in the same
+    // onboarding-sandbox case as history/paste below.
+    final automationDispatched =
+        sandboxTranscriptSink == null &&
+        await _tryDispatchAutomation(sid, finalText);
 
-      // Save failures are non-fatal (best-effort) — log and continue.
-      if (saveResult case Ok(:final value)) {
-        if (value != null && value != finalText) {
-          finalText = value;
+    if (!automationDispatched) {
+      // ── Step 4: Save to history (5 s budget) ─────────────────────
+      // Onboarding's test-recording step redirects the transcript to a local
+      // sandbox field only (see sandboxTranscriptSink docs on
+      // _handleAfterTranscription below) — it must never be written to the
+      // user's real History, so the whole save step is skipped while the sink
+      // is set.
+      if (sandboxTranscriptSink == null) {
+        final saveSw = Stopwatch()..start();
+        final saveResult = await runner.run<String?>(
+          'save_history',
+          () async => _saveToHistory(
+            finalText,
+            Duration(milliseconds: audioDurMs),
+            settings,
+            (timing.transcribeMs ?? 0) ~/ 1000,
+            wavPath,
+          ),
+          timeout: const Duration(seconds: 5),
+        );
+        saveSw.stop();
+        timing.saveMs = saveSw.elapsedMilliseconds;
+
+        // Save failures are non-fatal (best-effort) — log and continue.
+        if (saveResult case Ok(:final value)) {
+          if (value != null && value != finalText) {
+            finalText = value;
+          }
+        } else if (saveResult case StepTimeout()) {
+          _log.warning('[$sid] Save to history timed out after 5s');
+        } else if (saveResult case FailedWith(:final error)) {
+          _log.error('[$sid] Save to history failed: $error');
         }
-      } else if (saveResult case StepTimeout()) {
-        _log.warning('[$sid] Save to history timed out after 5s');
-      } else if (saveResult case FailedWith(:final error)) {
-        _log.error('[$sid] Save to history failed: $error');
       }
+
+      // ── Punctuation strip (always applied after text replacements) ──
+      // Deterministic, engine-independent — runs regardless of which STT
+      // engine/provider produced finalText. Placed after the history-save
+      // block (and its text-replacement pass) so a user's own explicit voice
+      // shortcut for punctuation (e.g. a "period" → "." trigger) survives;
+      // only the STT engine's own auto-inserted punctuation is removed.
+      if (settings.stt.stripPunctuation) {
+        finalText = stripPunctuation(finalText);
+      }
+
+      // ── Step 5: After-transcription action (10 s budget) ──────────
+      // Timeout prevents a locked clipboard or slow paste from
+      // hanging the pipeline.
+      final clipSw = Stopwatch()..start();
+      final clipResult = await runner.run<void>(
+        'after_transcription',
+        () async => _handleAfterTranscription(finalText, settings),
+        timeout: const Duration(seconds: 10),
+      );
+      clipSw.stop();
+      timing.clipboardMs = clipSw.elapsedMilliseconds;
+
+      _logAfterTranscriptionResult(sid, clipResult);
     }
-
-    // ── Punctuation strip (always applied after text replacements) ──
-    // Deterministic, engine-independent — runs regardless of which STT
-    // engine/provider produced finalText. Placed after the history-save
-    // block (and its text-replacement pass) so a user's own explicit voice
-    // shortcut for punctuation (e.g. a "period" → "." trigger) survives;
-    // only the STT engine's own auto-inserted punctuation is removed.
-    if (settings.stt.stripPunctuation) {
-      finalText = stripPunctuation(finalText);
-    }
-
-    // ── Step 5: After-transcription action (10 s budget) ──────────
-    // Timeout prevents a locked clipboard or slow paste from
-    // hanging the pipeline.
-    final clipSw = Stopwatch()..start();
-    final clipResult = await runner.run<void>(
-      'after_transcription',
-      () async => _handleAfterTranscription(finalText, settings),
-      timeout: const Duration(seconds: 10),
-    );
-    clipSw.stop();
-    timing.clipboardMs = clipSw.elapsedMilliseconds;
-
-    _logAfterTranscriptionResult(sid, clipResult);
 
     // Text is now in the field (clipboard/paste action above has completed)
     // — this is the "fertig eingefügter Text" moment for the hotkey→text
@@ -1244,6 +1258,42 @@ class RecordingOrchestrator extends Notifier<void> {
 
     _log.info('Preflight OK: model=$modelPath');
     return null;
+  }
+
+  /// Checks [transcript] against every stored automation's trigger phrase
+  /// (exact match, see [AutomationDispatchService.findMatch]) and — on a
+  /// match — runs its action. Returns `true` only when the action actually
+  /// ran successfully, so the caller skips the normal save-to-history/paste
+  /// pipeline only once the URL is confirmed open — a match whose dispatch
+  /// fails (malformed URL, no handler registered, …) falls through to the
+  /// normal pipeline instead of silently discarding the user's dictation.
+  Future<bool> _tryDispatchAutomation(String sid, String transcript) async {
+    try {
+      final db = ref.read(historyDatabaseProvider);
+      final automationList = await db.readAllAutomations();
+      if (automationList.isEmpty) return false;
+
+      final dispatcher = ref.read(automationDispatchServiceProvider);
+      final match = dispatcher.findMatch(automationList, transcript);
+      if (match == null) return false;
+
+      final dispatched = await dispatcher.dispatch(match);
+      if (dispatched) {
+        _log.info('[$sid] Automation dispatched (trigger="${match.trigger}")');
+        ref
+            .read(telemetrySessionAggregatorProvider)
+            .count(category: 'automations', action: 'dispatch');
+      } else {
+        _log.warning(
+          '[$sid] Automation matched but its action failed — falling back '
+          'to the normal pipeline (trigger="${match.trigger}")',
+        );
+      }
+      return dispatched;
+    } on Exception catch (e) {
+      _log.warning('[$sid] Automation matching failed: $e');
+      return false;
+    }
   }
 
   Future<String?> _saveToHistory(

@@ -9,6 +9,7 @@ import '../../core/theme/tokens.dart';
 import '../../widgets/dialog.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/page_shell.dart';
+import '../../widgets/trigger_chip.dart';
 import 'package:whispaste/core/data/database.dart';
 
 // ---------------------------------------------------------------------------
@@ -721,7 +722,7 @@ class _ReplacementTileState extends State<_ReplacementTile> {
                     runSpacing: WpSpacing.xxs,
                     children: [
                       for (final trigger in widget.replacement.triggers)
-                        _TriggerChip(label: trigger, isDark: widget.isDark),
+                        WpTriggerChip(label: trigger, isDark: widget.isDark),
                     ],
                   ),
                 ),
@@ -768,46 +769,6 @@ class _ReplacementTileState extends State<_ReplacementTile> {
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Trigger chip — small accent pill for one trigger phrase inside a tile
-// ---------------------------------------------------------------------------
-
-class _TriggerChip extends StatelessWidget {
-  const _TriggerChip({required this.label, required this.isDark});
-
-  final String label;
-  final bool isDark;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: WpSpacing.xs,
-        vertical: WpSpacing.xxs / 2,
-      ),
-      decoration: BoxDecoration(
-        color: isDark
-            ? WpColorsDark.accentChipFill
-            : WpColorsLight.accentChipFill,
-        borderRadius: BorderRadius.circular(WpRadius.full),
-        border: Border.all(
-          color: isDark
-              ? WpColorsDark.accentBorder20
-              : WpColorsLight.accentBorder20,
-        ),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: isDark ? WpColorsDark.accent : WpColorsLight.accent,
-          fontWeight: FontWeight.w600,
-          fontSize: WpTypography.small,
         ),
       ),
     );

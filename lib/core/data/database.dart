@@ -49,6 +49,7 @@ class ReplacementWithTriggers {
     Tags,
     EntryTags,
     HotkeyLatencyEntries,
+    Automations,
   ],
 )
 class HistoryDatabase extends _$HistoryDatabase {
@@ -93,7 +94,7 @@ class HistoryDatabase extends _$HistoryDatabase {
   }
 
   @override
-  int get schemaVersion => 13;
+  int get schemaVersion => 14;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -131,6 +132,9 @@ class HistoryDatabase extends _$HistoryDatabase {
       if (from < 13) {
         await m.createTable(textReplacementTriggers);
         await _backfillReplacementTriggers();
+      }
+      if (from < 14) {
+        await m.createTable(automations);
       }
     },
     beforeOpen: (details) async {
@@ -1579,6 +1583,7 @@ class HistoryDatabase extends _$HistoryDatabase {
         await delete(dailyStats).go();
         await delete(textReplacementTriggers).go();
         await delete(textReplacements).go();
+        await delete(automations).go();
         await customStatement('DELETE FROM app_settings');
       });
     });
@@ -1710,6 +1715,50 @@ class HistoryDatabase extends _$HistoryDatabase {
       await delete(textReplacementTriggers).go();
       await delete(textReplacements).go();
     });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Automations (dictation-automations ticket 02)
+  // ---------------------------------------------------------------------------
+
+  /// Ordered by SQLite rowid (insertion order) — same technique as
+  /// [_replacementsJoinQuery], see its doc comment for why a plain
+  /// `ORDER BY` on a text column would not give creation order.
+  SimpleSelectStatement<$AutomationsTable, Automation> _automationsQuery() {
+    return select(automations)..orderBy([
+      (a) => OrderingTerm(
+        expression: const CustomExpression<int>('automations.rowid'),
+      ),
+    ]);
+  }
+
+  Future<List<Automation>> readAllAutomations() => _automationsQuery().get();
+
+  Stream<List<Automation>> watchAllAutomations() {
+    if (_isClosed) return const Stream.empty();
+    return _automationsQuery().watch();
+  }
+
+  Future<void> upsertAutomation({
+    required String id,
+    required String trigger,
+    required String actionType,
+    required String payload,
+    required DateTime createdAt,
+  }) {
+    return into(automations).insertOnConflictUpdate(
+      AutomationsCompanion(
+        id: Value(id),
+        trigger: Value(trigger),
+        actionType: Value(actionType),
+        payload: Value(payload),
+        createdAt: Value(createdAt),
+      ),
+    );
+  }
+
+  Future<void> deleteAutomation(String id) {
+    return (delete(automations)..where((a) => a.id.equals(id))).go();
   }
 
   // ---------------------------------------------------------------------------
