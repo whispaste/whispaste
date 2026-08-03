@@ -1986,26 +1986,26 @@ class L10nEn extends L10n {
   String get historyDuplicated => 'Entry duplicated';
 
   @override
-  String get historyAddNote => 'Add note';
+  String get historyAddNote => 'Add annotation';
 
   @override
-  String get historyEditNote => 'Edit note';
+  String get historyEditNote => 'Edit annotation';
 
   @override
-  String get historyNotes => 'Notes';
+  String get historyNotes => 'Annotations';
 
   @override
-  String get historyNotePlaceholder => 'Write a note…';
+  String get historyNotePlaceholder => 'Write an annotation…';
 
   @override
   String get historyVoiceNoteHint =>
       'Tip: say “tag: name” or “correct: text” while recording.';
 
   @override
-  String get historyNoteAdded => 'Note added';
+  String get historyNoteAdded => 'Annotation added';
 
   @override
-  String get historyNoteDeleted => 'Note deleted';
+  String get historyNoteDeleted => 'Annotation deleted';
 
   @override
   String get historyCopiedAsMarkdown => 'Copied as Markdown';
@@ -2119,7 +2119,7 @@ class L10nEn extends L10n {
   String get historyShortcutTags => 'Focus tag input';
 
   @override
-  String get historyShortcutNotes => 'Add a note';
+  String get historyShortcutNotes => 'Add an annotation';
 
   @override
   String get historyShortcutPin => 'Favorite / unfavorite';

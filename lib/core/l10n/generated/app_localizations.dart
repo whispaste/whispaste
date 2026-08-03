@@ -3618,28 +3618,28 @@ abstract class L10n {
   /// No description provided for @historyAddNote.
   ///
   /// In en, this message translates to:
-  /// **'Add note'**
+  /// **'Add annotation'**
   String get historyAddNote;
 
-  /// Accessibility label for the note edit text field in the history detail panel.
+  /// Accessibility label for the annotation edit text field in the history detail panel.
   ///
   /// In en, this message translates to:
-  /// **'Edit note'**
+  /// **'Edit annotation'**
   String get historyEditNote;
 
   /// No description provided for @historyNotes.
   ///
   /// In en, this message translates to:
-  /// **'Notes'**
+  /// **'Annotations'**
   String get historyNotes;
 
   /// No description provided for @historyNotePlaceholder.
   ///
   /// In en, this message translates to:
-  /// **'Write a note…'**
+  /// **'Write an annotation…'**
   String get historyNotePlaceholder;
 
-  /// One-time discoverability hint next to the note input, teaching the voice-note prefixes parsed by parseVoiceAction.
+  /// One-time discoverability hint next to the annotation input, teaching the voice-note prefixes parsed by parseVoiceAction.
   ///
   /// In en, this message translates to:
   /// **'Tip: say “tag: name” or “correct: text” while recording.'**
@@ -3648,13 +3648,13 @@ abstract class L10n {
   /// No description provided for @historyNoteAdded.
   ///
   /// In en, this message translates to:
-  /// **'Note added'**
+  /// **'Annotation added'**
   String get historyNoteAdded;
 
   /// No description provided for @historyNoteDeleted.
   ///
   /// In en, this message translates to:
-  /// **'Note deleted'**
+  /// **'Annotation deleted'**
   String get historyNoteDeleted;
 
   /// No description provided for @historyCopiedAsMarkdown.
@@ -3804,7 +3804,7 @@ abstract class L10n {
   /// No description provided for @historyShortcutNotes.
   ///
   /// In en, this message translates to:
-  /// **'Add a note'**
+  /// **'Add an annotation'**
   String get historyShortcutNotes;
 
   /// No description provided for @historyShortcutPin.

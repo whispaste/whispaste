@@ -2006,26 +2006,26 @@ class L10nDe extends L10n {
   String get historyDuplicated => 'Eintrag dupliziert';
 
   @override
-  String get historyAddNote => 'Notiz hinzufügen';
+  String get historyAddNote => 'Anmerkung hinzufügen';
 
   @override
-  String get historyEditNote => 'Notiz bearbeiten';
+  String get historyEditNote => 'Anmerkung bearbeiten';
 
   @override
-  String get historyNotes => 'Notizen';
+  String get historyNotes => 'Anmerkungen';
 
   @override
-  String get historyNotePlaceholder => 'Notiz schreiben…';
+  String get historyNotePlaceholder => 'Anmerkung schreiben…';
 
   @override
   String get historyVoiceNoteHint =>
       'Tipp: Sag „tag: Name“ oder „korrektur: Text“ bei der Aufnahme.';
 
   @override
-  String get historyNoteAdded => 'Notiz hinzugefügt';
+  String get historyNoteAdded => 'Anmerkung hinzugefügt';
 
   @override
-  String get historyNoteDeleted => 'Notiz gelöscht';
+  String get historyNoteDeleted => 'Anmerkung gelöscht';
 
   @override
   String get historyCopiedAsMarkdown => 'Als Markdown kopiert';
@@ -2139,7 +2139,7 @@ class L10nDe extends L10n {
   String get historyShortcutTags => 'Tag-Eingabe fokussieren';
 
   @override
-  String get historyShortcutNotes => 'Notiz hinzufügen';
+  String get historyShortcutNotes => 'Anmerkung hinzufügen';
 
   @override
   String get historyShortcutPin => 'Favorit / entfernen';

@@ -742,19 +742,19 @@
 
   "historyDuplicate": "Duplicate",
   "historyDuplicated": "Entry duplicated",
-  "historyAddNote": "Add note",
-  "historyEditNote": "Edit note",
+  "historyAddNote": "Add annotation",
+  "historyEditNote": "Edit annotation",
   "@historyEditNote": {
-    "description": "Accessibility label for the note edit text field in the history detail panel."
+    "description": "Accessibility label for the annotation edit text field in the history detail panel."
   },
-  "historyNotes": "Notes",
-  "historyNotePlaceholder": "Write a note…",
+  "historyNotes": "Annotations",
+  "historyNotePlaceholder": "Write an annotation…",
   "historyVoiceNoteHint": "Tip: say “tag: name” or “correct: text” while recording.",
   "@historyVoiceNoteHint": {
-    "description": "One-time discoverability hint next to the note input, teaching the voice-note prefixes parsed by parseVoiceAction."
+    "description": "One-time discoverability hint next to the annotation input, teaching the voice-note prefixes parsed by parseVoiceAction."
   },
-  "historyNoteAdded": "Note added",
-  "historyNoteDeleted": "Note deleted",
+  "historyNoteAdded": "Annotation added",
+  "historyNoteDeleted": "Annotation deleted",
   "historyCopiedAsMarkdown": "Copied as Markdown",
   "historyAddTag": "Add tag…",
   "historySearchTags": "Search or create…",
@@ -788,7 +788,7 @@
   "historyShortcutHelp": "Keyboard Shortcuts",
   "historyShortcutGeneral": "GENERAL",
   "historyShortcutTags": "Focus tag input",
-  "historyShortcutNotes": "Add a note",
+  "historyShortcutNotes": "Add an annotation",
   "historyShortcutPin": "Favorite / unfavorite",
   "historyShortcutClose": "Save & close",
   "historyShortcutEditing": "EDITING",
