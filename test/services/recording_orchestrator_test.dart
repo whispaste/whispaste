@@ -13,8 +13,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:plugin_platform_interface/plugin_platform_interface.dart';
-import 'package:screen_retriever_platform_interface/screen_retriever_platform_interface.dart';
 import 'package:whispaste/core/config/settings_enums.dart';
 import 'package:whispaste/core/config/secure_key_store.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
@@ -287,7 +285,7 @@ class FakeDesktopPasteController extends DesktopPasteController {
 /// mirroring how the real native panel reports the user's pick asynchronously
 /// after the pipeline has already returned to idle.
 class FakeSnippetPickerController implements SnippetPickerController {
-  final showCalls = <({double x, double y, List<Map<String, String>> items})>[];
+  final showCalls = <List<Map<String, String>>>[];
   int hideCalls = 0;
   bool disposed = false;
 
@@ -297,12 +295,8 @@ class FakeSnippetPickerController implements SnippetPickerController {
   Stream<SnippetPickerEvent> get events => _eventsController.stream;
 
   @override
-  Future<void> show({
-    required double x,
-    required double y,
-    required List<Map<String, String>> items,
-  }) async {
-    showCalls.add((x: x, y: y, items: items));
+  Future<void> show({required List<Map<String, String>> items}) async {
+    showCalls.add(items);
   }
 
   @override
@@ -319,19 +313,6 @@ class FakeSnippetPickerController implements SnippetPickerController {
     disposed = true;
     await _eventsController.close();
   }
-}
-
-/// Fake `screen_retriever` platform — the Snippet-Picker dispatch path
-/// (ticket 06) queries the real cursor position via
-/// `ScreenRetriever.instance.getCursorScreenPoint()`, which has no native
-/// handler in the test host process. Swapping the platform-interface
-/// instance (the plugin's own supported test seam, see
-/// `MockPlatformInterfaceMixin`) avoids a `MissingPluginException` without
-/// touching a raw `MethodChannel` mock.
-class _FakeScreenRetrieverPlatform extends ScreenRetrieverPlatform
-    with MockPlatformInterfaceMixin {
-  @override
-  Future<Offset> getCursorScreenPoint() async => const Offset(100, 100);
 }
 
 class FakeModelDownloadNotifier extends ModelDownloadNotifier {
@@ -509,8 +490,6 @@ void main() {
   }
 
   setUp(() async {
-    ScreenRetrieverPlatform.instance = _FakeScreenRetrieverPlatform();
-
     // Isolate preflight checks from the real filesystem by pointing
     // sttDir at an empty scratch directory — no server binary exists here.
     sttDirOverride = _scratchDir.path;

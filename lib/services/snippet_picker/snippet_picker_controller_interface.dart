@@ -17,16 +17,18 @@ import 'snippet_picker_events.dart';
 /// `done` state without waiting on user interaction (ticket 06's dispatch
 /// AC).
 abstract class SnippetPickerController {
-  /// Shows the panel near screen position ([x], [y]) — logical pixels,
-  /// bottom-left origin (matches [ScreenRetriever] / macOS screen
-  /// coordinates). [items] are `{'id': ..., 'title': ..., 'body': ...}`
-  /// maps; `body` is included so the panel's search can filter on it, not
-  /// just the title.
-  Future<void> show({
-    required double x,
-    required double y,
-    required List<Map<String, String>> items,
-  });
+  /// Shows the panel near the current mouse position.
+  ///
+  /// The position itself is read natively (each platform host queries its
+  /// own cursor API directly) rather than passed from Dart — a prior
+  /// version passed coordinates from `package:screen_retriever`, but that
+  /// package converts to a top-down y for Flutter's own coordinate space,
+  /// which does not match the bottom-left-origin space native positioning
+  /// code on macOS actually needs; mixing the two silently mirrored the
+  /// panel vertically except near screen center, where they coincide.
+  /// [items] are `{'id': ..., 'title': ..., 'body': ...}` maps; `body` is
+  /// included so the panel's search can filter on it, not just the title.
+  Future<void> show({required List<Map<String, String>> items});
 
   /// Hides the panel (keeps the native window for reuse).
   Future<void> hide();

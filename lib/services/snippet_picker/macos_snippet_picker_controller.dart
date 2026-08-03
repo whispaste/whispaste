@@ -18,11 +18,8 @@ class MacOSSnippetPickerController
   MacOSSnippetPickerController() : super(_channelName);
 
   @override
-  Future<void> show({
-    required double x,
-    required double y,
-    required List<Map<String, String>> items,
-  }) => invokeMethod('show', {'x': x, 'y': y, 'items': items});
+  Future<void> show({required List<Map<String, String>> items}) =>
+      invokeMethod('show', {'items': items});
 
   @override
   Future<void> hide() => invokeMethod('hide');

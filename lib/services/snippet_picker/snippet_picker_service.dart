@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:screen_retriever/screen_retriever.dart';
 
 import '../../core/config/settings_provider.dart';
 import '../../core/logging/app_logger.dart';
@@ -72,6 +71,10 @@ class SnippetPickerService
 
   /// Opens the panel near the current mouse position with [items].
   ///
+  /// The native host reads the cursor position itself (see
+  /// [SnippetPickerController.show] docs) — this layer only forwards the
+  /// item list.
+  ///
   /// Returns `false` (and shows nothing) when the platform is unsupported or
   /// [items] is empty — the caller falls back to the normal dictation
   /// pipeline in both cases, same "never silently discard the dictation"
@@ -81,10 +84,7 @@ class SnippetPickerService
     if (c == null || items.isEmpty) return false;
 
     _shown = {for (final item in items) item.id: item};
-    final cursor = await ScreenRetriever.instance.getCursorScreenPoint();
     await c.show(
-      x: cursor.dx,
-      y: cursor.dy,
       items: [
         for (final item in items)
           {'id': item.id, 'title': item.title, 'body': item.body},

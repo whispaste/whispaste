@@ -1206,7 +1206,7 @@ class L10nDe extends L10n {
   String get replacementsToggleDisabled => 'Ersetzungen sind deaktiviert';
 
   @override
-  String get replacementsEnableBannerTitle => 'Ersetzungen sind deaktiviert';
+  String get replacementsEnableBannerTitle => 'Ersetzungen sind ausgeschaltet';
 
   @override
   String get replacementsEnableBannerHint =>

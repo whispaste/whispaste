@@ -1181,7 +1181,7 @@ class L10nHe extends L10n {
   String get replacementsToggleDisabled => 'ההחלפות כבויות';
 
   @override
-  String get replacementsEnableBannerTitle => 'ההחלפות כבויות';
+  String get replacementsEnableBannerTitle => 'ההחלפות מושבתות';
 
   @override
   String get replacementsEnableBannerHint =>

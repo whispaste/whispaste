@@ -399,7 +399,7 @@
   "replacementsToggleLabel": "הפעל החלפות",
   "replacementsToggleEnabled": "ההחלפות פעילות",
   "replacementsToggleDisabled": "ההחלפות כבויות",
-  "replacementsEnableBannerTitle": "ההחלפות כבויות",
+  "replacementsEnableBannerTitle": "ההחלפות מושבתות",
   "replacementsEnableBannerHint": "הפעל אותם כדי שהביטויים יוחלפו אוטומטית.",
   "replacementsEnableAction": "הפעל",
   "replacementsDisableAction": "כבה",

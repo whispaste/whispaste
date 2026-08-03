@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -145,7 +146,14 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage> {
         ref.watch(settingsProvider).value?.behavior.snippetPickerTrigger ?? '';
 
     return WpSearchableListPage<SnippetItem>(
-      header: _SnippetPickerTriggerField(trigger: trigger, ref: ref),
+      // macOS-only for now (ticket 06) — Windows/Linux land in tickets 07/08.
+      // Without this guard the field would still render there, but setting
+      // it would silently type the trigger word into the user's document as
+      // literal text (createSnippetPickerController() is null, so dispatch
+      // falls through to the normal pipeline) instead of opening a picker.
+      header: Platform.isMacOS
+          ? _SnippetPickerTriggerField(trigger: trigger, ref: ref)
+          : null,
       asyncAll: ref.watch(snippetsProvider),
       searchMatches: (s, q) =>
           s.title.toLowerCase().contains(q) || s.body.toLowerCase().contains(q),

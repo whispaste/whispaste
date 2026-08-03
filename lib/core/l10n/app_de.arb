@@ -377,7 +377,7 @@
   "replacementsToggleLabel": "Ersetzungen aktivieren",
   "replacementsToggleEnabled": "Ersetzungen sind aktiv",
   "replacementsToggleDisabled": "Ersetzungen sind deaktiviert",
-  "replacementsEnableBannerTitle": "Ersetzungen sind deaktiviert",
+  "replacementsEnableBannerTitle": "Ersetzungen sind ausgeschaltet",
   "replacementsEnableBannerHint": "Aktiviere sie, damit Auslöser-Phrasen bei der Aufnahme automatisch ersetzt werden.",
   "replacementsEnableAction": "Aktivieren",
   "replacementsDisableAction": "Deaktivieren",

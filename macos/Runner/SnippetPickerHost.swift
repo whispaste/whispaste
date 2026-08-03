@@ -69,13 +69,11 @@ class SnippetPickerHost: NSObject, NSWindowDelegate {
     switch call.method {
     case "show":
       guard let args = call.arguments as? [String: Any],
-            let x = (args["x"] as? NSNumber)?.doubleValue,
-            let y = (args["y"] as? NSNumber)?.doubleValue,
             let items = args["items"] as? [[String: String]] else {
         result(nil)
         return
       }
-      show(x: x, y: y, items: items)
+      show(items: items)
       result(nil)
 
     case "hide":
@@ -93,15 +91,30 @@ class SnippetPickerHost: NSObject, NSWindowDelegate {
 
   // MARK: - Show / dismiss
 
-  private func show(x: Double, y: Double, items: [[String: String]]) {
+  /// Reads the cursor position natively (`NSEvent.mouseLocation`, AppKit's
+  /// own bottom-left-origin space) rather than accepting x/y from Dart.
+  ///
+  /// An earlier version took the position from Dart's `ScreenRetriever`,
+  /// which converts to a top-down y (`visibleHeight - mouseLocation.y`) for
+  /// Flutter's own coordinate space — mixing that back into this AppKit-
+  /// native positioning code silently mirrored the panel vertically
+  /// whenever the cursor wasn't near vertical screen-center (where the two
+  /// conventions happen to coincide, which is why a live test done there
+  /// didn't catch it). Reading the cursor here avoids the cross-convention
+  /// conversion entirely.
+  private func show(items: [[String: String]]) {
     ensurePanel()
     guard let p = panel else { return }
 
+    let cursor = NSEvent.mouseLocation
+    // Anchor the panel's top-left at the cursor — it opens downward/rightward,
+    // matching typical context-menu placement. Screen selection (for
+    // clamping) uses the raw cursor point, not the already-offset origin —
+    // picking the display the user is actually pointing at, not whichever
+    // display the arithmetic happens to land the offset point on.
     let origin = clampToVisibleScreen(
-      // Anchor the panel's top-left at the cursor — it opens downward/rightward,
-      // matching typical context-menu placement.
-      x: x,
-      y: y - Double(Self.contentSize.height),
+      cursor: cursor,
+      desiredOrigin: NSPoint(x: cursor.x, y: cursor.y - Self.contentSize.height),
       size: Self.contentSize
     )
     p.setFrameOrigin(origin)
@@ -135,23 +148,24 @@ class SnippetPickerHost: NSObject, NSWindowDelegate {
 
   // MARK: - Positioning
 
-  /// Clamps a top-left-anchored origin so the panel stays fully within some
-  /// connected screen's visible frame — same algorithm as
-  /// `FloatingOverlayHost.clampToVisibleScreen`, using the screen *under the
-  /// cursor point* (not `NSScreen.main`) so a picker triggered on a secondary
-  /// display clamps against that display's bounds.
-  private func clampToVisibleScreen(x: Double, y: Double, size: NSSize) -> NSPoint {
-    let point = NSPoint(x: x, y: y)
-    guard let target = NSScreen.screens.first(where: { $0.frame.contains(point) })
-      ?? nearestScreen(to: point) else {
-      return point
+  /// Clamps [desiredOrigin] (top-left-anchored) so the panel stays fully
+  /// within some connected screen's visible frame — same algorithm as
+  /// `FloatingOverlayHost.clampToVisibleScreen`, but the target screen is
+  /// picked from [cursor] itself rather than from [desiredOrigin]: the
+  /// origin is already offset upward by the panel's height, so on a
+  /// multi-display setup with screens of different heights, selecting by
+  /// the offset point could pick the wrong (e.g. neighbouring) display.
+  private func clampToVisibleScreen(cursor: NSPoint, desiredOrigin: NSPoint, size: NSSize) -> NSPoint {
+    guard let target = NSScreen.screens.first(where: { $0.frame.contains(cursor) })
+      ?? nearestScreen(to: cursor) else {
+      return desiredOrigin
     }
 
     let visible = target.visibleFrame
     let maxX = max(visible.minX, visible.maxX - size.width)
     let maxY = max(visible.minY, visible.maxY - size.height)
-    let clampedX = min(max(x, visible.minX), maxX)
-    let clampedY = min(max(y, visible.minY), maxY)
+    let clampedX = min(max(desiredOrigin.x, visible.minX), maxX)
+    let clampedY = min(max(desiredOrigin.y, visible.minY), maxY)
     return NSPoint(x: clampedX, y: clampedY)
   }
 
