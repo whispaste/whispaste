@@ -31,32 +31,46 @@
       "message": "2 occurrences of duplicated block (53 tokens): lib/core/data/database.dart:1030, lib/core/data/database.dart:1928"
     },
     {
-      "fingerprint": "8d76dd50b8d40458",
+      "fingerprint": "fe1f624ddb6ca674",
       "ruleId": "code-duplicates",
       "filePath": "lib/features/history/history_page.dart",
       "line": 918,
-      "message": "2 occurrences of duplicated block (97 tokens): lib/features/history/history_page.dart:918, lib/features/notes/notes_page.dart:246"
+      "message": "2 occurrences of duplicated block (97 tokens): lib/features/history/history_page.dart:918, lib/features/notes/notes_page.dart:343"
     },
     {
-      "fingerprint": "57fb3f73c7b1bef4",
+      "fingerprint": "ce273712998d7891",
       "ruleId": "code-duplicates",
       "filePath": "lib/features/history/widgets/history_split_view.dart",
       "line": 97,
-      "message": "2 occurrences of duplicated block (60 tokens): lib/features/history/widgets/history_split_view.dart:97, lib/features/notes/widgets/notes_split_view.dart:68"
+      "message": "2 occurrences of duplicated block (60 tokens): lib/features/history/widgets/history_split_view.dart:97, lib/features/notes/widgets/notes_split_view.dart:81"
     },
     {
-      "fingerprint": "5de59d9e54c743ce",
+      "fingerprint": "ee77ded567b84ab7",
       "ruleId": "code-duplicates",
       "filePath": "lib/features/history/widgets/history_split_view.dart",
       "line": 116,
-      "message": "2 occurrences of duplicated block (100 tokens): lib/features/history/widgets/history_split_view.dart:116, lib/features/notes/widgets/notes_split_view.dart:87"
+      "message": "2 occurrences of duplicated block (100 tokens): lib/features/history/widgets/history_split_view.dart:116, lib/features/notes/widgets/notes_split_view.dart:100"
     },
     {
-      "fingerprint": "2373c3ffaa01b3ce",
+      "fingerprint": "49040abfb2eed0ee",
       "ruleId": "code-duplicates",
       "filePath": "lib/features/history/widgets/history_split_view.dart",
       "line": 363,
-      "message": "2 occurrences of duplicated block (184 tokens): lib/features/history/widgets/history_split_view.dart:363, lib/features/notes/widgets/notes_split_view.dart:264"
+      "message": "2 occurrences of duplicated block (184 tokens): lib/features/history/widgets/history_split_view.dart:363, lib/features/notes/widgets/notes_split_view.dart:285"
+    },
+    {
+      "fingerprint": "7c1bb57095282165",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/features/notes/widgets/notes_search_bar.dart",
+      "line": 36,
+      "message": "_NotesFilterChip with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "6d609b760249d3bd",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/features/notes/widgets/notes_search_bar.dart",
+      "line": 46,
+      "message": "_NotesFilterChip with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
     },
     {
       "fingerprint": "528ba2f89eaac53f",

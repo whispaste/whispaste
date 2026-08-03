@@ -77,6 +77,12 @@ void main() {
             controller: controller,
             focusNode: focusNode,
             onClose: () {},
+            // Ticket-04 toolbar actions — irrelevant for the clipboard
+            // behavior under test, so plain no-ops.
+            onToggleFavorite: () {},
+            onMoveToTrash: () {},
+            onRestore: () {},
+            onDeleteForever: () {},
           ),
           locale: const Locale('en'),
         ),

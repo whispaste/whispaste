@@ -5,22 +5,27 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/data/database.dart';
-import '../../core/data/notes_providers.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
+import '../../widgets/dialog.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/page_shell.dart';
+import '../../widgets/toast.dart';
 import 'data/note_autosave.dart';
+import 'data/note_title.dart';
 import 'data/notes_actions.dart';
+import 'data/providers.dart';
+import 'widgets/notes_search_bar.dart';
 import 'widgets/notes_split_view.dart';
 
 /// Notes page — standalone sidebar area for free-form notes.
 ///
 /// Master-detail layout mirroring [HistoryPage]'s split view, but deliberately
-/// minimal (Ticket 02 scaffold): flat note list on the left, always-editable
-/// plain-text editor on the right. No search, trash filter, tags, export, or
-/// voice input yet — those hook in via later tickets.
+/// minimal: flat note list on the left, always-editable plain-text editor on
+/// the right, plus an active/trash filter with favourite, trash, restore and
+/// delete-forever actions (Ticket 04). No search, tags, export, or voice
+/// input yet — those hook in via later tickets.
 class NotesPage extends ConsumerStatefulWidget {
   const NotesPage({super.key});
 
@@ -121,6 +126,11 @@ class _NotesPageState extends ConsumerState<NotesPage> {
   }
 
   Future<void> _createNote() async {
+    // Creating from the trash view: switch back to the active filter first,
+    // otherwise the freshly created (active) note would be invisible.
+    if (ref.read(notesFilterProvider) == NotesFilter.trash) {
+      ref.read(notesFilterProvider.notifier).set(NotesFilter.active);
+    }
     // Creating a note is a selection change too — apply the same
     // empty-discard rule to the note being left behind.
     await _leaveCurrentNote();
@@ -140,11 +150,83 @@ class _NotesPageState extends ConsumerState<NotesPage> {
     _setEditorText('');
   }
 
+  /// Switching between active and trash always closes the editor — carrying a
+  /// selection across the filter boundary would show a note that isn't in the
+  /// visible list (and would dodge the empty-discard rule on the way out).
+  Future<void> _setFilter(NotesFilter filter) async {
+    if (ref.read(notesFilterProvider) == filter) return;
+    await _leaveCurrentNote();
+    if (!mounted) return;
+    setState(() => _selectedNoteId = null);
+    _setEditorText('');
+    ref.read(notesFilterProvider.notifier).set(filter);
+  }
+
+  /// Flushes first so a just-typed, not-yet-saved draft can't be overwritten
+  /// by the stream re-emitting the stale pre-flush content after the toggle.
+  Future<void> _toggleFavorite(Note note) async {
+    await _autosave.flush();
+    await _actions.togglePin(note.id, pinned: !note.pinned);
+  }
+
+  Future<void> _moveToTrash(Note note) async {
+    // Flush before mutating so a pending draft is persisted — restoring from
+    // the trash must bring back exactly what the user last saw.
+    await _autosave.flush();
+    await _actions.moveToTrash(note.id);
+    if (!mounted) return;
+    if (note.id == _selectedNoteId) {
+      // Like _closeEditor, but without _leaveCurrentNote — the pending
+      // autosave was already flushed above.
+      setState(() => _selectedNoteId = null);
+      _setEditorText('');
+    }
+    final l10n = L10n.of(context);
+    WpToast.show(
+      context,
+      message: l10n.notesMovedToTrash,
+      type: WpToastType.info,
+      duration: const Duration(seconds: 4),
+      actionLabel: l10n.notesUndo,
+      onAction: () => _actions.restore(note.id),
+    );
+  }
+
+  /// No flush needed — restore only clears `deletedAt`, never touches content.
+  Future<void> _restoreNote(Note note) async {
+    await _actions.restore(note.id);
+  }
+
+  /// Only reachable from the trash view (list tile / editor toolbar there).
+  Future<void> _deleteForever(Note note) async {
+    final l10n = L10n.of(context);
+    final confirmed = await showWpConfirmDialog(
+      context: context,
+      title: l10n.notesDeleteForeverConfirm,
+      // The dialog requires a message; the derived note title tells the user
+      // exactly which note is about to go — no extra ARB key needed.
+      message: deriveNoteTitle(note.content) ?? l10n.notesUntitled,
+      confirmLabel: l10n.notesDeleteForever,
+      cancelLabel: l10n.actionCancel,
+      destructive: true,
+    );
+    if (!confirmed) return;
+    await _actions.deleteForever(note.id);
+    if (!mounted) return;
+    if (note.id == _selectedNoteId) {
+      setState(() => _selectedNoteId = null);
+      _setEditorText('');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
-    final notesAsync = ref.watch(notesProvider);
+    final filter = ref.watch(notesFilterProvider);
+    final isTrash = filter == NotesFilter.trash;
+    final activeStreamProvider = isTrash ? trashNotesProvider : notesProvider;
+    final notesAsync = ref.watch(activeStreamProvider);
 
     return WpPageShell(
       scrollable: false,
@@ -152,18 +234,28 @@ class _NotesPageState extends ConsumerState<NotesPage> {
       child: Column(
         children: [
           _NotesHeader(onCreate: _createNote),
+          NotesSearchBar(
+            currentFilter: filter,
+            onFilterChanged: _setFilter,
+            isDark: isDark,
+          ),
           Expanded(
             child: notesAsync.when(
               data: (notes) {
                 if (notes.isEmpty) {
-                  // No action button here on purpose: the header's
-                  // "New note" button is always visible and already offers
-                  // the same action — a second identically labeled button
-                  // would be redundant.
+                  // No action button in either empty state on purpose: the
+                  // header's "New note" button is always visible and already
+                  // offers the only sensible action — a second identically
+                  // labeled button would be redundant, and the trash empty
+                  // state has no action at all.
                   return WpEmptyState(
-                    icon: LucideIcons.stickyNote,
-                    title: l10n.notesEmptyTitle,
-                    hint: l10n.notesEmptyHint,
+                    icon: isTrash ? LucideIcons.trash2 : LucideIcons.stickyNote,
+                    title: isTrash
+                        ? l10n.notesTrashEmpty
+                        : l10n.notesEmptyTitle,
+                    hint: isTrash
+                        ? l10n.notesTrashEmptyHint
+                        : l10n.notesEmptyHint,
                   );
                 }
                 Note? selectedNote;
@@ -174,11 +266,16 @@ class _NotesPageState extends ConsumerState<NotesPage> {
                 return NotesSplitView(
                   notes: notes,
                   isDark: isDark,
+                  isTrashView: isTrash,
                   selectedNote: selectedNote,
                   editorController: _editorController,
                   editorFocusNode: _editorFocusNode,
                   onNoteTap: _selectNote,
                   onCloseEditor: _closeEditor,
+                  onFavoriteToggle: _toggleFavorite,
+                  onMoveToTrash: _moveToTrash,
+                  onRestore: _restoreNote,
+                  onDeleteForever: _deleteForever,
                 );
               },
               loading: () => _NotesSkeleton(isDark: isDark),
@@ -186,7 +283,7 @@ class _NotesPageState extends ConsumerState<NotesPage> {
                 icon: LucideIcons.triangleAlert,
                 title: l10n.errorGeneric,
                 actionLabel: l10n.actionRetry,
-                onAction: () => ref.invalidate(notesProvider),
+                onAction: () => ref.invalidate(activeStreamProvider),
               ),
             ),
           ),

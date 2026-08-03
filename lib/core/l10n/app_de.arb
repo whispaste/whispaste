@@ -1049,5 +1049,16 @@
   "notesEditorPlaceholder": "Leg los…",
   "notesListSemantics": "Notizenliste",
   "notesCopy": "Notiz kopieren",
-  "notesCopied": "Notiz kopiert"
+  "notesCopied": "Notiz kopiert",
+  "notesFavorite": "Als Favorit markieren",
+  "notesUnfavorite": "Favorit aufheben",
+  "notesMoveToTrash": "In den Papierkorb verschieben",
+  "notesMovedToTrash": "In den Papierkorb verschoben",
+  "notesRestore": "Wiederherstellen",
+  "notesDeleteForever": "Endgültig löschen",
+  "notesDeleteForeverConfirm": "Notiz endgültig löschen?",
+  "notesTrash": "Papierkorb",
+  "notesTrashEmpty": "Papierkorb ist leer",
+  "notesTrashEmptyHint": "Gelöschte Notizen landen hier und werden nicht automatisch entfernt.",
+  "notesUndo": "Rückgängig"
 }

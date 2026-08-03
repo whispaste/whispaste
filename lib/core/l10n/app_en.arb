@@ -1182,5 +1182,16 @@
   "notesEditorPlaceholder": "Start typing…",
   "notesListSemantics": "Notes list",
   "notesCopy": "Copy note",
-  "notesCopied": "Note copied"
+  "notesCopied": "Note copied",
+  "notesFavorite": "Mark as favorite",
+  "notesUnfavorite": "Remove from favorites",
+  "notesMoveToTrash": "Move to Trash",
+  "notesMovedToTrash": "Moved to trash",
+  "notesRestore": "Restore",
+  "notesDeleteForever": "Delete forever",
+  "notesDeleteForeverConfirm": "Delete note forever?",
+  "notesTrash": "Trash",
+  "notesTrashEmpty": "Trash is empty",
+  "notesTrashEmptyHint": "Deleted notes land here and aren't removed automatically.",
+  "notesUndo": "Undo"
 }

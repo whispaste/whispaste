@@ -15,14 +15,22 @@ class NotesListView extends StatelessWidget {
     super.key,
     required this.notes,
     required this.isDark,
+    required this.isTrashView,
     required this.selectedId,
     required this.onNoteTap,
+    required this.onFavoriteToggle,
+    required this.onRestore,
+    required this.onDeleteForever,
   });
 
   final List<Note> notes;
   final bool isDark;
+  final bool isTrashView;
   final String? selectedId;
   final ValueChanged<Note> onNoteTap;
+  final ValueChanged<Note> onFavoriteToggle;
+  final ValueChanged<Note> onRestore;
+  final ValueChanged<Note> onDeleteForever;
 
   @override
   Widget build(BuildContext context) {
@@ -41,8 +49,12 @@ class NotesListView extends StatelessWidget {
             key: ValueKey(note.id),
             note: note,
             isDark: isDark,
+            isTrashView: isTrashView,
             isSelected: note.id == selectedId,
             onTap: () => onNoteTap(note),
+            onFavoriteToggle: () => onFavoriteToggle(note),
+            onRestore: () => onRestore(note),
+            onDeleteForever: () => onDeleteForever(note),
           );
         },
       ),

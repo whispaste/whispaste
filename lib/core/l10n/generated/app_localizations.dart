@@ -5582,6 +5582,72 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Note copied'**
   String get notesCopied;
+
+  /// No description provided for @notesFavorite.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark as favorite'**
+  String get notesFavorite;
+
+  /// No description provided for @notesUnfavorite.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from favorites'**
+  String get notesUnfavorite;
+
+  /// No description provided for @notesMoveToTrash.
+  ///
+  /// In en, this message translates to:
+  /// **'Move to Trash'**
+  String get notesMoveToTrash;
+
+  /// No description provided for @notesMovedToTrash.
+  ///
+  /// In en, this message translates to:
+  /// **'Moved to trash'**
+  String get notesMovedToTrash;
+
+  /// No description provided for @notesRestore.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore'**
+  String get notesRestore;
+
+  /// No description provided for @notesDeleteForever.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete forever'**
+  String get notesDeleteForever;
+
+  /// No description provided for @notesDeleteForeverConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete note forever?'**
+  String get notesDeleteForeverConfirm;
+
+  /// No description provided for @notesTrash.
+  ///
+  /// In en, this message translates to:
+  /// **'Trash'**
+  String get notesTrash;
+
+  /// No description provided for @notesTrashEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Trash is empty'**
+  String get notesTrashEmpty;
+
+  /// No description provided for @notesTrashEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleted notes land here and aren\'t removed automatically.'**
+  String get notesTrashEmptyHint;
+
+  /// No description provided for @notesUndo.
+  ///
+  /// In en, this message translates to:
+  /// **'Undo'**
+  String get notesUndo;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

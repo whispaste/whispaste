@@ -3125,4 +3125,38 @@ class L10nEn extends L10n {
 
   @override
   String get notesCopied => 'Note copied';
+
+  @override
+  String get notesFavorite => 'Mark as favorite';
+
+  @override
+  String get notesUnfavorite => 'Remove from favorites';
+
+  @override
+  String get notesMoveToTrash => 'Move to Trash';
+
+  @override
+  String get notesMovedToTrash => 'Moved to trash';
+
+  @override
+  String get notesRestore => 'Restore';
+
+  @override
+  String get notesDeleteForever => 'Delete forever';
+
+  @override
+  String get notesDeleteForeverConfirm => 'Delete note forever?';
+
+  @override
+  String get notesTrash => 'Trash';
+
+  @override
+  String get notesTrashEmpty => 'Trash is empty';
+
+  @override
+  String get notesTrashEmptyHint =>
+      'Deleted notes land here and aren\'t removed automatically.';
+
+  @override
+  String get notesUndo => 'Undo';
 }

@@ -3154,4 +3154,38 @@ class L10nDe extends L10n {
 
   @override
   String get notesCopied => 'Notiz kopiert';
+
+  @override
+  String get notesFavorite => 'Als Favorit markieren';
+
+  @override
+  String get notesUnfavorite => 'Favorit aufheben';
+
+  @override
+  String get notesMoveToTrash => 'In den Papierkorb verschieben';
+
+  @override
+  String get notesMovedToTrash => 'In den Papierkorb verschoben';
+
+  @override
+  String get notesRestore => 'Wiederherstellen';
+
+  @override
+  String get notesDeleteForever => 'Endgültig löschen';
+
+  @override
+  String get notesDeleteForeverConfirm => 'Notiz endgültig löschen?';
+
+  @override
+  String get notesTrash => 'Papierkorb';
+
+  @override
+  String get notesTrashEmpty => 'Papierkorb ist leer';
+
+  @override
+  String get notesTrashEmptyHint =>
+      'Gelöschte Notizen landen hier und werden nicht automatisch entfernt.';
+
+  @override
+  String get notesUndo => 'Rückgängig';
 }

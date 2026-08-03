@@ -16,15 +16,24 @@ class NotesSplitView extends StatefulWidget {
     super.key,
     required this.notes,
     required this.isDark,
+    required this.isTrashView,
     required this.selectedNote,
     required this.editorController,
     required this.editorFocusNode,
     required this.onNoteTap,
     required this.onCloseEditor,
+    required this.onFavoriteToggle,
+    required this.onMoveToTrash,
+    required this.onRestore,
+    required this.onDeleteForever,
   });
 
   final List<Note> notes;
   final bool isDark;
+
+  /// Whether the trash filter is active — swaps the per-note actions
+  /// (favourite/trash vs. restore/delete-forever) in list tiles and editor.
+  final bool isTrashView;
   final Note? selectedNote;
 
   /// Owned by `_NotesPageState` (NOT by the editor panel) so cursor and IME
@@ -33,6 +42,10 @@ class NotesSplitView extends StatefulWidget {
   final FocusNode editorFocusNode;
   final ValueChanged<Note> onNoteTap;
   final VoidCallback onCloseEditor;
+  final ValueChanged<Note> onFavoriteToggle;
+  final ValueChanged<Note> onMoveToTrash;
+  final ValueChanged<Note> onRestore;
+  final ValueChanged<Note> onDeleteForever;
 
   @override
   State<NotesSplitView> createState() => _NotesSplitViewState();
@@ -111,8 +124,12 @@ class _NotesSplitViewState extends State<NotesSplitView>
     return NotesListView(
       notes: widget.notes,
       isDark: widget.isDark,
+      isTrashView: widget.isTrashView,
       selectedId: selectedId,
       onNoteTap: widget.onNoteTap,
+      onFavoriteToggle: widget.onFavoriteToggle,
+      onRestore: widget.onRestore,
+      onDeleteForever: widget.onDeleteForever,
     );
   }
 
@@ -124,6 +141,10 @@ class _NotesSplitViewState extends State<NotesSplitView>
       controller: widget.editorController,
       focusNode: widget.editorFocusNode,
       onClose: widget.onCloseEditor,
+      onToggleFavorite: () => widget.onFavoriteToggle(note),
+      onMoveToTrash: () => widget.onMoveToTrash(note),
+      onRestore: () => widget.onRestore(note),
+      onDeleteForever: () => widget.onDeleteForever(note),
     );
   }
 

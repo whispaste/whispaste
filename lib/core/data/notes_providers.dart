@@ -16,5 +16,8 @@ final notesProvider = StreamProvider<List<Note>>((ref) {
   return db.watchNotes();
 });
 
-// trashNotesProvider (wrapping HistoryDatabase.watchTrashNotes) lands in
-// Ticket 04 together with its first consumer, the trash filter view.
+/// Live stream of trashed notes, most recently deleted first.
+final trashNotesProvider = StreamProvider<List<Note>>((ref) {
+  final db = ref.watch(historyDatabaseProvider);
+  return db.watchTrashNotes();
+});

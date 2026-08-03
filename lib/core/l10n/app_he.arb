@@ -1048,5 +1048,16 @@
   "notesEditorPlaceholder": "התחל להקליד…",
   "notesListSemantics": "רשימת פתקים",
   "notesCopy": "העתק פתק",
-  "notesCopied": "הפתק הועתק"
+  "notesCopied": "הפתק הועתק",
+  "notesFavorite": "סמן כמועדף",
+  "notesUnfavorite": "הסר מהמועדפים",
+  "notesMoveToTrash": "העבר לאשפה",
+  "notesMovedToTrash": "הועבר לאשפה",
+  "notesRestore": "שחזר",
+  "notesDeleteForever": "מחק לצמיתות",
+  "notesDeleteForeverConfirm": "למחוק את הפתק לצמיתות?",
+  "notesTrash": "אשפה",
+  "notesTrashEmpty": "האשפה ריקה",
+  "notesTrashEmptyHint": "פתקים שנמחקו מגיעים לכאן ולא מוסרים אוטומטית.",
+  "notesUndo": "בטל"
 }

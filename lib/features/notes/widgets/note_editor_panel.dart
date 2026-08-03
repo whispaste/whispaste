@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/data/database.dart';
@@ -24,6 +25,10 @@ class NoteEditorPanel extends StatelessWidget {
     required this.controller,
     required this.focusNode,
     required this.onClose,
+    required this.onToggleFavorite,
+    required this.onMoveToTrash,
+    required this.onRestore,
+    required this.onDeleteForever,
   });
 
   final Note note;
@@ -31,6 +36,10 @@ class NoteEditorPanel extends StatelessWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
   final VoidCallback onClose;
+  final VoidCallback onToggleFavorite;
+  final VoidCallback onMoveToTrash;
+  final VoidCallback onRestore;
+  final VoidCallback onDeleteForever;
 
   @override
   Widget build(BuildContext context) {
@@ -39,6 +48,8 @@ class NoteEditorPanel extends StatelessWidget {
         ? WpColorsDark.textPrimary
         : WpColorsLight.textPrimary;
     final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final errorColor = isDark ? WpColorsDark.error : WpColorsLight.error;
+    final isTrashed = note.deletedAt != null;
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -49,9 +60,9 @@ class NoteEditorPanel extends StatelessWidget {
       child: Column(
         children: [
           // ── Toolbar row ──
-          // Derived title + copy + close. Future actions dock here —
-          // favourite/trash (Ticket 04), tags (Ticket 05),
-          // export (Ticket 07), voice input (Ticket 08).
+          // Derived title + copy + favourite/trash (or restore/delete-forever
+          // for trashed notes) + close. Future actions dock here — tags
+          // (Ticket 05), export (Ticket 07), voice input (Ticket 08).
           Padding(
             padding: const EdgeInsets.fromLTRB(
               WpSpacing.xl,
@@ -94,6 +105,59 @@ class NoteEditorPanel extends StatelessWidget {
                     color: textMuted,
                   ),
                 ),
+                if (isTrashed) ...[
+                  // Trash view: restore + delete forever instead of the
+                  // favourite/move-to-trash pair (copy stays — it's harmless
+                  // and occasionally useful for salvaging trashed text).
+                  IconButton(
+                    onPressed: onRestore,
+                    tooltip: l10n.notesRestore,
+                    icon: Icon(
+                      LucideIcons.undo2,
+                      size: WpIconSize.md,
+                      color: textMuted,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: onDeleteForever,
+                    tooltip: l10n.notesDeleteForever,
+                    icon: Icon(
+                      LucideIcons.trash2,
+                      size: WpIconSize.md,
+                      color: errorColor,
+                    ),
+                  ),
+                ] else ...[
+                  IconButton(
+                    onPressed: onToggleFavorite,
+                    tooltip: note.pinned
+                        ? l10n.notesUnfavorite
+                        : l10n.notesFavorite,
+                    // Solid amber star when pinned, Lucide outline star
+                    // otherwise — same pinned/unpinned glyph pair as
+                    // history's detail-panel pin action.
+                    icon: note.pinned
+                        ? const FaIcon(
+                            FontAwesomeIcons.solidStar,
+                            size: WpIconSize.sm,
+                            color: WpSharedColors.pinnedAccent,
+                          )
+                        : Icon(
+                            LucideIcons.star,
+                            size: WpIconSize.md,
+                            color: textMuted,
+                          ),
+                  ),
+                  IconButton(
+                    onPressed: onMoveToTrash,
+                    tooltip: l10n.notesMoveToTrash,
+                    icon: Icon(
+                      LucideIcons.trash2,
+                      size: WpIconSize.md,
+                      color: textMuted,
+                    ),
+                  ),
+                ],
                 IconButton(
                   onPressed: onClose,
                   tooltip: l10n.historyClose,

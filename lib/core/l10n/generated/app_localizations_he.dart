@@ -3074,4 +3074,38 @@ class L10nHe extends L10n {
 
   @override
   String get notesCopied => 'הפתק הועתק';
+
+  @override
+  String get notesFavorite => 'סמן כמועדף';
+
+  @override
+  String get notesUnfavorite => 'הסר מהמועדפים';
+
+  @override
+  String get notesMoveToTrash => 'העבר לאשפה';
+
+  @override
+  String get notesMovedToTrash => 'הועבר לאשפה';
+
+  @override
+  String get notesRestore => 'שחזר';
+
+  @override
+  String get notesDeleteForever => 'מחק לצמיתות';
+
+  @override
+  String get notesDeleteForeverConfirm => 'למחוק את הפתק לצמיתות?';
+
+  @override
+  String get notesTrash => 'אשפה';
+
+  @override
+  String get notesTrashEmpty => 'האשפה ריקה';
+
+  @override
+  String get notesTrashEmptyHint =>
+      'פתקים שנמחקו מגיעים לכאן ולא מוסרים אוטומטית.';
+
+  @override
+  String get notesUndo => 'בטל';
 }
