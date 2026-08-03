@@ -1262,7 +1262,7 @@ class L10nHe extends L10n {
 
   @override
   String get automationsDialogHint =>
-      'כאשר ההכתבה כולה תואמת בדיוק לביטוי המפעיל, כתובת ה-URL תיפתח במקום להיות מוכנסת.';
+      'כאשר ההכתבה כולה תואמת בדיוק לביטוי המפעיל, הפעולה תופעל במקום להיות מוכנסת.';
 
   @override
   String get automationsTriggerLabel => 'ביטוי מפעיל';
@@ -1275,6 +1275,29 @@ class L10nHe extends L10n {
 
   @override
   String get automationsUrlHint => 'https:// או shortcuts://';
+
+  @override
+  String get automationsActionTypeLabel => 'פעולה';
+
+  @override
+  String get automationsActionTypeUrl => 'כתובת URL';
+
+  @override
+  String get automationsActionTypeShell => 'פקודת Shell';
+
+  @override
+  String get automationsCommandLabel => 'פקודת Shell';
+
+  @override
+  String get automationsCommandHint => 'לדוגמה: open -a Calculator';
+
+  @override
+  String get automationsCommandHelp =>
+      'מופעלת כפקודת Shell כאשר הביטוי המפעיל תואם. לא פועל במצב S של Windows.';
+
+  @override
+  String get automationsShellMasUnavailable =>
+      'לא זמין בגרסת ה-Mac App Store (App Sandbox).';
 
   @override
   String get automationsDeleteTitle => 'מחק אוטומציה';

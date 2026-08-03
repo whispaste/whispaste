@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../../core/config/build_config.dart';
 import '../../core/data/reloadable_list_notifier.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../services/automation_dispatch_service.dart';
@@ -18,19 +19,27 @@ import 'package:whispaste/core/data/database.dart';
 // Model
 // ---------------------------------------------------------------------------
 
-/// UI-facing "open a URL" automation — the only action type today. Wraps a
-/// DB [Automation] row (`actionType`/`payload`), decoding its payload so the
-/// settings UI never has to know about the JSON encoding.
+/// UI-facing automation: a trigger phrase plus one action — "open a URL" or
+/// "run a shell command" ([AutomationActionType]). Wraps a DB [Automation]
+/// row (`actionType`/`payload`), decoding its payload so the settings UI
+/// never has to know about the JSON encoding. One [actionValue] field holds
+/// the URL *or* the command, discriminated by [actionType] — so "both set at
+/// once" is unrepresentable.
 class AutomationItem {
   const AutomationItem({
     required this.id,
     required this.trigger,
-    required this.url,
+    required this.actionType,
+    required this.actionValue,
   });
 
   final String id;
   final String trigger;
-  final String url;
+  final AutomationActionType actionType;
+
+  /// The URL for [AutomationActionType.openUrl], the command line for
+  /// [AutomationActionType.shellCommand].
+  final String actionValue;
 }
 
 // ---------------------------------------------------------------------------
@@ -48,14 +57,18 @@ class AutomationsNotifier extends AsyncNotifier<List<AutomationItem>>
   @override
   Future<List<AutomationItem>> build() => readAll();
 
-  Future<void> add(String trigger, String url) async {
+  Future<void> add({
+    required String trigger,
+    required AutomationActionType actionType,
+    required String actionValue,
+  }) async {
     final db = ref.read(historyDatabaseProvider);
     final id = DateTime.now().millisecondsSinceEpoch.toString();
     await db.upsertAutomation(
       id: id,
       trigger: trigger,
-      actionType: AutomationActionType.openUrl.dbValue,
-      payload: jsonEncode({'url': url}),
+      actionType: actionType.dbValue,
+      payload: _encodePayload(actionType, actionValue),
       createdAt: DateTime.now(),
     );
     await reload();
@@ -64,14 +77,15 @@ class AutomationsNotifier extends AsyncNotifier<List<AutomationItem>>
   Future<void> updateAutomation(
     String id, {
     required String trigger,
-    required String url,
+    required AutomationActionType actionType,
+    required String actionValue,
   }) async {
     final db = ref.read(historyDatabaseProvider);
     await db.upsertAutomation(
       id: id,
       trigger: trigger,
-      actionType: AutomationActionType.openUrl.dbValue,
-      payload: jsonEncode({'url': url}),
+      actionType: actionType.dbValue,
+      payload: _encodePayload(actionType, actionValue),
       createdAt: DateTime.now(),
     );
     await reload();
@@ -83,13 +97,35 @@ class AutomationsNotifier extends AsyncNotifier<List<AutomationItem>>
     await reload();
   }
 
+  /// Inverse of [decodeOpenUrlPayload]/[decodeShellCommandPayload] — the JSON
+  /// shapes the dispatch service already reads; never invent a third one.
+  static String _encodePayload(AutomationActionType actionType, String value) {
+    return switch (actionType) {
+      AutomationActionType.openUrl => jsonEncode({'url': value}),
+      AutomationActionType.shellCommand => jsonEncode({'command': value}),
+    };
+  }
+
   static AutomationItem _fromDb(Automation row) {
-    // A malformed payload surfaces as an empty URL rather than crashing the
-    // whole list — see [decodeOpenUrlPayload].
+    // Robustness over strictness: an unknown `actionType` (e.g. a row written
+    // by a newer version) falls back to openUrl, and a malformed payload
+    // surfaces as an empty value — either way the list renders instead of
+    // crashing. Dispatch stays safe regardless: it re-reads the raw DB
+    // `actionType` itself.
+    final actionType =
+        AutomationActionType.fromDbValue(row.actionType) ??
+        AutomationActionType.openUrl;
+    final actionValue = switch (actionType) {
+      AutomationActionType.openUrl => decodeOpenUrlPayload(row.payload),
+      AutomationActionType.shellCommand => decodeShellCommandPayload(
+        row.payload,
+      ),
+    };
     return AutomationItem(
       id: row.id,
       trigger: row.trigger,
-      url: decodeOpenUrlPayload(row.payload) ?? '',
+      actionType: actionType,
+      actionValue: actionValue ?? '',
     );
   }
 }
@@ -103,9 +139,9 @@ final automationsProvider =
 // Page
 // ---------------------------------------------------------------------------
 
-/// Automations page — exact-match trigger phrases that open a URL, kept in
-/// a separate settings area from Replacements (dictation-automations
-/// ticket 02).
+/// Automations page — exact-match trigger phrases that run an action (open
+/// a URL or run a shell command), kept in a separate settings area from
+/// Replacements (dictation-automations tickets 02/03).
 class AutomationsPage extends ConsumerStatefulWidget {
   const AutomationsPage({super.key});
 
@@ -129,7 +165,7 @@ class _AutomationsPageState extends ConsumerState<AutomationsPage> {
       asyncAll: ref.watch(automationsProvider),
       searchMatches: (a, q) =>
           a.trigger.toLowerCase().contains(q) ||
-          a.url.toLowerCase().contains(q),
+          a.actionValue.toLowerCase().contains(q),
       searchHint: l10n.automationsSearch,
       addLabel: l10n.automationsAdd,
       onAdd: () => _showAddEditDialog(),
@@ -158,23 +194,32 @@ class _AutomationsPageState extends ConsumerState<AutomationsPage> {
   // shape with SnippetsPage._showAddEditDialog, but the result tuples and
   // notifier update-method names differ per feature. Tried extracting this
   // to an onCreate/onUpdate-callback helper: the result was longer than the
-  // original and replaced the direct `final (trigger, url) = result;`
-  // destructuring with closure indirection — net readability loss, so this
-  // one stays duplicated on purpose (unlike the dialog-scaffold + delete
-  // flow, which extracted cleanly into WpSearchableListPage/
-  // showWpDeleteConfirmDialog).
+  // original and replaced the direct tuple destructuring with closure
+  // indirection — net readability loss, so this one stays duplicated on
+  // purpose (unlike the dialog-scaffold + delete flow, which extracted
+  // cleanly into WpSearchableListPage/showWpDeleteConfirmDialog).
   Future<void> _showAddEditDialog({AutomationItem? existing}) async {
-    final result = await showWpFormDialog<(String, String)>(
-      context: context,
-      builder: (_, a) => _AutomationDialog(existing: existing),
-    );
+    final result =
+        await showWpFormDialog<(String, AutomationActionType, String)>(
+          context: context,
+          builder: (_, a) => _AutomationDialog(existing: existing),
+        );
     if (result == null) return;
-    final (trigger, url) = result;
+    final (trigger, actionType, actionValue) = result;
     final notifier = ref.read(automationsProvider.notifier);
     if (existing != null) {
-      notifier.updateAutomation(existing.id, trigger: trigger, url: url);
+      notifier.updateAutomation(
+        existing.id,
+        trigger: trigger,
+        actionType: actionType,
+        actionValue: actionValue,
+      );
     } else {
-      notifier.add(trigger, url);
+      notifier.add(
+        trigger: trigger,
+        actionType: actionType,
+        actionValue: actionValue,
+      );
       ref
           .read(telemetrySessionAggregatorProvider)
           .count(category: 'automations', action: 'create');
@@ -209,10 +254,15 @@ class _AutomationDialog extends StatefulWidget {
 
 class _AutomationDialogState extends State<_AutomationDialog> {
   late final TextEditingController _triggerCtrl;
-  late final TextEditingController _urlCtrl;
+
+  /// One shared controller for the URL *and* the command field — only one of
+  /// the two is ever visible, and keeping the typed text across a type
+  /// switch is friendlier than silently discarding it.
+  late final TextEditingController _valueCtrl;
+  late AutomationActionType _actionType;
 
   bool get _isValid =>
-      _triggerCtrl.text.trim().isNotEmpty && _urlCtrl.text.trim().isNotEmpty;
+      _triggerCtrl.text.trim().isNotEmpty && _valueCtrl.text.trim().isNotEmpty;
 
   bool get _isEditing => widget.existing != null;
 
@@ -220,19 +270,101 @@ class _AutomationDialogState extends State<_AutomationDialog> {
   void initState() {
     super.initState();
     _triggerCtrl = TextEditingController(text: widget.existing?.trigger ?? '');
-    _urlCtrl = TextEditingController(text: widget.existing?.url ?? '');
+    _valueCtrl = TextEditingController(
+      text: widget.existing?.actionValue ?? '',
+    );
+    // An existing shellCommand automation keeps its type even on the MAS
+    // build (it can arrive via settings import): it stays viewable and
+    // editable, only *selecting* shellCommand afresh is blocked there — and
+    // the dispatch service independently refuses to execute it.
+    _actionType = widget.existing?.actionType ?? AutomationActionType.openUrl;
   }
 
   @override
   void dispose() {
     _triggerCtrl.dispose();
-    _urlCtrl.dispose();
+    _valueCtrl.dispose();
     super.dispose();
   }
 
   void _submit() {
     if (!_isValid) return;
-    Navigator.of(context).pop((_triggerCtrl.text.trim(), _urlCtrl.text.trim()));
+    Navigator.of(
+      context,
+    ).pop((_triggerCtrl.text.trim(), _actionType, _valueCtrl.text.trim()));
+  }
+
+  /// One option of the two-chip action-type selector. There is no established
+  /// segmented-control widget in the repo yet; two selectable chips styled
+  /// from the accent tint tokens keep it consistent with WpTriggerChip's
+  /// visual language while reading unambiguously as an either/or choice.
+  Widget _actionTypeChip({
+    required AutomationActionType type,
+    required String label,
+    required bool isDark,
+    String? disabledReason,
+  }) {
+    final selected = _actionType == type;
+    final disabled = disabledReason != null && !selected;
+    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+
+    Widget chip = Semantics(
+      button: true,
+      selected: selected,
+      enabled: !disabled,
+      label: label,
+      child: MouseRegion(
+        cursor: disabled
+            ? SystemMouseCursors.forbidden
+            : SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: disabled ? null : () => setState(() => _actionType = type),
+          child: AnimatedContainer(
+            duration: WpMotion.durationFor(context, WpMotion.fast),
+            curve: WpMotion.defaultCurve,
+            padding: const EdgeInsets.symmetric(
+              horizontal: WpSpacing.md,
+              vertical: WpSpacing.xs,
+            ),
+            decoration: BoxDecoration(
+              color: selected
+                  ? (isDark
+                        ? WpColorsDark.accentActiveFill
+                        : WpColorsLight.accentActiveFill)
+                  : Colors.transparent,
+              borderRadius: WpRadius.borderSm,
+              border: Border.all(
+                color: selected
+                    ? (isDark
+                          ? WpColorsDark.accentBorder30
+                          : WpColorsLight.accentBorder30)
+                    : (isDark
+                          ? WpColorsDark.borderSubtle
+                          : WpColorsLight.borderSubtle),
+              ),
+            ),
+            child: Text(
+              label,
+              style: TextStyle(
+                color: disabled
+                    ? textMuted.withValues(alpha: 0.45)
+                    : (selected ? accent : textMuted),
+                fontSize: WpTypography.body,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    // The tooltip carries the "why" whenever there is one (MAS sandbox) —
+    // also on an already-selected imported shell automation, where it
+    // explains that the action will not execute on this build.
+    if (disabledReason != null) {
+      chip = Tooltip(message: disabledReason, child: chip);
+    }
+    return chip;
   }
 
   @override
@@ -316,9 +448,42 @@ class _AutomationDialogState extends State<_AutomationDialog> {
               ),
               const SizedBox(height: WpSpacing.md),
 
-              // URL field
+              // Action type selector (URL vs. shell command)
               Text(
-                l10n.automationsUrlLabel,
+                l10n.automationsActionTypeLabel,
+                style: TextStyle(
+                  color: textPrimary,
+                  fontSize: WpTypography.small,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: WpSpacing.xxs),
+              Row(
+                children: [
+                  _actionTypeChip(
+                    type: AutomationActionType.openUrl,
+                    label: l10n.automationsActionTypeUrl,
+                    isDark: isDark,
+                  ),
+                  const SizedBox(width: WpSpacing.xs),
+                  _actionTypeChip(
+                    type: AutomationActionType.shellCommand,
+                    label: l10n.automationsActionTypeShell,
+                    isDark: isDark,
+                    disabledReason: kIsMasBuild
+                        ? l10n.automationsShellMasUnavailable
+                        : null,
+                  ),
+                ],
+              ),
+              const SizedBox(height: WpSpacing.md),
+
+              // URL / shell command field (shared controller, label + hint
+              // follow the selected action type)
+              Text(
+                _actionType == AutomationActionType.shellCommand
+                    ? l10n.automationsCommandLabel
+                    : l10n.automationsUrlLabel,
                 style: TextStyle(
                   color: textPrimary,
                   fontSize: WpTypography.small,
@@ -327,13 +492,15 @@ class _AutomationDialogState extends State<_AutomationDialog> {
               ),
               const SizedBox(height: WpSpacing.xxs),
               TextField(
-                controller: _urlCtrl,
+                controller: _valueCtrl,
                 style: TextStyle(
                   color: textPrimary,
                   fontSize: WpTypography.body,
                 ),
                 decoration: InputDecoration(
-                  hintText: l10n.automationsUrlHint,
+                  hintText: _actionType == AutomationActionType.shellCommand
+                      ? l10n.automationsCommandHint
+                      : l10n.automationsUrlHint,
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: WpSpacing.md,
@@ -343,6 +510,16 @@ class _AutomationDialogState extends State<_AutomationDialog> {
                 onChanged: (_) => setState(() {}),
                 onSubmitted: (_) => _submit(),
               ),
+              if (_actionType == AutomationActionType.shellCommand) ...[
+                const SizedBox(height: WpSpacing.xxs),
+                Text(
+                  l10n.automationsCommandHelp,
+                  style: TextStyle(
+                    color: textMuted,
+                    fontSize: WpTypography.small,
+                  ),
+                ),
+              ],
               const SizedBox(height: WpSpacing.xl),
 
               // Actions
@@ -454,8 +631,14 @@ class _AutomationTileState extends State<_AutomationTile> {
                   isDark: widget.isDark,
                 ),
                 const SizedBox(width: WpSpacing.sm),
+                // arrow-right = "opens this URL", terminal = "runs this
+                // command" — the at-a-glance discriminator between the two
+                // action types in the list.
                 Icon(
-                  LucideIcons.arrowRight,
+                  widget.automation.actionType ==
+                          AutomationActionType.shellCommand
+                      ? LucideIcons.terminal
+                      : LucideIcons.arrowRight,
                   size: WpIconSize.xs,
                   color: widget.isDark
                       ? WpColorsDark.textMuted
@@ -464,7 +647,7 @@ class _AutomationTileState extends State<_AutomationTile> {
                 const SizedBox(width: WpSpacing.sm),
                 Expanded(
                   child: Text(
-                    widget.automation.url,
+                    widget.automation.actionValue,
                     style: TextStyle(
                       color: widget.isDark
                           ? WpColorsDark.textSecondary

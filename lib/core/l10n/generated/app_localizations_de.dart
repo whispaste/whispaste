@@ -1287,7 +1287,7 @@ class L10nDe extends L10n {
 
   @override
   String get automationsDialogHint =>
-      'Entspricht deine gesamte Diktion genau dem Auslöser, wird die URL geöffnet statt eingefügt.';
+      'Entspricht deine gesamte Diktion genau dem Auslöser, wird die Aktion ausgeführt statt eingefügt.';
 
   @override
   String get automationsTriggerLabel => 'Auslöser';
@@ -1300,6 +1300,29 @@ class L10nDe extends L10n {
 
   @override
   String get automationsUrlHint => 'https:// oder shortcuts://';
+
+  @override
+  String get automationsActionTypeLabel => 'Aktion';
+
+  @override
+  String get automationsActionTypeUrl => 'URL';
+
+  @override
+  String get automationsActionTypeShell => 'Shell-Befehl';
+
+  @override
+  String get automationsCommandLabel => 'Shell-Befehl';
+
+  @override
+  String get automationsCommandHint => 'z. B. open -a Calculator';
+
+  @override
+  String get automationsCommandHelp =>
+      'Wird bei Auslöser-Treffer als Shell-Befehl ausgeführt. Funktioniert nicht im Windows-S-Modus.';
+
+  @override
+  String get automationsShellMasUnavailable =>
+      'Auf dem Mac-App-Store-Build nicht verfügbar (App Sandbox).';
 
   @override
   String get automationsDeleteTitle => 'Automation löschen';

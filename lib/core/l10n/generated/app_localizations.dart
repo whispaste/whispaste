@@ -2352,7 +2352,7 @@ abstract class L10n {
   /// No description provided for @automationsDialogHint.
   ///
   /// In en, this message translates to:
-  /// **'When your entire dictation exactly matches the trigger phrase, the URL opens instead of being inserted.'**
+  /// **'When your entire dictation exactly matches the trigger phrase, the action runs instead of being inserted.'**
   String get automationsDialogHint;
 
   /// No description provided for @automationsTriggerLabel.
@@ -2378,6 +2378,48 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'https:// or shortcuts://'**
   String get automationsUrlHint;
+
+  /// No description provided for @automationsActionTypeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Action'**
+  String get automationsActionTypeLabel;
+
+  /// No description provided for @automationsActionTypeUrl.
+  ///
+  /// In en, this message translates to:
+  /// **'URL'**
+  String get automationsActionTypeUrl;
+
+  /// No description provided for @automationsActionTypeShell.
+  ///
+  /// In en, this message translates to:
+  /// **'Shell command'**
+  String get automationsActionTypeShell;
+
+  /// No description provided for @automationsCommandLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Shell command'**
+  String get automationsCommandLabel;
+
+  /// No description provided for @automationsCommandHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. open -a Calculator'**
+  String get automationsCommandHint;
+
+  /// No description provided for @automationsCommandHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Runs as a shell command when the trigger matches. Does not work in Windows S mode.'**
+  String get automationsCommandHelp;
+
+  /// No description provided for @automationsShellMasUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Not available on the Mac App Store build (App Sandbox).'**
+  String get automationsShellMasUnavailable;
 
   /// No description provided for @automationsDeleteTitle.
   ///

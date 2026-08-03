@@ -1274,7 +1274,7 @@ class L10nEn extends L10n {
 
   @override
   String get automationsDialogHint =>
-      'When your entire dictation exactly matches the trigger phrase, the URL opens instead of being inserted.';
+      'When your entire dictation exactly matches the trigger phrase, the action runs instead of being inserted.';
 
   @override
   String get automationsTriggerLabel => 'Trigger phrase';
@@ -1287,6 +1287,29 @@ class L10nEn extends L10n {
 
   @override
   String get automationsUrlHint => 'https:// or shortcuts://';
+
+  @override
+  String get automationsActionTypeLabel => 'Action';
+
+  @override
+  String get automationsActionTypeUrl => 'URL';
+
+  @override
+  String get automationsActionTypeShell => 'Shell command';
+
+  @override
+  String get automationsCommandLabel => 'Shell command';
+
+  @override
+  String get automationsCommandHint => 'e.g. open -a Calculator';
+
+  @override
+  String get automationsCommandHelp =>
+      'Runs as a shell command when the trigger matches. Does not work in Windows S mode.';
+
+  @override
+  String get automationsShellMasUnavailable =>
+      'Not available on the Mac App Store build (App Sandbox).';
 
   @override
   String get automationsDeleteTitle => 'Delete Automation';
