@@ -63,6 +63,7 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
   late int _wordCount = _computeWordCount(widget.entry);
   late List<String> _entryTags = _computeEntryTags(widget.entry);
   late IconData _avatarIcon = historyAvatarIcon(widget.entry);
+  late Color _avatarCol = historyAvatarColor(widget.entry);
 
   static int _computeWordCount(HistoryEntry entry) {
     return computeWordCountFast(entry.content);
@@ -85,6 +86,7 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
       _wordCount = _computeWordCount(widget.entry);
       _entryTags = _computeEntryTags(widget.entry);
       _avatarIcon = historyAvatarIcon(widget.entry);
+      _avatarCol = historyAvatarColor(widget.entry);
     }
   }
 
@@ -105,7 +107,6 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
   @override
   Widget build(BuildContext context) {
     final isDark = widget.isDark;
-    final avatarCol = historyAvatarColor(widget.entry, isDark);
 
     // Row background
     final Color bg;
@@ -235,7 +236,7 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
                   ),
                 // Avatar — colored circle with content-type icon
                 HistoryEntryAvatar(
-                  color: avatarCol,
+                      color: _avatarCol,
                   icon: _avatarIcon,
                   isPinned: widget.entry.pinned,
                   isDark: isDark,

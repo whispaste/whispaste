@@ -1,0 +1,3 @@
+## 2024-08-03 - Memoize missing expensive calculation in history rows
+**Learning:** `HistoryEntryRow` and `HistoryEntryCard` correctly memoized word count and avatar icon to prevent recalculation on every hover `setState`, but they forgot to memoize `historyAvatarColor` which does an expensive string `codeUnits.fold` iteration! Also, `historyAvatarColor` accepted an unused `isDark` parameter.
+**Action:** When auditing `setState` triggered by frequent interactions like hover, ensure *all* derived state that depends only on static widget properties is memoized, not just the complex JSON parsing ones. String iteration (folding over `codeUnits`) adds up when triggered multiple times a second during fast scrolling/hovering.
