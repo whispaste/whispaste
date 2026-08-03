@@ -10,7 +10,7 @@ import '../../services/telemetry_service.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/dialog.dart';
-import '../../widgets/managed_list_page.dart';
+import '../../widgets/searchable_list_page.dart';
 import '../../widgets/trigger_chip.dart';
 import 'package:whispaste/core/data/database.dart';
 
@@ -115,17 +115,17 @@ class AutomationsPage extends ConsumerStatefulWidget {
 
 class _AutomationsPageState extends ConsumerState<AutomationsPage> {
   @override
-  // Deliberately not further extracted: WpManagedListPage call-site parameter
+  // Deliberately not further extracted: WpSearchableListPage call-site parameter
   // skeleton shared with SnippetsPage: every value is feature-specific
   // (l10n keys, icon, callbacks), only the parameter *names* repeat. A
   // further-generic factory (e.g. keyed by notifier + string-map) was
   // evaluated and rejected as the exact "Data Clumps"-in-reverse trade the
-  // WpManagedListPage extraction already made — this is its irreducible
+  // WpSearchableListPage extraction already made — this is its irreducible
   // residue, not unextracted duplication.
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
 
-    return WpManagedListPage<AutomationItem>(
+    return WpSearchableListPage<AutomationItem>(
       asyncAll: ref.watch(automationsProvider),
       searchMatches: (a, q) =>
           a.trigger.toLowerCase().contains(q) ||
@@ -161,8 +161,8 @@ class _AutomationsPageState extends ConsumerState<AutomationsPage> {
   // original and replaced the direct `final (trigger, url) = result;`
   // destructuring with closure indirection — net readability loss, so this
   // one stays duplicated on purpose (unlike the dialog-scaffold + delete
-  // flow, which extracted cleanly into WpManagedListPage/
-  // confirmWpManagedDelete).
+  // flow, which extracted cleanly into WpSearchableListPage/
+  // showWpDeleteConfirmDialog).
   Future<void> _showAddEditDialog({AutomationItem? existing}) async {
     final result = await showWpFormDialog<(String, String)>(
       context: context,
@@ -185,7 +185,7 @@ class _AutomationsPageState extends ConsumerState<AutomationsPage> {
 
   Future<void> _confirmDelete(AutomationItem a) {
     final l10n = L10n.of(context);
-    return confirmWpManagedDelete(
+    return showWpDeleteConfirmDialog(
       context: context,
       title: l10n.automationsDeleteTitle,
       message: l10n.automationsDeleteMessage(a.trigger),

@@ -247,14 +247,16 @@ void main() {
     final restored = await service.importFromFile('/roundtrip-snippets.json');
 
     expect(restored.snippets, hasLength(2));
-    expect(restored.snippets[0].title, 'Signature');
-    expect(restored.snippets[0].body, 'Best,\nSilvio');
-    expect(restored.snippets[1].title, 'Greeting');
-    expect(restored.snippets[1].body, 'Hi there');
+    expect(restored.snippets![0].title, 'Signature');
+    expect(restored.snippets![0].body, 'Best,\nSilvio');
+    expect(restored.snippets![1].title, 'Greeting');
+    expect(restored.snippets![1].body, 'Hi there');
   });
 
-  test('importFromFile reads a currently-published export without a "snippets" '
-      'section without throwing, restoring an empty snippets list', () async {
+  test('importFromFile reads a currently-published export without a '
+      '"snippets" section without throwing, decoding it as null (absent) '
+      'rather than an empty list — so callers can leave existing snippets '
+      'untouched instead of clearing them', () async {
     await fs
         .file('/pre-snippets.json')
         .writeAsString(
@@ -268,6 +270,28 @@ void main() {
 
     final restored = await service.importFromFile('/pre-snippets.json');
 
+    expect(restored.snippets, isNull);
+  });
+
+  test('importFromFile reads an export with an explicit empty "snippets" '
+      'section as an empty (non-null) list — distinct from an absent '
+      'section, so callers clear existing snippets when the user genuinely '
+      'has none', () async {
+    await fs
+        .file('/empty-snippets.json')
+        .writeAsString(
+          jsonEncode({
+            'format_version': 1,
+            'custom_vocabulary': 'x',
+            'hotkey': const HotkeySettings().toMap(),
+            'replacements': <Object?>[],
+            'snippets': <Object?>[],
+          }),
+        );
+
+    final restored = await service.importFromFile('/empty-snippets.json');
+
+    expect(restored.snippets, isNotNull);
     expect(restored.snippets, isEmpty);
   });
 }

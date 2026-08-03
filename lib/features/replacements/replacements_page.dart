@@ -8,7 +8,7 @@ import '../../services/telemetry_service.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/dialog.dart';
-import '../../widgets/managed_list_page.dart';
+import '../../widgets/searchable_list_page.dart';
 import '../../widgets/trigger_chip.dart';
 import 'package:whispaste/core/data/database.dart';
 
@@ -163,7 +163,7 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
     final settings = ref.watch(settingsProvider).value;
     final enabled = settings?.textReplacementsEnabled ?? true;
 
-    return WpManagedListPage<Replacement>(
+    return WpSearchableListPage<Replacement>(
       asyncAll: ref.watch(replacementsProvider),
       searchMatches: (r, q) =>
           r.triggers.any((t) => t.toLowerCase().contains(q)) ||
@@ -246,7 +246,7 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
 
   Future<void> _confirmDelete(Replacement r) {
     final l10n = L10n.of(context);
-    return confirmWpManagedDelete(
+    return showWpDeleteConfirmDialog(
       context: context,
       title: l10n.replacementsDeleteTitle,
       message: l10n.replacementsDeleteMessage(r.triggers.join(', ')),

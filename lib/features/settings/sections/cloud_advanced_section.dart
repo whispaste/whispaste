@@ -361,7 +361,12 @@ class _SettingsPortabilityRow extends StatelessWidget {
         await ref
             .read(replacementsProvider.notifier)
             .replaceAll(bundle.replacements);
-        await ref.read(snippetsProvider.notifier).replaceAll(bundle.snippets);
+        // `bundle.snippets` is `null` when the import file predates the
+        // Snippets feature (no "snippets" key) — leave the user's existing
+        // snippets untouched rather than silently clearing them.
+        if (bundle.snippets case final snippets?) {
+          await ref.read(snippetsProvider.notifier).replaceAll(snippets);
+        }
       },
     );
   }

@@ -25,22 +25,26 @@ import '../features/snippets/snippets_page.dart' show SnippetItem;
 
 /// The portable settings areas bundled into a single export file.
 ///
-/// [snippets] is deliberately optional (defaults to empty) and decoded
-/// tolerantly — unlike [hotkey]/[replacements] it must not become a required
-/// section, so an export file produced by a version of the app that predates
-/// the Snippets feature still imports without exception.
+/// [snippets] is deliberately nullable — unlike [hotkey]/[replacements] it
+/// must not become a required section, so an export file produced by a
+/// version of the app that predates the Snippets feature still imports
+/// without exception. `null` means "section absent from the file" (leave the
+/// user's existing snippets untouched on import); an empty list means
+/// "section present, user genuinely has zero snippets" (clear them on
+/// import). Collapsing those two into one empty-list default would silently
+/// delete snippets on every import of an older export.
 class SettingsExportBundle {
   const SettingsExportBundle({
     required this.customVocabulary,
     required this.hotkey,
     required this.replacements,
-    this.snippets = const [],
+    this.snippets,
   });
 
   final String customVocabulary;
   final HotkeySettings hotkey;
   final List<Replacement> replacements;
-  final List<SnippetItem> snippets;
+  final List<SnippetItem>? snippets;
 }
 
 /// Thrown by [SettingsPortabilityService.decode] / `importFromFile` when the
@@ -95,9 +99,10 @@ class SettingsPortabilityService {
         for (final r in bundle.replacements)
           {'triggers': r.triggers, 'replacement': r.replacement},
       ],
-      'snippets': [
-        for (final s in bundle.snippets) {'title': s.title, 'body': s.body},
-      ],
+      if (bundle.snippets case final snippets?)
+        'snippets': [
+          for (final s in snippets) {'title': s.title, 'body': s.body},
+        ],
     });
   }
 
@@ -133,7 +138,12 @@ class SettingsPortabilityService {
 
     // Unlike "hotkey"/"replacements", "snippets" is an optional section: a
     // currently-published export (predating this feature) has no such key
-    // at all, and that must decode to an empty list rather than throw.
+    // at all, and that must decode to `null` (not `[]`) so the caller can
+    // tell "section absent" apart from "section present, empty" and skip
+    // overwriting the user's existing snippets. `raw['snippets']` already
+    // reads as `null` for a missing key, so the `is List` check below
+    // collapses both "absent" and "malformed" into `null` and only a real
+    // JSON list (including `[]`) decodes to a list.
     final snippetsRaw = raw['snippets'];
 
     return SettingsExportBundle(
@@ -152,20 +162,21 @@ class SettingsPortabilityService {
                 replacement: '${entry['replacement'] ?? ''}',
               ),
       ],
-      snippets: [
-        if (snippetsRaw is List)
-          for (final entry in snippetsRaw)
-            if (entry is Map)
-              if ('${entry['title'] ?? ''}' case final title
-                  when title.isNotEmpty)
-                SnippetItem(
-                  // IDs are DB-assigned on import — see the replacements
-                  // case above for the same rationale.
-                  id: '',
-                  title: title,
-                  body: '${entry['body'] ?? ''}',
-                ),
-      ],
+      snippets: snippetsRaw is List
+          ? [
+              for (final entry in snippetsRaw)
+                if (entry is Map)
+                  if ('${entry['title'] ?? ''}' case final title
+                      when title.isNotEmpty)
+                    SnippetItem(
+                      // IDs are DB-assigned on import — see the replacements
+                      // case above for the same rationale.
+                      id: '',
+                      title: title,
+                      body: '${entry['body'] ?? ''}',
+                    ),
+            ]
+          : null,
     );
   }
 

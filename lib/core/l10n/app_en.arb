@@ -307,7 +307,7 @@
     }
   },
   "settingsPortabilityImportConfirmTitle": "Import Settings?",
-  "settingsPortabilityImportConfirmMessage": "This replaces your current custom vocabulary, voice shortcuts, and hotkey configuration with the contents of {path}.",
+  "settingsPortabilityImportConfirmMessage": "This replaces your current custom vocabulary, voice shortcuts, hotkey configuration, and snippets (if included in the file) with the contents of {path}.",
   "@settingsPortabilityImportConfirmMessage": {
     "placeholders": {
       "path": { "type": "String" }

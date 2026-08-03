@@ -171,9 +171,9 @@ class Automations extends Table {
 
 /// User-defined text snippets (dictation-automations ticket 05) — named,
 /// multi-line reusable text blocks, deliberately a separate table/data type
-/// from [TextReplacements] (no trigger phrase, no auto-fire-during-dictation
-/// behaviour; snippets are inserted on explicit user action via a picker,
-/// tickets 06/07/08).
+/// from [TextReplacements] (no trigger phrase, no auto-fire during a
+/// recording cycle; snippets are inserted on explicit user action via a
+/// picker, tickets 06/07/08).
 @DataClassName('Snippet')
 class Snippets extends Table {
   TextColumn get id => text()();

@@ -7,7 +7,7 @@ import '../../services/telemetry_service.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/dialog.dart';
-import '../../widgets/managed_list_page.dart';
+import '../../widgets/searchable_list_page.dart';
 import 'package:whispaste/core/data/database.dart';
 
 // ---------------------------------------------------------------------------
@@ -128,17 +128,17 @@ class SnippetsPage extends ConsumerStatefulWidget {
 
 class _SnippetsPageState extends ConsumerState<SnippetsPage> {
   @override
-  // Deliberately not further extracted: WpManagedListPage call-site parameter
+  // Deliberately not further extracted: WpSearchableListPage call-site parameter
   // skeleton shared with AutomationsPage: every value is feature-specific
   // (l10n keys, icon, callbacks), only the parameter *names* repeat. A
   // further-generic factory (e.g. keyed by notifier + string-map) was
   // evaluated and rejected as the exact "Data Clumps"-in-reverse trade the
-  // WpManagedListPage extraction already made — this is its irreducible
+  // WpSearchableListPage extraction already made — this is its irreducible
   // residue, not unextracted duplication.
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
 
-    return WpManagedListPage<SnippetItem>(
+    return WpSearchableListPage<SnippetItem>(
       asyncAll: ref.watch(snippetsProvider),
       searchMatches: (s, q) =>
           s.title.toLowerCase().contains(q) || s.body.toLowerCase().contains(q),
@@ -173,8 +173,8 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage> {
   // original and replaced the direct `final (title, body) = result;`
   // destructuring with closure indirection — net readability loss, so this
   // one stays duplicated on purpose (unlike the dialog-scaffold + delete
-  // flow, which extracted cleanly into WpManagedListPage/
-  // confirmWpManagedDelete).
+  // flow, which extracted cleanly into WpSearchableListPage/
+  // showWpDeleteConfirmDialog).
   Future<void> _showAddEditDialog({SnippetItem? existing}) async {
     final result = await showWpFormDialog<(String, String)>(
       context: context,
@@ -197,7 +197,7 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage> {
 
   Future<void> _confirmDelete(SnippetItem s) {
     final l10n = L10n.of(context);
-    return confirmWpManagedDelete(
+    return showWpDeleteConfirmDialog(
       context: context,
       title: l10n.snippetsDeleteTitle,
       message: l10n.snippetsDeleteMessage(s.title),

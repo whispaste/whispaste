@@ -275,7 +275,7 @@
   "settingsPortabilityExportSuccess": "Einstellungen exportiert nach {path}",
   "settingsPortabilityExportError": "Export fehlgeschlagen: {reason}",
   "settingsPortabilityImportConfirmTitle": "Einstellungen importieren?",
-  "settingsPortabilityImportConfirmMessage": "Dies ersetzt dein aktuelles Vokabular, deine Sprachkürzel und deine Hotkey-Konfiguration durch den Inhalt von {path}.",
+  "settingsPortabilityImportConfirmMessage": "Dies ersetzt dein aktuelles Vokabular, deine Sprachkürzel, deine Hotkey-Konfiguration und – falls in der Datei enthalten – deine Snippets durch den Inhalt von {path}.",
   "settingsPortabilityImportSuccess": "Einstellungen importiert aus {path}",
   "settingsPortabilityImportNotFound": "Keine Exportdatei unter {path} gefunden. Zuerst Einstellungen exportieren oder eine Exportdatei dorthin kopieren.",
   "settingsPortabilityImportError": "Import fehlgeschlagen: {reason}",

@@ -9,15 +9,15 @@ import 'dialog.dart';
 import 'empty_state.dart';
 import 'page_shell.dart';
 
-/// Shared scaffold for the "managed list" settings features (Replacements,
+/// Shared scaffold for the searchable-list settings features (Replacements,
 /// Automations, Snippets): a toolbar with search field and Add button above
 /// a searchable list, with loading / error / empty / no-matches states.
 ///
 /// Purely visual — data loading, dialogs, and deletion stay with the owning
 /// page and are injected via callbacks. Rendering is pixel-identical to the
 /// per-feature pages this was extracted from.
-class WpManagedListPage<T> extends StatefulWidget {
-  const WpManagedListPage({
+class WpSearchableListPage<T> extends StatefulWidget {
+  const WpSearchableListPage({
     super.key,
     required this.asyncAll,
     required this.searchMatches,
@@ -79,10 +79,11 @@ class WpManagedListPage<T> extends StatefulWidget {
   final Widget Function(BuildContext context, Widget child)? contentWrapper;
 
   @override
-  State<WpManagedListPage<T>> createState() => _WpManagedListPageState<T>();
+  State<WpSearchableListPage<T>> createState() =>
+      _WpSearchableListPageState<T>();
 }
 
-class _WpManagedListPageState<T> extends State<WpManagedListPage<T>> {
+class _WpSearchableListPageState<T> extends State<WpSearchableListPage<T>> {
   final _searchController = TextEditingController();
   String _searchQuery = '';
 
@@ -197,10 +198,10 @@ class _WpManagedListPageState<T> extends State<WpManagedListPage<T>> {
   }
 }
 
-/// Shared delete-confirmation flow of the managed-list features: shows the
+/// Shared delete-confirmation flow of the searchable-list features: shows the
 /// standard destructive [showWpConfirmDialog] (Delete / Cancel labels) and
 /// runs [onConfirm] only when the user confirmed.
-Future<void> confirmWpManagedDelete({
+Future<void> showWpDeleteConfirmDialog({
   required BuildContext context,
   required String title,
   required String message,

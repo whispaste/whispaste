@@ -109,9 +109,10 @@ class WhisPasteApp extends ConsumerWidget {
 /// Ordered in two deliberate groups (separated in the sidebar via
 /// [wpNavDividerAfterIds]):
 ///
-/// 1. **Dictation tools** — History (the record of what you dictated), then
-///    the trigger-phrase family in ascending power: Replacements (transform
-///    text), Snippets (insert stored text), Automations (run an action).
+/// 1. **Recording-cycle tools** — History (the record of past recording
+///    cycles), then the trigger-phrase family in ascending power:
+///    Replacements (transform text), Snippets (insert stored text),
+///    Automations (run an action).
 /// 2. **Product/meta** — Analytics, Feedback, About (canonical last entry).
 List<WpNavItem> wpNavItems(L10n l10n) => [
   WpNavItem(id: 'history', icon: LucideIcons.clock3, label: l10n.navHistory),
@@ -143,7 +144,7 @@ List<WpNavItem> wpNavItems(L10n l10n) => [
   WpNavItem(id: 'about', icon: LucideIcons.info, label: l10n.navAbout),
 ];
 
-/// Group break between the dictation tools and the product/meta nav items —
+/// Group break between the recording-cycle tools and the product/meta nav items —
 /// single source of truth for every [WpSidebar] call site (app shell,
 /// screenshot shells), so grouping stays consistent everywhere.
 const Set<String> wpNavDividerAfterIds = {'automations'};
