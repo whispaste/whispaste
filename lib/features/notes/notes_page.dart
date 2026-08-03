@@ -108,6 +108,11 @@ class _NotesPageState extends ConsumerState<NotesPage> {
       _autosave.dispose();
     }());
     _editorController.dispose();
+    // Removed before dispose(): FocusNode.dispose() synchronously unfocuses
+    // (and thus notifies listeners) as part of teardown — without this, the
+    // blur listener would fire mid-teardown and flush against an _autosave
+    // that the chain above is concurrently disposing.
+    _editorFocusNode.removeListener(_onEditorFocusChanged);
     _editorFocusNode.dispose();
     _searchController.dispose();
     _searchFocusNode.dispose();

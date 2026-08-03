@@ -1496,7 +1496,12 @@ class HistoryDatabase extends _$HistoryDatabase {
             .where((t) => (counts[t.id] ?? 0) > 0)
             .map((t) => (t, counts[t.id]!))
             .toList()
-          ..sort((a, b) => b.$2.compareTo(a.$2));
+          ..sort((a, b) {
+            final byCount = b.$2.compareTo(a.$2);
+            // List.sort isn't stable — tags with equal counts (commonly 1)
+            // need an explicit tie-break for a deterministic order.
+            return byCount != 0 ? byCount : a.$1.name.compareTo(b.$1.name);
+          });
     return used.take(limit).toList();
   }
 
