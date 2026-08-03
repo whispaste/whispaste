@@ -201,6 +201,21 @@ else
   echo "⚠ gitleaks nicht installiert — Secret-Scan übersprungen. Empfohlen: brew install gitleaks" >&2
 fi
 
+# ── 3c. macOS MAS-Plugin-Registrant-Guard (Self-Heal) ──────────────────
+# GeneratedPluginRegistrant.swift wird von `flutter pub get`/`flutter build`
+# bei jedem Lauf neu generiert und verliert dabei stillschweigend den
+# #if !MAS_BUILD-Guard um AutoUpdaterMacosPlugin.register(...) (siehe
+# macos/guard_mas_plugin_registrant.sh — der Guard ist load-bearing, kein
+# kosmetisches Detail; ein MAS-Build ohne ihn crasht beim Start). Hier vor
+# dem Commit erneut anwenden, damit nie versehentlich eine ungeguardete
+# Version committet wird, nur weil zwischen Edit und `git add` ein
+# Flutter-Kommando lief.
+REGISTRANT_STAGED=$(echo "$STAGED_FILES" | grep -F "macos/Flutter/GeneratedPluginRegistrant.swift" || true)
+if [ -n "$REGISTRANT_STAGED" ] && command -v python3 >/dev/null 2>&1; then
+  python3 "$ROOT/macos/patch_plugin_registrant_guard.py" "$ROOT/macos/Flutter/GeneratedPluginRegistrant.swift"
+  git add "$ROOT/macos/Flutter/GeneratedPluginRegistrant.swift"
+fi
+
 # ── 4. Flutter analyze (nur wenn Dart/Flutter-Dateien gestaged sind) ──
 DART_STAGED=$(echo "$STAGED_FILES" | grep -E '\.dart$|^pubspec\.yaml$' || true)
 if [ -n "$DART_STAGED" ]; then
