@@ -5570,6 +5570,18 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Notes list'**
   String get notesListSemantics;
+
+  /// No description provided for @notesCopy.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy note'**
+  String get notesCopy;
+
+  /// No description provided for @notesCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Note copied'**
+  String get notesCopied;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

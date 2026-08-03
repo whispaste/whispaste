@@ -1047,5 +1047,7 @@
   "notesEmptyHint": "Leg eine Notiz an, um Text von überall zu sammeln.",
   "notesUntitled": "Notiz ohne Titel",
   "notesEditorPlaceholder": "Leg los…",
-  "notesListSemantics": "Notizenliste"
+  "notesListSemantics": "Notizenliste",
+  "notesCopy": "Notiz kopieren",
+  "notesCopied": "Notiz kopiert"
 }

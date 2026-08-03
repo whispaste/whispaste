@@ -3068,4 +3068,10 @@ class L10nHe extends L10n {
 
   @override
   String get notesListSemantics => 'רשימת פתקים';
+
+  @override
+  String get notesCopy => 'העתק פתק';
+
+  @override
+  String get notesCopied => 'הפתק הועתק';
 }

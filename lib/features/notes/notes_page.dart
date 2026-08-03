@@ -86,10 +86,17 @@ class _NotesPageState extends ConsumerState<NotesPage> {
   }
 
   /// Replaces the editor text without triggering an autosave schedule.
+  ///
+  /// Normalizes Windows line endings (`\r\n` → `\n`) before writing — the
+  /// plain-text-paste guarantee (US18). TextField already strips rich text,
+  /// so CRLF normalization is the only active measure needed.
   void _setEditorText(String text) {
     _syncingEditor = true;
-    _editorController.text = text;
-    _editorController.selection = TextSelection.collapsed(offset: text.length);
+    final normalized = text.replaceAll('\r\n', '\n');
+    _editorController.text = normalized;
+    _editorController.selection = TextSelection.collapsed(
+      offset: normalized.length,
+    );
     _syncingEditor = false;
   }
 

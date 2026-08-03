@@ -1180,5 +1180,7 @@
   "notesEmptyHint": "Create a note to start collecting text from anywhere.",
   "notesUntitled": "Untitled note",
   "notesEditorPlaceholder": "Start typing…",
-  "notesListSemantics": "Notes list"
+  "notesListSemantics": "Notes list",
+  "notesCopy": "Copy note",
+  "notesCopied": "Note copied"
 }

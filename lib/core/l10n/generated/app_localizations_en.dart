@@ -3119,4 +3119,10 @@ class L10nEn extends L10n {
 
   @override
   String get notesListSemantics => 'Notes list';
+
+  @override
+  String get notesCopy => 'Copy note';
+
+  @override
+  String get notesCopied => 'Note copied';
 }

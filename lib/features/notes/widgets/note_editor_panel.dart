@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/data/database.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../widgets/toast.dart';
 import '../data/note_title.dart';
 
 // ---------------------------------------------------------------------------
@@ -47,9 +49,9 @@ class NoteEditorPanel extends StatelessWidget {
       child: Column(
         children: [
           // ── Toolbar row ──
-          // Placeholder for now: derived title + close only. Future actions
-          // dock here — copy (Ticket 03), favourite/trash (Ticket 04),
-          // tags (Ticket 05), export (Ticket 07), voice input (Ticket 08).
+          // Derived title + copy + close. Future actions dock here —
+          // favourite/trash (Ticket 04), tags (Ticket 05),
+          // export (Ticket 07), voice input (Ticket 08).
           Padding(
             padding: const EdgeInsets.fromLTRB(
               WpSpacing.xl,
@@ -72,6 +74,26 @@ class NoteEditorPanel extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: WpSpacing.xs),
+                IconButton(
+                  onPressed: () {
+                    // Deliberately no telemetry here: note contents are on
+                    // the telemetry negative list (CONTEXT.md) — unlike the
+                    // history copy action, this stays event-free.
+                    Clipboard.setData(ClipboardData(text: controller.text));
+                    WpToast.show(
+                      context,
+                      message: l10n.notesCopied,
+                      type: WpToastType.success,
+                      duration: const Duration(seconds: 2),
+                    );
+                  },
+                  tooltip: l10n.notesCopy,
+                  icon: Icon(
+                    LucideIcons.copy,
+                    size: WpIconSize.md,
+                    color: textMuted,
+                  ),
+                ),
                 IconButton(
                   onPressed: onClose,
                   tooltip: l10n.historyClose,

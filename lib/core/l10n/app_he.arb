@@ -1046,5 +1046,7 @@
   "notesEmptyHint": "צור פתק כדי להתחיל לאסוף טקסט מכל מקום.",
   "notesUntitled": "פתק ללא כותרת",
   "notesEditorPlaceholder": "התחל להקליד…",
-  "notesListSemantics": "רשימת פתקים"
+  "notesListSemantics": "רשימת פתקים",
+  "notesCopy": "העתק פתק",
+  "notesCopied": "הפתק הועתק"
 }

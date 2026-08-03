@@ -3148,4 +3148,10 @@ class L10nDe extends L10n {
 
   @override
   String get notesListSemantics => 'Notizenliste';
+
+  @override
+  String get notesCopy => 'Notiz kopieren';
+
+  @override
+  String get notesCopied => 'Notiz kopiert';
 }
