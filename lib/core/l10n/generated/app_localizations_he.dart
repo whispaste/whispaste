@@ -21,9 +21,6 @@ class L10nHe extends L10n {
   String get navReplacements => 'החלפות';
 
   @override
-  String get navAutomations => 'אוטומציות';
-
-  @override
   String get navSnippets => 'קטעים';
 
   @override
@@ -1230,107 +1227,6 @@ class L10nHe extends L10n {
   @override
   String replacementsDeleteMessage(String trigger) {
     return 'להסיר את הקיצור \"$trigger\"? אין דרך לבטל.';
-  }
-
-  @override
-  String get automationsSearch => 'חפש אוטומציות…';
-
-  @override
-  String get automationsAdd => 'הוסף';
-
-  @override
-  String get automationsEmpty => 'עדיין אין אוטומציות';
-
-  @override
-  String get automationsEmptyHint =>
-      'הוסף אוטומציה כדי לפתוח כתובת URL כאשר ההכתבה שלך תואמת בדיוק לביטוי המפעיל.\nדוגמה: \"פתח טיימר\" → כתובת Shortcuts';
-
-  @override
-  String get automationsNoMatches => 'אין התאמות';
-
-  @override
-  String get automationsNoMatchesHint => 'נסה מונח חיפוש אחר.';
-
-  @override
-  String get automationsAddAutomation => 'הוסף אוטומציה';
-
-  @override
-  String get automationsEditAutomation => 'ערוך אוטומציה';
-
-  @override
-  String get automationsNewAutomation => 'אוטומציה חדשה';
-
-  @override
-  String get automationsDialogHint =>
-      'כאשר ההכתבה כולה תואמת בדיוק לביטוי המפעיל, הפעולה תופעל במקום להיות מוכנסת.';
-
-  @override
-  String get automationsTriggerLabel => 'ביטוי מפעיל';
-
-  @override
-  String get automationsTriggerHint => 'לדוגמה: פתח טיימר';
-
-  @override
-  String get automationsUrlLabel => 'כתובת URL';
-
-  @override
-  String get automationsUrlHint => 'https:// או shortcuts://';
-
-  @override
-  String get automationsActionTypeLabel => 'פעולה';
-
-  @override
-  String get automationsActionTypeUrl => 'כתובת URL';
-
-  @override
-  String get automationsActionTypeShell => 'פקודת Shell';
-
-  @override
-  String get automationsCommandLabel => 'פקודת Shell';
-
-  @override
-  String get automationsCommandHint => 'לדוגמה: open -a Calculator';
-
-  @override
-  String get automationsCommandHelp =>
-      'מופעלת כפקודת Shell כאשר הביטוי המפעיל תואם. לא פועל במצב S של Windows.';
-
-  @override
-  String get automationsShellMasUnavailable =>
-      'לא זמין בגרסת ה-Mac App Store (App Sandbox).';
-
-  @override
-  String get automationsActionTypeScript => 'סקריפט';
-
-  @override
-  String get automationsScriptMasOnly => 'זמין רק בגרסת ה-Mac App Store.';
-
-  @override
-  String get automationsScriptLabel => 'סקריפט';
-
-  @override
-  String get automationsScriptPickerHint => 'בחירת סקריפט…';
-
-  @override
-  String get automationsScriptRevealFolder => 'פתיחת תיקיית הסקריפטים ב-Finder';
-
-  @override
-  String get automationsScriptRefresh => 'רענון רשימת הסקריפטים';
-
-  @override
-  String get automationsScriptEmpty =>
-      'לא נמצאו סקריפטים עדיין. יש להניח סקריפט בתיקיית הסקריפטים ולרענן.';
-
-  @override
-  String get automationsScriptHelp =>
-      'מפעיל את הסקריפט שנבחר מתיקיית הסקריפטים של האפליקציה כאשר הביטוי המפעיל תואם.';
-
-  @override
-  String get automationsDeleteTitle => 'מחק אוטומציה';
-
-  @override
-  String automationsDeleteMessage(String trigger) {
-    return 'להסיר את האוטומציה \"$trigger\"? אין דרך לבטל.';
   }
 
   @override

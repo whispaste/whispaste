@@ -10,8 +10,8 @@ import 'empty_state.dart';
 import 'page_shell.dart';
 
 /// Shared scaffold for the searchable-list settings features (Replacements,
-/// Automations, Snippets): a toolbar with search field and Add button above
-/// a searchable list, with loading / error / empty / no-matches states.
+/// Snippets): a toolbar with search field and Add button above a searchable
+/// list, with loading / error / empty / no-matches states.
 ///
 /// Purely visual — data loading, dialogs, and deletion stay with the owning
 /// page and are injected via callbacks. Rendering is pixel-identical to the

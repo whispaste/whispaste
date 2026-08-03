@@ -4,7 +4,6 @@
   "navHistory": "היסטוריה",
   "navSettings": "הגדרות",
   "navReplacements": "החלפות",
-  "navAutomations": "אוטומציות",
   "navSnippets": "קטעים",
   "navAnalytics": "ניתוח נתונים",
   "navAbout": "אודות",
@@ -416,43 +415,6 @@
   "replacementsDeleteTitle": "מחק קיצור",
   "replacementsDeleteMessage": "להסיר את הקיצור \"{trigger}\"? אין דרך לבטל.",
   "@replacementsDeleteMessage": {
-    "placeholders": {
-      "trigger": { "type": "String" }
-    }
-  },
-
-  "automationsSearch": "חפש אוטומציות…",
-  "automationsAdd": "הוסף",
-  "automationsEmpty": "עדיין אין אוטומציות",
-  "automationsEmptyHint": "הוסף אוטומציה כדי לפתוח כתובת URL כאשר ההכתבה שלך תואמת בדיוק לביטוי המפעיל.\nדוגמה: \"פתח טיימר\" → כתובת Shortcuts",
-  "automationsNoMatches": "אין התאמות",
-  "automationsNoMatchesHint": "נסה מונח חיפוש אחר.",
-  "automationsAddAutomation": "הוסף אוטומציה",
-  "automationsEditAutomation": "ערוך אוטומציה",
-  "automationsNewAutomation": "אוטומציה חדשה",
-  "automationsDialogHint": "כאשר ההכתבה כולה תואמת בדיוק לביטוי המפעיל, הפעולה תופעל במקום להיות מוכנסת.",
-  "automationsTriggerLabel": "ביטוי מפעיל",
-  "automationsTriggerHint": "לדוגמה: פתח טיימר",
-  "automationsUrlLabel": "כתובת URL",
-  "automationsUrlHint": "https:// או shortcuts://",
-  "automationsActionTypeLabel": "פעולה",
-  "automationsActionTypeUrl": "כתובת URL",
-  "automationsActionTypeShell": "פקודת Shell",
-  "automationsCommandLabel": "פקודת Shell",
-  "automationsCommandHint": "לדוגמה: open -a Calculator",
-  "automationsCommandHelp": "מופעלת כפקודת Shell כאשר הביטוי המפעיל תואם. לא פועל במצב S של Windows.",
-  "automationsShellMasUnavailable": "לא זמין בגרסת ה-Mac App Store (App Sandbox).",
-  "automationsActionTypeScript": "סקריפט",
-  "automationsScriptMasOnly": "זמין רק בגרסת ה-Mac App Store.",
-  "automationsScriptLabel": "סקריפט",
-  "automationsScriptPickerHint": "בחירת סקריפט…",
-  "automationsScriptRevealFolder": "פתיחת תיקיית הסקריפטים ב-Finder",
-  "automationsScriptRefresh": "רענון רשימת הסקריפטים",
-  "automationsScriptEmpty": "לא נמצאו סקריפטים עדיין. יש להניח סקריפט בתיקיית הסקריפטים ולרענן.",
-  "automationsScriptHelp": "מפעיל את הסקריפט שנבחר מתיקיית הסקריפטים של האפליקציה כאשר הביטוי המפעיל תואם.",
-  "automationsDeleteTitle": "מחק אוטומציה",
-  "automationsDeleteMessage": "להסיר את האוטומציה \"{trigger}\"? אין דרך לבטל.",
-  "@automationsDeleteMessage": {
     "placeholders": {
       "trigger": { "type": "String" }
     }

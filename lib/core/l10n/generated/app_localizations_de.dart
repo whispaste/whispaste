@@ -21,9 +21,6 @@ class L10nDe extends L10n {
   String get navReplacements => 'Ersetzungen';
 
   @override
-  String get navAutomations => 'Automationen';
-
-  @override
   String get navSnippets => 'Snippets';
 
   @override
@@ -1255,108 +1252,6 @@ class L10nDe extends L10n {
   @override
   String replacementsDeleteMessage(String trigger) {
     return 'Ersetzung \"$trigger\" entfernen? Dies kann nicht rückgängig gemacht werden.';
-  }
-
-  @override
-  String get automationsSearch => 'Automationen suchen…';
-
-  @override
-  String get automationsAdd => 'Hinzufügen';
-
-  @override
-  String get automationsEmpty => 'Noch keine Automationen';
-
-  @override
-  String get automationsEmptyHint =>
-      'Füge eine Automation hinzu, um eine URL zu öffnen, wenn deine Diktion genau dem Auslöser entspricht.\nBeispiel: \"Timer öffnen\" → eine Shortcuts-URL';
-
-  @override
-  String get automationsNoMatches => 'Keine Treffer';
-
-  @override
-  String get automationsNoMatchesHint => 'Versuche einen anderen Suchbegriff.';
-
-  @override
-  String get automationsAddAutomation => 'Automation hinzufügen';
-
-  @override
-  String get automationsEditAutomation => 'Automation bearbeiten';
-
-  @override
-  String get automationsNewAutomation => 'Neue Automation';
-
-  @override
-  String get automationsDialogHint =>
-      'Entspricht deine gesamte Diktion genau dem Auslöser, wird die Aktion ausgeführt statt eingefügt.';
-
-  @override
-  String get automationsTriggerLabel => 'Auslöser';
-
-  @override
-  String get automationsTriggerHint => 'z. B. Timer öffnen';
-
-  @override
-  String get automationsUrlLabel => 'URL';
-
-  @override
-  String get automationsUrlHint => 'https:// oder shortcuts://';
-
-  @override
-  String get automationsActionTypeLabel => 'Aktion';
-
-  @override
-  String get automationsActionTypeUrl => 'URL';
-
-  @override
-  String get automationsActionTypeShell => 'Shell-Befehl';
-
-  @override
-  String get automationsCommandLabel => 'Shell-Befehl';
-
-  @override
-  String get automationsCommandHint => 'z. B. open -a Calculator';
-
-  @override
-  String get automationsCommandHelp =>
-      'Wird bei Auslöser-Treffer als Shell-Befehl ausgeführt. Funktioniert nicht im Windows-S-Modus.';
-
-  @override
-  String get automationsShellMasUnavailable =>
-      'Auf dem Mac-App-Store-Build nicht verfügbar (App Sandbox).';
-
-  @override
-  String get automationsActionTypeScript => 'Skript';
-
-  @override
-  String get automationsScriptMasOnly =>
-      'Nur auf dem Mac-App-Store-Build verfügbar.';
-
-  @override
-  String get automationsScriptLabel => 'Skript';
-
-  @override
-  String get automationsScriptPickerHint => 'Skript auswählen…';
-
-  @override
-  String get automationsScriptRevealFolder => 'Skriptordner im Finder öffnen';
-
-  @override
-  String get automationsScriptRefresh => 'Skriptliste aktualisieren';
-
-  @override
-  String get automationsScriptEmpty =>
-      'Noch keine Skripte gefunden. Lege eines im Skriptordner ab und aktualisiere die Liste.';
-
-  @override
-  String get automationsScriptHelp =>
-      'Führt bei Auslöser-Treffer das ausgewählte Skript aus dem Skriptordner der App aus.';
-
-  @override
-  String get automationsDeleteTitle => 'Automation löschen';
-
-  @override
-  String automationsDeleteMessage(String trigger) {
-    return 'Automation \"$trigger\" entfernen? Dies kann nicht rückgängig gemacht werden.';
   }
 
   @override

@@ -3,7 +3,7 @@ import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 
 /// Small accent pill for a single trigger phrase inside a list tile — shared
-/// by the Replacements and Automations settings pages.
+/// by the Replacements settings page.
 class WpTriggerChip extends StatelessWidget {
   const WpTriggerChip({super.key, required this.label, required this.isDark});
 

@@ -30,7 +30,6 @@ import 'widgets/recording_behavior.dart';
 import 'features/history/history_page.dart';
 import 'features/settings/settings_page.dart';
 import 'features/replacements/replacements_page.dart';
-import 'features/automations/automations_page.dart';
 import 'features/snippets/snippets_page.dart';
 import 'features/analytics/analytics_page.dart';
 import 'features/about/about_page.dart';
@@ -110,9 +109,8 @@ class WhisPasteApp extends ConsumerWidget {
 /// [wpNavDividerAfterIds]):
 ///
 /// 1. **Recording-cycle tools** — History (the record of past recording
-///    cycles), then the trigger-phrase family in ascending power:
-///    Replacements (transform text), Snippets (insert stored text),
-///    Automations (run an action).
+///    cycles), then the trigger-phrase family: Replacements (transform
+///    text), Snippets (insert stored text).
 /// 2. **Product/meta** — Analytics, Feedback, About (canonical last entry).
 List<WpNavItem> wpNavItems(L10n l10n) => [
   WpNavItem(id: 'history', icon: LucideIcons.clock3, label: l10n.navHistory),
@@ -125,11 +123,6 @@ List<WpNavItem> wpNavItems(L10n l10n) => [
     id: 'snippets',
     icon: LucideIcons.notebookText,
     label: l10n.navSnippets,
-  ),
-  WpNavItem(
-    id: 'automations',
-    icon: LucideIcons.zap,
-    label: l10n.navAutomations,
   ),
   WpNavItem(
     id: 'analytics',
@@ -147,7 +140,7 @@ List<WpNavItem> wpNavItems(L10n l10n) => [
 /// Group break between the recording-cycle tools and the product/meta nav items —
 /// single source of truth for every [WpSidebar] call site (app shell,
 /// screenshot shells), so grouping stays consistent everywhere.
-const Set<String> wpNavDividerAfterIds = {'automations'};
+const Set<String> wpNavDividerAfterIds = {'snippets'};
 
 /// Resolves the page title — checks nav items first, falls back for
 /// bottom-pinned pages (e.g. Settings).
@@ -175,7 +168,6 @@ const wpPageWidgets = <String, Widget>{
   'history': HistoryPage(),
   'settings': SettingsPage(),
   'replacements': ReplacementsPage(),
-  'automations': AutomationsPage(),
   'snippets': SnippetsPage(),
   'analytics': AnalyticsPage(),
   'about': AboutPage(),

@@ -4,7 +4,6 @@
   "navHistory": "History",
   "navSettings": "Settings",
   "navReplacements": "Replacements",
-  "navAutomations": "Automations",
   "navSnippets": "Snippets",
   "navAnalytics": "Analytics",
   "navAbout": "About",
@@ -479,43 +478,6 @@
   "replacementsDeleteTitle": "Delete Replacement",
   "replacementsDeleteMessage": "Remove the replacement \"{trigger}\"? This cannot be undone.",
   "@replacementsDeleteMessage": {
-    "placeholders": {
-      "trigger": { "type": "String" }
-    }
-  },
-
-  "automationsSearch": "Search automations…",
-  "automationsAdd": "Add",
-  "automationsEmpty": "No automations yet",
-  "automationsEmptyHint": "Add an automation to open a URL when your dictation exactly matches its trigger phrase.\nExample: \"open timer\" → a Shortcuts URL",
-  "automationsNoMatches": "No matches",
-  "automationsNoMatchesHint": "Try a different search term.",
-  "automationsAddAutomation": "Add Automation",
-  "automationsEditAutomation": "Edit Automation",
-  "automationsNewAutomation": "New Automation",
-  "automationsDialogHint": "When your entire dictation exactly matches the trigger phrase, the action runs instead of being inserted.",
-  "automationsTriggerLabel": "Trigger phrase",
-  "automationsTriggerHint": "e.g. open timer",
-  "automationsUrlLabel": "URL",
-  "automationsUrlHint": "https:// or shortcuts://",
-  "automationsActionTypeLabel": "Action",
-  "automationsActionTypeUrl": "URL",
-  "automationsActionTypeShell": "Shell command",
-  "automationsCommandLabel": "Shell command",
-  "automationsCommandHint": "e.g. open -a Calculator",
-  "automationsCommandHelp": "Runs as a shell command when the trigger matches. Does not work in Windows S mode.",
-  "automationsShellMasUnavailable": "Not available on the Mac App Store build (App Sandbox).",
-  "automationsActionTypeScript": "Script",
-  "automationsScriptMasOnly": "Only available on the Mac App Store build.",
-  "automationsScriptLabel": "Script",
-  "automationsScriptPickerHint": "Choose a script…",
-  "automationsScriptRevealFolder": "Open scripts folder in Finder",
-  "automationsScriptRefresh": "Refresh script list",
-  "automationsScriptEmpty": "No scripts found yet. Drop one into the scripts folder, then refresh.",
-  "automationsScriptHelp": "Runs the selected script from the app's scripts folder when the trigger matches.",
-  "automationsDeleteTitle": "Delete Automation",
-  "automationsDeleteMessage": "Remove the automation \"{trigger}\"? This cannot be undone.",
-  "@automationsDeleteMessage": {
     "placeholders": {
       "trigger": { "type": "String" }
     }

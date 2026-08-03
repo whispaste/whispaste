@@ -36,7 +36,7 @@ void main() {
       expect(snippetPickerTriggerMatches('snippets', '   '), isFalse);
     });
 
-    test('is case-insensitive and punctuation-tolerant like Automations', () {
+    test('is case-insensitive and punctuation-tolerant', () {
       expect(snippetPickerTriggerMatches('Snippets', 'snippets!'), isTrue);
     });
   });

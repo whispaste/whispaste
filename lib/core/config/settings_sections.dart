@@ -754,10 +754,8 @@ class BehaviorSettings {
 
   /// The single global trigger word that opens the Snippet-Picker when a
   /// transcript matches it exactly (dictation-automations ticket 06). Empty
-  /// string means the feature is off — matching uses the same
-  /// [normalizeForExactMatch]-style comparison as Automations, but this is
-  /// deliberately not an [Automations] row: the picker has exactly one
-  /// trigger, no payload, and its own UI on the Snippets page.
+  /// string means the feature is off — the picker has exactly one trigger,
+  /// no payload, and its own UI on the Snippets page.
   final String snippetPickerTrigger;
 
   static const BehaviorSettings defaults = BehaviorSettings();

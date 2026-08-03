@@ -11,12 +11,10 @@ import 'package:whispaste/core/config/settings_sections.dart';
 /// `.scratch/whisper-ffi-engine/`), the onDevice provider no longer shells
 /// out to a subprocess/HTTP server, so nothing about it is
 /// sandbox-unclean anymore. `kIsMasBuild` (`lib/core/config/build_config.dart`)
-/// legitimately gates three unrelated concerns — simulated-keystroke
-/// Auto-Paste, deploy-channel/self-updater detection
+/// legitimately gates two unrelated concerns — simulated-keystroke
+/// Auto-Paste, and deploy-channel/self-updater detection
 /// (`deploy_channel_service.dart`, since a MAS build is definitionally
-/// store-distributed), and the `shellCommand` automation action type
-/// (dictation-automations ticket 03: shell execution is impossible inside
-/// the App Sandbox) — but it must never grow a branch that excludes or
+/// store-distributed) — but it must never grow a branch that excludes or
 /// defaults away from the onDevice STT provider. These tests fail loudly if
 /// that changes.
 void main() {
@@ -49,9 +47,8 @@ void main() {
         'MAS build flag (kIsMasBuild/MAS_BUILD/WHISPASTE_MAS)', () {
       // These files legitimately branch on the MAS flag — for
       // simulated-keystroke Auto-Paste (App Review Guideline 2.4.5 /
-      // App Sandbox), deploy-channel/self-updater detection, or the
-      // shellCommand automation action type (impossible inside the App
-      // Sandbox) — never for STT provider selection.
+      // App Sandbox) or deploy-channel/self-updater detection — never for
+      // STT provider selection.
       const allowedFiles = <String>{
         'lib/core/config/build_config.dart',
         'lib/features/settings/sections/feedback_section.dart',
@@ -60,8 +57,6 @@ void main() {
         'lib/services/desktop_paste/desktop_paste_controller.dart',
         'lib/services/deploy_channel_service.dart',
         'lib/widgets/status_bar.dart',
-        'lib/services/automation_dispatch_service.dart',
-        'lib/features/automations/automations_page.dart',
       };
 
       final flagPattern = RegExp(r'\b(kIsMasBuild|MAS_BUILD|WHISPASTE_MAS)\b');

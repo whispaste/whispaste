@@ -97,7 +97,6 @@ void main() {
           .debugCounts;
       expect(counts[('snippets', 'create', null)], 1);
       expect(counts[('replacements', 'create', null)], isNull);
-      expect(counts[('automations', 'create', null)], isNull);
     });
 
     testWidgets('tapping a tile opens edit dialog with pre-filled title', (

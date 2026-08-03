@@ -123,7 +123,7 @@ final snippetsProvider =
 // ---------------------------------------------------------------------------
 
 /// Snippets page — named, multi-line text blocks kept in a separate settings
-/// area from Replacements and Automations (dictation-automations ticket 05).
+/// area from Replacements (dictation-automations ticket 05).
 class SnippetsPage extends ConsumerStatefulWidget {
   const SnippetsPage({super.key});
 
@@ -133,13 +133,13 @@ class SnippetsPage extends ConsumerStatefulWidget {
 
 class _SnippetsPageState extends ConsumerState<SnippetsPage> {
   @override
-  // Deliberately not further extracted: WpSearchableListPage call-site parameter
-  // skeleton shared with AutomationsPage: every value is feature-specific
-  // (l10n keys, icon, callbacks), only the parameter *names* repeat. A
-  // further-generic factory (e.g. keyed by notifier + string-map) was
-  // evaluated and rejected as the exact "Data Clumps"-in-reverse trade the
-  // WpSearchableListPage extraction already made — this is its irreducible
-  // residue, not unextracted duplication.
+  // Deliberately not further extracted: WpSearchableListPage call-site
+  // parameter skeleton is feature-specific (l10n keys, icon, callbacks), only
+  // the parameter *names* repeat across features using it. A further-generic
+  // factory (e.g. keyed by notifier + string-map) was evaluated and rejected
+  // as the exact "Data Clumps"-in-reverse trade the WpSearchableListPage
+  // extraction already made — this is its irreducible residue, not
+  // unextracted duplication.
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
     final trigger =
@@ -181,15 +181,12 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage> {
 
   // ── Add / Edit dialog ────────────────────────────────────────────────
 
-  // Deliberately not further extracted: shares its open-dialog/branch-on-existing
-  // shape with AutomationsPage._showAddEditDialog, but the result tuples and
-  // notifier update-method names differ per feature. Tried extracting this
-  // to an onCreate/onUpdate-callback helper: the result was longer than the
-  // original and replaced the direct `final (title, body) = result;`
-  // destructuring with closure indirection — net readability loss, so this
-  // one stays duplicated on purpose (unlike the dialog-scaffold + delete
-  // flow, which extracted cleanly into WpSearchableListPage/
-  // showWpDeleteConfirmDialog).
+  // Deliberately not further extracted into an onCreate/onUpdate-callback
+  // helper: tried it, the result was longer than the original and replaced
+  // the direct `final (title, body) = result;` destructuring with closure
+  // indirection — net readability loss, so this stays as-is (unlike the
+  // dialog-scaffold + delete flow, which extracted cleanly into
+  // WpSearchableListPage/showWpDeleteConfirmDialog).
   Future<void> _showAddEditDialog({SnippetItem? existing}) async {
     final result = await showWpFormDialog<(String, String)>(
       context: context,

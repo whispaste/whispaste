@@ -77,8 +77,7 @@ class SnippetPickerService
   ///
   /// Returns `false` (and shows nothing) when the platform is unsupported or
   /// [items] is empty — the caller falls back to the normal dictation
-  /// pipeline in both cases, same "never silently discard the dictation"
-  /// contract as [AutomationDispatchService].
+  /// pipeline in both cases, never silently discarding the dictation.
   Future<bool> show({required List<SnippetItem> items}) async {
     final c = controller;
     if (c == null || items.isEmpty) return false;

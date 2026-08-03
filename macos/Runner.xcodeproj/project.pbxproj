@@ -38,7 +38,6 @@
 		AA0006012044A3C60003C045 /* AudioRoutingHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0006002044A3C60003C045 /* AudioRoutingHost.swift */; };
 		AA0007012044A3C60003C045 /* BundleIdMigrationHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0007002044A3C60003C045 /* BundleIdMigrationHost.swift */; };
 		1B902E470889FBF4F29B228B /* AutostartHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EE32718BA61789B0C68DFFB /* AutostartHost.swift */; };
-		224BE9B2E0D44DEE9B7C53C3 /* ScriptAutomationHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = D79EC88598DA474084F152AB /* ScriptAutomationHost.swift */; };
 		AA1001000000000000000007 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = AA1001000000000000000006 /* PrivacyInfo.xcprivacy */; };
 		B0286F67A32AA2FDEAEC2B2A /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0B114D31172F69CA9A787753 /* Pods_RunnerTests.framework */; };
 /* End PBXBuildFile section */
@@ -110,7 +109,6 @@
 		AA0006002044A3C60003C045 /* AudioRoutingHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRoutingHost.swift; sourceTree = "<group>"; };
 		AA0007002044A3C60003C045 /* BundleIdMigrationHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundleIdMigrationHost.swift; sourceTree = "<group>"; };
 		1EE32718BA61789B0C68DFFB /* AutostartHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutostartHost.swift; sourceTree = "<group>"; };
-		D79EC88598DA474084F152AB /* ScriptAutomationHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScriptAutomationHost.swift; sourceTree = "<group>"; };
 		AA1001000000000000000005 /* AppStore.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AppStore.entitlements; sourceTree = "<group>"; };
 		AA1001000000000000000006 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = file.xcprivacy; name = PrivacyInfo.xcprivacy; path = Runner/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		C572D7F41B3EE36C7D716613 /* Pods-RunnerTests.mas.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.mas.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.mas.xcconfig"; sourceTree = "<group>"; };
@@ -215,7 +213,6 @@
 				AA0006002044A3C60003C045 /* AudioRoutingHost.swift */,
 				AA0007002044A3C60003C045 /* BundleIdMigrationHost.swift */,
 				1EE32718BA61789B0C68DFFB /* AutostartHost.swift */,
-				D79EC88598DA474084F152AB /* ScriptAutomationHost.swift */,
 				33E51913231747F40026EE4D /* DebugProfile.entitlements */,
 				33E51914231749380026EE4D /* Release.entitlements */,
 				AA1001000000000000000005 /* AppStore.entitlements */,
@@ -561,7 +558,6 @@
 				AA0006012044A3C60003C045 /* AudioRoutingHost.swift in Sources */,
 				AA0007012044A3C60003C045 /* BundleIdMigrationHost.swift in Sources */,
 				1B902E470889FBF4F29B228B /* AutostartHost.swift in Sources */,
-				224BE9B2E0D44DEE9B7C53C3 /* ScriptAutomationHost.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

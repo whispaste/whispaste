@@ -1,13 +1,11 @@
 /// Trigger matching for the Snippet-Picker (dictation-automations ticket 06).
 ///
-/// Deliberately separate from [AutomationDispatchService.findMatch]: the
-/// picker has exactly one global trigger word
-/// (`BehaviorSettings.snippetPickerTrigger`), not a list of user-defined
-/// [Automation] rows, but it reuses the same [normalizeForExactMatch]
-/// comparison so the two features feel identical to dictate against.
+/// The picker has exactly one global trigger word
+/// (`BehaviorSettings.snippetPickerTrigger`), matched via the same
+/// [normalizeForExactMatch] comparison used elsewhere for trigger phrases.
 library;
 
-import '../automation_dispatch_service.dart' show normalizeForExactMatch;
+import '../exact_match_normalization.dart' show normalizeForExactMatch;
 
 /// Returns `true` when [transcript] exactly matches [trigger] after
 /// [normalizeForExactMatch] normalization.

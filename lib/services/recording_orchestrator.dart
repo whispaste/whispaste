@@ -23,7 +23,6 @@ import '../core/data/database.dart';
 import '../features/recording/clipping_state.dart';
 import '../features/snippets/snippets_page.dart' show SnippetItem;
 import 'audio_service.dart';
-import 'automation_dispatch_service.dart';
 import 'model_download_service.dart';
 import 'path_service.dart';
 import 'recording/oom_recovery_handler.dart';
@@ -823,32 +822,18 @@ class RecordingOrchestrator extends Notifier<void> {
     replaceSw.stop();
     timing.replaceMs = replaceSw.elapsedMilliseconds;
 
-    // ── Automation dispatch (exact-match short-circuit) ───────────
-    // A transcript that matches an automation's trigger phrase exactly
-    // (after normalization) AND whose action runs successfully (e.g. the
-    // URL opens) never reaches history/replacements or paste. A match whose
-    // action fails falls through to the normal pipeline below instead of
-    // silently discarding the user's dictation. Skipped in the same
-    // onboarding-sandbox case as history/paste below.
-    final automationDispatched =
-        sandboxTranscriptSink == null &&
-        await _tryDispatchAutomation(sid, finalText);
-
     // ── Snippet-Picker dispatch (exact-match short-circuit, ticket 06) ────
-    // Checked only when no automation matched — an Automation trigger takes
-    // precedence over an identical Snippet-Picker trigger word (deliberate,
-    // not load-bearing in practice since the two triggers are configured
-    // independently and collision is a user-configuration edge case, not a
-    // pipeline concern). Same "never silently discard the dictation"
-    // contract as automations: an empty snippet list makes
-    // SnippetPickerService.show return false, and the transcript falls
-    // through to the normal pipeline below instead of vanishing.
+    // A transcript that matches the picker's trigger word exactly (after
+    // normalization) never reaches history/replacements or paste. An empty
+    // snippet list makes SnippetPickerService.show return false, and the
+    // transcript falls through to the normal pipeline below instead of
+    // vanishing — same "never silently discard the dictation" contract.
+    // Skipped in the same onboarding-sandbox case as history/paste below.
     final snippetPickerDispatched =
-        !automationDispatched &&
         sandboxTranscriptSink == null &&
         await _tryDispatchSnippetPicker(sid, finalText, settings);
 
-    if (!automationDispatched && !snippetPickerDispatched) {
+    if (!snippetPickerDispatched) {
       // ── Step 4: Save to history (5 s budget) ─────────────────────
       // Onboarding's test-recording step redirects the transcript to a local
       // sandbox field only (see sandboxTranscriptSink docs on
@@ -1275,42 +1260,6 @@ class RecordingOrchestrator extends Notifier<void> {
 
     _log.info('Preflight OK: model=$modelPath');
     return null;
-  }
-
-  /// Checks [transcript] against every stored automation's trigger phrase
-  /// (exact match, see [AutomationDispatchService.findMatch]) and — on a
-  /// match — runs its action. Returns `true` only when the action actually
-  /// ran successfully, so the caller skips the normal save-to-history/paste
-  /// pipeline only once the URL is confirmed open — a match whose dispatch
-  /// fails (malformed URL, no handler registered, …) falls through to the
-  /// normal pipeline instead of silently discarding the user's dictation.
-  Future<bool> _tryDispatchAutomation(String sid, String transcript) async {
-    try {
-      final db = ref.read(historyDatabaseProvider);
-      final automationList = await db.readAllAutomations();
-      if (automationList.isEmpty) return false;
-
-      final dispatcher = ref.read(automationDispatchServiceProvider);
-      final match = dispatcher.findMatch(automationList, transcript);
-      if (match == null) return false;
-
-      final dispatched = await dispatcher.dispatch(match);
-      if (dispatched) {
-        _log.info('[$sid] Automation dispatched (trigger="${match.trigger}")');
-        ref
-            .read(telemetrySessionAggregatorProvider)
-            .count(category: 'automations', action: 'dispatch');
-      } else {
-        _log.warning(
-          '[$sid] Automation matched but its action failed — falling back '
-          'to the normal pipeline (trigger="${match.trigger}")',
-        );
-      }
-      return dispatched;
-    } on Exception catch (e) {
-      _log.warning('[$sid] Automation matching failed: $e');
-      return false;
-    }
   }
 
   /// Checks [transcript] against the single global Snippet-Picker trigger

@@ -144,40 +144,16 @@ class EntryTags extends Table {
   Set<Column> get primaryKey => {entryId, tagId};
 }
 
-/// User-defined dictation automations (dictation-automations ticket 02).
-///
-/// If the *entire* transcription exactly matches [trigger] (after
-/// normalization — see `normalizeForExactMatch` in
-/// `automation_dispatch_service.dart`), the action described by
-/// [actionType]/[payload] runs instead of the normal insert/history pipeline.
-///
-/// [actionType]/[payload] deliberately separate "what kind of action" from
-/// "the action's parameters" so further action types (shell command, script
-/// — tickets 03/04) can be added without a schema change: [payload] is a
-/// free-form JSON blob whose shape is defined by [actionType] alone. The
-/// only action type today is `open_url`, whose payload is `{"url": "..."}`.
-///
-/// The Snippet-Picker (ticket 06) deliberately does *not* live here: it has
-/// exactly one global trigger, not N user-defined ones, so it's a plain
-/// string setting (`BehaviorSettings.snippetPickerTrigger`) with its own
-/// dispatch check, not another row in this table.
-@DataClassName('Automation')
-class Automations extends Table {
-  TextColumn get id => text()();
-  TextColumn get trigger => text()();
-  TextColumn get actionType => text()();
-  TextColumn get payload => text()();
-  DateTimeColumn get createdAt => dateTime()();
-
-  @override
-  Set<Column> get primaryKey => {id};
-}
-
 /// User-defined text snippets (dictation-automations ticket 05) — named,
 /// multi-line reusable text blocks, deliberately a separate table/data type
 /// from [TextReplacements] (no trigger phrase, no auto-fire during a
 /// recording cycle; snippets are inserted on explicit user action via a
-/// picker, tickets 06/07/08).
+/// picker, tickets 06/07/08). The trigger-phrase-driven "automation" feature
+/// this table's doc comment used to reference alongside it (open URL/run
+/// shell command/run script, tickets 02-04) was shipped and then retired —
+/// full feature parity between the sandboxed Mac App Store build and the
+/// Direct-Download build turned out unreachable within Apple's sandbox
+/// rules, and maintaining two divergent action-type sets wasn't worth it.
 @DataClassName('Snippet')
 class Snippets extends Table {
   TextColumn get id => text()();

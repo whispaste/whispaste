@@ -21,9 +21,6 @@ class L10nEn extends L10n {
   String get navReplacements => 'Replacements';
 
   @override
-  String get navAutomations => 'Automations';
-
-  @override
   String get navSnippets => 'Snippets';
 
   @override
@@ -1242,108 +1239,6 @@ class L10nEn extends L10n {
   @override
   String replacementsDeleteMessage(String trigger) {
     return 'Remove the replacement \"$trigger\"? This cannot be undone.';
-  }
-
-  @override
-  String get automationsSearch => 'Search automations…';
-
-  @override
-  String get automationsAdd => 'Add';
-
-  @override
-  String get automationsEmpty => 'No automations yet';
-
-  @override
-  String get automationsEmptyHint =>
-      'Add an automation to open a URL when your dictation exactly matches its trigger phrase.\nExample: \"open timer\" → a Shortcuts URL';
-
-  @override
-  String get automationsNoMatches => 'No matches';
-
-  @override
-  String get automationsNoMatchesHint => 'Try a different search term.';
-
-  @override
-  String get automationsAddAutomation => 'Add Automation';
-
-  @override
-  String get automationsEditAutomation => 'Edit Automation';
-
-  @override
-  String get automationsNewAutomation => 'New Automation';
-
-  @override
-  String get automationsDialogHint =>
-      'When your entire dictation exactly matches the trigger phrase, the action runs instead of being inserted.';
-
-  @override
-  String get automationsTriggerLabel => 'Trigger phrase';
-
-  @override
-  String get automationsTriggerHint => 'e.g. open timer';
-
-  @override
-  String get automationsUrlLabel => 'URL';
-
-  @override
-  String get automationsUrlHint => 'https:// or shortcuts://';
-
-  @override
-  String get automationsActionTypeLabel => 'Action';
-
-  @override
-  String get automationsActionTypeUrl => 'URL';
-
-  @override
-  String get automationsActionTypeShell => 'Shell command';
-
-  @override
-  String get automationsCommandLabel => 'Shell command';
-
-  @override
-  String get automationsCommandHint => 'e.g. open -a Calculator';
-
-  @override
-  String get automationsCommandHelp =>
-      'Runs as a shell command when the trigger matches. Does not work in Windows S mode.';
-
-  @override
-  String get automationsShellMasUnavailable =>
-      'Not available on the Mac App Store build (App Sandbox).';
-
-  @override
-  String get automationsActionTypeScript => 'Script';
-
-  @override
-  String get automationsScriptMasOnly =>
-      'Only available on the Mac App Store build.';
-
-  @override
-  String get automationsScriptLabel => 'Script';
-
-  @override
-  String get automationsScriptPickerHint => 'Choose a script…';
-
-  @override
-  String get automationsScriptRevealFolder => 'Open scripts folder in Finder';
-
-  @override
-  String get automationsScriptRefresh => 'Refresh script list';
-
-  @override
-  String get automationsScriptEmpty =>
-      'No scripts found yet. Drop one into the scripts folder, then refresh.';
-
-  @override
-  String get automationsScriptHelp =>
-      'Runs the selected script from the app\'s scripts folder when the trigger matches.';
-
-  @override
-  String get automationsDeleteTitle => 'Delete Automation';
-
-  @override
-  String automationsDeleteMessage(String trigger) {
-    return 'Remove the automation \"$trigger\"? This cannot be undone.';
   }
 
   @override
