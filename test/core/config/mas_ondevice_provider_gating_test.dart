@@ -49,8 +49,9 @@ void main() {
         'MAS build flag (kIsMasBuild/MAS_BUILD/WHISPASTE_MAS)', () {
       // These files legitimately branch on the MAS flag — for
       // simulated-keystroke Auto-Paste (App Review Guideline 2.4.5 /
-      // App Sandbox) or deploy-channel/self-updater detection — never for
-      // STT provider selection.
+      // App Sandbox), deploy-channel/self-updater detection, or the
+      // shellCommand automation action type (impossible inside the App
+      // Sandbox) — never for STT provider selection.
       const allowedFiles = <String>{
         'lib/core/config/build_config.dart',
         'lib/features/settings/sections/feedback_section.dart',

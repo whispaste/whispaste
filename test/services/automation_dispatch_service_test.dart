@@ -175,7 +175,10 @@ void main() {
       );
 
       final result = await service.dispatch(
-        _automation(actionType: 'shell_command', payload: '{"not_command": "x"}'),
+        _automation(
+          actionType: 'shell_command',
+          payload: '{"not_command": "x"}',
+        ),
       );
 
       expect(result, isFalse);

@@ -13,6 +13,7 @@
 /// change.
 library;
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -83,10 +84,12 @@ class AutomationDispatchService {
   final Future<bool> Function(Uri) _urlLauncher;
   final Future<bool> Function(String) _shellCommandRunner;
 
-  /// Gated here too, not just in the settings UI: a `shell_command`
-  /// automation smuggled in via settings import must not become executable
-  /// just because the sandboxed MAS build hides the action type from the
-  /// picker.
+  /// Gated here too, not just in the settings UI: the App Sandbox makes
+  /// shell execution impossible on the MAS build regardless of how a
+  /// `shell_command` row ended up in the DB (a pre-existing row from a
+  /// non-MAS build of the same install, say) — hiding the action type from
+  /// the picker alone would leave such a row silently unexecutable-but-not-
+  /// actually-blocked rather than deliberately refused.
   final bool _isMasBuild;
 
   /// Returns the automation among [automations] whose trigger exactly
@@ -151,8 +154,10 @@ class AutomationDispatchService {
     }
     final command = decodeShellCommandPayload(payload);
     if (command == null || command.trim().isEmpty) {
-      _log.warning('shell_command automation payload missing/invalid '
-          '"command"');
+      _log.warning(
+        'shell_command automation payload missing/invalid '
+        '"command"',
+      );
       return false;
     }
     try {
@@ -168,6 +173,16 @@ class AutomationDispatchService {
   /// containing spaces/redirects/pipes would be looked up as one literal
   /// (nonexistent) program name. Invoking the platform shell explicitly with
   /// `-c`/`/c` is what actually interprets [command] as shell syntax.
+  ///
+  /// Not `ProcessStartMode.detached`: that mode gives no way to observe the
+  /// exit code, so a command that fails instantly (a typo, a missing
+  /// binary, shell exit 127) would be indistinguishable from one that ran
+  /// fine — reporting success either way, which eats the transcript with no
+  /// fallback (the same fallback `_openUrl` gets when `launchUrl` returns
+  /// `false`). Instead: judge the exit code if the process exits within a
+  /// short grace window; still running after that (opening an app, a
+  /// long-running script) counts as launched successfully, same as before —
+  /// this stays fire-and-forget, it just isn't blind to an instant failure.
   static Future<bool> _defaultShellCommandRunner(String command) async {
     final String shellExecutable;
     final List<String> shellArgs;
@@ -178,12 +193,17 @@ class AutomationDispatchService {
       shellExecutable = '/bin/sh';
       shellArgs = ['-c', command];
     }
-    await Process.start(
-      shellExecutable,
-      shellArgs,
-      mode: ProcessStartMode.detached,
+    final process = await Process.start(shellExecutable, shellArgs);
+    // Drain stdout/stderr so a chatty long-running command never fills the
+    // pipe buffer and blocks on writing to it — nothing here surfaces that
+    // output anywhere.
+    unawaited(process.stdout.drain<void>());
+    unawaited(process.stderr.drain<void>());
+    final exitCode = await process.exitCode.timeout(
+      const Duration(milliseconds: 800),
+      onTimeout: () => 0,
     );
-    return true;
+    return exitCode == 0;
   }
 }
 
