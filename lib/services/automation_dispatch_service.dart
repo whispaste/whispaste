@@ -163,11 +163,24 @@ class AutomationDispatchService {
     }
   }
 
+  /// `runInShell: true` shell-quotes the executable as a single token
+  /// rather than splicing [command] into a shell command line, so a command
+  /// containing spaces/redirects/pipes would be looked up as one literal
+  /// (nonexistent) program name. Invoking the platform shell explicitly with
+  /// `-c`/`/c` is what actually interprets [command] as shell syntax.
   static Future<bool> _defaultShellCommandRunner(String command) async {
+    final String shellExecutable;
+    final List<String> shellArgs;
+    if (Platform.isWindows) {
+      shellExecutable = 'cmd.exe';
+      shellArgs = ['/c', command];
+    } else {
+      shellExecutable = '/bin/sh';
+      shellArgs = ['-c', command];
+    }
     await Process.start(
-      command,
-      const [],
-      runInShell: true,
+      shellExecutable,
+      shellArgs,
       mode: ProcessStartMode.detached,
     );
     return true;
