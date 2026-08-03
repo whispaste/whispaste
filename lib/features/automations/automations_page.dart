@@ -13,6 +13,7 @@ import '../../core/theme/tokens.dart';
 import '../../widgets/dialog.dart';
 import '../../widgets/searchable_list_page.dart';
 import '../../widgets/trigger_chip.dart';
+import '../../widgets/wp_focus_ring.dart';
 import 'package:whispaste/core/data/database.dart';
 
 // ---------------------------------------------------------------------------
@@ -63,7 +64,10 @@ class AutomationsNotifier extends AsyncNotifier<List<AutomationItem>>
     required String actionValue,
   }) async {
     final db = ref.read(historyDatabaseProvider);
-    final id = DateTime.now().millisecondsSinceEpoch.toString();
+    // Microseconds, not milliseconds: two quick successive add() calls can
+    // land in the same millisecond, and identical ids would make the second
+    // upsert silently overwrite the first row.
+    final id = DateTime.now().microsecondsSinceEpoch.toString();
     await db.upsertAutomation(
       id: id,
       trigger: trigger,
@@ -274,9 +278,10 @@ class _AutomationDialogState extends State<_AutomationDialog> {
       text: widget.existing?.actionValue ?? '',
     );
     // An existing shellCommand automation keeps its type even on the MAS
-    // build (it can arrive via settings import): it stays viewable and
-    // editable, only *selecting* shellCommand afresh is blocked there — and
-    // the dispatch service independently refuses to execute it.
+    // build (e.g. a row left over from a non-MAS build of the same
+    // install): it stays viewable and editable, only *selecting*
+    // shellCommand afresh is blocked there — and the dispatch service
+    // independently refuses to execute it.
     _actionType = widget.existing?.actionType ?? AutomationActionType.openUrl;
   }
 
@@ -292,79 +297,6 @@ class _AutomationDialogState extends State<_AutomationDialog> {
     Navigator.of(
       context,
     ).pop((_triggerCtrl.text.trim(), _actionType, _valueCtrl.text.trim()));
-  }
-
-  /// One option of the two-chip action-type selector. There is no established
-  /// segmented-control widget in the repo yet; two selectable chips styled
-  /// from the accent tint tokens keep it consistent with WpTriggerChip's
-  /// visual language while reading unambiguously as an either/or choice.
-  Widget _actionTypeChip({
-    required AutomationActionType type,
-    required String label,
-    required bool isDark,
-    String? disabledReason,
-  }) {
-    final selected = _actionType == type;
-    final disabled = disabledReason != null && !selected;
-    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-
-    Widget chip = Semantics(
-      button: true,
-      selected: selected,
-      enabled: !disabled,
-      label: label,
-      child: MouseRegion(
-        cursor: disabled
-            ? SystemMouseCursors.forbidden
-            : SystemMouseCursors.click,
-        child: GestureDetector(
-          onTap: disabled ? null : () => setState(() => _actionType = type),
-          child: AnimatedContainer(
-            duration: WpMotion.durationFor(context, WpMotion.fast),
-            curve: WpMotion.defaultCurve,
-            padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.md,
-              vertical: WpSpacing.xs,
-            ),
-            decoration: BoxDecoration(
-              color: selected
-                  ? (isDark
-                        ? WpColorsDark.accentActiveFill
-                        : WpColorsLight.accentActiveFill)
-                  : Colors.transparent,
-              borderRadius: WpRadius.borderSm,
-              border: Border.all(
-                color: selected
-                    ? (isDark
-                          ? WpColorsDark.accentBorder30
-                          : WpColorsLight.accentBorder30)
-                    : (isDark
-                          ? WpColorsDark.borderSubtle
-                          : WpColorsLight.borderSubtle),
-              ),
-            ),
-            child: Text(
-              label,
-              style: TextStyle(
-                color: disabled
-                    ? textMuted.withValues(alpha: 0.45)
-                    : (selected ? accent : textMuted),
-                fontSize: WpTypography.body,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-    // The tooltip carries the "why" whenever there is one (MAS sandbox) —
-    // also on an already-selected imported shell automation, where it
-    // explains that the action will not execute on this build.
-    if (disabledReason != null) {
-      chip = Tooltip(message: disabledReason, child: chip);
-    }
-    return chip;
   }
 
   @override
@@ -460,16 +392,22 @@ class _AutomationDialogState extends State<_AutomationDialog> {
               const SizedBox(height: WpSpacing.xxs),
               Row(
                 children: [
-                  _actionTypeChip(
-                    type: AutomationActionType.openUrl,
+                  _ActionTypeChip(
                     label: l10n.automationsActionTypeUrl,
+                    selected: _actionType == AutomationActionType.openUrl,
                     isDark: isDark,
+                    onSelect: () => setState(
+                      () => _actionType = AutomationActionType.openUrl,
+                    ),
                   ),
                   const SizedBox(width: WpSpacing.xs),
-                  _actionTypeChip(
-                    type: AutomationActionType.shellCommand,
+                  _ActionTypeChip(
                     label: l10n.automationsActionTypeShell,
+                    selected: _actionType == AutomationActionType.shellCommand,
                     isDark: isDark,
+                    onSelect: () => setState(
+                      () => _actionType = AutomationActionType.shellCommand,
+                    ),
                     disabledReason: kIsMasBuild
                         ? l10n.automationsShellMasUnavailable
                         : null,
@@ -550,6 +488,161 @@ class _AutomationDialogState extends State<_AutomationDialog> {
         ),
       ),
     );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Action-type chip (dialog-local)
+// ---------------------------------------------------------------------------
+
+/// One option of the two-chip action-type selector in [_AutomationDialog].
+///
+/// Interaction pattern follows [HistoryFilterChip] (the repo standard for
+/// interactive chips): focusable [InkWell] + [WpFocusRing] + hover state +
+/// [WpLayout.minTouchTarget]. Not the same widget, because this one needs a
+/// disabled state (MAS build blocks selecting shellCommand) that
+/// [HistoryFilterChip] has no use for.
+///
+/// Visually this is deliberately NOT [WpTriggerChip]'s round accent pill:
+/// squarer corners ([WpRadius.borderSm]) and the stronger
+/// accentActiveFill/accentBorder30 tint mark it as a segmented either/or
+/// *control*, distinct from the passive trigger-phrase *token* chips in the
+/// list. There is no established segmented-control widget in the repo yet.
+class _ActionTypeChip extends StatefulWidget {
+  const _ActionTypeChip({
+    required this.label,
+    required this.selected,
+    required this.isDark,
+    required this.onSelect,
+    this.disabledReason,
+  });
+
+  final String label;
+  final bool selected;
+  final bool isDark;
+  final VoidCallback onSelect;
+
+  /// Why this option cannot be selected (MAS sandbox). Non-null renders a
+  /// tooltip; the chip is only actually disabled when it is not already
+  /// selected — an existing shell automation imported into a MAS build stays
+  /// viewable/editable, the tooltip then explains it will not execute.
+  final String? disabledReason;
+
+  @override
+  State<_ActionTypeChip> createState() => _ActionTypeChipState();
+}
+
+class _ActionTypeChipState extends State<_ActionTypeChip> {
+  bool _isHovered = false;
+  final FocusNode _focusNode = FocusNode(debugLabel: '_ActionTypeChip');
+
+  bool get _disabled => widget.disabledReason != null && !widget.selected;
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = widget.isDark;
+    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+
+    final Color bg;
+    final Color fg;
+    if (widget.selected) {
+      bg = isDark
+          ? WpColorsDark.accentActiveFill
+          : WpColorsLight.accentActiveFill;
+      fg = accent;
+    } else if (_disabled) {
+      bg = Colors.transparent;
+      fg = textMuted.withValues(alpha: 0.45);
+    } else if (_isHovered) {
+      bg = isDark ? WpColorsDark.hover : WpColorsLight.hover;
+      fg = isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
+    } else {
+      bg = Colors.transparent;
+      fg = textMuted;
+    }
+
+    final borderColor = widget.selected
+        ? (isDark ? WpColorsDark.accentBorder30 : WpColorsLight.accentBorder30)
+        : (isDark ? WpColorsDark.borderSubtle : WpColorsLight.borderSubtle);
+
+    // Compact visual pill — the actual tap/focus surface around it is
+    // stretched to WpLayout.minTouchTarget height by the InkWell below.
+    final pill = AnimatedContainer(
+      duration: WpMotion.durationFor(
+        context,
+        _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+      ),
+      curve: WpMotion.defaultCurve,
+      padding: const EdgeInsets.symmetric(
+        horizontal: WpSpacing.md,
+        vertical: WpSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: WpRadius.borderSm,
+        border: Border.all(color: borderColor),
+      ),
+      child: Text(
+        widget.label,
+        style: TextStyle(
+          color: fg,
+          fontSize: WpTypography.body,
+          fontWeight: widget.selected ? FontWeight.w600 : FontWeight.w400,
+        ),
+      ),
+    );
+
+    Widget chip = Semantics(
+      label: widget.label,
+      button: true,
+      selected: widget.selected,
+      enabled: !_disabled,
+      child: MouseRegion(
+        cursor: _disabled
+            ? SystemMouseCursors.forbidden
+            : SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: InkWell(
+          onTap: _disabled ? null : widget.onSelect,
+          focusNode: _focusNode,
+          canRequestFocus: !_disabled,
+          // WpFocusRing owns all focus visuals — suppress InkWell's own.
+          focusColor: Colors.transparent,
+          hoverColor: Colors.transparent,
+          splashColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              minHeight: WpLayout.minTouchTarget,
+            ),
+            child: Center(
+              // External-node mode: the ring hugs the compact pill while the
+              // shared FocusNode lives on the taller InkWell surface.
+              child: WpFocusRing(
+                focusNode: _focusNode,
+                radius: WpRadius.sm,
+                child: pill,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    // The tooltip carries the "why" whenever there is one (MAS sandbox) —
+    // also on an already-selected imported shell automation, where it
+    // explains that the action will not execute on this build.
+    if (widget.disabledReason != null) {
+      chip = Tooltip(message: widget.disabledReason!, child: chip);
+    }
+    return chip;
   }
 }
 
