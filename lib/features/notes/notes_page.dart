@@ -444,8 +444,8 @@ class _NotesPageState extends ConsumerState<NotesPage> {
           skipTraversal: true,
           child: Column(
             children: [
-              _NotesHeader(onCreate: _createNote),
               NotesSearchBar(
+                onCreate: _createNote,
                 currentFilter: filter,
                 onFilterChanged: _setFilter,
                 isDark: isDark,
@@ -635,39 +635,6 @@ class _NotesPageState extends ConsumerState<NotesPage> {
         title: l10n.errorGeneric,
         actionLabel: l10n.actionRetry,
         onAction: () => ref.invalidate(activeStreamProvider),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Page header — "New note" action
-// ---------------------------------------------------------------------------
-
-class _NotesHeader extends StatelessWidget {
-  const _NotesHeader({required this.onCreate});
-
-  final VoidCallback onCreate;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = L10n.of(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        WpSpacing.md,
-        WpSpacing.sm,
-        WpSpacing.md,
-        WpSpacing.xs,
-      ),
-      child: Row(
-        children: [
-          const Spacer(),
-          ElevatedButton.icon(
-            onPressed: onCreate,
-            icon: const Icon(LucideIcons.plus, size: WpIconSize.md),
-            label: Text(l10n.notesNewNote),
-          ),
-        ],
       ),
     );
   }

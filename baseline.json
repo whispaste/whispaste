@@ -52,11 +52,11 @@
       "message": "2 occurrences of duplicated block (91 tokens): lib/features/history/history_page.dart:126, lib/features/notes/notes_page.dart:180"
     },
     {
-      "fingerprint": "1fea5acb13fe5360",
+      "fingerprint": "66737d35103c7006",
       "ruleId": "code-duplicates",
       "filePath": "lib/features/history/history_page.dart",
       "line": 918,
-      "message": "2 occurrences of duplicated block (97 tokens): lib/features/history/history_page.dart:918, lib/features/notes/notes_page.dart:690"
+      "message": "2 occurrences of duplicated block (97 tokens): lib/features/history/history_page.dart:918, lib/features/notes/notes_page.dart:657"
     },
     {
       "fingerprint": "ef11bb9e02ae2947",
@@ -90,14 +90,14 @@
       "fingerprint": "7c1bb57095282165",
       "ruleId": "a11y-interactive-semantics",
       "filePath": "lib/features/notes/widgets/notes_search_bar.dart",
-      "line": 118,
+      "line": 142,
       "message": "_NotesFilterChip with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
     },
     {
       "fingerprint": "6d609b760249d3bd",
       "ruleId": "a11y-interactive-semantics",
       "filePath": "lib/features/notes/widgets/notes_search_bar.dart",
-      "line": 128,
+      "line": 152,
       "message": "_NotesFilterChip with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
     },
     {

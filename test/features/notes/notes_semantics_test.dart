@@ -201,6 +201,7 @@ void main() {
             onSearchChanged: () {},
             resultCount: 1,
             showResultCount: true,
+            onCreate: () {},
           ),
         ),
       );

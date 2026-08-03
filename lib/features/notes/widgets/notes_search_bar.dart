@@ -8,7 +8,8 @@ import '../../../widgets/wp_focus_ring.dart';
 import '../data/providers.dart';
 
 // ---------------------------------------------------------------------------
-// Notes search & filter bar — search field (Ticket 06) above the
+// Notes search & filter bar — search field (Ticket 06) with the "new note"
+// button beside it (same row layout as the replacements toolbar), above the
 // active/trash toggle (Ticket 04).
 // ---------------------------------------------------------------------------
 
@@ -23,6 +24,7 @@ class NotesSearchBar extends StatelessWidget {
     required this.onSearchChanged,
     required this.resultCount,
     required this.showResultCount,
+    required this.onCreate,
   });
 
   final NotesFilter currentFilter;
@@ -37,6 +39,9 @@ class NotesSearchBar extends StatelessWidget {
   final int resultCount;
   final bool showResultCount;
 
+  /// Creates a new note — rendered as the trailing "new note" button.
+  final VoidCallback onCreate;
+
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
@@ -44,70 +49,89 @@ class NotesSearchBar extends StatelessWidget {
     final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: WpSpacing.md),
+      padding: const EdgeInsets.fromLTRB(
+        WpSpacing.md,
+        WpSpacing.sm,
+        WpSpacing.md,
+        WpSpacing.xs,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // ── Search field ─────────────────────────────────────────────────
+          // ── Search field + "new note" button ─────────────────────────────
           // Soft, low-set capsule matching the history search field: depth via
           // WpShadows.subtle instead of a resting hairline border — focus
           // keeps the accent border as the single state signal.
-          DecoratedBox(
-            decoration: BoxDecoration(
-              borderRadius: WpRadius.borderMd,
-              boxShadow: WpShadows.subtle,
-            ),
-            child: TextField(
-              controller: searchController,
-              focusNode: searchFocusNode,
-              decoration: InputDecoration(
-                hintText: l10n.notesSearchPlaceholder,
-                prefixIcon: Icon(
-                  LucideIcons.search,
-                  size: WpIconSize.sm,
-                  color: textMuted,
-                ),
-                // IconButton(tooltip:) alone only sets a Semantics HINT, not
-                // a label — same gap fixed for the editor toolbar (Ticket 09).
-                suffixIcon: searchController.text.isNotEmpty
-                    ? Semantics(
-                        label: l10n.notesClearSearch,
-                        button: true,
-                        child: IconButton(
-                          icon: Icon(
-                            LucideIcons.x,
-                            size: WpIconSize.sm,
-                            color: textMuted,
-                          ),
-                          tooltip: l10n.notesClearSearch,
-                          onPressed: () {
-                            searchController.clear();
-                            onSearchChanged();
-                          },
-                        ),
-                      )
-                    : null,
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: WpSpacing.md,
-                  vertical: WpSpacing.xs + 2,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: WpRadius.borderMd,
-                  borderSide: BorderSide.none,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: WpRadius.borderMd,
-                  borderSide: BorderSide.none,
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: WpRadius.borderMd,
-                  borderSide: BorderSide(color: accent, width: 1.5),
+          Row(
+            children: [
+              Expanded(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: WpRadius.borderMd,
+                    boxShadow: WpShadows.subtle,
+                  ),
+                  child: TextField(
+                    controller: searchController,
+                    focusNode: searchFocusNode,
+                    decoration: InputDecoration(
+                      hintText: l10n.notesSearchPlaceholder,
+                      prefixIcon: Icon(
+                        LucideIcons.search,
+                        size: WpIconSize.sm,
+                        color: textMuted,
+                      ),
+                      // IconButton(tooltip:) alone only sets a Semantics HINT, not
+                      // a label — same gap fixed for the editor toolbar (Ticket 09).
+                      suffixIcon: searchController.text.isNotEmpty
+                          ? Semantics(
+                              label: l10n.notesClearSearch,
+                              button: true,
+                              child: IconButton(
+                                icon: Icon(
+                                  LucideIcons.x,
+                                  size: WpIconSize.sm,
+                                  color: textMuted,
+                                ),
+                                tooltip: l10n.notesClearSearch,
+                                onPressed: () {
+                                  searchController.clear();
+                                  onSearchChanged();
+                                },
+                              ),
+                            )
+                          : null,
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: WpSpacing.md,
+                        vertical: WpSpacing.xs + 2,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: WpRadius.borderMd,
+                        borderSide: BorderSide.none,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: WpRadius.borderMd,
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: WpRadius.borderMd,
+                        borderSide: BorderSide(color: accent, width: 1.5),
+                      ),
+                    ),
+                    onChanged: (_) => onSearchChanged(),
+                  ),
                 ),
               ),
-              onChanged: (_) => onSearchChanged(),
-            ),
+              const SizedBox(width: WpSpacing.sm),
+              // WpIconSize.md (not .sm like the replacements toolbar) so the
+              // button keeps the size it had as the standalone page header.
+              ElevatedButton.icon(
+                onPressed: onCreate,
+                icon: const Icon(LucideIcons.plus, size: WpIconSize.md),
+                label: Text(l10n.notesNewNote),
+              ),
+            ],
           ),
           const SizedBox(height: WpSpacing.xs),
           // ── Filter chips + result count ──────────────────────────────────
