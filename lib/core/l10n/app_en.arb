@@ -1195,5 +1195,20 @@
   "notesTrashEmptyHint": "Deleted notes land here and aren't removed automatically.",
   "notesUndo": "Undo",
   "notesAddTag": "Add tag",
-  "notesTagPlaceholder": "Tag name…"
+  "notesTagPlaceholder": "Tag name…",
+  "notesSearchPlaceholder": "Search notes…",
+  "notesNoResults": "No results",
+  "notesNoResultsHint": "No notes match \"{query}\".\nTry a different search term.",
+  "@notesNoResultsHint": {
+    "placeholders": {
+      "query": { "type": "String" }
+    }
+  },
+  "notesClearSearch": "Clear search",
+  "notesResultCount": "{count, plural, =1{1 result} other{{count} results}}",
+  "@notesResultCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  }
 }

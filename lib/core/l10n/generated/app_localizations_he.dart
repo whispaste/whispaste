@@ -3114,4 +3114,29 @@ class L10nHe extends L10n {
 
   @override
   String get notesTagPlaceholder => 'שם התגית…';
+
+  @override
+  String get notesSearchPlaceholder => 'חפש בפתקים…';
+
+  @override
+  String get notesNoResults => 'אין תוצאות';
+
+  @override
+  String notesNoResultsHint(String query) {
+    return 'אין פתקים שמתאימים ל \"$query\".\nנסה מונח חיפוש אחר.';
+  }
+
+  @override
+  String get notesClearSearch => 'נקה חיפוש';
+
+  @override
+  String notesResultCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count תוצאות',
+      one: 'תוצאה אחת',
+    );
+    return '$_temp0';
+  }
 }

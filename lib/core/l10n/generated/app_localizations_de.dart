@@ -3194,4 +3194,29 @@ class L10nDe extends L10n {
 
   @override
   String get notesTagPlaceholder => 'Tag-Name…';
+
+  @override
+  String get notesSearchPlaceholder => 'Notizen durchsuchen…';
+
+  @override
+  String get notesNoResults => 'Keine Ergebnisse';
+
+  @override
+  String notesNoResultsHint(String query) {
+    return 'Keine Notizen stimmen mit \"$query\" überein.\nVersuche einen anderen Suchbegriff.';
+  }
+
+  @override
+  String get notesClearSearch => 'Suche zurücksetzen';
+
+  @override
+  String notesResultCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count Ergebnisse',
+      one: '1 Ergebnis',
+    );
+    return '$_temp0';
+  }
 }

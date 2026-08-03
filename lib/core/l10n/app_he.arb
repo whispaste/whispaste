@@ -1061,5 +1061,20 @@
   "notesTrashEmptyHint": "פתקים שנמחקו מגיעים לכאן ולא מוסרים אוטומטית.",
   "notesUndo": "בטל",
   "notesAddTag": "הוסף תגית",
-  "notesTagPlaceholder": "שם התגית…"
+  "notesTagPlaceholder": "שם התגית…",
+  "notesSearchPlaceholder": "חפש בפתקים…",
+  "notesNoResults": "אין תוצאות",
+  "notesNoResultsHint": "אין פתקים שמתאימים ל \"{query}\".\nנסה מונח חיפוש אחר.",
+  "@notesNoResultsHint": {
+    "placeholders": {
+      "query": { "type": "String" }
+    }
+  },
+  "notesClearSearch": "נקה חיפוש",
+  "notesResultCount": "{count, plural, =1{תוצאה אחת} other{{count} תוצאות}}",
+  "@notesResultCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  }
 }

@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -24,8 +26,9 @@ import 'widgets/notes_split_view.dart';
 /// Master-detail layout mirroring [HistoryPage]'s split view, but deliberately
 /// minimal: flat note list on the left, always-editable plain-text editor on
 /// the right, plus an active/trash filter with favourite, trash, restore and
-/// delete-forever actions (Ticket 04) and tag editing/display (Ticket 05).
-/// No search, export, or voice input yet — those hook in via later tickets.
+/// delete-forever actions (Ticket 04), tag editing/display (Ticket 05) and
+/// content/tag search with Ctrl/Cmd+F focus (Ticket 06).
+/// No export or voice input yet — those hook in via later tickets.
 class NotesPage extends ConsumerStatefulWidget {
   const NotesPage({super.key});
 
@@ -39,6 +42,8 @@ class _NotesPageState extends ConsumerState<NotesPage> {
   /// would lose cursor position and IME state on each rebuild.
   final TextEditingController _editorController = TextEditingController();
   final FocusNode _editorFocusNode = FocusNode();
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
 
   /// Captured once in [initState] so the autosave/dispose chain never touches
   /// `ref` after the widget is unmounted.
@@ -80,6 +85,8 @@ class _NotesPageState extends ConsumerState<NotesPage> {
     }());
     _editorController.dispose();
     _editorFocusNode.dispose();
+    _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
@@ -231,8 +238,12 @@ class _NotesPageState extends ConsumerState<NotesPage> {
     final l10n = L10n.of(context);
     final filter = ref.watch(notesFilterProvider);
     final isTrash = filter == NotesFilter.trash;
+    // Kept solely for the error-retry invalidate below — the list itself
+    // reads from filteredNotesProvider (filter + search combined).
     final activeStreamProvider = isTrash ? trashNotesProvider : notesProvider;
-    final notesAsync = ref.watch(activeStreamProvider);
+    final notesAsync = ref.watch(filteredNotesProvider);
+    final query = ref.watch(notesSearchProvider).trim();
+    final hasQuery = query.isNotEmpty;
     final tagsByNoteId =
         ref.watch(allNoteTagsProvider).value ?? const <String, List<Tag>>{};
     // Watched unconditionally in build (empty fallback when nothing is
@@ -244,72 +255,120 @@ class _NotesPageState extends ConsumerState<NotesPage> {
     return WpPageShell(
       scrollable: false,
       padding: EdgeInsets.zero,
-      child: Column(
-        children: [
-          _NotesHeader(onCreate: _createNote),
-          NotesSearchBar(
-            currentFilter: filter,
-            onFilterChanged: _setFilter,
-            isDark: isDark,
-          ),
-          Expanded(
-            child: notesAsync.when(
-              data: (notes) {
-                if (notes.isEmpty) {
-                  // No action button in either empty state on purpose: the
-                  // header's "New note" button is always visible and already
-                  // offers the only sensible action — a second identically
-                  // labeled button would be redundant, and the trash empty
-                  // state has no action at all.
-                  return WpEmptyState(
-                    icon: isTrash ? LucideIcons.trash2 : LucideIcons.stickyNote,
-                    title: isTrash
-                        ? l10n.notesTrashEmpty
-                        : l10n.notesEmptyTitle,
-                    hint: isTrash
-                        ? l10n.notesTrashEmptyHint
-                        : l10n.notesEmptyHint,
-                  );
-                }
-                Note? selectedNote;
-                if (_selectedNoteId != null) {
-                  final idx = notes.indexWhere((n) => n.id == _selectedNoteId);
-                  selectedNote = idx >= 0 ? notes[idx] : null;
-                }
-                final currentNote = selectedNote;
-                return NotesSplitView(
-                  notes: notes,
-                  tagsByNoteId: tagsByNoteId,
-                  isDark: isDark,
-                  isTrashView: isTrash,
-                  selectedNote: selectedNote,
-                  selectedNoteTags: selectedNoteTags,
-                  editorController: _editorController,
-                  editorFocusNode: _editorFocusNode,
-                  onNoteTap: _selectNote,
-                  onCloseEditor: _closeEditor,
-                  onFavoriteToggle: _toggleFavorite,
-                  onMoveToTrash: _moveToTrash,
-                  onRestore: _restoreNote,
-                  onDeleteForever: _deleteForever,
-                  onAddTag: (name) {
-                    if (currentNote != null) _addTag(currentNote, name);
-                  },
-                  onRemoveTag: (id) {
-                    if (currentNote != null) _removeTag(currentNote, id);
-                  },
-                );
-              },
-              loading: () => _NotesSkeleton(isDark: isDark),
-              error: (e, _) => WpEmptyState(
-                icon: LucideIcons.triangleAlert,
-                title: l10n.errorGeneric,
-                actionLabel: l10n.actionRetry,
-                onAction: () => ref.invalidate(activeStreamProvider),
+      child: CallbackShortcuts(
+        bindings: <ShortcutActivator, VoidCallback>{
+          SingleActivator(
+            LogicalKeyboardKey.keyF,
+            control: !Platform.isMacOS,
+            meta: Platform.isMacOS,
+          ): () {
+            _searchFocusNode.requestFocus();
+          },
+        },
+        // Focus wrapper: autofocus ensures a descendant of CallbackShortcuts
+        // has focus when the notes page loads so that the Ctrl+F / Cmd+F
+        // shortcut is reachable via key-event bubbling without stealing
+        // interactive focus (see settings_page.dart for the same pattern).
+        child: Focus(
+          autofocus: true,
+          skipTraversal: true,
+          child: Column(
+            children: [
+              _NotesHeader(onCreate: _createNote),
+              NotesSearchBar(
+                currentFilter: filter,
+                onFilterChanged: _setFilter,
+                isDark: isDark,
+                searchController: _searchController,
+                searchFocusNode: _searchFocusNode,
+                onSearchChanged: () {
+                  ref
+                      .read(notesSearchProvider.notifier)
+                      .set(_searchController.text);
+                  // Explicit rebuild so the clear button and result count react
+                  // to every keystroke, independent of provider plumbing.
+                  setState(() {});
+                },
+                resultCount: notesAsync.value?.length ?? 0,
+                showResultCount: hasQuery,
               ),
-            ),
+              Expanded(
+                child: notesAsync.when(
+                  data: (notes) {
+                    if (notes.isEmpty) {
+                      if (hasQuery) {
+                        return WpEmptyState(
+                          icon: LucideIcons.searchX,
+                          title: l10n.notesNoResults,
+                          hint: l10n.notesNoResultsHint(query),
+                          actionLabel: l10n.notesClearSearch,
+                          onAction: () {
+                            _searchController.clear();
+                            ref.read(notesSearchProvider.notifier).set('');
+                            setState(() {});
+                          },
+                        );
+                      }
+                      // No action button in either empty state on purpose: the
+                      // header's "New note" button is always visible and already
+                      // offers the only sensible action — a second identically
+                      // labeled button would be redundant, and the trash empty
+                      // state has no action at all.
+                      return WpEmptyState(
+                        icon: isTrash
+                            ? LucideIcons.trash2
+                            : LucideIcons.stickyNote,
+                        title: isTrash
+                            ? l10n.notesTrashEmpty
+                            : l10n.notesEmptyTitle,
+                        hint: isTrash
+                            ? l10n.notesTrashEmptyHint
+                            : l10n.notesEmptyHint,
+                      );
+                    }
+                    Note? selectedNote;
+                    if (_selectedNoteId != null) {
+                      final idx = notes.indexWhere(
+                        (n) => n.id == _selectedNoteId,
+                      );
+                      selectedNote = idx >= 0 ? notes[idx] : null;
+                    }
+                    final currentNote = selectedNote;
+                    return NotesSplitView(
+                      notes: notes,
+                      tagsByNoteId: tagsByNoteId,
+                      isDark: isDark,
+                      isTrashView: isTrash,
+                      selectedNote: selectedNote,
+                      selectedNoteTags: selectedNoteTags,
+                      editorController: _editorController,
+                      editorFocusNode: _editorFocusNode,
+                      onNoteTap: _selectNote,
+                      onCloseEditor: _closeEditor,
+                      onFavoriteToggle: _toggleFavorite,
+                      onMoveToTrash: _moveToTrash,
+                      onRestore: _restoreNote,
+                      onDeleteForever: _deleteForever,
+                      onAddTag: (name) {
+                        if (currentNote != null) _addTag(currentNote, name);
+                      },
+                      onRemoveTag: (id) {
+                        if (currentNote != null) _removeTag(currentNote, id);
+                      },
+                    );
+                  },
+                  loading: () => _NotesSkeleton(isDark: isDark),
+                  error: (e, _) => WpEmptyState(
+                    icon: LucideIcons.triangleAlert,
+                    title: l10n.errorGeneric,
+                    actionLabel: l10n.actionRetry,
+                    onAction: () => ref.invalidate(activeStreamProvider),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

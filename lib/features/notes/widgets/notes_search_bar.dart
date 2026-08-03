@@ -8,8 +8,8 @@ import '../../../widgets/wp_focus_ring.dart';
 import '../data/providers.dart';
 
 // ---------------------------------------------------------------------------
-// Notes filter bar — Ticket-04 scope: just the active/trash toggle. The
-// search field docks in here with Ticket 06 (hence the file name).
+// Notes search & filter bar — search field (Ticket 06) above the
+// active/trash toggle (Ticket 04).
 // ---------------------------------------------------------------------------
 
 class NotesSearchBar extends StatelessWidget {
@@ -18,37 +18,128 @@ class NotesSearchBar extends StatelessWidget {
     required this.currentFilter,
     required this.onFilterChanged,
     required this.isDark,
+    required this.searchController,
+    required this.searchFocusNode,
+    required this.onSearchChanged,
+    required this.resultCount,
+    required this.showResultCount,
   });
 
   final NotesFilter currentFilter;
   final ValueChanged<NotesFilter> onFilterChanged;
   final bool isDark;
+  final TextEditingController searchController;
+  final FocusNode searchFocusNode;
+
+  /// Reads [searchController]'s text itself — same contract as
+  /// HistorySearchFilterBar's onSearchChanged.
+  final VoidCallback onSearchChanged;
+  final int resultCount;
+  final bool showResultCount;
 
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
+    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: WpSpacing.md),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // loam-ignore: a11y-interactive-semantics – semantics provided in
-          // _NotesFilterChipState.build
-          _NotesFilterChip(
-            label: l10n.navNotes,
-            icon: LucideIcons.stickyNote,
-            isActive: currentFilter == NotesFilter.active,
-            isDark: isDark,
-            onTap: () => onFilterChanged(NotesFilter.active),
+          // ── Search field ─────────────────────────────────────────────────
+          // Soft, low-set capsule matching the history search field: depth via
+          // WpShadows.subtle instead of a resting hairline border — focus
+          // keeps the accent border as the single state signal.
+          DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: WpRadius.borderMd,
+              boxShadow: WpShadows.subtle,
+            ),
+            child: TextField(
+              controller: searchController,
+              focusNode: searchFocusNode,
+              decoration: InputDecoration(
+                hintText: l10n.notesSearchPlaceholder,
+                prefixIcon: Icon(
+                  LucideIcons.search,
+                  size: WpIconSize.sm,
+                  color: textMuted,
+                ),
+                suffixIcon: searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: Icon(
+                          LucideIcons.x,
+                          size: WpIconSize.sm,
+                          color: textMuted,
+                        ),
+                        tooltip: l10n.notesClearSearch,
+                        onPressed: () {
+                          searchController.clear();
+                          onSearchChanged();
+                        },
+                      )
+                    : null,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: WpSpacing.md,
+                  vertical: WpSpacing.xs + 2,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: WpRadius.borderMd,
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: WpRadius.borderMd,
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: WpRadius.borderMd,
+                  borderSide: BorderSide(color: accent, width: 1.5),
+                ),
+              ),
+              onChanged: (_) => onSearchChanged(),
+            ),
           ),
-          const SizedBox(width: WpSpacing.xs),
-          // loam-ignore: a11y-interactive-semantics – semantics provided in
-          // _NotesFilterChipState.build
-          _NotesFilterChip(
-            label: l10n.notesTrash,
-            icon: LucideIcons.trash2,
-            isActive: currentFilter == NotesFilter.trash,
-            isDark: isDark,
-            onTap: () => onFilterChanged(NotesFilter.trash),
+          const SizedBox(height: WpSpacing.xs),
+          // ── Filter chips + result count ──────────────────────────────────
+          Row(
+            children: [
+              // loam-ignore: a11y-interactive-semantics – semantics provided in
+              // _NotesFilterChipState.build
+              _NotesFilterChip(
+                label: l10n.navNotes,
+                icon: LucideIcons.stickyNote,
+                isActive: currentFilter == NotesFilter.active,
+                isDark: isDark,
+                onTap: () => onFilterChanged(NotesFilter.active),
+              ),
+              const SizedBox(width: WpSpacing.xs),
+              // loam-ignore: a11y-interactive-semantics – semantics provided in
+              // _NotesFilterChipState.build
+              _NotesFilterChip(
+                label: l10n.notesTrash,
+                icon: LucideIcons.trash2,
+                isActive: currentFilter == NotesFilter.trash,
+                isDark: isDark,
+                onTap: () => onFilterChanged(NotesFilter.trash),
+              ),
+              if (showResultCount) ...[
+                const Spacer(),
+                Padding(
+                  padding: const EdgeInsets.only(left: WpSpacing.sm),
+                  child: Text(
+                    l10n.notesResultCount(resultCount),
+                    style: TextStyle(
+                      fontSize: WpTypography.small,
+                      color: textMuted,
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
         ],
       ),

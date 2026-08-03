@@ -1,13 +1,25 @@
+import 'dart:io' show Platform;
+
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/data/notes_providers.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/notes/data/notes_actions.dart';
 import 'package:whispaste/features/notes/notes_page.dart';
+import 'package:whispaste/features/notes/widgets/note_editor_panel.dart';
 
 import '../../fixtures/test_helpers.dart';
+
+/// `NotesPage` now also has a search `TextField` (Ticket 06) alongside the
+/// editor's — scope finders to the editor panel where a test cares
+/// specifically about the note body/tag input, not the search field.
+Finder _editorTextFields() => find.descendant(
+  of: find.byType(NoteEditorPanel),
+  matching: find.byType(TextField),
+);
 
 late L10n l10n;
 
@@ -129,7 +141,7 @@ void main() {
       await tester.tap(find.text('Meeting notes'));
       await tester.pumpAndSettle();
 
-      expect(find.byType(TextField), findsOneWidget);
+      expect(_editorTextFields(), findsOneWidget);
       expect(find.text('Meeting notes'), findsWidgets); // tile + editor title
     });
   });
@@ -341,8 +353,9 @@ void main() {
       await tester.tap(find.text(l10n.notesAddTag));
       await tester.pumpAndSettle();
       // The inline tag field renders above the divider/main editor TextField
-      // in NoteEditorPanel — `.first` is the tag input, not the note body.
-      await tester.enterText(find.byType(TextField).first, 'errands');
+      // within NoteEditorPanel — `.first` there is the tag input, not the
+      // note body (scoped to exclude the page's separate search TextField).
+      await tester.enterText(_editorTextFields().first, 'errands');
       await tester.testTextInput.receiveAction(TextInputAction.done);
       await tester.pumpAndSettle();
 
@@ -384,5 +397,161 @@ void main() {
         expect(actions.lastRemoveTag, ('n1', 't1'));
       },
     );
+  });
+
+  group('NotesPage — search (Ticket 06)', () {
+    testWidgets('typing in the search field filters the list by content', (
+      tester,
+    ) async {
+      final notes = [
+        _sampleNote(id: 'n1', content: 'Grocery list'),
+        _sampleNote(id: 'n2', content: 'Meeting agenda'),
+      ];
+
+      await tester.pumpWidget(
+        makeTestable(
+          const NotesPage(),
+          overrides: [
+            notesProvider.overrideWith((ref) => Stream.value(notes)),
+            ..._noTagOverrides,
+          ],
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Grocery list'), findsOneWidget);
+      expect(find.text('Meeting agenda'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), 'grocery');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Grocery list'), findsOneWidget);
+      expect(find.text('Meeting agenda'), findsNothing);
+    });
+
+    testWidgets('shows the no-results empty state for a non-matching query', (
+      tester,
+    ) async {
+      final notes = [_sampleNote(id: 'n1', content: 'Grocery list')];
+
+      await tester.pumpWidget(
+        makeTestable(
+          const NotesPage(),
+          overrides: [
+            notesProvider.overrideWith((ref) => Stream.value(notes)),
+            ..._noTagOverrides,
+          ],
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'nonexistent');
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.notesNoResults), findsOneWidget);
+      expect(find.text(l10n.notesNoResultsHint('nonexistent')), findsOneWidget);
+    });
+
+    testWidgets('clearing the search restores the original list', (
+      tester,
+    ) async {
+      final notes = [_sampleNote(id: 'n1', content: 'Grocery list')];
+
+      await tester.pumpWidget(
+        makeTestable(
+          const NotesPage(),
+          overrides: [
+            notesProvider.overrideWith((ref) => Stream.value(notes)),
+            ..._noTagOverrides,
+          ],
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'nonexistent');
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.notesNoResults), findsOneWidget);
+
+      await tester.tap(find.text(l10n.notesClearSearch));
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.notesNoResults), findsNothing);
+      expect(find.text('Grocery list'), findsOneWidget);
+    });
+
+    testWidgets('shows a result count only while searching', (tester) async {
+      final notes = [
+        _sampleNote(id: 'n1', content: 'Grocery list'),
+        _sampleNote(id: 'n2', content: 'Meeting agenda'),
+      ];
+
+      await tester.pumpWidget(
+        makeTestable(
+          const NotesPage(),
+          overrides: [
+            notesProvider.overrideWith((ref) => Stream.value(notes)),
+            ..._noTagOverrides,
+          ],
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.notesResultCount(1)), findsNothing);
+
+      await tester.enterText(find.byType(TextField), 'grocery');
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.notesResultCount(1)), findsOneWidget);
+    });
+
+    testWidgets('Ctrl/Cmd+F focuses the search field', (tester) async {
+      final notes = [_sampleNote(id: 'n1', content: 'Grocery list')];
+
+      await tester.pumpWidget(
+        makeTestable(
+          const NotesPage(),
+          overrides: [
+            notesProvider.overrideWith((ref) => Stream.value(notes)),
+            ..._noTagOverrides,
+          ],
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final searchField = find.byType(TextField);
+      expect(
+        tester.widget<TextField>(searchField).focusNode!.hasFocus,
+        isFalse,
+        reason: 'Field must not have focus before the shortcut',
+      );
+
+      // The shortcut binding checks the real OS (`dart:io Platform.isMacOS`),
+      // not Flutter's `defaultTargetPlatform` test override — match that.
+      // Vorbild: settings_search_keyboard_a11y_test.dart (separate down/up
+      // for the letter key, not the combined `sendKeyEvent`).
+      if (Platform.isMacOS) {
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.meta);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.keyF);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.keyF);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.meta);
+      } else {
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.control);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.keyF);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.keyF);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.control);
+      }
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.widget<TextField>(searchField).focusNode!.hasFocus,
+        isTrue,
+        reason: 'Field must have focus after the shortcut',
+      );
+    });
   });
 }

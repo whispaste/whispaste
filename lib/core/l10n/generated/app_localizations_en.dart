@@ -3165,4 +3165,29 @@ class L10nEn extends L10n {
 
   @override
   String get notesTagPlaceholder => 'Tag name…';
+
+  @override
+  String get notesSearchPlaceholder => 'Search notes…';
+
+  @override
+  String get notesNoResults => 'No results';
+
+  @override
+  String notesNoResultsHint(String query) {
+    return 'No notes match \"$query\".\nTry a different search term.';
+  }
+
+  @override
+  String get notesClearSearch => 'Clear search';
+
+  @override
+  String notesResultCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count results',
+      one: '1 result',
+    );
+    return '$_temp0';
+  }
 }

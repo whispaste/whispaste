@@ -5660,6 +5660,36 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Tag name…'**
   String get notesTagPlaceholder;
+
+  /// No description provided for @notesSearchPlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Search notes…'**
+  String get notesSearchPlaceholder;
+
+  /// No description provided for @notesNoResults.
+  ///
+  /// In en, this message translates to:
+  /// **'No results'**
+  String get notesNoResults;
+
+  /// No description provided for @notesNoResultsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'No notes match \"{query}\".\nTry a different search term.'**
+  String notesNoResultsHint(String query);
+
+  /// No description provided for @notesClearSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear search'**
+  String get notesClearSearch;
+
+  /// No description provided for @notesResultCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 result} other{{count} results}}'**
+  String notesResultCount(int count);
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

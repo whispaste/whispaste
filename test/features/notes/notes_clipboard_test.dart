@@ -133,7 +133,14 @@ void main() {
         await tester.tap(find.text('Line one'));
         await tester.pumpAndSettle();
 
-        final field = tester.widget<TextField>(find.byType(TextField));
+        // `NotesPage` now also has a search TextField (Ticket 06) — scope to
+        // the editor panel's field, which holds the note body.
+        final field = tester.widget<TextField>(
+          find.descendant(
+            of: find.byType(NoteEditorPanel),
+            matching: find.byType(TextField),
+          ),
+        );
         expect(field.controller!.text, 'Line one\nLine two\nLine three');
         expect(field.controller!.text, isNot(contains('\r')));
       },

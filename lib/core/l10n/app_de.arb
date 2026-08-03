@@ -1062,5 +1062,20 @@
   "notesTrashEmptyHint": "Gelöschte Notizen landen hier und werden nicht automatisch entfernt.",
   "notesUndo": "Rückgängig",
   "notesAddTag": "Tag hinzufügen",
-  "notesTagPlaceholder": "Tag-Name…"
+  "notesTagPlaceholder": "Tag-Name…",
+  "notesSearchPlaceholder": "Notizen durchsuchen…",
+  "notesNoResults": "Keine Ergebnisse",
+  "notesNoResultsHint": "Keine Notizen stimmen mit \"{query}\" überein.\nVersuche einen anderen Suchbegriff.",
+  "@notesNoResultsHint": {
+    "placeholders": {
+      "query": { "type": "String" }
+    }
+  },
+  "notesClearSearch": "Suche zurücksetzen",
+  "notesResultCount": "{count, plural, =1{1 Ergebnis} other{{count} Ergebnisse}}",
+  "@notesResultCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  }
 }
