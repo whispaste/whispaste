@@ -169,6 +169,22 @@ class Automations extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// User-defined text snippets (dictation-automations ticket 05) — named,
+/// multi-line reusable text blocks, deliberately a separate table/data type
+/// from [TextReplacements] (no trigger phrase, no auto-fire-during-dictation
+/// behaviour; snippets are inserted on explicit user action via a picker,
+/// tickets 06/07/08).
+@DataClassName('Snippet')
+class Snippets extends Table {
+  TextColumn get id => text()();
+  TextColumn get title => text()();
+  TextColumn get body => text()();
+  DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 /// Per-recording end-to-end hotkey→text latency — local-only performance KPI.
 ///
 /// A different privacy domain than the outgoing (bucketed) telemetry latency

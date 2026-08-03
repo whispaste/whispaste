@@ -24,6 +24,9 @@ class L10nDe extends L10n {
   String get navAutomations => 'Automationen';
 
   @override
+  String get navSnippets => 'Snippets';
+
+  @override
   String get navAnalytics => 'Statistiken';
 
   @override
@@ -1304,6 +1307,54 @@ class L10nDe extends L10n {
   @override
   String automationsDeleteMessage(String trigger) {
     return 'Automation \"$trigger\" entfernen? Dies kann nicht rückgängig gemacht werden.';
+  }
+
+  @override
+  String get snippetsSearch => 'Snippets suchen…';
+
+  @override
+  String get snippetsAdd => 'Hinzufügen';
+
+  @override
+  String get snippetsEmpty => 'Noch keine Snippets';
+
+  @override
+  String get snippetsEmptyHint =>
+      'Füge einen Snippet hinzu, um wiederkehrende Textbausteine schnell wiederzuverwenden — z. B. eine Signatur oder eine Standardantwort.';
+
+  @override
+  String get snippetsNoMatches => 'Keine Treffer';
+
+  @override
+  String get snippetsNoMatchesHint => 'Versuche einen anderen Suchbegriff.';
+
+  @override
+  String get snippetsAddSnippet => 'Snippet hinzufügen';
+
+  @override
+  String get snippetsEditSnippet => 'Snippet bearbeiten';
+
+  @override
+  String get snippetsNewSnippet => 'Neuer Snippet';
+
+  @override
+  String get snippetsTitleLabel => 'Titel';
+
+  @override
+  String get snippetsTitleHint => 'z. B. E-Mail-Signatur';
+
+  @override
+  String get snippetsBodyLabel => 'Text';
+
+  @override
+  String get snippetsBodyHint => 'Der Text, den dieser Snippet einfügt…';
+
+  @override
+  String get snippetsDeleteTitle => 'Snippet löschen';
+
+  @override
+  String snippetsDeleteMessage(String title) {
+    return 'Snippet \"$title\" entfernen? Dies kann nicht rückgängig gemacht werden.';
   }
 
   @override

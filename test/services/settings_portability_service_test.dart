@@ -11,6 +11,7 @@ import 'package:file/memory.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/features/replacements/replacements_page.dart';
+import 'package:whispaste/features/snippets/snippets_page.dart';
 import 'package:whispaste/services/settings_portability_service.dart';
 
 void main() {
@@ -206,4 +207,67 @@ void main() {
       );
     },
   );
+
+  // ---------------------------------------------------------------------------
+  // Snippets: exported as their own optional section (dictation-automations
+  // ticket 05).
+  // ---------------------------------------------------------------------------
+
+  test('exportToFile writes snippets as their own JSON section', () async {
+    const bundle = SettingsExportBundle(
+      customVocabulary: '',
+      hotkey: HotkeySettings(),
+      replacements: [],
+      snippets: [
+        SnippetItem(id: 'x', title: 'Signature', body: 'Best,\nSilvio'),
+      ],
+    );
+
+    await service.exportToFile('/exports/settings.json', bundle);
+
+    final written = await fs.file('/exports/settings.json').readAsString();
+    expect(written, contains('"snippets"'));
+    expect(written, contains('"title"'));
+    expect(written, contains('Signature'));
+    expect(written, contains('Best,\\nSilvio'));
+  });
+
+  test('round trip: export then import restores snippets', () async {
+    const bundle = SettingsExportBundle(
+      customVocabulary: '',
+      hotkey: HotkeySettings(),
+      replacements: [],
+      snippets: [
+        SnippetItem(id: 'a', title: 'Signature', body: 'Best,\nSilvio'),
+        SnippetItem(id: 'b', title: 'Greeting', body: 'Hi there'),
+      ],
+    );
+
+    await service.exportToFile('/roundtrip-snippets.json', bundle);
+    final restored = await service.importFromFile('/roundtrip-snippets.json');
+
+    expect(restored.snippets, hasLength(2));
+    expect(restored.snippets[0].title, 'Signature');
+    expect(restored.snippets[0].body, 'Best,\nSilvio');
+    expect(restored.snippets[1].title, 'Greeting');
+    expect(restored.snippets[1].body, 'Hi there');
+  });
+
+  test('importFromFile reads a currently-published export without a "snippets" '
+      'section without throwing, restoring an empty snippets list', () async {
+    await fs
+        .file('/pre-snippets.json')
+        .writeAsString(
+          jsonEncode({
+            'format_version': 1,
+            'custom_vocabulary': 'x',
+            'hotkey': const HotkeySettings().toMap(),
+            'replacements': <Object?>[],
+          }),
+        );
+
+    final restored = await service.importFromFile('/pre-snippets.json');
+
+    expect(restored.snippets, isEmpty);
+  });
 }

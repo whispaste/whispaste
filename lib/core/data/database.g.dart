@@ -4230,6 +4230,311 @@ class AutomationsCompanion extends UpdateCompanion<Automation> {
   }
 }
 
+class $SnippetsTable extends Snippets with TableInfo<$SnippetsTable, Snippet> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SnippetsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _bodyMeta = const VerificationMeta('body');
+  @override
+  late final GeneratedColumn<String> body = GeneratedColumn<String>(
+    'body',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, title, body, createdAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'snippets';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Snippet> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+        _titleMeta,
+        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_titleMeta);
+    }
+    if (data.containsKey('body')) {
+      context.handle(
+        _bodyMeta,
+        body.isAcceptableOrUnknown(data['body']!, _bodyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_bodyMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Snippet map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Snippet(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
+      )!,
+      body: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}body'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $SnippetsTable createAlias(String alias) {
+    return $SnippetsTable(attachedDatabase, alias);
+  }
+}
+
+class Snippet extends DataClass implements Insertable<Snippet> {
+  final String id;
+  final String title;
+  final String body;
+  final DateTime createdAt;
+  const Snippet({
+    required this.id,
+    required this.title,
+    required this.body,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['title'] = Variable<String>(title);
+    map['body'] = Variable<String>(body);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  SnippetsCompanion toCompanion(bool nullToAbsent) {
+    return SnippetsCompanion(
+      id: Value(id),
+      title: Value(title),
+      body: Value(body),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory Snippet.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Snippet(
+      id: serializer.fromJson<String>(json['id']),
+      title: serializer.fromJson<String>(json['title']),
+      body: serializer.fromJson<String>(json['body']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'title': serializer.toJson<String>(title),
+      'body': serializer.toJson<String>(body),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  Snippet copyWith({
+    String? id,
+    String? title,
+    String? body,
+    DateTime? createdAt,
+  }) => Snippet(
+    id: id ?? this.id,
+    title: title ?? this.title,
+    body: body ?? this.body,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  Snippet copyWithCompanion(SnippetsCompanion data) {
+    return Snippet(
+      id: data.id.present ? data.id.value : this.id,
+      title: data.title.present ? data.title.value : this.title,
+      body: data.body.present ? data.body.value : this.body,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Snippet(')
+          ..write('id: $id, ')
+          ..write('title: $title, ')
+          ..write('body: $body, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, title, body, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Snippet &&
+          other.id == this.id &&
+          other.title == this.title &&
+          other.body == this.body &&
+          other.createdAt == this.createdAt);
+}
+
+class SnippetsCompanion extends UpdateCompanion<Snippet> {
+  final Value<String> id;
+  final Value<String> title;
+  final Value<String> body;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const SnippetsCompanion({
+    this.id = const Value.absent(),
+    this.title = const Value.absent(),
+    this.body = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SnippetsCompanion.insert({
+    required String id,
+    required String title,
+    required String body,
+    required DateTime createdAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       title = Value(title),
+       body = Value(body),
+       createdAt = Value(createdAt);
+  static Insertable<Snippet> custom({
+    Expression<String>? id,
+    Expression<String>? title,
+    Expression<String>? body,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (title != null) 'title': title,
+      if (body != null) 'body': body,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SnippetsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? title,
+    Value<String>? body,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return SnippetsCompanion(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      body: body ?? this.body,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (body.present) {
+      map['body'] = Variable<String>(body.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SnippetsCompanion(')
+          ..write('id: $id, ')
+          ..write('title: $title, ')
+          ..write('body: $body, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$HistoryDatabase extends GeneratedDatabase {
   _$HistoryDatabase(QueryExecutor e) : super(e);
   $HistoryDatabaseManager get managers => $HistoryDatabaseManager(this);
@@ -4249,6 +4554,7 @@ abstract class _$HistoryDatabase extends GeneratedDatabase {
   late final $HotkeyLatencyEntriesTable hotkeyLatencyEntries =
       $HotkeyLatencyEntriesTable(this);
   late final $AutomationsTable automations = $AutomationsTable(this);
+  late final $SnippetsTable snippets = $SnippetsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -4264,6 +4570,7 @@ abstract class _$HistoryDatabase extends GeneratedDatabase {
     entryTags,
     hotkeyLatencyEntries,
     automations,
+    snippets,
   ];
 }
 
@@ -7659,6 +7966,181 @@ typedef $$AutomationsTableProcessedTableManager =
       Automation,
       PrefetchHooks Function()
     >;
+typedef $$SnippetsTableCreateCompanionBuilder =
+    SnippetsCompanion Function({
+      required String id,
+      required String title,
+      required String body,
+      required DateTime createdAt,
+      Value<int> rowid,
+    });
+typedef $$SnippetsTableUpdateCompanionBuilder =
+    SnippetsCompanion Function({
+      Value<String> id,
+      Value<String> title,
+      Value<String> body,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$SnippetsTableFilterComposer
+    extends Composer<_$HistoryDatabase, $SnippetsTable> {
+  $$SnippetsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get body => $composableBuilder(
+    column: $table.body,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SnippetsTableOrderingComposer
+    extends Composer<_$HistoryDatabase, $SnippetsTable> {
+  $$SnippetsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get body => $composableBuilder(
+    column: $table.body,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SnippetsTableAnnotationComposer
+    extends Composer<_$HistoryDatabase, $SnippetsTable> {
+  $$SnippetsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<String> get body =>
+      $composableBuilder(column: $table.body, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$SnippetsTableTableManager
+    extends
+        RootTableManager<
+          _$HistoryDatabase,
+          $SnippetsTable,
+          Snippet,
+          $$SnippetsTableFilterComposer,
+          $$SnippetsTableOrderingComposer,
+          $$SnippetsTableAnnotationComposer,
+          $$SnippetsTableCreateCompanionBuilder,
+          $$SnippetsTableUpdateCompanionBuilder,
+          (Snippet, BaseReferences<_$HistoryDatabase, $SnippetsTable, Snippet>),
+          Snippet,
+          PrefetchHooks Function()
+        > {
+  $$SnippetsTableTableManager(_$HistoryDatabase db, $SnippetsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SnippetsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SnippetsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SnippetsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> title = const Value.absent(),
+                Value<String> body = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SnippetsCompanion(
+                id: id,
+                title: title,
+                body: body,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String title,
+                required String body,
+                required DateTime createdAt,
+                Value<int> rowid = const Value.absent(),
+              }) => SnippetsCompanion.insert(
+                id: id,
+                title: title,
+                body: body,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SnippetsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$HistoryDatabase,
+      $SnippetsTable,
+      Snippet,
+      $$SnippetsTableFilterComposer,
+      $$SnippetsTableOrderingComposer,
+      $$SnippetsTableAnnotationComposer,
+      $$SnippetsTableCreateCompanionBuilder,
+      $$SnippetsTableUpdateCompanionBuilder,
+      (Snippet, BaseReferences<_$HistoryDatabase, $SnippetsTable, Snippet>),
+      Snippet,
+      PrefetchHooks Function()
+    >;
 
 class $HistoryDatabaseManager {
   final _$HistoryDatabase _db;
@@ -7685,4 +8167,6 @@ class $HistoryDatabaseManager {
       $$HotkeyLatencyEntriesTableTableManager(_db, _db.hotkeyLatencyEntries);
   $$AutomationsTableTableManager get automations =>
       $$AutomationsTableTableManager(_db, _db.automations);
+  $$SnippetsTableTableManager get snippets =>
+      $$SnippetsTableTableManager(_db, _db.snippets);
 }

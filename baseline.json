@@ -15,6 +15,34 @@
       "filePath": "lib/core/config/settings_sections.dart",
       "line": 423,
       "message": "2 occurrences of duplicated block (66 tokens): lib/core/config/settings_sections.dart:423, lib/core/config/settings_sections.dart:1101"
+    },
+    {
+      "fingerprint": "f722cecf5a72be52",
+      "ruleId": "code-duplicates",
+      "filePath": "lib/features/automations/automations_page.dart",
+      "line": 125,
+      "message": "2 occurrences of duplicated block (179 tokens): lib/features/automations/automations_page.dart:125, lib/features/snippets/snippets_page.dart:138"
+    },
+    {
+      "fingerprint": "0edae0e75d3dd795",
+      "ruleId": "code-duplicates",
+      "filePath": "lib/features/automations/automations_page.dart",
+      "line": 166,
+      "message": "2 occurrences of duplicated block (121 tokens): lib/features/automations/automations_page.dart:166, lib/features/snippets/snippets_page.dart:178"
+    },
+    {
+      "fingerprint": "01ffa2958acfd7ae",
+      "ruleId": "code-duplicates",
+      "filePath": "lib/features/replacements/replacements_page.dart",
+      "line": 79,
+      "message": "2 occurrences of duplicated block (60 tokens): lib/features/replacements/replacements_page.dart:79, lib/features/snippets/snippets_page.dart:51"
+    },
+    {
+      "fingerprint": "9f589c395d1364a0",
+      "ruleId": "code-duplicates",
+      "filePath": "lib/features/replacements/replacements_page.dart",
+      "line": 119,
+      "message": "2 occurrences of duplicated block (96 tokens): lib/features/replacements/replacements_page.dart:119, lib/features/snippets/snippets_page.dart:91"
     }
   ]
 }

@@ -129,6 +129,12 @@ abstract class L10n {
   /// **'Automations'**
   String get navAutomations;
 
+  /// No description provided for @navSnippets.
+  ///
+  /// In en, this message translates to:
+  /// **'Snippets'**
+  String get navSnippets;
+
   /// No description provided for @navAnalytics.
   ///
   /// In en, this message translates to:
@@ -2384,6 +2390,96 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Remove the automation \"{trigger}\"? This cannot be undone.'**
   String automationsDeleteMessage(String trigger);
+
+  /// No description provided for @snippetsSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Search snippets…'**
+  String get snippetsSearch;
+
+  /// No description provided for @snippetsAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get snippetsAdd;
+
+  /// No description provided for @snippetsEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No snippets yet'**
+  String get snippetsEmpty;
+
+  /// No description provided for @snippetsEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a snippet to quickly reuse a block of text — like a signature or a boilerplate reply.'**
+  String get snippetsEmptyHint;
+
+  /// No description provided for @snippetsNoMatches.
+  ///
+  /// In en, this message translates to:
+  /// **'No matches'**
+  String get snippetsNoMatches;
+
+  /// No description provided for @snippetsNoMatchesHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Try a different search term.'**
+  String get snippetsNoMatchesHint;
+
+  /// No description provided for @snippetsAddSnippet.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Snippet'**
+  String get snippetsAddSnippet;
+
+  /// No description provided for @snippetsEditSnippet.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Snippet'**
+  String get snippetsEditSnippet;
+
+  /// No description provided for @snippetsNewSnippet.
+  ///
+  /// In en, this message translates to:
+  /// **'New Snippet'**
+  String get snippetsNewSnippet;
+
+  /// No description provided for @snippetsTitleLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Title'**
+  String get snippetsTitleLabel;
+
+  /// No description provided for @snippetsTitleHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. Email signature'**
+  String get snippetsTitleHint;
+
+  /// No description provided for @snippetsBodyLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Body'**
+  String get snippetsBodyLabel;
+
+  /// No description provided for @snippetsBodyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'The text this snippet inserts…'**
+  String get snippetsBodyHint;
+
+  /// No description provided for @snippetsDeleteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Snippet'**
+  String get snippetsDeleteTitle;
+
+  /// No description provided for @snippetsDeleteMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove the snippet \"{title}\"? This cannot be undone.'**
+  String snippetsDeleteMessage(String title);
 
   /// No description provided for @aboutTagline.
   ///

@@ -86,6 +86,7 @@ class WpScreenshotShell extends StatelessWidget {
                     children: [
                       WpSidebar(
                         items: navItems,
+                        dividerAfterIds: wpNavDividerAfterIds,
                         activeId: activePageId,
                         onItemTap: (_) {},
                         bottomItems: [

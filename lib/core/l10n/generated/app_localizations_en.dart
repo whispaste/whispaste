@@ -24,6 +24,9 @@ class L10nEn extends L10n {
   String get navAutomations => 'Automations';
 
   @override
+  String get navSnippets => 'Snippets';
+
+  @override
   String get navAnalytics => 'Analytics';
 
   @override
@@ -1291,6 +1294,54 @@ class L10nEn extends L10n {
   @override
   String automationsDeleteMessage(String trigger) {
     return 'Remove the automation \"$trigger\"? This cannot be undone.';
+  }
+
+  @override
+  String get snippetsSearch => 'Search snippets…';
+
+  @override
+  String get snippetsAdd => 'Add';
+
+  @override
+  String get snippetsEmpty => 'No snippets yet';
+
+  @override
+  String get snippetsEmptyHint =>
+      'Add a snippet to quickly reuse a block of text — like a signature or a boilerplate reply.';
+
+  @override
+  String get snippetsNoMatches => 'No matches';
+
+  @override
+  String get snippetsNoMatchesHint => 'Try a different search term.';
+
+  @override
+  String get snippetsAddSnippet => 'Add Snippet';
+
+  @override
+  String get snippetsEditSnippet => 'Edit Snippet';
+
+  @override
+  String get snippetsNewSnippet => 'New Snippet';
+
+  @override
+  String get snippetsTitleLabel => 'Title';
+
+  @override
+  String get snippetsTitleHint => 'e.g. Email signature';
+
+  @override
+  String get snippetsBodyLabel => 'Body';
+
+  @override
+  String get snippetsBodyHint => 'The text this snippet inserts…';
+
+  @override
+  String get snippetsDeleteTitle => 'Delete Snippet';
+
+  @override
+  String snippetsDeleteMessage(String title) {
+    return 'Remove the snippet \"$title\"? This cannot be undone.';
   }
 
   @override

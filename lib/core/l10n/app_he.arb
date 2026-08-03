@@ -5,6 +5,7 @@
   "navSettings": "הגדרות",
   "navReplacements": "קיצורי קול",
   "navAutomations": "אוטומציות",
+  "navSnippets": "קטעים",
   "navAnalytics": "ניתוח נתונים",
   "navAbout": "אודות",
   "navFeedback": "משוב",
@@ -439,6 +440,27 @@
   "@automationsDeleteMessage": {
     "placeholders": {
       "trigger": { "type": "String" }
+    }
+  },
+
+  "snippetsSearch": "חפש קטעים…",
+  "snippetsAdd": "הוסף",
+  "snippetsEmpty": "עדיין אין קטעים",
+  "snippetsEmptyHint": "הוסף קטע כדי לעשות שימוש חוזר מהיר בבלוק טקסט — כמו חתימה או תשובה סטנדרטית.",
+  "snippetsNoMatches": "אין התאמות",
+  "snippetsNoMatchesHint": "נסה מונח חיפוש אחר.",
+  "snippetsAddSnippet": "הוסף קטע",
+  "snippetsEditSnippet": "ערוך קטע",
+  "snippetsNewSnippet": "קטע חדש",
+  "snippetsTitleLabel": "כותרת",
+  "snippetsTitleHint": "לדוגמה: חתימת אימייל",
+  "snippetsBodyLabel": "תוכן",
+  "snippetsBodyHint": "הטקסט שהקטע הזה מכניס…",
+  "snippetsDeleteTitle": "מחק קטע",
+  "snippetsDeleteMessage": "להסיר את הקטע \"{title}\"? אין דרך לבטל.",
+  "@snippetsDeleteMessage": {
+    "placeholders": {
+      "title": { "type": "String" }
     }
   },
 

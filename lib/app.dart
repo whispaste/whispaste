@@ -31,6 +31,7 @@ import 'features/history/history_page.dart';
 import 'features/settings/settings_page.dart';
 import 'features/replacements/replacements_page.dart';
 import 'features/automations/automations_page.dart';
+import 'features/snippets/snippets_page.dart';
 import 'features/analytics/analytics_page.dart';
 import 'features/about/about_page.dart';
 import 'features/feedback/feedback_page.dart';
@@ -104,12 +105,25 @@ class WhisPasteApp extends ConsumerWidget {
 /// Navigation items — built from localized strings.
 ///
 /// Public so the screenshot integration test can build an identical sidebar.
+///
+/// Ordered in two deliberate groups (separated in the sidebar via
+/// [wpNavDividerAfterIds]):
+///
+/// 1. **Dictation tools** — History (the record of what you dictated), then
+///    the trigger-phrase family in ascending power: Replacements (transform
+///    text), Snippets (insert stored text), Automations (run an action).
+/// 2. **Product/meta** — Analytics, Feedback, About (canonical last entry).
 List<WpNavItem> wpNavItems(L10n l10n) => [
   WpNavItem(id: 'history', icon: LucideIcons.clock3, label: l10n.navHistory),
   WpNavItem(
     id: 'replacements',
     icon: LucideIcons.replace,
     label: l10n.navReplacements,
+  ),
+  WpNavItem(
+    id: 'snippets',
+    icon: LucideIcons.notebookText,
+    label: l10n.navSnippets,
   ),
   WpNavItem(
     id: 'automations',
@@ -121,13 +135,18 @@ List<WpNavItem> wpNavItems(L10n l10n) => [
     icon: LucideIcons.chartNoAxesColumn,
     label: l10n.navAnalytics,
   ),
-  WpNavItem(id: 'about', icon: LucideIcons.info, label: l10n.navAbout),
   WpNavItem(
     id: 'feedback',
     icon: LucideIcons.messageSquare,
     label: l10n.navFeedback,
   ),
+  WpNavItem(id: 'about', icon: LucideIcons.info, label: l10n.navAbout),
 ];
+
+/// Group break between the dictation tools and the product/meta nav items —
+/// single source of truth for every [WpSidebar] call site (app shell,
+/// screenshot shells), so grouping stays consistent everywhere.
+const Set<String> wpNavDividerAfterIds = {'automations'};
 
 /// Resolves the page title — checks nav items first, falls back for
 /// bottom-pinned pages (e.g. Settings).
@@ -156,6 +175,7 @@ const wpPageWidgets = <String, Widget>{
   'settings': SettingsPage(),
   'replacements': ReplacementsPage(),
   'automations': AutomationsPage(),
+  'snippets': SnippetsPage(),
   'analytics': AnalyticsPage(),
   'about': AboutPage(),
   'feedback': FeedbackPage(),
@@ -801,6 +821,7 @@ class _AppShellState extends ConsumerState<_AppShell>
                               children: [
                                 WpSidebar(
                                   items: navItems,
+                                  dividerAfterIds: wpNavDividerAfterIds,
                                   activeId: activePage,
                                   onItemTap: (id) {
                                     ref

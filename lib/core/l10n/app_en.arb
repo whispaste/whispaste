@@ -5,6 +5,7 @@
   "navSettings": "Settings",
   "navReplacements": "Voice Shortcuts",
   "navAutomations": "Automations",
+  "navSnippets": "Snippets",
   "navAnalytics": "Analytics",
   "navAbout": "About",
   "navFeedback": "Feedback",
@@ -502,6 +503,27 @@
   "@automationsDeleteMessage": {
     "placeholders": {
       "trigger": { "type": "String" }
+    }
+  },
+
+  "snippetsSearch": "Search snippets…",
+  "snippetsAdd": "Add",
+  "snippetsEmpty": "No snippets yet",
+  "snippetsEmptyHint": "Add a snippet to quickly reuse a block of text — like a signature or a boilerplate reply.",
+  "snippetsNoMatches": "No matches",
+  "snippetsNoMatchesHint": "Try a different search term.",
+  "snippetsAddSnippet": "Add Snippet",
+  "snippetsEditSnippet": "Edit Snippet",
+  "snippetsNewSnippet": "New Snippet",
+  "snippetsTitleLabel": "Title",
+  "snippetsTitleHint": "e.g. Email signature",
+  "snippetsBodyLabel": "Body",
+  "snippetsBodyHint": "The text this snippet inserts…",
+  "snippetsDeleteTitle": "Delete Snippet",
+  "snippetsDeleteMessage": "Remove the snippet \"{title}\"? This cannot be undone.",
+  "@snippetsDeleteMessage": {
+    "placeholders": {
+      "title": { "type": "String" }
     }
   },
 

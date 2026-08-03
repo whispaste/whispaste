@@ -50,6 +50,7 @@ class ReplacementWithTriggers {
     EntryTags,
     HotkeyLatencyEntries,
     Automations,
+    Snippets,
   ],
 )
 class HistoryDatabase extends _$HistoryDatabase {
@@ -94,7 +95,7 @@ class HistoryDatabase extends _$HistoryDatabase {
   }
 
   @override
-  int get schemaVersion => 14;
+  int get schemaVersion => 15;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -135,6 +136,9 @@ class HistoryDatabase extends _$HistoryDatabase {
       }
       if (from < 14) {
         await m.createTable(automations);
+      }
+      if (from < 15) {
+        await m.createTable(snippets);
       }
     },
     beforeOpen: (details) async {
@@ -1584,6 +1588,7 @@ class HistoryDatabase extends _$HistoryDatabase {
         await delete(textReplacementTriggers).go();
         await delete(textReplacements).go();
         await delete(automations).go();
+        await delete(snippets).go();
         await customStatement('DELETE FROM app_settings');
       });
     });
@@ -1760,6 +1765,53 @@ class HistoryDatabase extends _$HistoryDatabase {
   Future<void> deleteAutomation(String id) {
     return (delete(automations)..where((a) => a.id.equals(id))).go();
   }
+
+  // ---------------------------------------------------------------------------
+  // Snippets (dictation-automations ticket 05)
+  // ---------------------------------------------------------------------------
+
+  /// Ordered by SQLite rowid (insertion order) — same technique as
+  /// [_automationsQuery], see its doc comment for why a plain `ORDER BY` on
+  /// a text column would not give creation order.
+  SimpleSelectStatement<$SnippetsTable, Snippet> _snippetsQuery() {
+    return select(snippets)..orderBy([
+      (s) => OrderingTerm(
+        expression: const CustomExpression<int>('snippets.rowid'),
+      ),
+    ]);
+  }
+
+  Future<List<Snippet>> readAllSnippets() => _snippetsQuery().get();
+
+  Stream<List<Snippet>> watchAllSnippets() {
+    if (_isClosed) return const Stream.empty();
+    return _snippetsQuery().watch();
+  }
+
+  Future<void> upsertSnippet({
+    required String id,
+    required String title,
+    required String body,
+    required DateTime createdAt,
+  }) {
+    return into(snippets).insertOnConflictUpdate(
+      SnippetsCompanion(
+        id: Value(id),
+        title: Value(title),
+        body: Value(body),
+        createdAt: Value(createdAt),
+      ),
+    );
+  }
+
+  Future<void> deleteSnippet(String id) {
+    return (delete(snippets)..where((s) => s.id.equals(id))).go();
+  }
+
+  /// Deletes all snippets. Used by settings import (portability) so the
+  /// imported file becomes the exact new contents rather than being merged
+  /// with existing entries.
+  Future<void> deleteAllSnippets() => delete(snippets).go();
 
   // ---------------------------------------------------------------------------
   // Notes

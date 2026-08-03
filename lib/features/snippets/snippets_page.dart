@@ -1,77 +1,75 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../core/data/reloadable_list_notifier.dart';
 import '../../core/l10n/generated/app_localizations.dart';
-import '../../services/automation_dispatch_service.dart';
 import '../../services/telemetry_service.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/dialog.dart';
 import '../../widgets/managed_list_page.dart';
-import '../../widgets/trigger_chip.dart';
 import 'package:whispaste/core/data/database.dart';
 
 // ---------------------------------------------------------------------------
 // Model
 // ---------------------------------------------------------------------------
 
-/// UI-facing "open a URL" automation — the only action type today. Wraps a
-/// DB [Automation] row (`actionType`/`payload`), decoding its payload so the
-/// settings UI never has to know about the JSON encoding.
-class AutomationItem {
-  const AutomationItem({
+/// UI-facing snippet — named separately from the drift-generated [Snippet]
+/// row class to avoid a name collision.
+class SnippetItem {
+  const SnippetItem({
     required this.id,
-    required this.trigger,
-    required this.url,
+    required this.title,
+    required this.body,
   });
 
   final String id;
-  final String trigger;
-  final String url;
+  final String title;
+  final String body;
 }
 
 // ---------------------------------------------------------------------------
 // State management (Riverpod AsyncNotifier — persisted in Drift DB)
 // ---------------------------------------------------------------------------
 
-class AutomationsNotifier extends AsyncNotifier<List<AutomationItem>>
-    with ReloadableListNotifier<AutomationItem> {
+class SnippetsNotifier extends AsyncNotifier<List<SnippetItem>>
+    with ReloadableListNotifier<SnippetItem> {
   @override
-  Future<List<AutomationItem>> readAll() async {
+  Future<List<SnippetItem>> readAll() async {
     final db = ref.read(historyDatabaseProvider);
-    return (await db.readAllAutomations()).map(_fromDb).toList();
+    return (await db.readAllSnippets()).map(_fromDb).toList();
   }
 
   @override
-  Future<List<AutomationItem>> build() => readAll();
+  Future<List<SnippetItem>> build() => readAll();
 
-  Future<void> add(String trigger, String url) async {
+  // Deliberately not further extracted: shares its "generate a millis-epoch id,
+  // upsert, reload" shape with ReplacementsNotifier.add. A shared
+  // `createThenReload(persist)` helper was tried on ReloadableListNotifier:
+  // it replaced this direct, linear code with a persist-callback closure for
+  // no net line reduction — not worth the indirection for three lines.
+  Future<void> add(String title, String body) async {
     final db = ref.read(historyDatabaseProvider);
     final id = DateTime.now().millisecondsSinceEpoch.toString();
-    await db.upsertAutomation(
+    await db.upsertSnippet(
       id: id,
-      trigger: trigger,
-      actionType: AutomationActionType.openUrl.dbValue,
-      payload: jsonEncode({'url': url}),
+      title: title,
+      body: body,
       createdAt: DateTime.now(),
     );
     await reload();
   }
 
-  Future<void> updateAutomation(
+  Future<void> updateSnippet(
     String id, {
-    required String trigger,
-    required String url,
+    required String title,
+    required String body,
   }) async {
     final db = ref.read(historyDatabaseProvider);
-    await db.upsertAutomation(
+    await db.upsertSnippet(
       id: id,
-      trigger: trigger,
-      actionType: AutomationActionType.openUrl.dbValue,
-      payload: jsonEncode({'url': url}),
+      title: title,
+      body: body,
       createdAt: DateTime.now(),
     );
     await reload();
@@ -79,44 +77,59 @@ class AutomationsNotifier extends AsyncNotifier<List<AutomationItem>>
 
   Future<void> remove(String id) async {
     final db = ref.read(historyDatabaseProvider);
-    await db.deleteAutomation(id);
+    await db.deleteSnippet(id);
     await reload();
   }
 
-  static AutomationItem _fromDb(Automation row) {
-    // A malformed payload surfaces as an empty URL rather than crashing the
-    // whole list — see [decodeOpenUrlPayload].
-    return AutomationItem(
-      id: row.id,
-      trigger: row.trigger,
-      url: decodeOpenUrlPayload(row.payload) ?? '',
-    );
+  /// Replaces the entire set of snippets with [items] — used by settings
+  /// import (portability) so the imported file becomes the exact new
+  /// contents rather than being merged with existing entries.
+  // Deliberately not further extracted: shares its "clear, loop with an
+  // index-ordered id, upsert, reload" shape with
+  // ReplacementsNotifier.replaceAll; same closure-indirection trade-off as
+  // [add] above, evaluated and rejected for the same reason.
+  Future<void> replaceAll(List<SnippetItem> items) async {
+    final db = ref.read(historyDatabaseProvider);
+    await db.deleteAllSnippets();
+    final now = DateTime.now();
+    for (var i = 0; i < items.length; i++) {
+      final item = items[i];
+      await db.upsertSnippet(
+        id: '${now.millisecondsSinceEpoch}_$i',
+        title: item.title,
+        body: item.body,
+        createdAt: now,
+      );
+    }
+    await reload();
   }
+
+  static SnippetItem _fromDb(Snippet row) =>
+      SnippetItem(id: row.id, title: row.title, body: row.body);
 }
 
-final automationsProvider =
-    AsyncNotifierProvider<AutomationsNotifier, List<AutomationItem>>(
-      AutomationsNotifier.new,
+final snippetsProvider =
+    AsyncNotifierProvider<SnippetsNotifier, List<SnippetItem>>(
+      SnippetsNotifier.new,
     );
 
 // ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
 
-/// Automations page — exact-match trigger phrases that open a URL, kept in
-/// a separate settings area from Replacements (dictation-automations
-/// ticket 02).
-class AutomationsPage extends ConsumerStatefulWidget {
-  const AutomationsPage({super.key});
+/// Snippets page — named, multi-line text blocks kept in a separate settings
+/// area from Replacements and Automations (dictation-automations ticket 05).
+class SnippetsPage extends ConsumerStatefulWidget {
+  const SnippetsPage({super.key});
 
   @override
-  ConsumerState<AutomationsPage> createState() => _AutomationsPageState();
+  ConsumerState<SnippetsPage> createState() => _SnippetsPageState();
 }
 
-class _AutomationsPageState extends ConsumerState<AutomationsPage> {
+class _SnippetsPageState extends ConsumerState<SnippetsPage> {
   @override
   // Deliberately not further extracted: WpManagedListPage call-site parameter
-  // skeleton shared with SnippetsPage: every value is feature-specific
+  // skeleton shared with AutomationsPage: every value is feature-specific
   // (l10n keys, icon, callbacks), only the parameter *names* repeat. A
   // further-generic factory (e.g. keyed by notifier + string-map) was
   // evaluated and rejected as the exact "Data Clumps"-in-reverse trade the
@@ -125,28 +138,27 @@ class _AutomationsPageState extends ConsumerState<AutomationsPage> {
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
 
-    return WpManagedListPage<AutomationItem>(
-      asyncAll: ref.watch(automationsProvider),
-      searchMatches: (a, q) =>
-          a.trigger.toLowerCase().contains(q) ||
-          a.url.toLowerCase().contains(q),
-      searchHint: l10n.automationsSearch,
-      addLabel: l10n.automationsAdd,
+    return WpManagedListPage<SnippetItem>(
+      asyncAll: ref.watch(snippetsProvider),
+      searchMatches: (s, q) =>
+          s.title.toLowerCase().contains(q) || s.body.toLowerCase().contains(q),
+      searchHint: l10n.snippetsSearch,
+      addLabel: l10n.snippetsAdd,
       onAdd: () => _showAddEditDialog(),
-      onRetry: () => ref.invalidate(automationsProvider),
-      emptyIcon: LucideIcons.zap,
-      emptyTitle: l10n.automationsEmpty,
-      emptyHint: l10n.automationsEmptyHint,
-      emptyActionLabel: l10n.automationsAddAutomation,
-      noMatchesTitle: l10n.automationsNoMatches,
-      noMatchesHint: l10n.automationsNoMatchesHint,
-      itemBuilder: (context, a, isDark) {
-        // loam-ignore: a11y-interactive-semantics – semantics provided in _AutomationTileState.build
-        return _AutomationTile(
-          automation: a,
+      onRetry: () => ref.invalidate(snippetsProvider),
+      emptyIcon: LucideIcons.notebookText,
+      emptyTitle: l10n.snippetsEmpty,
+      emptyHint: l10n.snippetsEmptyHint,
+      emptyActionLabel: l10n.snippetsAddSnippet,
+      noMatchesTitle: l10n.snippetsNoMatches,
+      noMatchesHint: l10n.snippetsNoMatchesHint,
+      itemBuilder: (context, s, isDark) {
+        // loam-ignore: a11y-interactive-semantics – semantics provided in _SnippetTileState.build
+        return _SnippetTile(
+          snippet: s,
           isDark: isDark,
-          onTap: () => _showAddEditDialog(existing: a),
-          onDelete: () => _confirmDelete(a),
+          onTap: () => _showAddEditDialog(existing: s),
+          onDelete: () => _confirmDelete(s),
         );
       },
     );
@@ -155,41 +167,41 @@ class _AutomationsPageState extends ConsumerState<AutomationsPage> {
   // ── Add / Edit dialog ────────────────────────────────────────────────
 
   // Deliberately not further extracted: shares its open-dialog/branch-on-existing
-  // shape with SnippetsPage._showAddEditDialog, but the result tuples and
+  // shape with AutomationsPage._showAddEditDialog, but the result tuples and
   // notifier update-method names differ per feature. Tried extracting this
   // to an onCreate/onUpdate-callback helper: the result was longer than the
-  // original and replaced the direct `final (trigger, url) = result;`
+  // original and replaced the direct `final (title, body) = result;`
   // destructuring with closure indirection — net readability loss, so this
   // one stays duplicated on purpose (unlike the dialog-scaffold + delete
   // flow, which extracted cleanly into WpManagedListPage/
   // confirmWpManagedDelete).
-  Future<void> _showAddEditDialog({AutomationItem? existing}) async {
+  Future<void> _showAddEditDialog({SnippetItem? existing}) async {
     final result = await showWpFormDialog<(String, String)>(
       context: context,
-      builder: (_, a) => _AutomationDialog(existing: existing),
+      builder: (_, a) => _SnippetDialog(existing: existing),
     );
     if (result == null) return;
-    final (trigger, url) = result;
-    final notifier = ref.read(automationsProvider.notifier);
+    final (title, body) = result;
+    final notifier = ref.read(snippetsProvider.notifier);
     if (existing != null) {
-      notifier.updateAutomation(existing.id, trigger: trigger, url: url);
+      notifier.updateSnippet(existing.id, title: title, body: body);
     } else {
-      notifier.add(trigger, url);
+      notifier.add(title, body);
       ref
           .read(telemetrySessionAggregatorProvider)
-          .count(category: 'automations', action: 'create');
+          .count(category: 'snippets', action: 'create');
     }
   }
 
   // ── Delete confirmation ──────────────────────────────────────────────
 
-  Future<void> _confirmDelete(AutomationItem a) {
+  Future<void> _confirmDelete(SnippetItem s) {
     final l10n = L10n.of(context);
     return confirmWpManagedDelete(
       context: context,
-      title: l10n.automationsDeleteTitle,
-      message: l10n.automationsDeleteMessage(a.trigger),
-      onConfirm: () => ref.read(automationsProvider.notifier).remove(a.id),
+      title: l10n.snippetsDeleteTitle,
+      message: l10n.snippetsDeleteMessage(s.title),
+      onConfirm: () => ref.read(snippetsProvider.notifier).remove(s.id),
     );
   }
 }
@@ -198,41 +210,41 @@ class _AutomationsPageState extends ConsumerState<AutomationsPage> {
 // Add / Edit dialog
 // ---------------------------------------------------------------------------
 
-class _AutomationDialog extends StatefulWidget {
-  const _AutomationDialog({this.existing});
+class _SnippetDialog extends StatefulWidget {
+  const _SnippetDialog({this.existing});
 
-  final AutomationItem? existing;
+  final SnippetItem? existing;
 
   @override
-  State<_AutomationDialog> createState() => _AutomationDialogState();
+  State<_SnippetDialog> createState() => _SnippetDialogState();
 }
 
-class _AutomationDialogState extends State<_AutomationDialog> {
-  late final TextEditingController _triggerCtrl;
-  late final TextEditingController _urlCtrl;
+class _SnippetDialogState extends State<_SnippetDialog> {
+  late final TextEditingController _titleCtrl;
+  late final TextEditingController _bodyCtrl;
 
   bool get _isValid =>
-      _triggerCtrl.text.trim().isNotEmpty && _urlCtrl.text.trim().isNotEmpty;
+      _titleCtrl.text.trim().isNotEmpty && _bodyCtrl.text.trim().isNotEmpty;
 
   bool get _isEditing => widget.existing != null;
 
   @override
   void initState() {
     super.initState();
-    _triggerCtrl = TextEditingController(text: widget.existing?.trigger ?? '');
-    _urlCtrl = TextEditingController(text: widget.existing?.url ?? '');
+    _titleCtrl = TextEditingController(text: widget.existing?.title ?? '');
+    _bodyCtrl = TextEditingController(text: widget.existing?.body ?? '');
   }
 
   @override
   void dispose() {
-    _triggerCtrl.dispose();
-    _urlCtrl.dispose();
+    _titleCtrl.dispose();
+    _bodyCtrl.dispose();
     super.dispose();
   }
 
   void _submit() {
     if (!_isValid) return;
-    Navigator.of(context).pop((_triggerCtrl.text.trim(), _urlCtrl.text.trim()));
+    Navigator.of(context).pop((_titleCtrl.text.trim(), _bodyCtrl.text.trim()));
   }
 
   @override
@@ -267,28 +279,18 @@ class _AutomationDialogState extends State<_AutomationDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                _isEditing
-                    ? l10n.automationsEditAutomation
-                    : l10n.automationsNewAutomation,
+                _isEditing ? l10n.snippetsEditSnippet : l10n.snippetsNewSnippet,
                 style: TextStyle(
                   color: textPrimary,
                   fontSize: WpTypography.heading,
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: WpSpacing.xs),
-              Text(
-                l10n.automationsDialogHint,
-                style: TextStyle(
-                  color: textMuted,
-                  fontSize: WpTypography.small,
-                ),
-              ),
               const SizedBox(height: WpSpacing.lg),
 
-              // Trigger phrase
+              // Title
               Text(
-                l10n.automationsTriggerLabel,
+                l10n.snippetsTitleLabel,
                 style: TextStyle(
                   color: textPrimary,
                   fontSize: WpTypography.small,
@@ -297,14 +299,14 @@ class _AutomationDialogState extends State<_AutomationDialog> {
               ),
               const SizedBox(height: WpSpacing.xxs),
               TextField(
-                controller: _triggerCtrl,
+                controller: _titleCtrl,
                 autofocus: true,
                 style: TextStyle(
                   color: textPrimary,
                   fontSize: WpTypography.body,
                 ),
                 decoration: InputDecoration(
-                  hintText: l10n.automationsTriggerHint,
+                  hintText: l10n.snippetsTitleHint,
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: WpSpacing.md,
@@ -316,9 +318,9 @@ class _AutomationDialogState extends State<_AutomationDialog> {
               ),
               const SizedBox(height: WpSpacing.md),
 
-              // URL field
+              // Body (multi-line)
               Text(
-                l10n.automationsUrlLabel,
+                l10n.snippetsBodyLabel,
                 style: TextStyle(
                   color: textPrimary,
                   fontSize: WpTypography.small,
@@ -327,13 +329,15 @@ class _AutomationDialogState extends State<_AutomationDialog> {
               ),
               const SizedBox(height: WpSpacing.xxs),
               TextField(
-                controller: _urlCtrl,
+                controller: _bodyCtrl,
+                minLines: 3,
+                maxLines: 6,
                 style: TextStyle(
                   color: textPrimary,
                   fontSize: WpTypography.body,
                 ),
                 decoration: InputDecoration(
-                  hintText: l10n.automationsUrlHint,
+                  hintText: l10n.snippetsBodyHint,
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: WpSpacing.md,
@@ -341,7 +345,6 @@ class _AutomationDialogState extends State<_AutomationDialog> {
                   ),
                 ),
                 onChanged: (_) => setState(() {}),
-                onSubmitted: (_) => _submit(),
               ),
               const SizedBox(height: WpSpacing.xl),
 
@@ -363,7 +366,7 @@ class _AutomationDialogState extends State<_AutomationDialog> {
                   ElevatedButton(
                     onPressed: _isValid ? _submit : null,
                     child: Text(
-                      _isEditing ? l10n.actionSave : l10n.automationsAdd,
+                      _isEditing ? l10n.actionSave : l10n.snippetsAdd,
                     ),
                   ),
                 ],
@@ -377,35 +380,39 @@ class _AutomationDialogState extends State<_AutomationDialog> {
 }
 
 // ---------------------------------------------------------------------------
-// Automation tile
+// Snippet tile
 // ---------------------------------------------------------------------------
 
-class _AutomationTile extends StatefulWidget {
-  const _AutomationTile({
-    required this.automation,
+class _SnippetTile extends StatefulWidget {
+  const _SnippetTile({
+    required this.snippet,
     required this.isDark,
     required this.onTap,
     required this.onDelete,
   });
 
-  final AutomationItem automation;
+  final SnippetItem snippet;
   final bool isDark;
   final VoidCallback onTap;
   final VoidCallback onDelete;
 
   @override
-  State<_AutomationTile> createState() => _AutomationTileState();
+  State<_SnippetTile> createState() => _SnippetTileState();
 }
 
-class _AutomationTileState extends State<_AutomationTile> {
+class _SnippetTileState extends State<_SnippetTile> {
   bool _isHovered = false;
+
+  /// Single-line preview of the body — newlines and runs of whitespace
+  /// collapse to single spaces so the ellipsis works on one visual line.
+  String get _bodyPreview =>
+      widget.snippet.body.trim().replaceAll(RegExp(r'\s+'), ' ');
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label:
-          '${L10n.of(context).automationsEditAutomation}: ${widget.automation.trigger}',
+      label: '${L10n.of(context).snippetsEditSnippet}: ${widget.snippet.title}',
       child: MouseRegion(
         onEnter: (_) => setState(() => _isHovered = true),
         onExit: (_) => setState(() => _isHovered = false),
@@ -442,36 +449,42 @@ class _AutomationTileState extends State<_AutomationTile> {
             child: Row(
               children: [
                 Icon(
-                  LucideIcons.zap,
+                  LucideIcons.notebookText,
                   size: WpIconSize.sm,
                   color: widget.isDark
                       ? WpColorsDark.accent
                       : WpColorsLight.accent,
                 ),
                 const SizedBox(width: WpSpacing.sm),
-                WpTriggerChip(
-                  label: widget.automation.trigger,
-                  isDark: widget.isDark,
-                ),
-                const SizedBox(width: WpSpacing.sm),
-                Icon(
-                  LucideIcons.arrowRight,
-                  size: WpIconSize.xs,
-                  color: widget.isDark
-                      ? WpColorsDark.textMuted
-                      : WpColorsLight.textMuted,
-                ),
-                const SizedBox(width: WpSpacing.sm),
                 Expanded(
-                  child: Text(
-                    widget.automation.url,
-                    style: TextStyle(
-                      color: widget.isDark
-                          ? WpColorsDark.textSecondary
-                          : WpColorsLight.textSecondary,
-                      fontSize: WpTypography.body,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.snippet.title,
+                        style: TextStyle(
+                          color: widget.isDark
+                              ? WpColorsDark.textPrimary
+                              : WpColorsLight.textPrimary,
+                          fontSize: WpTypography.body,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: WpSpacing.xxs),
+                      Text(
+                        _bodyPreview,
+                        style: TextStyle(
+                          color: widget.isDark
+                              ? WpColorsDark.textMuted
+                              : WpColorsLight.textMuted,
+                          fontSize: WpTypography.small,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
                 ),
                 if (_isHovered)

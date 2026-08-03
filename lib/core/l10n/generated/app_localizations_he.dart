@@ -24,6 +24,9 @@ class L10nHe extends L10n {
   String get navAutomations => 'אוטומציות';
 
   @override
+  String get navSnippets => 'קטעים';
+
+  @override
   String get navAnalytics => 'ניתוח נתונים';
 
   @override
@@ -1279,6 +1282,54 @@ class L10nHe extends L10n {
   @override
   String automationsDeleteMessage(String trigger) {
     return 'להסיר את האוטומציה \"$trigger\"? אין דרך לבטל.';
+  }
+
+  @override
+  String get snippetsSearch => 'חפש קטעים…';
+
+  @override
+  String get snippetsAdd => 'הוסף';
+
+  @override
+  String get snippetsEmpty => 'עדיין אין קטעים';
+
+  @override
+  String get snippetsEmptyHint =>
+      'הוסף קטע כדי לעשות שימוש חוזר מהיר בבלוק טקסט — כמו חתימה או תשובה סטנדרטית.';
+
+  @override
+  String get snippetsNoMatches => 'אין התאמות';
+
+  @override
+  String get snippetsNoMatchesHint => 'נסה מונח חיפוש אחר.';
+
+  @override
+  String get snippetsAddSnippet => 'הוסף קטע';
+
+  @override
+  String get snippetsEditSnippet => 'ערוך קטע';
+
+  @override
+  String get snippetsNewSnippet => 'קטע חדש';
+
+  @override
+  String get snippetsTitleLabel => 'כותרת';
+
+  @override
+  String get snippetsTitleHint => 'לדוגמה: חתימת אימייל';
+
+  @override
+  String get snippetsBodyLabel => 'תוכן';
+
+  @override
+  String get snippetsBodyHint => 'הטקסט שהקטע הזה מכניס…';
+
+  @override
+  String get snippetsDeleteTitle => 'מחק קטע';
+
+  @override
+  String snippetsDeleteMessage(String title) {
+    return 'להסיר את הקטע \"$title\"? אין דרך לבטל.';
   }
 
   @override
