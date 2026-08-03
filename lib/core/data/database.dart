@@ -50,6 +50,8 @@ class ReplacementWithTriggers {
     EntryTags,
     HotkeyLatencyEntries,
     Snippets,
+    Notes,
+    NoteTags,
   ],
 )
 class HistoryDatabase extends _$HistoryDatabase {
@@ -94,7 +96,7 @@ class HistoryDatabase extends _$HistoryDatabase {
   }
 
   @override
-  int get schemaVersion => 16;
+  int get schemaVersion => 17;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -145,6 +147,10 @@ class HistoryDatabase extends _$HistoryDatabase {
         // version 14 at all.
         await customStatement('DROP TABLE IF EXISTS automations');
       }
+      if (from < 17) {
+        await m.createTable(notes);
+        await m.createTable(noteTags);
+      }
     },
     beforeOpen: (details) async {
       // Reconcile Go-era schema if DB was created by the old Go backend
@@ -153,6 +159,8 @@ class HistoryDatabase extends _$HistoryDatabase {
       await _reconcileGoSchema();
       // Ensure indexes on entry_tags for fast tag joins.
       await _ensureEntryTagIndexes();
+      // Ensure indexes on notes/note_tags for fast sort/tag joins.
+      await _ensureNotesIndexes();
       // One-time backfill: populate DailyStats from existing history
       // entries so that stats are correct for users upgrading from
       // a version that never wrote to DailyStats.
@@ -744,6 +752,28 @@ class HistoryDatabase extends _$HistoryDatabase {
         e,
         st,
       );
+    }
+  }
+
+  /// Creates indexes on notes/note_tags for fast active-sort and tag joins
+  /// (idempotent).
+  Future<void> _ensureNotesIndexes() async {
+    try {
+      await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_note_tags_tag_id '
+        'ON note_tags(tag_id)',
+      );
+      await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_note_tags_note_id '
+        'ON note_tags(note_id)',
+      );
+      await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_notes_active_sort '
+        'ON notes(deleted_at, pinned, updated_at)',
+      );
+    } catch (e, st) {
+      // Table may not exist yet during initial creation — skip.
+      _log.debug('_ensureNotesIndexes skipped (tables not yet ready)', e, st);
     }
   }
 
@@ -1806,6 +1836,134 @@ class HistoryDatabase extends _$HistoryDatabase {
 
   Future<int> deleteNote(String noteId) {
     return (delete(entryNotes)..where((n) => n.id.equals(noteId))).go();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Notes area (sidebar Notizen feature, schema v17) — collision-free naming
+  // vs. the EntryNotes methods above, which back the unrelated per-entry
+  // "Anmerkung" section instead. Every mutator funnels through
+  // [_writeCoordinator]; sorting happens in SQL so no separate
+  // "pinned first" provider is needed.
+  // ---------------------------------------------------------------------------
+
+  /// Active (non-deleted) notes, favourites first then most recently updated.
+  Stream<List<Note>> watchNotes() {
+    if (_isClosed) return const Stream.empty();
+    return (select(notes)
+          ..where((n) => n.deletedAt.isNull())
+          ..orderBy([
+            (n) => OrderingTerm(expression: n.pinned, mode: OrderingMode.desc),
+            (n) =>
+                OrderingTerm(expression: n.updatedAt, mode: OrderingMode.desc),
+          ]))
+        .watch();
+  }
+
+  /// Trashed notes, most recently deleted first.
+  Stream<List<Note>> watchTrashNotes() {
+    if (_isClosed) return const Stream.empty();
+    return (select(notes)
+          ..where((n) => n.deletedAt.isNotNull())
+          ..orderBy([
+            (n) =>
+                OrderingTerm(expression: n.deletedAt, mode: OrderingMode.desc),
+          ]))
+        .watch();
+  }
+
+  Future<Note?> getNote(String noteId) {
+    return (select(notes)..where((n) => n.id.equals(noteId))).getSingleOrNull();
+  }
+
+  /// Creates a new, empty note and returns it.
+  Future<Note> createNote() {
+    return _writeCoordinator.write<Note>(() async {
+      final id = _uuid();
+      final now = DateTime.now();
+      await into(
+        notes,
+      ).insert(NotesCompanion.insert(id: id, createdAt: now, updatedAt: now));
+      return Note(
+        id: id,
+        content: '',
+        pinned: false,
+        deletedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      );
+    });
+  }
+
+  /// Overwrites a note's content and bumps `updatedAt` — the autosave write
+  /// path (debounced in `note_autosave.dart`, not called on every keystroke).
+  Future<int> updateNoteContent(String noteId, String content) {
+    return _writeCoordinator.write<int>(
+      () => (update(notes)..where((n) => n.id.equals(noteId))).write(
+        NotesCompanion(
+          content: Value(content),
+          updatedAt: Value(DateTime.now()),
+        ),
+      ),
+    );
+  }
+
+  Future<int> toggleNotePin(String noteId, {required bool pinned}) {
+    return _writeCoordinator.write<int>(
+      () => (update(notes)..where((n) => n.id.equals(noteId))).write(
+        NotesCompanion(pinned: Value(pinned), updatedAt: Value(DateTime.now())),
+      ),
+    );
+  }
+
+  /// Soft-delete a note (move to notes trash).
+  Future<int> softDeleteNote(String noteId) {
+    return _writeCoordinator.write<int>(
+      () => (update(notes)..where((n) => n.id.equals(noteId))).write(
+        NotesCompanion(deletedAt: Value(DateTime.now())),
+      ),
+    );
+  }
+
+  /// Restore a soft-deleted note from the notes trash.
+  Future<int> restoreNote(String noteId) {
+    return _writeCoordinator.write<int>(
+      () => (update(notes)..where((n) => n.id.equals(noteId))).write(
+        const NotesCompanion(deletedAt: Value(null)),
+      ),
+    );
+  }
+
+  Future<int> permanentDeleteNote(String noteId) {
+    return _writeCoordinator.write<int>(
+      () => (delete(notes)..where((n) => n.id.equals(noteId))).go(),
+    );
+  }
+
+  /// Permanently removes ALL trashed notes (empty the notes trash).
+  Future<int> emptyNotesTrash() {
+    return _writeCoordinator.write<int>(
+      () => (delete(notes)..where((n) => n.deletedAt.isNotNull())).go(),
+    );
+  }
+
+  /// Permanently deletes active notes whose content is blank
+  /// (`content.trim().isEmpty`) — a self-healing sweep run once when the
+  /// Notizen page mounts, covering notes abandoned by a crash/quit that
+  /// skipped the explicit empty-discard triggers (selection change, page
+  /// dispose). Returns the number of notes deleted.
+  Future<int> purgeEmptyNotes() {
+    return _writeCoordinator.write<int>(() async {
+      final active = await (select(
+        notes,
+      )..where((n) => n.deletedAt.isNull())).get();
+      final emptyIds = active
+          .where((n) => n.content.trim().isEmpty)
+          .map((n) => n.id)
+          .toList();
+      if (emptyIds.isEmpty) return 0;
+      await (delete(notes)..where((n) => n.id.isIn(emptyIds))).go();
+      return emptyIds.length;
+    });
   }
 
   // ---------------------------------------------------------------------------

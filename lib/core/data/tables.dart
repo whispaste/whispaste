@@ -165,6 +165,35 @@ class Snippets extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// Standalone notes for the sidebar Notizen area (schema v17) — distinct
+/// from [EntryNotes], which back the per-history-entry "Anmerkung" section
+/// and are a different feature entirely. No title column: the list/editor
+/// derive a display title from [content] (see `deriveNoteTitle`).
+@DataClassName('Note')
+class Notes extends Table {
+  TextColumn get id => text()();
+  TextColumn get content => text().withDefault(const Constant(''))();
+  BoolColumn get pinned => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get deletedAt => dateTime().nullable()();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Many-to-many link between [Notes] and [Tags] — mirrors [EntryTags], reuses
+/// the same [Tags] table so a tag can be shared between history entries and
+/// notes.
+@DataClassName('NoteTag')
+class NoteTags extends Table {
+  TextColumn get noteId => text().references(Notes, #id)();
+  TextColumn get tagId => text().references(Tags, #id)();
+
+  @override
+  Set<Column> get primaryKey => {noteId, tagId};
+}
+
 /// Per-recording end-to-end hotkey→text latency — local-only performance KPI.
 ///
 /// A different privacy domain than the outgoing (bucketed) telemetry latency
