@@ -655,6 +655,73 @@ void main() {
           );
         },
       );
+
+      // Regression: "die Systemeinstellungen öffnen sich beim Onboarding
+      // schon wieder nicht" — live-reproduced 2026-08-03. A grant-driven
+      // restart always starts a genuinely new process, so
+      // `_osPromptFiredThisProcess` resets to false there too — the *very
+      // first* requestGrant call of every restarted process was treated as
+      // "trust the OS's own alert" and skipped our deep-link, forever, no
+      // matter how many restart cycles ran. If macOS ever stops showing its
+      // own alert for this app (already asked once, previously denied, MDM
+      // policy — the real-world reason varies but the app cannot tell), the
+      // user was permanently stranded with no path to Settings at all.
+      test(
+        'requestGrant on a FRESH process (simulating a post-restart relaunch) '
+        'opens Settings immediately once a prior restart already happened — '
+        'the OS alert cannot be trusted a second time across a restart',
+        skip: !Platform.isMacOS,
+        () async {
+          SharedPreferences.setMockInitialValues({});
+
+          // Process 1: user's first-ever attempt this install. No prior
+          // restart marker — the OS alert is plausible, deep-link stays
+          // skipped (matches the "first call" test above).
+          final paster1 = _FakePaster();
+          final container1 = _container(paster: paster1);
+          final notifier1 = container1.read(
+            pasteCapabilityNotifierProvider.notifier,
+          );
+          await notifier1.requestGrant(
+            pollInterval: const Duration(milliseconds: 10),
+            pollTimeout: const Duration(milliseconds: 10),
+          );
+          // Persists the cross-process marker without exercising the actual
+          // native relaunch (covered separately by the `restartForGrant`
+          // tests below) — all this test needs is "a restart already
+          // happened once before this process".
+          await notifier1.markRestartAttempted();
+          container1.dispose();
+
+          // Process 2: simulates the relaunched process after the restart
+          // above — a fresh notifier instance (fresh `_osPromptFiredThisProcess`
+          // in-memory state) that hydrates the marker persisted by process 1
+          // before doing anything else, exactly like `app.dart` does at
+          // startup.
+          final paster2 = _FakePaster();
+          final container2 = _container(paster: paster2);
+          addTearDown(container2.dispose);
+          final notifier2 = container2.read(
+            pasteCapabilityNotifierProvider.notifier,
+          );
+          await notifier2.hydrateRestartMarker();
+
+          await notifier2.requestGrant(
+            pollInterval: const Duration(milliseconds: 10),
+            pollTimeout: const Duration(milliseconds: 10),
+          );
+
+          expect(
+            fakeLauncher.launchedUrls,
+            isNotEmpty,
+            reason:
+                'a restart already happened once before this process — the '
+                "OS's one-alert-per-process budget was already spent on a "
+                'now-dead process, so this process must not gamble on it '
+                'again and has to open Settings itself',
+          );
+        },
+      );
     },
   );
 
