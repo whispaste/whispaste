@@ -7,16 +7,19 @@
 /// [RecordingOrchestrator] skips insert/paste and the history entry entirely
 /// and dispatches the automation's action here instead.
 ///
-/// Only [AutomationActionType.openUrl] exists today; tickets 03/04/06 add
-/// shell-command, script, and snippet-picker action types onto the same
-/// `actionType`/`payload` split without a schema change.
+/// [AutomationActionType.openUrl] and [AutomationActionType.shellCommand]
+/// exist today (ticket 03); tickets 04/06 add script and snippet-picker
+/// action types onto the same `actionType`/`payload` split without a schema
+/// change.
 library;
 
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../core/config/build_config.dart';
 import '../core/data/database.dart';
 import '../core/logging/app_logger.dart';
 
@@ -47,7 +50,8 @@ String normalizeForExactMatch(String input) {
 
 /// The action kinds an [Automation] row's `actionType` column can hold.
 enum AutomationActionType {
-  openUrl('open_url');
+  openUrl('open_url'),
+  shellCommand('shell_command');
 
   const AutomationActionType(this.dbValue);
 
@@ -68,10 +72,22 @@ enum AutomationActionType {
 
 /// Finds the automation matching a transcript and executes its action.
 class AutomationDispatchService {
-  AutomationDispatchService({Future<bool> Function(Uri)? urlLauncher})
-    : _urlLauncher = urlLauncher ?? launchUrl;
+  AutomationDispatchService({
+    Future<bool> Function(Uri)? urlLauncher,
+    Future<bool> Function(String)? shellCommandRunner,
+    bool? isMasBuild,
+  }) : _urlLauncher = urlLauncher ?? launchUrl,
+       _shellCommandRunner = shellCommandRunner ?? _defaultShellCommandRunner,
+       _isMasBuild = isMasBuild ?? kIsMasBuild;
 
   final Future<bool> Function(Uri) _urlLauncher;
+  final Future<bool> Function(String) _shellCommandRunner;
+
+  /// Gated here too, not just in the settings UI: a `shell_command`
+  /// automation smuggled in via settings import must not become executable
+  /// just because the sandboxed MAS build hides the action type from the
+  /// picker.
+  final bool _isMasBuild;
 
   /// Returns the automation among [automations] whose trigger exactly
   /// matches [transcript] after normalization, or `null` if none matches.
@@ -96,6 +112,8 @@ class AutomationDispatchService {
     switch (actionType) {
       case AutomationActionType.openUrl:
         return _openUrl(automation.payload);
+      case AutomationActionType.shellCommand:
+        return _runShellCommand(automation.payload);
       case null:
         _log.warning(
           'Unknown automation action type: ${automation.actionType}',
@@ -122,6 +140,38 @@ class AutomationDispatchService {
       return false;
     }
   }
+
+  Future<bool> _runShellCommand(String payload) async {
+    if (_isMasBuild) {
+      _log.warning(
+        'shell_command automation ignored: not available on the sandboxed '
+        'Mac App Store build',
+      );
+      return false;
+    }
+    final command = decodeShellCommandPayload(payload);
+    if (command == null || command.trim().isEmpty) {
+      _log.warning('shell_command automation payload missing/invalid '
+          '"command"');
+      return false;
+    }
+    try {
+      return await _shellCommandRunner(command);
+    } on Exception catch (e) {
+      _log.warning('shell_command automation dispatch failed: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> _defaultShellCommandRunner(String command) async {
+    await Process.start(
+      command,
+      const [],
+      runInShell: true,
+      mode: ProcessStartMode.detached,
+    );
+    return true;
+  }
 }
 
 /// Decodes an `open_url` automation's `payload` JSON (`{"url": "..."}`) into
@@ -132,6 +182,21 @@ String? decodeOpenUrlPayload(String payload) {
     final decoded = jsonDecode(payload);
     if (decoded is Map && decoded['url'] is String) {
       return decoded['url'] as String;
+    }
+    return null;
+  } on FormatException {
+    return null;
+  }
+}
+
+/// Decodes a `shell_command` automation's `payload` JSON
+/// (`{"command": "..."}`) into the raw command string, or `null` if it's
+/// malformed. Shared by [dispatch] and the Automations settings page.
+String? decodeShellCommandPayload(String payload) {
+  try {
+    final decoded = jsonDecode(payload);
+    if (decoded is Map && decoded['command'] is String) {
+      return decoded['command'] as String;
     }
     return null;
   } on FormatException {

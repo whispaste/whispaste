@@ -125,10 +125,106 @@ void main() {
       );
 
       final result = await service.dispatch(
-        _automation(actionType: 'shell_command'),
+        _automation(actionType: 'not_a_real_type'),
       );
 
       expect(result, isFalse);
+    });
+  });
+
+  group('AutomationDispatchService.dispatch — shell_command', () {
+    test('runs the command decoded from the payload', () async {
+      String? ranCommand;
+      final service = AutomationDispatchService(
+        shellCommandRunner: (command) async {
+          ranCommand = command;
+          return true;
+        },
+      );
+
+      final result = await service.dispatch(
+        _automation(
+          actionType: 'shell_command',
+          payload: '{"command": "open -a Calculator"}',
+        ),
+      );
+
+      expect(result, isTrue);
+      expect(ranCommand, 'open -a Calculator');
+    });
+
+    test('returns false and does not throw when the runner reports '
+        'failure', () async {
+      final service = AutomationDispatchService(
+        shellCommandRunner: (command) async => false,
+      );
+
+      final result = await service.dispatch(
+        _automation(
+          actionType: 'shell_command',
+          payload: '{"command": "echo hi"}',
+        ),
+      );
+
+      expect(result, isFalse);
+    });
+
+    test('returns false for a payload missing "command"', () async {
+      final service = AutomationDispatchService(
+        shellCommandRunner: (command) async => true,
+      );
+
+      final result = await service.dispatch(
+        _automation(actionType: 'shell_command', payload: '{"not_command": "x"}'),
+      );
+
+      expect(result, isFalse);
+    });
+
+    test('returns false for a blank command', () async {
+      final service = AutomationDispatchService(
+        shellCommandRunner: (command) async => true,
+      );
+
+      final result = await service.dispatch(
+        _automation(actionType: 'shell_command', payload: '{"command": "   "}'),
+      );
+
+      expect(result, isFalse);
+    });
+
+    test('returns false for malformed JSON payload', () async {
+      final service = AutomationDispatchService(
+        shellCommandRunner: (command) async => true,
+      );
+
+      final result = await service.dispatch(
+        _automation(actionType: 'shell_command', payload: 'not json'),
+      );
+
+      expect(result, isFalse);
+    });
+
+    test('is gated off on the MAS build even when the runner would '
+        'otherwise succeed', () async {
+      var ran = false;
+      final service = AutomationDispatchService(
+        isMasBuild: true,
+        shellCommandRunner: (command) async {
+          ran = true;
+          return true;
+        },
+      );
+
+      final result = await service.dispatch(
+        _automation(
+          actionType: 'shell_command',
+          payload: '{"command": "echo hi"}',
+        ),
+      );
+
+      expect(result, isFalse);
+      expect(ran, isFalse);
     });
   });
 }
