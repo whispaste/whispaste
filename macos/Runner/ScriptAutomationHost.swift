@@ -60,16 +60,27 @@ class ScriptAutomationHost {
   }
 
   private func revealScriptsFolder() {
-    guard let dir = scriptsDirectory() else { return }
+    guard let dir = scriptsDirectory() else {
+      NSLog("ScriptAutomationHost: revealScriptsFolder: applicationScriptsDirectory unavailable")
+      return
+    }
     NSWorkspace.shared.activateFileViewerSelecting([dir])
   }
 
   /// Hidden files (dotfiles like a stray `.DS_Store`) are filtered out —
-  /// they're never something the user meant to install as a script.
+  /// they're never something the user meant to install as a script. Also
+  /// filtered: anything without the executable bit set. `NSUserUnixTask`
+  /// requires it, this app can't `chmod` it in for the user (same
+  /// can't-write restriction as everything else in this folder), so a
+  /// non-executable file would otherwise sit in the picker as a selectable
+  /// option that can never actually run.
   private func listScripts() -> [String] {
     guard let dir = scriptsDirectory() else { return [] }
     let names = (try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []
-    return names.filter { !$0.hasPrefix(".") }.sorted()
+    return names
+      .filter { !$0.hasPrefix(".") }
+      .filter { FileManager.default.isExecutableFile(atPath: dir.appendingPathComponent($0).path) }
+      .sorted()
   }
 
   /// `NSUserUnixTask` requires [scriptName] to already carry the executable
