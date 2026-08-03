@@ -1312,6 +1312,33 @@ class L10nEn extends L10n {
       'Not available on the Mac App Store build (App Sandbox).';
 
   @override
+  String get automationsActionTypeScript => 'Script';
+
+  @override
+  String get automationsScriptMasOnly =>
+      'Only available on the Mac App Store build.';
+
+  @override
+  String get automationsScriptLabel => 'Script';
+
+  @override
+  String get automationsScriptPickerHint => 'Choose a script…';
+
+  @override
+  String get automationsScriptRevealFolder => 'Open scripts folder in Finder';
+
+  @override
+  String get automationsScriptRefresh => 'Refresh script list';
+
+  @override
+  String get automationsScriptEmpty =>
+      'No scripts found yet. Drop one into the scripts folder, then refresh.';
+
+  @override
+  String get automationsScriptHelp =>
+      'Runs the selected script from the app\'s scripts folder when the trigger matches.';
+
+  @override
   String get automationsDeleteTitle => 'Delete Automation';
 
   @override

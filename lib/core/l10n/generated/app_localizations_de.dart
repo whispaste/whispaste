@@ -1325,6 +1325,33 @@ class L10nDe extends L10n {
       'Auf dem Mac-App-Store-Build nicht verfügbar (App Sandbox).';
 
   @override
+  String get automationsActionTypeScript => 'Skript';
+
+  @override
+  String get automationsScriptMasOnly =>
+      'Nur auf dem Mac-App-Store-Build verfügbar.';
+
+  @override
+  String get automationsScriptLabel => 'Skript';
+
+  @override
+  String get automationsScriptPickerHint => 'Skript auswählen…';
+
+  @override
+  String get automationsScriptRevealFolder => 'Skriptordner im Finder öffnen';
+
+  @override
+  String get automationsScriptRefresh => 'Skriptliste aktualisieren';
+
+  @override
+  String get automationsScriptEmpty =>
+      'Noch keine Skripte gefunden. Lege eines im Skriptordner ab und aktualisiere die Liste.';
+
+  @override
+  String get automationsScriptHelp =>
+      'Führt bei Auslöser-Treffer das ausgewählte Skript aus dem Skriptordner der App aus.';
+
+  @override
   String get automationsDeleteTitle => 'Automation löschen';
 
   @override

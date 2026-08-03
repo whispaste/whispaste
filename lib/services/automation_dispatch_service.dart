@@ -7,10 +7,10 @@
 /// [RecordingOrchestrator] skips insert/paste and the history entry entirely
 /// and dispatches the automation's action here instead.
 ///
-/// [AutomationActionType.openUrl] and [AutomationActionType.shellCommand]
-/// exist today (ticket 03); tickets 04/06 add script and snippet-picker
-/// action types onto the same `actionType`/`payload` split without a schema
-/// change.
+/// [AutomationActionType.openUrl], [AutomationActionType.shellCommand]
+/// (ticket 03) and [AutomationActionType.script] (ticket 04, MAS-only) exist
+/// today; ticket 06 adds the snippet-picker onto the same
+/// `actionType`/`payload` split without a schema change.
 library;
 
 import 'dart:async';
@@ -23,6 +23,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../core/config/build_config.dart';
 import '../core/data/database.dart';
 import '../core/logging/app_logger.dart';
+import 'script_automation_service.dart';
 
 final _log = AppLogger('AutomationDispatchService');
 
@@ -52,7 +53,8 @@ String normalizeForExactMatch(String input) {
 /// The action kinds an [Automation] row's `actionType` column can hold.
 enum AutomationActionType {
   openUrl('open_url'),
-  shellCommand('shell_command');
+  shellCommand('shell_command'),
+  script('script');
 
   const AutomationActionType(this.dbValue);
 
@@ -76,13 +78,16 @@ class AutomationDispatchService {
   AutomationDispatchService({
     Future<bool> Function(Uri)? urlLauncher,
     Future<bool> Function(String)? shellCommandRunner,
+    Future<bool> Function(String)? scriptRunner,
     bool? isMasBuild,
   }) : _urlLauncher = urlLauncher ?? launchUrl,
        _shellCommandRunner = shellCommandRunner ?? _defaultShellCommandRunner,
+       _scriptRunner = scriptRunner ?? _defaultScriptRunner,
        _isMasBuild = isMasBuild ?? kIsMasBuild;
 
   final Future<bool> Function(Uri) _urlLauncher;
   final Future<bool> Function(String) _shellCommandRunner;
+  final Future<bool> Function(String) _scriptRunner;
 
   /// Gated here too, not just in the settings UI: the App Sandbox makes
   /// shell execution impossible on the MAS build regardless of how a
@@ -117,6 +122,8 @@ class AutomationDispatchService {
         return _openUrl(automation.payload);
       case AutomationActionType.shellCommand:
         return _runShellCommand(automation.payload);
+      case AutomationActionType.script:
+        return _runScript(automation.payload);
       case null:
         _log.warning(
           'Unknown automation action type: ${automation.actionType}',
@@ -167,6 +174,34 @@ class AutomationDispatchService {
       return false;
     }
   }
+
+  /// Only runs on the MAS build — a "script" row from a non-MAS build of the
+  /// same install (or a data import) has nothing to reference on this
+  /// platform, so it's refused the same way `shell_command` is refused on
+  /// MAS, just in the opposite direction.
+  Future<bool> _runScript(String payload) async {
+    if (!_isMasBuild) {
+      _log.warning(
+        'script automation ignored: only available on the sandboxed '
+        'Mac App Store build',
+      );
+      return false;
+    }
+    final scriptName = decodeScriptPayload(payload);
+    if (scriptName == null || scriptName.trim().isEmpty) {
+      _log.warning('script automation payload missing/invalid "scriptName"');
+      return false;
+    }
+    try {
+      return await _scriptRunner(scriptName);
+    } on Exception catch (e) {
+      _log.warning('script automation dispatch failed: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> _defaultScriptRunner(String scriptName) =>
+      ScriptAutomationService().runScript(scriptName);
 
   /// `runInShell: true` shell-quotes the executable as a single token
   /// rather than splicing [command] into a shell command line, so a command
@@ -230,6 +265,21 @@ String? decodeShellCommandPayload(String payload) {
     final decoded = jsonDecode(payload);
     if (decoded is Map && decoded['command'] is String) {
       return decoded['command'] as String;
+    }
+    return null;
+  } on FormatException {
+    return null;
+  }
+}
+
+/// Decodes a `script` automation's `payload` JSON
+/// (`{"scriptName": "..."}`) into the raw script filename, or `null` if it's
+/// malformed. Shared by [dispatch] and the Automations settings page.
+String? decodeScriptPayload(String payload) {
+  try {
+    final decoded = jsonDecode(payload);
+    if (decoded is Map && decoded['scriptName'] is String) {
+      return decoded['scriptName'] as String;
     }
     return null;
   } on FormatException {

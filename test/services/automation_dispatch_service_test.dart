@@ -230,4 +230,105 @@ void main() {
       expect(ran, isFalse);
     });
   });
+
+  group('AutomationDispatchService.dispatch — script', () {
+    test('runs the script decoded from the payload on the MAS build', () async {
+      String? ranScript;
+      final service = AutomationDispatchService(
+        isMasBuild: true,
+        scriptRunner: (scriptName) async {
+          ranScript = scriptName;
+          return true;
+        },
+      );
+
+      final result = await service.dispatch(
+        _automation(
+          actionType: 'script',
+          payload: '{"scriptName": "backup.sh"}',
+        ),
+      );
+
+      expect(result, isTrue);
+      expect(ranScript, 'backup.sh');
+    });
+
+    test('returns false and does not throw when the runner reports '
+        'failure', () async {
+      final service = AutomationDispatchService(
+        isMasBuild: true,
+        scriptRunner: (scriptName) async => false,
+      );
+
+      final result = await service.dispatch(
+        _automation(
+          actionType: 'script',
+          payload: '{"scriptName": "backup.sh"}',
+        ),
+      );
+
+      expect(result, isFalse);
+    });
+
+    test('returns false for a payload missing "scriptName"', () async {
+      final service = AutomationDispatchService(
+        isMasBuild: true,
+        scriptRunner: (scriptName) async => true,
+      );
+
+      final result = await service.dispatch(
+        _automation(actionType: 'script', payload: '{"not_scriptName": "x"}'),
+      );
+
+      expect(result, isFalse);
+    });
+
+    test('returns false for a blank scriptName', () async {
+      final service = AutomationDispatchService(
+        isMasBuild: true,
+        scriptRunner: (scriptName) async => true,
+      );
+
+      final result = await service.dispatch(
+        _automation(actionType: 'script', payload: '{"scriptName": "   "}'),
+      );
+
+      expect(result, isFalse);
+    });
+
+    test('returns false for malformed JSON payload', () async {
+      final service = AutomationDispatchService(
+        isMasBuild: true,
+        scriptRunner: (scriptName) async => true,
+      );
+
+      final result = await service.dispatch(
+        _automation(actionType: 'script', payload: 'not json'),
+      );
+
+      expect(result, isFalse);
+    });
+
+    test('is gated off on non-MAS builds even when the runner would '
+        'otherwise succeed', () async {
+      var ran = false;
+      final service = AutomationDispatchService(
+        isMasBuild: false,
+        scriptRunner: (scriptName) async {
+          ran = true;
+          return true;
+        },
+      );
+
+      final result = await service.dispatch(
+        _automation(
+          actionType: 'script',
+          payload: '{"scriptName": "backup.sh"}',
+        ),
+      );
+
+      expect(result, isFalse);
+      expect(ran, isFalse);
+    });
+  });
 }

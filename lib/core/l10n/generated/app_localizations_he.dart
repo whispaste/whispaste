@@ -1300,6 +1300,32 @@ class L10nHe extends L10n {
       'לא זמין בגרסת ה-Mac App Store (App Sandbox).';
 
   @override
+  String get automationsActionTypeScript => 'סקריפט';
+
+  @override
+  String get automationsScriptMasOnly => 'זמין רק בגרסת ה-Mac App Store.';
+
+  @override
+  String get automationsScriptLabel => 'סקריפט';
+
+  @override
+  String get automationsScriptPickerHint => 'בחירת סקריפט…';
+
+  @override
+  String get automationsScriptRevealFolder => 'פתיחת תיקיית הסקריפטים ב-Finder';
+
+  @override
+  String get automationsScriptRefresh => 'רענון רשימת הסקריפטים';
+
+  @override
+  String get automationsScriptEmpty =>
+      'לא נמצאו סקריפטים עדיין. יש להניח סקריפט בתיקיית הסקריפטים ולרענן.';
+
+  @override
+  String get automationsScriptHelp =>
+      'מפעיל את הסקריפט שנבחר מתיקיית הסקריפטים של האפליקציה כאשר הביטוי המפעיל תואם.';
+
+  @override
   String get automationsDeleteTitle => 'מחק אוטומציה';
 
   @override

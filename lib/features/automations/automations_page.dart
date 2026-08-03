@@ -7,6 +7,7 @@ import '../../core/config/build_config.dart';
 import '../../core/data/reloadable_list_notifier.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../services/automation_dispatch_service.dart';
+import '../../services/script_automation_service.dart';
 import '../../services/telemetry_service.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
@@ -14,18 +15,19 @@ import '../../widgets/dialog.dart';
 import '../../widgets/searchable_list_page.dart';
 import '../../widgets/trigger_chip.dart';
 import '../../widgets/wp_focus_ring.dart';
+import '../settings/settings_widgets.dart';
 import 'package:whispaste/core/data/database.dart';
 
 // ---------------------------------------------------------------------------
 // Model
 // ---------------------------------------------------------------------------
 
-/// UI-facing automation: a trigger phrase plus one action — "open a URL" or
-/// "run a shell command" ([AutomationActionType]). Wraps a DB [Automation]
-/// row (`actionType`/`payload`), decoding its payload so the settings UI
-/// never has to know about the JSON encoding. One [actionValue] field holds
-/// the URL *or* the command, discriminated by [actionType] — so "both set at
-/// once" is unrepresentable.
+/// UI-facing automation: a trigger phrase plus one action — "open a URL",
+/// "run a shell command", or "run an installed script" ([AutomationActionType]).
+/// Wraps a DB [Automation] row (`actionType`/`payload`), decoding its payload
+/// so the settings UI never has to know about the JSON encoding. One
+/// [actionValue] field holds the URL, the command, or the script filename,
+/// discriminated by [actionType] — so "both set at once" is unrepresentable.
 class AutomationItem {
   const AutomationItem({
     required this.id,
@@ -39,7 +41,8 @@ class AutomationItem {
   final AutomationActionType actionType;
 
   /// The URL for [AutomationActionType.openUrl], the command line for
-  /// [AutomationActionType.shellCommand].
+  /// [AutomationActionType.shellCommand], the script filename for
+  /// [AutomationActionType.script].
   final String actionValue;
 }
 
@@ -101,12 +104,14 @@ class AutomationsNotifier extends AsyncNotifier<List<AutomationItem>>
     await reload();
   }
 
-  /// Inverse of [decodeOpenUrlPayload]/[decodeShellCommandPayload] — the JSON
-  /// shapes the dispatch service already reads; never invent a third one.
+  /// Inverse of [decodeOpenUrlPayload]/[decodeShellCommandPayload]/
+  /// [decodeScriptPayload] — the JSON shapes the dispatch service already
+  /// reads; never invent a fourth one.
   static String _encodePayload(AutomationActionType actionType, String value) {
     return switch (actionType) {
       AutomationActionType.openUrl => jsonEncode({'url': value}),
       AutomationActionType.shellCommand => jsonEncode({'command': value}),
+      AutomationActionType.script => jsonEncode({'scriptName': value}),
     };
   }
 
@@ -124,6 +129,7 @@ class AutomationsNotifier extends AsyncNotifier<List<AutomationItem>>
       AutomationActionType.shellCommand => decodeShellCommandPayload(
         row.payload,
       ),
+      AutomationActionType.script => decodeScriptPayload(row.payload),
     };
     return AutomationItem(
       id: row.id,
@@ -144,8 +150,9 @@ final automationsProvider =
 // ---------------------------------------------------------------------------
 
 /// Automations page — exact-match trigger phrases that run an action (open
-/// a URL or run a shell command), kept in a separate settings area from
-/// Replacements (dictation-automations tickets 02/03).
+/// a URL, run a shell command, or run an installed script), kept in a
+/// separate settings area from Replacements (dictation-automations tickets
+/// 02/03/04).
 class AutomationsPage extends ConsumerStatefulWidget {
   const AutomationsPage({super.key});
 
@@ -256,19 +263,62 @@ class _AutomationDialog extends StatefulWidget {
   State<_AutomationDialog> createState() => _AutomationDialogState();
 }
 
-class _AutomationDialogState extends State<_AutomationDialog> {
+class _AutomationDialogState extends State<_AutomationDialog>
+    with WidgetsBindingObserver {
   late final TextEditingController _triggerCtrl;
 
-  /// One shared controller for the URL *and* the command field — only one of
-  /// the two is ever visible, and keeping the typed text across a type
-  /// switch is friendlier than silently discarding it.
+  /// One shared controller for the URL, the command, *and* the script
+  /// filename — only one of the three is ever visible, and keeping the typed
+  /// text across a type switch is friendlier than silently discarding it.
+  /// The script picker writes the chosen filename into it, so [_isValid],
+  /// [_submit], and the notifier all stay type-agnostic.
   late final TextEditingController _valueCtrl;
   late AutomationActionType _actionType;
 
-  bool get _isValid =>
-      _triggerCtrl.text.trim().isNotEmpty && _valueCtrl.text.trim().isNotEmpty;
+  final ScriptAutomationService _scriptService = ScriptAutomationService();
+
+  /// Filenames found in `applicationScriptsDirectory`; `null` until the
+  /// first [_refreshScripts] completes (so the empty state doesn't flash
+  /// while the method channel round-trips).
+  List<String>? _scripts;
+
+  bool get _isValid {
+    if (_triggerCtrl.text.trim().isEmpty) return false;
+    // A script automation must reference a listed (or previously saved)
+    // filename — _valueCtrl may still hold a URL/command carried over from
+    // a type switch, which must not be submittable as a script name.
+    if (_actionType == AutomationActionType.script) {
+      return _scriptSelection != null;
+    }
+    return _valueCtrl.text.trim().isNotEmpty;
+  }
 
   bool get _isEditing => widget.existing != null;
+
+  /// Picker items: the freshly listed scripts, plus — if the automation being
+  /// edited references a file that no longer exists (deleted/renamed in
+  /// Finder) — its saved filename, so the row keeps displaying its current
+  /// value instead of silently resetting (same spirit as keeping an imported
+  /// shellCommand row editable on the MAS build).
+  List<String> get _scriptItems {
+    final items = List<String>.of(_scripts ?? const []);
+    final existing = widget.existing;
+    if (existing != null &&
+        existing.actionType == AutomationActionType.script &&
+        existing.actionValue.isNotEmpty &&
+        !items.contains(existing.actionValue)) {
+      items.add(existing.actionValue);
+    }
+    return items;
+  }
+
+  /// The current script selection, or `null` when _valueCtrl holds no
+  /// listed filename (nothing picked yet, or leftover URL/command text).
+  String? get _scriptSelection {
+    final text = _valueCtrl.text.trim();
+    if (text.isEmpty) return null;
+    return _scriptItems.contains(text) ? text : null;
+  }
 
   @override
   void initState() {
@@ -277,19 +327,40 @@ class _AutomationDialogState extends State<_AutomationDialog> {
     _valueCtrl = TextEditingController(
       text: widget.existing?.actionValue ?? '',
     );
-    // An existing shellCommand automation keeps its type even on the MAS
-    // build (e.g. a row left over from a non-MAS build of the same
-    // install): it stays viewable and editable, only *selecting*
-    // shellCommand afresh is blocked there — and the dispatch service
-    // independently refuses to execute it.
+    // An existing automation keeps its type even on a build where selecting
+    // that type afresh is blocked (a shellCommand row on the MAS build, a
+    // script row on a non-MAS build — e.g. left over from a build switch of
+    // the same install): it stays viewable and editable, and the dispatch
+    // service independently refuses to execute it where unsupported.
     _actionType = widget.existing?.actionType ?? AutomationActionType.openUrl;
+    WidgetsBinding.instance.addObserver(this);
+    _refreshScripts();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _triggerCtrl.dispose();
     _valueCtrl.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Auto-refresh when the user comes back from dropping a script into the
+    // Finder folder — no reopen or manual refresh needed.
+    if (state == AppLifecycleState.resumed) _refreshScripts();
+  }
+
+  /// No-op on a non-MAS build: `listScripts` provisions (`create: true`)
+  /// `applicationScriptsDirectory` as a side effect of looking it up, and
+  /// there's no reason to create that folder for a feature the chip already
+  /// disables and dispatch already refuses to run there.
+  Future<void> _refreshScripts() async {
+    if (!kIsMasBuild) return;
+    final scripts = await _scriptService.listScripts();
+    if (!mounted) return;
+    setState(() => _scripts = scripts);
   }
 
   void _submit() {
@@ -380,7 +451,7 @@ class _AutomationDialogState extends State<_AutomationDialog> {
               ),
               const SizedBox(height: WpSpacing.md),
 
-              // Action type selector (URL vs. shell command)
+              // Action type selector (URL vs. shell command vs. script)
               Text(
                 l10n.automationsActionTypeLabel,
                 style: TextStyle(
@@ -412,16 +483,34 @@ class _AutomationDialogState extends State<_AutomationDialog> {
                         ? l10n.automationsShellMasUnavailable
                         : null,
                   ),
+                  const SizedBox(width: WpSpacing.xs),
+                  _ActionTypeChip(
+                    label: l10n.automationsActionTypeScript,
+                    selected: _actionType == AutomationActionType.script,
+                    isDark: isDark,
+                    onSelect: () => setState(
+                      () => _actionType = AutomationActionType.script,
+                    ),
+                    // Mirror image of the shell chip: scripts run via
+                    // NSUserUnixTask from applicationScriptsDirectory, which
+                    // only exists for the sandboxed MAS build.
+                    disabledReason: kIsMasBuild
+                        ? null
+                        : l10n.automationsScriptMasOnly,
+                  ),
                 ],
               ),
               const SizedBox(height: WpSpacing.md),
 
-              // URL / shell command field (shared controller, label + hint
-              // follow the selected action type)
+              // Value field — free-text URL/command, or the script picker
+              // (one shared controller in all three cases, see _valueCtrl)
               Text(
-                _actionType == AutomationActionType.shellCommand
-                    ? l10n.automationsCommandLabel
-                    : l10n.automationsUrlLabel,
+                switch (_actionType) {
+                  AutomationActionType.openUrl => l10n.automationsUrlLabel,
+                  AutomationActionType.shellCommand =>
+                    l10n.automationsCommandLabel,
+                  AutomationActionType.script => l10n.automationsScriptLabel,
+                },
                 style: TextStyle(
                   color: textPrimary,
                   fontSize: WpTypography.small,
@@ -429,34 +518,95 @@ class _AutomationDialogState extends State<_AutomationDialog> {
                 ),
               ),
               const SizedBox(height: WpSpacing.xxs),
-              TextField(
-                controller: _valueCtrl,
-                style: TextStyle(
-                  color: textPrimary,
-                  fontSize: WpTypography.body,
+              if (_actionType == AutomationActionType.script) ...[
+                // Script picker — no free text: the sandbox only executes
+                // files already present in applicationScriptsDirectory, so
+                // the choice space *is* the folder listing.
+                Row(
+                  children: [
+                    Expanded(
+                      child: settingsDropdown(
+                        context: context,
+                        value: _scriptSelection,
+                        items: _scriptItems,
+                        hint: l10n.automationsScriptPickerHint,
+                        expanded: true,
+                        onChanged: (v) {
+                          if (v != null) setState(() => _valueCtrl.text = v);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: WpSpacing.xs),
+                    IconButton(
+                      tooltip: l10n.automationsScriptRefresh,
+                      icon: Icon(
+                        LucideIcons.refreshCw,
+                        size: WpIconSize.sm,
+                        color: textMuted,
+                      ),
+                      onPressed: _refreshScripts,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 28,
+                        minHeight: 28,
+                      ),
+                    ),
+                  ],
                 ),
-                decoration: InputDecoration(
-                  hintText: _actionType == AutomationActionType.shellCommand
-                      ? l10n.automationsCommandHint
-                      : l10n.automationsUrlHint,
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: WpSpacing.md,
-                    vertical: WpSpacing.sm,
-                  ),
-                ),
-                onChanged: (_) => setState(() {}),
-                onSubmitted: (_) => _submit(),
-              ),
-              if (_actionType == AutomationActionType.shellCommand) ...[
                 const SizedBox(height: WpSpacing.xxs),
                 Text(
-                  l10n.automationsCommandHelp,
+                  _scripts != null && _scriptItems.isEmpty
+                      ? l10n.automationsScriptEmpty
+                      : l10n.automationsScriptHelp,
                   style: TextStyle(
                     color: textMuted,
                     fontSize: WpTypography.small,
                   ),
                 ),
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: TextButton.icon(
+                    onPressed: _scriptService.revealScriptsFolder,
+                    icon: const Icon(
+                      LucideIcons.folderOpen,
+                      size: WpIconSize.xs,
+                    ),
+                    label: Text(
+                      l10n.automationsScriptRevealFolder,
+                      style: const TextStyle(fontSize: WpTypography.small),
+                    ),
+                  ),
+                ),
+              ] else ...[
+                TextField(
+                  controller: _valueCtrl,
+                  style: TextStyle(
+                    color: textPrimary,
+                    fontSize: WpTypography.body,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: _actionType == AutomationActionType.shellCommand
+                        ? l10n.automationsCommandHint
+                        : l10n.automationsUrlHint,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: WpSpacing.md,
+                      vertical: WpSpacing.sm,
+                    ),
+                  ),
+                  onChanged: (_) => setState(() {}),
+                  onSubmitted: (_) => _submit(),
+                ),
+                if (_actionType == AutomationActionType.shellCommand) ...[
+                  const SizedBox(height: WpSpacing.xxs),
+                  Text(
+                    l10n.automationsCommandHelp,
+                    style: TextStyle(
+                      color: textMuted,
+                      fontSize: WpTypography.small,
+                    ),
+                  ),
+                ],
               ],
               const SizedBox(height: WpSpacing.xl),
 
@@ -495,13 +645,13 @@ class _AutomationDialogState extends State<_AutomationDialog> {
 // Action-type chip (dialog-local)
 // ---------------------------------------------------------------------------
 
-/// One option of the two-chip action-type selector in [_AutomationDialog].
+/// One option of the action-type selector chips in [_AutomationDialog].
 ///
 /// Interaction pattern follows [HistoryFilterChip] (the repo standard for
 /// interactive chips): focusable [InkWell] + [WpFocusRing] + hover state +
 /// [WpLayout.minTouchTarget]. Not the same widget, because this one needs a
-/// disabled state (MAS build blocks selecting shellCommand) that
-/// [HistoryFilterChip] has no use for.
+/// disabled state (the MAS build blocks selecting shellCommand, non-MAS
+/// builds block selecting script) that [HistoryFilterChip] has no use for.
 ///
 /// Visually this is deliberately NOT [WpTriggerChip]'s round accent pill:
 /// squarer corners ([WpRadius.borderSm]) and the stronger
@@ -522,10 +672,11 @@ class _ActionTypeChip extends StatefulWidget {
   final bool isDark;
   final VoidCallback onSelect;
 
-  /// Why this option cannot be selected (MAS sandbox). Non-null renders a
-  /// tooltip; the chip is only actually disabled when it is not already
-  /// selected — an existing shell automation imported into a MAS build stays
-  /// viewable/editable, the tooltip then explains it will not execute.
+  /// Why this option cannot be selected on this build (MAS sandbox for
+  /// shellCommand, non-MAS for script). Non-null renders a tooltip; the chip
+  /// is only actually disabled when it is not already selected — an existing
+  /// automation imported from the other build flavor stays viewable/editable,
+  /// the tooltip then explains it will not execute.
   final String? disabledReason;
 
   @override
@@ -725,13 +876,14 @@ class _AutomationTileState extends State<_AutomationTile> {
                 ),
                 const SizedBox(width: WpSpacing.sm),
                 // arrow-right = "opens this URL", terminal = "runs this
-                // command" — the at-a-glance discriminator between the two
-                // action types in the list.
+                // command", file-code = "runs this script" — the at-a-glance
+                // discriminator between the action types in the list.
                 Icon(
-                  widget.automation.actionType ==
-                          AutomationActionType.shellCommand
-                      ? LucideIcons.terminal
-                      : LucideIcons.arrowRight,
+                  switch (widget.automation.actionType) {
+                    AutomationActionType.openUrl => LucideIcons.arrowRight,
+                    AutomationActionType.shellCommand => LucideIcons.terminal,
+                    AutomationActionType.script => LucideIcons.fileCode,
+                  },
                   size: WpIconSize.xs,
                   color: widget.isDark
                       ? WpColorsDark.textMuted

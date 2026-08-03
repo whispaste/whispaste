@@ -2421,6 +2421,54 @@ abstract class L10n {
   /// **'Not available on the Mac App Store build (App Sandbox).'**
   String get automationsShellMasUnavailable;
 
+  /// No description provided for @automationsActionTypeScript.
+  ///
+  /// In en, this message translates to:
+  /// **'Script'**
+  String get automationsActionTypeScript;
+
+  /// No description provided for @automationsScriptMasOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Only available on the Mac App Store build.'**
+  String get automationsScriptMasOnly;
+
+  /// No description provided for @automationsScriptLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Script'**
+  String get automationsScriptLabel;
+
+  /// No description provided for @automationsScriptPickerHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a script…'**
+  String get automationsScriptPickerHint;
+
+  /// No description provided for @automationsScriptRevealFolder.
+  ///
+  /// In en, this message translates to:
+  /// **'Open scripts folder in Finder'**
+  String get automationsScriptRevealFolder;
+
+  /// No description provided for @automationsScriptRefresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh script list'**
+  String get automationsScriptRefresh;
+
+  /// No description provided for @automationsScriptEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No scripts found yet. Drop one into the scripts folder, then refresh.'**
+  String get automationsScriptEmpty;
+
+  /// No description provided for @automationsScriptHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Runs the selected script from the app\'s scripts folder when the trigger matches.'**
+  String get automationsScriptHelp;
+
   /// No description provided for @automationsDeleteTitle.
   ///
   /// In en, this message translates to:
