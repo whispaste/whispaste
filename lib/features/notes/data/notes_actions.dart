@@ -33,6 +33,24 @@ class NotesActions {
   /// Deletes active notes whose content is blank — the empty-discard
   /// safety-net sweep run once when the Notizen page mounts.
   Future<int> purgeEmpty() => _db.purgeEmptyNotes();
+
+  /// Add an existing or new tag to a note (find-or-create by name), mirrors
+  /// `HistoryDetailNotifier.addTag`.
+  Future<void> addTag(String noteId, String tagName) async {
+    final name = tagName.trim().toLowerCase();
+    if (name.isEmpty) return;
+
+    final existing = await _db.searchTags(name);
+    final tag = existing.any((t) => t.name == name)
+        ? existing.firstWhere((t) => t.name == name)
+        : await _db.createTag(name);
+
+    await _db.tagNote(noteId, tag.id);
+  }
+
+  /// Remove a tag from a note (does not delete the tag itself).
+  Future<void> removeTag(String noteId, String tagId) =>
+      _db.untagNote(noteId, tagId);
 }
 
 final notesActionsProvider = Provider<NotesActions>((ref) {

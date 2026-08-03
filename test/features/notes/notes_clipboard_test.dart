@@ -73,16 +73,19 @@ void main() {
         makeTestable(
           NoteEditorPanel(
             note: _sampleNote(id: 'n1', content: controller.text),
+            tags: const [],
             isDark: true,
             controller: controller,
             focusNode: focusNode,
             onClose: () {},
-            // Ticket-04 toolbar actions — irrelevant for the clipboard
+            // Ticket-04/05 toolbar actions — irrelevant for the clipboard
             // behavior under test, so plain no-ops.
             onToggleFavorite: () {},
             onMoveToTrash: () {},
             onRestore: () {},
             onDeleteForever: () {},
+            onAddTag: (_) {},
+            onRemoveTag: (_) {},
           ),
           locale: const Locale('en'),
         ),
@@ -114,6 +117,13 @@ void main() {
             const NotesPage(),
             overrides: [
               notesProvider.overrideWith((ref) => Stream.value(notes)),
+              // Left un-overridden, these fall through to real Drift
+              // `.watch()` queries whose stream-cleanup Timer trips
+              // flutter_test's pending-timer check on widget-tree disposal.
+              allNoteTagsProvider.overrideWith((ref) => Stream.value(const {})),
+              noteTagsProvider.overrideWith(
+                (ref, noteId) => Stream.value(const []),
+              ),
             ],
             locale: const Locale('en'),
           ),

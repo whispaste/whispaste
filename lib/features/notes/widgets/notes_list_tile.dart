@@ -19,6 +19,7 @@ class NotesListTile extends StatefulWidget {
   const NotesListTile({
     super.key,
     required this.note,
+    required this.tags,
     required this.isDark,
     required this.isTrashView,
     required this.isSelected,
@@ -29,6 +30,10 @@ class NotesListTile extends StatefulWidget {
   });
 
   final Note note;
+
+  /// Tags linked to this note, alphabetically sorted (from
+  /// allNoteTagsProvider). Purely informative in the tile — no tap handler.
+  final List<Tag> tags;
   final bool isDark;
 
   /// Trash view swaps the leading favourite star for trailing
@@ -275,9 +280,84 @@ class _NotesListTileState extends State<NotesListTile> {
                     ),
                   ),
                 ],
+                // Row 3: compact tag pills — informative only (no tap;
+                // tag filtering may come in a later ticket)
+                if (widget.tags.isNotEmpty) ...[
+                  const SizedBox(height: WpSpacing.xxs),
+                  _NoteTagChips(tags: widget.tags, isDark: isDark),
+                ],
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Compact, non-interactive tag pills — structural sibling of history's
+// _EntryTagChips/_EntryTagChip: max. 3 visible chips + "+N" overflow count.
+// ---------------------------------------------------------------------------
+
+class _NoteTagChips extends StatelessWidget {
+  const _NoteTagChips({required this.tags, required this.isDark});
+
+  final List<Tag> tags;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    return Wrap(
+      spacing: 4,
+      runSpacing: 2,
+      children: [
+        for (final tag in tags.take(3))
+          _NoteTagChip(name: tag.name, isDark: isDark, accent: accent),
+        if (tags.length > 3)
+          Text(
+            '+${tags.length - 3}',
+            style: TextStyle(fontSize: WpTypography.micro, color: textMuted),
+          ),
+      ],
+    );
+  }
+}
+
+class _NoteTagChip extends StatelessWidget {
+  const _NoteTagChip({
+    required this.name,
+    required this.isDark,
+    required this.accent,
+  });
+
+  final String name;
+  final bool isDark;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      // Vertical 1 stays off-scale on purpose: the mini tag hugs its micro
+      // text; xxs would double the chip height (same as history's mini tag).
+      padding: const EdgeInsets.symmetric(
+        horizontal: WpSpacing.xxs,
+        vertical: 1,
+      ),
+      decoration: BoxDecoration(
+        color: isDark
+            ? WpColorsDark.accentMiniTagFill
+            : WpColorsLight.accentMiniTagFill,
+        borderRadius: WpRadius.borderSm,
+      ),
+      child: Text(
+        '#$name',
+        style: TextStyle(
+          fontSize: WpTypography.micro,
+          color: accent.withValues(alpha: 0.9),
+          fontWeight: FontWeight.w500,
         ),
       ),
     );

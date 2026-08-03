@@ -1998,6 +1998,72 @@ class HistoryDatabase extends _$HistoryDatabase {
     });
   }
 
+  /// Link a note to a tag — mirrors [tagEntry], reuses the shared [Tags]
+  /// table. Idempotent (no duplicate links).
+  Future<void> tagNote(String noteId, String tagId) {
+    return _writeCoordinator.write<void>(
+      () => into(noteTags).insert(
+        NoteTagsCompanion.insert(noteId: noteId, tagId: tagId),
+        mode: InsertMode.insertOrIgnore,
+      ),
+    );
+  }
+
+  /// Remove a tag from a note (does not delete the tag itself).
+  Future<void> untagNote(String noteId, String tagId) {
+    return _writeCoordinator.write<void>(
+      () => (delete(
+        noteTags,
+      )..where((nt) => nt.noteId.equals(noteId) & nt.tagId.equals(tagId))).go(),
+    );
+  }
+
+  /// Tags for a specific note (via join), sorted alphabetically.
+  Future<List<Tag>> tagsForNote(String noteId) async {
+    final query =
+        select(
+            tags,
+          ).join([innerJoin(noteTags, noteTags.tagId.equalsExp(tags.id))])
+          ..where(noteTags.noteId.equals(noteId))
+          ..orderBy([OrderingTerm.asc(tags.name)]);
+    final rows = await query.get();
+    return rows.map((r) => r.readTable(tags)).toList();
+  }
+
+  /// Reactive stream of tags for a specific note.
+  Stream<List<Tag>> watchTagsForNote(String noteId) {
+    if (_isClosed) return const Stream.empty();
+    final query =
+        select(
+            tags,
+          ).join([innerJoin(noteTags, noteTags.tagId.equalsExp(tags.id))])
+          ..where(noteTags.noteId.equals(noteId))
+          ..orderBy([OrderingTerm.asc(tags.name)]);
+    return query.watch().map(
+      (rows) => rows.map((r) => r.readTable(tags)).toList(),
+    );
+  }
+
+  /// Reactive stream of ALL note→tags links, grouped by note id.
+  ///
+  /// Needed because — unlike [HistoryEntries], which denormalizes tag names
+  /// into a JSON column for FTS — [Notes] has no such column: Ticket 06's
+  /// search-by-tag filters in memory against this map.
+  Stream<Map<String, List<Tag>>> watchAllNoteTags() {
+    if (_isClosed) return const Stream.empty();
+    final query = select(noteTags).join([
+      innerJoin(tags, tags.id.equalsExp(noteTags.tagId)),
+    ])..orderBy([OrderingTerm.asc(tags.name)]);
+    return query.watch().map((rows) {
+      final grouped = <String, List<Tag>>{};
+      for (final row in rows) {
+        final noteId = row.readTable(noteTags).noteId;
+        grouped.putIfAbsent(noteId, () => []).add(row.readTable(tags));
+      }
+      return grouped;
+    });
+  }
+
   // ---------------------------------------------------------------------------
   // DailyStats — persistent analytics (independent of history CRUD)
   // ---------------------------------------------------------------------------

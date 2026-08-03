@@ -1193,5 +1193,7 @@
   "notesTrash": "Trash",
   "notesTrashEmpty": "Trash is empty",
   "notesTrashEmptyHint": "Deleted notes land here and aren't removed automatically.",
-  "notesUndo": "Undo"
+  "notesUndo": "Undo",
+  "notesAddTag": "Add tag",
+  "notesTagPlaceholder": "Tag name…"
 }

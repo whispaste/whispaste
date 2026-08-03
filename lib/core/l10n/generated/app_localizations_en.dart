@@ -3159,4 +3159,10 @@ class L10nEn extends L10n {
 
   @override
   String get notesUndo => 'Undo';
+
+  @override
+  String get notesAddTag => 'Add tag';
+
+  @override
+  String get notesTagPlaceholder => 'Tag name…';
 }

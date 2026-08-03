@@ -1059,5 +1059,7 @@
   "notesTrash": "אשפה",
   "notesTrashEmpty": "האשפה ריקה",
   "notesTrashEmptyHint": "פתקים שנמחקו מגיעים לכאן ולא מוסרים אוטומטית.",
-  "notesUndo": "בטל"
+  "notesUndo": "בטל",
+  "notesAddTag": "הוסף תגית",
+  "notesTagPlaceholder": "שם התגית…"
 }

@@ -7,6 +7,7 @@ import '../../../core/data/database.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../widgets/tag_input.dart';
 import '../../../widgets/toast.dart';
 import '../data/note_title.dart';
 
@@ -21,6 +22,7 @@ class NoteEditorPanel extends StatelessWidget {
   const NoteEditorPanel({
     super.key,
     required this.note,
+    required this.tags,
     required this.isDark,
     required this.controller,
     required this.focusNode,
@@ -29,9 +31,14 @@ class NoteEditorPanel extends StatelessWidget {
     required this.onMoveToTrash,
     required this.onRestore,
     required this.onDeleteForever,
+    required this.onAddTag,
+    required this.onRemoveTag,
   });
 
   final Note note;
+
+  /// Tags linked to this note (from noteTagsProvider, alphabetically sorted).
+  final List<Tag> tags;
   final bool isDark;
   final TextEditingController controller;
   final FocusNode focusNode;
@@ -40,6 +47,10 @@ class NoteEditorPanel extends StatelessWidget {
   final VoidCallback onMoveToTrash;
   final VoidCallback onRestore;
   final VoidCallback onDeleteForever;
+
+  /// Add/remove a tag on this note (tagName / tagId).
+  final ValueChanged<String> onAddTag;
+  final ValueChanged<String> onRemoveTag;
 
   @override
   Widget build(BuildContext context) {
@@ -61,8 +72,8 @@ class NoteEditorPanel extends StatelessWidget {
         children: [
           // ── Toolbar row ──
           // Derived title + copy + favourite/trash (or restore/delete-forever
-          // for trashed notes) + close. Future actions dock here — tags
-          // (Ticket 05), export (Ticket 07), voice input (Ticket 08).
+          // for trashed notes) + close. Future actions dock here — export
+          // (Ticket 07), voice input (Ticket 08).
           Padding(
             padding: const EdgeInsets.fromLTRB(
               WpSpacing.xl,
@@ -168,6 +179,28 @@ class NoteEditorPanel extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ),
+          // ── Tags ──
+          // Deliberately minimal compared to history's tag section: no
+          // suggestions, no inline label, no management-dialog button.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              WpSpacing.xl,
+              0,
+              WpSpacing.xl,
+              WpSpacing.xs,
+            ),
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: WpTagInput(
+                tags: tags,
+                isDark: isDark,
+                onAdd: onAddTag,
+                onRemove: onRemoveTag,
+                hintText: l10n.notesAddTag,
+                searchHintText: l10n.notesTagPlaceholder,
+              ),
             ),
           ),
           // ── Divider ──

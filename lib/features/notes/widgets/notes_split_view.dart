@@ -15,9 +15,11 @@ class NotesSplitView extends StatefulWidget {
   const NotesSplitView({
     super.key,
     required this.notes,
+    required this.tagsByNoteId,
     required this.isDark,
     required this.isTrashView,
     required this.selectedNote,
+    required this.selectedNoteTags,
     required this.editorController,
     required this.editorFocusNode,
     required this.onNoteTap,
@@ -26,15 +28,24 @@ class NotesSplitView extends StatefulWidget {
     required this.onMoveToTrash,
     required this.onRestore,
     required this.onDeleteForever,
+    required this.onAddTag,
+    required this.onRemoveTag,
   });
 
   final List<Note> notes;
+
+  /// Note id → linked tags for the list tiles (from allNoteTagsProvider).
+  final Map<String, List<Tag>> tagsByNoteId;
   final bool isDark;
 
   /// Whether the trash filter is active — swaps the per-note actions
   /// (favourite/trash vs. restore/delete-forever) in list tiles and editor.
   final bool isTrashView;
   final Note? selectedNote;
+
+  /// Tags of the note currently open in the editor — resolved by the caller
+  /// (noteTagsProvider), empty when no note is selected.
+  final List<Tag> selectedNoteTags;
 
   /// Owned by `_NotesPageState` (NOT by the editor panel) so cursor and IME
   /// state survive rebuilds triggered by the notes stream.
@@ -46,6 +57,11 @@ class NotesSplitView extends StatefulWidget {
   final ValueChanged<Note> onMoveToTrash;
   final ValueChanged<Note> onRestore;
   final ValueChanged<Note> onDeleteForever;
+
+  /// Add/remove a tag on the note currently open in the editor
+  /// (tagName / tagId).
+  final ValueChanged<String> onAddTag;
+  final ValueChanged<String> onRemoveTag;
 
   @override
   State<NotesSplitView> createState() => _NotesSplitViewState();
@@ -123,6 +139,7 @@ class _NotesSplitViewState extends State<NotesSplitView>
   Widget _buildListBody({String? selectedId}) {
     return NotesListView(
       notes: widget.notes,
+      tagsByNoteId: widget.tagsByNoteId,
       isDark: widget.isDark,
       isTrashView: widget.isTrashView,
       selectedId: selectedId,
@@ -137,6 +154,7 @@ class _NotesSplitViewState extends State<NotesSplitView>
     return NoteEditorPanel(
       key: ValueKey(note.id),
       note: note,
+      tags: widget.selectedNoteTags,
       isDark: widget.isDark,
       controller: widget.editorController,
       focusNode: widget.editorFocusNode,
@@ -145,6 +163,8 @@ class _NotesSplitViewState extends State<NotesSplitView>
       onMoveToTrash: () => widget.onMoveToTrash(note),
       onRestore: () => widget.onRestore(note),
       onDeleteForever: () => widget.onDeleteForever(note),
+      onAddTag: widget.onAddTag,
+      onRemoveTag: widget.onRemoveTag,
     );
   }
 

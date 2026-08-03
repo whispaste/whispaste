@@ -24,8 +24,8 @@ import 'widgets/notes_split_view.dart';
 /// Master-detail layout mirroring [HistoryPage]'s split view, but deliberately
 /// minimal: flat note list on the left, always-editable plain-text editor on
 /// the right, plus an active/trash filter with favourite, trash, restore and
-/// delete-forever actions (Ticket 04). No search, tags, export, or voice
-/// input yet — those hook in via later tickets.
+/// delete-forever actions (Ticket 04) and tag editing/display (Ticket 05).
+/// No search, export, or voice input yet — those hook in via later tickets.
 class NotesPage extends ConsumerStatefulWidget {
   const NotesPage({super.key});
 
@@ -197,6 +197,12 @@ class _NotesPageState extends ConsumerState<NotesPage> {
     await _actions.restore(note.id);
   }
 
+  Future<void> _addTag(Note note, String tagName) =>
+      _actions.addTag(note.id, tagName);
+
+  Future<void> _removeTag(Note note, String tagId) =>
+      _actions.removeTag(note.id, tagId);
+
   /// Only reachable from the trash view (list tile / editor toolbar there).
   Future<void> _deleteForever(Note note) async {
     final l10n = L10n.of(context);
@@ -227,6 +233,13 @@ class _NotesPageState extends ConsumerState<NotesPage> {
     final isTrash = filter == NotesFilter.trash;
     final activeStreamProvider = isTrash ? trashNotesProvider : notesProvider;
     final notesAsync = ref.watch(activeStreamProvider);
+    final tagsByNoteId =
+        ref.watch(allNoteTagsProvider).value ?? const <String, List<Tag>>{};
+    // Watched unconditionally in build (empty fallback when nothing is
+    // selected) so Riverpod manages the family subscription correctly.
+    final selectedNoteTags = _selectedNoteId != null
+        ? (ref.watch(noteTagsProvider(_selectedNoteId!)).value ?? const <Tag>[])
+        : const <Tag>[];
 
     return WpPageShell(
       scrollable: false,
@@ -263,11 +276,14 @@ class _NotesPageState extends ConsumerState<NotesPage> {
                   final idx = notes.indexWhere((n) => n.id == _selectedNoteId);
                   selectedNote = idx >= 0 ? notes[idx] : null;
                 }
+                final currentNote = selectedNote;
                 return NotesSplitView(
                   notes: notes,
+                  tagsByNoteId: tagsByNoteId,
                   isDark: isDark,
                   isTrashView: isTrash,
                   selectedNote: selectedNote,
+                  selectedNoteTags: selectedNoteTags,
                   editorController: _editorController,
                   editorFocusNode: _editorFocusNode,
                   onNoteTap: _selectNote,
@@ -276,6 +292,12 @@ class _NotesPageState extends ConsumerState<NotesPage> {
                   onMoveToTrash: _moveToTrash,
                   onRestore: _restoreNote,
                   onDeleteForever: _deleteForever,
+                  onAddTag: (name) {
+                    if (currentNote != null) _addTag(currentNote, name);
+                  },
+                  onRemoveTag: (id) {
+                    if (currentNote != null) _removeTag(currentNote, id);
+                  },
                 );
               },
               loading: () => _NotesSkeleton(isDark: isDark),

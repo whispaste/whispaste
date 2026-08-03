@@ -5648,6 +5648,18 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Undo'**
   String get notesUndo;
+
+  /// No description provided for @notesAddTag.
+  ///
+  /// In en, this message translates to:
+  /// **'Add tag'**
+  String get notesAddTag;
+
+  /// No description provided for @notesTagPlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Tag name…'**
+  String get notesTagPlaceholder;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

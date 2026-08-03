@@ -21,3 +21,19 @@ final trashNotesProvider = StreamProvider<List<Note>>((ref) {
   final db = ref.watch(historyDatabaseProvider);
   return db.watchTrashNotes();
 });
+
+/// Live stream of tags linked to a single note, alphabetically sorted.
+final noteTagsProvider = StreamProvider.family<List<Tag>, String>((
+  ref,
+  noteId,
+) {
+  final db = ref.watch(historyDatabaseProvider);
+  return db.watchTagsForNote(noteId);
+});
+
+/// Live stream of ALL note→tags links, grouped by note id — backs Ticket 06's
+/// search-by-tag, since [Note] has no denormalized tags column to query.
+final allNoteTagsProvider = StreamProvider<Map<String, List<Tag>>>((ref) {
+  final db = ref.watch(historyDatabaseProvider);
+  return db.watchAllNoteTags();
+});

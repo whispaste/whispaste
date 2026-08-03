@@ -1,13 +1,49 @@
+import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/data/notes_providers.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
+import 'package:whispaste/features/notes/data/notes_actions.dart';
 import 'package:whispaste/features/notes/notes_page.dart';
 
 import '../../fixtures/test_helpers.dart';
 
 late L10n l10n;
+
+/// Every widget test that pumps [NotesPage] must override these two alongside
+/// `notesProvider`/`trashNotesProvider` — left un-overridden, they fall
+/// through to real Drift `.watch()` queries (even against the in-memory test
+/// db from `makeTestable`), whose stream-cleanup schedules a Timer on
+/// disposal that flutter_test's pending-timer check then trips.
+List<Object> get _noTagOverrides => [
+  allNoteTagsProvider.overrideWith((ref) => Stream.value(const {})),
+  noteTagsProvider.overrideWith((ref, noteId) => Stream.value(const [])),
+];
+
+Tag _sampleTag(String id, String name) =>
+    Tag(id: id, name: name, createdAt: DateTime(2025, 6, 1));
+
+/// Records calls instead of hitting the DB, so a widget test can assert
+/// _which_ note/tag `_NotesPageState`'s `onAddTag`/`onRemoveTag` closures were
+/// invoked with — everything else (`purgeEmpty` from `initState`, etc.) still
+/// needs a real, harmless backing db.
+class _RecordingActions extends NotesActions {
+  _RecordingActions(super.db);
+
+  (String noteId, String tagName)? lastAddTag;
+  (String noteId, String tagId)? lastRemoveTag;
+
+  @override
+  Future<void> addTag(String noteId, String tagName) async {
+    lastAddTag = (noteId, tagName);
+  }
+
+  @override
+  Future<void> removeTag(String noteId, String tagId) async {
+    lastRemoveTag = (noteId, tagId);
+  }
+}
 
 Note _sampleNote({
   required String id,
@@ -40,6 +76,7 @@ void main() {
           const NotesPage(),
           overrides: [
             notesProvider.overrideWith((ref) => Stream.value(const [])),
+            ..._noTagOverrides,
           ],
           locale: const Locale('en'),
         ),
@@ -61,7 +98,10 @@ void main() {
       await tester.pumpWidget(
         makeTestable(
           const NotesPage(),
-          overrides: [notesProvider.overrideWith((ref) => Stream.value(notes))],
+          overrides: [
+            notesProvider.overrideWith((ref) => Stream.value(notes)),
+            ..._noTagOverrides,
+          ],
           locale: const Locale('en'),
         ),
       );
@@ -77,7 +117,10 @@ void main() {
       await tester.pumpWidget(
         makeTestable(
           const NotesPage(),
-          overrides: [notesProvider.overrideWith((ref) => Stream.value(notes))],
+          overrides: [
+            notesProvider.overrideWith((ref) => Stream.value(notes)),
+            ..._noTagOverrides,
+          ],
           locale: const Locale('en'),
         ),
       );
@@ -103,6 +146,7 @@ void main() {
           overrides: [
             notesProvider.overrideWith((ref) => Stream.value(activeNotes)),
             trashNotesProvider.overrideWith((ref) => Stream.value(const [])),
+            ..._noTagOverrides,
           ],
           locale: const Locale('en'),
         ),
@@ -129,6 +173,7 @@ void main() {
               trashNotesProvider.overrideWith(
                 (ref) => Stream.value(trashedNotes),
               ),
+              ..._noTagOverrides,
             ],
             locale: const Locale('en'),
           ),
@@ -157,6 +202,7 @@ void main() {
             trashNotesProvider.overrideWith(
               (ref) => Stream.value(trashedNotes),
             ),
+            ..._noTagOverrides,
           ],
           locale: const Locale('en'),
         ),
@@ -188,6 +234,7 @@ void main() {
           overrides: [
             notesProvider.overrideWith((ref) => Stream.value(notes)),
             trashNotesProvider.overrideWith((ref) => Stream.value(const [])),
+            ..._noTagOverrides,
           ],
           locale: const Locale('en'),
         ),
@@ -215,7 +262,10 @@ void main() {
       await tester.pumpWidget(
         makeTestable(
           const NotesPage(),
-          overrides: [notesProvider.overrideWith((ref) => Stream.value(notes))],
+          overrides: [
+            notesProvider.overrideWith((ref) => Stream.value(notes)),
+            ..._noTagOverrides,
+          ],
           locale: const Locale('en'),
         ),
       );
@@ -224,5 +274,115 @@ void main() {
       expect(find.byTooltip(l10n.notesUnfavorite), findsOneWidget);
       expect(find.byTooltip(l10n.notesFavorite), findsNothing);
     });
+  });
+
+  group('NotesPage — tags (Ticket 05)', () {
+    testWidgets('shows tag pills for a tagged note in the tile and editor', (
+      tester,
+    ) async {
+      final notes = [_sampleNote(id: 'n1', content: 'Grocery list')];
+      final workTag = _sampleTag('t1', 'work');
+
+      await tester.pumpWidget(
+        makeTestable(
+          const NotesPage(),
+          overrides: [
+            notesProvider.overrideWith((ref) => Stream.value(notes)),
+            allNoteTagsProvider.overrideWith(
+              (ref) => Stream.value({
+                'n1': [workTag],
+              }),
+            ),
+            noteTagsProvider.overrideWith(
+              (ref, noteId) =>
+                  Stream.value(noteId == 'n1' ? [workTag] : const []),
+            ),
+          ],
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Tile shows the compact "#work" pill.
+      expect(find.text('#work'), findsOneWidget);
+
+      await tester.tap(find.text('Grocery list'));
+      await tester.pumpAndSettle();
+
+      // Editor's WpTagInput shows the plain tag name (no "#" prefix).
+      expect(find.text('work'), findsOneWidget);
+    });
+
+    testWidgets('adding a tag calls NotesActions.addTag for the open note', (
+      tester,
+    ) async {
+      final notes = [_sampleNote(id: 'n1', content: 'Grocery list')];
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      final actions = _RecordingActions(db);
+      addTearDown(db.close);
+
+      await tester.pumpWidget(
+        makeTestable(
+          const NotesPage(),
+          overrides: [
+            notesProvider.overrideWith((ref) => Stream.value(notes)),
+            notesActionsProvider.overrideWith((ref) => actions),
+            ..._noTagOverrides,
+          ],
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Grocery list'));
+      await tester.pumpAndSettle();
+
+      // Reveal the inline tag input, type a name, confirm with Enter.
+      await tester.tap(find.text(l10n.notesAddTag));
+      await tester.pumpAndSettle();
+      // The inline tag field renders above the divider/main editor TextField
+      // in NoteEditorPanel — `.first` is the tag input, not the note body.
+      await tester.enterText(find.byType(TextField).first, 'errands');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+
+      expect(actions.lastAddTag, ('n1', 'errands'));
+    });
+
+    testWidgets(
+      'removing a tag calls NotesActions.removeTag for the open note',
+      (tester) async {
+        final notes = [_sampleNote(id: 'n1', content: 'Grocery list')];
+        final workTag = _sampleTag('t1', 'work');
+        final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+        final actions = _RecordingActions(db);
+        addTearDown(db.close);
+
+        await tester.pumpWidget(
+          makeTestable(
+            const NotesPage(),
+            overrides: [
+              notesProvider.overrideWith((ref) => Stream.value(notes)),
+              notesActionsProvider.overrideWith((ref) => actions),
+              allNoteTagsProvider.overrideWith((ref) => Stream.value(const {})),
+              noteTagsProvider.overrideWith(
+                (ref, noteId) =>
+                    Stream.value(noteId == 'n1' ? [workTag] : const []),
+              ),
+            ],
+            locale: const Locale('en'),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Grocery list'));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.bySemanticsLabel('Remove work'));
+        await tester.pumpAndSettle();
+
+        expect(actions.lastRemoveTag, ('n1', 't1'));
+      },
+    );
   });
 }

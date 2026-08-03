@@ -3188,4 +3188,10 @@ class L10nDe extends L10n {
 
   @override
   String get notesUndo => 'Rückgängig';
+
+  @override
+  String get notesAddTag => 'Tag hinzufügen';
+
+  @override
+  String get notesTagPlaceholder => 'Tag-Name…';
 }

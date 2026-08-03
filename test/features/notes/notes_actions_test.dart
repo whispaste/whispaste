@@ -135,4 +135,46 @@ void main() {
       expect(await db.getNote(kept.id), isNotNull);
     });
   });
+
+  group('addTag / removeTag (find-or-create, Ticket 05)', () {
+    test('addTag creates a new tag when none exists', () async {
+      final note = await actions.create();
+
+      await actions.addTag(note.id, '  Groceries  ');
+
+      final tags = await db.tagsForNote(note.id);
+      expect(tags, hasLength(1));
+      expect(tags.first.name, 'groceries');
+    });
+
+    test('addTag reuses an existing tag (case-insensitive)', () async {
+      await db.createTag('errands');
+      final note = await actions.create();
+
+      await actions.addTag(note.id, 'ERRANDS');
+
+      expect(await db.allTags(), hasLength(1));
+      expect(await db.tagsForNote(note.id), hasLength(1));
+    });
+
+    test('addTag is a no-op for a blank name', () async {
+      final note = await actions.create();
+
+      await actions.addTag(note.id, '   ');
+
+      expect(await db.tagsForNote(note.id), isEmpty);
+      expect(await db.allTags(), isEmpty);
+    });
+
+    test('removeTag unlinks without deleting the tag', () async {
+      final note = await actions.create();
+      await actions.addTag(note.id, 'keep-tag');
+      final tag = (await db.tagsForNote(note.id)).single;
+
+      await actions.removeTag(note.id, tag.id);
+
+      expect(await db.tagsForNote(note.id), isEmpty);
+      expect(await db.allTags(), hasLength(1));
+    });
+  });
 }

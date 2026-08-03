@@ -3108,4 +3108,10 @@ class L10nHe extends L10n {
 
   @override
   String get notesUndo => 'בטל';
+
+  @override
+  String get notesAddTag => 'הוסף תגית';
+
+  @override
+  String get notesTagPlaceholder => 'שם התגית…';
 }
