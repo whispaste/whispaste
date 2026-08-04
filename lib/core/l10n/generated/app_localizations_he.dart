@@ -628,6 +628,15 @@ class L10nHe extends L10n {
       'macOS ישאל אותך בעוד רגע אם WhisPaste מורשה. אמור כן, וזהו.';
 
   @override
+  String get onboardingPasteChipReady => 'הדבקה אוטומטית מוכנה';
+
+  @override
+  String get onboardingPasteChipPending => 'גישה להדבקה אוטומטית ממתינה';
+
+  @override
+  String get onboardingPasteChipAction => 'הדבקה אוטומטית: נדרשת פעולה';
+
+  @override
   String get onboardingPasteGrantCta => 'המשך';
 
   @override

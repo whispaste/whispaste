@@ -612,7 +612,7 @@ class _WindowsBody extends StatelessWidget {
             isDark: isDark,
             textPrimary: textPrimary,
             successColor: successColor,
-            label: l10n.pasteCapabilityReady,
+            label: l10n.onboardingPasteChipReady,
           ),
           const SizedBox(height: WpSpacing.sm),
           Text(
@@ -809,24 +809,31 @@ class _PermissionStatusCard extends StatelessWidget {
     );
   }
 
+  // Onboarding-only chip vocabulary — ready/pending/action-needed mirrors
+  // the mic permission chip on step 1 (`mic_permission_chip.dart`) so both
+  // capability chips speak the same three-state language. Kept separate
+  // from the shared `pasteCapability*` keys (also used by
+  // `paste_capability_indicator.dart` in Settings), which are out of scope
+  // here — `unsupported` keeps its shared wording since it's a different
+  // claim ("not available here") than "action needed".
   (IconData, Color, String) _resolve() {
     if (status == null) {
       return (
         LucideIcons.loaderCircle,
         textSecondary,
-        l10n.pasteCapabilityCheckTitle,
+        l10n.onboardingPasteChipPending,
       );
     }
     return switch (status!) {
       PasteCapabilityStatus.ready => (
         LucideIcons.circleCheck,
         successColor,
-        l10n.pasteCapabilityReady,
+        l10n.onboardingPasteChipReady,
       ),
       PasteCapabilityStatus.permissionMissing => (
         LucideIcons.shieldAlert,
         errorColor,
-        l10n.pasteCapabilityPermissionMissing,
+        l10n.onboardingPasteChipAction,
       ),
       PasteCapabilityStatus.unsupported => (
         LucideIcons.info,

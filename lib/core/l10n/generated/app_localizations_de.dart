@@ -643,6 +643,15 @@ class L10nDe extends L10n {
       'macOS fragt dich gleich, ob WhisPaste das darf. Sag Ja, fertig.';
 
   @override
+  String get onboardingPasteChipReady => 'Auto-Einfügen bereit';
+
+  @override
+  String get onboardingPasteChipPending => 'Auto-Einfügen-Zugriff ausstehend';
+
+  @override
+  String get onboardingPasteChipAction => 'Auto-Einfügen: Aktion nötig';
+
+  @override
   String get onboardingPasteGrantCta => 'Weiter';
 
   @override

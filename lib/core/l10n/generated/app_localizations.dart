@@ -1221,6 +1221,24 @@ abstract class L10n {
   /// **'macOS will ask you in a moment whether WhisPaste may do this. Say yes, done.'**
   String get onboardingPasteSubtitle;
 
+  /// No description provided for @onboardingPasteChipReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-Paste ready'**
+  String get onboardingPasteChipReady;
+
+  /// No description provided for @onboardingPasteChipPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-Paste access pending'**
+  String get onboardingPasteChipPending;
+
+  /// No description provided for @onboardingPasteChipAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-Paste: action needed'**
+  String get onboardingPasteChipAction;
+
   /// No description provided for @onboardingPasteGrantCta.
   ///
   /// In en, this message translates to:

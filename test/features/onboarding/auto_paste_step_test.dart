@@ -224,7 +224,7 @@ void main() {
       expect(find.text(l10n.onboardingPasteSkip), findsOneWidget);
       // In the intro phase the permission status card is intentionally not
       // rendered — the Grant CTA + why-mac caption are the only signal.
-      expect(find.text(l10n.pasteCapabilityReady), findsNothing);
+      expect(find.text(l10n.onboardingPasteChipReady), findsNothing);
 
       // initState fires exactly one un-prompted check.
       expect(paste.checkCalls, [false]);
@@ -242,10 +242,40 @@ void main() {
       await _pumpStep(tester, paste: paste);
 
       // Success label is the only card in the granted phase.
-      expect(find.text(l10n.pasteCapabilityReady), findsOneWidget);
+      expect(find.text(l10n.onboardingPasteChipReady), findsOneWidget);
       // Skip and Grant disappear once the capability is ready.
       expect(find.text(l10n.onboardingPasteSkip), findsNothing);
       expect(find.text(l10n.onboardingPasteGrantCta), findsNothing);
+    });
+
+    testWidgets(
+      'checking phase renders the pending chip label before the first '
+      'check resolves',
+      (tester) async {
+        final paste = _FakePasteCapabilityNotifier(
+          initial: const PasteCapabilityState(capability: null),
+        );
+
+        await _pumpStep(tester, paste: paste);
+
+        expect(find.text(l10n.onboardingPasteChipPending), findsOneWidget);
+      },
+    );
+
+    test('chip vocabulary mirrors the mic permission chip (step 1): ready / '
+        'pending / action-needed use the same three-state pattern, not the '
+        'shared Settings pasteCapability* wording', () {
+      // The mic chip (mic_permission_chip.dart) and the Auto-Paste chip
+      // are independent l10n keys by design (different capabilities,
+      // never rendered together) — this test guards the *shape* of the
+      // vocabulary staying aligned, not literal string equality.
+      expect(l10n.onboardingPasteChipReady, isNot(l10n.pasteCapabilityReady));
+      expect(l10n.onboardingPasteChipReady, contains('ready'));
+      expect(l10n.onboardingMicChipReady, contains('ready'));
+      expect(l10n.onboardingPasteChipPending, contains('pending'));
+      expect(l10n.onboardingMicChipPending, contains('pending'));
+      expect(l10n.onboardingPasteChipAction, contains('action needed'));
+      expect(l10n.onboardingMicChipAction, contains('action needed'));
     });
 
     testWidgets(
@@ -966,7 +996,7 @@ void main() {
         await _pumpStep(tester, paste: paste);
 
         // Verify card shows the success label.
-        expect(find.text(l10n.pasteCapabilityReady), findsOneWidget);
+        expect(find.text(l10n.onboardingPasteChipReady), findsOneWidget);
 
         // The Windows verify branch hides the macOS-specific Skip CTA —
         // there is no action the user has to take, so offering Skip would
@@ -1012,7 +1042,7 @@ void main() {
           expect(find.text(l10n.onboardingPasteSkip), findsOneWidget);
 
           // The macOS verify-state success label is NOT shown in this branch.
-          expect(find.text(l10n.pasteCapabilityReady), findsNothing);
+          expect(find.text(l10n.onboardingPasteChipReady), findsNothing);
         } finally {
           debugDefaultTargetPlatformOverride = null;
         }

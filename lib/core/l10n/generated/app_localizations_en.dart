@@ -637,6 +637,15 @@ class L10nEn extends L10n {
       'macOS will ask you in a moment whether WhisPaste may do this. Say yes, done.';
 
   @override
+  String get onboardingPasteChipReady => 'Auto-Paste ready';
+
+  @override
+  String get onboardingPasteChipPending => 'Auto-Paste access pending';
+
+  @override
+  String get onboardingPasteChipAction => 'Auto-Paste: action needed';
+
+  @override
   String get onboardingPasteGrantCta => 'Continue';
 
   @override
