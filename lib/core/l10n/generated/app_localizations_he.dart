@@ -2305,9 +2305,6 @@ class L10nHe extends L10n {
   String get onboardingGetStarted => 'התחל';
 
   @override
-  String get onboardingSkip => 'דלג על שלב זה';
-
-  @override
   String get onboardingNext => 'הבא';
 
   @override

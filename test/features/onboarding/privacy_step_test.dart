@@ -5,8 +5,9 @@
 ///   1. Both default to ON (switches reflect `shareUsageStats`/
 ///      `errorReporting == true`).
 ///   2. Toggling either switch persists its own consent value independently.
-///   3. "Next" is always enabled (continuing never depends on either
-///      choice); "Back" and "Next" invoke their callbacks.
+///
+/// Navigation (Back/Next) is owned by the onboarding shell and covered in
+/// `onboarding_flow_test.dart` — this step renders content only.
 library;
 
 import 'package:flutter/material.dart';
@@ -36,15 +37,11 @@ class _FakeSettingsNotifier extends SettingsNotifier {
   }
 }
 
-Future<_FakeSettingsNotifier> _pump(
-  WidgetTester tester, {
-  VoidCallback? onNext,
-  VoidCallback? onBack,
-}) async {
+Future<_FakeSettingsNotifier> _pump(WidgetTester tester) async {
   final settings = _FakeSettingsNotifier();
   await tester.pumpWidget(
     makeTestable(
-      PrivacyStep(onNext: onNext ?? () {}, onBack: onBack ?? () {}),
+      const PrivacyStep(),
       size: const Size(800, 1000),
       locale: const Locale('en'),
       overrides: [settingsProvider.overrideWith(() => settings)],
@@ -117,23 +114,6 @@ void main() {
         reason: 'The two consents must not affect each other.',
       );
       expect(tester.widget<Switch>(crashToggle).value, isFalse);
-    },
-  );
-
-  testWidgets(
-    'Next is always enabled and invokes onNext; Back invokes onBack',
-    (tester) async {
-      var nextCalls = 0;
-      var backCalls = 0;
-      await _pump(tester, onNext: () => nextCalls++, onBack: () => backCalls++);
-
-      await tester.tap(find.text(l10n.onboardingNext));
-      await tester.pumpAndSettle();
-      expect(nextCalls, 1);
-
-      await tester.tap(find.text(l10n.onboardingBack));
-      await tester.pumpAndSettle();
-      expect(backCalls, 1);
     },
   );
 }

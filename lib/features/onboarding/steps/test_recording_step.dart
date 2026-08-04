@@ -9,19 +9,13 @@ import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../features/settings/settings_widgets.dart';
 import '../../../services/recording_orchestrator.dart';
-import '../../../widgets/wp_accent_button.dart';
 
 /// Widget keys exposed for testing. Kept in one place so tests and production
 /// code agree on the contract.
 @visibleForTesting
 const kTestRecordingStepFieldKey = Key('testRecordingStepSandboxField');
-@visibleForTesting
-const kTestRecordingStepSkipLinkKey = Key('testRecordingStepSkipLink');
-@visibleForTesting
-const kTestRecordingStepNextButtonKey = Key('testRecordingStepNextButton');
 
-/// Onboarding step — guided, skippable test recording shown right before
-/// [OnboardingStepId.ready].
+/// Guided, optional test recording content of the final onboarding page.
 ///
 /// Lets the newcomer run the real hotkey → speak → text pipeline once against
 /// a local sandbox text field instead of the system clipboard/paste target,
@@ -29,16 +23,10 @@ const kTestRecordingStepNextButtonKey = Key('testRecordingStepNextButton');
 /// first encounter with the mechanic. Wires
 /// [RecordingOrchestrator.sandboxTranscriptSink] for the lifetime of this
 /// step only; every other caller of the orchestrator keeps the real
-/// clipboard/paste behaviour untouched.
+/// clipboard/paste behaviour untouched. Content only — navigation is owned
+/// by the onboarding shell and never gated on recording success.
 class TestRecordingStep extends ConsumerStatefulWidget {
-  const TestRecordingStep({
-    super.key,
-    required this.onNext,
-    required this.onBack,
-  });
-
-  final VoidCallback onNext;
-  final VoidCallback onBack;
+  const TestRecordingStep({super.key});
 
   @override
   ConsumerState<TestRecordingStep> createState() => _TestRecordingStepState();
@@ -91,9 +79,6 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
         : WpColorsLight.textSecondary;
     final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
     final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final accentGradient = isDark
-        ? WpColorsDark.accentWarmGradient
-        : WpColorsLight.accentWarmGradient;
     final success = isDark ? WpColorsDark.success : WpColorsLight.success;
 
     return Column(
@@ -169,67 +154,6 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
           l10n.onboardingTestRecordingReassurance,
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: WpTypography.small, color: textMuted),
-        ),
-
-        // Skip link — hidden once the test already succeeded, since there is
-        // nothing left to skip past.
-        if (!isDone) ...[
-          const SizedBox(height: WpSpacing.xxs),
-          Semantics(
-            button: true,
-            label: l10n.onboardingTestRecordingSkip,
-            child: Material(
-              key: kTestRecordingStepSkipLinkKey,
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: widget.onNext,
-                borderRadius: WpRadius.borderSm,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: WpSpacing.sm,
-                    vertical: WpSpacing.xs,
-                  ),
-                  child: Text(
-                    l10n.onboardingTestRecordingSkip,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: WpTypography.small,
-                      color: accent,
-                      decoration: TextDecoration.underline,
-                      decorationColor: accent,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-        const SizedBox(height: WpSpacing.lg),
-
-        // Navigation — "Weiter" is always enabled regardless of recording
-        // state: neither path is a required step ("kein Zwang, keine
-        // Pflicht-Aufnahme" applies to both Skip and Weiter alike).
-        Row(
-          children: [
-            TextButton(
-              onPressed: widget.onBack,
-              child: Text(
-                l10n.onboardingBack,
-                style: TextStyle(color: textSecondary),
-              ),
-            ),
-            const Spacer(),
-            SizedBox(
-              width: 140,
-              // loam-ignore: a11y-interactive-semantics – semantics provided in WpAccentButton.build
-              child: WpAccentButton(
-                key: kTestRecordingStepNextButtonKey,
-                label: l10n.onboardingNext,
-                gradient: accentGradient,
-                onPressed: widget.onNext,
-              ),
-            ),
-          ],
         ),
       ],
     );

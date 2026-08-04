@@ -8,31 +8,18 @@ import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../services/hotkey_service.dart';
-import '../../../widgets/wp_accent_button.dart';
-import '../../settings/settings_widgets.dart';
 
-/// Widget keys exposed for testing. Kept in one place so tests and production
-/// code agree on the contract.
-@visibleForTesting
-const kReadyStepAutostartToggleKey = Key('readyStepAutostartToggle');
-@visibleForTesting
-const kReadyStepStartButtonKey = Key('readyStepStartButton');
-
-/// Onboarding's final step — quick-start guide, an autostart toggle, and the
-/// Start CTA.
+/// Closing content of the final onboarding page — quick-start guide and the
+/// residual hotkey-conflict notice.
 ///
-/// Hotkey configuration (summary, rebind, conflict resolution) used to live
-/// here; it moved to `TriggerStep`, which now runs earlier in the flow, right
-/// before the guided test recording. This step no longer configures
-/// anything hotkey-related — it keeps only a residual safety gate: if the
-/// hotkey is a confirmed conflict (e.g. the user skipped past `TriggerStep`'s
-/// warning), Start stays disabled rather than sending the user into a
-/// non-functional hotkey.
+/// The autostart toggle that used to live here moved to the
+/// Autostart & Auto-Paste page ([OnboardingAutostartToggle]); the Start CTA
+/// and Back navigation are owned by the onboarding shell, which keeps the
+/// residual safety gate: with a confirmed hotkey conflict the completion CTA
+/// stays disabled rather than sending the user into a non-functional hotkey.
+/// This widget only renders the matching heads-up text next to that gate.
 class ReadyStep extends ConsumerWidget {
-  const ReadyStep({super.key, required this.onComplete, required this.onBack});
-
-  final VoidCallback onComplete;
-  final VoidCallback onBack;
+  const ReadyStep({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -48,23 +35,11 @@ class ReadyStep extends ConsumerWidget {
     final textSecondary = isDark
         ? WpColorsDark.textSecondary
         : WpColorsLight.textSecondary;
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-    final accentGradient = isDark
-        ? WpColorsDark.accentWarmGradient
-        : WpColorsLight.accentWarmGradient;
-    final surfaceVariant =
-        (isDark ? WpColorsDark.surfaceVariant : WpColorsLight.surfaceVariant)
-            .withValues(alpha: 0.55);
-    final borderColor = isDark
-        ? WpColorsDark.borderSubtle
-        : WpColorsLight.borderSubtle;
 
-    // Start CTA is gated on a healthy hotkey registration. `unknown` keeps
-    // the button enabled — the registration runs in the background and the
-    // user shouldn't be blocked by a transient race during the very first
-    // mount; only a confirmed `conflict` disables Start. This is a residual
-    // safety net for a conflict the user skipped past in `TriggerStep`.
-    final startEnabled = status != HotkeyRegistrationStatus.conflict;
+    // The completion CTA (owned by the onboarding shell) is gated on a healthy
+    // hotkey registration; this content mirrors that gate with a short
+    // heads-up so the disabled CTA never appears unexplained.
+    final hasConflict = status == HotkeyRegistrationStatus.conflict;
 
     // Auto-Paste is active when `afterTranscription` is set to `paste` or
     // `clipboard_and_paste` — both inject the transcript at the cursor. The
@@ -107,9 +82,10 @@ class ReadyStep extends ConsumerWidget {
         ),
         const SizedBox(height: WpSpacing.xxl),
 
-        // Residual conflict notice — TriggerStep is the place to fix this;
-        // here it's just a short heads-up next to the (disabled) Start CTA.
-        if (!startEnabled) ...[
+        // Residual conflict notice — the Model & Hotkey page is the place to
+        // fix this; here it's just a short heads-up explaining the disabled
+        // completion CTA.
+        if (hasConflict) ...[
           Text(
             l10n.onboardingTriggerHotkeyConflictTitle,
             textAlign: TextAlign.center,
@@ -145,64 +121,6 @@ class ReadyStep extends ConsumerWidget {
           icon: LucideIcons.clipboard,
           accent: accent,
           textColor: textPrimary,
-        ),
-        // xl (not xxl) before the autostart card: it groups the optional
-        // toggle with the quickstart block above it and keeps the card
-        // subordinate to the Start CTA — the step's real focal point.
-        const SizedBox(height: WpSpacing.xl),
-
-        // Autostart toggle — a simpler yes/no than Settings → Interface's
-        // never/normal/minimized dropdown; picking "yes" here always means
-        // normal (not minimized) startup. `startMinimized` keeps its default
-        // (`false`); the full dropdown remains available later in Settings.
-        Container(
-          decoration: BoxDecoration(
-            color: surfaceVariant,
-            borderRadius: WpRadius.borderLg,
-            border: Border.all(color: borderColor),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: WpSpacing.sm),
-          child: SettingRow(
-            key: kReadyStepAutostartToggleKey,
-            icon: LucideIcons.power,
-            label: l10n.onboardingReadyAutostartToggle,
-            subtitle: l10n.onboardingReadyAutostartToggleHint,
-            semanticToggledValue: settings.launchAtStartup,
-            trailing: settingsToggle(
-              value: settings.launchAtStartup,
-              onChanged: (v) => ref
-                  .read(settingsProvider.notifier)
-                  .updateSettings((s) => s.copyWith(launchAtStartup: v)),
-            ),
-          ),
-        ),
-        const SizedBox(height: WpSpacing.xxl),
-
-        // Navigation row
-        Row(
-          children: [
-            TextButton(
-              onPressed: onBack,
-              child: Text(
-                l10n.onboardingBack,
-                style: TextStyle(
-                  color: textMuted,
-                  fontSize: WpTypography.subheading,
-                ),
-              ),
-            ),
-            const Spacer(),
-            Expanded(
-              flex: 2,
-              // loam-ignore: a11y-interactive-semantics – semantics provided in WpAccentButton.build
-              child: WpAccentButton(
-                key: kReadyStepStartButtonKey,
-                label: l10n.onboardingStartUsing,
-                gradient: accentGradient,
-                onPressed: startEnabled ? onComplete : null,
-              ),
-            ),
-          ],
         ),
       ],
     );

@@ -9,16 +9,14 @@ import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../widgets/brand_wordmark.dart';
 import '../../../widgets/language_selector.dart';
-import '../../../widgets/wp_accent_button.dart';
 
-/// Onboarding Step 1 — clean welcome with language & theme selection.
+/// Welcome content of onboarding page 1 — language & theme selection.
 ///
 /// Single centered column: wordmark, headline, subtitle, two segmented
-/// selectors (language + theme), and a CTA. Nothing else.
+/// selectors (language + theme). Content only — navigation (Back/Next) is
+/// owned by the onboarding shell, so this widget renders no CTA of its own.
 class WelcomeStep extends ConsumerWidget {
-  const WelcomeStep({super.key, required this.onNext});
-
-  final VoidCallback onNext;
+  const WelcomeStep({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -125,18 +123,6 @@ class WelcomeStep extends ConsumerWidget {
           surfaceColor: surfaceVariant,
           textSecondary: textSecondary,
           height: 48,
-        ),
-        const SizedBox(height: WpSpacing.xxl),
-
-        // CTA
-        SizedBox(
-          width: double.infinity,
-          // loam-ignore: a11y-interactive-semantics – semantics provided in WpAccentButton.build
-          child: WpAccentButton(
-            label: l10n.onboardingGetStarted,
-            gradient: accentGradient,
-            onPressed: onNext,
-          ),
         ),
       ],
     );

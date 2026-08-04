@@ -144,8 +144,6 @@ class _RecordingSettingsNotifier extends SettingsNotifier {
   }
 }
 
-void _noop() {}
-
 Future<
   ({_FakePasteCapabilityNotifier paste, _RecordingSettingsNotifier settings})
 >
@@ -153,14 +151,11 @@ _pumpStep(
   WidgetTester tester, {
   required _FakePasteCapabilityNotifier paste,
   _RecordingSettingsNotifier? settings,
-  VoidCallback onNext = _noop,
 }) async {
   final settingsNotifier = settings ?? _RecordingSettingsNotifier();
   await tester.pumpWidget(
     makeTestable(
-      SingleChildScrollView(
-        child: AutoPasteStep(onNext: onNext, onBack: _noop),
-      ),
+      const SingleChildScrollView(child: AutoPasteStep()),
       size: const Size(1280, 980),
       // Pin the locale to `en` so labels are deterministic regardless of
       // the host's system language — CI runners ship with varying default
@@ -210,7 +205,7 @@ void main() {
   });
 
   group('AutoPasteStep', () {
-    testWidgets('macOS intro phase: Grant CTA + Skip visible, Next disabled, '
+    testWidgets('macOS intro phase: Grant CTA + Skip visible, '
         'fires one prompt-less check on mount', (tester) async {
       final paste = _FakePasteCapabilityNotifier(
         initial: const PasteCapabilityState(
@@ -220,9 +215,8 @@ void main() {
           ),
         ),
       );
-      var nextCalled = false;
 
-      await _pumpStep(tester, paste: paste, onNext: () => nextCalled = true);
+      await _pumpStep(tester, paste: paste);
 
       // Grant CTA shown.
       expect(find.text(l10n.onboardingPasteGrantCta), findsOneWidget);
@@ -234,43 +228,29 @@ void main() {
 
       // initState fires exactly one un-prompted check.
       expect(paste.checkCalls, [false]);
-
-      // Tapping the Next CTA while disabled must not fire onNext.
-      await tester.tap(find.text(l10n.onboardingNext));
-      await tester.pumpAndSettle();
-      expect(nextCalled, isFalse);
     });
 
-    testWidgets('granted phase: success card visible, Grant + Skip hidden, '
-        'Next is enabled and advances onNext', (tester) async {
+    testWidgets('granted phase: success card visible, Grant + Skip hidden', (
+      tester,
+    ) async {
       final paste = _FakePasteCapabilityNotifier(
         initial: const PasteCapabilityState(
           capability: PasteCapability(status: PasteCapabilityStatus.ready),
         ),
       );
-      var nextCalled = false;
 
-      await _pumpStep(tester, paste: paste, onNext: () => nextCalled = true);
+      await _pumpStep(tester, paste: paste);
 
       // Success label is the only card in the granted phase.
       expect(find.text(l10n.pasteCapabilityReady), findsOneWidget);
-      // Skip and Grant disappear once the capability is ready — Next is the
-      // single primary CTA.
+      // Skip and Grant disappear once the capability is ready.
       expect(find.text(l10n.onboardingPasteSkip), findsNothing);
       expect(find.text(l10n.onboardingPasteGrantCta), findsNothing);
-
-      // Next is enabled in the granted phase and advances directly.
-      await tester.tap(find.text(l10n.onboardingNext));
-      await tester.pumpAndSettle();
-      expect(
-        nextCalled,
-        isTrue,
-        reason: 'Next must be enabled and advance once the phase is granted',
-      );
     });
 
     testWidgets(
-      'Skip persists afterTranscription = clipboard and advances via onNext',
+      'Skip persists afterTranscription = clipboard (a pure mode choice — '
+      'navigation stays with the onboarding shell)',
       (tester) async {
         final paste = _FakePasteCapabilityNotifier(
           initial: const PasteCapabilityState(
@@ -287,23 +267,12 @@ void main() {
             ),
           ),
         );
-        var nextCalled = false;
 
-        await _pumpStep(
-          tester,
-          paste: paste,
-          settings: settings,
-          onNext: () => nextCalled = true,
-        );
+        await _pumpStep(tester, paste: paste, settings: settings);
 
         await tester.tap(find.text(l10n.onboardingPasteSkip));
         await tester.pumpAndSettle();
 
-        expect(
-          nextCalled,
-          isTrue,
-          reason: 'Skip must advance via onNext after persisting the setting',
-        );
         expect(
           settings.updates,
           hasLength(1),
@@ -489,9 +458,7 @@ void main() {
             error: 'tccutil_failed',
           ),
         );
-        var nextCalled = false;
-
-        await _pumpStep(tester, paste: paste, onNext: () => nextCalled = true);
+        await _pumpStep(tester, paste: paste);
 
         await tester.tap(find.text(l10n.pasteCapabilityRepairButton));
         await tester.pumpAndSettle();
@@ -500,9 +467,7 @@ void main() {
         // `pasteCapabilityRepairFailed` string from the settings indicator.
         expect(find.text(l10n.pasteCapabilityRepairFailed), findsOneWidget);
 
-        // Step stays in current state: no auto-advance, Repair still
-        // reachable for the user to retry.
-        expect(nextCalled, isFalse);
+        // Step stays in current state: Repair still reachable for retry.
         expect(find.text(l10n.pasteCapabilityRepairButton), findsOneWidget);
       },
     );
@@ -957,11 +922,7 @@ void main() {
         await tester.pumpWidget(
           makeTestable(
             const SingleChildScrollView(
-              child: AutoPasteStep(
-                key: ValueKey('remounted'),
-                onNext: _noop,
-                onBack: _noop,
-              ),
+              child: AutoPasteStep(key: ValueKey('remounted')),
             ),
             size: const Size(1280, 980),
             overrides: [
@@ -992,51 +953,37 @@ void main() {
   // Paster bridge stays untouched.
   // ---------------------------------------------------------------------------
   group('AutoPasteStep — Windows', () {
-    testWidgets(
-      'ready first-mount: verify card + active Next, NO macOS-specific '
-      'Grant/Repair/Skip affordances',
-      (tester) async {
-        debugDefaultTargetPlatformOverride = TargetPlatform.windows;
-        try {
-          final paste = _FakePasteCapabilityNotifier(
-            initial: const PasteCapabilityState(
-              capability: PasteCapability(status: PasteCapabilityStatus.ready),
-            ),
-          );
-          var nextCalled = false;
+    testWidgets('ready first-mount: verify card, NO macOS-specific '
+        'Grant/Repair/Skip affordances', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      try {
+        final paste = _FakePasteCapabilityNotifier(
+          initial: const PasteCapabilityState(
+            capability: PasteCapability(status: PasteCapabilityStatus.ready),
+          ),
+        );
 
-          await _pumpStep(
-            tester,
-            paste: paste,
-            onNext: () => nextCalled = true,
-          );
+        await _pumpStep(tester, paste: paste);
 
-          // Verify card shows the success label.
-          expect(find.text(l10n.pasteCapabilityReady), findsOneWidget);
+        // Verify card shows the success label.
+        expect(find.text(l10n.pasteCapabilityReady), findsOneWidget);
 
-          // The Windows verify branch hides the macOS-specific Skip CTA —
-          // there is no action the user has to take, so offering Skip would
-          // only invite a mis-tap that disables Auto-Paste for no reason.
-          expect(find.text(l10n.onboardingPasteSkip), findsNothing);
+        // The Windows verify branch hides the macOS-specific Skip CTA —
+        // there is no action the user has to take, so offering Skip would
+        // only invite a mis-tap that disables Auto-Paste for no reason.
+        expect(find.text(l10n.onboardingPasteSkip), findsNothing);
 
-          // macOS-only affordances must not bleed into the Windows surface.
-          expect(find.text(l10n.onboardingPasteGrantCta), findsNothing);
-          expect(find.text(l10n.pasteCapabilityRepairButton), findsNothing);
-
-          // Next is enabled in the Windows verify branch and advances
-          // immediately — there is no test-paste gate on this platform.
-          await tester.tap(find.text(l10n.onboardingNext));
-          await tester.pumpAndSettle();
-          expect(nextCalled, isTrue);
-        } finally {
-          debugDefaultTargetPlatformOverride = null;
-        }
-      },
-    );
+        // macOS-only affordances must not bleed into the Windows surface.
+        expect(find.text(l10n.onboardingPasteGrantCta), findsNothing);
+        expect(find.text(l10n.pasteCapabilityRepairButton), findsNothing);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
 
     testWidgets(
       'permissionMissing (UIPI edge): non-blocking warn card visible, '
-      'Skip-Auto-Paste button visible, Next STILL active',
+      'Skip-Auto-Paste button visible',
       (tester) async {
         debugDefaultTargetPlatformOverride = TargetPlatform.windows;
         try {
@@ -1048,13 +995,8 @@ void main() {
               ),
             ),
           );
-          var nextCalled = false;
 
-          await _pumpStep(
-            tester,
-            paste: paste,
-            onNext: () => nextCalled = true,
-          );
+          await _pumpStep(tester, paste: paste);
 
           // Warn copy is rendered — we assert the full localised string so
           // an ARB rewording is caught loudly but a value tweak does not
@@ -1071,16 +1013,6 @@ void main() {
 
           // The macOS verify-state success label is NOT shown in this branch.
           expect(find.text(l10n.pasteCapabilityReady), findsNothing);
-
-          // Edge case is non-blocking: Next must remain active so the user
-          // can keep Auto-Paste on and still move forward.
-          await tester.tap(find.text(l10n.onboardingNext));
-          await tester.pumpAndSettle();
-          expect(
-            nextCalled,
-            isTrue,
-            reason: 'UIPI edge is non-blocking — Next must stay enabled',
-          );
         } finally {
           debugDefaultTargetPlatformOverride = null;
         }
@@ -1088,8 +1020,7 @@ void main() {
     );
 
     testWidgets(
-      'permissionMissing skip persists afterTranscription=clipboard and '
-      'advances via onNext',
+      'permissionMissing skip persists afterTranscription=clipboard',
       (tester) async {
         debugDefaultTargetPlatformOverride = TargetPlatform.windows;
         try {
@@ -1108,19 +1039,12 @@ void main() {
               ),
             ),
           );
-          var nextCalled = false;
 
-          await _pumpStep(
-            tester,
-            paste: paste,
-            settings: settings,
-            onNext: () => nextCalled = true,
-          );
+          await _pumpStep(tester, paste: paste, settings: settings);
 
           await tester.tap(find.text(l10n.onboardingPasteSkip));
           await tester.pumpAndSettle();
 
-          expect(nextCalled, isTrue);
           expect(settings.updates, hasLength(1));
           expect(
             settings

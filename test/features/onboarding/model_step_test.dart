@@ -2,8 +2,11 @@
 ///
 /// Verifies the two-way engine choice: card selection, the
 /// language-and-hardware-driven recommendation (via [recommendEngine]),
-/// per-engine download wiring, engine-scoped completion, and that only Next
-/// (not the cloud escape link) persists `sttEngine`/`sttModel`.
+/// per-engine download wiring, and the persistence contract: `sttEngine`/
+/// `sttModel` persist exactly when the selected engine's model is confirmed
+/// on disk (already-installed recommendation, completed download, or a
+/// switch to an installed engine) — navigation is owned by the onboarding
+/// shell and never gated here.
 library;
 
 import 'package:drift/native.dart';
@@ -19,7 +22,6 @@ import 'package:whispaste/features/onboarding/steps/model_step.dart';
 import 'package:whispaste/services/hardware_info_service.dart' as hw;
 import 'package:whispaste/services/model_download_service.dart';
 import 'package:whispaste/services/stt_parakeet/parakeet_download_service.dart';
-import 'package:whispaste/widgets/wp_accent_button.dart';
 
 // ---------------------------------------------------------------------------
 // Fakes
@@ -59,6 +61,18 @@ class _RecordingWhisperDownloadNotifier extends ModelDownloadNotifier {
       progressPercent: 0,
     );
   }
+
+  /// Simulates the in-flight download finishing successfully.
+  void completeDownload() {
+    state = state.copyWith(
+      phase: DownloadPhase.done,
+      progressPercent: 100,
+      downloadedModels: {
+        ...state.downloadedModels,
+        if (state.activeModelId != null) state.activeModelId!,
+      },
+    );
+  }
 }
 
 class _RecordingParakeetDownloadNotifier extends ParakeetDownloadNotifier {
@@ -77,8 +91,6 @@ class _RecordingParakeetDownloadNotifier extends ParakeetDownloadNotifier {
   }
 }
 
-void _noop() {}
-
 late L10n l10n;
 
 typedef _Recorders = ({
@@ -94,7 +106,6 @@ Future<_Recorders> _pumpStep(
   ModelDownloadState whisperInitial = const ModelDownloadState(),
   ParakeetDownloadState parakeetInitial = const ParakeetDownloadState(),
   Locale displayLocale = const Locale('en'),
-  VoidCallback onNext = _noop,
 }) async {
   late _RecordingWhisperDownloadNotifier whisper;
   late _RecordingParakeetDownloadNotifier parakeet;
@@ -127,13 +138,9 @@ Future<_Recorders> _pumpStep(
         locale: displayLocale,
         localizationsDelegates: L10n.localizationsDelegates,
         supportedLocales: L10n.supportedLocales,
-        home: MediaQuery(
-          data: const MediaQueryData(size: Size(1280, 1600)),
-          child: Scaffold(
-            body: SingleChildScrollView(
-              child: ModelStep(onNext: onNext, onBack: _noop),
-            ),
-          ),
+        home: const MediaQuery(
+          data: MediaQueryData(size: Size(1280, 1600)),
+          child: Scaffold(body: SingleChildScrollView(child: ModelStep())),
         ),
       ),
     ),
@@ -185,15 +192,8 @@ void main() {
       );
 
       expect(find.byKey(kModelStepGpuCpuFallbackKey), findsOneWidget);
-      final nextButton = find.byKey(kModelStepNextButtonKey);
-      expect(nextButton, findsOneWidget);
-      expect(
-        tester.widget<WpAccentButton>(nextButton).onPressed,
-        isNotNull,
-        reason:
-            'Next must be enabled once a model is ready, regardless of GPU '
-            'detection outcome.',
-      );
+      // The ready state renders regardless of GPU detection outcome.
+      expect(find.text(l10n.modelReady), findsOneWidget);
     });
 
     testWidgets('GpuVendor.apple does NOT render the CPU-fallback notice', (
@@ -206,32 +206,30 @@ void main() {
   });
 
   group('ModelStep — recommendation', () {
-    testWidgets(
-      'European dictation language (de) recommends Parakeet, Next enabled '
-      'once its download is done',
-      (tester) async {
-        final rec = await _pumpStep(
-          tester,
-          gpu: _cpuOnly,
-          dictationLocale: 'de',
-          parakeetInitial: const ParakeetDownloadState(
-            installed: true,
-            phase: ParakeetDownloadPhase.done,
-          ),
-        );
+    testWidgets('European dictation language (de) recommends Parakeet; the '
+        'already-installed bundle is reflected as ready immediately', (
+      tester,
+    ) async {
+      final rec = await _pumpStep(
+        tester,
+        gpu: _cpuOnly,
+        dictationLocale: 'de',
+        parakeetInitial: const ParakeetDownloadState(
+          installed: true,
+          phase: ParakeetDownloadPhase.done,
+        ),
+      );
 
-        final nextButton = find.byKey(kModelStepNextButtonKey);
-        expect(
-          tester.widget<WpAccentButton>(nextButton).onPressed,
-          isNotNull,
-          reason:
-              'Parakeet is recommended (and preselected) for German — Next '
-              'must reflect the already-installed bundle immediately, no '
-              'tap needed.',
-        );
-        expect(rec.whisper.downloadModelCalls, isEmpty);
-      },
-    );
+      expect(
+        find.text(l10n.modelReady),
+        findsOneWidget,
+        reason:
+            'Parakeet is recommended (and preselected) for German — the '
+            'ready state must reflect the already-installed bundle '
+            'immediately, no tap needed.',
+      );
+      expect(rec.whisper.downloadModelCalls, isEmpty);
+    });
 
     testWidgets(
       'Non-European dictation language (he) recommends Whisper; Parakeet '
@@ -343,39 +341,32 @@ void main() {
     );
   });
 
-  group('ModelStep — persistence on Next', () {
-    testWidgets('Next persists sttEngine=parakeet, leaves sttModel untouched', (
-      tester,
-    ) async {
-      var nextCalls = 0;
-      final rec = await _pumpStep(
-        tester,
-        gpu: _cpuOnly,
-        dictationLocale: 'de',
-        parakeetInitial: const ParakeetDownloadState(
-          installed: true,
-          phase: ParakeetDownloadPhase.done,
-        ),
-        onNext: () => nextCalls++,
-      );
-      final originalModel = rec.settings.state.value!.sttModel;
+  group('ModelStep — persistence when the selected engine is on disk', () {
+    testWidgets(
+      'already-installed recommended Parakeet persists sttEngine=parakeet '
+      'on mount, leaves sttModel untouched',
+      (tester) async {
+        final rec = await _pumpStep(
+          tester,
+          gpu: _cpuOnly,
+          dictationLocale: 'de',
+          parakeetInitial: const ParakeetDownloadState(
+            installed: true,
+            phase: ParakeetDownloadPhase.done,
+          ),
+        );
 
-      await tester.tap(find.byKey(kModelStepNextButtonKey));
-      await tester.pumpAndSettle();
+        expect(rec.settings.state.value!.stt.engine, 'parakeet');
+        expect(
+          rec.settings.state.value!.sttModel,
+          AppSettings.defaults.sttModel,
+          reason: 'Parakeet selection must not touch the whisper model id',
+        );
+      },
+    );
 
-      expect(rec.settings.state.value!.stt.engine, 'parakeet');
-      expect(
-        rec.settings.state.value!.sttModel,
-        originalModel,
-        reason: 'Parakeet selection must not touch the whisper model id',
-      );
-      expect(nextCalls, 1);
-    });
-
-    testWidgets('Next persists sttEngine=whisper and the resolved tier model', (
-      tester,
-    ) async {
-      var nextCalls = 0;
+    testWidgets('already-downloaded Whisper persists sttEngine=whisper and the '
+        'resolved tier model on mount', (tester) async {
       final rec = await _pumpStep(
         tester,
         gpu: _appleM2,
@@ -384,37 +375,59 @@ void main() {
           downloadedModels: {'whisper-large-v3-turbo'},
           phase: DownloadPhase.done,
         ),
-        onNext: () => nextCalls++,
       );
-
-      await tester.tap(find.byKey(kModelStepNextButtonKey));
-      await tester.pumpAndSettle();
 
       expect(rec.settings.state.value!.stt.engine, 'whisper');
       expect(
         rec.settings.state.value!.sttModel,
         bestModelForTier(QualityTier.premium).id,
       );
-      expect(nextCalls, 1);
     });
 
     testWidgets(
-      'the cloud escape link calls onNext without writing sttEngine',
+      'a download completing mid-page persists the engine without any '
+      'further tap (the shell-owned Next must not need to know engines)',
       (tester) async {
-        var nextCalls = 0;
+        final rec = await _pumpStep(
+          tester,
+          gpu: _appleM2,
+          dictationLocale: 'he',
+        );
+        final originalEngine = rec.settings.state.value!.stt.engine;
+
+        await tester.tap(
+          find.textContaining(l10n.qualityTierDownloadAndContinue),
+        );
+        await tester.pumpAndSettle();
+        // Still downloading — nothing persisted yet.
+        expect(rec.settings.state.value!.stt.engine, originalEngine);
+
+        rec.whisper.completeDownload();
+        await tester.pumpAndSettle();
+
+        expect(rec.settings.state.value!.stt.engine, 'whisper');
+        expect(
+          rec.settings.state.value!.sttModel,
+          bestModelForTier(QualityTier.premium).id,
+        );
+      },
+    );
+
+    testWidgets(
+      'without any download nothing is written — a user who continues '
+      'without downloading (e.g. to use a cloud provider) keeps the '
+      'defaults untouched',
+      (tester) async {
         final rec = await _pumpStep(
           tester,
           gpu: _appleM2,
           dictationLocale: 'de',
-          onNext: () => nextCalls++,
         );
-        final originalEngine = rec.settings.state.value!.stt.engine;
 
-        await tester.tap(find.text(l10n.onboardingModelUseCloud));
-        await tester.pumpAndSettle();
-
-        expect(nextCalls, 1);
-        expect(rec.settings.state.value!.stt.engine, originalEngine);
+        expect(
+          rec.settings.state.value!.stt.engine,
+          AppSettings.defaults.stt.engine,
+        );
         expect(rec.whisper.downloadModelCalls, isEmpty);
         expect(rec.parakeet.downloadBundleCalls, 0);
       },

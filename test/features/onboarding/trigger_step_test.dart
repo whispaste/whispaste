@@ -96,8 +96,6 @@ HotkeyService _fakeHotkeyService({required bool supportsKeyUp}) {
   return svc;
 }
 
-void _noop() {}
-
 late L10n l10n;
 
 Future<_FakeSettingsNotifier> _pumpStep(
@@ -109,9 +107,7 @@ Future<_FakeSettingsNotifier> _pumpStep(
   final s = settings ?? _FakeSettingsNotifier();
   await tester.pumpWidget(
     makeTestable(
-      const SingleChildScrollView(
-        child: TriggerStep(onNext: _noop, onBack: _noop),
-      ),
+      const SingleChildScrollView(child: TriggerStep()),
       size: const Size(1280, 1200),
       locale: const Locale('en'),
       overrides: [
@@ -256,20 +252,6 @@ void main() {
 
       expect(find.byKey(kTriggerStepConflictWarnBoxKey), findsNothing);
       expect(find.byKey(kTriggerStepInlineRecorderKey), findsNothing);
-    });
-  });
-
-  // ── Next is always enabled — defaults are valid, this step is skippable ─
-
-  group('TriggerStep — Next is always enabled', () {
-    testWidgets('Next is enabled even with an unresolved conflict', (
-      tester,
-    ) async {
-      await _pumpStep(tester, hotkeyStatus: HotkeyRegistrationStatus.conflict);
-
-      final nextButton = find.byKey(kTriggerStepNextButtonKey);
-      expect(nextButton, findsOneWidget);
-      await tester.tap(nextButton, warnIfMissed: false);
     });
   });
 }

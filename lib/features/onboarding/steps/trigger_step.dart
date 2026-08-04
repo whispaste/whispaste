@@ -10,7 +10,6 @@ import '../../../core/theme/tokens.dart';
 import '../../../services/hotkey_service.dart';
 import '../../../services/telemetry_service.dart';
 import '../../../widgets/hotkey_recorder.dart';
-import '../../../widgets/wp_accent_button.dart';
 import '../../settings/settings_widgets.dart';
 
 /// Widget keys exposed for testing. Kept in one place so tests and production
@@ -23,29 +22,22 @@ const kTriggerStepPttToggleKey = Key('triggerStepPushToTalkToggle');
 const kTriggerStepConflictWarnBoxKey = Key('triggerStepHotkeyConflictWarnBox');
 @visibleForTesting
 const kTriggerStepInlineRecorderKey = Key('triggerStepInlineHotkeyRecorder');
-@visibleForTesting
-const kTriggerStepNextButtonKey = Key('triggerStepNextButton');
 
-/// Onboarding step — how the user triggers a recording: the global hotkey,
-/// and whether it's held (push-to-talk) or pressed-to-toggle.
+/// Hotkey configuration content of the Model & Hotkey onboarding page: the
+/// global hotkey, and whether it's held (push-to-talk) or pressed-to-toggle.
 ///
-/// Sits between [ModelStep] and `TestRecordingStep` so the guided test
-/// recording immediately after this step exercises the real, just-configured
-/// hotkey and mode — not a stale default the user hasn't seen yet. Previously
-/// the hotkey summary/rebind lived in `ReadyStep`; it moved here so
-/// configuration happens before the first real use, and `ReadyStep` becomes a
-/// pure confirmation + start screen.
+/// Sits on the page before the guided test recording so that test exercises
+/// the real, just-configured hotkey and mode — not a stale default the user
+/// hasn't seen yet.
 ///
 /// Both settings have valid defaults (`Ctrl/Cmd+Shift+D`, toggle mode), so
-/// this step is always skippable — advancing without changing anything is a
-/// legitimate choice, not a partial state. The one exception is a confirmed
-/// hotkey conflict: `ReadyStep` keeps a residual gate on its Start button for
-/// the case where the user skips past an unresolved conflict here.
+/// advancing without changing anything is a legitimate choice, not a partial
+/// state. The one exception is a confirmed hotkey conflict: the final
+/// onboarding page keeps a residual gate on its completion CTA for the case
+/// where the user moves past an unresolved conflict here. Content only —
+/// navigation (Back/Next) is owned by the onboarding shell.
 class TriggerStep extends ConsumerWidget {
-  const TriggerStep({super.key, required this.onNext, required this.onBack});
-
-  final VoidCallback onNext;
-  final VoidCallback onBack;
+  const TriggerStep({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -65,9 +57,6 @@ class TriggerStep extends ConsumerWidget {
     final textSecondary = isDark
         ? WpColorsDark.textSecondary
         : WpColorsLight.textSecondary;
-    final accentGradient = isDark
-        ? WpColorsDark.accentWarmGradient
-        : WpColorsLight.accentWarmGradient;
     final surfaceVariant =
         (isDark ? WpColorsDark.surfaceVariant : WpColorsLight.surfaceVariant)
             .withValues(alpha: 0.55);
@@ -211,30 +200,6 @@ class TriggerStep extends ConsumerWidget {
             supportsKeyUp: supportsKeyUp,
             l10n: l10n,
           ),
-        ),
-        const SizedBox(height: WpSpacing.xxl),
-
-        Row(
-          children: [
-            TextButton(
-              onPressed: onBack,
-              child: Text(
-                l10n.onboardingBack,
-                style: TextStyle(color: textSecondary),
-              ),
-            ),
-            const Spacer(),
-            SizedBox(
-              width: 140,
-              // loam-ignore: a11y-interactive-semantics – semantics provided in WpAccentButton.build
-              child: WpAccentButton(
-                key: kTriggerStepNextButtonKey,
-                label: l10n.onboardingNext,
-                gradient: accentGradient,
-                onPressed: onNext,
-              ),
-            ),
-          ],
         ),
       ],
     );

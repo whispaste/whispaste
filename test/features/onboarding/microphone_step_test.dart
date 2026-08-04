@@ -14,7 +14,6 @@ import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/onboarding/mic_probe.dart';
 import 'package:whispaste/features/onboarding/steps/microphone_step.dart';
 import 'package:whispaste/services/audio_routing_service.dart';
-import 'package:whispaste/widgets/wp_accent_button.dart';
 
 import '../../fixtures/fake_mic_recorder.dart';
 import '../../fixtures/test_helpers.dart';
@@ -91,28 +90,7 @@ class _FakeRouting implements AudioRoutingService {
   Future<List<InputDevice>> listInputDevices() async => devices;
 }
 
-void _noop() {}
-
 late L10n l10n;
-
-WpAccentButton _findNext(WidgetTester tester) => tester.widget<WpAccentButton>(
-  find.ancestor(
-    of: find.text(l10n.onboardingNext),
-    matching: find.byType(WpAccentButton),
-  ),
-);
-
-void _expectNextEnabled(WidgetTester tester) {
-  expect(
-    _findNext(tester).onPressed,
-    isNotNull,
-    reason: 'Next must be enabled',
-  );
-}
-
-void _expectNextDisabled(WidgetTester tester) {
-  expect(_findNext(tester).onPressed, isNull, reason: 'Next must be gated');
-}
 
 Future<_FakeProbe> _pumpStep(
   WidgetTester tester, {
@@ -126,8 +104,6 @@ Future<_FakeProbe> _pumpStep(
   await tester.pumpWidget(
     makeTestable(
       MicrophoneStep(
-        onNext: _noop,
-        onBack: _noop,
         probeFactory: () => probe,
         routing: routing ?? _FakeRouting(),
         onMicrophoneSelected: onMicrophoneSelected,
@@ -151,15 +127,11 @@ void main() {
   });
 
   group('MicrophoneStep', () {
-    testWidgets('initial idle render shows Grant button, Next disabled', (
-      tester,
-    ) async {
+    testWidgets('initial idle render shows the Grant button', (tester) async {
       await _pumpStep(tester, outcomes: const []);
 
       expect(find.text(l10n.onboardingMicRequestAccess), findsOneWidget);
-      expect(find.text(l10n.onboardingNext), findsOneWidget);
-
-      _expectNextDisabled(tester);
+      expect(find.text(l10n.onboardingMicPermissionPending), findsOneWidget);
     });
 
     testWidgets('permissionDenied outcome surfaces TCC instructions', (
@@ -190,18 +162,18 @@ void main() {
 
       expect(find.text(l10n.onboardingMicSilent), findsOneWidget);
       expect(find.text(l10n.onboardingMicRetry), findsOneWidget);
-
-      _expectNextDisabled(tester);
     });
 
-    testWidgets('speechDetected outcome unlocks Next button', (tester) async {
+    testWidgets('speechDetected outcome reaches the confirmed-ready state', (
+      tester,
+    ) async {
       await _pumpStep(tester, outcomes: const [MicProbeOutcome.speechDetected]);
 
       await tester.tap(find.text(l10n.onboardingMicRequestAccess));
       await tester.pumpAndSettle();
 
+      expect(find.text(l10n.onboardingMicPermissionGranted), findsOneWidget);
       expect(find.text(l10n.onboardingMicTestDone), findsOneWidget);
-      _expectNextEnabled(tester);
     });
 
     testWidgets('Try again triggers a second probe start', (tester) async {

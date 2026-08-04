@@ -1,4 +1,5 @@
-/// Onboarding Step 3 — Auto-Paste permission setup.
+/// Auto-Paste permission status content on the Autostart & Auto-Paste
+/// onboarding page.
 ///
 /// On macOS: walks the user through granting the Accessibility permission
 /// so Auto-Paste can simulate ⌘V into the focused window. Watches the
@@ -9,22 +10,20 @@
 ///
 /// On Windows: Auto-Paste needs no extra permission in the 99% case, so
 /// the step renders a minimal verify-only surface: "Ready to paste" with a
-/// green checkmark, a one-line explanation, Next immediately enabled, and
-/// no Skip button. The remaining edge case is UIPI/UAC-protected windows
-/// (e.g. Auto-Paste running un-elevated while the focused target is an
-/// elevated process) — there the probe surfaces as `permissionMissing`
-/// and the step shows a non-blocking warn card plus an explicit Skip path
-/// (analogue to the macOS Skip). Next stays enabled either way because the
-/// edge case is non-blocking — the user decides whether to keep Auto-Paste
-/// on or switch to clipboard-only.
+/// green checkmark and a one-line explanation. The remaining edge case is
+/// UIPI/UAC-protected windows (e.g. Auto-Paste running un-elevated while
+/// the focused target is an elevated process) — there the probe surfaces as
+/// `permissionMissing` and the step shows a non-blocking warn card plus the
+/// explicit Skip path (analogue to the macOS Skip).
 ///
-/// On Linux: never rendered — [OnboardingOverlay] omits the step entirely
-/// from its platform-dependent step list.
+/// On Linux: never rendered — the Autostart & Auto-Paste page omits this
+/// widget entirely (no paste controller is wired there).
 ///
 /// The Skip path persists `afterTranscription = clipboard` (the codebase's
-/// representation of "Auto-Paste off, copy still happens") and advances
-/// the onboarding overlay via [onNext]. Polling is stopped on dispose so
-/// there is never a leftover timer once the user leaves the step.
+/// representation of "Auto-Paste off, copy still happens"); page navigation
+/// is owned by the onboarding shell, so Skip is a pure mode choice and no
+/// longer advances the flow itself. Polling is stopped on dispose so there
+/// is never a leftover timer once the user leaves the step.
 library;
 
 import 'dart:async';
@@ -48,10 +47,7 @@ import '../../../widgets/paste_capability_restart_banner.dart';
 import '../../../widgets/wp_accent_button.dart';
 
 class AutoPasteStep extends ConsumerStatefulWidget {
-  const AutoPasteStep({super.key, required this.onNext, required this.onBack});
-
-  final VoidCallback onNext;
-  final VoidCallback onBack;
+  const AutoPasteStep({super.key});
 
   @override
   ConsumerState<AutoPasteStep> createState() => _AutoPasteStepState();
@@ -176,7 +172,8 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
     );
     // Skip explicitly disables Auto-Paste rather than silently leaving the
     // user in a half-state. "clipboard" is the codebase's encoding for
-    // "transcript goes to clipboard, no automated paste".
+    // "transcript goes to clipboard, no automated paste". Navigation stays
+    // with the onboarding shell — this is a mode choice, not an advance.
     await ref
         .read(settingsProvider.notifier)
         .updateSettings(
@@ -184,7 +181,6 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
             afterTranscription: AfterTranscriptionAction.clipboard.value,
           ),
         );
-    widget.onNext();
   }
 
   /// Emits a Sentry breadcrumb under the shared onboarding Auto-Paste
@@ -222,8 +218,6 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
     if (isWindows) {
       return _WindowsBody(
         state: ref.watch(pasteCapabilityNotifierProvider),
-        onNext: widget.onNext,
-        onBack: widget.onBack,
         onSkip: _onSkipPressed,
       );
     }
@@ -249,8 +243,6 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
       onGrant: _onGrantPressed,
       onRepair: _onRepairPressed,
       onSkip: _onSkipPressed,
-      onNext: widget.onNext,
-      onBack: widget.onBack,
     );
   }
 }
@@ -270,8 +262,6 @@ class _MacOsBody extends StatelessWidget {
     required this.onGrant,
     required this.onRepair,
     required this.onSkip,
-    required this.onNext,
-    required this.onBack,
   });
 
   final PasteCapabilityState state;
@@ -290,8 +280,6 @@ class _MacOsBody extends StatelessWidget {
   final Future<void> Function() onGrant;
   final Future<void> Function() onRepair;
   final Future<void> Function() onSkip;
-  final VoidCallback onNext;
-  final VoidCallback onBack;
 
   /// Phase the UI is currently rendering. Derived from `state.capability`
   /// and `state.pollingPhase` so the build is a pure function of state.
@@ -332,7 +320,6 @@ class _MacOsBody extends StatelessWidget {
     final errorColor = isDark ? WpColorsDark.error : WpColorsLight.error;
 
     final phase = _phase;
-    final isReady = phase == _AutoPastePhase.granted;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -370,31 +357,6 @@ class _MacOsBody extends StatelessWidget {
           accentGradient: accentGradient,
           successColor: successColor,
           errorColor: errorColor,
-        ),
-
-        const SizedBox(height: WpSpacing.lg),
-
-        // -- Navigation row (always the same shape) ------------------------
-        Row(
-          children: [
-            TextButton(
-              onPressed: onBack,
-              child: Text(
-                l10n.onboardingBack,
-                style: TextStyle(color: textSecondary),
-              ),
-            ),
-            const Spacer(),
-            SizedBox(
-              width: 140,
-              // loam-ignore: a11y-interactive-semantics – semantics provided in WpAccentButton.build
-              child: WpAccentButton(
-                label: l10n.onboardingNext,
-                gradient: accentGradient,
-                onPressed: isReady ? onNext : null,
-              ),
-            ),
-          ],
         ),
       ],
     );
@@ -570,16 +532,9 @@ enum _AutoPastePhase {
 // =============================================================================
 
 class _WindowsBody extends StatelessWidget {
-  const _WindowsBody({
-    required this.state,
-    required this.onNext,
-    required this.onBack,
-    required this.onSkip,
-  });
+  const _WindowsBody({required this.state, required this.onSkip});
 
   final PasteCapabilityState state;
-  final VoidCallback onNext;
-  final VoidCallback onBack;
   final Future<void> Function() onSkip;
 
   @override
@@ -600,9 +555,6 @@ class _WindowsBody extends StatelessWidget {
         ? WpColorsDark.textSecondary
         : WpColorsLight.textSecondary;
     final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-    final accentGradient = isDark
-        ? WpColorsDark.accentWarmGradient
-        : WpColorsLight.accentWarmGradient;
     final successColor = isDark ? WpColorsDark.success : WpColorsLight.success;
     final warningColor = isDark ? WpColorsDark.warning : WpColorsLight.warning;
 
@@ -673,37 +625,6 @@ class _WindowsBody extends StatelessWidget {
             ),
           ),
         ],
-
-        const SizedBox(height: WpSpacing.lg),
-
-        // -- Navigation row -----------------------------------------------
-        // Next is always enabled on Windows: in the 99% Verify path the
-        // capability is already `ready`, in the UIPI edge it's explicitly
-        // non-blocking. The in-app self-paste test was removed because
-        // Flutter on macOS/Windows never reliably received the synthesised
-        // Cmd+V into its own TextField — `AXIsProcessTrusted=true` /
-        // SendInput access is enough proof for real-world recordings.
-        Row(
-          children: [
-            TextButton(
-              onPressed: onBack,
-              child: Text(
-                l10n.onboardingBack,
-                style: TextStyle(color: textSecondary),
-              ),
-            ),
-            const Spacer(),
-            SizedBox(
-              width: 140,
-              // loam-ignore: a11y-interactive-semantics – semantics provided in WpAccentButton.build
-              child: WpAccentButton(
-                label: l10n.onboardingNext,
-                gradient: accentGradient,
-                onPressed: onNext,
-              ),
-            ),
-          ],
-        ),
       ],
     );
   }

@@ -4215,12 +4215,6 @@ abstract class L10n {
   /// **'Continue'**
   String get onboardingGetStarted;
 
-  /// No description provided for @onboardingSkip.
-  ///
-  /// In en, this message translates to:
-  /// **'Skip this step'**
-  String get onboardingSkip;
-
   /// No description provided for @onboardingNext.
   ///
   /// In en, this message translates to:

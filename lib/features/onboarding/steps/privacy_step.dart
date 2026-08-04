@@ -8,7 +8,6 @@ import '../../../core/logging/app_logger.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../services/telemetry_service.dart';
-import '../../../widgets/wp_accent_button.dart';
 import '../../settings/settings_widgets.dart';
 
 /// Widget key exposed for testing.
@@ -24,12 +23,10 @@ const kPrivacyStepCrashToggleKey = Key('privacyStepCrashReportingToggle');
 /// `shareUsageStats = true` and `errorReporting = true`); the user can switch
 /// either off without leaving the flow. Wording and toggles mirror
 /// Settings → Privacy ([PrivacySection]) so the two never drift. Continuing
-/// is always allowed regardless of either toggle's state.
+/// is always allowed regardless of either toggle's state. Content only —
+/// navigation (Back/Next) is owned by the onboarding shell.
 class PrivacyStep extends ConsumerWidget {
-  const PrivacyStep({super.key, required this.onNext, required this.onBack});
-
-  final VoidCallback onNext;
-  final VoidCallback onBack;
+  const PrivacyStep({super.key});
 
   static final _log = AppLogger('OnboardingPrivacy');
 
@@ -45,9 +42,6 @@ class PrivacyStep extends ConsumerWidget {
     final textSecondary = isDark
         ? WpColorsDark.textSecondary
         : WpColorsLight.textSecondary;
-    final accentGradient = isDark
-        ? WpColorsDark.accentWarmGradient
-        : WpColorsLight.accentWarmGradient;
     final surfaceVariant =
         (isDark ? WpColorsDark.surfaceVariant : WpColorsLight.surfaceVariant)
             .withValues(alpha: 0.55);
@@ -119,29 +113,6 @@ class PrivacyStep extends ConsumerWidget {
               ),
             ],
           ),
-        ),
-        const SizedBox(height: WpSpacing.xxl),
-
-        Row(
-          children: [
-            TextButton(
-              onPressed: onBack,
-              child: Text(
-                l10n.onboardingBack,
-                style: TextStyle(color: textSecondary),
-              ),
-            ),
-            const Spacer(),
-            SizedBox(
-              width: 140,
-              // loam-ignore: a11y-interactive-semantics – semantics provided in WpAccentButton.build
-              child: WpAccentButton(
-                label: l10n.onboardingNext,
-                gradient: accentGradient,
-                onPressed: onNext,
-              ),
-            ),
-          ],
         ),
       ],
     );

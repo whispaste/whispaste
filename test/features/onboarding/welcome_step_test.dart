@@ -47,7 +47,7 @@ void main() {
 
       await tester.pumpWidget(
         makeTestable(
-          const SingleChildScrollView(child: WelcomeStep(onNext: _noop)),
+          const SingleChildScrollView(child: WelcomeStep()),
           size: const Size(1280, 980),
           locale: const Locale('en'),
           overrides: [settingsProvider.overrideWith(() => notifier)],
@@ -81,7 +81,7 @@ void main() {
 
       await tester.pumpWidget(
         makeTestable(
-          const SingleChildScrollView(child: WelcomeStep(onNext: _noop)),
+          const SingleChildScrollView(child: WelcomeStep()),
           size: const Size(1280, 980),
           locale: const Locale('en'),
           overrides: [settingsProvider.overrideWith(() => notifier)],
@@ -108,7 +108,7 @@ void main() {
 
       await tester.pumpWidget(
         makeTestable(
-          const SingleChildScrollView(child: WelcomeStep(onNext: _noop)),
+          const SingleChildScrollView(child: WelcomeStep()),
           size: const Size(1280, 980),
           locale: const Locale('en'),
           overrides: [settingsProvider.overrideWith(() => notifier)],
@@ -135,7 +135,7 @@ void main() {
 
       await tester.pumpWidget(
         makeTestable(
-          const SingleChildScrollView(child: WelcomeStep(onNext: _noop)),
+          const SingleChildScrollView(child: WelcomeStep()),
           size: const Size(1280, 980),
           locale: const Locale('en'),
           overrides: [settingsProvider.overrideWith(() => notifier)],
@@ -150,30 +150,6 @@ void main() {
       await tester.tap(find.text(l10n.onboardingThemeSystem));
       await tester.pumpAndSettle();
       expect(notifier.state.value!.themeMode, ThemeMode.system);
-    });
-
-    testWidgets('fires onNext when the CTA button is tapped', (tester) async {
-      var nextCalled = false;
-
-      await tester.pumpWidget(
-        makeTestable(
-          SingleChildScrollView(
-            child: WelcomeStep(onNext: () => nextCalled = true),
-          ),
-          size: const Size(1280, 980),
-          locale: const Locale('en'),
-          overrides: [
-            settingsProvider.overrideWith(() => FakeSettingsNotifier()),
-          ],
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      await tester.ensureVisible(find.text(l10n.onboardingGetStarted));
-      await tester.tap(find.text(l10n.onboardingGetStarted));
-      await tester.pumpAndSettle();
-
-      expect(nextCalled, isTrue);
     });
   });
 
@@ -193,5 +169,3 @@ void main() {
     });
   });
 }
-
-void _noop() {}

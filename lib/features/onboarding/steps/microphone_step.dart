@@ -38,25 +38,23 @@ enum _MicPhase {
   ready,
 }
 
-/// Onboarding Step 2 — Microphone permission **and** an honest capture test.
+/// Microphone permission **and** an honest capture test (content of the
+/// Welcome onboarding page).
 ///
 /// Opens a real PCM stream, drives a live waveform off the measured amplitude,
-/// and only advances once a sustained signal above the speech threshold is
+/// and confirms the mic once a sustained signal above the speech threshold is
 /// actually detected. Lets the user pick a different input device on the spot
 /// if the default mic is wrong (very common: a USB headset that's muted, a
 /// virtual cable, or a webcam mic that isn't actually pointed at the user).
+/// Content only — navigation (Back/Next) is owned by the onboarding shell
+/// and never gated on the test outcome.
 class MicrophoneStep extends StatefulWidget {
   const MicrophoneStep({
     super.key,
-    required this.onNext,
-    required this.onBack,
     this.onMicrophoneSelected,
     this.probeFactory,
     AudioRoutingService? routing,
   }) : _injectedRouting = routing;
-
-  final VoidCallback onNext;
-  final VoidCallback onBack;
 
   /// Called with the persisted-form device label (matching
   /// `AppSettings.microphone`'s `'Default'` sentinel / `InputDevice.label`
@@ -361,29 +359,6 @@ class _MicrophoneStepState extends State<MicrophoneStep> {
             accentGradient: accentGradient,
             textSecondary: textSecondary,
           ),
-        ),
-        const SizedBox(height: WpSpacing.xxl),
-
-        Row(
-          children: [
-            TextButton(
-              onPressed: widget.onBack,
-              child: Text(
-                l10n.onboardingBack,
-                style: TextStyle(color: textSecondary),
-              ),
-            ),
-            const Spacer(),
-            SizedBox(
-              width: 140,
-              // loam-ignore: a11y-interactive-semantics – semantics provided in WpAccentButton.build
-              child: WpAccentButton(
-                label: l10n.onboardingNext,
-                gradient: accentGradient,
-                onPressed: _phase == _MicPhase.ready ? widget.onNext : null,
-              ),
-            ),
-          ],
         ),
       ],
     );

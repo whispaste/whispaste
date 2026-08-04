@@ -2367,9 +2367,6 @@ class L10nDe extends L10n {
   String get onboardingGetStarted => 'Weiter';
 
   @override
-  String get onboardingSkip => 'Diesen Schritt überspringen';
-
-  @override
   String get onboardingNext => 'Weiter';
 
   @override

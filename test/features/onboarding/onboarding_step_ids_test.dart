@@ -1,184 +1,121 @@
 /// Unit tests for [buildOnboardingStepIds] — the pure step-sequence function.
 ///
-/// These tests assert the two critical branches driven by [kAutoPasteSupported]:
-///
-/// - Developer-ID build (autoPasteSupported == true) on macOS: the
-///   [OnboardingStepId.autoPaste] step is included between microphone and model.
-/// - MAS build (autoPasteSupported == false) on macOS: the autoPaste step is
-///   fully absent; the remaining steps are intact.
+/// The five-step flow is deliberately identical on every platform and build
+/// variant: platform variance (Auto-Paste visibility) lives *inside* the
+/// Autostart & Auto-Paste page, never in the sequence. These tests assert
+/// that invariance explicitly across the injected platform/variant matrix.
 ///
 /// Tests here do NOT pump the widget tree — [buildOnboardingStepIds] is a pure
-/// function so assertions are direct list-membership checks, which is the
-/// highest possible seam for this behaviour.
+/// function so assertions are direct list checks, which is the highest
+/// possible seam for this behaviour.
 library;
 
 import 'package:flutter/material.dart' show TargetPlatform;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/features/onboarding/onboarding_overlay.dart';
 
+const _platforms = [
+  TargetPlatform.macOS,
+  TargetPlatform.windows,
+  TargetPlatform.linux,
+];
+
 void main() {
   group('buildOnboardingStepIds', () {
-    group('macOS Developer-ID build (autoPasteSupported: true)', () {
-      late List<OnboardingStepId> steps;
-
-      setUp(() {
-        steps = buildOnboardingStepIds(
-          platform: TargetPlatform.macOS,
-          autoPasteSupported: true,
-        );
-      });
-
-      test('includes the autoPaste step', () {
-        expect(
-          steps,
-          contains(OnboardingStepId.autoPaste),
-          reason:
-              'Dev-ID build must guide the user through the Auto-Paste '
-              'permission (Accessibility/TCC).',
-        );
-      });
-
-      test('includes the microphone step', () {
-        expect(steps, contains(OnboardingStepId.microphone));
-      });
-
-      test('returns 8 steps in total', () {
-        expect(steps, hasLength(8));
-      });
-
-      test('autoPaste step appears after microphone and before model', () {
-        final micIndex = steps.indexOf(OnboardingStepId.microphone);
-        final autoPasteIndex = steps.indexOf(OnboardingStepId.autoPaste);
-        final modelIndex = steps.indexOf(OnboardingStepId.model);
-
-        expect(autoPasteIndex, greaterThan(micIndex));
-        expect(autoPasteIndex, lessThan(modelIndex));
-      });
-    });
-
-    group('macOS MAS build (autoPasteSupported: false)', () {
-      late List<OnboardingStepId> steps;
-
-      setUp(() {
-        steps = buildOnboardingStepIds(
-          platform: TargetPlatform.macOS,
-          autoPasteSupported: false,
-        );
-      });
-
-      test('omits the autoPaste step entirely', () {
-        expect(
-          steps,
-          isNot(contains(OnboardingStepId.autoPaste)),
-          reason:
-              'MAS build must not present steps that are unavailable in '
-              'the sandboxed variant.',
-        );
-      });
-
-      test('still includes the microphone step', () {
-        expect(steps, contains(OnboardingStepId.microphone));
-      });
-
-      test('returns 7 steps in total', () {
-        expect(steps, hasLength(7));
-      });
-    });
-
-    group('non-macOS platforms (autoPasteSupported: true)', () {
-      test('Windows: omits autoPaste regardless of autoPasteSupported', () {
-        final steps = buildOnboardingStepIds(
-          platform: TargetPlatform.windows,
-          autoPasteSupported: true,
-        );
-        expect(steps, isNot(contains(OnboardingStepId.autoPaste)));
-        expect(steps, hasLength(7));
-      });
-
-      test('Linux: omits autoPaste regardless of autoPasteSupported', () {
-        final steps = buildOnboardingStepIds(
-          platform: TargetPlatform.linux,
-          autoPasteSupported: true,
-        );
-        expect(steps, isNot(contains(OnboardingStepId.autoPaste)));
-        expect(steps, hasLength(7));
-      });
-    });
-
-    test('privacy step always sits right after welcome, before microphone', () {
-      for (final platform in [
-        TargetPlatform.macOS,
-        TargetPlatform.windows,
-        TargetPlatform.linux,
-      ]) {
+    test('returns exactly 5 steps on every platform and build variant', () {
+      for (final platform in _platforms) {
         for (final autoPasteSupported in [true, false]) {
           final steps = buildOnboardingStepIds(
             platform: platform,
             autoPasteSupported: autoPasteSupported,
           );
+          expect(
+            steps,
+            hasLength(5),
+            reason: 'platform=$platform autoPasteSupported=$autoPasteSupported',
+          );
+        }
+      }
+    });
+
+    test('sequence is Welcome → Privacy → Model & Hotkey → '
+        'Autostart & Auto-Paste → Try & Go on every platform', () {
+      for (final platform in _platforms) {
+        for (final autoPasteSupported in [true, false]) {
+          final steps = buildOnboardingStepIds(
+            platform: platform,
+            autoPasteSupported: autoPasteSupported,
+          );
+          expect(
+            steps,
+            const [
+              OnboardingStepId.welcome,
+              OnboardingStepId.privacy,
+              OnboardingStepId.modelAndHotkey,
+              OnboardingStepId.autostartAndAutoPaste,
+              OnboardingStepId.tryAndGo,
+            ],
+            reason: 'platform=$platform autoPasteSupported=$autoPasteSupported',
+          );
+        }
+      }
+    });
+
+    test('sequence is identical across all platform/variant combinations — '
+        'no variant may be longer or shorter than any other', () {
+      final reference = buildOnboardingStepIds(
+        platform: TargetPlatform.linux,
+        autoPasteSupported: false,
+      );
+      for (final platform in _platforms) {
+        for (final autoPasteSupported in [true, false]) {
+          expect(
+            buildOnboardingStepIds(
+              platform: platform,
+              autoPasteSupported: autoPasteSupported,
+            ),
+            reference,
+            reason:
+                'platform=$platform autoPasteSupported=$autoPasteSupported '
+                'must match the reference sequence exactly',
+          );
+        }
+      }
+    });
+
+    test('privacy always sits right after welcome; first step is welcome and '
+        'last step is tryAndGo', () {
+      for (final platform in _platforms) {
+        for (final autoPasteSupported in [true, false]) {
+          final steps = buildOnboardingStepIds(
+            platform: platform,
+            autoPasteSupported: autoPasteSupported,
+          );
+          expect(steps.first, OnboardingStepId.welcome);
           expect(steps[1], OnboardingStepId.privacy);
-          expect(
-            steps.indexOf(OnboardingStepId.privacy),
-            lessThan(steps.indexOf(OnboardingStepId.microphone)),
-          );
+          expect(steps.last, OnboardingStepId.tryAndGo);
         }
       }
     });
 
-    test('step order is always welcome → microphone → … → model → ready', () {
-      for (final platform in [
-        TargetPlatform.macOS,
-        TargetPlatform.windows,
-        TargetPlatform.linux,
-      ]) {
+    test('modelAndHotkey sits immediately before autostartAndAutoPaste, '
+        'which sits immediately before tryAndGo (the guided test recording '
+        'on the final page must exercise the hotkey/mode configured on the '
+        'Model & Hotkey page, not a stale default)', () {
+      for (final platform in _platforms) {
         for (final autoPasteSupported in [true, false]) {
           final steps = buildOnboardingStepIds(
             platform: platform,
             autoPasteSupported: autoPasteSupported,
           );
-          expect(
-            steps.first,
-            OnboardingStepId.welcome,
-            reason: 'First step must always be welcome',
+          final modelIndex = steps.indexOf(OnboardingStepId.modelAndHotkey);
+          final autostartIndex = steps.indexOf(
+            OnboardingStepId.autostartAndAutoPaste,
           );
-          expect(
-            steps.last,
-            OnboardingStepId.ready,
-            reason: 'Last step must always be ready',
-          );
-          expect(
-            steps.indexOf(OnboardingStepId.microphone),
-            lessThan(steps.indexOf(OnboardingStepId.model)),
-          );
-        }
-      }
-    });
+          final tryAndGoIndex = steps.indexOf(OnboardingStepId.tryAndGo);
 
-    test('trigger always sits immediately between model and testRecording, '
-        'which sits immediately before ready (the guided test recording must '
-        'exercise the hotkey/mode just configured in trigger, not a stale '
-        'default; the skip link and "Weiter" both rely on this contiguous run '
-        'to reach ready via a single onNext call)', () {
-      for (final platform in [
-        TargetPlatform.macOS,
-        TargetPlatform.windows,
-        TargetPlatform.linux,
-      ]) {
-        for (final autoPasteSupported in [true, false]) {
-          final steps = buildOnboardingStepIds(
-            platform: platform,
-            autoPasteSupported: autoPasteSupported,
-          );
-          final modelIndex = steps.indexOf(OnboardingStepId.model);
-          final triggerIndex = steps.indexOf(OnboardingStepId.trigger);
-          final testRecordingIndex = steps.indexOf(
-            OnboardingStepId.testRecording,
-          );
-          final readyIndex = steps.indexOf(OnboardingStepId.ready);
-
-          expect(triggerIndex, modelIndex + 1);
-          expect(testRecordingIndex, triggerIndex + 1);
-          expect(readyIndex, testRecordingIndex + 1);
+          expect(autostartIndex, modelIndex + 1);
+          expect(tryAndGoIndex, autostartIndex + 1);
         }
       }
     });

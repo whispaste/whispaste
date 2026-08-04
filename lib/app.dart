@@ -193,6 +193,22 @@ const wpPageWidgets = <String, Widget>{
 bool shouldRunStartupPermissionGate(AppSettings? settings) =>
     settings?.onboardingCompleted ?? false;
 
+/// Pure decision for whether closing the window should hide to tray (`true`)
+/// or quit the app (`false`), extracted from
+/// [_AppShellState.onWindowClose] so it is unit-testable without the
+/// surrounding widget tree / window_manager channel.
+///
+/// During first-run onboarding, closing the window must always quit — never
+/// hide to tray, regardless of the `closeToTray` setting. A half-onboarded
+/// background process has no configured hotkey and no discoverable UI; the
+/// user's mental model of the X button on the onboarding surface is "abort",
+/// not "minimize". `settings == null` (not loaded yet) is treated like
+/// "onboarding not completed", so an early close before settings resolve
+/// quits rather than risks a stranded background process.
+bool shouldHideToTrayOnClose(AppSettings? settings) =>
+    (settings?.closeToTray ?? true) &&
+    (settings?.onboarding.onboardingCompleted ?? false);
+
 /// Root layout: title bar + sidebar + content + status bar.
 class _AppShell extends ConsumerStatefulWidget {
   const _AppShell();
@@ -749,9 +765,7 @@ class _AppShellState extends ConsumerState<_AppShell>
 
   @override
   void onWindowClose() async {
-    final closeToTray = ref.read(settingsProvider).value?.closeToTray ?? true;
-
-    if (closeToTray) {
+    if (shouldHideToTrayOnClose(ref.read(settingsProvider).value)) {
       // Just hide — the engine keeps running so floating windows, hotkeys,
       // and recording all continue to work.
       await windowManager.hide();

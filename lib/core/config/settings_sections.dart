@@ -1148,6 +1148,7 @@ class OnboardingSettings {
     this.onboardingCompleted = false,
     this.autoPasteOffHintDismissed = false,
     this.onboardingCurrentStep = 0,
+    this.onboardingFlowVersion = 0,
   });
 
   final bool onboardingCompleted;
@@ -1158,11 +1159,20 @@ class OnboardingSettings {
   /// Re-enabling Auto-Paste in Settings makes the chip irrelevant regardless.
   final bool autoPasteOffHintDismissed;
 
-  /// Index into the platform's onboarding step sequence the user last
-  /// reached. Persisted so a required app restart mid-onboarding (e.g. after
+  /// Index into the onboarding step sequence the user last reached.
+  /// Persisted so a required app restart mid-onboarding (e.g. after
   /// granting the Auto-Paste permission) resumes where the user left off
   /// instead of restarting the whole flow from step 0.
   final int onboardingCurrentStep;
+
+  /// Version of the onboarding step sequence [onboardingCurrentStep] indexes
+  /// into. `0` = legacy 7/8-step flow (or a value written before this field
+  /// existed — including fresh installations that never ran the new flow).
+  /// `1` = current five-step flow. When the overlay hydrates a saved position
+  /// with a version older than the current flow, it translates the index via
+  /// `migrateLegacyOnboardingStepIndex` exactly once and then stamps the
+  /// current version here so the translation can never run twice.
+  final int onboardingFlowVersion;
 
   static const OnboardingSettings defaults = OnboardingSettings();
 
@@ -1183,23 +1193,31 @@ class OnboardingSettings {
           'onboarding_current_step',
           defaults.onboardingCurrentStep,
         ),
+        onboardingFlowVersion: _readInt(
+          v,
+          'onboarding_flow_version',
+          defaults.onboardingFlowVersion,
+        ),
       );
 
   Map<String, String> toMap() => {
     'onboarding_completed': '$onboardingCompleted',
     'auto_paste_off_hint_dismissed': '$autoPasteOffHintDismissed',
     'onboarding_current_step': '$onboardingCurrentStep',
+    'onboarding_flow_version': '$onboardingFlowVersion',
   };
 
   OnboardingSettings copyWith({
     bool? onboardingCompleted,
     bool? autoPasteOffHintDismissed,
     int? onboardingCurrentStep,
+    int? onboardingFlowVersion,
   }) => OnboardingSettings(
     onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
     autoPasteOffHintDismissed:
         autoPasteOffHintDismissed ?? this.autoPasteOffHintDismissed,
     onboardingCurrentStep: onboardingCurrentStep ?? this.onboardingCurrentStep,
+    onboardingFlowVersion: onboardingFlowVersion ?? this.onboardingFlowVersion,
   );
 
   @override
@@ -1208,13 +1226,15 @@ class OnboardingSettings {
       other is OnboardingSettings &&
           onboardingCompleted == other.onboardingCompleted &&
           autoPasteOffHintDismissed == other.autoPasteOffHintDismissed &&
-          onboardingCurrentStep == other.onboardingCurrentStep;
+          onboardingCurrentStep == other.onboardingCurrentStep &&
+          onboardingFlowVersion == other.onboardingFlowVersion;
 
   @override
   int get hashCode => Object.hash(
     onboardingCompleted,
     autoPasteOffHintDismissed,
     onboardingCurrentStep,
+    onboardingFlowVersion,
   );
 }
 
