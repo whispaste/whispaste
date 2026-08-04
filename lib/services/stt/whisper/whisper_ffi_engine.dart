@@ -547,6 +547,40 @@ class WhisperFfiEngine implements WhisperEngine {
       params.suppress_nst = true;
       params.temperature_inc = 0.0;
 
+      // ── Long-dictation repetition hardening (2026-08-04 diagnosis) ─────
+      // Different failure class than the trailing-hallucination fix above:
+      // reports of *repeated* text near the end of long (multi-minute)
+      // German dictations, sometimes with a hard cutoff. whisper_full()
+      // decodes one long recording as a sequence of internal ~30s windows
+      // (no app-level chunking — confirmed above), and each window is
+      // conditioned on the previous window's decoded text whenever
+      // `params.n_max_text_ctx > 0 && t_cur < WHISPER_HISTORY_CONDITIONING_
+      // TEMP_CUTOFF` (whisper.cpp:7081, cutoff = 0.5 at whisper.cpp:145).
+      // Because `temperature_inc = 0.0` above pins `t_cur` at `0.0` for
+      // every window of a long recording, that condition is permanently
+      // true — so once one window's output degrades into a repeat loop,
+      // up to `min(n_max_text_ctx, whisper_n_text_ctx(ctx)/2)` tokens of it
+      // (224 tokens — several sentences — at this model's context size,
+      // since the app never touched `n_max_text_ctx` and its unset default
+      // of 16384 is only capped by that model-size division) get carried
+      // into the prompt for the next window, reinforcing it further. This
+      // is whisper.cpp's own documented long-form repetition mechanism
+      // (ggml-org/whisper.cpp issue #3744; discussions #1490, #2286).
+      //
+      // Re-enabling `temperature_inc` (whisper.cpp/OpenAI's own default:
+      // `0.2`, escalating to `1.0`) would let a degraded window retry and
+      // break out, but reopens exactly the higher-temperature fabrication
+      // risk the trailing-hallucination fix above was written to close —
+      // and whisper.cpp has no separate cap on how high that retry
+      // temperature can climb, so it is all-or-nothing. Capping
+      // `n_max_text_ctx` instead shrinks the blast radius of the same
+      // mechanism without touching that trade-off: less of a degraded
+      // window can propagate forward, while genuine short-range continuity
+      // (mid-sentence carry across a window boundary) is still kept. `64`
+      // matches the community-recommended value for this exact symptom
+      // (ggml-org/whisper.cpp discussions #1490, #2286: `--context 64`).
+      params.n_max_text_ctx = 64;
+
       // ── VAD-gated hallucination hardening (2026-07-29 follow-up) ───────
       // whisper.cpp's own internal `no_speech_prob`/`no_speech_thold` gate
       // (already active by default, see `_logSegments`' doc comment) is
