@@ -39,10 +39,7 @@ import '../features/snippets/snippets_page.dart' show SnippetItem;
 /// ausgeschlossene Key aus `AudioInputSettings`; `push_to_talk` und
 /// `input_gain` derselben Sektion bleiben portabel.
 ///
-/// **Ticket 03 fügt vier weitere Keys hinzu** (`settings_export_path`,
-/// `settings_import_path`, `settings_export_bookmark`,
-/// `settings_import_bookmark`) — maschinengebundener Ablageort, nicht
-/// Präferenz. Neue Einträge gehören an diese eine Stelle.
+/// Neue Einträge gehören an diese eine Stelle.
 const Set<String> settingsPortabilityDenyList = {
   // BenchmarkSettings — hardwaregebunden, auf dem Zielrechner falsch.
   'tier_benchmark_rtf',
@@ -78,6 +75,14 @@ const Set<String> settingsPortabilityDenyList = {
   // *fehlender* Key läse ohnehin als '' über CloudProviderSettings.fromMap).
   'openai_api_key',
   'deepgram_api_key',
+  // SettingsPortabilityPathSettings (Ticket 03) — describe *where* the
+  // export file lives on this machine, not *what* is exported. Bookmark
+  // blobs are additionally security-scoped tokens bound to this machine and
+  // this app's code signature; they are meaningless on the target machine.
+  'settings_export_path',
+  'settings_import_path',
+  'settings_export_bookmark',
+  'settings_import_bookmark',
 };
 
 /// Every storage key that is neither deny-listed nor a genuinely new
@@ -89,9 +94,6 @@ const Set<String> settingsPortabilityDenyList = {
 /// Derived by dumping `AppSettings.defaults.toStorageMap().keys` and sorting
 /// every key into this list or [settingsPortabilityDenyList] — not
 /// reconstructed from reading section classes by eye.
-///
-/// **Ticket 03 adds four keys to the deny list, not here** — see its note
-/// above.
 const Set<String> settingsPortabilityPortableKeysForTest = {
   'after_transcription',
   'auto_paste_blocklist',

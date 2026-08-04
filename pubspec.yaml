@@ -55,6 +55,10 @@ dependencies:
   # Path utilities
   path_provider: ^2.1.5
   path: ^1.9.1
+  # Native save/open file dialog (NSSavePanel/IFileDialog/GTK FileChooser) —
+  # settings export/import target selection (Ticket 03,
+  # settings-portability-vollumfang).
+  file_selector: ^1.1.0
 
   # FFI (platform interop)
   ffi: ^2.2.0

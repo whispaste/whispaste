@@ -276,6 +276,58 @@ void main() {
     },
   );
 
+  test('the four settings_export_path/settings_import_path/*_bookmark keys '
+      '(Ticket 03) never leave via export and cannot smuggle a foreign '
+      'machine-bound path back in on import — the local value wins', () async {
+    final bundle = SettingsExportBundle(
+      settings: Map.of(sampleSettings)
+        ..['settings_export_path'] = '/leaked/export.json'
+        ..['settings_import_path'] = '/leaked/import.json'
+        ..['settings_export_bookmark'] = 'leaked-bookmark-export'
+        ..['settings_import_bookmark'] = 'leaked-bookmark-import',
+      replacements: const [],
+    );
+
+    await service.exportToFile('/settings.json', bundle);
+    final written = await fs.file('/settings.json').readAsString();
+    final decoded = jsonDecode(written) as Map<String, dynamic>;
+    final settingsMap = decoded['settings'] as Map<String, dynamic>;
+    for (final key in [
+      'settings_export_path',
+      'settings_import_path',
+      'settings_export_bookmark',
+      'settings_import_bookmark',
+    ]) {
+      expect(settingsMap.containsKey(key), isFalse, reason: key);
+    }
+
+    // A hand-written import file that smuggles these in anyway must not
+    // move the *local* machine's remembered path — mergeImportedSettings
+    // filters the import map before merging onto `current`, so `current`'s
+    // portabilityPaths values simply survive untouched.
+    final local = AppSettings.defaults.copyWithSections(
+      portabilityPaths: const SettingsPortabilityPathSettings(
+        exportPath: '/local/export.json',
+        importPath: '/local/import.json',
+        exportBookmark: 'local-bookmark-export',
+        importBookmark: 'local-bookmark-import',
+      ),
+    );
+    final foreignImport = {
+      ...sampleSettings,
+      'settings_export_path': '/leaked/export.json',
+      'settings_import_path': '/leaked/import.json',
+      'settings_export_bookmark': 'leaked-bookmark-export',
+      'settings_import_bookmark': 'leaked-bookmark-import',
+    };
+    final merged = mergeImportedSettings(local, foreignImport);
+
+    expect(merged.portabilityPaths.exportPath, '/local/export.json');
+    expect(merged.portabilityPaths.importPath, '/local/import.json');
+    expect(merged.portabilityPaths.exportBookmark, 'local-bookmark-export');
+    expect(merged.portabilityPaths.importBookmark, 'local-bookmark-import');
+  });
+
   // ---------------------------------------------------------------------------
   // v2 structure: root still carries v1-compat "hotkey"/"custom_vocabulary",
   // derived from the same settings map — so the already-published v1

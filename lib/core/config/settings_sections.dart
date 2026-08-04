@@ -1332,6 +1332,84 @@ class PrivacySettings {
 }
 
 // ===========================================================================
+// Section 18 — Settings Portability Paths
+// ===========================================================================
+
+/// Remembered file-dialog target for the settings export/import feature
+/// (PRD `settings-portability-vollumfang`, Ticket 03). Once the user
+/// confirms a native save/open dialog (`file_selector`), the chosen path is
+/// remembered here so every later export/import reuses it without asking
+/// again — until the path turns out to be unusable (file/folder gone,
+/// access denied), at which point `SettingsPortabilityController` clears it
+/// and the dialog opens again automatically.
+///
+/// [exportPath] and [importPath] are deliberately separate keys: sharing one
+/// key would make an export after an import silently overwrite the file the
+/// import just read from.
+///
+/// [exportBookmark]/[importBookmark] are placeholders for Ticket 04's macOS
+/// security-scoped bookmarks (they let the MAS sandbox re-grant access to a
+/// user-picked file across app restarts); this ticket only reserves the
+/// storage keys and leaves them empty.
+class SettingsPortabilityPathSettings {
+  const SettingsPortabilityPathSettings({
+    this.exportPath = '',
+    this.importPath = '',
+    this.exportBookmark = '',
+    this.importBookmark = '',
+  });
+
+  final String exportPath;
+  final String importPath;
+  final String exportBookmark;
+  final String importBookmark;
+
+  static const SettingsPortabilityPathSettings defaults =
+      SettingsPortabilityPathSettings();
+
+  factory SettingsPortabilityPathSettings.fromMap(
+    Map<String, String> v,
+  ) => SettingsPortabilityPathSettings(
+    exportPath: v['settings_export_path'] ?? defaults.exportPath,
+    importPath: v['settings_import_path'] ?? defaults.importPath,
+    exportBookmark: v['settings_export_bookmark'] ?? defaults.exportBookmark,
+    importBookmark: v['settings_import_bookmark'] ?? defaults.importBookmark,
+  );
+
+  Map<String, String> toMap() => {
+    'settings_export_path': exportPath,
+    'settings_import_path': importPath,
+    'settings_export_bookmark': exportBookmark,
+    'settings_import_bookmark': importBookmark,
+  };
+
+  SettingsPortabilityPathSettings copyWith({
+    String? exportPath,
+    String? importPath,
+    String? exportBookmark,
+    String? importBookmark,
+  }) => SettingsPortabilityPathSettings(
+    exportPath: exportPath ?? this.exportPath,
+    importPath: importPath ?? this.importPath,
+    exportBookmark: exportBookmark ?? this.exportBookmark,
+    importBookmark: importBookmark ?? this.importBookmark,
+  );
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SettingsPortabilityPathSettings &&
+          exportPath == other.exportPath &&
+          importPath == other.importPath &&
+          exportBookmark == other.exportBookmark &&
+          importBookmark == other.importBookmark;
+
+  @override
+  int get hashCode =>
+      Object.hash(exportPath, importPath, exportBookmark, importBookmark);
+}
+
+// ===========================================================================
 // Platform-aware defaults factory
 // ===========================================================================
 

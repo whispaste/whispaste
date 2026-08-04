@@ -58,6 +58,7 @@ class AppSettings {
     this.onboarding = const OnboardingSettings(),
     this.benchmark = const BenchmarkSettings(),
     this.privacy = const PrivacySettings(),
+    this.portabilityPaths = const SettingsPortabilityPathSettings(),
   });
 
   // ---------------------------------------------------------------------------
@@ -114,6 +115,10 @@ class AppSettings {
 
   /// Privacy settings (analytics consent, crash reporting consent is in behavior).
   final PrivacySettings privacy;
+
+  /// Remembered file-dialog target for settings export/import (Ticket 03 of
+  /// `settings-portability-vollumfang`).
+  final SettingsPortabilityPathSettings portabilityPaths;
 
   // ---------------------------------------------------------------------------
   // @Deprecated shims — delegate to sections.
@@ -378,6 +383,7 @@ class AppSettings {
       onboarding: OnboardingSettings.fromMap(values),
       benchmark: BenchmarkSettings.fromMap(values),
       privacy: PrivacySettings.fromMap(values),
+      portabilityPaths: SettingsPortabilityPathSettings.fromMap(values),
     );
   }
 
@@ -437,6 +443,7 @@ class AppSettings {
     ...onboarding.toMap(),
     ...benchmark.toMap(),
     ...privacy.toMap(),
+    ...portabilityPaths.toMap(),
   };
 
   // ---------------------------------------------------------------------------
@@ -469,6 +476,7 @@ class AppSettings {
     OnboardingSettings? onboarding,
     BenchmarkSettings? benchmark,
     PrivacySettings? privacy,
+    SettingsPortabilityPathSettings? portabilityPaths,
   }) {
     return AppSettings(
       interface_: interface_ ?? this.interface_,
@@ -489,6 +497,7 @@ class AppSettings {
       onboarding: onboarding ?? this.onboarding,
       benchmark: benchmark ?? this.benchmark,
       privacy: privacy ?? this.privacy,
+      portabilityPaths: portabilityPaths ?? this.portabilityPaths,
     );
   }
 
@@ -676,7 +685,8 @@ class AppSettings {
           windowPosition == other.windowPosition &&
           onboarding == other.onboarding &&
           benchmark == other.benchmark &&
-          privacy == other.privacy;
+          privacy == other.privacy &&
+          portabilityPaths == other.portabilityPaths;
 
   @override
   int get hashCode => Object.hash(
@@ -697,6 +707,7 @@ class AppSettings {
     onboarding,
     benchmark,
     privacy,
+    portabilityPaths,
   );
 }
 

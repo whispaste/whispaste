@@ -1671,7 +1671,7 @@ abstract class L10n {
   /// **'Settings imported from {path}'**
   String settingsPortabilityImportSuccess(String path);
 
-  /// No description provided for @settingsPortabilityImportNotFound.
+  /// Deliberate residual case (Ticket 03, settings-portability-vollumfang): since the import target now comes from a remembered path or a native open-file dialog, a missing file is caught internally and silently re-prompts the dialog instead of showing this message. It only surfaces if the freshly re-picked file also vanishes before it can be read (a narrow race), so it stays worded as generic guidance rather than describing that race.
   ///
   /// In en, this message translates to:
   /// **'No export file found at {path}. Export settings first, or copy an export file there.'**

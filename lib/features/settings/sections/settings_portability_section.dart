@@ -68,13 +68,40 @@ class SettingsPortabilitySection extends ConsumerWidget {
           await ref.read(snippetsProvider.notifier).replaceAll(snippets);
         }
       },
+      getExportPath: () async =>
+          (ref.read(settingsProvider).value ?? AppSettings.defaults)
+              .portabilityPaths
+              .exportPath,
+      setExportPath: (path) => ref
+          .read(settingsProvider.notifier)
+          .updateSettings(
+            (s) => s.copyWithSections(
+              portabilityPaths: s.portabilityPaths.copyWith(exportPath: path),
+            ),
+          ),
+      getImportPath: () async =>
+          (ref.read(settingsProvider).value ?? AppSettings.defaults)
+              .portabilityPaths
+              .importPath,
+      setImportPath: (path) => ref
+          .read(settingsProvider.notifier)
+          .updateSettings(
+            (s) => s.copyWithSections(
+              portabilityPaths: s.portabilityPaths.copyWith(importPath: path),
+            ),
+          ),
     );
   }
 
   Future<void> _confirmImport(BuildContext context, WidgetRef ref) async {
     final l10n = L10n.of(context);
     final controller = _controller(ref);
-    final path = await controller.resolvePath();
+    // Resolves the remembered import path, or opens the native open-file
+    // dialog once — cancelling it aborts here silently (no confirm dialog,
+    // no toast). `controller.import()` below re-resolves the same
+    // now-remembered path without prompting again.
+    final path = await controller.resolvePath(forExport: false);
+    if (path == null) return;
     if (!context.mounted) return;
     final confirmed = await showWpConfirmDialog(
       context: context,
