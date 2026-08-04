@@ -803,6 +803,17 @@ class _AppShellState extends ConsumerState<_AppShell>
             .recheckOnForeground(),
       );
     }
+
+    // Same "back from System Settings" moment for the microphone permission,
+    // but only while onboarding is still running: page 1 shows the mic
+    // permission chip, and a side-effect-free check() promotes it to "ready"
+    // the instant the user returns after granting outside the app — no poll
+    // tick, no restart. All platforms (the check never prompts). Outside
+    // onboarding no chip consumes the status, so skip the probe entirely.
+    final settings = ref.read(settingsProvider).value;
+    if (settings != null && !settings.onboarding.onboardingCompleted) {
+      unawaited(ref.read(micPermissionNotifierProvider.notifier).check());
+    }
   }
 
   @override

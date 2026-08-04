@@ -124,33 +124,40 @@ void main() {
       expect(notifier.state.value!.locale, 'he');
     });
 
-    testWidgets('updates theme mode from preview cards and system chip', (
-      tester,
-    ) async {
-      final notifier = FakeSettingsNotifier(
-        const AppSettings(
-          interface_: InterfaceSettings(themeMode: ThemeMode.dark),
-        ),
-      );
+    testWidgets(
+      'renders the three demo beats with Flutter-rendered l10n captions and '
+      'no theme selector (the theme choice moved to page 3 — pre-rendered '
+      'loops cannot follow a live theme switch)',
+      (tester) async {
+        final notifier = FakeSettingsNotifier(
+          const AppSettings(interface_: InterfaceSettings(locale: 'en')),
+        );
 
-      await tester.pumpWidget(
-        makeTestable(
-          const SingleChildScrollView(child: WelcomeStep()),
-          size: const Size(1280, 980),
-          locale: const Locale('en'),
-          overrides: [settingsProvider.overrideWith(() => notifier)],
-        ),
-      );
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(
+          makeTestable(
+            const SingleChildScrollView(child: WelcomeStep()),
+            size: const Size(1280, 980),
+            locale: const Locale('en'),
+            overrides: [settingsProvider.overrideWith(() => notifier)],
+          ),
+        );
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.text(l10n.onboardingThemeLight));
-      await tester.pumpAndSettle();
-      expect(notifier.state.value!.themeMode, ThemeMode.light);
+        // The three beats: titles + captions come from l10n, never from
+        // artwork — the placeholder/loop asset stays text-free.
+        expect(find.text(l10n.onboardingBeat1Title), findsOneWidget);
+        expect(find.text(l10n.onboardingBeat1Caption), findsOneWidget);
+        expect(find.text(l10n.onboardingBeat2Title), findsOneWidget);
+        expect(find.text(l10n.onboardingBeat2Caption), findsOneWidget);
+        expect(find.text(l10n.onboardingBeat3Title), findsOneWidget);
+        expect(find.text(l10n.onboardingBeat3Caption), findsOneWidget);
 
-      await tester.tap(find.text(l10n.onboardingThemeSystem));
-      await tester.pumpAndSettle();
-      expect(notifier.state.value!.themeMode, ThemeMode.system);
-    });
+        // Theme selector is gone from page 1.
+        expect(find.text(l10n.onboardingThemeLight), findsNothing);
+        expect(find.text(l10n.onboardingThemeDark), findsNothing);
+        expect(find.text(l10n.onboardingThemeSystem), findsNothing);
+      },
+    );
   });
 
   group('localeNativeName', () {

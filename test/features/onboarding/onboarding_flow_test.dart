@@ -30,7 +30,7 @@ import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/onboarding/onboarding_flow_migration.dart';
 import 'package:whispaste/features/onboarding/onboarding_overlay.dart';
 import 'package:whispaste/features/onboarding/steps/autostart_toggle.dart';
-import 'package:whispaste/features/onboarding/steps/microphone_step.dart';
+import 'package:whispaste/features/onboarding/steps/mic_permission_chip.dart';
 import 'package:whispaste/features/onboarding/steps/model_step.dart';
 import 'package:whispaste/features/onboarding/steps/privacy_step.dart';
 import 'package:whispaste/features/onboarding/steps/ready_step.dart';
@@ -46,10 +46,10 @@ import 'package:whispaste/services/hotkey_service.dart'
         hotkeyRegistrationStatusProvider,
         hotkeyServiceProvider;
 import 'package:whispaste/services/keyboard_up_monitor.dart';
+import 'package:whispaste/services/permissions/mic_permission_notifier.dart';
 import 'package:whispaste/services/recording_orchestrator.dart';
 import 'package:whispaste/widgets/wp_accent_button.dart';
 
-import '../../fixtures/fake_onboarding_mic.dart';
 import '../../fixtures/test_helpers.dart';
 
 // ---------------------------------------------------------------------------
@@ -112,6 +112,14 @@ class _FakeRegistrar implements HotKeyRegistrar {
   Future<void> unregister(HotKey hotKey) async {}
 }
 
+/// Träge Plattform-Wahrheit für den Mikrofon-Berechtigungs-Notifier — der
+/// automatische request() beim Verlassen von Seite 1 darf im Widget-Test nie
+/// das echte Audio-Plugin erreichen.
+class _FakeMicPermissionChecker implements MicPermissionChecker {
+  @override
+  Future<bool> check({required bool request}) async => false;
+}
+
 /// [HotkeyService] mit Fake-Registrar — TriggerStep liest `supportsKeyUp`.
 /// `false` passt zur simulierten Linux-Zielplattform.
 HotkeyService _fakeHotkeyService() {
@@ -138,14 +146,14 @@ Future<_FakeSettingsNotifier> _pumpOverlay(
 
   await tester.pumpWidget(
     makeTestable(
-      OnboardingOverlay(
-        micProbeFactory: FakeOnboardingMicProbe.new,
-        micRouting: FakeAudioRoutingService(),
-      ),
+      const OnboardingOverlay(),
       size: const Size(1280, 1600),
       locale: const Locale('en'),
       overrides: [
         settingsProvider.overrideWith(() => settings),
+        micPermissionCheckerProvider.overrideWithValue(
+          _FakeMicPermissionChecker(),
+        ),
         hotkeyRegistrationStatusProvider.overrideWith(
           () => _FakeHotkeyController(hotkeyStatus),
         ),
@@ -201,15 +209,16 @@ void main() {
 
   group('Onboarding Walkthrough — fünf Seiten bis zum Abschluss', () {
     testWidgets(
-      'Seite 1: Willkommen (WelcomeStep + MicrophoneStep) wird als erste '
-      'Seite angezeigt (1 of 5)',
+      'Seite 1: Willkommen (WelcomeStep) wird als erste Seite angezeigt '
+      '(1 of 5); auf Linux erscheint kein Mikrofon-Chip — er verspräche '
+      'eine Aktion (Settings-Deep-Link), die es dort nicht gibt',
       (tester) async {
         debugDefaultTargetPlatformOverride = TargetPlatform.linux;
         try {
           await _pumpOverlay(tester);
 
           expect(find.byType(WelcomeStep), findsOneWidget);
-          expect(find.byType(MicrophoneStep), findsOneWidget);
+          expect(find.byType(MicPermissionChip), findsNothing);
           expect(find.text(l10n.onboardingStepOf(1, 5)), findsOneWidget);
           _expectExactlyTwoNavActions(tester, page: 1);
         } finally {
@@ -224,9 +233,9 @@ void main() {
       try {
         final settings = await _pumpOverlay(tester);
 
-        // Seite 1: Willkommen (Welcome + Mikrofon).
+        // Seite 1: Willkommen (Demo-Beats + Sprachauswahl; Linux ohne Chip).
         expect(find.byType(WelcomeStep), findsOneWidget);
-        expect(find.byType(MicrophoneStep), findsOneWidget);
+        expect(find.byType(MicPermissionChip), findsNothing);
         expect(find.text(l10n.onboardingStepOf(1, 5)), findsOneWidget);
         _expectExactlyTwoNavActions(tester, page: 1);
         await _tapNext(tester);

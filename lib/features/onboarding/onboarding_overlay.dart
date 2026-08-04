@@ -1,3 +1,5 @@
+import 'dart:async' show unawaited;
+
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, visibleForTesting;
 import 'package:flutter/material.dart';
@@ -10,19 +12,17 @@ import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/logging/app_logger.dart';
-import '../../services/audio_routing_service.dart';
 import '../../services/hotkey_service.dart';
 import '../../services/paste/paste_capability_notifier.dart';
 import '../../services/permissions/mic_permission_notifier.dart';
 import '../../services/telemetry_service.dart';
 import '../../widgets/wp_accent_button.dart';
-import 'mic_probe.dart';
 import 'onboarding_flow_migration.dart';
 import 'steps/auto_paste_step.dart';
 import 'steps/autostart_toggle.dart';
 import 'steps/welcome_step.dart';
 import 'steps/privacy_step.dart';
-import 'steps/microphone_step.dart';
+import 'steps/mic_permission_chip.dart';
 import 'steps/model_step.dart';
 import 'steps/trigger_step.dart';
 import 'steps/test_recording_step.dart';
@@ -42,7 +42,8 @@ const kOnboardingNextButtonKey = Key('onboardingNavNextButton');
 /// variance (Auto-Paste visibility) lives *inside* the
 /// [autostartAndAutoPaste] page, never in the sequence itself.
 enum OnboardingStepId {
-  /// 1 — Welcome: language/theme plus the microphone permission & live test.
+  /// 1 — Welcome: demo beats, language selection and the microphone
+  /// permission status chip (macOS/Windows; Linux shows no chip).
   welcome,
 
   /// 2 — Privacy: informed telemetry/crash-report opt-out.
@@ -90,17 +91,7 @@ List<OnboardingStepId> buildOnboardingStepIds({
 /// title bar is hidden during onboarding). On completion persists
 /// [AppSettings.onboarding]`.onboardingCompleted` = true.
 class OnboardingOverlay extends ConsumerStatefulWidget {
-  const OnboardingOverlay({super.key, this.micProbeFactory, this.micRouting});
-
-  /// Test seam forwarded to [MicrophoneStep] on the Welcome page so widget
-  /// tests never touch the real audio plugin. `null` in production.
-  @visibleForTesting
-  final OnboardingMicProbe Function()? micProbeFactory;
-
-  /// Test seam forwarded to [MicrophoneStep] (macOS routing service).
-  /// `null` in production.
-  @visibleForTesting
-  final AudioRoutingService? micRouting;
+  const OnboardingOverlay({super.key});
 
   @override
   ConsumerState<OnboardingOverlay> createState() => _OnboardingOverlayState();
@@ -266,6 +257,18 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
   void _goNext() {
     final steps = _onboardingSteps();
     if (_currentStep < steps.length - 1) {
+      if (_currentStep == 0 &&
+          ref.read(micPermissionNotifierProvider).status ==
+              MicPermissionStatus.unknown) {
+        // The user never triggered the mic request themselves — fire it now,
+        // on *leaving* page 1 (never on appear: the OS dialog is a central
+        // modal that would wreck the demo moment). `unknown` proves request()
+        // has never run this process, so the dialog budget is unspent and
+        // this call is guaranteed to show the real one-time OS dialog, never
+        // the deep-link recovery path. Fire-and-forget: navigation must not
+        // wait for the dialog.
+        unawaited(ref.read(micPermissionNotifierProvider.notifier).request());
+      }
       setState(() {
         _previousStep = _currentStep;
         _currentStep++;
@@ -319,14 +322,12 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
         mainAxisSize: MainAxisSize.min,
         children: [
           const WelcomeStep(),
-          const SizedBox(height: WpSpacing.xxl),
-          MicrophoneStep(
-            probeFactory: widget.micProbeFactory,
-            routing: widget.micRouting,
-            onMicrophoneSelected: (label) => ref
-                .read(settingsProvider.notifier)
-                .updateSettings((s) => s.copyWith(microphone: label)),
-          ),
+          // Mic permission chip — macOS/Windows only. The chip self-gates on
+          // Linux too; the condition here just avoids dangling spacing.
+          if (defaultTargetPlatform != TargetPlatform.linux) ...[
+            const SizedBox(height: WpSpacing.lg),
+            const MicPermissionChip(),
+          ],
         ],
       ),
       OnboardingStepId.privacy => const PrivacyStep(),

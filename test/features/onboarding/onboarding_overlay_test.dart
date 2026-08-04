@@ -7,6 +7,10 @@
 ///    Next) and no skip affordance;
 ///  - overlay dispose stops both shared pollers (paste capability + mic
 ///    permission) — no zombie timer survives a window close;
+///  - leaving page 1 auto-fires the mic request exactly when the user never
+///    triggered it themselves (status still `unknown`) — and never otherwise;
+///  - page 1 fits the fixed onboarding window size (1100×720,
+///    [kOnboardingWindowSize]) without scrolling;
 ///  - the layout renders in every supported UI language (list read from
 ///    [L10n.supportedLocales], never hard-coded) and mirrors fully in RTL;
 ///  - the layout survives the window minimum size (800×550, `lib/main.dart`)
@@ -21,13 +25,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart' show Bidi;
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
+import 'package:whispaste/core/platform/desktop_window_geometry.dart'
+    show kOnboardingWindowSize;
 import 'package:whispaste/features/onboarding/onboarding_overlay.dart';
 import 'package:whispaste/features/onboarding/steps/auto_paste_step.dart';
 import 'package:whispaste/services/paste/paste_capability_notifier.dart';
 import 'package:whispaste/services/permissions/mic_permission_notifier.dart';
 import 'package:whispaste/widgets/wp_accent_button.dart';
 
-import '../../fixtures/fake_onboarding_mic.dart';
 import '../../fixtures/test_helpers.dart';
 
 late L10n l10n;
@@ -66,17 +71,42 @@ class _RecordingPasteCapabilityNotifier extends PasteCapabilityNotifier {
   }
 }
 
-/// Same shape for the microphone permission poller.
+/// Same shape for the microphone permission poller — additionally pins the
+/// status and records [request] calls so the leave-page-1 hook is provable
+/// without any platform involvement.
 class _RecordingMicPermissionNotifier extends MicPermissionNotifier {
+  _RecordingMicPermissionNotifier([
+    this.initialStatus = MicPermissionStatus.unknown,
+  ]);
+
+  final MicPermissionStatus initialStatus;
   int stopPollingCalls = 0;
+  int requestCalls = 0;
 
   @override
-  MicPermissionState build() => const MicPermissionState();
+  MicPermissionState build() => MicPermissionState(status: initialStatus);
+
+  @override
+  Future<bool> check() async => initialStatus == MicPermissionStatus.granted;
+
+  @override
+  Future<bool> request() async {
+    requestCalls++;
+    return false;
+  }
 
   @override
   void stopPolling() {
     stopPollingCalls++;
   }
+}
+
+/// Inert platform truth for tests that run the *real* notifier — the mic
+/// chip on page 1 checks on mount, and leaving page 1 may request; neither
+/// call may ever reach the real audio plugin in a widget test.
+class _FakeMicPermissionChecker implements MicPermissionChecker {
+  @override
+  Future<bool> check({required bool request}) async => false;
 }
 
 Future<void> _tapNext(WidgetTester tester) async {
@@ -92,15 +122,15 @@ Future<void> _pumpOverlay(
   Size size = const Size(1280, 980),
   Locale locale = const Locale('en'),
   TextScaler textScaler = TextScaler.noScaling,
+  // `false` for states that animate forever (the mic chip's `requesting`
+  // spinner) — pumpAndSettle would time out on those.
+  bool settle = true,
 }) async {
   await tester.pumpWidget(
     makeTestable(
       MediaQuery(
         data: MediaQueryData(size: size, textScaler: textScaler),
-        child: OnboardingOverlay(
-          micProbeFactory: FakeOnboardingMicProbe.new,
-          micRouting: FakeAudioRoutingService(),
-        ),
+        child: const OnboardingOverlay(),
       ),
       size: size,
       locale: locale,
@@ -108,13 +138,21 @@ Future<void> _pumpOverlay(
         settingsProvider.overrideWith(
           () => settings ?? _FakeSettingsNotifier(),
         ),
+        micPermissionCheckerProvider.overrideWithValue(
+          _FakeMicPermissionChecker(),
+        ),
         if (paste != null)
           pasteCapabilityNotifierProvider.overrideWith(() => paste),
         if (mic != null) micPermissionNotifierProvider.overrideWith(() => mic),
       ],
     ),
   );
-  await tester.pumpAndSettle();
+  if (settle) {
+    await tester.pumpAndSettle();
+  } else {
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+  }
 }
 
 void main() {
@@ -387,6 +425,98 @@ void main() {
     });
   });
 
+  // ── Leaving page 1 — automatic microphone request ───────────────────────
+  //
+  // PRD: the OS permission dialog fires when *leaving* page 1 (never on
+  // appear), and only when the user hasn't triggered it themselves. `unknown`
+  // is the proof of that — request() has never run this process, so the
+  // one-time dialog budget is guaranteed unspent.
+
+  group('OnboardingOverlay — mic request on leaving page 1', () {
+    testWidgets(
+      'status unknown: tapping Next on page 1 fires request() exactly once',
+      (tester) async {
+        final mic = _RecordingMicPermissionNotifier();
+        await _pumpOverlay(tester, mic: mic);
+
+        await _tapNext(tester);
+
+        expect(find.text(l10n.onboardingStepOf(2, 5)), findsOneWidget);
+        expect(mic.requestCalls, 1);
+      },
+    );
+
+    for (final status in [
+      MicPermissionStatus.requesting,
+      MicPermissionStatus.granted,
+      MicPermissionStatus.denied,
+    ]) {
+      testWidgets(
+        'status $status: leaving page 1 fires nothing — the user already '
+        'acted (or is done), a second call would be pointless',
+        (tester) async {
+          final mic = _RecordingMicPermissionNotifier(status);
+          // No settling: `requesting` renders an endless spinner on page 1.
+          await _pumpOverlay(tester, mic: mic, settle: false);
+
+          // _tapNext's pumpAndSettle is safe again — after the transition
+          // the chip (and its spinner) has left the tree.
+          await _tapNext(tester);
+
+          expect(find.text(l10n.onboardingStepOf(2, 5)), findsOneWidget);
+          expect(mic.requestCalls, 0);
+        },
+      );
+    }
+
+    testWidgets('leaving any later page never fires request()', (tester) async {
+      final mic = _RecordingMicPermissionNotifier();
+      await _pumpOverlay(tester, mic: mic);
+
+      await _tapNext(tester); // page 1 → 2 (fires, budget spent conceptually)
+      await _tapNext(tester); // page 2 → 3
+      await _tapNext(tester); // page 3 → 4
+
+      expect(
+        mic.requestCalls,
+        1,
+        reason: 'Only the page-1 exit may auto-request.',
+      );
+    });
+  });
+
+  // ── Fixed onboarding window size — no scrolling on page 1 ───────────────
+
+  group('OnboardingOverlay — fixed window size (1100×720)', () {
+    testWidgets('page 1 (wordmark, three beats, language, mic chip) fits '
+        'kOnboardingWindowSize without scrolling on macOS (chip mounted)', (
+      tester,
+    ) async {
+      tester.view.physicalSize = kOnboardingWindowSize;
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        await _pumpOverlay(tester, size: kOnboardingWindowSize);
+
+        expect(tester.takeException(), isNull);
+        final scrollable = tester.state<ScrollableState>(
+          find.byType(Scrollable).first,
+        );
+        expect(
+          scrollable.position.maxScrollExtent,
+          0,
+          reason:
+              'At the fixed onboarding window size the first page must be '
+              'fully visible without scrolling.',
+        );
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+  });
+
   // ── Disposal — no poll timer survives the window closing ────────────────
 
   group('OnboardingOverlay disposal', () {
@@ -404,8 +534,14 @@ void main() {
           makeTestable(
             const SizedBox.shrink(),
             size: const Size(1280, 980),
+            // Same override shape as _pumpOverlay — the ProviderScope element
+            // is reused across pumps and Riverpod forbids changing the
+            // number of overrides.
             overrides: [
               settingsProvider.overrideWith(() => _FakeSettingsNotifier()),
+              micPermissionCheckerProvider.overrideWithValue(
+                _FakeMicPermissionChecker(),
+              ),
               pasteCapabilityNotifierProvider.overrideWith(() => paste),
               micPermissionNotifierProvider.overrideWith(() => mic),
             ],

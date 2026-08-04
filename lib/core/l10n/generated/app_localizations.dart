@@ -4287,83 +4287,59 @@ abstract class L10n {
   /// **'System'**
   String get onboardingThemeSystem;
 
-  /// No description provided for @onboardingMicTitle.
+  /// No description provided for @onboardingBeat1Title.
   ///
   /// In en, this message translates to:
-  /// **'Let\'s set up your microphone'**
-  String get onboardingMicTitle;
+  /// **'Press the hotkey, speak, done'**
+  String get onboardingBeat1Title;
 
-  /// No description provided for @onboardingMicSubtitle.
+  /// No description provided for @onboardingBeat1Caption.
   ///
   /// In en, this message translates to:
-  /// **'We need mic access to record. Your audio stays on your device.'**
-  String get onboardingMicSubtitle;
+  /// **'Recording starts instantly — your words land as text right at your cursor.'**
+  String get onboardingBeat1Caption;
 
-  /// No description provided for @onboardingMicPermissionGranted.
+  /// No description provided for @onboardingBeat2Title.
   ///
   /// In en, this message translates to:
-  /// **'You\'re all set, microphone ready!'**
-  String get onboardingMicPermissionGranted;
+  /// **'Runs locally, on your hardware'**
+  String get onboardingBeat2Title;
 
-  /// No description provided for @onboardingMicPermissionDenied.
+  /// No description provided for @onboardingBeat2Caption.
   ///
   /// In en, this message translates to:
-  /// **'Microphone access denied'**
-  String get onboardingMicPermissionDenied;
+  /// **'Transcription happens on your device — no internet needed.'**
+  String get onboardingBeat2Caption;
 
-  /// No description provided for @onboardingMicPermissionPending.
+  /// No description provided for @onboardingBeat3Title.
   ///
   /// In en, this message translates to:
-  /// **'Tap below to enable your microphone'**
-  String get onboardingMicPermissionPending;
+  /// **'Everywhere you type'**
+  String get onboardingBeat3Title;
 
-  /// No description provided for @onboardingMicRequestAccess.
+  /// No description provided for @onboardingBeat3Caption.
   ///
   /// In en, this message translates to:
-  /// **'Continue'**
-  String get onboardingMicRequestAccess;
+  /// **'Browser, mail, editor — WhisPaste works system-wide.'**
+  String get onboardingBeat3Caption;
 
-  /// No description provided for @onboardingMicTestRecording.
+  /// No description provided for @onboardingMicChipReady.
   ///
   /// In en, this message translates to:
-  /// **'Say something, we\'re checking the level'**
-  String get onboardingMicTestRecording;
+  /// **'Microphone ready'**
+  String get onboardingMicChipReady;
 
-  /// No description provided for @onboardingMicTestDone.
+  /// No description provided for @onboardingMicChipPending.
   ///
   /// In en, this message translates to:
-  /// **'Sounds great, your mic is working perfectly!'**
-  String get onboardingMicTestDone;
+  /// **'Microphone access pending'**
+  String get onboardingMicChipPending;
 
-  /// No description provided for @onboardingMicSilent.
+  /// No description provided for @onboardingMicChipAction.
   ///
   /// In en, this message translates to:
-  /// **'We can\'t hear anything. Pick the right microphone below or speak louder and try again.'**
-  String get onboardingMicSilent;
-
-  /// No description provided for @onboardingMicRetry.
-  ///
-  /// In en, this message translates to:
-  /// **'Try again'**
-  String get onboardingMicRetry;
-
-  /// No description provided for @onboardingMicDeviceLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Microphone'**
-  String get onboardingMicDeviceLabel;
-
-  /// No description provided for @onboardingMicDeviceSystemDefault.
-  ///
-  /// In en, this message translates to:
-  /// **'System default'**
-  String get onboardingMicDeviceSystemDefault;
-
-  /// No description provided for @onboardingMicDeniedInstructions.
-  ///
-  /// In en, this message translates to:
-  /// **'Open your system settings to grant microphone access'**
-  String get onboardingMicDeniedInstructions;
+  /// **'Microphone: action needed'**
+  String get onboardingMicChipAction;
 
   /// No description provided for @onboardingModelTitle.
   ///

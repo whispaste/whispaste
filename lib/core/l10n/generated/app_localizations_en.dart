@@ -2387,50 +2387,34 @@ class L10nEn extends L10n {
   String get onboardingThemeSystem => 'System';
 
   @override
-  String get onboardingMicTitle => 'Let\'s set up your microphone';
+  String get onboardingBeat1Title => 'Press the hotkey, speak, done';
 
   @override
-  String get onboardingMicSubtitle =>
-      'We need mic access to record. Your audio stays on your device.';
+  String get onboardingBeat1Caption =>
+      'Recording starts instantly — your words land as text right at your cursor.';
 
   @override
-  String get onboardingMicPermissionGranted =>
-      'You\'re all set, microphone ready!';
+  String get onboardingBeat2Title => 'Runs locally, on your hardware';
 
   @override
-  String get onboardingMicPermissionDenied => 'Microphone access denied';
+  String get onboardingBeat2Caption =>
+      'Transcription happens on your device — no internet needed.';
 
   @override
-  String get onboardingMicPermissionPending =>
-      'Tap below to enable your microphone';
+  String get onboardingBeat3Title => 'Everywhere you type';
 
   @override
-  String get onboardingMicRequestAccess => 'Continue';
+  String get onboardingBeat3Caption =>
+      'Browser, mail, editor — WhisPaste works system-wide.';
 
   @override
-  String get onboardingMicTestRecording =>
-      'Say something, we\'re checking the level';
+  String get onboardingMicChipReady => 'Microphone ready';
 
   @override
-  String get onboardingMicTestDone =>
-      'Sounds great, your mic is working perfectly!';
+  String get onboardingMicChipPending => 'Microphone access pending';
 
   @override
-  String get onboardingMicSilent =>
-      'We can\'t hear anything. Pick the right microphone below or speak louder and try again.';
-
-  @override
-  String get onboardingMicRetry => 'Try again';
-
-  @override
-  String get onboardingMicDeviceLabel => 'Microphone';
-
-  @override
-  String get onboardingMicDeviceSystemDefault => 'System default';
-
-  @override
-  String get onboardingMicDeniedInstructions =>
-      'Open your system settings to grant microphone access';
+  String get onboardingMicChipAction => 'Microphone: action needed';
 
   @override
   String get onboardingModelTitle => 'Set up speech recognition';

@@ -2346,47 +2346,34 @@ class L10nHe extends L10n {
   String get onboardingThemeSystem => 'מערכת';
 
   @override
-  String get onboardingMicTitle => 'בוא נגדיר את המיקרופון';
+  String get onboardingBeat1Title => 'לחץ על הקיצור, דבר, סיימת';
 
   @override
-  String get onboardingMicSubtitle =>
-      'אנחנו צריכים גישה למיקרופון כדי להקליט. האודיו נשאר במכשיר שלך.';
+  String get onboardingBeat1Caption =>
+      'ההקלטה מתחילה מיד – המילים שלך הופכות לטקסט ישירות במיקום הסמן.';
 
   @override
-  String get onboardingMicPermissionGranted => 'הכל מוכן, המיקרופון פעיל!';
+  String get onboardingBeat2Title => 'פועל מקומית, על החומרה שלך';
 
   @override
-  String get onboardingMicPermissionDenied => 'גישת מיקרופון נדחתה';
+  String get onboardingBeat2Caption =>
+      'התמלול מתבצע במכשיר שלך – בלי צורך באינטרנט.';
 
   @override
-  String get onboardingMicPermissionPending => 'לחץ למטה כדי לאפשר גישה';
+  String get onboardingBeat3Title => 'בכל מקום שבו אתה מקליד';
 
   @override
-  String get onboardingMicRequestAccess => 'המשך';
+  String get onboardingBeat3Caption =>
+      'דפדפן, אימייל, עורך – WhisPaste עובד בכל המערכת.';
 
   @override
-  String get onboardingMicTestRecording => 'אמור משהו, אנחנו בודקים את הרמה';
+  String get onboardingMicChipReady => 'המיקרופון מוכן';
 
   @override
-  String get onboardingMicTestDone =>
-      'נשמע מצוין, המיקרופון עובד בצורה מושלמת!';
+  String get onboardingMicChipPending => 'גישה למיקרופון ממתינה';
 
   @override
-  String get onboardingMicSilent =>
-      'אנחנו לא שומעים כלום. בחר את המיקרופון הנכון למטה או דבר חזק יותר ונסה שוב.';
-
-  @override
-  String get onboardingMicRetry => 'נסה שוב';
-
-  @override
-  String get onboardingMicDeviceLabel => 'מיקרופון';
-
-  @override
-  String get onboardingMicDeviceSystemDefault => 'ברירת מחדל של המערכת';
-
-  @override
-  String get onboardingMicDeniedInstructions =>
-      'פתח את הגדרות המערכת כדי לאפשר גישה למיקרופון';
+  String get onboardingMicChipAction => 'מיקרופון: נדרשת פעולה';
 
   @override
   String get onboardingModelTitle => 'הגדר זיהוי דיבור';
