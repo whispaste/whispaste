@@ -29,6 +29,7 @@ import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/platform/desktop_window_geometry.dart'
     show kOnboardingWindowSize;
 import 'package:whispaste/features/onboarding/onboarding_overlay.dart';
+import 'package:whispaste/features/onboarding/steps/appearance_section.dart';
 import 'package:whispaste/features/onboarding/steps/auto_paste_step.dart';
 import 'package:whispaste/services/paste/paste_capability_notifier.dart';
 import 'package:whispaste/services/permissions/mic_permission_notifier.dart';
@@ -523,6 +524,39 @@ void main() {
           reason:
               'At the fixed onboarding window size the first page must be '
               'fully visible without scrolling.',
+        );
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
+    testWidgets('page 3 (engine cards, hotkey block, theme choice, duration '
+        'note) fits kOnboardingWindowSize without scrolling', (tester) async {
+      tester.view.physicalSize = kOnboardingWindowSize;
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        await _pumpOverlay(tester, size: kOnboardingWindowSize);
+        await _tapNext(tester); // → page 2
+        await _tapNext(tester); // → page 3: Model, Hotkey & Appearance
+
+        // All four blocks must be present …
+        expect(find.byKey(kAppearanceThemeSelectorKey), findsOneWidget);
+        expect(find.byKey(kAppearanceMaxDurationHintKey), findsOneWidget);
+
+        // … and visible without scrolling at the fixed window size.
+        expect(tester.takeException(), isNull);
+        final scrollable = tester.state<ScrollableState>(
+          find.byType(Scrollable).first,
+        );
+        expect(
+          scrollable.position.maxScrollExtent,
+          0,
+          reason:
+              'At the fixed onboarding window size the Model & Hotkey page '
+              '(all four blocks) must be fully visible without scrolling.',
         );
       } finally {
         debugDefaultTargetPlatformOverride = null;

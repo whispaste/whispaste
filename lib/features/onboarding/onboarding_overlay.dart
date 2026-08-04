@@ -18,6 +18,7 @@ import '../../services/permissions/mic_permission_notifier.dart';
 import '../../services/telemetry_service.dart';
 import '../../widgets/wp_accent_button.dart';
 import 'onboarding_flow_migration.dart';
+import 'steps/appearance_section.dart';
 import 'steps/auto_paste_step.dart';
 import 'steps/autostart_toggle.dart';
 import 'steps/welcome_step.dart';
@@ -335,8 +336,10 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
         mainAxisSize: MainAxisSize.min,
         children: [
           ModelStep(),
-          SizedBox(height: WpSpacing.xxl),
+          SizedBox(height: WpSpacing.sm),
           TriggerStep(),
+          SizedBox(height: WpSpacing.sm),
+          AppearanceSection(),
         ],
       ),
       OnboardingStepId.autostartAndAutoPaste => Column(

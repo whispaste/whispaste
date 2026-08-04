@@ -5,9 +5,17 @@
 ///   1. Both default to ON (switches reflect `shareUsageStats`/
 ///      `errorReporting == true`).
 ///   2. Toggling either switch persists its own consent value independently.
+///   3. The wording follows CONTEXT.md §6.5/§7 — never an absolute "no
+///      tracking" claim; instead the correct promise: audio & text stay
+///      local, the statistics are anonymous, self-hosted, and can be
+///      switched off.
+///   4. Layout: the step fits the fixed onboarding window (1100×720,
+///      [kOnboardingWindowSize]) without scrolling, and stays reachable via
+///      the shell's scroll fallback at enlarged system text.
 ///
 /// Navigation (Back/Next) is owned by the onboarding shell and covered in
-/// `onboarding_flow_test.dart` — this step renders content only.
+/// `onboarding_flow_test.dart` — this step renders content only; the layout
+/// tests below mount the real shell to measure the step in its true frame.
 library;
 
 import 'package:flutter/material.dart';
@@ -16,8 +24,12 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
+import 'package:whispaste/core/platform/desktop_window_geometry.dart'
+    show kOnboardingWindowSize;
+import 'package:whispaste/features/onboarding/onboarding_overlay.dart';
 import 'package:whispaste/features/onboarding/steps/privacy_step.dart'
     show PrivacyStep, kPrivacyStepCrashToggleKey;
+import 'package:whispaste/services/permissions/mic_permission_notifier.dart';
 
 import '../../fixtures/test_helpers.dart';
 
@@ -35,6 +47,52 @@ class _FakeSettingsNotifier extends SettingsNotifier {
     _settings = updater(state.value ?? _settings);
     state = AsyncData(_settings);
   }
+}
+
+/// Inert platform truth — the shell's page-1 mic chip checks on mount and
+/// leaving page 1 may request; neither call may reach the real audio plugin.
+class _FakeMicPermissionChecker implements MicPermissionChecker {
+  @override
+  Future<bool> check({required bool request}) async => false;
+}
+
+/// Mounts the real onboarding shell and navigates to page 2 (this step) so
+/// layout is measured in the step's true frame: shell chrome, content
+/// padding, and the shell-owned scroll fallback all included.
+Future<void> _pumpShellOnPrivacyPage(
+  WidgetTester tester, {
+  required Size size,
+  TextScaler textScaler = TextScaler.noScaling,
+}) async {
+  tester.view.physicalSize = size;
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+
+  await tester.pumpWidget(
+    makeTestable(
+      MediaQuery(
+        data: MediaQueryData(size: size, textScaler: textScaler),
+        child: const OnboardingOverlay(),
+      ),
+      size: size,
+      locale: const Locale('en'),
+      overrides: [
+        settingsProvider.overrideWith(_FakeSettingsNotifier.new),
+        micPermissionCheckerProvider.overrideWithValue(
+          _FakeMicPermissionChecker(),
+        ),
+      ],
+    ),
+  );
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(kOnboardingNextButtonKey));
+  await tester.pumpAndSettle();
+  expect(
+    find.byType(PrivacyStep),
+    findsOneWidget,
+    reason: 'Page 2 of the shell must be the privacy step.',
+  );
 }
 
 Future<_FakeSettingsNotifier> _pump(WidgetTester tester) async {
@@ -116,4 +174,99 @@ void main() {
       expect(tester.widget<Switch>(crashToggle).value, isFalse);
     },
   );
+
+  // ── Wording — CONTEXT.md §6.5/§7 ──────────────────────────────────────────
+  //
+  // Never an absolute "no tracking" claim; instead the correct promise:
+  // audio & text stay local; anonymous, self-hosted statistics — can be
+  // switched off. Substring checks against the l10n getters, not full-text
+  // comparisons, so minor copy tweaks don't break the contract.
+
+  group('wording follows CONTEXT.md §6.5/§7', () {
+    testWidgets('the rendered hint is the l10n privacy hint', (tester) async {
+      await _pump(tester);
+      expect(find.text(l10n.onboardingPrivacyHint), findsOneWidget);
+    });
+
+    test('EN hint promises local audio/text and self-hosted statistics', () {
+      final hint = l10n.onboardingPrivacyHint.toLowerCase();
+      expect(hint, contains('local'));
+      expect(hint, contains('self-hosted'));
+      expect(hint, contains('anonymous'));
+      expect(
+        hint,
+        isNot(contains('no tracking')),
+        reason: 'CONTEXT.md §7 forbids the absolute "no tracking" claim.',
+      );
+    });
+
+    test('DE hint promises local audio/text and self-hosted statistics '
+        '(reference wording)', () async {
+      final de = await L10n.delegate.load(const Locale('de'));
+      final hint = de.onboardingPrivacyHint.toLowerCase();
+      expect(hint, contains('lokal'));
+      expect(hint, contains('selbst gehostet'));
+      expect(hint, contains('anonym'));
+      expect(
+        hint,
+        isNot(contains('kein tracking')),
+        reason: 'CONTEXT.md §7 forbids the absolute "no tracking" claim.',
+      );
+    });
+  });
+
+  // ── Layout — fixed onboarding window & enlarged system text ──────────────
+
+  group('layout in the onboarding shell', () {
+    testWidgets(
+      'fits the fixed onboarding window size (1100×720) without scrolling',
+      (tester) async {
+        await _pumpShellOnPrivacyPage(tester, size: kOnboardingWindowSize);
+
+        expect(tester.takeException(), isNull);
+        final scrollable = tester.state<ScrollableState>(
+          find.byType(Scrollable).first,
+        );
+        expect(
+          scrollable.position.maxScrollExtent,
+          0,
+          reason:
+              'At the fixed onboarding window size the privacy step must be '
+              'fully visible without scrolling.',
+        );
+      },
+    );
+
+    testWidgets(
+      'at enlarged system text (textScaler 1.5) both consent rows stay '
+      'reachable and operable — the shell scroll fallback may kick in, but '
+      'nothing is clipped away',
+      (tester) async {
+        await _pumpShellOnPrivacyPage(
+          tester,
+          size: kOnboardingWindowSize,
+          textScaler: const TextScaler.linear(1.5),
+        );
+
+        expect(
+          tester.takeException(),
+          isNull,
+          reason: 'Enlarged text must scroll, never overflow-clip.',
+        );
+        expect(find.byType(Switch), findsNWidgets(2));
+
+        // The second consent sits lowest — prove it can be brought into
+        // view and actually operated, not just that it exists in the tree.
+        final crashToggle = find.descendant(
+          of: find.byKey(kPrivacyStepCrashToggleKey),
+          matching: find.byType(Switch),
+        );
+        await tester.ensureVisible(crashToggle);
+        await tester.pumpAndSettle();
+        await tester.tap(crashToggle);
+        await tester.pumpAndSettle();
+        expect(tester.widget<Switch>(crashToggle).value, isFalse);
+      },
+    );
+  });
 }

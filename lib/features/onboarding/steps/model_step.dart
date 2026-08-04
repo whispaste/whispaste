@@ -244,6 +244,11 @@ class _ModelStepState extends ConsumerState<ModelStep> {
       null => '',
     };
 
+    // Deliberately denser than pages 1/2: the merged Model & Hotkey &
+    // Appearance page carries four blocks, so this block's header shrinks to
+    // a compact heading + small subtitle and the vertical rhythm tightens —
+    // purely presentational, so the whole page fits the fixed 1100×720
+    // onboarding window without scrolling.
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -252,22 +257,22 @@ class _ModelStepState extends ConsumerState<ModelStep> {
           l10n.onboardingModelTitle,
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: WpTypography.headline,
+            fontSize: WpTypography.subheading,
             fontWeight: FontWeight.bold,
             color: textPrimary,
           ),
         ),
-        const SizedBox(height: WpSpacing.xs),
+        const SizedBox(height: WpSpacing.xxs),
         Text(
           l10n.onboardingModelSubtitle,
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: WpTypography.subheading,
+            fontSize: WpTypography.small,
             color: textSecondary,
-            height: 1.4,
+            height: 1.3,
           ),
         ),
-        const SizedBox(height: WpSpacing.xl),
+        const SizedBox(height: WpSpacing.xs),
 
         // GPU CPU fallback notice — purely informational, never blocks Next.
         //
@@ -283,7 +288,7 @@ class _ModelStepState extends ConsumerState<ModelStep> {
             message: l10n.onboardingModelGpuCpuFallback,
             isDark: isDark,
           ),
-          const SizedBox(height: WpSpacing.md),
+          const SizedBox(height: WpSpacing.xxs),
         ],
 
         if (!_hwDetected)
@@ -343,7 +348,7 @@ class _ModelStepState extends ConsumerState<ModelStep> {
               ],
             ),
           ),
-          const SizedBox(height: WpSpacing.md),
+          const SizedBox(height: WpSpacing.xs),
 
           _ModelStepDownloadStatus(
             phase: selectedPhase,
@@ -361,7 +366,7 @@ class _ModelStepState extends ConsumerState<ModelStep> {
           ),
         ],
 
-        const SizedBox(height: WpSpacing.sm),
+        const SizedBox(height: WpSpacing.xxs),
         // "You can change this later in Settings" also covers the cloud
         // path: the former "use cloud instead" escape link was a pure
         // navigation affordance and is gone with the shell-owned Next —
@@ -467,6 +472,9 @@ class _ModelStepDownloadStatus extends StatelessWidget {
         label: '${l10n.qualityTierDownloadAndContinue} ($sizeLabel)',
         gradient: accentGradient,
         onPressed: onStartDownload,
+        // Dense-page geometry: shorter CTA so the merged page fits the
+        // fixed onboarding window without scrolling.
+        verticalPadding: WpSpacing.xs,
       ),
     );
   }
@@ -554,7 +562,7 @@ class _EngineCardState extends State<_EngineCard> {
             child: AnimatedContainer(
               duration: WpMotion.durationFor(context, WpMotion.fast),
               curve: WpMotion.defaultCurve,
-              padding: const EdgeInsets.all(WpSpacing.md),
+              padding: const EdgeInsets.all(WpSpacing.sm),
               decoration: BoxDecoration(
                 color: widget.isSelected
                     ? accent.withValues(alpha: 0.08)
@@ -570,13 +578,63 @@ class _EngineCardState extends State<_EngineCard> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Engine icon left; a quiet check fades in on the right when
-                  // this card is the current selection — the accent border
-                  // alone can blur together with the "recommended" badge when
-                  // both cards sit side by side.
+                  // Engine icon, name, "recommended" badge and selection
+                  // check share one line (dense-page geometry); the quiet
+                  // check fades in on the right when this card is the current
+                  // selection — the accent border alone can blur together
+                  // with the badge when both cards sit side by side.
                   Row(
                     children: [
-                      Icon(widget.icon, size: 22, color: accent),
+                      Icon(widget.icon, size: 18, color: accent),
+                      const SizedBox(width: WpSpacing.xs),
+                      Flexible(
+                        child: Text(
+                          widget.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: WpTypography.subheading,
+                            fontWeight: FontWeight.w600,
+                            color: textPrimary,
+                          ),
+                        ),
+                      ),
+                      if (widget.isRecommended && !widget.isDisabled) ...[
+                        const SizedBox(width: WpSpacing.xs),
+                        // Flexible + scale-down so a long localized badge
+                        // (or a wide test font) shrinks instead of
+                        // overflowing the shared line.
+                        Flexible(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: WpSpacing.xs,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: accent.withValues(alpha: 0.15),
+                                borderRadius: WpRadius.borderFull,
+                              ),
+                              child: Text(
+                                L10n.of(context).onboardingModelRecommended,
+                                // Single line always — under tight width the
+                                // enclosing FittedBox scales the pill down
+                                // instead of the text wrapping (wrapping
+                                // would inflate the IntrinsicHeight-coupled
+                                // card pair).
+                                maxLines: 1,
+                                softWrap: false,
+                                style: TextStyle(
+                                  fontSize: WpTypography.caption,
+                                  fontWeight: FontWeight.w600,
+                                  color: accent,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                       const Spacer(),
                       AnimatedOpacity(
                         opacity: widget.isSelected ? 1.0 : 0.0,
@@ -590,43 +648,13 @@ class _EngineCardState extends State<_EngineCard> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: WpSpacing.sm),
-                  Text(
-                    widget.label,
-                    style: TextStyle(
-                      fontSize: WpTypography.subheading,
-                      fontWeight: FontWeight.w600,
-                      color: textPrimary,
-                    ),
-                  ),
-                  if (widget.isRecommended && !widget.isDisabled) ...[
-                    const SizedBox(height: WpSpacing.xs),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: WpSpacing.xs,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: accent.withValues(alpha: 0.15),
-                        borderRadius: WpRadius.borderFull,
-                      ),
-                      child: Text(
-                        L10n.of(context).onboardingModelRecommended,
-                        style: TextStyle(
-                          fontSize: WpTypography.caption,
-                          fontWeight: FontWeight.w600,
-                          color: accent,
-                        ),
-                      ),
-                    ),
-                  ],
                   const SizedBox(height: WpSpacing.xs),
                   Text(
                     widget.description,
                     style: TextStyle(
                       fontSize: WpTypography.small,
                       color: textSecondary,
-                      height: 1.4,
+                      height: 1.3,
                     ),
                   ),
                   if (widget.isDisabled && widget.disabledReason != null) ...[
@@ -651,7 +679,7 @@ class _EngineCardState extends State<_EngineCard> {
                   // Pin the size label to the bottom edge so both cards'
                   // download sizes align and compare at a glance, regardless
                   // of how many lines each description wraps to.
-                  const SizedBox(height: WpSpacing.sm),
+                  const SizedBox(height: WpSpacing.xs),
                   const Spacer(),
                   Text(
                     widget.sizeLabel,
@@ -829,7 +857,10 @@ class _GpuCpuFallbackNotice extends StatelessWidget {
     final infoColor = TierPerformancePresentation.color(isDark: isDark);
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(WpSpacing.sm),
+      padding: const EdgeInsets.symmetric(
+        horizontal: WpSpacing.sm,
+        vertical: WpSpacing.xxs,
+      ),
       decoration: BoxDecoration(
         color: infoColor.withValues(alpha: 0.08),
         borderRadius: WpRadius.borderMd,

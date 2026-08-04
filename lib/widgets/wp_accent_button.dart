@@ -14,11 +14,17 @@ class WpAccentButton extends StatefulWidget {
     required this.label,
     required this.gradient,
     required this.onPressed,
+    this.verticalPadding = WpSpacing.md,
   });
 
   final String label;
   final LinearGradient gradient;
   final VoidCallback? onPressed;
+
+  /// Vertical inner padding. Defaults to the regular CTA height; dense
+  /// surfaces (the merged Model & Hotkey onboarding page) pass a smaller
+  /// token to fit the fixed window without scrolling.
+  final double verticalPadding;
 
   @override
   State<WpAccentButton> createState() => _WpAccentButtonState();
@@ -67,7 +73,9 @@ class _WpAccentButtonState extends State<WpAccentButton> {
                   highlightColor: Colors.transparent,
                   onHover: (hovering) => setState(() => _hovered = hovering),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: WpSpacing.md),
+                    padding: EdgeInsets.symmetric(
+                      vertical: widget.verticalPadding,
+                    ),
                     alignment: Alignment.center,
                     child: Text(
                       widget.label,

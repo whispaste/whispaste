@@ -2322,7 +2322,7 @@ class L10nHe extends L10n {
 
   @override
   String get onboardingPrivacyHint =>
-      'WhisPaste שולח נתוני שימוש אנונימיים לשרת באיחוד האירופי, בהתאם ל-GDPR וללא ההקלטות, הטקסט או הנתונים האישיים שלך. ניתן לשנות בכל עת בהגדרות ← פרטיות.';
+      'האודיו והטקסט נשארים מקומיים. WhisPaste שולח רק נתוני שימוש אנונימיים לשרת באירוח עצמי באיחוד האירופי — בהתאם ל-GDPR, ללא ההקלטות, הטקסט או הנתונים האישיים שלך. ניתן לכבות בכל עת בהגדרות ← פרטיות.';
 
   @override
   String get onboardingPrivacyToggle => 'שיתוף נתוני שימוש אנונימיים';
@@ -2351,6 +2351,17 @@ class L10nHe extends L10n {
 
   @override
   String get onboardingThemeSystem => 'מערכת';
+
+  @override
+  String get onboardingAppearanceTitle => 'מראה';
+
+  @override
+  String get onboardingAppearanceDescription => 'בהיר, כהה או לפי המערכת.';
+
+  @override
+  String onboardingMaxRecordDurationHint(int seconds, String section) {
+    return 'הקלטות נעצרות אוטומטית אחרי $seconds שניות — ניתן לשנות זאת בכל עת בהגדרות ← $section.';
+  }
 
   @override
   String get onboardingBeat1Title => 'לחץ על הקיצור, דבר, סיימת';

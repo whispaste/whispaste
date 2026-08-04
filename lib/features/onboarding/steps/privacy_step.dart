@@ -16,9 +16,11 @@ const kPrivacyStepCrashToggleKey = Key('privacyStepCrashReportingToggle');
 
 /// Onboarding Step 2 — informed telemetry opt-out.
 ///
-/// Tells the user, up front, that WhisPaste sends anonymous, GDPR-compliant
-/// usage statistics to an EU server, and separately, that it can send
-/// anonymous crash reports — and gives them both toggles right here. Both
+/// Tells the user, up front, that audio and text stay local and that
+/// WhisPaste sends anonymous, GDPR-compliant usage statistics to a
+/// self-hosted EU server (CONTEXT.md §6.5/§7: never an absolute "no
+/// tracking" claim), and separately, that it can send anonymous crash
+/// reports — and gives them both toggles right here. Both
 /// stay **on by default** (informed opt-out; [AppSettings] defaults
 /// `shareUsageStats = true` and `errorReporting = true`); the user can switch
 /// either off without leaving the flow. Wording and toggles mirror

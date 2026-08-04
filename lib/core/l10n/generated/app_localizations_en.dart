@@ -2364,7 +2364,7 @@ class L10nEn extends L10n {
 
   @override
   String get onboardingPrivacyHint =>
-      'WhisPaste sends anonymous usage statistics to an EU server, GDPR-compliant and without your recordings, text, or personal data. Change it anytime in Settings → Privacy.';
+      'Audio and text stay local. WhisPaste only sends anonymous usage statistics to a self-hosted server in the EU — GDPR-compliant, without your recordings, text, or personal data. Switch it off anytime in Settings → Privacy.';
 
   @override
   String get onboardingPrivacyToggle => 'Share anonymous usage statistics';
@@ -2392,6 +2392,18 @@ class L10nEn extends L10n {
 
   @override
   String get onboardingThemeSystem => 'System';
+
+  @override
+  String get onboardingAppearanceTitle => 'Appearance';
+
+  @override
+  String get onboardingAppearanceDescription =>
+      'Light, dark, or match your system.';
+
+  @override
+  String onboardingMaxRecordDurationHint(int seconds, String section) {
+    return 'Recordings stop automatically after $seconds seconds — adjust this anytime under Settings → $section.';
+  }
 
   @override
   String get onboardingBeat1Title => 'Press the hotkey, speak, done';

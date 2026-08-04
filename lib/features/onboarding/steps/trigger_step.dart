@@ -68,6 +68,12 @@ class TriggerStep extends ConsumerWidget {
     final hotkeyDisplay = settings.hotkey.hotkeyKeyDisplay;
     final hotkeyModifiers = settings.hotkeyModifiers;
 
+    // Deliberately denser than pages 1/2: this page bundles two former
+    // steps plus the appearance block, so the per-block headers shrink to
+    // compact leading labels (heading-size title, small subtitle) and the
+    // hotkey presentation becomes a single settings-style row — same
+    // elements, same keys, same handlers, just tighter geometry so the whole
+    // page fits the fixed 1100×720 onboarding window without scrolling.
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -75,22 +81,22 @@ class TriggerStep extends ConsumerWidget {
           l10n.onboardingTriggerTitle,
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: WpTypography.headline,
+            fontSize: WpTypography.subheading,
             fontWeight: FontWeight.bold,
             color: textPrimary,
           ),
         ),
-        const SizedBox(height: WpSpacing.sm),
+        const SizedBox(height: WpSpacing.xxs),
         Text(
           l10n.onboardingTriggerSubtitle,
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: WpTypography.subheading,
+            fontSize: WpTypography.small,
             color: textSecondary,
-            height: 1.4,
+            height: 1.3,
           ),
         ),
-        const SizedBox(height: WpSpacing.xxl),
+        const SizedBox(height: WpSpacing.xs),
 
         // Confirmed conflict — resolve it here, before the test recording
         // exercises this hotkey. Non-blocking for Next (see ReadyStep's
@@ -124,9 +130,10 @@ class TriggerStep extends ConsumerWidget {
           const SizedBox(height: WpSpacing.lg),
         ],
 
-        // Hotkey hero card — the step's focal element. The hotkey is what the
-        // user will press dozens of times a day, so it gets a centered,
-        // generously-spaced presentation instead of a settings row.
+        // Hotkey card — settings-style row (Conductor pattern): label on the
+        // leading side, the key caps + change button trailing. The key-cap
+        // rendering of HotkeyDisplay keeps the hotkey visually prominent
+        // without the tall centered hero treatment.
         Container(
           width: double.infinity,
           decoration: BoxDecoration(
@@ -136,28 +143,35 @@ class TriggerStep extends ConsumerWidget {
           ),
           padding: const EdgeInsets.symmetric(
             horizontal: WpSpacing.md,
-            vertical: WpSpacing.lg,
+            vertical: WpSpacing.xxs,
           ),
-          child: Column(
+          child: Row(
             children: [
-              Text(
-                l10n.onboardingTriggerCurrentHotkey,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: WpTypography.small,
-                  fontWeight: FontWeight.w600,
-                  color: textSecondary,
+              Expanded(
+                child: Text(
+                  l10n.onboardingTriggerCurrentHotkey,
+                  style: TextStyle(
+                    fontSize: WpTypography.small,
+                    fontWeight: FontWeight.w600,
+                    color: textSecondary,
+                  ),
                 ),
               ),
-              const SizedBox(height: WpSpacing.md),
+              const SizedBox(width: WpSpacing.md),
               HotkeyDisplay(
                 hotkeyKey: hotkeyKey,
                 hotkeyModifiers: hotkeyModifiers,
                 hotkeyKeyDisplay: hotkeyDisplay,
               ),
-              const SizedBox(height: WpSpacing.md),
+              const SizedBox(width: WpSpacing.md),
               OutlinedButton(
                 key: kTriggerStepChangeHotkeyKey,
+                style: OutlinedButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  minimumSize: const Size(0, 32),
+                  padding: const EdgeInsets.symmetric(horizontal: WpSpacing.sm),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
                 onPressed: () async {
                   final result = await HotkeyRecorderDialog.show(
                     context,
@@ -182,7 +196,7 @@ class TriggerStep extends ConsumerWidget {
             ],
           ),
         ),
-        const SizedBox(height: WpSpacing.md),
+        const SizedBox(height: WpSpacing.xs),
 
         // Mode card — hold vs. toggle. The switch stays the single control;
         // the row's subtitle re-words itself to describe the currently
@@ -250,14 +264,54 @@ class _PushToTalkRow extends ConsumerWidget {
         ? l10n.onboardingTriggerModeHoldHint
         : l10n.onboardingTriggerModeToggleHint;
 
-    return SettingRow(
-      icon: LucideIcons.hand,
+    // Same content and semantics as the SettingRow this used to be, in a
+    // denser custom row (no min-touch-target box, no extra vertical padding)
+    // so the merged page fits the fixed onboarding window without scrolling.
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+
+    return Semantics(
       label: l10n.settingsHoldToRecord,
-      subtitle: modeHint,
-      semanticToggledValue: supportsKeyUp ? settings.pushToTalk : null,
-      trailing: supportsKeyUp
-          ? toggle
-          : Tooltip(message: l10n.pushToTalkUnavailableTooltip, child: toggle),
+      hint: modeHint,
+      toggled: supportsKeyUp ? settings.pushToTalk : null,
+      child: Row(
+        children: [
+          Icon(
+            LucideIcons.hand,
+            size: WpIconSize.sm,
+            color: Theme.of(context).colorScheme.secondary,
+          ),
+          const SizedBox(width: WpSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  l10n.settingsHoldToRecord,
+                  style: Theme.of(context).textTheme.bodyLarge,
+                ),
+                Padding(
+                  // 2px title-subtitle gap: tighter than WpSpacing.xxs so
+                  // the pair reads as one unit (mirrors SettingRow).
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    modeHint,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: textMuted),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: WpSpacing.sm),
+          if (supportsKeyUp)
+            toggle
+          else
+            Tooltip(message: l10n.pushToTalkUnavailableTooltip, child: toggle),
+        ],
+      ),
     );
   }
 }

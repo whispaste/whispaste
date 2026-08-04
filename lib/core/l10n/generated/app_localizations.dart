@@ -4248,7 +4248,7 @@ abstract class L10n {
   /// No description provided for @onboardingPrivacyHint.
   ///
   /// In en, this message translates to:
-  /// **'WhisPaste sends anonymous usage statistics to an EU server, GDPR-compliant and without your recordings, text, or personal data. Change it anytime in Settings → Privacy.'**
+  /// **'Audio and text stay local. WhisPaste only sends anonymous usage statistics to a self-hosted server in the EU — GDPR-compliant, without your recordings, text, or personal data. Switch it off anytime in Settings → Privacy.'**
   String get onboardingPrivacyHint;
 
   /// No description provided for @onboardingPrivacyToggle.
@@ -4298,6 +4298,24 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'System'**
   String get onboardingThemeSystem;
+
+  /// No description provided for @onboardingAppearanceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Appearance'**
+  String get onboardingAppearanceTitle;
+
+  /// No description provided for @onboardingAppearanceDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Light, dark, or match your system.'**
+  String get onboardingAppearanceDescription;
+
+  /// No description provided for @onboardingMaxRecordDurationHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Recordings stop automatically after {seconds} seconds — adjust this anytime under Settings → {section}.'**
+  String onboardingMaxRecordDurationHint(int seconds, String section);
 
   /// No description provided for @onboardingBeat1Title.
   ///
