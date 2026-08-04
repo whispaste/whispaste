@@ -859,7 +859,7 @@ class L10nEn extends L10n {
 
   @override
   String get settingsPortabilitySubtitle =>
-      'Move custom vocabulary, voice shortcuts, and hotkey settings between devices, no account needed.';
+      'Move your settings between devices, no account needed.';
 
   @override
   String get settingsPortabilityExportAction => 'Export';
@@ -882,7 +882,7 @@ class L10nEn extends L10n {
 
   @override
   String settingsPortabilityImportConfirmMessage(String path) {
-    return 'This replaces your current custom vocabulary, voice shortcuts, hotkey configuration, and snippets (if included in the file) with the contents of $path.';
+    return 'This replaces your current settings — including interface, speech-recognition configuration, behavior, text replacements, and snippets — with the contents of $path. Your API keys are left untouched.';
   }
 
   @override

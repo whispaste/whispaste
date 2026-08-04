@@ -869,7 +869,7 @@ class L10nDe extends L10n {
 
   @override
   String get settingsPortabilitySubtitle =>
-      'Eigenes Vokabular, Sprachkürzel und Hotkey-Einstellungen zwischen Geräten übertragen, ohne Konto.';
+      'Deine Einstellungen zwischen Geräten übertragen, ohne Konto.';
 
   @override
   String get settingsPortabilityExportAction => 'Exportieren';
@@ -893,7 +893,7 @@ class L10nDe extends L10n {
 
   @override
   String settingsPortabilityImportConfirmMessage(String path) {
-    return 'Dies ersetzt dein aktuelles Vokabular, deine Sprachkürzel, deine Hotkey-Konfiguration und – falls in der Datei enthalten – deine Snippets durch den Inhalt von $path.';
+    return 'Dies ersetzt deine aktuellen Einstellungen – Oberfläche, Spracherkennungs-Konfiguration, Verhalten, Textersetzungen und Snippets eingeschlossen – durch den Inhalt von $path. Deine API-Schlüssel bleiben unangetastet.';
   }
 
   @override

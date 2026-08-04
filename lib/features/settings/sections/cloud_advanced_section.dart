@@ -324,10 +324,13 @@ class _AutoPasteBlocklistFieldState extends State<_AutoPasteBlocklistField> {
 }
 
 // ---------------------------------------------------------------------------
-// Settings portability (dateibasierter Export/Import) — Custom Vocabulary,
-// Text Replacements, Hotkey configuration. See
-// `services/settings_portability_controller.dart` for the full contract;
-// this row only wires the two buttons + the destructive-ish import confirm.
+// Settings portability (dateibasierter Export/Import) — the full portable
+// settings state (deny-list-filtered `AppSettings.toStorageMap()`), Text
+// Replacements, and Snippets. See `services/settings_portability_service.dart`
+// for the deny list and the `mergeImportedSettings` merge seam, and
+// `services/settings_portability_controller.dart` for the path/toast
+// contract; this row only wires the two buttons + the destructive-ish import
+// confirm.
 // ---------------------------------------------------------------------------
 
 class _SettingsPortabilityRow extends StatelessWidget {
@@ -342,9 +345,22 @@ class _SettingsPortabilityRow extends StatelessWidget {
             ref.read(settingsProvider).value ?? AppSettings.defaults;
         final replacements = ref.read(replacementsProvider).value ?? const [];
         final snippets = ref.read(snippetsProvider).value ?? const [];
+        // Filtered here at the source *and* again in
+        // `SettingsPortabilityService.encode` (the file-writing boundary,
+        // which cannot assume its caller filtered) — deliberate, not
+        // accidental duplication. This matters for the machine-bound keys
+        // (window geometry, onboarding progress, microphone) that carry
+        // real values here; the two API-key entries are moot either way,
+        // since `CloudProviderSettings.toMap()` always writes them as ''
+        // regardless of filtering (secure storage is the real API-key
+        // guard — see `mergeImportedSettings`).
+        final filteredSettings = <String, String>{
+          for (final entry in settings.toStorageMap().entries)
+            if (!settingsPortabilityDenyList.contains(entry.key))
+              entry.key: entry.value,
+        };
         return SettingsExportBundle(
-          customVocabulary: settings.stt.customVocabulary,
-          hotkey: settings.hotkey,
+          settings: filteredSettings,
           replacements: replacements,
           snippets: snippets,
         );
@@ -352,12 +368,7 @@ class _SettingsPortabilityRow extends StatelessWidget {
       apply: (bundle) async {
         await ref
             .read(settingsProvider.notifier)
-            .updateSettings(
-              (s) => s.copyWithSections(
-                stt: s.stt.copyWith(customVocabulary: bundle.customVocabulary),
-                hotkey: bundle.hotkey,
-              ),
-            );
+            .updateSettings((s) => mergeImportedSettings(s, bundle.settings));
         await ref
             .read(replacementsProvider.notifier)
             .replaceAll(bundle.replacements);

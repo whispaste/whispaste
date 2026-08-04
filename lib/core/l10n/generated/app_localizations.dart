@@ -1614,7 +1614,7 @@ abstract class L10n {
   /// No description provided for @settingsPortabilitySubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Move custom vocabulary, voice shortcuts, and hotkey settings between devices, no account needed.'**
+  /// **'Move your settings between devices, no account needed.'**
   String get settingsPortabilitySubtitle;
 
   /// No description provided for @settingsPortabilityExportAction.
@@ -1650,7 +1650,7 @@ abstract class L10n {
   /// No description provided for @settingsPortabilityImportConfirmMessage.
   ///
   /// In en, this message translates to:
-  /// **'This replaces your current custom vocabulary, voice shortcuts, hotkey configuration, and snippets (if included in the file) with the contents of {path}.'**
+  /// **'This replaces your current settings — including interface, speech-recognition configuration, behavior, text replacements, and snippets — with the contents of {path}. Your API keys are left untouched.'**
   String settingsPortabilityImportConfirmMessage(String path);
 
   /// No description provided for @settingsPortabilityImportSuccess.

@@ -278,6 +278,17 @@
   "settingsFactoryResetPhaseResettingSecureStore": "Clearing credentials…",
   "settingsFactoryResetPhaseResettingSettings": "Restoring default settings…",
   "settingsFactoryResetFailedMessage": "Factory reset incomplete. Please restart the app.",
+  "settingsPortabilityLabel": "ייצוא/ייבוא הגדרות",
+  "settingsPortabilitySubtitle": "העברת ההגדרות שלך בין מכשירים, בלי חשבון.",
+  "settingsPortabilityExportAction": "ייצוא",
+  "settingsPortabilityImportAction": "ייבוא",
+  "settingsPortabilityExportSuccess": "ההגדרות יוצאו אל {path}",
+  "settingsPortabilityExportError": "הייצוא נכשל: {reason}",
+  "settingsPortabilityImportConfirmTitle": "לייבא הגדרות?",
+  "settingsPortabilityImportConfirmMessage": "פעולה זו תחליף את ההגדרות הנוכחיות שלך — כולל ממשק, תצורת זיהוי הדיבור, התנהגות, החלפות טקסט וקטעים — בתוכן של {path}. מפתחות ה-API שלך לא ייפגעו.",
+  "settingsPortabilityImportSuccess": "ההגדרות יובאו מ-{path}",
+  "settingsPortabilityImportNotFound": "לא נמצא קובץ ייצוא ב-{path}. ייצא הגדרות תחילה, או העתק לשם קובץ ייצוא.",
+  "settingsPortabilityImportError": "הייבוא נכשל: {reason}",
   "migrationComplete": "{count, plural, one{תמלול אחד הועבר מ-WhisPaste 1.x} other{{count} תמלולים הועברו מ-WhisPaste 1.x}}",
   "@migrationComplete": {
     "placeholders": {

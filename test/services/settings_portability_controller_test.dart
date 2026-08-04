@@ -11,7 +11,6 @@ import 'package:file/memory.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
-import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/replacements/replacements_page.dart';
 import 'package:whispaste/services/settings_portability_controller.dart';
@@ -48,8 +47,13 @@ class _FakeToaster {
 }
 
 const _sampleBundle = SettingsExportBundle(
-  customVocabulary: 'WhisPaste',
-  hotkey: HotkeySettings(),
+  settings: {
+    'custom_vocabulary': 'WhisPaste',
+    'hotkey_enabled': 'true',
+    'hotkey_key': 'Space',
+    'hotkey_key_display': 'Space',
+    'hotkey_modifiers': 'ctrl+alt',
+  },
   replacements: [
     Replacement(id: 'a', triggers: ['mfg'], replacement: 'MfG'),
   ],
@@ -223,7 +227,7 @@ void main() {
     });
 
     expect(applied, isNotNull);
-    expect(applied!.customVocabulary, 'WhisPaste');
+    expect(applied!.settings['custom_vocabulary'], 'WhisPaste');
     expect(applied!.replacements.single.triggers, ['mfg']);
 
     expect(toaster.calls, hasLength(1));

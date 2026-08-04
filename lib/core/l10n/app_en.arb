@@ -291,7 +291,7 @@
   "settingsFactoryResetPhaseResettingSettings": "Restoring default settings…",
   "settingsFactoryResetFailedMessage": "Factory reset incomplete. Please restart the app.",
   "settingsPortabilityLabel": "Export / Import Settings",
-  "settingsPortabilitySubtitle": "Move custom vocabulary, voice shortcuts, and hotkey settings between devices, no account needed.",
+  "settingsPortabilitySubtitle": "Move your settings between devices, no account needed.",
   "settingsPortabilityExportAction": "Export",
   "settingsPortabilityImportAction": "Import",
   "settingsPortabilityExportSuccess": "Settings exported to {path}",
@@ -307,7 +307,7 @@
     }
   },
   "settingsPortabilityImportConfirmTitle": "Import Settings?",
-  "settingsPortabilityImportConfirmMessage": "This replaces your current custom vocabulary, voice shortcuts, hotkey configuration, and snippets (if included in the file) with the contents of {path}.",
+  "settingsPortabilityImportConfirmMessage": "This replaces your current settings — including interface, speech-recognition configuration, behavior, text replacements, and snippets — with the contents of {path}. Your API keys are left untouched.",
   "@settingsPortabilityImportConfirmMessage": {
     "placeholders": {
       "path": { "type": "String" }

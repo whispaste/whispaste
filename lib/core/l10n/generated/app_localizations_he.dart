@@ -844,49 +844,49 @@ class L10nHe extends L10n {
       'Factory reset incomplete. Please restart the app.';
 
   @override
-  String get settingsPortabilityLabel => 'Export / Import Settings';
+  String get settingsPortabilityLabel => 'ייצוא/ייבוא הגדרות';
 
   @override
   String get settingsPortabilitySubtitle =>
-      'Move custom vocabulary, voice shortcuts, and hotkey settings between devices, no account needed.';
+      'העברת ההגדרות שלך בין מכשירים, בלי חשבון.';
 
   @override
-  String get settingsPortabilityExportAction => 'Export';
+  String get settingsPortabilityExportAction => 'ייצוא';
 
   @override
-  String get settingsPortabilityImportAction => 'Import';
+  String get settingsPortabilityImportAction => 'ייבוא';
 
   @override
   String settingsPortabilityExportSuccess(String path) {
-    return 'Settings exported to $path';
+    return 'ההגדרות יוצאו אל $path';
   }
 
   @override
   String settingsPortabilityExportError(String reason) {
-    return 'Export failed: $reason';
+    return 'הייצוא נכשל: $reason';
   }
 
   @override
-  String get settingsPortabilityImportConfirmTitle => 'Import Settings?';
+  String get settingsPortabilityImportConfirmTitle => 'לייבא הגדרות?';
 
   @override
   String settingsPortabilityImportConfirmMessage(String path) {
-    return 'This replaces your current custom vocabulary, voice shortcuts, hotkey configuration, and snippets (if included in the file) with the contents of $path.';
+    return 'פעולה זו תחליף את ההגדרות הנוכחיות שלך — כולל ממשק, תצורת זיהוי הדיבור, התנהגות, החלפות טקסט וקטעים — בתוכן של $path. מפתחות ה-API שלך לא ייפגעו.';
   }
 
   @override
   String settingsPortabilityImportSuccess(String path) {
-    return 'Settings imported from $path';
+    return 'ההגדרות יובאו מ-$path';
   }
 
   @override
   String settingsPortabilityImportNotFound(String path) {
-    return 'No export file found at $path. Export settings first, or copy an export file there.';
+    return 'לא נמצא קובץ ייצוא ב-$path. ייצא הגדרות תחילה, או העתק לשם קובץ ייצוא.';
   }
 
   @override
   String settingsPortabilityImportError(String reason) {
-    return 'Import failed: $reason';
+    return 'הייבוא נכשל: $reason';
   }
 
   @override
