@@ -107,6 +107,29 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
   /// for readable line lengths on large windows.
   static const double _contentMaxWidth = 720;
 
+  /// Page 1 runs a wider frame than the settings-shaped pages behind it. Its
+  /// composition is a text column *beside* a large media area, and at 720 the
+  /// two halves squeeze each other into the cramped look the redesign is
+  /// undoing. At 940 the side margins land at 24 + (1052 − 940) / 2 = 80 px
+  /// on the fixed 1100-px window (7.3 % per side) and the media area at ~45 %
+  /// of the window width — both within a pixel-ratio of the Conductor
+  /// reference (7.1 % / 43 %). Pages 2–5 deliberately keep 720: their density
+  /// was measured against that width and must not silently change.
+  static const double _welcomeContentMaxWidth = 940;
+
+  double _frameWidthFor(OnboardingStepId id) => id == OnboardingStepId.welcome
+      ? _welcomeContentMaxWidth
+      : _contentMaxWidth;
+
+  /// Page 1 is a brand moment and stays optically centred in its area. The
+  /// settings-shaped pages behind it anchor to the top instead: their content
+  /// is shorter than the viewport (page 2 filled 308 of 551 px, page 4 only
+  /// 279), and centring left them floating in dead space with no stable
+  /// reading start — the "unstructured" impression the redesign is undoing.
+  /// Top-anchoring costs nothing from the height budget.
+  Alignment _contentAlignmentFor(OnboardingStepId id) =>
+      id == OnboardingStepId.welcome ? Alignment.center : Alignment.topCenter;
+
   int _currentStep = 0;
   int _previousStep = 0;
 
@@ -322,17 +345,36 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
     return switch (id) {
       OnboardingStepId.welcome => Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const WelcomeStep(),
           // Mic permission chip — macOS/Windows only. The chip self-gates on
-          // Linux too; the condition here just avoids dangling spacing.
+          // Linux too; the condition here just avoids dangling spacing. It
+          // shares the start edge (and inset) of page 1's other controls.
           if (defaultTargetPlatform != TargetPlatform.linux) ...[
-            const SizedBox(height: WpSpacing.lg),
-            const MicPermissionChip(),
+            const SizedBox(height: WpSpacing.sm),
+            const Padding(
+              padding: EdgeInsetsDirectional.only(
+                start: kOnboardingContentInset,
+              ),
+              child: MicPermissionChip(),
+            ),
           ],
         ],
       ),
       OnboardingStepId.privacy => const PrivacyStep(),
+      // Documented height conflict (measured at the fixed 1100x720 window
+      // with real Inter metrics, macOS, GPU-fallback notice visible — the
+      // worst case): the content viewport is 551 px. This page carries three
+      // blocks and lands at 524 px in German and 548 px in Hebrew, i.e. 3 px
+      // of slack. The reference rhythm would want the inter-block gaps at
+      // `lg`/`xl`, which needs ~30 px this page does not have. Before this
+      // pass the same page measured 548/572 and *overflowed* Hebrew by 21 px;
+      // de-boxing the hotkey row, the mode row and the GPU notice (30 px of
+      // pure chrome) bought the fit, not smaller type. `sm` gaps are the
+      // compromise: as close to the reference calm as the budget allows
+      // without breaking the no-scroll rule. Do not raise them without
+      // re-measuring Hebrew.
       OnboardingStepId.modelAndHotkey => const Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -345,6 +387,7 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
       ),
       OnboardingStepId.autostartAndAutoPaste => Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const OnboardingAutostartToggle(),
           if (showAutoPaste) ...[
@@ -353,12 +396,20 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
           ],
         ],
       ),
-      OnboardingStepId.tryAndGo => const Column(
-        mainAxisSize: MainAxisSize.min,
+      // Two columns, not a stack: as one column the page measured 739 px of
+      // content against a 551-px viewport (188 px of forced scrolling in the
+      // fixed 1100x720 window) and repeated the same mistake page 1 had —
+      // ignoring the width the window already has. Side by side the guided
+      // test recording (the thing to do) and the quick-start card (the thing
+      // to read) each keep their own rhythm and the page fits without
+      // scrolling. `start` cross-alignment keeps both column tops on the same
+      // line; the plain Row mirrors for free under RTL.
+      OnboardingStepId.tryAndGo => const Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          TestRecordingStep(),
-          SizedBox(height: WpSpacing.xxl),
-          ReadyStep(),
+          Expanded(flex: 5, child: TestRecordingStep()),
+          SizedBox(width: WpSpacing.xxl),
+          Expanded(flex: 4, child: ReadyStep()),
         ],
       ),
     };
@@ -377,6 +428,9 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
     final safeCurrent = _currentStep.clamp(0, totalSteps - 1);
     final isLastStep = safeCurrent == totalSteps - 1;
     final direction = _currentStep >= _previousStep ? 1.0 : -1.0;
+    // Page content and the nav row below it share one frame width, so the
+    // Back/Next actions always sit on the same margins as the page above.
+    final frameWidth = _frameWidthFor(steps[safeCurrent]);
 
     // Two independent completion gates (PRD "Zwei Abschluss-Gates"):
     //  1. Residual safety gate (moved from the old ReadyStep): a confirmed
@@ -454,16 +508,15 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
 
               // -- Page content — scrolls when the window shrinks. ----------
               Expanded(
-                child: Center(
+                child: Align(
+                  alignment: _contentAlignmentFor(steps[safeCurrent]),
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(
                       horizontal: WpSpacing.xl,
                       vertical: WpSpacing.lg,
                     ),
                     child: ConstrainedBox(
-                      constraints: const BoxConstraints(
-                        maxWidth: _contentMaxWidth,
-                      ),
+                      constraints: BoxConstraints(maxWidth: frameWidth),
                       child: AnimatedSwitcher(
                         duration: WpMotion.durationFor(
                           context,
@@ -497,7 +550,7 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: WpSpacing.xl),
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: _contentMaxWidth),
+                  constraints: BoxConstraints(maxWidth: frameWidth),
                   child: Row(
                     key: kOnboardingNavRowKey,
                     children: [

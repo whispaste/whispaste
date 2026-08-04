@@ -5,10 +5,10 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/logging/app_logger.dart';
-import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../services/telemetry_service.dart';
 import '../../settings/settings_widgets.dart';
+import 'onboarding_headings.dart';
 
 /// Widget key exposed for testing.
 @visibleForTesting
@@ -35,85 +35,43 @@ class PrivacyStep extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
-
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
-    final textSecondary = isDark
-        ? WpColorsDark.textSecondary
-        : WpColorsLight.textSecondary;
-    final surfaceVariant =
-        (isDark ? WpColorsDark.surfaceVariant : WpColorsLight.surfaceVariant)
-            .withValues(alpha: 0.55);
-    final borderColor = isDark
-        ? WpColorsDark.borderSubtle
-        : WpColorsLight.borderSubtle;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          l10n.onboardingPrivacyTitle,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: WpTypography.headline,
-            fontWeight: FontWeight.bold,
-            color: textPrimary,
-          ),
-        ),
-        const SizedBox(height: WpSpacing.sm),
-
-        Text(
-          l10n.onboardingPrivacyHint,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: WpTypography.subheading,
-            color: textSecondary,
-            height: 1.4,
-          ),
+        OnboardingPageHeading(
+          title: l10n.onboardingPrivacyTitle,
+          subtitle: l10n.onboardingPrivacyHint,
         ),
         const SizedBox(height: WpSpacing.xxl),
 
         // Opt-out toggles — same SettingRow + switch as Settings → Privacy.
         // Two separate consents (analytics vs. crash reports), each its own
-        // toggle, each on by default.
-        Container(
-          decoration: BoxDecoration(
-            color: surfaceVariant,
-            borderRadius: WpRadius.borderLg,
-            border: Border.all(color: borderColor),
+        // toggle, each on by default. Deliberately frameless: the surrounding
+        // card plus an inline divider made two quiet rows read as one packed
+        // box. Whitespace separates them now, as in the reference.
+        SettingRow(
+          icon: LucideIcons.barChart3,
+          label: l10n.onboardingPrivacyToggle,
+          subtitle: l10n.onboardingPrivacyToggleHint,
+          semanticToggledValue: settings.privacy.shareUsageStats,
+          trailing: settingsToggle(
+            value: settings.privacy.shareUsageStats,
+            onChanged: (v) => _setUsageStatsConsent(ref, v),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: WpSpacing.sm),
-          child: Column(
-            children: [
-              SettingRow(
-                icon: LucideIcons.barChart3,
-                label: l10n.onboardingPrivacyToggle,
-                subtitle: l10n.onboardingPrivacyToggleHint,
-                semanticToggledValue: settings.privacy.shareUsageStats,
-                trailing: settingsToggle(
-                  value: settings.privacy.shareUsageStats,
-                  onChanged: (v) => _setUsageStatsConsent(ref, v),
-                ),
-              ),
-              // Thin divider between the two consents — they are separate
-              // decisions (analytics vs. crash reports) and must read as two
-              // rows, not one long row with two switches.
-              settingsInlineDivider(context),
-              SettingRow(
-                key: kPrivacyStepCrashToggleKey,
-                icon: LucideIcons.shieldCheck,
-                label: l10n.onboardingPrivacyCrashToggle,
-                subtitle: l10n.onboardingPrivacyCrashToggleHint,
-                semanticToggledValue: settings.errorReporting,
-                trailing: settingsToggle(
-                  value: settings.errorReporting,
-                  onChanged: (v) => _setErrorReportingConsent(ref, v),
-                ),
-              ),
-            ],
+        ),
+        const SizedBox(height: WpSpacing.lg),
+        SettingRow(
+          key: kPrivacyStepCrashToggleKey,
+          icon: LucideIcons.shieldCheck,
+          label: l10n.onboardingPrivacyCrashToggle,
+          subtitle: l10n.onboardingPrivacyCrashToggleHint,
+          semanticToggledValue: settings.errorReporting,
+          trailing: settingsToggle(
+            value: settings.errorReporting,
+            onChanged: (v) => _setErrorReportingConsent(ref, v),
           ),
         ),
       ],

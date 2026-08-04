@@ -14,6 +14,8 @@ import '../../../services/stt_parakeet/parakeet_download_service.dart';
 import '../../../services/stt_parakeet/parakeet_model_registry.dart';
 import '../../../widgets/tier_performance_presentation.dart';
 import '../../../widgets/wp_accent_button.dart';
+import '../../settings/settings_widgets.dart' show kSettingRowInset;
+import 'onboarding_headings.dart';
 
 /// Widget keys exposed for testing. Kept in one place so tests and production
 /// code agree on the contract.
@@ -192,12 +194,6 @@ class _ModelStepState extends ConsumerState<ModelStep> {
     final whisperDl = ref.watch(modelDownloadProvider);
     final parakeetDl = ref.watch(parakeetDownloadProvider);
 
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
-    final textSecondary = isDark
-        ? WpColorsDark.textSecondary
-        : WpColorsLight.textSecondary;
     final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
     final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
     final accentGradient = isDark
@@ -251,26 +247,11 @@ class _ModelStepState extends ConsumerState<ModelStep> {
     // onboarding window without scrolling.
     return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Title
-        Text(
-          l10n.onboardingModelTitle,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: WpTypography.subheading,
-            fontWeight: FontWeight.bold,
-            color: textPrimary,
-          ),
-        ),
-        const SizedBox(height: WpSpacing.xxs),
-        Text(
-          l10n.onboardingModelSubtitle,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: WpTypography.small,
-            color: textSecondary,
-            height: 1.3,
-          ),
+        OnboardingSectionLabel(
+          title: l10n.onboardingModelTitle,
+          subtitle: l10n.onboardingModelSubtitle,
         ),
         const SizedBox(height: WpSpacing.xs),
 
@@ -371,10 +352,13 @@ class _ModelStepState extends ConsumerState<ModelStep> {
         // path: the former "use cloud instead" escape link was a pure
         // navigation affordance and is gone with the shell-owned Next —
         // cloud users simply continue without downloading.
-        Text(
-          l10n.onboardingModelChangeLater,
-          textAlign: TextAlign.center,
-          style: TextStyle(fontSize: WpTypography.small, color: textMuted),
+        Padding(
+          padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
+          child: Text(
+            l10n.onboardingModelChangeLater,
+            textAlign: TextAlign.start,
+            style: TextStyle(fontSize: WpTypography.small, color: textMuted),
+          ),
         ),
       ],
     );
@@ -573,7 +557,12 @@ class _EngineCardState extends State<_EngineCard> {
                   color: borderColor,
                   width: widget.isSelected ? 1.5 : 1,
                 ),
-                borderRadius: WpRadius.borderMd,
+                // Matches the borderLg surfaces the rest of the flow uses.
+                // The accent ring on the selected card deliberately stays:
+                // unlike page 1's beat highlight (emphasis), this is a binary
+                // selection control, and the reference rings its active tile
+                // too (reference-conductor/SCR-20260804-kayx.png, Theme).
+                borderRadius: WpRadius.borderLg,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -855,25 +844,29 @@ class _GpuCpuFallbackNotice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final infoColor = TierPerformancePresentation.color(isDark: isDark);
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: WpSpacing.sm,
-        vertical: WpSpacing.xxs,
-      ),
-      decoration: BoxDecoration(
-        color: infoColor.withValues(alpha: 0.08),
-        borderRadius: WpRadius.borderMd,
-        border: Border.all(color: infoColor.withValues(alpha: 0.2)),
-      ),
+    // Frameless, like the recording-duration note on the same page: a filled
+    // and outlined banner gave a purely informational line the weight of a
+    // warning, and it was the fourth box competing on this page. Dropping the
+    // frame also returns 10 px (2 px border + 2x4 px padding) to the tightest
+    // height budget in the flow.
+    return Padding(
+      padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(LucideIcons.info, size: 14, color: infoColor),
-          const SizedBox(width: WpSpacing.sm),
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Icon(LucideIcons.info, size: 14, color: infoColor),
+          ),
+          const SizedBox(width: WpSpacing.xs),
           Expanded(
             child: Text(
               message,
-              style: TextStyle(fontSize: WpTypography.small, color: infoColor),
+              style: TextStyle(
+                fontSize: WpTypography.small,
+                color: infoColor,
+                height: 1.35,
+              ),
             ),
           ),
         ],

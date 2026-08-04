@@ -8,6 +8,7 @@ import '../../../core/recording/recording_state.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../features/settings/settings_widgets.dart';
+import 'onboarding_headings.dart';
 import '../../../services/recording_orchestrator.dart';
 import '../../../widgets/wp_accent_button.dart';
 import '../onboarding_completion_gate.dart';
@@ -108,9 +109,6 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
         (phase == RecordingPhase.recording ||
             phase == RecordingPhase.transcribing);
 
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
     final textSecondary = isDark
         ? WpColorsDark.textSecondary
         : WpColorsLight.textSecondary;
@@ -123,41 +121,41 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
 
     return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Title
-        Text(
-          l10n.onboardingTestRecordingTitle,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: WpTypography.headline,
-            fontWeight: FontWeight.bold,
-            color: textPrimary,
-          ),
-        ),
-        const SizedBox(height: WpSpacing.xs),
-        Text(
-          l10n.onboardingTestRecordingSubtitle,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: WpTypography.subheading,
-            color: textSecondary,
-            height: 1.4,
-          ),
-        ),
-        const SizedBox(height: WpSpacing.xl),
-
-        // Current hotkey — reuses the shared HotkeyDisplay chip renderer.
-        Text(
-          l10n.onboardingTestRecordingHotkeyLabel,
-          style: TextStyle(fontSize: WpTypography.small, color: textMuted),
-        ),
-        const SizedBox(height: WpSpacing.sm),
-        HotkeyDisplay(
-          hotkeyKey: settings.hotkeyKey,
-          hotkeyModifiers: settings.hotkeyModifiers,
-          hotkeyKeyDisplay: settings.hotkey.hotkeyKeyDisplay,
+        OnboardingPageHeading(
+          title: l10n.onboardingTestRecordingTitle,
+          subtitle: l10n.onboardingTestRecordingSubtitle,
         ),
         const SizedBox(height: WpSpacing.lg),
+
+        // Current hotkey — reuses the shared HotkeyDisplay chip renderer.
+        // Label and key caps share one line (they are one statement, not two
+        // stacked blocks); Wrap lets the caps drop below the label instead of
+        // overflowing when the column is narrow or the translation is long.
+        Padding(
+          padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
+          child: Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: WpSpacing.sm,
+            runSpacing: WpSpacing.xs,
+            children: [
+              Text(
+                l10n.onboardingTestRecordingHotkeyLabel,
+                style: TextStyle(
+                  fontSize: WpTypography.small,
+                  color: textMuted,
+                ),
+              ),
+              HotkeyDisplay(
+                hotkeyKey: settings.hotkeyKey,
+                hotkeyModifiers: settings.hotkeyModifiers,
+                hotkeyKeyDisplay: settings.hotkey.hotkeyKeyDisplay,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: WpSpacing.md),
 
         // Start/Stop button — the primary trigger for the test recording.
         // Deliberately a button and not the hotkey (which could still be in
@@ -165,22 +163,19 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
         // parallel through the same orchestrator path. Disabled while a
         // finished recording is being transcribed — the sandbox field's
         // in-progress line explains the wait.
-        ConstrainedBox(
-          constraints: const BoxConstraints(minWidth: 220),
-          // loam-ignore: a11y-interactive-semantics – semantics provided in WpAccentButton.build
-          child: WpAccentButton(
-            key: kTestRecordingStepRecordButtonKey,
-            label: phase == RecordingPhase.recording
-                ? l10n.onboardingTestRecordingStopCta
-                : l10n.onboardingTestRecordingStartCta,
-            gradient: accentGradient,
-            verticalPadding: WpSpacing.sm,
-            onPressed: phase == RecordingPhase.transcribing
-                ? null
-                : _onRecordPressed,
-          ),
+        // loam-ignore: a11y-interactive-semantics – semantics provided in WpAccentButton.build
+        WpAccentButton(
+          key: kTestRecordingStepRecordButtonKey,
+          label: phase == RecordingPhase.recording
+              ? l10n.onboardingTestRecordingStopCta
+              : l10n.onboardingTestRecordingStartCta,
+          gradient: accentGradient,
+          verticalPadding: WpSpacing.sm,
+          onPressed: phase == RecordingPhase.transcribing
+              ? null
+              : _onRecordPressed,
         ),
-        const SizedBox(height: WpSpacing.lg),
+        const SizedBox(height: WpSpacing.md),
 
         // Sandbox field
         _SandboxField(
@@ -196,7 +191,6 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
         if (isDone) ...[
           const SizedBox(height: WpSpacing.sm),
           Row(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(LucideIcons.circleCheck, size: 16, color: success),
               const SizedBox(width: WpSpacing.xs),
@@ -205,7 +199,7 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
               Flexible(
                 child: Text(
                   l10n.onboardingTestRecordingDoneMessage,
-                  textAlign: TextAlign.center,
+                  textAlign: TextAlign.start,
                   style: TextStyle(
                     fontSize: WpTypography.body,
                     fontWeight: FontWeight.w600,
@@ -223,21 +217,27 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
         // appears unexplained.
         if (!testRecordingSucceeded && !micBypassed) ...[
           const SizedBox(height: WpSpacing.sm),
-          Text(
-            l10n.onboardingTestRecordingCompletionHint,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: WpTypography.small,
-              color: textSecondary,
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
+            child: Text(
+              l10n.onboardingTestRecordingCompletionHint,
+              textAlign: TextAlign.start,
+              style: TextStyle(
+                fontSize: WpTypography.small,
+                color: textSecondary,
+              ),
             ),
           ),
         ],
 
         const SizedBox(height: WpSpacing.sm),
-        Text(
-          l10n.onboardingTestRecordingReassurance,
-          textAlign: TextAlign.center,
-          style: TextStyle(fontSize: WpTypography.small, color: textMuted),
+        Padding(
+          padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
+          child: Text(
+            l10n.onboardingTestRecordingReassurance,
+            textAlign: TextAlign.start,
+            style: TextStyle(fontSize: WpTypography.small, color: textMuted),
+          ),
         ),
 
         // Escape hatch "continue without a microphone" — deliberately
@@ -247,16 +247,19 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
         // rendered by ReadyStep). Hidden once a recording succeeded — at
         // that point it has nothing left to bypass.
         if (!testRecordingSucceeded) ...[
-          const SizedBox(height: WpSpacing.lg),
+          const SizedBox(height: WpSpacing.xs),
           if (!micBypassed)
-            TextButton(
-              key: kTestRecordingStepMicBypassButtonKey,
-              onPressed: _onMicBypassPressed,
-              child: Text(
-                l10n.onboardingTestRecordingMicBypassCta,
-                style: TextStyle(
-                  color: textSecondary,
-                  fontSize: WpTypography.body,
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: TextButton(
+                key: kTestRecordingStepMicBypassButtonKey,
+                onPressed: _onMicBypassPressed,
+                child: Text(
+                  l10n.onboardingTestRecordingMicBypassCta,
+                  style: TextStyle(
+                    color: textSecondary,
+                    fontSize: WpTypography.body,
+                  ),
                 ),
               ),
             )
@@ -264,7 +267,6 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
             // Honest consequence note: no recording works until a microphone
             // does, and where to catch up later.
             Row(
-              mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Padding(
@@ -275,7 +277,7 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
                 Flexible(
                   child: Text(
                     l10n.onboardingTestRecordingMicBypassHint,
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.start,
                     style: TextStyle(
                       fontSize: WpTypography.small,
                       color: textMuted,
@@ -294,6 +296,11 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
 // ---------------------------------------------------------------------------
 // Sandbox field — Default / Recording / Done visual states.
 // ---------------------------------------------------------------------------
+
+/// Line cap for the recognised transcript — see the field's own comment for
+/// the measured reason. Five lines keep page 5 at 471 of its 551-px viewport
+/// even when the transcript is arbitrarily long.
+const int _kSandboxMaxLines = 5;
 
 class _SandboxField extends StatelessWidget {
   const _SandboxField({
@@ -363,6 +370,14 @@ class _SandboxField extends StatelessWidget {
             )
           : Text(
               isDone ? sandboxText! : l10n.onboardingTestRecordingPlaceholder,
+              // Bounded on purpose. This field proves that speech was
+              // recognised; it is not a transcript viewer, and the page it
+              // sits on cannot scroll (fixed 1100x720 window). Unbounded, a
+              // 600-character dictation already pushed page 5 over its
+              // 551-px viewport by 50 px, a 1200-character one by 290 px —
+              // and recordings run up to `maxRecordDuration` seconds.
+              maxLines: _kSandboxMaxLines,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: WpTypography.body,
                 color: isDone ? textPrimary : textMuted,

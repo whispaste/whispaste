@@ -45,6 +45,8 @@ import '../../../services/paste/paste_capability_notifier.dart';
 import '../../../services/paste/paster.dart';
 import '../../../widgets/paste_capability_restart_banner.dart';
 import '../../../widgets/wp_accent_button.dart';
+import '../../settings/settings_widgets.dart' show kSettingRowInset;
+import 'onboarding_headings.dart';
 
 class AutoPasteStep extends ConsumerStatefulWidget {
   const AutoPasteStep({super.key});
@@ -323,28 +325,19 @@ class _MacOsBody extends StatelessWidget {
 
     return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // -- Title + subtitle stay constant across phases ------------------
-        Text(
-          l10n.onboardingPasteTitle,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: WpTypography.headline,
-            fontWeight: FontWeight.bold,
-            color: textPrimary,
-          ),
+        // Section label, not a page heading: this block shares page 4 with
+        // the autostart row above it, and a headline-sized title halfway down
+        // the page made one page read as two fused screens. Page 4 has no
+        // string of its own to head it with (see the flow's l10n keys), so
+        // both of its blocks are peers — same shape as page 3.
+        OnboardingSectionLabel(
+          title: l10n.onboardingPasteTitle,
+          subtitle: l10n.onboardingPasteSubtitle,
         ),
-        const SizedBox(height: WpSpacing.xs),
-        Text(
-          l10n.onboardingPasteSubtitle,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: WpTypography.subheading,
-            color: textSecondary,
-            height: 1.4,
-          ),
-        ),
-        const SizedBox(height: WpSpacing.xl),
+        const SizedBox(height: WpSpacing.md),
 
         // -- Phase body — exactly one card + one primary CTA per phase ----
         ..._buildPhase(
@@ -414,23 +407,29 @@ class _MacOsBody extends StatelessWidget {
             ),
           ),
           const SizedBox(height: WpSpacing.sm),
-          Text(
-            l10n.onboardingPasteWhyMac,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: WpTypography.small,
-              color: textMuted,
-              height: 1.4,
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
+            child: Text(
+              l10n.onboardingPasteWhyMac,
+              textAlign: TextAlign.start,
+              style: TextStyle(
+                fontSize: WpTypography.small,
+                color: textMuted,
+                height: 1.4,
+              ),
             ),
           ),
           const SizedBox(height: WpSpacing.sm),
-          TextButton(
-            onPressed: onSkip,
-            child: Text(
-              l10n.onboardingPasteSkip,
-              style: TextStyle(
-                color: textSecondary,
-                fontSize: WpTypography.body,
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: TextButton(
+              onPressed: onSkip,
+              child: Text(
+                l10n.onboardingPasteSkip,
+                style: TextStyle(
+                  color: textSecondary,
+                  fontSize: WpTypography.body,
+                ),
               ),
             ),
           ),
@@ -445,13 +444,16 @@ class _MacOsBody extends StatelessWidget {
             l10n: l10n,
           ),
           const SizedBox(height: WpSpacing.sm),
-          TextButton(
-            onPressed: onSkip,
-            child: Text(
-              l10n.onboardingPasteSkip,
-              style: TextStyle(
-                color: textSecondary,
-                fontSize: WpTypography.body,
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: TextButton(
+              onPressed: onSkip,
+              child: Text(
+                l10n.onboardingPasteSkip,
+                style: TextStyle(
+                  color: textSecondary,
+                  fontSize: WpTypography.body,
+                ),
               ),
             ),
           ),
@@ -488,13 +490,16 @@ class _MacOsBody extends StatelessWidget {
             ),
           ],
           const SizedBox(height: WpSpacing.sm),
-          TextButton(
-            onPressed: onSkip,
-            child: Text(
-              l10n.onboardingPasteSkip,
-              style: TextStyle(
-                color: textSecondary,
-                fontSize: WpTypography.body,
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: TextButton(
+              onPressed: onSkip,
+              child: Text(
+                l10n.onboardingPasteSkip,
+                style: TextStyle(
+                  color: textSecondary,
+                  fontSize: WpTypography.body,
+                ),
               ),
             ),
           ),
@@ -560,28 +565,14 @@ class _WindowsBody extends StatelessWidget {
 
     return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // -- Title ---------------------------------------------------------
-        Text(
-          l10n.onboardingPasteTitle,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: WpTypography.headline,
-            fontWeight: FontWeight.bold,
-            color: textPrimary,
-          ),
+        // -- Title (section label — see the macOS body for why) ------------
+        OnboardingSectionLabel(
+          title: l10n.onboardingPasteTitle,
+          subtitle: l10n.onboardingPasteSubtitle,
         ),
-        const SizedBox(height: WpSpacing.xs),
-        Text(
-          l10n.onboardingPasteSubtitle,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: WpTypography.subheading,
-            color: textSecondary,
-            height: 1.4,
-          ),
-        ),
-        const SizedBox(height: WpSpacing.xl),
+        const SizedBox(height: WpSpacing.md),
 
         if (isUipiEdge) ...[
           // -- UIPI warn card (non-blocking) ------------------------------
@@ -596,13 +587,16 @@ class _WindowsBody extends StatelessWidget {
           // Skip — sets afterTranscription=clipboard and advances. Same
           // wording as the macOS skip (`onboardingPasteSkip`) so the option
           // is recognisable across platforms.
-          TextButton(
-            onPressed: onSkip,
-            child: Text(
-              l10n.onboardingPasteSkip,
-              style: TextStyle(
-                color: textSecondary,
-                fontSize: WpTypography.body,
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: TextButton(
+              onPressed: onSkip,
+              child: Text(
+                l10n.onboardingPasteSkip,
+                style: TextStyle(
+                  color: textSecondary,
+                  fontSize: WpTypography.body,
+                ),
               ),
             ),
           ),
@@ -615,13 +609,16 @@ class _WindowsBody extends StatelessWidget {
             label: l10n.onboardingPasteChipReady,
           ),
           const SizedBox(height: WpSpacing.sm),
-          Text(
-            l10n.onboardingPasteWhyWin,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: WpTypography.small,
-              color: textMuted,
-              height: 1.4,
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
+            child: Text(
+              l10n.onboardingPasteWhyWin,
+              textAlign: TextAlign.start,
+              style: TextStyle(
+                fontSize: WpTypography.small,
+                color: textMuted,
+                height: 1.4,
+              ),
             ),
           ),
         ],

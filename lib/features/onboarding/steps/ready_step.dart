@@ -8,9 +8,13 @@ import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../services/hotkey_service.dart';
+import '../../settings/settings_widgets.dart' show kSettingRowInset;
+import 'onboarding_headings.dart';
 
 /// Closing content of the final onboarding page — quick-start guide and the
-/// residual hotkey-conflict notice.
+/// residual hotkey-conflict notice. Rendered as the trailing column beside
+/// the guided test recording (see the shell's `tryAndGo` composition), so it
+/// carries a section label rather than a second page title.
 ///
 /// The autostart toggle that used to live here moved to the
 /// Autostart & Auto-Paste page ([OnboardingAutostartToggle]); the Start CTA
@@ -32,9 +36,6 @@ class ReadyStep extends ConsumerWidget {
     final textPrimary = isDark
         ? WpColorsDark.textPrimary
         : WpColorsLight.textPrimary;
-    final textSecondary = isDark
-        ? WpColorsDark.textSecondary
-        : WpColorsLight.textSecondary;
     final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
 
     // The completion CTA (owned by the onboarding shell) is gated on a healthy
@@ -59,29 +60,17 @@ class ReadyStep extends ConsumerWidget {
 
     return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Title
-        Text(
-          l10n.onboardingReadyTitle,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: WpTypography.headline,
-            fontWeight: FontWeight.bold,
-            color: textPrimary,
-          ),
+        // Section label, not a second page title: this block shares page 5
+        // with the guided test recording, which owns the page heading. Two
+        // headline-sized bold titles on one page was the single clearest
+        // reason the flow read as "no structure".
+        OnboardingSectionLabel(
+          title: l10n.onboardingReadyTitle,
+          subtitle: l10n.onboardingReadySubtitle,
         ),
-        const SizedBox(height: WpSpacing.xs),
-
-        // Subtitle
-        Text(
-          l10n.onboardingReadySubtitle,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: WpTypography.subheading,
-            color: textSecondary,
-          ),
-        ),
-        const SizedBox(height: WpSpacing.xxl),
+        const SizedBox(height: WpSpacing.lg),
 
         // Residual conflict notice — the Model & Hotkey page is the place to
         // fix this; here it's just a short heads-up explaining the disabled
@@ -89,7 +78,7 @@ class ReadyStep extends ConsumerWidget {
         if (hasConflict) ...[
           Text(
             l10n.onboardingTriggerHotkeyConflictTitle,
-            textAlign: TextAlign.center,
+            textAlign: TextAlign.start,
             style: TextStyle(
               fontSize: WpTypography.small,
               fontWeight: FontWeight.w600,
@@ -128,12 +117,15 @@ class ReadyStep extends ConsumerWidget {
         // step (it's a tip, not part of the core loop). Mirrors the muted
         // hint style of the recording-duration note on the Model & Hotkey
         // page (appearance_section.dart).
-        const SizedBox(height: WpSpacing.lg),
+        const SizedBox(height: WpSpacing.md),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.only(top: 1),
+              padding: const EdgeInsetsDirectional.only(
+                top: 1,
+                start: kSettingRowInset,
+              ),
               child: Icon(LucideIcons.info, size: 14, color: textMuted),
             ),
             const SizedBox(width: WpSpacing.xs),
@@ -180,7 +172,10 @@ class _InstructionRow extends StatelessWidget {
       label: '$number $text',
       child: Row(
         children: [
-          Icon(icon, size: WpIconSize.md, color: accent),
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
+            child: Icon(icon, size: WpIconSize.md, color: accent),
+          ),
           const SizedBox(width: WpSpacing.sm),
           Expanded(
             child: Text(

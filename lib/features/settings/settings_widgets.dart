@@ -13,6 +13,11 @@ import '../../core/theme/tokens.dart';
 // SettingRow — single row with icon, label, optional subtitle, and control
 // ---------------------------------------------------------------------------
 
+/// Horizontal padding [SettingRow] applies inside its own hover surface.
+/// Exposed so callers that render a heading above a bare, frameless row can
+/// put it on the same start edge instead of guessing the value.
+const double kSettingRowInset = WpSpacing.sm;
+
 class SettingRow extends StatefulWidget {
   const SettingRow({
     super.key,
@@ -66,7 +71,7 @@ class _SettingRowState extends State<SettingRow> {
             duration: WpMotion.durationFor(context, WpMotion.hoverIn),
             curve: WpMotion.defaultCurve,
             padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.sm,
+              horizontal: kSettingRowInset,
               vertical: WpSpacing.sm,
             ),
             decoration: BoxDecoration(

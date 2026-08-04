@@ -11,6 +11,7 @@ import '../../../services/hotkey_service.dart';
 import '../../../services/telemetry_service.dart';
 import '../../../widgets/hotkey_recorder.dart';
 import '../../settings/settings_widgets.dart';
+import 'onboarding_headings.dart';
 
 /// Widget keys exposed for testing. Kept in one place so tests and production
 /// code agree on the contract.
@@ -51,18 +52,9 @@ class TriggerStep extends ConsumerWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
 
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
     final textSecondary = isDark
         ? WpColorsDark.textSecondary
         : WpColorsLight.textSecondary;
-    final surfaceVariant =
-        (isDark ? WpColorsDark.surfaceVariant : WpColorsLight.surfaceVariant)
-            .withValues(alpha: 0.55);
-    final borderColor = isDark
-        ? WpColorsDark.borderSubtle
-        : WpColorsLight.borderSubtle;
 
     final hotkeyKey = settings.hotkeyKey;
     final hotkeyDisplay = settings.hotkey.hotkeyKeyDisplay;
@@ -76,25 +68,11 @@ class TriggerStep extends ConsumerWidget {
     // page fits the fixed 1100×720 onboarding window without scrolling.
     return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          l10n.onboardingTriggerTitle,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: WpTypography.subheading,
-            fontWeight: FontWeight.bold,
-            color: textPrimary,
-          ),
-        ),
-        const SizedBox(height: WpSpacing.xxs),
-        Text(
-          l10n.onboardingTriggerSubtitle,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: WpTypography.small,
-            color: textSecondary,
-            height: 1.3,
-          ),
+        OnboardingSectionLabel(
+          title: l10n.onboardingTriggerTitle,
+          subtitle: l10n.onboardingTriggerSubtitle,
         ),
         const SizedBox(height: WpSpacing.xs),
 
@@ -102,6 +80,17 @@ class TriggerStep extends ConsumerWidget {
         // exercises this hotkey. Non-blocking for Next (see ReadyStep's
         // residual gate); a user who skips this warning just meets it again
         // as a disabled Start button.
+        //
+        // Known, pre-existing height conflict, measured at the fixed
+        // 1100x720 window with real Inter metrics: this branch adds the warn
+        // box plus a full inline HotkeyRecorderDialog to a page that has
+        // 3 px of slack in its nominal state, so page 3 measures 914 px (de)
+        // / 921 px (he) against a 551-px viewport and scrolls. The redesign
+        // pass improved it by 24 px (from 938/945) by de-boxing the rows
+        // around it, but closing the remaining ~363 px is out of reach
+        // without moving the recorder off this page — a flow change, not a
+        // layout one. Deliberately left visible rather than silently
+        // compacted: an unresolvable hotkey is worth a scroll.
         if (status == HotkeyRegistrationStatus.conflict) ...[
           _HotkeyConflictWarnBox(
             key: kTriggerStepConflictWarnBoxKey,
@@ -130,21 +119,16 @@ class TriggerStep extends ConsumerWidget {
           const SizedBox(height: WpSpacing.lg),
         ],
 
-        // Hotkey card — settings-style row (Conductor pattern): label on the
+        // Hotkey row — settings-style (Conductor pattern): label on the
         // leading side, the key caps + change button trailing. The key-cap
         // rendering of HotkeyDisplay keeps the hotkey visually prominent
-        // without the tall centered hero treatment.
-        Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: surfaceVariant,
-            borderRadius: WpRadius.borderLg,
-            border: Border.all(color: borderColor),
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: WpSpacing.md,
-            vertical: WpSpacing.xxs,
-          ),
+        // without the tall centered hero treatment. Frameless like every
+        // other onboarding settings row: the filled, outlined card around it
+        // was one of four competing boxes on this page, and dropping it also
+        // returns 10 px (2 px border + 2x4 px padding) to the page's very
+        // tight height budget.
+        Padding(
+          padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
           child: Row(
             children: [
               Expanded(
@@ -196,19 +180,14 @@ class TriggerStep extends ConsumerWidget {
             ],
           ),
         ),
-        const SizedBox(height: WpSpacing.xs),
+        const SizedBox(height: WpSpacing.sm),
 
-        // Mode card — hold vs. toggle. The switch stays the single control;
+        // Mode row — hold vs. toggle. The switch stays the single control;
         // the row's subtitle re-words itself to describe the currently
         // selected behavior, so flipping the switch gives immediate,
         // plain-language feedback on what the hotkey will now do.
-        Container(
-          decoration: BoxDecoration(
-            color: surfaceVariant,
-            borderRadius: WpRadius.borderLg,
-            border: Border.all(color: borderColor),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: WpSpacing.sm),
+        Padding(
+          padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
           child: _PushToTalkRow(
             settings: settings,
             supportsKeyUp: supportsKeyUp,

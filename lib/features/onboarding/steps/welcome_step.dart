@@ -18,8 +18,28 @@ Key onboardingBeatTileKey(int index) => Key('onboardingBeatTile$index');
 @visibleForTesting
 Key onboardingBeatMediaKey(int index) => Key('onboardingBeatMedia$index');
 
+/// Start inset that lines page-1 controls up with the beat *text* rather than
+/// with the edge of the beat highlight, which bleeds outward by exactly this
+/// much (the tile's horizontal padding). The shell reuses it for the
+/// microphone chip it appends after this widget.
+const double kOnboardingContentInset = WpSpacing.md;
+
+/// Width of the language dropdown. [LanguageSelector] runs `isExpanded:
+/// true`, so it would otherwise stretch across the whole (deliberately wide)
+/// page-1 frame — a full-width control for a three-item choice is exactly
+/// the boxiness this page is trying to lose.
+const double _kLanguageSelectorWidth = 240;
+
 /// Welcome content of onboarding page 1 — wordmark, three demo beats and the
 /// language selection.
+///
+/// Composition follows the Conductor reference (`.scratch/onboarding-redesign/
+/// reference-conductor/SCR-20260804-kans.png`): a centred brand lockup on top,
+/// then everything else start-aligned in a wide, airy frame — a vertical beat
+/// list on one side, ONE large media area on the other, and the few controls
+/// stacked underneath at the same start edge. The page carries no boxes it
+/// doesn't need: the only filled surfaces are the active beat tile and the
+/// media area, both borderless.
 ///
 /// The language choice acts immediately on the whole UI and pre-seeds the
 /// recognition language (and thus the engine recommendation on page 3) —
@@ -38,9 +58,9 @@ class WelcomeStep extends ConsumerWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
 
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
+    final textSecondary = isDark
+        ? WpColorsDark.textSecondary
+        : WpColorsLight.textSecondary;
 
     void selectLocale(String locale) {
       HapticFeedback.selectionClick();
@@ -51,23 +71,33 @@ class WelcomeStep extends ConsumerWidget {
 
     return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const WpBrandWordmark(height: 40),
-        const SizedBox(height: WpSpacing.md),
-
-        // Headline — the brand claim. The old subtitle was dropped on
-        // purpose: its message is exactly what the three beat captions below
-        // say, and page 1 must fit 1100×720 without scrolling.
-        Text(
-          l10n.onboardingWelcome,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: WpTypography.headline,
-            fontWeight: FontWeight.bold,
-            color: textPrimary,
+        // Brand lockup — the only centred element on the page, mirroring the
+        // reference's centred wordmark over start-aligned content. The claim
+        // reads as a quiet second line of the lockup instead of a second
+        // headline: the beat titles below already carry that message, so
+        // shouting it here is what made the page feel packed.
+        Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const WpBrandWordmark(height: 44),
+              const SizedBox(height: WpSpacing.sm),
+              Text(
+                l10n.onboardingWelcome,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: WpTypography.heading,
+                  fontWeight: FontWeight.w500,
+                  color: textSecondary,
+                  height: 1.3,
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: WpSpacing.md),
+        const SizedBox(height: WpSpacing.xxl),
 
         // Three demo beats in the Conductor-style asymmetric composition:
         // a start-aligned vertical list of titles + captions on one side,
@@ -75,14 +105,22 @@ class WelcomeStep extends ConsumerWidget {
         // are rendered by Flutter (l10n, incl. RTL) — never baked into the
         // artwork.
         const _BeatShowcase(),
-        const SizedBox(height: WpSpacing.lg),
+        const SizedBox(height: WpSpacing.xl),
 
         // Language selector — items derived from L10n.supportedLocales so
         // adding a new language is an ARB-only change.  Rendered as a
         // compact dropdown without flag icons (see widget docs).
-        LanguageSelector(
-          currentLocale: settings.locale,
-          onChanged: selectLocale,
+        Padding(
+          padding: const EdgeInsetsDirectional.only(
+            start: kOnboardingContentInset,
+          ),
+          child: SizedBox(
+            width: _kLanguageSelectorWidth,
+            child: LanguageSelector(
+              currentLocale: settings.locale,
+              onChanged: selectLocale,
+            ),
+          ),
         ),
       ],
     );
@@ -160,15 +198,19 @@ class _BeatShowcaseState extends State<_BeatShowcase> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Text list — start-aligned, one tile per beat.
+          // Text list — start-aligned, one tile per beat. The highlight box
+          // bleeds outward past the text (like the reference): the tile's own
+          // horizontal padding is what [kOnboardingContentInset] adds back to
+          // the controls below, so beat text and controls share one start
+          // edge while the highlight reads as a surface behind them.
           Expanded(
-            flex: 2,
+            flex: 5,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 for (var i = 0; i < beats.length; i++) ...[
-                  if (i > 0) const SizedBox(height: WpSpacing.sm),
+                  if (i > 0) const SizedBox(height: WpSpacing.md),
                   // loam-ignore: a11y-interactive-semantics – semantics provided in _BeatListTile.build
                   _BeatListTile(
                     key: onboardingBeatTileKey(i),
@@ -181,7 +223,7 @@ class _BeatShowcaseState extends State<_BeatShowcase> {
               ],
             ),
           ),
-          const SizedBox(width: WpSpacing.lg),
+          const SizedBox(width: WpSpacing.xxl),
           // ONE large media area for the active beat. AnimatedSwitcher
           // cross-fades between placeholders; with "Reduce Motion" the
           // duration collapses to zero (instant swap, no movement).
@@ -205,10 +247,11 @@ class _BeatShowcaseState extends State<_BeatShowcase> {
 
 /// One entry of the beat text list: title + caption, start-aligned.
 ///
-/// The active tile gets a subtle card background + border (mirroring the
-/// highlighted feature block in the Conductor reference); inactive tiles
-/// keep muted text colors but remain fully rendered and tappable — they are
-/// never removed from the semantics tree.
+/// The active tile gets a subtle card background — no border: in the
+/// reference the highlighted feature block is a fill alone, and stacking a
+/// border on top of it is what turned three quiet text blocks into three
+/// competing boxes. Inactive tiles keep muted text colors but remain fully
+/// rendered and tappable — they are never removed from the semantics tree.
 class _BeatListTile extends StatelessWidget {
   const _BeatListTile({
     super.key,
@@ -235,10 +278,7 @@ class _BeatListTile extends StatelessWidget {
     final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
     final surface =
         (isDark ? WpColorsDark.surfaceVariant : WpColorsLight.surfaceVariant)
-            .withValues(alpha: 0.55);
-    final border = isDark
-        ? WpColorsDark.borderSubtle
-        : WpColorsLight.borderSubtle;
+            .withValues(alpha: 0.5);
 
     return Semantics(
       button: true,
@@ -247,18 +287,17 @@ class _BeatListTile extends StatelessWidget {
       excludeSemantics: true,
       child: InkWell(
         onTap: onTap,
-        borderRadius: WpRadius.borderMd,
+        borderRadius: WpRadius.borderLg,
         child: AnimatedContainer(
           duration: WpMotion.durationFor(context, WpMotion.fast),
           curve: WpMotion.defaultCurve,
           padding: const EdgeInsets.symmetric(
-            horizontal: WpSpacing.sm,
+            horizontal: kOnboardingContentInset,
             vertical: WpSpacing.sm,
           ),
           decoration: BoxDecoration(
             color: active ? surface : Colors.transparent,
-            borderRadius: WpRadius.borderMd,
-            border: Border.all(color: active ? border : Colors.transparent),
+            borderRadius: WpRadius.borderLg,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -280,7 +319,7 @@ class _BeatListTile extends StatelessWidget {
                 style: TextStyle(
                   fontSize: WpTypography.small,
                   color: active ? textSecondary : textMuted,
-                  height: 1.35,
+                  height: 1.4,
                 ),
               ),
             ],
@@ -310,10 +349,7 @@ class _BeatMediaPlaceholder extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final surface =
         (isDark ? WpColorsDark.surfaceVariant : WpColorsLight.surfaceVariant)
-            .withValues(alpha: 0.55);
-    final border = isDark
-        ? WpColorsDark.borderSubtle
-        : WpColorsLight.borderSubtle;
+            .withValues(alpha: 0.5);
     final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
 
     return AspectRatio(
@@ -322,16 +358,18 @@ class _BeatMediaPlaceholder extends StatelessWidget {
       // height while still fitting the fixed 1100×720 onboarding window).
       aspectRatio: 16 / 9,
       child: DecoratedBox(
+        // Borderless, like the reference's screenshot panel: the loop asset
+        // that replaces this placeholder brings its own edges, and an outline
+        // around a still-empty surface only makes the page read as boxes.
         decoration: BoxDecoration(
           color: surface,
-          borderRadius: WpRadius.borderMd,
-          border: Border.all(color: border),
+          borderRadius: WpRadius.borderLg,
         ),
         child: Center(
           child: Icon(
             icon,
             size: WpIconSize.xxl,
-            color: accent.withValues(alpha: 0.75),
+            color: accent.withValues(alpha: 0.55),
           ),
         ),
       ),
