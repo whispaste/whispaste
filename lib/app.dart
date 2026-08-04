@@ -28,8 +28,10 @@ import 'widgets/title_bar.dart';
 import 'widgets/service_bootstrap.dart';
 import 'widgets/recording_behavior.dart';
 import 'features/history/history_page.dart';
+import 'features/notes/notes_page.dart';
 import 'features/settings/settings_page.dart';
 import 'features/replacements/replacements_page.dart';
+import 'features/snippets/snippets_page.dart';
 import 'features/analytics/analytics_page.dart';
 import 'features/about/about_page.dart';
 import 'features/feedback/feedback_page.dart';
@@ -103,25 +105,45 @@ class WhisPasteApp extends ConsumerWidget {
 /// Navigation items — built from localized strings.
 ///
 /// Public so the screenshot integration test can build an identical sidebar.
+///
+/// Ordered in two deliberate groups (separated in the sidebar via
+/// [wpNavDividerAfterIds]):
+///
+/// 1. **Recording-cycle tools** — History (the record of past recording
+///    cycles), Notizen (freeform notes, independent of any recording), then
+///    the trigger-phrase family: Replacements (transform text), Snippets
+///    (insert stored text).
+/// 2. **Product/meta** — Analytics, Feedback, About (canonical last entry).
 List<WpNavItem> wpNavItems(L10n l10n) => [
   WpNavItem(id: 'history', icon: LucideIcons.clock3, label: l10n.navHistory),
+  WpNavItem(id: 'notes', icon: LucideIcons.stickyNote, label: l10n.navNotes),
   WpNavItem(
     id: 'replacements',
     icon: LucideIcons.replace,
     label: l10n.navReplacements,
   ),
   WpNavItem(
+    id: 'snippets',
+    icon: LucideIcons.notebookText,
+    label: l10n.navSnippets,
+  ),
+  WpNavItem(
     id: 'analytics',
     icon: LucideIcons.chartNoAxesColumn,
     label: l10n.navAnalytics,
   ),
-  WpNavItem(id: 'about', icon: LucideIcons.info, label: l10n.navAbout),
   WpNavItem(
     id: 'feedback',
     icon: LucideIcons.messageSquare,
     label: l10n.navFeedback,
   ),
+  WpNavItem(id: 'about', icon: LucideIcons.info, label: l10n.navAbout),
 ];
+
+/// Group break between the recording-cycle tools and the product/meta nav items —
+/// single source of truth for every [WpSidebar] call site (app shell,
+/// screenshot shells), so grouping stays consistent everywhere.
+const Set<String> wpNavDividerAfterIds = {'snippets'};
 
 /// Resolves the page title — checks nav items first, falls back for
 /// bottom-pinned pages (e.g. Settings).
@@ -147,8 +169,10 @@ SttServerState _sttServerStateFor(ParakeetEngineState state) => switch (state) {
 /// Map page IDs to their widgets.
 const wpPageWidgets = <String, Widget>{
   'history': HistoryPage(),
+  'notes': NotesPage(),
   'settings': SettingsPage(),
   'replacements': ReplacementsPage(),
+  'snippets': SnippetsPage(),
   'analytics': AnalyticsPage(),
   'about': AboutPage(),
   'feedback': FeedbackPage(),
@@ -794,6 +818,7 @@ class _AppShellState extends ConsumerState<_AppShell>
                               children: [
                                 WpSidebar(
                                   items: navItems,
+                                  dividerAfterIds: wpNavDividerAfterIds,
                                   activeId: activePage,
                                   onItemTap: (id) {
                                     ref

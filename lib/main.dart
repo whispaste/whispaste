@@ -25,6 +25,7 @@ import 'core/platform/window_position_clamp.dart';
 import 'core/theme/theme.dart';
 import 'floating_button_render_entrypoint.dart';
 import 'floating_overlay_render_entrypoint.dart';
+import 'snippet_picker_render_entrypoint.dart';
 import 'services/audio_service.dart';
 import 'services/auto_updater_service.dart';
 import 'services/bundle_id_migration_adapters.dart';
@@ -58,6 +59,16 @@ void floatingOverlayMain() => runFloatingOverlayEngine();
 /// Dart, and the pragma keeps it out of the tree-shaker.
 @pragma('vm:entry-point')
 void floatingButtonMain() => runFloatingButtonEngine();
+
+/// Secondary Dart entrypoint booted by name from the native Snippet-Picker
+/// shell (dictation-automations ticket 06). macOS `SnippetPickerHost` runs a
+/// dedicated Flutter engine with `runWithEntrypoint: "snippetPickerMain"`,
+/// which resolves the name only against this root library — so the
+/// entrypoint MUST live here. It delegates straight into
+/// [runSnippetPickerEngine]; it is never called from Dart, and the pragma
+/// keeps it out of the tree-shaker.
+@pragma('vm:entry-point')
+void snippetPickerMain() => runSnippetPickerEngine();
 
 Future<ProviderContainer> bootstrapAppContainer({
   List overrides = const [],

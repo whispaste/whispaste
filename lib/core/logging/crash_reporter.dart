@@ -269,6 +269,14 @@ class CrashReporter {
     if (message != null && containsSensitiveData(message.formatted)) {
       return null;
     }
+    final breadcrumbs = event.breadcrumbs;
+    if (breadcrumbs != null) {
+      for (final b in breadcrumbs) {
+        if (b.message != null && containsSensitiveData(b.message!)) {
+          return null;
+        }
+      }
+    }
 
     // Filter out user-facing toast messages (not real errors)
     final messageStr =

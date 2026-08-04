@@ -27,6 +27,17 @@ part 'database.g.dart';
 
 final _log = AppLogger('HistoryDatabase');
 
+/// A [TextReplacement] joined with every trigger phrase that fires it.
+/// [triggers] is the single source of truth for matching — always non-empty
+/// for rows written through [HistoryDatabase.upsertReplacementWithTriggers];
+/// `row.trigger` is only a legacy mirror, see [TextReplacements].
+class ReplacementWithTriggers {
+  const ReplacementWithTriggers({required this.row, required this.triggers});
+
+  final TextReplacement row;
+  final List<String> triggers;
+}
+
 @DriftDatabase(
   tables: [
     HistoryEntries,
@@ -34,9 +45,13 @@ final _log = AppLogger('HistoryDatabase');
     EntryNotes,
     EntryAttachments,
     TextReplacements,
+    TextReplacementTriggers,
     Tags,
     EntryTags,
     HotkeyLatencyEntries,
+    Snippets,
+    Notes,
+    NoteTags,
   ],
 )
 class HistoryDatabase extends _$HistoryDatabase {
@@ -81,7 +96,7 @@ class HistoryDatabase extends _$HistoryDatabase {
   }
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 17;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -116,6 +131,26 @@ class HistoryDatabase extends _$HistoryDatabase {
       if (from < 12) {
         await _backfillNullableHistoryColumns();
       }
+      if (from < 13) {
+        await m.createTable(textReplacementTriggers);
+        await _backfillReplacementTriggers();
+      }
+      if (from < 15) {
+        await m.createTable(snippets);
+      }
+      if (from < 16) {
+        // The trigger-phrase-driven "automation" feature (dictation-
+        // automations tickets 02-04, schema version 14) was retired: full
+        // parity between the sandboxed Mac App Store build and the
+        // Direct-Download build turned out unreachable within Apple's
+        // sandbox rules. `IF EXISTS` covers DBs that never passed through
+        // version 14 at all.
+        await customStatement('DROP TABLE IF EXISTS automations');
+      }
+      if (from < 17) {
+        await m.createTable(notes);
+        await m.createTable(noteTags);
+      }
     },
     beforeOpen: (details) async {
       // Reconcile Go-era schema if DB was created by the old Go backend
@@ -124,6 +159,8 @@ class HistoryDatabase extends _$HistoryDatabase {
       await _reconcileGoSchema();
       // Ensure indexes on entry_tags for fast tag joins.
       await _ensureEntryTagIndexes();
+      // Ensure indexes on notes/note_tags for fast sort/tag joins.
+      await _ensureNotesIndexes();
       // One-time backfill: populate DailyStats from existing history
       // entries so that stats are correct for users upgrading from
       // a version that never wrote to DailyStats.
@@ -630,6 +667,25 @@ class HistoryDatabase extends _$HistoryDatabase {
   Future<void> backfillNullableHistoryColumnsForTesting() =>
       _backfillNullableHistoryColumns();
 
+  /// v13 migration: seeds [TextReplacementTriggers] from every pre-existing
+  /// [TextReplacements] row's single `trigger` column, so replacements
+  /// created before multi-trigger support keep matching unchanged — no data
+  /// loss, no manual re-entry required. Idempotent: `id` is derived from the
+  /// replacement id, so re-running on an already-backfilled row is a no-op
+  /// insert conflict rather than a duplicate.
+  Future<void> _backfillReplacementTriggers() async {
+    await customStatement('''
+      INSERT OR IGNORE INTO text_replacement_triggers (id, replacement_id, trigger)
+      SELECT id || '_t0', id, trigger FROM text_replacements
+    ''');
+  }
+
+  /// Exposed for testing — runs the v13 backfill directly against the
+  /// already-open database.
+  @visibleForTesting
+  Future<void> backfillReplacementTriggersForTesting() =>
+      _backfillReplacementTriggers();
+
   // ---------------------------------------------------------------------------
 
   /// Number of entries migrated from Go — set during reconciliation,
@@ -696,6 +752,28 @@ class HistoryDatabase extends _$HistoryDatabase {
         e,
         st,
       );
+    }
+  }
+
+  /// Creates indexes on notes/note_tags for fast active-sort and tag joins
+  /// (idempotent).
+  Future<void> _ensureNotesIndexes() async {
+    try {
+      await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_note_tags_tag_id '
+        'ON note_tags(tag_id)',
+      );
+      await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_note_tags_note_id '
+        'ON note_tags(note_id)',
+      );
+      await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_notes_active_sort '
+        'ON notes(deleted_at, pinned, updated_at)',
+      );
+    } catch (e, st) {
+      // Table may not exist yet during initial creation — skip.
+      _log.debug('_ensureNotesIndexes skipped (tables not yet ready)', e, st);
     }
   }
 
@@ -1343,10 +1421,13 @@ class HistoryDatabase extends _$HistoryDatabase {
     return Tag(id: id, name: normalized, createdAt: now);
   }
 
-  /// Deletes a tag and all its entry links.
-  Future<void> deleteTag(String tagId) async {
-    await (delete(entryTags)..where((et) => et.tagId.equals(tagId))).go();
-    await (delete(tags)..where((t) => t.id.equals(tagId))).go();
+  /// Deletes a tag and all its entry and note links.
+  Future<void> deleteTag(String tagId) {
+    return _writeCoordinator.write<void>(() async {
+      await (delete(entryTags)..where((et) => et.tagId.equals(tagId))).go();
+      await (delete(noteTags)..where((nt) => nt.tagId.equals(tagId))).go();
+      await (delete(tags)..where((t) => t.id.equals(tagId))).go();
+    });
   }
 
   /// Renames a tag (lowercased). Fails silently if new name already exists.
@@ -1393,50 +1474,83 @@ class HistoryDatabase extends _$HistoryDatabase {
     );
   }
 
-  /// Most-used tags by entry count.
+  /// Most-used tags by entry+note count.
   Future<List<Tag>> frequentTags({int limit = 10}) async {
-    final count = entryTags.tagId.count();
-    final query =
-        select(
-            tags,
-          ).join([innerJoin(entryTags, entryTags.tagId.equalsExp(tags.id))])
-          ..groupBy([tags.id, tags.name, tags.createdAt])
-          ..orderBy([OrderingTerm.desc(count)])
-          ..limit(limit);
-    final rows = await query.get();
-    return rows.map((r) => r.readTable(tags)).toList();
+    final withCount = await frequentTagsWithCount(limit: limit);
+    return withCount.map((r) => r.$1).toList();
   }
 
   /// Like [frequentTags] but also returns usage count per tag.
+  ///
+  /// Counts links from BOTH [entryTags] and [noteTags] — same fix as
+  /// [allTagsWithCount] (Ticket 05), applied here too: a tag used only on
+  /// notes must still be able to surface as "frequent". Unlike
+  /// [allTagsWithCount], unused tags (count 0) stay excluded, and [limit] is
+  /// applied AFTER merging both counts — capping either source query first
+  /// could drop a tag that ranks low on entries but high on notes.
   Future<List<(Tag, int)>> frequentTagsWithCount({int limit = 10}) async {
-    final count = entryTags.tagId.count();
-    final query =
-        select(
-            tags,
-          ).join([innerJoin(entryTags, entryTags.tagId.equalsExp(tags.id))])
-          ..addColumns([count])
-          ..groupBy([tags.id, tags.name, tags.createdAt])
-          ..orderBy([OrderingTerm.desc(count)])
-          ..limit(limit);
-    final rows = await query.get();
-    return rows.map((r) => (r.readTable(tags), r.read(count) ?? 0)).toList();
+    final counts = await _combinedTagUsageCounts();
+    final all = await allTags();
+    final used =
+        all
+            .where((t) => (counts[t.id] ?? 0) > 0)
+            .map((t) => (t, counts[t.id]!))
+            .toList()
+          ..sort((a, b) {
+            final byCount = b.$2.compareTo(a.$2);
+            // List.sort isn't stable — tags with equal counts (commonly 1)
+            // need an explicit tie-break for a deterministic order.
+            return byCount != 0 ? byCount : a.$1.name.compareTo(b.$1.name);
+          });
+    return used.take(limit).toList();
   }
 
-  /// All tags with their usage counts (number of linked entries), alphabetically.
+  /// All tags with their usage counts, alphabetically.
+  ///
+  /// Counts links from BOTH [entryTags] and [noteTags] — a tag used only by a
+  /// note must not show as unused just because it has no history-entry link
+  /// (bug fixed for Ticket 05: `deleteUnusedTags()` silently deleted tags
+  /// that were only attached to a note). Summed via two separate grouped
+  /// queries rather than a single join across both junction tables, which
+  /// would multiply rows and produce wrong counts.
   ///
   /// Unlike [frequentTagsWithCount], this includes unused tags (count 0)
   /// and does not limit results.
   Future<List<(Tag, int)>> allTagsWithCount() async {
-    final count = entryTags.tagId.count();
-    final query =
-        select(
-            tags,
-          ).join([leftOuterJoin(entryTags, entryTags.tagId.equalsExp(tags.id))])
-          ..addColumns([count])
-          ..groupBy([tags.id, tags.name, tags.createdAt])
-          ..orderBy([OrderingTerm.asc(tags.name)]);
-    final rows = await query.get();
-    return rows.map((r) => (r.readTable(tags), r.read(count) ?? 0)).toList();
+    final counts = await _combinedTagUsageCounts();
+    final all = await allTags();
+    return all.map((t) => (t, counts[t.id] ?? 0)).toList();
+  }
+
+  /// Per-tag usage count, summed across [entryTags] and [noteTags] links.
+  Future<Map<String, int>> _combinedTagUsageCounts() async {
+    final counts = <String, int>{};
+
+    final entryCount = entryTags.tagId.count();
+    final entryRows =
+        await (selectOnly(entryTags)
+              ..addColumns([entryTags.tagId, entryCount])
+              ..groupBy([entryTags.tagId]))
+            .get();
+    for (final row in entryRows) {
+      final tagId = row.read(entryTags.tagId);
+      if (tagId == null) continue;
+      counts[tagId] = (counts[tagId] ?? 0) + (row.read(entryCount) ?? 0);
+    }
+
+    final noteCount = noteTags.tagId.count();
+    final noteRows =
+        await (selectOnly(noteTags)
+              ..addColumns([noteTags.tagId, noteCount])
+              ..groupBy([noteTags.tagId]))
+            .get();
+    for (final row in noteRows) {
+      final tagId = row.read(noteTags.tagId);
+      if (tagId == null) continue;
+      counts[tagId] = (counts[tagId] ?? 0) + (row.read(noteCount) ?? 0);
+    }
+
+    return counts;
   }
 
   /// Tags with zero linked entries.
@@ -1542,33 +1656,188 @@ class HistoryDatabase extends _$HistoryDatabase {
         await delete(tags).go();
         await delete(historyEntries).go();
         await delete(dailyStats).go();
+        await delete(textReplacementTriggers).go();
         await delete(textReplacements).go();
+        await delete(snippets).go();
         await customStatement('DELETE FROM app_settings');
       });
     });
   }
 
   // ---------------------------------------------------------------------------
-  // Text Replacements (voice shortcuts)
+  // Text Replacements
   // ---------------------------------------------------------------------------
 
-  Future<List<TextReplacement>> readAllReplacements() =>
-      select(textReplacements).get();
-
-  Stream<List<TextReplacement>> watchAllReplacements() {
-    if (_isClosed) return const Stream.empty();
-    return select(textReplacements).watch();
+  Future<List<ReplacementWithTriggers>> readAllReplacements() async {
+    final rows = await _replacementsJoinQuery().get();
+    return _groupReplacementRows(rows);
   }
 
-  Future<void> upsertReplacement(TextReplacementsCompanion entry) =>
-      into(textReplacements).insertOnConflictUpdate(entry);
+  Stream<List<ReplacementWithTriggers>> watchAllReplacements() {
+    if (_isClosed) return const Stream.empty();
+    return _replacementsJoinQuery().watch().map(_groupReplacementRows);
+  }
 
-  Future<void> deleteReplacement(String id) =>
-      (delete(textReplacements)..where((t) => t.id.equals(id))).go();
+  JoinedSelectStatement<HasResultSet, dynamic> _replacementsJoinQuery() {
+    // Two ordering terms, parent then child — a single ORDER BY on the
+    // trigger id alone would sort the *whole* joined row stream by that
+    // column, which reshuffles which replacement's rows appear first
+    // (replacement id is not a prefix-free sort key: e.g. seeded rows'
+    // trigger ids are '<ts>_mfg_t0'/'<ts>_lg_t0'/'<ts>_tel_t0', so a
+    // trigger-only sort returns replacements alphabetically by trigger
+    // name instead of creation order). Ordering by the parent's rowid
+    // first (unique, strictly insertion-ordered, never ties) pins
+    // replacement order to creation order same as before this table
+    // existed; the trigger id is then the tiebreak *within* one
+    // replacement, giving stable trigger order — and therefore a stable
+    // `triggers.first` (the legacy-mirror source) and stable UI chip
+    // order — instead of depending on unspecified SQL row order.
+    return select(textReplacements).join([
+      leftOuterJoin(
+        textReplacementTriggers,
+        textReplacementTriggers.replacementId.equalsExp(textReplacements.id),
+      ),
+    ])..orderBy([
+      OrderingTerm(
+        expression: const CustomExpression<int>('text_replacements.rowid'),
+      ),
+      OrderingTerm(expression: textReplacementTriggers.id),
+    ]);
+  }
 
-  /// Deletes all text replacements. Used by settings import (Cluster 5
-  /// portability) to restore an exported set as the exact new contents.
-  Future<void> deleteAllReplacements() => delete(textReplacements).go();
+  /// Groups flat join rows (one row per trigger, or one null-trigger row for
+  /// a replacement with none) back into one [ReplacementWithTriggers] per
+  /// replacement, preserving every parent row via the left outer join even
+  /// when it has zero trigger rows — the notifier that seeds sample data on
+  /// an empty table relies on this to see every parent row regardless of
+  /// whether its triggers backfilled correctly.
+  List<ReplacementWithTriggers> _groupReplacementRows(List<TypedResult> rows) {
+    final order = <String>[];
+    final replacementById = <String, TextReplacement>{};
+    final triggersById = <String, List<String>>{};
+    for (final row in rows) {
+      final replacement = row.readTable(textReplacements);
+      if (!replacementById.containsKey(replacement.id)) {
+        order.add(replacement.id);
+        replacementById[replacement.id] = replacement;
+        triggersById[replacement.id] = [];
+      }
+      final trigger = row.readTableOrNull(textReplacementTriggers);
+      if (trigger != null) {
+        triggersById[replacement.id]!.add(trigger.trigger);
+      }
+    }
+    return [
+      for (final id in order)
+        ReplacementWithTriggers(
+          row: replacementById[id]!,
+          triggers: triggersById[id]!,
+        ),
+    ];
+  }
+
+  /// Upserts a replacement and its full set of trigger phrases in one
+  /// transaction. `triggers` is the complete list (not a delta) — existing
+  /// trigger rows for [id] are replaced. `triggers.first` is also mirrored
+  /// into the legacy `text_replacements.trigger` column (see
+  /// [TextReplacements] doc comment).
+  Future<void> upsertReplacementWithTriggers({
+    required String id,
+    required List<String> triggers,
+    required String replacement,
+    required DateTime createdAt,
+  }) async {
+    assert(triggers.isNotEmpty, 'a replacement needs at least one trigger');
+    await transaction(() async {
+      await into(textReplacements).insertOnConflictUpdate(
+        TextReplacementsCompanion(
+          id: Value(id),
+          trigger: Value(triggers.first),
+          replacement: Value(replacement),
+          createdAt: Value(createdAt),
+        ),
+      );
+      await (delete(
+        textReplacementTriggers,
+      )..where((t) => t.replacementId.equals(id))).go();
+      await batch((b) {
+        b.insertAll(textReplacementTriggers, [
+          for (var i = 0; i < triggers.length; i++)
+            TextReplacementTriggersCompanion.insert(
+              id: '${id}_t$i',
+              replacementId: id,
+              trigger: triggers[i],
+            ),
+        ]);
+      });
+    });
+  }
+
+  Future<void> deleteReplacement(String id) {
+    return transaction(() async {
+      await (delete(
+        textReplacementTriggers,
+      )..where((t) => t.replacementId.equals(id))).go();
+      await (delete(textReplacements)..where((t) => t.id.equals(id))).go();
+    });
+  }
+
+  /// Deletes all text replacements (and their triggers). Used by settings
+  /// import (Cluster 5 portability) to restore an exported set as the exact
+  /// new contents.
+  Future<void> deleteAllReplacements() {
+    return transaction(() async {
+      await delete(textReplacementTriggers).go();
+      await delete(textReplacements).go();
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Snippets (dictation-automations ticket 05)
+  // ---------------------------------------------------------------------------
+
+  /// Ordered by SQLite rowid (insertion order) — same technique as
+  /// [_replacementsJoinQuery], see its doc comment for why a plain
+  /// `ORDER BY` on a text column would not give creation order.
+  SimpleSelectStatement<$SnippetsTable, Snippet> _snippetsQuery() {
+    return select(snippets)..orderBy([
+      (s) => OrderingTerm(
+        expression: const CustomExpression<int>('snippets.rowid'),
+      ),
+    ]);
+  }
+
+  Future<List<Snippet>> readAllSnippets() => _snippetsQuery().get();
+
+  Stream<List<Snippet>> watchAllSnippets() {
+    if (_isClosed) return const Stream.empty();
+    return _snippetsQuery().watch();
+  }
+
+  Future<void> upsertSnippet({
+    required String id,
+    required String title,
+    required String body,
+    required DateTime createdAt,
+  }) {
+    return into(snippets).insertOnConflictUpdate(
+      SnippetsCompanion(
+        id: Value(id),
+        title: Value(title),
+        body: Value(body),
+        createdAt: Value(createdAt),
+      ),
+    );
+  }
+
+  Future<void> deleteSnippet(String id) {
+    return (delete(snippets)..where((s) => s.id.equals(id))).go();
+  }
+
+  /// Deletes all snippets. Used by settings import (portability) so the
+  /// imported file becomes the exact new contents rather than being merged
+  /// with existing entries.
+  Future<void> deleteAllSnippets() => delete(snippets).go();
 
   // ---------------------------------------------------------------------------
   // Notes
@@ -1603,6 +1872,200 @@ class HistoryDatabase extends _$HistoryDatabase {
 
   Future<int> deleteNote(String noteId) {
     return (delete(entryNotes)..where((n) => n.id.equals(noteId))).go();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Notes area (sidebar Notizen feature, schema v17) — collision-free naming
+  // vs. the EntryNotes methods above, which back the unrelated per-entry
+  // "Anmerkung" section instead. Every mutator funnels through
+  // [_writeCoordinator]; sorting happens in SQL so no separate
+  // "pinned first" provider is needed.
+  // ---------------------------------------------------------------------------
+
+  /// Active (non-deleted) notes, favourites first then most recently updated.
+  Stream<List<Note>> watchNotes() {
+    if (_isClosed) return const Stream.empty();
+    return (select(notes)
+          ..where((n) => n.deletedAt.isNull())
+          ..orderBy([
+            (n) => OrderingTerm(expression: n.pinned, mode: OrderingMode.desc),
+            (n) =>
+                OrderingTerm(expression: n.updatedAt, mode: OrderingMode.desc),
+          ]))
+        .watch();
+  }
+
+  /// Trashed notes, most recently deleted first.
+  Stream<List<Note>> watchTrashNotes() {
+    if (_isClosed) return const Stream.empty();
+    return (select(notes)
+          ..where((n) => n.deletedAt.isNotNull())
+          ..orderBy([
+            (n) =>
+                OrderingTerm(expression: n.deletedAt, mode: OrderingMode.desc),
+          ]))
+        .watch();
+  }
+
+  Future<Note?> getNote(String noteId) {
+    return (select(notes)..where((n) => n.id.equals(noteId))).getSingleOrNull();
+  }
+
+  /// Creates a new, empty note and returns it.
+  Future<Note> createNote() {
+    return _writeCoordinator.write<Note>(() async {
+      final id = _uuid();
+      final now = DateTime.now();
+      await into(
+        notes,
+      ).insert(NotesCompanion.insert(id: id, createdAt: now, updatedAt: now));
+      return Note(
+        id: id,
+        content: '',
+        pinned: false,
+        deletedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      );
+    });
+  }
+
+  /// Overwrites a note's content and bumps `updatedAt` — the autosave write
+  /// path (debounced in `note_autosave.dart`, not called on every keystroke).
+  Future<int> updateNoteContent(String noteId, String content) {
+    return _writeCoordinator.write<int>(
+      () => (update(notes)..where((n) => n.id.equals(noteId))).write(
+        NotesCompanion(
+          content: Value(content),
+          updatedAt: Value(DateTime.now()),
+        ),
+      ),
+    );
+  }
+
+  Future<int> toggleNotePin(String noteId, {required bool pinned}) {
+    return _writeCoordinator.write<int>(
+      () => (update(notes)..where((n) => n.id.equals(noteId))).write(
+        NotesCompanion(pinned: Value(pinned), updatedAt: Value(DateTime.now())),
+      ),
+    );
+  }
+
+  /// Soft-delete a note (move to notes trash).
+  Future<int> softDeleteNote(String noteId) {
+    return _writeCoordinator.write<int>(
+      () => (update(notes)..where((n) => n.id.equals(noteId))).write(
+        NotesCompanion(deletedAt: Value(DateTime.now())),
+      ),
+    );
+  }
+
+  /// Restore a soft-deleted note from the notes trash.
+  Future<int> restoreNote(String noteId) {
+    return _writeCoordinator.write<int>(
+      () => (update(notes)..where((n) => n.id.equals(noteId))).write(
+        const NotesCompanion(deletedAt: Value(null)),
+      ),
+    );
+  }
+
+  Future<int> permanentDeleteNote(String noteId) {
+    return _writeCoordinator.write<int>(
+      () => (delete(notes)..where((n) => n.id.equals(noteId))).go(),
+    );
+  }
+
+  /// Permanently removes ALL trashed notes (empty the notes trash).
+  Future<int> emptyNotesTrash() {
+    return _writeCoordinator.write<int>(
+      () => (delete(notes)..where((n) => n.deletedAt.isNotNull())).go(),
+    );
+  }
+
+  /// Permanently deletes active notes whose content is blank
+  /// (`content.trim().isEmpty`) — a self-healing sweep run once when the
+  /// Notizen page mounts, covering notes abandoned by a crash/quit that
+  /// skipped the explicit empty-discard triggers (selection change, page
+  /// dispose). Returns the number of notes deleted.
+  Future<int> purgeEmptyNotes() {
+    return _writeCoordinator.write<int>(() async {
+      final active = await (select(
+        notes,
+      )..where((n) => n.deletedAt.isNull())).get();
+      final emptyIds = active
+          .where((n) => n.content.trim().isEmpty)
+          .map((n) => n.id)
+          .toList();
+      if (emptyIds.isEmpty) return 0;
+      await (delete(notes)..where((n) => n.id.isIn(emptyIds))).go();
+      return emptyIds.length;
+    });
+  }
+
+  /// Link a note to a tag — mirrors [tagEntry], reuses the shared [Tags]
+  /// table. Idempotent (no duplicate links).
+  Future<void> tagNote(String noteId, String tagId) {
+    return _writeCoordinator.write<void>(
+      () => into(noteTags).insert(
+        NoteTagsCompanion.insert(noteId: noteId, tagId: tagId),
+        mode: InsertMode.insertOrIgnore,
+      ),
+    );
+  }
+
+  /// Remove a tag from a note (does not delete the tag itself).
+  Future<void> untagNote(String noteId, String tagId) {
+    return _writeCoordinator.write<void>(
+      () => (delete(
+        noteTags,
+      )..where((nt) => nt.noteId.equals(noteId) & nt.tagId.equals(tagId))).go(),
+    );
+  }
+
+  /// Tags for a specific note (via join), sorted alphabetically.
+  Future<List<Tag>> tagsForNote(String noteId) async {
+    final query =
+        select(
+            tags,
+          ).join([innerJoin(noteTags, noteTags.tagId.equalsExp(tags.id))])
+          ..where(noteTags.noteId.equals(noteId))
+          ..orderBy([OrderingTerm.asc(tags.name)]);
+    final rows = await query.get();
+    return rows.map((r) => r.readTable(tags)).toList();
+  }
+
+  /// Reactive stream of tags for a specific note.
+  Stream<List<Tag>> watchTagsForNote(String noteId) {
+    if (_isClosed) return const Stream.empty();
+    final query =
+        select(
+            tags,
+          ).join([innerJoin(noteTags, noteTags.tagId.equalsExp(tags.id))])
+          ..where(noteTags.noteId.equals(noteId))
+          ..orderBy([OrderingTerm.asc(tags.name)]);
+    return query.watch().map(
+      (rows) => rows.map((r) => r.readTable(tags)).toList(),
+    );
+  }
+
+  /// Reactive stream of ALL note→tags links, grouped by note id.
+  ///
+  /// Needed because — unlike [HistoryEntries], which denormalizes tag names
+  /// into a JSON column for FTS — [Notes] has no such column: Ticket 06's
+  /// search-by-tag filters in memory against this map.
+  Stream<Map<String, List<Tag>>> watchAllNoteTags() {
+    if (_isClosed) return const Stream.empty();
+    final query = select(noteTags).join([
+      innerJoin(tags, tags.id.equalsExp(noteTags.tagId)),
+    ])..orderBy([OrderingTerm.asc(tags.name)]);
+    return query.watch().map((rows) {
+      final grouped = <String, List<Tag>>{};
+      for (final row in rows) {
+        final noteId = row.readTable(noteTags).noteId;
+        grouped.putIfAbsent(noteId, () => []).add(row.readTable(tags));
+      }
+      return grouped;
+    });
   }
 
   // ---------------------------------------------------------------------------

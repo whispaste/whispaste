@@ -39,23 +39,27 @@ void main() {
       await notifier.replaceAll(const [
         Replacement(
           id: 'ignored',
-          trigger: 'tel',
+          triggers: ['tel'],
           replacement: '+49 123 456789',
         ),
         Replacement(
           id: 'ignored2',
-          trigger: 'addr',
+          triggers: ['addr', 'anschrift'],
           replacement: 'Musterstraße 1',
         ),
       ]);
 
       final result = container.read(replacementsProvider).value!;
       expect(result.length, 2);
-      expect(result.map((r) => r.trigger), containsAll(['tel', 'addr']));
+      expect(result.map((r) => r.triggers.first), containsAll(['tel', 'addr']));
       expect(
-        result.firstWhere((r) => r.trigger == 'tel').replacement,
+        result.firstWhere((r) => r.triggers.first == 'tel').replacement,
         '+49 123 456789',
       );
+      expect(result.firstWhere((r) => r.triggers.first == 'addr').triggers, [
+        'addr',
+        'anschrift',
+      ]);
     },
   );
 
@@ -66,5 +70,50 @@ void main() {
     await notifier.replaceAll(const []);
 
     expect(container.read(replacementsProvider).value, isEmpty);
+  });
+
+  test(
+    'build() returns replacements in creation order regardless of trigger id',
+    () async {
+      // Regression: ordering the join purely by trigger id (without a
+      // parent-order tiebreak) sorts *all* rows by that column, which
+      // regroups replacements alphabetically by trigger name whenever the
+      // trigger name is embedded in the derived id (as in seed data's
+      // '<ts>_<trigger>_t0' ids) instead of preserving creation order.
+      final result = await container.read(replacementsProvider.future);
+
+      // Sample data is seeded in this exact order by
+      // ReplacementsNotifier._insertSampleData.
+      expect(result.map((r) => r.triggers.first).toList(), [
+        'mfg',
+        'lg',
+        'tel',
+      ]);
+    },
+  );
+
+  test('build() does not reseed sample data for a replacement row with zero '
+      'trigger rows (e.g. an incomplete migration backfill)', () async {
+    // Bypass the app-level write path entirely, mirroring a row that
+    // predates trigger normalization and whose backfill somehow produced
+    // no trigger rows — the emptiness check that guards reseeding must
+    // key off `text_replacements` row presence, not the joined result.
+    await db.customStatement('''
+        INSERT INTO text_replacements (id, trigger, replacement, created_at)
+        VALUES ('orphan', 'x', 'y', 0)
+      ''');
+
+    final result = await container.read(replacementsProvider.future);
+
+    expect(result.length, 1);
+    expect(result.single.id, 'orphan');
+    // Sample data ('mfg', 'lg', 'tel') must not have been inserted.
+    expect(
+      result.any((r) => r.triggers.contains('mfg')),
+      isFalse,
+      reason:
+          'Sample data must not be re-seeded when the table already '
+          'has rows',
+    );
   });
 }

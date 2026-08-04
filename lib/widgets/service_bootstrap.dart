@@ -77,7 +77,7 @@ class _ServiceBootstrapState extends ConsumerState<ServiceBootstrapWidget> {
     tray.onActionNeededTap = (key) {
       // Currently the only action-needed item is the paste-failure entry
       // — jump straight to the Auto-Paste settings so the user lands on
-      // the capability indicator + "Grant permission" buttons.
+      // the capability indicator + "Continue" buttons.
       if (key == 'paste_action_needed') {
         ref
             .read(settingsScrollTargetProvider.notifier)

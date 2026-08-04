@@ -26,7 +26,8 @@ import 'package:integration_test/integration_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:window_manager/window_manager.dart';
 
-import 'package:whispaste/app.dart' show wpNavItems, wpPageTitle;
+import 'package:whispaste/app.dart'
+    show wpNavDividerAfterIds, wpNavItems, wpPageTitle;
 import 'package:whispaste/core/config/settings_labels.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/data/analytics_provider.dart';
@@ -293,6 +294,7 @@ class _ScreenshotShell extends StatelessWidget {
                     children: [
                       WpSidebar(
                         items: navItems,
+                        dividerAfterIds: wpNavDividerAfterIds,
                         activeId: pageId,
                         onItemTap: (_) {},
                         bottomItems: [

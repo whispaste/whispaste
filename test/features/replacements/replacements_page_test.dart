@@ -1,4 +1,4 @@
-/// Tests for [ReplacementsPage] (Voice Shortcuts).
+/// Tests for [ReplacementsPage].
 ///
 /// Covers: sample data on empty DB, Add dialog, dialog validation,
 /// Edit pre-fill, search filter, no-results state, enable/disable toggle,
@@ -58,10 +58,12 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // ReplacementsNotifier auto-inserts three sample shortcuts when DB is empty
-      expect(find.textContaining('"mfg"'), findsOneWidget);
-      expect(find.textContaining('"lg"'), findsOneWidget);
-      expect(find.textContaining('"tel"'), findsOneWidget);
+      // ReplacementsNotifier auto-inserts three sample replacements when DB
+      // is empty. Trigger phrases are rendered as chips (no surrounding
+      // quotes).
+      expect(find.text('mfg'), findsOneWidget);
+      expect(find.text('lg'), findsOneWidget);
+      expect(find.text('tel'), findsOneWidget);
 
       // Arrow icon present once per row
       expect(find.byIcon(LucideIcons.arrowRightLeft), findsNWidgets(3));
@@ -114,6 +116,63 @@ void main() {
       );
     });
 
+    testWidgets('adding a second trigger phrase saves both triggers', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        makeTestable(const ReplacementsPage(), locale: const Locale('en')),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(LucideIcons.plus));
+      await tester.pumpAndSettle();
+
+      // TextFields in tree order: [0] page search, [1] trigger, [2] replacement
+      await tester.enterText(find.byType(TextField).at(1), 'omw');
+
+      // Add a second trigger row
+      await tester.tap(find.text(l10n.replacementsAddTrigger));
+      await tester.pumpAndSettle();
+
+      // Now: [1] trigger 1, [2] trigger 2, [3] replacement
+      await tester.enterText(find.byType(TextField).at(2), 'otw');
+      await tester.enterText(find.byType(TextField).at(3), 'on my way');
+      await tester.pumpAndSettle();
+
+      // Save via the dialog button (the toolbar Add button shares the same
+      // label but is rendered earlier in the tree).
+      await tester.tap(find.text(l10n.replacementsAdd).last);
+      await tester.pumpAndSettle();
+
+      // One new tile carrying both trigger chips (3 samples + 1 new).
+      expect(find.text('omw'), findsOneWidget);
+      expect(find.text('otw'), findsOneWidget);
+      expect(find.byIcon(LucideIcons.arrowRightLeft), findsNWidgets(4));
+    });
+
+    testWidgets('the last remaining trigger cannot be removed', (tester) async {
+      await tester.pumpWidget(
+        makeTestable(const ReplacementsPage(), locale: const Locale('en')),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(LucideIcons.plus));
+      await tester.pumpAndSettle();
+
+      // A single trigger row shows no remove button at all
+      expect(find.byIcon(LucideIcons.x), findsNothing);
+
+      // With two rows, both get a remove button
+      await tester.tap(find.text(l10n.replacementsAddTrigger));
+      await tester.pumpAndSettle();
+      expect(find.byIcon(LucideIcons.x), findsNWidgets(2));
+
+      // Removing one row hides the remove button on the survivor again
+      await tester.tap(find.byIcon(LucideIcons.x).first);
+      await tester.pumpAndSettle();
+      expect(find.byIcon(LucideIcons.x), findsNothing);
+    });
+
     // -------------------------------------------------------------------------
     // 3. Edit (click tile)
     // -------------------------------------------------------------------------
@@ -126,8 +185,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Tap the mfg tile
-      await tester.tap(find.textContaining('"mfg"'));
+      // Tap the mfg tile (via its trigger chip)
+      await tester.tap(find.text('mfg'));
       await tester.pumpAndSettle();
 
       // Edit dialog title
@@ -147,17 +206,18 @@ void main() {
       await tester.pumpAndSettle();
 
       // All three visible initially
-      expect(find.textContaining('"mfg"'), findsOneWidget);
-      expect(find.textContaining('"lg"'), findsOneWidget);
-      expect(find.textContaining('"tel"'), findsOneWidget);
+      expect(find.text('mfg'), findsOneWidget);
+      expect(find.text('lg'), findsOneWidget);
+      expect(find.text('tel'), findsOneWidget);
 
-      // Search for "mfg" — only the mfg row should remain
+      // Search for "mfg" — only the mfg row should remain. The search field
+      // itself also contains the text 'mfg', so expect two matches.
       await tester.enterText(find.byType(TextField).first, 'mfg');
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('"mfg"'), findsOneWidget);
-      expect(find.textContaining('"lg"'), findsNothing);
-      expect(find.textContaining('"tel"'), findsNothing);
+      expect(find.text('mfg'), findsNWidgets(2));
+      expect(find.text('lg'), findsNothing);
+      expect(find.text('tel'), findsNothing);
     });
 
     testWidgets('search with no match shows no-results empty state', (
@@ -224,7 +284,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Simulate mouse hover over the "mfg" tile
-      final mfgTile = find.textContaining('"mfg"');
+      final mfgTile = find.text('mfg');
       final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
       await gesture.addPointer(location: Offset.zero);
       addTearDown(gesture.removePointer);

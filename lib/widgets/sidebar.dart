@@ -23,12 +23,19 @@ class WpSidebar extends StatelessWidget {
     required this.activeId,
     required this.onItemTap,
     this.bottomItems = const [],
+    this.dividerAfterIds = const <String>{},
   });
 
   final List<WpNavItem> items;
   final String activeId;
   final ValueChanged<String> onItemTap;
   final List<Widget> bottomItems;
+
+  /// Item ids after which a subtle group divider is rendered.
+  ///
+  /// Empty by default, which reproduces the original flat rail exactly —
+  /// callers opt in to grouping without affecting existing layouts.
+  final Set<String> dividerAfterIds;
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +48,7 @@ class WpSidebar extends StatelessWidget {
           // Weighted spacers: ~40% above, ~60% below → slightly above center
           const Spacer(flex: 4),
           // Nav items with generous spacing
-          for (final item in items)
+          for (final item in items) ...[
             // loam-ignore: a11y-interactive-semantics – semantics provided in _NavItemWidget.build
             _NavItemWidget(
               item: item,
@@ -49,11 +56,36 @@ class WpSidebar extends StatelessWidget {
               onTap: () => onItemTap(item.id),
               isDark: isDark,
             ),
+            if (dividerAfterIds.contains(item.id))
+              _SidebarGroupDivider(isDark: isDark),
+          ],
           const Spacer(flex: 6),
           // Bottom items pinned to bottom
           ...bottomItems,
           const SizedBox(height: WpSpacing.md),
         ],
+      ),
+    );
+  }
+}
+
+/// Subtle horizontal hairline separating nav-item groups.
+///
+/// Purely decorative (no semantics, not focusable): narrower than the 38px
+/// icon pill so it reads as a quiet group break, not a full-width rule.
+class _SidebarGroupDivider extends StatelessWidget {
+  const _SidebarGroupDivider({required this.isDark});
+
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: WpSpacing.xs),
+      child: Container(
+        width: 28,
+        height: 1,
+        color: isDark ? WpColorsDark.borderSubtle : WpColorsLight.borderSubtle,
       ),
     );
   }

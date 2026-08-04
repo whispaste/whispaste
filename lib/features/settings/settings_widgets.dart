@@ -195,15 +195,20 @@ class HotkeyDisplay extends StatelessWidget {
 ///
 /// [disabledItems] marks item values that are shown but not selectable (e.g.
 /// a feature unavailable in the current build/platform); [disabledTooltip]
-/// explains why when hovered.
+/// explains why when hovered. A `null` [value] shows the muted [hint] instead
+/// of a selection (e.g. a picker with no choice made yet); [expanded] makes
+/// the dropdown fill its parent's width and ellipsize long labels, for use
+/// inside an [Expanded] row slot rather than a trailing settings slot.
 Widget settingsDropdown({
   required BuildContext context,
-  required String value,
+  required String? value,
   required List<String> items,
   List<String>? labels,
   required ValueChanged<String?> onChanged,
   Set<String>? disabledItems,
   String? disabledTooltip,
+  String? hint,
+  bool expanded = false,
 }) {
   final isDark = Theme.of(context).brightness == Brightness.dark;
   return Container(
@@ -221,9 +226,27 @@ Widget settingsDropdown({
     child: DropdownButtonHideUnderline(
       child: DropdownButton<String>(
         value: value,
+        isExpanded: expanded,
+        hint: hint == null
+            ? null
+            : Text(
+                hint,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: WpTypography.body,
+                  color: isDark
+                      ? WpColorsDark.textMuted
+                      : WpColorsLight.textMuted,
+                ),
+              ),
         items: items.asMap().entries.map((e) {
           final isDisabled = disabledItems?.contains(e.value) ?? false;
-          final label = Text(labels != null ? labels[e.key] : e.value);
+          final label = Text(
+            labels != null ? labels[e.key] : e.value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          );
           return DropdownMenuItem(
             value: e.value,
             enabled: !isDisabled,

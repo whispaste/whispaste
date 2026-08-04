@@ -19,6 +19,7 @@ import '../../../core/navigation/page_state.dart' show activePageProvider;
 import '../../../core/theme/tokens.dart' show WpSpacing;
 import '../../../features/replacements/replacements_page.dart'
     show replacementsProvider;
+import '../../../features/snippets/snippets_page.dart' show snippetsProvider;
 import '../../../services/factory_reset/factory_reset_coordinator.dart';
 import '../../../services/hardware_info_service.dart';
 import '../../../services/model_download_service.dart';
@@ -340,10 +341,12 @@ class _SettingsPortabilityRow extends StatelessWidget {
         final settings =
             ref.read(settingsProvider).value ?? AppSettings.defaults;
         final replacements = ref.read(replacementsProvider).value ?? const [];
+        final snippets = ref.read(snippetsProvider).value ?? const [];
         return SettingsExportBundle(
           customVocabulary: settings.stt.customVocabulary,
           hotkey: settings.hotkey,
           replacements: replacements,
+          snippets: snippets,
         );
       },
       apply: (bundle) async {
@@ -358,6 +361,12 @@ class _SettingsPortabilityRow extends StatelessWidget {
         await ref
             .read(replacementsProvider.notifier)
             .replaceAll(bundle.replacements);
+        // `bundle.snippets` is `null` when the import file predates the
+        // Snippets feature (no "snippets" key) — leave the user's existing
+        // snippets untouched rather than silently clearing them.
+        if (bundle.snippets case final snippets?) {
+          await ref.read(snippetsProvider.notifier).replaceAll(snippets);
+        }
       },
     );
   }

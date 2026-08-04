@@ -15,10 +15,16 @@ class L10nEn extends L10n {
   String get navHistory => 'History';
 
   @override
+  String get navNotes => 'Notes';
+
+  @override
   String get navSettings => 'Settings';
 
   @override
-  String get navReplacements => 'Voice Shortcuts';
+  String get navReplacements => 'Replacements';
+
+  @override
+  String get navSnippets => 'Snippets';
 
   @override
   String get navAnalytics => 'Analytics';
@@ -36,7 +42,7 @@ class L10nEn extends L10n {
   String get pageSettingsTitle => 'Settings';
 
   @override
-  String get pageReplacementsTitle => 'Voice Shortcuts';
+  String get pageReplacementsTitle => 'Replacements';
 
   @override
   String get pageAnalyticsTitle => 'Analytics';
@@ -473,7 +479,7 @@ class L10nEn extends L10n {
 
   @override
   String get pasteFailurePermissionMissing =>
-      'Auto-Paste was blocked by the OS. WhisPaste needs the Accessibility permission to paste into other apps.';
+      'Auto-Paste was blocked by the OS. WhisPaste needs permission to insert text into other apps — macOS calls this permission \'Accessibility\'.';
 
   @override
   String get pasteFailureNoTarget =>
@@ -511,11 +517,11 @@ class L10nEn extends L10n {
   String get pasteCapabilityTestButton => 'Test now';
 
   @override
-  String get pasteCapabilityGrantButton => 'Grant permission';
+  String get pasteCapabilityGrantButton => 'Continue';
 
   @override
   String get pasteCapabilityWhyMac =>
-      'WhisPaste needs Accessibility permission to type text into the app you\'re working in.';
+      'WhisPaste needs permission to type text into the app you\'re working in — macOS calls this permission \'Accessibility\'.';
 
   @override
   String get pasteCapabilityTroubleshoot => 'Having trouble?';
@@ -631,7 +637,7 @@ class L10nEn extends L10n {
       'macOS will ask you in a moment whether WhisPaste may do this. Say yes, done.';
 
   @override
-  String get onboardingPasteGrantCta => 'Allow now';
+  String get onboardingPasteGrantCta => 'Continue';
 
   @override
   String get onboardingPasteVerifyCta => 'Verify';
@@ -814,7 +820,7 @@ class L10nEn extends L10n {
 
   @override
   String get settingsFactoryResetMessage =>
-      'This will permanently delete ALL data: recording history, tags, voice shortcuts, downloaded models, logs, and settings. The app will return to its initial state.\n\nThis cannot be undone.';
+      'This will permanently delete ALL data: recording history, tags, replacements, downloaded models, logs, and settings. The app will return to its initial state.\n\nThis cannot be undone.';
 
   @override
   String get settingsFactoryResetConfirm => 'Delete Everything';
@@ -876,7 +882,7 @@ class L10nEn extends L10n {
 
   @override
   String settingsPortabilityImportConfirmMessage(String path) {
-    return 'This replaces your current custom vocabulary, voice shortcuts, and hotkey configuration with the contents of $path.';
+    return 'This replaces your current custom vocabulary, voice shortcuts, hotkey configuration, and snippets (if included in the file) with the contents of $path.';
   }
 
   @override
@@ -1159,17 +1165,17 @@ class L10nEn extends L10n {
   }
 
   @override
-  String get replacementsSearch => 'Search shortcuts…';
+  String get replacementsSearch => 'Search replacements…';
 
   @override
   String get replacementsAdd => 'Add';
 
   @override
-  String get replacementsEmpty => 'No voice shortcuts yet';
+  String get replacementsEmpty => 'No replacements yet';
 
   @override
   String get replacementsEmptyHint =>
-      'Add shortcuts to auto-replace words while recording.\nExample: \"btw\" → \"by the way\"';
+      'Add replacements to auto-replace words while recording.\nExample: \"btw\" → \"by the way\"';
 
   @override
   String get replacementsNoMatches => 'No matches';
@@ -1178,16 +1184,16 @@ class L10nEn extends L10n {
   String get replacementsNoMatchesHint => 'Try a different search term.';
 
   @override
-  String get replacementsToggleLabel => 'Enable shortcuts';
+  String get replacementsToggleLabel => 'Enable replacements';
 
   @override
-  String get replacementsToggleEnabled => 'Voice shortcuts are active';
+  String get replacementsToggleEnabled => 'Replacements are active';
 
   @override
-  String get replacementsToggleDisabled => 'Voice shortcuts are disabled';
+  String get replacementsToggleDisabled => 'Replacements are disabled';
 
   @override
-  String get replacementsEnableBannerTitle => 'Voice shortcuts are turned off';
+  String get replacementsEnableBannerTitle => 'Replacements are turned off';
 
   @override
   String get replacementsEnableBannerHint =>
@@ -1200,23 +1206,29 @@ class L10nEn extends L10n {
   String get replacementsDisableAction => 'Disable';
 
   @override
-  String get replacementsAddShortcut => 'Add Shortcut';
+  String get replacementsAddShortcut => 'Add Replacement';
 
   @override
-  String get replacementsEditShortcut => 'Edit Shortcut';
+  String get replacementsEditShortcut => 'Edit Replacement';
 
   @override
-  String get replacementsNewShortcut => 'New Shortcut';
+  String get replacementsNewShortcut => 'New Replacement';
 
   @override
   String get replacementsDialogHint =>
-      'The trigger phrase will be replaced automatically while recording.';
+      'Any of the trigger phrases will be replaced automatically while recording.';
 
   @override
-  String get replacementsTriggerLabel => 'Trigger phrase';
+  String get replacementsTriggerLabel => 'Trigger phrases';
 
   @override
   String get replacementsTriggerHint => 'e.g. btw';
+
+  @override
+  String get replacementsAddTrigger => 'Add trigger phrase';
+
+  @override
+  String get replacementsRemoveTrigger => 'Remove trigger phrase';
 
   @override
   String get replacementsReplacementLabel => 'Replacement text';
@@ -1225,12 +1237,76 @@ class L10nEn extends L10n {
   String get replacementsReplacementHint => 'e.g. by the way';
 
   @override
-  String get replacementsDeleteTitle => 'Delete Shortcut';
+  String get replacementsDeleteTitle => 'Delete Replacement';
 
   @override
   String replacementsDeleteMessage(String trigger) {
-    return 'Remove the shortcut \"$trigger\"? This cannot be undone.';
+    return 'Remove the replacement \"$trigger\"? This cannot be undone.';
   }
+
+  @override
+  String get snippetsSearch => 'Search snippets…';
+
+  @override
+  String get snippetsAdd => 'Add';
+
+  @override
+  String get snippetsEmpty => 'No snippets yet';
+
+  @override
+  String get snippetsEmptyHint =>
+      'Add a snippet to quickly reuse a block of text — like a signature or a boilerplate reply.';
+
+  @override
+  String get snippetsNoMatches => 'No matches';
+
+  @override
+  String get snippetsNoMatchesHint => 'Try a different search term.';
+
+  @override
+  String get snippetsAddSnippet => 'Add Snippet';
+
+  @override
+  String get snippetsEditSnippet => 'Edit Snippet';
+
+  @override
+  String get snippetsNewSnippet => 'New Snippet';
+
+  @override
+  String get snippetsTitleLabel => 'Title';
+
+  @override
+  String get snippetsTitleHint => 'e.g. Email signature';
+
+  @override
+  String get snippetsBodyLabel => 'Body';
+
+  @override
+  String get snippetsBodyHint => 'The text this snippet inserts…';
+
+  @override
+  String get snippetsDeleteTitle => 'Delete Snippet';
+
+  @override
+  String snippetsDeleteMessage(String title) {
+    return 'Remove the snippet \"$title\"? This cannot be undone.';
+  }
+
+  @override
+  String get snippetsPickerTriggerLabel => 'Picker trigger word';
+
+  @override
+  String get snippetsPickerTriggerSubtitle =>
+      'Speak only this word to open the snippet picker. Leave empty to turn the picker off.';
+
+  @override
+  String get snippetsPickerTriggerHint => 'e.g. snippet';
+
+  @override
+  String get snippetsPickerSemanticsLabel => 'Snippet picker';
+
+  @override
+  String get snippetsPickerInsertAction => 'Insert';
 
   @override
   String get aboutTagline => 'Voice to text, instantly.';
@@ -1913,26 +1989,26 @@ class L10nEn extends L10n {
   String get historyDuplicated => 'Entry duplicated';
 
   @override
-  String get historyAddNote => 'Add note';
+  String get historyAddNote => 'Add annotation';
 
   @override
-  String get historyEditNote => 'Edit note';
+  String get historyEditNote => 'Edit annotation';
 
   @override
-  String get historyNotes => 'Notes';
+  String get historyNotes => 'Annotations';
 
   @override
-  String get historyNotePlaceholder => 'Write a note…';
+  String get historyNotePlaceholder => 'Write an annotation…';
 
   @override
   String get historyVoiceNoteHint =>
       'Tip: say “tag: name” or “correct: text” while recording.';
 
   @override
-  String get historyNoteAdded => 'Note added';
+  String get historyNoteAdded => 'Annotation added';
 
   @override
-  String get historyNoteDeleted => 'Note deleted';
+  String get historyNoteDeleted => 'Annotation deleted';
 
   @override
   String get historyCopiedAsMarkdown => 'Copied as Markdown';
@@ -2046,7 +2122,7 @@ class L10nEn extends L10n {
   String get historyShortcutTags => 'Focus tag input';
 
   @override
-  String get historyShortcutNotes => 'Add a note';
+  String get historyShortcutNotes => 'Add an annotation';
 
   @override
   String get historyShortcutPin => 'Favorite / unfavorite';
@@ -2321,7 +2397,7 @@ class L10nEn extends L10n {
       'Tap below to enable your microphone';
 
   @override
-  String get onboardingMicRequestAccess => 'Grant Access';
+  String get onboardingMicRequestAccess => 'Continue';
 
   @override
   String get onboardingMicTestRecording =>
@@ -3024,4 +3100,97 @@ class L10nEn extends L10n {
 
   @override
   String get storeThankYouDismiss => 'Close';
+
+  @override
+  String get notesNewNote => 'New note';
+
+  @override
+  String get notesEmptyTitle => 'No notes yet';
+
+  @override
+  String get notesEmptyHint =>
+      'Create a note to start collecting text from anywhere.';
+
+  @override
+  String get notesUntitled => 'Untitled note';
+
+  @override
+  String get notesEditorPlaceholder => 'Start typing…';
+
+  @override
+  String get notesListSemantics => 'Notes list';
+
+  @override
+  String get notesCopy => 'Copy note';
+
+  @override
+  String get notesCopied => 'Note copied';
+
+  @override
+  String get notesFavorite => 'Mark as favorite';
+
+  @override
+  String get notesUnfavorite => 'Remove from favorites';
+
+  @override
+  String get notesMoveToTrash => 'Move to Trash';
+
+  @override
+  String get notesMovedToTrash => 'Moved to trash';
+
+  @override
+  String get notesRestore => 'Restore';
+
+  @override
+  String get notesDeleteForever => 'Delete forever';
+
+  @override
+  String get notesDeleteForeverConfirm => 'Delete note forever?';
+
+  @override
+  String get notesTrash => 'Trash';
+
+  @override
+  String get notesTrashEmpty => 'Trash is empty';
+
+  @override
+  String get notesTrashEmptyHint =>
+      'Deleted notes land here and aren\'t removed automatically.';
+
+  @override
+  String get notesUndo => 'Undo';
+
+  @override
+  String get notesAddTag => 'Add tag';
+
+  @override
+  String get notesTagPlaceholder => 'Tag name…';
+
+  @override
+  String get notesSearchPlaceholder => 'Search notes…';
+
+  @override
+  String get notesNoResults => 'No results';
+
+  @override
+  String notesNoResultsHint(String query) {
+    return 'No notes match \"$query\".\nTry a different search term.';
+  }
+
+  @override
+  String get notesClearSearch => 'Clear search';
+
+  @override
+  String notesResultCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count results',
+      one: '1 result',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get notesExport => 'Export';
 }

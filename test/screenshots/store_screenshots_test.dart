@@ -7,7 +7,7 @@
 /// Narrative flow:
 ///   01 workspace overview (dark/EN+DE)
 ///   02 workspace detail / open entry (light/EN+DE)
-///   03 voice shortcuts (dark/EN+DE)
+///   03 replacements (dark/EN+DE)
 ///   04 settings / hotkey section (light/EN+DE)
 ///   05 analytics (dark/EN+DE)
 @Tags(<String>['golden'])
@@ -305,14 +305,24 @@ Future<void> _seedDemoData(HistoryDatabase db, {required String locale}) async {
   final replacements = isGerman ? _replacementsDe : _replacementsEn;
   for (var i = 0; i < replacements.length; i++) {
     final (trigger, replacement) = replacements[i];
+    final replacementId = 'repl-$locale-$i';
     await db
         .into(db.textReplacements)
         .insert(
           TextReplacementsCompanion(
-            id: Value('repl-$locale-$i'),
+            id: Value(replacementId),
             trigger: Value(trigger),
             replacement: Value(replacement),
             createdAt: Value(now),
+          ),
+        );
+    await db
+        .into(db.textReplacementTriggers)
+        .insert(
+          TextReplacementTriggersCompanion(
+            id: Value('${replacementId}_t0'),
+            replacementId: Value(replacementId),
+            trigger: Value(trigger),
           ),
         );
   }

@@ -185,6 +185,15 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
   /// report), forcing the user to drag it aside to reach the dialog that
   /// actually creates the grant entry. Deliberately in-memory only — a fresh
   /// process gets a fresh native alert, so this must reset with it.
+  ///
+  /// On its own this flag cannot tell a genuinely fresh install apart from a
+  /// fresh *process* spawned by our own restart-recovery loop — every
+  /// restart resets it to `false` too, which would skip the deep-link
+  /// forever if the OS ever stops showing its alert (already asked,
+  /// previously denied, MDM policy — see the regression test "requestGrant
+  /// on a FRESH process..." in `paste_capability_notifier_test.dart`).
+  /// [requestGrant]/[openAccessibilitySettings] additionally gate on
+  /// [PasteCapabilityState.restartAttempted] for exactly that case.
   bool _osPromptFiredThisProcess = false;
 
   @override
@@ -353,7 +362,15 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
       sentToOsGrantFlow: true,
       pollingPhase: PollingPhase.awaitingGrant,
     );
-    final skipDeepLink = !_osPromptFiredThisProcess;
+    // A restart-driven retry always starts a genuinely new process, so
+    // `_osPromptFiredThisProcess` alone can't tell "this user's first-ever
+    // attempt" (OS alert plausible) apart from "the Nth attempt after a
+    // prior restart already spent the OS's one-alert budget on a now-dead
+    // process" (OS alert can no longer be trusted — go straight to the
+    // deep-link). [PasteCapabilityState.restartAttempted] already carries
+    // exactly that cross-process signal (hydrated at startup, before any
+    // grant flow can run — see `hydrateRestartMarker` callers).
+    final skipDeepLink = !_osPromptFiredThisProcess && !state.restartAttempted;
     _osPromptFiredThisProcess = true;
     await check(prompt: true);
     // Arm the poll timers (the phase is already `awaitingGrant`). Done BEFORE
@@ -391,8 +408,11 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
     // notification path in line with it.) Skip the deep-link on this
     // process's first prompt, exactly like [requestGrant]: macOS's own
     // alert is expected there, and racing our Settings window against it
-    // is what caused the live-reported window-stacking bug.
-    final skipDeepLink = !_osPromptFiredThisProcess;
+    // is what caused the live-reported window-stacking bug. Same
+    // [PasteCapabilityState.restartAttempted] override as [requestGrant]:
+    // once a prior restart already happened, the OS's one-alert budget can
+    // no longer be trusted, so go straight to the deep-link.
+    final skipDeepLink = !_osPromptFiredThisProcess && !state.restartAttempted;
     _osPromptFiredThisProcess = true;
     await check(prompt: true);
     if (skipDeepLink) return;

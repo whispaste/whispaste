@@ -551,7 +551,7 @@ enum _AutoPastePhase {
   /// Permission is granted; render a success card and let the user advance.
   granted,
 
-  /// Default missing-permission state: big "Allow now" CTA + Skip.
+  /// Default missing-permission state: big "Continue" CTA + Skip.
   intro,
 
   /// `_onGrantPressed` armed polling; show the "tick the box" hint card

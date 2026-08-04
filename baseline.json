@@ -3,18 +3,123 @@
   "rulesetVersion": "ruleset@382b63c5",
   "findings": [
     {
-      "fingerprint": "d09bf3f2aefa45b2",
+      "fingerprint": "5b1d40d0386cd28e",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/config/settings_sections.dart",
       "line": 407,
-      "message": "2 occurrences of duplicated block (77 tokens): lib/core/config/settings_sections.dart:407, lib/core/config/settings_sections.dart:1088"
+      "message": "2 occurrences of duplicated block (77 tokens): lib/core/config/settings_sections.dart:407, lib/core/config/settings_sections.dart:1102"
     },
     {
-      "fingerprint": "24ddc842b1e58694",
+      "fingerprint": "1f2cf1f6e3b2056e",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/config/settings_sections.dart",
       "line": 423,
-      "message": "2 occurrences of duplicated block (66 tokens): lib/core/config/settings_sections.dart:423, lib/core/config/settings_sections.dart:1101"
+      "message": "2 occurrences of duplicated block (66 tokens): lib/core/config/settings_sections.dart:423, lib/core/config/settings_sections.dart:1115"
+    },
+    {
+      "fingerprint": "8a1b1254f90f74a7",
+      "ruleId": "code-duplicates",
+      "filePath": "lib/core/data/database.dart",
+      "line": 1021,
+      "message": "2 occurrences of duplicated block (56 tokens): lib/core/data/database.dart:1021, lib/core/data/database.dart:1955"
+    },
+    {
+      "fingerprint": "f81cd6dffe66b831",
+      "ruleId": "code-duplicates",
+      "filePath": "lib/core/data/database.dart",
+      "line": 1030,
+      "message": "2 occurrences of duplicated block (53 tokens): lib/core/data/database.dart:1030, lib/core/data/database.dart:1964"
+    },
+    {
+      "fingerprint": "25761ae9da94c0c4",
+      "ruleId": "code-duplicates",
+      "filePath": "lib/core/data/database.dart",
+      "line": 1452,
+      "message": "2 occurrences of duplicated block (90 tokens): lib/core/data/database.dart:1452, lib/core/data/database.dart:2026"
+    },
+    {
+      "fingerprint": "e84d2196b1521a6f",
+      "ruleId": "code-duplicates",
+      "filePath": "lib/core/data/database.dart",
+      "line": 1464,
+      "message": "2 occurrences of duplicated block (105 tokens): lib/core/data/database.dart:1464, lib/core/data/database.dart:2038"
+    },
+    {
+      "fingerprint": "a35cd1565ce1fcd3",
+      "ruleId": "code-duplicates",
+      "filePath": "lib/features/history/history_page.dart",
+      "line": 126,
+      "message": "2 occurrences of duplicated block (91 tokens): lib/features/history/history_page.dart:126, lib/features/notes/notes_page.dart:180"
+    },
+    {
+      "fingerprint": "66737d35103c7006",
+      "ruleId": "code-duplicates",
+      "filePath": "lib/features/history/history_page.dart",
+      "line": 918,
+      "message": "2 occurrences of duplicated block (97 tokens): lib/features/history/history_page.dart:918, lib/features/notes/notes_page.dart:657"
+    },
+    {
+      "fingerprint": "ef11bb9e02ae2947",
+      "ruleId": "code-duplicates",
+      "filePath": "lib/features/history/widgets/history_split_view.dart",
+      "line": 97,
+      "message": "2 occurrences of duplicated block (60 tokens): lib/features/history/widgets/history_split_view.dart:97, lib/features/notes/widgets/notes_split_view.dart:111"
+    },
+    {
+      "fingerprint": "477ed9722d30ce19",
+      "ruleId": "code-duplicates",
+      "filePath": "lib/features/history/widgets/history_split_view.dart",
+      "line": 116,
+      "message": "2 occurrences of duplicated block (100 tokens): lib/features/history/widgets/history_split_view.dart:116, lib/features/notes/widgets/notes_split_view.dart:130"
+    },
+    {
+      "fingerprint": "53459674ac9dd7d3",
+      "ruleId": "code-duplicates",
+      "filePath": "lib/features/history/widgets/history_split_view.dart",
+      "line": 363,
+      "message": "2 occurrences of duplicated block (184 tokens): lib/features/history/widgets/history_split_view.dart:363, lib/features/notes/widgets/notes_split_view.dart:322"
+    },
+    {
+      "fingerprint": "f92e763f8d12ffa1",
+      "ruleId": "code-duplicates",
+      "filePath": "lib/features/history/widgets/voice_note_button.dart",
+      "line": 290,
+      "message": "2 occurrences of duplicated block (205 tokens): lib/features/history/widgets/voice_note_button.dart:290, lib/features/notes/widgets/note_voice_input_button.dart:262"
+    },
+    {
+      "fingerprint": "7c1bb57095282165",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/features/notes/widgets/notes_search_bar.dart",
+      "line": 142,
+      "message": "_NotesFilterChip with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "6d609b760249d3bd",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/features/notes/widgets/notes_search_bar.dart",
+      "line": 152,
+      "message": "_NotesFilterChip with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "815b55d0928323d2",
+      "ruleId": "code-duplicates",
+      "filePath": "lib/features/replacements/replacements_page.dart",
+      "line": 79,
+      "message": "2 occurrences of duplicated block (52 tokens): lib/features/replacements/replacements_page.dart:79, lib/features/snippets/snippets_page.dart:56"
+    },
+    {
+      "fingerprint": "ec24927693bae1ea",
+      "ruleId": "code-duplicates",
+      "filePath": "lib/features/replacements/replacements_page.dart",
+      "line": 119,
+      "message": "2 occurrences of duplicated block (96 tokens): lib/features/replacements/replacements_page.dart:119, lib/features/snippets/snippets_page.dart:96"
+    },
+    {
+      "fingerprint": "bc2554a1bedc4b79",
+      "ruleId": "code-duplicates",
+      "filePath": "lib/services/history/history_exporter.dart",
+      "line": 159,
+      "message": "2 occurrences of duplicated block (53 tokens): lib/services/history/history_exporter.dart:159, lib/services/notes/notes_exporter.dart:130"
     }
   ]
 }

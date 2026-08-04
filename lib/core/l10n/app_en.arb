@@ -2,14 +2,16 @@
   "@@locale": "en",
   "appName": "WhisPaste",
   "navHistory": "History",
+  "navNotes": "Notes",
   "navSettings": "Settings",
-  "navReplacements": "Voice Shortcuts",
+  "navReplacements": "Replacements",
+  "navSnippets": "Snippets",
   "navAnalytics": "Analytics",
   "navAbout": "About",
   "navFeedback": "Feedback",
   "pageHistoryTitle": "History",
   "pageSettingsTitle": "Settings",
-  "pageReplacementsTitle": "Voice Shortcuts",
+  "pageReplacementsTitle": "Replacements",
   "pageAnalyticsTitle": "Analytics",
   "pageAboutTitle": "About",
   "pageFeedbackTitle": "Feedback",
@@ -173,7 +175,7 @@
   "settingsAfterTranscriptionPaste": "Auto-Paste at Cursor",
   "settingsAfterTranscriptionBoth": "Copy & Auto-Paste",
   "settingsAfterTranscriptionNothing": "Do Nothing",
-  "pasteFailurePermissionMissing": "Auto-Paste was blocked by the OS. WhisPaste needs the Accessibility permission to paste into other apps.",
+  "pasteFailurePermissionMissing": "Auto-Paste was blocked by the OS. WhisPaste needs permission to insert text into other apps — macOS calls this permission 'Accessibility'.",
   "pasteFailureNoTarget": "Auto-Paste skipped, no target window was captured. Focus the destination app before triggering a recording.",
   "pasteFailureElevationBlocked": "Auto-Paste blocked: the target app is running with administrator rights. Restart WhisPaste as an administrator to paste into that app.",
   "pasteFailureGeneric": "Auto-Paste failed. The transcript is on the clipboard, paste it manually with ⌘V / Ctrl+V.",
@@ -184,8 +186,8 @@
   "pasteCapabilityPermissionMissing": "Not yet allowed",
   "pasteCapabilityUnsupported": "Auto-Paste is not available on this platform",
   "pasteCapabilityTestButton": "Test now",
-  "pasteCapabilityGrantButton": "Grant permission",
-  "pasteCapabilityWhyMac": "WhisPaste needs Accessibility permission to type text into the app you're working in.",
+  "pasteCapabilityGrantButton": "Continue",
+  "pasteCapabilityWhyMac": "WhisPaste needs permission to type text into the app you're working in — macOS calls this permission 'Accessibility'.",
   "pasteCapabilityTroubleshoot": "Having trouble?",
   "pasteCapabilityRepairHint": "Sometimes macOS remembers an old entry and forgets the new approval. Reset the entry. macOS will then ask you cleanly again.",
   "pasteCapabilityRepairButton": "Reset entry",
@@ -221,7 +223,7 @@
   "pasteCapabilityRepairFailed": "Could not run the macOS permission reset. Try removing WhisPaste from System Settings → Accessibility manually.",
   "onboardingPasteTitle": "So your text lands where you're typing",
   "onboardingPasteSubtitle": "macOS will ask you in a moment whether WhisPaste may do this. Say yes, done.",
-  "onboardingPasteGrantCta": "Allow now",
+  "onboardingPasteGrantCta": "Continue",
   "onboardingPasteVerifyCta": "Verify",
   "onboardingPasteSkip": "Just copy for now, no auto-insert",
   "onboardingPasteWhyMac": "Without permission, your text is copied to the clipboard. You'll then paste manually with ⌘V.",
@@ -278,7 +280,7 @@
   "settingsResetSuccess": "Settings reset to defaults",
   "settingsFactoryReset": "Factory Reset",
   "settingsFactoryResetTitle": "Factory Reset",
-  "settingsFactoryResetMessage": "This will permanently delete ALL data: recording history, tags, voice shortcuts, downloaded models, logs, and settings. The app will return to its initial state.\n\nThis cannot be undone.",
+  "settingsFactoryResetMessage": "This will permanently delete ALL data: recording history, tags, replacements, downloaded models, logs, and settings. The app will return to its initial state.\n\nThis cannot be undone.",
   "settingsFactoryResetConfirm": "Delete Everything",
   "settingsFactoryResetSuccess": "App has been completely reset",
   "settingsFactoryResetProgressTitle": "Resetting WhisPaste",
@@ -305,7 +307,7 @@
     }
   },
   "settingsPortabilityImportConfirmTitle": "Import Settings?",
-  "settingsPortabilityImportConfirmMessage": "This replaces your current custom vocabulary, voice shortcuts, and hotkey configuration with the contents of {path}.",
+  "settingsPortabilityImportConfirmMessage": "This replaces your current custom vocabulary, voice shortcuts, hotkey configuration, and snippets (if included in the file) with the contents of {path}.",
   "@settingsPortabilityImportConfirmMessage": {
     "placeholders": {
       "path": { "type": "String" }
@@ -451,34 +453,62 @@
     }
   },
 
-  "replacementsSearch": "Search shortcuts…",
+  "replacementsSearch": "Search replacements…",
   "replacementsAdd": "Add",
-  "replacementsEmpty": "No voice shortcuts yet",
-  "replacementsEmptyHint": "Add shortcuts to auto-replace words while recording.\nExample: \"btw\" → \"by the way\"",
+  "replacementsEmpty": "No replacements yet",
+  "replacementsEmptyHint": "Add replacements to auto-replace words while recording.\nExample: \"btw\" → \"by the way\"",
   "replacementsNoMatches": "No matches",
   "replacementsNoMatchesHint": "Try a different search term.",
-  "replacementsToggleLabel": "Enable shortcuts",
-  "replacementsToggleEnabled": "Voice shortcuts are active",
-  "replacementsToggleDisabled": "Voice shortcuts are disabled",
-  "replacementsEnableBannerTitle": "Voice shortcuts are turned off",
+  "replacementsToggleLabel": "Enable replacements",
+  "replacementsToggleEnabled": "Replacements are active",
+  "replacementsToggleDisabled": "Replacements are disabled",
+  "replacementsEnableBannerTitle": "Replacements are turned off",
   "replacementsEnableBannerHint": "Enable them so trigger phrases are replaced automatically while recording.",
   "replacementsEnableAction": "Enable",
   "replacementsDisableAction": "Disable",
-  "replacementsAddShortcut": "Add Shortcut",
-  "replacementsEditShortcut": "Edit Shortcut",
-  "replacementsNewShortcut": "New Shortcut",
-  "replacementsDialogHint": "The trigger phrase will be replaced automatically while recording.",
-  "replacementsTriggerLabel": "Trigger phrase",
+  "replacementsAddShortcut": "Add Replacement",
+  "replacementsEditShortcut": "Edit Replacement",
+  "replacementsNewShortcut": "New Replacement",
+  "replacementsDialogHint": "Any of the trigger phrases will be replaced automatically while recording.",
+  "replacementsTriggerLabel": "Trigger phrases",
   "replacementsTriggerHint": "e.g. btw",
+  "replacementsAddTrigger": "Add trigger phrase",
+  "replacementsRemoveTrigger": "Remove trigger phrase",
   "replacementsReplacementLabel": "Replacement text",
   "replacementsReplacementHint": "e.g. by the way",
-  "replacementsDeleteTitle": "Delete Shortcut",
-  "replacementsDeleteMessage": "Remove the shortcut \"{trigger}\"? This cannot be undone.",
+  "replacementsDeleteTitle": "Delete Replacement",
+  "replacementsDeleteMessage": "Remove the replacement \"{trigger}\"? This cannot be undone.",
   "@replacementsDeleteMessage": {
     "placeholders": {
       "trigger": { "type": "String" }
     }
   },
+
+  "snippetsSearch": "Search snippets…",
+  "snippetsAdd": "Add",
+  "snippetsEmpty": "No snippets yet",
+  "snippetsEmptyHint": "Add a snippet to quickly reuse a block of text — like a signature or a boilerplate reply.",
+  "snippetsNoMatches": "No matches",
+  "snippetsNoMatchesHint": "Try a different search term.",
+  "snippetsAddSnippet": "Add Snippet",
+  "snippetsEditSnippet": "Edit Snippet",
+  "snippetsNewSnippet": "New Snippet",
+  "snippetsTitleLabel": "Title",
+  "snippetsTitleHint": "e.g. Email signature",
+  "snippetsBodyLabel": "Body",
+  "snippetsBodyHint": "The text this snippet inserts…",
+  "snippetsDeleteTitle": "Delete Snippet",
+  "snippetsDeleteMessage": "Remove the snippet \"{title}\"? This cannot be undone.",
+  "@snippetsDeleteMessage": {
+    "placeholders": {
+      "title": { "type": "String" }
+    }
+  },
+  "snippetsPickerTriggerLabel": "Picker trigger word",
+  "snippetsPickerTriggerSubtitle": "Speak only this word to open the snippet picker. Leave empty to turn the picker off.",
+  "snippetsPickerTriggerHint": "e.g. snippet",
+  "snippetsPickerSemanticsLabel": "Snippet picker",
+  "snippetsPickerInsertAction": "Insert",
 
   "aboutTagline": "Voice to text, instantly.",
   "aboutWhatsNew": "What's New",
@@ -713,19 +743,19 @@
 
   "historyDuplicate": "Duplicate",
   "historyDuplicated": "Entry duplicated",
-  "historyAddNote": "Add note",
-  "historyEditNote": "Edit note",
+  "historyAddNote": "Add annotation",
+  "historyEditNote": "Edit annotation",
   "@historyEditNote": {
-    "description": "Accessibility label for the note edit text field in the history detail panel."
+    "description": "Accessibility label for the annotation edit text field in the history detail panel."
   },
-  "historyNotes": "Notes",
-  "historyNotePlaceholder": "Write a note…",
+  "historyNotes": "Annotations",
+  "historyNotePlaceholder": "Write an annotation…",
   "historyVoiceNoteHint": "Tip: say “tag: name” or “correct: text” while recording.",
   "@historyVoiceNoteHint": {
-    "description": "One-time discoverability hint next to the note input, teaching the voice-note prefixes parsed by parseVoiceAction."
+    "description": "One-time discoverability hint next to the annotation input, teaching the voice-note prefixes parsed by parseVoiceAction."
   },
-  "historyNoteAdded": "Note added",
-  "historyNoteDeleted": "Note deleted",
+  "historyNoteAdded": "Annotation added",
+  "historyNoteDeleted": "Annotation deleted",
   "historyCopiedAsMarkdown": "Copied as Markdown",
   "historyAddTag": "Add tag…",
   "historySearchTags": "Search or create…",
@@ -759,7 +789,7 @@
   "historyShortcutHelp": "Keyboard Shortcuts",
   "historyShortcutGeneral": "GENERAL",
   "historyShortcutTags": "Focus tag input",
-  "historyShortcutNotes": "Add a note",
+  "historyShortcutNotes": "Add an annotation",
   "historyShortcutPin": "Favorite / unfavorite",
   "historyShortcutClose": "Save & close",
   "historyShortcutEditing": "EDITING",
@@ -863,7 +893,7 @@
   "onboardingMicPermissionGranted": "You're all set, microphone ready!",
   "onboardingMicPermissionDenied": "Microphone access denied",
   "onboardingMicPermissionPending": "Tap below to enable your microphone",
-  "onboardingMicRequestAccess": "Grant Access",
+  "onboardingMicRequestAccess": "Continue",
   "onboardingMicTestRecording": "Say something, we're checking the level",
   "onboardingMicTestDone": "Sounds great, your mic is working perfectly!",
   "onboardingMicSilent": "We can't hear anything. Pick the right microphone below or speak louder and try again.",
@@ -1143,5 +1173,43 @@
   "storeThankYouBody": "We're really glad you're here. If WhisPaste makes your day a little easier, a short review means a lot to us.",
   "storeThankYouCtaStore": "★ Rate on the Store",
   "storeThankYouCtaGitHub": "⭐ Star on GitHub",
-  "storeThankYouDismiss": "Close"
+  "storeThankYouDismiss": "Close",
+
+  "notesNewNote": "New note",
+  "notesEmptyTitle": "No notes yet",
+  "notesEmptyHint": "Create a note to start collecting text from anywhere.",
+  "notesUntitled": "Untitled note",
+  "notesEditorPlaceholder": "Start typing…",
+  "notesListSemantics": "Notes list",
+  "notesCopy": "Copy note",
+  "notesCopied": "Note copied",
+  "notesFavorite": "Mark as favorite",
+  "notesUnfavorite": "Remove from favorites",
+  "notesMoveToTrash": "Move to Trash",
+  "notesMovedToTrash": "Moved to trash",
+  "notesRestore": "Restore",
+  "notesDeleteForever": "Delete forever",
+  "notesDeleteForeverConfirm": "Delete note forever?",
+  "notesTrash": "Trash",
+  "notesTrashEmpty": "Trash is empty",
+  "notesTrashEmptyHint": "Deleted notes land here and aren't removed automatically.",
+  "notesUndo": "Undo",
+  "notesAddTag": "Add tag",
+  "notesTagPlaceholder": "Tag name…",
+  "notesSearchPlaceholder": "Search notes…",
+  "notesNoResults": "No results",
+  "notesNoResultsHint": "No notes match \"{query}\".\nTry a different search term.",
+  "@notesNoResultsHint": {
+    "placeholders": {
+      "query": { "type": "String" }
+    }
+  },
+  "notesClearSearch": "Clear search",
+  "notesResultCount": "{count, plural, =1{1 result} other{{count} results}}",
+  "@notesResultCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "notesExport": "Export"
 }

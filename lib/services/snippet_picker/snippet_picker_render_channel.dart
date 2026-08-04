@@ -1,0 +1,99 @@
+import 'package:flutter/services.dart';
+
+import '../../core/logging/app_logger.dart';
+import '../../shared_render_engine_helpers.dart' show RenderChannel;
+
+final _log = AppLogger('SnippetPickerRenderChannel');
+
+/// A snippet as relayed to the render engine — mirrors the `{'id', 'title',
+/// 'body'}` map shape [MacOSSnippetPickerController.show] sends natively.
+class SnippetPickerRenderItem {
+  const SnippetPickerRenderItem({
+    required this.id,
+    required this.title,
+    required this.body,
+  });
+
+  final String id;
+  final String title;
+  final String body;
+
+  static SnippetPickerRenderItem? tryParse(Object? raw) {
+    if (raw is! Map) return null;
+    final id = raw['id'];
+    final title = raw['title'];
+    final body = raw['body'];
+    if (id is! String || title is! String || body is! String) return null;
+    return SnippetPickerRenderItem(id: id, title: title, body: body);
+  }
+}
+
+/// The render-engine side of the Snippet-Picker shell seam (dictation-
+/// automations ticket 06), mirroring [FloatingButtonRenderChannel]'s split
+/// between native-shell plumbing and the widget tree that actually paints.
+///
+/// Lives inside the dedicated picker Flutter engine. It receives the item
+/// list from the native shell (`setItems`, sent once per `show()`) and
+/// relays the two possible outcomes back (`selectItem` / `cancel`). Kept
+/// separate from the entrypoint so the wiring is unit-testable without
+/// booting a second engine.
+class SnippetPickerRenderChannel implements RenderChannel {
+  SnippetPickerRenderChannel({
+    required String name,
+    required this.onItems,
+    MethodChannel? channel,
+  }) : _channel = channel ?? MethodChannel(name) {
+    _channel.setMethodCallHandler(_handle);
+  }
+
+  final MethodChannel _channel;
+
+  /// Called when the native shell relays a fresh item list for this `show()`.
+  final void Function(List<SnippetPickerRenderItem> items) onItems;
+
+  Future<dynamic> _handle(MethodCall call) async {
+    switch (call.method) {
+      case 'setItems':
+        final args = call.arguments;
+        if (args is Map) {
+          final raw = args['items'];
+          if (raw is List) {
+            onItems([
+              for (final entry in raw) ?SnippetPickerRenderItem.tryParse(entry),
+            ]);
+          }
+        }
+        return null;
+      default:
+        return null;
+    }
+  }
+
+  /// Reports that the user clicked the snippet with [id] — the native shell
+  /// closes the panel and relays this to the main engine as `onItemSelected`.
+  void selectItem(String id) {
+    _channel.invokeMethod('selectItem', {'id': id});
+  }
+
+  /// Reports a dismissal without a selection (Esc, focus lost) — the native
+  /// shell closes the panel and relays this as `onCancelled`.
+  void cancel() {
+    _channel.invokeMethod('cancel');
+  }
+
+  @override
+  void notifyReady() {
+    _channel.invokeMethod('ready');
+  }
+
+  @override
+  void reportError(String message) {
+    _log.error('[snippet-picker-engine-ERROR] $message');
+    _channel.invokeMethod('reportError', {'message': message});
+  }
+
+  @override
+  void dispose() {
+    _channel.setMethodCallHandler(null);
+  }
+}

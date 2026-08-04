@@ -90,6 +90,10 @@ class _HistorySplitViewState extends State<HistorySplitView>
   static const _minDetailRenderWidth = 280.0;
 
   @override
+  // loam-ignore: code-duplicates – mirrors NotesSplitView by design (Struktur-
+  // Vorbild, not a shared abstraction, per the Ticket-02 plan: both split
+  // views must feel identical to resize/collapse, and Notizen must not take a
+  // feature-to-feature dependency on History).
   void initState() {
     super.initState();
     _anim = AnimationController(vsync: this, duration: WpMotion.smooth);
@@ -107,6 +111,8 @@ class _HistorySplitViewState extends State<HistorySplitView>
   }
 
   @override
+  // loam-ignore: code-duplicates – mirrors NotesSplitView by design, see
+  // initState above.
   void didUpdateWidget(covariant HistorySplitView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.selectedEntry != null && oldWidget.selectedEntry == null) {
@@ -352,6 +358,8 @@ class _SplitViewDivider extends StatelessWidget {
   final VoidCallback onDragEnd;
 
   @override
+  // loam-ignore: code-duplicates – mirrors notes_split_view.dart's
+  // _SplitViewDivider by design, see HistorySplitView.initState above.
   Widget build(BuildContext context) {
     return MouseRegion(
       cursor: SystemMouseCursors.resizeColumn,

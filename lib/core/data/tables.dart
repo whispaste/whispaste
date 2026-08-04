@@ -92,13 +92,32 @@ class EntryAttachments extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-/// Voice shortcuts — auto-replace trigger words during dictation.
+/// Replacements — auto-replace trigger words during dictation.
+///
+/// `trigger` is kept as a legacy, schema-additive mirror of the first entry
+/// in [TextReplacementTriggers] for this row (written on every save, never
+/// read by app logic) — see [TextReplacementTriggers] for the source of
+/// truth on which trigger phrases fire this replacement.
 @DataClassName('TextReplacement')
 class TextReplacements extends Table {
   TextColumn get id => text()();
   TextColumn get trigger => text()();
   TextColumn get replacement => text()();
   DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Trigger phrases for a [TextReplacements] row — normalized N:1 so a single
+/// replacement can fire on multiple trigger phrases (schema v13). Every
+/// replacement has at least one row here; each is matched independently
+/// with the existing word-boundary regex (`DriftRecordingStore.save()`).
+@DataClassName('TextReplacementTrigger')
+class TextReplacementTriggers extends Table {
+  TextColumn get id => text()();
+  TextColumn get replacementId => text().references(TextReplacements, #id)();
+  TextColumn get trigger => text()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -123,6 +142,56 @@ class EntryTags extends Table {
 
   @override
   Set<Column> get primaryKey => {entryId, tagId};
+}
+
+/// User-defined text snippets (dictation-automations ticket 05) — named,
+/// multi-line reusable text blocks, deliberately a separate table/data type
+/// from [TextReplacements] (no trigger phrase, no auto-fire during a
+/// recording cycle; snippets are inserted on explicit user action via a
+/// picker, tickets 06/07/08). The trigger-phrase-driven "automation" feature
+/// this table's doc comment used to reference alongside it (open URL/run
+/// shell command/run script, tickets 02-04) was shipped and then retired —
+/// full feature parity between the sandboxed Mac App Store build and the
+/// Direct-Download build turned out unreachable within Apple's sandbox
+/// rules, and maintaining two divergent action-type sets wasn't worth it.
+@DataClassName('Snippet')
+class Snippets extends Table {
+  TextColumn get id => text()();
+  TextColumn get title => text()();
+  TextColumn get body => text()();
+  DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Standalone notes for the sidebar Notizen area (schema v17) — distinct
+/// from [EntryNotes], which back the per-history-entry "Anmerkung" section
+/// and are a different feature entirely. No title column: the list/editor
+/// derive a display title from [content] (see `deriveNoteTitle`).
+@DataClassName('Note')
+class Notes extends Table {
+  TextColumn get id => text()();
+  TextColumn get content => text().withDefault(const Constant(''))();
+  BoolColumn get pinned => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get deletedAt => dateTime().nullable()();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Many-to-many link between [Notes] and [Tags] — mirrors [EntryTags], reuses
+/// the same [Tags] table so a tag can be shared between history entries and
+/// notes.
+@DataClassName('NoteTag')
+class NoteTags extends Table {
+  TextColumn get noteId => text().references(Notes, #id)();
+  TextColumn get tagId => text().references(Tags, #id)();
+
+  @override
+  Set<Column> get primaryKey => {noteId, tagId};
 }
 
 /// Per-recording end-to-end hotkey→text latency — local-only performance KPI.

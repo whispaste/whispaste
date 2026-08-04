@@ -21,6 +21,7 @@ import '../core/recording/recording_state.dart';
 import '../core/data/analytics_provider.dart';
 import '../core/data/database.dart';
 import '../features/recording/clipping_state.dart';
+import '../features/snippets/snippets_page.dart' show SnippetItem;
 import 'audio_service.dart';
 import 'model_download_service.dart';
 import 'path_service.dart';
@@ -29,6 +30,9 @@ import 'recording/pipeline_step_runner.dart';
 import 'recording/recording_state_machine.dart';
 import 'recording/safety_guard.dart';
 import 'review_prompt_service.dart';
+import 'store_thank_you_service.dart';
+import 'snippet_picker/snippet_picker_dispatch.dart';
+import 'snippet_picker/snippet_picker_service.dart';
 import 'sound_feedback_service.dart';
 import 'support_prompt_service.dart';
 import 'telemetry_service.dart';
@@ -819,63 +823,76 @@ class RecordingOrchestrator extends Notifier<void> {
     replaceSw.stop();
     timing.replaceMs = replaceSw.elapsedMilliseconds;
 
-    // ── Step 4: Save to history (5 s budget) ─────────────────────
-    // Onboarding's test-recording step redirects the transcript to a local
-    // sandbox field only (see sandboxTranscriptSink docs on
-    // _handleAfterTranscription below) — it must never be written to the
-    // user's real History, so the whole save step is skipped while the sink
-    // is set.
-    if (sandboxTranscriptSink == null) {
-      final saveSw = Stopwatch()..start();
-      final saveResult = await runner.run<String?>(
-        'save_history',
-        () async => _saveToHistory(
-          finalText,
-          Duration(milliseconds: audioDurMs),
-          settings,
-          (timing.transcribeMs ?? 0) ~/ 1000,
-          wavPath,
-        ),
-        timeout: const Duration(seconds: 5),
-      );
-      saveSw.stop();
-      timing.saveMs = saveSw.elapsedMilliseconds;
+    // ── Snippet-Picker dispatch (exact-match short-circuit, ticket 06) ────
+    // A transcript that matches the picker's trigger word exactly (after
+    // normalization) never reaches history/replacements or paste. An empty
+    // snippet list makes SnippetPickerService.show return false, and the
+    // transcript falls through to the normal pipeline below instead of
+    // vanishing — same "never silently discard the dictation" contract.
+    // Skipped in the same onboarding-sandbox case as history/paste below.
+    final snippetPickerDispatched =
+        sandboxTranscriptSink == null &&
+        await _tryDispatchSnippetPicker(sid, finalText, settings);
 
-      // Save failures are non-fatal (best-effort) — log and continue.
-      if (saveResult case Ok(:final value)) {
-        if (value != null && value != finalText) {
-          finalText = value;
+    if (!snippetPickerDispatched) {
+      // ── Step 4: Save to history (5 s budget) ─────────────────────
+      // Onboarding's test-recording step redirects the transcript to a local
+      // sandbox field only (see sandboxTranscriptSink docs on
+      // _handleAfterTranscription below) — it must never be written to the
+      // user's real History, so the whole save step is skipped while the sink
+      // is set.
+      if (sandboxTranscriptSink == null) {
+        final saveSw = Stopwatch()..start();
+        final saveResult = await runner.run<String?>(
+          'save_history',
+          () async => _saveToHistory(
+            finalText,
+            Duration(milliseconds: audioDurMs),
+            settings,
+            (timing.transcribeMs ?? 0) ~/ 1000,
+            wavPath,
+          ),
+          timeout: const Duration(seconds: 5),
+        );
+        saveSw.stop();
+        timing.saveMs = saveSw.elapsedMilliseconds;
+
+        // Save failures are non-fatal (best-effort) — log and continue.
+        if (saveResult case Ok(:final value)) {
+          if (value != null && value != finalText) {
+            finalText = value;
+          }
+        } else if (saveResult case StepTimeout()) {
+          _log.warning('[$sid] Save to history timed out after 5s');
+        } else if (saveResult case FailedWith(:final error)) {
+          _log.error('[$sid] Save to history failed: $error');
         }
-      } else if (saveResult case StepTimeout()) {
-        _log.warning('[$sid] Save to history timed out after 5s');
-      } else if (saveResult case FailedWith(:final error)) {
-        _log.error('[$sid] Save to history failed: $error');
       }
+
+      // ── Punctuation strip (always applied after text replacements) ──
+      // Deterministic, engine-independent — runs regardless of which STT
+      // engine/provider produced finalText. Placed after the history-save
+      // block (and its text-replacement pass) so a user's own explicit voice
+      // shortcut for punctuation (e.g. a "period" → "." trigger) survives;
+      // only the STT engine's own auto-inserted punctuation is removed.
+      if (settings.stt.stripPunctuation) {
+        finalText = stripPunctuation(finalText);
+      }
+
+      // ── Step 5: After-transcription action (10 s budget) ──────────
+      // Timeout prevents a locked clipboard or slow paste from
+      // hanging the pipeline.
+      final clipSw = Stopwatch()..start();
+      final clipResult = await runner.run<void>(
+        'after_transcription',
+        () async => _handleAfterTranscription(finalText, settings),
+        timeout: const Duration(seconds: 10),
+      );
+      clipSw.stop();
+      timing.clipboardMs = clipSw.elapsedMilliseconds;
+
+      _logAfterTranscriptionResult(sid, clipResult);
     }
-
-    // ── Punctuation strip (always applied after text replacements) ──
-    // Deterministic, engine-independent — runs regardless of which STT
-    // engine/provider produced finalText. Placed after the history-save
-    // block (and its text-replacement pass) so a user's own explicit voice
-    // shortcut for punctuation (e.g. a "period" → "." trigger) survives;
-    // only the STT engine's own auto-inserted punctuation is removed.
-    if (settings.stt.stripPunctuation) {
-      finalText = stripPunctuation(finalText);
-    }
-
-    // ── Step 5: After-transcription action (10 s budget) ──────────
-    // Timeout prevents a locked clipboard or slow paste from
-    // hanging the pipeline.
-    final clipSw = Stopwatch()..start();
-    final clipResult = await runner.run<void>(
-      'after_transcription',
-      () async => _handleAfterTranscription(finalText, settings),
-      timeout: const Duration(seconds: 10),
-    );
-    clipSw.stop();
-    timing.clipboardMs = clipSw.elapsedMilliseconds;
-
-    _logAfterTranscriptionResult(sid, clipResult);
 
     // Text is now in the field (clipboard/paste action above has completed)
     // — this is the "fertig eingefügter Text" moment for the hotkey→text
@@ -894,6 +911,15 @@ class RecordingOrchestrator extends Notifier<void> {
     // does not need to be awaited after the review check specifically.
     unawaited(ref.read(reviewPromptProvider.notifier).checkAndMaybePrompt());
     unawaited(ref.read(supportPromptProvider.notifier).checkAndMaybePrompt());
+    // Re-evaluate after every real recording (not just at onboarding-complete
+    // time) so the engagement gate in shouldShowStoreThankYou — added after
+    // Apple's Guideline 5.6.3 rejection of v1.2.66 — actually gets to fire
+    // once the user crosses the threshold.
+    unawaited(
+      ref
+          .read(storeThankYouProvider.notifier)
+          .checkAndMaybeShow(onboardingCompleted: settings.onboardingCompleted),
+    );
     _oomHandler.reset();
     timing.outcome = 'ok';
 
@@ -1244,6 +1270,46 @@ class RecordingOrchestrator extends Notifier<void> {
 
     _log.info('Preflight OK: model=$modelPath');
     return null;
+  }
+
+  /// Checks [transcript] against the single global Snippet-Picker trigger
+  /// word (exact match, see [snippetPickerTriggerMatches]) and — on a
+  /// match — opens the picker panel near the mouse cursor.
+  ///
+  /// Returns `true` as soon as the panel is shown, **without** waiting for
+  /// the user to pick a snippet (or dismiss the panel) — see
+  /// [SnippetPickerController]'s docs on why the dispatch call must return
+  /// promptly. The eventual insert happens later, asynchronously, driven by
+  /// [SnippetPickerService]'s own event subscription — entirely outside
+  /// this pipeline run, and in particular without ever calling
+  /// `paster.prime()` again (that's what keeps the paste target captured at
+  /// recording start intact while the panel holds keyboard focus).
+  Future<bool> _tryDispatchSnippetPicker(
+    String sid,
+    String transcript,
+    AppSettings settings,
+  ) async {
+    final trigger = settings.behavior.snippetPickerTrigger;
+    if (!snippetPickerTriggerMatches(trigger, transcript)) return false;
+    try {
+      final db = ref.read(historyDatabaseProvider);
+      final snippetRows = await db.readAllSnippets();
+      final items = [
+        for (final row in snippetRows)
+          SnippetItem(id: row.id, title: row.title, body: row.body),
+      ];
+
+      final shown = await ref
+          .read(snippetPickerServiceProvider.notifier)
+          .show(items: items);
+      if (shown) {
+        _log.info('[$sid] Snippet-Picker opened (trigger="$trigger")');
+      }
+      return shown;
+    } on Exception catch (e) {
+      _log.warning('[$sid] Snippet-Picker dispatch failed: $e');
+      return false;
+    }
   }
 
   Future<String?> _saveToHistory(
@@ -1614,10 +1680,10 @@ class RecordingOrchestrator extends Notifier<void> {
               : 'WhisPaste: Auto-Einfügen blockiert',
           body: staleGrant
               ? 'Die Berechtigung wurde erteilt, aber WhisPaste läuft noch mit dem alten Stand. Klicke hier, um WhisPaste neu zu starten.'
-              : 'Bedienungshilfen-Berechtigung fehlt. Klicke hier oder das Tray-Icon, um sie in den Systemeinstellungen zu erteilen.',
+              : 'WhisPaste braucht die Berechtigung, Text in andere Apps einzufügen — macOS nennt sie „Bedienungshilfen“. Klicke hier oder das Tray-Icon, um die Systemeinstellungen zu öffnen.',
           trayLabel: staleGrant
               ? 'Auto-Einfügen blockiert — Neustart nötig'
-              : 'Auto-Einfügen blockiert — Berechtigung erteilen',
+              : 'Auto-Einfügen blockiert — Systemeinstellungen öffnen',
           onClick: staleGrant
               ? capNotifier.restartForGrant
               : capNotifier.openAccessibilitySettings,

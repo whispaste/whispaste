@@ -504,6 +504,76 @@ void main() {
       },
     );
   });
+
+  group(
+    'TextReplacementTriggers migration (v13, multi-trigger replacements)',
+    () {
+      test(
+        'backfills existing single-trigger replacements into the triggers table — no data loss',
+        () async {
+          final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+          await db.customSelect('SELECT 1').get();
+
+          await db.customStatement('''
+          INSERT INTO text_replacements (id, trigger, replacement, created_at)
+          VALUES ('r1', 'mfg', 'Mit freundlichen Grüßen', 1767225600000)
+        ''');
+          await db.customStatement('''
+          INSERT INTO text_replacements (id, trigger, replacement, created_at)
+          VALUES ('r2', 'lg', 'Liebe Grüße', 1767225600000)
+        ''');
+
+          await db.backfillReplacementTriggersForTesting();
+
+          final triggerRows = await db
+              .customSelect(
+                'SELECT replacement_id, trigger FROM text_replacement_triggers '
+                'ORDER BY replacement_id',
+              )
+              .get();
+          expect(triggerRows, hasLength(2));
+          expect(triggerRows[0].data['replacement_id'], 'r1');
+          expect(triggerRows[0].data['trigger'], 'mfg');
+          expect(triggerRows[1].data['replacement_id'], 'r2');
+          expect(triggerRows[1].data['trigger'], 'lg');
+
+          final replacements = await db.readAllReplacements();
+          expect(replacements, hasLength(2));
+          expect(replacements.firstWhere((r) => r.row.id == 'r1').triggers, [
+            'mfg',
+          ]);
+          expect(replacements.firstWhere((r) => r.row.id == 'r2').triggers, [
+            'lg',
+          ]);
+
+          await db.close();
+        },
+      );
+
+      test(
+        'is idempotent — second run does not duplicate trigger rows',
+        () async {
+          final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+          await db.customSelect('SELECT 1').get();
+
+          await db.customStatement('''
+          INSERT INTO text_replacements (id, trigger, replacement, created_at)
+          VALUES ('r1', 'mfg', 'Mit freundlichen Grüßen', 1767225600000)
+        ''');
+
+          await db.backfillReplacementTriggersForTesting();
+          await db.backfillReplacementTriggersForTesting();
+
+          final triggerRows = await db
+              .customSelect('SELECT * FROM text_replacement_triggers')
+              .get();
+          expect(triggerRows, hasLength(1));
+
+          await db.close();
+        },
+      );
+    },
+  );
 }
 
 /// Mock query executor user for manual schema creation

@@ -911,6 +911,10 @@ class _HistorySkeleton extends StatelessWidget {
   final bool isDark;
 
   @override
+  // loam-ignore: code-duplicates – mirrors _NotesSkeleton in
+  // features/notes/notes_page.dart by design (Notizen is a structural, not a
+  // shared, Vorbild of History per the Ticket-02 plan — no feature-to-feature
+  // dependency between lib/features/notes and lib/features/history).
   Widget build(BuildContext context) {
     final boxColor = isDark
         ? WpColorsDark.borderSubtle

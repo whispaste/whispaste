@@ -15,7 +15,11 @@
 # the one where it was hand-added.
 #
 # Idempotent: safe to run on a freshly-regenerated file (adds the guard) or
-# an already-patched one (no-op).
+# an already-patched one (no-op). The actual patch lives in
+# patch_plugin_registrant_guard.py, shared with .githooks/pre-commit, which
+# self-heals the working-tree file before it can be committed unguarded —
+# this build phase remains the last line of defense for a build made from a
+# tree where that hook didn't run (e.g. --no-verify).
 set -euo pipefail
 
 if [[ "${CONFIGURATION:-}" != "MAS" ]]; then
@@ -24,33 +28,4 @@ fi
 
 REGISTRANT="${SRCROOT}/Flutter/GeneratedPluginRegistrant.swift"
 
-if [[ ! -f "$REGISTRANT" ]]; then
-  echo "warning: $REGISTRANT not found — nothing to guard."
-  exit 0
-fi
-
-if grep -q '#if !MAS_BUILD' "$REGISTRANT"; then
-  echo "GeneratedPluginRegistrant.swift already guards AutoUpdaterMacosPlugin — nothing to do."
-  exit 0
-fi
-
-python3 - "$REGISTRANT" <<'PYEOF'
-import re
-import sys
-
-path = sys.argv[1]
-with open(path) as f:
-    content = f.read()
-
-pattern = r'(  AutoUpdaterMacosPlugin\.register\(with: registry\.registrar\(forPlugin: "AutoUpdaterMacosPlugin"\)\)\n)'
-replacement = '  #if !MAS_BUILD\n\\1  #endif\n'
-new_content, n = re.subn(pattern, replacement, content)
-
-if n == 0:
-    print("warning: AutoUpdaterMacosPlugin.register(...) line not found — Flutter's generated code may have changed shape.", file=sys.stderr)
-    sys.exit(0)
-
-with open(path, "w") as f:
-    f.write(new_content)
-print(f"guard_mas_plugin_registrant: guarded {n} occurrence(s) in {path}")
-PYEOF
+python3 "${SRCROOT}/patch_plugin_registrant_guard.py" "$REGISTRANT"

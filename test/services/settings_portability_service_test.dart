@@ -5,10 +5,13 @@
 /// real disk IO happens in tests.
 library;
 
+import 'dart:convert';
+
 import 'package:file/memory.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/features/replacements/replacements_page.dart';
+import 'package:whispaste/features/snippets/snippets_page.dart';
 import 'package:whispaste/services/settings_portability_service.dart';
 
 void main() {
@@ -31,10 +34,10 @@ void main() {
     replacements: [
       Replacement(
         id: 'a',
-        trigger: 'mfg',
+        triggers: ['mfg', 'mfg2'],
         replacement: 'Mit freundlichen Grüßen',
       ),
-      Replacement(id: 'b', trigger: 'lg', replacement: 'Liebe Grüße'),
+      Replacement(id: 'b', triggers: ['lg'], replacement: 'Liebe Grüße'),
     ],
   );
 
@@ -53,7 +56,9 @@ void main() {
       expect(written, contains('"hotkey"'));
       expect(written, contains('ctrl+alt'));
       expect(written, contains('"replacements"'));
+      expect(written, contains('"triggers"'));
       expect(written, contains('mfg'));
+      expect(written, contains('mfg2'));
       expect(written, contains('Mit freundlichen Grüßen'));
     },
   );
@@ -72,11 +77,19 @@ void main() {
       expect(restored.customVocabulary, sampleBundle.customVocabulary);
       expect(restored.hotkey, sampleBundle.hotkey);
       expect(
-        restored.replacements.map((r) => (r.trigger, r.replacement)).toList(),
-        sampleBundle.replacements
-            .map((r) => (r.trigger, r.replacement))
-            .toList(),
+        restored.replacements,
+        hasLength(sampleBundle.replacements.length),
       );
+      for (var i = 0; i < sampleBundle.replacements.length; i++) {
+        expect(
+          restored.replacements[i].triggers,
+          sampleBundle.replacements[i].triggers,
+        );
+        expect(
+          restored.replacements[i].replacement,
+          sampleBundle.replacements[i].replacement,
+        );
+      }
     },
   );
 
@@ -96,7 +109,11 @@ void main() {
           hotkeyModifiers: 'meta+shift',
         ),
         replacements: [
-          Replacement(id: 'x', trigger: 'tel', replacement: '+49 123 456789'),
+          Replacement(
+            id: 'x',
+            triggers: ['tel', 'telefon'],
+            replacement: '+49 123 456789',
+          ),
         ],
       );
 
@@ -105,9 +122,48 @@ void main() {
 
       expect(restored.customVocabulary, bundle.customVocabulary);
       expect(restored.hotkey, bundle.hotkey);
+      expect(restored.replacements, hasLength(bundle.replacements.length));
+      for (var i = 0; i < bundle.replacements.length; i++) {
+        expect(
+          restored.replacements[i].triggers,
+          bundle.replacements[i].triggers,
+        );
+        expect(
+          restored.replacements[i].replacement,
+          bundle.replacements[i].replacement,
+        );
+      }
+    },
+  );
+
+  // ---------------------------------------------------------------------------
+  // Backward compatibility: importing an old-format export (single "trigger"
+  // string per replacement, published before multi-trigger support).
+  // ---------------------------------------------------------------------------
+
+  test(
+    'importFromFile reads old-format single "trigger" exports without throwing',
+    () async {
+      await fs
+          .file('/legacy.json')
+          .writeAsString(
+            jsonEncode({
+              'format_version': 1,
+              'custom_vocabulary': 'Legacy',
+              'hotkey': const HotkeySettings().toMap(),
+              'replacements': [
+                {'trigger': 'mfg', 'replacement': 'Mit freundlichen Grüßen'},
+              ],
+            }),
+          );
+
+      final restored = await service.importFromFile('/legacy.json');
+
+      expect(restored.replacements, hasLength(1));
+      expect(restored.replacements.single.triggers, ['mfg']);
       expect(
-        restored.replacements.map((r) => (r.trigger, r.replacement)).toList(),
-        bundle.replacements.map((r) => (r.trigger, r.replacement)).toList(),
+        restored.replacements.single.replacement,
+        'Mit freundlichen Grüßen',
       );
     },
   );
@@ -151,4 +207,91 @@ void main() {
       );
     },
   );
+
+  // ---------------------------------------------------------------------------
+  // Snippets: exported as their own optional section (dictation-automations
+  // ticket 05).
+  // ---------------------------------------------------------------------------
+
+  test('exportToFile writes snippets as their own JSON section', () async {
+    const bundle = SettingsExportBundle(
+      customVocabulary: '',
+      hotkey: HotkeySettings(),
+      replacements: [],
+      snippets: [
+        SnippetItem(id: 'x', title: 'Signature', body: 'Best,\nSilvio'),
+      ],
+    );
+
+    await service.exportToFile('/exports/settings.json', bundle);
+
+    final written = await fs.file('/exports/settings.json').readAsString();
+    expect(written, contains('"snippets"'));
+    expect(written, contains('"title"'));
+    expect(written, contains('Signature'));
+    expect(written, contains('Best,\\nSilvio'));
+  });
+
+  test('round trip: export then import restores snippets', () async {
+    const bundle = SettingsExportBundle(
+      customVocabulary: '',
+      hotkey: HotkeySettings(),
+      replacements: [],
+      snippets: [
+        SnippetItem(id: 'a', title: 'Signature', body: 'Best,\nSilvio'),
+        SnippetItem(id: 'b', title: 'Greeting', body: 'Hi there'),
+      ],
+    );
+
+    await service.exportToFile('/roundtrip-snippets.json', bundle);
+    final restored = await service.importFromFile('/roundtrip-snippets.json');
+
+    expect(restored.snippets, hasLength(2));
+    expect(restored.snippets![0].title, 'Signature');
+    expect(restored.snippets![0].body, 'Best,\nSilvio');
+    expect(restored.snippets![1].title, 'Greeting');
+    expect(restored.snippets![1].body, 'Hi there');
+  });
+
+  test('importFromFile reads a currently-published export without a '
+      '"snippets" section without throwing, decoding it as null (absent) '
+      'rather than an empty list — so callers can leave existing snippets '
+      'untouched instead of clearing them', () async {
+    await fs
+        .file('/pre-snippets.json')
+        .writeAsString(
+          jsonEncode({
+            'format_version': 1,
+            'custom_vocabulary': 'x',
+            'hotkey': const HotkeySettings().toMap(),
+            'replacements': <Object?>[],
+          }),
+        );
+
+    final restored = await service.importFromFile('/pre-snippets.json');
+
+    expect(restored.snippets, isNull);
+  });
+
+  test('importFromFile reads an export with an explicit empty "snippets" '
+      'section as an empty (non-null) list — distinct from an absent '
+      'section, so callers clear existing snippets when the user genuinely '
+      'has none', () async {
+    await fs
+        .file('/empty-snippets.json')
+        .writeAsString(
+          jsonEncode({
+            'format_version': 1,
+            'custom_vocabulary': 'x',
+            'hotkey': const HotkeySettings().toMap(),
+            'replacements': <Object?>[],
+            'snippets': <Object?>[],
+          }),
+        );
+
+    final restored = await service.importFromFile('/empty-snippets.json');
+
+    expect(restored.snippets, isNotNull);
+    expect(restored.snippets, isEmpty);
+  });
 }

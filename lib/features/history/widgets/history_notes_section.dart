@@ -185,17 +185,21 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
                   ),
                   const SizedBox(width: WpSpacing.xxs),
                   if (!_isAdding)
-                    Tooltip(
-                      message: l10n.historyAddNote,
-                      child: InkWell(
-                        onTap: () => setState(() => _isAdding = true),
-                        borderRadius: WpRadius.borderSm,
-                        child: Padding(
-                          padding: const EdgeInsets.all(WpSpacing.xs),
-                          child: Icon(
-                            LucideIcons.plus,
-                            size: WpIconSize.md,
-                            color: accent,
+                    Semantics(
+                      label: l10n.historyAddNote,
+                      button: true,
+                      child: Tooltip(
+                        message: l10n.historyAddNote,
+                        child: InkWell(
+                          onTap: () => setState(() => _isAdding = true),
+                          borderRadius: WpRadius.borderSm,
+                          child: Padding(
+                            padding: const EdgeInsets.all(WpSpacing.xs),
+                            child: Icon(
+                              LucideIcons.plus,
+                              size: WpIconSize.md,
+                              color: accent,
+                            ),
                           ),
                         ),
                       ),
@@ -251,28 +255,36 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
                         ),
                       ),
                     ),
-                    IconButton(
-                      icon: Icon(
-                        LucideIcons.check,
-                        size: WpIconSize.md,
-                        color: accent,
+                    Semantics(
+                      label: l10n.actionSave,
+                      button: true,
+                      child: IconButton(
+                        icon: Icon(
+                          LucideIcons.check,
+                          size: WpIconSize.md,
+                          color: accent,
+                        ),
+                        onPressed: _addNote,
+                        padding: const EdgeInsets.all(WpSpacing.xs),
+                        tooltip: l10n.actionSave,
                       ),
-                      onPressed: _addNote,
-                      padding: const EdgeInsets.all(WpSpacing.xs),
-                      tooltip: l10n.actionSave,
                     ),
-                    IconButton(
-                      icon: Icon(
-                        LucideIcons.x,
-                        size: WpIconSize.md,
-                        color: textMuted,
+                    Semantics(
+                      label: l10n.actionCancel,
+                      button: true,
+                      child: IconButton(
+                        icon: Icon(
+                          LucideIcons.x,
+                          size: WpIconSize.md,
+                          color: textMuted,
+                        ),
+                        onPressed: () {
+                          _controller.clear();
+                          setState(() => _isAdding = false);
+                        },
+                        padding: const EdgeInsets.all(WpSpacing.xs),
+                        tooltip: l10n.actionCancel,
                       ),
-                      onPressed: () {
-                        _controller.clear();
-                        setState(() => _isAdding = false);
-                      },
-                      padding: const EdgeInsets.all(WpSpacing.xs),
-                      tooltip: l10n.actionCancel,
                     ),
                     const SizedBox(width: WpSpacing.xxs),
                   ],
@@ -435,25 +447,33 @@ class _NoteItemState extends State<_NoteItem> {
                       ),
                     ),
                   ),
-                  IconButton(
-                    icon: Icon(
-                      LucideIcons.check,
-                      size: WpIconSize.md,
-                      color: widget.accent,
+                  Semantics(
+                    label: L10n.of(context).actionSave,
+                    button: true,
+                    child: IconButton(
+                      icon: Icon(
+                        LucideIcons.check,
+                        size: WpIconSize.md,
+                        color: widget.accent,
+                      ),
+                      onPressed: widget.onSave,
+                      padding: const EdgeInsets.all(WpSpacing.xxs),
+                      tooltip: L10n.of(context).actionSave,
                     ),
-                    onPressed: widget.onSave,
-                    padding: const EdgeInsets.all(WpSpacing.xxs),
-                    tooltip: L10n.of(context).actionSave,
                   ),
-                  IconButton(
-                    icon: Icon(
-                      LucideIcons.x,
-                      size: WpIconSize.md,
-                      color: widget.textMuted,
+                  Semantics(
+                    label: L10n.of(context).actionCancel,
+                    button: true,
+                    child: IconButton(
+                      icon: Icon(
+                        LucideIcons.x,
+                        size: WpIconSize.md,
+                        color: widget.textMuted,
+                      ),
+                      onPressed: widget.onCancel,
+                      padding: const EdgeInsets.all(WpSpacing.xxs),
+                      tooltip: L10n.of(context).actionCancel,
                     ),
-                    onPressed: widget.onCancel,
-                    padding: const EdgeInsets.all(WpSpacing.xxs),
-                    tooltip: L10n.of(context).actionCancel,
                   ),
                 ],
               )
@@ -492,27 +512,41 @@ class _NoteItemState extends State<_NoteItem> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        InkWell(
-                          onTap: widget.onStartEdit,
-                          borderRadius: WpRadius.borderSm,
-                          child: Padding(
-                            padding: const EdgeInsets.all(WpSpacing.xs),
-                            child: Icon(
-                              LucideIcons.pencil,
-                              size: WpIconSize.sm,
-                              color: widget.textMuted,
+                        Semantics(
+                          label: L10n.of(context).actionEdit,
+                          button: true,
+                          child: Tooltip(
+                            message: L10n.of(context).actionEdit,
+                            child: InkWell(
+                              onTap: widget.onStartEdit,
+                              borderRadius: WpRadius.borderSm,
+                              child: Padding(
+                                padding: const EdgeInsets.all(WpSpacing.xs),
+                                child: Icon(
+                                  LucideIcons.pencil,
+                                  size: WpIconSize.sm,
+                                  color: widget.textMuted,
+                                ),
+                              ),
                             ),
                           ),
                         ),
-                        InkWell(
-                          onTap: widget.onDelete,
-                          borderRadius: WpRadius.borderSm,
-                          child: Padding(
-                            padding: const EdgeInsets.all(WpSpacing.xs),
-                            child: Icon(
-                              LucideIcons.x,
-                              size: WpIconSize.sm,
-                              color: widget.textMuted,
+                        Semantics(
+                          label: L10n.of(context).actionDelete,
+                          button: true,
+                          child: Tooltip(
+                            message: L10n.of(context).actionDelete,
+                            child: InkWell(
+                              onTap: widget.onDelete,
+                              borderRadius: WpRadius.borderSm,
+                              child: Padding(
+                                padding: const EdgeInsets.all(WpSpacing.xs),
+                                child: Icon(
+                                  LucideIcons.x,
+                                  size: WpIconSize.sm,
+                                  color: widget.textMuted,
+                                ),
+                              ),
                             ),
                           ),
                         ),

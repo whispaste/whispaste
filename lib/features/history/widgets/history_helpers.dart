@@ -38,7 +38,7 @@ String formatHistoryDuration(double durationSec) {
 }
 
 /// Derives a warm avatar color from the entry's first tag or title.
-Color historyAvatarColor(HistoryEntry entry, bool isDark) {
+Color historyAvatarColor(HistoryEntry entry) {
   const palette = WpSharedColors.avatarPalette;
   // Hash from title for consistent color per entry
   final hash = entry.title.isNotEmpty

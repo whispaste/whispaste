@@ -111,6 +111,12 @@ abstract class L10n {
   /// **'History'**
   String get navHistory;
 
+  /// No description provided for @navNotes.
+  ///
+  /// In en, this message translates to:
+  /// **'Notes'**
+  String get navNotes;
+
   /// No description provided for @navSettings.
   ///
   /// In en, this message translates to:
@@ -120,8 +126,14 @@ abstract class L10n {
   /// No description provided for @navReplacements.
   ///
   /// In en, this message translates to:
-  /// **'Voice Shortcuts'**
+  /// **'Replacements'**
   String get navReplacements;
+
+  /// No description provided for @navSnippets.
+  ///
+  /// In en, this message translates to:
+  /// **'Snippets'**
+  String get navSnippets;
 
   /// No description provided for @navAnalytics.
   ///
@@ -156,7 +168,7 @@ abstract class L10n {
   /// No description provided for @pageReplacementsTitle.
   ///
   /// In en, this message translates to:
-  /// **'Voice Shortcuts'**
+  /// **'Replacements'**
   String get pageReplacementsTitle;
 
   /// No description provided for @pageAnalyticsTitle.
@@ -954,7 +966,7 @@ abstract class L10n {
   /// No description provided for @pasteFailurePermissionMissing.
   ///
   /// In en, this message translates to:
-  /// **'Auto-Paste was blocked by the OS. WhisPaste needs the Accessibility permission to paste into other apps.'**
+  /// **'Auto-Paste was blocked by the OS. WhisPaste needs permission to insert text into other apps — macOS calls this permission \'Accessibility\'.'**
   String get pasteFailurePermissionMissing;
 
   /// No description provided for @pasteFailureNoTarget.
@@ -1020,13 +1032,13 @@ abstract class L10n {
   /// No description provided for @pasteCapabilityGrantButton.
   ///
   /// In en, this message translates to:
-  /// **'Grant permission'**
+  /// **'Continue'**
   String get pasteCapabilityGrantButton;
 
   /// No description provided for @pasteCapabilityWhyMac.
   ///
   /// In en, this message translates to:
-  /// **'WhisPaste needs Accessibility permission to type text into the app you\'re working in.'**
+  /// **'WhisPaste needs permission to type text into the app you\'re working in — macOS calls this permission \'Accessibility\'.'**
   String get pasteCapabilityWhyMac;
 
   /// No description provided for @pasteCapabilityTroubleshoot.
@@ -1212,7 +1224,7 @@ abstract class L10n {
   /// No description provided for @onboardingPasteGrantCta.
   ///
   /// In en, this message translates to:
-  /// **'Allow now'**
+  /// **'Continue'**
   String get onboardingPasteGrantCta;
 
   /// No description provided for @onboardingPasteVerifyCta.
@@ -1536,7 +1548,7 @@ abstract class L10n {
   /// No description provided for @settingsFactoryResetMessage.
   ///
   /// In en, this message translates to:
-  /// **'This will permanently delete ALL data: recording history, tags, voice shortcuts, downloaded models, logs, and settings. The app will return to its initial state.\n\nThis cannot be undone.'**
+  /// **'This will permanently delete ALL data: recording history, tags, replacements, downloaded models, logs, and settings. The app will return to its initial state.\n\nThis cannot be undone.'**
   String get settingsFactoryResetMessage;
 
   /// No description provided for @settingsFactoryResetConfirm.
@@ -1638,7 +1650,7 @@ abstract class L10n {
   /// No description provided for @settingsPortabilityImportConfirmMessage.
   ///
   /// In en, this message translates to:
-  /// **'This replaces your current custom vocabulary, voice shortcuts, and hotkey configuration with the contents of {path}.'**
+  /// **'This replaces your current custom vocabulary, voice shortcuts, hotkey configuration, and snippets (if included in the file) with the contents of {path}.'**
   String settingsPortabilityImportConfirmMessage(String path);
 
   /// No description provided for @settingsPortabilityImportSuccess.
@@ -2136,7 +2148,7 @@ abstract class L10n {
   /// No description provided for @replacementsSearch.
   ///
   /// In en, this message translates to:
-  /// **'Search shortcuts…'**
+  /// **'Search replacements…'**
   String get replacementsSearch;
 
   /// No description provided for @replacementsAdd.
@@ -2148,13 +2160,13 @@ abstract class L10n {
   /// No description provided for @replacementsEmpty.
   ///
   /// In en, this message translates to:
-  /// **'No voice shortcuts yet'**
+  /// **'No replacements yet'**
   String get replacementsEmpty;
 
   /// No description provided for @replacementsEmptyHint.
   ///
   /// In en, this message translates to:
-  /// **'Add shortcuts to auto-replace words while recording.\nExample: \"btw\" → \"by the way\"'**
+  /// **'Add replacements to auto-replace words while recording.\nExample: \"btw\" → \"by the way\"'**
   String get replacementsEmptyHint;
 
   /// No description provided for @replacementsNoMatches.
@@ -2172,25 +2184,25 @@ abstract class L10n {
   /// No description provided for @replacementsToggleLabel.
   ///
   /// In en, this message translates to:
-  /// **'Enable shortcuts'**
+  /// **'Enable replacements'**
   String get replacementsToggleLabel;
 
   /// No description provided for @replacementsToggleEnabled.
   ///
   /// In en, this message translates to:
-  /// **'Voice shortcuts are active'**
+  /// **'Replacements are active'**
   String get replacementsToggleEnabled;
 
   /// No description provided for @replacementsToggleDisabled.
   ///
   /// In en, this message translates to:
-  /// **'Voice shortcuts are disabled'**
+  /// **'Replacements are disabled'**
   String get replacementsToggleDisabled;
 
   /// No description provided for @replacementsEnableBannerTitle.
   ///
   /// In en, this message translates to:
-  /// **'Voice shortcuts are turned off'**
+  /// **'Replacements are turned off'**
   String get replacementsEnableBannerTitle;
 
   /// No description provided for @replacementsEnableBannerHint.
@@ -2214,31 +2226,31 @@ abstract class L10n {
   /// No description provided for @replacementsAddShortcut.
   ///
   /// In en, this message translates to:
-  /// **'Add Shortcut'**
+  /// **'Add Replacement'**
   String get replacementsAddShortcut;
 
   /// No description provided for @replacementsEditShortcut.
   ///
   /// In en, this message translates to:
-  /// **'Edit Shortcut'**
+  /// **'Edit Replacement'**
   String get replacementsEditShortcut;
 
   /// No description provided for @replacementsNewShortcut.
   ///
   /// In en, this message translates to:
-  /// **'New Shortcut'**
+  /// **'New Replacement'**
   String get replacementsNewShortcut;
 
   /// No description provided for @replacementsDialogHint.
   ///
   /// In en, this message translates to:
-  /// **'The trigger phrase will be replaced automatically while recording.'**
+  /// **'Any of the trigger phrases will be replaced automatically while recording.'**
   String get replacementsDialogHint;
 
   /// No description provided for @replacementsTriggerLabel.
   ///
   /// In en, this message translates to:
-  /// **'Trigger phrase'**
+  /// **'Trigger phrases'**
   String get replacementsTriggerLabel;
 
   /// No description provided for @replacementsTriggerHint.
@@ -2246,6 +2258,18 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'e.g. btw'**
   String get replacementsTriggerHint;
+
+  /// No description provided for @replacementsAddTrigger.
+  ///
+  /// In en, this message translates to:
+  /// **'Add trigger phrase'**
+  String get replacementsAddTrigger;
+
+  /// No description provided for @replacementsRemoveTrigger.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove trigger phrase'**
+  String get replacementsRemoveTrigger;
 
   /// No description provided for @replacementsReplacementLabel.
   ///
@@ -2262,14 +2286,134 @@ abstract class L10n {
   /// No description provided for @replacementsDeleteTitle.
   ///
   /// In en, this message translates to:
-  /// **'Delete Shortcut'**
+  /// **'Delete Replacement'**
   String get replacementsDeleteTitle;
 
   /// No description provided for @replacementsDeleteMessage.
   ///
   /// In en, this message translates to:
-  /// **'Remove the shortcut \"{trigger}\"? This cannot be undone.'**
+  /// **'Remove the replacement \"{trigger}\"? This cannot be undone.'**
   String replacementsDeleteMessage(String trigger);
+
+  /// No description provided for @snippetsSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Search snippets…'**
+  String get snippetsSearch;
+
+  /// No description provided for @snippetsAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get snippetsAdd;
+
+  /// No description provided for @snippetsEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No snippets yet'**
+  String get snippetsEmpty;
+
+  /// No description provided for @snippetsEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a snippet to quickly reuse a block of text — like a signature or a boilerplate reply.'**
+  String get snippetsEmptyHint;
+
+  /// No description provided for @snippetsNoMatches.
+  ///
+  /// In en, this message translates to:
+  /// **'No matches'**
+  String get snippetsNoMatches;
+
+  /// No description provided for @snippetsNoMatchesHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Try a different search term.'**
+  String get snippetsNoMatchesHint;
+
+  /// No description provided for @snippetsAddSnippet.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Snippet'**
+  String get snippetsAddSnippet;
+
+  /// No description provided for @snippetsEditSnippet.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Snippet'**
+  String get snippetsEditSnippet;
+
+  /// No description provided for @snippetsNewSnippet.
+  ///
+  /// In en, this message translates to:
+  /// **'New Snippet'**
+  String get snippetsNewSnippet;
+
+  /// No description provided for @snippetsTitleLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Title'**
+  String get snippetsTitleLabel;
+
+  /// No description provided for @snippetsTitleHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. Email signature'**
+  String get snippetsTitleHint;
+
+  /// No description provided for @snippetsBodyLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Body'**
+  String get snippetsBodyLabel;
+
+  /// No description provided for @snippetsBodyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'The text this snippet inserts…'**
+  String get snippetsBodyHint;
+
+  /// No description provided for @snippetsDeleteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Snippet'**
+  String get snippetsDeleteTitle;
+
+  /// No description provided for @snippetsDeleteMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove the snippet \"{title}\"? This cannot be undone.'**
+  String snippetsDeleteMessage(String title);
+
+  /// No description provided for @snippetsPickerTriggerLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Picker trigger word'**
+  String get snippetsPickerTriggerLabel;
+
+  /// No description provided for @snippetsPickerTriggerSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Speak only this word to open the snippet picker. Leave empty to turn the picker off.'**
+  String get snippetsPickerTriggerSubtitle;
+
+  /// No description provided for @snippetsPickerTriggerHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. snippet'**
+  String get snippetsPickerTriggerHint;
+
+  /// No description provided for @snippetsPickerSemanticsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Snippet picker'**
+  String get snippetsPickerSemanticsLabel;
+
+  /// No description provided for @snippetsPickerInsertAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Insert'**
+  String get snippetsPickerInsertAction;
 
   /// No description provided for @aboutTagline.
   ///
@@ -3480,28 +3624,28 @@ abstract class L10n {
   /// No description provided for @historyAddNote.
   ///
   /// In en, this message translates to:
-  /// **'Add note'**
+  /// **'Add annotation'**
   String get historyAddNote;
 
-  /// Accessibility label for the note edit text field in the history detail panel.
+  /// Accessibility label for the annotation edit text field in the history detail panel.
   ///
   /// In en, this message translates to:
-  /// **'Edit note'**
+  /// **'Edit annotation'**
   String get historyEditNote;
 
   /// No description provided for @historyNotes.
   ///
   /// In en, this message translates to:
-  /// **'Notes'**
+  /// **'Annotations'**
   String get historyNotes;
 
   /// No description provided for @historyNotePlaceholder.
   ///
   /// In en, this message translates to:
-  /// **'Write a note…'**
+  /// **'Write an annotation…'**
   String get historyNotePlaceholder;
 
-  /// One-time discoverability hint next to the note input, teaching the voice-note prefixes parsed by parseVoiceAction.
+  /// One-time discoverability hint next to the annotation input, teaching the voice-note prefixes parsed by parseVoiceAction.
   ///
   /// In en, this message translates to:
   /// **'Tip: say “tag: name” or “correct: text” while recording.'**
@@ -3510,13 +3654,13 @@ abstract class L10n {
   /// No description provided for @historyNoteAdded.
   ///
   /// In en, this message translates to:
-  /// **'Note added'**
+  /// **'Annotation added'**
   String get historyNoteAdded;
 
   /// No description provided for @historyNoteDeleted.
   ///
   /// In en, this message translates to:
-  /// **'Note deleted'**
+  /// **'Annotation deleted'**
   String get historyNoteDeleted;
 
   /// No description provided for @historyCopiedAsMarkdown.
@@ -3666,7 +3810,7 @@ abstract class L10n {
   /// No description provided for @historyShortcutNotes.
   ///
   /// In en, this message translates to:
-  /// **'Add a note'**
+  /// **'Add an annotation'**
   String get historyShortcutNotes;
 
   /// No description provided for @historyShortcutPin.
@@ -4164,7 +4308,7 @@ abstract class L10n {
   /// No description provided for @onboardingMicRequestAccess.
   ///
   /// In en, this message translates to:
-  /// **'Grant Access'**
+  /// **'Continue'**
   String get onboardingMicRequestAccess;
 
   /// No description provided for @onboardingMicTestRecording.
@@ -5390,6 +5534,168 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Close'**
   String get storeThankYouDismiss;
+
+  /// No description provided for @notesNewNote.
+  ///
+  /// In en, this message translates to:
+  /// **'New note'**
+  String get notesNewNote;
+
+  /// No description provided for @notesEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No notes yet'**
+  String get notesEmptyTitle;
+
+  /// No description provided for @notesEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a note to start collecting text from anywhere.'**
+  String get notesEmptyHint;
+
+  /// No description provided for @notesUntitled.
+  ///
+  /// In en, this message translates to:
+  /// **'Untitled note'**
+  String get notesUntitled;
+
+  /// No description provided for @notesEditorPlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Start typing…'**
+  String get notesEditorPlaceholder;
+
+  /// No description provided for @notesListSemantics.
+  ///
+  /// In en, this message translates to:
+  /// **'Notes list'**
+  String get notesListSemantics;
+
+  /// No description provided for @notesCopy.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy note'**
+  String get notesCopy;
+
+  /// No description provided for @notesCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Note copied'**
+  String get notesCopied;
+
+  /// No description provided for @notesFavorite.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark as favorite'**
+  String get notesFavorite;
+
+  /// No description provided for @notesUnfavorite.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from favorites'**
+  String get notesUnfavorite;
+
+  /// No description provided for @notesMoveToTrash.
+  ///
+  /// In en, this message translates to:
+  /// **'Move to Trash'**
+  String get notesMoveToTrash;
+
+  /// No description provided for @notesMovedToTrash.
+  ///
+  /// In en, this message translates to:
+  /// **'Moved to trash'**
+  String get notesMovedToTrash;
+
+  /// No description provided for @notesRestore.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore'**
+  String get notesRestore;
+
+  /// No description provided for @notesDeleteForever.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete forever'**
+  String get notesDeleteForever;
+
+  /// No description provided for @notesDeleteForeverConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete note forever?'**
+  String get notesDeleteForeverConfirm;
+
+  /// No description provided for @notesTrash.
+  ///
+  /// In en, this message translates to:
+  /// **'Trash'**
+  String get notesTrash;
+
+  /// No description provided for @notesTrashEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Trash is empty'**
+  String get notesTrashEmpty;
+
+  /// No description provided for @notesTrashEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleted notes land here and aren\'t removed automatically.'**
+  String get notesTrashEmptyHint;
+
+  /// No description provided for @notesUndo.
+  ///
+  /// In en, this message translates to:
+  /// **'Undo'**
+  String get notesUndo;
+
+  /// No description provided for @notesAddTag.
+  ///
+  /// In en, this message translates to:
+  /// **'Add tag'**
+  String get notesAddTag;
+
+  /// No description provided for @notesTagPlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Tag name…'**
+  String get notesTagPlaceholder;
+
+  /// No description provided for @notesSearchPlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Search notes…'**
+  String get notesSearchPlaceholder;
+
+  /// No description provided for @notesNoResults.
+  ///
+  /// In en, this message translates to:
+  /// **'No results'**
+  String get notesNoResults;
+
+  /// No description provided for @notesNoResultsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'No notes match \"{query}\".\nTry a different search term.'**
+  String notesNoResultsHint(String query);
+
+  /// No description provided for @notesClearSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear search'**
+  String get notesClearSearch;
+
+  /// No description provided for @notesResultCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 result} other{{count} results}}'**
+  String notesResultCount(int count);
+
+  /// No description provided for @notesExport.
+  ///
+  /// In en, this message translates to:
+  /// **'Export'**
+  String get notesExport;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {
