@@ -17,6 +17,7 @@ import '../../services/paste/paste_capability_notifier.dart';
 import '../../services/permissions/mic_permission_notifier.dart';
 import '../../services/telemetry_service.dart';
 import '../../widgets/wp_accent_button.dart';
+import 'onboarding_completion_gate.dart';
 import 'onboarding_flow_migration.dart';
 import 'steps/appearance_section.dart';
 import 'steps/auto_paste_step.dart';
@@ -377,12 +378,24 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
     final isLastStep = safeCurrent == totalSteps - 1;
     final direction = _currentStep >= _previousStep ? 1.0 : -1.0;
 
-    // Residual safety gate (moved from the old ReadyStep): a confirmed
-    // hotkey conflict disables the completion CTA so the user is never sent
-    // into a non-functional hotkey. `unknown` stays enabled — background
-    // registration must not block on a transient first-mount race.
+    // Two independent completion gates (PRD "Zwei Abschluss-Gates"):
+    //  1. Residual safety gate (moved from the old ReadyStep): a confirmed
+    //     hotkey conflict disables the completion CTA so the user is never
+    //     sent into a non-functional hotkey. `unknown` stays enabled —
+    //     background registration must not block on a transient first-mount
+    //     race.
+    //  2. Microphone gate: a successful test recording with recognised
+    //     speech (non-empty sandbox transcript) — or the explicit
+    //     "continue without a microphone" escape hatch, which bypasses ONLY
+    //     this condition, never the hotkey one.
     final hotkeyStatus = ref.watch(hotkeyRegistrationStatusProvider);
-    final completionEnabled = hotkeyStatus != HotkeyRegistrationStatus.conflict;
+    final testRecordingSucceeded = ref.watch(
+      onboardingTestRecordingSucceededProvider,
+    );
+    final micBypassed = ref.watch(onboardingMicBypassProvider);
+    final completionEnabled =
+        hotkeyStatus != HotkeyRegistrationStatus.conflict &&
+        (testRecordingSucceeded || micBypassed);
 
     final background = isDark
         ? WpColorsDark.background

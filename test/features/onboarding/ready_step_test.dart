@@ -225,6 +225,35 @@ void main() {
     });
   });
 
+  // ── Context-carryover side note (issue 10) ───────────────────────────────
+  //
+  // WhisPaste carries recognition context from the previous recording for up
+  // to ten minutes; the closing content surfaces that as a muted tip, not as
+  // a fourth numbered instruction row.
+
+  group('ReadyStep — context-carryover hint', () {
+    testWidgets(
+      'the carryover tip renders alongside the three quick-start rows',
+      (tester) async {
+        final settings = _FakeSettingsNotifier();
+        await _pumpStep(tester, settings: settings);
+
+        expect(
+          find.text(l10n.onboardingReadyContextCarryoverHint),
+          findsOneWidget,
+          reason:
+              'The topic-switch tip must be visible on the closing content.',
+        );
+        // Still exactly three numbered instruction rows — the tip is a side
+        // note, not a fourth step.
+        expect(find.textContaining('1. '), findsOneWidget);
+        expect(find.textContaining('2. '), findsOneWidget);
+        expect(find.textContaining('3. '), findsOneWidget);
+        expect(find.textContaining('4. '), findsNothing);
+      },
+    );
+  });
+
   // ── Residual hotkey-conflict notice ──────────────────────────────────────
   //
   // The shell disables the completion CTA on a confirmed conflict (covered

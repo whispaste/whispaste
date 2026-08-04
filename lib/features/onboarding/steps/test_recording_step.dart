@@ -9,11 +9,19 @@ import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../features/settings/settings_widgets.dart';
 import '../../../services/recording_orchestrator.dart';
+import '../../../widgets/wp_accent_button.dart';
+import '../onboarding_completion_gate.dart';
 
 /// Widget keys exposed for testing. Kept in one place so tests and production
 /// code agree on the contract.
 @visibleForTesting
 const kTestRecordingStepFieldKey = Key('testRecordingStepSandboxField');
+@visibleForTesting
+const kTestRecordingStepRecordButtonKey = Key('testRecordingStepRecordButton');
+@visibleForTesting
+const kTestRecordingStepMicBypassButtonKey = Key(
+  'testRecordingStepMicBypassButton',
+);
 
 /// Guided, optional test recording content of the final onboarding page.
 ///
@@ -49,7 +57,32 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
 
   void _onSandboxTranscript(String text) {
     if (!mounted) return;
+    if (text.trim().isNotEmpty) {
+      // Non-empty transcript == proof that speech was actually recognised —
+      // this is what the shell's completion gate waits for. Whitespace-only
+      // results (silence, mic picked up nothing) don't count.
+      ref
+          .read(onboardingTestRecordingSucceededProvider.notifier)
+          .markSucceeded();
+    }
     setState(() => _sandboxText = text);
+  }
+
+  /// Starts/stops the guided test recording from the UI button.
+  ///
+  /// Deliberately routes through [RecordingOrchestrator.toggleRecording] —
+  /// the exact method the systemwide hotkey handler calls — so the button is
+  /// merely a second trigger for the identical pipeline, never a parallel
+  /// recording path. The sandbox seam ([initState]/[dispose] wiring of
+  /// [RecordingOrchestrator.sandboxTranscriptSink]) therefore covers
+  /// button-driven starts for free: `_handleAfterTranscription` short-circuits
+  /// into the sink regardless of what triggered the recording.
+  void _onRecordPressed() {
+    ref.read(recordingOrchestratorProvider.notifier).toggleRecording();
+  }
+
+  void _onMicBypassPressed() {
+    ref.read(onboardingMicBypassProvider.notifier).activate();
   }
 
   @override
@@ -64,6 +97,10 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
     final l10n = L10n.of(context);
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
     final phase = ref.watch(recordingPhaseProvider);
+    final testRecordingSucceeded = ref.watch(
+      onboardingTestRecordingSucceededProvider,
+    );
+    final micBypassed = ref.watch(onboardingMicBypassProvider);
 
     final isDone = _sandboxText != null;
     final isRecording =
@@ -79,6 +116,9 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
         : WpColorsLight.textSecondary;
     final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
     final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    final accentGradient = isDark
+        ? WpColorsDark.accentWarmGradient
+        : WpColorsLight.accentWarmGradient;
     final success = isDark ? WpColorsDark.success : WpColorsLight.success;
 
     return Column(
@@ -117,7 +157,30 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
           hotkeyModifiers: settings.hotkeyModifiers,
           hotkeyKeyDisplay: settings.hotkey.hotkeyKeyDisplay,
         ),
-        const SizedBox(height: WpSpacing.xl),
+        const SizedBox(height: WpSpacing.lg),
+
+        // Start/Stop button — the primary trigger for the test recording.
+        // Deliberately a button and not the hotkey (which could still be in
+        // conflict with other software); the hotkey keeps working in
+        // parallel through the same orchestrator path. Disabled while a
+        // finished recording is being transcribed — the sandbox field's
+        // in-progress line explains the wait.
+        ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 220),
+          // loam-ignore: a11y-interactive-semantics – semantics provided in WpAccentButton.build
+          child: WpAccentButton(
+            key: kTestRecordingStepRecordButtonKey,
+            label: phase == RecordingPhase.recording
+                ? l10n.onboardingTestRecordingStopCta
+                : l10n.onboardingTestRecordingStartCta,
+            gradient: accentGradient,
+            verticalPadding: WpSpacing.sm,
+            onPressed: phase == RecordingPhase.transcribing
+                ? null
+                : _onRecordPressed,
+          ),
+        ),
+        const SizedBox(height: WpSpacing.lg),
 
         // Sandbox field
         _SandboxField(
@@ -137,15 +200,36 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
             children: [
               Icon(LucideIcons.circleCheck, size: 16, color: success),
               const SizedBox(width: WpSpacing.xs),
-              Text(
-                l10n.onboardingTestRecordingDoneMessage,
-                style: TextStyle(
-                  fontSize: WpTypography.body,
-                  fontWeight: FontWeight.w600,
-                  color: success,
+              // Flexible so long translations wrap instead of overflowing
+              // the row (surfaced by the walkthrough test's Ahem metrics).
+              Flexible(
+                child: Text(
+                  l10n.onboardingTestRecordingDoneMessage,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: WpTypography.body,
+                    fontWeight: FontWeight.w600,
+                    color: success,
+                  ),
                 ),
               ),
             ],
+          ),
+        ],
+
+        // Completion-gate explainer — the shell's "Los geht's" CTA stays
+        // disabled until a test recording succeeded (or the escape hatch was
+        // taken); this line names the reason so the disabled CTA never
+        // appears unexplained.
+        if (!testRecordingSucceeded && !micBypassed) ...[
+          const SizedBox(height: WpSpacing.sm),
+          Text(
+            l10n.onboardingTestRecordingCompletionHint,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: WpTypography.small,
+              color: textSecondary,
+            ),
           ),
         ],
 
@@ -155,6 +239,53 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: WpTypography.small, color: textMuted),
         ),
+
+        // Escape hatch "continue without a microphone" — deliberately
+        // restrained (plain text button, never the accent gradient). Only
+        // bypasses the microphone condition of the completion gate; a
+        // confirmed hotkey conflict still keeps the CTA disabled (heads-up
+        // rendered by ReadyStep). Hidden once a recording succeeded — at
+        // that point it has nothing left to bypass.
+        if (!testRecordingSucceeded) ...[
+          const SizedBox(height: WpSpacing.lg),
+          if (!micBypassed)
+            TextButton(
+              key: kTestRecordingStepMicBypassButtonKey,
+              onPressed: _onMicBypassPressed,
+              child: Text(
+                l10n.onboardingTestRecordingMicBypassCta,
+                style: TextStyle(
+                  color: textSecondary,
+                  fontSize: WpTypography.body,
+                ),
+              ),
+            )
+          else
+            // Honest consequence note: no recording works until a microphone
+            // does, and where to catch up later.
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 1),
+                  child: Icon(LucideIcons.info, size: 14, color: textMuted),
+                ),
+                const SizedBox(width: WpSpacing.xs),
+                Flexible(
+                  child: Text(
+                    l10n.onboardingTestRecordingMicBypassHint,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: WpTypography.small,
+                      color: textMuted,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+        ],
       ],
     );
   }

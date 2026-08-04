@@ -35,6 +35,7 @@ class ReadyStep extends ConsumerWidget {
     final textSecondary = isDark
         ? WpColorsDark.textSecondary
         : WpColorsLight.textSecondary;
+    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
 
     // The completion CTA (owned by the onboarding shell) is gated on a healthy
     // hotkey registration; this content mirrors that gate with a short
@@ -121,6 +122,32 @@ class ReadyStep extends ConsumerWidget {
           icon: LucideIcons.clipboard,
           accent: accent,
           textColor: textPrimary,
+        ),
+
+        // Context-carryover side note — deliberately NOT a fourth numbered
+        // step (it's a tip, not part of the core loop). Mirrors the muted
+        // hint style of the recording-duration note on the Model & Hotkey
+        // page (appearance_section.dart).
+        const SizedBox(height: WpSpacing.lg),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 1),
+              child: Icon(LucideIcons.info, size: 14, color: textMuted),
+            ),
+            const SizedBox(width: WpSpacing.xs),
+            Expanded(
+              child: Text(
+                l10n.onboardingReadyContextCarryoverHint,
+                style: TextStyle(
+                  fontSize: WpTypography.small,
+                  color: textMuted,
+                  height: 1.35,
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );

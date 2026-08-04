@@ -2538,10 +2538,27 @@ class L10nDe extends L10n {
 
   @override
   String get onboardingTestRecordingSubtitle =>
-      'Drück deinen Hotkey und sprich einen Satz. Der Text erscheint unten im Testfeld.';
+      'Drück die Schaltfläche unten und sprich einen Satz. Der Text landet im Testfeld. Dein Hotkey funktioniert genauso.';
 
   @override
   String get onboardingTestRecordingHotkeyLabel => 'Dein Hotkey';
+
+  @override
+  String get onboardingTestRecordingStartCta => 'Aufnahme starten';
+
+  @override
+  String get onboardingTestRecordingStopCta => 'Aufnahme stoppen';
+
+  @override
+  String get onboardingTestRecordingCompletionHint =>
+      'Probier zuerst eine Aufnahme aus, um fortzufahren.';
+
+  @override
+  String get onboardingTestRecordingMicBypassCta => 'Ohne Mikrofon fortfahren';
+
+  @override
+  String get onboardingTestRecordingMicBypassHint =>
+      'Ohne funktionierendes Mikrofon kann WhisPaste noch keine Aufnahme starten. Das lässt sich jederzeit über den Mikrofon-Status auf der ersten Seite oder in den Einstellungen nachholen.';
 
   @override
   String get onboardingTestRecordingPlaceholder =>
@@ -2583,6 +2600,10 @@ class L10nDe extends L10n {
   @override
   String get onboardingReadyStep3CopyOnly =>
       'Text liegt in der Zwischenablage, drück ⌘V / Strg+V zum Einfügen';
+
+  @override
+  String get onboardingReadyContextCarryoverHint =>
+      'WhisPaste reicht Kontext aus dem vorigen Aufnahme-Vorgang bis zu zehn Minuten weiter. Bei einem schnellen Wechsel zu einem ganz anderen Thema lohnt eine kurze Pause, sonst kann das nächste Ergebnis inhaltlich verzogen werden.';
 
   @override
   String get onboardingReadyAutostartToggle =>

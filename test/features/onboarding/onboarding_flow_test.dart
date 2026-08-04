@@ -12,7 +12,10 @@
 ///      (Zurück + Weiter) — kein Überspringen-Knopf mehr.
 ///   3. Den Endzustand: `onboardingCompleted == true` nach dem
 ///      "Los geht's"-Tap; der Abschluss-CTA bleibt bei Hotkey-Konflikt
-///      deaktiviert (residuales Gate aus dem alten ReadyStep).
+///      deaktiviert (residuales Gate aus dem alten ReadyStep) und ist NEU
+///      zusätzlich an eine gelungene Testaufnahme mit erkannter Sprache
+///      gebunden — mit dem Notausgang „Ohne Mikrofon fortfahren", der
+///      ausschließlich die Mikrofon-Bedingung umgeht.
 ///   4. Wiederaufnahme: eine gespeicherte Position (neuer Ablauf) wird
 ///      fortgesetzt; eine Position aus dem alten Ablauf wird genau einmal
 ///      übersetzt (Ablauf-Version wird gestempelt).
@@ -87,11 +90,21 @@ class _FakeHotkeyController extends HotkeyRegistrationStatusController {
 /// Skips the real pipeline wiring so the walkthrough never touches audio
 /// capture, the STT server, or history persistence when it passes through
 /// [TestRecordingStep] — that step only needs the orchestrator instance to
-/// exist so it can register its sandbox-transcript seam.
+/// exist so it can register its sandbox-transcript seam. The walkthrough
+/// simulates a successful test recording by feeding that seam directly
+/// (same pattern as `test_recording_step_test.dart`).
 class _FakeRecordingOrchestrator extends RecordingOrchestrator {
   @override
   void build() {}
 }
+
+/// Handles [_pumpOverlay] hands back: the settings fake for end-state
+/// assertions plus the orchestrator fake so tests can drive the
+/// sandbox-transcript seam (the completion gate listens to it).
+typedef _OverlayHandles = ({
+  _FakeSettingsNotifier settings,
+  _FakeRecordingOrchestrator orchestrator,
+});
 
 /// Fake [HotKeyRegistrar] so [HotkeyService] never touches the real
 /// `hotkey_manager` platform channel in the widget test host.
@@ -137,12 +150,13 @@ HotkeyService _fakeHotkeyService() {
 ///
 /// WICHTIG: `debugDefaultTargetPlatformOverride` muss vom Aufrufer in einem
 /// `try/finally`-Block gesetzt und zurückgesetzt werden.
-Future<_FakeSettingsNotifier> _pumpOverlay(
+Future<_OverlayHandles> _pumpOverlay(
   WidgetTester tester, {
   AppSettings? initialSettings,
   HotkeyRegistrationStatus hotkeyStatus = HotkeyRegistrationStatus.success,
 }) async {
   final settings = _FakeSettingsNotifier(initialSettings);
+  final orchestrator = _FakeRecordingOrchestrator();
 
   await tester.pumpWidget(
     makeTestable(
@@ -158,14 +172,12 @@ Future<_FakeSettingsNotifier> _pumpOverlay(
           () => _FakeHotkeyController(hotkeyStatus),
         ),
         hotkeyServiceProvider.overrideWith(_fakeHotkeyService),
-        recordingOrchestratorProvider.overrideWith(
-          _FakeRecordingOrchestrator.new,
-        ),
+        recordingOrchestratorProvider.overrideWith(() => orchestrator),
       ],
     ),
   );
   await tester.pumpAndSettle();
-  return settings;
+  return (settings: settings, orchestrator: orchestrator);
 }
 
 Future<void> _tapNext(WidgetTester tester) async {
@@ -228,10 +240,11 @@ void main() {
     );
 
     testWidgets('Vollständiger Durchlauf über alle fünf Seiten: '
-        'onboardingCompleted = true nach "Los geht\'s"', (tester) async {
+        'onboardingCompleted = true nach gelungener Testaufnahme und '
+        '"Los geht\'s"', (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.linux;
       try {
-        final settings = await _pumpOverlay(tester);
+        final (:settings, :orchestrator) = await _pumpOverlay(tester);
 
         // Seite 1: Willkommen (Demo-Beats + Sprachauswahl; Linux ohne Chip).
         expect(find.byType(WelcomeStep), findsOneWidget);
@@ -266,6 +279,35 @@ void main() {
         expect(find.text(l10n.onboardingStepOf(5, 5)), findsOneWidget);
         // Der Abschluss-CTA trägt das "Los geht's"-Label statt "Weiter".
         expect(find.text(l10n.onboardingStartUsing), findsOneWidget);
+
+        // Mikrofon-Gate: ohne gelungene Testaufnahme (und ohne Notausgang)
+        // bleibt der Abschluss-CTA deaktiviert — und der Grund ist benannt.
+        expect(
+          find.text(l10n.onboardingTestRecordingCompletionHint),
+          findsOneWidget,
+        );
+        expect(
+          tester
+              .widget<WpAccentButton>(find.byKey(kOnboardingNextButtonKey))
+              .onPressed,
+          isNull,
+          reason:
+              'Ohne gelungene Testaufnahme darf der Abschluss nicht '
+              'möglich sein.',
+        );
+
+        // Gelungene Testaufnahme simulieren: nicht-leerer Transkript-Text
+        // am Sandbox-Sink (den TestRecordingStep beim Mount verdrahtet hat).
+        orchestrator.sandboxTranscriptSink!('Hallo aus der Sandbox.');
+        await tester.pumpAndSettle();
+        expect(find.text('Hallo aus der Sandbox.'), findsOneWidget);
+        expect(
+          tester
+              .widget<WpAccentButton>(find.byKey(kOnboardingNextButtonKey))
+              .onPressed,
+          isNotNull,
+          reason: 'Nach erkannter Sprache muss der Abschluss-CTA aktiv werden.',
+        );
 
         // Vor dem abschließenden Tap ist onboardingCompleted noch false.
         expect(settings.state.value!.onboarding.onboardingCompleted, isFalse);
@@ -306,7 +348,7 @@ void main() {
     ) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.linux;
       try {
-        final settings = await _pumpOverlay(tester);
+        final (:settings, orchestrator: _) = await _pumpOverlay(tester);
         expect(settings.state.value!.onboarding.onboardingCurrentStep, 0);
 
         await _tapNext(tester);
@@ -356,6 +398,104 @@ void main() {
         }
       },
     );
+
+    testWidgets(
+      'Notausgang "Ohne Mikrofon fortfahren": aktiviert den Abschluss ohne '
+      'Testaufnahme, zeigt den ehrlichen Hinweis, und "Los geht\'s" setzt '
+      'onboardingCompleted',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+        try {
+          final (:settings, orchestrator: _) = await _pumpOverlay(
+            tester,
+            initialSettings: AppSettings.defaults.copyWithSections(
+              onboarding: AppSettings.defaults.onboarding.copyWith(
+                onboardingCurrentStep: 4,
+                onboardingFlowVersion: kOnboardingFlowVersion,
+              ),
+            ),
+          );
+
+          expect(find.text(l10n.onboardingStepOf(5, 5)), findsOneWidget);
+          // Ohne Testaufnahme: CTA deaktiviert, Grund benannt.
+          expect(
+            tester
+                .widget<WpAccentButton>(find.byKey(kOnboardingNextButtonKey))
+                .onPressed,
+            isNull,
+          );
+          expect(
+            find.text(l10n.onboardingTestRecordingCompletionHint),
+            findsOneWidget,
+          );
+
+          // Notausgang nehmen.
+          final bypass = find.text(l10n.onboardingTestRecordingMicBypassCta);
+          await tester.ensureVisible(bypass);
+          await tester.tap(bypass);
+          await tester.pumpAndSettle();
+
+          // Ehrlicher Hinweis sichtbar, CTA aktiv.
+          expect(
+            find.text(l10n.onboardingTestRecordingMicBypassHint),
+            findsOneWidget,
+          );
+          expect(
+            tester
+                .widget<WpAccentButton>(find.byKey(kOnboardingNextButtonKey))
+                .onPressed,
+            isNotNull,
+            reason: 'Der Notausgang muss die Mikrofon-Bedingung umgehen.',
+          );
+
+          await _tapNext(tester);
+          expect(settings.state.value!.onboarding.onboardingCompleted, isTrue);
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      },
+    );
+
+    testWidgets('Notausgang umgeht NUR die Mikrofon-Bedingung: bei bestätigtem '
+        'Hotkey-Konflikt bleibt der Abschluss-CTA trotz Bypass deaktiviert', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      try {
+        await _pumpOverlay(
+          tester,
+          hotkeyStatus: HotkeyRegistrationStatus.conflict,
+          initialSettings: AppSettings.defaults.copyWithSections(
+            onboarding: AppSettings.defaults.onboarding.copyWith(
+              onboardingCurrentStep: 4,
+              onboardingFlowVersion: kOnboardingFlowVersion,
+            ),
+          ),
+        );
+
+        final bypass = find.text(l10n.onboardingTestRecordingMicBypassCta);
+        await tester.ensureVisible(bypass);
+        await tester.tap(bypass);
+        await tester.pumpAndSettle();
+
+        expect(
+          tester
+              .widget<WpAccentButton>(find.byKey(kOnboardingNextButtonKey))
+              .onPressed,
+          isNull,
+          reason:
+              'Das Hotkey-Konflikt-Gate gilt auch für den Notausgang — '
+              'der Konflikt-Hinweis verweist zurück auf Schritt 3.',
+        );
+        // Der bestehende Konflikt-Heads-up erklärt die Lage weiterhin.
+        expect(
+          find.text(l10n.onboardingTriggerHotkeyConflictTitle),
+          findsWidgets,
+        );
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
   });
 
   group('Onboarding Wiederaufnahme & Ablauf-Migration', () {
@@ -363,7 +503,7 @@ void main() {
         '(flowVersion aktuell) setzt genau dort fort', (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.linux;
       try {
-        final settings = await _pumpOverlay(
+        final (:settings, orchestrator: _) = await _pumpOverlay(
           tester,
           initialSettings: AppSettings.defaults.copyWithSections(
             onboarding: AppSettings.defaults.onboarding.copyWith(
@@ -391,7 +531,7 @@ void main() {
       (tester) async {
         debugDefaultTargetPlatformOverride = TargetPlatform.linux;
         try {
-          final settings = await _pumpOverlay(
+          final (:settings, orchestrator: _) = await _pumpOverlay(
             tester,
             initialSettings: AppSettings.defaults.copyWithSections(
               onboarding: AppSettings.defaults.onboarding.copyWith(
@@ -430,7 +570,7 @@ void main() {
       (tester) async {
         debugDefaultTargetPlatformOverride = TargetPlatform.linux;
         try {
-          final settings = await _pumpOverlay(
+          final (:settings, orchestrator: _) = await _pumpOverlay(
             tester,
             initialSettings: AppSettings.defaults.copyWithSections(
               onboarding: AppSettings.defaults.onboarding.copyWith(
@@ -459,7 +599,7 @@ void main() {
       (tester) async {
         debugDefaultTargetPlatformOverride = TargetPlatform.linux;
         try {
-          final settings = await _pumpOverlay(
+          final (:settings, orchestrator: _) = await _pumpOverlay(
             tester,
             initialSettings: AppSettings.defaults.copyWithSections(
               onboarding: AppSettings.defaults.onboarding.copyWith(

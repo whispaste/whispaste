@@ -4512,7 +4512,7 @@ abstract class L10n {
   /// No description provided for @onboardingTestRecordingSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Press your hotkey and say a sentence. The text appears below in the test field.'**
+  /// **'Press the button below and say a sentence. The text lands in the test field. Your hotkey works too.'**
   String get onboardingTestRecordingSubtitle;
 
   /// No description provided for @onboardingTestRecordingHotkeyLabel.
@@ -4520,6 +4520,36 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Your hotkey'**
   String get onboardingTestRecordingHotkeyLabel;
+
+  /// No description provided for @onboardingTestRecordingStartCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Start recording'**
+  String get onboardingTestRecordingStartCta;
+
+  /// No description provided for @onboardingTestRecordingStopCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop recording'**
+  String get onboardingTestRecordingStopCta;
+
+  /// No description provided for @onboardingTestRecordingCompletionHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Try a recording first to continue.'**
+  String get onboardingTestRecordingCompletionHint;
+
+  /// No description provided for @onboardingTestRecordingMicBypassCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue without a microphone'**
+  String get onboardingTestRecordingMicBypassCta;
+
+  /// No description provided for @onboardingTestRecordingMicBypassHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Without a working microphone, WhisPaste can\'t start a recording yet. You can catch up anytime via the microphone status on the first page or in Settings.'**
+  String get onboardingTestRecordingMicBypassHint;
 
   /// No description provided for @onboardingTestRecordingPlaceholder.
   ///
@@ -4586,6 +4616,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Text is in your clipboard, press ⌘V / Ctrl+V to paste'**
   String get onboardingReadyStep3CopyOnly;
+
+  /// No description provided for @onboardingReadyContextCarryoverHint.
+  ///
+  /// In en, this message translates to:
+  /// **'WhisPaste carries context from your previous recording forward for up to ten minutes. Before a quick switch to an unrelated topic, a short pause keeps the next result on track.'**
+  String get onboardingReadyContextCarryoverHint;
 
   /// No description provided for @onboardingReadyAutostartToggle.
   ///

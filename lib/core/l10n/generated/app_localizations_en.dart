@@ -2517,10 +2517,28 @@ class L10nEn extends L10n {
 
   @override
   String get onboardingTestRecordingSubtitle =>
-      'Press your hotkey and say a sentence. The text appears below in the test field.';
+      'Press the button below and say a sentence. The text lands in the test field. Your hotkey works too.';
 
   @override
   String get onboardingTestRecordingHotkeyLabel => 'Your hotkey';
+
+  @override
+  String get onboardingTestRecordingStartCta => 'Start recording';
+
+  @override
+  String get onboardingTestRecordingStopCta => 'Stop recording';
+
+  @override
+  String get onboardingTestRecordingCompletionHint =>
+      'Try a recording first to continue.';
+
+  @override
+  String get onboardingTestRecordingMicBypassCta =>
+      'Continue without a microphone';
+
+  @override
+  String get onboardingTestRecordingMicBypassHint =>
+      'Without a working microphone, WhisPaste can\'t start a recording yet. You can catch up anytime via the microphone status on the first page or in Settings.';
 
   @override
   String get onboardingTestRecordingPlaceholder =>
@@ -2560,6 +2578,10 @@ class L10nEn extends L10n {
   @override
   String get onboardingReadyStep3CopyOnly =>
       'Text is in your clipboard, press ⌘V / Ctrl+V to paste';
+
+  @override
+  String get onboardingReadyContextCarryoverHint =>
+      'WhisPaste carries context from your previous recording forward for up to ten minutes. Before a quick switch to an unrelated topic, a short pause keeps the next result on track.';
 
   @override
   String get onboardingReadyAutostartToggle => 'Launch WhisPaste at login';
