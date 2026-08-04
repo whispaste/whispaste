@@ -20,6 +20,7 @@ library;
 import 'package:flutter/foundation.dart'
     show debugDefaultTargetPlatformOverride;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show FontLoader, rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart' show Bidi;
@@ -160,6 +161,18 @@ void main() {
 
   setUpAll(() async {
     l10n = await L10n.delegate.load(const Locale('en'));
+    // Load the real bundled UI font (Inter) instead of the Ahem test font.
+    // The fixed-window fit assertion below measures whether page 1 fits
+    // 1100×720 without scrolling — with Ahem every glyph is a full em
+    // square, roughly doubling text width vs. Inter, which makes the
+    // asymmetric beat layout's caption column wrap to 4–5 lines that never
+    // occur in the real app. Real metrics keep the gate meaningful.
+    final fontLoader = FontLoader('Inter')
+      ..addFont(rootBundle.load('assets/fonts/Inter-Regular.ttf'))
+      ..addFont(rootBundle.load('assets/fonts/Inter-Medium.ttf'))
+      ..addFont(rootBundle.load('assets/fonts/Inter-SemiBold.ttf'))
+      ..addFont(rootBundle.load('assets/fonts/Inter-Bold.ttf'));
+    await fontLoader.load();
   });
 
   group('OnboardingOverlay step sequence — five steps on every platform', () {

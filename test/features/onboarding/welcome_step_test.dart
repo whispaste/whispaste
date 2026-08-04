@@ -158,6 +158,123 @@ void main() {
         expect(find.text(l10n.onboardingThemeSystem), findsNothing);
       },
     );
+
+    testWidgets(
+      'first beat is active by default (highlighted tile + large media '
+      'area); tapping another beat moves highlight and media',
+      (tester) async {
+        final notifier = FakeSettingsNotifier(
+          const AppSettings(interface_: InterfaceSettings(locale: 'en')),
+        );
+
+        await tester.pumpWidget(
+          makeTestable(
+            const SingleChildScrollView(child: WelcomeStep()),
+            size: const Size(1280, 980),
+            locale: const Locale('en'),
+            overrides: [settingsProvider.overrideWith(() => notifier)],
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Default: beat 0 active — only its media placeholder is mounted.
+        expect(find.byKey(onboardingBeatMediaKey(0)), findsOneWidget);
+        expect(find.byKey(onboardingBeatMediaKey(1)), findsNothing);
+        expect(find.byKey(onboardingBeatMediaKey(2)), findsNothing);
+
+        // The active tile carries the card highlight (non-transparent
+        // background), inactive tiles stay transparent — visually
+        // de-emphasised but fully rendered.
+        Color tileColor(int index) {
+          final container = tester.widget<AnimatedContainer>(
+            find.descendant(
+              of: find.byKey(onboardingBeatTileKey(index)),
+              matching: find.byType(AnimatedContainer),
+            ),
+          );
+          return (container.decoration! as BoxDecoration).color!;
+        }
+
+        expect(tileColor(0), isNot(Colors.transparent));
+        expect(tileColor(1), Colors.transparent);
+        expect(tileColor(2), Colors.transparent);
+
+        // Tap the third beat: highlight + media follow.
+        await tester.tap(find.byKey(onboardingBeatTileKey(2)));
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(onboardingBeatMediaKey(2)), findsOneWidget);
+        expect(find.byKey(onboardingBeatMediaKey(0)), findsNothing);
+        expect(tileColor(2), isNot(Colors.transparent));
+        expect(tileColor(0), Colors.transparent);
+
+        // All three titles + captions remain in the tree regardless of
+        // which beat is active — screen readers always reach them.
+        expect(find.text(l10n.onboardingBeat1Title), findsOneWidget);
+        expect(find.text(l10n.onboardingBeat2Title), findsOneWidget);
+        expect(find.text(l10n.onboardingBeat3Title), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'beat showcase mirrors under RTL: text list and media area swap sides '
+      'via ambient Directionality (LTR: list start-left; RTL/Hebrew: '
+      'list start-right)',
+      (tester) async {
+        for (final locale in const [Locale('en'), Locale('he')]) {
+          final notifier = FakeSettingsNotifier(
+            AppSettings(
+              interface_: InterfaceSettings(locale: locale.languageCode),
+            ),
+          );
+
+          await tester.pumpWidget(
+            makeTestable(
+              const SingleChildScrollView(child: WelcomeStep()),
+              size: const Size(1280, 980),
+              locale: locale,
+              overrides: [settingsProvider.overrideWith(() => notifier)],
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          final tileCenter = tester.getCenter(
+            find.byKey(onboardingBeatTileKey(0)),
+          );
+          final mediaCenter = tester.getCenter(
+            find.byKey(onboardingBeatMediaKey(0)),
+          );
+
+          if (locale.languageCode == 'he') {
+            expect(
+              tileCenter.dx,
+              greaterThan(mediaCenter.dx),
+              reason:
+                  'In RTL (he) the beat text list must sit on the right of '
+                  'the media area — the Row must mirror via Directionality',
+            );
+          } else {
+            expect(
+              tileCenter.dx,
+              lessThan(mediaCenter.dx),
+              reason:
+                  'In LTR (${locale.languageCode}) the beat text list must '
+                  'sit on the left of the media area',
+            );
+          }
+
+          expect(
+            tester.takeException(),
+            isNull,
+            reason: 'No layout exception in ${locale.languageCode}',
+          );
+
+          // Clean teardown between locales.
+          await tester.pumpWidget(const SizedBox.shrink());
+          await tester.pumpAndSettle();
+        }
+      },
+    );
   });
 
   group('localeNativeName', () {
