@@ -4725,6 +4725,12 @@ abstract class L10n {
   /// **'Quit'**
   String get trayQuit;
 
+  /// No description provided for @trayMicrophone.
+  ///
+  /// In en, this message translates to:
+  /// **'Microphone'**
+  String get trayMicrophone;
+
   /// No description provided for @settingsComingSoon.
   ///
   /// In en, this message translates to:

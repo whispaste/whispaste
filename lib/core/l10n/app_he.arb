@@ -877,6 +877,7 @@
   "trayOpenApp": "פתח WhisPaste",
   "traySettings": "הגדרות",
   "trayQuit": "צא",
+  "trayMicrophone": "מיקרופון",
   "groqRemovedToast": "Groq STT הוסר. ספק אופס למקומי.",
   "tccResetAfterUpdateToast": "macOS איפסה את הרשאת ההדבקה האוטומטית במהלך העדכון.",
   "settingsComingSoon": "בקרוב",

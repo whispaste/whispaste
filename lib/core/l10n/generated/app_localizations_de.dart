@@ -2655,6 +2655,9 @@ class L10nDe extends L10n {
   String get trayQuit => 'Beenden';
 
   @override
+  String get trayMicrophone => 'Mikrofon';
+
+  @override
   String get settingsComingSoon => 'Demnächst';
 
   @override

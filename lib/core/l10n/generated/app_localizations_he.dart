@@ -2587,6 +2587,9 @@ class L10nHe extends L10n {
   String get trayQuit => 'צא';
 
   @override
+  String get trayMicrophone => 'מיקרופון';
+
+  @override
   String get settingsComingSoon => 'בקרוב';
 
   @override

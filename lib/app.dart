@@ -50,6 +50,8 @@ import 'services/paste/paste_policy.dart';
 import 'services/paste/paster.dart' show PasteCapabilityStatus;
 import 'services/paste/tcc_reset_notice.dart';
 import 'services/permissions/startup_permission_gate.dart';
+import 'services/audio_service.dart' show audioInputDevicesProvider;
+import 'services/microphone_selection_service.dart';
 import 'services/single_instance_service.dart';
 import 'services/graceful_shutdown.dart';
 import 'services/stt/stt_bundle.dart';
@@ -764,6 +766,18 @@ class _AppShellState extends ConsumerState<_AppShell>
     final updateState = ref.watch(updateProvider);
     final deployChannel = ref.watch(deployChannelProvider);
 
+    // Microphone quick-switch chip — mirror the tray submenu: hidden when
+    // only the default pseudo-device was enumerated (nothing to switch to).
+    final micDevices =
+        ref.watch(audioInputDevicesProvider).value ?? const [micDefaultLabel];
+    final currentMic = settings.audioInput.microphone;
+    final micOptions = micDevices.length > 1
+        ? buildMicrophoneOptions(
+            deviceLabels: micDevices,
+            selectedLabel: currentMic,
+          )
+        : null;
+
     const contentRadius = BorderRadius.only(
       topLeft: Radius.circular(WpRadius.xl),
       bottomLeft: Radius.circular(WpRadius.xl),
@@ -919,6 +933,17 @@ class _AppShellState extends ConsumerState<_AppShell>
                               l10n,
                             ),
                             afterAction: resolvedAfterAction,
+                            microphoneLabel: currentMic,
+                            microphoneOptions: micOptions,
+                            onMicrophoneChanged: (label) {
+                              unawaited(
+                                ref
+                                    .read(microphoneSelectionServiceProvider)
+                                    .select(label),
+                              );
+                            },
+                            onMicrophoneMenuOpened: () =>
+                                ref.invalidate(audioInputDevicesProvider),
                             hotkeyLabel: formatHotkeyShortcut(
                               settings.hotkeyModifiers,
                               settings.hotkeyKey,

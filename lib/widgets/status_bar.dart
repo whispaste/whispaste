@@ -12,6 +12,7 @@ import '../core/recording/recording_state.dart'
     show RecordingPhase, SttServerState;
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
+import '../services/microphone_selection_service.dart' show micDefaultLabel;
 import 'wp_focus_ring.dart';
 
 /// Returns `true` when the "Auto-Paste deaktiviert" status-bar hint chip
@@ -67,6 +68,8 @@ class WpStatusBar extends StatelessWidget {
     this.recordingPhase = RecordingPhase.idle,
     this.afterActionLabel,
     this.afterAction,
+    this.microphoneLabel,
+    this.microphoneOptions,
     this.hotkeyLabel,
     this.hotkeyEnabled = true,
     this.updateVersion,
@@ -74,6 +77,8 @@ class WpStatusBar extends StatelessWidget {
     this.showAutoPasteOffHint = false,
     this.onSttTap,
     this.onAfterActionChanged,
+    this.onMicrophoneChanged,
+    this.onMicrophoneMenuOpened,
     this.onHotkeyTap,
     this.onUpdateTap,
     this.onAutoPasteOffHintTap,
@@ -97,6 +102,16 @@ class WpStatusBar extends StatelessWidget {
 
   /// Current after-transcription action value (for menu selection).
   final AfterTranscriptionAction? afterAction;
+
+  /// Raw label of the currently selected microphone (`'Default'` sentinel or
+  /// a device name), or null to hide the microphone chip.
+  final String? microphoneLabel;
+
+  /// Raw microphone option labels for the popup, system-default sentinel
+  /// first (see `buildMicrophoneOptions`). Null hides the chip — the host
+  /// passes null when only the default pseudo-device was enumerated, so the
+  /// chip mirrors the tray submenu's "nothing to switch to" rule.
+  final List<String>? microphoneOptions;
 
   /// Formatted hotkey label, e.g. "Ctrl+Shift+D", or null to hide.
   final String? hotkeyLabel;
@@ -126,6 +141,14 @@ class WpStatusBar extends StatelessWidget {
 
   /// Callback when user selects a different after-transcription action.
   final ValueChanged<AfterTranscriptionAction>? onAfterActionChanged;
+
+  /// Callback when user selects a different microphone (raw label).
+  final ValueChanged<String>? onMicrophoneChanged;
+
+  /// Callback when the microphone popup opens — the host should re-enumerate
+  /// devices here so the next open reflects docking/undocking changes (same
+  /// freshness rule as the tray submenu).
+  final VoidCallback? onMicrophoneMenuOpened;
 
   /// Callback when user taps the hotkey chip (navigate to settings).
   final VoidCallback? onHotkeyTap;
@@ -172,6 +195,20 @@ class WpStatusBar extends StatelessWidget {
                       l10n: l10n,
                       onTap: onSttTap,
                     ),
+                    if (microphoneLabel != null &&
+                        microphoneOptions != null &&
+                        onMicrophoneChanged != null) ...[
+                      const SizedBox(width: WpSpacing.xs),
+                      _MicrophoneChip(
+                        current: microphoneLabel!,
+                        options: microphoneOptions!,
+                        textStyle: textStyle,
+                        isDark: isDark,
+                        l10n: l10n,
+                        onChanged: onMicrophoneChanged!,
+                        onOpened: onMicrophoneMenuOpened,
+                      ),
+                    ],
                     if (afterActionLabel != null &&
                         afterAction != null &&
                         onAfterActionChanged != null) ...[
@@ -686,6 +723,141 @@ class _AfterActionRow extends StatelessWidget {
             fontSize: WpTypography.body,
             fontWeight: isCurrent ? FontWeight.w600 : FontWeight.normal,
             color: isCurrent ? cs.primary : cs.onSurface,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Microphone chip — quick-switcher with popup menu. Mirrors the tray
+// submenu: same option list (system default first, selected-but-unplugged
+// device appended) and the same selection path via
+// MicrophoneSelectionService, wired by the host.
+// ---------------------------------------------------------------------------
+
+class _MicrophoneChip extends StatelessWidget {
+  const _MicrophoneChip({
+    required this.current,
+    required this.options,
+    required this.textStyle,
+    required this.isDark,
+    required this.l10n,
+    required this.onChanged,
+    this.onOpened,
+  });
+
+  /// Raw label of the current selection (`micDefaultLabel` or device name).
+  final String current;
+
+  /// Raw option labels, system-default sentinel first.
+  final List<String> options;
+  final TextStyle textStyle;
+  final bool isDark;
+  final L10n l10n;
+  final ValueChanged<String> onChanged;
+  final VoidCallback? onOpened;
+
+  String _labelFor(String option) =>
+      option == micDefaultLabel ? l10n.settingsMicSystemDefault : option;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return PopupMenuButton<String>(
+      onSelected: onChanged,
+      onOpened: onOpened,
+      initialValue: current,
+      tooltip: l10n.settingsMicrophone,
+      position: PopupMenuPosition.over,
+      shape: RoundedRectangleBorder(borderRadius: WpRadius.borderSm),
+      color: isDark ? WpColorsDark.surfaceElevated : WpColorsLight.surface,
+      itemBuilder: (_) => [
+        for (final option in options)
+          PopupMenuItem<String>(
+            value: option,
+            child: _MicrophoneRow(
+              isCurrent: option == current,
+              cs: cs,
+              label: _labelFor(option),
+            ),
+          ),
+      ],
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: WpSpacing.sm,
+          vertical: WpSpacing.xxs,
+        ),
+        decoration: BoxDecoration(
+          color: isDark
+              ? WpColorsDark.surfaceChipFill
+              : WpColorsLight.surfaceChipFill,
+          borderRadius: WpRadius.borderFull,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(LucideIcons.mic, size: WpIconSize.xs, color: cs.secondary),
+            const SizedBox(width: WpSpacing.xxs),
+            // Device names come from the OS and can be arbitrarily long
+            // ("Razer Seiren Mini 2 USB Ultra…") — cap the chip so one mic
+            // can't crowd out the rest of the status bar.
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 160),
+              child: Text(
+                _labelFor(current),
+                style: textStyle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 2),
+            Icon(LucideIcons.chevronUp, size: 10, color: cs.secondary),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Icon + label row for [_MicrophoneChip] popup menu items — same current-
+/// value highlight (primary color, semi-bold) as [_AfterActionRow].
+class _MicrophoneRow extends StatelessWidget {
+  const _MicrophoneRow({
+    required this.isCurrent,
+    required this.cs,
+    required this.label,
+  });
+
+  final bool isCurrent;
+  final ColorScheme cs;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          LucideIcons.mic,
+          size: WpIconSize.sm,
+          color: isCurrent ? cs.primary : cs.onSurface.withValues(alpha: 0.6),
+        ),
+        const SizedBox(width: WpSpacing.sm),
+        // OS device names are arbitrarily long — ellipsize instead of
+        // overflowing the popup's max menu width.
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: WpTypography.body,
+              fontWeight: isCurrent ? FontWeight.w600 : FontWeight.normal,
+              color: isCurrent ? cs.primary : cs.onSurface,
+            ),
           ),
         ),
       ],
