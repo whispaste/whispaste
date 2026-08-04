@@ -20,6 +20,7 @@ import 'sections/overlay_button_section.dart';
 import 'sections/privacy_section.dart';
 import 'sections/recording_sections.dart';
 import 'sections/review_support_section.dart';
+import 'sections/settings_portability_section.dart';
 import 'sections/stt_section.dart';
 import 'sections/updates_section.dart';
 import 'settings_widgets.dart';
@@ -55,6 +56,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     'sound': GlobalKey(),
     'recordingSafety': GlobalKey(),
     'history': GlobalKey(),
+    'settingsPortability': GlobalKey(),
     'advanced': GlobalKey(),
     'updates': GlobalKey(),
     'reviewSupport': GlobalKey(),
@@ -225,6 +227,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         () => sectionWithHighlight(
           'history',
           HistorySection(key: _sectionKeys['history']),
+        ),
+      ),
+      (
+        'settingsPortability',
+        () => sectionWithHighlight(
+          'settingsPortability',
+          SettingsPortabilitySection(key: _sectionKeys['settingsPortability']),
         ),
       ),
       (

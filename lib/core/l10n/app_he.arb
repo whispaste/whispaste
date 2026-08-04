@@ -278,6 +278,8 @@
   "settingsFactoryResetPhaseResettingSecureStore": "Clearing credentials…",
   "settingsFactoryResetPhaseResettingSettings": "Restoring default settings…",
   "settingsFactoryResetFailedMessage": "Factory reset incomplete. Please restart the app.",
+  "settingsPortabilitySectionTitle": "גיבוי והעברה",
+  "settingsPortabilitySectionSubtitle": "שמור גיבוי של הגדרות WhisPaste שלך או קח אותן איתך למחשב אחר",
   "settingsPortabilityLabel": "ייצוא/ייבוא הגדרות",
   "settingsPortabilitySubtitle": "העברת ההגדרות שלך בין מכשירים, בלי חשבון.",
   "settingsPortabilityExportAction": "ייצוא",

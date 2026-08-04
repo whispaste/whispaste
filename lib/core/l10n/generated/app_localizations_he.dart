@@ -844,6 +844,13 @@ class L10nHe extends L10n {
       'Factory reset incomplete. Please restart the app.';
 
   @override
+  String get settingsPortabilitySectionTitle => 'גיבוי והעברה';
+
+  @override
+  String get settingsPortabilitySectionSubtitle =>
+      'שמור גיבוי של הגדרות WhisPaste שלך או קח אותן איתך למחשב אחר';
+
+  @override
   String get settingsPortabilityLabel => 'ייצוא/ייבוא הגדרות';
 
   @override

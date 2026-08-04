@@ -268,6 +268,8 @@
   "settingsFactoryResetPhaseResettingSecureStore": "Setze Anmeldedaten zurück…",
   "settingsFactoryResetPhaseResettingSettings": "Setze Einstellungen zurück…",
   "settingsFactoryResetFailedMessage": "Werks-Reset unvollständig. App neu starten?",
+  "settingsPortabilitySectionTitle": "Sicherung & Übertragung",
+  "settingsPortabilitySectionSubtitle": "Lege eine Sicherung deiner WhisPaste-Einrichtung an oder nimm sie mit auf einen anderen Rechner",
   "settingsPortabilityLabel": "Einstellungen exportieren/importieren",
   "settingsPortabilitySubtitle": "Deine Einstellungen zwischen Geräten übertragen, ohne Konto.",
   "settingsPortabilityExportAction": "Exportieren",

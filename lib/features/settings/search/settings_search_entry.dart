@@ -223,6 +223,23 @@ const List<SettingsSearchEntry> kSettingsSearchTable = [
     ],
   ),
   SettingsSearchEntry(
+    id: 'settingsPortability',
+    sectionKey: 'settingsPortability',
+    titleDe: 'Sicherung & Übertragung',
+    titleEn: 'Backup & Transfer',
+    subtitleDe: 'Einstellungen exportieren, importieren und mitnehmen',
+    subtitleEn: 'Export, import, and move your settings',
+    keywords: [
+      // DE
+      'Export', 'Import', 'exportieren', 'importieren', 'Umzug', 'übertragen',
+      'sichern', 'Sicherung', 'wiederherstellen', 'Gerätewechsel', 'mitnehmen',
+      'Datensicherung', 'neuer Rechner',
+      // EN
+      'export', 'import', 'migrate', 'transfer', 'move', 'backup', 'restore',
+      'device change', 'portability', 'new computer',
+    ],
+  ),
+  SettingsSearchEntry(
     id: 'advanced',
     sectionKey: 'advanced',
     titleDe: 'Erweitert',

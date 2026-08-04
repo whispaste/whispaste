@@ -1605,6 +1605,18 @@ abstract class L10n {
   /// **'Factory reset incomplete. Please restart the app.'**
   String get settingsFactoryResetFailedMessage;
 
+  /// No description provided for @settingsPortabilitySectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Backup & Transfer'**
+  String get settingsPortabilitySectionTitle;
+
+  /// No description provided for @settingsPortabilitySectionSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep a backup of your WhisPaste setup or take it to another computer'**
+  String get settingsPortabilitySectionSubtitle;
+
   /// No description provided for @settingsPortabilityLabel.
   ///
   /// In en, this message translates to:

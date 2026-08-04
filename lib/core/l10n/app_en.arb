@@ -290,6 +290,8 @@
   "settingsFactoryResetPhaseResettingSecureStore": "Clearing credentials…",
   "settingsFactoryResetPhaseResettingSettings": "Restoring default settings…",
   "settingsFactoryResetFailedMessage": "Factory reset incomplete. Please restart the app.",
+  "settingsPortabilitySectionTitle": "Backup & Transfer",
+  "settingsPortabilitySectionSubtitle": "Keep a backup of your WhisPaste setup or take it to another computer",
   "settingsPortabilityLabel": "Export / Import Settings",
   "settingsPortabilitySubtitle": "Move your settings between devices, no account needed.",
   "settingsPortabilityExportAction": "Export",

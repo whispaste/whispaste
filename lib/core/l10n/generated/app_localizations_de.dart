@@ -864,6 +864,13 @@ class L10nDe extends L10n {
       'Werks-Reset unvollständig. App neu starten?';
 
   @override
+  String get settingsPortabilitySectionTitle => 'Sicherung & Übertragung';
+
+  @override
+  String get settingsPortabilitySectionSubtitle =>
+      'Lege eine Sicherung deiner WhisPaste-Einrichtung an oder nimm sie mit auf einen anderen Rechner';
+
+  @override
   String get settingsPortabilityLabel =>
       'Einstellungen exportieren/importieren';
 

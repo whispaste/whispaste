@@ -855,6 +855,13 @@ class L10nEn extends L10n {
       'Factory reset incomplete. Please restart the app.';
 
   @override
+  String get settingsPortabilitySectionTitle => 'Backup & Transfer';
+
+  @override
+  String get settingsPortabilitySectionSubtitle =>
+      'Keep a backup of your WhisPaste setup or take it to another computer';
+
+  @override
   String get settingsPortabilityLabel => 'Export / Import Settings';
 
   @override
