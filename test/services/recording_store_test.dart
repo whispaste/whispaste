@@ -150,6 +150,92 @@ void main() {
       },
     );
 
+    test(
+      'regression: a doubled internal space in a stored trigger/replacement '
+      'no longer breaks matching against a normally-spaced transcript',
+      () async {
+        // Real-world repro: a user's Text-Replacement rows were saved with
+        // an accidental extra space ("Cloud  Code" -> "Claude  Code"). The
+        // old literal RegExp.escape() required two literal spaces, so the
+        // rule could never fire against Whisper's normally single-spaced
+        // output — the transcript kept the mis-heard "Cloud Code" forever.
+        final now = DateTime.now();
+        await db.upsertReplacementWithTriggers(
+          id: now.millisecondsSinceEpoch.toString(),
+          triggers: ['Cloud  Code'],
+          replacement: 'Claude  Code',
+          createdAt: now,
+        );
+
+        final result = await store.save(
+          makeInput(
+            transcript: 'wir bauen das für Cloud Code, wie würde das gehen',
+            applyReplacements: true,
+          ),
+        );
+
+        expect(
+          result.processedTranscript,
+          'wir bauen das für Claude Code, wie würde das gehen',
+        );
+      },
+    );
+
+    test('matches a trigger phrase surrounded by punctuation the old '
+        'whitelist-based boundary rejected (quotes, parens, dash, hyphen '
+        'suffix) — boundary is now "not a letter/digit" rather than a fixed '
+        'punctuation list', () async {
+      final now = DateTime.now();
+      await db.upsertReplacementWithTriggers(
+        id: now.millisecondsSinceEpoch.toString(),
+        triggers: ['Cloud Code'],
+        replacement: 'Claude Code',
+        createdAt: now,
+      );
+
+      for (final (input, expected) in [
+        (
+          'wir bauen "Cloud Code" jetzt aus',
+          'wir bauen "Claude Code" jetzt aus',
+        ),
+        (
+          'wir bauen (Cloud Code) jetzt aus',
+          'wir bauen (Claude Code) jetzt aus',
+        ),
+        ('das Tool—Cloud Code—ist gemeint', 'das Tool—Claude Code—ist gemeint'),
+        (
+          'wir nutzen Cloud Code-Projekt jetzt',
+          'wir nutzen Claude Code-Projekt jetzt',
+        ),
+      ]) {
+        final result = await store.save(
+          makeInput(transcript: input, applyReplacements: true),
+        );
+        expect(result.processedTranscript, expected, reason: input);
+      }
+    });
+
+    test('treats a hyphen between trigger words the same as a space — '
+        'dictation is inconsistent about which one it emits for a compound '
+        'brand name', () async {
+      final now = DateTime.now();
+      await db.upsertReplacementWithTriggers(
+        id: now.millisecondsSinceEpoch.toString(),
+        triggers: ['Cloud Code'],
+        replacement: 'Claude Code',
+        createdAt: now,
+      );
+
+      final result = await store.save(
+        makeInput(
+          transcript: 'wir nutzen Cloud-Code jetzt',
+          applyReplacements: true,
+        ),
+      );
+
+      expect(result.processedTranscript, 'wir nutzen Claude Code jetzt');
+    });
+
     test('records daily stat after save', () async {
       await store.save(makeInput(transcript: 'one two three'));
 
