@@ -507,6 +507,7 @@
   "snippetsPickerTriggerLabel": "Picker trigger word",
   "snippetsPickerTriggerSubtitle": "Speak only this word to open the snippet picker. Leave empty to turn the picker off.",
   "snippetsPickerTriggerHint": "e.g. snippet",
+  "snippetsPickerTriggerEmptyListHint": "The trigger word is set, but there are no snippets yet — dictating it inserts the word as normal text until you add your first snippet.",
   "snippetsPickerSemanticsLabel": "Snippet picker",
   "snippetsPickerInsertAction": "Insert",
 
@@ -680,6 +681,8 @@
 
   "infoEngineDownloading": "Speech service is being prepared. Please wait a moment.",
   "infoModelMissing": "Please download a speech model in Settings first.",
+  "infoSnippetPickerEmpty": "Trigger word recognized, but you have no snippets yet — the text was inserted as usual.",
+  "infoSnippetPickerEmptyAction": "Open Snippets",
   "oomRecoveryTitle": "Recording failed: GPU memory issue",
   "oomRecoveryMessage": "Your GPU ran out of memory. Choose how to proceed:",
   "oomRecoveryTrySmaller": "Try smaller model",

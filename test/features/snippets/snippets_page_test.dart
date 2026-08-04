@@ -11,6 +11,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:whispaste/core/config/settings_provider.dart';
+import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/snippets/snippets_page.dart';
 import 'package:whispaste/services/telemetry_service.dart';
@@ -243,5 +245,71 @@ void main() {
 
       expect(find.text(l10n.snippetsDeleteTitle), findsOneWidget);
     });
+
+    // The picker-trigger header (and thus its empty-list hint) only renders
+    // on macOS — see the `Platform.isMacOS` guard in `SnippetsPage`.
+    testWidgets('a set trigger word with an empty snippet list shows the '
+        '"trigger does nothing yet" hint until the first snippet exists', (
+      tester,
+    ) async {
+      if (!Platform.isMacOS) return;
+      await tester.pumpWidget(
+        makeTestable(
+          const SnippetsPage(),
+          locale: const Locale('en'),
+          overrides: [
+            settingsProvider.overrideWith(
+              () => _FakeSettingsNotifier(
+                const AppSettings(
+                  behavior: BehaviorSettings(snippetPickerTrigger: 'snippet'),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(l10n.snippetsPickerTriggerEmptyListHint),
+        findsOneWidget,
+      );
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(SnippetsPage)),
+      );
+      await container
+          .read(snippetsProvider.notifier)
+          .add('Signature', 'Best,\nSilvio');
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.snippetsPickerTriggerEmptyListHint), findsNothing);
+    });
+
+    testWidgets('an empty trigger word shows no empty-list hint even while '
+        'the snippet list is empty', (tester) async {
+      if (!Platform.isMacOS) return;
+      await tester.pumpWidget(
+        makeTestable(const SnippetsPage(), locale: const Locale('en')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.snippetsPickerTriggerEmptyListHint), findsNothing);
+    });
   });
+}
+
+class _FakeSettingsNotifier extends SettingsNotifier {
+  _FakeSettingsNotifier(this._settings);
+
+  AppSettings _settings;
+
+  @override
+  Future<AppSettings> build() async => _settings;
+
+  @override
+  Future<void> updateSettings(AppSettings Function(AppSettings) updater) async {
+    _settings = updater(state.value ?? _settings);
+    state = AsyncData(_settings);
+  }
 }

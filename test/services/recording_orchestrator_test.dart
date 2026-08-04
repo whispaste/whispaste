@@ -772,6 +772,7 @@ void main() {
       expect(fakeDesktopPaste.pasteCalls, 0);
       expect(fakeDesktopPaste.typeCalls, 0);
       expect(fakeDesktopPaste.captureCalls, 0);
+      expect(container.read(recordingInfoProvider), isNull);
 
       final state = container.read(recordingProvider);
       expect(state.phase, RecordingPhase.done);
@@ -824,7 +825,8 @@ void main() {
     });
 
     test('an exact match with zero snippets configured falls back to the '
-        'normal pipeline instead of losing the dictation', () async {
+        'normal pipeline instead of losing the dictation — and reports the '
+        'empty-list case via the recording-info channel', () async {
       await container.read(settingsProvider.future);
 
       fakeStt.transcriptToReturn = 'Snippets.';
@@ -835,6 +837,25 @@ void main() {
       expect(fakeSnippetPicker.showCalls, isEmpty);
       final entries = await db.allEntries();
       expect(entries, hasLength(1));
+      // Without this signal the fallback is indistinguishable from "the
+      // trigger didn't work" for the user (the word is just pasted normally).
+      expect(
+        container.read(recordingInfoProvider),
+        'info_snippet_picker_empty',
+      );
+    });
+
+    test('a non-matching transcript with zero snippets never fires the '
+        'empty-list info signal', () async {
+      await container.read(settingsProvider.future);
+
+      fakeStt.transcriptToReturn = 'just a normal dictation';
+      final orch = await startRecordingPhase();
+
+      await orch.stopRecording();
+
+      expect(fakeSnippetPicker.showCalls, isEmpty);
+      expect(container.read(recordingInfoProvider), isNull);
     });
 
     test('an empty trigger word (feature off, the default) never opens the '

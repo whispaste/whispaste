@@ -2403,6 +2403,12 @@ abstract class L10n {
   /// **'e.g. snippet'**
   String get snippetsPickerTriggerHint;
 
+  /// No description provided for @snippetsPickerTriggerEmptyListHint.
+  ///
+  /// In en, this message translates to:
+  /// **'The trigger word is set, but there are no snippets yet — dictating it inserts the word as normal text until you add your first snippet.'**
+  String get snippetsPickerTriggerEmptyListHint;
+
   /// No description provided for @snippetsPickerSemanticsLabel.
   ///
   /// In en, this message translates to:
@@ -3350,6 +3356,18 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Please download a speech model in Settings first.'**
   String get infoModelMissing;
+
+  /// No description provided for @infoSnippetPickerEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Trigger word recognized, but you have no snippets yet — the text was inserted as usual.'**
+  String get infoSnippetPickerEmpty;
+
+  /// No description provided for @infoSnippetPickerEmptyAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Snippets'**
+  String get infoSnippetPickerEmptyAction;
 
   /// No description provided for @oomRecoveryTitle.
   ///

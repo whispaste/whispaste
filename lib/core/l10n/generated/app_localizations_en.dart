@@ -1303,6 +1303,10 @@ class L10nEn extends L10n {
   String get snippetsPickerTriggerHint => 'e.g. snippet';
 
   @override
+  String get snippetsPickerTriggerEmptyListHint =>
+      'The trigger word is set, but there are no snippets yet — dictating it inserts the word as normal text until you add your first snippet.';
+
+  @override
   String get snippetsPickerSemanticsLabel => 'Snippet picker';
 
   @override
@@ -1816,6 +1820,13 @@ class L10nEn extends L10n {
   @override
   String get infoModelMissing =>
       'Please download a speech model in Settings first.';
+
+  @override
+  String get infoSnippetPickerEmpty =>
+      'Trigger word recognized, but you have no snippets yet — the text was inserted as usual.';
+
+  @override
+  String get infoSnippetPickerEmptyAction => 'Open Snippets';
 
   @override
   String get oomRecoveryTitle => 'Recording failed: GPU memory issue';

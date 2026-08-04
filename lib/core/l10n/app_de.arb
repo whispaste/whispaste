@@ -412,6 +412,7 @@
   "snippetsPickerTriggerLabel": "Trigger-Wort für den Picker",
   "snippetsPickerTriggerSubtitle": "Sprich nur dieses Wort, um den Snippet-Picker zu öffnen. Leer lassen, um den Picker auszuschalten.",
   "snippetsPickerTriggerHint": "z. B. Snippet",
+  "snippetsPickerTriggerEmptyListHint": "Das Trigger-Wort ist gesetzt, aber es gibt noch keine Snippets — diktierst du es, wird es als normaler Text eingefügt, bis du dein erstes Snippet anlegst.",
   "snippetsPickerSemanticsLabel": "Snippet-Picker",
   "snippetsPickerInsertAction": "Einfügen",
 
@@ -585,6 +586,8 @@
 
   "infoEngineDownloading": "Sprachdienst wird vorbereitet. Bitte warte einen Moment.",
   "infoModelMissing": "Bitte lade zuerst ein Sprachmodell in den Einstellungen herunter.",
+  "infoSnippetPickerEmpty": "Trigger-Wort erkannt, aber du hast noch keine Snippets — der Text wurde ganz normal eingefügt.",
+  "infoSnippetPickerEmptyAction": "Snippets öffnen",
   "oomRecoveryTitle": "Aufnahme fehlgeschlagen: GPU-Speicherproblem",
   "oomRecoveryMessage": "Deiner GPU ist nicht mehr genügend Speicher verfügbar. Wie möchtest du fortfahren?",
   "oomRecoveryTrySmaller": "Kleineres Modell versuchen",

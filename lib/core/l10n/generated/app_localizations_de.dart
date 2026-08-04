@@ -1316,6 +1316,10 @@ class L10nDe extends L10n {
   String get snippetsPickerTriggerHint => 'z. B. Snippet';
 
   @override
+  String get snippetsPickerTriggerEmptyListHint =>
+      'Das Trigger-Wort ist gesetzt, aber es gibt noch keine Snippets — diktierst du es, wird es als normaler Text eingefügt, bis du dein erstes Snippet anlegst.';
+
+  @override
   String get snippetsPickerSemanticsLabel => 'Snippet-Picker';
 
   @override
@@ -1835,6 +1839,13 @@ class L10nDe extends L10n {
   @override
   String get infoModelMissing =>
       'Bitte lade zuerst ein Sprachmodell in den Einstellungen herunter.';
+
+  @override
+  String get infoSnippetPickerEmpty =>
+      'Trigger-Wort erkannt, aber du hast noch keine Snippets — der Text wurde ganz normal eingefügt.';
+
+  @override
+  String get infoSnippetPickerEmptyAction => 'Snippets öffnen';
 
   @override
   String get oomRecoveryTitle => 'Aufnahme fehlgeschlagen: GPU-Speicherproblem';

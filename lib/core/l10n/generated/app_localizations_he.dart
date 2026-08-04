@@ -1291,6 +1291,10 @@ class L10nHe extends L10n {
   String get snippetsPickerTriggerHint => 'לדוגמה: קטע';
 
   @override
+  String get snippetsPickerTriggerEmptyListHint =>
+      'מילת ההפעלה מוגדרת, אבל אין עדיין קטעים — הכתבה שלה תודבק כטקסט רגיל עד שתוסיף את הקטע הראשון.';
+
+  @override
   String get snippetsPickerSemanticsLabel => 'בוחר הקטעים';
 
   @override
@@ -1791,6 +1795,13 @@ class L10nHe extends L10n {
 
   @override
   String get infoModelMissing => 'הורד קודם מודל דיבור בהגדרות.';
+
+  @override
+  String get infoSnippetPickerEmpty =>
+      'מילת ההפעלה זוהתה, אבל אין לך עדיין קטעים — הטקסט הודבק כרגיל.';
+
+  @override
+  String get infoSnippetPickerEmptyAction => 'פתח קטעים';
 
   @override
   String get oomRecoveryTitle => 'ההקלטה נכשלה: בעיית זיכרון GPU';

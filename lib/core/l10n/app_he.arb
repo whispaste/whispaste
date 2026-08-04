@@ -444,6 +444,7 @@
   "snippetsPickerTriggerLabel": "מילת הפעלה לבוחר הקטעים",
   "snippetsPickerTriggerSubtitle": "אמור רק את המילה הזו כדי לפתוח את בוחר הקטעים. השאר ריק כדי לכבות את הבוחר.",
   "snippetsPickerTriggerHint": "לדוגמה: קטע",
+  "snippetsPickerTriggerEmptyListHint": "מילת ההפעלה מוגדרת, אבל אין עדיין קטעים — הכתבה שלה תודבק כטקסט רגיל עד שתוסיף את הקטע הראשון.",
   "snippetsPickerSemanticsLabel": "בוחר הקטעים",
   "snippetsPickerInsertAction": "הוסף",
 
@@ -609,6 +610,8 @@
   "settingsAdvancedModelManagement": "ניהול מודלים מתקדם",
   "infoEngineDownloading": "מנוע הדיבור בהכנה. המתן רגע.",
   "infoModelMissing": "הורד קודם מודל דיבור בהגדרות.",
+  "infoSnippetPickerEmpty": "מילת ההפעלה זוהתה, אבל אין לך עדיין קטעים — הטקסט הודבק כרגיל.",
+  "infoSnippetPickerEmptyAction": "פתח קטעים",
   "oomRecoveryTitle": "ההקלטה נכשלה: בעיית זיכרון GPU",
   "oomRecoveryMessage": "ה-GPU נגמר לו הזיכרון. בחר כיצד להמשיך:",
   "oomRecoveryTrySmaller": "נסה מודל קטן יותר",
