@@ -4,8 +4,14 @@
 ///
 /// Mirrors `test/services/history/history_exporter_test.dart`: injectable
 /// fakes for every collaborator, no real filesystem, no real Riverpod, and
-/// (new in Ticket 03) no real `file_selector` platform channel — the dialog
+/// (since Ticket 03) no real `file_selector` platform channel — the dialog
 /// itself is an injectable seam ([PickPathFn]) exercised via [_FakePicker].
+/// Since Ticket 04, [SecureBookmarkService] is likewise an injectable seam
+/// ([_FakeBookmarks]) — every pre-Ticket-04 test below runs against a fake
+/// reporting `isSupported: false` (the default), so they exercise exactly
+/// the Ticket 03 path-only behaviour, unaffected by this repo's tests
+/// actually running on macOS. See `test/services/secure_bookmark_service_test.dart`
+/// for [SecureBookmarkService]'s own MethodChannel-level tests.
 library;
 
 import 'dart:io';
@@ -16,6 +22,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/replacements/replacements_page.dart';
+import 'package:whispaste/services/secure_bookmark_service.dart';
 import 'package:whispaste/services/settings_portability_controller.dart';
 import 'package:whispaste/services/settings_portability_service.dart';
 import 'package:whispaste/widgets/toast.dart';
@@ -85,6 +92,71 @@ Future<String?> _acceptSuggestion({
   String? initialDirectory,
 }) async => p.join(initialDirectory ?? '.', suggestedName);
 
+/// Fakes [SecureBookmarkService]. Defaults to `isSupported: false` so every
+/// pre-Ticket-04 test in this file (which never sets `bookmarks:` in
+/// [_controller]) keeps exercising plain Ticket 03 path-only behaviour.
+///
+/// [createResponses] is consumed in call order, like [_FakePicker];
+/// [resolveResponses]/[startAccessResponses] are keyed by bookmark string
+/// since the controller always looks a specific remembered bookmark up
+/// rather than calling these positionally.
+class _FakeBookmarks extends SecureBookmarkService {
+  _FakeBookmarks({
+    this.isSupported = false,
+    this.createResponses = const [],
+    this.resolveResponses = const {},
+    this.startAccessResponses = const {},
+    this.onCreate,
+  });
+
+  @override
+  final bool isSupported;
+
+  final List<String?> createResponses;
+  int _createCallCount = 0;
+  final List<String> createCalls = [];
+
+  /// Invoked (and awaited) inside [create] before the response is
+  /// returned — lets a test assert on state (e.g. "the file already exists
+  /// on disk") at the exact moment `create()` fires.
+  final Future<void> Function(String path)? onCreate;
+
+  final Map<String, BookmarkResolution?> resolveResponses;
+  final List<String> resolveCalls = [];
+
+  final Map<String, bool> startAccessResponses;
+  final List<String> startAccessCalls = [];
+  final List<String> stopAccessCalls = [];
+
+  @override
+  Future<String?> create(String path) async {
+    createCalls.add(path);
+    if (onCreate case final hook?) await hook(path);
+    final response = _createCallCount < createResponses.length
+        ? createResponses[_createCallCount]
+        : null;
+    _createCallCount++;
+    return response;
+  }
+
+  @override
+  Future<BookmarkResolution?> resolve(String bookmark) async {
+    resolveCalls.add(bookmark);
+    return resolveResponses[bookmark];
+  }
+
+  @override
+  Future<bool> startAccess(String bookmark) async {
+    startAccessCalls.add(bookmark);
+    return startAccessResponses[bookmark] ?? false;
+  }
+
+  @override
+  Future<void> stopAccess(String bookmark) async {
+    stopAccessCalls.add(bookmark);
+  }
+}
+
 const _sampleBundle = SettingsExportBundle(
   settings: {
     'custom_vocabulary': 'WhisPaste',
@@ -133,10 +205,19 @@ Future<void> _withContext(
 class _PathStore {
   String exportPath;
   String importPath;
+  String exportBookmark;
+  String importBookmark;
   final List<String> exportWrites = [];
   final List<String> importWrites = [];
+  final List<String> exportBookmarkWrites = [];
+  final List<String> importBookmarkWrites = [];
 
-  _PathStore({this.exportPath = '', this.importPath = ''});
+  _PathStore({
+    this.exportPath = '',
+    this.importPath = '',
+    this.exportBookmark = '',
+    this.importBookmark = '',
+  });
 
   Future<String> getExport() async => exportPath;
   Future<void> setExport(String path) async {
@@ -149,6 +230,18 @@ class _PathStore {
     importPath = path;
     importWrites.add(path);
   }
+
+  Future<String> getExportBookmark() async => exportBookmark;
+  Future<void> setExportBookmark(String bookmark) async {
+    exportBookmark = bookmark;
+    exportBookmarkWrites.add(bookmark);
+  }
+
+  Future<String> getImportBookmark() async => importBookmark;
+  Future<void> setImportBookmark(String bookmark) async {
+    importBookmark = bookmark;
+    importBookmarkWrites.add(bookmark);
+  }
 }
 
 SettingsPortabilityController _controller({
@@ -160,6 +253,7 @@ SettingsPortabilityController _controller({
   Directory? documents,
   _PathStore? pathStore,
   PickPathFn? pickPath,
+  SecureBookmarkService? bookmarks,
 }) {
   final paths = pathStore ?? _PathStore();
   return SettingsPortabilityController(
@@ -172,6 +266,11 @@ SettingsPortabilityController _controller({
     setExportPath: paths.setExport,
     getImportPath: paths.getImport,
     setImportPath: paths.setImport,
+    getExportBookmark: paths.getExportBookmark,
+    setExportBookmark: paths.setExportBookmark,
+    getImportBookmark: paths.getImportBookmark,
+    setImportBookmark: paths.setImportBookmark,
+    bookmarks: bookmarks ?? _FakeBookmarks(),
     pickPath: pickPath ?? _acceptSuggestion,
     toaster: toaster.call,
   );
@@ -595,4 +694,446 @@ void main() {
       expect(picker.forExportCalls.single, isTrue);
     },
   );
+
+  // ───────────────────────────────────────────────────────────────────────
+  // Bookmark seam — macOS security-scoped bookmarks (Ticket 04)
+  // ───────────────────────────────────────────────────────────────────────
+
+  group('bookmark seam (Ticket 04)', () {
+    testWidgets('first-ever export: bookmark is created only after the write '
+        'succeeds, not at dialog-pick time', (tester) async {
+      final toaster = _FakeToaster();
+      final paths = _PathStore();
+      final fresh = p.join(_downloadsPath, 'first-export.json');
+      final picker = _FakePicker([fresh]);
+      final bookmarks = _FakeBookmarks(
+        isSupported: true,
+        createResponses: ['export-bookmark-1'],
+        onCreate: (path) async {
+          expect(
+            await fs.file(path).exists(),
+            isTrue,
+            reason:
+                'creating the export bookmark at pick time (before the '
+                'file exists) would silently store no bookmark for the '
+                'very first export — the exact trap this ticket names',
+          );
+        },
+      );
+      final sut = _controller(
+        fs: fs,
+        toaster: toaster,
+        downloads: Directory(_downloadsPath),
+        pathStore: paths,
+        pickPath: picker.call,
+        bookmarks: bookmarks,
+      );
+
+      await _withContext(tester, (ctx) async {
+        await sut.export(ctx);
+      });
+
+      expect(bookmarks.createCalls, [fresh]);
+      expect(paths.exportBookmark, 'export-bookmark-1');
+      expect(toaster.calls.single.type, WpToastType.success);
+    });
+
+    testWidgets(
+      'first-ever import: bookmark is created immediately at pick time '
+      '(the file already exists)',
+      (tester) async {
+        final toaster = _FakeToaster();
+        final paths = _PathStore();
+        final picked = p.join(_downloadsPath, 'first-import.json');
+        await fs.directory(_downloadsPath).create(recursive: true);
+        await fs
+            .file(picked)
+            .writeAsString(
+              const SettingsPortabilityService().encode(_sampleBundle),
+            );
+        final picker = _FakePicker([picked]);
+        final bookmarks = _FakeBookmarks(
+          isSupported: true,
+          createResponses: ['import-bookmark-1'],
+        );
+        SettingsExportBundle? applied;
+        final sut = _controller(
+          fs: fs,
+          toaster: toaster,
+          downloads: Directory(_downloadsPath),
+          pathStore: paths,
+          pickPath: picker.call,
+          bookmarks: bookmarks,
+          apply: (bundle) async => applied = bundle,
+        );
+
+        await _withContext(tester, (ctx) async {
+          await sut.import(ctx);
+        });
+
+        expect(bookmarks.createCalls, [picked]);
+        expect(paths.importBookmark, 'import-bookmark-1');
+        expect(applied, isNotNull);
+      },
+    );
+
+    testWidgets(
+      'remembered path with a valid bookmark → resolve+startAccess is used, '
+      'no dialog, exactly one stopAccess balances the start',
+      (tester) async {
+        final toaster = _FakeToaster();
+        final remembered = p.join(_downloadsPath, 'already-chosen.json');
+        final paths = _PathStore(
+          exportPath: remembered,
+          exportBookmark: 'bm-1',
+        );
+        final picker = _FakePicker([]);
+        final bookmarks = _FakeBookmarks(
+          isSupported: true,
+          resolveResponses: {
+            'bm-1': BookmarkResolution(path: remembered, isStale: false),
+          },
+          startAccessResponses: {'bm-1': true},
+        );
+        final sut = _controller(
+          fs: fs,
+          toaster: toaster,
+          downloads: Directory(_downloadsPath),
+          pathStore: paths,
+          pickPath: picker.call,
+          bookmarks: bookmarks,
+        );
+
+        await _withContext(tester, (ctx) async {
+          await sut.export(ctx);
+        });
+
+        expect(picker.callCount, 0);
+        expect(bookmarks.resolveCalls, ['bm-1']);
+        expect(bookmarks.startAccessCalls, ['bm-1']);
+        expect(bookmarks.stopAccessCalls, ['bm-1']);
+        expect(
+          bookmarks.createCalls,
+          isEmpty,
+          reason: 'a valid, non-stale bookmark must not be recreated',
+        );
+        expect(toaster.calls.single.type, WpToastType.success);
+      },
+    );
+
+    testWidgets(
+      'remembered import path with a valid bookmark → resolve+startAccess '
+      'is used, no dialog',
+      (tester) async {
+        final toaster = _FakeToaster();
+        final remembered = p.join(_downloadsPath, 'already-chosen-import.json');
+        await fs.directory(_downloadsPath).create(recursive: true);
+        await fs
+            .file(remembered)
+            .writeAsString(
+              const SettingsPortabilityService().encode(_sampleBundle),
+            );
+        final paths = _PathStore(
+          importPath: remembered,
+          importBookmark: 'bm-import-1',
+        );
+        final picker = _FakePicker([]);
+        final bookmarks = _FakeBookmarks(
+          isSupported: true,
+          resolveResponses: {
+            'bm-import-1': BookmarkResolution(path: remembered, isStale: false),
+          },
+          startAccessResponses: {'bm-import-1': true},
+        );
+        SettingsExportBundle? applied;
+        final sut = _controller(
+          fs: fs,
+          toaster: toaster,
+          downloads: Directory(_downloadsPath),
+          pathStore: paths,
+          pickPath: picker.call,
+          bookmarks: bookmarks,
+          apply: (bundle) async => applied = bundle,
+        );
+
+        await _withContext(tester, (ctx) async {
+          await sut.import(ctx);
+        });
+
+        expect(picker.callCount, 0);
+        expect(bookmarks.resolveCalls, ['bm-import-1']);
+        expect(bookmarks.startAccessCalls, ['bm-import-1']);
+        expect(bookmarks.stopAccessCalls, ['bm-import-1']);
+        expect(applied, isNotNull);
+        expect(toaster.calls.single.type, WpToastType.success);
+      },
+    );
+
+    testWidgets('stale bookmark is recreated and replaces the stored one; the '
+        'current operation still uses the original access session', (
+      tester,
+    ) async {
+      final toaster = _FakeToaster();
+      final remembered = p.join(_downloadsPath, 'already-chosen.json');
+      final paths = _PathStore(
+        exportPath: remembered,
+        exportBookmark: 'bm-old',
+      );
+      final picker = _FakePicker([]);
+      final bookmarks = _FakeBookmarks(
+        isSupported: true,
+        resolveResponses: {
+          'bm-old': BookmarkResolution(path: remembered, isStale: true),
+        },
+        startAccessResponses: {'bm-old': true},
+        createResponses: ['bm-new'],
+      );
+      final sut = _controller(
+        fs: fs,
+        toaster: toaster,
+        downloads: Directory(_downloadsPath),
+        pathStore: paths,
+        pickPath: picker.call,
+        bookmarks: bookmarks,
+      );
+
+      await _withContext(tester, (ctx) async {
+        await sut.export(ctx);
+      });
+
+      expect(picker.callCount, 0);
+      expect(bookmarks.startAccessCalls, ['bm-old']);
+      expect(bookmarks.stopAccessCalls, ['bm-old']);
+      expect(bookmarks.createCalls, [remembered]);
+      expect(
+        paths.exportBookmark,
+        'bm-new',
+        reason: 'the stale bookmark is replaced for next time',
+      );
+      expect(toaster.calls.single.type, WpToastType.success);
+    });
+
+    testWidgets(
+      'bookmark resolve failure falls back to the dialog, no error toast',
+      (tester) async {
+        final toaster = _FakeToaster();
+        final remembered = p.join(_downloadsPath, 'already-chosen.json');
+        final paths = _PathStore(
+          exportPath: remembered,
+          exportBookmark: 'bm-broken',
+        );
+        final fresh = p.join(_downloadsPath, 'fresh-export.json');
+        final picker = _FakePicker([fresh]);
+        final bookmarks = _FakeBookmarks(
+          isSupported: true,
+          resolveResponses: {'bm-broken': null},
+        );
+        final sut = _controller(
+          fs: fs,
+          toaster: toaster,
+          downloads: Directory(_downloadsPath),
+          pathStore: paths,
+          pickPath: picker.call,
+          bookmarks: bookmarks,
+        );
+
+        await _withContext(tester, (ctx) async {
+          await sut.export(ctx);
+        });
+
+        expect(picker.callCount, 1);
+        expect(paths.exportPath, fresh);
+        expect(
+          paths.exportBookmark,
+          isEmpty,
+          reason: 'the broken bookmark must be forgotten, not carried over',
+        );
+        expect(toaster.calls, hasLength(1));
+        expect(
+          toaster.calls.single.type,
+          WpToastType.success,
+          reason: 'a bookmark failure is not a user-facing error',
+        );
+      },
+    );
+
+    testWidgets(
+      'bookmark startAccess failure falls back to the dialog, no error '
+      'toast, and nothing needs to be stopped',
+      (tester) async {
+        final toaster = _FakeToaster();
+        final remembered = p.join(_downloadsPath, 'already-chosen.json');
+        final paths = _PathStore(
+          exportPath: remembered,
+          exportBookmark: 'bm-broken',
+        );
+        final fresh = p.join(_downloadsPath, 'fresh-export.json');
+        final picker = _FakePicker([fresh]);
+        final bookmarks = _FakeBookmarks(
+          isSupported: true,
+          resolveResponses: {
+            'bm-broken': BookmarkResolution(path: remembered, isStale: false),
+          },
+          startAccessResponses: {'bm-broken': false},
+        );
+        final sut = _controller(
+          fs: fs,
+          toaster: toaster,
+          downloads: Directory(_downloadsPath),
+          pathStore: paths,
+          pickPath: picker.call,
+          bookmarks: bookmarks,
+        );
+
+        await _withContext(tester, (ctx) async {
+          await sut.export(ctx);
+        });
+
+        expect(picker.callCount, 1);
+        expect(
+          bookmarks.stopAccessCalls,
+          isEmpty,
+          reason: 'no session was ever started, nothing to balance',
+        );
+        expect(toaster.calls.single.type, WpToastType.success);
+      },
+    );
+
+    testWidgets(
+      'stale bookmark recreation failure falls back to the dialog, but '
+      'still balances the access session that was already started',
+      (tester) async {
+        final toaster = _FakeToaster();
+        final remembered = p.join(_downloadsPath, 'already-chosen.json');
+        final paths = _PathStore(
+          exportPath: remembered,
+          exportBookmark: 'bm-old',
+        );
+        final fresh = p.join(_downloadsPath, 'fresh-export.json');
+        final picker = _FakePicker([fresh]);
+        final bookmarks = _FakeBookmarks(
+          isSupported: true,
+          resolveResponses: {
+            'bm-old': BookmarkResolution(path: remembered, isStale: true),
+          },
+          startAccessResponses: {'bm-old': true},
+          createResponses: [null],
+        );
+        final sut = _controller(
+          fs: fs,
+          toaster: toaster,
+          downloads: Directory(_downloadsPath),
+          pathStore: paths,
+          pickPath: picker.call,
+          bookmarks: bookmarks,
+        );
+
+        await _withContext(tester, (ctx) async {
+          await sut.export(ctx);
+        });
+
+        expect(bookmarks.startAccessCalls, ['bm-old']);
+        expect(
+          bookmarks.stopAccessCalls,
+          ['bm-old'],
+          reason:
+              'the started session must be balanced even though the '
+              'target turned out unusable',
+        );
+        expect(picker.callCount, 1);
+        expect(toaster.calls.single.type, WpToastType.success);
+      },
+    );
+
+    testWidgets(
+      'a write failure against a bookmarked remembered path still balances '
+      'stopAccess before falling back to the dialog',
+      (tester) async {
+        // Same "parent replaced by a file" trigger as the Ticket 03 test
+        // above, this time with an active bookmark session around it.
+        await fs.directory(_downloadsPath).create(recursive: true);
+        await fs.file(p.join(_downloadsPath, 'sub')).create();
+        final stale = p.join(_downloadsPath, 'sub', settingsExportFileName);
+        final paths = _PathStore(exportPath: stale, exportBookmark: 'bm-1');
+        final fresh = p.join(_downloadsPath, 'fresh-export.json');
+        final picker = _FakePicker([fresh]);
+        final bookmarks = _FakeBookmarks(
+          isSupported: true,
+          resolveResponses: {
+            'bm-1': BookmarkResolution(path: stale, isStale: false),
+          },
+          startAccessResponses: {'bm-1': true},
+          createResponses: ['bm-fresh'],
+        );
+        final toaster = _FakeToaster();
+        final sut = _controller(
+          fs: fs,
+          toaster: toaster,
+          downloads: Directory(_downloadsPath),
+          pathStore: paths,
+          pickPath: picker.call,
+          bookmarks: bookmarks,
+        );
+
+        await _withContext(tester, (ctx) async {
+          await sut.export(ctx);
+        });
+
+        expect(bookmarks.startAccessCalls, ['bm-1']);
+        expect(
+          bookmarks.stopAccessCalls,
+          ['bm-1'],
+          reason: 'balanced even though the write itself failed',
+        );
+        expect(
+          paths.exportBookmark,
+          'bm-fresh',
+          reason: 'the fresh export creates its own bookmark after success',
+        );
+        expect(picker.callCount, 1);
+        expect(toaster.calls.single.type, WpToastType.success);
+      },
+    );
+
+    testWidgets(
+      'unsupported platform (Windows/Linux): bookmark methods are never '
+      'called, behaviour is plain Ticket 03 pass-through',
+      (tester) async {
+        final toaster = _FakeToaster();
+        final remembered = p.join(_downloadsPath, 'already-chosen.json');
+        final paths = _PathStore(
+          exportPath: remembered,
+          // A leftover value from e.g. a synced settings file created on
+          // macOS — must be ignored outright, not just fail gracefully.
+          exportBookmark: 'irrelevant-bm',
+        );
+        final picker = _FakePicker([]);
+        final bookmarks = _FakeBookmarks(isSupported: false);
+        final sut = _controller(
+          fs: fs,
+          toaster: toaster,
+          downloads: Directory(_downloadsPath),
+          pathStore: paths,
+          pickPath: picker.call,
+          bookmarks: bookmarks,
+        );
+
+        await _withContext(tester, (ctx) async {
+          await sut.export(ctx);
+        });
+
+        expect(bookmarks.resolveCalls, isEmpty);
+        expect(bookmarks.startAccessCalls, isEmpty);
+        expect(bookmarks.stopAccessCalls, isEmpty);
+        expect(bookmarks.createCalls, isEmpty);
+        expect(
+          picker.callCount,
+          0,
+          reason:
+              'the raw remembered path is used directly, Ticket 03 behaviour',
+        );
+        expect(toaster.calls.single.type, WpToastType.success);
+      },
+    );
+  });
 }

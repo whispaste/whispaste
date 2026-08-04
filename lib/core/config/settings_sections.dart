@@ -1336,7 +1336,7 @@ class PrivacySettings {
 // ===========================================================================
 
 /// Remembered file-dialog target for the settings export/import feature
-/// (PRD `settings-portability-vollumfang`, Ticket 03). Once the user
+/// (PRD `settings-portability-vollumfang`, Tickets 03 + 04). Once the user
 /// confirms a native save/open dialog (`file_selector`), the chosen path is
 /// remembered here so every later export/import reuses it without asking
 /// again — until the path turns out to be unusable (file/folder gone,
@@ -1347,10 +1347,11 @@ class PrivacySettings {
 /// key would make an export after an import silently overwrite the file the
 /// import just read from.
 ///
-/// [exportBookmark]/[importBookmark] are placeholders for Ticket 04's macOS
-/// security-scoped bookmarks (they let the MAS sandbox re-grant access to a
-/// user-picked file across app restarts); this ticket only reserves the
-/// storage keys and leaves them empty.
+/// [exportBookmark]/[importBookmark] hold the base64 macOS security-scoped
+/// bookmark paired with each path (`SecureBookmarkService`, Ticket 04) — it
+/// lets the Mac App Store sandbox re-grant access to a user-picked file
+/// across app restarts, where the dialog's own grant is process-bound.
+/// Always empty on Windows/Linux and on the macOS direct-download build.
 class SettingsPortabilityPathSettings {
   const SettingsPortabilityPathSettings({
     this.exportPath = '',

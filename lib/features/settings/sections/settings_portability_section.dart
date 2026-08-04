@@ -90,6 +90,32 @@ class SettingsPortabilitySection extends ConsumerWidget {
               portabilityPaths: s.portabilityPaths.copyWith(importPath: path),
             ),
           ),
+      getExportBookmark: () async =>
+          (ref.read(settingsProvider).value ?? AppSettings.defaults)
+              .portabilityPaths
+              .exportBookmark,
+      setExportBookmark: (bookmark) => ref
+          .read(settingsProvider.notifier)
+          .updateSettings(
+            (s) => s.copyWithSections(
+              portabilityPaths: s.portabilityPaths.copyWith(
+                exportBookmark: bookmark,
+              ),
+            ),
+          ),
+      getImportBookmark: () async =>
+          (ref.read(settingsProvider).value ?? AppSettings.defaults)
+              .portabilityPaths
+              .importBookmark,
+      setImportBookmark: (bookmark) => ref
+          .read(settingsProvider.notifier)
+          .updateSettings(
+            (s) => s.copyWithSections(
+              portabilityPaths: s.portabilityPaths.copyWith(
+                importBookmark: bookmark,
+              ),
+            ),
+          ),
     );
   }
 
