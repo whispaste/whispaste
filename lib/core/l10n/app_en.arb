@@ -296,6 +296,12 @@
   "settingsPortabilitySubtitle": "Move your settings between devices, no account needed.",
   "settingsPortabilityExportAction": "Export",
   "settingsPortabilityImportAction": "Import",
+  "settingsPortabilityExportLocationLabel": "Export destination",
+  "settingsPortabilityImportLocationLabel": "Import source",
+  "settingsPortabilityExportLocationUnset": "You'll be asked on first export",
+  "settingsPortabilityImportLocationUnset": "You'll be asked on first import",
+  "settingsPortabilityChooseExportLocation": "Choose a different export destination (nothing is exported yet)",
+  "settingsPortabilityChooseImportLocation": "Choose a different import source (nothing is imported yet)",
   "settingsPortabilityExportSuccess": "Settings exported to {path}",
   "@settingsPortabilityExportSuccess": {
     "placeholders": {

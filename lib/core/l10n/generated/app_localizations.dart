@@ -1641,6 +1641,42 @@ abstract class L10n {
   /// **'Import'**
   String get settingsPortabilityImportAction;
 
+  /// No description provided for @settingsPortabilityExportLocationLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Export destination'**
+  String get settingsPortabilityExportLocationLabel;
+
+  /// No description provided for @settingsPortabilityImportLocationLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Import source'**
+  String get settingsPortabilityImportLocationLabel;
+
+  /// No description provided for @settingsPortabilityExportLocationUnset.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'ll be asked on first export'**
+  String get settingsPortabilityExportLocationUnset;
+
+  /// No description provided for @settingsPortabilityImportLocationUnset.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'ll be asked on first import'**
+  String get settingsPortabilityImportLocationUnset;
+
+  /// No description provided for @settingsPortabilityChooseExportLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a different export destination (nothing is exported yet)'**
+  String get settingsPortabilityChooseExportLocation;
+
+  /// No description provided for @settingsPortabilityChooseImportLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a different import source (nothing is imported yet)'**
+  String get settingsPortabilityChooseImportLocation;
+
   /// No description provided for @settingsPortabilityExportSuccess.
   ///
   /// In en, this message translates to:

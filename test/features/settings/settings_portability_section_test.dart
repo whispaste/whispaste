@@ -13,19 +13,138 @@
 /// The second group covers discoverability: the section is reachable via the
 /// settings search, and selecting its suggestion scrolls to the section and
 /// draws the temporary highlight border around it.
+///
+/// The Ticket 05 group (remembered locations) exercises the interactive
+/// choose-location affordance through the section's `controllerOverride`
+/// test seam with a [SettingsPortabilityController] built entirely from
+/// injected fakes ([_FakePicker], [MemoryFileSystem], a no-op bookmarks
+/// service) — same approach as
+/// `test/services/settings_portability_controller_test.dart` — so no real
+/// `path_provider`/`file_selector` platform channel is ever touched.
 library;
 
+import 'dart:io' show Platform;
+
+import 'package:file/memory.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
+import 'package:whispaste/core/config/settings_provider.dart';
+import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/navigation/page_state.dart';
 import 'package:whispaste/features/settings/search/settings_search_provider.dart';
 import 'package:whispaste/features/settings/sections/settings_portability_section.dart';
 import 'package:whispaste/features/settings/settings_page.dart';
 import 'package:whispaste/features/settings/widgets/settings_search_field.dart';
+import 'package:whispaste/services/secure_bookmark_service.dart';
+import 'package:whispaste/services/settings_portability_controller.dart';
+import 'package:whispaste/services/settings_portability_service.dart';
 
 import '../../fixtures/test_helpers.dart';
+
+// ---------------------------------------------------------------------------
+// Fakes for the Ticket 05 remembered-location group
+// ---------------------------------------------------------------------------
+
+/// In-memory [SettingsNotifier] — same pattern as
+/// `test/features/settings/sections/history_section_test.dart`. Holds the
+/// portability paths the section displays and lets the injected controller
+/// write them back through the real provider, so the UI re-renders.
+class _FakeSettingsNotifier extends SettingsNotifier {
+  _FakeSettingsNotifier(this._settings);
+  AppSettings _settings;
+
+  AppSettings get current => state.value ?? _settings;
+
+  @override
+  Future<AppSettings> build() async => _settings;
+
+  @override
+  Future<void> updateSettings(AppSettings Function(AppSettings) updater) async {
+    _settings = updater(state.value ?? _settings);
+    state = AsyncData(_settings);
+  }
+}
+
+/// Fakes the native save/open dialog; responses are consumed in call order,
+/// calls past the end return `null` (cancelled) so an unexpected extra
+/// dialog fails loudly.
+class _FakePicker {
+  _FakePicker(this.responses);
+  final List<String?> responses;
+  int callCount = 0;
+  final List<bool> forExportCalls = [];
+
+  Future<String?> call({
+    required bool forExport,
+    required String suggestedName,
+    String? initialDirectory,
+  }) async {
+    forExportCalls.add(forExport);
+    final response = callCount < responses.length ? responses[callCount] : null;
+    callCount++;
+    return response;
+  }
+}
+
+/// Bookmarks are a macOS-only concern; the widget tests here pin them off
+/// so they behave identically on every test host.
+class _NoBookmarks extends SecureBookmarkService {
+  const _NoBookmarks();
+  @override
+  bool get isSupported => false;
+}
+
+/// A real [SettingsPortabilityController] wired to the fakes above and to
+/// [notifier]'s portability paths — the production wiring shape, minus every
+/// platform channel. [log] records `gather`/`apply` calls so tests can
+/// assert the choose-location affordance never runs an export/import.
+SettingsPortabilityController _testController({
+  required _FakeSettingsNotifier notifier,
+  required _FakePicker picker,
+  required MemoryFileSystem fs,
+  required List<String> log,
+}) {
+  Future<void> update(
+    SettingsPortabilityPathSettings Function(SettingsPortabilityPathSettings)
+    updater,
+  ) => notifier.updateSettings(
+    (s) => s.copyWithSections(portabilityPaths: updater(s.portabilityPaths)),
+  );
+
+  return SettingsPortabilityController(
+    gather: () async {
+      log.add('gather');
+      return const SettingsExportBundle(settings: {}, replacements: []);
+    },
+    apply: (_) async => log.add('apply'),
+    service: SettingsPortabilityService(fileSystem: fs),
+    downloadsDirFn: () async => null,
+    documentsDirFn: () async => null,
+    getExportPath: () async => notifier.current.portabilityPaths.exportPath,
+    setExportPath: (path) => update((s) => s.copyWith(exportPath: path)),
+    getImportPath: () async => notifier.current.portabilityPaths.importPath,
+    setImportPath: (path) => update((s) => s.copyWith(importPath: path)),
+    getExportBookmark: () async =>
+        notifier.current.portabilityPaths.exportBookmark,
+    setExportBookmark: (b) => update((s) => s.copyWith(exportBookmark: b)),
+    getImportBookmark: () async =>
+        notifier.current.portabilityPaths.importBookmark,
+    setImportBookmark: (b) => update((s) => s.copyWith(importBookmark: b)),
+    bookmarks: const _NoBookmarks(),
+    pickPath: picker.call,
+    toaster: (context, type, message) {},
+  );
+}
+
+/// Platform-native absolute base path — see the style note in
+/// `settings_portability_controller_test.dart` for why a hardcoded POSIX
+/// literal would break on Windows.
+final _basePath = Platform.isWindows
+    ? r'C:\Users\tester\Documents'
+    : '/Users/tester/Documents';
 
 void main() {
   group('SettingsPortabilitySection', () {
@@ -191,6 +310,204 @@ void main() {
           (cleared.decoration as BoxDecoration?)?.border,
           isNull,
           reason: 'Highlight border must be gone after the clear timer',
+        );
+      },
+    );
+  });
+
+  group('Remembered locations (Ticket 05)', () {
+    const chooseExportTooltip =
+        'Choose a different export destination (nothing is exported yet)';
+    const chooseImportTooltip =
+        'Choose a different import source (nothing is imported yet)';
+
+    _FakeSettingsNotifier seeded({
+      String exportPath = '',
+      String importPath = '',
+    }) => _FakeSettingsNotifier(
+      AppSettings.defaults.copyWithSections(
+        portabilityPaths: SettingsPortabilityPathSettings(
+          exportPath: exportPath,
+          importPath: importPath,
+        ),
+      ),
+    );
+
+    Future<void> pump(
+      WidgetTester tester,
+      _FakeSettingsNotifier notifier, {
+      SettingsPortabilityController? controller,
+      Locale locale = const Locale('en'),
+      double? width,
+    }) async {
+      Widget section = SingleChildScrollView(
+        child: SettingsPortabilitySection(controllerOverride: controller),
+      );
+      if (width != null) {
+        section = Align(
+          child: SizedBox(width: width, child: section),
+        );
+      }
+      await tester.pumpWidget(
+        makeTestable(
+          section,
+          overrides: [settingsProvider.overrideWith(() => notifier)],
+          locale: locale,
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets(
+      'shows the remembered export location — basename intact, full path '
+      'in a tooltip — while the import side shows the honest unset state',
+      (tester) async {
+        final exportPath = p.join(
+          _basePath,
+          'backups',
+          'whispaste-settings-export.json',
+        );
+        await pump(tester, seeded(exportPath: exportPath));
+
+        expect(find.text('whispaste-settings-export.json'), findsOneWidget);
+        expect(
+          find.byWidgetPredicate(
+            (w) => w is Tooltip && w.message == exportPath,
+          ),
+          findsOneWidget,
+          reason: 'the full path must stay reachable via tooltip',
+        );
+        expect(find.text("You'll be asked on first import"), findsOneWidget);
+      },
+    );
+
+    testWidgets('no remembered location yet → both directions show the honest '
+        '"asked on first …" state, never an invented suggestion path', (
+      tester,
+    ) async {
+      await pump(tester, seeded());
+
+      expect(find.text("You'll be asked on first export"), findsOneWidget);
+      expect(find.text("You'll be asked on first import"), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is Tooltip && (w.message?.contains(p.separator) ?? false),
+        ),
+        findsNothing,
+        reason: 'no path may be displayed that the user never confirmed',
+      );
+    });
+
+    testWidgets(
+      'the choose-location affordance calls chooseNewLocation — it only '
+      'sets the location: nothing is exported, imported, or written',
+      (tester) async {
+        final oldPath = p.join(_basePath, 'old-export.json');
+        final newPath = p.join(_basePath, 'new-export.json');
+        final notifier = seeded(exportPath: oldPath);
+        final picker = _FakePicker([newPath]);
+        final fs = MemoryFileSystem.test(
+          style: Platform.isWindows
+              ? FileSystemStyle.windows
+              : FileSystemStyle.posix,
+        );
+        final log = <String>[];
+        await pump(
+          tester,
+          notifier,
+          controller: _testController(
+            notifier: notifier,
+            picker: picker,
+            fs: fs,
+            log: log,
+          ),
+        );
+
+        await tester.tap(find.byTooltip(chooseExportTooltip));
+        await tester.pumpAndSettle();
+
+        expect(picker.forExportCalls, [true]);
+        expect(
+          log,
+          isEmpty,
+          reason: 'choosing a location must not run export or import',
+        );
+        expect(
+          fs.file(newPath).existsSync(),
+          isFalse,
+          reason: 'choosing a location must not write the export file',
+        );
+        expect(notifier.current.portabilityPaths.exportPath, newPath);
+        expect(
+          find.text('new-export.json'),
+          findsOneWidget,
+          reason: 'the displayed location must update reactively',
+        );
+      },
+    );
+
+    testWidgets(
+      'cancelling the chooser leaves the displayed location unchanged',
+      (tester) async {
+        final oldPath = p.join(_basePath, 'old-import.json');
+        final notifier = seeded(importPath: oldPath);
+        final picker = _FakePicker([null]);
+        final fs = MemoryFileSystem.test(
+          style: Platform.isWindows
+              ? FileSystemStyle.windows
+              : FileSystemStyle.posix,
+        );
+        final log = <String>[];
+        await pump(
+          tester,
+          notifier,
+          controller: _testController(
+            notifier: notifier,
+            picker: picker,
+            fs: fs,
+            log: log,
+          ),
+        );
+
+        await tester.tap(find.byTooltip(chooseImportTooltip));
+        await tester.pumpAndSettle();
+
+        expect(picker.callCount, 1);
+        expect(log, isEmpty);
+        expect(notifier.current.portabilityPaths.importPath, oldPath);
+        expect(find.text('old-import.json'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'a very long path under the Hebrew RTL locale in a narrow layout '
+      'truncates without overflow and keeps the basename visible',
+      (tester) async {
+        final longPath = p.joinAll([
+          _basePath,
+          'a-very-long-directory-name-level-one',
+          'an-even-longer-directory-name-level-two',
+          'and-one-more-nested-level-three',
+          'whispaste-settings-export.json',
+        ]);
+        await pump(
+          tester,
+          seeded(exportPath: longPath, importPath: longPath),
+          locale: const Locale('he'),
+          width: 480,
+        );
+
+        expect(
+          tester.takeException(),
+          isNull,
+          reason: 'a long path must not overflow the line',
+        );
+        expect(
+          find.text('whispaste-settings-export.json'),
+          findsNWidgets(2),
+          reason:
+              'the basename is the informative end and must never be the '
+              'first thing to disappear',
         );
       },
     );

@@ -885,6 +885,28 @@ class L10nDe extends L10n {
   String get settingsPortabilityImportAction => 'Importieren';
 
   @override
+  String get settingsPortabilityExportLocationLabel => 'Exportziel';
+
+  @override
+  String get settingsPortabilityImportLocationLabel => 'Importquelle';
+
+  @override
+  String get settingsPortabilityExportLocationUnset =>
+      'Wird beim ersten Export gefragt';
+
+  @override
+  String get settingsPortabilityImportLocationUnset =>
+      'Wird beim ersten Import gefragt';
+
+  @override
+  String get settingsPortabilityChooseExportLocation =>
+      'Anderes Exportziel wählen (es wird noch nichts exportiert)';
+
+  @override
+  String get settingsPortabilityChooseImportLocation =>
+      'Andere Importquelle wählen (es wird noch nichts importiert)';
+
+  @override
   String settingsPortabilityExportSuccess(String path) {
     return 'Einstellungen exportiert nach $path';
   }

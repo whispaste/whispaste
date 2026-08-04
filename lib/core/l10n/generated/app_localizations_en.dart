@@ -875,6 +875,28 @@ class L10nEn extends L10n {
   String get settingsPortabilityImportAction => 'Import';
 
   @override
+  String get settingsPortabilityExportLocationLabel => 'Export destination';
+
+  @override
+  String get settingsPortabilityImportLocationLabel => 'Import source';
+
+  @override
+  String get settingsPortabilityExportLocationUnset =>
+      'You\'ll be asked on first export';
+
+  @override
+  String get settingsPortabilityImportLocationUnset =>
+      'You\'ll be asked on first import';
+
+  @override
+  String get settingsPortabilityChooseExportLocation =>
+      'Choose a different export destination (nothing is exported yet)';
+
+  @override
+  String get settingsPortabilityChooseImportLocation =>
+      'Choose a different import source (nothing is imported yet)';
+
+  @override
   String settingsPortabilityExportSuccess(String path) {
     return 'Settings exported to $path';
   }

@@ -864,6 +864,28 @@ class L10nHe extends L10n {
   String get settingsPortabilityImportAction => 'ייבוא';
 
   @override
+  String get settingsPortabilityExportLocationLabel => 'יעד הייצוא';
+
+  @override
+  String get settingsPortabilityImportLocationLabel => 'מקור הייבוא';
+
+  @override
+  String get settingsPortabilityExportLocationUnset =>
+      'המיקום ייבחר בייצוא הראשון';
+
+  @override
+  String get settingsPortabilityImportLocationUnset =>
+      'המיקום ייבחר בייבוא הראשון';
+
+  @override
+  String get settingsPortabilityChooseExportLocation =>
+      'בחירת יעד ייצוא אחר (עדיין לא מתבצע ייצוא)';
+
+  @override
+  String get settingsPortabilityChooseImportLocation =>
+      'בחירת מקור ייבוא אחר (עדיין לא מתבצע ייבוא)';
+
+  @override
   String settingsPortabilityExportSuccess(String path) {
     return 'ההגדרות יוצאו אל $path';
   }
