@@ -27,43 +27,40 @@ void main() {
     parakeetFileExistsOverride = null;
   });
 
-  test(
-    'ensureRunning() called twice without awaiting coalesces onto one '
-    'in-flight start instead of sending two _InitRequests',
-    () async {
-      // Model files "missing" is enough here: ensureRunning()'s coalescing
-      // guard runs before the file-existence check, so both calls must
-      // already share the same Future by the time either has had a chance
-      // to run further — no isolate spawn or native call is reached.
-      parakeetFileExistsOverride = (_) => false;
+  test('ensureRunning() called twice without awaiting coalesces onto one '
+      'in-flight start instead of sending two _InitRequests', () async {
+    // Model files "missing" is enough here: ensureRunning()'s coalescing
+    // guard runs before the file-existence check, so both calls must
+    // already share the same Future by the time either has had a chance
+    // to run further — no isolate spawn or native call is reached.
+    parakeetFileExistsOverride = (_) => false;
 
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
-      final notifier = container.read(parakeetEngineProvider.notifier);
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final notifier = container.read(parakeetEngineProvider.notifier);
 
-      final first = notifier.ensureRunning();
-      final second = notifier.ensureRunning();
+    final first = notifier.ensureRunning();
+    final second = notifier.ensureRunning();
 
-      expect(
-        identical(first, second),
-        isTrue,
-        reason:
-            'a second ensureRunning() call while one is already in flight '
-            'must reuse the same Future — a distinct Future per call is '
-            'exactly what let two _InitRequests race the shared '
-            '_initCompleter field in production',
-      );
+    expect(
+      identical(first, second),
+      isTrue,
+      reason:
+          'a second ensureRunning() call while one is already in flight '
+          'must reuse the same Future — a distinct Future per call is '
+          'exactly what let two _InitRequests race the shared '
+          '_initCompleter field in production',
+    );
 
-      await expectLater(
-        first,
-        throwsA(
-          isA<StateError>().having(
-            (e) => e.message,
-            'message',
-            'parakeet_model_not_found',
-          ),
+    await expectLater(
+      first,
+      throwsA(
+        isA<StateError>().having(
+          (e) => e.message,
+          'message',
+          'parakeet_model_not_found',
         ),
-      );
-    },
-  );
+      ),
+    );
+  });
 }
