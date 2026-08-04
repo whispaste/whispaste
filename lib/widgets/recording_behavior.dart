@@ -23,6 +23,7 @@ import '../core/recording/recording_helpers.dart';
 import '../core/recording/recording_state.dart';
 import '../services/paste/paste_failure_notifier.dart';
 import '../services/paste/paster.dart';
+import '../services/permissions/mic_permission_notifier.dart';
 import '../services/recording_orchestrator.dart';
 import '../services/sound_feedback_service.dart';
 import '../services/stt/recovery_toast_notifier.dart';
@@ -486,17 +487,8 @@ class _RecordingBehaviorState extends ConsumerState<RecordingBehaviorWidget> {
     }
   }
 
-  Future<void> _openMicrophoneSettings() async {
-    if (!Platform.isMacOS) return;
-    final uri = Uri.parse(
-      'x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone',
-    );
-    try {
-      await launchUrl(uri);
-    } on Exception catch (e) {
-      _log.warning('Could not open Microphone settings', e);
-    }
-  }
+  Future<void> _openMicrophoneSettings() =>
+      ref.read(micPermissionNotifierProvider.notifier).openSystemSettings();
 }
 
 // ---------------------------------------------------------------------------

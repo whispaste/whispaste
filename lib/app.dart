@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:record/record.dart' show AudioRecorder;
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:flutter_localized_locales/flutter_localized_locales.dart';
 import 'package:window_manager/window_manager.dart';
@@ -182,6 +181,17 @@ const wpPageWidgets = <String, Widget>{
   'about': AboutPage(),
   'feedback': FeedbackPage(),
 };
+
+/// Pure decision for whether the startup permission gate should run,
+/// extracted from [_AppShellState._runStartupPermissionGate] so it is
+/// unit-testable without the surrounding widget tree.
+///
+/// First-run onboarding owns both permissions with its own richer UI — the
+/// gate only takes over from the second start on, once onboarding completed.
+/// `settings == null` (not loaded yet) is treated like "not completed",
+/// matching the `?? false` fallback this replaces at the call site.
+bool shouldRunStartupPermissionGate(AppSettings? settings) =>
+    settings?.onboardingCompleted ?? false;
 
 /// Root layout: title bar + sidebar + content + status bar.
 class _AppShell extends ConsumerStatefulWidget {
@@ -464,38 +474,37 @@ class _AppShellState extends ConsumerState<_AppShell>
   /// the first recording/paste. See `startup_permission_gate.dart` for the
   /// full decision tree and the platform truths it encodes.
   Future<void> _runStartupPermissionGate() async {
-    final onboardingCompleted =
-        ref.read(settingsProvider).value?.onboardingCompleted ?? false;
-    // First-run onboarding owns both permissions with its own richer UI —
-    // the gate only takes over from the second start on.
-    if (!onboardingCompleted) return;
-
-    final recorder = AudioRecorder();
-    try {
-      final gate = StartupPermissionGate(
-        mic: MicGateHooks(
-          checkPermission: ({required bool request}) =>
-              recorder.hasPermission(request: request),
-          verifyCapture: _verifyMicCapture,
-          showGrantAlert: _showMicGateGrantAlert,
-          openSettings: _openMicPrivacySettings,
-          showRestartAlert: _showMicGateRestartAlert,
-        ),
-        autoPaste: Platform.isMacOS && kAutoPasteSupported
-            ? AutoPasteGateHooks(
-                readStatus: _readAutoPasteGateStatus,
-                showGrantAlert: _showAutoPasteGateGrantAlert,
-                startGrantFlow: () => ref
-                    .read(pasteCapabilityNotifierProvider.notifier)
-                    .requestGrant(),
-                showManualGrantAlert: _showManualGrantAlert,
-              )
-            : null,
-      );
-      await gate.run();
-    } finally {
-      unawaited(recorder.dispose());
+    if (!shouldRunStartupPermissionGate(ref.read(settingsProvider).value)) {
+      return;
     }
+
+    // The gate always constructs in a fresh process (only after onboarding —
+    // which owns the first in-process permission ask — has already completed
+    // in an earlier process), so `request()` below is always this process's
+    // first ask: it never opens Settings/polls on its own, leaving that
+    // orchestration entirely to `_runMicGate()`'s own hooks below.
+    final micNotifier = ref.read(micPermissionNotifierProvider.notifier);
+    final gate = StartupPermissionGate(
+      mic: MicGateHooks(
+        checkPermission: ({required bool request}) =>
+            request ? micNotifier.request() : micNotifier.check(),
+        verifyCapture: _verifyMicCapture,
+        showGrantAlert: _showMicGateGrantAlert,
+        openSettings: _openMicPrivacySettings,
+        showRestartAlert: _showMicGateRestartAlert,
+      ),
+      autoPaste: Platform.isMacOS && kAutoPasteSupported
+          ? AutoPasteGateHooks(
+              readStatus: _readAutoPasteGateStatus,
+              showGrantAlert: _showAutoPasteGateGrantAlert,
+              startGrantFlow: () => ref
+                  .read(pasteCapabilityNotifierProvider.notifier)
+                  .requestGrant(),
+              showManualGrantAlert: _showManualGrantAlert,
+            )
+          : null,
+    );
+    await gate.run();
   }
 
   /// Post-recovery proof that capture actually works in THIS process: opens
