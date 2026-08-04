@@ -10,52 +10,26 @@ the PostEvent API (CGEvent/CGEventKeyboardSetUnicodeString), gated by
 macOS's PostEvent TCC permission (surfaced to the user as "Accessibility").
 This is the same system-level channel other App Store voice-input and
 automation utilities use for the same purpose. WhisPaste does not use the
-Accessibility (AXUIElement) API to read or observe the contents of other
-apps — it only posts the keystrokes for the text it just transcribed. The
-app never reads, records, or transmits what is on screen or in other apps.
+Accessibility (AXUIElement) API to read or observe other apps — it only
+posts the keystrokes for the text it just transcribed, and never reads,
+records, or transmits what is on screen or in other apps.
 
-Granting this permission is entirely optional: without it, WhisPaste falls
-back to copying the transcribed text to the system clipboard so the user can
-paste manually with Cmd+V. Permission can be granted, denied, or revoked at
-any time in System Settings > Privacy & Security > Accessibility, and the
-app explains this trade-off in its own onboarding before ever prompting for
-the permission.
+Granting this permission is optional: without it, WhisPaste falls back to
+copying the transcribed text to the clipboard for a manual Cmd+V paste.
+Permission can be granted, denied, or revoked any time in System Settings >
+Privacy & Security > Accessibility; the app explains this trade-off in its
+own onboarding before ever prompting for it.
 
 HOW TO TEST
-1. Launch WhisPaste and complete onboarding (grants Microphone; the
-   Accessibility prompt is optional and can be skipped).
-2. Open any text field (e.g. TextEdit, Notes, or the browser's address bar).
-3. Press the configured hotkey (default shown in onboarding / Settings >
-   Hotkey), speak a short sentence, then release/press again per the chosen
-   push-to-talk or toggle mode.
-4. The transcribed text appears at the cursor within a couple of seconds
-   once transcription finishes. With Accessibility not granted, the same
-   text is instead placed on the clipboard for a manual Cmd+V paste.
+1. Launch WhisPaste, complete onboarding (grants Microphone; Accessibility
+   is optional and can be skipped).
+2. Open any text field (TextEdit, Notes, a browser address bar).
+3. Press the configured hotkey, speak a short sentence, release/press again
+   per the chosen push-to-talk or toggle mode.
+4. Transcribed text appears at the cursor within seconds. Without
+   Accessibility granted, it's placed on the clipboard instead.
 
-No account, sign-in, or demo credentials are required — the app works fully
-offline out of the box.
-
-RESUBMISSION NOTE (previous rejection: unjustified network.server entitlement)
-The previous submission (1.2.64) was rejected because it declared the
-com.apple.security.network.server sandbox entitlement with no matching
-functionality. That entitlement was a leftover from an earlier build
-architecture that ran on-device transcription through a local HTTP server
-subprocess; that subprocess was removed and replaced by an in-process engine
-some time ago, but the entitlement itself was never cleaned up. The only
-remaining code path that had used it was our single-instance-detection
-mechanism (preventing two copies of the app from running at once), which
-briefly bound a loopback TCP socket purely to detect whether another
-instance was already running.
-
-This build removes that entitlement: single-instance detection has been
-reimplemented using a local file lock instead of a network socket, so no
-network-server functionality is needed at all. We also found and removed
-two other entitlements that were present but unused — cs.allow-jit (a
-leftover from our debug build configuration) and
-files.user-selected.read-write (no file picker/save dialog exists in the
-app). The app now requests only app-sandbox, device.audio-input, and
-network.client — the minimum needed for microphone capture and outbound
-HTTPS calls to the optional cloud transcription providers described above.
+No account, sign-in, or demo credentials required — works fully offline.
 
 RESUBMISSION NOTE (rejection dated Aug 3, 2026 — submission
 05178297-1d6b-454d-9a7f-dfd1ab1a8e8e, four items addressed below)
@@ -68,17 +42,15 @@ relabeled the same way pre-emptively). No pre-permission screen tells the
 user how to respond to the native macOS permission dialog itself.
 
 Guideline 2.4.5 — Accessibility permission purpose
-No functional change from the explanation above, which was already part of
-the reviewed 1.2.66 submission — see the separate reply posted to this
-message in the App Store Connect Resolution Center for the same
-explanation addressed directly to the reviewer. In short: WhisPaste's
+No functional change from the explanation above (already part of the
+reviewed 1.2.66 submission — see our reply in the Resolution Center for the
+same explanation addressed directly to the reviewer). In short: WhisPaste's
 MAS build never calls the Accessibility (AXUIElement) API; it only uses
 CGPreflightPostEventAccess/CGRequestPostEventAccess (the PostEvent TCC
-service), which macOS itself surfaces to the user as "Accessibility" in
-System Settings. We also softened the in-app copy that referred to this
-permission so it now describes it as "the permission macOS calls
-Accessibility" rather than implying WhisPaste itself uses Accessibility
-features.
+service), which macOS itself surfaces to the user as "Accessibility". We
+also softened the in-app copy so it now describes this as "the permission
+macOS calls Accessibility" rather than implying WhisPaste itself uses
+Accessibility features.
 
 Guideline 5.6.3 — Rating request timing
 The one-time "thanks for your support" hint shown to Mac App Store users
