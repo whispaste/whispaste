@@ -186,6 +186,22 @@ class SettingsPortabilityController {
     return target.path;
   }
 
+  /// Lets the user pick a new export/import location without performing
+  /// any file operation — the Ticket 05 "choose another location"
+  /// affordance. Reuses [_promptFreshTarget], the exact same dialog path
+  /// [export]/[import] use internally, never a second code path. Returns
+  /// `true` if a new location was set, `false` if the user cancelled — a
+  /// cancel leaves the previously remembered path and bookmark completely
+  /// untouched, since nothing is persisted until the dialog succeeds.
+  Future<bool> chooseNewLocation({required bool forExport}) async {
+    final previousPath = await (forExport ? getExportPath : getImportPath)();
+    final target = await _promptFreshTarget(
+      forExport: forExport,
+      previousPath: previousPath.isEmpty ? null : previousPath,
+    );
+    return target != null;
+  }
+
   /// Gathers the current bundle and writes it to the resolved export path.
   /// Shows a success or error toast; a cancelled dialog shows neither.
   Future<void> export(BuildContext context) async {
@@ -381,6 +397,13 @@ class SettingsPortabilityController {
     );
     if (picked == null) return null;
     await (forExport ? setExportPath : setImportPath)(picked);
+    // A freshly picked path invalidates whatever bookmark was paired with
+    // the previous one — clear it now. Without this, a deferred/failed
+    // bookmark creation below (or the export side, which only creates its
+    // bookmark after a later successful write) could leave a stale
+    // bookmark silently paired with this new path, and the next
+    // export/import would resolve it back to the *old* location.
+    await (forExport ? setExportBookmark : setImportBookmark)('');
 
     if (!forExport && bookmarks.isSupported) {
       final bookmark = await bookmarks.create(picked);

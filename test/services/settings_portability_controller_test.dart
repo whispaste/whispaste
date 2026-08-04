@@ -1136,4 +1136,145 @@ void main() {
       },
     );
   });
+
+  // ───────────────────────────────────────────────────────────────────────
+  // chooseNewLocation — the Ticket 05 affordance seam
+  // ───────────────────────────────────────────────────────────────────────
+
+  group('chooseNewLocation', () {
+    testWidgets(
+      'picks a new export location, writes nothing, imports nothing',
+      (tester) async {
+        final remembered = p.join(_downloadsPath, 'already-chosen.json');
+        final fresh = p.join(_downloadsPath, 'newly-chosen.json');
+        final paths = _PathStore(exportPath: remembered);
+        final picker = _FakePicker([fresh]);
+        SettingsExportBundle? applied;
+        final sut = _controller(
+          fs: fs,
+          toaster: _FakeToaster(),
+          downloads: Directory(_downloadsPath),
+          pathStore: paths,
+          pickPath: picker.call,
+          apply: (bundle) async => applied = bundle,
+        );
+
+        final result = await sut.chooseNewLocation(forExport: true);
+
+        expect(result, isTrue);
+        expect(paths.exportPath, fresh);
+        expect(picker.forExportCalls.single, isTrue);
+        expect(
+          await fs.file(fresh).exists(),
+          isFalse,
+          reason: 'choosing a location must not write the export file',
+        );
+        expect(
+          applied,
+          isNull,
+          reason: 'choosing a location must not import anything',
+        );
+      },
+    );
+
+    testWidgets('cancelling leaves the previously remembered path and bookmark '
+        'completely untouched', (tester) async {
+      final remembered = p.join(_downloadsPath, 'already-chosen.json');
+      final paths = _PathStore(
+        importPath: remembered,
+        importBookmark: 'bm-untouched',
+      );
+      final picker = _FakePicker([null]);
+      final sut = _controller(
+        fs: fs,
+        toaster: _FakeToaster(),
+        downloads: Directory(_downloadsPath),
+        pathStore: paths,
+        pickPath: picker.call,
+      );
+
+      final result = await sut.chooseNewLocation(forExport: false);
+
+      expect(result, isFalse);
+      expect(paths.importPath, remembered);
+      expect(paths.importBookmark, 'bm-untouched');
+      expect(
+        paths.importBookmarkWrites,
+        isEmpty,
+        reason:
+            'a cancelled pick must not touch the bookmark at all, not '
+            'even clear-then-restore it',
+      );
+    });
+
+    testWidgets(
+      'choosing a new export location clears the old bookmark, so a later '
+      'export cannot silently resolve back to the old path',
+      (tester) async {
+        final oldPath = p.join(_downloadsPath, 'old-export.json');
+        final newPath = p.join(_downloadsPath, 'new-export.json');
+        final paths = _PathStore(exportPath: oldPath, exportBookmark: 'bm-old');
+        final picker = _FakePicker([newPath]);
+        final bookmarks = _FakeBookmarks(isSupported: true);
+        final sut = _controller(
+          fs: fs,
+          toaster: _FakeToaster(),
+          downloads: Directory(_downloadsPath),
+          pathStore: paths,
+          pickPath: picker.call,
+          bookmarks: bookmarks,
+        );
+
+        final result = await sut.chooseNewLocation(forExport: true);
+
+        expect(result, isTrue);
+        expect(paths.exportPath, newPath);
+        expect(
+          paths.exportBookmark,
+          isEmpty,
+          reason:
+              'the stale bookmark from the old path must not survive — a '
+              'later export() would otherwise resolve bm-old back to '
+              'old-export.json and silently overwrite paths.exportPath '
+              'with the old path again',
+        );
+      },
+    );
+
+    testWidgets(
+      'choosing a new import location immediately gets its own bookmark, '
+      'not the previous one',
+      (tester) async {
+        final oldPath = p.join(_downloadsPath, 'old-import.json');
+        final newPath = p.join(_downloadsPath, 'new-import.json');
+        await fs.directory(_downloadsPath).create(recursive: true);
+        await fs
+            .file(newPath)
+            .writeAsString(
+              const SettingsPortabilityService().encode(_sampleBundle),
+            );
+        final paths = _PathStore(importPath: oldPath, importBookmark: 'bm-old');
+        final picker = _FakePicker([newPath]);
+        final bookmarks = _FakeBookmarks(
+          isSupported: true,
+          createResponses: ['bm-new'],
+        );
+        final sut = _controller(
+          fs: fs,
+          toaster: _FakeToaster(),
+          downloads: Directory(_downloadsPath),
+          pathStore: paths,
+          pickPath: picker.call,
+          bookmarks: bookmarks,
+        );
+
+        final result = await sut.chooseNewLocation(forExport: false);
+
+        expect(result, isTrue);
+        expect(paths.importPath, newPath);
+        expect(paths.importBookmark, 'bm-new');
+        expect(bookmarks.createCalls, [newPath]);
+      },
+    );
+  });
 }
