@@ -19,6 +19,7 @@ import 'core/logging/app_logger.dart';
 import 'core/logging/app_monitoring.dart';
 import 'core/logging/crash_reporter.dart';
 import 'core/logging/perf_instrumentation.dart';
+import 'core/platform/desktop_window_geometry.dart';
 import 'core/platform/display_bounds.dart';
 import 'core/platform/macos_lifecycle_channel.dart';
 import 'core/platform/window_position_clamp.dart';
@@ -298,28 +299,29 @@ bool shouldMinimize({
 Future<void> _initDesktopWindow(AppSettings settings, List<String> args) async {
   await windowManager.ensureInitialized();
 
-  final hasPosition = settings.windowX >= 0 && settings.windowY >= 0;
+  final geometry = resolveDesktopWindowGeometry(settings);
   final windowOptions = WindowOptions(
-    size: Size(settings.windowWidth, settings.windowHeight),
+    size: geometry.size,
     minimumSize: const Size(800, 550),
-    center: !hasPosition,
+    center: geometry.position == null,
     title: 'WhisPaste',
     titleBarStyle: TitleBarStyle.hidden,
   );
   await windowManager.waitUntilReadyToShow(windowOptions, () async {
-    if (hasPosition) {
+    final position = geometry.position;
+    if (position != null) {
       // A position saved before a monitor was unplugged (or from a settings
       // backup restored on different hardware) must never start the window
       // off every currently connected display.
       final displays = await currentDisplayBounds();
       final clamped = WindowPositionClamp.clamp(
-        position: Offset(settings.windowX, settings.windowY),
-        size: Size(settings.windowWidth, settings.windowHeight),
+        position: position,
+        size: geometry.size,
         displays: displays,
       );
       await windowManager.setPosition(clamped);
     }
-    if (settings.windowMaximized) {
+    if (geometry.maximized) {
       await windowManager.maximize();
     }
 

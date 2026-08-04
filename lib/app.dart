@@ -7,7 +7,6 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:record/record.dart' show AudioRecorder;
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:flutter_localized_locales/flutter_localized_locales.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:window_manager/window_manager.dart';
 import 'core/app_info.dart';
 import 'core/config/settings_labels.dart';
@@ -25,6 +24,9 @@ import 'widgets/status_bar.dart';
 import 'widgets/frame_watermark.dart';
 import 'widgets/recording_indicator_bar.dart';
 import 'widgets/title_bar.dart';
+import 'core/platform/desktop_window_geometry.dart';
+import 'core/platform/display_bounds.dart';
+import 'core/platform/window_position_clamp.dart';
 import 'widgets/service_bootstrap.dart';
 import 'widgets/recording_behavior.dart';
 import 'features/history/history_page.dart';
@@ -49,6 +51,7 @@ import 'services/paste/paste_capability_notifier.dart';
 import 'services/paste/paste_policy.dart';
 import 'services/paste/paster.dart' show PasteCapabilityStatus;
 import 'services/paste/tcc_reset_notice.dart';
+import 'services/permissions/mic_permission_notifier.dart';
 import 'services/permissions/startup_permission_gate.dart';
 import 'services/audio_service.dart' show audioInputDevicesProvider;
 import 'services/microphone_selection_service.dart';
@@ -230,6 +233,18 @@ class _AppShellState extends ConsumerState<_AppShell>
       windowManager.addListener(this);
       windowManager.setPreventClose(true);
       windowManager.isMaximized().then((v) => _isMaximized = v);
+      // The fixed onboarding window size never touched the persisted regular
+      // geometry (see `_debounceSaveWindowState`) — the moment onboarding
+      // completes, that persisted geometry is exactly the pre-onboarding
+      // state, and this puts the actual OS window back on it.
+      ref.listenManual(settingsProvider, (prev, next) {
+        final wasCompleted =
+            prev?.value?.onboarding.onboardingCompleted ?? false;
+        final settings = next.value;
+        if (wasCompleted || settings == null) return;
+        if (!settings.onboarding.onboardingCompleted) return;
+        unawaited(_restoreRegularWindowGeometry(settings));
+      });
     }
 
     // Observe app lifecycle (background/suspend) so session-aggregated
@@ -546,19 +561,8 @@ class _AppShellState extends ConsumerState<_AppShell>
     return confirmed ?? false;
   }
 
-  Future<void> _openMicPrivacySettings() async {
-    final uri = Platform.isMacOS
-        ? 'x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone'
-        : Platform.isWindows
-        ? 'ms-settings:privacy-microphone'
-        : null;
-    if (uri == null) return;
-    try {
-      await launchUrl(Uri.parse(uri));
-    } on Exception catch (e) {
-      _log.warning('Could not open microphone privacy settings: $e');
-    }
-  }
+  Future<void> _openMicPrivacySettings() =>
+      ref.read(micPermissionNotifierProvider.notifier).openSystemSettings();
 
   /// The mic pendant to [_showForcedRestartModal]: the grant is on disk but
   /// this process demonstrably still can't capture, so relaunch. Releases
@@ -658,6 +662,13 @@ class _AppShellState extends ConsumerState<_AppShell>
   void _debounceSaveWindowState() {
     _windowSaveTimer?.cancel();
     _windowSaveTimer = Timer(const Duration(milliseconds: 400), () async {
+      final current = ref.read(settingsProvider).value;
+      if (current == null || !shouldPersistWindowGeometry(current)) {
+        // Unfinished onboarding: this resize/move belongs to the fixed
+        // onboarding window, not the user's regular geometry — see
+        // `desktop_window_geometry.dart`.
+        return;
+      }
       if (_isMaximized) {
         // Only persist the maximized flag; keep pre-maximize geometry.
         ref
@@ -678,6 +689,35 @@ class _AppShellState extends ConsumerState<_AppShell>
             ),
           );
     });
+  }
+
+  /// Puts the OS window back on the user's regular geometry the moment
+  /// onboarding completes — the persisted values themselves never moved
+  /// during onboarding (see `_debounceSaveWindowState`'s guard), so this is
+  /// just re-applying them to a window that has been sitting at the fixed
+  /// onboarding size.
+  Future<void> _restoreRegularWindowGeometry(AppSettings settings) async {
+    final geometry = resolveDesktopWindowGeometry(settings);
+    await windowManager.setSize(geometry.size);
+    final position = geometry.position;
+    if (position != null) {
+      final displays = await currentDisplayBounds();
+      final clamped = WindowPositionClamp.clamp(
+        position: position,
+        size: geometry.size,
+        displays: displays,
+      );
+      await windowManager.setPosition(clamped);
+    } else {
+      // No regular position was ever persisted (fresh install) — the window
+      // has been sitting wherever the onboarding session left it, so it
+      // needs an explicit re-center instead of `main.dart`'s `center: true`
+      // WindowOptions, which only applies at window creation.
+      await windowManager.center();
+    }
+    if (geometry.maximized) {
+      await windowManager.maximize();
+    }
   }
 
   @override
