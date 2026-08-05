@@ -72,9 +72,17 @@ class ReadyStep extends ConsumerWidget {
         ),
         const SizedBox(height: WpSpacing.lg),
 
-        // Residual conflict notice — the Model & Hotkey page is the place to
-        // fix this; here it's just a short heads-up explaining the disabled
-        // completion CTA.
+        // Residual conflict notice — the Hotkey page is the place to fix
+        // this; here it explains the disabled completion CTA.
+        //
+        // Title *and* remedy: the headline alone ("hotkey already in use")
+        // named the problem on the one page whose CTA it disables without
+        // saying what to do about it. The remedy line is this page's own
+        // string rather than the Hotkey page's — that one ends in "record a
+        // new combination *below*", and there is no recorder below here.
+        // Back reaches the Hotkey page in a few taps now that it is its own
+        // page, which is cheaper than new deep-link navigation for a branch
+        // this rare.
         if (hasConflict) ...[
           Text(
             l10n.onboardingTriggerHotkeyConflictTitle,
@@ -83,6 +91,16 @@ class ReadyStep extends ConsumerWidget {
               fontSize: WpTypography.small,
               fontWeight: FontWeight.w600,
               color: isDark ? WpColorsDark.error : WpColorsLight.error,
+            ),
+          ),
+          const SizedBox(height: WpSpacing.xxs),
+          Text(
+            l10n.onboardingReadyHotkeyConflictBody,
+            textAlign: TextAlign.start,
+            style: TextStyle(
+              fontSize: WpTypography.small,
+              color: textMuted,
+              height: 1.35,
             ),
           ),
           const SizedBox(height: WpSpacing.md),

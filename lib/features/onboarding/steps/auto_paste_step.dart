@@ -1,5 +1,5 @@
-/// Auto-Paste permission status content on the Autostart & Auto-Paste
-/// onboarding page.
+/// Content of the Auto-Paste onboarding page — the permission that lets a
+/// transcript land at the cursor.
 ///
 /// On macOS: walks the user through granting the Accessibility permission
 /// so Auto-Paste can simulate ⌘V into the focused window. Watches the
@@ -16,8 +16,10 @@
 /// `permissionMissing` and the step shows a non-blocking warn card plus the
 /// explicit Skip path (analogue to the macOS Skip).
 ///
-/// On Linux: never rendered — the Autostart & Auto-Paste page omits this
-/// widget entirely (no paste controller is wired there).
+/// On Linux: never rendered — the page is omitted from the step sequence
+/// entirely (no paste controller is wired there), so Linux runs a six-step
+/// flow rather than a seven-step one with a blank page in it. See
+/// `onboardingIncludesAutoPasteStep`.
 ///
 /// The Skip path persists `afterTranscription = clipboard` (the codebase's
 /// representation of "Auto-Paste off, copy still happens"); page navigation
@@ -46,7 +48,6 @@ import '../../../services/paste/paster.dart';
 import '../../../widgets/paste_capability_restart_banner.dart';
 import '../../../widgets/wp_accent_button.dart';
 import '../../settings/settings_widgets.dart' show kSettingRowInset;
-import 'onboarding_headings.dart';
 
 class AutoPasteStep extends ConsumerStatefulWidget {
   const AutoPasteStep({super.key});
@@ -327,18 +328,10 @@ class _MacOsBody extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // -- Title + subtitle stay constant across phases ------------------
-        // Section label, not a page heading: this block shares page 4 with
-        // the autostart row above it, and a headline-sized title halfway down
-        // the page made one page read as two fused screens. Page 4 has no
-        // string of its own to head it with (see the flow's l10n keys), so
-        // both of its blocks are peers — same shape as page 3.
-        OnboardingSectionLabel(
-          title: l10n.onboardingPasteTitle,
-          subtitle: l10n.onboardingPasteSubtitle,
-        ),
-        const SizedBox(height: WpSpacing.md),
-
+        // No title here: Auto-Paste has its own page now and the page owns
+        // the heading (see the overlay's page composition) — the same two
+        // strings this block used to carry as a section label.
+        //
         // -- Phase body — exactly one card + one primary CTA per phase ----
         ..._buildPhase(
           phase: phase,
@@ -567,13 +560,7 @@ class _WindowsBody extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // -- Title (section label — see the macOS body for why) ------------
-        OnboardingSectionLabel(
-          title: l10n.onboardingPasteTitle,
-          subtitle: l10n.onboardingPasteSubtitle,
-        ),
-        const SizedBox(height: WpSpacing.md),
-
+        // No title — the page owns the heading (see the macOS body).
         if (isUipiEdge) ...[
           // -- UIPI warn card (non-blocking) ------------------------------
           _WindowsWarnCard(

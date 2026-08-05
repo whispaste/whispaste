@@ -1,16 +1,24 @@
 /// Widget tests for the [OnboardingOverlay] shell.
 ///
-/// The six-step flow is identical on every platform (the platform variance
-/// lives inside the Autostart & Auto-Paste page). Covered here:
-///  - step counter shows "1 of 6" on macOS, Windows and Linux alike;
+/// The flow is seven steps on macOS/Windows and six on Linux — the Auto-Paste
+/// page is omitted from the sequence where it cannot apply. Every test that
+/// walks pages therefore pins [debugDefaultTargetPlatformOverride] explicitly
+/// and derives the expected count from [buildOnboardingStepIds]; without that
+/// the suite would silently depend on the host it runs on and the Linux path
+/// would never actually be exercised. Covered here:
+///  - the step counter reflects the per-platform total, and Linux never
+///    mounts [AutoPasteStep] anywhere in the flow;
 ///  - the shell-owned navigation row carries exactly two actions (Back +
-///    Next) and no skip affordance;
+///    Next) and no skip affordance, and the disabled first-page Back button
+///    is visibly disabled;
 ///  - overlay dispose stops both shared pollers (paste capability + mic
 ///    permission) — no zombie timer survives a window close;
 ///  - leaving page 1 auto-fires the mic request exactly when the user never
 ///    triggered it themselves (status still `unknown`) — and never otherwise;
-///  - page 1 fits the fixed onboarding window size (1100×720,
-///    [kOnboardingWindowSize]) without scrolling;
+///  - every page fits the fixed onboarding window (1100×720,
+///    [kOnboardingWindowSize]) without scrolling, in every locale and both
+///    brightnesses — including the two tall branches (hotkey conflict,
+///    model download error);
 ///  - the layout renders in every supported UI language (list read from
 ///    [L10n.supportedLocales], never hard-coded) and mirrors fully in RTL;
 ///  - the layout survives the window minimum size (800×550, `lib/main.dart`)
@@ -23,6 +31,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show FontLoader, rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:intl/intl.dart' show Bidi;
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
@@ -30,18 +39,33 @@ import 'package:whispaste/core/platform/desktop_window_geometry.dart'
     show kOnboardingWindowSize;
 import 'package:whispaste/features/onboarding/onboarding_overlay.dart';
 import 'package:whispaste/features/onboarding/steps/appearance_step.dart';
+import 'package:whispaste/features/onboarding/steps/autostart_toggle.dart';
 import 'package:whispaste/features/onboarding/steps/mic_permission_chip.dart';
 import 'package:whispaste/features/onboarding/steps/model_step.dart';
 import 'package:whispaste/features/onboarding/steps/onboarding_page_fill.dart';
 import 'package:whispaste/features/onboarding/steps/trigger_step.dart';
 import 'package:whispaste/features/onboarding/steps/auto_paste_step.dart';
+import 'package:whispaste/services/hotkey_service.dart';
+import 'package:whispaste/services/keyboard_up_monitor.dart';
+import 'package:whispaste/services/model_download_service.dart';
 import 'package:whispaste/services/paste/paste_capability_notifier.dart';
 import 'package:whispaste/services/permissions/mic_permission_notifier.dart';
+import 'package:whispaste/services/stt_parakeet/parakeet_download_service.dart';
 import 'package:whispaste/widgets/wp_accent_button.dart';
 
 import '../../fixtures/test_helpers.dart';
 
 late L10n l10n;
+
+/// Total number of steps for [platform] — read from the production sequence
+/// builder, never hard-coded: the count is platform-dependent now, and a
+/// literal here would go stale the next time the flow changes.
+int _totalSteps(TargetPlatform platform) => buildOnboardingStepIds(
+  platform: platform,
+  // Matches `kAutoPasteSupported`, which is a compile-time const the tests
+  // cannot override.
+  autoPasteSupported: true,
+).length;
 
 class _FakeSettingsNotifier extends SettingsNotifier {
   _FakeSettingsNotifier([AppSettings? settings])
@@ -108,11 +132,73 @@ class _RecordingMicPermissionNotifier extends MicPermissionNotifier {
 }
 
 /// Inert platform truth for tests that run the *real* notifier — the mic
-/// chip on page 1 checks on mount, and leaving page 1 may request; neither
-/// call may ever reach the real audio plugin in a widget test.
+/// chip on the last page checks on mount, and leaving page 1 may request;
+/// neither call may ever reach the real audio plugin in a widget test.
 class _FakeMicPermissionChecker implements MicPermissionChecker {
   @override
   Future<bool> check({required bool request}) async => false;
+}
+
+/// Pins the hotkey registration status for the conflict-branch fit test.
+class _FakeHotkeyStatusController extends HotkeyRegistrationStatusController {
+  _FakeHotkeyStatusController(this._initial);
+
+  final HotkeyRegistrationStatus _initial;
+
+  @override
+  HotkeyRegistrationStatus build() => _initial;
+}
+
+class _FakeRegistrar implements HotKeyRegistrar {
+  const _FakeRegistrar();
+
+  @override
+  bool get supportsKeyUp => true;
+
+  @override
+  Future<void> register(
+    HotKey hotKey, {
+    HotKeyHandler? keyDownHandler,
+    HotKeyHandler? keyUpHandler,
+  }) async {}
+
+  @override
+  Future<void> unregister(HotKey hotKey) async {}
+}
+
+/// [HotkeyService] whose `build()` never runs the real startup registration —
+/// that would asynchronously overwrite the status the conflict test seeds
+/// (same fake as `trigger_step_test.dart`).
+class _NoopHotkeyService extends HotkeyService {
+  @override
+  void build() {}
+}
+
+HotkeyService _noopHotkeyService() {
+  final svc = _NoopHotkeyService();
+  svc.injectRegistrar(const _FakeRegistrar());
+  svc.injectMonitor(NoopKeyboardUpMonitor());
+  return svc;
+}
+
+/// Both download providers pinned to a failed download, so whichever engine
+/// the locale's recommendation selects renders the error branch.
+class _StaticWhisperDownload extends ModelDownloadNotifier {
+  _StaticWhisperDownload(this._initial);
+
+  final ModelDownloadState _initial;
+
+  @override
+  ModelDownloadState build() => _initial;
+}
+
+class _StaticParakeetDownload extends ParakeetDownloadNotifier {
+  _StaticParakeetDownload(this._initial);
+
+  final ParakeetDownloadState _initial;
+
+  @override
+  ParakeetDownloadState build() => _initial;
 }
 
 Future<void> _tapNext(WidgetTester tester) async {
@@ -129,10 +215,13 @@ Future<void> _pumpOverlay(
   Locale locale = const Locale('en'),
   Brightness brightness = Brightness.dark,
   TextScaler textScaler = TextScaler.noScaling,
+  HotkeyRegistrationStatus? hotkeyStatus,
+  bool downloadFailed = false,
   // `false` for states that animate forever (the mic chip's `requesting`
   // spinner) — pumpAndSettle would time out on those.
   bool settle = true,
 }) async {
+  const downloadError = 'Verbindung unterbrochen (HTTP 503)';
   await tester.pumpWidget(
     makeTestable(
       MediaQuery(
@@ -152,6 +241,30 @@ Future<void> _pumpOverlay(
         if (paste != null)
           pasteCapabilityNotifierProvider.overrideWith(() => paste),
         if (mic != null) micPermissionNotifierProvider.overrideWith(() => mic),
+        if (hotkeyStatus != null) ...[
+          hotkeyRegistrationStatusProvider.overrideWith(
+            () => _FakeHotkeyStatusController(hotkeyStatus),
+          ),
+          hotkeyServiceProvider.overrideWith(_noopHotkeyService),
+        ],
+        if (downloadFailed) ...[
+          modelDownloadProvider.overrideWith(
+            () => _StaticWhisperDownload(
+              const ModelDownloadState(
+                phase: DownloadPhase.error,
+                errorMessage: downloadError,
+              ),
+            ),
+          ),
+          parakeetDownloadProvider.overrideWith(
+            () => _StaticParakeetDownload(
+              const ParakeetDownloadState(
+                phase: ParakeetDownloadPhase.error,
+                errorMessage: downloadError,
+              ),
+            ),
+          ),
+        ],
       ],
     ),
   );
@@ -169,11 +282,11 @@ void main() {
   setUpAll(() async {
     l10n = await L10n.delegate.load(const Locale('en'));
     // Load the real bundled UI font (Inter) instead of the Ahem test font.
-    // The fixed-window fit assertion below measures whether page 1 fits
+    // The fixed-window fit assertions below measure whether a page fits
     // 1100×720 without scrolling — with Ahem every glyph is a full em
-    // square, roughly doubling text width vs. Inter, which makes the
-    // asymmetric beat layout's caption column wrap to 4–5 lines that never
-    // occur in the real app. Real metrics keep the gate meaningful.
+    // square, roughly doubling text width vs. Inter, which makes captions
+    // wrap to lines that never occur in the real app. Real metrics keep the
+    // gate meaningful.
     final fontLoader = FontLoader('Inter')
       ..addFont(rootBundle.load('assets/fonts/Inter-Regular.ttf'))
       ..addFont(rootBundle.load('assets/fonts/Inter-Medium.ttf'))
@@ -182,22 +295,24 @@ void main() {
     await fontLoader.load();
   });
 
-  group('OnboardingOverlay step sequence — six steps on every platform', () {
+  // ── Step sequence: seven steps, six on Linux ────────────────────────────
+
+  group('OnboardingOverlay step sequence', () {
     for (final platform in [
-      TargetPlatform.linux,
       TargetPlatform.macOS,
       TargetPlatform.windows,
+      TargetPlatform.linux,
     ]) {
+      final total = _totalSteps(platform);
       testWidgets(
-        'on $platform: counter reflects 6 total and the first page never '
-        'mounts AutoPasteStep',
+        'on $platform: the counter reflects $total total, and the first page '
+        'never mounts AutoPasteStep',
         (tester) async {
           debugDefaultTargetPlatformOverride = platform;
           try {
             await _pumpOverlay(tester);
 
-            expect(find.text(l10n.onboardingStepOf(1, 6)), findsOneWidget);
-            // Auto-Paste content lives on page 5 only.
+            expect(find.text(l10n.onboardingStepOf(1, total)), findsOneWidget);
             expect(find.byType(AutoPasteStep), findsNothing);
           } finally {
             // Reset before the framework's foundation-vars-unset assertion.
@@ -206,20 +321,154 @@ void main() {
         },
       );
     }
+
+    testWidgets(
+      'on Linux the Auto-Paste page is absent from the whole flow — walking '
+      'every page never mounts it, and the flow is one page shorter',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+        try {
+          await _pumpOverlay(tester);
+          final total = _totalSteps(TargetPlatform.linux);
+          expect(total, 6);
+
+          for (var page = 2; page <= total; page++) {
+            await _tapNext(tester);
+            expect(
+              find.byType(AutoPasteStep),
+              findsNothing,
+              reason: 'AutoPasteStep must never mount on Linux (page $page)',
+            );
+          }
+          // The last page is Try & Go, i.e. the Next button became the
+          // completion CTA — proof the flow really ended one page earlier
+          // rather than just hiding the page's content.
+          expect(
+            find.text(l10n.onboardingStepOf(total, total)),
+            findsOneWidget,
+          );
+          final next = tester.widget<WpAccentButton>(
+            find.byKey(kOnboardingNextButtonKey),
+          );
+          expect(next.label, l10n.onboardingStartUsing);
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      },
+    );
+
+    testWidgets(
+      'on macOS the Auto-Paste page is a page of its own, between Appearance '
+      'and Try & Go',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        try {
+          await _pumpOverlay(tester);
+          for (var page = 2; page <= 5; page++) {
+            await _tapNext(tester); // → 5: Appearance
+          }
+          expect(find.byKey(kAppearanceThemeSelectorKey), findsOneWidget);
+          expect(find.byType(AutoPasteStep), findsNothing);
+
+          await _tapNext(tester); // → 6: Auto-Paste
+          expect(find.byType(AutoPasteStep), findsOneWidget);
+          expect(
+            find.byKey(kOnboardingAutostartToggleKey),
+            findsNothing,
+            reason: 'the autostart toggle stayed on the Appearance page',
+          );
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      },
+    );
+  });
+
+  // ── Page composition after the split ────────────────────────────────────
+
+  group('OnboardingOverlay — page composition', () {
+    testWidgets(
+      'Model and Hotkey are separate pages, and the Appearance page carries '
+      'the theme choice together with the autostart toggle',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        try {
+          await _pumpOverlay(tester);
+          await _tapNext(tester); // → 2: Privacy
+          await _tapNext(tester); // → 3: Model
+
+          expect(find.byKey(kModelStepEngineParakeetCardKey), findsOneWidget);
+          expect(
+            find.byKey(kTriggerStepChangeHotkeyKey),
+            findsNothing,
+            reason: 'the hotkey block has its own page now',
+          );
+          // The page heading took over the block titles, so the model page's
+          // title is on screen exactly once — not twice at two sizes.
+          expect(find.text(l10n.onboardingModelTitle), findsOneWidget);
+
+          await _tapNext(tester); // → 4: Hotkey
+          expect(find.byKey(kTriggerStepChangeHotkeyKey), findsOneWidget);
+          expect(find.byKey(kModelStepEngineParakeetCardKey), findsNothing);
+          expect(find.text(l10n.onboardingTriggerTitle), findsOneWidget);
+
+          await _tapNext(tester); // → 5: Appearance
+          expect(find.byKey(kAppearanceThemeSelectorKey), findsOneWidget);
+          expect(
+            find.byKey(kOnboardingAutostartToggleKey),
+            findsOneWidget,
+            reason: 'the autostart toggle moved onto the Appearance page',
+          );
+          expect(find.text(l10n.onboardingAppearancePageTitle), findsOneWidget);
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      },
+    );
+
+    testWidgets(
+      'the Auto-Paste page shows its title exactly once — the macOS and '
+      'Windows bodies both handed the heading to the page',
+      (tester) async {
+        for (final platform in [TargetPlatform.macOS, TargetPlatform.windows]) {
+          debugDefaultTargetPlatformOverride = platform;
+          try {
+            await _pumpOverlay(tester);
+            for (var page = 2; page <= 6; page++) {
+              await _tapNext(tester);
+            }
+            expect(
+              find.byType(AutoPasteStep),
+              findsOneWidget,
+              reason: '$platform',
+            );
+            expect(
+              find.text(l10n.onboardingPasteTitle),
+              findsOneWidget,
+              reason: 'title rendered twice (or not at all) on $platform',
+            );
+            await tester.pumpWidget(const SizedBox.shrink());
+            await tester.pumpAndSettle();
+          } finally {
+            debugDefaultTargetPlatformOverride = null;
+          }
+        }
+      },
+    );
   });
 
   // ── Shell-owned navigation: exactly two actions, no skip ────────────────
   //
   // The generic "Skip this step" button was removed with the merged flow
   // (it did the same as Next on every page). The nav row must carry exactly
-  // two navigation actions; the full walkthrough proof over pages 1–4 lives
-  // in onboarding_flow_test.dart, this one pins the shape on the first page.
+  // two navigation actions; the full walkthrough proof lives in
+  // onboarding_flow_test.dart, this one pins the shape.
 
   group('OnboardingOverlay — navigation row', () {
     testWidgets(
       'first page: nav row carries exactly two actions (Back disabled + '
       'Next), and the generic skip button is gone (AutoPasteStep keeps its '
-      'own intentional Skip on page 4 — a mode choice, not navigation)',
+      'own intentional Skip — a mode choice, not navigation)',
       (tester) async {
         await _pumpOverlay(tester);
 
@@ -253,6 +502,56 @@ void main() {
           find.byKey(kOnboardingNextButtonKey),
         );
         expect(next.onPressed, isNotNull);
+      },
+    );
+
+    testWidgets(
+      'the disabled first-page Back button is visibly disabled: its label '
+      'renders in a different colour than on page 2, where it works. It used '
+      'to carry an explicit TextStyle(color:) that beat Material\'s '
+      'disabledForegroundColor, so "off" looked exactly like "on"',
+      (tester) async {
+        await _pumpOverlay(tester);
+
+        Color labelColour() {
+          final text = tester.widget<Text>(
+            find.descendant(
+              of: find.byKey(kOnboardingBackButtonKey),
+              matching: find.byType(Text),
+            ),
+          );
+          final style = text.style;
+          // The colour now rides on the ButtonStyle, so read the resolved
+          // style the button actually paints with.
+          final button = tester.widget<TextButton>(
+            find.byKey(kOnboardingBackButtonKey),
+          );
+          return style?.color ??
+              button.style!.foregroundColor!.resolve(
+                button.onPressed == null
+                    ? <WidgetState>{WidgetState.disabled}
+                    : <WidgetState>{},
+              )!;
+        }
+
+        final disabledColour = labelColour();
+        await _tapNext(tester);
+        expect(
+          tester
+              .widget<TextButton>(find.byKey(kOnboardingBackButtonKey))
+              .onPressed,
+          isNotNull,
+          reason: 'page 2 Back must be enabled — otherwise this proves nothing',
+        );
+        final enabledColour = labelColour();
+
+        expect(
+          disabledColour,
+          isNot(enabledColour),
+          reason:
+              'A disabled Back button that paints in the enabled colour reads '
+              'as tappable and silently does nothing.',
+        );
       },
     );
 
@@ -293,97 +592,75 @@ void main() {
       'renders the first page in every supported locale without errors; '
       'RTL locales fully mirror the shell-owned nav row',
       (tester) async {
-        for (final locale in L10n.supportedLocales) {
-          final localized = await L10n.delegate.load(locale);
-          await _pumpOverlay(tester, locale: locale);
-
-          expect(
-            find.text(localized.onboardingStepOf(1, 6)),
-            findsOneWidget,
-            reason: 'Step counter must render in ${locale.languageCode}',
-          );
-
-          final backCenter = tester.getCenter(
-            find.byKey(kOnboardingBackButtonKey),
-          );
-          final nextCenter = tester.getCenter(
-            find.byKey(kOnboardingNextButtonKey),
-          );
-          final isRtl = Bidi.isRtlLanguage(locale.languageCode);
-          if (isRtl) {
-            expect(
-              backCenter.dx,
-              greaterThan(nextCenter.dx),
-              reason:
-                  'In RTL (${locale.languageCode}) the Back action must sit '
-                  'on the right of Next — the edge-to-edge layout has to '
-                  'mirror, it no longer mirrors for free like the old '
-                  'centered card',
-            );
-          } else {
-            expect(
-              backCenter.dx,
-              lessThan(nextCenter.dx),
-              reason:
-                  'In LTR (${locale.languageCode}) Back must sit left of Next',
-            );
-          }
-
-          expect(
-            tester.takeException(),
-            isNull,
-            reason: 'No layout exception in ${locale.languageCode}',
-          );
-
-          // The nav row mirrors "for free" via ambient Directionality on any
-          // plain Row — proving nothing about *our* layout. The real risk
-          // the ticket calls out ("nebeneinander liegende Blöcke und
-          // Status-Chips") lives on pages 3–4: side-by-side engine cards and
-          // the Auto-Paste status chip. Walk there too and confirm no
-          // overflow/exception under long Hebrew/German strings.
-          await _tapNext(tester); // → page 3: Model & Hotkey
-          expect(
-            tester.takeException(),
-            isNull,
-            reason: 'No layout exception on page 3 in ${locale.languageCode}',
-          );
-          await _tapNext(tester); // → page 4: Autostart & Auto-Paste
-          expect(
-            tester.takeException(),
-            isNull,
-            reason: 'No layout exception on page 4 in ${locale.languageCode}',
-          );
-
-          // Clean teardown between locales.
-          await tester.pumpWidget(const SizedBox.shrink());
-          await tester.pumpAndSettle();
-        }
-      },
-    );
-
-    testWidgets(
-      'pages 3–4 render without layout errors in every supported locale on '
-      'macOS, where the Auto-Paste status chip actually mounts alongside '
-      'the engine cards and Autostart toggle',
-      (tester) async {
         debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
         try {
+          final total = _totalSteps(TargetPlatform.macOS);
           for (final locale in L10n.supportedLocales) {
+            final localized = await L10n.delegate.load(locale);
             await _pumpOverlay(tester, locale: locale);
-            await _tapNext(tester); // → page 3
-            await _tapNext(tester); // → page 4 (Auto-Paste chip mounts here)
+
+            expect(
+              find.text(localized.onboardingStepOf(1, total)),
+              findsOneWidget,
+              reason: 'Step counter must render in ${locale.languageCode}',
+            );
+
+            final backCenter = tester.getCenter(
+              find.byKey(kOnboardingBackButtonKey),
+            );
+            final nextCenter = tester.getCenter(
+              find.byKey(kOnboardingNextButtonKey),
+            );
+            final isRtl = Bidi.isRtlLanguage(locale.languageCode);
+            if (isRtl) {
+              expect(
+                backCenter.dx,
+                greaterThan(nextCenter.dx),
+                reason:
+                    'In RTL (${locale.languageCode}) the Back action must sit '
+                    'on the right of Next — the edge-to-edge layout has to '
+                    'mirror, it no longer mirrors for free like the old '
+                    'centered card',
+              );
+            } else {
+              expect(
+                backCenter.dx,
+                lessThan(nextCenter.dx),
+                reason:
+                    'In LTR (${locale.languageCode}) Back must sit left of '
+                    'Next',
+              );
+            }
+
             expect(
               tester.takeException(),
               isNull,
-              reason:
-                  'No layout exception on page 4 (macOS) in '
-                  '${locale.languageCode}',
+              reason: 'No layout exception in ${locale.languageCode}',
             );
+
+            // The nav row mirrors "for free" via ambient Directionality on any
+            // plain Row — proving nothing about *our* layout. The real risk
+            // the ticket calls out ("nebeneinander liegende Blöcke und
+            // Status-Chips") lives on the pages with side-by-side blocks: the
+            // engine cards and the Auto-Paste status chip. Walk the whole flow
+            // and confirm no overflow/exception under long Hebrew/German
+            // strings.
+            for (var page = 2; page <= total; page++) {
+              await _tapNext(tester);
+              expect(
+                tester.takeException(),
+                isNull,
+                reason:
+                    'No layout exception on page $page in '
+                    '${locale.languageCode}',
+              );
+            }
+
+            // Clean teardown between locales.
             await tester.pumpWidget(const SizedBox.shrink());
             await tester.pumpAndSettle();
           }
         } finally {
-          // Reset before the framework's foundation-vars-unset assertion.
           debugDefaultTargetPlatformOverride = null;
         }
       },
@@ -409,17 +686,23 @@ void main() {
       'every page lays out at the window minimum size (800×550) without '
       'overflow — content stacks/scrolls instead of clipping',
       (tester) async {
-        shrinkToMinimumWindow(tester);
-        await _pumpOverlay(tester, size: const Size(800, 550));
-        expect(find.text(l10n.onboardingStepOf(1, 6)), findsOneWidget);
-        expect(tester.takeException(), isNull);
-        for (var page = 2; page <= 6; page++) {
-          await _tapNext(tester);
-          expect(
-            tester.takeException(),
-            isNull,
-            reason: 'No overflow on page $page at 800×550',
-          );
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        try {
+          final total = _totalSteps(TargetPlatform.macOS);
+          shrinkToMinimumWindow(tester);
+          await _pumpOverlay(tester, size: const Size(800, 550));
+          expect(find.text(l10n.onboardingStepOf(1, total)), findsOneWidget);
+          expect(tester.takeException(), isNull);
+          for (var page = 2; page <= total; page++) {
+            await _tapNext(tester);
+            expect(
+              tester.takeException(),
+              isNull,
+              reason: 'No overflow on page $page at 800×550',
+            );
+          }
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
         }
       },
     );
@@ -427,20 +710,26 @@ void main() {
     testWidgets('every page lays out at minimum size with enlarged system text '
         '(textScaler 1.5, matching sidebar_large_text_test.dart) without '
         'overflow', (tester) async {
-      shrinkToMinimumWindow(tester);
-      await _pumpOverlay(
-        tester,
-        size: const Size(800, 550),
-        textScaler: const TextScaler.linear(1.5),
-      );
-      expect(tester.takeException(), isNull);
-      for (var page = 2; page <= 6; page++) {
-        await _tapNext(tester);
-        expect(
-          tester.takeException(),
-          isNull,
-          reason: 'No overflow on page $page at 800×550, textScaler 1.5',
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        final total = _totalSteps(TargetPlatform.macOS);
+        shrinkToMinimumWindow(tester);
+        await _pumpOverlay(
+          tester,
+          size: const Size(800, 550),
+          textScaler: const TextScaler.linear(1.5),
         );
+        expect(tester.takeException(), isNull);
+        for (var page = 2; page <= total; page++) {
+          await _tapNext(tester);
+          expect(
+            tester.takeException(),
+            isNull,
+            reason: 'No overflow on page $page at 800×550, textScaler 1.5',
+          );
+        }
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
       }
     });
   });
@@ -456,13 +745,23 @@ void main() {
     testWidgets(
       'status unknown: tapping Next on page 1 fires request() exactly once',
       (tester) async {
-        final mic = _RecordingMicPermissionNotifier();
-        await _pumpOverlay(tester, mic: mic);
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        try {
+          final mic = _RecordingMicPermissionNotifier();
+          await _pumpOverlay(tester, mic: mic);
 
-        await _tapNext(tester);
+          await _tapNext(tester);
 
-        expect(find.text(l10n.onboardingStepOf(2, 6)), findsOneWidget);
-        expect(mic.requestCalls, 1);
+          expect(
+            find.text(
+              l10n.onboardingStepOf(2, _totalSteps(TargetPlatform.macOS)),
+            ),
+            findsOneWidget,
+          );
+          expect(mic.requestCalls, 1);
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
       },
     );
 
@@ -481,7 +780,6 @@ void main() {
 
           await _tapNext(tester);
 
-          expect(find.text(l10n.onboardingStepOf(2, 6)), findsOneWidget);
           expect(mic.requestCalls, 0);
         },
       );
@@ -492,17 +790,23 @@ void main() {
       'and the visible status lives on the last page, next to the recording '
       'that needs it',
       (tester) async {
-        await _pumpOverlay(tester, mic: _RecordingMicPermissionNotifier());
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        try {
+          final total = _totalSteps(TargetPlatform.macOS);
+          await _pumpOverlay(tester, mic: _RecordingMicPermissionNotifier());
 
-        expect(find.byType(MicPermissionChip), findsNothing);
+          expect(find.byType(MicPermissionChip), findsNothing);
 
-        for (var page = 2; page <= 6; page++) {
-          await _tapNext(tester);
-          expect(
-            find.byType(MicPermissionChip),
-            page == 6 ? findsOneWidget : findsNothing,
-            reason: 'unexpected chip presence on page $page',
-          );
+          for (var page = 2; page <= total; page++) {
+            await _tapNext(tester);
+            expect(
+              find.byType(MicPermissionChip),
+              page == total ? findsOneWidget : findsNothing,
+              reason: 'unexpected chip presence on page $page',
+            );
+          }
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
         }
       },
     );
@@ -526,49 +830,55 @@ void main() {
   // ── Fixed onboarding window size — no page may scroll ───────────────────
   //
   // The onboarding window is pinned to 1100×720 (kOnboardingWindowSize), which
-  // leaves a 551-px content viewport. Every page has to fit inside it: there
-  // is no way for the user to make the window bigger, so a page that scrolls
-  // is a page whose bottom half is easy to miss entirely.
+  // leaves a 551-px scroll viewport and a 511-px content area for the page
+  // itself (the viewport minus the scroll view's padding). Every page has to
+  // fit inside it: there is no way for the user to make the window bigger, so
+  // a page that scrolls is a page whose bottom half is easy to miss entirely.
   //
   // Measured with real Inter metrics (see setUpAll — with the square-glyph
-  // test font the numbers are meaningless), macOS, GPU-fallback notice
-  // visible, i.e. the worst case. Content height against the 551-px viewport,
-  // German / Hebrew / English.
+  // test font the numbers are meaningless), macOS unless noted, GPU-fallback
+  // notice visible, i.e. the worst case. Natural content height against the
+  // 551-px viewport, German / English / Hebrew.
   //
   // These are *natural* heights: what the page's blocks come to with every
-  // gap at its minimum, which is what `measure().natural` reports. Pages 2–5
-  // now hand their leftover height to the gaps between their blocks
-  // ([OnboardingPageFill]) and therefore occupy the full 551 px whatever
-  // these numbers say — the numbers are still the ones that decide whether a
-  // page fits at all, and the ones to re-measure before adding to a page.
+  // gap at its minimum. The settings-shaped pages hand their leftover height
+  // to the gaps between their blocks ([OnboardingPageFill]) and therefore
+  // occupy the full 551 px whatever these numbers say — the numbers are still
+  // the ones that decide whether a page fits at all, and the ones to
+  // re-measure before adding to a page.
   //
-  //   page 1  Welcome                529 / 529 / 529   (22 px slack)
-  //   page 2  Privacy                345 / 345 / 324   (206 px distributed)
-  //   page 3  Model & Hotkey         500 / 524 / 500   (27 px slack in
-  //                                                     Hebrew, the tightest —
-  //                                                     it distributes that,
-  //                                                     which is all it has)
-  //   page 4  Appearance             292 / 292 / 292   (259 px distributed)
-  //   page 5  Autostart & Auto-Paste 247 / 247 / 247   (304 px distributed —
-  //                                                     the thinnest page,
-  //                                                     and the only one
-  //                                                     without a page
-  //                                                     heading)
-  //   page 6  Try & Go               521 / 484 / 484   (30 px slack — and
-  //                                                     see the full-
-  //                                                     transcript case in
-  //                                                     onboarding_flow_test)
+  //   page 1  Welcome       529 / 529 / 529   (22 px slack)
+  //   page 2  Privacy       303 / 303 / 303   (248 px distributed)
+  //   page 3  Model         378 / 378 / 365
+  //   page 4  Hotkey        210 / 210 / 210   (the sparsest page in the flow)
+  //   page 5  Appearance    372 / 393 / 372   (theme tiles + autostart row)
+  //   page 6  Auto-Paste    178 / 178 / 178   (macOS/Windows only)
+  //   page 7  Try & Go      529 / 492 / 492   (22 px slack — and see the
+  //                                            full-transcript case in
+  //                                            onboarding_flow_test)
   //
-  // Hebrew is the tightest on page 3 for a reason worth keeping in mind when
-  // re-measuring: the loop seeds the *dictation* language, and Hebrew is not
-  // one of the languages the Parakeet engine covers, so its card renders an
-  // extra "unsupported language" line that IntrinsicHeight applies to both
-  // engine cards. Measuring with the default dictation language would miss
-  // 24 px on this page.
+  // Linux runs the same pages 1–5 and ends on Try & Go as page 6, measured
+  // 483 / 446 / 446 there.
   //
-  // Known exception, pre-existing and out of scope here: page 3 in the
-  // confirmed-hotkey-conflict branch mounts a full inline recorder and does
-  // scroll (documented in trigger_step.dart).
+  // The two branch cases, which are what the split was for (German / Hebrew,
+  // the two the tests cover):
+  //   page 4 with a confirmed hotkey conflict   539 / 522
+  //     Warn box + full inline recorder. On the old merged Model & Hotkey
+  //     page this came to 914 / 921 px, i.e. ~370 px of forced scrolling that
+  //     was documented as unreachable without a flow change. This is that
+  //     flow change. German keeps 12 px of slack and pays for it three ways —
+  //     the page heading drops its subtitle while a conflict is up, the gaps
+  //     around the recorder are one step tighter, and the warn box is
+  //     vertically tighter than it is wide. Re-measure German before adding
+  //     anything to this branch; it is the binding constraint in the flow.
+  //   page 3 with a failed model download      419 / 406
+  //
+  // Hebrew is the tightest on the model page for a reason worth keeping in
+  // mind when re-measuring: the loop seeds the *dictation* language, and
+  // Hebrew is not one of the languages the Parakeet engine covers, so its
+  // card renders an extra "unsupported language" line that IntrinsicHeight
+  // applies to both engine cards. Measuring with the default dictation
+  // language would miss 24 px on that page.
 
   group('OnboardingOverlay — fixed window size (1100×720)', () {
     /// Height the page is given, the height it occupies, and the height it
@@ -582,6 +892,12 @@ void main() {
     /// [content] is then the viewport height by construction. Subtracting the
     /// height the [OnboardingFlexGap]s grew to recovers it — those are the
     /// only widgets on the page whose height comes from leftover space.
+    ///
+    /// NOTE: on a fill page these numbers alone cannot see an overflow —
+    /// [IntrinsicHeight] pins the column to the offered height and the
+    /// excess surfaces as a RenderFlex overflow *exception* instead. Every
+    /// assertion below therefore checks `takeException()` too; that check is
+    /// the load-bearing one, not the arithmetic.
     ({double available, double content, double natural}) measure(
       WidgetTester tester,
     ) {
@@ -605,17 +921,43 @@ void main() {
       );
     }
 
-    for (final locale in L10n.supportedLocales) {
-      for (final brightness in [Brightness.dark, Brightness.light]) {
-        testWidgets(
-          'every page fits the fixed window in ${locale.languageCode}, '
-          '${brightness.name}',
-          (tester) async {
-            tester.view.physicalSize = kOnboardingWindowSize;
-            tester.view.devicePixelRatio = 1.0;
-            addTearDown(tester.view.resetPhysicalSize);
-            addTearDown(tester.view.resetDevicePixelRatio);
-            debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    void useFixedWindow(WidgetTester tester) {
+      tester.view.physicalSize = kOnboardingWindowSize;
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+    }
+
+    void expectFits(
+      WidgetTester tester,
+      ({double available, double content, double natural}) m, {
+      required String what,
+    }) {
+      expect(
+        tester.takeException(),
+        isNull,
+        reason:
+            '$what overflowed its page column. Its blocks (every gap at its '
+            'minimum) come to ${m.natural} px against the ${m.available} px '
+            'the fixed 1100x720 window offers.',
+      );
+      expect(
+        m.content,
+        lessThanOrEqualTo(m.available),
+        reason:
+            '$what needs ${m.content} px of the ${m.available} px the fixed '
+            '1100x720 window offers — it would scroll. Its blocks alone come '
+            'to ${m.natural} px.',
+      );
+    }
+
+    for (final platform in [TargetPlatform.macOS, TargetPlatform.linux]) {
+      for (final locale in L10n.supportedLocales) {
+        for (final brightness in [Brightness.dark, Brightness.light]) {
+          testWidgets('every page fits the fixed window on $platform in '
+              '${locale.languageCode}, ${brightness.name}', (tester) async {
+            useFixedWindow(tester);
+            debugDefaultTargetPlatformOverride = platform;
             try {
               await _pumpOverlay(
                 tester,
@@ -623,68 +965,118 @@ void main() {
                 locale: locale,
                 brightness: brightness,
                 // Seed the *dictation* language too, not just the UI one.
-                // Page 3 reads it (`recommendEngine`) and disables the
-                // Parakeet card for a language it cannot do, which adds a
-                // reason line that IntrinsicHeight applies to BOTH engine
-                // cards. Leaving it at the default measured the cheap branch
-                // for every locale and missed exactly the case where the
-                // tightest page in the flow is at its tallest.
+                // The model page reads it (`recommendEngine`) and disables
+                // the Parakeet card for a language it cannot do, which adds
+                // a reason line that IntrinsicHeight applies to BOTH engine
+                // cards. Leaving it at the default measured the cheap
+                // branch for every locale and missed exactly the case where
+                // the page is at its tallest.
                 settings: _FakeSettingsNotifier(
                   AppSettings.defaults.copyWith(locale: locale.languageCode),
                 ),
               );
 
-              for (var page = 1; page <= 6; page++) {
+              final total = _totalSteps(platform);
+              for (var page = 1; page <= total; page++) {
                 if (page > 1) await _tapNext(tester);
-                final m = measure(tester);
-                expect(tester.takeException(), isNull);
-                expect(
-                  m.content,
-                  lessThanOrEqualTo(m.available),
-                  reason:
-                      'page $page (${locale.languageCode}, '
-                      '${brightness.name}) needs ${m.content} px of the '
-                      '${m.available} px the fixed 1100x720 window offers — '
-                      'it would scroll. Its blocks alone (every gap at its '
-                      'minimum) come to ${m.natural} px.',
+                expectFits(
+                  tester,
+                  measure(tester),
+                  what:
+                      'page $page ($platform, ${locale.languageCode}, '
+                      '${brightness.name})',
                 );
               }
             } finally {
               debugDefaultTargetPlatformOverride = null;
             }
-          },
-        );
+          });
+        }
       }
     }
 
-    testWidgets('page 3 carries the model choice and the hotkey block, page 4 '
-        'the theme choice — the split that bought page 3 its heading', (
-      tester,
-    ) async {
-      tester.view.physicalSize = kOnboardingWindowSize;
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
-      try {
-        await _pumpOverlay(tester, size: kOnboardingWindowSize);
-        await _tapNext(tester); // → page 2
-        await _tapNext(tester); // → page 3: Model & Hotkey
+    // ── The two tall branches ────────────────────────────────────────────
+    //
+    // Both were previously uncovered, and the hotkey one was a documented
+    // dead end: on the merged Model & Hotkey page the conflict branch came to
+    // 914 px (de) against a 551-px viewport. Splitting the page is what made
+    // it fit, so it is worth a test that says so.
 
-        expect(find.byKey(kModelStepEngineParakeetCardKey), findsOneWidget);
-        expect(find.byKey(kTriggerStepChangeHotkeyKey), findsOneWidget);
-        expect(
-          find.byKey(kAppearanceThemeSelectorKey),
-          findsNothing,
-          reason: 'The theme choice must have left this page.',
-        );
+    for (final locale in [const Locale('de'), const Locale('he')]) {
+      testWidgets(
+        'the hotkey page fits the fixed window in the confirmed-conflict '
+        'branch (warn box + full inline recorder) in ${locale.languageCode}',
+        (tester) async {
+          useFixedWindow(tester);
+          debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+          try {
+            await _pumpOverlay(
+              tester,
+              size: kOnboardingWindowSize,
+              locale: locale,
+              settings: _FakeSettingsNotifier(
+                AppSettings.defaults.copyWith(locale: locale.languageCode),
+              ),
+              hotkeyStatus: HotkeyRegistrationStatus.conflict,
+            );
+            for (var page = 2; page <= 4; page++) {
+              await _tapNext(tester);
+            }
 
-        await _tapNext(tester); // → page 4: Appearance
-        expect(find.byKey(kAppearanceThemeSelectorKey), findsOneWidget);
-      } finally {
-        debugDefaultTargetPlatformOverride = null;
-      }
-    });
+            // Prove the branch is actually on screen — otherwise this would
+            // happily measure the nominal page and pass for the wrong reason.
+            expect(find.byKey(kTriggerStepConflictWarnBoxKey), findsOneWidget);
+            expect(find.byKey(kTriggerStepInlineRecorderKey), findsOneWidget);
+
+            expectFits(
+              tester,
+              measure(tester),
+              what: 'hotkey page, conflict branch (${locale.languageCode})',
+            );
+          } finally {
+            debugDefaultTargetPlatformOverride = null;
+          }
+        },
+      );
+
+      testWidgets(
+        'the model page fits the fixed window in the download-error branch '
+        '(error banner + retry button) in ${locale.languageCode}',
+        (tester) async {
+          useFixedWindow(tester);
+          debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+          try {
+            await _pumpOverlay(
+              tester,
+              size: kOnboardingWindowSize,
+              locale: locale,
+              settings: _FakeSettingsNotifier(
+                AppSettings.defaults.copyWith(locale: locale.languageCode),
+              ),
+              downloadFailed: true,
+            );
+            await _tapNext(tester); // → 2: Privacy
+            await _tapNext(tester); // → 3: Model
+
+            final localized = await L10n.delegate.load(locale);
+            expect(
+              find.text(localized.overlayRetry),
+              findsOneWidget,
+              reason: 'the download-error branch must actually be rendered',
+            );
+
+            expectFits(
+              tester,
+              measure(tester),
+              what:
+                  'model page, download-error branch (${locale.languageCode})',
+            );
+          } finally {
+            debugDefaultTargetPlatformOverride = null;
+          }
+        },
+      );
+    }
   });
 
   // ── Disposal — no poll timer survives the window closing ────────────────

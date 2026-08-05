@@ -10,7 +10,7 @@ import '../../settings/settings_widgets.dart';
 @visibleForTesting
 const kOnboardingAutostartToggleKey = Key('onboardingAutostartToggle');
 
-/// Autostart toggle row on the Autostart & Auto-Paste onboarding page.
+/// Autostart toggle row on the Appearance onboarding page.
 ///
 /// Moved here from the former final `ReadyStep` unchanged in behaviour: a
 /// simpler yes/no than Settings → Interface's never/normal/minimized
@@ -18,7 +18,9 @@ const kOnboardingAutostartToggleKey = Key('onboardingAutostartToggle');
 /// `startMinimized` keeps its default (`false`); the full dropdown remains
 /// available later in Settings. Rendered frameless, like every other
 /// onboarding settings row — see `onboarding_headings.dart` for the shared
-/// heading/row vocabulary the redesigned pages 2-5 follow.
+/// heading/row vocabulary the settings-shaped pages follow. It carries no
+/// section label of its own: its label and subtitle already say what it is,
+/// and the page heading above names both halves of the page.
 class OnboardingAutostartToggle extends ConsumerWidget {
   const OnboardingAutostartToggle({super.key});
 

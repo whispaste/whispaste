@@ -652,10 +652,7 @@ class L10nDe extends L10n {
   String get onboardingPasteChipAction => 'Auto-Einfügen: Aktion nötig';
 
   @override
-  String get onboardingPasteGrantCta => 'Weiter';
-
-  @override
-  String get onboardingPasteVerifyCta => 'Prüfen';
+  String get onboardingPasteGrantCta => 'Auto-Einfügen freigeben';
 
   @override
   String get onboardingPasteSkip => 'Erstmal nur kopieren, ohne Auto-Einfügen';
@@ -689,9 +686,6 @@ class L10nDe extends L10n {
 
   @override
   String get onboardingPasteDemoText => 'WhisPaste tippt für dich.';
-
-  @override
-  String get onboardingPasteTestRunCta => 'Test einfügen';
 
   @override
   String get onboardingPasteTestSuccess =>
@@ -1060,10 +1054,6 @@ class L10nDe extends L10n {
 
   @override
   String get onboardingWelcome => 'Einmal sprechen. Überall einfügen.';
-
-  @override
-  String get onboardingWelcomeHint =>
-      'WhisPaste verwandelt schnelle Gedanken in klaren Text für Nachrichten, Mails, Notizen und Kommentare.';
 
   @override
   String get feedbackTitle => 'Feedback senden';
@@ -1789,7 +1779,7 @@ class L10nDe extends L10n {
   }
 
   @override
-  String get qualityTierDownloadAndContinue => 'Herunterladen & Weiter';
+  String get qualityTierDownloadAndContinue => 'Modell herunterladen';
 
   @override
   String get qualityTierChooseDifferent => 'Andere Qualitätsstufe wählen';
@@ -2402,9 +2392,6 @@ class L10nDe extends L10n {
   }
 
   @override
-  String get onboardingGetStarted => 'Weiter';
-
-  @override
   String get onboardingNext => 'Weiter';
 
   @override
@@ -2415,7 +2402,7 @@ class L10nDe extends L10n {
 
   @override
   String get onboardingPrivacyHint =>
-      'Audio und Text bleiben lokal. WhisPaste sendet nur anonyme Nutzungsstatistik an einen selbst gehosteten Server in der EU — DSGVO-konform, ohne deine Aufnahmen, Texte oder persönlichen Daten. Jederzeit abschaltbar in Einstellungen → Datenschutz.';
+      'Audio und Text bleiben lokal. Nur anonyme Nutzungsstatistik geht an einen selbst gehosteten Server in der EU — DSGVO-konform.';
 
   @override
   String get onboardingPrivacyToggle => 'Anonyme Nutzungsstatistik teilen';
@@ -2446,11 +2433,11 @@ class L10nDe extends L10n {
   String get onboardingThemeSystem => 'System';
 
   @override
-  String get onboardingAppearanceTitle => 'Erscheinungsbild';
+  String get onboardingAppearancePageTitle => 'Aussehen & Start';
 
   @override
-  String get onboardingAppearanceDescription =>
-      'Hell, Dunkel oder wie das System.';
+  String get onboardingAppearancePageSubtitle =>
+      'Hell, dunkel oder wie das System — und ob WhisPaste beim Anmelden mitstartet.';
 
   @override
   String onboardingMaxRecordDurationHint(int seconds, String section) {
@@ -2488,9 +2475,6 @@ class L10nDe extends L10n {
   String get onboardingMicChipAction => 'Mikrofon: Aktion nötig';
 
   @override
-  String get onboardingSetupPageTitle => 'Bereit machen';
-
-  @override
   String get onboardingModelTitle => 'Spracherkennung einrichten';
 
   @override
@@ -2498,15 +2482,11 @@ class L10nDe extends L10n {
       'Lade das Sprachmodell herunter, um offline aufzunehmen. Deine Stimme verlässt nie dein Gerät.';
 
   @override
-  String get onboardingModelRecommended => 'Empfohlen für dein Gerät';
+  String get onboardingModelRecommended => 'Empfohlen';
 
   @override
   String get onboardingModelChangeLater =>
       'Du kannst die Qualität später in den Einstellungen anpassen';
-
-  @override
-  String get onboardingModelUseCloud =>
-      'Überspringen, ich nutze lieber einen Cloud-Dienst';
 
   @override
   String get onboardingModelDownloading => 'Wird heruntergeladen…';
@@ -2523,7 +2503,7 @@ class L10nDe extends L10n {
 
   @override
   String get onboardingModelEngineParakeetDesc =>
-      'Der schnellste Weg zum Diktieren in rund 25 europäischen Sprachen, inklusive Deutsch. Kleiner Download, läuft gut auf jeder Hardware.';
+      'Der schnellste Weg zu Text in rund 25 europäischen Sprachen, inklusive Deutsch. Läuft gut auf jeder Hardware, auch ohne GPU.';
 
   @override
   String get onboardingModelEngineWhisperLabel => 'Alle 99 Sprachen';
@@ -2561,7 +2541,7 @@ class L10nDe extends L10n {
 
   @override
   String get onboardingTestRecordingMicBypassHint =>
-      'Ohne funktionierendes Mikrofon kann WhisPaste noch keine Aufnahme starten. Das lässt sich jederzeit über den Mikrofon-Status auf der ersten Seite oder in den Einstellungen nachholen.';
+      'Ohne funktionierendes Mikrofon kann WhisPaste noch keine Aufnahme starten. Das lässt sich jederzeit über den Mikrofon-Status auf dieser Seite oder in den Einstellungen nachholen.';
 
   @override
   String get onboardingTestRecordingPlaceholder =>
@@ -2578,9 +2558,6 @@ class L10nDe extends L10n {
   @override
   String get onboardingTestRecordingReassurance =>
       'Nur ein Test, der Text bleibt in diesem Feld.';
-
-  @override
-  String get onboardingTestRecordingSkip => 'Test überspringen';
 
   @override
   String get onboardingReadyTitle => 'Alles bereit!';
@@ -2633,6 +2610,10 @@ class L10nDe extends L10n {
   @override
   String get onboardingTriggerHotkeyConflictBody =>
       'Dein Tastenkürzel scheint von einer anderen App belegt zu sein. Nimm unten eine neue Kombination auf, um fortzufahren.';
+
+  @override
+  String get onboardingReadyHotkeyConflictBody =>
+      'Geh mit „Zurück\" zur Hotkey-Seite und nimm dort eine neue Kombination auf.';
 
   @override
   String get onboardingTriggerModeHoldHint =>

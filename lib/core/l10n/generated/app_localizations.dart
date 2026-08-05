@@ -1242,14 +1242,8 @@ abstract class L10n {
   /// No description provided for @onboardingPasteGrantCta.
   ///
   /// In en, this message translates to:
-  /// **'Continue'**
+  /// **'Allow auto-paste'**
   String get onboardingPasteGrantCta;
-
-  /// No description provided for @onboardingPasteVerifyCta.
-  ///
-  /// In en, this message translates to:
-  /// **'Verify'**
-  String get onboardingPasteVerifyCta;
 
   /// No description provided for @onboardingPasteSkip.
   ///
@@ -1304,12 +1298,6 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'WhisPaste types for you.'**
   String get onboardingPasteDemoText;
-
-  /// No description provided for @onboardingPasteTestRunCta.
-  ///
-  /// In en, this message translates to:
-  /// **'Run test paste'**
-  String get onboardingPasteTestRunCta;
 
   /// No description provided for @onboardingPasteTestSuccess.
   ///
@@ -1934,12 +1922,6 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Speak it once. Paste it anywhere.'**
   String get onboardingWelcome;
-
-  /// No description provided for @onboardingWelcomeHint.
-  ///
-  /// In en, this message translates to:
-  /// **'WhisPaste turns quick thoughts into clean text for messages, emails, notes, and comments.'**
-  String get onboardingWelcomeHint;
 
   /// No description provided for @feedbackTitle.
   ///
@@ -3276,7 +3258,7 @@ abstract class L10n {
   /// No description provided for @qualityTierDownloadAndContinue.
   ///
   /// In en, this message translates to:
-  /// **'Download & Continue'**
+  /// **'Download model'**
   String get qualityTierDownloadAndContinue;
 
   /// No description provided for @qualityTierChooseDifferent.
@@ -4275,12 +4257,6 @@ abstract class L10n {
   /// **'Manually download stable {stableVersion}'**
   String settingsStableRevertHintLink(String stableVersion);
 
-  /// No description provided for @onboardingGetStarted.
-  ///
-  /// In en, this message translates to:
-  /// **'Continue'**
-  String get onboardingGetStarted;
-
   /// No description provided for @onboardingNext.
   ///
   /// In en, this message translates to:
@@ -4302,7 +4278,7 @@ abstract class L10n {
   /// No description provided for @onboardingPrivacyHint.
   ///
   /// In en, this message translates to:
-  /// **'Audio and text stay local. WhisPaste only sends anonymous usage statistics to a self-hosted server in the EU — GDPR-compliant, without your recordings, text, or personal data. Switch it off anytime in Settings → Privacy.'**
+  /// **'Audio and text stay local. Only anonymous usage statistics go to a self-hosted server in the EU — GDPR-compliant.'**
   String get onboardingPrivacyHint;
 
   /// No description provided for @onboardingPrivacyToggle.
@@ -4353,17 +4329,17 @@ abstract class L10n {
   /// **'System'**
   String get onboardingThemeSystem;
 
-  /// No description provided for @onboardingAppearanceTitle.
+  /// No description provided for @onboardingAppearancePageTitle.
   ///
   /// In en, this message translates to:
-  /// **'Appearance'**
-  String get onboardingAppearanceTitle;
+  /// **'Look & launch'**
+  String get onboardingAppearancePageTitle;
 
-  /// No description provided for @onboardingAppearanceDescription.
+  /// No description provided for @onboardingAppearancePageSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Light, dark, or match your system.'**
-  String get onboardingAppearanceDescription;
+  /// **'Light, dark, or match your system — and whether WhisPaste starts when you log in.'**
+  String get onboardingAppearancePageSubtitle;
 
   /// No description provided for @onboardingMaxRecordDurationHint.
   ///
@@ -4425,12 +4401,6 @@ abstract class L10n {
   /// **'Microphone: action needed'**
   String get onboardingMicChipAction;
 
-  /// No description provided for @onboardingSetupPageTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Getting ready'**
-  String get onboardingSetupPageTitle;
-
   /// No description provided for @onboardingModelTitle.
   ///
   /// In en, this message translates to:
@@ -4446,7 +4416,7 @@ abstract class L10n {
   /// No description provided for @onboardingModelRecommended.
   ///
   /// In en, this message translates to:
-  /// **'Recommended for your device'**
+  /// **'Recommended'**
   String get onboardingModelRecommended;
 
   /// No description provided for @onboardingModelChangeLater.
@@ -4454,12 +4424,6 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'You can adjust quality later in Settings'**
   String get onboardingModelChangeLater;
-
-  /// No description provided for @onboardingModelUseCloud.
-  ///
-  /// In en, this message translates to:
-  /// **'Skip, I\'ll use a cloud service instead'**
-  String get onboardingModelUseCloud;
 
   /// No description provided for @onboardingModelDownloading.
   ///
@@ -4488,7 +4452,7 @@ abstract class L10n {
   /// No description provided for @onboardingModelEngineParakeetDesc.
   ///
   /// In en, this message translates to:
-  /// **'The quickest way to dictate in about 25 European languages, including German. Small download, works well on any hardware.'**
+  /// **'The quickest way to text in about 25 European languages, including German. Runs well on any hardware, GPU or not.'**
   String get onboardingModelEngineParakeetDesc;
 
   /// No description provided for @onboardingModelEngineWhisperLabel.
@@ -4554,7 +4518,7 @@ abstract class L10n {
   /// No description provided for @onboardingTestRecordingMicBypassHint.
   ///
   /// In en, this message translates to:
-  /// **'Without a working microphone, WhisPaste can\'t start a recording yet. You can catch up anytime via the microphone status on the first page or in Settings.'**
+  /// **'Without a working microphone, WhisPaste can\'t start a recording yet. You can catch up anytime via the microphone status on this page or in Settings.'**
   String get onboardingTestRecordingMicBypassHint;
 
   /// No description provided for @onboardingTestRecordingPlaceholder.
@@ -4580,12 +4544,6 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Just a test, the text stays in this field.'**
   String get onboardingTestRecordingReassurance;
-
-  /// No description provided for @onboardingTestRecordingSkip.
-  ///
-  /// In en, this message translates to:
-  /// **'Skip test'**
-  String get onboardingTestRecordingSkip;
 
   /// No description provided for @onboardingReadyTitle.
   ///
@@ -4670,6 +4628,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Your hotkey seems to be in use by another app. Record a new combination below to continue.'**
   String get onboardingTriggerHotkeyConflictBody;
+
+  /// No description provided for @onboardingReadyHotkeyConflictBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Go back to the hotkey page and record a new combination there.'**
+  String get onboardingReadyHotkeyConflictBody;
 
   /// No description provided for @onboardingTriggerModeHoldHint.
   ///

@@ -637,10 +637,7 @@ class L10nHe extends L10n {
   String get onboardingPasteChipAction => 'הדבקה אוטומטית: נדרשת פעולה';
 
   @override
-  String get onboardingPasteGrantCta => 'המשך';
-
-  @override
-  String get onboardingPasteVerifyCta => 'בדוק';
+  String get onboardingPasteGrantCta => 'אפשר הדבקה אוטומטית';
 
   @override
   String get onboardingPasteSkip => 'רק להעתיק לעת עתה, בלי הדבקה אוטומטית';
@@ -674,9 +671,6 @@ class L10nHe extends L10n {
 
   @override
   String get onboardingPasteDemoText => 'WhisPaste מקליד בשבילך.';
-
-  @override
-  String get onboardingPasteTestRunCta => 'הפעל הדבקת בדיקה';
 
   @override
   String get onboardingPasteTestSuccess =>
@@ -1037,10 +1031,6 @@ class L10nHe extends L10n {
 
   @override
   String get onboardingWelcome => 'דבר פעם אחת. הדבק בכל מקום.';
-
-  @override
-  String get onboardingWelcomeHint =>
-      'WhisPaste הופך מחשבות מהירות לטקסט נקי עבור הודעות, אימיילים, הערות ותגובות.';
 
   @override
   String get feedbackTitle => 'שלח משוב';
@@ -1752,7 +1742,7 @@ class L10nHe extends L10n {
   }
 
   @override
-  String get qualityTierDownloadAndContinue => 'הורד והמשך';
+  String get qualityTierDownloadAndContinue => 'הורד מודל';
 
   @override
   String get qualityTierChooseDifferent => 'בחר רמת איכות אחרת';
@@ -2340,9 +2330,6 @@ class L10nHe extends L10n {
   }
 
   @override
-  String get onboardingGetStarted => 'התחל';
-
-  @override
   String get onboardingNext => 'הבא';
 
   @override
@@ -2353,7 +2340,7 @@ class L10nHe extends L10n {
 
   @override
   String get onboardingPrivacyHint =>
-      'האודיו והטקסט נשארים מקומיים. WhisPaste שולח רק נתוני שימוש אנונימיים לשרת באירוח עצמי באיחוד האירופי — בהתאם ל-GDPR, ללא ההקלטות, הטקסט או הנתונים האישיים שלך. ניתן לכבות בכל עת בהגדרות ← פרטיות.';
+      'האודיו והטקסט נשארים מקומיים. רק נתוני שימוש אנונימיים נשלחים לשרת באירוח עצמי באיחוד האירופי — בהתאם ל-GDPR.';
 
   @override
   String get onboardingPrivacyToggle => 'שיתוף נתוני שימוש אנונימיים';
@@ -2384,10 +2371,11 @@ class L10nHe extends L10n {
   String get onboardingThemeSystem => 'מערכת';
 
   @override
-  String get onboardingAppearanceTitle => 'מראה';
+  String get onboardingAppearancePageTitle => 'מראה והפעלה';
 
   @override
-  String get onboardingAppearanceDescription => 'בהיר, כהה או לפי המערכת.';
+  String get onboardingAppearancePageSubtitle =>
+      'בהיר, כהה או לפי המערכת — והאם WhisPaste יופעל עם ההתחברות.';
 
   @override
   String onboardingMaxRecordDurationHint(int seconds, String section) {
@@ -2425,9 +2413,6 @@ class L10nHe extends L10n {
   String get onboardingMicChipAction => 'מיקרופון: נדרשת פעולה';
 
   @override
-  String get onboardingSetupPageTitle => 'מתכוננים';
-
-  @override
   String get onboardingModelTitle => 'הגדר זיהוי דיבור';
 
   @override
@@ -2435,14 +2420,11 @@ class L10nHe extends L10n {
       'הורד את מנוע הדיבור כדי להקליט offline. הקול שלך לא עוזב את המכשיר.';
 
   @override
-  String get onboardingModelRecommended => 'מומלץ למכשיר שלך';
+  String get onboardingModelRecommended => 'מומלץ';
 
   @override
   String get onboardingModelChangeLater =>
       'תוכל לשנות את האיכות מאוחר יותר בהגדרות';
-
-  @override
-  String get onboardingModelUseCloud => 'דלג, אשתמש בשירות ענן';
 
   @override
   String get onboardingModelDownloading => 'מוריד…';
@@ -2459,7 +2441,7 @@ class L10nHe extends L10n {
 
   @override
   String get onboardingModelEngineParakeetDesc =>
-      'הדרך המהירה ביותר להכתיב בכ-25 שפות אירופיות, כולל גרמנית. הורדה קטנה, פועל היטב בכל חומרה.';
+      'הדרך המהירה ביותר לטקסט בכ-25 שפות אירופיות, כולל גרמנית. פועל היטב בכל חומרה, גם ללא GPU.';
 
   @override
   String get onboardingModelEngineWhisperLabel => 'כל 99 השפות';
@@ -2497,7 +2479,7 @@ class L10nHe extends L10n {
 
   @override
   String get onboardingTestRecordingMicBypassHint =>
-      'ללא מיקרופון פועל, WhisPaste עדיין לא יכול להתחיל הקלטה. אפשר להשלים זאת בכל עת דרך סטטוס המיקרופון בעמוד הראשון או בהגדרות.';
+      'ללא מיקרופון פועל, WhisPaste עדיין לא יכול להתחיל הקלטה. אפשר להשלים זאת בכל עת דרך סטטוס המיקרופון בעמוד הזה או בהגדרות.';
 
   @override
   String get onboardingTestRecordingPlaceholder =>
@@ -2514,9 +2496,6 @@ class L10nHe extends L10n {
   @override
   String get onboardingTestRecordingReassurance =>
       'Just a test, the text stays in this field.';
-
-  @override
-  String get onboardingTestRecordingSkip => 'Skip test';
 
   @override
   String get onboardingReadyTitle => 'הכל מוכן!';
@@ -2565,6 +2544,10 @@ class L10nHe extends L10n {
   @override
   String get onboardingTriggerHotkeyConflictBody =>
       'נראה שהקיצור שלך תפוס על ידי אפליקציה אחרת. הקלט שילוב חדש למטה כדי להמשיך.';
+
+  @override
+  String get onboardingReadyHotkeyConflictBody =>
+      'חזור לעמוד מקש הקיצור והקלט שם שילוב חדש.';
 
   @override
   String get onboardingTriggerModeHoldHint =>

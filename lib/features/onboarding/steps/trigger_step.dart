@@ -11,7 +11,6 @@ import '../../../services/hotkey_service.dart';
 import '../../../services/telemetry_service.dart';
 import '../../../widgets/hotkey_recorder.dart';
 import '../../settings/settings_widgets.dart';
-import 'onboarding_headings.dart';
 
 /// Widget keys exposed for testing. Kept in one place so tests and production
 /// code agree on the contract.
@@ -24,8 +23,8 @@ const kTriggerStepConflictWarnBoxKey = Key('triggerStepHotkeyConflictWarnBox');
 @visibleForTesting
 const kTriggerStepInlineRecorderKey = Key('triggerStepInlineHotkeyRecorder');
 
-/// Hotkey configuration content of the Model & Hotkey onboarding page: the
-/// global hotkey, and whether it's held (push-to-talk) or pressed-to-toggle.
+/// Content of the Hotkey onboarding page: the global hotkey, and whether it's
+/// held (push-to-talk) or pressed-to-toggle.
 ///
 /// Sits on the page before the guided test recording so that test exercises
 /// the real, just-configured hotkey and mode — not a stale default the user
@@ -36,7 +35,8 @@ const kTriggerStepInlineRecorderKey = Key('triggerStepInlineHotkeyRecorder');
 /// state. The one exception is a confirmed hotkey conflict: the final
 /// onboarding page keeps a residual gate on its completion CTA for the case
 /// where the user moves past an unresolved conflict here. Content only —
-/// navigation (Back/Next) is owned by the onboarding shell.
+/// navigation (Back/Next) and the page heading are owned by the onboarding
+/// shell.
 class TriggerStep extends ConsumerWidget {
   const TriggerStep({super.key});
 
@@ -60,37 +60,31 @@ class TriggerStep extends ConsumerWidget {
     final hotkeyDisplay = settings.hotkey.hotkeyKeyDisplay;
     final hotkeyModifiers = settings.hotkeyModifiers;
 
-    // Deliberately denser than pages 1/2: this page shares its budget with
-    // the model block, so the per-block header shrinks to a compact leading
-    // label (heading-size title, small subtitle) and the hotkey presentation
-    // becomes a single settings-style row — same elements, same keys, same
-    // handlers, just tighter geometry so the whole page fits the fixed
-    // 1100×720 onboarding window without scrolling.
+    // Content only, no title: the Hotkey page owns the heading (see the
+    // overlay's page composition), which is the same string this block used
+    // to carry as a section label. The settings-style row treatment below is
+    // kept from the merged page — it reads as one row of the same kind the
+    // rest of the flow uses, not as a hero.
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        OnboardingSectionLabel(
-          title: l10n.onboardingTriggerTitle,
-          subtitle: l10n.onboardingTriggerSubtitle,
-        ),
-        const SizedBox(height: WpSpacing.xs),
-
         // Confirmed conflict — resolve it here, before the test recording
         // exercises this hotkey. Non-blocking for Next (see ReadyStep's
         // residual gate); a user who skips this warning just meets it again
         // as a disabled Start button.
         //
-        // Known, pre-existing height conflict, measured at the fixed
-        // 1100x720 window with real Inter metrics: this branch adds the warn
-        // box plus a full inline HotkeyRecorderDialog to a page that has
-        // 3 px of slack in its nominal state, so page 3 measures 914 px (de)
-        // / 921 px (he) against a 551-px viewport and scrolls. The redesign
-        // pass improved it by 24 px (from 938/945) by de-boxing the rows
-        // around it, but closing the remaining ~363 px is out of reach
-        // without moving the recorder off this page — a flow change, not a
-        // layout one. Deliberately left visible rather than silently
-        // compacted: an unresolvable hotkey is worth a scroll.
+        // This branch adds the warn box plus a full inline
+        // HotkeyRecorderDialog. On the merged Model & Hotkey page that meant
+        // 914 px (de) / 921 px (he) against a 551-px viewport — ~370 px of
+        // forced scrolling, documented as out of reach without a flow change.
+        // The flow change happened: the hotkey block has its own page now, and
+        // the branch fits without scrolling (539 px in German — measured, see
+        // the fixed-window group in `onboarding_overlay_test.dart`). The last
+        // ~40 px come from two deliberate compressions, so re-measure both
+        // locales before spending them: the page heading drops its subtitle
+        // while a conflict is up (see the overlay), and the gaps below are
+        // one step tighter than the page's usual rhythm.
         if (status == HotkeyRegistrationStatus.conflict) ...[
           _HotkeyConflictWarnBox(
             key: kTriggerStepConflictWarnBoxKey,
@@ -98,7 +92,7 @@ class TriggerStep extends ConsumerWidget {
             body: l10n.onboardingTriggerHotkeyConflictBody,
             isDark: isDark,
           ),
-          const SizedBox(height: WpSpacing.md),
+          const SizedBox(height: WpSpacing.xs),
           HotkeyRecorderDialog(
             key: kTriggerStepInlineRecorderKey,
             initialKey: hotkeyKey,
@@ -116,7 +110,7 @@ class TriggerStep extends ConsumerWidget {
                   );
             },
           ),
-          const SizedBox(height: WpSpacing.lg),
+          const SizedBox(height: WpSpacing.sm),
         ],
 
         // Hotkey row — settings-style (Conductor pattern): label on the
@@ -152,7 +146,7 @@ class TriggerStep extends ConsumerWidget {
                 key: kTriggerStepChangeHotkeyKey,
                 style: OutlinedButton.styleFrom(
                   visualDensity: VisualDensity.compact,
-                  minimumSize: const Size(0, 32),
+                  minimumSize: const Size(0, 44),
                   padding: const EdgeInsets.symmetric(horizontal: WpSpacing.sm),
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
@@ -326,9 +320,13 @@ class _HotkeyConflictWarnBox extends StatelessWidget {
 
     return Container(
       width: double.infinity,
+      // Vertically tighter than the horizontal inset on purpose: this box
+      // shares the page's tightest branch with a full inline recorder, and
+      // the 8 px it gives back are what keeps that branch off the scroll bar
+      // (see the fixed-window group in `onboarding_overlay_test.dart`).
       padding: const EdgeInsets.symmetric(
         horizontal: WpSpacing.md,
-        vertical: WpSpacing.sm,
+        vertical: WpSpacing.xs,
       ),
       decoration: BoxDecoration(
         color: bgColor,

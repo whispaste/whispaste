@@ -11,6 +11,8 @@ library;
 
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderParagraph;
+import 'package:flutter/services.dart' show FontLoader, rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
@@ -106,6 +108,13 @@ Future<_Recorders> _pumpStep(
   ModelDownloadState whisperInitial = const ModelDownloadState(),
   ParakeetDownloadState parakeetInitial = const ParakeetDownloadState(),
   Locale displayLocale = const Locale('en'),
+
+  /// Width the step is laid out at. `null` lets it take the whole test
+  /// surface (1280 px), which is what most assertions here want. The
+  /// truncation regression below needs the *real* onboarding page frame
+  /// (720 px) instead: the engine cards only compete for width once each of
+  /// them is ~344 px, and at 1280 the bug it guards is invisible.
+  double? frameWidth,
 }) async {
   late _RecordingWhisperDownloadNotifier whisper;
   late _RecordingParakeetDownloadNotifier parakeet;
@@ -138,9 +147,15 @@ Future<_Recorders> _pumpStep(
         locale: displayLocale,
         localizationsDelegates: L10n.localizationsDelegates,
         supportedLocales: L10n.supportedLocales,
-        home: const MediaQuery(
-          data: MediaQueryData(size: Size(1280, 1600)),
-          child: Scaffold(body: SingleChildScrollView(child: ModelStep())),
+        home: MediaQuery(
+          data: const MediaQueryData(size: Size(1280, 1600)),
+          child: Scaffold(
+            body: SingleChildScrollView(
+              child: Center(
+                child: SizedBox(width: frameWidth, child: const ModelStep()),
+              ),
+            ),
+          ),
         ),
       ),
     ),
@@ -161,6 +176,16 @@ void main() {
 
   setUpAll(() async {
     l10n = await L10n.delegate.load(const Locale('en'));
+    // Real Inter metrics, not the square-glyph test font: the truncation
+    // regression below is a width measurement, and with Ahem every glyph is
+    // a full em square — roughly double Inter's width — so every title would
+    // "overflow" and the test would pass for a reason the app never has.
+    final fontLoader = FontLoader('Inter')
+      ..addFont(rootBundle.load('assets/fonts/Inter-Regular.ttf'))
+      ..addFont(rootBundle.load('assets/fonts/Inter-Medium.ttf'))
+      ..addFont(rootBundle.load('assets/fonts/Inter-SemiBold.ttf'))
+      ..addFont(rootBundle.load('assets/fonts/Inter-Bold.ttf'));
+    await fontLoader.load();
   });
 
   group('ModelStep — rendering', () {
@@ -173,6 +198,41 @@ void main() {
       expect(find.byKey(kModelStepEngineParakeetCardKey), findsOneWidget);
       expect(find.byKey(kModelStepEngineWhisperCardKey), findsOneWidget);
     });
+
+    testWidgets(
+      'the recommended card shows its engine name in full at the real page '
+      'width — the title used to ellipsise to "Schnell & e…" because it, the '
+      '"recommended" badge and a Spacer split the card three ways',
+      (tester) async {
+        await _pumpStep(
+          tester,
+          gpu: _appleM2,
+          // German: the longest badge of the three locales ("Empfohlen für
+          // dein Gerät") against a title that has to survive it.
+          dictationLocale: 'de',
+          displayLocale: const Locale('de'),
+          frameWidth: 720,
+        );
+        final localized = await L10n.delegate.load(const Locale('de'));
+
+        // The badge must actually be on screen — without it the title has
+        // the whole line to itself and this proves nothing.
+        expect(find.text(localized.onboardingModelRecommended), findsOneWidget);
+
+        final title = tester.renderObject<RenderParagraph>(
+          find.text(localized.onboardingModelEngineParakeetLabel),
+        );
+        expect(
+          title.didExceedMaxLines,
+          isFalse,
+          reason:
+              'The engine name is ellipsised at the real page width — '
+              '`TextOverflow.ellipsis` hides that silently, which is exactly '
+              'how it shipped.',
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
 
     testWidgets('GpuVendor.none renders the CPU-fallback notice', (
       tester,

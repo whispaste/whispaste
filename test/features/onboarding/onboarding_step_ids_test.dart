@@ -1,9 +1,11 @@
 /// Unit tests for [buildOnboardingStepIds] — the pure step-sequence function.
 ///
-/// The six-step flow is deliberately identical on every platform and build
-/// variant: platform variance (Auto-Paste visibility) lives *inside* the
-/// Autostart & Auto-Paste page, never in the sequence. These tests assert
-/// that invariance explicitly across the injected platform/variant matrix.
+/// The flow is seven steps on macOS and Windows and six on Linux: the
+/// Auto-Paste page is omitted from the *sequence* where it cannot apply,
+/// rather than rendered as a page with nothing on it. That difference is the
+/// single piece of platform variance in the flow, and these tests pin both
+/// sides of it — the difference itself, and the fact that nothing else about
+/// the order varies.
 ///
 /// Tests here do NOT pump the widget tree — [buildOnboardingStepIds] is a pure
 /// function so assertions are direct list checks, which is the highest
@@ -20,65 +22,86 @@ const _platforms = [
   TargetPlatform.linux,
 ];
 
+List<OnboardingStepId> _steps(TargetPlatform platform, bool autoPaste) =>
+    buildOnboardingStepIds(platform: platform, autoPasteSupported: autoPaste);
+
 void main() {
   group('buildOnboardingStepIds', () {
-    test('returns exactly 6 steps on every platform and build variant', () {
+    test('macOS and Windows run seven steps, Linux six', () {
+      expect(_steps(TargetPlatform.macOS, true), hasLength(7));
+      expect(_steps(TargetPlatform.windows, true), hasLength(7));
+      expect(
+        _steps(TargetPlatform.linux, true),
+        hasLength(6),
+        reason: 'Linux has no paste controller wired — no Auto-Paste page',
+      );
+    });
+
+    test('sequence is Welcome → Privacy → Model → Hotkey → Appearance → '
+        '[Auto-Paste] → Try & Go', () {
+      expect(_steps(TargetPlatform.macOS, true), const [
+        OnboardingStepId.welcome,
+        OnboardingStepId.privacy,
+        OnboardingStepId.model,
+        OnboardingStepId.hotkey,
+        OnboardingStepId.appearance,
+        OnboardingStepId.autoPaste,
+        OnboardingStepId.tryAndGo,
+      ]);
+      expect(_steps(TargetPlatform.linux, true), const [
+        OnboardingStepId.welcome,
+        OnboardingStepId.privacy,
+        OnboardingStepId.model,
+        OnboardingStepId.hotkey,
+        OnboardingStepId.appearance,
+        OnboardingStepId.tryAndGo,
+      ]);
+    });
+
+    test('the Auto-Paste page is omitted from the sequence entirely where it '
+        'cannot apply — never included as an empty page', () {
+      // Linux: no paste controller, at any kill-switch setting.
+      for (final autoPaste in [true, false]) {
+        expect(
+          _steps(TargetPlatform.linux, autoPaste),
+          isNot(contains(OnboardingStepId.autoPaste)),
+          reason: 'linux autoPasteSupported=$autoPaste',
+        );
+      }
+      // The App Review Guideline 2.4.5 kill switch removes it everywhere.
       for (final platform in _platforms) {
-        for (final autoPasteSupported in [true, false]) {
-          final steps = buildOnboardingStepIds(
-            platform: platform,
-            autoPasteSupported: autoPasteSupported,
-          );
-          expect(
-            steps,
-            hasLength(6),
-            reason: 'platform=$platform autoPasteSupported=$autoPasteSupported',
-          );
-        }
+        expect(
+          _steps(platform, false),
+          isNot(contains(OnboardingStepId.autoPaste)),
+          reason: '$platform under the kill switch',
+        );
+        expect(_steps(platform, false), hasLength(6));
       }
     });
 
-    test('sequence is Welcome → Privacy → Model & Hotkey → Appearance → '
-        'Autostart & Auto-Paste → Try & Go on every platform', () {
+    test('every other step is present on every platform and build variant — '
+        'Auto-Paste is the only thing that varies', () {
       for (final platform in _platforms) {
-        for (final autoPasteSupported in [true, false]) {
-          final steps = buildOnboardingStepIds(
-            platform: platform,
-            autoPasteSupported: autoPasteSupported,
-          );
+        for (final autoPaste in [true, false]) {
+          final steps = _steps(platform, autoPaste);
+          final reason = 'platform=$platform autoPasteSupported=$autoPaste';
+          for (final id in OnboardingStepId.values) {
+            if (id == OnboardingStepId.autoPaste) continue;
+            expect(steps, contains(id), reason: '$id missing — $reason');
+          }
+          // Order is invariant even where the length is not: dropping the
+          // Auto-Paste entry must not reshuffle anything around it.
           expect(
-            steps,
+            steps.where((s) => s != OnboardingStepId.autoPaste).toList(),
             const [
               OnboardingStepId.welcome,
               OnboardingStepId.privacy,
-              OnboardingStepId.modelAndHotkey,
+              OnboardingStepId.model,
+              OnboardingStepId.hotkey,
               OnboardingStepId.appearance,
-              OnboardingStepId.autostartAndAutoPaste,
               OnboardingStepId.tryAndGo,
             ],
-            reason: 'platform=$platform autoPasteSupported=$autoPasteSupported',
-          );
-        }
-      }
-    });
-
-    test('sequence is identical across all platform/variant combinations — '
-        'no variant may be longer or shorter than any other', () {
-      final reference = buildOnboardingStepIds(
-        platform: TargetPlatform.linux,
-        autoPasteSupported: false,
-      );
-      for (final platform in _platforms) {
-        for (final autoPasteSupported in [true, false]) {
-          expect(
-            buildOnboardingStepIds(
-              platform: platform,
-              autoPasteSupported: autoPasteSupported,
-            ),
-            reference,
-            reason:
-                'platform=$platform autoPasteSupported=$autoPasteSupported '
-                'must match the reference sequence exactly',
+            reason: reason,
           );
         }
       }
@@ -87,11 +110,8 @@ void main() {
     test('privacy always sits right after welcome; first step is welcome and '
         'last step is tryAndGo', () {
       for (final platform in _platforms) {
-        for (final autoPasteSupported in [true, false]) {
-          final steps = buildOnboardingStepIds(
-            platform: platform,
-            autoPasteSupported: autoPasteSupported,
-          );
+        for (final autoPaste in [true, false]) {
+          final steps = _steps(platform, autoPaste);
           expect(steps.first, OnboardingStepId.welcome);
           expect(steps[1], OnboardingStepId.privacy);
           expect(steps.last, OnboardingStepId.tryAndGo);
@@ -99,26 +119,26 @@ void main() {
       }
     });
 
-    test('modelAndHotkey precedes appearance, which precedes '
-        'autostartAndAutoPaste, which precedes tryAndGo (the guided test '
-        'recording on the final page must exercise the hotkey/mode '
-        'configured on the Model & Hotkey page, not a stale default)', () {
+    test('model precedes hotkey, which precedes appearance, and tryAndGo is '
+        'last (the guided test recording on the final page must exercise the '
+        'hotkey/mode configured earlier, not a stale default)', () {
       for (final platform in _platforms) {
-        for (final autoPasteSupported in [true, false]) {
-          final steps = buildOnboardingStepIds(
-            platform: platform,
-            autoPasteSupported: autoPasteSupported,
-          );
-          final modelIndex = steps.indexOf(OnboardingStepId.modelAndHotkey);
-          final appearanceIndex = steps.indexOf(OnboardingStepId.appearance);
-          final autostartIndex = steps.indexOf(
-            OnboardingStepId.autostartAndAutoPaste,
-          );
-          final tryAndGoIndex = steps.indexOf(OnboardingStepId.tryAndGo);
+        for (final autoPaste in [true, false]) {
+          final steps = _steps(platform, autoPaste);
+          final model = steps.indexOf(OnboardingStepId.model);
+          final hotkey = steps.indexOf(OnboardingStepId.hotkey);
+          final appearance = steps.indexOf(OnboardingStepId.appearance);
 
-          expect(appearanceIndex, modelIndex + 1);
-          expect(autostartIndex, appearanceIndex + 1);
-          expect(tryAndGoIndex, autostartIndex + 1);
+          expect(hotkey, model + 1);
+          expect(appearance, hotkey + 1);
+          expect(steps.indexOf(OnboardingStepId.tryAndGo), steps.length - 1);
+          if (steps.contains(OnboardingStepId.autoPaste)) {
+            expect(
+              steps.indexOf(OnboardingStepId.autoPaste),
+              appearance + 1,
+              reason: 'Auto-Paste sits between Appearance and Try & Go',
+            );
+          }
         }
       }
     });

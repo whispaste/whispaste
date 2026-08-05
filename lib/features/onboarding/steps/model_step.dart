@@ -15,7 +15,6 @@ import '../../../services/stt_parakeet/parakeet_model_registry.dart';
 import '../../../widgets/tier_performance_presentation.dart';
 import '../../../widgets/wp_accent_button.dart';
 import '../../settings/settings_widgets.dart' show kSettingRowInset;
-import 'onboarding_headings.dart';
 
 /// Widget keys exposed for testing. Kept in one place so tests and production
 /// code agree on the contract.
@@ -26,8 +25,8 @@ const kModelStepEngineParakeetCardKey = Key('modelStepEngineParakeetCard');
 @visibleForTesting
 const kModelStepEngineWhisperCardKey = Key('modelStepEngineWhisperCard');
 
-/// On-device speech recognition setup (content of the Model & Hotkey
-/// onboarding page).
+/// On-device speech recognition setup — the content of the Model onboarding
+/// page (the page owns the heading; see the overlay's page composition).
 ///
 /// A two-way choice presented in plain language, no engine/tier/model
 /// jargon: "Fast & European" (the Parakeet engine) vs. "All 99 Languages"
@@ -240,21 +239,15 @@ class _ModelStepState extends ConsumerState<ModelStep> {
       null => '',
     };
 
-    // Deliberately denser than pages 1/2: the merged Model & Hotkey &
-    // Appearance page carries four blocks, so this block's header shrinks to
-    // a compact heading + small subtitle and the vertical rhythm tightens —
-    // purely presentational, so the whole page fits the fixed 1100×720
-    // onboarding window without scrolling.
+    // Content only, no title: the Model page owns the heading (see the
+    // overlay's page composition), which is the same string this block used
+    // to carry as a section label. The tight vertical rhythm below is kept
+    // from the merged page — the download-error branch is the tall one, and
+    // it still has to fit the fixed 1100×720 window.
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        OnboardingSectionLabel(
-          title: l10n.onboardingModelTitle,
-          subtitle: l10n.onboardingModelSubtitle,
-        ),
-        const SizedBox(height: WpSpacing.xs),
-
         // GPU CPU fallback notice — purely informational, never blocks Next.
         //
         // Renders only when hardware detection returned `GpuVendor.none`,
@@ -456,9 +449,10 @@ class _ModelStepDownloadStatus extends StatelessWidget {
         label: '${l10n.qualityTierDownloadAndContinue} ($sizeLabel)',
         gradient: accentGradient,
         onPressed: onStartDownload,
-        // Dense-page geometry: shorter CTA so the merged page fits the
-        // fixed onboarding window without scrolling.
-        verticalPadding: WpSpacing.xs,
+        // Full-height CTA again: the shortened padding here was paid for by
+        // the merged Model & Hotkey page, which no longer exists — the model
+        // page has ~150 px of spare height now, so the primary action of the
+        // page has no reason to sit below the 48-px touch-target floor.
       ),
     );
   }
@@ -576,7 +570,14 @@ class _EngineCardState extends State<_EngineCard> {
                     children: [
                       Icon(widget.icon, size: 18, color: accent),
                       const SizedBox(width: WpSpacing.xs),
-                      Flexible(
+                      // Expanded, and the only widget on this line that takes
+                      // free space: with `Flexible` title + `Flexible` badge +
+                      // a `Spacer`, the three split the width between them and
+                      // the recommended card's title silently ellipsised
+                      // ("Schnell & e…") on a card wide enough to show it in
+                      // full. The badge is bounded to its intrinsic width
+                      // below, so what is left over is the title's.
+                      Expanded(
                         child: Text(
                           widget.label,
                           maxLines: 1,
@@ -590,10 +591,15 @@ class _EngineCardState extends State<_EngineCard> {
                       ),
                       if (widget.isRecommended && !widget.isDisabled) ...[
                         const SizedBox(width: WpSpacing.xs),
-                        // Flexible + scale-down so a long localized badge
-                        // (or a wide test font) shrinks instead of
-                        // overflowing the shared line.
-                        Flexible(
+                        // Inflexible and capped: the pill takes its intrinsic
+                        // width, so it can never claim a share of the free
+                        // space the title needs. The cap plus scale-down is
+                        // what keeps a long localized badge (or an enlarged
+                        // text scale) shrinking rather than overflowing the
+                        // shared line — the job the old `Flexible` did, minus
+                        // the appetite.
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 128),
                           child: FittedBox(
                             fit: BoxFit.scaleDown,
                             child: Container(
@@ -623,8 +629,8 @@ class _EngineCardState extends State<_EngineCard> {
                             ),
                           ),
                         ),
+                        const SizedBox(width: WpSpacing.xs),
                       ],
-                      const Spacer(),
                       AnimatedOpacity(
                         opacity: widget.isSelected ? 1.0 : 0.0,
                         duration: WpMotion.durationFor(context, WpMotion.fast),

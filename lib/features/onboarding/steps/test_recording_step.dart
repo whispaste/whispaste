@@ -186,7 +186,7 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
               ? l10n.onboardingTestRecordingStopCta
               : l10n.onboardingTestRecordingStartCta,
           gradient: accentGradient,
-          verticalPadding: WpSpacing.sm,
+          verticalPadding: WpSpacing.md,
           onPressed: phase == RecordingPhase.transcribing
               ? null
               : _onRecordPressed,

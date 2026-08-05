@@ -1,5 +1,6 @@
-/// Widget tests for [AppearanceStep] — the theme choice on its own onboarding
-/// page.
+/// Widget tests for [AppearanceStep] — the theme choice, the picture half of
+/// the Appearance onboarding page (the autostart toggle beside it has its own
+/// test; the page that composes both is covered in the overlay test).
 ///
 /// The theme tests migrated here from `welcome_step_test.dart` when the choice
 /// moved off page 1 (the pre-rendered demo clips there cannot follow a live
@@ -136,12 +137,15 @@ void main() {
       handle.dispose();
     });
 
-    testWidgets('the page carries its own heading — it is a page now, not a '
-        'block on another page', (tester) async {
+    testWidgets('carries no title of its own — the Appearance page owns the '
+        'heading, because the page is the theme choice AND the autostart '
+        'toggle and only the page can name both', (tester) async {
       await _pumpStep(tester);
 
-      expect(find.text(l10n.onboardingAppearanceTitle), findsOneWidget);
-      expect(find.text(l10n.onboardingAppearanceDescription), findsOneWidget);
+      expect(find.text(l10n.onboardingAppearancePageTitle), findsNothing);
+      expect(find.text(l10n.onboardingAppearancePageSubtitle), findsNothing);
+      // The swatches are the whole widget.
+      expect(find.byKey(kAppearanceThemeSelectorKey), findsOneWidget);
     });
   });
 }

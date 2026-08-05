@@ -39,11 +39,12 @@ const kOnboardingBackButtonKey = Key('onboardingNavBackButton');
 @visibleForTesting
 const kOnboardingNextButtonKey = Key('onboardingNavNextButton');
 
-/// Identifier for each page of the six-step first-run onboarding flow.
+/// Identifier for each page of the first-run onboarding flow.
 ///
-/// The sequence is identical on every platform and build variant — platform
-/// variance (Auto-Paste visibility) lives *inside* the
-/// [autostartAndAutoPaste] page, never in the sequence itself.
+/// Seven pages on macOS and Windows, six on Linux: [autoPaste] is the one
+/// piece of platform variance, and it is a *sequence-level* decision (see
+/// [buildOnboardingStepIds]) rather than a page that renders empty where it
+/// does not apply.
 enum OnboardingStepId {
   /// 1 — Welcome: demo beats and language selection. Deliberately carries no
   /// microphone affordance: the permission is requested when the user leaves
@@ -54,38 +55,56 @@ enum OnboardingStepId {
   /// 2 — Privacy: informed telemetry/crash-report opt-out.
   privacy,
 
-  /// 3 — Model & Hotkey: engine choice/download plus hotkey configuration.
-  modelAndHotkey,
+  /// 3 — Model: the two-way on-device engine choice and its download.
+  model,
 
-  /// 4 — Appearance: the light/dark/system theme choice.
+  /// 4 — Hotkey: which key starts a recording, and whether it is held or
+  /// pressed to toggle. Its own page since the seven-step flow — merged with
+  /// [model] it had ~11 px of slack, which the confirmed-conflict branch
+  /// (warn box plus a full inline recorder) blew through by ~360 px.
+  hotkey,
+
+  /// 5 — Appearance: the light/dark/system theme choice plus the autostart
+  /// toggle — the two things that decide how the app presents itself before
+  /// it is ever used.
   appearance,
 
-  /// 5 — Autostart & Auto-Paste: autostart toggle; Auto-Paste status on
-  /// macOS and Windows (Linux shows only the autostart toggle — no paste
-  /// controller is wired there).
-  autostartAndAutoPaste,
+  /// 6 — Auto-Paste: the permission that lets a transcript land at the
+  /// cursor. **Not part of the sequence on Linux** (no paste controller is
+  /// wired there) or under the Auto-Paste kill switch.
+  autoPaste,
 
-  /// 6 — Try & Go: guided test recording, quick-start hints, completion CTA.
+  /// 7 — Try & Go: guided test recording, quick-start hints, completion CTA.
   tryAndGo,
 }
 
-/// Returns the ordered list of onboarding step IDs.
+/// Returns the ordered list of onboarding step IDs for this build.
 ///
-/// The six-step sequence is deliberately identical for every [platform] and
-/// [autoPasteSupported] value — both parameters stay injected so the seam
-/// (pure function, no widget tree, no global state) is preserved and unit
-/// tests can assert the invariance explicitly instead of trusting it.
+/// Seven steps on macOS/Windows, six on Linux — [autoPaste] is omitted from
+/// the sequence entirely where it cannot apply, rather than rendered as a page
+/// with nothing on it. The predicate itself lives in
+/// [onboardingIncludesAutoPasteStep] because the resume-position migration
+/// needs exactly the same answer; splitting it would let the two drift.
+///
+/// Pure function, no widget tree, no global state: [platform] and
+/// [autoPasteSupported] stay injected so unit tests can assert the whole
+/// matrix directly.
 @visibleForTesting
 List<OnboardingStepId> buildOnboardingStepIds({
   required TargetPlatform platform,
   required bool autoPasteSupported,
 }) {
-  return const [
+  return [
     OnboardingStepId.welcome,
     OnboardingStepId.privacy,
-    OnboardingStepId.modelAndHotkey,
+    OnboardingStepId.model,
+    OnboardingStepId.hotkey,
     OnboardingStepId.appearance,
-    OnboardingStepId.autostartAndAutoPaste,
+    if (onboardingIncludesAutoPasteStep(
+      platform: platform,
+      autoPasteSupported: autoPasteSupported,
+    ))
+      OnboardingStepId.autoPaste,
     OnboardingStepId.tryAndGo,
   ];
 }
@@ -94,7 +113,8 @@ List<OnboardingStepId> buildOnboardingStepIds({
 ///
 /// Sits on top of the main app shell in a [Stack] and covers it with a flat
 /// theme-background surface — no blur, no dimmed scrim, no floating card.
-/// Six pages with animated transitions, a shell-owned Back/Next navigation
+/// Seven pages (six on Linux) with animated transitions, a shell-owned
+/// Back/Next navigation
 /// row (Next becomes the completion CTA on the last page), stepper dots, and
 /// a step counter. The whole surface doubles as a window drag area (the
 /// title bar is hidden during onboarding). On completion persists
@@ -118,8 +138,8 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
   /// composition is a text column *beside* a large media panel, and at 720
   /// the two halves squeeze each other. The width itself is owned by
   /// [kOnboardingWelcomeFrameWidth], because the recorded clip dimensions are
-  /// derived from it. Pages 2–6 deliberately keep 720: their density was
-  /// measured against that width and must not silently change.
+  /// derived from it. Every page behind it deliberately keeps 720: their
+  /// density was measured against that width and must not silently change.
   double _frameWidthFor(OnboardingStepId id) => id == OnboardingStepId.welcome
       ? kOnboardingWelcomeFrameWidth
       : _contentMaxWidth;
@@ -139,16 +159,19 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
   /// Whether the page distributes the viewport's leftover height between its
   /// blocks instead of stacking them at the top ([OnboardingPageFill]).
   ///
-  /// Pages 2–5 do, because they have room to distribute: measured against the
-  /// 511-px content area of the fixed window (551 px viewport minus the
-  /// scroll view's padding), page 2 leaves 206 px over, page 4 259 and page 5
-  /// 304. Page 3 leaves only 51 (27 in Hebrew), but it costs nothing to
-  /// include — the fill can never shrink a gap below its minimum.
+  /// Every settings-shaped page does, because they all have room to
+  /// distribute: measured against the 511-px content area of the fixed window
+  /// (551 px viewport minus the scroll view's padding), the sparsest of them
+  /// (Hotkey) leaves ~300 px over and the tightest nominal one (Model) ~130.
+  /// Including the tight ones costs nothing — the fill can never shrink a gap
+  /// below its minimum, so the hotkey page's conflict branch (12 px of slack
+  /// in German) simply keeps its minimum gaps.
   ///
-  /// Page 1 is excluded: it is a centred brand composition, not a stack of
-  /// blocks. Page 6 is excluded because it is two side-by-side columns of
-  /// unequal height with 30 px of slack in Hebrew — distributing that would
-  /// pull the two columns' rhythms apart for a gain nobody can see.
+  /// [OnboardingStepId.welcome] is excluded: it is a centred brand
+  /// composition, not a stack of blocks. [OnboardingStepId.tryAndGo] is
+  /// excluded because it is two side-by-side columns of unequal height with
+  /// ~22 px of slack — distributing that would pull the two columns' rhythms
+  /// apart for a gain nobody can see.
   bool _fillsViewport(OnboardingStepId id) =>
       id != OnboardingStepId.welcome && id != OnboardingStepId.tryAndGo;
 
@@ -202,12 +225,15 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
     final int saved;
     if (onboarding.onboardingFlowVersion < kOnboardingFlowVersion &&
         !onboarding.onboardingCompleted) {
-      // The persisted position was written against the legacy 7/8-step flow
-      // (an interrupted first run that got this update mid-way). Translate
-      // it into the functionally corresponding new page exactly once, then
-      // stamp the flow version so the translation can never re-run.
+      // The persisted position was written against an older sequence — the
+      // pre-redesign 7/8-step flow or the six-step one (an interrupted first
+      // run that got this update mid-way). Which of the two decides the
+      // translation table, so the stored version is threaded in rather than
+      // assumed. Applied exactly once, then the flow version is stamped so
+      // the translation can never re-run.
       saved = migrateLegacyOnboardingStepIndex(
         legacyIndex: onboarding.onboardingCurrentStep,
+        fromVersion: onboarding.onboardingFlowVersion,
         platform: defaultTargetPlatform,
         autoPasteSupported: kAutoPasteSupported,
       );
@@ -360,74 +386,98 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
         : page;
   }
 
+  /// The Hotkey page. Split out of the page switch because it is the one page
+  /// whose composition depends on live state: a confirmed conflict changes
+  /// both what the page says and how much room the block below it needs.
+  Widget _buildHotkeyPage(L10n l10n) {
+    final hasConflict =
+        ref.watch(hotkeyRegistrationStatusProvider) ==
+        HotkeyRegistrationStatus.conflict;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        OnboardingPageHeading(
+          title: l10n.onboardingTriggerTitle,
+          // Title only while a conflict is on screen. The warn box below
+          // states the problem and the remedy, so the generic explainer would
+          // be the page's third voice — and dropping it, together with the
+          // tighter gap under it, is what buys the conflict branch (warn box
+          // plus a full inline recorder) the room to fit the fixed window
+          // instead of scrolling. Measured, see the fixed-window group in
+          // `onboarding_overlay_test.dart`.
+          subtitle: hasConflict ? null : l10n.onboardingTriggerSubtitle,
+        ),
+        SizedBox(height: hasConflict ? WpSpacing.sm : WpSpacing.lg),
+        const OnboardingFlexGap(flex: 3),
+        const TriggerStep(),
+        const OnboardingFlexGap(flex: 4),
+      ],
+    );
+  }
+
   Widget _buildStepContent(OnboardingStepId id) {
     final l10n = L10n.of(context);
-    // Auto-Paste status visibility is the single piece of platform variance
-    // in the flow — a content decision inside page 5, driven by
-    // defaultTargetPlatform so widget tests can simulate every platform.
-    // Also gated on kAutoPasteSupported: the deliberate App Review Guideline
-    // 2.4.5 kill switch (see build_config.dart) must still be able to hide
-    // Auto-Paste everywhere, onboarding included, if it's ever flipped.
-    final showAutoPaste =
-        kAutoPasteSupported &&
-        (defaultTargetPlatform == TargetPlatform.macOS ||
-            defaultTargetPlatform == TargetPlatform.windows);
     return switch (id) {
       OnboardingStepId.welcome => const WelcomeStep(),
       OnboardingStepId.privacy => const PrivacyStep(),
-      // Tightest height budget in the flow (measured at the fixed 1100x720
-      // window with real Inter metrics, GPU-fallback notice visible — the
-      // worst case): 540 px of content in German, 524 in Hebrew, against a
-      // 551-px viewport. Splitting the theme choice onto its own page paid
-      // for the page heading this page never had plus `md` gaps between the
-      // two blocks; German keeps 11 px of slack, so do not add to this page
-      // or raise a gap without re-measuring both locales
-      // (`onboarding_overlay_test.dart`, fixed-window group).
-      OnboardingStepId.modelAndHotkey => Column(
+      // Every settings-shaped page from here on follows the same shape: the
+      // page owns its [OnboardingPageHeading] and the gaps between its
+      // blocks, the step widget owns only its own content. That keeps the
+      // step widgets bare-mountable in their own tests, and it is why none of
+      // them carries a title of its own any more — a page heading plus a
+      // near-identical section label directly under it was the same string
+      // twice at two sizes.
+      OnboardingStepId.model => Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Title only, deliberately: both blocks below already carry a
-          // section label *with* its own explanatory line, so a third
-          // explanation here would be the page's third voice — and the 31 px
-          // it costs is most of this page's remaining slack.
-          OnboardingPageHeading(title: l10n.onboardingSetupPageTitle),
-          const SizedBox(height: WpSpacing.md),
-          // The flex weights are small everywhere on this page: there are
-          // only ~51 px to hand out (27 in Hebrew), so this turns a thin dead
-          // strip under the hotkey block into slightly looser gaps rather
-          // than into a visible rearrangement.
-          const OnboardingFlexGap(flex: 2),
-          const ModelStep(),
-          const SizedBox(height: WpSpacing.md),
+          OnboardingPageHeading(
+            title: l10n.onboardingModelTitle,
+            subtitle: l10n.onboardingModelSubtitle,
+          ),
+          const SizedBox(height: WpSpacing.lg),
           const OnboardingFlexGap(flex: 3),
-          const TriggerStep(),
-          const OnboardingFlexGap(flex: 2),
+          const ModelStep(),
+          const OnboardingFlexGap(flex: 4),
         ],
       ),
-      OnboardingStepId.appearance => const AppearanceStep(),
-      OnboardingStepId.autostartAndAutoPaste => Column(
+      OnboardingStepId.hotkey => _buildHotkeyPage(l10n),
+      // Theme choice and autostart under one heading: both answer "how does
+      // this app present itself before I ever use it". The heading names both
+      // halves in order, which is what keeps the settings row from reading as
+      // a second, unrelated screen glued below the tiles — it needs no
+      // section label of its own, since its own label and subtitle already
+      // say what it is.
+      OnboardingStepId.appearance => Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // The thinnest page in the flow: 207 px of blocks in a 511-px area,
-          // and on Linux (no Auto-Paste) a single settings row. It is also
-          // the only settings-shaped page without an
-          // [OnboardingPageHeading] — the flow has no string to head it with,
-          // and inventing one is a copy decision, not a layout one. So the
-          // 304 px go where they can: the autostart row stays fixed at the
-          // top, and the gap between the two blocks stays clearly the smaller
-          // share. That split is not free choice — the Auto-Paste block heads
-          // itself with a section label precisely so the page does not read as
-          // two fused screens (see `auto_paste_step.dart`), and a gap above it
-          // as large as the page's tail undoes exactly that.
-          const OnboardingAutostartToggle(),
-          if (showAutoPaste) ...[
-            const SizedBox(height: WpSpacing.xxl),
-            const OnboardingFlexGap(flex: 2),
-            const AutoPasteStep(),
-          ],
+          OnboardingPageHeading(
+            title: l10n.onboardingAppearancePageTitle,
+            subtitle: l10n.onboardingAppearancePageSubtitle,
+          ),
+          const SizedBox(height: WpSpacing.xl),
           const OnboardingFlexGap(flex: 5),
+          const AppearanceStep(),
+          const SizedBox(height: WpSpacing.xl),
+          const OnboardingFlexGap(flex: 3),
+          const OnboardingAutostartToggle(),
+          const OnboardingFlexGap(flex: 4),
+        ],
+      ),
+      OnboardingStepId.autoPaste => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          OnboardingPageHeading(
+            title: l10n.onboardingPasteTitle,
+            subtitle: l10n.onboardingPasteSubtitle,
+          ),
+          const SizedBox(height: WpSpacing.lg),
+          const OnboardingFlexGap(flex: 3),
+          const AutoPasteStep(),
+          const OnboardingFlexGap(flex: 4),
         ],
       ),
       // Two columns, not a stack: as one column the page measured 739 px of
@@ -619,13 +669,21 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
                   child: Row(
                     key: kOnboardingNavRowKey,
                     children: [
+                      // The colour rides on the ButtonStyle, not on the
+                      // child's TextStyle: an explicit `TextStyle(color:)`
+                      // wins over Material's `disabledForegroundColor`, so
+                      // the first page's disabled Back button looked exactly
+                      // as tappable as an enabled one.
                       TextButton(
                         key: kOnboardingBackButtonKey,
-                        onPressed: safeCurrent > 0 ? _goBack : null,
-                        child: Text(
-                          l10n.onboardingBack,
-                          style: TextStyle(color: textSecondary),
+                        style: TextButton.styleFrom(
+                          foregroundColor: textSecondary,
+                          disabledForegroundColor: textMuted.withValues(
+                            alpha: 0.5,
+                          ),
                         ),
+                        onPressed: safeCurrent > 0 ? _goBack : null,
+                        child: Text(l10n.onboardingBack),
                       ),
                       const Spacer(),
                       ConstrainedBox(

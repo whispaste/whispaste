@@ -1,8 +1,10 @@
-/// Durchgehender Onboarding-Walkthrough-Test über die sechs Seiten:
-/// Willkommen → Datenschutz → Modell & Hotkey → Autostart & Auto-Paste →
-/// Ausprobieren & Los (Sequenz auf allen Plattformen identisch; hier wird
-/// der Linux-Pfad gefahren, auf dem Seite 4 nur den Autostart-Umschalter
-/// zeigt).
+/// Durchgehender Onboarding-Walkthrough-Test über die sechs Linux-Seiten:
+/// Willkommen → Datenschutz → Modell → Hotkey → Erscheinungsbild (inkl.
+/// Autostart-Umschalter) → Ausprobieren & Los. Auf macOS/Windows liegt
+/// zwischen Erscheinungsbild und der letzten Seite zusätzlich die
+/// Auto-Paste-Seite (sieben Seiten) — die Sequenz-Differenz selbst ist in
+/// `onboarding_step_ids_test.dart` und `onboarding_overlay_test.dart`
+/// abgedeckt; hier wird bewusst der kürzere Linux-Pfad durchgespielt.
 ///
 /// Dieser Test treibt die [OnboardingOverlay] über die Shell-Navigation
 /// ("Weiter") bis zum Abschluss und assertiert dabei:
@@ -272,21 +274,22 @@ void main() {
         _expectExactlyTwoNavActions(tester, page: 2);
         await _tapNext(tester);
 
-        // Seite 3: Modell & Hotkey.
+        // Seite 3: Modell — nur noch die Engine-Wahl, ohne Hotkey-Block.
         expect(find.byType(ModelStep), findsOneWidget);
-        expect(find.byType(TriggerStep), findsOneWidget);
+        expect(find.byType(TriggerStep), findsNothing);
         expect(find.text(l10n.onboardingStepOf(3, 6)), findsOneWidget);
         _expectExactlyTwoNavActions(tester, page: 3);
         await _tapNext(tester);
 
-        // Seite 4: Erscheinungsbild (Theme-Auswahl, eigene Seite).
-        expect(find.byType(AppearanceStep), findsOneWidget);
+        // Seite 4: Hotkey — eigene Seite seit der Aufteilung.
+        expect(find.byType(TriggerStep), findsOneWidget);
+        expect(find.byType(ModelStep), findsNothing);
         expect(find.text(l10n.onboardingStepOf(4, 6)), findsOneWidget);
         _expectExactlyTwoNavActions(tester, page: 4);
         await _tapNext(tester);
 
-        // Seite 5: Autostart & Auto-Paste — auf Linux nur der
-        // Autostart-Umschalter (kein Paste-Controller verdrahtet).
+        // Seite 5: Erscheinungsbild — Theme-Auswahl UND Autostart-Umschalter.
+        expect(find.byType(AppearanceStep), findsOneWidget);
         expect(find.byType(OnboardingAutostartToggle), findsOneWidget);
         expect(find.text(l10n.onboardingStepOf(5, 6)), findsOneWidget);
         _expectExactlyTwoNavActions(tester, page: 5);
@@ -545,8 +548,8 @@ void main() {
     testWidgets(
       'Neustart mit Position aus dem ALTEN Ablauf (flowVersion 0): die '
       'Position wird fachlich übersetzt und die Ablauf-Version genau einmal '
-      'gestempelt — alter Linux-Index 4 (trigger) landet auf Seite 3 '
-      '(Modell & Hotkey)',
+      'gestempelt — alter Linux-Index 4 (trigger) landet auf Seite 4 '
+      '(Hotkey), die diesen Schritt jetzt allein trägt',
       (tester) async {
         debugDefaultTargetPlatformOverride = TargetPlatform.linux;
         try {
@@ -560,14 +563,14 @@ void main() {
             ),
           );
 
-          expect(find.byType(ModelStep), findsOneWidget);
           expect(find.byType(TriggerStep), findsOneWidget);
-          expect(find.text(l10n.onboardingStepOf(3, 6)), findsOneWidget);
+          expect(find.byType(ModelStep), findsNothing);
+          expect(find.text(l10n.onboardingStepOf(4, 6)), findsOneWidget);
 
           final onboarding = settings.state.value!.onboarding;
           expect(
             onboarding.onboardingCurrentStep,
-            2,
+            3,
             reason: 'Die übersetzte Position muss persistiert sein.',
           );
           expect(
@@ -656,11 +659,21 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
       try {
+        // Index der letzten Seite aus der echten Sequenz ableiten: auf
+        // macOS sind es sieben Seiten, auf Linux sechs — eine feste Zahl
+        // hier hätte die Messung stillschweigend auf die Auto-Paste-Seite
+        // gelenkt.
+        final lastIndex =
+            buildOnboardingStepIds(
+              platform: TargetPlatform.macOS,
+              autoPasteSupported: true,
+            ).length -
+            1;
         final (settings: _, :orchestrator) = await _pumpOverlay(
           tester,
           initialSettings: AppSettings.defaults.copyWithSections(
             onboarding: AppSettings.defaults.onboarding.copyWith(
-              onboardingCurrentStep: 5,
+              onboardingCurrentStep: lastIndex,
               onboardingFlowVersion: kOnboardingFlowVersion,
             ),
           ),

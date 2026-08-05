@@ -6,8 +6,6 @@ import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
-import 'onboarding_headings.dart';
-import 'onboarding_page_fill.dart';
 
 /// Widget keys exposed for testing.
 @visibleForTesting
@@ -18,14 +16,15 @@ const kAppearanceThemeSelectorKey = Key('appearanceThemeSelector');
 Key appearanceThemeSwatchKey(ThemeMode mode) =>
     Key('appearanceThemeSwatch_${mode.name}');
 
-/// Appearance page of the onboarding flow: the light/dark/system theme choice.
+/// The light/dark/system theme choice — the picture half of the Appearance
+/// page (the autostart toggle beneath it is [OnboardingAutostartToggle]; the
+/// page itself, heading and gaps included, is composed in the overlay).
 ///
-/// Its own page since the redesign's third round. It used to be the third
-/// block on the Model & Hotkey page, where it had ~27 px of slack to share
-/// with everything else — not enough for a choice that is best made by
-/// *looking* rather than by reading three words. On its own page the same
-/// choice is three picture tiles: a miniature of what the app will look like,
-/// with a ring around the active one (Conductor reference,
+/// Off the Model & Hotkey page since the redesign's third round, where it had
+/// ~27 px of slack to share with everything else — not enough for a choice
+/// that is best made by *looking* rather than by reading three words. Here the
+/// same choice is three picture tiles: a miniature of what the app will look
+/// like, with a ring around the active one (Conductor reference,
 /// `.scratch/onboarding-redesign/reference-conductor/SCR-20260804-kayx.png`).
 ///
 /// The selection writes straight to [settingsProvider] and takes effect
@@ -33,8 +32,8 @@ Key appearanceThemeSwatchKey(ThemeMode mode) =>
 /// the whole point of showing it full-size. There is nothing to confirm, so
 /// the page stays walkable without any input.
 ///
-/// The recording-duration note that used to sit here moved to the Model &
-/// Hotkey page: it explains when a recording stops by itself, which belongs
+/// The recording-duration note that used to sit here moved to the Model
+/// page: it explains when a recording stops by itself, which belongs
 /// next to the control that starts one, not next to the theme.
 class AppearanceStep extends ConsumerWidget {
   const AppearanceStep({super.key});
@@ -56,57 +55,39 @@ class AppearanceStep extends ConsumerWidget {
           );
     }
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        OnboardingPageHeading(
-          title: l10n.onboardingAppearanceTitle,
-          subtitle: l10n.onboardingAppearanceDescription,
-        ),
-        const SizedBox(height: WpSpacing.xxl),
-        // The sparsest of the fill pages after page 5: heading plus one row
-        // of tiles, 259 px left over. Slightly more of it above the tiles
-        // than below, so the row sits just under the optical centre of the
-        // area the heading leaves — a choice made by looking wants the thing
-        // to look at in the middle of the page, not pinned under the title.
-        const OnboardingFlexGap(flex: 6),
-        Align(
-          alignment: AlignmentDirectional.centerStart,
-          child: Wrap(
-            key: kAppearanceThemeSelectorKey,
-            spacing: WpSpacing.lg,
-            runSpacing: WpSpacing.lg,
-            children: [
-              // loam-ignore: a11y-interactive-semantics – semantics provided in _ThemeSwatch.build
-              _ThemeSwatch(
-                key: appearanceThemeSwatchKey(ThemeMode.light),
-                mode: ThemeMode.light,
-                label: l10n.onboardingThemeLight,
-                active: themeMode == ThemeMode.light,
-                onTap: () => selectThemeMode(ThemeMode.light),
-              ),
-              // loam-ignore: a11y-interactive-semantics – semantics provided in _ThemeSwatch.build
-              _ThemeSwatch(
-                key: appearanceThemeSwatchKey(ThemeMode.dark),
-                mode: ThemeMode.dark,
-                label: l10n.onboardingThemeDark,
-                active: themeMode == ThemeMode.dark,
-                onTap: () => selectThemeMode(ThemeMode.dark),
-              ),
-              // loam-ignore: a11y-interactive-semantics – semantics provided in _ThemeSwatch.build
-              _ThemeSwatch(
-                key: appearanceThemeSwatchKey(ThemeMode.system),
-                mode: ThemeMode.system,
-                label: l10n.onboardingThemeSystem,
-                active: themeMode == ThemeMode.system,
-                onTap: () => selectThemeMode(ThemeMode.system),
-              ),
-            ],
+    return Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: Wrap(
+        key: kAppearanceThemeSelectorKey,
+        spacing: WpSpacing.lg,
+        runSpacing: WpSpacing.lg,
+        children: [
+          // loam-ignore: a11y-interactive-semantics – semantics provided in _ThemeSwatch.build
+          _ThemeSwatch(
+            key: appearanceThemeSwatchKey(ThemeMode.light),
+            mode: ThemeMode.light,
+            label: l10n.onboardingThemeLight,
+            active: themeMode == ThemeMode.light,
+            onTap: () => selectThemeMode(ThemeMode.light),
           ),
-        ),
-        const OnboardingFlexGap(flex: 5),
-      ],
+          // loam-ignore: a11y-interactive-semantics – semantics provided in _ThemeSwatch.build
+          _ThemeSwatch(
+            key: appearanceThemeSwatchKey(ThemeMode.dark),
+            mode: ThemeMode.dark,
+            label: l10n.onboardingThemeDark,
+            active: themeMode == ThemeMode.dark,
+            onTap: () => selectThemeMode(ThemeMode.dark),
+          ),
+          // loam-ignore: a11y-interactive-semantics – semantics provided in _ThemeSwatch.build
+          _ThemeSwatch(
+            key: appearanceThemeSwatchKey(ThemeMode.system),
+            mode: ThemeMode.system,
+            label: l10n.onboardingThemeSystem,
+            active: themeMode == ThemeMode.system,
+            onTap: () => selectThemeMode(ThemeMode.system),
+          ),
+        ],
+      ),
     );
   }
 }
