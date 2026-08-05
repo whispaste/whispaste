@@ -50,7 +50,7 @@ class PrivacyStep extends ConsumerWidget {
       // card plus an inline divider made two quiet rows read as one packed
       // box. Whitespace separates them now, as in the reference.
       //
-      // The pair is one body block, so this page's ~206 px of spare height
+      // The pair is one body block, so this page's 248 px of spare height
       // (511-px content area) goes above and below it, never between the
       // two rows: they are separate decisions but the same kind of
       // decision, and a gap as wide as the one under the heading would stop
