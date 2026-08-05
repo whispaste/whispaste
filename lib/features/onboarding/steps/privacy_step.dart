@@ -38,58 +38,51 @@ class PrivacyStep extends ConsumerWidget {
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
     final l10n = L10n.of(context);
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        OnboardingPageHeading(
-          title: l10n.onboardingPrivacyTitle,
-          subtitle: l10n.onboardingPrivacyHint,
-        ),
-        const SizedBox(height: WpSpacing.xxl),
+    return OnboardingPage(
+      header: OnboardingPageHeading(
+        title: l10n.onboardingPrivacyTitle,
+        subtitle: l10n.onboardingPrivacyHint,
+      ),
 
-        // Opt-out toggles — same SettingRow + switch as Settings → Privacy.
-        // Two separate consents (analytics vs. crash reports), each its own
-        // toggle, each on by default. Deliberately frameless: the surrounding
-        // card plus an inline divider made two quiet rows read as one packed
-        // box. Whitespace separates them now, as in the reference.
-        //
-        // The pair is one body block, so this page's ~206 px of spare height
-        // (511-px content area) goes above and below it, never between the
-        // two rows: they are separate decisions but the same kind of
-        // decision, and a gap as wide as the one under the heading would stop
-        // them reading as a pair. See [OnboardingPageBody].
-        OnboardingPageBody(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SettingRow(
-                icon: LucideIcons.barChart3,
-                label: l10n.onboardingPrivacyToggle,
-                subtitle: l10n.onboardingPrivacyToggleHint,
-                semanticToggledValue: settings.privacy.shareUsageStats,
-                trailing: settingsToggle(
-                  value: settings.privacy.shareUsageStats,
-                  onChanged: (v) => _setUsageStatsConsent(ref, v),
-                ),
-              ),
-              const SizedBox(height: WpSpacing.lg),
-              SettingRow(
-                key: kPrivacyStepCrashToggleKey,
-                icon: LucideIcons.shieldCheck,
-                label: l10n.onboardingPrivacyCrashToggle,
-                subtitle: l10n.onboardingPrivacyCrashToggleHint,
-                semanticToggledValue: settings.errorReporting,
-                trailing: settingsToggle(
-                  value: settings.errorReporting,
-                  onChanged: (v) => _setErrorReportingConsent(ref, v),
-                ),
-              ),
-            ],
+      // Opt-out toggles — same SettingRow + switch as Settings → Privacy.
+      // Two separate consents (analytics vs. crash reports), each its own
+      // toggle, each on by default. Deliberately frameless: the surrounding
+      // card plus an inline divider made two quiet rows read as one packed
+      // box. Whitespace separates them now, as in the reference.
+      //
+      // The pair is one body block, so this page's ~206 px of spare height
+      // (511-px content area) goes above and below it, never between the
+      // two rows: they are separate decisions but the same kind of
+      // decision, and a gap as wide as the one under the heading would stop
+      // them reading as a pair. See [OnboardingPageBody].
+      body: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SettingRow(
+            icon: LucideIcons.barChart3,
+            label: l10n.onboardingPrivacyToggle,
+            subtitle: l10n.onboardingPrivacyToggleHint,
+            semanticToggledValue: settings.privacy.shareUsageStats,
+            trailing: settingsToggle(
+              value: settings.privacy.shareUsageStats,
+              onChanged: (v) => _setUsageStatsConsent(ref, v),
+            ),
           ),
-        ),
-      ],
+          const SizedBox(height: WpSpacing.lg),
+          SettingRow(
+            key: kPrivacyStepCrashToggleKey,
+            icon: LucideIcons.shieldCheck,
+            label: l10n.onboardingPrivacyCrashToggle,
+            subtitle: l10n.onboardingPrivacyCrashToggleHint,
+            semanticToggledValue: settings.errorReporting,
+            trailing: settingsToggle(
+              value: settings.errorReporting,
+              onChanged: (v) => _setErrorReportingConsent(ref, v),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

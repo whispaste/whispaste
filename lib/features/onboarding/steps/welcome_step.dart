@@ -156,85 +156,79 @@ class WelcomeStep extends ConsumerWidget {
           .updateSettings((s) => s.copyWith(locale: locale));
     }
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Brand lockup — this page's header, and the only horizontally
-        // centred element on it, mirroring the reference's centred wordmark
-        // over start-aligned content. The claim reads as a quiet second line
-        // of the lockup instead of a second headline: the beat titles below
-        // already carry that message, so shouting it here is what made the
-        // page feel packed.
-        //
-        // Vertically it is fixed at the top of the page, exactly where every
-        // other page's [OnboardingPageHeading] starts. It used to float —
-        // the whole page was centred as one unit — which made the logo's
-        // height depend on how tall the showcase happened to be and put it
-        // visibly below page 2's title.
-        Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // 64 px is the wordmark's intrinsic logical height (the bundled
-              // PNG is 199×64 at 1×, with 1.5×–4× variants). Rendering at
-              // exactly that size is both the largest crisp option and a 45 %
-              // step up from the 44 px this page used before, which read as
-              // just another element rather than as the page's starting
-              // point. Going further would upscale the 2× variant Flutter
-              // picks on a Retina display and visibly soften the logo — that
-              // needs a larger source export, not a larger `height`.
-              const WpBrandWordmark(height: 64),
-              const SizedBox(height: WpSpacing.sm),
-              Text(
-                l10n.onboardingWelcome,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: WpTypography.heading,
-                  fontWeight: FontWeight.w500,
-                  color: textSecondary,
-                  height: 1.3,
-                ),
+    return OnboardingPage(
+      // Brand lockup — this page's header, and the only horizontally
+      // centred element on it, mirroring the reference's centred wordmark
+      // over start-aligned content. The claim reads as a quiet second line
+      // of the lockup instead of a second headline: the beat titles below
+      // already carry that message, so shouting it here is what made the
+      // page feel packed.
+      //
+      // Vertically it is fixed at the top of the page, exactly where every
+      // other page's [OnboardingPageHeading] starts — the same
+      // [OnboardingPage] header slot, so the two can never drift apart. It
+      // used to float — the whole page was centred as one unit — which made
+      // the logo's height depend on how tall the showcase happened to be and
+      // put it visibly below page 2's title.
+      header: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 64 px is the wordmark's intrinsic logical height (the bundled
+            // PNG is 199×64 at 1×, with 1.5×–4× variants). Rendering at
+            // exactly that size is both the largest crisp option and a 45 %
+            // step up from the 44 px this page used before, which read as
+            // just another element rather than as the page's starting
+            // point. Going further would upscale the 2× variant Flutter
+            // picks on a Retina display and visibly soften the logo — that
+            // needs a larger source export, not a larger `height`.
+            const WpBrandWordmark(height: 64),
+            const SizedBox(height: WpSpacing.sm),
+            Text(
+              l10n.onboardingWelcome,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: WpTypography.heading,
+                fontWeight: FontWeight.w500,
+                color: textSecondary,
+                height: 1.3,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-        const SizedBox(height: WpSpacing.xxl),
+      ),
 
-        // Showcase and language choice are this page's body: one block,
-        // centred in whatever height is left under the lockup.
-        OnboardingPageBody(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Three demo beats in the Conductor-style asymmetric
-              // composition: a start-aligned vertical list of titles +
-              // captions on one side, ONE large media area for the active
-              // beat on the other. Captions are rendered by Flutter (l10n,
-              // incl. RTL) — never baked into the artwork.
-              const _BeatShowcase(),
-              const SizedBox(height: WpSpacing.xl),
+      // Showcase and language choice are this page's body: one block,
+      // centred in whatever height is left under the lockup.
+      body: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Three demo beats in the Conductor-style asymmetric
+          // composition: a start-aligned vertical list of titles +
+          // captions on one side, ONE large media area for the active
+          // beat on the other. Captions are rendered by Flutter (l10n,
+          // incl. RTL) — never baked into the artwork.
+          const _BeatShowcase(),
+          const SizedBox(height: WpSpacing.xl),
 
-              // Language selector — items derived from L10n.supportedLocales
-              // so adding a new language is an ARB-only change. Rendered as a
-              // compact dropdown without flag icons (see widget docs).
-              Padding(
-                padding: const EdgeInsetsDirectional.only(
-                  start: kOnboardingContentInset,
-                ),
-                child: SizedBox(
-                  width: _kLanguageSelectorWidth,
-                  child: LanguageSelector(
-                    currentLocale: settings.locale,
-                    onChanged: selectLocale,
-                  ),
-                ),
+          // Language selector — items derived from L10n.supportedLocales
+          // so adding a new language is an ARB-only change. Rendered as a
+          // compact dropdown without flag icons (see widget docs).
+          Padding(
+            padding: const EdgeInsetsDirectional.only(
+              start: kOnboardingContentInset,
+            ),
+            child: SizedBox(
+              width: _kLanguageSelectorWidth,
+              child: LanguageSelector(
+                currentLocale: settings.locale,
+                onChanged: selectLocale,
               ),
-            ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

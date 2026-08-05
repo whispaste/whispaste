@@ -46,6 +46,29 @@ const kOnboardingNextButtonKey = Key('onboardingNavNextButton');
 /// where the button is omitted — everything below it must not shift.
 const double _kOnboardingTopBarHeight = 32;
 
+/// Air under the step counter, i.e. between the last thing on screen and the
+/// window's bottom edge — the counterpart to the empty top bar above the
+/// header.
+///
+/// Both numbers were measured at the fixed 1100×720 window and were 68 px
+/// above the header (a 48-px top-bar strip plus the scroll view's 20-px top
+/// padding) against 16 px below the counter: the page looked pinned to the
+/// bottom of a window with a dead band at the top. The fix splits the
+/// difference from both ends — the top bar dropped its own `xs` padding
+/// (48 → 32, the strip is now exactly the close button's hit target) and this
+/// gap grew from `md` to `xxl` — which lands on 52 px above and 32 px below.
+///
+/// The two moves are deliberately equal and opposite (−16 / +16), so the
+/// scroll viewport stays at exactly 551 px and every page height measured in
+/// `onboarding_overlay_test.dart` keeps its meaning. Changing one without the
+/// other is what would silently make a page scroll.
+///
+/// Not 1 : 1: the top gap is empty, while these 32 px sit under a three-row
+/// footer stack (nav row, dots, counter) that already carries visual weight —
+/// a reading start wants more air above it than trailing meta-text wants
+/// below it.
+const double _kOnboardingBottomGap = WpSpacing.xxl;
+
 /// Identifier for each page of the first-run onboarding flow.
 ///
 /// Seven pages on macOS and Windows, six on Linux: [autoPaste] is the one
@@ -389,24 +412,26 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
     final hasConflict =
         ref.watch(hotkeyRegistrationStatusProvider) ==
         HotkeyRegistrationStatus.conflict;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        OnboardingPageHeading(
-          title: l10n.onboardingTriggerTitle,
-          // Title only while a conflict is on screen. The warn box below
-          // states the problem and the remedy, so the generic explainer would
-          // be the page's third voice — and dropping it, together with the
-          // tighter gap under it, is what buys the conflict branch (warn box
-          // plus a full inline recorder) the room to fit the fixed window
-          // instead of scrolling. Measured, see the fixed-window group in
-          // `onboarding_overlay_test.dart`.
-          subtitle: hasConflict ? null : l10n.onboardingTriggerSubtitle,
-        ),
-        SizedBox(height: hasConflict ? WpSpacing.sm : WpSpacing.lg),
-        const OnboardingPageBody(child: TriggerStep()),
-      ],
+    return OnboardingPage(
+      header: OnboardingPageHeading(
+        title: l10n.onboardingTriggerTitle,
+        // Title only while a conflict is on screen. The warn box below
+        // states the problem and the remedy, so the generic explainer would
+        // be the page's third voice — and dropping it, together with the
+        // tighter gap under it, is what buys the conflict branch (warn box
+        // plus a full inline recorder) the room to fit the fixed window
+        // instead of scrolling. Measured, see the fixed-window group in
+        // `onboarding_overlay_test.dart`.
+        subtitle: hasConflict ? null : l10n.onboardingTriggerSubtitle,
+      ),
+      // The flow's one documented deviation from [kOnboardingHeaderGap]: the
+      // conflict branch measures 539 px in German against the 551 px the
+      // fixed window offers, so the canonical 32 px gap would push it into
+      // scrolling by 20 px. 12 px is what it can afford, and the missing
+      // subtitle above it is what makes the tighter gap read as intentional
+      // rather than cramped. Re-measure German before touching either.
+      headerGap: hasConflict ? WpSpacing.sm : kOnboardingHeaderGap,
+      body: const TriggerStep(),
     );
   }
 
@@ -415,25 +440,20 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
     return switch (id) {
       OnboardingStepId.welcome => const WelcomeStep(),
       OnboardingStepId.privacy => const PrivacyStep(),
-      // Every settings-shaped page from here on follows the same shape: a
-      // fixed [OnboardingPageHeading], the minimum gap under it, and an
-      // [OnboardingPageBody] that centres everything else in the height
-      // that is left. The page owns the heading and that gap, the step widget
-      // owns only its own content. That keeps the step widgets bare-mountable
-      // in their own tests, and it is why none of them carries a title of its
-      // own any more — a page heading plus a near-identical section label
-      // directly under it was the same string twice at two sizes.
-      OnboardingStepId.model => Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          OnboardingPageHeading(
-            title: l10n.onboardingModelTitle,
-            subtitle: l10n.onboardingModelSubtitle,
-          ),
-          const SizedBox(height: WpSpacing.lg),
-          const OnboardingPageBody(child: ModelStep()),
-        ],
+      // Every settings-shaped page from here on is one [OnboardingPage]: a
+      // fixed [OnboardingPageHeading], [kOnboardingHeaderGap] under it, and a
+      // body centred in the height that is left. The page owns the heading and
+      // that gap, the step widget owns only its own content. That keeps the
+      // step widgets bare-mountable in their own tests, and it is why none of
+      // them carries a title of its own any more — a page heading plus a
+      // near-identical section label directly under it was the same string
+      // twice at two sizes.
+      OnboardingStepId.model => OnboardingPage(
+        header: OnboardingPageHeading(
+          title: l10n.onboardingModelTitle,
+          subtitle: l10n.onboardingModelSubtitle,
+        ),
+        body: const ModelStep(),
       ),
       OnboardingStepId.hotkey => _buildHotkeyPage(l10n),
       // Theme choice and autostart under one heading: both answer "how does
@@ -442,39 +462,30 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
       // a second, unrelated screen glued below the tiles — it needs no
       // section label of its own, since its own label and subtitle already
       // say what it is.
-      OnboardingStepId.appearance => Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          OnboardingPageHeading(
-            title: l10n.onboardingAppearancePageTitle,
-            subtitle: l10n.onboardingAppearancePageSubtitle,
-          ),
-          const SizedBox(height: WpSpacing.xl),
-          const OnboardingPageBody(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                AppearanceStep(),
-                SizedBox(height: WpSpacing.xl),
-                OnboardingAutostartToggle(),
-              ],
-            ),
-          ),
-        ],
+      OnboardingStepId.appearance => OnboardingPage(
+        header: OnboardingPageHeading(
+          title: l10n.onboardingAppearancePageTitle,
+          subtitle: l10n.onboardingAppearancePageSubtitle,
+        ),
+        // The one page whose body has an internal gap: `xl` between the theme
+        // tiles and the autostart row, deliberately one step under the header
+        // gap so the two halves still read as one page.
+        body: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AppearanceStep(),
+            SizedBox(height: WpSpacing.xl),
+            OnboardingAutostartToggle(),
+          ],
+        ),
       ),
-      OnboardingStepId.autoPaste => Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          OnboardingPageHeading(
-            title: l10n.onboardingPasteTitle,
-            subtitle: l10n.onboardingPasteSubtitle,
-          ),
-          const SizedBox(height: WpSpacing.lg),
-          const OnboardingPageBody(child: AutoPasteStep()),
-        ],
+      OnboardingStepId.autoPaste => OnboardingPage(
+        header: OnboardingPageHeading(
+          title: l10n.onboardingPasteTitle,
+          subtitle: l10n.onboardingPasteSubtitle,
+        ),
+        body: const AutoPasteStep(),
       ),
       // Two columns, not a stack: as one column the page measured 739 px of
       // content against a 551-px viewport (188 px of forced scrolling in the
@@ -590,10 +601,12 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
                 behavior: HitTestBehavior.translucent,
                 onPanStart: (_) => windowManager.startDragging(),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: WpSpacing.sm,
-                    vertical: WpSpacing.xs,
-                  ),
+                  // Horizontal only. The strip's own vertical padding used to
+                  // add 16 px to a band that is empty on macOS and carries a
+                  // single 32-px icon button elsewhere, which is what pushed
+                  // every page's header 68 px down the window — see
+                  // [_kOnboardingBottomGap].
+                  padding: const EdgeInsets.symmetric(horizontal: WpSpacing.sm),
                   child: SizedBox(
                     height: _kOnboardingTopBarHeight,
                     child: Row(
@@ -747,7 +760,7 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
                   color: textMuted,
                 ),
               ),
-              const SizedBox(height: WpSpacing.md),
+              const SizedBox(height: _kOnboardingBottomGap),
             ],
           ),
         ),

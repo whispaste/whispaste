@@ -9,23 +9,89 @@
 /// — makes the header land at a different height on every page, because its
 /// position then depends on how tall the rest of the page happens to be.
 ///
-/// So every page is exactly two parts:
+/// So every page is exactly two parts — a header and a body — and
+/// [OnboardingPage] is the one place that assembles them:
 ///
 /// ```dart
-/// Column(children: [
-///   OnboardingPageHeading(...),          // fixed, same y on every page
-///   SizedBox(height: WpSpacing.lg),      // the minimum gap under it
-///   OnboardingPageBody(child: ...),      // everything else, centred as one
-/// ])
+/// OnboardingPage(
+///   header: OnboardingPageHeading(title: ..., subtitle: ...),
+///   body: const ModelStep(),
+/// )
 /// ```
 ///
 /// [OnboardingPageFill] stretches the page to the height the viewport actually
-/// offers, and [OnboardingPageBody] takes the leftover height and centres the
-/// body inside it. The header stays at the top, the shell's navigation row
-/// stays at the bottom, and only the space around the body breathes.
+/// offers, and [OnboardingPageBody] — which [OnboardingPage] wraps the body in
+/// for you — takes the leftover height and centres the body inside it. The
+/// header stays at the top, the shell's navigation row stays at the bottom,
+/// and only the space around the body breathes.
 library;
 
 import 'package:flutter/material.dart';
+
+import '../../../core/theme/tokens.dart';
+
+/// The one gap between a page's header and its body.
+///
+/// Every page used to pick its own (`lg` on three pages, `xl` on one, `xxl` on
+/// two), which is how the flow ended up with six different header rhythms for
+/// one repeated composition. `xxl` is the value of the two pages designed last
+/// (Welcome, Privacy) and the only one of the three that stays clearly above
+/// the `lg`/`xl` gaps used *inside* a body — a header gap that measures the
+/// same as the gap between two setting rows stops reading as a header gap.
+///
+/// Pages that fill the viewport pay nothing for the larger value: the extra
+/// height comes out of the slack [OnboardingPageBody] would otherwise have
+/// centred with. Only [OnboardingPage.headerGap] may deviate, and only with a
+/// stated reason — see its one caller in `onboarding_overlay.dart`.
+const double kOnboardingHeaderGap = WpSpacing.xxl;
+
+/// One onboarding page: a fixed header, [kOnboardingHeaderGap] under it, and
+/// everything else centred in the height that is left.
+///
+/// Six of the seven pages are this and nothing else, so they say so rather
+/// than each re-writing the same `Column`. The page owns the header and the
+/// gap; the step widget owns only its own content, which is what keeps the
+/// step widgets bare-mountable in their own tests.
+///
+/// The exception is `OnboardingStepId.tryAndGo`, which is not a header over a
+/// body but two side-by-side columns of unequal height — see `_fillsViewport`
+/// in `onboarding_overlay.dart`.
+class OnboardingPage extends StatelessWidget {
+  const OnboardingPage({
+    super.key,
+    required this.header,
+    required this.body,
+    this.headerGap = kOnboardingHeaderGap,
+  });
+
+  /// The page's fixed reading start — an `OnboardingPageHeading` on every page
+  /// but Welcome, whose brand lockup plays that role.
+  final Widget header;
+
+  /// Everything under the header, centred as ONE block in the leftover height
+  /// (see [OnboardingPageBody]) rather than distributed over hand-weighted
+  /// gaps.
+  final Widget body;
+
+  /// Deviation from [kOnboardingHeaderGap]. Document the reason at the call
+  /// site; there is currently exactly one (the hotkey page's confirmed-
+  /// conflict branch, which has 12 px of slack in German and cannot afford
+  /// the canonical gap).
+  final double headerGap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        header,
+        SizedBox(height: headerGap),
+        OnboardingPageBody(child: body),
+      ],
+    );
+  }
+}
 
 /// Stretches [child] to [availableHeight] when the page is shorter than that,
 /// and marks the subtree as the place where an [OnboardingPageBody] may grow.

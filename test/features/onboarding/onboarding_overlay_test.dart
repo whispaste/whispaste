@@ -851,16 +851,26 @@ void main() {
   // page fits at all, and the ones to re-measure before adding to a page.
   //
   // Re-measured after the header-top/body-centred unification: every number
-  // below came out identical to the flex-gap layout it replaced, page 1
-  // included. That is the point — the change moved where the spare height
-  // goes, not how much of it there is.
+  // came out identical to the flex-gap layout it replaced, page 1 included.
+  // That is the point — the change moved where the spare height goes, not how
+  // much of it there is.
+  //
+  // Re-measured again after [OnboardingPage] gave the whole flow ONE header
+  // gap ([kOnboardingHeaderGap] = `xxl`) in place of the per-page `lg`/`xl`/
+  // `xxl` mix. Pages 1, 2 and 7 were already on `xxl` and did not move; the
+  // pages that were tighter grew by exactly the token step (+12 from `lg`,
+  // +8 from `xl`), which comes out of centring slack and is invisible.
+  //
+  // The 551 px itself is unchanged by the same-day chrome rebalance (top-bar
+  // strip 48 → 32 px, bottom gap 16 → 32 px): the two moves are equal and
+  // opposite by construction, see `_kOnboardingBottomGap`.
   //
   //   page 1  Welcome       529 / 529 / 529   (22 px slack)
   //   page 2  Privacy       303 / 303 / 303   (248 px distributed)
-  //   page 3  Model         378 / 378 / 365
-  //   page 4  Hotkey        210 / 210 / 210   (the sparsest page in the flow)
-  //   page 5  Appearance    372 / 393 / 372   (theme tiles + autostart row)
-  //   page 6  Auto-Paste    178 / 178 / 178   (macOS/Windows only)
+  //   page 3  Model         390 / 390 / 377
+  //   page 4  Hotkey        222 / 222 / 222   (the sparsest page in the flow)
+  //   page 5  Appearance    380 / 401 / 380   (theme tiles + autostart row)
+  //   page 6  Auto-Paste    190 / 190 / 190   (macOS/Windows only)
   //   page 7  Try & Go      529 / 492 / 492   (22 px slack — and see the
   //                                            full-transcript case in
   //                                            onboarding_flow_test)
@@ -876,10 +886,12 @@ void main() {
   //     was documented as unreachable without a flow change. This is that
   //     flow change. German keeps 12 px of slack and pays for it three ways —
   //     the page heading drops its subtitle while a conflict is up, the gap
-  //     under that heading is one step tighter, and the warn box is
-  //     vertically tighter than it is wide. Re-measure German before adding
-  //     anything to this branch; it is the binding constraint in the flow.
-  //   page 3 with a failed model download      419 / 406
+  //     under that heading is `sm` instead of [kOnboardingHeaderGap] (the
+  //     flow's one deliberate deviation: the canonical 32 px would cost this
+  //     branch 20 px it does not have), and the warn box is vertically
+  //     tighter than it is wide. Re-measure German before adding anything to
+  //     this branch; it is the binding constraint in the flow.
+  //   page 3 with a failed model download      431 / 418
   //
   // Hebrew is the tightest on the model page for a reason worth keeping in
   // mind when re-measuring: the loop seeds the *dictation* language, and
