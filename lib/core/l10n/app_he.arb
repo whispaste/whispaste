@@ -842,6 +842,7 @@
   "onboardingMicChipReady": "המיקרופון מוכן",
   "onboardingMicChipPending": "גישה למיקרופון ממתינה",
   "onboardingMicChipAction": "מיקרופון: נדרשת פעולה",
+  "onboardingSetupPageTitle": "מתכוננים",
   "onboardingModelTitle": "הגדר זיהוי דיבור",
   "onboardingModelSubtitle": "הורד את מנוע הדיבור כדי להקליט offline. הקול שלך לא עוזב את המכשיר.",
   "onboardingModelRecommended": "מומלץ למכשיר שלך",

@@ -2467,6 +2467,9 @@ class L10nEn extends L10n {
   String get onboardingMicChipAction => 'Microphone: action needed';
 
   @override
+  String get onboardingSetupPageTitle => 'Getting ready';
+
+  @override
   String get onboardingModelTitle => 'Set up speech recognition';
 
   @override

@@ -1,10 +1,16 @@
-/// Ambient microphone permission status chip (onboarding page 1).
+/// Ambient microphone permission status chip, shown beside the guided test
+/// recording on the final onboarding page.
 ///
 /// Replaces the old full-screen `MicrophoneStep` probe: this chip only
 /// answers "may WhisPaste use the microphone?" by consuming
 /// [MicPermissionNotifier] — no live audio, no waveform, no device picker
 /// (the device choice lives in Settings → Recording). The "does it actually
-/// work?" question is answered later, by the guided test recording on page 5.
+/// work?" question is answered right next to it, by the test recording.
+///
+/// It sat on page 1 until the third redesign round: a permission status has
+/// nothing to say on a page that neither records nor asks for one, and the
+/// chip put the word "microphone" in front of the user before the product
+/// had been introduced.
 ///
 /// One platform-independent vocabulary, three states:
 ///   ready (granted) / pending (unknown or requesting) / action needed
@@ -46,8 +52,9 @@ class _MicPermissionChipState extends ConsumerState<MicPermissionChip> {
     super.initState();
     // Side-effect-free status read only — never request() on appear. The OS
     // permission dialog fires either on an explicit tap or when *leaving*
-    // page 1 (shell-owned, see `_goNext` in onboarding_overlay.dart); firing
-    // it on appear would blow up the brand/demo moment with a modal.
+    // page 1 (shell-owned, see `_goNext` in onboarding_overlay.dart), long
+    // before this chip mounts; firing it on appear would drop a modal on top
+    // of the page the user is meant to record on.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (defaultTargetPlatform == TargetPlatform.linux) return;

@@ -1,9 +1,12 @@
 /// Segmented pill selector with an animated active indicator.
 ///
-/// Extracted from the onboarding Welcome step (where it used to drive the
-/// theme choice) so it stays reusable: the onboarding page 3 theme selector
-/// (Model & Hotkey & Appearance) consumes it next. Pure presentational
-/// component — items carry their own active state and tap handlers.
+/// Extracted from the onboarding Welcome step, where it used to drive the
+/// theme choice. **Currently unused**: the theme choice it was extracted for
+/// became a picture-tile selector on its own onboarding page (see
+/// `features/onboarding/steps/appearance_step.dart`), and no other caller
+/// picked this up in the meantime. Kept as-is pending a decision — delete it
+/// if nothing claims it. Pure presentational component: items carry their own
+/// active state and tap handlers.
 library;
 
 import 'package:flutter/material.dart';

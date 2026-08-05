@@ -8,6 +8,7 @@ import '../../../core/recording/recording_state.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../features/settings/settings_widgets.dart';
+import 'mic_permission_chip.dart';
 import 'onboarding_headings.dart';
 import '../../../services/recording_orchestrator.dart';
 import '../../../widgets/wp_accent_button.dart';
@@ -22,6 +23,10 @@ const kTestRecordingStepRecordButtonKey = Key('testRecordingStepRecordButton');
 @visibleForTesting
 const kTestRecordingStepMicBypassButtonKey = Key(
   'testRecordingStepMicBypassButton',
+);
+@visibleForTesting
+const kTestRecordingStepMaxDurationHintKey = Key(
+  'testRecordingStepMaxDurationHint',
 );
 
 /// Guided, optional test recording content of the final onboarding page.
@@ -129,10 +134,19 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
         ),
         const SizedBox(height: WpSpacing.lg),
 
-        // Current hotkey — reuses the shared HotkeyDisplay chip renderer.
-        // Label and key caps share one line (they are one statement, not two
-        // stacked blocks); Wrap lets the caps drop below the label instead of
-        // overflowing when the column is narrow or the translation is long.
+        // Current hotkey and microphone status — the two preconditions of the
+        // recording this page asks for, on one line. Label and key caps are
+        // one statement, not two stacked blocks; Wrap lets the caps (and the
+        // chip) drop below instead of overflowing when the column is narrow
+        // or the translation is long.
+        //
+        // The microphone chip used to live on page 1, where it announced a
+        // permission nothing on that page needed yet. Here it sits next to
+        // the button that will use it, so a "action needed" state is visible
+        // exactly when it becomes actionable. The permission itself is still
+        // requested much earlier — on leaving page 1 (see `_goNext` in
+        // onboarding_overlay.dart) — so the OS dialog never lands in the
+        // middle of this page either.
         Padding(
           padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
           child: Wrap(
@@ -152,6 +166,8 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
                 hotkeyModifiers: settings.hotkeyModifiers,
                 hotkeyKeyDisplay: settings.hotkey.hotkeyKeyDisplay,
               ),
+              // Self-gates to nothing on Linux (no Settings deep-link there).
+              const MicPermissionChip(),
             ],
           ),
         ),
@@ -239,6 +255,44 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
             style: TextStyle(fontSize: WpTypography.small, color: textMuted),
           ),
         ),
+
+        // Recording-duration note — muted, no control. It sits on this page
+        // rather than beside the hotkey settings because this is where the
+        // first recording actually happens: "recordings stop by themselves
+        // after N seconds" is advice about the button directly above it.
+        // (The Model & Hotkey page is also the one page in the flow with no
+        // room to spare — 3 px in Hebrew with this line on it.) Suppressed
+        // when the limit is 0 (= unlimited, nothing to warn about).
+        if (settings.behavior.maxRecordDuration > 0) ...[
+          const SizedBox(height: WpSpacing.xs),
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
+            child: Row(
+              key: kTestRecordingStepMaxDurationHintKey,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 1),
+                  child: Icon(LucideIcons.info, size: 14, color: textMuted),
+                ),
+                const SizedBox(width: WpSpacing.xs),
+                Expanded(
+                  child: Text(
+                    l10n.onboardingMaxRecordDurationHint(
+                      settings.behavior.maxRecordDuration,
+                      l10n.settingsRecordingSafety,
+                    ),
+                    style: TextStyle(
+                      fontSize: WpTypography.small,
+                      color: textMuted,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
 
         // Escape hatch "continue without a microphone" — deliberately
         // restrained (plain text button, never the accent gradient). Only

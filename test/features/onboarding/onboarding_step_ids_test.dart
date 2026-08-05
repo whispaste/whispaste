@@ -1,6 +1,6 @@
 /// Unit tests for [buildOnboardingStepIds] — the pure step-sequence function.
 ///
-/// The five-step flow is deliberately identical on every platform and build
+/// The six-step flow is deliberately identical on every platform and build
 /// variant: platform variance (Auto-Paste visibility) lives *inside* the
 /// Autostart & Auto-Paste page, never in the sequence. These tests assert
 /// that invariance explicitly across the injected platform/variant matrix.
@@ -22,7 +22,7 @@ const _platforms = [
 
 void main() {
   group('buildOnboardingStepIds', () {
-    test('returns exactly 5 steps on every platform and build variant', () {
+    test('returns exactly 6 steps on every platform and build variant', () {
       for (final platform in _platforms) {
         for (final autoPasteSupported in [true, false]) {
           final steps = buildOnboardingStepIds(
@@ -31,14 +31,14 @@ void main() {
           );
           expect(
             steps,
-            hasLength(5),
+            hasLength(6),
             reason: 'platform=$platform autoPasteSupported=$autoPasteSupported',
           );
         }
       }
     });
 
-    test('sequence is Welcome → Privacy → Model & Hotkey → '
+    test('sequence is Welcome → Privacy → Model & Hotkey → Appearance → '
         'Autostart & Auto-Paste → Try & Go on every platform', () {
       for (final platform in _platforms) {
         for (final autoPasteSupported in [true, false]) {
@@ -52,6 +52,7 @@ void main() {
               OnboardingStepId.welcome,
               OnboardingStepId.privacy,
               OnboardingStepId.modelAndHotkey,
+              OnboardingStepId.appearance,
               OnboardingStepId.autostartAndAutoPaste,
               OnboardingStepId.tryAndGo,
             ],
@@ -98,10 +99,10 @@ void main() {
       }
     });
 
-    test('modelAndHotkey sits immediately before autostartAndAutoPaste, '
-        'which sits immediately before tryAndGo (the guided test recording '
-        'on the final page must exercise the hotkey/mode configured on the '
-        'Model & Hotkey page, not a stale default)', () {
+    test('modelAndHotkey precedes appearance, which precedes '
+        'autostartAndAutoPaste, which precedes tryAndGo (the guided test '
+        'recording on the final page must exercise the hotkey/mode '
+        'configured on the Model & Hotkey page, not a stale default)', () {
       for (final platform in _platforms) {
         for (final autoPasteSupported in [true, false]) {
           final steps = buildOnboardingStepIds(
@@ -109,12 +110,14 @@ void main() {
             autoPasteSupported: autoPasteSupported,
           );
           final modelIndex = steps.indexOf(OnboardingStepId.modelAndHotkey);
+          final appearanceIndex = steps.indexOf(OnboardingStepId.appearance);
           final autostartIndex = steps.indexOf(
             OnboardingStepId.autostartAndAutoPaste,
           );
           final tryAndGoIndex = steps.indexOf(OnboardingStepId.tryAndGo);
 
-          expect(autostartIndex, modelIndex + 1);
+          expect(appearanceIndex, modelIndex + 1);
+          expect(autostartIndex, appearanceIndex + 1);
           expect(tryAndGoIndex, autostartIndex + 1);
         }
       }

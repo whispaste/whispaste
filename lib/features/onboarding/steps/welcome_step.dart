@@ -18,10 +18,44 @@ Key onboardingBeatTileKey(int index) => Key('onboardingBeatTile$index');
 @visibleForTesting
 Key onboardingBeatMediaKey(int index) => Key('onboardingBeatMedia$index');
 
+/// Asset path of the pre-rendered demo clip for beat [index] (0-based).
+///
+/// ## Convention (assets do not exist yet — see `assets/onboarding/README.md`)
+///
+/// ```
+/// assets/onboarding/beat_{1..3}_loop_{dark,light}.webp   // animated, ~2–3 s
+/// assets/onboarding/beat_{1..3}_still_{dark,light}.webp  // single frame
+/// ```
+///
+/// Two variants per beat, not one, because an **animated WebP cannot be
+/// paused**: the reduced-motion path ([MediaQuery.disableAnimations]) must
+/// load a genuinely static file, not the loop with its animation stopped.
+/// The `_still_` file should be the loop's first frame so the two are
+/// visually interchangeable.
+///
+/// Target size of the media surface at the fixed 1100×720 onboarding window:
+/// **[kOnboardingBeatMediaWidth] × [kOnboardingBeatMediaHeight] logical px**.
+/// Record/crop at 2× (Retina) for a crisp result; the surface renders with
+/// `BoxFit.cover`, so the aspect ratio matters more than the exact pixel
+/// count — deviating from it crops the recording's edges rather than
+/// letterboxing it.
+///
+/// Every file is optional: [_BeatMediaPlaceholder] falls back to the icon
+/// placeholder for any variant that is missing, so dark-only (or loop-only)
+/// deliveries render correctly without a code change.
+@visibleForTesting
+String onboardingBeatAssetPath({
+  required int index,
+  required bool isDark,
+  required bool still,
+}) =>
+    'assets/onboarding/beat_${index + 1}'
+    '_${still ? 'still' : 'loop'}'
+    '_${isDark ? 'dark' : 'light'}.webp';
+
 /// Start inset that lines page-1 controls up with the beat *text* rather than
 /// with the edge of the beat highlight, which bleeds outward by exactly this
-/// much (the tile's horizontal padding). The shell reuses it for the
-/// microphone chip it appends after this widget.
+/// much (the tile's horizontal padding).
 const double kOnboardingContentInset = WpSpacing.md;
 
 /// Width of the language dropdown. [LanguageSelector] runs `isExpanded:
@@ -29,6 +63,58 @@ const double kOnboardingContentInset = WpSpacing.md;
 /// page-1 frame — a full-width control for a three-item choice is exactly
 /// the boxiness this page is trying to lose.
 const double _kLanguageSelectorWidth = 240;
+
+// ---------------------------------------------------------------------------
+// Page-1 geometry — derived, not guessed.
+//
+// The Conductor reference (`reference-conductor/SCR-20260804-kans.png`) puts
+// the media panel at 599 of 1468 px = 40.8 % of the window width and the text
+// column at 558 px = 38 %, i.e. media is the *wider* of the two. Everything
+// below reproduces that ratio against WhisPaste's fixed 1100×720 onboarding
+// window, so all four numbers move together when one of them changes.
+// ---------------------------------------------------------------------------
+
+/// Content frame of page 1, wider than the 720 the settings-shaped pages use.
+///
+/// Lives here rather than in the shell because [kOnboardingBeatMediaWidth] is
+/// derived from it — splitting the two invites silent drift in the asset
+/// dimensions the maintainer records against.
+const double kOnboardingWelcomeFrameWidth = 860;
+
+/// Gap between the beat text column and the media panel.
+const double _kBeatColumnGap = WpSpacing.xxl;
+
+/// Flex ratio of media : text. The reference sits at 1.07 : 1; 5 : 4 (1.25 : 1)
+/// is deliberately a touch more asymmetric so the media panel reads as the
+/// page's subject rather than as an equal partner of the text.
+const int _kBeatMediaFlex = 5;
+const int _kBeatTextFlex = 4;
+
+/// Rendered width of the media surface: `(860 − 32) × 5/9 = 460` logical px,
+/// i.e. 41.8 % of the 1100-px window — within a percentage point of the
+/// reference's 40.8 %. The text column takes the remaining 368 px (33.5 %).
+const double kOnboardingBeatMediaWidth =
+    (kOnboardingWelcomeFrameWidth - _kBeatColumnGap) *
+    _kBeatMediaFlex /
+    (_kBeatMediaFlex + _kBeatTextFlex);
+
+/// Rendered height of the media surface — the number that had to be *taken*
+/// rather than derived.
+///
+/// Measured at the fixed 1100×720 window with real Inter metrics: the page
+/// content viewport is 551 px, and everything around the showcase (wordmark
+/// lockup, gaps, language selector, scroll padding) costs 241 px in both
+/// German and Hebrew — so ~310 px is the ceiling. 288 takes all but 22 px of
+/// that, and lands the panel on 460 × 288 = **16 : 10**, a ratio a screen
+/// recording can be cropped to without arithmetic. The old
+/// `AspectRatio(16/9)`-inside-`Expanded` construction measured ~191 px here:
+/// it let the short text column dictate the row height and left the page's
+/// lower third empty.
+///
+/// The row still sizes itself normally: if an accessibility text scale makes
+/// the beat list taller than this, the row grows and the panel stays centred
+/// — this is the panel's height, never a cap on the page.
+const double kOnboardingBeatMediaHeight = 288;
 
 /// Welcome content of onboarding page 1 — wordmark, three demo beats and the
 /// language selection.
@@ -43,12 +129,12 @@ const double _kLanguageSelectorWidth = 240;
 ///
 /// The language choice acts immediately on the whole UI and pre-seeds the
 /// recognition language (and thus the engine recommendation on page 3) —
-/// existing behaviour, unchanged. The theme choice deliberately does NOT
-/// live here anymore: it moved to page 3, because the pre-rendered demo
-/// loops cannot follow a live theme switch (see the extracted
-/// `WpSegmentedSelector` in `lib/widgets/wp_segmented_selector.dart`, which
-/// page 3 reuses for it). Content only — navigation (Back/Next) is owned by
-/// the onboarding shell, so this widget renders no CTA of its own.
+/// existing behaviour, unchanged. Two things deliberately do NOT live here:
+/// the theme choice (page 4 — the pre-rendered demo clips cannot follow a
+/// live theme switch) and any microphone affordance (page 6, where the
+/// microphone is first used; the permission request itself still fires when
+/// the user leaves this page). Content only — navigation (Back/Next) is
+/// owned by the onboarding shell, so this widget renders no CTA of its own.
 class WelcomeStep extends ConsumerWidget {
   const WelcomeStep({super.key});
 
@@ -82,7 +168,15 @@ class WelcomeStep extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const WpBrandWordmark(height: 44),
+              // 64 px is the wordmark's intrinsic logical height (the bundled
+              // PNG is 199×64 at 1×, with 1.5×–4× variants). Rendering at
+              // exactly that size is both the largest crisp option and a 45 %
+              // step up from the 44 px this page used before, which read as
+              // just another element rather than as the page's starting
+              // point. Going further would upscale the 2× variant Flutter
+              // picks on a Retina display and visibly soften the logo — that
+              // needs a larger source export, not a larger `height`.
+              const WpBrandWordmark(height: 64),
               const SizedBox(height: WpSpacing.sm),
               Text(
                 l10n.onboardingWelcome,
@@ -204,7 +298,7 @@ class _BeatShowcaseState extends State<_BeatShowcase> {
           // the controls below, so beat text and controls share one start
           // edge while the highlight reads as a surface behind them.
           Expanded(
-            flex: 5,
+            flex: _kBeatTextFlex,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -223,19 +317,26 @@ class _BeatShowcaseState extends State<_BeatShowcase> {
               ],
             ),
           ),
-          const SizedBox(width: WpSpacing.xxl),
-          // ONE large media area for the active beat. AnimatedSwitcher
-          // cross-fades between placeholders; with "Reduce Motion" the
-          // duration collapses to zero (instant swap, no movement).
+          const SizedBox(width: _kBeatColumnGap),
+          // ONE large media area for the active beat. The explicit height is
+          // what makes the panel the taller of the two columns — sizing it
+          // from an AspectRatio inside the Expanded handed the decision to
+          // whichever column happened to be taller, which was always the
+          // text. AnimatedSwitcher cross-fades between beats; with "Reduce
+          // Motion" the duration collapses to zero (instant swap).
           Expanded(
-            flex: 3,
-            child: AnimatedSwitcher(
-              duration: WpMotion.durationFor(context, WpMotion.smooth),
-              switchInCurve: WpMotion.smooth_,
-              switchOutCurve: WpMotion.smooth_,
-              child: _BeatMediaPlaceholder(
-                key: onboardingBeatMediaKey(_activeIndex),
-                icon: beats[_activeIndex].icon,
+            flex: _kBeatMediaFlex,
+            child: SizedBox(
+              height: kOnboardingBeatMediaHeight,
+              child: AnimatedSwitcher(
+                duration: WpMotion.durationFor(context, WpMotion.smooth),
+                switchInCurve: WpMotion.smooth_,
+                switchOutCurve: WpMotion.smooth_,
+                child: _BeatMediaPlaceholder(
+                  key: onboardingBeatMediaKey(_activeIndex),
+                  index: _activeIndex,
+                  icon: beats[_activeIndex].icon,
+                ),
               ),
             ),
           ),
@@ -280,49 +381,54 @@ class _BeatListTile extends StatelessWidget {
         (isDark ? WpColorsDark.surfaceVariant : WpColorsLight.surfaceVariant)
             .withValues(alpha: 0.5);
 
-    return Semantics(
-      button: true,
-      selected: active,
-      label: '$title. $caption',
-      excludeSemantics: true,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: WpRadius.borderLg,
-        child: AnimatedContainer(
-          duration: WpMotion.durationFor(context, WpMotion.fast),
-          curve: WpMotion.defaultCurve,
-          padding: const EdgeInsets.symmetric(
-            horizontal: kOnboardingContentInset,
-            vertical: WpSpacing.sm,
-          ),
-          decoration: BoxDecoration(
-            color: active ? surface : Colors.transparent,
-            borderRadius: WpRadius.borderLg,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                textAlign: TextAlign.start,
-                style: TextStyle(
-                  fontSize: WpTypography.subheading,
-                  fontWeight: FontWeight.w600,
-                  color: active ? textPrimary : textSecondary,
-                  height: 1.3,
+    // MergeSemantics + a plain Semantics wrapper, not
+    // `Semantics(excludeSemantics: true)`: excluding the subtree also discards
+    // the InkWell's tap and focus actions, which would leave a screen reader
+    // announcing a selectable button it has no way to activate. The two Texts
+    // below supply the label instead of a hand-assembled string.
+    return MergeSemantics(
+      child: Semantics(
+        button: true,
+        selected: active,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: WpRadius.borderLg,
+          child: AnimatedContainer(
+            duration: WpMotion.durationFor(context, WpMotion.fast),
+            curve: WpMotion.defaultCurve,
+            padding: const EdgeInsets.symmetric(
+              horizontal: kOnboardingContentInset,
+              vertical: WpSpacing.sm,
+            ),
+            decoration: BoxDecoration(
+              color: active ? surface : Colors.transparent,
+              borderRadius: WpRadius.borderLg,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  textAlign: TextAlign.start,
+                  style: TextStyle(
+                    fontSize: WpTypography.subheading,
+                    fontWeight: FontWeight.w600,
+                    color: active ? textPrimary : textSecondary,
+                    height: 1.3,
+                  ),
                 ),
-              ),
-              const SizedBox(height: WpSpacing.xxs),
-              Text(
-                caption,
-                textAlign: TextAlign.start,
-                style: TextStyle(
-                  fontSize: WpTypography.small,
-                  color: active ? textSecondary : textMuted,
-                  height: 1.4,
+                const SizedBox(height: WpSpacing.xxs),
+                Text(
+                  caption,
+                  textAlign: TextAlign.start,
+                  style: TextStyle(
+                    fontSize: WpTypography.small,
+                    color: active ? textSecondary : textMuted,
+                    height: 1.4,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -330,18 +436,29 @@ class _BeatListTile extends StatelessWidget {
   }
 }
 
-/// Placeholder media surface — replaced 1:1 by the pre-rendered loop asset.
+/// Media surface of the active beat: the pre-rendered demo clip if it has
+/// been produced, the icon placeholder until then.
 ///
-/// The asset-production ticket swaps ONLY this widget's content for a
-/// pre-rendered animated loop (`Image.asset`, animated WebP/GIF in a
-/// light/dark variant) — the surrounding showcase structure, the l10n
-/// captions and the reduced-motion seam stay as they are:
-/// `MediaQuery.of(context).disableAnimations` (already consulted through
-/// [WpMotion.durationFor] for fade-in and cross-fade) is the switch that
-/// must then show a still frame instead of the loop.
+/// The switch between the two is [Image.errorBuilder], not a feature flag —
+/// dropping `beat_1_loop_dark.webp` into `assets/onboarding/` is the entire
+/// activation step for that one variant, and every variant that is still
+/// missing keeps showing the placeholder independently. See
+/// [onboardingBeatAssetPath] for the naming convention and the target pixel
+/// dimensions.
+///
+/// Reduced motion is honoured by loading a *different file* rather than by
+/// pausing playback: animated WebP has no pause control, so
+/// [MediaQuery.disableAnimations] selects the `_still_` variant. This is the
+/// same accessibility flag [WpMotion.durationFor] already consults for the
+/// fade-in and the cross-fade, so the whole page respects one switch.
 class _BeatMediaPlaceholder extends StatelessWidget {
-  const _BeatMediaPlaceholder({super.key, required this.icon});
+  const _BeatMediaPlaceholder({
+    super.key,
+    required this.index,
+    required this.icon,
+  });
 
+  final int index;
   final IconData icon;
 
   @override
@@ -352,25 +469,36 @@ class _BeatMediaPlaceholder extends StatelessWidget {
             .withValues(alpha: 0.5);
     final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
 
-    return AspectRatio(
-      // 16:9 — the single large media area (the old three-up tiles used a
-      // flatter 21:9 to fit three in a row; one big area affords more
-      // height while still fitting the fixed 1100×720 onboarding window).
-      aspectRatio: 16 / 9,
-      child: DecoratedBox(
-        // Borderless, like the reference's screenshot panel: the loop asset
-        // that replaces this placeholder brings its own edges, and an outline
-        // around a still-empty surface only makes the page read as boxes.
-        decoration: BoxDecoration(
-          color: surface,
-          borderRadius: WpRadius.borderLg,
-        ),
-        child: Center(
-          child: Icon(
-            icon,
-            size: WpIconSize.xxl,
-            color: accent.withValues(alpha: 0.55),
+    final placeholder = Center(
+      child: Icon(
+        icon,
+        size: WpIconSize.xxl,
+        color: accent.withValues(alpha: 0.55),
+      ),
+    );
+
+    return DecoratedBox(
+      // Borderless, like the reference's screenshot panel: the clip brings
+      // its own edges, and an outline around a still-empty surface only makes
+      // the page read as boxes.
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: WpRadius.borderLg,
+      ),
+      child: ClipRRect(
+        borderRadius: WpRadius.borderLg,
+        child: Image.asset(
+          onboardingBeatAssetPath(
+            index: index,
+            isDark: isDark,
+            still: MediaQuery.of(context).disableAnimations,
           ),
+          // The clip is recorded to the panel's exact aspect ratio (see
+          // [onboardingBeatAssetPath]); `cover` keeps a slightly-off crop
+          // filling the surface instead of letterboxing it against the fill.
+          fit: BoxFit.cover,
+          excludeFromSemantics: true,
+          errorBuilder: (context, error, stackTrace) => placeholder,
         ),
       ),
     );

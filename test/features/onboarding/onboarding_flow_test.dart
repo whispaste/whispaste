@@ -1,4 +1,4 @@
-/// Durchgehender Onboarding-Walkthrough-Test über die fünf Seiten:
+/// Durchgehender Onboarding-Walkthrough-Test über die sechs Seiten:
 /// Willkommen → Datenschutz → Modell & Hotkey → Autostart & Auto-Paste →
 /// Ausprobieren & Los (Sequenz auf allen Plattformen identisch; hier wird
 /// der Linux-Pfad gefahren, auf dem Seite 4 nur den Autostart-Umschalter
@@ -24,14 +24,18 @@ library;
 import 'package:flutter/foundation.dart'
     show debugDefaultTargetPlatformOverride;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show FontLoader, rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart' show AsyncData;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
 
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
+import 'package:whispaste/core/platform/desktop_window_geometry.dart'
+    show kOnboardingWindowSize;
 import 'package:whispaste/features/onboarding/onboarding_flow_migration.dart';
 import 'package:whispaste/features/onboarding/onboarding_overlay.dart';
+import 'package:whispaste/features/onboarding/steps/appearance_step.dart';
 import 'package:whispaste/features/onboarding/steps/autostart_toggle.dart';
 import 'package:whispaste/features/onboarding/steps/mic_permission_chip.dart';
 import 'package:whispaste/features/onboarding/steps/model_step.dart';
@@ -217,12 +221,21 @@ void main() {
   late L10n l10n;
   setUpAll(() async {
     l10n = await L10n.delegate.load(const Locale('en'));
+    // Echte gebündelte UI-Schrift statt der Quadrat-Testschrift — die
+    // Fixed-Window-Messung unten ist sonst bedeutungslos.
+    final fontLoader = FontLoader('Inter')
+      ..addFont(rootBundle.load('assets/fonts/Inter-Regular.ttf'))
+      ..addFont(rootBundle.load('assets/fonts/Inter-Medium.ttf'))
+      ..addFont(rootBundle.load('assets/fonts/Inter-SemiBold.ttf'))
+      ..addFont(rootBundle.load('assets/fonts/Inter-Bold.ttf'));
+    await fontLoader.load();
   });
 
-  group('Onboarding Walkthrough — fünf Seiten bis zum Abschluss', () {
+  group('Onboarding Walkthrough — sechs Seiten bis zum Abschluss', () {
     testWidgets(
       'Seite 1: Willkommen (WelcomeStep) wird als erste Seite angezeigt '
-      '(1 of 5); auf Linux erscheint kein Mikrofon-Chip — er verspräche '
+      '(1 of 6); die Seite trägt gar keinen Mikrofon-Chip mehr — auf Linux '
+      'verspräche er zusätzlich '
       'eine Aktion (Settings-Deep-Link), die es dort nicht gibt',
       (tester) async {
         debugDefaultTargetPlatformOverride = TargetPlatform.linux;
@@ -231,7 +244,7 @@ void main() {
 
           expect(find.byType(WelcomeStep), findsOneWidget);
           expect(find.byType(MicPermissionChip), findsNothing);
-          expect(find.text(l10n.onboardingStepOf(1, 5)), findsOneWidget);
+          expect(find.text(l10n.onboardingStepOf(1, 6)), findsOneWidget);
           _expectExactlyTwoNavActions(tester, page: 1);
         } finally {
           debugDefaultTargetPlatformOverride = null;
@@ -239,7 +252,7 @@ void main() {
       },
     );
 
-    testWidgets('Vollständiger Durchlauf über alle fünf Seiten: '
+    testWidgets('Vollständiger Durchlauf über alle sechs Seiten: '
         'onboardingCompleted = true nach gelungener Testaufnahme und '
         '"Los geht\'s"', (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.linux;
@@ -249,34 +262,40 @@ void main() {
         // Seite 1: Willkommen (Demo-Beats + Sprachauswahl; Linux ohne Chip).
         expect(find.byType(WelcomeStep), findsOneWidget);
         expect(find.byType(MicPermissionChip), findsNothing);
-        expect(find.text(l10n.onboardingStepOf(1, 5)), findsOneWidget);
+        expect(find.text(l10n.onboardingStepOf(1, 6)), findsOneWidget);
         _expectExactlyTwoNavActions(tester, page: 1);
         await _tapNext(tester);
 
         // Seite 2: Datenschutz.
         expect(find.byType(PrivacyStep), findsOneWidget);
-        expect(find.text(l10n.onboardingStepOf(2, 5)), findsOneWidget);
+        expect(find.text(l10n.onboardingStepOf(2, 6)), findsOneWidget);
         _expectExactlyTwoNavActions(tester, page: 2);
         await _tapNext(tester);
 
         // Seite 3: Modell & Hotkey.
         expect(find.byType(ModelStep), findsOneWidget);
         expect(find.byType(TriggerStep), findsOneWidget);
-        expect(find.text(l10n.onboardingStepOf(3, 5)), findsOneWidget);
+        expect(find.text(l10n.onboardingStepOf(3, 6)), findsOneWidget);
         _expectExactlyTwoNavActions(tester, page: 3);
         await _tapNext(tester);
 
-        // Seite 4: Autostart & Auto-Paste — auf Linux nur der
-        // Autostart-Umschalter (kein Paste-Controller verdrahtet).
-        expect(find.byType(OnboardingAutostartToggle), findsOneWidget);
-        expect(find.text(l10n.onboardingStepOf(4, 5)), findsOneWidget);
+        // Seite 4: Erscheinungsbild (Theme-Auswahl, eigene Seite).
+        expect(find.byType(AppearanceStep), findsOneWidget);
+        expect(find.text(l10n.onboardingStepOf(4, 6)), findsOneWidget);
         _expectExactlyTwoNavActions(tester, page: 4);
         await _tapNext(tester);
 
-        // Seite 5: Ausprobieren & Los.
+        // Seite 5: Autostart & Auto-Paste — auf Linux nur der
+        // Autostart-Umschalter (kein Paste-Controller verdrahtet).
+        expect(find.byType(OnboardingAutostartToggle), findsOneWidget);
+        expect(find.text(l10n.onboardingStepOf(5, 6)), findsOneWidget);
+        _expectExactlyTwoNavActions(tester, page: 5);
+        await _tapNext(tester);
+
+        // Seite 6: Ausprobieren & Los.
         expect(find.byType(TestRecordingStep), findsOneWidget);
         expect(find.byType(ReadyStep), findsOneWidget);
-        expect(find.text(l10n.onboardingStepOf(5, 5)), findsOneWidget);
+        expect(find.text(l10n.onboardingStepOf(6, 6)), findsOneWidget);
         // Der Abschluss-CTA trägt das "Los geht's"-Label statt "Weiter".
         expect(find.text(l10n.onboardingStartUsing), findsOneWidget);
 
@@ -331,12 +350,12 @@ void main() {
       try {
         await _pumpOverlay(tester);
         await _tapNext(tester);
-        expect(find.text(l10n.onboardingStepOf(2, 5)), findsOneWidget);
+        expect(find.text(l10n.onboardingStepOf(2, 6)), findsOneWidget);
 
         await tester.tap(find.byKey(kOnboardingBackButtonKey));
         await tester.pumpAndSettle();
 
-        expect(find.text(l10n.onboardingStepOf(1, 5)), findsOneWidget);
+        expect(find.text(l10n.onboardingStepOf(1, 6)), findsOneWidget);
         expect(find.byType(WelcomeStep), findsOneWidget);
       } finally {
         debugDefaultTargetPlatformOverride = null;
@@ -372,13 +391,13 @@ void main() {
             hotkeyStatus: HotkeyRegistrationStatus.conflict,
             initialSettings: AppSettings.defaults.copyWithSections(
               onboarding: AppSettings.defaults.onboarding.copyWith(
-                onboardingCurrentStep: 4,
+                onboardingCurrentStep: 5,
                 onboardingFlowVersion: kOnboardingFlowVersion,
               ),
             ),
           );
 
-          expect(find.text(l10n.onboardingStepOf(5, 5)), findsOneWidget);
+          expect(find.text(l10n.onboardingStepOf(6, 6)), findsOneWidget);
           expect(
             find.text(l10n.onboardingTriggerHotkeyConflictTitle),
             findsWidgets,
@@ -410,13 +429,13 @@ void main() {
             tester,
             initialSettings: AppSettings.defaults.copyWithSections(
               onboarding: AppSettings.defaults.onboarding.copyWith(
-                onboardingCurrentStep: 4,
+                onboardingCurrentStep: 5,
                 onboardingFlowVersion: kOnboardingFlowVersion,
               ),
             ),
           );
 
-          expect(find.text(l10n.onboardingStepOf(5, 5)), findsOneWidget);
+          expect(find.text(l10n.onboardingStepOf(6, 6)), findsOneWidget);
           // Ohne Testaufnahme: CTA deaktiviert, Grund benannt.
           expect(
             tester
@@ -467,7 +486,7 @@ void main() {
           hotkeyStatus: HotkeyRegistrationStatus.conflict,
           initialSettings: AppSettings.defaults.copyWithSections(
             onboarding: AppSettings.defaults.onboarding.copyWith(
-              onboardingCurrentStep: 4,
+              onboardingCurrentStep: 5,
               onboardingFlowVersion: kOnboardingFlowVersion,
             ),
           ),
@@ -514,7 +533,7 @@ void main() {
         );
 
         expect(find.byType(ModelStep), findsOneWidget);
-        expect(find.text(l10n.onboardingStepOf(3, 5)), findsOneWidget);
+        expect(find.text(l10n.onboardingStepOf(3, 6)), findsOneWidget);
         expect(find.byType(WelcomeStep), findsNothing);
         // Keine erneute Übersetzung: Position bleibt unangetastet.
         expect(settings.state.value!.onboarding.onboardingCurrentStep, 2);
@@ -543,7 +562,7 @@ void main() {
 
           expect(find.byType(ModelStep), findsOneWidget);
           expect(find.byType(TriggerStep), findsOneWidget);
-          expect(find.text(l10n.onboardingStepOf(3, 5)), findsOneWidget);
+          expect(find.text(l10n.onboardingStepOf(3, 6)), findsOneWidget);
 
           final onboarding = settings.state.value!.onboarding;
           expect(
@@ -580,7 +599,7 @@ void main() {
           );
 
           expect(find.byType(WelcomeStep), findsOneWidget);
-          expect(find.text(l10n.onboardingStepOf(1, 5)), findsOneWidget);
+          expect(find.text(l10n.onboardingStepOf(1, 6)), findsOneWidget);
           expect(settings.state.value!.onboarding.onboardingCurrentStep, 0);
           expect(
             settings.state.value!.onboarding.onboardingFlowVersion,
@@ -620,5 +639,65 @@ void main() {
         }
       },
     );
+  });
+
+  // Die teuerste Ausprägung der letzten Seite: ein Transkript, das das
+  // Sandbox-Feld bis an sein Zeilen-Limit füllt. Die Fixed-Window-Gruppe in
+  // `onboarding_overlay_test.dart` misst nur den Ausgangszustand — hier
+  // braucht es den Fake-Orchestrator, um überhaupt ein Transkript zu liefern.
+  group('Letzte Seite im festen Fenster (1100x720) mit vollem Transkript', () {
+    testWidgets('scrollt auch dann nicht, wenn das Sandbox-Feld sein '
+        'Zeilen-Limit ausschöpft und der Erfolgs-Block erscheint', (
+      tester,
+    ) async {
+      tester.view.physicalSize = kOnboardingWindowSize;
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        final (settings: _, :orchestrator) = await _pumpOverlay(
+          tester,
+          initialSettings: AppSettings.defaults.copyWithSections(
+            onboarding: AppSettings.defaults.onboarding.copyWith(
+              onboardingCurrentStep: 5,
+              onboardingFlowVersion: kOnboardingFlowVersion,
+            ),
+          ),
+        );
+
+        expect(find.byType(TestRecordingStep), findsOneWidget);
+        orchestrator.sandboxTranscriptSink!(
+          'Dies ist ein bewusst langes Diktat, das das Sandbox-Feld bis an '
+          'sein Zeilenlimit fuellt, damit die Hoehenmessung den teuersten '
+          'Zustand dieser Seite trifft und nicht den leeren Platzhalter. '
+          'Es laeuft ueber mehrere Zeilen und wird danach abgeschnitten, '
+          'weil das Feld ein Nachweis ist und kein Transkript-Betrachter.',
+        );
+        await tester.pumpAndSettle();
+
+        final scrollable = tester.state<ScrollableState>(
+          find.byType(Scrollable).first,
+        );
+        final available = tester
+            .renderObject<RenderBox>(find.byType(SingleChildScrollView).first)
+            .constraints
+            .maxHeight;
+        final content =
+            scrollable.position.viewportDimension +
+            scrollable.position.maxScrollExtent;
+
+        expect(tester.takeException(), isNull);
+        expect(
+          content,
+          lessThanOrEqualTo(available),
+          reason:
+              'Die letzte Seite braucht mit vollem Transkript $content px '
+              'von $available px — sie wuerde scrollen.',
+        );
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
   });
 }

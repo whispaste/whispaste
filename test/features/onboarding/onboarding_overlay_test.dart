@@ -1,8 +1,8 @@
 /// Widget tests for the [OnboardingOverlay] shell.
 ///
-/// The five-step flow is identical on every platform (the platform variance
+/// The six-step flow is identical on every platform (the platform variance
 /// lives inside the Autostart & Auto-Paste page). Covered here:
-///  - step counter shows "1 of 5" on macOS, Windows and Linux alike;
+///  - step counter shows "1 of 6" on macOS, Windows and Linux alike;
 ///  - the shell-owned navigation row carries exactly two actions (Back +
 ///    Next) and no skip affordance;
 ///  - overlay dispose stops both shared pollers (paste capability + mic
@@ -29,7 +29,10 @@ import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/platform/desktop_window_geometry.dart'
     show kOnboardingWindowSize;
 import 'package:whispaste/features/onboarding/onboarding_overlay.dart';
-import 'package:whispaste/features/onboarding/steps/appearance_section.dart';
+import 'package:whispaste/features/onboarding/steps/appearance_step.dart';
+import 'package:whispaste/features/onboarding/steps/mic_permission_chip.dart';
+import 'package:whispaste/features/onboarding/steps/model_step.dart';
+import 'package:whispaste/features/onboarding/steps/trigger_step.dart';
 import 'package:whispaste/features/onboarding/steps/auto_paste_step.dart';
 import 'package:whispaste/services/paste/paste_capability_notifier.dart';
 import 'package:whispaste/services/permissions/mic_permission_notifier.dart';
@@ -123,6 +126,7 @@ Future<void> _pumpOverlay(
   _FakeSettingsNotifier? settings,
   Size size = const Size(1280, 980),
   Locale locale = const Locale('en'),
+  Brightness brightness = Brightness.dark,
   TextScaler textScaler = TextScaler.noScaling,
   // `false` for states that animate forever (the mic chip's `requesting`
   // spinner) — pumpAndSettle would time out on those.
@@ -136,6 +140,7 @@ Future<void> _pumpOverlay(
       ),
       size: size,
       locale: locale,
+      brightness: brightness,
       overrides: [
         settingsProvider.overrideWith(
           () => settings ?? _FakeSettingsNotifier(),
@@ -176,22 +181,22 @@ void main() {
     await fontLoader.load();
   });
 
-  group('OnboardingOverlay step sequence — five steps on every platform', () {
+  group('OnboardingOverlay step sequence — six steps on every platform', () {
     for (final platform in [
       TargetPlatform.linux,
       TargetPlatform.macOS,
       TargetPlatform.windows,
     ]) {
       testWidgets(
-        'on $platform: counter reflects 5 total and the first page never '
+        'on $platform: counter reflects 6 total and the first page never '
         'mounts AutoPasteStep',
         (tester) async {
           debugDefaultTargetPlatformOverride = platform;
           try {
             await _pumpOverlay(tester);
 
-            expect(find.text(l10n.onboardingStepOf(1, 5)), findsOneWidget);
-            // Auto-Paste content lives on page 4 only.
+            expect(find.text(l10n.onboardingStepOf(1, 6)), findsOneWidget);
+            // Auto-Paste content lives on page 5 only.
             expect(find.byType(AutoPasteStep), findsNothing);
           } finally {
             // Reset before the framework's foundation-vars-unset assertion.
@@ -204,7 +209,7 @@ void main() {
 
   // ── Shell-owned navigation: exactly two actions, no skip ────────────────
   //
-  // The generic "Skip this step" button was removed with the five-step flow
+  // The generic "Skip this step" button was removed with the merged flow
   // (it did the same as Next on every page). The nav row must carry exactly
   // two navigation actions; the full walkthrough proof over pages 1–4 lives
   // in onboarding_flow_test.dart, this one pins the shape on the first page.
@@ -292,7 +297,7 @@ void main() {
           await _pumpOverlay(tester, locale: locale);
 
           expect(
-            find.text(localized.onboardingStepOf(1, 5)),
+            find.text(localized.onboardingStepOf(1, 6)),
             findsOneWidget,
             reason: 'Step counter must render in ${locale.languageCode}',
           );
@@ -405,9 +410,9 @@ void main() {
       (tester) async {
         shrinkToMinimumWindow(tester);
         await _pumpOverlay(tester, size: const Size(800, 550));
-        expect(find.text(l10n.onboardingStepOf(1, 5)), findsOneWidget);
+        expect(find.text(l10n.onboardingStepOf(1, 6)), findsOneWidget);
         expect(tester.takeException(), isNull);
-        for (var page = 2; page <= 5; page++) {
+        for (var page = 2; page <= 6; page++) {
           await _tapNext(tester);
           expect(
             tester.takeException(),
@@ -428,7 +433,7 @@ void main() {
         textScaler: const TextScaler.linear(1.5),
       );
       expect(tester.takeException(), isNull);
-      for (var page = 2; page <= 5; page++) {
+      for (var page = 2; page <= 6; page++) {
         await _tapNext(tester);
         expect(
           tester.takeException(),
@@ -455,7 +460,7 @@ void main() {
 
         await _tapNext(tester);
 
-        expect(find.text(l10n.onboardingStepOf(2, 5)), findsOneWidget);
+        expect(find.text(l10n.onboardingStepOf(2, 6)), findsOneWidget);
         expect(mic.requestCalls, 1);
       },
     );
@@ -466,22 +471,40 @@ void main() {
       MicPermissionStatus.denied,
     ]) {
       testWidgets(
-        'status $status: leaving page 1 fires nothing — the user already '
-        'acted (or is done), a second call would be pointless',
+        'status $status: leaving page 1 fires nothing — something already '
+        'resolved the permission (the startup gate, or the chip on the last '
+        'page during an earlier pass), so a second call is pointless',
         (tester) async {
           final mic = _RecordingMicPermissionNotifier(status);
-          // No settling: `requesting` renders an endless spinner on page 1.
-          await _pumpOverlay(tester, mic: mic, settle: false);
+          await _pumpOverlay(tester, mic: mic);
 
-          // _tapNext's pumpAndSettle is safe again — after the transition
-          // the chip (and its spinner) has left the tree.
           await _tapNext(tester);
 
-          expect(find.text(l10n.onboardingStepOf(2, 5)), findsOneWidget);
+          expect(find.text(l10n.onboardingStepOf(2, 6)), findsOneWidget);
           expect(mic.requestCalls, 0);
         },
       );
     }
+
+    testWidgets(
+      'page 1 shows no microphone affordance at all — the request is silent '
+      'and the visible status lives on the last page, next to the recording '
+      'that needs it',
+      (tester) async {
+        await _pumpOverlay(tester, mic: _RecordingMicPermissionNotifier());
+
+        expect(find.byType(MicPermissionChip), findsNothing);
+
+        for (var page = 2; page <= 6; page++) {
+          await _tapNext(tester);
+          expect(
+            find.byType(MicPermissionChip),
+            page == 6 ? findsOneWidget : findsNothing,
+            reason: 'unexpected chip presence on page $page',
+          );
+        }
+      },
+    );
 
     testWidgets('leaving any later page never fires request()', (tester) async {
       final mic = _RecordingMicPermissionNotifier();
@@ -499,11 +522,114 @@ void main() {
     });
   });
 
-  // ── Fixed onboarding window size — no scrolling on page 1 ───────────────
+  // ── Fixed onboarding window size — no page may scroll ───────────────────
+  //
+  // The onboarding window is pinned to 1100×720 (kOnboardingWindowSize), which
+  // leaves a 551-px content viewport. Every page has to fit inside it: there
+  // is no way for the user to make the window bigger, so a page that scrolls
+  // is a page whose bottom half is easy to miss entirely.
+  //
+  // Measured with real Inter metrics (see setUpAll — with the square-glyph
+  // test font the numbers are meaningless), macOS, GPU-fallback notice
+  // visible, i.e. the worst case. Content height against the 551-px viewport,
+  // German / Hebrew / English:
+  //
+  //   page 1  Welcome                529 / 529 / 529   (22 px slack)
+  //   page 2  Privacy                345 / 345 / 324
+  //   page 3  Model & Hotkey         500 / 524 / 500   (27 px slack in
+  //                                                     Hebrew, the tightest)
+  //   page 4  Appearance             292 / 292 / 292
+  //   page 5  Autostart & Auto-Paste 247 / 247 / 247
+  //   page 6  Try & Go               521 / 484 / 484   (30 px slack — and
+  //                                                     see the full-
+  //                                                     transcript case in
+  //                                                     onboarding_flow_test)
+  //
+  // Hebrew is the tightest on page 3 for a reason worth keeping in mind when
+  // re-measuring: the loop seeds the *dictation* language, and Hebrew is not
+  // one of the languages the Parakeet engine covers, so its card renders an
+  // extra "unsupported language" line that IntrinsicHeight applies to both
+  // engine cards. Measuring with the default dictation language would miss
+  // 24 px on this page.
+  //
+  // Known exception, pre-existing and out of scope here: page 3 in the
+  // confirmed-hotkey-conflict branch mounts a full inline recorder and does
+  // scroll (documented in trigger_step.dart).
 
   group('OnboardingOverlay — fixed window size (1100×720)', () {
-    testWidgets('page 1 (wordmark, three beats, language, mic chip) fits '
-        'kOnboardingWindowSize without scrolling on macOS (chip mounted)', (
+    /// Height the page is given, and the height it actually wants. The page
+    /// content shrink-wraps inside an [Align], so `maxScrollExtent` alone is
+    /// always 0 and proves nothing — the incoming constraint is what the
+    /// content has to fit into.
+    ({double available, double content}) measure(WidgetTester tester) {
+      final scrollable = tester.state<ScrollableState>(
+        find.byType(Scrollable).first,
+      );
+      final available = tester
+          .renderObject<RenderBox>(find.byType(SingleChildScrollView).first)
+          .constraints
+          .maxHeight;
+      return (
+        available: available,
+        content:
+            scrollable.position.viewportDimension +
+            scrollable.position.maxScrollExtent,
+      );
+    }
+
+    for (final locale in L10n.supportedLocales) {
+      for (final brightness in [Brightness.dark, Brightness.light]) {
+        testWidgets(
+          'every page fits the fixed window in ${locale.languageCode}, '
+          '${brightness.name}',
+          (tester) async {
+            tester.view.physicalSize = kOnboardingWindowSize;
+            tester.view.devicePixelRatio = 1.0;
+            addTearDown(tester.view.resetPhysicalSize);
+            addTearDown(tester.view.resetDevicePixelRatio);
+            debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+            try {
+              await _pumpOverlay(
+                tester,
+                size: kOnboardingWindowSize,
+                locale: locale,
+                brightness: brightness,
+                // Seed the *dictation* language too, not just the UI one.
+                // Page 3 reads it (`recommendEngine`) and disables the
+                // Parakeet card for a language it cannot do, which adds a
+                // reason line that IntrinsicHeight applies to BOTH engine
+                // cards. Leaving it at the default measured the cheap branch
+                // for every locale and missed exactly the case where the
+                // tightest page in the flow is at its tallest.
+                settings: _FakeSettingsNotifier(
+                  AppSettings.defaults.copyWith(locale: locale.languageCode),
+                ),
+              );
+
+              for (var page = 1; page <= 6; page++) {
+                if (page > 1) await _tapNext(tester);
+                final m = measure(tester);
+                expect(tester.takeException(), isNull);
+                expect(
+                  m.content,
+                  lessThanOrEqualTo(m.available),
+                  reason:
+                      'page $page (${locale.languageCode}, '
+                      '${brightness.name}) needs ${m.content} px of the '
+                      '${m.available} px the fixed 1100x720 window offers — '
+                      'it would scroll.',
+                );
+              }
+            } finally {
+              debugDefaultTargetPlatformOverride = null;
+            }
+          },
+        );
+      }
+    }
+
+    testWidgets('page 3 carries the model choice and the hotkey block, page 4 '
+        'the theme choice — the split that bought page 3 its heading', (
       tester,
     ) async {
       tester.view.physicalSize = kOnboardingWindowSize;
@@ -513,51 +639,19 @@ void main() {
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
       try {
         await _pumpOverlay(tester, size: kOnboardingWindowSize);
-
-        expect(tester.takeException(), isNull);
-        final scrollable = tester.state<ScrollableState>(
-          find.byType(Scrollable).first,
-        );
-        expect(
-          scrollable.position.maxScrollExtent,
-          0,
-          reason:
-              'At the fixed onboarding window size the first page must be '
-              'fully visible without scrolling.',
-        );
-      } finally {
-        debugDefaultTargetPlatformOverride = null;
-      }
-    });
-
-    testWidgets('page 3 (engine cards, hotkey block, theme choice, duration '
-        'note) fits kOnboardingWindowSize without scrolling', (tester) async {
-      tester.view.physicalSize = kOnboardingWindowSize;
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
-      try {
-        await _pumpOverlay(tester, size: kOnboardingWindowSize);
         await _tapNext(tester); // → page 2
-        await _tapNext(tester); // → page 3: Model, Hotkey & Appearance
+        await _tapNext(tester); // → page 3: Model & Hotkey
 
-        // All four blocks must be present …
-        expect(find.byKey(kAppearanceThemeSelectorKey), findsOneWidget);
-        expect(find.byKey(kAppearanceMaxDurationHintKey), findsOneWidget);
-
-        // … and visible without scrolling at the fixed window size.
-        expect(tester.takeException(), isNull);
-        final scrollable = tester.state<ScrollableState>(
-          find.byType(Scrollable).first,
-        );
+        expect(find.byKey(kModelStepEngineParakeetCardKey), findsOneWidget);
+        expect(find.byKey(kTriggerStepChangeHotkeyKey), findsOneWidget);
         expect(
-          scrollable.position.maxScrollExtent,
-          0,
-          reason:
-              'At the fixed onboarding window size the Model & Hotkey page '
-              '(all four blocks) must be fully visible without scrolling.',
+          find.byKey(kAppearanceThemeSelectorKey),
+          findsNothing,
+          reason: 'The theme choice must have left this page.',
         );
+
+        await _tapNext(tester); // → page 4: Appearance
+        expect(find.byKey(kAppearanceThemeSelectorKey), findsOneWidget);
       } finally {
         debugDefaultTargetPlatformOverride = null;
       }

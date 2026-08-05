@@ -4425,6 +4425,12 @@ abstract class L10n {
   /// **'Microphone: action needed'**
   String get onboardingMicChipAction;
 
+  /// No description provided for @onboardingSetupPageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Getting ready'**
+  String get onboardingSetupPageTitle;
+
   /// No description provided for @onboardingModelTitle.
   ///
   /// In en, this message translates to:

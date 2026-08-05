@@ -15,11 +15,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:whispaste/core/config/settings_provider.dart';
+import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/recording/recording_state.dart';
 import 'package:whispaste/features/onboarding/onboarding_completion_gate.dart';
 import 'package:whispaste/features/onboarding/steps/test_recording_step.dart';
 import 'package:whispaste/features/settings/settings_widgets.dart';
+import 'package:whispaste/features/onboarding/steps/mic_permission_chip.dart';
+import 'package:whispaste/services/permissions/mic_permission_notifier.dart';
 import 'package:whispaste/services/recording_orchestrator.dart';
 import 'package:whispaste/widgets/wp_accent_button.dart';
 
@@ -81,7 +84,10 @@ class _FakeRecordingOrchestrator extends RecordingOrchestrator {
 
 late L10n l10n;
 
-Future<_FakeRecordingOrchestrator> _pumpStep(WidgetTester tester) async {
+Future<_FakeRecordingOrchestrator> _pumpStep(
+  WidgetTester tester, {
+  AppSettings? settings,
+}) async {
   late _FakeRecordingOrchestrator captured;
   await tester.pumpWidget(
     makeTestable(
@@ -89,7 +95,12 @@ Future<_FakeRecordingOrchestrator> _pumpStep(WidgetTester tester) async {
       size: const Size(1280, 980),
       locale: const Locale('en'),
       overrides: [
-        settingsProvider.overrideWith(() => _FakeSettingsNotifier()),
+        settingsProvider.overrideWith(() => _FakeSettingsNotifier(settings)),
+        // The mic chip beside the hotkey checks its status on mount; keep
+        // that off the real audio plugin.
+        micPermissionCheckerProvider.overrideWithValue(
+          const _InertMicPermissionChecker(),
+        ),
         recordingOrchestratorProvider.overrideWith(() {
           captured = _FakeRecordingOrchestrator();
           return captured;
@@ -102,8 +113,19 @@ Future<_FakeRecordingOrchestrator> _pumpStep(WidgetTester tester) async {
 }
 
 class _FakeSettingsNotifier extends SettingsNotifier {
+  _FakeSettingsNotifier([this._settings]);
+
+  final AppSettings? _settings;
+
   @override
-  Future<AppSettings> build() async => AppSettings.defaults;
+  Future<AppSettings> build() async => _settings ?? AppSettings.defaults;
+}
+
+class _InertMicPermissionChecker implements MicPermissionChecker {
+  const _InertMicPermissionChecker();
+
+  @override
+  Future<bool> check({required bool request}) async => false;
 }
 
 void main() {
@@ -119,6 +141,11 @@ void main() {
 
       expect(find.text(l10n.onboardingTestRecordingTitle), findsOneWidget);
       expect(find.byType(HotkeyDisplay), findsOneWidget);
+      // The microphone status sits beside the hotkey, on the page that
+      // actually needs a microphone — it used to announce itself on page 1,
+      // four pages before anything could use it.
+      expect(find.byType(MicPermissionChip), findsOneWidget);
+      expect(find.text(l10n.onboardingMicChipPending), findsOneWidget);
       expect(
         find.text(l10n.onboardingTestRecordingPlaceholder),
         findsOneWidget,
@@ -353,6 +380,9 @@ void main() {
             const SizedBox.shrink(),
             overrides: [
               settingsProvider.overrideWith(() => _FakeSettingsNotifier()),
+              micPermissionCheckerProvider.overrideWithValue(
+                const _InertMicPermissionChecker(),
+              ),
               recordingOrchestratorProvider.overrideWith(
                 _FakeRecordingOrchestrator.new,
               ),
@@ -364,5 +394,61 @@ void main() {
         expect(orchestrator.sandboxTranscriptSink, isNull);
       },
     );
+  });
+
+  // Migrated from the appearance block when that became its own page: the
+  // note answers "when does a recording stop by itself", so it belongs on
+  // the page where the first recording is made.
+  group('TestRecordingStep — recording duration note', () {
+    testWidgets('shows the configured maxRecordDuration value, not a '
+        'hard-coded default', (tester) async {
+      await _pumpStep(
+        tester,
+        settings: const AppSettings(
+          behavior: BehaviorSettings(maxRecordDuration: 90),
+        ),
+      );
+
+      expect(find.byKey(kTestRecordingStepMaxDurationHintKey), findsOneWidget);
+      expect(
+        find.text(
+          l10n.onboardingMaxRecordDurationHint(
+            90,
+            l10n.settingsRecordingSafety,
+          ),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('shows 120 seconds with the untouched defaults', (
+      tester,
+    ) async {
+      await _pumpStep(tester);
+
+      expect(AppSettings.defaults.behavior.maxRecordDuration, 120);
+      expect(
+        find.text(
+          l10n.onboardingMaxRecordDurationHint(
+            120,
+            l10n.settingsRecordingSafety,
+          ),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('hides the note entirely when the limit is 0 (unlimited)', (
+      tester,
+    ) async {
+      await _pumpStep(
+        tester,
+        settings: const AppSettings(
+          behavior: BehaviorSettings(maxRecordDuration: 0),
+        ),
+      );
+
+      expect(find.byKey(kTestRecordingStepMaxDurationHintKey), findsNothing);
+    });
   });
 }

@@ -1,8 +1,8 @@
 /// Pure resume-position migration from the legacy 7/8-step onboarding flow
-/// to the current five-step flow.
+/// to the current six-step flow.
 ///
 /// The persisted `OnboardingSettings.onboardingCurrentStep` written by app
-/// versions before the five-step redesign is an index into a
+/// versions before the redesign is an index into a
 /// **platform-dependent** legacy sequence (macOS Developer-ID builds had an
 /// extra Auto-Paste step at index 3; every other variant did not). Translating
 /// that index therefore needs the same injection as the step-sequence builder
@@ -21,7 +21,7 @@ import 'package:flutter/foundation.dart' show TargetPlatform;
 /// with this value.
 const int kOnboardingFlowVersion = 1;
 
-/// Steps of the legacy (pre-five-step) onboarding flow. Kept private to this
+/// Steps of the legacy (pre-redesign) onboarding flow. Kept private to this
 /// migration — production code never renders these again; they only exist to
 /// interpret persisted indices.
 enum _LegacyOnboardingStep {
@@ -56,9 +56,14 @@ List<_LegacyOnboardingStep> _legacySequence({
 }
 
 /// Translates a persisted legacy resume position into the index of the
-/// functionally corresponding step of the five-step flow
-/// (0 Welcome · 1 Privacy · 2 Model & Hotkey · 3 Autostart & Auto-Paste ·
-/// 4 Try & Go — identical on every platform).
+/// functionally corresponding step of the six-step flow
+/// (0 Welcome · 1 Privacy · 2 Model & Hotkey · 3 Appearance ·
+/// 4 Autostart & Auto-Paste · 5 Try & Go — identical on every platform).
+///
+/// [kOnboardingFlowVersion] deliberately stays at 1: the five-step
+/// intermediate sequence never shipped (it was written and split within the
+/// same unreleased redesign), so no persisted position was ever written
+/// against it and there is no second translation step to chain.
 ///
 /// Out-of-range positions (negative, or beyond the legacy sequence the
 /// index was written against) fall back to `0` — restarting at Welcome is
@@ -79,8 +84,10 @@ int migrateLegacyOnboardingStepIndex({
     _LegacyOnboardingStep.privacy => 1,
     // Model and Trigger merged into one page.
     _LegacyOnboardingStep.model || _LegacyOnboardingStep.trigger => 2,
-    _LegacyOnboardingStep.autoPaste => 3,
+    // Index 3 is the Appearance page, which the legacy flow had no
+    // counterpart for (the theme choice used to sit on the Welcome page).
+    _LegacyOnboardingStep.autoPaste => 4,
     // Test recording and the final Ready content merged into the last page.
-    _LegacyOnboardingStep.testRecording || _LegacyOnboardingStep.ready => 4,
+    _LegacyOnboardingStep.testRecording || _LegacyOnboardingStep.ready => 5,
   };
 }

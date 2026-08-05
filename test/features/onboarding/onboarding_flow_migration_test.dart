@@ -1,5 +1,5 @@
 /// Unit tests for [migrateLegacyOnboardingStepIndex] — the pure translation
-/// from a persisted legacy (7/8-step) resume position to the five-step flow.
+/// from a persisted legacy (7/8-step) resume position to the six-step flow.
 ///
 /// Same testing shape as `onboarding_step_ids_test.dart`: pure function,
 /// injected platform, no widget tree. The legacy index is platform-dependent
@@ -41,13 +41,19 @@ void main() {
         test('microphone (2) → Welcome page (0, mic merged)', () {
           expect(m(2), 0);
         });
-        test('autoPaste (3) → Autostart & Auto-Paste page (3)', () {
-          expect(m(3), 3);
+        test('autoPaste (3) → Autostart & Auto-Paste page (4)', () {
+          expect(m(3), 4);
         });
         test('model (4) → Model & Hotkey page (2)', () => expect(m(4), 2));
         test('trigger (5) → Model & Hotkey page (2)', () => expect(m(5), 2));
-        test('testRecording (6) → Try & Go page (4)', () => expect(m(6), 4));
-        test('ready (7) → Try & Go page (4)', () => expect(m(7), 4));
+        test('testRecording (6) → Try & Go page (5)', () => expect(m(6), 5));
+        test('ready (7) → Try & Go page (5)', () => expect(m(7), 5));
+        test('no legacy step maps onto the Appearance page (3) — it has no '
+            'legacy counterpart; the theme choice used to sit on Welcome', () {
+          for (var i = 0; i < 8; i++) {
+            expect(m(i), isNot(3), reason: 'legacyIndex=$i');
+          }
+        });
       },
     );
 
@@ -72,8 +78,8 @@ void main() {
         }
       });
 
-      test('full mapping: 0→0, 1→1, 2→0, 3→2, 4→2, 5→4, 6→4', () {
-        const expected = [0, 1, 0, 2, 2, 4, 4];
+      test('full mapping: 0→0, 1→1, 2→0, 3→2, 4→2, 5→5, 6→5', () {
+        const expected = [0, 1, 0, 2, 2, 5, 5];
         for (final (platform, autoPaste) in variants) {
           for (var i = 0; i < expected.length; i++) {
             expect(
@@ -102,7 +108,7 @@ void main() {
     });
 
     group('out-of-range fallback', () {
-      test('position beyond the new length (5) and beyond every legacy '
+      test('position beyond the new length (6) and beyond every legacy '
           'sequence → 0', () {
         for (final platform in TargetPlatform.values) {
           for (final autoPaste in [true, false]) {

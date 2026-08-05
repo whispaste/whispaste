@@ -60,12 +60,12 @@ class TriggerStep extends ConsumerWidget {
     final hotkeyDisplay = settings.hotkey.hotkeyKeyDisplay;
     final hotkeyModifiers = settings.hotkeyModifiers;
 
-    // Deliberately denser than pages 1/2: this page bundles two former
-    // steps plus the appearance block, so the per-block headers shrink to
-    // compact leading labels (heading-size title, small subtitle) and the
-    // hotkey presentation becomes a single settings-style row — same
-    // elements, same keys, same handlers, just tighter geometry so the whole
-    // page fits the fixed 1100×720 onboarding window without scrolling.
+    // Deliberately denser than pages 1/2: this page shares its budget with
+    // the model block, so the per-block header shrinks to a compact leading
+    // label (heading-size title, small subtitle) and the hotkey presentation
+    // becomes a single settings-style row — same elements, same keys, same
+    // handlers, just tighter geometry so the whole page fits the fixed
+    // 1100×720 onboarding window without scrolling.
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,

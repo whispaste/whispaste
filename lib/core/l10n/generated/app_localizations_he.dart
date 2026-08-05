@@ -2425,6 +2425,9 @@ class L10nHe extends L10n {
   String get onboardingMicChipAction => 'מיקרופון: נדרשת פעולה';
 
   @override
+  String get onboardingSetupPageTitle => 'מתכוננים';
+
+  @override
   String get onboardingModelTitle => 'הגדר זיהוי דיבור';
 
   @override

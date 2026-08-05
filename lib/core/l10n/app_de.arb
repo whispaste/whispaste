@@ -807,6 +807,7 @@
   "onboardingMicChipReady": "Mikrofon bereit",
   "onboardingMicChipPending": "Mikrofonzugriff ausstehend",
   "onboardingMicChipAction": "Mikrofon: Aktion nötig",
+  "onboardingSetupPageTitle": "Bereit machen",
   "onboardingModelTitle": "Spracherkennung einrichten",
   "onboardingModelSubtitle": "Lade das Sprachmodell herunter, um offline aufzunehmen. Deine Stimme verlässt nie dein Gerät.",
   "onboardingModelRecommended": "Empfohlen für dein Gerät",

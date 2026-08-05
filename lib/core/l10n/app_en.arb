@@ -915,6 +915,7 @@
   "onboardingMicChipReady": "Microphone ready",
   "onboardingMicChipPending": "Microphone access pending",
   "onboardingMicChipAction": "Microphone: action needed",
+  "onboardingSetupPageTitle": "Getting ready",
   "onboardingModelTitle": "Set up speech recognition",
   "onboardingModelSubtitle": "Download the speech model to record offline. Your voice never leaves your device.",
   "onboardingModelRecommended": "Recommended for your device",

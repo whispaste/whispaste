@@ -19,12 +19,12 @@ import '../../services/telemetry_service.dart';
 import '../../widgets/wp_accent_button.dart';
 import 'onboarding_completion_gate.dart';
 import 'onboarding_flow_migration.dart';
-import 'steps/appearance_section.dart';
+import 'steps/appearance_step.dart';
 import 'steps/auto_paste_step.dart';
 import 'steps/autostart_toggle.dart';
+import 'steps/onboarding_headings.dart';
 import 'steps/welcome_step.dart';
 import 'steps/privacy_step.dart';
-import 'steps/mic_permission_chip.dart';
 import 'steps/model_step.dart';
 import 'steps/trigger_step.dart';
 import 'steps/test_recording_step.dart';
@@ -38,14 +38,16 @@ const kOnboardingBackButtonKey = Key('onboardingNavBackButton');
 @visibleForTesting
 const kOnboardingNextButtonKey = Key('onboardingNavNextButton');
 
-/// Identifier for each page of the five-step first-run onboarding flow.
+/// Identifier for each page of the six-step first-run onboarding flow.
 ///
 /// The sequence is identical on every platform and build variant — platform
 /// variance (Auto-Paste visibility) lives *inside* the
 /// [autostartAndAutoPaste] page, never in the sequence itself.
 enum OnboardingStepId {
-  /// 1 — Welcome: demo beats, language selection and the microphone
-  /// permission status chip (macOS/Windows; Linux shows no chip).
+  /// 1 — Welcome: demo beats and language selection. Deliberately carries no
+  /// microphone affordance: the permission is requested when the user leaves
+  /// this page (see `_goNext`) and the *visible* microphone status lives on
+  /// [tryAndGo], where the microphone is actually used.
   welcome,
 
   /// 2 — Privacy: informed telemetry/crash-report opt-out.
@@ -54,18 +56,21 @@ enum OnboardingStepId {
   /// 3 — Model & Hotkey: engine choice/download plus hotkey configuration.
   modelAndHotkey,
 
-  /// 4 — Autostart & Auto-Paste: autostart toggle; Auto-Paste status on
+  /// 4 — Appearance: the light/dark/system theme choice.
+  appearance,
+
+  /// 5 — Autostart & Auto-Paste: autostart toggle; Auto-Paste status on
   /// macOS and Windows (Linux shows only the autostart toggle — no paste
   /// controller is wired there).
   autostartAndAutoPaste,
 
-  /// 5 — Try & Go: guided test recording, quick-start hints, completion CTA.
+  /// 6 — Try & Go: guided test recording, quick-start hints, completion CTA.
   tryAndGo,
 }
 
 /// Returns the ordered list of onboarding step IDs.
 ///
-/// The five-step sequence is deliberately identical for every [platform] and
+/// The six-step sequence is deliberately identical for every [platform] and
 /// [autoPasteSupported] value — both parameters stay injected so the seam
 /// (pure function, no widget tree, no global state) is preserved and unit
 /// tests can assert the invariance explicitly instead of trusting it.
@@ -78,6 +83,7 @@ List<OnboardingStepId> buildOnboardingStepIds({
     OnboardingStepId.welcome,
     OnboardingStepId.privacy,
     OnboardingStepId.modelAndHotkey,
+    OnboardingStepId.appearance,
     OnboardingStepId.autostartAndAutoPaste,
     OnboardingStepId.tryAndGo,
   ];
@@ -87,7 +93,7 @@ List<OnboardingStepId> buildOnboardingStepIds({
 ///
 /// Sits on top of the main app shell in a [Stack] and covers it with a flat
 /// theme-background surface — no blur, no dimmed scrim, no floating card.
-/// Five pages with animated transitions, a shell-owned Back/Next navigation
+/// Six pages with animated transitions, a shell-owned Back/Next navigation
 /// row (Next becomes the completion CTA on the last page), stepper dots, and
 /// a step counter. The whole surface doubles as a window drag area (the
 /// title bar is hidden during onboarding). On completion persists
@@ -107,26 +113,26 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
   /// for readable line lengths on large windows.
   static const double _contentMaxWidth = 720;
 
-  /// Page 1 runs a wider frame than the settings-shaped pages behind it. Its
-  /// composition is a text column *beside* a large media area, and at 720 the
-  /// two halves squeeze each other into the cramped look the redesign is
-  /// undoing. At 940 the side margins land at 24 + (1052 − 940) / 2 = 80 px
-  /// on the fixed 1100-px window (7.3 % per side) and the media area at ~45 %
-  /// of the window width — both within a pixel-ratio of the Conductor
-  /// reference (7.1 % / 43 %). Pages 2–5 deliberately keep 720: their density
-  /// was measured against that width and must not silently change.
-  static const double _welcomeContentMaxWidth = 940;
-
+  /// Page 1 runs a wider frame than the settings-shaped pages behind it — its
+  /// composition is a text column *beside* a large media panel, and at 720
+  /// the two halves squeeze each other. The width itself is owned by
+  /// [kOnboardingWelcomeFrameWidth], because the recorded clip dimensions are
+  /// derived from it. Pages 2–6 deliberately keep 720: their density was
+  /// measured against that width and must not silently change.
   double _frameWidthFor(OnboardingStepId id) => id == OnboardingStepId.welcome
-      ? _welcomeContentMaxWidth
+      ? kOnboardingWelcomeFrameWidth
       : _contentMaxWidth;
 
   /// Page 1 is a brand moment and stays optically centred in its area. The
   /// settings-shaped pages behind it anchor to the top instead: their content
-  /// is shorter than the viewport (page 2 filled 308 of 551 px, page 4 only
-  /// 279), and centring left them floating in dead space with no stable
+  /// is shorter than the viewport (page 2 filled 345 of 551 px, page 5 only
+  /// 247), and centring left them floating in dead space with no stable
   /// reading start — the "unstructured" impression the redesign is undoing.
   /// Top-anchoring costs nothing from the height budget.
+  ///
+  /// Both this and [_frameWidthFor] are animated on a page change rather than
+  /// switched (see `build`): changing width and anchor instantly while the
+  /// 300 ms cross-fade is still running made the frame visibly jump.
   Alignment _contentAlignmentFor(OnboardingStepId id) =>
       id == OnboardingStepId.welcome ? Alignment.center : Alignment.topCenter;
 
@@ -332,8 +338,9 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
   // ---------------------------------------------------------------------------
 
   Widget _buildStep(OnboardingStepId id) {
+    final l10n = L10n.of(context);
     // Auto-Paste status visibility is the single piece of platform variance
-    // in the flow — a content decision inside page 4, driven by
+    // in the flow — a content decision inside page 5, driven by
     // defaultTargetPlatform so widget tests can simulate every platform.
     // Also gated on kAutoPasteSupported: the deliberate App Review Guideline
     // 2.4.5 kill switch (see build_config.dart) must still be able to hide
@@ -343,48 +350,32 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
         (defaultTargetPlatform == TargetPlatform.macOS ||
             defaultTargetPlatform == TargetPlatform.windows);
     return switch (id) {
-      OnboardingStepId.welcome => Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const WelcomeStep(),
-          // Mic permission chip — macOS/Windows only. The chip self-gates on
-          // Linux too; the condition here just avoids dangling spacing. It
-          // shares the start edge (and inset) of page 1's other controls.
-          if (defaultTargetPlatform != TargetPlatform.linux) ...[
-            const SizedBox(height: WpSpacing.sm),
-            const Padding(
-              padding: EdgeInsetsDirectional.only(
-                start: kOnboardingContentInset,
-              ),
-              child: MicPermissionChip(),
-            ),
-          ],
-        ],
-      ),
+      OnboardingStepId.welcome => const WelcomeStep(),
       OnboardingStepId.privacy => const PrivacyStep(),
-      // Documented height conflict (measured at the fixed 1100x720 window
-      // with real Inter metrics, macOS, GPU-fallback notice visible — the
-      // worst case): the content viewport is 551 px. This page carries three
-      // blocks and lands at 524 px in German and 548 px in Hebrew, i.e. 3 px
-      // of slack. The reference rhythm would want the inter-block gaps at
-      // `lg`/`xl`, which needs ~30 px this page does not have. Before this
-      // pass the same page measured 548/572 and *overflowed* Hebrew by 21 px;
-      // de-boxing the hotkey row, the mode row and the GPU notice (30 px of
-      // pure chrome) bought the fit, not smaller type. `sm` gaps are the
-      // compromise: as close to the reference calm as the budget allows
-      // without breaking the no-scroll rule. Do not raise them without
-      // re-measuring Hebrew.
-      OnboardingStepId.modelAndHotkey => const Column(
+      // Tightest height budget in the flow (measured at the fixed 1100x720
+      // window with real Inter metrics, GPU-fallback notice visible — the
+      // worst case): 540 px of content in German, 524 in Hebrew, against a
+      // 551-px viewport. Splitting the theme choice onto its own page paid
+      // for the page heading this page never had plus `md` gaps between the
+      // two blocks; German keeps 11 px of slack, so do not add to this page
+      // or raise a gap without re-measuring both locales
+      // (`onboarding_overlay_test.dart`, fixed-window group).
+      OnboardingStepId.modelAndHotkey => Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          ModelStep(),
-          SizedBox(height: WpSpacing.sm),
-          TriggerStep(),
-          SizedBox(height: WpSpacing.sm),
-          AppearanceSection(),
+          // Title only, deliberately: both blocks below already carry a
+          // section label *with* its own explanatory line, so a third
+          // explanation here would be the page's third voice — and the 31 px
+          // it costs is most of this page's remaining slack.
+          OnboardingPageHeading(title: l10n.onboardingSetupPageTitle),
+          const SizedBox(height: WpSpacing.md),
+          const ModelStep(),
+          const SizedBox(height: WpSpacing.md),
+          const TriggerStep(),
         ],
       ),
+      OnboardingStepId.appearance => const AppearanceStep(),
       OnboardingStepId.autostartAndAutoPaste => Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -430,7 +421,22 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
     final direction = _currentStep >= _previousStep ? 1.0 : -1.0;
     // Page content and the nav row below it share one frame width, so the
     // Back/Next actions always sit on the same margins as the page above.
-    final frameWidth = _frameWidthFor(steps[safeCurrent]);
+    // Animated, not switched: page 1 runs a wider frame than the rest, and
+    // snapping from 860 to 720 while the 300 ms cross-fade was still running
+    // read as the frame jumping out from under the incoming page. Both call
+    // sites take the same interpolated value, so content and nav row can
+    // never drift apart mid-transition.
+    final targetFrameWidth = _frameWidthFor(steps[safeCurrent]);
+    Widget frame({required Widget child}) => TweenAnimationBuilder<double>(
+      tween: Tween<double>(end: targetFrameWidth),
+      duration: WpMotion.durationFor(context, WpMotion.smooth),
+      curve: WpMotion.smooth_,
+      builder: (context, width, child) => ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: width),
+        child: child,
+      ),
+      child: child,
+    );
 
     // Two independent completion gates (PRD "Zwei Abschluss-Gates"):
     //  1. Residual safety gate (moved from the old ReadyStep): a confirmed
@@ -508,15 +514,16 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
 
               // -- Page content — scrolls when the window shrinks. ----------
               Expanded(
-                child: Align(
+                child: AnimatedAlign(
                   alignment: _contentAlignmentFor(steps[safeCurrent]),
+                  duration: WpMotion.durationFor(context, WpMotion.smooth),
+                  curve: WpMotion.smooth_,
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(
                       horizontal: WpSpacing.xl,
                       vertical: WpSpacing.lg,
                     ),
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(maxWidth: frameWidth),
+                    child: frame(
                       child: AnimatedSwitcher(
                         duration: WpMotion.durationFor(
                           context,
@@ -549,8 +556,7 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
               // -- Shell-owned navigation: exactly two actions per page. ----
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: WpSpacing.xl),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: frameWidth),
+                child: frame(
                   child: Row(
                     key: kOnboardingNavRowKey,
                     children: [
