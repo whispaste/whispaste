@@ -23,6 +23,7 @@ import 'steps/appearance_step.dart';
 import 'steps/auto_paste_step.dart';
 import 'steps/autostart_toggle.dart';
 import 'steps/onboarding_headings.dart';
+import 'steps/onboarding_page_fill.dart';
 import 'steps/welcome_step.dart';
 import 'steps/privacy_step.dart';
 import 'steps/model_step.dart';
@@ -124,17 +125,32 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
       : _contentMaxWidth;
 
   /// Page 1 is a brand moment and stays optically centred in its area. The
-  /// settings-shaped pages behind it anchor to the top instead: their content
-  /// is shorter than the viewport (page 2 filled 345 of 551 px, page 5 only
-  /// 247), and centring left them floating in dead space with no stable
-  /// reading start — the "unstructured" impression the redesign is undoing.
-  /// Top-anchoring costs nothing from the height budget.
+  /// settings-shaped pages behind it anchor to the top instead — and the ones
+  /// that fill the viewport ([_fillsViewport]) are the full height of their
+  /// area anyway, so for those this only decides where their own scroll
+  /// content sits once a window smaller than the fixed one makes them scroll.
   ///
   /// Both this and [_frameWidthFor] are animated on a page change rather than
   /// switched (see `build`): changing width and anchor instantly while the
   /// 300 ms cross-fade is still running made the frame visibly jump.
   Alignment _contentAlignmentFor(OnboardingStepId id) =>
       id == OnboardingStepId.welcome ? Alignment.center : Alignment.topCenter;
+
+  /// Whether the page distributes the viewport's leftover height between its
+  /// blocks instead of stacking them at the top ([OnboardingPageFill]).
+  ///
+  /// Pages 2–5 do, because they have room to distribute: measured against the
+  /// 511-px content area of the fixed window (551 px viewport minus the
+  /// scroll view's padding), page 2 leaves 206 px over, page 4 259 and page 5
+  /// 304. Page 3 leaves only 51 (27 in Hebrew), but it costs nothing to
+  /// include — the fill can never shrink a gap below its minimum.
+  ///
+  /// Page 1 is excluded: it is a centred brand composition, not a stack of
+  /// blocks. Page 6 is excluded because it is two side-by-side columns of
+  /// unequal height with 30 px of slack in Hebrew — distributing that would
+  /// pull the two columns' rhythms apart for a gain nobody can see.
+  bool _fillsViewport(OnboardingStepId id) =>
+      id != OnboardingStepId.welcome && id != OnboardingStepId.tryAndGo;
 
   int _currentStep = 0;
   int _previousStep = 0;
@@ -337,7 +353,14 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
   // Page builder — merged page contents; navigation stays with the shell.
   // ---------------------------------------------------------------------------
 
-  Widget _buildStep(OnboardingStepId id) {
+  Widget _buildStep(OnboardingStepId id, double availableHeight) {
+    final page = _buildStepContent(id);
+    return _fillsViewport(id)
+        ? OnboardingPageFill(availableHeight: availableHeight, child: page)
+        : page;
+  }
+
+  Widget _buildStepContent(OnboardingStepId id) {
     final l10n = L10n.of(context);
     // Auto-Paste status visibility is the single piece of platform variance
     // in the flow — a content decision inside page 5, driven by
@@ -370,9 +393,16 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
           // it costs is most of this page's remaining slack.
           OnboardingPageHeading(title: l10n.onboardingSetupPageTitle),
           const SizedBox(height: WpSpacing.md),
+          // The flex weights are small everywhere on this page: there are
+          // only ~51 px to hand out (27 in Hebrew), so this turns a thin dead
+          // strip under the hotkey block into slightly looser gaps rather
+          // than into a visible rearrangement.
+          const OnboardingFlexGap(flex: 2),
           const ModelStep(),
           const SizedBox(height: WpSpacing.md),
+          const OnboardingFlexGap(flex: 3),
           const TriggerStep(),
+          const OnboardingFlexGap(flex: 2),
         ],
       ),
       OnboardingStepId.appearance => const AppearanceStep(),
@@ -380,11 +410,24 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // The thinnest page in the flow: 207 px of blocks in a 511-px area,
+          // and on Linux (no Auto-Paste) a single settings row. It is also
+          // the only settings-shaped page without an
+          // [OnboardingPageHeading] — the flow has no string to head it with,
+          // and inventing one is a copy decision, not a layout one. So the
+          // 304 px go where they can: the autostart row stays fixed at the
+          // top, and the gap between the two blocks stays clearly the smaller
+          // share. That split is not free choice — the Auto-Paste block heads
+          // itself with a section label precisely so the page does not read as
+          // two fused screens (see `auto_paste_step.dart`), and a gap above it
+          // as large as the page's tail undoes exactly that.
           const OnboardingAutostartToggle(),
           if (showAutoPaste) ...[
             const SizedBox(height: WpSpacing.xxl),
+            const OnboardingFlexGap(flex: 2),
             const AutoPasteStep(),
           ],
+          const OnboardingFlexGap(flex: 5),
         ],
       ),
       // Two columns, not a stack: as one column the page measured 739 px of
@@ -513,43 +556,59 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
               ),
 
               // -- Page content — scrolls when the window shrinks. ----------
+              //
+              // The LayoutBuilder is what lets a page know how much room it
+              // has: inside the scroll view the height is unbounded, so the
+              // measurement has to happen above it and be handed down (see
+              // [OnboardingPageFill]).
               Expanded(
-                child: AnimatedAlign(
-                  alignment: _contentAlignmentFor(steps[safeCurrent]),
-                  duration: WpMotion.durationFor(context, WpMotion.smooth),
-                  curve: WpMotion.smooth_,
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: WpSpacing.xl,
-                      vertical: WpSpacing.lg,
-                    ),
-                    child: frame(
-                      child: AnimatedSwitcher(
-                        duration: WpMotion.durationFor(
-                          context,
-                          WpMotion.smooth,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final availableHeight =
+                        constraints.maxHeight - WpSpacing.lg * 2;
+                    return AnimatedAlign(
+                      alignment: _contentAlignmentFor(steps[safeCurrent]),
+                      duration: WpMotion.durationFor(context, WpMotion.smooth),
+                      curve: WpMotion.smooth_,
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: WpSpacing.xl,
+                          vertical: WpSpacing.lg,
                         ),
-                        switchInCurve: WpMotion.smooth_,
-                        switchOutCurve: WpMotion.smooth_,
-                        transitionBuilder: (child, animation) {
-                          return FadeTransition(
-                            opacity: animation,
-                            child: SlideTransition(
-                              position: Tween<Offset>(
-                                begin: Offset(0.05 * direction, 0),
-                                end: Offset.zero,
-                              ).animate(animation),
-                              child: child,
+                        child: frame(
+                          child: AnimatedSwitcher(
+                            duration: WpMotion.durationFor(
+                              context,
+                              WpMotion.smooth,
                             ),
-                          );
-                        },
-                        child: KeyedSubtree(
-                          key: ValueKey<OnboardingStepId>(steps[safeCurrent]),
-                          child: _buildStep(steps[safeCurrent]),
+                            switchInCurve: WpMotion.smooth_,
+                            switchOutCurve: WpMotion.smooth_,
+                            transitionBuilder: (child, animation) {
+                              return FadeTransition(
+                                opacity: animation,
+                                child: SlideTransition(
+                                  position: Tween<Offset>(
+                                    begin: Offset(0.05 * direction, 0),
+                                    end: Offset.zero,
+                                  ).animate(animation),
+                                  child: child,
+                                ),
+                              );
+                            },
+                            child: KeyedSubtree(
+                              key: ValueKey<OnboardingStepId>(
+                                steps[safeCurrent],
+                              ),
+                              child: _buildStep(
+                                steps[safeCurrent],
+                                availableHeight,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
                 ),
               ),
 

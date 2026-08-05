@@ -13,7 +13,10 @@
 /// that edge correct under RTL.
 library;
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
@@ -65,8 +68,8 @@ class OnboardingPageHeading extends StatelessWidget {
           ),
           if (subtitle != null) ...[
             const SizedBox(height: WpSpacing.xs),
-            ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: subtitleMaxWidth),
+            _MeasuredMaxWidth(
+              maxWidth: subtitleMaxWidth,
               child: Text(
                 subtitle!,
                 textAlign: TextAlign.start,
@@ -81,6 +84,95 @@ class OnboardingPageHeading extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// A width cap that also *measures* itself at that width.
+///
+/// [ConstrainedBox], which is what the subtitle used before, asks its child
+/// for an intrinsic height at the width coming in from above and only then
+/// applies its own cap — so as soon as the cap adds a wrapped line, the
+/// reported height is short by exactly those lines. Nothing depended on that
+/// measurement until the settings-shaped pages started dividing their
+/// leftover height ([OnboardingPageFill]) among their blocks, which is done
+/// from the intrinsic height: an under-reported heading became a page that
+/// overflowed by two lines under an enlarged system text scale, and only
+/// there.
+///
+/// Everything else matches [ConstrainedBox]: a subtitle narrower than
+/// [maxWidth] keeps its own width, and a frame narrower than [maxWidth] (the
+/// last page's two columns are ~390 px) simply wins.
+class _MeasuredMaxWidth extends SingleChildRenderObjectWidget {
+  const _MeasuredMaxWidth({
+    required this.maxWidth,
+    required Widget super.child,
+  });
+
+  final double maxWidth;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderMeasuredMaxWidth(maxWidth);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderMeasuredMaxWidth renderObject,
+  ) {
+    renderObject.maxWidth = maxWidth;
+  }
+}
+
+class _RenderMeasuredMaxWidth extends RenderProxyBox {
+  _RenderMeasuredMaxWidth(this._maxWidth);
+
+  double _maxWidth;
+  set maxWidth(double value) {
+    if (value == _maxWidth) return;
+    _maxWidth = value;
+    markNeedsLayout();
+  }
+
+  BoxConstraints _innerConstraints(BoxConstraints constraints) {
+    final maxWidth = math.min(constraints.maxWidth, _maxWidth);
+    return constraints.copyWith(
+      minWidth: math.min(constraints.minWidth, maxWidth),
+      maxWidth: maxWidth,
+    );
+  }
+
+  @override
+  double computeMinIntrinsicWidth(double height) =>
+      math.min(super.computeMinIntrinsicWidth(height), _maxWidth);
+
+  @override
+  double computeMaxIntrinsicWidth(double height) =>
+      math.min(super.computeMaxIntrinsicWidth(height), _maxWidth);
+
+  @override
+  double computeMinIntrinsicHeight(double width) =>
+      super.computeMinIntrinsicHeight(math.min(width, _maxWidth));
+
+  @override
+  double computeMaxIntrinsicHeight(double width) =>
+      super.computeMaxIntrinsicHeight(math.min(width, _maxWidth));
+
+  @override
+  Size computeDryLayout(BoxConstraints constraints) => child == null
+      ? constraints.smallest
+      : constraints.constrain(
+          child!.getDryLayout(_innerConstraints(constraints)),
+        );
+
+  @override
+  void performLayout() {
+    final child = this.child;
+    if (child == null) {
+      size = constraints.smallest;
+      return;
+    }
+    child.layout(_innerConstraints(constraints), parentUsesSize: true);
+    size = constraints.constrain(child.size);
   }
 }
 

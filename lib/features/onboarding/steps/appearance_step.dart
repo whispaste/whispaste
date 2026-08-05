@@ -7,6 +7,7 @@ import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import 'onboarding_headings.dart';
+import 'onboarding_page_fill.dart';
 
 /// Widget keys exposed for testing.
 @visibleForTesting
@@ -64,6 +65,12 @@ class AppearanceStep extends ConsumerWidget {
           subtitle: l10n.onboardingAppearanceDescription,
         ),
         const SizedBox(height: WpSpacing.xxl),
+        // The sparsest of the fill pages after page 5: heading plus one row
+        // of tiles, 259 px left over. Slightly more of it above the tiles
+        // than below, so the row sits just under the optical centre of the
+        // area the heading leaves — a choice made by looking wants the thing
+        // to look at in the middle of the page, not pinned under the title.
+        const OnboardingFlexGap(flex: 6),
         Align(
           alignment: AlignmentDirectional.centerStart,
           child: Wrap(
@@ -98,6 +105,7 @@ class AppearanceStep extends ConsumerWidget {
             ],
           ),
         ),
+        const OnboardingFlexGap(flex: 5),
       ],
     );
   }

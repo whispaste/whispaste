@@ -32,6 +32,7 @@ import 'package:whispaste/features/onboarding/onboarding_overlay.dart';
 import 'package:whispaste/features/onboarding/steps/appearance_step.dart';
 import 'package:whispaste/features/onboarding/steps/mic_permission_chip.dart';
 import 'package:whispaste/features/onboarding/steps/model_step.dart';
+import 'package:whispaste/features/onboarding/steps/onboarding_page_fill.dart';
 import 'package:whispaste/features/onboarding/steps/trigger_step.dart';
 import 'package:whispaste/features/onboarding/steps/auto_paste_step.dart';
 import 'package:whispaste/services/paste/paste_capability_notifier.dart';
@@ -532,14 +533,27 @@ void main() {
   // Measured with real Inter metrics (see setUpAll — with the square-glyph
   // test font the numbers are meaningless), macOS, GPU-fallback notice
   // visible, i.e. the worst case. Content height against the 551-px viewport,
-  // German / Hebrew / English:
+  // German / Hebrew / English.
+  //
+  // These are *natural* heights: what the page's blocks come to with every
+  // gap at its minimum, which is what `measure().natural` reports. Pages 2–5
+  // now hand their leftover height to the gaps between their blocks
+  // ([OnboardingPageFill]) and therefore occupy the full 551 px whatever
+  // these numbers say — the numbers are still the ones that decide whether a
+  // page fits at all, and the ones to re-measure before adding to a page.
   //
   //   page 1  Welcome                529 / 529 / 529   (22 px slack)
-  //   page 2  Privacy                345 / 345 / 324
+  //   page 2  Privacy                345 / 345 / 324   (206 px distributed)
   //   page 3  Model & Hotkey         500 / 524 / 500   (27 px slack in
-  //                                                     Hebrew, the tightest)
-  //   page 4  Appearance             292 / 292 / 292
-  //   page 5  Autostart & Auto-Paste 247 / 247 / 247
+  //                                                     Hebrew, the tightest —
+  //                                                     it distributes that,
+  //                                                     which is all it has)
+  //   page 4  Appearance             292 / 292 / 292   (259 px distributed)
+  //   page 5  Autostart & Auto-Paste 247 / 247 / 247   (304 px distributed —
+  //                                                     the thinnest page,
+  //                                                     and the only one
+  //                                                     without a page
+  //                                                     heading)
   //   page 6  Try & Go               521 / 484 / 484   (30 px slack — and
   //                                                     see the full-
   //                                                     transcript case in
@@ -557,11 +571,20 @@ void main() {
   // scroll (documented in trigger_step.dart).
 
   group('OnboardingOverlay — fixed window size (1100×720)', () {
-    /// Height the page is given, and the height it actually wants. The page
-    /// content shrink-wraps inside an [Align], so `maxScrollExtent` alone is
-    /// always 0 and proves nothing — the incoming constraint is what the
-    /// content has to fit into.
-    ({double available, double content}) measure(WidgetTester tester) {
+    /// Height the page is given, the height it occupies, and the height it
+    /// would occupy with every gap at its minimum. The page content
+    /// shrink-wraps inside an [Align], so `maxScrollExtent` alone is always 0
+    /// and proves nothing — the incoming constraint is what the content has
+    /// to fit into.
+    ///
+    /// [natural] is what the table above lists, and on a page that fills the
+    /// viewport ([OnboardingPageFill]) it is the only informative number:
+    /// [content] is then the viewport height by construction. Subtracting the
+    /// height the [OnboardingFlexGap]s grew to recovers it — those are the
+    /// only widgets on the page whose height comes from leftover space.
+    ({double available, double content, double natural}) measure(
+      WidgetTester tester,
+    ) {
       final scrollable = tester.state<ScrollableState>(
         find.byType(Scrollable).first,
       );
@@ -569,11 +592,16 @@ void main() {
           .renderObject<RenderBox>(find.byType(SingleChildScrollView).first)
           .constraints
           .maxHeight;
+      final content =
+          scrollable.position.viewportDimension +
+          scrollable.position.maxScrollExtent;
+      final distributed = tester
+          .renderObjectList<RenderBox>(find.byType(OnboardingFlexGap))
+          .fold<double>(0, (sum, box) => sum + box.size.height);
       return (
         available: available,
-        content:
-            scrollable.position.viewportDimension +
-            scrollable.position.maxScrollExtent,
+        content: content,
+        natural: content - distributed,
       );
     }
 
@@ -617,7 +645,8 @@ void main() {
                       'page $page (${locale.languageCode}, '
                       '${brightness.name}) needs ${m.content} px of the '
                       '${m.available} px the fixed 1100x720 window offers — '
-                      'it would scroll.',
+                      'it would scroll. Its blocks alone (every gap at its '
+                      'minimum) come to ${m.natural} px.',
                 );
               }
             } finally {

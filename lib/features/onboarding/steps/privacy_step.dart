@@ -9,6 +9,7 @@ import '../../../core/theme/tokens.dart';
 import '../../../services/telemetry_service.dart';
 import '../../settings/settings_widgets.dart';
 import 'onboarding_headings.dart';
+import 'onboarding_page_fill.dart';
 
 /// Widget key exposed for testing.
 @visibleForTesting
@@ -46,6 +47,12 @@ class PrivacyStep extends ConsumerWidget {
           subtitle: l10n.onboardingPrivacyHint,
         ),
         const SizedBox(height: WpSpacing.xxl),
+        // This page has 206 px more than it needs (511-px content area).
+        // Most of it goes above the toggles and below them, little of it
+        // between them: the two consents are separate decisions but the same
+        // kind of decision, and a gap as wide as the one under the heading
+        // would stop them reading as a pair. See [OnboardingPageFill].
+        const OnboardingFlexGap(flex: 4),
 
         // Opt-out toggles — same SettingRow + switch as Settings → Privacy.
         // Two separate consents (analytics vs. crash reports), each its own
@@ -63,6 +70,7 @@ class PrivacyStep extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: WpSpacing.lg),
+        const OnboardingFlexGap(),
         SettingRow(
           key: kPrivacyStepCrashToggleKey,
           icon: LucideIcons.shieldCheck,
@@ -74,6 +82,7 @@ class PrivacyStep extends ConsumerWidget {
             onChanged: (v) => _setErrorReportingConsent(ref, v),
           ),
         ),
+        const OnboardingFlexGap(flex: 4),
       ],
     );
   }
