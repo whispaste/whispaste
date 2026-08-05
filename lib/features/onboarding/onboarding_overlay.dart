@@ -39,6 +39,13 @@ const kOnboardingBackButtonKey = Key('onboardingNavBackButton');
 @visibleForTesting
 const kOnboardingNextButtonKey = Key('onboardingNavNextButton');
 
+/// Height of the onboarding top bar's control row, and the hit target of the
+/// close button that sits in it on the platforms that render one.
+///
+/// Pinned rather than derived so the bar keeps the exact same height on macOS,
+/// where the button is omitted — everything below it must not shift.
+const double _kOnboardingTopBarHeight = 32;
+
 /// Identifier for each page of the first-run onboarding flow.
 ///
 /// Seven pages on macOS and Windows, six on Linux: [autoPaste] is the one
@@ -576,6 +583,16 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
           child: Column(
             children: [
               // -- Top bar: close (X); doubles as an explicit drag handle. --
+              //
+              // The window runs with `TitleBarStyle.hidden`, which means two
+              // different things per platform: macOS keeps the native traffic
+              // lights in exactly this corner (only the bar's chrome is gone),
+              // while Windows/Linux get a fully frameless window with no
+              // native close control at all. So the custom X is the *only*
+              // close affordance there and would be a second, overlapping one
+              // on macOS. The bar itself is unconditional and keeps its fixed
+              // height either way — it is still the drag handle, and nothing
+              // below it may shift.
               GestureDetector(
                 behavior: HitTestBehavior.translucent,
                 onPanStart: (_) => windowManager.startDragging(),
@@ -584,23 +601,31 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
                     horizontal: WpSpacing.sm,
                     vertical: WpSpacing.xs,
                   ),
-                  child: Row(
-                    children: [
-                      IconButton(
-                        onPressed: () => windowManager.close(),
-                        icon: Icon(LucideIcons.x, size: 18, color: textMuted),
-                        tooltip: MaterialLocalizations.of(
-                          context,
-                        ).closeButtonTooltip,
-                        splashRadius: 16,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(
-                          minWidth: 32,
-                          minHeight: 32,
-                        ),
-                      ),
-                      const Spacer(),
-                    ],
+                  child: SizedBox(
+                    height: _kOnboardingTopBarHeight,
+                    child: Row(
+                      children: [
+                        if (defaultTargetPlatform != TargetPlatform.macOS)
+                          IconButton(
+                            onPressed: () => windowManager.close(),
+                            icon: Icon(
+                              LucideIcons.x,
+                              size: 18,
+                              color: textMuted,
+                            ),
+                            tooltip: MaterialLocalizations.of(
+                              context,
+                            ).closeButtonTooltip,
+                            splashRadius: 16,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(
+                              minWidth: _kOnboardingTopBarHeight,
+                              minHeight: _kOnboardingTopBarHeight,
+                            ),
+                          ),
+                        const Spacer(),
+                      ],
+                    ),
                   ),
                 ),
               ),
