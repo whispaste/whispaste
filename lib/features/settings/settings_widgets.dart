@@ -8,6 +8,7 @@ import '../../core/config/settings_labels.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
+import '../../widgets/wp_dropdown.dart';
 
 // ---------------------------------------------------------------------------
 // SettingRow — single row with icon, label, optional subtitle, and control
@@ -196,7 +197,12 @@ class HotkeyDisplay extends StatelessWidget {
 // Shared control builders
 // ---------------------------------------------------------------------------
 
-/// Themed dropdown for settings.
+/// Themed dropdown for settings — the dense variant of [WpDropdown], the
+/// app's single value-selection dropdown.
+///
+/// Kept as a helper because the settings sections address their options as
+/// two parallel lists (values + localized labels) rather than as item
+/// objects; it is the only adapter between that shape and [WpDropdownItem].
 ///
 /// [disabledItems] marks item values that are shown but not selectable (e.g.
 /// a feature unavailable in the current build/platform); [disabledTooltip]
@@ -215,76 +221,21 @@ Widget settingsDropdown({
   String? hint,
   bool expanded = false,
 }) {
-  final isDark = Theme.of(context).brightness == Brightness.dark;
-  return Container(
-    height: 32,
-    padding: const EdgeInsets.symmetric(horizontal: WpSpacing.sm),
-    decoration: BoxDecoration(
-      color: isDark
-          ? WpColorsDark.surfaceVariant
-          : WpColorsLight.surfaceVariant,
-      borderRadius: WpRadius.borderSm,
-      border: Border.all(
-        color: isDark ? WpColorsDark.borderSubtle : WpColorsLight.borderSubtle,
-      ),
-    ),
-    child: DropdownButtonHideUnderline(
-      child: DropdownButton<String>(
-        value: value,
-        isExpanded: expanded,
-        hint: hint == null
-            ? null
-            : Text(
-                hint,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: WpTypography.body,
-                  color: isDark
-                      ? WpColorsDark.textMuted
-                      : WpColorsLight.textMuted,
-                ),
-              ),
-        items: items.asMap().entries.map((e) {
-          final isDisabled = disabledItems?.contains(e.value) ?? false;
-          final label = Text(
-            labels != null ? labels[e.key] : e.value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          );
-          return DropdownMenuItem(
-            value: e.value,
-            enabled: !isDisabled,
-            child: !isDisabled
-                ? label
-                : Opacity(
-                    opacity: 0.4,
-                    child: disabledTooltip != null
-                        ? Tooltip(message: disabledTooltip, child: label)
-                        : label,
-                  ),
-          );
-        }).toList(),
-        onChanged: onChanged,
-        isDense: true,
-        style: TextStyle(
-          fontSize: WpTypography.body,
-          color: isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary,
+  return WpDropdown<String>(
+    value: value,
+    size: WpDropdownSize.dense,
+    expanded: expanded,
+    hint: hint,
+    items: [
+      for (final (index, item) in items.indexed)
+        WpDropdownItem<String>(
+          value: item,
+          label: labels != null ? labels[index] : item,
+          enabled: !(disabledItems?.contains(item) ?? false),
+          disabledTooltip: disabledTooltip,
         ),
-        dropdownColor: isDark
-            ? WpColorsDark.surfaceElevated
-            : WpColorsLight.surfaceElevated,
-        borderRadius: WpRadius.borderSm,
-        icon: Padding(
-          padding: const EdgeInsetsDirectional.only(start: WpSpacing.xs),
-          child: Icon(
-            LucideIcons.chevronDown,
-            size: WpIconSize.xs,
-            color: isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
-          ),
-        ),
-      ),
-    ),
+    ],
+    onChanged: onChanged,
   );
 }
 
