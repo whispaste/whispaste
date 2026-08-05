@@ -409,18 +409,22 @@ Widget settingsApiKeyField({
         ),
         Positioned(
           right: 0,
-          child: IconButton(
-            icon: Icon(
-              obscure ? LucideIcons.eye : LucideIcons.eyeOff,
-              size: WpIconSize.sm,
-              color: isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
-            ),
-            onPressed: onToggle,
-            tooltip: L10n.of(context).settingsToggleApiKeyVisibility,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(
-              minWidth: WpLayout.minTouchTarget,
-              minHeight: WpLayout.minTouchTarget,
+          child: Semantics(
+            label: L10n.of(context).settingsToggleApiKeyVisibility,
+            button: true,
+            child: IconButton(
+              icon: Icon(
+                obscure ? LucideIcons.eye : LucideIcons.eyeOff,
+                size: WpIconSize.sm,
+                color: isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
+              ),
+              onPressed: onToggle,
+              tooltip: L10n.of(context).settingsToggleApiKeyVisibility,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(
+                minWidth: WpLayout.minTouchTarget,
+                minHeight: WpLayout.minTouchTarget,
+              ),
             ),
           ),
         ),
