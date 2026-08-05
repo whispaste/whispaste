@@ -9,6 +9,7 @@ import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../widgets/brand_wordmark.dart';
 import '../../../widgets/language_selector.dart';
+import 'onboarding_page_fill.dart';
 
 /// Test key for the tappable beat list tile at [index] (0-based).
 @visibleForTesting
@@ -159,11 +160,18 @@ class WelcomeStep extends ConsumerWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Brand lockup — the only centred element on the page, mirroring the
-        // reference's centred wordmark over start-aligned content. The claim
-        // reads as a quiet second line of the lockup instead of a second
-        // headline: the beat titles below already carry that message, so
-        // shouting it here is what made the page feel packed.
+        // Brand lockup — this page's header, and the only horizontally
+        // centred element on it, mirroring the reference's centred wordmark
+        // over start-aligned content. The claim reads as a quiet second line
+        // of the lockup instead of a second headline: the beat titles below
+        // already carry that message, so shouting it here is what made the
+        // page feel packed.
+        //
+        // Vertically it is fixed at the top of the page, exactly where every
+        // other page's [OnboardingPageHeading] starts. It used to float —
+        // the whole page was centred as one unit — which made the logo's
+        // height depend on how tall the showcase happened to be and put it
+        // visibly below page 2's title.
         Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -193,27 +201,37 @@ class WelcomeStep extends ConsumerWidget {
         ),
         const SizedBox(height: WpSpacing.xxl),
 
-        // Three demo beats in the Conductor-style asymmetric composition:
-        // a start-aligned vertical list of titles + captions on one side,
-        // ONE large media area for the active beat on the other. Captions
-        // are rendered by Flutter (l10n, incl. RTL) — never baked into the
-        // artwork.
-        const _BeatShowcase(),
-        const SizedBox(height: WpSpacing.xl),
+        // Showcase and language choice are this page's body: one block,
+        // centred in whatever height is left under the lockup.
+        OnboardingPageBody(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Three demo beats in the Conductor-style asymmetric
+              // composition: a start-aligned vertical list of titles +
+              // captions on one side, ONE large media area for the active
+              // beat on the other. Captions are rendered by Flutter (l10n,
+              // incl. RTL) — never baked into the artwork.
+              const _BeatShowcase(),
+              const SizedBox(height: WpSpacing.xl),
 
-        // Language selector — items derived from L10n.supportedLocales so
-        // adding a new language is an ARB-only change.  Rendered as a
-        // compact dropdown without flag icons (see widget docs).
-        Padding(
-          padding: const EdgeInsetsDirectional.only(
-            start: kOnboardingContentInset,
-          ),
-          child: SizedBox(
-            width: _kLanguageSelectorWidth,
-            child: LanguageSelector(
-              currentLocale: settings.locale,
-              onChanged: selectLocale,
-            ),
+              // Language selector — items derived from L10n.supportedLocales
+              // so adding a new language is an ARB-only change. Rendered as a
+              // compact dropdown without flag icons (see widget docs).
+              Padding(
+                padding: const EdgeInsetsDirectional.only(
+                  start: kOnboardingContentInset,
+                ),
+                child: SizedBox(
+                  width: _kLanguageSelectorWidth,
+                  child: LanguageSelector(
+                    currentLocale: settings.locale,
+                    onChanged: selectLocale,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ],

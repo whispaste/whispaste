@@ -151,36 +151,25 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
       ? kOnboardingWelcomeFrameWidth
       : _contentMaxWidth;
 
-  /// Page 1 is a brand moment and stays optically centred in its area. The
-  /// settings-shaped pages behind it anchor to the top instead — and the ones
-  /// that fill the viewport ([_fillsViewport]) are the full height of their
-  /// area anyway, so for those this only decides where their own scroll
-  /// content sits once a window smaller than the fixed one makes them scroll.
+  /// Whether the page hands its leftover height to its body block
+  /// ([OnboardingPageFill] plus the page's own [OnboardingPageBody]).
   ///
-  /// Both this and [_frameWidthFor] are animated on a page change rather than
-  /// switched (see `build`): changing width and anchor instantly while the
-  /// 300 ms cross-fade is still running made the frame visibly jump.
-  Alignment _contentAlignmentFor(OnboardingStepId id) =>
-      id == OnboardingStepId.welcome ? Alignment.center : Alignment.topCenter;
-
-  /// Whether the page distributes the viewport's leftover height between its
-  /// blocks instead of stacking them at the top ([OnboardingPageFill]).
+  /// Every page does, including page 1: its brand lockup is that page's
+  /// header, and it has to start at the same height as every other page's
+  /// heading. Centring the page as a whole — which is what page 1 used to do —
+  /// made the lockup's position depend on how tall the rest of the page was,
+  /// so the logo sat visibly lower than page 2's title. Including the tight
+  /// pages costs nothing: the fill can never shrink a gap below its minimum,
+  /// so the hotkey page's conflict branch (12 px of slack in German) simply
+  /// keeps its minimum gaps.
   ///
-  /// Every settings-shaped page does, because they all have room to
-  /// distribute: measured against the 511-px content area of the fixed window
-  /// (551 px viewport minus the scroll view's padding), the sparsest of them
-  /// (Hotkey) leaves ~300 px over and the tightest nominal one (Model) ~130.
-  /// Including the tight ones costs nothing — the fill can never shrink a gap
-  /// below its minimum, so the hotkey page's conflict branch (12 px of slack
-  /// in German) simply keeps its minimum gaps.
-  ///
-  /// [OnboardingStepId.welcome] is excluded: it is a centred brand
-  /// composition, not a stack of blocks. [OnboardingStepId.tryAndGo] is
-  /// excluded because it is two side-by-side columns of unequal height with
-  /// ~22 px of slack — distributing that would pull the two columns' rhythms
-  /// apart for a gain nobody can see.
-  bool _fillsViewport(OnboardingStepId id) =>
-      id != OnboardingStepId.welcome && id != OnboardingStepId.tryAndGo;
+  /// [OnboardingStepId.tryAndGo] is the one exclusion. It is not a header
+  /// over a body but two side-by-side columns of unequal height, and its
+  /// heading is the first block of the *left* column (bounded to that
+  /// column's measure), already sitting at the same height as every other
+  /// page's. With ~22 px of slack, centring the pair as one block would move
+  /// that heading off the shared line to buy 11 px nobody can see.
+  bool _fillsViewport(OnboardingStepId id) => id != OnboardingStepId.tryAndGo;
 
   int _currentStep = 0;
   int _previousStep = 0;
@@ -416,9 +405,7 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
           subtitle: hasConflict ? null : l10n.onboardingTriggerSubtitle,
         ),
         SizedBox(height: hasConflict ? WpSpacing.sm : WpSpacing.lg),
-        const OnboardingFlexGap(flex: 3),
-        const TriggerStep(),
-        const OnboardingFlexGap(flex: 4),
+        const OnboardingPageBody(child: TriggerStep()),
       ],
     );
   }
@@ -428,13 +415,14 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
     return switch (id) {
       OnboardingStepId.welcome => const WelcomeStep(),
       OnboardingStepId.privacy => const PrivacyStep(),
-      // Every settings-shaped page from here on follows the same shape: the
-      // page owns its [OnboardingPageHeading] and the gaps between its
-      // blocks, the step widget owns only its own content. That keeps the
-      // step widgets bare-mountable in their own tests, and it is why none of
-      // them carries a title of its own any more — a page heading plus a
-      // near-identical section label directly under it was the same string
-      // twice at two sizes.
+      // Every settings-shaped page from here on follows the same shape: a
+      // fixed [OnboardingPageHeading], the minimum gap under it, and an
+      // [OnboardingPageBody] that centres everything else in the height
+      // that is left. The page owns the heading and that gap, the step widget
+      // owns only its own content. That keeps the step widgets bare-mountable
+      // in their own tests, and it is why none of them carries a title of its
+      // own any more — a page heading plus a near-identical section label
+      // directly under it was the same string twice at two sizes.
       OnboardingStepId.model => Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -444,9 +432,7 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
             subtitle: l10n.onboardingModelSubtitle,
           ),
           const SizedBox(height: WpSpacing.lg),
-          const OnboardingFlexGap(flex: 3),
-          const ModelStep(),
-          const OnboardingFlexGap(flex: 4),
+          const OnboardingPageBody(child: ModelStep()),
         ],
       ),
       OnboardingStepId.hotkey => _buildHotkeyPage(l10n),
@@ -465,12 +451,17 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
             subtitle: l10n.onboardingAppearancePageSubtitle,
           ),
           const SizedBox(height: WpSpacing.xl),
-          const OnboardingFlexGap(flex: 5),
-          const AppearanceStep(),
-          const SizedBox(height: WpSpacing.xl),
-          const OnboardingFlexGap(flex: 3),
-          const OnboardingAutostartToggle(),
-          const OnboardingFlexGap(flex: 4),
+          const OnboardingPageBody(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                AppearanceStep(),
+                SizedBox(height: WpSpacing.xl),
+                OnboardingAutostartToggle(),
+              ],
+            ),
+          ),
         ],
       ),
       OnboardingStepId.autoPaste => Column(
@@ -482,9 +473,7 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
             subtitle: l10n.onboardingPasteSubtitle,
           ),
           const SizedBox(height: WpSpacing.lg),
-          const OnboardingFlexGap(flex: 3),
-          const AutoPasteStep(),
-          const OnboardingFlexGap(flex: 4),
+          const OnboardingPageBody(child: AutoPasteStep()),
         ],
       ),
       // Two columns, not a stack: as one column the page measured 739 px of
@@ -495,6 +484,10 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
       // to read) each keep their own rhythm and the page fits without
       // scrolling. `start` cross-alignment keeps both column tops on the same
       // line; the plain Row mirrors for free under RTL.
+      //
+      // The one page that is not a header over a centred body: its heading is
+      // the first block of the left column, which puts it on the same line as
+      // every other page's heading already. See [_fillsViewport].
       OnboardingStepId.tryAndGo => const Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -641,10 +634,23 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
                   builder: (context, constraints) {
                     final availableHeight =
                         constraints.maxHeight - WpSpacing.lg * 2;
-                    return AnimatedAlign(
-                      alignment: _contentAlignmentFor(steps[safeCurrent]),
-                      duration: WpMotion.durationFor(context, WpMotion.smooth),
-                      curve: WpMotion.smooth_,
+                    // Every page anchors to the top: each one carries its own
+                    // fixed header and centres its body underneath
+                    // ([OnboardingPageBody]), so nothing here needs a
+                    // per-page anchor any more — page 1 used to be centred as
+                    // a whole and that is exactly what pushed its logo below
+                    // the other pages' headings.
+                    //
+                    // The Align itself is load-bearing and not decoration: it
+                    // hands the scroll view *loose* constraints. That is what
+                    // lets the page shrink-wrap (so a window smaller than the
+                    // fixed one actually reports a scroll extent) and what
+                    // lets `frame`'s maxWidth cap bind at all — under the
+                    // tight width it would otherwise receive, the
+                    // ConstrainedBox is enforced away and page 1's 860-px
+                    // frame would silently run the full window width.
+                    return Align(
+                      alignment: Alignment.topCenter,
                       child: SingleChildScrollView(
                         padding: const EdgeInsets.symmetric(
                           horizontal: WpSpacing.xl,

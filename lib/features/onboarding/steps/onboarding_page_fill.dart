@@ -1,37 +1,46 @@
-/// Vertical space distribution for the settings-shaped onboarding pages.
+/// Vertical rhythm of the onboarding pages: header top, body centred, footer
+/// bottom.
 ///
 /// The onboarding window is fixed at 1100×720, which leaves a 551-px content
-/// viewport — more than most pages need. Anchoring a 247-px page to the top
-/// of that viewport (what the flow did before) reads as "everything squeezed
-/// into the top third, dead space below"; centring it (what it did before
-/// that) leaves the page floating with no stable reading start. Both are the
-/// same mistake: the page is laid out as if it did not know how much room it
-/// has.
+/// viewport — more than most pages need. Anchoring a 247-px page to the top of
+/// that viewport reads as "everything squeezed into the top third, dead space
+/// below"; centring the *whole* page (header included) leaves it floating with
+/// no stable reading start, and — the bug this construction exists to prevent
+/// — makes the header land at a different height on every page, because its
+/// position then depends on how tall the rest of the page happens to be.
 ///
-/// [OnboardingPageFill] hands the page that knowledge. It stretches its child
-/// to the height the viewport actually offers, and [OnboardingFlexGap] — the
-/// growing half of a gap between two blocks — divides the leftover space
-/// between the gaps by weight, instead of letting it pile up at the bottom.
-/// The heading stays fixed at the top and the shell's navigation row stays
-/// fixed at the bottom; only what lies between them breathes.
+/// So every page is exactly two parts:
+///
+/// ```dart
+/// Column(children: [
+///   OnboardingPageHeading(...),          // fixed, same y on every page
+///   SizedBox(height: WpSpacing.lg),      // the minimum gap under it
+///   OnboardingPageBody(child: ...),      // everything else, centred as one
+/// ])
+/// ```
+///
+/// [OnboardingPageFill] stretches the page to the height the viewport actually
+/// offers, and [OnboardingPageBody] takes the leftover height and centres the
+/// body inside it. The header stays at the top, the shell's navigation row
+/// stays at the bottom, and only the space around the body breathes.
 library;
 
 import 'package:flutter/material.dart';
 
 /// Stretches [child] to [availableHeight] when the page is shorter than that,
-/// and marks the subtree as the place where [OnboardingFlexGap]s may grow.
+/// and marks the subtree as the place where an [OnboardingPageBody] may grow.
 ///
 /// Pages taller than [availableHeight] keep their natural height and scroll as
 /// before: [IntrinsicHeight] resolves to `max(natural, availableHeight)`, so
 /// the fill can only ever add space, never take any away. That property is
-/// what makes it safe to apply to the tight pages too (page 3 has 27 px of
-/// slack in Hebrew), and it keeps the no-scroll guard in
-/// `onboarding_overlay_test.dart` meaningful — an overflowing page still
-/// reports a scroll extent.
+/// what makes it safe to apply to the tight pages too (the hotkey page's
+/// conflict branch has 12 px of slack in German), and it keeps the no-scroll
+/// guard in `onboarding_overlay_test.dart` meaningful — an overflowing page
+/// still reports a scroll extent.
 ///
-/// [OnboardingFlexGap] contributes zero intrinsic height, so the intrinsic
-/// measurement [IntrinsicHeight] takes is exactly the page's natural,
-/// minimum-gap height.
+/// [OnboardingPageBody] reports its own child's intrinsic height and nothing
+/// more, so the measurement [IntrinsicHeight] takes is exactly the page's
+/// natural, minimum-gap height.
 class OnboardingPageFill extends StatelessWidget {
   const OnboardingPageFill({
     super.key,
@@ -55,26 +64,29 @@ class OnboardingPageFill extends StatelessWidget {
   }
 }
 
-/// The growing half of a gap between two blocks of an onboarding page.
+/// Everything on a page that is not its header, centred in whatever height is
+/// left between the header and the shell's navigation row.
 ///
-/// Always sits next to the fixed [SizedBox] that carries the gap's minimum,
-/// so a page that has no space to give keeps exactly the spacing it had:
-/// outside an [OnboardingPageFill] — the page widgets are also mounted
-/// standalone in their own tests — this collapses to nothing.
+/// One block per page, deliberately: dividing the leftover space between
+/// several hand-weighted gaps let each page invent its own vertical rhythm,
+/// and on page 1 it moved the header itself. Centring the body as a single
+/// unit is the same mechanism — a flex child of the page column — with one
+/// decision instead of four.
 ///
-/// [flex] weights this gap against the page's other gaps. Every page ends on
-/// one of these: without a trailing gap the last block would sit 20 px above
-/// the Back/Next row.
-class OnboardingFlexGap extends StatelessWidget {
-  const OnboardingFlexGap({super.key, this.flex = 1});
+/// Outside an [OnboardingPageFill] — the page widgets are also mounted
+/// standalone in their own tests, where the height is unbounded and a flex
+/// child would assert — this collapses to the child itself, so a page with no
+/// space to give keeps exactly the spacing it had.
+class OnboardingPageBody extends StatelessWidget {
+  const OnboardingPageBody({super.key, required this.child});
 
-  final int flex;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
     return _OnboardingFillScope.isFilling(context)
-        ? Spacer(flex: flex)
-        : const SizedBox.shrink();
+        ? Expanded(child: Center(child: child))
+        : child;
   }
 }
 

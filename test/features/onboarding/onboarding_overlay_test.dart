@@ -28,6 +28,7 @@ library;
 import 'package:flutter/foundation.dart'
     show debugDefaultTargetPlatformOverride;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderShiftedBox;
 import 'package:flutter/services.dart' show FontLoader, rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -42,9 +43,11 @@ import 'package:whispaste/features/onboarding/steps/appearance_step.dart';
 import 'package:whispaste/features/onboarding/steps/autostart_toggle.dart';
 import 'package:whispaste/features/onboarding/steps/mic_permission_chip.dart';
 import 'package:whispaste/features/onboarding/steps/model_step.dart';
+import 'package:whispaste/features/onboarding/steps/onboarding_headings.dart';
 import 'package:whispaste/features/onboarding/steps/onboarding_page_fill.dart';
 import 'package:whispaste/features/onboarding/steps/trigger_step.dart';
 import 'package:whispaste/features/onboarding/steps/auto_paste_step.dart';
+import 'package:whispaste/widgets/brand_wordmark.dart';
 import 'package:whispaste/services/hotkey_service.dart';
 import 'package:whispaste/services/keyboard_up_monitor.dart';
 import 'package:whispaste/services/model_download_service.dart';
@@ -841,11 +844,16 @@ void main() {
   // 551-px viewport, German / English / Hebrew.
   //
   // These are *natural* heights: what the page's blocks come to with every
-  // gap at its minimum. The settings-shaped pages hand their leftover height
-  // to the gaps between their blocks ([OnboardingPageFill]) and therefore
-  // occupy the full 551 px whatever these numbers say — the numbers are still
-  // the ones that decide whether a page fits at all, and the ones to
-  // re-measure before adding to a page.
+  // gap at its minimum. Every page except Try & Go hands its leftover height
+  // to the centring of its body block ([OnboardingPageFill] plus the page's
+  // [OnboardingPageBody]) and therefore occupies the full 551 px whatever
+  // these numbers say — the numbers are still the ones that decide whether a
+  // page fits at all, and the ones to re-measure before adding to a page.
+  //
+  // Re-measured after the header-top/body-centred unification: every number
+  // below came out identical to the flex-gap layout it replaced, page 1
+  // included. That is the point — the change moved where the spare height
+  // goes, not how much of it there is.
   //
   //   page 1  Welcome       529 / 529 / 529   (22 px slack)
   //   page 2  Privacy       303 / 303 / 303   (248 px distributed)
@@ -867,8 +875,8 @@ void main() {
   //     page this came to 914 / 921 px, i.e. ~370 px of forced scrolling that
   //     was documented as unreachable without a flow change. This is that
   //     flow change. German keeps 12 px of slack and pays for it three ways —
-  //     the page heading drops its subtitle while a conflict is up, the gaps
-  //     around the recorder are one step tighter, and the warn box is
+  //     the page heading drops its subtitle while a conflict is up, the gap
+  //     under that heading is one step tighter, and the warn box is
   //     vertically tighter than it is wide. Re-measure German before adding
   //     anything to this branch; it is the binding constraint in the flow.
   //   page 3 with a failed model download      419 / 406
@@ -890,8 +898,9 @@ void main() {
     /// [natural] is what the table above lists, and on a page that fills the
     /// viewport ([OnboardingPageFill]) it is the only informative number:
     /// [content] is then the viewport height by construction. Subtracting the
-    /// height the [OnboardingFlexGap]s grew to recovers it — those are the
-    /// only widgets on the page whose height comes from leftover space.
+    /// height the [OnboardingPageBody]'s centring gave away recovers it —
+    /// that gap is the only height on the page that comes from leftover space
+    /// rather than from content.
     ///
     /// NOTE: on a fill page these numbers alone cannot see an overflow —
     /// [IntrinsicHeight] pins the column to the offered height and the
@@ -911,9 +920,15 @@ void main() {
       final content =
           scrollable.position.viewportDimension +
           scrollable.position.maxScrollExtent;
+      // The leftover height the body's centring gave away — the only height
+      // on the page that comes from spare space rather than from content.
       final distributed = tester
-          .renderObjectList<RenderBox>(find.byType(OnboardingFlexGap))
-          .fold<double>(0, (sum, box) => sum + box.size.height);
+          .renderObjectList<RenderBox>(find.byType(OnboardingPageBody))
+          .whereType<RenderShiftedBox>()
+          .fold<double>(
+            0,
+            (sum, box) => sum + box.size.height - box.child!.size.height,
+          );
       return (
         available: available,
         content: content,
@@ -993,6 +1008,53 @@ void main() {
           });
         }
       }
+    }
+
+    // ── One reading start for the whole flow ─────────────────────────────
+    //
+    // The regression this guards: page 1 used to be centred as a single unit
+    // (brand lockup + showcase + language selector), so its wordmark sat
+    // wherever the rest of the page left it — visibly *below* page 2's
+    // heading. Every page now carries a fixed header and centres only its
+    // body underneath it ([OnboardingPageBody]), which is a property worth
+    // asserting rather than eyeballing: it is invisible in a screenshot of
+    // any single page and only shows up when paging through.
+
+    for (final locale in L10n.supportedLocales) {
+      testWidgets('every page starts its header on the same line — page 1 '
+          "'s wordmark included, in ${locale.languageCode}", (tester) async {
+        useFixedWindow(tester);
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        try {
+          await _pumpOverlay(
+            tester,
+            size: kOnboardingWindowSize,
+            locale: locale,
+            settings: _FakeSettingsNotifier(
+              AppSettings.defaults.copyWith(locale: locale.languageCode),
+            ),
+          );
+
+          // Page 1's header is the brand lockup, and the wordmark is its
+          // first line — the same role the page title plays everywhere else.
+          final headerTop = tester.getTopLeft(find.byType(WpBrandWordmark)).dy;
+
+          final total = _totalSteps(TargetPlatform.macOS);
+          for (var page = 2; page <= total; page++) {
+            await _tapNext(tester);
+            expect(
+              tester.getTopLeft(find.byType(OnboardingPageHeading)).dy,
+              headerTop,
+              reason:
+                  "page $page's heading starts at a different height than "
+                  "page 1's wordmark — the flow's reading start moves as the "
+                  'user pages through it',
+            );
+          }
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      });
     }
 
     // ── The two tall branches ────────────────────────────────────────────
