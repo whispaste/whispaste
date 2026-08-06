@@ -17,6 +17,7 @@ import '../../services/feedback_submission_service.dart';
 import '../../services/shared_prefs_safe_read.dart';
 import '../../widgets/language_selector.dart';
 import '../../widgets/page_shell.dart';
+import '../../widgets/wp_button.dart';
 
 /// Supabase URL — injected at build time via `--dart-define`.
 const _supabaseUrl = String.fromEnvironment('SUPABASE_URL', defaultValue: '');
@@ -315,34 +316,16 @@ class _FeedbackPageState extends State<FeedbackPage> {
                   ],
 
                   // Submit button
-                  SizedBox(
-                    width: double.infinity,
-                    child: AnimatedOpacity(
-                      duration: WpMotion.durationFor(context, WpMotion.fast),
-                      opacity: _canSubmit && !_submitting ? 1.0 : 0.5,
-                      child: ElevatedButton.icon(
-                        onPressed: _canSubmit && !_submitting ? _submit : null,
-                        icon: _submitting
-                            ? const SizedBox(
-                                width: WpIconSize.sm,
-                                height: WpIconSize.sm,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Icon(LucideIcons.send, size: WpIconSize.sm),
-                        label: Text(
-                          _submitting
-                              ? l10n.feedbackSubmitting
-                              : l10n.feedbackSubmit,
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: WpSpacing.md,
-                          ),
-                        ),
-                      ),
-                    ),
+                  // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
+                  WpButton(
+                    label: _submitting
+                        ? l10n.feedbackSubmitting
+                        : l10n.feedbackSubmit,
+                    variant: WpButtonVariant.primary,
+                    icon: LucideIcons.send,
+                    isLoading: _submitting,
+                    expanded: true,
+                    onPressed: _canSubmit ? _submit : null,
                   ),
 
                   const SizedBox(height: WpSpacing.lg),
@@ -655,13 +638,12 @@ class _ThankYouView extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: WpSpacing.xxxl),
-                OutlinedButton.icon(
+                // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
+                WpButton(
+                  label: l10n.feedbackSendAnother,
+                  variant: WpButtonVariant.secondary,
+                  icon: LucideIcons.messageSquarePlus,
                   onPressed: onReset,
-                  icon: const Icon(
-                    LucideIcons.messageSquarePlus,
-                    size: WpIconSize.sm,
-                  ),
-                  label: Text(l10n.feedbackSendAnother),
                 ),
                 const SizedBox(height: WpSpacing.xxxl),
                 _ReviewSupportCtas(
@@ -717,15 +699,19 @@ class _ReviewSupportCtas extends StatelessWidget {
         // Windows has a store listing → offer the Store-Review deep-link as the
         // primary action; macOS/Linux have no store, so only GitHub is offered.
         if (isWindows) ...[
-          FilledButton(
+          // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
+          WpButton(
+            label: l10n.reviewPromptRateStore,
+            variant: WpButtonVariant.primary,
             onPressed: () => _launchExternalUrl(kWindowsStoreReviewUrl),
-            child: Text(l10n.reviewPromptRateStore),
           ),
           const SizedBox(height: WpSpacing.xs),
         ],
-        OutlinedButton(
+        // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
+        WpButton(
+          label: l10n.reviewPromptStarGitHub,
+          variant: WpButtonVariant.secondary,
           onPressed: () => _launchExternalUrl(kGitHubRepoUrl),
-          child: Text(l10n.reviewPromptStarGitHub),
         ),
       ],
     );

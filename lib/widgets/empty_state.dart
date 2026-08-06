@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
+import 'wp_button.dart';
 
 /// Empty state — centered visual with icon, title, hint, and optional CTA.
 ///
@@ -76,7 +77,11 @@ class WpEmptyState extends StatelessWidget {
               ],
               if (actionLabel != null && onAction != null) ...[
                 const SizedBox(height: WpSpacing.lg),
-                ElevatedButton(onPressed: onAction, child: Text(actionLabel!)),
+                WpButton(
+                  label: actionLabel!,
+                  variant: WpButtonVariant.primary,
+                  onPressed: onAction,
+                ),
               ],
             ],
           ),

@@ -10,6 +10,7 @@ import '../../core/theme/tokens.dart';
 import '../../widgets/dialog.dart';
 import '../../widgets/searchable_list_page.dart';
 import '../../widgets/trigger_chip.dart';
+import '../../widgets/wp_button.dart';
 import 'package:whispaste/core/data/database.dart';
 
 // ---------------------------------------------------------------------------
@@ -481,13 +482,13 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
               const SizedBox(height: WpSpacing.xxs),
               Align(
                 alignment: AlignmentDirectional.centerStart,
-                child: TextButton.icon(
+                // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
+                child: WpButton(
+                  label: l10n.replacementsAddTrigger,
+                  variant: WpButtonVariant.ghost,
+                  size: WpButtonSize.dense,
+                  icon: LucideIcons.plus,
                   onPressed: _addTrigger,
-                  icon: const Icon(LucideIcons.plus, size: WpIconSize.xs),
-                  label: Text(
-                    l10n.replacementsAddTrigger,
-                    style: const TextStyle(fontSize: WpTypography.small),
-                  ),
                 ),
               ),
               const SizedBox(height: WpSpacing.md),
@@ -525,28 +526,19 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  TextButton(
+                  // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
+                  WpButton(
+                    label: l10n.actionCancel,
+                    variant: WpButtonVariant.ghost,
+                    tone: WpButtonTone.neutral,
                     onPressed: () => Navigator.of(context).pop(),
-                    child: Text(
-                      l10n.actionCancel,
-                      style: TextStyle(
-                        color: textMuted,
-                        fontSize: WpTypography.body,
-                      ),
-                    ),
                   ),
                   const SizedBox(width: WpSpacing.sm),
-                  ElevatedButton(
+                  // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
+                  WpButton(
+                    label: _isEditing ? l10n.actionSave : l10n.replacementsAdd,
+                    variant: WpButtonVariant.primary,
                     onPressed: _isValid ? _submit : null,
-                    // No manual text color here — ElevatedButtonThemeData
-                    // already sets foregroundColor: colorScheme.onPrimary,
-                    // which is contrast-safe against the button's
-                    // colorScheme.primary background. Overriding it to
-                    // `accent` (the same color as that background) made the
-                    // enabled button's label unreadable.
-                    child: Text(
-                      _isEditing ? l10n.actionSave : l10n.replacementsAdd,
-                    ),
                   ),
                 ],
               ),

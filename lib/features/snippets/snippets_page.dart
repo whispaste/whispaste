@@ -12,6 +12,7 @@ import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/dialog.dart';
 import '../../widgets/searchable_list_page.dart';
+import '../../widgets/wp_button.dart';
 import '../settings/settings_widgets.dart';
 import 'package:whispaste/core/data/database.dart';
 
@@ -432,7 +433,6 @@ class _SnippetDialogState extends State<_SnippetDialog> {
     final textPrimary = isDark
         ? WpColorsDark.textPrimary
         : WpColorsLight.textPrimary;
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
     final l10n = L10n.of(context);
 
     return Center(
@@ -525,22 +525,19 @@ class _SnippetDialogState extends State<_SnippetDialog> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  TextButton(
+                  // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
+                  WpButton(
+                    label: l10n.actionCancel,
+                    variant: WpButtonVariant.ghost,
+                    tone: WpButtonTone.neutral,
                     onPressed: () => Navigator.of(context).pop(),
-                    child: Text(
-                      l10n.actionCancel,
-                      style: TextStyle(
-                        color: textMuted,
-                        fontSize: WpTypography.body,
-                      ),
-                    ),
                   ),
                   const SizedBox(width: WpSpacing.sm),
-                  ElevatedButton(
+                  // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
+                  WpButton(
+                    label: _isEditing ? l10n.actionSave : l10n.snippetsAdd,
+                    variant: WpButtonVariant.primary,
                     onPressed: _isValid ? _submit : null,
-                    child: Text(
-                      _isEditing ? l10n.actionSave : l10n.snippetsAdd,
-                    ),
                   ),
                 ],
               ),

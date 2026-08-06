@@ -65,6 +65,7 @@ import 'services/update_service.dart';
 import 'services/update_actions.dart';
 import 'services/deploy_channel_service.dart';
 import 'widgets/toast.dart';
+import 'widgets/wp_button.dart';
 import 'widgets/review_prompt_dialog.dart';
 import 'widgets/store_thank_you_dialog.dart';
 import 'widgets/support_prompt_dialog.dart';
@@ -462,7 +463,7 @@ class _AppShellState extends ConsumerState<_AppShell>
       message: l10n.tccResetAfterUpdateToast,
       type: WpToastType.warning,
       duration: const Duration(seconds: 12),
-      // loam-ignore: a11y-interactive-semantics – WpToastAction is a data class; the TextButton in _ToastCard.build uses its child Text as the accessible label
+      // loam-ignore: a11y-interactive-semantics – WpToastAction is a data class; the WpButton in _ToastCard.build derives its accessible label from `label`
       action: WpToastAction(
         label: l10n.pasteCapabilityGrantButton,
         onPressed: () => unawaited(_grantAccessibilityFromNotice(capNotifier)),
@@ -572,13 +573,15 @@ class _AppShellState extends ConsumerState<_AppShell>
         title: Text(l10n.micGateAlertTitle),
         content: Text(l10n.micGateAlertBodyGeneric),
         actions: [
-          TextButton(
+          WpButton(
+            label: l10n.permissionAlertLaterButton,
+            variant: WpButtonVariant.ghost,
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(l10n.permissionAlertLaterButton),
           ),
-          TextButton(
+          WpButton(
+            label: l10n.micGateAlertConfirm,
+            variant: WpButtonVariant.ghost,
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(l10n.micGateAlertConfirm),
           ),
         ],
       ),

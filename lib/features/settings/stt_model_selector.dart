@@ -19,6 +19,7 @@ import '../../services/hardware_info_service.dart' as hw;
 import '../../services/model_download_service.dart';
 import '../../services/stt/stt_bundle.dart';
 import '../../widgets/tier_performance_presentation.dart';
+import '../../widgets/wp_button.dart';
 
 /// Tier-based STT model selector.
 ///
@@ -869,20 +870,12 @@ class _ErrorBanner extends StatelessWidget {
           ),
           if (onRetry != null) ...[
             const SizedBox(width: WpSpacing.xs),
-            TextButton(
+            WpButton(
+              label: l10n.actionRetry,
+              variant: WpButtonVariant.ghost,
+              tone: WpButtonTone.danger,
+              size: WpButtonSize.dense,
               onPressed: onRetry,
-              style: TextButton.styleFrom(
-                foregroundColor: errorColor,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: WpSpacing.xs,
-                  vertical: WpSpacing.xxs,
-                ),
-                textStyle: const TextStyle(
-                  fontSize: WpTypography.small,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              child: Text(l10n.actionRetry),
             ),
           ],
         ],

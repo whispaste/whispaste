@@ -24,6 +24,7 @@ import '../../../services/stt/stt_bundle.dart';
 import '../../../widgets/dialog.dart';
 import '../../../widgets/section.dart';
 import '../../../widgets/toast.dart';
+import '../../../widgets/wp_button.dart';
 import '../settings_widgets.dart';
 
 // ---------------------------------------------------------------------------
@@ -61,25 +62,20 @@ class AdvancedSection extends ConsumerWidget {
           SettingRow(
             icon: LucideIcons.rotateCcw,
             label: l10n.settingsResetToDefaults,
-            trailing: OutlinedButton(
+            trailing: WpButton(
+              label: l10n.settingsResetConfirm,
+              variant: WpButtonVariant.secondary,
               onPressed: () => _confirmReset(context, ref),
-              child: Text(l10n.settingsResetConfirm),
             ),
           ),
           SettingRow(
             icon: LucideIcons.trash2,
             label: l10n.settingsFactoryReset,
-            trailing: OutlinedButton(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Theme.of(context).colorScheme.error,
-                side: BorderSide(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.error.withValues(alpha: 0.5),
-                ),
-              ),
+            trailing: WpButton(
+              label: l10n.settingsFactoryResetConfirm,
+              variant: WpButtonVariant.secondary,
+              tone: WpButtonTone.danger,
               onPressed: () => _confirmFactoryReset(context, ref),
-              child: Text(l10n.settingsFactoryResetConfirm),
             ),
           ),
         ],

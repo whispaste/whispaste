@@ -28,6 +28,7 @@ import '../core/l10n/generated/app_localizations.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import '../services/store_thank_you_service.dart';
+import 'wp_button.dart';
 
 /// Override for testing. When non-null, [StoreThankYouWatcher] uses this
 /// value instead of [Platform.isWindows].
@@ -259,34 +260,31 @@ class _StoreThankYouDialog extends StatelessWidget {
                 // reliable store review deep-link exists — only the GitHub
                 // star CTA (mirrors the review prompt dialog).
                 if (isWindows) ...[
-                  FilledButton(
+                  WpButton(
+                    label: l10n.storeThankYouCtaStore,
+                    variant: WpButtonVariant.primary,
                     autofocus: true,
                     onPressed: onRateStore,
-                    child: Text(l10n.storeThankYouCtaStore),
                   ),
                   const SizedBox(height: WpSpacing.xs),
-                  OutlinedButton(
+                  WpButton(
+                    label: l10n.storeThankYouCtaGitHub,
+                    variant: WpButtonVariant.secondary,
                     onPressed: onStarGitHub,
-                    child: Text(l10n.storeThankYouCtaGitHub),
                   ),
                 ] else
-                  FilledButton(
+                  WpButton(
+                    label: l10n.storeThankYouCtaGitHub,
+                    variant: WpButtonVariant.primary,
                     autofocus: true,
                     onPressed: onStarGitHub,
-                    child: Text(l10n.storeThankYouCtaGitHub),
                   ),
                 const SizedBox(height: WpSpacing.sm),
-                TextButton(
+                WpButton(
+                  label: l10n.storeThankYouDismiss,
+                  variant: WpButtonVariant.ghost,
+                  tone: WpButtonTone.neutral,
                   onPressed: onDismiss,
-                  child: Text(
-                    l10n.storeThankYouDismiss,
-                    style: TextStyle(
-                      color: isDark
-                          ? WpColorsDark.textSecondary
-                          : WpColorsLight.textSecondary,
-                      fontSize: WpTypography.small,
-                    ),
-                  ),
                 ),
               ],
             ),

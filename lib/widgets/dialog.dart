@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
+import 'wp_button.dart';
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -258,10 +259,6 @@ class _WpConfirmContent extends StatelessWidget {
 
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final colorScheme = theme.colorScheme;
-
-    final confirmColor = destructive ? colorScheme.error : colorScheme.primary;
-    final confirmFg = destructive ? colorScheme.onError : colorScheme.onPrimary;
 
     final resolvedCancel =
         cancelLabel ?? MaterialLocalizations.of(context).cancelButtonLabel;
@@ -300,19 +297,20 @@ class _WpConfirmContent extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    TextButton(
+                    WpButton(
+                      label: resolvedCancel,
+                      variant: WpButtonVariant.ghost,
                       onPressed: () => Navigator.of(context).pop(false),
-                      child: Text(resolvedCancel),
                     ),
                     const SizedBox(width: WpSpacing.sm),
-                    FilledButton(
+                    WpButton(
+                      label: resolvedConfirm,
+                      variant: WpButtonVariant.primary,
+                      tone: destructive
+                          ? WpButtonTone.danger
+                          : WpButtonTone.accent,
                       autofocus: true,
                       onPressed: () => Navigator.of(context).pop(true),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: confirmColor,
-                        foregroundColor: confirmFg,
-                      ),
-                      child: Text(resolvedConfirm),
                     ),
                   ],
                 ),

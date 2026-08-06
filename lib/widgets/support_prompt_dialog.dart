@@ -22,6 +22,7 @@ import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import '../services/prompt_timing.dart';
 import '../services/support_prompt_service.dart';
+import 'wp_button.dart';
 
 // ---------------------------------------------------------------------------
 // Public entry point
@@ -214,28 +215,24 @@ class _SupportPromptDialog extends StatelessWidget {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: WpSpacing.lg),
-                FilledButton(
+                WpButton(
+                  label: l10n.aboutGitHubSponsors,
+                  variant: WpButtonVariant.primary,
                   autofocus: true,
                   onPressed: () => onResult(_SupportAction.gitHubSponsors),
-                  child: Text(l10n.aboutGitHubSponsors),
                 ),
                 const SizedBox(height: WpSpacing.xs),
-                OutlinedButton(
+                WpButton(
+                  label: l10n.aboutKofi,
+                  variant: WpButtonVariant.secondary,
                   onPressed: () => onResult(_SupportAction.kofi),
-                  child: Text(l10n.aboutKofi),
                 ),
                 const SizedBox(height: WpSpacing.sm),
-                TextButton(
+                WpButton(
+                  label: l10n.reviewPromptNever,
+                  variant: WpButtonVariant.ghost,
+                  tone: WpButtonTone.neutral,
                   onPressed: () => onResult(_SupportAction.dismiss),
-                  child: Text(
-                    l10n.reviewPromptNever,
-                    style: TextStyle(
-                      color: isDark
-                          ? WpColorsDark.textSecondary
-                          : WpColorsLight.textSecondary,
-                      fontSize: WpTypography.small,
-                    ),
-                  ),
                 ),
               ],
             ),

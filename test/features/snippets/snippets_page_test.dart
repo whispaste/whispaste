@@ -16,6 +16,7 @@ import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/snippets/snippets_page.dart';
 import 'package:whispaste/services/telemetry_service.dart';
+import 'package:whispaste/widgets/wp_button.dart';
 
 import '../../fixtures/test_helpers.dart';
 
@@ -67,9 +68,7 @@ void main() {
       await tester.tap(find.byIcon(LucideIcons.plus));
       await tester.pumpAndSettle();
 
-      final buttons = tester.widgetList<ElevatedButton>(
-        find.byType(ElevatedButton),
-      );
+      final buttons = tester.widgetList<WpButton>(find.byType(WpButton));
       expect(
         buttons.any((b) => b.onPressed == null),
         isTrue,

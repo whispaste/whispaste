@@ -30,6 +30,7 @@ import '../../../services/settings_portability_controller.dart';
 import '../../../services/settings_portability_service.dart';
 import '../../../widgets/dialog.dart';
 import '../../../widgets/section.dart';
+import '../../../widgets/wp_button.dart';
 import '../settings_widgets.dart';
 
 class SettingsPortabilitySection extends ConsumerWidget {
@@ -178,14 +179,16 @@ class SettingsPortabilitySection extends ConsumerWidget {
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                OutlinedButton(
+                WpButton(
+                  label: l10n.settingsPortabilityExportAction,
+                  variant: WpButtonVariant.secondary,
                   onPressed: () => _controller(ref).export(context),
-                  child: Text(l10n.settingsPortabilityExportAction),
                 ),
                 const SizedBox(width: WpSpacing.sm),
-                OutlinedButton(
+                WpButton(
+                  label: l10n.settingsPortabilityImportAction,
+                  variant: WpButtonVariant.secondary,
                   onPressed: () => _confirmImport(context, ref),
-                  child: Text(l10n.settingsPortabilityImportAction),
                 ),
               ],
             ),

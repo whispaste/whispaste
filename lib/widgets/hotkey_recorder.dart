@@ -22,6 +22,7 @@ import '../services/hotkey_conflicts.dart';
 import '../services/hotkey_key_resolver.dart' as key_resolver;
 import '../services/win_layout_label.dart';
 import 'dialog.dart';
+import 'wp_button.dart';
 
 // ---------------------------------------------------------------------------
 // Data class
@@ -594,20 +595,12 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
               runSpacing: WpSpacing.xs,
               children: [
                 // Clear
-                TextButton.icon(
+                WpButton(
+                  label: l10n.settingsHotkeyRecorderClear,
+                  variant: WpButtonVariant.ghost,
+                  tone: WpButtonTone.neutral,
+                  icon: LucideIcons.eraser,
                   onPressed: _clear,
-                  icon: Icon(
-                    LucideIcons.eraser,
-                    size: WpIconSize.sm,
-                    color: textMuted,
-                  ),
-                  label: Text(
-                    l10n.settingsHotkeyRecorderClear,
-                    style: TextStyle(
-                      color: textMuted,
-                      fontSize: WpTypography.body,
-                    ),
-                  ),
                 ),
                 // Cancel + Save grouped so they stay together when wrapping.
                 Wrap(
@@ -619,37 +612,16 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
                     // pop), there is nothing to dismiss, so the button is
                     // hidden to avoid a dead control.
                     if (widget.onSubmit == null)
-                      TextButton(
+                      WpButton(
+                        label: l10n.settingsHotkeyRecorderCancel,
+                        variant: WpButtonVariant.ghost,
+                        tone: WpButtonTone.neutral,
                         onPressed: () => Navigator.of(context).pop(),
-                        child: Text(
-                          l10n.settingsHotkeyRecorderCancel,
-                          style: TextStyle(
-                            color: textMuted,
-                            fontSize: WpTypography.body,
-                          ),
-                        ),
                       ),
-                    // Save — accent background + white foreground gives
-                    // WCAG-AA contrast in both light and dark themes;
-                    // the previous accent-text-on-default-elevated bg
-                    // failed contrast checks for the disabled label too.
-                    ElevatedButton(
+                    WpButton(
+                      label: l10n.settingsHotkeyRecorderSave,
+                      variant: WpButtonVariant.primary,
                       onPressed: hasCombo ? _save : null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: accent,
-                        foregroundColor: Colors.white,
-                        disabledBackgroundColor: isDark
-                            ? WpColorsDark.surfaceVariant
-                            : WpColorsLight.surfaceVariant,
-                        disabledForegroundColor: textMuted,
-                      ),
-                      child: Text(
-                        l10n.settingsHotkeyRecorderSave,
-                        style: const TextStyle(
-                          fontSize: WpTypography.body,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
                     ),
                   ],
                 ),

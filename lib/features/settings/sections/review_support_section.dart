@@ -18,6 +18,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/app_urls.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../widgets/section.dart';
+import '../../../widgets/wp_button.dart';
 import '../settings_widgets.dart';
 
 class ReviewSupportSection extends ConsumerWidget {
@@ -33,9 +34,10 @@ class ReviewSupportSection extends ConsumerWidget {
       child: SettingRow(
         icon: LucideIcons.star,
         label: l10n.reviewSupportLabel,
-        trailing: OutlinedButton(
+        trailing: WpButton(
+          label: l10n.reviewSupportAction,
+          variant: WpButtonVariant.secondary,
           onPressed: _launchReviewSupport,
-          child: Text(l10n.reviewSupportAction),
         ),
       ),
     );

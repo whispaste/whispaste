@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/services/hotkey_conflicts.dart';
 import 'package:whispaste/widgets/hotkey_recorder.dart';
+import 'package:whispaste/widgets/wp_button.dart';
 
 import '../fixtures/test_helpers.dart';
 
@@ -230,8 +231,8 @@ void main() {
         final l10n = L10n.of(context);
 
         // Save button must be enabled (onPressed != null).
-        final saveButton = tester.widget<ElevatedButton>(
-          find.widgetWithText(ElevatedButton, l10n.settingsHotkeyRecorderSave),
+        final saveButton = tester.widget<WpButton>(
+          find.widgetWithText(WpButton, l10n.settingsHotkeyRecorderSave),
         );
         expect(saveButton.onPressed, isNotNull);
       },
@@ -318,8 +319,8 @@ void main() {
       final context = tester.element(find.byType(HotkeyRecorderDialog));
       final l10n = L10n.of(context);
 
-      final saveButton = tester.widget<ElevatedButton>(
-        find.widgetWithText(ElevatedButton, l10n.settingsHotkeyRecorderSave),
+      final saveButton = tester.widget<WpButton>(
+        find.widgetWithText(WpButton, l10n.settingsHotkeyRecorderSave),
       );
       expect(
         saveButton.onPressed,
@@ -370,7 +371,7 @@ void main() {
       final context = tester.element(find.byType(HotkeyRecorderDialog));
       final l10n = L10n.of(context);
       await tester.tap(
-        find.widgetWithText(ElevatedButton, l10n.settingsHotkeyRecorderSave),
+        find.widgetWithText(WpButton, l10n.settingsHotkeyRecorderSave),
         warnIfMissed: false,
       );
       await tester.pumpAndSettle();
@@ -728,8 +729,8 @@ void main() {
         await tester.sendKeyDownEvent(LogicalKeyboardKey.numLock);
         await tester.pump();
 
-        final saveButton = tester.widget<ElevatedButton>(
-          find.widgetWithText(ElevatedButton, l10n.settingsHotkeyRecorderSave),
+        final saveButton = tester.widget<WpButton>(
+          find.widgetWithText(WpButton, l10n.settingsHotkeyRecorderSave),
         );
         expect(
           saveButton.onPressed,
@@ -782,7 +783,7 @@ void main() {
       final context = tester.element(find.byType(HotkeyRecorderDialog));
       final l10n = L10n.of(context);
       await tester.tap(
-        find.widgetWithText(ElevatedButton, l10n.settingsHotkeyRecorderSave),
+        find.widgetWithText(WpButton, l10n.settingsHotkeyRecorderSave),
         warnIfMissed: false,
       );
       await tester.pumpAndSettle();
@@ -843,8 +844,8 @@ void main() {
 
         final context = tester.element(find.byType(HotkeyRecorderDialog));
         final l10n = L10n.of(context);
-        final saveButton = tester.widget<ElevatedButton>(
-          find.widgetWithText(ElevatedButton, l10n.settingsHotkeyRecorderSave),
+        final saveButton = tester.widget<WpButton>(
+          find.widgetWithText(WpButton, l10n.settingsHotkeyRecorderSave),
         );
         expect(
           saveButton.onPressed,

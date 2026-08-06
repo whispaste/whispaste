@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/widgets/empty_state.dart';
+import 'package:whispaste/widgets/wp_button.dart';
 
 import '../fixtures/test_helpers.dart';
 
@@ -57,7 +58,7 @@ void main() {
           ),
         );
 
-        expect(find.widgetWithText(ElevatedButton, 'Add Item'), findsOneWidget);
+        expect(find.widgetWithText(WpButton, 'Add Item'), findsOneWidget);
       },
     );
 
@@ -70,7 +71,7 @@ void main() {
         ),
       );
 
-      expect(find.byType(ElevatedButton), findsNothing);
+      expect(find.byType(WpButton), findsNothing);
     });
 
     testWidgets('action button fires callback on tap', (tester) async {
@@ -87,7 +88,7 @@ void main() {
         ),
       );
 
-      await tester.tap(find.widgetWithText(ElevatedButton, 'Add Item'));
+      await tester.tap(find.widgetWithText(WpButton, 'Add Item'));
       expect(tapped, isTrue);
     });
 

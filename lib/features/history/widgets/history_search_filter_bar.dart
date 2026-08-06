@@ -9,6 +9,7 @@ import '../../../core/data/database.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../widgets/wp_button.dart';
 import '../../../widgets/wp_discoverability_hint.dart';
 import '../../../widgets/wp_focus_ring.dart';
 import '../data/providers.dart';
@@ -1042,9 +1043,6 @@ class HistoryMultiSelectBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
     final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
     final bg = isDark
         ? WpColorsDark.surfaceElevated
         : WpColorsLight.surfaceElevated;
@@ -1194,13 +1192,13 @@ class HistoryMultiSelectBar extends StatelessWidget {
           ),
           const SizedBox(width: WpSpacing.sm),
           // Cancel
-          TextButton.icon(
+          // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
+          WpButton(
+            label: l10n.actionCancel,
+            variant: WpButtonVariant.ghost,
+            tone: WpButtonTone.neutral,
+            icon: LucideIcons.x,
             onPressed: onCancelSelection,
-            icon: Icon(LucideIcons.x, size: WpIconSize.sm, color: textPrimary),
-            label: Text(
-              l10n.actionCancel,
-              style: TextStyle(fontSize: WpTypography.body, color: textPrimary),
-            ),
           ),
         ],
       ),
