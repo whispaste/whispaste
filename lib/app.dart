@@ -1066,17 +1066,21 @@ class _ThemeToggle extends ConsumerWidget {
     final mutedColor = isDark
         ? WpColorsDark.textMuted
         : WpColorsLight.textMuted;
-    return IconButton(
-      icon: Icon(
-        isDark ? LucideIcons.moon : LucideIcons.sun,
-        color: mutedColor,
-        size: 16,
+    return Semantics(
+      label: isDark ? l10n.tooltipSwitchToLight : l10n.tooltipSwitchToDark,
+      button: true,
+      child: IconButton(
+        icon: Icon(
+          isDark ? LucideIcons.moon : LucideIcons.sun,
+          color: mutedColor,
+          size: 16,
+        ),
+        tooltip: isDark ? l10n.tooltipSwitchToLight : l10n.tooltipSwitchToDark,
+        onPressed: () => ref.read(settingsProvider.notifier).toggleDarkLight(),
+        splashRadius: 16,
+        constraints: const BoxConstraints(minWidth: 36, minHeight: 32),
+        padding: EdgeInsets.zero,
       ),
-      tooltip: isDark ? l10n.tooltipSwitchToLight : l10n.tooltipSwitchToDark,
-      onPressed: () => ref.read(settingsProvider.notifier).toggleDarkLight(),
-      splashRadius: 16,
-      constraints: const BoxConstraints(minWidth: 36, minHeight: 32),
-      padding: EdgeInsets.zero,
     );
   }
 }
