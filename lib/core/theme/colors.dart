@@ -64,37 +64,20 @@ abstract final class WpColorsDark {
   static const Color surfaceChipFill = Color(0x80141A29); // surface @ 50%
   static const Color surfaceMutedFill = Color(0x148A99B2); // textMuted @ 8%
 
-  /// Painted-glass chrome tints (`WpGlassChrome`). The brand accent sits on the
-  /// rim alone; fill, sheen and specular stay achromatic white so a large
-  /// chrome pane never reads as a second accent area (Single-Accent-Rule).
-  static const Color glassChromeFillStart = Color(0x17FFFFFF); // white @ 9%
-  static const Color glassChromeFillEnd = Color(0x0AFFFFFF); // white @ 4%
-  static const Color glassChromeSheen = Color(0x1FFFFFFF); // white @ 12%
-  static const Color glassChromeInnerRim = Color(0x29FFFFFF); // white @ 16%
-  static const Color glassChromeSpecular = Color(0x57FFFFFF); // white @ 34%
-  static const Color glassChromeEdgeTop = Color(0x733CCBE6); // accent @ 45%
-  static const Color glassChromeEdgeBottom = Color(0x1F3CCBE6); // accent @ 12%
-
-  /// Destructive tints, keyed to [error] at the *same* 6 / 12 / 30 % steps the
-  /// accent tints above use — so a danger control's hover, press and outline
-  /// carry exactly the weight of an accent one's, only the hue differs.
-  /// Replaces two hand-rolled red alphas that expressed one idea at two
-  /// strengths (a 50 % outline in Settings → Factory Reset, a 31 % one on the
-  /// analytics reset button).
-  static const Color errorRowHover = Color(0x0FFF7B7B); // error @ 6%
-  static const Color errorActiveFill = Color(0x1FFF7B7B); // error @ 12%
-  static const Color errorBorder30 = Color(0x4DFF7B7B); // error @ 30%
-
-  /// Neutral tints for controls that must stay off-brand (a secondary action
-  /// next to an accent one). Keyed to [textMuted] so the wash reads as a
-  /// dimming of the surface, never as a second accent.
-  static const Color mutedRowHover = Color(0x0F8A99B2); // textMuted @ 6%
-  static const Color mutedActiveFill = Color(0x1F8A99B2); // textMuted @ 12%
-
   /// Saturated status colors — rich and warm
   static const Color success = Color(0xFF36D98B);
   static const Color warning = Color(0xFFF5C842);
   static const Color error = Color(0xFFFF7B7B);
+
+  /// Danger/off-brand-neutral tint ladder — the same 6/12/30% alpha steps as
+  /// the accent ladder above, keyed to [error]/[textMuted] instead, so a
+  /// destructive or neutral control's hover, press and outline carry exactly
+  /// the weight of an accent one's, only the hue differs.
+  static const Color errorRowHover = Color(0x0FFF7B7B); // error @ 6%
+  static const Color errorActiveFill = Color(0x1FFF7B7B); // error @ 12%
+  static const Color errorBorder30 = Color(0x4DFF7B7B); // error @ 30%
+  static const Color mutedRowHover = Color(0x0F8A99B2); // textMuted @ 6%
+  static const Color mutedActiveFill = Color(0x1F8A99B2); // textMuted @ 12%
 
   /// Orange-600 — used for RAM/hardware preflight warnings.
   static const Color warningOrange = Color(0xFFEA580C);
@@ -201,25 +184,11 @@ abstract final class WpColorsLight {
   static const Color surfaceChipFill = Color(0x80F2F6FC); // surface @ 50%
   static const Color surfaceMutedFill = Color(0x145B697E); // textMuted @ 8%
 
-  /// Painted-glass chrome tints — see [WpColorsDark.glassChromeFillStart].
-  /// The white layers run far stronger here: on pearl surfaces a 9 % white
-  /// fill is invisible, so the slab reads as light *added* rather than as a
-  /// veil. The accent rim stays near its dark-theme weight — Harbor-Teal is
-  /// already dark enough to hold the edge without extra alpha.
-  static const Color glassChromeFillStart = Color(0xB8FFFFFF); // white @ 72%
-  static const Color glassChromeFillEnd = Color(0x7AFFFFFF); // white @ 48%
-  static const Color glassChromeSheen = Color(0x8CFFFFFF); // white @ 55%
-  static const Color glassChromeInnerRim = Color(0x99FFFFFF); // white @ 60%
-  static const Color glassChromeSpecular = Color(0xD9FFFFFF); // white @ 85%
-  static const Color glassChromeEdgeTop = Color(0x6106678A); // accent @ 38%
-  static const Color glassChromeEdgeBottom = Color(0x1A06678A); // accent @ 10%
-
-  /// Destructive tints — see [WpColorsDark.errorRowHover] for rationale.
+  /// Danger/off-brand-neutral tint ladder — see [WpColorsDark.errorRowHover]
+  /// for rationale.
   static const Color errorRowHover = Color(0x0FCC1C1C); // error @ 6%
   static const Color errorActiveFill = Color(0x1FCC1C1C); // error @ 12%
   static const Color errorBorder30 = Color(0x4DCC1C1C); // error @ 30%
-
-  /// Neutral tints — see [WpColorsDark.mutedRowHover] for rationale.
   static const Color mutedRowHover = Color(0x0F5B697E); // textMuted @ 6%
   static const Color mutedActiveFill = Color(0x1F5B697E); // textMuted @ 12%
 
