@@ -77,6 +77,8 @@ const relatedPages = [
   alternateSlugs={alternateSlugs}
   relatedPages={relatedPages}
 >
+  <p class="tldr">{t(lang, "explainer.offlineStt.tldr")}</p>
+
   <section>
     <h2>{t(lang, "explainer.offlineStt.section.modes.heading")}</h2>
     <p>{t(lang, "explainer.offlineStt.section.modes.body")}</p>
@@ -104,6 +106,11 @@ const relatedPages = [
 </LandingPageLayout>
 
 <style>
+  .tldr {
+    color: #e5e7eb;
+    font-size: 1.0625rem;
+    line-height: 1.65;
+  }
   .faq-list {
     margin-top: 1rem;
   }

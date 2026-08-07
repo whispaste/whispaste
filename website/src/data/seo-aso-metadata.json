@@ -190,7 +190,7 @@
             }
           ]
         },
-        "status": "implemented (2026-07-29) — i18n.ts + whisper-desktop.astro/en/whisper-desktop.astro umgebaut: Hero/Title/Description jargonfrei, FAQ-Block oben mit FAQPageSchema, bestehende technische Sections unter 'Technische Details' verschoben"
+        "status": "implemented (2026-07-29) — i18n.ts + whisper-desktop.astro/en/whisper-desktop.astro umgebaut: Hero/Title/Description jargonfrei, FAQ-Block oben mit FAQPageSchema, bestehende technische Sections unter 'Technische Details' verschoben | 2026-08-07: drei FAQ-Eintraege ergaenzt (free, safe, whereTranscript). Der dritte war urspruenglich als Ausschluss geplant ('Kann WhisPaste eine vorhandene Audiodatei transkribieren?' -> 'Nein'). Auf Nutzer-Entscheidung 2026-08-07 positiv umformuliert: 'Wo landet das Whisper-Transkript?' beschreibt, was die App MIT Whisper auf dem Desktop tut, statt zu erklaeren, was sie nicht tut. Die Funktionsgrenze (kein Upload, keine Warteschlange) bleibt als Eigenschaft des Mechanismus enthalten, nicht als Entschuldigung."
       },
       "offline-speech-to-text": {
         "path": {
@@ -205,33 +205,39 @@
           "en": [
             {
               "question": "What is the best offline speech-to-text tool?",
-              "answer": "For system-wide voice input, WhisPaste is a strong free option: it runs Whisper locally on Windows, macOS and Linux, works fully offline, and pastes the transcript at your cursor in any app. As it's open source, you can verify that nothing is sent to the cloud."
+              "answer": "For system-wide voice input, WhisPaste is a strong free option: it runs Whisper locally on Windows, macOS and Linux, works fully offline, and pastes the transcript at your cursor in any app. As it's open source, you can verify that nothing is sent to the cloud.",
+              "verdict": "declined 2026-08-07 — redundant zur bestehenden Seiten-FAQ (modelSize/noInternet/accuracy)"
             },
             {
               "question": "Can speech-to-text work without internet?",
-              "answer": "Yes. Local tools like WhisPaste process your voice with an on-device Whisper model, so transcription works with no internet connection. Everything runs on your CPU or GPU; nothing is uploaded."
+              "answer": "Yes. Local tools like WhisPaste process your voice with an on-device Whisper model, so transcription works with no internet connection. Everything runs on your CPU or GPU; nothing is uploaded.",
+              "verdict": "declined 2026-08-07 — redundant zur bestehenden Seiten-FAQ (modelSize/noInternet/accuracy)"
             },
             {
               "question": "Is offline speech-to-text accurate?",
-              "answer": "Modern offline Whisper models are accurate enough for everyday writing, email and notes, including punctuation. Larger models improve accuracy at the cost of speed, and WhisPaste lets you pick the model size that fits your hardware."
+              "answer": "Modern offline Whisper models are accurate enough for everyday writing, email and notes, including punctuation. Larger models improve accuracy at the cost of speed, and WhisPaste lets you pick the model size that fits your hardware.",
+              "verdict": "declined 2026-08-07 — redundant zur bestehenden Seiten-FAQ (modelSize/noInternet/accuracy)"
             }
           ],
           "de": [
             {
               "question": "Was ist die beste Offline-Spracherkennung?",
-              "answer": "Für systemweite Spracheingabe ist WhisPaste eine starke kostenlose Option: Es führt Whisper lokal auf Windows, macOS und Linux aus, arbeitet komplett offline und fügt das Transkript an der Cursor-Position in jeder App ein. Weil es quelloffen ist, kannst du überprüfen, dass nichts in die Cloud geht."
+              "answer": "Für systemweite Spracheingabe ist WhisPaste eine starke kostenlose Option: Es führt Whisper lokal auf Windows, macOS und Linux aus, arbeitet komplett offline und fügt das Transkript an der Cursor-Position in jeder App ein. Weil es quelloffen ist, kannst du überprüfen, dass nichts in die Cloud geht.",
+              "verdict": "declined 2026-08-07 — redundant zur bestehenden Seiten-FAQ (modelSize/noInternet/accuracy)"
             },
             {
               "question": "Funktioniert Spracherkennung ohne Internet?",
-              "answer": "Ja. Lokale Tools wie WhisPaste verarbeiten deine Stimme mit einem Whisper-Modell direkt auf dem Gerät — die Transkription funktioniert ganz ohne Internetverbindung. Alles läuft auf CPU oder GPU; nichts wird hochgeladen."
+              "answer": "Ja. Lokale Tools wie WhisPaste verarbeiten deine Stimme mit einem Whisper-Modell direkt auf dem Gerät — die Transkription funktioniert ganz ohne Internetverbindung. Alles läuft auf CPU oder GPU; nichts wird hochgeladen.",
+              "verdict": "declined 2026-08-07 — redundant zur bestehenden Seiten-FAQ (modelSize/noInternet/accuracy)"
             },
             {
               "question": "Wie genau ist Offline-Spracherkennung?",
-              "answer": "Moderne Offline-Whisper-Modelle sind genau genug für den Alltag — E-Mails, Notizen, Texte, inklusive Interpunktion. Größere Modelle erhöhen die Genauigkeit auf Kosten der Geschwindigkeit; in WhisPaste wählst du die Modellgröße passend zu deiner Hardware."
+              "answer": "Moderne Offline-Whisper-Modelle sind genau genug für den Alltag — E-Mails, Notizen, Texte, inklusive Interpunktion. Größere Modelle erhöhen die Genauigkeit auf Kosten der Geschwindigkeit; in WhisPaste wählst du die Modellgröße passend zu deiner Hardware.",
+              "verdict": "declined 2026-08-07 — redundant zur bestehenden Seiten-FAQ (modelSize/noInternet/accuracy)"
             }
           ]
         },
-        "status": "teilweise umgesetzt (2026-07-29): DE-Title/Hero/Lead in i18n.ts um 'Spracherkennung' ergänzt (Fix für Position-60-80-Cluster: Seite nutzte durchgängig 'Speech-to-Text', DE-Suchende tippen aber 'Spracherkennung'). Das TL;DR/FAQ hier ist ein Konzept, NICHT auf der Seite ergänzt — die Seite hat bereits eine eigene, andere FAQ (Modellgröße/Internet/Genauigkeit)."
+        "status": "umgesetzt (2026-08-07): TL;DR wortgleich aus tldr.de/.en als erster Absatz unter der H1 beider Seiten eingefuegt (i18n-Key explainer.offlineStt.tldr). Die 3 FAQ-Fragen hier NICHT angehaengt — die Seite hat bereits eine eigene FAQ zu Modellgroesse/Internet/Genauigkeit, die dieselben drei Intentionen abdeckt."
       },
       "privacy": {
         "path": {
@@ -246,33 +252,39 @@
           "en": [
             {
               "question": "Is WhisPaste private?",
-              "answer": "Yes. Your audio is transcribed on your own machine and never sent to any server. WhisPaste requires no account, works fully offline, and collects no telemetry by default — and as open-source software, the code is public for anyone to audit."
+              "answer": "Yes. Your audio is transcribed on your own machine and never sent to any server. WhisPaste requires no account, works fully offline, and collects no telemetry by default — and as open-source software, the code is public for anyone to audit.",
+              "verdict": "declined 2026-08-07 — redundant zur bestehenden Seiten-FAQ (dataLeaves/account/historyStorage)"
             },
             {
               "question": "Does WhisPaste send my voice to the cloud?",
-              "answer": "No. Unlike many cloud voice-input services, WhisPaste processes everything locally with on-device Whisper models. Your recordings and transcripts stay on your computer."
+              "answer": "No. Unlike many cloud voice-input services, WhisPaste processes everything locally with on-device Whisper models. Your recordings and transcripts stay on your computer.",
+              "verdict": "declined 2026-08-07 — redundant zur bestehenden Seiten-FAQ (dataLeaves/account/historyStorage)"
             },
             {
               "question": "What's the most private speech-to-text option?",
-              "answer": "A fully local, open-source tool is the most private choice, because your audio never leaves the device and the code can be independently verified. WhisPaste is designed exactly this way: local processing, no mandatory cloud, no telemetry by default."
+              "answer": "A fully local, open-source tool is the most private choice, because your audio never leaves the device and the code can be independently verified. WhisPaste is designed exactly this way: local processing, no mandatory cloud, no telemetry by default.",
+              "verdict": "adopted 2026-08-07 als explainer.privacy.faq.mostPrivate"
             }
           ],
           "de": [
             {
               "question": "Ist WhisPaste datenschutzfreundlich?",
-              "answer": "Ja. Dein Audio wird auf dem eigenen Rechner transkribiert und nie an einen Server gesendet. WhisPaste braucht kein Konto, arbeitet komplett offline und erfasst standardmäßig keine Telemetrie — und als quelloffene Software ist der Code für alle einsehbar."
+              "answer": "Ja. Dein Audio wird auf dem eigenen Rechner transkribiert und nie an einen Server gesendet. WhisPaste braucht kein Konto, arbeitet komplett offline und erfasst standardmäßig keine Telemetrie — und als quelloffene Software ist der Code für alle einsehbar.",
+              "verdict": "declined 2026-08-07 — redundant zur bestehenden Seiten-FAQ (dataLeaves/account/historyStorage)"
             },
             {
               "question": "Sendet WhisPaste meine Stimme in die Cloud?",
-              "answer": "Nein. Anders als viele Cloud-Dienste zur Spracheingabe verarbeitet WhisPaste alles lokal mit Whisper-Modellen auf dem Gerät. Deine Aufnahmen und Transkripte bleiben auf deinem Computer."
+              "answer": "Nein. Anders als viele Cloud-Dienste zur Spracheingabe verarbeitet WhisPaste alles lokal mit Whisper-Modellen auf dem Gerät. Deine Aufnahmen und Transkripte bleiben auf deinem Computer.",
+              "verdict": "declined 2026-08-07 — redundant zur bestehenden Seiten-FAQ (dataLeaves/account/historyStorage)"
             },
             {
               "question": "Welche Spracherkennung ist am datenschutzfreundlichsten?",
-              "answer": "Ein vollständig lokales, quelloffenes Tool ist die datenschutzfreundlichste Wahl, weil das Audio das Gerät nie verlässt und der Code unabhängig überprüfbar ist. Genau so ist WhisPaste gebaut: lokale Verarbeitung, keine Cloud-Pflicht, standardmäßig keine Telemetrie."
+              "answer": "Ein vollständig lokales, quelloffenes Tool ist die datenschutzfreundlichste Wahl, weil das Audio das Gerät nie verlässt und der Code unabhängig überprüfbar ist. Genau so ist WhisPaste gebaut: lokale Verarbeitung, keine Cloud-Pflicht, standardmäßig keine Telemetrie.",
+              "verdict": "adopted 2026-08-07 als explainer.privacy.faq.mostPrivate"
             }
           ]
         },
-        "status": "teilweise umgesetzt (2026-07-29): TL;DR-Absatz in i18n.ts + beide .astro-Seiten eingefügt. Die 3 FAQ-Fragen hier wurden NICHT ergänzt (Redundanz vermieden — die Seite hat bereits eine eigene, thematisch überlappende FAQ: Audio-Verbleib/Account/Verlaufsspeicherung)."
+        "status": "umgesetzt (2026-08-07): TL;DR seit 07-29 live. Von den 3 FAQ-Fragen wurde genau eine uebernommen ('Welche Spracherkennung ist am datenschutzfreundlichsten?' / 'What is the most private speech-to-text option?'), die beiden anderen sind als redundant abgelehnt markiert. SACHKORREKTUR am selben Tag: der TL;DR behauptete 'standardmaessig keine Telemetrie' / 'no telemetry by default'. Das widerspricht dem eigenen Abschnitt noTelemetry und der Datenschutzerklaerung — die anonyme Nutzungsstatistik ist opt-out, also standardmaessig AN. Formulierung in beiden Sprachen auf 'anonyme, abschaltbare Nutzungsstatistik, die niemals Audio oder Text enthaelt' korrigiert. Die uebernommene FAQ-Antwort wurde gegenueber der hier gespeicherten Fassung entsprechend angepasst (statt 'no telemetry by default')."
       }
     },
     "contentConcepts": [
