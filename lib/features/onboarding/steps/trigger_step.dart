@@ -10,6 +10,7 @@ import '../../../core/theme/tokens.dart';
 import '../../../services/hotkey_service.dart';
 import '../../../services/telemetry_service.dart';
 import '../../../widgets/hotkey_recorder.dart';
+import '../../../widgets/wp_button.dart';
 import '../../settings/settings_widgets.dart';
 
 /// Widget keys exposed for testing. Kept in one place so tests and production
@@ -79,14 +80,16 @@ class TriggerStep extends ConsumerWidget {
         // 914 px (de) / 921 px (he) against a 551-px viewport — ~370 px of
         // forced scrolling, documented as out of reach without a flow change.
         // The flow change happened: the hotkey block has its own page now, and
-        // the branch fits without scrolling (538 px in German and in Hebrew —
+        // the branch fits without scrolling (534 px in German and in Hebrew —
         // measured, see the fixed-window group in
         // `onboarding_overlay_test.dart`). The last ~40 px come from three
         // deliberate compressions, so re-measure both locales before spending
         // them: the page heading drops its subtitle while a conflict is up
         // (see the overlay), the gaps below are one step tighter than the
         // page's usual rhythm, and the German conflict body is worded to stay
-        // on one line.
+        // on one line. The trailing "Ändern" button below is `dense` for the
+        // same reason as the compressions above, not just for the 17 px of
+        // slack it buys back — see its own comment.
         if (status == HotkeyRegistrationStatus.conflict) ...[
           _HotkeyConflictWarnBox(
             key: kTriggerStepConflictWarnBoxKey,
@@ -144,14 +147,15 @@ class TriggerStep extends ConsumerWidget {
                 hotkeyKeyDisplay: hotkeyDisplay,
               ),
               const SizedBox(width: WpSpacing.md),
-              OutlinedButton(
+              // dense: this row's label already runs at WpTypography.small —
+              // a standard (48px) button would out-shout the row it answers
+              // to. See wp_button.dart's dense doc: "trailing slot of a
+              // dense settings row", exactly this slot.
+              WpButton(
                 key: kTriggerStepChangeHotkeyKey,
-                style: OutlinedButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                  minimumSize: const Size(0, 44),
-                  padding: const EdgeInsets.symmetric(horizontal: WpSpacing.sm),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
+                label: l10n.settingsChangeHotkey,
+                variant: WpButtonVariant.secondary,
+                size: WpButtonSize.dense,
                 onPressed: () async {
                   final result = await HotkeyRecorderDialog.show(
                     context,
@@ -171,7 +175,6 @@ class TriggerStep extends ConsumerWidget {
                         );
                   }
                 },
-                child: Text(l10n.settingsChangeHotkey),
               ),
             ],
           ),

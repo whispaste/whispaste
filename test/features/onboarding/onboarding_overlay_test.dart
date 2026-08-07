@@ -880,11 +880,11 @@ void main() {
   //
   // The two branch cases, which are what the split was for (German / Hebrew,
   // the two the tests cover):
-  //   page 4 with a confirmed hotkey conflict   538 / 538
+  //   page 4 with a confirmed hotkey conflict   534 / 534
   //     Warn box + full inline recorder. On the old merged Model & Hotkey
   //     page this came to 914 / 921 px, i.e. ~370 px of forced scrolling that
   //     was documented as unreachable without a flow change. This is that
-  //     flow change. Both keep 13 px of slack and pay for it three ways — the
+  //     flow change. Both keep 17 px of slack and pay for it three ways — the
   //     page heading drops its subtitle while a conflict is up, the gap
   //     under that heading is `sm` instead of [kOnboardingHeaderGap] (the
   //     flow's one deliberate deviation: the canonical 32 px would cost this
@@ -893,8 +893,11 @@ void main() {
   //     brings it level with Hebrew: its conflict body is worded to stay on
   //     one line. It used to wrap to two, and those 17 px are what put this
   //     branch 4 px over once WpButton gave the recorder's action row 48 px
-  //     instead of 32. Re-measure both before adding anything to this branch;
-  //     it is the binding constraint in the flow.
+  //     instead of 32 — that was 13 px of slack; the trailing "Ändern" button
+  //     in the same row later moved to `WpButtonSize.dense` (32 px, down from
+  //     its old 36), which is what brought the branch back to 17 px. Both
+  //     numbers were binding constraints in their moment; re-measure before
+  //     adding anything to this branch.
   //   page 3 with a failed model download      431 / 418
   //
   // Hebrew is the tightest on the model page for a reason worth keeping in
