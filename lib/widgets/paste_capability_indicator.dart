@@ -18,6 +18,7 @@ import '../core/theme/tokens.dart';
 import '../services/paste/paste_capability_notifier.dart';
 import '../services/paste/paster.dart';
 import 'paste_capability_restart_banner.dart';
+import 'toast.dart';
 import 'wp_button.dart';
 
 class PasteCapabilityIndicator extends ConsumerStatefulWidget {
@@ -65,8 +66,14 @@ class _PasteCapabilityIndicatorState
       final message = result.isSupported
           ? l10n.pasteCapabilityRepairDone(cleared)
           : l10n.pasteCapabilityRepairFailed;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message), duration: const Duration(seconds: 5)),
+      // The raw SnackBar rendered both outcomes identically — a failed
+      // permission reset looked exactly like a successful one. The toast
+      // type carries that distinction now.
+      WpToast.show(
+        context,
+        message: message,
+        type: result.isSupported ? WpToastType.success : WpToastType.error,
+        duration: const Duration(seconds: 5),
       );
       // Re-check capability without prompting so the indicator reflects the
       // post-reset state (will likely still be "missing" until the next

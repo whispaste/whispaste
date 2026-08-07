@@ -25,6 +25,7 @@ import '../../../services/stt_parakeet/parakeet_model_registry.dart';
 import '../../../services/telemetry_service.dart';
 import '../../../widgets/model_download_card.dart';
 import '../../../widgets/section.dart';
+import '../../../widgets/toast.dart';
 import '../../../widgets/wp_button.dart';
 import '../settings_widgets.dart';
 
@@ -424,11 +425,13 @@ class _BenchmarkButton extends ConsumerWidget {
               icon: const Icon(LucideIcons.refreshCw, size: WpIconSize.sm),
               onPressed: () {
                 ref.read(localSttBundleProvider.notifier).runBenchmark();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(l10n.qualityTierInfoBenchmarking),
-                    duration: const Duration(seconds: 2),
-                  ),
+                // Progress notice, not a result — `info`, not `success`:
+                // the benchmark has only just started here.
+                WpToast.show(
+                  context,
+                  message: l10n.qualityTierInfoBenchmarking,
+                  type: WpToastType.info,
+                  duration: const Duration(seconds: 2),
                 );
               },
               tooltip: l10n.qualityTierBenchmarkReRun,
