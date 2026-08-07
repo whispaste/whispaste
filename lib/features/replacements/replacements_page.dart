@@ -11,6 +11,7 @@ import '../../widgets/dialog.dart';
 import '../../widgets/searchable_list_page.dart';
 import '../../widgets/trigger_chip.dart';
 import '../../widgets/wp_button.dart';
+import '../settings/settings_widgets.dart' show settingsToggle;
 import 'package:whispaste/core/data/database.dart';
 
 // ---------------------------------------------------------------------------
@@ -192,7 +193,7 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
           message: enabled
               ? l10n.replacementsToggleEnabled
               : l10n.replacementsToggleDisabled,
-          child: Switch(
+          child: settingsToggle(
             value: enabled,
             onChanged: (v) => ref
                 .read(settingsProvider.notifier)

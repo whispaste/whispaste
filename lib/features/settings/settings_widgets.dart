@@ -300,11 +300,20 @@ Widget settingsSlider({
 }
 
 /// Standard toggle switch for settings.
+///
+/// [onChanged] is nullable on purpose: `null` is Material's own "disabled"
+/// signal for [Switch], and two call sites gate the toggle on a platform
+/// capability (Push-to-Talk needs key-up events) rather than hiding it.
+///
+/// [key] is forwarded onto the [Switch] itself, not onto a wrapper — tests
+/// look the toggle up with `tester.widget<Switch>(find.byKey(...))`, which a
+/// wrapper node would break.
 Widget settingsToggle({
   required bool value,
-  required ValueChanged<bool> onChanged,
+  required ValueChanged<bool>? onChanged,
+  Key? key,
 }) {
-  return Switch(value: value, onChanged: onChanged);
+  return Switch(key: key, value: value, onChanged: onChanged);
 }
 
 /// Password / API key field with visibility toggle.

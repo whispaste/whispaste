@@ -219,7 +219,7 @@ class _PushToTalkRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final toggle = Switch(
+    final toggle = settingsToggle(
       key: kTriggerStepPttToggleKey,
       value: settings.pushToTalk,
       onChanged: supportsKeyUp

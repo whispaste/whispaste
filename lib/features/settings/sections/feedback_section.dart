@@ -134,7 +134,7 @@ class _PushToTalkRow extends ConsumerWidget {
         .read(hotkeyServiceProvider.notifier)
         .supportsKeyUp;
 
-    final toggle = Switch(
+    final toggle = settingsToggle(
       value: settings.pushToTalk,
       onChanged: supportsKeyUp
           ? (v) {
