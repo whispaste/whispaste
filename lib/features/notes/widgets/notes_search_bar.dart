@@ -6,6 +6,7 @@ import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../widgets/wp_button.dart';
 import '../../../widgets/wp_focus_ring.dart';
+import '../../../widgets/wp_search_field.dart';
 import '../data/providers.dart';
 
 // ---------------------------------------------------------------------------
@@ -46,7 +47,6 @@ class NotesSearchBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
     final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
 
     return Padding(
@@ -61,67 +61,16 @@ class NotesSearchBar extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           // ── Search field + "new note" button ─────────────────────────────
-          // Soft, low-set capsule matching the history search field: depth via
-          // WpShadows.subtle instead of a resting hairline border — focus
-          // keeps the accent border as the single state signal.
           Row(
             children: [
               Expanded(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    borderRadius: WpRadius.borderMd,
-                    boxShadow: WpShadows.subtle,
-                  ),
-                  child: TextField(
-                    controller: searchController,
-                    focusNode: searchFocusNode,
-                    decoration: InputDecoration(
-                      hintText: l10n.notesSearchPlaceholder,
-                      prefixIcon: Icon(
-                        LucideIcons.search,
-                        size: WpIconSize.sm,
-                        color: textMuted,
-                      ),
-                      // IconButton(tooltip:) alone only sets a Semantics HINT, not
-                      // a label — same gap fixed for the editor toolbar (Ticket 09).
-                      suffixIcon: searchController.text.isNotEmpty
-                          ? Semantics(
-                              label: l10n.notesClearSearch,
-                              button: true,
-                              child: IconButton(
-                                icon: Icon(
-                                  LucideIcons.x,
-                                  size: WpIconSize.sm,
-                                  color: textMuted,
-                                ),
-                                tooltip: l10n.notesClearSearch,
-                                onPressed: () {
-                                  searchController.clear();
-                                  onSearchChanged();
-                                },
-                              ),
-                            )
-                          : null,
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: WpSpacing.md,
-                        vertical: WpSpacing.xs + 2,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: WpRadius.borderMd,
-                        borderSide: BorderSide.none,
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: WpRadius.borderMd,
-                        borderSide: BorderSide.none,
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: WpRadius.borderMd,
-                        borderSide: BorderSide(color: accent, width: 1.5),
-                      ),
-                    ),
-                    onChanged: (_) => onSearchChanged(),
-                  ),
+                child: WpSearchField(
+                  controller: searchController,
+                  focusNode: searchFocusNode,
+                  hintText: l10n.notesSearchPlaceholder,
+                  variant: WpSearchFieldVariant.raised,
+                  clearTooltip: l10n.notesClearSearch,
+                  onChanged: (_) => onSearchChanged(),
                 ),
               ),
               const SizedBox(width: WpSpacing.sm),

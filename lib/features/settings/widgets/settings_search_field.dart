@@ -24,6 +24,7 @@ import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/navigation/page_state.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../widgets/wp_search_field.dart';
 import '../search/settings_search_provider.dart';
 
 class SettingsSearchField extends ConsumerStatefulWidget {
@@ -198,7 +199,6 @@ class _SettingsSearchFieldState extends ConsumerState<SettingsSearchField> {
 
     // Read current matches from the provider (populated after debounce)
     final matches = ref.watch(settingsSearchMatchesProvider);
-    final rawQuery = _controller.text;
 
     // Announce result count to screen readers whenever it changes.
     final view = View.of(context);
@@ -222,38 +222,15 @@ class _SettingsSearchFieldState extends ConsumerState<SettingsSearchField> {
       mainAxisSize: MainAxisSize.min,
       children: [
         // ── Search field ─────────────────────────────────────────────────
-        Semantics(
-          label: l10n.settingsSearchFieldLabel,
-          textField: true,
-          child: TextField(
-            controller: _controller,
-            focusNode: _focusNode,
-            decoration: InputDecoration(
-              hintText: l10n.settingsSearchHint,
-              prefixIcon: Icon(
-                LucideIcons.search,
-                size: WpIconSize.sm,
-                color: textMuted,
-              ),
-              suffixIcon: rawQuery.isNotEmpty
-                  ? IconButton(
-                      icon: Icon(
-                        LucideIcons.x,
-                        size: WpIconSize.sm,
-                        color: textMuted,
-                      ),
-                      tooltip: l10n.historyClearSearch,
-                      onPressed: _clearSearch,
-                    )
-                  : null,
-              isDense: true,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: WpSpacing.md,
-                vertical: WpSpacing.xs + 2,
-              ),
-            ),
-            onChanged: (_) {}, // handled by controller listener
-          ),
+        WpSearchField(
+          controller: _controller,
+          focusNode: _focusNode,
+          hintText: l10n.settingsSearchHint,
+          variant: WpSearchFieldVariant.outlined,
+          semanticsLabel: l10n.settingsSearchFieldLabel,
+          // Clearing has to reach the provider and the dropdown too, not just
+          // the controller — the same path Escape takes.
+          onClear: _clearSearch,
         ),
 
         // ── Invisible live region: announces result count to screen readers ─

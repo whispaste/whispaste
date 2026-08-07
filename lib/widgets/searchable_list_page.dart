@@ -3,12 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../core/l10n/generated/app_localizations.dart';
-import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import 'dialog.dart';
 import 'empty_state.dart';
 import 'page_shell.dart';
 import 'wp_button.dart';
+import 'wp_search_field.dart';
 
 /// Shared scaffold for the searchable-list settings features (Replacements,
 /// Snippets): a toolbar with search field and Add button above a searchable
@@ -159,23 +159,10 @@ class _WpSearchableListPageState<T> extends State<WpSearchableListPage<T>> {
                 children: [
                   // Search
                   Expanded(
-                    child: TextField(
+                    child: WpSearchField(
                       controller: _searchController,
-                      decoration: InputDecoration(
-                        hintText: widget.searchHint,
-                        prefixIcon: Icon(
-                          LucideIcons.search,
-                          size: WpIconSize.sm,
-                          color: isDark
-                              ? WpColorsDark.textMuted
-                              : WpColorsLight.textMuted,
-                        ),
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: WpSpacing.md,
-                          vertical: WpSpacing.xs + 2,
-                        ),
-                      ),
+                      hintText: widget.searchHint,
+                      variant: WpSearchFieldVariant.outlined,
                       onChanged: (v) => setState(() => _searchQuery = v),
                     ),
                   ),
