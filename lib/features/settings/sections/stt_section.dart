@@ -419,18 +419,22 @@ class _BenchmarkButton extends ConsumerWidget {
               height: 16,
               child: CircularProgressIndicator(strokeWidth: 2),
             )
-          : IconButton(
-              icon: const Icon(LucideIcons.refreshCw, size: WpIconSize.sm),
-              onPressed: () {
-                ref.read(localSttBundleProvider.notifier).runBenchmark();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(l10n.qualityTierInfoBenchmarking),
-                    duration: const Duration(seconds: 2),
-                  ),
-                );
-              },
-              tooltip: l10n.qualityTierBenchmarkReRun,
+          : Semantics(
+              label: l10n.qualityTierBenchmarkReRun,
+              button: true,
+              child: IconButton(
+                icon: const Icon(LucideIcons.refreshCw, size: WpIconSize.sm),
+                onPressed: () {
+                  ref.read(localSttBundleProvider.notifier).runBenchmark();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(l10n.qualityTierInfoBenchmarking),
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                },
+                tooltip: l10n.qualityTierBenchmarkReRun,
+              ),
             ),
     );
   }
@@ -457,11 +461,15 @@ class _ParakeetModelRow extends ConsumerWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(l10n.parakeetModelInstalled),
-          IconButton(
-            icon: const Icon(LucideIcons.trash2, size: WpIconSize.sm),
-            tooltip: l10n.parakeetModelDelete,
-            onPressed: () =>
-                ref.read(parakeetDownloadProvider.notifier).deleteBundle(),
+          Semantics(
+            label: l10n.parakeetModelDelete,
+            button: true,
+            child: IconButton(
+              icon: const Icon(LucideIcons.trash2, size: WpIconSize.sm),
+              tooltip: l10n.parakeetModelDelete,
+              onPressed: () =>
+                  ref.read(parakeetDownloadProvider.notifier).deleteBundle(),
+            ),
           ),
         ],
       );
@@ -476,12 +484,16 @@ class _ParakeetModelRow extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text('${l10n.parakeetModelDownloading} ${dl.progressPercent}%'),
-                IconButton(
-                  icon: const Icon(LucideIcons.x, size: WpIconSize.xs),
-                  tooltip: l10n.parakeetModelCancel,
-                  onPressed: () => ref
-                      .read(parakeetDownloadProvider.notifier)
-                      .cancelDownload(),
+                Semantics(
+                  label: l10n.parakeetModelCancel,
+                  button: true,
+                  child: IconButton(
+                    icon: const Icon(LucideIcons.x, size: WpIconSize.xs),
+                    tooltip: l10n.parakeetModelCancel,
+                    onPressed: () => ref
+                        .read(parakeetDownloadProvider.notifier)
+                        .cancelDownload(),
+                  ),
                 ),
               ],
             ),

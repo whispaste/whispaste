@@ -1,0 +1,3 @@
+## 2024-05-18 - IconButton Accessibility Redundancy in Flutter
+**Learning:** While `IconButton` requires `Semantics` wrappers in some frameworks or standard HTML (like ARIA attributes), Flutter automatically generates a semantic label for screen readers if a `tooltip` string is provided to the `IconButton`. Explicitly wrapping it in `Semantics(label: ...)` when a tooltip already exists is functionally redundant in Flutter.
+**Action:** Before wrapping an `IconButton` in `Semantics`, check if it already has a descriptive `tooltip`. If it does, the framework handles the accessibility label automatically, and no explicit `Semantics` wrapper is needed unless specific additional a11y overrides are required.
