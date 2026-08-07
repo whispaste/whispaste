@@ -637,10 +637,17 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
         focusNode: _focusNode,
         autofocus: true,
         onKeyEvent: _handleKeyEvent,
-        // On Windows frameless windows, BackdropFilter + ImageFilter.blur is
-        // broken (see _WpDialogBarrier in dialog.dart) — render the card
-        // without the blur backdrop there instead of a visibly broken dialog.
-        child: Platform.isWindows
+        // The blur backdrop only makes sense in modal mode, where it frosts
+        // the modal barrier behind the card. Two exceptions render the card
+        // bare instead:
+        //   • Windows — BackdropFilter + ImageFilter.blur is broken on
+        //     frameless windows (see _WpDialogBarrier in dialog.dart), so the
+        //     blur would show up as a visibly broken dialog.
+        //   • Inline mode (onSubmit != null, e.g. the onboarding trigger page)
+        //     — there is no barrier back there, just real page content. The
+        //     blur would smear the heading and the conflict warning that
+        //     explain why the recorder appeared in the first place.
+        child: Platform.isWindows || widget.onSubmit != null
             ? card
             : BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),

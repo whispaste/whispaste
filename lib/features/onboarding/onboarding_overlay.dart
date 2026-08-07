@@ -183,7 +183,7 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
   /// made the lockup's position depend on how tall the rest of the page was,
   /// so the logo sat visibly lower than page 2's title. Including the tight
   /// pages costs nothing: the fill can never shrink a gap below its minimum,
-  /// so the hotkey page's conflict branch (12 px of slack in German) simply
+  /// so the hotkey page's conflict branch (13 px of slack in German) simply
   /// keeps its minimum gaps.
   ///
   /// [OnboardingStepId.tryAndGo] is the one exclusion. It is not a header
@@ -425,7 +425,7 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
         subtitle: hasConflict ? null : l10n.onboardingTriggerSubtitle,
       ),
       // The flow's one documented deviation from [kOnboardingHeaderGap]: the
-      // conflict branch measures 539 px in German against the 551 px the
+      // conflict branch measures 538 px in German against the 551 px the
       // fixed window offers, so the canonical 32 px gap would push it into
       // scrolling by 20 px. 12 px is what it can afford, and the missing
       // subtitle above it is what makes the tighter gap read as intentional

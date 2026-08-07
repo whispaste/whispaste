@@ -75,7 +75,7 @@ class OnboardingPage extends StatelessWidget {
 
   /// Deviation from [kOnboardingHeaderGap]. Document the reason at the call
   /// site; there is currently exactly one (the hotkey page's confirmed-
-  /// conflict branch, which has 12 px of slack in German and cannot afford
+  /// conflict branch, which has 13 px of slack in German and cannot afford
   /// the canonical gap).
   final double headerGap;
 
@@ -100,7 +100,7 @@ class OnboardingPage extends StatelessWidget {
 /// before: [IntrinsicHeight] resolves to `max(natural, availableHeight)`, so
 /// the fill can only ever add space, never take any away. That property is
 /// what makes it safe to apply to the tight pages too (the hotkey page's
-/// conflict branch has 12 px of slack in German), and it keeps the no-scroll
+/// conflict branch has 13 px of slack in German), and it keeps the no-scroll
 /// guard in `onboarding_overlay_test.dart` meaningful — an overflowing page
 /// still reports a scroll extent.
 ///

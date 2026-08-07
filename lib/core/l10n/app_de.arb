@@ -840,7 +840,7 @@
   "onboardingTriggerSubtitle": "Lege deinen Hotkey fest und wähle, wie er eine Aufnahme startet.",
   "onboardingTriggerCurrentHotkey": "Aktuelles Tastenkürzel",
   "onboardingTriggerHotkeyConflictTitle": "Tastenkürzel bereits belegt",
-  "onboardingTriggerHotkeyConflictBody": "Dein Tastenkürzel scheint von einer anderen App belegt zu sein. Nimm unten eine neue Kombination auf, um fortzufahren.",
+  "onboardingTriggerHotkeyConflictBody": "Dein Tastenkürzel ist offenbar von einer anderen App belegt. Nimm unten eine neue Kombination auf.",
   "onboardingReadyHotkeyConflictBody": "Geh mit „Zurück\" zur Hotkey-Seite und nimm dort eine neue Kombination auf.",
   "onboardingTriggerModeHoldHint": "Tastenkürzel gedrückt halten und sprechen, Loslassen beendet die Aufnahme",
   "onboardingTriggerModeToggleHint": "Einmal drücken startet, erneutes Drücken beendet die Aufnahme",

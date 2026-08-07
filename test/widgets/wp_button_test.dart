@@ -155,6 +155,90 @@ void main() {
         WpColorsDark.surfaceVariant,
       );
     });
+
+    testWidgets(
+      'disabled primary borrows the secondary outline — its fill alone is '
+      'near-invisible on surfaceVariant-tinted cards',
+      (tester) async {
+        await tester.pumpWidget(
+          makeTestable(
+            const WpButton(
+              label: 'Gesperrt',
+              variant: WpButtonVariant.primary,
+              onPressed: null,
+            ),
+          ),
+        );
+
+        final style = tester
+            .widget<FilledButton>(find.byType(FilledButton))
+            .style!;
+
+        expect(
+          style.side!.resolve(const {})!.color,
+          WpColorsDark.borderSubtle,
+        );
+      },
+    );
+
+    testWidgets('enabled primary has no outline at all', (tester) async {
+      await tester.pumpWidget(
+        makeTestable(
+          const WpButton(
+            label: 'Los',
+            variant: WpButtonVariant.primary,
+            onPressed: _noop,
+          ),
+        ),
+      );
+
+      final style = tester
+          .widget<FilledButton>(find.byType(FilledButton))
+          .style!;
+
+      expect(style.side, isNull);
+    });
+
+    testWidgets('disabled ghost stays borderless — it has no silhouette to '
+        'lose', (tester) async {
+      await tester.pumpWidget(
+        makeTestable(
+          const WpButton(
+            label: 'Gesperrt',
+            variant: WpButtonVariant.ghost,
+            onPressed: null,
+          ),
+        ),
+      );
+
+      final style = tester.widget<TextButton>(find.byType(TextButton)).style!;
+
+      expect(style.side, isNull);
+    });
+
+    testWidgets('light theme resolves its own disabled-primary outline', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        makeTestable(
+          const WpButton(
+            label: 'Gesperrt',
+            variant: WpButtonVariant.primary,
+            onPressed: null,
+          ),
+          brightness: Brightness.light,
+        ),
+      );
+
+      final style = tester
+          .widget<FilledButton>(find.byType(FilledButton))
+          .style!;
+
+      expect(
+        style.side!.resolve(const {})!.color,
+        WpColorsLight.borderSubtle,
+      );
+    });
   });
 
   // -------------------------------------------------------------------------

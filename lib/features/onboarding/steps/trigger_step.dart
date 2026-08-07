@@ -79,12 +79,14 @@ class TriggerStep extends ConsumerWidget {
         // 914 px (de) / 921 px (he) against a 551-px viewport — ~370 px of
         // forced scrolling, documented as out of reach without a flow change.
         // The flow change happened: the hotkey block has its own page now, and
-        // the branch fits without scrolling (539 px in German — measured, see
-        // the fixed-window group in `onboarding_overlay_test.dart`). The last
-        // ~40 px come from two deliberate compressions, so re-measure both
-        // locales before spending them: the page heading drops its subtitle
-        // while a conflict is up (see the overlay), and the gaps below are
-        // one step tighter than the page's usual rhythm.
+        // the branch fits without scrolling (538 px in German and in Hebrew —
+        // measured, see the fixed-window group in
+        // `onboarding_overlay_test.dart`). The last ~40 px come from three
+        // deliberate compressions, so re-measure both locales before spending
+        // them: the page heading drops its subtitle while a conflict is up
+        // (see the overlay), the gaps below are one step tighter than the
+        // page's usual rhythm, and the German conflict body is worded to stay
+        // on one line.
         if (status == HotkeyRegistrationStatus.conflict) ...[
           _HotkeyConflictWarnBox(
             key: kTriggerStepConflictWarnBoxKey,

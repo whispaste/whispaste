@@ -2609,7 +2609,7 @@ class L10nDe extends L10n {
 
   @override
   String get onboardingTriggerHotkeyConflictBody =>
-      'Dein Tastenkürzel scheint von einer anderen App belegt zu sein. Nimm unten eine neue Kombination auf, um fortzufahren.';
+      'Dein Tastenkürzel ist offenbar von einer anderen App belegt. Nimm unten eine neue Kombination auf.';
 
   @override
   String get onboardingReadyHotkeyConflictBody =>
