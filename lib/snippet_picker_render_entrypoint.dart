@@ -41,6 +41,7 @@ import 'core/theme/theme.dart';
 import 'core/theme/tokens.dart';
 import 'services/snippet_picker/snippet_picker_render_channel.dart';
 import 'shared_render_engine_helpers.dart' show RenderEngineState;
+import 'widgets/wp_search_field.dart';
 
 /// Private channel between the native picker shell and this render engine.
 ///
@@ -438,7 +439,7 @@ class _SnippetPickerBodyState extends State<_SnippetPickerBody>
                           WpSpacing.sm,
                           WpSpacing.xs,
                         ),
-                        child: _buildSearchField(isDark, l10n),
+                        child: _buildSearchField(l10n),
                       ),
                       Expanded(
                         child: _buildListArea(
@@ -489,63 +490,18 @@ class _SnippetPickerBodyState extends State<_SnippetPickerBody>
   /// Capsule search field — a soft inset glass pill (overlay silhouette DNA)
   /// instead of the main window's rectangular input. The border eases to the
   /// accent tint while focused (continuous, no hard swap).
-  Widget _buildSearchField(bool isDark, L10n l10n) {
-    return ListenableBuilder(
-      listenable: _searchFocus,
-      builder: (context, child) {
-        final focused = _searchFocus.hasFocus;
-        return AnimatedContainer(
-          duration: WpMotion.durationFor(context, WpMotion.normal),
-          curve: WpMotion.defaultCurve,
-          decoration: BoxDecoration(
-            color: isDark
-                ? WpColorsDark.surfaceMutedFill
-                : WpColorsLight.surfaceMutedFill,
-            borderRadius: WpRadius.borderFull,
-            border: Border.all(
-              color: focused
-                  ? (isDark
-                        ? WpColorsDark.accentBorder30
-                        : WpColorsLight.accentBorder30)
-                  : (isDark
-                        ? WpColorsDark.borderSubtle
-                        : WpColorsLight.borderSubtle),
-            ),
-          ),
-          child: child,
-        );
-      },
-      child: TextField(
-        controller: widget.searchController,
-        focusNode: _searchFocus,
-        // Sole autofocus in the panel (see the build-method comment) —
-        // reused-engine re-shows are covered by `_resetForShow` instead,
-        // since autofocus only fires on the first mount.
-        autofocus: true,
-        onChanged: _onQueryChanged,
-        onSubmitted: (_) => _submit(),
-        style: TextStyle(
-          fontSize: WpTypography.body,
-          color: isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary,
-        ),
-        decoration: InputDecoration(
-          hintText: l10n.snippetsSearch,
-          prefixIcon: Icon(
-            LucideIcons.search,
-            size: WpIconSize.sm,
-            color: isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
-          ),
-          isDense: true,
-          filled: false,
-          border: InputBorder.none,
-          enabledBorder: InputBorder.none,
-          focusedBorder: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: WpSpacing.md,
-            vertical: WpSpacing.xs + 2,
-          ),
-        ),
-      ),
+  Widget _buildSearchField(L10n l10n) {
+    return WpSearchField(
+      controller: widget.searchController,
+      focusNode: _searchFocus,
+      hintText: l10n.snippetsSearch,
+      variant: WpSearchFieldVariant.capsule,
+      // Sole autofocus in the panel (see the build-method comment) —
+      // reused-engine re-shows are covered by `_resetForShow` instead,
+      // since autofocus only fires on the first mount.
+      autofocus: true,
+      onChanged: _onQueryChanged,
+      onSubmitted: (_) => _submit(),
     );
   }
 
