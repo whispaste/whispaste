@@ -54,6 +54,20 @@
 /// `borderSubtle`), never an opacity veil over live colours — the same rule the
 /// dropdown's unselectable rows follow. ([WpAccentButton] keeps its own 50 %
 /// opacity language; it is a different, louder component.)
+///
+/// That swap on its own leaves the filled variant without a shape, though.
+/// Cards across the app are tinted with the very `surfaceVariant` the disabled
+/// fill uses (`paste_capability_indicator` and friends run it at 50 %), and on
+/// light that puts fill and card 1.01:1 apart: the block dissolves and only the
+/// muted label floats there. [isLoading] takes the same path, so it is not only
+/// barred buttons that vanish — a submit button disappears at the moment it
+/// starts working. Hence the disabled outline is not the secondary variant's
+/// alone: [WpButtonVariant.primary] borrows it while disabled and keeps a
+/// contour on whatever surface it was dropped onto. Darkening the disabled fill
+/// was the alternative and costs more than it pays — it would spend label
+/// contrast (`textMuted` falls from 4.9:1 to 4.2:1 on light's next step up) and
+/// hand a disabled button the neutral tone's *enabled* fill.
+/// [WpButtonVariant.ghost] stays boxless: it has no silhouette to lose.
 library;
 
 import 'package:flutter/material.dart';
@@ -195,6 +209,20 @@ class _WpButtonState extends State<WpButton> {
         ? contentColor.withValues(alpha: 0.12)
         : tone.pressedWash;
 
+    // The outline is the secondary variant's whole shape — and a disabled
+    // filled button's only one, because its `surfaceVariant` fill is a whisper
+    // away from the surfaces the app puts it on. See the library docs for why
+    // the contour carries this rather than a darker fill.
+    final BorderSide? side = switch (widget.variant) {
+      WpButtonVariant.secondary => BorderSide(
+        color: _isDisabled ? palette.disabledBorder : tone.border,
+      ),
+      WpButtonVariant.primary when _isDisabled => BorderSide(
+        color: palette.disabledBorder,
+      ),
+      _ => null,
+    };
+
     final style = ButtonStyle(
       backgroundColor: WidgetStatePropertyAll(
         isPrimary
@@ -209,13 +237,9 @@ class _WpButtonState extends State<WpButton> {
         // it. See the library docs.
         return Colors.transparent;
       }),
-      side: widget.variant == WpButtonVariant.secondary
-          ? WidgetStatePropertyAll(
-              BorderSide(
-                color: _isDisabled ? palette.disabledBorder : tone.border,
-              ),
-            )
-          : null,
+      // Left null where the variant has no outline to resolve at all, rather
+      // than pinning it to an explicit "none".
+      side: side == null ? null : WidgetStatePropertyAll(side),
       shape: WidgetStatePropertyAll(
         RoundedRectangleBorder(borderRadius: spec.radius),
       ),
@@ -394,6 +418,10 @@ class _WpButtonPalette {
   /// Disabled is a token swap, not a veil — see the library docs.
   final Color disabledContent;
   final Color disabledFill;
+
+  /// Worn by every disabled variant that has a box: the secondary one, which
+  /// had an outline to begin with, *and* the primary one, whose [disabledFill]
+  /// is too close to the app's tinted cards to draw its own edge.
   final Color disabledBorder;
 
   /// Focus ring of the filled variant, one colour for all three tones.

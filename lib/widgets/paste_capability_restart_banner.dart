@@ -20,6 +20,7 @@ import '../core/l10n/generated/app_localizations.dart';
 import '../core/platform/macos_lifecycle_channel.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
+import 'wp_button.dart';
 
 class PasteCapabilityRestartBanner extends StatelessWidget {
   const PasteCapabilityRestartBanner({super.key, this.onRestart});
@@ -107,10 +108,11 @@ class PasteCapabilityRestartBanner extends StatelessWidget {
             ],
           ),
           const SizedBox(height: WpSpacing.sm),
-          FilledButton.icon(
+          WpButton(
+            label: l10n.pasteCapabilityRestartButton,
+            variant: WpButtonVariant.primary,
+            icon: LucideIcons.rotateCw,
             onPressed: onRestart ?? MacOSLifecycleChannel.restart,
-            icon: const Icon(LucideIcons.rotateCw, size: 14),
-            label: Text(l10n.pasteCapabilityRestartButton),
           ),
         ],
       ),
