@@ -87,32 +87,18 @@
       "message": "2 occurrences of duplicated block (205 tokens): lib/features/history/widgets/voice_note_button.dart:290, lib/features/notes/widgets/note_voice_input_button.dart:262"
     },
     {
-      "fingerprint": "7c1bb57095282165",
-      "ruleId": "a11y-interactive-semantics",
-      "filePath": "lib/features/notes/widgets/notes_search_bar.dart",
-      "line": 142,
-      "message": "_NotesFilterChip with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
-    },
-    {
-      "fingerprint": "6d609b760249d3bd",
-      "ruleId": "a11y-interactive-semantics",
-      "filePath": "lib/features/notes/widgets/notes_search_bar.dart",
-      "line": 152,
-      "message": "_NotesFilterChip with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
-    },
-    {
-      "fingerprint": "815b55d0928323d2",
+      "fingerprint": "1ba0f17a10bc4a9c",
       "ruleId": "code-duplicates",
       "filePath": "lib/features/replacements/replacements_page.dart",
-      "line": 79,
-      "message": "2 occurrences of duplicated block (52 tokens): lib/features/replacements/replacements_page.dart:79, lib/features/snippets/snippets_page.dart:56"
+      "line": 80,
+      "message": "2 occurrences of duplicated block (52 tokens): lib/features/replacements/replacements_page.dart:80, lib/features/snippets/snippets_page.dart:57"
     },
     {
-      "fingerprint": "ec24927693bae1ea",
+      "fingerprint": "ec4ec18426cc012b",
       "ruleId": "code-duplicates",
       "filePath": "lib/features/replacements/replacements_page.dart",
-      "line": 119,
-      "message": "2 occurrences of duplicated block (96 tokens): lib/features/replacements/replacements_page.dart:119, lib/features/snippets/snippets_page.dart:96"
+      "line": 120,
+      "message": "2 occurrences of duplicated block (96 tokens): lib/features/replacements/replacements_page.dart:120, lib/features/snippets/snippets_page.dart:97"
     },
     {
       "fingerprint": "bc2554a1bedc4b79",

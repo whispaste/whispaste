@@ -16,20 +16,15 @@ import '../../../core/data/database.dart' show historyDatabaseProvider;
 import '../../../core/data/history_providers.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/navigation/page_state.dart' show activePageProvider;
-import '../../../core/theme/tokens.dart' show WpSpacing;
-import '../../../features/replacements/replacements_page.dart'
-    show replacementsProvider;
-import '../../../features/snippets/snippets_page.dart' show snippetsProvider;
 import '../../../services/factory_reset/factory_reset_coordinator.dart';
 import '../../../services/hardware_info_service.dart';
 import '../../../services/model_download_service.dart';
 import '../../../services/path_service.dart' as paths;
-import '../../../services/settings_portability_controller.dart';
-import '../../../services/settings_portability_service.dart';
 import '../../../services/stt/stt_bundle.dart';
 import '../../../widgets/dialog.dart';
 import '../../../widgets/section.dart';
 import '../../../widgets/toast.dart';
+import '../../../widgets/wp_button.dart';
 import '../settings_widgets.dart';
 
 // ---------------------------------------------------------------------------
@@ -64,29 +59,23 @@ class AdvancedSection extends ConsumerWidget {
       child: Column(
         children: [
           _AutoPasteBlocklistField(settings: settings, ref: ref),
-          _SettingsPortabilityRow(ref: ref),
           SettingRow(
             icon: LucideIcons.rotateCcw,
             label: l10n.settingsResetToDefaults,
-            trailing: OutlinedButton(
+            trailing: WpButton(
+              label: l10n.settingsResetConfirm,
+              variant: WpButtonVariant.secondary,
               onPressed: () => _confirmReset(context, ref),
-              child: Text(l10n.settingsResetConfirm),
             ),
           ),
           SettingRow(
             icon: LucideIcons.trash2,
             label: l10n.settingsFactoryReset,
-            trailing: OutlinedButton(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Theme.of(context).colorScheme.error,
-                side: BorderSide(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.error.withValues(alpha: 0.5),
-                ),
-              ),
+            trailing: WpButton(
+              label: l10n.settingsFactoryResetConfirm,
+              variant: WpButtonVariant.secondary,
+              tone: WpButtonTone.danger,
               onPressed: () => _confirmFactoryReset(context, ref),
-              child: Text(l10n.settingsFactoryResetConfirm),
             ),
           ),
         ],
@@ -318,97 +307,6 @@ class _AutoPasteBlocklistFieldState extends State<_AutoPasteBlocklistField> {
         hintText: l10n.settingsAutoPasteBlocklistPlaceholder,
         onChanged: _onChanged,
         semanticLabel: l10n.settingsAutoPasteBlocklist,
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Settings portability (dateibasierter Export/Import) — Custom Vocabulary,
-// Text Replacements, Hotkey configuration. See
-// `services/settings_portability_controller.dart` for the full contract;
-// this row only wires the two buttons + the destructive-ish import confirm.
-// ---------------------------------------------------------------------------
-
-class _SettingsPortabilityRow extends StatelessWidget {
-  const _SettingsPortabilityRow({required this.ref});
-
-  final WidgetRef ref;
-
-  SettingsPortabilityController _controller() {
-    return SettingsPortabilityController(
-      gather: () async {
-        final settings =
-            ref.read(settingsProvider).value ?? AppSettings.defaults;
-        final replacements = ref.read(replacementsProvider).value ?? const [];
-        final snippets = ref.read(snippetsProvider).value ?? const [];
-        return SettingsExportBundle(
-          customVocabulary: settings.stt.customVocabulary,
-          hotkey: settings.hotkey,
-          replacements: replacements,
-          snippets: snippets,
-        );
-      },
-      apply: (bundle) async {
-        await ref
-            .read(settingsProvider.notifier)
-            .updateSettings(
-              (s) => s.copyWithSections(
-                stt: s.stt.copyWith(customVocabulary: bundle.customVocabulary),
-                hotkey: bundle.hotkey,
-              ),
-            );
-        await ref
-            .read(replacementsProvider.notifier)
-            .replaceAll(bundle.replacements);
-        // `bundle.snippets` is `null` when the import file predates the
-        // Snippets feature (no "snippets" key) — leave the user's existing
-        // snippets untouched rather than silently clearing them.
-        if (bundle.snippets case final snippets?) {
-          await ref.read(snippetsProvider.notifier).replaceAll(snippets);
-        }
-      },
-    );
-  }
-
-  Future<void> _confirmImport(BuildContext context) async {
-    final l10n = L10n.of(context);
-    final controller = _controller();
-    final path = await controller.resolvePath();
-    if (!context.mounted) return;
-    final confirmed = await showWpConfirmDialog(
-      context: context,
-      title: l10n.settingsPortabilityImportConfirmTitle,
-      message: l10n.settingsPortabilityImportConfirmMessage(path),
-      confirmLabel: l10n.settingsPortabilityImportAction,
-      cancelLabel: l10n.actionCancel,
-      destructive: true,
-    );
-    if (!confirmed) return;
-    if (!context.mounted) return;
-    await controller.import(context);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = L10n.of(context);
-    return SettingRow(
-      icon: LucideIcons.arrowUpDown,
-      label: l10n.settingsPortabilityLabel,
-      subtitle: l10n.settingsPortabilitySubtitle,
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          OutlinedButton(
-            onPressed: () => _controller().export(context),
-            child: Text(l10n.settingsPortabilityExportAction),
-          ),
-          const SizedBox(width: WpSpacing.sm),
-          OutlinedButton(
-            onPressed: () => _confirmImport(context),
-            child: Text(l10n.settingsPortabilityImportAction),
-          ),
-        ],
       ),
     );
   }

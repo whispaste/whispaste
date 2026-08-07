@@ -11,6 +11,7 @@ import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../widgets/dialog.dart';
 import '../../../widgets/toast.dart';
+import '../../../widgets/wp_button.dart';
 
 /// Shows the tag management dialog.
 ///
@@ -247,24 +248,12 @@ class _TagManagementContentState extends State<_TagManagementContent> {
                     Divider(height: 1, color: borderColor),
                     Padding(
                       padding: const EdgeInsets.all(WpSpacing.sm),
-                      child: TextButton.icon(
+                      child: WpButton(
+                        label: l10n.tagDeleteUnusedAction(unusedCount),
+                        variant: WpButtonVariant.ghost,
+                        tone: WpButtonTone.danger,
+                        icon: LucideIcons.trash2,
                         onPressed: _deleteUnused,
-                        icon: Icon(
-                          LucideIcons.trash2,
-                          size: WpIconSize.sm,
-                          color: widget.isDark
-                              ? WpColorsDark.error
-                              : WpColorsLight.error,
-                        ),
-                        label: Text(
-                          l10n.tagDeleteUnusedAction(unusedCount),
-                          style: TextStyle(
-                            color: widget.isDark
-                                ? WpColorsDark.error
-                                : WpColorsLight.error,
-                            fontSize: WpTypography.body,
-                          ),
-                        ),
                       ),
                     ),
                   ],

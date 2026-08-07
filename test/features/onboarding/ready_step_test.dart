@@ -1,12 +1,15 @@
-/// Widget tests for [ReadyStep].
+/// Widget tests for [ReadyStep] — the closing content of the final
+/// onboarding page.
 ///
 /// Covers:
 /// 1. The step-3 wording, which reacts to the user's Auto-Paste decision.
-/// 2. The residual hotkey-conflict gate on the Start CTA — full hotkey
-///    configuration (summary, rebind, conflict resolution) now lives in
-///    `TriggerStep`; ReadyStep only keeps a safety net for a conflict the
-///    user skipped past there.
-/// 3. The Autostart toggle persisting `launchAtStartup`.
+/// 2. The residual hotkey-conflict notice: the completion CTA itself (and
+///    its disabled state) is owned by the onboarding shell and covered in
+///    `onboarding_flow_test.dart`; this widget must render the matching
+///    heads-up text exactly when a conflict is confirmed.
+///
+/// The autostart toggle moved to the Autostart & Auto-Paste page — see
+/// `autostart_toggle_test.dart`.
 library;
 
 import 'package:flutter/material.dart';
@@ -22,7 +25,6 @@ import 'package:whispaste/services/hotkey_service.dart'
         HotkeyRegistrationStatus,
         HotkeyRegistrationStatusController,
         hotkeyRegistrationStatusProvider;
-import 'package:whispaste/widgets/wp_accent_button.dart';
 
 import '../../fixtures/test_helpers.dart';
 
@@ -43,7 +45,7 @@ class _FakeSettingsNotifier extends SettingsNotifier {
 }
 
 /// Test-only [HotkeyRegistrationStatusController] that lets a test seed an
-/// initial status and flip it later to verify reactive UI transitions.
+/// initial status.
 class _FakeHotkeyStatusController extends HotkeyRegistrationStatusController {
   _FakeHotkeyStatusController(this._initial);
 
@@ -52,8 +54,6 @@ class _FakeHotkeyStatusController extends HotkeyRegistrationStatusController {
   @override
   HotkeyRegistrationStatus build() => _initial;
 }
-
-void _noop() {}
 
 late L10n l10n;
 
@@ -64,9 +64,7 @@ Future<void> _pumpStep(
 }) async {
   await tester.pumpWidget(
     makeTestable(
-      const SingleChildScrollView(
-        child: ReadyStep(onComplete: _noop, onBack: _noop),
-      ),
+      const SingleChildScrollView(child: ReadyStep()),
       size: const Size(1280, 980),
       locale: const Locale('en'),
       overrides: [
@@ -91,23 +89,17 @@ void main() {
   // ── Wording-hygiene (issue 10) ───────────────────────────────────────────
   //
   // CONTEXT.md §7 forbids "dictation" vocabulary — WhisPaste is explicitly
-  // not a dictation tool. The final CTA on ReadyStep must use the neutral
-  // "Let's go" wording instead of the legacy "Start Dictating".
+  // not a dictation tool. No dictation vocabulary may appear anywhere on the
+  // closing content.
 
-  group('ReadyStep — final CTA wording (issue 10)', () {
-    testWidgets('Start CTA renders the dictation-free "Let\'s go" label', (
+  group('ReadyStep — wording hygiene (issue 10)', () {
+    testWidgets('no dictation vocabulary appears in the closing content', (
       tester,
     ) async {
       final settings = _FakeSettingsNotifier();
       await _pumpStep(tester, settings: settings);
 
-      expect(
-        find.text(l10n.onboardingStartUsing),
-        findsOneWidget,
-        reason:
-            'Final CTA must use the CONTEXT.md §7-conformant label '
-            '(onboardingStartUsing), not the legacy "Start Dictating".',
-      );
+      expect(find.text(l10n.onboardingReadyTitle), findsOneWidget);
       // Anti-vocabulary check stays on a literal substring on purpose — we
       // are asserting "the word 'Dictating' MUST NOT appear", regardless of
       // which ARB key it would have come from.
@@ -115,7 +107,7 @@ void main() {
         find.textContaining('Dictating'),
         findsNothing,
         reason:
-            'No dictation vocabulary may appear in the final CTA per '
+            'No dictation vocabulary may appear on the closing page per '
             'CONTEXT.md §7.',
       );
     });
@@ -226,8 +218,6 @@ void main() {
 
       await _pumpStep(tester, settings: settings);
 
-      // Copy-only ARB string bundles the ⌘V / Ctrl+V hint, so a single
-      // positive assertion against the whole string covers both signals.
       expect(
         find.textContaining(l10n.onboardingReadyStep3CopyOnly),
         findsOneWidget,
@@ -235,17 +225,43 @@ void main() {
     });
   });
 
-  // ── Residual hotkey-conflict gate (moved from full config in issue 08) ───
+  // ── Context-carryover side note (issue 10) ───────────────────────────────
   //
-  // TriggerStep now owns hotkey summary/rebind/conflict-resolution UI.
-  // ReadyStep keeps only a safety net: if a confirmed conflict is still
-  // active (e.g. skipped past in TriggerStep), Start stays disabled rather
-  // than sending the user into a non-functional hotkey.
+  // WhisPaste carries recognition context from the previous recording for up
+  // to ten minutes; the closing content surfaces that as a muted tip, not as
+  // a fourth numbered instruction row.
 
-  group('ReadyStep — residual hotkey-conflict gate on Start', () {
-    testWidgets('success: Start CTA active, no conflict notice', (
-      tester,
-    ) async {
+  group('ReadyStep — context-carryover hint', () {
+    testWidgets(
+      'the carryover tip renders alongside the three quick-start rows',
+      (tester) async {
+        final settings = _FakeSettingsNotifier();
+        await _pumpStep(tester, settings: settings);
+
+        expect(
+          find.text(l10n.onboardingReadyContextCarryoverHint),
+          findsOneWidget,
+          reason:
+              'The topic-switch tip must be visible on the closing content.',
+        );
+        // Still exactly three numbered instruction rows — the tip is a side
+        // note, not a fourth step.
+        expect(find.textContaining('1. '), findsOneWidget);
+        expect(find.textContaining('2. '), findsOneWidget);
+        expect(find.textContaining('3. '), findsOneWidget);
+        expect(find.textContaining('4. '), findsNothing);
+      },
+    );
+  });
+
+  // ── Residual hotkey-conflict notice ──────────────────────────────────────
+  //
+  // The shell disables the completion CTA on a confirmed conflict (covered
+  // in onboarding_flow_test.dart); this content must render the matching
+  // heads-up so the disabled CTA never appears unexplained.
+
+  group('ReadyStep — residual hotkey-conflict notice', () {
+    testWidgets('success: no conflict notice', (tester) async {
       final settings = _FakeSettingsNotifier();
       await _pumpStep(
         tester,
@@ -258,19 +274,9 @@ void main() {
         findsNothing,
         reason: 'success branch must not show the residual conflict notice',
       );
-      final button = tester.widget<WpAccentButton>(
-        find.byKey(kReadyStepStartButtonKey),
-      );
-      expect(
-        button.onPressed,
-        isNotNull,
-        reason: 'success status must keep Start enabled',
-      );
     });
 
-    testWidgets('conflict: Start CTA disabled, conflict notice visible', (
-      tester,
-    ) async {
+    testWidgets('conflict: conflict notice visible', (tester) async {
       final settings = _FakeSettingsNotifier();
       await _pumpStep(
         tester,
@@ -281,92 +287,24 @@ void main() {
       expect(
         find.text(l10n.onboardingTriggerHotkeyConflictTitle),
         findsOneWidget,
-        reason: 'conflict must surface a short heads-up next to Start',
-      );
-      final button = tester.widget<WpAccentButton>(
-        find.byKey(kReadyStepStartButtonKey),
-      );
-      expect(
-        button.onPressed,
-        isNull,
-        reason: 'conflict status must block Start until the user rebinds',
+        reason: 'conflict must surface a short heads-up next to the CTA',
       );
     });
 
-    testWidgets(
-      'unknown: neutral state — no conflict notice, Start CTA active',
-      (tester) async {
-        // `unknown` is the very-first transitional state before the
-        // background registration completes. We don't want to block the
-        // user on a transient race, so Start stays enabled.
-        final settings = _FakeSettingsNotifier();
-        await _pumpStep(
-          tester,
-          settings: settings,
-          hotkeyStatus: HotkeyRegistrationStatus.unknown,
-        );
-
-        expect(
-          find.text(l10n.onboardingTriggerHotkeyConflictTitle),
-          findsNothing,
-        );
-        final button = tester.widget<WpAccentButton>(
-          find.byKey(kReadyStepStartButtonKey),
-        );
-        expect(
-          button.onPressed,
-          isNotNull,
-          reason: 'unknown must not block Start (transient first-mount race)',
-        );
-      },
-    );
-  });
-
-  // ── Autostart toggle ──────────────────────────────────────────────────────
-
-  group('ReadyStep — Autostart toggle', () {
-    testWidgets(
-      'off by default; tapping the toggle persists launchAtStartup = true',
-      (tester) async {
-        final settings = _FakeSettingsNotifier();
-        await _pumpStep(tester, settings: settings);
-
-        expect(settings.state.value!.launchAtStartup, isFalse);
-
-        final toggle = find.descendant(
-          of: find.byKey(kReadyStepAutostartToggleKey),
-          matching: find.byType(Switch),
-        );
-        expect(toggle, findsOneWidget);
-        expect(tester.widget<Switch>(toggle).value, isFalse);
-
-        await tester.tap(toggle);
-        await tester.pumpAndSettle();
-
-        expect(
-          settings.state.value!.launchAtStartup,
-          isTrue,
-          reason: 'Tapping the toggle must persist launchAtStartup = true',
-        );
-      },
-    );
-
-    testWidgets('tapping again toggles it back off', (tester) async {
-      final settings = _FakeSettingsNotifier(
-        const AppSettings(interface_: InterfaceSettings(launchAtStartup: true)),
+    testWidgets('unknown: neutral state — no conflict notice', (tester) async {
+      // `unknown` is the very-first transitional state before the
+      // background registration completes — it must not scare the user.
+      final settings = _FakeSettingsNotifier();
+      await _pumpStep(
+        tester,
+        settings: settings,
+        hotkeyStatus: HotkeyRegistrationStatus.unknown,
       );
-      await _pumpStep(tester, settings: settings);
 
-      final toggle = find.descendant(
-        of: find.byKey(kReadyStepAutostartToggleKey),
-        matching: find.byType(Switch),
+      expect(
+        find.text(l10n.onboardingTriggerHotkeyConflictTitle),
+        findsNothing,
       );
-      expect(tester.widget<Switch>(toggle).value, isTrue);
-
-      await tester.tap(toggle);
-      await tester.pumpAndSettle();
-
-      expect(settings.state.value!.launchAtStartup, isFalse);
     });
   });
 }

@@ -13,6 +13,24 @@ import 'snippet_picker_events.dart';
 
 final _log = AppLogger('SnippetPickerService');
 
+/// Outcome of [SnippetPickerService.show] — distinguishes "panel is open"
+/// from the two fall-through cases so the caller can react differently to
+/// "the user has no snippets yet" (worth telling them about) versus "the
+/// platform has no picker at all" (nothing the user can do mid-dictation).
+enum SnippetPickerShowResult {
+  /// Panel is open; the dictation was consumed by the picker.
+  shown,
+
+  /// Trigger matched but there are no snippets to offer — the caller falls
+  /// back to the normal pipeline and should surface why the picker stayed
+  /// closed.
+  emptyList,
+
+  /// No native picker on this platform — silent fallback to the normal
+  /// pipeline.
+  unavailable,
+}
+
 /// Manages the native Snippet-Picker panel lifecycle (dictation-automations
 /// ticket 06).
 ///
@@ -75,12 +93,17 @@ class SnippetPickerService
   /// [SnippetPickerController.show] docs) — this layer only forwards the
   /// item list.
   ///
-  /// Returns `false` (and shows nothing) when the platform is unsupported or
-  /// [items] is empty — the caller falls back to the normal dictation
-  /// pipeline in both cases, never silently discarding the dictation.
-  Future<bool> show({required List<SnippetItem> items}) async {
+  /// Shows nothing when the platform is unsupported
+  /// ([SnippetPickerShowResult.unavailable]) or [items] is empty
+  /// ([SnippetPickerShowResult.emptyList]) — the caller falls back to the
+  /// normal dictation pipeline in both cases, never silently discarding the
+  /// dictation.
+  Future<SnippetPickerShowResult> show({
+    required List<SnippetItem> items,
+  }) async {
     final c = controller;
-    if (c == null || items.isEmpty) return false;
+    if (c == null) return SnippetPickerShowResult.unavailable;
+    if (items.isEmpty) return SnippetPickerShowResult.emptyList;
 
     _shown = {for (final item in items) item.id: item};
     await c.show(
@@ -89,7 +112,7 @@ class SnippetPickerService
           {'id': item.id, 'title': item.title, 'body': item.body},
       ],
     );
-    return true;
+    return SnippetPickerShowResult.shown;
   }
 
   Future<void> _insert(String id) async {

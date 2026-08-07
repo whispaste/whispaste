@@ -1,13 +1,19 @@
-/// Dateibasierter Settings-Export/-Import — Custom Vocabulary,
-/// Text-Replacements, Hotkey-Konfiguration und Snippets (PRD
-/// `experience-perf-polish` Cluster 5 „Portabilität & Fehler-Feedback";
-/// Snippets-Sektion: dictation-automations ticket 05). Deliberately excludes
-/// dictation History and Audio (privacy/scope) — see the PRD for rationale.
+/// Dateibasierter Settings-Export/-Import — der vollständige portable
+/// Einstellungszustand (`AppSettings.toStorageMap()` abzüglich
+/// [settingsPortabilityDenyList]), plus Text-Replacements und Snippets, die
+/// nicht aus `AppSettings` stammen. PRD `settings-portability-vollumfang`
+/// (Ticket 01); Vorläufer: PRD `experience-perf-polish` Cluster 5
+/// „Portabilität & Fehler-Feedback" (v1, vier hartkodierte Felder).
 ///
-/// Reuses [HotkeySettings.toMap]/[HotkeySettings.fromMap] for the hotkey
-/// sub-object so the exported JSON schema mirrors the existing flat-string
-/// persistence format already used by the SQLite-backed settings storage,
-/// instead of inventing a second serialization scheme.
+/// Deliberately excludes History and Audio (privacy/scope) and API
+/// keys (`openai_api_key`/`deepgram_api_key` — always written empty by
+/// `CloudProviderSettings.toMap()`, and additionally deny-listed here for
+/// readability) — see the PRD for rationale.
+///
+/// Format v2's root object still carries a top-level `hotkey` object and
+/// `custom_vocabulary` string (both derived from `settings`, never a second
+/// source) purely so the already-published v1 decoder — which throws without
+/// them — can still import a v2 file. `settings` always wins on read.
 library;
 
 import 'dart:convert';
@@ -15,36 +21,208 @@ import 'dart:convert';
 import 'package:file/file.dart';
 import 'package:file/local.dart';
 
+import '../core/config/settings_provider.dart' show AppSettings;
 import '../core/config/settings_sections.dart' show HotkeySettings;
 import '../features/replacements/replacements_page.dart' show Replacement;
 import '../features/snippets/snippets_page.dart' show SnippetItem;
 
 // ---------------------------------------------------------------------------
+// Deny list
+// ---------------------------------------------------------------------------
+
+/// Storage keys excluded from the export file in both directions: excluded
+/// from `settings` on [SettingsPortabilityService.encode], and filtered out
+/// of an imported file's map again before merging (so a hand-edited or
+/// foreign-version file cannot smuggle them back in).
+///
+/// Key-genau, nicht sektionsweise — z. B. ist `microphone` der einzige
+/// ausgeschlossene Key aus `AudioInputSettings`; `push_to_talk` und
+/// `input_gain` derselben Sektion bleiben portabel.
+///
+/// Neue Einträge gehören an diese eine Stelle.
+const Set<String> settingsPortabilityDenyList = {
+  // BenchmarkSettings — hardwaregebunden, auf dem Zielrechner falsch.
+  'tier_benchmark_rtf',
+  'benchmark_hardware_id',
+  'benchmark_timestamp',
+  // WindowPositionSettings — monitorgebunden.
+  'floating_button_x',
+  'floating_button_y',
+  'floating_overlay_x',
+  'floating_overlay_y',
+  'window_x',
+  'window_y',
+  'window_width',
+  'window_height',
+  'window_maximized',
+  // OnboardingSettings — Fortschritt/Zustand, keine Präferenz.
+  'onboarding_completed',
+  'onboarding_current_step',
+  // Added post-PRD (`onboarding_flow_version`, commit f0599fd9): tracks
+  // which onboarding step-sequence version a saved position indexes into,
+  // same category as `onboarding_current_step` above — progress/migration
+  // state, not a preference.
+  'onboarding_flow_version',
+  'auto_paste_off_hint_dismissed',
+  // AudioInputSettings — gerätegebundener Mikrofonname.
+  'microphone',
+  // AppSettings.toStorageMap() — reines Persistenz-Artefakt, von
+  // fromStorageMap nie gelesen; hat neben format_version nichts verloren.
+  'schema_version',
+  // CloudProviderSettings — Klarheit/Verteidigung in der Tiefe. Der
+  // tragende Schutz ist die API-Key-Rückinjektion beim Import, siehe
+  // `mergeImportedSettings`; diese beiden Keys hier helfen dabei nicht (ein
+  // *fehlender* Key läse ohnehin als '' über CloudProviderSettings.fromMap).
+  'openai_api_key',
+  'deepgram_api_key',
+  // SettingsPortabilityPathSettings (Ticket 03) — describe *where* the
+  // export file lives on this machine, not *what* is exported. Bookmark
+  // blobs are additionally security-scoped tokens bound to this machine and
+  // this app's code signature; they are meaningless on the target machine.
+  'settings_export_path',
+  'settings_import_path',
+  'settings_export_bookmark',
+  'settings_import_bookmark',
+};
+
+/// Every storage key that is neither deny-listed nor a genuinely new
+/// section-less key must be explicitly acknowledged as portable here — the
+/// anti-obsolescence test in `settings_portability_service_test.dart` fails
+/// otherwise. Not consulted at runtime (an unknown new key travels
+/// automatically, by design); this is purely the maintainer checkpoint.
+///
+/// Derived by dumping `AppSettings.defaults.toStorageMap().keys` and sorting
+/// every key into this list or [settingsPortabilityDenyList] — not
+/// reconstructed from reading section classes by eye.
+const Set<String> settingsPortabilityPortableKeysForTest = {
+  'after_transcription',
+  'auto_paste_blocklist',
+  'auto_paste_delay',
+  'auto_stop_silence',
+  'check_updates',
+  'close_to_tray',
+  'cloud_stt_provider',
+  'custom_vocabulary',
+  'dead_mic_timeout',
+  'duration_warning_sound',
+  // Consent flags — bewusst portabel, siehe Implementation Decisions im
+  // Eltern-PRD ("Telemetrie-Schalter reisen bewusst mit").
+  'error_reporting',
+  'error_sound',
+  'gpu_acceleration',
+  'history_auto_trash_days',
+  'history_max_entries',
+  'hotkey_enabled',
+  'hotkey_key',
+  'hotkey_key_display',
+  'hotkey_modifiers',
+  'input_gain',
+  'launch_at_startup',
+  'locale',
+  'max_record_duration',
+  'overlay_mode',
+  'overlay_size',
+  'overlay_start_position',
+  'push_to_talk',
+  'record_start_sound',
+  'record_stop_sound',
+  'share_usage_stats',
+  'show_floating_button',
+  'show_notifications',
+  'show_overlay',
+  'snippet_picker_trigger',
+  'sound_volume',
+  'start_minimized',
+  'stt_engine',
+  'stt_idle_timeout_minutes',
+  'stt_language',
+  'stt_model',
+  'stt_provider',
+  'stt_punctuation_priming',
+  'stt_strip_punctuation',
+  'stt_vad_enabled',
+  'text_replacements_enabled',
+  'theme_mode',
+  'transcription_complete_sound',
+};
+
+// ---------------------------------------------------------------------------
 // Bundle
 // ---------------------------------------------------------------------------
 
-/// The portable settings areas bundled into a single export file.
+/// The portable settings bundled into a single export file.
 ///
-/// [snippets] is deliberately nullable — unlike [hotkey]/[replacements] it
-/// must not become a required section, so an export file produced by a
-/// version of the app that predates the Snippets feature still imports
-/// without exception. `null` means "section absent from the file" (leave the
-/// user's existing snippets untouched on import); an empty list means
-/// "section present, user genuinely has zero snippets" (clear them on
-/// import). Collapsing those two into one empty-list default would silently
-/// delete snippets on every import of an older export.
+/// [settings] is the flat storage-key map — the same shape
+/// `AppSettings.toStorageMap()`/`fromStorageMap()` already use for SQLite
+/// persistence, already filtered against [settingsPortabilityDenyList].
+/// [replacements] and [snippets] stay separate lists because they do not
+/// come from `AppSettings` (they live in `replacementsProvider` /
+/// `snippetsProvider`) and must not be folded into the settings map.
+///
+/// [snippets] is deliberately nullable — unlike [replacements] it must not
+/// become a required section, so an export file produced by a version of the
+/// app that predates the Snippets feature still imports without exception.
+/// `null` means "section absent from the file" (leave the user's existing
+/// snippets untouched on import); an empty list means "section present, user
+/// genuinely has zero snippets" (clear them on import). Collapsing those two
+/// into one empty-list default would silently delete snippets on every
+/// import of an older export.
 class SettingsExportBundle {
   const SettingsExportBundle({
-    required this.customVocabulary,
-    required this.hotkey,
+    required this.settings,
     required this.replacements,
     this.snippets,
   });
 
-  final String customVocabulary;
-  final HotkeySettings hotkey;
+  final Map<String, String> settings;
   final List<Replacement> replacements;
   final List<SnippetItem>? snippets;
+}
+
+// ---------------------------------------------------------------------------
+// Merge seam
+// ---------------------------------------------------------------------------
+
+/// Merges an imported settings map onto [current] and returns the
+/// [AppSettings] to hand to a single `updateSettings` call. Carries
+/// filtering, merge-not-replace semantics, and API-key re-injection as one
+/// testable unit — kept out of the settings widget so the
+/// security-relevant API-key behaviour is unit-testable without a widget
+/// test.
+///
+/// - [imported] is filtered against [settingsPortabilityDenyList] first, so
+///   a hand-edited or foreign-version file cannot smuggle window geometry,
+///   onboarding progress, or the microphone selection back in even though
+///   [SettingsPortabilityService.encode] already omits them.
+/// - The result is `{...current.toStorageMap(), ...filtered imported}` run
+///   through `AppSettings.fromStorageMap` — a key the file doesn't mention
+///   keeps its current value (not the factory default); a key the file
+///   knows and this build doesn't is silently dropped by `fromStorageMap`.
+/// - The in-memory API keys from [current] are written back onto the merged
+///   result before returning. Without this, `_syncApiKeysToSecureStorage`
+///   (`settings_provider.dart`) sees the merged settings' empty
+///   `openai_api_key`/`deepgram_api_key` (both are always written empty by
+///   `CloudProviderSettings.toMap`, deny-listed or not) against the
+///   previously non-empty keychain value and deletes it.
+AppSettings mergeImportedSettings(
+  AppSettings current,
+  Map<String, String> imported,
+) {
+  final filteredImported = <String, String>{
+    for (final entry in imported.entries)
+      if (!settingsPortabilityDenyList.contains(entry.key))
+        entry.key: entry.value,
+  };
+  final merged = AppSettings.fromStorageMap({
+    ...current.toStorageMap(),
+    ...filteredImported,
+  });
+  return merged.copyWithSections(
+    cloudProvider: merged.cloudProvider.copyWith(
+      openAiApiKey: current.cloudProvider.openAiApiKey,
+      deepgramApiKey: current.cloudProvider.deepgramApiKey,
+    ),
+  );
 }
 
 /// Thrown by [SettingsPortabilityService.decode] / `importFromFile` when the
@@ -86,15 +264,27 @@ class SettingsPortabilityService {
 
   final FileSystem _fileSystem;
 
-  static const int formatVersion = 1;
+  static const int formatVersion = 2;
 
   /// Serialises [bundle] to a pretty-printed JSON string.
+  ///
+  /// Filters [bundle.settings] against [settingsPortabilityDenyList] before
+  /// writing — regardless of whether the caller already filtered (both
+  /// `gather` call sites and the merge seam do). The deny list must hold at
+  /// the file-writing boundary itself, not merely as a caller convention:
+  /// "the export file never contains these keys in the first place" is the
+  /// guarantee, not "callers are expected to filter first".
   String encode(SettingsExportBundle bundle) {
     const encoder = JsonEncoder.withIndent('  ');
+    final filteredSettings = <String, String>{
+      for (final entry in bundle.settings.entries)
+        if (!settingsPortabilityDenyList.contains(entry.key))
+          entry.key: entry.value,
+    };
+    final hotkeyDuplicate = HotkeySettings.fromMap(filteredSettings).toMap();
     return encoder.convert({
       'format_version': formatVersion,
-      'custom_vocabulary': bundle.customVocabulary,
-      'hotkey': bundle.hotkey.toMap(),
+      'settings': filteredSettings,
       'replacements': [
         for (final r in bundle.replacements)
           {'triggers': r.triggers, 'replacement': r.replacement},
@@ -103,12 +293,19 @@ class SettingsPortabilityService {
         'snippets': [
           for (final s in snippets) {'title': s.title, 'body': s.body},
         ],
+      // v1-compat duplicates — see library doc. Derived from `settings`,
+      // never a second source.
+      'custom_vocabulary': filteredSettings['custom_vocabulary'] ?? '',
+      'hotkey': hotkeyDuplicate,
     });
   }
 
   /// Parses JSON produced by [encode] back into a [SettingsExportBundle].
-  /// Throws [SettingsImportFormatException] for malformed or structurally
-  /// invalid content.
+  /// Reads both v1 (no `settings` object; `custom_vocabulary` + `hotkey` at
+  /// the root) and v2 files. A `format_version` higher than [formatVersion]
+  /// is read best-effort, never rejected. Throws
+  /// [SettingsImportFormatException] for malformed or structurally invalid
+  /// content.
   SettingsExportBundle decode(String jsonString) {
     final Object? raw;
     try {
@@ -123,8 +320,16 @@ class SettingsPortabilityService {
       );
     }
 
+    final settingsRaw = raw['settings'];
     final hotkeyRaw = raw['hotkey'];
-    if (hotkeyRaw is! Map) {
+    // The top-level "hotkey" object is only *mandatory* for a v1 file (one
+    // with no "settings" object) — it is v1's only vehicle for the hotkey
+    // keys. A v2 file already carries them in "settings"; requiring the
+    // v1-compat duplicate there too would reject a well-formed v2 file that
+    // omits it (e.g. a future producer that drops the duplicate once v1
+    // builds are no longer in the wild), contradicting "a file this build
+    // doesn't fully recognise is read best-effort, never rejected".
+    if (settingsRaw is! Map && hotkeyRaw is! Map) {
       throw const SettingsImportFormatException('Missing "hotkey" object');
     }
     final replacementsRaw = raw['replacements'];
@@ -132,23 +337,36 @@ class SettingsPortabilityService {
       throw const SettingsImportFormatException('Missing "replacements" list');
     }
 
-    final hotkeyMap = <String, String>{
-      for (final entry in hotkeyRaw.entries) '${entry.key}': '${entry.value}',
+    // v1 lift: `custom_vocabulary` is literally the storage key
+    // `SttSettings.toMap()` writes, and the `hotkey` object's entries are
+    // exactly `HotkeySettings.toMap()`'s storage keys — so both v1 fields
+    // hoist directly into the flat map with no translation. On a v2 file,
+    // `settings` (read after, so it wins) already carries both.
+    final settings = <String, String>{
+      if (hotkeyRaw is Map)
+        for (final entry in hotkeyRaw.entries) '${entry.key}': '${entry.value}',
+      if (raw['custom_vocabulary'] case final String customVocabulary)
+        'custom_vocabulary': customVocabulary,
+      if (settingsRaw is Map)
+        for (final entry in settingsRaw.entries)
+          '${entry.key}': '${entry.value}',
     };
+    for (final key in settingsPortabilityDenyList) {
+      settings.remove(key);
+    }
 
-    // Unlike "hotkey"/"replacements", "snippets" is an optional section: a
-    // currently-published export (predating this feature) has no such key
-    // at all, and that must decode to `null` (not `[]`) so the caller can
-    // tell "section absent" apart from "section present, empty" and skip
-    // overwriting the user's existing snippets. `raw['snippets']` already
-    // reads as `null` for a missing key, so the `is List` check below
-    // collapses both "absent" and "malformed" into `null` and only a real
-    // JSON list (including `[]`) decodes to a list.
+    // Unlike "hotkey"/"replacements", "snippets" is an optional section: an
+    // export predating the Snippets feature has no such key at all, and
+    // that must decode to `null` (not `[]`) so the caller can tell "section
+    // absent" apart from "section present, empty" and skip overwriting the
+    // user's existing snippets. `raw['snippets']` already reads as `null`
+    // for a missing key, so the `is List` check below collapses both
+    // "absent" and "malformed" into `null` and only a real JSON list
+    // (including `[]`) decodes to a list.
     final snippetsRaw = raw['snippets'];
 
     return SettingsExportBundle(
-      customVocabulary: raw['custom_vocabulary'] as String? ?? '',
-      hotkey: HotkeySettings.fromMap(hotkeyMap),
+      settings: settings,
       replacements: [
         for (final entry in replacementsRaw)
           if (entry is Map)

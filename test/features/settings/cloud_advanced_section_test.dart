@@ -68,33 +68,6 @@ void main() {
         'com.example.blocked',
       );
     });
-
-    // ── Settings portability (export/import) entry ──────────────────────
-    //
-    // Only structural/render coverage lives here — tapping either button
-    // resolves a real Downloads/Documents directory via `path_provider`,
-    // which hangs in `flutter_test` without a platform-channel mock. The
-    // actual export/import/round-trip behaviour is covered by
-    // `test/services/settings_portability_controller_test.dart` and
-    // `test/services/settings_portability_service_test.dart` against
-    // injected fakes, per this issue's testing guidance.
-
-    testWidgets(
-      'renders the Export/Import Settings entry with both action buttons',
-      (tester) async {
-        await tester.pumpWidget(
-          makeTestable(
-            const SingleChildScrollView(child: AdvancedSection()),
-            locale: const Locale('en'),
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        expect(find.text('Export / Import Settings'), findsOneWidget);
-        expect(find.widgetWithText(OutlinedButton, 'Export'), findsOneWidget);
-        expect(find.widgetWithText(OutlinedButton, 'Import'), findsOneWidget);
-      },
-    );
   });
 
   group('SpeechRecognitionSection — cloud mode shows exactly one API key', () {

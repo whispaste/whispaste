@@ -15,6 +15,7 @@ import '../../widgets/empty_state.dart';
 import '../../widgets/page_shell.dart';
 import '../../widgets/section.dart';
 import '../../widgets/toast.dart';
+import '../../widgets/wp_button.dart';
 import '../../core/data/analytics_provider.dart';
 
 // ---------------------------------------------------------------------------
@@ -1194,23 +1195,14 @@ class _PeriodAndResetRowState extends ConsumerState<_PeriodAndResetRow> {
         ),
 
         // Reset button
-        OutlinedButton.icon(
+        // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
+        WpButton(
+          label: l10n.analyticsReset,
+          variant: WpButtonVariant.secondary,
+          tone: WpButtonTone.danger,
+          size: WpButtonSize.dense,
+          icon: LucideIcons.trash2,
           onPressed: () => _confirmReset(context, isDark),
-          icon: const Icon(LucideIcons.trash2, size: WpIconSize.xs),
-          label: Text(l10n.analyticsReset),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: isDark ? WpColorsDark.error : WpColorsLight.error,
-            side: BorderSide(
-              color: (isDark ? WpColorsDark.error : WpColorsLight.error)
-                  .withAlpha(80),
-            ),
-            padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.sm,
-              vertical: WpSpacing.xs,
-            ),
-            textStyle: const TextStyle(fontSize: WpTypography.small),
-            shape: RoundedRectangleBorder(borderRadius: WpRadius.borderMd),
-          ),
         ),
       ],
     );

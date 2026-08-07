@@ -8,20 +8,28 @@ import '../../../core/recording/recording_state.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../features/settings/settings_widgets.dart';
+import 'mic_permission_chip.dart';
+import 'onboarding_headings.dart';
 import '../../../services/recording_orchestrator.dart';
-import '../../../widgets/wp_accent_button.dart';
+import '../../../widgets/wp_hero_button.dart';
+import '../onboarding_completion_gate.dart';
 
 /// Widget keys exposed for testing. Kept in one place so tests and production
 /// code agree on the contract.
 @visibleForTesting
 const kTestRecordingStepFieldKey = Key('testRecordingStepSandboxField');
 @visibleForTesting
-const kTestRecordingStepSkipLinkKey = Key('testRecordingStepSkipLink');
+const kTestRecordingStepRecordButtonKey = Key('testRecordingStepRecordButton');
 @visibleForTesting
-const kTestRecordingStepNextButtonKey = Key('testRecordingStepNextButton');
+const kTestRecordingStepMicBypassButtonKey = Key(
+  'testRecordingStepMicBypassButton',
+);
+@visibleForTesting
+const kTestRecordingStepMaxDurationHintKey = Key(
+  'testRecordingStepMaxDurationHint',
+);
 
-/// Onboarding step — guided, skippable test recording shown right before
-/// [OnboardingStepId.ready].
+/// Guided, optional test recording content of the final onboarding page.
 ///
 /// Lets the newcomer run the real hotkey → speak → text pipeline once against
 /// a local sandbox text field instead of the system clipboard/paste target,
@@ -29,16 +37,10 @@ const kTestRecordingStepNextButtonKey = Key('testRecordingStepNextButton');
 /// first encounter with the mechanic. Wires
 /// [RecordingOrchestrator.sandboxTranscriptSink] for the lifetime of this
 /// step only; every other caller of the orchestrator keeps the real
-/// clipboard/paste behaviour untouched.
+/// clipboard/paste behaviour untouched. Content only — navigation is owned
+/// by the onboarding shell and never gated on recording success.
 class TestRecordingStep extends ConsumerStatefulWidget {
-  const TestRecordingStep({
-    super.key,
-    required this.onNext,
-    required this.onBack,
-  });
-
-  final VoidCallback onNext;
-  final VoidCallback onBack;
+  const TestRecordingStep({super.key});
 
   @override
   ConsumerState<TestRecordingStep> createState() => _TestRecordingStepState();
@@ -61,7 +63,32 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
 
   void _onSandboxTranscript(String text) {
     if (!mounted) return;
+    if (text.trim().isNotEmpty) {
+      // Non-empty transcript == proof that speech was actually recognised —
+      // this is what the shell's completion gate waits for. Whitespace-only
+      // results (silence, mic picked up nothing) don't count.
+      ref
+          .read(onboardingTestRecordingSucceededProvider.notifier)
+          .markSucceeded();
+    }
     setState(() => _sandboxText = text);
+  }
+
+  /// Starts/stops the guided test recording from the UI button.
+  ///
+  /// Deliberately routes through [RecordingOrchestrator.toggleRecording] —
+  /// the exact method the systemwide hotkey handler calls — so the button is
+  /// merely a second trigger for the identical pipeline, never a parallel
+  /// recording path. The sandbox seam ([initState]/[dispose] wiring of
+  /// [RecordingOrchestrator.sandboxTranscriptSink]) therefore covers
+  /// button-driven starts for free: `_handleAfterTranscription` short-circuits
+  /// into the sink regardless of what triggered the recording.
+  void _onRecordPressed() {
+    ref.read(recordingOrchestratorProvider.notifier).toggleRecording();
+  }
+
+  void _onMicBypassPressed() {
+    ref.read(onboardingMicBypassProvider.notifier).activate();
   }
 
   @override
@@ -76,6 +103,10 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
     final l10n = L10n.of(context);
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
     final phase = ref.watch(recordingPhaseProvider);
+    final testRecordingSucceeded = ref.watch(
+      onboardingTestRecordingSucceededProvider,
+    );
+    final micBypassed = ref.watch(onboardingMicBypassProvider);
 
     final isDone = _sandboxText != null;
     final isRecording =
@@ -83,9 +114,6 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
         (phase == RecordingPhase.recording ||
             phase == RecordingPhase.transcribing);
 
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
     final textSecondary = isDark
         ? WpColorsDark.textSecondary
         : WpColorsLight.textSecondary;
@@ -98,41 +126,72 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
 
     return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Title
-        Text(
-          l10n.onboardingTestRecordingTitle,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: WpTypography.headline,
-            fontWeight: FontWeight.bold,
-            color: textPrimary,
-          ),
+        OnboardingPageHeading(
+          title: l10n.onboardingTestRecordingTitle,
+          subtitle: l10n.onboardingTestRecordingSubtitle,
         ),
-        const SizedBox(height: WpSpacing.xs),
-        Text(
-          l10n.onboardingTestRecordingSubtitle,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: WpTypography.subheading,
-            color: textSecondary,
-            height: 1.4,
-          ),
-        ),
-        const SizedBox(height: WpSpacing.xl),
+        const SizedBox(height: WpSpacing.lg),
 
-        // Current hotkey — reuses the shared HotkeyDisplay chip renderer.
-        Text(
-          l10n.onboardingTestRecordingHotkeyLabel,
-          style: TextStyle(fontSize: WpTypography.small, color: textMuted),
+        // Current hotkey and microphone status — the two preconditions of the
+        // recording this page asks for, on one line. Label and key caps are
+        // one statement, not two stacked blocks; Wrap lets the caps (and the
+        // chip) drop below instead of overflowing when the column is narrow
+        // or the translation is long.
+        //
+        // The microphone chip used to live on page 1, where it announced a
+        // permission nothing on that page needed yet. Here it sits next to
+        // the button that will use it, so a "action needed" state is visible
+        // exactly when it becomes actionable. The permission itself is still
+        // requested much earlier — on leaving page 1 (see `_goNext` in
+        // onboarding_overlay.dart) — so the OS dialog never lands in the
+        // middle of this page either.
+        Padding(
+          padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
+          child: Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: WpSpacing.sm,
+            runSpacing: WpSpacing.xs,
+            children: [
+              Text(
+                l10n.onboardingTestRecordingHotkeyLabel,
+                style: TextStyle(
+                  fontSize: WpTypography.small,
+                  color: textMuted,
+                ),
+              ),
+              HotkeyDisplay(
+                hotkeyKey: settings.hotkeyKey,
+                hotkeyModifiers: settings.hotkeyModifiers,
+                hotkeyKeyDisplay: settings.hotkey.hotkeyKeyDisplay,
+              ),
+              // Self-gates to nothing on Linux (no Settings deep-link there).
+              const MicPermissionChip(),
+            ],
+          ),
         ),
-        const SizedBox(height: WpSpacing.sm),
-        HotkeyDisplay(
-          hotkeyKey: settings.hotkeyKey,
-          hotkeyModifiers: settings.hotkeyModifiers,
-          hotkeyKeyDisplay: settings.hotkey.hotkeyKeyDisplay,
+        const SizedBox(height: WpSpacing.md),
+
+        // Start/Stop button — the primary trigger for the test recording.
+        // Deliberately a button and not the hotkey (which could still be in
+        // conflict with other software); the hotkey keeps working in
+        // parallel through the same orchestrator path. Disabled while a
+        // finished recording is being transcribed — the sandbox field's
+        // in-progress line explains the wait.
+        // loam-ignore: a11y-interactive-semantics – semantics provided in WpHeroButton.build
+        WpHeroButton(
+          key: kTestRecordingStepRecordButtonKey,
+          label: phase == RecordingPhase.recording
+              ? l10n.onboardingTestRecordingStopCta
+              : l10n.onboardingTestRecordingStartCta,
+          gradient: accentGradient,
+          verticalPadding: WpSpacing.md,
+          onPressed: phase == RecordingPhase.transcribing
+              ? null
+              : _onRecordPressed,
         ),
-        const SizedBox(height: WpSpacing.xl),
+        const SizedBox(height: WpSpacing.md),
 
         // Sandbox field
         _SandboxField(
@@ -148,89 +207,141 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
         if (isDone) ...[
           const SizedBox(height: WpSpacing.sm),
           Row(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(LucideIcons.circleCheck, size: 16, color: success),
               const SizedBox(width: WpSpacing.xs),
-              Text(
-                l10n.onboardingTestRecordingDoneMessage,
-                style: TextStyle(
-                  fontSize: WpTypography.body,
-                  fontWeight: FontWeight.w600,
-                  color: success,
+              // Flexible so long translations wrap instead of overflowing
+              // the row (surfaced by the walkthrough test's Ahem metrics).
+              Flexible(
+                child: Text(
+                  l10n.onboardingTestRecordingDoneMessage,
+                  textAlign: TextAlign.start,
+                  style: TextStyle(
+                    fontSize: WpTypography.body,
+                    fontWeight: FontWeight.w600,
+                    color: success,
+                  ),
                 ),
               ),
             ],
           ),
         ],
 
-        const SizedBox(height: WpSpacing.sm),
-        Text(
-          l10n.onboardingTestRecordingReassurance,
-          textAlign: TextAlign.center,
-          style: TextStyle(fontSize: WpTypography.small, color: textMuted),
-        ),
-
-        // Skip link — hidden once the test already succeeded, since there is
-        // nothing left to skip past.
-        if (!isDone) ...[
-          const SizedBox(height: WpSpacing.xxs),
-          Semantics(
-            button: true,
-            label: l10n.onboardingTestRecordingSkip,
-            child: Material(
-              key: kTestRecordingStepSkipLinkKey,
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: widget.onNext,
-                borderRadius: WpRadius.borderSm,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: WpSpacing.sm,
-                    vertical: WpSpacing.xs,
-                  ),
-                  child: Text(
-                    l10n.onboardingTestRecordingSkip,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: WpTypography.small,
-                      color: accent,
-                      decoration: TextDecoration.underline,
-                      decorationColor: accent,
-                    ),
-                  ),
-                ),
+        // Completion-gate explainer — the shell's "Los geht's" CTA stays
+        // disabled until a test recording succeeded (or the escape hatch was
+        // taken); this line names the reason so the disabled CTA never
+        // appears unexplained.
+        if (!testRecordingSucceeded && !micBypassed) ...[
+          const SizedBox(height: WpSpacing.sm),
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
+            child: Text(
+              l10n.onboardingTestRecordingCompletionHint,
+              textAlign: TextAlign.start,
+              style: TextStyle(
+                fontSize: WpTypography.small,
+                color: textSecondary,
               ),
             ),
           ),
         ],
-        const SizedBox(height: WpSpacing.lg),
 
-        // Navigation — "Weiter" is always enabled regardless of recording
-        // state: neither path is a required step ("kein Zwang, keine
-        // Pflicht-Aufnahme" applies to both Skip and Weiter alike).
-        Row(
-          children: [
-            TextButton(
-              onPressed: widget.onBack,
-              child: Text(
-                l10n.onboardingBack,
-                style: TextStyle(color: textSecondary),
-              ),
-            ),
-            const Spacer(),
-            SizedBox(
-              width: 140,
-              // loam-ignore: a11y-interactive-semantics – semantics provided in WpAccentButton.build
-              child: WpAccentButton(
-                key: kTestRecordingStepNextButtonKey,
-                label: l10n.onboardingNext,
-                gradient: accentGradient,
-                onPressed: widget.onNext,
-              ),
-            ),
-          ],
+        const SizedBox(height: WpSpacing.sm),
+        Padding(
+          padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
+          child: Text(
+            l10n.onboardingTestRecordingReassurance,
+            textAlign: TextAlign.start,
+            style: TextStyle(fontSize: WpTypography.small, color: textMuted),
+          ),
         ),
+
+        // Recording-duration note — muted, no control. It sits on this page
+        // rather than beside the hotkey settings because this is where the
+        // first recording actually happens: "recordings stop by themselves
+        // after N seconds" is advice about the button directly above it.
+        // (The Model & Hotkey page is also the one page in the flow with no
+        // room to spare — 3 px in Hebrew with this line on it.) Suppressed
+        // when the limit is 0 (= unlimited, nothing to warn about).
+        if (settings.behavior.maxRecordDuration > 0) ...[
+          const SizedBox(height: WpSpacing.xs),
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
+            child: Row(
+              key: kTestRecordingStepMaxDurationHintKey,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 1),
+                  child: Icon(LucideIcons.info, size: 14, color: textMuted),
+                ),
+                const SizedBox(width: WpSpacing.xs),
+                Expanded(
+                  child: Text(
+                    l10n.onboardingMaxRecordDurationHint(
+                      settings.behavior.maxRecordDuration,
+                      l10n.settingsRecordingSafety,
+                    ),
+                    style: TextStyle(
+                      fontSize: WpTypography.small,
+                      color: textMuted,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+
+        // Escape hatch "continue without a microphone" — deliberately
+        // restrained (plain text button, never the accent gradient). Only
+        // bypasses the microphone condition of the completion gate; a
+        // confirmed hotkey conflict still keeps the CTA disabled (heads-up
+        // rendered by ReadyStep). Hidden once a recording succeeded — at
+        // that point it has nothing left to bypass.
+        if (!testRecordingSucceeded) ...[
+          const SizedBox(height: WpSpacing.xs),
+          if (!micBypassed)
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: TextButton(
+                key: kTestRecordingStepMicBypassButtonKey,
+                onPressed: _onMicBypassPressed,
+                child: Text(
+                  l10n.onboardingTestRecordingMicBypassCta,
+                  style: TextStyle(
+                    color: textSecondary,
+                    fontSize: WpTypography.body,
+                  ),
+                ),
+              ),
+            )
+          else
+            // Honest consequence note: no recording works until a microphone
+            // does, and where to catch up later.
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 1),
+                  child: Icon(LucideIcons.info, size: 14, color: textMuted),
+                ),
+                const SizedBox(width: WpSpacing.xs),
+                Flexible(
+                  child: Text(
+                    l10n.onboardingTestRecordingMicBypassHint,
+                    textAlign: TextAlign.start,
+                    style: TextStyle(
+                      fontSize: WpTypography.small,
+                      color: textMuted,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+        ],
       ],
     );
   }
@@ -239,6 +350,11 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
 // ---------------------------------------------------------------------------
 // Sandbox field — Default / Recording / Done visual states.
 // ---------------------------------------------------------------------------
+
+/// Line cap for the recognised transcript — see the field's own comment for
+/// the measured reason. Five lines keep page 5 at 471 of its 551-px viewport
+/// even when the transcript is arbitrarily long.
+const int _kSandboxMaxLines = 5;
 
 class _SandboxField extends StatelessWidget {
   const _SandboxField({
@@ -308,6 +424,14 @@ class _SandboxField extends StatelessWidget {
             )
           : Text(
               isDone ? sandboxText! : l10n.onboardingTestRecordingPlaceholder,
+              // Bounded on purpose. This field proves that speech was
+              // recognised; it is not a transcript viewer, and the page it
+              // sits on cannot scroll (fixed 1100x720 window). Unbounded, a
+              // 600-character dictation already pushed page 5 over its
+              // 551-px viewport by 50 px, a 1200-character one by 290 px —
+              // and recordings run up to `maxRecordDuration` seconds.
+              maxLines: _kSandboxMaxLines,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: WpTypography.body,
                 color: isDone ? textPrimary : textMuted,

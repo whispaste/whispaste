@@ -23,6 +23,7 @@ import '../core/recording/recording_helpers.dart';
 import '../core/recording/recording_state.dart';
 import '../services/paste/paste_failure_notifier.dart';
 import '../services/paste/paster.dart';
+import '../services/permissions/mic_permission_notifier.dart';
 import '../services/recording_orchestrator.dart';
 import '../services/sound_feedback_service.dart';
 import '../services/stt/recovery_toast_notifier.dart';
@@ -100,6 +101,7 @@ String localizeRecordingInfo(L10n l10n, String infoCode) => switch (infoCode) {
   'info_model_missing' => l10n.infoModelMissing,
   'info_stt_cuda_oom_model' => l10n.infoSttCudaOomFallbackModel,
   'info_stt_cuda_oom_cpu' => l10n.infoSttCudaOomFallbackCpu,
+  'info_snippet_picker_empty' => l10n.infoSnippetPickerEmpty,
   _ => infoCode,
 };
 
@@ -354,27 +356,51 @@ class _RecordingBehaviorState extends ConsumerState<RecordingBehaviorWidget> {
 
   void _onRecordingInfoChanged(BuildContext context, L10n l10n, String? next) {
     if (next == null) return;
-    // Recovery hints that tell the user to "download in Settings" must
-    // carry the last logical step — a one-tap jump to the STT settings
-    // section — instead of leaving them to hunt for it.
-    final bool needsSettingsAction = next == 'info_model_missing';
+    // Info codes that leave the user with an obvious open question must
+    // carry the last logical step as a one-tap action instead of leaving
+    // them to hunt for it: "download in Settings" jumps to the STT section,
+    // and the empty-snippet-list fallback jumps to the Snippets page.
+    final (
+      WpToastType type,
+      Duration duration,
+      WpToastAction? action,
+    ) = switch (next) {
+      'info_model_missing' => (
+        WpToastType.info,
+        const Duration(seconds: 6),
+        // loam-ignore: a11y-interactive-semantics – WpToastAction is a data class; label is the button text
+        WpToastAction(
+          label: l10n.pasteFailureOpenSettings,
+          onPressed: () => _openSettings('stt'),
+        ),
+      ),
+      // Trigger word matched but the snippet list is empty — the
+      // transcript was pasted normally (see `_tryDispatchSnippetPicker`),
+      // which without this warning is indistinguishable from "the
+      // trigger didn't work".
+      'info_snippet_picker_empty' => (
+        WpToastType.warning,
+        const Duration(seconds: 6),
+        // loam-ignore: a11y-interactive-semantics – WpToastAction is a data class; label is the button text
+        WpToastAction(
+          label: l10n.infoSnippetPickerEmptyAction,
+          onPressed: _openSnippets,
+        ),
+      ),
+      _ => (WpToastType.info, const Duration(seconds: 4), null),
+    };
     WpToast.show(
       context,
       message: localizeRecordingInfo(l10n, next),
-      type: WpToastType.info,
-      duration: needsSettingsAction
-          ? const Duration(seconds: 6)
-          : const Duration(seconds: 4),
-      action: needsSettingsAction
-          // loam-ignore: a11y-interactive-semantics – WpToastAction is a data class; label is the button text
-          ? WpToastAction(
-              label: l10n.pasteFailureOpenSettings,
-              onPressed: () => _openSettings('stt'),
-            )
-          : null,
+      type: type,
+      duration: duration,
+      action: action,
     );
     Future.microtask(() => ref.read(recordingInfoProvider.notifier).clear());
   }
+
+  void _openSnippets() =>
+      ref.read(activePageProvider.notifier).setPage('snippets');
 
   @override
   Widget build(BuildContext context) {
@@ -461,17 +487,8 @@ class _RecordingBehaviorState extends ConsumerState<RecordingBehaviorWidget> {
     }
   }
 
-  Future<void> _openMicrophoneSettings() async {
-    if (!Platform.isMacOS) return;
-    final uri = Uri.parse(
-      'x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone',
-    );
-    try {
-      await launchUrl(uri);
-    } on Exception catch (e) {
-      _log.warning('Could not open Microphone settings', e);
-    }
-  }
+  Future<void> _openMicrophoneSettings() =>
+      ref.read(micPermissionNotifierProvider.notifier).openSystemSettings();
 }
 
 // ---------------------------------------------------------------------------

@@ -645,6 +645,36 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
             );
             rethrow;
         }
+      } on InferenceClientRejected {
+        rethrow;
+      } catch (e) {
+        // Catch-all for failures the engine raises as a bare error rather
+        // than a typed [WhisperEngineException] — e.g. the isolate proxy's
+        // `StateError('whisper_engine_not_loaded')` when the worker's native
+        // context was freed out from under a stale "ready" state (see
+        // `WhisperIsolateEngine.unload`'s doc comment). Previously this fell
+        // through both `on` clauses above untouched, so it never reached
+        // [_captureInferenceFailure]/Sentry at all — reproduced empirically:
+        // the user saw only a generic "Etwas ist schiefgelaufen" toast, and
+        // this project's own Sentry had zero events for it.
+        final failure = WhisperEngineException(WhisperFailureKind.other, '$e');
+        _captureInferenceFailure(
+          failure,
+          sttExitOther,
+          lang,
+          wavSizeBytes,
+          audioDurationMs,
+        );
+        // Self-heal: don't leave `state` claiming a model is `ready` when
+        // the engine just proved it isn't — otherwise `ensureRunning()`'s
+        // warm-engine fast path keeps returning immediately and every
+        // subsequent dictation repeats this same failure until an idle
+        // unload or app restart happens to clear it (reproduced live: a
+        // mid-session model switch broke dictation for the rest of the
+        // session). Dropping back to `stopped` makes the next `ensureRunning()`
+        // call go through `_start()` for a genuine reload.
+        if (ref.mounted) _transition(const SttStatus());
+        throw failure;
       }
     }
   }

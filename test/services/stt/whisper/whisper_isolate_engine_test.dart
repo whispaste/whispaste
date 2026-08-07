@@ -100,6 +100,39 @@ void main() {
         await engine.load(modelPath: modelPath);
         expect(engine.status.isLoaded, isTrue);
       });
+
+      test(
+        'unload() left unawaited, then load() again, still reloads for real '
+        '(regression: a model switch mid-session left the engine claiming '
+        'readiness while the worker had actually freed its native context, '
+        'so the next transcribe() threw whisper_engine_not_loaded)',
+        () async {
+          final engine = WhisperIsolateEngine(libraryPath: dylibPath);
+          addTearDown(engine.shutdown);
+
+          await engine.load(modelPath: modelPath!);
+          expect(engine.status.isLoaded, isTrue);
+
+          // Mirrors SttServerStateNotifier._debouncedPrewarmOnModelChange:
+          // stop() (-> unload()) is fired without awaiting it, then a fresh
+          // load() starts immediately — deliberately not awaiting unload()
+          // here reproduces that exact interleaving.
+          final unloadFuture = engine.unload();
+          await engine.load(modelPath: modelPath);
+          expect(engine.status.isLoaded, isTrue);
+
+          final wavBytes = File(speechWavPath!).readAsBytesSync();
+          final text = (await engine.transcribe(
+            wavBytes,
+            language: 'en',
+          )).toLowerCase();
+          expect(text, contains('hello'));
+          expect(text, contains('world'));
+
+          await unloadFuture;
+        },
+        timeout: const Timeout(Duration(minutes: 2)),
+      );
     },
     skip: available ? null : 'local libwhisper.dylib + tiny model absent',
   );

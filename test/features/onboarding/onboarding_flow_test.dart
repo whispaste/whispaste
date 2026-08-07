@@ -1,31 +1,45 @@
-/// Durchgehender Onboarding-Walkthrough-Test: Welcome → Privacy → Microphone →
-/// Model → Trigger → TestRecording → Ready (Linux-Pfad, 7 Schritte, kein
-/// Auto-Paste).
+/// Durchgehender Onboarding-Walkthrough-Test über die sechs Linux-Seiten:
+/// Willkommen → Datenschutz → Modell → Hotkey → Erscheinungsbild (inkl.
+/// Autostart-Umschalter) → Ausprobieren & Los. Auf macOS/Windows liegt
+/// zwischen Erscheinungsbild und der letzten Seite zusätzlich die
+/// Auto-Paste-Seite (sieben Seiten) — die Sequenz-Differenz selbst ist in
+/// `onboarding_step_ids_test.dart` und `onboarding_overlay_test.dart`
+/// abgedeckt; hier wird bewusst der kürzere Linux-Pfad durchgespielt.
 ///
-/// Dieser Test treibt die [OnboardingOverlay] über alle Schritte bis zum
-/// Ready-Zustand und assertiert dabei:
-///   1. Die Schritt-Übergänge anhand des "Step X of Y"-Zählers und der
-///      sichtbaren Step-Widgets.
-///   2. Den Endzustand: `onboardingCompleted == true` nach dem "Let's go"-Tap.
-///
-/// Strategie: "Skip this step" überspringt Mic-, Modell- und Trigger-Schritt —
-/// exakt das, was ein echter Nutzer tun kann. Der Modell-Schritt zeigt im
-/// Test-Renderer einen vorbekannten RenderFlex-Overflow (Engine-Card-Row bei
-/// schmalem Overlay-Card), der durch [_withoutOverflowErrors] abgefangen wird.
-/// Die Navigationslogik und der Endzustand sind davon nicht betroffen.
+/// Dieser Test treibt die [OnboardingOverlay] über die Shell-Navigation
+/// ("Weiter") bis zum Abschluss und assertiert dabei:
+///   1. Die Seiten-Übergänge anhand des "Step X of Y"-Zählers und der
+///      sichtbaren Inhalts-Widgets.
+///   2. Auf jeder der Seiten 1–4 existieren genau zwei Navigationsaktionen
+///      (Zurück + Weiter) — kein Überspringen-Knopf mehr.
+///   3. Den Endzustand: `onboardingCompleted == true` nach dem
+///      "Los geht's"-Tap; der Abschluss-CTA bleibt bei Hotkey-Konflikt
+///      deaktiviert (residuales Gate aus dem alten ReadyStep) und ist NEU
+///      zusätzlich an eine gelungene Testaufnahme mit erkannter Sprache
+///      gebunden — mit dem Notausgang „Ohne Mikrofon fortfahren", der
+///      ausschließlich die Mikrofon-Bedingung umgeht.
+///   4. Wiederaufnahme: eine gespeicherte Position (neuer Ablauf) wird
+///      fortgesetzt; eine Position aus dem alten Ablauf wird genau einmal
+///      übersetzt (Ablauf-Version wird gestempelt).
 library;
 
 import 'package:flutter/foundation.dart'
     show debugDefaultTargetPlatformOverride;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show FontLoader, rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart' show AsyncData;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
 
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
+import 'package:whispaste/core/platform/desktop_window_geometry.dart'
+    show kOnboardingWindowSize;
+import 'package:whispaste/features/onboarding/onboarding_flow_migration.dart';
 import 'package:whispaste/features/onboarding/onboarding_overlay.dart';
-import 'package:whispaste/features/onboarding/steps/microphone_step.dart';
+import 'package:whispaste/features/onboarding/steps/appearance_step.dart';
+import 'package:whispaste/features/onboarding/steps/autostart_toggle.dart';
+import 'package:whispaste/features/onboarding/steps/mic_permission_chip.dart';
 import 'package:whispaste/features/onboarding/steps/model_step.dart';
 import 'package:whispaste/features/onboarding/steps/privacy_step.dart';
 import 'package:whispaste/features/onboarding/steps/ready_step.dart';
@@ -41,7 +55,9 @@ import 'package:whispaste/services/hotkey_service.dart'
         hotkeyRegistrationStatusProvider,
         hotkeyServiceProvider;
 import 'package:whispaste/services/keyboard_up_monitor.dart';
+import 'package:whispaste/services/permissions/mic_permission_notifier.dart';
 import 'package:whispaste/services/recording_orchestrator.dart';
+import 'package:whispaste/widgets/wp_hero_button.dart';
 
 import '../../fixtures/test_helpers.dart';
 
@@ -67,25 +83,37 @@ class _FakeSettingsNotifier extends SettingsNotifier {
   }
 }
 
-/// Stabiler Fake für [HotkeyRegistrationStatusController] — liefert immer
-/// `success`, damit der "Let's go"-Button auf dem Ready-Step aktiv ist.
+/// Stabiler Fake für [HotkeyRegistrationStatusController].
 class _FakeHotkeyController extends HotkeyRegistrationStatusController {
+  _FakeHotkeyController([this._initial = HotkeyRegistrationStatus.success]);
+
+  final HotkeyRegistrationStatus _initial;
+
   @override
-  HotkeyRegistrationStatus build() => HotkeyRegistrationStatus.success;
+  HotkeyRegistrationStatus build() => _initial;
 }
 
 /// Skips the real pipeline wiring so the walkthrough never touches audio
 /// capture, the STT server, or history persistence when it passes through
 /// [TestRecordingStep] — that step only needs the orchestrator instance to
-/// exist so it can register its sandbox-transcript seam.
+/// exist so it can register its sandbox-transcript seam. The walkthrough
+/// simulates a successful test recording by feeding that seam directly
+/// (same pattern as `test_recording_step_test.dart`).
 class _FakeRecordingOrchestrator extends RecordingOrchestrator {
   @override
   void build() {}
 }
 
+/// Handles [_pumpOverlay] hands back: the settings fake for end-state
+/// assertions plus the orchestrator fake so tests can drive the
+/// sandbox-transcript seam (the completion gate listens to it).
+typedef _OverlayHandles = ({
+  _FakeSettingsNotifier settings,
+  _FakeRecordingOrchestrator orchestrator,
+});
+
 /// Fake [HotKeyRegistrar] so [HotkeyService] never touches the real
-/// `hotkey_manager` platform channel in the widget test host — mirrors the
-/// pattern in `test/widgets/push_to_talk_toggle_test.dart`.
+/// `hotkey_manager` platform channel in the widget test host.
 class _FakeRegistrar implements HotKeyRegistrar {
   const _FakeRegistrar({required this.supportsKeyUp});
 
@@ -103,9 +131,16 @@ class _FakeRegistrar implements HotKeyRegistrar {
   Future<void> unregister(HotKey hotKey) async {}
 }
 
-/// A [HotkeyService] with a fake registrar — TriggerStep reads
-/// `supportsKeyUp` to gate the Push-to-Talk toggle. `false` matches the
-/// Linux target platform this walkthrough simulates.
+/// Träge Plattform-Wahrheit für den Mikrofon-Berechtigungs-Notifier — der
+/// automatische request() beim Verlassen von Seite 1 darf im Widget-Test nie
+/// das echte Audio-Plugin erreichen.
+class _FakeMicPermissionChecker implements MicPermissionChecker {
+  @override
+  Future<bool> check({required bool request}) async => false;
+}
+
+/// [HotkeyService] mit Fake-Registrar — TriggerStep liest `supportsKeyUp`.
+/// `false` passt zur simulierten Linux-Zielplattform.
 HotkeyService _fakeHotkeyService() {
   final svc = HotkeyService();
   svc.injectRegistrar(const _FakeRegistrar(supportsKeyUp: false));
@@ -117,43 +152,17 @@ HotkeyService _fakeHotkeyService() {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/// Führt [action] aus und fängt [FlutterError]s mit "overflowed" im Text ab.
-/// Andere Fehler werden an den ursprünglichen Handler weitergeleitet.
-///
-/// Hintergrund: ModelStep's TierCard-Row überläuft im Test-Renderer wenn der
-/// Overlay-Card-Container auf < 400 px logical width beschränkt wird. Dieser
-/// vorbekannte Overflow-Fehler im Produktionscode soll den Walkthrough-Test
-/// nicht blockieren — die Navigationslogik funktioniert trotzdem korrekt.
-/// Verwendet dasselbe Muster wie `test/app/app_flows_test.dart`.
-Future<void> _withoutOverflowErrors(Future<void> Function() action) async {
-  final original = FlutterError.onError;
-  FlutterError.onError = (details) {
-    final msg = details.exception.toString();
-    if (msg.contains('overflowed')) {
-      // Silently swallow known layout overflow — logged to console but
-      // does not fail the test.
-      return;
-    }
-    original?.call(details);
-  };
-  try {
-    await action();
-  } finally {
-    FlutterError.onError = original;
-  }
-}
-
-/// Rendert den [OnboardingOverlay] im Linux-Modus (7 Schritte) mit minimalen
-/// Fake-Overrides.
+/// Rendert die [OnboardingOverlay] mit minimalen Fake-Overrides.
 ///
 /// WICHTIG: `debugDefaultTargetPlatformOverride` muss vom Aufrufer in einem
-/// `try/finally`-Block gesetzt und zurückgesetzt werden — analog zum Muster
-/// in `onboarding_overlay_test.dart`.
-Future<_FakeSettingsNotifier> _pumpOverlay(
+/// `try/finally`-Block gesetzt und zurückgesetzt werden.
+Future<_OverlayHandles> _pumpOverlay(
   WidgetTester tester, {
   AppSettings? initialSettings,
+  HotkeyRegistrationStatus hotkeyStatus = HotkeyRegistrationStatus.success,
 }) async {
   final settings = _FakeSettingsNotifier(initialSettings);
+  final orchestrator = _FakeRecordingOrchestrator();
 
   await tester.pumpWidget(
     makeTestable(
@@ -162,18 +171,46 @@ Future<_FakeSettingsNotifier> _pumpOverlay(
       locale: const Locale('en'),
       overrides: [
         settingsProvider.overrideWith(() => settings),
+        micPermissionCheckerProvider.overrideWithValue(
+          _FakeMicPermissionChecker(),
+        ),
         hotkeyRegistrationStatusProvider.overrideWith(
-          _FakeHotkeyController.new,
+          () => _FakeHotkeyController(hotkeyStatus),
         ),
         hotkeyServiceProvider.overrideWith(_fakeHotkeyService),
-        recordingOrchestratorProvider.overrideWith(
-          _FakeRecordingOrchestrator.new,
-        ),
+        recordingOrchestratorProvider.overrideWith(() => orchestrator),
       ],
     ),
   );
   await tester.pumpAndSettle();
-  return settings;
+  return (settings: settings, orchestrator: orchestrator);
+}
+
+Future<void> _tapNext(WidgetTester tester) async {
+  await tester.tap(find.byKey(kOnboardingNextButtonKey));
+  await tester.pumpAndSettle();
+}
+
+/// Assertiert die Shell-Navigation der aktuellen Seite: genau zwei
+/// Navigationsaktionen (Zurück + Weiter), kein Überspringen.
+void _expectExactlyTwoNavActions(WidgetTester tester, {required int page}) {
+  final navRow = find.byKey(kOnboardingNavRowKey);
+  final textButtons = tester
+      .widgetList(
+        find.descendant(of: navRow, matching: find.byType(TextButton)),
+      )
+      .length;
+  final accentButtons = tester
+      .widgetList(
+        find.descendant(of: navRow, matching: find.byType(WpHeroButton)),
+      )
+      .length;
+  expect(
+    textButtons + accentButtons,
+    2,
+    reason:
+        'Seite $page: die Navigations-Zeile muss genau zwei Aktionen tragen',
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -186,319 +223,491 @@ void main() {
   late L10n l10n;
   setUpAll(() async {
     l10n = await L10n.delegate.load(const Locale('en'));
+    // Echte gebündelte UI-Schrift statt der Quadrat-Testschrift — die
+    // Fixed-Window-Messung unten ist sonst bedeutungslos.
+    final fontLoader = FontLoader('Inter')
+      ..addFont(rootBundle.load('assets/fonts/Inter-Regular.ttf'))
+      ..addFont(rootBundle.load('assets/fonts/Inter-Medium.ttf'))
+      ..addFont(rootBundle.load('assets/fonts/Inter-SemiBold.ttf'))
+      ..addFont(rootBundle.load('assets/fonts/Inter-Bold.ttf'));
+    await fontLoader.load();
   });
 
-  group('Onboarding Walkthrough — Welcome → Privacy → Microphone → Model → '
-      'Trigger → TestRecording → Ready', () {
+  group('Onboarding Walkthrough — sechs Seiten bis zum Abschluss', () {
     testWidgets(
-      'Schritt 1: WelcomeStep wird als erster Schritt angezeigt (1 of 7)',
+      'Seite 1: Willkommen (WelcomeStep) wird als erste Seite angezeigt '
+      '(1 of 6); die Seite trägt gar keinen Mikrofon-Chip mehr — auf Linux '
+      'verspräche er zusätzlich '
+      'eine Aktion (Settings-Deep-Link), die es dort nicht gibt',
       (tester) async {
         debugDefaultTargetPlatformOverride = TargetPlatform.linux;
         try {
           await _pumpOverlay(tester);
 
-          // WelcomeStep muss sichtbar sein.
           expect(find.byType(WelcomeStep), findsOneWidget);
-
-          // Schritt-Zähler: "Step 1 of 7".
-          expect(find.text(l10n.onboardingStepOf(1, 7)), findsOneWidget);
-
-          // Skip-Button ist auf dem ersten Schritt sichtbar (≠ letzter Schritt).
-          expect(find.text(l10n.onboardingSkip), findsOneWidget);
+          expect(find.byType(MicPermissionChip), findsNothing);
+          expect(find.text(l10n.onboardingStepOf(1, 6)), findsOneWidget);
+          _expectExactlyTwoNavActions(tester, page: 1);
         } finally {
           debugDefaultTargetPlatformOverride = null;
         }
       },
     );
 
-    testWidgets(
-      'Schritt 1 → 2: "Continue" auf WelcomeStep führt zu PrivacyStep',
-      (tester) async {
-        debugDefaultTargetPlatformOverride = TargetPlatform.linux;
-        try {
-          await _pumpOverlay(tester);
+    testWidgets('Vollständiger Durchlauf über alle sechs Seiten: '
+        'onboardingCompleted = true nach gelungener Testaufnahme und '
+        '"Los geht\'s"', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      try {
+        final (:settings, :orchestrator) = await _pumpOverlay(tester);
 
-          // Tap auf den WelcomeStep-CTA ("Continue").
-          await tester.tap(find.text(l10n.onboardingGetStarted));
-          await tester.pumpAndSettle();
+        // Seite 1: Willkommen (Demo-Beats + Sprachauswahl; Linux ohne Chip).
+        expect(find.byType(WelcomeStep), findsOneWidget);
+        expect(find.byType(MicPermissionChip), findsNothing);
+        expect(find.text(l10n.onboardingStepOf(1, 6)), findsOneWidget);
+        _expectExactlyTwoNavActions(tester, page: 1);
+        await _tapNext(tester);
 
-          // Jetzt muss der Privacy-Step sichtbar sein.
-          expect(find.byType(PrivacyStep), findsOneWidget);
-          expect(find.text(l10n.onboardingStepOf(2, 7)), findsOneWidget);
-        } finally {
-          debugDefaultTargetPlatformOverride = null;
-        }
-      },
-    );
+        // Seite 2: Datenschutz.
+        expect(find.byType(PrivacyStep), findsOneWidget);
+        expect(find.text(l10n.onboardingStepOf(2, 6)), findsOneWidget);
+        _expectExactlyTwoNavActions(tester, page: 2);
+        await _tapNext(tester);
 
-    testWidgets(
-      'Schritt 2 → 3: "Next" auf PrivacyStep führt zu MicrophoneStep',
-      (tester) async {
-        debugDefaultTargetPlatformOverride = TargetPlatform.linux;
-        try {
-          await _pumpOverlay(tester);
+        // Seite 3: Modell — nur noch die Engine-Wahl, ohne Hotkey-Block.
+        expect(find.byType(ModelStep), findsOneWidget);
+        expect(find.byType(TriggerStep), findsNothing);
+        expect(find.text(l10n.onboardingStepOf(3, 6)), findsOneWidget);
+        _expectExactlyTwoNavActions(tester, page: 3);
+        await _tapNext(tester);
 
-          await tester.tap(find.text(l10n.onboardingGetStarted));
-          await tester.pumpAndSettle();
-          expect(find.byType(PrivacyStep), findsOneWidget);
+        // Seite 4: Hotkey — eigene Seite seit der Aufteilung.
+        expect(find.byType(TriggerStep), findsOneWidget);
+        expect(find.byType(ModelStep), findsNothing);
+        expect(find.text(l10n.onboardingStepOf(4, 6)), findsOneWidget);
+        _expectExactlyTwoNavActions(tester, page: 4);
+        await _tapNext(tester);
 
-          // Privacy-Step weiter (informiertes Opt-out — Weiter immer aktiv).
-          await tester.tap(find.text(l10n.onboardingNext));
-          await tester.pumpAndSettle();
+        // Seite 5: Erscheinungsbild — Theme-Auswahl UND Autostart-Umschalter.
+        expect(find.byType(AppearanceStep), findsOneWidget);
+        expect(find.byType(OnboardingAutostartToggle), findsOneWidget);
+        expect(find.text(l10n.onboardingStepOf(5, 6)), findsOneWidget);
+        _expectExactlyTwoNavActions(tester, page: 5);
+        await _tapNext(tester);
 
-          expect(find.byType(MicrophoneStep), findsOneWidget);
-          expect(find.text(l10n.onboardingStepOf(3, 7)), findsOneWidget);
-        } finally {
-          debugDefaultTargetPlatformOverride = null;
-        }
-      },
-    );
+        // Seite 6: Ausprobieren & Los.
+        expect(find.byType(TestRecordingStep), findsOneWidget);
+        expect(find.byType(ReadyStep), findsOneWidget);
+        expect(find.text(l10n.onboardingStepOf(6, 6)), findsOneWidget);
+        // Der Abschluss-CTA trägt das "Los geht's"-Label statt "Weiter".
+        expect(find.text(l10n.onboardingStartUsing), findsOneWidget);
 
-    testWidgets(
-      'Schritt 3 → 4: "Skip this step" auf MicrophoneStep führt zu ModelStep',
-      (tester) async {
-        debugDefaultTargetPlatformOverride = TargetPlatform.linux;
-        try {
-          await _withoutOverflowErrors(() async {
-            await _pumpOverlay(tester);
+        // Mikrofon-Gate: ohne gelungene Testaufnahme (und ohne Notausgang)
+        // bleibt der Abschluss-CTA deaktiviert — und der Grund ist benannt.
+        expect(
+          find.text(l10n.onboardingTestRecordingCompletionHint),
+          findsOneWidget,
+        );
+        expect(
+          tester
+              .widget<WpHeroButton>(find.byKey(kOnboardingNextButtonKey))
+              .onPressed,
+          isNull,
+          reason:
+              'Ohne gelungene Testaufnahme darf der Abschluss nicht '
+              'möglich sein.',
+        );
 
-            // Welcome → Privacy → Microphone.
-            await tester.tap(find.text(l10n.onboardingGetStarted));
-            await tester.pumpAndSettle();
-            await tester.tap(find.text(l10n.onboardingNext));
-            await tester.pumpAndSettle();
-            expect(find.byType(MicrophoneStep), findsOneWidget);
+        // Gelungene Testaufnahme simulieren: nicht-leerer Transkript-Text
+        // am Sandbox-Sink (den TestRecordingStep beim Mount verdrahtet hat).
+        orchestrator.sandboxTranscriptSink!('Hallo aus der Sandbox.');
+        await tester.pumpAndSettle();
+        expect(find.text('Hallo aus der Sandbox.'), findsOneWidget);
+        expect(
+          tester
+              .widget<WpHeroButton>(find.byKey(kOnboardingNextButtonKey))
+              .onPressed,
+          isNotNull,
+          reason: 'Nach erkannter Sprache muss der Abschluss-CTA aktiv werden.',
+        );
 
-            // Microphone überspringen.
-            await tester.tap(find.text(l10n.onboardingSkip));
-            await tester.pumpAndSettle();
+        // Vor dem abschließenden Tap ist onboardingCompleted noch false.
+        expect(settings.state.value!.onboarding.onboardingCompleted, isFalse);
 
-            expect(find.byType(ModelStep), findsOneWidget);
-            expect(find.text(l10n.onboardingStepOf(4, 7)), findsOneWidget);
-          });
-        } finally {
-          debugDefaultTargetPlatformOverride = null;
-        }
-      },
-    );
+        await _tapNext(tester);
 
-    testWidgets(
-      'Schritt 4 → 5: "Skip this step" auf ModelStep führt zu TriggerStep',
-      (tester) async {
-        debugDefaultTargetPlatformOverride = TargetPlatform.linux;
-        try {
-          await _withoutOverflowErrors(() async {
-            await _pumpOverlay(tester);
+        expect(
+          settings.state.value!.onboarding.onboardingCompleted,
+          isTrue,
+          reason:
+              'onboardingCompleted muss nach dem "Los geht\'s"-Tap true sein.',
+        );
+        expect(tester.takeException(), isNull);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
 
-            await tester.tap(find.text(l10n.onboardingGetStarted));
-            await tester.pumpAndSettle();
-            await tester.tap(find.text(l10n.onboardingNext));
-            await tester.pumpAndSettle();
-            await tester.tap(find.text(l10n.onboardingSkip));
-            await tester.pumpAndSettle();
-            expect(find.byType(ModelStep), findsOneWidget);
+    testWidgets('Zurück führt von Seite 2 wieder auf Seite 1', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      try {
+        await _pumpOverlay(tester);
+        await _tapNext(tester);
+        expect(find.text(l10n.onboardingStepOf(2, 6)), findsOneWidget);
 
-            // Model überspringen.
-            await tester.tap(find.text(l10n.onboardingSkip));
-            await tester.pumpAndSettle();
+        await tester.tap(find.byKey(kOnboardingBackButtonKey));
+        await tester.pumpAndSettle();
 
-            expect(find.byType(TriggerStep), findsOneWidget);
-            expect(find.text(l10n.onboardingStepOf(5, 7)), findsOneWidget);
-          });
-        } finally {
-          debugDefaultTargetPlatformOverride = null;
-        }
-      },
-    );
+        expect(find.text(l10n.onboardingStepOf(1, 6)), findsOneWidget);
+        expect(find.byType(WelcomeStep), findsOneWidget);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
 
-    testWidgets(
-      'Schritt 5 → 6: "Skip this step" auf TriggerStep führt zu TestRecordingStep',
-      (tester) async {
-        debugDefaultTargetPlatformOverride = TargetPlatform.linux;
-        try {
-          await _withoutOverflowErrors(() async {
-            await _pumpOverlay(tester);
-
-            await tester.tap(find.text(l10n.onboardingGetStarted));
-            await tester.pumpAndSettle();
-            await tester.tap(find.text(l10n.onboardingNext));
-            await tester.pumpAndSettle();
-            await tester.tap(find.text(l10n.onboardingSkip));
-            await tester.pumpAndSettle();
-            await tester.tap(find.text(l10n.onboardingSkip));
-            await tester.pumpAndSettle();
-            expect(find.byType(TriggerStep), findsOneWidget);
-
-            // Trigger überspringen — die Defaults (Hotkey, Toggle-Modus)
-            // sind gültig, daher ist der Schritt komplett übersprungbar.
-            await tester.tap(find.text(l10n.onboardingSkip));
-            await tester.pumpAndSettle();
-
-            expect(find.byType(TestRecordingStep), findsOneWidget);
-            expect(find.text(l10n.onboardingStepOf(6, 7)), findsOneWidget);
-          });
-        } finally {
-          debugDefaultTargetPlatformOverride = null;
-        }
-      },
-    );
-
-    testWidgets(
-      'Schritt 6 → 7: "Skip this step" auf TestRecordingStep führt zu ReadyStep',
-      (tester) async {
-        debugDefaultTargetPlatformOverride = TargetPlatform.linux;
-        try {
-          await _withoutOverflowErrors(() async {
-            await _pumpOverlay(tester);
-
-            await tester.tap(find.text(l10n.onboardingGetStarted));
-            await tester.pumpAndSettle();
-            await tester.tap(find.text(l10n.onboardingNext));
-            await tester.pumpAndSettle();
-            await tester.tap(find.text(l10n.onboardingSkip));
-            await tester.pumpAndSettle();
-            await tester.tap(find.text(l10n.onboardingSkip));
-            await tester.pumpAndSettle();
-            await tester.tap(find.text(l10n.onboardingSkip));
-            await tester.pumpAndSettle();
-            expect(find.byType(TestRecordingStep), findsOneWidget);
-
-            // TestRecordingStep überspringen.
-            await tester.tap(find.text(l10n.onboardingSkip));
-            await tester.pumpAndSettle();
-
-            expect(find.byType(ReadyStep), findsOneWidget);
-            expect(find.text(l10n.onboardingStepOf(7, 7)), findsOneWidget);
-
-            // Auf dem letzten Schritt darf kein Skip-Button mehr vorhanden sein.
-            expect(find.text(l10n.onboardingSkip), findsNothing);
-          });
-        } finally {
-          debugDefaultTargetPlatformOverride = null;
-        }
-      },
-    );
-
-    testWidgets(
-      'Vollständiger Durchlauf Welcome → Ready: onboardingCompleted = true',
-      (tester) async {
-        debugDefaultTargetPlatformOverride = TargetPlatform.linux;
-        try {
-          late _FakeSettingsNotifier settings;
-          await _withoutOverflowErrors(() async {
-            settings = await _pumpOverlay(tester);
-
-            // Schritt 1 → 2: Welcome
-            expect(find.byType(WelcomeStep), findsOneWidget);
-            expect(find.text(l10n.onboardingStepOf(1, 7)), findsOneWidget);
-            await tester.tap(find.text(l10n.onboardingGetStarted));
-            await tester.pumpAndSettle();
-
-            // Schritt 2 → 3: Privacy (informiertes Opt-out)
-            expect(find.byType(PrivacyStep), findsOneWidget);
-            expect(find.text(l10n.onboardingStepOf(2, 7)), findsOneWidget);
-            await tester.tap(find.text(l10n.onboardingNext));
-            await tester.pumpAndSettle();
-
-            // Schritt 3 → 4: Microphone
-            expect(find.byType(MicrophoneStep), findsOneWidget);
-            expect(find.text(l10n.onboardingStepOf(3, 7)), findsOneWidget);
-            await tester.tap(find.text(l10n.onboardingSkip));
-            await tester.pumpAndSettle();
-
-            // Schritt 4 → 5: Model (known overlay overflow suppressed)
-            expect(find.byType(ModelStep), findsOneWidget);
-            expect(find.text(l10n.onboardingStepOf(4, 7)), findsOneWidget);
-            await tester.tap(find.text(l10n.onboardingSkip));
-            await tester.pumpAndSettle();
-
-            // Schritt 5 → 6: Trigger
-            expect(find.byType(TriggerStep), findsOneWidget);
-            expect(find.text(l10n.onboardingStepOf(5, 7)), findsOneWidget);
-            await tester.tap(find.text(l10n.onboardingSkip));
-            await tester.pumpAndSettle();
-
-            // Schritt 6 → 7: TestRecording
-            expect(find.byType(TestRecordingStep), findsOneWidget);
-            expect(find.text(l10n.onboardingStepOf(6, 7)), findsOneWidget);
-            await tester.tap(find.text(l10n.onboardingSkip));
-            await tester.pumpAndSettle();
-
-            // Schritt 7: Ready
-            expect(find.byType(ReadyStep), findsOneWidget);
-            expect(find.text(l10n.onboardingStepOf(7, 7)), findsOneWidget);
-            expect(find.text(l10n.onboardingSkip), findsNothing);
-
-            // Vor dem abschließenden Tap ist onboardingCompleted noch false.
-            expect(
-              settings.state.value!.onboarding.onboardingCompleted,
-              isFalse,
-              reason:
-                  'Onboarding gilt vor dem "Lets go"-Tap als nicht abgeschlossen.',
-            );
-
-            // "Let's go" Tap — schließt das Onboarding ab.
-            final startButton = find.byKey(kReadyStepStartButtonKey);
-            expect(startButton, findsOneWidget);
-            await tester.tap(startButton);
-            await tester.pumpAndSettle();
-          });
-
-          // AC2: Endzustand assertieren (außerhalb von _withoutOverflowErrors,
-          // damit ein etwaiger Fehler hier nicht unterdrückt wird).
-          expect(
-            settings.state.value!.onboarding.onboardingCompleted,
-            isTrue,
-            reason:
-                'onboardingCompleted muss nach dem "Lets go"-Tap auf true stehen.',
-          );
-
-          // Kein nicht-Overflow-Exception aufgetreten.
-          expect(tester.takeException(), isNull);
-        } finally {
-          debugDefaultTargetPlatformOverride = null;
-        }
-      },
-    );
-
-    testWidgets('Jeder Schritt-Wechsel persistiert onboardingCurrentStep', (
+    testWidgets('Jeder Seiten-Wechsel persistiert onboardingCurrentStep', (
       tester,
     ) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.linux;
       try {
-        final settings = await _pumpOverlay(tester);
+        final (:settings, orchestrator: _) = await _pumpOverlay(tester);
         expect(settings.state.value!.onboarding.onboardingCurrentStep, 0);
 
-        await tester.tap(find.text(l10n.onboardingGetStarted));
-        await tester.pumpAndSettle();
+        await _tapNext(tester);
         expect(settings.state.value!.onboarding.onboardingCurrentStep, 1);
 
-        await tester.tap(find.text(l10n.onboardingNext));
-        await tester.pumpAndSettle();
+        await _tapNext(tester);
         expect(settings.state.value!.onboarding.onboardingCurrentStep, 2);
       } finally {
         debugDefaultTargetPlatformOverride = null;
       }
     });
 
-    testWidgets('Ein simulierter Neustart mit persistiertem Schritt setzt das '
-        'Onboarding dort fort statt bei Welcome neu zu beginnen (Regression: '
-        'Auto-Paste-Grant erfordert einen Neustart, der onboardingCompleted '
-        'noch nicht auf true gesetzt hat)', (tester) async {
+    testWidgets(
+      'Hotkey-Konflikt: Abschluss-CTA auf der letzten Seite ist deaktiviert '
+      '(residuales Gate), Konflikt-Hinweis sichtbar',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+        try {
+          await _pumpOverlay(
+            tester,
+            hotkeyStatus: HotkeyRegistrationStatus.conflict,
+            initialSettings: AppSettings.defaults.copyWithSections(
+              onboarding: AppSettings.defaults.onboarding.copyWith(
+                onboardingCurrentStep: 5,
+                onboardingFlowVersion: kOnboardingFlowVersion,
+              ),
+            ),
+          );
+
+          expect(find.text(l10n.onboardingStepOf(6, 6)), findsOneWidget);
+          expect(
+            find.text(l10n.onboardingTriggerHotkeyConflictTitle),
+            findsWidgets,
+          );
+          final cta = tester.widget<WpHeroButton>(
+            find.byKey(kOnboardingNextButtonKey),
+          );
+          expect(
+            cta.onPressed,
+            isNull,
+            reason:
+                'Bei bestätigtem Hotkey-Konflikt muss der Abschluss-CTA '
+                'deaktiviert bleiben.',
+          );
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      },
+    );
+
+    testWidgets(
+      'Notausgang "Ohne Mikrofon fortfahren": aktiviert den Abschluss ohne '
+      'Testaufnahme, zeigt den ehrlichen Hinweis, und "Los geht\'s" setzt '
+      'onboardingCompleted',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+        try {
+          final (:settings, orchestrator: _) = await _pumpOverlay(
+            tester,
+            initialSettings: AppSettings.defaults.copyWithSections(
+              onboarding: AppSettings.defaults.onboarding.copyWith(
+                onboardingCurrentStep: 5,
+                onboardingFlowVersion: kOnboardingFlowVersion,
+              ),
+            ),
+          );
+
+          expect(find.text(l10n.onboardingStepOf(6, 6)), findsOneWidget);
+          // Ohne Testaufnahme: CTA deaktiviert, Grund benannt.
+          expect(
+            tester
+                .widget<WpHeroButton>(find.byKey(kOnboardingNextButtonKey))
+                .onPressed,
+            isNull,
+          );
+          expect(
+            find.text(l10n.onboardingTestRecordingCompletionHint),
+            findsOneWidget,
+          );
+
+          // Notausgang nehmen.
+          final bypass = find.text(l10n.onboardingTestRecordingMicBypassCta);
+          await tester.ensureVisible(bypass);
+          await tester.tap(bypass);
+          await tester.pumpAndSettle();
+
+          // Ehrlicher Hinweis sichtbar, CTA aktiv.
+          expect(
+            find.text(l10n.onboardingTestRecordingMicBypassHint),
+            findsOneWidget,
+          );
+          expect(
+            tester
+                .widget<WpHeroButton>(find.byKey(kOnboardingNextButtonKey))
+                .onPressed,
+            isNotNull,
+            reason: 'Der Notausgang muss die Mikrofon-Bedingung umgehen.',
+          );
+
+          await _tapNext(tester);
+          expect(settings.state.value!.onboarding.onboardingCompleted, isTrue);
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      },
+    );
+
+    testWidgets('Notausgang umgeht NUR die Mikrofon-Bedingung: bei bestätigtem '
+        'Hotkey-Konflikt bleibt der Abschluss-CTA trotz Bypass deaktiviert', (
+      tester,
+    ) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.linux;
       try {
         await _pumpOverlay(
           tester,
+          hotkeyStatus: HotkeyRegistrationStatus.conflict,
           initialSettings: AppSettings.defaults.copyWithSections(
             onboarding: AppSettings.defaults.onboarding.copyWith(
-              onboardingCurrentStep: 2,
+              onboardingCurrentStep: 5,
+              onboardingFlowVersion: kOnboardingFlowVersion,
             ),
           ),
         );
 
-        expect(find.byType(MicrophoneStep), findsOneWidget);
-        expect(find.text(l10n.onboardingStepOf(3, 7)), findsOneWidget);
+        final bypass = find.text(l10n.onboardingTestRecordingMicBypassCta);
+        await tester.ensureVisible(bypass);
+        await tester.tap(bypass);
+        await tester.pumpAndSettle();
+
+        expect(
+          tester
+              .widget<WpHeroButton>(find.byKey(kOnboardingNextButtonKey))
+              .onPressed,
+          isNull,
+          reason:
+              'Das Hotkey-Konflikt-Gate gilt auch für den Notausgang — '
+              'der Konflikt-Hinweis verweist zurück auf Schritt 3.',
+        );
+        // Der bestehende Konflikt-Heads-up erklärt die Lage weiterhin.
+        expect(
+          find.text(l10n.onboardingTriggerHotkeyConflictTitle),
+          findsWidgets,
+        );
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+  });
+
+  group('Onboarding Wiederaufnahme & Ablauf-Migration', () {
+    testWidgets('Neustart mit persistierter Position aus dem NEUEN Ablauf '
+        '(flowVersion aktuell) setzt genau dort fort', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      try {
+        final (:settings, orchestrator: _) = await _pumpOverlay(
+          tester,
+          initialSettings: AppSettings.defaults.copyWithSections(
+            onboarding: AppSettings.defaults.onboarding.copyWith(
+              onboardingCurrentStep: 2,
+              onboardingFlowVersion: kOnboardingFlowVersion,
+            ),
+          ),
+        );
+
+        expect(find.byType(ModelStep), findsOneWidget);
+        expect(find.text(l10n.onboardingStepOf(3, 6)), findsOneWidget);
         expect(find.byType(WelcomeStep), findsNothing);
+        // Keine erneute Übersetzung: Position bleibt unangetastet.
+        expect(settings.state.value!.onboarding.onboardingCurrentStep, 2);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
+    testWidgets(
+      'Neustart mit Position aus dem ALTEN Ablauf (flowVersion 0): die '
+      'Position wird fachlich übersetzt und die Ablauf-Version genau einmal '
+      'gestempelt — alter Linux-Index 4 (trigger) landet auf Seite 4 '
+      '(Hotkey), die diesen Schritt jetzt allein trägt',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+        try {
+          final (:settings, orchestrator: _) = await _pumpOverlay(
+            tester,
+            initialSettings: AppSettings.defaults.copyWithSections(
+              onboarding: AppSettings.defaults.onboarding.copyWith(
+                onboardingCurrentStep: 4, // Legacy-Linux: trigger
+                // onboardingFlowVersion bleibt auf dem Default 0 (Alt-Stand).
+              ),
+            ),
+          );
+
+          expect(find.byType(TriggerStep), findsOneWidget);
+          expect(find.byType(ModelStep), findsNothing);
+          expect(find.text(l10n.onboardingStepOf(4, 6)), findsOneWidget);
+
+          final onboarding = settings.state.value!.onboarding;
+          expect(
+            onboarding.onboardingCurrentStep,
+            3,
+            reason: 'Die übersetzte Position muss persistiert sein.',
+          );
+          expect(
+            onboarding.onboardingFlowVersion,
+            kOnboardingFlowVersion,
+            reason:
+                'Die Ablauf-Version muss gestempelt sein, damit die '
+                'Übersetzung nie erneut greift.',
+          );
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      },
+    );
+
+    testWidgets(
+      'Alte Position jenseits des alten Ablaufs (flowVersion 0, Index 9) '
+      'fällt auf Seite 1 zurück',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+        try {
+          final (:settings, orchestrator: _) = await _pumpOverlay(
+            tester,
+            initialSettings: AppSettings.defaults.copyWithSections(
+              onboarding: AppSettings.defaults.onboarding.copyWith(
+                onboardingCurrentStep: 9,
+              ),
+            ),
+          );
+
+          expect(find.byType(WelcomeStep), findsOneWidget);
+          expect(find.text(l10n.onboardingStepOf(1, 6)), findsOneWidget);
+          expect(settings.state.value!.onboarding.onboardingCurrentStep, 0);
+          expect(
+            settings.state.value!.onboarding.onboardingFlowVersion,
+            kOnboardingFlowVersion,
+          );
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      },
+    );
+
+    testWidgets(
+      'Migration greift NICHT, wenn das Onboarding bereits abgeschlossen ist '
+      '— das ist ein eigenständiges, hier nicht behandeltes Feature '
+      '(erneutes Onboarding nach Abschluss), kein Wiederaufnahme-Fall',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+        try {
+          final (:settings, orchestrator: _) = await _pumpOverlay(
+            tester,
+            initialSettings: AppSettings.defaults.copyWithSections(
+              onboarding: AppSettings.defaults.onboarding.copyWith(
+                onboardingCompleted: true,
+                onboardingCurrentStep: 4, // Legacy-Linux: trigger
+                // onboardingFlowVersion bleibt auf dem Default 0.
+              ),
+            ),
+          );
+
+          // Kein Übersetzungs-Schreibvorgang: weder Position noch
+          // Ablauf-Version werden angetastet.
+          final onboarding = settings.state.value!.onboarding;
+          expect(onboarding.onboardingCurrentStep, 4);
+          expect(onboarding.onboardingFlowVersion, 0);
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      },
+    );
+  });
+
+  // Die teuerste Ausprägung der letzten Seite: ein Transkript, das das
+  // Sandbox-Feld bis an sein Zeilen-Limit füllt. Die Fixed-Window-Gruppe in
+  // `onboarding_overlay_test.dart` misst nur den Ausgangszustand — hier
+  // braucht es den Fake-Orchestrator, um überhaupt ein Transkript zu liefern.
+  group('Letzte Seite im festen Fenster (1100x720) mit vollem Transkript', () {
+    testWidgets('scrollt auch dann nicht, wenn das Sandbox-Feld sein '
+        'Zeilen-Limit ausschöpft und der Erfolgs-Block erscheint', (
+      tester,
+    ) async {
+      tester.view.physicalSize = kOnboardingWindowSize;
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        // Index der letzten Seite aus der echten Sequenz ableiten: auf
+        // macOS sind es sieben Seiten, auf Linux sechs — eine feste Zahl
+        // hier hätte die Messung stillschweigend auf die Auto-Paste-Seite
+        // gelenkt.
+        final lastIndex =
+            buildOnboardingStepIds(
+              platform: TargetPlatform.macOS,
+              autoPasteSupported: true,
+            ).length -
+            1;
+        final (settings: _, :orchestrator) = await _pumpOverlay(
+          tester,
+          initialSettings: AppSettings.defaults.copyWithSections(
+            onboarding: AppSettings.defaults.onboarding.copyWith(
+              onboardingCurrentStep: lastIndex,
+              onboardingFlowVersion: kOnboardingFlowVersion,
+            ),
+          ),
+        );
+
+        expect(find.byType(TestRecordingStep), findsOneWidget);
+        orchestrator.sandboxTranscriptSink!(
+          'Dies ist ein bewusst langes Diktat, das das Sandbox-Feld bis an '
+          'sein Zeilenlimit fuellt, damit die Hoehenmessung den teuersten '
+          'Zustand dieser Seite trifft und nicht den leeren Platzhalter. '
+          'Es laeuft ueber mehrere Zeilen und wird danach abgeschnitten, '
+          'weil das Feld ein Nachweis ist und kein Transkript-Betrachter.',
+        );
+        await tester.pumpAndSettle();
+
+        final scrollable = tester.state<ScrollableState>(
+          find.byType(Scrollable).first,
+        );
+        final available = tester
+            .renderObject<RenderBox>(find.byType(SingleChildScrollView).first)
+            .constraints
+            .maxHeight;
+        final content =
+            scrollable.position.viewportDimension +
+            scrollable.position.maxScrollExtent;
+
+        expect(tester.takeException(), isNull);
+        expect(
+          content,
+          lessThanOrEqualTo(available),
+          reason:
+              'Die letzte Seite braucht mit vollem Transkript $content px '
+              'von $available px — sie wuerde scrollen.',
+        );
       } finally {
         debugDefaultTargetPlatformOverride = null;
       }

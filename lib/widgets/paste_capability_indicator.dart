@@ -18,6 +18,7 @@ import '../core/theme/tokens.dart';
 import '../services/paste/paste_capability_notifier.dart';
 import '../services/paste/paster.dart';
 import 'paste_capability_restart_banner.dart';
+import 'wp_button.dart';
 
 class PasteCapabilityIndicator extends ConsumerStatefulWidget {
   const PasteCapabilityIndicator({super.key});
@@ -196,14 +197,15 @@ class _PasteCapabilityIndicatorState
             const SizedBox(height: WpSpacing.sm),
             Align(
               alignment: Alignment.centerLeft,
-              child: FilledButton.icon(
+              child: WpButton(
+                label: l10n.pasteCapabilityGrantButton,
+                variant: WpButtonVariant.primary,
+                icon: LucideIcons.shield,
                 // Prompt, open the right Settings pane, then poll so the status
                 // flips to "ready" on its own once the user ticks the box.
                 onPressed: _busy
                     ? null
                     : () => _run(() => notifier.requestGrant()),
-                icon: const Icon(LucideIcons.shield, size: 14),
-                label: Text(l10n.pasteCapabilityGrantButton),
               ),
             ),
             _buildTroubleshoot(context, l10n, notifier),
@@ -228,22 +230,16 @@ class _PasteCapabilityIndicatorState
       children: [
         Align(
           alignment: Alignment.centerLeft,
-          child: TextButton.icon(
+          child: WpButton(
+            label: l10n.pasteCapabilityTroubleshoot,
+            variant: WpButtonVariant.ghost,
+            tone: WpButtonTone.neutral,
+            size: WpButtonSize.dense,
+            icon: _showTroubleshoot
+                ? LucideIcons.chevronDown
+                : LucideIcons.chevronRight,
             onPressed: () =>
                 setState(() => _showTroubleshoot = !_showTroubleshoot),
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: WpSpacing.xxs),
-              minimumSize: const Size(0, 32),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-            icon: Icon(
-              _showTroubleshoot
-                  ? LucideIcons.chevronDown
-                  : LucideIcons.chevronRight,
-              size: 14,
-            ),
-            label: Text(l10n.pasteCapabilityTroubleshoot),
           ),
         ),
         if (_showTroubleshoot) ...[
@@ -254,19 +250,34 @@ class _PasteCapabilityIndicatorState
             ).textTheme.bodySmall?.copyWith(color: muted),
           ),
           const SizedBox(height: 6),
+          // Neutral, not accent — deliberately, because the accent these three
+          // wore before the WpButton migration was never chosen: they simply
+          // inherited `colorScheme.primary` from the TextButton theme, while
+          // the toggle right above them already opted out to
+          // `onSurfaceVariant`. They are three co-equal self-help options with
+          // no recommended one among them, sitting under the card's single
+          // accent CTA ("Grant"). Painting them accent would spend the colour
+          // on structure instead of meaning and put three further claims on
+          // the eye in a card that wants to make exactly one.
           Wrap(
             spacing: 8,
             runSpacing: 6,
             children: [
-              TextButton.icon(
+              WpButton(
+                label: l10n.pasteCapabilityTestButton,
+                variant: WpButtonVariant.ghost,
+                tone: WpButtonTone.neutral,
+                size: WpButtonSize.dense,
+                icon: LucideIcons.refreshCw,
                 onPressed: _busy ? null : () => _run(() => notifier.check()),
-                icon: const Icon(LucideIcons.refreshCw, size: 14),
-                label: Text(l10n.pasteCapabilityTestButton),
               ),
-              TextButton.icon(
+              WpButton(
+                label: l10n.pasteCapabilityRepairButton,
+                variant: WpButtonVariant.ghost,
+                tone: WpButtonTone.neutral,
+                size: WpButtonSize.dense,
+                icon: LucideIcons.wrench,
                 onPressed: _busy ? null : _repair,
-                icon: const Icon(LucideIcons.wrench, size: 14),
-                label: Text(l10n.pasteCapabilityRepairButton),
               ),
               // Covers the case this indicator otherwise can't recover
               // from on its own: the permission was actually granted (in
@@ -278,12 +289,15 @@ class _PasteCapabilityIndicatorState
               // fires, since that heuristic only engages if the user went
               // through the Grant button first.
               if (Platform.isMacOS)
-                TextButton.icon(
+                WpButton(
+                  label: l10n.pasteCapabilityRestartButton,
+                  variant: WpButtonVariant.ghost,
+                  tone: WpButtonTone.neutral,
+                  size: WpButtonSize.dense,
+                  icon: LucideIcons.rotateCw,
                   onPressed: _busy
                       ? null
                       : () => _run(() => notifier.restartForGrant()),
-                  icon: const Icon(LucideIcons.rotateCw, size: 14),
-                  label: Text(l10n.pasteCapabilityRestartButton),
                 ),
             ],
           ),

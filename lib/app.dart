@@ -4,10 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:record/record.dart' show AudioRecorder;
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:flutter_localized_locales/flutter_localized_locales.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:window_manager/window_manager.dart';
 import 'core/app_info.dart';
 import 'core/config/settings_labels.dart';
@@ -25,6 +23,9 @@ import 'widgets/status_bar.dart';
 import 'widgets/frame_watermark.dart';
 import 'widgets/recording_indicator_bar.dart';
 import 'widgets/title_bar.dart';
+import 'core/platform/desktop_window_geometry.dart';
+import 'core/platform/display_bounds.dart';
+import 'core/platform/window_position_clamp.dart';
 import 'widgets/service_bootstrap.dart';
 import 'widgets/recording_behavior.dart';
 import 'features/history/history_page.dart';
@@ -49,7 +50,10 @@ import 'services/paste/paste_capability_notifier.dart';
 import 'services/paste/paste_policy.dart';
 import 'services/paste/paster.dart' show PasteCapabilityStatus;
 import 'services/paste/tcc_reset_notice.dart';
+import 'services/permissions/mic_permission_notifier.dart';
 import 'services/permissions/startup_permission_gate.dart';
+import 'services/audio_service.dart' show audioInputDevicesProvider;
+import 'services/microphone_selection_service.dart';
 import 'services/single_instance_service.dart';
 import 'services/graceful_shutdown.dart';
 import 'services/stt/stt_bundle.dart';
@@ -61,6 +65,7 @@ import 'services/update_service.dart';
 import 'services/update_actions.dart';
 import 'services/deploy_channel_service.dart';
 import 'widgets/toast.dart';
+import 'widgets/wp_button.dart';
 import 'widgets/review_prompt_dialog.dart';
 import 'widgets/store_thank_you_dialog.dart';
 import 'widgets/support_prompt_dialog.dart';
@@ -178,6 +183,33 @@ const wpPageWidgets = <String, Widget>{
   'feedback': FeedbackPage(),
 };
 
+/// Pure decision for whether the startup permission gate should run,
+/// extracted from [_AppShellState._runStartupPermissionGate] so it is
+/// unit-testable without the surrounding widget tree.
+///
+/// First-run onboarding owns both permissions with its own richer UI — the
+/// gate only takes over from the second start on, once onboarding completed.
+/// `settings == null` (not loaded yet) is treated like "not completed",
+/// matching the `?? false` fallback this replaces at the call site.
+bool shouldRunStartupPermissionGate(AppSettings? settings) =>
+    settings?.onboardingCompleted ?? false;
+
+/// Pure decision for whether closing the window should hide to tray (`true`)
+/// or quit the app (`false`), extracted from
+/// [_AppShellState.onWindowClose] so it is unit-testable without the
+/// surrounding widget tree / window_manager channel.
+///
+/// During first-run onboarding, closing the window must always quit — never
+/// hide to tray, regardless of the `closeToTray` setting. A half-onboarded
+/// background process has no configured hotkey and no discoverable UI; the
+/// user's mental model of the X button on the onboarding surface is "abort",
+/// not "minimize". `settings == null` (not loaded yet) is treated like
+/// "onboarding not completed", so an early close before settings resolve
+/// quits rather than risks a stranded background process.
+bool shouldHideToTrayOnClose(AppSettings? settings) =>
+    (settings?.closeToTray ?? true) &&
+    (settings?.onboarding.onboardingCompleted ?? false);
+
 /// Root layout: title bar + sidebar + content + status bar.
 class _AppShell extends ConsumerStatefulWidget {
   const _AppShell();
@@ -228,6 +260,18 @@ class _AppShellState extends ConsumerState<_AppShell>
       windowManager.addListener(this);
       windowManager.setPreventClose(true);
       windowManager.isMaximized().then((v) => _isMaximized = v);
+      // The fixed onboarding window size never touched the persisted regular
+      // geometry (see `_debounceSaveWindowState`) — the moment onboarding
+      // completes, that persisted geometry is exactly the pre-onboarding
+      // state, and this puts the actual OS window back on it.
+      ref.listenManual(settingsProvider, (prev, next) {
+        final wasCompleted =
+            prev?.value?.onboarding.onboardingCompleted ?? false;
+        final settings = next.value;
+        if (wasCompleted || settings == null) return;
+        if (!settings.onboarding.onboardingCompleted) return;
+        unawaited(_restoreRegularWindowGeometry(settings));
+      });
     }
 
     // Observe app lifecycle (background/suspend) so session-aggregated
@@ -419,7 +463,7 @@ class _AppShellState extends ConsumerState<_AppShell>
       message: l10n.tccResetAfterUpdateToast,
       type: WpToastType.warning,
       duration: const Duration(seconds: 12),
-      // loam-ignore: a11y-interactive-semantics – WpToastAction is a data class; the TextButton in _ToastCard.build uses its child Text as the accessible label
+      // loam-ignore: a11y-interactive-semantics – WpToastAction is a data class; the WpButton in _ToastCard.build derives its accessible label from `label`
       action: WpToastAction(
         label: l10n.pasteCapabilityGrantButton,
         onPressed: () => unawaited(_grantAccessibilityFromNotice(capNotifier)),
@@ -447,38 +491,37 @@ class _AppShellState extends ConsumerState<_AppShell>
   /// the first recording/paste. See `startup_permission_gate.dart` for the
   /// full decision tree and the platform truths it encodes.
   Future<void> _runStartupPermissionGate() async {
-    final onboardingCompleted =
-        ref.read(settingsProvider).value?.onboardingCompleted ?? false;
-    // First-run onboarding owns both permissions with its own richer UI —
-    // the gate only takes over from the second start on.
-    if (!onboardingCompleted) return;
-
-    final recorder = AudioRecorder();
-    try {
-      final gate = StartupPermissionGate(
-        mic: MicGateHooks(
-          checkPermission: ({required bool request}) =>
-              recorder.hasPermission(request: request),
-          verifyCapture: _verifyMicCapture,
-          showGrantAlert: _showMicGateGrantAlert,
-          openSettings: _openMicPrivacySettings,
-          showRestartAlert: _showMicGateRestartAlert,
-        ),
-        autoPaste: Platform.isMacOS && kAutoPasteSupported
-            ? AutoPasteGateHooks(
-                readStatus: _readAutoPasteGateStatus,
-                showGrantAlert: _showAutoPasteGateGrantAlert,
-                startGrantFlow: () => ref
-                    .read(pasteCapabilityNotifierProvider.notifier)
-                    .requestGrant(),
-                showManualGrantAlert: _showManualGrantAlert,
-              )
-            : null,
-      );
-      await gate.run();
-    } finally {
-      unawaited(recorder.dispose());
+    if (!shouldRunStartupPermissionGate(ref.read(settingsProvider).value)) {
+      return;
     }
+
+    // The gate always constructs in a fresh process (only after onboarding —
+    // which owns the first in-process permission ask — has already completed
+    // in an earlier process), so `request()` below is always this process's
+    // first ask: it never opens Settings/polls on its own, leaving that
+    // orchestration entirely to `_runMicGate()`'s own hooks below.
+    final micNotifier = ref.read(micPermissionNotifierProvider.notifier);
+    final gate = StartupPermissionGate(
+      mic: MicGateHooks(
+        checkPermission: ({required bool request}) =>
+            request ? micNotifier.request() : micNotifier.check(),
+        verifyCapture: _verifyMicCapture,
+        showGrantAlert: _showMicGateGrantAlert,
+        openSettings: _openMicPrivacySettings,
+        showRestartAlert: _showMicGateRestartAlert,
+      ),
+      autoPaste: Platform.isMacOS && kAutoPasteSupported
+          ? AutoPasteGateHooks(
+              readStatus: _readAutoPasteGateStatus,
+              showGrantAlert: _showAutoPasteGateGrantAlert,
+              startGrantFlow: () => ref
+                  .read(pasteCapabilityNotifierProvider.notifier)
+                  .requestGrant(),
+              showManualGrantAlert: _showManualGrantAlert,
+            )
+          : null,
+    );
+    await gate.run();
   }
 
   /// Post-recovery proof that capture actually works in THIS process: opens
@@ -530,13 +573,15 @@ class _AppShellState extends ConsumerState<_AppShell>
         title: Text(l10n.micGateAlertTitle),
         content: Text(l10n.micGateAlertBodyGeneric),
         actions: [
-          TextButton(
+          WpButton(
+            label: l10n.permissionAlertLaterButton,
+            variant: WpButtonVariant.ghost,
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(l10n.permissionAlertLaterButton),
           ),
-          TextButton(
+          WpButton(
+            label: l10n.micGateAlertConfirm,
+            variant: WpButtonVariant.ghost,
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(l10n.micGateAlertConfirm),
           ),
         ],
       ),
@@ -544,19 +589,8 @@ class _AppShellState extends ConsumerState<_AppShell>
     return confirmed ?? false;
   }
 
-  Future<void> _openMicPrivacySettings() async {
-    final uri = Platform.isMacOS
-        ? 'x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone'
-        : Platform.isWindows
-        ? 'ms-settings:privacy-microphone'
-        : null;
-    if (uri == null) return;
-    try {
-      await launchUrl(Uri.parse(uri));
-    } on Exception catch (e) {
-      _log.warning('Could not open microphone privacy settings: $e');
-    }
-  }
+  Future<void> _openMicPrivacySettings() =>
+      ref.read(micPermissionNotifierProvider.notifier).openSystemSettings();
 
   /// The mic pendant to [_showForcedRestartModal]: the grant is on disk but
   /// this process demonstrably still can't capture, so relaunch. Releases
@@ -656,6 +690,13 @@ class _AppShellState extends ConsumerState<_AppShell>
   void _debounceSaveWindowState() {
     _windowSaveTimer?.cancel();
     _windowSaveTimer = Timer(const Duration(milliseconds: 400), () async {
+      final current = ref.read(settingsProvider).value;
+      if (current == null || !shouldPersistWindowGeometry(current)) {
+        // Unfinished onboarding: this resize/move belongs to the fixed
+        // onboarding window, not the user's regular geometry — see
+        // `desktop_window_geometry.dart`.
+        return;
+      }
       if (_isMaximized) {
         // Only persist the maximized flag; keep pre-maximize geometry.
         ref
@@ -678,6 +719,35 @@ class _AppShellState extends ConsumerState<_AppShell>
     });
   }
 
+  /// Puts the OS window back on the user's regular geometry the moment
+  /// onboarding completes — the persisted values themselves never moved
+  /// during onboarding (see `_debounceSaveWindowState`'s guard), so this is
+  /// just re-applying them to a window that has been sitting at the fixed
+  /// onboarding size.
+  Future<void> _restoreRegularWindowGeometry(AppSettings settings) async {
+    final geometry = resolveDesktopWindowGeometry(settings);
+    await windowManager.setSize(geometry.size);
+    final position = geometry.position;
+    if (position != null) {
+      final displays = await currentDisplayBounds();
+      final clamped = WindowPositionClamp.clamp(
+        position: position,
+        size: geometry.size,
+        displays: displays,
+      );
+      await windowManager.setPosition(clamped);
+    } else {
+      // No regular position was ever persisted (fresh install) — the window
+      // has been sitting wherever the onboarding session left it, so it
+      // needs an explicit re-center instead of `main.dart`'s `center: true`
+      // WindowOptions, which only applies at window creation.
+      await windowManager.center();
+    }
+    if (geometry.maximized) {
+      await windowManager.maximize();
+    }
+  }
+
   @override
   void onWindowMoved() => _debounceSaveWindowState();
 
@@ -698,9 +768,7 @@ class _AppShellState extends ConsumerState<_AppShell>
 
   @override
   void onWindowClose() async {
-    final closeToTray = ref.read(settingsProvider).value?.closeToTray ?? true;
-
-    if (closeToTray) {
+    if (shouldHideToTrayOnClose(ref.read(settingsProvider).value)) {
       // Just hide — the engine keeps running so floating windows, hotkeys,
       // and recording all continue to work.
       await windowManager.hide();
@@ -738,6 +806,17 @@ class _AppShellState extends ConsumerState<_AppShell>
             .recheckOnForeground(),
       );
     }
+
+    // Same "back from System Settings" moment for the microphone permission,
+    // but only while onboarding is still running: page 1 shows the mic
+    // permission chip, and a side-effect-free check() promotes it to "ready"
+    // the instant the user returns after granting outside the app — no poll
+    // tick, no restart. All platforms (the check never prompts). Outside
+    // onboarding no chip consumes the status, so skip the probe entirely.
+    final settings = ref.read(settingsProvider).value;
+    if (settings != null && !settings.onboarding.onboardingCompleted) {
+      unawaited(ref.read(micPermissionNotifierProvider.notifier).check());
+    }
   }
 
   @override
@@ -763,6 +842,18 @@ class _AppShellState extends ConsumerState<_AppShell>
     final statusBarModel = buildStatusBarModel(settings: settings, l10n: l10n);
     final updateState = ref.watch(updateProvider);
     final deployChannel = ref.watch(deployChannelProvider);
+
+    // Microphone quick-switch chip — mirror the tray submenu: hidden when
+    // only the default pseudo-device was enumerated (nothing to switch to).
+    final micDevices =
+        ref.watch(audioInputDevicesProvider).value ?? const [micDefaultLabel];
+    final currentMic = settings.audioInput.microphone;
+    final micOptions = micDevices.length > 1
+        ? buildMicrophoneOptions(
+            deviceLabels: micDevices,
+            selectedLabel: currentMic,
+          )
+        : null;
 
     const contentRadius = BorderRadius.only(
       topLeft: Radius.circular(WpRadius.xl),
@@ -919,6 +1010,17 @@ class _AppShellState extends ConsumerState<_AppShell>
                               l10n,
                             ),
                             afterAction: resolvedAfterAction,
+                            microphoneLabel: currentMic,
+                            microphoneOptions: micOptions,
+                            onMicrophoneChanged: (label) {
+                              unawaited(
+                                ref
+                                    .read(microphoneSelectionServiceProvider)
+                                    .select(label),
+                              );
+                            },
+                            onMicrophoneMenuOpened: () =>
+                                ref.invalidate(audioInputDevicesProvider),
                             hotkeyLabel: formatHotkeyShortcut(
                               settings.hotkeyModifiers,
                               settings.hotkeyKey,

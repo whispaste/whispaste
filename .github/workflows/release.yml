@@ -947,9 +947,15 @@ jobs:
 
           APP_PATH="build/macos/Build/Products/Release/whispaste.app"
 
-          # Portable ZIP
+          # Portable ZIP. Must use ditto, not zip -r: plain zip flattens the
+          # symlinks inside Sparkle.framework/Versions/Current into a real
+          # directory, which fails Gatekeeper's bundle-format check on the
+          # user's machine after unzip (confirmed locally, 2026-08-07 —
+          # `ls -la` shows a directory from zip, a proper symlink from ditto).
+          # Same tool already used for the notarization zip above, for the
+          # same reason.
           cd build/macos/Build/Products/Release
-          zip -r "$OLDPWD/$ARTIFACT_DIR/WhisPaste-$VERSION-macos-arm64.zip" whispaste.app
+          ditto -c -k --keepParent whispaste.app "$OLDPWD/$ARTIFACT_DIR/WhisPaste-$VERSION-macos-arm64.zip"
           cd "$OLDPWD"
 
           # DMG via create-dmg (best-effort; falls back to zip-only)

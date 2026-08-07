@@ -29,6 +29,7 @@ import '../../../services/update_actions.dart';
 import '../../../services/update_channel_service.dart';
 import '../../../services/update_service.dart';
 import '../../../widgets/section.dart';
+import '../../../widgets/wp_button.dart';
 import '../settings_widgets.dart';
 
 class UpdatesSection extends ConsumerWidget {
@@ -91,7 +92,10 @@ class UpdatesSection extends ConsumerWidget {
           SettingRow(
             icon: LucideIcons.downloadCloud,
             label: l10n.settingsCheckForUpdatesNow,
-            trailing: OutlinedButton.icon(
+            trailing: WpButton(
+              label: checkLabel,
+              variant: WpButtonVariant.secondary,
+              icon: checkIcon,
               onPressed: updateState.isBusy
                   ? null
                   : () => triggerUpdateAction(
@@ -99,8 +103,6 @@ class UpdatesSection extends ConsumerWidget {
                       updateState: updateState,
                       channel: channel,
                     ),
-              icon: Icon(checkIcon, size: WpIconSize.xs),
-              label: Text(checkLabel),
             ),
           ),
           SettingRow(

@@ -13,7 +13,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/core/theme/tokens.dart';
 import 'package:whispaste/widgets/section.dart';
 import 'package:whispaste/widgets/sidebar.dart';
-import 'package:whispaste/widgets/wp_accent_button.dart';
+import 'package:whispaste/widgets/wp_hero_button.dart';
 import 'package:whispaste/widgets/wp_focus_ring.dart';
 
 import '../fixtures/test_helpers.dart';
@@ -250,10 +250,10 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
-  // Part 2 — WpAccentButton integration
+  // Part 2 — WpHeroButton integration
   // ---------------------------------------------------------------------------
 
-  group('WpAccentButton focus ring', () {
+  group('WpHeroButton focus ring', () {
     testWidgets('AC1 — shows ring on keyboard focus', (tester) async {
       FocusManager.instance.highlightStrategy =
           FocusHighlightStrategy.alwaysTraditional;
@@ -267,7 +267,7 @@ void main() {
           Column(
             children: [
               const Focus(autofocus: true, child: SizedBox.shrink()),
-              WpAccentButton(
+              WpHeroButton(
                 label: 'Test',
                 gradient: const LinearGradient(
                   colors: [Color(0xFF3CCBE6), Color(0xFF0A99B8)],
@@ -287,12 +287,12 @@ void main() {
       expect(
         rings,
         findsOneWidget,
-        reason: 'WpAccentButton should contain WpFocusRing',
+        reason: 'WpHeroButton should contain WpFocusRing',
       );
       expect(
         _ringVisible(tester, rings),
         isTrue,
-        reason: 'AC1: WpAccentButton ring should appear on keyboard focus',
+        reason: 'AC1: WpHeroButton ring should appear on keyboard focus',
       );
     });
 
@@ -309,7 +309,7 @@ void main() {
           Column(
             children: [
               const Focus(autofocus: true, child: SizedBox.shrink()),
-              WpAccentButton(
+              WpHeroButton(
                 label: 'Test',
                 gradient: const LinearGradient(
                   colors: [Color(0xFF3CCBE6), Color(0xFF0A99B8)],
@@ -329,7 +329,7 @@ void main() {
       expect(
         _ringVisible(tester, rings),
         isFalse,
-        reason: 'AC2: WpAccentButton ring must stay hidden in touch mode',
+        reason: 'AC2: WpHeroButton ring must stay hidden in touch mode',
       );
     });
   });

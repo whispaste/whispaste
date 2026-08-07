@@ -23,6 +23,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/feedback/feedback_page.dart';
 import 'package:whispaste/services/feedback_submission_service.dart';
+import 'package:whispaste/widgets/wp_button.dart';
 
 import '../../fixtures/test_helpers.dart';
 
@@ -77,10 +78,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final submitFinder = find.widgetWithText(
-        ElevatedButton,
-        l10n.feedbackSubmit,
-      );
+      final submitFinder = find.widgetWithText(WpButton, l10n.feedbackSubmit);
       await tester.ensureVisible(submitFinder);
       await tester.pumpAndSettle();
 

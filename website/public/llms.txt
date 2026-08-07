@@ -17,6 +17,18 @@
 - [Datenschutz (Deutsch)](https://whispaste.de/datenschutz/): Audio bleibt lokal; optionales opt-in für Cloud-Provider
 - [Privacy (English)](https://whispaste.de/en/privacy/): Audio stays local; cloud providers are opt-in
 
+## Hardware
+
+- [GPU-Kompatibilität (Deutsch)](https://whispaste.de/gpu-kompatibilitaet/): Welches Rechen-Backend läuft: Vulkan (Windows/Linux), Metal (Apple Silicon), sonst CPU — eine GPU ist nie Pflicht
+- [GPU compatibility (English)](https://whispaste.de/en/gpu-compatibility/): Which compute backend runs: Vulkan (Windows/Linux), Metal (Apple Silicon), CPU otherwise — a GPU is never required
+- [Whisper-Modellgröße (Deutsch)](https://whispaste.de/whisper-modellgroesse/): Die drei ausgelieferten Stufen mit Downloadgröße und Grafikspeicher, plus Empfehlung
+- [Whisper model size (English)](https://whispaste.de/en/whisper-model-size/): The three shipped tiers with download size and graphics memory, plus a recommendation
+
+## Linux
+
+- [Linux-Spracherkennung (Deutsch)](https://whispaste.de/linux-spracherkennung/): Die drei ausgelieferten Linux-Dateien (AppImage, .deb, tar.gz), ohne Python und ohne eigenen Build
+- [Linux speech to text (English)](https://whispaste.de/en/linux-speech-to-text/): The three shipped Linux files (AppImage, .deb, tar.gz), with no Python environment and no build step
+
 ## Use Cases
 
 - [Anwendungsfälle (Deutsch)](https://whispaste.de/use-cases/): Spracheingabe für Entwickler, Studierende und den Schreib-Alltag — direkt am Cursor in jeder App

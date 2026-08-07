@@ -1,12 +1,15 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show FontLoader, rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/l10n/locale_native_name.dart';
+import 'package:whispaste/core/platform/desktop_window_geometry.dart'
+    show kOnboardingWindowSize;
 import 'package:whispaste/features/onboarding/steps/welcome_step.dart';
 import 'package:whispaste/widgets/language_selector.dart';
 
@@ -35,6 +38,16 @@ void main() {
 
   setUpAll(() async {
     l10n = await L10n.delegate.load(const Locale('en'));
+    // Real bundled UI font instead of the square-glyph test font. The media
+    // panel's geometry assertions below are only meaningful against real
+    // metrics: with the test font the beat captions wrap to three lines that
+    // never occur in the shipped app, which changes every height in the row.
+    final fontLoader = FontLoader('Inter')
+      ..addFont(rootBundle.load('assets/fonts/Inter-Regular.ttf'))
+      ..addFont(rootBundle.load('assets/fonts/Inter-Medium.ttf'))
+      ..addFont(rootBundle.load('assets/fonts/Inter-SemiBold.ttf'))
+      ..addFont(rootBundle.load('assets/fonts/Inter-Bold.ttf'));
+    await fontLoader.load();
   });
 
   group('WelcomeStep', () {
@@ -47,7 +60,7 @@ void main() {
 
       await tester.pumpWidget(
         makeTestable(
-          const SingleChildScrollView(child: WelcomeStep(onNext: _noop)),
+          const SingleChildScrollView(child: WelcomeStep()),
           size: const Size(1280, 980),
           locale: const Locale('en'),
           overrides: [settingsProvider.overrideWith(() => notifier)],
@@ -81,7 +94,7 @@ void main() {
 
       await tester.pumpWidget(
         makeTestable(
-          const SingleChildScrollView(child: WelcomeStep(onNext: _noop)),
+          const SingleChildScrollView(child: WelcomeStep()),
           size: const Size(1280, 980),
           locale: const Locale('en'),
           overrides: [settingsProvider.overrideWith(() => notifier)],
@@ -108,7 +121,7 @@ void main() {
 
       await tester.pumpWidget(
         makeTestable(
-          const SingleChildScrollView(child: WelcomeStep(onNext: _noop)),
+          const SingleChildScrollView(child: WelcomeStep()),
           size: const Size(1280, 980),
           locale: const Locale('en'),
           overrides: [settingsProvider.overrideWith(() => notifier)],
@@ -124,56 +137,371 @@ void main() {
       expect(notifier.state.value!.locale, 'he');
     });
 
-    testWidgets('updates theme mode from preview cards and system chip', (
-      tester,
-    ) async {
-      final notifier = FakeSettingsNotifier(
-        const AppSettings(
-          interface_: InterfaceSettings(themeMode: ThemeMode.dark),
-        ),
-      );
+    testWidgets(
+      'renders the three demo beats with Flutter-rendered l10n captions and '
+      'no theme selector (the theme choice moved to page 3 — pre-rendered '
+      'loops cannot follow a live theme switch)',
+      (tester) async {
+        final notifier = FakeSettingsNotifier(
+          const AppSettings(interface_: InterfaceSettings(locale: 'en')),
+        );
 
+        await tester.pumpWidget(
+          makeTestable(
+            const SingleChildScrollView(child: WelcomeStep()),
+            size: const Size(1280, 980),
+            locale: const Locale('en'),
+            overrides: [settingsProvider.overrideWith(() => notifier)],
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // The three beats: titles + captions come from l10n, never from
+        // artwork — the placeholder/loop asset stays text-free.
+        expect(find.text(l10n.onboardingBeat1Title), findsOneWidget);
+        expect(find.text(l10n.onboardingBeat1Caption), findsOneWidget);
+        expect(find.text(l10n.onboardingBeat2Title), findsOneWidget);
+        expect(find.text(l10n.onboardingBeat2Caption), findsOneWidget);
+        expect(find.text(l10n.onboardingBeat3Title), findsOneWidget);
+        expect(find.text(l10n.onboardingBeat3Caption), findsOneWidget);
+
+        // Theme selector is gone from page 1.
+        expect(find.text(l10n.onboardingThemeLight), findsNothing);
+        expect(find.text(l10n.onboardingThemeDark), findsNothing);
+        expect(find.text(l10n.onboardingThemeSystem), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'first beat is active by default (highlighted tile + large media '
+      'area); tapping another beat moves highlight and media',
+      (tester) async {
+        final notifier = FakeSettingsNotifier(
+          const AppSettings(interface_: InterfaceSettings(locale: 'en')),
+        );
+
+        await tester.pumpWidget(
+          makeTestable(
+            const SingleChildScrollView(child: WelcomeStep()),
+            size: const Size(1280, 980),
+            locale: const Locale('en'),
+            overrides: [settingsProvider.overrideWith(() => notifier)],
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Default: beat 0 active — only its media placeholder is mounted.
+        expect(find.byKey(onboardingBeatMediaKey(0)), findsOneWidget);
+        expect(find.byKey(onboardingBeatMediaKey(1)), findsNothing);
+        expect(find.byKey(onboardingBeatMediaKey(2)), findsNothing);
+
+        // The active tile carries the card highlight (non-transparent
+        // background), inactive tiles stay transparent — visually
+        // de-emphasised but fully rendered.
+        Color tileColor(int index) {
+          final container = tester.widget<AnimatedContainer>(
+            find.descendant(
+              of: find.byKey(onboardingBeatTileKey(index)),
+              matching: find.byType(AnimatedContainer),
+            ),
+          );
+          return (container.decoration! as BoxDecoration).color!;
+        }
+
+        expect(tileColor(0), isNot(Colors.transparent));
+        expect(tileColor(1), Colors.transparent);
+        expect(tileColor(2), Colors.transparent);
+
+        // Tap the third beat: highlight + media follow.
+        await tester.tap(find.byKey(onboardingBeatTileKey(2)));
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(onboardingBeatMediaKey(2)), findsOneWidget);
+        expect(find.byKey(onboardingBeatMediaKey(0)), findsNothing);
+        expect(tileColor(2), isNot(Colors.transparent));
+        expect(tileColor(0), Colors.transparent);
+
+        // All three titles + captions remain in the tree regardless of
+        // which beat is active — screen readers always reach them.
+        expect(find.text(l10n.onboardingBeat1Title), findsOneWidget);
+        expect(find.text(l10n.onboardingBeat2Title), findsOneWidget);
+        expect(find.text(l10n.onboardingBeat3Title), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'beat showcase mirrors under RTL: text list and media area swap sides '
+      'via ambient Directionality (LTR: list start-left; RTL/Hebrew: '
+      'list start-right)',
+      (tester) async {
+        for (final locale in const [Locale('en'), Locale('he')]) {
+          final notifier = FakeSettingsNotifier(
+            AppSettings(
+              interface_: InterfaceSettings(locale: locale.languageCode),
+            ),
+          );
+
+          await tester.pumpWidget(
+            makeTestable(
+              const SingleChildScrollView(child: WelcomeStep()),
+              size: const Size(1280, 980),
+              locale: locale,
+              overrides: [settingsProvider.overrideWith(() => notifier)],
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          final tileCenter = tester.getCenter(
+            find.byKey(onboardingBeatTileKey(0)),
+          );
+          final mediaCenter = tester.getCenter(
+            find.byKey(onboardingBeatMediaKey(0)),
+          );
+
+          if (locale.languageCode == 'he') {
+            expect(
+              tileCenter.dx,
+              greaterThan(mediaCenter.dx),
+              reason:
+                  'In RTL (he) the beat text list must sit on the right of '
+                  'the media area — the Row must mirror via Directionality',
+            );
+          } else {
+            expect(
+              tileCenter.dx,
+              lessThan(mediaCenter.dx),
+              reason:
+                  'In LTR (${locale.languageCode}) the beat text list must '
+                  'sit on the left of the media area',
+            );
+          }
+
+          expect(
+            tester.takeException(),
+            isNull,
+            reason: 'No layout exception in ${locale.languageCode}',
+          );
+
+          // Clean teardown between locales.
+          await tester.pumpWidget(const SizedBox.shrink());
+          await tester.pumpAndSettle();
+        }
+      },
+    );
+  });
+
+  group('WelcomeStep — beat tile semantics', () {
+    testWidgets('each beat is an activatable button carrying its own title, '
+        'caption and selection state — a selectable node without a tap '
+        'action would be announced and then be unusable', (tester) async {
+      final handle = tester.ensureSemantics();
       await tester.pumpWidget(
         makeTestable(
-          const SingleChildScrollView(child: WelcomeStep(onNext: _noop)),
+          const SingleChildScrollView(child: WelcomeStep()),
           size: const Size(1280, 980),
           locale: const Locale('en'),
-          overrides: [settingsProvider.overrideWith(() => notifier)],
+          overrides: [settingsProvider.overrideWith(FakeSettingsNotifier.new)],
         ),
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text(l10n.onboardingThemeLight));
-      await tester.pumpAndSettle();
-      expect(notifier.state.value!.themeMode, ThemeMode.light);
+      for (final (index, title, caption) in [
+        (0, l10n.onboardingBeat1Title, l10n.onboardingBeat1Caption),
+        (1, l10n.onboardingBeat2Title, l10n.onboardingBeat2Caption),
+        (2, l10n.onboardingBeat3Title, l10n.onboardingBeat3Caption),
+      ]) {
+        expect(
+          tester.getSemantics(find.byKey(onboardingBeatTileKey(index))),
+          matchesSemantics(
+            label: '$title\n$caption',
+            isButton: true,
+            hasSelectedState: true,
+            isSelected: index == 0,
+            hasTapAction: true,
+            hasFocusAction: true,
+            isFocusable: true,
+          ),
+          reason: 'semantics mismatch for beat $index',
+        );
+      }
 
-      await tester.tap(find.text(l10n.onboardingThemeSystem));
-      await tester.pumpAndSettle();
-      expect(notifier.state.value!.themeMode, ThemeMode.system);
+      handle.dispose();
     });
+  });
 
-    testWidgets('fires onNext when the CTA button is tapped', (tester) async {
-      var nextCalled = false;
+  // ── Page-1 geometry and the demo-clip seam (round 3) ────────────────────
 
+  group('WelcomeStep — media panel', () {
+    /// Renders page 1 at its real frame width. The default 800-px test
+    /// surface would clamp the frame and silently falsify every width
+    /// assertion below, so the surface is widened to the real onboarding
+    /// window first.
+    Future<void> pumpAtFrameWidth(
+      WidgetTester tester, {
+      bool disableAnimations = false,
+      Brightness brightness = Brightness.dark,
+      TextScaler textScaler = TextScaler.noScaling,
+    }) async {
+      tester.view.physicalSize = kOnboardingWindowSize;
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
       await tester.pumpWidget(
         makeTestable(
-          SingleChildScrollView(
-            child: WelcomeStep(onNext: () => nextCalled = true),
+          MediaQuery(
+            data: MediaQueryData(
+              disableAnimations: disableAnimations,
+              textScaler: textScaler,
+            ),
+            child: const SingleChildScrollView(
+              child: SizedBox(
+                width: kOnboardingWelcomeFrameWidth,
+                child: WelcomeStep(),
+              ),
+            ),
           ),
           size: const Size(1280, 980),
+          brightness: brightness,
           locale: const Locale('en'),
-          overrides: [
-            settingsProvider.overrideWith(() => FakeSettingsNotifier()),
-          ],
+          overrides: [settingsProvider.overrideWith(FakeSettingsNotifier.new)],
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('is the wider column and owns its own height — the beat list '
+        'no longer dictates how tall the panel gets', (tester) async {
+      await pumpAtFrameWidth(tester);
+
+      final media = tester.getSize(find.byKey(onboardingBeatMediaKey(0)));
+      final tile = tester.getSize(find.byKey(onboardingBeatTileKey(0)));
+
+      expect(media.width, closeTo(kOnboardingBeatMediaWidth, 0.5));
+      expect(media.height, kOnboardingBeatMediaHeight);
+      expect(
+        media.width,
+        greaterThan(tile.width),
+        reason:
+            'The Conductor reference puts the media panel above the text '
+            'column in width; page 1 had it the other way round.',
+      );
+    });
+
+    testWidgets('keeps its height when the beat list grows — the row grows '
+        'around the panel instead of the panel shrinking to the text, which '
+        'is the whole inversion this layout is built on', (tester) async {
+      await pumpAtFrameWidth(tester);
+      final tileAtDefaultScale = tester.getSize(
+        find.byKey(onboardingBeatTileKey(0)),
+      );
+
+      await pumpAtFrameWidth(tester, textScaler: const TextScaler.linear(1.5));
+
+      expect(
+        tester.getSize(find.byKey(onboardingBeatTileKey(0))).height,
+        greaterThan(tileAtDefaultScale.height),
+        reason: 'the enlarged text scale must actually enlarge the tiles',
+      );
+      expect(
+        tester.getSize(find.byKey(onboardingBeatMediaKey(0))).height,
+        kOnboardingBeatMediaHeight,
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('falls back to the beat icon when a clip fails to load — the '
+        'fallback is what lets this page ship before any recording exists, '
+        'and it is per variant, so a dark-only delivery still renders', (
+      tester,
+    ) async {
+      await pumpAtFrameWidth(tester);
+
+      final imageFinder = find.descendant(
+        of: find.byKey(onboardingBeatMediaKey(0)),
+        matching: find.byType(Image),
+      );
+      final image = tester.widget<Image>(imageFinder);
+      expect(
+        image.errorBuilder,
+        isNotNull,
+        reason:
+            'Without an errorBuilder a missing asset is an unhandled image '
+            'error, not a placeholder.',
+      );
+
+      // Exercise the fallback directly: whether the asset load rejects
+      // before or after a given pump depends on the real event loop, which
+      // fake-async pumping does not drive — asserting on that timing would
+      // make this test order-dependent rather than meaningful.
+      final fallback = image.errorBuilder!(
+        tester.element(imageFinder),
+        Exception('asset missing'),
+        null,
+      );
+      await tester.pumpWidget(
+        makeTestable(
+          fallback,
+          // Same override count as the first pump — Riverpod's ProviderScope
+          // asserts on that when the same scope element is reused.
+          overrides: [settingsProvider.overrideWith(FakeSettingsNotifier.new)],
         ),
       );
       await tester.pumpAndSettle();
 
-      await tester.ensureVisible(find.text(l10n.onboardingGetStarted));
-      await tester.tap(find.text(l10n.onboardingGetStarted));
-      await tester.pumpAndSettle();
+      expect(find.byType(Icon), findsOneWidget);
+    });
 
-      expect(nextCalled, isTrue);
+    testWidgets('asks for the loop variant normally and for the still variant '
+        'under reduced motion — an animated WebP cannot be paused, so the '
+        'accessibility flag has to pick a different file', (tester) async {
+      String assetOfActivePanel(WidgetTester tester) {
+        final image = tester.widget<Image>(
+          find.descendant(
+            of: find.byKey(onboardingBeatMediaKey(0)),
+            matching: find.byType(Image),
+          ),
+        );
+        return (image.image as AssetImage).assetName;
+      }
+
+      await pumpAtFrameWidth(tester);
+      expect(
+        assetOfActivePanel(tester),
+        onboardingBeatAssetPath(index: 0, isDark: true, still: false),
+      );
+
+      await pumpAtFrameWidth(tester, disableAnimations: true);
+      expect(
+        assetOfActivePanel(tester),
+        onboardingBeatAssetPath(index: 0, isDark: true, still: true),
+      );
+    });
+
+    testWidgets('follows the theme — a clip recorded in dark mode must not be '
+        'shown on a light page', (tester) async {
+      await pumpAtFrameWidth(tester, brightness: Brightness.light);
+
+      final image = tester.widget<Image>(
+        find.descendant(
+          of: find.byKey(onboardingBeatMediaKey(0)),
+          matching: find.byType(Image),
+        ),
+      );
+      expect(
+        (image.image as AssetImage).assetName,
+        onboardingBeatAssetPath(index: 0, isDark: false, still: false),
+      );
+    });
+
+    test('asset paths are 1-based per beat and name both axes explicitly', () {
+      expect(
+        onboardingBeatAssetPath(index: 0, isDark: true, still: false),
+        'assets/onboarding/beat_1_loop_dark.webp',
+      );
+      expect(
+        onboardingBeatAssetPath(index: 2, isDark: false, still: true),
+        'assets/onboarding/beat_3_still_light.webp',
+      );
     });
   });
 
@@ -193,5 +521,3 @@ void main() {
     });
   });
 }
-
-void _noop() {}

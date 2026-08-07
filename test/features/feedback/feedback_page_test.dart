@@ -11,6 +11,7 @@ import 'package:whispaste/core/app_urls.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/feedback/feedback_page.dart';
 import 'package:whispaste/services/feedback_submission_service.dart';
+import 'package:whispaste/widgets/wp_button.dart';
 
 import '../../fixtures/test_helpers.dart';
 
@@ -70,7 +71,7 @@ Future<void> _fillAndSubmit(WidgetTester tester) async {
   );
   await tester.pumpAndSettle();
 
-  final submitFinder = find.widgetWithText(ElevatedButton, l10n.feedbackSubmit);
+  final submitFinder = find.widgetWithText(WpButton, l10n.feedbackSubmit);
   await tester.ensureVisible(submitFinder);
   await tester.pumpAndSettle();
   await tester.tap(submitFinder);
@@ -161,14 +162,11 @@ void main() {
       await tester.pumpAndSettle();
 
       // "Send Feedback" comes from l10n.feedbackSubmit (app_en.arb).
-      final submitFinder = find.widgetWithText(
-        ElevatedButton,
-        l10n.feedbackSubmit,
-      );
+      final submitFinder = find.widgetWithText(WpButton, l10n.feedbackSubmit);
       expect(submitFinder, findsOneWidget);
 
       // No rating/category/comment yet → onPressed must be null.
-      final button = tester.widget<ElevatedButton>(submitFinder);
+      final button = tester.widget<WpButton>(submitFinder);
       expect(button.onPressed, isNull);
     });
 
@@ -198,8 +196,8 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        final button = tester.widget<ElevatedButton>(
-          find.widgetWithText(ElevatedButton, l10n.feedbackSubmit),
+        final button = tester.widget<WpButton>(
+          find.widgetWithText(WpButton, l10n.feedbackSubmit),
         );
         expect(button.onPressed, isNotNull);
       },
@@ -231,8 +229,8 @@ void main() {
       await tester.pumpAndSettle();
       await fillRequiredInputs(tester);
 
-      final button = tester.widget<ElevatedButton>(
-        find.widgetWithText(ElevatedButton, l10n.feedbackSubmit),
+      final button = tester.widget<WpButton>(
+        find.widgetWithText(WpButton, l10n.feedbackSubmit),
       );
       expect(button.onPressed, isNotNull);
     });
@@ -255,8 +253,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final button = tester.widget<ElevatedButton>(
-        find.widgetWithText(ElevatedButton, l10n.feedbackSubmit),
+      final button = tester.widget<WpButton>(
+        find.widgetWithText(WpButton, l10n.feedbackSubmit),
       );
       expect(button.onPressed, isNull);
       expect(find.text(l10n.feedbackContactEmailInvalid), findsOneWidget);
@@ -280,8 +278,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final button = tester.widget<ElevatedButton>(
-        find.widgetWithText(ElevatedButton, l10n.feedbackSubmit),
+      final button = tester.widget<WpButton>(
+        find.widgetWithText(WpButton, l10n.feedbackSubmit),
       );
       expect(button.onPressed, isNotNull);
       expect(find.text(l10n.feedbackContactEmailInvalid), findsNothing);

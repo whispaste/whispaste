@@ -7,6 +7,7 @@ import 'package:whispaste/core/theme/colors.dart';
 import 'package:whispaste/core/theme/tokens.dart';
 
 import 'dialog.dart';
+import 'wp_button.dart';
 
 enum OomRecoveryChoice { trySmallerModel, switchToCloud, openSettings, cancel }
 
@@ -137,10 +138,11 @@ class _OomRecoveryDialog extends StatelessWidget {
                     ),
                     const SizedBox(height: WpSpacing.xl),
                     if (!isPermanentFail && modelName != null) ...[
-                      // loam-ignore: a11y-interactive-semantics – semantics provided in _ActionButton.build
-                      _ActionButton(
+                      // loam-ignore: a11y-interactive-semantics – semantics provided by the WpButton in _RecoveryChoice.build
+                      _RecoveryChoice(
                         label: l10n.oomRecoveryTrySmaller,
                         hint: l10n.oomRecoveryTrySmallerHint(modelName!),
+                        variant: WpButtonVariant.primary,
                         onPressed: () => Navigator.of(
                           context,
                         ).pop(OomRecoveryChoice.trySmallerModel),
@@ -148,11 +150,13 @@ class _OomRecoveryDialog extends StatelessWidget {
                       const SizedBox(height: WpSpacing.sm),
                     ],
                     if (hasCloudConfigured) ...[
-                      // loam-ignore: a11y-interactive-semantics – semantics provided in _ActionButton.build
-                      _ActionButton(
+                      // loam-ignore: a11y-interactive-semantics – semantics provided by the WpButton in _RecoveryChoice.build
+                      _RecoveryChoice(
                         label: l10n.oomRecoverySwitchCloud,
                         hint: l10n.oomRecoverySwitchCloudHint,
-                        outlined: !isPermanentFail,
+                        variant: isPermanentFail
+                            ? WpButtonVariant.primary
+                            : WpButtonVariant.secondary,
                         onPressed: () => Navigator.of(
                           context,
                         ).pop(OomRecoveryChoice.switchToCloud),
@@ -160,11 +164,13 @@ class _OomRecoveryDialog extends StatelessWidget {
                       const SizedBox(height: WpSpacing.sm),
                     ],
                     if (isPermanentFail || !hasCloudConfigured) ...[
-                      // loam-ignore: a11y-interactive-semantics – semantics provided in _ActionButton.build
-                      _ActionButton(
+                      // loam-ignore: a11y-interactive-semantics – semantics provided by the WpButton in _RecoveryChoice.build
+                      _RecoveryChoice(
                         label: l10n.oomRecoveryPermanentCloud,
                         hint: null,
-                        outlined: hasCloudConfigured,
+                        variant: hasCloudConfigured
+                            ? WpButtonVariant.secondary
+                            : WpButtonVariant.primary,
                         onPressed: () => Navigator.of(
                           context,
                         ).pop(OomRecoveryChoice.openSettings),
@@ -173,10 +179,11 @@ class _OomRecoveryDialog extends StatelessWidget {
                     ],
                     Align(
                       alignment: Alignment.centerRight,
-                      child: TextButton(
+                      child: WpButton(
+                        label: l10n.oomRecoveryCancel,
+                        variant: WpButtonVariant.ghost,
                         onPressed: () =>
                             Navigator.of(context).pop(OomRecoveryChoice.cancel),
-                        child: Text(l10n.oomRecoveryCancel),
                       ),
                     ),
                   ],
@@ -190,60 +197,47 @@ class _OomRecoveryDialog extends StatelessWidget {
   }
 }
 
-class _ActionButton extends StatelessWidget {
-  const _ActionButton({
+/// One recovery choice: a full-width [WpButton] with an optional line of
+/// explanation beneath it.
+///
+/// The hint sits *outside* the button rather than as a second line inside it.
+/// A [WpButton] label is single-line by design, and this dialog is the only
+/// place in the app that ever wanted a two-storey button — so the exception
+/// lives here as a composite instead of widening the shared component. Keeping
+/// the hint a sibling also leaves it readable to screen readers rather than
+/// hidden behind the button's own accessible name.
+class _RecoveryChoice extends StatelessWidget {
+  const _RecoveryChoice({
     required this.label,
     required this.hint,
+    required this.variant,
     required this.onPressed,
-    this.outlined = false,
   });
 
   final String label;
   final String? hint;
+  final WpButtonVariant variant;
   final VoidCallback onPressed;
-  final bool outlined;
 
   @override
   Widget build(BuildContext context) {
-    final style = outlined
-        ? OutlinedButton.styleFrom(
-            minimumSize: const Size.fromHeight(WpLayout.minTouchTarget),
-            padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.md,
-              vertical: WpSpacing.sm,
-            ),
-            alignment: Alignment.centerLeft,
-            shape: RoundedRectangleBorder(borderRadius: WpRadius.borderMd),
-          )
-        : FilledButton.styleFrom(
-            minimumSize: const Size.fromHeight(WpLayout.minTouchTarget),
-            padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.md,
-              vertical: WpSpacing.sm,
-            ),
-            alignment: Alignment.centerLeft,
-            shape: RoundedRectangleBorder(borderRadius: WpRadius.borderMd),
-          );
-    final child = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
       children: [
-        Text(label),
+        WpButton(
+          label: label,
+          variant: variant,
+          onPressed: onPressed,
+          expanded: true,
+        ),
         if (hint != null) ...[
           const SizedBox(height: WpSpacing.xxs),
-          Text(hint!, style: Theme.of(context).textTheme.bodySmall),
+          Text(
+            hint!,
+            style: Theme.of(context).textTheme.bodySmall,
+            textAlign: TextAlign.center,
+          ),
         ],
       ],
-    );
-
-    return Semantics(
-      label: label,
-      button: true,
-      child: SizedBox(
-        width: double.infinity,
-        child: outlined
-            ? OutlinedButton(onPressed: onPressed, style: style, child: child)
-            : FilledButton(onPressed: onPressed, style: style, child: child),
-      ),
     );
   }
 }

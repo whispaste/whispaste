@@ -9,6 +9,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../core/logging/app_logger.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
+import 'wp_button.dart';
 
 /// Toast severity levels — controls icon, color, and animation style.
 enum WpToastType { success, error, info, warning }
@@ -326,25 +327,17 @@ class _ToastCard extends StatelessWidget {
                 // Action button (optional)
                 if (actionLabel != null && onAction != null) ...[
                   const SizedBox(width: WpSpacing.sm),
-                  TextButton(
+                  // The status colour stays on the icon and the accent line;
+                  // the action reads as an action, in the one colour every
+                  // other action in the app uses.
+                  WpButton(
+                    label: actionLabel!,
+                    variant: WpButtonVariant.ghost,
+                    size: WpButtonSize.dense,
                     onPressed: () {
                       onAction!();
                       onDismiss();
                     },
-                    style: TextButton.styleFrom(
-                      foregroundColor: color,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: WpSpacing.sm,
-                        vertical: WpSpacing.xs,
-                      ),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      textStyle: const TextStyle(
-                        fontSize: WpTypography.small,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    child: Text(actionLabel!),
                   ),
                 ],
                 const SizedBox(width: WpSpacing.xs),

@@ -18,6 +18,7 @@ import '../core/theme/tokens.dart';
 import '../services/deploy_channel_service.dart';
 import '../services/review_prompt_service.dart';
 import 'animated_prompt_dialog.dart';
+import 'wp_button.dart';
 
 /// Override for testing. When non-null, [ReviewPromptWatcher] uses this value
 /// instead of [Platform.isWindows].
@@ -207,28 +208,23 @@ class _ReviewPromptDialogState extends State<_ReviewPromptDialog> {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: WpSpacing.lg),
-                ..._stageButtons(l10n, theme, isDark),
+                ..._stageButtons(l10n),
                 const SizedBox(height: WpSpacing.sm),
                 Row(
                   children: [
                     Expanded(
-                      child: TextButton(
+                      child: WpButton(
+                        label: l10n.reviewPromptNotNow,
+                        variant: WpButtonVariant.ghost,
                         onPressed: () => widget.onResult(_ReviewAction.notNow),
-                        child: Text(l10n.reviewPromptNotNow),
                       ),
                     ),
                     Expanded(
-                      child: TextButton(
+                      child: WpButton(
+                        label: l10n.reviewPromptNever,
+                        variant: WpButtonVariant.ghost,
+                        tone: WpButtonTone.neutral,
                         onPressed: () => widget.onResult(_ReviewAction.never),
-                        child: Text(
-                          l10n.reviewPromptNever,
-                          style: TextStyle(
-                            color: isDark
-                                ? WpColorsDark.textSecondary
-                                : WpColorsLight.textSecondary,
-                            fontSize: WpTypography.small,
-                          ),
-                        ),
                       ),
                     ),
                   ],
@@ -244,29 +240,31 @@ class _ReviewPromptDialogState extends State<_ReviewPromptDialog> {
   // Resolves the middle button row to the current stage: the neutral gate
   // answers first, then — after a positive answer — the channel-specific
   // review CTAs.
-  List<Widget> _stageButtons(L10n l10n, ThemeData theme, bool isDark) {
+  List<Widget> _stageButtons(L10n l10n) {
     switch (_stage) {
       case _GateStage.gate:
         return _gateButtons(l10n);
       case _GateStage.review:
         return widget.channel == DeployChannel.store
             ? _storeButtons(l10n)
-            : _portableButtons(l10n, theme, isDark);
+            : _portableButtons(l10n);
     }
   }
 
   // Neutral sentiment answers — positive reveals the review CTAs, negative
   // routes to the internal feedback page (never to the store).
   List<Widget> _gateButtons(L10n l10n) => [
-    FilledButton(
+    WpButton(
+      label: l10n.reviewPromptGateYes,
+      variant: WpButtonVariant.primary,
       autofocus: true,
       onPressed: () => setState(() => _stage = _GateStage.review),
-      child: Text(l10n.reviewPromptGateYes),
     ),
     const SizedBox(height: WpSpacing.xs),
-    OutlinedButton(
+    WpButton(
+      label: l10n.reviewPromptGateNo,
+      variant: WpButtonVariant.secondary,
       onPressed: () => widget.onResult(_ReviewAction.gateNegative),
-      child: Text(l10n.reviewPromptGateNo),
     ),
   ];
 
@@ -275,40 +273,45 @@ class _ReviewPromptDialogState extends State<_ReviewPromptDialog> {
   // can also support the open-source project. Mirrors the portable Windows
   // layout (primary store review, secondary GitHub star).
   List<Widget> _storeButtons(L10n l10n) => [
-    FilledButton(
+    WpButton(
+      label: l10n.reviewPromptYes,
+      variant: WpButtonVariant.primary,
       autofocus: true,
       onPressed: () => widget.onResult(_ReviewAction.rateStore),
-      child: Text(l10n.reviewPromptYes),
     ),
     const SizedBox(height: WpSpacing.xs),
-    OutlinedButton(
+    WpButton(
+      label: l10n.reviewPromptStarGitHub,
+      variant: WpButtonVariant.secondary,
       onPressed: () => widget.onResult(_ReviewAction.starGitHub),
-      child: Text(l10n.reviewPromptStarGitHub),
     ),
   ];
 
-  List<Widget> _portableButtons(L10n l10n, ThemeData theme, bool isDark) {
+  List<Widget> _portableButtons(L10n l10n) {
     if (widget.isWindows) {
       // Windows non-store: both Store review and GitHub star are valid targets.
       return [
-        FilledButton(
+        WpButton(
+          label: l10n.reviewPromptRateStore,
+          variant: WpButtonVariant.primary,
           autofocus: true,
           onPressed: () => widget.onResult(_ReviewAction.rateStore),
-          child: Text(l10n.reviewPromptRateStore),
         ),
         const SizedBox(height: WpSpacing.xs),
-        OutlinedButton(
+        WpButton(
+          label: l10n.reviewPromptStarGitHub,
+          variant: WpButtonVariant.secondary,
           onPressed: () => widget.onResult(_ReviewAction.starGitHub),
-          child: Text(l10n.reviewPromptStarGitHub),
         ),
       ];
     }
     // macOS / Linux: no store listing exists — show only the GitHub star path.
     return [
-      FilledButton(
+      WpButton(
+        label: l10n.reviewPromptStarGitHub,
+        variant: WpButtonVariant.primary,
         autofocus: true,
         onPressed: () => widget.onResult(_ReviewAction.starGitHub),
-        child: Text(l10n.reviewPromptStarGitHub),
       ),
     ];
   }

@@ -205,6 +205,7 @@ class ParakeetEngineNotifier extends Notifier<ParakeetStatus> {
   StreamSubscription<dynamic>? _sub;
   Completer<_InitResult>? _initCompleter;
   Completer<void>? _shutdownCompleter;
+  Completer<void>? _startCompleter;
   final Map<int, Completer<_TranscribeResult>> _pending = {};
   int _nextRequestId = 0;
 
@@ -217,8 +218,39 @@ class ParakeetEngineNotifier extends Notifier<ParakeetStatus> {
   /// Starts the worker isolate and loads the model, if not already running.
   /// Throws a [StateError] on failure (mirrors [SttServerStateNotifier]'s
   /// contract so [LocalSttTranscriber]-style adapters can catch uniformly).
-  Future<void> ensureRunning() async {
-    if (state.isReady) return;
+  ///
+  /// Coalesces concurrent callers onto the same in-flight start — mirrors
+  /// [SttServerStateNotifier.ensureRunning]'s `_startCompleter` guard, added
+  /// after root-causing three live Sentry issues (FLUTTER_WHISPASTE-B7/BH/B8,
+  /// 17 combined users) to a single bug: [prewarm] at app startup racing a
+  /// hotkey-triggered [ensureRunning] (via `parakeet_transcriber.dart`) both
+  /// used to fall through to [_startOnce] concurrently. Both sent their own
+  /// `_InitRequest` to the same worker, but shared the single mutable
+  /// [_initCompleter] field for the reply: the first request's `_InitResult`
+  /// ack completed whichever completer the field pointed to *at that later
+  /// moment* — i.e. the second call's completer, since it had overwritten
+  /// the field — so the first call's own `await` hung until its 60 s timeout
+  /// (`parakeet_start_timeout`, BH/B8), and the second `_InitResult` (the
+  /// true reply to the second call) then called `.complete()` on a completer
+  /// already completed by the first, throwing "Future already completed" in
+  /// [_handleWorkerMessage] (B7). A single in-flight start removes the
+  /// second send entirely.
+  Future<void> ensureRunning() {
+    final inFlight = _startCompleter;
+    if (inFlight != null) return inFlight.future;
+    if (state.isReady) return Future<void>.value();
+
+    final completer = Completer<void>();
+    _startCompleter = completer;
+    unawaited(
+      _startOnce()
+          .then(completer.complete, onError: completer.completeError)
+          .whenComplete(() => _startCompleter = null),
+    );
+    return completer.future;
+  }
+
+  Future<void> _startOnce() async {
     if (!parakeetModelFilesExistSync()) {
       state = state.copyWith(
         state: ParakeetEngineState.error,

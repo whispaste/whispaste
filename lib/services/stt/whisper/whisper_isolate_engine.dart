@@ -340,6 +340,22 @@ class WhisperIsolateEngine implements WhisperEngine {
       _isLoaded = false;
       return;
     }
+    // Clear immediately — NOT gated behind the ack awaited below. A caller
+    // that fires `stop()` without awaiting it (the debounced model-switch
+    // pre-warm in `SttServerStateNotifier`) can call `load()` again while
+    // this unload is still in flight; `load()`'s `if (_isLoaded) return;`
+    // guard must see `false` by then, or it short-circuits without ever
+    // sending a new `_LoadRequest` — the worker still frees the *old*
+    // context, the notifier believes the *new* model is ready, and the next
+    // `transcribe()` throws `whisper_engine_not_loaded` (reproduced live:
+    // switching STT models mid-session silently broke dictation until an
+    // idle-unload or app restart). The worker's own message queue
+    // (`_whisperIsolateMain`'s `processing` chain) still handles this
+    // `_UnloadRequest` strictly before any `_LoadRequest` sent after it, so
+    // the reload above is never dropped or reordered — only the awaited
+    // Future here (for callers like app-quit that must know the native
+    // context is actually freed, FLUTTER_WHISPASTE-BC) still waits on the ack.
+    _isLoaded = false;
     await awaitGracefulShutdown(
       completer: completer,
       timeout: const Duration(seconds: 10),
@@ -348,7 +364,6 @@ class WhisperIsolateEngine implements WhisperEngine {
           'Worker unload did not acknowledge within 10s — proceeding anyway',
       onTimeout: () {},
     );
-    _isLoaded = false;
   }
 
   /// Fully tears down the worker isolate. Not part of the [WhisperEngine]

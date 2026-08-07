@@ -10,6 +10,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
+import 'package:whispaste/widgets/wp_button.dart';
 import 'package:whispaste/services/paste/paster.dart';
 import 'package:whispaste/widgets/recording_behavior.dart';
 
@@ -63,7 +64,7 @@ void main() {
       // No action button: there is no clean way to relaunch WhisPaste
       // elevated from inside the running process, so an honest
       // informational message without a button is correct here.
-      expect(find.byType(TextButton), findsNothing);
+      expect(find.byType(WpButton), findsNothing);
 
       await tester.pumpAndSettle(const Duration(seconds: 6));
     });

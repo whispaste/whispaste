@@ -1148,6 +1148,7 @@ class OnboardingSettings {
     this.onboardingCompleted = false,
     this.autoPasteOffHintDismissed = false,
     this.onboardingCurrentStep = 0,
+    this.onboardingFlowVersion = 0,
   });
 
   final bool onboardingCompleted;
@@ -1158,11 +1159,20 @@ class OnboardingSettings {
   /// Re-enabling Auto-Paste in Settings makes the chip irrelevant regardless.
   final bool autoPasteOffHintDismissed;
 
-  /// Index into the platform's onboarding step sequence the user last
-  /// reached. Persisted so a required app restart mid-onboarding (e.g. after
+  /// Index into the onboarding step sequence the user last reached.
+  /// Persisted so a required app restart mid-onboarding (e.g. after
   /// granting the Auto-Paste permission) resumes where the user left off
   /// instead of restarting the whole flow from step 0.
   final int onboardingCurrentStep;
+
+  /// Version of the onboarding step sequence [onboardingCurrentStep] indexes
+  /// into. `0` = legacy 7/8-step flow (or a value written before this field
+  /// existed — including fresh installations that never ran the new flow).
+  /// `1` = current five-step flow. When the overlay hydrates a saved position
+  /// with a version older than the current flow, it translates the index via
+  /// `migrateLegacyOnboardingStepIndex` exactly once and then stamps the
+  /// current version here so the translation can never run twice.
+  final int onboardingFlowVersion;
 
   static const OnboardingSettings defaults = OnboardingSettings();
 
@@ -1183,23 +1193,31 @@ class OnboardingSettings {
           'onboarding_current_step',
           defaults.onboardingCurrentStep,
         ),
+        onboardingFlowVersion: _readInt(
+          v,
+          'onboarding_flow_version',
+          defaults.onboardingFlowVersion,
+        ),
       );
 
   Map<String, String> toMap() => {
     'onboarding_completed': '$onboardingCompleted',
     'auto_paste_off_hint_dismissed': '$autoPasteOffHintDismissed',
     'onboarding_current_step': '$onboardingCurrentStep',
+    'onboarding_flow_version': '$onboardingFlowVersion',
   };
 
   OnboardingSettings copyWith({
     bool? onboardingCompleted,
     bool? autoPasteOffHintDismissed,
     int? onboardingCurrentStep,
+    int? onboardingFlowVersion,
   }) => OnboardingSettings(
     onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
     autoPasteOffHintDismissed:
         autoPasteOffHintDismissed ?? this.autoPasteOffHintDismissed,
     onboardingCurrentStep: onboardingCurrentStep ?? this.onboardingCurrentStep,
+    onboardingFlowVersion: onboardingFlowVersion ?? this.onboardingFlowVersion,
   );
 
   @override
@@ -1208,13 +1226,15 @@ class OnboardingSettings {
       other is OnboardingSettings &&
           onboardingCompleted == other.onboardingCompleted &&
           autoPasteOffHintDismissed == other.autoPasteOffHintDismissed &&
-          onboardingCurrentStep == other.onboardingCurrentStep;
+          onboardingCurrentStep == other.onboardingCurrentStep &&
+          onboardingFlowVersion == other.onboardingFlowVersion;
 
   @override
   int get hashCode => Object.hash(
     onboardingCompleted,
     autoPasteOffHintDismissed,
     onboardingCurrentStep,
+    onboardingFlowVersion,
   );
 }
 
@@ -1309,6 +1329,85 @@ class PrivacySettings {
 
   @override
   int get hashCode => shareUsageStats.hashCode;
+}
+
+// ===========================================================================
+// Section 18 — Settings Portability Paths
+// ===========================================================================
+
+/// Remembered file-dialog target for the settings export/import feature
+/// (PRD `settings-portability-vollumfang`, Tickets 03 + 04). Once the user
+/// confirms a native save/open dialog (`file_selector`), the chosen path is
+/// remembered here so every later export/import reuses it without asking
+/// again — until the path turns out to be unusable (file/folder gone,
+/// access denied), at which point `SettingsPortabilityController` clears it
+/// and the dialog opens again automatically.
+///
+/// [exportPath] and [importPath] are deliberately separate keys: sharing one
+/// key would make an export after an import silently overwrite the file the
+/// import just read from.
+///
+/// [exportBookmark]/[importBookmark] hold the base64 macOS security-scoped
+/// bookmark paired with each path (`SecureBookmarkService`, Ticket 04) — it
+/// lets the Mac App Store sandbox re-grant access to a user-picked file
+/// across app restarts, where the dialog's own grant is process-bound.
+/// Always empty on Windows/Linux and on the macOS direct-download build.
+class SettingsPortabilityPathSettings {
+  const SettingsPortabilityPathSettings({
+    this.exportPath = '',
+    this.importPath = '',
+    this.exportBookmark = '',
+    this.importBookmark = '',
+  });
+
+  final String exportPath;
+  final String importPath;
+  final String exportBookmark;
+  final String importBookmark;
+
+  static const SettingsPortabilityPathSettings defaults =
+      SettingsPortabilityPathSettings();
+
+  factory SettingsPortabilityPathSettings.fromMap(
+    Map<String, String> v,
+  ) => SettingsPortabilityPathSettings(
+    exportPath: v['settings_export_path'] ?? defaults.exportPath,
+    importPath: v['settings_import_path'] ?? defaults.importPath,
+    exportBookmark: v['settings_export_bookmark'] ?? defaults.exportBookmark,
+    importBookmark: v['settings_import_bookmark'] ?? defaults.importBookmark,
+  );
+
+  Map<String, String> toMap() => {
+    'settings_export_path': exportPath,
+    'settings_import_path': importPath,
+    'settings_export_bookmark': exportBookmark,
+    'settings_import_bookmark': importBookmark,
+  };
+
+  SettingsPortabilityPathSettings copyWith({
+    String? exportPath,
+    String? importPath,
+    String? exportBookmark,
+    String? importBookmark,
+  }) => SettingsPortabilityPathSettings(
+    exportPath: exportPath ?? this.exportPath,
+    importPath: importPath ?? this.importPath,
+    exportBookmark: exportBookmark ?? this.exportBookmark,
+    importBookmark: importBookmark ?? this.importBookmark,
+  );
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SettingsPortabilityPathSettings &&
+          exportPath == other.exportPath &&
+          importPath == other.importPath &&
+          exportBookmark == other.exportBookmark &&
+          importBookmark == other.importBookmark;
+
+  @override
+  int get hashCode =>
+      Object.hash(exportPath, importPath, exportBookmark, importBookmark);
 }
 
 // ===========================================================================

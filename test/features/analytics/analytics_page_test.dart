@@ -13,6 +13,7 @@ import 'package:whispaste/core/data/analytics_provider.dart';
 import 'package:whispaste/core/data/database.dart' show AnalyticsModelUsage;
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/analytics/analytics_page.dart';
+import 'package:whispaste/widgets/wp_button.dart';
 
 import '../../fixtures/test_helpers.dart';
 
@@ -238,13 +239,13 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // There is exactly one OutlinedButton (the reset button).
+      // The reset button is the page's only WpButton.
       // Scroll to bring it into view before tapping.
-      expect(find.byType(OutlinedButton), findsOneWidget);
-      await tester.ensureVisible(find.byType(OutlinedButton));
+      expect(find.byType(WpButton), findsOneWidget);
+      await tester.ensureVisible(find.byType(WpButton));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byType(OutlinedButton));
+      await tester.tap(find.byType(WpButton));
       await tester.pumpAndSettle();
 
       // Confirm dialog should be visible with title and message
@@ -265,9 +266,9 @@ void main() {
       await tester.pumpAndSettle();
 
       // Scroll to reset button and open dialog
-      await tester.ensureVisible(find.byType(OutlinedButton));
+      await tester.ensureVisible(find.byType(WpButton));
       await tester.pumpAndSettle();
-      await tester.tap(find.byType(OutlinedButton));
+      await tester.tap(find.byType(WpButton));
       await tester.pumpAndSettle();
       expect(find.text(l10n.analyticsResetTitle), findsOneWidget);
 
@@ -294,9 +295,9 @@ void main() {
       await tester.pumpAndSettle();
 
       // Scroll to reset button and open dialog
-      await tester.ensureVisible(find.byType(OutlinedButton));
+      await tester.ensureVisible(find.byType(WpButton));
       await tester.pumpAndSettle();
-      await tester.tap(find.byType(OutlinedButton));
+      await tester.tap(find.byType(WpButton));
       await tester.pumpAndSettle();
 
       // Confirm — this calls db.resetDailyStats() on the in-memory DB.

@@ -25,6 +25,7 @@ import '../../../services/stt_parakeet/parakeet_model_registry.dart';
 import '../../../services/telemetry_service.dart';
 import '../../../widgets/model_download_card.dart';
 import '../../../widgets/section.dart';
+import '../../../widgets/wp_button.dart';
 import '../settings_widgets.dart';
 
 // ---------------------------------------------------------------------------
@@ -506,9 +507,10 @@ class _ParakeetModelRow extends ConsumerWidget {
                 ),
               ),
             ),
-          TextButton.icon(
-            icon: const Icon(LucideIcons.download, size: WpIconSize.sm),
-            label: Text(l10n.parakeetModelDownload),
+          WpButton(
+            label: l10n.parakeetModelDownload,
+            variant: WpButtonVariant.ghost,
+            icon: LucideIcons.download,
             onPressed: () =>
                 ref.read(parakeetDownloadProvider.notifier).downloadBundle(),
           ),

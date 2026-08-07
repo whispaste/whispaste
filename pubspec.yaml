@@ -55,6 +55,10 @@ dependencies:
   # Path utilities
   path_provider: ^2.1.5
   path: ^1.9.1
+  # Native save/open file dialog (NSSavePanel/IFileDialog/GTK FileChooser) —
+  # settings export/import target selection (Ticket 03,
+  # settings-portability-vollumfang).
+  file_selector: ^1.1.0
 
   # FFI (platform interop)
   ffi: ^2.2.0
@@ -145,6 +149,10 @@ flutter:
     - assets/icons/3.0x/
     - assets/icons/4.0x/
     - assets/sounds/
+    # Declared before the clips exist so producing one is a pure asset drop —
+    # see assets/onboarding/README.md. Until then the directory holds only
+    # that README and page 1 renders its icon placeholders.
+    - assets/onboarding/
     - assets/icons/logo-dark.svg
     - assets/icons/logo-light.svg
     - assets/flags/

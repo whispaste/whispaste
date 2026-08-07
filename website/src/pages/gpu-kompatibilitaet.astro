@@ -1,0 +1,431 @@
+---
+/**
+ * `/gpu-kompatibilitaet/` — interaktiver Backend-Check.
+ *
+ * Beantwortet die häufigste Hardware-Frage vor dem Download („läuft das auf
+ * meiner Karte?") ohne Installation. Zielgruppen-Lackmustest: die Seite ist
+ * nur dann etwas wert, wenn sie eine belastbare Antwort gibt statt einer
+ * Marketing-Zusage — deshalb stammt jede Aussage aus der ausgelieferten
+ * Build-Konfiguration:
+ *
+ *   Windows → `-DGGML_VULKAN=ON` (.github/workflows/release.yml:168)
+ *   Linux   → `-DGGML_VULKAN=ON` (scripts/build-libwhisper-linux.sh:67)
+ *   macOS   → `-DGGML_METAL=ON`  (scripts/build-libwhisper-macos.sh:57)
+ *   sonst   → CPU (whisperBackendFromName-Default, whisper_engine.dart:76)
+ *
+ * Es wird KEIN CUDA-Backend gebaut oder ausgeliefert; `WhisperBackend.cuda`
+ * ist laut whisper_engine.dart:59-61 nur ein Label über der gebundelten
+ * Bibliothek. Der Mac-Build ist Apple Silicon (platform.macos.archLabel),
+ * deshalb entfällt dort die GPU-Auswahl.
+ *
+ * Progressive Enhancement: alle drei Ergebnis-Panels stehen server-gerendert
+ * im DOM. Erst das Skript setzt `data-js="on"` und blendet die nicht
+ * passenden aus — ohne JS bleibt die Seite als vollständige Erklärung lesbar
+ * (und für Crawler ohnehin komplett sichtbar).
+ *
+ * Schema-Wahl: FAQPage. Die Suchintention ist eine Ja/Nein-Frage
+ * („brauche ich NVIDIA?"), kein sequentieller Ablauf.
+ */
+import LandingPageLayout from "../layouts/LandingPageLayout.astro";
+import FAQPageSchema from "../components/schema/FAQPageSchema.astro";
+import { t, localePath } from "../scripts/i18n.ts";
+
+const lang = "de" as const;
+
+const breadcrumbs = [
+  { name: t(lang, "breadcrumb.home"), item: localePath(lang, "") },
+  { name: t(lang, "gpuCheck.breadcrumb"), item: localePath(lang, "gpu-kompatibilitaet") },
+];
+
+const seo = {
+  title: t(lang, "gpuCheck.seoTitle"),
+  description: t(lang, "gpuCheck.seoDescription"),
+};
+
+const hero = {
+  heading: t(lang, "gpuCheck.heroHeading"),
+  lead: t(lang, "gpuCheck.heroLead"),
+};
+
+const cta = {
+  label: t(lang, "gpuCheck.cta.label"),
+  href: localePath(lang, "download"),
+};
+
+const osOptions = [
+  { value: "windows", label: t(lang, "gpuCheck.os.windows") },
+  { value: "macos", label: t(lang, "gpuCheck.os.macos") },
+  { value: "linux", label: t(lang, "gpuCheck.os.linux") },
+] as const;
+
+const gpuOptions = [
+  { value: "nvidia", label: t(lang, "gpuCheck.gpu.nvidia") },
+  { value: "amd", label: t(lang, "gpuCheck.gpu.amd") },
+  { value: "intel", label: t(lang, "gpuCheck.gpu.intel") },
+  { value: "none", label: t(lang, "gpuCheck.gpu.none") },
+] as const;
+
+const resultPanels = [
+  {
+    key: "vulkan",
+    title: t(lang, "gpuCheck.result.vulkan.title"),
+    body: t(lang, "gpuCheck.result.vulkan.body"),
+  },
+  {
+    key: "metal",
+    title: t(lang, "gpuCheck.result.metal.title"),
+    body: t(lang, "gpuCheck.result.metal.body"),
+  },
+  {
+    key: "cpu",
+    title: t(lang, "gpuCheck.result.cpu.title"),
+    body: t(lang, "gpuCheck.result.cpu.body"),
+  },
+] as const;
+
+const vendorNotes = [
+  { key: "nvidia", text: t(lang, "gpuCheck.note.nvidia") },
+  { key: "amd", text: t(lang, "gpuCheck.note.amd") },
+  { key: "intel", text: t(lang, "gpuCheck.note.intel") },
+] as const;
+
+// Werte aus `sttModelVramMB`
+// (packages/whispaste_diagnostics/lib/src/probes/gpu_info.dart:83).
+const vramRows = [
+  { tier: "Kompakt (whisper-small)", vram: "~900 MB" },
+  { tier: "Ausgewogen (whisper-medium)", vram: "~1,5 GB" },
+  { tier: "Premium (whisper-large-v3-turbo)", vram: "~2,6 GB" },
+] as const;
+
+const faqQuestions = [
+  {
+    question: t(lang, "gpuCheck.faq.needNvidia.q"),
+    answer: t(lang, "gpuCheck.faq.needNvidia.a"),
+  },
+  {
+    question: t(lang, "gpuCheck.faq.oldDriver.q"),
+    answer: t(lang, "gpuCheck.faq.oldDriver.a"),
+  },
+  {
+    question: t(lang, "gpuCheck.faq.howMuchVram.q"),
+    answer: t(lang, "gpuCheck.faq.howMuchVram.a"),
+  },
+];
+
+const alternateSlugs = { de: "gpu-kompatibilitaet", en: "gpu-compatibility" };
+
+const relatedPages = [
+  { label: t(lang, "modelSize.breadcrumb"), href: localePath(lang, "whisper-modellgroesse") },
+  { label: t(lang, "explainer.whisperDesktop.breadcrumb"), href: localePath(lang, "whisper-desktop") },
+  { label: t(lang, "explainer.engines.breadcrumb"), href: localePath(lang, "engines") },
+  { label: t(lang, "explainer.offlineStt.breadcrumb"), href: localePath(lang, "offline-speech-to-text") },
+  { label: t(lang, "linuxStt.breadcrumb"), href: localePath(lang, "linux-spracherkennung") },
+];
+---
+
+<LandingPageLayout
+  lang={lang}
+  seo={seo}
+  breadcrumbs={breadcrumbs}
+  hero={hero}
+  cta={cta}
+  alternateSlugs={alternateSlugs}
+  relatedPages={relatedPages}
+>
+  <p class="tldr">{t(lang, "gpuCheck.tldr")}</p>
+
+  <section>
+    <h2>{t(lang, "gpuCheck.picker.heading")}</h2>
+    <form class="gc-form" id="gc-form">
+      <fieldset class="gc-field">
+        <legend>{t(lang, "gpuCheck.picker.osLegend")}</legend>
+        <div class="gc-pills">
+          {osOptions.map((option, index) => (
+            <label class="gc-pill">
+              <input type="radio" name="gc-os" value={option.value} checked={index === 0} />
+              <span>{option.label}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      <fieldset class="gc-field" id="gc-gpu-field">
+        <legend>{t(lang, "gpuCheck.picker.gpuLegend")}</legend>
+        <div class="gc-pills">
+          {gpuOptions.map((option, index) => (
+            <label class="gc-pill">
+              <input type="radio" name="gc-gpu" value={option.value} checked={index === 0} />
+              <span>{option.label}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      <p class="gc-macos-note" id="gc-macos-note" hidden>{t(lang, "gpuCheck.picker.macosNote")}</p>
+      <p class="gc-hint">{t(lang, "gpuCheck.picker.hint")}</p>
+    </form>
+  </section>
+
+  <section id="gc-results" aria-live="polite">
+    <h2>{t(lang, "gpuCheck.result.heading")}</h2>
+    <p class="gc-nojs">{t(lang, "gpuCheck.result.nojs")}</p>
+    {resultPanels.map((panel) => (
+      <article class="gc-panel" data-result={panel.key}>
+        <h3>{panel.title}</h3>
+        <p>{panel.body}</p>
+      </article>
+    ))}
+    {vendorNotes.map((note) => (
+      <p class="gc-vendor-note" data-vendor={note.key}>{note.text}</p>
+    ))}
+  </section>
+
+  <FAQPageSchema locale={lang} questions={faqQuestions} />
+
+  <section>
+    <h2>{t(lang, "gpuCheck.section.howChosen.heading")}</h2>
+    <p>{t(lang, "gpuCheck.section.howChosen.body")}</p>
+  </section>
+
+  <section>
+    <h2>{t(lang, "gpuCheck.section.fallback.heading")}</h2>
+    <p>{t(lang, "gpuCheck.section.fallback.body")}</p>
+  </section>
+
+  <section>
+    <h2>{t(lang, "gpuCheck.section.requirements.heading")}</h2>
+    <p>{t(lang, "gpuCheck.section.requirements.body")}</p>
+    <div class="gc-table-wrap">
+    <table class="gc-table">
+      <caption>{t(lang, "gpuCheck.table.caption")}</caption>
+      <thead>
+        <tr>
+          <th scope="col">{t(lang, "gpuCheck.table.tier")}</th>
+          <th scope="col">{t(lang, "gpuCheck.table.vram")}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {vramRows.map((row) => (
+          <tr>
+            <th scope="row">{row.tier}</th>
+            <td>{row.vram}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>{t(lang, "faq.title")}</h2>
+    <dl class="faq-list">
+      {faqQuestions.map((entry) => (
+        <div class="faq-item">
+          <dt>{entry.question}</dt>
+          <dd>{entry.answer}</dd>
+        </div>
+      ))}
+    </dl>
+  </section>
+</LandingPageLayout>
+
+<script>
+  /**
+   * Backend-Auswahl 1:1 wie im App-Code: macOS → Metal, keine kompatible GPU
+   * → CPU, sonst Vulkan (ein Build für NVIDIA/AMD/Intel).
+   */
+  const form = document.getElementById("gc-form");
+  const results = document.getElementById("gc-results");
+  const gpuField = document.getElementById("gc-gpu-field");
+  const macNote = document.getElementById("gc-macos-note");
+
+  if (form && results) {
+    results.setAttribute("data-js", "on");
+
+    const selected = (name: string, fallback: string): string => {
+      const input = form.querySelector<HTMLInputElement>(`input[name="${name}"]:checked`);
+      return input ? input.value : fallback;
+    };
+
+    const update = (): void => {
+      const os = selected("gc-os", "windows");
+      const gpu = selected("gc-gpu", "nvidia");
+      const isMac = os === "macos";
+      const backend = isMac ? "metal" : gpu === "none" ? "cpu" : "vulkan";
+
+      if (gpuField) gpuField.hidden = isMac;
+      if (macNote) macNote.hidden = !isMac;
+
+      results.querySelectorAll<HTMLElement>(".gc-panel").forEach((panel) => {
+        panel.classList.toggle("is-active", panel.dataset.result === backend);
+      });
+      results.querySelectorAll<HTMLElement>(".gc-vendor-note").forEach((note) => {
+        note.classList.toggle("is-active", backend === "vulkan" && note.dataset.vendor === gpu);
+      });
+    };
+
+    form.addEventListener("change", update);
+    update();
+  }
+</script>
+
+<style>
+  .tldr {
+    color: var(--color-ink);
+    font-size: 1.0625rem;
+    line-height: 1.65;
+  }
+
+  .gc-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    margin-top: 0.25rem;
+  }
+  .gc-field {
+    border: 0;
+    padding: 0;
+    margin: 0;
+    min-inline-size: 0;
+  }
+  .gc-field legend {
+    color: var(--color-ink-subtle);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 0.6rem;
+  }
+  .gc-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .gc-pill {
+    position: relative;
+    display: inline-flex;
+  }
+  .gc-pill input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+  .gc-pill span {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.5rem 1rem;
+    border-radius: 999px;
+    border: 1px solid var(--color-brand-border);
+    background: color-mix(in srgb, var(--color-brand-card) 55%, transparent);
+    color: var(--color-ink-muted);
+    font-size: 0.9375rem;
+    line-height: 1.2;
+    transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
+  }
+  .gc-pill input:checked + span {
+    border-color: var(--color-brand-cyan);
+    background: color-mix(in srgb, var(--color-brand-cyan) 12%, transparent);
+    color: var(--color-ink);
+  }
+  .gc-pill input:focus-visible + span {
+    outline: 2px solid var(--color-brand-cyan);
+    outline-offset: 2px;
+  }
+
+  .gc-hint,
+  .gc-macos-note,
+  .gc-nojs {
+    color: var(--color-ink-subtle);
+    font-size: 0.875rem;
+    line-height: 1.6;
+  }
+
+  .gc-panel {
+    margin-top: 1.1rem;
+  }
+  .gc-panel h3 {
+    color: var(--color-ink);
+    font-weight: 600;
+    font-size: 1.0625rem;
+    margin-bottom: 0.4rem;
+  }
+  .gc-vendor-note {
+    margin-top: 1rem;
+    padding-left: 0.9rem;
+    border-left: 2px solid color-mix(in srgb, var(--color-brand-cyan) 45%, transparent);
+    color: var(--color-ink-muted);
+    font-size: 0.9375rem;
+    line-height: 1.65;
+  }
+
+  /* Progressive Enhancement: ohne JS bleiben alle Panels sichtbar. */
+  #gc-results[data-js="on"] .gc-nojs,
+  #gc-results[data-js="on"] .gc-panel:not(.is-active),
+  #gc-results[data-js="on"] .gc-vendor-note:not(.is-active) {
+    display: none;
+  }
+
+  .gc-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .gc-table {
+    width: 100%;
+    min-width: 22rem;
+    margin-top: 1.1rem;
+    border-collapse: collapse;
+    font-size: 0.9375rem;
+  }
+  .gc-table caption {
+    caption-side: top;
+    text-align: left;
+    color: var(--color-ink-subtle);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding-bottom: 0.6rem;
+  }
+  .gc-table th,
+  .gc-table td {
+    text-align: left;
+    padding: 0.55rem 0.75rem 0.55rem 0;
+    border-bottom: 1px solid var(--color-brand-border);
+  }
+  .gc-table thead th {
+    color: var(--color-ink-subtle);
+    font-weight: 600;
+  }
+  .gc-table tbody th {
+    color: var(--color-ink);
+    font-weight: 500;
+  }
+  .gc-table tbody td {
+    color: var(--color-ink-muted);
+    white-space: nowrap;
+  }
+
+  .faq-list {
+    margin-top: 1rem;
+  }
+  .faq-item + .faq-item {
+    margin-top: 1rem;
+  }
+  .faq-list dt {
+    color: var(--color-ink);
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+  }
+  .faq-list dd {
+    color: var(--color-ink-muted);
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .gc-pill span {
+      transition: none;
+    }
+  }
+</style>

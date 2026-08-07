@@ -65,6 +65,7 @@ const relatedPages = [
   { label: t(lang, "explainer.privacy.breadcrumb"), href: localePath(lang, "privatsphaere-spracherkennung") },
   { label: t(lang, "comparison.dictationAlternatives.breadcrumb"), href: localePath(lang, "vergleich/diktiersoftware-alternativen") },
   { label: t(lang, "comparison.osDictation.breadcrumb"), href: localePath(lang, "vergleich/whispaste-vs-system-spracheingabe") },
+  { label: t(lang, "linuxStt.breadcrumb"), href: localePath(lang, "linux-spracherkennung") },
 ];
 ---
 
@@ -77,6 +78,8 @@ const relatedPages = [
   alternateSlugs={alternateSlugs}
   relatedPages={relatedPages}
 >
+  <p class="tldr">{t(lang, "explainer.offlineStt.tldr")}</p>
+
   <section>
     <h2>{t(lang, "explainer.offlineStt.section.modes.heading")}</h2>
     <p>{t(lang, "explainer.offlineStt.section.modes.body")}</p>
@@ -104,6 +107,11 @@ const relatedPages = [
 </LandingPageLayout>
 
 <style>
+  .tldr {
+    color: #e5e7eb;
+    font-size: 1.0625rem;
+    line-height: 1.65;
+  }
   .faq-list {
     margin-top: 1rem;
   }

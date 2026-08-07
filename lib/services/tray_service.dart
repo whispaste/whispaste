@@ -13,12 +13,16 @@ import 'package:path/path.dart' as p;
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../core/config/settings_provider.dart';
 import '../core/data/database.dart';
 import '../core/l10n/generated/app_localizations.dart';
 import '../core/logging/app_logger.dart';
 import '../core/platform/macos_lifecycle_channel.dart';
 import '../core/recording/recording_state.dart';
+import 'audio_service.dart';
+import 'microphone_selection_service.dart';
 import 'stt/stt_bundle.dart';
+import 'tray_mic_menu.dart';
 
 // ---------------------------------------------------------------------------
 // Service
@@ -56,7 +60,7 @@ class TrayService extends Notifier<void> implements TrayListener {
 
   @override
   void onTrayIconRightMouseDown() {
-    trayManager.popUpContextMenu();
+    _showContextMenu();
   }
 
   @override
@@ -72,12 +76,17 @@ class TrayService extends Notifier<void> implements TrayListener {
       case 'quit':
         _quit();
       default:
+        final key = menuItem.key;
+        if (key == null) return;
+        final micLabel = micLabelFromMenuKey(key);
+        if (micLabel != null) {
+          _selectMicrophone(micLabel);
+          return;
+        }
         // Action-needed item or any custom key: open the window and
         // route the click to the action handler for resolution.
-        if (menuItem.key != null) {
-          _showWindow();
-          onActionNeededTap?.call(menuItem.key!);
-        }
+        _showWindow();
+        onActionNeededTap?.call(key);
     }
   }
 
@@ -146,6 +155,7 @@ class TrayService extends Notifier<void> implements TrayListener {
   L10n? _l10n;
   RecordingState _lastRecording = const RecordingState();
   _ActionNeeded? _actionNeeded;
+  List<String> _micDeviceLabels = const [micDefaultLabel];
 
   Future<void> _init() async {
     try {
@@ -167,7 +177,43 @@ class TrayService extends Notifier<void> implements TrayListener {
     }
   }
 
-  void _rebuildMenu() {
+  /// Refreshes the mic device list just-in-time, then pops up the menu.
+  ///
+  /// The device set changes while the app runs (docking/undocking) and
+  /// right-mouse-down is the only pre-popup hook, so a cached list from
+  /// startup would go stale.
+  Future<void> _showContextMenu() async {
+    await _refreshMicDevices();
+    try {
+      await trayManager.popUpContextMenu();
+    } on Exception catch (e) {
+      _log.warning('Tray context menu popup failed: $e');
+    }
+  }
+
+  Future<void> _refreshMicDevices() async {
+    try {
+      ref.invalidate(audioInputDevicesProvider);
+      // Timeout keeps the menu responsive if enumeration hangs on a flaky
+      // HAL — the previous list is shown instead.
+      _micDeviceLabels = await ref
+          .read(audioInputDevicesProvider.future)
+          .timeout(const Duration(milliseconds: 800));
+    } on Exception catch (e) {
+      _log.warning('Mic enumeration for tray menu failed: $e');
+    }
+    await _rebuildMenu();
+  }
+
+  /// Applies a microphone choice made in the tray menu — delegates to the
+  /// shared [MicrophoneSelectionService] so tray and status-bar chip behave
+  /// identically.
+  Future<void> _selectMicrophone(String label) async {
+    await ref.read(microphoneSelectionServiceProvider).select(label);
+    await _rebuildMenu();
+  }
+
+  Future<void> _rebuildMenu() async {
     final recording = _lastRecording;
     final isRecording = recording.isRecording;
     final l = _l10n;
@@ -179,6 +225,13 @@ class TrayService extends Notifier<void> implements TrayListener {
         ? (l?.trayStatusRecording ?? 'Recording…')
         : (l?.trayStatusReady ?? 'Ready');
 
+    final selectedMic =
+        ref.read(settingsProvider).value?.audioInput.microphone ??
+        micDefaultLabel;
+    // Mirror the settings dropdown: no submenu when only the default
+    // pseudo-device was enumerated — there is nothing to switch to.
+    final hasRealMicDevices = _micDeviceLabels.length > 1;
+
     final action = _actionNeeded;
     final items = <MenuItem>[
       if (action != null) ...[
@@ -188,6 +241,18 @@ class TrayService extends Notifier<void> implements TrayListener {
       MenuItem(key: 'status', label: '$statusDot $statusText', disabled: true),
       MenuItem.separator(),
       MenuItem(key: 'toggle_recording', label: toggleLabel),
+      if (hasRealMicDevices)
+        MenuItem.submenu(
+          label: l?.trayMicrophone ?? 'Microphone',
+          submenu: Menu(
+            items: buildMicrophoneMenuItems(
+              deviceLabels: _micDeviceLabels,
+              selectedLabel: selectedMic,
+              systemDefaultLabel:
+                  l?.settingsMicSystemDefault ?? 'System Default',
+            ),
+          ),
+        ),
       MenuItem.separator(),
       MenuItem(key: 'show', label: l?.trayOpenApp ?? 'Open WhisPaste'),
       MenuItem(key: 'settings', label: l?.traySettings ?? 'Settings'),
@@ -195,7 +260,7 @@ class TrayService extends Notifier<void> implements TrayListener {
       MenuItem(key: 'quit', label: l?.trayQuit ?? 'Quit'),
     ];
 
-    trayManager.setContextMenu(Menu(items: items));
+    await trayManager.setContextMenu(Menu(items: items));
   }
 
   Future<String?> _resolveIconPath() async {

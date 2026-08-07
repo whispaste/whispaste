@@ -24,6 +24,7 @@ import '../../../services/telemetry_service.dart';
 import '../../../widgets/hotkey_recorder.dart';
 import '../../../widgets/paste_capability_indicator.dart';
 import '../../../widgets/section.dart';
+import '../../../widgets/wp_button.dart';
 import '../settings_widgets.dart';
 
 // ---------------------------------------------------------------------------
@@ -72,7 +73,9 @@ class KeyboardShortcutSection extends ConsumerWidget {
                       hotkeyKeyDisplay: settings.hotkey.hotkeyKeyDisplay,
                     ),
                     const SizedBox(width: WpSpacing.sm),
-                    OutlinedButton(
+                    WpButton(
+                      label: l10n.settingsChangeHotkey,
+                      variant: WpButtonVariant.secondary,
                       onPressed: () async {
                         final result = await HotkeyRecorderDialog.show(
                           context,
@@ -92,7 +95,6 @@ class KeyboardShortcutSection extends ConsumerWidget {
                               );
                         }
                       },
-                      child: Text(l10n.settingsChangeHotkey),
                     ),
                   ],
                 ),

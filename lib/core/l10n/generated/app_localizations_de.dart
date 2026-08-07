@@ -643,10 +643,16 @@ class L10nDe extends L10n {
       'macOS fragt dich gleich, ob WhisPaste das darf. Sag Ja, fertig.';
 
   @override
-  String get onboardingPasteGrantCta => 'Weiter';
+  String get onboardingPasteChipReady => 'Auto-Einfügen bereit';
 
   @override
-  String get onboardingPasteVerifyCta => 'Prüfen';
+  String get onboardingPasteChipPending => 'Auto-Einfügen-Zugriff ausstehend';
+
+  @override
+  String get onboardingPasteChipAction => 'Auto-Einfügen: Aktion nötig';
+
+  @override
+  String get onboardingPasteGrantCta => 'Auto-Einfügen freigeben';
 
   @override
   String get onboardingPasteSkip => 'Erstmal nur kopieren, ohne Auto-Einfügen';
@@ -680,9 +686,6 @@ class L10nDe extends L10n {
 
   @override
   String get onboardingPasteDemoText => 'WhisPaste tippt für dich.';
-
-  @override
-  String get onboardingPasteTestRunCta => 'Test einfügen';
 
   @override
   String get onboardingPasteTestSuccess =>
@@ -864,18 +867,47 @@ class L10nDe extends L10n {
       'Werks-Reset unvollständig. App neu starten?';
 
   @override
+  String get settingsPortabilitySectionTitle => 'Sicherung & Übertragung';
+
+  @override
+  String get settingsPortabilitySectionSubtitle =>
+      'Lege eine Sicherung deiner WhisPaste-Einrichtung an oder nimm sie mit auf einen anderen Rechner';
+
+  @override
   String get settingsPortabilityLabel =>
       'Einstellungen exportieren/importieren';
 
   @override
   String get settingsPortabilitySubtitle =>
-      'Eigenes Vokabular, Sprachkürzel und Hotkey-Einstellungen zwischen Geräten übertragen, ohne Konto.';
+      'Deine Einstellungen zwischen Geräten übertragen, ohne Konto.';
 
   @override
   String get settingsPortabilityExportAction => 'Exportieren';
 
   @override
   String get settingsPortabilityImportAction => 'Importieren';
+
+  @override
+  String get settingsPortabilityExportLocationLabel => 'Exportziel';
+
+  @override
+  String get settingsPortabilityImportLocationLabel => 'Importquelle';
+
+  @override
+  String get settingsPortabilityExportLocationUnset =>
+      'Wird beim ersten Export gefragt';
+
+  @override
+  String get settingsPortabilityImportLocationUnset =>
+      'Wird beim ersten Import gefragt';
+
+  @override
+  String get settingsPortabilityChooseExportLocation =>
+      'Anderes Exportziel wählen (es wird noch nichts exportiert)';
+
+  @override
+  String get settingsPortabilityChooseImportLocation =>
+      'Andere Importquelle wählen (es wird noch nichts importiert)';
 
   @override
   String settingsPortabilityExportSuccess(String path) {
@@ -893,7 +925,7 @@ class L10nDe extends L10n {
 
   @override
   String settingsPortabilityImportConfirmMessage(String path) {
-    return 'Dies ersetzt dein aktuelles Vokabular, deine Sprachkürzel, deine Hotkey-Konfiguration und – falls in der Datei enthalten – deine Snippets durch den Inhalt von $path.';
+    return 'Dies ersetzt deine aktuellen Einstellungen – Oberfläche, Spracherkennungs-Konfiguration, Verhalten, Textersetzungen und Snippets eingeschlossen – durch den Inhalt von $path. Deine API-Schlüssel bleiben unangetastet.';
   }
 
   @override
@@ -1022,10 +1054,6 @@ class L10nDe extends L10n {
 
   @override
   String get onboardingWelcome => 'Einmal sprechen. Überall einfügen.';
-
-  @override
-  String get onboardingWelcomeHint =>
-      'WhisPaste verwandelt schnelle Gedanken in klaren Text für Nachrichten, Mails, Notizen und Kommentare.';
 
   @override
   String get feedbackTitle => 'Feedback senden';
@@ -1314,6 +1342,10 @@ class L10nDe extends L10n {
 
   @override
   String get snippetsPickerTriggerHint => 'z. B. Snippet';
+
+  @override
+  String get snippetsPickerTriggerEmptyListHint =>
+      'Das Trigger-Wort ist gesetzt, aber es gibt noch keine Snippets — diktierst du es, wird es als normaler Text eingefügt, bis du dein erstes Snippet anlegst.';
 
   @override
   String get snippetsPickerSemanticsLabel => 'Snippet-Picker';
@@ -1747,7 +1779,7 @@ class L10nDe extends L10n {
   }
 
   @override
-  String get qualityTierDownloadAndContinue => 'Herunterladen & Weiter';
+  String get qualityTierDownloadAndContinue => 'Modell herunterladen';
 
   @override
   String get qualityTierChooseDifferent => 'Andere Qualitätsstufe wählen';
@@ -1835,6 +1867,13 @@ class L10nDe extends L10n {
   @override
   String get infoModelMissing =>
       'Bitte lade zuerst ein Sprachmodell in den Einstellungen herunter.';
+
+  @override
+  String get infoSnippetPickerEmpty =>
+      'Trigger-Wort erkannt, aber du hast noch keine Snippets — der Text wurde ganz normal eingefügt.';
+
+  @override
+  String get infoSnippetPickerEmptyAction => 'Snippets öffnen';
 
   @override
   String get oomRecoveryTitle => 'Aufnahme fehlgeschlagen: GPU-Speicherproblem';
@@ -2353,12 +2392,6 @@ class L10nDe extends L10n {
   }
 
   @override
-  String get onboardingGetStarted => 'Weiter';
-
-  @override
-  String get onboardingSkip => 'Diesen Schritt überspringen';
-
-  @override
   String get onboardingNext => 'Weiter';
 
   @override
@@ -2369,7 +2402,7 @@ class L10nDe extends L10n {
 
   @override
   String get onboardingPrivacyHint =>
-      'WhisPaste sendet anonyme Nutzungsstatistik an einen Server in der EU, DSGVO-konform und ohne deine Aufnahmen, Texte oder persönlichen Daten. Jederzeit in Einstellungen → Datenschutz änderbar.';
+      'Audio und Text bleiben lokal. Nur anonyme Nutzungsstatistik geht an einen selbst gehosteten Server in der EU — DSGVO-konform.';
 
   @override
   String get onboardingPrivacyToggle => 'Anonyme Nutzungsstatistik teilen';
@@ -2400,48 +2433,46 @@ class L10nDe extends L10n {
   String get onboardingThemeSystem => 'System';
 
   @override
-  String get onboardingMicTitle => 'Lass uns dein Mikrofon einrichten';
+  String get onboardingAppearancePageTitle => 'Aussehen & Start';
 
   @override
-  String get onboardingMicSubtitle =>
-      'Wir brauchen Mikrofonzugriff für Aufnahmen. Dein Audio bleibt auf deinem Gerät.';
+  String get onboardingAppearancePageSubtitle =>
+      'Hell, dunkel oder wie das System — und ob WhisPaste beim Anmelden mitstartet.';
 
   @override
-  String get onboardingMicPermissionGranted => 'Perfekt, Mikrofon ist bereit!';
+  String onboardingMaxRecordDurationHint(int seconds, String section) {
+    return 'Aufnahmen stoppen automatisch nach $seconds Sekunden — jederzeit änderbar unter Einstellungen → $section.';
+  }
 
   @override
-  String get onboardingMicPermissionDenied => 'Mikrofonzugriff verweigert';
+  String get onboardingBeat1Title => 'Hotkey drücken, sprechen, fertig';
 
   @override
-  String get onboardingMicPermissionPending =>
-      'Tippe unten, um dein Mikrofon zu aktivieren';
+  String get onboardingBeat1Caption =>
+      'Die Aufnahme startet sofort – deine Worte landen als Text direkt an der Cursor-Position.';
 
   @override
-  String get onboardingMicRequestAccess => 'Weiter';
+  String get onboardingBeat2Title => 'Läuft lokal, auf deiner Hardware';
 
   @override
-  String get onboardingMicTestRecording => 'Sag etwas, wir prüfen den Pegel';
+  String get onboardingBeat2Caption =>
+      'Die Transkription läuft auf deinem Gerät – ganz ohne Internet.';
 
   @override
-  String get onboardingMicTestDone =>
-      'Klingt super, dein Mikrofon funktioniert einwandfrei!';
+  String get onboardingBeat3Title => 'Überall, wo du tippst';
 
   @override
-  String get onboardingMicSilent =>
-      'Wir hören nichts. Wähle unten das richtige Mikrofon oder sprich lauter und versuch es erneut.';
+  String get onboardingBeat3Caption =>
+      'Browser, Mail, Editor – WhisPaste funktioniert systemweit.';
 
   @override
-  String get onboardingMicRetry => 'Erneut testen';
+  String get onboardingMicChipReady => 'Mikrofon bereit';
 
   @override
-  String get onboardingMicDeviceLabel => 'Mikrofon';
+  String get onboardingMicChipPending => 'Mikrofonzugriff ausstehend';
 
   @override
-  String get onboardingMicDeviceSystemDefault => 'System-Standard';
-
-  @override
-  String get onboardingMicDeniedInstructions =>
-      'Öffne die Systemeinstellungen, um den Mikrofonzugriff zu erlauben';
+  String get onboardingMicChipAction => 'Mikrofon: Aktion nötig';
 
   @override
   String get onboardingModelTitle => 'Spracherkennung einrichten';
@@ -2451,15 +2482,11 @@ class L10nDe extends L10n {
       'Lade das Sprachmodell herunter, um offline aufzunehmen. Deine Stimme verlässt nie dein Gerät.';
 
   @override
-  String get onboardingModelRecommended => 'Empfohlen für dein Gerät';
+  String get onboardingModelRecommended => 'Empfohlen';
 
   @override
   String get onboardingModelChangeLater =>
       'Du kannst die Qualität später in den Einstellungen anpassen';
-
-  @override
-  String get onboardingModelUseCloud =>
-      'Überspringen, ich nutze lieber einen Cloud-Dienst';
 
   @override
   String get onboardingModelDownloading => 'Wird heruntergeladen…';
@@ -2476,7 +2503,7 @@ class L10nDe extends L10n {
 
   @override
   String get onboardingModelEngineParakeetDesc =>
-      'Der schnellste Weg zum Diktieren in rund 25 europäischen Sprachen, inklusive Deutsch. Kleiner Download, läuft gut auf jeder Hardware.';
+      'Der schnellste Weg zu Text in rund 25 europäischen Sprachen, inklusive Deutsch. Läuft gut auf jeder Hardware, auch ohne GPU.';
 
   @override
   String get onboardingModelEngineWhisperLabel => 'Alle 99 Sprachen';
@@ -2494,10 +2521,27 @@ class L10nDe extends L10n {
 
   @override
   String get onboardingTestRecordingSubtitle =>
-      'Drück deinen Hotkey und sprich einen Satz. Der Text erscheint unten im Testfeld.';
+      'Drück die Schaltfläche unten und sprich einen Satz. Der Text landet im Testfeld. Dein Hotkey funktioniert genauso.';
 
   @override
   String get onboardingTestRecordingHotkeyLabel => 'Dein Hotkey';
+
+  @override
+  String get onboardingTestRecordingStartCta => 'Aufnahme starten';
+
+  @override
+  String get onboardingTestRecordingStopCta => 'Aufnahme stoppen';
+
+  @override
+  String get onboardingTestRecordingCompletionHint =>
+      'Probier zuerst eine Aufnahme aus, um fortzufahren.';
+
+  @override
+  String get onboardingTestRecordingMicBypassCta => 'Ohne Mikrofon fortfahren';
+
+  @override
+  String get onboardingTestRecordingMicBypassHint =>
+      'Ohne funktionierendes Mikrofon kann WhisPaste noch keine Aufnahme starten. Das lässt sich jederzeit über den Mikrofon-Status auf dieser Seite oder in den Einstellungen nachholen.';
 
   @override
   String get onboardingTestRecordingPlaceholder =>
@@ -2514,9 +2558,6 @@ class L10nDe extends L10n {
   @override
   String get onboardingTestRecordingReassurance =>
       'Nur ein Test, der Text bleibt in diesem Feld.';
-
-  @override
-  String get onboardingTestRecordingSkip => 'Test überspringen';
 
   @override
   String get onboardingReadyTitle => 'Alles bereit!';
@@ -2539,6 +2580,10 @@ class L10nDe extends L10n {
   @override
   String get onboardingReadyStep3CopyOnly =>
       'Text liegt in der Zwischenablage, drück ⌘V / Strg+V zum Einfügen';
+
+  @override
+  String get onboardingReadyContextCarryoverHint =>
+      'WhisPaste reicht Kontext aus dem vorigen Aufnahme-Vorgang bis zu zehn Minuten weiter. Bei einem schnellen Wechsel zu einem ganz anderen Thema lohnt eine kurze Pause, sonst kann das nächste Ergebnis inhaltlich verzogen werden.';
 
   @override
   String get onboardingReadyAutostartToggle =>
@@ -2564,7 +2609,11 @@ class L10nDe extends L10n {
 
   @override
   String get onboardingTriggerHotkeyConflictBody =>
-      'Dein Tastenkürzel scheint von einer anderen App belegt zu sein. Nimm unten eine neue Kombination auf, um fortzufahren.';
+      'Dein Tastenkürzel ist offenbar von einer anderen App belegt. Nimm unten eine neue Kombination auf.';
+
+  @override
+  String get onboardingReadyHotkeyConflictBody =>
+      'Geh mit „Zurück\" zur Hotkey-Seite und nimm dort eine neue Kombination auf.';
 
   @override
   String get onboardingTriggerModeHoldHint =>
@@ -2653,6 +2702,9 @@ class L10nDe extends L10n {
 
   @override
   String get trayQuit => 'Beenden';
+
+  @override
+  String get trayMicrophone => 'Mikrofon';
 
   @override
   String get settingsComingSoon => 'Demnächst';

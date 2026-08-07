@@ -14,6 +14,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/replacements/replacements_page.dart';
+import 'package:whispaste/widgets/wp_button.dart';
 
 import '../../fixtures/test_helpers.dart';
 
@@ -103,12 +104,10 @@ void main() {
       await tester.tap(find.byIcon(LucideIcons.plus));
       await tester.pumpAndSettle();
 
-      // When _isValid == false the dialog's ElevatedButton has onPressed == null.
-      // The toolbar Add button (ElevatedButton.icon) always has onPressed set,
-      // so we can distinguish them.
-      final buttons = tester.widgetList<ElevatedButton>(
-        find.byType(ElevatedButton),
-      );
+      // When _isValid == false the dialog's save button has onPressed == null,
+      // while the toolbar Add button always has one — so a single disabled
+      // button in the tree can only be the dialog's.
+      final buttons = tester.widgetList<WpButton>(find.byType(WpButton));
       expect(
         buttons.any((b) => b.onPressed == null),
         isTrue,

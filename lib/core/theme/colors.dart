@@ -69,6 +69,16 @@ abstract final class WpColorsDark {
   static const Color warning = Color(0xFFF5C842);
   static const Color error = Color(0xFFFF7B7B);
 
+  /// Danger/off-brand-neutral tint ladder — the same 6/12/30% alpha steps as
+  /// the accent ladder above, keyed to [error]/[textMuted] instead, so a
+  /// destructive or neutral control's hover, press and outline carry exactly
+  /// the weight of an accent one's, only the hue differs.
+  static const Color errorRowHover = Color(0x0FFF7B7B); // error @ 6%
+  static const Color errorActiveFill = Color(0x1FFF7B7B); // error @ 12%
+  static const Color errorBorder30 = Color(0x4DFF7B7B); // error @ 30%
+  static const Color mutedRowHover = Color(0x0F8A99B2); // textMuted @ 6%
+  static const Color mutedActiveFill = Color(0x1F8A99B2); // textMuted @ 12%
+
   /// Orange-600 — used for RAM/hardware preflight warnings.
   static const Color warningOrange = Color(0xFFEA580C);
 
@@ -173,6 +183,14 @@ abstract final class WpColorsLight {
   static const Color accentRowHover = Color(0x0F06678A); // accent @ 6%
   static const Color surfaceChipFill = Color(0x80F2F6FC); // surface @ 50%
   static const Color surfaceMutedFill = Color(0x145B697E); // textMuted @ 8%
+
+  /// Danger/off-brand-neutral tint ladder — see [WpColorsDark.errorRowHover]
+  /// for rationale.
+  static const Color errorRowHover = Color(0x0FCC1C1C); // error @ 6%
+  static const Color errorActiveFill = Color(0x1FCC1C1C); // error @ 12%
+  static const Color errorBorder30 = Color(0x4DCC1C1C); // error @ 30%
+  static const Color mutedRowHover = Color(0x0F5B697E); // textMuted @ 6%
+  static const Color mutedActiveFill = Color(0x1F5B697E); // textMuted @ 12%
 
   static const Color success = Color(0xFF05875C);
   static const Color warning = Color(0xFFC97A06);

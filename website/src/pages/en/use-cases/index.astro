@@ -43,6 +43,18 @@ const cards = [
   hero={hero}
   cta={cta}
 >
+  <section>
+    <h2>{t(lang, "useCaseHub.section.common.heading")}</h2>
+    <p>{t(lang, "useCaseHub.section.common.body")}</p>
+    <p>{t(lang, "useCaseHub.section.common.body2")}</p>
+  </section>
+
+  <section>
+    <h2>{t(lang, "useCaseHub.section.pick.heading")}</h2>
+    <p>{t(lang, "useCaseHub.section.pick.body")}</p>
+    <p>{t(lang, "useCaseHub.section.pick.body2")}</p>
+  </section>
+
   <div class="uc-hub-grid">
     {cards.map(({ key, href }) => (
       <a href={href} class="uc-hub-card">

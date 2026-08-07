@@ -8,6 +8,7 @@ import '../core/theme/tokens.dart';
 import 'dialog.dart';
 import 'empty_state.dart';
 import 'page_shell.dart';
+import 'wp_button.dart';
 
 /// Shared scaffold for the searchable-list settings features (Replacements,
 /// Snippets): a toolbar with search field and Add button above a searchable
@@ -181,10 +182,11 @@ class _WpSearchableListPageState<T> extends State<WpSearchableListPage<T>> {
                   const SizedBox(width: WpSpacing.sm),
                   ...widget.toolbarTrailing,
                   // Add button
-                  ElevatedButton.icon(
+                  WpButton(
+                    label: widget.addLabel,
+                    variant: WpButtonVariant.primary,
+                    icon: LucideIcons.plus,
                     onPressed: widget.onAdd,
-                    icon: const Icon(LucideIcons.plus, size: WpIconSize.sm),
-                    label: Text(widget.addLabel),
                   ),
                 ],
               ),

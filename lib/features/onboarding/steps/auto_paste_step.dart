@@ -1,4 +1,5 @@
-/// Onboarding Step 3 — Auto-Paste permission setup.
+/// Content of the Auto-Paste onboarding page — the permission that lets a
+/// transcript land at the cursor.
 ///
 /// On macOS: walks the user through granting the Accessibility permission
 /// so Auto-Paste can simulate ⌘V into the focused window. Watches the
@@ -9,22 +10,22 @@
 ///
 /// On Windows: Auto-Paste needs no extra permission in the 99% case, so
 /// the step renders a minimal verify-only surface: "Ready to paste" with a
-/// green checkmark, a one-line explanation, Next immediately enabled, and
-/// no Skip button. The remaining edge case is UIPI/UAC-protected windows
-/// (e.g. Auto-Paste running un-elevated while the focused target is an
-/// elevated process) — there the probe surfaces as `permissionMissing`
-/// and the step shows a non-blocking warn card plus an explicit Skip path
-/// (analogue to the macOS Skip). Next stays enabled either way because the
-/// edge case is non-blocking — the user decides whether to keep Auto-Paste
-/// on or switch to clipboard-only.
+/// green checkmark and a one-line explanation. The remaining edge case is
+/// UIPI/UAC-protected windows (e.g. Auto-Paste running un-elevated while
+/// the focused target is an elevated process) — there the probe surfaces as
+/// `permissionMissing` and the step shows a non-blocking warn card plus the
+/// explicit Skip path (analogue to the macOS Skip).
 ///
-/// On Linux: never rendered — [OnboardingOverlay] omits the step entirely
-/// from its platform-dependent step list.
+/// On Linux: never rendered — the page is omitted from the step sequence
+/// entirely (no paste controller is wired there), so Linux runs a six-step
+/// flow rather than a seven-step one with a blank page in it. See
+/// `onboardingIncludesAutoPasteStep`.
 ///
 /// The Skip path persists `afterTranscription = clipboard` (the codebase's
-/// representation of "Auto-Paste off, copy still happens") and advances
-/// the onboarding overlay via [onNext]. Polling is stopped on dispose so
-/// there is never a leftover timer once the user leaves the step.
+/// representation of "Auto-Paste off, copy still happens"); page navigation
+/// is owned by the onboarding shell, so Skip is a pure mode choice and no
+/// longer advances the flow itself. Polling is stopped on dispose so there
+/// is never a leftover timer once the user leaves the step.
 library;
 
 import 'dart:async';
@@ -45,13 +46,11 @@ import '../../../services/desktop_paste/desktop_paste_controller.dart';
 import '../../../services/paste/paste_capability_notifier.dart';
 import '../../../services/paste/paster.dart';
 import '../../../widgets/paste_capability_restart_banner.dart';
-import '../../../widgets/wp_accent_button.dart';
+import '../../../widgets/wp_hero_button.dart';
+import '../../settings/settings_widgets.dart' show kSettingRowInset;
 
 class AutoPasteStep extends ConsumerStatefulWidget {
-  const AutoPasteStep({super.key, required this.onNext, required this.onBack});
-
-  final VoidCallback onNext;
-  final VoidCallback onBack;
+  const AutoPasteStep({super.key});
 
   @override
   ConsumerState<AutoPasteStep> createState() => _AutoPasteStepState();
@@ -176,7 +175,8 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
     );
     // Skip explicitly disables Auto-Paste rather than silently leaving the
     // user in a half-state. "clipboard" is the codebase's encoding for
-    // "transcript goes to clipboard, no automated paste".
+    // "transcript goes to clipboard, no automated paste". Navigation stays
+    // with the onboarding shell — this is a mode choice, not an advance.
     await ref
         .read(settingsProvider.notifier)
         .updateSettings(
@@ -184,7 +184,6 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
             afterTranscription: AfterTranscriptionAction.clipboard.value,
           ),
         );
-    widget.onNext();
   }
 
   /// Emits a Sentry breadcrumb under the shared onboarding Auto-Paste
@@ -222,8 +221,6 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
     if (isWindows) {
       return _WindowsBody(
         state: ref.watch(pasteCapabilityNotifierProvider),
-        onNext: widget.onNext,
-        onBack: widget.onBack,
         onSkip: _onSkipPressed,
       );
     }
@@ -249,8 +246,6 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
       onGrant: _onGrantPressed,
       onRepair: _onRepairPressed,
       onSkip: _onSkipPressed,
-      onNext: widget.onNext,
-      onBack: widget.onBack,
     );
   }
 }
@@ -270,8 +265,6 @@ class _MacOsBody extends StatelessWidget {
     required this.onGrant,
     required this.onRepair,
     required this.onSkip,
-    required this.onNext,
-    required this.onBack,
   });
 
   final PasteCapabilityState state;
@@ -290,8 +283,6 @@ class _MacOsBody extends StatelessWidget {
   final Future<void> Function() onGrant;
   final Future<void> Function() onRepair;
   final Future<void> Function() onSkip;
-  final VoidCallback onNext;
-  final VoidCallback onBack;
 
   /// Phase the UI is currently rendering. Derived from `state.capability`
   /// and `state.pollingPhase` so the build is a pure function of state.
@@ -332,33 +323,15 @@ class _MacOsBody extends StatelessWidget {
     final errorColor = isDark ? WpColorsDark.error : WpColorsLight.error;
 
     final phase = _phase;
-    final isReady = phase == _AutoPastePhase.granted;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // -- Title + subtitle stay constant across phases ------------------
-        Text(
-          l10n.onboardingPasteTitle,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: WpTypography.headline,
-            fontWeight: FontWeight.bold,
-            color: textPrimary,
-          ),
-        ),
-        const SizedBox(height: WpSpacing.xs),
-        Text(
-          l10n.onboardingPasteSubtitle,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: WpTypography.subheading,
-            color: textSecondary,
-            height: 1.4,
-          ),
-        ),
-        const SizedBox(height: WpSpacing.xl),
-
+        // No title here: Auto-Paste has its own page now and the page owns
+        // the heading (see the overlay's page composition) — the same two
+        // strings this block used to carry as a section label.
+        //
         // -- Phase body — exactly one card + one primary CTA per phase ----
         ..._buildPhase(
           phase: phase,
@@ -370,31 +343,6 @@ class _MacOsBody extends StatelessWidget {
           accentGradient: accentGradient,
           successColor: successColor,
           errorColor: errorColor,
-        ),
-
-        const SizedBox(height: WpSpacing.lg),
-
-        // -- Navigation row (always the same shape) ------------------------
-        Row(
-          children: [
-            TextButton(
-              onPressed: onBack,
-              child: Text(
-                l10n.onboardingBack,
-                style: TextStyle(color: textSecondary),
-              ),
-            ),
-            const Spacer(),
-            SizedBox(
-              width: 140,
-              // loam-ignore: a11y-interactive-semantics – semantics provided in WpAccentButton.build
-              child: WpAccentButton(
-                label: l10n.onboardingNext,
-                gradient: accentGradient,
-                onPressed: isReady ? onNext : null,
-              ),
-            ),
-          ],
         ),
       ],
     );
@@ -444,31 +392,37 @@ class _MacOsBody extends StatelessWidget {
         return [
           SizedBox(
             width: double.infinity,
-            // loam-ignore: a11y-interactive-semantics – semantics provided in WpAccentButton.build
-            child: WpAccentButton(
+            // loam-ignore: a11y-interactive-semantics – semantics provided in WpHeroButton.build
+            child: WpHeroButton(
               label: l10n.onboardingPasteGrantCta,
               gradient: accentGradient,
               onPressed: grantInFlight ? null : onGrant,
             ),
           ),
           const SizedBox(height: WpSpacing.sm),
-          Text(
-            l10n.onboardingPasteWhyMac,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: WpTypography.small,
-              color: textMuted,
-              height: 1.4,
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
+            child: Text(
+              l10n.onboardingPasteWhyMac,
+              textAlign: TextAlign.start,
+              style: TextStyle(
+                fontSize: WpTypography.small,
+                color: textMuted,
+                height: 1.4,
+              ),
             ),
           ),
           const SizedBox(height: WpSpacing.sm),
-          TextButton(
-            onPressed: onSkip,
-            child: Text(
-              l10n.onboardingPasteSkip,
-              style: TextStyle(
-                color: textSecondary,
-                fontSize: WpTypography.body,
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: TextButton(
+              onPressed: onSkip,
+              child: Text(
+                l10n.onboardingPasteSkip,
+                style: TextStyle(
+                  color: textSecondary,
+                  fontSize: WpTypography.body,
+                ),
               ),
             ),
           ),
@@ -483,13 +437,16 @@ class _MacOsBody extends StatelessWidget {
             l10n: l10n,
           ),
           const SizedBox(height: WpSpacing.sm),
-          TextButton(
-            onPressed: onSkip,
-            child: Text(
-              l10n.onboardingPasteSkip,
-              style: TextStyle(
-                color: textSecondary,
-                fontSize: WpTypography.body,
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: TextButton(
+              onPressed: onSkip,
+              child: Text(
+                l10n.onboardingPasteSkip,
+                style: TextStyle(
+                  color: textSecondary,
+                  fontSize: WpTypography.body,
+                ),
               ),
             ),
           ),
@@ -526,13 +483,16 @@ class _MacOsBody extends StatelessWidget {
             ),
           ],
           const SizedBox(height: WpSpacing.sm),
-          TextButton(
-            onPressed: onSkip,
-            child: Text(
-              l10n.onboardingPasteSkip,
-              style: TextStyle(
-                color: textSecondary,
-                fontSize: WpTypography.body,
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: TextButton(
+              onPressed: onSkip,
+              child: Text(
+                l10n.onboardingPasteSkip,
+                style: TextStyle(
+                  color: textSecondary,
+                  fontSize: WpTypography.body,
+                ),
               ),
             ),
           ),
@@ -570,16 +530,9 @@ enum _AutoPastePhase {
 // =============================================================================
 
 class _WindowsBody extends StatelessWidget {
-  const _WindowsBody({
-    required this.state,
-    required this.onNext,
-    required this.onBack,
-    required this.onSkip,
-  });
+  const _WindowsBody({required this.state, required this.onSkip});
 
   final PasteCapabilityState state;
-  final VoidCallback onNext;
-  final VoidCallback onBack;
   final Future<void> Function() onSkip;
 
   @override
@@ -600,37 +553,14 @@ class _WindowsBody extends StatelessWidget {
         ? WpColorsDark.textSecondary
         : WpColorsLight.textSecondary;
     final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-    final accentGradient = isDark
-        ? WpColorsDark.accentWarmGradient
-        : WpColorsLight.accentWarmGradient;
     final successColor = isDark ? WpColorsDark.success : WpColorsLight.success;
     final warningColor = isDark ? WpColorsDark.warning : WpColorsLight.warning;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // -- Title ---------------------------------------------------------
-        Text(
-          l10n.onboardingPasteTitle,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: WpTypography.headline,
-            fontWeight: FontWeight.bold,
-            color: textPrimary,
-          ),
-        ),
-        const SizedBox(height: WpSpacing.xs),
-        Text(
-          l10n.onboardingPasteSubtitle,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: WpTypography.subheading,
-            color: textSecondary,
-            height: 1.4,
-          ),
-        ),
-        const SizedBox(height: WpSpacing.xl),
-
+        // No title — the page owns the heading (see the macOS body).
         if (isUipiEdge) ...[
           // -- UIPI warn card (non-blocking) ------------------------------
           _WindowsWarnCard(
@@ -644,13 +574,16 @@ class _WindowsBody extends StatelessWidget {
           // Skip — sets afterTranscription=clipboard and advances. Same
           // wording as the macOS skip (`onboardingPasteSkip`) so the option
           // is recognisable across platforms.
-          TextButton(
-            onPressed: onSkip,
-            child: Text(
-              l10n.onboardingPasteSkip,
-              style: TextStyle(
-                color: textSecondary,
-                fontSize: WpTypography.body,
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: TextButton(
+              onPressed: onSkip,
+              child: Text(
+                l10n.onboardingPasteSkip,
+                style: TextStyle(
+                  color: textSecondary,
+                  fontSize: WpTypography.body,
+                ),
               ),
             ),
           ),
@@ -660,50 +593,22 @@ class _WindowsBody extends StatelessWidget {
             isDark: isDark,
             textPrimary: textPrimary,
             successColor: successColor,
-            label: l10n.pasteCapabilityReady,
+            label: l10n.onboardingPasteChipReady,
           ),
           const SizedBox(height: WpSpacing.sm),
-          Text(
-            l10n.onboardingPasteWhyWin,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: WpTypography.small,
-              color: textMuted,
-              height: 1.4,
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
+            child: Text(
+              l10n.onboardingPasteWhyWin,
+              textAlign: TextAlign.start,
+              style: TextStyle(
+                fontSize: WpTypography.small,
+                color: textMuted,
+                height: 1.4,
+              ),
             ),
           ),
         ],
-
-        const SizedBox(height: WpSpacing.lg),
-
-        // -- Navigation row -----------------------------------------------
-        // Next is always enabled on Windows: in the 99% Verify path the
-        // capability is already `ready`, in the UIPI edge it's explicitly
-        // non-blocking. The in-app self-paste test was removed because
-        // Flutter on macOS/Windows never reliably received the synthesised
-        // Cmd+V into its own TextField — `AXIsProcessTrusted=true` /
-        // SendInput access is enough proof for real-world recordings.
-        Row(
-          children: [
-            TextButton(
-              onPressed: onBack,
-              child: Text(
-                l10n.onboardingBack,
-                style: TextStyle(color: textSecondary),
-              ),
-            ),
-            const Spacer(),
-            SizedBox(
-              width: 140,
-              // loam-ignore: a11y-interactive-semantics – semantics provided in WpAccentButton.build
-              child: WpAccentButton(
-                label: l10n.onboardingNext,
-                gradient: accentGradient,
-                onPressed: onNext,
-              ),
-            ),
-          ],
-        ),
       ],
     );
   }
@@ -888,24 +793,31 @@ class _PermissionStatusCard extends StatelessWidget {
     );
   }
 
+  // Onboarding-only chip vocabulary — ready/pending/action-needed mirrors
+  // the mic permission chip on step 1 (`mic_permission_chip.dart`) so both
+  // capability chips speak the same three-state language. Kept separate
+  // from the shared `pasteCapability*` keys (also used by
+  // `paste_capability_indicator.dart` in Settings), which are out of scope
+  // here — `unsupported` keeps its shared wording since it's a different
+  // claim ("not available here") than "action needed".
   (IconData, Color, String) _resolve() {
     if (status == null) {
       return (
         LucideIcons.loaderCircle,
         textSecondary,
-        l10n.pasteCapabilityCheckTitle,
+        l10n.onboardingPasteChipPending,
       );
     }
     return switch (status!) {
       PasteCapabilityStatus.ready => (
         LucideIcons.circleCheck,
         successColor,
-        l10n.pasteCapabilityReady,
+        l10n.onboardingPasteChipReady,
       ),
       PasteCapabilityStatus.permissionMissing => (
         LucideIcons.shieldAlert,
         errorColor,
-        l10n.pasteCapabilityPermissionMissing,
+        l10n.onboardingPasteChipAction,
       ),
       PasteCapabilityStatus.unsupported => (
         LucideIcons.info,

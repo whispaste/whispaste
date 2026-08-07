@@ -22,6 +22,7 @@ import '../services/hotkey_conflicts.dart';
 import '../services/hotkey_key_resolver.dart' as key_resolver;
 import '../services/win_layout_label.dart';
 import 'dialog.dart';
+import 'wp_button.dart';
 
 // ---------------------------------------------------------------------------
 // Data class
@@ -594,20 +595,12 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
               runSpacing: WpSpacing.xs,
               children: [
                 // Clear
-                TextButton.icon(
+                WpButton(
+                  label: l10n.settingsHotkeyRecorderClear,
+                  variant: WpButtonVariant.ghost,
+                  tone: WpButtonTone.neutral,
+                  icon: LucideIcons.eraser,
                   onPressed: _clear,
-                  icon: Icon(
-                    LucideIcons.eraser,
-                    size: WpIconSize.sm,
-                    color: textMuted,
-                  ),
-                  label: Text(
-                    l10n.settingsHotkeyRecorderClear,
-                    style: TextStyle(
-                      color: textMuted,
-                      fontSize: WpTypography.body,
-                    ),
-                  ),
                 ),
                 // Cancel + Save grouped so they stay together when wrapping.
                 Wrap(
@@ -619,37 +612,16 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
                     // pop), there is nothing to dismiss, so the button is
                     // hidden to avoid a dead control.
                     if (widget.onSubmit == null)
-                      TextButton(
+                      WpButton(
+                        label: l10n.settingsHotkeyRecorderCancel,
+                        variant: WpButtonVariant.ghost,
+                        tone: WpButtonTone.neutral,
                         onPressed: () => Navigator.of(context).pop(),
-                        child: Text(
-                          l10n.settingsHotkeyRecorderCancel,
-                          style: TextStyle(
-                            color: textMuted,
-                            fontSize: WpTypography.body,
-                          ),
-                        ),
                       ),
-                    // Save — accent background + white foreground gives
-                    // WCAG-AA contrast in both light and dark themes;
-                    // the previous accent-text-on-default-elevated bg
-                    // failed contrast checks for the disabled label too.
-                    ElevatedButton(
+                    WpButton(
+                      label: l10n.settingsHotkeyRecorderSave,
+                      variant: WpButtonVariant.primary,
                       onPressed: hasCombo ? _save : null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: accent,
-                        foregroundColor: Colors.white,
-                        disabledBackgroundColor: isDark
-                            ? WpColorsDark.surfaceVariant
-                            : WpColorsLight.surfaceVariant,
-                        disabledForegroundColor: textMuted,
-                      ),
-                      child: Text(
-                        l10n.settingsHotkeyRecorderSave,
-                        style: const TextStyle(
-                          fontSize: WpTypography.body,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
                     ),
                   ],
                 ),
@@ -665,10 +637,17 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
         focusNode: _focusNode,
         autofocus: true,
         onKeyEvent: _handleKeyEvent,
-        // On Windows frameless windows, BackdropFilter + ImageFilter.blur is
-        // broken (see _WpDialogBarrier in dialog.dart) — render the card
-        // without the blur backdrop there instead of a visibly broken dialog.
-        child: Platform.isWindows
+        // The blur backdrop only makes sense in modal mode, where it frosts
+        // the modal barrier behind the card. Two exceptions render the card
+        // bare instead:
+        //   • Windows — BackdropFilter + ImageFilter.blur is broken on
+        //     frameless windows (see _WpDialogBarrier in dialog.dart), so the
+        //     blur would show up as a visibly broken dialog.
+        //   • Inline mode (onSubmit != null, e.g. the onboarding trigger page)
+        //     — there is no barrier back there, just real page content. The
+        //     blur would smear the heading and the conflict warning that
+        //     explain why the recorder appeared in the first place.
+        child: Platform.isWindows || widget.onSubmit != null
             ? card
             : BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),

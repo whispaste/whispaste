@@ -3,28 +3,35 @@ import 'package:flutter/material.dart';
 import '../core/theme/tokens.dart';
 import 'wp_focus_ring.dart';
 
-/// Shared accent-gradient CTA button used throughout onboarding and elsewhere.
+/// Shared accent-gradient hero CTA button used throughout onboarding and
+/// elsewhere.
 ///
 /// Always renders white text on the gradient background for reliable contrast
 /// in both light and dark themes. Supports disabled state via nullable
 /// [onPressed] and keyboard focus via [Material] + [InkWell].
-class WpAccentButton extends StatefulWidget {
-  const WpAccentButton({
+class WpHeroButton extends StatefulWidget {
+  const WpHeroButton({
     super.key,
     required this.label,
     required this.gradient,
     required this.onPressed,
+    this.verticalPadding = WpSpacing.md,
   });
 
   final String label;
   final LinearGradient gradient;
   final VoidCallback? onPressed;
 
+  /// Vertical inner padding. Defaults to the regular CTA height; dense
+  /// surfaces (the merged Model & Hotkey onboarding page) pass a smaller
+  /// token to fit the fixed window without scrolling.
+  final double verticalPadding;
+
   @override
-  State<WpAccentButton> createState() => _WpAccentButtonState();
+  State<WpHeroButton> createState() => _WpHeroButtonState();
 }
 
-class _WpAccentButtonState extends State<WpAccentButton> {
+class _WpHeroButtonState extends State<WpHeroButton> {
   bool _hovered = false;
   final _focusNode = FocusNode();
 
@@ -67,7 +74,9 @@ class _WpAccentButtonState extends State<WpAccentButton> {
                   highlightColor: Colors.transparent,
                   onHover: (hovering) => setState(() => _hovered = hovering),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: WpSpacing.md),
+                    padding: EdgeInsets.symmetric(
+                      vertical: widget.verticalPadding,
+                    ),
                     alignment: Alignment.center,
                     child: Text(
                       widget.label,

@@ -4,6 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../widgets/wp_button.dart';
 import '../../../widgets/wp_focus_ring.dart';
 import '../data/providers.dart';
 
@@ -124,12 +125,11 @@ class NotesSearchBar extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: WpSpacing.sm),
-              // WpIconSize.md (not .sm like the replacements toolbar) so the
-              // button keeps the size it had as the standalone page header.
-              ElevatedButton.icon(
+              WpButton(
+                label: l10n.notesNewNote,
+                variant: WpButtonVariant.primary,
+                icon: LucideIcons.plus,
                 onPressed: onCreate,
-                icon: const Icon(LucideIcons.plus, size: WpIconSize.md),
-                label: Text(l10n.notesNewNote),
               ),
             ],
           ),

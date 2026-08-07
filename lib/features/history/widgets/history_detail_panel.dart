@@ -21,6 +21,7 @@ import 'history_notes_section.dart';
 import '../../../widgets/tag_input.dart';
 import '../../../widgets/markdown_toolbar.dart';
 import '../../../widgets/toast.dart';
+import '../../../widgets/wp_button.dart';
 import 'tag_management_dialog.dart';
 import '../../../core/utils/word_count.dart';
 
@@ -378,9 +379,11 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                   const SizedBox(height: WpSpacing.md),
                   Align(
                     alignment: Alignment.centerRight,
-                    child: TextButton(
+                    // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
+                    child: WpButton(
+                      label: l10n.historyClose,
+                      variant: WpButtonVariant.ghost,
                       onPressed: () => Navigator.of(ctx).pop(),
-                      child: Text(l10n.historyClose),
                     ),
                   ),
                 ],

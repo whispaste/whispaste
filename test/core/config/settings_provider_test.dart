@@ -9,6 +9,8 @@ import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/l10n/locale_provider.dart';
 import 'package:whispaste/core/theme/theme_provider.dart';
 import 'package:whispaste/core/data/database.dart';
+import 'package:whispaste/services/settings_portability_service.dart'
+    show mergeImportedSettings;
 
 /// In-memory fake for [SecureKeyStore] used in tests.
 class FakeSecureKeyStore extends SecureKeyStore {
@@ -192,6 +194,106 @@ void main() {
       expect(await fakeSecureStore.readKey('wp_openai_api_key'), isNull);
       expect(await fakeSecureStore.readKey('wp_deepgram_api_key'), isNull);
     });
+  });
+
+  group('mergeImportedSettings API-key retention (settings-portability)', () {
+    test(
+      'importing a bundle merges settings without deleting existing API keys',
+      () async {
+        // Seed both API keys via a normal updateSettings call first — the
+        // keys must be present in the *in-memory* AppSettings (not just the
+        // secure store) before the import merge runs. If they were only in
+        // the secure store, `_syncApiKeysToSecureStorage` would compare the
+        // old in-memory '' against the merged result's '' and skip the
+        // delete call trivially — proving nothing about re-injection.
+        await container
+            .read(settingsProvider.notifier)
+            .updateSettings(
+              (s) => s.copyWith(
+                openAiApiKey: 'sk-existing',
+                deepgramApiKey: 'dg-existing',
+              ),
+            );
+        expect(
+          container.read(settingsProvider).value!.openAiApiKey,
+          'sk-existing',
+        );
+        expect(await fakeSecureStore.readKey('wp_openai_api_key'), isNotNull);
+
+        // An imported settings map — as `CloudProviderSettings.toMap()`
+        // always writes the two key fields as empty strings (they are
+        // never persisted to SQLite), any gathered/exported map has empty
+        // values here regardless of what the source device's keychain held.
+        // `current.toStorageMap()` already reflects that.
+        final current = container.read(settingsProvider).value!;
+        final imported = current.toStorageMap();
+        expect(imported['openai_api_key'], '');
+        expect(imported['deepgram_api_key'], '');
+
+        await container
+            .read(settingsProvider.notifier)
+            .updateSettings((s) => mergeImportedSettings(s, imported));
+
+        final merged = container.read(settingsProvider).value!;
+        expect(merged.openAiApiKey, 'sk-existing');
+        expect(merged.deepgramApiKey, 'dg-existing');
+
+        // No delete was triggered at the secure store.
+        expect(
+          await fakeSecureStore.readKey('wp_openai_api_key'),
+          'sk-existing',
+        );
+        expect(
+          await fakeSecureStore.readKey('wp_deepgram_api_key'),
+          'dg-existing',
+        );
+      },
+    );
+
+    test(
+      'imported settings that omit a key keep the current local value',
+      () async {
+        await container
+            .read(settingsProvider.notifier)
+            .updateSettings((s) => s.copyWith(sttModel: 'whisper-small'));
+
+        final current = container.read(settingsProvider).value!;
+        final imported = current.toStorageMap()..remove('stt_model');
+
+        await container
+            .read(settingsProvider.notifier)
+            .updateSettings((s) => mergeImportedSettings(s, imported));
+
+        expect(
+          container.read(settingsProvider).value!.sttModel,
+          'whisper-small',
+        );
+      },
+    );
+
+    test(
+      'deny-listed keys in the imported map are ignored, local value wins',
+      () async {
+        await container
+            .read(settingsProvider.notifier)
+            .updateSettings((s) => s.copyWith(windowMaximized: false));
+
+        final current = container.read(settingsProvider).value!;
+        final imported = current.toStorageMap()
+          ..['window_maximized'] = 'true'
+          ..['onboarding_completed'] = 'true'
+          ..['microphone'] = 'Some Foreign Device';
+
+        await container
+            .read(settingsProvider.notifier)
+            .updateSettings((s) => mergeImportedSettings(s, imported));
+
+        final merged = container.read(settingsProvider).value!;
+        expect(merged.windowMaximized, false);
+        expect(merged.onboardingCompleted, false);
+        expect(merged.microphone, 'Default');
+      },
+    );
   });
 
   group('sound mute migration (issue 12)', () {

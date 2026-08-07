@@ -31,8 +31,8 @@ HOW TO TEST
 
 No account, sign-in, or demo credentials required — works fully offline.
 
-RESUBMISSION NOTE (rejection dated Aug 3, 2026 — submission
-05178297-1d6b-454d-9a7f-dfd1ab1a8e8e, four items addressed below)
+RESUBMISSION NOTE (Aug 2 submission resolved items 5.1.1(iv), 5.6.3, and 5
+below; Guideline 2.4.5 was re-flagged Aug 4 and is answered below)
 
 Guideline 5.1.1(iv) — Microphone permission wording
 The custom pre-permission screen's button was relabeled from "Grant
@@ -42,15 +42,17 @@ relabeled the same way pre-emptively). No pre-permission screen tells the
 user how to respond to the native macOS permission dialog itself.
 
 Guideline 2.4.5 — Accessibility permission purpose
-No functional change from the explanation above (already part of the
-reviewed 1.2.66 submission — see our reply in the Resolution Center for the
-same explanation addressed directly to the reviewer). In short: WhisPaste's
-MAS build never calls the Accessibility (AXUIElement) API; it only uses
-CGPreflightPostEventAccess/CGRequestPostEventAccess (the PostEvent TCC
-service), which macOS itself surfaces to the user as "Accessibility". We
-also softened the in-app copy so it now describes this as "the permission
-macOS calls Accessibility" rather than implying WhisPaste itself uses
-Accessibility features.
+The global hotkey does not use Accessibility features: it is registered
+via the Carbon Event Manager Hot Key API (RegisterEventHotKey, in the
+bundled HotKey.framework), a public API needing no TCC permission. To
+verify, turn WhisPaste's Accessibility toggle off in System Settings and
+press the hotkey: recording and transcription still work; only the
+cursor insertion falls back to a clipboard copy, because that step alone
+uses the PostEvent TCC service (CGPreflightPostEventAccess /
+CGRequestPostEventAccess). No bundled binary or framework references
+AXIsProcessTrusted, AXUIElement*, CGEventTapCreate or a global event
+monitor; nm -u confirms this. We also softened the in-app copy to "the
+permission macOS calls Accessibility".
 
 Guideline 5.6.3 — Rating request timing
 The one-time "thanks for your support" hint shown to Mac App Store users

@@ -1299,13 +1299,29 @@ class RecordingOrchestrator extends Notifier<void> {
           SnippetItem(id: row.id, title: row.title, body: row.body),
       ];
 
-      final shown = await ref
+      final result = await ref
           .read(snippetPickerServiceProvider.notifier)
           .show(items: items);
-      if (shown) {
-        _log.info('[$sid] Snippet-Picker opened (trigger="$trigger")');
+      switch (result) {
+        case SnippetPickerShowResult.shown:
+          _log.info('[$sid] Snippet-Picker opened (trigger="$trigger")');
+          return true;
+        case SnippetPickerShowResult.emptyList:
+          // Trigger matched but there is nothing to pick from. The transcript
+          // falls through to the normal pipeline (saved + pasted as usual) —
+          // without this info signal that fallback is indistinguishable from
+          // "the trigger didn't work" for the user.
+          _log.info(
+            '[$sid] Snippet-Picker trigger matched but no snippets exist — '
+            'falling back to the normal pipeline',
+          );
+          ref
+              .read(recordingInfoProvider.notifier)
+              .show('info_snippet_picker_empty');
+          return false;
+        case SnippetPickerShowResult.unavailable:
+          return false;
       }
-      return shown;
     } on Exception catch (e) {
       _log.warning('[$sid] Snippet-Picker dispatch failed: $e');
       return false;

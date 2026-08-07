@@ -12,6 +12,7 @@ import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/dialog.dart';
 import '../../widgets/searchable_list_page.dart';
+import '../../widgets/wp_button.dart';
 import '../settings/settings_widgets.dart';
 import 'package:whispaste/core/data/database.dart';
 
@@ -144,6 +145,9 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage> {
     final l10n = L10n.of(context);
     final trigger =
         ref.watch(settingsProvider).value?.behavior.snippetPickerTrigger ?? '';
+    // `?? true` while the list is still loading — the "trigger does nothing
+    // yet" warning must not flash before the first read lands.
+    final hasSnippets = ref.watch(snippetsProvider).value?.isNotEmpty ?? true;
 
     return WpSearchableListPage<SnippetItem>(
       // macOS-only for now (ticket 06) — Windows/Linux land in tickets 07/08.
@@ -152,7 +156,11 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage> {
       // literal text (createSnippetPickerController() is null, so dispatch
       // falls through to the normal pipeline) instead of opening a picker.
       header: Platform.isMacOS
-          ? _SnippetPickerTriggerField(trigger: trigger, ref: ref)
+          ? _SnippetPickerTriggerField(
+              trigger: trigger,
+              ref: ref,
+              showEmptyListHint: trigger.trim().isNotEmpty && !hasSnippets,
+            )
           : null,
       asyncAll: ref.watch(snippetsProvider),
       searchMatches: (s, q) =>
@@ -230,10 +238,20 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage> {
 /// subtitle copy spells that out so the off-state is legible at a glance.
 /// Debounced-commit shape copied from `_AutoPasteBlocklistField`.
 class _SnippetPickerTriggerField extends StatefulWidget {
-  const _SnippetPickerTriggerField({required this.trigger, required this.ref});
+  const _SnippetPickerTriggerField({
+    required this.trigger,
+    required this.ref,
+    required this.showEmptyListHint,
+  });
 
   final String trigger;
   final WidgetRef ref;
+
+  /// True when a trigger word is set but the snippet list is empty — the
+  /// trigger currently does nothing (dictating it falls through to a normal
+  /// paste), which this card must say out loud instead of letting the user
+  /// discover it mid-dictation.
+  final bool showEmptyListHint;
 
   @override
   State<_SnippetPickerTriggerField> createState() =>
@@ -306,17 +324,56 @@ class _SnippetPickerTriggerFieldState
                 : WpColorsLight.borderSubtle,
           ),
         ),
-        child: SettingRow(
-          icon: LucideIcons.audioLines,
-          label: l10n.snippetsPickerTriggerLabel,
-          subtitle: l10n.snippetsPickerTriggerSubtitle,
-          trailing: settingsTextField(
-            context: context,
-            controller: _controller,
-            hintText: l10n.snippetsPickerTriggerHint,
-            onChanged: _onChanged,
-            semanticLabel: l10n.snippetsPickerTriggerLabel,
-          ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SettingRow(
+              icon: LucideIcons.audioLines,
+              label: l10n.snippetsPickerTriggerLabel,
+              subtitle: l10n.snippetsPickerTriggerSubtitle,
+              trailing: settingsTextField(
+                context: context,
+                controller: _controller,
+                hintText: l10n.snippetsPickerTriggerHint,
+                onChanged: _onChanged,
+                semanticLabel: l10n.snippetsPickerTriggerLabel,
+              ),
+            ),
+            if (widget.showEmptyListHint)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  WpSpacing.md,
+                  WpSpacing.xxs,
+                  WpSpacing.md,
+                  WpSpacing.sm,
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      LucideIcons.triangleAlert,
+                      size: WpIconSize.xs,
+                      color: isDark
+                          ? WpColorsDark.warning
+                          : WpColorsLight.warning,
+                    ),
+                    const SizedBox(width: WpSpacing.xs),
+                    Expanded(
+                      child: Text(
+                        l10n.snippetsPickerTriggerEmptyListHint,
+                        style: TextStyle(
+                          color: isDark
+                              ? WpColorsDark.warning
+                              : WpColorsLight.warning,
+                          fontSize: WpTypography.small,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
         ),
       ),
     );
@@ -376,7 +433,6 @@ class _SnippetDialogState extends State<_SnippetDialog> {
     final textPrimary = isDark
         ? WpColorsDark.textPrimary
         : WpColorsLight.textPrimary;
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
     final l10n = L10n.of(context);
 
     return Center(
@@ -469,22 +525,19 @@ class _SnippetDialogState extends State<_SnippetDialog> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  TextButton(
+                  // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
+                  WpButton(
+                    label: l10n.actionCancel,
+                    variant: WpButtonVariant.ghost,
+                    tone: WpButtonTone.neutral,
                     onPressed: () => Navigator.of(context).pop(),
-                    child: Text(
-                      l10n.actionCancel,
-                      style: TextStyle(
-                        color: textMuted,
-                        fontSize: WpTypography.body,
-                      ),
-                    ),
                   ),
                   const SizedBox(width: WpSpacing.sm),
-                  ElevatedButton(
+                  // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
+                  WpButton(
+                    label: _isEditing ? l10n.actionSave : l10n.snippetsAdd,
+                    variant: WpButtonVariant.primary,
                     onPressed: _isValid ? _submit : null,
-                    child: Text(
-                      _isEditing ? l10n.actionSave : l10n.snippetsAdd,
-                    ),
                   ),
                 ],
               ),

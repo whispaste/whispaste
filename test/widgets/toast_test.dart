@@ -10,6 +10,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/widgets/toast.dart';
+import 'package:whispaste/widgets/wp_button.dart';
 
 import '../fixtures/test_helpers.dart';
 
@@ -66,9 +67,9 @@ void main() {
       await _showAndSettle(tester);
 
       expect(find.text('plain message'), findsOneWidget);
-      // No TextButton (the action surface) in the toast card itself.
+      // No WpButton (the action surface) in the toast card itself.
       // The harness's ElevatedButton is the only other button in scope.
-      expect(find.byType(TextButton), findsNothing);
+      expect(find.byType(WpButton), findsNothing);
 
       // Drain the toast's auto-dismiss timer so no Timer outlives the test.
       await tester.pumpAndSettle(const Duration(seconds: 4));

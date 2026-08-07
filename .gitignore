@@ -204,6 +204,9 @@ tools/**/report.txt
 # Python-Bytecode-Cache (tools/appstore/set-mac-price.py)
 __pycache__/
 
+# Web-Review-Screenshot-Cache eines lokalen Tools (nicht Produktcode)
+.asc/
+
 # Impeccable design-system docs for the Flutter app surface (internal
 # design-process artifacts, not application source — parallels the already-
 # protected website/design-system/ entry above; live at lib/ specifically

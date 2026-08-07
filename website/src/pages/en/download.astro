@@ -260,6 +260,20 @@ const breadcrumbItems = [
               data-testid="linux-deb-button"
               data-i18n="download.linux.deb.button"
             >{t(lang, "download.linux.deb.button")}</a>
+            {/* Erklär-Seite: benennt die drei Artefakte beim Namen und
+                beantwortet „ohne Installation? ohne Python?" ausführlicher,
+                als es in eine Download-Karte passt.
+                Bewusst OHNE `underline` und mit Pfeil-Marker im Label: der
+                `.deb`-Link direkt darüber ist unterstrichen und löst einen
+                Datei-Download aus. Zwei optisch identische Links, von denen
+                einer lädt und einer navigiert, wären nicht unterscheidbar. */}
+            <a
+              href={localePath(lang, "linux-speech-to-text")}
+              class="text-gray-400 hover:text-white text-xs transition-colors"
+              data-testid="linux-explainer-link"
+              data-i18n="download.linux.explainerLink"
+              data-i18n-href="download.linux.explainerLink.href"
+            >{t(lang, "download.linux.explainerLink")}</a>
           </div>
         </div>
 
