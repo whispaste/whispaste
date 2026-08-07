@@ -13,6 +13,7 @@ import '../../../services/model_download_service.dart';
 import '../../../services/stt_parakeet/parakeet_download_service.dart';
 import '../../../services/stt_parakeet/parakeet_model_registry.dart';
 import '../../../widgets/tier_performance_presentation.dart';
+import '../../../widgets/wp_button.dart';
 import '../../../widgets/wp_hero_button.dart';
 import '../../settings/settings_widgets.dart' show kSettingRowInset;
 
@@ -767,9 +768,6 @@ class _DownloadError extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final errorColor = isDark ? WpColorsDark.error : WpColorsLight.error;
-    final textSecondary = isDark
-        ? WpColorsDark.textSecondary
-        : WpColorsLight.textSecondary;
 
     return Column(
       children: [
@@ -798,28 +796,13 @@ class _DownloadError extends StatelessWidget {
           ),
         ),
         const SizedBox(height: WpSpacing.sm),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            onPressed: onRetry,
-            icon: Icon(LucideIcons.refreshCw, size: 14, color: textSecondary),
-            label: Text(
-              l10n.overlayRetry,
-              style: TextStyle(
-                fontSize: WpTypography.body,
-                color: textSecondary,
-              ),
-            ),
-            style: OutlinedButton.styleFrom(
-              side: BorderSide(
-                color: isDark
-                    ? WpColorsDark.borderDefault
-                    : WpColorsLight.borderDefault,
-              ),
-              shape: RoundedRectangleBorder(borderRadius: WpRadius.borderMd),
-              padding: const EdgeInsets.symmetric(vertical: WpSpacing.sm),
-            ),
-          ),
+        WpButton(
+          label: l10n.overlayRetry,
+          variant: WpButtonVariant.secondary,
+          tone: WpButtonTone.neutral,
+          icon: LucideIcons.refreshCw,
+          expanded: true,
+          onPressed: onRetry,
         ),
       ],
     );

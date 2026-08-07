@@ -46,6 +46,7 @@ import '../../../services/desktop_paste/desktop_paste_controller.dart';
 import '../../../services/paste/paste_capability_notifier.dart';
 import '../../../services/paste/paster.dart';
 import '../../../widgets/paste_capability_restart_banner.dart';
+import '../../../widgets/wp_button.dart';
 import '../../../widgets/wp_hero_button.dart';
 import '../../settings/settings_widgets.dart' show kSettingRowInset;
 
@@ -415,15 +416,11 @@ class _MacOsBody extends StatelessWidget {
           const SizedBox(height: WpSpacing.sm),
           Align(
             alignment: AlignmentDirectional.centerStart,
-            child: TextButton(
+            child: WpButton(
+              label: l10n.onboardingPasteSkip,
+              variant: WpButtonVariant.ghost,
+              tone: WpButtonTone.neutral,
               onPressed: onSkip,
-              child: Text(
-                l10n.onboardingPasteSkip,
-                style: TextStyle(
-                  color: textSecondary,
-                  fontSize: WpTypography.body,
-                ),
-              ),
             ),
           ),
         ];
@@ -439,15 +436,11 @@ class _MacOsBody extends StatelessWidget {
           const SizedBox(height: WpSpacing.sm),
           Align(
             alignment: AlignmentDirectional.centerStart,
-            child: TextButton(
+            child: WpButton(
+              label: l10n.onboardingPasteSkip,
+              variant: WpButtonVariant.ghost,
+              tone: WpButtonTone.neutral,
               onPressed: onSkip,
-              child: Text(
-                l10n.onboardingPasteSkip,
-                style: TextStyle(
-                  color: textSecondary,
-                  fontSize: WpTypography.body,
-                ),
-              ),
             ),
           ),
         ];
@@ -460,16 +453,13 @@ class _MacOsBody extends StatelessWidget {
           const SizedBox(height: WpSpacing.sm),
           // Secondary fallback: reset the entry instead of restarting.
           // Surfaces the existing repair flow without giving it equal weight.
-          OutlinedButton.icon(
-            onPressed: repairInFlight ? null : onRepair,
-            icon: repairInFlight
-                ? const SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(LucideIcons.wrench, size: 14),
-            label: Text(l10n.pasteCapabilityRepairButton),
+          WpButton(
+            label: l10n.pasteCapabilityRepairButton,
+            variant: WpButtonVariant.secondary,
+            tone: WpButtonTone.neutral,
+            icon: LucideIcons.wrench,
+            isLoading: repairInFlight,
+            onPressed: onRepair,
           ),
           if (lastRepairResult != null) ...[
             const SizedBox(height: WpSpacing.xs),
@@ -485,15 +475,11 @@ class _MacOsBody extends StatelessWidget {
           const SizedBox(height: WpSpacing.sm),
           Align(
             alignment: AlignmentDirectional.centerStart,
-            child: TextButton(
+            child: WpButton(
+              label: l10n.onboardingPasteSkip,
+              variant: WpButtonVariant.ghost,
+              tone: WpButtonTone.neutral,
               onPressed: onSkip,
-              child: Text(
-                l10n.onboardingPasteSkip,
-                style: TextStyle(
-                  color: textSecondary,
-                  fontSize: WpTypography.body,
-                ),
-              ),
             ),
           ),
         ];
@@ -576,15 +562,11 @@ class _WindowsBody extends StatelessWidget {
           // is recognisable across platforms.
           Align(
             alignment: AlignmentDirectional.centerStart,
-            child: TextButton(
+            child: WpButton(
+              label: l10n.onboardingPasteSkip,
+              variant: WpButtonVariant.ghost,
+              tone: WpButtonTone.neutral,
               onPressed: onSkip,
-              child: Text(
-                l10n.onboardingPasteSkip,
-                style: TextStyle(
-                  color: textSecondary,
-                  fontSize: WpTypography.body,
-                ),
-              ),
             ),
           ),
         ] else ...[
@@ -978,10 +960,12 @@ class _RepairResultBanner extends StatelessWidget {
         // relaunching WhisPaste.
         if (nothingCleared) ...[
           const SizedBox(height: WpSpacing.sm),
-          OutlinedButton.icon(
+          WpButton(
+            label: l10n.pasteCapabilityRestartButton,
+            variant: WpButtonVariant.secondary,
+            tone: WpButtonTone.neutral,
+            icon: LucideIcons.rotateCw,
             onPressed: onRestart,
-            icon: const Icon(LucideIcons.rotateCw, size: 14),
-            label: Text(l10n.pasteCapabilityRestartButton),
           ),
         ],
       ],
