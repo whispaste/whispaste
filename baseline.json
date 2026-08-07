@@ -3,6 +3,20 @@
   "rulesetVersion": "ruleset@382b63c5",
   "findings": [
     {
+      "fingerprint": "7b73bfdaace19923",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/app.dart",
+      "line": 576,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "1af0425e35c70fba",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/app.dart",
+      "line": 581,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
       "fingerprint": "5b1d40d0386cd28e",
       "ruleId": "code-duplicates",
       "filePath": "lib/core/config/settings_sections.dart",
@@ -80,11 +94,109 @@
       "message": "2 occurrences of duplicated block (184 tokens): lib/features/history/widgets/history_split_view.dart:363, lib/features/notes/widgets/notes_split_view.dart:322"
     },
     {
+      "fingerprint": "656942f824ff1507",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/features/history/widgets/tag_management_dialog.dart",
+      "line": 251,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
       "fingerprint": "f92e763f8d12ffa1",
       "ruleId": "code-duplicates",
       "filePath": "lib/features/history/widgets/voice_note_button.dart",
       "line": 290,
       "message": "2 occurrences of duplicated block (205 tokens): lib/features/history/widgets/voice_note_button.dart:290, lib/features/notes/widgets/note_voice_input_button.dart:262"
+    },
+    {
+      "fingerprint": "5a348c2440ddbb29",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/features/notes/widgets/notes_search_bar.dart",
+      "line": 128,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "7c1bb57095282165",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/features/notes/widgets/notes_search_bar.dart",
+      "line": 142,
+      "message": "_NotesFilterChip with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "6d609b760249d3bd",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/features/notes/widgets/notes_search_bar.dart",
+      "line": 152,
+      "message": "_NotesFilterChip with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "cde0e84ff753ab20",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/features/onboarding/onboarding_overlay.dart",
+      "line": 714,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "4f4ade44e319ef2e",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/features/onboarding/steps/auto_paste_step.dart",
+      "line": 419,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "9f7ea14e7eaa316d",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/features/onboarding/steps/auto_paste_step.dart",
+      "line": 439,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "532fed38b80bbcb8",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/features/onboarding/steps/auto_paste_step.dart",
+      "line": 456,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "a5093a1b11044310",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/features/onboarding/steps/auto_paste_step.dart",
+      "line": 478,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "7ffd6cae317f187c",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/features/onboarding/steps/auto_paste_step.dart",
+      "line": 565,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "01bd2d0bf10320e9",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/features/onboarding/steps/auto_paste_step.dart",
+      "line": 963,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "10cb6ac1add77a33",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/features/onboarding/steps/model_step.dart",
+      "line": 799,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "b28817f89ad1f9a4",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/features/onboarding/steps/test_recording_step.dart",
+      "line": 309,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "b826a45d6d1c6589",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/features/onboarding/steps/trigger_step.dart",
+      "line": 154,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
     },
     {
       "fingerprint": "1ba0f17a10bc4a9c",
@@ -101,11 +213,291 @@
       "message": "2 occurrences of duplicated block (96 tokens): lib/features/replacements/replacements_page.dart:120, lib/features/snippets/snippets_page.dart:97"
     },
     {
+      "fingerprint": "d832c8b8b207bdd6",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/features/settings/sections/cloud_advanced_section.dart",
+      "line": 65,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "5fdb8995e3d3cdf4",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/features/settings/sections/cloud_advanced_section.dart",
+      "line": 74,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "65a16b65c54f63b1",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/features/settings/sections/feedback_section.dart",
+      "line": 76,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "d68d1b55198a8a1b",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/features/settings/sections/review_support_section.dart",
+      "line": 37,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "8bc89f2bf718112e",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/features/settings/sections/settings_portability_section.dart",
+      "line": 182,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "2be6b9edb122eb4b",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/features/settings/sections/settings_portability_section.dart",
+      "line": 188,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "300349273994a584",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/features/settings/sections/stt_section.dart",
+      "line": 510,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "cf31ce321a77bbe0",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/features/settings/sections/updates_section.dart",
+      "line": 95,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "988880badc49cfb3",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/features/settings/stt_model_selector.dart",
+      "line": 873,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
       "fingerprint": "bc2554a1bedc4b79",
       "ruleId": "code-duplicates",
       "filePath": "lib/services/history/history_exporter.dart",
       "line": 159,
       "message": "2 occurrences of duplicated block (53 tokens): lib/services/history/history_exporter.dart:159, lib/services/notes/notes_exporter.dart:130"
+    },
+    {
+      "fingerprint": "e33da38881a44c79",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/widgets/dialog.dart",
+      "line": 300,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "692a8ec97b6a78b1",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/widgets/dialog.dart",
+      "line": 306,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "b33c7c2e81ad05b3",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/widgets/empty_state.dart",
+      "line": 80,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "d4566f53d55e5c83",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/widgets/hotkey_recorder.dart",
+      "line": 598,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "8dda9c443f3149e0",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/widgets/hotkey_recorder.dart",
+      "line": 615,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "1f3ceb3aa0e364d8",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/widgets/hotkey_recorder.dart",
+      "line": 621,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "dfc1c19707348be7",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/widgets/oom_recovery_dialog.dart",
+      "line": 182,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "4823276d51194ca4",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/widgets/oom_recovery_dialog.dart",
+      "line": 226,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "6b51825d30b8cded",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/widgets/paste_capability_indicator.dart",
+      "line": 200,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "a6f6173d90a26ac5",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/widgets/paste_capability_indicator.dart",
+      "line": 233,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "0f9fb4f0eba3b0a1",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/widgets/paste_capability_indicator.dart",
+      "line": 266,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "7268a3c242b75f44",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/widgets/paste_capability_indicator.dart",
+      "line": 274,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "4390b5d146fd312a",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/widgets/paste_capability_indicator.dart",
+      "line": 292,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "c36862122fe534b7",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/widgets/paste_capability_restart_banner.dart",
+      "line": 111,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "db8adeaad6f19be9",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/widgets/review_prompt_dialog.dart",
+      "line": 216,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "992ed53480238fee",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/widgets/review_prompt_dialog.dart",
+      "line": 223,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "6f70ff56739bb84a",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/widgets/review_prompt_dialog.dart",
+      "line": 257,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "bdc3c1486e34f79a",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/widgets/review_prompt_dialog.dart",
+      "line": 264,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "9baae129011cde70",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/widgets/review_prompt_dialog.dart",
+      "line": 276,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "01ef99d030fbe9a4",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/widgets/review_prompt_dialog.dart",
+      "line": 283,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "a1ce8efd6153d9d3",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/widgets/review_prompt_dialog.dart",
+      "line": 294,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "8e987d42f2be52f5",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/widgets/review_prompt_dialog.dart",
+      "line": 301,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "595f3e64008fb522",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/widgets/review_prompt_dialog.dart",
+      "line": 310,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "30813d7ef8f6eab7",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/widgets/searchable_list_page.dart",
+      "line": 185,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "9eb0e03f9b25f9ab",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/widgets/store_thank_you_dialog.dart",
+      "line": 263,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "cecc40afb968488f",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/widgets/store_thank_you_dialog.dart",
+      "line": 270,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "bfbbe9a49f7d6f79",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/widgets/store_thank_you_dialog.dart",
+      "line": 276,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "0c7d8eb00f4ea331",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/widgets/store_thank_you_dialog.dart",
+      "line": 283,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "b114caa4cb6cb42d",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/widgets/support_prompt_dialog.dart",
+      "line": 218,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "73b4989dbaef0580",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/widgets/support_prompt_dialog.dart",
+      "line": 225,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
+      "fingerprint": "50313a4c9b52aba1",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/widgets/support_prompt_dialog.dart",
+      "line": 231,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
     }
   ]
 }
