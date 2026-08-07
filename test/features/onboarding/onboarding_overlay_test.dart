@@ -54,6 +54,7 @@ import 'package:whispaste/services/model_download_service.dart';
 import 'package:whispaste/services/paste/paste_capability_notifier.dart';
 import 'package:whispaste/services/permissions/mic_permission_notifier.dart';
 import 'package:whispaste/services/stt_parakeet/parakeet_download_service.dart';
+import 'package:whispaste/widgets/wp_button.dart';
 import 'package:whispaste/widgets/wp_hero_button.dart';
 
 import '../../fixtures/test_helpers.dart';
@@ -479,23 +480,23 @@ void main() {
         expect(navRow, findsOneWidget);
 
         // Exactly two tappable navigation actions inside the row.
-        final textButtons = find.descendant(
+        final backButtons = find.descendant(
           of: navRow,
-          matching: find.byType(TextButton),
+          matching: find.byType(WpButton),
         );
         final accentButtons = find.descendant(
           of: navRow,
           matching: find.byType(WpHeroButton),
         );
         expect(
-          tester.widgetList(textButtons).length +
+          tester.widgetList(backButtons).length +
               tester.widgetList(accentButtons).length,
           2,
           reason: 'The nav row must carry exactly two navigation actions.',
         );
 
         // Back exists but is disabled on the first page.
-        final back = tester.widget<TextButton>(
+        final back = tester.widget<WpButton>(
           find.byKey(kOnboardingBackButtonKey),
         );
         expect(back.onPressed, isNull);
@@ -524,24 +525,26 @@ void main() {
             ),
           );
           final style = text.style;
-          // The colour now rides on the ButtonStyle, so read the resolved
-          // style the button actually paints with.
+          // WpButton resolves disabled as a token swap inside build(), not
+          // as a WidgetState-driven overlay — the ghost variant's inner
+          // TextButton already carries the right foregroundColor regardless
+          // of state, so resolve({}) here is a no-op that still reads back
+          // the value the button actually paints with.
           final button = tester.widget<TextButton>(
-            find.byKey(kOnboardingBackButtonKey),
+            find.descendant(
+              of: find.byKey(kOnboardingBackButtonKey),
+              matching: find.byType(TextButton),
+            ),
           );
           return style?.color ??
-              button.style!.foregroundColor!.resolve(
-                button.onPressed == null
-                    ? <WidgetState>{WidgetState.disabled}
-                    : <WidgetState>{},
-              )!;
+              button.style!.foregroundColor!.resolve(<WidgetState>{})!;
         }
 
         final disabledColour = labelColour();
         await _tapNext(tester);
         expect(
           tester
-              .widget<TextButton>(find.byKey(kOnboardingBackButtonKey))
+              .widget<WpButton>(find.byKey(kOnboardingBackButtonKey))
               .onPressed,
           isNotNull,
           reason: 'page 2 Back must be enabled — otherwise this proves nothing',
@@ -566,16 +569,16 @@ void main() {
         for (var page = 0; page < 3; page++) {
           await _tapNext(tester);
           final navRow = find.byKey(kOnboardingNavRowKey);
-          final textButtons = find.descendant(
+          final backButtons = find.descendant(
             of: navRow,
-            matching: find.byType(TextButton),
+            matching: find.byType(WpButton),
           );
           final accentButtons = find.descendant(
             of: navRow,
             matching: find.byType(WpHeroButton),
           );
           expect(
-            tester.widgetList(textButtons).length +
+            tester.widgetList(backButtons).length +
                 tester.widgetList(accentButtons).length,
             2,
             reason: 'page ${page + 2} nav row must carry exactly two actions',

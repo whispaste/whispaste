@@ -16,6 +16,7 @@ import '../../services/hotkey_service.dart';
 import '../../services/paste/paste_capability_notifier.dart';
 import '../../services/permissions/mic_permission_notifier.dart';
 import '../../services/telemetry_service.dart';
+import '../../widgets/wp_button.dart';
 import '../../widgets/wp_hero_button.dart';
 import 'onboarding_completion_gate.dart';
 import 'onboarding_flow_migration.dart';
@@ -565,9 +566,6 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
         ? WpColorsDark.background
         : WpColorsLight.background;
     final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-    final textSecondary = isDark
-        ? WpColorsDark.textSecondary
-        : WpColorsLight.textSecondary;
     final accentGradient = isDark
         ? WpColorsDark.accentWarmGradient
         : WpColorsLight.accentWarmGradient;
@@ -713,21 +711,12 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
                   child: Row(
                     key: kOnboardingNavRowKey,
                     children: [
-                      // The colour rides on the ButtonStyle, not on the
-                      // child's TextStyle: an explicit `TextStyle(color:)`
-                      // wins over Material's `disabledForegroundColor`, so
-                      // the first page's disabled Back button looked exactly
-                      // as tappable as an enabled one.
-                      TextButton(
+                      WpButton(
                         key: kOnboardingBackButtonKey,
-                        style: TextButton.styleFrom(
-                          foregroundColor: textSecondary,
-                          disabledForegroundColor: textMuted.withValues(
-                            alpha: 0.5,
-                          ),
-                        ),
+                        label: l10n.onboardingBack,
+                        variant: WpButtonVariant.ghost,
+                        tone: WpButtonTone.neutral,
                         onPressed: safeCurrent > 0 ? _goBack : null,
-                        child: Text(l10n.onboardingBack),
                       ),
                       const Spacer(),
                       ConstrainedBox(
