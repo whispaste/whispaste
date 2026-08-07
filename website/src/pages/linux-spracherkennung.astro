@@ -1,0 +1,254 @@
+---
+/**
+ * `/linux-spracherkennung/` — Linux-Explainer-Page.
+ *
+ * Motivation (SEO-Audit 2026-08-07, Nachtrag N-1): ein Cluster aus 59
+ * Impressionen bei 0 Klicks, größtenteils Position 4–11, sucht wörtlich nach
+ * einer ausführbaren Linux-Datei („single executable", „appimage download",
+ * „tar.gz", „speech to text ubuntu offline"). Google rankte dafür mangels
+ * Alternative `/whisper-desktop/`, das die Frage nicht beantwortet. Linux ist
+ * laut `CONTEXT.md` §1 gleichrangig zu macOS und Windows, hatte aber als
+ * einzige der drei Plattformen keine eigene Erklär-Seite.
+ *
+ * Deshalb stehen die drei ausgelieferten Artefaktnamen als **sichtbarer Text**
+ * auf der Seite, nicht nur als Link-Ziel — sie sind die gesuchte Phrase. Die
+ * Namen stammen aus dem tatsächlichen Release (`gh release view`, v1.2.65):
+ *
+ *   WhisPaste-<version>-linux-x64.AppImage  (+ unversionierter Alias)
+ *   WhisPaste-<version>-linux-x64.deb       (+ unversionierter Alias)
+ *   WhisPaste-<version>-linux-x64.tar.gz    (nur versioniert)
+ *
+ * Bewusst NICHT erwähnt: Snap und Flatpak. `packaging/snap/` und
+ * `packaging/flatpak/` enthalten Runbooks und Manifeste, aber kein
+ * bestätigtes Live-Listing — eine Downloadoption zu versprechen, die es noch
+ * nicht gibt, wäre schlechter als sie wegzulassen.
+ *
+ * Belege für die inhaltlichen Aussagen:
+ *   - Engine in-process via `dart:ffi` gegen gebundeltes `libwhisper`
+ *     (`lib/services/legacy_residue_cleanup.dart` Kopfkommentar) → daher
+ *     „kein Python, kein separater Engine-Download".
+ *   - `Depends:`-Liste aus `packaging/deb/README.md`.
+ *   - Schreibpfad `~/.config/whispaste/models/stt` aus
+ *     `packaging/appimage/README.md` bzw. `path_service.dart`.
+ *   - Vulkan-Build unter Linux aus `scripts/build-libwhisper-linux.sh`
+ *     (siehe `/gpu-kompatibilitaet/`).
+ *   - 8 GB RAM / 64-Bit / Ubuntu aus
+ *     `explainer.offlineStt.section.resourceProfile.*`.
+ *
+ * Schema-Wahl: FAQPage — die Such-Intention besteht aus wörtlichen Ja/Nein-
+ * Fragen („gibt es ein AppImage?", „brauche ich Python?"). Die Q&A-Paare
+ * spiegeln 1:1 die sichtbare `<dl>`-Liste (Google-Rich-Results-Anforderung).
+ *
+ * Slug divergiert zwischen DE und EN (`linux-spracherkennung` ↔
+ * `linux-speech-to-text`), daher explizite `alternateSlugs`.
+ */
+import LandingPageLayout from "../layouts/LandingPageLayout.astro";
+import FAQPageSchema from "../components/schema/FAQPageSchema.astro";
+import { t, localePath } from "../scripts/i18n.ts";
+
+const lang = "de" as const;
+
+const breadcrumbs = [
+  { name: t(lang, "breadcrumb.home"), item: localePath(lang, "") },
+  { name: t(lang, "linuxStt.breadcrumb"), item: localePath(lang, "linux-spracherkennung") },
+];
+
+const seo = {
+  title: t(lang, "linuxStt.seoTitle"),
+  description: t(lang, "linuxStt.seoDescription"),
+};
+
+const hero = {
+  heading: t(lang, "linuxStt.heroHeading"),
+  lead: t(lang, "linuxStt.heroLead"),
+};
+
+const cta = {
+  label: t(lang, "linuxStt.cta.label"),
+  href: localePath(lang, "download"),
+};
+
+/**
+ * Die Dateinamen sind bewusst **nicht** übersetzt und stehen literal im Code:
+ * sie sind Produkt-Artefakte, keine Prosa, und müssen in beiden Locales exakt
+ * gleich lauten.
+ */
+const releaseFiles = [
+  {
+    name: "WhisPaste-<version>-linux-x64.AppImage",
+    alias: "WhisPaste-linux-x64.AppImage",
+    what: t(lang, "linuxStt.files.appimage.what"),
+  },
+  {
+    name: "WhisPaste-<version>-linux-x64.deb",
+    alias: "WhisPaste-linux-x64.deb",
+    what: t(lang, "linuxStt.files.deb.what"),
+  },
+  {
+    name: "WhisPaste-<version>-linux-x64.tar.gz",
+    alias: null,
+    what: t(lang, "linuxStt.files.targz.what"),
+  },
+];
+
+const faqQuestions = [
+  { question: t(lang, "linuxStt.faq.appimage.q"), answer: t(lang, "linuxStt.faq.appimage.a") },
+  { question: t(lang, "linuxStt.faq.noInstall.q"), answer: t(lang, "linuxStt.faq.noInstall.a") },
+  { question: t(lang, "linuxStt.faq.python.q"), answer: t(lang, "linuxStt.faq.python.a") },
+  { question: t(lang, "linuxStt.faq.offline.q"), answer: t(lang, "linuxStt.faq.offline.a") },
+  { question: t(lang, "linuxStt.faq.gpu.q"), answer: t(lang, "linuxStt.faq.gpu.a") },
+];
+
+const alternateSlugs = { de: "linux-spracherkennung", en: "linux-speech-to-text" };
+
+const relatedPages = [
+  { label: t(lang, "explainer.offlineStt.breadcrumb"), href: localePath(lang, "offline-speech-to-text") },
+  { label: t(lang, "gpuCheck.breadcrumb"), href: localePath(lang, "gpu-kompatibilitaet") },
+  { label: t(lang, "modelSize.breadcrumb"), href: localePath(lang, "whisper-modellgroesse") },
+  { label: t(lang, "explainer.whisperDesktop.breadcrumb"), href: localePath(lang, "whisper-desktop") },
+];
+---
+
+<LandingPageLayout
+  lang={lang}
+  seo={seo}
+  breadcrumbs={breadcrumbs}
+  hero={hero}
+  cta={cta}
+  alternateSlugs={alternateSlugs}
+  relatedPages={relatedPages}
+>
+  <p class="tldr">{t(lang, "linuxStt.tldr")}</p>
+
+  <section>
+    <h2>{t(lang, "linuxStt.section.files.heading")}</h2>
+    <p>{t(lang, "linuxStt.section.files.body")}</p>
+    <ul class="file-list">
+      {releaseFiles.map((file) => (
+        <li class="file-item">
+          <code class="file-name">{file.name}</code>
+          <p class="file-what">{file.what}</p>
+          {file.alias && (
+            <p class="file-alias">
+              <span>{t(lang, "linuxStt.files.alias")}</span>{" "}
+              <code>{file.alias}</code>
+            </p>
+          )}
+        </li>
+      ))}
+    </ul>
+  </section>
+
+  <section>
+    <h2>{t(lang, "linuxStt.section.appimage.heading")}</h2>
+    <p>{t(lang, "linuxStt.section.appimage.body")}</p>
+  </section>
+
+  <section>
+    <h2>{t(lang, "linuxStt.section.deb.heading")}</h2>
+    <p>{t(lang, "linuxStt.section.deb.body")}</p>
+  </section>
+
+  <section>
+    <h2>{t(lang, "linuxStt.section.noPython.heading")}</h2>
+    <p>{t(lang, "linuxStt.section.noPython.body")}</p>
+    <p>{t(lang, "linuxStt.section.noPython.modelNote")}</p>
+  </section>
+
+  <section>
+    <h2>{t(lang, "linuxStt.section.requirements.heading")}</h2>
+    <p>{t(lang, "linuxStt.section.requirements.body")}</p>
+    <p>
+      <a href={localePath(lang, "download")} class="download-backlink">
+        {t(lang, "linuxStt.section.requirements.downloadLink")}
+      </a>
+    </p>
+  </section>
+
+  <section>
+    <h2>{t(lang, "faq.title")}</h2>
+    <dl class="faq-list">
+      {faqQuestions.map((entry) => (
+        <div class="faq-item">
+          <dt>{entry.question}</dt>
+          <dd>{entry.answer}</dd>
+        </div>
+      ))}
+    </dl>
+  </section>
+
+  <FAQPageSchema locale={lang} questions={faqQuestions} />
+</LandingPageLayout>
+
+<style>
+  .tldr {
+    color: var(--color-ink);
+    font-size: 1.0625rem;
+    line-height: 1.65;
+  }
+
+  /* Dateiliste: die Artefaktnamen sind der eigentliche Seiteninhalt für den
+     Such-Cluster, deshalb bekommen sie eigene Prominenz statt nur `<li>`. */
+  /* Doppelte Klasse (`.file-list.file-list`) statt einfacher: `LandingPageLayout`
+     stylt `section ul` als Disc-Liste über `.landing-content[scope] section ul`
+     — Spezifität (0,2,2). Ein einfaches `.file-list[scope]` (0,2,0) verliert
+     dagegen, die Aufzählungspunkte blieben stehen. */
+  .file-list.file-list {
+    list-style: none;
+    margin-top: 1.25rem;
+    padding-left: 0;
+    max-width: 62ch;
+  }
+  .file-item + .file-item {
+    margin-top: 1.4rem;
+  }
+  .file-name {
+    display: block;
+    color: var(--color-brand-cyan);
+    font-size: 0.9375rem;
+    /* Lange Artefaktnamen dürfen auf schmalen Viewports umbrechen statt die
+       Seite horizontal zu scrollen. */
+    overflow-wrap: anywhere;
+  }
+  .file-what {
+    margin-top: 0.35rem;
+  }
+  .file-alias {
+    margin-top: 0.35rem;
+    font-size: 0.875rem;
+    color: var(--color-ink-subtle);
+  }
+  /* Alias auf eigener Zeile: sonst zerreißt der Umbruch den Dateinamen mitten
+     im Wort, und genau dieser Name ist der Grund, warum die Seite existiert. */
+  .file-alias code {
+    display: block;
+    margin-top: 0.15rem;
+    overflow-wrap: anywhere;
+  }
+
+  .download-backlink {
+    color: var(--color-brand-cyan);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .download-backlink:hover {
+    text-decoration-thickness: 2px;
+  }
+
+  .faq-list {
+    margin-top: 1.5rem;
+  }
+  .faq-item + .faq-item {
+    margin-top: 1rem;
+  }
+  .faq-list dt {
+    color: var(--color-ink);
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+  }
+  .faq-list dd {
+    color: var(--color-ink-muted);
+    line-height: 1.6;
+    margin: 0;
+  }
+</style>

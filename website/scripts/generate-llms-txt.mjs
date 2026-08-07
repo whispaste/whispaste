@@ -297,6 +297,21 @@ const LLMS_TXT_SECTIONS = Object.freeze([
     ],
   },
   {
+    title: "Linux",
+    links: [
+      {
+        label: "Linux-Spracherkennung (Deutsch)",
+        url: "https://whispaste.de/linux-spracherkennung/",
+        note: "Die drei ausgelieferten Linux-Dateien (AppImage, .deb, tar.gz), ohne Python und ohne eigenen Build",
+      },
+      {
+        label: "Linux speech to text (English)",
+        url: "https://whispaste.de/en/linux-speech-to-text/",
+        note: "The three shipped Linux files (AppImage, .deb, tar.gz), with no Python environment and no build step",
+      },
+    ],
+  },
+  {
     title: "Use Cases",
     links: [
       {
