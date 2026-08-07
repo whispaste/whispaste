@@ -54,7 +54,7 @@ import 'package:whispaste/services/model_download_service.dart';
 import 'package:whispaste/services/paste/paste_capability_notifier.dart';
 import 'package:whispaste/services/permissions/mic_permission_notifier.dart';
 import 'package:whispaste/services/stt_parakeet/parakeet_download_service.dart';
-import 'package:whispaste/widgets/wp_accent_button.dart';
+import 'package:whispaste/widgets/wp_hero_button.dart';
 
 import '../../fixtures/test_helpers.dart';
 
@@ -350,7 +350,7 @@ void main() {
             find.text(l10n.onboardingStepOf(total, total)),
             findsOneWidget,
           );
-          final next = tester.widget<WpAccentButton>(
+          final next = tester.widget<WpHeroButton>(
             find.byKey(kOnboardingNextButtonKey),
           );
           expect(next.label, l10n.onboardingStartUsing);
@@ -485,7 +485,7 @@ void main() {
         );
         final accentButtons = find.descendant(
           of: navRow,
-          matching: find.byType(WpAccentButton),
+          matching: find.byType(WpHeroButton),
         );
         expect(
           tester.widgetList(textButtons).length +
@@ -501,7 +501,7 @@ void main() {
         expect(back.onPressed, isNull);
 
         // Next is enabled.
-        final next = tester.widget<WpAccentButton>(
+        final next = tester.widget<WpHeroButton>(
           find.byKey(kOnboardingNextButtonKey),
         );
         expect(next.onPressed, isNotNull);
@@ -572,7 +572,7 @@ void main() {
           );
           final accentButtons = find.descendant(
             of: navRow,
-            matching: find.byType(WpAccentButton),
+            matching: find.byType(WpHeroButton),
           );
           expect(
             tester.widgetList(textButtons).length +

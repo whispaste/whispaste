@@ -392,7 +392,7 @@ TextTheme _textTheme(ColorScheme cs) {
       color: cs.secondary,
       height: 1.4,
     ),
-    // Button label / CTA (16px / 700) — WpAccentButton, SF-style tight tracking
+    // Button label / CTA (16px / 700) — WpHeroButton, SF-style tight tracking
     labelLarge: TextStyle(
       fontSize: 16,
       fontWeight: FontWeight.w700,

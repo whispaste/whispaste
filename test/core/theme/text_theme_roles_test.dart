@@ -11,7 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/theme/theme.dart';
 import 'package:whispaste/widgets/toast.dart';
-import 'package:whispaste/widgets/wp_accent_button.dart';
+import 'package:whispaste/widgets/wp_hero_button.dart';
 
 import '../../fixtures/test_helpers.dart';
 
@@ -115,13 +115,13 @@ void main() {
   // AC2: ad-hoc call sites now use theme roles
   // ---------------------------------------------------------------------------
 
-  group('WpAccentButton uses textTheme.labelLarge', () {
+  group('WpHeroButton uses textTheme.labelLarge', () {
     testWidgets('button label inherits size + weight from labelLarge', (
       tester,
     ) async {
       await tester.pumpWidget(
         makeTestable(
-          WpAccentButton(
+          WpHeroButton(
             label: 'Start',
             gradient: const LinearGradient(
               colors: [Color(0xFF38D9F0), Color(0xFF0887A8)],

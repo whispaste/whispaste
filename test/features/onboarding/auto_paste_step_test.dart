@@ -28,7 +28,7 @@ import 'package:whispaste/features/onboarding/steps/auto_paste_step.dart';
 import 'package:whispaste/services/desktop_paste/desktop_paste_controller.dart';
 import 'package:whispaste/services/paste/paste_capability_notifier.dart';
 import 'package:whispaste/services/paste/paster.dart';
-import 'package:whispaste/widgets/wp_accent_button.dart';
+import 'package:whispaste/widgets/wp_hero_button.dart';
 
 import '../../fixtures/test_helpers.dart';
 
@@ -522,17 +522,17 @@ void main() {
 
         await _pumpStep(tester, paste: paste);
 
-        // Locate the Grant CTA's underlying WpAccentButton — there are two
+        // Locate the Grant CTA's underlying WpHeroButton — there are two
         // accent buttons on screen (Grant + Next); we pick the one wrapping
         // the localized Grant label.
         Finder grantButtonFinder() => find.ancestor(
           of: find.text(l10n.onboardingPasteGrantCta),
-          matching: find.byType(WpAccentButton),
+          matching: find.byType(WpHeroButton),
         );
 
         // Baseline: button is interactive before any tap.
         expect(
-          tester.widget<WpAccentButton>(grantButtonFinder()).onPressed,
+          tester.widget<WpHeroButton>(grantButtonFinder()).onPressed,
           isNotNull,
         );
 
@@ -543,10 +543,10 @@ void main() {
         await tester.pump();
 
         expect(
-          tester.widget<WpAccentButton>(grantButtonFinder()).onPressed,
+          tester.widget<WpHeroButton>(grantButtonFinder()).onPressed,
           isNull,
           reason:
-              'While _onGrantPressed is in-flight the Grant WpAccentButton '
+              'While _onGrantPressed is in-flight the Grant WpHeroButton '
               'must be disabled (onPressed == null).',
         );
 
@@ -560,7 +560,7 @@ void main() {
         await tester.pump();
 
         expect(
-          tester.widget<WpAccentButton>(grantButtonFinder()).onPressed,
+          tester.widget<WpHeroButton>(grantButtonFinder()).onPressed,
           isNotNull,
           reason:
               'After _onGrantPressed completes the button must be re-enabled '
@@ -593,7 +593,7 @@ void main() {
         await tester.pump();
 
         // Second tap while in-flight must be ignored. tester.tap fails on a
-        // disabled InkWell hit-test (the WpAccentButton wraps onPressed=null
+        // disabled InkWell hit-test (the WpHeroButton wraps onPressed=null
         // around the InkWell), so we use warnIfMissed:false to make the
         // attempt observable rather than a test failure — the assertion
         // below is what proves the no-op behaviour.

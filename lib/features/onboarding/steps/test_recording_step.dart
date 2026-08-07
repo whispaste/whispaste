@@ -11,7 +11,7 @@ import '../../../features/settings/settings_widgets.dart';
 import 'mic_permission_chip.dart';
 import 'onboarding_headings.dart';
 import '../../../services/recording_orchestrator.dart';
-import '../../../widgets/wp_accent_button.dart';
+import '../../../widgets/wp_hero_button.dart';
 import '../onboarding_completion_gate.dart';
 
 /// Widget keys exposed for testing. Kept in one place so tests and production
@@ -179,8 +179,8 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
         // parallel through the same orchestrator path. Disabled while a
         // finished recording is being transcribed — the sandbox field's
         // in-progress line explains the wait.
-        // loam-ignore: a11y-interactive-semantics – semantics provided in WpAccentButton.build
-        WpAccentButton(
+        // loam-ignore: a11y-interactive-semantics – semantics provided in WpHeroButton.build
+        WpHeroButton(
           key: kTestRecordingStepRecordButtonKey,
           label: phase == RecordingPhase.recording
               ? l10n.onboardingTestRecordingStopCta

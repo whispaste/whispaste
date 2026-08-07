@@ -13,7 +13,7 @@ import '../../../services/model_download_service.dart';
 import '../../../services/stt_parakeet/parakeet_download_service.dart';
 import '../../../services/stt_parakeet/parakeet_model_registry.dart';
 import '../../../widgets/tier_performance_presentation.dart';
-import '../../../widgets/wp_accent_button.dart';
+import '../../../widgets/wp_hero_button.dart';
 import '../../settings/settings_widgets.dart' show kSettingRowInset;
 
 /// Widget keys exposed for testing. Kept in one place so tests and production
@@ -444,8 +444,8 @@ class _ModelStepDownloadStatus extends StatelessWidget {
     }
     return SizedBox(
       width: double.infinity,
-      // loam-ignore: a11y-interactive-semantics – semantics provided in WpAccentButton.build
-      child: WpAccentButton(
+      // loam-ignore: a11y-interactive-semantics – semantics provided in WpHeroButton.build
+      child: WpHeroButton(
         label: '${l10n.qualityTierDownloadAndContinue} ($sizeLabel)',
         gradient: accentGradient,
         onPressed: onStartDownload,

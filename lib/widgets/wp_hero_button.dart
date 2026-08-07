@@ -3,13 +3,14 @@ import 'package:flutter/material.dart';
 import '../core/theme/tokens.dart';
 import 'wp_focus_ring.dart';
 
-/// Shared accent-gradient CTA button used throughout onboarding and elsewhere.
+/// Shared accent-gradient hero CTA button used throughout onboarding and
+/// elsewhere.
 ///
 /// Always renders white text on the gradient background for reliable contrast
 /// in both light and dark themes. Supports disabled state via nullable
 /// [onPressed] and keyboard focus via [Material] + [InkWell].
-class WpAccentButton extends StatefulWidget {
-  const WpAccentButton({
+class WpHeroButton extends StatefulWidget {
+  const WpHeroButton({
     super.key,
     required this.label,
     required this.gradient,
@@ -27,10 +28,10 @@ class WpAccentButton extends StatefulWidget {
   final double verticalPadding;
 
   @override
-  State<WpAccentButton> createState() => _WpAccentButtonState();
+  State<WpHeroButton> createState() => _WpHeroButtonState();
 }
 
-class _WpAccentButtonState extends State<WpAccentButton> {
+class _WpHeroButtonState extends State<WpHeroButton> {
   bool _hovered = false;
   final _focusNode = FocusNode();
 

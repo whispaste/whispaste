@@ -57,7 +57,7 @@ import 'package:whispaste/services/hotkey_service.dart'
 import 'package:whispaste/services/keyboard_up_monitor.dart';
 import 'package:whispaste/services/permissions/mic_permission_notifier.dart';
 import 'package:whispaste/services/recording_orchestrator.dart';
-import 'package:whispaste/widgets/wp_accent_button.dart';
+import 'package:whispaste/widgets/wp_hero_button.dart';
 
 import '../../fixtures/test_helpers.dart';
 
@@ -202,7 +202,7 @@ void _expectExactlyTwoNavActions(WidgetTester tester, {required int page}) {
       .length;
   final accentButtons = tester
       .widgetList(
-        find.descendant(of: navRow, matching: find.byType(WpAccentButton)),
+        find.descendant(of: navRow, matching: find.byType(WpHeroButton)),
       )
       .length;
   expect(
@@ -310,7 +310,7 @@ void main() {
         );
         expect(
           tester
-              .widget<WpAccentButton>(find.byKey(kOnboardingNextButtonKey))
+              .widget<WpHeroButton>(find.byKey(kOnboardingNextButtonKey))
               .onPressed,
           isNull,
           reason:
@@ -325,7 +325,7 @@ void main() {
         expect(find.text('Hallo aus der Sandbox.'), findsOneWidget);
         expect(
           tester
-              .widget<WpAccentButton>(find.byKey(kOnboardingNextButtonKey))
+              .widget<WpHeroButton>(find.byKey(kOnboardingNextButtonKey))
               .onPressed,
           isNotNull,
           reason: 'Nach erkannter Sprache muss der Abschluss-CTA aktiv werden.',
@@ -405,7 +405,7 @@ void main() {
             find.text(l10n.onboardingTriggerHotkeyConflictTitle),
             findsWidgets,
           );
-          final cta = tester.widget<WpAccentButton>(
+          final cta = tester.widget<WpHeroButton>(
             find.byKey(kOnboardingNextButtonKey),
           );
           expect(
@@ -442,7 +442,7 @@ void main() {
           // Ohne Testaufnahme: CTA deaktiviert, Grund benannt.
           expect(
             tester
-                .widget<WpAccentButton>(find.byKey(kOnboardingNextButtonKey))
+                .widget<WpHeroButton>(find.byKey(kOnboardingNextButtonKey))
                 .onPressed,
             isNull,
           );
@@ -464,7 +464,7 @@ void main() {
           );
           expect(
             tester
-                .widget<WpAccentButton>(find.byKey(kOnboardingNextButtonKey))
+                .widget<WpHeroButton>(find.byKey(kOnboardingNextButtonKey))
                 .onPressed,
             isNotNull,
             reason: 'Der Notausgang muss die Mikrofon-Bedingung umgehen.',
@@ -502,7 +502,7 @@ void main() {
 
         expect(
           tester
-              .widget<WpAccentButton>(find.byKey(kOnboardingNextButtonKey))
+              .widget<WpHeroButton>(find.byKey(kOnboardingNextButtonKey))
               .onPressed,
           isNull,
           reason:

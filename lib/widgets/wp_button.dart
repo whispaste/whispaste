@@ -2,7 +2,7 @@
 ///
 /// One component, one look: every place that lets the user *trigger an action*
 /// routes through here — dialog footers, settings rows, empty-state CTAs,
-/// toolbars. The gradient hero CTA ([WpAccentButton]) stays a separate, louder
+/// toolbars. The gradient hero CTA ([WpHeroButton]) stays a separate, louder
 /// step above this ladder; icon-only affordances stay [IconButton].
 ///
 /// ## Why this exists
@@ -52,7 +52,7 @@
 ///
 /// Disabled is a token change (`textMuted` on `surfaceVariant`, outline back to
 /// `borderSubtle`), never an opacity veil over live colours — the same rule the
-/// dropdown's unselectable rows follow. ([WpAccentButton] keeps its own 50 %
+/// dropdown's unselectable rows follow. ([WpHeroButton] keeps its own 50 %
 /// opacity language; it is a different, louder component.)
 ///
 /// That swap on its own leaves the filled variant without a shape, though.

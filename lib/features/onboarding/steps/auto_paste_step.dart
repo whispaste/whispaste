@@ -46,7 +46,7 @@ import '../../../services/desktop_paste/desktop_paste_controller.dart';
 import '../../../services/paste/paste_capability_notifier.dart';
 import '../../../services/paste/paster.dart';
 import '../../../widgets/paste_capability_restart_banner.dart';
-import '../../../widgets/wp_accent_button.dart';
+import '../../../widgets/wp_hero_button.dart';
 import '../../settings/settings_widgets.dart' show kSettingRowInset;
 
 class AutoPasteStep extends ConsumerStatefulWidget {
@@ -392,8 +392,8 @@ class _MacOsBody extends StatelessWidget {
         return [
           SizedBox(
             width: double.infinity,
-            // loam-ignore: a11y-interactive-semantics – semantics provided in WpAccentButton.build
-            child: WpAccentButton(
+            // loam-ignore: a11y-interactive-semantics – semantics provided in WpHeroButton.build
+            child: WpHeroButton(
               label: l10n.onboardingPasteGrantCta,
               gradient: accentGradient,
               onPressed: grantInFlight ? null : onGrant,

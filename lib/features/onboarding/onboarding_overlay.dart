@@ -16,7 +16,7 @@ import '../../services/hotkey_service.dart';
 import '../../services/paste/paste_capability_notifier.dart';
 import '../../services/permissions/mic_permission_notifier.dart';
 import '../../services/telemetry_service.dart';
-import '../../widgets/wp_accent_button.dart';
+import '../../widgets/wp_hero_button.dart';
 import 'onboarding_completion_gate.dart';
 import 'onboarding_flow_migration.dart';
 import 'steps/appearance_step.dart';
@@ -732,8 +732,8 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
                       const Spacer(),
                       ConstrainedBox(
                         constraints: const BoxConstraints(minWidth: 140),
-                        // loam-ignore: a11y-interactive-semantics – semantics provided in WpAccentButton.build
-                        child: WpAccentButton(
+                        // loam-ignore: a11y-interactive-semantics – semantics provided in WpHeroButton.build
+                        child: WpHeroButton(
                           key: kOnboardingNextButtonKey,
                           label: isLastStep
                               ? l10n.onboardingStartUsing
