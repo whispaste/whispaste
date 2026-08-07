@@ -1,0 +1,455 @@
+---
+/**
+ * `/whisper-modellgroesse/` — Modellgrößen-Empfehler.
+ *
+ * Beantwortet „welches Whisper-Modell soll ich nehmen?" mit den echten
+ * Schwellen aus dem App-Code statt mit Bauchgefühl:
+ *
+ *   `recommendTier(vramMB, vendor)` — lib/services/model_download_service.dart
+ *     Apple:      >= 4096 Premium, >= 2048 ausgewogen, sonst kompakt
+ *     NVIDIA:     >= 3715 Premium, >= 2150 ausgewogen, sonst kompakt
+ *     AMD/Intel:  >= 12288 Premium, >= 4096 ausgewogen, sonst kompakt
+ *
+ * Die Tabelle spiegelt `sttModels` (ebd.) und `sttModelVramMB`
+ * (packages/whispaste_diagnostics/lib/src/probes/gpu_info.dart:83) sowie
+ * `parakeetModelFiles` (lib/services/stt_parakeet/parakeet_model_registry.dart).
+ * Es gibt genau drei Whisper-Stufen (`QualityTier`, lib/core/config/
+ * quality_tier.dart) — tiny/base/large-v3 sind Legacy-IDs, die beim Laden
+ * migriert werden und deshalb hier bewusst NICHT auftauchen.
+ *
+ * Progressive Enhancement wie auf `/gpu-kompatibilitaet/`: alle Panels sind
+ * server-gerendert, das Skript blendet nur aus.
+ */
+import LandingPageLayout from "../layouts/LandingPageLayout.astro";
+import FAQPageSchema from "../components/schema/FAQPageSchema.astro";
+import { t, localePath } from "../scripts/i18n.ts";
+
+const lang = "de" as const;
+
+const breadcrumbs = [
+  { name: t(lang, "breadcrumb.home"), item: localePath(lang, "") },
+  { name: t(lang, "modelSize.breadcrumb"), item: localePath(lang, "whisper-modellgroesse") },
+];
+
+const seo = {
+  title: t(lang, "modelSize.seoTitle"),
+  description: t(lang, "modelSize.seoDescription"),
+};
+
+const hero = {
+  heading: t(lang, "modelSize.heroHeading"),
+  lead: t(lang, "modelSize.heroLead"),
+};
+
+const cta = {
+  label: t(lang, "modelSize.cta.label"),
+  href: localePath(lang, "download"),
+};
+
+const vendorOptions = [
+  { value: "nvidia", label: t(lang, "modelSize.vendor.nvidia") },
+  { value: "apple", label: t(lang, "modelSize.vendor.apple") },
+  { value: "integrated", label: t(lang, "modelSize.vendor.integrated") },
+  { value: "none", label: t(lang, "modelSize.vendor.none") },
+] as const;
+
+// Download-Größen = `sizeBytes` aus `sttModels` bzw. Summe der vier
+// `parakeetModelFiles`, jeweils auf MB (1024er) gerundet.
+const tierRows = [
+  {
+    tier: "Kompakt",
+    model: "whisper-small (q5_1)",
+    download: "181 MB",
+    vram: "~900 MB",
+  },
+  {
+    tier: "Ausgewogen",
+    model: "whisper-medium (q5_0)",
+    download: "514 MB",
+    vram: "~1,5 GB",
+  },
+  {
+    tier: "Premium",
+    model: "whisper-large-v3-turbo (q5_0)",
+    download: "547 MB",
+    vram: "~2,6 GB",
+  },
+  {
+    tier: "Parakeet",
+    model: "parakeet-tdt-0.6b-v3 (int8)",
+    download: "639 MB",
+    vram: t(lang, "modelSize.table.parakeetVram"),
+  },
+] as const;
+
+const resultPanels = [
+  {
+    key: "compact",
+    title: t(lang, "modelSize.result.compact.title"),
+    body: t(lang, "modelSize.result.compact.body"),
+  },
+  {
+    key: "balanced",
+    title: t(lang, "modelSize.result.balanced.title"),
+    body: t(lang, "modelSize.result.balanced.body"),
+  },
+  {
+    key: "premium",
+    title: t(lang, "modelSize.result.premium.title"),
+    body: t(lang, "modelSize.result.premium.body"),
+  },
+] as const;
+
+const faqQuestions = [
+  {
+    question: t(lang, "modelSize.faq.whichSize.q"),
+    answer: t(lang, "modelSize.faq.whichSize.a"),
+  },
+  {
+    question: t(lang, "modelSize.faq.biggerBetter.q"),
+    answer: t(lang, "modelSize.faq.biggerBetter.a"),
+  },
+  {
+    question: t(lang, "modelSize.faq.switchLater.q"),
+    answer: t(lang, "modelSize.faq.switchLater.a"),
+  },
+];
+
+const alternateSlugs = { de: "whisper-modellgroesse", en: "whisper-model-size" };
+
+const relatedPages = [
+  { label: t(lang, "gpuCheck.breadcrumb"), href: localePath(lang, "gpu-kompatibilitaet") },
+  { label: t(lang, "explainer.engines.breadcrumb"), href: localePath(lang, "engines") },
+  { label: t(lang, "explainer.whisperDesktop.breadcrumb"), href: localePath(lang, "whisper-desktop") },
+  { label: t(lang, "explainer.offlineStt.breadcrumb"), href: localePath(lang, "offline-speech-to-text") },
+];
+---
+
+<LandingPageLayout
+  lang={lang}
+  seo={seo}
+  breadcrumbs={breadcrumbs}
+  hero={hero}
+  cta={cta}
+  alternateSlugs={alternateSlugs}
+  relatedPages={relatedPages}
+>
+  <p class="tldr">{t(lang, "modelSize.tldr")}</p>
+
+  <section>
+    <h2>{t(lang, "modelSize.section.tiers.heading")}</h2>
+    <p>{t(lang, "modelSize.section.tiers.body")}</p>
+    <div class="ms-table-wrap">
+    <table class="ms-table">
+      <caption>{t(lang, "modelSize.table.caption")}</caption>
+      <thead>
+        <tr>
+          <th scope="col">{t(lang, "modelSize.table.tier")}</th>
+          <th scope="col">{t(lang, "modelSize.table.model")}</th>
+          <th scope="col">{t(lang, "modelSize.table.download")}</th>
+          <th scope="col">{t(lang, "modelSize.table.vram")}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {tierRows.map((row) => (
+          <tr>
+            <th scope="row">{row.tier}</th>
+            <td>{row.model}</td>
+            <td>{row.download}</td>
+            <td>{row.vram}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>{t(lang, "modelSize.picker.heading")}</h2>
+    <form class="ms-form" id="ms-form">
+      <fieldset class="ms-field">
+        <legend>{t(lang, "modelSize.picker.vendorLegend")}</legend>
+        <div class="ms-pills">
+          {vendorOptions.map((option, index) => (
+            <label class="ms-pill">
+              <input type="radio" name="ms-vendor" value={option.value} checked={index === 0} />
+              <span>{option.label}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      <div class="ms-field" id="ms-vram-field">
+        <label class="ms-vram-label" for="ms-vram">{t(lang, "modelSize.picker.vramLegend")}</label>
+        <input class="ms-vram-input" type="number" id="ms-vram" name="ms-vram" min="0" max="128" step="1" value="4" />
+        <p class="ms-hint">{t(lang, "modelSize.picker.vramHint")}</p>
+      </div>
+
+      <p class="ms-hint">{t(lang, "modelSize.picker.hint")}</p>
+    </form>
+  </section>
+
+  <section id="ms-results" aria-live="polite">
+    <h2>{t(lang, "modelSize.result.heading")}</h2>
+    <p class="ms-nojs">{t(lang, "modelSize.result.nojs")}</p>
+    {resultPanels.map((panel) => (
+      <article class="ms-panel" data-result={panel.key}>
+        <h3>{panel.title}</h3>
+        <p>{panel.body}</p>
+      </article>
+    ))}
+    <article class="ms-panel ms-parakeet" data-result="parakeet">
+      <h3>{t(lang, "modelSize.result.parakeet.title")}</h3>
+      <p>{t(lang, "modelSize.result.parakeet.body")}</p>
+    </article>
+  </section>
+
+  <FAQPageSchema locale={lang} questions={faqQuestions} />
+
+  <section>
+    <h2>{t(lang, "modelSize.section.howRecommended.heading")}</h2>
+    <p>{t(lang, "modelSize.section.howRecommended.body")}</p>
+  </section>
+
+  <section>
+    <h2>{t(lang, "modelSize.section.language.heading")}</h2>
+    <p>{t(lang, "modelSize.section.language.body")}</p>
+  </section>
+
+  <section>
+    <h2>{t(lang, "faq.title")}</h2>
+    <dl class="faq-list">
+      {faqQuestions.map((entry) => (
+        <div class="faq-item">
+          <dt>{entry.question}</dt>
+          <dd>{entry.answer}</dd>
+        </div>
+      ))}
+    </dl>
+  </section>
+</LandingPageLayout>
+
+<script>
+  /**
+   * 1:1 die Schwellen aus `recommendTier` (model_download_service.dart).
+   * Ohne GPU greift der Code diese Funktion gar nicht erst auf — dort ist
+   * „kompakt" die richtige Antwort, plus der Parakeet-Hinweis.
+   */
+  const form = document.getElementById("ms-form");
+  const results = document.getElementById("ms-results");
+  const vramField = document.getElementById("ms-vram-field");
+  const vramInput = document.getElementById("ms-vram") as HTMLInputElement | null;
+
+  if (form && results) {
+    results.setAttribute("data-js", "on");
+
+    const tierFor = (vendor: string, vramMB: number): string => {
+      if (vendor === "none") return "compact";
+      if (vendor === "apple") {
+        if (vramMB >= 4096) return "premium";
+        if (vramMB >= 2048) return "balanced";
+        return "compact";
+      }
+      if (vendor === "nvidia") {
+        if (vramMB >= 3715) return "premium";
+        if (vramMB >= 2150) return "balanced";
+        return "compact";
+      }
+      if (vramMB >= 12288) return "premium";
+      if (vramMB >= 4096) return "balanced";
+      return "compact";
+    };
+
+    const update = (): void => {
+      const checked = form.querySelector<HTMLInputElement>('input[name="ms-vendor"]:checked');
+      const vendor = checked ? checked.value : "nvidia";
+      const noGpu = vendor === "none";
+      const vramGB = vramInput ? Number.parseFloat(vramInput.value) : 4;
+      const vramMB = Number.isFinite(vramGB) && vramGB > 0 ? vramGB * 1024 : 0;
+      const tier = tierFor(vendor, vramMB);
+
+      if (vramField) vramField.hidden = noGpu;
+
+      results.querySelectorAll<HTMLElement>(".ms-panel").forEach((panel) => {
+        const key = panel.dataset.result;
+        const show = key === "parakeet" ? noGpu : key === tier;
+        panel.classList.toggle("is-active", show);
+      });
+    };
+
+    form.addEventListener("change", update);
+    form.addEventListener("input", update);
+    update();
+  }
+</script>
+
+<style>
+  .tldr {
+    color: var(--color-ink);
+    font-size: 1.0625rem;
+    line-height: 1.65;
+  }
+
+  .ms-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    margin-top: 0.25rem;
+  }
+  .ms-field {
+    border: 0;
+    padding: 0;
+    margin: 0;
+    min-inline-size: 0;
+  }
+  .ms-field legend,
+  .ms-vram-label {
+    display: block;
+    color: var(--color-ink-subtle);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 0.6rem;
+  }
+  .ms-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .ms-pill {
+    position: relative;
+    display: inline-flex;
+  }
+  .ms-pill input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+  .ms-pill span {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.5rem 1rem;
+    border-radius: 999px;
+    border: 1px solid var(--color-brand-border);
+    background: color-mix(in srgb, var(--color-brand-card) 55%, transparent);
+    color: var(--color-ink-muted);
+    font-size: 0.9375rem;
+    line-height: 1.2;
+    transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
+  }
+  .ms-pill input:checked + span {
+    border-color: var(--color-brand-cyan);
+    background: color-mix(in srgb, var(--color-brand-cyan) 12%, transparent);
+    color: var(--color-ink);
+  }
+  .ms-pill input:focus-visible + span {
+    outline: 2px solid var(--color-brand-cyan);
+    outline-offset: 2px;
+  }
+
+  .ms-vram-input {
+    width: 7rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.6rem;
+    border: 1px solid var(--color-brand-border);
+    background: color-mix(in srgb, var(--color-brand-card) 55%, transparent);
+    color: var(--color-ink);
+    font-size: 1rem;
+  }
+  .ms-vram-input:focus-visible {
+    outline: 2px solid var(--color-brand-cyan);
+    outline-offset: 2px;
+  }
+
+  .ms-hint,
+  .ms-nojs {
+    color: var(--color-ink-subtle);
+    font-size: 0.875rem;
+    line-height: 1.6;
+    margin-top: 0.6rem;
+  }
+
+  .ms-panel {
+    margin-top: 1.1rem;
+  }
+  .ms-panel h3 {
+    color: var(--color-ink);
+    font-weight: 600;
+    font-size: 1.0625rem;
+    margin-bottom: 0.4rem;
+  }
+  .ms-parakeet {
+    padding-left: 0.9rem;
+    border-left: 2px solid color-mix(in srgb, var(--color-brand-cyan) 45%, transparent);
+  }
+
+  /* Progressive Enhancement: ohne JS bleiben alle Panels sichtbar. */
+  #ms-results[data-js="on"] .ms-nojs,
+  #ms-results[data-js="on"] .ms-panel:not(.is-active) {
+    display: none;
+  }
+
+  .ms-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .ms-table {
+    width: 100%;
+    min-width: 34rem;
+    margin-top: 1.1rem;
+    border-collapse: collapse;
+    font-size: 0.9375rem;
+  }
+  .ms-table caption {
+    caption-side: top;
+    text-align: left;
+    color: var(--color-ink-subtle);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding-bottom: 0.6rem;
+  }
+  .ms-table th,
+  .ms-table td {
+    text-align: left;
+    padding: 0.55rem 0.75rem 0.55rem 0;
+    border-bottom: 1px solid var(--color-brand-border);
+  }
+  .ms-table thead th {
+    color: var(--color-ink-subtle);
+    font-weight: 600;
+  }
+  .ms-table tbody th {
+    color: var(--color-ink);
+    font-weight: 500;
+  }
+  .ms-table tbody td {
+    color: var(--color-ink-muted);
+  }
+
+  .faq-list {
+    margin-top: 1rem;
+  }
+  .faq-item + .faq-item {
+    margin-top: 1rem;
+  }
+  .faq-list dt {
+    color: var(--color-ink);
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+  }
+  .faq-list dd {
+    color: var(--color-ink-muted);
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ms-pill span {
+      transition: none;
+    }
+  }
+</style>

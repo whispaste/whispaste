@@ -272,6 +272,31 @@ const LLMS_TXT_SECTIONS = Object.freeze([
     ],
   },
   {
+    title: "Hardware",
+    links: [
+      {
+        label: "GPU-Kompatibilität (Deutsch)",
+        url: "https://whispaste.de/gpu-kompatibilitaet/",
+        note: "Welches Rechen-Backend läuft: Vulkan (Windows/Linux), Metal (Apple Silicon), sonst CPU — eine GPU ist nie Pflicht",
+      },
+      {
+        label: "GPU compatibility (English)",
+        url: "https://whispaste.de/en/gpu-compatibility/",
+        note: "Which compute backend runs: Vulkan (Windows/Linux), Metal (Apple Silicon), CPU otherwise — a GPU is never required",
+      },
+      {
+        label: "Whisper-Modellgröße (Deutsch)",
+        url: "https://whispaste.de/whisper-modellgroesse/",
+        note: "Die drei ausgelieferten Stufen mit Downloadgröße und Grafikspeicher, plus Empfehlung",
+      },
+      {
+        label: "Whisper model size (English)",
+        url: "https://whispaste.de/en/whisper-model-size/",
+        note: "The three shipped tiers with download size and graphics memory, plus a recommendation",
+      },
+    ],
+  },
+  {
     title: "Use Cases",
     links: [
       {

@@ -25,6 +25,8 @@ const offlineSttHref = lang === 'de' ? '/offline-speech-to-text/' : '/en/offline
 const privacyExplainerHref = lang === 'de' ? '/privatsphaere-spracherkennung/' : '/en/privacy-speech-recognition/';
 const dictationAlternativesHref = lang === 'de' ? '/vergleich/diktiersoftware-alternativen/' : '/en/comparison/voice-input-tool-alternatives/';
 const osDictationHref = lang === 'de' ? '/vergleich/whispaste-vs-system-spracheingabe/' : '/en/comparison/whispaste-vs-system-speech-to-text/';
+const gpuCheckHref = lang === 'de' ? '/gpu-kompatibilitaet/' : '/en/gpu-compatibility/';
+const modelSizeHref = lang === 'de' ? '/whisper-modellgroesse/' : '/en/whisper-model-size/';
 ---
 
 {/* pb-28 unter 640px: die fixe MobileCta-Leiste (~75px hoch) verdeckte sonst
@@ -56,6 +58,8 @@ const osDictationHref = lang === 'de' ? '/vergleich/whispaste-vs-system-sprachei
           <a href={enginesHref} class="text-ink-muted hover:text-white transition-colors" data-i18n="explainer.engines.breadcrumb">{t(lang, "explainer.engines.breadcrumb")}</a>
           <a href={offlineSttHref} class="text-ink-muted hover:text-white transition-colors" data-i18n="explainer.offlineStt.breadcrumb">{t(lang, "explainer.offlineStt.breadcrumb")}</a>
           <a href={whisperDesktopHref} class="text-ink-muted hover:text-white transition-colors" data-i18n="explainer.whisperDesktop.breadcrumb">{t(lang, "explainer.whisperDesktop.breadcrumb")}</a>
+          <a href={gpuCheckHref} class="text-ink-muted hover:text-white transition-colors" data-i18n="gpuCheck.breadcrumb">{t(lang, "gpuCheck.breadcrumb")}</a>
+          <a href={modelSizeHref} class="text-ink-muted hover:text-white transition-colors" data-i18n="modelSize.breadcrumb">{t(lang, "modelSize.breadcrumb")}</a>
           <a href={privacyExplainerHref} class="text-ink-muted hover:text-white transition-colors" data-i18n="explainer.privacy.breadcrumb">{t(lang, "explainer.privacy.breadcrumb")}</a>
           <a href={dictationAlternativesHref} class="text-ink-muted hover:text-white transition-colors" data-i18n="comparison.dictationAlternatives.breadcrumb">{t(lang, "comparison.dictationAlternatives.breadcrumb")}</a>
           <a href={osDictationHref} class="text-ink-muted hover:text-white transition-colors" data-i18n="comparison.osDictation.breadcrumb">{t(lang, "comparison.osDictation.breadcrumb")}</a>
