@@ -230,7 +230,7 @@ if [ -n "$DART_STAGED" ]; then
     echo ""
     echo "Loam ratchet gate..."
     dart pub global activate loam 0.1.13 >/dev/null
-    export PATH="$PATH:$HOME/.pub-cache/bin"
+    export PATH="$HOME/.pub-cache/bin:$PATH"
     if [ -z "${DART_SDK:-}" ]; then
       if command -v flutter >/dev/null 2>&1; then
         _f=$(command -v flutter)
