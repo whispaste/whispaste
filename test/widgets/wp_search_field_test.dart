@@ -244,6 +244,25 @@ void main() {
       expect(_borderDecoration(tester).border!.top.color, Colors.transparent);
     });
 
+    testWidgets('raised: light theme takes the halved light shadow', (
+      tester,
+    ) async {
+      final controller = TextEditingController();
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        makeTestable(
+          _field(controller: controller, variant: WpSearchFieldVariant.raised),
+          brightness: Brightness.light,
+        ),
+      );
+
+      // The dark-theme alpha reads as a grey haze over light's pearl
+      // surfaces — the same reason the list tiles this field floats above
+      // resolve their lift through `subtleFor`.
+      expect(_boxDecoration(tester).boxShadow, WpShadows.subtleLight);
+    });
+
     testWidgets('capsule: full radius, translucent fill, hairline', (
       tester,
     ) async {
@@ -375,6 +394,32 @@ void main() {
       // is the assertion that a leak of ownership would actually trip.
       await tester.pumpWidget(makeTestable(const SizedBox.shrink()));
       expect(() => node.addListener(() {}), returnsNormally);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // AC8 — one centre line
+  // -------------------------------------------------------------------------
+  group('AC8 — vertical rhythm', () {
+    testWidgets('the leading icon, the text and the clear button sit on the '
+        'same centre line', (tester) async {
+      final controller = TextEditingController(text: 'meeting notes');
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        makeTestable(
+          _field(controller: controller, variant: WpSearchFieldVariant.raised),
+        ),
+      );
+
+      // The prefix/suffix icon slots hold the box at Material's 48 dp floor,
+      // which is taller than the text row's own padded height. Without
+      // `textAlignVertical` the input keeps its own top-aligned box and the
+      // text rides 4 dp above both icons.
+      final field = tester.getRect(find.byType(WpSearchField)).center.dy;
+      expect(tester.getRect(find.byIcon(LucideIcons.search)).center.dy, field);
+      expect(tester.getRect(find.byIcon(LucideIcons.x)).center.dy, field);
+      expect(tester.getRect(find.byType(EditableText)).center.dy, field);
     });
   });
 }

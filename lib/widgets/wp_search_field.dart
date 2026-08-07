@@ -91,8 +91,8 @@ enum WpSearchFieldVariant {
   /// toolbar).
   outlined,
 
-  /// No resting border — depth comes from [WpShadows.subtle] instead, and the
-  /// accent border on focus is then the field's *only* stroke. For a field
+  /// No resting border — depth comes from [WpShadows.subtleFor] instead, and
+  /// the accent border on focus is then the field's *only* stroke. For a field
   /// that floats above the list it filters (Notes, History).
   raised,
 
@@ -244,7 +244,8 @@ class _WpSearchFieldState extends State<WpSearchField> {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    final palette = _WpSearchFieldPalette.of(Theme.of(context).brightness);
+    final brightness = Theme.of(context).brightness;
+    final palette = _WpSearchFieldPalette.of(brightness);
     final spec = _WpSearchFieldSpec.of(widget.variant);
     final clearLabel = widget.clearTooltip ?? l10n.actionClearSearch;
 
@@ -275,6 +276,11 @@ class _WpSearchFieldState extends State<WpSearchField> {
       controller: widget.controller,
       focusNode: _focusNode,
       autofocus: widget.autofocus,
+      // The icon slots hold the box at 48 dp (see the library docs), which is
+      // taller than the text row's own padded height — so without this the
+      // input keeps its top-aligned box and the text rides 4 dp above the
+      // search glyph and the clear button, both of which *are* centred.
+      textAlignVertical: TextAlignVertical.center,
       onChanged: widget.onChanged,
       onSubmitted: widget.onSubmitted,
       style: TextStyle(fontSize: WpTypography.body, color: palette.textPrimary),
@@ -287,6 +293,12 @@ class _WpSearchFieldState extends State<WpSearchField> {
         ),
         suffixIcon: suffixIcon,
         isDense: true,
+        // Horizontal: matches the 16 dp the 48 dp prefix slot already puts in
+        // front of its 16 dp glyph, so a field without a trailing button ends
+        // its text at the same inset the search icon starts at.
+        // Vertical: below the 48 dp floor at normal text size, so it decides
+        // nothing there — it is the breathing room the field grows *into*
+        // once an accessibility text size pushes the line past the floor.
         contentPadding: const EdgeInsets.symmetric(
           horizontal: WpSpacing.md,
           vertical: WpSpacing.xs + 2,
@@ -315,7 +327,13 @@ class _WpSearchFieldState extends State<WpSearchField> {
       decoration: BoxDecoration(
         color: spec.fill(palette),
         borderRadius: spec.radius,
-        boxShadow: spec.elevated ? WpShadows.subtle : null,
+        // Theme-resolved rather than raw `subtle`: the dark-theme alpha reads
+        // as a grey haze over light's pearl surfaces, which is exactly why
+        // `subtleFor` exists — and why the list tiles this field floats above
+        // already resolve their own lift through it.
+        boxShadow: spec.elevated
+            ? WpShadows.subtleFor(brightness == Brightness.dark)
+            : null,
       ),
       // Painted over the child, so the stroke can thicken on focus without
       // moving a single pixel of text. See the library docs.
@@ -396,7 +414,8 @@ class _WpSearchFieldSpec {
 
   final BorderRadius radius;
 
-  /// Carries [WpShadows.subtle] instead of a resting stroke.
+  /// Carries the theme-resolved [WpShadows.subtleFor] instead of a resting
+  /// stroke.
   final bool elevated;
 
   /// Uses the translucent muted fill rather than the opaque surface one.
