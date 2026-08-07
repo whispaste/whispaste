@@ -241,12 +241,13 @@ class _SnippetPickerBodyState extends State<_SnippetPickerBody>
   /// Live filter across BOTH title and body (ticket AC).
   List<SnippetPickerRenderItem> get _filtered {
     if (_query.isEmpty) return widget.items;
-    final q = _query.toLowerCase();
+    // ⚡ Bolt: Using precompiled case-insensitive RegExp to avoid allocating
+    // new lowercased strings for title and body on every item in the tight loop.
+    final searchRegex = RegExp(RegExp.escape(_query), caseSensitive: false);
     return widget.items
         .where(
           (i) =>
-              i.title.toLowerCase().contains(q) ||
-              i.body.toLowerCase().contains(q),
+              searchRegex.hasMatch(i.title) || searchRegex.hasMatch(i.body),
         )
         .toList();
   }
