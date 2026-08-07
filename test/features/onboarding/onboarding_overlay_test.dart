@@ -51,7 +51,9 @@ import 'package:whispaste/widgets/brand_wordmark.dart';
 import 'package:whispaste/services/hotkey_service.dart';
 import 'package:whispaste/services/keyboard_up_monitor.dart';
 import 'package:whispaste/services/model_download_service.dart';
+import 'package:whispaste/services/desktop_paste/desktop_paste_controller.dart';
 import 'package:whispaste/services/paste/paste_capability_notifier.dart';
+import 'package:whispaste/services/paste/paster.dart';
 import 'package:whispaste/services/permissions/mic_permission_notifier.dart';
 import 'package:whispaste/services/stt_parakeet/parakeet_download_service.dart';
 import 'package:whispaste/widgets/wp_button.dart';
@@ -103,6 +105,52 @@ class _RecordingPasteCapabilityNotifier extends PasteCapabilityNotifier {
   void stopPolling() {
     stopPollingCalls++;
   }
+}
+
+/// Seeds the Auto-Paste troubleshoot branch (needsRestart == true — missing
+/// + sent-to-OS-grant-flow + poll timed out) and answers `repair()` with the
+/// "nothing to clear" result. That combination renders the tallest
+/// Auto-Paste state: Skip + Repair + the result banner's own extra Restart
+/// button, all stacked at once — see [_RepairResultBanner]'s `nothingCleared`
+/// branch.
+///
+/// `check()` re-asserts the seeded state (mirroring
+/// `_FakePasteCapabilityNotifier` in auto_paste_step_test.dart): a
+/// successful repair chains into `requestGrant()`, which calls
+/// `check(prompt: true)` and would otherwise leave `pollingPhase` at
+/// `awaitingGrant` — flipping the phase to `waiting` and hiding the very
+/// banner this fake exists to keep on screen. `startPolling`/`stopPolling`
+/// are no-ops so the chain never touches the real platform bridge.
+class _TroubleshootPasteCapabilityNotifier extends PasteCapabilityNotifier {
+  static const _troubleshootState = PasteCapabilityState(
+    capability: PasteCapability(
+      status: PasteCapabilityStatus.permissionMissing,
+      canPrompt: true,
+    ),
+    sentToOsGrantFlow: true,
+    pollingPhase: PollingPhase.timedOut,
+  );
+
+  @override
+  PasteCapabilityState build() => _troubleshootState;
+
+  @override
+  Future<void> check({bool prompt = false}) async {
+    state = _troubleshootState;
+  }
+
+  @override
+  void startPolling({
+    Duration interval = const Duration(seconds: 1),
+    Duration timeout = const Duration(seconds: 30),
+  }) {}
+
+  @override
+  void stopPolling() {}
+
+  @override
+  Future<TccRepairResult> repair() async =>
+      const TccRepairResult(accessibilityCleared: 0, appleEventsCleared: 0);
 }
 
 /// Same shape for the microphone permission poller — additionally pins the
@@ -212,7 +260,7 @@ Future<void> _tapNext(WidgetTester tester) async {
 
 Future<void> _pumpOverlay(
   WidgetTester tester, {
-  _RecordingPasteCapabilityNotifier? paste,
+  PasteCapabilityNotifier? paste,
   _RecordingMicPermissionNotifier? mic,
   _FakeSettingsNotifier? settings,
   Size size = const Size(1280, 980),
@@ -910,7 +958,11 @@ void main() {
   //     its old 36), which is what brought the branch back to 17 px. Both
   //     numbers were binding constraints in their moment; re-measure before
   //     adding anything to this branch.
-  //   page 3 with a failed model download      431 / 418
+  //   page 3 with a failed model download      447 / 434
+  //     Was 431 / 418 before the Retry button (`OutlinedButton.icon` in a
+  //     `SizedBox(width: infinity)`) moved to `WpButton(secondary/neutral,
+  //     expanded: true)` — the same +16 px a standard-size button costs
+  //     everywhere else in this migration.
   //
   // Hebrew is the tightest on the model page for a reason worth keeping in
   // mind when re-measuring: the loop seeds the *dictation* language, and
@@ -918,6 +970,16 @@ void main() {
   // card renders an extra "unsupported language" line that IntrinsicHeight
   // applies to both engine cards. Measuring with the default dictation
   // language would miss 24 px on that page.
+  //
+  //   page 6 with the troubleshoot branch        492 / 492
+  //   (missing + sent-to-OS-grant-flow + poll timed out, Repair tapped and
+  //   resolved to "nothing cleared") — Skip + Repair + the result banner's
+  //   own extra Restart button, all stacked at once. This is the tallest
+  //   Auto-Paste state and was entirely uncovered before this migration;
+  //   the nominal (intro-phase) row above stayed at 190 px because Skip is
+  //   the only button that phase renders, and re-measuring confirmed it did
+  //   not move. 59 px of headroom against the 551 px viewport — re-measure
+  //   before adding anything to this branch.
 
   group('OnboardingOverlay — fixed window size (1100×720)', () {
     /// Height the page is given, the height it occupies, and the height it
@@ -1163,6 +1225,66 @@ void main() {
               measure(tester),
               what:
                   'model page, download-error branch (${locale.languageCode})',
+            );
+          } finally {
+            debugDefaultTargetPlatformOverride = null;
+          }
+        },
+      );
+
+      testWidgets(
+        'the Auto-Paste page fits the fixed window in the troubleshoot '
+        'branch (skip + repair + result banner + its own restart button) '
+        'in ${locale.languageCode}',
+        (tester) async {
+          useFixedWindow(tester);
+          debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+          try {
+            await _pumpOverlay(
+              tester,
+              size: kOnboardingWindowSize,
+              locale: locale,
+              settings: _FakeSettingsNotifier(
+                AppSettings.defaults.copyWith(locale: locale.languageCode),
+              ),
+              paste: _TroubleshootPasteCapabilityNotifier(),
+            );
+            for (var page = 2; page <= 5; page++) {
+              await _tapNext(tester);
+            }
+            await _tapNext(tester); // → 6: Auto-Paste
+
+            final localized = await L10n.delegate.load(locale);
+            expect(
+              find.text(localized.pasteCapabilityRestartTitle),
+              findsOneWidget,
+              reason: 'the troubleshoot branch must actually be rendered',
+            );
+
+            await tester.tap(find.text(localized.pasteCapabilityRepairButton));
+            // Sequential pump() — the success path chains into the grant
+            // flow, same as auto_paste_step_test.dart's nothingCleared case;
+            // pumpAndSettle would deadlock on the polling spinner.
+            await tester.pump();
+            await tester.pump();
+            await tester.pump();
+
+            expect(
+              find.text(localized.pasteCapabilityRepairNothingToClear),
+              findsOneWidget,
+              reason:
+                  'the result banner (and its own Restart button) must '
+                  'actually be rendered — otherwise this measures the '
+                  'nominal troubleshoot state and passes for the wrong '
+                  'reason',
+            );
+
+            expectFits(
+              tester,
+              measure(tester),
+              what:
+                  'Auto-Paste page, troubleshoot branch '
+                  '(${locale.languageCode})',
             );
           } finally {
             debugDefaultTargetPlatformOverride = null;
