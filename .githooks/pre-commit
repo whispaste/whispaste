@@ -229,23 +229,8 @@ if [ -n "$DART_STAGED" ]; then
   if [ "$flutter_ok" = "true" ] && [ -f "$ROOT/loam.yaml" ] && command -v dart >/dev/null 2>&1; then
     echo ""
     echo "Loam ratchet gate..."
-    # 0.1.14 liegt NICHT auf pub.dev (dort ist 0.1.13 die neueste) — die
-    # gepinnte Version kommt lokal aus Homebrew. Ein fehlgeschlagenes
-    # `activate` darf den Commit deshalb nicht abbrechen, und pub-cache darf
-    # nicht blind vorne an den PATH: dort liegt 0.1.13 und würde die richtige
-    # Version wieder verdrängen (genau der Drift-Bug aus 6a7c3ba9, nur
-    # andersherum).
-    LOAM_PIN=0.1.14
-    # `head -1` ist Absicht: Zeile 2 von `loam --version` nennt den
-    # Cellar-Pfad, der eine ältere Versionsnummer enthalten kann.
-    if ! loam --version 2>/dev/null | head -1 | grep -q "$LOAM_PIN"; then
-      dart pub global activate loam "$LOAM_PIN" >/dev/null 2>&1 || true
-      export PATH="$HOME/.pub-cache/bin:$PATH"
-    fi
-    if ! loam --version 2>/dev/null | head -1 | grep -q "$LOAM_PIN"; then
-      echo "pre-commit: loam $LOAM_PIN nicht auffindbar (weder PATH noch pub.dev)." >&2
-      exit 1
-    fi
+    dart pub global activate loam 0.1.13 >/dev/null
+    export PATH="$HOME/.pub-cache/bin:$PATH"
     if [ -z "${DART_SDK:-}" ]; then
       if command -v flutter >/dev/null 2>&1; then
         _f=$(command -v flutter)

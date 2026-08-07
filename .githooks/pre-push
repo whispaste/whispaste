@@ -278,18 +278,8 @@ fi
 # Loam ratchet gate (Dart-only)
 if command -v dart >/dev/null 2>&1; then
   echo ""; echo "Loam ratchet gate..."
-  # Siehe .githooks/pre-commit: 0.1.14 liegt nicht auf pub.dev, sondern lokal
-  # via Homebrew. `activate` darf deshalb nicht hart abbrechen, und pub-cache
-  # (dort: 0.1.13) darf die richtige Version nicht vom PATH verdrängen.
-  LOAM_PIN=0.1.14
-  if ! loam --version 2>/dev/null | head -1 | grep -q "$LOAM_PIN"; then
-    dart pub global activate loam "$LOAM_PIN" >/dev/null 2>&1 || true
-    export PATH="$HOME/.pub-cache/bin:$PATH"
-  fi
-  if ! loam --version 2>/dev/null | head -1 | grep -q "$LOAM_PIN"; then
-    echo "pre-push: loam $LOAM_PIN nicht auffindbar (weder PATH noch pub.dev)." >&2
-    exit 1
-  fi
+  dart pub global activate loam 0.1.13 >/dev/null
+  export PATH="$HOME/.pub-cache/bin:$PATH"
   # Resolve Dart SDK path (must follow Homebrew symlinks on macOS)
   if [ -z "${DART_SDK:-}" ]; then
     if command -v flutter >/dev/null 2>&1; then
