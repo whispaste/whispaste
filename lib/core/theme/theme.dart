@@ -102,6 +102,15 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
       margin: EdgeInsets.zero,
     ),
 
+    // These four theme blocks (elevated/filled/outlined/text) style the raw
+    // Material button classes directly. App code itself never calls those
+    // classes anymore — every user-triggered action routes through
+    // WpButton (see its library doc comment) — but Material's own internal
+    // widgets still build them under the hood (e.g. DatePicker/TimePicker
+    // OK-Cancel, SnackBar actions), so these stay as the safety net that
+    // keeps those borrowed controls on-brand instead of falling back to
+    // Material's stock look.
+
     // Elevated buttons
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(

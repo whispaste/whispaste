@@ -276,6 +276,13 @@
       "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
     },
     {
+      "fingerprint": "6157350a7d653426",
+      "ruleId": "a11y-interactive-semantics",
+      "filePath": "lib/main_smart_mode_debug.dart",
+      "line": 206,
+      "message": "WpButton with interactive callback but without Semantics(label: …) — screen readers have no accessible name for this widget (WCAG 4.1.2 Name, Role, Value)"
+    },
+    {
       "fingerprint": "bc2554a1bedc4b79",
       "ruleId": "code-duplicates",
       "filePath": "lib/services/history/history_exporter.dart",
