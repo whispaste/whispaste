@@ -278,7 +278,7 @@ fi
 # Loam ratchet gate (Dart-only)
 if command -v dart >/dev/null 2>&1; then
   echo ""; echo "Loam ratchet gate..."
-  dart pub global activate loam 0.1.13 >/dev/null
+  dart pub global activate loam 0.1.14 >/dev/null
   export PATH="$HOME/.pub-cache/bin:$PATH"
   # Resolve Dart SDK path (must follow Homebrew symlinks on macOS)
   if [ -z "${DART_SDK:-}" ]; then
