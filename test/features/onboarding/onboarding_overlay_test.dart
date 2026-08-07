@@ -938,8 +938,8 @@ void main() {
   // Linux runs the same pages 1–5 and ends on Try & Go as page 6, measured
   // 499 / 462 / 462 there.
   //
-  // The two branch cases, which are what the split was for (German / Hebrew,
-  // the two the tests cover):
+  // The three branch cases, which are what the split was for (German / Hebrew,
+  // the two locales the tests cover):
   //   page 4 with a confirmed hotkey conflict   534 / 534
   //     Warn box + full inline recorder. On the old merged Model & Hotkey
   //     page this came to 914 / 921 px, i.e. ~370 px of forced scrolling that
@@ -963,6 +963,15 @@ void main() {
   //     `SizedBox(width: infinity)`) moved to `WpButton(secondary/neutral,
   //     expanded: true)` — the same +16 px a standard-size button costs
   //     everywhere else in this migration.
+  //   page 6 with the troubleshoot branch        492 / 492
+  //     (missing + sent-to-OS-grant-flow + poll timed out, Repair tapped and
+  //     resolved to "nothing cleared") — Skip + Repair + the result banner's
+  //     own extra Restart button, all stacked at once. This is the tallest
+  //     Auto-Paste state and was entirely uncovered before this migration;
+  //     the nominal (intro-phase) row above stayed at 190 px because Skip is
+  //     the only button that phase renders, and re-measuring confirmed it did
+  //     not move. 59 px of headroom against the 551 px viewport — re-measure
+  //     before adding anything to this branch.
   //
   // Hebrew is the tightest on the model page for a reason worth keeping in
   // mind when re-measuring: the loop seeds the *dictation* language, and
@@ -970,16 +979,6 @@ void main() {
   // card renders an extra "unsupported language" line that IntrinsicHeight
   // applies to both engine cards. Measuring with the default dictation
   // language would miss 24 px on that page.
-  //
-  //   page 6 with the troubleshoot branch        492 / 492
-  //   (missing + sent-to-OS-grant-flow + poll timed out, Repair tapped and
-  //   resolved to "nothing cleared") — Skip + Repair + the result banner's
-  //   own extra Restart button, all stacked at once. This is the tallest
-  //   Auto-Paste state and was entirely uncovered before this migration;
-  //   the nominal (intro-phase) row above stayed at 190 px because Skip is
-  //   the only button that phase renders, and re-measuring confirmed it did
-  //   not move. 59 px of headroom against the 551 px viewport — re-measure
-  //   before adding anything to this branch.
 
   group('OnboardingOverlay — fixed window size (1100×720)', () {
     /// Height the page is given, the height it occupies, and the height it
