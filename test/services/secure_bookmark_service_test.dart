@@ -3,13 +3,15 @@
 /// APIs are exercised here (that's `SecureBookmarkHost.swift`, verifiable
 /// only via a real macOS run/manual acceptance, see Ticket 04).
 ///
-/// These tests run on whatever platform `flutter test` executes on; since
-/// this repo's CI runs on macOS, [SecureBookmarkService.isSupported] is
-/// `true` here, so the channel-call assertions below are meaningful. The
-/// "never called on Windows/Linux" half of the contract is instead verified
-/// structurally at the controller level (see
-/// `settings_portability_controller_test.dart`'s `bookmarksSupported: false`
-/// scenario), because `Platform.isMacOS` cannot be flipped from a test.
+/// [SecureBookmarkService.isSupported] gates every method on
+/// `Platform.isMacOS`, so on Windows/Linux runners the channel is never
+/// invoked and every assertion below would fail — restricted to macOS via
+/// `@TestOn` rather than run everywhere. The "never called on Windows/Linux"
+/// half of the contract is instead verified structurally at the controller
+/// level (see `settings_portability_controller_test.dart`'s
+/// `bookmarksSupported: false` scenario), because `Platform.isMacOS` cannot
+/// be flipped from a test.
+@TestOn('mac-os')
 library;
 
 import 'package:flutter/services.dart';
