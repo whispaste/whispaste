@@ -309,7 +309,8 @@
             "läuft whisper auf meiner grafikkarte",
             "spracherkennung ohne dedizierte gpu"
           ]
-        }
+        },
+        "status": "implemented 2026-08-07 — /gpu-kompatibilitaet/ + /en/gpu-compatibility/ (LandingPageLayout, FAQPageSchema mit 3 Fragen, Progressive Enhancement). ABWEICHUNG vom Konzepttext: das Konzept nannte 'Backend CUDA/Vulkan/CPU-Fallback' als Ausgabe. Ein CUDA-Backend wird nicht ausgeliefert — die gebundelte libwhisper ist Vulkan (Windows/Linux, -DGGML_VULKAN=ON) bzw. Metal (macOS, -DGGML_METAL=ON); WhisperBackend.cuda ist nur ein Label (whisper_engine.dart:59-61). Die Seite gibt deshalb Vulkan/Metal/CPU aus. Der CUDA-Pfad stammte aus dem entfernten whisper-server-Subprozess-Stack (legacy_residue_cleanup.dart:2)."
       },
       {
         "id": "model-size-recommender",
@@ -332,7 +333,8 @@
             "whisper modell größe vergleich",
             "whisper arbeitsspeicher bedarf"
           ]
-        }
+        },
+        "status": "implemented 2026-08-07 — /whisper-modellgroesse/ + /en/whisper-model-size/. Empfehlungslogik 1:1 aus recommendTier() (lib/services/model_download_service.dart): Apple 2048/4096, NVIDIA 2150/3715 (70-%-Reserve auf den gemeldeten VRAM), integriert AMD/Intel 4096/12288. Tabelle aus sttModels (181/514/547 MB) und sttModelVramMB (900/1500/2600 MB), Parakeet aus parakeet_model_registry.dart (639 MB, 25 Sprachen, CPU-only). ABWEICHUNG: die Seite listet nur die drei ausgelieferten QualityTier-Stufen, nicht den vollen whisper.cpp-Katalog — tiny/base/large-v3 sind Legacy-IDs, die beim Settings-Load migriert werden. Queries nach tiny/base bleiben damit bewusst unbedient. Zusatz zum Konzept: NICHT sequenziell nach dem GPU-Checker gebaut, sondern parallel, auf Nutzer-Entscheidung 2026-08-07 — die GSC-Wirkung der beiden Seiten ist dadurch nicht getrennt messbar."
       }
     ]
   },
