@@ -874,12 +874,21 @@ void main() {
   //   page 4  Hotkey        222 / 222 / 222   (the sparsest page in the flow)
   //   page 5  Appearance    380 / 401 / 380   (theme tiles + autostart row)
   //   page 6  Auto-Paste    190 / 190 / 190   (macOS/Windows only)
-  //   page 7  Try & Go      529 / 492 / 492   (22 px slack — and see the
-  //                                            full-transcript case in
+  //   page 7  Try & Go      545 / 508 / 508   (6 px slack — the mic-bypass
+  //                                            escape hatch moved from a raw
+  //                                            TextButton to WpButton
+  //                                            standard, +16 px; it kept
+  //                                            `standard` because its label
+  //                                            was always body-weight text,
+  //                                            unlike the dense settings-row
+  //                                            case in trigger_step.dart.
+  //                                            This is now the binding
+  //                                            constraint in the flow — see
+  //                                            the full-transcript case in
   //                                            onboarding_flow_test)
   //
   // Linux runs the same pages 1–5 and ends on Try & Go as page 6, measured
-  // 483 / 446 / 446 there.
+  // 499 / 462 / 462 there.
   //
   // The two branch cases, which are what the split was for (German / Hebrew,
   // the two the tests cover):

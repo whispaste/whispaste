@@ -11,6 +11,7 @@ import '../../../features/settings/settings_widgets.dart';
 import 'mic_permission_chip.dart';
 import 'onboarding_headings.dart';
 import '../../../services/recording_orchestrator.dart';
+import '../../../widgets/wp_button.dart';
 import '../../../widgets/wp_hero_button.dart';
 import '../onboarding_completion_gate.dart';
 
@@ -305,16 +306,12 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
           if (!micBypassed)
             Align(
               alignment: AlignmentDirectional.centerStart,
-              child: TextButton(
+              child: WpButton(
                 key: kTestRecordingStepMicBypassButtonKey,
+                label: l10n.onboardingTestRecordingMicBypassCta,
+                variant: WpButtonVariant.ghost,
+                tone: WpButtonTone.neutral,
                 onPressed: _onMicBypassPressed,
-                child: Text(
-                  l10n.onboardingTestRecordingMicBypassCta,
-                  style: TextStyle(
-                    color: textSecondary,
-                    fontSize: WpTypography.body,
-                  ),
-                ),
               ),
             )
           else
