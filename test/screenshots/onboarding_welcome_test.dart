@@ -51,6 +51,27 @@ void main() {
             settings: screen.settings,
           );
 
+          // `_BeatMediaPlaceholder` (welcome_step.dart) already turns a
+          // missing, not-yet-produced beat asset into a graceful icon
+          // placeholder via `Image.errorBuilder` — see
+          // assets/onboarding/README.md, every variant is optional. But
+          // `tester.loadAssets()` separately precaches every `Image` in the
+          // tree via `precacheImage()`, which bypasses that errorBuilder and
+          // reports the failure through `FlutterError.onError` instead.
+          // Filter only that specific, expected error so the golden captures
+          // today's real (placeholder) render instead of failing on a
+          // documented, intentional gap.
+          final originalOnError = FlutterError.onError;
+          FlutterError.onError = (details) {
+            if (details.exceptionAsString().contains(
+              'Unable to load asset: "assets/onboarding/beat_',
+            )) {
+              return;
+            }
+            originalOnError?.call(details);
+          };
+          addTearDown(() => FlutterError.onError = originalOnError);
+
           await tester.pumpWidget(app);
           await tester.loadAssets();
           await tester.pumpFrames(app, const Duration(seconds: 1));
