@@ -1031,6 +1031,9 @@ class L10nEn extends L10n {
   String get actionRetry => 'Try again';
 
   @override
+  String get actionClearSearch => 'Clear search';
+
+  @override
   String get tooltipTheme => 'Toggle theme';
 
   @override

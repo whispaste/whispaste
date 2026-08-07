@@ -378,6 +378,10 @@
   "actionConfirm": "Confirm",
   "actionSave": "Save",
   "actionRetry": "Try again",
+  "actionClearSearch": "Clear search",
+  "@actionClearSearch": {
+    "description": "Tooltip and screen-reader label of WpSearchField's clear button. Used by every search field that has no feature-specific wording of its own."
+  },
   "tooltipTheme": "Toggle theme",
   "tooltipLanguage": "Language",
   "aboutVersion": "Version {version}",

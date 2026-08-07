@@ -1899,6 +1899,12 @@ abstract class L10n {
   /// **'Try again'**
   String get actionRetry;
 
+  /// Tooltip and screen-reader label of WpSearchField's clear button. Used by every search field that has no feature-specific wording of its own.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear search'**
+  String get actionClearSearch;
+
   /// No description provided for @tooltipTheme.
   ///
   /// In en, this message translates to:

@@ -325,6 +325,7 @@
   "actionConfirm": "Bestätigen",
   "actionSave": "Speichern",
   "actionRetry": "Erneut versuchen",
+  "actionClearSearch": "Suche zurücksetzen",
   "tooltipTheme": "Design wechseln",
   "tooltipLanguage": "Sprache",
   "aboutVersion": "Version {version}",

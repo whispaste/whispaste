@@ -330,6 +330,7 @@
   "actionConfirm": "אישור",
   "actionSave": "שמור",
   "actionRetry": "נסה שנית",
+  "actionClearSearch": "נקה חיפוש",
   "tooltipTheme": "החלף ערכת נושא",
   "tooltipLanguage": "שפה",
   "aboutVersion": "גרסה {version}",

@@ -1019,6 +1019,9 @@ class L10nHe extends L10n {
   String get actionRetry => 'נסה שנית';
 
   @override
+  String get actionClearSearch => 'נקה חיפוש';
+
+  @override
   String get tooltipTheme => 'החלף ערכת נושא';
 
   @override

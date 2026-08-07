@@ -1042,6 +1042,9 @@ class L10nDe extends L10n {
   String get actionRetry => 'Erneut versuchen';
 
   @override
+  String get actionClearSearch => 'Suche zurücksetzen';
+
+  @override
   String get tooltipTheme => 'Design wechseln';
 
   @override
