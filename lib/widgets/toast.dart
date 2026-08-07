@@ -226,6 +226,30 @@ class _ToastCard extends StatelessWidget {
   final String? actionLabel;
   final VoidCallback? onAction;
 
+  /// Line budget for the message, grown in step with the system text size.
+  ///
+  /// The card is capped at 400 px wide, so a long message is wrapped rather
+  /// than widened, and the cap exists to stop a toast from turning into a
+  /// wall of text. But a *fixed* cap silently shrinks how much of the message
+  /// survives as the user raises the system text size: the same string that
+  /// fits four lines at 1.0× needs six at 1.6×, and the tail — usually the
+  /// actionable half, e.g. „Bitte WhisPaste manuell aus Systemeinstellungen →
+  /// Bedienungshilfen entfernen" — is what the ellipsis eats. Users who need
+  /// large text are the last ones who should get the abbreviated instruction.
+  ///
+  /// So the budget scales with the text scaler and only the *ratio* stays
+  /// fixed: the card grows to roughly the same fraction of the window it
+  /// occupies at 1.0×. The upper clamp keeps a pathologically long message
+  /// (an interpolated exception string) from filling the screen.
+  ///
+  /// Screen-reader users were never affected — the `Semantics(label:)` below
+  /// and `sendAnnouncement()` in [WpToast.show] both carry the full string
+  /// regardless of what the ellipsis hides. This is a sighted-user-only fix.
+  static int _maxLines(BuildContext context) {
+    final scale = MediaQuery.textScalerOf(context).scale(100) / 100;
+    return (4 * scale).ceil().clamp(4, 8);
+  }
+
   (IconData, Color) _iconAndColor() {
     return switch (type) {
       WpToastType.success => (
@@ -320,7 +344,7 @@ class _ToastCard extends StatelessWidget {
                       color: textPrimary,
                       height: 1.3,
                     ),
-                    maxLines: 4,
+                    maxLines: _maxLines(context),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
