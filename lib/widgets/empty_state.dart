@@ -16,9 +16,9 @@ import 'wp_button.dart';
 /// main action of their own get none: the history fills from a recording
 /// run (its hint says so instead), and a trash only holds what was already
 /// discarded. Error states offer "try again". A search-found-nothing state
-/// offers "clear search" where the page owns its search field (history,
-/// notes); the shared [WpSearchableListPage] does not yet, which is a gap,
-/// not a second rule.
+/// offers "clear search" without exception — history and notes own their
+/// field, settings resets it through its query provider, and the shared
+/// [WpSearchableListPage] covers replacements and snippets.
 class WpEmptyState extends StatelessWidget {
   const WpEmptyState({
     super.key,

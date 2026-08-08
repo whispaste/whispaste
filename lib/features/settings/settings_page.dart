@@ -303,6 +303,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         icon: LucideIcons.searchX,
         title: l10n.settingsSearchNoResults,
         hint: l10n.settingsSearchNoResultsHint,
+        // Per the WpEmptyState rule the search-empty state offers its main
+        // action: get out of the search. The query provider is the single
+        // source of truth here — the field mirrors an external reset back
+        // into its own controller.
+        actionLabel: l10n.actionClearSearch,
+        onAction: () => ref.read(settingsSearchQueryProvider.notifier).set(''),
       );
     } else {
       // Build sections with dividers only between visible neighbours.

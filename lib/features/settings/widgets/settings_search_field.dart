@@ -200,6 +200,15 @@ class _SettingsSearchFieldState extends ConsumerState<SettingsSearchField> {
     // Read current matches from the provider (populated after debounce)
     final matches = ref.watch(settingsSearchMatchesProvider);
 
+    // The query can also be reset from outside — the no-results empty state
+    // on the page offers "clear search". The controller is private to this
+    // widget, so mirror an external reset into the text; otherwise the field
+    // keeps showing a query that no longer filters anything.
+    ref.listen<String>(settingsSearchQueryProvider, (_, next) {
+      if (!mounted) return;
+      if (next.isEmpty && _controller.text.isNotEmpty) _controller.clear();
+    });
+
     // Announce result count to screen readers whenever it changes.
     final view = View.of(context);
     ref.listen<List<SettingsSearchEntry>>(settingsSearchMatchesProvider, (
