@@ -939,8 +939,11 @@ void main() {
   // stacked ambient muted lines — reassurance and recording-duration note —
   // became the single sentence they always were about the same button (see
   // test_recording_step.dart). Merging them returned 26 px to German and
-  // 10 px to English/Hebrew: one text line plus the `xs` gap that separated
-  // the two. The page keeps its rank as the flow's tallest.
+  // 10 px to English/Hebrew. The delta differs per locale because the saving
+  // is a rewrap, not a fixed subtraction: two separately wrapped blocks plus
+  // the `xs` gap between them become one wrapped sentence, and German's
+  // duration hint wrapped one line further than English's did. The page
+  // keeps its rank as the flow's tallest.
   //
   // Linux runs the same pages 1–5 and ends on Try & Go as page 6, measured
   // 473 / 452 / 452 there (was 499 / 462 / 462, same merge).
