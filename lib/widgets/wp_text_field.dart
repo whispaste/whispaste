@@ -39,6 +39,20 @@
 ///    says it itself, and both of them appear only when edit mode opens, so
 ///    the box is also the mode indicator. They are boxed, per `lib/DESIGN.md`
 ///    ("Inputs / Fields"): filled surface, 8 dp radius, 1 dp subtle hairline.
+///  * [WpTextFieldVariant.form] is the plain 13 dp field a *form* is made of —
+///    an API key, a snippet title, a trigger phrase, a feedback comment. It
+///    stands alone under its own label with nothing else on its line, so it
+///    draws its own box: filled surface, 8 dp radius, 1 dp hairline, and a
+///    48 dp resting height, which is both `WpLayout.minTouchTarget` and the
+///    height [WpSearchField] settles at — the two field families a user meets
+///    on the same screen now agree on one silhouette.
+///  * [WpTextFieldVariant.embedded] is the same field with its box taken
+///    away, for the one shape where the container is *not* the field's to
+///    draw: History's note rows, where one bordered row holds the field **and**
+///    its save/cancel buttons. A boxed field there would draw a box inside a
+///    box. The host keeps fill and border (and marks the authoring state with
+///    them); the field keeps the inset, so the text sits at the same 12/14
+///    the row's read view puts it at and does not jump when edit mode opens.
 ///  * [WpTextFieldVariant.bare] *is* the surface. Nothing else shares the
 ///    region below the Notes divider, so a border would only draw a box
 ///    inside a box, and the writing area would end up smaller than the space
@@ -52,10 +66,26 @@
 /// a typography knob: a knob would permit "prose at title weight", which is
 /// not a decision anyone should be able to take at a call site.
 ///
-/// There is deliberately no plain 13 dp form-value variant yet. The feedback
-/// form and History's per-entry notes box are the call sites that will want
-/// one; they are not migrated yet, and an enum value with no user is
-/// speculative stock.
+/// The line that separates a legitimate parameter from a banned one is
+/// **optical vs. functional**: what the field *looks like* is the variant's to
+/// decide and is never passed in; what the field *does* — obscure its text,
+/// cap its length, grow to at most five lines, carry a reveal button — is the
+/// call site's and is passed in. [minLines]/[maxLines] are therefore the one
+/// size-adjacent exception, and only on `form`/`embedded`: how much room a
+/// value needs is a property of that value (a trigger phrase is one line, a
+/// custom vocabulary is several), not of the field family.
+///
+/// ## What the numbers are
+///
+/// One inset per variant, measured rather than asserted, pinned in
+/// `test/widgets/form_field_geometry_consistency_test.dart`. `form` is 16 dp
+/// horizontal / 14 dp vertical, which puts a single line's box at exactly
+/// 48 dp at 1.0x without a height constraint — the padding, not a `SizedBox`,
+/// is what holds the field open, so an accessibility text size grows the box
+/// instead of clipping the line. (The Settings API-key field used to force
+/// `height: 34`; at 1.5x its text overflowed the box by 0.3 dp and was cut.)
+/// `embedded` is 12 dp / 14 dp: narrower, because its host is a 12 dp-inset
+/// list row rather than a standalone field.
 ///
 /// ## Read mode has to match
 ///
@@ -76,6 +106,11 @@
 /// focus by the caret alone. That is the same rule applied honestly, not a
 /// second treatment: adding a stroke to `bare` on focus would frame the whole
 /// lower half of the Notes panel in accent for as long as the user types.
+///
+/// [WpTextFieldVariant.embedded] follows the same rule from the other side:
+/// the one contour on that row belongs to the host, so the host is what turns
+/// accent while the note is being authored. Two accents — one on the row, one
+/// inside it — would again be two markings for one state.
 ///
 /// The stroke is painted by an [AnimatedContainer]'s `foregroundDecoration`
 /// rather than by [InputDecoration], for the reasons spelled out in
@@ -107,6 +142,17 @@ enum WpTextFieldVariant {
   /// (History's transcript in edit mode). Boxed, multi-line, prose metrics.
   passage,
 
+  /// A form value under its own label, alone on its line (Settings, the
+  /// Snippets/Replacements dialogs, the feedback form). Boxed, 13 dp, 48 dp
+  /// tall at rest, and it takes its line count from the call site.
+  form,
+
+  /// The same form value inside a container the caller draws because that
+  /// container also holds other controls (History's note rows: field plus
+  /// save/cancel). No box of its own — no fill, no stroke, no radius — and
+  /// the inset that keeps its text on the row's own text line.
+  embedded,
+
   /// The surface *is* the field (the Notes editor). No stroke, generous
   /// inset, and it expands to fill the box it is given — so it must be given
   /// a bounded one (an `Expanded`, a `SizedBox`), which is the definition of
@@ -130,7 +176,23 @@ class WpTextField extends StatefulWidget {
     this.onChanged,
     this.onSubmitted,
     this.onEditingComplete,
-  });
+    this.minLines,
+    this.maxLines,
+    this.obscureText = false,
+    this.autocorrect = true,
+    this.maxLength,
+    this.suffix,
+  }) : assert(
+         minLines == null && maxLines == null ||
+             variant == WpTextFieldVariant.form ||
+             variant == WpTextFieldVariant.embedded,
+         'Only form/embedded take their line count from the call site — the '
+         'other variants are one-line or free-growing by definition.',
+       ),
+       assert(
+         suffix == null || variant == WpTextFieldVariant.form,
+         'A trailing button needs the boxed 48 dp slot only form provides.',
+       );
 
   /// Owned by the caller. Every call site already holds one — History reads
   /// the edited text back out of it on save, Notes keeps it alive across
@@ -166,6 +228,26 @@ class WpTextField extends StatefulWidget {
   final ValueChanged<String>? onSubmitted;
 
   final VoidCallback? onEditingComplete;
+
+  /// How much room this particular *value* needs — see the library docs on
+  /// optical vs. functional parameters. `form`/`embedded` only; a `maxLines`
+  /// of 1 (the default) also makes Enter submit rather than insert a newline.
+  final int? minLines;
+  final int? maxLines;
+
+  /// Functional pass-throughs. None of them change how the field looks; each
+  /// exists because exactly one call site cannot work without it: the API key
+  /// ([obscureText], [suffix] for the reveal toggle), the feedback contact
+  /// address ([autocorrect]) and the feedback comment ([maxLength]).
+  final bool obscureText;
+  final bool autocorrect;
+  final int? maxLength;
+
+  /// A button inside the box's trailing 48 dp slot, the way [WpSearchField]
+  /// carries its clear button — not overlaid on the field by the call site,
+  /// which is how the API-key toggle used to force a 34 dp field so a 48 dp
+  /// button could straddle it.
+  final Widget? suffix;
 
   /// The text style [variant] renders at, so a read-only view of the same
   /// text can match it exactly. See the library docs.
@@ -232,14 +314,25 @@ class _WpTextFieldState extends State<WpTextField> {
     final spec = _WpTextFieldSpec.of(widget.variant);
     final style = spec.textStyle(palette.textPrimary);
 
+    // On `form`/`embedded` the call site owns the line count; everywhere else
+    // the variant does, and passing either is an assertion error.
+    final maxLines = spec.linesFromCallSite
+        ? (widget.maxLines ?? 1)
+        : (spec.multiline ? null : 1);
+    final multiline = spec.linesFromCallSite ? maxLines != 1 : spec.multiline;
+
     Widget field = TextField(
       controller: widget.controller,
       focusNode: _focusNode,
       autofocus: widget.autofocus,
-      maxLines: spec.multiline ? null : 1,
+      minLines: spec.linesFromCallSite ? widget.minLines : null,
+      maxLines: spec.fillsItsBox ? null : maxLines,
       expands: spec.fillsItsBox,
       textAlignVertical: spec.fillsItsBox ? TextAlignVertical.top : null,
-      keyboardType: spec.multiline ? TextInputType.multiline : null,
+      keyboardType: multiline ? TextInputType.multiline : null,
+      obscureText: widget.obscureText,
+      autocorrect: widget.autocorrect,
+      maxLength: widget.maxLength,
       style: style,
       onChanged: widget.onChanged,
       onSubmitted: widget.onSubmitted,
@@ -247,6 +340,7 @@ class _WpTextFieldState extends State<WpTextField> {
       decoration: InputDecoration(
         hintText: widget.hintText,
         hintStyle: style.copyWith(color: palette.textMuted),
+        suffixIcon: widget.suffix,
         isDense: true,
         contentPadding: spec.padding,
         // Fill, stroke and radius all live on the box below — the decoration
@@ -271,7 +365,8 @@ class _WpTextFieldState extends State<WpTextField> {
       duration: WpMotion.durationFor(context, WpMotion.normal),
       curve: WpMotion.defaultCurve,
       decoration: BoxDecoration(
-        color: palette.surface,
+        // `embedded` paints nothing: its host already painted the row.
+        color: spec.filled ? palette.surface : null,
         borderRadius: spec.radius,
       ),
       // Painted over the child, so the stroke can thicken on focus without
@@ -348,6 +443,8 @@ class _WpTextFieldSpec {
     required this.bordered,
     required this.multiline,
     required this.fillsItsBox,
+    this.filled = true,
+    this.linesFromCallSite = false,
   });
 
   final double fontSize;
@@ -362,11 +459,21 @@ class _WpTextFieldSpec {
   /// Draws a hairline at rest and moves it to the accent on focus.
   final bool bordered;
 
-  /// Takes Enter as a newline rather than as submit.
+  /// Takes Enter as a newline rather than as submit. Ignored where
+  /// [linesFromCallSite] holds — there the line count decides it.
   final bool multiline;
 
   /// Expands to the height it is given instead of growing with its content.
   final bool fillsItsBox;
+
+  /// Paints the writing surface. False only where the host already painted
+  /// it and a second fill would show as a lighter patch inside the row.
+  final bool filled;
+
+  /// `minLines`/`maxLines` come from the call site, because how much room a
+  /// *value* needs is not a property of the field family. See the library
+  /// docs on optical vs. functional parameters.
+  final bool linesFromCallSite;
 
   /// Square when the field *is* the surface — a rounded corner would imply a
   /// card floating on something else.
@@ -420,9 +527,50 @@ class _WpTextFieldSpec {
     fillsItsBox: true,
   );
 
+  /// 13 dp, and the inset that *is* the field's height: 14 dp above and below
+  /// a 20 dp line puts the resting box at exactly 48 dp — the touch-target
+  /// floor and [WpSearchField]'s height — without a `SizedBox` to clip
+  /// against once the text scaler grows the line. 16 dp horizontal is the
+  /// same inset the search field puts in front of its glyph.
+  static const _form = _WpTextFieldSpec(
+    fontSize: WpTypography.body,
+    fontWeight: FontWeight.w400,
+    lineHeight: null,
+    padding: EdgeInsets.symmetric(
+      horizontal: WpSpacing.md,
+      vertical: WpSpacing.sm + 2,
+    ),
+    bordered: true,
+    multiline: false,
+    fillsItsBox: false,
+    linesFromCallSite: true,
+  );
+
+  /// [_form] with the box handed back to the host: no fill, no stroke, no
+  /// radius. The horizontal inset drops to the 12 dp its host row reads its
+  /// own text at, so the note does not shift sideways when edit mode opens;
+  /// the vertical inset stays [_form]'s, so the row still stands 48 dp tall
+  /// and its save/cancel buttons keep their full touch target.
+  static const _embedded = _WpTextFieldSpec(
+    fontSize: WpTypography.body,
+    fontWeight: FontWeight.w400,
+    lineHeight: null,
+    padding: EdgeInsets.symmetric(
+      horizontal: WpSpacing.sm,
+      vertical: WpSpacing.sm + 2,
+    ),
+    bordered: false,
+    multiline: false,
+    fillsItsBox: false,
+    filled: false,
+    linesFromCallSite: true,
+  );
+
   static _WpTextFieldSpec of(WpTextFieldVariant variant) => switch (variant) {
     WpTextFieldVariant.heading => _heading,
     WpTextFieldVariant.passage => _passage,
+    WpTextFieldVariant.form => _form,
+    WpTextFieldVariant.embedded => _embedded,
     WpTextFieldVariant.bare => _bare,
   };
 }

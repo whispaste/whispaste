@@ -12,10 +12,10 @@ import 'package:flutter_test/flutter_test.dart';
 /// border is switched off (`border: InputBorder.none`) is one that hands its
 /// chrome to a hand-rolled container around it. That is precisely the shape
 /// `WpSearchField` absorbs — and the one `WpTextField` absorbs for non-search
-/// fields (Batch 6, partially landed: the two History fields and the note
-/// editor run through it). The non-search call sites still waiting are named
-/// in the allowlist with their reason, so the list shrinks as Batch 6
-/// progresses rather than being quietly reused as a dumping ground.
+/// fields, now for all of them: the feedback form and History's note rows
+/// were the last two call sites to hand-roll it, and both went through
+/// `WpTextField`'s `form`/`embedded` variants. Only the two components
+/// themselves are allowed to use the idiom now.
 void main() {
   test('no source file outside WpSearchField hand-rolls a borderless '
       'TextField for search', () {
@@ -23,16 +23,10 @@ void main() {
       // The component itself.
       'lib/widgets/wp_search_field.dart': 'the component',
 
-      // Batch 6's component — the same idiom, for the fields that hold a
-      // value instead of a query. It is the destination of the entries
-      // below, not an offender.
+      // The same idiom, for the fields that hold a value instead of a
+      // query — the destination every former entry below migrated to, not an
+      // offender.
       'lib/widgets/wp_text_field.dart': 'the WpTextField component',
-
-      // Non-search text fields — these belong to Batch 6 (WpTextField), not
-      // to this family. Remove each entry as that batch migrates it.
-      'lib/features/feedback/feedback_page.dart': 'Batch 6 — WpTextField',
-      'lib/features/history/widgets/history_notes_section.dart':
-          'Batch 6 — WpTextField',
     };
 
     // Two files are *not* listed here on purpose, because they do not use
@@ -86,8 +80,6 @@ void main() {
     const allowedFiles = <String>{
       'lib/widgets/wp_search_field.dart',
       'lib/widgets/wp_text_field.dart',
-      'lib/features/feedback/feedback_page.dart',
-      'lib/features/history/widgets/history_notes_section.dart',
     };
 
     final stale = <String>[];

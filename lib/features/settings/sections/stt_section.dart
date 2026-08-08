@@ -27,6 +27,7 @@ import '../../../widgets/model_download_card.dart';
 import '../../../widgets/section.dart';
 import '../../../widgets/toast.dart';
 import '../../../widgets/wp_button.dart';
+import '../../../widgets/wp_text_field.dart';
 import '../settings_widgets.dart';
 
 // ---------------------------------------------------------------------------
@@ -642,29 +643,14 @@ class _CustomVocabularyFieldState
             ],
           ),
           const SizedBox(height: WpSpacing.sm),
-          Semantics(
-            label: l10n.settingsCustomVocabulary,
-            textField: true,
-            child: TextField(
-              controller: _ctrl,
-              minLines: 2,
-              maxLines: 5,
-              onChanged: _save,
-              style: TextStyle(
-                fontSize: WpTypography.body,
-                color: isDark
-                    ? WpColorsDark.textPrimary
-                    : WpColorsLight.textPrimary,
-              ),
-              decoration: InputDecoration(
-                hintText: l10n.settingsCustomVocabularyPlaceholder,
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: WpSpacing.sm,
-                  vertical: WpSpacing.sm,
-                ),
-              ),
-            ),
+          WpTextField(
+            controller: _ctrl,
+            variant: WpTextFieldVariant.form,
+            semanticsLabel: l10n.settingsCustomVocabulary,
+            hintText: l10n.settingsCustomVocabularyPlaceholder,
+            minLines: 2,
+            maxLines: 5,
+            onChanged: _save,
           ),
         ],
       ),

@@ -17,17 +17,20 @@ import 'package:flutter_test/flutter_test.dart';
 /// looked like three different programs depending on which field a user's
 /// cursor was in.
 ///
-/// That divergence is not fully closed yet outside those three fields —
-/// several settings/dialog inputs still hand-roll a `TextField` with their
-/// own `style`/`decoration` rather than going through `WpTextField`. Each is
-/// named below with a reason, not silently allowed, so the list is a to-do
-/// rather than a hiding place. Ticket 01 (`WpTextField`) scoped itself to
-/// the History detail panel and the Notes editor only — it did not claim
-/// these call sites, so their presence here is expected, not a regression.
+/// The rest of that divergence is closed too. Six files used to hand-roll a
+/// `TextField` with their own `style`/`decoration` — the two Settings field
+/// helpers, the custom-vocabulary box, the Snippets and Replacements dialogs,
+/// the feedback form and History's note rows — in five different geometries.
+/// They now render `WpTextField`'s `form` variant (a field standing alone
+/// under its own label) or `embedded` (a field inside a row the caller draws
+/// because that row also holds its save/cancel buttons), and their shared
+/// geometry is measured in `form_field_geometry_consistency_test.dart`.
 ///
-/// Explicitly **not** part of this family: nothing else in `lib/` builds a
-/// `TextField` directly once the entries below migrate — there is no third
-/// idiom this guard is meant to leave standing.
+/// What is left below is therefore the whole list, not a to-do: the three
+/// components and a debug-only entry point. A new name here is a regression
+/// and needs a reason that is about *behaviour*, because appearance is no
+/// longer a reason — `WpTextField` has a variant for every shape a field in
+/// this app takes.
 void main() {
   test('no source file outside WpTextField/WpSearchField/WpTagInput builds a '
       'raw TextField or TextFormField', () {
@@ -41,29 +44,6 @@ void main() {
       // Debug-only entry point, never shipped in a user-facing build (same
       // exemption as the dialog guard).
       'lib/main_smart_mode_debug.dart': 'debug harness, exempt by design',
-
-      // Still-open call sites — pre-existing hand-rolled TextFields that
-      // Ticket 01 did not claim (it scoped itself to the History detail
-      // panel and the Notes editor). Each hand-rolls its own style/
-      // decoration today; migrating any of them to WpTextField is a
-      // visual/layout decision, not this guard's job.
-      'lib/features/settings/settings_widgets.dart':
-          'settingsApiKeyField()/settingsTextField() helpers — pre-Batch 6, '
-          'not migrated to WpTextField yet',
-      'lib/features/settings/sections/stt_section.dart':
-          'custom-vocabulary field — pre-Batch 6, not migrated yet',
-      'lib/features/snippets/snippets_page.dart':
-          'snippet title/body fields in the add/edit dialog — pre-Batch 6, '
-          'not migrated yet',
-      'lib/features/replacements/replacements_page.dart':
-          'trigger-phrase list and replacement field in the add/edit '
-          'dialog — pre-Batch 6, not migrated yet',
-      'lib/features/feedback/feedback_page.dart':
-          'Batch 6 — WpTextField (also named in the WpSearchField guard '
-          'allowlist for the same reason)',
-      'lib/features/history/widgets/history_notes_section.dart':
-          'Batch 6 — WpTextField (also named in the WpSearchField guard '
-          'allowlist for the same reason)',
     };
 
     // Constructor-shaped: `\b` keeps this off identifiers that merely
@@ -107,12 +87,6 @@ void main() {
       'lib/widgets/wp_search_field.dart',
       'lib/widgets/tag_input.dart',
       'lib/main_smart_mode_debug.dart',
-      'lib/features/settings/settings_widgets.dart',
-      'lib/features/settings/sections/stt_section.dart',
-      'lib/features/snippets/snippets_page.dart',
-      'lib/features/replacements/replacements_page.dart',
-      'lib/features/feedback/feedback_page.dart',
-      'lib/features/history/widgets/history_notes_section.dart',
     };
 
     final rawTextFieldPattern = RegExp(

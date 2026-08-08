@@ -14,6 +14,7 @@ import '../../widgets/wp_row_action.dart';
 import '../../widgets/dialog.dart';
 import '../../widgets/searchable_list_page.dart';
 import '../../widgets/wp_button.dart';
+import '../../widgets/wp_text_field.dart';
 import '../settings/settings_widgets.dart';
 import 'package:whispaste/core/data/database.dart';
 
@@ -426,10 +427,6 @@ class _SnippetDialogState extends State<_SnippetDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
     final l10n = L10n.of(context);
 
     return WpFormDialogShell(
@@ -440,18 +437,11 @@ class _SnippetDialogState extends State<_SnippetDialog> {
         // Title
         Text(l10n.snippetsTitleLabel, style: theme.textTheme.titleSmall),
         const SizedBox(height: WpSpacing.xxs),
-        TextField(
+        WpTextField(
           controller: _titleCtrl,
+          variant: WpTextFieldVariant.form,
           autofocus: true,
-          style: TextStyle(color: textPrimary, fontSize: WpTypography.body),
-          decoration: InputDecoration(
-            hintText: l10n.snippetsTitleHint,
-            isDense: true,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.md,
-              vertical: WpSpacing.sm,
-            ),
-          ),
+          hintText: l10n.snippetsTitleHint,
           onChanged: (_) => setState(() {}),
           onSubmitted: (_) => _submit(),
         ),
@@ -460,19 +450,12 @@ class _SnippetDialogState extends State<_SnippetDialog> {
         // Body (multi-line)
         Text(l10n.snippetsBodyLabel, style: theme.textTheme.titleSmall),
         const SizedBox(height: WpSpacing.xxs),
-        TextField(
+        WpTextField(
           controller: _bodyCtrl,
+          variant: WpTextFieldVariant.form,
+          hintText: l10n.snippetsBodyHint,
           minLines: 3,
           maxLines: 6,
-          style: TextStyle(color: textPrimary, fontSize: WpTypography.body),
-          decoration: InputDecoration(
-            hintText: l10n.snippetsBodyHint,
-            isDense: true,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.md,
-              vertical: WpSpacing.sm,
-            ),
-          ),
           onChanged: (_) => setState(() {}),
         ),
       ],

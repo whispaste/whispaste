@@ -18,6 +18,7 @@ import '../../services/shared_prefs_safe_read.dart';
 import '../../widgets/language_selector.dart';
 import '../../widgets/page_shell.dart';
 import '../../widgets/wp_button.dart';
+import '../../widgets/wp_text_field.dart';
 
 /// Supabase URL — injected at build time via `--dart-define`.
 const _supabaseUrl = String.fromEnvironment('SUPABASE_URL', defaultValue: '');
@@ -255,36 +256,25 @@ class _FeedbackPageState extends State<FeedbackPage> {
                   // Comment field — chat-styled
                   Text(l10n.feedbackCommentsLabel, style: ts.titleSmall),
                   const SizedBox(height: WpSpacing.md),
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: isDark
-                          ? WpColorsDark.warmSurfaceGradient
-                          : WpColorsLight.warmSurfaceGradient,
-                      borderRadius: WpRadius.borderMd,
-                      border: Border.all(
-                        color: isDark
-                            ? WpColorsDark.borderDefault
-                            : WpColorsLight.borderDefault,
-                      ),
-                    ),
-                    child: TextField(
-                      key: const Key('feedbackCommentField'),
-                      controller: _commentController,
-                      maxLines: 5,
-                      maxLength: 1000,
-                      onChanged: (_) => setState(() {}),
-                      decoration: InputDecoration(
-                        hintText: _category == 'bug'
-                            ? l10n.feedbackPlaceholderBug
-                            : _category == 'feature'
-                            ? l10n.feedbackPlaceholderFeature
-                            : _category == 'ai'
-                            ? l10n.feedbackPlaceholderAi
-                            : l10n.feedbackPlaceholderGeneral,
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.all(WpSpacing.md),
-                      ),
-                    ),
+                  // A form field, so it looks like every other form field —
+                  // it used to sit borderless inside a warm-gradient box of
+                  // its own, which gave it a third field look *and* no focus
+                  // indicator at all.
+                  WpTextField(
+                    key: const Key('feedbackCommentField'),
+                    controller: _commentController,
+                    variant: WpTextFieldVariant.form,
+                    hintText: _category == 'bug'
+                        ? l10n.feedbackPlaceholderBug
+                        : _category == 'feature'
+                        ? l10n.feedbackPlaceholderFeature
+                        : _category == 'ai'
+                        ? l10n.feedbackPlaceholderAi
+                        : l10n.feedbackPlaceholderGeneral,
+                    minLines: 3,
+                    maxLines: 5,
+                    maxLength: 1000,
+                    onChanged: (_) => setState(() {}),
                   ),
 
                   const SizedBox(height: WpSpacing.xxl),
@@ -516,30 +506,14 @@ class _ContactEmailSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: WpSpacing.sm),
-        DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: isDark
-                ? WpColorsDark.warmSurfaceGradient
-                : WpColorsLight.warmSurfaceGradient,
-            borderRadius: WpRadius.borderMd,
-            border: Border.all(
-              color: isDark
-                  ? WpColorsDark.borderDefault
-                  : WpColorsLight.borderDefault,
-            ),
-          ),
-          child: TextField(
-            key: const Key('feedbackEmailField'),
-            controller: emailController,
-            keyboardType: TextInputType.emailAddress,
-            autocorrect: false,
-            onChanged: (_) => onEmailChanged(),
-            decoration: InputDecoration(
-              hintText: l10n.feedbackContactEmailPlaceholder,
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.all(WpSpacing.md),
-            ),
-          ),
+        WpTextField(
+          key: const Key('feedbackEmailField'),
+          controller: emailController,
+          variant: WpTextFieldVariant.form,
+          hintText: l10n.feedbackContactEmailPlaceholder,
+          // An address is never a word the dictionary should second-guess.
+          autocorrect: false,
+          onChanged: (_) => onEmailChanged(),
         ),
         if (showInvalidEmail) ...[
           const SizedBox(height: WpSpacing.xs),

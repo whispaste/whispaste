@@ -52,18 +52,18 @@
       "message": "2 occurrences of duplicated block (91 tokens): lib/features/history/history_page.dart:132, lib/features/notes/notes_page.dart:188"
     },
     {
-      "fingerprint": "007736862c83b4b7",
+      "fingerprint": "19044e45e855843d",
       "ruleId": "code-duplicates",
       "filePath": "lib/features/replacements/replacements_page.dart",
-      "line": 82,
-      "message": "2 occurrences of duplicated block (52 tokens): lib/features/replacements/replacements_page.dart:82, lib/features/snippets/snippets_page.dart:58"
+      "line": 83,
+      "message": "2 occurrences of duplicated block (52 tokens): lib/features/replacements/replacements_page.dart:83, lib/features/snippets/snippets_page.dart:59"
     },
     {
-      "fingerprint": "4ec2783bc4149a04",
+      "fingerprint": "2a22b26a78cad698",
       "ruleId": "code-duplicates",
       "filePath": "lib/features/replacements/replacements_page.dart",
-      "line": 122,
-      "message": "2 occurrences of duplicated block (96 tokens): lib/features/replacements/replacements_page.dart:122, lib/features/snippets/snippets_page.dart:98"
+      "line": 123,
+      "message": "2 occurrences of duplicated block (96 tokens): lib/features/replacements/replacements_page.dart:123, lib/features/snippets/snippets_page.dart:99"
     },
     {
       "fingerprint": "bc2554a1bedc4b79",

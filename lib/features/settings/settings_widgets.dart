@@ -9,6 +9,7 @@ import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/wp_dropdown.dart';
+import '../../widgets/wp_text_field.dart';
 
 // ---------------------------------------------------------------------------
 // SettingRow — single row with icon, label, optional subtitle, and control
@@ -331,71 +332,37 @@ Widget settingsApiKeyField({
   String? semanticLabel,
 }) {
   final isDark = Theme.of(context).brightness == Brightness.dark;
-  // The visibility toggle needs a 48px touch target (WpLayout.minTouchTarget),
-  // but the visible field stays a compact 34px line. A suffixIcon inside the
-  // TextField would be clipped to the field height, so the button is overlaid
-  // via Stack: the wrapper is 48px tall, the field centered at 34px, and the
-  // button's tap/focus area extends invisibly above and below the field edge.
+  // The reveal toggle rides the field's own trailing slot, which is 48 dp
+  // tall because the field is — so the button meets WpLayout.minTouchTarget
+  // without the field having to be pinned to a shorter fixed height and
+  // without the text ever running underneath the icon.
   return SizedBox(
     width: 280,
-    height: WpLayout.minTouchTarget,
-    child: Stack(
-      alignment: Alignment.center,
-      children: [
-        Semantics(
-          label: semanticLabel,
-          textField: true,
-          child: SizedBox(
-            height: 34,
-            child: TextField(
-              controller: controller,
-              obscureText: obscure,
-              onChanged: onChanged,
-              style: TextStyle(
-                fontSize: WpTypography.body,
-                color: isDark
-                    ? WpColorsDark.textPrimary
-                    : WpColorsLight.textPrimary,
-              ),
-              decoration: const InputDecoration(
-                hintText: 'sk-...',
-                isDense: true,
-                contentPadding: EdgeInsets.only(
-                  left: WpSpacing.sm,
-                  // Clears the visibility toggle overlaid via Positioned below
-                  // so text never runs underneath the icon.
-                  right: 40,
-                  top: WpSpacing.xs,
-                  bottom: WpSpacing.xs,
-                ),
-              ),
-            ),
+    child: WpTextField(
+      controller: controller,
+      variant: WpTextFieldVariant.form,
+      semanticsLabel: semanticLabel,
+      hintText: 'sk-...',
+      obscureText: obscure,
+      onChanged: onChanged,
+      suffix: Semantics(
+        label: L10n.of(context).settingsToggleApiKeyVisibility,
+        button: true,
+        child: IconButton(
+          icon: Icon(
+            obscure ? LucideIcons.eye : LucideIcons.eyeOff,
+            size: WpIconSize.sm,
+            color: isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
+          ),
+          onPressed: onToggle,
+          tooltip: L10n.of(context).settingsToggleApiKeyVisibility,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(
+            minWidth: WpLayout.minTouchTarget,
+            minHeight: WpLayout.minTouchTarget,
           ),
         ),
-        Positioned(
-          right: 0,
-          child: Semantics(
-            label: L10n.of(context).settingsToggleApiKeyVisibility,
-            button: true,
-            child: IconButton(
-              icon: Icon(
-                obscure ? LucideIcons.eye : LucideIcons.eyeOff,
-                size: WpIconSize.sm,
-                color: isDark
-                    ? WpColorsDark.textMuted
-                    : WpColorsLight.textMuted,
-              ),
-              onPressed: onToggle,
-              tooltip: L10n.of(context).settingsToggleApiKeyVisibility,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(
-                minWidth: WpLayout.minTouchTarget,
-                minHeight: WpLayout.minTouchTarget,
-              ),
-            ),
-          ),
-        ),
-      ],
+      ),
     ),
   );
 }
@@ -412,29 +379,15 @@ Widget settingsTextField({
   ValueChanged<String>? onChanged,
   String? semanticLabel,
 }) {
-  final isDark = Theme.of(context).brightness == Brightness.dark;
   return SizedBox(
     width: maxLines > 1 ? double.infinity : 240,
-    child: Semantics(
-      label: semanticLabel,
-      textField: true,
-      child: TextField(
-        controller: controller,
-        maxLines: maxLines,
-        onChanged: onChanged,
-        style: TextStyle(
-          fontSize: WpTypography.body,
-          color: isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary,
-        ),
-        decoration: InputDecoration(
-          hintText: hintText,
-          isDense: true,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: WpSpacing.sm,
-            vertical: WpSpacing.xs,
-          ),
-        ),
-      ),
+    child: WpTextField(
+      controller: controller,
+      variant: WpTextFieldVariant.form,
+      semanticsLabel: semanticLabel,
+      hintText: hintText,
+      maxLines: maxLines,
+      onChanged: onChanged,
     ),
   );
 }

@@ -12,6 +12,7 @@ import '../../widgets/dialog.dart';
 import '../../widgets/searchable_list_page.dart';
 import '../../widgets/trigger_chip.dart';
 import '../../widgets/wp_button.dart';
+import '../../widgets/wp_text_field.dart';
 import '../settings/settings_widgets.dart' show settingsToggle;
 import 'package:whispaste/core/data/database.dart';
 
@@ -274,8 +275,12 @@ class _ReplacementDialog extends StatefulWidget {
 
 class _ReplacementDialogState extends State<_ReplacementDialog> {
   /// Maximum height of the trigger list before it scrolls, so the dialog
-  /// stays on screen when a shortcut has many trigger phrases.
-  static const double _triggerListMaxHeight = 220;
+  /// stays on screen when a shortcut has many trigger phrases. Derived from
+  /// the row height rather than guessed, so it always ends on a row edge
+  /// instead of cutting one in half: four 48 dp fields plus the three 4 dp
+  /// gaps between them.
+  static const double _triggerListMaxHeight =
+      WpLayout.minTouchTarget * 4 + WpSpacing.xxs * 3;
 
   final List<TextEditingController> _triggerCtrls = [];
   final List<FocusNode> _triggerFocusNodes = [];
@@ -353,9 +358,6 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
     final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
     final l10n = L10n.of(context);
 
@@ -382,22 +384,12 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
                     child: Row(
                       children: [
                         Expanded(
-                          child: TextField(
+                          child: WpTextField(
                             controller: _triggerCtrls[i],
+                            variant: WpTextFieldVariant.form,
                             focusNode: _triggerFocusNodes[i],
                             autofocus: i == 0,
-                            style: TextStyle(
-                              color: textPrimary,
-                              fontSize: WpTypography.body,
-                            ),
-                            decoration: InputDecoration(
-                              hintText: l10n.replacementsTriggerHint,
-                              isDense: true,
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: WpSpacing.md,
-                                vertical: WpSpacing.sm,
-                              ),
-                            ),
+                            hintText: l10n.replacementsTriggerHint,
                             onChanged: (_) => setState(() {}),
                             onSubmitted: (_) => _submit(),
                           ),
@@ -449,17 +441,10 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
           style: theme.textTheme.titleSmall,
         ),
         const SizedBox(height: WpSpacing.xxs),
-        TextField(
+        WpTextField(
           controller: _replacementCtrl,
-          style: TextStyle(color: textPrimary, fontSize: WpTypography.body),
-          decoration: InputDecoration(
-            hintText: l10n.replacementsReplacementHint,
-            isDense: true,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.md,
-              vertical: WpSpacing.sm,
-            ),
-          ),
+          variant: WpTextFieldVariant.form,
+          hintText: l10n.replacementsReplacementHint,
           onChanged: (_) => setState(() {}),
           onSubmitted: (_) => _submit(),
         ),

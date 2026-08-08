@@ -13,6 +13,7 @@ import '../data/history_detail_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../widgets/toast.dart';
 import '../../../widgets/wp_discoverability_hint.dart';
+import '../../../widgets/wp_text_field.dart';
 import 'voice_note_button.dart';
 
 // ---------------------------------------------------------------------------
@@ -210,15 +211,14 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
             // Add note input
             if (_isAdding) ...[
               const SizedBox(height: WpSpacing.sm),
+              // Same row as a note being edited, and for the same reason:
+              // this is a note being authored. One border colour for that one
+              // state — see `_NoteItem`.
               DecoratedBox(
                 decoration: BoxDecoration(
                   color: surfaceElevated,
                   borderRadius: WpRadius.borderSm,
-                  border: Border.all(
-                    color: widget.isDark
-                        ? WpColorsDark.accentBorder30
-                        : WpColorsLight.accentBorder30,
-                  ),
+                  border: Border.all(color: accent),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
@@ -233,25 +233,16 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
                             _addNote();
                           }
                         },
-                        child: TextField(
+                        child: WpTextField(
                           controller: _controller,
+                          variant: WpTextFieldVariant.embedded,
                           autofocus: true,
-                          maxLines: 3,
+                          hintText: l10n.historyNotePlaceholder,
                           minLines: 1,
-                          textInputAction: TextInputAction.newline,
-                          style: TextStyle(
-                            fontSize: WpTypography.body,
-                            color: textPrimary,
-                          ),
-                          decoration: InputDecoration(
-                            hintText: l10n.historyNotePlaceholder,
-                            hintStyle: TextStyle(color: textMuted),
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: WpSpacing.sm,
-                              vertical: WpSpacing.sm,
-                            ),
-                          ),
+                          // Same ceiling as editing an existing note: the
+                          // same kind of text does not get a different amount
+                          // of room depending on whether it is new.
+                          maxLines: 5,
                         ),
                       ),
                     ),
@@ -397,14 +388,28 @@ class _NoteItemState extends State<_NoteItem> {
           context,
           _hovered ? Duration.zero : WpMotion.hoverOut,
         ),
-        padding: const EdgeInsets.symmetric(
-          horizontal: WpSpacing.sm,
-          vertical: WpSpacing.sm,
-        ),
+        // Read mode insets the row itself; edit mode hands that job to the
+        // field, whose own 12/14 inset then lands the text on exactly the
+        // line it occupied a moment earlier. Padding on both would double it
+        // and shift the note as edit mode opens.
+        padding: widget.isEditing
+            ? EdgeInsets.zero
+            : const EdgeInsets.symmetric(
+                horizontal: WpSpacing.sm,
+                vertical: WpSpacing.sm + 2,
+              ),
         decoration: BoxDecoration(
           color: _hovered && !widget.isEditing
               ? hoverBg
               : widget.surfaceElevated,
+          borderRadius: WpRadius.borderSm,
+        ),
+        // Painted over the row rather than around it — the same reason
+        // WpTextField paints its own stroke this way: a decoration border
+        // insets what the container holds, so this row would stand 2 dp
+        // taller than the identical add-note row above it, and its text 1 dp
+        // further in.
+        foregroundDecoration: BoxDecoration(
           borderRadius: WpRadius.borderSm,
           border: Border.all(
             color: widget.isEditing ? widget.accent : widget.borderColor,
@@ -424,26 +429,13 @@ class _NoteItemState extends State<_NoteItem> {
                           widget.onSave();
                         }
                       },
-                      child: Semantics(
-                        label: L10n.of(context).historyEditNote,
-                        textField: true,
-                        child: TextField(
-                          controller: widget.editController,
-                          autofocus: true,
-                          maxLines: 5,
-                          minLines: 1,
-                          textInputAction: TextInputAction.newline,
-                          style: TextStyle(
-                            fontSize: WpTypography.body,
-                            color: widget.textPrimary,
-                          ),
-                          decoration: const InputDecoration(
-                            border: InputBorder.none,
-                            contentPadding: EdgeInsets.symmetric(
-                              vertical: WpSpacing.xxs,
-                            ),
-                          ),
-                        ),
+                      child: WpTextField(
+                        controller: widget.editController,
+                        variant: WpTextFieldVariant.embedded,
+                        semanticsLabel: L10n.of(context).historyEditNote,
+                        autofocus: true,
+                        minLines: 1,
+                        maxLines: 5,
                       ),
                     ),
                   ),
