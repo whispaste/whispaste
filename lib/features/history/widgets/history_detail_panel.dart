@@ -23,6 +23,7 @@ import '../../../widgets/tag_input.dart';
 import '../../../widgets/markdown_toolbar.dart';
 import '../../../widgets/toast.dart';
 import '../../../widgets/wp_button.dart';
+import '../../../widgets/wp_text_field.dart';
 import 'tag_management_dialog.dart';
 import '../../../core/utils/word_count.dart';
 
@@ -628,7 +629,6 @@ class _DetailPanelHeader extends StatelessWidget {
         ? WpColorsDark.textSecondary
         : WpColorsLight.textSecondary;
     final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
     final avatarCol = historyAvatarColor(entry);
 
     return Padding(
@@ -657,34 +657,11 @@ class _DetailPanelHeader extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (isEditingTitle)
-                    TextField(
+                    WpTextField(
                       controller: titleController,
                       focusNode: titleFocusNode,
-                      style: TextStyle(
-                        fontSize: WpTypography.heading,
-                        fontWeight: FontWeight.w700,
-                        color: textPrimary,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: l10n.historyTitlePlaceholder,
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: WpSpacing.xs,
-                          vertical: WpSpacing.xxs,
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: WpRadius.borderSm,
-                          borderSide: BorderSide(color: accent, width: 1.5),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: WpRadius.borderSm,
-                          borderSide: BorderSide(
-                            color: isDark
-                                ? WpColorsDark.borderSubtle
-                                : WpColorsLight.borderSubtle,
-                          ),
-                        ),
-                      ),
+                      variant: WpTextFieldVariant.heading,
+                      hintText: l10n.historyTitlePlaceholder,
                       onSubmitted: (_) => onSaveTitle(),
                       onEditingComplete: onSaveTitle,
                     )
@@ -713,9 +690,11 @@ class _DetailPanelHeader extends StatelessWidget {
                                     text: entry.title.isNotEmpty
                                         ? entry.title
                                         : l10n.historyUntitled,
-                                    style: TextStyle(
-                                      fontSize: WpTypography.heading,
-                                      fontWeight: FontWeight.w700,
+                                    // Read view and edit view of the same
+                                    // title: one style, so opening edit mode
+                                    // never resizes the text.
+                                    style: WpTextField.styleFor(
+                                      WpTextFieldVariant.heading,
                                       color: textPrimary,
                                     ),
                                     isDark: isDark,
@@ -1002,7 +981,6 @@ class _DetailTranscriptZone extends StatelessWidget {
     final textPrimary = isDark
         ? WpColorsDark.textPrimary
         : WpColorsLight.textPrimary;
-    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
 
     // Cap prose measure at ~85 chars/line for the 16px body (Fill-By-Default
     // Rule: only the transcript degrades on ultrawide, so only it gets capped).
@@ -1023,37 +1001,13 @@ class _DetailTranscriptZone extends StatelessWidget {
             children: [
               Expanded(
                 child: isEditing
-                    ? Semantics(
-                        label: l10n.historyEditTranscript,
-                        textField: true,
-                        child: TextField(
-                          controller: transcriptController,
-                          focusNode: editorFocusNode,
-                          maxLines: null,
-                          autofocus: true,
-                          style: TextStyle(
-                            fontSize: WpTypography.heading,
-                            fontFamily: 'monospace',
-                            color: textPrimary,
-                            height: 1.65,
-                          ),
-                          decoration: InputDecoration(
-                            border: OutlineInputBorder(
-                              borderRadius: WpRadius.borderSm,
-                              borderSide: BorderSide(
-                                color: isDark
-                                    ? WpColorsDark.borderSubtle
-                                    : WpColorsLight.borderSubtle,
-                              ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: WpRadius.borderSm,
-                              borderSide: BorderSide(color: accent, width: 1.5),
-                            ),
-                            contentPadding: const EdgeInsets.all(WpSpacing.sm),
-                          ),
-                          onSubmitted: (_) => onSaveTranscript(),
-                        ),
+                    ? WpTextField(
+                        controller: transcriptController,
+                        focusNode: editorFocusNode,
+                        variant: WpTextFieldVariant.passage,
+                        semanticsLabel: l10n.historyEditTranscript,
+                        autofocus: true,
+                        onSubmitted: (_) => onSaveTranscript(),
                       )
                     : Semantics(
                         button: !isTrashView,
@@ -1071,10 +1025,12 @@ class _DetailTranscriptZone extends StatelessWidget {
                                 text: entry.content.isEmpty
                                     ? '\u200B'
                                     : entry.content,
-                                style: TextStyle(
-                                  fontSize: WpTypography.heading,
+                                // Same metrics as the edit view above, so
+                                // toggling edit mode doesn't reflow the
+                                // paragraph the user is looking at.
+                                style: WpTextField.styleFor(
+                                  WpTextFieldVariant.passage,
                                   color: textPrimary,
-                                  height: 1.65,
                                 ),
                                 isDark: isDark,
                               ),
