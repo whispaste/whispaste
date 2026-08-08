@@ -165,7 +165,9 @@ class _FeedbackPageState extends State<FeedbackPage> {
     return WpPageShell(
       child: LayoutBuilder(
         builder: (context, constraints) {
-          // Constrain form width on wide screens for readability
+          // Deliberate exception to the full-panel width every other area
+          // uses: this page is a form with long free-text fields, and a
+          // reading measure keeps those lines legible on wide windows.
           final maxFormWidth = constraints.maxWidth > 720
               ? 560.0
               : double.infinity;
@@ -177,11 +179,9 @@ class _FeedbackPageState extends State<FeedbackPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: WpSpacing.lg),
-
-                  // Title area
-                  Text(l10n.feedbackTitle, style: ts.headlineMedium),
-                  const SizedBox(height: WpSpacing.xs),
+                  // No in-page H1 — the app shell's page header is the one
+                  // place the page title is rendered. What stays is the
+                  // intro line, which says something the title doesn't.
                   Text(
                     l10n.feedbackSubtitle,
                     style: ts.bodyMedium?.copyWith(
@@ -191,7 +191,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                     ),
                   ),
 
-                  const SizedBox(height: WpSpacing.xxxl),
+                  const SizedBox(height: WpSpacing.xxl),
 
                   // Category selection
                   Text(l10n.feedbackCategoryLabel, style: ts.titleSmall),
