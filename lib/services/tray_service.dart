@@ -14,14 +14,13 @@ import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../core/config/settings_provider.dart';
-import '../core/data/database.dart';
 import '../core/l10n/generated/app_localizations.dart';
 import '../core/logging/app_logger.dart';
 import '../core/platform/macos_lifecycle_channel.dart';
 import '../core/recording/recording_state.dart';
 import 'audio_service.dart';
+import 'graceful_shutdown.dart';
 import 'microphone_selection_service.dart';
-import 'stt/stt_bundle.dart';
 import 'tray_mic_menu.dart';
 
 // ---------------------------------------------------------------------------
@@ -338,29 +337,22 @@ class TrayService extends Notifier<void> implements TrayListener {
   }
 
   Future<void> _quit() async {
-    // Stop the STT subprocess before destroying to prevent orphaned processes.
-    try {
-      ref.read(localSttBundleProvider.notifier).stop();
-    } catch (e) {
-      _log.debug('STT subprocess stop failed during quit (non-fatal): $e');
-    }
+    // Stop the on-device STT engine and WAIT for native teardown (plus DB
+    // close) before destroying tray/window — same shared helper as
+    // app.dart's onWindowClose and the macOS native-terminate path (see
+    // graceful_shutdown.dart). Previously this fired STT stop() without
+    // awaiting it and proceeded straight to tray/window destroy, racing
+    // native engine teardown against process exit — the same bug class as
+    // FLUTTER_WHISPASTE-BC (fixed for onWindowClose/Cmd+Q, but not here):
+    // if the process starts tearing down native GPU/ORT resources before
+    // the engine actually freed them, ggml's Metal-residency-set teardown
+    // assert (or an analogous native check) aborts the whole app.
+    await runGracefulEngineShutdown(ref.container);
 
     try {
       await trayManager.destroy().timeout(const Duration(seconds: 1));
     } on Exception catch (e) {
       _log.debug('Tray destroy failed during quit (non-fatal): $e');
-    }
-
-    // Close Drift DB before engine teardown — prevents SIGABRT from
-    // sqlite3LeaveMutexAndCloseZombie when open stream statements survive
-    // into Dart isolate shutdown.
-    try {
-      await ref
-          .read(historyDatabaseProvider)
-          .close()
-          .timeout(const Duration(seconds: 2));
-    } catch (e) {
-      _log.debug('DB close failed during quit (non-fatal): $e');
     }
 
     await windowManager.destroy();
