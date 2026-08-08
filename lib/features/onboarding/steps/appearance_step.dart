@@ -185,6 +185,11 @@ class _ThemeSwatchState extends State<_ThemeSwatch> {
               focusNode: _focusNode,
               onTap: widget.onTap,
               borderRadius: WpRadius.borderMd,
+              // WpFocusRing owns the focus visual — suppress InkWell's own
+              // fill, or focus paints twice. Only focusColor: unlike the
+              // history rows this tile draws no hover of its own, so
+              // hoverColor is its only pointer feedback and has to stay.
+              focusColor: Colors.transparent,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [

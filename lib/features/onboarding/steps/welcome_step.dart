@@ -430,6 +430,13 @@ class _BeatListTileState extends State<_BeatListTile> {
             focusNode: _focusNode,
             onTap: widget.onTap,
             borderRadius: WpRadius.borderLg,
+            // WpFocusRing owns the focus visual, and here it must be the
+            // *only* one: InkWell's default focus fill is the same surface
+            // colour this tile uses for `active`, so leaving it on would
+            // still make a focused inactive tile read as selected — the very
+            // confusion the ring was added to end. Only focusColor: this
+            // tile draws no hover of its own, so hoverColor has to stay.
+            focusColor: Colors.transparent,
             child: AnimatedContainer(
               duration: WpMotion.durationFor(context, WpMotion.fast),
               curve: WpMotion.defaultCurve,
