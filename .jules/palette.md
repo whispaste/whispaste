@@ -1,0 +1,3 @@
+## 2025-10-18 - Accessibility on interactive text widgets
+**Learning:** Interactive text widgets handled via `GestureDetector` (e.g. click-to-edit text blocks) rely on tooltips for sighted users but do not inherently announce themselves as interactive to screen readers.
+**Action:** Always wrap interactive `GestureDetector` regions with `Semantics(button: true, label: ...)` to ensure screen reader users are aware the text area can be interacted with.

@@ -715,29 +715,36 @@ class _DetailPanelHeader extends StatelessWidget {
                     Row(
                       children: [
                         Expanded(
-                          child: Tooltip(
-                            message: isTrashView ? '' : l10n.historyEditTitle,
-                            waitDuration: const Duration(milliseconds: 600),
-                            child: GestureDetector(
-                              onDoubleTap: isTrashView
-                                  ? null
-                                  : onStartTitleEdit,
-                              child: MouseRegion(
-                                cursor: isTrashView
-                                    ? SystemMouseCursors.basic
-                                    : SystemMouseCursors.click,
-                                child: HighlightedText(
-                                  text: entry.title.isNotEmpty
-                                      ? entry.title
-                                      : l10n.historyUntitled,
-                                  style: TextStyle(
-                                    fontSize: WpTypography.heading,
-                                    fontWeight: FontWeight.w700,
-                                    color: textPrimary,
+                          child: Semantics(
+                            button: !isTrashView,
+                            onTapHint: isTrashView
+                                ? null
+                                : l10n.historyEditTitle,
+                            onTap: isTrashView ? null : onStartTitleEdit,
+                            child: Tooltip(
+                              message: isTrashView ? '' : l10n.historyEditTitle,
+                              waitDuration: const Duration(milliseconds: 600),
+                              child: GestureDetector(
+                                onDoubleTap: isTrashView
+                                    ? null
+                                    : onStartTitleEdit,
+                                child: MouseRegion(
+                                  cursor: isTrashView
+                                      ? SystemMouseCursors.basic
+                                      : SystemMouseCursors.click,
+                                  child: HighlightedText(
+                                    text: entry.title.isNotEmpty
+                                        ? entry.title
+                                        : l10n.historyUntitled,
+                                    style: TextStyle(
+                                      fontSize: WpTypography.heading,
+                                      fontWeight: FontWeight.w700,
+                                      color: textPrimary,
+                                    ),
+                                    isDark: isDark,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  isDark: isDark,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ),
@@ -1071,26 +1078,29 @@ class _DetailTranscriptZone extends StatelessWidget {
                           onSubmitted: (_) => onSaveTranscript(),
                         ),
                       )
-                    : Tooltip(
-                        message: l10n.historyEditTranscript,
-                        waitDuration: const Duration(milliseconds: 600),
-                        child: GestureDetector(
-                          onTap: isTrashView ? null : onToggleEdit,
-                          behavior: HitTestBehavior.translucent,
-                          child: MouseRegion(
-                            cursor: isTrashView
-                                ? SystemMouseCursors.basic
-                                : SystemMouseCursors.click,
-                            child: HighlightedText(
-                              text: entry.content.isEmpty
-                                  ? '\u200B'
-                                  : entry.content,
-                              style: TextStyle(
-                                fontSize: WpTypography.heading,
-                                color: textPrimary,
-                                height: 1.65,
+                    : Semantics(
+                        button: !isTrashView,
+                        child: Tooltip(
+                          message: l10n.historyEditTranscript,
+                          waitDuration: const Duration(milliseconds: 600),
+                          child: GestureDetector(
+                            onTap: isTrashView ? null : onToggleEdit,
+                            behavior: HitTestBehavior.translucent,
+                            child: MouseRegion(
+                              cursor: isTrashView
+                                  ? SystemMouseCursors.basic
+                                  : SystemMouseCursors.click,
+                              child: HighlightedText(
+                                text: entry.content.isEmpty
+                                    ? '\u200B'
+                                    : entry.content,
+                                style: TextStyle(
+                                  fontSize: WpTypography.heading,
+                                  color: textPrimary,
+                                  height: 1.65,
+                                ),
+                                isDark: isDark,
                               ),
-                              isDark: isDark,
                             ),
                           ),
                         ),
