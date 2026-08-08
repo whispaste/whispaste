@@ -23,12 +23,15 @@ void main() {
       // The component itself.
       'lib/widgets/wp_search_field.dart': 'the component',
 
+      // Batch 6's component — the same idiom, for the fields that hold a
+      // value instead of a query. It is the destination of the entries
+      // below, not an offender.
+      'lib/widgets/wp_text_field.dart': 'the WpTextField component',
+
       // Non-search text fields — these belong to Batch 6 (WpTextField), not
       // to this family. Remove each entry as that batch migrates it.
       'lib/features/feedback/feedback_page.dart': 'Batch 6 — WpTextField',
       'lib/features/history/widgets/history_notes_section.dart':
-          'Batch 6 — WpTextField',
-      'lib/features/notes/widgets/note_editor_panel.dart':
           'Batch 6 — WpTextField',
     };
 
@@ -81,9 +84,9 @@ void main() {
     // hole it was meant to document.
     const allowedFiles = <String>{
       'lib/widgets/wp_search_field.dart',
+      'lib/widgets/wp_text_field.dart',
       'lib/features/feedback/feedback_page.dart',
       'lib/features/history/widgets/history_notes_section.dart',
-      'lib/features/notes/widgets/note_editor_panel.dart',
     };
 
     final stale = <String>[];
@@ -93,10 +96,11 @@ void main() {
         stale.add('$path (missing)');
         continue;
       }
-      // wp_search_field.dart is the component: it legitimately sets the
-      // pattern. Every other entry must still contain it, or it has been
-      // migrated and the entry should go.
+      // The two components legitimately set the pattern — they are what the
+      // other entries delegate their chrome *to*. Every other entry must
+      // still contain it, or it has been migrated and the entry should go.
       if (path == 'lib/widgets/wp_search_field.dart') continue;
+      if (path == 'lib/widgets/wp_text_field.dart') continue;
       final content = file.readAsStringSync();
       final pattern = RegExp(
         r'\b(border|enabledBorder|focusedBorder)\s*:\s*InputBorder\.none',
