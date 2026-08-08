@@ -2385,11 +2385,6 @@ class L10nHe extends L10n {
       'בהיר, כהה או לפי המערכת — והאם WhisPaste יופעל עם ההתחברות.';
 
   @override
-  String onboardingMaxRecordDurationHint(int seconds, String section) {
-    return 'הקלטות נעצרות אוטומטית אחרי $seconds שניות — ניתן לשנות זאת בכל עת בהגדרות ← $section.';
-  }
-
-  @override
   String get onboardingBeat1Title => 'לחץ על הקיצור, דבר, סיימת';
 
   @override
@@ -2503,6 +2498,14 @@ class L10nHe extends L10n {
   @override
   String get onboardingTestRecordingReassurance =>
       'Just a test, the text stays in this field.';
+
+  @override
+  String onboardingTestRecordingReassuranceWithDuration(
+    int seconds,
+    String section,
+  ) {
+    return 'רק בדיקה, הטקסט נשאר בשדה הזה — הקלטות נעצרות אוטומטית אחרי $seconds שניות, ניתן לשנות זאת בהגדרות ← $section.';
+  }
 
   @override
   String get onboardingReadyTitle => 'הכל מוכן!';

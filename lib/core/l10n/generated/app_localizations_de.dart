@@ -2447,11 +2447,6 @@ class L10nDe extends L10n {
       'Hell, dunkel oder wie das System — und ob WhisPaste beim Anmelden mitstartet.';
 
   @override
-  String onboardingMaxRecordDurationHint(int seconds, String section) {
-    return 'Aufnahmen stoppen automatisch nach $seconds Sekunden — jederzeit änderbar unter Einstellungen → $section.';
-  }
-
-  @override
   String get onboardingBeat1Title => 'Hotkey drücken, sprechen, fertig';
 
   @override
@@ -2565,6 +2560,14 @@ class L10nDe extends L10n {
   @override
   String get onboardingTestRecordingReassurance =>
       'Nur ein Test, der Text bleibt in diesem Feld.';
+
+  @override
+  String onboardingTestRecordingReassuranceWithDuration(
+    int seconds,
+    String section,
+  ) {
+    return 'Nur ein Test, der Text bleibt in diesem Feld — Aufnahmen stoppen automatisch nach $seconds Sekunden, änderbar unter Einstellungen → $section.';
+  }
 
   @override
   String get onboardingReadyTitle => 'Alles bereit!';

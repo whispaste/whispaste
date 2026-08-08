@@ -4353,12 +4353,6 @@ abstract class L10n {
   /// **'Light, dark, or match your system — and whether WhisPaste starts when you log in.'**
   String get onboardingAppearancePageSubtitle;
 
-  /// No description provided for @onboardingMaxRecordDurationHint.
-  ///
-  /// In en, this message translates to:
-  /// **'Recordings stop automatically after {seconds} seconds — adjust this anytime under Settings → {section}.'**
-  String onboardingMaxRecordDurationHint(int seconds, String section);
-
   /// No description provided for @onboardingBeat1Title.
   ///
   /// In en, this message translates to:
@@ -4556,6 +4550,15 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Just a test, the text stays in this field.'**
   String get onboardingTestRecordingReassurance;
+
+  /// No description provided for @onboardingTestRecordingReassuranceWithDuration.
+  ///
+  /// In en, this message translates to:
+  /// **'Just a test, the text stays in this field — recordings stop automatically after {seconds} seconds, adjustable under Settings → {section}.'**
+  String onboardingTestRecordingReassuranceWithDuration(
+    int seconds,
+    String section,
+  );
 
   /// No description provided for @onboardingReadyTitle.
   ///

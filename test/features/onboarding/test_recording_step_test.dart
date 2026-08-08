@@ -394,8 +394,11 @@ void main() {
 
   // Migrated from the appearance block when that became its own page: the
   // note answers "when does a recording stop by itself", so it belongs on
-  // the page where the first recording is made.
-  group('TestRecordingStep — recording duration note', () {
+  // the page where the first recording is made. It is no longer a line of
+  // its own — reassurance and auto-stop duration share one sentence, so the
+  // assertions below are on the merged string and the ambient line is always
+  // present; only which of its two variants renders depends on the limit.
+  group('TestRecordingStep — ambient reassurance / duration note', () {
     testWidgets('shows the configured maxRecordDuration value, not a '
         'hard-coded default', (tester) async {
       await _pumpStep(
@@ -405,10 +408,10 @@ void main() {
         ),
       );
 
-      expect(find.byKey(kTestRecordingStepMaxDurationHintKey), findsOneWidget);
+      expect(find.byKey(kTestRecordingStepReassuranceHintKey), findsOneWidget);
       expect(
         find.text(
-          l10n.onboardingMaxRecordDurationHint(
+          l10n.onboardingTestRecordingReassuranceWithDuration(
             90,
             l10n.settingsRecordingSafety,
           ),
@@ -425,7 +428,7 @@ void main() {
       expect(AppSettings.defaults.behavior.maxRecordDuration, 120);
       expect(
         find.text(
-          l10n.onboardingMaxRecordDurationHint(
+          l10n.onboardingTestRecordingReassuranceWithDuration(
             120,
             l10n.settingsRecordingSafety,
           ),
@@ -434,9 +437,8 @@ void main() {
       );
     });
 
-    testWidgets('hides the note entirely when the limit is 0 (unlimited)', (
-      tester,
-    ) async {
+    testWidgets('drops the duration half when the limit is 0 (unlimited), '
+        'keeping the bare reassurance', (tester) async {
       await _pumpStep(
         tester,
         settings: const AppSettings(
@@ -444,7 +446,30 @@ void main() {
         ),
       );
 
-      expect(find.byKey(kTestRecordingStepMaxDurationHintKey), findsNothing);
+      // Both directions: the plain variant renders AND the duration-bearing
+      // one does not — asserting only the first would let a regression that
+      // renders both lines pass.
+      expect(
+        find.text(l10n.onboardingTestRecordingReassurance),
+        findsOneWidget,
+      );
+      expect(
+        find.text(
+          l10n.onboardingTestRecordingReassuranceWithDuration(
+            0,
+            l10n.settingsRecordingSafety,
+          ),
+        ),
+        findsNothing,
+      );
+    });
+
+    testWidgets('renders exactly one ambient muted line, never both '
+        'variants at once', (tester) async {
+      await _pumpStep(tester);
+
+      expect(find.byKey(kTestRecordingStepReassuranceHintKey), findsOneWidget);
+      expect(find.text(l10n.onboardingTestRecordingReassurance), findsNothing);
     });
   });
 }

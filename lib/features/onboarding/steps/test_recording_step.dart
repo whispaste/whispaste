@@ -25,9 +25,13 @@ const kTestRecordingStepRecordButtonKey = Key('testRecordingStepRecordButton');
 const kTestRecordingStepMicBypassButtonKey = Key(
   'testRecordingStepMicBypassButton',
 );
+
+/// The single ambient note under the record button. Carries the reassurance
+/// on its own when recordings are unlimited, and reassurance + auto-stop
+/// duration in one sentence otherwise — hence one key for both variants.
 @visibleForTesting
-const kTestRecordingStepMaxDurationHintKey = Key(
-  'testRecordingStepMaxDurationHint',
+const kTestRecordingStepReassuranceHintKey = Key(
+  'testRecordingStepReassuranceHint',
 );
 
 /// Guided, optional test recording content of the final onboarding page.
@@ -139,7 +143,8 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
         // right column starts with an [OnboardingSectionLabel] + `lg`, and
         // `xxl` here would offset the two columns against each other — and
         // tryAndGo is the one page that does not fill the viewport, with
-        // roughly 22 px of slack left to spend.
+        // ~32 px of slack left to spend in German (was ~6 px until the two
+        // stacked ambient muted lines below merged into one).
         const SizedBox(height: WpSpacing.lg),
 
         // Current hotkey and microphone status — the two preconditions of the
@@ -258,31 +263,33 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
           ),
         ],
 
+        // ONE ambient note under the record button, not two. It used to be a
+        // reassurance line plus a separate recording-duration row, and with
+        // the completion-gate hint above them that stacked three muted lines
+        // under a single control — where every other page of the flow and
+        // every Settings section in the app carries at most one. Both were
+        // unconditional ambient advice about the very same button, so they
+        // are one sentence now (a dedicated string, never two runtime-glued
+        // ones — that breaks in RTL and reads translated-by-machine). The
+        // completion-gate hint stays its own line: it is conditional and
+        // explains the *disabled CTA*, a different subject.
+        //
+        // The duration half sits on this page rather than beside the hotkey
+        // settings because this is where the first recording happens:
+        // "recordings stop by themselves after N seconds" is advice about
+        // the button directly above. With no limit set (0 = unlimited) there
+        // is nothing to warn about, so the line falls back to the plain
+        // reassurance — and drops the leading info icon with it, since the
+        // icon marks the duration information and the two variants never
+        // appear together.
         const SizedBox(height: WpSpacing.sm),
         Padding(
           padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
-          child: Text(
-            l10n.onboardingTestRecordingReassurance,
-            textAlign: TextAlign.start,
-            style: TextStyle(fontSize: WpTypography.small, color: textMuted),
-          ),
-        ),
-
-        // Recording-duration note — muted, no control. It sits on this page
-        // rather than beside the hotkey settings because this is where the
-        // first recording actually happens: "recordings stop by themselves
-        // after N seconds" is advice about the button directly above it.
-        // (The Model & Hotkey page is also the one page in the flow with no
-        // room to spare — 3 px in Hebrew with this line on it.) Suppressed
-        // when the limit is 0 (= unlimited, nothing to warn about).
-        if (settings.behavior.maxRecordDuration > 0) ...[
-          const SizedBox(height: WpSpacing.xs),
-          Padding(
-            padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
-            child: Row(
-              key: kTestRecordingStepMaxDurationHintKey,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+          child: Row(
+            key: kTestRecordingStepReassuranceHintKey,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (settings.behavior.maxRecordDuration > 0) ...[
                 Padding(
                   padding: const EdgeInsets.only(top: 1),
                   child: Icon(
@@ -292,23 +299,26 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
                   ),
                 ),
                 const SizedBox(width: WpSpacing.xs),
-                Expanded(
-                  child: Text(
-                    l10n.onboardingMaxRecordDurationHint(
-                      settings.behavior.maxRecordDuration,
-                      l10n.settingsRecordingSafety,
-                    ),
-                    style: TextStyle(
-                      fontSize: WpTypography.small,
-                      color: textMuted,
-                      height: 1.35,
-                    ),
+              ],
+              Expanded(
+                child: Text(
+                  settings.behavior.maxRecordDuration > 0
+                      ? l10n.onboardingTestRecordingReassuranceWithDuration(
+                          settings.behavior.maxRecordDuration,
+                          l10n.settingsRecordingSafety,
+                        )
+                      : l10n.onboardingTestRecordingReassurance,
+                  textAlign: TextAlign.start,
+                  style: TextStyle(
+                    fontSize: WpTypography.small,
+                    color: textMuted,
+                    height: 1.35,
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
 
         // Escape hatch "continue without a microphone" — deliberately
         // restrained (plain text button, never the accent gradient). Only

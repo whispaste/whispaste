@@ -922,7 +922,7 @@ void main() {
   //   page 4  Hotkey        222 / 222 / 222   (the sparsest page in the flow)
   //   page 5  Appearance    380 / 401 / 380   (theme tiles + autostart row)
   //   page 6  Auto-Paste    190 / 190 / 190   (macOS/Windows only)
-  //   page 7  Try & Go      545 / 508 / 508   (6 px slack — the mic-bypass
+  //   page 7  Try & Go      519 / 498 / 498   (32 px slack — the mic-bypass
   //                                            escape hatch moved from a raw
   //                                            TextButton to WpButton
   //                                            standard, +16 px; it kept
@@ -930,13 +930,20 @@ void main() {
   //                                            was always body-weight text,
   //                                            unlike the dense settings-row
   //                                            case in trigger_step.dart.
-  //                                            This is now the binding
+  //                                            This is still the binding
   //                                            constraint in the flow — see
   //                                            the full-transcript case in
   //                                            onboarding_flow_test)
   //
+  // Try & Go was 545 / 508 / 508 (6 px slack, German) until the page's two
+  // stacked ambient muted lines — reassurance and recording-duration note —
+  // became the single sentence they always were about the same button (see
+  // test_recording_step.dart). Merging them returned 26 px to German and
+  // 10 px to English/Hebrew: one text line plus the `xs` gap that separated
+  // the two. The page keeps its rank as the flow's tallest.
+  //
   // Linux runs the same pages 1–5 and ends on Try & Go as page 6, measured
-  // 499 / 462 / 462 there.
+  // 473 / 452 / 452 there (was 499 / 462 / 462, same merge).
   //
   // The three branch cases, which are what the split was for (German / Hebrew,
   // the two locales the tests cover):
