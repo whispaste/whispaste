@@ -68,6 +68,17 @@ class _ModelStepState extends ConsumerState<ModelStep> {
   hw.GpuInfo? _gpu;
   bool _hwDetected = false;
 
+  /// The Whisper model id this user already has configured, captured once at
+  /// hardware-detection time — `null` while nothing is configured yet, which
+  /// is when the tier default applies instead.
+  ///
+  /// Exists because the hardware-derived tier and a deliberately chosen model
+  /// are two different answers: someone on an 8-GB GPU whose tier resolves to
+  /// Premium may still have picked Medium on purpose (faster, quieter fans),
+  /// and merely *looking* at this page must not trade the second for the
+  /// first. See [_effectiveWhisperModel].
+  String? _configuredWhisperModelId;
+
   @override
   void initState() {
     super.initState();
@@ -90,12 +101,39 @@ class _ModelStepState extends ConsumerState<ModelStep> {
       vendor: gpu.vendor,
       vramMB: gpu.vramMB ?? 0,
     );
+    final configuredEngine = OnDeviceEngine.fromValue(settings.stt.engine);
+    final configuredModelId = settings.stt.model;
+    // Does this user already have an engine/model of their own, or is the
+    // persisted state still the factory default? [SttSettings] carries no
+    // "unset" marker (`engine` defaults to whisper, `model` to
+    // whisper-medium), so the answer comes from two independent signals,
+    // either of which is sufficient:
+    //
+    //  * Onboarding already completed — then everything in settings is this
+    //    user's own state by definition. This is the branch that carries the
+    //    manually reopened flow, and it is deliberately the race-free one:
+    //    it needs no result from the download service's async disk scan.
+    //  * The persisted engine's model is on disk — covers the interrupted
+    //    first run that is resumed after a download already finished, where
+    //    `onboardingCompleted` is still false.
+    final configured =
+        settings.onboarding.onboardingCompleted ||
+        _engineModelInstalled(configuredEngine, configuredModelId);
     setState(() {
       _gpu = gpu;
       _recommendation = rec;
       _whisperTier =
           rec.tier ?? recommendTier(gpu.vramMB ?? 0, vendor: gpu.vendor);
-      _selectedEngine ??= rec.engine;
+      _configuredWhisperModelId =
+          configured && configuredEngine == OnDeviceEngine.whisper
+          ? configuredModelId
+          : null;
+      // Deliberately *not* filtered through [_parakeetEligible]: a configured
+      // engine is preselected even where the recommendation would rule it
+      // out, because silently switching it is exactly the overwrite this
+      // guards against. The recommendation stays visible on the other card
+      // and is one tap away.
+      _selectedEngine ??= configured ? configuredEngine : rec.engine;
       _hwDetected = true;
     });
     // Resume case: the recommended engine's model may already be on disk
@@ -103,6 +141,37 @@ class _ModelStepState extends ConsumerState<ModelStep> {
     // right away so the visible "Model ready" state matches settings even
     // if the user immediately continues.
     _maybePersistSelection();
+  }
+
+  /// Whether [engine]'s model is confirmed on disk right now — for Whisper,
+  /// specifically [whisperModelId] rather than whatever the tier resolves to.
+  bool _engineModelInstalled(OnDeviceEngine engine, String whisperModelId) {
+    switch (engine) {
+      case OnDeviceEngine.whisper:
+        return ref
+            .read(modelDownloadProvider)
+            .downloadedModels
+            .contains(whisperModelId);
+      case OnDeviceEngine.parakeet:
+        final dl = ref.read(parakeetDownloadProvider);
+        return dl.installed || dl.phase == ParakeetDownloadPhase.done;
+    }
+  }
+
+  /// The Whisper model this step operates on: the configured one where the
+  /// user already has one, the hardware tier's otherwise.
+  ///
+  /// Every whisper-shaped decision goes through here — the ready check, the
+  /// card's size label, what the download button fetches, and what gets
+  /// persisted — so the four can never disagree about *which* model this page
+  /// is talking about.
+  SttModelInfo get _effectiveWhisperModel {
+    final configured = _configuredWhisperModelId;
+    if (configured != null) {
+      final model = findSttModel(configured);
+      if (model != null) return model;
+    }
+    return bestModelForTier(_whisperTier ?? QualityTier.balanced);
   }
 
   /// Whether Parakeet is eligible for the detected dictation language.
@@ -126,9 +195,9 @@ class _ModelStepState extends ConsumerState<ModelStep> {
   void _startDownload() {
     switch (_selectedEngine) {
       case OnDeviceEngine.whisper:
-        final tier = _whisperTier ?? QualityTier.balanced;
-        final model = bestModelForTier(tier);
-        ref.read(modelDownloadProvider.notifier).downloadModel(model.id);
+        ref
+            .read(modelDownloadProvider.notifier)
+            .downloadModel(_effectiveWhisperModel.id);
       case OnDeviceEngine.parakeet:
         ref.read(parakeetDownloadProvider.notifier).downloadBundle();
       case null:
@@ -143,9 +212,8 @@ class _ModelStepState extends ConsumerState<ModelStep> {
     switch (_selectedEngine) {
       case OnDeviceEngine.whisper:
         final dl = ref.read(modelDownloadProvider);
-        final model = bestModelForTier(_whisperTier ?? QualityTier.balanced);
         return dl.phase == DownloadPhase.done ||
-            dl.downloadedModels.contains(model.id);
+            dl.downloadedModels.contains(_effectiveWhisperModel.id);
       case OnDeviceEngine.parakeet:
         final dl = ref.read(parakeetDownloadProvider);
         return dl.phase == ParakeetDownloadPhase.done || dl.installed;
@@ -158,18 +226,27 @@ class _ModelStepState extends ConsumerState<ModelStep> {
   /// actually on disk. No-op otherwise, so this is safe to call from every
   /// "the ready-state may have just changed" site. Idempotent — repeated
   /// calls write the same values.
+  ///
+  /// Writes nothing at all when the values already match what is persisted.
+  /// That is the difference between "idempotent" and "silent": entering and
+  /// leaving this page without touching anything must leave settings
+  /// untouched, not re-save them.
   void _maybePersistSelection() {
     final engine = _selectedEngine;
     if (engine == null || !_selectedEngineDone()) return;
+    final modelId = engine == OnDeviceEngine.whisper
+        ? _effectiveWhisperModel.id
+        : null; // leave the persisted whisper model untouched
+    final current = ref.read(settingsProvider).value;
+    if (current != null &&
+        current.stt.engine == engine.value &&
+        (modelId == null || current.stt.model == modelId)) {
+      return;
+    }
     ref
         .read(settingsProvider.notifier)
         .updateSettings(
-          (s) => s.copyWith(
-            sttEngine: engine.value,
-            sttModel: engine == OnDeviceEngine.whisper
-                ? bestModelForTier(_whisperTier ?? QualityTier.balanced).id
-                : null, // leave the persisted whisper model untouched
-          ),
+          (s) => s.copyWith(sttEngine: engine.value, sttModel: modelId),
         );
   }
 
@@ -200,8 +277,7 @@ class _ModelStepState extends ConsumerState<ModelStep> {
         ? WpColorsDark.accentWarmGradient
         : WpColorsLight.accentWarmGradient;
 
-    final tier = _whisperTier ?? QualityTier.balanced;
-    final whisperModel = bestModelForTier(tier);
+    final whisperModel = _effectiveWhisperModel;
 
     // Per-engine download status, normalized to whisper's `DownloadPhase` so
     // both engines can share `_ModelStepDownloadStatus` (see the mapping
