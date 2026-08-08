@@ -135,7 +135,12 @@ class ReadyStep extends ConsumerWidget {
         // step (it's a tip, not part of the core loop). Mirrors the muted
         // hint style of the recording-duration note on the Model & Hotkey
         // page (appearance_section.dart).
-        const SizedBox(height: WpSpacing.md),
+        //
+        // `lg`, not the `md` that separates the three numbered steps: at the
+        // same gap as its siblings the tip sat inside the list's rhythm and
+        // read as a fourth step regardless of what the comment above intends.
+        // The wider gap is what makes it a side note to the eye.
+        const SizedBox(height: WpSpacing.lg),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -144,7 +149,11 @@ class ReadyStep extends ConsumerWidget {
                 top: 1,
                 start: kSettingRowInset,
               ),
-              child: Icon(LucideIcons.info, size: 14, color: textMuted),
+              child: Icon(
+                LucideIcons.info,
+                size: WpIconSize.xs,
+                color: textMuted,
+              ),
             ),
             const SizedBox(width: WpSpacing.xs),
             Expanded(

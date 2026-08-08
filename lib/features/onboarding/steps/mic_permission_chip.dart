@@ -107,63 +107,67 @@ class _MicPermissionChipState extends ConsumerState<MicPermissionChip> {
       ),
     };
 
-    return Semantics(
-      button: true,
-      label: label,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          // Always request() — the notifier alone decides between the real
-          // one-time OS dialog and the Settings deep-link + poll recovery.
-          onTap: () => unawaited(
-            ref.read(micPermissionNotifierProvider.notifier).request(),
-          ),
-          borderRadius: WpRadius.borderFull,
-          onHover: (hovering) => setState(() => _hovered = hovering),
-          child: AnimatedContainer(
-            duration: WpMotion.durationFor(context, WpMotion.fast),
-            curve: WpMotion.defaultCurve,
-            padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.md,
-              vertical: WpSpacing.xs,
+    // `MergeSemantics` + a label-less `Semantics`, the same idiom the theme
+    // swatches and the welcome beats use: the `Text` below already carries
+    // the chip's label, so spelling it out here as well announced it twice.
+    return MergeSemantics(
+      child: Semantics(
+        button: true,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            // Always request() — the notifier alone decides between the real
+            // one-time OS dialog and the Settings deep-link + poll recovery.
+            onTap: () => unawaited(
+              ref.read(micPermissionNotifierProvider.notifier).request(),
             ),
-            decoration: BoxDecoration(
-              color: _hovered ? hover : surface,
-              borderRadius: WpRadius.borderFull,
-              border: Border.all(color: border),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AnimatedSwitcher(
-                  duration: WpMotion.durationFor(context, WpMotion.fast),
-                  child: icon == null
-                      ? SizedBox(
-                          key: const ValueKey('micChipSpinner'),
-                          width: WpIconSize.sm,
-                          height: WpIconSize.sm,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
+            borderRadius: WpRadius.borderFull,
+            onHover: (hovering) => setState(() => _hovered = hovering),
+            child: AnimatedContainer(
+              duration: WpMotion.durationFor(context, WpMotion.fast),
+              curve: WpMotion.defaultCurve,
+              padding: const EdgeInsets.symmetric(
+                horizontal: WpSpacing.md,
+                vertical: WpSpacing.xs,
+              ),
+              decoration: BoxDecoration(
+                color: _hovered ? hover : surface,
+                borderRadius: WpRadius.borderFull,
+                border: Border.all(color: border),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AnimatedSwitcher(
+                    duration: WpMotion.durationFor(context, WpMotion.fast),
+                    child: icon == null
+                        ? SizedBox(
+                            key: const ValueKey('micChipSpinner'),
+                            width: WpIconSize.sm,
+                            height: WpIconSize.sm,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: statusColor,
+                            ),
+                          )
+                        : Icon(
+                            icon,
+                            key: ValueKey(icon),
+                            size: WpIconSize.sm,
                             color: statusColor,
                           ),
-                        )
-                      : Icon(
-                          icon,
-                          key: ValueKey(icon),
-                          size: WpIconSize.sm,
-                          color: statusColor,
-                        ),
-                ),
-                const SizedBox(width: WpSpacing.xs),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: WpTypography.body,
-                    fontWeight: FontWeight.w600,
-                    color: textPrimary,
                   ),
-                ),
-              ],
+                  const SizedBox(width: WpSpacing.xs),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: WpTypography.body,
+                      fontWeight: FontWeight.w600,
+                      color: textPrimary,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

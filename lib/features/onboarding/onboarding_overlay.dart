@@ -719,7 +719,11 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
                                 : () => windowManager.close(),
                             icon: Icon(
                               LucideIcons.x,
-                              size: 18,
+                              // `md`, the floor DESIGN.md sets for an
+                              // interactive icon; 18 was off the scale in
+                              // both directions. The 32-px top bar sets the
+                              // button's own box, so this costs no height.
+                              size: WpIconSize.md,
                               color: textMuted,
                             ),
                             tooltip: widget.manualReview

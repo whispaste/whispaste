@@ -633,7 +633,11 @@ class _WindowsVerifyCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(LucideIcons.circleCheck, size: 22, color: successColor),
+          Icon(
+            LucideIcons.circleCheck,
+            size: WpIconSize.md,
+            color: successColor,
+          ),
           const SizedBox(width: WpSpacing.sm),
           Expanded(
             child: Text(
@@ -690,7 +694,11 @@ class _WindowsWarnCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(LucideIcons.triangleAlert, size: 20, color: warningColor),
+          Icon(
+            LucideIcons.triangleAlert,
+            size: WpIconSize.md,
+            color: warningColor,
+          ),
           const SizedBox(width: WpSpacing.sm),
           Expanded(
             child: Text(
@@ -752,7 +760,7 @@ class _PermissionStatusCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(icon, size: 22, color: color),
+          Icon(icon, size: WpIconSize.md, color: color),
           const SizedBox(width: WpSpacing.sm),
           Expanded(
             child: Text(
@@ -766,8 +774,8 @@ class _PermissionStatusCard extends StatelessWidget {
           ),
           if (isPolling)
             const SizedBox(
-              width: 16,
-              height: 16,
+              width: WpIconSize.sm,
+              height: WpIconSize.sm,
               child: CircularProgressIndicator(strokeWidth: 2),
             ),
         ],
@@ -857,7 +865,7 @@ class _PollingHintCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(LucideIcons.info, size: 20, color: textSecondary),
+          Icon(LucideIcons.info, size: WpIconSize.md, color: textSecondary),
           const SizedBox(width: WpSpacing.sm),
           Expanded(
             child: Column(
@@ -940,7 +948,7 @@ class _RepairResultBanner extends StatelessWidget {
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, size: 16, color: color),
+            Icon(icon, size: WpIconSize.sm, color: color),
             const SizedBox(width: WpSpacing.xs),
             Expanded(
               child: Text(

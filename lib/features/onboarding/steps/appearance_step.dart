@@ -6,6 +6,7 @@ import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
+import '../../settings/settings_widgets.dart' show kSettingRowInset;
 
 /// Widget keys exposed for testing.
 @visibleForTesting
@@ -57,36 +58,45 @@ class AppearanceStep extends ConsumerWidget {
 
     return Align(
       alignment: AlignmentDirectional.centerStart,
-      child: Wrap(
-        key: kAppearanceThemeSelectorKey,
-        spacing: WpSpacing.lg,
-        runSpacing: WpSpacing.lg,
-        children: [
-          // loam-ignore: a11y-interactive-semantics – semantics provided in _ThemeSwatch.build
-          _ThemeSwatch(
-            key: appearanceThemeSwatchKey(ThemeMode.light),
-            mode: ThemeMode.light,
-            label: l10n.onboardingThemeLight,
-            active: themeMode == ThemeMode.light,
-            onTap: () => selectThemeMode(ThemeMode.light),
-          ),
-          // loam-ignore: a11y-interactive-semantics – semantics provided in _ThemeSwatch.build
-          _ThemeSwatch(
-            key: appearanceThemeSwatchKey(ThemeMode.dark),
-            mode: ThemeMode.dark,
-            label: l10n.onboardingThemeDark,
-            active: themeMode == ThemeMode.dark,
-            onTap: () => selectThemeMode(ThemeMode.dark),
-          ),
-          // loam-ignore: a11y-interactive-semantics – semantics provided in _ThemeSwatch.build
-          _ThemeSwatch(
-            key: appearanceThemeSwatchKey(ThemeMode.system),
-            mode: ThemeMode.system,
-            label: l10n.onboardingThemeSystem,
-            active: themeMode == ThemeMode.system,
-            onTap: () => selectThemeMode(ThemeMode.system),
-          ),
-        ],
+      // The page heading above and the autostart row below both sit on the
+      // shared reading edge (`kSettingRowInset`); without this the tiles were
+      // the only block on the page starting 12 px further left, which broke
+      // the vertical line the eye follows down the page. Three 200-px tiles
+      // plus two `lg` gaps come to 640 of the 720-px frame, so the inset is
+      // paid for out of the 80 px that were spare.
+      child: Padding(
+        padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
+        child: Wrap(
+          key: kAppearanceThemeSelectorKey,
+          spacing: WpSpacing.lg,
+          runSpacing: WpSpacing.lg,
+          children: [
+            // loam-ignore: a11y-interactive-semantics – semantics provided in _ThemeSwatch.build
+            _ThemeSwatch(
+              key: appearanceThemeSwatchKey(ThemeMode.light),
+              mode: ThemeMode.light,
+              label: l10n.onboardingThemeLight,
+              active: themeMode == ThemeMode.light,
+              onTap: () => selectThemeMode(ThemeMode.light),
+            ),
+            // loam-ignore: a11y-interactive-semantics – semantics provided in _ThemeSwatch.build
+            _ThemeSwatch(
+              key: appearanceThemeSwatchKey(ThemeMode.dark),
+              mode: ThemeMode.dark,
+              label: l10n.onboardingThemeDark,
+              active: themeMode == ThemeMode.dark,
+              onTap: () => selectThemeMode(ThemeMode.dark),
+            ),
+            // loam-ignore: a11y-interactive-semantics – semantics provided in _ThemeSwatch.build
+            _ThemeSwatch(
+              key: appearanceThemeSwatchKey(ThemeMode.system),
+              mode: ThemeMode.system,
+              label: l10n.onboardingThemeSystem,
+              active: themeMode == ThemeMode.system,
+              onTap: () => selectThemeMode(ThemeMode.system),
+            ),
+          ],
+        ),
       ),
     );
   }

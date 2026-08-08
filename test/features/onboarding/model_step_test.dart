@@ -12,7 +12,8 @@ library;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderParagraph;
-import 'package:flutter/services.dart' show FontLoader, rootBundle;
+import 'package:flutter/services.dart'
+    show FontLoader, LogicalKeyboardKey, rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
@@ -619,6 +620,116 @@ void main() {
           rec.parakeet.downloadBundleCalls,
           1,
           reason: 'One tap adopts the recommendation.',
+        );
+      },
+    );
+  });
+
+  // -------------------------------------------------------------------------
+  // Keyboard access
+  // -------------------------------------------------------------------------
+
+  group('ModelStep — keyboard access', () {
+    testWidgets(
+      'both engine cards take keyboard focus — they used to be a bare '
+      'MouseRegion + GestureDetector, so the one page whose whole purpose is '
+      'a binary choice could not be reached with Tab at all',
+      (tester) async {
+        await _pumpStep(tester, gpu: _appleM2, dictationLocale: 'de');
+
+        for (final entry in {
+          'Parakeet': kModelStepEngineParakeetCardKey,
+          'Whisper': kModelStepEngineWhisperCardKey,
+        }.entries) {
+          final inkWell = tester.widget<InkWell>(
+            find.descendant(
+              of: find.byKey(entry.value),
+              matching: find.byType(InkWell),
+            ),
+          );
+          expect(
+            inkWell.focusNode?.canRequestFocus,
+            isTrue,
+            reason:
+                'the ${entry.key} card must own a focusable node — without '
+                'one there is no keyboard path to the engine choice',
+          );
+        }
+      },
+    );
+
+    testWidgets(
+      'activating the focused Whisper card with Enter selects it, exactly '
+      'like a tap does',
+      (tester) async {
+        final rec = await _pumpStep(
+          tester,
+          gpu: _appleM2,
+          dictationLocale: 'de',
+        );
+
+        final whisperInk = tester.widget<InkWell>(
+          find.descendant(
+            of: find.byKey(kModelStepEngineWhisperCardKey),
+            matching: find.byType(InkWell),
+          ),
+        );
+        whisperInk.focusNode!.requestFocus();
+        await tester.pumpAndSettle();
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+
+        await tester.tap(
+          find.textContaining(l10n.qualityTierDownloadAndContinue),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          rec.parakeet.downloadBundleCalls,
+          0,
+          reason:
+              'Enter on the Whisper card must move the selection off '
+              'the recommended Parakeet card',
+        );
+        expect(rec.whisper.downloadModelCalls, [
+          bestModelForTier(QualityTier.premium).id,
+        ]);
+      },
+    );
+  });
+
+  group('ModelStep — disabled engine card', () {
+    testWidgets(
+      'the reason a card cannot be picked keeps its full colour — it used to '
+      'sit under a 50% Opacity veil together with the rest of the card, '
+      'which dimmed the one line that explains the block to roughly 1.8:1',
+      (tester) async {
+        // Hebrew is not a Parakeet language, so the Parakeet card renders
+        // disabled and carries its reason line.
+        await _pumpStep(
+          tester,
+          gpu: _appleM2,
+          dictationLocale: 'he',
+          displayLocale: const Locale('he'),
+        );
+        final localized = await L10n.delegate.load(const Locale('he'));
+
+        final reason = find.text(
+          localized.onboardingModelEngineUnsupportedLanguage,
+        );
+        expect(
+          reason,
+          findsOneWidget,
+          reason: 'the disabled branch must actually be rendered',
+        );
+        expect(
+          find.ancestor(of: reason, matching: find.byType(Opacity)),
+          findsNothing,
+          reason:
+              'no Opacity may sit over the disabled card: DESIGN.md forbids '
+              'signalling disabled with a veil over live colours, and the '
+              'veil is what made this line unreadable',
         );
       },
     );

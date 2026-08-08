@@ -133,6 +133,13 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
           title: l10n.onboardingTestRecordingTitle,
           subtitle: l10n.onboardingTestRecordingSubtitle,
         ),
+        // `lg`, not the `kOnboardingHeaderGap` (`xxl`) every other page uses.
+        // Two reasons, both specific to this page: it is the only one whose
+        // heading is not the *page* header but the left column's own — the
+        // right column starts with an [OnboardingSectionLabel] + `lg`, and
+        // `xxl` here would offset the two columns against each other — and
+        // tryAndGo is the one page that does not fill the viewport, with
+        // roughly 22 px of slack left to spend.
         const SizedBox(height: WpSpacing.lg),
 
         // Current hotkey and microphone status — the two preconditions of the
@@ -209,7 +216,11 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
           const SizedBox(height: WpSpacing.sm),
           Row(
             children: [
-              Icon(LucideIcons.circleCheck, size: 16, color: success),
+              Icon(
+                LucideIcons.circleCheck,
+                size: WpIconSize.sm,
+                color: success,
+              ),
               const SizedBox(width: WpSpacing.xs),
               // Flexible so long translations wrap instead of overflowing
               // the row (surfaced by the walkthrough test's Ahem metrics).
@@ -274,7 +285,11 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
               children: [
                 Padding(
                   padding: const EdgeInsets.only(top: 1),
-                  child: Icon(LucideIcons.info, size: 14, color: textMuted),
+                  child: Icon(
+                    LucideIcons.info,
+                    size: WpIconSize.xs,
+                    color: textMuted,
+                  ),
                 ),
                 const SizedBox(width: WpSpacing.xs),
                 Expanded(
@@ -322,7 +337,11 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
               children: [
                 Padding(
                   padding: const EdgeInsets.only(top: 1),
-                  child: Icon(LucideIcons.info, size: 14, color: textMuted),
+                  child: Icon(
+                    LucideIcons.info,
+                    size: WpIconSize.xs,
+                    color: textMuted,
+                  ),
                 ),
                 const SizedBox(width: WpSpacing.xs),
                 Flexible(
