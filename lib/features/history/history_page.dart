@@ -11,12 +11,11 @@ import '../../core/app_info.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/logging/app_logger.dart';
 import '../../core/logging/crash_fingerprints.dart';
-import '../../core/theme/colors.dart';
-import '../../core/theme/tokens.dart';
 import '../../widgets/dialog.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/page_shell.dart';
 import '../../widgets/toast.dart';
+import '../../widgets/wp_list_skeleton.dart';
 import 'package:whispaste/core/data/database.dart';
 import '../../services/history/history_exporter.dart' as history_exporter;
 import '../../services/telemetry_service.dart';
@@ -33,6 +32,13 @@ import 'widgets/widgets.dart';
 /// channels.
 typedef HistoryPageExportFn =
     Future<void> Function(BuildContext context, List<HistoryEntry> entries);
+
+/// Placeholder-bar height of the loading skeleton, matched to the real
+/// [HistoryEntryRow]. Measured at a 340 dp list column: 108 dp for an entry
+/// whose content is one short line, 127 dp with the usual two-line preview.
+/// 128 tracks the populated case — the one a skeleton has to reserve for —
+/// on the repo's 8 dp rhythm. The former 52 reserved less than half a row.
+const _historySkeletonRowHeight = 128.0;
 
 /// History page — recorded transcriptions with search, filter, and grouping.
 ///
@@ -522,7 +528,10 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                       isArchiveView,
                     );
                   },
-                  loading: () => _HistorySkeleton(isDark: isDark),
+                  loading: () => WpListSkeleton(
+                    isDark: isDark,
+                    rowHeight: _historySkeletonRowHeight,
+                  ),
                   error: (e, _) {
                     final l10n = L10n.of(context);
                     return WpEmptyState(
@@ -898,42 +907,5 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       _multiSelectMode = false;
       _selectedEntryId = null;
     });
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Loading skeleton — list-shaped placeholder rows
-// ---------------------------------------------------------------------------
-
-class _HistorySkeleton extends StatelessWidget {
-  const _HistorySkeleton({required this.isDark});
-
-  final bool isDark;
-
-  @override
-  // loam-ignore: code-duplicates – mirrors _NotesSkeleton in
-  // features/notes/notes_page.dart by design (Notizen is a structural, not a
-  // shared, Vorbild of History per the Ticket-02 plan — no feature-to-feature
-  // dependency between lib/features/notes and lib/features/history).
-  Widget build(BuildContext context) {
-    final boxColor = isDark
-        ? WpColorsDark.borderSubtle
-        : WpColorsLight.borderSubtle;
-
-    return ListView.separated(
-      padding: const EdgeInsets.symmetric(
-        horizontal: WpSpacing.md,
-        vertical: WpSpacing.sm,
-      ),
-      itemCount: 6,
-      separatorBuilder: (_, _) => const SizedBox(height: WpSpacing.xs),
-      itemBuilder: (_, _) => Container(
-        height: 52,
-        decoration: BoxDecoration(
-          color: boxColor,
-          borderRadius: WpRadius.borderMd,
-        ),
-      ),
-    );
   }
 }

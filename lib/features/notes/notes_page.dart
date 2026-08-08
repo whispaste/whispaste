@@ -8,14 +8,13 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/data/database.dart';
 import '../../core/l10n/generated/app_localizations.dart';
-import '../../core/theme/colors.dart';
-import '../../core/theme/tokens.dart';
 import '../../services/notes/notes_exporter.dart' as notes_exporter;
 import '../history/widgets/history_helpers.dart' show isTextFieldFocused;
 import '../../widgets/dialog.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/page_shell.dart';
 import '../../widgets/toast.dart';
+import '../../widgets/wp_list_skeleton.dart';
 import 'data/note_autosave.dart';
 import 'data/note_title.dart';
 import 'data/notes_actions.dart';
@@ -31,6 +30,15 @@ import 'widgets/notes_split_view.dart';
 /// filesystem or platform channels.
 typedef NotesPageExportFn =
     Future<void> Function(BuildContext context, Note note, List<Tag> tags);
+
+/// Placeholder-bar height of the loading skeleton, matched to the real
+/// [NotesListTile]. Measured at a 340 dp list column: 65 dp for a note that
+/// is nothing but a title, 106 dp once it carries the usual two-line preview.
+/// 104 tracks the populated case — the one a skeleton has to reserve for —
+/// on the repo's 8 dp rhythm. It stays below the history bar because a note
+/// tile really is shorter (no avatar column, no metadata line); the residual
+/// step when switching areas mid-load is the step the loaded lists have too.
+const _notesSkeletonRowHeight = 104.0;
 
 /// Notes page — standalone sidebar area for free-form notes.
 ///
@@ -631,51 +639,13 @@ class _NotesPageState extends ConsumerState<NotesPage> {
           onVoiceTranscript: _insertVoiceTranscript,
         );
       },
-      loading: () => _NotesSkeleton(isDark: isDark),
+      loading: () =>
+          WpListSkeleton(isDark: isDark, rowHeight: _notesSkeletonRowHeight),
       error: (e, _) => WpEmptyState(
         icon: LucideIcons.triangleAlert,
         title: l10n.errorGeneric,
         actionLabel: l10n.actionRetry,
         onAction: () => ref.invalidate(activeStreamProvider),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Loading skeleton — list-shaped placeholder rows (see _HistorySkeleton)
-// ---------------------------------------------------------------------------
-
-class _NotesSkeleton extends StatelessWidget {
-  const _NotesSkeleton({required this.isDark});
-
-  final bool isDark;
-
-  @override
-  // loam-ignore: code-duplicates – mirrors _HistorySkeleton in
-  // history_page.dart by design (Notizen is a structural, not a shared,
-  // Vorbild of History per the Ticket-02 plan — no feature-to-feature
-  // dependency between lib/features/notes and lib/features/history).
-  Widget build(BuildContext context) {
-    final boxColor = isDark
-        ? WpColorsDark.borderSubtle
-        : WpColorsLight.borderSubtle;
-
-    return ListView.separated(
-      padding: const EdgeInsets.symmetric(
-        horizontal: WpSpacing.md,
-        vertical: WpSpacing.sm,
-      ),
-      itemCount: 6,
-      separatorBuilder: (_, _) => const SizedBox(height: WpSpacing.xs),
-      itemBuilder: (_, _) => Container(
-        // Note tiles carry a title + two-line preview — slightly taller
-        // placeholder than the history skeleton's 52.
-        height: 64,
-        decoration: BoxDecoration(
-          color: boxColor,
-          borderRadius: WpRadius.borderMd,
-        ),
       ),
     );
   }
