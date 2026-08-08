@@ -239,14 +239,23 @@ class _SnippetPickerBodyState extends State<_SnippetPickerBody>
   );
 
   /// Live filter across BOTH title and body (ticket AC).
+  ///
+  /// Performance optimization:
+  /// We precompile a RegExp with `caseSensitive: false` here to avoid excessive
+  /// string allocations from repeated `.toLowerCase()` calls on title and body
+  /// in this tight loop. This reduces memory pressure and GC pauses during fast typing.
   List<SnippetPickerRenderItem> get _filtered {
     if (_query.isEmpty) return widget.items;
-    final q = _query.toLowerCase();
+
+    // Escape the query to ensure regex control characters are treated as literals
+    final escapedQuery = RegExp.escape(_query);
+    final queryRegex = RegExp(escapedQuery, caseSensitive: false);
+
     return widget.items
         .where(
           (i) =>
-              i.title.toLowerCase().contains(q) ||
-              i.body.toLowerCase().contains(q),
+              queryRegex.hasMatch(i.title) ||
+              queryRegex.hasMatch(i.body),
         )
         .toList();
   }
