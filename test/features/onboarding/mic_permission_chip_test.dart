@@ -8,7 +8,9 @@
 ///    and Settings deep-link — no denied-handling in the widget);
 ///  - no chip on Linux (no Settings deep-link exists there);
 ///  - a grant applied outside the app is picked up by a side-effect-free
-///    check() (the onWindowFocus recheck path) without restarting onboarding.
+///    check() (the onWindowFocus recheck path) without restarting onboarding;
+///  - the chip announces its status exactly once (MergeSemantics + the label
+///    living only in the Text, not duplicated onto the Semantics wrapper).
 ///
 /// Platform truth is faked through [MicPermissionChecker] — same pattern as
 /// `test/services/paste/paste_capability_notifier_test.dart` and
@@ -250,6 +252,39 @@ void main() {
         expect(find.text(l10n.onboardingMicChipReady), findsOneWidget);
         expect(find.text(l10n.onboardingMicChipPending), findsNothing);
       } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+  });
+
+  group('MicPermissionChip \u2014 semantics', () {
+    testWidgets('announces its status exactly once, as a button', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      final handle = tester.ensureSemantics();
+      try {
+        final checker = _FakeMicPermissionChecker(granted: true);
+        await _pumpChip(tester, checker: checker);
+
+        // Regression guard: the wrapper used to carry `label:` *and* wrap a
+        // Text of the same string, so a screen reader read the status twice
+        // ("Microphone ready, Microphone ready"). The label must come from
+        // the Text alone, folded in by MergeSemantics — and the button role
+        // plus the tap action have to survive that folding, or the chip is
+        // announced as something a screen reader cannot activate.
+        expect(
+          tester.getSemantics(find.byType(MicPermissionChip)),
+          matchesSemantics(
+            label: l10n.onboardingMicChipReady,
+            isButton: true,
+            hasTapAction: true,
+            hasFocusAction: true,
+            isFocusable: true,
+          ),
+        );
+      } finally {
+        handle.dispose();
         debugDefaultTargetPlatformOverride = null;
       }
     });

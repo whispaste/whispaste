@@ -6,6 +6,7 @@ import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../widgets/wp_focus_ring.dart';
 import '../../settings/settings_widgets.dart' show kSettingRowInset;
 
 /// Widget keys exposed for testing.
@@ -124,7 +125,13 @@ const double _kSwatchHeight = 132;
 /// Wrapping the lot in `Semantics(excludeSemantics: true)` instead would
 /// announce a button that a screen reader cannot actually activate — the
 /// tap action lives on the InkWell it would discard.
-class _ThemeSwatch extends StatelessWidget {
+///
+/// Keyboard focus is marked by [WpFocusRing] in external-node mode — the same
+/// node goes to the ring and to the [InkWell], so Enter/Space still activates
+/// the tile. Without it this was the only selectable tile family in the
+/// onboarding relying on InkWell's default highlight, which on a tile that
+/// already carries an accent selection border is nearly invisible.
+class _ThemeSwatch extends StatefulWidget {
   const _ThemeSwatch({
     super.key,
     required this.mode,
@@ -137,6 +144,19 @@ class _ThemeSwatch extends StatelessWidget {
   final String label;
   final bool active;
   final VoidCallback onTap;
+
+  @override
+  State<_ThemeSwatch> createState() => _ThemeSwatchState();
+}
+
+class _ThemeSwatchState extends State<_ThemeSwatch> {
+  final FocusNode _focusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -155,46 +175,53 @@ class _ThemeSwatch extends StatelessWidget {
     return MergeSemantics(
       child: Semantics(
         button: true,
-        selected: active,
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: WpRadius.borderMd,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ExcludeSemantics(
-                  child: AnimatedContainer(
-                    duration: WpMotion.durationFor(context, WpMotion.fast),
-                    curve: WpMotion.defaultCurve,
-                    width: _kSwatchWidth,
-                    height: _kSwatchHeight,
-                    decoration: BoxDecoration(
-                      borderRadius: WpRadius.borderMd,
-                      border: Border.all(
-                        color: active ? accent : border,
-                        width: active ? 2 : 1,
+        selected: widget.active,
+        child: WpFocusRing(
+          focusNode: _focusNode,
+          radius: WpRadius.md,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              focusNode: _focusNode,
+              onTap: widget.onTap,
+              borderRadius: WpRadius.borderMd,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ExcludeSemantics(
+                    child: AnimatedContainer(
+                      duration: WpMotion.durationFor(context, WpMotion.fast),
+                      curve: WpMotion.defaultCurve,
+                      width: _kSwatchWidth,
+                      height: _kSwatchHeight,
+                      decoration: BoxDecoration(
+                        borderRadius: WpRadius.borderMd,
+                        border: Border.all(
+                          color: widget.active ? accent : border,
+                          width: widget.active ? 2 : 1,
+                        ),
+                      ),
+                      // Inset so the ring never paints over the preview's edge.
+                      padding: const EdgeInsets.all(2),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(WpRadius.md - 3),
+                        child: _ThemeMiniature(mode: widget.mode),
                       ),
                     ),
-                    // Inset so the ring never paints over the preview's edge.
-                    padding: const EdgeInsets.all(2),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(WpRadius.md - 3),
-                      child: _ThemeMiniature(mode: mode),
+                  ),
+                  const SizedBox(height: WpSpacing.xs),
+                  Text(
+                    widget.label,
+                    style: TextStyle(
+                      fontSize: WpTypography.small,
+                      fontWeight: widget.active
+                          ? FontWeight.w700
+                          : FontWeight.w500,
+                      color: widget.active ? textPrimary : textSecondary,
                     ),
                   ),
-                ),
-                const SizedBox(height: WpSpacing.xs),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: WpTypography.small,
-                    fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                    color: active ? textPrimary : textSecondary,
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
