@@ -7,10 +7,29 @@ import 'package:whispaste/core/config/settings_enums.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/l10n/locale_provider.dart';
+import 'package:whispaste/core/onboarding/onboarding_revision.dart';
 import 'package:whispaste/core/theme/theme_provider.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/services/settings_portability_service.dart'
     show mergeImportedSettings;
+
+/// [HistoryDatabase.writeAppSettings] that throws once [shouldThrow] is
+/// flipped on — models a persist failure for the grandfathering-migration
+/// tests below, which must prove the stamp stays at 0 (not silently
+/// computed) when the write cannot land.
+class _ThrowingSettingsDatabase extends HistoryDatabase {
+  _ThrowingSettingsDatabase(super.e) : super.forTesting();
+
+  bool shouldThrow = false;
+
+  @override
+  Future<void> writeAppSettings(Map<String, String> values) {
+    if (shouldThrow) {
+      throw Exception('simulated persist failure');
+    }
+    return super.writeAppSettings(values);
+  }
+}
 
 /// In-memory fake for [SecureKeyStore] used in tests.
 class FakeSecureKeyStore extends SecureKeyStore {
@@ -449,6 +468,266 @@ void main() {
       },
     );
   });
+
+  group(
+    'onboarding content-version grandfathering (onboarding-revisions issue 01)',
+    () {
+      OnboardingRevisionRegistry registryWithTarget(int version) => [
+        OnboardingRevisionEntry(version: version, reason: (l10n) => 'r'),
+      ];
+
+      /// Same seeding idiom as the sound-mute migration group above, plus an
+      /// overridable revision registry.
+      Future<(ProviderContainer, HistoryDatabase)> buildSeeded(
+        Map<String, String> storageMap,
+        OnboardingRevisionRegistry registry,
+      ) async {
+        final seedDb = HistoryDatabase.forTesting(NativeDatabase.memory());
+        await seedDb.writeAppSettings(storageMap);
+        final c = ProviderContainer(
+          overrides: [
+            historyDatabaseProvider.overrideWith((ref) {
+              ref.onDispose(seedDb.close);
+              return seedDb;
+            }),
+            secureKeyStoreProvider.overrideWithValue(FakeSecureKeyStore()),
+            onboardingRevisionRegistryProvider.overrideWithValue(registry),
+          ],
+        );
+        await c.read(settingsProvider.future);
+        await c.read(settingsProvider.notifier).secureKeysFuture;
+        return (c, seedDb);
+      }
+
+      test('a fresh update from a bestand with no version key causes NO '
+          'immediate re-onboarding', () async {
+        // No registry entries ship yet — this is today's real shipped
+        // state. A completed-onboarding bestand with no version key must
+        // not be pushed back into onboarding the moment this feature
+        // lands.
+        final completed = AppSettings.defaults.copyWithSections(
+          onboarding: const OnboardingSettings(onboardingCompleted: true),
+        );
+        final (c, _) = await buildSeeded(completed.toStorageMap(), const []);
+        addTearDown(c.dispose);
+
+        final loaded = c.read(settingsProvider).value!;
+        expect(loaded.onboarding.onboardingContentVersion, 0);
+        expect(
+          onboardingRevisionDue(
+            onboardingCompleted: loaded.onboarding.onboardingCompleted,
+            seenContentVersion: loaded.onboarding.onboardingContentVersion,
+            targetContentVersion: targetOnboardingContentVersion(
+              const [],
+              currentOnboardingPlatform(),
+            ),
+          ),
+          isFalse,
+        );
+      });
+
+      test('an unstamped, completed bestand is stamped to the target and '
+          'persisted immediately', () async {
+        final completed = AppSettings.defaults.copyWithSections(
+          onboarding: const OnboardingSettings(onboardingCompleted: true),
+        );
+        final (c, db) = await buildSeeded(
+          completed.toStorageMap(),
+          registryWithTarget(1),
+        );
+        addTearDown(c.dispose);
+
+        final loaded = c.read(settingsProvider).value!;
+        expect(loaded.onboarding.onboardingContentVersion, 1);
+
+        final persisted = AppSettings.fromStorageMap(
+          await db.readAppSettings(),
+        );
+        expect(
+          persisted.onboarding.onboardingContentVersion,
+          1,
+          reason: 'the stamp must be written, not merely held in memory',
+        );
+      });
+
+      test(
+        'a second load against a since-raised target correctly triggers a '
+        'revision — proving the stamp is a write, not a recomputed value',
+        () async {
+          // Share ONE DB across two container lifecycles (= two app starts),
+          // same idiom as the sound-mute migration's idempotency test.
+          final sharedDb = HistoryDatabase.forTesting(NativeDatabase.memory());
+          addTearDown(sharedDb.close);
+
+          final completed = AppSettings.defaults.copyWithSections(
+            onboarding: const OnboardingSettings(onboardingCompleted: true),
+          );
+          await sharedDb.writeAppSettings(completed.toStorageMap());
+
+          // First start: registry only knows about v1 → grandfathered to 1.
+          final c1 = ProviderContainer(
+            overrides: [
+              historyDatabaseProvider.overrideWith((ref) => sharedDb),
+              secureKeyStoreProvider.overrideWithValue(FakeSecureKeyStore()),
+              onboardingRevisionRegistryProvider.overrideWithValue(
+                registryWithTarget(1),
+              ),
+            ],
+          );
+          await c1.read(settingsProvider.future);
+          await c1.read(settingsProvider.notifier).secureKeysFuture;
+          expect(
+            c1
+                .read(settingsProvider)
+                .value!
+                .onboarding
+                .onboardingContentVersion,
+            1,
+          );
+          c1.dispose();
+
+          // Second start, same DB: the registry has since grown a v2 entry.
+          final registryV2 = [
+            OnboardingRevisionEntry(version: 1, reason: (l10n) => 'r1'),
+            OnboardingRevisionEntry(version: 2, reason: (l10n) => 'r2'),
+          ];
+          final c2 = ProviderContainer(
+            overrides: [
+              historyDatabaseProvider.overrideWith((ref) => sharedDb),
+              secureKeyStoreProvider.overrideWithValue(FakeSecureKeyStore()),
+              onboardingRevisionRegistryProvider.overrideWithValue(registryV2),
+            ],
+          );
+          addTearDown(c2.dispose);
+          await c2.read(settingsProvider.future);
+          await c2.read(settingsProvider.notifier).secureKeysFuture;
+
+          final loaded = c2.read(settingsProvider).value!;
+          expect(
+            loaded.onboarding.onboardingContentVersion,
+            1,
+            reason:
+                'must still read as the persisted stamp from the first '
+                'start, not be silently re-grandfathered to 2',
+          );
+          expect(
+            onboardingRevisionDue(
+              onboardingCompleted: loaded.onboarding.onboardingCompleted,
+              seenContentVersion: loaded.onboarding.onboardingContentVersion,
+              targetContentVersion: targetOnboardingContentVersion(
+                registryV2,
+                currentOnboardingPlatform(),
+              ),
+            ),
+            isTrue,
+            reason:
+                'a computed-on-read version would have swallowed this '
+                'revision by silently re-grandfathering to 2 above',
+          );
+        },
+      );
+
+      test('a bestand with incomplete onboarding is not stamped', () async {
+        final incomplete = AppSettings.defaults.copyWithSections(
+          onboarding: const OnboardingSettings(onboardingCompleted: false),
+        );
+        final (c, db) = await buildSeeded(
+          incomplete.toStorageMap(),
+          registryWithTarget(1),
+        );
+        addTearDown(c.dispose);
+
+        expect(
+          c.read(settingsProvider).value!.onboarding.onboardingContentVersion,
+          0,
+        );
+        final persisted = AppSettings.fromStorageMap(
+          await db.readAppSettings(),
+        );
+        expect(persisted.onboarding.onboardingContentVersion, 0);
+      });
+
+      test('an already-stamped bestand is left untouched', () async {
+        final stamped = AppSettings.defaults.copyWithSections(
+          onboarding: const OnboardingSettings(
+            onboardingCompleted: true,
+            onboardingContentVersion: 1,
+          ),
+        );
+        final (c, _) = await buildSeeded(
+          stamped.toStorageMap(),
+          registryWithTarget(3),
+        );
+        addTearDown(c.dispose);
+
+        expect(
+          c.read(settingsProvider).value!.onboarding.onboardingContentVersion,
+          1,
+          reason:
+              'once stamped, a bestand must never be silently bumped to a '
+              'later target on load — that is what onboardingRevisionDue '
+              'is for',
+        );
+      });
+
+      test('a failed persist leaves the bestand at 0 and the next start '
+          'retries idempotently', () async {
+        final completed = AppSettings.defaults.copyWithSections(
+          onboarding: const OnboardingSettings(onboardingCompleted: true),
+        );
+        final throwingDb = _ThrowingSettingsDatabase(NativeDatabase.memory());
+        addTearDown(throwingDb.close);
+        await throwingDb.writeAppSettings(completed.toStorageMap());
+        throwingDb.shouldThrow = true;
+
+        final c1 = ProviderContainer(
+          overrides: [
+            historyDatabaseProvider.overrideWith((ref) => throwingDb),
+            secureKeyStoreProvider.overrideWithValue(FakeSecureKeyStore()),
+            onboardingRevisionRegistryProvider.overrideWithValue(
+              registryWithTarget(1),
+            ),
+          ],
+        );
+        await c1.read(settingsProvider.future);
+        await c1.read(settingsProvider.notifier).secureKeysFuture;
+
+        expect(
+          c1.read(settingsProvider).value!.onboarding.onboardingContentVersion,
+          0,
+          reason:
+              'the write threw, so the in-memory value must stay at 0 too '
+              '— session and disk must agree',
+        );
+        final persisted = AppSettings.fromStorageMap(
+          await throwingDb.readAppSettings(),
+        );
+        expect(persisted.onboarding.onboardingContentVersion, 0);
+        c1.dispose();
+
+        // Next start: persistence works again → the deferred stamp lands.
+        throwingDb.shouldThrow = false;
+        final c2 = ProviderContainer(
+          overrides: [
+            historyDatabaseProvider.overrideWith((ref) => throwingDb),
+            secureKeyStoreProvider.overrideWithValue(FakeSecureKeyStore()),
+            onboardingRevisionRegistryProvider.overrideWithValue(
+              registryWithTarget(1),
+            ),
+          ],
+        );
+        addTearDown(c2.dispose);
+        await c2.read(settingsProvider.future);
+        await c2.read(settingsProvider.notifier).secureKeysFuture;
+
+        expect(
+          c2.read(settingsProvider).value!.onboarding.onboardingContentVersion,
+          1,
+          reason: 'idempotent retry: no crash, no loop, eventually stamped',
+        );
+      });
+    },
+  );
 
   group('effectiveOverlayMode', () {
     test('passes through floating as valid mode', () {
