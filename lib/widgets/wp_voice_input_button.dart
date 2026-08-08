@@ -115,7 +115,12 @@ class _WpVoiceInputButtonState extends ConsumerState<WpVoiceInputButton> {
     //
     // The lock is released in the finally block below, after audio.startRecording()
     // returns, mirroring exactly how RecordingOrchestrator.startRecording() uses it.
-    final orch = ref.read(recordingOrchestratorProvider.notifier);
+    // Same reasoning as in _stopAndTranscribe: startRecording() crosses a
+    // platform channel and can sit behind a mic-permission prompt, so the
+    // status read below is on the far side of a real gap. Reads go through the
+    // container, which outlives the button.
+    final container = ProviderScope.containerOf(context, listen: false);
+    final orch = container.read(recordingOrchestratorProvider.notifier);
     if (!orch.tryAcquireStartLock()) {
       _log.debug(
         'Voice input suppressed — orchestrator lock not acquired '
@@ -127,11 +132,11 @@ class _WpVoiceInputButtonState extends ConsumerState<WpVoiceInputButton> {
     _setPhase(_VoicePhase.recording);
 
     try {
-      final audio = ref.read(audioServiceProvider.notifier);
+      final audio = container.read(audioServiceProvider.notifier);
       await audio.startRecording();
 
       // Verify recording started.
-      final status = ref.read(audioServiceProvider);
+      final status = container.read(audioServiceProvider);
       if (status.captureState == AudioCaptureState.error) {
         _fail(status.errorMessage ?? 'recording_failed');
         return;
