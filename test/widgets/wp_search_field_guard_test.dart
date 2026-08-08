@@ -11,11 +11,11 @@ import 'package:flutter_test/flutter_test.dart';
 /// The pattern targets the *idiom*, not the widget: a `TextField` whose
 /// border is switched off (`border: InputBorder.none`) is one that hands its
 /// chrome to a hand-rolled container around it. That is precisely the shape
-/// `WpSearchField` absorbs — and, per Batch 6 of the consistency plan, the
-/// shape `WpTextField` will absorb for non-search fields. Until that batch
-/// lands, the non-search call sites are named in the allowlist with their
-/// reason, so the list shrinks as Batch 6 progresses rather than being
-/// quietly reused as a dumping ground.
+/// `WpSearchField` absorbs — and the one `WpTextField` absorbs for non-search
+/// fields (Batch 6, partially landed: the two History fields and the note
+/// editor run through it). The non-search call sites still waiting are named
+/// in the allowlist with their reason, so the list shrinks as Batch 6
+/// progresses rather than being quietly reused as a dumping ground.
 void main() {
   test('no source file outside WpSearchField hand-rolls a borderless '
       'TextField for search', () {
@@ -44,10 +44,10 @@ void main() {
     //   already lives in a central component; and it is width-constrained
     //   (60-200 px) inside a Wrap. It leaves the border to the theme default
     //   rather than switching it off.
-    // - lib/features/history/widgets/history_detail_panel.dart — listed under
-    //   Batch 6 in the plan, but it builds real OutlineInputBorders on the
-    //   InputDecoration instead of delegating chrome to a wrapper. Still a
-    //   Batch 6 candidate, just a different shape.
+    // - lib/features/history/widgets/history_detail_panel.dart — a Batch 6
+    //   candidate until its title and transcript fields moved into
+    //   `WpTextField`. It now hand-rolls no chrome at all: no `InputBorder`,
+    //   no `contentPadding`, no font size. Nothing left to allow.
 
     // `InputBorder.none` on a `border:`/`enabledBorder:`/`focusedBorder:`
     // slot — the marker of a field that delegates its chrome to a wrapper.
@@ -72,8 +72,9 @@ void main() {
       isEmpty,
       reason:
           'Borderless TextField built outside WpSearchField. If it is a '
-          'search input, route it through WpSearchField (variant: outlined / '
-          'raised / capsule). If it is not, add it to the allowlist above '
+          'search input, route it through WpSearchField (variant: outlined '
+          'in-window, capsule in an overlay). If it is not, add it to the '
+          'allowlist above '
           'with the reason, so Batch 6 can find it: ${offenders.join(', ')}',
     );
   });

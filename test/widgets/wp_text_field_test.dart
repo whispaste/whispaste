@@ -10,7 +10,7 @@
 /// AC6 — one type family: no variant asks for monospace
 /// AC7 — an external focus node is neither adopted nor disposed
 /// AC8 — an accessibility text size does not clip or overflow the `bare`
-///        editor surface
+///        editor surface, nor `heading` in the narrow row it lives in
 library;
 
 import 'package:flutter/material.dart';
@@ -406,5 +406,42 @@ void main() {
     // The field scrolls its own content instead of growing past its box.
     expect(tester.takeException(), isNull);
     expect(tester.getSize(find.byType(WpTextField)).height, 300);
+  });
+
+  testWidgets('AC8 — heading survives a 1.5x text scaler in a narrow row '
+      'without overflowing', (tester) async {
+    // The History title sits in a row next to its action buttons, so its box
+    // is narrow and it is the one variant that must not grow horizontally:
+    // single-line, scrolling its own content.
+    final controller = TextEditingController(
+      text: 'Ein ziemlich langer Titel, der in kein schmales Feld passt',
+    );
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      makeTestable(
+        Builder(
+          builder: (context) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: const TextScaler.linear(1.5)),
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                width: 240,
+                child: _field(
+                  controller: controller,
+                  variant: WpTextFieldVariant.heading,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(tester.getSize(find.byType(WpTextField)).width, 240);
   });
 }
