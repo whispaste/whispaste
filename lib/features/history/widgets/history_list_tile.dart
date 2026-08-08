@@ -8,10 +8,11 @@ import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../widgets/wp_focus_ring.dart';
+import '../../../widgets/wp_row_action.dart';
+import '../../../widgets/wp_row_checkbox.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'highlighted_text.dart';
 import 'history_helpers.dart';
-import 'history_row_action.dart';
 import '../../../core/utils/word_count.dart';
 
 // ---------------------------------------------------------------------------
@@ -217,21 +218,10 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
                       right: WpSpacing.xs,
                       top: 10,
                     ),
-                    child: SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: Checkbox(
-                        value: widget.isChecked,
-                        onChanged: (_) => widget.onTap(),
-                        activeColor: accent,
-                        side: BorderSide(
-                          color: isDark
-                              ? WpColorsDark.textMuted
-                              : WpColorsLight.textMuted,
-                        ),
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        visualDensity: VisualDensity.compact,
-                      ),
+                    child: WpRowCheckbox(
+                      value: widget.isChecked,
+                      onChanged: widget.onTap,
+                      isDark: isDark,
                     ),
                   ),
                 // Avatar — colored circle with content-type icon
@@ -312,86 +302,79 @@ class _EntryRowContent extends StatelessWidget {
     final textSecondary = isDark
         ? WpColorsDark.textSecondary
         : WpColorsLight.textSecondary;
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Row 1: Title + (time label OR quick actions).
-        // Fixed-height slot keeps the row from jittering when
-        // the trailing widget swaps between the small time
-        // label and the taller action button group.
-        SizedBox(
-          height: 28,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: HighlightedText(
-                  text: entry.title.isNotEmpty
-                      ? entry.title
-                      : l10n.historyUntitledRecording,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  isDark: isDark,
-                  style: TextStyle(
-                    // Off-scale on purpose: one step above `subheading` (14)
-                    // — the preview line below stays at 14, so the title now
-                    // carries real size contrast instead of only weight/color.
-                    fontSize: WpTypography.heading,
-                    fontWeight: FontWeight.w600,
-                    color: textPrimary,
-                  ),
+        // Row 1: title + quick actions. The time label used to sit here and
+        // was swapped out for the actions on hover — information disappearing
+        // behind chrome. It now lives in the metadata row below, which is
+        // where the rest of the entry's facts already are, so the two never
+        // compete for the same space again: at the 240px minimum panel width
+        // three actions plus a timestamp simply do not fit one line.
+        // No fixed row height any more: WpRowActions reserves its extent
+        // whether or not it is showing, so the row cannot jitter, and the
+        // row is free to grow with an enlarged system font.
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: HighlightedText(
+                text: entry.title.isNotEmpty
+                    ? entry.title
+                    : l10n.historyUntitledRecording,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                isDark: isDark,
+                style: TextStyle(
+                  // Off-scale on purpose: one step above `subheading` (14)
+                  // — the preview line below stays at 14, so the title now
+                  // carries real size contrast instead of only weight/color.
+                  fontSize: WpTypography.heading,
+                  fontWeight: FontWeight.w600,
+                  color: textPrimary,
                 ),
               ),
-              const SizedBox(width: WpSpacing.xs),
-              if (showActions)
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryRowActionState.build
-                    HistoryRowAction(
-                      icon: LucideIcons.copy,
-                      tooltip: l10n.historyCopyText,
-                      isDark: isDark,
-                      onTap: onCopy,
-                      dense: true,
-                    ),
-                    // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryRowActionState.build
-                    HistoryRowAction(
-                      faIcon: entry.pinned ? FontAwesomeIcons.solidStar : null,
-                      icon: entry.pinned ? null : LucideIcons.star,
-                      activeColor: entry.pinned
-                          ? WpSharedColors.pinnedAccent
-                          : null,
-                      tooltip: entry.pinned
-                          ? l10n.historyUnpin
-                          : l10n.historyPinToTop,
-                      isDark: isDark,
-                      onTap: onPin,
-                      dense: true,
-                    ),
-                    // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryRowActionState.build
-                    HistoryRowAction(
-                      icon: LucideIcons.trash2,
-                      tooltip: l10n.actionDelete,
-                      isDark: isDark,
-                      onTap: onDelete,
-                      isDestructive: true,
-                      dense: true,
-                    ),
-                  ],
-                )
-              else
-                Text(
-                  timeLabel,
-                  style: TextStyle(
-                    fontSize: WpTypography.caption,
-                    color: textMuted,
-                  ),
+            ),
+            const SizedBox(width: WpSpacing.xs),
+            WpRowActions(
+              visible: showActions,
+              dense: true,
+              children: [
+                // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+                WpRowAction(
+                  icon: LucideIcons.copy,
+                  tooltip: l10n.historyCopyText,
+                  isDark: isDark,
+                  onTap: onCopy,
+                  dense: true,
                 ),
-            ],
-          ),
+                // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+                WpRowAction(
+                  faIcon: entry.pinned ? FontAwesomeIcons.solidStar : null,
+                  icon: entry.pinned ? null : LucideIcons.star,
+                  activeColor: entry.pinned
+                      ? WpSharedColors.pinnedAccent
+                      : null,
+                  tooltip: entry.pinned
+                      ? l10n.historyUnpin
+                      : l10n.historyPinToTop,
+                  isDark: isDark,
+                  onTap: onPin,
+                  dense: true,
+                ),
+                // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+                WpRowAction(
+                  icon: LucideIcons.trash2,
+                  tooltip: l10n.actionDelete,
+                  isDark: isDark,
+                  onTap: onDelete,
+                  isDestructive: true,
+                  dense: true,
+                ),
+              ],
+            ),
+          ],
         ),
         const SizedBox(height: 3),
         // Row 2: Content preview — two lines for more context
@@ -409,6 +392,7 @@ class _EntryRowContent extends StatelessWidget {
         const SizedBox(height: 4),
         // Row 3: Subtle inline metadata (duration + language)
         _EntryMetaRow(
+          timeLabel: timeLabel,
           durationLabel: durationLabel,
           wordCount: wordCount,
           language: entry.language,
@@ -427,6 +411,7 @@ class _EntryRowContent extends StatelessWidget {
 
 class _EntryMetaRow extends StatelessWidget {
   const _EntryMetaRow({
+    required this.timeLabel,
     required this.durationLabel,
     required this.wordCount,
     required this.language,
@@ -434,6 +419,7 @@ class _EntryMetaRow extends StatelessWidget {
     required this.isDark,
   });
 
+  final String timeLabel;
   final String durationLabel;
   final int wordCount;
   final String language;
@@ -451,11 +437,13 @@ class _EntryMetaRow extends StatelessWidget {
         Icon(LucideIcons.clock, size: WpIconSize.xs, color: textMuted),
         const SizedBox(width: 3),
         Flexible(
-          // Off-scale on purpose: only the primary metric (duration) steps up
-          // from `micro`/`textMuted` to `caption`/`textSecondary` — word count
-          // and language stay at micro so the row doesn't get louder overall.
+          // Off-scale on purpose: only the primary metric steps up from
+          // `micro`/`textMuted` to `caption`/`textSecondary` — the rest stays
+          // at micro so the row doesn't get louder overall. That primary slot
+          // is the time of the recording, which moved here out of the title
+          // row so the hover actions can no longer displace it.
           child: Text(
-            durationLabel,
+            timeLabel,
             style: TextStyle(
               fontSize: WpTypography.caption,
               color: textSecondary,
@@ -464,11 +452,27 @@ class _EntryMetaRow extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
           ),
         ),
+        const SizedBox(width: WpSpacing.xxs),
+        Flexible(
+          child: Text(
+            '· $durationLabel',
+            style: TextStyle(fontSize: WpTypography.micro, color: textMuted),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
         if (wordCount > 0) ...[
           const SizedBox(width: WpSpacing.xs),
-          Text(
-            '· ~$wordCount w',
-            style: TextStyle(fontSize: WpTypography.micro, color: textMuted),
+          // Flexible like the two facts before it: the metadata row carries
+          // the entry's least critical numbers, so it is the row that gives
+          // way first when the panel is dragged to its 240px minimum.
+          Flexible(
+            child: Text(
+              '· ~$wordCount w',
+              style: TextStyle(fontSize: WpTypography.micro, color: textMuted),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ],
         if (language.isNotEmpty) ...[

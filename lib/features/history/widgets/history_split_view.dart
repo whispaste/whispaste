@@ -178,6 +178,9 @@ class _HistorySplitViewState extends State<HistorySplitView>
           selectedId: selectedId,
           focusedId: widget.focusedId,
           onEntryTap: widget.onEntryTap,
+          onCopy: widget.onCopy,
+          onPin: widget.onPin,
+          onDelete: widget.onDelete,
           multiSelectMode: widget.multiSelectMode,
           selectedIds: widget.selectedIds,
         );

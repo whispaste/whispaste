@@ -10,7 +10,7 @@ import '../data/providers.dart';
 import 'highlighted_text.dart';
 import 'history_date_header.dart';
 import 'history_helpers.dart';
-import 'history_row_action.dart';
+import '../../../widgets/wp_row_action.dart';
 import '../../../core/utils/word_count.dart';
 
 // ---------------------------------------------------------------------------
@@ -292,43 +292,48 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
                         ),
                       ),
                     ),
-                    // Action buttons — visible on hover/focus
-                    if (_isHovered || widget.isFocused)
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryRowActionState.build
-                          HistoryRowAction(
-                            icon: LucideIcons.copy,
-                            tooltip: l10n.historyCopyText,
-                            isDark: isDark,
-                            onTap: widget.onCopy,
-                          ),
-                          // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryRowActionState.build
-                          HistoryRowAction(
-                            faIcon: widget.entry.pinned
-                                ? FontAwesomeIcons.solidStar
-                                : null,
-                            icon: widget.entry.pinned ? null : LucideIcons.star,
-                            activeColor: widget.entry.pinned
-                                ? WpSharedColors.pinnedAccent
-                                : null,
-                            tooltip: widget.entry.pinned
-                                ? l10n.historyUnpin
-                                : l10n.historyPinToTop,
-                            isDark: isDark,
-                            onTap: widget.onPin,
-                          ),
-                          // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryRowActionState.build
-                          HistoryRowAction(
-                            icon: LucideIcons.trash2,
-                            tooltip: l10n.actionDelete,
-                            isDark: isDark,
-                            onTap: widget.onDelete,
-                            isDestructive: true,
-                          ),
-                        ],
-                      ),
+                    // Action buttons — revealed on hover/focus. Dense, so the
+                    // 32px avatar keeps setting the title row's height and
+                    // the preview below never shifts when they appear.
+                    WpRowActions(
+                      visible: _isHovered || widget.isFocused,
+                      dense: true,
+                      children: [
+                        // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+                        WpRowAction(
+                          icon: LucideIcons.copy,
+                          tooltip: l10n.historyCopyText,
+                          isDark: isDark,
+                          onTap: widget.onCopy,
+                          dense: true,
+                        ),
+                        // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+                        WpRowAction(
+                          faIcon: widget.entry.pinned
+                              ? FontAwesomeIcons.solidStar
+                              : null,
+                          icon: widget.entry.pinned ? null : LucideIcons.star,
+                          activeColor: widget.entry.pinned
+                              ? WpSharedColors.pinnedAccent
+                              : null,
+                          tooltip: widget.entry.pinned
+                              ? l10n.historyUnpin
+                              : l10n.historyPinToTop,
+                          isDark: isDark,
+                          onTap: widget.onPin,
+                          dense: true,
+                        ),
+                        // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+                        WpRowAction(
+                          icon: LucideIcons.trash2,
+                          tooltip: l10n.actionDelete,
+                          isDark: isDark,
+                          onTap: widget.onDelete,
+                          isDestructive: true,
+                          dense: true,
+                        ),
+                      ],
+                    ),
                   ],
                 ),
                 const SizedBox(height: WpSpacing.xs),

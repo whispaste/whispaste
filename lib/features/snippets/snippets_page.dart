@@ -10,6 +10,7 @@ import '../../core/l10n/generated/app_localizations.dart';
 import '../../services/telemetry_service.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
+import '../../widgets/wp_row_action.dart';
 import '../../widgets/dialog.dart';
 import '../../widgets/searchable_list_page.dart';
 import '../../widgets/wp_button.dart';
@@ -518,6 +519,12 @@ class _SnippetTile extends StatefulWidget {
 
 class _SnippetTileState extends State<_SnippetTile> {
   bool _isHovered = false;
+  bool _isFocused = false;
+
+  /// The row is "active" for pointer and for keyboard alike — the
+  /// delete action is revealed by either, so a keyboard user can reach
+  /// it at all (an unmounted button cannot be focused).
+  bool get _isActive => _isHovered || _isFocused;
 
   /// Single-line preview of the body — newlines and runs of whitespace
   /// collapse to single spaces so the ellipsis works on one visual line.
@@ -529,98 +536,108 @@ class _SnippetTileState extends State<_SnippetTile> {
     return Semantics(
       button: true,
       label: '${L10n.of(context).snippetsEditSnippet}: ${widget.snippet.title}',
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          onTap: widget.onTap,
-          child: AnimatedContainer(
-            duration: WpMotion.durationFor(
-              context,
-              _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
-            ),
-            curve: WpMotion.defaultCurve,
-            padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.md,
-              vertical: WpSpacing.sm,
-            ),
-            decoration: BoxDecoration(
-              color: _isHovered
-                  ? (widget.isDark ? WpColorsDark.hover : WpColorsLight.hover)
-                  : (widget.isDark
-                        ? WpColorsDark.surfaceElevated
-                        : WpColorsLight.surfaceElevated),
-              borderRadius: WpRadius.borderMd,
-              border: Border.all(
-                color: _isHovered
-                    ? (widget.isDark
-                          ? WpColorsDark.glassBorder
-                          : WpColorsLight.borderDefault)
-                    : (widget.isDark
-                          ? WpColorsDark.borderSubtle
-                          : WpColorsLight.borderSubtle),
+      child: FocusableActionDetector(
+        onShowFocusHighlight: (value) {
+          if (_isFocused == value) return;
+          setState(() => _isFocused = value);
+        },
+        actions: {
+          ActivateIntent: CallbackAction<ActivateIntent>(
+            onInvoke: (_) {
+              widget.onTap();
+              return null;
+            },
+          ),
+        },
+        child: MouseRegion(
+          onEnter: (_) => setState(() => _isHovered = true),
+          onExit: (_) => setState(() => _isHovered = false),
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: widget.onTap,
+            child: AnimatedContainer(
+              duration: WpMotion.durationFor(
+                context,
+                _isActive ? WpMotion.hoverIn : WpMotion.hoverOut,
               ),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  LucideIcons.notebookText,
-                  size: WpIconSize.sm,
-                  color: widget.isDark
-                      ? WpColorsDark.accent
-                      : WpColorsLight.accent,
+              curve: WpMotion.defaultCurve,
+              padding: const EdgeInsets.symmetric(
+                horizontal: WpSpacing.md,
+                vertical: WpSpacing.sm,
+              ),
+              decoration: BoxDecoration(
+                color: _isActive
+                    ? (widget.isDark ? WpColorsDark.hover : WpColorsLight.hover)
+                    : (widget.isDark
+                          ? WpColorsDark.surfaceElevated
+                          : WpColorsLight.surfaceElevated),
+                borderRadius: WpRadius.borderMd,
+                border: Border.all(
+                  color: _isActive
+                      ? (widget.isDark
+                            ? WpColorsDark.glassBorder
+                            : WpColorsLight.borderDefault)
+                      : (widget.isDark
+                            ? WpColorsDark.borderSubtle
+                            : WpColorsLight.borderSubtle),
                 ),
-                const SizedBox(width: WpSpacing.sm),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    LucideIcons.notebookText,
+                    size: WpIconSize.sm,
+                    color: widget.isDark
+                        ? WpColorsDark.accent
+                        : WpColorsLight.accent,
+                  ),
+                  const SizedBox(width: WpSpacing.sm),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.snippet.title,
+                          style: TextStyle(
+                            color: widget.isDark
+                                ? WpColorsDark.textPrimary
+                                : WpColorsLight.textPrimary,
+                            fontSize: WpTypography.body,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: WpSpacing.xxs),
+                        Text(
+                          _bodyPreview,
+                          style: TextStyle(
+                            color: widget.isDark
+                                ? WpColorsDark.textMuted
+                                : WpColorsLight.textMuted,
+                            fontSize: WpTypography.small,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  WpRowActions(
+                    visible: _isActive,
                     children: [
-                      Text(
-                        widget.snippet.title,
-                        style: TextStyle(
-                          color: widget.isDark
-                              ? WpColorsDark.textPrimary
-                              : WpColorsLight.textPrimary,
-                          fontSize: WpTypography.body,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: WpSpacing.xxs),
-                      Text(
-                        _bodyPreview,
-                        style: TextStyle(
-                          color: widget.isDark
-                              ? WpColorsDark.textMuted
-                              : WpColorsLight.textMuted,
-                          fontSize: WpTypography.small,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+                      WpRowAction(
+                        icon: LucideIcons.trash2,
+                        tooltip: L10n.of(context).actionDelete,
+                        isDark: widget.isDark,
+                        onTap: widget.onDelete,
+                        isDestructive: true,
                       ),
                     ],
                   ),
-                ),
-                if (_isHovered)
-                  IconButton(
-                    tooltip: L10n.of(context).actionDelete,
-                    icon: Icon(
-                      LucideIcons.trash2,
-                      size: WpIconSize.sm,
-                      color: widget.isDark
-                          ? WpColorsDark.error
-                          : WpColorsLight.error,
-                    ),
-                    onPressed: widget.onDelete,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 28,
-                      minHeight: 28,
-                    ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

@@ -7,6 +7,7 @@ import '../../../core/data/database.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../widgets/wp_row_action.dart';
 import '../data/note_title.dart';
 
 // ---------------------------------------------------------------------------
@@ -210,23 +211,26 @@ class _NotesListTileState extends State<NotesListTile> {
                 Row(
                   children: [
                     if (!widget.isTrashView) ...[
-                      _TileAction(
+                      // Deliberately exempt from the hover/focus reveal that
+                      // trailing row actions follow (see WpRowAction's library
+                      // comment): a note's favourite state has no other
+                      // carrier in this list — history shows it on the entry
+                      // avatar instead — so the star is an indicator that
+                      // happens to be tappable, and it stays put.
+                      // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+                      WpRowAction(
+                        faIcon: widget.note.pinned
+                            ? FontAwesomeIcons.solidStar
+                            : FontAwesomeIcons.star,
+                        activeColor: widget.note.pinned
+                            ? WpSharedColors.pinnedAccent
+                            : null,
                         tooltip: widget.note.pinned
                             ? l10n.notesUnfavorite
                             : l10n.notesFavorite,
+                        isDark: isDark,
                         onTap: widget.onFavoriteToggle,
-                        // Solid amber star when pinned, muted outline star
-                        // otherwise — always visible so the tap target
-                        // doesn't appear/disappear with the pin state.
-                        child: FaIcon(
-                          widget.note.pinned
-                              ? FontAwesomeIcons.solidStar
-                              : FontAwesomeIcons.star,
-                          size: 12,
-                          color: widget.note.pinned
-                              ? WpSharedColors.pinnedAccent
-                              : textMuted,
-                        ),
+                        dense: true,
                       ),
                       const SizedBox(width: WpSpacing.xxs),
                     ],
@@ -251,29 +255,31 @@ class _NotesListTileState extends State<NotesListTile> {
                       ),
                     ),
                     if (widget.isTrashView) ...[
-                      const SizedBox(width: WpSpacing.xs),
-                      _TileAction(
-                        tooltip: l10n.notesRestore,
-                        onTap: widget.onRestore,
-                        child: Icon(
-                          // Same restore glyph as the editor toolbar and
-                          // history's per-item restore action.
-                          LucideIcons.undo2,
-                          size: WpIconSize.xs,
-                          color: textMuted,
-                        ),
-                      ),
                       const SizedBox(width: WpSpacing.xxs),
-                      _TileAction(
-                        tooltip: l10n.notesDeleteForever,
-                        onTap: widget.onDeleteForever,
-                        child: Icon(
-                          LucideIcons.trash2,
-                          size: WpIconSize.xs,
-                          color: isDark
-                              ? WpColorsDark.error
-                              : WpColorsLight.error,
-                        ),
+                      WpRowActions(
+                        visible: _isHovered || widget.isFocused,
+                        dense: true,
+                        children: [
+                          // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+                          WpRowAction(
+                            // Same restore glyph as the editor toolbar and
+                            // history's per-item restore action.
+                            icon: LucideIcons.undo2,
+                            tooltip: l10n.notesRestore,
+                            isDark: isDark,
+                            onTap: widget.onRestore,
+                            dense: true,
+                          ),
+                          // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+                          WpRowAction(
+                            icon: LucideIcons.trash2,
+                            tooltip: l10n.notesDeleteForever,
+                            isDark: isDark,
+                            onTap: widget.onDeleteForever,
+                            isDestructive: true,
+                            dense: true,
+                          ),
+                        ],
                       ),
                     ],
                   ],
@@ -370,65 +376,6 @@ class _NoteTagChip extends StatelessWidget {
           fontSize: WpTypography.micro,
           color: accent.withValues(alpha: 0.9),
           fontWeight: FontWeight.w500,
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Compact per-tile icon action — deliberately NOT an IconButton: Material's
-// 40x40 minimum would inflate the tile row. The inner GestureDetector wins
-// hit-testing over the tile's own tap handler, so tapping an action never
-// also selects the note.
-// ---------------------------------------------------------------------------
-
-class _TileAction extends StatefulWidget {
-  const _TileAction({
-    required this.tooltip,
-    required this.onTap,
-    required this.child,
-  });
-
-  final String tooltip;
-  final VoidCallback onTap;
-  final Widget child;
-
-  @override
-  State<_TileAction> createState() => _TileActionState();
-}
-
-class _TileActionState extends State<_TileAction> {
-  bool _isHovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      label: widget.tooltip,
-      button: true,
-      // Global tooltip waitDuration comes from the app theme (theme.dart).
-      child: Tooltip(
-        message: widget.tooltip,
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          onEnter: (_) => setState(() => _isHovered = true),
-          onExit: (_) => setState(() => _isHovered = false),
-          child: GestureDetector(
-            onTap: widget.onTap,
-            child: AnimatedOpacity(
-              duration: WpMotion.durationFor(
-                context,
-                _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
-              ),
-              opacity: _isHovered ? 1.0 : 0.75,
-              // Off-scale padding on purpose: pads the ~12px glyph to a
-              // ~20px hit area without stretching the tile row.
-              child: Padding(
-                padding: const EdgeInsets.all(4),
-                child: widget.child,
-              ),
-            ),
-          ),
         ),
       ),
     );

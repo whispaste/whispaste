@@ -73,11 +73,11 @@
       "message": "2 occurrences of duplicated block (100 tokens): lib/features/history/widgets/history_split_view.dart:116, lib/features/notes/widgets/notes_split_view.dart:130"
     },
     {
-      "fingerprint": "53459674ac9dd7d3",
+      "fingerprint": "b78821e03c2c2545",
       "ruleId": "code-duplicates",
       "filePath": "lib/features/history/widgets/history_split_view.dart",
-      "line": 363,
-      "message": "2 occurrences of duplicated block (184 tokens): lib/features/history/widgets/history_split_view.dart:363, lib/features/notes/widgets/notes_split_view.dart:322"
+      "line": 366,
+      "message": "2 occurrences of duplicated block (184 tokens): lib/features/history/widgets/history_split_view.dart:366, lib/features/notes/widgets/notes_split_view.dart:322"
     },
     {
       "fingerprint": "f92e763f8d12ffa1",
@@ -87,18 +87,18 @@
       "message": "2 occurrences of duplicated block (205 tokens): lib/features/history/widgets/voice_note_button.dart:290, lib/features/notes/widgets/note_voice_input_button.dart:262"
     },
     {
-      "fingerprint": "0b4542fb16f43980",
+      "fingerprint": "007736862c83b4b7",
       "ruleId": "code-duplicates",
       "filePath": "lib/features/replacements/replacements_page.dart",
-      "line": 81,
-      "message": "2 occurrences of duplicated block (52 tokens): lib/features/replacements/replacements_page.dart:81, lib/features/snippets/snippets_page.dart:57"
+      "line": 82,
+      "message": "2 occurrences of duplicated block (52 tokens): lib/features/replacements/replacements_page.dart:82, lib/features/snippets/snippets_page.dart:58"
     },
     {
-      "fingerprint": "b3133360651fab38",
+      "fingerprint": "4ec2783bc4149a04",
       "ruleId": "code-duplicates",
       "filePath": "lib/features/replacements/replacements_page.dart",
-      "line": 121,
-      "message": "2 occurrences of duplicated block (96 tokens): lib/features/replacements/replacements_page.dart:121, lib/features/snippets/snippets_page.dart:97"
+      "line": 122,
+      "message": "2 occurrences of duplicated block (96 tokens): lib/features/replacements/replacements_page.dart:122, lib/features/snippets/snippets_page.dart:98"
     },
     {
       "fingerprint": "bc2554a1bedc4b79",
