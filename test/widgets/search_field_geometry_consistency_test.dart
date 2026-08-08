@@ -56,6 +56,7 @@ import 'package:whispaste/features/notes/widgets/notes_search_bar.dart';
 import 'package:whispaste/features/settings/widgets/settings_search_field.dart';
 import 'package:whispaste/widgets/page_shell.dart';
 import 'package:whispaste/widgets/searchable_list_page.dart';
+import 'package:whispaste/widgets/wp_button.dart';
 import 'package:whispaste/widgets/wp_search_field.dart';
 
 import '../fixtures/test_helpers.dart';
@@ -161,16 +162,36 @@ Widget _searchableList() => WpSearchableListPage<String>(
 
 /// Renders all four call sites one after another at [scale] and returns what
 /// each one measured, keyed by area.
-Future<Map<String, _FieldGeometry>> _measureAllAreas(
-  WidgetTester tester,
-  double scale,
-) async {
+///
+/// `neighbourGap` is the distance from the field's right edge to the toolbar
+/// button beside it, for the two areas that have one. It answers the question
+/// a raw width can't: whether a field narrower than the cap is narrow
+/// *because* its neighbour needed the room, or just sloppily sized.
+Future<
+  ({Map<String, _FieldGeometry> geometry, Map<String, double> neighbourGap})
+>
+_measureAllAreas(WidgetTester tester, double scale) async {
   final measured = <String, _FieldGeometry>{};
+  final gaps = <String, double>{};
 
   Future<void> probe(String area, Widget Function() build) async {
     await tester.pumpWidget(makeTestable(_scaled(build(), scale)));
     await tester.pump();
     measured[area] = _measure(tester);
+    final button = find.byType(WpButton);
+    if (button.evaluate().isNotEmpty) {
+      gaps[area] =
+          _rect(tester, button.first).left -
+          _rect(
+            tester,
+            find
+                .descendant(
+                  of: find.byType(WpSearchField),
+                  matching: find.byType(AnimatedContainer),
+                )
+                .first,
+          ).right;
+    }
   }
 
   await probe('settings', _settings);
@@ -221,7 +242,7 @@ Future<Map<String, _FieldGeometry>> _measureAllAreas(
     ),
   );
 
-  return measured;
+  return (geometry: measured, neighbourGap: gaps);
 }
 
 /// Layout width the app's content column has at a given window width: the
@@ -241,7 +262,7 @@ void main() {
       await tester.binding.setSurfaceSize(Size(_contentWidth(1100), 700));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
-      final measured = await _measureAllAreas(tester, scale);
+      final measured = (await _measureAllAreas(tester, scale)).geometry;
 
       final reference = measured['settings']!;
       for (final entry in measured.entries) {
@@ -276,7 +297,8 @@ void main() {
       await tester.binding.setSurfaceSize(Size(_contentWidth(800), 550));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
-      final measured = await _measureAllAreas(tester, scale);
+      final probed = await _measureAllAreas(tester, scale);
+      final measured = probed.geometry;
 
       for (final entry in measured.entries) {
         expect(
@@ -297,15 +319,18 @@ void main() {
         );
       }
       for (final area in const ['notes', 'replacements/snippets']) {
+        // Deliberately not `lessThan(maxWidth)`: how far under the cap these
+        // land is a function of the Add button's label, which any wording
+        // change moves. What must hold is *why* they are under it — the field
+        // grew until it hit its neighbour's gap, so nothing but the button
+        // kept it from the cap.
         expect(
-          measured[area]!.boxWidth,
-          lessThan(WpSearchField.maxWidth),
+          probed.neighbourGap[area],
+          closeTo(WpSpacing.sm, 0.01),
           reason:
-              '"$area" shares its row with an Add button that cannot fit '
-              'beside a full-width field at the minimum window. If this ever '
-              'reaches the cap, the row got roomier and the exception '
-              'documented in WpSearchField should be re-read, not the test '
-              'relaxed',
+              '"$area" shares its row with an Add button. At the minimum '
+              'window the field must run right up to that button, i.e. be '
+              'stopped by the neighbour rather than be idly narrow',
         );
       }
     });
