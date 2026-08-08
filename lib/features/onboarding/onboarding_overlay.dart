@@ -257,16 +257,26 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
         platform: defaultTargetPlatform,
         autoPasteSupported: kAutoPasteSupported,
       );
-      ref
-          .read(settingsProvider.notifier)
-          .updateSettings(
-            (s) => s.copyWithSections(
-              onboarding: s.onboarding.copyWith(
-                onboardingCurrentStep: saved,
-                onboardingFlowVersion: kOnboardingFlowVersion,
+      // Deferred: with fireImmediately:true this whole method can run
+      // synchronously from initState (when settings already have a value at
+      // mount time), and writing another provider mid-build throws "Tried to
+      // modify a provider while the widget tree was building" (Sentry
+      // FLUTTER_WHISPASTE-C7). Scheduling the write lets the current build
+      // finish first.
+      final migratedStep = saved;
+      Future(() {
+        if (!mounted) return;
+        ref
+            .read(settingsProvider.notifier)
+            .updateSettings(
+              (s) => s.copyWithSections(
+                onboarding: s.onboarding.copyWith(
+                  onboardingCurrentStep: migratedStep,
+                  onboardingFlowVersion: kOnboardingFlowVersion,
+                ),
               ),
-            ),
-          );
+            );
+      });
     } else {
       saved = onboarding.onboardingCurrentStep.clamp(0, steps.length - 1);
     }
