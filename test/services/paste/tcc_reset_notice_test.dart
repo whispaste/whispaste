@@ -193,5 +193,27 @@ void main() {
             'Auto-Paste step in front of them.',
       );
     });
+
+    test('suppressed while an onboarding revision run is in progress, even '
+        'though onboarding is long completed', () async {
+      SharedPreferences.setMockInitialValues({
+        'tcc_reset_notice_last_seen_version': '1.2.51',
+      });
+
+      final result = await maybeMarkTccResetNoticeVersion(
+        currentVersion: '1.2.53',
+        onboardingCompleted: true,
+        onboardingRevisionRunning: true,
+        isMacOS: true,
+        capabilityStatus: PasteCapabilityStatus.permissionMissing,
+      );
+      expect(
+        result,
+        isFalse,
+        reason:
+            'A revision run has its own dedicated Auto-Paste step in '
+            'front of the user too.',
+      );
+    });
   });
 }

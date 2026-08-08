@@ -64,22 +64,25 @@ bool afterTranscriptionActionPastes(
 /// the missing [userPastes] condition here is exactly the bug that showed
 /// Auto-Paste dialogs to clipboard-only users.
 ///
-/// [onboardingCompleted] and [onboardingManuallyOpen] together form the
-/// "is the onboarding surface on top" predicate (see
-/// `core/onboarding/onboarding_surface.dart`): the flow carries its own
-/// inline restart banner on the Auto-Paste step, so a native modal on top of
-/// it would be a second, competing voice — during the first run *and* during
-/// a review reopened from Settings.
+/// [onboardingCompleted], [onboardingManuallyOpen] and
+/// [onboardingRevisionRunning] together form the "is the onboarding surface
+/// on top" predicate (see `core/onboarding/onboarding_surface.dart`): the
+/// flow carries its own inline restart banner on the Auto-Paste step, so a
+/// native modal on top of it would be a second, competing voice — during the
+/// first run, during a review reopened from Settings, *and* during an
+/// onboarding revision run.
 bool shouldShowAutoPasteRestartSurface({
   required bool needsRestart,
   required bool onboardingCompleted,
   required bool userPastes,
   bool onboardingManuallyOpen = false,
+  bool onboardingRevisionRunning = false,
 }) {
   return needsRestart &&
       !onboardingSurfaceActive(
         onboardingCompleted: onboardingCompleted,
         manuallyOpen: onboardingManuallyOpen,
+        revisionRunning: onboardingRevisionRunning,
       ) &&
       userPastes;
 }

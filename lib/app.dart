@@ -197,9 +197,11 @@ const wpPageWidgets = <String, Widget>{
 bool shouldRunStartupPermissionGate(
   AppSettings? settings, {
   bool onboardingManuallyOpen = false,
+  bool onboardingRevisionRunning = false,
 }) => !onboardingSurfaceActive(
   onboardingCompleted: settings?.onboarding.onboardingCompleted ?? false,
   manuallyOpen: onboardingManuallyOpen,
+  revisionRunning: onboardingRevisionRunning,
 );
 
 /// Pure decision for whether closing the window should hide to tray (`true`)
@@ -384,6 +386,7 @@ class _AppShellState extends ConsumerState<_AppShell>
         needsRestart: needsRestart,
         onboardingCompleted: onboarding?.onboardingCompleted ?? false,
         onboardingManuallyOpen: ref.read(onboardingManuallyOpenProvider),
+        onboardingRevisionRunning: ref.read(onboardingRevisionRunProvider),
         userPastes: _userPastesAfterTranscription(),
       )) {
         return;
@@ -461,6 +464,7 @@ class _AppShellState extends ConsumerState<_AppShell>
       currentVersion: appVersion,
       onboardingCompleted: onboarding?.onboardingCompleted ?? false,
       onboardingManuallyOpen: ref.read(onboardingManuallyOpenProvider),
+      onboardingRevisionRunning: ref.read(onboardingRevisionRunProvider),
       isMacOS: true,
       capabilityStatus: capability?.status,
     );
@@ -502,6 +506,7 @@ class _AppShellState extends ConsumerState<_AppShell>
     if (!shouldRunStartupPermissionGate(
       ref.read(settingsProvider).value,
       onboardingManuallyOpen: ref.read(onboardingManuallyOpenProvider),
+      onboardingRevisionRunning: ref.read(onboardingRevisionRunProvider),
     )) {
       return;
     }

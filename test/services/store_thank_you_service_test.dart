@@ -32,6 +32,12 @@ class _OpenReviewNotifier extends OnboardingManuallyOpenNotifier {
   bool build() => true;
 }
 
+/// Stands in for a user with an onboarding revision run in progress.
+class _RunningRevisionNotifier extends OnboardingRevisionRunNotifier {
+  @override
+  bool build() => true;
+}
+
 /// Recording count comfortably above the gate's threshold, used by tests
 /// that don't care about the exact boundary.
 const _aboveThreshold = 20;
@@ -45,6 +51,10 @@ Future<({ProviderContainer container, HistoryDatabase db})> _makeContainer({
   /// right now. Session state, so it is a container override rather than a
   /// setting.
   bool onboardingManuallyOpen = false,
+
+  /// Whether an onboarding revision run is in progress right now. Session
+  /// state, same reasoning as [onboardingManuallyOpen].
+  bool onboardingRevisionRunning = false,
 }) async {
   SharedPreferences.setMockInitialValues(prefs);
   final db = HistoryDatabase.forTesting(NativeDatabase.memory());
@@ -66,6 +76,10 @@ Future<({ProviderContainer container, HistoryDatabase db})> _makeContainer({
       if (onboardingManuallyOpen)
         onboardingManuallyOpenProvider.overrideWith(
           () => _OpenReviewNotifier(),
+        ),
+      if (onboardingRevisionRunning)
+        onboardingRevisionRunProvider.overrideWith(
+          () => _RunningRevisionNotifier(),
         ),
     ],
   );
@@ -218,6 +232,31 @@ void main() {
           reason:
               'A thank-you hint dropped on top of the flow is exactly the '
               'competing dialog the surface predicate exists to prevent.',
+        );
+      },
+    );
+
+    test(
+      'an onboarding revision run in progress → shouldShow stays false, '
+      'even for a long-onboarded user well past the recording threshold',
+      () async {
+        final harness = await _makeContainer(
+          channel: DeployChannel.store,
+          activeEntries: _aboveThreshold,
+          onboardingRevisionRunning: true,
+        );
+        addTearDown(harness.container.dispose);
+
+        await harness.container
+            .read(storeThankYouProvider.notifier)
+            .checkAndMaybeShow(onboardingCompleted: true);
+
+        expect(
+          harness.container.read(storeThankYouProvider).shouldShow,
+          isFalse,
+          reason:
+              'A thank-you hint dropped on top of a revision run is the '
+              'same competing dialog as during a manually reopened review.',
         );
       },
     );

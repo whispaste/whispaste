@@ -97,13 +97,17 @@ class _StoreThankYouWatcherState extends ConsumerState<StoreThankYouWatcher> {
     if (!state.shouldShow || _dialogShowing) return;
     // The notifier already gated on "is the onboarding surface on top", but
     // it decided that at *check* time and this runs at *show* time, two
-    // seconds later. Re-asking the one half that can flip in between — the
-    // user opening a review from Settings — closes that window. The
-    // completed half stays the notifier's: it is answered against the
-    // caller's own settings snapshot, which is what makes the first-run
-    // hand-off work at the exact moment the flag flips. Nothing is latched
-    // here, so the next check re-offers the hint once the review ends.
-    if (ref.read(onboardingManuallyOpenProvider)) return;
+    // seconds later. Re-asking the two halves that can flip in between — the
+    // user opening a review from Settings, or a revision run starting —
+    // closes that window. The completed half stays the notifier's: it is
+    // answered against the caller's own settings snapshot, which is what
+    // makes the first-run hand-off work at the exact moment the flag flips.
+    // Nothing is latched here, so the next check re-offers the hint once the
+    // review or run ends.
+    if (ref.read(onboardingManuallyOpenProvider) ||
+        ref.read(onboardingRevisionRunProvider)) {
+      return;
+    }
     _dialogShowing = true;
     // A short delay after onboarding exit so the overlay animation has
     // settled before the hint appears.

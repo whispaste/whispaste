@@ -97,13 +97,16 @@ class StoreThankYouNotifier extends Notifier<StoreThankYouState> {
   /// threaded in by the callers, because there are two of them — the
   /// [StoreThankYouWatcher] widget and the recording orchestrator's
   /// post-transcription check — and a parameter would let one of them lag
-  /// behind the other. [onboardingCompleted] stays a parameter: it is the
-  /// caller's own settings snapshot, and the first-run path depends on
-  /// reading it at exactly the moment it flips.
+  /// behind the other. That includes the revision-run half, same reasoning:
+  /// both callers must see the same in-progress run at the same instant.
+  /// [onboardingCompleted] stays a parameter: it is the caller's own settings
+  /// snapshot, and the first-run path depends on reading it at exactly the
+  /// moment it flips.
   Future<void> checkAndMaybeShow({required bool onboardingCompleted}) async {
     if (onboardingSurfaceActive(
       onboardingCompleted: onboardingCompleted,
       manuallyOpen: ref.read(onboardingManuallyOpenProvider),
+      revisionRunning: ref.read(onboardingRevisionRunProvider),
     )) {
       return;
     }

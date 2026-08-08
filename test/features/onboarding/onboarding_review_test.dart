@@ -360,5 +360,17 @@ void main() {
         isTrue,
       );
     });
+
+    test('is true while an onboarding revision run is in progress, even though '
+        'onboarding is long completed and no manual reopen is happening', () {
+      expect(
+        onboardingSurfaceActive(
+          onboardingCompleted: true,
+          manuallyOpen: false,
+          revisionRunning: true,
+        ),
+        isTrue,
+      );
+    });
   });
 }

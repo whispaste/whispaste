@@ -16,14 +16,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/settings_provider.dart';
 
 /// Whether the five-step onboarding flow is currently in front of the app —
-/// for either of the two reasons it can be.
+/// for any of the three reasons it can be: first-run onboarding is still in
+/// progress, the introduction was manually reopened from Settings, or an
+/// onboarding revision run (`.scratch/onboarding-revisions/issues/02`) is in
+/// progress.
 ///
 /// Pure function so the surfaces that consult it stay unit-testable without a
 /// provider container.
 bool onboardingSurfaceActive({
   required bool onboardingCompleted,
   required bool manuallyOpen,
-}) => !onboardingCompleted || manuallyOpen;
+  bool revisionRunning = false,
+}) => !onboardingCompleted || manuallyOpen || revisionRunning;
 
 /// Whether the user reopened the introduction from Settings — session state,
 /// **never persisted**.
@@ -52,6 +56,38 @@ final onboardingManuallyOpenProvider =
       OnboardingManuallyOpenNotifier.new,
     );
 
+/// Whether an onboarding revision run (`.scratch/onboarding-revisions/
+/// issues/02`) is currently in progress — session state, **never
+/// persisted**, for the exact same reason [OnboardingManuallyOpenNotifier]
+/// isn't (see its doc comment): a crash, force-quit or closed window
+/// mid-run must never be able to leave `onboardingCompleted` in a wrong
+/// state, and the only way to guarantee that is to never let "a run is
+/// happening" survive past the session that started it. A completed or
+/// aborted run stamps `onboardingContentVersion` and clears this flag in the
+/// same breath — there is no persisted "run in progress" state to resume.
+///
+/// Nothing in this repository sets this to `true` yet.
+/// `.scratch/onboarding-revisions/issues/03` owns starting a run (once
+/// `onboardingRevisionDue` — see `onboarding_revision.dart` — fires) and
+/// ending one; this provider is the seam it plugs into. The surface-active
+/// predicate below already reads it, so nothing here needs to change once a
+/// run can actually start.
+class OnboardingRevisionRunNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  // loam-ignore: unused-public-exports – the seam for issue 03; no caller exists until that ticket lands.
+  void start() => state = true;
+
+  // loam-ignore: unused-public-exports – see start() above.
+  void end() => state = false;
+}
+
+final onboardingRevisionRunProvider =
+    NotifierProvider<OnboardingRevisionRunNotifier, bool>(
+      OnboardingRevisionRunNotifier.new,
+    );
+
 /// [onboardingSurfaceActive] wired to live app state.
 ///
 /// Watch this from anything that must stay out of the flow's way; keep
@@ -68,5 +104,6 @@ final onboardingSurfaceActiveProvider = Provider<bool>((ref) {
   return onboardingSurfaceActive(
     onboardingCompleted: completed,
     manuallyOpen: ref.watch(onboardingManuallyOpenProvider),
+    revisionRunning: ref.watch(onboardingRevisionRunProvider),
   );
 });

@@ -180,5 +180,22 @@ void main() {
             'competing voice.',
       );
     });
+
+    test('suppressed while an onboarding revision run is in progress, even '
+        'though onboarding is long completed', () {
+      expect(
+        shouldShowAutoPasteRestartSurface(
+          needsRestart: true,
+          onboardingCompleted: true,
+          onboardingRevisionRunning: true,
+          userPastes: true,
+        ),
+        isFalse,
+        reason:
+            'A revision run carries the same inline restart banner as a '
+            'first run — a native modal on top of it is a second, '
+            'competing voice.',
+      );
+    });
   });
 }
