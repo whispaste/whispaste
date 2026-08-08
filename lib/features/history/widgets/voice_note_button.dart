@@ -1,35 +1,21 @@
 /// Voice note button — records a short voice clip in the history detail panel,
 /// transcribes it, and dispatches the result as a note, tag, or correction.
 ///
-/// Reuses [AudioServiceNotifier] and [SttServerStateNotifier] for the recording
-/// pipeline. The button shows recording/transcribing state inline.
+/// The recording pipeline itself lives in [WpVoiceInputButton] (shared with
+/// the note editor); everything here is the history-specific *sink* for the
+/// finished transcript.
 library;
 
-import 'dart:async';
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/logging/app_logger.dart';
-import '../../../core/theme/colors.dart';
-import '../../../core/theme/tokens.dart';
-import '../../../services/audio_service.dart';
-import '../../../services/recording_orchestrator.dart';
-import '../../../services/stt/stt_bundle.dart';
 import '../../../services/telemetry_service.dart';
 import '../../../services/voice_action_service.dart';
 import '../../../widgets/toast.dart';
+import '../../../widgets/wp_voice_input_button.dart';
 import '../data/history_detail_provider.dart';
-
-// ---------------------------------------------------------------------------
-// Voice note button state
-// ---------------------------------------------------------------------------
-
-enum _VoiceNotePhase { idle, recording, transcribing }
 
 // ---------------------------------------------------------------------------
 // Widget
@@ -42,7 +28,7 @@ enum _VoiceNotePhase { idle, recording, transcribing }
 /// - **note** → `addNote`
 /// - **tag** → `addTag`
 /// - **correction** → `updateContent`
-class VoiceNoteButton extends ConsumerStatefulWidget {
+class VoiceNoteButton extends ConsumerWidget {
   const VoiceNoteButton({
     super.key,
     required this.entryId,
@@ -52,190 +38,34 @@ class VoiceNoteButton extends ConsumerStatefulWidget {
   final String entryId;
   final bool isDark;
 
-  /// Stuck-guard budgets on the two STT calls in [_stopAndTranscribe]. Mutable
-  /// + [visibleForTesting] so tests can shrink them (mirrors
-  /// `SttServerStateNotifier.stuckGuardTimeout`); production keeps these
-  /// defaults.
-  @visibleForTesting
-  static Duration ensureRunningTimeout = const Duration(seconds: 30);
-
-  @visibleForTesting
-  static Duration transcribeTimeout = const Duration(seconds: 45);
-
-  @override
-  ConsumerState<VoiceNoteButton> createState() => _VoiceNoteButtonState();
-}
-
-class _VoiceNoteButtonState extends ConsumerState<VoiceNoteButton> {
   static final _log = AppLogger('VoiceNoteButton');
 
-  _VoiceNotePhase _phase = _VoiceNotePhase.idle;
-
-  Color get _accent =>
-      widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
-  Color get _textMuted =>
-      widget.isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-  Color get _error => widget.isDark ? WpColorsDark.error : WpColorsLight.error;
-
-  bool get _isBusy => _phase != _VoiceNotePhase.idle;
-
-  String _labelFor(_VoiceNotePhase phase) {
+  Future<void> _dispatch(
+    BuildContext context,
+    WidgetRef ref,
+    String transcript,
+  ) async {
     final l10n = L10n.of(context);
-    return switch (phase) {
-      _VoiceNotePhase.idle => l10n.voiceNoteButton,
-      _VoiceNotePhase.recording => l10n.voiceNoteRecording,
-      _VoiceNotePhase.transcribing => l10n.voiceNoteTranscribing,
-    };
-  }
-
-  /// Updates [_phase] and announces the new phase to screen readers — mirrors
-  /// the recording-state announcement in [WpStatusBar]'s `_SttChip`.
-  void _setPhase(_VoiceNotePhase phase) {
-    setState(() => _phase = phase);
-    SemanticsService.sendAnnouncement(
-      View.of(context),
-      _labelFor(phase),
-      Directionality.of(context),
-    );
-  }
-
-  // ── Recording pipeline ──────────────────────────────────────────────────
-
-  Future<void> _startVoiceNote() async {
-    if (_isBusy) return;
-
-    // Acquire the orchestrator's _startInFlight lock so that all four entry
-    // points (tray, hotkey, floating button, voice-note button) share the same
-    // concurrency gate — eliminates the TOCTOU race from the previous
-    // one-shot phase read.
-    //
-    // The lock is released in the finally block below, after audio.startRecording()
-    // returns, mirroring exactly how RecordingOrchestrator.startRecording() uses it.
-    final orch = ref.read(recordingOrchestratorProvider.notifier);
-    if (!orch.tryAcquireStartLock()) {
-      _log.debug(
-        'Voice note suppressed — orchestrator lock not acquired '
-        '(already in flight or not idle)',
-      );
-      return;
-    }
-
-    _setPhase(_VoiceNotePhase.recording);
-
-    try {
-      final audio = ref.read(audioServiceProvider.notifier);
-      await audio.startRecording();
-
-      // Verify recording started.
-      final status = ref.read(audioServiceProvider);
-      if (status.captureState == AudioCaptureState.error) {
-        _fail(status.errorMessage ?? 'recording_failed');
-        return;
-      }
-
-      _log.info('Voice note recording started for entry ${widget.entryId}');
-    } on Exception catch (e) {
-      _fail('$e');
-    } finally {
-      // Release the start lock now that the audio capture start-up window is
-      // complete — same timing as RecordingOrchestrator.startRecording() finally.
-      orch.releaseStartLock();
-    }
-  }
-
-  Future<void> _stopAndTranscribe() async {
-    if (_phase != _VoiceNotePhase.recording) return;
-
-    // Capture context dependencies before async gap.
-    final l10n = L10n.of(context);
-
-    _setPhase(_VoiceNotePhase.transcribing);
-
-    String? wavPath;
-    try {
-      // Stop recording.
-      final audio = ref.read(audioServiceProvider.notifier);
-      wavPath = await audio.stopRecording();
-
-      if (wavPath == null) {
-        _fail('no_audio');
-        return;
-      }
-
-      // Wait for WAV flush on Windows.
-      final wavFile = File(wavPath);
-      if (!wavFile.existsSync()) {
-        for (var i = 0; i < 8; i++) {
-          await Future<void>.delayed(const Duration(milliseconds: 250));
-          if (wavFile.existsSync()) break;
-        }
-      }
-      if (!wavFile.existsSync()) {
-        _fail('wav_not_created');
-        return;
-      }
-
-      final wavBytes = await wavFile.readAsBytes();
-      if (wavBytes.isEmpty) {
-        _fail('wav_empty');
-        return;
-      }
-
-      // Ensure STT is ready.
-      final stt = ref.read(localSttBundleProvider.notifier);
-      await stt.ensureRunning().timeout(VoiceNoteButton.ensureRunningTimeout);
-
-      final sttStatus = ref.read(localSttBundleProvider);
-      if (!sttStatus.isReady) {
-        _fail(sttStatus.errorMessage ?? 'stt_not_ready');
-        return;
-      }
-
-      // Transcribe.
-      final transcript = await stt
-          .transcribeBytes(wavBytes)
-          .timeout(VoiceNoteButton.transcribeTimeout);
-
-      if (transcript.trim().isEmpty) {
-        _showSnackBar(l10n.voiceNoteEmpty, isError: true);
-        _reset();
-        return;
-      }
-
-      // Parse voice action and dispatch.
-      await _dispatchAction(transcript, l10n);
-    } on TimeoutException {
-      _fail('timeout');
-    } on Exception catch (e) {
-      _fail('$e');
-    } finally {
-      // Cleanup temp WAV.
-      if (wavPath != null) {
-        await ref.read(audioServiceProvider.notifier).cleanupFile(wavPath);
-      }
-    }
-  }
-
-  Future<void> _dispatchAction(String transcript, L10n l10n) async {
     final action = parseVoiceAction(transcript);
     if (action == null) {
-      _showSnackBar(l10n.voiceNoteEmpty, isError: true);
-      _reset();
+      _showToast(context, l10n.voiceNoteEmpty, isError: true);
       return;
     }
 
-    final notifier = ref.read(historyDetailProvider(widget.entryId).notifier);
+    final notifier = ref.read(historyDetailProvider(entryId).notifier);
 
     switch (action.type) {
       case VoiceActionType.note:
         await notifier.addNote(action.payload);
-        _showSnackBar(l10n.voiceNoteAdded);
+        if (context.mounted) _showToast(context, l10n.voiceNoteAdded);
       case VoiceActionType.tag:
         await notifier.addTag(action.payload);
-        _showSnackBar(l10n.voiceTagAdded(action.payload));
+        if (context.mounted) {
+          _showToast(context, l10n.voiceTagAdded(action.payload));
+        }
       case VoiceActionType.correction:
         await notifier.updateContent(action.payload);
-        _showSnackBar(l10n.voiceCorrectionApplied);
+        if (context.mounted) _showToast(context, l10n.voiceCorrectionApplied);
     }
 
     _log.info(
@@ -244,25 +74,13 @@ class _VoiceNoteButtonState extends ConsumerState<VoiceNoteButton> {
     ref
         .read(telemetrySessionAggregatorProvider)
         .count(category: 'voice_note', action: 'create');
-    _reset();
   }
 
-  void _fail(String reason) {
-    _log.warning('Voice note failed: $reason');
-    if (mounted) {
-      _showSnackBar(L10n.of(context).voiceNoteError, isError: true);
-    }
-    _reset();
-  }
-
-  void _reset() {
-    if (mounted) {
-      _setPhase(_VoiceNotePhase.idle);
-    }
-  }
-
-  void _showSnackBar(String message, {bool isError = false}) {
-    if (!mounted) return;
+  void _showToast(
+    BuildContext context,
+    String message, {
+    bool isError = false,
+  }) {
     WpToast.show(
       context,
       message: message,
@@ -271,67 +89,11 @@ class _VoiceNoteButtonState extends ConsumerState<VoiceNoteButton> {
     );
   }
 
-  // ── Tap handler ─────────────────────────────────────────────────────────
-
-  Future<void> _onTap() async {
-    switch (_phase) {
-      case _VoiceNotePhase.idle:
-        await _startVoiceNote();
-      case _VoiceNotePhase.recording:
-        await _stopAndTranscribe();
-      case _VoiceNotePhase.transcribing:
-        break; // no-op while transcribing
-    }
-  }
-
-  // ── Build ───────────────────────────────────────────────────────────────
-
   @override
-  Widget build(BuildContext context) {
-    final l10n = L10n.of(context);
-
-    final IconData icon;
-    final String tooltip;
-    final Color color;
-
-    switch (_phase) {
-      case _VoiceNotePhase.idle:
-        icon = LucideIcons.mic;
-        tooltip = l10n.voiceNoteButton;
-        color = _accent;
-      case _VoiceNotePhase.recording:
-        icon = LucideIcons.square;
-        tooltip = l10n.voiceNoteRecording;
-        color = _error;
-      case _VoiceNotePhase.transcribing:
-        icon = LucideIcons.loader;
-        tooltip = l10n.voiceNoteTranscribing;
-        color = _textMuted;
-    }
-
-    return Semantics(
-      label: tooltip,
-      button: true,
-      child: Tooltip(
-        message: tooltip,
-        child: InkWell(
-          onTap: _phase == _VoiceNotePhase.transcribing ? null : _onTap,
-          borderRadius: WpRadius.borderSm,
-          child: Padding(
-            padding: const EdgeInsets.all(WpSpacing.xxs),
-            child: _phase == _VoiceNotePhase.transcribing
-                ? SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: color,
-                    ),
-                  )
-                : Icon(icon, size: 16, color: color),
-          ),
-        ),
-      ),
+  Widget build(BuildContext context, WidgetRef ref) {
+    return WpVoiceInputButton(
+      isDark: isDark,
+      onTranscript: (transcript) => _dispatch(context, ref, transcript),
     );
   }
 }

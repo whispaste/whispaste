@@ -10,8 +10,8 @@ import '../../../core/theme/tokens.dart';
 import '../../../widgets/tag_input.dart';
 import '../../../widgets/toast.dart';
 import '../../../widgets/wp_text_field.dart';
+import '../../../widgets/wp_voice_input_button.dart';
 import '../data/note_title.dart';
-import 'note_voice_input_button.dart';
 
 // ---------------------------------------------------------------------------
 // Note editor panel — strongly reduced sibling of HistoryDetailPanel:
@@ -179,7 +179,7 @@ class NoteEditorPanel extends StatelessWidget {
                               ),
                             ),
                           ),
-                          NoteVoiceInputButton(
+                          WpVoiceInputButton(
                             isDark: isDark,
                             onTranscript: onVoiceTranscript,
                           ),

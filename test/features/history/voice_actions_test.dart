@@ -19,6 +19,7 @@ import 'package:whispaste/core/recording/recording_state.dart';
 // SttServerState is re-exported from stt_bundle.dart.
 import 'package:whispaste/core/theme/theme.dart';
 import 'package:whispaste/features/history/widgets/voice_note_button.dart';
+import 'package:whispaste/widgets/wp_voice_input_button.dart';
 import 'package:whispaste/features/history/data/history_detail_provider.dart';
 import 'package:whispaste/services/audio_service.dart';
 import 'package:whispaste/services/hardware_info_service.dart' as hw;
@@ -781,12 +782,12 @@ void main() {
       'ensureRunning() stuck beyond its timeout ends in a clean idle error '
       'state, not a hang (AC3)',
       (tester) async {
-        final originalTimeout = VoiceNoteButton.ensureRunningTimeout;
-        VoiceNoteButton.ensureRunningTimeout = const Duration(
+        final originalTimeout = WpVoiceInputButton.ensureRunningTimeout;
+        WpVoiceInputButton.ensureRunningTimeout = const Duration(
           milliseconds: 100,
         );
         addTearDown(
-          () => VoiceNoteButton.ensureRunningTimeout = originalTimeout,
+          () => WpVoiceInputButton.ensureRunningTimeout = originalTimeout,
         );
 
         final engine = _FakeWhisperEngine(hangOnLoad: true);
@@ -822,9 +823,13 @@ void main() {
       'transcribeBytes() stuck beyond its timeout ends in a clean idle error '
       'state, not a hang (AC3)',
       (tester) async {
-        final originalTimeout = VoiceNoteButton.transcribeTimeout;
-        VoiceNoteButton.transcribeTimeout = const Duration(milliseconds: 100);
-        addTearDown(() => VoiceNoteButton.transcribeTimeout = originalTimeout);
+        final originalTimeout = WpVoiceInputButton.transcribeTimeout;
+        WpVoiceInputButton.transcribeTimeout = const Duration(
+          milliseconds: 100,
+        );
+        addTearDown(
+          () => WpVoiceInputButton.transcribeTimeout = originalTimeout,
+        );
 
         final engine = _FakeWhisperEngine(hangOnTranscribe: true);
 
