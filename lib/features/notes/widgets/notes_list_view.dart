@@ -47,9 +47,14 @@ class NotesListView extends StatelessWidget {
     return Semantics(
       label: l10n.notesListSemantics,
       child: ListView.builder(
-        padding: const EdgeInsets.only(
-          top: WpSpacing.xs,
-          bottom: WpSpacing.xxl,
+        // The list owns the horizontal page inset (tiles carry none), so its
+        // left/right edge lands exactly on NotesSearchBar's xl inset — same
+        // arrangement as WpSearchableListPage's list.
+        padding: const EdgeInsets.fromLTRB(
+          WpSpacing.xl,
+          WpSpacing.xs,
+          WpSpacing.xl,
+          WpSpacing.xxl,
         ),
         itemCount: notes.length,
         itemBuilder: (_, i) {

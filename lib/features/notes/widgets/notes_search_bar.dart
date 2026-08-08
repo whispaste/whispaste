@@ -50,11 +50,14 @@ class NotesSearchBar extends StatelessWidget {
     final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
 
     return Padding(
+      // Same side inset as every other list area's search bar (History,
+      // Replacements, Snippets): xl left/right, sm top/bottom — so switching
+      // areas via the sidebar never shifts the search field sideways.
       padding: const EdgeInsets.fromLTRB(
-        WpSpacing.md,
+        WpSpacing.xl,
         WpSpacing.sm,
-        WpSpacing.md,
-        WpSpacing.xs,
+        WpSpacing.xl,
+        WpSpacing.sm,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -173,11 +173,10 @@ class _NotesListTileState extends State<NotesListTile> {
             ),
             curve: WpMotion.defaultCurve,
             // Off-scale on purpose: hairline gap between tiles so adjacent
-            // selection borders never touch (same as HistoryEntryRow).
-            margin: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.xs,
-              vertical: 1,
-            ),
+            // selection borders never touch (same as HistoryEntryRow). No
+            // horizontal margin — NotesListView owns the page inset so the
+            // tile edge lines up with the search bar above.
+            margin: const EdgeInsets.symmetric(vertical: 1),
             padding: const EdgeInsets.symmetric(
               horizontal: WpSpacing.sm,
               vertical: WpSpacing.md,
