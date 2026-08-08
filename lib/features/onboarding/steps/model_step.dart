@@ -969,9 +969,15 @@ class _DownloadError extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(WpSpacing.md),
           decoration: BoxDecoration(
-            color: errorColor.withValues(alpha: 0.08),
+            color: isDark
+                ? WpColorsDark.errorButtonFill
+                : WpColorsLight.errorButtonFill,
             borderRadius: WpRadius.borderMd,
-            border: Border.all(color: errorColor.withValues(alpha: 0.2)),
+            border: Border.all(
+              color: isDark
+                  ? WpColorsDark.errorBorder20
+                  : WpColorsLight.errorBorder20,
+            ),
           ),
           child: Row(
             children: [

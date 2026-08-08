@@ -850,9 +850,15 @@ class _ErrorBanner extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: WpSpacing.sm),
       padding: const EdgeInsets.all(WpSpacing.sm),
       decoration: BoxDecoration(
-        color: errorColor.withValues(alpha: 0.08),
+        color: isDark
+            ? WpColorsDark.errorButtonFill
+            : WpColorsLight.errorButtonFill,
         borderRadius: BorderRadius.circular(WpRadius.sm),
-        border: Border.all(color: errorColor.withValues(alpha: 0.2)),
+        border: Border.all(
+          color: isDark
+              ? WpColorsDark.errorBorder20
+              : WpColorsLight.errorBorder20,
+        ),
       ),
       child: Row(
         children: [

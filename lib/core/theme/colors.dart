@@ -69,12 +69,14 @@ abstract final class WpColorsDark {
   static const Color warning = Color(0xFFF5C842);
   static const Color error = Color(0xFFFF7B7B);
 
-  /// Danger/off-brand-neutral tint ladder — the same 6/12/30% alpha steps as
-  /// the accent ladder above, keyed to [error]/[textMuted] instead, so a
+  /// Danger/off-brand-neutral tint ladder — the same 6/8/12/20/30% alpha steps
+  /// as the accent ladder above, keyed to [error]/[textMuted] instead, so a
   /// destructive or neutral control's hover, press and outline carry exactly
   /// the weight of an accent one's, only the hue differs.
   static const Color errorRowHover = Color(0x0FFF7B7B); // error @ 6%
+  static const Color errorButtonFill = Color(0x14FF7B7B); // error @ 8%
   static const Color errorActiveFill = Color(0x1FFF7B7B); // error @ 12%
+  static const Color errorBorder20 = Color(0x33FF7B7B); // error @ 20%
   static const Color errorBorder30 = Color(0x4DFF7B7B); // error @ 30%
   static const Color mutedRowHover = Color(0x0F8A99B2); // textMuted @ 6%
   static const Color mutedActiveFill = Color(0x1F8A99B2); // textMuted @ 12%
@@ -187,7 +189,9 @@ abstract final class WpColorsLight {
   /// Danger/off-brand-neutral tint ladder — see [WpColorsDark.errorRowHover]
   /// for rationale.
   static const Color errorRowHover = Color(0x0FCC1C1C); // error @ 6%
+  static const Color errorButtonFill = Color(0x14CC1C1C); // error @ 8%
   static const Color errorActiveFill = Color(0x1FCC1C1C); // error @ 12%
+  static const Color errorBorder20 = Color(0x33CC1C1C); // error @ 20%
   static const Color errorBorder30 = Color(0x4DCC1C1C); // error @ 30%
   static const Color mutedRowHover = Color(0x0F5B697E); // textMuted @ 6%
   static const Color mutedActiveFill = Color(0x1F5B697E); // textMuted @ 12%
