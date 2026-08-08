@@ -22,7 +22,7 @@ import 'wp_focus_ring.dart';
 // the deciding argument is width, not taste:
 //
 //   The history list panel is user-resizable down to 240 px
-//   (`HistorySplitView._minListWidth`). After tile margin, padding and the
+//   (`WpSplitView._minListWidth`). After tile margin, padding and the
 //   42 px avatar, a row has ~146 px left for title + timestamp + actions.
 //   Three permanently visible actions cost 84 px (dense) to 144 px
 //   (48 px targets) of that — the title would be squeezed to a few pixels or

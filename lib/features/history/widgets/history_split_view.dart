@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import 'package:whispaste/core/data/database.dart';
 import '../../../services/history/history_exporter.dart' as history_exporter;
+import '../../../widgets/wp_split_view.dart';
 import '../data/providers.dart';
 import 'history_card_view.dart';
 import 'history_compact_view.dart';
@@ -15,7 +15,11 @@ import 'history_list_view.dart';
 // Split-View layout
 // ---------------------------------------------------------------------------
 
-class HistorySplitView extends StatefulWidget {
+/// History's master/detail area — the geometry, the divider and the
+/// entry-to-entry cross-fade all live in [WpSplitView]; what stays here is the
+/// history-specific content of the two columns, above all the view-mode
+/// switcher the notes area deliberately does not have.
+class HistorySplitView extends StatelessWidget {
   const HistorySplitView({
     super.key,
     required this.groups,
@@ -65,126 +69,56 @@ class HistorySplitView extends StatefulWidget {
   /// production [history_exporter.exportEntries]; widget tests inject a fake.
   final HistoryDetailPanelExportFn exportFn;
 
-  @override
-  State<HistorySplitView> createState() => _HistorySplitViewState();
-}
-
-class _HistorySplitViewState extends State<HistorySplitView>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _anim;
-  late final Animation<double> _detailWidth;
-  HistoryEntry? _displayedEntry;
-
-  double _listWidth = _defaultListWidth;
-  bool _isDragging = false;
-
-  static const _defaultListWidth = 340.0;
-  static const _minListWidth = 240.0;
-  static const _maxListFraction = 0.65;
-  static const _dividerHitWidth = 8.0;
-  static const _dividerVisualWidth = 1.0;
-
-  /// Minimum pixel width before the detail panel actually renders its content.
-  /// Below this threshold, the panel shows nothing to prevent RenderFlex
-  /// overflows during the open/close animation.
-  static const _minDetailRenderWidth = 280.0;
-
-  @override
-  // loam-ignore: code-duplicates – mirrors NotesSplitView by design (Struktur-
-  // Vorbild, not a shared abstraction, per the Ticket-02 plan: both split
-  // views must feel identical to resize/collapse, and Notizen must not take a
-  // feature-to-feature dependency on History).
-  void initState() {
-    super.initState();
-    _anim = AnimationController(vsync: this, duration: WpMotion.smooth);
-    _detailWidth = CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic);
-    if (widget.selectedEntry != null) {
-      _displayedEntry = widget.selectedEntry;
-      _anim.value = 1.0;
-    }
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _anim.duration = WpMotion.durationFor(context, WpMotion.smooth);
-  }
-
-  @override
-  // loam-ignore: code-duplicates – mirrors NotesSplitView by design, see
-  // initState above.
-  void didUpdateWidget(covariant HistorySplitView oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.selectedEntry != null && oldWidget.selectedEntry == null) {
-      // Opening detail panel
-      _displayedEntry = widget.selectedEntry;
-      _anim.forward();
-    } else if (widget.selectedEntry == null &&
-        oldWidget.selectedEntry != null) {
-      // Closing detail panel
-      _anim.reverse().then((_) {
-        if (mounted) setState(() => _displayedEntry = null);
-      });
-    } else if (widget.selectedEntry != null) {
-      // Switching to different entry
-      _displayedEntry = widget.selectedEntry;
-    }
-  }
-
-  @override
-  void dispose() {
-    _anim.dispose();
-    super.dispose();
-  }
-
-  Widget _buildListBody({String? selectedId}) {
+  Widget _buildListBody(BuildContext context, String? selectedId) {
     final Widget body;
-    switch (widget.viewMode) {
+    switch (viewMode) {
       case HistoryViewMode.list:
         body = HistoryEntryList(
           key: const ValueKey('view-list'),
-          groups: widget.groups,
-          isDark: widget.isDark,
+          groups: groups,
+          isDark: isDark,
           selectedId: selectedId,
-          focusedId: widget.focusedId,
-          onEntryTap: widget.onEntryTap,
-          onCopy: widget.onCopy,
-          onPin: widget.onPin,
-          onDelete: widget.onDelete,
-          multiSelectMode: widget.multiSelectMode,
-          selectedIds: widget.selectedIds,
-          isTrashView: widget.isTrashView,
-          onTagTap: widget.onTagTap,
+          focusedId: focusedId,
+          onEntryTap: onEntryTap,
+          onCopy: onCopy,
+          onPin: onPin,
+          onDelete: onDelete,
+          multiSelectMode: multiSelectMode,
+          selectedIds: selectedIds,
+          isTrashView: isTrashView,
+          onTagTap: onTagTap,
         );
       case HistoryViewMode.cards:
         body = HistoryCardView(
           key: const ValueKey('view-cards'),
-          groups: widget.groups,
-          isDark: widget.isDark,
+          groups: groups,
+          isDark: isDark,
           selectedId: selectedId,
-          focusedId: widget.focusedId,
-          onEntryTap: widget.onEntryTap,
-          onCopy: widget.onCopy,
-          onPin: widget.onPin,
-          onDelete: widget.onDelete,
-          multiSelectMode: widget.multiSelectMode,
-          selectedIds: widget.selectedIds,
+          focusedId: focusedId,
+          onEntryTap: onEntryTap,
+          onCopy: onCopy,
+          onPin: onPin,
+          onDelete: onDelete,
+          multiSelectMode: multiSelectMode,
+          selectedIds: selectedIds,
         );
       case HistoryViewMode.compact:
         body = HistoryCompactView(
           key: const ValueKey('view-compact'),
-          groups: widget.groups,
-          isDark: widget.isDark,
+          groups: groups,
+          isDark: isDark,
           selectedId: selectedId,
-          focusedId: widget.focusedId,
-          onEntryTap: widget.onEntryTap,
-          onCopy: widget.onCopy,
-          onPin: widget.onPin,
-          onDelete: widget.onDelete,
-          multiSelectMode: widget.multiSelectMode,
-          selectedIds: widget.selectedIds,
+          focusedId: focusedId,
+          onEntryTap: onEntryTap,
+          onCopy: onCopy,
+          onPin: onPin,
+          onDelete: onDelete,
+          multiSelectMode: multiSelectMode,
+          selectedIds: selectedIds,
         );
     }
+    // Stays here, not in WpSplitView: this fade covers the *view-mode*
+    // switch, which only history has (CONTEXT.md §5.9).
     return AnimatedSwitcher(
       duration: WpMotion.durationFor(context, WpMotion.normal),
       switchInCurve: Curves.easeOut,
@@ -193,213 +127,34 @@ class _HistorySplitViewState extends State<HistorySplitView>
     );
   }
 
-  Widget _buildDetailPanel(HistoryEntry entry) {
+  Widget _buildDetailPanel(BuildContext context, HistoryEntry entry) {
     return HistoryDetailPanel(
-      key: ValueKey(entry.id),
       entry: entry,
-      isDark: widget.isDark,
-      isTrashView: widget.isTrashView,
-      isArchiveView: widget.isArchiveView,
-      onClose: widget.onCloseDetail,
-      onCopy: () => widget.onCopy(entry),
-      onPin: () => widget.onPin(entry),
-      onDelete: () => widget.onDelete(entry),
-      onArchive: () => widget.onArchive(entry),
-      onRestore: () => widget.onRestore(entry),
-      onDuplicate: widget.onDuplicate == null
+      isDark: isDark,
+      isTrashView: isTrashView,
+      isArchiveView: isArchiveView,
+      onClose: onCloseDetail,
+      onCopy: () => onCopy(entry),
+      onPin: () => onPin(entry),
+      onDelete: () => onDelete(entry),
+      onArchive: () => onArchive(entry),
+      onRestore: () => onRestore(entry),
+      onDuplicate: onDuplicate == null ? null : () => onDuplicate!(entry),
+      onCopyMarkdown: onCopyMarkdown == null
           ? null
-          : () => widget.onDuplicate!(entry),
-      onCopyMarkdown: widget.onCopyMarkdown == null
-          ? null
-          : () => widget.onCopyMarkdown!(entry),
-      exportFn: widget.exportFn,
+          : () => onCopyMarkdown!(entry),
+      exportFn: exportFn,
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final showDetail = widget.selectedEntry != null || _displayedEntry != null;
-
-    if (!showDetail) {
-      return _buildListBody();
-    }
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final totalWidth = constraints.maxWidth;
-        final isCompact = totalWidth < WpLayout.breakpointMobile;
-
-        // ── Compact: full-screen detail overlay ──
-        if (isCompact) {
-          final entry = widget.selectedEntry ?? _displayedEntry;
-          if (entry != null && widget.selectedEntry != null) {
-            return _buildDetailPanel(entry);
-          }
-          return _buildListBody(
-            selectedId: (widget.selectedEntry ?? _displayedEntry)?.id,
-          );
-        }
-
-        // ── Desktop: side-by-side list + detail ──
-        // When detail is open, cap the list column so the detail gets at
-        // least _minDetailRenderWidth. If there's not enough total space for
-        // both panels, fall back to compact/fullscreen detail.
-        final roomForDetail = totalWidth - _minListWidth - _dividerHitWidth;
-        if (roomForDetail < _minDetailRenderWidth &&
-            widget.selectedEntry != null) {
-          // Not enough room for split — show full-screen detail.
-          return _buildDetailPanel(widget.selectedEntry ?? _displayedEntry!);
-        }
-
-        final maxListW = totalWidth * _maxListFraction;
-        // Ensure the list column never eats so much that detail can't render.
-        final maxListForDetail =
-            totalWidth - _dividerHitWidth - _minDetailRenderWidth;
-        return AnimatedBuilder(
-          animation: _detailWidth,
-          builder: (context, _) {
-            final detailFraction = _detailWidth.value;
-            final effectiveList = _listWidth.clamp(
-              _minListWidth,
-              detailFraction > 0.05
-                  ? maxListForDetail.clamp(_minListWidth, maxListW)
-                  : maxListW,
-            );
-            final detailW =
-                (totalWidth - effectiveList - _dividerHitWidth) *
-                detailFraction;
-            final listW = totalWidth - detailW - _dividerHitWidth;
-
-            return Row(
-              children: [
-                SizedBox(
-                  width: listW.clamp(effectiveList, totalWidth),
-                  child: _buildListBody(
-                    selectedId: (widget.selectedEntry ?? _displayedEntry)?.id,
-                  ),
-                ),
-                // Draggable divider
-                _SplitViewDivider(
-                  isDark: widget.isDark,
-                  isDragging: _isDragging,
-                  hitWidth: _dividerHitWidth,
-                  visualWidth: _dividerVisualWidth,
-                  dragMax: detailFraction > 0.05
-                      ? maxListForDetail.clamp(_minListWidth, maxListW)
-                      : maxListW,
-                  minListWidth: _minListWidth,
-                  currentListWidth: _listWidth,
-                  onDragStart: () => setState(() => _isDragging = true),
-                  onDragUpdate: (newWidth) =>
-                      setState(() => _listWidth = newWidth),
-                  onDragEnd: () => setState(() => _isDragging = false),
-                ),
-                SizedBox(
-                  width: detailW.clamp(0.0, totalWidth - _minListWidth),
-                  child:
-                      detailFraction > 0.05 && detailW >= _minDetailRenderWidth
-                      ? ClipRect(
-                          child: Opacity(
-                            opacity: detailFraction.clamp(0.0, 1.0),
-                            child: AnimatedSwitcher(
-                              duration: WpMotion.durationFor(
-                                context,
-                                WpMotion.fast,
-                              ),
-                              switchInCurve: Curves.easeOut,
-                              switchOutCurve: Curves.easeIn,
-                              transitionBuilder: (child, animation) {
-                                return FadeTransition(
-                                  opacity: animation,
-                                  child: child,
-                                );
-                              },
-                              child: _buildDetailPanel(
-                                widget.selectedEntry ?? _displayedEntry!,
-                              ),
-                            ),
-                          ),
-                        )
-                      : const SizedBox.shrink(),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Draggable column divider for the split view
-// ---------------------------------------------------------------------------
-
-class _SplitViewDivider extends StatelessWidget {
-  const _SplitViewDivider({
-    required this.isDark,
-    required this.isDragging,
-    required this.hitWidth,
-    required this.visualWidth,
-    required this.dragMax,
-    required this.minListWidth,
-    required this.currentListWidth,
-    required this.onDragStart,
-    required this.onDragUpdate,
-    required this.onDragEnd,
-  });
-
-  final bool isDark;
-  final bool isDragging;
-  final double hitWidth;
-  final double visualWidth;
-  final double dragMax;
-  final double minListWidth;
-  final double currentListWidth;
-  final VoidCallback onDragStart;
-  final ValueChanged<double> onDragUpdate;
-  final VoidCallback onDragEnd;
-
-  @override
-  // loam-ignore: code-duplicates – mirrors notes_split_view.dart's
-  // _SplitViewDivider by design, see HistorySplitView.initState above.
-  Widget build(BuildContext context) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.resizeColumn,
-      child: GestureDetector(
-        onHorizontalDragStart: (_) => onDragStart(),
-        onHorizontalDragUpdate: (details) {
-          final newWidth = (currentListWidth + details.delta.dx).clamp(
-            minListWidth,
-            dragMax,
-          );
-          onDragUpdate(newWidth);
-        },
-        onHorizontalDragEnd: (_) => onDragEnd(),
-        child: Container(
-          width: hitWidth,
-          color: Colors.transparent,
-          child: Center(
-            child: AnimatedContainer(
-              duration: WpMotion.durationFor(
-                context,
-                const Duration(milliseconds: 150),
-              ),
-              width: isDragging ? 3.0 : visualWidth,
-              decoration: BoxDecoration(
-                color: isDragging
-                    ? (isDark
-                          ? WpColorsDark.accent.withValues(alpha: 0.5)
-                          : WpColorsLight.accent.withValues(alpha: 0.5))
-                    : (isDark
-                          ? WpColorsDark.borderSubtle
-                          : WpColorsLight.borderSubtle),
-                borderRadius: BorderRadius.circular(1.5),
-              ),
-            ),
-          ),
-        ),
-      ),
+    return WpSplitView<HistoryEntry>(
+      isDark: isDark,
+      selectedItem: selectedEntry,
+      idOf: (entry) => entry.id,
+      listBuilder: _buildListBody,
+      detailBuilder: _buildDetailPanel,
     );
   }
 }

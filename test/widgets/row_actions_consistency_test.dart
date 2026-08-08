@@ -18,10 +18,10 @@ import 'package:whispaste/widgets/wp_row_action.dart';
 
 import '../fixtures/test_helpers.dart';
 
-/// Narrowest the history list panel gets (`HistorySplitView._minListWidth`).
+/// Narrowest the history list panel gets (`WpSplitView._minListWidth`).
 const _minPanelWidth = 240.0;
 
-/// Comfortable default panel width (`HistorySplitView._defaultListWidth`),
+/// Comfortable default panel width (`WpSplitView._defaultListWidth`),
 /// used wherever a test is about behaviour rather than about the squeeze.
 const _defaultPanelWidth = 340.0;
 
