@@ -191,13 +191,15 @@ jobs:
 
       # loam ratchet gate — fails when any new a11y, anti-AI-slop,
       # code-duplicate, unused-public-export, complexity-hotspot or
-      # circular-dependency finding is introduced relative to baseline.json
-      # (0 findings). Full 0.1.13 ruleset: a11y-*, slop-*, code-duplicates,
-      # unused-public-exports, complexity-hotspots, circular-dependencies.
-      # Pinned for reproducibility.
+      # circular-dependency finding is introduced relative to baseline.json.
+      # Full ruleset: a11y-*, slop-*, code-duplicates, unused-public-exports,
+      # complexity-hotspots, circular-dependencies. Pinned for reproducibility.
+      # 0.1.14 fixes an a11y-interactive-semantics false positive on
+      # call-sites that pass label/semanticLabel/tooltip through to an
+      # already-excluded Flutter class (e.g. WpButton → ElevatedButton).
       - name: Loam ratchet gate (a11y + slop + duplicates + exports + complexity + cycles)
         run: |
-          dart pub global activate loam 0.1.13
+          dart pub global activate loam 0.1.14
           export PATH="$PATH:$HOME/.pub-cache/bin"
           export DART_SDK="$(dirname "$(command -v flutter)")/cache/dart-sdk"
           loam gate --no-update-check
