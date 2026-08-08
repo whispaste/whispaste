@@ -613,10 +613,18 @@ class _HistorySearchFilterBarState
           ),
 
           if (rawQuery.isEmpty)
-            WpDiscoverabilityHint(
-              hintId: 'search_operators',
-              text: l10n.historySearchOperatorsHint,
-              isDark: widget.isDark,
+            // The hint explains what to type *into the field*, so it ends
+            // where the field ends rather than running the full content width
+            // with its dismiss button stranded far to the right.
+            ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: WpSearchField.maxWidth,
+              ),
+              child: WpDiscoverabilityHint(
+                hintId: 'search_operators',
+                text: l10n.historySearchOperatorsHint,
+                isDark: widget.isDark,
+              ),
             ),
 
           // ── Inline autocomplete suggestions ─────────────────────────────
@@ -634,7 +642,12 @@ class _HistorySearchFilterBarState
                       borderRadius: WpRadius.borderSm,
                       border: Border.all(color: borderCol),
                     ),
-                    constraints: const BoxConstraints(maxHeight: 240),
+                    // Width tied to the field above it, not to the content
+                    // column — see WpSearchField.maxWidth.
+                    constraints: const BoxConstraints(
+                      maxHeight: 240,
+                      maxWidth: WpSearchField.maxWidth,
+                    ),
                     child: _suggestionType == _SuggestionType.smartPanel
                         ? _buildSmartPanel(l10n, accent, textMuted)
                         : _buildSimpleSuggestionList(accent, textMuted),

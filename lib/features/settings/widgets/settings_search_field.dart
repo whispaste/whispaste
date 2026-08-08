@@ -268,7 +268,12 @@ class _SettingsSearchFieldState extends ConsumerState<SettingsSearchField> {
                     border: Border.all(color: borderCol),
                     boxShadow: WpShadows.subtle,
                   ),
-                  constraints: const BoxConstraints(maxHeight: 240),
+                  // Same max width as the field it hangs under — the panel
+                  // belongs to the field, not to the content column.
+                  constraints: const BoxConstraints(
+                    maxHeight: 240,
+                    maxWidth: WpSearchField.maxWidth,
+                  ),
                   child: ListView.builder(
                     padding: const EdgeInsets.symmetric(
                       vertical: WpSpacing.xxs,
