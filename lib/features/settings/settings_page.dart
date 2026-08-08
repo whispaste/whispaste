@@ -12,6 +12,7 @@ import '../../core/navigation/page_state.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/empty_state.dart';
+import '../../widgets/page_shell.dart';
 import 'search/settings_search_provider.dart';
 import 'sections/cloud_advanced_section.dart' show AdvancedSection;
 import 'sections/feedback_section.dart';
@@ -340,34 +341,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             // Fills the window width like every other page (The Fill-By-
             // Default Rule) — no cap-width, so Settings stays consistent
             // with History/Analytics/etc. even on very wide windows.
-            return Column(
-              children: [
-                // ── Sticky search field (stays visible while scrolling) ───
-                Padding(
-                  // Zero bottom: the scroll view below carries its own
-                  // WpSpacing.sm top padding.
-                  padding: const EdgeInsets.fromLTRB(
-                    WpSpacing.xl,
-                    WpSpacing.sm,
-                    WpSpacing.xl,
-                    0,
-                  ),
-                  child: SettingsSearchField(focusNode: _searchFocusNode),
-                ),
-
-                // ── Scrollable settings content ───────────────────────────
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(
-                      WpSpacing.xl,
-                      WpSpacing.sm,
-                      WpSpacing.xl,
-                      WpSpacing.xl,
-                    ),
-                    child: scrollContent,
-                  ),
-                ),
-              ],
+            //
+            // The search field rides the shell's sticky header slot, so it
+            // stays visible while the sections below scroll.
+            return WpPageShell(
+              header: SettingsSearchField(focusNode: _searchFocusNode),
+              child: scrollContent,
             );
           },
         ),
