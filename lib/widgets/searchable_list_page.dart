@@ -99,6 +99,14 @@ class _WpSearchableListPageState<T> extends State<WpSearchableListPage<T>> {
     super.dispose();
   }
 
+  /// Resets the search from outside the field (the no-matches empty state).
+  /// Mirrors what the field's own clear button does — [TextEditingController]
+  /// fires no `onChanged`, so the query has to be reset alongside the text.
+  void _clearSearch() {
+    _searchController.clear();
+    setState(() => _searchQuery = '');
+  }
+
   List<T> _filtered(List<T> all) {
     if (_searchQuery.isEmpty) return all;
     final q = _searchQuery.toLowerCase();
@@ -133,6 +141,13 @@ class _WpSearchableListPageState<T> extends State<WpSearchableListPage<T>> {
                 icon: LucideIcons.searchX,
                 title: widget.noMatchesTitle,
                 hint: widget.noMatchesHint,
+                // Per the WpEmptyState rule the search-empty state offers its
+                // main action: get out of the search. Verlauf and Notizen say
+                // the same thing with their own keys, whose wording is
+                // byte-identical to the generic one in every locale — so this
+                // reuses the generic key instead of minting a fourth string.
+                actionLabel: l10n.actionClearSearch,
+                onAction: _clearSearch,
               )
             : ListView.separated(
                 padding: const EdgeInsets.symmetric(

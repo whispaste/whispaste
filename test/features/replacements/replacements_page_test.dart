@@ -255,6 +255,35 @@ void main() {
       expect(find.text(l10n.replacementsNoMatches), findsOneWidget);
     });
 
+    for (final brightness in Brightness.values) {
+      testWidgets('the no-results empty state clears the search on '
+          '${brightness.name}', (tester) async {
+        await tester.pumpWidget(
+          makeTestable(
+            const ReplacementsPage(),
+            locale: const Locale('en'),
+            brightness: brightness,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.enterText(find.byType(TextField).first, 'zzzznonexistent');
+        await tester.pumpAndSettle();
+
+        // The shared no-matches state offers the same action as Verlauf and
+        // Notizen, worded through the generic l10n key.
+        expect(find.text(l10n.actionClearSearch), findsOneWidget);
+
+        await tester.tap(find.text(l10n.actionClearSearch));
+        await tester.pumpAndSettle();
+
+        // Both the query and the field's text are back to empty.
+        expect(find.text(l10n.replacementsNoMatches), findsNothing);
+        expect(find.text('zzzznonexistent'), findsNothing);
+        expect(find.text('mfg'), findsOneWidget);
+      });
+    }
+
     // -------------------------------------------------------------------------
     // 5. Enable / disable toggle
     // -------------------------------------------------------------------------
