@@ -405,15 +405,24 @@ class _WpTextFieldState extends State<WpTextField> {
   /// geometry `form_field_geometry_consistency_test.dart` pins.
   Widget _counter(_WpTextFieldPalette palette) => Padding(
     padding: const EdgeInsets.only(top: WpSpacing.xxs),
-    child: ValueListenableBuilder<TextEditingValue>(
-      valueListenable: widget.controller,
-      builder: (context, value, _) => Text(
-        // Graphemes, the same unit LengthLimitingTextInputFormatter enforces
-        // in — so the readout cannot disagree with the limit it reports.
-        '${value.text.characters.length}/${widget.maxLength}',
-        style: TextStyle(
-          fontSize: WpTypography.small,
-          color: palette.textMuted,
+    // [InputDecorator] announces its own counter as a live region while the
+    // field has focus. Moving the readout out of the decoration would have
+    // dropped that, so it is restored here: a screen-reader user typing
+    // towards the limit still hears the count as it changes.
+    child: Semantics(
+      container: true,
+      liveRegion: _hasFocus,
+      child: ValueListenableBuilder<TextEditingValue>(
+        valueListenable: widget.controller,
+        builder: (context, value, _) => Text(
+          // Graphemes, the same unit LengthLimitingTextInputFormatter
+          // enforces in — so the readout cannot disagree with the limit it
+          // reports.
+          '${value.text.characters.length}/${widget.maxLength}',
+          style: TextStyle(
+            fontSize: WpTypography.small,
+            color: palette.textMuted,
+          ),
         ),
       ),
     ),
