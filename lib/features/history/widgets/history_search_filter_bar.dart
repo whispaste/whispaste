@@ -11,11 +11,11 @@ import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../widgets/wp_button.dart';
 import '../../../widgets/wp_discoverability_hint.dart';
+import '../../../widgets/wp_filter_chip.dart';
 import '../../../widgets/wp_focus_ring.dart';
 import '../../../widgets/wp_search_field.dart';
 import '../data/providers.dart';
 import '../data/recent_searches.dart';
-import 'history_filter_chip.dart';
 import 'history_helpers.dart';
 
 // ---------------------------------------------------------------------------
@@ -668,13 +668,12 @@ class _HistorySearchFilterBarState
               Expanded(
                 child: SizedBox(
                   // Full-height tap/focus surface per chip (visual pill stays
-                  // compact — see HistoryFilterChip).
+                  // compact — see WpFilterChip).
                   height: WpLayout.minTouchTarget,
                   child: ListView(
                     scrollDirection: Axis.horizontal,
                     children: [
-                      // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryFilterChipState.build
-                      HistoryFilterChip(
+                      WpFilterChip(
                         label: l10n.historyAll,
                         isActive: widget.activeFilter == HistoryFilter.all,
                         onTap: () => widget.onFilterChanged(HistoryFilter.all),
@@ -682,8 +681,7 @@ class _HistorySearchFilterBarState
                         count: searchCounts?[HistoryFilter.all],
                       ),
                       const SizedBox(width: WpSpacing.xs),
-                      // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryFilterChipState.build
-                      HistoryFilterChip(
+                      WpFilterChip(
                         label: l10n.historyToday,
                         isActive: widget.activeFilter == HistoryFilter.today,
                         onTap: () =>
@@ -692,8 +690,7 @@ class _HistorySearchFilterBarState
                         count: searchCounts?[HistoryFilter.today],
                       ),
                       const SizedBox(width: WpSpacing.xs),
-                      // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryFilterChipState.build
-                      HistoryFilterChip(
+                      WpFilterChip(
                         label: l10n.historyThisWeek,
                         isActive: widget.activeFilter == HistoryFilter.week,
                         onTap: () => widget.onFilterChanged(HistoryFilter.week),
@@ -701,8 +698,7 @@ class _HistorySearchFilterBarState
                         count: searchCounts?[HistoryFilter.week],
                       ),
                       const SizedBox(width: WpSpacing.xs),
-                      // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryFilterChipState.build
-                      HistoryFilterChip(
+                      WpFilterChip(
                         label: l10n.historyPinned,
                         icon: LucideIcons.star,
                         isActive: widget.activeFilter == HistoryFilter.pinned,
@@ -712,8 +708,7 @@ class _HistorySearchFilterBarState
                         count: searchCounts?[HistoryFilter.pinned],
                       ),
                       const SizedBox(width: WpSpacing.xs),
-                      // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryFilterChipState.build
-                      HistoryFilterChip(
+                      WpFilterChip(
                         label: l10n.historyArchived,
                         icon: LucideIcons.archive,
                         isActive: widget.activeFilter == HistoryFilter.archived,
@@ -723,8 +718,7 @@ class _HistorySearchFilterBarState
                         count: searchCounts?[HistoryFilter.archived],
                       ),
                       const SizedBox(width: WpSpacing.xs),
-                      // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryFilterChipState.build
-                      HistoryFilterChip(
+                      WpFilterChip(
                         label: l10n.historyTrash,
                         icon: LucideIcons.trash2,
                         isActive: widget.activeFilter == HistoryFilter.trash,
@@ -838,7 +832,7 @@ class _HistorySearchFilterBarState
 /// Small focusable "x" dismiss control shared by recent-search rows and
 /// active-filter command chips — keyboard focus + hover feedback, matching
 /// the [WpFocusRing]/[InkWell] pattern every other dismiss/tag control in
-/// this feature already uses (e.g. `_EntryTagChip`, `HistoryFilterChip`).
+/// this feature already uses (e.g. `_EntryTagChip`, `WpFilterChip`).
 class _DismissIcon extends StatefulWidget {
   const _DismissIcon({
     required this.icon,

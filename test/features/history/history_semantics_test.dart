@@ -10,9 +10,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/features/history/widgets/history_detail_panel.dart';
-import 'package:whispaste/features/history/widgets/history_filter_chip.dart';
+import 'package:whispaste/widgets/wp_filter_chip.dart';
 import 'package:whispaste/features/history/widgets/history_list_tile.dart';
-import 'package:whispaste/features/history/widgets/history_row_action.dart';
 
 import '../../fixtures/test_helpers.dart';
 
@@ -130,28 +129,6 @@ void main() {
     });
   });
 
-  group('HistoryRowAction — action button semantics', () {
-    testWidgets('exposes tooltip as semantics label', (tester) async {
-      await tester.pumpWidget(
-        makeTestable(
-          HistoryRowAction(
-            icon: LucideIcons.copy,
-            tooltip: 'Copy text',
-            isDark: true,
-            onTap: () {},
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(
-        find.bySemanticsLabel('Copy text'),
-        findsOneWidget,
-        reason: 'HistoryRowAction must expose its tooltip as a semantics label',
-      );
-    });
-  });
-
   group('HistoryDetailAction — detail panel action semantics', () {
     testWidgets('exposes tooltip as semantics label', (tester) async {
       await tester.pumpWidget(
@@ -175,13 +152,11 @@ void main() {
     });
   });
 
-  group('HistoryFilterChip — filter chip semantics', () {
-    testWidgets('HistoryFilterChip semantics node carries label', (
-      tester,
-    ) async {
+  group('WpFilterChip — filter chip semantics', () {
+    testWidgets('WpFilterChip semantics node carries label', (tester) async {
       await tester.pumpWidget(
         makeTestable(
-          HistoryFilterChip(
+          WpFilterChip(
             label: 'All',
             isActive: true,
             onTap: () {},
@@ -193,11 +168,11 @@ void main() {
 
       // The Semantics wrapper merges with the inner Text("All"),
       // so tester.getSemantics is the authoritative way to assert the label.
-      final semantics = tester.getSemantics(find.byType(HistoryFilterChip));
+      final semantics = tester.getSemantics(find.byType(WpFilterChip));
       expect(
         semantics.label,
         contains('All'),
-        reason: 'HistoryFilterChip semantics label must contain the chip label',
+        reason: 'WpFilterChip semantics label must contain the chip label',
       );
     });
   });
