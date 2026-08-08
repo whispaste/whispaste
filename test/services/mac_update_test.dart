@@ -40,21 +40,11 @@ void main() {
   // Slice 01/02 — the generated detached helper script (pure, platform-neutral).
   // ---------------------------------------------------------------------------
   group('buildMacUpdateHelperScript', () {
-    String build({
-      int pid = 4242,
-      String dmg = '/tmp/WhisPaste.dmg',
-      String target = '/Applications/WhisPaste.app',
-      String log = '/tmp/wp-update.log',
-    }) => buildMacUpdateHelperScript(
-      parentPid: pid,
-      dmgPath: dmg,
-      targetBundlePath: target,
-      logPath: log,
-    );
+    String build() => buildMacUpdateHelperScript();
 
     test('waits for the parent PID to exit before touching anything', () {
-      final s = build(pid: 9931);
-      expect(s, contains('PARENT_PID=9931'));
+      final s = build();
+      expect(s, contains('PARENT_PID="\$1"'));
       expect(s, contains('kill -0 "\$PARENT_PID"'));
     });
 
