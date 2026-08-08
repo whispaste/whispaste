@@ -72,7 +72,6 @@ class NotesSearchBar extends StatelessWidget {
                   focusNode: searchFocusNode,
                   hintText: l10n.notesSearchPlaceholder,
                   variant: WpSearchFieldVariant.outlined,
-                  clearTooltip: l10n.notesClearSearch,
                   onChanged: (_) => onSearchChanged(),
                 ),
               ),

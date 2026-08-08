@@ -178,9 +178,6 @@ class L10nHe extends L10n {
   }
 
   @override
-  String get historyClearSearch => 'נקה חיפוש';
-
-  @override
   String get historyTrashEmpty => 'האשפה ריקה';
 
   @override
@@ -3202,9 +3199,6 @@ class L10nHe extends L10n {
   String notesNoResultsHint(String query) {
     return 'אין פתקים שמתאימים ל \"$query\".\nנסה מונח חיפוש אחר.';
   }
-
-  @override
-  String get notesClearSearch => 'נקה חיפוש';
 
   @override
   String notesResultCount(int count) {

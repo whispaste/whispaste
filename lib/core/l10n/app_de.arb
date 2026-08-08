@@ -64,7 +64,6 @@
   "historySearchOperatorsHint": "Tipp: Tippe #tag oder lang:xx zum Filtern.",
   "historyNoResults": "Keine Ergebnisse",
   "historyNoResultsHint": "Keine Transkriptionen stimmen mit \"{query}\" überein.\nVersuche einen anderen Suchbegriff.",
-  "historyClearSearch": "Suche zurücksetzen",
   "historyTrashEmpty": "Papierkorb ist leer",
   "historyTrashEmptyHint": "Gelöschte Transkriptionen erscheinen hier.\nElemente werden nach 30 Tagen endgültig entfernt.",
   "historyEmptyTrash": "Papierkorb leeren",
@@ -1093,7 +1092,6 @@
       "query": { "type": "String" }
     }
   },
-  "notesClearSearch": "Suche zurücksetzen",
   "notesResultCount": "{count, plural, =1{1 Ergebnis} other{{count} Ergebnisse}}",
   "@notesResultCount": {
     "placeholders": {

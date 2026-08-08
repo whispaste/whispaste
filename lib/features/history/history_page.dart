@@ -557,7 +557,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
         icon: LucideIcons.searchX,
         title: l10n.historyNoResults,
         hint: l10n.historyNoResultsHint(_searchController.text),
-        actionLabel: l10n.historyClearSearch,
+        actionLabel: l10n.actionClearSearch,
         onAction: () {
           _searchController.clear();
         },

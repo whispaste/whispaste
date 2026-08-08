@@ -178,9 +178,6 @@ class L10nEn extends L10n {
   }
 
   @override
-  String get historyClearSearch => 'Clear search';
-
-  @override
   String get historyTrashEmpty => 'Trash is empty';
 
   @override
@@ -3250,9 +3247,6 @@ class L10nEn extends L10n {
   String notesNoResultsHint(String query) {
     return 'No notes match \"$query\".\nTry a different search term.';
   }
-
-  @override
-  String get notesClearSearch => 'Clear search';
 
   @override
   String notesResultCount(int count) {

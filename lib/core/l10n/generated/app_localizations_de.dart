@@ -178,9 +178,6 @@ class L10nDe extends L10n {
   }
 
   @override
-  String get historyClearSearch => 'Suche zurücksetzen';
-
-  @override
   String get historyTrashEmpty => 'Papierkorb ist leer';
 
   @override
@@ -3280,9 +3277,6 @@ class L10nDe extends L10n {
   String notesNoResultsHint(String query) {
     return 'Keine Notizen stimmen mit \"$query\" überein.\nVersuche einen anderen Suchbegriff.';
   }
-
-  @override
-  String get notesClearSearch => 'Suche zurücksetzen';
 
   @override
   String notesResultCount(int count) {

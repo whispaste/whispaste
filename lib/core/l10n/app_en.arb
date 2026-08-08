@@ -77,7 +77,6 @@
       "query": { "type": "String" }
     }
   },
-  "historyClearSearch": "Clear search",
   "historyTrashEmpty": "Trash is empty",
   "historyTrashEmptyHint": "Deleted transcriptions will appear here.\nItems are permanently removed after 30 days.",
   "historyEmptyTrash": "Empty Trash",
@@ -1230,7 +1229,6 @@
       "query": { "type": "String" }
     }
   },
-  "notesClearSearch": "Clear search",
   "notesResultCount": "{count, plural, =1{1 result} other{{count} results}}",
   "@notesResultCount": {
     "placeholders": {

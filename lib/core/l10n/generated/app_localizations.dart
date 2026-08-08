@@ -417,12 +417,6 @@ abstract class L10n {
   /// **'No transcriptions match \"{query}\".\nTry a different search term.'**
   String historyNoResultsHint(String query);
 
-  /// No description provided for @historyClearSearch.
-  ///
-  /// In en, this message translates to:
-  /// **'Clear search'**
-  String get historyClearSearch;
-
   /// No description provided for @historyTrashEmpty.
   ///
   /// In en, this message translates to:
@@ -5801,12 +5795,6 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'No notes match \"{query}\".\nTry a different search term.'**
   String notesNoResultsHint(String query);
-
-  /// No description provided for @notesClearSearch.
-  ///
-  /// In en, this message translates to:
-  /// **'Clear search'**
-  String get notesClearSearch;
 
   /// No description provided for @notesResultCount.
   ///

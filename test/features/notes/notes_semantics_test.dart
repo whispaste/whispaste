@@ -221,7 +221,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.bySemanticsLabel(l10n.notesClearSearch), findsOneWidget);
+      expect(find.bySemanticsLabel(l10n.actionClearSearch), findsOneWidget);
     });
   });
 }

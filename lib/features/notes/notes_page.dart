@@ -588,7 +588,7 @@ class _NotesPageState extends ConsumerState<NotesPage> {
               icon: LucideIcons.searchX,
               title: l10n.notesNoResults,
               hint: l10n.notesNoResultsHint(query),
-              actionLabel: l10n.notesClearSearch,
+              actionLabel: l10n.actionClearSearch,
               onAction: () {
                 _searchController.clear();
                 ref.read(notesSearchProvider.notifier).set('');

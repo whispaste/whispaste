@@ -72,7 +72,6 @@
       "query": { "type": "String" }
     }
   },
-  "historyClearSearch": "נקה חיפוש",
   "historyTrashEmpty": "האשפה ריקה",
   "historyTrashEmptyHint": "תמלולים שנמחקו יופיעו כאן.\nפריטים נמחקים לצמיתות אחרי 30 יום.",
   "historyEmptyTrash": "רוקן אשפה",
@@ -1105,7 +1104,6 @@
       "query": { "type": "String" }
     }
   },
-  "notesClearSearch": "נקה חיפוש",
   "notesResultCount": "{count, plural, =1{תוצאה אחת} other{{count} תוצאות}}",
   "@notesResultCount": {
     "placeholders": {

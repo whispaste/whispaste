@@ -491,7 +491,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text(l10n.notesNoResults), findsOneWidget);
 
-      await tester.tap(find.text(l10n.notesClearSearch));
+      await tester.tap(find.text(l10n.actionClearSearch));
       await tester.pumpAndSettle();
 
       expect(find.text(l10n.notesNoResults), findsNothing);
