@@ -603,6 +603,12 @@ class _SupportButtonState extends State<_SupportButton> {
     final accentColor = widget.isDark
         ? WpColorsDark.accent
         : WpColorsLight.accent;
+    final accentBadgeFill = widget.isDark
+        ? WpColorsDark.accentBadgeFill
+        : WpColorsLight.accentBadgeFill;
+    final accentButtonFill = widget.isDark
+        ? WpColorsDark.accentButtonFill
+        : WpColorsLight.accentButtonFill;
 
     return Semantics(
       button: true,
@@ -628,9 +634,7 @@ class _SupportButtonState extends State<_SupportButton> {
               vertical: WpSpacing.sm,
             ),
             decoration: BoxDecoration(
-              color: _hovered
-                  ? accentColor.withValues(alpha: 0.15)
-                  : accentColor.withValues(alpha: 0.08),
+              color: _hovered ? accentBadgeFill : accentButtonFill,
               borderRadius: WpRadius.borderSm,
             ),
             child: Row(

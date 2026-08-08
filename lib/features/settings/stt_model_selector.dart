@@ -250,6 +250,12 @@ class _TierRowState extends State<_TierRow> {
   @override
   Widget build(BuildContext context) {
     final accent = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    final accentButtonFill = widget.isDark
+        ? WpColorsDark.accentButtonFill
+        : WpColorsLight.accentButtonFill;
+    final accentBorder30 = widget.isDark
+        ? WpColorsDark.accentBorder30
+        : WpColorsLight.accentBorder30;
     final textMuted = widget.isDark
         ? WpColorsDark.textMuted
         : WpColorsLight.textMuted;
@@ -292,13 +298,13 @@ class _TierRowState extends State<_TierRow> {
           ),
           decoration: BoxDecoration(
             color: widget.isCurrentTier || _isDownloading
-                ? accent.withValues(alpha: 0.08)
+                ? accentButtonFill
                 : _isHovered && isSelectable
                 ? hoverBg
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(WpRadius.sm),
             border: widget.isCurrentTier || _isDownloading
-                ? Border.all(color: accent.withValues(alpha: 0.3))
+                ? Border.all(color: accentBorder30)
                 : null,
           ),
           child: Column(
