@@ -15,8 +15,10 @@ import 'wp_button.dart';
 /// most urgently.** Use the same wording in both places. Areas without a
 /// main action of their own get none: the history fills from a recording
 /// run (its hint says so instead), and a trash only holds what was already
-/// discarded. Search-found-nothing states offer "clear search"; error
-/// states offer "try again".
+/// discarded. Error states offer "try again". A search-found-nothing state
+/// offers "clear search" where the page owns its search field (history,
+/// notes); the shared [WpSearchableListPage] does not yet, which is a gap,
+/// not a second rule.
 class WpEmptyState extends StatelessWidget {
   const WpEmptyState({
     super.key,
