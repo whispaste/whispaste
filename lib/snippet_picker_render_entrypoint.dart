@@ -247,8 +247,7 @@ class _SnippetPickerBodyState extends State<_SnippetPickerBody>
     final searchRegex = RegExp(RegExp.escape(_query), caseSensitive: false);
     return widget.items
         .where(
-          (i) =>
-              searchRegex.hasMatch(i.title) || searchRegex.hasMatch(i.body),
+          (i) => searchRegex.hasMatch(i.title) || searchRegex.hasMatch(i.body),
         )
         .toList();
   }

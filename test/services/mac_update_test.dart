@@ -84,16 +84,10 @@ void main() {
       expect(s, contains('/usr/bin/open "\$TARGET"'));
     });
 
-    test('shell-quotes paths to survive spaces and quotes', () {
-      final s = build(
-        dmg: "/tmp/My Drive/Whis'Paste.dmg",
-        target: "/Applications/Odd '1'.app",
-      );
-      // Single quotes inside the path are escaped as the POSIX '\'' idiom.
-      expect(s, contains(r"'\''"));
-      // The raw unescaped path must never appear verbatim.
-      expect(s, isNot(contains("Whis'Paste.dmg\n")));
-    });
+    // No more "shell-quotes paths" test: dmg/target/log now arrive as
+    // positional Process.start argv (see DefaultMacUpdateInstaller.swap),
+    // never embedded as literal text in the generated script, so there is
+    // nothing left for the script itself to shell-quote.
   });
 
   // ---------------------------------------------------------------------------

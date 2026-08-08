@@ -381,7 +381,9 @@ Widget settingsApiKeyField({
               icon: Icon(
                 obscure ? LucideIcons.eye : LucideIcons.eyeOff,
                 size: WpIconSize.sm,
-                color: isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
+                color: isDark
+                    ? WpColorsDark.textMuted
+                    : WpColorsLight.textMuted,
               ),
               onPressed: onToggle,
               tooltip: L10n.of(context).settingsToggleApiKeyVisibility,

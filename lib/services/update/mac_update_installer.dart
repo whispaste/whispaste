@@ -154,9 +154,7 @@ class DefaultMacUpdateInstaller implements MacUpdateInstaller {
     final dir = await Directory.systemTemp.createTemp('wp-update-helper');
     final scriptPath = p.join(dir.path, 'wp-update-helper.sh');
     final logPath = p.join(dir.path, 'wp-update.log');
-    await File(scriptPath).writeAsString(
-      buildMacUpdateHelperScript(),
-    );
+    await File(scriptPath).writeAsString(buildMacUpdateHelperScript());
     await Process.run('chmod', ['+x', scriptPath]);
     await Process.start('/bin/bash', [
       scriptPath,
