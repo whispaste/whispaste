@@ -175,6 +175,54 @@ void main() {
       expect(find.text('detail-a'), findsNothing);
       expect(find.text('detail-a2'), findsOneWidget);
     });
+
+    testWidgets('a dragged divider keeps its width across a selection switch', (
+      tester,
+    ) async {
+      // The list width used to live in the feature State; the extraction moved
+      // it one level deeper, into _WpSplitViewState. It survives the stream
+      // emits that push a new selection only because the WpSplitView element
+      // is updated in place rather than rebuilt — this pins that.
+      final key = GlobalKey<_HostState<String>>();
+      await tester.pumpWidget(
+        makeTestable(
+          _Host<String>(
+            key: key,
+            initial: 'a',
+            builder: (selected) => WpSplitView<String>(
+              isDark: true,
+              selectedItem: selected,
+              idOf: (id) => id,
+              // Fills the list column, so its size *is* the column width.
+              listBuilder: (_, _) =>
+                  const SizedBox.expand(key: ValueKey('list-column')),
+              detailBuilder: (_, id) => Text('detail-$id'),
+            ),
+          ),
+          size: _wide,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final listColumn = find.byKey(const ValueKey('list-column'));
+      final divider = find.byWidgetPredicate(
+        (w) => w is GestureDetector && w.onHorizontalDragUpdate != null,
+      );
+
+      final before = tester.getSize(listColumn).width;
+      // touchSlopX: 0 so the full 80 dp reach the drag handler — the default
+      // slop would swallow the first 20 and make the assertion below a riddle.
+      await tester.drag(divider, const Offset(80, 0), touchSlopX: 0);
+      await tester.pumpAndSettle();
+
+      final dragged = tester.getSize(listColumn).width;
+      expect(dragged, closeTo(before + 80, 0.5));
+
+      key.currentState!.select('b');
+      await tester.pumpAndSettle();
+
+      expect(tester.getSize(listColumn).width, dragged);
+    });
   });
 
   group('cross-fade reaches both areas', () {

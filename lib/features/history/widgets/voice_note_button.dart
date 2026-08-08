@@ -52,7 +52,11 @@ class VoiceNoteButton extends ConsumerWidget {
       return;
     }
 
+    // Both reads happen before the first await: the writes below outlive the
+    // button when the panel closes mid-dispatch, and `ref` is only valid while
+    // this element is mounted.
     final notifier = ref.read(historyDetailProvider(entryId).notifier);
+    final telemetry = ref.read(telemetrySessionAggregatorProvider);
 
     switch (action.type) {
       case VoiceActionType.note:
@@ -71,9 +75,7 @@ class VoiceNoteButton extends ConsumerWidget {
     _log.info(
       'Voice action dispatched: ${action.type.name} → "${action.payload}"',
     );
-    ref
-        .read(telemetrySessionAggregatorProvider)
-        .count(category: 'voice_note', action: 'create');
+    telemetry.count(category: 'voice_note', action: 'create');
   }
 
   void _showToast(

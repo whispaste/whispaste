@@ -150,15 +150,21 @@ class _WpVoiceInputButtonState extends ConsumerState<WpVoiceInputButton> {
   Future<void> _stopAndTranscribe() async {
     if (_phase != _VoicePhase.recording) return;
 
-    // Capture context dependencies before async gap.
+    // Everything context- or ref-bound is captured before the first await.
+    // Transcription can run for up to transcribeTimeout, and `ref` throws once
+    // the element is deactivated — reading a provider late would blow up in
+    // the finally block below and leak the temp WAV. The container outlives
+    // the button, so reads through it stay valid after an unmount.
     final l10n = L10n.of(context);
+    final container = ProviderScope.containerOf(context, listen: false);
+    final audio = container.read(audioServiceProvider.notifier);
+    final stt = container.read(localSttBundleProvider.notifier);
 
     _setPhase(_VoicePhase.transcribing);
 
     String? wavPath;
     try {
       // Stop recording.
-      final audio = ref.read(audioServiceProvider.notifier);
       wavPath = await audio.stopRecording();
 
       if (wavPath == null) {
@@ -186,12 +192,11 @@ class _WpVoiceInputButtonState extends ConsumerState<WpVoiceInputButton> {
       }
 
       // Ensure STT is ready.
-      final stt = ref.read(localSttBundleProvider.notifier);
       await stt.ensureRunning().timeout(
         WpVoiceInputButton.ensureRunningTimeout,
       );
 
-      final sttStatus = ref.read(localSttBundleProvider);
+      final sttStatus = container.read(localSttBundleProvider);
       if (!sttStatus.isReady) {
         _fail(sttStatus.errorMessage ?? 'stt_not_ready');
         return;
@@ -209,6 +214,13 @@ class _WpVoiceInputButtonState extends ConsumerState<WpVoiceInputButton> {
       }
 
       // Hand off — what the transcript becomes is the caller's business.
+      //
+      // Guarded because transcription may take up to transcribeTimeout, and
+      // the surface around the button can be gone by then (panel closed,
+      // entry deleted, another item selected). Both sinks reach for `context`
+      // and `ref` the moment they are called, so handing a transcript into a
+      // dead tree throws rather than doing anything useful.
+      if (!mounted) return;
       await widget.onTranscript(transcript);
       _reset();
     } on TimeoutException {
@@ -216,9 +228,9 @@ class _WpVoiceInputButtonState extends ConsumerState<WpVoiceInputButton> {
     } on Exception catch (e) {
       _fail('$e');
     } finally {
-      // Cleanup temp WAV.
+      // Cleanup temp WAV — runs even when the button is already gone.
       if (wavPath != null) {
-        await ref.read(audioServiceProvider.notifier).cleanupFile(wavPath);
+        await audio.cleanupFile(wavPath);
       }
     }
   }
