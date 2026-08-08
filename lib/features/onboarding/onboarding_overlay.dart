@@ -52,6 +52,27 @@ const kOnboardingReviewExitButtonKey = Key('onboardingTopBarCloseButton');
 ///
 /// Pinned rather than derived so the bar keeps the exact same height on macOS,
 /// where the button is omitted — everything below it must not shift.
+///
+/// **Deliberate exception to the 48-px hit-target floor** (`DESIGN.md`, "All
+/// interactive elements meet the 48px minimum touch target"): the close X is
+/// 32×32, the same reasoning that sanctions the status-bar theme toggle
+/// (36×32, `lib/app.dart`) and the trigger-list remove button (28×28,
+/// `replacements_page.dart`) — a single, rarely-used control in a one-off
+/// flow, not a row action hit repeatedly, which is what the floor is for.
+/// `WpButton`'s `dense` size (32 px, hit target equal to its visual box) is
+/// the established precedent for this shape. The height is also load-bearing
+/// in both directions: it *is* the top strip, and growing it pushes every
+/// page's header down the fixed 1100×720 window (the 48 → 32 rebalance
+/// documented in [_kOnboardingBottomGap] is exactly that trade, paid for
+/// once already).
+///
+/// Note for whoever touches the constraints below: this passes
+/// `test/widgets/wp_row_action_squeezed_icon_button_guard_test.dart` only
+/// because the guard matches digit literals in `BoxConstraints`, and the
+/// button passes this named constant instead. Inlining `32` there would trip
+/// the guard — the fix is then to keep the constant, not to add this file to
+/// the guard's allowlist, which would blind it to every future `IconButton`
+/// here.
 const double _kOnboardingTopBarHeight = 32;
 
 /// Air under the step counter, i.e. between the last thing on screen and the
@@ -211,8 +232,10 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
   /// over a body but two side-by-side columns of unequal height, and its
   /// heading is the first block of the *left* column (bounded to that
   /// column's measure), already sitting at the same height as every other
-  /// page's. With ~22 px of slack, centring the pair as one block would move
-  /// that heading off the shared line to buy 11 px nobody can see.
+  /// page's. With ~32 px of slack (German, after the page's two ambient
+  /// muted lines merged into one), centring the pair as one block would move
+  /// that heading off the shared line to buy half of that, which nobody can
+  /// see.
   bool _fillsViewport(OnboardingStepId id) => id != OnboardingStepId.tryAndGo;
 
   int _currentStep = 0;

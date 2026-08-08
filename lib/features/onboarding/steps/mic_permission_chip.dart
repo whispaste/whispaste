@@ -23,6 +23,25 @@
 ///
 /// Hidden entirely on Linux: there is no Settings deep-link there, and the
 /// chip must not promise an action the platform cannot deliver.
+///
+/// **Deliberate exception to the 48-px hit-target floor** (`DESIGN.md`,
+/// "All interactive elements meet the 48px minimum touch target"): the pill
+/// comes to ~34 px (`WpSpacing.xs` top and bottom around a body-size label).
+/// The same reasoning that sanctions the status-bar theme toggle (36×32,
+/// `lib/app.dart`) and the trigger-list remove button (28×28,
+/// `replacements_page.dart`) applies here — this is a one-off control in a
+/// one-off flow, not a row action a user hits repeatedly, and the 48-px rule
+/// exists for the latter. `WpButton`'s `dense` size (32 px, hit target equal
+/// to its visual box) is the established precedent for exactly this shape.
+/// Growth is not free either: the chip shares its `Wrap` row with the hotkey
+/// caps on Try & Go, the tallest page of the flow (519 of the fixed window's
+/// 551 px in German), so 14 px of pill would come straight out of a budget
+/// measured page by page in `onboarding_overlay_test.dart`. This does not
+/// trip
+/// `test/widgets/wp_row_action_squeezed_icon_button_guard_test.dart` — the
+/// chip is an `InkWell`, never an `IconButton` with hand-set constraints, so
+/// it is out of that guard's scope by construction and needs no allowlist
+/// entry.
 library;
 
 import 'dart:async' show unawaited;
