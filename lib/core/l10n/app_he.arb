@@ -875,6 +875,13 @@
   "onboardingTriggerModeHoldHint": "החזק את הקיצור ודבר, שחרר כדי לסיים",
   "onboardingTriggerModeToggleHint": "לחץ פעם אחת כדי להתחיל, לחץ שוב כדי לסיים",
   "onboardingStartUsing": "בוא נתחיל",
+
+  "onboardingReviewExit": "סגירת המבוא",
+  "onboardingReviewDone": "סיום",
+  "onboardingReviewEntry": "מבוא",
+  "onboardingReviewSubtitle": "אפשר לעבור שוב על חמשת שלבי ההגדרה בכל עת — דבר לא משתנה אלא אם תשנו אותו.",
+  "onboardingReviewLabel": "צפייה חוזרת במבוא",
+  "onboardingReviewAction": "פתיחה",
   "overlayRecording": "מקליט",
   "overlayTranscribing": "מתמלל…",
   "overlayDone": "הועתק",

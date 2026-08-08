@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../core/config/settings_provider.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/navigation/page_state.dart';
 import '../../core/theme/colors.dart';
@@ -16,6 +17,7 @@ import 'sections/cloud_advanced_section.dart' show AdvancedSection;
 import 'sections/feedback_section.dart';
 import 'sections/history_section.dart';
 import 'sections/interface_section.dart';
+import 'sections/onboarding_review_section.dart';
 import 'sections/overlay_button_section.dart';
 import 'sections/privacy_section.dart';
 import 'sections/recording_sections.dart';
@@ -59,6 +61,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     'settingsPortability': GlobalKey(),
     'advanced': GlobalKey(),
     'updates': GlobalKey(),
+    'onboardingReview': GlobalKey(),
     'reviewSupport': GlobalKey(),
     'privacy': GlobalKey(),
   };
@@ -135,6 +138,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
     // null = show all; non-null Set = show only those sectionKeys.
     final matchSet = ref.watch(settingsSectionMatchSetProvider);
+
+    // Narrow watch on purpose — this page must not rebuild on every unrelated
+    // settings change just to decide one section's presence.
+    final onboardingCompleted = ref.watch(
+      settingsProvider.select(
+        (s) => s.value?.onboarding.onboardingCompleted ?? false,
+      ),
+    );
 
     Widget sectionWithHighlight(String sectionKey, Widget child) {
       final isHighlighted = highlightTarget == sectionKey;
@@ -250,6 +261,18 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           UpdatesSection(key: _sectionKeys['updates']),
         ),
       ),
+      // Only for users who already finished the first-run setup: an
+      // unfinished one has the flow on screen anyway. Filtered out of the
+      // list rather than rendered as an empty box, so the dividers between
+      // the surviving sections stay single.
+      if (onboardingCompleted)
+        (
+          'onboardingReview',
+          () => sectionWithHighlight(
+            'onboardingReview',
+            OnboardingReviewSection(key: _sectionKeys['onboardingReview']),
+          ),
+        ),
       (
         'reviewSupport',
         () => sectionWithHighlight(

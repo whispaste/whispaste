@@ -958,6 +958,13 @@
   "onboardingTriggerModeToggleHint": "Press once to start, press again to finish",
   "onboardingStartUsing": "Let's go",
 
+  "onboardingReviewExit": "Close introduction",
+  "onboardingReviewDone": "Done",
+  "onboardingReviewEntry": "Introduction",
+  "onboardingReviewSubtitle": "Go through the five setup steps again whenever you like — nothing changes unless you change it.",
+  "onboardingReviewLabel": "Review the introduction",
+  "onboardingReviewAction": "Open",
+
   "overlayRecording": "Recording",
   "overlayTranscribing": "Transcribing…",
   "overlayDone": "Copied",

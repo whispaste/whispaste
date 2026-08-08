@@ -847,6 +847,13 @@
   "onboardingTriggerModeToggleHint": "Einmal drücken startet, erneutes Drücken beendet die Aufnahme",
   "onboardingStartUsing": "Los geht's",
 
+  "onboardingReviewExit": "Einführung schließen",
+  "onboardingReviewDone": "Fertig",
+  "onboardingReviewEntry": "Einführung",
+  "onboardingReviewSubtitle": "Gehe die fünf Einrichtungsschritte jederzeit erneut durch — es ändert sich nichts, außer du änderst es.",
+  "onboardingReviewLabel": "Einführung erneut ansehen",
+  "onboardingReviewAction": "Öffnen",
+
   "overlayRecording": "Aufnahme",
   "overlayTranscribing": "Wird transkribiert…",
   "overlayDone": "Kopiert",

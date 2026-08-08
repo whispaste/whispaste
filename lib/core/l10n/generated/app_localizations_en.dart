@@ -2606,6 +2606,25 @@ class L10nEn extends L10n {
   String get onboardingStartUsing => 'Let\'s go';
 
   @override
+  String get onboardingReviewExit => 'Close introduction';
+
+  @override
+  String get onboardingReviewDone => 'Done';
+
+  @override
+  String get onboardingReviewEntry => 'Introduction';
+
+  @override
+  String get onboardingReviewSubtitle =>
+      'Go through the five setup steps again whenever you like — nothing changes unless you change it.';
+
+  @override
+  String get onboardingReviewLabel => 'Review the introduction';
+
+  @override
+  String get onboardingReviewAction => 'Open';
+
+  @override
   String get overlayRecording => 'Recording';
 
   @override

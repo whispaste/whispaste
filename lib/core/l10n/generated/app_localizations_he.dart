@@ -2564,6 +2564,25 @@ class L10nHe extends L10n {
   String get onboardingStartUsing => 'בוא נתחיל';
 
   @override
+  String get onboardingReviewExit => 'סגירת המבוא';
+
+  @override
+  String get onboardingReviewDone => 'סיום';
+
+  @override
+  String get onboardingReviewEntry => 'מבוא';
+
+  @override
+  String get onboardingReviewSubtitle =>
+      'אפשר לעבור שוב על חמשת שלבי ההגדרה בכל עת — דבר לא משתנה אלא אם תשנו אותו.';
+
+  @override
+  String get onboardingReviewLabel => 'צפייה חוזרת במבוא';
+
+  @override
+  String get onboardingReviewAction => 'פתיחה';
+
+  @override
   String get overlayRecording => 'מקליט';
 
   @override

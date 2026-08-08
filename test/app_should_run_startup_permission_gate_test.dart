@@ -32,6 +32,18 @@ void main() {
       final settings = AppSettings.defaults.copyWith(onboardingCompleted: true);
       expect(shouldRunStartupPermissionGate(settings), isTrue);
     });
+
+    test('stays out of the way while the introduction is reopened from '
+        'Settings, even though onboarding is long completed', () {
+      final settings = AppSettings.defaults.copyWith(onboardingCompleted: true);
+      expect(
+        shouldRunStartupPermissionGate(settings, onboardingManuallyOpen: true),
+        isFalse,
+        reason:
+            'Native always-on-top permission dialogs must not compete '
+            'with the flow, whichever of its two reasons put it there.',
+      );
+    });
   });
 
   group('shouldHideToTrayOnClose', () {

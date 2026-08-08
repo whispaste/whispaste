@@ -4659,6 +4659,42 @@ abstract class L10n {
   /// **'Let\'s go'**
   String get onboardingStartUsing;
 
+  /// No description provided for @onboardingReviewExit.
+  ///
+  /// In en, this message translates to:
+  /// **'Close introduction'**
+  String get onboardingReviewExit;
+
+  /// No description provided for @onboardingReviewDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get onboardingReviewDone;
+
+  /// No description provided for @onboardingReviewEntry.
+  ///
+  /// In en, this message translates to:
+  /// **'Introduction'**
+  String get onboardingReviewEntry;
+
+  /// No description provided for @onboardingReviewSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Go through the five setup steps again whenever you like — nothing changes unless you change it.'**
+  String get onboardingReviewSubtitle;
+
+  /// No description provided for @onboardingReviewLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Review the introduction'**
+  String get onboardingReviewLabel;
+
+  /// No description provided for @onboardingReviewAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Open'**
+  String get onboardingReviewAction;
+
   /// No description provided for @overlayRecording.
   ///
   /// In en, this message translates to:

@@ -2630,6 +2630,25 @@ class L10nDe extends L10n {
   String get onboardingStartUsing => 'Los geht\'s';
 
   @override
+  String get onboardingReviewExit => 'Einführung schließen';
+
+  @override
+  String get onboardingReviewDone => 'Fertig';
+
+  @override
+  String get onboardingReviewEntry => 'Einführung';
+
+  @override
+  String get onboardingReviewSubtitle =>
+      'Gehe die fünf Einrichtungsschritte jederzeit erneut durch — es ändert sich nichts, außer du änderst es.';
+
+  @override
+  String get onboardingReviewLabel => 'Einführung erneut ansehen';
+
+  @override
+  String get onboardingReviewAction => 'Öffnen';
+
+  @override
   String get overlayRecording => 'Aufnahme';
 
   @override

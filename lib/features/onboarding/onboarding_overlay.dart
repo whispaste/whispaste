@@ -8,6 +8,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:window_manager/window_manager.dart';
 import '../../core/config/build_config.dart';
 import '../../core/config/settings_provider.dart';
+import '../../core/onboarding/onboarding_surface.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
@@ -39,6 +40,12 @@ const kOnboardingNavRowKey = Key('onboardingNavRow');
 const kOnboardingBackButtonKey = Key('onboardingNavBackButton');
 @visibleForTesting
 const kOnboardingNextButtonKey = Key('onboardingNavNextButton');
+
+/// The top bar's X. Closes the window during the first run and leaves the
+/// review in a reopened one — one control, two meanings, so tests address it
+/// by key rather than by icon.
+@visibleForTesting
+const kOnboardingReviewExitButtonKey = Key('onboardingTopBarCloseButton');
 
 /// Height of the onboarding top bar's control row, and the hit target of the
 /// close button that sits in it on the platforms that render one.
@@ -151,7 +158,20 @@ List<OnboardingStepId> buildOnboardingStepIds({
 /// title bar is hidden during onboarding). On completion persists
 /// [AppSettings.onboarding]`.onboardingCompleted` = true.
 class OnboardingOverlay extends ConsumerStatefulWidget {
-  const OnboardingOverlay({super.key});
+  const OnboardingOverlay({super.key, this.manualReview = false});
+
+  /// Whether this is a review the user reopened from Settings rather than the
+  /// first run.
+  ///
+  /// A review shows the same five steps prefilled with the same live settings
+  /// — the difference is entirely in what it is allowed to write and how it
+  /// ends. It never touches the persisted resume position (that belongs to
+  /// the first run and only to it), never re-writes `onboardingCompleted`
+  /// (already `true`, and writing it is precisely the accident this mode has
+  /// to be incapable of), always starts at step 1, and always offers a
+  /// visible way out — the first run deliberately has none, because there
+  /// closing the window means quitting the app.
+  final bool manualReview;
 
   @override
   ConsumerState<OnboardingOverlay> createState() => _OnboardingOverlayState();
@@ -216,6 +236,17 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
   @override
   void initState() {
     super.initState();
+    if (widget.manualReview) {
+      // A review starts at the beginning, every time. The persisted resume
+      // position belongs to an interrupted *first* run and means nothing
+      // here — reading it would drop a returning user into the middle of the
+      // flow for no reason they could reconstruct, and the write-back on the
+      // next navigation would corrupt a genuinely interrupted first run's
+      // position for good.
+      _stepHydrated = true;
+      _trackStep('review_step', _onboardingSteps().first);
+      return;
+    }
     // Resume where the user left off — most relevantly after a required app
     // restart mid-onboarding (e.g. granting the Auto-Paste permission).
     // Without this, onboardingCompleted is still false post-restart and the
@@ -295,7 +326,12 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
 
   /// Persists [step] as the current onboarding position so a mid-flow app
   /// restart resumes here instead of restarting the whole flow.
+  ///
+  /// No-op in a review: the resume position is first-run state, and paging
+  /// through a review must not overwrite where an interrupted first run got
+  /// to — nor leave any trace of the review at all.
   void _persistCurrentStep(int step) {
+    if (widget.manualReview) return;
     ref
         .read(settingsProvider.notifier)
         .updateSettings(
@@ -361,6 +397,12 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
     final steps = _onboardingSteps();
     if (_currentStep < steps.length - 1) {
       if (_currentStep == 0 &&
+          // Not in a review: an OS permission dialog is the loudest thing
+          // this app can do, and merely paging through the introduction is
+          // not the "clearly needs it" moment that justifies one. The
+          // microphone status and its own request affordance are on the Try
+          // & Go step, where the microphone is actually used.
+          !widget.manualReview &&
           ref.read(micPermissionNotifierProvider).status ==
               MicPermissionStatus.unknown) {
         // The user never triggered the mic request themselves — fire it now,
@@ -391,7 +433,28 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
     }
   }
 
+  /// Leaves a review and hands the window back to the Settings page the user
+  /// started from.
+  ///
+  /// Flipping the ephemeral flag is the whole of it: the overlay unmounts on
+  /// the next frame and the app shell underneath was never navigated away
+  /// from. Nothing persisted is touched — in particular not
+  /// `onboardingCompleted`, which is already `true` and whose only other
+  /// possible value would mean "this user never set the app up".
+  void _exitManualReview() {
+    _trackStep('review_exit', _onboardingSteps()[_safeStep()]);
+    ref.read(onboardingManuallyOpenProvider.notifier).close();
+  }
+
+  int _safeStep() => _currentStep.clamp(0, _onboardingSteps().length - 1);
+
   Future<void> _complete() async {
+    if (widget.manualReview) {
+      // The last step's action in a review *is* the exit — same destination,
+      // just reached by reading to the end rather than leaving early.
+      _exitManualReview();
+      return;
+    }
     _trackStep('complete', OnboardingStepId.tryAndGo);
     await ref
         .read(settingsProvider.notifier)
@@ -605,6 +668,13 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
               // on macOS. The bar itself is unconditional and keeps its fixed
               // height either way — it is still the drag handle, and nothing
               // below it may shift.
+              //
+              // A review breaks that platform split, and renders the X on
+              // macOS too: there it does not close the *window* but leaves
+              // the review, which is a different action than the traffic
+              // lights offer and therefore not a duplicate of them. It is
+              // also the mode's required visible exit — the first run has
+              // none on purpose, because there closing means quitting.
               GestureDetector(
                 behavior: HitTestBehavior.translucent,
                 onPanStart: (_) => windowManager.startDragging(),
@@ -619,17 +689,23 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
                     height: _kOnboardingTopBarHeight,
                     child: Row(
                       children: [
-                        if (defaultTargetPlatform != TargetPlatform.macOS)
+                        if (widget.manualReview ||
+                            defaultTargetPlatform != TargetPlatform.macOS)
                           IconButton(
-                            onPressed: () => windowManager.close(),
+                            key: kOnboardingReviewExitButtonKey,
+                            onPressed: widget.manualReview
+                                ? _exitManualReview
+                                : () => windowManager.close(),
                             icon: Icon(
                               LucideIcons.x,
                               size: 18,
                               color: textMuted,
                             ),
-                            tooltip: MaterialLocalizations.of(
-                              context,
-                            ).closeButtonTooltip,
+                            tooltip: widget.manualReview
+                                ? l10n.onboardingReviewExit
+                                : MaterialLocalizations.of(
+                                    context,
+                                  ).closeButtonTooltip,
                             splashRadius: 16,
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(
@@ -735,11 +811,20 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
                         child: WpHeroButton(
                           key: kOnboardingNextButtonKey,
                           label: isLastStep
-                              ? l10n.onboardingStartUsing
+                              ? (widget.manualReview
+                                    ? l10n.onboardingReviewDone
+                                    : l10n.onboardingStartUsing)
                               : l10n.onboardingNext,
                           gradient: accentGradient,
+                          // The two completion gates guard the *first* run
+                          // from ending in a half-configured app. A review
+                          // opens on an app that already works, so gating its
+                          // way out on a fresh test recording would only trap
+                          // someone who came to look at a page.
                           onPressed: isLastStep
-                              ? (completionEnabled ? _complete : null)
+                              ? ((completionEnabled || widget.manualReview)
+                                    ? _complete
+                                    : null)
                               : _goNext,
                         ),
                       ),
