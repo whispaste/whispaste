@@ -22,6 +22,7 @@ library;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/logging/app_logger.dart';
+import '../../core/onboarding/onboarding_surface.dart';
 import 'paster.dart';
 
 final _log = AppLogger('TccResetNotice');
@@ -36,8 +37,10 @@ final _log = AppLogger('TccResetNotice');
 /// - [lastSeenVersion] is non-null (a prior launch was recorded — a fresh
 ///   install has no "reset" to report; onboarding handles that case) AND
 ///   differs from [currentVersion] (a real update just happened),
-/// - [onboardingCompleted] is `true` (mid-onboarding users already see the
-///   dedicated Auto-Paste step; this notice is for returning users only),
+/// - the onboarding surface is not on top — [onboardingCompleted] is `true`
+///   and [onboardingManuallyOpen] is `false`. Whoever is looking at the
+///   five-step flow already has its dedicated Auto-Paste step in front of
+///   them, whether that is a first run or a review reopened from Settings.
 /// - [isMacOS] is `true` (the only platform where TCC/Accessibility applies),
 /// - [capabilityStatus] is [PasteCapabilityStatus.permissionMissing].
 ///
@@ -48,10 +51,16 @@ bool shouldShowTccResetNotice({
   required bool onboardingCompleted,
   required bool isMacOS,
   required PasteCapabilityStatus? capabilityStatus,
+  bool onboardingManuallyOpen = false,
 }) {
   if (lastSeenVersion == null) return false;
   if (lastSeenVersion == currentVersion) return false;
-  if (!onboardingCompleted) return false;
+  if (onboardingSurfaceActive(
+    onboardingCompleted: onboardingCompleted,
+    manuallyOpen: onboardingManuallyOpen,
+  )) {
+    return false;
+  }
   if (!isMacOS) return false;
   return capabilityStatus == PasteCapabilityStatus.permissionMissing;
 }
@@ -74,6 +83,7 @@ Future<bool> maybeMarkTccResetNoticeVersion({
   required bool onboardingCompleted,
   required bool isMacOS,
   required PasteCapabilityStatus? capabilityStatus,
+  bool onboardingManuallyOpen = false,
 }) async {
   try {
     final prefs = await SharedPreferences.getInstance();
@@ -84,6 +94,7 @@ Future<bool> maybeMarkTccResetNoticeVersion({
       onboardingCompleted: onboardingCompleted,
       isMacOS: isMacOS,
       capabilityStatus: capabilityStatus,
+      onboardingManuallyOpen: onboardingManuallyOpen,
     );
     await prefs.setString(_keyLastSeenVersionForTccNotice, currentVersion);
     if (shouldShow) {

@@ -1,5 +1,6 @@
 import '../../core/config/build_config.dart';
 import '../../core/config/settings_enums.dart';
+import '../../core/onboarding/onboarding_surface.dart';
 
 /// Resolves the effective "after transcription" action for the current build.
 ///
@@ -62,10 +63,23 @@ bool afterTranscriptionActionPastes(
 /// Extracted from the widget listener so the guard set is unit-testable —
 /// the missing [userPastes] condition here is exactly the bug that showed
 /// Auto-Paste dialogs to clipboard-only users.
+///
+/// [onboardingCompleted] and [onboardingManuallyOpen] together form the
+/// "is the onboarding surface on top" predicate (see
+/// `core/onboarding/onboarding_surface.dart`): the flow carries its own
+/// inline restart banner on the Auto-Paste step, so a native modal on top of
+/// it would be a second, competing voice — during the first run *and* during
+/// a review reopened from Settings.
 bool shouldShowAutoPasteRestartSurface({
   required bool needsRestart,
   required bool onboardingCompleted,
   required bool userPastes,
+  bool onboardingManuallyOpen = false,
 }) {
-  return needsRestart && onboardingCompleted && userPastes;
+  return needsRestart &&
+      !onboardingSurfaceActive(
+        onboardingCompleted: onboardingCompleted,
+        manuallyOpen: onboardingManuallyOpen,
+      ) &&
+      userPastes;
 }

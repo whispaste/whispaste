@@ -163,5 +163,22 @@ void main() {
         isFalse,
       );
     });
+
+    test('suppressed while the introduction is reopened from Settings, even '
+        'though onboarding is long completed', () {
+      expect(
+        shouldShowAutoPasteRestartSurface(
+          needsRestart: true,
+          onboardingCompleted: true,
+          onboardingManuallyOpen: true,
+          userPastes: true,
+        ),
+        isFalse,
+        reason:
+            'The flow carries its own inline restart banner on the '
+            'Auto-Paste step — a native modal on top of it is a second, '
+            'competing voice.',
+      );
+    });
   });
 }

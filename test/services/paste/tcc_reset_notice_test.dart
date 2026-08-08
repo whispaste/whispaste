@@ -171,5 +171,27 @@ void main() {
         expect(prefs.getString('tcc_reset_notice_last_seen_version'), '1.2.53');
       },
     );
+
+    test('suppressed while the introduction is reopened from Settings, even '
+        'though onboarding is long completed', () async {
+      SharedPreferences.setMockInitialValues({
+        'tcc_reset_notice_last_seen_version': '1.2.51',
+      });
+
+      final result = await maybeMarkTccResetNoticeVersion(
+        currentVersion: '1.2.53',
+        onboardingCompleted: true,
+        onboardingManuallyOpen: true,
+        isMacOS: true,
+        capabilityStatus: PasteCapabilityStatus.permissionMissing,
+      );
+      expect(
+        result,
+        isFalse,
+        reason:
+            'Whoever is looking at the flow already has its dedicated '
+            'Auto-Paste step in front of them.',
+      );
+    });
   });
 }

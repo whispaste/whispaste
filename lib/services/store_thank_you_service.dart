@@ -4,7 +4,9 @@
 /// Trigger conditions (all must hold):
 ///   - App was installed via [DeployChannel.store].
 ///   - The [_keyShown] SharedPreferences flag is not yet set.
-///   - Onboarding has been completed in this or a previous session.
+///   - The onboarding surface is not on top: onboarding has been completed in
+///     this or a previous session, and the five-step flow is not currently
+///     reopened from Settings.
 ///   - The user has completed at least [_minRecordingsBeforeThankYou] real
 ///     recordings — see rationale below.
 ///
@@ -20,6 +22,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/data/database.dart';
 import '../core/logging/app_logger.dart';
+import '../core/onboarding/onboarding_surface.dart';
 import 'deploy_channel_service.dart';
 
 final _log = AppLogger('StoreThankYou');
@@ -84,13 +87,26 @@ class StoreThankYouNotifier extends Notifier<StoreThankYouState> {
 
   /// Checks conditions and, if met, transitions [shouldShow] to `true`.
   ///
-  /// No-ops when [onboardingCompleted] is `false`, the prefs flag is already
-  /// set, or the user hasn't reached [_minRecordingsBeforeThankYou] real
-  /// recordings yet. Safe to call multiple times — call again as usage
-  /// accumulates (e.g. after each successful recording) since the flag alone
-  /// prevents double-shows.
+  /// No-ops while the onboarding surface is on top, when the prefs flag is
+  /// already set, or when the user hasn't reached
+  /// [_minRecordingsBeforeThankYou] real recordings yet. Safe to call
+  /// multiple times — call again as usage accumulates (e.g. after each
+  /// successful recording) since the flag alone prevents double-shows.
+  ///
+  /// The "surface on top" half of the gate is read here off [ref] rather than
+  /// threaded in by the callers, because there are two of them — the
+  /// [StoreThankYouWatcher] widget and the recording orchestrator's
+  /// post-transcription check — and a parameter would let one of them lag
+  /// behind the other. [onboardingCompleted] stays a parameter: it is the
+  /// caller's own settings snapshot, and the first-run path depends on
+  /// reading it at exactly the moment it flips.
   Future<void> checkAndMaybeShow({required bool onboardingCompleted}) async {
-    if (!onboardingCompleted) return;
+    if (onboardingSurfaceActive(
+      onboardingCompleted: onboardingCompleted,
+      manuallyOpen: ref.read(onboardingManuallyOpenProvider),
+    )) {
+      return;
+    }
     try {
       final channel = ref.read(deployChannelProvider);
       final prefs = await SharedPreferences.getInstance();
