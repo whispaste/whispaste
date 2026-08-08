@@ -85,12 +85,13 @@ Future<_FakeSettingsNotifier> _pumpReview(
   WidgetTester tester, {
   bool manualReview = true,
   AppSettings? settings,
+  Locale locale = const Locale('en'),
 }) async {
   final notifier = _FakeSettingsNotifier(settings ?? _returningUser());
   await tester.pumpWidget(
     makeTestable(
       OnboardingOverlay(manualReview: manualReview),
-      locale: const Locale('en'),
+      locale: locale,
       overrides: [
         settingsProvider.overrideWith(() => notifier),
         micPermissionCheckerProvider.overrideWithValue(
@@ -177,8 +178,24 @@ void main() {
               'native traffic lights — and closing means quitting there.',
         );
 
-        await _pumpReview(tester);
-        expect(find.byKey(kOnboardingReviewExitButtonKey), findsOneWidget);
+        // Both reading directions: the traffic lights stay in the physical
+        // top-left corner in Hebrew too, so a *logical* placement would put
+        // the X straight on top of them there.
+        for (final locale in const [Locale('en'), Locale('he')]) {
+          await _pumpReview(tester, locale: locale);
+          final exit = find.byKey(kOnboardingReviewExitButtonKey);
+          expect(exit, findsOneWidget);
+          expect(
+            tester.getCenter(exit).dx,
+            greaterThan(
+              tester.getSize(find.byType(OnboardingOverlay)).width / 2,
+            ),
+            reason:
+                'The X must sit at the physical right in ${locale.languageCode}: '
+                'the physical left is where macOS draws the native traffic '
+                'lights under TitleBarStyle.hidden.',
+          );
+        }
       } finally {
         debugDefaultTargetPlatformOverride = null;
       }

@@ -419,7 +419,14 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
         _currentStep++;
       });
       _persistCurrentStep(_currentStep);
-      _trackStep('step', steps[_currentStep]);
+      // A returning user re-reading a page is not a first-run step. Mixing
+      // the two would quietly inflate the per-step funnel these events exist
+      // to measure — and read as a first run that never ends, because a
+      // review emits no 'complete'.
+      _trackStep(
+        widget.manualReview ? 'review_step' : 'step',
+        steps[_currentStep],
+      );
     }
   }
 
@@ -688,7 +695,21 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
                   child: SizedBox(
                     height: _kOnboardingTopBarHeight,
                     child: Row(
+                      // A review's exit sits at the physical right on every
+                      // platform and in every locale. The physical left is
+                      // where macOS draws the native traffic lights under
+                      // TitleBarStyle.hidden — they do not move for Hebrew —
+                      // and a review is the one mode that carries an X on
+                      // macOS too, so a *logical* placement would land on top
+                      // of them in RTL. Hence the pinned direction here, and
+                      // only here: the first run keeps the ambient one, its X
+                      // being drawn only where the whole title bar is gone
+                      // and that corner is free.
+                      textDirection: widget.manualReview
+                          ? TextDirection.ltr
+                          : null,
                       children: [
+                        if (widget.manualReview) const Spacer(),
                         if (widget.manualReview ||
                             defaultTargetPlatform != TargetPlatform.macOS)
                           IconButton(
@@ -713,7 +734,7 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
                               minHeight: _kOnboardingTopBarHeight,
                             ),
                           ),
-                        const Spacer(),
+                        if (!widget.manualReview) const Spacer(),
                       ],
                     ),
                   ),
