@@ -16,6 +16,7 @@ import '../../../core/data/database.dart' show historyDatabaseProvider;
 import '../../../core/data/history_providers.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/navigation/page_state.dart' show activePageProvider;
+import '../../../core/theme/tokens.dart';
 import '../../../services/factory_reset/factory_reset_coordinator.dart';
 import '../../../services/hardware_info_service.dart';
 import '../../../services/model_download_service.dart';
@@ -218,12 +219,14 @@ class AdvancedSection extends ConsumerWidget {
     // coordinator stream in parallel. The dialog closes itself when it
     // sees the terminal phase via its internal StreamBuilder.
     unawaited(
-      showDialog<void>(
+      showWpDialog<void>(
         context: context,
-        barrierDismissible: false,
+        title: L10n.of(context).settingsFactoryResetProgressTitle,
+        // A reset in flight must not be walked away from — no barrier tap,
+        // no Esc. The dialog pops itself on the terminal phase.
+        dismissible: false,
         useRootNavigator: true,
-        builder: (dialogContext) =>
-            _FactoryResetProgressDialog(phaseStream: stream),
+        content: _FactoryResetProgressContent(phaseStream: stream),
       ),
     );
 
@@ -312,51 +315,52 @@ class _AutoPasteBlocklistFieldState extends State<_AutoPasteBlocklistField> {
   }
 }
 
-/// Modal progress dialog rendered during [FactoryResetCoordinator.run].
-/// Subscribes to the phase stream and re-renders a labelled progress
-/// indicator on every emission. Pops itself when the stream emits a
-/// terminal phase ([ResetPhase.done] or [ResetPhase.failed]).
-class _FactoryResetProgressDialog extends StatelessWidget {
-  const _FactoryResetProgressDialog({required this.phaseStream});
+/// Body of the modal progress dialog rendered during
+/// [FactoryResetCoordinator.run]. Subscribes to the phase stream and
+/// re-renders a labelled progress indicator on every emission. Pops itself
+/// when the stream emits a terminal phase ([ResetPhase.done] or
+/// [ResetPhase.failed]).
+///
+/// The card, the title and the "cannot be dismissed" behaviour come from
+/// [showWpDialog] — this widget only owns the progress content.
+class _FactoryResetProgressContent extends StatelessWidget {
+  const _FactoryResetProgressContent({required this.phaseStream});
 
   final Stream<ResetPhase> phaseStream;
 
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    return PopScope(
-      canPop: false,
-      child: AlertDialog(
-        title: Text(l10n.settingsFactoryResetProgressTitle),
-        content: StreamBuilder<ResetPhase>(
-          stream: phaseStream,
-          builder: (context, snapshot) {
-            final phase = snapshot.data ?? ResetPhase.stoppingSubprocess;
+    return StreamBuilder<ResetPhase>(
+      stream: phaseStream,
+      builder: (context, snapshot) {
+        final phase = snapshot.data ?? ResetPhase.stoppingSubprocess;
 
-            // Self-dismiss on terminal phase so callers do not have to
-            // race a manual `Navigator.pop` against the StreamBuilder
-            // rebuild. `addPostFrameCallback` is used because calling
-            // Navigator.pop synchronously during a build is illegal.
-            if (phase == ResetPhase.done || phase == ResetPhase.failed) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (!context.mounted) return;
-                final nav = Navigator.of(context, rootNavigator: true);
-                if (nav.canPop()) nav.pop();
-              });
-            }
+        // Self-dismiss on terminal phase so callers do not have to
+        // race a manual `Navigator.pop` against the StreamBuilder
+        // rebuild. `addPostFrameCallback` is used because calling
+        // Navigator.pop synchronously during a build is illegal.
+        if (phase == ResetPhase.done || phase == ResetPhase.failed) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!context.mounted) return;
+            final nav = Navigator.of(context, rootNavigator: true);
+            if (nav.canPop()) nav.pop();
+          });
+        }
 
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const LinearProgressIndicator(),
-                const SizedBox(height: 16),
-                Text(_phaseLabel(l10n, phase)),
-              ],
-            );
-          },
-        ),
-      ),
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const LinearProgressIndicator(),
+            const SizedBox(height: WpSpacing.md),
+            Text(
+              _phaseLabel(l10n, phase),
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+          ],
+        );
+      },
     );
   }
 

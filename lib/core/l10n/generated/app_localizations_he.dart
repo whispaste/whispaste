@@ -1292,6 +1292,10 @@ class L10nHe extends L10n {
   String get snippetsNewSnippet => 'קטע חדש';
 
   @override
+  String get snippetsDialogHint =>
+      'פתח את בורר הקטעים בזמן הכתבה כדי להוסיף את הטקסט הזה.';
+
+  @override
   String get snippetsTitleLabel => 'כותרת';
 
   @override

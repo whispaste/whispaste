@@ -450,6 +450,7 @@
   "snippetsAddSnippet": "הוסף קטע",
   "snippetsEditSnippet": "ערוך קטע",
   "snippetsNewSnippet": "קטע חדש",
+  "snippetsDialogHint": "פתח את בורר הקטעים בזמן הכתבה כדי להוסיף את הטקסט הזה.",
   "snippetsTitleLabel": "כותרת",
   "snippetsTitleHint": "לדוגמה: חתימת אימייל",
   "snippetsBodyLabel": "תוכן",

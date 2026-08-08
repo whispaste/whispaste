@@ -198,7 +198,7 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage> {
   Future<void> _showAddEditDialog({SnippetItem? existing}) async {
     final result = await showWpFormDialog<(String, String)>(
       context: context,
-      builder: (_, a) => _SnippetDialog(existing: existing),
+      builder: (_, a) => _SnippetDialog(animation: a, existing: existing),
     );
     if (result == null) return;
     final (title, body) = result;
@@ -385,8 +385,9 @@ class _SnippetPickerTriggerFieldState
 // ---------------------------------------------------------------------------
 
 class _SnippetDialog extends StatefulWidget {
-  const _SnippetDialog({this.existing});
+  const _SnippetDialog({required this.animation, this.existing});
 
+  final Animation<double> animation;
   final SnippetItem? existing;
 
   @override
@@ -423,128 +424,73 @@ class _SnippetDialogState extends State<_SnippetDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark
-        ? WpColorsDark.surfaceElevated
-        : WpColorsLight.surfaceElevated;
-    final border = isDark
-        ? WpColorsDark.borderDefault
-        : WpColorsLight.borderDefault;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final textPrimary = isDark
         ? WpColorsDark.textPrimary
         : WpColorsLight.textPrimary;
     final l10n = L10n.of(context);
 
-    return Center(
-      child: Material(
-        color: Colors.transparent,
-        child: Container(
-          width: 400,
-          padding: const EdgeInsets.all(WpSpacing.xl),
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: WpRadius.borderLg,
-            border: Border.all(color: border),
-            boxShadow: WpShadows.elevated,
+    return WpFormDialogShell(
+      animation: widget.animation,
+      title: _isEditing ? l10n.snippetsEditSnippet : l10n.snippetsNewSnippet,
+      subtitle: l10n.snippetsDialogHint,
+      fields: [
+        // Title
+        Text(l10n.snippetsTitleLabel, style: theme.textTheme.titleSmall),
+        const SizedBox(height: WpSpacing.xxs),
+        TextField(
+          controller: _titleCtrl,
+          autofocus: true,
+          style: TextStyle(color: textPrimary, fontSize: WpTypography.body),
+          decoration: InputDecoration(
+            hintText: l10n.snippetsTitleHint,
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: WpSpacing.md,
+              vertical: WpSpacing.sm,
+            ),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                _isEditing ? l10n.snippetsEditSnippet : l10n.snippetsNewSnippet,
-                style: TextStyle(
-                  color: textPrimary,
-                  fontSize: WpTypography.heading,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: WpSpacing.lg),
-
-              // Title
-              Text(
-                l10n.snippetsTitleLabel,
-                style: TextStyle(
-                  color: textPrimary,
-                  fontSize: WpTypography.small,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: WpSpacing.xxs),
-              TextField(
-                controller: _titleCtrl,
-                autofocus: true,
-                style: TextStyle(
-                  color: textPrimary,
-                  fontSize: WpTypography.body,
-                ),
-                decoration: InputDecoration(
-                  hintText: l10n.snippetsTitleHint,
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: WpSpacing.md,
-                    vertical: WpSpacing.sm,
-                  ),
-                ),
-                onChanged: (_) => setState(() {}),
-                onSubmitted: (_) => _submit(),
-              ),
-              const SizedBox(height: WpSpacing.md),
-
-              // Body (multi-line)
-              Text(
-                l10n.snippetsBodyLabel,
-                style: TextStyle(
-                  color: textPrimary,
-                  fontSize: WpTypography.small,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: WpSpacing.xxs),
-              TextField(
-                controller: _bodyCtrl,
-                minLines: 3,
-                maxLines: 6,
-                style: TextStyle(
-                  color: textPrimary,
-                  fontSize: WpTypography.body,
-                ),
-                decoration: InputDecoration(
-                  hintText: l10n.snippetsBodyHint,
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: WpSpacing.md,
-                    vertical: WpSpacing.sm,
-                  ),
-                ),
-                onChanged: (_) => setState(() {}),
-              ),
-              const SizedBox(height: WpSpacing.xl),
-
-              // Actions
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
-                  WpButton(
-                    label: l10n.actionCancel,
-                    variant: WpButtonVariant.ghost,
-                    tone: WpButtonTone.neutral,
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                  const SizedBox(width: WpSpacing.sm),
-                  // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
-                  WpButton(
-                    label: _isEditing ? l10n.actionSave : l10n.snippetsAdd,
-                    variant: WpButtonVariant.primary,
-                    onPressed: _isValid ? _submit : null,
-                  ),
-                ],
-              ),
-            ],
-          ),
+          onChanged: (_) => setState(() {}),
+          onSubmitted: (_) => _submit(),
         ),
-      ),
+        const SizedBox(height: WpSpacing.md),
+
+        // Body (multi-line)
+        Text(l10n.snippetsBodyLabel, style: theme.textTheme.titleSmall),
+        const SizedBox(height: WpSpacing.xxs),
+        TextField(
+          controller: _bodyCtrl,
+          minLines: 3,
+          maxLines: 6,
+          style: TextStyle(color: textPrimary, fontSize: WpTypography.body),
+          decoration: InputDecoration(
+            hintText: l10n.snippetsBodyHint,
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: WpSpacing.md,
+              vertical: WpSpacing.sm,
+            ),
+          ),
+          onChanged: (_) => setState(() {}),
+        ),
+      ],
+      actions: [
+        // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
+        WpButton(
+          label: l10n.actionCancel,
+          variant: WpButtonVariant.ghost,
+          tone: WpButtonTone.neutral,
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        const SizedBox(width: WpSpacing.sm),
+        // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
+        WpButton(
+          label: _isEditing ? l10n.actionSave : l10n.snippetsAdd,
+          variant: WpButtonVariant.primary,
+          onPressed: _isValid ? _submit : null,
+        ),
+      ],
     );
   }
 }

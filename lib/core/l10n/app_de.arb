@@ -412,6 +412,7 @@
   "snippetsAddSnippet": "Snippet hinzufügen",
   "snippetsEditSnippet": "Snippet bearbeiten",
   "snippetsNewSnippet": "Neuer Snippet",
+  "snippetsDialogHint": "Öffne beim Diktieren den Snippet-Picker, um diesen Text einzufügen.",
   "snippetsTitleLabel": "Titel",
   "snippetsTitleHint": "z. B. E-Mail-Signatur",
   "snippetsBodyLabel": "Text",

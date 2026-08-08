@@ -1304,6 +1304,10 @@ class L10nEn extends L10n {
   String get snippetsNewSnippet => 'New Snippet';
 
   @override
+  String get snippetsDialogHint =>
+      'Open the snippet picker while dictating to insert this text.';
+
+  @override
   String get snippetsTitleLabel => 'Title';
 
   @override

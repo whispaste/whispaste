@@ -225,7 +225,7 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
   Future<void> _showAddEditDialog({Replacement? existing}) async {
     final result = await showWpFormDialog<(List<String>, String)>(
       context: context,
-      builder: (_, a) => _ReplacementDialog(existing: existing),
+      builder: (_, a) => _ReplacementDialog(animation: a, existing: existing),
     );
     if (result == null) return;
     final (triggers, replacement) = result;
@@ -262,8 +262,9 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
 // ---------------------------------------------------------------------------
 
 class _ReplacementDialog extends StatefulWidget {
-  const _ReplacementDialog({this.existing});
+  const _ReplacementDialog({required this.animation, this.existing});
 
+  final Animation<double> animation;
   final Replacement? existing;
 
   @override
@@ -349,204 +350,135 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark
-        ? WpColorsDark.surfaceElevated
-        : WpColorsLight.surfaceElevated;
-    final border = isDark
-        ? WpColorsDark.borderDefault
-        : WpColorsLight.borderDefault;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final textPrimary = isDark
         ? WpColorsDark.textPrimary
         : WpColorsLight.textPrimary;
     final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
     final l10n = L10n.of(context);
 
-    return Center(
-      child: Material(
-        color: Colors.transparent,
-        child: AnimatedContainer(
-          duration: WpMotion.durationFor(context, WpMotion.fast),
-          width: 400,
-          padding: const EdgeInsets.all(WpSpacing.xl),
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: WpRadius.borderLg,
-            border: Border.all(color: border),
-            boxShadow: WpShadows.elevated,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Title
-              Text(
-                _isEditing
-                    ? l10n.replacementsEditShortcut
-                    : l10n.replacementsNewShortcut,
-                style: TextStyle(
-                  color: textPrimary,
-                  fontSize: WpTypography.heading,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: WpSpacing.xs),
-              Text(
-                l10n.replacementsDialogHint,
-                style: TextStyle(
-                  color: textMuted,
-                  fontSize: WpTypography.small,
-                ),
-              ),
-              const SizedBox(height: WpSpacing.lg),
-
-              // Trigger phrases — dynamic list, one text field per phrase
-              Text(
-                l10n.replacementsTriggerLabel,
-                style: TextStyle(
-                  color: textPrimary,
-                  fontSize: WpTypography.small,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: WpSpacing.xxs),
-              ConstrainedBox(
-                constraints: const BoxConstraints(
-                  maxHeight: _triggerListMaxHeight,
-                ),
-                child: SingleChildScrollView(
-                  child: AnimatedSize(
-                    duration: WpMotion.durationFor(context, WpMotion.fast),
-                    curve: WpMotion.defaultCurve,
-                    alignment: Alignment.topCenter,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
+    return WpFormDialogShell(
+      animation: widget.animation,
+      title: _isEditing
+          ? l10n.replacementsEditShortcut
+          : l10n.replacementsNewShortcut,
+      subtitle: l10n.replacementsDialogHint,
+      fields: [
+        // Trigger phrases — dynamic list, one text field per phrase
+        Text(l10n.replacementsTriggerLabel, style: theme.textTheme.titleSmall),
+        const SizedBox(height: WpSpacing.xxs),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: _triggerListMaxHeight),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (var i = 0; i < _triggerCtrls.length; i++)
+                  Padding(
+                    key: ObjectKey(_triggerCtrls[i]),
+                    padding: EdgeInsets.only(top: i == 0 ? 0 : WpSpacing.xxs),
+                    child: Row(
                       children: [
-                        for (var i = 0; i < _triggerCtrls.length; i++)
-                          Padding(
-                            key: ObjectKey(_triggerCtrls[i]),
-                            padding: EdgeInsets.only(
-                              top: i == 0 ? 0 : WpSpacing.xxs,
+                        Expanded(
+                          child: TextField(
+                            controller: _triggerCtrls[i],
+                            focusNode: _triggerFocusNodes[i],
+                            autofocus: i == 0,
+                            style: TextStyle(
+                              color: textPrimary,
+                              fontSize: WpTypography.body,
                             ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: TextField(
-                                    controller: _triggerCtrls[i],
-                                    focusNode: _triggerFocusNodes[i],
-                                    autofocus: i == 0,
-                                    style: TextStyle(
-                                      color: textPrimary,
-                                      fontSize: WpTypography.body,
-                                    ),
-                                    decoration: InputDecoration(
-                                      hintText: l10n.replacementsTriggerHint,
-                                      isDense: true,
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                            horizontal: WpSpacing.md,
-                                            vertical: WpSpacing.sm,
-                                          ),
-                                    ),
-                                    onChanged: (_) => setState(() {}),
-                                    onSubmitted: (_) => _submit(),
-                                  ),
-                                ),
-                                // The last remaining trigger cannot be
-                                // removed — a shortcut always keeps at
-                                // least one phrase.
-                                if (_triggerCtrls.length > 1) ...[
-                                  const SizedBox(width: WpSpacing.xxs),
-                                  IconButton(
-                                    tooltip: l10n.replacementsRemoveTrigger,
-                                    icon: Icon(
-                                      LucideIcons.x,
-                                      size: WpIconSize.sm,
-                                      color: textMuted,
-                                    ),
-                                    onPressed: () => _removeTrigger(i),
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(
-                                      minWidth: 28,
-                                      minHeight: 28,
-                                    ),
-                                  ),
-                                ],
-                              ],
+                            decoration: InputDecoration(
+                              hintText: l10n.replacementsTriggerHint,
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: WpSpacing.md,
+                                vertical: WpSpacing.sm,
+                              ),
+                            ),
+                            onChanged: (_) => setState(() {}),
+                            onSubmitted: (_) => _submit(),
+                          ),
+                        ),
+                        // The last remaining trigger cannot be
+                        // removed — a shortcut always keeps at
+                        // least one phrase.
+                        if (_triggerCtrls.length > 1) ...[
+                          const SizedBox(width: WpSpacing.xxs),
+                          IconButton(
+                            tooltip: l10n.replacementsRemoveTrigger,
+                            icon: Icon(
+                              LucideIcons.x,
+                              size: WpIconSize.sm,
+                              color: textMuted,
+                            ),
+                            onPressed: () => _removeTrigger(i),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(
+                              minWidth: 28,
+                              minHeight: 28,
                             ),
                           ),
+                        ],
                       ],
                     ),
                   ),
-                ),
-              ),
-              const SizedBox(height: WpSpacing.xxs),
-              Align(
-                alignment: AlignmentDirectional.centerStart,
-                // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
-                child: WpButton(
-                  label: l10n.replacementsAddTrigger,
-                  variant: WpButtonVariant.ghost,
-                  size: WpButtonSize.dense,
-                  icon: LucideIcons.plus,
-                  onPressed: _addTrigger,
-                ),
-              ),
-              const SizedBox(height: WpSpacing.md),
-
-              // Replacement field
-              Text(
-                l10n.replacementsReplacementLabel,
-                style: TextStyle(
-                  color: textPrimary,
-                  fontSize: WpTypography.small,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: WpSpacing.xxs),
-              TextField(
-                controller: _replacementCtrl,
-                style: TextStyle(
-                  color: textPrimary,
-                  fontSize: WpTypography.body,
-                ),
-                decoration: InputDecoration(
-                  hintText: l10n.replacementsReplacementHint,
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: WpSpacing.md,
-                    vertical: WpSpacing.sm,
-                  ),
-                ),
-                onChanged: (_) => setState(() {}),
-                onSubmitted: (_) => _submit(),
-              ),
-              const SizedBox(height: WpSpacing.xl),
-
-              // Actions
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
-                  WpButton(
-                    label: l10n.actionCancel,
-                    variant: WpButtonVariant.ghost,
-                    tone: WpButtonTone.neutral,
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                  const SizedBox(width: WpSpacing.sm),
-                  // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
-                  WpButton(
-                    label: _isEditing ? l10n.actionSave : l10n.replacementsAdd,
-                    variant: WpButtonVariant.primary,
-                    onPressed: _isValid ? _submit : null,
-                  ),
-                ],
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-      ),
+        const SizedBox(height: WpSpacing.xxs),
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
+          child: WpButton(
+            label: l10n.replacementsAddTrigger,
+            variant: WpButtonVariant.ghost,
+            size: WpButtonSize.dense,
+            icon: LucideIcons.plus,
+            onPressed: _addTrigger,
+          ),
+        ),
+        const SizedBox(height: WpSpacing.md),
+
+        // Replacement field
+        Text(
+          l10n.replacementsReplacementLabel,
+          style: theme.textTheme.titleSmall,
+        ),
+        const SizedBox(height: WpSpacing.xxs),
+        TextField(
+          controller: _replacementCtrl,
+          style: TextStyle(color: textPrimary, fontSize: WpTypography.body),
+          decoration: InputDecoration(
+            hintText: l10n.replacementsReplacementHint,
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: WpSpacing.md,
+              vertical: WpSpacing.sm,
+            ),
+          ),
+          onChanged: (_) => setState(() {}),
+          onSubmitted: (_) => _submit(),
+        ),
+      ],
+      actions: [
+        // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
+        WpButton(
+          label: l10n.actionCancel,
+          variant: WpButtonVariant.ghost,
+          tone: WpButtonTone.neutral,
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        const SizedBox(width: WpSpacing.sm),
+        // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
+        WpButton(
+          label: _isEditing ? l10n.actionSave : l10n.replacementsAdd,
+          variant: WpButtonVariant.primary,
+          onPressed: _isValid ? _submit : null,
+        ),
+      ],
     );
   }
 }

@@ -65,8 +65,8 @@ import 'services/tray_service.dart';
 import 'services/update_service.dart';
 import 'services/update_actions.dart';
 import 'services/deploy_channel_service.dart';
+import 'widgets/dialog.dart';
 import 'widgets/toast.dart';
-import 'widgets/wp_button.dart';
 import 'widgets/review_prompt_dialog.dart';
 import 'widgets/store_thank_you_dialog.dart';
 import 'widgets/support_prompt_dialog.dart';
@@ -578,26 +578,13 @@ class _AppShellState extends ConsumerState<_AppShell>
     await windowManager.show();
     await windowManager.focus();
     if (!mounted) return false;
-    final confirmed = await showDialog<bool>(
+    return showWpConfirmDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(l10n.micGateAlertTitle),
-        content: Text(l10n.micGateAlertBodyGeneric),
-        actions: [
-          WpButton(
-            label: l10n.permissionAlertLaterButton,
-            variant: WpButtonVariant.ghost,
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-          ),
-          WpButton(
-            label: l10n.micGateAlertConfirm,
-            variant: WpButtonVariant.ghost,
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-          ),
-        ],
-      ),
+      title: l10n.micGateAlertTitle,
+      message: l10n.micGateAlertBodyGeneric,
+      confirmLabel: l10n.micGateAlertConfirm,
+      cancelLabel: l10n.permissionAlertLaterButton,
     );
-    return confirmed ?? false;
   }
 
   Future<void> _openMicPrivacySettings() =>

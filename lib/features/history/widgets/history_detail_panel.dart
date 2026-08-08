@@ -18,6 +18,7 @@ import '../data/history_detail_provider.dart';
 import 'highlighted_text.dart';
 import 'history_helpers.dart';
 import 'history_notes_section.dart';
+import '../../../widgets/dialog.dart';
 import '../../../widgets/tag_input.dart';
 import '../../../widgets/markdown_toolbar.dart';
 import '../../../widgets/toast.dart';
@@ -259,139 +260,20 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
 
   void _showShortcutHelp() {
     final l10n = L10n.of(context);
-    showDialog(
+    showWpDialog<void>(
       context: context,
-      builder: (ctx) {
-        final isDarkTheme = isDark;
-        final bg = isDarkTheme
-            ? WpColorsDark.surfaceElevated
-            : WpColorsLight.surfaceElevated;
-        final textCol = isDarkTheme
-            ? WpColorsDark.textPrimary
-            : WpColorsLight.textPrimary;
-        final mutedCol = isDarkTheme
-            ? WpColorsDark.textMuted
-            : WpColorsLight.textMuted;
-        final accentCol = isDarkTheme
-            ? WpColorsDark.accent
-            : WpColorsLight.accent;
-
-        Widget shortcutRow(String key, String description) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: WpSpacing.xxs),
-            child: Row(
-              children: [
-                Container(
-                  // Off-scale on purpose: key-cap chip hugs its caption text;
-                  // xxs would double the height of this deliberately tight cap.
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: WpSpacing.xs,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: accentCol.withValues(alpha: 0.12),
-                    borderRadius: WpRadius.borderSm,
-                  ),
-                  child: Text(
-                    key,
-                    style: TextStyle(
-                      fontSize: WpTypography.caption,
-                      fontWeight: FontWeight.w600,
-                      fontFamily: 'monospace',
-                      color: accentCol,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: WpSpacing.sm),
-                Expanded(
-                  child: Text(
-                    description,
-                    style: TextStyle(
-                      fontSize: WpTypography.body,
-                      color: textCol,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-
-        return Dialog(
-          backgroundColor: bg,
-          shape: RoundedRectangleBorder(borderRadius: WpRadius.borderMd),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 380),
-            child: Padding(
-              padding: const EdgeInsets.all(WpSpacing.lg),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        LucideIcons.keyboard,
-                        size: WpIconSize.sm,
-                        color: accentCol,
-                      ),
-                      const SizedBox(width: WpSpacing.sm),
-                      Text(
-                        l10n.historyShortcutHelp,
-                        style: TextStyle(
-                          fontSize: WpTypography.heading,
-                          fontWeight: FontWeight.w600,
-                          color: textCol,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: WpSpacing.md),
-                  Text(
-                    l10n.historyShortcutGeneral,
-                    style: TextStyle(
-                      fontSize: WpTypography.caption,
-                      fontWeight: FontWeight.w600,
-                      color: mutedCol,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  const SizedBox(height: WpSpacing.xs),
-                  shortcutRow('Esc', l10n.historyShortcutClose),
-                  const SizedBox(height: WpSpacing.sm),
-                  Text(
-                    l10n.historyShortcutEditing,
-                    style: TextStyle(
-                      fontSize: WpTypography.caption,
-                      fontWeight: FontWeight.w600,
-                      color: mutedCol,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  const SizedBox(height: WpSpacing.xs),
-                  shortcutRow('F2', l10n.historyShortcutEditTitle),
-                  shortcutRow('Ctrl+E', l10n.historyShortcutToggleEdit),
-                  shortcutRow('Ctrl+S', l10n.historyShortcutSave),
-                  shortcutRow('Ctrl+↵', l10n.historyShortcutSave),
-                  shortcutRow('Ctrl+B', l10n.historyShortcutBold),
-                  shortcutRow('Ctrl+I', l10n.historyShortcutItalic),
-                  shortcutRow('Ctrl+C', l10n.historyShortcutCopy),
-                  const SizedBox(height: WpSpacing.md),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
-                    child: WpButton(
-                      label: l10n.historyClose,
-                      variant: WpButtonVariant.ghost,
-                      onPressed: () => Navigator.of(ctx).pop(),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+      title: l10n.historyShortcutHelp,
+      content: const _ShortcutHelpContent(),
+      actions: [
+        Builder(
+          // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
+          builder: (dialogContext) => WpButton(
+            label: l10n.historyClose,
+            variant: WpButtonVariant.ghost,
+            onPressed: () => Navigator.of(dialogContext).pop(),
           ),
-        );
-      },
+        ),
+      ],
     );
   }
 
@@ -591,6 +473,101 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Shortcut help — body of the keyboard cheat sheet dialog
+// ---------------------------------------------------------------------------
+
+/// Content of the shortcut help [showWpDialog]: two labelled groups of
+/// key-cap rows. Colors come from the theme (surface, border, radius and
+/// title typography are the dialog's) — this body only owns the key caps.
+class _ShortcutHelpContent extends StatelessWidget {
+  const _ShortcutHelpContent();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    final theme = Theme.of(context);
+    final groupStyle = theme.textTheme.labelSmall?.copyWith(
+      fontWeight: FontWeight.w600,
+      letterSpacing: 0.5,
+    );
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(l10n.historyShortcutGeneral, style: groupStyle),
+        const SizedBox(height: WpSpacing.xs),
+        _ShortcutRow(keyLabel: 'Esc', description: l10n.historyShortcutClose),
+        const SizedBox(height: WpSpacing.sm),
+        Text(l10n.historyShortcutEditing, style: groupStyle),
+        const SizedBox(height: WpSpacing.xs),
+        _ShortcutRow(
+          keyLabel: 'F2',
+          description: l10n.historyShortcutEditTitle,
+        ),
+        _ShortcutRow(
+          keyLabel: 'Ctrl+E',
+          description: l10n.historyShortcutToggleEdit,
+        ),
+        _ShortcutRow(keyLabel: 'Ctrl+S', description: l10n.historyShortcutSave),
+        _ShortcutRow(keyLabel: 'Ctrl+↵', description: l10n.historyShortcutSave),
+        _ShortcutRow(keyLabel: 'Ctrl+B', description: l10n.historyShortcutBold),
+        _ShortcutRow(
+          keyLabel: 'Ctrl+I',
+          description: l10n.historyShortcutItalic,
+        ),
+        _ShortcutRow(keyLabel: 'Ctrl+C', description: l10n.historyShortcutCopy),
+      ],
+    );
+  }
+}
+
+class _ShortcutRow extends StatelessWidget {
+  const _ShortcutRow({required this.keyLabel, required this.description});
+
+  final String keyLabel;
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final accent = theme.colorScheme.primary;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: WpSpacing.xxs),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            // Off-scale on purpose: key-cap chip hugs its caption text;
+            // xxs would double the height of this deliberately tight cap.
+            padding: const EdgeInsets.symmetric(
+              horizontal: WpSpacing.xs,
+              vertical: 2,
+            ),
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.12),
+              borderRadius: WpRadius.borderSm,
+            ),
+            child: Text(
+              keyLabel,
+              style: theme.textTheme.labelSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+                fontFamily: 'monospace',
+                letterSpacing: 0,
+                color: accent,
+              ),
+            ),
+          ),
+          const SizedBox(width: WpSpacing.sm),
+          Expanded(child: Text(description, style: theme.textTheme.bodyLarge)),
+        ],
       ),
     );
   }

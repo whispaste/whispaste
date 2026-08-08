@@ -2403,6 +2403,12 @@ abstract class L10n {
   /// **'New Snippet'**
   String get snippetsNewSnippet;
 
+  /// No description provided for @snippetsDialogHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Open the snippet picker while dictating to insert this text.'**
+  String get snippetsDialogHint;
+
   /// No description provided for @snippetsTitleLabel.
   ///
   /// In en, this message translates to:

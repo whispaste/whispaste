@@ -506,6 +506,7 @@
   "snippetsAddSnippet": "Add Snippet",
   "snippetsEditSnippet": "Edit Snippet",
   "snippetsNewSnippet": "New Snippet",
+  "snippetsDialogHint": "Open the snippet picker while dictating to insert this text.",
   "snippetsTitleLabel": "Title",
   "snippetsTitleHint": "e.g. Email signature",
   "snippetsBodyLabel": "Body",
