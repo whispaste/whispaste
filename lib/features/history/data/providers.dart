@@ -224,26 +224,41 @@ List<HistoryEntry> _applyParsedSearch(
   List<HistoryEntry> entries,
   ParsedSearchQuery parsed,
 ) {
+  // Pre-compile regexes outside the loop to avoid allocating a new lowercased
+  // string per entry per filter — caseSensitive:false also fixes the two
+  // filters below comparing a lowercased field against a non-lowercased term.
+  final freeTextRegex = parsed.freeText.isNotEmpty
+      ? RegExp(RegExp.escape(parsed.freeText), caseSensitive: false)
+      : null;
+
+  final langRegex = parsed.langCode != null && parsed.langCode!.isNotEmpty
+      ? RegExp('^${RegExp.escape(parsed.langCode!)}', caseSensitive: false)
+      : null;
+
+  final tagRegexes = parsed.tagNames.isNotEmpty
+      ? parsed.tagNames
+            .map((t) => RegExp(RegExp.escape(t), caseSensitive: false))
+            .toList()
+      : null;
+
   return entries.where((e) {
     // Free-text match
-    if (parsed.freeText.isNotEmpty) {
-      final lower = parsed.freeText.toLowerCase();
-      if (!e.title.toLowerCase().contains(lower) &&
-          !e.content.toLowerCase().contains(lower)) {
+    if (freeTextRegex != null) {
+      if (!freeTextRegex.hasMatch(e.title) &&
+          !freeTextRegex.hasMatch(e.content)) {
         return false;
       }
     }
     // Language filter
-    if (parsed.langCode != null && parsed.langCode!.isNotEmpty) {
-      if (!e.language.toLowerCase().startsWith(parsed.langCode!)) {
+    if (langRegex != null) {
+      if (!langRegex.hasMatch(e.language)) {
         return false;
       }
     }
     // Tag filter — check the JSON tags field on the entry
-    if (parsed.tagNames.isNotEmpty) {
-      final entryTags = e.tags.toLowerCase();
-      for (final tag in parsed.tagNames) {
-        if (!entryTags.contains(tag)) return false;
+    if (tagRegexes != null) {
+      for (final tagRegex in tagRegexes) {
+        if (!tagRegex.hasMatch(e.tags)) return false;
       }
     }
     return true;
