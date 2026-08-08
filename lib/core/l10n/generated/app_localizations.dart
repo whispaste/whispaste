@@ -2277,12 +2277,6 @@ abstract class L10n {
   /// **'Disable'**
   String get replacementsDisableAction;
 
-  /// No description provided for @replacementsAddShortcut.
-  ///
-  /// In en, this message translates to:
-  /// **'Add Replacement'**
-  String get replacementsAddShortcut;
-
   /// No description provided for @replacementsEditShortcut.
   ///
   /// In en, this message translates to:
@@ -2384,12 +2378,6 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Try a different search term.'**
   String get snippetsNoMatchesHint;
-
-  /// No description provided for @snippetsAddSnippet.
-  ///
-  /// In en, this message translates to:
-  /// **'Add Snippet'**
-  String get snippetsAddSnippet;
 
   /// No description provided for @snippetsEditSnippet.
   ///

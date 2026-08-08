@@ -178,7 +178,7 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
       emptyIcon: LucideIcons.replace,
       emptyTitle: l10n.replacementsEmpty,
       emptyHint: l10n.replacementsEmptyHint,
-      emptyActionLabel: l10n.replacementsAddShortcut,
+      emptyActionLabel: l10n.replacementsAdd,
       noMatchesTitle: l10n.replacementsNoMatches,
       noMatchesHint: l10n.replacementsNoMatchesHint,
       // Enable/disable toggle — label is context-sensitive

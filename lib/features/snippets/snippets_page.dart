@@ -173,7 +173,7 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage> {
       emptyIcon: LucideIcons.notebookText,
       emptyTitle: l10n.snippetsEmpty,
       emptyHint: l10n.snippetsEmptyHint,
-      emptyActionLabel: l10n.snippetsAddSnippet,
+      emptyActionLabel: l10n.snippetsAdd,
       noMatchesTitle: l10n.snippetsNoMatches,
       noMatchesHint: l10n.snippetsNoMatchesHint,
       itemBuilder: (context, s, isDark) {

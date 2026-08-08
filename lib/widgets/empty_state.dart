@@ -7,6 +7,16 @@ import 'wp_button.dart';
 ///
 /// Premium: accent-tinted icon circle (a single quiet signal point, glow-
 /// free), glass border hint, refined spacing, confident title size.
+///
+/// When to pass an action — one rule, the same on every page: **an empty
+/// state offers the area's main action whenever the area has one; that the
+/// action is also reachable elsewhere (a toolbar button, say) is no reason
+/// to leave it out, because an empty area is where the user looks for it
+/// most urgently.** Use the same wording in both places. Areas without a
+/// main action of their own get none: the history fills from a recording
+/// run (its hint says so instead), and a trash only holds what was already
+/// discarded. Search-found-nothing states offer "clear search"; error
+/// states offer "try again".
 class WpEmptyState extends StatelessWidget {
   const WpEmptyState({
     super.key,

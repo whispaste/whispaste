@@ -1250,9 +1250,6 @@ class L10nDe extends L10n {
   String get replacementsDisableAction => 'Deaktivieren';
 
   @override
-  String get replacementsAddShortcut => 'Ersetzung hinzufügen';
-
-  @override
   String get replacementsEditShortcut => 'Ersetzung bearbeiten';
 
   @override
@@ -1306,9 +1303,6 @@ class L10nDe extends L10n {
 
   @override
   String get snippetsNoMatchesHint => 'Versuche einen anderen Suchbegriff.';
-
-  @override
-  String get snippetsAddSnippet => 'Snippet hinzufügen';
 
   @override
   String get snippetsEditSnippet => 'Snippet bearbeiten';

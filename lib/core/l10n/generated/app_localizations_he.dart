@@ -1225,9 +1225,6 @@ class L10nHe extends L10n {
   String get replacementsDisableAction => 'כבה';
 
   @override
-  String get replacementsAddShortcut => 'הוסף החלפה';
-
-  @override
   String get replacementsEditShortcut => 'ערוך החלפה';
 
   @override
@@ -1281,9 +1278,6 @@ class L10nHe extends L10n {
 
   @override
   String get snippetsNoMatchesHint => 'נסה מונח חיפוש אחר.';
-
-  @override
-  String get snippetsAddSnippet => 'הוסף קטע';
 
   @override
   String get snippetsEditSnippet => 'ערוך קטע';

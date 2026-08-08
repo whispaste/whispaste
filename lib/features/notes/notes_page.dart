@@ -588,15 +588,17 @@ class _NotesPageState extends ConsumerState<NotesPage> {
               },
             );
           }
-          // No action button in either empty state on purpose: the
-          // header's "New note" button is always visible and already
-          // offers the only sensible action — a second identically
-          // labeled button would be redundant, and the trash empty
-          // state has no action at all.
+          // Per the WpEmptyState rule: the base state offers the area's
+          // main action even though the header's "New note" button stays
+          // visible — an empty list is where the user looks for it first,
+          // and both carry the same label. The trash has no main action
+          // of its own, so it stays without one.
           return WpEmptyState(
             icon: isTrash ? LucideIcons.trash2 : LucideIcons.stickyNote,
             title: isTrash ? l10n.notesTrashEmpty : l10n.notesEmptyTitle,
             hint: isTrash ? l10n.notesTrashEmptyHint : l10n.notesEmptyHint,
+            actionLabel: isTrash ? null : l10n.notesNewNote,
+            onAction: isTrash ? null : _createNote,
           );
         }
         return NotesSplitView(

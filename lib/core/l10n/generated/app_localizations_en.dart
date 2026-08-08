@@ -1237,9 +1237,6 @@ class L10nEn extends L10n {
   String get replacementsDisableAction => 'Disable';
 
   @override
-  String get replacementsAddShortcut => 'Add Replacement';
-
-  @override
   String get replacementsEditShortcut => 'Edit Replacement';
 
   @override
@@ -1293,9 +1290,6 @@ class L10nEn extends L10n {
 
   @override
   String get snippetsNoMatchesHint => 'Try a different search term.';
-
-  @override
-  String get snippetsAddSnippet => 'Add Snippet';
 
   @override
   String get snippetsEditSnippet => 'Edit Snippet';
