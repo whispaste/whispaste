@@ -74,8 +74,8 @@ void main() {
           'Borderless TextField built outside WpSearchField. If it is a '
           'search input, route it through WpSearchField (variant: outlined '
           'in-window, capsule in an overlay). If it is not, add it to the '
-          'allowlist above '
-          'with the reason, so Batch 6 can find it: ${offenders.join(', ')}',
+          'allowlist above with the reason, so Batch 6 can find it: '
+          '${offenders.join(', ')}',
     );
   });
 

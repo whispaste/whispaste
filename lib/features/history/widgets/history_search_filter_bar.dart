@@ -607,7 +607,7 @@ class _HistorySearchFilterBarState
             controller: widget.controller,
             focusNode: widget.searchFocusNode,
             hintText: l10n.historySearchTranscriptions,
-            variant: WpSearchFieldVariant.raised,
+            variant: WpSearchFieldVariant.outlined,
             clearTooltip: l10n.historyClearSearch,
             onClear: _clearSuggestions,
             suffix: _SearchHelpButton(isDark: widget.isDark),

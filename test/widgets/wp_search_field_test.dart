@@ -225,7 +225,7 @@ void main() {
       );
     });
 
-    testWidgets('raised: md radius, shadow instead of a resting stroke', (
+    testWidgets('outlined: the light theme keeps the same flat geometry', (
       tester,
     ) async {
       final controller = TextEditingController();
@@ -233,34 +233,24 @@ void main() {
 
       await tester.pumpWidget(
         makeTestable(
-          _field(controller: controller, variant: WpSearchFieldVariant.raised),
-        ),
-      );
-
-      expect(_boxDecoration(tester).borderRadius, WpRadius.borderMd);
-      expect(_boxDecoration(tester).boxShadow, WpShadows.subtle);
-      // Transparent rather than absent, so focus animates a colour instead of
-      // conjuring a border out of nothing.
-      expect(_borderDecoration(tester).border!.top.color, Colors.transparent);
-    });
-
-    testWidgets('raised: light theme takes the halved light shadow', (
-      tester,
-    ) async {
-      final controller = TextEditingController();
-      addTearDown(controller.dispose);
-
-      await tester.pumpWidget(
-        makeTestable(
-          _field(controller: controller, variant: WpSearchFieldVariant.raised),
+          _field(
+            controller: controller,
+            variant: WpSearchFieldVariant.outlined,
+          ),
           brightness: Brightness.light,
         ),
       );
 
-      // The dark-theme alpha reads as a grey haze over light's pearl
-      // surfaces — the same reason the list tiles this field floats above
-      // resolve their lift through `subtleFor`.
-      expect(_boxDecoration(tester).boxShadow, WpShadows.subtleLight);
+      // The variant that used to be `raised` (History, Notes) resolved a
+      // theme-dependent shadow here, which is the axis this pins shut: both
+      // themes are now flat, and only the palette differs.
+      expect(_boxDecoration(tester).borderRadius, WpRadius.borderSm);
+      expect(_boxDecoration(tester).color, WpColorsLight.surfaceVariant);
+      expect(_boxDecoration(tester).boxShadow, isNull);
+      expect(
+        _borderDecoration(tester).border!.top.color,
+        WpColorsLight.borderSubtle,
+      );
     });
 
     testWidgets('capsule: full radius, translucent fill, hairline', (
@@ -297,13 +287,7 @@ void main() {
       addTearDown(node.dispose);
 
       await tester.pumpWidget(
-        makeTestable(
-          _field(
-            controller: controller,
-            focusNode: node,
-            variant: WpSearchFieldVariant.raised,
-          ),
-        ),
+        makeTestable(_field(controller: controller, focusNode: node)),
       );
 
       final restingSize = tester.getSize(find.byType(WpSearchField));
@@ -406,11 +390,7 @@ void main() {
       final controller = TextEditingController(text: 'meeting notes');
       addTearDown(controller.dispose);
 
-      await tester.pumpWidget(
-        makeTestable(
-          _field(controller: controller, variant: WpSearchFieldVariant.raised),
-        ),
-      );
+      await tester.pumpWidget(makeTestable(_field(controller: controller)));
 
       // The prefix/suffix icon slots hold the box at Material's 48 dp floor,
       // which is taller than the text row's own padded height. Without

@@ -38,10 +38,24 @@
 /// ## The one axis
 ///
 /// [WpSearchFieldVariant] is *how the field seats itself on its surface* —
-/// flat in a form, lifted above a list, floating in an overlay. It is the only
-/// axis, and it carries the radius with it rather than exposing a free radius
-/// parameter, because a free radius would reproduce exactly the "three
-/// accidents" this component exists to end.
+/// flat inside the window, floating in an overlay. It is the only axis, and it
+/// carries the radius with it rather than exposing a free radius parameter,
+/// because a free radius would reproduce exactly the "three accidents" this
+/// component exists to end.
+///
+/// It used to have a third value, `raised`: no resting border, a
+/// [WpShadows.subtleFor] lift and a 12 dp radius, "for a field that floats
+/// above the list it filters". The rule didn't survive contact with its own
+/// cases — Replacements and Snippets filter a list too and were `outlined`, so
+/// the same control rendered with a different radius and a different resting
+/// stroke depending on which sidebar entry the user had clicked, with nothing
+/// but the call site deciding. `lib/DESIGN.md` never sanctioned it either: it
+/// knows exactly one field style (filled, 8 dp radius, 1 dp `borderSubtle`,
+/// accent focus, no glow). So all four list toolbars — History, Notes,
+/// Replacements, Snippets — plus Settings now share [outlined], and the
+/// sidebar switch no longer moves the field's geometry under the cursor.
+/// [capsule] stays, because it answers a different question: not "which list is
+/// below me" but "am I inside the window at all".
 ///
 /// There is deliberately no size axis: all five migrated call sites run at the
 /// same density today. An enum with one value is speculative stock; it can be
@@ -86,15 +100,11 @@ import '../core/theme/tokens.dart';
 
 /// How the field seats itself on the surface behind it.
 enum WpSearchFieldVariant {
-  /// Flat form field with a visible resting hairline. Sits in the document
-  /// flow, among other form controls (Settings, the Replacements/Snippets
-  /// toolbar).
+  /// Flat field with a visible resting hairline — the one in-window look, for
+  /// every search inside the main window: the four list toolbars (History,
+  /// Notes, Replacements, Snippets) and Settings alike. See the library docs
+  /// for why filtering a list is *not* a reason to look different.
   outlined,
-
-  /// No resting border — depth comes from [WpShadows.subtleFor] instead, and
-  /// the accent border on focus is then the field's *only* stroke. For a field
-  /// that floats above the list it filters (Notes, History).
-  raised,
 
   /// Fully round, tinted pill. For the overlay/HUD context, where the app's
   /// rectangular form language would read as a window inside a window
@@ -324,16 +334,11 @@ class _WpSearchFieldState extends State<WpSearchField> {
     return AnimatedContainer(
       duration: WpMotion.durationFor(context, WpMotion.normal),
       curve: WpMotion.defaultCurve,
+      // No shadow in any variant: the field is flat on its surface, and the
+      // border below is the only thing that marks its edge.
       decoration: BoxDecoration(
         color: spec.fill(palette),
         borderRadius: spec.radius,
-        // Theme-resolved rather than raw `subtle`: the dark-theme alpha reads
-        // as a grey haze over light's pearl surfaces, which is exactly why
-        // `subtleFor` exists — and why the list tiles this field floats above
-        // already resolve their own lift through it.
-        boxShadow: spec.elevated
-            ? WpShadows.subtleFor(brightness == Brightness.dark)
-            : null,
       ),
       // Painted over the child, so the stroke can thicken on focus without
       // moving a single pixel of text. See the library docs.
@@ -366,7 +371,7 @@ class _WpSearchFieldPalette {
     required this.accent,
   });
 
-  /// Fill of the two in-window variants.
+  /// Fill of the in-window variant, [WpSearchFieldVariant.outlined].
   final Color surface;
 
   /// Fill of [WpSearchFieldVariant.capsule] — translucent on purpose, so the
@@ -407,23 +412,21 @@ class _WpSearchFieldPalette {
 class _WpSearchFieldSpec {
   const _WpSearchFieldSpec({
     required this.radius,
-    required this.elevated,
     required this.tinted,
     required this.bordered,
   });
 
   final BorderRadius radius;
 
-  /// Carries the theme-resolved [WpShadows.subtleFor] instead of a resting
-  /// stroke.
-  final bool elevated;
-
   /// Uses the translucent muted fill rather than the opaque surface one.
   final bool tinted;
 
   /// Shows a hairline while unfocused. `false` leaves the resting border
   /// *transparent* rather than absent, so the focus transition animates a
-  /// colour instead of appearing out of nothing.
+  /// colour instead of appearing out of nothing. Both surviving variants say
+  /// `true` today — the flag stays because it is what makes the resting
+  /// stroke a property of the variant rather than a hardcode, which is the
+  /// shape the next variant would need.
   final bool bordered;
 
   Color fill(_WpSearchFieldPalette p) => tinted ? p.mutedFill : p.surface;
@@ -433,21 +436,12 @@ class _WpSearchFieldSpec {
 
   static final _outlined = _WpSearchFieldSpec(
     radius: WpRadius.borderSm,
-    elevated: false,
     tinted: false,
     bordered: true,
   );
 
-  static final _raised = _WpSearchFieldSpec(
-    radius: WpRadius.borderMd,
-    elevated: true,
-    tinted: false,
-    bordered: false,
-  );
-
   static final _capsule = _WpSearchFieldSpec(
     radius: WpRadius.borderFull,
-    elevated: false,
     tinted: true,
     bordered: true,
   );
@@ -455,7 +449,6 @@ class _WpSearchFieldSpec {
   static _WpSearchFieldSpec of(WpSearchFieldVariant variant) =>
       switch (variant) {
         WpSearchFieldVariant.outlined => _outlined,
-        WpSearchFieldVariant.raised => _raised,
         WpSearchFieldVariant.capsule => _capsule,
       };
 }
