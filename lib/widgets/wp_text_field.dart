@@ -341,6 +341,10 @@ class _WpTextFieldState extends State<WpTextField> {
         hintText: widget.hintText,
         hintStyle: style.copyWith(color: palette.textMuted),
         suffixIcon: widget.suffix,
+        // Drawn below the box instead — see [_counter]. Inside, it would
+        // make the one field that counts its characters 21 dp taller than
+        // every other form field.
+        counterText: '',
         isDense: true,
         contentPadding: spec.padding,
         // Fill, stroke and radius all live on the box below — the decoration
@@ -361,7 +365,7 @@ class _WpTextFieldState extends State<WpTextField> {
       );
     }
 
-    return AnimatedContainer(
+    final Widget box = AnimatedContainer(
       duration: WpMotion.durationFor(context, WpMotion.normal),
       curve: WpMotion.defaultCurve,
       decoration: BoxDecoration(
@@ -382,7 +386,38 @@ class _WpTextFieldState extends State<WpTextField> {
           : null,
       child: field,
     );
+
+    if (widget.maxLength == null) return box;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      mainAxisSize: MainAxisSize.min,
+      children: [box, _counter(palette)],
+    );
   }
+
+  /// The remaining-characters readout, outside the box.
+  ///
+  /// [InputDecoration]'s own counter renders *inside* the decorated area, so
+  /// with the box drawn around it the single field that caps its length
+  /// (feedback's comment) stood 69 dp tall against everyone else's 48 and had
+  /// its text sitting off-centre. Below the box it reads as what it is — a
+  /// note about the field rather than part of it — and the field keeps the
+  /// geometry `form_field_geometry_consistency_test.dart` pins.
+  Widget _counter(_WpTextFieldPalette palette) => Padding(
+    padding: const EdgeInsets.only(top: WpSpacing.xxs),
+    child: ValueListenableBuilder<TextEditingValue>(
+      valueListenable: widget.controller,
+      builder: (context, value, _) => Text(
+        // Graphemes, the same unit LengthLimitingTextInputFormatter enforces
+        // in — so the readout cannot disagree with the limit it reports.
+        '${value.text.characters.length}/${widget.maxLength}',
+        style: TextStyle(
+          fontSize: WpTypography.small,
+          color: palette.textMuted,
+        ),
+      ),
+    ),
+  );
 }
 
 // ---------------------------------------------------------------------------

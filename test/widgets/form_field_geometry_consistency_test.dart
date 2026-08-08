@@ -273,6 +273,130 @@ void main() {
   });
 
   // ---------------------------------------------------------------------
+  // form, in the place it actually stands
+  // ---------------------------------------------------------------------
+
+  // The probes above measure the helpers on their own. In the app all three
+  // of their call sites (Settings' blocklist, the STT API key, the Snippets
+  // picker trigger) hand them to a [SettingRow]'s trailing slot, and the
+  // field grew from 34/36 dp to 48 dp there — the largest visual change in
+  // this family. A field that grows with the text scaler is the point, so
+  // the row it grows inside is what needs checking.
+  for (final scale in const [1.0, 1.5]) {
+    final at = scale == 1.0 ? 'normal text size' : 'accessibility text size';
+
+    testWidgets('a settings row makes room for its field at $at', (
+      tester,
+    ) async {
+      final controller = TextEditingController(text: 'Wert');
+      addTearDown(controller.dispose);
+
+      Future<void> pumpRow(Widget Function(BuildContext) trailing) async {
+        await tester.pumpWidget(
+          makeTestable(
+            _scaled(
+              Align(
+                alignment: Alignment.topLeft,
+                child: SizedBox(
+                  // The narrowest the settings pane gets: the 800 dp minimum
+                  // window from `main.dart`, less its sidebar and insets.
+                  width: 540,
+                  child: Builder(
+                    builder: (context) => SettingRow(
+                      icon: Icons.key,
+                      label: 'Label',
+                      subtitle: 'Eine erklärende Zeile darunter',
+                      trailing: trailing(context),
+                    ),
+                  ),
+                ),
+              ),
+              scale,
+            ),
+          ),
+        );
+        await tester.pump();
+      }
+
+      for (final probe in <String, Widget Function(BuildContext)>{
+        'settingsTextField': (context) =>
+            settingsTextField(context: context, controller: controller),
+        'settingsApiKeyField': (context) => settingsApiKeyField(
+          context: context,
+          controller: controller,
+          obscure: true,
+          onToggle: () {},
+        ),
+      }.entries) {
+        await pumpRow(probe.value);
+
+        expect(
+          tester.takeException(),
+          isNull,
+          reason:
+              '"${probe.key}" overflowed its settings row at $at — the row '
+              'has to grow around the field, not clip it',
+        );
+
+        final row = _rect(tester, find.byType(SettingRow));
+        final field = _rect(tester, _fieldBox());
+        expect(
+          field.height + 2 * WpSpacing.sm,
+          lessThanOrEqualTo(row.height),
+          reason:
+              'the row keeps its own 12 dp breathing room above and below '
+              '"${probe.key}" instead of being pushed flush against it',
+        );
+        expect(
+          row.height,
+          greaterThanOrEqualTo(WpLayout.minTouchTarget),
+          reason: 'and never falls below the touch-target floor',
+        );
+      }
+    });
+  }
+
+  testWidgets('a form field with a character counter keeps the box the '
+      'others have', (tester) async {
+    final controller = TextEditingController(text: 'Ein Kommentar');
+    addTearDown(controller.dispose);
+
+    Future<_FieldGeometry> withCounter(int? maxLength) async {
+      await tester.pumpWidget(
+        makeTestable(
+          Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: 280,
+              child: WpTextField(
+                controller: controller,
+                variant: WpTextFieldVariant.form,
+                maxLength: maxLength,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      return _measure(tester, box: _fieldBox());
+    }
+
+    final plain = await withCounter(null);
+    final counted = await withCounter(1000);
+
+    expect(
+      counted,
+      plain,
+      reason:
+          'the feedback form is the one place a form field counts its '
+          'characters, and the counter belongs under the box — inside it, it '
+          'would make that one field taller than every other one.\n'
+          '  without counter: $plain\n'
+          '  with counter:    $counted',
+    );
+  });
+
+  // ---------------------------------------------------------------------
   // embedded — the field inside a row the caller draws
   // ---------------------------------------------------------------------
 
