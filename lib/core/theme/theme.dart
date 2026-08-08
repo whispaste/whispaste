@@ -82,7 +82,7 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
       scrolledUnderElevation: 0,
       toolbarHeight: WpLayout.appBarHeight,
       titleTextStyle: TextStyle(
-        fontSize: 14,
+        fontSize: WpTypography.subheading,
         fontWeight: FontWeight.w600,
         color: colorScheme.onSurface,
         letterSpacing: -0.2,
@@ -123,7 +123,7 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
         ),
         shape: RoundedRectangleBorder(borderRadius: WpRadius.borderSm),
         textStyle: const TextStyle(
-          fontSize: 13,
+          fontSize: WpTypography.body,
           fontWeight: FontWeight.w600,
           letterSpacing: -0.1,
           // Explicit fontFamily ensures buttons render correctly in tests.
@@ -148,7 +148,7 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
         ),
         shape: RoundedRectangleBorder(borderRadius: WpRadius.borderSm),
         textStyle: const TextStyle(
-          fontSize: 13,
+          fontSize: WpTypography.body,
           fontWeight: FontWeight.w600,
           letterSpacing: -0.1,
           fontFamily: 'Inter',
@@ -167,7 +167,7 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
         ),
         shape: RoundedRectangleBorder(borderRadius: WpRadius.borderSm),
         textStyle: const TextStyle(
-          fontSize: 13,
+          fontSize: WpTypography.body,
           fontWeight: FontWeight.w600,
           letterSpacing: -0.1,
           fontFamily: 'Inter',
@@ -185,7 +185,7 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
         ),
         shape: RoundedRectangleBorder(borderRadius: WpRadius.borderSm),
         textStyle: const TextStyle(
-          fontSize: 13,
+          fontSize: WpTypography.body,
           fontWeight: FontWeight.w500,
           fontFamily: 'Inter',
         ),
@@ -229,7 +229,7 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
       ),
       hintStyle: TextStyle(
         color: isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
-        fontSize: 13,
+        fontSize: WpTypography.body,
       ),
     ),
 
@@ -267,7 +267,7 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
       ),
       textStyle: TextStyle(
         color: isDark ? WpColorsDark.textPrimary : Colors.white,
-        fontSize: 12,
+        fontSize: WpTypography.small,
         fontWeight: FontWeight.w500,
       ),
       waitDuration: const Duration(milliseconds: 400),
@@ -313,7 +313,7 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
       elevation: 8,
       titleTextStyle: TextStyle(
         color: colorScheme.onSurface,
-        fontSize: 17,
+        fontSize: WpTypography.title,
         fontWeight: FontWeight.w600,
         letterSpacing: -0.2,
       ),
@@ -343,7 +343,7 @@ TextTheme _textTheme(ColorScheme cs) {
   return TextTheme(
     // Display → Page titles (22px / 700)
     headlineLarge: TextStyle(
-      fontSize: 22,
+      fontSize: WpTypography.headline,
       fontWeight: FontWeight.w700,
       color: cs.onSurface,
       letterSpacing: -0.6,
@@ -351,7 +351,7 @@ TextTheme _textTheme(ColorScheme cs) {
     ),
     // Heading → Section headers (16px / 600)
     headlineMedium: TextStyle(
-      fontSize: 16,
+      fontSize: WpTypography.heading,
       fontWeight: FontWeight.w600,
       color: cs.onSurface,
       letterSpacing: -0.35,
@@ -359,7 +359,7 @@ TextTheme _textTheme(ColorScheme cs) {
     ),
     // Dialog / panel title (17px / 600) — WpDialog, review prompts, export picker
     titleLarge: TextStyle(
-      fontSize: 17,
+      fontSize: WpTypography.title,
       fontWeight: FontWeight.w600,
       color: cs.onSurface,
       letterSpacing: -0.2,
@@ -367,14 +367,14 @@ TextTheme _textTheme(ColorScheme cs) {
     ),
     // Subheading → Card titles (14px / 600)
     titleMedium: TextStyle(
-      fontSize: 14,
+      fontSize: WpTypography.subheading,
       fontWeight: FontWeight.w600,
       color: cs.onSurface,
       letterSpacing: -0.2,
     ),
     // Form field label / section subheading (13px / 600)
     titleSmall: TextStyle(
-      fontSize: 13,
+      fontSize: WpTypography.body,
       fontWeight: FontWeight.w600,
       color: cs.onSurface,
       letterSpacing: -0.1,
@@ -382,35 +382,35 @@ TextTheme _textTheme(ColorScheme cs) {
     ),
     // Body → Default text (13px / 400)
     bodyLarge: TextStyle(
-      fontSize: 13,
+      fontSize: WpTypography.body,
       fontWeight: FontWeight.w400,
       color: cs.onSurface,
       height: 1.5,
     ),
     // Body secondary
     bodyMedium: TextStyle(
-      fontSize: 13,
+      fontSize: WpTypography.body,
       fontWeight: FontWeight.w400,
       color: cs.secondary,
       height: 1.5,
     ),
     // Caption → metadata (12px / 400)
     bodySmall: TextStyle(
-      fontSize: 12,
+      fontSize: WpTypography.small,
       fontWeight: FontWeight.w400,
       color: cs.secondary,
       height: 1.4,
     ),
     // Button label / CTA (16px / 700) — WpHeroButton, SF-style tight tracking
     labelLarge: TextStyle(
-      fontSize: 16,
+      fontSize: WpTypography.heading,
       fontWeight: FontWeight.w700,
       color: cs.onSurface,
       letterSpacing: -0.3,
     ),
     // Toast / snackbar message (13px / 500)
     labelMedium: TextStyle(
-      fontSize: 13,
+      fontSize: WpTypography.body,
       fontWeight: FontWeight.w500,
       color: cs.onSurface,
       letterSpacing: 0,
@@ -418,7 +418,7 @@ TextTheme _textTheme(ColorScheme cs) {
     ),
     // Micro → status chips (11px / 500)
     labelSmall: TextStyle(
-      fontSize: 11,
+      fontSize: WpTypography.caption,
       fontWeight: FontWeight.w500,
       color: cs.secondary,
       letterSpacing: 0.2,

@@ -52,14 +52,38 @@ import 'wp_focus_ring.dart';
 //
 // ## Sizes and the 48 px touch target
 //
-// `lib/DESIGN.md` asks for a 48 px minimum touch target. A revealed action
-// must not be taller than the row it appears in, or every mouse move would
-// reflow the list — so the row's resting height, not the rule, sets the
-// action height: 44 px (standard) where the row is roomy, 28 px (dense) in
-// the tight ones. The compact history view is the honest shortfall: its rows
-// are ~27 px by design ("dense power-user list"), and three 48 px targets
-// would also overflow its non-flexible trailing metadata at 240 px. Density
-// is the whole point of that view, so it keeps the dense variant.
+// `lib/DESIGN.md` asks for a 48 px minimum touch target. Two areas run the
+// 44 px standard variant (replacements, snippets) and two run the 28 px
+// dense one (history, notes), so it is worth naming precisely what decides
+// which — the earlier wording here said "the row's resting height, roomy vs.
+// tight", and that is measurably the wrong quantity. Tile *envelopes* run the
+// other way: a history list tile is 127 px tall and a notes tile 106 px,
+// against 70 px for a replacements row, yet the tall ones are the dense ones.
+//
+// What actually decides is the **line the action sits in, times how many
+// actions share it, against how narrow that line can get**:
+//
+//   * Replacements/snippets put **one** action on the row's only line, on a
+//     full-width page. Measured at 1280x800: the line is 718 px wide and
+//     44 px tall — the action *is* the line, and nothing competes with it.
+//     Standard is free here, and it is also the variant closest to the 48 px
+//     rule, so taking it is not a concession.
+//   * History puts **three** actions on the tile's metadata line inside a
+//     panel the user can drag down to 240 px (`HistorySplitView`). Measured
+//     at a 340 px panel that line is 237 px wide: three dense actions cost
+//     84 px of it, three standard ones would cost 132 px — more than half the
+//     line, before the title has had any. At the 240 px minimum the title
+//     would be left with nothing. Notes sits in the same narrow panel.
+//
+// So the split is a width budget, not a taste or a roominess judgement, and
+// it moves only if the action count or the panel's minimum width moves.
+// A revealed action must additionally never be taller than its line, or every
+// mouse move would reflow the list.
+//
+// The compact history view is the honest shortfall: its rows are ~27 px by
+// design ("dense power-user list"), so even the dense variant only just fits
+// and 48 px targets are out of the question. Density is the whole point of
+// that view, so it keeps the dense variant.
 // ---------------------------------------------------------------------------
 
 class WpRowAction extends StatefulWidget {
