@@ -379,5 +379,57 @@ void main() {
 
       expect(find.text(l10n.replacementsNewShortcut), findsOneWidget);
     });
+
+    testWidgets('Delete on the focused row opens the delete confirmation', (
+      tester,
+    ) async {
+      // Notizen deletes the focused row from the keyboard; its two siblings
+      // could only do it by mouse. Same keys now, different consequence by
+      // necessity: no trash exists here, so the confirmation is the undo.
+      await tester.pumpWidget(
+        makeTestable(const ReplacementsPage(), locale: const Locale('en')),
+      );
+      await tester.pumpAndSettle();
+
+      // Tab lands on the first row (the search field and Add button come
+      // first in traversal order, so walk past them).
+      for (var i = 0; i < 4; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pumpAndSettle();
+        if (find.byIcon(LucideIcons.trash2).evaluate().isNotEmpty) break;
+      }
+      expect(
+        find.byIcon(LucideIcons.trash2),
+        findsOneWidget,
+        reason: 'the row reveals its delete action on focus, not just hover',
+      );
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.delete);
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.replacementsDeleteTitle), findsOneWidget);
+    });
+
+    testWidgets('Backspace in the search field edits text, deletes nothing', (
+      tester,
+    ) async {
+      // The row bindings are scoped to the row; the search field is a
+      // sibling of it, not a descendant, so typing stays typing.
+      await tester.pumpWidget(
+        makeTestable(const ReplacementsPage(), locale: const Locale('en')),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField).first, 'mfgx');
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.replacementsDeleteTitle), findsNothing);
+      expect(
+        tester.widget<TextField>(find.byType(TextField).first).controller!.text,
+        'mfg',
+      );
+    });
   });
 }

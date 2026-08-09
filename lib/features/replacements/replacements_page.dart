@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../core/config/settings_provider.dart';
@@ -501,6 +502,18 @@ class _ReplacementTileState extends State<_ReplacementTile> {
 
   @override
   Widget build(BuildContext context) {
+    return CallbackShortcuts(
+      // Delete/Backspace on the focused row — same binding, same reasoning
+      // and same row-scoping as _SnippetTile, which see.
+      bindings: <ShortcutActivator, VoidCallback>{
+        const SingleActivator(LogicalKeyboardKey.delete): widget.onDelete,
+        const SingleActivator(LogicalKeyboardKey.backspace): widget.onDelete,
+      },
+      child: _buildRow(context),
+    );
+  }
+
+  Widget _buildRow(BuildContext context) {
     return Semantics(
       button: true,
       // Affordance as `hint:`, identity from the rendered trigger chips —

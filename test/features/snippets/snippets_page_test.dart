@@ -374,6 +374,49 @@ void main() {
 
       expect(find.text(l10n.snippetsNewSnippet), findsOneWidget);
     });
+
+    testWidgets('Delete on the focused row opens the delete confirmation', (
+      tester,
+    ) async {
+      // Notizen deletes the focused row from the keyboard; its two siblings
+      // could only do it by mouse. Same keys now, different consequence by
+      // necessity: no trash exists here, so the confirmation is the undo.
+      await tester.pumpWidget(
+        makeTestable(const SnippetsPage(), locale: const Locale('en')),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(LucideIcons.plus));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byType(TextField).at(_fieldOffset + 1),
+        'Signature',
+      );
+      await tester.enterText(
+        find.byType(TextField).at(_fieldOffset + 2),
+        'Best, Silvio',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(l10n.snippetsAdd).last);
+      await tester.pumpAndSettle();
+
+      // Walk the traversal order until the row reveals its delete action.
+      for (var i = 0; i < 6; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pumpAndSettle();
+        if (find.byIcon(LucideIcons.trash2).evaluate().isNotEmpty) break;
+      }
+      expect(
+        find.byIcon(LucideIcons.trash2),
+        findsOneWidget,
+        reason: 'the row reveals its delete action on focus, not just hover',
+      );
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.delete);
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.snippetsDeleteTitle), findsOneWidget);
+    });
   });
 }
 
