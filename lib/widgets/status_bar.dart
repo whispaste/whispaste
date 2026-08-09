@@ -599,16 +599,31 @@ class _StatusChipState extends State<_StatusChip> {
           )
         : inkWell;
 
-    final chip = Semantics(
-      label: widget.tooltip ?? widget.label,
-      button: true,
-      child: Opacity(opacity: widget.dimmed ? 0.5 : 1.0, child: body),
-    );
+    // Same treatment `_SttChipState` above already got — this chip was missed
+    // by that pass and still had both of its defects.
+    //
+    // The label is gone: it repeated `Text(widget.label)` from the subtree
+    // ("Ready, Ready" whenever no tooltip was set), and where a tooltip *was*
+    // set it glued the two together into one name. `Tooltip` fills the node's
+    // own tooltip field, so both survive — properly separated into name and
+    // description instead of concatenated into the name.
+    //
+    // `button:` is now conditional. Most chips in this bar are read-only
+    // status, yet every one of them claimed a button role, inviting the user
+    // to activate something inert.
+    final dimmable = Opacity(opacity: widget.dimmed ? 0.5 : 1.0, child: body);
 
-    if (widget.tooltip != null) {
-      return Tooltip(message: widget.tooltip!, child: chip);
-    }
-    return chip;
+    // Tooltip *inside* the MergeSemantics, as in `_SttChipState` — outside it
+    // the tooltip would sit on its own ancestor node instead of folding into
+    // the chip's.
+    return MergeSemantics(
+      child: Semantics(
+        button: widget.onTap != null,
+        child: widget.tooltip != null
+            ? Tooltip(message: widget.tooltip!, child: dimmable)
+            : dimmable,
+      ),
+    );
   }
 }
 
@@ -889,7 +904,7 @@ class _MicrophoneRow extends StatelessWidget {
 // dismiss flag.
 // ---------------------------------------------------------------------------
 
-class _AutoPasteOffHintChip extends StatelessWidget {
+class _AutoPasteOffHintChip extends StatefulWidget {
   const _AutoPasteOffHintChip({
     required this.textStyle,
     required this.isDark,
@@ -905,8 +920,34 @@ class _AutoPasteOffHintChip extends StatelessWidget {
   final VoidCallback? onDismiss;
 
   @override
+  State<_AutoPasteOffHintChip> createState() => _AutoPasteOffHintChipState();
+}
+
+/// Stateful only to own the two focus nodes. Both actions used to be bare
+/// `InkWell`s with neither a node nor a ring, while every other tappable chip
+/// in this bar (`_StatusChip`, `_SttChip`) has had both all along — so the one
+/// chip in the row that actually asks the user to do something was the one
+/// they could not reach without a mouse.
+class _AutoPasteOffHintChipState extends State<_AutoPasteOffHintChip> {
+  final FocusNode _openFocusNode = FocusNode(debugLabel: 'AutoPasteHintOpen');
+  final FocusNode _dismissFocusNode = FocusNode(
+    debugLabel: 'AutoPasteHintDismiss',
+  );
+
+  @override
+  void dispose() {
+    _openFocusNode.dispose();
+    _dismissFocusNode.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final l10n = widget.l10n;
+    final isDark = widget.isDark;
+    final onTap = widget.onTap;
+    final onDismiss = widget.onDismiss;
     final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
 
     // No `label:` — it used to repeat the tooltip string verbatim, so the
@@ -939,42 +980,60 @@ class _AutoPasteOffHintChip extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              InkWell(
-                onTap: onTap,
-                borderRadius: WpRadius.borderFull,
-                mouseCursor: onTap != null
-                    ? SystemMouseCursors.click
-                    : SystemMouseCursors.basic,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      LucideIcons.clipboardX,
-                      size: WpIconSize.xs,
-                      color: accent,
-                    ),
-                    const SizedBox(width: WpSpacing.xxs),
-                    Text(l10n.statusBarAutoPasteOffHint, style: textStyle),
-                  ],
+              WpFocusRing(
+                focusNode: _openFocusNode,
+                radius: WpRadius.full,
+                child: InkWell(
+                  onTap: onTap,
+                  focusNode: onTap != null ? _openFocusNode : null,
+                  borderRadius: WpRadius.borderFull,
+                  // WpFocusRing owns the focus visual — as on the chips above.
+                  focusColor: Colors.transparent,
+                  highlightColor: Colors.transparent,
+                  mouseCursor: onTap != null
+                      ? SystemMouseCursors.click
+                      : SystemMouseCursors.basic,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        LucideIcons.clipboardX,
+                        size: WpIconSize.xs,
+                        color: accent,
+                      ),
+                      const SizedBox(width: WpSpacing.xxs),
+                      Text(
+                        l10n.statusBarAutoPasteOffHint,
+                        style: widget.textStyle,
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(width: WpSpacing.xs),
               Tooltip(
                 message: l10n.statusBarAutoPasteOffHintDismiss,
-                child: InkWell(
-                  onTap: onDismiss,
-                  borderRadius: WpRadius.borderFull,
-                  mouseCursor: onDismiss != null
-                      ? SystemMouseCursors.click
-                      : SystemMouseCursors.basic,
-                  child: SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: Icon(
-                      LucideIcons.x,
-                      size: WpIconSize.xs,
-                      color: cs.onSurface.withValues(alpha: 0.6),
-                      semanticLabel: l10n.statusBarAutoPasteOffHintDismiss,
+                child: WpFocusRing(
+                  focusNode: _dismissFocusNode,
+                  radius: WpRadius.full,
+                  child: InkWell(
+                    onTap: onDismiss,
+                    focusNode: onDismiss != null ? _dismissFocusNode : null,
+                    borderRadius: WpRadius.borderFull,
+                    focusColor: Colors.transparent,
+                    highlightColor: Colors.transparent,
+                    mouseCursor: onDismiss != null
+                        ? SystemMouseCursors.click
+                        : SystemMouseCursors.basic,
+                    child: SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: Icon(
+                        LucideIcons.x,
+                        size: WpIconSize.xs,
+                        color: cs.onSurface.withValues(alpha: 0.6),
+                        semanticLabel: l10n.statusBarAutoPasteOffHintDismiss,
+                      ),
                     ),
                   ),
                 ),

@@ -7,6 +7,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/core/config/settings_enums.dart';
@@ -218,5 +219,59 @@ void main() {
         expect(find.text(await hintLabel(tester)), findsNothing);
       },
     );
+
+    // Both actions were bare InkWells with no focus node and no focus ring,
+    // while every other tappable chip in this bar has had both all along —
+    // so the one chip in the row that asks the user to *do* something was the
+    // one they could not reach without a mouse.
+    testWidgets('both actions are reachable and operable from the keyboard', (
+      tester,
+    ) async {
+      var tapped = false;
+      var dismissed = false;
+      await tester.pumpWidget(
+        buildStatusBar(
+          showHint: true,
+          onTap: () => tapped = true,
+          onDismiss: () => dismissed = true,
+        ),
+      );
+      await tester.pump();
+
+      Future<void> activateByKeyboard(Finder inkWellFinder, String what) async {
+        final inkWell = tester.widget<InkWell>(inkWellFinder);
+        expect(
+          inkWell.focusNode,
+          isNotNull,
+          reason: '$what must own a focus node to be reachable by Tab',
+        );
+        inkWell.focusNode!.requestFocus();
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+      }
+
+      await activateByKeyboard(
+        find
+            .ancestor(
+              of: find.text(await hintLabel(tester)),
+              matching: find.byType(InkWell),
+            )
+            .first,
+        'the hint body',
+      );
+      await activateByKeyboard(
+        find
+            .ancestor(
+              of: find.byIcon(LucideIcons.x),
+              matching: find.byType(InkWell),
+            )
+            .first,
+        'the dismiss button',
+      );
+
+      expect(tapped, isTrue);
+      expect(dismissed, isTrue);
+    });
   });
 }
