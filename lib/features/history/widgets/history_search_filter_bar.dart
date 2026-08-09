@@ -1203,42 +1203,52 @@ class _HistoryMultiSelectActionState extends State<HistoryMultiSelectAction> {
               : WpColorsLight.textPrimary);
     final color = _hovered ? hoverColor : textSecondary;
 
-    return Semantics(
-      label: widget.label,
-      button: true,
-      child: Padding(
-        padding: const EdgeInsets.only(right: WpSpacing.xs),
-        child: MouseRegion(
-          onEnter: (_) => setState(() => _hovered = true),
-          onExit: (_) => setState(() => _hovered = false),
-          child: Tooltip(
-            message: widget.shortcutHint != null
-                ? '${widget.label} (${widget.shortcutHint})'
-                : widget.label,
-            child: InkWell(
-              borderRadius: WpRadius.borderSm,
-              onTap: widget.onTap,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: WpSpacing.sm,
-                  vertical: WpSpacing.xxs + 2,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // WpIconSize.sm (not .md): matches HistoryRowAction and
-                    // HistoryPopupMenuRow's fixed 16 for the same action set —
-                    // .md would overwhelm this pill's 12px label.
-                    Icon(widget.icon, size: WpIconSize.sm, color: color),
-                    const SizedBox(width: 4),
-                    Text(
-                      widget.label,
-                      style: TextStyle(
-                        fontSize: WpTypography.small,
-                        color: color,
+    // House idiom (`no_double_announcement_test.dart`, `wp_hero_button.dart`):
+    // one tap target whose label is its own visible text → MergeSemantics plus
+    // a *label-less* Semantics. An explicit `label: widget.label` here is not a
+    // replacement for the subtree's text, it is prepended to it, so the
+    // `Text(widget.label)` below made every batch action announce itself twice
+    // ("Zusammenführen, Zusammenführen"). Merging folds the name in from the
+    // rendered text while the button role and the tap action survive, and the
+    // Tooltip's shortcut hint folds in with it — which is exactly what the
+    // keyboard-first audience needs to hear.
+    return MergeSemantics(
+      child: Semantics(
+        button: true,
+        child: Padding(
+          padding: const EdgeInsets.only(right: WpSpacing.xs),
+          child: MouseRegion(
+            onEnter: (_) => setState(() => _hovered = true),
+            onExit: (_) => setState(() => _hovered = false),
+            child: Tooltip(
+              message: widget.shortcutHint != null
+                  ? '${widget.label} (${widget.shortcutHint})'
+                  : widget.label,
+              child: InkWell(
+                borderRadius: WpRadius.borderSm,
+                onTap: widget.onTap,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: WpSpacing.sm,
+                    vertical: WpSpacing.xxs + 2,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // WpIconSize.sm (not .md): matches HistoryRowAction and
+                      // HistoryPopupMenuRow's fixed 16 for the same action set —
+                      // .md would overwhelm this pill's 12px label.
+                      Icon(widget.icon, size: WpIconSize.sm, color: color),
+                      const SizedBox(width: 4),
+                      Text(
+                        widget.label,
+                        style: TextStyle(
+                          fontSize: WpTypography.small,
+                          color: color,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

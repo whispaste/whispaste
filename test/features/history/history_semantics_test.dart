@@ -6,10 +6,12 @@
 /// Scope: widgets addressed in issue 02-a11y-semantics-history.
 library;
 
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/features/history/widgets/history_detail_panel.dart';
+import 'package:whispaste/features/history/widgets/history_search_filter_bar.dart';
 import 'package:whispaste/widgets/wp_filter_chip.dart';
 import 'package:whispaste/features/history/widgets/history_list_tile.dart';
 
@@ -149,6 +151,45 @@ void main() {
         reason:
             'HistoryDetailAction must expose its tooltip as a semantics label',
       );
+    });
+  });
+
+  group('HistoryMultiSelectAction — batch action semantics', () {
+    testWidgets('announces its caption exactly once', (tester) async {
+      final handle = tester.ensureSemantics();
+      try {
+        await tester.pumpWidget(
+          makeTestable(
+            HistoryMultiSelectAction(
+              icon: LucideIcons.merge,
+              label: 'Merge',
+              isDark: true,
+              onTap: () {},
+              shortcutHint: 'Ctrl+M',
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Before the fix the wrapper carried `label: widget.label` while the
+        // subtree still rendered `Text(widget.label)`. A wrapper label is
+        // prepended to the subtree's text rather than replacing it, so the
+        // batch bar announced every action twice ("Merge, Merge"). Asserting
+        // equality — not `contains` — is the point of this test.
+        final semantics = tester.getSemantics(
+          find.byType(HistoryMultiSelectAction),
+        );
+        expect(semantics.label, 'Merge');
+        // The fold must not cost the control its role or its tap action, and
+        // the shortcut hint has to survive as the tooltip — that hint is how
+        // the keyboard-first audience learns the accelerator at all.
+        final data = semantics.getSemanticsData();
+        expect(data.flagsCollection.isButton, isTrue);
+        expect(data.hasAction(SemanticsAction.tap), isTrue);
+        expect(data.tooltip, 'Merge (Ctrl+M)');
+      } finally {
+        handle.dispose();
+      }
     });
   });
 
