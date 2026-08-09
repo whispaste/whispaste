@@ -1484,6 +1484,16 @@ class _HistoryViewModeButtonState extends State<_HistoryViewModeButton> {
           child: WpFocusRing(
             focusNode: _focusNode,
             radius: WpRadius.sm,
+            // 4 + 16 + 4 = a 24px target, where WpFilterChip two widgets to the
+            // left stretches to WpLayout.minTouchTarget (48). Left as is on
+            // purpose: 24px still clears WCAG 2.2 AA (2.5.8), and the whole
+            // right-hand toolbar cluster is deliberately dense — see the
+            // multi-select button above, whose 6px padding is commented as
+            // "matches HistoryRowAction so toolbar icons stay uniform".
+            // Growing only this segment would trade a uniform cluster for a
+            // lone tall one; growing the cluster is a design decision across
+            // history + WpRowAction and needs the HITL gate. Bewusst nicht
+            // umgesetzt, künftiges Ticket.
             child: Container(
               padding: const EdgeInsets.all(WpSpacing.xxs),
               decoration: BoxDecoration(
