@@ -592,6 +592,14 @@ void main() {
     final tint = WpAvatarTint.of(isDark);
 
     group('Avatar disc vs. surface – $themeName theme (≥ $discFloor:1)', () {
+      // Guard the positional pairing: [_avatarSlotNames] is indexed against
+      // the palette, so a future palette edit (Phase F) that adds or drops a
+      // slot would otherwise leave every test green while labelling the wrong
+      // hue — a silent mislabel instead of a failure.
+      test('slot names cover the palette', () {
+        expect(_avatarSlotNames.length, WpSharedColors.avatarPalette.length);
+      });
+
       for (var i = 0; i < WpSharedColors.avatarPalette.length; i++) {
         final base = WpSharedColors.avatarPalette[i];
         test(_avatarSlotNames[i], () {
