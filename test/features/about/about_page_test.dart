@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -144,6 +145,78 @@ void main() {
       expect(find.text(l10n.reviewSupportEntry), findsOneWidget);
       // The existing GitHub-Stern link is preserved.
       expect(find.text(l10n.aboutStarOnGitHub), findsOneWidget);
+    });
+  });
+
+  // Every interactive element on this page used to be a bare GestureDetector
+  // under a `Semantics(label: X)` that duplicated the text the subtree already
+  // rendered. Two defects in one node: pointer-only operation on a page of an
+  // app that promises you never have to reach for the mouse, and a doubled
+  // announcement. Both are pinned here.
+  group('About affordances are keyboard-reachable and named once', () {
+    testWidgets('the GitHub quick action is a focusable link, named once', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      try {
+        await tester.pumpWidget(
+          makeTestable(const AboutPage(), locale: const Locale('en')),
+        );
+        await tester.pumpAndSettle();
+
+        final node = tester.getSemantics(
+          find.ancestor(
+            of: find.text(l10n.aboutStarOnGitHub),
+            matching: find.byType(MergeSemantics),
+          ),
+        );
+
+        // Exactly the rendered caption — not "Star on GitHub\nStar on GitHub".
+        expect(node.label, l10n.aboutStarOnGitHub);
+        // …and it can be reached and triggered without a pointer.
+        expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+        expect(
+          node.getSemanticsData().hasAction(SemanticsAction.focus),
+          isTrue,
+        );
+      } finally {
+        handle.dispose();
+      }
+    });
+
+    testWidgets('every tappable affordance owns a real focus node', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        makeTestable(const AboutPage(), locale: const Locale('en')),
+      );
+      await tester.pumpAndSettle();
+
+      // Every tap on this page has to arrive through an InkWell, because that
+      // is what carries the FocusNode. A tappable GestureDetector *without* an
+      // InkWell above it is the old, pointer-only shape. (InkWell builds its
+      // own GestureDetector internally, hence the ancestor check rather than a
+      // blanket ban.)
+      final strays = find
+          .byType(GestureDetector)
+          .evaluate()
+          .where((e) => (e.widget as GestureDetector).onTap != null)
+          .where(
+            (e) => find
+                .ancestor(
+                  of: find.byWidget(e.widget),
+                  matching: find.byType(InkWell),
+                )
+                .evaluate()
+                .isEmpty,
+          );
+      expect(
+        strays,
+        isEmpty,
+        reason:
+            'A tappable GestureDetector outside an InkWell is unreachable by '
+            'keyboard — wrap it the way _AboutTapTarget does.',
+      );
     });
   });
 }

@@ -26,6 +26,7 @@ import '../../services/update_service.dart';
 import '../../widgets/brand_wordmark.dart';
 import '../../widgets/page_shell.dart';
 import '../../widgets/section.dart';
+import '../../widgets/wp_focus_ring.dart';
 import 'diagnostics_report.dart';
 
 /// About page — app info, version, open-source links, support, credits,
@@ -391,6 +392,88 @@ class _AboutCard extends StatelessWidget {
   }
 }
 
+// ─── Shared tap surface ──────────────────────────────────────────────────────
+
+/// Gives one of this page's hand-built affordances the interaction contract
+/// every other tappable thing in the app already has: keyboard reach,
+/// Enter/Space activation, the shared [WpFocusRing], and correct semantics.
+///
+/// Every interactive element on this page used to be a bare [GestureDetector],
+/// which is pointer-only — the whole page was unreachable by keyboard in an
+/// app whose promise is to never make you touch the mouse. It also carried a
+/// `Semantics(label: X)` above a subtree that renders `Text(X)`; the label is
+/// *prepended*, not substituted, so every one of them announced twice
+/// (`_LinkRow` announced four fragments). Hence the house idiom from
+/// `section.dart`/`wp_filter_chip.dart`: [MergeSemantics] plus a *label-less*
+/// [Semantics], letting the visible text be the accessible name. That also
+/// keeps state honest for free — the copy button's label flips to "Kopiert!"
+/// in the semantics tree because the rendered text is the name.
+///
+/// `button`/`link` follow `onTap`, so a disabled affordance (update check
+/// while busy) stops advertising itself as pressable instead of lying.
+///
+/// Deliberately *not* a restyle: ink and hover are transparent here, each
+/// caller keeps painting its own surface. Routing these four dialects through
+/// [WpButton] is the right end state but changes how the page looks, so it
+/// needs maintainer sign-off — see the audit befund.
+class _AboutTapTarget extends StatefulWidget {
+  const _AboutTapTarget({
+    required this.child,
+    required this.onTap,
+    this.radius = WpRadius.sm,
+    this.isLink = false,
+  });
+
+  final Widget child;
+  final VoidCallback? onTap;
+
+  /// Focus-ring corner radius. Pill-shaped callers pass [WpRadius.lg] rather
+  /// than [WpRadius.full] — same choice `WpFilterChip` makes for its pill.
+  final double radius;
+
+  /// Announce as a link instead of a button (opens a URL in the browser).
+  final bool isLink;
+
+  @override
+  State<_AboutTapTarget> createState() => _AboutTapTargetState();
+}
+
+class _AboutTapTargetState extends State<_AboutTapTarget> {
+  final _focusNode = FocusNode(debugLabel: 'AboutTapTarget');
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = widget.onTap != null;
+    return MergeSemantics(
+      child: Semantics(
+        button: enabled && !widget.isLink,
+        link: enabled && widget.isLink,
+        child: WpFocusRing(
+          focusNode: _focusNode,
+          radius: widget.radius,
+          child: InkWell(
+            onTap: widget.onTap,
+            focusNode: _focusNode,
+            borderRadius: BorderRadius.circular(widget.radius),
+            // WpFocusRing owns all focus visuals; callers own their surface.
+            focusColor: Colors.transparent,
+            hoverColor: Colors.transparent,
+            splashColor: Colors.transparent,
+            highlightColor: Colors.transparent,
+            child: widget.child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // ─── Quick action pill ───────────────────────────────────────────────────────
 
 class _QuickAction extends StatefulWidget {
@@ -414,60 +497,58 @@ class _QuickActionState extends State<_QuickAction> {
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: widget.label,
+    // loam-ignore: a11y-interactive-semantics – name folds in from the rendered text (see _AboutTapTarget)
+    return _AboutTapTarget(
+      radius: WpRadius.lg,
+      isLink: true,
+      onTap: () async {
+        final uri = Uri.parse(widget.url);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        }
+      },
       child: MouseRegion(
-        cursor: SystemMouseCursors.click,
         onEnter: (_) => setState(() => _hovered = true),
         onExit: (_) => setState(() => _hovered = false),
-        child: GestureDetector(
-          onTap: () async {
-            final uri = Uri.parse(widget.url);
-            if (await canLaunchUrl(uri)) {
-              await launchUrl(uri, mode: LaunchMode.externalApplication);
-            }
-          },
-          child: AnimatedContainer(
-            duration: WpMotion.durationFor(
-              context,
-              _hovered ? WpMotion.hoverIn : WpMotion.hoverOut,
-            ),
-            padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.md,
-              vertical: WpSpacing.xs,
-            ),
-            decoration: BoxDecoration(
-              color: _hovered
-                  ? (widget.isDark ? WpColorsDark.hover : WpColorsLight.hover)
-                  : (widget.isDark
-                        ? WpColorsDark.surfaceVariant
-                        : WpColorsLight.surfaceVariant),
-              borderRadius: WpRadius.borderFull,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  widget.icon,
-                  size: WpIconSize.sm,
+        child: AnimatedContainer(
+          duration: WpMotion.durationFor(
+            context,
+            _hovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+          ),
+          padding: const EdgeInsets.symmetric(
+            horizontal: WpSpacing.md,
+            vertical: WpSpacing.xs,
+          ),
+          decoration: BoxDecoration(
+            color: _hovered
+                ? (widget.isDark ? WpColorsDark.hover : WpColorsLight.hover)
+                : (widget.isDark
+                      ? WpColorsDark.surfaceVariant
+                      : WpColorsLight.surfaceVariant),
+            borderRadius: WpRadius.borderFull,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                widget.icon,
+                size: WpIconSize.sm,
+                color: widget.isDark
+                    ? WpColorsDark.accent
+                    : WpColorsLight.accent,
+              ),
+              const SizedBox(width: WpSpacing.xs),
+              Text(
+                widget.label,
+                style: TextStyle(
+                  fontSize: WpTypography.body,
+                  fontWeight: FontWeight.w500,
                   color: widget.isDark
-                      ? WpColorsDark.accent
-                      : WpColorsLight.accent,
+                      ? WpColorsDark.textPrimary
+                      : WpColorsLight.textPrimary,
                 ),
-                const SizedBox(width: WpSpacing.xs),
-                Text(
-                  widget.label,
-                  style: TextStyle(
-                    fontSize: WpTypography.body,
-                    fontWeight: FontWeight.w500,
-                    color: widget.isDark
-                        ? WpColorsDark.textPrimary
-                        : WpColorsLight.textPrimary,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -502,67 +583,66 @@ class _UpdateCheckActionState extends State<_UpdateCheckAction> {
   Widget build(BuildContext context) {
     final (IconData icon, String label) = _resolveDisplay();
 
-    return Semantics(
-      button: true,
-      label: label,
+    // loam-ignore: a11y-interactive-semantics – name folds in from the rendered text (see _AboutTapTarget)
+    return _AboutTapTarget(
+      radius: WpRadius.lg,
+      // Null while busy, so the semantics tree stops calling it a button for
+      // as long as pressing it does nothing.
+      onTap: widget.updateState.isBusy ? null : widget.onTap,
       child: MouseRegion(
-        cursor: SystemMouseCursors.click,
         onEnter: (_) => setState(() => _hovered = true),
         onExit: (_) => setState(() => _hovered = false),
-        child: GestureDetector(
-          onTap: widget.updateState.isBusy ? null : widget.onTap,
-          child: AnimatedContainer(
-            duration: WpMotion.durationFor(
-              context,
-              _hovered ? WpMotion.hoverIn : WpMotion.hoverOut,
-            ),
-            padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.md,
-              vertical: WpSpacing.xs,
-            ),
-            decoration: BoxDecoration(
-              color: _hovered
-                  ? (widget.isDark ? WpColorsDark.hover : WpColorsLight.hover)
-                  : (widget.isDark
-                        ? WpColorsDark.surfaceVariant
-                        : WpColorsLight.surfaceVariant),
-              borderRadius: WpRadius.borderFull,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (widget.updateState.isBusy)
-                  SizedBox(
-                    width: WpIconSize.sm,
-                    height: WpIconSize.sm,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 1.5,
-                      color: widget.isDark
-                          ? WpColorsDark.accent
-                          : WpColorsLight.accent,
-                    ),
-                  )
-                else
-                  Icon(
-                    icon,
-                    size: WpIconSize.sm,
+        child: AnimatedContainer(
+          duration: WpMotion.durationFor(
+            context,
+            _hovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+          ),
+          padding: const EdgeInsets.symmetric(
+            horizontal: WpSpacing.md,
+            vertical: WpSpacing.xs,
+          ),
+          decoration: BoxDecoration(
+            color: _hovered
+                ? (widget.isDark ? WpColorsDark.hover : WpColorsLight.hover)
+                : (widget.isDark
+                      ? WpColorsDark.surfaceVariant
+                      : WpColorsLight.surfaceVariant),
+            borderRadius: WpRadius.borderFull,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (widget.updateState.isBusy)
+                SizedBox(
+                  width: WpIconSize.sm,
+                  height: WpIconSize.sm,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 1.5,
                     color: widget.isDark
                         ? WpColorsDark.accent
                         : WpColorsLight.accent,
                   ),
-                const SizedBox(width: WpSpacing.xs),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: WpTypography.body,
-                    fontWeight: FontWeight.w500,
-                    color: widget.isDark
-                        ? WpColorsDark.textPrimary
-                        : WpColorsLight.textPrimary,
-                  ),
+                )
+              else
+                Icon(
+                  icon,
+                  size: WpIconSize.sm,
+                  color: widget.isDark
+                      ? WpColorsDark.accent
+                      : WpColorsLight.accent,
                 ),
-              ],
-            ),
+              const SizedBox(width: WpSpacing.xs),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: WpTypography.body,
+                  fontWeight: FontWeight.w500,
+                  color: widget.isDark
+                      ? WpColorsDark.textPrimary
+                      : WpColorsLight.textPrimary,
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -610,48 +690,45 @@ class _SupportButtonState extends State<_SupportButton> {
         ? WpColorsDark.accentButtonFill
         : WpColorsLight.accentButtonFill;
 
-    return Semantics(
-      button: true,
-      label: widget.label,
+    // loam-ignore: a11y-interactive-semantics – name folds in from the rendered text (see _AboutTapTarget)
+    return _AboutTapTarget(
+      isLink: true,
+      onTap: () async {
+        final uri = Uri.parse(widget.url);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        }
+      },
       child: MouseRegion(
-        cursor: SystemMouseCursors.click,
         onEnter: (_) => setState(() => _hovered = true),
         onExit: (_) => setState(() => _hovered = false),
-        child: GestureDetector(
-          onTap: () async {
-            final uri = Uri.parse(widget.url);
-            if (await canLaunchUrl(uri)) {
-              await launchUrl(uri, mode: LaunchMode.externalApplication);
-            }
-          },
-          child: AnimatedContainer(
-            duration: WpMotion.durationFor(
-              context,
-              _hovered ? WpMotion.hoverIn : WpMotion.hoverOut,
-            ),
-            padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.md,
-              vertical: WpSpacing.sm,
-            ),
-            decoration: BoxDecoration(
-              color: _hovered ? accentBadgeFill : accentButtonFill,
-              borderRadius: WpRadius.borderSm,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(widget.icon, size: WpIconSize.sm, color: accentColor),
-                const SizedBox(width: WpSpacing.xs),
-                Text(
-                  widget.label,
-                  style: TextStyle(
-                    fontSize: WpTypography.body,
-                    fontWeight: FontWeight.w600,
-                    color: accentColor,
-                  ),
+        child: AnimatedContainer(
+          duration: WpMotion.durationFor(
+            context,
+            _hovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+          ),
+          padding: const EdgeInsets.symmetric(
+            horizontal: WpSpacing.md,
+            vertical: WpSpacing.sm,
+          ),
+          decoration: BoxDecoration(
+            color: _hovered ? accentBadgeFill : accentButtonFill,
+            borderRadius: WpRadius.borderSm,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(widget.icon, size: WpIconSize.sm, color: accentColor),
+              const SizedBox(width: WpSpacing.xs),
+              Text(
+                widget.label,
+                style: TextStyle(
+                  fontSize: WpTypography.body,
+                  fontWeight: FontWeight.w600,
+                  color: accentColor,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -696,18 +773,16 @@ class _SponsorChip extends StatelessWidget {
     final url = sponsor.url;
     if (url == null) return chip;
 
-    return Semantics(
-      button: true,
-      label: sponsor.name,
-      child: GestureDetector(
-        onTap: () async {
-          final uri = Uri.parse(url);
-          if (await canLaunchUrl(uri)) {
-            await launchUrl(uri, mode: LaunchMode.externalApplication);
-          }
-        },
-        child: MouseRegion(cursor: SystemMouseCursors.click, child: chip),
-      ),
+    // loam-ignore: a11y-interactive-semantics – name folds in from the rendered text (see _AboutTapTarget)
+    return _AboutTapTarget(
+      isLink: true,
+      onTap: () async {
+        final uri = Uri.parse(url);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        }
+      },
+      child: chip,
     );
   }
 }
@@ -922,71 +997,71 @@ class _LinkRowState extends State<_LinkRow> {
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      label: '${widget.label}: ${widget.displayUrl}',
-      link: true,
+    // The old `label: '$label: $displayUrl'` sat above a subtree that renders
+    // both strings, so this row announced all four fragments. Merging the two
+    // rendered texts gives the same sentence once.
+    // loam-ignore: a11y-interactive-semantics – name folds in from the rendered text (see _AboutTapTarget)
+    return _AboutTapTarget(
+      isLink: true,
+      onTap: _launch,
       child: MouseRegion(
-        cursor: SystemMouseCursors.click,
         onEnter: (_) => setState(() => _isHovered = true),
         onExit: (_) => setState(() => _isHovered = false),
-        child: GestureDetector(
-          onTap: _launch,
-          child: AnimatedContainer(
-            duration: WpMotion.durationFor(
-              context,
-              _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
-            ),
-            curve: WpMotion.defaultCurve,
-            padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.sm,
-              vertical: WpSpacing.xs,
-            ),
-            decoration: BoxDecoration(
-              color: _isHovered
-                  ? (widget.isDark ? WpColorsDark.hover : WpColorsLight.hover)
-                  : (widget.isDark
-                        ? WpColorsDark.hoverTransparent
-                        : WpColorsLight.hoverTransparent),
-              borderRadius: WpRadius.borderSm,
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  widget.icon,
-                  size: WpIconSize.sm,
-                  color: widget.isDark
-                      ? WpColorsDark.textMuted
-                      : WpColorsLight.textMuted,
+        child: AnimatedContainer(
+          duration: WpMotion.durationFor(
+            context,
+            _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+          ),
+          curve: WpMotion.defaultCurve,
+          padding: const EdgeInsets.symmetric(
+            horizontal: WpSpacing.sm,
+            vertical: WpSpacing.xs,
+          ),
+          decoration: BoxDecoration(
+            color: _isHovered
+                ? (widget.isDark ? WpColorsDark.hover : WpColorsLight.hover)
+                : (widget.isDark
+                      ? WpColorsDark.hoverTransparent
+                      : WpColorsLight.hoverTransparent),
+            borderRadius: WpRadius.borderSm,
+          ),
+          child: Row(
+            children: [
+              Icon(
+                widget.icon,
+                size: WpIconSize.sm,
+                color: widget.isDark
+                    ? WpColorsDark.textMuted
+                    : WpColorsLight.textMuted,
+              ),
+              const SizedBox(width: WpSpacing.sm),
+              Expanded(
+                child: Text(
+                  widget.label,
+                  style: Theme.of(context).textTheme.bodyLarge,
                 ),
-                const SizedBox(width: WpSpacing.sm),
-                Expanded(
-                  child: Text(
-                    widget.label,
-                    style: Theme.of(context).textTheme.bodyLarge,
+              ),
+              Flexible(
+                child: Text(
+                  widget.displayUrl,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: widget.isDark
+                        ? WpColorsDark.textMuted
+                        : WpColorsLight.textMuted,
+                    fontSize: WpTypography.small,
                   ),
                 ),
-                Flexible(
-                  child: Text(
-                    widget.displayUrl,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: widget.isDark
-                          ? WpColorsDark.textMuted
-                          : WpColorsLight.textMuted,
-                      fontSize: WpTypography.small,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: WpSpacing.xs),
-                Icon(
-                  LucideIcons.externalLink,
-                  size: WpIconSize.xs,
-                  color: widget.isDark
-                      ? WpColorsDark.textMuted
-                      : WpColorsLight.textMuted,
-                ),
-              ],
-            ),
+              ),
+              const SizedBox(width: WpSpacing.xs),
+              Icon(
+                LucideIcons.externalLink,
+                size: WpIconSize.xs,
+                color: widget.isDark
+                    ? WpColorsDark.textMuted
+                    : WpColorsLight.textMuted,
+              ),
+            ],
           ),
         ),
       ),
@@ -1067,68 +1142,66 @@ class _CopyDiagnosticsButtonState
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    return Semantics(
-      button: true,
-      label: l10n.aboutCopyDebugInfo,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          onTap: _copy,
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.md,
-              vertical: WpSpacing.xs,
-            ),
-            decoration: BoxDecoration(
-              color: widget.isDark
-                  ? WpColorsDark.surfaceVariant
-                  : WpColorsLight.surfaceVariant,
-              borderRadius: WpRadius.borderSm,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (_busy)
-                  SizedBox(
-                    width: WpIconSize.sm,
-                    height: WpIconSize.sm,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: widget.isDark
-                          ? WpColorsDark.textSecondary
-                          : WpColorsLight.textSecondary,
-                    ),
-                  )
-                else
-                  Icon(
-                    _copied ? LucideIcons.checkCheck : LucideIcons.copy,
-                    size: WpIconSize.sm,
-                    color: _copied
-                        ? (widget.isDark
-                              ? WpColorsDark.success
-                              : WpColorsLight.success)
-                        : (widget.isDark
-                              ? WpColorsDark.textSecondary
-                              : WpColorsLight.textSecondary),
-                  ),
-                const SizedBox(width: WpSpacing.xs),
-                Text(
-                  _copied ? l10n.aboutCopied : l10n.aboutCopyDebugInfo,
-                  style: TextStyle(
-                    fontSize: WpTypography.body,
-                    fontWeight: FontWeight.w500,
-                    color: _copied
-                        ? (widget.isDark
-                              ? WpColorsDark.success
-                              : WpColorsLight.success)
-                        : (widget.isDark
-                              ? WpColorsDark.textSecondary
-                              : WpColorsLight.textSecondary),
-                  ),
+    // No `label:` — the rendered text is the accessible name, so the "Kopiert!"
+    // confirmation now reaches a screen reader too. The hardcoded label used to
+    // pin the announcement to "Debug-Infos kopieren" forever, which meant the
+    // one bit of feedback this button gives was sighted-users-only.
+    // loam-ignore: a11y-interactive-semantics – name folds in from the rendered text (see _AboutTapTarget)
+    return _AboutTapTarget(
+      onTap: _copy,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: WpSpacing.md,
+          vertical: WpSpacing.xs,
+        ),
+        decoration: BoxDecoration(
+          color: widget.isDark
+              ? WpColorsDark.surfaceVariant
+              : WpColorsLight.surfaceVariant,
+          borderRadius: WpRadius.borderSm,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_busy)
+              SizedBox(
+                width: WpIconSize.sm,
+                height: WpIconSize.sm,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: widget.isDark
+                      ? WpColorsDark.textSecondary
+                      : WpColorsLight.textSecondary,
                 ),
-              ],
+              )
+            else
+              Icon(
+                _copied ? LucideIcons.checkCheck : LucideIcons.copy,
+                size: WpIconSize.sm,
+                color: _copied
+                    ? (widget.isDark
+                          ? WpColorsDark.success
+                          : WpColorsLight.success)
+                    : (widget.isDark
+                          ? WpColorsDark.textSecondary
+                          : WpColorsLight.textSecondary),
+              ),
+            const SizedBox(width: WpSpacing.xs),
+            Text(
+              _copied ? l10n.aboutCopied : l10n.aboutCopyDebugInfo,
+              style: TextStyle(
+                fontSize: WpTypography.body,
+                fontWeight: FontWeight.w500,
+                color: _copied
+                    ? (widget.isDark
+                          ? WpColorsDark.success
+                          : WpColorsLight.success)
+                    : (widget.isDark
+                          ? WpColorsDark.textSecondary
+                          : WpColorsLight.textSecondary),
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );
