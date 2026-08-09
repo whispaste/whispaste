@@ -3789,6 +3789,12 @@ abstract class L10n {
   /// **'{count, plural, =0{unused} =1{1 entry} other{{count} entries}}'**
   String tagUsageCount(int count);
 
+  /// No description provided for @tagOverflowMore.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 more tag} other{{count} more tags}}'**
+  String tagOverflowMore(int count);
+
   /// No description provided for @tagDeleteConfirmTitle.
   ///
   /// In en, this message translates to:

@@ -678,6 +678,8 @@
   "tagManageEmpty": "Noch keine Tags erstellt.",
   "tagUsageCount": "{count, plural, =0{unbenutzt} =1{1 Eintrag} other{{count} Einträge}}",
   "@tagUsageCount": { "placeholders": { "count": { "type": "int" } } },
+  "tagOverflowMore": "{count, plural, =1{1 weiterer Tag} other{{count} weitere Tags}}",
+  "@tagOverflowMore": { "placeholders": { "count": { "type": "int" } } },
   "tagDeleteConfirmTitle": "Tag löschen?",
   "tagDeleteConfirmMessage": "Der Tag \u201E{name}\u201C wird in {count, plural, =1{1 Eintrag} other{{count} Einträgen}} verwendet. Er wird überall entfernt.",
   "@tagDeleteConfirmMessage": { "placeholders": { "name": { "type": "String" }, "count": { "type": "int" } } },

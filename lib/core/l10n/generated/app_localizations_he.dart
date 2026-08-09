@@ -2052,6 +2052,17 @@ class L10nHe extends L10n {
   }
 
   @override
+  String tagOverflowMore(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'עוד $count תגיות',
+      one: 'תגית נוספת אחת',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get tagDeleteConfirmTitle => 'למחוק תגית?';
 
   @override

@@ -2112,6 +2112,17 @@ class L10nDe extends L10n {
   }
 
   @override
+  String tagOverflowMore(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count weitere Tags',
+      one: '1 weiterer Tag',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get tagDeleteConfirmTitle => 'Tag löschen?';
 
   @override

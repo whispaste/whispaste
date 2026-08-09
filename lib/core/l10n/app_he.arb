@@ -708,6 +708,8 @@
   "tagManageEmpty": "עדיין לא נוצרו תגיות.",
   "tagUsageCount": "{count, plural, =0{לא בשימוש} =1{רשומה אחת} other{{count} רשומות}}",
   "@tagUsageCount": { "placeholders": { "count": { "type": "int" } } },
+  "tagOverflowMore": "{count, plural, =1{תגית נוספת אחת} other{עוד {count} תגיות}}",
+  "@tagOverflowMore": { "placeholders": { "count": { "type": "int" } } },
   "tagDeleteConfirmTitle": "למחוק תגית?",
   "tagDeleteConfirmMessage": "התגית \"{name}\" משמשת ב-{count, plural, =1{רשומה אחת} other{{count} רשומות}}. היא תוסר מכולן.",
   "@tagDeleteConfirmMessage": { "placeholders": { "name": { "type": "String" }, "count": { "type": "int" } } },

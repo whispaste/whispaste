@@ -508,9 +508,15 @@ class _OverflowChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
 
+    // Keep an explicit label here and exclude the visible text instead (the
+    // `SettingRow` shape rather than the `MergeSemantics` one): "+12" is a
+    // fine glyph but a useless accessible name, so the name has to be
+    // written out. The old label was the hardcoded English "+12 more tags"
+    // in an app that ships German and Hebrew — a screen reader user on any
+    // other locale got an untranslated string.
     return Semantics(
       button: true,
-      label: '+$count more tags',
+      label: L10n.of(context).tagOverflowMore(count),
       child: GestureDetector(
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
@@ -523,12 +529,14 @@ class _OverflowChip extends StatelessWidget {
             borderRadius: WpRadius.borderFull,
             border: Border.all(color: textMuted.withValues(alpha: 0.2)),
           ),
-          child: Text(
-            '+$count',
-            style: TextStyle(
-              fontSize: WpTypography.small,
-              color: textMuted,
-              fontWeight: FontWeight.w500,
+          child: ExcludeSemantics(
+            child: Text(
+              '+$count',
+              style: TextStyle(
+                fontSize: WpTypography.small,
+                color: textMuted,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         ),
@@ -694,11 +702,20 @@ class _SuggestionTileState extends State<_SuggestionTile> {
                     ),
                   ),
                   if (widget.count != null && widget.count! > 0)
-                    Text(
-                      '${widget.count}',
-                      style: TextStyle(
-                        fontSize: WpTypography.small,
-                        color: textPrimary.withValues(alpha: 0.4),
+                    // The bare glyph "12" reads as a naked number once the
+                    // row is merged ("Arbeit, 12"). `tagUsageCount` is the
+                    // same number spelled out — it already exists in all
+                    // three locales for the tag-management list, and it is
+                    // what this column has always meant.
+                    Semantics(
+                      label: L10n.of(context).tagUsageCount(widget.count!),
+                      excludeSemantics: true,
+                      child: Text(
+                        '${widget.count}',
+                        style: TextStyle(
+                          fontSize: WpTypography.small,
+                          color: textPrimary.withValues(alpha: 0.4),
+                        ),
                       ),
                     ),
                 ],
