@@ -11,6 +11,7 @@ import 'highlighted_text.dart';
 import 'history_date_header.dart';
 import 'history_helpers.dart';
 import '../../../widgets/wp_row_action.dart';
+import '../../../widgets/wp_row_checkbox.dart';
 import '../../../core/utils/word_count.dart';
 
 // ---------------------------------------------------------------------------
@@ -90,14 +91,28 @@ class HistoryCardView extends StatelessWidget {
                       child: HistoryEntryCard(
                         entry: entry,
                         isDark: isDark,
-                        isSelected: entry.id == selectedId,
-                        isFocused: entry.id == focusedId,
+                        // Same overload as the list and compact views
+                        // (history_list_view.dart:69): outside multi-select
+                        // `isSelected` means "open in the detail panel", inside
+                        // it means "checked". The card used to ignore the
+                        // multi-select state entirely, so Ctrl+A filled the
+                        // action bar with "n selected" while every card kept
+                        // its resting look and the following Delete hit a set
+                        // the user could not see.
+                        isSelected: multiSelectMode
+                            ? selectedIds.contains(entry.id)
+                            : entry.id == selectedId,
+                        // The arrow cursor is suppressed in multi-select for
+                        // the same reason as in the other two views: there the
+                        // checkbox column, not the cursor ring, is the state
+                        // the user is manipulating.
+                        isFocused: !multiSelectMode && entry.id == focusedId,
                         onTap: () => onEntryTap(entry),
                         onCopy: () => onCopy(entry),
                         onPin: () => onPin(entry),
                         onDelete: () => onDelete(entry),
                         multiSelectMode: multiSelectMode,
-                        isMultiSelected: selectedIds.contains(entry.id),
+                        isChecked: selectedIds.contains(entry.id),
                       ),
                     ),
                 ],
@@ -125,7 +140,7 @@ class HistoryEntryCard extends StatefulWidget {
     required this.onPin,
     required this.onDelete,
     required this.multiSelectMode,
-    required this.isMultiSelected,
+    required this.isChecked,
     this.isFocused = false,
   });
 
@@ -137,7 +152,7 @@ class HistoryEntryCard extends StatefulWidget {
   final VoidCallback onPin;
   final VoidCallback onDelete;
   final bool multiSelectMode;
-  final bool isMultiSelected;
+  final bool isChecked;
   final bool isFocused;
 
   @override
@@ -193,6 +208,9 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
         : widget.isFocused
         ? accent.withValues(alpha: isDark ? 0.4 : 0.35)
         : (isDark ? WpColorsDark.borderSubtle : WpColorsLight.borderSubtle);
+    final restingSurface = isDark
+        ? WpColorsDark.surfaceElevated
+        : WpColorsLight.surfaceElevated;
     return (
       accent: accent,
       textPrimary: isDark
@@ -202,9 +220,18 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
           ? WpColorsDark.textSecondary
           : WpColorsLight.textSecondary,
       textMuted: isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
-      surfaceElevated: isDark
-          ? WpColorsDark.surfaceElevated
-          : WpColorsLight.surfaceElevated,
+      // Selected cards get the same accent wash the list tile paints
+      // (history_list_tile.dart:114) — composited over the card's own
+      // elevated fill rather than replacing it, so the grid keeps its
+      // material. Without a fill the only selection cue was a 0.5-alpha
+      // hairline border, which is far too quiet to scan a 4-column grid
+      // for "what did Ctrl+A just check?".
+      surfaceElevated: widget.isSelected
+          ? Color.alphaBlend(
+              isDark ? WpColorsDark.accentSubtle : WpColorsLight.accentSubtle,
+              restingSurface,
+            )
+          : restingSurface,
       borderColor: borderColor,
     );
   }
@@ -264,6 +291,18 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
                 // Top row: avatar + title + hover actions
                 Row(
                   children: [
+                    // Multi-select checkbox — same leading position and same
+                    // control as the list and compact rows, so the checked
+                    // state is visible and operable in every view mode.
+                    if (widget.multiSelectMode)
+                      Padding(
+                        padding: const EdgeInsets.only(right: WpSpacing.xs),
+                        child: WpRowCheckbox(
+                          value: widget.isChecked,
+                          onChanged: widget.onTap,
+                          isDark: isDark,
+                        ),
+                      ),
                     HistoryEntryAvatar(
                       color: _avatarCol,
                       icon: _avatarIcon,
@@ -296,7 +335,12 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
                     // 32px avatar keeps setting the title row's height and
                     // the preview below never shifts when they appear.
                     WpRowActions(
-                      visible: _isHovered || widget.isFocused,
+                      // Suppressed in multi-select like the other two views:
+                      // a per-card Delete next to a live batch selection is
+                      // an easy misfire.
+                      visible:
+                          (_isHovered || widget.isFocused) &&
+                          !widget.multiSelectMode,
                       dense: true,
                       children: [
                         // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
