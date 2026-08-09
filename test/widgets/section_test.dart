@@ -1,10 +1,49 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:whispaste/features/settings/settings_widgets.dart';
 import 'package:whispaste/widgets/section.dart';
 
 import '../fixtures/test_helpers.dart';
 
 void main() {
+  // The section head sits directly above the settings rows, so its title has
+  // to start where their content starts. Before this was pinned the title sat
+  // at 15 and the row icons at 12 — near enough to read as a mistake, far
+  // enough to see. The number lives in section.dart (a shared widget must not
+  // import a feature constant), so it can only be kept honest from here.
+  group('WpSection shares the settings reading edge', () {
+    testWidgets('title text starts at kSettingRowInset, like the row icon', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        makeTestable(
+          const WpSection(
+            title: 'Audio',
+            padding: EdgeInsets.zero,
+            child: SettingRow(
+              icon: LucideIcons.mic,
+              label: 'Mikrofon',
+              trailing: SizedBox.shrink(),
+            ),
+          ),
+        ),
+      );
+
+      final titleLeft = tester.getTopLeft(find.text('Audio')).dx;
+      final iconLeft = tester.getTopLeft(find.byIcon(LucideIcons.mic)).dx;
+
+      expect(titleLeft, kSettingRowInset);
+      expect(
+        titleLeft,
+        iconLeft,
+        reason:
+            'The section title and the icon of the row beneath it must share '
+            'one reading edge — see the accent-bar geometry in section.dart.',
+      );
+    });
+  });
+
   group('WpSection (non-collapsible)', () {
     testWidgets('renders with title', (tester) async {
       await tester.pumpWidget(

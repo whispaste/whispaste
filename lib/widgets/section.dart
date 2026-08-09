@@ -78,6 +78,28 @@ class WpSection extends StatelessWidget {
   }
 }
 
+/// Accent-bar geometry, split out because the *sum* is the load-bearing part.
+///
+/// A settings section used to present four competing left edges: 0 (accent
+/// bar and row hover surface), 15 (section title), 12 (row icon) and 40 (row
+/// label). 15-against-12 was the worst of them — near enough to look like a
+/// mistake, far enough to see. `settings_widgets.dart` exports
+/// `kSettingRowInset` (12) as the app's shared reading edge, and
+/// `onboarding_headings.dart` deliberately pins its headings to it; only the
+/// section head that sits directly above those rows ignored it.
+///
+/// 3 + 9 = 12 puts the title text on exactly that edge, so the bar hangs in
+/// the gutter as decoration and everything that carries meaning — section
+/// title, row icon — starts on one line. Two edges instead of four.
+///
+/// Off the spacing scale on purpose: the constraint is the sum, not the gap,
+/// and `WpSpacing.sm` (12) for the gutter is what produced the 15 in the first
+/// place. Not imported from `settings_widgets.dart` — a shared widget must not
+/// depend on a feature — so the number is restated here with its reason, and
+/// `section_test.dart` pins it so the two cannot drift apart silently.
+const double _accentBarWidth = 3;
+const double _accentBarGutter = 9;
+
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({
     required this.title,
@@ -119,9 +141,9 @@ class _SectionHeader extends StatelessWidget {
           children: [
             // Accent bar — warm gradient vertical line
             Container(
-              width: 3,
+              width: _accentBarWidth,
               height: 18,
-              margin: const EdgeInsets.only(right: WpSpacing.sm),
+              margin: const EdgeInsets.only(right: _accentBarGutter),
               decoration: BoxDecoration(
                 gradient: isDark
                     ? WpColorsDark.accentWarmGradient
