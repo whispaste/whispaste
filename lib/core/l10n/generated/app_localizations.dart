@@ -5541,6 +5541,12 @@ abstract class L10n {
   /// **'Search settings…'**
   String get settingsSearchHint;
 
+  /// No description provided for @settingsClearSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear search'**
+  String get settingsClearSearch;
+
   /// No description provided for @settingsSearchNoResults.
   ///
   /// In en, this message translates to:

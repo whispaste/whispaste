@@ -242,7 +242,7 @@ class _SettingsSearchFieldState extends ConsumerState<SettingsSearchField> {
                         size: WpIconSize.sm,
                         color: textMuted,
                       ),
-                      tooltip: l10n.historyClearSearch,
+                      tooltip: l10n.settingsClearSearch,
                       onPressed: _clearSearch,
                     )
                   : null,

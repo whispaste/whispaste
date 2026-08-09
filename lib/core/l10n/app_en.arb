@@ -1170,6 +1170,7 @@
   "parakeetModelCancel": "Cancel",
 
   "settingsSearchHint": "Search settings…",
+  "settingsClearSearch": "Clear search",
   "settingsSearchNoResults": "No Results",
   "settingsSearchNoResultsHint": "Try a different search term.",
   "settingsSearchFieldLabel": "Search settings",

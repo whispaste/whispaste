@@ -3057,6 +3057,9 @@ class L10nHe extends L10n {
   String get settingsSearchHint => 'חיפוש הגדרות…';
 
   @override
+  String get settingsClearSearch => 'נקה חיפוש';
+
+  @override
   String get settingsSearchNoResults => 'אין תוצאות';
 
   @override

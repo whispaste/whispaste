@@ -3131,6 +3131,9 @@ class L10nDe extends L10n {
   String get settingsSearchHint => 'Einstellungen durchsuchen…';
 
   @override
+  String get settingsClearSearch => 'Suche zurücksetzen';
+
+  @override
   String get settingsSearchNoResults => 'Keine Treffer';
 
   @override

@@ -1036,6 +1036,7 @@
   "parakeetModelCancel": "Abbrechen",
 
   "settingsSearchHint": "Einstellungen durchsuchen…",
+  "settingsClearSearch": "Suche zurücksetzen",
   "settingsSearchNoResults": "Keine Treffer",
   "settingsSearchNoResultsHint": "Versuche einen anderen Suchbegriff.",
   "settingsSearchFieldLabel": "Einstellungen durchsuchen",

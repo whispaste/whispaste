@@ -1048,6 +1048,7 @@
   "settingsGpuAccelerationDisabled": "CPU בלבד",
 
   "settingsSearchHint": "חיפוש הגדרות…",
+  "settingsClearSearch": "נקה חיפוש",
   "settingsSearchNoResults": "אין תוצאות",
   "settingsSearchNoResultsHint": "נסה מונח חיפוש אחר.",
   "settingsSearchFieldLabel": "חיפוש הגדרות",
