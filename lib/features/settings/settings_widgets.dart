@@ -330,6 +330,15 @@ Widget settingsSlider({
 /// [key] is forwarded onto the [Switch] itself, not onto a wrapper — tests
 /// look the toggle up with `tester.widget<Switch>(find.byKey(...))`, which a
 /// wrapper node would break.
+///
+/// Deliberately **not** sized into the app's 48 dp control family. Buttons,
+/// search fields, form fields and dropdown triggers all settle at
+/// `WpLayout.minTouchTarget` because they are boxes that line up with each
+/// other on the same line. A switch is not one of those: it is a track with a
+/// thumb, and both Material and the HIG keep it at its own compact size and
+/// centre it in whatever row it sits in — inflating it to 48 would read as a
+/// cartoon of a switch, not as consistency. The 48 belongs to the *row*
+/// around it, which [SettingRow] already carries.
 Widget settingsToggle({
   required bool value,
   required ValueChanged<bool>? onChanged,
