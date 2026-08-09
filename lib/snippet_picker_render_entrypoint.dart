@@ -462,12 +462,23 @@ class _SnippetPickerBodyState extends State<_SnippetPickerBody>
                         ),
                         child: Row(
                           children: [
-                            _KeyHint(
-                              isDark: isDark,
-                              keyLabel: '↩',
-                              label: l10n.snippetsPickerInsertAction,
-                            ),
-                            const SizedBox(width: WpSpacing.md),
+                            // The insert hint is a promise about the Enter
+                            // key. With no row to insert — no snippets
+                            // relayed at all, or a query without matches —
+                            // `_submit` deliberately does nothing but
+                            // re-focus the field, so the hint would keep
+                            // advertising an action that has no effect,
+                            // right next to the empty state that just said
+                            // there is nothing here. Escape is
+                            // unconditional because it always works.
+                            if (highlight >= 0) ...[
+                              _KeyHint(
+                                isDark: isDark,
+                                keyLabel: '↩',
+                                label: l10n.snippetsPickerInsertAction,
+                              ),
+                              const SizedBox(width: WpSpacing.md),
+                            ],
                             _KeyHint(
                               isDark: isDark,
                               keyLabel: 'esc',
@@ -579,11 +590,11 @@ class _SnippetPickerBodyState extends State<_SnippetPickerBody>
             itemBuilder: (context, index) {
               final item = filtered[index];
               // False positive at the call site: _PickerTile's own build
-              // wraps everything in Semantics(button: true, label:
-              // item.title), so the row has an accessible name/role (WCAG
-              // 4.1.2 satisfied inside the widget, invisible to the
-              // call-site heuristic).
-              // loam-ignore: a11y-interactive-semantics – Semantics(label) lives inside _PickerTile
+              // wraps everything in MergeSemantics + Semantics(button:
+              // true), so the row has an accessible name (merged from its
+              // own title/preview text) and role — WCAG 4.1.2 satisfied
+              // inside the widget, invisible to the call-site heuristic.
+              // loam-ignore: a11y-interactive-semantics – Semantics lives inside _PickerTile
               return _PickerTile(
                 item: item,
                 isDark: isDark,
@@ -640,89 +651,105 @@ class _PickerTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-    return Semantics(
-      button: true,
-      label: item.title,
-      child: MouseRegion(
-        onEnter: (_) => onHover(),
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          // The tile is visually transparent (the gliding capsule paints the
-          // selection), so opaque hit-testing keeps the full row tappable.
-          behavior: HitTestBehavior.opaque,
-          onTap: onTap,
-          child: Padding(
-            // xs aligns with the highlight capsule's inset, sm is the
-            // content inset inside it.
-            padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.xs + WpSpacing.sm,
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? WpColorsDark.accentChipFill
-                        : WpColorsLight.accentChipFill,
-                    borderRadius: WpRadius.borderSm,
+    // House idiom for a composed control (`section.dart`,
+    // `mic_permission_chip.dart`): MergeSemantics + a *label-less*
+    // Semantics. An explicit `label: item.title` here does not replace the
+    // subtree's own text, it is prepended to it — the rendered title `Text`
+    // still contributes a node, so a screen reader announced the title
+    // twice on every row of the picker.
+    //
+    // `selected: highlighted` is what makes the panel usable without sight:
+    // the gliding capsule is the *only* selection cue, and it is not focus
+    // (the search field is the sole focus holder by design), so without
+    // this flag arrow keys moved a highlight the semantics tree never
+    // reported.
+    return MergeSemantics(
+      child: Semantics(
+        button: true,
+        selected: highlighted,
+        child: MouseRegion(
+          onEnter: (_) => onHover(),
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            // The tile is visually transparent (the gliding capsule paints the
+            // selection), so opaque hit-testing keeps the full row tappable.
+            behavior: HitTestBehavior.opaque,
+            onTap: onTap,
+            child: Padding(
+              // xs aligns with the highlight capsule's inset, sm is the
+              // content inset inside it.
+              padding: const EdgeInsets.symmetric(
+                horizontal: WpSpacing.xs + WpSpacing.sm,
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? WpColorsDark.accentChipFill
+                          : WpColorsLight.accentChipFill,
+                      borderRadius: WpRadius.borderSm,
+                    ),
+                    child: Icon(
+                      LucideIcons.notebookText,
+                      size: WpIconSize.sm,
+                      color: isDark
+                          ? WpColorsDark.accent
+                          : WpColorsLight.accent,
+                    ),
                   ),
-                  child: Icon(
-                    LucideIcons.notebookText,
-                    size: WpIconSize.sm,
-                    color: isDark ? WpColorsDark.accent : WpColorsLight.accent,
-                  ),
-                ),
-                const SizedBox(width: WpSpacing.sm),
-                Expanded(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item.title,
-                        style: TextStyle(
-                          color: isDark
-                              ? WpColorsDark.textPrimary
-                              : WpColorsLight.textPrimary,
-                          fontSize: WpTypography.body,
-                          fontWeight: FontWeight.w500,
-                          height: _lineHeight,
+                  const SizedBox(width: WpSpacing.sm),
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.title,
+                          style: TextStyle(
+                            color: isDark
+                                ? WpColorsDark.textPrimary
+                                : WpColorsLight.textPrimary,
+                            fontSize: WpTypography.body,
+                            fontWeight: FontWeight.w500,
+                            height: _lineHeight,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        _bodyPreview,
-                        style: TextStyle(
-                          color: textMuted,
-                          fontSize: WpTypography.small,
-                          height: _lineHeight,
+                        const SizedBox(height: 3),
+                        Text(
+                          _bodyPreview,
+                          style: TextStyle(
+                            color: textMuted,
+                            fontSize: WpTypography.small,
+                            height: _lineHeight,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: WpSpacing.xs),
-                // Reserved (not conditional) so the text column never
-                // reflows when the highlight arrives; the affordance fades
-                // in continuously instead of popping.
-                AnimatedOpacity(
-                  opacity: highlighted ? 1 : 0,
-                  duration: WpMotion.durationFor(context, WpMotion.fast),
-                  curve: WpMotion.defaultCurve,
-                  child: Icon(
-                    LucideIcons.cornerDownLeft,
-                    size: WpIconSize.xs,
-                    color: textMuted,
+                  const SizedBox(width: WpSpacing.xs),
+                  // Reserved (not conditional) so the text column never
+                  // reflows when the highlight arrives; the affordance fades
+                  // in continuously instead of popping.
+                  AnimatedOpacity(
+                    opacity: highlighted ? 1 : 0,
+                    duration: WpMotion.durationFor(context, WpMotion.fast),
+                    curve: WpMotion.defaultCurve,
+                    child: Icon(
+                      LucideIcons.cornerDownLeft,
+                      size: WpIconSize.xs,
+                      color: textMuted,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
