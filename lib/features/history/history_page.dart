@@ -149,7 +149,11 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
 
   /// Handles a tap/click on a list entry, interpreting modifier keys for
   /// Ctrl+click (toggle), Shift+click (range select), and plain click.
-  void _handleEntryTap(HistoryEntry entry, List<HistoryEntry> filteredEntries) {
+  ///
+  /// [orderedEntries] must be in *display* order (sort applied), because the
+  /// Shift+click range is defined by what sits between the two clicks on
+  /// screen.
+  void _handleEntryTap(HistoryEntry entry, List<HistoryEntry> orderedEntries) {
     final isCtrl =
         HardwareKeyboard.instance.isControlPressed ||
         HardwareKeyboard.instance.isMetaPressed;
@@ -168,7 +172,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       });
     } else if (isShift && _lastClickedId != null) {
       // Shift+click: range select from last clicked
-      final flatIds = filteredEntries.map((e) => e.id).toList();
+      final flatIds = orderedEntries.map((e) => e.id).toList();
       final from = flatIds.indexOf(_lastClickedId!);
       final to = flatIds.indexOf(entry.id);
       if (from >= 0 && to >= 0) {
@@ -371,7 +375,15 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
             isTrashView: isTrashView,
             isArchiveView: isArchiveView,
             exportFn: widget.exportFn,
-            onEntryTap: (entry) => _handleEntryTap(entry, filteredEntries),
+            // `flat`, not `filteredEntries`: the range Shift+click selects has
+            // to be the range the user sees between the two clicks, and only
+            // `flat` has the current sort order applied (_flatEntries →
+            // _applySortOrder, the same list the arrow keys walk).
+            // `filteredEntries` is raw provider order, so with sort = oldest
+            // or longest a Shift+click quietly selected a different set of
+            // entries than the one highlighted on screen — and the next batch
+            // Delete acted on that set.
+            onEntryTap: (entry) => _handleEntryTap(entry, flat),
             onCopy: _copyEntry,
             onPin: _togglePin,
             onDelete: _deleteEntry,
