@@ -180,17 +180,18 @@ void main() {
   // ── Hotkey rebind (modal path) ────────────────────────────────────────
 
   group('TriggerStep — hotkey rebind', () {
-    testWidgets('success: Change button opens the modal HotkeyRecorderDialog', (
-      tester,
-    ) async {
-      await _pumpStep(tester);
+    testWidgets(
+      'success: Change button opens the modal WpHotkeyRecorderDialog',
+      (tester) async {
+        await _pumpStep(tester);
 
-      expect(find.byKey(kTriggerStepChangeHotkeyKey), findsOneWidget);
-      await tester.tap(find.byKey(kTriggerStepChangeHotkeyKey));
-      await tester.pumpAndSettle();
+        expect(find.byKey(kTriggerStepChangeHotkeyKey), findsOneWidget);
+        await tester.tap(find.byKey(kTriggerStepChangeHotkeyKey));
+        await tester.pumpAndSettle();
 
-      expect(find.byType(HotkeyRecorderDialog), findsOneWidget);
-    });
+        expect(find.byType(WpHotkeyRecorderDialog), findsOneWidget);
+      },
+    );
   });
 
   // ── Conflict branch ────────────────────────────────────────────────────
@@ -209,7 +210,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.byKey(kTriggerStepInlineRecorderKey), findsOneWidget);
-      expect(find.byType(HotkeyRecorderDialog), findsOneWidget);
+      expect(find.byType(WpHotkeyRecorderDialog), findsOneWidget);
 
       // Record Ctrl+Shift+F5 and save — exercises the inline `onSubmit`
       // wiring straight through to `updateSettings`.

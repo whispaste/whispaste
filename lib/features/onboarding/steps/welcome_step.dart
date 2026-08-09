@@ -60,7 +60,7 @@ String onboardingBeatAssetPath({
 /// much (the tile's horizontal padding).
 const double kOnboardingContentInset = WpSpacing.md;
 
-/// Width of the language dropdown. [LanguageSelector] runs `isExpanded:
+/// Width of the language dropdown. [WpLanguageSelector] runs `isExpanded:
 /// true`, so it would otherwise stretch across the whole (deliberately wide)
 /// page-1 frame — a full-width control for a three-item choice is exactly
 /// the boxiness this page is trying to lose.
@@ -222,7 +222,7 @@ class WelcomeStep extends ConsumerWidget {
             ),
             child: SizedBox(
               width: _kLanguageSelectorWidth,
-              child: LanguageSelector(
+              child: WpLanguageSelector(
                 currentLocale: settings.locale,
                 onChanged: selectLocale,
               ),

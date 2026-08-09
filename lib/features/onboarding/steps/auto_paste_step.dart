@@ -447,7 +447,7 @@ class _MacOsBody extends StatelessWidget {
 
       case _AutoPastePhase.troubleshoot:
         return [
-          PasteCapabilityRestartBanner(
+          WpPasteCapabilityRestartBanner(
             onRestart: () => notifier.restartForGrant(),
           ),
           const SizedBox(height: WpSpacing.sm),

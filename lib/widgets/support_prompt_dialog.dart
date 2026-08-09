@@ -34,17 +34,18 @@ import 'wp_button.dart';
 /// Place this widget anywhere in the widget tree — it renders no visible UI
 /// of its own and waits [kPostRecordingPromptDelay] before showing, so it
 /// never interrupts a recording's completion moment.
-class SupportPromptWatcher extends ConsumerStatefulWidget {
-  const SupportPromptWatcher({super.key, required this.child});
+class WpSupportPromptWatcher extends ConsumerStatefulWidget {
+  const WpSupportPromptWatcher({super.key, required this.child});
 
   final Widget child;
 
   @override
-  ConsumerState<SupportPromptWatcher> createState() =>
-      _SupportPromptWatcherState();
+  ConsumerState<WpSupportPromptWatcher> createState() =>
+      _WpSupportPromptWatcherState();
 }
 
-class _SupportPromptWatcherState extends ConsumerState<SupportPromptWatcher> {
+class _WpSupportPromptWatcherState
+    extends ConsumerState<WpSupportPromptWatcher> {
   Timer? _delay;
   bool _dialogShowing = false;
 

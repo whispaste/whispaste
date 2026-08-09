@@ -21,16 +21,16 @@ import 'paste_capability_restart_banner.dart';
 import 'toast.dart';
 import 'wp_button.dart';
 
-class PasteCapabilityIndicator extends ConsumerStatefulWidget {
-  const PasteCapabilityIndicator({super.key});
+class WpPasteCapabilityIndicator extends ConsumerStatefulWidget {
+  const WpPasteCapabilityIndicator({super.key});
 
   @override
-  ConsumerState<PasteCapabilityIndicator> createState() =>
-      _PasteCapabilityIndicatorState();
+  ConsumerState<WpPasteCapabilityIndicator> createState() =>
+      _WpPasteCapabilityIndicatorState();
 }
 
-class _PasteCapabilityIndicatorState
-    extends ConsumerState<PasteCapabilityIndicator> {
+class _WpPasteCapabilityIndicatorState
+    extends ConsumerState<WpPasteCapabilityIndicator> {
   bool _busy = false;
   bool _showTroubleshoot = false;
 
@@ -106,7 +106,7 @@ class _PasteCapabilityIndicatorState
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          PasteCapabilityRestartBanner(
+          WpPasteCapabilityRestartBanner(
             onRestart: () => notifier.restartForGrant(),
           ),
           const SizedBox(height: WpSpacing.xxs),

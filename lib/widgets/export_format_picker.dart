@@ -3,7 +3,7 @@
 /// Pure UI — performs no filesystem or service side effects. Wiring into the
 /// history export flow lives elsewhere.
 ///
-/// Use [showExportFormatPicker] to display it. The returned future resolves
+/// Use [showWpExportFormatPicker] to display it. The returned future resolves
 /// with the selected [ExportFormat] or `null` if dismissed (barrier tap or
 /// Escape).
 library;
@@ -31,7 +31,7 @@ import '../features/history/data/export_service.dart';
 /// user taps the barrier or presses Escape.
 ///
 /// [formats] narrows the offered options; defaults to all five formats.
-Future<ExportFormat?> showExportFormatPicker(
+Future<ExportFormat?> showWpExportFormatPicker(
   BuildContext context, {
   List<ExportFormat> formats = _orderedFormats,
 }) {

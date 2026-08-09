@@ -1,6 +1,6 @@
 /// Store thank-you hint watcher and dialog.
 ///
-/// [StoreThankYouWatcher] listens for the right moment to surface a
+/// [WpStoreThankYouWatcher] listens for the right moment to surface a
 /// one-time, discreet "Danke für deine Unterstützung" overlay shown to
 /// Store-channel users after their onboarding completes.
 ///
@@ -32,7 +32,7 @@ import '../core/theme/tokens.dart';
 import '../services/store_thank_you_service.dart';
 import 'wp_button.dart';
 
-/// Override for testing. When non-null, [StoreThankYouWatcher] uses this
+/// Override for testing. When non-null, [WpStoreThankYouWatcher] uses this
 /// value instead of [Platform.isWindows].
 @visibleForTesting
 bool? storeThankYouPlatformIsWindowsOverride;
@@ -49,18 +49,19 @@ bool? storeThankYouPlatformIsWindowsOverride;
 /// `true` in the current session (first-run users).
 ///
 /// Place this widget anywhere above the content layer (e.g., wrapping
-/// [ServiceBootstrapWidget]).  It renders no visible UI of its own.
-class StoreThankYouWatcher extends ConsumerStatefulWidget {
-  const StoreThankYouWatcher({super.key, required this.child});
+/// [WpServiceBootstrap]).  It renders no visible UI of its own.
+class WpStoreThankYouWatcher extends ConsumerStatefulWidget {
+  const WpStoreThankYouWatcher({super.key, required this.child});
 
   final Widget child;
 
   @override
-  ConsumerState<StoreThankYouWatcher> createState() =>
-      _StoreThankYouWatcherState();
+  ConsumerState<WpStoreThankYouWatcher> createState() =>
+      _WpStoreThankYouWatcherState();
 }
 
-class _StoreThankYouWatcherState extends ConsumerState<StoreThankYouWatcher> {
+class _WpStoreThankYouWatcherState
+    extends ConsumerState<WpStoreThankYouWatcher> {
   Timer? _delay;
   bool _dialogShowing = false;
 

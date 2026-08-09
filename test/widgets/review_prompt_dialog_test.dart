@@ -1,4 +1,4 @@
-/// Widget tests for [ReviewPromptWatcher] — verifies button layout and URL
+/// Widget tests for [WpReviewPromptWatcher] — verifies button layout and URL
 /// targets across all platform × channel combinations.
 ///
 /// Covers:
@@ -44,7 +44,7 @@ class _FakeReviewPromptNotifier extends ReviewPromptNotifier {
   ReviewPromptState build() =>
       ReviewPromptState(shouldShowPrompt: false, channel: _channel);
 
-  /// Flips [shouldShowPrompt] to `true` so [ReviewPromptWatcher]'s listener
+  /// Flips [shouldShowPrompt] to `true` so [WpReviewPromptWatcher]'s listener
   /// fires and starts the 1-second delay.
   void triggerShow() =>
       state = ReviewPromptState(shouldShowPrompt: true, channel: _channel);
@@ -67,7 +67,7 @@ class _FakeReviewPromptNotifier extends ReviewPromptNotifier {
 
 const _launcherChannel = MethodChannel('plugins.flutter.io/url_launcher');
 
-/// Pumps [ReviewPromptWatcher] and advances time past [kPostRecordingPromptDelay]
+/// Pumps [WpReviewPromptWatcher] and advances time past [kPostRecordingPromptDelay]
 /// so the dialog is fully visible and animated in.
 Future<_FakeReviewPromptNotifier> _showDialog(
   WidgetTester tester,
@@ -80,7 +80,7 @@ Future<_FakeReviewPromptNotifier> _showDialog(
 
   await tester.pumpWidget(
     makeTestable(
-      const ReviewPromptWatcher(child: SizedBox()),
+      const WpReviewPromptWatcher(child: SizedBox()),
       locale: const Locale('en'),
       overrides: [reviewPromptProvider.overrideWith(() => notifier)],
     ),
@@ -206,7 +206,7 @@ void main() {
 
       // Routed to the internal feedback page — not the store.
       final container = ProviderScope.containerOf(
-        tester.element(find.byType(ReviewPromptWatcher)),
+        tester.element(find.byType(WpReviewPromptWatcher)),
       );
       expect(container.read(activePageProvider), 'feedback');
       // No store (or any) URL was launched on the negative path.

@@ -70,13 +70,13 @@ typedef ToasterFn =
 /// Class form of [exportEntries] — accepts injectable dependencies for tests.
 ///
 /// The default constructor wires production bindings:
-/// [showExportFormatPicker], [ExportService.export], [getDownloadsDirectory] /
+/// [showWpExportFormatPicker], [ExportService.export], [getDownloadsDirectory] /
 /// [getApplicationDocumentsDirectory], and [WpToast.show]. Tests construct
 /// a [HistoryExporter] with fakes to assert orchestration behaviour without
 /// touching the filesystem or platform channels.
 class HistoryExporter {
   const HistoryExporter({
-    this.pickerFn = showExportFormatPicker,
+    this.pickerFn = showWpExportFormatPicker,
     this.exporter = ExportService.export,
     this.downloadsDirFn = getDownloadsDirectory,
     this.documentsDirFn = getApplicationDocumentsDirectory,

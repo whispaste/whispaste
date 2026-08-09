@@ -76,7 +76,7 @@ class TriggerStep extends ConsumerWidget {
         // as a disabled Start button.
         //
         // This branch adds the warn box plus a full inline
-        // HotkeyRecorderDialog. On the merged Model & Hotkey page that meant
+        // WpHotkeyRecorderDialog. On the merged Model & Hotkey page that meant
         // 914 px (de) / 921 px (he) against a 551-px viewport — ~370 px of
         // forced scrolling, documented as out of reach without a flow change.
         // The flow change happened: the hotkey block has its own page now, and
@@ -98,7 +98,7 @@ class TriggerStep extends ConsumerWidget {
             isDark: isDark,
           ),
           const SizedBox(height: WpSpacing.xs),
-          HotkeyRecorderDialog(
+          WpHotkeyRecorderDialog(
             key: kTriggerStepInlineRecorderKey,
             initialKey: hotkeyKey,
             initialDisplayKey: hotkeyDisplay,
@@ -157,7 +157,7 @@ class TriggerStep extends ConsumerWidget {
                 variant: WpButtonVariant.secondary,
                 size: WpButtonSize.dense,
                 onPressed: () async {
-                  final result = await HotkeyRecorderDialog.show(
+                  final result = await WpHotkeyRecorderDialog.show(
                     context,
                     initialKey: hotkeyKey,
                     initialDisplayKey: hotkeyDisplay,

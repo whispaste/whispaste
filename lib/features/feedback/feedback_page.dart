@@ -540,7 +540,7 @@ class _ContactEmailSection extends StatelessWidget {
             ),
           ),
           const SizedBox(height: WpSpacing.sm),
-          LanguageSelector(
+          WpLanguageSelector(
             currentLocale:
                 contactLocale ?? Localizations.localeOf(context).languageCode,
             onChanged: onContactLocaleChanged,

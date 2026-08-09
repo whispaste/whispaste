@@ -21,17 +21,16 @@ import '../services/recording_trigger_handler.dart';
 import '../services/tray_service.dart';
 
 /// Invisible wrapper that eagerly boots keepAlive service providers.
-class ServiceBootstrapWidget extends ConsumerStatefulWidget {
-  const ServiceBootstrapWidget({super.key, required this.child});
+class WpServiceBootstrap extends ConsumerStatefulWidget {
+  const WpServiceBootstrap({super.key, required this.child});
 
   final Widget child;
 
   @override
-  ConsumerState<ServiceBootstrapWidget> createState() =>
-      _ServiceBootstrapState();
+  ConsumerState<WpServiceBootstrap> createState() => _WpServiceBootstrapState();
 }
 
-class _ServiceBootstrapState extends ConsumerState<ServiceBootstrapWidget> {
+class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
   bool _orchestratorInitialized = false;
 
   /// The single [RecordingTriggerHandler] instance for this state's lifetime.

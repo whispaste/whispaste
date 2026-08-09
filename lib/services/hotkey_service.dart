@@ -150,7 +150,7 @@ class HotkeyService extends Notifier<void> {
   /// Callback fired when hotkey registration fails and the safe default is
   /// used instead.
   ///
-  /// The caller (e.g. [ServiceBootstrapWidget]) should show a localised toast
+  /// The caller (e.g. [WpServiceBootstrap]) should show a localised toast
   /// that prompts the user to re-bind their shortcut in Settings.
   VoidCallback? onRegistrationFailed;
 

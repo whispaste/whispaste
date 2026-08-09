@@ -1,5 +1,5 @@
 /// Tests confirming:
-/// - The language picker inside [InterfaceSection] uses [LanguageSelector].
+/// - The language picker inside [InterfaceSection] uses [WpLanguageSelector].
 /// - The autostart 3-way dropdown maps bool combinations correctly and writes
 ///   both fields on selection.
 library;
@@ -64,7 +64,7 @@ void main() {
   // ── Language picker ────────────────────────────────────────────────────────
 
   group('InterfaceSection language picker', () {
-    testWidgets('renders a LanguageSelector widget', (tester) async {
+    testWidgets('renders a WpLanguageSelector widget', (tester) async {
       await tester.pumpWidget(
         makeTestable(
           const SingleChildScrollView(child: InterfaceSection()),
@@ -79,7 +79,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.byType(LanguageSelector), findsOneWidget);
+      expect(find.byType(WpLanguageSelector), findsOneWidget);
     });
 
     testWidgets('tapping a different entry writes the code to the provider', (
@@ -97,7 +97,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byType(LanguageSelector));
+      await tester.tap(find.byType(WpLanguageSelector));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Deutsch').last);
       await tester.pumpAndSettle();

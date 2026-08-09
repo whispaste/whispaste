@@ -71,7 +71,7 @@ void main() {
 
       // Open the dropdown so all entries become visible — the closed
       // state only shows the currently active locale.
-      await tester.tap(find.byType(LanguageSelector));
+      await tester.tap(find.byType(WpLanguageSelector));
       await tester.pumpAndSettle();
 
       for (final locale in L10n.supportedLocales) {
@@ -105,7 +105,7 @@ void main() {
 
       // Slice 06 turned the language selector into a dropdown — open it
       // first, then tap the German entry inside the popup.
-      await tester.tap(find.byType(LanguageSelector));
+      await tester.tap(find.byType(WpLanguageSelector));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Deutsch').last);
       await tester.pumpAndSettle();
@@ -130,7 +130,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byType(LanguageSelector));
+      await tester.tap(find.byType(WpLanguageSelector));
       await tester.pumpAndSettle();
       await tester.tap(find.text(localeNativeName(const Locale('he'))).last);
       await tester.pumpAndSettle();

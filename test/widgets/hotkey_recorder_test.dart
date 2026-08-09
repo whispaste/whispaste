@@ -77,10 +77,13 @@ void main() {
   // Widget tests — key recording behaviour
   // ---------------------------------------------------------------------------
 
-  group('HotkeyRecorderDialog', () {
+  group('WpHotkeyRecorderDialog', () {
     testWidgets('renders modifier hint text', (tester) async {
       await tester.pumpWidget(
-        makeTestable(const HotkeyRecorderDialog(), size: const Size(800, 600)),
+        makeTestable(
+          const WpHotkeyRecorderDialog(),
+          size: const Size(800, 600),
+        ),
       );
       await tester.pump();
 
@@ -91,11 +94,14 @@ void main() {
 
     testWidgets('modifier hint is present in the widget tree', (tester) async {
       await tester.pumpWidget(
-        makeTestable(const HotkeyRecorderDialog(), size: const Size(800, 600)),
+        makeTestable(
+          const WpHotkeyRecorderDialog(),
+          size: const Size(800, 600),
+        ),
       );
       await tester.pump();
 
-      final context = tester.element(find.byType(HotkeyRecorderDialog));
+      final context = tester.element(find.byType(WpHotkeyRecorderDialog));
       final l10n = L10n.of(context);
 
       expect(
@@ -107,7 +113,7 @@ void main() {
     testWidgets('displays initial key combo from parameters', (tester) async {
       await tester.pumpWidget(
         makeTestable(
-          const HotkeyRecorderDialog(
+          const WpHotkeyRecorderDialog(
             initialKey: 'R',
             initialModifiers: 'ctrl+shift',
           ),
@@ -123,7 +129,7 @@ void main() {
     testWidgets('clear button resets the combo display', (tester) async {
       await tester.pumpWidget(
         makeTestable(
-          const HotkeyRecorderDialog(
+          const WpHotkeyRecorderDialog(
             initialKey: 'D',
             initialModifiers: 'ctrl+shift',
           ),
@@ -132,7 +138,7 @@ void main() {
       );
       await tester.pump();
 
-      final context = tester.element(find.byType(HotkeyRecorderDialog));
+      final context = tester.element(find.byType(WpHotkeyRecorderDialog));
       final l10n = L10n.of(context);
 
       // Tap clear
@@ -150,7 +156,7 @@ void main() {
     ) async {
       await tester.pumpWidget(
         makeTestable(
-          const HotkeyRecorderDialog(initialKey: '', initialModifiers: ''),
+          const WpHotkeyRecorderDialog(initialKey: '', initialModifiers: ''),
           size: const Size(800, 600),
         ),
       );
@@ -172,7 +178,7 @@ void main() {
     ) async {
       await tester.pumpWidget(
         makeTestable(
-          const HotkeyRecorderDialog(initialKey: '', initialModifiers: ''),
+          const WpHotkeyRecorderDialog(initialKey: '', initialModifiers: ''),
           size: const Size(800, 600),
         ),
       );
@@ -195,7 +201,7 @@ void main() {
       (tester) async {
         await tester.pumpWidget(
           makeTestable(
-            const HotkeyRecorderDialog(initialKey: '', initialModifiers: ''),
+            const WpHotkeyRecorderDialog(initialKey: '', initialModifiers: ''),
             size: const Size(800, 600),
           ),
         );
@@ -221,13 +227,16 @@ void main() {
       (tester) async {
         await tester.pumpWidget(
           makeTestable(
-            const HotkeyRecorderDialog(initialKey: 'F5', initialModifiers: ''),
+            const WpHotkeyRecorderDialog(
+              initialKey: 'F5',
+              initialModifiers: '',
+            ),
             size: const Size(800, 600),
           ),
         );
         await tester.pump();
 
-        final context = tester.element(find.byType(HotkeyRecorderDialog));
+        final context = tester.element(find.byType(WpHotkeyRecorderDialog));
         final l10n = L10n.of(context);
 
         // Save button must be enabled (onPressed != null).
@@ -245,7 +254,7 @@ void main() {
     ) async {
       await tester.pumpWidget(
         makeTestable(
-          const HotkeyRecorderDialog(
+          const WpHotkeyRecorderDialog(
             // ctrl+shift+D is not a known system conflict on any platform.
             initialKey: 'D',
             initialModifiers: 'ctrl+shift',
@@ -280,7 +289,7 @@ void main() {
 
         await tester.pumpWidget(
           makeTestable(
-            const HotkeyRecorderDialog(
+            const WpHotkeyRecorderDialog(
               initialKey: 'L',
               initialModifiers: 'meta',
             ),
@@ -310,13 +319,16 @@ void main() {
 
       await tester.pumpWidget(
         makeTestable(
-          const HotkeyRecorderDialog(initialKey: 'L', initialModifiers: 'meta'),
+          const WpHotkeyRecorderDialog(
+            initialKey: 'L',
+            initialModifiers: 'meta',
+          ),
           size: const Size(800, 600),
         ),
       );
       await tester.pump();
 
-      final context = tester.element(find.byType(HotkeyRecorderDialog));
+      final context = tester.element(find.byType(WpHotkeyRecorderDialog));
       final l10n = L10n.of(context);
 
       final saveButton = tester.widget<WpButton>(
@@ -337,12 +349,12 @@ void main() {
     // `Umschalt`, `Befehl`). Otherwise the global hotkey registrar drops the
     // modifier on read and the user's hotkey silently fires without it.
 
-    Future<HotkeyResult?> openRecorderAndCapture(
+    Future<WpHotkeyResult?> openRecorderAndCapture(
       WidgetTester tester, {
       required List<LogicalKeyboardKey> keys,
       Locale? locale,
     }) async {
-      HotkeyResult? captured;
+      WpHotkeyResult? captured;
 
       await tester.pumpWidget(
         makeTestable(
@@ -350,7 +362,7 @@ void main() {
             builder: (ctx) => ElevatedButton(
               key: const Key('open-recorder'),
               onPressed: () async {
-                captured = await HotkeyRecorderDialog.show(ctx);
+                captured = await WpHotkeyRecorderDialog.show(ctx);
               },
               child: const Text('open'),
             ),
@@ -368,7 +380,7 @@ void main() {
         await tester.pump();
       }
 
-      final context = tester.element(find.byType(HotkeyRecorderDialog));
+      final context = tester.element(find.byType(WpHotkeyRecorderDialog));
       final l10n = L10n.of(context);
       await tester.tap(
         find.widgetWithText(WpButton, l10n.settingsHotkeyRecorderSave),
@@ -561,7 +573,7 @@ void main() {
       (tester) async {
         await tester.pumpWidget(
           makeTestable(
-            const HotkeyRecorderDialog(
+            const WpHotkeyRecorderDialog(
               initialKey: 'D',
               initialModifiers: 'ctrl+shift',
             ),
@@ -570,7 +582,7 @@ void main() {
         );
         await tester.pump();
 
-        final context = tester.element(find.byType(HotkeyRecorderDialog));
+        final context = tester.element(find.byType(WpHotkeyRecorderDialog));
         final l10n = L10n.of(context);
 
         // Hold Ctrl, press a non-recordable key (numLock has a physical
@@ -605,7 +617,7 @@ void main() {
     ) async {
       await tester.pumpWidget(
         makeTestable(
-          const HotkeyRecorderDialog(initialKey: '', initialModifiers: ''),
+          const WpHotkeyRecorderDialog(initialKey: '', initialModifiers: ''),
           size: const Size(800, 600),
         ),
       );
@@ -629,7 +641,7 @@ void main() {
       (tester) async {
         await tester.pumpWidget(
           makeTestable(
-            const HotkeyRecorderDialog(
+            const WpHotkeyRecorderDialog(
               initialKey: 'D',
               initialModifiers: 'ctrl+shift',
             ),
@@ -638,7 +650,7 @@ void main() {
         );
         await tester.pump();
 
-        final context = tester.element(find.byType(HotkeyRecorderDialog));
+        final context = tester.element(find.byType(WpHotkeyRecorderDialog));
         final l10n = L10n.of(context);
 
         // Trigger hint with a key that has a physical mapping but is not
@@ -670,7 +682,7 @@ void main() {
       (tester) async {
         await tester.pumpWidget(
           makeTestable(
-            const HotkeyRecorderDialog(
+            const WpHotkeyRecorderDialog(
               initialKey: 'D',
               initialModifiers: 'ctrl+shift',
             ),
@@ -679,7 +691,7 @@ void main() {
         );
         await tester.pump();
 
-        final context = tester.element(find.byType(HotkeyRecorderDialog));
+        final context = tester.element(find.byType(WpHotkeyRecorderDialog));
         final l10n = L10n.of(context);
 
         await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
@@ -713,13 +725,13 @@ void main() {
         // Start with an empty initial combo so Save begins disabled.
         await tester.pumpWidget(
           makeTestable(
-            const HotkeyRecorderDialog(initialKey: '', initialModifiers: ''),
+            const WpHotkeyRecorderDialog(initialKey: '', initialModifiers: ''),
             size: const Size(800, 600),
           ),
         );
         await tester.pump();
 
-        final context = tester.element(find.byType(HotkeyRecorderDialog));
+        final context = tester.element(find.byType(WpHotkeyRecorderDialog));
         final l10n = L10n.of(context);
 
         // Press Ctrl+numLock — a key with a physical mapping that is
@@ -747,21 +759,21 @@ void main() {
 
     // ── Phase B: punctuation + physical-key fallback ─────────────────────
 
-    Future<HotkeyResult?> openAndCapture(
+    Future<WpHotkeyResult?> openAndCapture(
       WidgetTester tester, {
       required Future<void> Function() driveKeys,
       String initialKey = '',
       String initialDisplayKey = '',
       String initialModifiers = '',
     }) async {
-      HotkeyResult? captured;
+      WpHotkeyResult? captured;
       await tester.pumpWidget(
         makeTestable(
           Builder(
             builder: (ctx) => ElevatedButton(
               key: const Key('open-recorder-pb'),
               onPressed: () async {
-                captured = await HotkeyRecorderDialog.show(
+                captured = await WpHotkeyRecorderDialog.show(
                   ctx,
                   initialKey: initialKey,
                   initialDisplayKey: initialDisplayKey,
@@ -780,7 +792,7 @@ void main() {
 
       await driveKeys();
 
-      final context = tester.element(find.byType(HotkeyRecorderDialog));
+      final context = tester.element(find.byType(WpHotkeyRecorderDialog));
       final l10n = L10n.of(context);
       await tester.tap(
         find.widgetWithText(WpButton, l10n.settingsHotkeyRecorderSave),
@@ -833,7 +845,7 @@ void main() {
       (tester) async {
         await tester.pumpWidget(
           makeTestable(
-            const HotkeyRecorderDialog(
+            const WpHotkeyRecorderDialog(
               initialKey: 'Ö',
               initialModifiers: 'meta',
             ),
@@ -842,7 +854,7 @@ void main() {
         );
         await tester.pump();
 
-        final context = tester.element(find.byType(HotkeyRecorderDialog));
+        final context = tester.element(find.byType(WpHotkeyRecorderDialog));
         final l10n = L10n.of(context);
         final saveButton = tester.widget<WpButton>(
           find.widgetWithText(WpButton, l10n.settingsHotkeyRecorderSave),
@@ -865,7 +877,7 @@ void main() {
       (tester) async {
         await tester.pumpWidget(
           makeTestable(
-            const HotkeyRecorderDialog(
+            const WpHotkeyRecorderDialog(
               initialKey: ';',
               initialDisplayKey: 'Ö',
               initialModifiers: 'meta',
@@ -891,7 +903,10 @@ void main() {
 
       await tester.pumpWidget(
         makeTestable(
-          const HotkeyRecorderDialog(initialKey: 'L', initialModifiers: 'meta'),
+          const WpHotkeyRecorderDialog(
+            initialKey: 'L',
+            initialModifiers: 'meta',
+          ),
           size: const Size(800, 600),
         ),
       );
@@ -900,7 +915,7 @@ void main() {
       // Verify warning is visible first.
       expect(find.byKey(const Key('hotkeyConflictWarning')), findsOneWidget);
 
-      final context = tester.element(find.byType(HotkeyRecorderDialog));
+      final context = tester.element(find.byType(WpHotkeyRecorderDialog));
       final l10n = L10n.of(context);
 
       // Tap Clear.

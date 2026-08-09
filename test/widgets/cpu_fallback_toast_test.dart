@@ -4,7 +4,7 @@
 /// the pure transition gate ([shouldShowCpuFallbackToast]) is unit-tested
 /// without any widget tree, and the toast rendering itself
 /// ([showCpuFallbackToast]) is exercised through a minimal harness widget —
-/// neither needs the full `RecordingBehaviorWidget` + `ref.listen` wiring
+/// neither needs the full `WpRecordingBehavior` + `ref.listen` wiring
 /// mounted, so no app-shell/overlay bootstrapping is required to prove the
 /// behaviour.
 library;

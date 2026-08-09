@@ -20,7 +20,7 @@ import '../services/review_prompt_service.dart';
 import 'animated_prompt_dialog.dart';
 import 'wp_button.dart';
 
-/// Override for testing. When non-null, [ReviewPromptWatcher] uses this value
+/// Override for testing. When non-null, [WpReviewPromptWatcher] uses this value
 /// instead of [Platform.isWindows].
 @visibleForTesting
 bool? platformIsWindowsOverride;
@@ -33,20 +33,20 @@ bool? platformIsWindowsOverride;
 /// when [ReviewPromptState.shouldShowPrompt] becomes `true`.
 ///
 /// Place this widget anywhere in the widget tree — it renders no visible UI
-/// of its own and waits (see [PostRecordingPromptDelay]) to avoid
+/// of its own and waits (see [WpPostRecordingPromptDelay]) to avoid
 /// interrupting the user right at their recording's completion moment.
-class ReviewPromptWatcher extends ConsumerStatefulWidget {
-  const ReviewPromptWatcher({super.key, required this.child});
+class WpReviewPromptWatcher extends ConsumerStatefulWidget {
+  const WpReviewPromptWatcher({super.key, required this.child});
 
   final Widget child;
 
   @override
-  ConsumerState<ReviewPromptWatcher> createState() =>
-      _ReviewPromptWatcherState();
+  ConsumerState<WpReviewPromptWatcher> createState() =>
+      _WpReviewPromptWatcherState();
 }
 
-class _ReviewPromptWatcherState extends ConsumerState<ReviewPromptWatcher>
-    with PostRecordingPromptDelay<ReviewPromptWatcher> {
+class _WpReviewPromptWatcherState extends ConsumerState<WpReviewPromptWatcher>
+    with WpPostRecordingPromptDelay<WpReviewPromptWatcher> {
   bool get _isWindows => platformIsWindowsOverride ?? Platform.isWindows;
 
   void _maybeShow(ReviewPromptState state, BuildContext context) {
@@ -57,7 +57,7 @@ class _ReviewPromptWatcherState extends ConsumerState<ReviewPromptWatcher>
   }
 
   Future<void> _showDialog(BuildContext context, DeployChannel channel) async {
-    await showAnimatedPromptDialog<void>(
+    await showWpAnimatedPromptDialog<void>(
       context: context,
       contentBuilder: (ctx, animation) => _ReviewPromptDialog(
         channel: channel,

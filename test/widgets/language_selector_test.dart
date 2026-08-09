@@ -7,7 +7,7 @@ import 'package:whispaste/widgets/language_selector.dart';
 
 import '../fixtures/test_helpers.dart';
 
-/// Public-API tests for [LanguageSelector].
+/// Public-API tests for [WpLanguageSelector].
 ///
 /// Slice 06 deliberately drops the segmented pill row plus flag icons and
 /// replaces it with a compact dropdown widget that renders the native
@@ -16,12 +16,14 @@ import '../fixtures/test_helpers.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('LanguageSelector', () {
+  group('WpLanguageSelector', () {
     testWidgets('closed state shows the native name for the current locale', (
       tester,
     ) async {
       await tester.pumpWidget(
-        makeTestable(LanguageSelector(currentLocale: 'de', onChanged: (_) {})),
+        makeTestable(
+          WpLanguageSelector(currentLocale: 'de', onChanged: (_) {}),
+        ),
       );
       await tester.pumpAndSettle();
 
@@ -32,7 +34,9 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(
-        makeTestable(LanguageSelector(currentLocale: 'en', onChanged: (_) {})),
+        makeTestable(
+          WpLanguageSelector(currentLocale: 'en', onChanged: (_) {}),
+        ),
       );
       await tester.pumpAndSettle();
 
@@ -43,11 +47,13 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(
-        makeTestable(LanguageSelector(currentLocale: 'de', onChanged: (_) {})),
+        makeTestable(
+          WpLanguageSelector(currentLocale: 'de', onChanged: (_) {}),
+        ),
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byType(LanguageSelector));
+      await tester.tap(find.byType(WpLanguageSelector));
       await tester.pumpAndSettle();
 
       for (final locale in L10n.supportedLocales) {
@@ -63,11 +69,13 @@ void main() {
 
     testWidgets('opened state renders no SvgPicture flags', (tester) async {
       await tester.pumpWidget(
-        makeTestable(LanguageSelector(currentLocale: 'de', onChanged: (_) {})),
+        makeTestable(
+          WpLanguageSelector(currentLocale: 'de', onChanged: (_) {}),
+        ),
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byType(LanguageSelector));
+      await tester.tap(find.byType(WpLanguageSelector));
       await tester.pumpAndSettle();
 
       expect(find.byType(SvgPicture), findsNothing);
@@ -75,11 +83,13 @@ void main() {
 
     testWidgets('opened state highlights the active entry', (tester) async {
       await tester.pumpWidget(
-        makeTestable(LanguageSelector(currentLocale: 'de', onChanged: (_) {})),
+        makeTestable(
+          WpLanguageSelector(currentLocale: 'de', onChanged: (_) {}),
+        ),
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byType(LanguageSelector));
+      await tester.tap(find.byType(WpLanguageSelector));
       await tester.pumpAndSettle();
 
       // The active entry exposes itself via a stable key for test access;
@@ -87,12 +97,12 @@ void main() {
       // highlight is observable from the widget tree, independent of the
       // exact decoration style.
       expect(
-        find.byKey(const ValueKey('LanguageSelector.active.de')),
+        find.byKey(const ValueKey('WpLanguageSelector.active.de')),
         findsOneWidget,
         reason: 'active entry must be tagged with a stable key for highlight',
       );
       expect(
-        find.byKey(const ValueKey('LanguageSelector.active.en')),
+        find.byKey(const ValueKey('WpLanguageSelector.active.en')),
         findsNothing,
       );
     });
@@ -101,7 +111,7 @@ void main() {
       String? captured;
       await tester.pumpWidget(
         makeTestable(
-          LanguageSelector(
+          WpLanguageSelector(
             currentLocale: 'de',
             onChanged: (code) => captured = code,
           ),
@@ -109,7 +119,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byType(LanguageSelector));
+      await tester.tap(find.byType(WpLanguageSelector));
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('English').last);
@@ -122,7 +132,7 @@ void main() {
       String? captured;
       await tester.pumpWidget(
         makeTestable(
-          LanguageSelector(
+          WpLanguageSelector(
             currentLocale: 'de',
             onChanged: (code) => captured = code,
           ),
@@ -130,7 +140,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byType(LanguageSelector));
+      await tester.tap(find.byType(WpLanguageSelector));
       await tester.pumpAndSettle();
 
       await tester.tap(find.text(localeNativeName(const Locale('he'))).last);
@@ -144,7 +154,7 @@ void main() {
       (tester) async {
         await tester.pumpWidget(
           makeTestable(
-            LanguageSelector(currentLocale: 'zz', onChanged: (_) {}),
+            WpLanguageSelector(currentLocale: 'zz', onChanged: (_) {}),
           ),
         );
         await tester.pumpAndSettle();

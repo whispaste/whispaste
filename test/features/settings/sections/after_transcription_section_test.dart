@@ -220,7 +220,7 @@ void main() {
           const SingleChildScrollView(child: AfterTranscriptionSection()),
           overrides: [
             settingsProvider.overrideWith(() => notifier),
-            // Mock needed because paste mode renders PasteCapabilityIndicator.
+            // Mock needed because paste mode renders WpPasteCapabilityIndicator.
             pasteCapabilityNotifierProvider.overrideWith(
               () => _FakePasteCapabilityNotifier(),
             ),

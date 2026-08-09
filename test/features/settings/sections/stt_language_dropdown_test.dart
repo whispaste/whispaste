@@ -10,7 +10,7 @@
 ///  - legacy persisted display values (e.g. 'German') and stored codes
 ///    both render the correct selection.
 ///
-/// Uses a cloud-mode settings override so the local-only SttModelManager /
+/// Uses a cloud-mode settings override so the local-only WpSttModelManager /
 /// BenchmarkButton stay out of the tree (same approach as
 /// custom_vocabulary_test.dart).
 library;

@@ -77,7 +77,7 @@ class StoreThankYouState {
 
 /// Manages the one-time store thank-you hint lifecycle.
 ///
-/// Typical usage (handled automatically by [StoreThankYouWatcher]):
+/// Typical usage (handled automatically by [WpStoreThankYouWatcher]):
 ///   1. After onboarding completes, call [checkAndMaybeShow].
 ///   2. When [shouldShow] becomes `true`, surface the hint dialog.
 ///   3. Call [markShown] (regardless of which button the user tapped).
@@ -95,7 +95,7 @@ class StoreThankYouNotifier extends Notifier<StoreThankYouState> {
   ///
   /// The "surface on top" half of the gate is read here off [ref] rather than
   /// threaded in by the callers, because there are two of them — the
-  /// [StoreThankYouWatcher] widget and the recording orchestrator's
+  /// [WpStoreThankYouWatcher] widget and the recording orchestrator's
   /// post-transcription check — and a parameter would let one of them lag
   /// behind the other. That includes the revision-run half, same reasoning:
   /// both callers must see the same in-progress run at the same instant.

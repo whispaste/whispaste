@@ -1,7 +1,7 @@
 /// Hotkey recorder dialog — captures keyboard shortcuts via live key listening.
 ///
 /// Premium modal with frosted glass backdrop, animated key cap display, and
-/// smooth state transitions. Returns [HotkeyResult] on save, null on cancel.
+/// smooth state transitions. Returns [WpHotkeyResult] on save, null on cancel.
 library;
 
 import 'dart:async';
@@ -29,8 +29,8 @@ import 'wp_button.dart';
 // ---------------------------------------------------------------------------
 
 /// Result returned when the user saves a new hotkey combination.
-class HotkeyResult {
-  const HotkeyResult({
+class WpHotkeyResult {
+  const WpHotkeyResult({
     required this.key,
     required this.modifiers,
     this.displayKey = '',
@@ -51,7 +51,7 @@ class HotkeyResult {
 
   @override
   String toString() =>
-      'HotkeyResult(key: $key, displayKey: $displayKey, modifiers: $modifiers)';
+      'WpHotkeyResult(key: $key, displayKey: $displayKey, modifiers: $modifiers)';
 }
 
 // ---------------------------------------------------------------------------
@@ -64,9 +64,9 @@ class HotkeyResult {
 /// key events and updates the display in real time. The user can save, cancel,
 /// or clear the recorded combination.
 ///
-/// Use [HotkeyRecorderDialog.show] for a convenient one-liner.
-class HotkeyRecorderDialog extends StatefulWidget {
-  const HotkeyRecorderDialog({
+/// Use [WpHotkeyRecorderDialog.show] for a convenient one-liner.
+class WpHotkeyRecorderDialog extends StatefulWidget {
+  const WpHotkeyRecorderDialog({
     super.key,
     this.initialKey = 'D',
     this.initialDisplayKey = '',
@@ -86,28 +86,28 @@ class HotkeyRecorderDialog extends StatefulWidget {
 
   /// Optional callback invoked on Save when the recorder is embedded inline
   /// (i.e. NOT shown as a modal via [show]). When provided, the widget
-  /// delivers the [HotkeyResult] to this callback instead of popping the
+  /// delivers the [WpHotkeyResult] to this callback instead of popping the
   /// route; Cancel becomes a no-op so the parent owns its lifecycle.
   ///
   /// Used by surfaces like the onboarding ReadyStep that embed the recorder
   /// next to a conflict warning rather than presenting it as a dialog.
-  final ValueChanged<HotkeyResult>? onSubmit;
+  final ValueChanged<WpHotkeyResult>? onSubmit;
 
   /// Platform-aware default modifier string.
   static String get _defaultModifiers =>
       Platform.isMacOS ? 'meta+shift' : 'ctrl+shift';
 
-  /// Shows the dialog and returns the new [HotkeyResult], or `null` if
+  /// Shows the dialog and returns the new [WpHotkeyResult], or `null` if
   /// the user cancelled.
-  static Future<HotkeyResult?> show(
+  static Future<WpHotkeyResult?> show(
     BuildContext context, {
     String? initialKey,
     String? initialDisplayKey,
     String? initialModifiers,
   }) {
-    return showWpFormDialog<HotkeyResult>(
+    return showWpFormDialog<WpHotkeyResult>(
       context: context,
-      builder: (ctx, a) => HotkeyRecorderDialog(
+      builder: (ctx, a) => WpHotkeyRecorderDialog(
         initialKey: initialKey ?? 'D',
         initialDisplayKey: initialDisplayKey ?? '',
         initialModifiers: initialModifiers ?? _defaultModifiers,
@@ -148,7 +148,7 @@ class HotkeyRecorderDialog extends StatefulWidget {
   }
 
   @override
-  State<HotkeyRecorderDialog> createState() => _HotkeyRecorderDialogState();
+  State<WpHotkeyRecorderDialog> createState() => _WpHotkeyRecorderDialogState();
 }
 
 // ---------------------------------------------------------------------------
@@ -192,7 +192,7 @@ final Set<LogicalKeyboardKey> singleKeyWhitelist = {
   LogicalKeyboardKey.audioVolumeMute,
 };
 
-class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
+class _WpHotkeyRecorderDialogState extends State<WpHotkeyRecorderDialog> {
   /// User-visible label rendered inside the key cap (e.g. `'D'`, `'Ö'`,
   /// `'F1'`). May diverge from [_storageKey] when the user pressed a
   /// layout-dependent character.
@@ -207,7 +207,7 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
   /// captured at the moment the last valid combo was recorded. Display labels
   /// are derived from this at render time via [hotkeyModifierLabels] so they
   /// stay localized and platform-correct (Strg/Option/AltGr …). Persisted via
-  /// [HotkeyResult] on save so registrar reads see canonical tokens.
+  /// [WpHotkeyResult] on save so registrar reads see canonical tokens.
   late String _modifiersStorage;
 
   /// Tracks currently held modifier keys during recording.
@@ -273,11 +273,11 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
 
   /// Returns true when [label] matches a key in [singleKeyWhitelist].
   ///
-  /// Compares against the labels produced by [HotkeyRecorderDialog.keyLabel]
+  /// Compares against the labels produced by [WpHotkeyRecorderDialog.keyLabel]
   /// for each whitelisted key.
   static bool _isWhitelistedLabel(String label) {
     return singleKeyWhitelist.any(
-      (k) => HotkeyRecorderDialog.keyLabel(k) == label,
+      (k) => WpHotkeyRecorderDialog.keyLabel(k) == label,
     );
   }
 
@@ -355,12 +355,12 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
     }
     final serializedMods = _isAltGr
         ? _altGrModifierStorage()
-        : HotkeyRecorderDialog.serializeModifiers(_heldModifiers);
-    final storageLabel = HotkeyRecorderDialog.keyLabel(canonical);
+        : WpHotkeyRecorderDialog.serializeModifiers(_heldModifiers);
+    final storageLabel = WpHotkeyRecorderDialog.keyLabel(canonical);
     // Display label: prefer the character the user actually pressed when it
     // differs from the canonical token (e.g. `Ö` ≠ `;`); otherwise the resolver
     // label so casing/symbols stay consistent.
-    final pressedLabel = HotkeyRecorderDialog.keyLabel(key);
+    final pressedLabel = WpHotkeyRecorderDialog.keyLabel(key);
     final displayLabel =
         (canonical != key &&
             pressedLabel.isNotEmpty &&
@@ -417,7 +417,7 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
             k != LogicalKeyboardKey.controlRight)
           k,
     };
-    final base = HotkeyRecorderDialog.serializeModifiers(others);
+    final base = WpHotkeyRecorderDialog.serializeModifiers(others);
     return base.isEmpty ? 'altgr' : '$base+altgr';
   }
 
@@ -437,7 +437,7 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
   void _save() {
     if (_storageKey.isEmpty) return;
     final displayForResult = _keyLabel != _storageKey ? _keyLabel : '';
-    final result = HotkeyResult(
+    final result = WpHotkeyResult(
       key: _storageKey,
       modifiers: _modifiersStorage,
       displayKey: displayForResult,

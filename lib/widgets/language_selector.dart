@@ -17,8 +17,8 @@ import 'wp_dropdown.dart';
 /// share one list rendering and one selection treatment.  Used in three
 /// places, which is why the endonym mapping and the defensive fallback stay
 /// behind this name instead of being repeated at each call site.
-class LanguageSelector extends StatelessWidget {
-  const LanguageSelector({
+class WpLanguageSelector extends StatelessWidget {
+  const WpLanguageSelector({
     super.key,
     required this.currentLocale,
     required this.onChanged,
@@ -54,7 +54,7 @@ class LanguageSelector extends StatelessWidget {
             // Stable key on the selected row so tests can pin the active-row
             // treatment independently of its exact styling.
             activeKey: ValueKey(
-              'LanguageSelector.active.${locale.languageCode}',
+              'WpLanguageSelector.active.${locale.languageCode}',
             ),
           ),
       ],

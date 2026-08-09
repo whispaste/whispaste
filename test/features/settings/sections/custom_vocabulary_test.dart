@@ -6,7 +6,7 @@
 /// neither Parakeet nor the cloud providers read it, see
 /// stt_server_state_notifier.dart), so tests must drive local/on-device mode
 /// with the default (Whisper) engine, stubbing the local-only providers
-/// SttModelManager and the benchmark button depend on.
+/// WpSttModelManager and the benchmark button depend on.
 ///
 /// Covers: initial value renders, placeholder text, hint text,
 /// text input writes customVocabulary through settingsProvider (debounced).

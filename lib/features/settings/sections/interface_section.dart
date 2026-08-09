@@ -69,7 +69,7 @@ class InterfaceSection extends ConsumerWidget {
             label: l10n.settingsAppLanguage,
             trailing: SizedBox(
               width: 180,
-              child: LanguageSelector(
+              child: WpLanguageSelector(
                 currentLocale: settings.locale,
                 onChanged: (code) {
                   ref

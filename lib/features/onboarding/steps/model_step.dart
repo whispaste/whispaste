@@ -1036,7 +1036,7 @@ class _GpuCpuFallbackNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final infoColor = TierPerformancePresentation.color(isDark: isDark);
+    final infoColor = WpTierPerformancePresentation.color(isDark: isDark);
     // Frameless, like the recording-duration note on the same page: a filled
     // and outlined banner gave a purely informational line the weight of a
     // warning, and it was the fourth box competing on this page. Dropping the

@@ -12,7 +12,7 @@ import 'package:whispaste/services/hotkey_key_resolver.dart';
 
 void main() {
   group('resolveKey — arrow keys', () {
-    // Symbol forms (stored by HotkeyRecorderDialog.keyLabel)
+    // Symbol forms (stored by WpHotkeyRecorderDialog.keyLabel)
     test('← resolves to arrowLeft', () {
       expect(resolveKey('←'), LogicalKeyboardKey.arrowLeft);
     });

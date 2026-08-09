@@ -44,7 +44,7 @@ class _FakeStoreThankYouNotifier extends StoreThankYouNotifier {
   Future<void> checkAndMaybeShow({required bool onboardingCompleted}) async {}
 
   /// Flips [StoreThankYouState.shouldShow] to `true` so
-  /// [StoreThankYouWatcher]'s listener fires and starts the 2-second delay.
+  /// [WpStoreThankYouWatcher]'s listener fires and starts the 2-second delay.
   void triggerShow() => state = const StoreThankYouState(shouldShow: true);
 
   @override
@@ -64,7 +64,7 @@ class _RunningRevisionNotifier extends OnboardingRevisionRunNotifier {
 
 const _launcherChannel = MethodChannel('plugins.flutter.io/url_launcher');
 
-/// Pumps [StoreThankYouWatcher] and advances time past the 2-second delay so
+/// Pumps [WpStoreThankYouWatcher] and advances time past the 2-second delay so
 /// the dialog is fully visible and animated in.
 Future<void> _showDialog(WidgetTester tester, {required bool isWindows}) async {
   storeThankYouPlatformIsWindowsOverride = isWindows;
@@ -72,7 +72,7 @@ Future<void> _showDialog(WidgetTester tester, {required bool isWindows}) async {
 
   await tester.pumpWidget(
     makeTestable(
-      const StoreThankYouWatcher(child: SizedBox()),
+      const WpStoreThankYouWatcher(child: SizedBox()),
       locale: const Locale('en'),
       overrides: [storeThankYouProvider.overrideWith(() => notifier)],
     ),
@@ -257,7 +257,7 @@ void main() {
 
         await tester.pumpWidget(
           makeTestable(
-            const StoreThankYouWatcher(child: SizedBox()),
+            const WpStoreThankYouWatcher(child: SizedBox()),
             locale: const Locale('en'),
             overrides: [
               storeThankYouProvider.overrideWith(() => notifier),

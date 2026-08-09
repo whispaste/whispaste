@@ -234,7 +234,7 @@ Widget _buildScreenshotApp({
 // ---------------------------------------------------------------------------
 
 /// Replicates the full app chrome layout from `_AppShell` (lib/app.dart)
-/// without [ServiceBootstrapWidget] or [RecordingBehaviorWidget].
+/// without [WpServiceBootstrap] or [WpRecordingBehavior].
 ///
 /// Uses the REAL extracted widgets (sidebar, title bar, status bar, watermark,
 /// recording indicator bar, settings button) to prevent screenshot drift.

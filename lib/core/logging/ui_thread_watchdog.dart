@@ -5,7 +5,7 @@
 /// blocked by synchronous work. Logs a warning so we can diagnose jank
 /// without the user having to reproduce it with DevTools attached.
 ///
-/// ## Coverage (wired in ServiceBootstrapWidget.initState / dispose)
+/// ## Coverage (wired in WpServiceBootstrap.initState / dispose)
 ///
 /// The watchdog is process-wide, so it covers ALL paths that run on the
 /// main isolate. This includes, but is not limited to:

@@ -9,16 +9,21 @@ import 'package:whispaste/core/theme/tokens.dart';
 import 'dialog.dart';
 import 'wp_button.dart';
 
-enum OomRecoveryChoice { trySmallerModel, switchToCloud, openSettings, cancel }
+enum WpOomRecoveryChoice {
+  trySmallerModel,
+  switchToCloud,
+  openSettings,
+  cancel,
+}
 
-Future<OomRecoveryChoice?> showOomRecoveryDialog({
+Future<WpOomRecoveryChoice?> showWpOomRecoveryDialog({
   required BuildContext context,
   required L10n l10n,
   required String? modelName,
   required bool hasCloudConfigured,
   required bool isPermanentFail,
 }) {
-  return showWpFormDialog<OomRecoveryChoice>(
+  return showWpFormDialog<WpOomRecoveryChoice>(
     context: context,
     builder: (context, animation) {
       return _OomRecoveryDialog(
@@ -145,7 +150,7 @@ class _OomRecoveryDialog extends StatelessWidget {
                         variant: WpButtonVariant.primary,
                         onPressed: () => Navigator.of(
                           context,
-                        ).pop(OomRecoveryChoice.trySmallerModel),
+                        ).pop(WpOomRecoveryChoice.trySmallerModel),
                       ),
                       const SizedBox(height: WpSpacing.sm),
                     ],
@@ -159,7 +164,7 @@ class _OomRecoveryDialog extends StatelessWidget {
                             : WpButtonVariant.secondary,
                         onPressed: () => Navigator.of(
                           context,
-                        ).pop(OomRecoveryChoice.switchToCloud),
+                        ).pop(WpOomRecoveryChoice.switchToCloud),
                       ),
                       const SizedBox(height: WpSpacing.sm),
                     ],
@@ -173,7 +178,7 @@ class _OomRecoveryDialog extends StatelessWidget {
                             : WpButtonVariant.primary,
                         onPressed: () => Navigator.of(
                           context,
-                        ).pop(OomRecoveryChoice.openSettings),
+                        ).pop(WpOomRecoveryChoice.openSettings),
                       ),
                       const SizedBox(height: WpSpacing.sm),
                     ],
@@ -182,8 +187,9 @@ class _OomRecoveryDialog extends StatelessWidget {
                       child: WpButton(
                         label: l10n.oomRecoveryCancel,
                         variant: WpButtonVariant.ghost,
-                        onPressed: () =>
-                            Navigator.of(context).pop(OomRecoveryChoice.cancel),
+                        onPressed: () => Navigator.of(
+                          context,
+                        ).pop(WpOomRecoveryChoice.cancel),
                       ),
                     ),
                   ],

@@ -84,7 +84,7 @@ class KeyboardShortcutSection extends ConsumerWidget {
                         label: l10n.settingsChangeHotkey,
                         variant: WpButtonVariant.secondary,
                         onPressed: () async {
-                          final result = await HotkeyRecorderDialog.show(
+                          final result = await WpHotkeyRecorderDialog.show(
                             context,
                             initialKey: settings.hotkeyKey,
                             initialDisplayKey: settings.hotkey.hotkeyKeyDisplay,
@@ -333,7 +333,7 @@ class AfterTranscriptionSection extends ConsumerWidget {
                 kSettingRowInset,
                 WpSpacing.xs,
               ),
-              child: PasteCapabilityIndicator(),
+              child: WpPasteCapabilityIndicator(),
             ),
         ],
       ),

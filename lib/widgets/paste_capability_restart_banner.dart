@@ -22,8 +22,8 @@ import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import 'wp_button.dart';
 
-class PasteCapabilityRestartBanner extends StatelessWidget {
-  const PasteCapabilityRestartBanner({super.key, this.onRestart});
+class WpPasteCapabilityRestartBanner extends StatelessWidget {
+  const WpPasteCapabilityRestartBanner({super.key, this.onRestart});
 
   /// Tap handler for the restart button. Defaults to
   /// [MacOSLifecycleChannel.restart]; injectable for widget tests.

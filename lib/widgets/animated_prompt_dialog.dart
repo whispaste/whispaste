@@ -1,10 +1,10 @@
 /// Shared infrastructure for the app's post-recording prompt dialogs (review,
-/// support): the fade-in barrier scaffold ([showAnimatedPromptDialog]) and
-/// the delayed, show-once-at-a-time trigger ([PostRecordingPromptDelay]).
+/// support): the fade-in barrier scaffold ([showWpAnimatedPromptDialog]) and
+/// the delayed, show-once-at-a-time trigger ([WpPostRecordingPromptDelay]).
 /// Extracted so each prompt's own watcher/dialog file can focus on its
 /// content instead of re-deriving this boilerplate — unlike
 /// [package:whispaste/widgets/dialog.dart]'s `showWpFormDialog`,
-/// [showAnimatedPromptDialog] uses a flat barrier (no blur), which is the
+/// [showWpAnimatedPromptDialog] uses a flat barrier (no blur), which is the
 /// deliberate, lighter-weight treatment these transient prompts use.
 library;
 
@@ -21,7 +21,7 @@ import '../services/prompt_timing.dart';
 /// [contentBuilder] receives the shared entrance [Animation] so the caller's
 /// content can drive its own slide/scale transition in sync with the barrier
 /// fade.
-Future<T?> showAnimatedPromptDialog<T>({
+Future<T?> showWpAnimatedPromptDialog<T>({
   required BuildContext context,
   required Widget Function(BuildContext context, Animation<double> animation)
   contentBuilder,
@@ -55,7 +55,7 @@ Future<T?> showAnimatedPromptDialog<T>({
 /// Mixin providing the shared "wait [kPostRecordingPromptDelay], then show
 /// at most once at a time, cancel-safe on dispose" pattern used by the app's
 /// post-recording prompt watchers.
-mixin PostRecordingPromptDelay<T extends StatefulWidget> on State<T> {
+mixin WpPostRecordingPromptDelay<T extends StatefulWidget> on State<T> {
   Timer? _promptDelay;
   bool _promptDialogShowing = false;
 

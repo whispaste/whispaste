@@ -29,7 +29,7 @@ class _PickerHarnessState extends State<_PickerHarness> {
         children: [
           ElevatedButton(
             onPressed: () async {
-              final result = await showExportFormatPicker(context);
+              final result = await showWpExportFormatPicker(context);
               if (!mounted) return;
               setState(() {
                 _result = result;

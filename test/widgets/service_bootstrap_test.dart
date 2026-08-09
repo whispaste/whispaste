@@ -1,4 +1,4 @@
-/// Widget tests for [ServiceBootstrapWidget] — verifies that the
+/// Widget tests for [WpServiceBootstrap] — verifies that the
 /// [RecordingTriggerHandler] survives parent rebuilds so Push-to-Talk
 /// keyDown/keyUp pairs are wired to the SAME handler instance.
 ///
@@ -127,7 +127,7 @@ class _FakeSettingsNotifier extends SettingsNotifier {
 // ---------------------------------------------------------------------------
 
 /// Parent widget exposing a [GlobalKey] so tests can trigger a
-/// `setState` on the parent and force [ServiceBootstrapWidget] to rebuild,
+/// `setState` on the parent and force [WpServiceBootstrap] to rebuild,
 /// reproducing the production rebuild that happens when
 /// [recordingPhaseProvider] fires.
 class _RebuildHarness extends StatefulWidget {
@@ -144,7 +144,7 @@ class _RebuildHarnessState extends State<_RebuildHarness> {
 
   @override
   Widget build(BuildContext context) {
-    return ServiceBootstrapWidget(
+    return WpServiceBootstrap(
       key: const ValueKey('bootstrap'),
       // Use the tick in the subtree so Flutter does not optimize the rebuild
       // away — ensures the bootstrap widget's element rebuilds too.
@@ -188,7 +188,7 @@ Widget _makeApp({
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('ServiceBootstrapWidget — trigger handler survives rebuilds', () {
+  group('WpServiceBootstrap — trigger handler survives rebuilds', () {
     testWidgets(
       'Test 1: PTT keyDown → rebuild → keyUp still calls stopRecording',
       (tester) async {

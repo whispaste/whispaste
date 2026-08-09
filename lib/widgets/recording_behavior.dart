@@ -4,7 +4,7 @@
 /// Also owns the stuck-state watchdog that auto-recovers if the pipeline
 /// stays in "done" for >15 seconds.
 ///
-/// Place this inside [ServiceBootstrapWidget] and wrap the main layout.
+/// Place this inside [WpServiceBootstrap] and wrap the main layout.
 library;
 
 import 'dart:async';
@@ -110,17 +110,17 @@ String localizeRecordingInfo(L10n l10n, String infoCode) => switch (infoCode) {
 // ---------------------------------------------------------------------------
 
 /// Invisible wrapper that reacts to [RecordingState] transitions.
-class RecordingBehaviorWidget extends ConsumerStatefulWidget {
-  const RecordingBehaviorWidget({super.key, required this.child});
+class WpRecordingBehavior extends ConsumerStatefulWidget {
+  const WpRecordingBehavior({super.key, required this.child});
 
   final Widget child;
 
   @override
-  ConsumerState<RecordingBehaviorWidget> createState() =>
-      _RecordingBehaviorState();
+  ConsumerState<WpRecordingBehavior> createState() =>
+      _WpRecordingBehaviorState();
 }
 
-class _RecordingBehaviorState extends ConsumerState<RecordingBehaviorWidget> {
+class _WpRecordingBehaviorState extends ConsumerState<WpRecordingBehavior> {
   static final _log = AppLogger('RecordingBehavior');
 
   Timer? _doneResetTimer;
@@ -210,7 +210,7 @@ class _RecordingBehaviorState extends ConsumerState<RecordingBehaviorWidget> {
     }
 
     try {
-      final choice = await showOomRecoveryDialog(
+      final choice = await showWpOomRecoveryDialog(
         context: context,
         l10n: l10n,
         modelName: nextModelName,
@@ -221,8 +221,8 @@ class _RecordingBehaviorState extends ConsumerState<RecordingBehaviorWidget> {
       if (!mounted) return;
 
       final orchestrator = ref.read(recordingOrchestratorProvider.notifier);
-      switch (choice ?? OomRecoveryChoice.cancel) {
-        case OomRecoveryChoice.trySmallerModel:
+      switch (choice ?? WpOomRecoveryChoice.cancel) {
+        case WpOomRecoveryChoice.trySmallerModel:
           if (pending.nextModelId == null || nextModelName == null) break;
           final didSwitch = await orchestrator.applyOomModelFallback(
             pending.nextModelId!,
@@ -235,7 +235,7 @@ class _RecordingBehaviorState extends ConsumerState<RecordingBehaviorWidget> {
             duration: const Duration(seconds: 4),
           );
           break;
-        case OomRecoveryChoice.switchToCloud:
+        case WpOomRecoveryChoice.switchToCloud:
           final provider = await orchestrator.switchToConfiguredCloudStt();
           if (!mounted) break;
           if (provider != null) {
@@ -249,10 +249,10 @@ class _RecordingBehaviorState extends ConsumerState<RecordingBehaviorWidget> {
             _openSettings('stt');
           }
           break;
-        case OomRecoveryChoice.openSettings:
+        case WpOomRecoveryChoice.openSettings:
           _openSettings('stt');
           break;
-        case OomRecoveryChoice.cancel:
+        case WpOomRecoveryChoice.cancel:
           break;
       }
     } finally {
@@ -494,7 +494,7 @@ class _RecordingBehaviorState extends ConsumerState<RecordingBehaviorWidget> {
 // ---------------------------------------------------------------------------
 // Recording-error toast — extracted the same way as [showPasteFailureToast]
 // below so widget tests can exercise the mic-permission-denied action wiring
-// directly without bootstrapping the full RecordingBehaviorWidget.
+// directly without bootstrapping the full WpRecordingBehavior.
 // ---------------------------------------------------------------------------
 
 /// Renders the actionable toast for a recording-pipeline error.
@@ -535,7 +535,7 @@ void showRecordingErrorToast({
 // ---------------------------------------------------------------------------
 // Paste-failure toast — extracted the same way as [showRecoveryToast] /
 // [showCpuFallbackToast] below, so widget tests can exercise the message
-// selection directly without bootstrapping the full RecordingBehaviorWidget.
+// selection directly without bootstrapping the full WpRecordingBehavior.
 // ---------------------------------------------------------------------------
 
 /// Renders the actionable toast for a [PasteOutcome] failure.
@@ -594,7 +594,7 @@ void showPasteFailureToast({
 
 // ---------------------------------------------------------------------------
 // Recovery toast — extracted so widget tests can exercise the action
-// wiring directly without bootstrapping the full RecordingBehaviorWidget.
+// wiring directly without bootstrapping the full WpRecordingBehavior.
 // ---------------------------------------------------------------------------
 
 /// Renders the PRD-spec actionable toast for a recovery outcome.
@@ -678,7 +678,7 @@ void showRecoveryToast({
 // `stt_server_state_notifier.dart`) but had no UI consumer. Extracted the
 // same way as [showRecoveryToast] above so the transition-gating logic and
 // the toast rendering can each be tested without mounting the full
-// `RecordingBehaviorWidget` + `ref.listen` wiring.
+// `WpRecordingBehavior` + `ref.listen` wiring.
 // ---------------------------------------------------------------------------
 
 /// Pure gate: decides whether a [SttStatus] transition should surface the

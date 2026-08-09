@@ -28,7 +28,7 @@ class ConflictEntry {
   /// Empty string means the shortcut requires no modifier (rare — e.g. PrintScreen).
   final String modifiers;
 
-  /// Non-modifier key label matching [HotkeyRecorderDialog.keyLabel] output,
+  /// Non-modifier key label matching [WpHotkeyRecorderDialog.keyLabel] output,
   /// e.g. `'Space'`, `'Tab'`, `'F4'`, `'L'`.
   final String key;
 

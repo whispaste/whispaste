@@ -883,11 +883,11 @@ class _AppShellState extends ConsumerState<_AppShell>
         ): () =>
             ref.read(activePageProvider.notifier).setPage('settings'),
       },
-      child: ReviewPromptWatcher(
-        child: SupportPromptWatcher(
-          child: StoreThankYouWatcher(
-            child: ServiceBootstrapWidget(
-              child: RecordingBehaviorWidget(
+      child: WpReviewPromptWatcher(
+        child: WpSupportPromptWatcher(
+          child: WpStoreThankYouWatcher(
+            child: WpServiceBootstrap(
+              child: WpRecordingBehavior(
                 child: Scaffold(
                   backgroundColor: Colors.transparent,
                   body: Stack(
@@ -1111,11 +1111,11 @@ class _AppShellState extends ConsumerState<_AppShell>
                     ],
                   ),
                 ), // Scaffold
-              ), // RecordingBehaviorWidget
-            ), // ServiceBootstrapWidget
-          ), // StoreThankYouWatcher
-        ), // SupportPromptWatcher
-      ), // ReviewPromptWatcher
+              ), // WpRecordingBehavior
+            ), // WpServiceBootstrap
+          ), // WpStoreThankYouWatcher
+        ), // WpSupportPromptWatcher
+      ), // WpReviewPromptWatcher
     ); // CallbackShortcuts
   }
 }

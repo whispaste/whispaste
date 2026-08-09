@@ -9,7 +9,7 @@ import '../services/model_download_service.dart';
 
 /// Shared UI mapping for tier-performance info messages.
 /// All messages use neutral blue (accent) styling - no red/yellow warnings.
-abstract final class TierPerformancePresentation {
+abstract final class WpTierPerformancePresentation {
   /// Returns an informational message about tier performance, or null if none needed.
   static String? message({
     required L10n l10n,

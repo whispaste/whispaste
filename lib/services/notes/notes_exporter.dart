@@ -56,7 +56,7 @@ typedef NotesExportFormatPickerFn =
     Future<ExportFormat?> Function(BuildContext context);
 
 Future<ExportFormat?> _pickNotesFormat(BuildContext context) =>
-    showExportFormatPicker(context, formats: notesExportFormats);
+    showWpExportFormatPicker(context, formats: notesExportFormats);
 
 // ---------------------------------------------------------------------------
 // NotesExporter

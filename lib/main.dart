@@ -464,7 +464,7 @@ class _InsufficientRamApp extends ConsumerWidget {
       localizationsDelegates: L10n.localizationsDelegates,
       supportedLocales: L10n.supportedLocales,
       navigatorObservers: [SentryNavigatorObserver()],
-      home: InsufficientRamScreen(detectedGb: detectedGb),
+      home: WpInsufficientRamScreen(detectedGb: detectedGb),
     );
   }
 }

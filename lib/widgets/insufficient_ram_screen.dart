@@ -11,15 +11,15 @@ import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import '../services/hardware_info_service.dart' as hw;
 
-final _log = AppLogger('InsufficientRamScreen');
+final _log = AppLogger('WpInsufficientRamScreen');
 
 /// Full-screen blocking error shown when system RAM is below [hw.kMinRamMB].
 ///
 /// Displayed instead of the main app — the user can only quit or visit
 /// the system requirements page. Never blocks when RAM detection fails
 /// (null → fail-open).
-class InsufficientRamScreen extends StatelessWidget {
-  const InsufficientRamScreen({super.key, required this.detectedGb});
+class WpInsufficientRamScreen extends StatelessWidget {
+  const WpInsufficientRamScreen({super.key, required this.detectedGb});
 
   /// Detected RAM in GB (e.g. 4.0 for a 4 GB system).
   final double detectedGb;
@@ -330,7 +330,7 @@ class _LearnMoreLinkState extends State<_LearnMoreLink> {
   Future<void> _open() async {
     try {
       await launchUrl(
-        Uri.parse(InsufficientRamScreen._learnMoreUrl),
+        Uri.parse(WpInsufficientRamScreen._learnMoreUrl),
         mode: LaunchMode.externalApplication,
       );
     } catch (e) {

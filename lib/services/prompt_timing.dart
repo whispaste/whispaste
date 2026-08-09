@@ -12,7 +12,7 @@ library;
 /// recording completes before it is allowed to appear.
 ///
 /// Kept as a single named constant so [isPromptDelayElapsed] and every
-/// prompt watcher (`ReviewPromptWatcher`, `SupportPromptWatcher`) stay in
+/// prompt watcher (`WpReviewPromptWatcher`, `WpSupportPromptWatcher`) stay in
 /// sync — this is intentionally 5 seconds, materially longer than the 1
 /// second a user needs to notice their pasted text landed.
 const Duration kPostRecordingPromptDelay = Duration(seconds: 5);

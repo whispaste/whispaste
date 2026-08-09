@@ -1,5 +1,5 @@
-/// Widget tests for [PasteCapabilityRestartBanner] and its wiring inside
-/// [PasteCapabilityIndicator].
+/// Widget tests for [WpPasteCapabilityRestartBanner] and its wiring inside
+/// [WpPasteCapabilityIndicator].
 ///
 /// Covers the three external behaviours that matter:
 ///   1. The banner renders its copy and fires the injected restart callback.
@@ -75,14 +75,14 @@ void main() {
     l10n = await L10n.delegate.load(const Locale('en'));
   });
 
-  group('PasteCapabilityRestartBanner', () {
+  group('WpPasteCapabilityRestartBanner', () {
     testWidgets('renders title, body and restart button; tap fires onRestart', (
       tester,
     ) async {
       var restartCalls = 0;
       await tester.pumpWidget(
         makeTestable(
-          PasteCapabilityRestartBanner(onRestart: () => restartCalls++),
+          WpPasteCapabilityRestartBanner(onRestart: () => restartCalls++),
           locale: const Locale('en'),
         ),
       );
@@ -99,7 +99,7 @@ void main() {
     });
   });
 
-  group('PasteCapabilityIndicator — restart banner wiring', () {
+  group('WpPasteCapabilityIndicator — restart banner wiring', () {
     // The indicator's macOS-only branches key off the real host platform;
     // these integration cases are only meaningful on a macOS test host.
     testWidgets(
@@ -108,7 +108,7 @@ void main() {
       (tester) async {
         await tester.pumpWidget(
           makeTestable(
-            const PasteCapabilityIndicator(),
+            const WpPasteCapabilityIndicator(),
             locale: const Locale('en'),
             overrides: [
               pasteCapabilityNotifierProvider.overrideWith(
@@ -119,7 +119,7 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.byType(PasteCapabilityRestartBanner), findsOneWidget);
+        expect(find.byType(WpPasteCapabilityRestartBanner), findsOneWidget);
         expect(find.text(l10n.pasteCapabilityRestartTitle), findsOneWidget);
         // Regular "not yet allowed" surface must be fully replaced.
         expect(find.text(l10n.pasteCapabilityGrantButton), findsNothing);
@@ -135,7 +135,7 @@ void main() {
       (tester) async {
         await tester.pumpWidget(
           makeTestable(
-            const PasteCapabilityIndicator(),
+            const WpPasteCapabilityIndicator(),
             locale: const Locale('en'),
             overrides: [
               pasteCapabilityNotifierProvider.overrideWith(
@@ -146,7 +146,7 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.byType(PasteCapabilityRestartBanner), findsNothing);
+        expect(find.byType(WpPasteCapabilityRestartBanner), findsNothing);
         expect(
           find.text(l10n.pasteCapabilityPermissionMissing),
           findsOneWidget,
@@ -162,7 +162,7 @@ void main() {
       (tester) async {
         await tester.pumpWidget(
           makeTestable(
-            const PasteCapabilityIndicator(),
+            const WpPasteCapabilityIndicator(),
             locale: const Locale('en'),
             overrides: [
               pasteCapabilityNotifierProvider.overrideWith(
@@ -183,7 +183,7 @@ void main() {
         // The primary action stays grant (re-fires CGRequestPostEventAccess),
         // and this is NOT the sentToOsGrantFlow restart-banner surface.
         expect(find.text(l10n.pasteCapabilityGrantButton), findsOneWidget);
-        expect(find.byType(PasteCapabilityRestartBanner), findsNothing);
+        expect(find.byType(WpPasteCapabilityRestartBanner), findsNothing);
       },
     );
   });

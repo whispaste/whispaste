@@ -1,4 +1,4 @@
-/// Widget tests for [SupportPromptWatcher] — verifies the dialog renders the
+/// Widget tests for [WpSupportPromptWatcher] — verifies the dialog renders the
 /// reused support copy/buttons and resolves via the correct notifier method
 /// per action.
 ///
@@ -43,7 +43,7 @@ class _FakeSupportPromptNotifier extends SupportPromptNotifier {
       const SupportPromptState(shouldShowPrompt: false);
 
   /// Flips [shouldShowPrompt] to `true` (with the given [kind]) so
-  /// [SupportPromptWatcher]'s listener fires and starts the shared
+  /// [WpSupportPromptWatcher]'s listener fires and starts the shared
   /// post-recording delay.
   void triggerShow({SupportPromptKind kind = SupportPromptKind.initial}) =>
       state = SupportPromptState(shouldShowPrompt: true, kind: kind);
@@ -67,7 +67,7 @@ class _FakeSupportPromptNotifier extends SupportPromptNotifier {
 
 const _launcherChannel = MethodChannel('plugins.flutter.io/url_launcher');
 
-/// Pumps [SupportPromptWatcher] and advances time past
+/// Pumps [WpSupportPromptWatcher] and advances time past
 /// [kPostRecordingPromptDelay] so the dialog is fully visible and animated in.
 Future<_FakeSupportPromptNotifier> _showDialog(
   WidgetTester tester, {
@@ -78,7 +78,7 @@ Future<_FakeSupportPromptNotifier> _showDialog(
 
   await tester.pumpWidget(
     makeTestable(
-      const SupportPromptWatcher(child: SizedBox()),
+      const WpSupportPromptWatcher(child: SizedBox()),
       locale: const Locale('en'),
       overrides: [supportPromptProvider.overrideWith(() => notifier)],
     ),
