@@ -8,10 +8,15 @@ library;
 
 import 'dart:ui' show Tristate;
 
+import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/core/data/database.dart';
+import 'package:whispaste/features/history/data/providers.dart'
+    show HistoryFilter;
+import 'package:whispaste/features/history/widgets/history_date_header.dart';
+import 'package:whispaste/features/history/widgets/history_helpers.dart';
 import 'package:whispaste/features/history/widgets/history_detail_panel.dart';
 import 'package:whispaste/features/history/widgets/history_search_filter_bar.dart';
 import 'package:whispaste/widgets/wp_filter_chip.dart';
@@ -308,6 +313,85 @@ void main() {
         expect(data.flagsCollection.isButton, isTrue);
         expect(data.hasAction(SemanticsAction.tap), isTrue);
         expect(data.tooltip, 'Merge (Ctrl+M)');
+      } finally {
+        handle.dispose();
+      }
+    });
+  });
+
+  group('Empty-trash button — announced once', () {
+    testWidgets('the caption is not repeated by a tooltip', (tester) async {
+      final handle = tester.ensureSemantics();
+      final controller = TextEditingController();
+      addTearDown(controller.dispose);
+      try {
+        await tester.pumpWidget(
+          makeTestable(
+            HistorySearchFilterBar(
+              controller: controller,
+              activeFilter: HistoryFilter.trash,
+              isDark: true,
+              onFilterChanged: (_) {},
+              onSearchChanged: () {},
+              resultCount: 3,
+              viewMode: HistoryViewMode.list,
+              onViewModeChanged: (_) {},
+              multiSelectMode: false,
+              onToggleMultiSelect: () {},
+              sortOrder: HistorySortOrder.newest,
+              onSortOrderChanged: (_) {},
+              onEmptyTrash: () {},
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // The caption is already on screen, so the tooltip that repeated it
+        // word for word taught nothing and made the button announce itself
+        // twice (label plus tooltip). House rule 1: fold, don't label.
+        final semantics = tester.getSemantics(find.text('Empty Trash'));
+        final data = semantics.getSemanticsData();
+        expect(semantics.label, 'Empty Trash');
+        expect(data.tooltip, isEmpty);
+        expect(data.flagsCollection.isButton, isTrue);
+        expect(data.hasAction(SemanticsAction.tap), isTrue);
+      } finally {
+        handle.dispose();
+      }
+    });
+  });
+
+  group('HistoryDateHeader — group structure', () {
+    testWidgets('both date headers are exposed as headers', (tester) async {
+      final handle = tester.ensureSemantics();
+      try {
+        // Both headers pumped at once, told apart by their labels: the compact
+        // one upper-cases its text, so the two nodes stay addressable.
+        await tester.pumpWidget(
+          makeTestable(
+            const Column(
+              children: [
+                HistoryDateHeader(label: 'Yesterday', isDark: true),
+                HistoryCompactDateHeader(label: 'Today', isDark: true),
+              ],
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Without the flag the date reads as one more line of body text
+        // between two entries, and header navigation cannot jump the groups.
+        for (final label in ['Yesterday', 'TODAY']) {
+          expect(
+            tester
+                .getSemantics(find.text(label))
+                .getSemanticsData()
+                .flagsCollection
+                .isHeader,
+            isTrue,
+            reason: '"$label" must be exposed as a semantics header',
+          );
+        }
       } finally {
         handle.dispose();
       }

@@ -853,37 +853,44 @@ class _HistorySearchFilterBarState
               const SizedBox(width: WpSpacing.xs),
               // Empty Trash button (only in trash view, when items exist)
               if (widget.onEmptyTrash != null)
-                Tooltip(
-                  message: l10n.historyEmptyTrash,
-                  child: InkWell(
-                    borderRadius: WpRadius.borderSm,
-                    onTap: widget.onEmptyTrash,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: WpSpacing.sm,
-                        vertical: WpSpacing.xxs,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            LucideIcons.trash2,
-                            size: WpIconSize.sm,
-                            color: widget.isDark
-                                ? WpColorsDark.error
-                                : WpColorsLight.error,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            l10n.historyEmptyTrash,
-                            style: TextStyle(
-                              fontSize: WpTypography.small,
+                // Tooltip dropped, MergeSemantics added — house rule 1 for a
+                // single tap target whose label is already on screen. The
+                // tooltip repeated the visible caption word for word: a hover
+                // card that teaches nothing, and a screen reader saying "Empty
+                // trash" twice (label plus tooltip field).
+                MergeSemantics(
+                  child: Semantics(
+                    button: true,
+                    child: InkWell(
+                      borderRadius: WpRadius.borderSm,
+                      onTap: widget.onEmptyTrash,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: WpSpacing.sm,
+                          vertical: WpSpacing.xxs,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              LucideIcons.trash2,
+                              size: WpIconSize.sm,
                               color: widget.isDark
                                   ? WpColorsDark.error
                                   : WpColorsLight.error,
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 4),
+                            Text(
+                              l10n.historyEmptyTrash,
+                              style: TextStyle(
+                                fontSize: WpTypography.small,
+                                color: widget.isDark
+                                    ? WpColorsDark.error
+                                    : WpColorsLight.error,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
