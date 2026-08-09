@@ -247,6 +247,16 @@ class _TierRowState extends State<_TierRow> {
     QualityTier.premium => l10n.qualityTierPremiumDesc,
   };
 
+  /// Performance the info line is *allowed* to announce.
+  ///
+  /// While a benchmark is still running, [_TierRow.performance] is only the
+  /// VRAM-based estimate — colouring the line with it would show a red "slow"
+  /// verdict before anything was measured, exactly the false signal the graded
+  /// colours exist to remove. Benchmarking therefore reads as `unmeasured`.
+  TierPerformance get _infoPerformance => widget.isBenchmarking
+      ? TierPerformance.unmeasured
+      : widget.performance;
+
   @override
   Widget build(BuildContext context) {
     final accent = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
@@ -273,8 +283,10 @@ class _TierRowState extends State<_TierRow> {
             performance: widget.performance,
           )
         : null;
+    final infoPerformance = _infoPerformance;
     final infoColor = WpTierPerformancePresentation.color(
       isDark: widget.isDark,
+      performance: infoPerformance,
     );
 
     final bool isSelectable =
@@ -335,7 +347,7 @@ class _TierRowState extends State<_TierRow> {
                       isBenchmarking: widget.isBenchmarking,
                       infoMessage: infoMessage,
                       infoColor: infoColor,
-                      performance: widget.performance,
+                      performance: infoPerformance,
                       isDark: widget.isDark,
                       l10n: widget.l10n,
                       accent: accent,

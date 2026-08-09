@@ -20,6 +20,9 @@ import 'dart:ui';
 import 'package:flutter/painting.dart' show HSLColor;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/theme/colors.dart';
+import 'package:whispaste/services/model_download_service.dart'
+    show TierPerformance;
+import 'package:whispaste/widgets/tier_performance_presentation.dart';
 
 // ---------------------------------------------------------------------------
 // WCAG 2.1 relative luminance + contrast ratio helpers
@@ -657,6 +660,120 @@ void main() {
           }
         });
       }
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // Tier-performance info line (STT model selector)
+  //
+  // [WpTierPerformancePresentation.color] grades the line by measured tier
+  // performance instead of painting every verdict the same accent blue. The
+  // line renders at `WpTypography.micro` (10 px) — far below WCAG's large-text
+  // threshold (18 pt / 14 pt bold), so it is normal text under 1.4.3 and owes
+  // the full 4.5:1. That floor is what rules the amber and green steps out:
+  // `WpColorsLight.warning` reaches only 3.11:1 and `WpColorsLight.success`
+  // 3.74:1 on these grounds, so the ramp is accent / error / textMuted.
+  //
+  // GROUNDS — modeling choice, stated so a reviewer can disagree with it:
+  // the row sits on the settings content panel, which is painted with
+  // `warmSurfaceGradient`, not with a flat `surface`. This group nonetheless
+  // gates against the flat `surface` / `surfaceElevated` tokens (plus the
+  // `accentButtonFill` wash the selected row adds on top), matching every
+  // other group in this file. On the gradient's warmest stop under that same
+  // wash the two tightest pairs dip just below the floor — light `error`
+  // 4.44:1 and light `textMuted` 4.42:1 — which is a property of the
+  // incumbent palette, not of this change: `textMuted` is already used for
+  // body copy on that exact gradient elsewhere in this very section. Raising
+  // the floor here would fail the incumbent alongside the newcomers; that
+  // belongs to a palette phase, not to this one.
+  // -------------------------------------------------------------------------
+
+  for (final (
+        themeName,
+        isDark,
+        surface,
+        surfaceElevated,
+        accentButtonFill,
+        hover,
+      )
+      in [
+        (
+          'dark',
+          true,
+          WpColorsDark.surface,
+          WpColorsDark.surfaceElevated,
+          WpColorsDark.accentButtonFill,
+          WpColorsDark.hover,
+        ),
+        (
+          'light',
+          false,
+          WpColorsLight.surface,
+          WpColorsLight.surfaceElevated,
+          WpColorsLight.accentButtonFill,
+          WpColorsLight.hover,
+        ),
+      ]) {
+    group('Tier-performance info line – $themeName theme (≥ 4.5:1)', () {
+      final grounds = <String, Color>{
+        'surface': surface,
+        'surfaceElevated': surfaceElevated,
+        // The selected/downloading row adds an 8 % accent wash over the card.
+        'selected row (surface + accentButtonFill)': alphaComposite(
+          accentButtonFill,
+          surface,
+        ),
+        'selected row (surfaceElevated + accentButtonFill)': alphaComposite(
+          accentButtonFill,
+          surfaceElevated,
+        ),
+        // A benchmarking row that is not the current tier can be hovered.
+        'hover': hover,
+      };
+
+      for (final performance in TierPerformance.values) {
+        test(performance.name, () {
+          final fg = WpTierPerformancePresentation.color(
+            isDark: isDark,
+            performance: performance,
+          );
+          grounds.forEach((groundName, ground) {
+            final ratio = contrastRatio(fg, ground);
+            expect(
+              ratio,
+              greaterThanOrEqualTo(4.5),
+              reason:
+                  '$themeName ${performance.name}: info line only '
+                  '${ratio.toStringAsFixed(2)}:1 on $groundName — the 10 px '
+                  'message is normal text and owes 4.5:1 '
+                  '(fg: #${fg.toARGB32().toRadixString(16).padLeft(8, '0')})',
+            );
+          });
+        });
+      }
+
+      // Guards the *ramp itself*: a future edit that collapses the mapping
+      // back to one flat colour would otherwise leave every contrast test
+      // green while silently removing the signal this phase introduced.
+      test('the ramp is actually graded', () {
+        Color of(TierPerformance p) =>
+            WpTierPerformancePresentation.color(isDark: isDark, performance: p);
+
+        expect(
+          of(TierPerformance.slow),
+          isNot(of(TierPerformance.moderate)),
+          reason:
+              '$themeName: a slow tier must not look like a moderate one — '
+              'that is the whole point of the graded line',
+        );
+        expect(
+          of(TierPerformance.unmeasured),
+          isNot(of(TierPerformance.moderate)),
+          reason:
+              '$themeName: an unmeasured tier must not borrow the confident '
+              'accent of a measured one',
+        );
+      });
     });
   }
 }

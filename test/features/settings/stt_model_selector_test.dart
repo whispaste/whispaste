@@ -8,7 +8,9 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
+import 'package:whispaste/core/theme/colors.dart';
 import 'package:whispaste/core/theme/theme.dart';
 import 'package:whispaste/features/settings/stt_model_selector.dart';
 import 'package:whispaste/services/hardware_info_service.dart' as hw;
@@ -65,8 +67,17 @@ class _ControllableDownloadNotifier extends ModelDownloadNotifier {
 }
 
 class _FakeSttNotifier extends SttServerStateNotifier {
+  _FakeSttNotifier({this.isBenchmarking = false, this.benchmarkingTier});
+
+  final bool isBenchmarking;
+  final QualityTier? benchmarkingTier;
+
   @override
-  SttStatus build() => const SttStatus(serverState: SttServerState.stopped);
+  SttStatus build() => SttStatus(
+    serverState: SttServerState.stopped,
+    isBenchmarking: isBenchmarking,
+    benchmarkingTier: benchmarkingTier,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -85,13 +96,21 @@ Widget _makeTestable({
   Map<QualityTier, double>? benchmarkRtf,
   hw.GpuInfo? gpu,
   void Function(String)? onModelSelected,
+  bool isDark = true,
+  bool isBenchmarking = false,
+  QualityTier? benchmarkingTier,
 }) {
   return ProviderScope(
     overrides: [
       modelDownloadProvider.overrideWith(
         () => _FakeDownloadNotifier(downloadState),
       ),
-      localSttBundleProvider.overrideWith(() => _FakeSttNotifier()),
+      localSttBundleProvider.overrideWith(
+        () => _FakeSttNotifier(
+          isBenchmarking: isBenchmarking,
+          benchmarkingTier: benchmarkingTier,
+        ),
+      ),
       // Prevent real GPU detection (spawns subprocess → pending timers).
       hw.gpuInfoProvider.overrideWith(
         (ref) async =>
@@ -100,7 +119,7 @@ Widget _makeTestable({
     ],
     child: MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: wpDarkTheme(),
+      theme: isDark ? wpDarkTheme() : wpLightTheme(),
       // Pin locale to `en` so tier labels are deterministic across CI hosts.
       locale: const Locale('en'),
       localizationsDelegates: L10n.localizationsDelegates,
@@ -501,5 +520,137 @@ void main() {
         );
       },
     );
+  });
+
+  // -------------------------------------------------------------------------
+  // Graded performance info line
+  //
+  // The line renders for the *current* tier only, so at most one stage is on
+  // screen at a time and a screenshot can never show the ramp. These tests
+  // drive all four stages through the benchmark RTF the selector is given
+  // (< 0.3 fast, < 0.8 moderate, else slow; no GPU at all → unmeasured) and
+  // assert the colour/icon pairing directly.
+  // -------------------------------------------------------------------------
+  group('performance info line — graded by tier performance', () {
+    const gpu = hw.GpuInfo(vendor: hw.GpuVendor.apple, name: 'Test GPU');
+    final compactId = bestModelForTier(QualityTier.compact).id;
+
+    /// Colour actually painted on the info message [message].
+    Color? lineColor(WidgetTester tester, String message) =>
+        tester.widget<Text>(find.text(message)).style?.color;
+
+    for (final (themeName, isDark) in [('dark', true), ('light', false)]) {
+      testWidgets('$themeName: a fast tier says nothing at all', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          _makeTestable(
+            isDark: isDark,
+            gpu: gpu,
+            currentModelId: compactId,
+            benchmarkRtf: const {QualityTier.compact: 0.1},
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text(l10n.qualityTierInfoModerate), findsNothing);
+        expect(find.byIcon(LucideIcons.gauge), findsNothing);
+        expect(find.byIcon(LucideIcons.hourglass), findsNothing);
+      });
+
+      testWidgets('$themeName: a moderate tier stays on the neutral accent', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          _makeTestable(
+            isDark: isDark,
+            gpu: gpu,
+            currentModelId: compactId,
+            benchmarkRtf: const {QualityTier.compact: 0.5},
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          lineColor(tester, l10n.qualityTierInfoModerate),
+          isDark ? WpColorsDark.accent : WpColorsLight.accent,
+          reason:
+              'the copy reads "Good balance of speed and quality" — a warning '
+              'tint would contradict the sentence it colours',
+        );
+        expect(find.byIcon(LucideIcons.gauge), findsOneWidget);
+      });
+
+      testWidgets('$themeName: a slow tier is flagged as a time cost', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          _makeTestable(
+            isDark: isDark,
+            gpu: gpu,
+            currentModelId: compactId,
+            benchmarkRtf: const {QualityTier.compact: 1.5},
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          lineColor(tester, l10n.qualityTierInfoSlow('2.0')),
+          isDark ? WpColorsDark.error : WpColorsLight.error,
+        );
+        expect(
+          find.byIcon(LucideIcons.hourglass),
+          findsOneWidget,
+          reason:
+              'an hourglass, not an alert triangle — the tier is slower, not '
+              'broken',
+        );
+        expect(find.byIcon(LucideIcons.triangleAlert), findsNothing);
+      });
+
+      testWidgets('$themeName: an unmeasured tier claims nothing', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          _makeTestable(isDark: isDark, currentModelId: compactId),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          lineColor(tester, l10n.qualityTierInfoBenchmarking),
+          isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
+        );
+        expect(find.byIcon(LucideIcons.hourglass), findsNothing);
+        expect(find.byIcon(LucideIcons.gauge), findsNothing);
+      });
+
+      testWidgets(
+        '$themeName: a running benchmark never borrows the slow verdict',
+        (tester) async {
+          // The VRAM estimate for this tier is `slow`, but nothing has been
+          // measured yet — painting the line red here would announce a verdict
+          // the app does not have.
+          await tester.pumpWidget(
+            _makeTestable(
+              isDark: isDark,
+              gpu: gpu,
+              currentModelId: compactId,
+              benchmarkRtf: const {QualityTier.compact: 1.5},
+              isBenchmarking: true,
+              benchmarkingTier: QualityTier.compact,
+            ),
+          );
+          await tester.pump();
+
+          expect(
+            lineColor(tester, l10n.qualityTierInfoBenchmarking),
+            isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
+            reason:
+                'while measuring, the line must read as "no verdict yet", not '
+                'as the estimate it is about to replace',
+          );
+        },
+      );
+    }
   });
 }

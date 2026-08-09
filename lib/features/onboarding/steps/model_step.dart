@@ -12,7 +12,6 @@ import '../../../services/hardware_info_service.dart' as hw;
 import '../../../services/model_download_service.dart';
 import '../../../services/stt_parakeet/parakeet_download_service.dart';
 import '../../../services/stt_parakeet/parakeet_model_registry.dart';
-import '../../../widgets/tier_performance_presentation.dart';
 import '../../../widgets/wp_button.dart';
 import '../../../widgets/wp_focus_ring.dart';
 import '../../../widgets/wp_hero_button.dart';
@@ -1036,7 +1035,12 @@ class _GpuCpuFallbackNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final infoColor = WpTierPerformancePresentation.color(isDark: isDark);
+    // Plain accent, not [WpTierPerformancePresentation.color] — this banner is
+    // about the *compute backend*, not about a quality tier, and it borrowed
+    // that helper only while every tier state shared one neutral blue. Now
+    // that the helper grades slow/unmeasured differently, feeding it a tier
+    // this notice does not have would be meaningless.
+    final infoColor = isDark ? WpColorsDark.accent : WpColorsLight.accent;
     // Frameless, like the recording-duration note on the same page: a filled
     // and outlined banner gave a purely informational line the weight of a
     // warning, and it was the fourth box competing on this page. Dropping the
