@@ -105,14 +105,14 @@ enum WpButtonTone {
   danger,
 }
 
-/// Which slot the button sits in. Mirrors [WpDropdownSize].
+/// Which slot the button sits in.
 enum WpButtonSize {
   /// 48px control (dialog footers, page CTAs, forms, toolbars).
   ///
   /// 48 because that is what everything a button stands *beside* already is:
   /// [WpSearchField] settles there, `WpTextFieldVariant.form` is held open
-  /// there by its own padding, `WpDropdownSize.standard` declares it outright,
-  /// and all three of them cite `WpLayout.minTouchTarget` for it. This button
+  /// there by its own padding, `WpDropdown` declares it outright, and all
+  /// three of them cite `WpLayout.minTouchTarget` for it. This button
   /// was the one control in the family still painting 40 and letting
   /// Material's tap-target padding claim the last 8 — which is a hit target,
   /// not a silhouette. Every row that put a button next to a field centred
@@ -120,9 +120,14 @@ enum WpButtonSize {
   /// as a button that came out undersized rather than as a decision.
   standard,
 
-  /// 32px control for the trailing slot of a dense settings row or a packed
-  /// action bar. Hit target equals its visual box — the same trade the dense
-  /// dropdown trigger makes.
+  /// 32px control for a *secondary, inline* action: a ghost link under a
+  /// field list, a toast's action, a footer reset, a hint's "fix this".
+  /// Hit target equals its visual box.
+  ///
+  /// Never for a control that shares a line with a field, a search box or
+  /// another button — those all stand at [standard], and a 32 next to a 48
+  /// reads as a mistake rather than as a hierarchy. The call sites that pass
+  /// this all sit on a line of their own.
   dense,
 }
 

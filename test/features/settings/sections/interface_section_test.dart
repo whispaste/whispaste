@@ -11,6 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
+import 'package:whispaste/core/theme/tokens.dart';
 import 'package:whispaste/features/settings/sections/interface_section.dart';
 import 'package:whispaste/features/settings/settings_widgets.dart';
 import 'package:whispaste/widgets/language_selector.dart';
@@ -107,10 +108,15 @@ void main() {
       expect(notifier.state.value!.locale, 'de');
     });
 
-    // Regression: WpLanguageSelector defaults to the 48px standard trigger,
-    // and SettingRow only sets a *minimum* height — so the language row grew
-    // taller than the theme and autostart rows next to it, which build their
-    // dropdowns through settingsDropdown() at the dense 32px size.
+    // Regression, twice over. First the language row was the only one on the
+    // page whose trigger was 48 dp while its neighbours ran at a dense 32,
+    // and SettingRow only sets a *minimum* height, so it stood taller than
+    // them. The fix then went the wrong way — it shrank this row to 32 —
+    // which left every dropdown row in Settings shorter than the search
+    // fields, buttons and text fields everywhere else in the app, and
+    // shorter than the API-key row two sections down. There is now one
+    // control height, 48 dp, and this test pins the language row to it
+    // *and* to its siblings, so neither half can drift again.
     testWidgets('renders at the same row height as its dropdown siblings', (
       tester,
     ) async {
@@ -132,9 +138,14 @@ void main() {
 
       expect(languageHeight, themeHeight);
       expect(languageHeight, autostartHeight);
-      // Parity alone would still hold if all three rows grew together, so
-      // pin the trigger itself at the dense WpDropdown height.
-      expect(tester.getSize(find.byType(WpLanguageSelector)).height, 32.0);
+      // Parity alone would still hold if all three rows moved together, so
+      // pin the trigger itself at the app's single control height — the same
+      // WpLayout.minTouchTarget WpButton, WpSearchField and
+      // WpTextFieldVariant.form all settle at.
+      expect(
+        tester.getSize(find.byType(WpLanguageSelector)).height,
+        WpLayout.minTouchTarget,
+      );
     });
   });
 

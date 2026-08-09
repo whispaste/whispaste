@@ -12,7 +12,6 @@ import '../../../services/autostart_service.dart';
 import '../../../services/telemetry_service.dart';
 import '../../../widgets/language_selector.dart';
 import '../../../widgets/section.dart';
-import '../../../widgets/wp_dropdown.dart';
 import '../settings_widgets.dart';
 
 class InterfaceSection extends ConsumerWidget {
@@ -68,16 +67,16 @@ class InterfaceSection extends ConsumerWidget {
           SettingRow(
             icon: LucideIcons.globe,
             label: l10n.settingsAppLanguage,
-            // Dense + content-width, exactly like the settingsDropdown() rows
-            // above and below it: this is a trailing settings slot, not a
-            // standalone form field. The default standard trigger made this
-            // one row 48px tall next to its 32px siblings, and the fixed 180px
-            // box made it wider than all of them for no gain — a dropdown has
-            // an intrinsic width (Material sizes the closed control to its
-            // widest item, so it does not resize when the language changes),
-            // unlike the Slider that constant was borrowed from.
+            // Content-width, exactly like the settingsDropdown() rows above
+            // and below it: this is a trailing settings slot, not a
+            // standalone form field, so it sizes itself to the widest endonym
+            // instead of taking a fixed box. (It carried a 180px `SizedBox`
+            // once — a dropdown has an intrinsic width, since Material sizes
+            // the closed control to its widest item and it therefore does not
+            // resize when the language changes, unlike the Slider that
+            // constant was borrowed from.) Height is no longer a call-site
+            // decision: there is one dropdown trigger and it is 48 dp.
             trailing: WpLanguageSelector(
-              size: WpDropdownSize.dense,
               expanded: false,
               currentLocale: settings.locale,
               onChanged: (code) {

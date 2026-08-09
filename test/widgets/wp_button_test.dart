@@ -393,7 +393,7 @@ void main() {
       final denseHeight = _visualHeight(tester);
 
       // 48, not 40: the standard button belongs to the same size family as
-      // WpSearchField, WpTextFieldVariant.form and WpDropdownSize.standard,
+      // WpSearchField, WpTextFieldVariant.form and WpDropdown,
       // so a button placed next to any of them lines up with it instead of
       // sitting 8 dp short. Cross-checked against a real search row in
       // test/widgets/search_field_geometry_consistency_test.dart.

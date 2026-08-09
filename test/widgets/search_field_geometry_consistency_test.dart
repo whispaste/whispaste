@@ -480,7 +480,7 @@ void main() {
                 '${button.toStringAsFixed(1)} dp, at $at in a $w dp window. '
                 'These rows are only the cheapest place to catch it — what '
                 'holds them equal is app-wide: WpSearchField, '
-                'WpTextFieldVariant.form, WpDropdownSize.standard and '
+                'WpTextFieldVariant.form, WpDropdown and '
                 'WpButtonSize.standard are all WpLayout.minTouchTarget',
           );
         }

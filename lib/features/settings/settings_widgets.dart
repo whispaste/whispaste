@@ -219,8 +219,13 @@ class HotkeyDisplay extends StatelessWidget {
 // Shared control builders
 // ---------------------------------------------------------------------------
 
-/// Themed dropdown for settings — the dense variant of [WpDropdown], the
-/// app's single value-selection dropdown.
+/// Themed dropdown for settings — [WpDropdown], the app's single
+/// value-selection dropdown, at the one size it has.
+///
+/// It used to ask for a 32 dp `dense` trigger here, which made every settings
+/// row that carries a dropdown shorter than the search fields, form fields
+/// and buttons on every other page — and shorter than the API-key and text
+/// rows in Settings itself. There is one control height in this app now.
 ///
 /// Kept as a helper because the settings sections address their options as
 /// two parallel lists (values + localized labels) rather than as item
@@ -245,7 +250,6 @@ Widget settingsDropdown({
 }) {
   return WpDropdown<String>(
     value: value,
-    size: WpDropdownSize.dense,
     expanded: expanded,
     hint: hint,
     items: [

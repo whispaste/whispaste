@@ -13,6 +13,17 @@
 /// settings rows. They drifted apart in radius, chevron size, menu surface
 /// and — most visibly — in how the opened menu marked the current selection.
 ///
+/// ## Why there is no size variant
+///
+/// Merging the two wrappers left a `WpDropdownSize` enum behind, and the
+/// 32px `dense` trigger it offered made every settings row shorter than the
+/// search fields, form fields and buttons on the pages around it. There is
+/// now exactly one trigger, and it carries the app's single control
+/// geometry: [WpLayout.minTouchTarget] tall, [WpRadius.borderSm] round,
+/// [WpTypography.body] text — the same three values `WpButton`,
+/// `WpTextFieldVariant.form` and `WpSearchField` settle at, so a dropdown
+/// lines up with any of them on a shared line.
+///
 /// ## What it fixes in the opened menu
 ///
 /// Material lays every menu row out as a 48px slot whose child is *centred*
@@ -28,8 +39,8 @@
 ///   InkWell, re-tinted to the accent tint tokens so keyboard navigation
 ///   through the menu stays visible and on-brand.
 ///
-/// Rows keep the full 48px touch target ([WpLayout.minTouchTarget]) in both
-/// sizes — the dense *trigger* is compact, the menu it opens is not.
+/// Menu rows keep the full 48px touch target ([WpLayout.minTouchTarget]),
+/// the same height the trigger stands at.
 library;
 
 import 'package:flutter/material.dart';
@@ -41,18 +52,26 @@ import '../core/theme/tokens.dart';
 import 'wp_focus_ring.dart';
 
 // ---------------------------------------------------------------------------
-// Sizing
+// Geometry
 // ---------------------------------------------------------------------------
+//
+// One trigger, one geometry — see the library docs. These four values are the
+// app's control family, not this widget's private taste: `WpButton`,
+// `WpTextFieldVariant.form` and `WpSearchField` all resolve to the same
+// height, radius and text size, which is what lets a dropdown share a line
+// with any of them.
 
-/// Trigger size. Only the *closed* control changes — the opened menu is
-/// identical in both, because a menu row is a click target, not a table cell.
-enum WpDropdownSize {
-  /// 48px standalone control (onboarding, form fields).
-  standard,
+/// Resting height of the closed trigger.
+const double _kTriggerHeight = WpLayout.minTouchTarget;
 
-  /// 32px control for the trailing slot of a dense settings row.
-  dense,
-}
+/// Chevron glyph — the same [WpIconSize.sm] every other 48px control puts in
+/// its icon slot.
+const double _kChevronSize = WpIconSize.sm;
+
+/// Weight of the selected menu row's label — one step above the row's own
+/// [TextTheme.bodyLarge] (w400), so the check glyph leads and the weight only
+/// seconds it.
+const FontWeight _kActiveWeight = FontWeight.w600;
 
 /// Width of the leading check column in the opened menu.
 ///
@@ -103,7 +122,6 @@ class WpDropdown<T> extends StatefulWidget {
     required this.items,
     required this.onChanged,
     this.hint,
-    this.size = WpDropdownSize.standard,
     this.expanded = false,
   });
 
@@ -117,8 +135,6 @@ class WpDropdown<T> extends StatefulWidget {
 
   /// Muted placeholder shown while [value] is `null`.
   final String? hint;
-
-  final WpDropdownSize size;
 
   /// Fills the parent's width and ellipsizes long labels — for an [Expanded]
   /// slot or a fixed-width [SizedBox], rather than a trailing settings slot.
@@ -161,8 +177,6 @@ class _WpDropdownState<T> extends State<WpDropdown<T>> {
     setState(() => _menuWidth = next);
   }
 
-  bool get _isDense => widget.size == WpDropdownSize.dense;
-
   @override
   Widget build(BuildContext context) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -171,10 +185,14 @@ class _WpDropdownState<T> extends State<WpDropdown<T>> {
 
     final theme = Theme.of(context);
     final palette = _WpDropdownPalette.of(theme.brightness);
-    final spec = _WpDropdownSpec.of(widget.size);
 
+    // `bodyLarge`, not `titleMedium`: the trigger shows a *value*, exactly as
+    // a text field does, and 13/w400 is what `WpTextFieldVariant.form` and
+    // `WpSearchField` render their own value at. It is also the role
+    // `SettingRow` draws its label in, so the two halves of a settings row
+    // finally read as one line rather than as a caption beside a heading.
     final labelStyle =
-        spec.labelRole(theme.textTheme)?.copyWith(color: palette.textPrimary) ??
+        theme.textTheme.bodyLarge?.copyWith(color: palette.textPrimary) ??
         TextStyle(color: palette.textPrimary);
 
     final surface = palette.surface;
@@ -185,7 +203,7 @@ class _WpDropdownState<T> extends State<WpDropdown<T>> {
     final menuSurface = palette.menuSurface;
     final focusWash = palette.focusWash;
     final hoverWash = palette.hoverWash;
-    final radius = spec.radius;
+    final radius = WpRadius.borderSm;
 
     final dropdown = DropdownButton<T>(
       key: _buttonKey,
@@ -202,9 +220,7 @@ class _WpDropdownState<T> extends State<WpDropdown<T>> {
               enabled: item.enabled,
               disabledTooltip: item.disabledTooltip,
               style: labelStyle,
-              // One weight step above the row's own — the check glyph carries
-              // the selection, the weight only seconds it.
-              activeWeight: spec.activeWeight,
+              activeWeight: _kActiveWeight,
               accent: accent,
               textMuted: textMuted,
             ),
@@ -239,7 +255,6 @@ class _WpDropdownState<T> extends State<WpDropdown<T>> {
               style: labelStyle.copyWith(color: textMuted),
             ),
       isExpanded: widget.expanded,
-      isDense: _isDense,
       style: labelStyle,
       // Inset lives on the button, not on the frame around it: Material
       // anchors the menu to the *button's* box, so padding on the frame
@@ -258,7 +273,7 @@ class _WpDropdownState<T> extends State<WpDropdown<T>> {
         padding: const EdgeInsetsDirectional.only(start: WpSpacing.xs),
         child: Icon(
           LucideIcons.chevronDown,
-          size: spec.chevronSize,
+          size: _kChevronSize,
           color: textSecondary,
         ),
       ),
@@ -266,9 +281,9 @@ class _WpDropdownState<T> extends State<WpDropdown<T>> {
 
     return WpFocusRing(
       focusNode: _focusNode,
-      radius: spec.ringRadius,
+      radius: WpRadius.sm,
       child: Container(
-        height: spec.height,
+        height: _kTriggerHeight,
         decoration: BoxDecoration(
           color: surface,
           borderRadius: radius,
@@ -348,58 +363,6 @@ class _WpDropdownPalette {
 
   static _WpDropdownPalette of(Brightness brightness) =>
       brightness == Brightness.dark ? _dark : _light;
-}
-
-/// Everything [WpDropdownSize] actually decides. The opened menu is absent
-/// from this list on purpose: it does not vary by size.
-@immutable
-class _WpDropdownSpec {
-  const _WpDropdownSpec({
-    required this.height,
-    required this.radius,
-    required this.ringRadius,
-    required this.chevronSize,
-    required this.activeWeight,
-    required this.labelRole,
-  });
-
-  final double height;
-  final BorderRadius radius;
-  final double ringRadius;
-  final double chevronSize;
-
-  /// Weight of the selected row's label — one step above the row's own.
-  final FontWeight activeWeight;
-
-  /// The dense trigger sits inside a settings row at body size; the standard
-  /// one is a control in its own right and carries the title role.
-  final TextStyle? Function(TextTheme) labelRole;
-
-  static final _standard = _WpDropdownSpec(
-    height: WpLayout.minTouchTarget,
-    radius: WpRadius.borderMd,
-    ringRadius: WpRadius.md,
-    chevronSize: WpIconSize.sm,
-    activeWeight: FontWeight.w700,
-    labelRole: _standardLabelRole,
-  );
-
-  static final _dense = _WpDropdownSpec(
-    height: 32,
-    radius: WpRadius.borderSm,
-    ringRadius: WpRadius.sm,
-    chevronSize: WpIconSize.xs,
-    activeWeight: FontWeight.w600,
-    labelRole: _denseLabelRole,
-  );
-
-  static TextStyle? _standardLabelRole(TextTheme t) => t.titleMedium;
-  static TextStyle? _denseLabelRole(TextTheme t) => t.bodyLarge;
-
-  static _WpDropdownSpec of(WpDropdownSize size) => switch (size) {
-    WpDropdownSize.standard => _standard,
-    WpDropdownSize.dense => _dense,
-  };
 }
 
 // ---------------------------------------------------------------------------
