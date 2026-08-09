@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -108,6 +109,11 @@ class _HistorySearchFilterBarState
     super.initState();
     widget.controller.addListener(_onControllerChange);
     widget.searchFocusNode?.addListener(_onFocusChange);
+    // The node belongs to _HistoryPageState and outlives this bar, so the
+    // handler is installed here and cleared again in dispose/didUpdateWidget.
+    // Same arrangement as settings_search_field.dart:62 — WpSearchField itself
+    // never assigns onKeyEvent, it documents that callers may.
+    widget.searchFocusNode?.onKeyEvent = _handleSearchKey;
   }
 
   @override
@@ -119,7 +125,9 @@ class _HistorySearchFilterBarState
     }
     if (old.searchFocusNode != widget.searchFocusNode) {
       old.searchFocusNode?.removeListener(_onFocusChange);
+      old.searchFocusNode?.onKeyEvent = null;
       widget.searchFocusNode?.addListener(_onFocusChange);
+      widget.searchFocusNode?.onKeyEvent = _handleSearchKey;
     }
   }
 
@@ -128,7 +136,73 @@ class _HistorySearchFilterBarState
     _searchDebounce?.cancel();
     widget.controller.removeListener(_onControllerChange);
     widget.searchFocusNode?.removeListener(_onFocusChange);
+    widget.searchFocusNode?.onKeyEvent = null;
     super.dispose();
+  }
+
+  /// Arrow/Enter/Escape navigation for the tag and language autocomplete.
+  ///
+  /// The dropdown painted a highlight over `_selectedIdx` but nothing ever
+  /// moved it: there was no key handler here and none in WpSearchField, so the
+  /// suggestions could only be taken with the mouse. For an audience that
+  /// dictates 5–100× a day and includes RSI sufferers — "ohne die Maus zu
+  /// berühren" is the product's own litmus test — a mouse-only autocomplete on
+  /// the most-opened screen is a dead end, not a shortcut.
+  ///
+  /// Returns [KeyEventResult.ignored] for everything it does not consume so
+  /// DefaultTextEditingShortcuts keeps handling ordinary caret movement.
+  KeyEventResult _handleSearchKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    final key = event.logicalKey;
+
+    // Escape closes the dropdown first and only then gives up the field, so a
+    // stray Escape never costs the user the query they just typed.
+    if (key == LogicalKeyboardKey.escape) {
+      if (_hasSuggestions) {
+        _clearSuggestions();
+      } else {
+        node.unfocus();
+      }
+      return KeyEventResult.handled;
+    }
+
+    // Only the simple tag/lang list is navigable. The smart panel renders three
+    // heterogeneous sections and ignores _selectedIdx entirely, so consuming
+    // arrows there would swallow the caret keys for no visible effect —
+    // deliberately left to a follow-up ticket.
+    if (_suggestionType != _SuggestionType.tag &&
+        _suggestionType != _SuggestionType.lang) {
+      return KeyEventResult.ignored;
+    }
+    if (_suggestions.isEmpty) return KeyEventResult.ignored;
+
+    if (key == LogicalKeyboardKey.arrowDown) {
+      setState(() {
+        _selectedIdx = (_selectedIdx + 1) % _suggestions.length;
+      });
+      return KeyEventResult.handled;
+    }
+
+    if (key == LogicalKeyboardKey.arrowUp) {
+      setState(() {
+        _selectedIdx = _selectedIdx <= 0
+            ? _suggestions.length - 1
+            : _selectedIdx - 1;
+      });
+      return KeyEventResult.handled;
+    }
+
+    // Tab accepts as well as Enter: completing a token mid-query is what the
+    // Tab key means in every shell these users already live in.
+    if (key == LogicalKeyboardKey.enter || key == LogicalKeyboardKey.tab) {
+      if (_selectedIdx >= 0 && _selectedIdx < _suggestions.length) {
+        _selectSuggestion(_suggestions[_selectedIdx]);
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
+    }
+
+    return KeyEventResult.ignored;
   }
 
   void _onFocusChange() {
@@ -528,37 +602,54 @@ class _HistorySearchFilterBarState
       itemBuilder: (ctx, i) {
         final selected = i == _selectedIdx;
         final s = _suggestions[i];
-        return InkWell(
-          onTap: () => _selectSuggestion(s),
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.md,
-              vertical: WpSpacing.xs,
-            ),
-            color: selected
-                ? (widget.isDark
-                      ? WpColorsDark.accentActiveFill
-                      : WpColorsLight.accentActiveFill)
-                : Colors.transparent,
-            child: Row(
-              children: [
-                Icon(
-                  _suggestionType == _SuggestionType.lang
-                      ? LucideIcons.globe
-                      : LucideIcons.tag,
-                  size: 13,
-                  color: selected ? accent : textMuted,
+        // House idiom for a single-tap-target row (snippet picker, export
+        // picker, tag input): MergeSemantics + a label-less Semantics, so the
+        // name folds in from the rendered `#tag`/`lang:xx` text instead of
+        // being announced twice. `selected: selected` is the load-bearing
+        // half — the field keeps the only focus node while the arrow keys move
+        // a background colour, so without the flag a screen reader reported
+        // nothing at all as the user arrowed down the list.
+        return MergeSemantics(
+          child: Semantics(
+            button: true,
+            selected: selected,
+            child: InkWell(
+              onTap: () => _selectSuggestion(s),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: WpSpacing.md,
+                  vertical: WpSpacing.xs,
                 ),
-                const SizedBox(width: WpSpacing.xs),
-                Text(
-                  _suggestionType == _SuggestionType.lang ? 'lang:$s' : '#$s',
-                  style: TextStyle(
-                    fontSize: WpTypography.body,
-                    color: selected ? accent : textMuted,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-                  ),
+                color: selected
+                    ? (widget.isDark
+                          ? WpColorsDark.accentActiveFill
+                          : WpColorsLight.accentActiveFill)
+                    : Colors.transparent,
+                child: Row(
+                  children: [
+                    Icon(
+                      _suggestionType == _SuggestionType.lang
+                          ? LucideIcons.globe
+                          : LucideIcons.tag,
+                      size: 13,
+                      color: selected ? accent : textMuted,
+                    ),
+                    const SizedBox(width: WpSpacing.xs),
+                    Text(
+                      _suggestionType == _SuggestionType.lang
+                          ? 'lang:$s'
+                          : '#$s',
+                      style: TextStyle(
+                        fontSize: WpTypography.body,
+                        color: selected ? accent : textMuted,
+                        fontWeight: selected
+                            ? FontWeight.w600
+                            : FontWeight.normal,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         );
