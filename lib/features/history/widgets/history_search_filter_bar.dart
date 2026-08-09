@@ -1416,7 +1416,7 @@ class HistoryViewModeToggle extends StatelessWidget {
   }
 }
 
-class _HistoryViewModeButton extends StatelessWidget {
+class _HistoryViewModeButton extends StatefulWidget {
   const _HistoryViewModeButton({
     required this.icon,
     required this.label,
@@ -1432,27 +1432,59 @@ class _HistoryViewModeButton extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
+  State<_HistoryViewModeButton> createState() => _HistoryViewModeButtonState();
+}
+
+class _HistoryViewModeButtonState extends State<_HistoryViewModeButton> {
+  final FocusNode _focusNode = FocusNode(debugLabel: 'HistoryViewModeButton');
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final color = isActive
+    final isDark = widget.isDark;
+    final color = widget.isActive
         ? (isDark ? WpColorsDark.accent : WpColorsLight.accent)
         : (isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted);
-    final bg = isActive
+    final bg = widget.isActive
         ? (isDark ? WpColorsDark.accentSubtle : WpColorsLight.accentSubtle)
         : Colors.transparent;
     return Semantics(
-      label: label,
+      label: widget.label,
       button: true,
-      child: GestureDetector(
-        onTap: onTap,
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: Container(
-            padding: const EdgeInsets.all(WpSpacing.xxs),
-            decoration: BoxDecoration(
-              color: bg,
-              borderRadius: WpRadius.borderSm,
+      // Icon-only segments: without this flag the three announce identically
+      // whichever one is on, so a screen-reader user cannot tell which view
+      // they are in — only that three view buttons exist. Same mapping as
+      // WpFilterChip, the app's other selectable control.
+      selected: widget.isActive,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        // InkWell rather than the previous GestureDetector: this was the only
+        // control in the filter bar Tab could not reach, so switching the view
+        // meant reaching for the mouse — the one thing this audience must never
+        // have to do. Focus visuals come from WpFocusRing, as everywhere else.
+        child: InkWell(
+          onTap: widget.onTap,
+          focusNode: _focusNode,
+          focusColor: Colors.transparent,
+          hoverColor: Colors.transparent,
+          splashColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+          child: WpFocusRing(
+            focusNode: _focusNode,
+            radius: WpRadius.sm,
+            child: Container(
+              padding: const EdgeInsets.all(WpSpacing.xxs),
+              decoration: BoxDecoration(
+                color: bg,
+                borderRadius: WpRadius.borderSm,
+              ),
+              child: Icon(widget.icon, size: WpIconSize.sm, color: color),
             ),
-            child: Icon(icon, size: WpIconSize.sm, color: color),
           ),
         ),
       ),

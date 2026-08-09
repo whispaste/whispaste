@@ -23,6 +23,7 @@ import '../../../widgets/tag_input.dart';
 import '../../../widgets/markdown_toolbar.dart';
 import '../../../widgets/toast.dart';
 import '../../../widgets/wp_button.dart';
+import '../../../widgets/wp_focus_ring.dart';
 import '../../../widgets/wp_text_field.dart';
 import 'tag_management_dialog.dart';
 import '../../../core/utils/word_count.dart';
@@ -1273,6 +1274,13 @@ class HistoryDetailAction extends StatefulWidget {
 
 class _HistoryDetailActionState extends State<HistoryDetailAction> {
   bool _isHovered = false;
+  final FocusNode _focusNode = FocusNode(debugLabel: 'HistoryDetailAction');
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1301,30 +1309,47 @@ class _HistoryDetailActionState extends State<HistoryDetailAction> {
           cursor: SystemMouseCursors.click,
           onEnter: (_) => setState(() => _isHovered = true),
           onExit: (_) => setState(() => _isHovered = false),
-          child: GestureDetector(
-            onTap: widget.onTap,
-            behavior: HitTestBehavior.opaque,
-            child: AnimatedContainer(
-              duration: WpMotion.durationFor(
-                context,
-                _isHovered ? Duration.zero : WpMotion.hoverOut,
+          // InkWell + WpFocusRing instead of a bare GestureDetector: this is the
+          // house shape for an icon-only action (WpRowAction:151-200), and the
+          // detail panel's own actions were the one set of them Tab could not
+          // reach. Copy/Restore/Delete of the open entry were mouse-only, which
+          // is precisely the round trip this audience cannot make.
+          child: WpFocusRing(
+            focusNode: _focusNode,
+            radius: WpRadius.sm,
+            child: InkWell(
+              onTap: widget.onTap,
+              focusNode: _focusNode,
+              borderRadius: WpRadius.borderSm,
+              // WpFocusRing owns all focus visuals — suppress InkWell's own.
+              focusColor: Colors.transparent,
+              hoverColor: Colors.transparent,
+              splashColor: Colors.transparent,
+              highlightColor: Colors.transparent,
+              child: AnimatedContainer(
+                duration: WpMotion.durationFor(
+                  context,
+                  _isHovered ? Duration.zero : WpMotion.hoverOut,
+                ),
+                padding: const EdgeInsets.all(WpSpacing.sm),
+                decoration: BoxDecoration(
+                  color: _isHovered
+                      ? (widget.isDark
+                            ? WpColorsDark.hover
+                            : WpColorsLight.hover)
+                      : (widget.isDark
+                            ? WpColorsDark.hoverTransparent
+                            : WpColorsLight.hoverTransparent),
+                  borderRadius: WpRadius.borderSm,
+                ),
+                child: widget.faIcon != null
+                    ? FaIcon(
+                        widget.faIcon!,
+                        size: WpIconSize.md,
+                        color: iconColor,
+                      )
+                    : Icon(widget.icon!, size: WpIconSize.md, color: iconColor),
               ),
-              padding: const EdgeInsets.all(WpSpacing.sm),
-              decoration: BoxDecoration(
-                color: _isHovered
-                    ? (widget.isDark ? WpColorsDark.hover : WpColorsLight.hover)
-                    : (widget.isDark
-                          ? WpColorsDark.hoverTransparent
-                          : WpColorsLight.hoverTransparent),
-                borderRadius: WpRadius.borderSm,
-              ),
-              child: widget.faIcon != null
-                  ? FaIcon(
-                      widget.faIcon!,
-                      size: WpIconSize.md,
-                      color: iconColor,
-                    )
-                  : Icon(widget.icon!, size: WpIconSize.md, color: iconColor),
             ),
           ),
         ),
