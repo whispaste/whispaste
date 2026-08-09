@@ -250,58 +250,17 @@ class _StableRevertHintNotice extends StatelessWidget {
     final l10n = L10n.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final warning = isDark ? WpColorsDark.warning : WpColorsLight.warning;
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
 
-    return Container(
-      margin: const EdgeInsets.symmetric(
-        horizontal: WpSpacing.sm,
-        vertical: WpSpacing.xs,
+    return settingsInlineNotice(
+      context: context,
+      message: l10n.settingsStableRevertHintMessage,
+      action: _StableRevertLink(
+        label: l10n.settingsStableRevertHintLink(stableVersion),
+        color: warning,
+        onTap: () => unawaited(_openStableRelease()),
       ),
-      padding: const EdgeInsets.all(WpSpacing.md),
-      decoration: BoxDecoration(
-        color: warning.withValues(alpha: 0.12),
-        borderRadius: WpRadius.borderMd,
-        border: Border.all(color: warning.withValues(alpha: 0.4)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(LucideIcons.triangleAlert, size: WpIconSize.sm, color: warning),
-          const SizedBox(width: WpSpacing.sm),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  l10n.settingsStableRevertHintMessage,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: textPrimary),
-                ),
-                const SizedBox(height: WpSpacing.xxs),
-                _StableRevertLink(
-                  label: l10n.settingsStableRevertHintLink(stableVersion),
-                  color: warning,
-                  onTap: () => unawaited(_openStableRelease()),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            icon: const Icon(LucideIcons.x, size: WpIconSize.xs),
-            tooltip: l10n.actionDismiss,
-            onPressed: onDismiss,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(
-              minWidth: WpLayout.minTouchTarget,
-              minHeight: WpLayout.minTouchTarget,
-            ),
-          ),
-        ],
-      ),
+      onDismiss: onDismiss,
+      dismissTooltip: l10n.actionDismiss,
     );
   }
 }

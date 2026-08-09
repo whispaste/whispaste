@@ -8,8 +8,6 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/logging/app_logger.dart';
-import '../../../core/theme/colors.dart';
-import '../../../core/theme/tokens.dart';
 import '../../../services/autostart_service.dart';
 import '../../../services/telemetry_service.dart';
 import '../../../widgets/language_selector.dart';
@@ -156,10 +154,14 @@ class InterfaceSection extends ConsumerWidget {
 }
 
 /// Inline warning shown when [AutostartService] failed to register the
-/// "Launch at Startup" setting with the OS — a reuse of the same
-/// warning-badge visual pattern already established for the stable-revert
-/// hint in `updates_section.dart` (warning-tinted surface, icon, text). No
-/// dismiss action: this reflects the live sync outcome, not a one-time tip,
+/// "Launch at Startup" setting with the OS.
+///
+/// This comment used to claim it reused the pattern of the stable-revert hint
+/// in `updates_section.dart`; the two were in fact laid out differently, and a
+/// third notice differed again. They now genuinely share one implementation
+/// ([settingsInlineNotice]), so the claim is finally true by construction.
+///
+/// No dismiss action: this reflects the live sync outcome, not a one-time tip,
 /// so it clears itself once a later sync succeeds.
 class _AutostartSyncFailureNotice extends StatelessWidget {
   const _AutostartSyncFailureNotice({required this.message});
@@ -167,39 +169,6 @@ class _AutostartSyncFailureNotice extends StatelessWidget {
   final String message;
 
   @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final warning = isDark ? WpColorsDark.warning : WpColorsLight.warning;
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
-
-    return Container(
-      margin: const EdgeInsets.symmetric(
-        horizontal: WpSpacing.sm,
-        vertical: WpSpacing.xs,
-      ),
-      padding: const EdgeInsets.all(WpSpacing.md),
-      decoration: BoxDecoration(
-        color: warning.withValues(alpha: 0.12),
-        borderRadius: WpRadius.borderMd,
-        border: Border.all(color: warning.withValues(alpha: 0.4)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(LucideIcons.triangleAlert, size: WpIconSize.sm, color: warning),
-          const SizedBox(width: WpSpacing.sm),
-          Expanded(
-            child: Text(
-              message,
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: textPrimary),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) =>
+      settingsInlineNotice(context: context, message: message);
 }

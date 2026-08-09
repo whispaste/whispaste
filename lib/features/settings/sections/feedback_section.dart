@@ -323,10 +323,14 @@ class AfterTranscriptionSection extends ConsumerWidget {
           if (resolvedAction == AfterTranscriptionAction.paste ||
               resolvedAction == AfterTranscriptionAction.clipboardAndPaste)
             const Padding(
+              // kSettingRowInset horizontally, like every other inline block
+              // in Settings. This one sat at 16 and started 4 px right of the
+              // rows it belongs to — the kind of drift that reads as sloppy
+              // without ever being noticed as a specific mistake.
               padding: EdgeInsets.fromLTRB(
-                WpSpacing.md,
+                kSettingRowInset,
                 WpSpacing.sm,
-                WpSpacing.md,
+                kSettingRowInset,
                 WpSpacing.xs,
               ),
               child: PasteCapabilityIndicator(),

@@ -437,6 +437,95 @@ Widget settingsInlineDivider(BuildContext context) {
 }
 
 // ---------------------------------------------------------------------------
+// Inline notice
+// ---------------------------------------------------------------------------
+
+/// The settings page's one inline notice: a warning-tinted block that says
+/// something the rows above it cannot say for themselves — a sync that failed,
+/// a microphone that is clipping, a beta you can step back out of.
+///
+/// There were three of these in two geometries, and a doc comment on one of
+/// them claiming it followed the pattern of another it did not actually match:
+/// 16 px padding against 12/8, border alpha 0.4 against 0.35, a 12 px icon gap
+/// against 8, body text in `textPrimary` against warning-coloured `small`, and
+/// the same glyph imported under two different Lucide aliases. None of those
+/// differences carried meaning; they were just three people solving one
+/// problem.
+///
+/// The resolved version takes the majority geometry, and `textPrimary` for the
+/// message: warning-coloured text on a warning-tinted fill was the weakest
+/// contrast of the three, and the tint plus the icon already carry the tone.
+///
+/// [margin] is the one real variation — the clipping banner sits flush under
+/// the gain slider it annotates, so it needs a zero top edge.
+Widget settingsInlineNotice({
+  required BuildContext context,
+  required String message,
+
+  /// Rendered under [message], inside the same block — used by the
+  /// stable-revert hint for its link.
+  Widget? action,
+  VoidCallback? onDismiss,
+  String? dismissTooltip,
+  EdgeInsets margin = const EdgeInsets.symmetric(
+    horizontal: WpSpacing.sm,
+    vertical: WpSpacing.xs,
+  ),
+}) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  final warning = isDark ? WpColorsDark.warning : WpColorsLight.warning;
+  final textPrimary = isDark
+      ? WpColorsDark.textPrimary
+      : WpColorsLight.textPrimary;
+
+  return Container(
+    margin: margin,
+    padding: const EdgeInsets.all(WpSpacing.md),
+    decoration: BoxDecoration(
+      color: warning.withValues(alpha: 0.12),
+      borderRadius: WpRadius.borderMd,
+      border: Border.all(color: warning.withValues(alpha: 0.4)),
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(LucideIcons.triangleAlert, size: WpIconSize.sm, color: warning),
+        const SizedBox(width: WpSpacing.sm),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                message,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: textPrimary),
+              ),
+              if (action != null) ...[
+                const SizedBox(height: WpSpacing.xxs),
+                action,
+              ],
+            ],
+          ),
+        ),
+        if (onDismiss != null)
+          IconButton(
+            icon: Icon(LucideIcons.x, size: WpIconSize.sm, color: warning),
+            tooltip: dismissTooltip,
+            onPressed: onDismiss,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(
+              minWidth: WpLayout.minTouchTarget,
+              minHeight: WpLayout.minTouchTarget,
+            ),
+          ),
+      ],
+    ),
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Format helpers
 // ---------------------------------------------------------------------------
 

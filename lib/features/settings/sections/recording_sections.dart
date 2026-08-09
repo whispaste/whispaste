@@ -7,7 +7,6 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
-import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../services/audio_service.dart';
 import '../../recording/clipping_state.dart';
@@ -111,58 +110,19 @@ class _ClippingBanner extends ConsumerWidget {
     if (!clipping.shouldShowBanner) return const SizedBox.shrink();
 
     final l10n = L10n.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final warnColor = isDark ? WpColorsDark.warning : WpColorsLight.warning;
-
-    return Padding(
+    return settingsInlineNotice(
+      context: context,
+      message: l10n.settingsClippingBanner,
+      onDismiss: () => ref.read(clippingStateProvider.notifier).dismiss(),
+      dismissTooltip: l10n.settingsClippingDismiss,
       // Zero top: the banner sits flush beneath the gain slider it annotates.
-      padding: const EdgeInsets.fromLTRB(
+      // The one geometry difference among the three notices that means
+      // something, so it is the one the shared helper takes as a parameter.
+      margin: const EdgeInsets.fromLTRB(
         WpSpacing.sm,
         0,
         WpSpacing.sm,
         WpSpacing.xs,
-      ),
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: WpSpacing.sm,
-          vertical: WpSpacing.xs,
-        ),
-        decoration: BoxDecoration(
-          color: warnColor.withValues(alpha: 0.12),
-          borderRadius: WpRadius.borderMd,
-          border: Border.all(color: warnColor.withValues(alpha: 0.35)),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              LucideIcons.alertTriangle,
-              size: WpIconSize.sm,
-              color: warnColor,
-            ),
-            const SizedBox(width: WpSpacing.xs),
-            Expanded(
-              child: Text(
-                l10n.settingsClippingBanner,
-                style: TextStyle(
-                  fontSize: WpTypography.small,
-                  color: warnColor,
-                ),
-              ),
-            ),
-            const SizedBox(width: WpSpacing.xs),
-            IconButton(
-              icon: Icon(LucideIcons.x, size: WpIconSize.sm, color: warnColor),
-              tooltip: l10n.settingsClippingDismiss,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(
-                minWidth: WpLayout.minTouchTarget,
-                minHeight: WpLayout.minTouchTarget,
-              ),
-              onPressed: () =>
-                  ref.read(clippingStateProvider.notifier).dismiss(),
-            ),
-          ],
-        ),
       ),
     );
   }
