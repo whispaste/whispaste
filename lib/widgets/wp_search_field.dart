@@ -124,6 +124,18 @@
 /// toolbar and the snippet picker); neither changes height, because a
 /// `prefixIcon` already holds both fields at Material's 48 dp icon-slot floor,
 /// which the suffix then shares.
+///
+/// ## Secondary engines
+///
+/// This field resolves its own strings via `L10n.of(context)`, which needs a
+/// `Localizations` ancestor for [L10n]. The main window's `MaterialApp`
+/// (`app.dart`) always provides one; WhisPaste's secondary Flutter engines
+/// (floating button, recording overlay, snippet picker) historically don't,
+/// since they resolve locale manually instead of through ambient
+/// `Localizations`. Any secondary-engine `MaterialApp` that mounts this field
+/// — as the snippet picker does, `capsule` variant — must set
+/// `localizationsDelegates`/`supportedLocales`/`locale` itself, or the very
+/// first build throws a null-check on `Localizations.of<L10n>`.
 library;
 
 import 'package:flutter/material.dart';
