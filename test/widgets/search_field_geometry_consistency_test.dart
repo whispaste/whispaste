@@ -162,6 +162,16 @@ Finder _fieldBox() => find
     )
     .first;
 
+/// A [WpButton]'s *painted* box.
+///
+/// Not the widget's own rect: [MaterialTapTargetSize.padded] reports 48 dp
+/// around a box it paints at 40, so measuring the widget would have this test
+/// pass on a tree where the button visibly falls 8 dp short of the field. The
+/// `Material` the button style paints into is the contour someone actually
+/// sees an edge of, which is what has to line up.
+Finder _buttonBox(Finder button) =>
+    find.descendant(of: button, matching: find.byType(Material)).first;
+
 _FieldGeometry _measure(WidgetTester tester) {
   final box = _rect(tester, _fieldBox());
   final text = _rect(
@@ -271,6 +281,7 @@ Future<
   ({
     Map<String, _FieldGeometry> geometry,
     Map<String, double> neighbourGap,
+    Map<String, double> neighbourHeight,
     Map<String, BoxConstraints> incoming,
     double surfaceWidth,
   })
@@ -278,6 +289,7 @@ Future<
 _measureAllAreas(WidgetTester tester, double scale) async {
   final measured = <String, _FieldGeometry>{};
   final gaps = <String, double>{};
+  final neighbourHeights = <String, double>{};
   final incoming = <String, BoxConstraints>{};
   var surfaceWidth = 0.0;
 
@@ -293,6 +305,7 @@ _measureAllAreas(WidgetTester tester, double scale) async {
     if (button.evaluate().isNotEmpty) {
       gaps[area] =
           _rect(tester, button.first).left - _rect(tester, _fieldBox()).right;
+      neighbourHeights[area] = _rect(tester, _buttonBox(button.first)).height;
     }
   }
 
@@ -324,6 +337,7 @@ _measureAllAreas(WidgetTester tester, double scale) async {
   return (
     geometry: measured,
     neighbourGap: gaps,
+    neighbourHeight: neighbourHeights,
     incoming: incoming,
     surfaceWidth: surfaceWidth,
   );
@@ -428,6 +442,46 @@ void main() {
                 'must grow until exactly one WpSpacing.sm gap is left before '
                 'that button — no more (dead space), no less (a collision). '
                 'At $at in a $w dp window',
+          );
+        }
+      }
+    });
+
+    testWidgets('the button beside the field is as tall as the field, at $at', (
+      tester,
+    ) async {
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      for (final window in _windows) {
+        await tester.binding.setSurfaceSize(Size(_contentWidth(window), 700));
+
+        final probed = await _measureAllAreas(tester, scale);
+        final w = window.toInt();
+
+        for (final area in _withNeighbour) {
+          final field = probed.geometry[area]!.boxHeight;
+          final button = probed.neighbourHeight[area]!;
+
+          // One dp of tolerance, and only above 1.0x: the field's height
+          // comes from its text plus its own vertical padding and lands on 49
+          // at 1.5x, while the button's comes from the 48 dp floor its
+          // padding has not yet outgrown. Half a dp of type metrics is not
+          // what this test is about; eight dp of "the button is a different
+          // size" is.
+          expect(
+            button,
+            closeTo(field, scale == 1.0 ? 0.01 : 1.0),
+            reason:
+                'On "$area" the search field and the button beside it are one '
+                'row, so they must read as one control strip: a shorter '
+                'button centres itself in the leftover height and looks '
+                'undersized rather than deliberate. The field paints '
+                '${field.toStringAsFixed(1)} dp, the button '
+                '${button.toStringAsFixed(1)} dp, at $at in a $w dp window. '
+                'These rows are only the cheapest place to catch it — what '
+                'holds them equal is app-wide: WpSearchField, '
+                'WpTextFieldVariant.form, WpDropdownSize.standard and '
+                'WpButtonSize.standard are all WpLayout.minTouchTarget',
           );
         }
       }

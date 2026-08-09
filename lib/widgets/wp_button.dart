@@ -107,8 +107,17 @@ enum WpButtonTone {
 
 /// Which slot the button sits in. Mirrors [WpDropdownSize].
 enum WpButtonSize {
-  /// 40px control (dialog footers, page CTAs, forms). Keeps a 48px hit target
-  /// via Material's tap-target padding, exactly as the themed buttons do today.
+  /// 48px control (dialog footers, page CTAs, forms, toolbars).
+  ///
+  /// 48 because that is what everything a button stands *beside* already is:
+  /// [WpSearchField] settles there, `WpTextFieldVariant.form` is held open
+  /// there by its own padding, `WpDropdownSize.standard` declares it outright,
+  /// and all three of them cite `WpLayout.minTouchTarget` for it. This button
+  /// was the one control in the family still painting 40 and letting
+  /// Material's tap-target padding claim the last 8 — which is a hit target,
+  /// not a silhouette. Every row that put a button next to a field centred
+  /// that difference into 4px of air above and below the button, and it read
+  /// as a button that came out undersized rather than as a decision.
   standard,
 
   /// 32px control for the trailing slot of a dense settings row or a packed
@@ -577,8 +586,24 @@ class _WpButtonSpec {
     fontFamily: 'Inter',
   );
 
+  /// Vertical inset re-derived for the taller box; horizontal inset
+  /// deliberately not.
+  ///
+  /// 14 dp is what `WpTextFieldVariant.form` uses to hold a single line open
+  /// at exactly 48, so the button and the field a user meets on the same
+  /// screen now space their content the same way rather than one of them
+  /// wearing the other's number. Keeping `sm` (12) would have been the taller
+  /// box with the old padding poured into it — the label would sit in a
+  /// looser box without the box's own rhythm changing with it.
+  ///
+  /// `paddingX` stays at `xl` on purpose, and that is not the same omission:
+  /// it is the *width* of every button in the app, and 48 is a claim about
+  /// heights lining up with fields, not about buttons needing more room
+  /// sideways. Widening ~60 call sites — several of them in dialogs with two
+  /// buttons on one line — would risk overflow to fix nothing anyone
+  /// reported.
   static final _standard = _WpButtonSpec(
-    height: 40,
+    height: WpLayout.minTouchTarget,
     radius: WpRadius.borderSm,
     ringRadius: WpRadius.sm,
     fontSize: WpTypography.body,
@@ -588,10 +613,16 @@ class _WpButtonSpec {
     spinnerStroke: 2,
     paddingX: WpSpacing.xl,
     ghostPaddingX: WpSpacing.md,
-    paddingY: WpSpacing.sm,
+    paddingY: 14,
+    // Kept for the one thing it still does: a very short label ("OK") can
+    // leave the button under 48 dp *wide*, and this pads the hit box out.
+    // Vertically it is now a no-op — the painted box is already the minimum.
     tapTargetSize: MaterialTapTargetSize.padded,
-    // (kMinInteractiveDimension 48 - height 40) / 2, split over both edges.
-    ringInsets: const EdgeInsets.symmetric(vertical: 4),
+    // Zero, because `padded` no longer inflates the height: the box paints
+    // the 48 it reports. The 4 dp this used to subtract was exactly that
+    // inflation ((48 - 40) / 2), and leaving it would now pull the focus ring
+    // *inside* the button's contour on every button in the app.
+    ringInsets: EdgeInsets.zero,
   );
 
   static final _dense = _WpButtonSpec(

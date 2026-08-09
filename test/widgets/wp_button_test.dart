@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/core/theme/colors.dart';
+import 'package:whispaste/core/theme/tokens.dart';
 import 'package:whispaste/widgets/wp_button.dart';
 import 'package:whispaste/widgets/wp_focus_ring.dart';
 
@@ -391,9 +392,40 @@ void main() {
       );
       final denseHeight = _visualHeight(tester);
 
-      expect(standardHeight, 40);
+      // 48, not 40: the standard button belongs to the same size family as
+      // WpSearchField, WpTextFieldVariant.form and WpDropdownSize.standard,
+      // so a button placed next to any of them lines up with it instead of
+      // sitting 8 dp short. Cross-checked against a real search row in
+      // test/widgets/search_field_geometry_consistency_test.dart.
+      expect(standardHeight, WpLayout.minTouchTarget);
       expect(denseHeight, 32);
       expect(denseHeight, lessThan(standardHeight));
+    });
+
+    testWidgets('the box it reports is the box it paints', (tester) async {
+      for (final size in WpButtonSize.values) {
+        await tester.pumpWidget(
+          makeTestable(
+            WpButton(
+              label: 'Aktion',
+              variant: WpButtonVariant.secondary,
+              size: size,
+              onPressed: _noop,
+            ),
+          ),
+        );
+
+        expect(
+          _visualHeight(tester),
+          tester.getSize(find.byType(WpButton)).height,
+          reason:
+              'Material pads a button out to a 48 dp tap target without '
+              'painting it, and WpFocusRing has to subtract that padding back '
+              'off (ringInsets) or the ring lands inside the contour. Both '
+              'sizes now paint what they report, so ringInsets is zero for '
+              'both — if this fails, that compensation is owed again',
+        );
+      }
     });
   });
 

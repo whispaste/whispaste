@@ -212,7 +212,7 @@ class _Matrix extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          _isStandard ? 'standard — 40 px' : 'dense — 32 px',
+          _isStandard ? 'standard — 48 px' : 'dense — 32 px',
           style: theme.textTheme.titleLarge,
         ),
         const SizedBox(height: WpSpacing.sm),
