@@ -25,6 +25,12 @@ analyzer:
     - "**/*.freezed.dart"
     - "build/**"
     - ".dart_tool/**"
+    # Scratch/measurement probes some agents drop under test/ while working and
+    # then delete — this repo has no worktree isolation, so a repo-wide
+    # analyze in the pre-commit hook can pick up another agent's in-flight
+    # probe and block an unrelated commit. Name throwaway files `zz_*` to get
+    # them excluded automatically instead of racing to delete them in time.
+    - "**/zz_*"
 
 linter:
   rules:
