@@ -71,10 +71,6 @@
   "@historyNewRecording": {
     "description": "Label of the primary button beside the History search field. Starts the same recording the systemwide hotkey starts; worded like the items the page calls recordings, not like the transcription the search field mentions."
   },
-  "historySearchOperatorsHint": "Tip: type #tag or lang:xx to filter as you search.",
-  "@historySearchOperatorsHint": {
-    "description": "One-time discoverability hint below the search field, teaching the #tag and lang:xx operators parsed by parseSearchQuery."
-  },
   "historyNoResults": "No results",
   "historyNoResultsHint": "No transcriptions match \"{query}\".\nTry a different search term.",
   "@historyNoResultsHint": {

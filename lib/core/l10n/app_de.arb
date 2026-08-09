@@ -63,7 +63,6 @@
   "historySearchTranscriptions": "Transkriptionen suchen…",
   "historySearchFieldLabel": "Transkriptionen suchen",
   "historyNewRecording": "Neue Aufnahme",
-  "historySearchOperatorsHint": "Tipp: Tippe #tag oder lang:xx zum Filtern.",
   "historyNoResults": "Keine Ergebnisse",
   "historyNoResultsHint": "Keine Transkriptionen stimmen mit \"{query}\" überein.\nVersuche einen anderen Suchbegriff.",
   "historyTrashEmpty": "Papierkorb ist leer",

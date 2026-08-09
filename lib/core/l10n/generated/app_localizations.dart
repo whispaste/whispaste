@@ -411,12 +411,6 @@ abstract class L10n {
   /// **'New recording'**
   String get historyNewRecording;
 
-  /// One-time discoverability hint below the search field, teaching the #tag and lang:xx operators parsed by parseSearchQuery.
-  ///
-  /// In en, this message translates to:
-  /// **'Tip: type #tag or lang:xx to filter as you search.'**
-  String get historySearchOperatorsHint;
-
   /// No description provided for @historyNoResults.
   ///
   /// In en, this message translates to:

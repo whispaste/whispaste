@@ -172,10 +172,6 @@ class L10nDe extends L10n {
   String get historyNewRecording => 'Neue Aufnahme';
 
   @override
-  String get historySearchOperatorsHint =>
-      'Tipp: Tippe #tag oder lang:xx zum Filtern.';
-
-  @override
   String get historyNoResults => 'Keine Ergebnisse';
 
   @override

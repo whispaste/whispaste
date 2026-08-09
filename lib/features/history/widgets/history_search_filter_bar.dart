@@ -13,7 +13,6 @@ import '../../../core/recording/recording_state.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../services/recording_orchestrator.dart';
 import '../../../widgets/wp_button.dart';
-import '../../../widgets/wp_discoverability_hint.dart';
 import '../../../widgets/wp_filter_chip.dart';
 import '../../../widgets/wp_focus_ring.dart';
 import '../../../widgets/wp_search_field.dart';
@@ -724,28 +723,27 @@ class _HistorySearchFilterBarState
             ],
           ),
 
-          // What follows spans the whole bar rather than stopping at the
-          // field's right edge, and that is a decision rather than an
-          // oversight. Nesting them inside the `Expanded` above would align
-          // them with the field, but it also puts the suggestion panel's
-          // [AnimatedSize] inside a flex child, where it gets laid out twice
-          // in one frame and restarts its animation from inside its own
-          // `performLayout` — a hard Flutter assert, caught by the store
-          // screenshot goldens. Full-bar width is the honest alternative: the
-          // hint and the panel belong to the search *area*, they end flush
-          // with the button, and nothing about them has to know how wide that
-          // button's label made it.
-          if (rawQuery.isEmpty)
-            SizedBox(
-              width: double.infinity,
-              child: WpDiscoverabilityHint(
-                hintId: 'search_operators',
-                text: l10n.historySearchOperatorsHint,
-                isDark: widget.isDark,
-              ),
-            ),
+          // A one-time `WpDiscoverabilityHint` used to sit here, teaching the
+          // `#tag` and `lang:xx` operators in a line of its own. It was the
+          // only reason this bar stood 21 dp taller than every other search
+          // bar in the app until someone dismissed it, and it said nothing
+          // the info button *inside the field* doesn't already say better:
+          // that popover names both operators with a worked example each
+          // (`#meeting`, `lang:en`) plus the free-text case. One place for
+          // the same lesson, and the search area is now the same height
+          // everywhere from the first frame on.
 
           // ── Inline autocomplete suggestions ─────────────────────────────
+          // Spans the whole bar rather than stopping at the field's right
+          // edge, and that is a decision rather than an oversight. Nesting it
+          // inside the `Expanded` above would align it with the field, but it
+          // also puts this [AnimatedSize] inside a flex child, where it gets
+          // laid out twice in one frame and restarts its animation from
+          // inside its own `performLayout` — a hard Flutter assert, caught by
+          // the store screenshot goldens. Full-bar width is the honest
+          // alternative: the panel belongs to the search *area*, it ends
+          // flush with the button, and nothing about it has to know how wide
+          // that button's label made it.
           AnimatedSize(
             duration: WpMotion.durationFor(context, WpMotion.fast),
             curve: Curves.easeOut,

@@ -172,10 +172,6 @@ class L10nHe extends L10n {
   String get historyNewRecording => 'הקלטה חדשה';
 
   @override
-  String get historySearchOperatorsHint =>
-      'Tip: type #tag or lang:xx to filter as you search.';
-
-  @override
   String get historyNoResults => 'אין תוצאות';
 
   @override

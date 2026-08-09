@@ -72,16 +72,16 @@
 ///
 /// ## And what hangs under the field
 ///
-/// History's operator hint and suggestion panel and Settings' suggestion
-/// dropdown used to repeat the field's `maxWidth` so they'd end where it ends.
+/// History's suggestion panel and Settings' suggestion dropdown used to repeat
+/// the field's `maxWidth` so they'd end where it ends.
 /// With the cap gone they answer to their row instead, which is asserted here
 /// directly — measured edge against measured edge, at the same three window
 /// widths — rather than through a shared constant:
 ///
 /// * Settings has no button in its row, so field and row end together and the
 ///   dropdown ends there too.
-/// * History has one, and its two siblings span the whole bar: they start at
-///   the field's left edge and end flush with the button's right edge. The
+/// * History has one, and its panel spans the whole bar: it starts at the
+///   field's left edge and ends flush with the button's right edge. The
 ///   alternative — nesting them in the field's own `Expanded` — aligns them
 ///   with the field but puts the suggestion panel's `AnimatedSize` inside a
 ///   flex child, where it is laid out twice in a frame and restarts its
@@ -93,7 +93,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:whispaste/core/theme/tokens.dart';
 import 'package:whispaste/features/history/data/providers.dart';
 import 'package:whispaste/features/history/widgets/history_helpers.dart';
@@ -469,21 +468,13 @@ void main() {
     // looking at the page: the bar around it — same `xl/sm` padding, same two
     // stacked rows (search, then filter chips) — is what the eye measures.
     // History's was 132 dp against Notes' 128 dp because it separated the two
-    // rows with `sm` where Notes uses `xs`; that 4 dp is what this pins.
-    //
-    // The operator hint is dismissed here on purpose. It is a one-time,
-    // dismissible discoverability line that only History carries, and while
-    // it is up the bar is genuinely ~21 dp taller — a deliberate, temporary
-    // piece of content rather than geometry drift. The assertion below is
-    // about the *resting* bar, i.e. what every user sees from the first
-    // dismissal onwards.
-    // Both spellings on purpose: the mock store has carried the `flutter.`
-    // prefix on and off across shared_preferences versions, and a key that
-    // silently misses would leave the hint up and measure it instead.
-    SharedPreferences.setMockInitialValues({
-      'discoverability_hint_seen_search_operators': true,
-      'flutter.discoverability_hint_seen_search_operators': true,
-    });
+    // rows with `sm` where Notes uses `xs`; that 4 dp is one half of what this
+    // pins. The other half was a one-time operator hint that stood in the bar
+    // until someone dismissed it, 21 dp of it — the equality below needed a
+    // "pretend it is dismissed" fixture to hold at all. The hint has since
+    // moved into the field's help popover, so the equality is now
+    // unconditional: no fixture, true from the very first frame a new user
+    // sees.
     await tester.binding.setSurfaceSize(Size(_contentWidth(1100), 700));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -513,16 +504,13 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    // The hint widget stays in the tree once dismissed and renders a
-    // zero-height `SizedBox.shrink`, so this asks for its *size*, not its
-    // presence — a fixture that stopped dismissing would otherwise be
-    // measured as part of the bar below.
     expect(
-      _rect(tester, find.byType(WpDiscoverabilityHint)).height,
-      0,
+      find.byType(WpDiscoverabilityHint),
+      findsNothing,
       reason:
-          'the dismissed-hint fixture stopped working, so the number below '
-          'would be measuring the hint rather than the bar',
+          'the search bar carries no discoverability line any more — the '
+          'operator help lives in the field\'s info popover, which is what '
+          'makes the height equality below unconditional',
     );
     final historyBar = _rect(
       tester,
@@ -543,18 +531,17 @@ void main() {
   testWidgets('what hangs under the field ends where the field ends', (
     tester,
   ) async {
-    // A suggestion panel or an inline hint belongs to the *field*, not to the
-    // content column. This used to be expressed by repeating the field's own
-    // max width at each call site; with the cap gone it is asserted directly,
-    // edge against edge, so no shared constant has to stay in sync.
-    SharedPreferences.setMockInitialValues({});
+    // A suggestion panel belongs to the *field*, not to the content column.
+    // This used to be expressed by repeating the field's own max width at each
+    // call site; with the cap gone it is asserted directly, edge against edge,
+    // so no shared constant has to stay in sync.
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     for (final window in _windows) {
       await tester.binding.setSurfaceSize(Size(_contentWidth(window), 700));
       final w = window.toInt();
 
-      // ── History: the operator hint (shown while the query is empty) ──────
+      // ── History: the suggestion panel ───────────────────────────────────
       final historyController = TextEditingController();
       addTearDown(historyController.dispose);
       await tester.pumpWidget(
@@ -567,27 +554,17 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      var box = _rect(tester, _fieldBox());
       // History is the one area whose search row has a button in it, so its
-      // two siblings answer to the *row*: they start at the field's left edge
-      // and end flush with the button's right edge, spanning the whole bar.
-      // (Nesting them inside the field's `Expanded` to align them with the
-      // field alone is what the production comment there rules out: it puts
-      // the panel's AnimatedSize inside a flex child, where it re-lays out
-      // itself mid-layout.) Asserted against the button's measured edge, so a
-      // sibling that stops short *or* overflows the bar both turn this red.
+      // panel answers to the *row*: it starts at the field's left edge and
+      // ends flush with the button's right edge, spanning the whole bar.
+      // (Nesting it inside the field's `Expanded` to align it with the field
+      // alone is what the production comment there rules out: it puts the
+      // panel's AnimatedSize inside a flex child, where it re-lays out itself
+      // mid-layout.) Asserted against the button's measured edge, so a panel
+      // that stops short *or* overflows the bar both turn this red.
       final historyRowEnd = _rect(tester, find.byType(WpButton).first).right;
-      final hint = _rect(tester, find.byType(WpDiscoverabilityHint));
-      expect(
-        hint.right,
-        closeTo(historyRowEnd, 0.01),
-        reason:
-            "History's operator hint must span the search bar and end flush "
-            'with the button beside the field, in a $w dp window',
-      );
-      expect(hint.left, closeTo(box.left, 0.01));
 
-      // ── History: the suggestion panel (`lang:` needs no database) ────────
+      // `lang:` opens the panel without needing a database.
       await tester.enterText(
         find.descendant(
           of: find.byType(WpSearchField),
@@ -597,7 +574,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      box = _rect(tester, _fieldBox());
+      var box = _rect(tester, _fieldBox());
       final historyPanel = _rect(
         tester,
         find
