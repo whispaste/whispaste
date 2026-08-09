@@ -921,6 +921,12 @@ class _ShortcutRow extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
+            // bodyLarge, like _LinkRow's label directly below it. This row had
+            // been on WpTypography.subheading + textSecondary, so the two
+            // stacked list rows on the same card sat at different sizes and
+            // colours. A deliberate visible change, not a side effect of the
+            // keycap swap: the label grows slightly and darkens to
+            // textPrimary so both rows read as one list.
             child: Text(label, style: Theme.of(context).textTheme.bodyLarge),
           ),
           shortcut,

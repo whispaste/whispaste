@@ -149,8 +149,31 @@ void main() {
             };
             addTearDown(() => FlutterError.onError = originalHandler);
 
-            await tester.pumpWidget(_testShell(page.value, sizeEntry.value));
+            // Seeded for every page: only Analytics reads it, and without a
+            // seed it renders WpEmptyState — so the dashboard itself (period
+            // chips next to the Reset button, the duration bars' fixed label
+            // columns) would never be laid out at any of these sizes.
+            await tester.pumpWidget(
+              _testShell(
+                page.value,
+                sizeEntry.value,
+                extraOverrides: [
+                  analyticsProvider.overrideWith(
+                    (ref) async => _populatedAnalytics,
+                  ),
+                ],
+              ),
+            );
             await tester.pumpAndSettle();
+
+            if (page.key == 'Analytics') {
+              expect(
+                find.byType(WpEmptyState),
+                findsNothing,
+                reason:
+                    'Analytics must render seeded data, not the empty state',
+              );
+            }
 
             expect(
               overflows,
