@@ -909,7 +909,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     if (!mounted) return;
     WpToast.show(
       context,
-      message: '${l10n.historyTrashEmptied} ($count)',
+      message: l10n.historyTrashEmptied(count),
       type: WpToastType.success,
       duration: const Duration(seconds: 2),
     );

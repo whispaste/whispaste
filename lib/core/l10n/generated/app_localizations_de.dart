@@ -200,7 +200,15 @@ class L10nDe extends L10n {
       'Alle Elemente im Papierkorb werden endgültig gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.';
 
   @override
-  String get historyTrashEmptied => 'Papierkorb geleert';
+  String historyTrashEmptied(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Papierkorb geleert — $count Einträge gelöscht',
+      one: 'Papierkorb geleert — 1 Eintrag gelöscht',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get historyNoArchivedItems => 'Keine archivierten Elemente';

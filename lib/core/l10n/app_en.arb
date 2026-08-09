@@ -87,7 +87,11 @@
   "historyEmptyTrash": "Empty Trash",
   "historyEmptyTrashConfirm": "Empty trash?",
   "historyEmptyTrashConfirmMessage": "This will permanently delete all items in the trash. This action cannot be undone.",
-  "historyTrashEmptied": "Trash emptied",
+  "historyTrashEmptied": "{count, plural, =1{Trash emptied — 1 entry deleted} other{Trash emptied — {count} entries deleted}}",
+  "@historyTrashEmptied": {
+    "description": "Success toast after emptying the trash. The count is a placeholder inside the message rather than a parenthesis appended in Dart: a translator has to be able to move it (Hebrew reads right-to-left, so a trailing '(3)' lands on the wrong side of the sentence) and to choose the plural form for it.",
+    "placeholders": { "count": { "type": "int" } }
+  },
   "historyNoArchivedItems": "No archived items",
   "historyNoArchivedItemsHint": "Archive transcriptions you want to keep\nbut don't need in your main list.",
   "historyNoRecordingsHint": "Press the record button or use the hotkey to start recording.\nYour transcriptions will appear here.",

@@ -200,7 +200,15 @@ class L10nEn extends L10n {
       'This will permanently delete all items in the trash. This action cannot be undone.';
 
   @override
-  String get historyTrashEmptied => 'Trash emptied';
+  String historyTrashEmptied(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Trash emptied — $count entries deleted',
+      one: 'Trash emptied — 1 entry deleted',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get historyNoArchivedItems => 'No archived items';

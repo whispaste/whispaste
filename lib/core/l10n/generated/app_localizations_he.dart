@@ -200,7 +200,15 @@ class L10nHe extends L10n {
       'פעולה זו תמחק לצמיתות את כל הפריטים באשפה. אין דרך לבטל.';
 
   @override
-  String get historyTrashEmptied => 'האשפה רוקנה';
+  String historyTrashEmptied(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'האשפה רוקנה — $count פריטים נמחקו',
+      one: 'האשפה רוקנה — פריט אחד נמחק',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get historyNoArchivedItems => 'אין פריטים בארכיון';

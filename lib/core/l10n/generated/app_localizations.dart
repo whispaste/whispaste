@@ -459,11 +459,11 @@ abstract class L10n {
   /// **'This will permanently delete all items in the trash. This action cannot be undone.'**
   String get historyEmptyTrashConfirmMessage;
 
-  /// No description provided for @historyTrashEmptied.
+  /// Success toast after emptying the trash. The count is a placeholder inside the message rather than a parenthesis appended in Dart: a translator has to be able to move it (Hebrew reads right-to-left, so a trailing '(3)' lands on the wrong side of the sentence) and to choose the plural form for it.
   ///
   /// In en, this message translates to:
-  /// **'Trash emptied'**
-  String get historyTrashEmptied;
+  /// **'{count, plural, =1{Trash emptied — 1 entry deleted} other{Trash emptied — {count} entries deleted}}'**
+  String historyTrashEmptied(int count);
 
   /// No description provided for @historyNoArchivedItems.
   ///
